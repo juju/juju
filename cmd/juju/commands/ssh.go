@@ -17,12 +17,12 @@ import (
 	"github.com/juju/utils/ssh"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 )
 
 func newSSHCommand() cmd.Command {
-	return envcmd.Wrap(&sshCommand{})
+	return modelcmd.Wrap(&sshCommand{})
 }
 
 // sshCommand is responsible for launching a ssh shell on a given unit or machine.
@@ -32,7 +32,7 @@ type sshCommand struct {
 
 // SSHCommon provides common methods for sshCommand, SCPCommand and DebugHooksCommand.
 type SSHCommon struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	proxy     bool
 	pty       bool
 	Target    string
@@ -173,7 +173,7 @@ func (c *SSHCommon) proxySSH() (bool, error) {
 		return false, err
 	}
 	var cfg *config.Config
-	attrs, err := c.apiClient.EnvironmentGet()
+	attrs, err := c.apiClient.ModelGet()
 	if err == nil {
 		cfg, err = config.New(config.NoDefaults, attrs)
 	}
@@ -204,10 +204,9 @@ func (c *SSHCommon) initAPIClient() (sshAPIClient, error) {
 }
 
 type sshAPIClient interface {
-	EnvironmentGet() (map[string]interface{}, error)
+	ModelGet() (map[string]interface{}, error)
 	PublicAddress(target string) (string, error)
 	PrivateAddress(target string) (string, error)
-	ServiceCharmRelations(service string) ([]string, error)
 	Close() error
 }
 

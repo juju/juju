@@ -36,7 +36,7 @@ func ServerRoot(c *Client) string {
 // only set the bits that you acutally want to test.
 type TestingStateParams struct {
 	Address        string
-	EnvironTag     string
+	ModelTag       string
 	APIHostPorts   [][]network.HostPort
 	FacadeVersions map[string][]int
 	ServerScheme   string
@@ -49,7 +49,7 @@ type TestingStateParams struct {
 func NewTestingState(params TestingStateParams) Connection {
 	st := &state{
 		addr:              params.Address,
-		environTag:        params.EnvironTag,
+		modelTag:          params.ModelTag,
 		hostPorts:         params.APIHostPorts,
 		facadeVersions:    params.FacadeVersions,
 		serverScheme:      params.ServerScheme,

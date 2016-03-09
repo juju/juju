@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
@@ -32,7 +31,6 @@ import (
 var (
 	vTypeSmartmachine   = "smartmachine"
 	vTypeVirtualmachine = "kvm"
-	signedImageDataOnly = false
 	defaultCpuCores     = uint64(1)
 )
 
@@ -102,7 +100,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
-	})
+	}, args.ImageMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +344,10 @@ func (env *joyentEnviron) listInstanceTypes() ([]instances.InstanceType, error) 
 }
 
 // FindInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
-func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func (env *joyentEnviron) FindInstanceSpec(
+	ic *instances.InstanceConstraint,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (*instances.InstanceSpec, error) {
 	// Require at least one VCPU so we get KVM rather than smart package.
 	if ic.Constraints.CpuCores == nil {
 		ic.Constraints.CpuCores = &defaultCpuCores
@@ -355,21 +356,7 @@ func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*i
 	if err != nil {
 		return nil, err
 	}
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: simplestreams.CloudSpec{ic.Region, env.Ecfg().SdcUrl()},
-		Series:    []string{ic.Series},
-		Arches:    ic.Arches,
-	})
-	sources, err := environs.ImageMetadataSources(env)
-	if err != nil {
-		return nil, err
-	}
-
-	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, signedImageDataOnly)
-	if err != nil {
-		return nil, err
-	}
-	images := instances.ImageMetadataToImages(matchingImages)
+	images := instances.ImageMetadataToImages(imageMetadata)
 	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)
 	if err != nil {
 		return nil, err

@@ -96,7 +96,8 @@ type DBDumper interface {
 }
 
 var getMongodumpPath = func() (string, error) {
-	mongod, err := mongo.Path()
+	// TODO(perrito666) Add automagic determination of version here
+	mongod, err := mongo.Path(mongo.Mongo24)
 	if err != nil {
 		return "", errors.Annotate(err, "failed to get mongod path")
 	}
@@ -218,15 +219,16 @@ func listDatabases(dumpDir string) (set.Strings, error) {
 
 // mongoRestoreArgsForVersion returns a string slice containing the args to be used
 // to call mongo restore since these can change depending on the backup method.
-// Version 0: a dump made with --db, stopping the state server.
-// Version 1: a dump made with --oplog with a running state server.
+// Version 0: a dump made with --db, stopping the controller.
+// Version 1: a dump made with --oplog with a running controller.
 // TODO (perrito666) change versions to use metadata version
 func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, error) {
 	dbDir := filepath.Join(agent.DefaultPaths.DataDir, "db")
 	switch {
 	case ver.Major == 1 && ver.Minor < 22:
 		return []string{"--drop", "--journal", "--dbpath", dbDir, dumpPath}, nil
-	case ver.Major == 1 && ver.Minor >= 22:
+	case ver.Major == 1 && ver.Minor >= 22,
+		ver.Major == 2:
 		return []string{"--drop", "--journal", "--oplogReplay", "--dbpath", dbDir, dumpPath}, nil
 	default:
 		return nil, errors.Errorf("this backup file is incompatible with the current version of juju")
@@ -240,7 +242,7 @@ var restoreArgsForVersion = mongoRestoreArgsForVersion
 // and starting before dumping the new mongo db, it is mainly to easy testing
 // of placeNewMongo.
 func placeNewMongoService(newMongoDumpPath string, ver version.Number) error {
-	err := mongo.StopService("")
+	err := mongo.StopService()
 	if err != nil {
 		return errors.Annotate(err, "failed to stop mongo")
 	}
@@ -248,7 +250,7 @@ func placeNewMongoService(newMongoDumpPath string, ver version.Number) error {
 	if err := placeNewMongo(newMongoDumpPath, ver); err != nil {
 		return errors.Annotate(err, "cannot place new mongo")
 	}
-	err = mongo.StartService("")
+	err = mongo.StartService()
 	return errors.Annotate(err, "failed to start mongo")
 }
 

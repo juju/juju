@@ -26,7 +26,7 @@ const StateFile = "provider-state"
 // this one, and use their own code for loading and saving those, but this is
 // the definition that most practically useful providers share unchanged.
 type BootstrapState struct {
-	// StateInstances are the state servers.
+	// StateInstances are the controllers.
 	StateInstances []instance.Id `yaml:"state-instances"`
 }
 
@@ -87,7 +87,7 @@ func loadState(r io.ReadCloser) (*BootstrapState, error) {
 	return &state, nil
 }
 
-// AddStateInstance adds a state-server instance ID to the provider-state
+// AddStateInstance adds a controller instance ID to the provider-state
 // file in storage.
 func AddStateInstance(stor storage.Storage, id instance.Id) error {
 	state, err := LoadState(stor)
@@ -100,7 +100,7 @@ func AddStateInstance(stor storage.Storage, id instance.Id) error {
 	return SaveState(stor, state)
 }
 
-// RemoveStateInstances removes state-server instance IDs from the
+// RemoveStateInstances removes controller instance IDs from the
 // provider-state file in storage. Instance IDs that are not found
 // in the file are ignored.
 func RemoveStateInstances(stor storage.Storage, ids ...instance.Id) error {

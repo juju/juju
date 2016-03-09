@@ -35,6 +35,7 @@ func storagePrefix(stream string) string {
 
 // ReadList returns a List of the tools in store with the given major.minor version.
 // If minorVersion = -1, then only majorVersion is considered.
+// If majorVersion is -1, then all tools tarballs are used.
 // If store contains no such tools, it returns ErrNoMatches.
 func ReadList(stor storage.StorageReader, toolsDir string, majorVersion, minorVersion int) (coretools.List, error) {
 	if minorVersion >= 0 {
@@ -61,8 +62,8 @@ func ReadList(stor storage.StorageReader, toolsDir string, majorVersion, minorVe
 			continue
 		}
 		foundAnyTools = true
-		// Major version must match specified value.
-		if t.Version.Major != majorVersion {
+		// If specified major version value supplied, major version must match.
+		if majorVersion >= 0 && t.Version.Major != majorVersion {
 			continue
 		}
 		// If specified minor version value supplied, minor version must match.

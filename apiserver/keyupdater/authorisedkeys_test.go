@@ -43,7 +43,7 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 	s.unrelatedMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// The default auth is as a state server
+	// The default auth is as a controller
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: s.rawMachine.Tag(),
 	}
@@ -51,7 +51,7 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIAcceptsStateServer(c *gc.C) {
+func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIAcceptsController(c *gc.C) {
 	endPoint, err := keyupdater.NewKeyUpdaterAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
@@ -73,9 +73,9 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeysNothing(c *gc.C) {
 }
 
 func (s *authorisedKeysSuite) setAuthorizedKeys(c *gc.C, keys string) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envConfig.AuthorizedKeys(), gc.Equals, keys)
 }

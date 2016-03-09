@@ -257,7 +257,7 @@ func storageTags(
 	cfg *config.Config,
 ) (map[string]string, error) {
 	uuid, _ := cfg.UUID()
-	storageTags := tags.ResourceTags(names.NewEnvironTag(uuid), cfg)
+	storageTags := tags.ResourceTags(names.NewModelTag(uuid), cfg)
 	if storageInstance != nil {
 		storageTags[tags.JujuStorageInstance] = storageInstance.Tag().Id()
 		storageTags[tags.JujuStorageOwner] = storageInstance.Owner().Id()

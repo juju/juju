@@ -4,12 +4,21 @@
 package base
 
 import (
+	"fmt"
 	"io"
 	"net/url"
 
+	"github.com/juju/errors"
 	"github.com/juju/httprequest"
 	"github.com/juju/names"
 )
+
+// OldAgentError is returned when an api call is not supported
+// by the Juju agent.
+func OldAgentError(operation string, vers string) error {
+	return errors.NewNotSupported(
+		nil, fmt.Sprintf("%s not supported. Please upgrade API server to Juju %v or later", operation, vers))
+}
 
 // APICaller is implemented by the client-facing State object.
 // It defines the lowest level of API calls and is used by
@@ -26,13 +35,13 @@ type APICaller interface {
 	// client can use with the current API server.
 	BestFacadeVersion(facade string) int
 
-	// EnvironTag returns the tag of the environment the client is
+	// ModelTag returns the tag of the model the client is
 	// connected to.
-	EnvironTag() (names.EnvironTag, error)
+	ModelTag() (names.ModelTag, error)
 
 	// HTTPClient returns an httprequest.Client that can be used
 	// to make HTTP requests to the API. URLs passed to the client
-	// will be made relative to the API host and the current environment.
+	// will be made relative to the API host and the current model.
 	//
 	// Note that the URLs in HTTP requests passed to the Client.Do
 	// method should not include a host part.
@@ -45,7 +54,7 @@ type APICaller interface {
 type StreamConnector interface {
 	// ConnectStream connects to the given HTTP websocket
 	// endpoint path (interpreted relative to the receiver's
-	// environment) and returns the resulting connection.
+	// model) and returns the resulting connection.
 	// The given parameters are used as URL query values
 	// when making the initial HTTP request.
 	//

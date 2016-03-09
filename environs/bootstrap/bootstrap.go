@@ -5,12 +5,14 @@ package bootstrap
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 
@@ -22,12 +24,12 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
-const noToolsMessage = `Juju cannot bootstrap because no tools are available for your environment.
+const noToolsMessage = `Juju cannot bootstrap because no tools are available for your model.
 You may want to use the 'agent-metadata-url' configuration setting to specify the tools location.
 `
 
@@ -37,9 +39,23 @@ var (
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
-	// Constraints are used to choose the initial instance specification,
-	// and will be stored in the new environment's state.
-	Constraints constraints.Value
+	// EnvironConstraints are merged with the bootstrap constraints
+	// to choose the initial instance, and will be stored in the new
+	// environment's state.
+	EnvironConstraints constraints.Value
+
+	// BootstrapConstraints are used to choose the initial instance.
+	// BootstrapConstraints does not affect the environment-level
+	// constraints.
+	BootstrapConstraints constraints.Value
+
+	// BootstrapSeries, if specified, is the series to use for the
+	// initial bootstrap machine.
+	BootstrapSeries string
+
+	// BootstrapImage, if specified, is the image ID to use for the
+	// initial bootstrap machine.
+	BootstrapImage string
 
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
@@ -63,9 +79,9 @@ type BootstrapParams struct {
 // environment.
 func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args BootstrapParams) error {
 	cfg := environ.Config()
-	network.InitializeFromConfig(cfg)
+	network.SetPreferIPv6(cfg.PreferIPv6())
 	if secret := cfg.AdminSecret(); secret == "" {
-		return errors.Errorf("environment configuration has no admin-secret")
+		return errors.Errorf("model configuration has no admin-secret")
 	}
 	if authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys()); len(authKeys) == 0 {
 		// Apparently this can never happen, so it's not tested. But, one day,
@@ -73,37 +89,59 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		// authorized-keys are optional config settings... but it's impossible
 		// to actually *create* a config without them)... and when it does,
 		// we'll be here to catch this problem early.
-		return errors.Errorf("environment configuration has no authorized-keys")
+		return errors.Errorf("model configuration has no authorized-keys")
 	}
 	if _, hasCACert := cfg.CACert(); !hasCACert {
-		return errors.Errorf("environment configuration has no ca-cert")
+		return errors.Errorf("model configuration has no ca-cert")
 	}
 	if _, hasCAKey := cfg.CAPrivateKey(); !hasCAKey {
-		return errors.Errorf("environment configuration has no ca-private-key")
+		return errors.Errorf("model configuration has no ca-private-key")
 	}
 
 	// Set default tools metadata source, add image metadata source,
 	// then verify constraints. Providers may rely on image metadata
 	// for constraint validation.
-	var imageMetadata []*imagemetadata.ImageMetadata
+	var customImageMetadata []*imagemetadata.ImageMetadata
 	if args.MetadataDir != "" {
 		var err error
-		imageMetadata, err = setPrivateMetadataSources(environ, args.MetadataDir)
+		customImageMetadata, err = setPrivateMetadataSources(environ, args.MetadataDir)
 		if err != nil {
 			return err
 		}
 	}
-	if err := validateConstraints(environ, args.Constraints); err != nil {
+	if err := validateConstraints(environ, args.EnvironConstraints); err != nil {
+		return err
+	}
+	if err := validateConstraints(environ, args.BootstrapConstraints); err != nil {
+		return err
+	}
+
+	constraintsValidator, err := environ.ConstraintsValidator()
+	if err != nil {
+		return err
+	}
+	bootstrapConstraints, err := constraintsValidator.Merge(
+		args.EnvironConstraints, args.BootstrapConstraints,
+	)
+	if err != nil {
 		return err
 	}
 
 	_, supportsNetworking := environs.SupportsNetworking(environ)
 
-	ctx.Infof("Bootstrapping environment %q", cfg.Name())
-	logger.Debugf("environment %q supports service/machine networks: %v", cfg.Name(), supportsNetworking)
+	var bootstrapSeries *string
+	if args.BootstrapSeries != "" {
+		bootstrapSeries = &args.BootstrapSeries
+	}
+
+	ctx.Infof("Bootstrapping model %q", cfg.Name())
+	logger.Debugf("model %q supports service/machine networks: %v", cfg.Name(), supportsNetworking)
 	disableNetworkManagement, _ := cfg.DisableNetworkManagement()
 	logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
-	availableTools, err := findAvailableTools(environ, args.AgentVersion, args.Constraints.Arch, args.UploadTools)
+	availableTools, err := findAvailableTools(
+		environ, args.AgentVersion, bootstrapConstraints.Arch,
+		bootstrapSeries, args.UploadTools,
+	)
 	if errors.IsNotFound(err) {
 		return errors.New(noToolsMessage)
 	} else if err != nil {
@@ -111,6 +149,15 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 	if lxcMTU, ok := cfg.LXCDefaultMTU(); ok {
 		logger.Debugf("using MTU %v for all created LXC containers' network interfaces", lxcMTU)
+	}
+
+	imageMetadata, err := bootstrapImageMetadata(
+		environ, availableTools,
+		args.BootstrapImage,
+		&customImageMetadata,
+	)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	// If we're uploading, we must override agent-version;
@@ -131,19 +178,21 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 
-	ctx.Infof("Starting new instance for initial state server")
-	arch, series, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
-		Constraints:    args.Constraints,
-		Placement:      args.Placement,
-		AvailableTools: availableTools,
+	ctx.Infof("Starting new instance for initial controller")
+	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
+		EnvironConstraints:   args.EnvironConstraints,
+		BootstrapConstraints: args.BootstrapConstraints,
+		Placement:            args.Placement,
+		AvailableTools:       availableTools,
+		ImageMetadata:        imageMetadata,
 	})
 	if err != nil {
 		return err
 	}
 
 	matchingTools, err := availableTools.Match(coretools.Filter{
-		Arch:   arch,
-		Series: series,
+		Arch:   result.Arch,
+		Series: result.Series,
 	})
 	if err != nil {
 		return err
@@ -169,17 +218,121 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	ctx.Infof("Installing Juju agent on bootstrap instance")
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, series)
+	publicKey, err := userPublicSigningKey()
+	if err != nil {
+		return err
+	}
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
+		args.BootstrapConstraints, args.EnvironConstraints, result.Series, publicKey,
+	)
 	if err != nil {
 		return err
 	}
 	instanceConfig.Tools = selectedTools
-	instanceConfig.CustomImageMetadata = imageMetadata
-	if err := finalizer(ctx, instanceConfig); err != nil {
+	instanceConfig.CustomImageMetadata = customImageMetadata
+	if err := result.Finalize(ctx, instanceConfig); err != nil {
 		return err
 	}
 	ctx.Infof("Bootstrap agent installed")
 	return nil
+}
+
+func userPublicSigningKey() (string, error) {
+	signingKeyFile := os.Getenv("JUJU_STREAMS_PUBLICKEY_FILE")
+	signingKey := ""
+	if signingKeyFile != "" {
+		path, err := utils.NormalizePath(signingKeyFile)
+		if err != nil {
+			return "", errors.Annotatef(err, "cannot expand key file path: %s", signingKeyFile)
+		}
+		b, err := ioutil.ReadFile(path)
+		if err != nil {
+			return "", errors.Annotatef(err, "invalid public key file: %s", path)
+		}
+		signingKey = string(b)
+	}
+	return signingKey, nil
+}
+
+// bootstrapImageMetadata returns the image metadata to use for bootstrapping
+// the given environment. If the environment provider does not make use of
+// simplestreams, no metadata will be returned.
+//
+// If a bootstrap image ID is specified, image metadat will be synthesised
+// using that image ID, and the architecture and series specified by the
+// initiator. In addition, the custom image metadat that is saved into the
+// state database will have the synthesised image metadata added to it.
+func bootstrapImageMetadata(
+	environ environs.Environ,
+	availableTools coretools.List,
+	bootstrapImageId string,
+	customImageMetadata *[]*imagemetadata.ImageMetadata,
+) ([]*imagemetadata.ImageMetadata, error) {
+
+	hasRegion, ok := environ.(simplestreams.HasRegion)
+	if !ok {
+		if bootstrapImageId != "" {
+			// We only support specifying image IDs for providers
+			// that use simplestreams for now.
+			return nil, errors.NotSupportedf(
+				"specifying bootstrap image for %q provider",
+				environ.Config().Type(),
+			)
+		}
+		// No region, no metadata.
+		return nil, nil
+	}
+	region, err := hasRegion.Region()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if bootstrapImageId != "" {
+		arches := availableTools.Arches()
+		if len(arches) != 1 {
+			return nil, errors.NotValidf("multiple architectures with bootstrap image")
+		}
+		allSeries := availableTools.AllSeries()
+		if len(allSeries) != 1 {
+			return nil, errors.NotValidf("multiple series with bootstrap image")
+		}
+		seriesVersion, err := series.SeriesVersion(allSeries[0])
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// The returned metadata does not have information about the
+		// storage or virtualisation type. Any provider that wants to
+		// filter on those properties should allow for empty values.
+		meta := &imagemetadata.ImageMetadata{
+			Id:         bootstrapImageId,
+			Arch:       arches[0],
+			Version:    seriesVersion,
+			RegionName: region.Region,
+			Endpoint:   region.Endpoint,
+			Stream:     environ.Config().ImageStream(),
+		}
+		*customImageMetadata = append(*customImageMetadata, meta)
+		return []*imagemetadata.ImageMetadata{meta}, nil
+	}
+
+	// For providers that support making use of simplestreams
+	// image metadata, search public image metadata. We need
+	// to pass this onto Bootstrap for selecting images.
+	sources, err := environs.ImageMetadataSources(environ)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: region,
+		Series:    availableTools.AllSeries(),
+		Arches:    availableTools.Arches(),
+		Stream:    environ.Config().ImageStream(),
+	})
+	publicImageMetadata, _, err := imagemetadata.Fetch(sources, imageConstraint)
+	if err != nil {
+		return nil, errors.Annotate(err, "searching image metadata")
+	}
+	return publicImageMetadata, nil
 }
 
 // setBootstrapTools returns the newest tools from the given tools list,
@@ -200,7 +353,7 @@ func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 			err = environ.SetConfig(cfg)
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to update environment configuration: %v", err)
+			return nil, fmt.Errorf("failed to update model configuration: %v", err)
 		}
 	}
 	bootstrapVersion := newVersion
@@ -259,19 +412,17 @@ func setPrivateMetadataSources(env environs.Environ, metadataDir string) ([]*ima
 	}
 
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(imageMetadataDir))
-	datasource := simplestreams.NewURLDataSource("bootstrap metadata", baseURL, utils.NoVerifySSLHostnames)
+	publicKey, _ := simplestreams.UserPublicSigningKey()
+	datasource := simplestreams.NewURLSignedDataSource("bootstrap metadata", baseURL, publicKey, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
 
 	// Read the image metadata, as we'll want to upload it to the environment.
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
-	existingMetadata, _, err := imagemetadata.Fetch(
-		[]simplestreams.DataSource{datasource}, imageConstraint, false)
+	existingMetadata, _, err := imagemetadata.Fetch([]simplestreams.DataSource{datasource}, imageConstraint)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Annotate(err, "cannot read image metadata")
 	}
 
 	// Add an image metadata datasource for constraint validation, etc.
-	// TODO (anastasiamac 2015-09-26) Delete when search path is modified to look
-	// into state first.
 	environs.RegisterUserImageDataSourceFunc("bootstrap metadata", func(environs.Environ) (simplestreams.DataSource, error) {
 		return datasource, nil
 	})
@@ -287,29 +438,6 @@ func validateConstraints(env environs.Environ, cons constraints.Value) error {
 	unsupported, err := validator.Validate(cons)
 	if len(unsupported) > 0 {
 		logger.Warningf("unsupported constraints: %v", unsupported)
-	}
-	return err
-}
-
-// EnsureNotBootstrapped returns nil if the environment is not
-// bootstrapped, and an error if it is or if the function was not able
-// to tell.
-func EnsureNotBootstrapped(env environs.Environ) error {
-	_, err := env.StateServerInstances()
-	// If there is no error determining state server instaces,
-	// then we are bootstrapped.
-	switch errors.Cause(err) {
-	case nil:
-		return environs.ErrAlreadyBootstrapped
-	case environs.ErrNoInstances:
-		// TODO(axw) 2015-02-03 #1417526
-		// We should not be relying on this result,
-		// as it is possible for there to be no
-		// state servers despite the environment
-		// being bootstrapped.
-		fallthrough
-	case environs.ErrNotBootstrapped:
-		return nil
 	}
 	return err
 }

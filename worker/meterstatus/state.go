@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/utils"
+	"github.com/juju/utils"
 )
 
 // StateFile holds the meter status on disk.

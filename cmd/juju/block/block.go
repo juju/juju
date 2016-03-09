@@ -8,13 +8,13 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // BaseBlockCommand is base command for all
 // commands that enable blocks.
 type BaseBlockCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	desc string
 }
 
@@ -44,7 +44,7 @@ func (c *BaseBlockCommand) internalRun(operation string) error {
 
 // SetFlags implements Command.SetFlags.
 func (c *BaseBlockCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
+	c.ModelCommandBase.SetFlags(f)
 }
 
 // BlockClientAPI defines the client API methods that block command uses.
@@ -54,11 +54,11 @@ type BlockClientAPI interface {
 }
 
 var getBlockClientAPI = func(p *BaseBlockCommand) (BlockClientAPI, error) {
-	return getBlockAPI(&p.EnvCommandBase)
+	return getBlockAPI(&p.ModelCommandBase)
 }
 
 func newDestroyCommand() cmd.Command {
-	return envcmd.Wrap(&destroyCommand{})
+	return modelcmd.Wrap(&destroyCommand{})
 }
 
 // destroyCommand blocks destroy environment.
@@ -68,16 +68,16 @@ type destroyCommand struct {
 
 var destroyBlockDoc = `
 
-This command allows to block environment destruction. 
+This command allows to block model destruction.
 
 To disable the block, run unblock command - see "juju help unblock". 
-To by-pass the block, run destroy-enviornment with --force option.
+To by-pass the block, run destroy-model with --force option.
 
-"juju block destroy-environment" only blocks destroy-environment command.
+"juju block destroy-model" only blocks destroy-model command.
    
 Examples:
-   To prevent the environment from being destroyed:
-   juju block destroy-environment
+   To prevent the model from being destroyed:
+   juju block destroy-model
 
 `
 
@@ -85,8 +85,8 @@ Examples:
 // Satisfying Command interface.
 func (c *destroyCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "destroy-environment",
-		Purpose: "block an operation that would destroy Juju environment",
+		Name:    "destroy-model",
+		Purpose: "block an operation that would destroy Juju model",
 		Doc:     destroyBlockDoc,
 	}
 }
@@ -97,7 +97,7 @@ func (c *destroyCommand) Run(_ *cmd.Context) error {
 }
 
 func newRemoveCommand() cmd.Command {
-	return envcmd.Wrap(&removeCommand{})
+	return modelcmd.Wrap(&removeCommand{})
 }
 
 // removeCommand blocks commands that remove juju objects.
@@ -108,13 +108,13 @@ type removeCommand struct {
 var removeBlockDoc = `
 
 This command allows to block all operations that would remove an object 
-from Juju environment.
+from Juju model.
 
 To disable the block, run unblock command - see "juju help unblock". 
 To by-pass the block, where available, run desired remove command with --force option.
 
 "juju block remove-object" blocks these commands:
-    destroy-environment
+    destroy-model
     remove-machine
     remove-relation
     remove-service
@@ -142,7 +142,7 @@ func (c *removeCommand) Run(_ *cmd.Context) error {
 }
 
 func newChangeCommand() cmd.Command {
-	return envcmd.Wrap(&changeCommand{})
+	return modelcmd.Wrap(&changeCommand{})
 }
 
 // changeCommand blocks commands that may change environment.
@@ -153,7 +153,7 @@ type changeCommand struct {
 var changeBlockDoc = `
 
 This command allows to block all operations that would alter
-Juju environment.
+Juju model.
 
 To disable the block, run unblock command - see "juju help unblock". 
 To by-pass the block, where available, run desired remove command with --force option.
@@ -166,8 +166,8 @@ To by-pass the block, where available, run desired remove command with --force o
     authorised-keys delete
     authorised-keys import
     deploy
-    destroy-environment
-    ensure-availability
+    destroy-model
+    enable-ha
     expose
     remove-machine
     remove-relation
@@ -178,20 +178,20 @@ To by-pass the block, where available, run desired remove command with --force o
     run
     set
     set-constraints
-    set-env
+    set-model-config
     sync-tools
     unexpose
     unset
-    unset-env
+    unset-model-config
     upgrade-charm
     upgrade-juju
-    user add
-    user change-password
-    user disable
-    user enable
+    add-user
+    change-user-password
+    disable-user
+    enable-user
    
 Examples:
-   To prevent changes to the environment:
+   To prevent changes to the model:
    juju block all-changes
 
 `
@@ -201,7 +201,7 @@ Examples:
 func (c *changeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "all-changes",
-		Purpose: "block operations that could change Juju environment",
+		Purpose: "block operations that could change Juju model",
 		Doc:     changeBlockDoc,
 	}
 }

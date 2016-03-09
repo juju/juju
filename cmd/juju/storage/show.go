@@ -10,7 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newShowCommand() cmd.Command {
@@ -18,7 +18,7 @@ func newShowCommand() cmd.Command {
 	cmd.newAPIFunc = func() (StorageShowAPI, error) {
 		return cmd.NewStorageAPI()
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 const showCommandDoc = `
@@ -28,8 +28,8 @@ Storage instances to display are specified by storage ids.
 * note use of positional arguments
 
 options:
--e, --environment (= "")
-   juju environment to operate in
+-m, --model (= "")
+   juju model to operate in
 -o, --output (= "")
    specify an output file
 --format (= yaml)
@@ -82,7 +82,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	results, err := api.Show(tags)
+	results, err := api.StorageDetails(tags)
 	if err != nil {
 		return err
 	}
@@ -94,11 +94,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 			errs.Results = append(errs.Results, params.ErrorResult{result.Error})
 			continue
 		}
-		if result.Result != nil {
-			valid = append(valid, *result.Result)
-		} else {
-			valid = append(valid, storageDetailsFromLegacy(result.Legacy))
-		}
+		valid = append(valid, *result.Result)
 	}
 	if len(errs.Results) > 0 {
 		return errs.Combine()
@@ -125,5 +121,5 @@ func (c *showCommand) getStorageTags() ([]names.StorageTag, error) {
 // StorageAPI defines the API methods that the storage commands use.
 type StorageShowAPI interface {
 	Close() error
-	Show(tags []names.StorageTag) ([]params.StorageDetailsResult, error)
+	StorageDetails(tags []names.StorageTag) ([]params.StorageDetailsResult, error)
 }

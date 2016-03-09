@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/api/keyupdater"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type keyupdaterSuite struct {
@@ -32,7 +32,7 @@ func (s *keyupdaterSuite) SetUpTest(c *gc.C) {
 	var stateAPI api.Connection
 	stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
 	c.Assert(stateAPI, gc.NotNil)
-	s.keyupdater = stateAPI.KeyUpdater()
+	s.keyupdater = keyupdater.NewState(stateAPI)
 	c.Assert(s.keyupdater, gc.NotNil)
 }
 
@@ -56,15 +56,16 @@ func (s *keyupdaterSuite) TestAuthorisedKeys(c *gc.C) {
 }
 
 func (s *keyupdaterSuite) setAuthorisedKeys(c *gc.C, keys string) {
-	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *keyupdaterSuite) TestWatchAuthorisedKeys(c *gc.C) {
 	watcher, err := s.keyupdater.WatchAuthorisedKeys(s.rawMachine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
-	defer testing.AssertStop(c, watcher)
-	wc := testing.NewNotifyWatcherC(c, s.BackingState, watcher)
+	wc := watchertest.NewNotifyWatcherC(c, watcher, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
 	// Initial event
 	wc.AssertOneChange()
 
@@ -77,6 +78,4 @@ func (s *keyupdaterSuite) TestWatchAuthorisedKeys(c *gc.C) {
 
 	s.setAuthorisedKeys(c, "key1\nkey2\nkey3")
 	wc.AssertOneChange()
-	testing.AssertStop(c, watcher)
-	wc.AssertClosed()
 }

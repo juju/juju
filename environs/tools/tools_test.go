@@ -18,13 +18,16 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/jujuversion"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type SimpleStreamsToolsSuite struct {
@@ -44,6 +47,7 @@ func (s *SimpleStreamsToolsSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.customToolsDir = c.MkDir()
 	s.publicToolsDir = c.MkDir()
+	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
@@ -96,7 +100,9 @@ func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}
 	dummy.Reset()
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(attrs))
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	env, err := environs.Prepare(envtesting.BootstrapContext(c), configstore.NewMem(),
+		jujuclienttesting.NewMemStore(),
+		cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 	s.removeTools(c)
@@ -203,7 +209,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	}
 	sources, err := envtools.GetMetadataSources(s.env)
 	c.Assert(err, jc.ErrorIsNil)
-	for i := 0; i < 2*len(sources); i++ {
+	for i := 0; i < len(sources); i++ {
 		messages = append(messages,
 			jc.SimpleMessage{loggo.TRACE, `fetchData failed for .*`},
 			jc.SimpleMessage{loggo.TRACE, `cannot load index .*`})

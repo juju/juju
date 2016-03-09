@@ -4,7 +4,6 @@
 package provisioner_test
 
 import (
-	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -29,6 +28,8 @@ type containerSuite struct {
 
 	provAPI *provisioner.ProvisionerAPI
 }
+
+const regexpMACAddress = "([a-f0-9]{2}:){5}[a-f0-9]{2}"
 
 func (s *containerSuite) SetUpTest(c *gc.C) {
 	s.setUpTest(c, false)
@@ -152,13 +153,11 @@ func (s *prepareSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 					c.Assert(cfg[j].Address, gc.Matches, rex)
 					expectResults.Results[i].Config[j].Address = cfg[j].Address
 				}
-				macAddress := cfg[j].MACAddress
-				c.Assert(macAddress[:8], gc.Equals, provisioner.MACAddressTemplate[:8])
-				remainder := strings.Replace(macAddress[8:], ":", "", 3)
-				c.Assert(remainder, gc.HasLen, 6)
-				_, err = hex.DecodeString(remainder)
-				c.Assert(err, jc.ErrorIsNil)
-				expectResults.Results[i].Config[j].MACAddress = macAddress
+				if strings.HasPrefix(expCfg.MACAddress, "regex:") {
+					rex := strings.TrimPrefix(expCfg.MACAddress, "regex:")
+					c.Assert(cfg[j].MACAddress, gc.Matches, rex)
+					expectResults.Results[i].Config[j].MACAddress = cfg[j].MACAddress
+				}
 			}
 		}
 
@@ -177,13 +176,66 @@ func (s *prepareSuite) assertCall(c *gc.C, args params.Entities, expectResults *
 	return err, tw.Log()
 }
 
-func (s *prepareSuite) TestErrorWitnNoFeatureFlag(c *gc.C) {
+func (s *prepareSuite) TestErrorWithNoFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags() // clear the flags.
 	container := s.newAPI(c, true, true)
 	args := s.makeArgs(container)
-	s.assertCall(c, args, &params.MachineNetworkConfigResults{},
-		`address allocation not supported`,
-	)
+	expectedError := &params.Error{
+		Message: `failed to allocate an address for "0/lxc/0": address allocation not supported`,
+		Code:    params.CodeNotSupported,
+	}
+	s.assertCall(c, args, &params.MachineNetworkConfigResults{
+		Results: []params.MachineNetworkConfigResult{
+			{Error: expectedError},
+		},
+	}, "")
+}
+
+func (s *prepareSuite) TestErrorWithNoFeatureFlagAndBrokenAllocate(c *gc.C) {
+	s.breakEnvironMethods(c, "AllocateAddress")
+	s.SetFeatureFlags()
+	// Use the special "i-alloc-" prefix to force the dummy provider to allow
+	// AllocateAddress to run without the feature flag.
+	container := s.newCustomAPI(c, "i-alloc-me", true, false)
+	args := s.makeArgs(container)
+	expectedError := &params.Error{
+		Message: `failed to allocate an address for "0/lxc/0": dummy.AllocateAddress is broken`,
+	}
+	s.assertCall(c, args, &params.MachineNetworkConfigResults{
+		Results: []params.MachineNetworkConfigResult{
+			{Error: expectedError},
+		},
+	}, "")
+}
+
+func (s *prepareSuite) TestErrorWithNoFeatureFlagAllocateSuccess(c *gc.C) {
+	s.SetFeatureFlags()
+	s.breakEnvironMethods(c)
+	// Use the special "i-alloc-" prefix to force the dummy provider to allow
+	// AllocateAddress to run without the feature flag, which simulates a MAAS
+	// 1.8+ environment where without the flag we still try calling
+	// AllocateAddress for the device we created for the container.
+	container := s.newCustomAPI(c, "i-alloc-me", true, false)
+	args := s.makeArgs(container)
+	_, testLog := s.assertCall(c, args, s.makeResults([]params.NetworkConfig{{
+		DeviceIndex:    0,
+		NetworkName:    "juju-private",
+		ProviderId:     "dummy-eth0",
+		InterfaceName:  "eth0",
+		DNSServers:     []string{"ns1.dummy", "ns2.dummy"},
+		GatewayAddress: "0.10.0.1",
+		ConfigType:     "static",
+		MACAddress:     "regex:" + regexpMACAddress,
+		Address:        "regex:0.10.0.[0-9]{1,3}", // we don't care about the actual value.
+	}}), "")
+
+	c.Assert(testLog, jc.LogMatches, jc.SimpleMessages{{
+		loggo.INFO,
+		`allocated address ".+" on instance "i-alloc-me" for container "juju-machine-0-lxc-0"`,
+	}, {
+		loggo.INFO,
+		`assigned address ".+" to container "0/lxc/0"`,
+	}})
 }
 
 func (s *prepareSuite) TestErrorWithNonProvisionedHost(c *gc.C) {
@@ -419,8 +471,9 @@ func (s *prepareSuite) TestReleaseAndCleanupWhenAllocateAndOrSetFail(c *gc.C) {
 	// are called along with the addresses to verify the logs later.
 	var allocAttemptedAddrs, allocAddrsOK, setAddrs, releasedAddrs []string
 	s.PatchValue(provisioner.AllocateAddrTo, func(ip *state.IPAddress, m *state.Machine, mac string) error {
-		c.Logf("allocateAddrTo called for address %q, machine %q", ip.String(), m)
+		c.Logf("allocateAddrTo called for address %q, machine %q, mac %q", ip.String(), m, mac)
 		c.Assert(m.Id(), gc.Equals, container.Id())
+		c.Assert(mac, gc.Matches, regexpMACAddress)
 		allocAttemptedAddrs = append(allocAttemptedAddrs, ip.Value())
 
 		// Succeed on every other call to give a chance to call
@@ -523,6 +576,7 @@ func (s *prepareSuite) TestReleaseAndRetryWhenSetOnlyFails(c *gc.C) {
 		DeviceIndex:      0,
 		InterfaceName:    "eth0",
 		VLANTag:          0,
+		MACAddress:       "regex:" + regexpMACAddress,
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       "static",
@@ -604,6 +658,7 @@ func (s *prepareSuite) TestSuccessWithSingleContainer(c *gc.C) {
 		DeviceIndex:      0,
 		InterfaceName:    "eth0",
 		VLANTag:          0,
+		MACAddress:       "regex:" + regexpMACAddress,
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       "static",
@@ -640,6 +695,7 @@ func (s *prepareSuite) TestSuccessWhenFirstSubnetNotAllocatable(c *gc.C) {
 		DeviceIndex:      1,
 		InterfaceName:    "eth1",
 		VLANTag:          1,
+		MACAddress:       "regex:" + regexpMACAddress,
 		Disabled:         false,
 		NoAutoStart:      true,
 		ConfigType:       "static",
@@ -713,9 +769,12 @@ func (s *releaseSuite) TestErrorWithNoFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags() // clear the flags.
 	s.newAPI(c, true, false)
 	args := s.makeArgs(s.machines[0])
-	s.assertCall(c, args, &params.ErrorResults{},
-		"address allocation not supported",
-	)
+	expectedError := `cannot mark addresses for removal for "machine-0": not a container`
+	s.assertCall(c, args, &params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: apiservertesting.ServerError(expectedError),
+		}},
+	}, "")
 }
 
 func (s *releaseSuite) TestErrorWithHostInsteadOfContainer(c *gc.C) {

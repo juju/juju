@@ -14,10 +14,11 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type adminApiFactory func(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{}
@@ -83,7 +84,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		isUser = true
 	}
 
-	serverOnlyLogin := loginVersion > 1 && a.root.envUUID == ""
+	serverOnlyLogin := a.root.modelUUID == ""
 
 	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin, a.srv.authCtxt)
 	if err != nil {
@@ -104,25 +105,25 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 			return fail, MaintenanceNoLoginError
 		}
 		// Here we have a special case.  The machine agents that manage
-		// environments in the state server environment need to be able to
-		// open API connections to other environments.  In those cases, we
-		// need to look in the state server database to check the creds
+		// models in the controller model need to be able to
+		// open API connections to other models.  In those cases, we
+		// need to look in the controller database to check the creds
 		// against the machine if and only if the entity tag is a machine tag,
-		// and the machine exists in the state server environment, and the
+		// and the machine exists in the controller model, and the
 		// machine has the manage state job.  If all those parts are valid, we
-		// can then check the credentials against the state server environment
+		// can then check the credentials against the controller model
 		// machine.
 		if kind != names.MachineTagKind {
 			return fail, errors.Trace(err)
 		}
-		entity, err = a.checkCredsOfStateServerMachine(req)
+		entity, err = a.checkCredsOfControllerMachine(req)
 		if err != nil {
 			return fail, errors.Trace(err)
 		}
-		// If we are here, then the entity will refer to a state server
-		// machine in the state server environment, and we don't need a pinger
+		// If we are here, then the entity will refer to a controller
+		// machine in the controller model, and we don't need a pinger
 		// for it as we already have one running in the machine agent api
-		// worker for the state server environment.
+		// worker for the controller model.
 		agentPingerNeeded = false
 	}
 	a.root.entity = entity
@@ -142,11 +143,19 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 
 	var maybeUserInfo *params.AuthUserInfo
+	var envUser *state.ModelUser
 	// Send back user info if user
-	if isUser {
+	if isUser && !serverOnlyLogin {
 		maybeUserInfo = &params.AuthUserInfo{
 			Identity:       entity.Tag().String(),
 			LastConnection: lastConnection,
+		}
+		envUser, err = a.root.state.ModelUser(entity.Tag().(names.UserTag))
+		if err != nil {
+			return fail, errors.Annotatef(err, "missing ModelUser for logged in user %s", entity.Tag())
+		}
+		if envUser.ReadOnly() {
+			logger.Debugf("model user %s is READ ONLY", entity.Tag())
 		}
 	}
 
@@ -157,14 +166,14 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 	logger.Debugf("hostPorts: %v", hostPorts)
 
-	environ, err := a.root.state.Environment()
+	environ, err := a.root.state.Model()
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
 
 	loginResult := params.LoginResultV1{
 		Servers:       params.FromNetworkHostsPorts(hostPorts),
-		EnvironTag:    environ.Tag().String(),
+		ModelTag:      environ.Tag().String(),
 		ControllerTag: environ.ControllerTag().String(),
 		Facades:       DescribeFacades(),
 		UserInfo:      maybeUserInfo,
@@ -172,12 +181,12 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 
 	// For sufficiently modern login versions, stop serving the
-	// state server environment at the root of the API.
+	// controller model at the root of the API.
 	if serverOnlyLogin {
 		authedApi = newRestrictedRoot(authedApi)
-		// Remove the EnvironTag from the response as there is no
-		// environment here.
-		loginResult.EnvironTag = ""
+		// Remove the ModelTag from the response as there is no
+		// model here.
+		loginResult.ModelTag = ""
 		// Strip out the facades that are not supported from the result.
 		var facades []params.FacadeVersions
 		for _, facade := range loginResult.Facades {
@@ -188,16 +197,20 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		loginResult.Facades = facades
 	}
 
+	if envUser != nil {
+		authedApi = newClientAuthRoot(authedApi, envUser)
+	}
+
 	a.root.rpcConn.ServeFinder(authedApi, serverError)
 
 	return loginResult, nil
 }
 
-// checkCredsOfStateServerMachine checks the special case of a state server
-// machine creating an API connection for a different environment so it can
-// run API workers for that environment to do things like provisioning
+// checkCredsOfControllerMachine checks the special case of a controller
+// machine creating an API connection for a different model so it can
+// run API workers for that model to do things like provisioning
 // machines.
-func (a *admin) checkCredsOfStateServerMachine(req params.LoginRequest) (state.Entity, error) {
+func (a *admin) checkCredsOfControllerMachine(req params.LoginRequest) (state.Entity, error) {
 	entity, _, err := doCheckCreds(a.srv.state, req, false, a.srv.authCtxt)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -207,12 +220,12 @@ func (a *admin) checkCredsOfStateServerMachine(req params.LoginRequest) (state.E
 		return nil, errors.Errorf("entity should be a machine, but is %T", entity)
 	}
 	for _, job := range machine.Jobs() {
-		if job == state.JobManageEnviron {
+		if job == state.JobManageModel {
 			return entity, nil
 		}
 	}
-	// The machine does exist in the state server environment, but it
-	// doesn't manage environments, so reject it.
+	// The machine does exist in the controller model, but it
+	// doesn't manage models, so reject it.
 	return nil, errors.Trace(common.ErrBadCreds)
 }
 
@@ -237,17 +250,17 @@ func (a *admin) maintenanceInProgress() bool {
 
 var doCheckCreds = checkCreds
 
-// checkCreds validates the entities credentials in the current environment.
-// If the entity is a user, and lookForEnvUser is true, an env user must exist
-// for the environment.  In the case of a user logging in to the server, but
-// not an environment, there is no env user needed.  While we have the env
+// checkCreds validates the entities credentials in the current model.
+// If the entity is a user, and lookForModelUser is true, a model user must exist
+// for the model.  In the case of a user logging in to the server, but
+// not a model, there is no env user needed.  While we have the env
 // user, if we do have it, update the last login time.
 //
-// Note that when logging in with lookForEnvUser true, the returned
-// entity will be environmentUserEntity, not *state.User (external users
-// don't have user entries) or *state.EnvironmentUser (we
+// Note that when logging in with lookForModelUser true, the returned
+// entity will be modelUserEntity, not *state.User (external users
+// don't have user entries) or *state.ModelUser (we
 // don't want to lose the local user information associated with that).
-func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool, authenticator authentication.EntityAuthenticator) (state.Entity, *time.Time, error) {
+func checkCreds(st *state.State, req params.LoginRequest, lookForModelUser bool, authenticator authentication.EntityAuthenticator) (state.Entity, *time.Time, error) {
 	var tag names.Tag
 	if req.AuthTag != "" {
 		var err error
@@ -257,11 +270,11 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool, a
 		}
 	}
 	var entityFinder authentication.EntityFinder = st
-	if lookForEnvUser {
-		// When looking up environment users, use a custom
+	if lookForModelUser {
+		// When looking up model users, use a custom
 		// entity finder that looks up both the local user (if the user
-		// tag is in the local domain) and the environment user.
-		entityFinder = environmentUserEntityFinder{st}
+		// tag is in the local domain) and the model user.
+		entityFinder = modelUserEntityFinder{st}
 	}
 	entity, err := authenticator.Authenticate(entityFinder, tag, req)
 	if err != nil {
@@ -282,7 +295,7 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool, a
 }
 
 // loginEntity defines the interface needed to log in as a user.
-// Notable implementations are *state.User and *environmentUserEntity.
+// Notable implementations are *state.User and *modelUserEntity.
 type loginEntity interface {
 	state.Entity
 	state.Authenticator
@@ -290,26 +303,26 @@ type loginEntity interface {
 	UpdateLastLogin() error
 }
 
-// environmentUserEntityFinder implements EntityFinder by returning a
+// modelUserEntityFinder implements EntityFinder by returning a
 // loginEntity value for users, ensuring that the user exists in the
-// state's current environment as well as retrieving more global
+// state's current model as well as retrieving more global
 // authentication details such as the password.
-type environmentUserEntityFinder struct {
+type modelUserEntityFinder struct {
 	st *state.State
 }
 
 // FindEntity implements authentication.EntityFinder.FindEntity.
-func (f environmentUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
+func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	utag, ok := tag.(names.UserTag)
 	if !ok {
 		return f.st.FindEntity(tag)
 	}
-	envUser, err := f.st.EnvironmentUser(utag)
+	modelUser, err := f.st.ModelUser(utag)
 	if err != nil {
 		return nil, err
 	}
-	u := &environmentUserEntity{
-		envUser: envUser,
+	u := &modelUserEntity{
+		modelUser: modelUser,
 	}
 	if utag.IsLocal() {
 		user, err := f.st.User(utag)
@@ -321,20 +334,20 @@ func (f environmentUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, er
 	return u, nil
 }
 
-var _ loginEntity = &environmentUserEntity{}
+var _ loginEntity = &modelUserEntity{}
 
-// environmentUserEntity encapsulates an environment user
+// modelUserEntity encapsulates an model user
 // and, if the user is local, the local state user
 // as well. This enables us to implement FindEntity
 // in such a way that the authentication mechanisms
 // can work without knowing these details.
-type environmentUserEntity struct {
-	envUser *state.EnvironmentUser
-	user    *state.User
+type modelUserEntity struct {
+	modelUser *state.ModelUser
+	user      *state.User
 }
 
 // Refresh implements state.Authenticator.Refresh.
-func (u *environmentUserEntity) Refresh() error {
+func (u *modelUserEntity) Refresh() error {
 	if u.user == nil {
 		return nil
 	}
@@ -343,7 +356,7 @@ func (u *environmentUserEntity) Refresh() error {
 
 // SetPassword implements state.Authenticator.SetPassword
 // by setting the password on the local user.
-func (u *environmentUserEntity) SetPassword(pass string) error {
+func (u *modelUserEntity) SetPassword(pass string) error {
 	if u.user == nil {
 		return errors.New("cannot set password on external user")
 	}
@@ -351,7 +364,7 @@ func (u *environmentUserEntity) SetPassword(pass string) error {
 }
 
 // PasswordValid implements state.Authenticator.PasswordValid.
-func (u *environmentUserEntity) PasswordValid(pass string) bool {
+func (u *modelUserEntity) PasswordValid(pass string) bool {
 	if u.user == nil {
 		return false
 	}
@@ -359,15 +372,15 @@ func (u *environmentUserEntity) PasswordValid(pass string) bool {
 }
 
 // Tag implements state.Entity.Tag.
-func (u *environmentUserEntity) Tag() names.Tag {
-	return u.envUser.UserTag()
+func (u *modelUserEntity) Tag() names.Tag {
+	return u.modelUser.UserTag()
 }
 
 // LastLogin implements loginEntity.LastLogin.
-func (u *environmentUserEntity) LastLogin() (time.Time, error) {
-	// The last connection for the environment takes precedence over
+func (u *modelUserEntity) LastLogin() (time.Time, error) {
+	// The last connection for the model takes precedence over
 	// the local user last login time.
-	t, err := u.envUser.LastConnection()
+	t, err := u.modelUser.LastConnection()
 	if state.IsNeverConnectedError(err) {
 		if u.user != nil {
 			// There's a global user, so use that login time instead.
@@ -381,8 +394,8 @@ func (u *environmentUserEntity) LastLogin() (time.Time, error) {
 }
 
 // UpdateLastLogin implements loginEntity.UpdateLastLogin.
-func (u *environmentUserEntity) UpdateLastLogin() error {
-	err := u.envUser.UpdateLastConnection()
+func (u *modelUserEntity) UpdateLastLogin() error {
+	err := u.modelUser.UpdateLastConnection()
 	if u.user != nil {
 		err1 := u.user.UpdateLastLogin()
 		if err == nil {
@@ -459,7 +472,7 @@ type errRoot struct {
 	err error
 }
 
-// Admin conforms to the same API as initialRoot, but we'll always return (nil, err)
-func (r *errRoot) Admin(id string) (*adminV0, error) {
+// FindMethod conforms to the same API as initialRoot, but we'll always return (nil, err)
+func (r *errRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
 	return nil, r.err
 }

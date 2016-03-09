@@ -4,8 +4,8 @@
 package imagestorage
 
 import (
-	"github.com/juju/blobstore"
 	"github.com/juju/errors"
+	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"
 )
 
@@ -32,7 +32,7 @@ type removeFailsManagedStorage struct {
 	blobstore.ManagedStorage
 }
 
-func (removeFailsManagedStorage) RemoveForEnvironment(uuid, path string) error {
+func (removeFailsManagedStorage) RemoveForBucket(uuid, path string) error {
 	return errors.Errorf("cannot remove %s:%s", uuid, path)
 }
 

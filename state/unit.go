@@ -86,7 +86,7 @@ func networkPorts(ports []port) []network.Port {
 type unitDoc struct {
 	DocID                  string `bson:"_id"`
 	Name                   string `bson:"name"`
-	EnvUUID                string `bson:"env-uuid"`
+	ModelUUID              string `bson:"model-uuid"`
 	Service                string
 	Series                 string
 	CharmURL               *charm.URL
@@ -373,12 +373,13 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// its own CL.
 	minUnitsOp := minUnitsTriggerOp(u.st, u.ServiceName())
 	cleanupOp := u.st.newCleanupOp(cleanupDyingUnit, u.doc.Name)
-	setDyingOps := []txn.Op{{
+	setDyingOp := txn.Op{
 		C:      unitsC,
 		Id:     u.doc.DocID,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-	}, cleanupOp, minUnitsOp}
+	}
+	setDyingOps := []txn.Op{setDyingOp, cleanupOp, minUnitsOp}
 	if u.doc.Principal != "" {
 		return setDyingOps, nil
 	} else if len(u.doc.Subordinates)+u.doc.StorageAttachmentCount != 0 {
@@ -469,7 +470,7 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	machineCheck := true // whether host machine conditions allow destroy
 	if len(m.doc.Principals) != 1 || m.doc.Principals[0] != u.doc.Name {
 		machineCheck = false
-	} else if hasJob(m.doc.Jobs, JobManageEnviron) {
+	} else if hasJob(m.doc.Jobs, JobManageModel) {
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
 		machineCheck = false
@@ -483,13 +484,13 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	if machineCheck {
 		machineAssert = bson.D{{"$and", []bson.D{
 			{{"principals", []string{u.doc.Name}}},
-			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
+			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", bson.D{{"$ne", true}}}},
 		}}}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
 			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
-			{{"jobs", bson.D{{"$in", []MachineJob{JobManageEnviron}}}}},
+			{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", true}},
 		}}}
 	}
@@ -727,7 +728,7 @@ func (u *Unit) machine() (*Machine, error) {
 	}
 	m, err := u.st.Machine(id)
 	if err != nil {
-		return nil, errors.Annotatef(err, "unit %v misses machine id %v", u)
+		return nil, errors.Annotatef(err, "unit %v misses machine id %v", u, id)
 	}
 	return m, nil
 }
@@ -1085,7 +1086,7 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := u.st.getPresence()
-	p := presence.NewPinger(presenceCollection, u.st.EnvironTag(), u.globalAgentKey())
+	p := presence.NewPinger(presenceCollection, u.st.ModelTag(), u.globalAgentKey())
 	err := p.Start()
 	if err != nil {
 		return nil, err
@@ -1163,44 +1164,26 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	if u.Life() != Alive {
 		return nil, unitNotAliveErr
 	}
-	if m.Life() != Alive {
-		return nil, machineNotAliveErr
-	}
-	if u.doc.Series != m.doc.Series {
-		return nil, fmt.Errorf("series does not match")
-	}
 	if u.doc.MachineId != "" {
 		if u.doc.MachineId != m.Id() {
 			return nil, alreadyAssignedErr
 		}
 		return nil, jujutxn.ErrNoOperations
 	}
-	if u.doc.Principal != "" {
-		return nil, fmt.Errorf("unit is a subordinate")
-	}
 	if unused && !m.doc.Clean {
 		return nil, inUseErr
-	}
-	canHost := false
-	for _, j := range m.doc.Jobs {
-		if j == JobHostUnits {
-			canHost = true
-			break
-		}
-	}
-	if !canHost {
-		return nil, fmt.Errorf("machine %q cannot host units", m)
-	}
-	// assignToMachine implies assignment to an existing machine,
-	// which is only permitted if unit placement is supported.
-	if err := u.st.supportsUnitPlacement(); err != nil {
-		return nil, err
 	}
 	storageParams, err := u.machineStorageParams()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
+	storagePools, err := machineStoragePools(m.st, storageParams)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := validateUnitMachineAssignment(
+		m, u.doc.Series, u.doc.Principal != "", storagePools,
+	); err != nil {
 		return nil, errors.Trace(err)
 	}
 	storageOps, volumesAttached, filesystemsAttached, err := u.st.machineStorageOps(
@@ -1247,10 +1230,108 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	return ops, nil
 }
 
+// validateUnitMachineAssignment validates the parameters for assigning a unit
+// to a specified machine.
+func validateUnitMachineAssignment(
+	m *Machine,
+	series string,
+	isSubordinate bool,
+	storagePools set.Strings,
+) (err error) {
+	if m.Life() != Alive {
+		return machineNotAliveErr
+	}
+	if isSubordinate {
+		return fmt.Errorf("unit is a subordinate")
+	}
+	if series != m.doc.Series {
+		return fmt.Errorf("series does not match")
+	}
+	canHost := false
+	for _, j := range m.doc.Jobs {
+		if j == JobHostUnits {
+			canHost = true
+			break
+		}
+	}
+	if !canHost {
+		return fmt.Errorf("machine %q cannot host units", m)
+	}
+	if err := m.st.supportsUnitPlacement(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := validateDynamicMachineStoragePools(m, storagePools); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // validateDynamicMachineStorageParams validates that the provided machine
 // storage parameters are compatible with the specified machine.
 func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParams) error {
-	if len(params.volumes)+len(params.filesystems)+len(params.volumeAttachments)+len(params.filesystemAttachments) == 0 {
+	pools, err := machineStoragePools(m.st, params)
+	if err != nil {
+		return err
+	}
+	return validateDynamicMachineStoragePools(m, pools)
+}
+
+// machineStoragePools returns the names of storage pools in each of the
+// volume, filesystem and attachments in the machine storage parameters.
+func machineStoragePools(st *State, params *machineStorageParams) (set.Strings, error) {
+	pools := make(set.Strings)
+	for _, v := range params.volumes {
+		v, err := st.volumeParamsWithDefaults(v.Volume)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		pools.Add(v.Pool)
+	}
+	for _, f := range params.filesystems {
+		f, err := st.filesystemParamsWithDefaults(f.Filesystem)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		pools.Add(f.Pool)
+	}
+	for volumeTag := range params.volumeAttachments {
+		volume, err := st.Volume(volumeTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if params, ok := volume.Params(); ok {
+			pools.Add(params.Pool)
+		} else {
+			info, err := volume.Info()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			pools.Add(info.Pool)
+		}
+	}
+	for filesystemTag := range params.filesystemAttachments {
+		filesystem, err := st.Filesystem(filesystemTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if params, ok := filesystem.Params(); ok {
+			pools.Add(params.Pool)
+		} else {
+			info, err := filesystem.Info()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			pools.Add(info.Pool)
+		}
+	}
+	return pools, nil
+}
+
+// validateDynamicMachineStoragePools validates that all of the specified
+// storage pools support dynamic storage provisioning. If any provider doesn't
+// support dynamic storage, then an IsNotSupported error is returned.
+func validateDynamicMachineStoragePools(m *Machine, pools set.Strings) error {
+	if pools.IsEmpty() {
 		return nil
 	}
 	if m.ContainerType() != "" {
@@ -1264,85 +1345,40 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 		// to be restarted to pick up new configuration.
 		return errors.NotSupportedf("adding storage to %s container", m.ContainerType())
 	}
-	if err := validateDynamicStorageParams(m.st, params); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return validateDynamicStoragePools(m.st, pools)
 }
 
-// validateDynamicStorageParams validates that all storage providers required for
-// provisioning the storage in params support dynamic storage.
-// If any provider doesn't support dynamic storage, then an IsNotSupported error
-// is returned.
-func validateDynamicStorageParams(st *State, params *machineStorageParams) error {
-	pools := make(set.Strings)
-	for _, v := range params.volumes {
-		v, err := st.volumeParamsWithDefaults(v.Volume)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		pools.Add(v.Pool)
-	}
-	for _, f := range params.filesystems {
-		f, err := st.filesystemParamsWithDefaults(f.Filesystem)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		pools.Add(f.Pool)
-	}
-	for volumeTag := range params.volumeAttachments {
-		volume, err := st.Volume(volumeTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if params, ok := volume.Params(); ok {
-			pools.Add(params.Pool)
-		} else {
-			info, err := volume.Info()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			pools.Add(info.Pool)
-		}
-	}
-	for filesystemTag := range params.filesystemAttachments {
-		filesystem, err := st.Filesystem(filesystemTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if params, ok := filesystem.Params(); ok {
-			pools.Add(params.Pool)
-		} else {
-			info, err := filesystem.Info()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			pools.Add(info.Pool)
-		}
-	}
+// validateDynamicStoragePools validates that all of the specified storage
+// providers support dynamic storage provisioning. If any provider doesn't
+// support dynamic storage, then an IsNotSupported error is returned.
+func validateDynamicStoragePools(st *State, pools set.Strings) error {
 	for pool := range pools {
 		providerType, provider, err := poolStorageProvider(st, pool)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if !provider.Dynamic() {
-			return errors.NewNotSupported(
-				err,
-				fmt.Sprintf("%q storage provider does not support dynamic storage", providerType))
+			return errors.NewNotSupported(err, fmt.Sprintf(
+				"%q storage provider does not support dynamic storage",
+				providerType,
+			))
 		}
 	}
 	return nil
 }
 
-func assignContextf(err *error, unit *Unit, target string) {
+func assignContextf(err *error, unitName string, target string) {
 	if *err != nil {
-		*err = fmt.Errorf("cannot assign unit %q to %s: %v", unit, target, *err)
+		*err = errors.Annotatef(*err,
+			"cannot assign unit %q to %s",
+			unitName, target,
+		)
 	}
 }
 
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
-	defer assignContextf(&err, u, fmt.Sprintf("machine %s", m))
+	defer assignContextf(&err, u.Name(), fmt.Sprintf("machine %s", m))
 	return u.assignToMachine(m, false)
 }
 
@@ -1390,13 +1426,16 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 		})
 	}
 	isUnassigned := bson.D{{"machineid", ""}}
+
 	asserts := append(isAliveDoc, isUnassigned...)
 	ops = append(ops, txn.Op{
 		C:      unitsC,
 		Id:     u.doc.DocID,
 		Assert: asserts,
 		Update: bson.D{{"$set", bson.D{{"machineid", mdoc.Id}}}},
-	})
+	},
+		removeStagedAssignmentOp(u.doc.DocID),
+	)
 
 	err = u.st.runTransaction(ops)
 	if err == nil {
@@ -1458,12 +1497,12 @@ func (u *Unit) Constraints() (*constraints.Value, error) {
 
 // AssignToNewMachineOrContainer assigns the unit to a new machine,
 // with constraints determined according to the service and
-// environment constraints at the time of unit creation. If a
+// model constraints at the time of unit creation. If a
 // container is required, a clean, empty machine instance is required
 // on which to create the container. An existing clean, empty instance
 // is first searched for, and if not found, a new one is created.
 func (u *Unit) AssignToNewMachineOrContainer() (err error) {
-	defer assignContextf(&err, u, "new machine or container")
+	defer assignContextf(&err, u.Name(), "new machine or container")
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
@@ -1518,10 +1557,10 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 }
 
 // AssignToNewMachine assigns the unit to a new machine, with constraints
-// determined according to the service and environment constraints at the
+// determined according to the service and model constraints at the
 // time of unit creation.
 func (u *Unit) AssignToNewMachine() (err error) {
-	defer assignContextf(&err, u, "new machine")
+	defer assignContextf(&err, u.Name(), "new machine")
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
@@ -1847,7 +1886,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 
 	if u.doc.Principal != "" {
 		err = fmt.Errorf("unit is a subordinate")
-		assignContextf(&err, u, context)
+		assignContextf(&err, u.Name(), context)
 		return nil, err
 	}
 
@@ -1855,26 +1894,31 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 	// to a new machine is required.
 	storageParams, err := u.machineStorageParams()
 	if err != nil {
-		assignContextf(&err, u, context)
+		assignContextf(&err, u.Name(), context)
 		return nil, err
 	}
-	if err := validateDynamicStorageParams(u.st, storageParams); err != nil {
+	storagePools, err := machineStoragePools(u.st, storageParams)
+	if err != nil {
+		assignContextf(&err, u.Name(), context)
+		return nil, err
+	}
+	if err := validateDynamicStoragePools(u.st, storagePools); err != nil {
 		if errors.IsNotSupported(err) {
 			return nil, noCleanMachines
 		}
-		assignContextf(&err, u, context)
+		assignContextf(&err, u.Name(), context)
 		return nil, err
 	}
 
 	// Get the unit constraints to see what deployment requirements we have to adhere to.
 	cons, err := u.Constraints()
 	if err != nil {
-		assignContextf(&err, u, context)
+		assignContextf(&err, u.Name(), context)
 		return nil, err
 	}
 	query, err := u.findCleanMachineQuery(requireEmpty, cons)
 	if err != nil {
-		assignContextf(&err, u, context)
+		assignContextf(&err, u.Name(), context)
 		return nil, err
 	}
 
@@ -1886,7 +1930,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 	defer closer()
 	var mdocs []*machineDoc
 	if err := machinesCollection.Find(query).All(&mdocs); err != nil {
-		assignContextf(&err, u, context)
+		assignContextf(&err, u.Name(), context)
 		return nil, err
 	}
 	var unprovisioned []*Machine
@@ -1898,7 +1942,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 		if errors.IsNotProvisioned(err) {
 			unprovisioned = append(unprovisioned, m)
 		} else if err != nil {
-			assignContextf(&err, u, context)
+			assignContextf(&err, u.Name(), context)
 			return nil, err
 		} else {
 			instances = append(instances, instance)
@@ -1914,7 +1958,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 	// The partition of provisioned/unprovisioned machines
 	// must be maintained.
 	if instances, err = distributeUnit(u, instances); err != nil {
-		assignContextf(&err, u, context)
+		assignContextf(&err, u.Name(), context)
 		return nil, err
 	}
 	machines := make([]*Machine, len(instances), len(instances)+len(unprovisioned))
@@ -1922,7 +1966,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 		m, ok := instanceMachines[instance]
 		if !ok {
 			err := fmt.Errorf("invalid instance returned: %v", instance)
-			assignContextf(&err, u, context)
+			assignContextf(&err, u.Name(), context)
 			return nil, err
 		}
 		machines[i] = m
@@ -1943,15 +1987,17 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 			if errors.IsNotSupported(err) {
 				continue
 			}
-			assignContextf(&err, u, context)
+			assignContextf(&err, u.Name(), context)
 			return nil, err
 		}
 		err := u.assignToMachine(m, true)
 		if err == nil {
 			return m, nil
 		}
-		if err != inUseErr && err != machineNotAliveErr {
-			assignContextf(&err, u, context)
+		switch errors.Cause(err) {
+		case inUseErr, machineNotAliveErr:
+		default:
+			assignContextf(&err, u.Name(), context)
 			return nil, err
 		}
 	}
@@ -2153,4 +2199,33 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 	// TODO(axw) eventually we should be able to override service
 	// storage constraints at the unit level.
 	return readStorageConstraints(u.st, serviceGlobalKey(u.doc.Service))
+}
+
+type addUnitOpsArgs struct {
+	unitDoc           *unitDoc
+	agentStatusDoc    statusDoc
+	workloadStatusDoc statusDoc
+	meterStatusDoc    *meterStatusDoc
+}
+
+// addUnitOps returns the operations required to add a unit to the units
+// collection, along with all the associated expected other unit entries. This
+// method is used by both the *Service.addUnitOpsWithCons method and the
+// migration import code.
+func addUnitOps(st *State, args addUnitOpsArgs) []txn.Op {
+	name := args.unitDoc.Name
+	agentGlobalKey := unitAgentGlobalKey(name)
+	// TODO: consider the constraints op
+	// TODO: consider storageOps
+	return []txn.Op{
+		createStatusOp(st, unitGlobalKey(name), args.workloadStatusDoc),
+		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),
+		createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc),
+		{
+			C:      unitsC,
+			Id:     name,
+			Assert: txn.DocMissing,
+			Insert: args.unitDoc,
+		},
+	}
 }

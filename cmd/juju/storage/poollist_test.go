@@ -35,8 +35,8 @@ func (s *poolListSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *poolListSuite) runPoolList(c *gc.C, args []string) (*cmd.Context, error) {
-	args = append(args, []string{"-e", "dummyenv"}...)
-	return testing.RunCommand(c, storage.NewPoolListCommand(s.mockAPI), args...)
+	args = append(args, []string{"-m", "dummymodel"}...)
+	return testing.RunCommand(c, storage.NewPoolListCommand(s.mockAPI, s.store), args...)
 }
 
 func (s *poolListSuite) TestPoolListEmpty(c *gc.C) {

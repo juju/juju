@@ -6,64 +6,17 @@ package upgrades
 import "github.com/juju/juju/environs"
 
 var (
-	UpgradeOperations         = &upgradeOperations
-	StateUpgradeOperations    = &stateUpgradeOperations
-	UbuntuHome                = &ubuntuHome
-	RootLogDir                = &rootLogDir
-	RootSpoolDir              = &rootSpoolDir
-	CharmBundleURL            = &charmBundleURL
-	CharmStoragePath          = &charmStoragePath
-	StateAddCharmStoragePaths = &stateAddCharmStoragePaths
-	NewStateStorage           = &newStateStorage
-	StateToolsStorage         = &stateToolsStorage
-	AddAZToInstData           = &addAZToInstData
-
-	ChownPath       = &chownPath
-	IsLocalEnviron  = &isLocalEnviron
-	OsRemove        = &osRemove
-	ExecRunCommands = &execRunCommands
-
-	// 118 upgrade functions
-	StepsFor118                            = stepsFor118
-	EnsureLockDirExistsAndUbuntuWritable   = ensureLockDirExistsAndUbuntuWritable
-	EnsureSystemSSHKey                     = ensureSystemSSHKey
-	EnsureUbuntuDotProfileSourcesProxyFile = ensureUbuntuDotProfileSourcesProxyFile
-	UpdateRsyslogPort                      = updateRsyslogPort
-	ProcessDeprecatedEnvSettings           = processDeprecatedEnvSettings
-	MigrateLocalProviderAgentConfig        = migrateLocalProviderAgentConfig
-
-	// 121 upgrade functions
-	MigrateCharmStorage        = migrateCharmStorage
-	MigrateCustomImageMetadata = migrateCustomImageMetadata
-	MigrateToolsStorage        = migrateToolsStorage
-
-	// 122 upgrade functions
-	EnsureSystemSSHKeyRedux               = ensureSystemSSHKeyRedux
-	UpdateAuthorizedKeysForSystemIdentity = updateAuthorizedKeysForSystemIdentity
-	AddAvaililityZoneToInstanceData       = addAvaililityZoneToInstanceData
-
-	// 123 upgrade functions
-	AddEnvironmentUUIDToAgentConfig = addEnvironmentUUIDToAgentConfig
-	AddDefaultStoragePools          = addDefaultStoragePools
-	MoveBlocksFromEnvironToState    = moveBlocksFromEnvironToState
-
-	// 124 upgrade functions
-	MoveSyslogConfig = moveSyslogConfig
-	CopyFile         = copyFile
-
-	// 125 upgrade functions
-	AddInstanceTags = addInstanceTags
-	RemoveJujudpass = removeJujudpass
-	AddJujuRegKey   = addJujuRegKey
+	UpgradeOperations      = &upgradeOperations
+	StateUpgradeOperations = &stateUpgradeOperations
 )
 
-type EnvironConfigUpdater environConfigUpdater
-type EnvironConfigReader environConfigReader
+type ModelConfigUpdater environConfigUpdater
+type ModelConfigReader environConfigReader
 
-func UpgradeEnvironConfig(
-	reader EnvironConfigReader,
-	updater EnvironConfigUpdater,
+func UpgradeModelConfig(
+	reader ModelConfigReader,
+	updater ModelConfigUpdater,
 	registry environs.ProviderRegistry,
 ) error {
-	return upgradeEnvironConfig(reader, updater, registry)
+	return upgradeModelConfig(reader, updater, registry)
 }

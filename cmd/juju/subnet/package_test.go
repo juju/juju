@@ -28,7 +28,7 @@ func TestPackage(t *stdtesting.T) {
 
 // BaseSubnetSuite is used for embedding in other suites.
 type BaseSubnetSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	coretesting.BaseSuite
 
 	superCmd cmd.Command
@@ -43,7 +43,7 @@ func (s *BaseSubnetSuite) SetUpTest(c *gc.C) {
 	hasFeatureFlag := featureflag.Enabled(feature.PostNetCLIMVP)
 
 	s.BaseSuite.SetUpTest(c)
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	if hasFeatureFlag {
 		s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
@@ -122,7 +122,7 @@ func (s *BaseSubnetSuite) TestHelp(c *gc.C) {
 	cmdInfo := s.superCmd.Info()
 	var expected string
 	if s.command != nil {
-		// Subcommands embed EnvCommandBase and have an extra
+		// Subcommands embed ModelCommandBase and have an extra
 		// "[options]" prepended before the args.
 		cmdInfo = s.command.Info()
 		expected = "(?sm).*^usage: juju subnet " +

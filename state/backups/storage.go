@@ -8,12 +8,12 @@ import (
 	"path"
 	"time"
 
-	"github.com/juju/blobstore"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/filestorage"
 	"github.com/juju/version"
+	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -46,10 +46,10 @@ type storageMetaDoc struct {
 
 	// origin
 
-	Environment string         `bson:"environment"`
-	Machine     string         `bson:"machine"`
-	Hostname    string         `bson:"hostname"`
-	Version     version.Number `bson:"version"`
+	Model    string         `bson:"model"`
+	Machine  string         `bson:"machine"`
+	Hostname string         `bson:"hostname"`
+	Version  version.Number `bson:"version"`
 }
 
 func (doc *storageMetaDoc) isFileInfoComplete() bool {
@@ -73,8 +73,8 @@ func (doc *storageMetaDoc) validate() error {
 		return errors.New("missing Started")
 	}
 	// We don't check doc.Finished because it doesn't have to be set.
-	if doc.Environment == "" {
-		return errors.New("missing Environment")
+	if doc.Model == "" {
+		return errors.New("missing Model")
 	}
 	if doc.Machine == "" {
 		return errors.New("missing Machine")
@@ -120,7 +120,7 @@ func docAsMetadata(doc *storageMetaDoc) *Metadata {
 	meta.Started = metadocUnixToTime(doc.Started)
 	meta.Notes = doc.Notes
 
-	meta.Origin.Environment = doc.Environment
+	meta.Origin.Model = doc.Model
 	meta.Origin.Machine = doc.Machine
 	meta.Origin.Hostname = doc.Hostname
 	meta.Origin.Version = doc.Version
@@ -170,7 +170,7 @@ func newStorageMetaDoc(meta *Metadata) storageMetaDoc {
 	}
 	doc.Notes = meta.Notes
 
-	doc.Environment = meta.Origin.Environment
+	doc.Model = meta.Origin.Model
 	doc.Machine = meta.Origin.Machine
 	doc.Hostname = meta.Origin.Hostname
 	doc.Version = meta.Origin.Version
@@ -190,11 +190,11 @@ type storageDBWrapper struct {
 	db        *mgo.Database
 	metaColl  *mgo.Collection
 	txnRunner jujutxn.Runner
-	envUUID   string
+	modelUUID string
 }
 
 // newStorageDBWrapper returns a DB operator for the , with its own session.
-func newStorageDBWrapper(db *mgo.Database, metaColl, envUUID string) *storageDBWrapper {
+func newStorageDBWrapper(db *mgo.Database, metaColl, modelUUID string) *storageDBWrapper {
 	session := db.Session.Copy()
 	db = db.With(session)
 
@@ -205,7 +205,7 @@ func newStorageDBWrapper(db *mgo.Database, metaColl, envUUID string) *storageDBW
 		db:        db,
 		metaColl:  coll,
 		txnRunner: txnRunner,
-		envUUID:   envUUID,
+		modelUUID: modelUUID,
 	}
 	return &dbWrap
 }
@@ -268,7 +268,7 @@ func (b *storageDBWrapper) runTransaction(ops []txn.Op) error {
 
 // blobStorage returns a ManagedStorage matching the env storage and the blobDB.
 func (b *storageDBWrapper) blobStorage(blobDB string) blobstore.ManagedStorage {
-	dataStore := blobstore.NewGridFS(blobDB, b.envUUID, b.session)
+	dataStore := blobstore.NewGridFS(blobDB, b.modelUUID, b.session)
 	return blobstore.NewManagedStorage(b.db, dataStore)
 }
 
@@ -284,7 +284,7 @@ func (b *storageDBWrapper) Copy() *storageDBWrapper {
 		db:        db,
 		metaColl:  coll,
 		txnRunner: txnRunner,
-		envUUID:   b.envUUID,
+		modelUUID: b.modelUUID,
 	}
 	return &dbWrap
 }
@@ -314,15 +314,15 @@ func getStorageMetadata(dbWrap *storageDBWrapper, id string) (*storageMetaDoc, e
 }
 
 // newStorageID returns a new ID for a state backup.  The format is the
-// UTC timestamp from the metadata followed by the environment ID:
-// "YYYYMMDD-hhmmss.<env ID>".  This makes the ID a little more human-
+// UTC timestamp from the metadata followed by the model ID:
+// "YYYYMMDD-hhmmss.<model ID>".  This makes the ID a little more human-
 // consumable (in contrast to a plain UUID string).  Ideally we would
-// use some form of environment name rather than the UUID, but for now
+// use some form of model name rather than the UUID, but for now
 // the raw env ID is sufficient.
 var newStorageID = func(doc *storageMetaDoc) string {
 	started := metadocUnixToTime(doc.Started)
 	timestamp := started.Format(backupIDTimestamp)
-	return timestamp + "." + doc.Environment
+	return timestamp + "." + doc.Model
 }
 
 // addStorageMetadata stores metadata for a backup where it can be
@@ -375,8 +375,8 @@ type backupsDocStorage struct {
 
 type backupsMetadataStorage struct {
 	filestorage.MetadataDocStorage
-	db      *mgo.Database
-	envUUID string
+	db        *mgo.Database
+	modelUUID string
 }
 
 func newMetadataStorage(dbWrap *storageDBWrapper) *backupsMetadataStorage {
@@ -386,7 +386,7 @@ func newMetadataStorage(dbWrap *storageDBWrapper) *backupsMetadataStorage {
 	stor := backupsMetadataStorage{
 		MetadataDocStorage: filestorage.MetadataDocStorage{&docStor},
 		db:                 dbWrap.db,
-		envUUID:            dbWrap.envUUID,
+		modelUUID:          dbWrap.modelUUID,
 	}
 	return &stor
 }
@@ -453,7 +453,7 @@ func (s *backupsDocStorage) Close() error {
 
 // SetStored records in the metadata the fact that the file was stored.
 func (s *backupsMetadataStorage) SetStored(id string) error {
-	dbWrap := newStorageDBWrapper(s.db, storageMetaName, s.envUUID)
+	dbWrap := newStorageDBWrapper(s.db, storageMetaName, s.modelUUID)
 	defer dbWrap.Close()
 
 	err := setStorageStoredTime(dbWrap, id, time.Now())
@@ -468,7 +468,7 @@ const backupStorageRoot = "backups"
 type backupBlobStorage struct {
 	dbWrap *storageDBWrapper
 
-	envUUID   string
+	modelUUID string
 	storeImpl blobstore.ManagedStorage
 	root      string
 }
@@ -479,7 +479,7 @@ func newFileStorage(dbWrap *storageDBWrapper, root string) filestorage.RawFileSt
 	managed := dbWrap.blobStorage(dbWrap.db.Name)
 	stor := backupBlobStorage{
 		dbWrap:    dbWrap,
-		envUUID:   dbWrap.envUUID,
+		modelUUID: dbWrap.modelUUID,
 		storeImpl: managed,
 		root:      root,
 	}
@@ -488,24 +488,24 @@ func newFileStorage(dbWrap *storageDBWrapper, root string) filestorage.RawFileSt
 
 func (s *backupBlobStorage) path(id string) string {
 	// Use of path.Join instead of filepath.Join is intentional - this
-	// is an environment storage path not a filesystem path.
+	// is an model storage path not a filesystem path.
 	return path.Join(s.root, id)
 }
 
 // File returns the identified file from storage.
 func (s *backupBlobStorage) File(id string) (io.ReadCloser, error) {
-	file, _, err := s.storeImpl.GetForEnvironment(s.envUUID, s.path(id))
+	file, _, err := s.storeImpl.GetForBucket(s.modelUUID, s.path(id))
 	return file, errors.Trace(err)
 }
 
 // AddFile adds the file to storage.
 func (s *backupBlobStorage) AddFile(id string, file io.Reader, size int64) error {
-	return s.storeImpl.PutForEnvironment(s.envUUID, s.path(id), file, size)
+	return s.storeImpl.PutForBucket(s.modelUUID, s.path(id), file, size)
 }
 
 // RemoveFile removes the identified file from storage.
 func (s *backupBlobStorage) RemoveFile(id string) error {
-	return s.storeImpl.RemoveForEnvironment(s.envUUID, s.path(id))
+	return s.storeImpl.RemoveForBucket(s.modelUUID, s.path(id))
 }
 
 // Close closes the storage.
@@ -528,16 +528,16 @@ type DB interface {
 	// MongoSession returns the underlying mongodb session.
 	MongoSession() *mgo.Session
 
-	// EnvironTag is the concrete environ tag for this database.
-	EnvironTag() names.EnvironTag
+	// ModelTag is the concrete model tag for this database.
+	ModelTag() names.ModelTag
 }
 
 // NewStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
 func NewStorage(st DB) filestorage.FileStorage {
-	envUUID := st.EnvironTag().Id()
+	modelUUID := st.ModelTag().Id()
 	db := st.MongoSession().DB(storageDBName)
-	dbWrap := newStorageDBWrapper(db, storageMetaName, envUUID)
+	dbWrap := newStorageDBWrapper(db, storageMetaName, modelUUID)
 	defer dbWrap.Close()
 
 	files := newFileStorage(dbWrap, backupStorageRoot)

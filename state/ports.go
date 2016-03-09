@@ -142,7 +142,7 @@ func (p PortRange) String() string {
 // portsDoc represents the state of ports opened on machines for networks
 type portsDoc struct {
 	DocID       string      `bson:"_id"`
-	EnvUUID     string      `bson:"env-uuid"`
+	ModelUUID   string      `bson:"model-uuid"`
 	MachineID   string      `bson:"machine-id"`
 	NetworkName string      `bson:"network-name"`
 	Ports       []PortRange `bson:"ports"`
@@ -200,7 +200,7 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			if err := checkEnvLife(p.st); err != nil {
+			if err := checkModeLife(p.st); err != nil {
 				return nil, errors.Trace(err)
 			}
 			if err = ports.Refresh(); errors.IsNotFound(err) {
@@ -230,7 +230,7 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 		}
 
 		ops := []txn.Op{
-			assertEnvAliveOp(p.st.EnvironUUID()),
+			assertModelAliveOp(p.st.ModelUUID()),
 		}
 		if ports.areNew {
 			// Create a new document.
@@ -537,7 +537,7 @@ func getOrCreatePorts(st *State, machineId, networkName string) (*Ports, error) 
 			DocID:       st.docID(key),
 			MachineID:   machineId,
 			NetworkName: networkName,
-			EnvUUID:     st.EnvironUUID(),
+			ModelUUID:   st.ModelUUID(),
 		}
 		ports = &Ports{st, doc, true}
 	} else if err != nil {

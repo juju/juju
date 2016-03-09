@@ -47,22 +47,22 @@ type apiHandler struct {
 	resources        *common.Resources
 	entity           state.Entity
 	mongoUnavailable *uint32
-	// An empty envUUID means that the user has logged in through the
-	// root of the API server rather than the /environment/:env-uuid/api
+	// An empty modelUUID means that the user has logged in through the
+	// root of the API server rather than the /model/:model-uuid/api
 	// path, logins processed with v2 or later will only offer the
-	// user manager and environment manager api endpoints from here.
-	envUUID string
+	// user manager and model manager api endpoints from here.
+	modelUUID string
 }
 
 var _ = (*apiHandler)(nil)
 
 // newApiHandler returns a new apiHandler.
-func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier, envUUID string) (*apiHandler, error) {
+func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier, modelUUID string) (*apiHandler, error) {
 	r := &apiHandler{
 		state:            st,
 		resources:        common.NewResources(),
 		rpcConn:          rpcConn,
-		envUUID:          envUUID,
+		modelUUID:        modelUUID,
 		mongoUnavailable: &srv.mongoUnavailable,
 	}
 	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {
@@ -155,7 +155,7 @@ func (r *apiRoot) Kill() {
 // For more information about how FindMethod should work, see rpc/server.go and
 // rpc/rpcreflect/value.go
 func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	goType, objMethod, err := r.lookupMethod(rootName, version, methodName)
+	goType, objMethod, err := lookupMethod(rootName, version, methodName)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +211,7 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 	}, nil
 }
 
-func (r *apiRoot) lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
+func lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
 	noMethod := rpcreflect.ObjMethod{}
 	goType, err := common.Facades.GetType(rootName, version)
 	if err != nil {
@@ -264,10 +264,9 @@ func (r *anonRoot) FindMethod(rootName string, version int, methodName string) (
 	if api, ok := r.adminApis[version]; ok {
 		return rpcreflect.ValueOf(reflect.ValueOf(api)).FindMethod(rootName, 0, methodName)
 	}
-	return nil, &rpcreflect.CallNotImplementedError{
-		RootMethod: rootName,
-		Method:     methodName,
-		Version:    version,
+	return nil, &rpc.RequestError{
+		Code:    params.CodeNotSupported,
+		Message: "this version of Juju does not support login from old clients",
 	}
 }
 
@@ -289,10 +288,10 @@ func (r *apiHandler) AuthOwner(tag names.Tag) bool {
 	return r.entity.Tag() == tag
 }
 
-// AuthEnvironManager returns whether the authenticated user is a
+// AuthModelManager returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
-func (r *apiHandler) AuthEnvironManager() bool {
-	return isMachineWithJob(r.entity, state.JobManageEnviron)
+func (r *apiHandler) AuthModelManager() bool {
+	return isMachineWithJob(r.entity, state.JobManageModel)
 }
 
 // AuthClient returns whether the authenticated entity is a client

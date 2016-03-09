@@ -4,6 +4,7 @@
 package dependency_test
 
 import (
+	"fmt"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -65,10 +66,41 @@ func (s *SelfSuite) TestOutputInstaller(c *gc.C) {
 
 func (s *SelfSuite) TestActuallyWorks(c *gc.C) {
 
-	// Install an engine inside itself.
-	manifold := dependency.SelfManifold(s.engine)
-	err := s.engine.Install("self", manifold)
+	// Create and install a manifold with an unsatisfied dependency.
+	mh1 := newManifoldHarness("self")
+	err := s.engine.Install("dependent", mh1.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
+	mh1.AssertNoStart(c)
+
+	// Install an engine inside itself; once it's "started", dependent will
+	// be restarted.
+	manifold := dependency.SelfManifold(s.engine)
+	err = s.engine.Install("self", manifold)
+	c.Assert(err, jc.ErrorIsNil)
+	mh1.AssertOneStart(c)
+
+	// Check we can still stop it (with a timeout -- injudicious
+	// implementation changes could induce deadlocks).
+	done := make(chan struct{})
+	go func() {
+		err := worker.Stop(s.engine)
+		c.Check(err, jc.ErrorIsNil)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out")
+	}
+}
+
+func (s *SelfSuite) TestStress(c *gc.C) {
+
+	// Repeatedly install a manifold inside itself.
+	manifold := dependency.SelfManifold(s.engine)
+	for i := 0; i < 100; i++ {
+		go s.engine.Install(fmt.Sprintf("self-%d", i), manifold)
+	}
 
 	// Check we can still stop it (with a timeout -- injudicious
 	// implementation changes could induce deadlocks).

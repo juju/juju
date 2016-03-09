@@ -49,8 +49,8 @@ type actionNotificationDoc struct {
 	// composite _id.
 	DocId string `bson:"_id"`
 
-	// EnvUUID is the environment identifier.
-	EnvUUID string `bson:"env-uuid"`
+	// ModelUUID is the model identifier.
+	ModelUUID string `bson:"model-uuid"`
 
 	// Receiver is the Name of the Unit or any other ActionReceiver for
 	// which this notification is queued.
@@ -65,8 +65,8 @@ type actionDoc struct {
 	// DocId is the key for this document; it is a UUID.
 	DocId string `bson:"_id"`
 
-	// EnvUUID is the environment identifier.
-	EnvUUID string `bson:"env-uuid"`
+	// ModelUUID is the model identifier.
+	ModelUUID string `bson:"model-uuid"`
 
 	// Receiver is the Name of the Unit or any other ActionReceiver for
 	// which this Action is queued.
@@ -262,20 +262,20 @@ func newActionDoc(st *State, receiverTag names.Tag, actionName string, parameter
 		return actionDoc{}, actionNotificationDoc{}, err
 	}
 	actionLogger.Debugf("newActionDoc name: '%s', receiver: '%s', actionId: '%s'", actionName, receiverTag, actionId)
-	envuuid := st.EnvironUUID()
+	modelUUID := st.ModelUUID()
 	return actionDoc{
 			DocId:      st.docID(actionId.String()),
-			EnvUUID:    envuuid,
+			ModelUUID:  modelUUID,
 			Receiver:   receiverTag.Id(),
 			Name:       actionName,
 			Parameters: parameters,
 			Enqueued:   nowToTheSecond(),
 			Status:     ActionPending,
 		}, actionNotificationDoc{
-			DocId:    st.docID(prefix + actionId.String()),
-			EnvUUID:  envuuid,
-			Receiver: receiverTag.Id(),
-			ActionID: actionId.String(),
+			DocId:     st.docID(prefix + actionId.String()),
+			ModelUUID: modelUUID,
+			Receiver:  receiverTag.Id(),
+			ActionID:  actionId.String(),
 		}, nil
 }
 

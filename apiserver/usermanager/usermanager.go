@@ -18,7 +18,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.usermanager")
 
 func init() {
-	common.RegisterStandardFacade("UserManager", 0, NewUserManagerAPI)
+	common.RegisterStandardFacade("UserManager", 1, NewUserManagerAPI)
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete
@@ -49,7 +49,7 @@ func (api *UserManagerAPI) permissionCheck(user names.UserTag) error {
 	// TODO(thumper): PERMISSIONS Change this permission check when we have
 	// real permissions. For now, only the owner of the initial environment is
 	// able to add users.
-	initialEnv, err := api.state.StateServerEnvironment()
+	initialEnv, err := api.state.ControllerModel()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -59,7 +59,8 @@ func (api *UserManagerAPI) permissionCheck(user names.UserTag) error {
 	return nil
 }
 
-// AddUser adds a user.
+// AddUser adds a user with a username, and either a password or
+// a randomly generated secret key which will be returned.
 func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults, error) {
 	result := params.AddUserResults{
 		Results: make([]params.AddUserResult, len(args.Users)),
@@ -76,21 +77,70 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 		return result, errors.Wrap(err, common.ErrPerm)
 	}
 	// TODO(thumper): PERMISSIONS Change this permission check when we have
-	// real permissions. For now, only the owner of the initial environment is
+	// real permissions. For now, only the owner of the initial model is
 	// able to add users.
 	if err := api.permissionCheck(loggedInUser); err != nil {
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Users {
-		user, err := api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, loggedInUser.Id())
+		var user *state.User
+		var err error
+		if arg.Password != "" {
+			user, err = api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, loggedInUser.Id())
+		} else {
+			user, err = api.state.AddUserWithSecretKey(arg.Username, arg.DisplayName, loggedInUser.Id())
+		}
 		if err != nil {
 			err = errors.Annotate(err, "failed to create user")
 			result.Results[i].Error = common.ServerError(err)
+			continue
 		} else {
-			result.Results[i].Tag = user.Tag().String()
+			result.Results[i] = params.AddUserResult{
+				Tag:       user.Tag().String(),
+				SecretKey: user.SecretKey(),
+			}
+		}
+		userTag := user.Tag().(names.UserTag)
+		for _, modelTagStr := range arg.SharedModelTags {
+			modelTag, err := names.ParseModelTag(modelTagStr)
+			if err != nil {
+				err = errors.Annotatef(err, "user %q created but model %q not shared", arg.Username, modelTagStr)
+				result.Results[i].Error = common.ServerError(err)
+				break
+			}
+			err = ShareModelAction(api.state, modelTag, loggedInUser, userTag, params.AddModelUser)
+			if err != nil {
+				err = errors.Annotatef(err, "user %q created but model %q not shared", arg.Username, modelTagStr)
+				result.Results[i].Error = common.ServerError(err)
+				break
+			}
 		}
 	}
 	return result, nil
+}
+
+type stateAccessor interface {
+	ForModel(tag names.ModelTag) (*state.State, error)
+}
+
+// ShareModelAction performs the requested share action (add/remove) for the specified
+// sharedWith user on the specified model.
+func ShareModelAction(stateAccess stateAccessor, modelTag names.ModelTag, createdBy, sharedWith names.UserTag, action params.ModelAction) error {
+	st, err := stateAccess.ForModel(modelTag)
+	if err != nil {
+		return errors.Annotate(err, "could lookup model")
+	}
+	defer st.Close()
+	switch action {
+	case params.AddModelUser:
+		_, err = st.AddModelUser(state.ModelUserSpec{User: sharedWith, CreatedBy: createdBy})
+		return errors.Annotate(err, "could not share model")
+	case params.RemoveModelUser:
+		err := st.RemoveModelUser(sharedWith)
+		return errors.Annotate(err, "could not unshare model")
+	default:
+		return errors.Errorf("unknown action %q", action)
+	}
 }
 
 func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
@@ -214,10 +264,9 @@ func (api *UserManagerAPI) setPassword(loggedInUser names.UserTag, arg params.En
 		return errors.Trace(common.ErrPerm)
 	}
 	if arg.Password == "" {
-		return errors.New("can not use an empty password")
+		return errors.New("cannot use an empty password")
 	}
-	err = user.SetPassword(arg.Password)
-	if err != nil {
+	if err := user.SetPassword(arg.Password); err != nil {
 		return errors.Annotate(err, "failed to set password")
 	}
 	return nil

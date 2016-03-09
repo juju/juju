@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/utils/filelock"
 )
 
 var (
@@ -28,9 +29,9 @@ var (
 	TemplateStopTimeout = 5 * time.Minute
 )
 
-func AcquireTemplateLock(name, message string) (*container.Lock, error) {
+func AcquireTemplateLock(name, message string) (*filelock.Lock, error) {
 	logger.Infof("wait for flock on %v", name)
-	lock, err := container.NewLock(TemplateLockDir, name)
+	lock, err := filelock.NewLock(TemplateLockDir, name)
 	if err != nil {
 		logger.Tracef("failed to create flock for template: %v", err)
 		return nil, err

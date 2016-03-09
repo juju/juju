@@ -22,20 +22,18 @@ type Client struct {
 // NewClient creates a new client for accessing the block API.
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Block")
-	logger.Debugf("\nSTORAGE FRONT-END: %#v", frontend)
-	logger.Debugf("\nSTORAGE BACK-END: %#v", backend)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// List returns blocks that are switched on for current environment.
+// List returns blocks that are switched on for current model.
 func (c *Client) List() ([]params.Block, error) {
-	blocks := params.BlockResults{}
+	var blocks params.BlockResults
 	if err := c.facade.FacadeCall("List", nil, &blocks); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	all := []params.Block{}
-	allErr := params.ErrorResults{}
+	var all []params.Block
+	var allErr params.ErrorResults
 	for _, result := range blocks.Results {
 		if result.Error != nil {
 			allErr.Results = append(allErr.Results, params.ErrorResult{result.Error})
@@ -46,35 +44,37 @@ func (c *Client) List() ([]params.Block, error) {
 	return all, allErr.Combine()
 }
 
-// SwitchBlockOn switches desired block on for the current environment.
+// SwitchBlockOn switches desired block on for the current model.
 // Valid block types are "BlockDestroy", "BlockRemove" and "BlockChange".
 func (c *Client) SwitchBlockOn(blockType, msg string) error {
 	args := params.BlockSwitchParams{
 		Type:    blockType,
 		Message: msg,
 	}
-	result := params.ErrorResult{}
+	var result params.ErrorResult
 	if err := c.facade.FacadeCall("SwitchBlockOn", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	if result.Error != nil {
-		return result.Error
+		// cope with typed error
+		return errors.Trace(result.Error)
 	}
 	return nil
 }
 
-// SwitchBlockOff switches desired block off for the current environment.
+// SwitchBlockOff switches desired block off for the current model.
 // Valid block types are "BlockDestroy", "BlockRemove" and "BlockChange".
 func (c *Client) SwitchBlockOff(blockType string) error {
 	args := params.BlockSwitchParams{
 		Type: blockType,
 	}
-	result := params.ErrorResult{}
+	var result params.ErrorResult
 	if err := c.facade.FacadeCall("SwitchBlockOff", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	if result.Error != nil {
-		return result.Error
+		// cope with typed error
+		return errors.Trace(result.Error)
 	}
 	return nil
 }

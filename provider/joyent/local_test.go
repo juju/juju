@@ -4,8 +4,6 @@
 package joyent_test
 
 import (
-	"bytes"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 
@@ -13,22 +11,24 @@ import (
 	lc "github.com/joyent/gosdc/localservices/cloudapi"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/joyent"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func registerLocalTests() {
@@ -122,8 +122,14 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.providerSuite.SetUpTest(c)
+	credentialsAttrs := joyent.CredentialsAttributes(s.TestConfig)
+	s.Credential = cloud.NewCredential(
+		cloud.UserPassAuthType,
+		credentialsAttrs,
+	)
 	creds := joyent.MakeCredentials(c, s.TestConfig)
-	joyent.UseExternalTestImageMetadata(creds)
+	joyent.UseExternalTestImageMetadata(c, creds)
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	s.LiveTests.SetUpTest(c)
@@ -146,6 +152,9 @@ type localServerSuite struct {
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
+	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+
 	s.providerSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
@@ -163,9 +172,15 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.Tests.ToolsFixture.UploadArches = []string{arch.AMD64}
 	s.Tests.SetUpTest(c)
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
+	credentialsAttrs := joyent.CredentialsAttributes(s.TestConfig)
+	s.Credential = cloud.NewCredential(
+		cloud.UserPassAuthType,
+		credentialsAttrs,
+	)
 	// Put some fake image metadata in place.
 	creds := joyent.MakeCredentials(c, s.TestConfig)
-	joyent.UseExternalTestImageMetadata(creds)
+	joyent.UseExternalTestImageMetadata(c, creds)
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {
@@ -315,8 +330,8 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// check that StateServerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.StateServerInstances()
+	// check that ControllerInstances returns the id of the bootstrap machine.
+	instanceIds, err := env.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 
@@ -341,7 +356,12 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 
 func (s *localServerSuite) TestFindInstanceSpec(c *gc.C) {
 	env := s.Prepare(c)
-	spec, err := joyent.FindInstanceSpec(env, "trusty", "amd64", "mem=4G")
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:       "image-id",
+		Arch:     "amd64",
+		VirtType: "kvm",
+	}}
+	spec, err := joyent.FindInstanceSpec(env, "trusty", "amd64", "mem=4G", imageMetadata)
 	c.Assert(err, gc.IsNil)
 	c.Assert(spec.InstanceType.VirtType, gc.NotNil)
 	c.Check(spec.Image.Arch, gc.Equals, "amd64")
@@ -353,7 +373,7 @@ func (s *localServerSuite) TestFindInstanceSpec(c *gc.C) {
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Prepare(c)
 	// An error occurs if no suitable image is found.
-	_, err := joyent.FindInstanceSpec(env, "saucy", "amd64", "mem=4G")
+	_, err := joyent.FindInstanceSpec(env, "saucy", "amd64", "mem=4G", nil)
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
@@ -367,51 +387,6 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image_ids, gc.DeepEquals, []string{"11223344-0a0a-dd77-33cd-abcd1234e5f6"})
-}
-
-func (s *localServerSuite) TestRemoveAll(c *gc.C) {
-	env := s.Prepare(c).(environs.EnvironStorage)
-	stor := env.Storage()
-	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
-		content := []byte{a}
-		name := string(content)
-		err := stor.Put(name, bytes.NewBuffer(content),
-			int64(len(content)))
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	reader, err := storage.Get(stor, "a")
-	c.Assert(err, jc.ErrorIsNil)
-	allContent, err := ioutil.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(allContent), gc.Equals, "a")
-	err = stor.RemoveAll()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = storage.Get(stor, "a")
-	c.Assert(err, gc.NotNil)
-}
-
-func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
-	env := s.Prepare(c).(environs.EnvironStorage)
-	stor := env.Storage()
-	// 6*26 = 156 items
-	for _, a := range []byte("abcdef") {
-		for _, b := range []byte("abcdefghijklmnopqrstuvwxyz") {
-			content := []byte{a, b}
-			name := string(content)
-			err := stor.Put(name, bytes.NewBuffer(content),
-				int64(len(content)))
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-	reader, err := storage.Get(stor, "ab")
-	c.Assert(err, jc.ErrorIsNil)
-	allContent, err := ioutil.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(allContent), gc.Equals, "ab")
-	err = stor.RemoveAll()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = storage.Get(stor, "ab")
-	c.Assert(err, gc.NotNil)
 }
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {

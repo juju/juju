@@ -4,13 +4,14 @@
 package azure
 
 import (
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/storage"
 )
 
-var MakeUserdataResourceScripts = makeUserdataResourceScripts
+func ForceVolumeSourceTokenRefresh(vs storage.VolumeSource) error {
+	return ForceTokenRefresh(vs.(*azureVolumeSource).env)
+}
 
-func MakeEnvironForTest(c *gc.C) environs.Environ {
-	return makeEnviron(c)
+func ForceTokenRefresh(env environs.Environ) error {
+	return env.(*azureEnviron).config.token.Refresh()
 }

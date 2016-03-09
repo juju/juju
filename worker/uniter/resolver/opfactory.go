@@ -99,10 +99,12 @@ func trimCompletedActions(pendingActions []string, completedActions map[string]s
 }
 
 func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL *charm.URL) operation.Operation {
+	charmModifiedVersion := s.RemoteState.CharmModifiedVersion
 	return onCommitWrapper{op, func() {
 		s.LocalState.CharmURL = charmURL
 		s.LocalState.Restart = true
 		s.LocalState.Conflicted = false
+		s.LocalState.CharmModifiedVersion = charmModifiedVersion
 	}}
 }
 
@@ -119,17 +121,31 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 			s.LocalState.LeaderSettingsVersion = v
 		}}
 	}
-	// No matter what has finished running, we reset the UpdateStatusVersion so that
-	// the update-status hook only fires after the next timer.
-	v := s.RemoteState.UpdateStatusVersion
-	return onCommitWrapper{op, func() {
-		s.LocalState.UpdateStatusVersion = v
+
+	charmModifiedVersion := s.RemoteState.CharmModifiedVersion
+	updateStatusVersion := s.RemoteState.UpdateStatusVersion
+	op = onCommitWrapper{op, func() {
+		// Update UpdateStatusVersion so that the update-status
+		// hook only fires after the next timer.
+		s.LocalState.UpdateStatusVersion = updateStatusVersion
+		s.LocalState.CharmModifiedVersion = charmModifiedVersion
 	}}
+
+	retryHookVersion := s.RemoteState.RetryHookVersion
+	op = onPrepareWrapper{op, func() {
+		// Update RetryHookVersion so that we don't attempt to
+		// retry a hook more than once between timers signals.
+		//
+		// We need to do this in Prepare, rather than Commit,
+		// in case the retried hook fails.
+		s.LocalState.RetryHookVersion = retryHookVersion
+	}}
+	return op
 }
 
 type onCommitWrapper struct {
 	operation.Operation
-	f func()
+	onCommit func()
 }
 
 func (op onCommitWrapper) Commit(state operation.State) (*operation.State, error) {
@@ -137,13 +153,20 @@ func (op onCommitWrapper) Commit(state operation.State) (*operation.State, error
 	if err != nil {
 		return nil, err
 	}
-	onCommit(op)
+	op.onCommit()
 	return st, nil
 }
 
-func onCommit(op operation.Operation) {
-	if wrapper, ok := op.(onCommitWrapper); ok {
-		wrapper.f()
-		onCommit(wrapper.Operation)
+type onPrepareWrapper struct {
+	operation.Operation
+	onPrepare func()
+}
+
+func (op onPrepareWrapper) Prepare(state operation.State) (*operation.State, error) {
+	st, err := op.Operation.Prepare(state)
+	if err != nil {
+		return nil, err
 	}
+	op.onPrepare()
+	return st, nil
 }

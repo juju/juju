@@ -25,20 +25,20 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiserverprovisioner "github.com/juju/juju/apiserver/provisioner"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuversion"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -46,6 +46,9 @@ import (
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
+	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -69,7 +72,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	attrs := map[string]interface{}{
 		config.ProvisionerHarvestModeKey: config.HarvestAll.String(),
 	}
-	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BackingState.StartSync()
@@ -121,13 +124,30 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 
 	s.JujuConnSuite.SetUpTest(c)
 
+	// We do not want to pull published image metadata for tests...
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
+	// We want an image to start test instances
+	err := s.State.CloudImageMetadataStorage.SaveMetadata([]cloudimagemetadata.Metadata{{
+		cloudimagemetadata.MetadataAttributes{
+			Region:          "region",
+			Series:          "trusty",
+			Arch:            "amd64",
+			VirtType:        "",
+			RootStorageType: "",
+			Source:          "test",
+		},
+		10,
+		"-999",
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Create the operations channel with more than enough space
 	// for those tests that don't listen on it.
 	op := make(chan dummy.Operation, 500)
 	dummy.Listen(op)
 	s.op = op
 
-	cfg, err := s.State.EnvironConfig()
+	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg
 
@@ -142,7 +162,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 		Series:     "quantal",
 		Nonce:      agent.BootstrapNonce,
 		InstanceId: dummy.BootstrapInstanceId,
-		Jobs:       []state.MachineJob{state.JobManageEnviron},
+		Jobs:       []state.MachineJob{state.JobManageModel},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
@@ -167,45 +187,9 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.provisioner, gc.NotNil)
 }
 
-// breakDummyProvider changes the environment config in state in a way
-// that causes the given environMethod of the dummy provider to return
-// an error, which is also returned as a message to be checked.
-func breakDummyProvider(c *gc.C, st *state.State, environMethod string) string {
-	attrs := map[string]interface{}{"broken": environMethod}
-	err := st.UpdateEnvironConfig(attrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	return fmt.Sprintf("dummy.%s is broken", environMethod)
-}
-
-// invalidateEnvironment alters the environment configuration
-// so the Settings returned from the watcher will not pass
-// validation.
-func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) {
-	st, err := state.Open(s.State.EnvironTag(), s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	attrs := map[string]interface{}{"type": "unknown"}
-	err = st.UpdateEnvironConfig(attrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-// fixEnvironment undoes the work of invalidateEnvironment.
-func (s *CommonProvisionerSuite) fixEnvironment(c *gc.C) error {
-	st, err := state.Open(s.State.EnvironTag(), s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	attrs := map[string]interface{}{"type": s.cfg.AllAttrs()["type"]}
-	return st.UpdateEnvironConfig(attrs, nil, nil)
-}
-
-// stopper is stoppable.
-type stopper interface {
-	Stop() error
-}
-
-// stop stops a stopper.
-func stop(c *gc.C, s stopper) {
-	c.Assert(s.Stop(), jc.ErrorIsNil)
+// stop stops a Worker.
+func stop(c *gc.C, w worker.Worker) {
+	c.Assert(worker.Stop(w), jc.ErrorIsNil)
 }
 
 func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instance.Instance {
@@ -265,7 +249,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 				c.Assert(o.Networks, jc.DeepEquals, networks)
 				c.Assert(o.NetworkInfo, jc.DeepEquals, networkInfo)
 				c.Assert(o.Volumes, jc.DeepEquals, volumes)
-				c.Assert(o.AgentEnvironment["SECURE_STATESERVER_CONNECTION"], gc.Equals, strconv.FormatBool(secureServerConnection))
+				c.Assert(o.AgentEnvironment["SECURE_CONTROLLER_CONNECTION"], gc.Equals, strconv.FormatBool(secureServerConnection))
 
 				var jobs []multiwatcher.MachineJob
 				for _, job := range m.Jobs() {
@@ -275,8 +259,8 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 
 				if checkPossibleTools != nil {
 					for _, t := range o.PossibleTools {
-						url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
-							s.st.Addr(), coretesting.EnvironmentTag.Id(), t.Version)
+						url := fmt.Sprintf("https://%s/model/%s/tools/%s",
+							s.st.Addr(), coretesting.ModelTag.Id(), t.Version)
 						c.Check(t.URL, gc.Equals, url)
 						t.URL = ""
 					}
@@ -444,7 +428,19 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	return provisioner.NewEnvironProvisioner(s.provisioner, agentConfig)
+	getResource := dt.StubGetResource(dt.StubResources{
+		"agent":      dt.StubResource{Output: mockAgent{config: agentConfig}},
+		"api-caller": dt.StubResource{Output: s.st},
+	})
+	manifold := provisioner.Manifold(provisioner.ManifoldConfig{
+		AgentName:     "agent",
+		APICallerName: "api-caller",
+	})
+	untyped, err := manifold.Start(getResource)
+	c.Assert(err, jc.ErrorIsNil)
+	typed, ok := untyped.(provisioner.Provisioner)
+	c.Assert(ok, jc.IsTrue)
+	return typed
 }
 
 func (s *CommonProvisionerSuite) addMachine() (*state.Machine, error) {
@@ -459,8 +455,8 @@ func (s *CommonProvisionerSuite) addMachineWithConstraints(cons constraints.Valu
 	})
 }
 
-func (s *CommonProvisionerSuite) ensureAvailability(c *gc.C, n int) []*state.Machine {
-	changes, err := s.BackingState.EnsureAvailability(n, s.defaultConstraints, coretesting.FakeDefaultSeries, nil)
+func (s *CommonProvisionerSuite) enableHA(c *gc.C, n int) []*state.Machine {
+	changes, err := s.BackingState.EnableHA(n, s.defaultConstraints, coretesting.FakeDefaultSeries, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	added := make([]*state.Machine, len(changes.Added))
 	for i, mid := range changes.Added {
@@ -473,7 +469,7 @@ func (s *CommonProvisionerSuite) ensureAvailability(c *gc.C, n int) []*state.Mac
 
 func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
-	c.Assert(p.Stop(), jc.ErrorIsNil)
+	stop(c, p)
 }
 
 func (s *ProvisionerSuite) TestSimple(c *gc.C) {
@@ -577,41 +573,6 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 		c.Assert(statusInfo.Message, gc.Equals, "no matching tools available")
 		break
 	}
-
-	// Restart the PA to make sure the machine is skipped again.
-	stop(c, p)
-	p = s.newEnvironProvisioner(c)
-	defer stop(c, p)
-	s.checkNoOperations(c)
-}
-
-func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed(c *gc.C) {
-	brokenMsg := breakDummyProvider(c, s.State, "StartInstance")
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// Check that an instance is not provisioned when the machine is created...
-	m, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkNoOperations(c)
-
-	t0 := time.Now()
-	for time.Since(t0) < coretesting.LongWait {
-		// And check the machine status is set to error.
-		statusInfo, err := m.Status()
-		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == state.StatusPending {
-			time.Sleep(coretesting.ShortWait)
-			continue
-		}
-		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-		c.Assert(statusInfo.Message, gc.Equals, brokenMsg)
-		break
-	}
-
-	// Unbreak the environ config.
-	err = s.fixEnvironment(c)
-	c.Assert(err, jc.ErrorIsNil)
 
 	// Restart the PA to make sure the machine is skipped again.
 	stop(c, p)
@@ -989,13 +950,26 @@ func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
 
 func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
-	defer p.Stop()
+	defer stop(c, p)
 
 	// Add the spaces used in constraints.
-	_, err := s.State.AddSpace("space1", nil, false)
+	_, err := s.State.AddSpace("space1", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space2", nil, false)
+	_, err = s.State.AddSpace("space2", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Add 1 subnet into space1, and 2 into space2.
+	// Only the first subnet of space2 has AllocatableIPLow|High set.
+	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
+	testing.AddSubnetsWithTemplate(c, s.State, 3, state.SubnetInfo{
+		CIDR:              "10.10.{{.}}.0/24",
+		ProviderId:        "subnet-{{.}}",
+		AllocatableIPLow:  "{{if (eq . 1)}}10.10.{{.}}.5{{end}}",
+		AllocatableIPHigh: "{{if (eq . 1)}}10.10.{{.}}.254{{end}}",
+		AvailabilityZone:  "zone{{.}}",
+		SpaceName:         "{{if (eq . 0)}}space1{{else}}space2{{end}}",
+		VLANTag:           42,
+	})
 
 	// Add and provision a machine with spaces specified.
 	cons := constraints.MustParse(
@@ -1021,11 +995,12 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	s.waitRemoved(c, m)
 }
 
-func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.C) {
-	cons := constraints.MustParse(
-		s.defaultConstraints.String(), "spaces=missing,ignored,^ignored-too",
-	)
-	m, err := s.addMachineWithConstraints(cons)
+func (s *ProvisionerSuite) testProvisioningFailsAndSetsErrorStatusForConstraints(
+	c *gc.C,
+	cons constraints.Value,
+	expectedErrorStatus string,
+) {
+	machine, err := s.addMachineWithConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start the PA.
@@ -1038,15 +1013,14 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.
 	// Ensure machine error status was set.
 	t0 := time.Now()
 	for time.Since(t0) < coretesting.LongWait {
-		// And check the machine status is set to error.
-		statusInfo, err := m.Status()
+		statusInfo, err := machine.Status()
 		c.Assert(err, jc.ErrorIsNil)
 		if statusInfo.Status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
 		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-		c.Assert(statusInfo.Message, gc.Equals, `cannot match subnets to zones: space "missing" not found`)
+		c.Assert(statusInfo.Message, gc.Equals, expectedErrorStatus)
 		break
 	}
 
@@ -1069,6 +1043,25 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.
 	s.checkNoOperations(c)
 }
 
+func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.C) {
+	cons := constraints.MustParse(
+		s.defaultConstraints.String(), "spaces=missing,ignored,^ignored-too",
+	)
+	expectedErrorStatus := `cannot match subnets to zones: space "missing" not found`
+	s.testProvisioningFailsAndSetsErrorStatusForConstraints(c, cons, expectedErrorStatus)
+}
+
+func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithEmptySpaces(c *gc.C) {
+	_, err := s.State.AddSpace("empty", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	cons := constraints.MustParse(
+		s.defaultConstraints.String(), "spaces=empty",
+	)
+	expectedErrorStatus := `cannot match subnets to zones: ` +
+		`cannot use space "empty" as deployment target: no subnets`
+	s.testProvisioningFailsAndSetsErrorStatusForConstraints(c, cons, expectedErrorStatus)
+}
+
 func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.MachineVolumeParams, cons constraints.Value) (*state.Machine, error) {
 	return s.BackingState.AddOneMachine(state.MachineTemplate{
 		Series:      coretesting.FakeDefaultSeries,
@@ -1088,7 +1081,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := s.newEnvironProvisioner(c)
-	defer p.Stop()
+	defer stop(c, p)
 
 	// Add and provision a machine with volumes specified.
 	requestedVolumes := []state.MachineVolumeParams{{
@@ -1123,62 +1116,6 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
 	s.waitRemoved(c, m)
-}
-
-func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *gc.C) {
-	s.invalidateEnvironment(c)
-
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// try to create a machine
-	_, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// the PA should not create it
-	s.checkNoOperations(c)
-}
-
-func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *gc.C) {
-	s.invalidateEnvironment(c)
-
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// try to create a machine
-	m, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// the PA should not create it
-	s.checkNoOperations(c)
-
-	err = s.fixEnvironment(c)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.checkStartInstanceNoSecureConnection(c, m)
-}
-
-func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPublished(c *gc.C) {
-	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
-		return mockToolsFinder{}
-	})
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// place a new machine into the state
-	m, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.checkStartInstanceNoSecureConnection(c, m)
-
-	s.invalidateEnvironment(c)
-
-	// create a second machine
-	m, err = s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// the PA should create it using the old environment
-	s.checkStartInstanceNoSecureConnection(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRestart(c *gc.C) {
@@ -1238,55 +1175,6 @@ func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 	c.Assert(m0.Life(), gc.Equals, state.Dying)
 }
 
-func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublished(c *gc.C) {
-	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
-		return mockToolsFinder{}
-	})
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// place a new machine into the state
-	m, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstanceNoSecureConnection(c, m)
-
-	s.invalidateEnvironment(c)
-	s.BackingState.StartSync()
-
-	// create a second machine
-	m, err = s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// the PA should create it using the old environment
-	s.checkStartInstanceNoSecureConnection(c, m)
-
-	err = s.fixEnvironment(c)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// insert our observer
-	cfgObserver := make(chan *config.Config, 1)
-	provisioner.SetObserver(p, cfgObserver)
-
-	err = s.State.UpdateEnvironConfig(map[string]interface{}{"secret": "beef"}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.BackingState.StartSync()
-
-	// wait for the PA to load the new configuration
-	select {
-	case <-cfgObserver:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("PA did not action config change")
-	}
-
-	// create a third machine
-	m, err = s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// the PA should create it using the new environment
-	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints, nil, nil, nil, nil, false, nil, true)
-}
-
 type mockMachineGetter struct{}
 
 func (*mockMachineGetter) Machine(names.MachineTag) (*apiprovisioner.Machine, error) {
@@ -1318,7 +1206,7 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 		&mockToolsFinder{},
 	)
 	defer func() {
-		err := task.Stop()
+		err := worker.Stop(task)
 		c.Assert(err, gc.ErrorMatches, ".*failed to get machine.*")
 	}()
 	s.checkNoOperations(c)
@@ -1338,7 +1226,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	toolsFinder provisioner.ToolsFinder,
 ) provisioner.ProvisionerTask {
 
-	machineWatcher, err := s.provisioner.WatchEnvironMachines()
+	machineWatcher, err := s.provisioner.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	retryWatcher, err := s.provisioner.WatchMachineErrorRetry()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1347,7 +1235,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 
 	retryStrategy := provisioner.NewRetryStrategy(0*time.Second, 0)
 
-	return provisioner.NewProvisionerTask(
+	w, err := provisioner.NewProvisionerTask(
 		names.NewMachineTag("0"),
 		harvestingMethod,
 		machineGetter,
@@ -1360,6 +1248,8 @@ func (s *ProvisionerSuite) newProvisionerTask(
 		true,
 		retryStrategy,
 	)
+	c.Assert(err, jc.ErrorIsNil)
+	return w
 }
 
 func (s *ProvisionerSuite) TestHarvestNoneReapsNothing(c *gc.C) {
@@ -1509,7 +1399,7 @@ func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {
 	task := s.newProvisionerTask(c, config.HarvestAll, broker, s.provisioner, mockToolsFinder{})
 	defer stop(c, task)
 
-	added := s.ensureAvailability(c, 3)
+	added := s.enableHA(c, 3)
 	c.Assert(added, gc.HasLen, 2)
 	byId := make(map[string]*state.Machine)
 	for _, m := range added {
@@ -1554,4 +1444,13 @@ func (f mockToolsFinder) FindTools(number version.Number, series string, a strin
 		v.Arch = a
 	}
 	return coretools.List{&coretools.Tools{Version: v}}, nil
+}
+
+type mockAgent struct {
+	agent.Agent
+	config agent.Config
+}
+
+func (mock mockAgent) CurrentConfig() agent.Config {
+	return mock.config
 }

@@ -11,8 +11,9 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 // This module implements a subset of the interface provided by
@@ -63,7 +64,7 @@ func (s *Service) WatchRelations() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(s.st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(s.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -81,6 +82,29 @@ func (s *Service) Refresh() error {
 	}
 	s.life = life
 	return nil
+}
+
+// CharmModifiedVersion increments every time the charm, or any part of it, is
+// changed in some way.
+func (s *Service) CharmModifiedVersion() (int, error) {
+	var results params.IntResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.tag.String()}},
+	}
+	err := s.st.facade.FacadeCall("CharmModifiedVersion", args, &results)
+	if err != nil {
+		return -1, err
+	}
+
+	if len(results.Results) != 1 {
+		return -1, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return -1, result.Error
+	}
+
+	return result.Result, nil
 }
 
 // CharmURL returns the service's charm URL, and whether units should
@@ -117,10 +141,7 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 
 // OwnerTag returns the service's owner user tag.
 func (s *Service) OwnerTag() (names.UserTag, error) {
-	if s.st.BestAPIVersion() > 0 {
-		return s.serviceOwnerTag()
-	}
-	return s.ownerTag()
+	return s.serviceOwnerTag()
 }
 
 func (s *Service) serviceOwnerTag() (names.UserTag, error) {
@@ -143,29 +164,9 @@ func (s *Service) serviceOwnerTag() (names.UserTag, error) {
 	return names.ParseUserTag(result.Result)
 }
 
-func (s *Service) ownerTag() (names.UserTag, error) {
-	var invalidTag names.UserTag
-	var result params.StringResult
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.tag.String()}},
-	}
-	err := s.st.facade.FacadeCall("GetOwnerTag", args, &result)
-	if err != nil {
-		return invalidTag, err
-	}
-	if result.Error != nil {
-		return invalidTag, result.Error
-	}
-	return names.ParseUserTag(result.Result)
-}
-
 // SetStatus sets the status of the service if the passed unitName,
 // corresponding to the calling unit, is of the leader.
 func (s *Service) SetStatus(unitName string, status params.Status, info string, data map[string]interface{}) error {
-	//TODO(perrito666) bump api version for this?
-	if s.st.facade.BestAPIVersion() < 2 {
-		return errors.NotImplementedf("SetStatus")
-	}
 	tag := names.NewUnitTag(unitName)
 	var result params.ErrorResults
 	args := params.SetStatus{
@@ -180,15 +181,12 @@ func (s *Service) SetStatus(unitName string, status params.Status, info string, 
 	}
 	err := s.st.facade.FacadeCall("SetServiceStatus", args, &result)
 	if err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return errors.NotImplementedf("SetServiceStatus")
-		}
 		return errors.Trace(err)
 	}
 	return result.OneError()
 }
 
-// ServiceStatus returns the status of the service if the passed unitName,
+// Status returns the status of the service if the passed unitName,
 // corresponding to the calling unit, is of the leader.
 func (s *Service) Status(unitName string) (params.ServiceStatusResult, error) {
 	tag := names.NewUnitTag(unitName)
@@ -202,9 +200,6 @@ func (s *Service) Status(unitName string) (params.ServiceStatusResult, error) {
 	}
 	err := s.st.facade.FacadeCall("ServiceStatus", args, &results)
 	if err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return params.ServiceStatusResult{}, errors.NotImplementedf("ServiceStatus")
-		}
 		return params.ServiceStatusResult{}, errors.Trace(err)
 	}
 	result := results.Results[0]

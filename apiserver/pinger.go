@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Pinger", 0, NewPinger)
+	common.RegisterStandardFacade("Pinger", 1, NewPinger)
 }
 
 // NewPinger returns an object that can be pinged by calling its Ping method.

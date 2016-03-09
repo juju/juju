@@ -12,15 +12,15 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.upgrader")
 
 func init() {
-	common.RegisterStandardFacade("Upgrader", 0, upgraderFacade)
+	common.RegisterStandardFacade("Upgrader", 1, upgraderFacade)
 }
 
 // upgraderFacade is a bit unique vs the other API Facades, as it has two
@@ -77,7 +77,7 @@ func NewUpgraderAPI(
 	getCanReadWrite := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 		}
 		err = common.ErrPerm
 		if u.authorizer.AuthOwner(tag) {
-			watch := u.st.WatchForEnvironConfigChanges()
+			watch := u.st.WatchForModelConfigChanges()
 			// Consume the initial event. Technically, API
 			// calls to Watch 'transmit' the initial event
 			// in the Watch response. But NotifyWatchers
@@ -123,13 +123,13 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 
 func (u *UpgraderAPI) getGlobalAgentVersion() (version.Number, *config.Config, error) {
 	// Get the Agent Version requested in the Environment Config
-	cfg, err := u.st.EnvironConfig()
+	cfg, err := u.st.ModelConfig()
 	if err != nil {
 		return version.Number{}, nil, err
 	}
 	agentVersion, ok := cfg.AgentVersion()
 	if !ok {
-		return version.Number{}, nil, errors.New("agent version not set in environment config")
+		return version.Number{}, nil, errors.New("agent version not set in model config")
 	}
 	return agentVersion, cfg, nil
 }
@@ -171,7 +171,7 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 		err = common.ErrPerm
 		if u.authorizer.AuthOwner(tag) {
 			// Only return the globally desired agent version if the
-			// asking entity is a machine agent with JobManageEnviron or
+			// asking entity is a machine agent with JobManageModel or
 			// if this API server is running the globally desired agent
 			// version. Otherwise report this API server's current
 			// agent version.

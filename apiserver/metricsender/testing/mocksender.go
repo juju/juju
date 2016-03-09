@@ -4,9 +4,8 @@
 package testing
 
 import (
+	wireformat "github.com/juju/romulus/wireformat/metrics"
 	"github.com/juju/utils"
-
-	"github.com/juju/juju/apiserver/metricsender/wireformat"
 )
 
 // MockSender implements the metric sender interface.
@@ -24,7 +23,7 @@ func (m *MockSender) Send(d []*wireformat.MetricBatch) (*wireformat.Response, er
 	var envResponses = make(wireformat.EnvironmentResponses)
 
 	for _, batch := range d {
-		envResponses.Ack(batch.EnvUUID, batch.UUID)
+		envResponses.Ack(batch.ModelUUID, batch.UUID)
 	}
 	return &wireformat.Response{
 		UUID:         respUUID.String(),

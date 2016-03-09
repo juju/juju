@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/httpstorage"
 	"github.com/juju/juju/environs/storage"
 )
 
@@ -21,9 +20,11 @@ func CreateLocalTestStorage(c *gc.C) (closer io.Closer, stor storage.Storage, da
 	dataDir = c.MkDir()
 	underlying, err := filestorage.NewFileStorageWriter(dataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	listener, err := httpstorage.Serve("localhost:0", underlying)
-	c.Assert(err, jc.ErrorIsNil)
-	stor = httpstorage.Client(listener.Addr().String())
-	closer = listener
-	return
+	return nopCloser{}, underlying, dataDir
+}
+
+type nopCloser struct{}
+
+func (nopCloser) Close() error {
+	return nil
 }

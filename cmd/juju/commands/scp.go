@@ -11,11 +11,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/utils/ssh"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newSCPCommand() cmd.Command {
-	return envcmd.Wrap(&scpCommand{})
+	return modelcmd.Wrap(&scpCommand{})
 }
 
 // scpCommand is responsible for launching a scp command to copy files to/from remote machine(s)
@@ -51,9 +51,9 @@ server to the local directory remote-logs:
 
     juju scp -- -r mongodb/0:/var/log/mongodb/ remote-logs/
 
-Copy a local file to the second apache unit of the environment "testing":
+Copy a local file to the second apache unit of the model "testing":
 
-    juju scp -e testing foo.txt apache2/1:
+    juju scp -m testing foo.txt apache2/1:
 `
 
 func (c *scpCommand) Info() *cmd.Info {

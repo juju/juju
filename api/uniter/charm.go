@@ -16,7 +16,7 @@ import (
 // This module implements a subset of the interface provided by
 // state.Charm, as needed by the uniter API.
 
-// Charm represents the state of a charm in the environment.
+// Charm represents the state of a charm in the model.
 type Charm struct {
 	st   *State
 	curl *charm.URL
@@ -33,7 +33,7 @@ func (c *Charm) URL() *charm.URL {
 }
 
 // ArchiveURLs returns the URLs to the charm archive (bundle) in the
-// environment storage. Each URL should be tried until one succeeds.
+// model storage. Each URL should be tried until one succeeds.
 func (c *Charm) ArchiveURLs() ([]*url.URL, error) {
 	var results params.StringsResults
 	args := params.CharmURLs{

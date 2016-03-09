@@ -21,7 +21,7 @@ type mongoRestoreSuite struct {
 	testing.BaseSuite
 }
 
-func (s *mongoRestoreSuite) TestMongoRestoreArgsForVersion(c *gc.C) {
+func (s *mongoRestoreSuite) TestMongoRestoreArgsForVersion121(c *gc.C) {
 	dir := filepath.Join(agent.DefaultPaths.DataDir, "db")
 	versionNumber := version.Number{}
 	versionNumber.Major = 1
@@ -36,10 +36,14 @@ func (s *mongoRestoreSuite) TestMongoRestoreArgsForVersion(c *gc.C) {
 		dir,
 		"/some/fake/path",
 	})
+}
 
+func (s *mongoRestoreSuite) TestMongoRestoreArgsForVersion122(c *gc.C) {
+	dir := filepath.Join(agent.DefaultPaths.DataDir, "db")
+	versionNumber := version.Number{}
 	versionNumber.Major = 1
 	versionNumber.Minor = 22
-	args, err = backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
+	args, err := backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(args, gc.HasLen, 6)
 	c.Assert(args[0:6], jc.DeepEquals, []string{
@@ -50,10 +54,31 @@ func (s *mongoRestoreSuite) TestMongoRestoreArgsForVersion(c *gc.C) {
 		dir,
 		"/some/fake/path",
 	})
+}
 
+func (s *mongoRestoreSuite) TestMongoRestoreArgsForVersion2(c *gc.C) {
+	dir := filepath.Join(agent.DefaultPaths.DataDir, "db")
+	versionNumber := version.Number{}
+	versionNumber.Major = 2
+	versionNumber.Minor = 0
+	args, err := backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(args, gc.HasLen, 6)
+	c.Assert(args[0:6], jc.DeepEquals, []string{
+		"--drop",
+		"--journal",
+		"--oplogReplay",
+		"--dbpath",
+		dir,
+		"/some/fake/path",
+	})
+}
+
+func (s *mongoRestoreSuite) TestMongoRestoreArgsForOldVersion(c *gc.C) {
+	versionNumber := version.Number{}
 	versionNumber.Major = 0
 	versionNumber.Minor = 0
-	_, err = backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
+	_, err := backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
 	c.Assert(err, gc.ErrorMatches, "this backup file is incompatible with the current version of juju")
 }
 

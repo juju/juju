@@ -19,12 +19,11 @@ var WindowsUserdata = `#ps1_sysnative
 
 $ErrorActionPreference = "Stop"
 
-function ExecRetry($command, $maxRetryCount = 10, $retryInterval=2)
+function ExecRetry($command, $retryInterval = 15)
 {
 	$currErrorActionPreference = $ErrorActionPreference
 	$ErrorActionPreference = "Continue"
 
-	$retryCount = 0
 	while ($true)
 	{
 		try
@@ -34,17 +33,8 @@ function ExecRetry($command, $maxRetryCount = 10, $retryInterval=2)
 		}
 		catch [System.Exception]
 		{
-			$retryCount++
-			if ($retryCount -ge $maxRetryCount)
-			{
-				$ErrorActionPreference = $currErrorActionPreference
-				throw
-			}
-			else
-			{
-				Write-Error $_.Exception
-				Start-Sleep $retryInterval
-			}
+			Write-Error $_.Exception
+			Start-Sleep $retryInterval
 		}
 	}
 
@@ -906,13 +896,14 @@ cacert: |
   -----END CERTIFICATE-----
 stateaddresses:
 - state-addr.testing.invalid:12345
-environment: environment-deadbeef-0bad-400d-8000-4b1d0d06f00d
+model: model-deadbeef-0bad-400d-8000-4b1d0d06f00d
 apiaddresses:
 - state-addr.testing.invalid:54321
 oldpassword: arble
 values:
   AGENT_SERVICE_NAME: jujud-machine-10
   PROVIDER_TYPE: dummy
+mongoversion: "0.0"
 
 "@
 cmd.exe /C mklink /D C:\Juju\lib\juju\tools\machine-10 1.2.3-win8-amd64

@@ -8,6 +8,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/clock"
 
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
 )
 
@@ -45,15 +46,15 @@ type ClientConfig struct {
 	Clock clock.Clock
 }
 
-// Validate returns an error if the supplied config is not valid.
-func (config ClientConfig) Validate() error {
-	if err := validateString(config.Id); err != nil {
+// validate returns an error if the supplied config is not valid.
+func (config ClientConfig) validate() error {
+	if err := lease.ValidateString(config.Id); err != nil {
 		return errors.Annotatef(err, "invalid id")
 	}
-	if err := validateString(config.Namespace); err != nil {
+	if err := lease.ValidateString(config.Namespace); err != nil {
 		return errors.Annotatef(err, "invalid namespace")
 	}
-	if err := validateString(config.Collection); err != nil {
+	if err := lease.ValidateString(config.Collection); err != nil {
 		return errors.Annotatef(err, "invalid collection")
 	}
 	if config.Mongo == nil {

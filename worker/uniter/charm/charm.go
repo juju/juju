@@ -8,17 +8,16 @@ import (
 	"net/url"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
-
-	"github.com/juju/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.charm")
 
-// charmURLPath is the path within a charm directory to which Deployers
+// CharmURLPath is the path within a charm directory to which Deployers
 // commonly write the charm URL of the latest deployed charm.
-const charmURLPath = ".juju-charm"
+const CharmURLPath = ".juju-charm"
 
 // Bundle allows access to a charm's files.
 type Bundle interface {

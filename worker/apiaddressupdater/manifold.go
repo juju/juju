@@ -5,6 +5,7 @@ package apiaddressupdater
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/api/machiner"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
@@ -16,26 +17,33 @@ import (
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
-type ManifoldConfig util.AgentApiManifoldConfig
+type ManifoldConfig util.PostUpgradeManifoldConfig
 
 // Manifold returns a dependency manifold that runs an API address updater worker,
 // using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	return util.AgentApiManifold(util.AgentApiManifoldConfig(config), newWorker)
+	return util.PostUpgradeManifold(util.PostUpgradeManifoldConfig(config), newWorker)
 }
 
 // newWorker trivially wraps NewAPIAddressUpdater for use in a util.AgentApiManifold.
-// It's not tested at the moment, because the scaffolding necessary to test these 5
-// lines outweighs them by several times for very little confirmatory power; in the
-// long term, all APIAddressUpdaters should be constructed via a manifold, and the
-// tests can be updated to reflect that.
+// It's not tested at the moment, because the scaffolding necessary is too
+// unwieldy/distracting to introduce at this point.
 var newWorker = func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
-	// TODO(fwereade): why on *earth* do we use the *uniter* facade for this
-	// worker? This code really ought to work anywhere...
 	tag := a.CurrentConfig().Tag()
-	unitTag, ok := tag.(names.UnitTag)
-	if !ok {
-		return nil, errors.Errorf("expected a unit tag; got %q", tag)
+	var facade APIAddresser
+	switch apiTag := tag.(type) {
+	case names.UnitTag:
+		facade = uniter.NewState(apiCaller, apiTag)
+	case names.MachineTag:
+		facade = machiner.NewState(apiCaller)
+	default:
+		return nil, errors.Errorf("expected a unit or machine tag; got %q", tag)
 	}
-	return NewAPIAddressUpdater(uniter.NewState(apiCaller, unitTag), agent.APIHostPortsSetter{a}), nil
+
+	setter := agent.APIHostPortsSetter{a}
+	w, err := NewAPIAddressUpdater(facade, setter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }

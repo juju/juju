@@ -50,7 +50,7 @@ func (c *dumpLogsCommand) Info() *cmd.Info {
 This tool can be used to access Juju's logs when the Juju controller
 isn't functioning for some reason. It must be run on a Juju controller
 server, connecting to the Juju database instance and generating a log
-file for each environment that exists in the controller.
+file for each model that exists in the controller.
 
 Log files are written out to the current working directory by
 default. Use -d / --output-directory option to specify an alternate
@@ -109,20 +109,20 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 		return errors.New("no database connection info available (is this a controller host?)")
 	}
 
-	st0, err := state.Open(config.Environment(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st0, err := state.Open(config.Model(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
 		return errors.Annotate(err, "failed to connect to database")
 	}
 	defer st0.Close()
 
-	envs, err := st0.AllEnvironments()
+	envs, err := st0.AllModels()
 	if err != nil {
-		return errors.Annotate(err, "failed to look up environments")
+		return errors.Annotate(err, "failed to look up models")
 	}
 	for _, env := range envs {
-		err := c.dumpLogsForEnv(ctx, st0, env.EnvironTag())
+		err := c.dumpLogsForEnv(ctx, st0, env.ModelTag())
 		if err != nil {
-			return errors.Annotatef(err, "failed to dump logs for environment %s", env.UUID())
+			return errors.Annotatef(err, "failed to dump logs for model %s", env.UUID())
 		}
 	}
 
@@ -145,10 +145,10 @@ func (c *dumpLogsCommand) findMachineId(dataDir string) (string, error) {
 	return "", errors.New("no machine agent configuration found")
 }
 
-func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, st0 *state.State, tag names.EnvironTag) error {
-	st, err := st0.ForEnviron(tag)
+func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, st0 *state.State, tag names.ModelTag) error {
+	st, err := st0.ForModel(tag)
 	if err != nil {
-		return errors.Annotate(err, "failed open environment")
+		return errors.Annotate(err, "failed open model")
 	}
 	defer st.Close()
 

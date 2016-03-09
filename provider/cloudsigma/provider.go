@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -27,12 +28,14 @@ const (
 func getImageSource(env environs.Environ) (simplestreams.DataSource, error) {
 	e, ok := env.(*environ)
 	if !ok {
-		return nil, errors.NotSupportedf("non-cloudsigma environment")
+		return nil, errors.NotSupportedf("non-cloudsigma model")
 	}
-	return simplestreams.NewURLDataSource("cloud images", fmt.Sprintf(CloudsigmaCloudImagesURLTemplate, e.ecfg.region()), utils.VerifySSLHostnames), nil
+	return simplestreams.NewURLDataSource("cloud images", fmt.Sprintf(CloudsigmaCloudImagesURLTemplate, e.ecfg.region()), utils.VerifySSLHostnames, simplestreams.SPECIFIC_CLOUD_DATA, false), nil
 }
 
-type environProvider struct{}
+type environProvider struct {
+	environProviderCredentials
+}
 
 var providerInstance = environProvider{}
 
@@ -49,23 +52,11 @@ func init() {
 	registry.RegisterEnvironStorageProviders(providerType)
 }
 
-// Boilerplate returns a default configuration for the environment in yaml format.
-// The text should be a key followed by some number of attributes:
-//    `environName:
-//        type: environTypeName
-//        attr1: val1
-//    `
-// The text is used as a template (see the template package) with one extra template
-// function available, rand, which expands to a random hexadecimal string when invoked.
-func (environProvider) BoilerplateConfig() string {
-	return boilerplateConfig
-}
-
 // Open opens the environment and returns it.
 // The configuration must have come from a previously
 // prepared environment.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("opening environment %q", cfg.Name())
+	logger.Infof("opening model %q", cfg.Name())
 
 	cfg, err := prepareConfig(cfg)
 	if err != nil {
@@ -100,8 +91,26 @@ func (environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.
 // configuration attributes in the returned environment should
 // be saved to be used later. If the environment is already
 // prepared, this call is equivalent to Open.
-func (environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("preparing environment %q", cfg.Name())
+func (environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+	cfg := args.Config
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.UserPassAuthType:
+		var err error
+		credentialAttributes := args.Credentials.Attributes()
+		cfg, err = cfg.Apply(map[string]interface{}{
+			"username": credentialAttributes["username"],
+			"password": credentialAttributes["password"],
+			"region":   args.CloudRegion,
+			"endpoint": args.CloudEndpoint,
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+
+	logger.Infof("preparing model %q", cfg.Name())
 	return providerInstance.Open(cfg)
 }
 
@@ -111,7 +120,7 @@ func (environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *c
 // If old is not nil, it holds the previous environment configuration
 // for consideration when validating changes.
 func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
-	logger.Infof("validating environment %q", cfg.Name())
+	logger.Infof("validating model %q", cfg.Name())
 
 	// You should almost certainly not change this method; if you need to change
 	// how configs are validated, you should edit validateConfig itself, to ensure
@@ -137,7 +146,7 @@ func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error)
 // which are considered sensitive. All of the values of these secret
 // attributes need to be strings.
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	logger.Infof("filtering secret attributes for environment %q", cfg.Name())
+	logger.Infof("filtering secret attributes for model %q", cfg.Name())
 
 	// If you keep configSecretFields up to date, this method should Just Work.
 	ecfg, err := validateConfig(cfg, nil)

@@ -14,15 +14,17 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/jujutest"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -138,31 +140,18 @@ func parseIndexData(creds *auth.Credentials) bytes.Buffer {
 	return metadata
 }
 
-// This provides the content for code accessing test://host/... URLs. This allows
-// us to set the responses for things like the Metadata server, by pointing
-// metadata requests at test://host/...
-var testRoundTripper = &jujutest.ProxyRoundTripper{}
-
-func init() {
-	testRoundTripper.RegisterForScheme("test")
-}
-
-var origImagesUrl = imagemetadata.DefaultBaseURL
-
 // Set Metadata requests to be served by the filecontent supplied.
-func UseExternalTestImageMetadata(creds *auth.Credentials) {
+func UseExternalTestImageMetadata(c *gc.C, creds *auth.Credentials) {
 	metadata := parseIndexData(creds)
 	files := map[string]string{
 		"/streams/v1/index.json":                            metadata.String(),
 		"/streams/v1/com.ubuntu.cloud:released:joyent.json": imagesData,
 	}
-	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
-	imagemetadata.DefaultBaseURL = "test://host"
+	sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
 }
 
 func UnregisterExternalTestImageMetadata() {
-	testRoundTripper.Sub = nil
-	imagemetadata.DefaultBaseURL = origImagesUrl
+	sstesting.SetRoundTripperFiles(nil, nil)
 }
 
 // RegisterMachinesEndpoint creates a fake endpoint so that
@@ -171,39 +160,58 @@ func RegisterMachinesEndpoint() {
 	files := map[string]string{
 		"/test/machines": "",
 	}
-	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
+	sstesting.SetRoundTripperFiles(files, nil)
 }
 
 // UnregisterMachinesEndpoint resets the machines endpoint.
 func UnregisterMachinesEndpoint() {
-	testRoundTripper.Sub = nil
+	sstesting.SetRoundTripperFiles(nil, nil)
 }
 
-func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
+func FindInstanceSpec(
+	e environs.Environ, series, arch, cons string,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (spec *instances.InstanceSpec, err error) {
 	env := e.(*joyentEnviron)
 	spec, err = env.FindInstanceSpec(&instances.InstanceConstraint{
 		Series:      series,
 		Arches:      []string{arch},
 		Region:      env.Ecfg().Region(),
 		Constraints: constraints.MustParse(cons),
-	})
+	}, imageMetadata)
 	return
-}
-
-func ControlBucketName(e environs.Environ) string {
-	env := e.(*joyentEnviron)
-	return env.Storage().(*JoyentStorage).GetContainerName()
 }
 
 func CreateContainer(s *JoyentStorage) error {
 	return s.createContainer()
 }
 
+func CredentialsAttributes(attrs testing.Attrs) map[string]string {
+	credentialAttrs := make(map[string]string)
+	for _, attr := range []string{"sdc-user", "sdc-key-id", "manta-user", "manta-key-id", "private-key", "private-key-path"} {
+		if v, ok := attrs[attr]; ok && v != "" {
+			credentialAttrs[attr] = fmt.Sprintf("%v", v)
+		}
+	}
+	return credentialAttrs
+}
+
 // MakeConfig creates a functional environConfig for a test.
 func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	env, err := environs.Prepare(
+		envtesting.BootstrapContext(c), configstore.NewMem(),
+		jujuclienttesting.NewMemStore(),
+		cfg.Name(),
+		environs.PrepareForBootstrapParams{
+			Config: cfg,
+			Credentials: cloud.NewCredential(
+				cloud.UserPassAuthType,
+				CredentialsAttributes(attrs),
+			),
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env.(*joyentEnviron).Ecfg()
 }

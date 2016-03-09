@@ -32,7 +32,7 @@ func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, "fake-nonce", imagemetadata.ReleasedStream, "quantal", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, "fake-nonce", imagemetadata.ReleasedStream, "quantal", "", true, nil, stateInfo, apiInfo)
 	if err != nil {
 		return nil, err
 	}

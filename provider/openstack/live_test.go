@@ -47,15 +47,14 @@ func makeTestConfig(cred *identity.Credentials) map[string]interface{} {
 	//  secret-key: $OS_PASSWORD
 	//
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"name":           "sample-" + randomName(),
-		"type":           "openstack",
-		"auth-mode":      "userpass",
-		"control-bucket": "juju-test-" + randomName(),
-		"username":       cred.User,
-		"password":       cred.Secrets,
-		"region":         cred.Region,
-		"auth-url":       cred.URL,
-		"tenant-name":    cred.TenantName,
+		"name":        "sample-" + randomName(),
+		"type":        "openstack",
+		"auth-mode":   "userpass",
+		"username":    cred.User,
+		"password":    cred.Secrets,
+		"region":      cred.Region,
+		"auth-url":    cred.URL,
+		"tenant-name": cred.TenantName,
 	})
 	return attrs
 }
@@ -186,7 +185,7 @@ func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {
 	// all ports to other machines inside the same group
 	// TODO(jam): 2013-09-18 http://pad.lv/1227142
 	// We shouldn't be exposing the API port on all the machines
-	// that *aren't* hosting the state server.
+	// that *aren't* hosting the controller.
 	stringRules := make([]string, 0, len(group.Rules))
 	for _, rule := range group.Rules {
 		ruleStr := fmt.Sprintf("%s %d %d %q %q",
@@ -214,7 +213,6 @@ func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {
 func (s *LiveTests) assertStartInstanceDefaultSecurityGroup(c *gc.C, useDefault bool) {
 	attrs := s.TestConfig.Merge(coretesting.Attrs{
 		"name":                 "sample-" + randomName(),
-		"control-bucket":       "juju-test-" + randomName(),
 		"use-default-secgroup": useDefault,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)

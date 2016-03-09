@@ -6,6 +6,7 @@ package keymanager_test
 import (
 	"strings"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/ssh"
 	sshtesting "github.com/juju/utils/ssh/testing"
@@ -16,6 +17,7 @@ import (
 	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 )
 
@@ -35,7 +37,7 @@ func (s *keymanagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *keymanagerSuite) setAuthorisedKeys(c *gc.C, keys string) {
-	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -69,8 +71,8 @@ func clientError(message string) *params.Error {
 	}
 }
 
-func (s *keymanagerSuite) assertEnvironKeys(c *gc.C, expected []string) {
-	envConfig, err := s.State.EnvironConfig()
+func (s *keymanagerSuite) assertModelKeys(c *gc.C, expected []string) {
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	keys := envConfig.AuthorizedKeys()
 	c.Assert(keys, gc.Equals, strings.Join(expected, "\n"))
@@ -88,14 +90,14 @@ func (s *keymanagerSuite) TestAddKeys(c *gc.C) {
 		{Error: nil},
 		{Error: clientError("invalid ssh key: invalid")},
 	})
-	s.assertEnvironKeys(c, append([]string{key1}, newKeys[:2]...))
+	s.assertModelKeys(c, append([]string{key1}, newKeys[:2]...))
 }
 
 func (s *keymanagerSuite) TestAddSystemKey(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	s.setAuthorisedKeys(c, key1)
 
-	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 	keyManager := keymanager.NewClient(apiState)
 	defer keyManager.Close()
 	newKey := sshtesting.ValidKeyTwo.Key
@@ -104,20 +106,23 @@ func (s *keymanagerSuite) TestAddSystemKey(c *gc.C) {
 	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 	})
-	s.assertEnvironKeys(c, []string{key1, newKey})
+	s.assertModelKeys(c, []string{key1, newKey})
 }
 
 func (s *keymanagerSuite) TestAddSystemKeyWrongUser(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	s.setAuthorisedKeys(c, key1)
 
-	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 	keyManager := keymanager.NewClient(apiState)
 	defer keyManager.Close()
 	newKey := sshtesting.ValidKeyTwo.Key
 	_, err := keyManager.AddKeys("some-user", newKey)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	s.assertEnvironKeys(c, []string{key1})
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: "permission denied",
+		Code:    "unauthorized access",
+	})
+	s.assertModelKeys(c, []string{key1})
 }
 
 func (s *keymanagerSuite) TestDeleteKeys(c *gc.C) {
@@ -134,7 +139,7 @@ func (s *keymanagerSuite) TestDeleteKeys(c *gc.C) {
 		{Error: nil},
 		{Error: clientError("invalid ssh key: missing")},
 	})
-	s.assertEnvironKeys(c, []string{"invalid", key3})
+	s.assertModelKeys(c, []string{"invalid", key3})
 }
 
 func (s *keymanagerSuite) TestImportKeys(c *gc.C) {
@@ -150,7 +155,7 @@ func (s *keymanagerSuite) TestImportKeys(c *gc.C) {
 		{Error: nil},
 		{Error: clientError("invalid ssh key id: invalid-key")},
 	})
-	s.assertEnvironKeys(c, []string{key1, sshtesting.ValidKeyThree.Key})
+	s.assertModelKeys(c, []string{key1, sshtesting.ValidKeyThree.Key})
 }
 
 func (s *keymanagerSuite) assertInvalidUserOperation(c *gc.C, test func(user string, keys []string) error) {
@@ -162,8 +167,8 @@ func (s *keymanagerSuite) assertInvalidUserOperation(c *gc.C, test func(user str
 	err := test("invalid", keys)
 	c.Assert(err, gc.ErrorMatches, `permission denied`)
 
-	// No environ changes.
-	s.assertEnvironKeys(c, []string{key1})
+	// No model changes.
+	s.assertModelKeys(c, []string{key1})
 }
 
 func (s *keymanagerSuite) TestAddKeysInvalidUser(c *gc.C) {
@@ -191,5 +196,5 @@ func (s *keymanagerSuite) TestImportKeysInvalidUser(c *gc.C) {
 }
 
 func (s *keymanagerSuite) TestExposesBestAPIVersion(c *gc.C) {
-	c.Check(s.keymanager.BestAPIVersion(), gc.Equals, 0)
+	c.Check(s.keymanager.BestAPIVersion(), gc.Equals, 1)
 }

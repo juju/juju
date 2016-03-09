@@ -6,7 +6,6 @@ package storage_test
 import (
 	"fmt"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
@@ -40,19 +39,21 @@ func (s *poolSuite) createPools(c *gc.C, num int) {
 
 func (s *poolSuite) TestList(c *gc.C) {
 	s.createPools(c, 1)
-	pools, err := s.api.ListPools(params.StoragePoolFilter{})
+	results, err := s.api.ListPools(params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools.Results, gc.HasLen, 1)
-	one := pools.Results[0]
-	c.Assert(one.Name, gc.Equals, fmt.Sprintf("%v%v", tstName, 0))
-	c.Assert(one.Provider, gc.Equals, string(provider.LoopProviderType))
+	c.Assert(results.Results, gc.HasLen, 1)
+	one := results.Results[0]
+	c.Assert(one.Error, gc.IsNil)
+	c.Assert(one.Result, gc.HasLen, 1)
+	c.Assert(one.Result[0].Name, gc.Equals, fmt.Sprintf("%v%v", tstName, 0))
+	c.Assert(one.Result[0].Provider, gc.Equals, string(provider.LoopProviderType))
 }
 
 func (s *poolSuite) TestListManyResults(c *gc.C) {
 	s.createPools(c, 2)
-	pools, err := s.api.ListPools(params.StoragePoolFilter{})
+	results, err := s.api.ListPools(params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
 	c.Assert(err, jc.ErrorIsNil)
-	assertPoolNames(c, pools.Results,
+	assertPoolNames(c, results.Results[0].Result,
 		"testpool0", "testpool1",
 		"dummy", "loop",
 		"tmpfs", "rootfs")
@@ -62,11 +63,15 @@ func (s *poolSuite) TestListByName(c *gc.C) {
 	s.createPools(c, 2)
 	tstName := fmt.Sprintf("%v%v", tstName, 1)
 
-	pools, err := s.api.ListPools(params.StoragePoolFilter{
-		Names: []string{tstName}})
+	results, err := s.api.ListPools(params.StoragePoolFilters{
+		[]params.StoragePoolFilter{{
+			Names: []string{tstName},
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools.Results, gc.HasLen, 1)
-	c.Assert(pools.Results[0].Name, gc.DeepEquals, tstName)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Result, gc.HasLen, 1)
+	c.Assert(results.Results[0].Result[0].Name, gc.DeepEquals, tstName)
 }
 
 func (s *poolSuite) TestListByType(c *gc.C) {
@@ -79,10 +84,13 @@ func (s *poolSuite) TestListByType(c *gc.C) {
 		storage.NewConfig(poolName, provider.TmpfsProviderType, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	pools, err := s.api.ListPools(params.StoragePoolFilter{
-		Providers: []string{tstType}})
+	results, err := s.api.ListPools(params.StoragePoolFilters{
+		[]params.StoragePoolFilter{{
+			Providers: []string{tstType},
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	assertPoolNames(c, pools.Results, "rayofsunshine", "tmpfs")
+	assertPoolNames(c, results.Results[0].Result, "rayofsunshine", "tmpfs")
 }
 
 func (s *poolSuite) TestListByNameAndTypeAnd(c *gc.C) {
@@ -94,13 +102,17 @@ func (s *poolSuite) TestListByNameAndTypeAnd(c *gc.C) {
 	s.baseStorageSuite.pools[poolName], err =
 		storage.NewConfig(poolName, provider.TmpfsProviderType, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	pools, err := s.api.ListPools(params.StoragePoolFilter{
-		Providers: []string{tstType},
-		Names:     []string{poolName}})
+	results, err := s.api.ListPools(params.StoragePoolFilters{
+		[]params.StoragePoolFilter{{
+			Providers: []string{tstType},
+			Names:     []string{poolName},
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools.Results, gc.HasLen, 1)
-	c.Assert(pools.Results[0].Provider, gc.DeepEquals, tstType)
-	c.Assert(pools.Results[0].Name, gc.DeepEquals, poolName)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Result, gc.HasLen, 1)
+	c.Assert(results.Results[0].Result[0].Provider, gc.DeepEquals, tstType)
+	c.Assert(results.Results[0].Result[0].Name, gc.DeepEquals, poolName)
 }
 
 func (s *poolSuite) TestListByNamesOr(c *gc.C) {
@@ -111,13 +123,16 @@ func (s *poolSuite) TestListByNamesOr(c *gc.C) {
 	s.baseStorageSuite.pools[poolName], err =
 		storage.NewConfig(poolName, provider.TmpfsProviderType, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	pools, err := s.api.ListPools(params.StoragePoolFilter{
-		Names: []string{
-			fmt.Sprintf("%v%v", tstName, 1),
-			fmt.Sprintf("%v%v", tstName, 0),
-		}})
+	results, err := s.api.ListPools(params.StoragePoolFilters{
+		[]params.StoragePoolFilter{{
+			Names: []string{
+				fmt.Sprintf("%v%v", tstName, 1),
+				fmt.Sprintf("%v%v", tstName, 0),
+			},
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	assertPoolNames(c, pools.Results, "testpool0", "testpool1")
+	assertPoolNames(c, results.Results[0].Result, "testpool0", "testpool1")
 }
 
 func assertPoolNames(c *gc.C, results []params.StoragePool, expected ...string) {
@@ -137,21 +152,25 @@ func (s *poolSuite) TestListByTypesOr(c *gc.C) {
 	s.baseStorageSuite.pools[poolName], err =
 		storage.NewConfig(poolName, provider.TmpfsProviderType, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	pools, err := s.api.ListPools(params.StoragePoolFilter{
-		Providers: []string{tstType, string(provider.LoopProviderType)}})
+	results, err := s.api.ListPools(params.StoragePoolFilters{
+		[]params.StoragePoolFilter{{
+			Providers: []string{tstType, string(provider.LoopProviderType)},
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	assertPoolNames(c, pools.Results, "testpool0", "testpool1", "rayofsunshine", "loop", "tmpfs")
+	assertPoolNames(c, results.Results[0].Result, "testpool0", "testpool1", "rayofsunshine", "loop", "tmpfs")
 }
 
 func (s *poolSuite) TestListNoPools(c *gc.C) {
-	pools, err := s.api.ListPools(params.StoragePoolFilter{})
+	results, err := s.api.ListPools(params.StoragePoolFilters{[]params.StoragePoolFilter{{}}})
 	c.Assert(err, jc.ErrorIsNil)
-	assertPoolNames(c, pools.Results, "dummy", "rootfs", "loop", "tmpfs")
+	c.Assert(results.Results, gc.HasLen, 1)
+	assertPoolNames(c, results.Results[0].Result, "dummy", "rootfs", "loop", "tmpfs")
 }
 
 func (s *poolSuite) TestListFilterEmpty(c *gc.C) {
-	valid, err := apiserverstorage.IsValidPoolListFilter(s.api, params.StoragePoolFilter{})
-	s.assertNoError(c, valid, err)
+	err := apiserverstorage.ValidatePoolListFilter(s.api, params.StoragePoolFilter{})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 const (
@@ -163,90 +182,80 @@ const (
 
 func (s *poolSuite) TestListFilterValidProviders(c *gc.C) {
 	s.registerProviders(c)
-	valid, err := apiserverstorage.ValidateProviders(
+	err := apiserverstorage.ValidateProviderCriteria(
 		s.api,
 		[]string{validProvider})
-	s.assertNoError(c, valid, err)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *poolSuite) TestListFilterUnregisteredProvider(c *gc.C) {
-	s.state.envName = "noprovidersregistered"
-	valid, err := apiserverstorage.ValidateProviders(
+	s.state.modelName = "noprovidersregistered"
+	err := apiserverstorage.ValidateProviderCriteria(
 		s.api,
 		[]string{validProvider})
-	s.assertError(c, valid, err, ".*not supported.*")
+	c.Assert(err, gc.ErrorMatches, ".*not supported.*")
 }
 
 func (s *poolSuite) TestListFilterUnknownProvider(c *gc.C) {
 	s.registerProviders(c)
-	valid, err := apiserverstorage.ValidateProviders(
+	err := apiserverstorage.ValidateProviderCriteria(
 		s.api,
 		[]string{invalidProvider})
-	s.assertError(c, valid, err, ".*not supported.*")
+	c.Assert(err, gc.ErrorMatches, ".*not supported.*")
 }
 
 func (s *poolSuite) TestListFilterValidNames(c *gc.C) {
-	valid, err := apiserverstorage.ValidateNames(
+	err := apiserverstorage.ValidateNameCriteria(
 		s.api,
 		[]string{validName})
-	s.assertNoError(c, valid, err)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *poolSuite) TestListFilterInvalidNames(c *gc.C) {
-	valid, err := apiserverstorage.ValidateNames(
+	err := apiserverstorage.ValidateNameCriteria(
 		s.api,
 		[]string{invalidName})
-	s.assertError(c, valid, err, ".*not valid.*")
+	c.Assert(err, gc.ErrorMatches, ".*not valid.*")
 }
 
 func (s *poolSuite) TestListFilterValidProvidersAndNames(c *gc.C) {
 	s.registerProviders(c)
-	valid, err := apiserverstorage.IsValidPoolListFilter(
+	err := apiserverstorage.ValidatePoolListFilter(
 		s.api,
 		params.StoragePoolFilter{
 			Providers: []string{validProvider},
 			Names:     []string{validName}})
-	s.assertNoError(c, valid, err)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *poolSuite) TestListFilterValidProvidersAndInvalidNames(c *gc.C) {
 	s.registerProviders(c)
-	valid, err := apiserverstorage.IsValidPoolListFilter(
+	err := apiserverstorage.ValidatePoolListFilter(
 		s.api,
 		params.StoragePoolFilter{
 			Providers: []string{validProvider},
 			Names:     []string{invalidName}})
-	s.assertError(c, valid, err, ".*not valid.*")
+	c.Assert(err, gc.ErrorMatches, ".*not valid.*")
 }
 
 func (s *poolSuite) TestListFilterInvalidProvidersAndValidNames(c *gc.C) {
-	valid, err := apiserverstorage.IsValidPoolListFilter(
+	err := apiserverstorage.ValidatePoolListFilter(
 		s.api,
 		params.StoragePoolFilter{
 			Providers: []string{invalidProvider},
 			Names:     []string{validName}})
-	s.assertError(c, valid, err, ".*not supported.*")
+	c.Assert(err, gc.ErrorMatches, ".*not supported.*")
 }
 
 func (s *poolSuite) TestListFilterInvalidProvidersAndNames(c *gc.C) {
-	valid, err := apiserverstorage.IsValidPoolListFilter(
+	err := apiserverstorage.ValidatePoolListFilter(
 		s.api,
 		params.StoragePoolFilter{
 			Providers: []string{invalidProvider},
 			Names:     []string{invalidName}})
-	s.assertError(c, valid, err, ".*not supported.*")
+	c.Assert(err, gc.ErrorMatches, ".*not supported.*")
 }
 
 func (s *poolSuite) registerProviders(c *gc.C) {
-	registry.RegisterEnvironStorageProviders(s.state.envName, "dummy")
-}
-
-func (s *poolSuite) assertNoError(c *gc.C, result bool, err error) {
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.IsTrue)
-}
-
-func (s *poolSuite) assertError(c *gc.C, result bool, err error, msg string) {
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(result, jc.IsFalse)
+	registry.RegisterEnvironStorageProviders(s.state.modelName, "dummy")
 }

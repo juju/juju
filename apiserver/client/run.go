@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 
@@ -151,38 +152,81 @@ type RemoteExec struct {
 
 // ParallelExecute executes all of the requests defined in the params,
 // using the system identity stored in the dataDir.
-func ParallelExecute(dataDir string, runParams []*RemoteExec) params.RunResults {
-	logger.Debugf("exec %#v", runParams)
-	var outstanding sync.WaitGroup
-	var lock sync.Mutex
-	var result []params.RunResult
-	identity := filepath.Join(dataDir, agent.SystemIdentity)
-	for _, param := range runParams {
-		outstanding.Add(1)
-		logger.Debugf("exec on %s: %#v", param.MachineId, *param)
-		param.IdentityFile = identity
-		go func(param *RemoteExec) {
-			response, err := ssh.ExecuteCommandOnMachine(param.ExecParams)
-			logger.Debugf("reponse from %s: %v (err:%v)", param.MachineId, response, err)
-			execResponse := params.RunResult{
-				ExecResponse: response,
-				MachineId:    param.MachineId,
-				UnitId:       param.UnitId,
-			}
-			if err != nil {
-				execResponse.Error = fmt.Sprint(err)
-			}
+func ParallelExecute(dataDir string, args []*RemoteExec) params.RunResults {
+	var results params.RunResults
+	results.Results = make([]params.RunResult, len(args), len(args))
 
-			lock.Lock()
-			defer lock.Unlock()
-			result = append(result, execResponse)
-			outstanding.Done()
-		}(param)
+	identity := filepath.Join(dataDir, agent.SystemIdentity)
+	for i, arg := range args {
+		arg.ExecParams.IdentityFile = identity
+
+		results.Results[i] = params.RunResult{
+			MachineId: arg.MachineId,
+			UnitId:    arg.UnitId,
+		}
 	}
 
-	outstanding.Wait()
-	sort.Sort(MachineOrder(result))
-	return params.RunResults{result}
+	startSerialWaitParallel(args, &results, ssh.StartCommandOnMachine, waitOnCommand)
+
+	// TODO(ericsnow) lp:1517076
+	// Why do we sort these? Shouldn't we keep them
+	// in the same order that they were requested?
+	sort.Sort(MachineOrder(results.Results))
+	return results
+}
+
+// startSerialWaitParallel start a command for each RemoteExec, one at
+// a time and then waits for all the results asynchronously.
+//
+// We do this because ssh.StartCommandOnMachine() relies on os/exec.Cmd,
+// which in turn relies on fork+exec. That means every copy of the
+// command we run will require a separate fork. This can be a problem
+// for controllers with low resources or in environments with many
+// machines.
+//
+// Note that when the start operation completes, the memory of the
+// forked process will have already been replaced with that of the
+// exec'ed command. This is a relatively quick operation relative to
+// the wait operation. That is why start-serially-and-wait-in-parallel
+// is a viable approach.
+func startSerialWaitParallel(
+	args []*RemoteExec,
+	results *params.RunResults,
+	start func(params ssh.ExecParams) (*ssh.RunningCmd, error),
+	wait func(wg *sync.WaitGroup, cmd *ssh.RunningCmd, result *params.RunResult, cancel <-chan struct{}),
+) {
+	var wg sync.WaitGroup
+	for i, arg := range args {
+		logger.Debugf("exec on %s: %#v", arg.MachineId, *arg)
+
+		cancel := make(chan struct{})
+		go func(d time.Duration) {
+			<-clock.WallClock.After(d)
+			close(cancel)
+		}(arg.Timeout)
+
+		// Start the commands serially...
+		cmd, err := start(arg.ExecParams)
+		if err != nil {
+			results.Results[i].Error = err.Error()
+			continue
+		}
+
+		wg.Add(1)
+		// ...but wait for them in parallel.
+		go wait(&wg, cmd, &results.Results[i], cancel)
+	}
+	wg.Wait()
+}
+
+func waitOnCommand(wg *sync.WaitGroup, cmd *ssh.RunningCmd, result *params.RunResult, cancel <-chan struct{}) {
+	defer wg.Done()
+	response, err := cmd.WaitWithCancel(cancel)
+	logger.Debugf("response from %s: %#v (err:%v)", result.MachineId, response, err)
+	result.ExecResponse = response
+	if err != nil {
+		result.Error = err.Error()
+	}
 }
 
 // MachineOrder is used to provide the api to sort the results by the machine

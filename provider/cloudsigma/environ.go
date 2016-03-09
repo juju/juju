@@ -36,12 +36,12 @@ type environ struct {
 }
 
 // Name returns the Environ's name.
-func (env environ) Name() string {
+func (env *environ) Name() string {
 	return env.name
 }
 
 // Provider returns the EnvironProvider that created this Environ.
-func (environ) Provider() environs.EnvironProvider {
+func (*environ) Provider() environs.EnvironProvider {
 	return providerInstance
 }
 
@@ -93,12 +93,12 @@ func (env *environ) Config() *config.Config {
 // Bootstrap is responsible for selecting the appropriate tools,
 // and setting the agent-version configuration attribute prior to
 // bootstrapping the environment.
-func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (string, string, environs.BootstrapFinalizer, error) {
+func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, env, params)
 }
 
-func (e *environ) StateServerInstances() ([]instance.Id, error) {
-	return e.client.getStateServerIds()
+func (e *environ) ControllerInstances() ([]instance.Id, error) {
+	return e.client.getControllerIds()
 }
 
 // Destroy shuts down all known machines and destroys the
@@ -127,14 +127,11 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 
 // Region is specified in the HasRegion interface.
 func (env *environ) Region() (simplestreams.CloudSpec, error) {
-	return env.cloudSpec(env.ecfg.region())
-}
-
-func (env *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
-	endpoint := gosigma.ResolveEndpoint(region)
+	env.lock.Lock()
+	defer env.lock.Unlock()
 	return simplestreams.CloudSpec{
-		Region:   region,
-		Endpoint: endpoint,
+		Region:   env.ecfg.region(),
+		Endpoint: env.ecfg.endpoint(),
 	}, nil
 }
 
@@ -142,15 +139,11 @@ func (env *environ) MetadataLookupParams(region string) (*simplestreams.Metadata
 	if region == "" {
 		region = gosigma.DefaultRegion
 	}
-
-	cloudSpec, err := env.cloudSpec(region)
-	if err != nil {
-		return nil, err
-	}
-
+	env.lock.Lock()
+	defer env.lock.Unlock()
 	return &simplestreams.MetadataLookupParams{
-		Region:        cloudSpec.Region,
-		Endpoint:      cloudSpec.Endpoint,
+		Region:        region,
+		Endpoint:      gosigma.ResolveEndpoint(region),
 		Architectures: arch.AllSupportedArches,
 		Series:        config.PreferredSeries(env.ecfg),
 	}, nil

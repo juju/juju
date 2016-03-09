@@ -19,7 +19,7 @@ type Subnet struct {
 	CIDR string `json:"CIDR"`
 
 	// ProviderId is the provider-specific subnet ID (if applicable).
-	ProviderId string `json:"ProviderId,omitempty`
+	ProviderId string `json:"ProviderId,omitempty"`
 
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.
@@ -162,6 +162,12 @@ type NetworkConfig struct {
 	ExtraConfig map[string]string `json:"ExtraConfig,omitempty"`
 }
 
+// NetworkConfigs holds the network configuration for multiple networks
+type NetworkConfigs struct {
+	Results []NetworkConfig
+	Errors  []error
+}
+
 // Port encapsulates a protocol and port number. It is used in API
 // requests/responses. See also network.Port, from/to which this is
 // transformed.
@@ -253,6 +259,7 @@ type Address struct {
 	Type        string `json:"Type"`
 	NetworkName string `json:"NetworkName"`
 	Scope       string `json:"Scope"`
+	SpaceName   string `json:"SpaceName,omitempty"`
 }
 
 // FromNetworkAddress is a convenience helper to create a parameter
@@ -263,6 +270,7 @@ func FromNetworkAddress(naddr network.Address) Address {
 		Type:        string(naddr.Type),
 		NetworkName: naddr.NetworkName,
 		Scope:       string(naddr.Scope),
+		SpaceName:   string(naddr.SpaceName),
 	}
 }
 
@@ -274,6 +282,7 @@ func (addr Address) NetworkAddress() network.Address {
 		Type:        network.AddressType(addr.Type),
 		NetworkName: addr.NetworkName,
 		Scope:       network.Scope(addr.Scope),
+		SpaceName:   network.SpaceName(addr.SpaceName),
 	}
 }
 
@@ -425,6 +434,19 @@ type RequestedNetworksResults struct {
 	Results []RequestedNetworkResult `json:"Results"`
 }
 
+// UnitNetworkConfigResult holds network configuration for a single unit.
+type UnitNetworkConfigResult struct {
+	Error *Error `json:"Error"`
+
+	// Tagged to Info due to compatibility reasons.
+	Config []NetworkConfig `json:"Info"`
+}
+
+// UnitNetworkConfigResults holds network configuration for multiple machines.
+type UnitNetworkConfigResults struct {
+	Results []UnitNetworkConfigResult `json:"Results"`
+}
+
 // MachineNetworkConfigResult holds network configuration for a single machine.
 type MachineNetworkConfigResult struct {
 	Error *Error `json:"Error"`
@@ -551,6 +573,7 @@ type CreateSpaceParams struct {
 	SubnetTags []string `json:"SubnetTags"`
 	SpaceTag   string   `json:"SpaceTag"`
 	Public     bool     `json:"Public"`
+	ProviderId string   `json:"ProviderId,omitempty"`
 }
 
 // ListSpacesResults holds the list of all available spaces.
@@ -563,4 +586,17 @@ type Space struct {
 	Name    string   `json:"Name"`
 	Subnets []Subnet `json:"Subnets"`
 	Error   *Error   `json:"Error,omitempty"`
+}
+
+// DiscoverSpacesResults holds the list of all provider spaces.
+type DiscoverSpacesResults struct {
+	Results []ProviderSpace `json:"Results"`
+}
+
+// ProviderSpace holds the information about a single space and its associated subnets.
+type ProviderSpace struct {
+	Name       string   `json:"Name"`
+	ProviderId string   `json:"ProviderId"`
+	Subnets    []Subnet `json:"Subnets"`
+	Error      *Error   `json:"Error,omitempty"`
 }

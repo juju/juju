@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/jujuversion"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.tools")
@@ -121,7 +121,7 @@ func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestrea
 	if err != nil {
 		return nil, err
 	}
-	toolsMetadata, _, err := Fetch(sources, toolsConstraint, false)
+	toolsMetadata, _, err := Fetch(sources, toolsConstraint)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			err = ErrNoTools

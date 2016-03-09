@@ -35,6 +35,7 @@ type MongoSuite struct {
 	coretesting.BaseSuite
 	mongodConfigPath string
 	mongodPath       string
+	mongodVersion    mongo.Version
 
 	data *svctesting.FakeServiceData
 }
@@ -63,7 +64,7 @@ var expectedArgs = struct {
 	MongoInstall: []jc.SimpleMessage{
 		{loggo.INFO, "Ensuring mongo server is running; data directory.*"},
 		{loggo.INFO, "Running: yum --assumeyes --debuglevel=1 install epel-release"},
-		{loggo.INFO, "installing mongodb-server"},
+		{loggo.INFO, regexp.QuoteMeta("installing [mongodb-server]")},
 		{loggo.INFO, "Running: yum --assumeyes --debuglevel=1 install mongodb-server"},
 	},
 	YumBase: []string{
@@ -96,20 +97,22 @@ var expectedArgs = struct {
 	},
 }
 
-func makeEnsureServerParams(dataDir, namespace string) mongo.EnsureServerParams {
+func makeEnsureServerParams(dataDir string) mongo.EnsureServerParams {
 	return mongo.EnsureServerParams{
 		StatePort:    testInfo.StatePort,
 		Cert:         testInfo.Cert,
 		PrivateKey:   testInfo.PrivateKey,
 		SharedSecret: testInfo.SharedSecret,
 
-		DataDir:   dataDir,
-		Namespace: namespace,
+		DataDir: dataDir,
+		Version: mongo.Mongo24,
 	}
 }
 
 func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
+	s.mongodVersion = mongo.Mongo24
 
 	testing.PatchExecutable(c, s, "mongod", "#!/bin/bash\n\nprintf %s 'db version v2.4.9'\n")
 	jujuMongodPath, err := exec.LookPath("mongod")
@@ -145,7 +148,7 @@ func (s *MongoSuite) patchSeries(ser string) {
 }
 
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
-	obtained, err := mongo.Path()
+	obtained, err := mongo.Path(s.mongodVersion)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(obtained, gc.Matches, s.mongodPath)
 }
@@ -154,7 +157,8 @@ func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
 	s.PatchValue(&mongo.JujuMongodPath, "/not/going/to/exist/mongod")
 	s.PatchEnvPathPrepend(filepath.Dir(s.mongodPath))
 
-	obtained, err := mongo.Path()
+	c.Logf("mongo version is %q", s.mongodVersion)
+	obtained, err := mongo.Path(s.mongodVersion)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(obtained, gc.Matches, s.mongodPath)
 }
@@ -221,17 +225,16 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 
 func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 	dataDir := c.MkDir()
-	namespace := "namespace"
 
 	pm, err := coretesting.GetPackageManager()
 	c.Assert(err, jc.ErrorIsNil)
 
 	testing.PatchExecutableAsEchoArgs(c, s, pm.PackageManager)
 
-	s.data.SetStatus(mongo.ServiceName(namespace), "running")
+	s.data.SetStatus(mongo.ServiceName, "running")
 	s.data.SetErrors(nil, nil, nil, errors.New("shouldn't be called"))
 
-	err = mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+	err = mongo.EnsureServer(makeEnsureServerParams(dataDir))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// These should still be written out even if the service was installed.
@@ -245,15 +248,14 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 
 func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 	dataDir := c.MkDir()
-	namespace := "namespace"
 
 	pm, err := coretesting.GetPackageManager()
 	c.Assert(err, jc.ErrorIsNil)
 	testing.PatchExecutableAsEchoArgs(c, s, pm.PackageManager)
 
-	s.data.SetStatus(mongo.ServiceName(namespace), "installed")
+	s.data.SetStatus(mongo.ServiceName, "installed")
 
-	err = mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+	err = mongo.EnsureServer(makeEnsureServerParams(dataDir))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// These should still be written out even if the service was installed.
@@ -267,17 +269,16 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 
 func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 	dataDir := c.MkDir()
-	namespace := "namespace"
 
 	pm, err := coretesting.GetPackageManager()
 	c.Assert(err, jc.ErrorIsNil)
 	testing.PatchExecutableAsEchoArgs(c, s, pm.PackageManager)
 
-	s.data.SetStatus(mongo.ServiceName(namespace), "installed")
+	s.data.SetStatus(mongo.ServiceName, "installed")
 	failure := errors.New("won't start")
 	s.data.SetErrors(nil, nil, nil, failure) // Installed, Exists, Running, Running, Start
 
-	err = mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+	err = mongo.EnsureServer(makeEnsureServerParams(dataDir))
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	c.Check(s.data.Installed(), gc.HasLen, 0)
@@ -291,13 +292,12 @@ func (s *MongoSuite) TestEnsureServerNumaCtl(c *gc.C) {
 func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string {
 	dataDir := c.MkDir()
 	dbDir := filepath.Join(dataDir, "db")
-	namespace := "namespace"
 
 	pm, err := coretesting.GetPackageManager()
 	c.Assert(err, jc.ErrorIsNil)
 	testing.PatchExecutableAsEchoArgs(c, s, pm.PackageManager)
 
-	testParams := makeEnsureServerParams(dataDir, namespace)
+	testParams := makeEnsureServerParams(dataDir)
 	testParams.SetNumaControlPolicy = setNumaPolicy
 	err = mongo.EnsureServer(testParams)
 	c.Assert(err, jc.ErrorIsNil)
@@ -308,7 +308,7 @@ func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string
 		installed := s.data.Installed()
 		c.Assert(installed, gc.HasLen, 1)
 		service := installed[0]
-		c.Assert(service.Name(), gc.Equals, "juju-db-namespace")
+		c.Assert(service.Name(), gc.Equals, "juju-db")
 		c.Assert(service.Conf().Desc, gc.Equals, "juju state database")
 		if setNumaPolicy {
 			stripped := strings.Replace(service.Conf().ExtraScript, "\n", "", -1)
@@ -342,9 +342,8 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 	testing.PatchExecutableAsEchoArgs(c, s, "apt-get")
 	for _, test := range tests {
 		dataDir := c.MkDir()
-		namespace := "namespace" + test.series
 		s.patchSeries(test.series)
-		err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+		err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
 		c.Assert(err, jc.ErrorIsNil)
 
 		for _, cmd := range test.cmd {
@@ -414,14 +413,13 @@ func (s *MongoSuite) assertSuccessWithInstallStepFailCentOS(c *gc.C, exec []stri
 	testing.PatchExecutableThrowError(c, s, execNameFail, returnCode)
 
 	dataDir := c.MkDir()
-	namespace := "namespace" + test.series
 	s.patchSeries(test.series)
 
 	var tw loggo.TestWriter
 	c.Assert(loggo.RegisterWriter("mongosuite", &tw, loggo.INFO), jc.ErrorIsNil)
 	defer loggo.RemoveWriter("mongosuite")
 
-	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, expectedResult)
 }
@@ -440,10 +438,9 @@ func (s *MongoSuite) TestInstallSuccessMongodCentOS(c *gc.C) {
 	testing.PatchExecutableAsEchoArgs(c, s, "semanage")
 
 	dataDir := c.MkDir()
-	namespace := "namespace" + test.series
 	s.patchSeries(test.series)
 
-	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := append(expectedArgs.YumBase, "epel-release")
@@ -474,15 +471,14 @@ func (s *MongoSuite) assertTestMongoGetFails(c *gc.C, series string, packageMana
 	failCmd(filepath.Join(binDir, packageManager))
 
 	// Set the mongodb service as installed but not running.
-	namespace := "namespace"
-	s.data.SetStatus(mongo.ServiceName(namespace), "installed")
+	s.data.SetStatus(mongo.ServiceName, "installed")
 
 	var tw loggo.TestWriter
 	c.Assert(loggo.RegisterWriter("test-writer", &tw, loggo.ERROR), jc.ErrorIsNil)
 	defer loggo.RemoveWriter("test-writer")
 
 	dataDir := c.MkDir()
-	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
 
 	// Even though apt-get failed, EnsureServer should continue and
 	// not return the error - even though apt-get failed, the Juju
@@ -510,12 +506,11 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 	}
 
 	dataDir := c.MkDir()
-	namespace := "namespace"
 
-	s.data.SetStatus(mongo.ServiceName(namespace), "running")
+	s.data.SetStatus(mongo.ServiceName, "running")
 	s.data.SetErrors(nil, nil, nil, errors.New("shouldn't be called"))
 
-	err = mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+	err = mongo.EnsureServer(makeEnsureServerParams(dataDir))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.data.Installed(), gc.HasLen, 0)
@@ -525,35 +520,35 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 func (s *MongoSuite) TestNewServiceWithReplSet(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion, true)
 	c.Assert(strings.Contains(conf.ExecStart, "--replSet"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNewServiceWithNumCtl(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, true)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, true, s.mongodVersion, true)
 	c.Assert(conf.ExtraScript, gc.Not(gc.Matches), "")
 }
 
 func (s *MongoSuite) TestNewServiceIPv6(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion, true)
 	c.Assert(strings.Contains(conf.ExecStart, "--ipv6"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNewServiceWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion, true)
 	c.Assert(conf.ExecStart, gc.Matches, `.* --journal.*`)
 }
 
 func (s *MongoSuite) TestNoAuthCommandWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
-	cmd, err := mongo.NoauthCommand(dataDir, 1234)
+	cmd, err := mongo.NoauthCommand(dataDir, 1234, s.mongodVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	var isJournalPresent bool
 	for _, value := range cmd.Args {
@@ -565,10 +560,9 @@ func (s *MongoSuite) TestNoAuthCommandWithJournal(c *gc.C) {
 }
 
 func (s *MongoSuite) TestRemoveService(c *gc.C) {
-	namespace := "namespace"
-	s.data.SetStatus(mongo.ServiceName(namespace), "running")
+	s.data.SetStatus(mongo.ServiceName, "running")
 
-	err := mongo.RemoveService(namespace)
+	err := mongo.RemoveService()
 	c.Assert(err, jc.ErrorIsNil)
 
 	removed := s.data.Removed()
@@ -599,7 +593,7 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	// test that we call add-apt-repository only for quantal
 	// (and that if it fails, we log the error)
 	s.patchSeries("quantal")
-	err = mongo.EnsureServer(makeEnsureServerParams(dir, ""))
+	err = mongo.EnsureServer(makeEnsureServerParams(dir))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(tw.Log(), jc.LogMatches, []jc.SimpleMessage{
@@ -611,7 +605,7 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	})
 	s.patchSeries("trusty")
 	failCmd(filepath.Join(dir, "mongod"))
-	err = mongo.EnsureServer(makeEnsureServerParams(dir, ""))
+	err = mongo.EnsureServer(makeEnsureServerParams(dir))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -623,18 +617,11 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	testing.PatchExecutableAsEchoArgs(c, s, pm.PackageManager)
 
 	dataDir := filepath.Join(c.MkDir(), "dir", "data")
-	err = mongo.EnsureServer(makeEnsureServerParams(dataDir, ""))
+	err = mongo.EnsureServer(makeEnsureServerParams(dataDir))
 	c.Check(err, jc.ErrorIsNil)
 
 	_, err = os.Stat(filepath.Join(dataDir, "db"))
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *MongoSuite) TestServiceName(c *gc.C) {
-	name := mongo.ServiceName("foo")
-	c.Assert(name, gc.Equals, "juju-db-foo")
-	name = mongo.ServiceName("")
-	c.Assert(name, gc.Equals, "juju-db")
 }
 
 func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
@@ -689,22 +676,24 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 	s.patchSeries("quantal")
 
 	dataDir := c.MkDir()
-	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, ""))
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
 	c.Assert(err, jc.ErrorIsNil)
 
 	pack := [][]string{
 		{
+			"install",
 			"python-software-properties",
 		}, {
+			"install",
 			"--target-release",
 			"mongodb-server",
 		},
 	}
-	cmd := append(expectedArgs.AptGetBase, pack[0]...)
-	testing.AssertEchoArgs(c, "apt-get", cmd...)
-
-	cmd = append(expectedArgs.AptGetBase, pack[1]...)
-	testing.AssertEchoArgs(c, "apt-get", cmd...)
+	noCommand := len(expectedArgs.AptGetBase) - 1
+	for k := range pack {
+		cmd := append(expectedArgs.AptGetBase[:noCommand], pack[k]...)
+		testing.AssertEchoArgs(c, "apt-get", cmd...)
+	}
 
 	match := []string{
 		"--yes",
@@ -721,9 +710,10 @@ func (s *MongoSuite) TestAddEpelInCentOS(c *gc.C) {
 
 	testing.PatchExecutableAsEchoArgs(c, s, "chcon")
 	testing.PatchExecutableAsEchoArgs(c, s, "semanage")
+	testing.PatchExecutableAsEchoArgs(c, s, "yum-config-manager")
 
 	dataDir := c.MkDir()
-	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, ""))
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedEpelRelease := append(expectedArgs.YumBase, "epel-release")

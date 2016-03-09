@@ -12,7 +12,7 @@ import (
 // TODO(ericsnow) Track juju-level status in the status collection.
 
 // EnvPayloads exposes high-level interaction with all payloads
-// in an environment.
+// in an model.
 type EnvPayloads interface {
 	// ListAll builds the list of registered payloads in the env and returns it.
 	ListAll() ([]payload.FullPayloadInfo, error)

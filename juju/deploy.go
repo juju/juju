@@ -5,10 +5,8 @@ package juju
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/constraints"
@@ -21,41 +19,37 @@ import (
 // charm.
 type DeployServiceParams struct {
 	ServiceName    string
+	Series         string
 	ServiceOwner   string
 	Charm          *state.Charm
 	ConfigSettings charm.Settings
 	Constraints    constraints.Value
 	NumUnits       int
-	// ToMachineSpec is either:
-	// - an existing machine/container id eg "1" or "1/lxc/2"
-	// - a new container on an existing machine eg "lxc:1"
-	// Use string to avoid ambiguity around machine 0.
-	ToMachineSpec string
 	// Placement is a list of placement directives which may be used
 	// instead of a machine spec.
 	Placement []*instance.Placement
 	// Networks holds a list of networks to required to start on boot.
 	// TODO(dimitern): Drop this in a follow-up in favor of constraints.
-	Networks []string
-	Storage  map[string]storage.Constraints
+	Networks         []string
+	Storage          map[string]storage.Constraints
+	EndpointBindings map[string]string
+	// Resources is a map of resource name to IDs of pending resources.
+	Resources map[string]string
 }
 
 type ServiceDeployer interface {
-	Environment() (*state.Environment, error)
+	Model() (*state.Model, error)
 	AddService(state.AddServiceArgs) (*state.Service, error)
 }
 
 // DeployService takes a charm and various parameters and deploys it.
 func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service, error) {
-	if args.NumUnits > 1 && len(args.Placement) == 0 && args.ToMachineSpec != "" {
-		return nil, fmt.Errorf("cannot use --num-units with --to")
-	}
 	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
 	if err != nil {
 		return nil, err
 	}
 	if args.Charm.Meta().Subordinate {
-		if args.NumUnits != 0 || args.ToMachineSpec != "" {
+		if args.NumUnits != 0 {
 			return nil, fmt.Errorf("subordinate service must be deployed without units")
 		}
 		if !constraints.IsEmpty(&args.Constraints) {
@@ -63,7 +57,7 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 		}
 	}
 	if args.ServiceOwner == "" {
-		env, err := st.Environment()
+		env, err := st.Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -76,22 +70,23 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 		return nil, fmt.Errorf("use of --networks is deprecated. Please use spaces")
 	}
 
-	if len(args.Placement) == 0 {
-		args.Placement, err = makePlacement(args.ToMachineSpec)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	effectiveBindings, err := getEffectiveBindingsForCharmMeta(args.Charm.Meta(), args.EndpointBindings)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot determine effective service endpoint bindings")
 	}
 
 	asa := state.AddServiceArgs{
-		Name:      args.ServiceName,
-		Owner:     args.ServiceOwner,
-		Charm:     args.Charm,
-		Networks:  args.Networks,
-		Storage:   stateStorageConstraints(args.Storage),
-		Settings:  settings,
-		NumUnits:  args.NumUnits,
-		Placement: args.Placement,
+		Name:             args.ServiceName,
+		Series:           args.Series,
+		Owner:            args.ServiceOwner,
+		Charm:            args.Charm,
+		Networks:         args.Networks,
+		Storage:          stateStorageConstraints(args.Storage),
+		Settings:         settings,
+		NumUnits:         args.NumUnits,
+		Placement:        args.Placement,
+		Resources:        args.Resources,
+		EndpointBindings: effectiveBindings,
 	}
 
 	if !args.Charm.Meta().Subordinate {
@@ -103,50 +98,33 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 	return st.AddService(asa)
 }
 
-// AddUnits starts n units of the given service and allocates machines
-// to them as necessary.
-func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string) ([]*state.Unit, error) {
-	if machineIdSpec != "" && n != 1 {
-		return nil, errors.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
-	}
-	placement, err := makePlacement(machineIdSpec)
+func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[string]string) (map[string]string, error) {
+	combinedEndpoints, err := state.CombinedCharmRelations(charmMeta)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return AddUnitsWithPlacement(st, svc, n, placement)
-}
-
-// makePlacement makes a placement directive for the given machineIdSpec.
-func makePlacement(machineIdSpec string) ([]*instance.Placement, error) {
-	if machineIdSpec == "" {
-		return nil, nil
+	if givenBindings == nil {
+		givenBindings = make(map[string]string, len(combinedEndpoints))
 	}
-	mid := machineIdSpec
-	scope := instance.MachineScope
-	var containerType instance.ContainerType
-	specParts := strings.SplitN(machineIdSpec, ":", 2)
-	if len(specParts) > 1 {
-		firstPart := specParts[0]
-		var err error
-		if containerType, err = instance.ParseContainerType(firstPart); err == nil {
-			mid = specParts[1]
-			scope = string(containerType)
+
+	// Get the service-level default binding for all unspecified endpoint, if
+	// set, otherwise use the empty default.
+	serviceDefaultSpace, _ := givenBindings[""]
+
+	effectiveBindings := make(map[string]string, len(combinedEndpoints))
+	for endpoint, _ := range combinedEndpoints {
+		if givenSpace, isGiven := givenBindings[endpoint]; isGiven {
+			effectiveBindings[endpoint] = givenSpace
+		} else {
+			effectiveBindings[endpoint] = serviceDefaultSpace
 		}
 	}
-	if !names.IsValidMachine(mid) {
-		return nil, errors.Errorf("invalid force machine id %q", mid)
-	}
-	return []*instance.Placement{
-		{
-			Scope:     scope,
-			Directive: mid,
-		},
-	}, nil
+	return effectiveBindings, nil
 }
 
-// AddUnitsWithPlacement starts n units of the given service using the specified placement
+// AddUnits starts n units of the given service using the specified placement
 // directives to allocate the machines.
-func AddUnitsWithPlacement(st *state.State, svc *state.Service, n int, placement []*instance.Placement) ([]*state.Unit, error) {
+func AddUnits(st *state.State, svc *state.Service, n int, placement []*instance.Placement) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
 	// Hard code for now till we implement a different approach.
 	policy := state.AssignCleanEmpty

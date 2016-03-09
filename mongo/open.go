@@ -32,10 +32,10 @@ const SocketTimeout = 21 * time.Second
 const defaultDialTimeout = 30 * time.Second
 
 // DialOpts holds configuration parameters that control the
-// Dialing behavior when connecting to a state server.
+// Dialing behavior when connecting to a controller.
 type DialOpts struct {
 	// Timeout is the amount of time to wait contacting
-	// a state server.
+	// a controller.
 	Timeout time.Duration
 
 	// SocketTimeout is the amount of time to wait for a
@@ -56,7 +56,7 @@ type DialOpts struct {
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
-// parameters for contacting a state server.
+// parameters for contacting a controller.
 func DefaultDialOpts() DialOpts {
 	return DialOpts{
 		Timeout:       defaultDialTimeout,
@@ -73,7 +73,7 @@ type Info struct {
 	Addrs []string
 
 	// CACert holds the CA certificate that will be used
-	// to validate the state server's certificate, in PEM format.
+	// to validate the controller's certificate, in PEM format.
 	CACert string
 }
 

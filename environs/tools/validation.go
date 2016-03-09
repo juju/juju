@@ -9,7 +9,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/jujuversion"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // ToolsMetadataLookupParams is used to query metadata for matching tools.
@@ -58,7 +58,7 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 			Arches: params.Architectures,
 		})
 	}
-	matchingTools, resolveInfo, err := Fetch(params.Sources, toolsConstraint, false)
+	matchingTools, resolveInfo, err := Fetch(params.Sources, toolsConstraint)
 	if err != nil {
 		return nil, resolveInfo, err
 	}

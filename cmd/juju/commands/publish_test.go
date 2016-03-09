@@ -15,14 +15,14 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/testing"
 )
 
 // Sadly, this is a very slow test suite, heavily dominated by calls to bzr.
 
 type PublishSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	gitjujutesting.HTTPSuite
 
 	dir        string
@@ -60,7 +60,7 @@ func (s *PublishSuite) runPublish(c *gc.C, args ...string) (*cmd.Context, error)
 const pollDelay = testing.ShortWait
 
 func (s *PublishSuite) SetUpSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpSuite(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
 
 	s.oldBaseURL = charmrepo.LegacyStore.BaseURL
@@ -68,17 +68,17 @@ func (s *PublishSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *PublishSuite) TearDownSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.TearDownSuite(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 	s.HTTPSuite.TearDownSuite(c)
 
 	charmrepo.LegacyStore.BaseURL = s.oldBaseURL
 }
 
 func (s *PublishSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.HTTPSuite.SetUpTest(c)
 	s.PatchEnvironment("BZR_HOME", utils.Home())
-	s.FakeJujuHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{
+	s.FakeJujuXDGDataHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{
 		Name: bzrHomeFile,
 		Data: "[DEFAULT]\nemail = Test <testing@testing.invalid>\n",
 	})
@@ -91,7 +91,7 @@ func (s *PublishSuite) SetUpTest(c *gc.C) {
 
 func (s *PublishSuite) TearDownTest(c *gc.C) {
 	s.HTTPSuite.TearDownTest(c)
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func (s *PublishSuite) TestNoBranch(c *gc.C) {
@@ -110,11 +110,6 @@ func (s *PublishSuite) TestEmpty(c *gc.C) {
 func (s *PublishSuite) TestFrom(c *gc.C) {
 	_, err := testing.RunCommandInDir(c, newPublishCommand(), []string{"--from", s.dir, "cs:precise/wordpress"}, c.MkDir())
 	c.Assert(err, gc.ErrorMatches, `cannot obtain local digest: branch has no content`)
-}
-
-func (s *PublishSuite) TestMissingSeries(c *gc.C) {
-	_, err := s.runPublish(c, "cs:wordpress")
-	c.Assert(err, gc.ErrorMatches, `charm or bundle url series is not resolved`)
 }
 
 func (s *PublishSuite) TestNotClean(c *gc.C) {
@@ -153,7 +148,7 @@ func (s *PublishSuite) TestParseReference(c *gc.C) {
 		panic("unreachable")
 	})
 
-	_, err := testing.RunCommandInDir(c, envcmd.Wrap(cmd), []string{"precise/wordpress"}, s.dir)
+	_, err := testing.RunCommandInDir(c, modelcmd.Wrap(cmd), []string{"precise/wordpress"}, s.dir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Fatal("shouldn't get here; location closure didn't run?")
 }
@@ -268,7 +263,7 @@ func (s *PublishSuite) TestFullPublish(c *gc.C) {
 	body = `{"cs:~user/precise/wordpress": {"kind": "published", "digest": %q, "revision": 42}}`
 	gitjujutesting.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
-	ctx, err := testing.RunCommandInDir(c, envcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
+	ctx, err := testing.RunCommandInDir(c, modelcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "cs:~user/precise/wordpress-42\n")
 
@@ -324,7 +319,7 @@ func (s *PublishSuite) TestFullPublishError(c *gc.C) {
 	body = `{"cs:~user/precise/wordpress": {"kind": "published", "digest": %q, "revision": 42}}`
 	gitjujutesting.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
-	ctx, err := testing.RunCommandInDir(c, envcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
+	ctx, err := testing.RunCommandInDir(c, modelcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "cs:~user/precise/wordpress-42\n")
 
@@ -380,7 +375,7 @@ func (s *PublishSuite) TestFullPublishRace(c *gc.C) {
 	body = `{"cs:~user/precise/wordpress": {"kind": "published", "digest": "surprising-digest", "revision": 42}}`
 	gitjujutesting.Server.Response(200, nil, []byte(body))
 
-	_, err = testing.RunCommandInDir(c, envcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
+	_, err = testing.RunCommandInDir(c, modelcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
 	c.Assert(err, gc.ErrorMatches, `charm changed but not to local charm digest; publishing race\?`)
 
 	// Ensure the branch was actually pushed.

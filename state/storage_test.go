@@ -429,7 +429,7 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) 
 
 func (s *StorageStateSuite) assertAddServiceStorageConstraintsDefaults(c *gc.C, pool string, cons, expect map[string]state.StorageConstraints) {
 	if pool != "" {
-		err := s.State.UpdateEnvironConfig(map[string]interface{}{
+		err := s.State.UpdateModelConfig(map[string]interface{}{
 			"storage-default-block-source": pool,
 		}, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -531,7 +531,7 @@ func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
 }
 
 func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{
+	err := s.State.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "loop-pool",
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)

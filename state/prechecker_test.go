@@ -49,7 +49,7 @@ func (s *PrecheckerSuite) SetUpTest(c *gc.C) {
 func (s *PrecheckerSuite) TestPrecheckInstance(c *gc.C) {
 	// PrecheckInstance should be called with the specified
 	// series and placement, and the specified constraints
-	// merged with the environment constraints, when attempting
+	// merged with the model constraints, when attempting
 	// to create an instance.
 	envCons := constraints.MustParse("mem=4G")
 	placement := "abc123"
@@ -100,7 +100,7 @@ func (s *PrecheckerSuite) TestPrecheckNoPolicy(c *gc.C) {
 }
 
 func (s *PrecheckerSuite) addOneMachine(c *gc.C, envCons constraints.Value, placement string) (state.MachineTemplate, error) {
-	err := s.State.SetEnvironConstraints(envCons)
+	err := s.State.SetModelConstraints(envCons)
 	c.Assert(err, jc.ErrorIsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cpu-cores=4")
@@ -119,7 +119,7 @@ func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *gc.C) {
 		InstanceId: instance.Id("bootstrap"),
 		Series:     "precise",
 		Nonce:      agent.BootstrapNonce,
-		Jobs:       []state.MachineJob{state.JobManageEnviron},
+		Jobs:       []state.MachineJob{state.JobManageModel},
 		Placement:  "anyoldthing",
 	}
 	_, err := s.State.AddOneMachine(template)

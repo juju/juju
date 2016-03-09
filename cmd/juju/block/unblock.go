@@ -11,18 +11,18 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // NewUnblockCommand returns a new command that removes the block from
 // the specified operation.
 func NewUnblockCommand() cmd.Command {
-	return envcmd.Wrap(&unblockCommand{})
+	return modelcmd.Wrap(&unblockCommand{})
 }
 
 // unblockCommand removes the block from desired operation.
 type unblockCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	operation string
 	client    UnblockClientAPI
 }
@@ -30,8 +30,8 @@ type unblockCommand struct {
 var (
 	unblockDoc = `
 
-Juju allows to safeguard deployed environments from unintentional damage by preventing
-execution of operations that could alter environment.
+Juju allows to safeguard deployed models from unintentional damage by preventing
+execution of operations that could alter model.
 
 This is done by blocking certain commands from successful execution. Blocked commands
 must be manually unblocked to proceed.
@@ -40,11 +40,11 @@ Some commands offer a --force option that can be used to bypass a block.
 
 Commands that can be unblocked are grouped based on logical operations as follows:
 
-destroy-environment includes command:
-    destroy-environment
+destroy-model includes command:
+    destroy-model
 
 remove-object includes termination commands:
-    destroy-environment
+    destroy-model
     remove-machine
     remove-relation
     remove-service
@@ -58,8 +58,8 @@ all-changes includes all alteration commands
     authorised-keys delete
     authorised-keys import
     deploy
-    destroy-environment
-    ensure-availability
+    destroy-model
+    enable-ha
     expose
     remove-machine
     remove-relation
@@ -70,26 +70,26 @@ all-changes includes all alteration commands
     run
     set
     set-constraints
-    set-env
+    set-model-config
     sync-tools
     unexpose
     unset
-    unset-env
+    unset-model-config
     upgrade-charm
     upgrade-juju
-    user add
-    user change-password
-    user disable
-    user enable
+    add-user
+    change-user-password
+    disable-user
+    enable-user
 
 Examples:
-   To allow the environment to be destroyed:
-   juju unblock destroy-environment
+   To allow the model to be destroyed:
+   juju unblock destroy-model
 
    To allow the machines, services, units and relations to be removed:
    juju unblock remove-object
 
-   To allow changes to the environment:
+   To allow changes to the model:
    juju unblock all-changes
 
 See Also:
@@ -128,7 +128,7 @@ func (c *unblockCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unblock",
 		Args:    blockArgsFmt,
-		Purpose: "unblock an operation that would alter a running environment",
+		Purpose: "unblock an operation that would alter a running model",
 		Doc:     unblockDoc,
 	}
 }
@@ -145,7 +145,7 @@ func (c *unblockCommand) Init(args []string) error {
 
 // SetFlags implements Command.SetFlags.
 func (c *unblockCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
+	c.ModelCommandBase.SetFlags(f)
 }
 
 // Run unblocks previously blocked commands.
@@ -153,7 +153,7 @@ func (c *unblockCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *unblockCommand) Run(_ *cmd.Context) error {
 	client := c.client
 	if client == nil {
-		client, err := getBlockAPI(&c.EnvCommandBase)
+		client, err := getBlockAPI(&c.ModelCommandBase)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -170,5 +170,5 @@ type UnblockClientAPI interface {
 }
 
 var getUnblockClientAPI = func(p *unblockCommand) (UnblockClientAPI, error) {
-	return getBlockAPI(&p.EnvCommandBase)
+	return getBlockAPI(&p.ModelCommandBase)
 }

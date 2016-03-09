@@ -26,7 +26,7 @@ var _ = gc.Suite(&ConfigSuite{})
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	cfg, err := testing.EnvironConfig(c).Apply(vsphere.ConfigAttrs)
+	cfg, err := testing.ModelConfig(c).Apply(vsphere.ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.config = cfg
 }
@@ -80,7 +80,7 @@ func (ts configTestSpec) attrs() testing.Attrs {
 
 func (ts configTestSpec) newConfig(c *gc.C) *config.Config {
 	attrs := ts.attrs()
-	cfg, err := testing.EnvironConfig(c).Apply(attrs)
+	cfg, err := testing.ModelConfig(c).Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
@@ -123,7 +123,7 @@ var newConfigTests = []configTestSpec{{
 	expect: testing.Attrs{"unknown-field": "12345"},
 }}
 
-func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
+func (*ConfigSuite) TestNewModelConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 

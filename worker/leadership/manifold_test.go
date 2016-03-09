@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -70,7 +71,7 @@ func (s *ManifoldSuite) TestStartError(c *gc.C) {
 		"agent-name":      dt.StubResource{Output: dummyAgent},
 		"api-caller-name": dt.StubResource{Output: dummyApiCaller},
 	})
-	s.PatchValue(leadership.NewManifoldWorker, func(a agent.Agent, apiCaller base.APICaller, guarantee time.Duration) (worker.Worker, error) {
+	s.PatchValue(&leadership.NewManifoldWorker, func(a agent.Agent, apiCaller base.APICaller, guarantee time.Duration) (worker.Worker, error) {
 		s.AddCall("newManifoldWorker", a, apiCaller, guarantee)
 		return nil, errors.New("blammo")
 	})
@@ -92,7 +93,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 		"api-caller-name": dt.StubResource{Output: dummyApiCaller},
 	})
 	dummyWorker := &dummyWorker{}
-	s.PatchValue(leadership.NewManifoldWorker, func(a agent.Agent, apiCaller base.APICaller, guarantee time.Duration) (worker.Worker, error) {
+	s.PatchValue(&leadership.NewManifoldWorker, func(a agent.Agent, apiCaller base.APICaller, guarantee time.Duration) (worker.Worker, error) {
 		s.AddCall("newManifoldWorker", a, apiCaller, guarantee)
 		return dummyWorker, nil
 	})
@@ -108,21 +109,21 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 
 func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 	var target interface{}
-	err := s.manifold.Output(leadership.DummyTrackerWorker(), &target)
+	err := s.manifold.Output(&leadership.Tracker{}, &target)
 	c.Check(target, gc.IsNil)
-	c.Check(err.Error(), gc.Equals, "expected *leadership.tracker->*leadership.Tracker; got *leadership.tracker->*interface {}")
+	c.Check(err.Error(), gc.Equals, "expected *leadership.Tracker output; got *interface {}")
 }
 
 func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
-	var target leadership.Tracker
+	var target coreleadership.Tracker
 	err := s.manifold.Output(&dummyWorker{}, &target)
 	c.Check(target, gc.IsNil)
-	c.Check(err.Error(), gc.Equals, "expected *leadership.tracker->*leadership.Tracker; got *leadership_test.dummyWorker->*leadership.Tracker")
+	c.Check(err.Error(), gc.Equals, "expected *Tracker input; got *leadership_test.dummyWorker")
 }
 
 func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
-	source := leadership.DummyTrackerWorker()
-	var target leadership.Tracker
+	source := &leadership.Tracker{}
+	var target coreleadership.Tracker
 	err := s.manifold.Output(source, &target)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(target, gc.Equals, source)

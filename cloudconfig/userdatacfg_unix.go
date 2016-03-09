@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
@@ -22,9 +23,11 @@ import (
 	"github.com/juju/utils/proxy"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
@@ -34,10 +37,6 @@ const (
 	// curlCommand is the base curl command used to download tools.
 	curlCommand = "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
 
-	// toolsDownloadAttempts is the number of attempts to make for
-	// each tools URL when downloading tools.
-	toolsDownloadAttempts = 5
-
 	// toolsDownloadWaitTime is the number of seconds to wait between
 	// each iterations of download attempts.
 	toolsDownloadWaitTime = 15
@@ -45,15 +44,15 @@ const (
 	// toolsDownloadTemplate is a bash template that generates a
 	// bash command to cycle through a list of URLs to download tools.
 	toolsDownloadTemplate = `{{$curl := .ToolsDownloadCommand}}
-for n in $(seq {{.ToolsDownloadAttempts}}); do
+n=1
+while true; do
 {{range .URLs}}
     printf "Attempt $n to download tools from %s...\n" {{shquote .}}
     {{$curl}} {{shquote .}} && echo "Tools downloaded successfully." && break
 {{end}}
-    if [ $n -lt {{.ToolsDownloadAttempts}} ]; then
-        echo "Download failed..... wait {{.ToolsDownloadWaitTime}}s"
-    fi
+    echo "Download failed, retrying in {{.ToolsDownloadWaitTime}}s"
     sleep {{.ToolsDownloadWaitTime}}
+    n=$((n+1))
 done`
 )
 
@@ -193,7 +192,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 	w.conf.AddScripts(
 		// We look to see if the proxy line is there already as
 		// the manual provider may have had it already. The ubuntu
-		// user may not exist (local provider only).
+		// user may not exist.
 		`([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || ` +
 			`printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`)
 	if (w.icfg.ProxySettings != proxy.Settings{}) {
@@ -203,6 +202,11 @@ func (w *unixConfigure) ConfigureJuju() error {
 			fmt.Sprintf(
 				`(id ubuntu &> /dev/null) && (printf '%%s\n' %s > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
 				shquote(w.icfg.ProxySettings.AsScriptEnvironment())))
+	}
+
+	if w.icfg.PublicImageSigningKey != "" {
+		keyFile := filepath.Join(agent.DefaultPaths.ConfDir, simplestreams.SimplestreamsPublicKeyFile)
+		w.conf.AddRunTextFile(keyFile, w.icfg.PublicImageSigningKey, 0644)
 	}
 
 	// Make the lock dir and change the ownership of the lock dir itself to
@@ -242,13 +246,13 @@ func (w *unixConfigure) ConfigureJuju() error {
 			urls = append(urls, w.icfg.Tools.URL)
 		} else {
 			for _, addr := range w.icfg.ApiHostAddrs() {
-				// TODO(axw) encode env UUID in URL when EnvironTag
+				// TODO(axw) encode env UUID in URL when ModelTag
 				// is guaranteed to be available in APIInfo.
 				url := fmt.Sprintf("https://%s/tools/%s", addr, w.icfg.Tools.Version)
 				urls = append(urls, url)
 			}
 
-			// Don't go through the proxy when downloading tools from the state servers
+			// Don't go through the proxy when downloading tools from the controllers
 			curlCommand += ` --noproxy "*"`
 
 			// Our API server certificates are unusable by curl (invalid subject name),
@@ -315,9 +319,13 @@ func (w *unixConfigure) ConfigureJuju() error {
 			metadataDir = "  --image-metadata " + shquote(metadataDir)
 		}
 
-		cons := w.icfg.Constraints.String()
-		if cons != "" {
-			cons = " --constraints " + shquote(cons)
+		bootstrapCons := w.icfg.Constraints.String()
+		if bootstrapCons != "" {
+			bootstrapCons = " --bootstrap-constraints " + shquote(bootstrapCons)
+		}
+		environCons := w.icfg.EnvironConstraints.String()
+		if environCons != "" {
+			environCons = " --constraints " + shquote(environCons)
 		}
 		var hardware string
 		if w.icfg.HardwareCharacteristics != nil {
@@ -336,10 +344,11 @@ func (w *unixConfigure) ConfigureJuju() error {
 			// The bootstrapping is always run with debug on.
 			w.icfg.JujuTools() + "/jujud bootstrap-state" +
 				" --data-dir " + shquote(w.icfg.DataDir) +
-				" --env-config " + shquote(base64yaml(w.icfg.Config)) +
+				" --model-config " + shquote(base64yaml(w.icfg.Config)) +
 				" --instance-id " + shquote(string(w.icfg.InstanceId)) +
 				hardware +
-				cons +
+				bootstrapCons +
+				environCons +
 				metadataDir +
 				loggingOption,
 		)
@@ -360,7 +369,6 @@ func toolsDownloadCommand(curlCommand string, urls []string) string {
 	var buf bytes.Buffer
 	err := parsedTemplate.Execute(&buf, map[string]interface{}{
 		"ToolsDownloadCommand":  curlCommand,
-		"ToolsDownloadAttempts": toolsDownloadAttempts,
 		"ToolsDownloadWaitTime": toolsDownloadWaitTime,
 		"URLs":                  urls,
 	})

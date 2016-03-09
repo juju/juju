@@ -7,19 +7,20 @@ package openstack
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-
-	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 	jujuos "github.com/juju/utils/os"
+
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 )
 
 type OpenstackRenderer struct{}
 
-func (OpenstackRenderer) EncodeUserdata(udata []byte, os jujuos.OSType) ([]byte, error) {
+func (OpenstackRenderer) Render(cfg cloudinit.CloudConfig, os jujuos.OSType) ([]byte, error) {
 	switch os {
 	case jujuos.Ubuntu, jujuos.CentOS:
-		return utils.Gzip(udata), nil
+		return renderers.RenderYAML(cfg, utils.Gzip)
 	case jujuos.Windows:
-		return renderers.WinEmbedInScript(udata), nil
+		return renderers.RenderYAML(cfg, renderers.WinEmbedInScript)
 	default:
 		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())
 	}

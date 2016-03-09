@@ -9,18 +9,6 @@ package provider
 
 const (
 	Joyent = "joyent"
-	Local  = "local"
 	MAAS   = "maas"
 	EC2    = "ec2"
 )
-
-// IsManual returns true iff the specified provider
-// type refers to the manual provider.
-func IsManual(provider string) bool {
-	switch provider {
-	case "null", "manual":
-		return true
-	default:
-		return false
-	}
-}

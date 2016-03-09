@@ -15,8 +15,8 @@ import (
 
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/jujuversion"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var (
@@ -25,19 +25,29 @@ var (
 
 // validateUploadAllowed returns an error if an attempt to upload tools should
 // not be allowed.
-func validateUploadAllowed(env environs.Environ, toolsArch *string) error {
-	// Now check that the architecture for which we are setting up an
+func validateUploadAllowed(env environs.Environ, toolsArch, toolsSeries *string) error {
+	// Now check that the architecture and series for which we are setting up an
 	// environment matches that from which we are bootstrapping.
 	hostArch := arch.HostArch()
 	// We can't build tools for a different architecture if one is specified.
 	if toolsArch != nil && *toolsArch != hostArch {
 		return fmt.Errorf("cannot build tools for %q using a machine running on %q", *toolsArch, hostArch)
 	}
+	hostOS := jujuos.HostOS()
+	if toolsSeries != nil {
+		toolsSeriesOS, err := series.GetOSFromSeries(*toolsSeries)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if toolsSeriesOS != hostOS {
+			return errors.Errorf("cannot build tools for %q using a machine running %q", *toolsSeries, hostOS)
+		}
+	}
 	// If no architecture is specified, ensure the target provider supports instances matching our architecture.
 	supportedArchitectures, err := env.SupportedArchitectures()
 	if err != nil {
 		return fmt.Errorf(
-			"no packaged tools available and cannot determine environment's supported architectures: %v", err)
+			"no packaged tools available and cannot determine model's supported architectures: %v", err)
 	}
 	archSupported := false
 	for _, arch := range supportedArchitectures {
@@ -48,7 +58,7 @@ func validateUploadAllowed(env environs.Environ, toolsArch *string) error {
 	}
 	if !archSupported {
 		envType := env.Config().Type()
-		return errors.Errorf("environment %q of type %s does not support instances running on %q", env.Config().Name(), envType, hostArch)
+		return errors.Errorf("model %q of type %s does not support instances running on %q", env.Config().Name(), envType, hostArch)
 	}
 	return nil
 }
@@ -57,13 +67,13 @@ func validateUploadAllowed(env environs.Environ, toolsArch *string) error {
 // including tools that may be locally built and then
 // uploaded. Tools that need to be built will have an
 // empty URL.
-func findAvailableTools(env environs.Environ, vers *version.Number, arch *string, upload bool) (coretools.List, error) {
+func findAvailableTools(env environs.Environ, vers *version.Number, arch, series *string, upload bool) (coretools.List, error) {
 	if upload {
 		// We're forcing an upload: ensure we can do so.
-		if err := validateUploadAllowed(env, arch); err != nil {
+		if err := validateUploadAllowed(env, arch, series); err != nil {
 			return nil, err
 		}
-		return locallyBuildableTools(), nil
+		return locallyBuildableTools(series), nil
 	}
 
 	// We're not forcing an upload, so look for tools
@@ -78,7 +88,7 @@ func findAvailableTools(env environs.Environ, vers *version.Number, arch *string
 		}
 	}
 	logger.Infof("looking for bootstrap tools: version=%v", vers)
-	toolsList, findToolsErr := findBootstrapTools(env, vers, arch)
+	toolsList, findToolsErr := findBootstrapTools(env, vers, arch, series)
 	if findToolsErr != nil && !errors.IsNotFound(findToolsErr) {
 		return nil, findToolsErr
 	}
@@ -104,12 +114,12 @@ func findAvailableTools(env environs.Environ, vers *version.Number, arch *string
 		archSeries.Add(tools.Version.Arch + tools.Version.Series)
 	}
 	var localToolsList coretools.List
-	for _, tools := range locallyBuildableTools() {
+	for _, tools := range locallyBuildableTools(series) {
 		if !archSeries.Contains(tools.Version.Arch + tools.Version.Series) {
 			localToolsList = append(localToolsList, tools)
 		}
 	}
-	if len(localToolsList) == 0 || validateUploadAllowed(env, arch) != nil {
+	if len(localToolsList) == 0 || validateUploadAllowed(env, arch, series) != nil {
 		return toolsList, findToolsErr
 	}
 	return append(toolsList, localToolsList...), nil
@@ -117,9 +127,12 @@ func findAvailableTools(env environs.Environ, vers *version.Number, arch *string
 
 // locallyBuildableTools returns the list of tools that
 // can be built locally, for series of the same OS.
-func locallyBuildableTools() (buildable coretools.List) {
+func locallyBuildableTools(toolsSeries *string) (buildable coretools.List) {
 	for _, ser := range series.SupportedSeries() {
 		if os, err := series.GetOSFromSeries(ser); err != nil || os != jujuos.HostOS() {
+			continue
+		}
+		if toolsSeries != nil && ser != *toolsSeries {
 			continue
 		}
 		binary := version.Binary{
@@ -138,12 +151,15 @@ func locallyBuildableTools() (buildable coretools.List) {
 // which it would be reasonable to launch an environment's first machine,
 // given the supplied constraints. If a specific agent version is not requested,
 // all tools matching the current major.minor version are chosen.
-func findBootstrapTools(env environs.Environ, vers *version.Number, arch *string) (list coretools.List, err error) {
+func findBootstrapTools(env environs.Environ, vers *version.Number, arch, series *string) (list coretools.List, err error) {
 	// Construct a tools filter.
 	cliVersion := jujuversion.Current
 	var filter coretools.Filter
 	if arch != nil {
 		filter.Arch = *arch
+	}
+	if series != nil {
+		filter.Series = *series
 	}
 	if vers != nil {
 		filter.Number = *vers

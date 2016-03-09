@@ -4,17 +4,12 @@
 package environs
 
 import (
-	"io"
-	"os"
-
-	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/tools"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -34,9 +29,8 @@ type EnvironProvider interface {
 
 	// PrepareForBootstrap prepares an environment for use. Any additional
 	// configuration attributes in the returned environment should
-	// be saved to be used later. If the environment is already
-	// prepared, this call is equivalent to Open.
-	PrepareForBootstrap(ctx BootstrapContext, cfg *config.Config) (Environ, error)
+	// be saved to be used later.
+	PrepareForBootstrap(ctx BootstrapContext, args PrepareForBootstrapParams) (Environ, error)
 
 	// Open opens the environment and returns it.
 	// The configuration must have come from a previously
@@ -50,25 +44,81 @@ type EnvironProvider interface {
 	// for consideration when validating changes.
 	Validate(cfg, old *config.Config) (valid *config.Config, err error)
 
-	// Boilerplate returns a default configuration for the environment in yaml format.
-	// The text should be a key followed by some number of attributes:
-	//    `environName:
-	//        type: environTypeName
-	//        attr1: val1
-	//    `
-	// The text is used as a template (see the template package) with one extra template
-	// function available, rand, which expands to a random hexadecimal string when invoked.
-	BoilerplateConfig() string
-
 	// SecretAttrs filters the supplied configuration returning only values
 	// which are considered sensitive. All of the values of these secret
 	// attributes need to be strings.
 	SecretAttrs(cfg *config.Config) (map[string]string, error)
+
+	ProviderCredentials
 }
 
-// EnvironConfigUpgrader is an interface that an EnvironProvider may
+// PrepareForBootstrapParams contains the parameters for
+// EnvironProvider.PrepareForBootstrap.
+type PrepareForBootstrapParams struct {
+	// Config is the base configuration for the provider. This should
+	// be updated with the region, endpoint and credentials.
+	Config *config.Config
+
+	// Credentials is the set of credentials to use to bootstrap.
+	Credentials cloud.Credential
+
+	// CloudRegion is the name of the region of the cloud to create
+	// the Juju controller in. This will be empty for clouds without
+	// regions.
+	CloudRegion string
+
+	// CloudEndpoint is the location of the primary API endpoint to
+	// use when communicating with the cloud.
+	CloudEndpoint string
+
+	// CloudStorageEndpoint is the location of the API endpoint to use
+	// when communicating with the cloud's storage service. This will
+	// be empty for clouds that have no cloud-specific API endpoint.
+	CloudStorageEndpoint string
+}
+
+// ProviderCredentials is an interface that an EnvironProvider implements
+// in order to validate and automatically detect credentials for clouds
+// supported by the provider.
+//
+// TODO(axw) replace CredentialSchemas with an updated environschema.
+// The GUI also needs to be able to handle multiple credential types,
+// and dependencies in config attributes.
+type ProviderCredentials interface {
+	// CredentialSchemas returns credential schemas, keyed on
+	// authentication type. These may be used to validate existing
+	// credentials, or to generate new ones (e.g. to create an
+	// interactive form.)
+	CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema
+
+	// DetectCredentials automatically detects one or more credentials
+	// from the environment. This may involve, for example, inspecting
+	// environment variables, or reading configuration files in
+	// well-defined locations.
+	//
+	// If no credentials can be detected, DetectCredentials should
+	// return an error satisfying errors.IsNotFound.
+	DetectCredentials() (*cloud.CloudCredential, error)
+}
+
+// CloudRegionDetector is an interface that an EnvironProvider implements
+// in order to automatically detect cloud regions from the environment.
+type CloudRegionDetector interface {
+	// DetectRetions automatically detects one or more regions
+	// from the environment. This may involve, for example, inspecting
+	// environment variables, or returning special hard-coded regions
+	// (e.g. "localhost" for lxd). The first item in the list will be
+	// considered the default region for bootstrapping if the user
+	// does not specify one.
+	//
+	// If no regions can be detected, DetectRegions should return
+	// an error satisfying errors.IsNotFound.
+	DetectRegions() ([]cloud.Region, error)
+}
+
+// ModelConfigUpgrader is an interface that an EnvironProvider may
 // implement in order to modify environment configuration on agent upgrade.
-type EnvironConfigUpgrader interface {
+type ModelConfigUpgrader interface {
 	// UpgradeConfig upgrades an old environment configuration by adding,
 	// updating or removing attributes. UpgradeConfig must be idempotent,
 	// as it may be called multiple times in the event of a partial upgrade.
@@ -80,12 +130,6 @@ type EnvironConfigUpgrader interface {
 	UpgradeConfig(cfg *config.Config) (*config.Config, error)
 }
 
-// EnvironStorage implements storage access for an environment.
-type EnvironStorage interface {
-	// Storage returns storage specific to the environment.
-	Storage() storage.Storage
-}
-
 // ConfigGetter implements access to an environment's configuration.
 type ConfigGetter interface {
 	// Config returns the configuration data with which the Environ was created.
@@ -94,32 +138,7 @@ type ConfigGetter interface {
 	Config() *config.Config
 }
 
-// BootstrapParams holds the parameters for bootstrapping an environment.
-type BootstrapParams struct {
-	// Constraints are used to choose the initial instance specification,
-	// and will be stored in the new environment's state.
-	Constraints constraints.Value
-
-	// Placement, if non-empty, holds an environment-specific placement
-	// directive used to choose the initial instance.
-	Placement string
-
-	// AvailableTools is a collection of tools which the Bootstrap method
-	// may use to decide which architecture/series to instantiate.
-	AvailableTools tools.List
-
-	// ContainerBridgeName, if non-empty, overrides the default
-	// network bridge device to use for LXC and KVM containers. See
-	// also instancecfg.DefaultBridgeName.
-	ContainerBridgeName string
-}
-
-// BootstrapFinalizer is a function returned from Environ.Bootstrap.
-// The caller must pass a InstanceConfig with the Tools field set.
-type BootstrapFinalizer func(BootstrapContext, *instancecfg.InstanceConfig) error
-
-// An Environ represents a juju environment as specified
-// in the environments.yaml file.
+// An Environ represents a Juju environment.
 //
 // Due to the limitations of some providers (for example ec2), the
 // results of the Environ methods may not be fully sequentially
@@ -137,14 +156,14 @@ type Environ interface {
 	// of its choice, constrained to those of the available tools, and
 	// returns the instance's architecture, series, and a function that
 	// must be called to finalize the bootstrap process by transferring
-	// the tools and installing the initial Juju state server.
+	// the tools and installing the initial Juju controller.
 	//
 	// It is possible to direct Bootstrap to use a specific architecture
 	// (or fail if it cannot start an instance of that architecture) by
 	// using an architecture constraint; this will have the effect of
 	// limiting the available tools to just those matching the specified
 	// architecture.
-	Bootstrap(ctx BootstrapContext, params BootstrapParams) (arch, series string, _ BootstrapFinalizer, _ error)
+	Bootstrap(ctx BootstrapContext, params BootstrapParams) (*BootstrapResult, error)
 
 	// InstanceBroker defines methods for starting and stopping
 	// instances.
@@ -174,12 +193,12 @@ type Environ interface {
 	// will be returned.
 	Instances(ids []instance.Id) ([]instance.Instance, error)
 
-	// StateServerInstances returns the IDs of instances corresponding
-	// to Juju state servers. If there are no state server instances,
+	// ControllerInstances returns the IDs of instances corresponding
+	// to Juju controllers. If there are no controller instances,
 	// ErrNoInstances is returned. If it can be determined that the
 	// environment has not been bootstrapped, then ErrNotBootstrapped
 	// should be returned instead.
-	StateServerInstances() ([]instance.Id, error)
+	ControllerInstances() ([]instance.Id, error)
 
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment. Note that on some providers,
@@ -190,6 +209,16 @@ type Environ interface {
 	// same remote environment may become invalid
 	Destroy() error
 
+	Firewaller
+
+	// Provider returns the EnvironProvider that created this Environ.
+	Provider() EnvironProvider
+
+	state.Prechecker
+}
+
+// Firewaller exposes methods for managing network ports.
+type Firewaller interface {
 	// OpenPorts opens the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
@@ -204,11 +233,6 @@ type Environ interface {
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
 	Ports() ([]network.PortRange, error)
-
-	// Provider returns the EnvironProvider that created this Environ.
-	Provider() EnvironProvider
-
-	state.Prechecker
 }
 
 // InstanceTagger is an interface that can be used for tagging instances.
@@ -218,31 +242,4 @@ type InstanceTagger interface {
 	// The specified tags will replace any existing ones with the
 	// same names, but other existing tags will be left alone.
 	TagInstance(id instance.Id, tags map[string]string) error
-}
-
-// BootstrapContext is an interface that is passed to
-// Environ.Bootstrap, providing a means of obtaining
-// information about and manipulating the context in which
-// it is being invoked.
-type BootstrapContext interface {
-	GetStdin() io.Reader
-	GetStdout() io.Writer
-	GetStderr() io.Writer
-	Infof(format string, params ...interface{})
-	Verbosef(format string, params ...interface{})
-
-	// InterruptNotify starts watching for interrupt signals
-	// on behalf of the caller, sending them to the supplied
-	// channel.
-	InterruptNotify(sig chan<- os.Signal)
-
-	// StopInterruptNotify undoes the effects of a previous
-	// call to InterruptNotify with the same channel. After
-	// StopInterruptNotify returns, no more signals will be
-	// delivered to the channel.
-	StopInterruptNotify(chan<- os.Signal)
-
-	// ShouldVerifyCredentials indicates whether the caller's cloud
-	// credentials should be verified.
-	ShouldVerifyCredentials() bool
 }

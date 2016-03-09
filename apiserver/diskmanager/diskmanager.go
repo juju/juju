@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("DiskManager", 1, NewDiskManagerAPI)
+	common.RegisterStandardFacade("DiskManager", 2, NewDiskManagerAPI)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.diskmanager")

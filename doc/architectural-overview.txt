@@ -11,7 +11,7 @@ expected to change much faster than the general interactions between components.
 
 ## The View From Space
 
-A Juju environment is a distributed system comprising:
+A Juju model is a distributed system comprising:
 
   * A data store (mongodb) which describes the desired state of the world, in terms
     of running workloads or *services*, and the *relations* between them; and of the
@@ -41,7 +41,7 @@ standpoint. We use a mongodb replicaset to support HA; we use the `mgo` package 
 log to detect changes to particular documents, and convert them into business-object-
 level events that get sent over the API to interested parties.
 
-The mongodb databases run on machines we refer to as *state servers*, and are only
+The mongodb databases run on machines we refer to as *controllers*, and are only
 accessed by agents running on those machines; it's important to keep it locked down
 (and, honestly, to lock it down further and better than we currently have).
 
@@ -82,7 +82,7 @@ differences.
 
 ### Jobs, Runners, and Workers
 
-Machine agents all have at least one of two jobs: JobHostUnits and JobManageEnviron.
+Machine agents all have at least one of two jobs: JobHostUnits and JobManageModel.
 Each of these jobs represents a number of tasks the agent needs to execute to
 fulfil its responsibilities; in addition, there are a number of tasks that are
 executed by every machine agent. The terms *task* and *worker* are generally used
@@ -112,10 +112,8 @@ All agents run workers with the following responsibilities:
     (implemented in `worker/upgrader`)
   * Watch logging config, and reconfigure the local logger (`worker/logger`; yes,
     we know; it is not the stupidest name in the codebase)
-  * Watch and store the latest known addresses for the state servers
+  * Watch and store the latest known addresses for the controllers
     (`worker/apiaddressupdater`)
-  * Watch and store rsyslog targets (`worker/rsyslog`) -- this *could* probably be
-    reasonably combined with the apiaddressupdater, but there's no guarantee that
 
 ### Machine Agent Workers
 
@@ -130,29 +128,15 @@ Machine agents additionally do the following:
   * Watch for contained LXC or KVM machines and provision/decommission them
     (`worker/provisioner`)
 
-*Almost* all machine agents have JobHostUnits -- the sole exception is the state
-server in a local environment, which runs directly on the user's machine (not
-in a container); we don't want to pollute their day-to-day working environment
-by deploying charms there (especially because the local provider is explicitly
-a development tool, and charms deployed there are disproportionately likely to
-be flawed or incomplete). Those that do run the `worker/deployer` code which
+All machine agents have JobHostUnits. These run the `worker/deployer` code which
 watches for units assigned to the machine, and deploys/recalls upstart configs
 for their respective unit agents as the units are assigned/removed. We expect
 the deployer implementation to change to just directly run the unit agents'
 workers in its own Runner.
 
-There remain a couple of abominations in which the machine agent looks up
-information it really shouldn't have access to -- ie the running provider type
--- and uses that information to decide whether to start other workers. These
-instances should be killed with fire if you get any opportunity to do so;
-basicaly all the information in agent config which *isn't* about contacting an
-API server represents a layering violation that (1) confuses us and slows us
-down and (2) just encourages worse layering violations as we progress.
+### Controller Workers
 
-
-### State Server Workers
-
-Machines with JobManageEnviron also run a number of other workers, which do
+Machines with JobManageModel also run a number of other workers, which do
 the following.
 
   * Run the API server used by all other workers (in this, and other, agents:
@@ -229,7 +213,7 @@ XXXX
 
 ## The APIs
 
-State servers expose an API endpoint over a websocket connection. The methods
+controllers expose an API endpoint over a websocket connection. The methods
 available over the API are broken down by client; there's a `Client` facade that
 exposes the methods used by clients, an `Agent` facade that exposes the methods
 common to all agents, and a wide range of worker-specific *facades* that individually
@@ -254,7 +238,7 @@ across the board).
 ## The Providers
 
 Each provider represents a different possible kind of substrate on which a juju
-environment can run, and (as far as possible) abstracts away the differences
+model can run, and (as far as possible) abstracts away the differences
 between them, by making them all conform to the Environ interface. The most
 important thing to understand about the various providers is that they're all
 implemented without reference to broader juju concepts; they are squeezed into
@@ -279,7 +263,7 @@ in the API server.
 It's important to note that an environ Config will generally contain sensitive
 information -- a user's authentication keys for a cloud provider -- and so we
 must always be careful to avoid spreading those around further than we need to.
-Basically, if an environ config gets off a state server, we've screwed up.
+Basically, if an environ config gets off a controller, we've screwed up.
 
 
 ## Bootstrapping

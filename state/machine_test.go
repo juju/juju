@@ -39,14 +39,14 @@ var _ = gc.Suite(&MachineSuite{})
 
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func(*config.Config, state.SupportedArchitecturesQuerier) (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
 		return validator, nil
 	}
 	var err error
-	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -186,7 +186,7 @@ func (s *MachineSuite) TestMachineIsManager(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
-	cfg, err := s.State.EnvironConfig()
+	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Type(), gc.Not(gc.Equals), "null")
 	c.Assert(s.machine.Id(), gc.Equals, "1")
@@ -194,7 +194,7 @@ func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(manual, jc.IsFalse)
 	attrs := map[string]interface{}{"type": "null"}
-	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
+	err = s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	manual, err = s.machine0.IsManual()
 	c.Assert(err, jc.ErrorIsNil)
@@ -241,15 +241,15 @@ func (s *MachineSuite) TestMachineIsContainer(c *gc.C) {
 	c.Assert(container.IsContainer(), jc.IsTrue)
 }
 
-func (s *MachineSuite) TestLifeJobManageEnviron(c *gc.C) {
-	// A JobManageEnviron machine must never advance lifecycle.
+func (s *MachineSuite) TestLifeJobManageModel(c *gc.C) {
+	// A JobManageModel machine must never advance lifecycle.
 	m := s.machine0
 	err := m.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the environment")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
 	err = m.ForceDestroy()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the environment")
+	c.Assert(err, gc.ErrorMatches, "machine is required by the model")
 	err = m.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the environment")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
 }
 
 func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
@@ -325,6 +325,28 @@ func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
 	ports, err = state.GetPorts(s.State, s.machine.Id(), network.DefaultPublic)
 	c.Assert(ports, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *MachineSuite) TestDestroyOps(c *gc.C) {
+	m := s.Factory.MakeMachine(c, nil)
+	ops, err := state.ForceDestroyMachineOps(m)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.NotNil)
+}
+
+func (s *MachineSuite) TestDestroyOpsForManagerFails(c *gc.C) {
+	// s.Factory does not allow us to make a manager machine, so we grab one
+	// from State ...
+	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(machines), jc.GreaterThan, 0)
+	m := machines[0]
+	c.Assert(m.IsManager(), jc.IsTrue)
+
+	// ... and assert that we cannot get the destroy ops for it.
+	ops, err := state.ForceDestroyMachineOps(m)
+	c.Assert(err, jc.Satisfies, state.IsManagerMachineError)
+	c.Assert(ops, gc.IsNil)
 }
 
 func (s *MachineSuite) TestDestroyAbort(c *gc.C) {
@@ -592,7 +614,7 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	info := testing.NewMongoInfo()
-	st, err := state.Open(s.envTag, info, testing.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.modelTag, info, testing.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		// Remove the admin password so that the test harness can reset the state.
@@ -617,13 +639,13 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	// Check that we cannot log in with the wrong password.
 	info.Tag = ent.Tag()
 	info.Password = "bar"
-	err = tryOpenState(s.envTag, info)
+	err = tryOpenState(s.modelTag, info)
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
 	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "machine-0": unauthorized mongo access: .*`)
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st1, err := state.Open(s.envTag, info, testing.NewDialOpts(), state.Policy(nil))
+	st1, err := state.Open(s.modelTag, info, testing.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 
@@ -636,18 +658,18 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 
 	// Check that we cannot log in with the old password.
 	info.Password = "foo"
-	err = tryOpenState(s.envTag, info)
+	err = tryOpenState(s.modelTag, info)
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
 	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "machine-0": unauthorized mongo access: .*`)
 
 	// Check that we can log in with the correct password.
 	info.Password = "bar"
-	err = tryOpenState(s.envTag, info)
+	err = tryOpenState(s.modelTag, info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the administrator can still log in.
 	info.Tag, info.Password = nil, "admin-secret"
-	err = tryOpenState(s.envTag, info)
+	err = tryOpenState(s.modelTag, info)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -657,7 +679,7 @@ func (s *MachineSuite) TestSetPassword(c *gc.C) {
 	})
 }
 
-func (s *MachineSuite) TestSetPasswordPreEnvUUID(c *gc.C) {
+func (s *MachineSuite) TestSetPasswordPreModelUUID(c *gc.C) {
 	// Ensure that SetPassword works for machines even when the env
 	// UUID upgrade migrations haven't run yet.
 	type oldMachineDoc struct {
@@ -1369,9 +1391,9 @@ func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 	//  Machine.WatchHardwareCharacteristics
 	//  Service.Watch
 	//  Unit.Watch
-	//  State.WatchForEnvironConfigChanges
+	//  State.WatchForModelConfigChanges
 	//  Unit.WatchConfigSettings
-	testWatcherDiesWhenStateCloses(c, s.envTag, func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.modelTag, func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.Watch()
@@ -1381,7 +1403,7 @@ func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
-	// TODO(mjs) - ENVUUID - test with multiple environments with
+	// TODO(mjs) - MODELUUID - test with multiple models with
 	// identically named units and ensure there's no leakage.
 
 	// Start a watch on an empty machine; check no units reported.
@@ -1479,7 +1501,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 func (s *MachineSuite) TestWatchPrincipalUnitsDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.unitsWatcher, which
 	// is also used by Unit.WatchSubordinateUnits.
-	testWatcherDiesWhenStateCloses(c, s.envTag, func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.modelTag, func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.WatchPrincipalUnits()
@@ -1583,7 +1605,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWatchUnitsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.envTag, func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.modelTag, func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.WatchUnits()
@@ -1592,12 +1614,12 @@ func (s *MachineSuite) TestWatchUnitsDiesOnStateClose(c *gc.C) {
 	})
 }
 
-func (s *MachineSuite) TestConstraintsFromEnvironment(c *gc.C) {
+func (s *MachineSuite) TestConstraintsFromModel(c *gc.C) {
 	econs1 := constraints.MustParse("mem=1G")
 	econs2 := constraints.MustParse("mem=2G")
 
-	// A newly-created machine gets a copy of the environment constraints.
-	err := s.State.SetEnvironConstraints(econs1)
+	// A newly-created machine gets a copy of the model constraints.
+	err := s.State.SetModelConstraints(econs1)
 	c.Assert(err, jc.ErrorIsNil)
 	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1605,8 +1627,8 @@ func (s *MachineSuite) TestConstraintsFromEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mcons1, gc.DeepEquals, econs1)
 
-	// Change environment constraints and add a new machine.
-	err = s.State.SetEnvironConstraints(econs2)
+	// Change model constraints and add a new machine.
+	err = s.State.SetModelConstraints(econs2)
 	c.Assert(err, jc.ErrorIsNil)
 	machine2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1877,7 +1899,7 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 
 	// Now simulate prefer-ipv6: true
 	c.Assert(
-		s.State.UpdateEnvironConfig(
+		s.State.UpdateModelConfig(
 			map[string]interface{}{"prefer-ipv6": true},
 			nil, nil,
 		),
@@ -2091,7 +2113,7 @@ func (s *MachineSuite) TestPrivateAddressBetterMatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
 
-	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.1"))
+	err = machine.SetProviderAddresses(network.NewAddress("8.8.8.8"), network.NewAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err = machine.PrivateAddress()
@@ -2141,9 +2163,7 @@ func (s *MachineSuite) TestAddressesDeadMachine(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.2"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProviderAddresses(network.NewAddress("8.8.4.4"))
+	err = machine.SetProviderAddresses(network.NewAddress("10.0.0.2"), network.NewAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PrivateAddress()
@@ -2211,7 +2231,7 @@ func (s *MachineSuite) TestStablePublicAddress(c *gc.C) {
 	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
 }
 
-func (s *MachineSuite) TestPublicAddressRaceExactScope(c *gc.C) {
+func (s *MachineSuite) TestAddressesRaceMachineFirst(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2219,6 +2239,12 @@ func (s *MachineSuite) TestPublicAddressRaceExactScope(c *gc.C) {
 		Before: func() {
 			err = machine.SetProviderAddresses(network.NewAddress("8.8.8.8"))
 			c.Assert(err, jc.ErrorIsNil)
+			address, err := machine.PublicAddress()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(address, jc.DeepEquals, network.NewAddress("8.8.8.8"))
+			address, err = machine.PrivateAddress()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(address, jc.DeepEquals, network.NewAddress("8.8.8.8"))
 		},
 	}
 	defer state.SetTestHooks(c, s.State, changeAddresses).Check()
@@ -2231,24 +2257,30 @@ func (s *MachineSuite) TestPublicAddressRaceExactScope(c *gc.C) {
 	address, err := machine.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address, jc.DeepEquals, network.NewAddress("8.8.8.8"))
+	address, err = machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(address, jc.DeepEquals, network.NewAddress("8.8.8.8"))
 }
 
-func (s *MachineSuite) TestPublicAddressRaceFallbackScope(c *gc.C) {
+func (s *MachineSuite) TestAddressesRaceProviderFirst(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	changeAddresses := jujutxn.TestHook{
 		Before: func() {
-			err = machine.SetProviderAddresses(network.NewAddress("10.0.0.1"))
+			err = machine.SetMachineAddresses(network.NewAddress("10.0.0.1"))
 			c.Assert(err, jc.ErrorIsNil)
 			address, err := machine.PublicAddress()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(address, jc.DeepEquals, network.NewAddress("10.0.0.1"))
+			address, err = machine.PrivateAddress()
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(address, jc.DeepEquals, network.NewAddress("10.0.0.1"))
 		},
 	}
 	defer state.SetTestHooks(c, s.State, changeAddresses).Check()
 
-	err = machine.SetMachineAddresses(network.NewAddress("8.8.4.4"))
+	err = machine.SetProviderAddresses(network.NewAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine, err = s.State.Machine(machine.Id())
@@ -2258,57 +2290,82 @@ func (s *MachineSuite) TestPublicAddressRaceFallbackScope(c *gc.C) {
 	c.Assert(address, jc.DeepEquals, network.NewAddress("8.8.4.4"))
 	address, err = machine.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, jc.DeepEquals, network.NewAddress("10.0.0.1"))
+	c.Assert(address, jc.DeepEquals, network.NewAddress("8.8.4.4"))
 }
 
-func (s *MachineSuite) TestPrivateAddressRaceExactScope(c *gc.C) {
+func (s *MachineSuite) TestPrivateAddressPrefersProvider(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	changeAddresses := jujutxn.TestHook{
-		Before: func() {
-			err = machine.SetProviderAddresses(network.NewAddress("10.0.0.1"))
-			c.Assert(err, jc.ErrorIsNil)
-		},
-	}
-	defer state.SetTestHooks(c, s.State, changeAddresses).Check()
-
-	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.2"))
+	err = machine.SetMachineAddresses(network.NewAddress("8.8.8.8"), network.NewAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	machine, err = s.State.Machine(machine.Id())
+	addr, err := machine.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	address, err := machine.PrivateAddress()
+	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
+	addr, err = machine.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, jc.DeepEquals, network.NewAddress("10.0.0.1"))
+	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
+
+	err = machine.SetProviderAddresses(network.NewAddress("10.0.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err = machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "10.0.0.1")
+	addr, err = machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "10.0.0.1")
 }
 
-func (s *MachineSuite) TestPrivateAddressRaceFallbackScope(c *gc.C) {
+func (s *MachineSuite) TestPublicAddressPrefersProvider(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	changeAddresses := jujutxn.TestHook{
-		Before: func() {
-			err = machine.SetProviderAddresses(network.NewAddress("8.8.8.8"))
-			c.Assert(err, jc.ErrorIsNil)
-			address, err := machine.PrivateAddress()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(address, jc.DeepEquals, network.NewAddress("8.8.8.8"))
-		},
-	}
-	defer state.SetTestHooks(c, s.State, changeAddresses).Check()
-
-	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.2"))
+	err = machine.SetMachineAddresses(network.NewAddress("8.8.8.8"), network.NewAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	machine, err = s.State.Machine(machine.Id())
+	addr, err := machine.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	address, err := machine.PrivateAddress()
+	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
+	addr, err = machine.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, jc.DeepEquals, network.NewAddress("10.0.0.2"))
-	address, err = machine.PublicAddress()
+	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
+
+	err = machine.SetProviderAddresses(network.NewAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, jc.DeepEquals, network.NewAddress("8.8.8.8"))
+
+	addr, err = machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.4.4")
+	addr, err = machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.4.4")
+}
+
+func (s *MachineSuite) TestAddressesPrefersProviderBoth(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetMachineAddresses(network.NewAddress("8.8.8.8"), network.NewAddress("10.0.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err := machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
+	addr, err = machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "10.0.0.1")
+
+	err = machine.SetProviderAddresses(network.NewAddress("8.8.4.4"), network.NewAddress("10.0.0.2"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err = machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.4.4")
+	addr, err = machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
 }
 
 func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {
@@ -2478,148 +2535,6 @@ func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
 		containerType := state.ContainerTypeFromId(container.Id())
 		c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{"type": string(containerType)})
 	}
-}
-
-func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
-	// Provision the machine.
-	networks := []state.NetworkInfo{{
-		Name:       "net1",
-		ProviderId: "net1",
-		CIDR:       "0.1.2.0/24",
-		VLANTag:    0,
-	}, {
-		Name:       "vlan42",
-		ProviderId: "vlan42",
-		CIDR:       "0.2.2.0/24",
-		VLANTag:    42,
-	}}
-	interfaces := []state.NetworkInterfaceInfo{{
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		InterfaceName: "eth0",
-		NetworkName:   "net1",
-		IsVirtual:     false,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		InterfaceName: "eth1",
-		NetworkName:   "net1",
-		IsVirtual:     false,
-		Disabled:      true,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		InterfaceName: "eth1.42",
-		NetworkName:   "vlan42",
-		IsVirtual:     true,
-	}}
-	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Read dynamically generated document Ids.
-	ifaces, err := s.machine.NetworkInterfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifaces, gc.HasLen, 3)
-
-	// Start network interface watcher.
-	w := s.machine.WatchInterfaces()
-	defer testing.AssertStop(c, w)
-	wc := testing.NewNotifyWatcherC(c, s.State, w)
-	wc.AssertOneChange()
-
-	// Disable the first interface.
-	err = ifaces[0].Disable()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Disable the first interface again, should not report.
-	err = ifaces[0].Disable()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Enable the second interface, should report, because it was initially disabled.
-	err = ifaces[1].Enable()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Disable two interfaces at once, check that both are reported.
-	err = ifaces[1].Disable()
-	c.Assert(err, jc.ErrorIsNil)
-	err = ifaces[2].Disable()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Enable the first interface.
-	err = ifaces[0].Enable()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Enable the first interface again, should not report.
-	err = ifaces[0].Enable()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Remove the network interface.
-	err = ifaces[0].Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Add the new interface.
-	_, _ = addNetworkAndInterface(
-		c, s.State, s.machine,
-		"net2", "net2", "0.5.2.0/24", 0, false,
-		"aa:bb:cc:dd:ee:f2", "eth2")
-	wc.AssertOneChange()
-
-	// Provision another machine, should not report
-	machine2, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	interfaces2 := []state.NetworkInterfaceInfo{{
-		MACAddress:    "aa:bb:cc:dd:ee:e0",
-		InterfaceName: "eth0",
-		NetworkName:   "net1",
-		IsVirtual:     false,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:e1",
-		InterfaceName: "eth1",
-		NetworkName:   "net1",
-		IsVirtual:     false,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:e1",
-		InterfaceName: "eth1.42",
-		NetworkName:   "vlan42",
-		IsVirtual:     true,
-	}}
-	err = machine2.SetInstanceInfo("m-too", "fake_nonce", nil, networks, interfaces2, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifaces, gc.HasLen, 3)
-	wc.AssertNoChange()
-
-	// Read dynamically generated document Ids.
-	ifaces2, err := machine2.NetworkInterfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifaces2, gc.HasLen, 3)
-
-	// Disable the first interface on the second machine, should not report.
-	err = ifaces2[0].Disable()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Remove the network interface on the second machine, should not report.
-	err = ifaces2[0].Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Stop watcher; check Changes chan closed.
-	testing.AssertStop(c, w)
-	wc.AssertClosed()
-}
-
-func (s *MachineSuite) TestWatchInterfacesDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.envTag, func(c *gc.C, st *state.State) waiter {
-		m, err := st.Machine(s.machine.Id())
-		c.Assert(err, jc.ErrorIsNil)
-		w := m.WatchInterfaces()
-		<-w.Changes()
-		return w
-	})
 }
 
 func (s *MachineSuite) TestMachineAgentTools(c *gc.C) {

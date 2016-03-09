@@ -4,26 +4,22 @@
 package jujutest
 
 import (
-	"bytes"
-	"io/ioutil"
-	"net/http"
-	"sort"
-
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/environs/storage"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuversion"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // Tests is a gocheck suite containing tests verifying juju functionality
@@ -32,18 +28,27 @@ import (
 // is opened once for each test, and some potentially expensive operations
 // may be executed.
 type Tests struct {
-	TestConfig coretesting.Attrs
+	TestConfig    coretesting.Attrs
+	Credential    cloud.Credential
+	CloudEndpoint string
+	CloudRegion   string
 	envtesting.ToolsFixture
-
+	sstesting.TestDataSuite
 	// ConfigStore holds the configuration storage
 	// used when preparing the environment.
 	// This is initialized by SetUpTest.
 	ConfigStore configstore.Storage
+
+	// ControllerStore holds the controller related informtion
+	// such as controllers, accounts, etc., used when preparing
+	// the environment. This is initialized by SetUpSuite.
+	ControllerStore jujuclient.ClientStore
 }
 
 // Open opens an instance of the testing environment.
 func (t *Tests) Open(c *gc.C) environs.Environ {
-	info, err := t.ConfigStore.ReadInfo(t.TestConfig["name"].(string))
+	modelName := t.TestConfig["name"].(string)
+	info, err := t.ConfigStore.ReadInfo(configstore.EnvironInfoName(modelName, modelName))
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
 	c.Assert(err, jc.ErrorIsNil)
@@ -57,7 +62,17 @@ func (t *Tests) Open(c *gc.C) environs.Environ {
 func (t *Tests) Prepare(c *gc.C) environs.Environ {
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), t.ConfigStore)
+	credential := t.Credential
+	if credential.AuthType() == "" {
+		credential = cloud.NewEmptyCredential()
+	}
+	args := environs.PrepareForBootstrapParams{
+		Config:        cfg,
+		Credentials:   credential,
+		CloudEndpoint: t.CloudEndpoint,
+		CloudRegion:   t.CloudRegion,
+	}
+	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ConfigStore, t.ControllerStore, args.Config.Name(), args)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	return e
@@ -69,6 +84,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.ToolsFixture.SetUpTest(c)
 	t.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
 	t.ConfigStore = configstore.NewMem()
+	t.ControllerStore = jujuclienttesting.NewMemStore()
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {
@@ -127,151 +143,28 @@ func (t *Tests) TestStartStop(c *gc.C) {
 
 func (t *Tests) TestBootstrap(c *gc.C) {
 	e := t.Prepare(c)
-	err := bootstrap.EnsureNotBootstrapped(e)
-	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	stateServerInstances, err := e.StateServerInstances()
+	controllerInstances, err := e.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateServerInstances, gc.Not(gc.HasLen), 0)
-
-	err = bootstrap.EnsureNotBootstrapped(e)
-	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
+	c.Assert(controllerInstances, gc.Not(gc.HasLen), 0)
 
 	e2 := t.Open(c)
-	err = bootstrap.EnsureNotBootstrapped(e2)
-	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
-
-	stateServerInstances2, err := e2.StateServerInstances()
+	controllerInstances2, err := e2.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateServerInstances2, gc.Not(gc.HasLen), 0)
-	c.Assert(stateServerInstances2, jc.SameContents, stateServerInstances)
+	c.Assert(controllerInstances2, gc.Not(gc.HasLen), 0)
+	c.Assert(controllerInstances2, jc.SameContents, controllerInstances)
 
-	err = environs.Destroy(e2, t.ConfigStore)
+	err = environs.Destroy(e2.Config().Name(), e2, t.ConfigStore, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Prepare again because Destroy invalidates old environments.
 	e3 := t.Prepare(c)
 
-	err = bootstrap.EnsureNotBootstrapped(e3)
-	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e3, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bootstrap.EnsureNotBootstrapped(e3)
-	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
-
-	err = environs.Destroy(e3, t.ConfigStore)
+	err = environs.Destroy(e3.Config().Name(), e3, t.ConfigStore, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-var noRetry = utils.AttemptStrategy{}
-
-func (t *Tests) TestPersistence(c *gc.C) {
-	env, ok := t.Prepare(c).(environs.EnvironStorage)
-	if !ok {
-		c.Skip("environment does not implement provider storage")
-		return
-	}
-	stor := env.Storage()
-
-	names := []string{
-		"aa",
-		"zzz/aa",
-		"zzz/bb",
-	}
-	for _, name := range names {
-		checkFileDoesNotExist(c, stor, name, noRetry)
-		checkPutFile(c, stor, name, []byte(name))
-	}
-	checkList(c, stor, "", names)
-	checkList(c, stor, "a", []string{"aa"})
-	checkList(c, stor, "zzz/", []string{"zzz/aa", "zzz/bb"})
-
-	storage2 := t.Open(c).(environs.EnvironStorage).Storage()
-	for _, name := range names {
-		checkFileHasContents(c, storage2, name, []byte(name), noRetry)
-	}
-
-	// remove the first file and check that the others remain.
-	err := storage2.Remove(names[0])
-	c.Check(err, jc.ErrorIsNil)
-
-	// check that it's ok to remove a file twice.
-	err = storage2.Remove(names[0])
-	c.Check(err, jc.ErrorIsNil)
-
-	// ... and check it's been removed in the other environment
-	checkFileDoesNotExist(c, stor, names[0], noRetry)
-
-	// ... and that the rest of the files are still around
-	checkList(c, storage2, "", names[1:])
-
-	for _, name := range names[1:] {
-		err := storage2.Remove(name)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	// check they've all gone
-	checkList(c, storage2, "", nil)
-}
-
-func checkList(c *gc.C, stor storage.StorageReader, prefix string, names []string) {
-	lnames, err := storage.List(stor, prefix)
-	c.Assert(err, jc.ErrorIsNil)
-	// TODO(dfc) gocheck should grow an SliceEquals checker.
-	expected := copyslice(lnames)
-	sort.Strings(expected)
-	actual := copyslice(names)
-	sort.Strings(actual)
-	c.Assert(expected, gc.DeepEquals, actual)
-}
-
-// copyslice returns a copy of the slice
-func copyslice(s []string) []string {
-	r := make([]string, len(s))
-	copy(r, s)
-	return r
-}
-
-func checkPutFile(c *gc.C, stor storage.StorageWriter, name string, contents []byte) {
-	err := stor.Put(name, bytes.NewBuffer(contents), int64(len(contents)))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func checkFileDoesNotExist(c *gc.C, stor storage.StorageReader, name string, attempt utils.AttemptStrategy) {
-	r, err := storage.GetWithRetry(stor, name, attempt)
-	c.Assert(r, gc.IsNil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func checkFileHasContents(c *gc.C, stor storage.StorageReader, name string, contents []byte, attempt utils.AttemptStrategy) {
-	r, err := storage.GetWithRetry(stor, name, attempt)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(r, gc.NotNil)
-	defer r.Close()
-
-	data, err := ioutil.ReadAll(r)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(data, gc.DeepEquals, contents)
-
-	url, err := stor.URL(name)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var resp *http.Response
-	for a := attempt.Start(); a.Next(); {
-		resp, err = utils.GetValidatingHTTPClient().Get(url)
-		c.Assert(err, jc.ErrorIsNil)
-		if resp.StatusCode != 404 {
-			break
-		}
-		c.Logf("get retrying after earlier get succeeded. *sigh*.")
-	}
-	c.Assert(err, jc.ErrorIsNil)
-	data, err = ioutil.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	defer resp.Body.Close()
-	c.Assert(resp.StatusCode, gc.Equals, 200, gc.Commentf("error response: %s", data))
-	c.Check(data, gc.DeepEquals, contents)
 }

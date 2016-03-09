@@ -1,253 +1,416 @@
-// Copyright 2011, 2012, 2013 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package azure
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
-	"launchpad.net/gwacl"
+	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/arm/compute"
+	"github.com/Azure/azure-sdk-for-go/arm/network"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
+	jujunetwork "github.com/juju/juju/network"
+	"github.com/juju/names"
 )
 
-const AzureDomainName = "cloudapp.net"
-
 type azureInstance struct {
-	environ              *azureEnviron
-	hostedService        *gwacl.HostedServiceDescriptor
-	roleInstance         *gwacl.RoleInstance
-	instanceId           instance.Id
-	deploymentName       string
-	roleName             string
-	maskStateServerPorts bool
+	compute.VirtualMachine
+	env               *azureEnviron
+	networkInterfaces []network.Interface
+	publicIPAddresses []network.PublicIPAddress
 }
-
-// azureInstance implements Instance.
-var _ instance.Instance = (*azureInstance)(nil)
 
 // Id is specified in the Instance interface.
-func (azInstance *azureInstance) Id() instance.Id {
-	return azInstance.instanceId
-}
-
-// supportsLoadBalancing returns true iff the instance is
-// not a legacy instance where endpoints may have been
-// created without load balancing set names associated.
-func (azInstance *azureInstance) supportsLoadBalancing() bool {
-	v1Name := deploymentNameV1(azInstance.hostedService.ServiceName)
-	return azInstance.deploymentName != v1Name
+func (inst *azureInstance) Id() instance.Id {
+	// Note: we use Name and not Id, since all VM operations are in
+	// terms of the VM name (qualified by resource group). The ID is
+	// an internal detail.
+	return instance.Id(to.String(inst.VirtualMachine.Name))
 }
 
 // Status is specified in the Instance interface.
-func (azInstance *azureInstance) Status() string {
-	if azInstance.roleInstance == nil {
-		return ""
-	}
-	return azInstance.roleInstance.InstanceStatus
+func (inst *azureInstance) Status() string {
+	// NOTE(axw) ideally we would use the power state, but that is only
+	// available when using the "instance view". Instance view is only
+	// delivered when explicitly requested, and you can only request it
+	// when querying a single VM. This means the results of AllInstances
+	// or Instances would have the instance view missing.
+	return to.String(inst.Properties.ProvisioningState)
 }
 
-func (azInstance *azureInstance) serviceName() string {
-	return azInstance.hostedService.ServiceName
+// setInstanceAddresses queries Azure for the NICs and public IPs associated
+// with the given set of instances. This assumes that the instances'
+// VirtualMachines are up-to-date, and that there are no concurrent accesses
+// to the instances.
+func setInstanceAddresses(
+	pipClient network.PublicIPAddressesClient,
+	resourceGroup string,
+	instances []*azureInstance,
+	nicsResult network.InterfaceListResult,
+) (err error) {
+
+	instanceNics := make(map[instance.Id][]network.Interface)
+	instancePips := make(map[instance.Id][]network.PublicIPAddress)
+	for _, inst := range instances {
+		instanceNics[inst.Id()] = nil
+		instancePips[inst.Id()] = nil
+	}
+
+	// When setAddresses returns without error, update each
+	// instance's network interfaces and public IP addresses.
+	setInstanceFields := func(inst *azureInstance) {
+		inst.networkInterfaces = instanceNics[inst.Id()]
+		inst.publicIPAddresses = instancePips[inst.Id()]
+	}
+	defer func() {
+		if err != nil {
+			return
+		}
+		for _, inst := range instances {
+			setInstanceFields(inst)
+		}
+	}()
+
+	// We do not rely on references because of how StopInstances works.
+	// In order to not leak resources we must not delete the virtual
+	// machine until after all of its dependencies are deleted.
+	//
+	// NICs and PIPs cannot be deleted until they have no references.
+	// Thus, we cannot delete a PIP until there is no reference to it
+	// in any NICs, and likewise we cannot delete a NIC until there
+	// is no reference to it in any virtual machine.
+
+	if nicsResult.Value != nil {
+		for _, nic := range *nicsResult.Value {
+			instanceId := instance.Id(toTags(nic.Tags)[jujuMachineNameTag])
+			if _, ok := instanceNics[instanceId]; !ok {
+				continue
+			}
+			instanceNics[instanceId] = append(instanceNics[instanceId], nic)
+		}
+	}
+
+	pipsResult, err := pipClient.List(resourceGroup)
+	if err != nil {
+		return errors.Annotate(err, "listing public IP addresses")
+	}
+	if pipsResult.Value != nil {
+		for _, pip := range *pipsResult.Value {
+			instanceId := instance.Id(toTags(pip.Tags)[jujuMachineNameTag])
+			if _, ok := instanceNics[instanceId]; !ok {
+				continue
+			}
+			instancePips[instanceId] = append(instancePips[instanceId], pip)
+		}
+	}
+
+	// Fields will be assigned to instances by the deferred call.
+	return nil
 }
 
 // Addresses is specified in the Instance interface.
-func (azInstance *azureInstance) Addresses() ([]network.Address, error) {
-	var addrs []network.Address
-	if ip := azInstance.ipAddress(); ip != "" {
-		addrs = append(addrs, network.Address{
-			Value:       ip,
-			Type:        network.IPv4Address,
-			NetworkName: azInstance.environ.getVirtualNetworkName(),
-			Scope:       network.ScopeCloudLocal,
-		})
+func (inst *azureInstance) Addresses() ([]jujunetwork.Address, error) {
+	addresses := make([]jujunetwork.Address, 0, len(inst.networkInterfaces)+len(inst.publicIPAddresses))
+	for _, nic := range inst.networkInterfaces {
+		if nic.Properties.IPConfigurations == nil {
+			continue
+		}
+		for _, ipConfiguration := range *nic.Properties.IPConfigurations {
+			privateIpAddress := ipConfiguration.Properties.PrivateIPAddress
+			if privateIpAddress == nil {
+				continue
+			}
+			addresses = append(addresses, jujunetwork.NewScopedAddress(
+				to.String(privateIpAddress),
+				jujunetwork.ScopeCloudLocal,
+			))
+		}
 	}
-	name := fmt.Sprintf("%s.%s", azInstance.serviceName(), AzureDomainName)
-	host := network.Address{
-		Value:       name,
-		Type:        network.HostName,
-		NetworkName: "",
-		Scope:       network.ScopePublic,
+	for _, pip := range inst.publicIPAddresses {
+		if pip.Properties.IPAddress == nil {
+			continue
+		}
+		addresses = append(addresses, jujunetwork.NewScopedAddress(
+			to.String(pip.Properties.IPAddress),
+			jujunetwork.ScopePublic,
+		))
 	}
-	addrs = append(addrs, host)
-	return addrs, nil
+	return addresses, nil
 }
 
-func (azInstance *azureInstance) ipAddress() string {
-	if azInstance.roleInstance == nil {
-		// RoleInstance hasn't finished deploying.
-		return ""
+// internalNetworkAddress returns the instance's jujunetwork.Address for the
+// internal virtual network. This address is used to identify the machine in
+// network security rules.
+func (inst *azureInstance) internalNetworkAddress() (jujunetwork.Address, error) {
+	inst.env.mu.Lock()
+	subscriptionId := inst.env.config.subscriptionId
+	resourceGroup := inst.env.resourceGroup
+	controllerResourceGroup := inst.env.controllerResourceGroup
+	inst.env.mu.Unlock()
+	internalSubnetId := internalSubnetId(
+		resourceGroup, controllerResourceGroup, subscriptionId,
+	)
+
+	for _, nic := range inst.networkInterfaces {
+		if nic.Properties.IPConfigurations == nil {
+			continue
+		}
+		for _, ipConfiguration := range *nic.Properties.IPConfigurations {
+			if ipConfiguration.Properties.Subnet == nil {
+				continue
+			}
+			if strings.ToLower(to.String(ipConfiguration.Properties.Subnet.ID)) != strings.ToLower(internalSubnetId) {
+				continue
+			}
+			privateIpAddress := ipConfiguration.Properties.PrivateIPAddress
+			if privateIpAddress == nil {
+				continue
+			}
+			return jujunetwork.NewScopedAddress(
+				to.String(privateIpAddress),
+				jujunetwork.ScopeCloudLocal,
+			), nil
+		}
 	}
-	return azInstance.roleInstance.IPAddress
+	return jujunetwork.Address{}, errors.NotFoundf("internal network address")
 }
 
 // OpenPorts is specified in the Instance interface.
-func (azInstance *azureInstance) OpenPorts(machineId string, portRange []network.PortRange) error {
-	return azInstance.apiCall(true, func(api *gwacl.ManagementAPI) error {
-		return azInstance.openEndpoints(api, portRange)
-	})
-}
-
-// apiCall wraps a call to the azure API, optionally locking the environment.
-func (azInstance *azureInstance) apiCall(lock bool, f func(*gwacl.ManagementAPI) error) error {
-	env := azInstance.environ
-	api := env.getSnapshot().api
-	if lock {
-		env.Lock()
-		defer env.Unlock()
+func (inst *azureInstance) OpenPorts(machineId string, ports []jujunetwork.PortRange) error {
+	inst.env.mu.Lock()
+	nsgClient := network.SecurityGroupsClient{inst.env.network}
+	securityRuleClient := network.SecurityRulesClient{inst.env.network}
+	inst.env.mu.Unlock()
+	internalNetworkAddress, err := inst.internalNetworkAddress()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return f(api)
-}
 
-// openEndpoints opens the endpoints in the Azure deployment.
-func (azInstance *azureInstance) openEndpoints(api *gwacl.ManagementAPI, portRanges []network.PortRange) error {
-	request := &gwacl.AddRoleEndpointsRequest{
-		ServiceName:    azInstance.serviceName(),
-		DeploymentName: azInstance.deploymentName,
-		RoleName:       azInstance.roleName,
+	securityGroupName := internalSecurityGroupName
+	nsg, err := nsgClient.Get(inst.env.resourceGroup, securityGroupName)
+	if err != nil {
+		return errors.Annotate(err, "querying network security group")
 	}
-	for _, portRange := range portRanges {
-		name := fmt.Sprintf("%s%d-%d", portRange.Protocol, portRange.FromPort, portRange.ToPort)
-		for port := portRange.FromPort; port <= portRange.ToPort; port++ {
-			endpoint := gwacl.InputEndpoint{
-				LocalPort: port,
-				Name:      fmt.Sprintf("%s_range_%d", name, port),
-				Port:      port,
-				Protocol:  portRange.Protocol,
+
+	var securityRules []network.SecurityRule
+	if nsg.Properties.SecurityRules != nil {
+		securityRules = *nsg.Properties.SecurityRules
+	} else {
+		nsg.Properties.SecurityRules = &securityRules
+	}
+
+	// Create rules one at a time; this is necessary to avoid trampling
+	// on changes made by the provisioner. We still record rules in the
+	// NSG in memory, so we can easily tell which priorities are available.
+	vmName := resourceName(names.NewMachineTag(machineId))
+	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
+	for _, ports := range ports {
+		ruleName := securityRuleName(prefix, ports)
+
+		// Check if the rule already exists; OpenPorts must be idempotent.
+		var found bool
+		for _, rule := range securityRules {
+			if to.String(rule.Name) == ruleName {
+				found = true
+				break
 			}
-			if azInstance.supportsLoadBalancing() {
-				probePort := port
-				if strings.ToUpper(endpoint.Protocol) == "UDP" {
-					// Load balancing needs a TCP port to probe, or an HTTP
-					// server port & path to query. For UDP, we just use the
-					// machine's SSH agent port to test machine liveness.
-					//
-					// It probably doesn't make sense to load balance most UDP
-					// protocols transparently, but that's an application level
-					// concern.
-					probePort = 22
-				}
-				endpoint.LoadBalancedEndpointSetName = name
-				endpoint.LoadBalancerProbe = &gwacl.LoadBalancerProbe{
-					Port:     probePort,
-					Protocol: "TCP",
-				}
-			}
-			request.InputEndpoints = append(request.InputEndpoints, endpoint)
 		}
+		if found {
+			logger.Debugf("security rule %q already exists", ruleName)
+			continue
+		}
+		logger.Debugf("creating security rule %q", ruleName)
+
+		priority, err := nextSecurityRulePriority(nsg, securityRuleInternalMax+1, securityRuleMax)
+		if err != nil {
+			return errors.Annotatef(err, "getting security rule priority for %s", ports)
+		}
+
+		var protocol network.SecurityRuleProtocol
+		switch ports.Protocol {
+		case "tcp":
+			protocol = network.SecurityRuleProtocolTCP
+		case "udp":
+			protocol = network.SecurityRuleProtocolUDP
+		default:
+			return errors.Errorf("invalid protocol %q", ports.Protocol)
+		}
+
+		var portRange string
+		if ports.FromPort != ports.ToPort {
+			portRange = fmt.Sprintf("%d-%d", ports.FromPort, ports.ToPort)
+		} else {
+			portRange = fmt.Sprint(ports.FromPort)
+		}
+
+		rule := network.SecurityRule{
+			Properties: &network.SecurityRulePropertiesFormat{
+				Description:              to.StringPtr(ports.String()),
+				Protocol:                 protocol,
+				SourcePortRange:          to.StringPtr("*"),
+				DestinationPortRange:     to.StringPtr(portRange),
+				SourceAddressPrefix:      to.StringPtr("*"),
+				DestinationAddressPrefix: to.StringPtr(internalNetworkAddress.Value),
+				Access:    network.Allow,
+				Priority:  to.IntPtr(priority),
+				Direction: network.Inbound,
+			},
+		}
+		if _, err := securityRuleClient.CreateOrUpdate(
+			inst.env.resourceGroup, securityGroupName, ruleName, rule,
+		); err != nil {
+			return errors.Annotatef(err, "creating security rule for %s", ports)
+		}
+		securityRules = append(securityRules, rule)
 	}
-	return api.AddRoleEndpoints(request)
+	return nil
 }
 
 // ClosePorts is specified in the Instance interface.
-func (azInstance *azureInstance) ClosePorts(machineId string, ports []network.PortRange) error {
-	return azInstance.apiCall(true, func(api *gwacl.ManagementAPI) error {
-		return azInstance.closeEndpoints(api, ports)
-	})
-}
+func (inst *azureInstance) ClosePorts(machineId string, ports []jujunetwork.PortRange) error {
+	inst.env.mu.Lock()
+	securityRuleClient := network.SecurityRulesClient{inst.env.network}
+	inst.env.mu.Unlock()
+	securityGroupName := internalSecurityGroupName
 
-// closeEndpoints closes the endpoints in the Azure deployment.
-func (azInstance *azureInstance) closeEndpoints(api *gwacl.ManagementAPI, portRanges []network.PortRange) error {
-	request := &gwacl.RemoveRoleEndpointsRequest{
-		ServiceName:    azInstance.serviceName(),
-		DeploymentName: azInstance.deploymentName,
-		RoleName:       azInstance.roleName,
-	}
-	for _, portRange := range portRanges {
-		name := fmt.Sprintf("%s%d-%d", portRange.Protocol, portRange.FromPort, portRange.ToPort)
-		for port := portRange.FromPort; port <= portRange.ToPort; port++ {
-			request.InputEndpoints = append(request.InputEndpoints, gwacl.InputEndpoint{
-				LocalPort:                   port,
-				Name:                        fmt.Sprintf("%s_%d", name, port),
-				Port:                        port,
-				Protocol:                    portRange.Protocol,
-				LoadBalancedEndpointSetName: name,
-			})
-		}
-	}
-	return api.RemoveRoleEndpoints(request)
-}
-
-// convertEndpointsToPorts converts a slice of gwacl.InputEndpoint into a slice of network.PortRange.
-func convertEndpointsToPortRanges(endpoints []gwacl.InputEndpoint) []network.PortRange {
-	// group ports by prefix on the endpoint name
-	portSets := make(map[string][]network.Port)
-	otherPorts := []network.Port{}
-	for _, endpoint := range endpoints {
-		port := network.Port{
-			Protocol: strings.ToLower(endpoint.Protocol),
-			Number:   endpoint.Port,
-		}
-		if strings.Contains(endpoint.Name, "_range_") {
-			prefix := strings.Split(endpoint.Name, "_range_")[0]
-			portSets[prefix] = append(portSets[prefix], port)
-		} else {
-			otherPorts = append(otherPorts, port)
-		}
-	}
-
-	portRanges := []network.PortRange{}
-
-	// convert port sets into port ranges
-	for _, ports := range portSets {
-		portRanges = append(portRanges, network.CollapsePorts(ports)...)
-	}
-
-	portRanges = append(portRanges, network.CollapsePorts(otherPorts)...)
-	network.SortPortRanges(portRanges)
-	return portRanges
-}
-
-// convertAndFilterEndpoints converts a slice of gwacl.InputEndpoint into a slice of network.PortRange
-// and filters out the initial endpoints that every instance should have opened (ssh port, etc.).
-func convertAndFilterEndpoints(endpoints []gwacl.InputEndpoint, env *azureEnviron, stateServer bool) []network.PortRange {
-	return portRangeDiff(
-		convertEndpointsToPortRanges(endpoints),
-		convertEndpointsToPortRanges(env.getInitialEndpoints(stateServer)),
-	)
-}
-
-// portRangeDiff returns all port ranges that are in a but not in b.
-func portRangeDiff(A, B []network.PortRange) (missing []network.PortRange) {
-next:
-	for _, a := range A {
-		for _, b := range B {
-			if a == b {
-				continue next
+	// Delete rules one at a time; this is necessary to avoid trampling
+	// on changes made by the provisioner.
+	vmName := resourceName(names.NewMachineTag(machineId))
+	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
+	for _, ports := range ports {
+		ruleName := securityRuleName(prefix, ports)
+		logger.Debugf("deleting security rule %q", ruleName)
+		result, err := securityRuleClient.Delete(
+			inst.env.resourceGroup, securityGroupName, ruleName,
+		)
+		if err != nil {
+			if result.Response == nil || result.StatusCode != http.StatusNotFound {
+				return errors.Annotatef(err, "deleting security rule %q", ruleName)
 			}
 		}
-		missing = append(missing, a)
 	}
-	return
+	return nil
 }
 
 // Ports is specified in the Instance interface.
-func (azInstance *azureInstance) Ports(machineId string) (ports []network.PortRange, err error) {
-	err = azInstance.apiCall(false, func(api *gwacl.ManagementAPI) error {
-		ports, err = azInstance.listPorts(api)
-		return err
-	})
-	if ports != nil {
-		network.SortPortRanges(ports)
+func (inst *azureInstance) Ports(machineId string) (ports []jujunetwork.PortRange, err error) {
+	inst.env.mu.Lock()
+	nsgClient := network.SecurityGroupsClient{inst.env.network}
+	inst.env.mu.Unlock()
+
+	securityGroupName := internalSecurityGroupName
+	nsg, err := nsgClient.Get(inst.env.resourceGroup, securityGroupName)
+	if err != nil {
+		return nil, errors.Annotate(err, "querying network security group")
 	}
-	return ports, err
+	if nsg.Properties.SecurityRules == nil {
+		return nil, nil
+	}
+
+	vmName := resourceName(names.NewMachineTag(machineId))
+	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
+	for _, rule := range *nsg.Properties.SecurityRules {
+		if rule.Properties.Direction != network.Inbound {
+			continue
+		}
+		if rule.Properties.Access != network.Allow {
+			continue
+		}
+		if to.Int(rule.Properties.Priority) <= securityRuleInternalMax {
+			continue
+		}
+		if !strings.HasPrefix(to.String(rule.Name), prefix) {
+			continue
+		}
+
+		var portRange jujunetwork.PortRange
+		if *rule.Properties.DestinationPortRange == "*" {
+			portRange.FromPort = 0
+			portRange.ToPort = 65535
+		} else {
+			portRange, err = jujunetwork.ParsePortRange(
+				*rule.Properties.DestinationPortRange,
+			)
+			if err != nil {
+				return nil, errors.Annotatef(
+					err, "parsing port range for security rule %q",
+					to.String(rule.Name),
+				)
+			}
+		}
+
+		var protocols []string
+		switch rule.Properties.Protocol {
+		case network.SecurityRuleProtocolTCP:
+			protocols = []string{"tcp"}
+		case network.SecurityRuleProtocolUDP:
+			protocols = []string{"udp"}
+		default:
+			protocols = []string{"tcp", "udp"}
+		}
+		for _, protocol := range protocols {
+			portRange.Protocol = protocol
+			ports = append(ports, portRange)
+		}
+	}
+	return ports, nil
 }
 
-// listPorts returns the slice of port ranges (network.PortRange)
-// that this machine has opened. The returned list does not contain
-// the "initial port ranges" (i.e. the port ranges every instance
-// shoud have opened).
-func (azInstance *azureInstance) listPorts(api *gwacl.ManagementAPI) ([]network.PortRange, error) {
-	endpoints, err := api.ListRoleEndpoints(&gwacl.ListRoleEndpointsRequest{
-		ServiceName:    azInstance.serviceName(),
-		DeploymentName: azInstance.deploymentName,
-		RoleName:       azInstance.roleName,
-	})
+// deleteInstanceNetworkSecurityRules deletes network security rules in the
+// internal network security group that correspond to the specified machine.
+//
+// This is expected to delete *all* security rules related to the instance,
+// i.e. both the ones opened by OpenPorts above, and the ones opened for API
+// access.
+func deleteInstanceNetworkSecurityRules(
+	resourceGroup string, id instance.Id,
+	nsgClient network.SecurityGroupsClient,
+	securityRuleClient network.SecurityRulesClient,
+) error {
+	nsg, err := nsgClient.Get(resourceGroup, internalSecurityGroupName)
 	if err != nil {
-		return nil, err
+		return errors.Annotate(err, "querying network security group")
 	}
-	ports := convertAndFilterEndpoints(endpoints, azInstance.environ, azInstance.maskStateServerPorts)
-	return ports, nil
+	if nsg.Properties.SecurityRules == nil {
+		return nil
+	}
+	prefix := instanceNetworkSecurityRulePrefix(id)
+	for _, rule := range *nsg.Properties.SecurityRules {
+		ruleName := to.String(rule.Name)
+		if !strings.HasPrefix(ruleName, prefix) {
+			continue
+		}
+		result, err := securityRuleClient.Delete(
+			resourceGroup,
+			internalSecurityGroupName,
+			ruleName,
+		)
+		if err != nil {
+			if result.Response == nil || result.StatusCode != http.StatusNotFound {
+				return errors.Annotatef(err, "deleting security rule %q", ruleName)
+			}
+		}
+	}
+	return nil
+}
+
+// instanceNetworkSecurityRulePrefix returns the unique prefix for network
+// security rule names that relate to the instance with the given ID.
+func instanceNetworkSecurityRulePrefix(id instance.Id) string {
+	return string(id) + "-"
+}
+
+// securityRuleName returns the security rule name for the given port range,
+// and prefix returned by instanceNetworkSecurityRulePrefix.
+func securityRuleName(prefix string, ports jujunetwork.PortRange) string {
+	ruleName := fmt.Sprintf("%s%s-%d", prefix, ports.Protocol, ports.FromPort)
+	if ports.FromPort != ports.ToPort {
+		ruleName += fmt.Sprintf("-%d", ports.ToPort)
+	}
+	return ruleName
 }

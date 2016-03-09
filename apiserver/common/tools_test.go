@@ -19,11 +19,11 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/toolstorage"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type toolsSuite struct {
@@ -301,7 +301,7 @@ func (s *toolsSuite) TestToolsURLGetter(c *gc.C) {
 	})
 	url, err := g.ToolsURL(current)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, "https://0.1.2.3:1234/environment/my-uuid/tools/"+current.String())
+	c.Assert(url, gc.Equals, "https://0.1.2.3:1234/model/my-uuid/tools/"+current.String())
 }
 
 type sprintfURLGetter string

@@ -8,17 +8,17 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"launchpad.net/tomb"
 
-	apifirewaller "github.com/juju/juju/api/firewaller"
-	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/environ"
 )
 
 type machineRanges map[network.PortRange]bool
@@ -27,12 +27,12 @@ type machineRanges map[network.PortRange]bool
 // machines and reflects those changes onto the backing environment.
 // Uses Firewaller API V1.
 type Firewaller struct {
-	tomb            tomb.Tomb
-	st              *apifirewaller.State
+	catacomb        catacomb.Catacomb
+	st              *firewaller.State
 	environ         environs.Environ
-	environWatcher  apiwatcher.NotifyWatcher
-	machinesWatcher apiwatcher.StringsWatcher
-	portsWatcher    apiwatcher.StringsWatcher
+	modelWatcher    watcher.NotifyWatcher
+	machinesWatcher watcher.StringsWatcher
+	portsWatcher    watcher.StringsWatcher
 	machineds       map[names.MachineTag]*machineData
 	unitsChange     chan *unitsChange
 	unitds          map[names.UnitTag]*unitData
@@ -45,7 +45,7 @@ type Firewaller struct {
 
 // NewFirewaller returns a new Firewaller or a new FirewallerV0,
 // depending on what the API supports.
-func NewFirewaller(st *apifirewaller.State) (_ worker.Worker, err error) {
+func NewFirewaller(st *firewaller.State) (worker.Worker, error) {
 	fw := &Firewaller{
 		st:            st,
 		machineds:     make(map[names.MachineTag]*machineData),
@@ -55,82 +55,99 @@ func NewFirewaller(st *apifirewaller.State) (_ worker.Worker, err error) {
 		exposedChange: make(chan *exposedChange),
 		machinePorts:  make(map[names.MachineTag]machineRanges),
 	}
-	defer func() {
-		if err != nil {
-			fw.stopWatchers()
-		}
-	}()
-
-	fw.environWatcher, err = st.WatchForEnvironConfigChanges()
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &fw.catacomb,
+		Work: fw.loop,
+	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
+	return fw, nil
+}
 
-	fw.machinesWatcher, err = st.WatchEnvironMachines()
+func (fw *Firewaller) setUp() error {
+	var err error
+	fw.modelWatcher, err = fw.st.WatchForModelConfigChanges()
 	if err != nil {
-		return nil, err
+		return errors.Trace(err)
 	}
-
-	fw.portsWatcher, err = st.WatchOpenedPorts()
-	if err != nil {
-		return nil, errors.Annotatef(err, "failed to start ports watcher")
+	if err := fw.catacomb.Add(fw.modelWatcher); err != nil {
+		return errors.Trace(err)
 	}
-	logger.Debugf("started watching opened port ranges for the environment")
 
 	// We won't "wait" actually, because the environ is already
 	// available and has a guaranteed valid config, but until
 	// WaitForEnviron goes away, this code needs to stay.
-	fw.environ, err = worker.WaitForEnviron(fw.environWatcher, fw.st, fw.tomb.Dying())
+	fw.environ, err = environ.WaitForEnviron(fw.modelWatcher, fw.st, fw.catacomb.Dying())
 	if err != nil {
-		return nil, err
+		if err == environ.ErrWaitAborted {
+			return fw.catacomb.ErrDying()
+		}
+		return errors.Trace(err)
 	}
-
 	switch fw.environ.Config().FirewallMode() {
 	case config.FwGlobal:
 		fw.globalMode = true
 		fw.globalPortRef = make(map[network.PortRange]int)
 	case config.FwNone:
 		logger.Warningf("stopping firewaller - firewall-mode is %q", config.FwNone)
-		return nil, errors.Errorf("firewaller is disabled when firewall-mode is %q", config.FwNone)
+		// XXX(fwereade): shouldn't this be nil? Nothing wrong, nothing to do,
+		// now that we've logged there's no further reason to complain or retry.
+		return errors.Errorf("firewaller is disabled when firewall-mode is %q", config.FwNone)
 	}
 
-	go func() {
-		defer fw.tomb.Done()
-		fw.tomb.Kill(fw.loop())
-	}()
-	return fw, nil
+	fw.machinesWatcher, err = fw.st.WatchModelMachines()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := fw.catacomb.Add(fw.machinesWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
+	fw.portsWatcher, err = fw.st.WatchOpenedPorts()
+	if err != nil {
+		return errors.Annotatef(err, "failed to start ports watcher")
+	}
+	if err := fw.catacomb.Add(fw.portsWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Debugf("started watching opened port ranges for the environment")
+	return nil
 }
 
-var _ worker.Worker = (*Firewaller)(nil)
-
 func (fw *Firewaller) loop() error {
-	defer fw.stopWatchers()
-
+	if err := fw.setUp(); err != nil {
+		return errors.Trace(err)
+	}
 	var reconciled bool
-
 	portsChange := fw.portsWatcher.Changes()
 	for {
 		select {
-		case <-fw.tomb.Dying():
-			return tomb.ErrDying
-		case _, ok := <-fw.environWatcher.Changes():
+		case <-fw.catacomb.Dying():
+			return fw.catacomb.ErrDying()
+		case _, ok := <-fw.modelWatcher.Changes():
 			logger.Debugf("got environ config changes")
 			if !ok {
-				return watcher.EnsureErr(fw.environWatcher)
+				return errors.New("environment configuration watcher closed")
 			}
-			config, err := fw.st.EnvironConfig()
+			config, err := fw.st.ModelConfig()
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			if err := fw.environ.SetConfig(config); err != nil {
+				// XXX(fwereade): surely this is an error? probably moot, will
+				// hopefully be replaced with EnvironObserver.
 				logger.Errorf("loaded invalid environment configuration: %v", err)
 			}
 		case change, ok := <-fw.machinesWatcher.Changes():
 			if !ok {
-				return watcher.EnsureErr(fw.machinesWatcher)
+				return errors.New("machines watcher closed")
 			}
 			for _, machineId := range change {
-				fw.machineLifeChanged(names.NewMachineTag(machineId))
+				if err := fw.machineLifeChanged(names.NewMachineTag(machineId)); err != nil {
+					return err
+				}
 			}
 			if !reconciled {
 				reconciled = true
@@ -141,12 +158,12 @@ func (fw *Firewaller) loop() error {
 					err = fw.reconcileInstances()
 				}
 				if err != nil {
-					return err
+					return errors.Trace(err)
 				}
 			}
 		case change, ok := <-portsChange:
 			if !ok {
-				return watcher.EnsureErr(fw.portsWatcher)
+				return errors.New("ports watcher closed")
 			}
 			for _, portsGlobalKey := range change {
 				machineTag, networkTag, err := parsePortsKey(portsGlobalKey)
@@ -159,7 +176,7 @@ func (fw *Firewaller) loop() error {
 			}
 		case change := <-fw.unitsChange:
 			if err := fw.unitsChanged(change); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		case change := <-fw.exposedChange:
 			change.serviced.exposed = change.exposed
@@ -192,14 +209,25 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 	}
 	unitw, err := m.WatchUnits()
 	if err != nil {
-		return err
+		return errors.Trace(err)
+	}
+	// XXX(fwereade): this is the best of a bunch of bad options. We've started
+	// the watch, so we're responsible for it; but we (probably?) need to do this
+	// little dance below to update the machined data on the fw loop goroutine,
+	// whence it's usually accessed, before we start the machined watchLoop
+	// below. That catacomb *should* be the only one responsible -- and it *is*
+	// responsible -- but having it in the main fw catacomb as well does no harm,
+	// and greatly simplifies the code below (which would otherwise have to
+	// manage unitw lifetime and errors manually).
+	if err := fw.catacomb.Add(unitw); err != nil {
+		return errors.Trace(err)
 	}
 	select {
-	case <-fw.tomb.Dying():
-		return tomb.ErrDying
+	case <-fw.catacomb.Dying():
+		return fw.catacomb.ErrDying()
 	case change, ok := <-unitw.Changes():
 		if !ok {
-			return watcher.EnsureErr(unitw)
+			return errors.New("machine units watcher closed")
 		}
 		fw.machineds[tag] = machined
 		err = fw.unitsChanged(&unitsChange{machined, change})
@@ -208,15 +236,24 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 			return errors.Annotatef(err, "cannot respond to units changes for %q", tag)
 		}
 	}
-	go machined.watchLoop(unitw)
+
+	err = catacomb.Invoke(catacomb.Plan{
+		Site: &machined.catacomb,
+		Work: func() error {
+			return machined.watchLoop(unitw)
+		},
+	})
+	if err != nil {
+		delete(fw.machineds, tag)
+		return errors.Trace(err)
+	}
 	return nil
 }
 
 // startUnit creates a new data value for tracking details of the unit
-// and starts watching the unit for port changes. The provided
-// machineTag must be the tag for the machine the unit was last
+// The provided machineTag must be the tag for the machine the unit was last
 // observed to be assigned to.
-func (fw *Firewaller) startUnit(unit *apifirewaller.Unit, machineTag names.MachineTag) error {
+func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineTag) error {
 	service, err := unit.Service()
 	if err != nil {
 		return err
@@ -267,7 +304,7 @@ func (fw *Firewaller) startUnit(unit *apifirewaller.Unit, machineTag names.Machi
 
 // startService creates a new data value for tracking details of the
 // service and starts watching the service for exposure changes.
-func (fw *Firewaller) startService(service *apifirewaller.Service) error {
+func (fw *Firewaller) startService(service *firewaller.Service) error {
 	exposed, err := service.IsExposed()
 	if err != nil {
 		return err
@@ -278,8 +315,19 @@ func (fw *Firewaller) startService(service *apifirewaller.Service) error {
 		exposed: exposed,
 		unitds:  make(map[names.UnitTag]*unitData),
 	}
+	err = catacomb.Invoke(catacomb.Plan{
+		Site: &serviced.catacomb,
+		Work: func() error {
+			return serviced.watchLoop(exposed)
+		},
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := fw.catacomb.Add(serviced); err != nil {
+		return errors.Trace(err)
+	}
 	fw.serviceds[service.Tag()] = serviced
-	go serviced.watchLoop(serviced.exposed)
 	return nil
 }
 
@@ -637,12 +685,14 @@ func (fw *Firewaller) forgetMachine(machined *machineData) error {
 		fw.forgetUnit(unitd)
 	}
 	if err := fw.flushMachine(machined); err != nil {
-		return err
+		return errors.Trace(err)
 	}
+
+	// Unusually, it's fine to ignore this error, because we know the machined
+	// is being tracked in fw.catacomb. But we do still want to wait until the
+	// watch loop has stopped before we nuke the last data and return.
+	worker.Stop(machined)
 	delete(fw.machineds, machined.tag)
-	if err := machined.Stop(); err != nil {
-		return err
-	}
 	logger.Debugf("stopped watching %q", machined.tag)
 	return nil
 }
@@ -652,56 +702,39 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 	serviced := unitd.serviced
 	machined := unitd.machined
 
+	// If it's the last unit in the service, we'll need to stop the serviced.
+	stoppedService := false
+	if len(serviced.unitds) == 1 {
+		if _, found := serviced.unitds[unitd.tag]; found {
+			// Unusually, it's fine to ignore this error, because we know the
+			// serviced is being tracked in fw.catacomb. But we do still want
+			// to wait until the watch loop has stopped before we nuke the last
+			// data and return.
+			worker.Stop(serviced)
+			stoppedService = true
+		}
+	}
+
 	// Clean up after stopping.
 	delete(fw.unitds, unitd.tag)
 	delete(machined.unitds, unitd.tag)
 	delete(serviced.unitds, unitd.tag)
-	if len(serviced.unitds) == 0 {
-		// Stop service data after all units are removed.
-		if err := serviced.Stop(); err != nil {
-			logger.Errorf("service watcher %q returned error when stopping: %v", serviced.service.Name(), err)
-		}
-		delete(fw.serviceds, serviced.service.Tag())
+	logger.Debugf("stopped watching %q", unitd.tag)
+	if stoppedService {
+		serviceTag := serviced.service.Tag()
+		delete(fw.serviceds, serviceTag)
+		logger.Debugf("stopped watching %q", serviceTag)
 	}
 }
 
-// stopWatchers stops all the firewaller's watchers.
-func (fw *Firewaller) stopWatchers() {
-	if fw.environWatcher != nil {
-		watcher.Stop(fw.environWatcher, &fw.tomb)
-	}
-	if fw.machinesWatcher != nil {
-		watcher.Stop(fw.machinesWatcher, &fw.tomb)
-	}
-	if fw.portsWatcher != nil {
-		watcher.Stop(fw.portsWatcher, &fw.tomb)
-	}
-	for _, serviced := range fw.serviceds {
-		if serviced != nil {
-			watcher.Stop(serviced, &fw.tomb)
-		}
-	}
-	for _, machined := range fw.machineds {
-		if machined != nil {
-			watcher.Stop(machined, &fw.tomb)
-		}
-	}
-}
-
-// Err returns the reason why the firewaller has stopped or tomb.ErrStillAlive
-// when it is still alive.
-func (fw *Firewaller) Err() (reason error) {
-	return fw.tomb.Err()
-}
-
-// Kill implements worker.Worker.Kill.
+// Kill is part of the worker.Worker interface.
 func (fw *Firewaller) Kill() {
-	fw.tomb.Kill(nil)
+	fw.catacomb.Kill(nil)
 }
 
-// Wait implements worker.Worker.Wait.
+// Wait is part of the worker.Worker interface.
 func (fw *Firewaller) Wait() error {
-	return fw.tomb.Wait()
+	return fw.catacomb.Wait()
 }
 
 // unitsChange contains the changed units for one specific machine.
@@ -712,7 +745,7 @@ type unitsChange struct {
 
 // machineData holds machine details and watches units added or removed.
 type machineData struct {
-	tomb        tomb.Tomb
+	catacomb    catacomb.Catacomb
 	fw          *Firewaller
 	tag         names.MachineTag
 	unitds      map[names.UnitTag]*unitData
@@ -721,47 +754,47 @@ type machineData struct {
 	definedPorts map[network.PortRange]names.UnitTag
 }
 
-func (md *machineData) machine() (*apifirewaller.Machine, error) {
+func (md *machineData) machine() (*firewaller.Machine, error) {
 	return md.fw.st.Machine(md.tag)
 }
 
 // watchLoop watches the machine for units added or removed.
-func (md *machineData) watchLoop(unitw apiwatcher.StringsWatcher) {
-	defer md.tomb.Done()
-	defer watcher.Stop(unitw, &md.tomb)
+func (md *machineData) watchLoop(unitw watcher.StringsWatcher) error {
+	if err := md.catacomb.Add(unitw); err != nil {
+		return errors.Trace(err)
+	}
 	for {
 		select {
-		case <-md.tomb.Dying():
-			return
+		case <-md.catacomb.Dying():
+			return md.catacomb.ErrDying()
 		case change, ok := <-unitw.Changes():
 			if !ok {
-				_, err := md.machine()
-				if !params.IsCodeNotFound(err) {
-					md.fw.tomb.Kill(watcher.EnsureErr(unitw))
-				}
-				return
+				return errors.New("machine units watcher closed")
 			}
 			select {
 			case md.fw.unitsChange <- &unitsChange{md, change}:
-			case <-md.tomb.Dying():
-				return
+			case <-md.catacomb.Dying():
+				return md.catacomb.ErrDying()
 			}
 		}
 	}
 }
 
-// Stop stops the machine watching.
-func (md *machineData) Stop() error {
-	md.tomb.Kill(nil)
-	return md.tomb.Wait()
+// Kill is part of the worker.Worker interface.
+func (md *machineData) Kill() {
+	md.catacomb.Kill(nil)
 }
 
-// unitData holds unit details and watches port changes.
+// Wait is part of the worker.Worker interface.
+func (md *machineData) Wait() error {
+	return md.catacomb.Wait()
+}
+
+// unitData holds unit details.
 type unitData struct {
-	tomb     tomb.Tomb
 	fw       *Firewaller
 	tag      names.UnitTag
-	unit     *apifirewaller.Unit
+	unit     *firewaller.Unit
 	serviced *serviceData
 	machined *machineData
 }
@@ -774,59 +807,62 @@ type exposedChange struct {
 
 // serviceData holds service details and watches exposure changes.
 type serviceData struct {
-	tomb    tomb.Tomb
-	fw      *Firewaller
-	service *apifirewaller.Service
-	exposed bool
-	unitds  map[names.UnitTag]*unitData
+	catacomb catacomb.Catacomb
+	fw       *Firewaller
+	service  *firewaller.Service
+	exposed  bool
+	unitds   map[names.UnitTag]*unitData
 }
 
 // watchLoop watches the service's exposed flag for changes.
-func (sd *serviceData) watchLoop(exposed bool) {
-	defer sd.tomb.Done()
-	w, err := sd.service.Watch()
+func (sd *serviceData) watchLoop(exposed bool) error {
+	serviceWatcher, err := sd.service.Watch()
 	if err != nil {
-		sd.fw.tomb.Kill(err)
-		return
+		return errors.Trace(err)
 	}
-	defer watcher.Stop(w, &sd.tomb)
+	if err := sd.catacomb.Add(serviceWatcher); err != nil {
+		return errors.Trace(err)
+	}
 	for {
 		select {
-		case <-sd.tomb.Dying():
-			return
-		case _, ok := <-w.Changes():
+		case <-sd.catacomb.Dying():
+			return sd.catacomb.ErrDying()
+		case _, ok := <-serviceWatcher.Changes():
 			if !ok {
-				sd.fw.tomb.Kill(watcher.EnsureErr(w))
-				return
+				return errors.New("service watcher closed")
 			}
 			if err := sd.service.Refresh(); err != nil {
 				if !params.IsCodeNotFound(err) {
-					sd.fw.tomb.Kill(err)
+					return errors.Trace(err)
 				}
-				return
+				return nil
 			}
 			change, err := sd.service.IsExposed()
 			if err != nil {
-				sd.fw.tomb.Kill(err)
-				return
+				return errors.Trace(err)
 			}
 			if change == exposed {
 				continue
 			}
+
 			exposed = change
 			select {
 			case sd.fw.exposedChange <- &exposedChange{sd, change}:
-			case <-sd.tomb.Dying():
-				return
+			case <-sd.catacomb.Dying():
+				return sd.catacomb.ErrDying()
 			}
 		}
 	}
 }
 
-// Stop stops the service watching.
-func (sd *serviceData) Stop() error {
-	sd.tomb.Kill(nil)
-	return sd.tomb.Wait()
+// Kill is part of the worker.Worker interface.
+func (sd *serviceData) Kill() {
+	sd.catacomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (sd *serviceData) Wait() error {
+	return sd.catacomb.Wait()
 }
 
 // diffRanges returns all the port rangess that exist in A but not B.

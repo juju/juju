@@ -15,7 +15,6 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
@@ -24,6 +23,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -45,7 +45,7 @@ type authHttpSuite struct {
 	// all other fields will be zero.
 	apitesting.MacaroonSuite
 
-	envUUID string
+	modelUUID string
 
 	// userTag and password hold the user tag and password
 	// to use in authRequest. When macaroonAuthEnabled
@@ -62,13 +62,13 @@ func (s *authHttpSuite) SetUpTest(c *gc.C) {
 		s.JujuConnSuite.SetUpTest(c)
 	}
 
-	s.envUUID = s.State.EnvironUUID()
+	s.modelUUID = s.State.ModelUUID()
 
 	if s.macaroonAuthEnabled {
 		// When macaroon authentication is enabled, we must use
 		// an external user.
 		s.userTag = names.NewUserTag("bob@authhttpsuite")
-		s.AddEnvUser(c, s.userTag.Id())
+		s.AddModelUser(c, s.userTag.Id())
 	} else {
 		// Make a user in the state.
 		s.password = "password"
@@ -229,15 +229,17 @@ func (s *authHttpSuite) authRequest(c *gc.C, p httpRequestParams) *http.Response
 	return s.sendRequest(c, p)
 }
 
-func (s *authHttpSuite) setupOtherEnvironment(c *gc.C) *state.State {
-	envState := s.Factory.MakeEnvironment(c, nil)
+func (s *authHttpSuite) setupOtherModel(c *gc.C) *state.State {
+	envState := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { envState.Close() })
 	user := s.Factory.MakeUser(c, nil)
-	_, err := envState.AddEnvironmentUser(user.UserTag(), s.userTag, "")
+	_, err := envState.AddModelUser(state.ModelUserSpec{
+		User:      user.UserTag(),
+		CreatedBy: s.userTag})
 	c.Assert(err, jc.ErrorIsNil)
 	s.userTag = user.UserTag()
 	s.password = "password"
-	s.envUUID = envState.EnvironUUID()
+	s.modelUUID = envState.ModelUUID()
 	return envState
 }
 

@@ -59,7 +59,8 @@ func testNewClient(c *gc.C, endpoint, username, password string) (*environClient
 	ecfg := &environConfig{
 		Config: newConfig(c, testing.Attrs{"name": "client-test", "uuid": "f54aac3a-9dcd-4a0c-86b5-24091478478c"}),
 		attrs: map[string]interface{}{
-			"region":   endpoint,
+			"region":   "testregion",
+			"endpoint": endpoint,
 			"username": username,
 			"password": password,
 		},
@@ -72,7 +73,7 @@ func addTestClientServer(c *gc.C, instance, env string) string {
 	if instance != "" {
 		json += fmt.Sprintf(`"juju-instance": "%s"`, instance)
 		if env != "" {
-			json += fmt.Sprintf(`, "juju-environment": "%s"`, env)
+			json += fmt.Sprintf(`, "juju-model": "%s"`, env)
 		}
 	}
 	json += `}, "status": "running"}`
@@ -86,10 +87,10 @@ func addTestClientServer(c *gc.C, instance, env string) string {
 func (s *clientSuite) TestClientInstances(c *gc.C) {
 	addTestClientServer(c, "", "")
 	addTestClientServer(c, jujuMetaInstanceServer, "alien")
-	addTestClientServer(c, jujuMetaInstanceStateServer, "alien")
+	addTestClientServer(c, jujuMetaInstanceController, "alien")
 	addTestClientServer(c, jujuMetaInstanceServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
 	addTestClientServer(c, jujuMetaInstanceServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
-	suuid := addTestClientServer(c, jujuMetaInstanceStateServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
+	suuid := addTestClientServer(c, jujuMetaInstanceController, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
 
 	cli, err := testNewClient(c, mock.Endpoint(""), mock.TestUser, mock.TestPassword)
 	c.Assert(err, gc.IsNil)
@@ -104,7 +105,7 @@ func (s *clientSuite) TestClientInstances(c *gc.C) {
 	c.Assert(sm, gc.NotNil)
 	c.Check(sm, gc.HasLen, 3)
 
-	ids, err := cli.getStateServerIds()
+	ids, err := cli.getControllerIds()
 	c.Check(err, gc.IsNil)
 	c.Check(len(ids), gc.Equals, 1)
 	c.Check(string(ids[0]), gc.Equals, suuid)
@@ -114,9 +115,9 @@ func (s *clientSuite) TestClientStopStateInstance(c *gc.C) {
 	addTestClientServer(c, "", "")
 
 	addTestClientServer(c, jujuMetaInstanceServer, "alien")
-	addTestClientServer(c, jujuMetaInstanceStateServer, "alien")
+	addTestClientServer(c, jujuMetaInstanceController, "alien")
 	addTestClientServer(c, jujuMetaInstanceServer, "client-test")
-	suuid := addTestClientServer(c, jujuMetaInstanceStateServer, "client-test")
+	suuid := addTestClientServer(c, jujuMetaInstanceController, "client-test")
 
 	cli, err := testNewClient(c, mock.Endpoint(""), mock.TestUser, mock.TestPassword)
 	c.Assert(err, gc.IsNil)
@@ -124,7 +125,7 @@ func (s *clientSuite) TestClientStopStateInstance(c *gc.C) {
 	err = cli.stopInstance(instance.Id(suuid))
 	c.Assert(err, gc.IsNil)
 
-	_, err = cli.getStateServerIds()
+	_, err = cli.getControllerIds()
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
@@ -152,7 +153,7 @@ func (s *clientSuite) TestClientInvalidServer(c *gc.C) {
 	_, err = cli.instanceMap()
 	c.Check(err, gc.ErrorMatches, "broken connection")
 
-	_, err = cli.getStateServerIds()
+	_, err = cli.getControllerIds()
 	c.Check(err, gc.ErrorMatches, "broken connection")
 }
 

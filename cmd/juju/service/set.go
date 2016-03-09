@@ -4,7 +4,6 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,31 +11,34 @@ import (
 	"unicode/utf8"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
+// NewSetCommand returns a command used to set service attributes.
 func NewSetCommand() cmd.Command {
-	return envcmd.Wrap(&setCommand{})
+	return modelcmd.Wrap(&setCommand{})
 }
 
 // setCommand updates the configuration of a service.
 type setCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	ServiceName     string
 	SettingsStrings map[string]string
+	Options         []string
 	SettingsYAML    cmd.FileVar
-	api             SetServiceAPI
+	SetDefault      bool
+	serviceApi      serviceAPI
 }
 
 const setDoc = `
-Set one or more configuration options for the specified service. See also the
-unset command which sets one or more configuration options for a specified
-service to their default value.
+Set one or more configuration options for the specified service.
 
 In case a value starts with an at sign (@) the rest of the value is interpreted
 as a filename. The value itself is then read out of the named file. The maximum
@@ -48,19 +50,24 @@ line and in configuration files.
 
 const maxValueSize = 5242880
 
+// Info implements Command.Info.
 func (c *setCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "set",
+		Name:    "set-config",
 		Args:    "<service> name=value ...",
 		Purpose: "set service config options",
 		Doc:     setDoc,
+		Aliases: []string{"set-configs"},
 	}
 }
 
+// SetFlags implements Command.SetFlags.
 func (c *setCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.SettingsYAML, "config", "path to yaml-formatted service config")
+	f.BoolVar(&c.SetDefault, "to-default", false, "set service option values to default")
 }
 
+// Init implements Command.Init.
 func (c *setCommand) Init(args []string) error {
 	if len(args) == 0 || len(strings.Split(args[0], "=")) > 1 {
 		return errors.New("no service name specified")
@@ -69,6 +76,13 @@ func (c *setCommand) Init(args []string) error {
 		return errors.New("cannot specify --config when using key=value arguments")
 	}
 	c.ServiceName = args[0]
+	if c.SetDefault {
+		c.Options = args[1:]
+		if len(c.Options) == 0 {
+			return errors.New("no configuration options specified")
+		}
+		return nil
+	}
 	settings, err := keyvalues.Parse(args[1:], true)
 	if err != nil {
 		return err
@@ -77,36 +91,46 @@ func (c *setCommand) Init(args []string) error {
 	return nil
 }
 
-// SetServiceAPI defines the methods on the client API
+// serviceAPI defines the methods on the client API
 // that the service set command calls.
-type SetServiceAPI interface {
+type serviceAPI interface {
 	Close() error
-	ServiceSetYAML(service string, yaml string) error
-	ServiceGet(service string) (*params.ServiceGetResults, error)
-	ServiceSet(service string, options map[string]string) error
+	Update(args params.ServiceUpdate) error
+	Get(service string) (*params.ServiceGetResults, error)
+	Set(service string, options map[string]string) error
+	Unset(service string, options []string) error
 }
 
-func (c *setCommand) getAPI() (SetServiceAPI, error) {
-	if c.api != nil {
-		return c.api, nil
+func (c *setCommand) getServiceAPI() (serviceAPI, error) {
+	if c.serviceApi != nil {
+		return c.serviceApi, nil
 	}
-	return c.NewAPIClient()
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return service.NewClient(root), nil
 }
 
 // Run updates the configuration of a service.
 func (c *setCommand) Run(ctx *cmd.Context) error {
-	api, err := c.getAPI()
+	apiclient, err := c.getServiceAPI()
 	if err != nil {
 		return err
 	}
-	defer api.Close()
+	defer apiclient.Close()
 
 	if c.SettingsYAML.Path != "" {
 		b, err := c.SettingsYAML.Read(ctx)
 		if err != nil {
 			return err
 		}
-		return block.ProcessBlockedError(api.ServiceSetYAML(c.ServiceName, string(b)), block.BlockChange)
+		return block.ProcessBlockedError(apiclient.Update(params.ServiceUpdate{
+			ServiceName:  c.ServiceName,
+			SettingsYAML: string(b),
+		}), block.BlockChange)
+	} else if c.SetDefault {
+		return block.ProcessBlockedError(apiclient.Unset(c.ServiceName, c.Options), block.BlockChange)
 	} else if len(c.SettingsStrings) == 0 {
 		return nil
 	}
@@ -135,7 +159,7 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 		settings[k] = nv
 	}
 
-	result, err := api.ServiceGet(c.ServiceName)
+	result, err := apiclient.Get(c.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -152,7 +176,7 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	return block.ProcessBlockedError(api.ServiceSet(c.ServiceName, settings), block.BlockChange)
+	return block.ProcessBlockedError(apiclient.Set(c.ServiceName, settings), block.BlockChange)
 }
 
 // readValue reads the value of an option out of the named file.

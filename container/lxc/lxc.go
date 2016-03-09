@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"text/template"
@@ -31,7 +30,6 @@ import (
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage/looputil"
 )
@@ -43,8 +41,6 @@ var (
 	LxcContainerDir  = golxc.GetDefaultLXCContainerDir()
 	LxcRestartDir    = "/etc/lxc/auto"
 	LxcObjectFactory = golxc.Factory()
-	runtimeGOOS      = runtime.GOOS
-	runningInsideLXC = lxcutils.RunningInsideLXC
 	writeWgetTmpFile = ioutil.WriteFile
 )
 
@@ -82,20 +78,6 @@ func containerDirFilesystem() (string, error) {
 		return "", errors.Errorf("could not determine filesystem type")
 	}
 	return lines[1], nil
-}
-
-// IsLXCSupported returns a boolean value indicating whether or not
-// we can run LXC containers.
-func IsLXCSupported() (bool, error) {
-	if runtimeGOOS != "linux" {
-		return false, nil
-	}
-	// We do not support running nested LXC containers.
-	insideLXC, err := runningInsideLXC()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return !insideLXC, nil
 }
 
 type containerManager struct {
@@ -365,8 +347,7 @@ func (manager *containerManager) CreateContainer(
 	// method as we have passed it through at container creation time.  This
 	// is necessary to get the appropriate rootfs reference without explicitly
 	// setting it ourselves.
-	if err = lxcContainer.Start("", consoleFile); err != nil {
-		logger.Warningf("container failed to start %v", err)
+	if err := lxcContainer.Start("", consoleFile); err != nil {
 		// if the container fails to start we should try to destroy it
 		// check if the container has been constructed
 		if lxcContainer.IsConstructed() {
@@ -374,13 +355,10 @@ func (manager *containerManager) CreateContainer(
 			if derr := lxcContainer.Destroy(); derr != nil {
 				// if an error is reported there is probably a leftover
 				// container that the user should clean up manually
-				logger.Errorf("container failed to start and failed to destroy: %v", derr)
-				return nil, nil, errors.Annotate(err, "container failed to start and failed to destroy: manual cleanup of containers needed")
+				return nil, nil, errors.Annotatef(err, "container failed to start and failed to destroy: manual cleanup of containers needed: %v", derr)
 			}
-			logger.Warningf("container failed to start and was destroyed - safe to retry")
 			return nil, nil, errors.Wrap(err, instance.NewRetryableCreationError("container failed to start and was destroyed: "+lxcContainer.Name()))
 		}
-		logger.Warningf("container failed to start: %v", err)
 		return nil, nil, errors.Annotate(err, "container failed to start")
 	}
 
@@ -413,7 +391,7 @@ func createContainer(
 	if caCert != nil {
 		execEnv, closer, err = wgetEnvironment(caCert)
 		if err != nil {
-			return errors.Annotatef(err, "failed to get environment for wget execution")
+			return errors.Annotatef(err, "failed to get model for wget execution")
 		}
 		defer closer()
 	}
@@ -454,7 +432,7 @@ func wgetEnvironment(caCert []byte) (execEnv []string, closer func(), _ error) {
 	}
 
 	// Write the wget script.  Don't use a proxy when getting
-	// the image as it's going through the state server.
+	// the image as it's going through the controller.
 	wgetTmpl := `#!/bin/bash
 /usr/bin/wget --no-proxy --ca-certificate=%s $*
 `
@@ -848,7 +826,8 @@ const singleNICTemplate = `
 lxc.network.type = {{.Type}}
 lxc.network.link = {{.Link}}
 lxc.network.flags = up{{if .MTU}}
-lxc.network.mtu = {{.MTU}}{{end}}
+lxc.network.mtu = {{.MTU}}{{end}}{{if .MACAddress}}
+lxc.network.hwaddr = {{.MACAddress}}{{end}}
 
 `
 
@@ -858,8 +837,8 @@ const multipleNICsTemplate = `
 lxc.network.type = {{$nic.Type}}{{if $nic.VLANTag}}
 lxc.network.vlan.id = {{$nic.VLANTag}}{{end}}
 lxc.network.link = {{$nic.Link}}{{if not $nic.NoAutoStart}}
-lxc.network.flags = up{{end}}
-lxc.network.name = {{$nic.Name}}{{if $nic.MACAddress}}
+lxc.network.flags = up{{end}}{{if $nic.Name}}
+lxc.network.name = {{$nic.Name}}{{end}}{{if $nic.MACAddress}}
 lxc.network.hwaddr = {{$nic.MACAddress}}{{end}}{{if $nic.IPv4Address}}
 lxc.network.ipv4 = {{$nic.IPv4Address}}{{end}}{{if $nic.IPv4Gateway}}
 lxc.network.ipv4.gateway = {{$nic.IPv4Gateway}}{{end}}{{if $mtu}}
@@ -882,8 +861,10 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 	type configData struct {
 		Type       string
 		Link       string
-		MTU        int
 		Interfaces []nicData
+		// The following are used only with a single NIC config.
+		MTU        int
+		MACAddress string
 	}
 	data := configData{
 		Link: config.Device,

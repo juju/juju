@@ -4,9 +4,9 @@
 package storage
 
 var (
-	IsValidPoolListFilter = (*API).isValidPoolListFilter
-	ValidateNames         = (*API).isValidNameCriteria
-	ValidateProviders     = (*API).isValidProviderCriteria
+	ValidatePoolListFilter   = (*API).validatePoolListFilter
+	ValidateNameCriteria     = (*API).validateNameCriteria
+	ValidateProviderCriteria = (*API).validateProviderCriteria
 
 	CreateAPI = createAPI
 )

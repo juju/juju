@@ -8,10 +8,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const uploadDoc = `
@@ -19,7 +18,7 @@ const uploadDoc = `
 `
 
 func newUploadCommand() cmd.Command {
-	return envcmd.Wrap(&uploadCommand{})
+	return modelcmd.Wrap(&uploadCommand{})
 }
 
 // uploadCommand is the sub-command for uploading a backup archive.
@@ -27,16 +26,6 @@ type uploadCommand struct {
 	CommandBase
 	// Filename is where to find the archive to upload.
 	Filename string
-	// ShowMeta indicates that the uploaded metadata should be printed.
-	ShowMeta bool
-	// Quiet indicates that the new backup ID should not be printed.
-	Quiet bool
-}
-
-// SetFlags implements Command.SetFlags.
-func (c *uploadCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.ShowMeta, "verbose", false, "show the uploaded metadata")
-	f.BoolVar(&c.Quiet, "quiet", false, "do not print the new backup ID")
 }
 
 // Info implements Command.Info.
@@ -64,6 +53,11 @@ func (c *uploadCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *uploadCommand) Run(ctx *cmd.Context) error {
+	if c.Log != nil {
+		if err := c.Log.Start(ctx); err != nil {
+			return err
+		}
+	}
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -76,7 +70,7 @@ func (c *uploadCommand) Run(ctx *cmd.Context) error {
 	}
 	defer archive.Close()
 
-	if c.ShowMeta {
+	if c.Log != nil && c.Log.Verbose {
 		fmt.Fprintln(ctx.Stdout, "Uploaded metadata:")
 		c.dumpMetadata(ctx, meta)
 		fmt.Fprintln(ctx.Stdout)
@@ -88,7 +82,7 @@ func (c *uploadCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if c.Quiet {
+	if c.Log != nil && c.Log.Quiet {
 		fmt.Fprintln(ctx.Stdout, id)
 		return nil
 	}

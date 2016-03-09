@@ -2,7 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package state enables reading, observing, and changing
-// the state stored in MongoDB of a whole environment
+// the state stored in MongoDB of a whole model
 // managed by juju.
 package state
 
@@ -21,23 +21,27 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/utils/os"
+	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/state/leadership"
-	"github.com/juju/juju/state/lease"
+	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/lease"
 )
 
 var logger = loggo.GetLogger("juju.state")
@@ -56,13 +60,17 @@ const (
 	// serviceLeadershipNamespace is the name of the lease.Client namespace
 	// used by the leadership manager.
 	serviceLeadershipNamespace = "service-leadership"
+
+	// singularControllerNamespace is the name of the lease.Client namespace
+	// used by the singular manager
+	singularControllerNamespace = "singular-controller"
 )
 
-// State represents the state of an environment
+// State represents the state of an model
 // managed by juju.
 type State struct {
-	environTag    names.EnvironTag
-	controllerTag names.EnvironTag
+	modelTag      names.ModelTag
+	controllerTag names.ModelTag
 	mongoInfo     *mongo.MongoInfo
 	session       *mgo.Session
 	database      Database
@@ -70,21 +78,26 @@ type State struct {
 
 	// TODO(fwereade): move these out of state and make them independent
 	// workers on which state depends.
-	watcher           *watcher.Watcher
-	pwatcher          *presence.Watcher
-	leadershipManager leadership.ManagerWorker
+	watcher  *watcher.Watcher
+	pwatcher *presence.Watcher
+	// leadershipManager keeps track of units' service leadership leases
+	// within this environment.
+	leadershipManager *lease.Manager
+	// singularManager keeps track of which controller machine is responsible
+	// for managing this state's environment.
+	singularManager *lease.Manager
 
-	// mu guards allManager, allEnvManager & allEnvWatcherBacking
-	mu                   sync.Mutex
-	allManager           *storeManager
-	allEnvManager        *storeManager
-	allEnvWatcherBacking Backing
+	// mu guards allManager, allModelManager & allModelWatcherBacking
+	mu                     sync.Mutex
+	allManager             *storeManager
+	allModelManager        *storeManager
+	allModelWatcherBacking Backing
 
 	// TODO(anastasiamac 2015-07-16) As state gets broken up, remove this.
 	CloudImageMetadataStorage cloudimagemetadata.Storage
 }
 
-// StateServingInfo holds information needed by a state server.
+// StateServingInfo holds information needed by a controller.
 // This type is a copy of the type of the same name from the api/params package.
 // It is replicated here to avoid the state pacakge depending on api/params.
 type StateServingInfo struct {
@@ -98,35 +111,35 @@ type StateServingInfo struct {
 	SystemIdentity string
 }
 
-// IsStateServer returns true if this state instance has the bootstrap
-// environment UUID.
-func (st *State) IsStateServer() bool {
-	return st.environTag == st.controllerTag
+// IsController returns true if this state instance has the bootstrap
+// model UUID.
+func (st *State) IsController() bool {
+	return st.modelTag == st.controllerTag
 }
 
-// RemoveAllEnvironDocs removes all documents from multi-environment
-// collections. The environment should be put into a dying state before call
+// RemoveAllModelDocs removes all documents from multi-model
+// collections. The model should be put into a dying state before call
 // this method. Otherwise, there is a race condition in which collections
 // could be added to during or after the running of this method.
-func (st *State) RemoveAllEnvironDocs() error {
-	env, err := st.Environment()
+func (st *State) RemoveAllModelDocs() error {
+	env, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	id := userEnvNameIndex(env.Owner().Canonical(), env.Name())
+	id := userModelNameIndex(env.Owner().Canonical(), env.Name())
 	ops := []txn.Op{{
 		// Cleanup the owner:envName unique key.
-		C:      userenvnameC,
+		C:      usermodelnameC,
 		Id:     id,
 		Remove: true,
 	}, {
-		C:      environmentsC,
-		Id:     st.EnvironUUID(),
-		Assert: bson.D{{"life", Dying}},
+		C:      modelsC,
+		Id:     st.ModelUUID(),
+		Assert: bson.D{{"life", Dead}},
 		Remove: true,
 	}}
 
-	// Add all per-environment docs to the txn.
+	// Add all per-model docs to the txn.
 	for name, info := range st.database.Schema() {
 		if info.global {
 			continue
@@ -157,9 +170,9 @@ func (st *State) RemoveAllEnvironDocs() error {
 	return st.runTransaction(ops)
 }
 
-// ForEnviron returns a connection to mongo for the specified environment. The
+// ForModel returns a connection to mongo for the specified model. The
 // connection uses the same credentials and policy as the existing connection.
-func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
+func (st *State) ForModel(env names.ModelTag) (*State, error) {
 	newState, err := open(env, st.mongoInfo, mongo.DefaultDialOpts(), st.policy)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -172,7 +185,7 @@ func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
 
 // start starts the presence watcher, leadership manager and images metadata storage,
 // and fills in the controllerTag field with the supplied value.
-func (st *State) start(controllerTag names.EnvironTag) error {
+func (st *State) start(controllerTag names.ModelTag) error {
 	st.controllerTag = controllerTag
 
 	var clientId string
@@ -194,10 +207,10 @@ func (st *State) start(controllerTag names.EnvironTag) error {
 		clientId = fmt.Sprintf("anon-%s", uuid.String())
 	}
 
-	logger.Infof("creating lease client as %s", clientId)
+	logger.Infof("creating lease clients as %s", clientId)
 	clock := GetClock()
 	datastore := &environMongo{st}
-	leaseClient, err := lease.NewClient(lease.ClientConfig{
+	leadershipClient, err := statelease.NewClient(statelease.ClientConfig{
 		Id:         clientId,
 		Namespace:  serviceLeadershipNamespace,
 		Collection: leasesC,
@@ -205,47 +218,71 @@ func (st *State) start(controllerTag names.EnvironTag) error {
 		Clock:      clock,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot create lease client")
+		return errors.Annotatef(err, "cannot create leadership lease client")
 	}
-	logger.Infof("starting leadership manager")
-	leadershipManager, err := leadership.NewManager(leadership.ManagerConfig{
-		Client: leaseClient,
-		Clock:  clock,
+	logger.Infof("starting leadership lease manager")
+	leadershipManager, err := lease.NewManager(lease.ManagerConfig{
+		Secretary: leadershipSecretary{},
+		Client:    leadershipClient,
+		Clock:     clock,
+		MaxSleep:  time.Minute,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot create leadership manager")
+		return errors.Annotatef(err, "cannot create leadership lease manager")
 	}
 	st.leadershipManager = leadershipManager
 
+	singularClient, err := statelease.NewClient(statelease.ClientConfig{
+		Id:         clientId,
+		Namespace:  singularControllerNamespace,
+		Collection: leasesC,
+		Mongo:      datastore,
+		Clock:      clock,
+	})
+	if err != nil {
+		return errors.Annotatef(err, "cannot create singular lease client")
+	}
+	logger.Infof("starting singular lease manager")
+	singularManager, err := lease.NewManager(lease.ManagerConfig{
+		Secretary: singularSecretary{st.modelTag.Id()},
+		Client:    singularClient,
+		Clock:     clock,
+		MaxSleep:  time.Minute,
+	})
+	if err != nil {
+		return errors.Annotatef(err, "cannot create singular lease manager")
+	}
+	st.singularManager = singularManager
+
 	logger.Infof("creating cloud image metadata storage")
-	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(st.EnvironUUID(), cloudimagemetadataC, datastore)
+	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(st.ModelUUID(), cloudimagemetadataC, datastore)
 
 	logger.Infof("starting presence watcher")
-	st.pwatcher = presence.NewWatcher(st.getPresence(), st.environTag)
+	st.pwatcher = presence.NewWatcher(st.getPresence(), st.modelTag)
 	return nil
 }
 
-// EnvironTag() returns the environment tag for the environment controlled by
+// ModelTag() returns the model tag for the model controlled by
 // this state instance.
-func (st *State) EnvironTag() names.EnvironTag {
-	return st.environTag
+func (st *State) ModelTag() names.ModelTag {
+	return st.modelTag
 }
 
-// EnvironUUID returns the environment UUID for the environment
+// ModelUUID returns the model UUID for the model
 // controlled by this state instance.
-func (st *State) EnvironUUID() string {
-	return st.environTag.Id()
+func (st *State) ModelUUID() string {
+	return st.modelTag.Id()
 }
 
-// userEnvNameIndex returns a string to be used as a userenvnameC unique index.
-func userEnvNameIndex(username, envName string) string {
+// userModelNameIndex returns a string to be used as a usermodelnameC unique index.
+func userModelNameIndex(username, envName string) string {
 	return strings.ToLower(username) + ":" + envName
 }
 
-// EnsureEnvironmentRemoved returns an error if any multi-environment
-// documents for this environment are found. It is intended only to be used in
+// EnsureModelRemoved returns an error if any multi-model
+// documents for this model are found. It is intended only to be used in
 // tests and exported so it can be used in the tests of other packages.
-func (st *State) EnsureEnvironmentRemoved() error {
+func (st *State) EnsureModelRemoved() error {
 	found := map[string]int{}
 	var foundOrdered []string
 	for name, info := range st.database.Schema() {
@@ -265,7 +302,7 @@ func (st *State) EnsureEnvironmentRemoved() error {
 	}
 
 	if len(found) != 0 {
-		errMessage := fmt.Sprintf("found documents for environment with uuid %s:", st.EnvironUUID())
+		errMessage := fmt.Sprintf("found documents for model with uuid %s:", st.ModelUUID())
 		sort.Strings(foundOrdered)
 		for _, name := range foundOrdered {
 			number := found[name]
@@ -297,6 +334,15 @@ func (st *State) Ping() error {
 	return st.session.Ping()
 }
 
+// MongoVersion return the string repre
+func (st *State) MongoVersion() (string, error) {
+	binfo, err := st.session.BuildInfo()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot obtain mongo build info")
+	}
+	return binfo.Version, nil
+}
+
 // MongoSession returns the underlying mongodb session
 // used by the state. It is exposed so that external code
 // can maintain the mongo replica set and should not
@@ -316,18 +362,18 @@ func (st *State) Watch() *Multiwatcher {
 	return NewMultiwatcher(st.allManager)
 }
 
-func (st *State) WatchAllEnvs() *Multiwatcher {
+func (st *State) WatchAllModels() *Multiwatcher {
 	st.mu.Lock()
-	if st.allEnvManager == nil {
-		st.allEnvWatcherBacking = newAllEnvWatcherStateBacking(st)
-		st.allEnvManager = newStoreManager(st.allEnvWatcherBacking)
+	if st.allModelManager == nil {
+		st.allModelWatcherBacking = NewAllModelWatcherStateBacking(st)
+		st.allModelManager = newStoreManager(st.allModelWatcherBacking)
 	}
 	st.mu.Unlock()
-	return NewMultiwatcher(st.allEnvManager)
+	return NewMultiwatcher(st.allModelManager)
 }
 
-func (st *State) EnvironConfig() (*config.Config, error) {
-	settings, err := readSettings(st, environGlobalKey)
+func (st *State) ModelConfig() (*config.Config, error) {
+	settings, err := readSettings(st, modelGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -335,8 +381,8 @@ func (st *State) EnvironConfig() (*config.Config, error) {
 	return config.New(config.NoDefaults, attrs)
 }
 
-// checkEnvironConfig returns an error if the config is definitely invalid.
-func checkEnvironConfig(cfg *config.Config) error {
+// checkModelConfig returns an error if the config is definitely invalid.
+func checkModelConfig(cfg *config.Config) error {
 	if cfg.AdminSecret() != "" {
 		return errors.Errorf("admin-secret should never be written to the state")
 	}
@@ -356,7 +402,7 @@ type versionInconsistentError struct {
 
 func (e *versionInconsistentError) Error() string {
 	sort.Strings(e.agents)
-	return fmt.Sprintf("some agents have not upgraded to the current environment version %s: %s", e.currentVersion, strings.Join(e.agents, ", "))
+	return fmt.Sprintf("some agents have not upgraded to the current model version %s: %s", e.currentVersion, strings.Join(e.agents, ", "))
 }
 
 // newVersionInconsistentError returns a new instance of
@@ -420,33 +466,34 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	return nil
 }
 
-var UpgradeInProgressError = errors.New("an upgrade is already in progress or the last upgrade did not complete")
+var errUpgradeInProgress = errors.New(params.CodeUpgradeInProgress)
 
-// IsUpgradeInProgressError returns true if the error given is UpgradeInProgressError.
+// IsUpgradeInProgressError returns true if the error is cause by an
+// upgrade in progress
 func IsUpgradeInProgressError(err error) bool {
-	return errors.Cause(err) == UpgradeInProgressError
+	return errors.Cause(err) == errUpgradeInProgress
 }
 
-// SetEnvironAgentVersion changes the agent version for the environment to the
-// given version, only if the environment is in a stable state (all agents are
-// running the current version). If this is a hosted environment, newVersion
-// cannot be higher than the state server version.
-func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
-	if newVersion.Compare(jujuversion.Current) > 0 && !st.IsStateServer() {
-		return errors.Errorf("a hosted environment cannot have a higher version than the server environment: %s > %s",
+// SetModelAgentVersion changes the agent version for the model to the
+// given version, only if the model is in a stable state (all agents are
+// running the current version). If this is a hosted model, newVersion
+// cannot be higher than the controller version.
+func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
+	if newVersion.Compare(jujuversion.Current) > 0 && !st.IsController() {
+		return errors.Errorf("a hosted model cannot have a higher version than the server model: %s > %s",
 			newVersion.String(),
 			jujuversion.Current,
 		)
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		settings, err := readSettings(st, environGlobalKey)
+		settings, err := readSettings(st, modelGlobalKey)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		agentVersion, ok := settings.Get("agent-version")
 		if !ok {
-			return nil, errors.Errorf("no agent version set in the environment")
+			return nil, errors.Errorf("no agent version set in the model")
 		}
 		currentVersion, ok := agentVersion.(string)
 		if !ok {
@@ -469,7 +516,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 				Assert: txn.DocMissing,
 			}, {
 				C:      settingsC,
-				Id:     st.docID(environGlobalKey),
+				Id:     st.docID(modelGlobalKey),
 				Assert: bson.D{{"version", settings.version}},
 				Update: bson.D{
 					{"$set", bson.D{{"settings.agent-version", newVersion.String()}}},
@@ -483,7 +530,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 		// return a more helpful error message in the case of an
 		// active upgradeInfo document being in place.
 		if upgrading, _ := st.IsUpgrading(); upgrading {
-			err = UpgradeInProgressError
+			err = errUpgradeInProgress
 		} else {
 			err = errors.Annotate(err, "cannot set agent version")
 		}
@@ -491,7 +538,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 	return errors.Trace(err)
 }
 
-func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
+func (st *State) buildAndValidateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
 	newConfig, err := oldConfig.Apply(updateAttrs)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -502,7 +549,7 @@ func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{
 			return nil, errors.Trace(err)
 		}
 	}
-	if err := checkEnvironConfig(newConfig); err != nil {
+	if err := checkModelConfig(newConfig); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st.validate(newConfig, oldConfig)
@@ -510,10 +557,10 @@ func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{
 
 type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error
 
-// UpdateEnvironConfig adds, updates or removes attributes in the current
-// configuration of the environment with the provided updateAttrs and
+// UpdateModelConfig adds, updates or removes attributes in the current
+// configuration of the model with the provided updateAttrs and
 // removeAttrs.
-func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateConfigFunc) error {
+func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateConfigFunc) error {
 	if len(updateAttrs)+len(removeAttrs) == 0 {
 		return nil
 	}
@@ -524,12 +571,12 @@ func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeA
 	// applied as a delta to what's on disk; if there has
 	// been a concurrent update, the change may not be what
 	// the user asked for.
-	settings, err := readSettings(st, environGlobalKey)
+	settings, err := readSettings(st, modelGlobalKey)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Get the existing environment config from state.
+	// Get the existing model config from state.
 	oldConfig, err := config.New(config.NoDefaults, settings.Map())
 	if err != nil {
 		return errors.Trace(err)
@@ -540,7 +587,7 @@ func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeA
 			return errors.Trace(err)
 		}
 	}
-	validCfg, err := st.buildAndValidateEnvironConfig(updateAttrs, removeAttrs, oldConfig)
+	validCfg, err := st.buildAndValidateModelConfig(updateAttrs, removeAttrs, oldConfig)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -556,25 +603,25 @@ func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeA
 	return errors.Trace(err)
 }
 
-// EnvironConstraints returns the current environment constraints.
-func (st *State) EnvironConstraints() (constraints.Value, error) {
-	cons, err := readConstraints(st, environGlobalKey)
+// EnvironConstraints returns the current model constraints.
+func (st *State) ModelConstraints() (constraints.Value, error) {
+	cons, err := readConstraints(st, modelGlobalKey)
 	return cons, errors.Trace(err)
 }
 
-// SetEnvironConstraints replaces the current environment constraints.
-func (st *State) SetEnvironConstraints(cons constraints.Value) error {
+// SetEnvironConstraints replaces the current model constraints.
+func (st *State) SetModelConstraints(cons constraints.Value) error {
 	unsupported, err := st.validateConstraints(cons)
 	if len(unsupported) > 0 {
 		logger.Warningf(
-			"setting environment constraints: unsupported constraints: %v", strings.Join(unsupported, ","))
+			"setting model constraints: unsupported constraints: %v", strings.Join(unsupported, ","))
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	return writeConstraints(st, environGlobalKey, cons)
+	return writeConstraints(st, modelGlobalKey, cons)
 }
 
-// AllMachines returns all machines in the environment
+// AllMachines returns all machines in the model
 // ordered by id.
 func (st *State) AllMachines() (machines []*Machine, err error) {
 	machinesCollection, closer := st.getCollection(machinesC)
@@ -666,7 +713,7 @@ func (st *State) getMachineDoc(id string) (*machineDoc, error) {
 	switch err {
 	case nil:
 		// This is required to allow loading of machines before the
-		// environment UUID migration has been applied to the machines
+		// model UUID migration has been applied to the machines
 		// collection. Without this, a machine agent can't come up to
 		// run the database migration.
 		if mdoc.Id == "" {
@@ -683,7 +730,7 @@ func (st *State) getMachineDoc(id string) (*machineDoc, error) {
 // FindEntity returns the entity with the given tag.
 //
 // The returned value can be of type *Machine, *Unit,
-// *User, *Service, *Environment, or *Action, depending
+// *User, *Service, *Model, or *Action, depending
 // on the tag.
 func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	id := tag.Id()
@@ -696,27 +743,27 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		return st.User(tag)
 	case names.ServiceTag:
 		return st.Service(id)
-	case names.EnvironTag:
-		env, err := st.Environment()
+	case names.ModelTag:
+		env, err := st.Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// Return an invalid entity error if the requested environment is not
+		// Return an invalid entity error if the requested model is not
 		// the current one.
 		if id != env.UUID() {
 			if utils.IsValidUUIDString(id) {
-				return nil, errors.NotFoundf("environment %q", id)
+				return nil, errors.NotFoundf("model %q", id)
 			}
 			// TODO(axw) 2013-12-04 #1257587
-			// We should not accept environment tags that do not match the
-			// environment's UUID. We accept anything for now, to cater
+			// We should not accept model tags that do not match the
+			// model's UUID. We accept anything for now, to cater
 			// both for past usage, and for potentially supporting aliases.
-			logger.Warningf("environment-tag does not match current environment UUID: %q != %q", id, env.UUID())
-			conf, err := st.EnvironConfig()
+			logger.Warningf("model-tag does not match current model UUID: %q != %q", id, env.UUID())
+			conf, err := st.ModelConfig()
 			if err != nil {
-				logger.Warningf("EnvironConfig failed: %v", err)
+				logger.Warningf("ModelConfig failed: %v", err)
 			} else if id != conf.Name() {
-				logger.Warningf("environment-tag does not match current environment name: %q != %q", id, conf.Name())
+				logger.Warningf("model-tag does not match current model name: %q != %q", id, conf.Name())
 			}
 		}
 		return env, nil
@@ -771,8 +818,8 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 	case names.RelationTag:
 		coll = relationsC
 		id = st.docID(id)
-	case names.EnvironTag:
-		coll = environmentsC
+	case names.ModelTag:
+		coll = modelsC
 	case names.NetworkTag:
 		coll = networksC
 		id = st.docID(id)
@@ -825,7 +872,7 @@ type hasMeta interface {
 
 func validateCharmVersion(ch hasMeta) error {
 	minver := ch.Meta().MinJujuVersion
-	if minver != nil {
+	if minver != version.Zero {
 		if minver.Compare(jujuversion.Current) > 0 {
 			return errors.Errorf("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, jujuversion.Current)
 		}
@@ -981,7 +1028,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		case err == mgo.ErrNotFound:
 			uploadedCharm = charmDoc{
 				DocID:         st.docID(curl.String()),
-				EnvUUID:       st.EnvironTag().Id(),
+				ModelUUID:     st.ModelTag().Id(),
 				URL:           curl,
 				PendingUpload: true,
 			}
@@ -1096,7 +1143,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 		relDoc := &relationDoc{
 			DocID:     st.docID(relKey),
 			Key:       relKey,
-			EnvUUID:   st.EnvironUUID(),
+			ModelUUID: st.ModelUUID(),
 			Id:        relId,
 			Endpoints: eps,
 			Life:      Alive,
@@ -1112,15 +1159,18 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 }
 
 type AddServiceArgs struct {
-	Name        string
-	Owner       string
-	Charm       *Charm
-	Networks    []string
-	Storage     map[string]StorageConstraints
-	Settings    charm.Settings
-	NumUnits    int
-	Placement   []*instance.Placement
-	Constraints constraints.Value
+	Name             string
+	Series           string
+	Owner            string
+	Charm            *Charm
+	Networks         []string
+	Storage          map[string]StorageConstraints
+	EndpointBindings map[string]string
+	Settings         charm.Settings
+	NumUnits         int
+	Placement        []*instance.Placement
+	Constraints      constraints.Value
+	Resources        map[string]string
 }
 
 // AddService creates a new service, running the supplied charm, with the
@@ -1149,48 +1199,110 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	} else if exists {
 		return nil, errors.Errorf("service already exists")
 	}
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	} else if env.Life() != Alive {
-		return nil, errors.Errorf("environment is no longer alive")
+		return nil, errors.Errorf("model is no longer alive")
 	}
-	if _, err := st.EnvironmentUser(ownerTag); err != nil {
+	if _, err := st.ModelUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
 	}
-
 	if err := addDefaultStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := validateStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
+	storagePools := make(set.Strings)
+	for _, storageParams := range args.Storage {
+		storagePools.Add(storageParams.Pool)
+	}
 
-	series := args.Charm.URL().Series
+	if args.Series == "" {
+		// args.Series is not set, so use the series in the URL.
+		args.Series = args.Charm.URL().Series
+		if args.Series == "" {
+			// Should not happen, but just in case.
+			return nil, errors.New("series is empty")
+		}
+	} else {
+		// User has specified series. Overriding supported series is
+		// handled by the client, so args.Series is not necessarily
+		// one of the charm's supported series. We require that the
+		// specified series is of the same operating system as one of
+		// the supported series. For old-style charms with the series
+		// in the URL, that series is the one and only supported
+		// series.
+		var supportedSeries []string
+		if series := args.Charm.URL().Series; series != "" {
+			supportedSeries = []string{series}
+		} else {
+			supportedSeries = args.Charm.Meta().Series
+		}
+		seriesOS, err := series.GetOSFromSeries(args.Series)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		supportedOperatingSystems := make(map[os.OSType]bool)
+		for _, supportedSeries := range supportedSeries {
+			os, err := series.GetOSFromSeries(supportedSeries)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			supportedOperatingSystems[os] = true
+		}
+		if !supportedOperatingSystems[seriesOS] {
+			return nil, errors.NewNotSupported(errors.Errorf(
+				"series %q (OS %q) not supported by charm",
+				args.Series, seriesOS,
+			), "")
+		}
+	}
 
 	for _, placement := range args.Placement {
 		data, err := st.parsePlacement(placement)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if data.placementType() == directivePlacement {
-			if err := st.precheckInstance(series, args.Constraints, data.directive); err != nil {
+		switch data.placementType() {
+		case machinePlacement:
+			// Ensure that the machine and charm series match.
+			m, err := st.Machine(data.machineId)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			subordinate := args.Charm.Meta().Subordinate
+			if err := validateUnitMachineAssignment(
+				m, args.Series, subordinate, storagePools,
+			); err != nil {
+				return nil, errors.Annotatef(
+					err, "cannot deploy to machine %s", m,
+				)
+			}
+
+		case directivePlacement:
+			if err := st.precheckInstance(args.Series, args.Constraints, data.directive); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
 	}
 
 	serviceID := st.docID(args.Name)
+
 	// Create the service addition operations.
 	peers := args.Charm.Meta().Peers
+
+	// The doc defaults to CharmModifiedVersion = 0, which is correct, since it
+	// has, by definition, at its initial state.
 	svcDoc := &serviceDoc{
 		DocID:         serviceID,
 		Name:          args.Name,
-		EnvUUID:       env.UUID(),
-		Series:        series,
+		ModelUUID:     env.UUID(),
+		Series:        args.Series,
 		Subordinate:   args.Charm.Meta().Subordinate,
 		CharmURL:      args.Charm.URL(),
 		RelationCount: len(peers),
@@ -1200,8 +1312,16 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 	svc := newService(st, svcDoc)
 
+	endpointBindingsOp, err := createEndpointBindingsOp(
+		st, svc.globalKey(),
+		args.EndpointBindings, args.Charm.Meta(),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	statusDoc := statusDoc{
-		EnvUUID: st.EnvironUUID(),
+		ModelUUID: st.ModelUUID(),
 		// TODO(fwereade): this violates the spec. Should be "waiting".
 		// Implemented like this to be consistent with incorrect add-unit
 		// behaviour.
@@ -1214,42 +1334,48 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		NeverSet: true,
 	}
 
-	ops := []txn.Op{
-		env.assertAliveOp(),
-		createConstraintsOp(st, svc.globalKey(), args.Constraints),
-		// TODO(dimitern) 2014-04-04 bug #1302498
-		// Once we can add networks independently of machine
-		// provisioning, we should check the given networks are valid
-		// and known before setting them.
-		createRequestedNetworksOp(st, svc.globalKey(), args.Networks),
-		createStorageConstraintsOp(svc.globalKey(), args.Storage),
-		createSettingsOp(svc.settingsKey(), map[string]interface{}(args.Settings)),
-		addLeadershipSettingsOp(svc.Tag().Id()),
-		createStatusOp(st, svc.globalKey(), statusDoc),
-		{
-			C:      settingsrefsC,
-			Id:     st.docID(svc.settingsKey()),
-			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{
-				RefCount: 1,
-				EnvUUID:  st.EnvironUUID()},
-		}, {
-			C:      servicesC,
-			Id:     serviceID,
-			Assert: txn.DocMissing,
-			Insert: svcDoc,
+	// The addServiceOps does not include the environment alive assertion,
+	// so we add it here.
+	ops := append(
+		[]txn.Op{
+			env.assertAliveOp(),
+			endpointBindingsOp,
 		},
-	}
+		addServiceOps(st, addServiceOpsArgs{
+			serviceDoc:       svcDoc,
+			statusDoc:        statusDoc,
+			constraints:      args.Constraints,
+			storage:          args.Storage,
+			settings:         map[string]interface{}(args.Settings),
+			settingsRefCount: 1,
+		})...)
 
 	// Collect peer relation addition operations.
+	//
+	// TODO(dimitern): Ensure each st.Endpoint has a space name associated in a
+	// follow-up.
 	peerOps, err := st.addPeerRelationsOps(args.Name, peers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, peerOps...)
 
+	if len(args.Resources) > 0 {
+		// Collect pending resource resolution operations.
+		resources, err := st.Resources()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		resOps, err := resources.NewResolvePendingResourcesOps(args.Name, args.Resources)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, resOps...)
+	}
+
+	// Collect unit-adding operations.
 	for x := 0; x < args.NumUnits; x++ {
-		unit, unitOps, err := svc.addServiceUnitOps("", nil, args.Constraints)
+		unitName, unitOps, err := svc.addServiceUnitOps(serviceAddUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1258,13 +1384,13 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		if x < len(args.Placement) {
 			placement = *args.Placement[x]
 		}
-		ops = append(ops, assignUnitOps(st, unit, placement)...)
+		ops = append(ops, assignUnitOps(unitName, placement)...)
 	}
 	// At the last moment before inserting the service, prime status history.
 	probablyUpdateStatusHistory(st, svc.globalKey(), statusDoc)
 
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
-		if err := checkEnvLife(st); err != nil {
+		if err := checkModeLife(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return nil, errors.Errorf("service already exists")
@@ -1275,47 +1401,66 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if err = svc.Refresh(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return svc, nil
 }
 
+// TODO(natefinch) DEMO code, revisit after demo!
+var AddServicePostFuncs = map[string]func(*State, AddServiceArgs) error{}
+
 // assignUnitOps returns the db ops to save unit assignment for use by the
 // UnitAssigner worker.
-func assignUnitOps(st *State, unit string, placement instance.Placement) []txn.Op {
+func assignUnitOps(unitName string, placement instance.Placement) []txn.Op {
 	udoc := assignUnitDoc{
-		DocId:     unit,
+		DocId:     unitName,
 		Scope:     placement.Scope,
 		Directive: placement.Directive,
 	}
-	return []txn.Op{
-		{
-			C:      assignUnitC,
-			Id:     udoc.DocId,
-			Assert: txn.DocMissing,
-			Insert: udoc,
-		},
-	}
+	return []txn.Op{{
+		C:      assignUnitC,
+		Id:     udoc.DocId,
+		Assert: txn.DocMissing,
+		Insert: udoc,
+	}}
 }
 
 // AssignStagedUnits gets called by the UnitAssigner worker, and runs the given
 // assignments.
 func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error) {
+	query := bson.D{{"_id", bson.D{{"$in", ids}}}}
+	unitAssignments, err := st.unitAssignments(query)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting staged unit assignments")
+	}
+	results := make([]UnitAssignmentResult, len(unitAssignments))
+	for i, a := range unitAssignments {
+		err := st.assignStagedUnit(a)
+		results[i].Unit = a.Unit
+		results[i].Error = err
+	}
+	return results, nil
+}
+
+// UnitAssignments returns all staged unit assignments in the model.
+func (st *State) AllUnitAssignments() ([]UnitAssignment, error) {
+	return st.unitAssignments(nil)
+}
+
+func (st *State) unitAssignments(query bson.D) ([]UnitAssignment, error) {
 	col, close := st.getCollection(assignUnitC)
 	defer close()
-	docs := []assignUnitDoc{}
 
-	for i, id := range ids {
-		ids[i] = st.docID(id)
+	var docs []assignUnitDoc
+	if err := col.Find(query).All(&docs); err != nil {
+		return nil, errors.Annotatef(err, "cannot get unit assignment docs")
 	}
-
-	sel := bson.D{{"_id", bson.D{{"$in", ids}}}}
-	if err := col.Find(sel).All(&docs); err != nil {
-		return nil, errors.Annotatef(err, "cannot get assign unit docs")
-	}
-	results := make([]UnitAssignmentResult, len(docs))
+	results := make([]UnitAssignment, len(docs))
 	for i, doc := range docs {
-		err := st.assignStagedUnit(doc)
-		results[i].Unit = doc.DocId
-		results[i].Error = err
+		results[i] = UnitAssignment{
+			st.localID(doc.DocId),
+			doc.Scope,
+			doc.Directive,
+		}
 	}
 	return results, nil
 }
@@ -1328,8 +1473,8 @@ func removeStagedAssignmentOp(id string) txn.Op {
 	}
 }
 
-func (st *State) assignStagedUnit(doc assignUnitDoc) error {
-	u, err := st.Unit(st.localID(doc.DocId))
+func (st *State) assignStagedUnit(a UnitAssignment) error {
+	u, err := st.Unit(a.Unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1341,11 +1486,11 @@ func (st *State) assignStagedUnit(doc assignUnitDoc) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if doc.Scope == "" && doc.Directive == "" {
+	if a.Scope == "" && a.Directive == "" {
 		return errors.Trace(st.AssignUnit(u, AssignCleanEmpty))
 	}
 
-	placement := &instance.Placement{Scope: doc.Scope, Directive: doc.Directive}
+	placement := &instance.Placement{Scope: a.Scope, Directive: a.Directive}
 
 	// units always have the same networks as their service.
 	return errors.Trace(st.AssignUnitWithPlacement(u, placement, networks))
@@ -1401,16 +1546,16 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 		}, nil
 	}
 	switch placement.Scope {
-	case st.EnvironUUID():
+	case st.ModelUUID():
 		return &placementData{directive: placement.Directive}, nil
 	case instance.MachineScope:
 		return &placementData{machineId: placement.Directive}, nil
 	default:
-		return nil, errors.Errorf("invalid environment UUID %q", placement.Scope)
+		return nil, errors.Errorf("placement scope: invalid model UUID %q", placement.Scope)
 	}
 }
 
-// addMachineWithPlacement finds a machine that matches the given placment directive for the given unit.
+// addMachineWithPlacement finds a machine that matches the given placement directive for the given unit.
 func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placement, networks []string) (*Machine, error) {
 	unitCons, err := unit.Constraints()
 	if err != nil {
@@ -1489,13 +1634,18 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	defer errors.DeferredAnnotatef(&err, "adding subnet %q", args.CIDR)
 
 	subnetID := st.docID(args.CIDR)
+	var modelLocalProviderID string
+	if args.ProviderId != "" {
+		modelLocalProviderID = st.docID(string(args.ProviderId))
+	}
+
 	subDoc := subnetDoc{
 		DocID:             subnetID,
-		EnvUUID:           st.EnvironUUID(),
+		ModelUUID:         st.ModelUUID(),
 		Life:              Alive,
 		CIDR:              args.CIDR,
 		VLANTag:           args.VLANTag,
-		ProviderId:        args.ProviderId,
+		ProviderId:        modelLocalProviderID,
 		AllocatableIPHigh: args.AllocatableIPHigh,
 		AllocatableIPLow:  args.AllocatableIPLow,
 		AvailabilityZone:  args.AvailabilityZone,
@@ -1507,7 +1657,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 		return nil, err
 	}
 	ops := []txn.Op{
-		assertEnvAliveOp(st.EnvironUUID()),
+		assertModelAliveOp(st.ModelUUID()),
 		{
 			C:      subnetsC,
 			Id:     subnetID,
@@ -1519,7 +1669,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
-		if err := checkEnvLife(st); err != nil {
+		if err := checkModeLife(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		if _, err = st.Subnet(args.CIDR); err == nil {
@@ -1528,13 +1678,16 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 			return nil, errors.Trace(err)
 		}
 	case nil:
-		// if the ProviderId was not unique adding the subnet can fail
-		// without an error. Refreshing catches this
+		// If the ProviderId was not unique adding the subnet can fail without
+		// an error. Refreshing catches this by returning NotFoundError.
 		err = subnet.Refresh()
-		if err == nil {
-			return subnet, nil
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
+			}
+			return nil, errors.Trace(err)
 		}
-		return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
+		return subnet, nil
 	}
 	return nil, errors.Trace(err)
 }
@@ -1554,7 +1707,7 @@ func (st *State) Subnet(cidr string) (*Subnet, error) {
 	return &Subnet{st, *doc}, nil
 }
 
-// AllSubnets returns all known subnets in the environment.
+// AllSubnets returns all known subnets in the model.
 func (st *State) AllSubnets() (subnets []*Subnet, err error) {
 	subnetsCollection, closer := st.getCollection(subnetsC)
 	defer closer()
@@ -1595,7 +1748,7 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	}
 	doc := st.newNetworkDoc(args)
 	ops := []txn.Op{
-		assertEnvAliveOp(st.EnvironUUID()),
+		assertModelAliveOp(st.ModelUUID()),
 		{
 			C:      networksC,
 			Id:     doc.DocID,
@@ -1606,7 +1759,7 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
-		if err := checkEnvLife(st); err != nil {
+		if err := checkModeLife(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		if _, err = st.Network(args.Name); err == nil {
@@ -1645,7 +1798,7 @@ func (st *State) Network(name string) (*Network, error) {
 	return newNetwork(st, doc), nil
 }
 
-// AllNetworks returns all known networks in the environment.
+// AllNetworks returns all known networks in the model.
 func (st *State) AllNetworks() (networks []*Network, err error) {
 	networksCollection, closer := st.getCollection(networksC)
 	defer closer()
@@ -1680,7 +1833,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 	return newService(st, sdoc), nil
 }
 
-// AllServices returns all deployed services in the environment.
+// AllServices returns all deployed services in the model.
 func (st *State) AllServices() (services []*Service, err error) {
 	servicesCollection, closer := st.getCollection(servicesC)
 	defer closer()
@@ -1697,30 +1850,30 @@ func (st *State) AllServices() (services []*Service, err error) {
 }
 
 // docID generates a globally unique id value
-// where the environment uuid is prefixed to the
+// where the model uuid is prefixed to the
 // localID.
 func (st *State) docID(localID string) string {
-	return ensureEnvUUID(st.EnvironUUID(), localID)
+	return ensureModelUUID(st.ModelUUID(), localID)
 }
 
 // localID returns the local id value by stripping
-// off the environment uuid prefix if it is there.
+// off the model uuid prefix if it is there.
 func (st *State) localID(ID string) string {
-	envUUID, localID, ok := splitDocID(ID)
-	if !ok || envUUID != st.EnvironUUID() {
+	modelUUID, localID, ok := splitDocID(ID)
+	if !ok || modelUUID != st.ModelUUID() {
 		return ID
 	}
 	return localID
 }
 
 // strictLocalID returns the local id value by removing the
-// environment UUID prefix.
+// model UUID prefix.
 //
-// If there is no prefix matching the State's environment, an error is
+// If there is no prefix matching the State's model, an error is
 // returned.
 func (st *State) strictLocalID(ID string) (string, error) {
-	envUUID, localID, ok := splitDocID(ID)
-	if !ok || envUUID != st.EnvironUUID() {
+	modelUUID, localID, ok := splitDocID(ID)
+	if !ok || modelUUID != st.ModelUUID() {
 		return "", errors.Errorf("unexpected id: %#v", ID)
 	}
 	return localID, nil
@@ -1942,7 +2095,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		doc = &relationDoc{
 			DocID:     docID,
 			Key:       key,
-			EnvUUID:   st.EnvironUUID(),
+			ModelUUID: st.ModelUUID(),
 			Id:        id,
 			Endpoints: eps,
 			Life:      Alive,
@@ -1999,7 +2152,7 @@ func (st *State) Relation(id int) (*Relation, error) {
 	return newRelation(st, &doc), nil
 }
 
-// AllRelations returns all relations in the environment ordered by id.
+// AllRelations returns all relations in the model ordered by id.
 func (st *State) AllRelations() (relations []*Relation, err error) {
 	relationsCollection, closer := st.getCollection(relationsC)
 	defer closer()
@@ -2058,8 +2211,8 @@ func (st *State) UnitsFor(machineId string) ([]*Unit, error) {
 }
 
 // AssignUnit places the unit on a machine. Depending on the policy, and the
-// state of the environment, this may lead to new instances being launched
-// within the environment.
+// state of the model, this may lead to new instances being launched
+// within the model.
 func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	if !u.IsPrincipal() {
 		return errors.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
@@ -2105,79 +2258,79 @@ func (st *State) SetAdminMongoPassword(password string) error {
 	return errors.Trace(err)
 }
 
-type stateServersDoc struct {
+type controllersDoc struct {
 	Id               string `bson:"_id"`
-	EnvUUID          string `bson:"env-uuid"`
+	ModelUUID        string `bson:"model-uuid"`
 	MachineIds       []string
 	VotingMachineIds []string
 }
 
-// StateServerInfo holds information about currently
-// configured state server machines.
-type StateServerInfo struct {
-	// EnvironmentTag identifies the initial environment. Only the initial
-	// environment is able to have machines that manage state. The initial
-	// environment is the environment that is created when bootstrapping.
-	EnvironmentTag names.EnvironTag
+// ControllerInfo holds information about currently
+// configured controller machines.
+type ControllerInfo struct {
+	// ModelTag identifies the initial model. Only the initial
+	// model is able to have machines that manage state. The initial
+	// model is the model that is created when bootstrapping.
+	ModelTag names.ModelTag
 
 	// MachineIds holds the ids of all machines configured
-	// to run a state server. It includes all the machine
+	// to run a controller. It includes all the machine
 	// ids in VotingMachineIds.
 	MachineIds []string
 
 	// VotingMachineIds holds the ids of all machines
-	// configured to run a state server and to have a vote
+	// configured to run a controller and to have a vote
 	// in peer election.
 	VotingMachineIds []string
 }
 
-// StateServerInfo returns information about
-// the currently configured state server machines.
-func (st *State) StateServerInfo() (*StateServerInfo, error) {
+// ControllerInfo returns information about
+// the currently configured controller machines.
+func (st *State) ControllerInfo() (*ControllerInfo, error) {
 	session := st.session.Copy()
 	defer session.Close()
-	return readRawStateServerInfo(st.session)
+	return readRawControllerInfo(st.session)
 }
 
-// readRawStateServerInfo reads StateServerInfo direct from the supplied session,
-// falling back to the bootstrap environment document to extract the UUID when
+// readRawControllerInfo reads ControllerInfo direct from the supplied session,
+// falling back to the bootstrap model document to extract the UUID when
 // required.
-func readRawStateServerInfo(session *mgo.Session) (*StateServerInfo, error) {
+func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 	db := session.DB(jujuDB)
-	stateServers := db.C(stateServersC)
+	controllers := db.C(controllersC)
 
-	var doc stateServersDoc
-	err := stateServers.Find(bson.D{{"_id", environGlobalKey}}).One(&doc)
+	var doc controllersDoc
+	err := controllers.Find(bson.D{{"_id", modelGlobalKey}}).One(&doc)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get state servers document")
+		return nil, errors.Annotatef(err, "cannot get controllers document")
 	}
 
-	if doc.EnvUUID == "" {
-		logger.Warningf("state servers info has no environment UUID so retrieving it from environment")
+	if doc.ModelUUID == "" {
+		logger.Warningf("controllers info has no model UUID so retrieving it from model")
 
 		// This only happens when migrating from 1.20 to 1.21 before
-		// upgrade steps have been run. Without this hack environTag
+		// upgrade steps have been run. Without this hack modelTag
 		// on State ends up empty, breaking basic functionality needed
 		// to run upgrade steps (a chicken-and-egg scenario).
-		environments := db.C(environmentsC)
+		environments := db.C(modelsC)
 
-		var envDoc environmentDoc
+		var envDoc modelDoc
 		query := environments.Find(nil)
 		count, err := query.Count()
 		if err != nil {
-			return nil, errors.Annotate(err, "cannot get environment document count")
+			return nil, errors.Annotate(err, "cannot get model document count")
 		}
 		if count != 1 {
-			return nil, errors.New("expected just one environment to get UUID from")
+			return nil, errors.New("expected just one model to get UUID from")
 		}
 		if err := query.One(&envDoc); err != nil {
-			return nil, errors.Annotate(err, "cannot load environment document")
+			return nil, errors.Annotate(err, "cannot load model document")
 		}
-		doc.EnvUUID = envDoc.UUID
+		doc.ModelUUID = envDoc.UUID
 	}
 
-	return &StateServerInfo{
-		EnvironmentTag:   names.NewEnvironTag(doc.EnvUUID),
+	return &ControllerInfo{
+		ModelTag:         names.NewModelTag(doc.ModelUUID),
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,
 	}, nil
@@ -2185,13 +2338,13 @@ func readRawStateServerInfo(session *mgo.Session) (*StateServerInfo, error) {
 
 const stateServingInfoKey = "stateServingInfo"
 
-// StateServingInfo returns information for running a state server machine
+// StateServingInfo returns information for running a controller machine
 func (st *State) StateServingInfo() (StateServingInfo, error) {
-	stateServers, closer := st.getCollection(stateServersC)
+	controllers, closer := st.getCollection(controllersC)
 	defer closer()
 
 	var info StateServingInfo
-	err := stateServers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
+	err := controllers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
 	if err != nil {
 		return info, errors.Trace(err)
 	}
@@ -2201,14 +2354,14 @@ func (st *State) StateServingInfo() (StateServingInfo, error) {
 	return info, nil
 }
 
-// SetStateServingInfo stores information needed for running a state server
+// SetStateServingInfo stores information needed for running a controller
 func (st *State) SetStateServingInfo(info StateServingInfo) error {
 	if info.StatePort == 0 || info.APIPort == 0 ||
 		info.Cert == "" || info.PrivateKey == "" {
 		return errors.Errorf("incomplete state serving info set in state")
 	}
 	if info.CAPrivateKey == "" {
-		// No CA certificate key means we can't generate new state server
+		// No CA certificate key means we can't generate new controller
 		// certificates when needed to add to the certificate SANs.
 		// Older Juju deployments discard the key because no one realised
 		// the certificate was flawed, so at best we can log a warning
@@ -2216,7 +2369,7 @@ func (st *State) SetStateServingInfo(info StateServingInfo) error {
 		logger.Warningf("state serving info has no CA certificate key")
 	}
 	ops := []txn.Op{{
-		C:      stateServersC,
+		C:      controllersC,
 		Id:     stateServingInfoKey,
 		Update: bson.D{{"$set", info}},
 	}}
@@ -2230,7 +2383,7 @@ func (st *State) SetStateServingInfo(info StateServingInfo) error {
 // if and only iff it is empty.
 func SetSystemIdentity(st *State, identity string) error {
 	ops := []txn.Op{{
-		C:      stateServersC,
+		C:      controllersC,
 		Id:     stateServingInfoKey,
 		Assert: bson.D{{"systemidentity", ""}},
 		Update: bson.D{{"$set", bson.D{{"systemidentity", identity}}}},
@@ -2246,7 +2399,7 @@ var tagPrefix = map[byte]string{
 	'm': names.MachineTagKind + "-",
 	's': names.ServiceTagKind + "-",
 	'u': names.UnitTagKind + "-",
-	'e': names.EnvironTagKind + "-",
+	'e': names.ModelTagKind + "-",
 	'r': names.RelationTagKind + "-",
 	'n': names.NetworkTagKind + "-",
 }

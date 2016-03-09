@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Charms", 1, NewAPI)
+	common.RegisterStandardFacade("Charms", 2, NewAPI)
 }
 
 var getState = func(st *state.State) charmsAccess {

@@ -15,13 +15,11 @@ import (
 	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/agent"
-	apirsyslog "github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -31,7 +29,7 @@ var (
 	EnsureMongoServer = mongo.EnsureServer
 )
 
-// requiredError is useful when complaining about missing command-line options.
+// RequiredError is useful when complaining about missing command-line options.
 func RequiredError(name string) error {
 	return fmt.Errorf("--%s option must be set", name)
 }
@@ -191,9 +189,10 @@ func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		SystemIdentity: si.SystemIdentity,
 
 		DataDir:              agentConfig.DataDir(),
-		Namespace:            agentConfig.Value(agent.Namespace),
 		OplogSize:            oplogSize,
 		SetNumaControlPolicy: numaCtlPolicy,
+
+		Version: agentConfig.MongoVersion(),
 	}
 	return params, nil
 }
@@ -233,20 +232,7 @@ func (c *CloseWorker) Wait() error {
 // they require isolation from hook execution.
 func HookExecutionLock(dataDir string) (*fslock.Lock, error) {
 	lockDir := filepath.Join(dataDir, "locks")
-	return fslock.NewLock(lockDir, "uniter-hook-execution")
-}
-
-// NewRsyslogConfigWorker creates and returns a new
-// RsyslogConfigWorker based on the specified configuration
-// parameters.
-var NewRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
-	tag := agentConfig.Tag()
-	namespace := agentConfig.Value(agent.Namespace)
-	addrs, err := agentConfig.APIAddresses()
-	if err != nil {
-		return nil, err
-	}
-	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs, agent.DefaultPaths.ConfDir)
+	return fslock.NewLock(lockDir, "uniter-hook-execution", fslock.Defaults())
 }
 
 // ParamsStateServingInfoToStateStateServingInfo converts a

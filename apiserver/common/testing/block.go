@@ -6,6 +6,7 @@ package testing
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -35,11 +36,7 @@ func NewBlockHelper(st api.Connection) BlockHelper {
 // on switches on desired block and
 // asserts that no errors were encountered.
 func (s BlockHelper) on(c *gc.C, blockType multiwatcher.BlockType, msg string) {
-	c.Assert(
-		s.client.SwitchBlockOn(
-			fmt.Sprintf("%v", blockType),
-			msg),
-		gc.IsNil)
+	c.Assert(s.client.SwitchBlockOn(fmt.Sprintf("%v", blockType), msg), gc.IsNil)
 }
 
 // BlockAllChanges blocks all operations that could change environment.
@@ -58,8 +55,8 @@ func (s BlockHelper) Close() {
 	s.ApiState.Close()
 }
 
-// BlockDestroyEnvironment blocks destroy-environment.
-func (s BlockHelper) BlockDestroyEnvironment(c *gc.C, msg string) {
+// BlockDestroyModel blocks destroy-model.
+func (s BlockHelper) BlockDestroyModel(c *gc.C, msg string) {
 	s.on(c, multiwatcher.BlockDestroy, msg)
 }
 
@@ -67,5 +64,8 @@ func (s BlockHelper) BlockDestroyEnvironment(c *gc.C, msg string) {
 // related to switched block.
 func (s BlockHelper) AssertBlocked(c *gc.C, err error, msg string) {
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
-	c.Assert(err, gc.ErrorMatches, msg)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &params.Error{
+		Message: msg,
+		Code:    "operation is blocked",
+	})
 }

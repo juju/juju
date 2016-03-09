@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/juju/names"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 

@@ -27,6 +27,10 @@ import (
 	"github.com/juju/juju/worker/machiner"
 )
 
+func TestPackage(t *stdtesting.T) {
+	coretesting.MgoTestPackage(t)
+}
+
 type MachinerSuite struct {
 	coretesting.BaseSuite
 	accessor   *mockMachineAccessor
@@ -58,10 +62,16 @@ func (s *MachinerSuite) TestMachinerConfigValidate(c *gc.C) {
 		MachineAccessor: &mockMachineAccessor{},
 	})
 	c.Assert(err, gc.ErrorMatches, "validating config: unspecified Tag not valid")
-	_, err = machiner.NewMachiner(machiner.Config{
+
+	w, err := machiner.NewMachiner(machiner.Config{
 		MachineAccessor: &mockMachineAccessor{},
 		Tag:             names.NewMachineTag("123"),
 	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// must stop the worker to prevent a data race when cleanup suite
+	// rolls back the patches
+	err = stopWorker(w)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -206,10 +216,6 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 		Args:     []interface{}{s.machineTag},
 	}})
 
-	s.accessor.machine.watcher.CheckCalls(c, []gitjujutesting.StubCall{
-		{FuncName: "Changes"}, {FuncName: "Changes"}, {FuncName: "Stop"},
-	})
-
 	s.accessor.machine.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "SetMachineAddresses",
 		Args: []interface{}{
@@ -248,10 +254,6 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 // not affect the overall running time of the tests
 // unless they fail.
 const worstCase = 5 * time.Second
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type MachinerStateSuite struct {
 	testing.JujuConnSuite
@@ -305,8 +307,6 @@ func (s *MachinerStateSuite) waitMachineStatus(c *gc.C, m *state.Machine, expect
 		}
 	}
 }
-
-var _ worker.NotifyWatchHandler = (*machiner.Machiner)(nil)
 
 func (s *MachinerStateSuite) TestNotFoundOrUnauthorized(c *gc.C) {
 	mr, err := machiner.NewMachiner(machiner.Config{

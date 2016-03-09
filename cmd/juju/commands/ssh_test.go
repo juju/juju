@@ -71,32 +71,32 @@ var sshTests = []struct {
 	{
 		"connect to machine 0",
 		[]string{"ssh", "0"},
-		sshArgs + "ubuntu@dummyenv-0.internal",
+		sshArgs + "ubuntu@dummymodel-0.internal",
 	},
 	{
 		"connect to machine 0 and pass extra arguments",
 		[]string{"ssh", "0", "uname", "-a"},
-		sshArgs + "ubuntu@dummyenv-0.internal uname -a",
+		sshArgs + "ubuntu@dummymodel-0.internal uname -a",
 	},
 	{
 		"connect to unit mysql/0",
 		[]string{"ssh", "mysql/0"},
-		sshArgs + "ubuntu@dummyenv-0.internal",
+		sshArgs + "ubuntu@dummymodel-0.internal",
 	},
 	{
 		"connect to unit mongodb/1 as the mongo user",
 		[]string{"ssh", "mongo@mongodb/1"},
-		sshArgs + "mongo@dummyenv-2.internal",
+		sshArgs + "mongo@dummymodel-2.internal",
 	},
 	{
 		"connect to unit mongodb/1 and pass extra arguments",
 		[]string{"ssh", "mongodb/1", "ls", "/"},
-		sshArgs + "ubuntu@dummyenv-2.internal ls /",
+		sshArgs + "ubuntu@dummymodel-2.internal ls /",
 	},
 	{
 		"connect to unit mysql/0 without proxy",
 		[]string{"ssh", "--proxy=false", "mysql/0"},
-		sshArgsNoProxy + "ubuntu@dummyenv-0.dns",
+		sshArgsNoProxy + "ubuntu@dummymodel-0.dns",
 	},
 }
 
@@ -131,7 +131,7 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
 	s.makeMachines(1, c, true)
 	// Setting proxy-ssh=false in the environment overrides --proxy.
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"proxy-ssh": false}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"proxy-ssh": false}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := coretesting.Context(c)
 	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
@@ -139,7 +139,7 @@ func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
 	code := cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
 	c.Check(code, gc.Equals, 0)
 	c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
-	c.Check(strings.TrimRight(ctx.Stdout.(*bytes.Buffer).String(), "\r\n"), gc.Equals, sshArgsNoProxy+"ubuntu@dummyenv-0.dns")
+	c.Check(strings.TrimRight(ctx.Stdout.(*bytes.Buffer).String(), "\r\n"), gc.Equals, sshArgsNoProxy+"ubuntu@dummymodel-0.dns")
 }
 
 func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *gc.C) {
@@ -153,9 +153,8 @@ func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *gc.C) {
 	for i := 0; i < t.NumMethod(); i++ {
 		name := t.Method(i).Name
 
-		// Close isn't an API method and ServiceCharmRelations is not
-		// relevant to "juju ssh".
-		if name == "Close" || name == "ServiceCharmRelations" {
+		// Close isn't an API method.
+		if name == "Close" {
 			continue
 		}
 		c.Logf("checking %q", name)
@@ -220,11 +219,11 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 
 func (s *SSHCommonSuite) setAddresses(m *state.Machine, c *gc.C) {
 	addrPub := network.NewScopedAddress(
-		fmt.Sprintf("dummyenv-%s.dns", m.Id()),
+		fmt.Sprintf("dummymodel-%s.dns", m.Id()),
 		network.ScopePublic,
 	)
 	addrPriv := network.NewScopedAddress(
-		fmt.Sprintf("dummyenv-%s.internal", m.Id()),
+		fmt.Sprintf("dummymodel-%s.internal", m.Id()),
 		network.ScopeCloudLocal,
 	)
 	err := m.SetProviderAddresses(addrPub, addrPriv)

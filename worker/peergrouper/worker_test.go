@@ -66,7 +66,6 @@ var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	resetErrors()
 }
 
 // InitState initializes the fake state with a single
@@ -87,7 +86,7 @@ func InitState(c *gc.C, st *fakeState, numMachines int, ipVersion TestIPVersion)
 		))
 	}
 	st.machine("10").SetHasVote(true)
-	st.setStateServers(ids...)
+	st.setControllers(ids...)
 	st.session.Set(mkMembers("0v", ipVersion))
 	st.session.setStatus(mkStatuses("0p", ipVersion))
 	st.check = checkInvariants
@@ -138,7 +137,7 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 		// Add another machine.
 		m13 := st.addMachine("13", false)
 		m13.setStateHostPort(fmt.Sprintf(ipVersion.formatHostPort, 13, mongoPort))
-		st.setStateServers("10", "11", "12", "13")
+		st.setControllers("10", "11", "12", "13")
 
 		c.Logf("waiting for new member to be added")
 		mustNext(c, memberWatcher)
@@ -163,7 +162,7 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 		c.Logf("removing old machine")
 		// Remove the old machine.
 		st.removeMachine("10")
-		st.setStateServers("11", "12", "13")
+		st.setControllers("11", "12", "13")
 
 		// Check that it's removed from the members.
 		c.Logf("waiting for removal")
@@ -176,7 +175,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
 		st := NewFakeState()
 
-		// Simulate a state where we have four state servers,
+		// Simulate a state where we have four controllers,
 		// one has gone down, and we're replacing it:
 		// 0 - hasvote true, wantsvote false, down
 		// 1 - hasvote true, wantsvote true
@@ -203,7 +202,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 
 		// Make the worker fail to set HasVote to false
 		// after changing the replica set membership.
-		setErrorFor("Machine.SetHasVote * false", errors.New("frood"))
+		st.errors.setErrorFor("Machine.SetHasVote * false", errors.New("frood"))
 
 		memberWatcher := st.session.members.Watch()
 		mustNext(c, memberWatcher)
@@ -223,14 +222,14 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 		// has-vote status to false and exit.
 		select {
 		case err := <-done:
-			c.Assert(err, gc.ErrorMatches, `cannot set voting status of "[0-9]+" to false: frood`)
+			c.Assert(err, gc.ErrorMatches, `cannot set HasVote removed: cannot set voting status of "[0-9]+" to false: frood`)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for worker to exit")
 		}
 
 		// Start the worker again - although the membership should
 		// not change, the HasVote status should be updated correctly.
-		resetErrors()
+		st.errors.resetErrors()
 		w = newWorker(st, noPublisher{})
 
 		// Watch all the machines for changes, so we can check
@@ -298,7 +297,6 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 		expectMembers := mkMembers("0v 1 2", ipVersion)
 		expectMembers[1].Address = ipVersion.extraHostPort
 		assertMembers(c, memberWatcher.Value(), expectMembers)
-		resetErrors()
 	})
 }
 
@@ -307,17 +305,17 @@ var fatalErrorsTests = []struct {
 	err        error
 	expectErr  string
 }{{
-	errPattern: "State.StateServerInfo",
-	expectErr:  "cannot get state server info: sample",
+	errPattern: "State.ControllerInfo",
+	expectErr:  "cannot get controller info: sample",
 }, {
 	errPattern: "Machine.SetHasVote 11 true",
-	expectErr:  `cannot set voting status of "11" to true: sample`,
+	expectErr:  `cannot set HasVote added: cannot set voting status of "11" to true: sample`,
 }, {
 	errPattern: "Session.CurrentStatus",
-	expectErr:  "cannot get replica set status: sample",
+	expectErr:  "cannot get peergrouper info: cannot get replica set status: sample",
 }, {
 	errPattern: "Session.CurrentMembers",
-	expectErr:  "cannot get replica set members: sample",
+	expectErr:  "cannot get peergrouper info: cannot get replica set members: sample",
 }, {
 	errPattern: "State.Machine *",
 	expectErr:  `cannot get machine "10": sample`,
@@ -331,11 +329,10 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 		s.PatchValue(&pollInterval, 5*time.Millisecond)
 		for i, testCase := range fatalErrorsTests {
 			c.Logf("test %d: %s -> %s", i, testCase.errPattern, testCase.expectErr)
-			resetErrors()
 			st := NewFakeState()
 			st.session.InstantlyReady = true
 			InitState(c, st, 3, ipVersion)
-			setErrorFor(testCase.errPattern, errors.New("sample"))
+			st.errors.setErrorFor(testCase.errPattern, errors.New("sample"))
 			w := newWorker(st, noPublisher{})
 			done := make(chan error)
 			go func() {
@@ -359,7 +356,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 		InitState(c, st, 3, ipVersion)
 		st.session.setStatus(mkStatuses("0p 1s 2s", ipVersion))
 		var setCount voyeur.Value
-		setErrorFuncFor("Session.Set", func() error {
+		st.errors.setErrorFuncFor("Session.Set", func() error {
 			setCount.Set(true)
 			return errors.New("sample")
 		})
@@ -376,8 +373,6 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 		mustNext(c, setCountW)
 		mustNext(c, setCountW)
 		mustNext(c, setCountW)
-
-		resetErrors()
 	})
 }
 
@@ -387,7 +382,7 @@ func (f PublisherFunc) publishAPIServers(apiServers [][]network.HostPort, instan
 	return f(apiServers, instanceIds)
 }
 
-func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
+func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
 		publishCh := make(chan [][]network.HostPort)
 		publish := func(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
@@ -410,7 +405,7 @@ func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 
 		// Change one of the servers' API addresses and check that it's published.
 		var newMachine10APIHostPorts []network.HostPort
-		newMachine10APIHostPorts = network.NewHostPorts(apiPort, ipVersion.extraHostPort)
+		newMachine10APIHostPorts = network.NewHostPorts(apiPort, ipVersion.extraHost)
 		st.machine("10").setAPIHostPorts(newMachine10APIHostPorts)
 		select {
 		case servers := <-publishCh:

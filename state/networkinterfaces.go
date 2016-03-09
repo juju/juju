@@ -48,7 +48,7 @@ type NetworkInterfaceInfo struct {
 // a given network.
 type networkInterfaceDoc struct {
 	Id            bson.ObjectId `bson:"_id"`
-	EnvUUID       string        `bson:"env-uuid"`
+	ModelUUID     string        `bson:"model-uuid"`
 	MACAddress    string        `bson:"macaddress"`
 	InterfaceName string        `bson:"interfacename"`
 	NetworkName   string        `bson:"networkname"`
@@ -182,10 +182,10 @@ func newNetworkInterface(st *State, doc *networkInterfaceDoc) *NetworkInterface 
 	return &NetworkInterface{st, *doc}
 }
 
-func newNetworkInterfaceDoc(machineID, envUUID string, args NetworkInterfaceInfo) *networkInterfaceDoc {
+func newNetworkInterfaceDoc(machineID, modelUUID string, args NetworkInterfaceInfo) *networkInterfaceDoc {
 	return &networkInterfaceDoc{
 		Id:            bson.NewObjectId(),
-		EnvUUID:       envUUID,
+		ModelUUID:     modelUUID,
 		MachineId:     machineID,
 		MACAddress:    args.MACAddress,
 		InterfaceName: args.InterfaceName,
@@ -206,10 +206,10 @@ func (ni *NetworkInterface) setDisabled(shouldDisable bool) error {
 	if err != nil {
 		return err
 	}
-	ops = append(ops, assertEnvAliveOp(ni.st.EnvironUUID()))
+	ops = append(ops, assertModelAliveOp(ni.st.ModelUUID()))
 	err = ni.st.runTransaction(ops)
 	if err != nil {
-		if err := checkEnvLife(ni.st); err != nil {
+		if err := checkModeLife(ni.st); err != nil {
 			return errors.Trace(err)
 		}
 		return onAbort(err, errors.NotFoundf("network interface"))

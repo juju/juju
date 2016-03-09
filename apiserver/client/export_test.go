@@ -24,7 +24,11 @@ var (
 
 type MachineAndContainers machineAndContainers
 
-// Status history exports
+var (
+	StartSerialWaitParallel = startSerialWaitParallel
+	GetEnvironment          = &getEnvironment
+)
+
 type StateInterface stateInterface
 
 type Patcher interface {

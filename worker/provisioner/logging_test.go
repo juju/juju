@@ -6,15 +6,22 @@ package provisioner
 import (
 	"errors"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type logSuite struct {
-	testing.BaseSuite
+	testing.LoggingSuite
+	jujutesting.JujuOSEnvSuite
+}
+
+func (l *logSuite) SetUpTest(c *gc.C) {
+	l.LoggingSuite.SetUpTest(c)
+	l.JujuOSEnvSuite.SetUpTest(c)
 }
 
 var _ = gc.Suite(&logSuite{})

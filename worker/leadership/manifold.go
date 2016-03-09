@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/leadership"
+	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
@@ -49,30 +50,33 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 		if err := getResource(config.APICallerName, &apiCaller); err != nil {
 			return nil, err
 		}
-		return newManifoldWorker(agent, apiCaller, config.LeadershipGuarantee)
+		return NewManifoldWorker(agent, apiCaller, config.LeadershipGuarantee)
 	}
 }
 
-// newManifoldWorker wraps NewTrackerWorker for the convenience of startFunc. It
+// NewManifoldWorker wraps NewTracker for the convenience of startFunc. It
 // exists primarily to be patched out via NewManifoldWorker for ease of testing,
-// and is not itself directly tested; once all NewTrackerWorker clients have been
-// replaced with manifolds, the tests can be tidied up a bit.
-var newManifoldWorker = func(agent agent.Agent, apiCaller base.APICaller, guarantee time.Duration) (worker.Worker, error) {
+// and is not itself directly tested. It would almost certainly be better to
+// pass the constructor dependencies in as explicit manifold config.
+var NewManifoldWorker = func(agent agent.Agent, apiCaller base.APICaller, guarantee time.Duration) (worker.Worker, error) {
 	tag := agent.CurrentConfig().Tag()
 	unitTag, ok := tag.(names.UnitTag)
 	if !ok {
 		return nil, fmt.Errorf("expected a unit tag; got %q", tag)
 	}
 	claimer := leadership.NewClient(apiCaller)
-	return NewTrackerWorker(unitTag, claimer, guarantee), nil
+	return NewTracker(unitTag, claimer, guarantee), nil
 }
 
-// outputFunc extracts the Tracker from a *tracker passed in as a Worker.
+// outputFunc extracts the coreleadership.Tracker from a *Tracker passed in as a Worker.
 func outputFunc(in worker.Worker, out interface{}) error {
-	inWorker, _ := in.(*tracker)
-	outPointer, _ := out.(*Tracker)
-	if inWorker == nil || outPointer == nil {
-		return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
+	inWorker, _ := in.(*Tracker)
+	if inWorker == nil {
+		return errors.Errorf("expected *Tracker input; got %T", in)
+	}
+	outPointer, _ := out.(*coreleadership.Tracker)
+	if outPointer == nil {
+		return errors.Errorf("expected *leadership.Tracker output; got %T", out)
 	}
 	*outPointer = inWorker
 	return nil

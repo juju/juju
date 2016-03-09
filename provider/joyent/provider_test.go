@@ -13,7 +13,7 @@ import (
 )
 
 type providerSimpleSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&providerSimpleSuite{})

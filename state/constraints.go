@@ -17,7 +17,7 @@ import (
 
 // constraintsDoc is the mongodb representation of a constraints.Value.
 type constraintsDoc struct {
-	EnvUUID      string `bson:"env-uuid"`
+	ModelUUID    string `bson:"model-uuid"`
 	Arch         *string
 	CpuCores     *uint64
 	CpuPower     *uint64
@@ -49,7 +49,7 @@ func (doc constraintsDoc) value() constraints.Value {
 
 func newConstraintsDoc(st *State, cons constraints.Value) constraintsDoc {
 	return constraintsDoc{
-		EnvUUID:      st.EnvironUUID(),
+		ModelUUID:    st.ModelUUID(),
 		Arch:         cons.Arch,
 		CpuCores:     cons.CpuCores,
 		CpuPower:     cons.CpuPower,

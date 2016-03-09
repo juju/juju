@@ -6,7 +6,6 @@ package authenticationworker_test
 import (
 	"runtime"
 	"strings"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/names"
@@ -25,18 +24,6 @@ import (
 	"github.com/juju/juju/worker/authenticationworker"
 )
 
-// worstCase is used for timeouts when timing out
-// will fail the test. Raising this value should
-// not affect the overall running time of the tests
-// unless they fail.
-const worstCase = 5 * time.Second
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
-
-var _ = gc.Suite(&workerSuite{})
-
 type workerSuite struct {
 	jujutesting.JujuConnSuite
 	stateMachine  *state.Machine
@@ -46,6 +33,8 @@ type workerSuite struct {
 	existingEnvKey string
 	existingKeys   []string
 }
+
+var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	//TODO(bogdanteleaga): Fix this on windows
@@ -72,7 +61,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	var apiRoot api.Connection
 	apiRoot, s.machine = s.OpenAPIAsNewMachine(c)
 	c.Assert(apiRoot, gc.NotNil)
-	s.keyupdaterApi = apiRoot.KeyUpdater()
+	s.keyupdaterApi = keyupdater.NewState(apiRoot)
 	c.Assert(s.keyupdaterApi, gc.NotNil)
 }
 
@@ -96,13 +85,13 @@ func agentConfig(c *gc.C, tag names.MachineTag) *mockConfig {
 
 func (s *workerSuite) setAuthorisedKeys(c *gc.C, keys ...string) {
 	keyStr := strings.Join(keys, "\n")
-	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keyStr}, nil, nil)
+	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"authorized-keys": keyStr}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.BackingState.StartSync()
 }
 
 func (s *workerSuite) waitSSHKeys(c *gc.C, expected []string) {
-	timeout := time.After(worstCase)
+	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
 		case <-timeout:
@@ -121,7 +110,8 @@ func (s *workerSuite) waitSSHKeys(c *gc.C, expected []string) {
 }
 
 func (s *workerSuite) TestKeyUpdateRetainsExisting(c *gc.C) {
-	authWorker := authenticationworker.NewWorker(s.keyupdaterApi, agentConfig(c, s.machine.Tag().(names.MachineTag)))
+	authWorker, err := authenticationworker.NewWorker(s.keyupdaterApi, agentConfig(c, s.machine.Tag().(names.MachineTag)))
+	c.Assert(err, jc.ErrorIsNil)
 	defer stop(c, authWorker)
 
 	newKey := sshtesting.ValidKeyThree.Key + " user@host"
@@ -134,7 +124,8 @@ func (s *workerSuite) TestNewKeysInJujuAreSavedOnStartup(c *gc.C) {
 	newKey := sshtesting.ValidKeyThree.Key + " user@host"
 	s.setAuthorisedKeys(c, newKey)
 
-	authWorker := authenticationworker.NewWorker(s.keyupdaterApi, agentConfig(c, s.machine.Tag().(names.MachineTag)))
+	authWorker, err := authenticationworker.NewWorker(s.keyupdaterApi, agentConfig(c, s.machine.Tag().(names.MachineTag)))
+	c.Assert(err, jc.ErrorIsNil)
 	defer stop(c, authWorker)
 
 	newKeyWithCommentPrefix := sshtesting.ValidKeyThree.Key + " Juju:user@host"
@@ -142,7 +133,8 @@ func (s *workerSuite) TestNewKeysInJujuAreSavedOnStartup(c *gc.C) {
 }
 
 func (s *workerSuite) TestDeleteKey(c *gc.C) {
-	authWorker := authenticationworker.NewWorker(s.keyupdaterApi, agentConfig(c, s.machine.Tag().(names.MachineTag)))
+	authWorker, err := authenticationworker.NewWorker(s.keyupdaterApi, agentConfig(c, s.machine.Tag().(names.MachineTag)))
+	c.Assert(err, jc.ErrorIsNil)
 	defer stop(c, authWorker)
 
 	// Add another key
@@ -157,7 +149,8 @@ func (s *workerSuite) TestDeleteKey(c *gc.C) {
 }
 
 func (s *workerSuite) TestMultipleChanges(c *gc.C) {
-	authWorker := authenticationworker.NewWorker(s.keyupdaterApi, agentConfig(c, s.machine.Tag().(names.MachineTag)))
+	authWorker, err := authenticationworker.NewWorker(s.keyupdaterApi, agentConfig(c, s.machine.Tag().(names.MachineTag)))
+	c.Assert(err, jc.ErrorIsNil)
 	defer stop(c, authWorker)
 	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
 
@@ -170,7 +163,8 @@ func (s *workerSuite) TestMultipleChanges(c *gc.C) {
 }
 
 func (s *workerSuite) TestWorkerRestart(c *gc.C) {
-	authWorker := authenticationworker.NewWorker(s.keyupdaterApi, agentConfig(c, s.machine.Tag().(names.MachineTag)))
+	authWorker, err := authenticationworker.NewWorker(s.keyupdaterApi, agentConfig(c, s.machine.Tag().(names.MachineTag)))
+	c.Assert(err, jc.ErrorIsNil)
 	defer stop(c, authWorker)
 	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
 
@@ -181,7 +175,8 @@ func (s *workerSuite) TestWorkerRestart(c *gc.C) {
 	s.setAuthorisedKeys(c, sshtesting.ValidKeyThree.Key+" yetanother@host")
 
 	// Restart the worker and check that the ssh auth keys are as expected.
-	authWorker = authenticationworker.NewWorker(s.keyupdaterApi, agentConfig(c, s.machine.Tag().(names.MachineTag)))
+	authWorker, err = authenticationworker.NewWorker(s.keyupdaterApi, agentConfig(c, s.machine.Tag().(names.MachineTag)))
+	c.Assert(err, jc.ErrorIsNil)
 	defer stop(c, authWorker)
 
 	yetAnotherKeyWithCommentPrefix := sshtesting.ValidKeyThree.Key + " Juju:yetanother@host"

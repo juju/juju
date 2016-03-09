@@ -66,20 +66,30 @@ func NewHostPorts(port int, addresses ...string) []HostPort {
 func ParseHostPorts(hostPorts ...string) ([]HostPort, error) {
 	hps := make([]HostPort, len(hostPorts))
 	for i, hp := range hostPorts {
-		host, port, err := net.SplitHostPort(hp)
+		hostport, err := ParseHostPort(hp)
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot parse %q as address:port", hp)
+			return nil, errors.Trace(err)
 		}
-		numPort, err := strconv.Atoi(port)
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot parse %q port", hp)
-		}
-		hps[i] = HostPort{
-			Address: NewAddress(host),
-			Port:    numPort,
-		}
+		hps[i] = *hostport
 	}
 	return hps, nil
+}
+
+// ParseHostPort converts a string containing a single host and port
+// value to a HostPort.
+func ParseHostPort(hp string) (*HostPort, error) {
+	host, port, err := net.SplitHostPort(hp)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot parse %q as address:port", hp)
+	}
+	numPort, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot parse %q port", hp)
+	}
+	return &HostPort{
+		Address: NewAddress(host),
+		Port:    numPort,
+	}, nil
 }
 
 // HostsWithoutPort strips the port from each HostPort, returning just

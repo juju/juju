@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Addresser", 1, NewAddresserAPI)
+	common.RegisterStandardFacade("Addresser", 2, NewAddresserAPI)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.addresser")
@@ -35,9 +35,9 @@ func NewAddresserAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*AddresserAPI, error) {
-	isEnvironManager := authorizer.AuthEnvironManager()
-	if !isEnvironManager {
-		// Addresser must run as environment manager.
+	isModelManager := authorizer.AuthModelManager()
+	if !isModelManager {
+		// Addresser must run as model manager.
 		return nil, common.ErrPerm
 	}
 	sti := getState(st)
@@ -51,13 +51,13 @@ func NewAddresserAPI(
 // getNetworkingEnviron checks if the environment implements NetworkingEnviron
 // and also if it supports IP address allocation.
 func (api *AddresserAPI) getNetworkingEnviron() (environs.NetworkingEnviron, bool, error) {
-	config, err := api.st.EnvironConfig()
+	config, err := api.st.ModelConfig()
 	if err != nil {
-		return nil, false, errors.Annotate(err, "getting environment config")
+		return nil, false, errors.Annotate(err, "getting model config")
 	}
 	env, err := environs.New(config)
 	if err != nil {
-		return nil, false, errors.Annotate(err, "validating environment config")
+		return nil, false, errors.Annotate(err, "validating model config")
 	}
 	netEnv, ok := environs.SupportsNetworking(env)
 	if !ok {
@@ -132,8 +132,8 @@ func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
 
 // netEnvReleaseAddress is used for testability.
 var netEnvReleaseAddress = func(env environs.NetworkingEnviron,
-	instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) error {
-	return env.ReleaseAddress(instId, subnetId, addr, macAddress)
+	instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error {
+	return env.ReleaseAddress(instId, subnetId, addr, macAddress, hostname)
 }
 
 // releaseIPAddress releases one IP address.
@@ -146,7 +146,7 @@ func (api *AddresserAPI) releaseIPAddress(netEnv environs.NetworkingEnviron, ipA
 	}
 	// Now release the IP address.
 	subnetId := network.Id(ipAddress.SubnetId())
-	err = netEnvReleaseAddress(netEnv, ipAddress.InstanceId(), subnetId, ipAddress.Address(), ipAddress.MACAddress())
+	err = netEnvReleaseAddress(netEnv, ipAddress.InstanceId(), subnetId, ipAddress.Address(), ipAddress.MACAddress(), "")
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -154,18 +154,18 @@ func (api *AddresserAPI) releaseIPAddress(netEnv environs.NetworkingEnviron, ipA
 }
 
 // WatchIPAddresses observes changes to the IP addresses.
-func (api *AddresserAPI) WatchIPAddresses() (params.EntityWatchResult, error) {
+func (api *AddresserAPI) WatchIPAddresses() (params.EntitiesWatchResult, error) {
 	watch := &ipAddressesWatcher{api.st.WatchIPAddresses(), api.st}
 
 	if changes, ok := <-watch.Changes(); ok {
 		mappedChanges, err := watch.MapChanges(changes)
 		if err != nil {
-			return params.EntityWatchResult{}, errors.Trace(err)
+			return params.EntitiesWatchResult{}, errors.Trace(err)
 		}
-		return params.EntityWatchResult{
-			EntityWatcherId: api.resources.Register(watch),
-			Changes:         mappedChanges,
+		return params.EntitiesWatchResult{
+			EntitiesWatcherId: api.resources.Register(watch),
+			Changes:           mappedChanges,
 		}, nil
 	}
-	return params.EntityWatchResult{}, watcher.EnsureErr(watch)
+	return params.EntitiesWatchResult{}, watcher.EnsureErr(watch)
 }

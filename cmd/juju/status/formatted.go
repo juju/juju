@@ -12,18 +12,23 @@ import (
 )
 
 type formattedStatus struct {
-	Environment       string                   `json:"environment"`
-	EnvironmentStatus *environmentStatus       `json:"environment-status,omitempty" yaml:"environment-status,omitempty"`
-	Machines          map[string]machineStatus `json:"machines"`
-	Services          map[string]serviceStatus `json:"services"`
-	Networks          map[string]networkStatus `json:"networks,omitempty" yaml:",omitempty"`
+	Model       string                   `json:"model"`
+	ModelStatus *modelStatus             `json:"model-status,omitempty" yaml:"model-status,omitempty"`
+	Machines    map[string]machineStatus `json:"machines"`
+	Services    map[string]serviceStatus `json:"services"`
+	Networks    map[string]networkStatus `json:"networks,omitempty" yaml:",omitempty"`
+}
+
+type formattedMachineStatus struct {
+	Model    string                   `json:"model"`
+	Machines map[string]machineStatus `json:"machines"`
 }
 
 type errorStatus struct {
 	StatusError string `json:"status-error" yaml:"status-error"`
 }
 
-type environmentStatus struct {
+type modelStatus struct {
 	AvailableVersion string `json:"upgrade-available,omitempty" yaml:"upgrade-available,omitempty"`
 }
 
@@ -40,7 +45,7 @@ type machineStatus struct {
 	Id             string                   `json:"-" yaml:"-"`
 	Containers     map[string]machineStatus `json:"containers,omitempty" yaml:"containers,omitempty"`
 	Hardware       string                   `json:"hardware,omitempty" yaml:"hardware,omitempty"`
-	HAStatus       string                   `json:"state-server-member-status,omitempty" yaml:"state-server-member-status,omitempty"`
+	HAStatus       string                   `json:"controller-member-status,omitempty" yaml:"controller-member-status,omitempty"`
 }
 
 // A goyaml bug means we can't declare these types
@@ -101,13 +106,6 @@ type unitStatus struct {
 	AgentStatusInfo    statusInfoContents `json:"agent-status,omitempty" yaml:"agent-status"`
 	MeterStatus        *meterStatus       `json:"meter-status,omitempty" yaml:"meter-status,omitempty"`
 
-	// Legacy status fields, to be removed in Juju 2.0
-	AgentState     params.Status `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
-	AgentStateInfo string        `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
-	Err            error         `json:"-" yaml:",omitempty"`
-	AgentVersion   string        `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
-	Life           string        `json:"life,omitempty" yaml:"life,omitempty"`
-
 	Charm         string                `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
 	Machine       string                `json:"machine,omitempty" yaml:"machine,omitempty"`
 	OpenedPorts   []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
@@ -142,15 +140,15 @@ func (s statusInfoContents) MarshalYAML() (interface{}, error) {
 type unitStatusNoMarshal unitStatus
 
 func (s unitStatus) MarshalJSON() ([]byte, error) {
-	if s.Err != nil {
-		return json.Marshal(errorStatus{s.Err.Error()})
+	if s.WorkloadStatusInfo.Err != nil {
+		return json.Marshal(errorStatus{s.WorkloadStatusInfo.Err.Error()})
 	}
 	return json.Marshal(unitStatusNoMarshal(s))
 }
 
 func (s unitStatus) MarshalYAML() (interface{}, error) {
-	if s.Err != nil {
-		return errorStatus{s.Err.Error()}, nil
+	if s.WorkloadStatusInfo.Err != nil {
+		return errorStatus{s.WorkloadStatusInfo.Err.Error()}, nil
 	}
 	return unitStatusNoMarshal(s), nil
 }

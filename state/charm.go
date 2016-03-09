@@ -18,9 +18,9 @@ import (
 
 // charmDoc represents the internal state of a charm in MongoDB.
 type charmDoc struct {
-	DocID   string     `bson:"_id"`
-	URL     *charm.URL `bson:"url"` // DANGEROUS see below
-	EnvUUID string     `bson:"env-uuid"`
+	DocID     string     `bson:"_id"`
+	URL       *charm.URL `bson:"url"` // DANGEROUS see below
+	ModelUUID string     `bson:"model-uuid"`
 
 	// TODO(fwereade) 2015-06-18 lp:1467964
 	// DANGEROUS: our schema can change any time the charm package changes,
@@ -55,7 +55,7 @@ func insertCharmOps(st *State, ch charm.Charm, curl *charm.URL, storagePath, bun
 	return insertAnyCharmOps(&charmDoc{
 		DocID:        curl.String(),
 		URL:          curl,
-		EnvUUID:      st.EnvironTag().Id(),
+		ModelUUID:    st.ModelTag().Id(),
 		Meta:         ch.Meta(),
 		Config:       safeConfig(ch),
 		Metrics:      ch.Metrics(),
@@ -67,7 +67,7 @@ func insertCharmOps(st *State, ch charm.Charm, curl *charm.URL, storagePath, bun
 
 // insertPlaceholderCharmOps returns the txn operations necessary to insert a
 // charm document referencing a store charm that is not yet directly accessible
-// within the environment. If curl is nil, an error will be returned.
+// within the model. If curl is nil, an error will be returned.
 func insertPlaceholderCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 	if curl == nil {
 		return nil, errors.New("*charm.URL was nil")
@@ -75,13 +75,13 @@ func insertPlaceholderCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 	return insertAnyCharmOps(&charmDoc{
 		DocID:       curl.String(),
 		URL:         curl,
-		EnvUUID:     st.EnvironTag().Id(),
+		ModelUUID:   st.ModelTag().Id(),
 		Placeholder: true,
 	})
 }
 
 // insertPendingCharmOps returns the txn operations necessary to insert a charm
-// document referencing a charm that has yet to be uploaded to the environment.
+// document referencing a charm that has yet to be uploaded to the model.
 // If curl is nil, an error will be returned.
 func insertPendingCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 	if curl == nil {
@@ -90,7 +90,7 @@ func insertPendingCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 	return insertAnyCharmOps(&charmDoc{
 		DocID:         curl.String(),
 		URL:           curl,
-		EnvUUID:       st.EnvironTag().Id(),
+		ModelUUID:     st.ModelTag().Id(),
 		PendingUpload: true,
 	})
 }
@@ -194,7 +194,7 @@ func safeConfig(ch charm.Charm) *charm.Config {
 	return escapedConfig
 }
 
-// Charm represents the state of a charm in the environment.
+// Charm represents the state of a charm in the model.
 type Charm struct {
 	st  *State
 	doc charmDoc
@@ -278,7 +278,7 @@ func (c *Charm) StoragePath() string {
 // the provider storage.
 //
 // DEPRECATED: this is only to be used for migrating
-// charm archives to environment storage.
+// charm archives to model storage.
 func (c *Charm) BundleURL() *url.URL {
 	return c.doc.BundleURL
 }
@@ -289,7 +289,7 @@ func (c *Charm) BundleSha256() string {
 }
 
 // IsUploaded returns whether the charm has been uploaded to the
-// environment storage.
+// model storage.
 func (c *Charm) IsUploaded() bool {
 	return !c.doc.PendingUpload
 }

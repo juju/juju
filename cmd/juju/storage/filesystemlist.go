@@ -10,7 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newFilesystemListCommand() cmd.Command {
@@ -18,15 +18,15 @@ func newFilesystemListCommand() cmd.Command {
 	cmd.newAPIFunc = func() (FilesystemListAPI, error) {
 		return cmd.NewStorageAPI()
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 const filesystemListCommandDoc = `
-List filesystems in the environment.
+List filesystems in the model.
 
 options:
--e, --environment (= "")
-    juju environment to operate in
+-m, --model (= "")
+    juju model to operate in
 -o, --output (= "")
     specify an output file
 [machine]
@@ -59,7 +59,7 @@ func (c *filesystemListCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *filesystemListCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.StorageCommandBase.SetFlags(f)
+	c.FilesystemCommandBase.SetFlags(f)
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
@@ -76,19 +76,19 @@ func (c *filesystemListCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	found, err := api.ListFilesystems(c.Ids)
+	results, err := api.ListFilesystems(c.Ids)
 	if err != nil {
 		return err
 	}
 	// filter out valid output, if any
-	var valid []params.FilesystemDetailsResult
-	for _, one := range found {
-		if one.Error == nil {
-			valid = append(valid, one)
+	var valid []params.FilesystemDetails
+	for _, result := range results {
+		if result.Error == nil {
+			valid = append(valid, result.Result...)
 			continue
 		}
 		// display individual error
-		fmt.Fprintf(ctx.Stderr, "%v\n", one.Error)
+		fmt.Fprintf(ctx.Stderr, "%v\n", result.Error)
 	}
 	if len(valid) == 0 {
 		return nil
@@ -111,5 +111,5 @@ func (c *filesystemListCommand) Run(ctx *cmd.Context) (err error) {
 // FilesystemListAPI defines the API methods that the filesystem list command use.
 type FilesystemListAPI interface {
 	Close() error
-	ListFilesystems(machines []string) ([]params.FilesystemDetailsResult, error)
+	ListFilesystems(machines []string) ([]params.FilesystemDetailsListResult, error)
 }

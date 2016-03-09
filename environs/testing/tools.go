@@ -6,8 +6,10 @@ package testing
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -19,13 +21,14 @@ import (
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/environs/filestorage"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -190,7 +193,51 @@ func UploadFakeToolsVersions(stor storage.Storage, toolsDir, stream string, vers
 	if err := envtools.MergeAndWriteMetadata(stor, toolsDir, stream, agentTools, envtools.DoNotWriteMirrors); err != nil {
 		return nil, err
 	}
+	err := SignTestTools(stor)
+	if err != nil {
+		return nil, err
+	}
 	return agentTools, nil
+}
+
+func SignTestTools(stor storage.Storage) error {
+	files, err := stor.List("")
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		if strings.HasSuffix(file, sstesting.UnsignedJsonSuffix) {
+			// only sign .json files and data
+			if err := SignFileData(stor, file); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func SignFileData(stor storage.Storage, fileName string) error {
+	r, err := stor.Get(fileName)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	fileData, err := ioutil.ReadAll(r)
+	if err != nil {
+		return err
+	}
+
+	signedName, signedContent, err := sstesting.SignMetadata(fileName, fileData)
+	if err != nil {
+		return err
+	}
+
+	err = stor.Put(signedName, strings.NewReader(string(signedContent)), int64(len(string(signedContent))))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // AssertUploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
@@ -354,7 +401,7 @@ type BootstrapToolsTest struct {
 	Err           string
 }
 
-var noToolsMessage = "Juju cannot bootstrap because no tools are available for your environment.*"
+var noToolsMessage = "Juju cannot bootstrap because no tools are available for your model.*"
 
 var BootstrapToolsTests = []BootstrapToolsTest{
 	{
@@ -515,6 +562,6 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 	}}
 
 func SetSSLHostnameVerification(c *gc.C, st *state.State, SSLHostnameVerification bool) {
-	err := st.UpdateEnvironConfig(map[string]interface{}{"ssl-hostname-verification": SSLHostnameVerification}, nil, nil)
+	err := st.UpdateModelConfig(map[string]interface{}{"ssl-hostname-verification": SSLHostnameVerification}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

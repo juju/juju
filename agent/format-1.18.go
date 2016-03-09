@@ -40,7 +40,7 @@ type format_1_18Serialization struct {
 	StateAddresses []string `yaml:",omitempty"`
 	StatePassword  string   `yaml:",omitempty"`
 
-	Environment  string   `yaml:",omitempty"`
+	Model        string   `yaml:",omitempty"`
 	APIAddresses []string `yaml:",omitempty"`
 	APIPassword  string   `yaml:",omitempty"`
 
@@ -49,14 +49,15 @@ type format_1_18Serialization struct {
 
 	PreferIPv6 bool `yaml:"prefer-ipv6,omitempty"`
 
-	// Only state server machines have these next items set.
-	StateServerCert string `yaml:",omitempty"`
-	StateServerKey  string `yaml:",omitempty"`
-	CAPrivateKey    string `yaml:",omitempty"`
-	APIPort         int    `yaml:",omitempty"`
-	StatePort       int    `yaml:",omitempty"`
-	SharedSecret    string `yaml:",omitempty"`
-	SystemIdentity  string `yaml:",omitempty"`
+	// Only controller machines have these next items set.
+	ControllerCert string `yaml:",omitempty"`
+	ControllerKey  string `yaml:",omitempty"`
+	CAPrivateKey   string `yaml:",omitempty"`
+	APIPort        int    `yaml:",omitempty"`
+	StatePort      int    `yaml:",omitempty"`
+	SharedSecret   string `yaml:",omitempty"`
+	SystemIdentity string `yaml:",omitempty"`
+	MongoVersion   string `yaml:",omitempty"`
 }
 
 func init() {
@@ -83,9 +84,9 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 	if err != nil {
 		return nil, err
 	}
-	var envTag names.EnvironTag
-	if format.Environment != "" {
-		envTag, err = names.ParseEnvironTag(format.Environment)
+	var modelTag names.ModelTag
+	if format.Model != "" {
+		modelTag, err = names.ParseModelTag(format.Model)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -100,7 +101,7 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		jobs:              format.Jobs,
 		upgradedToVersion: *format.UpgradedToVersion,
 		nonce:             format.Nonce,
-		environment:       envTag,
+		model:             modelTag,
 		caCert:            format.CACert,
 		oldPassword:       format.OldPassword,
 		values:            format.Values,
@@ -118,10 +119,10 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 			format.APIPassword,
 		}
 	}
-	if len(format.StateServerKey) != 0 {
+	if len(format.ControllerKey) != 0 {
 		config.servingInfo = &params.StateServingInfo{
-			Cert:           format.StateServerCert,
-			PrivateKey:     format.StateServerKey,
+			Cert:           format.ControllerCert,
+			PrivateKey:     format.ControllerKey,
 			CAPrivateKey:   format.CAPrivateKey,
 			APIPort:        format.APIPort,
 			StatePort:      format.StatePort,
@@ -148,13 +149,17 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		}
 
 	}
+	// Mongo version is set, we might be running a version other than default.
+	if format.MongoVersion != "" {
+		config.mongoVersion = format.MongoVersion
+	}
 	return config, nil
 }
 
 func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
-	var envTag string
-	if config.environment.Id() != "" {
-		envTag = config.environment.String()
+	var modelTag string
+	if config.model.Id() != "" {
+		modelTag = config.model.String()
 	}
 	format := &format_1_18Serialization{
 		Tag:               config.tag.String(),
@@ -164,15 +169,15 @@ func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
 		Jobs:              config.jobs,
 		UpgradedToVersion: &config.upgradedToVersion,
 		Nonce:             config.nonce,
-		Environment:       envTag,
+		Model:             modelTag,
 		CACert:            string(config.caCert),
 		OldPassword:       config.oldPassword,
 		Values:            config.values,
 		PreferIPv6:        config.preferIPv6,
 	}
 	if config.servingInfo != nil {
-		format.StateServerCert = config.servingInfo.Cert
-		format.StateServerKey = config.servingInfo.PrivateKey
+		format.ControllerCert = config.servingInfo.Cert
+		format.ControllerKey = config.servingInfo.PrivateKey
 		format.CAPrivateKey = config.servingInfo.CAPrivateKey
 		format.APIPort = config.servingInfo.APIPort
 		format.StatePort = config.servingInfo.StatePort
@@ -186,6 +191,9 @@ func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
 	if config.apiDetails != nil {
 		format.APIAddresses = config.apiDetails.addresses
 		format.APIPassword = config.apiDetails.password
+	}
+	if config.mongoVersion != "" {
+		format.MongoVersion = string(config.mongoVersion)
 	}
 	return goyaml.Marshal(format)
 }

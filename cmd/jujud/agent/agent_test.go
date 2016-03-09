@@ -4,18 +4,15 @@
 package agent
 
 import (
-	"time"
-
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/series"
-	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	apienvironment "github.com/juju/juju/api/environment"
+	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -59,25 +56,14 @@ func ParseAgentCommand(ac cmd.Command, args []string) error {
 // AgentSuite is a fixture to be used by agent test suites.
 type AgentSuite struct {
 	agenttesting.AgentSuite
-	oldRestartDelay time.Duration
 }
 
 func (s *AgentSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 
-	s.oldRestartDelay = worker.RestartDelay
-	// We could use testing.ShortWait, but this thrashes quite
-	// a bit when some tests are restarting every 50ms for 10 seconds,
-	// so use a slightly more friendly delay.
-	worker.RestartDelay = 250 * time.Millisecond
 	s.PatchValue(&cmdutil.EnsureMongoServer, func(mongo.EnsureServerParams) error {
 		return nil
 	})
-}
-
-func (s *AgentSuite) TearDownSuite(c *gc.C) {
-	s.JujuConnSuite.TearDownSuite(c)
-	worker.RestartDelay = s.oldRestartDelay
 }
 
 func (s *AgentSuite) SetUpTest(c *gc.C) {
@@ -88,10 +74,10 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(&proxyupdater.New, func(*apienvironment.Facade, bool) worker.Worker {
-		return newDummyWorker()
+	s.PatchValue(&proxyupdater.NewWorker, func(*apiproxyupdater.Facade) (worker.Worker, error) {
+		return newDummyWorker(), nil
 	})
 
 	// Tests should not try to use internet. Ensure base url is empty.
-	imagemetadata.DefaultBaseURL = ""
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 }

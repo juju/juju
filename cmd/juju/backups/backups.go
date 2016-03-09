@@ -10,51 +10,33 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/backups"
 	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/cmd/modelcmd"
 	statebackups "github.com/juju/juju/state/backups"
 )
 
 var backupsDoc = `
-"juju backups" is used to manage backups of the state of a juju environment.
-`
+"juju backups" is used to manage backups of the state of a juju controller.
+Backups are only supported on juju controllers, not hosted models.  For
+more information on juju controllers, see:
 
-var jesBackupsDoc = `
-"juju backups" is used to manage backups of the state of a juju system.
-Backups are only supported on juju systems, not hosted environments.  For
-more information on juju systems, see:
-
-    juju help juju-systems
+    juju help juju-controllers
 `
 
 const backupsPurpose = "create, manage, and restore backups of juju's state"
 
-// Command is the top-level command wrapping all backups functionality.
-type Command struct {
-	cmd.SuperCommand
-}
-
 // NewSuperCommand returns a new backups super-command.
 func NewSuperCommand() cmd.Command {
-	if featureflag.Enabled(feature.JES) {
-		backupsDoc = jesBackupsDoc
-	}
-
-	backupsCmd := Command{
-		SuperCommand: *cmd.NewSuperCommand(
-			cmd.SuperCommandParams{
-				Name:        "backups",
-				Doc:         backupsDoc,
-				UsagePrefix: "juju",
-				Purpose:     backupsPurpose,
-			},
-		),
-	}
+	backupsCmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name:        "backups",
+		Doc:         backupsDoc,
+		UsagePrefix: "juju",
+		Purpose:     backupsPurpose,
+	})
 	backupsCmd.Register(newCreateCommand())
 	backupsCmd.Register(newInfoCommand())
 	backupsCmd.Register(newListCommand())
@@ -62,7 +44,7 @@ func NewSuperCommand() cmd.Command {
 	backupsCmd.Register(newUploadCommand())
 	backupsCmd.Register(newRemoveCommand())
 	backupsCmd.Register(newRestoreCommand())
-	return &backupsCmd
+	return backupsCmd
 }
 
 // APIClient represents the backups API client functionality used by
@@ -81,20 +63,29 @@ type APIClient interface {
 	Upload(ar io.ReadSeeker, meta params.BackupsMetadataResult) (string, error)
 	// Remove removes the stored backup.
 	Remove(id string) error
-	// Restore will restore a backup with the given id into the state server.
+	// Restore will restore a backup with the given id into the controller.
 	Restore(string, backups.ClientConnection) error
-	// Restore will restore a backup file into the state server.
+	// RestoreReader will restore a backup file into the controller.
 	RestoreReader(io.ReadSeeker, *params.BackupsMetadataResult, backups.ClientConnection) error
 }
 
 // CommandBase is the base type for backups sub-commands.
 type CommandBase struct {
-	envcmd.EnvCommandBase
+	// TODO(wallyworld) - remove Log when backup command is flattened.
+	Log *cmd.Log
+	modelcmd.ModelCommandBase
 }
 
 // NewAPIClient returns a client for the backups api endpoint.
 func (c *CommandBase) NewAPIClient() (APIClient, error) {
 	return newAPIClient(c)
+}
+
+// SetFlags implements Command.SetFlags.
+func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {
+	if c.Log != nil {
+		c.Log.AddFlags(f)
+	}
 }
 
 var newAPIClient = func(c *CommandBase) (APIClient, error) {
@@ -117,7 +108,7 @@ func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetad
 	fmt.Fprintf(ctx.Stdout, "finished:        %v\n", result.Finished)
 	fmt.Fprintf(ctx.Stdout, "notes:           %q\n", result.Notes)
 
-	fmt.Fprintf(ctx.Stdout, "environment ID:  %q\n", result.Environment)
+	fmt.Fprintf(ctx.Stdout, "model ID:        %q\n", result.Model)
 	fmt.Fprintf(ctx.Stdout, "machine ID:      %q\n", result.Machine)
 	fmt.Fprintf(ctx.Stdout, "created on host: %q\n", result.Hostname)
 	fmt.Fprintf(ctx.Stdout, "juju version:    %v\n", result.Version)

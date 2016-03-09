@@ -73,7 +73,7 @@ func (s *meterStatusSuite) TestGetMeterStatusBadTag(c *gc.C) {
 		"unit-nosuchunit",
 		"thisisnotatag",
 		"machine-0",
-		"environment-blah",
+		"model-blah",
 	}
 	args := params.Entities{Entities: make([]params.Entity, len(tags))}
 	for i, tag := range tags {

@@ -5,7 +5,7 @@ package helptopics
 
 const Glossary = `
 Bootstrap
-  To boostrap an environment means initializing it so that Services may be
+  To boostrap an model means initializing it so that Services may be
   deployed on it.
 
 Charm
@@ -40,19 +40,31 @@ Charm URL
   revision, if specified, points to a specific revision of the charm pointed to
   by the rest of the URL. It must be a non-negative integer.
 
+Controller
+  A Juju Controller, also sometimes called the controller model,
+  describes the model that runs and manages the Juju API servers and the
+  underlying database.
+
+  The controller model is what is created when the bootstrap command is
+  called. This controller model is a normal Juju model that just
+  happens to have machines that manage Juju.
+
 Endpoint
   The combination of a service name and a relation name.
 
-Environment
-  An Environment is a configured location where Services can be deployed onto.
-  An Environment typically has a name, which can usually be omitted when there's
-  a single Environment configured, or when a default is explicitly defined.
-  Depending on the type of Environment, it may have to be bootstrapped before
+Model
+  An Model is a configured location where Services can be deployed onto.
+  An Model typically has a name, which can usually be omitted when there's
+  a single Model configured, or when a default is explicitly defined.
+  Depending on the type of Model, it may have to be bootstrapped before
   interactions with it may take place (e.g. EC2). The local environment
-  configuration is defined in the ~/.juju/environments.yaml file.
+  configuration is defined in an environments.yaml file inside $JUJU_DATA
+  if said variable is not defined $XDG_DATA_HOME/juju will be used and if
+  $XDG_DATA_HOME is not defined either it will default to 
+  ~/.local/share/juju/ .
 
 Machine Agent
-  Software which runs inside each machine that is part of an Environment, and is
+  Software which runs inside each machine that is part of a Model, and is
   able to handle the needs of deploying and managing Service Units in this
   machine.
 
@@ -62,7 +74,7 @@ Placement Directive
 
 Provisioning Agent
   Software responsible for automatically allocating and terminating machines in
-  an Environment, as necessary for the requested configuration.
+  a Model, as necessary for the requested configuration.
 
 Relation
   Relations are the way in which Juju enables Services to communicate to each

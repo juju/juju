@@ -4,7 +4,5 @@
 package apicaller
 
 var (
-	OpenConnection           = &openConnection
-	OpenAPIForAgent          = &apiOpen
-	CheckProvisionedStrategy = &checkProvisionedStrategy
+	OpenConnection = &openConnection
 )

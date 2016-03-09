@@ -5,7 +5,7 @@ package apiserver
 
 import (
 	"fmt"
-	"reflect"
+	"net"
 	"time"
 
 	"github.com/juju/names"
@@ -22,14 +22,11 @@ import (
 )
 
 var (
-	RootType              = reflect.TypeOf(&apiHandler{})
-	NewPingTimeout        = newPingTimeout
-	MaxClientPingInterval = &maxClientPingInterval
-	MongoPingInterval     = &mongoPingInterval
-	NewBackups            = &newBackups
-	ParseLogLine          = parseLogLine
-	AgentMatchesFilter    = agentMatchesFilter
-	NewLogTailer          = &newLogTailer
+	NewPingTimeout               = newPingTimeout
+	MaxClientPingInterval        = &maxClientPingInterval
+	MongoPingInterval            = &mongoPingInterval
+	NewBackups                   = &newBackups
+	AllowedMethodsDuringUpgrades = allowedMethodsDuringUpgrades
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
@@ -58,10 +55,6 @@ func ApiHandlerWithEntity(entity state.Entity) *apiHandler {
 	return &apiHandler{entity: entity}
 }
 
-func ServerAuthenticator(srv *Server, tag names.Tag) authentication.EntityAuthenticator {
-	return srv.authCtxt
-}
-
 const LoginRateLimit = loginRateLimit
 
 // DelayLogins changes how the Login code works so that logins won't proceed
@@ -74,9 +67,9 @@ func DelayLogins() (nextChan chan struct{}, cleanup func()) {
 	cleanup = func() {
 		doCheckCreds = checkCreds
 	}
-	delayedCheckCreds := func(st *state.State, c params.LoginRequest, lookForEnvUser bool, authenticator authentication.EntityAuthenticator) (state.Entity, *time.Time, error) {
+	delayedCheckCreds := func(st *state.State, c params.LoginRequest, lookForModelUser bool, authenticator authentication.EntityAuthenticator) (state.Entity, *time.Time, error) {
 		<-nextChan
-		return checkCreds(st, c, lookForEnvUser, authenticator)
+		return checkCreds(st, c, lookForModelUser, authenticator)
 	}
 	doCheckCreds = delayedCheckCreds
 	return
@@ -100,12 +93,12 @@ func TestingApiHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Re
 		state: srvSt,
 		tag:   names.NewMachineTag("0"),
 	}
-	h, err := newApiHandler(srv, st, nil, nil, st.EnvironUUID())
+	h, err := newApiHandler(srv, st, nil, nil, st.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.getResources()
 }
 
-// TestingUpgradingApiHandler returns a limited srvRoot
+// TestingUpgradingRoot returns a limited srvRoot
 // in an upgrade scenario.
 func TestingUpgradingRoot(st *state.State) rpc.MethodFinder {
 	r := TestingApiRoot(st)
@@ -129,11 +122,11 @@ func (r *preFacadeAdminApi) Admin(id string) (*preFacadeAdminApi, error) {
 	return r, nil
 }
 
-var PreFacadeEnvironTag = names.NewEnvironTag("383c49f3-526d-4f9e-b50a-1e6fa4e9b3d9")
+var PreFacadeModelTag = names.NewModelTag("383c49f3-526d-4f9e-b50a-1e6fa4e9b3d9")
 
 func (r *preFacadeAdminApi) Login(c params.Creds) (params.LoginResult, error) {
 	return params.LoginResult{
-		EnvironTag: PreFacadeEnvironTag.String(),
+		ModelTag: PreFacadeModelTag.String(),
 	}, nil
 }
 
@@ -166,12 +159,8 @@ func SetAdminApiVersions(srv *Server, versions ...int) {
 	factories := make(map[int]adminApiFactory)
 	for _, n := range versions {
 		switch n {
-		case 0:
-			factories[n] = newAdminApiV0
-		case 1:
-			factories[n] = newAdminApiV1
-		case 2:
-			factories[n] = newAdminApiV2
+		case 3:
+			factories[n] = newAdminApiV3
 		default:
 			panic(fmt.Errorf("unknown admin API version %d", n))
 		}
@@ -193,12 +182,7 @@ func TestingAboutToRestoreRoot(st *state.State) *aboutToRestoreRoot {
 	return newAboutToRestoreRoot(r)
 }
 
-// LogLineAgentTag gives tests access to an internal logFileLine attribute
-func (logFileLine *logFileLine) LogLineAgentTag() string {
-	return logFileLine.agentTag
-}
-
-// LogLineAgentName gives tests access to an internal logFileLine attribute
-func (logFileLine *logFileLine) LogLineAgentName() string {
-	return logFileLine.agentName
+// Addr returns the address that the server is listening on.
+func (srv *Server) Addr() *net.TCPAddr {
+	return srv.lis.Addr().(*net.TCPAddr) // cannot fail
 }

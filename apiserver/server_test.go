@@ -10,7 +10,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -40,10 +39,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
-
 var fastDialOpts = api.DialOpts{}
 
 type serverSuite struct {
@@ -66,12 +61,12 @@ func (s *serverSuite) TestStop(c *gc.C) {
 
 	// Note we can't use openAs because we're not connecting to
 	apiInfo := &api.Info{
-		Tag:        machine.Tag(),
-		Password:   password,
-		Nonce:      "fake_nonce",
-		Addrs:      []string{address},
-		CACert:     coretesting.CACert,
-		EnvironTag: s.State.EnvironTag(),
+		Tag:      machine.Tag(),
+		Password: password,
+		Nonce:    "fake_nonce",
+		Addrs:    []string{address},
+		CACert:   coretesting.CACert,
+		ModelTag: s.State.ModelTag(),
 	}
 	st, err := api.Open(apiInfo, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -113,12 +108,12 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 
 	// Now connect twice - using IPv4 and IPv6 endpoints.
 	apiInfo := &api.Info{
-		Tag:        machine.Tag(),
-		Password:   password,
-		Nonce:      "fake_nonce",
-		Addrs:      []string{net.JoinHostPort("127.0.0.1", portString)},
-		CACert:     coretesting.CACert,
-		EnvironTag: s.State.EnvironTag(),
+		Tag:      machine.Tag(),
+		Password: password,
+		Nonce:    "fake_nonce",
+		Addrs:    []string{net.JoinHostPort("127.0.0.1", portString)},
+		CACert:   coretesting.CACert,
+		ModelTag: s.State.ModelTag(),
 	}
 	ipv4State, err := api.Open(apiInfo, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -148,7 +143,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	assertNotProvisioned := func(err error) {
 		c.Assert(err, gc.NotNil)
 		c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
-		c.Assert(err, gc.ErrorMatches, `machine \d+ not provisioned`)
+		c.Assert(err, gc.ErrorMatches, `machine \d+ not provisioned \(not provisioned\)`)
 	}
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
@@ -197,12 +192,12 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	proxy := testing.NewTCPProxy(c, mongoInfo.Addrs[0])
 	mongoInfo.Addrs = []string{proxy.Addr()}
 
-	st, err := state.Open(s.State.EnvironTag(), mongoInfo, mongo.DefaultDialOpts(), nil)
+	st, err := state.Open(s.State.ModelTag(), mongoInfo, mongo.DefaultDialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
 	// Now close the proxy so that any attempts to use the
-	// state server will fail.
+	// controller will fail.
 	proxy.Close()
 
 	// Creating the server should succeed because it doesn't
@@ -270,7 +265,7 @@ func (s *serverSuite) assertAlive(c *gc.C, entity presence.Presencer, isAlive bo
 	c.Assert(alive, gc.Equals, isAlive)
 }
 
-func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
+func dialWebsocket(c *gc.C, addr, path string, tlsVersion uint16) (*websocket.Conn, error) {
 	origin := "http://localhost/"
 	url := fmt.Sprintf("wss://%s%s", addr, path)
 	config, err := websocket.NewConfig(url, origin)
@@ -279,12 +274,29 @@ func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
 	xcert, err := cert.ParseCert(coretesting.CACert)
 	c.Assert(err, jc.ErrorIsNil)
 	pool.AddCert(xcert)
-	config.TlsConfig = &tls.Config{RootCAs: pool}
+	config.TlsConfig = &tls.Config{
+		RootCAs:    pool,
+		MaxVersion: tlsVersion,
+	}
 	return websocket.DialConfig(config)
 }
 
+func (s *serverSuite) TestMinTLSVersion(c *gc.C) {
+	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
+	srv := newServer(c, s.State)
+	defer srv.Stop()
+
+	// We have to use 'localhost' because that is what the TLS cert says.
+	addr := fmt.Sprintf("localhost:%d", srv.Addr().Port)
+
+	// Specify an unsupported TLS version
+	conn, err := dialWebsocket(c, addr, "/", tls.VersionSSL30)
+	c.Assert(err, gc.ErrorMatches, ".*protocol version not supported")
+	c.Assert(conn, gc.IsNil)
+}
+
 func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
-	// we expose the API at '/' for compatibility, and at '/ENVUUID/api'
+	// we expose the API at '/' for compatibility, and at '/ModelUUID/api'
 	// for the correct location, but other Paths should fail.
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	srv := newServer(c, s.State)
@@ -293,16 +305,16 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// We have to use 'localhost' because that is what the TLS cert says.
 	addr := fmt.Sprintf("localhost:%d", srv.Addr().Port)
 	// '/' should be fine
-	conn, err := dialWebsocket(c, addr, "/")
+	conn, err := dialWebsocket(c, addr, "/", 0)
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
-	// '/environment/ENVIRONUUID/api' should be fine
-	conn, err = dialWebsocket(c, addr, "/environment/dead-beef-123456/api")
+	// '/model/MODELUUID/api' should be fine
+	conn, err = dialWebsocket(c, addr, "/model/dead-beef-123456/api", 0)
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 
 	// '/randompath' is not ok
-	conn, err = dialWebsocket(c, addr, "/randompath")
+	conn, err = dialWebsocket(c, addr, "/randompath", 0)
 	// Unfortunately go.net/websocket just returns Bad Status, it doesn't
 	// give us any information (whether this was a 404 Not Found, Internal
 	// Server Error, 200 OK, etc.)
@@ -429,7 +441,7 @@ func (s *serverSuite) TestApiHandlerTeardownInitialEnviron(c *gc.C) {
 }
 
 func (s *serverSuite) TestApiHandlerTeardownOtherEnviron(c *gc.C) {
-	otherState := s.Factory.MakeEnvironment(c, nil)
+	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
 	s.checkApiHandlerTeardown(c, s.State, otherState)
 }
@@ -449,9 +461,10 @@ func newServer(c *gc.C, st *state.State) *apiserver.Server {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
-		Cert: []byte(coretesting.ServerCert),
-		Key:  []byte(coretesting.ServerKey),
-		Tag:  names.NewMachineTag("0"),
+		Cert:   []byte(coretesting.ServerCert),
+		Key:    []byte(coretesting.ServerKey),
+		Tag:    names.NewMachineTag("0"),
+		LogDir: c.MkDir(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return srv

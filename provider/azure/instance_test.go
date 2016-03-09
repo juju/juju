@@ -1,372 +1,516 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package azure
+package azure_test
 
 import (
-	"encoding/base64"
-	"fmt"
 	"net/http"
+	"path"
 
+	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/mocks"
+	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/arm/compute"
+	"github.com/Azure/azure-sdk-for-go/arm/network"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/gwacl"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
+	jujunetwork "github.com/juju/juju/network"
+	"github.com/juju/juju/provider/azure"
+	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/testing"
 )
 
 type instanceSuite struct {
 	testing.BaseSuite
-	env        *azureEnviron
-	service    *gwacl.HostedService
-	deployment *gwacl.Deployment
-	role       *gwacl.Role
-	instance   *azureInstance
+
+	provider          environs.EnvironProvider
+	requests          []*http.Request
+	sender            azuretesting.Senders
+	env               environs.Environ
+	virtualMachines   []compute.VirtualMachine
+	networkInterfaces []network.Interface
+	publicIPAddresses []network.PublicIPAddress
 }
 
 var _ = gc.Suite(&instanceSuite{})
 
 func (s *instanceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.env = makeEnviron(c)
-	s.service = makeDeployment(c, s.env, "service-name")
-	s.deployment = &s.service.Deployments[0]
-	s.deployment.Name = "deployment-one"
-	s.role = &s.deployment.RoleList[0]
-	s.role.RoleName = "role-one"
-	inst, err := s.env.getInstance(s.service, s.role.RoleName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inst, gc.FitsTypeOf, &azureInstance{})
-	s.instance = inst.(*azureInstance)
-}
-
-func configSetNetwork(role *gwacl.Role) *gwacl.ConfigurationSet {
-	for i, configSet := range role.ConfigurationSets {
-		if configSet.ConfigurationSetType == gwacl.CONFIG_SET_NETWORK {
-			return &role.ConfigurationSets[i]
-		}
-	}
-	return nil
-}
-
-// makeHostedServiceDescriptor creates a HostedServiceDescriptor with the
-// given service name.
-func makeHostedServiceDescriptor(name string) *gwacl.HostedServiceDescriptor {
-	labelBase64 := base64.StdEncoding.EncodeToString([]byte("label"))
-	return &gwacl.HostedServiceDescriptor{ServiceName: name, Label: labelBase64}
-}
-
-func (*instanceSuite) TestId(c *gc.C) {
-	azInstance := azureInstance{instanceId: "whatever"}
-	c.Check(azInstance.Id(), gc.Equals, instance.Id("whatever"))
-}
-
-func (*instanceSuite) TestStatus(c *gc.C) {
-	var inst azureInstance
-	c.Check(inst.Status(), gc.Equals, "")
-	inst.roleInstance = &gwacl.RoleInstance{InstanceStatus: "anyoldthing"}
-	c.Check(inst.Status(), gc.Equals, "anyoldthing")
-}
-
-func makeInputEndpoint(port int, protocol string) gwacl.InputEndpoint {
-	name := fmt.Sprintf("%s%d-%d", protocol, port, port)
-	probe := &gwacl.LoadBalancerProbe{Port: port, Protocol: "TCP"}
-	if protocol == "udp" {
-		// We just use port 22 (SSH) for the
-		// probe when a UDP port is exposed.
-		probe.Port = 22
-	}
-	return gwacl.InputEndpoint{
-		LocalPort: port,
-		Name:      fmt.Sprintf("%s_range_%d", name, port),
-		LoadBalancedEndpointSetName: name,
-		LoadBalancerProbe:           probe,
-		Port:                        port,
-		Protocol:                    protocol,
-	}
-}
-
-func serialize(c *gc.C, object gwacl.AzureObject) []byte {
-	xml, err := object.Serialize()
-	c.Assert(err, jc.ErrorIsNil)
-	return []byte(xml)
-}
-
-func prepareDeploymentInfoResponse(
-	c *gc.C, dep gwacl.Deployment) []gwacl.DispatcherResponse {
-	return []gwacl.DispatcherResponse{
-		gwacl.NewDispatcherResponse(
-			serialize(c, &dep), http.StatusOK, nil),
-	}
-}
-
-func preparePortChangeConversation(c *gc.C, role *gwacl.Role) []gwacl.DispatcherResponse {
-	persistentRole := &gwacl.PersistentVMRole{
-		XMLNS:             gwacl.XMLNS,
-		RoleName:          role.RoleName,
-		ConfigurationSets: role.ConfigurationSets,
-	}
-	return []gwacl.DispatcherResponse{
-		// GetRole returns a PersistentVMRole.
-		gwacl.NewDispatcherResponse(serialize(c, persistentRole), http.StatusOK, nil),
-		// UpdateRole expects a 200 response, that's all.
-		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
-	}
-}
-
-// point is 1-indexed; it represents which request should fail.
-func failPortChangeConversationAt(point int, responses []gwacl.DispatcherResponse) {
-	responses[point-1] = gwacl.NewDispatcherResponse(
-		nil, http.StatusInternalServerError, nil)
-}
-
-type expectedRequest struct {
-	method     string
-	urlpattern string
-}
-
-func assertPortChangeConversation(c *gc.C, record []*gwacl.X509Request, expected []expectedRequest) {
-	c.Assert(record, gc.HasLen, len(expected))
-	for index, request := range record {
-		c.Check(request.Method, gc.Equals, expected[index].method)
-		c.Check(request.URL, gc.Matches, expected[index].urlpattern)
-	}
-}
-
-func (s *instanceSuite) TestAddresses(c *gc.C) {
-	hostName := network.Address{
-		s.service.ServiceName + "." + AzureDomainName,
-		network.HostName,
-		"",
-		network.ScopePublic,
-	}
-	addrs, err := s.instance.Addresses()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(addrs, jc.DeepEquals, []network.Address{hostName})
-
-	ipAddress := network.Address{
-		"1.2.3.4",
-		network.IPv4Address,
-		s.env.getVirtualNetworkName(),
-		network.ScopeCloudLocal,
-	}
-	s.instance.roleInstance = &gwacl.RoleInstance{
-		IPAddress: "1.2.3.4",
-	}
-	addrs, err = s.instance.Addresses()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(addrs, jc.DeepEquals, []network.Address{ipAddress, hostName})
-}
-
-func (s *instanceSuite) TestOpenPorts(c *gc.C) {
-	// Close the default ports.
-	configSetNetwork((*gwacl.Role)(s.role)).InputEndpoints = nil
-
-	responses := preparePortChangeConversation(c, s.role)
-	record := gwacl.PatchManagementAPIResponses(responses)
-	err := s.instance.OpenPorts("machine-id", []network.PortRange{
-		{79, 79, "tcp"}, {587, 587, "tcp"}, {9, 9, "udp"},
+	s.provider, _ = newProviders(c, azure.ProviderConfig{
+		Sender:           &s.sender,
+		RequestInspector: requestRecorder(&s.requests),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	s.env = openEnviron(c, s.provider, &s.sender)
+	s.sender = nil
+	s.requests = nil
+	s.networkInterfaces = []network.Interface{
+		makeNetworkInterface("nic-0", "machine-0"),
+	}
+	s.publicIPAddresses = nil
+	s.virtualMachines = []compute.VirtualMachine{
+		makeVirtualMachine("machine-0"),
+		makeVirtualMachine("machine-1"),
+	}
+}
 
-	assertPortChangeConversation(c, *record, []expectedRequest{
-		{"GET", ".*/deployments/deployment-one/roles/role-one"}, // GetRole
-		{"PUT", ".*/deployments/deployment-one/roles/role-one"}, // UpdateRole
-	})
-
-	// A representative UpdateRole payload includes configuration for the
-	// ports requested.
-	role := &gwacl.PersistentVMRole{}
-	err = role.Deserialize((*record)[1].Payload)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(
-		*configSetNetwork((*gwacl.Role)(role)).InputEndpoints,
-		gc.DeepEquals,
-		[]gwacl.InputEndpoint{
-			makeInputEndpoint(79, "tcp"),
-			makeInputEndpoint(587, "tcp"),
-			makeInputEndpoint(9, "udp"),
+func makeVirtualMachine(name string) compute.VirtualMachine {
+	return compute.VirtualMachine{
+		Name: to.StringPtr(name),
+		Properties: &compute.VirtualMachineProperties{
+			ProvisioningState: to.StringPtr("Successful"),
 		},
+	}
+}
+
+func makeNetworkInterface(nicName, vmName string, ipConfigurations ...network.InterfaceIPConfiguration) network.Interface {
+	tags := map[string]*string{"juju-machine-name": &vmName}
+	return network.Interface{
+		Name: to.StringPtr(nicName),
+		Tags: &tags,
+		Properties: &network.InterfacePropertiesFormat{
+			IPConfigurations: &ipConfigurations,
+		},
+	}
+}
+
+func makeIPConfiguration(privateIPAddress string) network.InterfaceIPConfiguration {
+	ipConfiguration := network.InterfaceIPConfiguration{
+		Properties: &network.InterfaceIPConfigurationPropertiesFormat{},
+	}
+	if privateIPAddress != "" {
+		ipConfiguration.Properties.PrivateIPAddress = to.StringPtr(privateIPAddress)
+	}
+	return ipConfiguration
+}
+
+func makePublicIPAddress(pipName, vmName, ipAddress string) network.PublicIPAddress {
+	tags := map[string]*string{"juju-machine-name": &vmName}
+	pip := network.PublicIPAddress{
+		Name:       to.StringPtr(pipName),
+		Tags:       &tags,
+		Properties: &network.PublicIPAddressPropertiesFormat{},
+	}
+	if ipAddress != "" {
+		pip.Properties.IPAddress = to.StringPtr(ipAddress)
+	}
+	return pip
+}
+
+func makeSecurityGroup(rules ...network.SecurityRule) network.SecurityGroup {
+	return network.SecurityGroup{
+		Properties: &network.SecurityGroupPropertiesFormat{
+			SecurityRules: &rules,
+		},
+	}
+}
+
+func makeSecurityRule(name, ipAddress, ports string) network.SecurityRule {
+	return network.SecurityRule{
+		Name: to.StringPtr(name),
+		Properties: &network.SecurityRulePropertiesFormat{
+			Protocol:                 network.SecurityRuleProtocolTCP,
+			DestinationAddressPrefix: to.StringPtr(ipAddress),
+			DestinationPortRange:     to.StringPtr(ports),
+			Access:                   network.Allow,
+			Priority:                 to.IntPtr(200),
+			Direction:                network.Inbound,
+		},
+	}
+}
+
+func (s *instanceSuite) getInstance(c *gc.C) instance.Instance {
+	instances := s.getInstances(c, "machine-0")
+	c.Assert(instances, gc.HasLen, 1)
+	return instances[0]
+}
+
+func (s *instanceSuite) getInstances(c *gc.C, ids ...instance.Id) []instance.Instance {
+
+	nicsSender := azuretesting.NewSenderWithValue(&network.InterfaceListResult{
+		Value: &s.networkInterfaces,
+	})
+	nicsSender.PathPattern = ".*/networkInterfaces"
+
+	vmsSender := azuretesting.NewSenderWithValue(&compute.VirtualMachineListResult{
+		Value: &s.virtualMachines,
+	})
+	vmsSender.PathPattern = ".*/virtualMachines"
+
+	pipsSender := azuretesting.NewSenderWithValue(&network.PublicIPAddressListResult{
+		Value: &s.publicIPAddresses,
+	})
+	pipsSender.PathPattern = ".*/publicIPAddresses"
+
+	s.sender = azuretesting.Senders{nicsSender, vmsSender, pipsSender}
+
+	instances, err := s.env.Instances(ids)
+	c.Assert(err, jc.ErrorIsNil)
+	s.sender = azuretesting.Senders{}
+	s.requests = nil
+	return instances
+}
+
+func networkSecurityGroupSender(rules []network.SecurityRule) *azuretesting.MockSender {
+	nsgSender := azuretesting.NewSenderWithValue(&network.SecurityGroup{
+		Properties: &network.SecurityGroupPropertiesFormat{
+			SecurityRules: &rules,
+		},
+	})
+	nsgSender.PathPattern = ".*/networkSecurityGroups/juju-internal"
+	return nsgSender
+}
+
+func (s *instanceSuite) TestInstanceStatus(c *gc.C) {
+	inst := s.getInstance(c)
+	c.Assert(inst.Status(), gc.Equals, "Successful")
+}
+
+func (s *instanceSuite) TestInstanceStatusNilProvisioningState(c *gc.C) {
+	s.virtualMachines[0].Properties.ProvisioningState = nil
+	inst := s.getInstance(c)
+	c.Assert(inst.Status(), gc.Equals, "")
+}
+
+func (s *instanceSuite) TestInstanceStatusNoVM(c *gc.C) {
+	// Instances will still return an instance if there's a NIC, which is
+	// the last thing we delete. If there's no VM, we return the string
+	// "Partially Deleted" from Instance.Status().
+	s.virtualMachines = nil
+	inst := s.getInstance(c)
+	c.Assert(inst.Status(), gc.Equals, "Partially Deleted")
+}
+
+func (s *instanceSuite) TestInstanceAddressesEmpty(c *gc.C) {
+	addresses, err := s.getInstance(c).Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addresses, gc.HasLen, 0)
+}
+
+func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
+	nic0IPConfigurations := []network.InterfaceIPConfiguration{
+		makeIPConfiguration("10.0.0.4"),
+		makeIPConfiguration("10.0.0.5"),
+	}
+	nic1IPConfigurations := []network.InterfaceIPConfiguration{
+		makeIPConfiguration(""),
+	}
+	s.networkInterfaces = []network.Interface{
+		makeNetworkInterface("nic-0", "machine-0", nic0IPConfigurations...),
+		makeNetworkInterface("nic-1", "machine-0", nic1IPConfigurations...),
+		makeNetworkInterface("nic-2", "machine-0"),
+		// unrelated NIC
+		makeNetworkInterface("nic-3", "machine-1"),
+	}
+	s.publicIPAddresses = []network.PublicIPAddress{
+		makePublicIPAddress("pip-0", "machine-0", "1.2.3.4"),
+		makePublicIPAddress("pip-1", "machine-0", "1.2.3.5"),
+		// unrelated PIP
+		makePublicIPAddress("pip-2", "machine-1", "1.2.3.6"),
+	}
+	addresses, err := s.getInstance(c).Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addresses, jc.DeepEquals, jujunetwork.NewAddresses(
+		"10.0.0.4", "10.0.0.5", "1.2.3.4", "1.2.3.5",
+	))
+}
+
+func (s *instanceSuite) TestMultipleInstanceAddresses(c *gc.C) {
+	nic0IPConfiguration := makeIPConfiguration("10.0.0.4")
+	nic1IPConfiguration := makeIPConfiguration("10.0.0.5")
+	s.networkInterfaces = []network.Interface{
+		makeNetworkInterface("nic-0", "machine-0", nic0IPConfiguration),
+		makeNetworkInterface("nic-1", "machine-1", nic1IPConfiguration),
+	}
+	s.publicIPAddresses = []network.PublicIPAddress{
+		makePublicIPAddress("pip-0", "machine-0", "1.2.3.4"),
+		makePublicIPAddress("pip-1", "machine-1", "1.2.3.5"),
+	}
+	instances := s.getInstances(c, "machine-0", "machine-1")
+	c.Assert(instances, gc.HasLen, 2)
+
+	inst0Addresses, err := instances[0].Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(inst0Addresses, jc.DeepEquals, jujunetwork.NewAddresses(
+		"10.0.0.4", "1.2.3.4",
+	))
+
+	inst1Addresses, err := instances[1].Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(inst1Addresses, jc.DeepEquals, jujunetwork.NewAddresses(
+		"10.0.0.5", "1.2.3.5",
+	))
+}
+
+func (s *instanceSuite) TestInstancePortsEmpty(c *gc.C) {
+	inst := s.getInstance(c)
+	nsgSender := networkSecurityGroupSender(nil)
+	s.sender = azuretesting.Senders{nsgSender}
+	ports, err := inst.Ports("0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ports, gc.HasLen, 0)
+}
+
+func (s *instanceSuite) TestInstancePorts(c *gc.C) {
+	inst := s.getInstance(c)
+	nsgSender := networkSecurityGroupSender([]network.SecurityRule{{
+		Name: to.StringPtr("machine-0-xyzzy"),
+		Properties: &network.SecurityRulePropertiesFormat{
+			Protocol:             network.SecurityRuleProtocolUDP,
+			DestinationPortRange: to.StringPtr("*"),
+			Access:               network.Allow,
+			Priority:             to.IntPtr(200),
+			Direction:            network.Inbound,
+		},
+	}, {
+		Name: to.StringPtr("machine-0-tcpcp"),
+		Properties: &network.SecurityRulePropertiesFormat{
+			Protocol:             network.SecurityRuleProtocolTCP,
+			DestinationPortRange: to.StringPtr("1000-2000"),
+			Access:               network.Allow,
+			Priority:             to.IntPtr(201),
+			Direction:            network.Inbound,
+		},
+	}, {
+		Name: to.StringPtr("machine-0-http"),
+		Properties: &network.SecurityRulePropertiesFormat{
+			Protocol:             network.SecurityRuleProtocolAsterisk,
+			DestinationPortRange: to.StringPtr("80"),
+			Access:               network.Allow,
+			Priority:             to.IntPtr(202),
+			Direction:            network.Inbound,
+		},
+	}, {
+		Name: to.StringPtr("machine-00-ignored"),
+		Properties: &network.SecurityRulePropertiesFormat{
+			Protocol:             network.SecurityRuleProtocolTCP,
+			DestinationPortRange: to.StringPtr("80"),
+			Access:               network.Allow,
+			Priority:             to.IntPtr(202),
+			Direction:            network.Inbound,
+		},
+	}, {
+		Name: to.StringPtr("machine-0-ignored"),
+		Properties: &network.SecurityRulePropertiesFormat{
+			Protocol:             network.SecurityRuleProtocolTCP,
+			DestinationPortRange: to.StringPtr("80"),
+			Access:               network.Deny,
+			Priority:             to.IntPtr(202),
+			Direction:            network.Inbound,
+		},
+	}, {
+		Name: to.StringPtr("machine-0-ignored"),
+		Properties: &network.SecurityRulePropertiesFormat{
+			Protocol:             network.SecurityRuleProtocolTCP,
+			DestinationPortRange: to.StringPtr("80"),
+			Access:               network.Allow,
+			Priority:             to.IntPtr(202),
+			Direction:            network.Outbound,
+		},
+	}, {
+		Name: to.StringPtr("machine-0-ignored"),
+		Properties: &network.SecurityRulePropertiesFormat{
+			Protocol:             network.SecurityRuleProtocolTCP,
+			DestinationPortRange: to.StringPtr("80"),
+			Access:               network.Allow,
+			Priority:             to.IntPtr(199), // internal range
+			Direction:            network.Inbound,
+		},
+	}})
+	s.sender = azuretesting.Senders{nsgSender}
+
+	ports, err := inst.Ports("0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ports, jc.DeepEquals, []jujunetwork.PortRange{{
+		FromPort: 0,
+		ToPort:   65535,
+		Protocol: "udp",
+	}, {
+		FromPort: 1000,
+		ToPort:   2000,
+		Protocol: "tcp",
+	}, {
+		FromPort: 80,
+		ToPort:   80,
+		Protocol: "tcp",
+	}, {
+		FromPort: 80,
+		ToPort:   80,
+		Protocol: "udp",
+	}})
+}
+
+func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
+	inst := s.getInstance(c)
+	sender := mocks.NewSender()
+	notFoundSender := mocks.NewSender()
+	notFoundSender.EmitStatus("rule not found", http.StatusNotFound)
+	s.sender = azuretesting.Senders{sender, notFoundSender}
+
+	err := inst.ClosePorts("0", []jujunetwork.PortRange{{
+		Protocol: "tcp",
+		FromPort: 1000,
+		ToPort:   1000,
+	}, {
+		Protocol: "udp",
+		FromPort: 1000,
+		ToPort:   2000,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.requests, gc.HasLen, 2)
+	c.Assert(s.requests[0].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[0].URL.Path, gc.Equals, securityRulePath("machine-0-tcp-1000"))
+	c.Assert(s.requests[1].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000"))
+}
+
+func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
+	internalSubnetId := path.Join(
+		"/subscriptions", fakeSubscriptionId,
+		"resourceGroups/arbitrary/providers/Microsoft.Network/virtualnetworks/juju-internal/subnets",
+		"juju-testenv-model-"+testing.ModelTag.Id(),
 	)
-}
-
-func (s *instanceSuite) TestOpenPortsFailsWhenUnableToGetRole(c *gc.C) {
-	responses := preparePortChangeConversation(c, s.role)
-	failPortChangeConversationAt(1, responses) // 1st request, GetRole
-	record := gwacl.PatchManagementAPIResponses(responses)
-	err := s.instance.OpenPorts("machine-id", []network.PortRange{
-		{79, 79, "tcp"}, {587, 587, "tcp"}, {9, 9, "udp"},
-	})
-	c.Check(err, gc.ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
-	c.Check(*record, gc.HasLen, 1)
-}
-
-func (s *instanceSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *gc.C) {
-	responses := preparePortChangeConversation(c, s.role)
-	failPortChangeConversationAt(2, responses) // 2nd request, UpdateRole
-	record := gwacl.PatchManagementAPIResponses(responses)
-	err := s.instance.OpenPorts("machine-id", []network.PortRange{
-		{79, 79, "tcp"}, {587, 587, "tcp"}, {9, 9, "udp"},
-	})
-	c.Check(err, gc.ErrorMatches, "PUT request failed [(]500: Internal Server Error[)]")
-	c.Check(*record, gc.HasLen, 2)
-}
-
-func (s *instanceSuite) TestClosePorts(c *gc.C) {
-	type test struct {
-		inputPorts  []network.PortRange
-		removePorts []network.PortRange
-		outputPorts []network.PortRange
-	}
-
-	tests := []test{{
-		inputPorts:  []network.PortRange{{1, 1, "tcp"}, {2, 2, "tcp"}, {3, 3, "udp"}},
-		removePorts: nil,
-		outputPorts: []network.PortRange{{1, 1, "tcp"}, {2, 2, "tcp"}, {3, 3, "udp"}},
-	}, {
-		inputPorts:  []network.PortRange{{1, 1, "tcp"}},
-		removePorts: []network.PortRange{{1, 1, "udp"}},
-		outputPorts: []network.PortRange{{1, 1, "tcp"}},
-	}, {
-		inputPorts:  []network.PortRange{{1, 1, "tcp"}, {2, 2, "tcp"}, {3, 3, "udp"}},
-		removePorts: []network.PortRange{{1, 1, "tcp"}, {2, 2, "tcp"}, {3, 3, "udp"}},
-		outputPorts: []network.PortRange{},
-	}, {
-		inputPorts:  []network.PortRange{{1, 1, "tcp"}, {2, 2, "tcp"}, {3, 3, "udp"}},
-		removePorts: []network.PortRange{{99, 99, "tcp"}},
-		outputPorts: []network.PortRange{{1, 1, "tcp"}, {2, 2, "tcp"}, {3, 3, "udp"}},
-	}}
-
-	for i, test := range tests {
-		c.Logf("test %d: %#v", i, test)
-
-		inputEndpoints := make([]gwacl.InputEndpoint, len(test.inputPorts))
-		for i, port := range test.inputPorts {
-			inputEndpoints[i] = makeInputEndpoint(port.FromPort, port.Protocol)
-		}
-		configSetNetwork(s.role).InputEndpoints = &inputEndpoints
-		responses := preparePortChangeConversation(c, s.role)
-		record := gwacl.PatchManagementAPIResponses(responses)
-
-		err := s.instance.ClosePorts("machine-id", test.removePorts)
-		c.Assert(err, jc.ErrorIsNil)
-		assertPortChangeConversation(c, *record, []expectedRequest{
-			{"GET", ".*/deployments/deployment-one/roles/role-one"}, // GetRole
-			{"PUT", ".*/deployments/deployment-one/roles/role-one"}, // UpdateRole
-		})
-
-		// The first UpdateRole removes all endpoints from the role's
-		// configuration.
-		roleOne := &gwacl.PersistentVMRole{}
-		err = roleOne.Deserialize((*record)[1].Payload)
-		c.Assert(err, jc.ErrorIsNil)
-		endpoints := configSetNetwork((*gwacl.Role)(roleOne)).InputEndpoints
-		if len(test.outputPorts) == 0 {
-			c.Check(endpoints, gc.IsNil)
-		} else {
-			c.Check(endpoints, gc.NotNil)
-			c.Check(convertAndFilterEndpoints(*endpoints, s.env, false), gc.DeepEquals, test.outputPorts)
-		}
-	}
-}
-
-func (s *instanceSuite) TestClosePortsFailsWhenUnableToGetRole(c *gc.C) {
-	responses := preparePortChangeConversation(c, s.role)
-	failPortChangeConversationAt(1, responses) // 1st request, GetRole
-	record := gwacl.PatchManagementAPIResponses(responses)
-	err := s.instance.ClosePorts("machine-id", []network.PortRange{
-		{79, 79, "tcp"}, {587, 587, "tcp"}, {9, 9, "udp"},
-	})
-	c.Check(err, gc.ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
-	c.Check(*record, gc.HasLen, 1)
-}
-
-func (s *instanceSuite) TestClosePortsFailsWhenUnableToUpdateRole(c *gc.C) {
-	responses := preparePortChangeConversation(c, s.role)
-	failPortChangeConversationAt(2, responses) // 2nd request, UpdateRole
-	record := gwacl.PatchManagementAPIResponses(responses)
-	err := s.instance.ClosePorts("machine-id", []network.PortRange{
-		{79, 79, "tcp"}, {587, 587, "tcp"}, {9, 9, "udp"},
-	})
-	c.Check(err, gc.ErrorMatches, "PUT request failed [(]500: Internal Server Error[)]")
-	c.Check(*record, gc.HasLen, 2)
-}
-
-func (s *instanceSuite) TestConvertAndFilterEndpoints(c *gc.C) {
-	endpoints := []gwacl.InputEndpoint{
-		{
-			LocalPort: 123,
-			Protocol:  "udp",
-			Name:      "test123",
-			Port:      1123,
+	ipConfiguration := network.InterfaceIPConfiguration{
+		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
+			PrivateIPAddress: to.StringPtr("10.0.0.4"),
+			Subnet: &network.SubResource{
+				ID: to.StringPtr(internalSubnetId),
+			},
 		},
-		{
-			LocalPort: 456,
-			Protocol:  "tcp",
-			Name:      "test456",
-			Port:      44,
-		}}
-	endpoints = append(endpoints, s.env.getInitialEndpoints(true)...)
-	expectedPorts := []network.PortRange{
-		{1123, 1123, "udp"},
-		{44, 44, "tcp"}}
-	network.SortPortRanges(expectedPorts)
-	c.Check(convertAndFilterEndpoints(endpoints, s.env, true), gc.DeepEquals, expectedPorts)
-}
+	}
+	s.networkInterfaces = []network.Interface{
+		makeNetworkInterface("nic-0", "machine-0", ipConfiguration),
+	}
 
-func (s *instanceSuite) TestConvertAndFilterEndpointsEmptySlice(c *gc.C) {
-	ports := convertAndFilterEndpoints([]gwacl.InputEndpoint{}, s.env, true)
-	c.Check(ports, gc.HasLen, 0)
-}
+	inst := s.getInstance(c)
+	okSender := mocks.NewSender()
+	okSender.EmitContent("{}")
+	nsgSender := networkSecurityGroupSender(nil)
+	s.sender = azuretesting.Senders{nsgSender, okSender, okSender}
 
-func (s *instanceSuite) TestPorts(c *gc.C) {
-	s.testPorts(c, false)
-	s.testPorts(c, true)
-}
-
-func (s *instanceSuite) testPorts(c *gc.C, maskStateServerPorts bool) {
-	// Update the role's endpoints by hand.
-	configSetNetwork(s.role).InputEndpoints = &[]gwacl.InputEndpoint{{
-		LocalPort: 223,
-		Protocol:  "udp",
-		Name:      "test223",
-		Port:      2123,
+	err := inst.OpenPorts("0", []jujunetwork.PortRange{{
+		Protocol: "tcp",
+		FromPort: 1000,
+		ToPort:   1000,
 	}, {
-		LocalPort: 123,
-		Protocol:  "udp",
-		Name:      "test123",
-		Port:      1123,
-	}, {
-		LocalPort: 456,
-		Protocol:  "tcp",
-		Name:      "test456",
-		Port:      4456,
-	}, {
-		LocalPort: s.env.Config().APIPort(),
-		Protocol:  "tcp",
-		Name:      "apiserver",
-		Port:      s.env.Config().APIPort(),
-	}}
-
-	responses := preparePortChangeConversation(c, s.role)
-	record := gwacl.PatchManagementAPIResponses(responses)
-	s.instance.maskStateServerPorts = maskStateServerPorts
-	ports, err := s.instance.Ports("machine-id")
+		Protocol: "udp",
+		FromPort: 1000,
+		ToPort:   2000,
+	}})
 	c.Assert(err, jc.ErrorIsNil)
-	assertPortChangeConversation(c, *record, []expectedRequest{
-		{"GET", ".*/deployments/deployment-one/roles/role-one"}, // GetRole
-	})
 
-	expected := []network.PortRange{
-		{4456, 4456, "tcp"},
-		{1123, 1123, "udp"},
-		{2123, 2123, "udp"},
+	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(s.requests[0].Method, gc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Path, gc.Equals, internalSecurityGroupPath)
+	c.Assert(s.requests[1].Method, gc.Equals, "PUT")
+	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-tcp-1000"))
+	assertRequestBody(c, s.requests[1], &network.SecurityRule{
+		Properties: &network.SecurityRulePropertiesFormat{
+			Description:              to.StringPtr("1000/tcp"),
+			Protocol:                 network.SecurityRuleProtocolTCP,
+			SourcePortRange:          to.StringPtr("*"),
+			SourceAddressPrefix:      to.StringPtr("*"),
+			DestinationPortRange:     to.StringPtr("1000"),
+			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
+			Access:    network.Allow,
+			Priority:  to.IntPtr(200),
+			Direction: network.Inbound,
+		},
+	})
+	c.Assert(s.requests[2].Method, gc.Equals, "PUT")
+	c.Assert(s.requests[2].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000"))
+	assertRequestBody(c, s.requests[2], &network.SecurityRule{
+		Properties: &network.SecurityRulePropertiesFormat{
+			Description:              to.StringPtr("1000-2000/udp"),
+			Protocol:                 network.SecurityRuleProtocolUDP,
+			SourcePortRange:          to.StringPtr("*"),
+			SourceAddressPrefix:      to.StringPtr("*"),
+			DestinationPortRange:     to.StringPtr("1000-2000"),
+			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
+			Access:    network.Allow,
+			Priority:  to.IntPtr(201),
+			Direction: network.Inbound,
+		},
+	})
+}
+
+func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
+	internalSubnetId := path.Join(
+		"/subscriptions", fakeSubscriptionId,
+		"resourceGroups/arbitrary/providers/Microsoft.Network/virtualnetworks/juju-internal/subnets",
+		"juju-testenv-model-"+testing.ModelTag.Id(),
+	)
+	ipConfiguration := network.InterfaceIPConfiguration{
+		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
+			PrivateIPAddress: to.StringPtr("10.0.0.4"),
+			Subnet: &network.SubResource{
+				ID: to.StringPtr(internalSubnetId),
+			},
+		},
 	}
-	if !maskStateServerPorts {
-		expected = append(expected, network.PortRange{s.env.Config().APIPort(), s.env.Config().APIPort(), "tcp"})
-		network.SortPortRanges(expected)
+	s.networkInterfaces = []network.Interface{
+		makeNetworkInterface("nic-0", "machine-0", ipConfiguration),
 	}
-	c.Check(ports, gc.DeepEquals, expected)
+
+	inst := s.getInstance(c)
+	okSender := mocks.NewSender()
+	okSender.EmitContent("{}")
+	nsgSender := networkSecurityGroupSender([]network.SecurityRule{{
+		Name: to.StringPtr("machine-0-tcp-1000"),
+		Properties: &network.SecurityRulePropertiesFormat{
+			Protocol:             network.SecurityRuleProtocolAsterisk,
+			DestinationPortRange: to.StringPtr("1000"),
+			Access:               network.Allow,
+			Priority:             to.IntPtr(202),
+			Direction:            network.Inbound,
+		},
+	}})
+	s.sender = azuretesting.Senders{nsgSender, okSender, okSender}
+
+	err := inst.OpenPorts("0", []jujunetwork.PortRange{{
+		Protocol: "tcp",
+		FromPort: 1000,
+		ToPort:   1000,
+	}, {
+		Protocol: "udp",
+		FromPort: 1000,
+		ToPort:   2000,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.requests, gc.HasLen, 2)
+	c.Assert(s.requests[0].Method, gc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Path, gc.Equals, internalSecurityGroupPath)
+	c.Assert(s.requests[1].Method, gc.Equals, "PUT")
+	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000"))
+	assertRequestBody(c, s.requests[1], &network.SecurityRule{
+		Properties: &network.SecurityRulePropertiesFormat{
+			Description:              to.StringPtr("1000-2000/udp"),
+			Protocol:                 network.SecurityRuleProtocolUDP,
+			SourcePortRange:          to.StringPtr("*"),
+			SourceAddressPrefix:      to.StringPtr("*"),
+			DestinationPortRange:     to.StringPtr("1000-2000"),
+			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
+			Access:    network.Allow,
+			Priority:  to.IntPtr(200),
+			Direction: network.Inbound,
+		},
+	})
+}
+
+func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *gc.C) {
+	err := s.getInstance(c).OpenPorts("0", nil)
+	c.Assert(err, gc.ErrorMatches, "internal network address not found")
+}
+
+var internalSecurityGroupPath = path.Join(
+	"/subscriptions", fakeSubscriptionId,
+	"resourceGroups", "juju-testenv-model-"+testing.ModelTag.Id(),
+	"providers/Microsoft.Network/networkSecurityGroups/juju-internal",
+)
+
+func securityRulePath(ruleName string) string {
+	return path.Join(internalSecurityGroupPath, "securityRules", ruleName)
 }

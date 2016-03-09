@@ -22,31 +22,33 @@ const (
 	cleanupUnitsForDyingService          cleanupKind = "units"
 	cleanupDyingUnit                     cleanupKind = "dyingUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
-	cleanupServicesForDyingEnvironment   cleanupKind = "services"
+	cleanupServicesForDyingModel         cleanupKind = "services"
 	cleanupDyingMachine                  cleanupKind = "dyingMachine"
 	cleanupForceDestroyedMachine         cleanupKind = "machine"
 	cleanupAttachmentsForDyingStorage    cleanupKind = "storageAttachments"
 	cleanupAttachmentsForDyingVolume     cleanupKind = "volumeAttachments"
 	cleanupAttachmentsForDyingFilesystem cleanupKind = "filesystemAttachments"
+	cleanupModelsForDyingController      cleanupKind = "models"
+	cleanupMachinesForDyingModel         cleanupKind = "modelMachines"
 )
 
 // cleanupDoc represents a potentially large set of documents that should be
 // removed.
 type cleanupDoc struct {
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
-	Kind    cleanupKind
-	Prefix  string
+	DocID     string `bson:"_id"`
+	ModelUUID string `bson:"model-uuid"`
+	Kind      cleanupKind
+	Prefix    string
 }
 
 // newCleanupOp returns a txn.Op that creates a cleanup document with a unique
 // id and the supplied kind and prefix.
 func (st *State) newCleanupOp(kind cleanupKind, prefix string) txn.Op {
 	doc := &cleanupDoc{
-		DocID:   st.docID(fmt.Sprint(bson.NewObjectId())),
-		EnvUUID: st.EnvironUUID(),
-		Kind:    kind,
-		Prefix:  prefix,
+		DocID:     st.docID(fmt.Sprint(bson.NewObjectId())),
+		ModelUUID: st.ModelUUID(),
+		Kind:      kind,
+		Prefix:    prefix,
 	}
 	return txn.Op{
 		C:      cleanupsC,
@@ -87,8 +89,8 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupDyingUnit(doc.Prefix)
 		case cleanupRemovedUnit:
 			err = st.cleanupRemovedUnit(doc.Prefix)
-		case cleanupServicesForDyingEnvironment:
-			err = st.cleanupServicesForDyingEnvironment()
+		case cleanupServicesForDyingModel:
+			err = st.cleanupServicesForDyingModel()
 		case cleanupDyingMachine:
 			err = st.cleanupDyingMachine(doc.Prefix)
 		case cleanupForceDestroyedMachine:
@@ -99,6 +101,10 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupAttachmentsForDyingVolume(doc.Prefix)
 		case cleanupAttachmentsForDyingFilesystem:
 			err = st.cleanupAttachmentsForDyingFilesystem(doc.Prefix)
+		case cleanupModelsForDyingController:
+			err = st.cleanupModelsForDyingController()
+		case cleanupMachinesForDyingModel:
+			err = st.cleanupMachinesForDyingModel()
 		default:
 			err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
@@ -137,11 +143,62 @@ func (st *State) cleanupRelationSettings(prefix string) error {
 	return nil
 }
 
-// cleanupServicesForDyingEnvironment sets all services to Dying, if they are
-// not already Dying or Dead. It's expected to be used when an environment is
+// cleanupModelsForDyingController sets all models to dying, if
+// they are not already Dying or Dead. It's expected to be used when a
+// controller is destroyed.
+func (st *State) cleanupModelsForDyingController() (err error) {
+	models, err := st.AllModels()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, env := range models {
+
+		if env.Life() == Alive {
+			if err := env.Destroy(); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+	return nil
+}
+
+// cleanupMachinesForDyingModel sets all non-manager, non-manual
+// machines to Dying, if they are not already Dying or Dead. It's expected to
+// be used when a model is destroyed.
+func (st *State) cleanupMachinesForDyingModel() (err error) {
+	// This won't miss machines, because a Dying model cannot have
+	// machines added to it. But we do have to remove the machines themselves
+	// via individual transactions, because they could be in any state at all.
+	machines, err := st.AllMachines()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, m := range machines {
+		if m.IsManager() {
+			continue
+		}
+		if _, isContainer := m.ParentId(); isContainer {
+			continue
+		}
+		manual, err := m.IsManual()
+		if err != nil {
+			return err
+		} else if manual {
+			continue
+		}
+		err = m.ForceDestroy()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// cleanupServicesForDyingModel sets all services to Dying, if they are
+// not already Dying or Dead. It's expected to be used when a model is
 // destroyed.
-func (st *State) cleanupServicesForDyingEnvironment() (err error) {
-	// This won't miss services, because a Dying environment cannot have
+func (st *State) cleanupServicesForDyingModel() (err error) {
+	// This won't miss services, because a Dying model cannot have
 	// services added to it. But we do have to remove the services themselves
 	// via individual transactions, because they could be in any state at all.
 	services, closer := st.getCollection(servicesC)

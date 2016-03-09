@@ -9,10 +9,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api/client"
 	internalclient "github.com/juju/juju/payload/api/private/client"
@@ -54,11 +55,17 @@ func (payloads) newPublicFacade(st *state.State, resources *common.Resources, au
 }
 
 func (c payloads) registerPublicFacade() {
+	if !markRegistered(payload.ComponentName, "public-facade") {
+		return
+	}
+
+	const version = 1
 	common.RegisterStandardFacade(
 		payload.ComponentName,
-		0,
+		version,
 		c.newPublicFacade,
 	)
+	api.RegisterFacadeVersion(payload.ComponentName, version)
 }
 
 type facadeCaller struct {
@@ -89,7 +96,7 @@ func (c payloads) registerPublicCommands() {
 		return
 	}
 
-	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
+	commands.RegisterEnvCommand(func() modelcmd.ModelCommand {
 		return status.NewListCommand(c.newListAPIClient)
 	})
 }
@@ -129,12 +136,14 @@ func (payloads) newHookContextFacade(st *state.State, unit *state.Unit) (interfa
 }
 
 func (c payloads) registerHookContextFacade() {
+	const version = 0
 	common.RegisterHookContextFacade(
 		payloadsHookContextFacade,
-		0,
+		version,
 		c.newHookContextFacade,
 		reflect.TypeOf(&internalserver.UnitFacade{}),
 	)
+	api.RegisterFacadeVersion(payloadsHookContextFacade, version)
 }
 
 type payloadsHookContext struct {
@@ -188,6 +197,10 @@ func (payloads) registerHookContextCommands() {
 }
 
 func (payloads) registerState() {
+	if !markRegistered(payload.ComponentName, "state") {
+		return
+	}
+
 	// TODO(ericsnow) Use a more general registration mechanism.
 	//state.RegisterMultiEnvCollections(persistence.Collections...)
 

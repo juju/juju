@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
@@ -23,9 +22,9 @@ import (
 	"github.com/juju/juju/worker/metrics/sender"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/proxyupdater"
-	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -69,31 +68,19 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// how this works when we consolidate the agents; might be best to
 		// handle the auth changes server-side..?
 		APICallerName: apicaller.Manifold(apicaller.ManifoldConfig{
-			AgentName:       AgentName,
-			APIInfoGateName: APIInfoGateName,
+			AgentName: AgentName,
 		}),
-
-		// This manifold is used to coordinate between the api caller and the
-		// log sender, which share the API credentials that the API caller may
-		// update. To avoid surprising races, the log sender waits for the api
-		// caller to unblock this, indicating that any password dance has been
-		// completed and the log-sender can now connect without confusion.
-		APIInfoGateName: gate.Manifold(),
 
 		// The log sender is a leaf worker that sends log messages to some
 		// API server, when configured so to do. We should only need one of
 		// these in a consolidated agent.
 		LogSenderName: logsender.Manifold(logsender.ManifoldConfig{
-			LogSource:     config.LogSource,
-			APICallerName: APICallerName,
-		}),
-
-		// The rsyslog config updater is a leaf worker that causes rsyslog
-		// to send messages to the state servers. We should only need one
-		// of these in a consolidated agent.
-		RsyslogConfigUpdaterName: rsyslog.Manifold(rsyslog.ManifoldConfig{
-			AgentName:     AgentName,
-			APICallerName: APICallerName,
+			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
+				AgentName:         AgentName,
+				APICallerName:     APICallerName,
+				UpgradeWaiterName: util.UpgradeWaitNotRequired,
+			},
+			LogSource: config.LogSource,
 		}),
 
 		// The logging config updater is a leaf worker that indirectly
@@ -101,16 +88,18 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// according to changes in environment config. We should only need
 		// one of these in a consolidated agent.
 		LoggingConfigUpdaterName: logger.Manifold(logger.ManifoldConfig{
-			AgentName:     AgentName,
-			APICallerName: APICallerName,
+			AgentName:         AgentName,
+			APICallerName:     APICallerName,
+			UpgradeWaiterName: util.UpgradeWaitNotRequired,
 		}),
 
 		// The api address updater is a leaf worker that rewrites agent config
-		// as the state server addresses change. We should only need one of
+		// as the controller addresses change. We should only need one of
 		// these in a consolidated agent.
-		APIAdddressUpdaterName: apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
-			AgentName:     AgentName,
-			APICallerName: APICallerName,
+		APIAddressUpdaterName: apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
+			AgentName:         AgentName,
+			APICallerName:     APICallerName,
+			UpgradeWaiterName: util.UpgradeWaitNotRequired,
 		}),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
@@ -120,7 +109,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// coincidence. Probably we ought to be making components that might
 		// need proxy config into explicit dependencies of the proxy updater...
 		ProxyConfigUpdaterName: proxyupdater.Manifold(proxyupdater.ManifoldConfig{
-			APICallerName: APICallerName,
+			APICallerName:     APICallerName,
+			UpgradeWaiterName: util.UpgradeWaitNotRequired,
 		}),
 
 		// The upgrader is a leaf worker that returns a specific error type
@@ -128,7 +118,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// and the agent to be restarted running the new tools. We should only
 		// need one of these in a consolidated agent, but we'll need to be
 		// careful about behavioural differences, and interactions with the
-		// upgrade-steps worker.
+		// upgradesteps worker.
 		UpgraderName: upgrader.Manifold(upgrader.ManifoldConfig{
 			AgentName:     AgentName,
 			APICallerName: APICallerName,
@@ -171,7 +161,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// restricted context that can safely run concurrently with other hooks.
 		MetricCollectName: collect.Manifold(collect.ManifoldConfig{
 			AgentName:       AgentName,
-			APICallerName:   APICallerName,
 			MetricSpoolName: MetricSpoolName,
 			CharmDirName:    CharmDirName,
 		}),
@@ -188,8 +177,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewIsolatedStatusWorker:  meterstatus.NewIsolatedStatusWorker,
 		}),
 
-		// The metric sender worker periodically sends accumulated metrics to the state server.
+		// The metric sender worker periodically sends accumulated metrics to the controller.
 		MetricSenderName: sender.Manifold(sender.ManifoldConfig{
+			AgentName:       AgentName,
 			APICallerName:   APICallerName,
 			MetricSpoolName: MetricSpoolName,
 		}),
@@ -198,15 +188,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 const (
 	AgentName                = "agent"
-	APIAdddressUpdaterName   = "api-address-updater"
+	APIAddressUpdaterName    = "api-address-updater"
 	APICallerName            = "api-caller"
-	APIInfoGateName          = "api-info-gate"
 	LeadershipTrackerName    = "leadership-tracker"
 	LoggingConfigUpdaterName = "logging-config-updater"
 	LogSenderName            = "log-sender"
 	MachineLockName          = "machine-lock"
 	ProxyConfigUpdaterName   = "proxy-config-updater"
-	RsyslogConfigUpdaterName = "rsyslog-config-updater"
 	UniterName               = "uniter"
 	UpgraderName             = "upgrader"
 	MetricSpoolName          = "metric-spool"

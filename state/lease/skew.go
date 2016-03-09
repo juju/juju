@@ -14,13 +14,13 @@ type Skew struct {
 	// by the skewed writer.
 	LastWrite time.Time
 
-	// ReadAfter should be the latest known local time before LastWrite
+	// Beginning should be the latest known local time before LastWrite
 	// was read.
-	ReadAfter time.Time
+	Beginning time.Time
 
-	// ReadBefore should be the earliest known local time after LastWrite
+	// End should be the earliest known local time after LastWrite
 	// was read.
-	ReadBefore time.Time
+	End time.Time
 }
 
 // Earliest returns the earliest local time after which we can be confident
@@ -30,7 +30,7 @@ func (skew Skew) Earliest(remote time.Time) (local time.Time) {
 		return remote
 	}
 	delta := remote.Sub(skew.LastWrite)
-	return skew.ReadAfter.Add(delta)
+	return skew.Beginning.Add(delta)
 }
 
 // Latest returns the latest local time after which we can be confident that
@@ -40,11 +40,11 @@ func (skew Skew) Latest(remote time.Time) (local time.Time) {
 		return remote
 	}
 	delta := remote.Sub(skew.LastWrite)
-	return skew.ReadBefore.Add(delta)
+	return skew.End.Add(delta)
 }
 
 // isZero lets us shortcut Earliest and Latest when the skew represents a
 // perfect unskewed clock (such as for a local writer).
 func (skew Skew) isZero() bool {
-	return skew.LastWrite.IsZero() && skew.ReadAfter.IsZero() && skew.ReadBefore.IsZero()
+	return skew.LastWrite.IsZero() && skew.Beginning.IsZero() && skew.End.IsZero()
 }

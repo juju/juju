@@ -12,10 +12,3 @@ var (
 	CurrentStreamsVersion         = currentStreamsVersion
 	MarshalToolsMetadataIndexJSON = marshalToolsMetadataIndexJSON
 )
-
-// SetSigningPublicKey sets a new public key for testing and returns the original key.
-func SetSigningPublicKey(key string) string {
-	oldKey := simplestreamsToolsPublicKey
-	simplestreamsToolsPublicKey = key
-	return oldKey
-}

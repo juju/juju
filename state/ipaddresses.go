@@ -36,20 +36,21 @@ func addIPAddress(st *State, addr network.Address, subnetid string) (ipaddress *
 
 	addressID := st.docID(addr.Value)
 	ipDoc := ipaddressDoc{
-		DocID:    addressID,
-		EnvUUID:  st.EnvironUUID(),
-		UUID:     uuid.String(),
-		Life:     Alive,
-		State:    AddressStateUnknown,
-		SubnetId: subnetid,
-		Value:    addr.Value,
-		Type:     string(addr.Type),
-		Scope:    string(addr.Scope),
+		DocID:     addressID,
+		ModelUUID: st.ModelUUID(),
+		UUID:      uuid.String(),
+		Life:      Alive,
+		State:     AddressStateUnknown,
+		SubnetId:  subnetid,
+		Value:     addr.Value,
+		Type:      string(addr.Type),
+		Scope:     string(addr.Scope),
+		SpaceName: string(addr.SpaceName),
 	}
 
 	ipaddress = &IPAddress{doc: ipDoc, st: st}
 	ops := []txn.Op{
-		assertEnvAliveOp(st.EnvironUUID()),
+		assertModelAliveOp(st.ModelUUID()),
 		{
 			C:      ipaddressesC,
 			Id:     addressID,
@@ -61,7 +62,7 @@ func addIPAddress(st *State, addr network.Address, subnetid string) (ipaddress *
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
-		if err := checkEnvLife(st); err != nil {
+		if err := checkModeLife(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		if _, err = st.IPAddress(addr.Value); err == nil {
@@ -164,7 +165,7 @@ type IPAddress struct {
 
 type ipaddressDoc struct {
 	DocID       string       `bson:"_id"`
-	EnvUUID     string       `bson:"env-uuid"`
+	ModelUUID   string       `bson:"model-uuid"`
 	UUID        string       `bson:"uuid"`
 	Life        Life         `bson:"life"`
 	SubnetId    string       `bson:"subnetid,omitempty"`
@@ -176,6 +177,7 @@ type ipaddressDoc struct {
 	Type        string       `bson:"type"`
 	Scope       string       `bson:"networkscope,omitempty"`
 	State       AddressState `bson:"state"`
+	SpaceName   string       `bson:"spacename,omitempty"`
 }
 
 // Life returns whether the IP address is Alive, Dying or Dead.
@@ -397,7 +399,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId, macAddress string) (err e
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			if err := checkEnvLife(i.st); err != nil {
+			if err := checkModeLife(i.st); err != nil {
 				return nil, errors.Trace(err)
 			}
 			if err := i.Refresh(); errors.IsNotFound(err) {
@@ -412,7 +414,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId, macAddress string) (err e
 
 		}
 		return []txn.Op{
-			assertEnvAliveOp(i.st.EnvironUUID()),
+			assertModelAliveOp(i.st.ModelUUID()),
 			{
 				C:      ipaddressesC,
 				Id:     i.doc.DocID,

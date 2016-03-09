@@ -6,6 +6,7 @@ package maas
 import (
 	"fmt"
 
+	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -48,7 +49,10 @@ func (s *instanceTest) TestStringWithoutHostname(c *gc.C) {
 	c.Assert(fmt.Sprint(instance), gc.Equals, expected)
 }
 
-func (s *instanceTest) TestAddresses(c *gc.C) {
+func (s *instanceTest) TestAddressesLegacy(c *gc.C) {
+	// We simulate an older MAAS (1.8-) which returns ip_addresses, but no
+	// interface_set for a node. We also verify we don't get the space of an
+	// address.
 	jsonValue := `{
 			"hostname": "testing.invalid",
 			"system_id": "system_id",
@@ -58,6 +62,8 @@ func (s *instanceTest) TestAddresses(c *gc.C) {
 	inst := maasInstance{&obj}
 
 	expected := []network.Address{
+		network.NewScopedAddress("testing.invalid", network.ScopePublic),
+		network.NewScopedAddress("testing.invalid", network.ScopeCloudLocal),
 		network.NewAddress("1.2.3.4"),
 		network.NewAddress("fe80::d806:dbff:fe23:1199"),
 	}
@@ -66,6 +72,54 @@ func (s *instanceTest) TestAddresses(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(addr, gc.DeepEquals, expected)
+}
+
+func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
+	// We simulate an newer MAAS (1.9+) which returns both ip_addresses and
+	// interface_set for a node. To verify we use interfaces we deliberately put
+	// different items in ip_addresses
+	jsonValue := `{
+			"hostname": "-testing.invalid",
+			"system_id": "system_id",
+            "interface_set" : [
+              { "name": "eth0", "links": [
+                  { "subnet": { "space": "bar" }, "ip_address": "8.7.6.5" },
+                  { "subnet": { "space": "bar" }, "ip_address": "8.7.6.6" }
+              ] },
+              { "name": "eth1", "links": [
+                  { "subnet": { "space": "storage" }, "ip_address": "10.0.1.1" }
+               ] },
+              { "name": "eth3", "links": [
+                  { "subnet": { "space": "db" }, "ip_address": "fc00::123" }
+               ] },
+              { "name": "eth4" },
+              { "name": "eth5", "links": [
+                  { "mode": "link-up" }
+               ] }
+           ],
+			"ip_addresses": [ "anything", "foo", "0.1.2.3" ]
+		}`
+	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
+	inst := maasInstance{&obj}
+	// Since gomaasapi treats "interface_set" specially and the only way to
+	// change it is via SetNodeNetworkLink(), which in turn does not allow you
+	// to specify ip_address, we need to patch the call which gets a fresh copy
+	// of the node details from the test server to avoid manging the
+	// interface_set we used above.
+	s.PatchValue(&refreshMAASObject, func(mo *gomaasapi.MAASObject) (gomaasapi.MAASObject, error) {
+		return *mo, nil
+	})
+
+	expected := []network.Address{
+		network.NewAddressOnSpace("bar", "8.7.6.5"),
+		network.NewAddressOnSpace("bar", "8.7.6.6"),
+		network.NewAddressOnSpace("storage", "10.0.1.1"),
+		network.NewAddressOnSpace("db", "fc00::123"),
+	}
+
+	addr, err := inst.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(addr, jc.DeepEquals, expected)
 }
 
 func (s *instanceTest) TestAddressesMissing(c *gc.C) {
@@ -80,7 +134,10 @@ func (s *instanceTest) TestAddressesMissing(c *gc.C) {
 
 	addr, err := inst.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(addr, gc.DeepEquals, []network.Address{})
+	c.Check(addr, gc.DeepEquals, []network.Address{
+		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopePublic},
+		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopeCloudLocal},
+	})
 }
 
 func (s *instanceTest) TestAddressesInvalid(c *gc.C) {

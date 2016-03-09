@@ -39,15 +39,13 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	manifolds := unit.Manifolds(config)
 	expectedKeys := []string{
 		unit.AgentName,
-		unit.APIAdddressUpdaterName,
+		unit.APIAddressUpdaterName,
 		unit.APICallerName,
-		unit.APIInfoGateName,
 		unit.LeadershipTrackerName,
 		unit.LoggingConfigUpdaterName,
 		unit.LogSenderName,
 		unit.MachineLockName,
 		unit.ProxyConfigUpdaterName,
-		unit.RsyslogConfigUpdaterName,
 		unit.UniterName,
 		unit.UpgraderName,
 		unit.MetricSpoolName,

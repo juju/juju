@@ -73,10 +73,12 @@ var BaseImagesPath = "images"
 
 // A storageSimpleStreamsDataSource retrieves data from a StorageReader.
 type storageSimpleStreamsDataSource struct {
-	description string
-	basePath    string
-	storage     StorageReader
-	allowRetry  bool
+	description   string
+	basePath      string
+	storage       StorageReader
+	allowRetry    bool
+	priority      int
+	requireSigned bool
 }
 
 // TestingGetAllowRetry is used in tests which need to see if allowRetry has been
@@ -89,8 +91,8 @@ func TestingGetAllowRetry(s simplestreams.DataSource) (bool, ok bool) {
 }
 
 // NewStorageSimpleStreamsDataSource returns a new datasource reading from the specified storage.
-func NewStorageSimpleStreamsDataSource(description string, storage StorageReader, basePath string) simplestreams.DataSource {
-	return &storageSimpleStreamsDataSource{description, basePath, storage, false}
+func NewStorageSimpleStreamsDataSource(description string, storage StorageReader, basePath string, priority int, requireSigned bool) simplestreams.DataSource {
+	return &storageSimpleStreamsDataSource{description, basePath, storage, false, priority, requireSigned}
 }
 
 func (s *storageSimpleStreamsDataSource) relpath(storagePath string) string {
@@ -130,7 +132,22 @@ func (s *storageSimpleStreamsDataSource) URL(path string) (string, error) {
 	return s.storage.URL(s.relpath(path))
 }
 
+// PublicSigningKey is defined in simplestreams.DataSource.
+func (u *storageSimpleStreamsDataSource) PublicSigningKey() string {
+	return ""
+}
+
 // SetAllowRetry is defined in simplestreams.DataSource.
 func (s *storageSimpleStreamsDataSource) SetAllowRetry(allow bool) {
 	s.allowRetry = allow
+}
+
+// Priority is defined in simplestreams.DataSource.
+func (s *storageSimpleStreamsDataSource) Priority() int {
+	return s.priority
+}
+
+// RequireSigned is defined in simplestreams.DataSource.
+func (s *storageSimpleStreamsDataSource) RequireSigned() bool {
+	return s.requireSigned
 }

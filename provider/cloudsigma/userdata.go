@@ -8,15 +8,16 @@ import (
 	"github.com/juju/errors"
 	jujuos "github.com/juju/utils/os"
 
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 )
 
 type CloudSigmaRenderer struct{}
 
-func (CloudSigmaRenderer) EncodeUserdata(udata []byte, os jujuos.OSType) ([]byte, error) {
+func (CloudSigmaRenderer) Render(cfg cloudinit.CloudConfig, os jujuos.OSType) ([]byte, error) {
 	switch os {
 	case jujuos.Ubuntu, jujuos.CentOS:
-		return renderers.ToBase64(udata), nil
+		return renderers.RenderYAML(cfg, renderers.ToBase64)
 	default:
 		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())
 	}

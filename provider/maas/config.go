@@ -26,7 +26,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 	},
 	"maas-agent-name": {
-		Description: "maas-agent-name is an optional UUID to group the instances acquired from MAAS, to support multiple environments per MAAS user.",
+		Description: "maas-agent-name is an optional UUID to group the instances acquired from MAAS, to support multiple models per MAAS user.",
 		Type:        environschema.Tstring,
 	},
 }
@@ -45,32 +45,32 @@ var configDefaults = schema.Defaults{
 	"maas-agent-name": "",
 }
 
-type maasEnvironConfig struct {
+type maasModelConfig struct {
 	*config.Config
 	attrs map[string]interface{}
 }
 
-func (cfg *maasEnvironConfig) maasServer() string {
+func (cfg *maasModelConfig) maasServer() string {
 	return cfg.attrs["maas-server"].(string)
 }
 
-func (cfg *maasEnvironConfig) maasOAuth() string {
+func (cfg *maasModelConfig) maasOAuth() string {
 	return cfg.attrs["maas-oauth"].(string)
 }
 
-func (cfg *maasEnvironConfig) maasAgentName() string {
+func (cfg *maasModelConfig) maasAgentName() string {
 	if uuid, ok := cfg.attrs["maas-agent-name"].(string); ok {
 		return uuid
 	}
 	return ""
 }
 
-func (prov maasEnvironProvider) newConfig(cfg *config.Config) (*maasEnvironConfig, error) {
+func (prov maasEnvironProvider) newConfig(cfg *config.Config) (*maasModelConfig, error) {
 	validCfg, err := prov.Validate(cfg, nil)
 	if err != nil {
 		return nil, err
 	}
-	result := new(maasEnvironConfig)
+	result := new(maasModelConfig)
 	result.Config = validCfg
 	result.attrs = validCfg.UnknownAttrs()
 	return result, nil
@@ -127,7 +127,7 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 			return nil, fmt.Errorf("cannot change maas-agent-name")
 		}
 	}
-	envCfg := new(maasEnvironConfig)
+	envCfg := new(maasModelConfig)
 	envCfg.Config = cfg
 	envCfg.attrs = validated
 	server := envCfg.maasServer()

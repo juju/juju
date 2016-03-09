@@ -23,11 +23,11 @@ func (s *InstanceFirewallSuite) TestGetPorts(c *gc.C) {
 	}{
 		{
 			"single port instance rule",
-			"env",
+			"switch",
 			[]cloudapi.FirewallRule{{
 				"",
 				true,
-				"FROM tag env TO vm machine ALLOW tcp PORT 80",
+				"FROM tag switch TO vm machine ALLOW tcp PORT 80",
 			}},
 			[]network.PortRange{{
 				FromPort: 80,
@@ -37,11 +37,11 @@ func (s *InstanceFirewallSuite) TestGetPorts(c *gc.C) {
 		},
 		{
 			"port range instance rule",
-			"env",
+			"switch",
 			[]cloudapi.FirewallRule{{
 				"",
 				true,
-				"FROM tag env TO vm machine ALLOW tcp (PORT 80 AND PORT 81 AND PORT 82 AND PORT 83)",
+				"FROM tag switch TO vm machine ALLOW tcp (PORT 80 AND PORT 81 AND PORT 82 AND PORT 83)",
 			}},
 			[]network.PortRange{{
 				FromPort: 80,
@@ -65,16 +65,16 @@ func (s *InstanceFirewallSuite) TestRuleCreation(c *gc.C) {
 	}{{
 		"single port firewall rule",
 		network.PortRange{80, 80, "tcp"},
-		"FROM tag env TO vm machine ALLOW tcp PORT 80",
+		"FROM tag switch TO vm machine ALLOW tcp PORT 80",
 	}, {
 		"multiple port firewall rule",
 		network.PortRange{80, 81, "tcp"},
-		"FROM tag env TO vm machine ALLOW tcp ( PORT 80 AND PORT 81 )",
+		"FROM tag switch TO vm machine ALLOW tcp ( PORT 80 AND PORT 81 )",
 	}}
 
 	for i, t := range testCases {
 		c.Logf("test case %d: %s", i, t.about)
-		rule := joyent.CreateFirewallRuleVm("env", "machine", t.ports)
+		rule := joyent.CreateFirewallRuleVm("switch", "machine", t.ports)
 		c.Check(rule, gc.Equals, t.expected)
 	}
 }

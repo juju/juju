@@ -176,7 +176,7 @@ type mockState struct {
 	agentHistory []state.StatusInfo
 }
 
-func (m *mockState) EnvironUUID() string {
+func (m *mockState) ModelUUID() string {
 	return "uuid"
 }
 

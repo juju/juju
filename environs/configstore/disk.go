@@ -15,12 +15,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/set"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -43,9 +41,9 @@ const (
 var lockTimeout = 5 * time.Second
 
 // Default returns disk-based environment config storage
-// rooted at JujuHome.
+// rooted at JujuXDGDataHome.
 var Default = func() (Storage, error) {
-	return NewDisk(osenv.JujuHome())
+	return NewDisk(osenv.JujuXDGDataHome())
 }
 
 type diskStore struct {
@@ -56,9 +54,9 @@ type diskStore struct {
 type EnvironInfoData struct {
 	User            string
 	Password        string
-	EnvironUUID     string                 `json:"environ-uuid,omitempty" yaml:"environ-uuid,omitempty"`
+	ModelUUID       string                 `json:"environ-uuid,omitempty" yaml:"environ-uuid,omitempty"`
 	ServerUUID      string                 `json:"server-uuid,omitempty" yaml:"server-uuid,omitempty"`
-	StateServers    []string               `json:"state-servers" yaml:"state-servers"`
+	Controllers     []string               `json:"controllers" yaml:"controllers"`
 	ServerHostnames []string               `json:"server-hostnames,omitempty" yaml:"server-hostnames,omitempty"`
 	CACert          string                 `json:"ca-cert" yaml:"ca-cert"`
 	Config          map[string]interface{} `json:"bootstrap-config,omitempty" yaml:"bootstrap-config,omitempty"`
@@ -98,7 +96,7 @@ func NewDisk(dir string) (Storage, error) {
 		return nil, err
 	}
 	d := &diskStore{
-		dir: filepath.Join(dir, "environments"),
+		dir: filepath.Join(dir, "models"),
 	}
 	if err := d.mkEnvironmentsDir(); err != nil {
 		return nil, err
@@ -178,7 +176,7 @@ func (d *diskStore) ListSystems() ([]string, error) {
 		// server by default.  Otherwise, if the server and env
 		// UUIDs match, it is a server.
 		api := env.APIEndpoint()
-		if api.ServerUUID == "" || api.ServerUUID == api.EnvironUUID {
+		if api.ServerUUID == "" || api.ServerUUID == api.ModelUUID {
 			servers.Add(name)
 		}
 	}
@@ -258,11 +256,11 @@ func (info *environInfo) APIEndpoint() APIEndpoint {
 	info.mu.Lock()
 	defer info.mu.Unlock()
 	return APIEndpoint{
-		Addresses:   info.apiEndpoints,
-		Hostnames:   info.apiHostnames,
-		CACert:      info.caCert,
-		EnvironUUID: info.environmentUUID,
-		ServerUUID:  info.serverUUID,
+		Addresses:  info.apiEndpoints,
+		Hostnames:  info.apiHostnames,
+		CACert:     info.caCert,
+		ModelUUID:  info.environmentUUID,
+		ServerUUID: info.serverUUID,
 	}
 }
 
@@ -271,7 +269,7 @@ func (info *environInfo) SetBootstrapConfig(attrs map[string]interface{}) {
 	info.mu.Lock()
 	defer info.mu.Unlock()
 	if info.source != sourceCreated {
-		panic("bootstrap config set on environment info that has not just been created")
+		panic("bootstrap config set on model info that has not just been created")
 	}
 	info.bootstrapConfig = attrs
 }
@@ -283,7 +281,7 @@ func (info *environInfo) SetAPIEndpoint(endpoint APIEndpoint) {
 	info.apiEndpoints = endpoint.Addresses
 	info.apiHostnames = endpoint.Hostnames
 	info.caCert = endpoint.CACert
-	info.environmentUUID = endpoint.EnvironUUID
+	info.environmentUUID = endpoint.ModelUUID
 	info.serverUUID = endpoint.ServerUUID
 }
 
@@ -321,8 +319,7 @@ func (info *environInfo) Write() error {
 	// entry in the cache file.
 	// If the source was the cache file, then always write there to
 	// avoid stale data in the cache file.
-	if info.source == sourceCache ||
-		(featureflag.Enabled(feature.JES) && info.serverUUID != "") {
+	if info.source == sourceCache || info.serverUUID != "" {
 		if err := info.ensureNoJENV(); info.source == sourceCreated && err != nil {
 			return errors.Trace(err)
 		}
@@ -364,7 +361,7 @@ func (info *environInfo) Destroy() error {
 	defer info.mu.Unlock()
 	lock, err := acquireEnvironmentLock(info.environmentDir, "destroying")
 	if err != nil {
-		return errors.Annotatef(err, "cannot destroy environment info")
+		return errors.Annotatef(err, "cannot destroy model info")
 	}
 	defer unlockEnvironmentLock(lock)
 
@@ -372,7 +369,7 @@ func (info *environInfo) Destroy() error {
 		if info.source == sourceJenv {
 			err := os.Remove(info.path)
 			if os.IsNotExist(err) {
-				return errors.New("environment info has already been removed")
+				return errors.New("model info has already been removed")
 			}
 			return err
 		}
@@ -390,7 +387,7 @@ func (info *environInfo) Destroy() error {
 			}
 			return nil
 		}
-		return errors.Errorf("unknown source %q for environment info", info.source)
+		return errors.Errorf("unknown source %q for model info", info.source)
 	}
 	return nil
 }
@@ -406,7 +403,7 @@ func (d *diskStore) readJENVFile(envName string) (*environInfo, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, errors.NotFoundf("environment %q", envName)
+			return nil, errors.NotFoundf("model %q", envName)
 		}
 		return nil, err
 	}
@@ -422,10 +419,10 @@ func (d *diskStore) readJENVFile(envName string) (*environInfo, error) {
 	info.name = envName
 	info.user = values.User
 	info.credentials = values.Password
-	info.environmentUUID = values.EnvironUUID
+	info.environmentUUID = values.ModelUUID
 	info.serverUUID = values.ServerUUID
 	info.caCert = values.CACert
-	info.apiEndpoints = values.StateServers
+	info.apiEndpoints = values.Controllers
 	info.apiHostnames = values.ServerHostnames
 	info.bootstrapConfig = values.Config
 
@@ -451,9 +448,9 @@ func (info *environInfo) writeJENVFile() error {
 	infoData := EnvironInfoData{
 		User:            info.user,
 		Password:        info.credentials,
-		EnvironUUID:     info.environmentUUID,
+		ModelUUID:       info.environmentUUID,
 		ServerUUID:      info.serverUUID,
-		StateServers:    info.apiEndpoints,
+		Controllers:     info.apiEndpoints,
 		ServerHostnames: info.apiHostnames,
 		CACert:          info.caCert,
 		Config:          info.bootstrapConfig,
@@ -461,7 +458,7 @@ func (info *environInfo) writeJENVFile() error {
 
 	data, err := goyaml.Marshal(infoData)
 	if err != nil {
-		return errors.Annotate(err, "cannot marshal environment info")
+		return errors.Annotate(err, "cannot marshal model info")
 	}
 	// We now use a fslock to sync reads and writes across the environment,
 	// so we don't need to use a temporary file any more.
@@ -486,7 +483,7 @@ func (info *environInfo) writeJENVFile() error {
 }
 
 func acquireEnvironmentLock(dir, operation string) (*fslock.Lock, error) {
-	lock, err := fslock.NewLock(dir, lockName)
+	lock, err := fslock.NewLock(dir, lockName, fslock.Defaults())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -5,10 +5,10 @@ juju is devops distilled.
 
 Juju enables you to use [Charms](http://juju.ubuntu.com/charms) to deploy your application architectures to EC2, OpenStack,
 Azure, HP your data center and even your own Ubuntu based laptop.
-Moving between environments is simple giving you the flexibility to switch hosts
+Moving between models is simple giving you the flexibility to switch hosts
 whenever you want — for free.
 
-For more information, see the [docs](https://juju.ubuntu.com/docs/).
+For more information, see the [docs](https://jujucharms.com/docs/stable/getting-started).
 
 Getting started
 ===============
@@ -110,7 +110,7 @@ commands. You can verify this using
 
     which juju
 
-You should be able to bootstrap a local environment now with the following
+You should be able to bootstrap a local model now with the following
 (Note: the use of sudo for bootstrap here is only required for the local
 provider because it uses LXC, which requires root privileges)
 
@@ -127,10 +127,10 @@ are extracted and uploaded to a known location. This consumes a release version
 number, and implies that no tools are available for the next, development, version
 of juju. Therefore, when using the development version of juju you will need to
 pass an additional flag, `--upload-tools` to instruct the `juju` client to build
-a set of tools from source and upload them to the environment as part of the
+a set of tools from source and upload them to the model as part of the
 bootstrap process.
 
-    juju bootstrap -e your-environment --upload-tools {--debug}
+    juju bootstrap -m your-model --upload-tools {--debug}
 
 
 Installing bash completion for juju

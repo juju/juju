@@ -51,22 +51,22 @@ type InstanceConfig struct {
 
 	// StateServingInfo holds the information for serving the state.
 	// This must only be set if the Bootstrap field is true
-	// (state servers started subsequently will acquire their serving info
+	// (controllers started subsequently will acquire their serving info
 	// from another server)
 	StateServingInfo *params.StateServingInfo
 
 	// MongoInfo holds the means for the new instance to communicate with the
-	// juju state database. Unless the new instance is running a state server
-	// (StateServer is set), there must be at least one state server address supplied.
+	// juju state database. Unless the new instance is running a controller
+	// (Controller is set), there must be at least one controller address supplied.
 	// The entity name must match that of the instance being started,
-	// or be empty when starting a state server.
+	// or be empty when starting a controller.
 	MongoInfo *mongo.MongoInfo
 
 	// APIInfo holds the means for the new instance to communicate with the
-	// juju state API. Unless the new instance is running a state server (StateServer is
-	// set), there must be at least one state server address supplied.
+	// juju state API. Unless the new instance is running a controller (Controller is
+	// set), there must be at least one controller address supplied.
 	// The entity name must match that of the instance being started,
-	// or be empty when starting a state server.
+	// or be empty when starting a controller.
 	APIInfo *api.Info
 
 	// InstanceId is the instance ID of the instance being initialised.
@@ -133,13 +133,16 @@ type InstanceConfig struct {
 	AgentEnvironment map[string]string
 
 	// WARNING: this is only set if the instance being configured is
-	// a state server node.
+	// a controller node.
 	//
 	// Config holds the initial environment configuration.
 	Config *config.Config
 
-	// Constraints holds the initial environment constraints.
+	// Constraints holds the machine constraints.
 	Constraints constraints.Value
+
+	// EnvironConstraints holds the initial environment constraints.
+	EnvironConstraints constraints.Value
 
 	// DisableSSLHostnameVerification can be set to true to tell cloud-init
 	// that it shouldn't verify SSL certificates
@@ -169,6 +172,9 @@ type InstanceConfig struct {
 
 	// The type of Simple Stream to download and deploy on this instance.
 	ImageStream string
+
+	// The public key used to sign Juju simplestreams image metadata.
+	PublicImageSigningKey string
 
 	// CustomImageMetadata is optional custom simplestreams image metadata
 	// to store in environment storage at bootstrap time. This is ignored
@@ -214,7 +220,7 @@ func (cfg *InstanceConfig) AgentConfig(
 	toolsVersion version.Number,
 ) (agent.ConfigSetter, error) {
 	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
-	// if the instance is a stateServer then to use localhost.  This may be
+	// if the instance is a controller then to use localhost.  This may be
 	// sufficient, but needs thought in the new world order.
 	var password string
 	if cfg.MongoInfo == nil {
@@ -238,7 +244,7 @@ func (cfg *InstanceConfig) AgentConfig(
 		CACert:            cfg.MongoInfo.CACert,
 		Values:            cfg.AgentEnvironment,
 		PreferIPv6:        cfg.PreferIPv6,
-		Environment:       cfg.APIInfo.EnvironTag,
+		Model:             cfg.APIInfo.ModelTag,
 	}
 	if !cfg.Bootstrap {
 		return agent.NewAgentConfig(configParams)
@@ -326,8 +332,8 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	if cfg.APIInfo == nil {
 		return errors.New("missing API info")
 	}
-	if cfg.APIInfo.EnvironTag.Id() == "" {
-		return errors.New("missing environment tag")
+	if cfg.APIInfo.ModelTag.Id() == "" {
+		return errors.New("missing model tag")
 	}
 	if len(cfg.APIInfo.CACert) == 0 {
 		return errors.New("missing API CA certificate")
@@ -337,22 +343,22 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	}
 	if cfg.Bootstrap {
 		if cfg.Config == nil {
-			return errors.New("missing environment configuration")
+			return errors.New("missing model configuration")
 		}
 		if cfg.MongoInfo.Tag != nil {
-			return errors.New("entity tag must be nil when starting a state server")
+			return errors.New("entity tag must be nil when starting a controller")
 		}
 		if cfg.APIInfo.Tag != nil {
-			return errors.New("entity tag must be nil when starting a state server")
+			return errors.New("entity tag must be nil when starting a controller")
 		}
 		if cfg.StateServingInfo == nil {
 			return errors.New("missing state serving info")
 		}
 		if len(cfg.StateServingInfo.Cert) == 0 {
-			return errors.New("missing state server certificate")
+			return errors.New("missing controller certificate")
 		}
 		if len(cfg.StateServingInfo.PrivateKey) == 0 {
-			return errors.New("missing state server private key")
+			return errors.New("missing controller private key")
 		}
 		if len(cfg.StateServingInfo.CAPrivateKey) == 0 {
 			return errors.New("missing ca cert private key")
@@ -393,9 +399,13 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 // may create a folder containing logs
 var logDir = paths.MustSucceed(paths.LogDir(series.HostSeries()))
 
+// DefaultBridgePrefix is the prefix for all network bridge device
+// name used for LXC and KVM containers.
+const DefaultBridgePrefix = "br-"
+
 // DefaultBridgeName is the network bridge device name used for LXC and KVM
 // containers
-const DefaultBridgeName = "juju-br0"
+const DefaultBridgeName = DefaultBridgePrefix + "eth0"
 
 // NewInstanceConfig sets up a basic machine configuration, for a
 // non-bootstrap node. You'll still need to supply more information,
@@ -405,7 +415,8 @@ func NewInstanceConfig(
 	machineID,
 	machineNonce,
 	imageStream,
-	series string,
+	series,
+	publicImageSigningKey string,
 	secureServerConnections bool,
 	networks []string,
 	mongoInfo *mongo.MongoInfo,
@@ -436,12 +447,13 @@ func NewInstanceConfig(
 		Tags:                    map[string]string{},
 
 		// Parameter entries.
-		MachineId:    machineID,
-		MachineNonce: machineNonce,
-		Networks:     networks,
-		MongoInfo:    mongoInfo,
-		APIInfo:      apiInfo,
-		ImageStream:  imageStream,
+		MachineId:             machineID,
+		MachineNonce:          machineNonce,
+		Networks:              networks,
+		MongoInfo:             mongoInfo,
+		APIInfo:               apiInfo,
+		ImageStream:           imageStream,
+		PublicImageSigningKey: publicImageSigningKey,
 		AgentEnvironment: map[string]string{
 			agent.AllowsSecureConnection: strconv.FormatBool(secureServerConnections),
 		},
@@ -452,19 +464,20 @@ func NewInstanceConfig(
 // NewBootstrapInstanceConfig sets up a basic machine configuration for a
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
-func NewBootstrapInstanceConfig(cons constraints.Value, series string) (*InstanceConfig, error) {
+func NewBootstrapInstanceConfig(cons, environCons constraints.Value, series, publicImageSigningKey string) (*InstanceConfig, error) {
 	// For a bootstrap instance, FinishInstanceConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-	icfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, true, nil, nil, nil)
+	icfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, publicImageSigningKey, true, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 	icfg.Bootstrap = true
 	icfg.Jobs = []multiwatcher.MachineJob{
-		multiwatcher.JobManageEnviron,
+		multiwatcher.JobManageModel,
 		multiwatcher.JobHostUnits,
 	}
 	icfg.Constraints = cons
+	icfg.EnvironConstraints = environCons
 	return icfg, nil
 }
 
@@ -484,7 +497,7 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	enableOSUpgrade bool,
 ) error {
 	if authorizedKeys == "" {
-		return fmt.Errorf("environment configuration has no authorized-keys")
+		return fmt.Errorf("model configuration has no authorized-keys")
 	}
 	icfg.AuthorizedKeys = authorizedKeys
 	if icfg.AgentEnvironment == nil {
@@ -532,13 +545,13 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 
 	if isStateInstanceConfig(icfg) {
 		// Add NUMACTL preference. Needed to work for both bootstrap and high availability
-		// Only makes sense for state server
+		// Only makes sense for controller
 		logger.Debugf("Setting numa ctl preference to %v", cfg.NumaCtlPreference())
 		// Unfortunately, AgentEnvironment can only take strings as values
 		icfg.AgentEnvironment[agent.NumaCtlPreference] = fmt.Sprintf("%v", cfg.NumaCtlPreference())
 	}
 	// The following settings are only appropriate at bootstrap time. At the
-	// moment, the only state server is the bootstrap node, but this
+	// moment, the only controller is the bootstrap node, but this
 	// will probably change.
 	if !icfg.Bootstrap {
 		return nil
@@ -548,35 +561,35 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	}
 	caCert, hasCACert := cfg.CACert()
 	if !hasCACert {
-		return errors.New("environment configuration has no ca-cert")
+		return errors.New("model configuration has no ca-cert")
 	}
 	password := cfg.AdminSecret()
 	if password == "" {
-		return errors.New("environment configuration has no admin-secret")
+		return errors.New("model configuration has no admin-secret")
 	}
 	passwordHash := utils.UserPasswordHash(password, utils.CompatSalt)
-	envUUID, uuidSet := cfg.UUID()
+	modelUUID, uuidSet := cfg.UUID()
 	if !uuidSet {
-		return errors.New("config missing environment uuid")
+		return errors.New("config missing model uuid")
 	}
 	icfg.APIInfo = &api.Info{
-		Password:   passwordHash,
-		CACert:     caCert,
-		EnvironTag: names.NewEnvironTag(envUUID),
+		Password: passwordHash,
+		CACert:   caCert,
+		ModelTag: names.NewModelTag(modelUUID),
 	}
 	icfg.MongoInfo = &mongo.MongoInfo{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
 
-	// These really are directly relevant to running a state server.
-	// Initially, generate a state server certificate with no host IP
-	// addresses in the SAN field. Once the state server is up and the
+	// These really are directly relevant to running a controller.
+	// Initially, generate a controller certificate with no host IP
+	// addresses in the SAN field. Once the controller is up and the
 	// NIC addresses become known, the certificate can be regenerated.
-	cert, key, err := cfg.GenerateStateServerCertAndKey(nil)
+	cert, key, err := cfg.GenerateControllerCertAndKey(nil)
 	if err != nil {
-		return errors.Annotate(err, "cannot generate state server certificate")
+		return errors.Annotate(err, "cannot generate controller certificate")
 	}
 	caPrivateKey, hasCAPrivateKey := cfg.CAPrivateKey()
 	if !hasCAPrivateKey {
-		return errors.New("environment configuration has no ca-private-key")
+		return errors.New("model configuration has no ca-private-key")
 	}
 	srvInfo := params.StateServingInfo{
 		StatePort:    cfg.StatePort(),
@@ -597,9 +610,9 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 // machine instance, if the provider supports them.
 func InstanceTags(cfg *config.Config, jobs []multiwatcher.MachineJob) map[string]string {
 	uuid, _ := cfg.UUID()
-	instanceTags := tags.ResourceTags(names.NewEnvironTag(uuid), cfg)
+	instanceTags := tags.ResourceTags(names.NewModelTag(uuid), cfg)
 	if multiwatcher.AnyJobNeedsState(jobs...) {
-		instanceTags[tags.JujuStateServer] = "true"
+		instanceTags[tags.JujuController] = "true"
 	}
 	return instanceTags
 }
@@ -619,17 +632,17 @@ func bootstrapConfig(cfg *config.Config) (*config.Config, error) {
 		return nil, err
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
-		return nil, fmt.Errorf("environment configuration has no agent-version")
+		return nil, fmt.Errorf("model configuration has no agent-version")
 	}
 	return cfg, nil
 }
 
 // isStateInstanceConfig determines if given machine configuration
-// is for State Server by iterating over machine's jobs.
-// If JobManageEnviron is present, this is a state server.
+// is for controller by iterating over machine's jobs.
+// If JobManageModel is present, this is a controller.
 func isStateInstanceConfig(icfg *InstanceConfig) bool {
 	for _, aJob := range icfg.Jobs {
-		if aJob == multiwatcher.JobManageEnviron {
+		if aJob == multiwatcher.JobManageModel {
 			return true
 		}
 	}

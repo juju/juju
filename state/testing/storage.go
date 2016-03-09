@@ -14,6 +14,7 @@ import (
 )
 
 type MapStorage struct {
+	storage.Storage
 	Map map[string][]byte
 }
 

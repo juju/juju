@@ -4,34 +4,37 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/series"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newAddImageMetadataCommand() cmd.Command {
-	return envcmd.Wrap(&addImageMetadataCommand{})
+	return modelcmd.Wrap(&addImageMetadataCommand{})
 }
 
 const addImageCommandDoc = `
-Add image metadata to Juju environment.
+Add image metadata to Juju model.
 
 Image metadata properties vary between providers. Consequently, some properties
 are optional for this command but they may still be needed by your provider.
 
-options:
--e, --environment (= "")
-   juju environment to operate in
---image-id
+This command takes only one positional argument - an image id.
+
+arguments:
+image-id
    image identifier
+
+options:
+-m, --model (= "")
+   juju model to operate in
 --region
-   cloud region
---series (= "trusty")
+   cloud region (= region of current model)
+--series (= current model preferred series)
    image series
 --arch (= "amd64")
    image architectures
@@ -43,6 +46,7 @@ options:
    root storage size [provider specific]
 --stream (= "released")
    image stream
+
 `
 
 // addImageMetadataCommand stores image metadata in Juju environment.
@@ -61,17 +65,21 @@ type addImageMetadataCommand struct {
 
 // Init implements Command.Init.
 func (c *addImageMetadataCommand) Init(args []string) (err error) {
-	if err := checkArgumentSet(c.ImageId, "image id"); err != nil {
-		return err
+	if len(args) == 0 {
+		return errors.New("image id must be supplied when adding image metadata")
 	}
-	return nil
+	if len(args) != 1 {
+		return errors.New("only one image id can be supplied as an argument to this command")
+	}
+	c.ImageId = args[0]
+	return c.validate()
 }
 
 // Info implements Command.Info.
 func (c *addImageMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-image",
-		Purpose: "adds image metadata to environment",
+		Purpose: "adds image metadata to model",
 		Doc:     addImageCommandDoc,
 	}
 }
@@ -80,11 +88,8 @@ func (c *addImageMetadataCommand) Info() *cmd.Info {
 func (c *addImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.cloudImageMetadataCommandBase.SetFlags(f)
 
-	f.StringVar(&c.ImageId, "image-id", "", "metadata image id")
 	f.StringVar(&c.Region, "region", "", "image cloud region")
-	// TODO (anastasiamac 2015-09-30) Ideally default should be latest LTS.
-	// Hard-coding "trusty" for now.
-	f.StringVar(&c.Series, "series", "trusty", "image series")
+	f.StringVar(&c.Series, "series", "", "image series")
 	f.StringVar(&c.Arch, "arch", "amd64", "image architecture")
 	f.StringVar(&c.VirtType, "virt-type", "", "image metadata virtualisation type")
 	f.StringVar(&c.RootStorageType, "storage-type", "", "image metadata root storage type")
@@ -101,18 +106,8 @@ func (c *addImageMetadataCommand) Run(ctx *cmd.Context) (err error) {
 	defer api.Close()
 
 	m := c.constructMetadataParam()
-	found, err := api.Save([]params.CloudImageMetadata{m})
-	if err != nil {
-		return err
-	}
-	if len(found) == 0 {
-		return nil
-	}
-	if len(found) > 1 {
-		return errors.New(fmt.Sprintf("expected one result, got %d", len(found)))
-	}
-	if found[0].Error != nil {
-		return errors.New(found[0].Error.GoString())
+	if err := api.Save([]params.CloudImageMetadata{m}); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -120,7 +115,7 @@ func (c *addImageMetadataCommand) Run(ctx *cmd.Context) (err error) {
 // MetadataAddAPI defines the API methods that add image metadata command uses.
 type MetadataAddAPI interface {
 	Close() error
-	Save(metadata []params.CloudImageMetadata) ([]params.ErrorResult, error)
+	Save(metadata []params.CloudImageMetadata) error
 }
 
 var getImageMetadataAddAPI = (*addImageMetadataCommand).getImageMetadataAddAPI
@@ -129,9 +124,12 @@ func (c *addImageMetadataCommand) getImageMetadataAddAPI() (MetadataAddAPI, erro
 	return c.NewImageMetadataAPI()
 }
 
-func checkArgumentSet(arg, name string) (err error) {
-	if arg == "" {
-		return errors.New(fmt.Sprintf("%v must be supplied when adding an image metadata", name))
+// Init implements Command.Init.
+func (c *addImageMetadataCommand) validate() error {
+	if c.Series != "" {
+		if _, err := series.SeriesVersion(c.Series); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }

@@ -79,9 +79,9 @@ func (env *environ) instances() ([]instance.Instance, error) {
 	return results, err
 }
 
-// StateServerInstances returns the IDs of the instances corresponding
-// to juju state servers.
-func (env *environ) StateServerInstances() ([]instance.Id, error) {
+// ControllerInstances returns the IDs of the instances corresponding
+// to juju controllers.
+func (env *environ) ControllerInstances() ([]instance.Id, error) {
 	env = env.getSnapshot()
 
 	prefix := common.MachineFullName(env, "")

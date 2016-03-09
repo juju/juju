@@ -2,17 +2,11 @@
 
 package metricsender
 
-import (
-	"crypto/x509"
+import "github.com/juju/testing"
 
-	"github.com/juju/testing"
-)
-
-func PatchHostAndCertPool(host string, certPool *x509.CertPool) func() {
+func PatchHost(host string) func() {
 	restoreHost := testing.PatchValue(&metricsHost, host)
-	restoreCertsPool := testing.PatchValue(&metricsCertsPool, certPool)
 	return func() {
 		restoreHost()
-		restoreCertsPool()
 	}
 }

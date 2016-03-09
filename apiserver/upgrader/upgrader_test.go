@@ -19,10 +19,10 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/upgrader"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type upgraderSuite struct {
@@ -47,9 +47,9 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	// Create a machine to work with
 	var err error
 	// The first machine created is the only one allowed to
-	// JobManageEnviron
+	// JobManageModel
 	s.apiMachine, err = s.State.AddMachine("quantal", state.JobHostUnits,
-		state.JobManageEnviron)
+		state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	s.rawMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -169,8 +169,8 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 		c.Check(results.Results, gc.HasLen, 1)
 		c.Assert(results.Results[0].Error, gc.IsNil)
 		agentTools := results.Results[0].Tools
-		url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
-			s.APIState.Addr(), coretesting.EnvironmentTag.Id(), current)
+		url := fmt.Sprintf("https://%s/model/%s/tools/%s",
+			s.APIState.Addr(), coretesting.ModelTag.Id(), current)
 		c.Check(agentTools.URL, gc.Equals, url)
 		c.Check(agentTools.Version, gc.DeepEquals, current)
 	}
@@ -290,7 +290,7 @@ func (s *upgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
 }
 
 func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
-	// In order to call SetEnvironAgentVersion we have to first SetTools on
+	// In order to call SetModelAgentVersion we have to first SetTools on
 	// all the existing machines
 	current := version.Binary{
 		Number: jujuversion.Current,
@@ -301,9 +301,9 @@ func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
 	s.rawMachine.SetAgentVersion(current)
 	newer := current
 	newer.Patch++
-	err := s.State.SetEnvironAgentVersion(newer.Number)
+	err := s.State.SetModelAgentVersion(newer.Number)
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := s.State.EnvironConfig()
+	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	vers, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)

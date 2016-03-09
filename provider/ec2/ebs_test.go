@@ -18,15 +18,16 @@ import (
 	"gopkg.in/amz.v3/ec2/ec2test"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type storageSuite struct {
@@ -55,6 +56,7 @@ var _ = gc.Suite(&ebsVolumeSuite{})
 
 type ebsVolumeSuite struct {
 	testing.BaseSuite
+	// TODO(axw) the EBS tests should not be embedding jujutest.Tests.
 	jujutest.Tests
 	srv                localServer
 	restoreEC2Patching func()
@@ -63,15 +65,30 @@ type ebsVolumeSuite struct {
 }
 
 func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	s.Tests.SetUpSuite(c)
+	s.Credential = cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "x",
+		},
+	)
+	s.CloudRegion = "test"
+
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	s.UploadArches = []string{arch.AMD64, arch.I386}
-	s.TestConfig = localConfigAttrs
-	s.restoreEC2Patching = patchEC2ForTesting()
-	s.BaseSuite.SetUpSuite(c)
+	s.TestConfig = localConfigAttrs.Merge(testing.Attrs{
+		"access-key": "x",
+		"secret-key": "x",
+		"region":     "test",
+	})
+	s.restoreEC2Patching = patchEC2ForTesting(c)
 }
 
 func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
+	s.Tests.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
 	s.restoreEC2Patching()
 }
@@ -122,7 +139,7 @@ func (s *ebsVolumeSuite) createVolumes(vs storage.VolumeSource, instanceId strin
 			},
 		},
 		ResourceTags: map[string]string{
-			tags.JujuEnv: s.TestConfig["uuid"].(string),
+			tags.JujuModel: s.TestConfig["uuid"].(string),
 		},
 	}, {
 		Tag:      volume1,
@@ -134,7 +151,7 @@ func (s *ebsVolumeSuite) createVolumes(vs storage.VolumeSource, instanceId strin
 			},
 		},
 		ResourceTags: map[string]string{
-			tags.JujuEnv: "something-else",
+			tags.JujuModel: "something-else",
 		},
 	}, {
 		Tag:      volume2,
@@ -256,11 +273,11 @@ func (s *ebsVolumeSuite) TestVolumeTags(c *gc.C) {
 	c.Assert(ec2Vols.Volumes, gc.HasLen, 3)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Tags, jc.SameContents, []awsec2.Tag{
-		{"juju-env-uuid", "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
+		{"juju-model-uuid", "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 		{"Name", "juju-sample-volume-0"},
 	})
 	c.Assert(ec2Vols.Volumes[1].Tags, jc.SameContents, []awsec2.Tag{
-		{"juju-env-uuid", "something-else"},
+		{"juju-model-uuid", "something-else"},
 		{"Name", "juju-sample-volume-1"},
 	})
 	c.Assert(ec2Vols.Volumes[2].Tags, jc.SameContents, []awsec2.Tag{
@@ -379,7 +396,7 @@ func (s *ebsVolumeSuite) TestListVolumes(c *gc.C) {
 	s.assertCreateVolumes(c, vs, "")
 
 	// Only one volume created by assertCreateVolumes has
-	// the env-uuid tag with the expected value.
+	// the model-uuid tag with the expected value.
 	volIds, err := vs.ListVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volIds, jc.SameContents, []string{"vol-0"})

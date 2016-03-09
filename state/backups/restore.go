@@ -7,8 +7,9 @@ package backups
 
 import (
 	"bytes"
-	"fmt"
+	"net"
 	"os"
+	"strconv"
 	"sync"
 	"text/template"
 	"time"
@@ -33,7 +34,7 @@ import (
 // uses of this const, not only here but all around juju
 const restoreUserHome = "/home/ubuntu/"
 
-// resetReplicaSet re-initiates replica-set using the new state server
+// resetReplicaSet re-initiates replica-set using the new controller
 // values, this is required after a mongo restore.
 // In case of failure returns error.
 func resetReplicaSet(dialInfo *mgo.DialInfo, memberHostPort string) error {
@@ -61,7 +62,7 @@ func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
 		return nil, errors.Errorf("cannot get state serving info to dial")
 	}
 	info := mongo.Info{
-		Addrs:  []string{fmt.Sprintf("%s:%d", privateAddr, ssi.StatePort)},
+		Addrs:  []string{net.JoinHostPort(privateAddr, strconv.Itoa(ssi.StatePort))},
 		CACert: conf.CACert(),
 	}
 	dialInfo, err := mongo.DialInfo(info, dialOpts)
@@ -79,14 +80,14 @@ func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
 		apiInfo, ok := conf.APIInfo()
 		if ok {
 			dialInfo.Password = apiInfo.Password
-			logger.Infof("using API password to access state server.")
+			logger.Infof("using API password to access controller.")
 		} else {
 			// There seems to be no way to reach this inconsistence other than making a
 			// backup on a machine where these fields are corrupted and even so I find
 			// no reasonable way to reach this state, yet since APIInfo has it as a
 			// possibility I prefer to handle it, we cannot recover from this since
 			// it would mean that the agent.conf is corrupted.
-			return nil, errors.New("cannot obtain password to access the state server")
+			return nil, errors.New("cannot obtain password to access the controller")
 		}
 	}
 	return dialInfo, nil
@@ -132,9 +133,9 @@ func updateMachineAddresses(machine *state.Machine, privateAddress, publicAddres
 var mongoDefaultDialOpts = mongo.DefaultDialOpts
 var environsNewStatePolicy = environs.NewStatePolicy
 
-// newStateConnection tries to connect to the newly restored state server.
-func newStateConnection(environTag names.EnvironTag, info *mongo.MongoInfo) (*state.State, error) {
-	// We need to retry here to allow mongo to come up on the restored state server.
+// newStateConnection tries to connect to the newly restored controller.
+func newStateConnection(modelTag names.ModelTag, info *mongo.MongoInfo) (*state.State, error) {
+	// We need to retry here to allow mongo to come up on the restored controller.
 	// The connection might succeed due to the mongo dial retries but there may still
 	// be a problem issuing database commands.
 	var (
@@ -147,7 +148,7 @@ func newStateConnection(environTag names.EnvironTag, info *mongo.MongoInfo) (*st
 	)
 	attempt := utils.AttemptStrategy{Delay: newStateConnDelay, Min: newStateConnMinAttempts}
 	for a := attempt.Start(); a.Next(); {
-		st, err = state.Open(environTag, info, mongoDefaultDialOpts(), environsNewStatePolicy())
+		st, err = state.Open(modelTag, info, mongoDefaultDialOpts(), environsNewStatePolicy())
 		if err == nil {
 			return st, nil
 		}
@@ -160,15 +161,15 @@ func newStateConnection(environTag names.EnvironTag, info *mongo.MongoInfo) (*st
 // in each of them. The address does not include the port.
 // It is too late to go back and errors in a couple of agents have
 // better chance of being fixed by the user, if we were to fail
-// we risk an inconsistent state server because of one unresponsive
+// we risk an inconsistent controller because of one unresponsive
 // agent, we should nevertheless return the err info to the user.
 func updateAllMachines(privateAddress string, machines []*state.Machine) error {
 	var machineUpdating sync.WaitGroup
 	for key := range machines {
 		// key is used to have machine be scope bound to the loop iteration.
 		machine := machines[key]
-		// A newly resumed state server requires no updating, and more
-		// than one state server is not yet supported by this code.
+		// A newly resumed controller requires no updating, and more
+		// than one controller is not yet supported by this code.
 		if machine.IsManager() || machine.Life() == state.Dead {
 			continue
 		}

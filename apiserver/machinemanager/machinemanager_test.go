@@ -135,11 +135,11 @@ func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, erro
 	return &mockBlock{}, false, nil
 }
 
-func (st *mockState) EnvironConfig() (*config.Config, error) {
+func (st *mockState) ModelConfig() (*config.Config, error) {
 	panic("not implemented")
 }
 
-func (st *mockState) Environment() (*state.Environment, error) {
+func (st *mockState) Model() (*state.Model, error) {
 	panic("not implemented")
 }
 
@@ -171,6 +171,6 @@ func (st *mockBlock) Message() string {
 	return "not allowed"
 }
 
-func (st *mockBlock) EnvUUID() string {
+func (st *mockBlock) ModelUUID() string {
 	return "uuid"
 }

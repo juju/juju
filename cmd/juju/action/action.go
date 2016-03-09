@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var actionDoc = `
@@ -82,7 +82,7 @@ type APIClient interface {
 
 // ActionCommandBase is the base type for action sub-commands.
 type ActionCommandBase struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 }
 
 // NewActionAPIClient returns a client for the action api endpoint.

@@ -20,26 +20,26 @@ import (
 
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
-// representing the environment connected to.
+// representing the model connected to.
 //
 // A policy may be provided, which will be used to validate and
 // modify behaviour of certain operations in state. A nil policy
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+func Open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
 	st, err := open(tag, info, opts, policy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if _, err := st.Environment(); err != nil {
+	if _, err := st.Model(); err != nil {
 		if err := st.Close(); err != nil {
-			logger.Errorf("error closing state for unreadable environment %s: %v", tag.Id(), err)
+			logger.Errorf("error closing state for unreadable model %s: %v", tag.Id(), err)
 		}
-		return nil, errors.Annotatef(err, "cannot read environment %s", tag.Id())
+		return nil, errors.Annotatef(err, "cannot read model %s", tag.Id())
 	}
 
-	// State should only be Opened on behalf of a state server environ; all
+	// State should only be Opened on behalf of a controller environ; all
 	// other *States should be created via ForEnviron.
 	if err := st.start(tag); err != nil {
 		return nil, errors.Trace(err)
@@ -47,7 +47,7 @@ func Open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, poli
 	return st, nil
 }
 
-func open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+func open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %v", info.Addrs, info.Tag)
 	logger.Debugf("dialing mongo")
 	session, err := mongo.DialWithInfo(info.Info, opts)
@@ -64,17 +64,17 @@ func open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, poli
 	logger.Debugf("mongodb login successful")
 
 	// In rare circumstances, we may be upgrading from pre-1.23, and not have the
-	// environment UUID available. In that case we need to infer what it might be;
+	// model UUID available. In that case we need to infer what it might be;
 	// we depend on the assumption that this is the only circumstance in which
 	// the the UUID might not be known.
 	if tag.Id() == "" {
-		logger.Warningf("creating state without environment tag; inferring bootstrap environment")
-		ssInfo, err := readRawStateServerInfo(session)
+		logger.Warningf("creating state without model tag; inferring bootstrap model")
+		ssInfo, err := readRawControllerInfo(session)
 		if err != nil {
 			session.Close()
 			return nil, errors.Trace(err)
 		}
-		tag = ssInfo.EnvironmentTag
+		tag = ssInfo.ModelTag
 	}
 
 	st, err := newState(tag, session, info, policy)
@@ -101,15 +101,15 @@ func mongodbLogin(session *mgo.Session, mongoInfo *mongo.MongoInfo) error {
 }
 
 // Initialize sets up an initial empty state and returns it.
-// This needs to be performed only once for the initial state server environment.
+// This needs to be performed only once for the initial controller model.
 // It returns unauthorizedError if access is unauthorized.
 func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (_ *State, err error) {
 	uuid, ok := cfg.UUID()
 	if !ok {
-		return nil, errors.Errorf("environment uuid was not supplied")
+		return nil, errors.Errorf("model uuid was not supplied")
 	}
-	envTag := names.NewEnvironTag(uuid)
-	st, err := open(envTag, info, opts, policy)
+	modelTag := names.NewModelTag(uuid)
+	st, err := open(modelTag, info, opts, policy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -121,18 +121,18 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		}
 	}()
 
-	// A valid environment is used as a signal that the
+	// A valid model is used as a signal that the
 	// state has already been initalized. If this is the case
 	// do nothing.
-	if _, err := st.Environment(); err == nil {
+	if _, err := st.Model(); err == nil {
 		return nil, errors.New("already initialized")
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
 
-	// When creating the state server environment, the new environment
-	// UUID is also used as the state server UUID.
-	logger.Infof("initializing state server environment %s", uuid)
+	// When creating the controller model, the new model
+	// UUID is also used as the controller UUID.
+	logger.Infof("initializing controller model %s", uuid)
 	ops, err := st.envSetupOps(cfg, uuid, uuid, owner)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -140,60 +140,60 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	ops = append(ops,
 		createInitialUserOp(st, owner, info.Password),
 		txn.Op{
-			C:      stateServersC,
-			Id:     environGlobalKey,
+			C:      controllersC,
+			Id:     modelGlobalKey,
 			Assert: txn.DocMissing,
-			Insert: &stateServersDoc{
-				EnvUUID: st.EnvironUUID(),
+			Insert: &controllersDoc{
+				ModelUUID: st.ModelUUID(),
 			},
 		},
 		txn.Op{
-			C:      stateServersC,
+			C:      controllersC,
 			Id:     apiHostPortsKey,
 			Assert: txn.DocMissing,
 			Insert: &apiHostPortsDoc{},
 		},
 		txn.Op{
-			C:      stateServersC,
+			C:      controllersC,
 			Id:     stateServingInfoKey,
 			Assert: txn.DocMissing,
 			Insert: &StateServingInfo{},
 		},
 		txn.Op{
-			C:      stateServersC,
-			Id:     hostedEnvCountKey,
+			C:      controllersC,
+			Id:     hostedModelCountKey,
 			Assert: txn.DocMissing,
-			Insert: &hostedEnvCountDoc{},
+			Insert: &hostedModelCountDoc{},
 		},
 	)
 
 	if err := st.runTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := st.start(envTag); err != nil {
+	if err := st.start(modelTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
 }
 
-func (st *State) envSetupOps(cfg *config.Config, envUUID, serverUUID string, owner names.UserTag) ([]txn.Op, error) {
-	if err := checkEnvironConfig(cfg); err != nil {
+func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, owner names.UserTag) ([]txn.Op, error) {
+	if err := checkModelConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// When creating the state server environment, the new environment
-	// UUID is also used as the state server UUID.
+	// When creating the controller model, the new model
+	// UUID is also used as the controller UUID.
 	if serverUUID == "" {
-		serverUUID = envUUID
+		serverUUID = modelUUID
 	}
-	envUserOp := createEnvUserOp(envUUID, owner, owner, owner.Name())
+	modelUserOp := createModelUserOp(modelUUID, owner, owner, owner.Name(), nowToTheSecond(), false)
 	ops := []txn.Op{
-		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
-		createSettingsOp(environGlobalKey, cfg.AllAttrs()),
-		incHostedEnvironCountOp(),
-		createEnvironmentOp(st, owner, cfg.Name(), envUUID, serverUUID),
-		createUniqueOwnerEnvNameOp(owner, cfg.Name()),
-		envUserOp,
+		createConstraintsOp(st, modelGlobalKey, constraints.Value{}),
+		createSettingsOp(modelGlobalKey, cfg.AllAttrs()),
+		incHostedModelCountOp(),
+		createModelOp(st, owner, cfg.Name(), modelUUID, serverUUID),
+		createUniqueOwnerModelNameOp(owner, cfg.Name()),
+		modelUserOp,
 	}
 	return ops, nil
 }
@@ -231,10 +231,10 @@ func isUnauthorized(err error) bool {
 // newState creates an incomplete *State, with a configured watcher but no
 // pwatcher, leadershipManager, or controllerTag. You must start() the returned
 // *State before it will function correctly.
-func newState(environTag names.EnvironTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, resultErr error) {
+func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, resultErr error) {
 	// Set up database.
 	rawDB := session.DB(jujuDB)
-	database, err := allCollections().Load(rawDB, environTag.Id())
+	database, err := allCollections().Load(rawDB, modelTag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -244,12 +244,12 @@ func newState(environTag names.EnvironTag, session *mgo.Session, mongoInfo *mong
 
 	// Create State.
 	return &State{
-		environTag: environTag,
-		mongoInfo:  mongoInfo,
-		session:    session,
-		database:   database,
-		policy:     policy,
-		watcher:    watcher.New(rawDB.C(txnLogC)),
+		modelTag:  modelTag,
+		mongoInfo: mongoInfo,
+		session:   session,
+		database:  database,
+		policy:    policy,
+		watcher:   watcher.New(rawDB.C(txnLogC)),
 	}, nil
 }
 
@@ -284,15 +284,19 @@ func (st *State) Close() (err error) {
 		st.leadershipManager.Kill()
 		handle("leadership manager", st.leadershipManager.Wait())
 	}
+	if st.singularManager != nil {
+		st.singularManager.Kill()
+		handle("singular manager", st.singularManager.Wait())
+	}
 	st.mu.Lock()
 	if st.allManager != nil {
 		handle("allwatcher manager", st.allManager.Stop())
 	}
-	if st.allEnvManager != nil {
-		handle("allenvwatcher manager", st.allEnvManager.Stop())
+	if st.allModelManager != nil {
+		handle("allModelWatcher manager", st.allModelManager.Stop())
 	}
-	if st.allEnvWatcherBacking != nil {
-		handle("allenvwatcher backing", st.allEnvWatcherBacking.Release())
+	if st.allModelWatcherBacking != nil {
+		handle("allModelWatcher backing", st.allModelWatcherBacking.Release())
 	}
 	st.session.Close()
 	st.mu.Unlock()

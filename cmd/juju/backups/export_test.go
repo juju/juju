@@ -6,7 +6,7 @@ package backups
 import (
 	"github.com/juju/cmd"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const (
@@ -16,12 +16,6 @@ const (
 
 var (
 	NewAPIClient = &newAPIClient
-
-	NewInfoCommand    = newInfoCommand
-	NewListCommand    = newListCommand
-	NewUploadCommand  = newUploadCommand
-	NewRemoveCommand  = newRemoveCommand
-	NewRestoreCommand = newRestoreCommand
 )
 
 type CreateCommand struct {
@@ -34,10 +28,42 @@ type DownloadCommand struct {
 
 func NewCreateCommand() (cmd.Command, *CreateCommand) {
 	c := &createCommand{}
-	return envcmd.Wrap(c), &CreateCommand{c}
+	c.Log = &cmd.Log{}
+	return modelcmd.Wrap(c), &CreateCommand{c}
 }
 
 func NewDownloadCommand() (cmd.Command, *DownloadCommand) {
 	c := &downloadCommand{}
-	return envcmd.Wrap(c), &DownloadCommand{c}
+	c.Log = &cmd.Log{}
+	return modelcmd.Wrap(c), &DownloadCommand{c}
+}
+
+func NewListCommand() cmd.Command {
+	c := &listCommand{}
+	c.Log = &cmd.Log{}
+	return modelcmd.Wrap(c)
+}
+
+func NewInfoCommand() cmd.Command {
+	c := &infoCommand{}
+	c.Log = &cmd.Log{}
+	return modelcmd.Wrap(c)
+}
+
+func NewUploadCommand() cmd.Command {
+	c := &uploadCommand{}
+	c.Log = &cmd.Log{}
+	return modelcmd.Wrap(c)
+}
+
+func NewRemoveCommand() cmd.Command {
+	c := &removeCommand{}
+	c.Log = &cmd.Log{}
+	return modelcmd.Wrap(c)
+}
+
+func NewRestoreCommand() cmd.Command {
+	c := &restoreCommand{}
+	c.Log = &cmd.Log{}
+	return modelcmd.Wrap(c)
 }

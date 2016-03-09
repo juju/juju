@@ -27,11 +27,13 @@ import (
 // that we don't want to directly depend on in unit tests.
 
 type fakeState struct {
-	mu           sync.Mutex
-	machines     map[string]*fakeMachine
-	stateServers voyeur.Value // of *state.StateServerInfo
-	session      *fakeMongoSession
-	check        func(st *fakeState) error
+	mu          sync.Mutex
+	errors      errorPatterns
+	machines    map[string]*fakeMachine
+	controllers voyeur.Value // of *state.ControllerInfo
+	statuses    voyeur.Value // of statuses collection
+	session     *fakeMongoSession
+	check       func(st *fakeState) error
 }
 
 var (
@@ -40,15 +42,14 @@ var (
 	_ mongoSession   = (*fakeMongoSession)(nil)
 )
 
+type errorPatterns struct {
+	patterns []errorPattern
+}
+
 type errorPattern struct {
 	pattern string
 	errFunc func() error
 }
-
-var (
-	errorsMutex   sync.Mutex
-	errorPatterns []errorPattern
-)
 
 // setErrorFor causes the given error to be returned
 // from any mock call that matches the given
@@ -58,8 +59,8 @@ var (
 // The standard form for errors is:
 //    Type.Function <arg>...
 // See individual functions for details.
-func setErrorFor(what string, err error) {
-	setErrorFuncFor(what, func() error {
+func (e *errorPatterns) setErrorFor(what string, err error) {
+	e.setErrorFuncFor(what, func() error {
 		return err
 	})
 }
@@ -67,10 +68,8 @@ func setErrorFor(what string, err error) {
 // setErrorFuncFor causes the given function
 // to be invoked to return the error for the
 // given pattern.
-func setErrorFuncFor(what string, errFunc func() error) {
-	errorsMutex.Lock()
-	defer errorsMutex.Unlock()
-	errorPatterns = append(errorPatterns, errorPattern{
+func (e *errorPatterns) setErrorFuncFor(what string, errFunc func() error) {
+	e.patterns = append(e.patterns, errorPattern{
 		pattern: what,
 		errFunc: errFunc,
 	})
@@ -80,37 +79,33 @@ func setErrorFuncFor(what string, errFunc func() error) {
 // with all the args, space separated,
 // and returns any error registered with
 // setErrorFor that matches the resulting string.
-func errorFor(name string, args ...interface{}) error {
-	errorsMutex.Lock()
+func (e *errorPatterns) errorFor(name string, args ...interface{}) error {
 	s := name
 	for _, arg := range args {
 		s += " " + fmt.Sprint(arg)
 	}
 	f := func() error { return nil }
-	for _, pattern := range errorPatterns {
+	for _, pattern := range e.patterns {
 		if ok, _ := path.Match(pattern.pattern, s); ok {
 			f = pattern.errFunc
 			break
 		}
 	}
-	errorsMutex.Unlock()
 	err := f()
 	logger.Errorf("errorFor %q -> %v", s, err)
 	return err
 }
 
-func resetErrors() {
-	errorsMutex.Lock()
-	defer errorsMutex.Unlock()
-	errorPatterns = errorPatterns[:0]
+func (e *errorPatterns) resetErrors() {
+	e.patterns = e.patterns[:0]
 }
 
 func NewFakeState() *fakeState {
 	st := &fakeState{
 		machines: make(map[string]*fakeMachine),
 	}
-	st.session = newFakeMongoSession(st)
-	st.stateServers.Set(&state.StateServerInfo{})
+	st.session = newFakeMongoSession(st, &st.errors)
+	st.controllers.Set(&state.ControllerInfo{})
 	return st
 }
 
@@ -176,7 +171,7 @@ func (st *fakeState) machine(id string) *fakeMachine {
 }
 
 func (st *fakeState) Machine(id string) (stateMachine, error) {
-	if err := errorFor("State.Machine", id); err != nil {
+	if err := st.errors.errorFor("State.Machine", id); err != nil {
 		return nil, err
 	}
 	if m := st.machine(id); m != nil {
@@ -193,6 +188,7 @@ func (st *fakeState) addMachine(id string, wantsVote bool) *fakeMachine {
 		panic(fmt.Errorf("id %q already used", id))
 	}
 	m := &fakeMachine{
+		errors:  &st.errors,
 		checker: st,
 		doc: machineDoc{
 			id:        id,
@@ -213,25 +209,30 @@ func (st *fakeState) removeMachine(id string) {
 	delete(st.machines, id)
 }
 
-func (st *fakeState) setStateServers(ids ...string) {
-	st.stateServers.Set(&state.StateServerInfo{
+func (st *fakeState) setControllers(ids ...string) {
+	st.controllers.Set(&state.ControllerInfo{
 		MachineIds: ids,
 	})
 }
 
-func (st *fakeState) StateServerInfo() (*state.StateServerInfo, error) {
-	if err := errorFor("State.StateServerInfo"); err != nil {
+func (st *fakeState) ControllerInfo() (*state.ControllerInfo, error) {
+	if err := st.errors.errorFor("State.ControllerInfo"); err != nil {
 		return nil, err
 	}
-	return deepCopy(st.stateServers.Get()).(*state.StateServerInfo), nil
+	return deepCopy(st.controllers.Get()).(*state.ControllerInfo), nil
 }
 
-func (st *fakeState) WatchStateServerInfo() state.NotifyWatcher {
-	return WatchValue(&st.stateServers)
+func (st *fakeState) WatchControllerInfo() state.NotifyWatcher {
+	return WatchValue(&st.controllers)
+}
+
+func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
+	return WatchStrings(&st.statuses)
 }
 
 type fakeMachine struct {
 	mu      sync.Mutex
+	errors  *errorPatterns
 	val     voyeur.Value // of machineDoc
 	doc     machineDoc
 	checker invariantChecker
@@ -249,7 +250,7 @@ type machineDoc struct {
 func (m *fakeMachine) Refresh() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if err := errorFor("Machine.Refresh", m.doc.id); err != nil {
+	if err := m.errors.errorFor("Machine.Refresh", m.doc.id); err != nil {
 		return err
 	}
 	m.doc = m.val.Get().(machineDoc)
@@ -271,7 +272,7 @@ func (m *fakeMachine) Id() string {
 func (m *fakeMachine) InstanceId() (instance.Id, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if err := errorFor("Machine.InstanceId", m.doc.id); err != nil {
+	if err := m.errors.errorFor("Machine.InstanceId", m.doc.id); err != nil {
 		return "", err
 	}
 	return m.doc.instanceId, nil
@@ -305,6 +306,12 @@ func (m *fakeMachine) APIHostPorts() []network.HostPort {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.doc.apiHostPorts
+}
+
+func (m *fakeMachine) Status() (state.StatusInfo, error) {
+	return state.StatusInfo{
+		Status: state.StatusStarted,
+	}, nil
 }
 
 // mutate atomically changes the machineDoc of
@@ -359,7 +366,7 @@ func (m *fakeMachine) setInstanceId(instanceId instance.Id) {
 
 // SetHasVote implements stateMachine.SetHasVote.
 func (m *fakeMachine) SetHasVote(hasVote bool) error {
-	if err := errorFor("Machine.SetHasVote", m.doc.id, hasVote); err != nil {
+	if err := m.errors.errorFor("Machine.SetHasVote", m.doc.id, hasVote); err != nil {
 		return err
 	}
 	m.mutate(func(doc *machineDoc) {
@@ -379,15 +386,17 @@ type fakeMongoSession struct {
 	// all members will be instantly reported as ready.
 	InstantlyReady bool
 
+	errors  *errorPatterns
 	checker invariantChecker
 	members voyeur.Value // of []replicaset.Member
 	status  voyeur.Value // of *replicaset.Status
 }
 
 // newFakeMongoSession returns a mock implementation of mongoSession.
-func newFakeMongoSession(checker invariantChecker) *fakeMongoSession {
+func newFakeMongoSession(checker invariantChecker, errors *errorPatterns) *fakeMongoSession {
 	s := new(fakeMongoSession)
 	s.checker = checker
+	s.errors = errors
 	s.members.Set([]replicaset.Member(nil))
 	s.status.Set(&replicaset.Status{})
 	return s
@@ -395,7 +404,7 @@ func newFakeMongoSession(checker invariantChecker) *fakeMongoSession {
 
 // CurrentMembers implements mongoSession.CurrentMembers.
 func (session *fakeMongoSession) CurrentMembers() ([]replicaset.Member, error) {
-	if err := errorFor("Session.CurrentMembers"); err != nil {
+	if err := session.errors.errorFor("Session.CurrentMembers"); err != nil {
 		return nil, err
 	}
 	return deepCopy(session.members.Get()).([]replicaset.Member), nil
@@ -403,7 +412,7 @@ func (session *fakeMongoSession) CurrentMembers() ([]replicaset.Member, error) {
 
 // CurrentStatus implements mongoSession.CurrentStatus.
 func (session *fakeMongoSession) CurrentStatus() (*replicaset.Status, error) {
-	if err := errorFor("Session.CurrentStatus"); err != nil {
+	if err := session.errors.errorFor("Session.CurrentStatus"); err != nil {
 		return nil, err
 	}
 	return deepCopy(session.status.Get()).(*replicaset.Status), nil
@@ -418,7 +427,7 @@ func (session *fakeMongoSession) setStatus(members []replicaset.MemberStatus) {
 
 // Set implements mongoSession.Set
 func (session *fakeMongoSession) Set(members []replicaset.Member) error {
-	if err := errorFor("Session.Set"); err != nil {
+	if err := session.errors.errorFor("Session.Set"); err != nil {
 		logger.Infof("not setting replicaset members to %#v", members)
 		return err
 	}
@@ -513,5 +522,58 @@ func (n *notifier) Wait() error {
 }
 
 func (n *notifier) Stop() error {
+	return worker.Stop(n)
+}
+
+type stringsNotifier struct {
+	tomb    tomb.Tomb
+	w       *voyeur.Watcher
+	changes chan []string
+}
+
+// WatchStrings returns a StringsWatcher that triggers
+// when the given value changes. Its Wait and Err methods
+// never return a non-nil error.
+func WatchStrings(val *voyeur.Value) state.StringsWatcher {
+	n := &stringsNotifier{
+		w:       val.Watch(),
+		changes: make(chan []string),
+	}
+	go n.loop()
+	return n
+}
+
+func (n *stringsNotifier) loop() {
+	defer n.tomb.Done()
+	for n.w.Next() {
+		select {
+		case n.changes <- []string{}:
+		case <-n.tomb.Dying():
+		}
+	}
+}
+
+// Changes returns a channel that sends a value when the value changes.
+// The value itself can be retrieved by calling the value's Get method.
+func (n *stringsNotifier) Changes() <-chan []string {
+	return n.changes
+}
+
+// Kill stops the notifier but does not wait for it to finish.
+func (n *stringsNotifier) Kill() {
+	n.tomb.Kill(nil)
+	n.w.Close()
+}
+
+func (n *stringsNotifier) Err() error {
+	return n.tomb.Err()
+}
+
+// Wait waits for the notifier to finish. It always returns nil.
+func (n *stringsNotifier) Wait() error {
+	return n.tomb.Wait()
+}
+
+func (n *stringsNotifier) Stop() error {
 	return worker.Stop(n)
 }

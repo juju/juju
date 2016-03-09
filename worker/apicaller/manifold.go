@@ -7,16 +7,15 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/gate"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
-	AgentName       string
-	APIInfoGateName string
+	AgentName string
 }
 
 // Manifold returns a manifold whose worker wraps an API connection made on behalf of
@@ -25,7 +24,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.APIInfoGateName,
 		},
 		Output: outputFunc,
 		Start:  startFunc(config),
@@ -38,10 +36,6 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 	return func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 
 		// Get dependencies and open a connection.
-		var gate gate.Unlocker
-		if err := getResource(config.APIInfoGateName, &gate); err != nil {
-			return nil, err
-		}
 		var a agent.Agent
 		if err := getResource(config.AgentName, &a); err != nil {
 			return nil, err
@@ -53,38 +47,44 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 
 		// Add the environment uuid to agent config if not present.
 		currentConfig := a.CurrentConfig()
-		if currentConfig.Environment().Id() == "" {
+		if currentConfig.Model().Id() == "" {
 			err := a.ChangeConfig(func(setter agent.ConfigSetter) error {
-				environTag, err := conn.EnvironTag()
+				modelTag, err := conn.ModelTag()
 				if err != nil {
-					return errors.Annotate(err, "no environment uuid set on api")
+					return errors.Annotate(err, "no model uuid set on api")
 				}
 				return setter.Migrate(agent.MigrateParams{
-					Environment: environTag,
+					Model: modelTag,
 				})
 			})
 			if err != nil {
-				logger.Warningf("unable to save environment uuid: %v", err)
+				logger.Warningf("unable to save model uuid: %v", err)
 				// Not really fatal, just annoying.
 			}
 		}
-
-		// Now we know the agent config has been fixed up, notify everyone
-		// else who might depend upon its stability/correctness.
-		gate.Unlock()
 
 		// Return the worker.
 		return newApiConnWorker(conn)
 	}
 }
 
-// outputFunc extracts a base.APICaller from a *apiConnWorker.
+// outputFunc extracts an API connection from a *apiConnWorker.
 func outputFunc(in worker.Worker, out interface{}) error {
 	inWorker, _ := in.(*apiConnWorker)
-	outPointer, _ := out.(*base.APICaller)
-	if inWorker == nil || outPointer == nil {
-		return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
+	if inWorker == nil {
+		return errors.Errorf("in should be a %T; got %T", inWorker, in)
 	}
-	*outPointer = inWorker.conn
+
+	switch outPointer := out.(type) {
+	case *base.APICaller:
+		*outPointer = inWorker.conn
+	case *api.Connection:
+		// Using api.Connection is strongly discouraged as consumers
+		// of this API connection should not be able to close it. This
+		// option is only available to support legacy upgrade steps.
+		*outPointer = inWorker.conn
+	default:
+		return errors.Errorf("out should be *base.APICaller or *api.Connection; got %T", out)
+	}
 	return nil
 }

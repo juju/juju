@@ -194,7 +194,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 		relctxs[relId] = context.NewContextRelation(relUnit, cache)
 	}
 
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := context.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
@@ -221,7 +221,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 	}
 
 	context, err := context.NewHookContext(s.meteredApiUnit, facade, "TestCtx", uuid,
-		"test-env-name", relid, remote, relctxs, apiAddrs,
+		"test-model-name", relid, remote, relctxs, apiAddrs,
 		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag),
 		paths, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -246,7 +246,7 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) 
 	c.Assert(actual, gc.Equals, expect.Value)
 	c.Assert(actualErr, jc.DeepEquals, expectErr)
 
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	name, uuid := context.ContextEnvInfo(ctx)
 	c.Assert(name, gc.Equals, env.Name())
@@ -265,6 +265,10 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Name(), gc.Equals, "db")
 	c.Assert(r.FakeId(), gc.Equals, "db:1")
+
+	az, err := ctx.AvailabilityZone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(az, gc.Equals, "a-zone")
 }
 
 func (s *HookContextSuite) AssertNotActionContext(c *gc.C, ctx *context.HookContext) {
@@ -339,9 +343,9 @@ func (s *BlockHelper) BlockRemoveObject(c *gc.C, msg string) {
 	s.on(c, multiwatcher.BlockRemove, msg)
 }
 
-// BlockDestroyEnvironment switches destroy block on.
+// BlockDestroyModel switches destroy block on.
 // This prevents juju environment destruction.
-func (s *BlockHelper) BlockDestroyEnvironment(c *gc.C, msg string) {
+func (s *BlockHelper) BlockDestroyModel(c *gc.C, msg string) {
 	s.on(c, multiwatcher.BlockDestroy, msg)
 }
 

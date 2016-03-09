@@ -17,24 +17,16 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	envstorage "github.com/juju/juju/environs/storage"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
-
-// This provides the content for code accessing test:///... URLs. This allows
-// us to set the responses for things like the Metadata server, by pointing
-// metadata requests at test:///... rather than http://169.254.169.254
-var testRoundTripper = &jujutest.ProxyRoundTripper{}
-
-func init() {
-	testRoundTripper.RegisterForScheme("test")
-}
 
 var (
 	ShortAttempt   = &shortAttempt
@@ -44,7 +36,7 @@ var (
 
 // MetadataStorage returns a Storage instance which is used to store simplestreams metadata for tests.
 func MetadataStorage(e environs.Environ) envstorage.Storage {
-	ecfg := e.(*environ).ecfg()
+	ecfg := e.(*Environ).ecfg()
 	container := "juju-dist-test"
 	metadataStorage := &openstackstorage{
 		containerName: container,
@@ -89,8 +81,8 @@ func NewCinderProvider(s OpenstackStorage) storage.Provider {
 
 func NewCinderVolumeSource(s OpenstackStorage) storage.VolumeSource {
 	const envName = "testenv"
-	envUUID := testing.EnvironmentTag.Id()
-	return &cinderVolumeSource{openstackStorage(s), envName, envUUID}
+	modelUUID := testing.ModelTag.Id()
+	return &cinderVolumeSource{openstackStorage(s), envName, modelUUID}
 }
 
 var indexData = `
@@ -269,17 +261,18 @@ func UseTestImageData(stor envstorage.Storage, cred *identity.Credentials) {
 	stor.Put(simplestreams.UnsignedIndex("v1", 1), bytes.NewReader(data), int64(len(data)))
 	stor.Put(
 		productMetadatafile, strings.NewReader(imagesData), int64(len(imagesData)))
+
+	envtesting.SignTestTools(stor)
 }
 
 func RemoveTestImageData(stor envstorage.Storage) {
-	stor.Remove(simplestreams.UnsignedIndex("v1", 1))
-	stor.Remove(productMetadatafile)
+	stor.RemoveAll()
 }
 
 // DiscardSecurityGroup cleans up a security group, it is not an error to
 // delete something that doesn't exist.
 func DiscardSecurityGroup(e environs.Environ, name string) error {
-	env := e.(*environ)
+	env := e.(*Environ)
 	novaClient := env.nova()
 	group, err := novaClient.SecurityGroupByName(name)
 	if err != nil {
@@ -295,43 +288,41 @@ func DiscardSecurityGroup(e environs.Environ, name string) error {
 	return nil
 }
 
-func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
-	env := e.(*environ)
-	spec, err = findInstanceSpec(env, &instances.InstanceConstraint{
+func FindInstanceSpec(
+	e environs.Environ,
+	series, arch, cons string,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (spec *instances.InstanceSpec, err error) {
+	env := e.(*Environ)
+	return findInstanceSpec(env, &instances.InstanceConstraint{
 		Series:      series,
 		Arches:      []string{arch},
 		Region:      env.ecfg().region(),
 		Constraints: constraints.MustParse(cons),
-	})
-	return
-}
-
-func ControlBucketName(e environs.Environ) string {
-	env := e.(*environ)
-	return env.ecfg().controlBucket()
+	}, imageMetadata)
 }
 
 func GetSwiftURL(e environs.Environ) (string, error) {
-	return e.(*environ).client.MakeServiceURL("object-store", nil)
+	return e.(*Environ).client.MakeServiceURL("object-store", nil)
 }
 
 func SetUseFloatingIP(e environs.Environ, val bool) {
-	env := e.(*environ)
+	env := e.(*Environ)
 	env.ecfg().attrs["use-floating-ip"] = val
 }
 
 func SetUpGlobalGroup(e environs.Environ, name string, apiPort int) (nova.SecurityGroup, error) {
-	return e.(*environ).setUpGlobalGroup(name, apiPort)
+	return e.(*Environ).firewaller.(*defaultFirewaller).setUpGlobalGroup(name, apiPort)
 }
 
 func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
-	return e.(*environ).ensureGroup(name, rules)
+	return e.(*Environ).firewaller.(*defaultFirewaller).ensureGroup(name, rules)
 }
 
 // ImageMetadataStorage returns a Storage object pointing where the goose
 // infrastructure sets up its keystone entry for image metadata
 func ImageMetadataStorage(e environs.Environ) envstorage.Storage {
-	env := e.(*environ)
+	env := e.(*Environ)
 	return &openstackstorage{
 		containerName: "imagemetadata",
 		swift:         swift.New(env.client),
@@ -341,7 +332,7 @@ func ImageMetadataStorage(e environs.Environ) envstorage.Storage {
 // CreateCustomStorage creates a swift container and returns the Storage object
 // so you can put data into it.
 func CreateCustomStorage(e environs.Environ, containerName string) envstorage.Storage {
-	env := e.(*environ)
+	env := e.(*Environ)
 	swiftClient := swift.New(env.client)
 	if err := swiftClient.CreateContainer(containerName, swift.PublicRead); err != nil {
 		panic(err)
@@ -358,12 +349,12 @@ func BlankContainerStorage() envstorage.Storage {
 }
 
 func GetNovaClient(e environs.Environ) *nova.Client {
-	return e.(*environ).nova()
+	return e.(*Environ).nova()
 }
 
 // ResolveNetwork exposes environ helper function resolveNetwork for testing
 func ResolveNetwork(e environs.Environ, networkName string) (string, error) {
-	return e.(*environ).resolveNetwork(networkName)
+	return e.(*Environ).resolveNetwork(networkName)
 }
 
 var PortsToRuleInfo = portsToRuleInfo
@@ -371,3 +362,5 @@ var RuleMatchesPortRange = ruleMatchesPortRange
 
 var MakeServiceURL = &makeServiceURL
 var ProviderInstance = providerInstance
+
+var GetVolumeEndpointURL = getVolumeEndpointURL

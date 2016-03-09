@@ -21,12 +21,12 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/jujuversion"
 	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/deployer"
 )
 
@@ -323,8 +323,8 @@ func (mock *mockConfig) WriteUpgradedToVersion(newVersion version.Number) error 
 	return nil
 }
 
-func (mock *mockConfig) Environment() names.EnvironTag {
-	return testing.EnvironmentTag
+func (mock *mockConfig) Model() names.ModelTag {
+	return testing.ModelTag
 }
 
 func (mock *mockConfig) CACert() string {

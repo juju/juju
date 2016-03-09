@@ -4,8 +4,12 @@
 package upgrades
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/utils"
+	"github.com/juju/version"
 )
 
 // stepsFor126 returns upgrade steps for Juju 1.26.
@@ -31,14 +35,42 @@ func stateStepsFor126() []Step {
 			},
 		},
 		&upgradeStep{
-			description: "upgrade environment config",
+			description: "upgrade model config",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				// TODO(axw) updateEnvironConfig should be
+				// TODO(axw) updateModelConfig should be
 				// called for all upgrades, to decouple this
 				// package from provider-specific upgrades.
 				st := context.State()
-				return upgradeEnvironConfig(st, st, environs.GlobalProviderRegistry())
+				return upgradeModelConfig(st, st, environs.GlobalProviderRegistry())
+			},
+		},
+		//TODO(perrito666) make this an unconditional upgrade step.
+		// it would be ideal not to have to modify this package whenever we add provider upgrade steps.
+		&upgradeStep{
+			description: "provider side upgrades",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				st := context.State()
+				env, err := utils.GetEnviron(st)
+				if err != nil {
+					return errors.Annotate(err, "getting provider for upgrade")
+				}
+				return upgradeProviderChanges(env, st, version.Number{Major: 1, Minor: 26})
+			},
+		},
+		&upgradeStep{
+			description: "update machine preferred addresses",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddPreferredAddressesToMachines(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "add default endpoint bindings to services",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddDefaultEndpointBindingsToServices(context.State())
 			},
 		},
 	}

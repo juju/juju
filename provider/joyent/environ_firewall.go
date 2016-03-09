@@ -88,7 +88,7 @@ func getPorts(envName string, rules []cloudapi.FirewallRule) []network.PortRange
 
 func (env *joyentEnviron) OpenPorts(ports []network.PortRange) error {
 	if env.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for opening ports on environment", env.Config().FirewallMode())
+		return fmt.Errorf("invalid firewall mode %q for opening ports on model", env.Config().FirewallMode())
 	}
 
 	fwRules, err := env.compute.cloudapi.ListFirewallRules()
@@ -114,14 +114,14 @@ func (env *joyentEnviron) OpenPorts(ports []network.PortRange) error {
 		}
 	}
 
-	logger.Infof("ports %v opened in environment", ports)
+	logger.Infof("ports %v opened in model", ports)
 
 	return nil
 }
 
 func (env *joyentEnviron) ClosePorts(ports []network.PortRange) error {
 	if env.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for closing ports on environment", env.Config().FirewallMode())
+		return fmt.Errorf("invalid firewall mode %q for closing ports on model", env.Config().FirewallMode())
 	}
 
 	fwRules, err := env.compute.cloudapi.ListFirewallRules()
@@ -147,14 +147,14 @@ func (env *joyentEnviron) ClosePorts(ports []network.PortRange) error {
 		}
 	}
 
-	logger.Infof("ports %v closed in environment", ports)
+	logger.Infof("ports %v closed in model", ports)
 
 	return nil
 }
 
 func (env *joyentEnviron) Ports() ([]network.PortRange, error) {
 	if env.Config().FirewallMode() != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment", env.Config().FirewallMode())
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from model", env.Config().FirewallMode())
 	}
 
 	fwRules, err := env.compute.cloudapi.ListFirewallRules()

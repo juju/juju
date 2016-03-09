@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloudconfig/cloudinit/cloudinittest"
 	"github.com/juju/juju/provider/joyent"
 	"github.com/juju/juju/testing"
 	"github.com/juju/utils/os"
@@ -21,20 +22,21 @@ var _ = gc.Suite(&UserdataSuite{})
 
 func (s *UserdataSuite) TestJoyentUnix(c *gc.C) {
 	renderer := joyent.JoyentRenderer{}
-	data := []byte("test")
-	result, err := renderer.EncodeUserdata(data, os.Ubuntu)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, data)
+	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}
 
-	data = []byte("test")
-	result, err = renderer.EncodeUserdata(data, os.CentOS)
+	result, err := renderer.Render(cloudcfg, os.Ubuntu)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, data)
+	c.Assert(result, jc.DeepEquals, cloudcfg.YAML)
+
+	result, err = renderer.Render(cloudcfg, os.CentOS)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, cloudcfg.YAML)
 }
 
 func (s *UserdataSuite) TestJoyentUnknownOS(c *gc.C) {
 	renderer := joyent.JoyentRenderer{}
-	result, err := renderer.EncodeUserdata(nil, os.Windows)
+	cloudcfg := &cloudinittest.CloudConfig{}
+	result, err := renderer.Render(cloudcfg, os.Windows)
 	c.Assert(result, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "Cannot encode userdata for OS: Windows")
 }

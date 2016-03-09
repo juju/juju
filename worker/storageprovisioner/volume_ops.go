@@ -19,7 +19,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 		volumeParams = append(volumeParams, op.args)
 	}
 	paramsBySource, volumeSources, err := volumeParamsBySource(
-		ctx.environConfig, ctx.storageDir, volumeParams,
+		ctx.modelConfig, ctx.config.StorageDir, volumeParams,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -93,7 +93,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 	// by environment, so that we can "harvest" them if they're
 	// unknown. This will take care of killing volumes that we fail
 	// to record in state.
-	errorResults, err := ctx.volumeAccessor.SetVolumeInfo(volumesFromStorage(volumes))
+	errorResults, err := ctx.config.Volumes.SetVolumeInfo(volumesFromStorage(volumes))
 	if err != nil {
 		return errors.Annotate(err, "publishing volumes to state")
 	}
@@ -128,7 +128,7 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 		volumeAttachmentParams = append(volumeAttachmentParams, op.args)
 	}
 	paramsBySource, volumeSources, err := volumeAttachmentParamsBySource(
-		ctx.environConfig, ctx.storageDir, volumeAttachmentParams,
+		ctx.modelConfig, ctx.config.StorageDir, volumeAttachmentParams,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -194,7 +194,7 @@ func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) erro
 		return errors.Trace(err)
 	}
 	paramsBySource, volumeSources, err := volumeParamsBySource(
-		ctx.environConfig, ctx.storageDir, volumeParams,
+		ctx.modelConfig, ctx.config.StorageDir, volumeParams,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -266,7 +266,7 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 		volumeAttachmentParams = append(volumeAttachmentParams, op.args)
 	}
 	paramsBySource, volumeSources, err := volumeAttachmentParamsBySource(
-		ctx.environConfig, ctx.storageDir, volumeAttachmentParams,
+		ctx.modelConfig, ctx.config.StorageDir, volumeAttachmentParams,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -415,7 +415,7 @@ func setVolumeAttachmentInfo(ctx *context, volumeAttachments []storage.VolumeAtt
 	// provider, by environment, so that we can "harvest" them if they're
 	// unknown. This will take care of killing volumes that we fail to
 	// record in state.
-	errorResults, err := ctx.volumeAccessor.SetVolumeAttachmentInfo(
+	errorResults, err := ctx.config.Volumes.SetVolumeAttachmentInfo(
 		volumeAttachmentsFromStorage(volumeAttachments),
 	)
 	if err != nil {

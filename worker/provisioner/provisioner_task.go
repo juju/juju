@@ -12,31 +12,29 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	"github.com/juju/version"
-	"launchpad.net/tomb"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
-	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/jujuversion"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/version"
 )
 
 type ProvisionerTask interface {
 	worker.Worker
-	Stop() error
-	Dying() <-chan struct{}
-	Err() error
 
 	// SetHarvestMode sets a flag to indicate how the provisioner task
 	// should harvest machines. See config.HarvestMode for
@@ -66,20 +64,27 @@ func NewProvisionerTask(
 	harvestMode config.HarvestMode,
 	machineGetter MachineGetter,
 	toolsFinder ToolsFinder,
-	machineWatcher apiwatcher.StringsWatcher,
-	retryWatcher apiwatcher.NotifyWatcher,
+	machineWatcher watcher.StringsWatcher,
+	retryWatcher watcher.NotifyWatcher,
 	broker environs.InstanceBroker,
 	auth authentication.AuthenticationProvider,
 	imageStream string,
 	secureServerConnection bool,
 	retryStartInstanceStrategy RetryStrategy,
-) ProvisionerTask {
+) (ProvisionerTask, error) {
+	machineChanges := machineWatcher.Changes()
+	workers := []worker.Worker{machineWatcher}
+	var retryChanges watcher.NotifyChannel
+	if retryWatcher != nil {
+		retryChanges = retryWatcher.Changes()
+		workers = append(workers, retryWatcher)
+	}
 	task := &provisionerTask{
 		machineTag:                 machineTag,
 		machineGetter:              machineGetter,
 		toolsFinder:                toolsFinder,
-		machineWatcher:             machineWatcher,
-		retryWatcher:               retryWatcher,
+		machineChanges:             machineChanges,
+		retryChanges:               retryChanges,
 		broker:                     broker,
 		auth:                       auth,
 		harvestMode:                harvestMode,
@@ -89,26 +94,25 @@ func NewProvisionerTask(
 		secureServerConnection:     secureServerConnection,
 		retryStartInstanceStrategy: retryStartInstanceStrategy,
 	}
-	go func() {
-		defer task.tomb.Done()
-		err := task.loop()
-		switch cause := errors.Cause(err); cause {
-		case tomb.ErrDying:
-			err = cause
-		}
-		task.tomb.Kill(err)
-	}()
-	return task
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &task.catacomb,
+		Work: task.loop,
+		Init: workers,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return task, nil
 }
 
 type provisionerTask struct {
 	machineTag                 names.MachineTag
 	machineGetter              MachineGetter
 	toolsFinder                ToolsFinder
-	machineWatcher             apiwatcher.StringsWatcher
-	retryWatcher               apiwatcher.NotifyWatcher
+	machineChanges             watcher.StringsChannel
+	retryChanges               watcher.NotifyChannel
 	broker                     environs.InstanceBroker
-	tomb                       tomb.Tomb
+	catacomb                   catacomb.Catacomb
 	auth                       authentication.AuthenticationProvider
 	imageStream                string
 	secureServerConnection     bool
@@ -123,30 +127,15 @@ type provisionerTask struct {
 
 // Kill implements worker.Worker.Kill.
 func (task *provisionerTask) Kill() {
-	task.tomb.Kill(nil)
+	task.catacomb.Kill(nil)
 }
 
 // Wait implements worker.Worker.Wait.
 func (task *provisionerTask) Wait() error {
-	return task.tomb.Wait()
-}
-
-func (task *provisionerTask) Stop() error {
-	task.Kill()
-	return task.Wait()
-}
-
-func (task *provisionerTask) Dying() <-chan struct{} {
-	return task.tomb.Dying()
-}
-
-func (task *provisionerTask) Err() error {
-	return task.tomb.Err()
+	return task.catacomb.Wait()
 }
 
 func (task *provisionerTask) loop() error {
-	logger.Infof("Starting up provisioner task %s", task.machineTag)
-	defer watcher.Stop(task.machineWatcher, &task.tomb)
 
 	// Don't allow the harvesting mode to change until we have read at
 	// least one set of changes, which will populate the task.machines
@@ -154,27 +143,22 @@ func (task *provisionerTask) loop() error {
 	// as unknown.
 	var harvestModeChan chan config.HarvestMode
 
-	// Not all provisioners have a retry channel.
-	var retryChan <-chan struct{}
-	if task.retryWatcher != nil {
-		retryChan = task.retryWatcher.Changes()
-	}
-
 	// When the watcher is started, it will have the initial changes be all
 	// the machines that are relevant. Also, since this is available straight
 	// away, we know there will be some changes right off the bat.
 	for {
 		select {
-		case <-task.tomb.Dying():
+		case <-task.catacomb.Dying():
 			logger.Infof("Shutting down provisioner task %s", task.machineTag)
-			return tomb.ErrDying
-		case ids, ok := <-task.machineWatcher.Changes():
+			return task.catacomb.ErrDying()
+		case ids, ok := <-task.machineChanges:
 			if !ok {
-				return watcher.EnsureErr(task.machineWatcher)
+				return errors.New("machine watcher closed channel")
 			}
 			if err := task.processMachines(ids); err != nil {
 				return errors.Annotate(err, "failed to process updated machines")
 			}
+
 			// We've seen a set of changes. Enable modification of
 			// harvesting mode.
 			harvestModeChan = task.harvestModeChan
@@ -182,18 +166,15 @@ func (task *provisionerTask) loop() error {
 			if harvestMode == task.harvestMode {
 				break
 			}
-
 			logger.Infof("harvesting mode changed to %s", harvestMode)
 			task.harvestMode = harvestMode
-
 			if harvestMode.HarvestUnknown() {
-
 				logger.Infof("harvesting unknown machines")
 				if err := task.processMachines(nil); err != nil {
 					return errors.Annotate(err, "failed to process machines after safe mode disabled")
 				}
 			}
-		case <-retryChan:
+		case <-task.retryChanges:
 			if err := task.processMachinesWithTransientErrors(); err != nil {
 				return errors.Annotate(err, "failed to process machines with transient errors")
 			}
@@ -205,7 +186,7 @@ func (task *provisionerTask) loop() error {
 func (task *provisionerTask) SetHarvestMode(mode config.HarvestMode) {
 	select {
 	case task.harvestModeChan <- mode:
-	case <-task.Dying():
+	case <-task.catacomb.Dying():
 	}
 }
 
@@ -517,12 +498,17 @@ func (task *provisionerTask) constructInstanceConfig(
 		return nil, errors.Annotate(err, "failed to generate a nonce for machine "+machine.Id())
 	}
 
+	publicKey, err := simplestreams.UserPublicSigningKey()
+	if err != nil {
+		return nil, err
+	}
 	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid)
 	return instancecfg.NewInstanceConfig(
 		machine.Id(),
 		nonce,
 		task.imageStream,
 		pInfo.Series,
+		publicKey,
 		task.secureServerConnection,
 		nil,
 		stateInfo,
@@ -571,12 +557,34 @@ func constructStartInstanceParams(
 			},
 		}
 	}
+
 	var subnetsToZones map[network.Id][]string
 	if provisioningInfo.SubnetsToZones != nil {
 		// Convert subnet provider ids from string to network.Id.
 		subnetsToZones = make(map[network.Id][]string, len(provisioningInfo.SubnetsToZones))
 		for providerId, zones := range provisioningInfo.SubnetsToZones {
 			subnetsToZones[network.Id(providerId)] = zones
+		}
+	}
+
+	var endpointBindings map[string]network.Id
+	if len(provisioningInfo.EndpointBindings) != 0 {
+		endpointBindings = make(map[string]network.Id)
+		for endpoint, space := range provisioningInfo.EndpointBindings {
+			endpointBindings[endpoint] = network.Id(space)
+		}
+	}
+	possibleImageMetadata := make([]*imagemetadata.ImageMetadata, len(provisioningInfo.ImageMetadata))
+	for i, metadata := range provisioningInfo.ImageMetadata {
+		possibleImageMetadata[i] = &imagemetadata.ImageMetadata{
+			Id:          metadata.ImageId,
+			Arch:        metadata.Arch,
+			RegionAlias: metadata.Region,
+			RegionName:  metadata.Region,
+			Storage:     metadata.RootStorageType,
+			Stream:      metadata.Stream,
+			VirtType:    metadata.VirtType,
+			Version:     metadata.Version,
 		}
 	}
 
@@ -588,6 +596,8 @@ func constructStartInstanceParams(
 		DistributionGroup: machine.DistributionGroup,
 		Volumes:           volumes,
 		SubnetsToZones:    subnetsToZones,
+		EndpointBindings:  endpointBindings,
+		ImageMetadata:     possibleImageMetadata,
 	}, nil
 }
 
@@ -607,7 +617,7 @@ func (task *provisionerTask) maintainMachines(machines []*apiprovisioner.Machine
 func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) error {
 	for _, m := range machines {
 
-		pInfo, err := task.blockUntilProvisioned(m.ProvisioningInfo)
+		pInfo, err := m.ProvisioningInfo()
 		if err != nil {
 			return task.setErrorStatus("fetching provisioning info for machine %q: %v", m, err)
 		}
@@ -666,6 +676,21 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.I
 	}
 	visitedNetworks := set.NewStrings()
 	for _, info := range networkInfo {
+		// TODO(dimitern): The following few fields are required, but no longer
+		// matter and will be dropped or changed soon as part of making spaces
+		// and subnets usable across the board.
+		if info.NetworkName == "" {
+			info.NetworkName = network.DefaultPrivate
+		}
+		if info.ProviderId == "" {
+			info.ProviderId = network.DefaultPrivate
+		}
+		if info.CIDR == "" {
+			// TODO(dimitern): This is only when NOT using addressable
+			// containers, as we don't fetch the subnet details, but since
+			// networks in state are going away real soon, it's not important.
+			info.CIDR = "0.0.0.0/32"
+		}
 		if !names.IsValidNetwork(info.NetworkName) {
 			return nil, nil, errors.Errorf("invalid network name %q", info.NetworkName)
 		}
@@ -708,8 +733,8 @@ func (task *provisionerTask) startMachine(
 		for count := task.retryStartInstanceStrategy.retryCount; count > 0; count-- {
 			if task.retryStartInstanceStrategy.retryDelay > 0 {
 				select {
-				case <-task.tomb.Dying():
-					return tomb.ErrDying
+				case <-task.catacomb.Dying():
+					return task.catacomb.ErrDying()
 				case <-time.After(task.retryStartInstanceStrategy.retryDelay):
 				}
 
@@ -742,9 +767,7 @@ func (task *provisionerTask) startMachine(
 	// for each interface, so we can later manage interfaces
 	// dynamically at run-time.
 	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networks, ifaces, volumes, volumeAttachments)
-	if err != nil && params.IsCodeNotImplemented(err) {
-		return fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented", inst.Id(), machine)
-	} else if err == nil {
+	if err == nil {
 		logger.Infof(
 			"started machine %s as instance %s with hardware %q, networks %v, interfaces %v, volumes %v, volume attachments %v, subnets to zones %v",
 			machine, inst.Id(), hardware,
@@ -819,31 +842,4 @@ func volumeAttachmentsToApiserver(attachments []storage.VolumeAttachment) map[st
 		}
 	}
 	return result
-}
-
-// ProvisioningInfo is new in 1.20; wait for the API server to be
-// upgraded so we don't spew errors on upgrade.
-func (task *provisionerTask) blockUntilProvisioned(
-	provision func() (*params.ProvisioningInfo, error),
-) (*params.ProvisioningInfo, error) {
-
-	var pInfo *params.ProvisioningInfo
-	var err error
-	for {
-		if pInfo, err = provision(); err == nil {
-			break
-		}
-		if params.IsCodeNotImplemented(err) {
-			logger.Infof("waiting for state server to be upgraded")
-			select {
-			case <-task.tomb.Dying():
-				return nil, tomb.ErrDying
-			case <-time.After(15 * time.Second):
-				continue
-			}
-		}
-		return nil, err
-	}
-
-	return pInfo, nil
 }

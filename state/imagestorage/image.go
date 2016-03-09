@@ -8,10 +8,10 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/blobstore"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -30,7 +30,7 @@ const (
 )
 
 type imageStorage struct {
-	envUUID            string
+	modelUUID          string
 	metadataCollection *mgo.Collection
 	blobDb             *mgo.Database
 }
@@ -42,12 +42,12 @@ var _ Storage = (*imageStorage)(nil)
 // database in the "imagemetadata" collection.
 func NewStorage(
 	session *mgo.Session,
-	envUUID string,
+	modelUUID string,
 ) Storage {
 	blobDb := session.DB(ImagesDB)
 	metadataCollection := blobDb.C(imagemetadataC)
 	return &imageStorage{
-		envUUID,
+		modelUUID,
 		metadataCollection,
 		blobDb,
 	}
@@ -82,14 +82,14 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 	defer session.Close()
 	managedStorage := s.getManagedStorage(session)
 	path := imagePath(metadata.Kind, metadata.Series, metadata.Arch, metadata.SHA256)
-	if err := managedStorage.PutForEnvironment(s.envUUID, path, r, metadata.Size); err != nil {
+	if err := managedStorage.PutForBucket(s.modelUUID, path, r, metadata.Size); err != nil {
 		return errors.Annotate(err, "cannot store image")
 	}
 	defer func() {
 		if resultErr == nil {
 			return
 		}
-		err := managedStorage.RemoveForEnvironment(s.envUUID, path)
+		err := managedStorage.RemoveForBucket(s.modelUUID, path)
 		if err != nil {
 			logger.Errorf("failed to remove image blob: %v", err)
 		}
@@ -97,7 +97,7 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 
 	newDoc := imageMetadataDoc{
 		Id:        docId(metadata),
-		EnvUUID:   s.envUUID,
+		ModelUUID: s.modelUUID,
 		Kind:      metadata.Kind,
 		Series:    metadata.Series,
 		Arch:      metadata.Arch,
@@ -125,7 +125,7 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 			op.Assert = txn.DocMissing
 			op.Insert = &newDoc
 		} else {
-			oldDoc, err := s.imageMetadataDoc(metadata.EnvUUID, metadata.Kind, metadata.Series, metadata.Arch)
+			oldDoc, err := s.imageMetadataDoc(metadata.ModelUUID, metadata.Kind, metadata.Series, metadata.Arch)
 			if err != nil {
 				return nil, err
 			}
@@ -151,7 +151,7 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 
 	if oldPath != "" && oldPath != path {
 		// Attempt to remove the old path. Failure is non-fatal.
-		err := managedStorage.RemoveForEnvironment(s.envUUID, oldPath)
+		err := managedStorage.RemoveForBucket(s.modelUUID, oldPath)
 		if err != nil {
 			logger.Errorf("failed to remove old image blob: %v", err)
 		} else {
@@ -163,14 +163,14 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 
 // ListImages is defined on the Storage interface.
 func (s *imageStorage) ListImages(filter ImageFilter) ([]*Metadata, error) {
-	metadataDocs, err := s.listImageMetadataDocs(s.envUUID, filter.Kind, filter.Series, filter.Arch)
+	metadataDocs, err := s.listImageMetadataDocs(s.modelUUID, filter.Kind, filter.Series, filter.Arch)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot list image metadata")
 	}
 	result := make([]*Metadata, len(metadataDocs))
 	for i, metadataDoc := range metadataDocs {
 		result[i] = &Metadata{
-			EnvUUID:   s.envUUID,
+			ModelUUID: s.modelUUID,
 			Kind:      metadataDoc.Kind,
 			Series:    metadataDoc.Series,
 			Arch:      metadataDoc.Arch,
@@ -189,7 +189,7 @@ func (s *imageStorage) DeleteImage(metadata *Metadata) (resultErr error) {
 	defer session.Close()
 	managedStorage := s.getManagedStorage(session)
 	path := imagePath(metadata.Kind, metadata.Series, metadata.Arch, metadata.SHA256)
-	if err := managedStorage.RemoveForEnvironment(s.envUUID, path); err != nil {
+	if err := managedStorage.RemoveForBucket(s.modelUUID, path); err != nil {
 		return errors.Annotate(err, "cannot remove image blob")
 	}
 	// Remove the metadata.
@@ -224,7 +224,7 @@ func (c *imageCloser) Close() error {
 
 // Image is defined on the Storage interface.
 func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadCloser, error) {
-	metadataDoc, err := s.imageMetadataDoc(s.envUUID, kind, series, arch)
+	metadataDoc, err := s.imageMetadataDoc(s.modelUUID, kind, series, arch)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -235,7 +235,7 @@ func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadClose
 		return nil, nil, err
 	}
 	metadata := &Metadata{
-		EnvUUID:   s.envUUID,
+		ModelUUID: s.modelUUID,
 		Kind:      metadataDoc.Kind,
 		Series:    metadataDoc.Series,
 		Arch:      metadataDoc.Arch,
@@ -253,7 +253,7 @@ func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadClose
 
 type imageMetadataDoc struct {
 	Id        string    `bson:"_id"`
-	EnvUUID   string    `bson:"envuuid"`
+	ModelUUID string    `bson:"modelUUID"`
 	Kind      string    `bson:"kind"`
 	Series    string    `bson:"series"`
 	Arch      string    `bson:"arch"`
@@ -264,9 +264,9 @@ type imageMetadataDoc struct {
 	SourceURL string    `bson:"sourceurl"`
 }
 
-func (s *imageStorage) imageMetadataDoc(envUUID, kind, series, arch string) (imageMetadataDoc, error) {
+func (s *imageStorage) imageMetadataDoc(modelUUID, kind, series, arch string) (imageMetadataDoc, error) {
 	var doc imageMetadataDoc
-	id := fmt.Sprintf("%s-%s-%s-%s", envUUID, kind, series, arch)
+	id := fmt.Sprintf("%s-%s-%s-%s", modelUUID, kind, series, arch)
 	coll, closer := mongo.CollectionFromName(s.metadataCollection.Database, imagemetadataC)
 	defer closer()
 	err := coll.FindId(id).One(&doc)
@@ -278,11 +278,11 @@ func (s *imageStorage) imageMetadataDoc(envUUID, kind, series, arch string) (ima
 	return doc, nil
 }
 
-func (s *imageStorage) listImageMetadataDocs(envUUID, kind, series, arch string) ([]imageMetadataDoc, error) {
+func (s *imageStorage) listImageMetadataDocs(modelUUID, kind, series, arch string) ([]imageMetadataDoc, error) {
 	coll, closer := mongo.CollectionFromName(s.metadataCollection.Database, imagemetadataC)
 	defer closer()
 	imageDocs := []imageMetadataDoc{}
-	filter := bson.D{{"envuuid", envUUID}}
+	filter := bson.D{{"modelUUID", modelUUID}}
 	if kind != "" {
 		filter = append(filter, bson.DocElem{"kind", kind})
 	}
@@ -297,7 +297,7 @@ func (s *imageStorage) listImageMetadataDocs(envUUID, kind, series, arch string)
 }
 
 func (s *imageStorage) imageBlob(managedStorage blobstore.ManagedStorage, path string) (io.ReadCloser, error) {
-	r, _, err := managedStorage.GetForEnvironment(s.envUUID, path)
+	r, _, err := managedStorage.GetForBucket(s.modelUUID, path)
 	return r, err
 }
 
@@ -308,5 +308,5 @@ func imagePath(kind, series, arch, checksum string) string {
 
 // docId returns an id for the mongo image metadata document.
 func docId(metadata *Metadata) string {
-	return fmt.Sprintf("%s-%s-%s-%s", metadata.EnvUUID, metadata.Kind, metadata.Series, metadata.Arch)
+	return fmt.Sprintf("%s-%s-%s-%s", metadata.ModelUUID, metadata.Kind, metadata.Series, metadata.Arch)
 }

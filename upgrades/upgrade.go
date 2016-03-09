@@ -48,10 +48,10 @@ const (
 	// HostMachine is a machine on which units are deployed.
 	HostMachine = Target("hostMachine")
 
-	// StateServer is a machine participating in a Juju state server cluster.
-	StateServer = Target("stateServer")
+	// Controller is a machine participating in a Juju controller cluster.
+	Controller = Target("controller")
 
-	// DatabaseMaster is a StateServer that has the master database, and as such
+	// DatabaseMaster is a Controller that has the master database, and as such
 	// is the only target that should run database schema upgrade steps.
 	DatabaseMaster = Target("databaseMaster")
 )
@@ -111,7 +111,7 @@ func PerformUpgrade(from version.Number, targets []Target, context Context) erro
 
 func hasStateTarget(targets []Target) bool {
 	for _, target := range targets {
-		if target == StateServer || target == DatabaseMaster {
+		if target == Controller || target == DatabaseMaster {
 			return true
 		}
 	}

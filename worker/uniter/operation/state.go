@@ -7,9 +7,9 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/worker/uniter/hook"
 )
 

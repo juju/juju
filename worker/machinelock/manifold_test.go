@@ -37,7 +37,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		"agent-name": dt.StubResource{Output: &dummyAgent{}},
 	})
 
-	lock, err := fslock.NewLock(c.MkDir(), "test-lock")
+	lock, err := fslock.NewLock(c.MkDir(), "test-lock", fslock.Defaults())
 	c.Assert(err, jc.ErrorIsNil)
 	s.lock = lock
 	s.PatchValue(machinelock.CreateLock, func(dataDir string) (*fslock.Lock, error) {

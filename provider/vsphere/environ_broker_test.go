@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere"
@@ -37,8 +37,7 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environBrokerSuite) PrepareStartInstanceFakes(c *gc.C) {
-	// Prevent falling over to the public datasource.
-	s.BaseSuite.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 
 	client := vsphere.ExposeEnvFakeClient(s.Env)
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
@@ -57,7 +56,7 @@ func (s *environBrokerSuite) CreateStartInstanceArgs(c *gc.C) environs.StartInst
 
 	cons := constraints.Value{}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, "trusty")
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	instanceConfig.Tools = tools[0]

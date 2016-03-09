@@ -15,62 +15,57 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
 
 type ImageMetadataSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	environ []string
 	dir     string
+	store   *jujuclienttesting.MemStore
 }
 
 var _ = gc.Suite(&ImageMetadataSuite{})
 
 func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpSuite(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.environ = os.Environ()
 }
 
-var testCert = `
------BEGIN PRIVATE KEY-----
-MIIBCgIBADANBgkqhkiG9w0BAQEFAASB9TCB8gIBAAIxAKQGQxP1i0VfCWn4KmMP
-taUFn8sMBKjP/9vHnUYdZRvvmoJCA1C6arBUDp8s2DNX+QIDAQABAjBLRqhwN4dU
-LfqHDKJ/Vg1aD8u3Buv4gYRBxdFR5PveyqHSt5eJ4g/x/4ndsvr2OqUCGQDNfNlD
-zxHCiEAwZZAPaAkn8jDkFupTljcCGQDMWCujiVZ1NNuBD/N32Yt8P9JDiNzZa08C
-GBW7VXLxbExpgnhb1V97vjQmTfthXQjYAwIYSTEjoFXm4+Bk5xuBh2IidgSeGZaC
-FFY9AhkAsteo31cyQw2xJ80SWrmsIw+ps7Cvt5W9
------END PRIVATE KEY-----
------BEGIN CERTIFICATE-----
-MIIBDzCByqADAgECAgkAgIBb3+lSwzEwDQYJKoZIhvcNAQEFBQAwFTETMBEGA1UE
-AxQKQEhvc3ROYW1lQDAeFw0xMzA3MTkxNjA1NTRaFw0yMzA3MTcxNjA1NTRaMBUx
-EzARBgNVBAMUCkBIb3N0TmFtZUAwTDANBgkqhkiG9w0BAQEFAAM7ADA4AjEApAZD
-E/WLRV8JafgqYw+1pQWfywwEqM//28edRh1lG++agkIDULpqsFQOnyzYM1f5AgMB
-AAGjDTALMAkGA1UdEwQCMAAwDQYJKoZIhvcNAQEFBQADMQABKfn08tKfzzqMMD2w
-PI2fs3bw5bRH8tmGjrsJeEdp9crCBS8I3hKcxCkTTRTowdY=
------END CERTIFICATE-----
-`
-
 func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.dir = c.MkDir()
-	// Create a fake certificate so azure test environment can be opened.
-	certfile, err := ioutil.TempFile(s.dir, "")
+	cacheTestEnvConfig(c)
+
+	err := modelcmd.WriteCurrentController("testing")
 	c.Assert(err, jc.ErrorIsNil)
-	filename := certfile.Name()
-	err = ioutil.WriteFile(filename, []byte(testCert), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	envConfig := strings.Replace(metadataTestEnvConfig, "/home/me/azure.pem", filename, -1)
-	testing.WriteEnvironments(c, envConfig)
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
+	s.store.Accounts["testing"] = &jujuclient.ControllerAccounts{
+		CurrentAccount: "admin@local",
+	}
+
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
+}
+
+func runImageMetadata(c *gc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, error) {
+	cmd := &imageMetadataCommand{}
+	cmd.SetClientStore(store)
+	return testing.RunCommand(c, modelcmd.Wrap(cmd), args...)
 }
 
 var seriesVersions map[string]string = map[string]string{
 	"precise": "12.04",
 	"raring":  "13.04",
 	"trusty":  "14.04",
+	"xenial":  "16.04",
 }
 
 type expectedMetadata struct {
@@ -129,11 +124,11 @@ const (
 )
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *gc.C) {
-	ctx := testing.Context(c)
-	code := cmd.Main(
-		newImageMetadataCommand(), ctx, []string{
-			"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint", "-s", "raring", "--virt-type=pv", "--storage=root"})
-	c.Assert(code, gc.Equals, 0)
+	ctx, err := runImageMetadata(c, s.store,
+		"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint",
+		"-s", "raring", "--virt-type=pv", "--storage=root",
+	)
+	c.Assert(err, jc.ErrorIsNil)
 	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
 		series:   "raring",
@@ -145,11 +140,10 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *gc.C) {
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
-	ctx := testing.Context(c)
-	code := cmd.Main(
-		newImageMetadataCommand(), ctx, []string{
-			"-d", s.dir, "-i", "1234", "-r", "region", "-u", "endpoint", "-s", "raring"})
-	c.Assert(code, gc.Equals, 0)
+	ctx, err := runImageMetadata(c, s.store,
+		"-d", s.dir, "-i", "1234", "-r", "region", "-u", "endpoint", "-s", "raring",
+	)
+	c.Assert(err, jc.ErrorIsNil)
 	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
 		series: "raring",
@@ -159,13 +153,27 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
-	envConfig := strings.Replace(metadataTestEnvConfig, "default-series: precise", "", -1)
-	testing.WriteEnvironments(c, envConfig)
-	ctx := testing.Context(c)
-	code := cmd.Main(
-		newImageMetadataCommand(), ctx, []string{
-			"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint"})
-	c.Assert(code, gc.Equals, 0)
+	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name":   "ec2-latest-lts",
+		"type":   "ec2",
+		"region": "us-east-1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	store, err := configstore.Default()
+	c.Assert(err, jc.ErrorIsNil)
+
+	info := store.CreateInfo("ec2-latest-lts")
+	c.Assert(err, jc.ErrorIsNil)
+	info.SetBootstrapConfig(ec2Config.AllAttrs())
+	err = info.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx, err := runImageMetadata(c, s.store,
+		"-m", "ec2-latest-lts",
+		"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint",
+	)
+	c.Assert(err, jc.ErrorIsNil)
 	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
 		series: config.LatestLtsSeries(),
@@ -175,10 +183,10 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
-	ctx := testing.Context(c)
-	code := cmd.Main(
-		newImageMetadataCommand(), ctx, []string{"-d", s.dir, "-e", "ec2", "-i", "1234", "--virt-type=pv", "--storage=root"})
-	c.Assert(code, gc.Equals, 0)
+	ctx, err := runImageMetadata(c, s.store,
+		"-d", s.dir, "-m", "ec2", "-i", "1234", "--virt-type=pv", "--storage=root",
+	)
+	c.Assert(err, jc.ErrorIsNil)
 	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
 		series:   "precise",
@@ -192,11 +200,10 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c *gc.C) {
-	ctx := testing.Context(c)
-	code := cmd.Main(
-		newImageMetadataCommand(), ctx, []string{
-			"-d", s.dir, "-e", "ec2", "-r", "us-west-1", "-u", "https://ec2.us-west-1.amazonaws.com", "-i", "1234"})
-	c.Assert(code, gc.Equals, 0)
+	ctx, err := runImageMetadata(c, s.store,
+		"-d", s.dir, "-m", "ec2", "-r", "us-west-1", "-u", "https://ec2.us-west-1.amazonaws.com", "-i", "1234",
+	)
+	c.Assert(err, jc.ErrorIsNil)
 	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
 		series:   "precise",
@@ -208,11 +215,10 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c 
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithNoHasRegion(c *gc.C) {
-	ctx := testing.Context(c)
-	code := cmd.Main(
-		newImageMetadataCommand(), ctx, []string{
-			"-d", s.dir, "-e", "azure", "-r", "region", "-u", "endpoint", "-i", "1234"})
-	c.Assert(code, gc.Equals, 0)
+	ctx, err := runImageMetadata(c, s.store,
+		"-d", s.dir, "-m", "azure", "-r", "region", "-u", "endpoint", "-i", "1234",
+	)
+	c.Assert(err, jc.ErrorIsNil)
 	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
 		series:   "raring",
@@ -241,20 +247,16 @@ var errTests = []errTestParams{
 		args: []string{"-i", "1234", "-u", "endpoint", "-a", "arch", "-s", "precise"},
 	},
 	{
-		// Missing endpoint/region for environment with no HasRegion interface
-		args: []string{"-i", "1234", "-e", "azure"},
+		// Missing endpoint/region for model with no HasRegion interface
+		args: []string{"-i", "1234", "-m", "azure"},
 	},
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataBadArgs(c *gc.C) {
-	testing.MakeSampleJujuHome(c)
-	s.AddCleanup(func(*gc.C) {
-		dummy.Reset()
-	})
 	for i, t := range errTests {
 		c.Logf("test: %d", i)
-		ctx := testing.Context(c)
-		code := cmd.Main(newImageMetadataCommand(), ctx, t.args)
-		c.Check(code, gc.Equals, 1)
+		_, err := runImageMetadata(c, s.store, t.args...)
+		c.Check(err, gc.NotNil, gc.Commentf("test %d: %s", i, t.args))
+		dummy.Reset()
 	}
 }

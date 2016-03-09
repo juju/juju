@@ -11,11 +11,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newCreateCommand() cmd.Command {
-	return envcmd.Wrap(&createCommand{})
+	return modelcmd.Wrap(&createCommand{})
 }
 
 // createCommand calls the API to create a new network space.

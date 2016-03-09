@@ -52,7 +52,7 @@ func (s *storageSuite) TearDownTest(c *gc.C) {
 
 func (s *storageSuite) metadata(c *gc.C) *backups.Metadata {
 	meta := backups.NewMetadata()
-	meta.Origin.Environment = s.State.EnvironUUID()
+	meta.Origin.Model = s.State.ModelUUID()
 	meta.Origin.Machine = "0"
 	meta.Origin.Hostname = "localhost"
 	err := meta.MarkComplete(int64(42), "some hash")
@@ -70,7 +70,7 @@ func (s *storageSuite) checkMeta(c *gc.C, meta, expected *backups.Metadata, id s
 	c.Check(meta.Checksum(), gc.Equals, expected.Checksum())
 	c.Check(meta.ChecksumFormat(), gc.Equals, expected.ChecksumFormat())
 	c.Check(meta.Size(), gc.Equals, expected.Size())
-	c.Check(meta.Origin.Environment, gc.Equals, expected.Origin.Environment)
+	c.Check(meta.Origin.Model, gc.Equals, expected.Origin.Model)
 	c.Check(meta.Origin.Machine, gc.Equals, expected.Origin.Machine)
 	c.Check(meta.Origin.Hostname, gc.Equals, expected.Origin.Hostname)
 	c.Check(meta.Origin.Version, gc.Equals, expected.Origin.Version)
@@ -83,7 +83,7 @@ func (s *storageSuite) checkMeta(c *gc.C, meta, expected *backups.Metadata, id s
 
 func (s *storageSuite) TestNewStorageID(c *gc.C) {
 	meta := s.metadata(c)
-	meta.Origin.Environment = "spam"
+	meta.Origin.Model = "spam"
 	meta.Started = time.Date(2014, time.Month(9), 12, 13, 19, 27, 0, time.UTC)
 	id := backups.NewBackupID(meta)
 

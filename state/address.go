@@ -4,8 +4,9 @@
 package state
 
 import (
-	"fmt"
+	"net"
 	"reflect"
+	"strconv"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2/bson"
@@ -14,23 +15,23 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// stateServerAddresses returns the list of internal addresses of the state
+// controllerAddresses returns the list of internal addresses of the state
 // server machines.
-func (st *State) stateServerAddresses() ([]string, error) {
+func (st *State) controllerAddresses() ([]string, error) {
 	ssState := st
-	env, err := st.StateServerEnvironment()
+	model, err := st.ControllerModel()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if st.EnvironTag() != env.EnvironTag() {
-		// We are not using the state server environment, so get one.
-		logger.Debugf("getting a state server state connection, current env: %s", st.EnvironTag())
-		ssState, err = st.ForEnviron(env.EnvironTag())
+	if st.ModelTag() != model.ModelTag() {
+		// We are not using the controller model, so get one.
+		logger.Debugf("getting a controller state connection, current env: %s", st.ModelTag())
+		ssState, err = st.ForModel(model.ModelTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		defer ssState.Close()
-		logger.Debugf("ssState env: %s", ssState.EnvironTag())
+		logger.Debugf("ssState env: %s", ssState.ModelTag())
 	}
 
 	type addressMachine struct {
@@ -40,23 +41,23 @@ func (st *State) stateServerAddresses() ([]string, error) {
 	// TODO(rog) 2013/10/14 index machines on jobs.
 	machines, closer := ssState.getCollection(machinesC)
 	defer closer()
-	err = machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&allAddresses)
+	err = machines.Find(bson.D{{"jobs", JobManageModel}}).All(&allAddresses)
 	if err != nil {
 		return nil, err
 	}
 	if len(allAddresses) == 0 {
-		return nil, errors.New("no state server machines found")
+		return nil, errors.New("no controller machines found")
 	}
 	apiAddrs := make([]string, 0, len(allAddresses))
 	for _, addrs := range allAddresses {
 		naddrs := networkAddresses(addrs.Addresses)
-		addr, ok := network.SelectInternalAddress(naddrs, false)
+		addr, ok := network.SelectControllerAddress(naddrs, false)
 		if ok {
 			apiAddrs = append(apiAddrs, addr.Value)
 		}
 	}
 	if len(apiAddrs) == 0 {
-		return nil, errors.New("no state server machines with addresses found")
+		return nil, errors.New("no controller machines with addresses found")
 	}
 	return apiAddrs, nil
 }
@@ -64,7 +65,7 @@ func (st *State) stateServerAddresses() ([]string, error) {
 func appendPort(addrs []string, port int) []string {
 	newAddrs := make([]string, len(addrs))
 	for i, addr := range addrs {
-		newAddrs[i] = fmt.Sprintf("%s:%d", addr, port)
+		newAddrs[i] = net.JoinHostPort(addr, strconv.Itoa(port))
 	}
 	return newAddrs
 }
@@ -72,11 +73,11 @@ func appendPort(addrs []string, port int) []string {
 // Addresses returns the list of cloud-internal addresses that
 // can be used to connect to the state.
 func (st *State) Addresses() ([]string, error) {
-	addrs, err := st.stateServerAddresses()
+	addrs, err := st.controllerAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config, err := st.EnvironConfig()
+	config, err := st.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -88,11 +89,11 @@ func (st *State) Addresses() ([]string, error) {
 // This method will be deprecated when API addresses are
 // stored independently in their own document.
 func (st *State) APIAddressesFromMachines() ([]string, error) {
-	addrs, err := st.stateServerAddresses()
+	addrs, err := st.controllerAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config, err := st.EnvironConfig()
+	config, err := st.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -108,8 +109,21 @@ type apiHostPortsDoc struct {
 // SetAPIHostPorts sets the addresses of the API server instances.
 // Each server is represented by one element in the top level slice.
 func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
+	// Filter any addresses not on the default space, if possible.
+	// All API servers need to be accessible there.
+	var hpsToSet [][]network.HostPort
+	for _, hps := range netHostsPorts {
+		defaultSpaceHP, ok := network.SelectHostPortBySpace(hps, network.DefaultSpace)
+		if !ok {
+			logger.Warningf("cannot determine API addresses in space %q to use as API endpoints; using all addresses", network.DefaultSpace)
+			hpsToSet = netHostsPorts
+			break
+		}
+		hpsToSet = append(hpsToSet, []network.HostPort{defaultSpaceHP})
+	}
+
 	doc := apiHostPortsDoc{
-		APIHostPorts: fromNetworkHostsPorts(netHostsPorts),
+		APIHostPorts: fromNetworkHostsPorts(hpsToSet),
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		existing, err := st.APIHostPorts()
@@ -117,7 +131,7 @@ func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
 			return nil, err
 		}
 		op := txn.Op{
-			C:  stateServersC,
+			C:  controllersC,
 			Id: apiHostPortsKey,
 			Assert: bson.D{{
 				"apihostports", fromNetworkHostsPorts(existing),
@@ -133,16 +147,16 @@ func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
 	if err := st.run(buildTxn); err != nil {
 		return errors.Annotate(err, "cannot set API addresses")
 	}
-	logger.Debugf("setting API hostPorts: %v", netHostsPorts)
+	logger.Debugf("setting API hostPorts: %v", hpsToSet)
 	return nil
 }
 
 // APIHostPorts returns the API addresses as set by SetAPIHostPorts.
 func (st *State) APIHostPorts() ([][]network.HostPort, error) {
 	var doc apiHostPortsDoc
-	stateServers, closer := st.getCollection(stateServersC)
+	controllers, closer := st.getCollection(controllersC)
 	defer closer()
-	err := stateServers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&doc)
+	err := controllers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&doc)
 	if err != nil {
 		return nil, err
 	}
@@ -157,11 +171,11 @@ type DeployerConnectionValues struct {
 // DeployerConnectionInfo returns the address information necessary for the deployer.
 // The function does the expensive operations (getting stuff from mongo) just once.
 func (st *State) DeployerConnectionInfo() (*DeployerConnectionValues, error) {
-	addrs, err := st.stateServerAddresses()
+	addrs, err := st.controllerAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config, err := st.EnvironConfig()
+	config, err := st.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -182,16 +196,33 @@ type address struct {
 	AddressType string `bson:"addresstype"`
 	NetworkName string `bson:"networkname,omitempty"`
 	Scope       string `bson:"networkscope,omitempty"`
+	Origin      string `bson:"origin,omitempty"`
+	SpaceName   string `bson:"spacename,omitempty"`
 }
 
+// Origin specifies where an address comes from, whether it was reported by a
+// provider or by a machine.
+type Origin string
+
+const (
+	// Address origin unknown.
+	OriginUnknown Origin = ""
+	// Address comes from a provider.
+	OriginProvider Origin = "provider"
+	// Address comes from a machine.
+	OriginMachine Origin = "machine"
+)
+
 // fromNetworkAddress is a convenience helper to create a state type
-// out of the network type, here for Address.
-func fromNetworkAddress(netAddr network.Address) address {
+// out of the network type, here for Address with a given Origin.
+func fromNetworkAddress(netAddr network.Address, origin Origin) address {
 	return address{
 		Value:       netAddr.Value,
 		AddressType: string(netAddr.Type),
 		NetworkName: netAddr.NetworkName,
 		Scope:       string(netAddr.Scope),
+		Origin:      string(origin),
+		SpaceName:   string(netAddr.SpaceName),
 	}
 }
 
@@ -203,15 +234,16 @@ func (addr *address) networkAddress() network.Address {
 		Type:        network.AddressType(addr.AddressType),
 		NetworkName: addr.NetworkName,
 		Scope:       network.Scope(addr.Scope),
+		SpaceName:   network.SpaceName(addr.SpaceName),
 	}
 }
 
 // fromNetworkAddresses is a convenience helper to create a state type
-// out of the network type, here for a slice of Address.
-func fromNetworkAddresses(netAddrs []network.Address) []address {
+// out of the network type, here for a slice of Address with a given origin.
+func fromNetworkAddresses(netAddrs []network.Address, origin Origin) []address {
 	addrs := make([]address, len(netAddrs))
 	for i, netAddr := range netAddrs {
-		addrs[i] = fromNetworkAddress(netAddr)
+		addrs[i] = fromNetworkAddress(netAddr, origin)
 	}
 	return addrs
 }
@@ -238,6 +270,7 @@ type hostPort struct {
 	NetworkName string `bson:"networkname,omitempty"`
 	Scope       string `bson:"networkscope,omitempty"`
 	Port        int    `bson:"port"`
+	SpaceName   string `bson:"spacename,omitempty"`
 }
 
 // fromNetworkHostPort is a convenience helper to create a state type
@@ -249,6 +282,7 @@ func fromNetworkHostPort(netHostPort network.HostPort) hostPort {
 		NetworkName: netHostPort.NetworkName,
 		Scope:       string(netHostPort.Scope),
 		Port:        netHostPort.Port,
+		SpaceName:   string(netHostPort.SpaceName),
 	}
 }
 
@@ -261,6 +295,7 @@ func (hp *hostPort) networkHostPort() network.HostPort {
 			Type:        network.AddressType(hp.AddressType),
 			NetworkName: hp.NetworkName,
 			Scope:       network.Scope(hp.Scope),
+			SpaceName:   network.SpaceName(hp.SpaceName),
 		},
 		Port: hp.Port,
 	}

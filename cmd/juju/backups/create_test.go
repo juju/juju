@@ -40,7 +40,7 @@ func (s *createSuite) checkDownloadStd(c *gc.C, ctx *cmd.Context) {
 	c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 
 	out := ctx.Stdout.(*bytes.Buffer).String()
-	if !s.command.Quiet {
+	if !s.command.Log.Quiet {
 		parts := strings.Split(out, MetaResultString)
 		c.Assert(parts, gc.HasLen, 2)
 		c.Assert(parts[0], gc.Equals, "")

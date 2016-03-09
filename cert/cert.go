@@ -91,7 +91,7 @@ func NewCA(envName string, expiry time.Time) (certPEM, keyPEM string, err error)
 	template := &x509.Certificate{
 		SerialNumber: new(big.Int),
 		Subject: pkix.Name{
-			CommonName:   fmt.Sprintf("juju-generated CA for environment %q", envName),
+			CommonName:   fmt.Sprintf("juju-generated CA for model %q", envName),
 			Organization: []string{"juju"},
 		},
 		NotBefore:             now.UTC().AddDate(0, 0, -7),
@@ -104,7 +104,7 @@ func NewCA(envName string, expiry time.Time) (certPEM, keyPEM string, err error)
 	}
 	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
 	if err != nil {
-		return "", "", fmt.Errorf("canot create certificate: %v", err)
+		return "", "", fmt.Errorf("cannot create certificate: %v", err)
 	}
 	certPEMData := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",

@@ -123,7 +123,7 @@ before they hit users.
 We'd maybe also like to implement this story:
 
   * As a developer, I want to add and remove groups of workers atomically, e.g.
-    when starting the set of state-server workers for a hosted environ; or when
+    when starting the set of controller workers for a hosted environ; or when
     starting the set of workers used by a single unit. [NOT DONE]
 
 ...but there's no urgent use case yet, and it's not certain to be superior to an

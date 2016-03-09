@@ -8,8 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v1"
-
-	"github.com/juju/juju/rpc"
 )
 
 // Error is the type of error returned by any call to the state API.
@@ -48,12 +46,10 @@ func (e Error) ErrorCode() string {
 	return e.Code
 }
 
-var _ rpc.ErrorCoder = (*Error)(nil)
-
 // GoString implements fmt.GoStringer.  It means that a *Error shows its
 // contents correctly when printed with %#v.
 func (e Error) GoString() string {
-	return fmt.Sprintf("&params.Error{Message: %q, Code:  %q}", e.Code, e.Message)
+	return fmt.Sprintf("&params.Error{Message: %q, Code: %q}", e.Message, e.Code)
 }
 
 // The Code constants hold error codes for some kinds of error.
@@ -72,12 +68,13 @@ const (
 	CodeNotProvisioned            = "not provisioned"
 	CodeNoAddressSet              = "no address set"
 	CodeTryAgain                  = "try again"
-	CodeNotImplemented            = rpc.CodeNotImplemented
+	CodeNotImplemented            = "not implemented" // asserted to match rpc.codeNotImplemented in rpc/rpc_test.go
 	CodeAlreadyExists             = "already exists"
 	CodeUpgradeInProgress         = "upgrade in progress"
 	CodeActionNotAvailable        = "action no longer available"
 	CodeOperationBlocked          = "operation is blocked"
 	CodeLeadershipClaimDenied     = "leadership claim denied"
+	CodeLeaseClaimDenied          = "lease claim denied"
 	CodeNotSupported              = "not supported"
 	CodeBadRequest                = "bad request"
 	CodeMethodNotAllowed          = "method not allowed"
@@ -89,27 +86,14 @@ const (
 // the given error, or the empty string if there
 // is none.
 func ErrCode(err error) string {
-	err = errors.Cause(err)
-	if err, _ := err.(rpc.ErrorCoder); err != nil {
+	type ErrorCoder interface {
+		ErrorCode() string
+	}
+	switch err := errors.Cause(err).(type) {
+	case ErrorCoder:
 		return err.ErrorCode()
-	}
-	return ""
-}
-
-// ClientError maps errors returned from an RPC call into local errors with
-// appropriate values.
-func ClientError(err error) error {
-	rerr, ok := err.(*rpc.RequestError)
-	if !ok {
-		return err
-	}
-	// We use our own error type rather than rpc.ServerError
-	// because we don't want the code or the "server error" prefix
-	// within the error message. Also, it's best not to make clients
-	// know that we're using the rpc package.
-	return &Error{
-		Message: rerr.Message,
-		Code:    rerr.Code,
+	default:
+		return ""
 	}
 }
 
@@ -200,6 +184,10 @@ func IsCodeOperationBlocked(err error) bool {
 
 func IsCodeLeadershipClaimDenied(err error) bool {
 	return ErrCode(err) == CodeLeadershipClaimDenied
+}
+
+func IsCodeLeaseClaimDenied(err error) bool {
+	return ErrCode(err) == CodeLeaseClaimDenied
 }
 
 func IsCodeNotSupported(err error) bool {

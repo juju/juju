@@ -17,7 +17,7 @@ func (fa FakeAuthorizer) AuthOwner(tag names.Tag) bool {
 	return fa.Tag == tag
 }
 
-func (fa FakeAuthorizer) AuthEnvironManager() bool {
+func (fa FakeAuthorizer) AuthModelManager() bool {
 	return fa.EnvironManager
 }
 

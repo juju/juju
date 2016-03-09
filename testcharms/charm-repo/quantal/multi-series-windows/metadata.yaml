@@ -1,0 +1,8 @@
+name: multi-series-windows
+summary: "That's a dummy charm with multi-series."
+description: |
+    This is a longer description which
+    potentially contains multiple lines.
+series:
+    - win7
+    - win81

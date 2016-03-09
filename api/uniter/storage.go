@@ -8,8 +8,9 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 type StorageAccessor struct {
@@ -88,7 +89,7 @@ func (sa *StorageAccessor) WatchUnitStorageAttachments(unitTag names.UnitTag) (w
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(sa.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(sa.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -158,7 +159,7 @@ func (sa *StorageAccessor) WatchStorageAttachment(storageTag names.StorageTag, u
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(sa.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(sa.facade.RawAPICaller(), result)
 	return w, nil
 }
 

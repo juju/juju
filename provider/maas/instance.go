@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"launchpad.net/gomaasapi"
+	"github.com/juju/gomaasapi"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -19,6 +19,11 @@ type maasInstance struct {
 }
 
 var _ instance.Instance = (*maasInstance)(nil)
+
+// Override for testing.
+var resolveHostnames = func(addrs []network.Address) []network.Address {
+	return network.ResolvableHostnames(addrs)
+}
 
 func (mi *maasInstance) String() string {
 	hostname, err := mi.hostname()
@@ -48,6 +53,24 @@ func (mi *maasInstance) Status() string {
 }
 
 func (mi *maasInstance) Addresses() ([]network.Address, error) {
+	interfaceAddresses, err := mi.interfaceAddresses()
+	if errors.IsNotSupported(err) {
+		logger.Warningf(
+			"using legacy approach to get instance addresses as %q API capability is not supported: %v",
+			capNetworkDeploymentUbuntu, err,
+		)
+		return mi.legacyAddresses()
+	} else if err != nil {
+		return nil, errors.Annotate(err, "getting node interfaces")
+	}
+
+	logger.Debugf("instance %q has interface addresses: %+v", mi.Id(), interfaceAddresses)
+	return interfaceAddresses, nil
+}
+
+// legacyAddresses is used to extract all IP addresses of the node when not
+// using MAAS 1.9+ API.
+func (mi *maasInstance) legacyAddresses() ([]network.Address, error) {
 	name, err := mi.hostname()
 	if err != nil {
 		return nil, err
@@ -60,39 +83,63 @@ func (mi *maasInstance) Addresses() ([]network.Address, error) {
 	addrs[0].Scope = network.ScopePublic
 	addrs[1].Scope = network.ScopeCloudLocal
 
-	// Append any remaining IP addresses after the preferred ones.
-	ips, err := mi.ipAddresses()
-	if err != nil {
-		return nil, err
+	// Append any remaining IP addresses after the preferred ones. We have to do
+	// this the hard way, since maasObject doesn't have this built-in yet
+	addressArray := mi.maasObject.GetMap()["ip_addresses"]
+	if !addressArray.IsNil() {
+		// Older MAAS versions do not return ip_addresses.
+		objs, err := addressArray.GetArray()
+		if err != nil {
+			return nil, err
+		}
+		for _, obj := range objs {
+			s, err := obj.GetString()
+			if err != nil {
+				return nil, err
+			}
+			addrs = append(addrs, network.NewAddress(s))
+		}
 	}
-	addrs = append(addrs, network.NewAddresses(ips...)...)
 
 	// Although we would prefer a DNS name there's no point
 	// returning unresolvable names because activities like 'juju
 	// ssh 0' will instantly fail.
-	return network.ResolvableHostnames(addrs), nil
+	return resolveHostnames(addrs), nil
 }
 
-func (mi *maasInstance) ipAddresses() ([]string, error) {
-	// we have to do this the hard way, since maasObject doesn't have this built-in yet
-	addressArray := mi.maasObject.GetMap()["ip_addresses"]
-	if addressArray.IsNil() {
-		// Older MAAS versions do not return ip_addresses.
-		return nil, nil
-	}
-	objs, err := addressArray.GetArray()
+var refreshMAASObject = func(maasObject *gomaasapi.MAASObject) (gomaasapi.MAASObject, error) {
+	// Defined like this to allow patching in tests to overcome limitations of
+	// gomaasapi's test server.
+	return maasObject.Get()
+}
+
+// interfaceAddresses fetches a fresh copy of the node details from MAAS and
+// extracts all addresses from the node's interfaces. Returns an error
+// satisfying errors.IsNotSupported() if MAAS API does not report interfaces
+// information.
+func (mi *maasInstance) interfaceAddresses() ([]network.Address, error) {
+	// Fetch a fresh copy of the instance JSON first.
+	obj, err := refreshMAASObject(mi.maasObject)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "getting instance details")
 	}
-	ips := make([]string, len(objs))
-	for i, obj := range objs {
-		s, err := obj.GetString()
-		if err != nil {
-			return nil, err
+
+	// Get all the interface details and extract the addresses.
+	interfaces, err := maasObjectNetworkInterfaces(&obj)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var addresses []network.Address
+	for _, iface := range interfaces {
+		if iface.Address.Value != "" {
+			logger.Debugf("found address %q on interface %q", iface.Address, iface.InterfaceName)
+			addresses = append(addresses, iface.Address)
+		} else {
+			logger.Infof("no address found on interface %q", iface.InterfaceName)
 		}
-		ips[i] = s
 	}
-	return ips, nil
+	return addresses, nil
 }
 
 func (mi *maasInstance) architecture() (arch, subarch string, err error) {

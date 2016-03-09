@@ -12,7 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
-	"github.com/juju/version"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
@@ -20,12 +19,12 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // uniqueName is generated afresh for every test run, so that
@@ -273,30 +272,6 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 		}
 	}
 	c.Assert(instIds, jc.SameContents, idsFromInsts(allInsts))
-}
-
-func (t *LiveTests) TestDestroy(c *gc.C) {
-	t.PrepareOnce(c)
-	s := t.Env.(environs.EnvironStorage).Storage()
-	err := s.Put("foo", strings.NewReader("foo"), 3)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.Put("bar", strings.NewReader("bar"), 3)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that the bucket exists, so we can be sure
-	// we have checked correctly that it's been destroyed.
-	names, err := storage.List(s, "")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(names) >= 2, jc.IsTrue)
-
-	t.Destroy(c)
-	for a := ec2.ShortAttempt.Start(); a.Next(); {
-		names, err = storage.List(s, "")
-		if len(names) == 0 {
-			break
-		}
-	}
-	c.Assert(names, gc.HasLen, 0)
 }
 
 func checkPortAllowed(c *gc.C, perms []amzec2.IPPerm, port int) {

@@ -87,7 +87,7 @@ type actionHookContext interface {
 	ActionParams() (map[string]interface{}, error)
 
 	// UpdateActionResults inserts new values for use with action-set.
-	// The results struct will be delivered to the state server upon
+	// The results struct will be delivered to the controller upon
 	// completion of the Action.
 	UpdateActionResults(keys []string, value string) error
 
@@ -123,9 +123,9 @@ type ContextStatus interface {
 	SetServiceStatus(StatusInfo) error
 }
 
-// ContextInstance is the part of a hook context related to the unit's intance.
+// ContextInstance is the part of a hook context related to the unit's instance.
 type ContextInstance interface {
-	// AvailabilityZone returns the executing unit's availablilty zone or an error
+	// AvailabilityZone returns the executing unit's availability zone or an error
 	// if it was not found (or is not available).
 	AvailabilityZone() (string, error)
 
@@ -260,6 +260,14 @@ type ContextRelation interface {
 
 	// ReadSettings returns the settings of any remote unit in the relation.
 	ReadSettings(unit string) (params.Settings, error)
+
+	// NetworkConfig returns the network configuration for the relation.
+	//
+	// TODO(dimitern): Currently, only the Address is populated, add the
+	// rest later.
+	//
+	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
+	NetworkConfig() ([]params.NetworkConfig, error)
 }
 
 // ContextStorageAttachment expresses the capabilities of a hook with

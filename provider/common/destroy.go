@@ -19,7 +19,7 @@ import (
 // environs.Environ; we strongly recommend that this implementation be
 // used when writing a new provider.
 func Destroy(env environs.Environ) error {
-	logger.Infof("destroying environment %q", env.Config().Name())
+	logger.Infof("destroying model %q", env.Config().Name())
 	if err := destroyInstances(env); err != nil {
 		return errors.Annotate(err, "destroying instances")
 	}

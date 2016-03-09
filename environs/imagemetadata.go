@@ -59,7 +59,7 @@ func RegisterImageDataSourceFunc(id string, f ImageDataSourceFunc) {
 			return
 		}
 	}
-	logger.Debugf("new environment image datasource registered: %v", id)
+	logger.Debugf("new model image datasource registered: %v", id)
 	datasourceFuncs = append(datasourceFuncs, datasourceFuncId{id, f})
 }
 
@@ -90,7 +90,8 @@ func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
 		if !config.SSLHostnameVerification() {
 			verify = utils.NoVerifySSLHostnames
 		}
-		sources = append(sources, simplestreams.NewURLDataSource("image-metadata-url", userURL, verify))
+		publicKey, _ := simplestreams.UserPublicSigningKey()
+		sources = append(sources, simplestreams.NewURLSignedDataSource("image-metadata-url", userURL, publicKey, verify, simplestreams.SPECIFIC_CLOUD_DATA, false))
 	}
 
 	envDataSources, err := environmentDataSources(env)
@@ -99,14 +100,13 @@ func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
 	}
 	sources = append(sources, envDataSources...)
 
-	// Add the default, public datasource.
-	defaultURL, err := imagemetadata.ImageMetadataURL(imagemetadata.DefaultBaseURL, config.ImageStream())
+	// Add the official image metadata datasources.
+	officialDataSources, err := imagemetadata.OfficialDataSources(config.ImageStream())
 	if err != nil {
 		return nil, err
 	}
-	if defaultURL != "" {
-		sources = append(sources,
-			simplestreams.NewURLDataSource("default cloud images", defaultURL, utils.VerifySSLHostnames))
+	for _, source := range officialDataSources {
+		sources = append(sources, source)
 	}
 	for _, ds := range sources {
 		logger.Debugf("using image datasource %q", ds.Description())

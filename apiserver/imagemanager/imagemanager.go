@@ -16,7 +16,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.imagemanager")
 
 func init() {
-	common.RegisterStandardFacade("ImageManager", 1, NewImageManagerAPI)
+	common.RegisterStandardFacade("ImageManager", 2, NewImageManagerAPI)
 }
 
 // ImageManager defines the methods on the imagemanager API end point.

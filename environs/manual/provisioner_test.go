@@ -159,7 +159,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	machineId, err := manual.ProvisionMachine(s.getArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.UpdateEnvironConfig(
+	err = s.State.UpdateModelConfig(
 		map[string]interface{}{
 			"enable-os-upgrade": false,
 		}, nil, nil)

@@ -15,7 +15,7 @@ import (
 
 const volumeCmdDoc = `
 "juju storage volume" is used to manage storage volumes in
- the Juju environment.
+ the Juju model.
 `
 
 const volumeCmdPurpose = "manage storage volumes"
@@ -83,7 +83,7 @@ type MachineVolumeAttachment struct {
 }
 
 // convertToVolumeInfo returns a map of volume IDs to volume info.
-func convertToVolumeInfo(all []params.VolumeDetailsResult) (map[string]VolumeInfo, error) {
+func convertToVolumeInfo(all []params.VolumeDetails) (map[string]VolumeInfo, error) {
 	result := make(map[string]VolumeInfo)
 	for _, one := range all {
 		volumeTag, info, err := createVolumeInfo(one)
@@ -103,12 +103,7 @@ var idFromTag = func(s string) (string, error) {
 	return tag.Id(), nil
 }
 
-func createVolumeInfo(result params.VolumeDetailsResult) (names.VolumeTag, VolumeInfo, error) {
-	details := result.Details
-	if details == nil {
-		details = volumeDetailsFromLegacy(result)
-	}
-
+func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo, error) {
 	volumeTag, err := names.ParseVolumeTag(details.VolumeTag)
 	if err != nil {
 		return names.VolumeTag{}, VolumeInfo{}, errors.Trace(err)
@@ -157,50 +152,4 @@ func createVolumeInfo(result params.VolumeDetailsResult) (names.VolumeTag, Volum
 	}
 
 	return volumeTag, info, nil
-}
-
-// volumeDetailsFromLegacy converts from legacy data structures
-// to params.VolumeDetails. This exists only for backwards-
-// compatibility. Please think long and hard before changing it.
-func volumeDetailsFromLegacy(result params.VolumeDetailsResult) *params.VolumeDetails {
-	details := &params.VolumeDetails{
-		VolumeTag: result.LegacyVolume.VolumeTag,
-		Status:    result.LegacyVolume.Status,
-	}
-	details.Info.VolumeId = result.LegacyVolume.VolumeId
-	details.Info.HardwareId = result.LegacyVolume.HardwareId
-	details.Info.Size = result.LegacyVolume.Size
-	details.Info.Persistent = result.LegacyVolume.Persistent
-	if len(result.LegacyAttachments) > 0 {
-		attachments := make(map[string]params.VolumeAttachmentInfo)
-		for _, attachment := range result.LegacyAttachments {
-			attachments[attachment.MachineTag] = attachment.Info
-		}
-		details.MachineAttachments = attachments
-	}
-	if result.LegacyVolume.StorageTag != "" {
-		details.Storage = &params.StorageDetails{
-			StorageTag: result.LegacyVolume.StorageTag,
-			Status:     details.Status,
-		}
-		if result.LegacyVolume.UnitTag != "" {
-			// Servers with legacy storage do not support shared
-			// storage, so there will only be one attachment, and
-			// the owner is always a unit.
-			details.Storage.OwnerTag = result.LegacyVolume.UnitTag
-			if len(result.LegacyAttachments) == 1 {
-				details.Storage.Attachments = map[string]params.StorageAttachmentDetails{
-					result.LegacyVolume.UnitTag: params.StorageAttachmentDetails{
-						StorageTag: result.LegacyVolume.StorageTag,
-						UnitTag:    result.LegacyVolume.UnitTag,
-						MachineTag: result.LegacyAttachments[0].MachineTag,
-						// Don't set Location, because we can't infer that
-						// from the legacy volume details.
-						Location: "",
-					},
-				}
-			}
-		}
-	}
-	return details
 }

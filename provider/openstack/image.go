@@ -4,15 +4,17 @@
 package openstack
 
 import (
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/simplestreams"
 )
 
 // findInstanceSpec returns an image and instance type satisfying the constraint.
 // The instance type comes from querying the flavors supported by the deployment.
-func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func findInstanceSpec(
+	e *Environ,
+	ic *instances.InstanceConstraint,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (*instances.InstanceSpec, error) {
 	// first construct all available instance types from the supported flavors.
 	nova := e.nova()
 	flavors, err := nova.ListFlavorsDetail()
@@ -33,22 +35,7 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}
 
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: simplestreams.CloudSpec{ic.Region, e.ecfg().authURL()},
-		Series:    []string{ic.Series},
-		Arches:    ic.Arches,
-		Stream:    e.Config().ImageStream(),
-	})
-	sources, err := environs.ImageMetadataSources(e)
-	if err != nil {
-		return nil, err
-	}
-	// TODO (wallyworld): use an env parameter (default true) to mandate use of only signed image metadata.
-	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, false)
-	if err != nil {
-		return nil, err
-	}
-	images := instances.ImageMetadataToImages(matchingImages)
+	images := instances.ImageMetadataToImages(imageMetadata)
 	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)
 	if err != nil {
 		return nil, err

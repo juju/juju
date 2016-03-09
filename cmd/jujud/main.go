@@ -21,6 +21,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
+	"github.com/juju/juju/cmd/pprof"
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
@@ -41,7 +42,7 @@ func init() {
 }
 
 var jujudDoc = `
-juju provides easy, intelligent service orchestration on top of environments
+juju provides easy, intelligent service orchestration on top of models
 such as OpenStack, Amazon AWS, or bare metal. jujud is a component of juju.
 
 https://juju.ubuntu.com/
@@ -49,7 +50,7 @@ https://juju.ubuntu.com/
 The jujud command can also forward invocations over RPC for execution by the
 juju unit agent. When used in this way, it expects to be called via a symlink
 named for the desired remote command, and expects JUJU_AGENT_SOCKET and
-JUJU_CONTEXT_ID be set in its environment.
+JUJU_CONTEXT_ID be set in its model.
 `
 
 const (
@@ -158,6 +159,8 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 
 	jujud.Register(agentcmd.NewUnitAgent(ctx, logCh))
 
+	jujud.Register(NewUpgradeMongoCommand())
+
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil
 }
@@ -180,24 +183,31 @@ func Main(args []string) int {
 			os.Exit(exit_panic)
 		}
 	}()
-	var code int = 1
+
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(exit_err)
 	}
+
+	code := 1
 	commandName := filepath.Base(args[0])
-	if commandName == names.Jujud {
+	switch commandName {
+	case names.Jujud:
+		// start pprof server and defer cleanup
+		stop := pprof.Start()
+		defer stop()
+
 		code, err = jujuDMain(args, ctx)
-	} else if commandName == names.Jujuc {
+	case names.Jujuc:
 		fmt.Fprint(os.Stderr, jujudDoc)
 		code = exit_err
 		err = fmt.Errorf("jujuc should not be called directly")
-	} else if commandName == names.JujuRun {
+	case names.JujuRun:
 		code = cmd.Main(&RunCommand{}, ctx, args[1:])
-	} else if commandName == names.JujuDumpLogs {
+	case names.JujuDumpLogs:
 		code = cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
-	} else {
+	default:
 		code, err = jujuCMain(commandName, ctx, args)
 	}
 	if err != nil {

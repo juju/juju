@@ -15,17 +15,17 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 func newRunCommand() cmd.Command {
-	return envcmd.Wrap(&runCommand{})
+	return modelcmd.Wrap(&runCommand{})
 }
 
 // runCommand is responsible for running arbitrary commands on remote machines.
 type runCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	out      cmd.Output
 	all      bool
 	timeout  time.Duration
@@ -58,7 +58,7 @@ Commands run for services or units are executed in a 'hook context' for
 the unit.
 
 --all is provided as a simple way to run the command on all the machines
-in the environment.  If you specify --all you cannot provide additional
+in the model.  If you specify --all you cannot provide additional
 targets.
 
 `

@@ -23,11 +23,11 @@ var _ = gc.Suite(&metricsManagerSuite{})
 func (s *metricsManagerSuite) TestDefaultsWritten(c *gc.C) {
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mm.DocID(), gc.Equals, fmt.Sprintf("%s:metricsManagerKey", s.State.EnvironUUID()))
+	c.Assert(mm.DocID(), gc.Equals, fmt.Sprintf("%s:metricsManagerKey", s.State.ModelUUID()))
 	c.Assert(mm.LastSuccessfulSend(), gc.DeepEquals, time.Time{})
 	c.Assert(mm.ConsecutiveErrors(), gc.Equals, 0)
 	c.Assert(mm.GracePeriod(), gc.Equals, 24*7*time.Hour)
-	c.Assert(mm.EnvUUID(), gc.Equals, s.State.EnvironUUID())
+	c.Assert(mm.ModelUUID(), gc.Equals, s.State.ModelUUID())
 }
 
 func (s *metricsManagerSuite) TestMetricsManagerCreatesThenReturns(c *gc.C) {

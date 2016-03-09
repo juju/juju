@@ -5,8 +5,10 @@ package client_test
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
@@ -16,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -253,7 +256,18 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 			})
 	}
 
-	c.Assert(results, jc.DeepEquals, expectedResults)
+	c.Check(results, jc.DeepEquals, expectedResults)
+	c.Check(string(results[0].Stdout), gc.Equals, expectedCommand[0])
+	c.Check(string(results[1].Stdout), gc.Equals, expectedCommand[0])
+	c.Check(string(results[2].Stdout), gc.Equals, expectedCommand[0])
+}
+
+func (s *runSuite) AssertBlocked(c *gc.C, err error, msg string) {
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: msg,
+		Code:    "operation is blocked",
+	})
 }
 
 func (s *runSuite) TestBlockRunOnAllMachines(c *gc.C) {
@@ -345,4 +359,154 @@ func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
 			Services: []string{"magic"},
 		})
 	s.AssertBlocked(c, err, "TestBlockRunMachineAndService")
+}
+
+func (s *runSuite) TestStartSerialWaitParallel(c *gc.C) {
+	st := starter{serialChecker{c: c, block: make(chan struct{})}}
+	w := waiter{concurrentChecker{c: c, block: make(chan struct{})}}
+	count := 4
+	w.started.Add(count)
+	st.finished.Add(count)
+	args := make([]*client.RemoteExec, count)
+	for i := range args {
+		args[i] = &client.RemoteExec{
+			ExecParams: ssh.ExecParams{Timeout: testing.LongWait},
+		}
+	}
+
+	results := &params.RunResults{}
+	results.Results = make([]params.RunResult, count)
+
+	// run this in a goroutine so we can futz with things asynchronously.
+	go client.StartSerialWaitParallel(args, results, st.start, w.wait)
+
+	// ok, so we give the function some time to run... if we are running start
+	// in goroutines, this would give them time to do their thing.
+	<-time.After(testing.ShortWait)
+
+	// if start is being run synchronously, then only one of the start functions
+	// should have been called by now.
+	c.Assert(st.count, gc.Equals, 1)
+
+	// good, now let's unblock start and let'em fly
+	st.unblock()
+
+	// wait for the start functions to complete
+	select {
+	case <-st.waitFinish():
+		// good, all start functions called.
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting for start functions to be called.")
+	}
+
+	// wait for the wait functions to run their startups
+	select {
+	case <-w.waitStarted():
+		// good, all start functions called.
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("Timed out waiting for start functions to be called. Start functions probably not called as goroutines.")
+	}
+	w.unblock()
+}
+
+type starter struct {
+	serialChecker
+}
+
+func (s *starter) start(_ ssh.ExecParams) (*ssh.RunningCmd, error) {
+	s.called()
+	return nil, nil
+}
+
+type waiter struct {
+	concurrentChecker
+}
+
+func (w *waiter) wait(wg *sync.WaitGroup, _ *ssh.RunningCmd, _ *params.RunResult, _ <-chan struct{}) {
+	defer wg.Done()
+	w.called()
+}
+
+// serialChecker is a type that lets us check that a function is called
+// serially, not concurrently.
+type serialChecker struct {
+	c        *gc.C
+	mu       sync.Mutex
+	block    chan struct{}
+	count    int
+	finished sync.WaitGroup
+}
+
+// unblock unblocks the called method.
+func (s *serialChecker) unblock() {
+	close(s.block)
+}
+
+// called registers tha this function has been called.  It will block until
+// unblock is called, or will timeout after a LongWait.
+func (s *serialChecker) called() {
+	defer s.finished.Done()
+	// make sure we serialize access to the struct
+	s.mu.Lock()
+	// log that we've been called
+	s.count++
+	s.mu.Unlock()
+	select {
+	case <-s.block:
+	case <-time.After(testing.LongWait):
+		s.c.Fatalf("time out waiting for unblock")
+	}
+}
+
+// waitFinish waits on the finished waitgroup, and closes the returned channel
+// when it is.
+func (s *serialChecker) waitFinish() <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		s.finished.Wait()
+		close(done)
+	}()
+	return done
+}
+
+// concurrentChecker is a type to allow us to check that the a function is being
+// called concurrently, not serially.
+type concurrentChecker struct {
+	c       *gc.C
+	block   chan struct{}
+	started sync.WaitGroup
+}
+
+// unblock unblocks the functions currently blocked by this type.
+func (c *concurrentChecker) unblock() {
+	close(c.block)
+}
+
+// waitStarted waits on the started waitgroup, and closes the returned channel
+// when it is.
+func (c *concurrentChecker) waitStarted() <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		c.started.Wait()
+		close(done)
+	}()
+	return done
+}
+
+// wait is the function we pass to startSerialWaitParallel. It gives each
+// goroutine an index, so we can keep track of which ones were run when, and
+// blocks until released by the unblock function.
+func (c *concurrentChecker) called() {
+	// signal that we've started
+	c.started.Done()
+
+	// now we block on the block channel, waiting to be unblocked.  This way, if
+	// we don't get the started waitgroup finished, we know these functions
+	// weren't run concurrently.
+	select {
+	case <-c.block:
+		// good, all functions were run and we got unblocked.
+	case <-time.After(testing.LongWait):
+		c.c.Fatalf("timed out waiting to unblock")
+	}
 }

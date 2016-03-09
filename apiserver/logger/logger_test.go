@@ -73,9 +73,9 @@ func (s *loggerSuite) TestWatchLoggingConfigNothing(c *gc.C) {
 }
 
 func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"logging-config": loggingConfig}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"logging-config": loggingConfig}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envConfig.LoggingConfig(), gc.Equals, loggingConfig)
 }

@@ -33,7 +33,7 @@ type RebootAPI struct {
 }
 
 func init() {
-	common.RegisterStandardFacade("Reboot", 1, NewRebootAPI)
+	common.RegisterStandardFacade("Reboot", 2, NewRebootAPI)
 }
 
 // NewRebootAPI creates a new server-side RebootAPI facade.

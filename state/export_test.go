@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -30,6 +31,7 @@ const (
 	MachinesC          = machinesC
 	NetworkInterfacesC = networkInterfacesC
 	ServicesC          = servicesC
+	EndpointBindingsC  = endpointBindingsC
 	SettingsC          = settingsC
 	UnitsC             = unitsC
 	UsersC             = usersC
@@ -42,7 +44,7 @@ var (
 	ToolstorageNewStorage  = &toolstorageNewStorage
 	ImageStorageNewStorage = &imageStorageNewStorage
 	MachineIdLessThan      = machineIdLessThan
-	StateServerAvailable   = &stateServerAvailable
+	ControllerAvailable    = &controllerAvailable
 	GetOrCreatePorts       = getOrCreatePorts
 	GetPorts               = getPorts
 	PortsGlobalKey         = portsGlobalKey
@@ -51,6 +53,9 @@ var (
 	PickAddress            = &pickAddress
 	AddVolumeOps           = (*State).addVolumeOps
 	CombineMeterStatus     = combineMeterStatus
+	ServiceGlobalKey       = serviceGlobalKey
+	MergeBindings          = mergeBindings
+	UpgradeInProgressError = errUpgradeInProgress
 )
 
 type (
@@ -114,21 +119,51 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
 }
 
-func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag) *Service {
-	return addTestingService(c, st, name, ch, owner, nil, nil)
+func AddTestingCharmForSeries(c *gc.C, st *State, series, name string) *Charm {
+	return addCharm(c, st, series, testcharms.Repo.CharmDir(name))
 }
 
+func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
+	ch := testcharms.Repo.CharmDir(name)
+	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
+	curl := charm.MustParseURL("cs:" + ident)
+	sch, err := st.AddCharm(ch, curl, "dummy-path", ident+"-sha256")
+	c.Assert(err, jc.ErrorIsNil)
+	return sch
+}
+
+func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag) *Service {
+	return addTestingService(c, st, "", name, ch, owner, nil, nil)
+}
+
+func AddTestingServiceForSeries(c *gc.C, st *State, series, name string, ch *Charm, owner names.UserTag) *Service {
+	return addTestingService(c, st, series, name, ch, owner, nil, nil)
+}
+
+// TODO(dimitern): Drop this along with the remnants of requested networks in a
+// follow-up.
 func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string) *Service {
-	return addTestingService(c, st, name, ch, owner, networks, nil)
+	return addTestingService(c, st, "", name, ch, owner, nil, nil)
 }
 
 func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, storage map[string]StorageConstraints) *Service {
-	return addTestingService(c, st, name, ch, owner, nil, storage)
+	return addTestingService(c, st, "", name, ch, owner, nil, storage)
 }
 
-func addTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string, storage map[string]StorageConstraints) *Service {
+func AddTestingServiceWithBindings(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, bindings map[string]string) *Service {
+	return addTestingService(c, st, "", name, ch, owner, bindings, nil)
+}
+
+func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, owner names.UserTag, bindings map[string]string, storage map[string]StorageConstraints) *Service {
 	c.Assert(ch, gc.NotNil)
-	service, err := st.AddService(AddServiceArgs{Name: name, Owner: owner.String(), Charm: ch, Networks: networks, Storage: storage})
+	service, err := st.AddService(AddServiceArgs{
+		Name:             name,
+		Series:           series,
+		Owner:            owner.String(),
+		Charm:            ch,
+		EndpointBindings: bindings,
+		Storage:          storage,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
@@ -279,8 +314,8 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 	return out, nil
 }
 
-func UserEnvNameIndex(username, envName string) string {
-	return userEnvNameIndex(username, envName)
+func UserModelNameIndex(username, modelName string) string {
+	return userModelNameIndex(username, modelName)
 }
 
 func DocID(st *State, id string) string {
@@ -295,8 +330,8 @@ func StrictLocalID(st *State, id string) (string, error) {
 	return st.strictLocalID(id)
 }
 
-func GetUnitEnvUUID(unit *Unit) string {
-	return unit.doc.EnvUUID
+func GetUnitModelUUID(unit *Unit) string {
+	return unit.doc.ModelUUID
 }
 
 func GetCollection(st *State, name string) (mongo.Collection, func()) {
@@ -325,12 +360,12 @@ func Sequence(st *State, name string) (int, error) {
 	return st.sequence(name)
 }
 
-// This is a naive environment destruction function, used to test environment
-// watching after the client calls DestroyEnvironment and the environ doc is removed.
+// This is a naive model destruction function, used to test model
+// watching after the client calls DestroyModel and the model doc is removed.
 // It is also used to test annotations.
-func RemoveEnvironment(st *State, uuid string) error {
+func RemoveModel(st *State, uuid string) error {
 	ops := []txn.Op{{
-		C:      environmentsC,
+		C:      modelsC,
 		Id:     uuid,
 		Assert: txn.DocExists,
 		Remove: true,
@@ -338,18 +373,17 @@ func RemoveEnvironment(st *State, uuid string) error {
 	return st.runTransaction(ops)
 }
 
-func SetEnvLifeDying(st *State, envUUID string) error {
+func SetModelLifeDead(st *State, modelUUID string) error {
 	ops := []txn.Op{{
-		C:      environmentsC,
-		Id:     envUUID,
-		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-		Assert: isEnvAliveDoc,
+		C:      modelsC,
+		Id:     modelUUID,
+		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
 	return st.runTransaction(ops)
 }
 
-func HostedEnvironCount(c *gc.C, st *State) int {
-	count, err := hostedEnvironCount(st)
+func HostedModelCount(c *gc.C, st *State) int {
+	count, err := hostedModelCount(st)
 	c.Assert(err, jc.ErrorIsNil)
 	return count
 }
@@ -370,7 +404,7 @@ var (
 )
 
 func AssertAddressConversion(c *gc.C, netAddr network.Address) {
-	addr := fromNetworkAddress(netAddr)
+	addr := fromNetworkAddress(netAddr, OriginUnknown)
 	newNetAddr := addr.networkAddress()
 	c.Assert(netAddr, gc.DeepEquals, newNetAddr)
 
@@ -379,7 +413,7 @@ func AssertAddressConversion(c *gc.C, netAddr network.Address) {
 	for i := 0; i < size; i++ {
 		netAddrs[i] = netAddr
 	}
-	addrs := fromNetworkAddresses(netAddrs)
+	addrs := fromNetworkAddresses(netAddrs, OriginUnknown)
 	newNetAddrs := networkAddresses(addrs)
 	c.Assert(netAddrs, gc.DeepEquals, newNetAddrs)
 }
@@ -404,7 +438,7 @@ func AssertHostPortConversion(c *gc.C, netHostPort network.HostPort) {
 
 // MakeLogDoc creates a database document for a single log message.
 func MakeLogDoc(
-	envUUID string,
+	modelUUID string,
 	entity names.Tag,
 	t time.Time,
 	module string,
@@ -413,14 +447,14 @@ func MakeLogDoc(
 	msg string,
 ) *logDoc {
 	return &logDoc{
-		Id:       bson.NewObjectId(),
-		Time:     t,
-		EnvUUID:  envUUID,
-		Entity:   entity.String(),
-		Module:   module,
-		Location: location,
-		Level:    level,
-		Message:  msg,
+		Id:        bson.NewObjectId(),
+		Time:      t,
+		ModelUUID: modelUUID,
+		Entity:    entity.String(),
+		Module:    module,
+		Location:  location,
+		Level:     level,
+		Message:   msg,
 	}
 }
 
@@ -428,4 +462,33 @@ func SpaceDoc(s *Space) spaceDoc {
 	return s.doc
 }
 
+func ForceDestroyMachineOps(m *Machine) ([]txn.Op, error) {
+	return m.forceDestroyOps()
+}
+
+func IsManagerMachineError(err error) bool {
+	return errors.Cause(err) == managerMachineError
+}
+
 var ActionNotificationIdToActionId = actionNotificationIdToActionId
+
+func UpdateModelUserLastConnection(e *ModelUser, when time.Time) error {
+	return e.updateLastConnection(when)
+}
+
+func RemoveEndpointBindingsForService(c *gc.C, service *Service) {
+	globalKey := service.globalKey()
+	removeOp := removeEndpointBindingsOp(globalKey)
+
+	txnError := service.st.runTransaction([]txn.Op{removeOp})
+	err := onAbort(txnError, nil) // ignore ErrAborted as it asserts DocExists
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func AssertEndpointBindingsNotFoundForService(c *gc.C, service *Service) {
+	globalKey := service.globalKey()
+	storedBindings, _, err := readEndpointBindings(service.st, globalKey)
+	c.Assert(storedBindings, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("endpoint bindings for %q not found", globalKey))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}

@@ -28,7 +28,7 @@ type Unit interface {
 }
 
 // stateInterface contains the state.State methods used in this package,
-// allowing stubs to ve created for testing.
+// allowing stubs to be created for testing.
 type stateInterface interface {
 	FindEntity(names.Tag) (state.Entity, error)
 	Unit(string) (Unit, error)
@@ -41,14 +41,15 @@ type stateInterface interface {
 	AddOneMachine(state.MachineTemplate) (*state.Machine, error)
 	AddMachineInsideMachine(state.MachineTemplate, string, instance.ContainerType) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
-	EnvironConstraints() (constraints.Value, error)
-	EnvironConfig() (*config.Config, error)
-	UpdateEnvironConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
-	SetEnvironConstraints(constraints.Value) error
-	EnvironUUID() string
-	EnvironTag() names.EnvironTag
-	Environment() (*state.Environment, error)
-	SetEnvironAgentVersion(version.Number) error
+	ModelConstraints() (constraints.Value, error)
+	ModelConfig() (*config.Config, error)
+	UpdateModelConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
+	SetModelConstraints(constraints.Value) error
+	ModelUUID() string
+	ModelTag() names.ModelTag
+	Model() (*state.Model, error)
+	ForModel(tag names.ModelTag) (*state.State, error)
+	SetModelAgentVersion(version.Number) error
 	SetAnnotations(state.GlobalEntity, map[string]string) error
 	Annotations(state.GlobalEntity) (map[string]string, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
@@ -56,8 +57,8 @@ type stateInterface interface {
 	Charm(*charm.URL) (*state.Charm, error)
 	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
 	AddRelation(...state.Endpoint) (*state.Relation, error)
-	AddEnvironmentUser(user, createdBy names.UserTag, displayName string) (*state.EnvironmentUser, error)
-	RemoveEnvironmentUser(names.UserTag) error
+	AddModelUser(state.ModelUserSpec) (*state.ModelUser, error)
+	RemoveModelUser(names.UserTag) error
 	Watch() *state.Multiwatcher
 	AbortCurrentUpgrade() error
 	APIHostPorts() ([][]network.HostPort, error)

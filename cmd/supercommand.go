@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
@@ -11,7 +12,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/jujuversion"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func init() {
@@ -56,5 +57,5 @@ func NewSubSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
 }
 
 func runNotifier(name string) {
-	logger.Infof("running %s [%s %s]", name, jujuversion.Current, jujuversion.Compiler)
+	logger.Infof("running %s [%s %s %s]", name, jujuversion.Current, runtime.Compiler, runtime.Version())
 }

@@ -17,81 +17,81 @@ import (
 	"github.com/juju/juju/upgrades"
 )
 
-type upgradeEnvironConfigSuite struct {
+type upgradeModelConfigSuite struct {
 	coretesting.BaseSuite
 	stub     testing.Stub
 	cfg      *config.Config
-	reader   upgrades.EnvironConfigReader
-	updater  upgrades.EnvironConfigUpdater
+	reader   upgrades.ModelConfigReader
+	updater  upgrades.ModelConfigUpdater
 	registry *mockProviderRegistry
 }
 
-var _ = gc.Suite(&upgradeEnvironConfigSuite{})
+var _ = gc.Suite(&upgradeModelConfigSuite{})
 
-func (s *upgradeEnvironConfigSuite) SetUpSuite(c *gc.C) {
+func (s *upgradeModelConfigSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *upgradeEnvironConfigSuite) SetUpTest(c *gc.C) {
+func (s *upgradeModelConfigSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.stub = testing.Stub{}
-	s.cfg = coretesting.EnvironConfig(c)
+	s.cfg = coretesting.ModelConfig(c)
 	s.registry = &mockProviderRegistry{
 		providers: make(map[string]environs.EnvironProvider),
 	}
 
 	s.reader = environConfigFunc(func() (*config.Config, error) {
-		s.stub.AddCall("EnvironConfig")
+		s.stub.AddCall("ModelConfig")
 		return s.cfg, s.stub.NextErr()
 	})
 
-	s.updater = updateEnvironConfigFunc(func(
+	s.updater = updateModelConfigFunc(func(
 		update map[string]interface{}, remove []string, validate state.ValidateConfigFunc,
 	) error {
-		s.stub.AddCall("UpdateEnvironConfig", update, remove, validate)
+		s.stub.AddCall("UpdateModelConfig", update, remove, validate)
 		return s.stub.NextErr()
 	})
 }
 
-func (s *upgradeEnvironConfigSuite) TestUpgradeEnvironConfigEnvironConfigError(c *gc.C) {
+func (s *upgradeModelConfigSuite) TestUpgradeModelConfigModelConfigError(c *gc.C) {
 	s.stub.SetErrors(errors.New("cannot read environ config"))
-	err := upgrades.UpgradeEnvironConfig(s.reader, s.updater, s.registry)
-	c.Assert(err, gc.ErrorMatches, "reading environment config: cannot read environ config")
-	s.stub.CheckCallNames(c, "EnvironConfig")
+	err := upgrades.UpgradeModelConfig(s.reader, s.updater, s.registry)
+	c.Assert(err, gc.ErrorMatches, "reading model config: cannot read environ config")
+	s.stub.CheckCallNames(c, "ModelConfig")
 }
 
-func (s *upgradeEnvironConfigSuite) TestUpgradeEnvironConfigProviderNotRegistered(c *gc.C) {
+func (s *upgradeModelConfigSuite) TestUpgradeModelConfigProviderNotRegistered(c *gc.C) {
 	s.registry.SetErrors(errors.New(`no registered provider for "someprovider"`))
-	err := upgrades.UpgradeEnvironConfig(s.reader, s.updater, s.registry)
+	err := upgrades.UpgradeModelConfig(s.reader, s.updater, s.registry)
 	c.Assert(err, gc.ErrorMatches, `getting provider: no registered provider for "someprovider"`)
-	s.stub.CheckCallNames(c, "EnvironConfig")
+	s.stub.CheckCallNames(c, "ModelConfig")
 }
 
-func (s *upgradeEnvironConfigSuite) TestUpgradeEnvironConfigProviderNotConfigUpgrader(c *gc.C) {
+func (s *upgradeModelConfigSuite) TestUpgradeModelConfigProviderNotConfigUpgrader(c *gc.C) {
 	s.registry.providers["someprovider"] = &mockEnvironProvider{}
-	err := upgrades.UpgradeEnvironConfig(s.reader, s.updater, s.registry)
+	err := upgrades.UpgradeModelConfig(s.reader, s.updater, s.registry)
 	c.Assert(err, jc.ErrorIsNil)
 	s.registry.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Provider", Args: []interface{}{"someprovider"},
 	}})
-	s.stub.CheckCallNames(c, "EnvironConfig")
+	s.stub.CheckCallNames(c, "ModelConfig")
 }
 
-func (s *upgradeEnvironConfigSuite) TestUpgradeEnvironConfigProviderConfigUpgrader(c *gc.C) {
+func (s *upgradeModelConfigSuite) TestUpgradeModelConfigProviderConfigUpgrader(c *gc.C) {
 	var err error
 	s.cfg, err = s.cfg.Apply(map[string]interface{}{"test-key": "test-value"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.registry.providers["someprovider"] = &mockEnvironConfigUpgrader{
+	s.registry.providers["someprovider"] = &mockModelConfigUpgrader{
 		upgradeConfig: func(cfg *config.Config) (*config.Config, error) {
 			return cfg.Remove([]string{"test-key"})
 		},
 	}
-	err = upgrades.UpgradeEnvironConfig(s.reader, s.updater, s.registry)
+	err = upgrades.UpgradeModelConfig(s.reader, s.updater, s.registry)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "EnvironConfig", "UpdateEnvironConfig")
+	s.stub.CheckCallNames(c, "ModelConfig", "UpdateModelConfig")
 	updateCall := s.stub.Calls()[1]
 	expectedAttrs := s.cfg.AllAttrs()
 	delete(expectedAttrs, "test-key")
@@ -101,28 +101,28 @@ func (s *upgradeEnvironConfigSuite) TestUpgradeEnvironConfigProviderConfigUpgrad
 	c.Assert(updateCall.Args[2], gc.IsNil)
 }
 
-func (s *upgradeEnvironConfigSuite) TestUpgradeEnvironConfigUpgradeConfigError(c *gc.C) {
-	s.registry.providers["someprovider"] = &mockEnvironConfigUpgrader{
+func (s *upgradeModelConfigSuite) TestUpgradeModelConfigUpgradeConfigError(c *gc.C) {
+	s.registry.providers["someprovider"] = &mockModelConfigUpgrader{
 		upgradeConfig: func(cfg *config.Config) (*config.Config, error) {
 			return nil, errors.New("cannot upgrade config")
 		},
 	}
-	err := upgrades.UpgradeEnvironConfig(s.reader, s.updater, s.registry)
+	err := upgrades.UpgradeModelConfig(s.reader, s.updater, s.registry)
 	c.Assert(err, gc.ErrorMatches, "upgrading config: cannot upgrade config")
-	s.stub.CheckCallNames(c, "EnvironConfig")
+	s.stub.CheckCallNames(c, "ModelConfig")
 }
 
-func (s *upgradeEnvironConfigSuite) TestUpgradeEnvironConfigUpdateConfigError(c *gc.C) {
+func (s *upgradeModelConfigSuite) TestUpgradeModelConfigUpdateConfigError(c *gc.C) {
 	s.stub.SetErrors(nil, errors.New("cannot update environ config"))
-	s.registry.providers["someprovider"] = &mockEnvironConfigUpgrader{
+	s.registry.providers["someprovider"] = &mockModelConfigUpgrader{
 		upgradeConfig: func(cfg *config.Config) (*config.Config, error) {
 			return cfg, nil
 		},
 	}
-	err := upgrades.UpgradeEnvironConfig(s.reader, s.updater, s.registry)
+	err := upgrades.UpgradeModelConfig(s.reader, s.updater, s.registry)
 	c.Assert(err, gc.ErrorMatches, "updating config in state: cannot update environ config")
 
-	s.stub.CheckCallNames(c, "EnvironConfig", "UpdateEnvironConfig")
+	s.stub.CheckCallNames(c, "ModelConfig", "UpdateModelConfig")
 	updateCall := s.stub.Calls()[1]
 	c.Assert(updateCall.Args, gc.HasLen, 3)
 	c.Assert(updateCall.Args[0], jc.DeepEquals, s.cfg.AllAttrs())
@@ -132,13 +132,13 @@ func (s *upgradeEnvironConfigSuite) TestUpgradeEnvironConfigUpdateConfigError(c 
 
 type environConfigFunc func() (*config.Config, error)
 
-func (f environConfigFunc) EnvironConfig() (*config.Config, error) {
+func (f environConfigFunc) ModelConfig() (*config.Config, error) {
 	return f()
 }
 
-type updateEnvironConfigFunc func(map[string]interface{}, []string, state.ValidateConfigFunc) error
+type updateModelConfigFunc func(map[string]interface{}, []string, state.ValidateConfigFunc) error
 
-func (f updateEnvironConfigFunc) UpdateEnvironConfig(
+func (f updateModelConfigFunc) UpdateModelConfig(
 	update map[string]interface{}, remove []string, validate state.ValidateConfigFunc,
 ) error {
 	return f(update, remove, validate)
@@ -160,12 +160,12 @@ type mockEnvironProvider struct {
 	environs.EnvironProvider
 }
 
-type mockEnvironConfigUpgrader struct {
+type mockModelConfigUpgrader struct {
 	mockEnvironProvider
 	upgradeConfig func(*config.Config) (*config.Config, error)
 }
 
-func (u *mockEnvironConfigUpgrader) UpgradeConfig(cfg *config.Config) (*config.Config, error) {
+func (u *mockModelConfigUpgrader) UpgradeConfig(cfg *config.Config) (*config.Config, error) {
 	u.MethodCall(u, "UpgradeConfig", cfg)
 	return u.upgradeConfig(cfg)
 }

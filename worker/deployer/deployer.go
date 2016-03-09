@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	apideployer "github.com/juju/juju/api/deployer"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -54,13 +54,19 @@ type Context interface {
 
 // NewDeployer returns a Worker that deploys and recalls unit agents
 // via ctx, taking a machine id to operate on.
-func NewDeployer(st *apideployer.State, ctx Context) worker.Worker {
+func NewDeployer(st *apideployer.State, ctx Context) (worker.Worker, error) {
 	d := &Deployer{
 		st:       st,
 		ctx:      ctx,
 		deployed: make(set.Strings),
 	}
-	return worker.NewStringsWorker(d)
+	w, err := watcher.NewStringsWorker(watcher.StringsConfig{
+		Handler: d,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }
 
 func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
@@ -91,7 +97,7 @@ func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
 	return machineUnitsWatcher, nil
 }
 
-func (d *Deployer) Handle(unitNames []string) error {
+func (d *Deployer) Handle(_ <-chan struct{}, unitNames []string) error {
 	for _, unitName := range unitNames {
 		if err := d.changed(unitName); err != nil {
 			return err

@@ -9,29 +9,48 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 // State provides access to an reboot worker's view of the state.
-type State struct {
+// NOTE: This is defined as an interface due to PPC64 bug #1533469 -
+// if it were a type build errors happen (due to a linker bug).
+type State interface {
+	// WatchForRebootEvent returns a watcher.NotifyWatcher that
+	// reacts to reboot flag changes.
+	WatchForRebootEvent() (watcher.NotifyWatcher, error)
+
+	// RequestReboot sets the reboot flag for the calling machine.
+	RequestReboot() error
+
+	// ClearReboot clears the reboot flag for the calling machine.
+	ClearReboot() error
+
+	// GetRebootAction returns the reboot action for the calling machine.
+	GetRebootAction() (params.RebootAction, error)
+}
+
+var _ State = (*state)(nil)
+
+// state implements State.
+type state struct {
 	machineTag names.Tag
 	facade     base.FacadeCaller
 }
 
 // NewState returns a version of the state that provides functionality
 // required by the reboot worker.
-func NewState(caller base.APICaller, machineTag names.MachineTag) *State {
-
-	return &State{
+func NewState(caller base.APICaller, machineTag names.MachineTag) State {
+	return &state{
 		facade:     base.NewFacadeCaller(caller, "Reboot"),
 		machineTag: machineTag,
 	}
 }
 
-// WatchForRebootEvent returns a watcher.NotifyWatcher that reacts to reboot flag
-// changes
-func (st *State) WatchForRebootEvent() (watcher.NotifyWatcher, error) {
+// WatchForRebootEvent implements State.WatchForRebootEvent
+func (st *state) WatchForRebootEvent() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
 
 	if err := st.facade.FacadeCall("WatchForRebootEvent", nil, &result); err != nil {
@@ -41,12 +60,12 @@ func (st *State) WatchForRebootEvent() (watcher.NotifyWatcher, error) {
 		return nil, result.Error
 	}
 
-	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
-// RequestReboot sets the reboot flag for the calling machine
-func (st *State) RequestReboot() error {
+// RequestReboot implements State.RequestReboot
+func (st *state) RequestReboot() error {
 	var results params.ErrorResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: st.machineTag.String()}},
@@ -66,8 +85,8 @@ func (st *State) RequestReboot() error {
 	return nil
 }
 
-// ClearReboot clears the reboot flag for the calling machine
-func (st *State) ClearReboot() error {
+// ClearReboot implements State.ClearReboot
+func (st *state) ClearReboot() error {
 	var results params.ErrorResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: st.machineTag.String()}},
@@ -89,8 +108,8 @@ func (st *State) ClearReboot() error {
 	return nil
 }
 
-// GetRebootAction returns the reboot action for the calling machine
-func (st *State) GetRebootAction() (params.RebootAction, error) {
+// GetRebootAction implements State.GetRebootAction
+func (st *state) GetRebootAction() (params.RebootAction, error) {
 	var results params.RebootActionResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: st.machineTag.String()}},

@@ -5,14 +5,19 @@ package backups
 
 import (
 	"io"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 )
+
+// TODO: There are no unit tests for this file.
+// lp1545568 opened to track their addition.
 
 var (
 	// restoreStrategy is the attempt strategy for api server calls re-attempts in case
@@ -22,6 +27,15 @@ var (
 		Min:   10,
 	}
 )
+
+// isUpgradeInProgressErr returns whether or not the error
+// is an "upgrade in progress" error.  This is necessary as
+// the error type returned from a facade call is rpc.RequestError
+// and we cannot use params.IsCodeUpgradeInProgress
+func isUpgradeInProgressErr(err error) bool {
+	errorMessage := err.Error()
+	return strings.Contains(errorMessage, apiserver.UpgradeInProgressError.Error())
+}
 
 // ClientConnection type represents a function capable of spawning a new Client connection
 // it is used to pass around connection factories when necessary.
@@ -51,10 +65,11 @@ func prepareRestore(newClient ClientConnection) error {
 		if clientErr != nil {
 			return errors.Trace(clientErr)
 		}
-		if err, remoteError = prepareAttempt(client, clientCloser); err == nil {
+		err, remoteError = prepareAttempt(client, clientCloser)
+		if err == nil && remoteError == nil {
 			return nil
 		}
-		if !params.IsCodeUpgradeInProgress(remoteError) {
+		if !isUpgradeInProgressErr(err) || remoteError != nil {
 			return errors.Annotatef(err, "could not start prepare restore mode, server returned: %v", remoteError)
 		}
 	}
@@ -108,27 +123,31 @@ func (c *Client) restore(backupId string, newClient ClientConnection) error {
 		BackupId: backupId,
 	}
 
+	cleanExit := false
 	for a := restoreStrategy.Start(); a.Next(); {
 		logger.Debugf("Attempting Restore of %q", backupId)
-		restoreClient, restoreClientCloser, err := newClient()
+		var restoreClient *Client
+		var restoreClientCloser func() error
+		restoreClient, restoreClientCloser, err = newClient()
 		if err != nil {
 			return errors.Trace(err)
 		}
 
 		err, remoteError = restoreAttempt(restoreClient, restoreClientCloser, restoreArgs)
 
-		// This signals that Restore almost certainly finished and
+		// A ShutdownErr signals that Restore almost certainly finished and
 		// triggered Exit.
-		if err == rpc.ErrShutdown && remoteError == nil {
+		if (err == nil || rpc.IsShutdownErr(err)) && remoteError == nil {
+			cleanExit = true
 			break
 		}
-		if err != nil && !params.IsCodeUpgradeInProgress(remoteError) {
+		if remoteError != nil || !isUpgradeInProgressErr(err) {
 			finishErr := finishRestore(newClient)
 			logger.Errorf("could not exit restoring status: %v", finishErr)
 			return errors.Annotatef(err, "cannot perform restore: %v", remoteError)
 		}
 	}
-	if err != rpc.ErrShutdown {
+	if !cleanExit {
 		finishErr := finishRestore(newClient)
 		if finishErr != nil {
 			logger.Errorf("could not exit restoring status: %v", finishErr)
@@ -151,22 +170,26 @@ func finishAttempt(client *Client, closer closerFunc) (error, error) {
 }
 
 // finishRestore since Restore call will end up with a reset
-// state server, finish restore will check that the the newly
-// placed state server has the mark of restore complete.
+// controller, finish restore will check that the the newly
+// placed controller has the mark of restore complete.
 // upstart should have restarted the api server so we reconnect.
 func finishRestore(newClient ClientConnection) error {
 	var err, remoteError error
 	for a := restoreStrategy.Start(); a.Next(); {
 		logger.Debugf("Attempting finishRestore")
-		finishClient, finishClientCloser, err := newClient()
+		var finishClient *Client
+		var finishClientCloser func() error
+		finishClient, finishClientCloser, err = newClient()
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		if err, remoteError = finishAttempt(finishClient, finishClientCloser); err == nil {
+		err, remoteError = finishAttempt(finishClient, finishClientCloser)
+		if err == nil && remoteError == nil {
 			return nil
 		}
-		if !params.IsCodeUpgradeInProgress(remoteError) {
+
+		if !isUpgradeInProgressErr(err) || remoteError != nil {
 			return errors.Annotatef(err, "cannot complete restore: %v", remoteError)
 		}
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
@@ -35,7 +36,7 @@ type servingInfoSuite struct {
 var _ = gc.Suite(&servingInfoSuite{})
 
 func (s *servingInfoSuite) TestStateServingInfo(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 
 	ssi := state.StateServingInfo{
 		PrivateKey:   "some key",
@@ -61,7 +62,10 @@ func (s *servingInfoSuite) TestStateServingInfoPermission(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c)
 
 	_, err := st.Agent().StateServingInfo()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: "permission denied",
+		Code:    "unauthorized access",
+	})
 }
 
 func (s *servingInfoSuite) TestIsMaster(c *gc.C) {
@@ -72,7 +76,7 @@ func (s *servingInfoSuite) TestIsMaster(c *gc.C) {
 	}
 	s.PatchValue(&apiserveragent.MongoIsMaster, fakeMongoIsMaster)
 
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 	expected := true
 	result, err := st.Agent().IsMaster()
 
@@ -84,7 +88,10 @@ func (s *servingInfoSuite) TestIsMaster(c *gc.C) {
 func (s *servingInfoSuite) TestIsMasterPermission(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c)
 	_, err := st.Agent().IsMaster()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: "permission denied",
+		Code:    "unauthorized access",
+	})
 }
 
 type machineSuite struct {
@@ -149,7 +156,7 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info.Tag = tag
 	info.Password = "foo-12345678901234567890"
-	err = tryOpenState(s.State.EnvironTag(), info)
+	err = tryOpenState(s.State.ModelTag(), info)
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
 }
 
@@ -171,8 +178,8 @@ func (s *machineSuite) TestClearReboot(c *gc.C) {
 	c.Assert(rFlag, jc.IsFalse)
 }
 
-func tryOpenState(envTag names.EnvironTag, info *mongo.MongoInfo) error {
-	st, err := state.Open(envTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+func tryOpenState(modelTag names.ModelTag, info *mongo.MongoInfo) error {
+	st, err := state.Open(modelTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}

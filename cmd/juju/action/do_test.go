@@ -56,7 +56,7 @@ func (s *DoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DoSuite) TestHelp(c *gc.C) {
-	cmd, _ := action.NewDoCommand()
+	cmd, _ := action.NewDoCommand(s.store)
 	s.checkHelp(c, cmd)
 }
 
@@ -166,19 +166,21 @@ func (s *DoSuite) TestInit(c *gc.C) {
 	}}
 
 	for i, t := range tests {
-		wrappedCommand, command := action.NewDoCommand()
-		c.Logf("test %d: should %s:\n$ juju actions do %s\n", i,
-			t.should, strings.Join(t.args, " "))
-		args := append([]string{"-e", "dummyenv"}, t.args...)
-		err := testing.InitCommand(wrappedCommand, args)
-		if t.expectError == "" {
-			c.Check(command.UnitTag(), gc.Equals, t.expectUnit)
-			c.Check(command.ActionName(), gc.Equals, t.expectAction)
-			c.Check(command.ParamsYAML().Path, gc.Equals, t.expectParamsYamlPath)
-			c.Check(command.Args(), jc.DeepEquals, t.expectKVArgs)
-			c.Check(command.ParseStrings(), gc.Equals, t.expectParseStrings)
-		} else {
-			c.Check(err, gc.ErrorMatches, t.expectError)
+		for _, modelFlag := range s.modelFlags {
+			wrappedCommand, command := action.NewDoCommand(s.store)
+			c.Logf("test %d: should %s:\n$ juju actions do %s\n", i,
+				t.should, strings.Join(t.args, " "))
+			args := append([]string{modelFlag, "dummymodel"}, t.args...)
+			err := testing.InitCommand(wrappedCommand, args)
+			if t.expectError == "" {
+				c.Check(command.UnitTag(), gc.Equals, t.expectUnit)
+				c.Check(command.ActionName(), gc.Equals, t.expectAction)
+				c.Check(command.ParamsYAML().Path, gc.Equals, t.expectParamsYamlPath)
+				c.Check(command.Args(), jc.DeepEquals, t.expectKVArgs)
+				c.Check(command.ParseStrings(), gc.Equals, t.expectParseStrings)
+			} else {
+				c.Check(err, gc.ErrorMatches, t.expectError)
+			}
 		}
 	}
 }
@@ -355,48 +357,50 @@ func (s *DoSuite) TestRun(c *gc.C) {
 	}}
 
 	for i, t := range tests {
-		func() {
-			c.Logf("test %d: should %s:\n$ juju actions do %s\n", i,
-				t.should, strings.Join(t.withArgs, " "))
-			fakeClient := &fakeAPIClient{
-				actionResults: t.withActionResults,
-			}
-			if t.withAPIErr != "" {
-				fakeClient.apiErr = errors.New(t.withAPIErr)
-			}
-			restore := s.patchAPIClient(fakeClient)
-			defer restore()
+		for _, modelFlag := range s.modelFlags {
+			func() {
+				c.Logf("test %d: should %s:\n$ juju actions do %s\n", i,
+					t.should, strings.Join(t.withArgs, " "))
+				fakeClient := &fakeAPIClient{
+					actionResults: t.withActionResults,
+				}
+				if t.withAPIErr != "" {
+					fakeClient.apiErr = errors.New(t.withAPIErr)
+				}
+				restore := s.patchAPIClient(fakeClient)
+				defer restore()
 
-			wrappedCommand, _ := action.NewDoCommand()
-			args := append([]string{"-e", "dummyenv"}, t.withArgs...)
-			ctx, err := testing.RunCommand(c, wrappedCommand, args...)
+				wrappedCommand, _ := action.NewDoCommand(s.store)
+				args := append([]string{modelFlag, "dummymodel"}, t.withArgs...)
+				ctx, err := testing.RunCommand(c, wrappedCommand, args...)
 
-			if t.expectedErr != "" || t.withAPIErr != "" {
-				c.Check(err, gc.ErrorMatches, t.expectedErr)
-			} else {
-				c.Assert(err, gc.IsNil)
-				// Before comparing, double-check to avoid
-				// panics in malformed tests.
-				c.Assert(len(t.withActionResults), gc.Equals, 1)
-				// Make sure the test's expected Action was
-				// non-nil and correct.
-				c.Assert(t.withActionResults[0].Action, gc.NotNil)
-				expectedTag, err := names.ParseActionTag(t.withActionResults[0].Action.Tag)
-				c.Assert(err, gc.IsNil)
-				// Make sure the CLI responded with the expected tag
-				keyToCheck := "Action queued with id"
-				expectedMap := map[string]string{keyToCheck: expectedTag.Id()}
-				outputResult := ctx.Stdout.(*bytes.Buffer).Bytes()
-				resultMap := make(map[string]string)
-				err = yaml.Unmarshal(outputResult, &resultMap)
-				c.Assert(err, gc.IsNil)
-				c.Check(resultMap, jc.DeepEquals, expectedMap)
-				// Make sure the Action sent to the API to be
-				// enqueued was indeed the expected map
-				enqueued := fakeClient.EnqueuedActions()
-				c.Assert(enqueued.Actions, gc.HasLen, 1)
-				c.Check(enqueued.Actions[0], jc.DeepEquals, t.expectedActionEnqueued)
-			}
-		}()
+				if t.expectedErr != "" || t.withAPIErr != "" {
+					c.Check(err, gc.ErrorMatches, t.expectedErr)
+				} else {
+					c.Assert(err, gc.IsNil)
+					// Before comparing, double-check to avoid
+					// panics in malformed tests.
+					c.Assert(len(t.withActionResults), gc.Equals, 1)
+					// Make sure the test's expected Action was
+					// non-nil and correct.
+					c.Assert(t.withActionResults[0].Action, gc.NotNil)
+					expectedTag, err := names.ParseActionTag(t.withActionResults[0].Action.Tag)
+					c.Assert(err, gc.IsNil)
+					// Make sure the CLI responded with the expected tag
+					keyToCheck := "Action queued with id"
+					expectedMap := map[string]string{keyToCheck: expectedTag.Id()}
+					outputResult := ctx.Stdout.(*bytes.Buffer).Bytes()
+					resultMap := make(map[string]string)
+					err = yaml.Unmarshal(outputResult, &resultMap)
+					c.Assert(err, gc.IsNil)
+					c.Check(resultMap, jc.DeepEquals, expectedMap)
+					// Make sure the Action sent to the API to be
+					// enqueued was indeed the expected map
+					enqueued := fakeClient.EnqueuedActions()
+					c.Assert(enqueued.Actions, gc.HasLen, 1)
+					c.Check(enqueued.Actions[0], jc.DeepEquals, t.expectedActionEnqueued)
+				}
+			}()
+		}
 	}
 }

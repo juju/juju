@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Machiner", 0, NewMachinerAPI)
+	common.RegisterStandardFacade("Machiner", 1, NewMachinerAPI)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.machine")

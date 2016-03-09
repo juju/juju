@@ -31,7 +31,7 @@ var _ = gc.Suite(&DefinedSuite{})
 
 func (s *DefinedSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
-	s.wrappedCommand, s.command = action.NewDefinedCommand()
+	s.wrappedCommand, s.command = action.NewDefinedCommand(s.store)
 }
 
 func (s *DefinedSuite) TestHelp(c *gc.C) {
@@ -69,16 +69,18 @@ func (s *DefinedSuite) TestInit(c *gc.C) {
 	}}
 
 	for i, t := range tests {
-		c.Logf("test %d should %s: juju actions defined %s", i,
-			t.should, strings.Join(t.args, " "))
-		s.wrappedCommand, s.command = action.NewDefinedCommand()
-		args := append([]string{"-e", "dummyenv"}, t.args...)
-		err := testing.InitCommand(s.wrappedCommand, args)
-		if t.expectedErr == "" {
-			c.Check(s.command.ServiceTag(), gc.Equals, t.expectedSvc)
-			c.Check(s.command.FullSchema(), gc.Equals, t.expectedOutputSchema)
-		} else {
-			c.Check(err, gc.ErrorMatches, t.expectedErr)
+		for _, modelFlag := range s.modelFlags {
+			c.Logf("test %d should %s: juju actions defined %s", i,
+				t.should, strings.Join(t.args, " "))
+			s.wrappedCommand, s.command = action.NewDefinedCommand(s.store)
+			args := append([]string{modelFlag, "dummymodel"}, t.args...)
+			err := testing.InitCommand(s.wrappedCommand, args)
+			if t.expectedErr == "" {
+				c.Check(s.command.ServiceTag(), gc.Equals, t.expectedSvc)
+				c.Check(s.command.FullSchema(), gc.Equals, t.expectedOutputSchema)
+			} else {
+				c.Check(err, gc.ErrorMatches, t.expectedErr)
+			}
 		}
 	}
 }
@@ -116,34 +118,37 @@ func (s *DefinedSuite) TestRun(c *gc.C) {
 	}}
 
 	for i, t := range tests {
-		func() {
-			c.Logf("test %d should %s", i, t.should)
+		for _, modelFlag := range s.modelFlags {
+			func() {
+				c.Logf("test %d should %s", i, t.should)
 
-			fakeClient := &fakeAPIClient{charmActions: t.withCharmActions}
-			if t.withAPIErr != "" {
-				fakeClient.apiErr = errors.New(t.withAPIErr)
-			}
-			restore := s.patchAPIClient(fakeClient)
-			defer restore()
-
-			args := append([]string{"-e", "dummyenv"}, t.withArgs...)
-			s.wrappedCommand, s.command = action.NewDefinedCommand()
-			ctx, err := testing.RunCommand(c, s.wrappedCommand, args...)
-
-			if t.expectedErr != "" || t.withAPIErr != "" {
-				c.Check(err, gc.ErrorMatches, t.expectedErr)
-			} else {
-				c.Assert(err, gc.IsNil)
-				result := ctx.Stdout.(*bytes.Buffer).Bytes()
-				if t.expectFullSchema {
-					checkFullSchema(c, t.withCharmActions, result)
-				} else if t.expectNoResults {
-					c.Check(string(result), gc.Matches, t.expectMessage+"(?sm).*")
-				} else {
-					checkSimpleSchema(c, t.withCharmActions, result)
+				fakeClient := &fakeAPIClient{charmActions: t.withCharmActions}
+				if t.withAPIErr != "" {
+					fakeClient.apiErr = errors.New(t.withAPIErr)
 				}
-			}
-		}()
+				restore := s.patchAPIClient(fakeClient)
+				defer restore()
+
+				args := append([]string{modelFlag, "dummymodel"}, t.withArgs...)
+				s.wrappedCommand, s.command = action.NewDefinedCommand(s.store)
+				ctx, err := testing.RunCommand(c, s.wrappedCommand, args...)
+
+				if t.expectedErr != "" || t.withAPIErr != "" {
+					c.Check(err, gc.ErrorMatches, t.expectedErr)
+				} else {
+					c.Assert(err, gc.IsNil)
+					result := ctx.Stdout.(*bytes.Buffer).Bytes()
+					if t.expectFullSchema {
+						checkFullSchema(c, t.withCharmActions, result)
+					} else if t.expectNoResults {
+						c.Check(string(result), gc.Matches, t.expectMessage+"(?sm).*")
+					} else {
+						checkSimpleSchema(c, t.withCharmActions, result)
+					}
+				}
+
+			}()
+		}
 	}
 }
 

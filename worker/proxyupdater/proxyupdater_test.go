@@ -19,7 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/environment"
+	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -31,9 +31,9 @@ import (
 type ProxyUpdaterSuite struct {
 	jujutesting.JujuConnSuite
 
-	apiRoot        api.Connection
-	environmentAPI *environment.Facade
-	machine        *state.Machine
+	apiRoot         api.Connection
+	proxyUpdaterAPI *apiproxyupdater.Facade
+	machine         *state.Machine
 
 	proxyFile string
 	started   chan struct{}
@@ -53,8 +53,8 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.apiRoot, s.machine = s.OpenAPIAsNewMachine(c)
 	// Create the environment API facade.
-	s.environmentAPI = s.apiRoot.Environment()
-	c.Assert(s.environmentAPI, gc.NotNil)
+	s.proxyUpdaterAPI = apiproxyupdater.NewFacade(s.apiRoot)
+	c.Assert(s.proxyUpdaterAPI, gc.NotNil)
 
 	proxyDir := c.MkDir()
 	s.PatchValue(&proxyupdater.ProxyDirectory, proxyDir)
@@ -113,8 +113,10 @@ func (s *ProxyUpdaterSuite) waitForFile(c *gc.C, filename, expected string) {
 }
 
 func (s *ProxyUpdaterSuite) TestRunStop(c *gc.C) {
-	updater := proxyupdater.New(s.environmentAPI, false)
-	c.Assert(worker.Stop(updater), gc.IsNil)
+	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI)
+	c.Assert(err, jc.ErrorIsNil)
+	err = worker.Stop(updater)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Settings) {
@@ -143,7 +145,7 @@ func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Setting
 		attrs[k] = v
 	}
 
-	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return proxySettings, aptProxySettings
@@ -152,7 +154,8 @@ func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Setting
 func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	updater := proxyupdater.New(s.environmentAPI, true)
+	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI)
+	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 
 	s.waitProxySettings(c, proxySettings)
@@ -166,7 +169,8 @@ func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 func (s *ProxyUpdaterSuite) TestWriteSystemFiles(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	updater := proxyupdater.New(s.environmentAPI, true)
+	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI)
+	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 	s.waitForPostSetup(c)
 
@@ -190,7 +194,8 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
 
 	proxySettings, _ := s.updateConfig(c)
 
-	updater := proxyupdater.New(s.environmentAPI, true)
+	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI)
+	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 	s.waitForPostSetup(c)
 	s.waitProxySettings(c, proxySettings)
@@ -203,16 +208,4 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
 	assertEnv("https_proxy", proxySettings.Https)
 	assertEnv("ftp_proxy", proxySettings.Ftp)
 	assertEnv("no_proxy", proxySettings.NoProxy)
-}
-
-func (s *ProxyUpdaterSuite) TestDontWriteSystemFiles(c *gc.C) {
-	proxySettings, _ := s.updateConfig(c)
-
-	updater := proxyupdater.New(s.environmentAPI, false)
-	defer worker.Stop(updater)
-	s.waitForPostSetup(c)
-
-	s.waitProxySettings(c, proxySettings)
-	c.Assert(pacconfig.AptProxyConfigFile, jc.DoesNotExist)
-	c.Assert(s.proxyFile, jc.DoesNotExist)
 }

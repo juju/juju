@@ -17,6 +17,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
@@ -40,6 +41,7 @@ type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
 	PrepareContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
 	GetContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
+	ReleaseContainerAddresses(names.MachineTag) error
 }
 
 var _ APICalls = (*apiprovisioner.State)(nil)
@@ -55,6 +57,7 @@ func newLxcBroker(
 	enableNAT bool,
 	defaultMTU int,
 ) (environs.InstanceBroker, error) {
+	namespace := maybeGetManagerConfigNamespaces(managerConfig)
 	manager, err := lxc.NewContainerManager(
 		managerConfig, imageURLGetter, looputil.NewLoopDeviceManager(),
 	)
@@ -63,6 +66,7 @@ func newLxcBroker(
 	}
 	return &lxcBroker{
 		manager:     manager,
+		namespace:   namespace,
 		api:         api,
 		agentConfig: agentConfig,
 		enableNAT:   enableNAT,
@@ -72,6 +76,7 @@ func newLxcBroker(
 
 type lxcBroker struct {
 	manager     container.Manager
+	namespace   string
 	api         APICalls
 	agentConfig agent.Config
 	enableNAT   bool
@@ -93,28 +98,22 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		bridgeDevice = lxc.DefaultLxcBridge
 	}
 
-	if !environs.AddressAllocationEnabled() {
-		logger.Debugf(
-			"address allocation feature flag not enabled; using DHCP for container %q",
-			machineId,
-		)
+	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
+		broker.api,
+		machineId,
+		bridgeDevice,
+		true, // allocate if possible, do not maintain existing.
+		broker.enableNAT,
+		args.NetworkInfo,
+		lxcLogger,
+	)
+	if err != nil {
+		// It's not fatal (yet) if we couldn't pre-allocate addresses for the
+		// container.
+		logger.Warningf("failed to prepare container %q network config: %v", machineId, err)
 	} else {
-		logger.Debugf("trying to allocate static IP for container %q", machineId)
-		allocatedInfo, err := configureContainerNetwork(
-			machineId,
-			bridgeDevice,
-			broker.api,
-			args.NetworkInfo,
-			true, // allocate a new address.
-			broker.enableNAT,
-		)
-		if err != nil {
-			// It's fine, just ignore it. The effect will be that the
-			// container won't have a static address configured.
-			logger.Infof("not allocating static IP for container %q: %v", machineId, err)
-		} else {
-			args.NetworkInfo = allocatedInfo
-		}
+		args.NetworkInfo = preparedInfo
+
 	}
 	network := container.BridgeNetworkConfig(bridgeDevice, broker.defaultMTU, args.NetworkInfo)
 
@@ -176,6 +175,33 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	}, nil
 }
 
+// MaintainInstance ensures the container's host has the required iptables and
+// routing rules to make the container visible to both the host and other
+// machines on the same subnet. This is important mostly when address allocation
+// feature flag is enabled, as otherwise we don't create additional iptables
+// rules or routes.
+func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) error {
+	machineID := args.InstanceConfig.MachineId
+
+	// Default to using the host network until we can configure.
+	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
+	if bridgeDevice == "" {
+		bridgeDevice = lxc.DefaultLxcBridge
+	}
+
+	// There's no InterfaceInfo we expect to get below.
+	_, err := prepareOrGetContainerInterfaceInfo(
+		broker.api,
+		machineID,
+		bridgeDevice,
+		false, // maintain, do not allocate.
+		broker.enableNAT,
+		args.NetworkInfo,
+		lxcLogger,
+	)
+	return err
+}
+
 // StopInstances shuts down the given instances.
 func (broker *lxcBroker) StopInstances(ids ...instance.Id) error {
 	// TODO: potentially parallelise.
@@ -185,6 +211,7 @@ func (broker *lxcBroker) StopInstances(ids ...instance.Id) error {
 			lxcLogger.Errorf("container did not stop: %v", err)
 			return err
 		}
+		maybeReleaseContainerAddresses(broker.api, id, broker.namespace, lxcLogger)
 	}
 	return nil
 }
@@ -595,30 +622,124 @@ func configureContainerNetwork(
 	return finalIfaceInfo, nil
 }
 
-// MaintainInstance checks that the container's host has the required iptables and routing
-// rules to make the container visible to both the host and other machines on the same subnet.
-func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) error {
-	machineId := args.InstanceConfig.MachineId
-	if !environs.AddressAllocationEnabled() {
-		lxcLogger.Debugf("address allocation disabled: Not running maintenance for lxc container with machineId: %s",
-			machineId)
-		return nil
+func maybeGetManagerConfigNamespaces(managerConfig container.ManagerConfig) string {
+	if len(managerConfig) == 0 {
+		return ""
+	}
+	if namespace, ok := managerConfig[container.ConfigName]; ok {
+		return namespace
+	}
+	return ""
+}
+
+func prepareOrGetContainerInterfaceInfo(
+	api APICalls,
+	machineID string,
+	bridgeDevice string,
+	allocateOrMaintain bool,
+	enableNAT bool,
+	startingNetworkInfo []network.InterfaceInfo,
+	log loggo.Logger,
+) ([]network.InterfaceInfo, error) {
+	maintain := !allocateOrMaintain
+
+	if environs.AddressAllocationEnabled() {
+		if maintain {
+			log.Debugf("running maintenance for container %q", machineID)
+		} else {
+			log.Debugf("trying to allocate static IP for container %q", machineID)
+		}
+
+		allocatedInfo, err := configureContainerNetwork(
+			machineID,
+			bridgeDevice,
+			api,
+			startingNetworkInfo,
+			allocateOrMaintain,
+			enableNAT,
+		)
+		if err != nil && !maintain {
+			log.Infof("not allocating static IP for container %q: %v", machineID, err)
+		}
+		return allocatedInfo, err
 	}
 
-	lxcLogger.Debugf("running maintenance for lxc container with machineId: %s", machineId)
-
-	// Default to using the host network until we can configure.
-	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
-	if bridgeDevice == "" {
-		bridgeDevice = lxc.DefaultLxcBridge
+	if maintain {
+		log.Debugf("address allocation disabled: Not running maintenance for machine %q", machineID)
+		return nil, nil
 	}
-	_, err := configureContainerNetwork(
-		machineId,
-		bridgeDevice,
-		broker.api,
-		args.NetworkInfo,
-		false, // don't allocate a new address.
-		broker.enableNAT,
+
+	log.Debugf("address allocation feature flag not enabled; using DHCP for container %q", machineID)
+
+	// In case we're running on MAAS 1.8+ with devices support, we'll still
+	// call PrepareContainerInterfaceInfo(), but we'll ignore a NotSupported
+	// error if we get it (which means we're not using MAAS 1.8+).
+	containerTag := names.NewMachineTag(machineID)
+	preparedInfo, err := api.PrepareContainerInterfaceInfo(containerTag)
+	if err != nil && errors.IsNotSupported(err) {
+		log.Warningf("new container %q not registered as device: not running on MAAS 1.8+", machineID)
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	dnsServers, searchDomain, dnsErr := localDNSServers()
+
+	if dnsErr != nil {
+		return nil, errors.Trace(dnsErr)
+	}
+
+	for i, _ := range preparedInfo {
+		preparedInfo[i].DNSServers = dnsServers
+		preparedInfo[i].DNSSearch = searchDomain
+	}
+
+	log.Tracef("PrepareContainerInterfaceInfo returned %#v", preparedInfo)
+	// Most likely there will be only one item in the list, but check
+	// all of them for forward compatibility.
+	macAddresses := set.NewStrings()
+	for _, prepInfo := range preparedInfo {
+		macAddresses.Add(prepInfo.MACAddress)
+	}
+	log.Infof(
+		"new container %q registered as a MAAS device with MAC address(es) %v",
+		machineID, macAddresses.SortedValues(),
 	)
-	return err
+	return preparedInfo, nil
+}
+
+func maybeReleaseContainerAddresses(
+	api APICalls,
+	instanceID instance.Id,
+	namespace string,
+	log loggo.Logger,
+) {
+	if environs.AddressAllocationEnabled() {
+		// The addresser worker will take care of the addresses.
+		return
+	}
+	// If we're not using addressable containers, we might still have used MAAS
+	// 1.8+ device to register the container when provisioning. In that case we
+	// need to attempt releasing the device, but ignore a NotSupported error
+	// (when we're not using MAAS 1.8+).
+	namespacePrefix := fmt.Sprintf("%s-", namespace)
+	tagString := strings.TrimPrefix(string(instanceID), namespacePrefix)
+	containerTag, err := names.ParseMachineTag(tagString)
+	if err != nil {
+		// Not a reason to cause StopInstances to fail though..
+		log.Warningf("unexpected container tag %q: %v", instanceID, err)
+		return
+	}
+	err = api.ReleaseContainerAddresses(containerTag)
+	switch {
+	case err == nil:
+		log.Infof("released all addresses for container %q", containerTag.Id())
+	case errors.IsNotSupported(err):
+		log.Warningf("not releasing all addresses for container %q: %v", containerTag.Id(), err)
+	default:
+		log.Warningf(
+			"unexpected error trying to release container %q addreses: %v",
+			containerTag.Id(), err,
+		)
+	}
 }

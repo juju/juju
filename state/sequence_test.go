@@ -20,11 +20,11 @@ type sequenceSuite struct {
 func (s *sequenceSuite) TestSequence(c *gc.C) {
 	s.incAndCheck(c, s.State, "foo", 0)
 	s.checkDocCount(c, 1)
-	s.checkDoc(c, s.State.EnvironUUID(), "foo", 1)
+	s.checkDoc(c, s.State.ModelUUID(), "foo", 1)
 
 	s.incAndCheck(c, s.State, "foo", 1)
 	s.checkDocCount(c, 1)
-	s.checkDoc(c, s.State.EnvironUUID(), "foo", 2)
+	s.checkDoc(c, s.State.ModelUUID(), "foo", 2)
 }
 
 func (s *sequenceSuite) TestMultipleSequences(c *gc.C) {
@@ -35,13 +35,13 @@ func (s *sequenceSuite) TestMultipleSequences(c *gc.C) {
 	s.incAndCheck(c, s.State, "bar", 2)
 
 	s.checkDocCount(c, 2)
-	s.checkDoc(c, s.State.EnvironUUID(), "foo", 2)
-	s.checkDoc(c, s.State.EnvironUUID(), "bar", 3)
+	s.checkDoc(c, s.State.ModelUUID(), "foo", 2)
+	s.checkDoc(c, s.State.ModelUUID(), "bar", 3)
 }
 
 func (s *sequenceSuite) TestSequenceWithMultipleEnvs(c *gc.C) {
 	state1 := s.State
-	state2 := s.Factory.MakeEnvironment(c, nil)
+	state2 := s.Factory.MakeModel(c, nil)
 	defer state2.Close()
 
 	s.incAndCheck(c, state1, "foo", 0)
@@ -51,8 +51,8 @@ func (s *sequenceSuite) TestSequenceWithMultipleEnvs(c *gc.C) {
 	s.incAndCheck(c, state1, "foo", 2)
 
 	s.checkDocCount(c, 2)
-	s.checkDoc(c, state1.EnvironUUID(), "foo", 3)
-	s.checkDoc(c, state2.EnvironUUID(), "foo", 2)
+	s.checkDoc(c, state1.ModelUUID(), "foo", 3)
+	s.checkDoc(c, state2.ModelUUID(), "foo", 2)
 }
 
 func (s *sequenceSuite) incAndCheck(c *gc.C, st *state.State, name string, expectedCount int) {
@@ -69,16 +69,16 @@ func (s *sequenceSuite) checkDocCount(c *gc.C, expectedCount int) {
 	c.Check(count, gc.Equals, expectedCount)
 }
 
-func (s *sequenceSuite) checkDoc(c *gc.C, envUUID, name string, value int) {
+func (s *sequenceSuite) checkDoc(c *gc.C, modelUUID, name string, value int) {
 	coll, closer := state.GetRawCollection(s.State, "sequence")
 	defer closer()
 
-	docID := envUUID + ":" + name
+	docID := modelUUID + ":" + name
 	var doc bson.M
 	err := coll.FindId(docID).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(doc["_id"], gc.Equals, docID)
 	c.Check(doc["name"], gc.Equals, name)
-	c.Check(doc["env-uuid"], gc.Equals, envUUID)
+	c.Check(doc["model-uuid"], gc.Equals, modelUUID)
 	c.Check(doc["counter"], gc.Equals, value)
 }
