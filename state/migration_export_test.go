@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"math/rand"
+	"time"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -64,6 +65,27 @@ func (s *MigrationSuite) primeStatusHistory(c *gc.C, entity statusSetter, status
 		err := entity.SetStatus(status, "", map[string]interface{}{"index": count - i})
 		c.Assert(err, jc.ErrorIsNil)
 	}
+}
+
+func (s *MigrationSuite) makeServiceWithLeader(c *gc.C, serviceName string, count int, leader int) {
+	c.Assert(leader < count, jc.IsTrue)
+	units := make([]*state.Unit, count)
+	service := s.Factory.MakeService(c, &factory.ServiceParams{
+		Name: serviceName,
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: serviceName,
+		}),
+	})
+	for i := 0; i < count; i++ {
+		units[i] = s.Factory.MakeUnit(c, &factory.UnitParams{
+			Service: service,
+		})
+	}
+	err := s.State.LeadershipClaimer().ClaimLeadership(
+		service.Name(),
+		units[leader].Name(),
+		time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type MigrationExportSuite struct {
@@ -306,6 +328,23 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	agentHistory := exported.AgentStatusHistory()
 	c.Assert(agentHistory, gc.HasLen, expectedHistoryCount)
 	s.checkStatusHistory(c, agentHistory[:addedHistoryCount], state.StatusIdle)
+}
+
+func (s *MigrationExportSuite) TestServiceLeadership(c *gc.C) {
+	s.makeServiceWithLeader(c, "mysql", 2, 1)
+	s.makeServiceWithLeader(c, "wordpress", 4, 2)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	leaders := make(map[string]string)
+	for _, service := range model.Services() {
+		leaders[service.Name()] = service.Leader()
+	}
+	c.Assert(leaders, jc.DeepEquals, map[string]string{
+		"mysql":     "mysql/1",
+		"wordpress": "wordpress/2",
+	})
 }
 
 func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
