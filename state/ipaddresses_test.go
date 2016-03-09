@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -19,6 +20,9 @@ type ipAddressesStateSuite struct {
 	ConnSuite
 
 	machine *state.Machine
+
+	otherState        *state.State
+	otherStateMachine *state.Machine
 }
 
 var _ = gc.Suite(&ipAddressesStateSuite{})
@@ -30,16 +34,24 @@ func (s *ipAddressesStateSuite) SetUpTest(c *gc.C) {
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add the few subnets used by the tests.
-	_, err = s.State.AddSubnet(state.SubnetInfo{
+	s.otherState = s.NewStateForModelNamed(c, "other-model")
+	s.otherStateMachine, err = s.otherState.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add the few subnets used by the tests into both models.
+	subnetInfos := []state.SubnetInfo{{
 		CIDR: "0.1.2.0/24",
-	})
-	_, err = s.State.AddSubnet(state.SubnetInfo{
+	}, {
 		CIDR: "fc00::/64",
-	})
-	_, err = s.State.AddSubnet(state.SubnetInfo{
+	}, {
 		CIDR: "10.20.0.0/16",
-	})
+	}}
+	for _, info := range subnetInfos {
+		_, err = s.State.AddSubnet(info)
+		c.Check(err, jc.ErrorIsNil)
+		_, err = s.otherState.AddSubnet(info)
+		c.Check(err, jc.ErrorIsNil)
+	}
 }
 
 func (s *ipAddressesStateSuite) TestMachineMethodReturnsMachine(c *gc.C) {
@@ -70,13 +82,17 @@ func (s *ipAddressesStateSuite) addNamedDeviceWithAddresses(c *gc.C, name string
 }
 
 func (s *ipAddressesStateSuite) addNamedDevice(c *gc.C, name string) *state.LinkLayerDevice {
+	return s.addNamedDeviceForMachine(c, name, s.machine)
+}
+
+func (s *ipAddressesStateSuite) addNamedDeviceForMachine(c *gc.C, name string, machine *state.Machine) *state.LinkLayerDevice {
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: name,
 		Type: state.EthernetDevice,
 	}
-	err := s.machine.AddLinkLayerDevices(deviceArgs)
+	err := machine.AddLinkLayerDevices(deviceArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	device, err := s.machine.LinkLayerDevice(name)
+	device, err := machine.LinkLayerDevice(name)
 	c.Assert(err, jc.ErrorIsNil)
 	return device
 }
@@ -467,4 +483,40 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithMultipleUpdatesOfSame
 		DNSSearchDomains: setArgs[lastArgsIndex].DNSSearchDomains,
 		GatewayAddress:   setArgs[lastArgsIndex].GatewayAddress,
 	})
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithDuplicateProviderIDFailsInSameModel(c *gc.C) {
+	_, firstAddressArgs := s.addDeviceWithAddressAndProviderIDForMachine(c, "42", s.machine)
+	secondAddressArgs := firstAddressArgs
+	secondAddressArgs.CIDRAddress = "10.20.30.40/16"
+
+	err := s.machine.SetDevicesAddresses(secondAddressArgs)
+	c.Assert(err, jc.Satisfies, state.IsProviderIDNotUniqueError)
+	c.Assert(err, gc.ErrorMatches, `.*invalid address "10.20.30.40/16": ProviderID\(s\) not unique: 42`)
+}
+
+func (s *ipAddressesStateSuite) addDeviceWithAddressAndProviderIDForMachine(c *gc.C, providerID string, machine *state.Machine) (
+	*state.LinkLayerDevice,
+	state.LinkLayerDeviceAddress,
+) {
+	device := s.addNamedDeviceForMachine(c, "eth0", machine)
+	addressArgs := state.LinkLayerDeviceAddress{
+		DeviceName:   "eth0",
+		ConfigMethod: state.StaticAddress,
+		CIDRAddress:  "0.1.2.3/24",
+		ProviderID:   network.Id(providerID),
+	}
+	err := machine.SetDevicesAddresses(addressArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	return device, addressArgs
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithDuplicateProviderIDSucceedsInDifferentModel(c *gc.C) {
+	_, firstAddressArgs := s.addDeviceWithAddressAndProviderIDForMachine(c, "42", s.otherStateMachine)
+	secondAddressArgs := firstAddressArgs
+	secondAddressArgs.CIDRAddress = "10.20.30.40/16"
+
+	s.addNamedDevice(c, firstAddressArgs.DeviceName) // for s.machine
+	err := s.machine.SetDevicesAddresses(secondAddressArgs)
+	c.Assert(err, jc.ErrorIsNil)
 }
