@@ -74,7 +74,7 @@ func ExtractUploadRequest(req *http.Request) (UploadRequest, error) {
 	service, name := ExtractEndpointDetails(req.URL)
 	fingerprint := req.Header.Get(ContentSha384) // This parallels "Content-MD5".
 	sizeRaw := req.Header.Get(ContentLength)
-	pendingID := req.URL.Query().Get(pendingIDQueryParam)
+	pendingID := req.URL.Query().Get(QueryParamPendingID)
 
 	disp := req.Header.Get(ContentDisposition)
 
@@ -127,8 +127,6 @@ func ExtractUploadRequest(req *http.Request) (UploadRequest, error) {
 	return ur, nil
 }
 
-const pendingIDQueryParam = "pendingid"
-
 // HTTPRequest generates a new HTTP request.
 func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 	// TODO(ericsnow) What about the rest of the URL?
@@ -153,7 +151,7 @@ func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 
 	if ur.PendingID != "" {
 		query := req.URL.Query()
-		query.Set(pendingIDQueryParam, ur.PendingID)
+		query.Set(QueryParamPendingID, ur.PendingID)
 		req.URL.RawQuery = query.Encode()
 	}
 

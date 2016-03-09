@@ -59,6 +59,9 @@ const (
 	// MediaTypeParamFilename is the name of the parameter that contains the
 	// name of the file being uploaded (see mime.FormatMediaType).
 	MediaTypeParamFilename = "filename"
+
+	// QueryParamPendingID is the query parameter we use to send up the pending id.
+	QueryParamPendingID = "pendingid"
 )
 
 const (
