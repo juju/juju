@@ -95,7 +95,7 @@ func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *
 }
 
 const unauthorisedMessage = `
-Please ensure the Manta username and SSH access key you have
+Please ensure the SSH access key you have
 specified are correct. You can create or import an SSH key via
 the "Account Summary" page in the Joyent console.`
 
@@ -122,14 +122,12 @@ var verifyCredentials = func(e *joyentEnviron) error {
 }
 
 func credentials(cfg *environConfig) (*auth.Credentials, error) {
-	authentication, err := auth.NewAuth(cfg.mantaUser(), cfg.privateKey(), cfg.algorithm())
+	authentication, err := auth.NewAuth(cfg.sdcUser(), cfg.privateKey(), cfg.algorithm())
 	if err != nil {
 		return nil, errors.Errorf("cannot create credentials: %v", err)
 	}
 	return &auth.Credentials{
 		UserAuthentication: authentication,
-		MantaKeyId:         cfg.mantaKeyId(),
-		MantaEndpoint:      auth.Endpoint{URL: cfg.mantaUrl()},
 		SdcKeyId:           cfg.sdcKeyId(),
 		SdcEndpoint:        auth.Endpoint{URL: cfg.sdcUrl()},
 	}, nil

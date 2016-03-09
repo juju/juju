@@ -17,14 +17,11 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 		// TODO(axw) we need a more appropriate name for this authentication
 		//           type. ssh?
 		cloud.UserPassAuthType: {
+
 			{
 				sdcUser, cloud.CredentialAttr{Description: "SmartDataCenter user ID"},
 			}, {
 				sdcKeyId, cloud.CredentialAttr{Description: "SmartDataCenter key ID"},
-			}, {
-				mantaUser, cloud.CredentialAttr{Description: "Manta user ID"},
-			}, {
-				mantaKeyId, cloud.CredentialAttr{Description: "Manta key ID"},
 			}, {
 				privateKey, cloud.CredentialAttr{
 					Description: "Private key used to sign requests",
@@ -37,6 +34,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 					Optional:    true,
 					Options:     []interface{}{"rsa-sha256", "rsa-sha1", "rsa-sha224", "rsa-sha384", "rsa-sha512"},
 				},
+
 			},
 		},
 	}
