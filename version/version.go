@@ -1,8 +1,8 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package jujuversion contains versioning information for juju.
-// It also acts as guardian of the current client Juju version number.
+// Package version contains versioning information for juju.  It also
+// acts as guardian of the current client Juju version number.
 package version
 
 import (
@@ -19,7 +19,7 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const jujuversion = "1.26-alpha2"
+const jujuversion = "2.0-beta2"
 
 // The version that we switched over from old style numbering to new style.
 var switchOverVersion = version.MustParse("1.19.9")
