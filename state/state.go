@@ -2234,7 +2234,7 @@ type controllersDoc struct {
 	ModelUUID        string `bson:"model-uuid"`
 	MachineIds       []string
 	VotingMachineIds []string
-	MongoSpaceDocId  string
+	MongoSpaceDocId  string `bson:"mongo-space-id"`
 }
 
 // ControllerInfo holds information about currently
@@ -2255,9 +2255,9 @@ type ControllerInfo struct {
 	// in peer election.
 	VotingMachineIds []string
 
-	// MongoSpaceDocId is a reference to a space that contains all
+	// MongoSpace is a reference to a space that contains all
 	// Mongo servers.
-	MongoSpaceDocId string
+	MongoSpace string
 }
 
 // ControllerInfo returns information about
@@ -2309,7 +2309,7 @@ func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 		ModelTag:         names.NewModelTag(doc.ModelUUID),
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,
-		MongoSpaceDocId:  doc.MongoSpaceDocId,
+		MongoSpace:       doc.MongoSpaceDocId,
 	}, nil
 }
 
@@ -2372,18 +2372,40 @@ func SetSystemIdentity(st *State, identity string) error {
 	return nil
 }
 
-func (st *State) SetMongoSpaceDocId(mongoSpaceDocId string) error {
+// SetOrGetMongoSpace attempts to set the Mongo space or, if that fails, look
+// up the current Mongo space. Either way, it always returns what is in the
+// database by the end of the call.
+func (st *State) SetOrGetMongoSpace(mongoSpaceName network.SpaceName) (network.SpaceName, error) {
+	space, err := st.Space(string(mongoSpaceName))
+	if err != nil {
+		return network.SpaceName(""), fmt.Errorf("Error looking up space: %v", err)
+	}
+	err = st.setMongoSpaceDocId(space.ID())
+	if err == txn.ErrAborted {
+		controllerInfo, err := st.ControllerInfo()
+		if err != nil {
+			return network.SpaceName(""), errors.Trace(err)
+		}
+
+		space, err = st.Space(controllerInfo.MongoSpace)
+		if err != nil {
+			return network.SpaceName(""), fmt.Errorf("Error looking up space: %v", err)
+		}
+	} else if err != nil {
+		return network.SpaceName(""), errors.Trace(err)
+	}
+	return network.SpaceName(space.Name()), nil
+}
+
+func (st *State) setMongoSpaceDocId(mongoSpaceDocId string) error {
 	ops := []txn.Op{{
 		C:      controllersC,
 		Id:     modelGlobalKey,
 		Assert: bson.D{{"mongospacedocid", ""}},
-		Update: bson.D{{"mongospacedocid", mongoSpaceDocId}},
+		Update: bson.D{{"$set", bson.D{{"mongospacedocid", mongoSpaceDocId}}}},
 	}}
 
-	if err := st.runTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return st.runTransaction(ops)
 }
 
 var tagPrefix = map[byte]string{

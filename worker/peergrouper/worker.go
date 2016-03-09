@@ -28,7 +28,7 @@ type stateInterface interface {
 	ControllerInfo() (*state.ControllerInfo, error)
 	MongoSession() mongoSession
 	Space(id string) (SpaceReader, error)
-	SetMongoSpaceDocId(id string) error
+	SetOrGetMongoSpace(spaceName network.SpaceName) (network.SpaceName, error)
 	ModelConfig() (*config.Config, error)
 }
 
@@ -284,31 +284,25 @@ func (w *pgWorker) getMongoSpace(info *peerGroupInfo) error {
 		return fmt.Errorf("cannot get state server info: %v", err)
 	}
 
-	if stateInfo.MongoSpaceDocId == "" {
+	if stateInfo.MongoSpace == "" {
 		if w.providerSupportsSpaces && !w.dbSpaceDiscoveryComplete {
 			// We want to find a space that contains all Mongo servers so we can
 			// use it to look up the IP address of each Mongo server to be used
 			// to set up the peer group.
-
 			spaceStats := network.GenerateSpaceStats(mongoAddresses(info.machines))
 			if spaceStats.LargestSpaceContainsAll == false {
 				return fmt.Errorf("Couldn't find a space containing all peer group machines")
 			} else {
-				info.mongoSpace = spaceStats.LargestSpace
+				info.mongoSpace, err = w.st.SetOrGetMongoSpace(spaceStats.LargestSpace)
+				if err != nil {
+					return fmt.Errorf("Error setting/getting Mongo space: %v", err)
+				}
 				info.mongoSpaceValid = true
-				space, err := w.st.Space(string(info.mongoSpace))
-				if err != nil {
-					return fmt.Errorf("Error looking up space: %v", err)
-				}
-				err = w.st.SetMongoSpaceDocId(space.ID())
-				if err != nil {
-					return fmt.Errorf("cannot save database space: %v", err)
-				}
 				w.dbSpaceDiscoveryComplete = true
 			}
 		}
 	} else {
-		space, err := w.st.Space(stateInfo.MongoSpaceDocId)
+		space, err := w.st.Space(stateInfo.MongoSpace)
 		if err != nil {
 			return fmt.Errorf("Error looking up space: %v", err)
 		}

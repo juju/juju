@@ -54,9 +54,9 @@ type Scope string
 type SpaceName string
 
 // SpaceNames holds a list of the SpaceName type.
-type SpaceNames []SpaceName
+type spaceNameList []SpaceName
 
-func (s SpaceNames) String() string {
+func (s spaceNameList) String() string {
 	namesString := make([]string, len(s))
 	for i, v := range s {
 		namesString[i] = string(v)
@@ -65,7 +65,7 @@ func (s SpaceNames) String() string {
 	return strings.Join(namesString, ", ")
 }
 
-func (s SpaceNames) IndexOf(name SpaceName) int {
+func (s spaceNameList) IndexOf(name SpaceName) int {
 	for i := range s {
 		if s[i] == name {
 			return i
@@ -282,7 +282,7 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 // the given space name associated.
 func SelectAddressBySpaces(addresses []Address, spaceNames ...SpaceName) (Address, bool) {
 	for _, addr := range addresses {
-		if SpaceNames(spaceNames).IndexOf(addr.SpaceName) >= 0 {
+		if spaceNameList(spaceNames).IndexOf(addr.SpaceName) >= 0 {
 			logger.Debugf("selected %q as first address in space %q", addr.Value, addr.SpaceName)
 			return addr, true
 		}
@@ -306,7 +306,7 @@ func SelectHostsPortBySpaces(hps []HostPort, spaceNames ...SpaceName) ([]HostPor
 
 	var selectedHostPorts []HostPort
 	for _, hp := range hps {
-		if SpaceNames(spaceNames).IndexOf(hp.SpaceName) >= 0 {
+		if spaceNameList(spaceNames).IndexOf(hp.SpaceName) >= 0 {
 			logger.Debugf("selected %q as a hostPort in space %q", hp.Value, hp.SpaceName)
 			selectedHostPorts = append(selectedHostPorts, hp)
 		}

@@ -31,14 +31,14 @@ import (
 // that we don't want to directly depend on in unit tests.
 
 type fakeState struct {
-	mu              sync.Mutex
-	errors          errorPatterns
-	machines        map[string]*fakeMachine
-	controllers     voyeur.Value // of *state.ControllerInfo
-	statuses        voyeur.Value // of statuses collection
-	session         *fakeMongoSession
-	check           func(st *fakeState) error
-	mongoSpaceDocId string
+	mu          sync.Mutex
+	errors      errorPatterns
+	machines    map[string]*fakeMachine
+	controllers voyeur.Value // of *state.ControllerInfo
+	statuses    voyeur.Value // of statuses collection
+	session     *fakeMongoSession
+	check       func(st *fakeState) error
+	mongoSpace  network.SpaceName
 }
 
 var (
@@ -244,9 +244,11 @@ func (st *fakeState) Space(name string) (SpaceReader, error) {
 	return foo[0].(SpaceReader), nil
 }
 
-func (st *fakeState) SetMongoSpaceDocId(mongoSpaceDocId string) error {
-	st.mongoSpaceDocId = mongoSpaceDocId
-	return nil
+func (st *fakeState) SetOrGetMongoSpace(mongoSpace network.SpaceName) (network.SpaceName, error) {
+	if st.mongoSpace == "" {
+		st.mongoSpace = mongoSpace
+	}
+	return st.mongoSpace, nil
 }
 
 func (st *fakeState) ModelConfig() (*config.Config, error) {
