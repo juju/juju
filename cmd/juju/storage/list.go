@@ -111,7 +111,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		}
 
 	} else if c.volume {
-		results, _ := api.ListVolumes(c.Ids)
+		results, err := api.ListVolumes(c.Ids)
 		if err != nil {
 			return err
 		}
