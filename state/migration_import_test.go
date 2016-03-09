@@ -325,6 +325,23 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(newCons.String(), gc.Equals, cons.String())
 }
 
+func (s *MigrationImportSuite) TestServiceLeaders(c *gc.C) {
+	s.makeServiceWithLeader(c, "mysql", 2, 1)
+	s.makeServiceWithLeader(c, "wordpress", 4, 2)
+
+	_, newSt := s.importModel(c)
+	defer newSt.Close()
+
+	leaders := make(map[string]string)
+	for key, value := range state.LeadershipLeases(newSt) {
+		leaders[key] = value.Holder
+	}
+	c.Assert(leaders, jc.DeepEquals, map[string]string{
+		"mysql":     "mysql/1",
+		"wordpress": "wordpress/2",
+	})
+}
+
 func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G")
 	exported, pwd := s.Factory.MakeUnitReturningPassword(c, &factory.UnitParams{
