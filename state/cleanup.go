@@ -106,7 +106,13 @@ func (st *State) Cleanup() (err error) {
 		case cleanupMachinesForDyingModel:
 			err = st.cleanupMachinesForDyingModel()
 		default:
-			err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
+			handler, ok := cleanupHandlers[doc.Kind]
+			if !ok {
+				err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
+			} else {
+				persist := st.newPersistence()
+				err = handler(st, persist, doc.Prefix)
+			}
 		}
 		if err != nil {
 			logger.Warningf("cleanup failed: %v", err)
@@ -121,6 +127,19 @@ func (st *State) Cleanup() (err error) {
 			logger.Warningf("cannot remove empty cleanup document: %v", err)
 		}
 	}
+	return nil
+}
+
+var cleanupHandlers map[cleanupKind]func(st *State, persist Persistence, prefix string) error
+
+// RegisterCleanupHandler identifies the handler to use a given
+// cleanup kind.
+func RegisterCleanupHandler(kindStr string, handler func(st *State, persist Persistence, prefix string) error) error {
+	kind := cleanupKind(kindStr)
+	if _, ok := cleanupHandlers[kind]; ok {
+		return errors.NewAlreadyExists(nil, fmt.Sprintf("cleanup handler for %q already registered", kindStr))
+	}
+	cleanupHandlers[kind] = handler
 	return nil
 }
 
