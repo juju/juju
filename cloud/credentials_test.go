@@ -4,8 +4,6 @@
 package cloud_test
 
 import (
-	"io/ioutil"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -451,23 +449,29 @@ func (s *credentialsSuite) TestFinalizeCredentialNotSupported(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `auth-type "oauth2" not supported`)
 }
 
-func (s *credentialsSuite) TestCredentialByNameImplicitDefault(c *gc.C) {
-	data, err := cloud.MarshalCredentials(map[string]cloud.CloudCredential{
-		"cloud-name": {
-			AuthCredentials: map[string]cloud.Credential{
-				"one-and-only": cloud.NewEmptyCredential(),
-			},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(cloud.JujuCredentials(), data, 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, credentialName, _, err := cloud.CredentialByName("cloud-name", "")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentialName, gc.Equals, "one-and-only")
-}
-
 func readFileNotSupported(f string) ([]byte, error) {
 	return nil, errors.NotSupportedf("reading file %q", f)
+}
+
+func (s *credentialsSuite) TestRemoveSecrets(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"username": "user",
+			"password": "secret",
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"username": {},
+		"password": {
+			Hidden: true,
+		},
+	}
+	sanitisedCred, err := cloud.RemoveSecrets(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: schema,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sanitisedCred.Attributes(), jc.DeepEquals, map[string]string{
+		"username": "user",
+	})
 }

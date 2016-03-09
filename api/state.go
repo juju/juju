@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
-	"github.com/juju/juju/api/resumer"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
@@ -191,12 +190,6 @@ func (st *state) Machiner() *machiner.State {
 // required by the unitassigner worker.
 func (st *state) UnitAssigner() unitassigner.API {
 	return unitassigner.New(st)
-}
-
-// Resumer returns a version of the state that provides functionality
-// required by the resumer worker.
-func (st *state) Resumer() *resumer.API {
-	return resumer.NewAPI(st)
 }
 
 // Provisioner returns a version of the state that provides functionality

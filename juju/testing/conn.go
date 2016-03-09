@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -210,7 +209,7 @@ func PreferredDefaultVersions(conf *config.Config, template version.Binary) []ve
 
 func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	if s.RootDir != "" {
-		panic("JujuConnSuite.setUpConn without teardown")
+		c.Fatal("JujuConnSuite.setUpConn without teardown")
 	}
 	s.RootDir = c.MkDir()
 	s.oldHome = utils.Home()
@@ -280,7 +279,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", "devel", versions...)
 	s.DefaultToolsStorage = stor
 
-	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -289,7 +288,11 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.APIState, err = juju.NewAPIState(s.AdminUserTag(c), environ, api.DialOpts{})
+	apiInfo, err := environs.APIInfo(environ)
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo.Tag = s.AdminUserTag(c)
+	apiInfo.Password = environ.Config().AdminSecret()
+	s.APIState, err = api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.SetAPIHostPorts(s.APIState.APIHostPorts())
@@ -572,7 +575,8 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		s.State = nil
 	}
 
-	dummy.Reset()
+	err := dummy.Reset()
+	c.Assert(err, jc.ErrorIsNil)
 	utils.SetHome(s.oldHome)
 	osenv.SetJujuXDGDataHome(s.oldJujuXDGDataHome)
 	s.oldHome = ""

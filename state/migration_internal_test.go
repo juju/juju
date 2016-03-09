@@ -279,6 +279,7 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 		"Series",
 		"Subordinate",
 		"CharmURL",
+		"CharmModifiedVersion",
 		"ForceCharm",
 		"Exposed",
 		"MinUnits",
@@ -495,9 +496,11 @@ func (s *MigrationSuite) TestHistoricalStatusDocFields(c *gc.C) {
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
 	expected := getExportedFields(doc)
 	unknown := expected.Difference(fields)
+	removed := fields.Difference(expected)
 	// If this test fails, it means that extra fields have been added to the
 	// doc without thinking about the migration implications.
 	c.Assert(unknown, gc.HasLen, 0)
+	c.Assert(removed, gc.HasLen, 0)
 }
 
 func getExportedFields(arg interface{}) set.Strings {

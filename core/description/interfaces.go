@@ -219,6 +219,7 @@ type Service interface {
 	Series() string
 	Subordinate() bool
 	CharmURL() string
+	CharmModifiedVersion() int
 	ForceCharm() bool
 	Exposed() bool
 	MinUnits() int

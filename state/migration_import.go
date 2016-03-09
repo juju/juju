@@ -610,13 +610,14 @@ func (i *importer) makeServiceDoc(s description.Service) (*serviceDoc, error) {
 	}
 
 	return &serviceDoc{
-		Name:        s.Name(),
-		Series:      s.Series(),
-		Subordinate: s.Subordinate(),
-		CharmURL:    charmUrl,
-		ForceCharm:  s.ForceCharm(),
-		Life:        Alive,
-		UnitCount:   len(s.Units()),
+		Name:                 s.Name(),
+		Series:               s.Series(),
+		Subordinate:          s.Subordinate(),
+		CharmURL:             charmUrl,
+		CharmModifiedVersion: s.CharmModifiedVersion(),
+		ForceCharm:           s.ForceCharm(),
+		Life:                 Alive,
+		UnitCount:            len(s.Units()),
 		// RelationCount:  TODO,
 		Exposed:           s.Exposed(),
 		MinUnits:          s.MinUnits(),
@@ -627,7 +628,7 @@ func (i *importer) makeServiceDoc(s description.Service) (*serviceDoc, error) {
 func (i *importer) makeUnitDoc(s description.Service, u description.Unit) (*unitDoc, error) {
 	// NOTE: if we want to support units having different charms deployed
 	// than the service recomments and migrate that, then we should serialize
-	// the chrm url for each unit rather than grabbing the services charm url.
+	// the charm url for each unit rather than grabbing the services charm url.
 	// Currently the units charm url matching the service is a precondiation
 	// to migration.
 	charmUrl, err := charm.ParseURL(s.CharmURL())

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
@@ -69,7 +70,7 @@ func SendHTTPError(w http.ResponseWriter, err error) {
 func SendHTTPStatusAndJSON(w http.ResponseWriter, statusCode int, response interface{}) {
 	body, err := json.Marshal(response)
 	if err != nil {
-		logger.Errorf("cannot marshal JSON result %#v: %v", response, err)
+		http.Error(w, errors.Annotatef(err, "cannot marshal JSON result %#v", response).Error(), 504)
 		return
 	}
 

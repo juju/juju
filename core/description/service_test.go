@@ -37,11 +37,12 @@ func (s *ServiceSerializationSuite) SetUpTest(c *gc.C) {
 
 func minimalServiceMap() map[interface{}]interface{} {
 	return map[interface{}]interface{}{
-		"name":           "ubuntu",
-		"series":         "trusty",
-		"charm-url":      "cs:trusty/ubuntu",
-		"status":         minimalStatusMap(),
-		"status-history": emptyStatusHistoryMap(),
+		"name":              "ubuntu",
+		"series":            "trusty",
+		"charm-url":         "cs:trusty/ubuntu",
+		"charm-mod-version": 1,
+		"status":            minimalStatusMap(),
+		"status-history":    emptyStatusHistoryMap(),
 		"settings": map[interface{}]interface{}{
 			"key": "value",
 		},
@@ -80,9 +81,10 @@ func addMinimalService(model Model) {
 
 func minimalServiceArgs() ServiceArgs {
 	return ServiceArgs{
-		Tag:      names.NewServiceTag("ubuntu"),
-		Series:   "trusty",
-		CharmURL: "cs:trusty/ubuntu",
+		Tag:                  names.NewServiceTag("ubuntu"),
+		Series:               "trusty",
+		CharmURL:             "cs:trusty/ubuntu",
+		CharmModifiedVersion: 1,
 		Settings: map[string]interface{}{
 			"key": "value",
 		},
@@ -96,13 +98,14 @@ func minimalServiceArgs() ServiceArgs {
 
 func (s *ServiceSerializationSuite) TestNewService(c *gc.C) {
 	args := ServiceArgs{
-		Tag:         names.NewServiceTag("magic"),
-		Series:      "zesty",
-		Subordinate: true,
-		CharmURL:    "cs:zesty/magic",
-		ForceCharm:  true,
-		Exposed:     true,
-		MinUnits:    42, // no judgement is made by the migration code
+		Tag:                  names.NewServiceTag("magic"),
+		Series:               "zesty",
+		Subordinate:          true,
+		CharmURL:             "cs:zesty/magic",
+		CharmModifiedVersion: 1,
+		ForceCharm:           true,
+		Exposed:              true,
+		MinUnits:             42, // no judgement is made by the migration code
 		Settings: map[string]interface{}{
 			"key": "value",
 		},
@@ -119,6 +122,7 @@ func (s *ServiceSerializationSuite) TestNewService(c *gc.C) {
 	c.Assert(service.Series(), gc.Equals, "zesty")
 	c.Assert(service.Subordinate(), jc.IsTrue)
 	c.Assert(service.CharmURL(), gc.Equals, "cs:zesty/magic")
+	c.Assert(service.CharmModifiedVersion(), gc.Equals, 1)
 	c.Assert(service.ForceCharm(), jc.IsTrue)
 	c.Assert(service.Exposed(), jc.IsTrue)
 	c.Assert(service.MinUnits(), gc.Equals, 42)
