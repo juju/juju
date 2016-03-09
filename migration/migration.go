@@ -178,11 +178,11 @@ func UploadBinaries(config UploadBinariesConfig) error {
 	if err := config.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if err := streamTools(config); err != nil {
+	if err := uploadTools(config); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := streamCharms(config); err != nil {
+	if err := uploadCharms(config); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -201,7 +201,7 @@ func getCharmUploader(target api.Connection) CharmUploader {
 	return target.Client()
 }
 
-func streamTools(config UploadBinariesConfig) error {
+func uploadTools(config UploadBinariesConfig) error {
 	storage, err := config.State.ToolsStorage()
 	if err != nil {
 		return errors.Trace(err)
@@ -285,7 +285,7 @@ func addToolsVersionForMachine(machine description.Machine, usedVersions map[ver
 	}
 }
 
-func streamCharms(config UploadBinariesConfig) error {
+func uploadCharms(config UploadBinariesConfig) error {
 	storage := config.GetStateStorage(config.State)
 	usedCharms := getUsedCharms(config.Model)
 	charmUploader := config.GetCharmUploader(config.Target)
