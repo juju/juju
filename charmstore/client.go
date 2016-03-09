@@ -92,6 +92,23 @@ func (base baseClient) LatestRevisions(cURLs []*charm.URL) ([]charmrepo.CharmRev
 	return repo.Latest(cURLs...)
 }
 
+// ClientConfig holds the configuration of a charm store client.
+type ClientConfig struct {
+	charmrepo.NewCharmStoreParams
+}
+
+func (config ClientConfig) newCSClient() *csclient.Client {
+	return csclient.New(csclient.Params{
+		URL:          config.URL,
+		HTTPClient:   config.HTTPClient,
+		VisitWebPage: config.VisitWebPage,
+	})
+}
+
+func (config ClientConfig) newCSRepo() *charmrepo.CharmStore {
+	return charmrepo.NewCharmStore(config.NewCharmStoreParams)
+}
+
 // TODO(ericsnow) Factor out a metadataClient type that embeds "client",
 // and move the "meta" field there?
 
@@ -106,8 +123,8 @@ type Client struct {
 
 // NewClient returns a Juju charm store client for the given client
 // config.
-func NewClient(config csclient.Params) *Client {
-	base := csclient.New(config)
+func NewClient(config ClientConfig) *Client {
+	base := config.newCSClient()
 	closer := ioutil.NopCloser(nil)
 	return WrapBaseClient(base, closer)
 }
@@ -115,7 +132,7 @@ func NewClient(config csclient.Params) *Client {
 // NewDefaultClient returns a Juju charm store client using a default
 // client config.
 func NewDefaultClient() *Client {
-	return NewClient(csclient.Params{})
+	return NewClient(ClientConfig{})
 }
 
 // WrapBaseClient returns a Juju charm store client that wraps

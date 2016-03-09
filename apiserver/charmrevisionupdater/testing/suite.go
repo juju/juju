@@ -68,9 +68,9 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 	// Patch the charm repo initializer function: it is replaced with a charm
 	// store repo pointing to the testing server.
 	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func() *jujucharmstore.Client {
-		return jujucharmstore.NewClient(csclient.Params{
-			URL: s.Server.URL,
-		})
+		var config jujucharmstore.ClientConfig
+		config.URL = s.Server.URL
+		return jujucharmstore.NewClient(config)
 	})
 	s.charms = make(map[string]*state.Charm)
 }
