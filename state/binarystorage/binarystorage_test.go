@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
-const current = "2.0.42-wily-amd64"
+const current = "2.0.42-trusty-amd64"
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
