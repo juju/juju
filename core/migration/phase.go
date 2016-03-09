@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelmigration
+package migration
 
 // Phase values specify model migration phases.
 type Phase int

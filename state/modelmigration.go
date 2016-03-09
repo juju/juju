@@ -13,7 +13,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	migration "github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/migration"
 )
 
 // This file contains functionality for managing the state documents

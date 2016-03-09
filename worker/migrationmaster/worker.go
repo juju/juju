@@ -8,7 +8,7 @@ import (
 	"launchpad.net/tomb"
 
 	masterapi "github.com/juju/juju/api/migrationmaster"
-	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/worker"
 )
 
@@ -49,7 +49,7 @@ func (w *migrationMaster) run() error {
 	return errors.New("migration seen")
 }
 
-func (w *migrationMaster) waitForMigration() (*modelmigration.TargetInfo, error) {
+func (w *migrationMaster) waitForMigration() (*migration.TargetInfo, error) {
 	watcher, err := w.client.Watch()
 	if err != nil {
 		return nil, errors.Annotate(err, "watching for migration")
