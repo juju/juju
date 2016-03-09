@@ -13,10 +13,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"text/template"
 
+	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
 
 	agenttools "github.com/juju/juju/agent/tools"
@@ -53,89 +55,109 @@ var (
 type guiRouter struct {
 	dataDir string
 	ctxt    httpContext
+	pattern string
 }
 
-func (rt *guiRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	rootDir, err := rt.ensureFiles(req)
-	if err != nil {
-		// Note that ensureFiles also checks that the model UUID is valid.
-		sendError(w, err)
-		return
+// handleGUI adds the Juju GUI routes to the given serve mux.
+// The given pattern is used as base URL path, and is assumed to include
+// ":modeluuid" and a trailing slash.
+func handleGUI(mux *pat.PatternServeMux, pattern string, dataDir string, ctxt httpContext) {
+	gr := &guiRouter{
+		dataDir: dataDir,
+		ctxt:    ctxt,
+		pattern: pattern,
 	}
-	staticDir := filepath.Join(rootDir, "static")
-	fs := http.FileServer(http.Dir(staticDir))
-
-	uuid := req.URL.Query().Get(":modeluuid")
-	parts := strings.SplitAfterN(req.URL.Path, uuid, 2)
-	req.URL.Path = parts[1]
-
-	h := &guiHandler{
-		baseURLPath: parts[0],
-		rootDir:     rootDir,
-		uuid:        uuid,
+	guiHandleAll := func(pattern string, h func(*guiHandler, http.ResponseWriter, *http.Request)) {
+		handleAll(mux, pattern, gr.ensureFileHandler(h))
 	}
-	mux := http.NewServeMux()
-	mux.Handle("/static/", http.StripPrefix("/static/", fs))
-	mux.HandleFunc("/config.js", h.serveConfig)
-	mux.HandleFunc("/combo", h.serveCombo)
+	hashedPattern := pattern + ":hash/"
+	guiHandleAll(hashedPattern+"config.js", (*guiHandler).serveConfig)
+	guiHandleAll(hashedPattern+"combo", (*guiHandler).serveCombo)
+	guiHandleAll(hashedPattern+"static/", (*guiHandler).serveStatic)
 	// The index is served when all remaining URLs are requested, so that
 	// the single page JavaScript application can properly handles its routes.
-	mux.HandleFunc("/", h.serveIndex)
-	mux.ServeHTTP(w, req)
+	guiHandleAll(pattern, (*guiHandler).serveIndex)
+}
+
+// ensureFileHandler decorates the given function to ensure the Juju GUI files
+// are available on disk.
+func (gr *guiRouter) ensureFileHandler(h func(gh *guiHandler, w http.ResponseWriter, req *http.Request)) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		rootDir, hash, err := gr.ensureFiles(req)
+		if err != nil {
+			// Note that ensureFiles also checks that the model UUID is valid.
+			sendError(w, err)
+			return
+		}
+		qhash := req.URL.Query().Get(":hash")
+		if qhash != "" && qhash != hash {
+			sendError(w, errors.NotFoundf("resource with %q hash", qhash))
+			return
+		}
+		uuid := req.URL.Query().Get(":modeluuid")
+		gh := &guiHandler{
+			rootDir:     rootDir,
+			baseURLPath: strings.Replace(gr.pattern, ":modeluuid", uuid, -1),
+			hash:        hash,
+			uuid:        uuid,
+		}
+		h(gh, w, req)
+	})
 }
 
 // ensureFiles checks that the GUI files are available on disk.
 // If they are not, it means this is the first time this Juju GUI version is
 // accessed. In this case, retrieve the Juju GUI archive from the storage and
-// uncompress it to disk.
-func (rt *guiRouter) ensureFiles(req *http.Request) (string, error) {
+// uncompress it to disk. This function returns the current GUI root directory
+// and archive hash.
+func (gr *guiRouter) ensureFiles(req *http.Request) (rootDir string, hash string, err error) {
 	// Retrieve the Juju GUI info from the GUI storage.
-	st, err := rt.ctxt.stateForRequestUnauthenticated(req)
+	st, err := gr.ctxt.stateForRequestUnauthenticated(req)
 	if err != nil {
-		return "", errors.Annotate(err, "cannot open state")
+		return "", "", errors.Annotate(err, "cannot open state")
 	}
 	storage, err := st.GUIStorage()
 	if err != nil {
-		return "", errors.Annotate(err, "cannot open GUI storage")
+		return "", "", errors.Annotate(err, "cannot open GUI storage")
 	}
 	defer storage.Close()
 	vers, hash, err := guiVersionAndHash(storage)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", "", errors.Trace(err)
 	}
 	logger.Debugf("serving Juju GUI version %s", vers)
 
 	// Check if the current Juju GUI archive has been already expanded on disk.
-	baseDir := agenttools.SharedGUIDir(rt.dataDir)
+	baseDir := agenttools.SharedGUIDir(gr.dataDir)
 	// Note that we include the hash in the root directory so that when the GUI
 	// archive changes we can be sure that clients will not use files from
 	// mixed versions.
-	rootDir := filepath.Join(baseDir, hash)
+	rootDir = filepath.Join(baseDir, hash)
 	info, err := os.Stat(rootDir)
 	if err == nil {
 		if info.IsDir() {
-			return rootDir, nil
+			return rootDir, hash, nil
 		}
-		return "", errors.Errorf("cannot use Juju GUI root directory %q: not a directory", rootDir)
+		return "", "", errors.Errorf("cannot use Juju GUI root directory %q: not a directory", rootDir)
 	}
 	if !os.IsNotExist(err) {
-		return "", errors.Annotate(err, "cannot stat Juju GUI root directory")
+		return "", "", errors.Annotate(err, "cannot stat Juju GUI root directory")
 	}
 
 	// Fetch the Juju GUI archive from the GUI storage and expand it.
 	_, r, err := storage.Open(vers)
 	if err != nil {
-		return "", errors.Annotatef(err, "cannot find GUI archive version %q", vers)
+		return "", "", errors.Annotatef(err, "cannot find GUI archive version %q", vers)
 	}
 	defer r.Close()
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
-		return "", errors.Annotate(err, "cannot create Juju GUI base directory")
+		return "", "", errors.Annotate(err, "cannot create Juju GUI base directory")
 	}
 	guiDir := "jujugui-" + vers + "/jujugui"
 	if err := uncompressGUI(r, guiDir, rootDir); err != nil {
-		return "", errors.Annotate(err, "cannot uncompress Juju GUI archive")
+		return "", "", errors.Annotate(err, "cannot uncompress Juju GUI archive")
 	}
-	return rootDir, nil
+	return rootDir, hash, nil
 }
 
 // guiVersionAndHash returns the version and the SHA256 hash of the current
@@ -200,7 +222,15 @@ func uncompressGUI(r io.Reader, sourceDir, targetDir string) error {
 type guiHandler struct {
 	baseURLPath string
 	rootDir     string
+	hash        string
 	uuid        string
+}
+
+// serveStatic serves the GUI static files.
+func (h *guiHandler) serveStatic(w http.ResponseWriter, req *http.Request) {
+	staticDir := filepath.Join(h.rootDir, "static")
+	fs := http.FileServer(http.Dir(staticDir))
+	http.StripPrefix(h.hashedPath("static/"), fs).ServeHTTP(w, req)
 }
 
 // serveCombo serves the GUI JavaScript and CSS files, dynamically combined.
@@ -273,8 +303,8 @@ func (h *guiHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
 	}
 	tmpl := filepath.Join(h.rootDir, "templates", "index.html.go")
 	renderGUITemplate(w, tmpl, map[string]interface{}{
-		"comboURL":  h.baseURLPath + "/combo",
-		"configURL": h.baseURLPath + "/config.js",
+		"comboURL":  h.hashedPath("combo"),
+		"configURL": h.hashedPath("config.js"),
 		// TODO frankban: make it possible to enable debug.
 		"debug":         false,
 		"spriteContent": string(spriteContent),
@@ -292,6 +322,12 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 		"uuid":    h.uuid,
 		"version": version.Current.String(),
 	})
+}
+
+// hashedPath returns the gull path (including the GUI archive hash) to the
+// given path, that must not start with a slash.
+func (h *guiHandler) hashedPath(p string) string {
+	return path.Join(h.baseURLPath, h.hash, p)
 }
 
 func renderGUITemplate(w http.ResponseWriter, tmpl string, ctx map[string]interface{}) {

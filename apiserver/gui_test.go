@@ -40,23 +40,31 @@ type guiSuite struct {
 var _ = gc.Suite(&guiSuite{})
 
 // guiURL returns the complete URL where the Juju GUI can be found, including
-// the given pathAndquery.
-func (s *guiSuite) guiURL(c *gc.C, pathAndquery string) string {
+// the given hash and pathAndquery.
+func (s *guiSuite) guiURL(c *gc.C, hash, pathAndquery string) string {
 	u := s.baseURL(c)
+	path := "/gui/" + s.modelUUID
+	if hash != "" {
+		path += "/" + hash
+	}
 	parts := strings.SplitN(pathAndquery, "?", 2)
-	u.Path = fmt.Sprintf("/gui/%s", s.modelUUID) + parts[0]
+	u.Path = path + parts[0]
 	if len(parts) == 2 {
 		u.RawQuery = parts[1]
 	}
 	return u.String()
 }
 
+type guiSetupFunc func(c *gc.C, baseDir string, storage binarystorage.Storage) string
+
 var guiHandlerTests = []struct {
 	// about describes the test.
 	about string
 	// setup is optionally used to set up the test.
 	// It receives the Juju GUI base directory and an empty GUI storage.
-	setup func(c *gc.C, baseDir string, storage binarystorage.Storage)
+	// Optionally it can return a GUI archive hash which is used by the test
+	// to build the URL path for the HTTP request.
+	setup guiSetupFunc
 	// pathAndquery holds the optional path and query for the request, for
 	// instance "/combo?file". If not provided, the "/" path is used.
 	pathAndquery string
@@ -77,7 +85,7 @@ var guiHandlerTests = []struct {
 	expectedError:  "GUI metadata not found",
 }, {
 	about: "GUI directory is a file",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) {
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
 		err := storage.Add(strings.NewReader(""), binarystorage.Metadata{
 			SHA256: "fake-hash",
 		})
@@ -87,79 +95,86 @@ var guiHandlerTests = []struct {
 		rootDir := filepath.Join(baseDir, "fake-hash")
 		err = ioutil.WriteFile(rootDir, nil, 0644)
 		c.Assert(err, jc.ErrorIsNil)
+		return ""
 	},
 	expectedStatus: http.StatusInternalServerError,
 	expectedError:  "cannot use Juju GUI root directory .*",
 }, {
 	about: "GUI directory is unaccessible",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) {
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
 		err := storage.Add(strings.NewReader(""), binarystorage.Metadata{
 			SHA256: "fake-hash",
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		err = os.MkdirAll(baseDir, 0000)
 		c.Assert(err, jc.ErrorIsNil)
+		return ""
 	},
 	expectedStatus: http.StatusInternalServerError,
 	expectedError:  "cannot stat Juju GUI root directory: .*",
 }, {
 	about: "invalid GUI archive",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) {
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
 		err := storage.Add(strings.NewReader(""), binarystorage.Metadata{
 			SHA256: "fake-hash",
 		})
 		c.Assert(err, jc.ErrorIsNil)
+		return ""
 	},
 	expectedStatus: http.StatusInternalServerError,
 	expectedError:  "cannot uncompress Juju GUI archive: cannot parse archive: .*",
 }, {
 	about: "index: sprite file not found",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) {
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
 		setupGUIArchive(c, storage, "2.0.42", nil)
+		return ""
 	},
 	expectedStatus: http.StatusInternalServerError,
 	expectedError:  "cannot read sprite file: .*",
 }, {
 	about: "index: template not found",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) {
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
 		setupGUIArchive(c, storage, "2.0.42", map[string]string{
 			guiSpritePath: "",
 		})
+		return ""
 	},
 	expectedStatus: http.StatusInternalServerError,
 	expectedError:  "cannot parse template: .*: no such file or directory",
 }, {
 	about: "index: invalid template",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) {
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
 		setupGUIArchive(c, storage, "2.0.47", map[string]string{
 			guiIndexPath:  "{{.BadWolf.47}}",
 			guiSpritePath: "",
 		})
+		return ""
 	},
 	expectedStatus: http.StatusInternalServerError,
 	expectedError:  `cannot parse template: template: index.html.go:1: unexpected ".47" in operand`,
 }, {
 	about: "index: invalid template and context",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) {
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
 		setupGUIArchive(c, storage, "2.0.47", map[string]string{
 			guiIndexPath:  "{{range .debug}}{{end}}",
 			guiSpritePath: "",
 		})
+		return ""
 	},
 	expectedStatus: http.StatusInternalServerError,
 	expectedError:  `cannot render template: template: .*: range can't iterate over .*`,
 }, {
 	about: "config: template not found",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) {
-		setupGUIArchive(c, storage, "2.0.42", nil)
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		return setupGUIArchive(c, storage, "2.0.42", nil)
 	},
 	pathAndquery:   "/config.js",
 	expectedStatus: http.StatusInternalServerError,
 	expectedError:  "cannot parse template: .*: no such file or directory",
 }, {
 	about: "config: invalid template",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) {
-		setupGUIArchive(c, storage, "2.0.47", map[string]string{
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		return setupGUIArchive(c, storage, "2.0.47", map[string]string{
 			guiConfigPath: "{{.BadWolf.47}}",
 		})
 	},
@@ -167,25 +182,43 @@ var guiHandlerTests = []struct {
 	expectedStatus: http.StatusInternalServerError,
 	expectedError:  `cannot parse template: template: config.js.go:1: unexpected ".47" in operand`,
 }, {
+	about: "config: invalid hash",
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		setupGUIArchive(c, storage, "2.0.47", nil)
+		return "invalid"
+	},
+	pathAndquery:   "/config.js",
+	expectedStatus: http.StatusNotFound,
+	expectedError:  `resource with "invalid" hash not found`,
+}, {
 	about: "combo: invalid file name",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) {
-		setupGUIArchive(c, storage, "1.0.0", nil)
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		return setupGUIArchive(c, storage, "1.0.0", nil)
 	},
 	pathAndquery:   "/combo?foo&%%",
 	expectedStatus: http.StatusBadRequest,
 	expectedError:  `cannot combine files: invalid file name "%": invalid URL escape "%%"`,
 }, {
 	about: "combo: invalid file path",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) {
-		setupGUIArchive(c, storage, "1.0.0", nil)
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		return setupGUIArchive(c, storage, "1.0.0", nil)
 	},
 	pathAndquery:   "/combo?../../../../../../etc/passwd",
 	expectedStatus: http.StatusBadRequest,
 	expectedError:  `cannot combine files: forbidden file path "../../../../../../etc/passwd"`,
 }, {
+	about: "combo: invalid hash",
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		setupGUIArchive(c, storage, "2.0.47", nil)
+		return "invalid"
+	},
+	pathAndquery:   "/combo?foo",
+	expectedStatus: http.StatusNotFound,
+	expectedError:  `resource with "invalid" hash not found`,
+}, {
 	about: "combo: success",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) {
-		setupGUIArchive(c, storage, "1.0.0", map[string]string{
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		return setupGUIArchive(c, storage, "1.0.0", map[string]string{
 			"static/gui/build/tng/picard.js":  "enterprise",
 			"static/gui/build/ds9/sisko.js":   "deep space nine",
 			"static/gui/build/voy/janeway.js": "voyager",
@@ -206,8 +239,8 @@ deep space nine
 `,
 }, {
 	about: "combo: non-existing files ignored + different content types",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) {
-		setupGUIArchive(c, storage, "1.0.0", map[string]string{
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		return setupGUIArchive(c, storage, "1.0.0", map[string]string{
 			"static/gui/build/foo.css": "my-style",
 		})
 	},
@@ -219,8 +252,8 @@ deep space nine
 `,
 }, {
 	about: "static files",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) {
-		setupGUIArchive(c, storage, "1.0.0", map[string]string{
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		return setupGUIArchive(c, storage, "1.0.0", map[string]string{
 			"static/file.js": "static file content",
 		})
 	},
@@ -228,10 +261,19 @@ deep space nine
 	expectedStatus:      http.StatusOK,
 	expectedContentType: "application/javascript",
 	expectedBody:        "static file content",
+}, {
+	about: "static files: invalid hash",
+	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
+		setupGUIArchive(c, storage, "2.0.47", nil)
+		return "bad-wolf"
+	},
+	pathAndquery:   "/static/file.js",
+	expectedStatus: http.StatusNotFound,
+	expectedError:  `resource with "bad-wolf" hash not found`,
 }}
 
 func (s *guiSuite) TestGUIHandler(c *gc.C) {
-	sendRequest := func(setup func(c *gc.C, baseDir string, storage binarystorage.Storage), pathAndquery string) *http.Response {
+	sendRequest := func(setup guiSetupFunc, pathAndquery string) *http.Response {
 		// Set up the GUI base directory.
 		baseDir := agenttools.SharedGUIDir(s.DataDir())
 		defer func() {
@@ -240,6 +282,7 @@ func (s *guiSuite) TestGUIHandler(c *gc.C) {
 		}()
 
 		// Run specific test set up.
+		var hash string
 		if setup != nil {
 			storage, err := s.State.GUIStorage()
 			c.Assert(err, jc.ErrorIsNil)
@@ -250,7 +293,7 @@ func (s *guiSuite) TestGUIHandler(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(allMeta, gc.HasLen, 0)
 
-			setup(c, baseDir, storage)
+			hash = setup(c, baseDir, storage)
 		}
 
 		// Send a request to the test path.
@@ -258,7 +301,7 @@ func (s *guiSuite) TestGUIHandler(c *gc.C) {
 			pathAndquery = "/"
 		}
 		return s.sendRequest(c, httpRequestParams{
-			url: s.guiURL(c, pathAndquery),
+			url: s.guiURL(c, hash, pathAndquery),
 		})
 	}
 
@@ -306,26 +349,32 @@ func (s *guiSuite) TestGUIIndex(c *gc.C) {
     spriteContent: {{.spriteContent}}
 </body>
 </html>`
-	setupGUIArchive(c, storage, "2.0.0", map[string]string{
+	hash := setupGUIArchive(c, storage, "2.0.0", map[string]string{
 		guiIndexPath:  indexContent,
 		guiSpritePath: "sprite content",
 	})
-
-	// Make a request for the Juju GUI index.
-	resp := s.sendRequest(c, httpRequestParams{
-		url: s.guiURL(c, "/"),
-	})
-	body := assertResponse(c, resp, http.StatusOK, "text/html; charset=utf-8")
 	expectedIndexContent := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
 <body>
-    comboURL: /gui/%[1]s/combo
-    configURL: /gui/%[1]s/config.js
+    comboURL: /gui/%[1]s/%[2]s/combo
+    configURL: /gui/%[1]s/%[2]s/config.js
     debug: false
     spriteContent: sprite content
 </body>
-</html>`, s.modelUUID)
+</html>`, s.modelUUID, hash)
+	// Make a request for the Juju GUI index.
+	resp := s.sendRequest(c, httpRequestParams{
+		url: s.guiURL(c, "", "/"),
+	})
+	body := assertResponse(c, resp, http.StatusOK, "text/html; charset=utf-8")
+	c.Assert(string(body), gc.Equals, expectedIndexContent)
+
+	// Non-handled paths are served by the index handler.
+	resp = s.sendRequest(c, httpRequestParams{
+		url: s.guiURL(c, "", "/no-such-path/"),
+	})
+	body = assertResponse(c, resp, http.StatusOK, "text/html; charset=utf-8")
 	c.Assert(string(body), gc.Equals, expectedIndexContent)
 }
 
@@ -344,24 +393,24 @@ var config = {
     uuid: '{{.uuid}}',
     version: '{{.version}}'
 };`
-	setupGUIArchive(c, storage, "2.0.0", map[string]string{
+	hash := setupGUIArchive(c, storage, "2.0.0", map[string]string{
 		guiConfigPath: configContent,
 	})
-
-	// Make a request for the Juju GUI config.
-	resp := s.sendRequest(c, httpRequestParams{
-		url: s.guiURL(c, "/config.js"),
-	})
-	body := assertResponse(c, resp, http.StatusOK, "application/javascript")
 	expectedConfigContent := fmt.Sprintf(`
 var config = {
     // This is just an example and does not reflect the real Juju GUI config.
-    base: '/gui/%s',
+    base: '/gui/%s/',
     host: '%s',
     socket: '/model/$uuid/api',
     uuid: '%s',
     version: '%s'
 };`, s.modelUUID, s.baseURL(c).Host, s.modelUUID, version.Current)
+
+	// Make a request for the Juju GUI config.
+	resp := s.sendRequest(c, httpRequestParams{
+		url: s.guiURL(c, hash, "/config.js"),
+	})
+	body := assertResponse(c, resp, http.StatusOK, "application/javascript")
 	c.Assert(string(body), gc.Equals, expectedConfigContent)
 }
 
@@ -383,7 +432,7 @@ func (s *guiSuite) TestGUIDirectory(c *gc.C) {
 
 	// Make a request for the Juju GUI.
 	resp := s.sendRequest(c, httpRequestParams{
-		url: s.guiURL(c, "/"),
+		url: s.guiURL(c, "", "/"),
 	})
 	body := assertResponse(c, resp, http.StatusOK, "text/html; charset=utf-8")
 	c.Assert(string(body), gc.Equals, indexContent)
