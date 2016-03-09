@@ -30,21 +30,19 @@ func (config ManifoldConfig) start(getResource dependency.GetResourceFunc) (work
 	if err := getResource(config.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
-	facade, err := config.NewFacade(apiCaller)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	var environ environs.Environ
 	if err := getResource(config.EnvironName, &environ); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	var clock clock.Clock
 	if err := getResource(config.ClockName, &clock); err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	facade, err := config.NewFacade(apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	worker, err := config.NewWorker(Config{
 		Facade:      facade,
 		Environ:     environ,
@@ -59,7 +57,11 @@ func (config ManifoldConfig) start(getResource dependency.GetResourceFunc) (work
 
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.APICallerName, config.EnvironName},
-		Start:  config.start,
+		Inputs: []string{
+			config.APICallerName,
+			config.EnvironName,
+			config.ClockName,
+		},
+		Start: config.start,
 	}
 }

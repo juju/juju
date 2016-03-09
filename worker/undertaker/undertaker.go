@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2015-2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package undertaker
@@ -27,6 +27,8 @@ type Facade interface {
 	RemoveModel() error
 }
 
+// Config holds the resources and configuration necessary to run an
+// undertaker worker.
 type Config struct {
 	Facade      Facade
 	Environ     environs.Environ
@@ -34,9 +36,14 @@ type Config struct {
 	RemoveDelay time.Duration
 }
 
+// Validate returns an error if the config cannot be expected to drive
+// a functional undertaker worker.
 func (config Config) Validate() error {
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
+	}
+	if config.Environ == nil {
+		return errors.NotValidf("nil Environ")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -70,6 +77,16 @@ type Undertaker struct {
 	config   Config
 }
 
+// Kill is part of the worker.Worker interface.
+func (u *Undertaker) Kill() {
+	u.catacomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (u *Undertaker) Wait() error {
+	return u.catacomb.Wait()
+}
+
 func (u *Undertaker) run() error {
 	result, err := u.config.Facade.ModelInfo()
 	if err != nil {
@@ -81,7 +98,7 @@ func (u *Undertaker) run() error {
 	modelInfo := result.Result
 
 	if modelInfo.Life == params.Alive {
-		return errors.Errorf("undertaker worker should not be started for an alive model: %q", modelInfo.GlobalName)
+		return errors.Errorf("model still alive")
 	}
 
 	if modelInfo.Life == params.Dying {
@@ -92,7 +109,8 @@ func (u *Undertaker) run() error {
 		}
 	}
 
-	// If model is not alive or dying, it must be dead.
+	// If we get this far, the model must be dead (or *have been*
+	// dead, but actually removed by something else since the call).
 	if modelInfo.IsSystem {
 		// Nothing to do. We don't destroy environ resources or
 		// delete model docs for a controller model, because we're
@@ -119,16 +137,6 @@ func (u *Undertaker) run() error {
 		deadSince = *modelInfo.TimeOfDeath
 	}
 	return u.processDeadModel(deadSince)
-}
-
-// Kill is part of the worker.Worker interface.
-func (u *Undertaker) Kill() {
-	u.catacomb.Kill(nil)
-}
-
-// Wait is part of the worker.Worker interface.
-func (u *Undertaker) Wait() error {
-	return u.catacomb.Wait()
 }
 
 func (u *Undertaker) processDyingModel() error {
@@ -177,6 +185,6 @@ func (u *Undertaker) processDeadModel(deadSince time.Time) error {
 		return u.catacomb.ErrDying()
 	case <-clock.Alarm(u.config.Clock, removeTime):
 		err := u.config.Facade.RemoveModel()
-		return errors.Annotate(err, "could not remove all docs for dead model")
+		return errors.Annotate(err, "cannot remove model")
 	}
 }
