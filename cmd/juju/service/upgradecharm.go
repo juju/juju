@@ -235,6 +235,8 @@ func (c *upgradeCharmCommand) upgradeResources(client *api.Client, cURL *charm.U
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// ListResources guarantees a number of values returned == number of
+	// services passed in.
 	currentResources := svcs[0].Resources
 	current := make(map[string]resource.Resource, len(currentResources))
 	for _, res := range currentResources {
