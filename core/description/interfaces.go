@@ -226,7 +226,10 @@ type Service interface {
 
 	Settings() map[string]interface{}
 	SettingsRefCount() int
+
+	Leader() string
 	LeadershipSettings() map[string]interface{}
+
 	MetricsCredentials() []byte
 
 	Status() Status

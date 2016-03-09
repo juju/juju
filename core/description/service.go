@@ -33,10 +33,13 @@ type service struct {
 	Status_       *status `yaml:"status"`
 	statusHistory `yaml:"status-history"`
 
-	Settings_           map[string]interface{} `yaml:"settings"`
-	SettingsRefCount_   int                    `yaml:"settings-refcount"`
+	Settings_         map[string]interface{} `yaml:"settings"`
+	SettingsRefCount_ int                    `yaml:"settings-refcount"`
+
+	Leader_             string                 `yaml:"leader,omitempty"`
 	LeadershipSettings_ map[string]interface{} `yaml:"leadership-settings"`
-	MetricsCredentials_ string                 `yaml:"metrics-creds,omitempty"`
+
+	MetricsCredentials_ string `yaml:"metrics-creds,omitempty"`
 
 	// unit count will be assumed by the number of units associated.
 	Units_ units `yaml:"units"`
@@ -62,6 +65,7 @@ type ServiceArgs struct {
 	MinUnits             int
 	Settings             map[string]interface{}
 	SettingsRefCount     int
+	Leader               string
 	LeadershipSettings   map[string]interface{}
 	MetricsCredentials   []byte
 }
@@ -79,6 +83,7 @@ func newService(args ServiceArgs) *service {
 		MinUnits_:             args.MinUnits,
 		Settings_:             args.Settings,
 		SettingsRefCount_:     args.SettingsRefCount,
+		Leader_:               args.Leader,
 		LeadershipSettings_:   args.LeadershipSettings,
 		MetricsCredentials_:   creds,
 		statusHistory:         newStatusHistory(),
@@ -140,6 +145,11 @@ func (s *service) Settings() map[string]interface{} {
 // SettingsRefCount implements Service.
 func (s *service) SettingsRefCount() int {
 	return s.SettingsRefCount_
+}
+
+// Leader implements Service.
+func (s *service) Leader() string {
+	return s.Leader_
 }
 
 // LeadershipSettings implements Service.
@@ -223,11 +233,20 @@ func (s *service) Validate() error {
 	if s.Status_ == nil {
 		return errors.NotValidf("service %q missing status", s.Name_)
 	}
+	// If leader is set, it must match one of the units.
+	var leaderFound bool
 	// All of the services units should also be valid.
 	for _, u := range s.Units() {
 		if err := u.Validate(); err != nil {
 			return errors.Trace(err)
 		}
+		// We know that the unit has a name, because it validated correctly.
+		if u.Name() == s.Leader_ {
+			leaderFound = true
+		}
+	}
+	if s.Leader_ != "" && !leaderFound {
+		return errors.NotValidf("missing unit for leader %q", s.Leader_)
 	}
 	return nil
 }
@@ -284,6 +303,7 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		"status":              schema.StringMap(schema.Any()),
 		"settings":            schema.StringMap(schema.Any()),
 		"settings-refcount":   schema.Int(),
+		"leader":              schema.String(),
 		"leadership-settings": schema.StringMap(schema.Any()),
 		"metrics-creds":       schema.String(),
 		"units":               schema.StringMap(schema.Any()),
@@ -294,6 +314,7 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		"force-charm":   false,
 		"exposed":       false,
 		"min-units":     int64(0),
+		"leader":        "",
 		"metrics-creds": "",
 	}
 	addAnnotationSchema(fields, defaults)
@@ -319,6 +340,7 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		MinUnits_:             int(valid["min-units"].(int64)),
 		Settings_:             valid["settings"].(map[string]interface{}),
 		SettingsRefCount_:     int(valid["settings-refcount"].(int64)),
+		Leader_:               valid["leader"].(string),
 		LeadershipSettings_:   valid["leadership-settings"].(map[string]interface{}),
 		statusHistory:         newStatusHistory(),
 	}

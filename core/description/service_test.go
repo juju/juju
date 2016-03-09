@@ -47,6 +47,7 @@ func minimalServiceMap() map[interface{}]interface{} {
 			"key": "value",
 		},
 		"settings-refcount": 1,
+		"leader":            "ubuntu/0",
 		"leadership-settings": map[interface{}]interface{}{
 			"leader": true,
 		},
@@ -89,6 +90,7 @@ func minimalServiceArgs() ServiceArgs {
 			"key": "value",
 		},
 		SettingsRefCount: 1,
+		Leader:           "ubuntu/0",
 		LeadershipSettings: map[string]interface{}{
 			"leader": true,
 		},
@@ -110,6 +112,7 @@ func (s *ServiceSerializationSuite) TestNewService(c *gc.C) {
 			"key": "value",
 		},
 		SettingsRefCount: 1,
+		Leader:           "magic/1",
 		LeadershipSettings: map[string]interface{}{
 			"leader": true,
 		},
@@ -128,6 +131,7 @@ func (s *ServiceSerializationSuite) TestNewService(c *gc.C) {
 	c.Assert(service.MinUnits(), gc.Equals, 42)
 	c.Assert(service.Settings(), jc.DeepEquals, args.Settings)
 	c.Assert(service.SettingsRefCount(), gc.Equals, 1)
+	c.Assert(service.Leader(), gc.Equals, "magic/1")
 	c.Assert(service.LeadershipSettings(), jc.DeepEquals, args.LeadershipSettings)
 	c.Assert(service.MetricsCredentials(), jc.DeepEquals, []byte("sekrit"))
 }
@@ -195,4 +199,14 @@ func (s *ServiceSerializationSuite) TestConstraints(c *gc.C) {
 
 	service := s.exportImport(c, initial)
 	c.Assert(service.Constraints(), jc.DeepEquals, newConstraints(args))
+}
+
+func (s *ServiceSerializationSuite) TestLeaderValid(c *gc.C) {
+	args := minimalServiceArgs()
+	args.Leader = "ubuntu/1"
+	service := newService(args)
+	service.SetStatus(minimalStatusArgs())
+
+	err := service.Validate()
+	c.Assert(err, gc.ErrorMatches, `missing unit for leader "ubuntu/1" not valid`)
 }
