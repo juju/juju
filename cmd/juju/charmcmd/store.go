@@ -9,8 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/persistent-cookiejar"
-	"gopkg.in/juju/charmrepo.v2-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/charmstore"
@@ -31,49 +29,42 @@ type CharmstoreSpec interface {
 }
 
 type charmstoreSpec struct {
-	params charmrepo.NewCharmStoreParams
+	config charmstore.ClientConfig
 }
 
 // newCharmstoreSpec creates a new charm store spec with default
 // settings.
 func newCharmstoreSpec() CharmstoreSpec {
+	var config charmstore.ClientConfig
+	// We use the default for URL and set HTTPClient later.
+	config.VisitWebPage = httpbakery.OpenWebBrowser
 	return &charmstoreSpec{
-		params: charmrepo.NewCharmStoreParams{
-			//URL:        We use the default.
-			//HTTPClient: We set it later.
-			VisitWebPage: httpbakery.OpenWebBrowser,
-		},
+		config: config,
 	}
 }
 
 // Connect implements CharmstoreSpec.
 func (cs charmstoreSpec) Connect() (*charmstore.Client, error) {
-	params, apiContext, err := cs.connect()
+	config, apiContext, err := cs.connect()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	baseClient := csclient.New(csclient.Params{
-		URL:          params.URL,
-		HTTPClient:   params.HTTPClient,
-		VisitWebPage: params.VisitWebPage,
-	})
-
-	csClient := charmstore.WrapBaseClient(baseClient, apiContext)
+	csClient := charmstore.NewClient(config)
+	csClient.Closer = apiContext
 	return csClient, nil
 }
 
 // TODO(ericsnow) Also add charmstoreSpec.Repo() -> charmrepo.Interface?
 
-func (cs charmstoreSpec) connect() (charmrepo.NewCharmStoreParams, *apiContext, error) {
+func (cs charmstoreSpec) connect() (charmstore.ClientConfig, *apiContext, error) {
 	apiContext, err := newAPIContext()
 	if err != nil {
-		return charmrepo.NewCharmStoreParams{}, nil, errors.Trace(err)
+		return charmstore.ClientConfig{}, nil, errors.Trace(err)
 	}
 
-	params := cs.params // a copy
-	params.HTTPClient = apiContext.HTTPClient()
-	return params, apiContext, nil
+	config := cs.config // a copy
+	config.HTTPClient = apiContext.HTTPClient()
+	return config, apiContext, nil
 }
 
 ///////////////////

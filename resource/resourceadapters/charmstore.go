@@ -5,7 +5,6 @@ package resourceadapters
 
 import (
 	"io"
-	"io/ioutil"
 	"time"
 
 	"github.com/juju/errors"
@@ -14,7 +13,6 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
@@ -59,11 +57,11 @@ func newCharmstoreOpener(cURL *charm.URL) *charmstoreOpener {
 // NewClient opens a new charm store client.
 func (cs *charmstoreOpener) NewClient() (*CSRetryClient, error) {
 	// TODO(ericsnow) Use a valid charm store client.
-	base := csclient.New(csclient.Params{URL: "<not valid>"})
-	// TODO(ericsnow) closer will be meaningful once we factor out the
-	// Juju HTTP context (a la cmd/juju/charmcmd/store.go).
-	closer := ioutil.NopCloser(nil)
-	client := charmstore.WrapBaseClient(base, closer)
+	var config charmstore.ClientConfig
+	config.URL = "<not valid>"
+	client := charmstore.NewClient(config)
+	// TODO(ericsnow) client.Closer will be meaningful once we factor
+	// out the Juju HTTP context (a la cmd/juju/charmcmd/store.go).
 	return newCSRetryClient(client), nil
 }
 

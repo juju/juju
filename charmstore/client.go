@@ -17,6 +17,8 @@ import (
 
 var logger = loggo.GetLogger("juju.charmstore")
 
+// TODO(ericsnow) Build around charmrepo.CharmStore instead of csclient.Client.
+
 // BaseClient exposes the functionality of the charm store, as provided
 // by github.com/juju/charmrepo/csclient.Client.
 //

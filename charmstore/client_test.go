@@ -22,7 +22,7 @@ type ClientSuite struct {
 
 	stub   *testing.Stub
 	client *stubClient
-	config csclient.Params
+	config charmstore.ClientConfig
 }
 
 var _ = gc.Suite(&ClientSuite{})
@@ -32,13 +32,15 @@ func (s *ClientSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.client = &stubClient{Stub: s.stub}
-	s.config = csclient.Params{
-		URL: "<something>",
+	s.config = charmstore.ClientConfig{
+		charmrepo.NewCharmStoreParams{
+			URL: "<something>",
+		},
 	}
 }
 
 func (s *ClientSuite) TestWrapBaseClient(c *gc.C) {
-	base := csclient.New(s.config)
+	base := csclient.New(csclient.Params{URL: s.config.URL})
 
 	client := charmstore.WrapBaseClient(base, s.client)
 	err := client.Close()
@@ -53,8 +55,7 @@ func (s *ClientSuite) TestWithMetadata(c *gc.C) {
 	meta := charmstore.JujuMetadata{
 		ModelUUID: uuidVal.String(),
 	}
-	base := csclient.New(s.config)
-	client := charmstore.WrapBaseClient(base, s.client)
+	client := charmstore.NewClient(s.config)
 	metaBefore := client.Metadata()
 
 	newClient, err := client.WithMetadata(meta)
@@ -95,8 +96,7 @@ func (s *ClientSuite) TestFakeListResources(c *gc.C) {
 		charm.MustParseURL("cs:quantal/spam-17"),
 		charm.MustParseURL("cs:quantal/eggs-2"),
 	}
-	base := csclient.New(s.config)
-	client := charmstore.WrapBaseClient(base, s.client)
+	client := charmstore.NewClient(s.config)
 
 	results, err := client.ListResources(cURLs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,8 +106,7 @@ func (s *ClientSuite) TestFakeListResources(c *gc.C) {
 
 func (s *ClientSuite) TestFakeGetResource(c *gc.C) {
 	cURL := charm.MustParseURL("cs:quantal/spam-17")
-	base := csclient.New(s.config)
-	client := charmstore.WrapBaseClient(base, s.client)
+	client := charmstore.NewClient(s.config)
 
 	_, err := client.GetResource(cURL, "spam", 3)
 
