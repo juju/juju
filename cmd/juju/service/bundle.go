@@ -219,15 +219,15 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) erro
 		if series == "" {
 			series = h.data.Series
 		}
-		ch, curl, charmErr := charmrepo.NewCharmAtPath(charmPath, series)
-		if charmErr != nil && !os.IsNotExist(charmErr) {
-			return errors.Annotatef(charmErr, "cannot deploy local charm at %q", charmPath)
+		ch, curl, err := charmrepo.NewCharmAtPath(charmPath, series)
+		if err != nil && !os.IsNotExist(err) {
+			return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 		}
-		if charmErr == nil {
-			if curl, charmErr = h.client.AddLocalCharm(curl, ch); charmErr != nil {
-				return charmErr
+		if err == nil {
+			if curl, err = h.client.AddLocalCharm(curl, ch); err != nil {
+				return err
 			}
-			h.log.Infof("added local charm %s", curl)
+			h.log.Infof("added charm %s", curl)
 			h.results[id] = curl.String()
 			return nil
 		}

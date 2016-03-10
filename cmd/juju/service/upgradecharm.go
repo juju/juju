@@ -71,6 +71,10 @@ upgrade is disallowed unless the --force-series flag is used. This option should
 used with caution since using a charm on a machine running an unsupported series may
 cause unexpected behavior.
 
+The --switch flag allows you to replace the charm with an entirely different one.
+The new charm's URL and revision are inferred as they would be when running a
+deploy command.
+
 Please note that --switch is dangerous, because juju only has limited
 information with which to determine compatibility; the operation will succeed,
 regardless of potential havoc, so long as the following conditions hold:
@@ -276,7 +280,7 @@ func (c *upgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *
 		if newRef.Revision != -1 {
 			return nil, fmt.Errorf("already running specified charm %q", newURL)
 		}
-		// No point in trying to upgrade a charm store charm when
+		// No point in trying to upgrade a charm when
 		// we just determined that's the latest revision
 		// available.
 		return nil, fmt.Errorf("already running latest charm %q", newURL)

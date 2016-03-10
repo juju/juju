@@ -265,7 +265,7 @@ func (s *DeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 	output, err := runDeployCommand(c, path)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := fmt.Sprintf(`
-added local charm local:xenial/dummy-1
+added charm local:xenial/dummy-1
 service dummy deployed (charm: local:xenial/dummy-1)
 added dummy/0 unit to new machine
 deployment of bundle %q completed`, path)
@@ -471,9 +471,9 @@ func (s *deployCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
     `, wordpressPath, mysqlPath))
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added local charm local:trusty/mysql-1
+added charm local:trusty/mysql-1
 service mysql deployed (charm: local:trusty/mysql-1)
-added local charm local:trusty/wordpress-3
+added charm local:trusty/wordpress-3
 service wordpress deployed (charm: local:trusty/wordpress-3)
 related wordpress:db and mysql:server
 added mysql/0 unit to new machine
@@ -511,7 +511,7 @@ func (s *deployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *gc.C
     `, mysqlPath))
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added local charm local:trusty/mysql-1
+added charm local:trusty/mysql-1
 service mysql deployed (charm: local:trusty/mysql-1)
 added charm cs:trusty/wordpress-42
 service wordpress deployed (charm: cs:trusty/wordpress-42)

@@ -294,7 +294,7 @@ var getClientConfig = func(client ModelConfigGetter) (*config.Config, error) {
 	return config.New(config.NoDefaults, attrs)
 }
 
-func (c *DeployCommand) maybeReadLocalBundle() (*charm.BundleData, string, error) {
+func (c *DeployCommand) maybeReadLocalBundleData() (*charm.BundleData, string, error) {
 	bundleFile := c.CharmOrBundle
 	bundleData, err := charmrepo.ReadBundleFile(bundleFile)
 	if err != nil {
@@ -314,7 +314,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	deployer := serviceDeployer{ctx, c.newServiceAPIClient, c.newAnnotationsAPIClient}
 
 	// We may have been given a local bundle file.
-	bundleData, bundleFile, err := c.maybeReadLocalBundle()
+	bundleData, bundleFile, err := c.maybeReadLocalBundleData()
 	// If the bundle files existed but we couldn't read them, then
 	// return that error rather than trying to interpret as a charm.
 	if err != nil {
@@ -407,7 +407,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		if storeCharmOrBundleURL == nil {
 			absBundlePath, err := filepath.Abs(c.CharmOrBundle)
 			if err == nil {
-				bundleFilePath, _ = filepath.Split(absBundlePath)
+				bundleFilePath = filepath.Dir(absBundlePath)
 			}
 		}
 
