@@ -255,8 +255,16 @@ func removeLinkLayerDeviceOps(st *State, linkLayerDeviceDocID, parentDeviceDocID
 		}
 	}
 
+	// We know the DocID has a valid format for a global key, hence the last
+	// return below is ignored.
+	machineID, deviceName, canBeGlobalKey := parseLinkLayerDeviceGlobalKey(linkLayerDeviceDocID)
+	if !canBeGlobalKey {
+		return nil, errors.Errorf(
+			"link-layer device %q on machine %q has unexpected key format",
+			machineID, deviceName,
+		)
+	}
 	if numChildren > 0 {
-		deviceName := linkLayerDeviceNameFromDocID(linkLayerDeviceDocID)
 		return nil, newParentDeviceHasChildrenError(deviceName, numChildren)
 	}
 
@@ -264,17 +272,18 @@ func removeLinkLayerDeviceOps(st *State, linkLayerDeviceDocID, parentDeviceDocID
 	if parentDeviceDocID != "" {
 		ops = append(ops, decrementDeviceNumChildrenOp(parentDeviceDocID))
 	}
+
+	addressesQuery := findAddressesQuery(machineID, deviceName)
+	if addressesOps, err := st.removeMatchingIPAddressesDocOps(addressesQuery); err == nil {
+		ops = append(ops, addressesOps...)
+	} else {
+		return nil, errors.Trace(err)
+	}
+
 	return append(ops,
 		removeLinkLayerDeviceDocOp(linkLayerDeviceDocID),
 		removeLinkLayerDevicesRefsOp(linkLayerDeviceDocID),
 	), nil
-}
-
-// linkLayerDeviceNameFromDocID extracts the last part of linkLayerDeviceDocID - the name.
-func linkLayerDeviceNameFromDocID(linkLayerDeviceDocID string) string {
-	lastHash := strings.LastIndex(linkLayerDeviceDocID, "#")
-	deviceName := linkLayerDeviceDocID[lastHash+1:]
-	return deviceName
 }
 
 // removeLinkLayerDeviceDocOp returns an operation to remove the
@@ -343,6 +352,20 @@ func linkLayerDeviceGlobalKey(machineID, deviceName string) string {
 	return "m#" + machineID + "#d#" + deviceName
 }
 
+func parseLinkLayerDeviceGlobalKey(globalKey string) (machineID, deviceName string, canBeGlobalKey bool) {
+	if !strings.Contains(globalKey, "#") {
+		// Can't be a global key.
+		return "", "", false
+	}
+	keyParts := strings.Split(globalKey, "#")
+	if len(keyParts) != 4 || (keyParts[0] != "m" && keyParts[2] != "d") {
+		// Invalid global key format.
+		return "", "", true
+	}
+	machineID, deviceName = keyParts[1], keyParts[3]
+	return machineID, deviceName, true
+}
+
 // IsValidLinkLayerDeviceName returns whether the given name is a valid network
 // link-layer device name, depending on the runtime.GOOS value.
 func IsValidLinkLayerDeviceName(name string) bool {
@@ -383,4 +406,29 @@ var whitespaceReplacer = strings.NewReplacer(
 func stringLengthBetween(value string, minLength, maxLength uint) bool {
 	length := uint(len(value))
 	return length >= minLength && length <= maxLength
+}
+
+// Addresses returns all IP addresses assigned to the device.
+func (dev *LinkLayerDevice) Addresses() ([]*Address, error) {
+	var allAddresses []*Address
+	callbackFunc := func(resultDoc *ipAddressDoc) {
+		allAddresses = append(allAddresses, newIPAddress(dev.st, *resultDoc))
+	}
+
+	findQuery := findAddressesQuery(dev.doc.MachineID, dev.doc.Name)
+	if err := dev.st.forEachIPAddressDoc(findQuery, nil, callbackFunc); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return allAddresses, nil
+}
+
+// RemoveAddresses removes all IP addresses assigned to the device.
+func (dev *LinkLayerDevice) RemoveAddresses() error {
+	findQuery := findAddressesQuery(dev.doc.MachineID, dev.doc.Name)
+	ops, err := dev.st.removeMatchingIPAddressesDocOps(findQuery)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return dev.st.runTransaction(ops)
 }

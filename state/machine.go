@@ -900,6 +900,10 @@ func (m *Machine) Remove() (err error) {
 	if err != nil {
 		return err
 	}
+	devicesAddressesOps, err := m.removeAllAddressesOps()
+	if err != nil {
+		return err
+	}
 	portsOps, err := m.removePortsOps()
 	if err != nil {
 		return err
@@ -914,6 +918,7 @@ func (m *Machine) Remove() (err error) {
 	}
 	ops = append(ops, ifacesOps...)
 	ops = append(ops, linkLayerDevicesOps...)
+	ops = append(ops, devicesAddressesOps...)
 	ops = append(ops, portsOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	ops = append(ops, filesystemOps...)
@@ -1389,7 +1394,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 	if !m.IsContainer() {
 		// Check addresses first. We'll only add those addresses
 		// which are not in the IP address collection.
-		ipAddresses, closer := m.st.getCollection(ipaddressesC)
+		ipAddresses, closer := m.st.getCollection(legacyipaddressesC)
 		defer closer()
 
 		addressValues := make([]string, len(addresses))
