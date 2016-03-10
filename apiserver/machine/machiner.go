@@ -157,7 +157,7 @@ func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkCo
 	}
 
 	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigToStateArgs(args.Config)
-	logger.Debugf("all observed devices on machine %q: %+v", devicesArgs, m.Id())
+	logger.Debugf("all observed devices on machine %q: %+v", m.Id(), devicesArgs)
 	logger.Debugf("about to set devices addresses: %+v", devicesAddrs)
 
 	// Filter all but bridge devices as we only need those for multi-NIC
@@ -166,14 +166,15 @@ func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkCo
 	for _, deviceArgs := range devicesArgs {
 		if deviceArgs.Type != state.BridgeDevice {
 			logger.Debugf("skipping non-bridge device %q", deviceArgs.Name)
+			continue
 		}
-		logger.Debugf("will update observed device: %+v", deviceArgs)
+		logger.Debugf("will add observed device: %+v", deviceArgs)
 		bridgeDevicesArgs = append(bridgeDevicesArgs, deviceArgs)
 	}
-
 	if err := m.AddLinkLayerDevices(bridgeDevicesArgs...); err != nil {
 		return errors.Trace(err)
 	}
+
 	if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
 		return errors.Trace(err)
 	}

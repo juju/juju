@@ -183,16 +183,33 @@ func NetworkConfigToStateArgs(networkConfig []params.NetworkConfig) (
 		}
 
 		cidrAddress := netConfig.Address
+		if cidrAddress == "" {
+			logger.Warningf("no address to update for %q", netConfig.InterfaceName)
+			continue
+		}
+
 		rangeSeparatorIndex := strings.LastIndex(netConfig.CIDR, "/")
 		if rangeSeparatorIndex < 0 {
-			logger.Warningf("FIXME: unexpected CIDR format %q: assuming /24", netConfig.CIDR)
-			cidrAddress += "/24"
+			logger.Errorf("FIXME: unexpected CIDR format %q on %q", cidrAddress, netConfig.InterfaceName)
+			continue
 		} else {
 			cidrAddress += netConfig.CIDR[rangeSeparatorIndex:]
 		}
+
+		var derivedConfigMethod state.AddressConfigMethod
+		switch method := state.AddressConfigMethod(netConfig.ConfigType); method {
+		case state.StaticAddress, state.DynamicAddress,
+			state.LoopbackAddress, state.ManualAddress:
+			derivedConfigMethod = method
+		case "dhcp":
+			derivedConfigMethod = state.DynamicAddress
+		default:
+			derivedConfigMethod = state.StaticAddress
+		}
+
 		addr := state.LinkLayerDeviceAddress{
 			DeviceName:       netConfig.InterfaceName,
-			ConfigMethod:     state.AddressConfigMethod(netConfig.ConfigType),
+			ConfigMethod:     derivedConfigMethod,
 			CIDRAddress:      cidrAddress,
 			DNSServers:       netConfig.DNSServers,
 			DNSSearchDomains: netConfig.DNSSearchDomains,

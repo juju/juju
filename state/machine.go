@@ -1173,9 +1173,29 @@ func (m *Machine) SetInstanceInfo(
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 ) error {
 
-	if err := m.AddLinkLayerDevices(devicesArgs...); err != nil {
+	// We cannot add parent and child devices in the same call, so we must make
+	// 2 calls at least, ideally more but we don't yet have a case where we get
+	// more than 1 "level" of parent-child structure.
+	var (
+		parentDevicesArgs   []LinkLayerDeviceArgs
+		childrenDevicesArgs []LinkLayerDeviceArgs
+	)
+	for _, args := range devicesArgs {
+		if args.ParentName == "" {
+			parentDevicesArgs = append(parentDevicesArgs, args)
+			logger.Debugf("about to add parent link-layer device %q", args.Name)
+		} else {
+			childrenDevicesArgs = append(childrenDevicesArgs, args)
+			logger.Debugf("about to add child link-layer device %q with parent %q", args.Name, args.ParentName)
+		}
+	}
+	if err := m.AddLinkLayerDevices(parentDevicesArgs...); err != nil {
 		return errors.Trace(err)
 	}
+	if err := m.AddLinkLayerDevices(childrenDevicesArgs...); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
 		return errors.Trace(err)
 	}
