@@ -119,14 +119,27 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 
 	infos := make([]network.InterfaceInfo, 0, len(interfaces))
 	for i, iface := range interfaces {
+
+		var nicType network.InterfaceType
+		switch iface.Type {
+		case typePhysical:
+			nicType = network.EthernetInterface
+		case typeBond:
+			nicType = network.BondInterface
+		case typeVLAN:
+			nicType = network.VLAN_8021QInterface
+		}
+
 		nicInfo := network.InterfaceInfo{
-			DeviceIndex:   i,
-			MACAddress:    iface.MACAddress,
-			ProviderId:    network.Id(fmt.Sprintf("%v", iface.ID)),
-			VLANTag:       iface.VLAN.VID,
-			InterfaceName: iface.Name,
-			Disabled:      !iface.Enabled,
-			NoAutoStart:   !iface.Enabled,
+			DeviceIndex:         i,
+			MACAddress:          iface.MACAddress,
+			ProviderId:          network.Id(fmt.Sprintf("%v", iface.ID)),
+			VLANTag:             iface.VLAN.VID,
+			InterfaceName:       iface.Name,
+			InterfaceType:       nicType,
+			ParentInterfaceName: strings.Join(iface.Parents, ""), // FIXME: I've yet to see a multi-parent NIC in MAAS
+			Disabled:            !iface.Enabled,
+			NoAutoStart:         !iface.Enabled,
 			// This is not needed anymore, but the provisioner still validates it's set.
 			NetworkName: network.DefaultPrivate,
 		}
@@ -144,15 +157,16 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			}
 
 			if link.IPAddress == "" {
-				logger.Warningf("interface %q has no address", iface.Name)
+				logger.Debugf("interface %q has no address", iface.Name)
 			} else {
 				// We set it here initially without a space, just so we don't
 				// lose it when we have no linked subnet below.
 				nicInfo.Address = network.NewAddress(link.IPAddress)
+				nicInfo.ProviderAddressId = network.Id(fmt.Sprintf("%v", link.ID))
 			}
 
 			if link.Subnet == nil {
-				logger.Warningf("interface %q link %d missing subnet", iface.Name, link.ID)
+				logger.Debugf("interface %q link %d missing subnet", iface.Name, link.ID)
 				infos = append(infos, nicInfo)
 				continue
 			}
