@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package persistence
+package state
 
 import (
 	"strings"
@@ -15,13 +15,13 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-type MongoSuite struct {
+type ResourcesMongoSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&MongoSuite{})
+var _ = gc.Suite(&ResourcesMongoSuite{})
 
-func (s *MongoSuite) TestResource2DocUploadFull(c *gc.C) {
+func (s *ResourcesMongoSuite) TestResource2DocUploadFull(c *gc.C) {
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
@@ -76,7 +76,7 @@ func (s *MongoSuite) TestResource2DocUploadFull(c *gc.C) {
 	})
 }
 
-func (s *MongoSuite) TestResource2DocUploadBasic(c *gc.C) {
+func (s *ResourcesMongoSuite) TestResource2DocUploadBasic(c *gc.C) {
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
@@ -125,7 +125,7 @@ func (s *MongoSuite) TestResource2DocUploadBasic(c *gc.C) {
 	})
 }
 
-func (s *MongoSuite) TestResource2DocUploadPending(c *gc.C) {
+func (s *ResourcesMongoSuite) TestResource2DocUploadPending(c *gc.C) {
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
@@ -176,7 +176,7 @@ func (s *MongoSuite) TestResource2DocUploadPending(c *gc.C) {
 	})
 }
 
-func (s *MongoSuite) TestDoc2Resource(c *gc.C) {
+func (s *ResourcesMongoSuite) TestDoc2Resource(c *gc.C) {
 	serviceID := "a-service"
 	docID := pendingResourceID("spam", "some-unique-ID-001")
 	content := "some data\n..."
@@ -227,7 +227,7 @@ func (s *MongoSuite) TestDoc2Resource(c *gc.C) {
 	})
 }
 
-func (s *MongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
+func (s *ResourcesMongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
 	serviceID := "a-service"
 	docID := pendingResourceID("spam", "some-unique-ID-001")
 	content := "some data\n..."
@@ -279,7 +279,7 @@ func (s *MongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
 	})
 }
 
-func (s *MongoSuite) TestDoc2BasicResourceUploadBasic(c *gc.C) {
+func (s *ResourcesMongoSuite) TestDoc2BasicResourceUploadBasic(c *gc.C) {
 	serviceID := "a-service"
 	docID := serviceResourceID("spam")
 	content := "some data\n..."
@@ -325,7 +325,7 @@ func (s *MongoSuite) TestDoc2BasicResourceUploadBasic(c *gc.C) {
 	})
 }
 
-func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
+func (s *ResourcesMongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
@@ -381,7 +381,7 @@ func (s *MongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 	})
 }
 
-func (s *MongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
+func (s *ResourcesMongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
 	serviceID := "a-service"
 	docID := serviceResourceID("spam")
 	content := "some data\n..."
@@ -434,7 +434,7 @@ func (s *MongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
 	})
 }
 
-func (s *MongoSuite) TestDoc2BasicResourcePlaceholder(c *gc.C) {
+func (s *ResourcesMongoSuite) TestDoc2BasicResourcePlaceholder(c *gc.C) {
 	serviceID := "a-service"
 	docID := serviceResourceID("spam")
 	res, err := doc2basicResource(resourceDoc{
@@ -466,7 +466,7 @@ func (s *MongoSuite) TestDoc2BasicResourcePlaceholder(c *gc.C) {
 	})
 }
 
-func (s *MongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
+func (s *ResourcesMongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
 	serviceID := "a-service"
 	docID := serviceResourceID("spam")
 	res := resource.Resource{
@@ -498,5 +498,52 @@ func (s *MongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
 		Origin: "upload",
 
 		StoragePath: "service-a-service/resources/spam",
+	})
+}
+
+func (s *ResourcesMongoSuite) TestCharmStoreResource2DocFull(c *gc.C) {
+	content := "some data\n..."
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
+	c.Assert(err, jc.ErrorIsNil)
+	now := time.Now().UTC()
+
+	serviceID := "a-service"
+	id := serviceID + "/spam"
+	docID := serviceResourceID("spam") + "#charmstore"
+	res := charmresource.Resource{
+		Meta: charmresource.Meta{
+			Name:        "spam",
+			Type:        charmresource.TypeFile,
+			Path:        "spam.tgz",
+			Description: "you need this!",
+		},
+		Origin:      charmresource.OriginStore,
+		Revision:    3,
+		Fingerprint: fp,
+		Size:        int64(len(content)),
+	}
+	doc := charmStoreResource2Doc(docID, charmStoreResource{
+		Resource:   res,
+		id:         id,
+		serviceID:  serviceID,
+		lastPolled: now,
+	})
+
+	c.Check(doc, jc.DeepEquals, &resourceDoc{
+		DocID:     docID,
+		ID:        id,
+		ServiceID: serviceID,
+
+		Name:        "spam",
+		Type:        "file",
+		Path:        "spam.tgz",
+		Description: "you need this!",
+
+		Origin:      "store",
+		Revision:    3,
+		Fingerprint: fp.Bytes(),
+		Size:        int64(len(content)),
+
+		LastPolled: now,
 	})
 }

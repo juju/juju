@@ -94,76 +94,49 @@ func (s *bridgeConfigSuite) TestBridgeScriptWithUndefinedArgs(c *gc.C) {
 	}
 }
 
-func (s *bridgeConfigSuite) TestBridgeScriptDHCP(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkDHCPInitial, networkDHCPExpected, "test-br-")
+func (s *bridgeConfigSuite) TestBridgeScriptWithPrefixTransformation(c *gc.C) {
+	for i, v := range []struct {
+		initial  string
+		expected string
+		prefix   string
+	}{
+		{networkDHCPInitial, networkDHCPExpected, "test-br-"},
+		{networkDHCPWithAliasInitial, networkDHCPWithAliasExpected, "test-br-"},
+		{networkDHCPWithBondInitial, networkDHCPWithBondExpected, "test-br-"},
+		{networkDualNICInitial, networkDualNICExpected, "test-br-"},
+		{networkMultipleAliasesInitial, networkMultipleAliasesExpected, "test-br-"},
+		{networkMultipleStaticWithAliasesInitial, networkMultipleStaticWithAliasesExpected, "test-br-"},
+		{networkSmorgasboardInitial, networkSmorgasboardExpected, "juju-br-"},
+		{networkStaticInitial, networkStaticExpected, "test-br-"},
+		{networkVLANInitial, networkVLANExpected, "vlan-br-"},
+		{networkWithAliasInitial, networkWithAliasExpected, "test-br-"},
+	} {
+		c.Logf("test #%v - expected transformation", i)
+		s.assertScriptWithPrefix(c, v.initial, v.expected, v.prefix)
+		c.Logf("test #%v - idempotent transformation", i)
+		s.assertScriptWithPrefix(c, v.expected, v.expected, v.prefix)
+	}
 }
 
-func (s *bridgeConfigSuite) TestBridgeScriptStatic(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkStaticInitial, networkStaticExpected, "test-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptDualNIC(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkDualNICInitial, networkDualNICExpected, "test-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptWithAlias(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkWithAliasInitial, networkWithAliasExpected, "test-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptDHCPWithAlias(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkDHCPWithAliasInitial, networkDHCPWithAliasExpected, "test-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptMultipleStaticWithAliases(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkMultipleStaticWithAliasesInitial, networkMultipleStaticWithAliasesExpected, "test-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptDHCPWithBond(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkDHCPWithBondInitial, networkDHCPWithBondExpected, "test-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptMultipleAliases(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkMultipleAliasesInitial, networkMultipleAliasesExpected, "test-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptSmorgasboard(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkSmorgasboardInitial, networkSmorgasboardExpected, "juju-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptWithVLANs(c *gc.C) {
-	s.assertScriptWithPrefix(c, networkVLANInitial, networkVLANExpected, "vlan-br-")
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptWithMultipleNameservers(c *gc.C) {
-	s.assertScriptWithDefaultPrefix(c, networkVLANWithMultipleNameserversInitial, networkVLANWithMultipleNameserversExpected)
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptWithLoopbackOnly(c *gc.C) {
-	s.assertScriptWithDefaultPrefix(c, networkLoopbackOnlyInitial, networkLoopbackOnlyExpected)
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptBondWithVLANs(c *gc.C) {
-	s.assertScriptWithDefaultPrefix(c, networkStaticBondWithVLANsInitial, networkStaticBondWithVLANsExpected)
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptVLANWithInactive(c *gc.C) {
-	s.assertScriptWithDefaultPrefix(c, networkVLANWithInactiveDeviceInitial, networkVLANWithInactiveDeviceExpected)
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptVLANWithActiveDHCPDevice(c *gc.C) {
-	s.assertScriptWithDefaultPrefix(c, networkVLANWithActiveDHCPDeviceInitial, networkVLANWithActiveDHCPDeviceExpected)
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptMultipleDNSValues(c *gc.C) {
-	s.assertScriptWithDefaultPrefix(c, networkWithMultipleDNSValuesInitial, networkWithMultipleDNSValuesExpected)
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptEmptyDNSValues(c *gc.C) {
-	s.assertScriptWithDefaultPrefix(c, networkWithEmptyDNSValuesInitial, networkWithEmptyDNSValuesExpected)
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptMismatchedBridgeNameAndInterfaceArgs(c *gc.C) {
-	s.assertScriptWithDefaultPrefix(c, networkWithEmptyDNSValuesInitial, networkWithEmptyDNSValuesExpected)
+func (s *bridgeConfigSuite) TestBridgeScriptWithDefaultPrefixTransformation(c *gc.C) {
+	for i, v := range []struct {
+		initial  string
+		expected string
+	}{
+		{networkLoopbackOnlyInitial, networkLoopbackOnlyExpected},
+		{networkStaticBondWithVLANsInitial, networkStaticBondWithVLANsExpected},
+		{networkVLANWithActiveDHCPDeviceInitial, networkVLANWithActiveDHCPDeviceExpected},
+		{networkVLANWithInactiveDeviceInitial, networkVLANWithInactiveDeviceExpected},
+		{networkVLANWithMultipleNameserversInitial, networkVLANWithMultipleNameserversExpected},
+		{networkWithEmptyDNSValuesInitial, networkWithEmptyDNSValuesExpected},
+		{networkWithMultipleDNSValuesInitial, networkWithMultipleDNSValuesExpected},
+		{networkPartiallyBridgedInitial, networkPartiallyBridgedExpected},
+	} {
+		c.Logf("test #%v - expected transformation", i)
+		s.assertScriptWithDefaultPrefix(c, v.initial, v.expected)
+		c.Logf("test #%v - idempotent transformation", i)
+		s.assertScriptWithDefaultPrefix(c, v.expected, v.expected)
+	}
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptInterfaceNameArgumentRequired(c *gc.C) {
@@ -1545,6 +1518,45 @@ iface eth1 inet manual
 auto juju-br0
 iface juju-br0 inet static
     address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+    bridge_ports eth1`
+
+const networkPartiallyBridgedInitial = `auto lo
+iface lo inet loopback
+
+iface eth0 inet manual
+
+auto br-eth0
+iface br-eth0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+    bridge_ports eth0
+
+auto eth1
+iface eth1 inet static
+    address 1.2.3.5
+    netmask 255.255.255.0
+    gateway 4.3.2.1`
+
+const networkPartiallyBridgedExpected = `auto lo
+iface lo inet loopback
+
+iface eth0 inet manual
+
+auto br-eth0
+iface br-eth0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+    bridge_ports eth0
+
+iface eth1 inet manual
+
+auto br-eth1
+iface br-eth1 inet static
+    address 1.2.3.5
     netmask 255.255.255.0
     gateway 4.3.2.1
     bridge_ports eth1`

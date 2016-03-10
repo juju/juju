@@ -1139,13 +1139,24 @@ fi
 
 if [ ! -z "${juju_networking_preferred_python_binary:-}" ]; then
     if [ -f %[1]q ]; then
-        ${juju_networking_preferred_python_binary} %[1]q --bridge-prefix=%q --one-time-backup --activate %q
+# We are sharing this code between master, maas-spaces2 and 1.25.
+# For the moment we want master and 1.25 to not bridge all interfaces.
+# This setting allows us to easily switch the behaviour when merging
+# the code between those various branches.
+        juju_bridge_all_interfaces=1
+        if [ $juju_bridge_all_interfaces -eq 1 ]; then
+            $juju_networking_preferred_python_binary %[1]q --bridge-prefix=%[2]q --one-time-backup --activate %[4]q
+        else
+            juju_ipv4_interface_to_bridge=$(ip -4 route list exact default | head -n1 | cut -d' ' -f5)
+            $juju_networking_preferred_python_binary %[1]q --bridge-name=%[3]q --interface-to-bridge="${juju_ipv4_interface_to_bridge:-unknown}" --one-time-backup --activate %[4]q
+        fi
     fi
 else
     echo "error: no Python installation found; cannot run Juju's bridge script"
 fi`,
 		bridgeScriptPath,
 		instancecfg.DefaultBridgePrefix,
+		instancecfg.DefaultBridgeName,
 		"/etc/network/interfaces")
 }
 

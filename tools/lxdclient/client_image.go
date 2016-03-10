@@ -6,8 +6,7 @@
 package lxdclient
 
 import (
-	"os/exec"
-
+	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
 
 	"github.com/juju/errors"
@@ -35,8 +34,20 @@ func (i imageClient) EnsureImageExists(series string) error {
 		}
 	}
 
-	cmd := exec.Command("lxd-images", "import", "ubuntu", series, "--alias", name)
-	return errors.Trace(cmd.Run())
+	/* "ubuntu" here is cloud-images.ubuntu.com's "releases" stream;
+	 * "ubuntu-daily" would be the daily stream
+	 */
+	ubuntu, err := lxdNewClient(&lxd.DefaultConfig, "ubuntu")
+	if err != nil {
+		return err
+	}
+
+	client, ok := i.raw.(*lxd.Client)
+	if !ok {
+		return errors.Errorf("can't use a fake client as target")
+	}
+
+	return ubuntu.CopyImage(series, client, false, []string{name}, false, true, nil)
 }
 
 // A common place to compute image names (alises) based on the series

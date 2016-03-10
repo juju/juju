@@ -48,7 +48,7 @@ func (c *listBlocksCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
-		"tabular": formatTabularBlockedEnvironments,
+		"tabular": formatTabularBlockedModels,
 	})
 }
 

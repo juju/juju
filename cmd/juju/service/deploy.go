@@ -568,7 +568,7 @@ func (c *DeployCommand) deployCharm(
 			strings.Join(charmInfo.Meta.Terms, " "))
 	}
 
-	ids, err := c.handleResources(serviceName, charmInfo.Meta.Resources)
+	ids, err := handleResources(c, c.Resources, serviceName, charmInfo.Meta.Resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -602,8 +602,12 @@ func (c *DeployCommand) deployCharm(
 	return err
 }
 
-func (c *DeployCommand) handleResources(serviceName string, metaResources map[string]charmresource.Meta) (map[string]string, error) {
-	if len(c.Resources) == 0 && len(metaResources) == 0 {
+type APICmd interface {
+	NewAPIRoot() (api.Connection, error)
+}
+
+func handleResources(c APICmd, resources map[string]string, serviceName string, metaResources map[string]charmresource.Meta) (map[string]string, error) {
+	if len(resources) == 0 && len(metaResources) == 0 {
 		return nil, nil
 	}
 
@@ -612,7 +616,7 @@ func (c *DeployCommand) handleResources(serviceName string, metaResources map[st
 		return nil, errors.Trace(err)
 	}
 
-	ids, err := resourceadapters.DeployResources(serviceName, c.Resources, metaResources, api)
+	ids, err := resourceadapters.DeployResources(serviceName, resources, metaResources, api)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

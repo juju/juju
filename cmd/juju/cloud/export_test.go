@@ -4,17 +4,63 @@
 package cloud
 
 import (
+	jujucloud "github.com/juju/juju/cloud"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/jujuclient"
 )
 
-func NewListCredentialsCommandForTest(testStore jujuclient.CredentialGetter) *listCredentialsCommand {
+func NewUpdateCloudsCommandForTest(publicCloudURL string) *updateCloudsCommand {
+	return &updateCloudsCommand{
+		// TODO(wallyworld) - move testing key elsewhere
+		publicSigningKey: sstesting.SignedMetadataPublicKey,
+		publicCloudURL:   publicCloudURL,
+	}
+}
+
+func NewListCredentialsCommandForTest(
+	testStore jujuclient.CredentialGetter,
+	personalCloudsFunc func() (map[string]jujucloud.Cloud, error),
+	cloudByNameFunc func(string) (*jujucloud.Cloud, error),
+) *listCredentialsCommand {
 	return &listCredentialsCommand{
+		store:              testStore,
+		personalCloudsFunc: personalCloudsFunc,
+		cloudByNameFunc:    cloudByNameFunc,
+	}
+}
+
+func NewDetectCredentialsCommandForTest(
+	testStore jujuclient.CredentialStore,
+	registeredProvidersFunc func() []string,
+	allCloudsFunc func() (map[string]jujucloud.Cloud, error),
+	cloudsByNameFunc func(string) (*jujucloud.Cloud, error),
+) *detectCredentialsCommand {
+	return &detectCredentialsCommand{
+		store: testStore,
+		registeredProvidersFunc: registeredProvidersFunc,
+		allCloudsFunc:           allCloudsFunc,
+		cloudByNameFunc:         cloudsByNameFunc,
+	}
+}
+
+func NewAddCredentialCommandForTest(
+	testStore jujuclient.CredentialStore,
+	cloudByNameFunc func(string) (*jujucloud.Cloud, error),
+) *addCredentialCommand {
+	return &addCredentialCommand{
+		store:           testStore,
+		cloudByNameFunc: cloudByNameFunc,
+	}
+}
+
+func NewsetDefaultRegionCommandForTest(testStore jujuclient.CredentialStore) *setDefaultRegionCommand {
+	return &setDefaultRegionCommand{
 		store: testStore,
 	}
 }
 
-func NewDetectCredentialsCommandForTest(testStore jujuclient.CredentialStore) *detectCredentialsCommand {
-	return &detectCredentialsCommand{
+func NewSetDefaultCredentialCommandForTest(testStore jujuclient.CredentialStore) *setDefaultCredentialCommand {
+	return &setDefaultCredentialCommand{
 		store: testStore,
 	}
 }
