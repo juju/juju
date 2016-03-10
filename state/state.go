@@ -2259,7 +2259,7 @@ type ControllerInfo struct {
 	// MongoSpaceName is the space that contains all Mongo servers.
 	MongoSpaceName string
 
-	// MongoSpaceState records the state of if:
+	// MongoSpaceState records the state of the mongo space selection state machine. Valid states are:
 	// * We haven't looked for a Mongo space yet (MongoSpaceUnknown)
 	// * We have looked for a Mongo space, but we didn't find one (MongoSpaceInvalid)
 	// * We have looked for and found a Mongo space (MongoSpaceValid)
@@ -2394,13 +2394,15 @@ func SetSystemIdentity(st *State, identity string) error {
 // database by the end of the call.
 func (st *State) SetOrGetMongoSpaceName(mongoSpaceName network.SpaceName) (network.SpaceName, error) {
 	err := st.setMongoSpaceName(mongoSpaceName)
-	if err != nil {
+	if err == txn.ErrAborted {
 		// Failed to set the new space name. Return what is already stored in state.
 		controllerInfo, err := st.ControllerInfo()
 		if err != nil {
 			return network.SpaceName(""), errors.Trace(err)
 		}
 		return network.SpaceName(controllerInfo.MongoSpaceName), nil
+	} else if err != nil {
+		return network.SpaceName(""), errors.Trace(err)
 	}
 	return mongoSpaceName, nil
 }

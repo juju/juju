@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/juju/juju/network"
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
+
+	"github.com/juju/juju/network"
 )
 
 // jujuMachineKey is the key for the tag where we save the member's juju machine id.

@@ -517,7 +517,7 @@ func (s *workerSuite) TestMongoErrorNoCommonSpace(c *gc.C) {
 		}()
 		select {
 		case err := <-done:
-			c.Assert(err, gc.ErrorMatches, ".*Couldn't find a space containing all peer group machines")
+			c.Assert(err, gc.ErrorMatches, ".*couldn't find a space containing all peer group machines")
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for worker to exit")
 		}
@@ -578,8 +578,7 @@ func (s *workerSuite) TestMongoSpaceNotOverwritten(c *gc.C) {
 
 		// Manually run getMongoSpace - it should do nothing because we already have
 		// a space. If it did re-calculate the space name it will change back to "one".
-		info := &peerGroupInfo{}
-		w.getMongoSpace(info)
+		w.getMongoSpace(&peerGroupInfo{})
 
 		c.Assert(st.mongoSpaceName, gc.Equals, network.SpaceName("testing"))
 	})

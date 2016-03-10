@@ -303,11 +303,11 @@ func (w *pgWorker) getMongoSpace(info *peerGroupInfo) error {
 				return errors.Annotate(err, "cannot set Mongo space state")
 			}
 
-			return fmt.Errorf("Couldn't find a space containing all peer group machines")
+			return fmt.Errorf("couldn't find a space containing all peer group machines")
 		} else {
 			info.mongoSpace, err = w.st.SetOrGetMongoSpaceName(spaceStats.LargestSpace)
 			if err != nil {
-				return fmt.Errorf("Error setting/getting Mongo space: %v", err)
+				return fmt.Errorf("error setting/getting Mongo space: %v", err)
 			}
 			info.mongoSpaceValid = true
 		}
@@ -315,7 +315,7 @@ func (w *pgWorker) getMongoSpace(info *peerGroupInfo) error {
 	case state.MongoSpaceValid:
 		space, err := w.st.Space(stateInfo.MongoSpaceName)
 		if err != nil {
-			return fmt.Errorf("Error looking up space: %v", err)
+			return fmt.Errorf("error looking up space: %v", err)
 		}
 		info.mongoSpace = network.SpaceName(space.Name())
 		info.mongoSpaceValid = true
@@ -642,7 +642,7 @@ type allSpaceStats struct {
 // SpaceStats holds information useful when choosing which space to pick an
 // address from.
 type spaceStats struct {
-	SpaceCount              map[network.SpaceName]int
+	SpaceRefCount           map[network.SpaceName]int
 	LargestSpace            network.SpaceName
 	LargestSpaceSize        int
 	LargestSpaceContainsAll bool
@@ -652,17 +652,17 @@ type spaceStats struct {
 // about what spaces are referenced by those machines.
 func generateSpaceStats(addresses [][]network.Address) spaceStats {
 	var stats spaceStats
-	stats.SpaceCount = make(map[network.SpaceName]int)
+	stats.SpaceRefCount = make(map[network.SpaceName]int)
 
 	for i := range addresses {
 		for _, addr := range addresses[i] {
-			v, ok := stats.SpaceCount[addr.SpaceName]
+			v, ok := stats.SpaceRefCount[addr.SpaceName]
 			if !ok {
 				v = 0
 			}
 
 			v++
-			stats.SpaceCount[addr.SpaceName] = v
+			stats.SpaceRefCount[addr.SpaceName] = v
 
 			if v > stats.LargestSpaceSize {
 				stats.LargestSpace = addr.SpaceName

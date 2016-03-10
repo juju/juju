@@ -34,7 +34,6 @@ func (s *stateShim) Machine(id string) (stateMachine, error) {
 }
 
 type SpaceReader interface {
-	ID() string
 	Name() string
 }
 
