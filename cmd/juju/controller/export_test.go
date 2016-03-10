@@ -36,7 +36,7 @@ type CreateModelCommand struct {
 // NewCreateModelCommandForTest returns a CreateModelCommand with
 // the api provided as specified.
 func NewCreateModelCommandForTest(
-	api CreateEnvironmentAPI,
+	api CreateModelAPI,
 	store jujuclient.ClientStore,
 	parser func(interface{}) (interface{}, error),
 ) (cmd.Command, *CreateModelCommand) {
@@ -132,16 +132,16 @@ func NewListBlocksCommandForTest(api listBlocksAPI, apierr error, store jujuclie
 }
 
 type CtrData ctrData
-type EnvData envData
+type ModelData modelData
 
 func FmtCtrStatus(data CtrData) string {
 	return fmtCtrStatus(ctrData(data))
 }
 
-func FmtEnvStatus(data EnvData) string {
-	return fmtEnvStatus(envData(data))
+func FmtModelStatus(data ModelData) string {
+	return fmtModelStatus(modelData(data))
 }
 
-func NewData(api destroyControllerAPI, ctrUUID string) (ctrData, []envData, error) {
+func NewData(api destroyControllerAPI, ctrUUID string) (ctrData, []modelData, error) {
 	return newData(api, ctrUUID)
 }

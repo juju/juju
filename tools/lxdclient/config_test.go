@@ -129,10 +129,11 @@ func (s *configSuite) TestValidateOnlyRemote(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "",
 		Remote:    s.remote,
+		ImageStream: "",
 	}
 	err := cfg.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *configSuite) TestValidateMissingRemote(c *gc.C) {
@@ -176,6 +177,7 @@ func (s *configFunctionalSuite) SetUpTest(c *gc.C) {
 	s.configBaseSuite.SetUpTest(c)
 
 	s.client = newLocalClient(c)
+	c.Logf("connected to %v", s.client)
 
 	if s.client != nil {
 		origCerts, err := s.client.ListCerts()

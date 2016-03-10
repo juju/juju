@@ -14,6 +14,7 @@ type ImageStream string
 const (
 	StreamUnknown  ImageStream = ""
 	StreamReleases ImageStream = "releases"
+	StreamReleased ImageStream = "released"
 	StreamDaily    ImageStream = "daily"
 )
 
@@ -59,7 +60,10 @@ func (cfg Config) Validate() error {
 		return errors.Trace(err)
 	}
 
-	if cfg.ImageStream != StreamReleases && cfg.ImageStream != StreamDaily {
+	if cfg.ImageStream != StreamReleases &&
+		cfg.ImageStream != StreamDaily &&
+		cfg.ImageStream != "" &&
+		cfg.ImageStream != StreamReleased {
 		return errors.NotValidf("invalid image stream: %q", cfg.ImageStream)
 	}
 
