@@ -32,10 +32,6 @@ const (
 	DefaultProviderId = "juju-unknown"
 )
 
-// DefaultSpace is the name used for the default space for an environment.
-// TODO(dimitern): Make this configurable per environment.
-const DefaultSpace = "default"
-
 // SpaceInvalidChars is a regexp for validating that space names contain no
 // invalid characters.
 var SpaceInvalidChars = regexp.MustCompile("[^0-9a-z-]")

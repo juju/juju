@@ -217,6 +217,7 @@ peers:
   "$": mysql
   ".": bad
 `, 43)
+
 	weirdService := s.AddTestingServiceWithBindings(c, "weird", weirdOldCharm, initialBindings)
 	readBindings, err := weirdService.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)

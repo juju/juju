@@ -91,6 +91,7 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 	// The test cases below are not exhaustive, but just check basic
 	// functionality. Most of the logic is tested by calling service.SetCharm()
 	// in various ways.
+
 	for i, test := range []struct {
 		about          string
 		newMap, oldMap map[string]string

@@ -17,9 +17,13 @@ import (
 	"github.com/juju/utils/voyeur"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/apiserver/common/networkingcommon"
+	"github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 )
 
@@ -27,13 +31,15 @@ import (
 // that we don't want to directly depend on in unit tests.
 
 type fakeState struct {
-	mu          sync.Mutex
-	errors      errorPatterns
-	machines    map[string]*fakeMachine
-	controllers voyeur.Value // of *state.ControllerInfo
-	statuses    voyeur.Value // of statuses collection
-	session     *fakeMongoSession
-	check       func(st *fakeState) error
+	mu              sync.Mutex
+	errors          errorPatterns
+	machines        map[string]*fakeMachine
+	controllers     voyeur.Value // of *state.ControllerInfo
+	statuses        voyeur.Value // of statuses collection
+	session         *fakeMongoSession
+	check           func(st *fakeState) error
+	mongoSpaceName  network.SpaceName
+	mongoSpaceState state.MongoSpaceStates
 }
 
 var (
@@ -228,6 +234,34 @@ func (st *fakeState) WatchControllerInfo() state.NotifyWatcher {
 
 func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
 	return WatchStrings(&st.statuses)
+}
+
+func (st *fakeState) Space(name string) (SpaceReader, error) {
+	foo := []networkingcommon.BackingSpace{
+		&testing.FakeSpace{SpaceName: "Space" + name},
+		&testing.FakeSpace{SpaceName: "Space" + name},
+		&testing.FakeSpace{SpaceName: "Space" + name},
+	}
+	return foo[0].(SpaceReader), nil
+}
+
+func (st *fakeState) SetOrGetMongoSpaceName(mongoSpaceName network.SpaceName) (network.SpaceName, error) {
+	if st.mongoSpaceState == state.MongoSpaceUnknown {
+		st.mongoSpaceName = mongoSpaceName
+		st.mongoSpaceState = state.MongoSpaceValid
+	}
+	return st.mongoSpaceName, nil
+}
+
+func (st *fakeState) SetMongoSpaceState(mongoSpaceState state.MongoSpaceStates) error {
+	st.mongoSpaceState = mongoSpaceState
+	return nil
+}
+
+func (st *fakeState) ModelConfig() (*config.Config, error) {
+	attrs := coretesting.FakeConfig()
+	cfg, err := config.New(config.NoDefaults, attrs)
+	return cfg, err
 }
 
 type fakeMachine struct {

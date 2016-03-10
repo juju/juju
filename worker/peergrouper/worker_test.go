@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/replicaset"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/voyeur"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 )
@@ -415,6 +417,199 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for publish")
 		}
+	})
+}
+
+func hostPortInSpace(address, spaceName string) network.HostPort {
+	netAddress := network.Address{
+		Value:       address,
+		Type:        network.IPv4Address,
+		NetworkName: "net",
+		Scope:       network.ScopeUnknown,
+		SpaceName:   network.SpaceName(spaceName),
+	}
+	return network.HostPort{netAddress, 4711}
+}
+
+func mongoSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, noSpaces bool) (*fakeState, []string, []network.HostPort) {
+	st := NewFakeState()
+	InitState(c, st, 3, ipVersion)
+	var hostPorts []network.HostPort
+
+	if noSpaces {
+		hostPorts = []network.HostPort{
+			hostPortInSpace(fmt.Sprintf(ipVersion.machineFormatHost, 1), ""),
+			hostPortInSpace(fmt.Sprintf(ipVersion.machineFormatHost, 2), ""),
+			hostPortInSpace(fmt.Sprintf(ipVersion.machineFormatHost, 3), ""),
+		}
+	} else {
+		hostPorts = []network.HostPort{
+			hostPortInSpace(fmt.Sprintf(ipVersion.machineFormatHost, 1), "one"),
+			hostPortInSpace(fmt.Sprintf(ipVersion.machineFormatHost, 2), "two"),
+			hostPortInSpace(fmt.Sprintf(ipVersion.machineFormatHost, 3), "three"),
+		}
+	}
+
+	machines := []string{"10", "11", "12"}
+	for _, machine := range machines {
+		st.machine(machine).SetHasVote(true)
+		st.machine(machine).setWantsVote(true)
+	}
+
+	st.session.Set(mkMembers("0v 1v 2v", ipVersion))
+
+	return st, machines, hostPorts
+}
+
+func startWorkerSupportingSpaces(st *fakeState, ipVersion TestIPVersion) *pgWorker {
+	w := newWorker(st, noPublisher{}).(*pgWorker)
+	w.providerSupportsSpaces = true
+	return w
+}
+
+func (s *workerSuite) TestMongoFindAndUseSpace(c *gc.C) {
+	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+		st, machines, hostPorts := mongoSpaceTestCommonSetup(c, ipVersion, false)
+
+		for i, machine := range machines {
+			// machine 10 gets a host port in space one
+			// machine 11 gets host ports in spaces one and two
+			// machine 12 gets host ports in spaces one, two and three
+			st.machine(machine).setMongoHostPorts(hostPorts[0 : i+1])
+		}
+
+		startWorkerSupportingSpaces(st, ipVersion)
+		for st.mongoSpaceState == state.MongoSpaceUnknown {
+			select {
+			case <-time.After(coretesting.ShortWait):
+			}
+		}
+
+		// Only space one has all three servers in it
+		c.Assert(st.mongoSpaceName, gc.Equals, network.SpaceName("one"))
+		c.Assert(st.mongoSpaceState, gc.Equals, state.MongoSpaceValid)
+
+		// All machines have the same address in this test for simplicity. The
+		// space three address is 0.0.0.3 giving us the host port of 0.0.0.3:4711
+		members := st.session.members.Get().([]replicaset.Member)
+		c.Assert(members, gc.HasLen, 3)
+		for i := 0; i < 3; i++ {
+			c.Assert(members[i].Address, gc.Equals, fmt.Sprintf(ipVersion.formatHostPort, 1, 4711))
+		}
+	})
+}
+
+func (s *workerSuite) TestMongoErrorNoCommonSpace(c *gc.C) {
+	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+		st, machines, hostPorts := mongoSpaceTestCommonSetup(c, ipVersion, false)
+
+		for i, machine := range machines {
+			// machine 10 gets a host port in space one
+			// machine 11 gets a host port in space two
+			// machine 12 gets a host port in space three
+			st.machine(machine).setMongoHostPorts(hostPorts[i : i+1])
+		}
+
+		w := startWorkerSupportingSpaces(st, ipVersion)
+		done := make(chan error)
+		go func() {
+			done <- w.Wait()
+		}()
+		select {
+		case err := <-done:
+			c.Assert(err, gc.ErrorMatches, ".*couldn't find a space containing all peer group machines")
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for worker to exit")
+		}
+
+		// Each machine is in a unique space, so the Mongo space should be empty
+		c.Assert(st.mongoSpaceName, gc.Equals, network.SpaceName(""))
+		c.Assert(st.mongoSpaceState, gc.Equals, state.MongoSpaceInvalid)
+	})
+}
+
+func (s *workerSuite) TestMongoNoSpaces(c *gc.C) {
+	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+		st, machines, hostPorts := mongoSpaceTestCommonSetup(c, ipVersion, true)
+
+		for i, machine := range machines {
+			st.machine(machine).setMongoHostPorts(hostPorts[i : i+1])
+		}
+
+		startWorkerSupportingSpaces(st, ipVersion)
+		for st.mongoSpaceState == state.MongoSpaceUnknown {
+			select {
+			case <-time.After(coretesting.ShortWait):
+			}
+		}
+
+		// No spaces were used so the Mongo space should be empty
+		c.Assert(st.mongoSpaceName, gc.Equals, network.SpaceName(""))
+
+		// The empty space here is considered valid because there are no spaces set
+		c.Assert(st.mongoSpaceState, gc.Equals, state.MongoSpaceValid)
+	})
+}
+
+func (s *workerSuite) TestMongoSpaceNotOverwritten(c *gc.C) {
+	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+		st, machines, hostPorts := mongoSpaceTestCommonSetup(c, ipVersion, false)
+
+		for i, machine := range machines {
+			// machine 10 gets a host port in space one
+			// machine 11 gets host ports in spaces one and two
+			// machine 12 gets host ports in spaces one, two and three
+			st.machine(machine).setMongoHostPorts(hostPorts[0 : i+1])
+		}
+
+		w := startWorkerSupportingSpaces(st, ipVersion)
+		for st.mongoSpaceState == state.MongoSpaceUnknown {
+			select {
+			case <-time.After(coretesting.ShortWait):
+			}
+		}
+
+		// Space calculation has run...
+		c.Assert(st.mongoSpaceState, gc.Equals, state.MongoSpaceValid)
+		c.Assert(st.mongoSpaceName, gc.Equals, network.SpaceName("one"))
+
+		// Set st.mongoSpaceName to something different
+		st.mongoSpaceName = network.SpaceName("testing")
+
+		// Manually run getMongoSpace - it should do nothing because we already have
+		// a space. If it did re-calculate the space name it will change back to "one".
+		w.getMongoSpace(&peerGroupInfo{})
+
+		c.Assert(st.mongoSpaceName, gc.Equals, network.SpaceName("testing"))
+	})
+}
+
+func (s *workerSuite) TestMongoSpaceNotCalculatedWhenSpacesNotSupported(c *gc.C) {
+	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
+		st, machines, hostPorts := mongoSpaceTestCommonSetup(c, ipVersion, false)
+
+		for i, machine := range machines {
+			// machine 10 gets a host port in space one
+			// machine 11 gets host ports in spaces one and two
+			// machine 12 gets host ports in spaces one, two and three
+			st.machine(machine).setMongoHostPorts(hostPorts[0 : i+1])
+		}
+
+		// Set some garbage up to check that it isn't overwritten
+		st.mongoSpaceName = "garbage"
+
+		// Start a worker that doesn't support spaces
+		newWorker(st, noPublisher{})
+
+		for st.mongoSpaceState == state.MongoSpaceUnknown {
+			select {
+			case <-time.After(coretesting.ShortWait):
+			}
+		}
+
+		// Space calculation has run...
+		c.Assert(st.mongoSpaceState, gc.Equals, state.MongoSpaceUnsupported)
+		c.Assert(st.mongoSpaceName, gc.Equals, network.SpaceName("garbage"))
 	})
 }
 
