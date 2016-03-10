@@ -46,10 +46,6 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 	}
 
 	imageAlias := spec.Image
-	if imageAlias == "" {
-		// TODO(ericsnow) Do not have a default?
-		imageAlias = "ubuntu"
-	}
 
 	var profiles *[]string
 	if len(spec.Profiles) > 0 {
@@ -130,7 +126,8 @@ func (client *instanceClient) chmod(spec InstanceSpec, filename string, mode os.
 func (client *instanceClient) startInstance(spec InstanceSpec) error {
 	timeout := -1
 	force := false
-	resp, err := client.raw.Action(spec.Name, shared.Start, timeout, force, false)
+	stateful := false
+	resp, err := client.raw.Action(spec.Name, shared.Start, timeout, force, stateful)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -237,7 +234,8 @@ func (client *instanceClient) removeInstance(name string) error {
 	if info.StatusCode != shared.Stopped {
 		timeout := -1
 		force := true
-		resp, err := client.raw.Action(name, shared.Stop, timeout, force, false)
+		stateful := false
+		resp, err := client.raw.Action(name, shared.Stop, timeout, force, stateful)
 		if err != nil {
 			return errors.Trace(err)
 		}
