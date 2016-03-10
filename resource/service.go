@@ -76,3 +76,13 @@ func (sr ServiceResources) alignStoreResources() ([]resource.Resource, error) {
 	}
 	return store, nil
 }
+
+// AsMap returns the mapping of resource name to info for each of the
+// service's resources.
+func (sr ServiceResources) AsMap() map[string]Resource {
+	results := make(map[string]Resource, len(sr.Resources))
+	for _, res := range sr.Resources {
+		results[res.Name] = res
+	}
+	return results
+}
