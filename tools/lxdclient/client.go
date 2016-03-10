@@ -105,13 +105,14 @@ func newRawClient(cfg Config) (*lxd.Client, error) {
 // mean use the "releases" stream, while "daily" switches to daily images.
 func lxdClientForCloudImages(cfg Config) (*lxd.Client, error) {
 	clientCert := ""
-	if cfg.Remote.Cert != nil && cfg.Remote.Cert.CertPEM != nil {
-		clientCert = string(cfg.Remote.Cert.CertPEM)
-	}
-
 	clientKey := ""
-	if cfg.Remote.Cert != nil && cfg.Remote.Cert.KeyPEM != nil {
-		clientKey = string(cfg.Remote.Cert.KeyPEM)
+	if cfg.Remote.Cert != nil {
+		if cfg.Remote.Cert.CertPEM != nil {
+			clientCert = string(cfg.Remote.Cert.CertPEM)
+		}
+		if cfg.Remote.Cert.KeyPEM != nil {
+			clientKey = string(cfg.Remote.Cert.KeyPEM)
+		}
 	}
 
 	remote := lxd.UbuntuRemote

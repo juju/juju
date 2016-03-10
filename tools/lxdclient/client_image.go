@@ -17,7 +17,7 @@ type rawImageClient interface {
 }
 
 type imageClient struct {
-	raw rawImageClient
+	raw    rawImageClient
 	config Config
 }
 

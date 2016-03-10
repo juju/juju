@@ -85,7 +85,7 @@ func (s *configSuite) TestValidateOkay(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace:   "my-ns",
 		Remote:      s.remote,
-		ImageStream: lxdclient.StreamDaily,
+		ImageStream: "",
 	}
 	err := cfg.Validate()
 
@@ -127,9 +127,7 @@ func (s *configSuite) TestValidateWrongStream(c *gc.C) {
 
 func (s *configSuite) TestValidateOnlyRemote(c *gc.C) {
 	cfg := lxdclient.Config{
-		Namespace: "",
-		Remote:    s.remote,
-		ImageStream: "",
+		Remote: s.remote,
 	}
 	err := cfg.Validate()
 

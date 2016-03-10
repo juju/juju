@@ -25,7 +25,7 @@ type Config struct {
 	// TODO(jam) This doesn't appear to do much at the moment.
 	Namespace string
 
-	// ImageStream can be either blank (""), "releases", or "daily".
+	// ImageStream can be either blank (""), "released", or "daily".
 	// This decides what Ubuntu stream we will use for LXD images.
 	ImageStream ImageStream
 
