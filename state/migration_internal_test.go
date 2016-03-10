@@ -34,6 +34,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		openedPortsC,
 
 		// service / unit
+		leasesC,
 		servicesC,
 		unitsC,
 		meterStatusC, // red / green status for metrics of units
@@ -100,7 +101,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// service / unit
 		charmsC,
-		leasesC,
 		"payloads",
 		"resources",
 		endpointBindingsC,

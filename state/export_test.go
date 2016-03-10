@@ -21,6 +21,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
@@ -491,4 +492,8 @@ func AssertEndpointBindingsNotFoundForService(c *gc.C, service *Service) {
 	c.Assert(storedBindings, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("endpoint bindings for %q not found", globalKey))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func LeadershipLeases(st *State) map[string]lease.Info {
+	return st.leadershipClient.Leases()
 }
