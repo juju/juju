@@ -12,7 +12,6 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 
 	"github.com/juju/juju/charmstore"
 )
@@ -37,16 +36,6 @@ func (s *ClientSuite) SetUpTest(c *gc.C) {
 			URL: "<something>",
 		},
 	}
-}
-
-func (s *ClientSuite) TestWrapBaseClient(c *gc.C) {
-	base := csclient.New(csclient.Params{URL: s.config.URL})
-
-	client := charmstore.WrapBaseClient(base, s.client)
-	err := client.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c, "Close")
 }
 
 func (s *ClientSuite) TestWithMetadata(c *gc.C) {

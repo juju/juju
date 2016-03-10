@@ -75,12 +75,13 @@ type baseClient struct {
 	asRepo func() *charmrepo.CharmStore
 }
 
-func newBaseClient(raw *csclient.Client) *baseClient {
+func newBaseClient(raw *csclient.Client, config ClientConfig) *baseClient {
 	base := &baseClient{
 		Client: raw,
 	}
 	base.asRepo = func() *charmrepo.CharmStore {
-		return charmrepo.NewCharmStoreFromClient(base.Client)
+		// TODO(ericsnow) Use charmrepo.NewCharmStoreFromClient(), when available?
+		return charmrepo.NewCharmStore(config.NewCharmStoreParams)
 	}
 	return base
 }
@@ -128,31 +129,27 @@ type Client struct {
 func NewClient(config ClientConfig) *Client {
 	base := config.newCSClient()
 	closer := ioutil.NopCloser(nil)
-	return WrapBaseClient(base, closer)
+	return newClient(base, config, closer)
+}
+
+func newClient(base *csclient.Client, config ClientConfig, closer io.Closer) *Client {
+	c := &Client{
+		BaseClient: newBaseClient(base, config),
+		Closer:     closer,
+	}
+	c.newCopy = func() *Client {
+		newBase := *base // a copy
+		copied := newClient(&newBase, config, closer)
+		copied.meta = c.meta
+		return copied
+	}
+	return c
 }
 
 // NewDefaultClient returns a Juju charm store client using a default
 // client config.
 func NewDefaultClient() *Client {
 	return NewClient(ClientConfig{})
-}
-
-// WrapBaseClient returns a Juju charm store client that wraps
-// the provided client. The given closer is used to close resources
-// related to the client. If no closer is needed then pass in a no-op
-// closer (e.g. ioutil.NopCloser).
-func WrapBaseClient(base *csclient.Client, closer io.Closer) *Client {
-	c := &Client{
-		BaseClient: newBaseClient(base),
-		Closer:     closer,
-	}
-	c.newCopy = func() *Client {
-		newBase := *base // a copy
-		copied := WrapBaseClient(&newBase, closer)
-		copied.meta = c.meta
-		return copied
-	}
-	return c
 }
 
 // WithMetadata returns a copy of the the client that will use the
