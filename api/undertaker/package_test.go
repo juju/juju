@@ -7,16 +7,8 @@ import (
 	"testing"
 
 	gc "gopkg.in/check.v1"
-
-	coretesting "github.com/juju/juju/testing"
 )
 
 func TestAll(t *testing.T) {
 	gc.TestingT(t)
 }
-
-type undertakerSuite struct {
-	coretesting.BaseSuite
-}
-
-var _ = gc.Suite(&undertakerSuite{})
