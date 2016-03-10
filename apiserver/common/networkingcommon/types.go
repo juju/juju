@@ -4,12 +4,16 @@
 package networkingcommon
 
 import (
+	"strings"
+
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
+	"github.com/juju/juju/state"
 )
 
 // BackingSubnet defines the methods supported by a Subnet entity
@@ -147,4 +151,54 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 		SpaceTag:   spaceTag.String(),
 		Life:       subnet.Life(),
 	}
+}
+
+func NetworkConfigToStateArgs(networkConfig []params.NetworkConfig) (
+	[]state.LinkLayerDeviceArgs,
+	[]state.LinkLayerDeviceAddress,
+) {
+	var devicesArgs []state.LinkLayerDeviceArgs
+	var devicesAddrs []state.LinkLayerDeviceAddress
+
+	seenDeviceNames := set.NewStrings()
+	for _, netConfig := range networkConfig {
+		if !seenDeviceNames.Contains(netConfig.InterfaceName) {
+			// First time we see this, add it to devicesArgs.
+			seenDeviceNames.Add(netConfig.InterfaceName)
+			var mtu uint
+			if netConfig.MTU >= 0 {
+				mtu = uint(netConfig.MTU)
+			}
+			args := state.LinkLayerDeviceArgs{
+				Name:        netConfig.InterfaceName,
+				MTU:         mtu,
+				ProviderID:  network.Id(netConfig.ProviderId),
+				Type:        state.LinkLayerDeviceType(netConfig.InterfaceType),
+				MACAddress:  netConfig.MACAddress,
+				IsAutoStart: !netConfig.NoAutoStart,
+				IsUp:        !netConfig.Disabled,
+				ParentName:  netConfig.ParentInterfaceName,
+			}
+			devicesArgs = append(devicesArgs, args)
+		}
+
+		cidrAddress := netConfig.Address
+		rangeSeparatorIndex := strings.LastIndex(netConfig.CIDR, "/")
+		if rangeSeparatorIndex < 0 {
+			logger.Warningf("FIXME: unexpected CIDR format %q: assuming /24", netConfig.CIDR)
+			cidrAddress += "/24"
+		} else {
+			cidrAddress += netConfig.CIDR[rangeSeparatorIndex:]
+		}
+		addr := state.LinkLayerDeviceAddress{
+			DeviceName:       netConfig.InterfaceName,
+			ConfigMethod:     state.AddressConfigMethod(netConfig.ConfigType),
+			CIDRAddress:      cidrAddress,
+			DNSServers:       netConfig.DNSServers,
+			DNSSearchDomains: netConfig.DNSSearchDomains,
+			GatewayAddress:   netConfig.GatewayAddress,
+		}
+		devicesAddrs = append(devicesAddrs, addr)
+	}
+	return devicesArgs, devicesAddrs
 }

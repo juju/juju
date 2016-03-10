@@ -112,14 +112,13 @@ func (m *Machine) Jobs() (*params.JobsResult, error) {
 
 // SetObservedNetworkConfig sets the observed machine network config.
 func (m *Machine) SetObservedNetworkConfig(netConfig []params.NetworkConfig) error {
-	var result params.ErrorResults
 	args := params.SetMachineNetworkConfig{
 		Tag:    m.Tag().String(),
 		Config: netConfig,
 	}
-	err := m.st.facade.FacadeCall("SetObservedNetworkConfig", args, &result)
+	err := m.st.facade.FacadeCall("SetObservedNetworkConfig", args, nil)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	return result.OneError()
+	return nil
 }

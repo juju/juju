@@ -6,7 +6,6 @@ package provisioner
 import (
 	"fmt"
 	"math/rand"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
@@ -488,56 +488,6 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 	return result, nil
 }
 
-func networkParamsToStateParams(networkConfig []params.NetworkConfig) (
-	[]state.LinkLayerDeviceArgs,
-	[]state.LinkLayerDeviceAddress,
-) {
-	var devicesArgs []state.LinkLayerDeviceArgs
-	var devicesAddrs []state.LinkLayerDeviceAddress
-
-	seenDeviceNames := set.NewStrings()
-	for _, netConfig := range networkConfig {
-		if !seenDeviceNames.Contains(netConfig.InterfaceName) {
-			// First time we see this, add it to devicesArgs.
-			seenDeviceNames.Add(netConfig.InterfaceName)
-			var mtu uint
-			if netConfig.MTU >= 0 {
-				mtu = uint(netConfig.MTU)
-			}
-			args := state.LinkLayerDeviceArgs{
-				Name:        netConfig.InterfaceName,
-				MTU:         mtu,
-				ProviderID:  network.Id(netConfig.ProviderId),
-				Type:        state.LinkLayerDeviceType(netConfig.InterfaceType),
-				MACAddress:  netConfig.MACAddress,
-				IsAutoStart: !netConfig.NoAutoStart,
-				IsUp:        !netConfig.Disabled,
-				ParentName:  netConfig.ParentInterfaceName,
-			}
-			devicesArgs = append(devicesArgs, args)
-		}
-
-		cidrAddress := netConfig.Address
-		rangeSeparatorIndex := strings.LastIndex(netConfig.CIDR, "/")
-		if rangeSeparatorIndex < 0 {
-			logger.Warningf("FIXME: unexpected CIDR format %q: assuming /24", netConfig.CIDR)
-			cidrAddress += "/24"
-		} else {
-			cidrAddress += netConfig.CIDR[rangeSeparatorIndex:]
-		}
-		addr := state.LinkLayerDeviceAddress{
-			DeviceName:       netConfig.InterfaceName,
-			ConfigMethod:     state.AddressConfigMethod(netConfig.ConfigType),
-			CIDRAddress:      cidrAddress,
-			DNSServers:       netConfig.DNSServers,
-			DNSSearchDomains: netConfig.DNSSearchDomains,
-			GatewayAddress:   netConfig.GatewayAddress,
-		}
-		devicesAddrs = append(devicesAddrs, addr)
-	}
-	return devicesArgs, devicesAddrs
-}
-
 // RequestedNetworks returns the requested networks for each given
 // machine entity. Each entry in both lists is returned with its
 // provider specific id.
@@ -594,7 +544,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		if err != nil {
 			return err
 		}
-		devicesArgs, devicesAddrs := networkParamsToStateParams(arg.NetworkConfig)
+		devicesArgs, devicesAddrs := networkingcommon.NetworkConfigToStateArgs(arg.NetworkConfig)
 		logger.Debugf("about to add devices: %+v", devicesArgs)
 		logger.Debugf("about to set devices addresses: %+v", devicesAddrs)
 		volumes, err := storagecommon.VolumesToState(arg.Volumes)

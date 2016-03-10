@@ -7,13 +7,17 @@ package machine
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.machine")
 
 func init() {
 	common.RegisterStandardFacade("Machiner", 1, NewMachinerAPI)
@@ -131,4 +135,37 @@ func (api *MachinerAPI) Jobs(args params.Entities) (params.JobsResults, error) {
 		result.Results[i].Jobs = jobs
 	}
 	return result, nil
+}
+
+func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkConfig) error {
+	canModify, err := api.getCanModify()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	tag, err := names.ParseMachineTag(args.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canModify(tag) {
+		return errors.Trace(common.ErrPerm)
+	}
+	m, err := api.getMachine(tag)
+	if errors.IsNotFound(err) {
+		return errors.Trace(common.ErrPerm)
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigToStateArgs(args.Config)
+	logger.Debugf("about to add devices to machine %q: %+v", devicesArgs, m.Id())
+	logger.Debugf("about to set devices addresses: %+v", devicesAddrs)
+
+	if err := m.AddLinkLayerDevices(devicesArgs...); err != nil {
+		return errors.Trace(err)
+	}
+	if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("updated network config of machine %q as observed: %+v", m.Id(), args.Config)
+	return nil
 }

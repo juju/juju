@@ -1168,7 +1168,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 // their addresses as needed.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
-	devicesArgs []LinkLayerDeviceArgs, deviceAddrs []LinkLayerDeviceAddress,
+	devicesArgs []LinkLayerDeviceArgs, devicesAddrs []LinkLayerDeviceAddress,
 	volumes map[names.VolumeTag]VolumeInfo,
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 ) error {
@@ -1176,7 +1176,7 @@ func (m *Machine) SetInstanceInfo(
 	if err := m.AddLinkLayerDevices(devicesArgs...); err != nil {
 		return errors.Trace(err)
 	}
-	if err := m.SetDevicesAddresses(deviceAddrs...); err != nil {
+	if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
 		return errors.Trace(err)
 	}
 	if err := setProvisionedVolumeInfo(m.st, volumes); err != nil {
