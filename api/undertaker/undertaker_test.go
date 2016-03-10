@@ -4,20 +4,25 @@
 package undertaker_test
 
 import (
-	"time"
-
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/undertaker"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 )
 
-var _ undertaker.UndertakerClient = (*undertaker.Client)(nil)
+type UndertakerSuite struct {
+	testing.IsolationSuite
+}
 
-func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
+var _ = gc.Suite(&UndertakerSuite{})
+
+func (s *UndertakerSuite) TestEnvironInfo(c *gc.C) {
 	var called bool
 	client := s.mockClient(c, "ModelInfo", func(response interface{}) {
 		called = true
@@ -31,7 +36,7 @@ func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 	c.Assert(result, gc.Equals, params.UndertakerModelInfoResult{})
 }
 
-func (s *undertakerSuite) TestProcessDyingEnviron(c *gc.C) {
+func (s *UndertakerSuite) TestProcessDyingEnviron(c *gc.C) {
 	var called bool
 	client := s.mockClient(c, "ProcessDyingModel", func(response interface{}) {
 		called = true
@@ -42,7 +47,7 @@ func (s *undertakerSuite) TestProcessDyingEnviron(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *undertakerSuite) TestRemoveModel(c *gc.C) {
+func (s *UndertakerSuite) TestRemoveModel(c *gc.C) {
 	var called bool
 	client := s.mockClient(c, "RemoveModel", func(response interface{}) {
 		called = true
@@ -54,72 +59,74 @@ func (s *undertakerSuite) TestRemoveModel(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *undertakerSuite) mockClient(c *gc.C, expectedRequest string, callback func(response interface{})) *undertaker.Client {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			args, response interface{},
-		) error {
-			c.Check(objType, gc.Equals, "Undertaker")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, expectedRequest)
+func (s *UndertakerSuite) mockClient(c *gc.C, expectedRequest string, callback func(response interface{})) *undertaker.Client {
+	apiCaller := basetesting.APICallerFunc(func(
+		objType string,
+		version int,
+		id, request string,
+		args, response interface{},
+	) error {
+		c.Check(objType, gc.Equals, "Undertaker")
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, expectedRequest)
 
-			a, ok := args.(params.Entities)
-			c.Check(ok, jc.IsTrue)
-			c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: coretesting.ModelTag.String()}})
+		a, ok := args.(params.Entities)
+		c.Check(ok, jc.IsTrue)
+		c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: coretesting.ModelTag.String()}})
 
-			callback(response)
-			return nil
-		})
-
-	return undertaker.NewClient(apiCaller)
+		callback(response)
+		return nil
+	})
+	client, err := undertaker.NewClient(apiCaller, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	return client
 }
 
-func (s *undertakerSuite) TestWatchModelResourcesGetsChange(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			args, response interface{},
-		) error {
-			if resp, ok := response.(*params.NotifyWatchResults); ok {
-				c.Check(objType, gc.Equals, "Undertaker")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "WatchModelResources")
+func (s *UndertakerSuite) TestWatchModelResourcesGetsChange(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(
+		objType string,
+		version int,
+		id, request string,
+		args, response interface{},
+	) error {
+		c.Check(objType, gc.Equals, "Undertaker")
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchModelResources")
 
-				a, ok := args.(params.Entities)
-				c.Check(ok, jc.IsTrue)
-				c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: coretesting.ModelTag.String()}})
+		a, ok := args.(params.Entities)
+		c.Check(ok, jc.IsTrue)
+		c.Check(a.Entities, gc.DeepEquals, []params.Entity{{Tag: coretesting.ModelTag.String()}})
 
-				resp.Results = []params.NotifyWatchResult{{NotifyWatcherId: "1"}}
-			} else {
-				c.Check(objType, gc.Equals, "NotifyWatcher")
-				c.Check(id, gc.Equals, "1")
-				c.Check(request, gc.Equals, "Next")
-			}
-			return nil
+		resp, ok := response.(*params.NotifyWatchResults)
+		c.Assert(ok, jc.IsTrue)
+		resp.Results = []params.NotifyWatchResult{{
+			NotifyWatcherId: "1001",
+		}}
+		return nil
+	})
+
+	expectWatcher := &fakeWatcher{}
+	newWatcher := func(apiCaller base.APICaller, result params.NotifyWatchResult) watcher.NotifyWatcher {
+		c.Check(apiCaller, gc.NotNil) // uncomparable
+		c.Check(result, gc.Equals, params.NotifyWatchResult{
+			NotifyWatcherId: "1001",
 		})
+		return expectWatcher
+	}
 
-	client := undertaker.NewClient(apiCaller)
+	client, err := undertaker.NewClient(apiCaller, newWatcher)
+	c.Assert(err, jc.ErrorIsNil)
 	w, err := client.WatchModelResources()
 	c.Assert(err, jc.ErrorIsNil)
-
-	select {
-	case <-w.Changes():
-	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for change")
-	}
+	c.Check(w, gc.Equals, expectWatcher)
 }
 
-func (s *undertakerSuite) TestWatchModelResourcesError(c *gc.C) {
+func (s *UndertakerSuite) TestWatchModelResourcesError(c *gc.C) {
 	var called bool
-
-	// The undertaker feature tests ensure WatchModelResources is connected
-	// correctly end to end. This test just ensures that the API calls work.
 	client := s.mockClient(c, "WatchModelResources", func(response interface{}) {
 		called = true
-		c.Check(response, gc.DeepEquals, &params.NotifyWatchResults{Results: []params.NotifyWatchResult(nil)})
+		_, ok := response.(*params.NotifyWatchResults)
+		c.Check(ok, jc.IsTrue)
 	})
 
 	w, err := client.WatchModelResources()
@@ -128,18 +135,6 @@ func (s *undertakerSuite) TestWatchModelResourcesError(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *undertakerSuite) TestModelConfig(c *gc.C) {
-	var called bool
-
-	// The undertaker feature tests ensure ModelConfig is connected
-	// correctly end to end. This test just ensures that the API calls work.
-	client := s.mockClient(c, "ModelConfig", func(response interface{}) {
-		called = true
-		c.Check(response, gc.DeepEquals, &params.ModelConfigResult{Config: params.ModelConfig(nil)})
-	})
-
-	// We intentionally don't test the error here. We are only interested that
-	// the ModelConfig endpoint was called.
-	client.ModelConfig()
-	c.Assert(called, jc.IsTrue)
+type fakeWatcher struct {
+	watcher.NotifyWatcher
 }
