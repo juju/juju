@@ -317,12 +317,16 @@ type InstanceInfo struct {
 	InstanceId      instance.Id
 	Nonce           string
 	Characteristics *instance.HardwareCharacteristics
-	Networks        []Network
-	Interfaces      []NetworkInterface
 	Volumes         []Volume
 	// VolumeAttachments is a mapping from volume tag to
 	// volume attachment info.
 	VolumeAttachments map[string]VolumeAttachmentInfo
+
+	NetworkConfig []NetworkConfig
+
+	// TODO(dimitern): No longer used, drop at the end of this PoC.
+	Networks   []Network
+	Interfaces []NetworkInterface
 }
 
 // InstancesInfo holds the parameters for making a SetInstanceInfo

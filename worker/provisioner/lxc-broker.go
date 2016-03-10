@@ -638,7 +638,7 @@ func configureContainerNetwork(
 		finalIfaceInfo[i].InterfaceName = fmt.Sprintf("eth%d", i)
 		finalIfaceInfo[i].ConfigType = network.ConfigStatic
 		finalIfaceInfo[i].DNSServers = dnsServers
-		finalIfaceInfo[i].DNSSearch = searchDomain
+		finalIfaceInfo[i].DNSSearchDomains = []string{searchDomain}
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
 		if finalIfaceInfo[i].NetworkName == "" {
 			finalIfaceInfo[i].NetworkName = network.DefaultPrivate
@@ -735,7 +735,7 @@ func prepareOrGetContainerInterfaceInfo(
 
 	for i, _ := range preparedInfo {
 		preparedInfo[i].DNSServers = dnsServers
-		preparedInfo[i].DNSSearch = searchDomain
+		preparedInfo[i].DNSSearchDomains = []string{searchDomain}
 		if preparedInfo[i].GatewayAddress.Value == "" {
 			preparedInfo[i].GatewayAddress = *bridgeDeviceAddress
 		}

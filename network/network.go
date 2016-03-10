@@ -201,6 +201,10 @@ type InterfaceInfo struct {
 	// subnet.
 	ProviderSubnetId Id
 
+	// ProviderSpaceId is the provider-specific id for the associated space, if
+	// known and supported.
+	ProviderSpaceId Id
+
 	// ProviderVLANId is the provider-specific id of the VLAN for this
 	// interface.
 	ProviderVLANId Id
@@ -256,9 +260,9 @@ type InterfaceInfo struct {
 	// when > 0.
 	MTU int
 
-	// DNSSearch contains the default DNS domain to use for
-	// non-FQDN lookups.
-	DNSSearch string
+	// DNSSearchDomains contains the default DNS domain to use for non-FQDN
+	// lookups.
+	DNSSearchDomains []string
 
 	// Gateway address, if set, defines the default gateway to
 	// configure for this network interface. For containers this
