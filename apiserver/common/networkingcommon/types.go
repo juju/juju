@@ -209,6 +209,7 @@ func NetworkConfigToStateArgs(networkConfig []params.NetworkConfig) (
 
 		addr := state.LinkLayerDeviceAddress{
 			DeviceName:       netConfig.InterfaceName,
+			ProviderID:       network.Id(netConfig.ProviderAddressId),
 			ConfigMethod:     derivedConfigMethod,
 			CIDRAddress:      cidrAddress,
 			DNSServers:       netConfig.DNSServers,

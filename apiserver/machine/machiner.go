@@ -165,19 +165,28 @@ func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkCo
 	var bridgeDevicesArgs []state.LinkLayerDeviceArgs
 	for _, deviceArgs := range devicesArgs {
 		if deviceArgs.Type != state.BridgeDevice {
+			// FIXME: Loopback shouldn't be skipped.
 			logger.Debugf("skipping non-bridge device %q", deviceArgs.Name)
 			continue
 		}
 		logger.Debugf("will add observed device: %+v", deviceArgs)
 		bridgeDevicesArgs = append(bridgeDevicesArgs, deviceArgs)
 	}
-	if err := m.AddLinkLayerDevices(bridgeDevicesArgs...); err != nil {
+	if err := m.AddLinkLayerDevices(bridgeDevicesArgs...); errors.IsAlreadyExists(err) {
+		// FIXME: Trying to add the same device more than once should be handled
+		// better - as an update rather than insert.
+		logger.Warningf("ignoring non-fatal error: %v", err)
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
+	if err := m.SetDevicesAddresses(devicesAddrs...); errors.IsNotFound(err) {
+		// FIXME: device not found here should be handled better.
+		logger.Warningf("ignoring non-fatal error: %v", err)
+	} else if err != nil {
 		return errors.Trace(err)
 	}
+
 	logger.Debugf("updated machine %q network config", m.Id())
 	return nil
 }

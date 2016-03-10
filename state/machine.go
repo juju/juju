@@ -1181,16 +1181,21 @@ func (m *Machine) SetInstanceInfo(
 		childrenDevicesArgs []LinkLayerDeviceArgs
 	)
 	for _, args := range devicesArgs {
+		logger.Debugf("about to add link-layer %s device %q with parent %q", args.Name, args.Type, args.ParentName)
+		// FIXME: Import loop happens below if we use instancecfg.DefaultBridgePrefix instead!
 		if args.ParentName == "" {
 			parentDevicesArgs = append(parentDevicesArgs, args)
-			logger.Debugf("about to add parent link-layer device %q", args.Name)
 		} else {
 			childrenDevicesArgs = append(childrenDevicesArgs, args)
-			logger.Debugf("about to add child link-layer device %q with parent %q", args.Name, args.ParentName)
 		}
 	}
-	if err := m.AddLinkLayerDevices(parentDevicesArgs...); err != nil {
-		return errors.Trace(err)
+
+	if len(parentDevicesArgs) > 0 {
+		if err := m.AddLinkLayerDevices(parentDevicesArgs...); err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		logger.Debugf("no new parent devices to add")
 	}
 	if err := m.AddLinkLayerDevices(childrenDevicesArgs...); err != nil {
 		return errors.Trace(err)

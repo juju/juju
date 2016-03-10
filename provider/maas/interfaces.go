@@ -16,6 +16,7 @@ import (
 	"github.com/juju/gomaasapi"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -144,6 +145,16 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			NetworkName: network.DefaultPrivate,
 		}
 
+		// FIXME: Bootstrap completes, MA starts and calls
+		// SetObservedNetworkConfig BEFORE the provisioner had a chance to
+		// update instance info.
+		// Also the dirty hack below overcomes the lack of LLD.SetParentName()
+		if nicInfo.ParentInterfaceName == "" {
+			nicInfo.ParentInterfaceName = fmt.Sprintf("%s%s", instancecfg.DefaultBridgePrefix, nicInfo.InterfaceName)
+		} else {
+			nicInfo.ParentInterfaceName = instancecfg.DefaultBridgePrefix + nicInfo.InterfaceName
+		}
+
 		for _, link := range iface.Links {
 			switch link.Mode {
 			case modeUnknown:
@@ -174,6 +185,7 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			sub := link.Subnet
 			nicInfo.CIDR = sub.CIDR
 			nicInfo.ProviderSubnetId = network.Id(fmt.Sprintf("%v", sub.ID))
+			nicInfo.ProviderVLANId = network.Id(fmt.Sprintf("%v", sub.VLAN.ID))
 
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
@@ -184,8 +196,8 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 				// provider id available.
 				logger.Warningf("interface %q link %d has unrecognised space %q", iface.Name, link.ID, sub.Space)
 			} else {
-
 				nicInfo.Address.SpaceProviderId = spaceId
+				nicInfo.ProviderSpaceId = spaceId
 			}
 
 			gwAddr := network.NewAddressOnSpace(sub.Space, sub.GatewayIP)
