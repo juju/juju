@@ -65,28 +65,9 @@ func (r resources) registerPublicFacade() {
 	common.RegisterStandardFacade(
 		resource.ComponentName,
 		server.Version,
-		r.newPublicFacade,
+		resourceadapters.NewPublicFacade,
 	)
 	api.RegisterFacadeVersion(resource.ComponentName, server.Version)
-}
-
-// newPublicFacade is passed into common.RegisterStandardFacade
-// in registerPublicFacade.
-func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, authorizer common.Authorizer) (*server.Facade, error) {
-	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
-	}
-
-	rst, err := st.Resources()
-
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ds := resourceadapters.DataStore{
-		Resources: rst,
-		State:     st,
-	}
-	return server.NewFacade(ds), nil
 }
 
 // resourcesApiClient adds a Close() method to the resources public API client.
