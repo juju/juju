@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -93,11 +94,12 @@ func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesInvalidType(c *gc.C)
 }
 
 func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesInvalidParentName(c *gc.C) {
+	var wayTooLongName = strings.Repeat("x", 256)
 	args := state.LinkLayerDeviceArgs{
 		Name:       "eth0",
-		ParentName: "..",
+		ParentName: wayTooLongName,
 	}
-	s.assertAddLinkLayerDevicesReturnsNotValidError(c, args, `ParentName ".." not valid`)
+	s.assertAddLinkLayerDevicesReturnsNotValidError(c, args, `ParentName "x{256}" not valid`)
 }
 
 func (s *linkLayerDevicesStateSuite) TestAddLinkLayerDevicesParentNameAsInvalidGlobalKey(c *gc.C) {
