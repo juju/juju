@@ -294,27 +294,37 @@ var getClientConfig = func(client ModelConfigGetter) (*config.Config, error) {
 	return config.New(config.NoDefaults, attrs)
 }
 
-func (c *DeployCommand) maybeReadLocalBundleData() (*charm.BundleData, string, error) {
-	bundleFile := c.CharmOrBundle
+func (c *DeployCommand) maybeReadLocalBundleData() (_ *charm.BundleData, bundleFile string, bundleFilePath string, _ error) {
+	bundleFile = c.CharmOrBundle
 	bundleData, err := charmrepo.ReadBundleFile(bundleFile)
-	if err != nil {
+	if err == nil {
+		// For local bundles, we extract the local path of
+		// the bundle directory.
+		absBundlePath, err := filepath.Abs(bundleFile)
+		if err == nil {
+			bundleFilePath = filepath.Dir(absBundlePath)
+		}
+	} else {
 		// We may have been given a local bundle archive or exploded directory.
 		if bundle, burl, pathErr := charmrepo.NewBundleAtPath(bundleFile); pathErr == nil {
 			bundleData = bundle.Data()
 			bundleFile = burl.String()
+			if info, err := os.Stat(bundleFile); err == nil && info.IsDir() {
+				bundleFilePath = bundleFile
+			}
 			err = nil
 		} else {
 			err = pathErr
 		}
 	}
-	return bundleData, bundleFile, err
+	return bundleData, bundleFile, bundleFilePath, err
 }
 
 func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client) error {
 	deployer := serviceDeployer{ctx, c.newServiceAPIClient, c.newAnnotationsAPIClient}
 
 	// We may have been given a local bundle file.
-	bundleData, bundleFile, err := c.maybeReadLocalBundleData()
+	bundleData, bundleIdent, bundleFilePath, err := c.maybeReadLocalBundleData()
 	// If the bundle files existed but we couldn't read them, then
 	// return that error rather than trying to interpret as a charm.
 	if err != nil {
@@ -393,7 +403,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 				return errors.Trace(err)
 			}
 			bundleData = bundle.Data()
-			bundleFile = storeCharmOrBundleURL.String()
+			bundleIdent = storeCharmOrBundleURL.String()
 		}
 	}
 	// Handle a bundle.
@@ -401,22 +411,12 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		if flags := getFlags(c.flagSet, charmOnlyFlags); len(flags) > 0 {
 			return errors.Errorf("Flags provided but not supported when deploying a bundle: %s.", strings.Join(flags, ", "))
 		}
-		// For local bundles, we extract the local path of
-		// the bundle directory.
-		bundleFilePath := ""
-		if storeCharmOrBundleURL == nil {
-			absBundlePath, err := filepath.Abs(c.CharmOrBundle)
-			if err == nil {
-				bundleFilePath = filepath.Dir(absBundlePath)
-			}
-		}
-
 		if err := deployBundle(
 			bundleFilePath, bundleData, client, &deployer, csClient, conf, ctx, c.BundleStorage,
 		); err != nil {
 			return errors.Trace(err)
 		}
-		ctx.Infof("deployment of bundle %q completed", bundleFile)
+		ctx.Infof("deployment of bundle %q completed", bundleIdent)
 		return nil
 	}
 	// Handle a charm.
