@@ -5,6 +5,7 @@ package service
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
-	"os"
 )
 
 var watchAll = func(c *api.Client) (allWatcher, error) {
