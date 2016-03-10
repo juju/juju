@@ -154,11 +154,23 @@ func (s BySpaceName) Less(i, j int) bool {
 type InterfaceConfigType string
 
 const (
-	ConfigUnknown InterfaceConfigType = ""
-	ConfigDHCP    InterfaceConfigType = "dhcp"
-	ConfigStatic  InterfaceConfigType = "static"
-	ConfigManual  InterfaceConfigType = "manual"
-	// add others when needed
+	ConfigUnknown  InterfaceConfigType = ""
+	ConfigDHCP     InterfaceConfigType = "dhcp"
+	ConfigStatic   InterfaceConfigType = "static"
+	ConfigManual   InterfaceConfigType = "manual"
+	ConfigLoopback InterfaceConfigType = "loopback"
+)
+
+// InterfaceType defines valid network interface types.
+type InterfaceType string
+
+const (
+	UnknownInterface    InterfaceType = ""
+	LoopbackInterface   InterfaceType = "loopback"
+	EthernetInterface   InterfaceType = "ethernet"
+	VLAN_8021QInterface InterfaceType = "802.1q"
+	BondInterface       InterfaceType = "bond"
+	BridgeInterface     InterfaceType = "bridge"
 )
 
 // InterfaceInfo describes a single network interface available on an
@@ -178,6 +190,8 @@ type InterfaceInfo struct {
 	CIDR string
 
 	// NetworkName is juju-internal name of the network.
+	//
+	// TODO(dimitern): No longer used, drop at the end of this PoC.
 	NetworkName string
 
 	// ProviderId is a provider-specific NIC id.
@@ -186,6 +200,13 @@ type InterfaceInfo struct {
 	// ProviderSubnetId is the provider-specific id for the associated
 	// subnet.
 	ProviderSubnetId Id
+
+	// ProviderVLANId is the provider-specific id of the VLAN for this
+	// interface.
+	ProviderVLANId Id
+
+	// ProviderAddressId is the provider-specific id of the assigned address.
+	ProviderAddressId Id
 
 	// AvailabilityZones describes the availability zones the associated
 	// subnet is in.
@@ -198,6 +219,12 @@ type InterfaceInfo struct {
 	// InterfaceName is the raw OS-specific network device name (e.g.
 	// "eth1", even for a VLAN eth1.42 virtual interface).
 	InterfaceName string
+
+	// ParentInterfaceName is the name of the parent interface to use, if know.
+	ParentInterfaceName string
+
+	// InterfaceType is the type of the interface.
+	InterfaceType InterfaceType
 
 	// Disabled is true when the interface needs to be disabled on the
 	// machine, e.g. not to configure it.
@@ -241,6 +268,8 @@ type InterfaceInfo struct {
 	// ExtraConfig can contain any valid setting and its value allowed
 	// inside an "iface" section of a interfaces(5) config file, e.g.
 	// "up", "down", "mtu", etc.
+	//
+	// TODO(dimitern): Never used, drop at the end of this PoC.
 	ExtraConfig map[string]string
 }
 
