@@ -255,15 +255,20 @@ func SelectPeerAddress(addrs []network.Address) string {
 
 // SelectPeerHostPort returns the HostPort to use as the mongo replica set peer
 // by selecting it from the given hostPorts.
-func SelectPeerHostPort(hostPorts []network.HostPort, space network.SpaceName, spaceNameValid bool) string {
-	logger.Debugf("selecting mongo peer hostPort from %+v", hostPorts)
+func SelectPeerHostPort(hostPorts []network.HostPort) string {
+	logger.Debugf("selecting mongo peer hostPort by scope from %+v", hostPorts)
+	return network.SelectMongoHostPortsByScope(hostPorts, true)[0]
+}
+
+// SelectPeerHostPortBySpace returns the HostPort to use as the mongo replica set peer
+// by selecting it from the given hostPorts.
+func SelectPeerHostPortBySpace(hostPorts []network.HostPort, space network.SpaceName) string {
+	logger.Debugf("selecting mongo peer hostPort in space %s from %+v", space, hostPorts)
 	// ScopeMachineLocal addresses are OK if we can't pick by space.
-	var suitableHostPorts []string
-	var foundHostPortsInSpaces bool
-	if spaceNameValid {
-		suitableHostPorts, foundHostPortsInSpaces = network.SelectMongoHostPortsBySpaces(hostPorts, []network.SpaceName{space})
-	}
-	if !spaceNameValid || !foundHostPortsInSpaces {
+	suitableHostPorts, foundHostPortsInSpaces := network.SelectMongoHostPortsBySpaces(hostPorts, []network.SpaceName{space})
+
+	if !foundHostPortsInSpaces {
+		logger.Debugf("Failed to select hostPort by space - trying by scope from %+v", hostPorts)
 		suitableHostPorts = network.SelectMongoHostPortsByScope(hostPorts, true)
 	}
 	return suitableHostPorts[0]

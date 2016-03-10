@@ -28,7 +28,8 @@ type stateInterface interface {
 	ControllerInfo() (*state.ControllerInfo, error)
 	MongoSession() mongoSession
 	Space(id string) (SpaceReader, error)
-	SetOrGetMongoSpace(spaceName network.SpaceName) (network.SpaceName, error)
+	SetOrGetMongoSpaceName(spaceName network.SpaceName) (network.SpaceName, error)
+	SetMongoSpaceState(mongoSpaceState state.MongoSpaceStates) error
 	ModelConfig() (*config.Config, error)
 }
 
@@ -117,8 +118,7 @@ type pgWorker struct {
 	// address publisher.
 	publisher publisherInterface
 
-	providerSupportsSpaces   bool
-	dbSpaceDiscoveryComplete bool
+	providerSupportsSpaces bool
 }
 
 // New returns a new worker that maintains the mongo replica set
@@ -137,12 +137,11 @@ func New(st *state.State) (worker.Worker, error) {
 
 func newWorker(st stateInterface, pub publisherInterface) worker.Worker {
 	w := &pgWorker{
-		st:                       st,
-		notifyCh:                 make(chan notifyFunc),
-		machines:                 make(map[string]*machine),
-		publisher:                pub,
-		providerSupportsSpaces:   networkingcommon.SupportsSpaces(st) == nil,
-		dbSpaceDiscoveryComplete: false,
+		st:                     st,
+		notifyCh:               make(chan notifyFunc),
+		machines:               make(map[string]*machine),
+		publisher:              pub,
+		providerSupportsSpaces: networkingcommon.SupportsSpaces(st) == nil,
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -281,28 +280,40 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 func (w *pgWorker) getMongoSpace(info *peerGroupInfo) error {
 	stateInfo, err := w.st.ControllerInfo()
 	if err != nil {
-		return fmt.Errorf("cannot get state server info: %v", err)
+		return errors.Annotate(err, "cannot get state server info")
 	}
 
-	if stateInfo.MongoSpace == "" {
-		if w.providerSupportsSpaces && !w.dbSpaceDiscoveryComplete {
-			// We want to find a space that contains all Mongo servers so we can
-			// use it to look up the IP address of each Mongo server to be used
-			// to set up the peer group.
-			spaceStats := network.GenerateSpaceStats(mongoAddresses(info.machines))
-			if spaceStats.LargestSpaceContainsAll == false {
-				return fmt.Errorf("Couldn't find a space containing all peer group machines")
-			} else {
-				info.mongoSpace, err = w.st.SetOrGetMongoSpace(spaceStats.LargestSpace)
-				if err != nil {
-					return fmt.Errorf("Error setting/getting Mongo space: %v", err)
-				}
-				info.mongoSpaceValid = true
-				w.dbSpaceDiscoveryComplete = true
+	switch stateInfo.MongoSpaceState {
+	case state.MongoSpaceUnknown:
+		if !w.providerSupportsSpaces {
+			err = w.st.SetMongoSpaceState(state.MongoSpaceUnsupported)
+			if err != nil {
+				return errors.Annotate(err, "cannot set Mongo space state")
 			}
+			return nil
 		}
-	} else {
-		space, err := w.st.Space(stateInfo.MongoSpace)
+
+		// We want to find a space that contains all Mongo servers so we can
+		// use it to look up the IP address of each Mongo server to be used
+		// to set up the peer group.
+		spaceStats := generateSpaceStats(mongoAddresses(info.machines))
+		if spaceStats.LargestSpaceContainsAll == false {
+			err = w.st.SetMongoSpaceState(state.MongoSpaceInvalid)
+			if err != nil {
+				return errors.Annotate(err, "cannot set Mongo space state")
+			}
+
+			return fmt.Errorf("Couldn't find a space containing all peer group machines")
+		} else {
+			info.mongoSpace, err = w.st.SetOrGetMongoSpaceName(spaceStats.LargestSpace)
+			if err != nil {
+				return fmt.Errorf("Error setting/getting Mongo space: %v", err)
+			}
+			info.mongoSpaceValid = true
+		}
+
+	case state.MongoSpaceValid:
+		space, err := w.st.Space(stateInfo.MongoSpaceName)
 		if err != nil {
 			return fmt.Errorf("Error looking up space: %v", err)
 		}
@@ -526,7 +537,10 @@ type machine struct {
 }
 
 func (m *machine) mongoHostPort() string {
-	return mongo.SelectPeerHostPort(m.mongoHostPorts, m.mongoSpace, m.mongoSpaceValid)
+	if m.mongoSpaceValid {
+		return mongo.SelectPeerHostPortBySpace(m.mongoHostPorts, m.mongoSpace)
+	}
+	return mongo.SelectPeerHostPort(m.mongoHostPorts)
 }
 
 func (m *machine) String() string {
@@ -617,4 +631,47 @@ func inStrings(t string, ss []string) bool {
 		}
 	}
 	return false
+}
+
+// allSpaceStats holds a SpaceStats for both API and Mongo machines
+type allSpaceStats struct {
+	APIMachines   spaceStats
+	MongoMachines spaceStats
+}
+
+// SpaceStats holds information useful when choosing which space to pick an
+// address from.
+type spaceStats struct {
+	SpaceCount              map[network.SpaceName]int
+	LargestSpace            network.SpaceName
+	LargestSpaceSize        int
+	LargestSpaceContainsAll bool
+}
+
+// generateSpaceStats takes a list of machine addresses and returns information
+// about what spaces are referenced by those machines.
+func generateSpaceStats(addresses [][]network.Address) spaceStats {
+	var stats spaceStats
+	stats.SpaceCount = make(map[network.SpaceName]int)
+
+	for i := range addresses {
+		for _, addr := range addresses[i] {
+			v, ok := stats.SpaceCount[addr.SpaceName]
+			if !ok {
+				v = 0
+			}
+
+			v++
+			stats.SpaceCount[addr.SpaceName] = v
+
+			if v > stats.LargestSpaceSize {
+				stats.LargestSpace = addr.SpaceName
+				stats.LargestSpaceSize = v
+			}
+		}
+	}
+
+	stats.LargestSpaceContainsAll = stats.LargestSpaceSize == len(addresses)
+
+	return stats
 }

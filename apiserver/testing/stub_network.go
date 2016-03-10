@@ -120,17 +120,12 @@ type FakeSpace struct {
 	SubnetIds []string
 	Public    bool
 	NextErr   errReturner
-	DocID     string
 }
 
 var _ networkingcommon.BackingSpace = (*FakeSpace)(nil)
 
 func (f *FakeSpace) Name() string {
 	return f.SpaceName
-}
-
-func (f *FakeSpace) ID() string {
-	return f.DocID
 }
 
 func (f *FakeSpace) Subnets() (bs []networkingcommon.BackingSubnet, err error) {

@@ -31,14 +31,15 @@ import (
 // that we don't want to directly depend on in unit tests.
 
 type fakeState struct {
-	mu          sync.Mutex
-	errors      errorPatterns
-	machines    map[string]*fakeMachine
-	controllers voyeur.Value // of *state.ControllerInfo
-	statuses    voyeur.Value // of statuses collection
-	session     *fakeMongoSession
-	check       func(st *fakeState) error
-	mongoSpace  network.SpaceName
+	mu              sync.Mutex
+	errors          errorPatterns
+	machines        map[string]*fakeMachine
+	controllers     voyeur.Value // of *state.ControllerInfo
+	statuses        voyeur.Value // of statuses collection
+	session         *fakeMongoSession
+	check           func(st *fakeState) error
+	mongoSpaceName  network.SpaceName
+	mongoSpaceState state.MongoSpaceStates
 }
 
 var (
@@ -237,18 +238,24 @@ func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
 
 func (st *fakeState) Space(name string) (SpaceReader, error) {
 	foo := []networkingcommon.BackingSpace{
-		&testing.FakeSpace{DocID: name, SpaceName: "Space" + name},
-		&testing.FakeSpace{DocID: name, SpaceName: "Space" + name},
-		&testing.FakeSpace{DocID: name, SpaceName: "Space" + name},
+		&testing.FakeSpace{SpaceName: "Space" + name},
+		&testing.FakeSpace{SpaceName: "Space" + name},
+		&testing.FakeSpace{SpaceName: "Space" + name},
 	}
 	return foo[0].(SpaceReader), nil
 }
 
-func (st *fakeState) SetOrGetMongoSpace(mongoSpace network.SpaceName) (network.SpaceName, error) {
-	if st.mongoSpace == "" {
-		st.mongoSpace = mongoSpace
+func (st *fakeState) SetOrGetMongoSpaceName(mongoSpaceName network.SpaceName) (network.SpaceName, error) {
+	if st.mongoSpaceState == state.MongoSpaceUnknown {
+		st.mongoSpaceName = mongoSpaceName
+		st.mongoSpaceState = state.MongoSpaceValid
 	}
-	return st.mongoSpace, nil
+	return st.mongoSpaceName, nil
+}
+
+func (st *fakeState) SetMongoSpaceState(mongoSpaceState state.MongoSpaceStates) error {
+	st.mongoSpaceState = mongoSpaceState
+	return nil
 }
 
 func (st *fakeState) ModelConfig() (*config.Config, error) {

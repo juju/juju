@@ -211,6 +211,7 @@ peers:
 	err = weirdService.SetCharm(weirdNewCharm, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	readBindings, err = weirdService.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
 
 	expectedBindings = map[string]string{
 		"ser$ver2":  "",

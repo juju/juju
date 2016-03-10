@@ -52,8 +52,6 @@ type Scope string
 
 // SpaceName holds the Juju space name of an address.
 type SpaceName string
-
-// SpaceNames holds a list of the SpaceName type.
 type spaceNameList []SpaceName
 
 func (s spaceNameList) String() string {
@@ -674,47 +672,4 @@ func MergedAddresses(machineAddresses, providerAddresses []Address) []Address {
 		}
 	}
 	return merged
-}
-
-// AllSpaceStats holds a SpaceStats for both API and Mongo machines
-type AllSpaceStats struct {
-	APIMachines   SpaceStats
-	MongoMachines SpaceStats
-}
-
-// SpaceStats holds information useful when choosing which space to pick an
-// address from.
-type SpaceStats struct {
-	SpaceCount              map[SpaceName]int
-	LargestSpace            SpaceName
-	LargestSpaceSize        int
-	LargestSpaceContainsAll bool
-}
-
-// GenerateSpaceStats takes a list of machine addresses and returns information
-// about what spaces are referenced by those machines.
-func GenerateSpaceStats(addresses [][]Address) SpaceStats {
-	var stats SpaceStats
-	stats.SpaceCount = make(map[SpaceName]int)
-
-	for i := range addresses {
-		for _, addr := range addresses[i] {
-			v, ok := stats.SpaceCount[addr.SpaceName]
-			if !ok {
-				v = 0
-			}
-
-			v++
-			stats.SpaceCount[addr.SpaceName] = v
-
-			if v > stats.LargestSpaceSize {
-				stats.LargestSpace = addr.SpaceName
-				stats.LargestSpaceSize = v
-			}
-		}
-	}
-
-	stats.LargestSpaceContainsAll = stats.LargestSpaceSize == len(addresses)
-
-	return stats
 }

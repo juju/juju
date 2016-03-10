@@ -2234,7 +2234,8 @@ type controllersDoc struct {
 	ModelUUID        string `bson:"model-uuid"`
 	MachineIds       []string
 	VotingMachineIds []string
-	MongoSpaceDocId  string `bson:"mongo-space-id"`
+	MongoSpaceName   string `bson:"mongo-space-name"`
+	MongoSpaceState  string `bson:"mongo-space-state"`
 }
 
 // ControllerInfo holds information about currently
@@ -2255,10 +2256,25 @@ type ControllerInfo struct {
 	// in peer election.
 	VotingMachineIds []string
 
-	// MongoSpace is a reference to a space that contains all
-	// Mongo servers.
-	MongoSpace string
+	// MongoSpaceName is the space that contains all Mongo servers.
+	MongoSpaceName string
+
+	// MongoSpaceState records the state of if:
+	// * We haven't looked for a Mongo space yet (MongoSpaceUnknown)
+	// * We have looked for a Mongo space, but we didn't find one (MongoSpaceInvalid)
+	// * We have looked for and found a Mongo space (MongoSpaceValid)
+	// * We didn't try to find a Mongo space because the provider doesn't support spaces (MongoSpaceUnsupported)
+	MongoSpaceState MongoSpaceStates
 }
+
+type MongoSpaceStates string
+
+const (
+	MongoSpaceUnknown     MongoSpaceStates = ""
+	MongoSpaceValid       MongoSpaceStates = "valid"
+	MongoSpaceInvalid     MongoSpaceStates = "invalid"
+	MongoSpaceUnsupported MongoSpaceStates = "unsupported"
+)
 
 // ControllerInfo returns information about
 // the currently configured controller machines.
@@ -2309,7 +2325,8 @@ func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 		ModelTag:         names.NewModelTag(doc.ModelUUID),
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,
-		MongoSpace:       doc.MongoSpaceDocId,
+		MongoSpaceName:   doc.MongoSpaceName,
+		MongoSpaceState:  MongoSpaceStates(doc.MongoSpaceState),
 	}, nil
 }
 
@@ -2372,37 +2389,63 @@ func SetSystemIdentity(st *State, identity string) error {
 	return nil
 }
 
-// SetOrGetMongoSpace attempts to set the Mongo space or, if that fails, look
+// SetOrGetMongoSpaceName attempts to set the Mongo space or, if that fails, look
 // up the current Mongo space. Either way, it always returns what is in the
 // database by the end of the call.
-func (st *State) SetOrGetMongoSpace(mongoSpaceName network.SpaceName) (network.SpaceName, error) {
-	space, err := st.Space(string(mongoSpaceName))
+func (st *State) SetOrGetMongoSpaceName(mongoSpaceName network.SpaceName) (network.SpaceName, error) {
+	err := st.setMongoSpaceName(mongoSpaceName)
 	if err != nil {
-		return network.SpaceName(""), fmt.Errorf("Error looking up space: %v", err)
-	}
-	err = st.setMongoSpaceDocId(space.ID())
-	if err == txn.ErrAborted {
+		// Failed to set the new space name. Return what is already stored in state.
 		controllerInfo, err := st.ControllerInfo()
 		if err != nil {
 			return network.SpaceName(""), errors.Trace(err)
 		}
-
-		space, err = st.Space(controllerInfo.MongoSpace)
-		if err != nil {
-			return network.SpaceName(""), fmt.Errorf("Error looking up space: %v", err)
-		}
-	} else if err != nil {
-		return network.SpaceName(""), errors.Trace(err)
+		return network.SpaceName(controllerInfo.MongoSpaceName), nil
 	}
-	return network.SpaceName(space.Name()), nil
+	return mongoSpaceName, nil
 }
 
-func (st *State) setMongoSpaceDocId(mongoSpaceDocId string) error {
+// SetMongoSpaceState attempts to set the Mongo space state or, if that fails, look
+// up the current Mongo state. Either way, it always returns what is in the
+// database by the end of the call.
+func (st *State) SetMongoSpaceState(mongoSpaceState MongoSpaceStates) error {
+
+	if mongoSpaceState != MongoSpaceUnknown &&
+		mongoSpaceState != MongoSpaceValid &&
+		mongoSpaceState != MongoSpaceInvalid &&
+		mongoSpaceState != MongoSpaceUnsupported {
+		return errors.NotValidf("mongoSpaceState: %s", mongoSpaceState)
+	}
+
+	err := st.setMongoSpaceState(mongoSpaceState)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (st *State) setMongoSpaceName(mongoSpaceName network.SpaceName) error {
 	ops := []txn.Op{{
 		C:      controllersC,
 		Id:     modelGlobalKey,
-		Assert: bson.D{{"mongospacedocid", ""}},
-		Update: bson.D{{"$set", bson.D{{"mongospacedocid", mongoSpaceDocId}}}},
+		Assert: bson.D{{"mongo-space-state", string(MongoSpaceUnknown)}},
+		Update: bson.D{{
+			"$set",
+			bson.D{
+				{"mongo-space-name", string(mongoSpaceName)},
+				{"mongo-space-state", MongoSpaceValid},
+			},
+		}},
+	}}
+
+	return st.runTransaction(ops)
+}
+
+func (st *State) setMongoSpaceState(mongoSpaceState MongoSpaceStates) error {
+	ops := []txn.Op{{
+		C:      controllersC,
+		Id:     modelGlobalKey,
+		Update: bson.D{{"$set", bson.D{{"mongo-space-state", mongoSpaceState}}}},
 	}}
 
 	return st.runTransaction(ops)
