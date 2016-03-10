@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/configstore"
 )
 
 const killDoc = `
@@ -83,11 +82,6 @@ func (c *killCommand) Init(args []string) error {
 
 // Run implements Command.Run
 func (c *killCommand) Run(ctx *cmd.Context) error {
-	legacyStore, err := configstore.Default()
-	if err != nil {
-		return errors.Annotate(err, "cannot open controller info storage")
-	}
-
 	controllerName := c.ControllerName()
 	store := c.ClientStore()
 	controllerDetails, err := store.ControllerByName(controllerName)
@@ -116,34 +110,24 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		api = nil
 	}
 
-	// Obtain bootstrap / controller environ information
-	//
-	// TODO(axw) you should not *require* bootstrap config to be available
-	// to kill the controller unless you *cannot* communicate with it and
-	// destroy it via the API.
-	cfgInfo, err := legacyStore.ReadInfo(
-		configstore.EnvironInfoName(controllerName, configstore.AdminModelName),
-	)
+	// Obtain controller environ so we can clean up afterwards.
+	controllerEnviron, err := c.getControllerEnviron(store, controllerName, api)
 	if err != nil {
-		return errors.Trace(err)
-	}
-	controllerEnviron, err := c.getControllerModel(cfgInfo, api)
-	if err != nil {
-		return errors.Annotate(err, "cannot obtain bootstrap information")
+		return errors.Annotate(err, "getting controller environ")
 	}
 
 	// If we were unable to connect to the API, just destroy the controller through
 	// the environs interface.
 	if api == nil {
 		ctx.Infof("Unable to connect to the API server. Destroying through provider.")
-		return environs.Destroy(controllerName, controllerEnviron, legacyStore, store)
+		return environs.Destroy(controllerName, controllerEnviron, store)
 	}
 
 	// Attempt to destroy the controller and all environments.
 	err = api.DestroyController(true)
 	if err != nil {
 		ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
-		return environs.Destroy(controllerName, controllerEnviron, legacyStore, store)
+		return environs.Destroy(controllerName, controllerEnviron, store)
 	}
 
 	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", controllerName)
@@ -158,5 +142,5 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
 
-	return environs.Destroy(controllerName, controllerEnviron, legacyStore, store)
+	return environs.Destroy(controllerName, controllerEnviron, store)
 }

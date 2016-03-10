@@ -28,18 +28,21 @@ func (s *ConfigSuite) TearDownTest(c *gc.C) {
 
 func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	attrs := dummy.SampleConfig().Delete("secret")
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
 	env, err := environs.Prepare(
-		ctx, jujuclienttesting.NewMemStore(), cfg.Name(),
-		environs.PrepareForBootstrapParams{Config: cfg},
+		ctx, jujuclienttesting.NewMemStore(),
+		environs.PrepareParams{
+			BaseConfig:     attrs,
+			ControllerName: attrs["name"].(string),
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	defer env.Destroy()
 	expected := map[string]string{
 		"secret": "pork",
 	}
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
 	actual, err := env.Provider().SecretAttrs(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.DeepEquals, expected)
@@ -89,8 +92,10 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 		ctx := envtesting.BootstrapContext(c)
 		env, err := environs.Prepare(
 			ctx, jujuclienttesting.NewMemStore(),
-			cfg.Name(),
-			environs.PrepareForBootstrapParams{Config: cfg},
+			environs.PrepareParams{
+				ControllerName: cfg.Name(),
+				BaseConfig:     cfg.AllAttrs(),
+			},
 		)
 		if test.errorMsg != "" {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)

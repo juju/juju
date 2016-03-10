@@ -35,7 +35,7 @@ func (p environProvider) RestrictedConfigAttributes() []string {
 func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
 	attrs := cfg.UnknownAttrs()
 	if _, ok := attrs["control-bucket"]; !ok {
-		uuid, err := utils.NewUUID()
+		uuid, err := utils.UUIDFromString(cfg.UUID())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -55,10 +55,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
-func (p environProvider) PrepareForBootstrap(
-	ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams,
-) (environs.Environ, error) {
-
+func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	// Add credentials to the configuration.
 	attrs := map[string]interface{}{
 		"region": args.CloudRegion,
@@ -75,15 +72,23 @@ func (p environProvider) PrepareForBootstrap(
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
 	}
+
+	// Set the default block-storage source.
+	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
+		attrs[config.StorageDefaultBlockSourceKey] = EBS_ProviderType
+	}
+
 	cfg, err := args.Config.Apply(attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return p.PrepareForCreateEnvironment(cfg)
+}
 
-	cfg, err = p.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, err
-	}
+func (p environProvider) PrepareForBootstrap(
+	ctx environs.BootstrapContext,
+	cfg *config.Config,
+) (environs.Environ, error) {
 	e, err := p.Open(cfg)
 	if err != nil {
 		return nil, err

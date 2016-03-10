@@ -121,15 +121,15 @@ func testConfig(c *gc.C) *config.Config {
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"type":       "mock",
 		"controller": true,
-		"state-id":   "1",
 	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = environs.Prepare(
+	env, err := environs.Prepare(
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
+		environs.PrepareParams{
+			ControllerName: "dummycontroller",
+			BaseConfig:     attrs,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return cfg
+	return env.Config()
 }

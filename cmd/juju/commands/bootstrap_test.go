@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -57,7 +56,6 @@ type BootstrapSuite struct {
 	envtesting.ToolsFixture
 	mockBlockClient *mockBlockClient
 	store           *jujuclienttesting.MemStore
-	legacyMemStore  configstore.Storage
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -106,10 +104,6 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 		}
 		return s.mockBlockClient, nil
 	})
-	s.legacyMemStore = configstore.NewMem()
-	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
-		return s.legacyMemStore, nil
-	})
 
 	// TODO(wallyworld) - add test data when tests are improved
 	s.store = jujuclienttesting.NewMemStore()
@@ -128,7 +122,7 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
-	c := &bootstrapCommand{CredentialStore: s.store}
+	c := &bootstrapCommand{}
 	c.SetClientStore(s.store)
 	return modelcmd.Wrap(c)
 }
@@ -177,7 +171,6 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 	} {
 		resetJujuXDGDataHome(c)
 		dummy.Reset()
-		s.legacyMemStore = configstore.NewMem()
 		s.store = jujuclienttesting.NewMemStore()
 
 		s.mockBlockClient.numRetries = t.numRetries
@@ -265,7 +258,6 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	dummy.Reset()
 
 	var restore testing.Restorer = func() {
-		s.legacyMemStore = configstore.NewMem()
 		s.store = jujuclienttesting.NewMemStore()
 	}
 	if test.version != "" {
@@ -281,9 +273,11 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	}
 
 	controllerName := "peckham-controller"
+	cloudName := "dummy"
+
 	// Run command and check for uploads.
 	args := append([]string{
-		controllerName, "dummy",
+		controllerName, cloudName,
 		"--config", "default-series=raring",
 	}, test.args...)
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), s.newBootstrapCommand(), args...)
@@ -316,27 +310,13 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	}
 
 	expectedBootstrappedControllerName := bootstrappedControllerName(controllerName)
-	// Check bootstrap config is saved.
-	store, err := configstore.Default()
-	c.Assert(err, jc.ErrorIsNil)
-
-	info, err := store.ReadInfo(expectedBootstrappedControllerName + ":admin")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.NotNil)
-	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Name(), gc.Equals, "admin")
-	caCert, hasCert := cfg.CACert()
-	c.Check(hasCert, jc.IsTrue)
-	_, hasKey := cfg.CAPrivateKey()
-	c.Check(hasKey, jc.IsTrue)
 
 	// Check controllers.yaml controller details.
 	addrConnectedTo := []string{"localhost:17070"}
 
 	controller, err := s.store.ControllerByName(expectedBootstrappedControllerName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controller.CACert, gc.Equals, caCert)
+	c.Assert(controller.CACert, gc.Not(gc.Equals), "")
 	c.Assert(controller.Servers, gc.DeepEquals, addrConnectedTo)
 	c.Assert(controller.APIEndpoints, gc.DeepEquals, addrConnectedTo)
 	c.Assert(utils.IsValidUUIDString(controller.ControllerUUID), jc.IsTrue)
@@ -345,6 +325,18 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	controllerModel, err := s.store.ModelByName(expectedBootstrappedControllerName, "admin@local", "admin")
 	c.Assert(controllerModel.ModelUUID, gc.Equals, controller.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Bootstrap config should have been saved, and should only contain
+	// the type, name, and any user-supplied configuration.
+	bootstrapConfig, err := s.store.BootstrapConfigForController(expectedBootstrappedControllerName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bootstrapConfig.Cloud, gc.Equals, "dummy")
+	c.Assert(bootstrapConfig.Credential, gc.Equals, "")
+	c.Assert(bootstrapConfig.Config, jc.DeepEquals, map[string]interface{}{
+		"name":           "admin",
+		"type":           "dummy",
+		"default-series": "raring",
+	})
 
 	return restore
 }
@@ -522,7 +514,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 
 	store := jujuclienttesting.NewStubStore()
 	store.SetErrors(errors.New("oh noes"))
-	cmd := &bootstrapCommand{CredentialStore: store}
+	cmd := &bootstrapCommand{}
 	cmd.SetClientStore(store)
 	_, err := coretesting.RunCommand(c, modelcmd.Wrap(cmd), controllerName, "dummy", "--auto-upgrade")
 	c.Assert(err, gc.ErrorMatches, `loading credentials: oh noes`)
@@ -533,7 +525,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 
 	destroyed := false
-	s.PatchValue(&environsDestroy, func(string, environs.Environ, configstore.Storage, jujuclient.ControllerRemover) error {
+	s.PatchValue(&environsDestroy, func(string, environs.Environ, jujuclient.ControllerRemover) error {
 		destroyed = true
 		return nil
 	})
@@ -541,8 +533,7 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	s.PatchValue(&environsPrepare, func(
 		environs.BootstrapContext,
 		jujuclient.ClientStore,
-		string,
-		environs.PrepareForBootstrapParams,
+		environs.PrepareParams,
 	) (environs.Environ, error) {
 		return nil, fmt.Errorf("mock-prepare")
 	})
@@ -688,14 +679,11 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	store, err := configstore.Default()
+	p, err := environs.Provider("dummy")
 	c.Assert(err, jc.ErrorIsNil)
-
-	info, err := store.ReadInfo(bootstrappedControllerName("devcontroller") + ":admin")
+	cfg, err := modelcmd.NewGetBootstrapConfigFunc(s.store)("devcontroller")
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
+	env, err := p.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now check the available tools which are the 1.2.0 envtools.

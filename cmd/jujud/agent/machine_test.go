@@ -1947,7 +1947,6 @@ func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()
 		ConfigAttrs: map[string]interface{}{
 			"controller": false,
 		},
-		Prepare: true,
 	})
 	return newSt, func() {
 		newSt.Close()

@@ -123,12 +123,13 @@ func (*environWatcherSuite) TestModelConfigMaskedSecrets(c *gc.C) {
 }
 
 func testingEnvConfig(c *gc.C) *config.Config {
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
 		modelcmd.BootstrapContext(testing.Context(c)),
 		jujuclienttesting.NewMemStore(),
-		"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
+		environs.PrepareParams{
+			ControllerName: "dummycontroller",
+			BaseConfig:     dummy.SampleConfig(),
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()

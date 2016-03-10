@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -124,13 +123,11 @@ func (t configTest) check(c *gc.C) {
 	env := e.(*environ)
 	c.Assert(env.Storage().(*ec2storage).bucket.Region.Name, gc.Equals, ecfg.region())
 
-	expectedStorage := "ebs"
 	if t.blockStorageSource != "" {
-		expectedStorage = t.blockStorageSource
+		storage, ok := ecfg.StorageDefaultBlockSource()
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(storage, gc.Equals, t.blockStorageSource)
 	}
-	storage, ok := ecfg.StorageDefaultBlockSource()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(storage, gc.Equals, expectedStorage)
 }
 
 var configTests = []configTest{
@@ -212,9 +209,6 @@ var configTests = []configTest{
 	}, {
 		config:       attrs{},
 		firewallMode: config.FwInstance,
-	}, {
-		config:             attrs{},
-		blockStorageSource: "ebs",
 	}, {
 		config: attrs{
 			"storage-default-block-source": "ebs-fast",
@@ -338,7 +332,7 @@ func (s *ConfigSuite) TestPrepareForCreateInsertsUniqueControlBucket(c *gc.C) {
 	c.Assert(bucket1, gc.Not(gc.Equals), bucket2)
 }
 
-func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
+func (s *ConfigSuite) TestBootstrapConfigInsertsUniqueControlBucket(c *gc.C) {
 	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
@@ -346,8 +340,7 @@ func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := envtesting.BootstrapContext(c)
-	env0, err := providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+	cfg0, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
 		Config: cfg,
 		Credentials: cloud.NewCredential(
 			cloud.AccessKeyAuthType,
@@ -359,10 +352,10 @@ func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 		CloudRegion: "test",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	bucket0 := env0.(*environ).ecfg().controlBucket()
+	bucket0 := cfg0.UnknownAttrs()["control-bucket"]
 	c.Assert(bucket0, gc.Matches, "[a-f0-9]{32}")
 
-	env1, err := providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+	cfg1, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
 		Config: cfg,
 		Credentials: cloud.NewCredential(
 			cloud.AccessKeyAuthType,
@@ -374,13 +367,13 @@ func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 		CloudRegion: "test",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	bucket1 := env1.(*environ).ecfg().controlBucket()
+	bucket1 := cfg1.UnknownAttrs()["control-bucket"]
 	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
 
 	c.Assert(bucket1, gc.Not(gc.Equals), bucket0)
 }
 
-func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
+func (s *ConfigSuite) TestBootstrapConfigDoesNotTouchExistingControlBucket(c *gc.C) {
 	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":           "ec2",
@@ -389,7 +382,7 @@ func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+	cfg, err = providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
 		Config: cfg,
 		Credentials: cloud.NewCredential(
 			cloud.AccessKeyAuthType,
@@ -401,11 +394,10 @@ func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
 		CloudRegion: "test",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	bucket := env.(*environ).ecfg().controlBucket()
-	c.Assert(bucket, gc.Equals, "burblefoo")
+	c.Assert(cfg.UnknownAttrs()["control-bucket"], gc.Equals, "burblefoo")
 }
 
-func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
+func (s *ConfigSuite) TestBootstrapConfigSetsDefaultBlockSource(c *gc.C) {
 	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
@@ -413,7 +405,7 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+	cfg, err = providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
 		Config: cfg,
 		Credentials: cloud.NewCredential(
 			cloud.AccessKeyAuthType,
@@ -425,7 +417,7 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 		CloudRegion: "test",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	source, ok := env.(*environ).ecfg().StorageDefaultBlockSource()
+	source, ok := cfg.StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(source, gc.Equals, "ebs")
 }

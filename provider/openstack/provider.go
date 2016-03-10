@@ -109,11 +109,8 @@ func (p EnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 	return cfg, nil
 }
 
-func (p EnvironProvider) PrepareForBootstrap(
-	ctx environs.BootstrapContext,
-	args environs.PrepareForBootstrapParams,
-) (environs.Environ, error) {
-
+// BootstrapConfig is specified in the EnvironProvider interface.
+func (p EnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	// Add credentials to the configuration.
 	attrs := map[string]interface{}{
 		"region":   args.CloudRegion,
@@ -135,15 +132,24 @@ func (p EnvironProvider) PrepareForBootstrap(
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
 	}
+
+	// Set the default block-storage source.
+	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
+		attrs[config.StorageDefaultBlockSourceKey] = CinderProviderType
+	}
+
 	cfg, err := args.Config.Apply(attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return p.PrepareForCreateEnvironment(cfg)
+}
 
-	cfg, err = p.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, err
-	}
+// PrepareForBootstrap is specified in the EnvironProvider interface.
+func (p EnvironProvider) PrepareForBootstrap(
+	ctx environs.BootstrapContext,
+	cfg *config.Config,
+) (environs.Environ, error) {
 	e, err := p.Open(cfg)
 	if err != nil {
 		return nil, err

@@ -5,14 +5,12 @@ package joyent
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs/config"
 )
@@ -39,38 +37,35 @@ const (
 )
 
 var environmentVariables = map[string]string{
-	sdcUser:        SdcAccount,
-	sdcKeyId:       SdcKeyId,
-	sdcUrl:         SdcUrl,
-	mantaUser:      MantaUser,
-	mantaKeyId:     MantaKeyId,
-	mantaUrl:       MantaUrl,
-	privateKeyPath: MantaPrivateKeyFile,
+	sdcUser:    SdcAccount,
+	sdcKeyId:   SdcKeyId,
+	sdcUrl:     SdcUrl,
+	mantaUser:  MantaUser,
+	mantaKeyId: MantaKeyId,
+	mantaUrl:   MantaUrl,
 }
 
 var configFields = schema.Fields{
-	sdcUser:        schema.String(),
-	sdcKeyId:       schema.String(),
-	sdcUrl:         schema.String(),
-	mantaUser:      schema.String(),
-	mantaKeyId:     schema.String(),
-	mantaUrl:       schema.String(),
-	privateKeyPath: schema.String(),
-	algorithm:      schema.String(),
-	controlDir:     schema.String(),
-	privateKey:     schema.String(),
+	sdcUser:    schema.String(),
+	sdcKeyId:   schema.String(),
+	sdcUrl:     schema.String(),
+	mantaUser:  schema.String(),
+	mantaKeyId: schema.String(),
+	mantaUrl:   schema.String(),
+	algorithm:  schema.String(),
+	controlDir: schema.String(),
+	privateKey: schema.String(),
 }
 
 var configDefaults = schema.Defaults{
-	sdcUrl:         "https://us-west-1.api.joyentcloud.com",
-	mantaUrl:       "https://us-east.manta.joyent.com",
-	algorithm:      "rsa-sha256",
-	privateKeyPath: schema.Omit,
-	sdcUser:        schema.Omit,
-	sdcKeyId:       schema.Omit,
-	mantaUser:      schema.Omit,
-	mantaKeyId:     schema.Omit,
-	privateKey:     schema.Omit,
+	sdcUrl:     "https://us-west-1.api.joyentcloud.com",
+	mantaUrl:   "https://us-east.manta.joyent.com",
+	algorithm:  "rsa-sha256",
+	sdcUser:    schema.Omit,
+	sdcKeyId:   schema.Omit,
+	mantaUser:  schema.Omit,
+	mantaKeyId: schema.Omit,
+	privateKey: schema.Omit,
 }
 
 var requiredFields = []string{
@@ -95,7 +90,6 @@ var configSecretFields = []string{
 var configImmutableFields = []string{
 	sdcUrl,
 	mantaUrl,
-	privateKeyPath,
 	privateKey,
 	algorithm,
 }
@@ -135,29 +129,13 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 			if localEnvVariable != "" {
 				envConfig.attrs[field] = localEnvVariable
 			} else {
-				if field != privateKeyPath {
-					return nil, fmt.Errorf("cannot get %s value from model variable %s", field, envVar)
-				}
+				return nil, fmt.Errorf("cannot get %s value from model variable %s", field, envVar)
 			}
 		}
 	}
 
-	if err := ensurePrivateKeyOrPath(envConfig); err != nil {
+	if err := ensurePrivateKey(envConfig); err != nil {
 		return nil, err
-	}
-
-	// Now that we've ensured private-key-path is properly set, we go back and set
-	// up the private key - this is used to sign requests.
-	if nilOrEmptyString(envConfig.attrs[privateKey]) {
-		keyFile, err := utils.NormalizePath(envConfig.attrs[privateKeyPath].(string))
-		if err != nil {
-			return nil, err
-		}
-		priv, err := ioutil.ReadFile(keyFile)
-		if err != nil {
-			return nil, err
-		}
-		envConfig.attrs[privateKey] = string(priv)
 	}
 
 	// Check for missing fields.
@@ -169,19 +147,11 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	return envConfig, nil
 }
 
-// Ensure private-key-path is set.
-func ensurePrivateKeyOrPath(envConfig *environConfig) error {
-	if !nilOrEmptyString(envConfig.attrs[privateKeyPath]) {
-		return nil
-	}
-	if path := os.Getenv(environmentVariables[privateKeyPath]); path != "" {
-		envConfig.attrs[privateKeyPath] = path
-		return nil
-	}
+// Ensure private-key is set.
+func ensurePrivateKey(envConfig *environConfig) error {
 	if !nilOrEmptyString(envConfig.attrs[privateKey]) {
 		return nil
 	}
-
 	return errors.New("no ssh private key specified in joyent configuration")
 }
 

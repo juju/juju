@@ -272,7 +272,10 @@ func testingEnvConfig(c *gc.C) *config.Config {
 	env, err := environs.Prepare(
 		modelcmd.BootstrapContext(testing.Context(c)),
 		jujuclienttesting.NewMemStore(),
-		"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
+		environs.PrepareParams{
+			BaseConfig:     cfg.AllAttrs(),
+			ControllerName: "dummycontroller",
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()

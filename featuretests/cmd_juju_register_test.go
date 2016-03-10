@@ -66,7 +66,7 @@ Welcome, bob. You are now logged into "bob-controller".
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	api, err := juju.NewAPIConnection(s.ControllerStore, "bob-controller", "bob@local", "", nil)
+	api, err := juju.NewAPIConnection(s.ControllerStore, "bob-controller", "bob@local", "", nil, noBootstrapConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api.Close(), jc.ErrorIsNil)
 }

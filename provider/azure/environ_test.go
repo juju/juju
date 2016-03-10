@@ -305,13 +305,15 @@ func prepareForBootstrap(
 	cfg, err := cfg.Remove([]string{"controller-resource-group"})
 	c.Assert(err, jc.ErrorIsNil)
 	*sender = azuretesting.Senders{tokenRefreshSender()}
-	env, err := provider.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+	cfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{
 		Config:               cfg,
 		CloudRegion:          "westus",
 		CloudEndpoint:        "https://management.azure.com",
 		CloudStorageEndpoint: "https://core.windows.net",
 		Credentials:          fakeUserPassCredential(),
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := provider.PrepareForBootstrap(ctx, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }

@@ -29,14 +29,13 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, errors.Trace(err)
 }
 
-// PrepareForBootstrap implements environs.EnvironProvider.
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
-	cfg := args.Config
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+// BootstrapConfig implements environs.EnvironProvider.
+func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+	return p.PrepareForCreateEnvironment(args.Config)
+}
 
+// PrepareForBootstrap implements environs.EnvironProvider.
+func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	// TODO(ericsnow) Do some of what happens in local provider's
 	// PrepareForBootstrap()? Only if "remote" is local host?
 

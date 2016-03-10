@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
@@ -1258,21 +1257,20 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	}
 	t.srv.startServer(c)
 
-	cfg, err := config.New(config.NoDefaults, localConfigAttrs)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		cfg.Name(), environs.PrepareForBootstrapParams{
-			Config: cfg,
-			Credentials: cloud.NewCredential(
+		environs.PrepareParams{
+			BaseConfig: localConfigAttrs,
+			Credential: cloud.NewCredential(
 				cloud.AccessKeyAuthType,
 				map[string]string{
 					"access-key": "x",
 					"secret-key": "x",
 				},
 			),
-			CloudRegion: "test",
+			ControllerName: localConfigAttrs["name"].(string),
+			CloudRegion:    "test",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

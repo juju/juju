@@ -17,10 +17,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -83,17 +83,17 @@ func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {
 	cs.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
-func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (configstore.Storage, jujuclient.ClientStore) {
+func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclient.ClientStore) {
 	const controllerName = "local.my-controller"
 
 	store := jujuclienttesting.NewMemStore()
 
 	ctx := envtesting.BootstrapContext(c)
-	cfg, err := config.New(config.UseDefaults, dummy.SampleConfig())
-	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(ctx, store, controllerName, environs.PrepareForBootstrapParams{Config: cfg})
+	env, err := environs.Prepare(ctx, store, environs.PrepareParams{
+		ControllerName: controllerName,
+		BaseConfig:     dummy.SampleConfig(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	storageDir := c.MkDir()
@@ -105,24 +105,11 @@ func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (configstore.Storage, jujucl
 	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	legacyStore := configstore.NewMem()
-	info := legacyStore.CreateInfo(
-		env.Config().ControllerUUID(),
-		configstore.EnvironInfoName(controllerName, cfg.Name()),
-	)
-	info.SetBootstrapConfig(env.Config().AllAttrs())
-	err = info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	return legacyStore, store
+	return env, store
 }
 
 func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
 	store := newClientStore(c, "noconfig")
-	legacyStore := configstore.NewMem()
-	newInfo := legacyStore.CreateInfo(fakeUUID, "noconfig:admin")
-	err := newInfo.Write()
-	c.Assert(err, jc.ErrorIsNil)
 
 	called := 0
 	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
@@ -133,7 +120,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
 		return expectState, nil
 	}
 
-	st, err := juju.NewAPIFromStore("noconfig", "admin@local", "admin", legacyStore, store, apiOpen)
+	st, err := juju.NewAPIFromStore("noconfig", "admin@local", "admin", store, apiOpen, noBootstrapConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
@@ -149,7 +136,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
 
 	// If APIHostPorts haven't changed, then the store won't be updated.
 	stubStore := jujuclienttesting.WrapClientStore(store)
-	st, err = juju.NewAPIFromStore("noconfig", "admin@local", "admin", legacyStore, stubStore, apiOpen)
+	st, err = juju.NewAPIFromStore("noconfig", "admin@local", "admin", stubStore, apiOpen, noBootstrapConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 2)
@@ -169,9 +156,11 @@ func (s *NewAPIClientSuite) TestWithInfoError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectErr := fmt.Errorf("an error")
-	legacyStore := newConfigStoreWithError(expectErr)
+	getBootstrapConfig := func(string) (*config.Config, error) {
+		return nil, expectErr
+	}
 
-	client, err := juju.NewAPIFromStore("noconfig", "", "", legacyStore, store, panicAPIOpen)
+	client, err := juju.NewAPIFromStore("noconfig", "", "", store, panicAPIOpen, getBootstrapConfig)
 	c.Assert(errors.Cause(err), gc.Equals, expectErr)
 	c.Assert(client, gc.IsNil)
 }
@@ -184,13 +173,8 @@ func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	legacyStore := configstore.NewMem()
-	newInfo := legacyStore.CreateInfo(fakeUUID, "noconfig:admin")
-	err = newInfo.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	st, err := juju.NewAPIFromStore("noconfig", "admin@local", "", legacyStore, store, panicAPIOpen)
-	c.Assert(err, gc.ErrorMatches, "bootstrap config not found")
+	st, err := juju.NewAPIFromStore("noconfig", "admin@local", "", store, panicAPIOpen, noBootstrapConfig)
+	c.Assert(err, gc.ErrorMatches, "bootstrap config for controller noconfig not found")
 	c.Assert(st, gc.IsNil)
 }
 
@@ -238,26 +222,22 @@ func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
 }
 
 func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
-	store := configstore.NewMem()
-	newInfo := store.CreateInfo(fakeUUID, "noconfig:admin")
-	err := newInfo.Write()
-	c.Assert(err, jc.ErrorIsNil)
 	jujuClient := newClientStore(c, "noconfig")
 
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return nil, errors.Errorf("an error")
 	}
-	st, err := juju.NewAPIFromStore("noconfig", "", "", store, jujuClient, apiOpen)
-	// We expect to  get the isNotFound error as it is more important than the
-	// infoConnectError "an error"
-	c.Assert(err, gc.ErrorMatches, "bootstrap config not found")
+	st, err := juju.NewAPIFromStore("noconfig", "", "", jujuClient, apiOpen, noBootstrapConfig)
+	// We expect to get the error from apiOpen, because it is not
+	// fatal to have no bootstrap config.
+	c.Assert(err, gc.ErrorMatches, "an error")
 	c.Assert(st, gc.IsNil)
 }
 
 func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	c.Skip("wallyworld - this is a dumb test relying on an arbitary 50ms delay to pass")
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	legacyStore, store := s.bootstrapModel(c)
+	_, store := s.bootstrapModel(c)
 	setEndpointAddressAndHostname(c, store, "0.1.2.3", "infoapi.invalid")
 
 	infoOpenedState := mockedAPIState(noFlags)
@@ -283,7 +263,10 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	cfgOpenedState.close = infoOpenedState.close
 
 	startTime := time.Now()
-	st, err := juju.NewAPIFromStore("local.my-controller", "admin@local", "only", legacyStore, store, apiOpen)
+	st, err := juju.NewAPIFromStore(
+		"local.my-controller", "admin@local", "only", store, apiOpen,
+		modelcmd.NewGetBootstrapConfigFunc(store),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	// The connection logic should wait for some time before opening
 	// the API from the configuration.
@@ -305,37 +288,6 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	}
 }
 
-func (s *NewAPIClientSuite) TestGetBootstrapConfigNoLegacyInfo(c *gc.C) {
-	store := configstore.NewMem()
-	cfg, err := juju.GetBootstrapConfig(store, "whatever", "")
-	c.Assert(err, gc.ErrorMatches, `getting bootstrap controller info: model "whatever:admin" not found`)
-	c.Assert(cfg, gc.IsNil)
-}
-
-func (s *NewAPIClientSuite) TestGetBootstrapConfigNoBootstrapConfig(c *gc.C) {
-	store := configstore.NewMem()
-	info := store.CreateInfo(fakeUUID, "whatever:admin")
-	err := info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := juju.GetBootstrapConfig(store, "whatever", "")
-	c.Assert(err, gc.ErrorMatches, "bootstrap config not found")
-	c.Assert(cfg, gc.IsNil)
-}
-
-func (s *NewAPIClientSuite) TestGetBootstrapConfigBadConfigDoesntPanic(c *gc.C) {
-	store := configstore.NewMem()
-	info := store.CreateInfo(fakeUUID, "whatever:admin")
-	info.SetBootstrapConfig(map[string]interface{}{"something": "else"})
-	err := info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := juju.GetBootstrapConfig(store, "whatever", "")
-	// The specific error we get depends on what key is invalid, which is a
-	// bit spurious, but what we care about is that we didn't get a panic,
-	// but instead got an error
-	c.Assert(err, gc.ErrorMatches, ".*expected.*got nothing")
-	c.Assert(cfg, gc.IsNil)
-}
-
 func setEndpointAddressAndHostname(c *gc.C, store jujuclient.ControllerStore, addr, host string) {
 	// Populate the controller details with known address and hostname.
 	details, err := store.ControllerByName("local.my-controller")
@@ -349,7 +301,7 @@ func setEndpointAddressAndHostname(c *gc.C, store jujuclient.ControllerStore, ad
 func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 
-	legacyStore, store := s.bootstrapModel(c)
+	_, store := s.bootstrapModel(c)
 	setEndpointAddressAndHostname(c, store, "0.1.2.3", "infoapi.invalid")
 
 	infoOpenedState := mockedAPIState(noFlags)
@@ -378,7 +330,10 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 
 	done := make(chan struct{})
 	go func() {
-		st, err := juju.NewAPIFromStore("local.my-controller", "admin@local", "only", legacyStore, store, apiOpen)
+		st, err := juju.NewAPIFromStore(
+			"local.my-controller", "admin@local", "only", store, apiOpen,
+			modelcmd.NewGetBootstrapConfigFunc(store),
+		)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(st, gc.Equals, infoOpenedState)
 		close(done)
@@ -417,8 +372,12 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 
 func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	legacyStore, store := s.bootstrapModel(c)
+	env, store := s.bootstrapModel(c)
 	setEndpointAddressAndHostname(c, store, "0.1.2.3", "infoapi.invalid")
+
+	getBootstrapConfig := func(string) (*config.Config, error) {
+		return env.Config(), nil
+	}
 
 	s.PatchValue(juju.ProviderConnectDelay, 0*time.Second)
 	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
@@ -427,31 +386,9 @@ func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
 		}
 		return nil, fmt.Errorf("config connect failed")
 	}
-	st, err := juju.NewAPIFromStore("local.my-controller", "admin@local", "only", legacyStore, store, apiOpen)
+	st, err := juju.NewAPIFromStore("local.my-controller", "admin@local", "only", store, apiOpen, getBootstrapConfig)
 	c.Check(err, gc.ErrorMatches, "config connect failed")
 	c.Check(st, gc.IsNil)
-}
-
-// newConfigStoreWithError that will return the given
-// error from ReadInfo.
-func newConfigStoreWithError(err error) configstore.Storage {
-	return &errorConfigStorage{
-		Storage: configstore.NewMem(),
-		err:     err,
-	}
-}
-
-type errorConfigStorage struct {
-	configstore.Storage
-	err error
-}
-
-func (store *errorConfigStorage) ReadInfo(envName string) (configstore.EnvironInfo, error) {
-	return nil, store.err
-}
-
-type environInfo struct {
-	bootstrapConfig map[string]interface{}
 }
 
 // newClientStore returns a client store that contains information
@@ -861,3 +798,7 @@ func (s *CacheAPIEndpointsSuite) mockResolveOrDropHostnames(hps []network.HostPo
 }
 
 var fakeUUID = "df136476-12e9-11e4-8a70-b2227cce2b54"
+
+func noBootstrapConfig(controllerName string) (*config.Config, error) {
+	return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)
+}

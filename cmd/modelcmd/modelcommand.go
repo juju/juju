@@ -197,19 +197,15 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 	if opener == nil {
 		opener = OpenFunc(c.JujuCommandBase.NewAPIRoot)
 	}
-	// TODO(axw) stop checking c.store != nil once we've updated all the
-	// tests, and have excised configstore.
-	if c.modelName != "" && c.controllerName != "" && c.store != nil {
-		_, err := c.store.ModelByName(c.controllerName, c.accountName, c.modelName)
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				return nil, errors.Trace(err)
-			}
-			// The model isn't known locally, so query the models
-			// available in the controller, and cache them locally.
-			if err := c.RefreshModels(c.store, c.controllerName, c.accountName); err != nil {
-				return nil, errors.Annotate(err, "refreshing models")
-			}
+	_, err := c.store.ModelByName(c.controllerName, c.accountName, c.modelName)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		// The model isn't known locally, so query the models
+		// available in the controller, and cache them locally.
+		if err := c.RefreshModels(c.store, c.controllerName, c.accountName); err != nil {
+			return nil, errors.Annotate(err, "refreshing models")
 		}
 	}
 	return opener.Open(c.store, c.controllerName, c.accountName, c.modelName)

@@ -13,10 +13,11 @@ import (
 // MemStore is an in-memory implementation of jujuclient.ClientStore,
 // intended for testing.
 type MemStore struct {
-	Controllers map[string]jujuclient.ControllerDetails
-	Models      map[string]jujuclient.ControllerAccountModels
-	Accounts    map[string]*jujuclient.ControllerAccounts
-	Credentials map[string]cloud.CloudCredential
+	Controllers     map[string]jujuclient.ControllerDetails
+	Models          map[string]jujuclient.ControllerAccountModels
+	Accounts        map[string]*jujuclient.ControllerAccounts
+	Credentials     map[string]cloud.CloudCredential
+	BootstrapConfig map[string]jujuclient.BootstrapConfig
 }
 
 func NewMemStore() *MemStore {
@@ -25,6 +26,7 @@ func NewMemStore() *MemStore {
 		make(map[string]jujuclient.ControllerAccountModels),
 		make(map[string]*jujuclient.ControllerAccounts),
 		make(map[string]cloud.CloudCredential),
+		make(map[string]jujuclient.BootstrapConfig),
 	}
 }
 
@@ -351,4 +353,24 @@ func (c *MemStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
 		result[k] = v
 	}
 	return result, nil
+}
+
+// UpdateBootstrapConfig implements BootstrapConfigUpdater.
+func (c *MemStore) UpdateBootstrapConfig(controllerName string, cfg jujuclient.BootstrapConfig) error {
+	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
+		return err
+	}
+	// TODO(axw) validate bootstrap config
+	c.BootstrapConfig[controllerName] = cfg
+	return nil
+
+}
+
+// BootstrapConfigForController implements BootstrapConfigGetter.
+func (c *MemStore) BootstrapConfigForController(controllerName string) (*jujuclient.BootstrapConfig, error) {
+	if cfg, ok := c.BootstrapConfig[controllerName]; ok {
+		return &cfg, nil
+	}
+	return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)
+
 }

@@ -30,8 +30,7 @@ type Credential struct {
 	authType   AuthType
 	attributes map[string]string
 
-	// Label is optionally set to describe the credentials
-	// to a user.
+	// Label is optionally set to describe the credentials to a user.
 	Label string
 }
 

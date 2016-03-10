@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -82,7 +81,6 @@ type JujuConnSuite struct {
 	Environ            environs.Environ
 	APIState           api.Connection
 	apiStates          []api.Connection // additional api.Connections to close on teardown
-	ConfigStore        configstore.Storage
 	ControllerStore    jujuclient.ClientStore
 	BackingState       *state.State // The State being used by the API server
 	RootDir            string       // The faked-up root directory.
@@ -230,20 +228,17 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, (map[string]interface{})(s.sampleConfig()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	store, err := configstore.Default()
-	c.Assert(err, jc.ErrorIsNil)
-	s.ConfigStore = store
-
 	s.ControllerStore = jujuclient.NewFileClientStore()
 
 	ctx := testing.Context(c)
 	environ, err := environs.Prepare(
 		modelcmd.BootstrapContext(ctx),
 		s.ControllerStore,
-		ControllerName,
-		environs.PrepareForBootstrapParams{
-			Config:      cfg,
-			Credentials: cloud.NewEmptyCredential(),
+		environs.PrepareParams{
+			BaseConfig:     cfg.AllAttrs(),
+			Credential:     cloud.NewEmptyCredential(),
+			ControllerName: ControllerName,
+			CloudName:      "dummy",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

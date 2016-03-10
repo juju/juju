@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -52,7 +51,10 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
 	cache := jujuclienttesting.NewMemStore()
-	env, err := environs.Prepare(ctx, cache, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	env, err := environs.Prepare(ctx, cache, environs.PrepareParams{
+		ControllerName: cfg.Name(),
+		BaseConfig:     cfg.AllAttrs(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	storageDir := c.MkDir()
@@ -79,7 +81,10 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 		"uuid":            utils.MustNewUUID().String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = environs.Prepare(ctx, store, "controller-name", environs.PrepareForBootstrapParams{Config: cfg})
+	_, err = environs.Prepare(ctx, store, environs.PrepareParams{
+		ControllerName: "controller-name",
+		BaseConfig:     cfg.AllAttrs(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	foundController, err := store.ControllerByName("controller-name")
@@ -131,7 +136,10 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	controllerStore := jujuclienttesting.NewMemStore()
 	ctx := envtesting.BootstrapContext(c)
-	env, err := environs.Prepare(ctx, controllerStore, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	env, err := environs.Prepare(ctx, controllerStore, environs.PrepareParams{
+		ControllerName: cfg.Name(),
+		BaseConfig:     cfg.AllAttrs(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that an admin-secret was chosen.
@@ -156,7 +164,10 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(foundController.ControllerUUID, gc.DeepEquals, cfg.UUID())
 
 	// Check we cannot call Prepare again.
-	env, err = environs.Prepare(ctx, controllerStore, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	env, err = environs.Prepare(ctx, controllerStore, environs.PrepareParams{
+		ControllerName: cfg.Name(),
+		BaseConfig:     cfg.AllAttrs(),
+	})
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 	c.Assert(err, gc.ErrorMatches, `controller "erewhemos" already exists`)
 }
@@ -168,17 +179,26 @@ func (*OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
 	}).Delete(
 		"admin-secret",
 	)
-	cfg, err := config.New(config.NoDefaults, baselineAttrs)
-	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := envtesting.BootstrapContext(c)
-	env0, err := environs.Prepare(ctx, jujuclienttesting.NewMemStore(), cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	env0, err := environs.Prepare(ctx, jujuclienttesting.NewMemStore(), environs.PrepareParams{
+		ControllerName: "erewhemos",
+		BaseConfig:     baselineAttrs,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	adminSecret0 := env0.Config().AdminSecret()
 	c.Assert(adminSecret0, gc.HasLen, 32)
 	c.Assert(adminSecret0, gc.Matches, "^[0-9a-f]*$")
 
-	env1, err := environs.Prepare(ctx, jujuclienttesting.NewMemStore(), cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	// Allocate a new UUID, or we'll end up with the same config.
+	newUUID := utils.MustNewUUID()
+	baselineAttrs[config.UUIDKey] = newUUID.String()
+	baselineAttrs[config.ControllerUUIDKey] = newUUID.String()
+
+	env1, err := environs.Prepare(ctx, jujuclienttesting.NewMemStore(), environs.PrepareParams{
+		ControllerName: "erewhemos",
+		BaseConfig:     baselineAttrs,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	adminSecret1 := env1.Config().AdminSecret()
 	c.Assert(adminSecret1, gc.HasLen, 32)
@@ -197,7 +217,10 @@ func (*OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 	))
 	c.Assert(err, jc.ErrorIsNil)
 	controllerStore := jujuclienttesting.NewMemStore()
-	env, err := environs.Prepare(envtesting.BootstrapContext(c), controllerStore, cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	env, err := environs.Prepare(envtesting.BootstrapContext(c), controllerStore, environs.PrepareParams{
+		ControllerName: cfg.Name(),
+		BaseConfig:     cfg.AllAttrs(),
+	})
 	c.Assert(err, gc.ErrorMatches, "cannot ensure CA certificate: controller configuration with a certificate but no CA private key")
 	c.Assert(env, gc.IsNil)
 }
@@ -213,7 +236,10 @@ func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
 	))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
-	env, err := environs.Prepare(ctx, jujuclienttesting.NewMemStore(), cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+	env, err := environs.Prepare(ctx, jujuclienttesting.NewMemStore(), environs.PrepareParams{
+		ControllerName: cfg.Name(),
+		BaseConfig:     cfg.AllAttrs(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	cfgCertPEM, cfgCertOK := env.Config().CACert()
 	cfgKeyPEM, cfgKeyOK := env.Config().CAPrivateKey()
@@ -236,21 +262,21 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	// Prepare the environment and sanity-check that
 	// the config storage info has been made.
 	ctx := envtesting.BootstrapContext(c)
-	e, err := environs.Prepare(ctx, store, "controller-name", environs.PrepareForBootstrapParams{Config: cfg})
+	e, err := environs.Prepare(ctx, store, environs.PrepareParams{
+		ControllerName: "controller-name",
+		BaseConfig:     cfg.AllAttrs(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 
-	configstore := configstore.NewMem()
-	err = environs.Destroy("controller-name", e, configstore, store)
+	err = environs.Destroy("controller-name", e, store)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the environment has actually been destroyed
-	// and that the config info has been destroyed too.
+	// and that the controller details been removed too.
 	_, err = e.ControllerInstances()
-	c.Assert(err, gc.ErrorMatches, "model has been destroyed")
-	_, err = configstore.ReadInfo("controller-name:erewhemos")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, "model is not prepared")
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

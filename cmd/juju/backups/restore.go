@@ -17,8 +17,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 )
 
 func newRestoreCommand() cmd.Command {
@@ -136,17 +134,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
 	// to extract the CA cert from the backup, and we'll need to reset the
 	// password after restore so the admin user can login.
 	controllerName := c.ControllerName()
-	legacyStore, err := configstore.Default()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	info, err := legacyStore.ReadInfo(configstore.EnvironInfoName(
-		controllerName, configstore.AdminModelName,
-	))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
+	cfg, err := modelcmd.NewGetBootstrapConfigFunc(c.ClientStore())(controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}

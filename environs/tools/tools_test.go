@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -96,11 +95,14 @@ func (s *SimpleStreamsToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary
 func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
 	version.Current = s.origCurrentVersion
 	dummy.Reset()
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(attrs))
-	c.Assert(err, jc.ErrorIsNil)
+	attrs = dummy.SampleConfig().Merge(attrs)
 	env, err := environs.Prepare(envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+		environs.PrepareParams{
+			ControllerName: attrs["name"].(string),
+			BaseConfig:     attrs,
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 	s.removeTools(c)

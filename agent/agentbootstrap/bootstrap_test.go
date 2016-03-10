@@ -122,12 +122,18 @@ LXC_BRIDGE="ignored"`[1:])
 		"0.1.2.3",
 		"10.0.3.3",
 	)
+
+	// Prepare bootstrap config, so we can use it in the state policy.
+	provider, err := environs.Provider("dummy")
+	c.Assert(err, jc.ErrorIsNil)
 	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": version.Current.String(),
-		"state-id":      "1", // needed so policy can Open config
 	})
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, jc.ErrorIsNil)
+	envCfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{Config: envCfg})
+	c.Assert(err, jc.ErrorIsNil)
+	defer dummy.Reset()
 
 	hostedModelUUID := utils.MustNewUUID().String()
 	hostedModelConfigAttrs := map[string]interface{}{
@@ -136,7 +142,10 @@ LXC_BRIDGE="ignored"`[1:])
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	st, m, err := agentbootstrap.InitializeState(adminUser, cfg, envCfg, hostedModelConfigAttrs, mcfg, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, m, err := agentbootstrap.InitializeState(
+		adminUser, cfg, envCfg, hostedModelConfigAttrs, mcfg,
+		mongo.DefaultDialOpts(), environs.NewStatePolicy(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -287,7 +296,6 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	}
 	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": version.Current.String(),
-		"state-id":      "1", // needed so policy can Open config
 	})
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -298,7 +306,10 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	st, _, err := agentbootstrap.InitializeState(adminUser, cfg, envCfg, hostedModelConfigAttrs, mcfg, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, _, err := agentbootstrap.InitializeState(
+		adminUser, cfg, envCfg, hostedModelConfigAttrs, mcfg,
+		mongo.DefaultDialOpts(), state.Policy(nil),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 

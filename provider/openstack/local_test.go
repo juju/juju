@@ -177,10 +177,9 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 
 	// Set credentials to use when bootstrapping. Must be done after
 	// starting server to get the auth URL.
-	args := prepareForBootstrapParams(nil, s.cred)
-	s.CloudRegion = args.CloudRegion
-	s.CloudEndpoint = args.CloudEndpoint
-	s.Credential = args.Credentials
+	s.Credential = makeCredential(s.cred)
+	s.CloudEndpoint = s.cred.URL
+	s.CloudRegion = s.cred.Region
 
 	s.LiveTests.SetUpSuite(c)
 	openstack.UseTestImageData(openstack.ImageMetadataStorage(s.Env), s.cred)
@@ -235,10 +234,9 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 
 	// Set credentials to use when bootstrapping. Must be done after
 	// starting server to get the auth URL.
-	args := prepareForBootstrapParams(nil, s.cred)
-	s.CloudRegion = args.CloudRegion
-	s.CloudEndpoint = args.CloudEndpoint
-	s.Credential = args.Credentials
+	s.Credential = makeCredential(s.cred)
+	s.CloudEndpoint = s.cred.URL
+	s.CloudRegion = s.cred.Region
 
 	cl := client.NewClient(s.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
@@ -277,14 +275,14 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 
 func (s *localServerSuite) TestBootstrap(c *gc.C) {
 	// Tests uses Prepare, so destroy first.
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.ConfigStore, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Tests.TestBootstrap(c)
 }
 
 func (s *localServerSuite) TestStartStop(c *gc.C) {
 	// Tests uses Prepare, so destroy first.
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.ConfigStore, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Tests.TestStartStop(c)
 }
@@ -302,7 +300,7 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.ConfigStore, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a config that matches s.TestConfig but with use-floating-ip set to true
@@ -402,17 +400,14 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.ConfigStore, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"use-floating-ip": false,
-	}))
-	c.Assert(err, jc.ErrorIsNil)
+	attrs := s.TestConfig.Merge(coretesting.Attrs{"use-floating-ip": false})
 	env, err := environs.Prepare(
 		envtesting.BootstrapContext(c),
 		s.ControllerStore,
-		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
+		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
@@ -434,7 +429,7 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 			c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)
 	}
 
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.ConfigStore, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	env := s.Prepare(c)
@@ -1169,12 +1164,11 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	s.cred = cred
 	attrs := s.createConfigAttrs(c)
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	var err error
 	s.env, err = environs.Prepare(
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
+		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.attrs = s.env.Config().AllAttrs()
@@ -1715,20 +1709,25 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 	assertMetadata(extraKey, extraValue)
 }
 
-func prepareForBootstrapParams(cfg *config.Config, cred *identity.Credentials) environs.PrepareForBootstrapParams {
-	return environs.PrepareForBootstrapParams{
-		Config: cfg,
-		Credentials: cloud.NewCredential(
-			cloud.UserPassAuthType,
-			map[string]string{
-				"username":    cred.User,
-				"password":    cred.Secrets,
-				"tenant-name": cred.TenantName,
-			},
-		),
-		CloudEndpoint: cred.URL,
-		CloudRegion:   cred.Region,
+func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) environs.PrepareParams {
+	return environs.PrepareParams{
+		BaseConfig:     attrs,
+		ControllerName: attrs["name"].(string),
+		Credential:     makeCredential(cred),
+		CloudEndpoint:  cred.URL,
+		CloudRegion:    cred.Region,
 	}
+}
+
+func makeCredential(cred *identity.Credentials) cloud.Credential {
+	return cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"username":    cred.User,
+			"password":    cred.Secrets,
+			"tenant-name": cred.TenantName,
+		},
+	)
 }
 
 // noSwiftSuite contains tests that run against an OpenStack service double
@@ -1784,12 +1783,10 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 	openstack.UseTestImageData(imageStorage, s.cred)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, storageDir)
 
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
+		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env

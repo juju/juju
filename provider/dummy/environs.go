@@ -68,7 +68,6 @@ const (
 
 var (
 	ErrNotPrepared = errors.New("model is not prepared")
-	ErrDestroyed   = errors.New("model has been destroyed")
 )
 
 // SampleConfig() returns an environment configuration with all required
@@ -232,33 +231,30 @@ type environProvider struct {
 	statePolicy            state.Policy
 	supportsSpaces         bool
 	supportsSpaceDiscovery bool
-	// We have one state for each environment name.
-	state      map[int]*environState
-	maxStateId int
+	// We have one state for each prepared controller.
+	state map[string]*environState
 }
 
 var providerInstance environProvider
-
-const noStateId = 0
 
 // environState represents the state of an environment.
 // It can be shared between several environ values,
 // so that a given environment can be opened several times.
 type environState struct {
-	id           int
-	name         string
-	ops          chan<- Operation
-	statePolicy  state.Policy
-	mu           sync.Mutex
-	maxId        int // maximum instance id allocated so far.
-	maxAddr      int // maximum allocated address last byte
-	insts        map[instance.Id]*dummyInstance
-	globalPorts  map[network.PortRange]bool
-	bootstrapped bool
-	apiListener  net.Listener
-	apiServer    *apiserver.Server
-	apiState     *state.State
-	preferIPv6   bool
+	name            string
+	ops             chan<- Operation
+	statePolicy     state.Policy
+	mu              sync.Mutex
+	maxId           int // maximum instance id allocated so far.
+	maxAddr         int // maximum allocated address last byte
+	insts           map[instance.Id]*dummyInstance
+	globalPorts     map[network.PortRange]bool
+	bootstrapped    bool
+	apiListener     net.Listener
+	apiServer       *apiserver.Server
+	apiState        *state.State
+	bootstrapConfig *config.Config
+	preferIPv6      bool
 }
 
 // environ represents a client's connection to a given environment's
@@ -309,7 +305,7 @@ func Reset() {
 		}
 		s.destroy()
 	}
-	providerInstance.state = make(map[int]*environState)
+	providerInstance.state = make(map[string]*environState)
 	if mongoAlive() {
 		gitjujutesting.MgoServer.Reset()
 	}
@@ -444,11 +440,6 @@ var configSchema = environschema.Fields{
 		Description: "A secret",
 		Type:        environschema.Tstring,
 	},
-	"state-id": {
-		Description: "Id of controller",
-		Type:        environschema.Tstring,
-		Group:       environschema.JujuGroup,
-	},
 }
 
 var configFields = func() schema.Fields {
@@ -462,7 +453,6 @@ var configFields = func() schema.Fields {
 var configDefaults = schema.Defaults{
 	"broken":     "",
 	"secret":     "pork",
-	"state-id":   schema.Omit,
 	"controller": false,
 }
 
@@ -481,18 +471,6 @@ func (c *environConfig) broken() string {
 
 func (c *environConfig) secret() string {
 	return c.attrs["secret"].(string)
-}
-
-func (c *environConfig) stateId() int {
-	idStr, ok := c.attrs["state-id"].(string)
-	if !ok {
-		return noStateId
-	}
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		panic(fmt.Errorf("unexpected state-id %q (should have pre-checked)", idStr))
-	}
-	return id
 }
 
 func (p *environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
@@ -532,27 +510,19 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 	if err != nil {
 		return nil, err
 	}
-	if idStr, ok := validated["state-id"].(string); ok {
-		if _, err := strconv.Atoi(idStr); err != nil {
-			return nil, fmt.Errorf("invalid state-id %q", idStr)
-		}
-	}
 	// Apply the coerced unknown values back into the config.
 	return cfg.Apply(validated)
 }
 
 func (e *environ) state() (*environState, error) {
-	stateId := e.ecfg().stateId()
-	if stateId == noStateId {
-		return nil, ErrNotPrepared
-	}
 	p := &providerInstance
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if state := p.state[stateId]; state != nil {
-		return state, nil
+	state, ok := p.state[e.Config().ControllerUUID()]
+	if !ok {
+		return nil, ErrNotPrepared
 	}
-	return nil, ErrDestroyed
+	return state, nil
 }
 
 func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -562,7 +532,7 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	if err != nil {
 		return nil, err
 	}
-	if ecfg.stateId() == noStateId {
+	if _, ok := p.state[cfg.ControllerUUID()]; !ok {
 		return nil, ErrNotPrepared
 	}
 	env := &environ{
@@ -585,45 +555,52 @@ func (p *environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*conf
 	return cfg, nil
 }
 
-func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
-	cfg := args.Config
-	cfg, err := p.prepare(cfg)
-	if err != nil {
-		return nil, err
-	}
+// PrepareForBootstrap is specified in the EnvironProvider interface.
+func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	return p.Open(cfg)
 }
 
-// prepare is the internal version of Prepare - it prepares the
-// environment but does not open it.
-func (p *environProvider) prepare(cfg *config.Config) (*config.Config, error) {
-	ecfg, err := p.newConfig(cfg)
+// BootstrapConfig is specified in the EnvironProvider interface.
+func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+	ecfg, err := p.newConfig(args.Config)
 	if err != nil {
 		return nil, err
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	name := cfg.Name()
-	if ecfg.stateId() != noStateId {
-		return cfg, nil
+
+	envState, ok := p.state[args.Config.ControllerUUID()]
+	if ok {
+		// BootstrapConfig is expected to return the same result given
+		// the same input. We assume that the args are the same for a
+		// previously prepared/bootstrapped controller.
+		return envState.bootstrapConfig, nil
 	}
+
+	name := args.Config.Name()
 	if ecfg.controller() && len(p.state) != 0 {
 		for _, old := range p.state {
 			panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q", old.name, name))
 		}
 	}
-	// The environment has not been prepared,
-	// so create it and set its state identifier accordingly.
-	state := newState(name, p.ops, p.statePolicy)
-	p.maxStateId++
-	state.id = p.maxStateId
-	p.state[state.id] = state
 
-	attrs := map[string]interface{}{"state-id": fmt.Sprint(state.id)}
+	// The environment has not been prepared, so create it and record it.
+	// We don't start listening for State or API connections until
+	// PrepareForBootstrapConfig has been called.
+	envState = newState(name, p.ops, p.statePolicy)
+	cfg := args.Config
 	if ecfg.controller() {
-		attrs["api-port"] = state.listenAPI()
+		apiPort := envState.listenAPI()
+		cfg, err = cfg.Apply(map[string]interface{}{
+			"api-port": apiPort,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
-	return cfg.Apply(attrs)
+	envState.bootstrapConfig = cfg
+	p.state[cfg.ControllerUUID()] = envState
+	return cfg, nil
 }
 
 func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
@@ -830,7 +807,7 @@ func (e *environ) Destroy() (res error) {
 	defer delay()
 	estate, err := e.state()
 	if err != nil {
-		if err == ErrDestroyed {
+		if err == ErrNotPrepared {
 			return nil
 		}
 		return err
@@ -841,7 +818,7 @@ func (e *environ) Destroy() (res error) {
 	}
 	p := &providerInstance
 	p.mu.Lock()
-	delete(p.state, estate.id)
+	delete(p.state, estate.bootstrapConfig.ControllerUUID())
 	p.mu.Unlock()
 
 	estate.mu.Lock()

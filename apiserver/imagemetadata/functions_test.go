@@ -31,15 +31,17 @@ var _ = gc.Suite(&funcSuite{})
 func (s *funcSuite) SetUpTest(c *gc.C) {
 	s.baseImageMetadataSuite.SetUpTest(c)
 
-	cfg, err := config.New(config.NoDefaults, mockConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	var err error
 	s.env, err = environs.Prepare(
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
+		environs.PrepareParams{
+			ControllerName: "dummycontroller",
+			BaseConfig:     mockConfig(),
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.state = s.constructState(cfg)
+	s.state = s.constructState(s.env.Config())
 
 	s.expected = cloudimagemetadata.Metadata{
 		cloudimagemetadata.MetadataAttributes{
