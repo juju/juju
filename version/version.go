@@ -13,16 +13,16 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/juju/version"
+	semversion "github.com/juju/version"
 )
 
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const jujuversion = "2.0-beta2"
+const version = "2.0-beta2"
 
 // The version that we switched over from old style numbering to new style.
-var switchOverVersion = version.MustParse("1.19.9")
+var switchOverVersion = semversion.MustParse("1.19.9")
 
 // osReleaseFile is the name of the file that is read in order to determine
 // the linux type release version.
@@ -31,7 +31,7 @@ var osReleaseFile = "/etc/os-release"
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
-var Current = version.MustParse(jujuversion)
+var Current = semversion.MustParse(version)
 
 var Compiler = runtime.Compiler
 
@@ -44,7 +44,7 @@ func init() {
 		}
 		return
 	}
-	Current = version.MustParse(strings.TrimSpace(string(v)))
+	Current = semversion.MustParse(strings.TrimSpace(string(v)))
 }
 
 func isOdd(x int) bool {
@@ -55,7 +55,7 @@ func isOdd(x int) bool {
 // version with a tag or a nonzero build component is considered to be a
 // development version.  Versions older than or equal to 1.19.3 (the switch
 // over time) check for odd minor versions.
-func IsDev(v version.Number) bool {
+func IsDev(v semversion.Number) bool {
 	if v.Compare(switchOverVersion) <= 0 {
 		return isOdd(v.Minor) || v.Build > 0
 	}
