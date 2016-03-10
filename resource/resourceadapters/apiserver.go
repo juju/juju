@@ -8,7 +8,9 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/api/server"
 	corestate "github.com/juju/juju/state"
 )
 
@@ -44,4 +46,23 @@ func (ex HTTPDownloadRequestExtractor) NewResourceOpener(req *http.Request) (res
 		unit:   unit,
 	}
 	return opener, nil
+}
+
+// NewPublicFacade provides the public API facade for resources. It is
+// passed into common.RegisterStandardFacade.
+func NewPublicFacade(st *corestate.State, _ *common.Resources, authorizer common.Authorizer) (*server.Facade, error) {
+	if !authorizer.AuthClient() {
+		return nil, common.ErrPerm
+	}
+
+	rst, err := st.Resources()
+
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ds := DataStore{
+		Resources: rst,
+		State:     st,
+	}
+	return server.NewFacade(ds), nil
 }
