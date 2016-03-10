@@ -375,7 +375,10 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressDoesN
 	}
 
 	inferredSubnetCIDR := "192.168.0.0/16"
-	expectedError := fmt.Sprintf("invalid address %q: subnet %q not found or not alive", args.CIDRAddress, inferredSubnetCIDR)
+	expectedError := fmt.Sprintf(
+		"invalid address %q: subnet %q not found or not alive",
+		args.CIDRAddress, inferredSubnetCIDR,
+	)
 	s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
 }
 
@@ -392,7 +395,10 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressMatch
 		DeviceName:   "eth0",
 		ConfigMethod: state.StaticAddress,
 	}
-	expectedError := fmt.Sprintf("invalid address %q: subnet %q not found or not alive", args.CIDRAddress, subnetCIDR)
+	expectedError := fmt.Sprintf(
+		"invalid address %q: subnet %q not found or not alive",
+		args.CIDRAddress, subnetCIDR,
+	)
 	s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
 }
 
@@ -438,7 +444,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesUpdatesExistingDocs(c *gc
 	device, initialAddresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3/24", "10.20.30.42/16")
 
 	setArgs := []state.LinkLayerDeviceAddress{{
-		// All set-able fields included below.
+		// All fields that can be set are included below.
 		DeviceName:       "eth0",
 		ConfigMethod:     state.ManualAddress,
 		CIDRAddress:      "0.1.2.3/24",
@@ -447,7 +453,8 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesUpdatesExistingDocs(c *gc
 		DNSSearchDomains: []string{"example.com", "example.org"},
 		GatewayAddress:   "0.1.2.1",
 	}, {
-		// No changed fields at all.
+		// No changed fields, just the required values are set: CIDRAddress +
+		// DeviceName (and s.machine.Id) are used to construct the DocID.
 		DeviceName:   "eth0",
 		ConfigMethod: state.StaticAddress,
 		CIDRAddress:  "10.20.30.42/16",
@@ -482,7 +489,8 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithMultipleUpdatesOfSame
 	device, initialAddresses := s.addNamedDeviceWithAddresses(c, "eth0", "0.1.2.3/24")
 
 	setArgs := []state.LinkLayerDeviceAddress{{
-		// No changed fields at all.
+		// No changes - same args as used by addNamedDeviceWithAddresses, so
+		// this is testing a no-op case.
 		DeviceName:   "eth0",
 		ConfigMethod: state.StaticAddress,
 		CIDRAddress:  "0.1.2.3/24",
@@ -511,7 +519,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithMultipleUpdatesOfSame
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updatedAddresses, gc.HasLen, len(initialAddresses))
 
-	const lastArgsIndex = 2
+	var lastArgsIndex = len(setArgs) - 1
 	s.checkAddressMatchesArgs(c, updatedAddresses[0], state.LinkLayerDeviceAddress{
 		DeviceName:       setArgs[lastArgsIndex].DeviceName,
 		ConfigMethod:     setArgs[lastArgsIndex].ConfigMethod,

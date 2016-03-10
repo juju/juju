@@ -545,11 +545,6 @@ type LinkLayerDeviceAddress struct {
 	GatewayAddress string
 }
 
-const (
-	loopbackIPv4CIDR = "127.0.0.0/8"
-	loopbackIPv6CIDR = "::1/128"
-)
-
 // SetDevicesAddresses sets the addresses of all devices in devicesAddresses,
 // adding new or updating existing assignments as needed, in a single
 // transaction. ProviderID field can be empty if not supported by the provider,
@@ -682,12 +677,16 @@ func (m *Machine) verifyDeviceAlreadyExists(deviceName string) error {
 }
 
 func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddressDoc, error) {
-	// Ignoring the error below, as we have already checked earlier CIDRAddress
-	// parses OK.
-	ip, ipNet, _ := net.ParseCIDR(args.CIDRAddress)
+	ip, ipNet, err := net.ParseCIDR(args.CIDRAddress)
+	if err != nil {
+		// We already validated CIDRAddress earlier, so this cannot happen in
+		// practice, but we handle it anyway.
+		return nil, errors.Trace(err)
+	}
 	addressValue := ip.String()
 	subnetID := ipNet.String()
-	if subnetID == loopbackIPv4CIDR || subnetID == loopbackIPv6CIDR {
+	if subnetID == network.LoopbackIPv4CIDR ||
+		subnetID == network.LoopbackIPv6CIDR {
 		// Loopback addresses are not linked to a subnet.
 		subnetID = ""
 	} else if err := m.verifySubnetStillAliveWhenSet(subnetID); err != nil {

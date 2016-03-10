@@ -24,6 +24,14 @@ var (
 	ipv6UniqueLocal = mustParseCIDR("fc00::/7")
 )
 
+const (
+	// LoopbackIPv4CIDR is the loopback CIDR range for IPv4.
+	LoopbackIPv4CIDR = "127.0.0.0/8"
+
+	// LoopbackIPv6CIDR is the loopback CIDR range for IPv6.
+	LoopbackIPv6CIDR = "::1/128"
+)
+
 func mustParseCIDR(s string) *net.IPNet {
 	_, net, err := net.ParseCIDR(s)
 	if err != nil {

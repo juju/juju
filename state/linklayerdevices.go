@@ -257,7 +257,13 @@ func removeLinkLayerDeviceOps(st *State, linkLayerDeviceDocID, parentDeviceDocID
 
 	// We know the DocID has a valid format for a global key, hence the last
 	// return below is ignored.
-	machineID, deviceName, _ := parseLinkLayerDeviceGlobalKey(linkLayerDeviceDocID)
+	machineID, deviceName, canBeGlobalKey := parseLinkLayerDeviceGlobalKey(linkLayerDeviceDocID)
+	if !canBeGlobalKey {
+		return nil, errors.Errorf(
+			"link-layer device %q on machine %q has unexpected key format",
+			machineID, deviceName,
+		)
+	}
 	if numChildren > 0 {
 		return nil, newParentDeviceHasChildrenError(deviceName, numChildren)
 	}
