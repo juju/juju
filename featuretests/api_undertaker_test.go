@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/undertaker"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/watcher/watchertest"
 )
 
+// TODO(fwereade): I don't see how this is a feature test?
 type undertakerSuite struct {
 	jujutesting.JujuConnSuite
 }
@@ -30,10 +32,11 @@ func (s *undertakerSuite) TestPermDenied(c *gc.C) {
 		nonManagerMachine,
 		s.APIState,
 	} {
-		undertakerClient := undertaker.NewClient(conn)
+		undertakerClient, err := undertaker.NewClient(conn, apiwatcher.NewNotifyWatcher)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(undertakerClient, gc.NotNil)
 
-		_, err := undertakerClient.ModelInfo()
+		_, err = undertakerClient.ModelInfo()
 		c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 			Message: "permission denied",
 			Code:    "unauthorized access",
@@ -43,7 +46,8 @@ func (s *undertakerSuite) TestPermDenied(c *gc.C) {
 
 func (s *undertakerSuite) TestStateEnvironInfo(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
-	undertakerClient := undertaker.NewClient(st)
+	undertakerClient, err := undertaker.NewClient(st, apiwatcher.NewNotifyWatcher)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient, gc.NotNil)
 
 	result, err := undertakerClient.ModelInfo()
@@ -61,10 +65,11 @@ func (s *undertakerSuite) TestStateEnvironInfo(c *gc.C) {
 
 func (s *undertakerSuite) TestStateProcessDyingEnviron(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
-	undertakerClient := undertaker.NewClient(st)
+	undertakerClient, err := undertaker.NewClient(st, apiwatcher.NewNotifyWatcher)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient, gc.NotNil)
 
-	err := undertakerClient.ProcessDyingModel()
+	err = undertakerClient.ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
 	env, err := s.State.Model()
@@ -79,7 +84,8 @@ func (s *undertakerSuite) TestStateProcessDyingEnviron(c *gc.C) {
 
 func (s *undertakerSuite) TestStateRemoveEnvironFails(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
-	undertakerClient := undertaker.NewClient(st)
+	undertakerClient, err := undertaker.NewClient(st, apiwatcher.NewNotifyWatcher)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient, gc.NotNil)
 	c.Assert(undertakerClient.RemoveModel(), gc.ErrorMatches, "an error occurred, unable to remove model")
 }
@@ -161,17 +167,6 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 	c.Assert(otherSt.EnsureModelRemoved(), jc.ErrorIsNil)
 }
 
-func (s *undertakerSuite) TestHostedModelConfig(c *gc.C) {
-	undertakerClient, otherSt := s.hostedAPI(c)
-	defer otherSt.Close()
-
-	cfg, err := undertakerClient.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	uuid, ok := cfg.UUID()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(uuid, gc.Equals, otherSt.ModelUUID())
-}
-
 func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) {
 	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "hosted_env"})
 
@@ -194,7 +189,8 @@ func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) 
 	otherAPIState, err := api.Open(info, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 
-	undertakerClient := undertaker.NewClient(otherAPIState)
+	undertakerClient, err := undertaker.NewClient(otherAPIState, apiwatcher.NewNotifyWatcher)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient, gc.NotNil)
 
 	return undertakerClient, otherState
