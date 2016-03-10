@@ -38,12 +38,12 @@ func (s *LatestCharmHandlerSuite) SetUpTest(c *gc.C) {
 func (s *LatestCharmHandlerSuite) TestSuccess(c *gc.C) {
 	serviceID := names.NewServiceTag("a-service")
 	info := charmstore.CharmInfo{
-		URL:            &charm.URL{},
+		OriginalURL:    &charm.URL{},
+		Timestamp:      time.Now().UTC(),
 		LatestRevision: 2,
 		LatestResources: []charmresource.Resource{
 			resourcetesting.NewCharmResource(c, "spam", "<some data>"),
 		},
-		Timestamp: time.Now().UTC(),
 	}
 	handler := workers.NewLatestCharmHandler(s.store)
 
