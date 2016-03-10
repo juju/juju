@@ -424,6 +424,13 @@ type SetMachinesAddresses struct {
 	MachineAddresses []MachineAddresses `json:"MachineAddresses"`
 }
 
+// SetMachineNetworkConfig holds the parameters for making an API call to update
+// machine network config.
+type SetMachineNetworkConfig struct {
+	Tag    string          `json:"Tag"`
+	Config []NetworkConfig `json:"Config"`
+}
+
 // MachineAddressesResult holds a list of machine addresses or an
 // error.
 type MachineAddressesResult struct {
