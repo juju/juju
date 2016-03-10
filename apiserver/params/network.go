@@ -52,6 +52,8 @@ type Subnet struct {
 }
 
 // Network describes a single network available on an instance.
+//
+// TODO(dimitern): No longer used, drop at the end of this PoC.
 type Network struct {
 	// Tag is the network's tag.
 	Tag string `json:"Tag"`
@@ -69,6 +71,8 @@ type Network struct {
 
 // NetworkInterface describes a single network interface available on
 // an instance.
+//
+// TODO(dimitern): No longer used, drop at the end of this PoC.
 type NetworkInterface struct {
 	// MACAddress is the network interface's hardware MAC address
 	// (e.g. "aa:bb:cc:dd:ee:ff").
@@ -107,9 +111,14 @@ type NetworkConfig struct {
 	CIDR string `json:"CIDR"`
 
 	// NetworkName is juju-internal name of the network.
-	// TODO(dimitern) This should be removed or adapted to the model
-	// once spaces are introduced.
+	//
+	// TODO(dimitern): No longer used, drop at the end of this PoC.
 	NetworkName string `json:"NetworkName"`
+
+	// MTU is the Maximum Transmission Unit controlling the maximum size of the
+	// protocol packats that the interface can pass through. It is only used
+	// when > 0.
+	MTU int `json:"MTU"`
 
 	// ProviderId is a provider-specific network interface id.
 	ProviderId string `json:"ProviderId"`
@@ -118,6 +127,18 @@ type NetworkConfig struct {
 	// interface is attached to.
 	ProviderSubnetId string `json:"ProviderSubnetId"`
 
+	// ProviderSpaceId is a provider-specific space id, to which the interface
+	// is attached to, if known and supported.
+	ProviderSpaceId string `json:"ProviderSpaceId"`
+
+	// ProviderAddressId is the provider-specific id of the assigned address, if
+	// supported and known.
+	ProviderAddressId string `json:"ProviderAddressId"`
+
+	// ProviderVLANId is the provider-specific id of the assigned address's
+	// VLAN, if supported and known.
+	ProviderVLANId string `json:"ProviderVLANId"`
+
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.
 	VLANTag int `json:"VLANTag"`
@@ -125,6 +146,12 @@ type NetworkConfig struct {
 	// InterfaceName is the raw OS-specific network device name (e.g.
 	// "eth1", even for a VLAN eth1.42 virtual interface).
 	InterfaceName string `json:"InterfaceName"`
+
+	// ParentInterfaceName is the name of the parent interface to use, if known.
+	ParentInterfaceName string `json:"ParentInterfaceName"`
+
+	// InterfaceType is the type of the interface.
+	InterfaceType string `json:"InterfaceType"`
 
 	// Disabled is true when the interface needs to be disabled on the
 	// machine, e.g. not to configure it at all or stop it if running.
@@ -151,6 +178,11 @@ type NetworkConfig struct {
 	// interface.
 	DNSServers []string `json:"DNSServers,omitempty"`
 
+	// DNSServers contains an optional list of IP addresses and/or
+	// hostnames to configure as DNS servers for this network
+	// interface.
+	DNSSearchDomains []string `json:"DNSSearchDomains,omitempty"`
+
 	// Gateway address, if set, defines the default gateway to
 	// configure for this network interface. For containers this
 	// usually (one of) the host address(es).
@@ -159,6 +191,8 @@ type NetworkConfig struct {
 	// ExtraConfig can contain any valid setting and its value allowed
 	// inside an "iface" section of a interfaces(5) config file, e.g.
 	// "up", "down", "mtu", etc.
+	//
+	// TODO(dimitern): Never used, drop at the end of this PoC.
 	ExtraConfig map[string]string `json:"ExtraConfig,omitempty"`
 }
 

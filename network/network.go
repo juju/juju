@@ -220,7 +220,7 @@ type InterfaceInfo struct {
 	// "eth1", even for a VLAN eth1.42 virtual interface).
 	InterfaceName string
 
-	// ParentInterfaceName is the name of the parent interface to use, if know.
+	// ParentInterfaceName is the name of the parent interface to use, if known.
 	ParentInterfaceName string
 
 	// InterfaceType is the type of the interface.
