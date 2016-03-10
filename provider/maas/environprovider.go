@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -11,7 +12,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
-	"fmt"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
