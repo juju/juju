@@ -22,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/version"
@@ -30,7 +31,6 @@ import (
 const (
 	guiConfigPath = "templates/config.js.go"
 	guiIndexPath  = "templates/index.html.go"
-	guiSpritePath = "static/gui/build/app/assets/stack/svg/sprite.css.svg"
 )
 
 type guiSuite struct {
@@ -81,8 +81,8 @@ var guiHandlerTests = []struct {
 	expectedError string
 }{{
 	about:          "metadata not found",
-	expectedStatus: http.StatusInternalServerError,
-	expectedError:  "GUI metadata not found",
+	expectedStatus: http.StatusNotFound,
+	expectedError:  "Juju GUI not found",
 }, {
 	about: "GUI directory is a file",
 	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
@@ -106,7 +106,11 @@ var guiHandlerTests = []struct {
 			SHA256: "fake-hash",
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		err = os.MkdirAll(baseDir, 0000)
+		// Do not start by creating the directory with no permissions as it
+		// seems it makes the test fail on Windows.
+		err = os.MkdirAll(baseDir, 0700)
+		c.Assert(err, jc.ErrorIsNil)
+		err = os.Chmod(baseDir, 0000)
 		c.Assert(err, jc.ErrorIsNil)
 		return ""
 	},
@@ -135,7 +139,7 @@ var guiHandlerTests = []struct {
 	about: "index: template not found",
 	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
 		setupGUIArchive(c, storage, "2.0.42", map[string]string{
-			guiSpritePath: "",
+			apiserver.SpritePath: "",
 		})
 		return ""
 	},
@@ -145,8 +149,8 @@ var guiHandlerTests = []struct {
 	about: "index: invalid template",
 	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
 		setupGUIArchive(c, storage, "2.0.47", map[string]string{
-			guiIndexPath:  "{{.BadWolf.47}}",
-			guiSpritePath: "",
+			guiIndexPath:         "{{.BadWolf.47}}",
+			apiserver.SpritePath: "",
 		})
 		return ""
 	},
@@ -156,8 +160,8 @@ var guiHandlerTests = []struct {
 	about: "index: invalid template and context",
 	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
 		setupGUIArchive(c, storage, "2.0.47", map[string]string{
-			guiIndexPath:  "{{range .debug}}{{end}}",
-			guiSpritePath: "",
+			guiIndexPath:         "{{range .debug}}{{end}}",
+			apiserver.SpritePath: "",
 		})
 		return ""
 	},
@@ -227,7 +231,7 @@ var guiHandlerTests = []struct {
 	},
 	pathAndquery:        "/combo?voy/janeway.js&tng/picard.js&borg.js&ds9/sisko.js",
 	expectedStatus:      http.StatusOK,
-	expectedContentType: "application/javascript",
+	expectedContentType: apiserver.JSMimeType,
 	expectedBody: `voyager
 /* janeway.js */
 enterprise
@@ -259,7 +263,7 @@ deep space nine
 	},
 	pathAndquery:        "/static/file.js",
 	expectedStatus:      http.StatusOK,
-	expectedContentType: "application/javascript",
+	expectedContentType: apiserver.JSMimeType,
 	expectedBody:        "static file content",
 }, {
 	about: "static files: invalid hash",
@@ -350,8 +354,8 @@ func (s *guiSuite) TestGUIIndex(c *gc.C) {
 </body>
 </html>`
 	hash := setupGUIArchive(c, storage, "2.0.0", map[string]string{
-		guiIndexPath:  indexContent,
-		guiSpritePath: "sprite content",
+		guiIndexPath:         indexContent,
+		apiserver.SpritePath: "sprite content",
 	})
 	expectedIndexContent := fmt.Sprintf(`
 <!DOCTYPE html>
@@ -410,7 +414,7 @@ var config = {
 	resp := s.sendRequest(c, httpRequestParams{
 		url: s.guiURL(c, hash, "/config.js"),
 	})
-	body := assertResponse(c, resp, http.StatusOK, "application/javascript")
+	body := assertResponse(c, resp, http.StatusOK, apiserver.JSMimeType)
 	c.Assert(string(body), gc.Equals, expectedConfigContent)
 }
 
@@ -422,8 +426,8 @@ func (s *guiSuite) TestGUIDirectory(c *gc.C) {
 	// Create a Juju GUI archive and save it into the storage.
 	indexContent := "<!DOCTYPE html><html><body>Exterminate!</body></html>"
 	hash := setupGUIArchive(c, storage, "2.0.0", map[string]string{
-		guiIndexPath:  indexContent,
-		guiSpritePath: "",
+		guiIndexPath:         indexContent,
+		apiserver.SpritePath: "",
 	})
 
 	// Initially the GUI directory on the server is empty.

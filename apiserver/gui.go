@@ -170,7 +170,7 @@ func guiVersionAndHash(storage binarystorage.Storage) (vers, hash string, err er
 		return "", "", errors.Annotate(err, "cannot retrieve GUI metadata")
 	}
 	if len(allMeta) == 0 {
-		return "", "", errors.New("GUI metadata not found")
+		return "", "", errors.NotFoundf("Juju GUI")
 	}
 	return allMeta[0].Version, allMeta[0].SHA256, nil
 }
