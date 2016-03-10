@@ -114,6 +114,13 @@ func (s *serviceSuite) TestCharmURL(c *gc.C) {
 	c.Assert(force, jc.IsFalse)
 }
 
+func (s *serviceSuite) TestCharmModifiedVersion(c *gc.C) {
+	// Get the charm URL through state calls.
+	ver, err := s.apiService.CharmModifiedVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ver, gc.Equals, s.wordpressService.CharmModifiedVersion())
+}
+
 func (s *serviceSuite) TestOwnerTag(c *gc.C) {
 	tag, err := s.apiService.OwnerTag()
 	c.Assert(err, jc.ErrorIsNil)

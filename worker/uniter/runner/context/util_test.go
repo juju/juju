@@ -265,6 +265,10 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Name(), gc.Equals, "db")
 	c.Assert(r.FakeId(), gc.Equals, "db:1")
+
+	az, err := ctx.AvailabilityZone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(az, gc.Equals, "a-zone")
 }
 
 func (s *HookContextSuite) AssertNotActionContext(c *gc.C, ctx *context.HookContext) {

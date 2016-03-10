@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package persistence
+package state
 
 import (
 	"github.com/juju/errors"
@@ -9,6 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/state/statetest"
 )
 
 var _ = gc.Suite(&StagedResourceSuite{})
@@ -17,20 +19,18 @@ type StagedResourceSuite struct {
 	testing.IsolationSuite
 
 	stub *testing.Stub
-	base *stubStatePersistence
+	base *statetest.StubPersistence
 }
 
 func (s *StagedResourceSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stub = &testing.Stub{}
-	s.base = &stubStatePersistence{
-		stub: s.stub,
-	}
+	s.base = statetest.NewStubPersistence(s.stub)
 }
 
 func (s *StagedResourceSuite) newStagedResource(c *gc.C, serviceID, name string) (*StagedResource, resourceDoc) {
-	stored, doc := newResource(c, serviceID, name)
+	stored, doc := newPersistenceResource(c, serviceID, name)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, ignoredErr)
 	staged := &StagedResource{
@@ -101,13 +101,14 @@ func (s *StagedResourceSuite) TestUnstageOkay(c *gc.C) {
 func (s *StagedResourceSuite) TestActivateOkay(c *gc.C) {
 	staged, doc := s.newStagedResource(c, "a-service", "spam")
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, nil, ignoredErr)
+	s.stub.SetErrors(nil, nil, nil, nil, ignoredErr)
 
 	err := staged.Activate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Run", "RunTransaction")
-	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
+	s.stub.CheckCallNames(c, "Run", "One", "IncCharmModifiedVersionOps", "RunTransaction")
+	s.stub.CheckCall(c, 2, "IncCharmModifiedVersionOps", "a-service")
+	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam",
 		Assert: txn.DocMissing,
@@ -122,13 +123,14 @@ func (s *StagedResourceSuite) TestActivateOkay(c *gc.C) {
 func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 	staged, doc := s.newStagedResource(c, "a-service", "spam")
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, txn.ErrAborted, nil, ignoredErr)
+	s.stub.SetErrors(nil, nil, nil, txn.ErrAborted, nil, nil, nil, ignoredErr)
 
 	err := staged.Activate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Run", "RunTransaction", "RunTransaction")
-	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
+	s.stub.CheckCallNames(c, "Run", "One", "IncCharmModifiedVersionOps", "RunTransaction", "One", "IncCharmModifiedVersionOps", "RunTransaction")
+	s.stub.CheckCall(c, 2, "IncCharmModifiedVersionOps", "a-service")
+	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam",
 		Assert: txn.DocMissing,
@@ -138,7 +140,8 @@ func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 		Id:     "resource#a-service/spam#staged",
 		Remove: true,
 	}})
-	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
+	s.stub.CheckCall(c, 5, "IncCharmModifiedVersionOps", "a-service")
+	s.stub.CheckCall(c, 6, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam",
 		Assert: txn.DocExists,

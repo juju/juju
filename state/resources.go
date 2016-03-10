@@ -5,6 +5,7 @@ package state
 
 import (
 	"io"
+	"time"
 
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
@@ -37,7 +38,14 @@ type Resources interface {
 	UpdatePendingResource(serviceID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
 
 	// OpenResource returns the metadata for a resource and a reader for the resource.
-	OpenResource(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error)
+	OpenResource(serviceID, name string) (resource.Resource, io.ReadCloser, error)
+
+	// OpenResourceForUniter returns the metadata for a resource and a reader for the resource.
+	OpenResourceForUniter(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error)
+
+	// SetCharmStoreResources sets the "polled" resources for the
+	// service to the provided values.
+	SetCharmStoreResources(serviceID string, info []charmresource.Resource, lastPolled time.Time) error
 
 	// NewResolvePendingResourcesOps generates mongo transaction operations
 	// to set the identified resources as active.

@@ -129,11 +129,6 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeTryAgain,
 }, {
-	err:        state.UpgradeInProgressError,
-	code:       params.CodeUpgradeInProgress,
-	status:     http.StatusInternalServerError,
-	helperFunc: params.IsCodeUpgradeInProgress,
-}, {
 	err:        leadership.ErrClaimDenied,
 	code:       params.CodeLeadershipClaimDenied,
 	status:     http.StatusInternalServerError,

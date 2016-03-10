@@ -50,6 +50,7 @@ func Connect(cfg Config) (*Client, error) {
 	return conn, nil
 }
 
+var lxdNewClient = lxd.NewClient
 var lxdNewClientFromInfo = lxd.NewClientFromInfo
 var lxdLoadConfig = lxd.LoadConfig
 

@@ -237,10 +237,15 @@ type mockService struct {
 	tag                   names.ServiceTag
 	life                  params.Life
 	curl                  *charm.URL
+	charmModifiedVersion  int
 	forceUpgrade          bool
 	serviceWatcher        *mockNotifyWatcher
 	leaderSettingsWatcher *mockNotifyWatcher
 	relationsWatcher      *mockStringsWatcher
+}
+
+func (s *mockService) CharmModifiedVersion() (int, error) {
+	return s.charmModifiedVersion, nil
 }
 
 func (s *mockService) CharmURL() (*charm.URL, bool, error) {

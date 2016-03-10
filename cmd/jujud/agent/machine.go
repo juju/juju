@@ -884,8 +884,12 @@ func (a *MachineAgent) updateSupportedContainers(
 			// Explicitly call the non-named constructor so if anyone
 			// adds additional fields, this fails.
 			container.ImageURLGetterConfig{
-				st.Addr(), modelUUID.Id(), []byte(agentConfig.CACert()),
-				cfg.CloudImageBaseURL(), container.ImageDownloadURL,
+				ServerRoot:        st.Addr(),
+				ModelUUID:         modelUUID.Id(),
+				CACert:            []byte(agentConfig.CACert()),
+				CloudimgBaseUrl:   cfg.CloudImageBaseURL(),
+				Stream:            cfg.ImageStream(),
+				ImageDownloadFunc: container.ImageDownloadURL,
 			})
 	}
 	params := provisioner.ContainerSetupParams{
@@ -1215,6 +1219,11 @@ func (a *MachineAgent) startEnvWorkers(
 		}
 		return w, nil
 	})
+
+	for name, factory := range registeredModelWorkers {
+		newWorker := factory(st)
+		singularRunner.StartWorker(name, newWorker)
+	}
 
 	return runner, nil
 }
