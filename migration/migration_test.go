@@ -267,3 +267,17 @@ func (*noOpUploader) UploadCharm(*charm.URL, io.ReadSeeker) (*charm.URL, error) 
 func (*noOpUploader) UploadTools(io.ReadSeeker, version.Binary, ...string) (*tools.Tools, error) {
 	return nil, nil
 }
+
+type ExportSuite struct {
+	statetesting.StateSuite
+}
+
+var _ = gc.Suite(&ExportSuite{})
+
+func (s *ExportSuite) TestExportModel(c *gc.C) {
+	bytes, err := migration.ExportModel(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	// The bytes must be a valid model.
+	_, err = description.Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+}

@@ -27,6 +27,21 @@ import (
 
 var logger = loggo.GetLogger("juju.migration")
 
+// ExportModel creates a description.Model representation of the active model
+// for the state instance, and returns the serialized version. Primarily here
+// as a symetric method for ImportModel.
+func ExportModel(st *state.State) ([]byte, error) {
+	model, err := st.Export()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	bytes, err := description.Serialize(model)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return bytes, nil
+}
+
 // ImportModel deserializes a model description from the bytes, transforms
 // the model config based on information from the controller model, and then
 // imports that as a new database model.
