@@ -7,10 +7,12 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/names"
+	jujutesting "github.com/juju/testing"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
-	gc "gopkg.in/check.v1"
-
+	"github.com/juju/juju/api"
 	masterapi "github.com/juju/juju/api/migrationmaster"
 	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/testing"
@@ -20,15 +22,26 @@ import (
 
 type Suite struct {
 	coretesting.BaseSuite
+	stub       *jujutesting.Stub
+	connection stubConnection
 }
 
 var _ = gc.Suite(&Suite{})
 
 func (s *Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
+	s.stub = new(jujutesting.Stub)
+	s.connection.stub = s.stub
+	s.PatchValue(migrationmaster.ApiOpen, s.apiOpen)
 }
 
-func (s *Suite) TestWatchesForMigration(c *gc.C) {
+func (s *Suite) apiOpen(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
+	s.stub.AddCall("apiOpen", info, dialOpts)
+	return &s.connection, nil
+}
+
+func (s *Suite) TestMigrationHandling(c *gc.C) {
 	client := newMockClient()
 	w := migrationmaster.New(client)
 
@@ -52,15 +65,36 @@ func (s *Suite) TestWatchesForMigration(c *gc.C) {
 	}
 
 	// Trigger migration.
-	client.watcher.changes <- migration.TargetInfo{}
+	client.watcher.changes <- migration.TargetInfo{
+		ControllerTag: names.NewModelTag("uuid"),
+		Addrs:         []string{"1.2.3.4:5"},
+		CACert:        "cert",
+		AuthTag:       names.NewUserTag("admin"),
+		Password:      "secret",
+	}
 
 	// Worker should exit for now (TEMPORARY)
 	select {
 	case err := <-doneC:
-		c.Assert(err, gc.ErrorMatches, "migration seen")
+		c.Assert(err, gc.ErrorMatches, "migration seen and aborted")
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for worker to stop")
 	}
+
+	// API connection should have been established and closed.
+	expectedApiInfo := &api.Info{
+		Addrs:    []string{"1.2.3.4:5"},
+		CACert:   "cert",
+		Tag:      names.NewUserTag("admin"),
+		Password: "secret",
+	}
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"apiOpen", []interface{}{expectedApiInfo, api.DefaultDialOpts()}},
+		{"Connection.Close", []interface{}{}},
+	})
+
+	// The migration should have been aborted.
+	c.Assert(client.phaseSet, gc.Equals, migration.ABORT)
 }
 
 func (s *Suite) TestWatchFailure(c *gc.C) {
@@ -93,6 +127,7 @@ type mockClient struct {
 	watchCalled chan bool
 	watchErr    error
 	watcher     *mockWatcher
+	phaseSet    migration.Phase
 }
 
 func (c *mockClient) Watch() (watcher.MigrationMasterWatcher, error) {
@@ -101,6 +136,11 @@ func (c *mockClient) Watch() (watcher.MigrationMasterWatcher, error) {
 		return nil, c.watchErr
 	}
 	return c.watcher, nil
+}
+
+func (c *mockClient) SetPhase(phase migration.Phase) error {
+	c.phaseSet = phase
+	return nil
 }
 
 func newMockWatcher() *mockWatcher {
@@ -125,4 +165,14 @@ func (w *mockWatcher) Wait() error {
 
 func (w *mockWatcher) Changes() <-chan migration.TargetInfo {
 	return w.changes
+}
+
+type stubConnection struct {
+	api.Connection
+	stub *jujutesting.Stub
+}
+
+func (c *stubConnection) Close() error {
+	c.stub.AddCall("Connection.Close")
+	return nil
 }
