@@ -18,7 +18,7 @@ type DeployClient interface {
 	// AddPendingResources adds pending metadata for store-based resources.
 	AddPendingResources(serviceID string, resources []charmresource.Resource) (ids []string, err error)
 	// AddPendingResource uploads data and metadata for a pending resource for the given service.
-	AddPendingResource(serviceID string, resource charmresource.Resource, r io.ReadSeeker) (id string, err error)
+	AddPendingResource(serviceID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error)
 }
 
 // DeployResources uploads the bytes for the given files to the server and
@@ -144,7 +144,7 @@ func (d deployUploader) uploadFile(resourcename, filename string) (id string, er
 		Origin: charmresource.OriginUpload,
 	}
 
-	id, err = d.client.AddPendingResource(d.serviceID, res, f)
+	id, err = d.client.AddPendingResource(d.serviceID, res, filename, f)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

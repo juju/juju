@@ -126,7 +126,7 @@ func (s *UploadSuite) TestRun(c *gc.C) {
 		"Close",
 	)
 	s.stub.CheckCall(c, 1, "OpenResource", "bar")
-	s.stub.CheckCall(c, 2, "Upload", "svc", "foo", file)
+	s.stub.CheckCall(c, 2, "Upload", "svc", "foo", "bar", file)
 }
 
 type stubUploadDeps struct {
