@@ -1163,40 +1163,21 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	return fmt.Errorf("already set")
 }
 
-// SetInstanceInfo is used to provision a machine and in one steps set
-// it's instance id, nonce, hardware characteristics, add networks and
-// network interfaces as needed.
-//
-// TODO(dimitern) Do all the operations described in a single
-// transaction, rather than using separate calls. Alternatively,
-// we can add all the things to create/set in a document in some
-// collection and have a worker that takes care of the actual work.
-// Merge SetProvisioned() in here or drop it at that point.
+// SetInstanceInfo is used to provision a machine and in one steps set it's
+// instance id, nonce, hardware characteristics, add link-layer devices and set
+// their addresses as needed.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
-	networks []NetworkInfo, interfaces []NetworkInterfaceInfo,
+	devicesArgs []LinkLayerDeviceArgs, deviceAddrs []LinkLayerDeviceAddress,
 	volumes map[names.VolumeTag]VolumeInfo,
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 ) error {
 
-	// Add the networks and interfaces first.
-	for _, network := range networks {
-		_, err := m.st.AddNetwork(network)
-		if err != nil && errors.IsAlreadyExists(err) {
-			// Ignore already existing networks.
-			continue
-		} else if err != nil {
-			return errors.Trace(err)
-		}
+	if err := m.AddLinkLayerDevices(devicesArgs...); err != nil {
+		return errors.Trace(err)
 	}
-	for _, iface := range interfaces {
-		_, err := m.AddNetworkInterface(iface)
-		if err != nil && errors.IsAlreadyExists(err) {
-			// Ignore already existing network interfaces.
-			continue
-		} else if err != nil {
-			return errors.Trace(err)
-		}
+	if err := m.SetDevicesAddresses(deviceAddrs...); err != nil {
+		return errors.Trace(err)
 	}
 	if err := setProvisionedVolumeInfo(m.st, volumes); err != nil {
 		return errors.Trace(err)

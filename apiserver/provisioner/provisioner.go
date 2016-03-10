@@ -6,6 +6,7 @@ package provisioner
 import (
 	"fmt"
 	"math/rand"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -487,37 +488,54 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 	return result, nil
 }
 
-func networkParamsToStateParams(networks []params.Network, ifaces []params.NetworkInterface) (
-	[]state.NetworkInfo, []state.NetworkInterfaceInfo, error,
+func networkParamsToStateParams(networkConfig []params.NetworkConfig) (
+	[]state.LinkLayerDeviceArgs,
+	[]state.LinkLayerDeviceAddress,
 ) {
-	stateNetworks := make([]state.NetworkInfo, len(networks))
-	for i, net := range networks {
-		tag, err := names.ParseNetworkTag(net.Tag)
-		if err != nil {
-			return nil, nil, err
+	var devicesArgs []state.LinkLayerDeviceArgs
+	var devicesAddrs []state.LinkLayerDeviceAddress
+
+	seenDeviceNames := set.NewStrings()
+	for _, netConfig := range networkConfig {
+		if !seenDeviceNames.Contains(netConfig.InterfaceName) {
+			// First time we see this, add it to devicesArgs.
+			seenDeviceNames.Add(netConfig.InterfaceName)
+			var mtu uint
+			if netConfig.MTU >= 0 {
+				mtu = uint(netConfig.MTU)
+			}
+			args := state.LinkLayerDeviceArgs{
+				Name:        netConfig.InterfaceName,
+				MTU:         mtu,
+				ProviderID:  network.Id(netConfig.ProviderId),
+				Type:        state.LinkLayerDeviceType(netConfig.InterfaceType),
+				MACAddress:  netConfig.MACAddress,
+				IsAutoStart: !netConfig.NoAutoStart,
+				IsUp:        !netConfig.Disabled,
+				ParentName:  netConfig.ParentInterfaceName,
+			}
+			devicesArgs = append(devicesArgs, args)
 		}
-		stateNetworks[i] = state.NetworkInfo{
-			Name:       tag.Id(),
-			ProviderId: network.Id(net.ProviderId),
-			CIDR:       net.CIDR,
-			VLANTag:    net.VLANTag,
+
+		cidrAddress := netConfig.Address
+		rangeSeparatorIndex := strings.LastIndex(netConfig.CIDR, "/")
+		if rangeSeparatorIndex < 0 {
+			logger.Warningf("FIXME: unexpected CIDR format %q: assuming /24", netConfig.CIDR)
+			cidrAddress += "/24"
+		} else {
+			cidrAddress += netConfig.CIDR[rangeSeparatorIndex:]
 		}
+		addr := state.LinkLayerDeviceAddress{
+			DeviceName:       netConfig.InterfaceName,
+			ConfigMethod:     state.AddressConfigMethod(netConfig.ConfigType),
+			CIDRAddress:      cidrAddress,
+			DNSServers:       netConfig.DNSServers,
+			DNSSearchDomains: netConfig.DNSSearchDomains,
+			GatewayAddress:   netConfig.GatewayAddress,
+		}
+		devicesAddrs = append(devicesAddrs, addr)
 	}
-	stateInterfaces := make([]state.NetworkInterfaceInfo, len(ifaces))
-	for i, iface := range ifaces {
-		tag, err := names.ParseNetworkTag(iface.NetworkTag)
-		if err != nil {
-			return nil, nil, err
-		}
-		stateInterfaces[i] = state.NetworkInterfaceInfo{
-			MACAddress:    iface.MACAddress,
-			NetworkName:   tag.Id(),
-			InterfaceName: iface.InterfaceName,
-			IsVirtual:     iface.IsVirtual,
-			Disabled:      iface.Disabled,
-		}
-	}
-	return stateNetworks, stateInterfaces, nil
+	return devicesArgs, devicesAddrs
 }
 
 // RequestedNetworks returns the requested networks for each given
@@ -576,10 +594,9 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		if err != nil {
 			return err
 		}
-		networks, interfaces, err := networkParamsToStateParams(arg.Networks, arg.Interfaces)
-		if err != nil {
-			return err
-		}
+		devicesArgs, devicesAddrs := networkParamsToStateParams(arg.NetworkConfig)
+		logger.Debugf("about to add devices: %+v", devicesArgs)
+		logger.Debugf("about to set devices addresses: %+v", devicesAddrs)
 		volumes, err := storagecommon.VolumesToState(arg.Volumes)
 		if err != nil {
 			return err
@@ -590,7 +607,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		}
 		if err = machine.SetInstanceInfo(
 			arg.InstanceId, arg.Nonce, arg.Characteristics,
-			networks, interfaces, volumes, volumeAttachments); err != nil {
+			devicesArgs, devicesAddrs, volumes, volumeAttachments); err != nil {
 			return errors.Annotatef(
 				err,
 				"cannot record provisioning info for %q",
