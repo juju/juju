@@ -219,48 +219,69 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 // in the new charm's metadata and returns a map of resource names to pending
 // IDs to include in the upgrage-charm call.
 func (c *upgradeCharmCommand) upgradeResources(client *api.Client, cURL *charm.URL) (map[string]string, error) {
-	// this gets the charm info that was added to the controller using addcharm.
-	charmInfo, err := client.CharmInfo(cURL.String())
-	if err != nil {
-		return nil, err
-	}
-	if len(charmInfo.Meta.Resources) == 0 {
-		return nil, nil
-	}
-	resclient, err := resourceadapters.NewAPIClient(c.NewAPIRoot)
+	meta, err := getMetaResources(cURL, client)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	svcs, err := resclient.ListResources([]string{c.ServiceName})
+	if len(meta) == 0 {
+		return nil, nil
+	}
+
+	current, err := getResources(c.ServiceName, c.NewAPIRoot)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	filtered := filterResources(meta, current, c.Resources)
+
+	// Note: the validity of user-supplied resources to be uploaded will be
+	// checked further down the stack.
+	return handleResources(c, c.Resources, c.ServiceName, filtered)
+}
+
+// TODO(ericsnow) Move these helpers into handleResources()?
+
+func getMetaResources(cURL *charm.URL, client *api.Client) (map[string]charmresource.Meta, error) {
+	// this gets the charm info that was added to the controller using addcharm.
+	charmInfo, err := client.CharmInfo(cURL.String())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return charmInfo.Meta.Resources, nil
+}
+
+func getResources(serviceID string, newAPIRoot func() (api.Connection, error)) (map[string]resource.Resource, error) {
+	resclient, err := resourceadapters.NewAPIClient(newAPIRoot)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	svcs, err := resclient.ListResources([]string{serviceID})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	// ListResources guarantees a number of values returned == number of
 	// services passed in.
-	currentResources := svcs[0].Resources
-	current := make(map[string]resource.Resource, len(currentResources))
-	for _, res := range currentResources {
-		current[res.Name] = res
-	}
-
-	metaRes := make(map[string]charmresource.Meta, len(charmInfo.Meta.Resources))
-	for name, res := range charmInfo.Meta.Resources {
-		if shouldUploadMeta(res, c.Resources, current) {
-			metaRes[name] = res
-		}
-	}
-
-	// Note: the validity of user-supplied resources to be uploaded will be
-	// checked further down the stack.
-	return handleResources(c, c.Resources, c.ServiceName, metaRes)
+	return svcs[0].AsMap(), nil
 }
 
-// shouldUploadMeta reports whether we should upload the metadata for the given
+// TODO(ericsnow) Move filterResources() and shouldUploadMeta()
+// somewhere more general under the "resource" package?
+
+func filterResources(meta map[string]charmresource.Meta, current map[string]resource.Resource, uploads map[string]string) map[string]charmresource.Meta {
+	filtered := make(map[string]charmresource.Meta)
+	for name, res := range meta {
+		if shouldUpgradeResource(res, uploads, current) {
+			filtered[name] = res
+		}
+	}
+	return filtered
+}
+
+// shouldUpgradeResource reports whether we should upload the metadata for the given
 // resource.  This is always true for resources we're adding with the --resource
 // flag. For resources we're not adding with --resource, we only upload metadata
 // for charmstore resources.  Previously uploaded resources stay pinned to the
 // data the user uploaded.
-func shouldUploadMeta(res charmresource.Meta, uploads map[string]string, current map[string]resource.Resource) bool {
+func shouldUpgradeResource(res charmresource.Meta, uploads map[string]string, current map[string]resource.Resource) bool {
 	// Always upload metadata for resources the user is uploading during
 	// upgrade-charm.
 	if _, ok := uploads[res.Name]; ok {
