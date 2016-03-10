@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-var logger = loggo.GetLogger("juju.cmd.envcmd")
+var logger = loggo.GetLogger("juju.cmd.modelcmd")
 
 // ErrNoModelSpecified is returned by commands that operate on
 // an environment if there is no current model, no model
