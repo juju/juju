@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/cmd/juju/gui"
 	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
@@ -263,6 +264,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cloud.NewAddCloudCommand())
 	r.Register(cloud.NewListCredentialsCommand())
 	r.Register(cloud.NewDetectCredentialsCommand())
+
+	// Juju GUI commands.
+	r.Register(gui.NewGUICommand())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {
