@@ -106,6 +106,8 @@ var guiHandlerTests = []struct {
 			SHA256: "fake-hash",
 		})
 		c.Assert(err, jc.ErrorIsNil)
+		// Do not start by creating the directory with no permissions as it
+		// seems it makes the test fail on Windows.
 		err = os.MkdirAll(baseDir, 0700)
 		c.Assert(err, jc.ErrorIsNil)
 		err = os.Chmod(baseDir, 0000)
