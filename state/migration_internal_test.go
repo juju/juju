@@ -47,6 +47,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	)
 
 	ignoredCollections := set.NewStrings(
+		// Precheck ensures that there are no cleanup docs.
+		cleanupsC,
 		// We don't export the controller model at this stage.
 		controllersC,
 		// Users aren't migrated.
@@ -92,7 +94,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
 	todoCollections := set.NewStrings(
 		// model
-		cleanupsC,
 		cloudimagemetadataC,
 
 		// machine
