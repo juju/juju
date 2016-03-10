@@ -69,9 +69,9 @@ func (cs ConnectSuite) TestLXDClientForCloudImagesDaily(c *gc.C) {
 	c.Check(client.BaseURL, gc.Equals, lxd.UbuntuDailyRemote.Addr)
 }
 
-func (cs ConnectSuite) TestLXDClientForCloudImagesReleases(c *gc.C) {
+func (cs ConnectSuite) TestLXDClientForCloudImagesReleased(c *gc.C) {
 	client, err := lxdClientForCloudImages(Config{
-		ImageStream: StreamReleases,
+		ImageStream: StreamReleased,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(client.BaseURL, gc.Equals, lxd.UbuntuRemote.Addr)

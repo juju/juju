@@ -18,9 +18,10 @@ type rawImageClient interface {
 
 type imageClient struct {
 	raw rawImageClient
+	config Config
 }
 
-func (i imageClient) EnsureImageExists(series string) error {
+func (i *imageClient) EnsureImageExists(series string) error {
 	name := i.ImageNameForSeries(series)
 
 	aliases, err := i.raw.ListAliases()
@@ -34,10 +35,7 @@ func (i imageClient) EnsureImageExists(series string) error {
 		}
 	}
 
-	/* "ubuntu" here is cloud-images.ubuntu.com's "releases" stream;
-	 * "ubuntu-daily" would be the daily stream
-	 */
-	ubuntu, err := lxdNewClient(&lxd.DefaultConfig, "ubuntu")
+	ubuntu, err := lxdClientForCloudImages(i.config)
 	if err != nil {
 		return err
 	}

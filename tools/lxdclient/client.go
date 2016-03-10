@@ -45,12 +45,11 @@ func Connect(cfg Config) (*Client, error) {
 		certClient:         &certClient{raw},
 		profileClient:      &profileClient{raw},
 		instanceClient:     &instanceClient{raw, remote},
-		imageClient:        &imageClient{raw},
+		imageClient:        &imageClient{raw, cfg},
 	}
 	return conn, nil
 }
 
-var lxdNewClient = lxd.NewClient
 var lxdNewClientFromInfo = lxd.NewClientFromInfo
 var lxdLoadConfig = lxd.LoadConfig
 
@@ -80,8 +79,13 @@ func newRawClient(cfg Config) (*lxd.Client, error) {
 	}
 
 	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
-		Name:          cfg.Remote.ID(),
-		Addr:          host,
+		Name: cfg.Remote.ID(),
+		RemoteConfig: lxd.RemoteConfig{
+			Addr:     host,
+			Static:   false,
+			Public:   false,
+			Protocol: "",
+		},
 		ClientPEMCert: clientCert,
 		ClientPEMKey:  clientKey,
 		ServerPEMCert: cfg.Remote.ServerPEMCert,
@@ -97,15 +101,30 @@ func newRawClient(cfg Config) (*lxd.Client, error) {
 
 // lxdClientForCloudImages creates a lxd.Client that you can use to get images
 // from cloud-images.ubuntu.com using the LXD mechanisms.
+// We support Config.ImageStream being "", "releases", or "released" to all
+// mean use the "releases" stream, while "daily" switches to daily images.
 func lxdClientForCloudImages(cfg Config) (*lxd.Client, error) {
-	remote := "ubuntu"
+	clientCert := ""
+	if cfg.Remote.Cert != nil && cfg.Remote.Cert.CertPEM != nil {
+		clientCert = string(cfg.Remote.Cert.CertPEM)
+	}
+
+	clientKey := ""
+	if cfg.Remote.Cert != nil && cfg.Remote.Cert.KeyPEM != nil {
+		clientKey = string(cfg.Remote.Cert.KeyPEM)
+	}
+
+	remote := lxd.UbuntuRemote
 	if cfg.ImageStream == StreamDaily {
-		remote = "ubuntu-daily"
+		remote = lxd.UbuntuDailyRemote
 	}
 	// No ServerPEMCert for static hosts
-	// XXX: Don't use lxdNewClient, it dumps a "client.crt" and
-	// "client.key" into the local directory
-	client, err := lxdNewClient(&lxd.DefaultConfig, remote)
+	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
+		Name:          cfg.Remote.ID(),
+		RemoteConfig:  remote,
+		ClientPEMCert: clientCert,
+		ClientPEMKey:  clientKey,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

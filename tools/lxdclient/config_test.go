@@ -42,7 +42,7 @@ type configSuite struct {
 func (s *configSuite) TestWithDefaultsOkay(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace:   "my-ns",
-		ImageStream: lxdclient.StreamReleases,
+		ImageStream: lxdclient.StreamReleased,
 		Remote:      s.remote,
 	}
 	updated, err := cfg.WithDefaults()
@@ -54,7 +54,7 @@ func (s *configSuite) TestWithDefaultsOkay(c *gc.C) {
 func (s *configSuite) TestWithDefaultsMissingRemote(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace:   "my-ns",
-		ImageStream: lxdclient.StreamReleases,
+		ImageStream: lxdclient.StreamReleased,
 	}
 	updated, err := cfg.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
@@ -62,7 +62,7 @@ func (s *configSuite) TestWithDefaultsMissingRemote(c *gc.C) {
 	c.Check(updated, jc.DeepEquals, lxdclient.Config{
 		Namespace:   "my-ns",
 		Remote:      lxdclient.Local,
-		ImageStream: lxdclient.StreamReleases,
+		ImageStream: lxdclient.StreamReleased,
 	})
 }
 
@@ -77,7 +77,7 @@ func (s *configSuite) TestWithDefaultsMissingStream(c *gc.C) {
 	c.Check(updated, jc.DeepEquals, lxdclient.Config{
 		Namespace:   "my-ns",
 		Remote:      s.remote,
-		ImageStream: lxdclient.StreamReleases,
+		ImageStream: lxdclient.StreamReleased,
 	})
 }
 
@@ -103,11 +103,11 @@ func (s *configSuite) TestValidateDailyOk(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *configSuite) TestValidateReleasesOk(c *gc.C) {
+func (s *configSuite) TestValidateReleasedOk(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace:   "my-ns",
 		Remote:      s.remote,
-		ImageStream: lxdclient.StreamReleases,
+		ImageStream: lxdclient.StreamReleased,
 	}
 	err := cfg.Validate()
 
