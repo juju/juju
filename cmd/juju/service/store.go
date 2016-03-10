@@ -74,8 +74,7 @@ func resolveCharmStoreEntityURL(args resolveCharmStoreEntityParams) (*charm.URL,
 	if url.Schema != "cs" {
 		return nil, nil, errors.Errorf("unknown schema for charm URL %q", url)
 	}
-	charmStore := charmrepo.NewCharmStore(args.csParams)
-	charmStore = config.SpecializeCharmRepo(charmStore, args.conf)
+	charmStore := config.SpecializeCharmRepo(charmrepo.NewCharmStore(args.csParams), args.conf)
 
 	resultUrl, supportedSeries, err := charmStore.Resolve(url)
 	if err != nil {
