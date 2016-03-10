@@ -65,7 +65,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 		tag1,
 	}
 
-	facade := server.NewFacade(s.data)
+	facade := server.NewFacade(s.data, s.newCSClient)
 
 	results, err := facade.ListResources(api.ListResourcesArgs{
 		Entities: []params.Entity{{
@@ -109,7 +109,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 }
 
 func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
-	facade := server.NewFacade(s.data)
+	facade := server.NewFacade(s.data, s.newCSClient)
 
 	results, err := facade.ListResources(api.ListResourcesArgs{
 		Entities: []params.Entity{{
@@ -127,7 +127,7 @@ func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
 func (s *ListResourcesSuite) TestError(c *gc.C) {
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
-	facade := server.NewFacade(s.data)
+	facade := server.NewFacade(s.data, s.newCSClient)
 
 	results, err := facade.ListResources(api.ListResourcesArgs{
 		Entities: []params.Entity{{

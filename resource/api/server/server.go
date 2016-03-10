@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/apiserver/common"
@@ -30,16 +31,28 @@ type DataStore interface {
 	UploadDataStore
 }
 
+// CharmStore exposes the functionality of the charm store as needed here.
+type CharmStore interface {
+	// ListResources composes, for each of the identified charms, the
+	// list of details for each of the charm's resources. Those details
+	// are those associated with the specific charm revision. They
+	// include the resource's metadata and revision.
+	ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error)
+}
+
 // Facade is the public API facade for resources.
 type Facade struct {
 	// store is the data source for the facade.
 	store resourceInfoStore
+
+	newCharmstoreClient func(*charm.URL) (CharmStore, error)
 }
 
 // NewFacade returns a new resoures facade for the given Juju state.
-func NewFacade(store DataStore) *Facade {
+func NewFacade(store DataStore, newClient func(*charm.URL) (CharmStore, error)) *Facade {
 	return &Facade{
-		store: store,
+		store:               store,
+		newCharmstoreClient: newClient,
 	}
 }
 
@@ -106,6 +119,8 @@ func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPe
 	}
 	serviceID := tag.Id()
 
+	// TODO(ericsnow) Pull from charmstore here.
+
 	var ids []string
 	for _, apiRes := range args.Resources {
 		pendingID, err := f.addPendingResource(serviceID, apiRes)
@@ -120,6 +135,18 @@ func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPe
 	}
 	result.PendingIDs = ids
 	return result, nil
+}
+
+func (f Facade) resourcesFromCharmstore(cURL *charm.URL) ([]charmresource.Resource, error) {
+	client, err := f.newCharmstoreClient(cURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results, err := client.ListResources([]*charm.URL{cURL})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return results[0], nil
 }
 
 func (f Facade) addPendingResource(serviceID string, apiRes api.CharmResource) (pendingID string, err error) {
