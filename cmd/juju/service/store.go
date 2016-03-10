@@ -60,81 +60,46 @@ type resolveCharmStoreEntityParams struct {
 	requestedSeries string
 	forceSeries     bool
 	csParams        charmrepo.NewCharmStoreParams
-	repoPath        string
 	conf            *config.Config
 }
 
 // resolveCharmStoreEntityURL resolves the given charm or bundle URL string
-// by looking it up in the appropriate charm repository.
-// If it is a charm store URL, the given csParams will
-// be used to access the charm store repository.
-// If it is a local charm or bundle URL, the local charm repository at
-// the given repoPath will be used. The given configuration
-// will be used to add any necessary attributes to the repo
-// and to return the charm's supported series if possible.
-//
-// resolveCharmStoreEntityURL also returns the charm repository holding
-// the charm or bundle.
-func resolveCharmStoreEntityURL(args resolveCharmStoreEntityParams) (*charm.URL, []string, charmrepo.Interface, error) {
+// by looking it up in the charm store, using the given csParams to access
+// the charm store repository.
+func resolveCharmStoreEntityURL(args resolveCharmStoreEntityParams) (*charm.URL, []string, error) {
 	url, err := charm.ParseURL(args.urlStr)
 	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	repo, err := charmrepo.InferRepository(url, args.csParams, args.repoPath)
-	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
+	if url.Schema != "cs" {
+		return nil, nil, errors.Errorf("unknown schema for charm URL %q", url)
 	}
-	repo = config.SpecializeCharmRepo(repo, args.conf)
+	charmStore := charmrepo.NewCharmStore(args.csParams)
+	charmStore = config.SpecializeCharmRepo(charmStore, args.conf)
 
-	if url.Schema == "local" && url.Series == "" {
-		if defaultSeries, ok := args.conf.DefaultSeries(); ok {
-			url.Series = defaultSeries
-		}
-		if url.Series == "" {
-			possibleURL := *url
-			possibleURL.Series = config.LatestLtsSeries()
-			logger.Errorf("The series is not specified in the model (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
-			return nil, nil, nil, errors.Errorf("cannot resolve series for charm: %q", url)
-		}
-	}
-	resultUrl, supportedSeries, err := repo.Resolve(url)
+	resultUrl, supportedSeries, err := charmStore.Resolve(url)
 	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	return resultUrl, supportedSeries, repo, nil
+	return resultUrl, supportedSeries, nil
 }
 
 // addCharmFromURL calls the appropriate client API calls to add the
 // given charm URL to state. For non-public charm URLs, this function also
 // handles the macaroon authorization process using the given csClient.
 // The resulting charm URL of the added charm is displayed on stdout.
-func addCharmFromURL(client *api.Client, curl *charm.URL, repo charmrepo.Interface, csclient *csClient) (*charm.URL, error) {
-	switch curl.Schema {
-	case "local":
-		ch, err := repo.Get(curl)
+func addCharmFromURL(client *api.Client, curl *charm.URL, csclient *csClient) (*charm.URL, error) {
+	if err := client.AddCharm(curl); err != nil {
+		if !params.IsCodeUnauthorized(err) {
+			return nil, errors.Trace(err)
+		}
+		m, err := csclient.authorize(curl)
 		if err != nil {
-			return nil, err
+			return nil, maybeTermsAgreementError(err)
 		}
-		stateCurl, err := client.AddLocalCharm(curl, ch)
-		if err != nil {
-			return nil, err
+		if err := client.AddCharmWithAuthorization(curl, m); err != nil {
+			return nil, errors.Trace(err)
 		}
-		curl = stateCurl
-	case "cs":
-		if err := client.AddCharm(curl); err != nil {
-			if !params.IsCodeUnauthorized(err) {
-				return nil, errors.Trace(err)
-			}
-			m, err := csclient.authorize(curl)
-			if err != nil {
-				return nil, maybeTermsAgreementError(err)
-			}
-			if err := client.AddCharmWithAuthorization(curl, m); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-	default:
-		return nil, fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
 	}
 	return curl, nil
 }

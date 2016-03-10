@@ -88,8 +88,8 @@ var resolvedTests = []struct {
 }
 
 func (s *ResolvedSuite) TestResolved(c *gc.C) {
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "-n", "5", "local:dummy", "dummy")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+	err := runDeploy(c, "-n", "5", ch, "dummy", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, name := range []string{"dummy/2", "dummy/3", "dummy/4"} {
@@ -116,8 +116,8 @@ func (s *ResolvedSuite) TestResolved(c *gc.C) {
 }
 
 func (s *ResolvedSuite) TestBlockResolved(c *gc.C) {
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "-n", "5", "local:dummy", "dummy")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+	err := runDeploy(c, "-n", "5", ch, "dummy", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, name := range []string{"dummy/2", "dummy/3", "dummy/4"} {

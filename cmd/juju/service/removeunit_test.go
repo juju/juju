@@ -37,8 +37,8 @@ func runRemoveUnit(c *gc.C, args ...string) error {
 }
 
 func (s *RemoveUnitSuite) setupUnitForRemove(c *gc.C) *state.Service {
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "-n", "2", "local:dummy", "dummy")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+	err := runDeploy(c, "-n", "2", ch, "dummy", "--series", testing.FakeDefaultSeries)
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", testing.FakeDefaultSeries))
 	svc, _ := s.AssertService(c, "dummy", curl, 2, 0)

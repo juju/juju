@@ -32,7 +32,6 @@ type upgradeCharmCommand struct {
 	ServiceName string
 	ForceUnits  bool
 	ForceSeries bool
-	RepoPath    string // defaults to JUJU_REPOSITORY
 	SwitchURL   string
 	CharmPath   string
 	Revision    int // defaults to -1 (latest)
@@ -45,19 +44,14 @@ When no flags are set, the service's charm will be upgraded to the latest
 revision available in the repository from which it was originally deployed. An
 explicit revision can be chosen with the --revision flag.
 
-If the charm was not originally deployed from a repository, but from a path,
-then a path will need to be supplied to allow an updated copy of the charm
+A path will need to be supplied to allow an updated copy of the charm
 to be located.
 
-If the charm came from a local repository, its path will be assumed to be
-$JUJU_REPOSITORY unless overridden by --repository. Note that deploying from
-a local repository is deprecated in favour of deploying from a path.
-
-Deploying from a path or local repository is intended to suit the workflow of a charm
-author working on a single client machine; use of this deployment method from
-multiple clients is not supported and may lead to confusing behaviour. Each
-local charm gets uploaded with the revision specified in the charm, if possible,
-otherwise it gets a unique revision (highest in state + 1).
+Deploying from a path is intended to suit the workflow of a charm author working
+on a single client machine; use of this deployment method from multiple clients
+is not supported and may lead to confusing behaviour. Each local charm gets
+uploaded with the revision specified in the charm, if possible, otherwise it
+gets a unique revision (highest in state + 1).
 
 When deploying from a path, the --path flag is used to specify the location from
 which to load the updated charm. Note that the directory containing the charm must
@@ -76,10 +70,6 @@ If the new version of a charm does not explicitly support the service's series, 
 upgrade is disallowed unless the --force-series flag is used. This option should be
 used with caution since using a charm on a machine running an unsupported series may
 cause unexpected behavior.
-
-When using a local repository, the --switch flag allows you to replace the charm
-with an entirely different one. The new charm's URL and revision are inferred as
-they would be when running a deploy command.
 
 Please note that --switch is dangerous, because juju only has limited
 information with which to determine compatibility; the operation will succeed,
@@ -118,7 +108,6 @@ func (c *upgradeCharmCommand) Info() *cmd.Info {
 func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.ForceUnits, "force-units", false, "upgrade all units immediately, even if in error state")
 	f.BoolVar(&c.ForceSeries, "force-series", false, "upgrade even if series of deployed services are not supported by the new charm")
-	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository path")
 	f.StringVar(&c.SwitchURL, "switch", "", "crossgrade to a different charm")
 	f.StringVar(&c.CharmPath, "path", "", "upgrade to a charm located at path")
 	f.IntVar(&c.Revision, "revision", -1, "explicit revision of current charm")
@@ -260,12 +249,11 @@ func (c *upgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *
 		return nil, err
 	}
 
-	newURL, supportedSeries, repo, err := resolveCharmStoreEntityURL(resolveCharmStoreEntityParams{
+	newURL, supportedSeries, err := resolveCharmStoreEntityURL(resolveCharmStoreEntityParams{
 		urlStr:          charmRef,
 		requestedSeries: oldURL.Series,
 		forceSeries:     c.ForceSeries,
 		csParams:        csClient.params,
-		repoPath:        ctx.AbsPath(c.RepoPath),
 		conf:            conf,
 	})
 	if err != nil {
@@ -288,15 +276,13 @@ func (c *upgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *
 		if newRef.Revision != -1 {
 			return nil, fmt.Errorf("already running specified charm %q", newURL)
 		}
-		if newURL.Schema == "cs" {
-			// No point in trying to upgrade a charm store charm when
-			// we just determined that's the latest revision
-			// available.
-			return nil, fmt.Errorf("already running latest charm %q", newURL)
-		}
+		// No point in trying to upgrade a charm store charm when
+		// we just determined that's the latest revision
+		// available.
+		return nil, fmt.Errorf("already running latest charm %q", newURL)
 	}
 
-	addedURL, err := addCharmFromURL(client, newURL, repo, csClient)
+	addedURL, err := addCharmFromURL(client, newURL, csClient)
 	if err != nil {
 		return nil, err
 	}

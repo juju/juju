@@ -1966,21 +1966,14 @@ func (s *ConfigSuite) TestGenerateControllerCertAndKey(c *gc.C) {
 var specializeCharmRepoTests = []struct {
 	about    string
 	testMode bool
-	repo     charmrepo.Interface
+	repo     *charmrepo.CharmStore
 }{{
 	about: "test mode disabled, charm store",
 	repo:  &specializedCharmRepo{},
 }, {
-	about: "test mode disabled, local repo",
-	repo:  &charmrepo.LocalRepository{},
-}, {
 	about:    "test mode enabled, charm store",
 	testMode: true,
 	repo:     &specializedCharmRepo{},
-}, {
-	about:    "test mode enabled, local repo",
-	testMode: true,
-	repo:     &charmrepo.LocalRepository{},
 }}
 
 func (s *ConfigSuite) TestSpecializeCharmRepo(c *gc.C) {
@@ -1988,12 +1981,8 @@ func (s *ConfigSuite) TestSpecializeCharmRepo(c *gc.C) {
 		c.Logf("test %d: %s", i, test.about)
 		cfg := newTestConfig(c, testing.Attrs{"test-mode": test.testMode})
 		repo := config.SpecializeCharmRepo(test.repo, cfg)
-		if store, ok := repo.(*specializedCharmRepo); ok {
-			c.Assert(store.testMode, gc.Equals, test.testMode)
-			continue
-		}
-		// Just check that the original local repo has not been modified.
-		c.Assert(repo.(*charmrepo.LocalRepository), gc.Equals, test.repo)
+		store := repo.(*specializedCharmRepo)
+		c.Assert(store.testMode, gc.Equals, test.testMode)
 	}
 }
 
@@ -2002,7 +1991,7 @@ type specializedCharmRepo struct {
 	testMode bool
 }
 
-func (s *specializedCharmRepo) WithTestMode() charmrepo.Interface {
+func (s *specializedCharmRepo) WithTestMode() *specializedCharmRepo {
 	s.testMode = true
 	return s
 }

@@ -5,6 +5,7 @@ package service
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/api"
@@ -25,6 +27,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
+	"os"
 )
 
 var watchAll = func(c *api.Client) (allWatcher, error) {
@@ -47,9 +50,9 @@ type deploymentLogger interface {
 // charm store client. The deployment is not transactional, and its progress is
 // notified using the given deployment logger.
 func deployBundle(
-	data *charm.BundleData, client *api.Client, serviceDeployer *serviceDeployer,
-	csclient *csClient, repoPath string, conf *config.Config, log deploymentLogger,
-	bundleStorage map[string]map[string]storage.Constraints,
+	bundleFilePath string, data *charm.BundleData, client *api.Client,
+	serviceDeployer *serviceDeployer, csclient *csClient, conf *config.Config,
+	log deploymentLogger, bundleStorage map[string]map[string]storage.Constraints,
 ) error {
 	verifyConstraints := func(s string) error {
 		_, err := constraints.Parse(s)
@@ -59,8 +62,14 @@ func deployBundle(
 		_, err := storage.ParseConstraints(s)
 		return err
 	}
-	if err := data.Verify(verifyConstraints, verifyStorage); err != nil {
-		return errors.Annotate(err, "cannot deploy bundle")
+	if bundleFilePath == "" {
+		if err := data.Verify(verifyConstraints, verifyStorage); err != nil {
+			return errors.Annotate(err, "cannot deploy bundle")
+		}
+	} else {
+		if err := data.VerifyLocal(bundleFilePath, verifyConstraints, verifyStorage); err != nil {
+			return errors.Annotate(err, "cannot deploy bundle")
+		}
 	}
 
 	// Retrieve bundle changes.
@@ -98,6 +107,7 @@ func deployBundle(
 
 	// Instantiate the bundle handler.
 	h := &bundleHandler{
+		bundleDir:         bundleFilePath,
 		changes:           changes,
 		results:           make(map[string]string, numChanges),
 		client:            client,
@@ -106,7 +116,6 @@ func deployBundle(
 		serviceDeployer:   serviceDeployer,
 		bundleStorage:     bundleStorage,
 		csclient:          csclient,
-		repoPath:          repoPath,
 		conf:              conf,
 		log:               log,
 		data:              data,
@@ -145,6 +154,8 @@ func deployBundle(
 
 // bundleHandler provides helpers and the state required to deploy a bundle.
 type bundleHandler struct {
+	// bundleDir is the path where the bundle file is located for local bundles.
+	bundleDir string
 	// changes holds the changes to be applied in order to deploy the bundle.
 	changes []bundlechanges.Change
 	// results collects data resulting from applying changes. Keys identify
@@ -174,8 +185,6 @@ type bundleHandler struct {
 	bundleStorage map[string]map[string]storage.Constraints
 	// csclient is used to retrieve charms from the charm store.
 	csclient *csClient
-	// repoPath is used to retrieve charms from a local repository.
-	repoPath string
 	// conf holds the model configuration.
 	conf *config.Config
 	// log is used to output messages to the user, so that the user can keep
@@ -199,10 +208,35 @@ type bundleHandler struct {
 
 // addCharm adds a charm to the environment.
 func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) error {
-	url, _, repo, err := resolveCharmStoreEntityURL(resolveCharmStoreEntityParams{
+	// First attempt to interpret as a local path.
+	if strings.HasPrefix(p.Charm, ".") || filepath.IsAbs(p.Charm) {
+		charmPath := p.Charm
+		if !filepath.IsAbs(charmPath) {
+			charmPath = filepath.Join(h.bundleDir, charmPath)
+		}
+
+		series := p.Series
+		if series == "" {
+			series = h.data.Series
+		}
+		ch, curl, charmErr := charmrepo.NewCharmAtPath(charmPath, series)
+		if charmErr != nil && !os.IsNotExist(charmErr) {
+			return errors.Annotatef(charmErr, "cannot deploy local charm at %q", charmPath)
+		}
+		if charmErr == nil {
+			if curl, charmErr = h.client.AddLocalCharm(curl, ch); charmErr != nil {
+				return charmErr
+			}
+			h.log.Infof("added local charm %s", curl)
+			h.results[id] = curl.String()
+			return nil
+		}
+	}
+
+	// Not a local charm, so grab from the store.
+	url, _, err := resolveCharmStoreEntityURL(resolveCharmStoreEntityParams{
 		urlStr:   p.Charm,
 		csParams: h.csclient.params,
-		repoPath: h.repoPath,
 		conf:     h.conf,
 	})
 	if err != nil {
@@ -211,7 +245,7 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) erro
 	if url.Series == "bundle" {
 		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
-	url, err = addCharmFromURL(h.client, url, repo, h.csclient)
+	url, err = addCharmFromURL(h.client, url, h.csclient)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
