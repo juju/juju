@@ -82,34 +82,17 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 
 	var output interface{}
 	if c.filesystem {
-		results, err := api.ListFilesystems(c.Ids)
+	/*	results, err := api.ListFilesystems(c.Ids)
+		if err != nil {
+			return err
+		}*/
+		output, err = c.listFilesystemscrap(ctx, api)
 		if err != nil {
 			return err
 		}
-		// filter out valid output, if any
-		var valid []params.FilesystemDetails
-		for _, result := range results {
-			if result.Error == nil {
-				valid = append(valid, result.Result...)
-				continue
-			}
-			// display individual error
-			fmt.Fprintf(ctx.Stderr, "%v\n", result.Error)
-		}
-		if len(valid) == 0 {
+		if output == nil {
 			return nil
 		}
-		info, err := convertToFilesystemInfo(valid)
-		if err != nil {
-			return err
-		}
-		switch c.out.Name() {
-		case "yaml", "json":
-			output = map[string]map[string]FilesystemInfo{"filesystems": info}
-		default:
-			output = info
-		}
-
 	} else if c.volume {
 		results, err := api.ListVolumes(c.Ids)
 		if err != nil {
@@ -168,6 +151,34 @@ type StorageListAPI interface {
 	ListFilesystems(machines []string) ([]params.FilesystemDetailsListResult, error)
 	ListVolumes(machines []string) ([]params.VolumeDetailsListResult, error)
 }
+
+/*func (c *listCommand) listFilesystems(ctx *cmd.Context, results []params.FilesystemDetailsListResult) (output interface{}, err error) {
+		// filter out valid output, if any
+		var valid []params.FilesystemDetails
+		for _, result := range results {
+			if result.Error == nil {
+				valid = append(valid, result.Result...)
+				continue
+			}
+			// display individual error
+			fmt.Fprintf(ctx.Stderr, "%v\n", result.Error)
+		}
+		if len(valid) == 0 {
+			return nil, nil
+		}
+		info, err := convertToFilesystemInfo(valid)
+		if err != nil {
+			return nil, err
+		}
+		switch c.out.Name() {
+		case "yaml", "json":
+			output = map[string]map[string]FilesystemInfo{"filesystems": info}
+		default:
+			output = info
+		}
+
+		return output, nil
+}*/
 
 func formatListTabular(value interface{}) ([]byte, error) {
 	_, ok := value.(map[string]StorageInfo)

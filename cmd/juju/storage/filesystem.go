@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"fmt"
+        "github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -67,6 +69,42 @@ type MachineFilesystemAttachment struct {
 	MountPoint string `yaml:"mount-point" json:"mount-point"`
 	ReadOnly   bool   `yaml:"read-only" json:"read-only"`
 }
+
+//func (c *listCommand) listFilesystemscrap(ctx *cmd.Context, results []params.FilesystemDetailsListResult) (output interface{}, err error) {
+func (c *listCommand) listFilesystemscrap(ctx *cmd.Context, api *listCommand.NewStorageAPI) (output interface{}, err error) {
+
+		results, err := api.ListFilesystems(c.Ids)
+                if err != nil {
+                        return nil, err
+                }
+
+		// filter out valid output, if any
+		var valid []params.FilesystemDetails
+		for _, result := range results {
+			if result.Error == nil {
+				valid = append(valid, result.Result...)
+				continue
+			}
+			// display individual error
+			fmt.Fprintf(ctx.Stderr, "%v\n", result.Error)
+		}
+		if len(valid) == 0 {
+			return nil, nil
+		}
+		info, err := convertToFilesystemInfo(valid)
+		if err != nil {
+			return nil, err
+		}
+		switch c.out.Name() {
+		case "yaml", "json":
+			output = map[string]map[string]FilesystemInfo{"filesystems": info}
+		default:
+			output = info
+		}
+
+		return output, nil
+}
+
 
 // convertToFilesystemInfo returns a map of filesystem IDs to filesystem info.
 func convertToFilesystemInfo(all []params.FilesystemDetails) (map[string]FilesystemInfo, error) {
