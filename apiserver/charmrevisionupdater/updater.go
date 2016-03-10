@@ -89,11 +89,15 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 	return nil
 }
 
-// NewCharmStoreClient instantiates a new charm store repository.
+// NewCharmStoreClientConfig returns the client config to use.
 // It is defined at top level for testing purposes.
-var NewCharmStoreClient = func(modelUUID string) (*charmstore.Client, error) {
+var NewCharmStoreClientConfig func() charmstore.ClientConfig
+
+// newCharmStoreClient instantiates a new charm store repository.
+func newCharmStoreClient(modelUUID string) (*charmstore.Client, error) {
 	// TODO(ericsnow) Use the Juju "HTTP context" once we have one.
-	client := charmstore.NewDefaultClient()
+	config := NewCharmStoreClientConfig()
+	client := charmstore.NewClient(config)
 	return client.WithMetadata(charmstore.JujuMetadata{
 		ModelUUID: modelUUID,
 	})
@@ -133,7 +137,7 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		resultsIndexedServices = append(resultsIndexedServices, service)
 	}
 
-	client, err := NewCharmStoreClient(modelUUID)
+	client, err := newCharmStoreClient(modelUUID)
 	if err != nil {
 		return nil, err
 	}
