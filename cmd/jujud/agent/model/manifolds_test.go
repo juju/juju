@@ -30,8 +30,9 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 		actual.Add(name)
 	}
 	c.Check(actual.Values(), jc.SameContents, []string{
-		"agent", "clock", "api-caller", "run-flag",
-		"environ-tracker", "space-importer",
+		"agent", "clock", "api-caller",
+		"run-flag", "not-dead-flag", "not-alive-flag",
+		"environ-tracker", "undertaker", "space-importer",
 		"storage-provisioner", "compute-provisioner",
 		"firewaller", "unit-assigner", "service-scaler",
 		"instance-poller", "charm-revision-updater",
@@ -41,7 +42,10 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 }
 
 func (s *ManifoldsSuite) TestRunFlagDependencies(c *gc.C) {
-	exclusions := set.NewStrings("agent", "api-caller", "clock", "run-flag")
+	exclusions := set.NewStrings(
+		"agent", "api-caller", "clock",
+		"run-flag", "not-dead-flag", "not-alive-flag",
+	)
 	manifolds := model.Manifolds(model.ManifoldsConfig{
 		Agent: &mockAgent{},
 	})
