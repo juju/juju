@@ -4663,7 +4663,7 @@ func (s *StateSuite) TestSetOrGetMongoSpaceNameDoesNotReplaceValidSpace(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, spaceName)
 
-	info, err = s.State.ControllerInfo()
+	info, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.MongoSpaceName, gc.Equals, string(spaceName))
 	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceValid)
