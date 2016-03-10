@@ -394,6 +394,7 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 
 	newWordpress, err := newSt.Service("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(state.RelationCount(newWordpress), gc.Equals, 1)
 	rels, err := newWordpress.Relations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rels, gc.HasLen, 1)
