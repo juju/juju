@@ -23,7 +23,7 @@ func (s *AddPendingResourcesSuite) TestOkay(c *gc.C) {
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	id1 := "some-unique-ID"
 	s.data.ReturnAddPendingResource = id1
-	facade := server.NewFacade(s.data)
+	facade := server.NewFacade(s.data, s.newCSClient)
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
@@ -48,7 +48,7 @@ func (s *AddPendingResourcesSuite) TestError(c *gc.C) {
 	_, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
-	facade := server.NewFacade(s.data)
+	facade := server.NewFacade(s.data, s.newCSClient)
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{

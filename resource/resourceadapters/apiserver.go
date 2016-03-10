@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/resource"
@@ -64,5 +65,9 @@ func NewPublicFacade(st *corestate.State, _ *common.Resources, authorizer common
 		Resources: rst,
 		State:     st,
 	}
-	return server.NewFacade(ds), nil
+	newClient := func(cURL *charm.URL) (server.CharmStore, error) {
+		opener := newCharmstoreOpener(cURL)
+		return opener.NewClient()
+	}
+	return server.NewFacade(ds, newClient), nil
 }
