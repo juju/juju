@@ -45,7 +45,7 @@ func (deps resourcesHandlerDeps) ConnectForUnitAgent(req *http.Request) (*state.
 
 func newResourceHandler(httpCtxt httpContext) http.Handler {
 	deps := resourcesHandlerDeps{httpCtxt}
-	return server.NewLegacyHTTPHandler(
+	return server.NewResourceHandler(
 		func(req *http.Request) (server.DataStore, names.Tag, error) {
 			st, entity, err := deps.ConnectForUser(req)
 			if err != nil {
