@@ -300,8 +300,7 @@ func (c *DeployCommand) maybeReadLocalBundleData() (_ *charm.BundleData, bundleF
 	if err == nil {
 		// For local bundles, we extract the local path of
 		// the bundle directory.
-		absBundlePath, err := filepath.Abs(bundleFile)
-		if err == nil {
+		if absBundlePath, err := filepath.Abs(bundleFile); err == nil {
 			bundleFilePath = filepath.Dir(absBundlePath)
 		}
 	} else {
