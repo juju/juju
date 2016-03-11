@@ -106,11 +106,7 @@ var guiHandlerTests = []struct {
 			SHA256: "fake-hash",
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		// Do not start by creating the directory with no permissions as it
-		// seems it makes the test fail on Windows.
-		err = os.MkdirAll(baseDir, 0700)
-		c.Assert(err, jc.ErrorIsNil)
-		err = os.Chmod(baseDir, 0000)
+		err = os.MkdirAll(baseDir, 0000)
 		c.Assert(err, jc.ErrorIsNil)
 		return ""
 	},
@@ -279,7 +275,8 @@ deep space nine
 func (s *guiSuite) TestGUIHandler(c *gc.C) {
 	sendRequest := func(setup guiSetupFunc, pathAndquery string) *http.Response {
 		// Set up the GUI base directory.
-		baseDir := agenttools.SharedGUIDir(s.DataDir())
+		datadir := filepath.ToSlash(s.DataDir())
+		baseDir := filepath.FromSlash(agenttools.SharedGUIDir(datadir))
 		defer func() {
 			os.Chmod(baseDir, 0755)
 			os.Remove(baseDir)
