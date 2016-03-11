@@ -262,7 +262,7 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 }
 
 func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
-	fields := set.NewStrings(
+	ignored := set.NewStrings(
 		// DocID is the env + name
 		"DocID",
 		// ModelUUID shouldn't be exported, and is inherited
@@ -274,7 +274,13 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 		"OwnerTag",
 		// TxnRevno is mgo internals and should not be migrated.
 		"TxnRevno",
-
+		// UnitCount is handled by the number of units for the exported service.
+		"UnitCount",
+		// RelationCount is handled by the number of times the service name
+		// appears in relation endpoints.
+		"RelationCount",
+	)
+	migrated := set.NewStrings(
 		"Name",
 		"Series",
 		"Subordinate",
@@ -284,13 +290,8 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 		"Exposed",
 		"MinUnits",
 		"MetricCredentials",
-		// UnitCount is handled by the number of units for the exported service.
-		"UnitCount",
 	)
-	todo := set.NewStrings(
-		"RelationCount",
-	)
-	s.AssertExportedFields(c, serviceDoc{}, fields.Union(todo))
+	s.AssertExportedFields(c, serviceDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) TestSettingsRefsDocFields(c *gc.C) {

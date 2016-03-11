@@ -636,11 +636,25 @@ func (i *importer) makeServiceDoc(s description.Service) (*serviceDoc, error) {
 		ForceCharm:           s.ForceCharm(),
 		Life:                 Alive,
 		UnitCount:            len(s.Units()),
-		// RelationCount:  TODO,
-		Exposed:           s.Exposed(),
-		MinUnits:          s.MinUnits(),
-		MetricCredentials: s.MetricsCredentials(),
+		RelationCount:        i.relationCount(s.Name()),
+		Exposed:              s.Exposed(),
+		MinUnits:             s.MinUnits(),
+		MetricCredentials:    s.MetricsCredentials(),
 	}, nil
+}
+
+func (i *importer) relationCount(service string) int {
+	count := 0
+
+	for _, rel := range i.model.Relations() {
+		for _, ep := range rel.Endpoints() {
+			if ep.ServiceName() == service {
+				count++
+			}
+		}
+	}
+
+	return count
 }
 
 func (i *importer) makeUnitDoc(s description.Service, u description.Unit) (*unitDoc, error) {

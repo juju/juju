@@ -144,10 +144,7 @@ type Machine interface {
 	// enough stuff set, like tools, and addresses etc.
 	Validate() error
 
-	// status
-	// constraints
 	// requested networks
-	// annotations
 	// reboot doc
 	// block devices
 	// network interfaces

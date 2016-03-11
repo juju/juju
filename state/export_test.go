@@ -486,6 +486,10 @@ func RemoveEndpointBindingsForService(c *gc.C, service *Service) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func RelationCount(service *Service) int {
+	return service.doc.RelationCount
+}
+
 func AssertEndpointBindingsNotFoundForService(c *gc.C, service *Service) {
 	globalKey := service.globalKey()
 	storedBindings, _, err := readEndpointBindings(service.st, globalKey)
