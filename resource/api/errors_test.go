@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common_test
+package api_test
 
 import (
 	stderrors "errors"
@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -242,31 +243,17 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 			// ServerError doesn't actually have a case for this code.
 			continue
 		}
+
+		c.Logf("  checking restore (%#v)", err1)
+		restored := api.RestoreError(err1)
+		if t.err == nil {
+			c.Check(restored, jc.ErrorIsNil)
+		} else if t.code == "" {
+			c.Check(restored.Error(), gc.Equals, t.err.Error())
+		} else {
+			// TODO(ericsnow) Use a stricter DeepEquals check.
+			c.Check(errors.Cause(restored), gc.FitsTypeOf, t.err)
+			c.Check(restored.Error(), gc.Equals, t.err.Error())
+		}
 	}
-}
-
-func (s *errorsSuite) TestUnknownModel(c *gc.C) {
-	err := common.UnknownModelError("dead-beef")
-	c.Check(err, gc.ErrorMatches, `unknown model: "dead-beef"`)
-}
-
-func (s *errorsSuite) TestDestroyErr(c *gc.C) {
-	errs := []string{
-		"error one",
-		"error two",
-		"error three",
-	}
-	ids := []string{
-		"id1",
-		"id2",
-		"id3",
-	}
-
-	c.Assert(common.DestroyErr("entities", ids, nil), jc.ErrorIsNil)
-
-	err := common.DestroyErr("entities", ids, errs)
-	c.Assert(err, gc.ErrorMatches, "no entities were destroyed: error one; error two; error three")
-
-	err = common.DestroyErr("entities", ids, errs[1:])
-	c.Assert(err, gc.ErrorMatches, "some entities were not destroyed: error two; error three")
 }
