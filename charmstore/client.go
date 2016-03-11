@@ -167,7 +167,7 @@ func (c Client) WithMetadata(meta JujuMetadata) (*Client, error) {
 	return newClient, nil
 }
 
-// Metadata returns the Juju metadata set on the client.
+// Metadata returns a copy of the Juju metadata set on the client.
 func (c Client) Metadata() JujuMetadata {
 	// Note the value receiver, meaning that the returned metadata
 	// is a copy.
@@ -181,7 +181,7 @@ func (c Client) Metadata() JujuMetadata {
 func (c *Client) LatestRevisions(cURLs []*charm.URL) ([]charmrepo.CharmRevision, error) {
 	if !c.meta.IsZero() {
 		c = c.newCopy()
-		if err := c.meta.setOnClient(c); err != nil {
+		if err := c.meta.setOnClient(c.BaseClient); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}

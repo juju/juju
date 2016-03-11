@@ -46,7 +46,7 @@ type httpHeaderSetter interface {
 func (meta JujuMetadata) setOnClient(client BaseClient) error {
 	setter, ok := client.(httpHeaderSetter)
 	if !ok {
-		return errors.NewNotValid(nil, "charm store client (missing SetHTTPHeader method)")
+		return errors.NotValidf("charm store client (missing SetHTTPHeader method)")
 	}
 
 	header := make(http.Header)
