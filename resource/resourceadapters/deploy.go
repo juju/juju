@@ -5,6 +5,7 @@ package resourceadapters
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/api"
@@ -20,7 +21,14 @@ func DeployResources(serviceID string, files map[string]string, resources map[st
 		return nil, errors.Trace(err)
 	}
 
-	ids, err = cmd.DeployResources(serviceID, files, resources, client)
+	var cURL *charm.URL
+	ids, err = cmd.DeployResources(cmd.DeployResourcesArgs{
+		ServiceID:     serviceID,
+		CharmURL:      cURL,
+		Specified:     files,
+		ResourcesMeta: resources,
+		Client:        client,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
