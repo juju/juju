@@ -235,7 +235,7 @@ func (c *upgradeCharmCommand) upgradeResources(client *api.Client, cURL *charm.U
 
 	// Note: the validity of user-supplied resources to be uploaded will be
 	// checked further down the stack.
-	return handleResources(c, c.Resources, c.ServiceName, filtered)
+	return handleResources(c, c.Resources, c.ServiceName, cURL, filtered)
 }
 
 // TODO(ericsnow) Move these helpers into handleResources()?
