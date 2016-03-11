@@ -70,8 +70,10 @@ func NewAddPendingResourcesArgs(serviceID string, cURL *charm.URL, resources []c
 	}
 	args.Tag = tag
 	args.Resources = apiResources
-	args.URL = cURL.String()
-	// TODO(ericsnow) Set args.CharmStoreMacaroon.
+	if cURL != nil {
+		args.URL = cURL.String()
+		// TODO(ericsnow) Set args.CharmStoreMacaroon.
+	}
 	return args, nil
 }
 
