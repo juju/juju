@@ -261,7 +261,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		ctx.Verbosef("cloud %q not found, trying as a provider name", c.Cloud)
 		provider, err := environs.Provider(c.Cloud)
 		if errors.IsNotFound(err) {
-			return errors.NotFoundf("cloud %q", c.Cloud)
+			return errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds"))
 		} else if err != nil {
 			return errors.Trace(err)
 		}
@@ -271,7 +271,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 				"provider %q does not support detecting regions",
 				c.Cloud,
 			)
-			return errors.NotFoundf("cloud %q", c.Cloud)
+			return errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds"))
 		}
 		regions, err := detector.DetectRegions()
 		if err != nil && !errors.IsNotFound(err) {
@@ -579,8 +579,8 @@ func getRegion(cloud *jujucloud.Cloud, cloudName, regionName string) (jujucloud.
 		}
 	}
 	return jujucloud.Region{}, errors.NewNotFound(nil, fmt.Sprintf(
-		"region %q in cloud %q not found (expected one of %q)",
-		regionName, cloudName, cloudRegionNames(cloud),
+		"region %q in cloud %q not found (expected one of %q)\nalternatively, try %q",
+		regionName, cloudName, cloudRegionNames(cloud), "juju update-clouds",
 	))
 }
 
