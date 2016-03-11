@@ -119,25 +119,61 @@ func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPe
 	}
 	serviceID := tag.Id()
 
-	// TODO(ericsnow) Pull from charmstore here.
-
-	var ids []string
-	for _, apiRes := range args.Resources {
-		pendingID, err := f.addPendingResource(serviceID, apiRes)
-		if err != nil {
-			result.Error = common.ServerError(err)
-			// We don't bother aggregating errors since a partial
-			// completion is disruptive and a retry of this endpoint
-			// is not expensive.
-			return result, nil
-		}
-		ids = append(ids, pendingID)
+	ids, err := f.addPendingResources(serviceID, args.URL, args.Resources)
+	if err != nil {
+		result.Error = common.ServerError(err)
+		return result, nil
 	}
 	result.PendingIDs = ids
 	return result, nil
 }
 
-func (f Facade) resourcesFromCharmstore(cURL *charm.URL) ([]charmresource.Resource, error) {
+func (f Facade) addPendingResources(serviceID, chRef string, apiResources []api.CharmResource) ([]string, error) {
+	var resources []charmresource.Resource
+	for _, apiRes := range apiResources {
+		orig := apiRes.Revision
+		if apiRes.Revision < 0 {
+			apiRes.Revision = 0
+		}
+		res, err := api.API2CharmResource(apiRes)
+		if err != nil {
+			return nil, errors.Annotatef(err, "bad resource info for %q", apiRes.Name)
+		}
+		res.Revision = orig
+		resources = append(resources, res)
+	}
+
+	if chRef != "" {
+		cURL, err := charm.ParseURL(chRef)
+		if err != nil {
+			return nil, err
+		}
+		storeResources, err := f.resourcesFromCharmstore(cURL, resources)
+		if err != nil {
+			return nil, err
+		}
+		resources = storeResources
+	}
+
+	var ids []string
+	for _, res := range resources {
+		pendingID, err := f.addPendingResource(serviceID, res)
+		if err != nil {
+			// We don't bother aggregating errors since a partial
+			// completion is disruptive and a retry of this endpoint
+			// is not expensive.
+			return nil, err
+		}
+		ids = append(ids, pendingID)
+	}
+	return ids, nil
+}
+
+func (f Facade) resourcesFromCharmstore(cURL *charm.URL, resources []charmresource.Resource) ([]charmresource.Resource, error) {
+	if f.newCharmstoreClient == nil {
+		return nil, errors.NotSupportedf("could not get resource info from charm store")
+	}
+
 	client, err := f.newCharmstoreClient(cURL)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -146,15 +182,51 @@ func (f Facade) resourcesFromCharmstore(cURL *charm.URL) ([]charmresource.Resour
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return results[0], nil
-}
-
-func (f Facade) addPendingResource(serviceID string, apiRes api.CharmResource) (pendingID string, err error) {
-	chRes, err := api.API2CharmResource(apiRes)
-	if err != nil {
-		return "", errors.Annotatef(err, "bad resource info for %q", chRes.Name)
+	storeResources := make(map[string]charmresource.Resource)
+	for _, res := range results[0] {
+		storeResources[res.Name] = res
 	}
 
+	for i, res := range resources {
+		storeRes := storeResources[res.Name]
+		// TODO(ericsnow) Fail if not in the map?
+		revision := neededRevision(res, storeRes)
+		if revision < 0 {
+			// The resource info is already okay.
+			// TODO(ericsnow) Verify that the info is correct via a
+			// client.GetResource() call?
+			continue
+		}
+		if revision != storeRes.Revision {
+			// We have a desired revision but are missing the
+			// fingerprint, etc.
+			// TODO(ericsnow) Call client.GetResource() to get info for that revision.
+			return nil, errors.NotSupportedf("could not get resource info")
+		}
+		// Otherwise we use the info from the store as-is.
+		resources[i] = storeRes
+	}
+
+	return resources, nil
+}
+
+func neededRevision(res, latest charmresource.Resource) int {
+	if res.Origin != charmresource.OriginStore {
+		return -1 // use it as-is
+	}
+	if res.Revision < 0 {
+		return latest.Revision
+	}
+	if res.Revision == latest.Revision {
+		return latest.Revision
+	}
+	if res.Fingerprint.IsZero() {
+		return res.Revision
+	}
+	return -1 // use it as-is
+}
+
+func (f Facade) addPendingResource(serviceID string, chRes charmresource.Resource) (pendingID string, err error) {
 	userID := ""
 	var reader io.Reader
 	pendingID, err = f.store.AddPendingResource(serviceID, userID, chRes, reader)

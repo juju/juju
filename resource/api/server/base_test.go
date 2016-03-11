@@ -25,7 +25,7 @@ type BaseSuite struct {
 
 	stub     *testing.Stub
 	data     *stubDataStore
-	csClient server.CharmStore
+	csClient *stubCSClient
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
