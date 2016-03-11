@@ -9,6 +9,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/resource/api/client"
 	"github.com/juju/juju/resource/cmd"
 )
 
@@ -26,10 +27,23 @@ func DeployResources(serviceID string, cURL *charm.URL, files map[string]string,
 		CharmURL:      cURL,
 		Specified:     files,
 		ResourcesMeta: resources,
-		Client:        client,
+		Client:        &deployClient{client},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return ids, nil
+}
+
+type deployClient struct {
+	*client.Client
+}
+
+// AddPendingResources adds pending metadata for store-based resources.
+func (cl *deployClient) AddPendingResources(serviceID string, cURL *charm.URL, resources []charmresource.Resource) ([]string, error) {
+	return cl.Client.AddPendingResources(client.AddPendingResourcesArgs{
+		ServiceID: serviceID,
+		CharmURL:  cURL,
+		Resources: resources,
+	})
 }
