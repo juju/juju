@@ -103,33 +103,35 @@ func OperationBlockedError(msg string) error {
 	}
 }
 
-var singletonErrorCodes = map[error]string{
-	state.ErrCannotEnterScopeYet: params.CodeCannotEnterScopeYet,
-	state.ErrCannotEnterScope:    params.CodeCannotEnterScope,
-	state.ErrUnitHasSubordinates: params.CodeUnitHasSubordinates,
-	state.ErrDead:                params.CodeDead,
-	txn.ErrExcessiveContention:   params.CodeExcessiveContention,
-	leadership.ErrClaimDenied:    params.CodeLeadershipClaimDenied,
-	lease.ErrClaimDenied:         params.CodeLeaseClaimDenied,
-	ErrBadId:                     params.CodeNotFound,
-	ErrBadCreds:                  params.CodeUnauthorized,
-	ErrPerm:                      params.CodeUnauthorized,
-	ErrNotLoggedIn:               params.CodeUnauthorized,
-	ErrUnknownWatcher:            params.CodeNotFound,
-	ErrStoppedWatcher:            params.CodeStopped,
-	ErrTryAgain:                  params.CodeTryAgain,
-	ErrActionNotAvailable:        params.CodeActionNotAvailable,
-}
-
 func singletonCode(err error) (string, bool) {
-	// All error types may not be hashable; deal with
-	// that by catching the panic if we try to look up
-	// a non-hashable type.
-	defer func() {
-		recover()
-	}()
-	code, ok := singletonErrorCodes[err]
-	return code, ok
+	switch err {
+	case state.ErrCannotEnterScopeYet:
+		return params.CodeCannotEnterScopeYet, true
+	case state.ErrCannotEnterScope:
+		return params.CodeCannotEnterScope, true
+	case state.ErrUnitHasSubordinates:
+		return params.CodeUnitHasSubordinates, true
+	case state.ErrDead:
+		return params.CodeDead, true
+	case txn.ErrExcessiveContention:
+		return params.CodeExcessiveContention, true
+	case leadership.ErrClaimDenied:
+		return params.CodeLeadershipClaimDenied, true
+	case lease.ErrClaimDenied:
+		return params.CodeLeaseClaimDenied, true
+	case ErrBadId, ErrUnknownWatcher:
+		return params.CodeNotFound, true
+	case ErrBadCreds, ErrPerm, ErrNotLoggedIn:
+		return params.CodeUnauthorized, true
+	case ErrStoppedWatcher:
+		return params.CodeStopped, true
+	case ErrTryAgain:
+		return params.CodeTryAgain, true
+	case ErrActionNotAvailable:
+		return params.CodeActionNotAvailable, true
+	default:
+		return "", false
+	}
 }
 
 // ServerErrorAndStatus is like ServerError but also
