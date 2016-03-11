@@ -22,19 +22,36 @@ type DeployClient interface {
 	AddPendingResource(serviceID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error)
 }
 
+// DeployResourcesArgs holds the arguments to DeployResources().
+type DeployResourcesArgs struct {
+	// ServiceID identifies the service being deployed.
+	ServiceID string
+
+	// Specified is the set of resources for which a filename
+	// was provided at the command-line.
+	Specified map[string]string
+
+	// ResourcesMeta holds the charm metadata for each of the resources
+	// that should be added/updated on the controller.
+	ResourcesMeta map[string]charmresource.Meta
+
+	// Client is the resources API client to use during deploy.
+	Client DeployClient
+}
+
 // DeployResources uploads the bytes for the given files to the server and
 // creates pending resource metadata for the all resource mentioned in the
 // metadata. It returns a map of resource name to pending resource IDs.
-func DeployResources(serviceID string, files map[string]string, resources map[string]charmresource.Meta, client DeployClient) (ids map[string]string, err error) {
+func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error) {
 	d := deployUploader{
-		serviceID: serviceID,
-		client:    client,
-		resources: resources,
+		serviceID: args.ServiceID,
+		client:    args.Client,
+		resources: args.ResourcesMeta,
 		osOpen:    func(s string) (ReadSeekCloser, error) { return os.Open(s) },
 		osStat:    func(s string) error { _, err := os.Stat(s); return err },
 	}
 
-	ids, err = d.upload(files)
+	ids, err = d.upload(args.Specified)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
