@@ -31,15 +31,13 @@ import (
 // that we don't want to directly depend on in unit tests.
 
 type fakeState struct {
-	mu              sync.Mutex
-	errors          errorPatterns
-	machines        map[string]*fakeMachine
-	controllers     voyeur.Value // of *state.ControllerInfo
-	statuses        voyeur.Value // of statuses collection
-	session         *fakeMongoSession
-	check           func(st *fakeState) error
-	mongoSpaceName  network.SpaceName
-	mongoSpaceState state.MongoSpaceStates
+	mu          sync.Mutex
+	errors      errorPatterns
+	machines    map[string]*fakeMachine
+	controllers voyeur.Value // of *state.ControllerInfo
+	statuses    voyeur.Value // of statuses collection
+	session     *fakeMongoSession
+	check       func(st *fakeState) error
 }
 
 var (
@@ -246,16 +244,32 @@ func (st *fakeState) Space(name string) (SpaceReader, error) {
 }
 
 func (st *fakeState) SetOrGetMongoSpaceName(mongoSpaceName network.SpaceName) (network.SpaceName, error) {
-	if st.mongoSpaceState == state.MongoSpaceUnknown {
-		st.mongoSpaceName = mongoSpaceName
-		st.mongoSpaceState = state.MongoSpaceValid
+	inf, _ := st.ControllerInfo()
+	strMongoSpaceName := string(mongoSpaceName)
+
+	if inf.MongoSpaceState == state.MongoSpaceUnknown {
+		inf.MongoSpaceName = strMongoSpaceName
+		inf.MongoSpaceState = state.MongoSpaceValid
+		st.controllers.Set(inf)
 	}
-	return st.mongoSpaceName, nil
+	return network.SpaceName(inf.MongoSpaceName), nil
 }
 
 func (st *fakeState) SetMongoSpaceState(mongoSpaceState state.MongoSpaceStates) error {
-	st.mongoSpaceState = mongoSpaceState
+	inf, _ := st.ControllerInfo()
+	inf.MongoSpaceState = mongoSpaceState
+	st.controllers.Set(inf)
 	return nil
+}
+
+func (st *fakeState) getMongoSpaceName() string {
+	inf, _ := st.ControllerInfo()
+	return inf.MongoSpaceName
+}
+
+func (st *fakeState) getMongoSpaceState() state.MongoSpaceStates {
+	inf, _ := st.ControllerInfo()
+	return inf.MongoSpaceState
 }
 
 func (st *fakeState) ModelConfig() (*config.Config, error) {

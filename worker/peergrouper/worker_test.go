@@ -467,6 +467,15 @@ func startWorkerSupportingSpaces(st *fakeState, ipVersion TestIPVersion) *pgWork
 	return w
 }
 
+func runWorkerUntilMongoStateIs(c *gc.C, st *fakeState, w *pgWorker, mss state.MongoSpaceStates) {
+	changes := st.controllers.Watch()
+	changes.Next()
+	for st.getMongoSpaceState() != mss {
+		changes.Next()
+	}
+	c.Check(worker.Stop(w), gc.IsNil)
+}
+
 func (s *workerSuite) TestMongoFindAndUseSpace(c *gc.C) {
 	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
 		st, machines, hostPorts := mongoSpaceTestCommonSetup(c, ipVersion, false)
@@ -478,16 +487,11 @@ func (s *workerSuite) TestMongoFindAndUseSpace(c *gc.C) {
 			st.machine(machine).setMongoHostPorts(hostPorts[0 : i+1])
 		}
 
-		startWorkerSupportingSpaces(st, ipVersion)
-		for st.mongoSpaceState == state.MongoSpaceUnknown {
-			select {
-			case <-time.After(coretesting.ShortWait):
-			}
-		}
+		w := startWorkerSupportingSpaces(st, ipVersion)
+		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceValid)
 
 		// Only space one has all three servers in it
-		c.Assert(st.mongoSpaceName, gc.Equals, network.SpaceName("one"))
-		c.Assert(st.mongoSpaceState, gc.Equals, state.MongoSpaceValid)
+		c.Assert(st.getMongoSpaceName(), gc.Equals, "one")
 
 		// All machines have the same address in this test for simplicity. The
 		// space three address is 0.0.0.3 giving us the host port of 0.0.0.3:4711
@@ -523,8 +527,8 @@ func (s *workerSuite) TestMongoErrorNoCommonSpace(c *gc.C) {
 		}
 
 		// Each machine is in a unique space, so the Mongo space should be empty
-		c.Assert(st.mongoSpaceName, gc.Equals, network.SpaceName(""))
-		c.Assert(st.mongoSpaceState, gc.Equals, state.MongoSpaceInvalid)
+		c.Assert(st.getMongoSpaceName(), gc.Equals, "")
+		c.Assert(st.getMongoSpaceState(), gc.Equals, state.MongoSpaceInvalid)
 	})
 }
 
@@ -536,18 +540,11 @@ func (s *workerSuite) TestMongoNoSpaces(c *gc.C) {
 			st.machine(machine).setMongoHostPorts(hostPorts[i : i+1])
 		}
 
-		startWorkerSupportingSpaces(st, ipVersion)
-		for st.mongoSpaceState == state.MongoSpaceUnknown {
-			select {
-			case <-time.After(coretesting.ShortWait):
-			}
-		}
+		w := startWorkerSupportingSpaces(st, ipVersion)
+		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceValid)
 
-		// No spaces were used so the Mongo space should be empty
-		c.Assert(st.mongoSpaceName, gc.Equals, network.SpaceName(""))
-
-		// The empty space here is considered valid because there are no spaces set
-		c.Assert(st.mongoSpaceState, gc.Equals, state.MongoSpaceValid)
+		// Only space one has all three servers in it
+		c.Assert(st.getMongoSpaceName(), gc.Equals, "")
 	})
 }
 
@@ -563,24 +560,23 @@ func (s *workerSuite) TestMongoSpaceNotOverwritten(c *gc.C) {
 		}
 
 		w := startWorkerSupportingSpaces(st, ipVersion)
-		for st.mongoSpaceState == state.MongoSpaceUnknown {
-			select {
-			case <-time.After(coretesting.ShortWait):
-			}
-		}
+		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceValid)
 
-		// Space calculation has run...
-		c.Assert(st.mongoSpaceState, gc.Equals, state.MongoSpaceValid)
-		c.Assert(st.mongoSpaceName, gc.Equals, network.SpaceName("one"))
+		// Only space one has all three servers in it
+		c.Assert(st.getMongoSpaceName(), gc.Equals, "one")
 
 		// Set st.mongoSpaceName to something different
-		st.mongoSpaceName = network.SpaceName("testing")
+
+		st.SetMongoSpaceState(state.MongoSpaceUnknown)
+		st.SetOrGetMongoSpaceName("testing")
 
 		// Manually run getMongoSpace - it should do nothing because we already have
 		// a space. If it did re-calculate the space name it will change back to "one".
 		w.getMongoSpace(&peerGroupInfo{})
 
-		c.Assert(st.mongoSpaceName, gc.Equals, network.SpaceName("testing"))
+		// Only space one has all three servers in it
+		c.Assert(st.getMongoSpaceName(), gc.Equals, "testing")
+		c.Assert(st.getMongoSpaceState(), gc.Equals, state.MongoSpaceValid)
 	})
 }
 
@@ -596,20 +592,16 @@ func (s *workerSuite) TestMongoSpaceNotCalculatedWhenSpacesNotSupported(c *gc.C)
 		}
 
 		// Set some garbage up to check that it isn't overwritten
-		st.mongoSpaceName = "garbage"
+		st.SetOrGetMongoSpaceName("garbage")
+		st.SetMongoSpaceState(state.MongoSpaceUnknown)
 
 		// Start a worker that doesn't support spaces
-		newWorker(st, noPublisher{})
+		w := newWorker(st, noPublisher{}).(*pgWorker)
+		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceUnsupported)
 
-		for st.mongoSpaceState == state.MongoSpaceUnknown {
-			select {
-			case <-time.After(coretesting.ShortWait):
-			}
-		}
-
-		// Space calculation has run...
-		c.Assert(st.mongoSpaceState, gc.Equals, state.MongoSpaceUnsupported)
-		c.Assert(st.mongoSpaceName, gc.Equals, network.SpaceName("garbage"))
+		// Only space one has all three servers in it
+		c.Assert(st.getMongoSpaceName(), gc.Equals, "garbage")
+		c.Assert(st.getMongoSpaceState(), gc.Equals, state.MongoSpaceUnsupported)
 	})
 }
 
