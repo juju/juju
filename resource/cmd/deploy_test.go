@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/macaroon.v1"
 )
 
 type DeploySuite struct {
@@ -33,6 +34,7 @@ func (s *DeploySuite) SetUpTest(c *gc.C) {
 func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
+	csMac := &macaroon.Macaroon{}
 	resources := map[string]charmresource.Meta{
 		"store-tarball": {
 			Name: "store-tarball",
@@ -47,11 +49,12 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 	}
 
 	ids, err := DeployResources(DeployResourcesArgs{
-		ServiceID:     "mysql",
-		CharmURL:      cURL,
-		Specified:     nil,
-		Client:        deps,
-		ResourcesMeta: resources,
+		ServiceID:          "mysql",
+		CharmURL:           cURL,
+		CharmStoreMacaroon: csMac,
+		Specified:          nil,
+		Client:             deps,
+		ResourcesMeta:      resources,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -68,15 +71,17 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 		Meta:   resources["store-zip"],
 		Origin: charmresource.OriginStore,
 	}}
-	s.stub.CheckCall(c, 0, "AddPendingResources", "mysql", cURL, expectedStore)
+	s.stub.CheckCall(c, 0, "AddPendingResources", "mysql", cURL, csMac, expectedStore)
 }
 
 func (s DeploySuite) TestUploadOK(c *gc.C) {
 	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
+	csMac := &macaroon.Macaroon{}
 	du := deployUploader{
 		serviceID: "mysql",
 		cURL:      cURL,
+		csMac:     csMac,
 		client:    deps,
 		resources: map[string]charmresource.Meta{
 			"upload": {
@@ -111,7 +116,7 @@ func (s DeploySuite) TestUploadOK(c *gc.C) {
 			Origin: charmresource.OriginStore,
 		},
 	}
-	s.stub.CheckCall(c, 1, "AddPendingResources", "mysql", cURL, expectedStore)
+	s.stub.CheckCall(c, 1, "AddPendingResources", "mysql", cURL, csMac, expectedStore)
 	s.stub.CheckCall(c, 2, "Open", "foobar.txt")
 
 	expectedUpload := charmresource.Resource{
@@ -174,8 +179,8 @@ type uploadDeps struct {
 	ReadSeekCloser ReadSeekCloser
 }
 
-func (s uploadDeps) AddPendingResources(serviceID string, cURL *charm.URL, resources []charmresource.Resource) (ids []string, err error) {
-	s.stub.AddCall("AddPendingResources", serviceID, cURL, resources)
+func (s uploadDeps) AddPendingResources(serviceID string, cURL *charm.URL, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error) {
+	s.stub.AddCall("AddPendingResources", serviceID, cURL, csMac, resources)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}

@@ -11,13 +11,15 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/macaroon.v1"
 )
 
 // DeployClient exposes the functionality of the resources API needed
 // for deploy.
 type DeployClient interface {
 	// AddPendingResources adds pending metadata for store-based resources.
-	AddPendingResources(serviceID string, cURL *charm.URL, resources []charmresource.Resource) (ids []string, err error)
+	AddPendingResources(serviceID string, cURL *charm.URL, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error)
+
 	// AddPendingResource uploads data and metadata for a pending resource for the given service.
 	AddPendingResource(serviceID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error)
 }
@@ -29,6 +31,10 @@ type DeployResourcesArgs struct {
 
 	// CharmURL identifies the service's charm.
 	CharmURL *charm.URL
+
+	// CharmStoreMacaroon is the macaroon to use for the charm when
+	// interacting with the charm store.
+	CharmStoreMacaroon *macaroon.Macaroon
 
 	// Specified is the set of resources for which a filename
 	// was provided at the command-line.
@@ -49,6 +55,7 @@ func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error
 	d := deployUploader{
 		serviceID: args.ServiceID,
 		cURL:      args.CharmURL,
+		csMac:     args.CharmStoreMacaroon,
 		client:    args.Client,
 		resources: args.ResourcesMeta,
 		osOpen:    func(s string) (ReadSeekCloser, error) { return os.Open(s) },
@@ -65,6 +72,7 @@ func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error
 type deployUploader struct {
 	serviceID string
 	cURL      *charm.URL
+	csMac     *macaroon.Macaroon
 	resources map[string]charmresource.Meta
 	client    DeployClient
 	osOpen    func(path string) (ReadSeekCloser, error)
@@ -87,7 +95,7 @@ func (d deployUploader) upload(files map[string]string) (map[string]string, erro
 	storeResources := d.storeResources(files)
 	pending := map[string]string{}
 	if len(storeResources) > 0 {
-		ids, err := d.client.AddPendingResources(d.serviceID, d.cURL, storeResources)
+		ids, err := d.client.AddPendingResources(d.serviceID, d.cURL, d.csMac, storeResources)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
