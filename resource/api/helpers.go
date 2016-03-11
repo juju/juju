@@ -8,11 +8,15 @@ package api
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/txn"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/state"
 )
 
 // Resource2API converts a resource.Resource into
@@ -34,7 +38,7 @@ func APIResult2ServiceResources(apiResult ResourcesResult) (resource.ServiceReso
 
 	if apiResult.Error != nil {
 		// TODO(ericsnow) Return the resources too?
-		err := common.RestoreError(apiResult.Error)
+		err := RestoreError(apiResult.Error)
 		return resource.ServiceResources{}, errors.Trace(err)
 	}
 
@@ -182,4 +186,106 @@ func API2CharmResource(apiInfo CharmResource) (charmresource.Resource, error) {
 		return res, errors.Trace(err)
 	}
 	return res, nil
+}
+
+var singletonErrorCodes = map[error]string{
+	state.ErrCannotEnterScopeYet: params.CodeCannotEnterScopeYet,
+	state.ErrCannotEnterScope:    params.CodeCannotEnterScope,
+	state.ErrUnitHasSubordinates: params.CodeUnitHasSubordinates,
+	state.ErrDead:                params.CodeDead,
+	txn.ErrExcessiveContention:   params.CodeExcessiveContention,
+	leadership.ErrClaimDenied:    params.CodeLeadershipClaimDenied,
+	lease.ErrClaimDenied:         params.CodeLeaseClaimDenied,
+	common.ErrBadId:              params.CodeNotFound,
+	common.ErrBadCreds:           params.CodeUnauthorized,
+	common.ErrPerm:               params.CodeUnauthorized,
+	common.ErrNotLoggedIn:        params.CodeUnauthorized,
+	common.ErrUnknownWatcher:     params.CodeNotFound,
+	common.ErrStoppedWatcher:     params.CodeStopped,
+	common.ErrTryAgain:           params.CodeTryAgain,
+	common.ErrActionNotAvailable: params.CodeActionNotAvailable,
+}
+
+func singletonCode(err error) (string, bool) {
+	// All error types may not be hashable; deal with
+	// that by catching the panic if we try to look up
+	// a non-hashable type.
+	defer func() {
+		recover()
+	}()
+	code, ok := singletonErrorCodes[err]
+	return code, ok
+}
+
+func singletonError(err error) (error, bool) {
+	errCode := params.ErrCode(err)
+	for singleton, code := range singletonErrorCodes {
+		if errCode == code && singleton.Error() == err.Error() {
+			return singleton, true
+		}
+	}
+	return nil, false
+}
+
+// RestoreError makes a best effort at converting the given error
+// back into an error originally converted by ServerError().
+func RestoreError(err error) error {
+	err = errors.Cause(err)
+
+	if apiErr, ok := err.(*params.Error); !ok {
+		return err
+	} else if apiErr == nil {
+		return nil
+	}
+	if params.ErrCode(err) == "" {
+		return err
+	}
+	msg := err.Error()
+
+	if singleton, ok := singletonError(err); ok {
+		return singleton
+	}
+
+	// TODO(ericsnow) Support the other error types handled by ServerError().
+	switch {
+	case params.IsCodeUnauthorized(err):
+		return errors.NewUnauthorized(nil, msg)
+	case params.IsCodeNotFound(err):
+		// TODO(ericsnow) UnknownModelError should be handled here too.
+		// ...by parsing msg?
+		return errors.NewNotFound(nil, msg)
+	case params.IsCodeAlreadyExists(err):
+		return errors.NewAlreadyExists(nil, msg)
+	case params.IsCodeNotAssigned(err):
+		return errors.NewNotAssigned(nil, msg)
+	case params.IsCodeHasAssignedUnits(err):
+		// TODO(ericsnow) Handle state.HasAssignedUnitsError here.
+		// ...by parsing msg?
+		return err
+	case params.IsCodeNoAddressSet(err):
+		// TODO(ericsnow) Handle isNoAddressSetError here.
+		// ...by parsing msg?
+		return err
+	case params.IsCodeNotProvisioned(err):
+		return errors.NewNotProvisioned(nil, msg)
+	case params.IsCodeUpgradeInProgress(err):
+		// TODO(ericsnow) Handle state.UpgradeInProgressError here.
+		// ...by parsing msg?
+		return err
+	case params.IsCodeMachineHasAttachedStorage(err):
+		// TODO(ericsnow) Handle state.HasAttachmentsError here.
+		// ...by parsing msg?
+		return err
+	case params.IsCodeNotSupported(err):
+		return errors.NewNotSupported(nil, msg)
+	case params.IsBadRequest(err):
+		return errors.NewBadRequest(nil, msg)
+	case params.IsMethodNotAllowed(err):
+		return errors.NewMethodNotAllowed(nil, msg)
+	case params.ErrCode(err) == params.CodeDischargeRequired:
+		// TODO(ericsnow) Handle DischargeRequiredError here.
+		return err
+	default:
+		return err
+	}
 }
