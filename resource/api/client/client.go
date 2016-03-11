@@ -104,16 +104,29 @@ func (c Client) Upload(service, name, filename string, reader io.ReadSeeker) err
 	return nil
 }
 
+// AddPendingResourcesArgs holds the arguments to AddPendingResources().
+type AddPendingResourcesArgs struct {
+	// ServiceID identifies the service being deployed.
+	ServiceID string
+
+	// CharmURL identifies the service's charm.
+	CharmURL *charm.URL
+
+	// Resources holds the charm store info for each of the resources
+	// that should be added/updated on the controller.
+	Resources []charmresource.Resource
+}
+
 // AddPendingResources sends the provided resource info up to Juju
 // without making it available yet.
-func (c Client) AddPendingResources(serviceID string, cURL *charm.URL, resources []charmresource.Resource) (pendingIDs []string, err error) {
-	args, err := api.NewAddPendingResourcesArgs(serviceID, cURL, resources)
+func (c Client) AddPendingResources(args AddPendingResourcesArgs) (pendingIDs []string, err error) {
+	apiArgs, err := api.NewAddPendingResourcesArgs(args.ServiceID, args.CharmURL, args.Resources)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var result api.AddPendingResourcesResult
-	if err := c.FacadeCall("AddPendingResources", &args, &result); err != nil {
+	if err := c.FacadeCall("AddPendingResources", &apiArgs, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
@@ -121,12 +134,12 @@ func (c Client) AddPendingResources(serviceID string, cURL *charm.URL, resources
 		return nil, errors.Trace(err)
 	}
 
-	if len(result.PendingIDs) != len(resources) {
-		return nil, errors.Errorf("bad data from server: expected %d IDs, got %d", len(resources), len(result.PendingIDs))
+	if len(result.PendingIDs) != len(args.Resources) {
+		return nil, errors.Errorf("bad data from server: expected %d IDs, got %d", len(args.Resources), len(result.PendingIDs))
 	}
 	for i, id := range result.PendingIDs {
 		if id == "" {
-			return nil, errors.Errorf("bad data from server: got an empty ID for resource %q", resources[i].Name)
+			return nil, errors.Errorf("bad data from server: got an empty ID for resource %q", args.Resources[i].Name)
 		}
 		// TODO(ericsnow) Do other validation?
 	}
@@ -138,8 +151,11 @@ func (c Client) AddPendingResources(serviceID string, cURL *charm.URL, resources
 // without making it available yet. For example, AddPendingResource()
 // is used before the service is deployed.
 func (c Client) AddPendingResource(serviceID string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
-	var cURL *charm.URL
-	ids, err := c.AddPendingResources(serviceID, cURL, []charmresource.Resource{res})
+	ids, err := c.AddPendingResources(AddPendingResourcesArgs{
+		ServiceID: serviceID,
+		CharmURL:  nil,
+		Resources: []charmresource.Resource{res},
+	})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
