@@ -188,11 +188,9 @@ func API2CharmResource(apiInfo CharmResource) (charmresource.Resource, error) {
 	return res, nil
 }
 
-var singletonErrorCodes = map[error]string{}
-
 func singletonError(err error) (error, bool) {
 	sameErr := func(err2 error) (error, bool) {
-		return err, err.Error() == err2.Error()
+		return err2, err.Error() == err2.Error()
 	}
 	switch params.ErrCode(err) {
 	case params.CodeCannotEnterScopeYet:

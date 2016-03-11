@@ -53,7 +53,7 @@ func UnknownModelError(uuid string) error {
 	return &unknownModelError{uuid: uuid}
 }
 
-func isUnknownModelError(err error) bool {
+func IsUnknownModelError(err error) bool {
 	_, ok := err.(*unknownModelError)
 	return ok
 }
@@ -196,7 +196,7 @@ func ServerError(err error) *params.Error {
 		code = params.CodeUpgradeInProgress
 	case state.IsHasAttachmentsError(err):
 		code = params.CodeMachineHasAttachedStorage
-	case isUnknownModelError(err):
+	case IsUnknownModelError(err):
 		code = params.CodeNotFound
 	case errors.IsNotSupported(err):
 		code = params.CodeNotSupported
