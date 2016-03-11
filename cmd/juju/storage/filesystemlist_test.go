@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
@@ -202,7 +203,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				FilesystemId: "provider-supplied-filesystem-0-0",
 				Size:         512,
 			},
-			Status: createTestStatus(params.StatusAttached, ""),
+			Status: createTestStatus(status.StatusAttached, ""),
 			MachineAttachments: map[string]params.FilesystemAttachmentInfo{
 				"machine-0": params.FilesystemAttachmentInfo{
 					MountPoint: "/mnt/fuji",
@@ -212,7 +213,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				StorageTag: "storage-db-dir-1001",
 				OwnerTag:   "unit-abc-0",
 				Kind:       params.StorageKindBlock,
-				Status:     createTestStatus(params.StatusAttached, ""),
+				Status:     createTestStatus(status.StatusAttached, ""),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-abc-0": params.StorageAttachmentDetails{
 						StorageTag: "storage-db-dir-1001",
@@ -231,7 +232,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				FilesystemId: "provider-supplied-filesystem-1",
 				Size:         2048,
 			},
-			Status: createTestStatus(params.StatusAttaching, "failed to attach, will retry"),
+			Status: createTestStatus(status.StatusAttaching, "failed to attach, will retry"),
 			MachineAttachments: map[string]params.FilesystemAttachmentInfo{
 				"machine-0": params.FilesystemAttachmentInfo{},
 			},
@@ -243,7 +244,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 			Info: params.FilesystemInfo{
 				Size: 42,
 			},
-			Status: createTestStatus(params.StatusPending, ""),
+			Status: createTestStatus(status.StatusPending, ""),
 			MachineAttachments: map[string]params.FilesystemAttachmentInfo{
 				"machine-1": params.FilesystemAttachmentInfo{},
 			},
@@ -256,7 +257,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				FilesystemId: "provider-supplied-filesystem-2",
 				Size:         3,
 			},
-			Status: createTestStatus(params.StatusAttached, ""),
+			Status: createTestStatus(status.StatusAttached, ""),
 			MachineAttachments: map[string]params.FilesystemAttachmentInfo{
 				"machine-1": params.FilesystemAttachmentInfo{
 					MountPoint: "/mnt/zion",
@@ -271,7 +272,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				FilesystemId: "provider-supplied-filesystem-4",
 				Size:         1024,
 			},
-			Status: createTestStatus(params.StatusAttached, ""),
+			Status: createTestStatus(status.StatusAttached, ""),
 			MachineAttachments: map[string]params.FilesystemAttachmentInfo{
 				"machine-0": params.FilesystemAttachmentInfo{
 					MountPoint: "/mnt/doom",
@@ -286,7 +287,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				StorageTag: "storage-shared-fs-0",
 				OwnerTag:   "service-transcode",
 				Kind:       params.StorageKindBlock,
-				Status:     createTestStatus(params.StatusAttached, ""),
+				Status:     createTestStatus(status.StatusAttached, ""),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-transcode-0": params.StorageAttachmentDetails{
 						StorageTag: "storage-shared-fs-0",

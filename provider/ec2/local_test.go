@@ -339,7 +339,7 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inst.Status(), gc.Equals, "terminated")
+	c.Assert(inst.Status().Message, gc.Equals, "terminated")
 }
 
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {

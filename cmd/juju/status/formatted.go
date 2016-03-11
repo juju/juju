@@ -6,9 +6,9 @@ package status
 import (
 	"encoding/json"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 type formattedStatus struct {
@@ -33,19 +33,16 @@ type modelStatus struct {
 }
 
 type machineStatus struct {
-	Err            error                    `json:"-" yaml:",omitempty"`
-	AgentState     params.Status            `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
-	AgentStateInfo string                   `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
-	AgentVersion   string                   `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
-	DNSName        string                   `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
-	InstanceId     instance.Id              `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
-	InstanceState  string                   `json:"instance-state,omitempty" yaml:"instance-state,omitempty"`
-	Life           string                   `json:"life,omitempty" yaml:"life,omitempty"`
-	Series         string                   `json:"series,omitempty" yaml:"series,omitempty"`
-	Id             string                   `json:"-" yaml:"-"`
-	Containers     map[string]machineStatus `json:"containers,omitempty" yaml:"containers,omitempty"`
-	Hardware       string                   `json:"hardware,omitempty" yaml:"hardware,omitempty"`
-	HAStatus       string                   `json:"controller-member-status,omitempty" yaml:"controller-member-status,omitempty"`
+	Err           error                    `json:"-" yaml:",omitempty"`
+	JujuStatus    statusInfoContents       `json:"juju-status,omitempty" yaml:"juju-status,omitempty"`
+	DNSName       string                   `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
+	InstanceId    instance.Id              `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
+	MachineStatus statusInfoContents       `json:"machine-status,omitempty" yaml:"machine-status,omitempty"`
+	Series        string                   `json:"series,omitempty" yaml:"series,omitempty"`
+	Id            string                   `json:"-" yaml:"-"`
+	Containers    map[string]machineStatus `json:"containers,omitempty" yaml:"containers,omitempty"`
+	Hardware      string                   `json:"hardware,omitempty" yaml:"hardware,omitempty"`
+	HAStatus      string                   `json:"controller-member-status,omitempty" yaml:"controller-member-status,omitempty"`
 }
 
 // A goyaml bug means we can't declare these types
@@ -103,7 +100,7 @@ type meterStatus struct {
 type unitStatus struct {
 	// New Juju Health Status fields.
 	WorkloadStatusInfo statusInfoContents `json:"workload-status,omitempty" yaml:"workload-status"`
-	AgentStatusInfo    statusInfoContents `json:"agent-status,omitempty" yaml:"agent-status"`
+	JujuStatusInfo     statusInfoContents `json:"juju-status,omitempty" yaml:"juju-status"`
 	MeterStatus        *meterStatus       `json:"meter-status,omitempty" yaml:"meter-status,omitempty"`
 
 	Charm         string                `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
@@ -115,10 +112,11 @@ type unitStatus struct {
 
 type statusInfoContents struct {
 	Err     error         `json:"-" yaml:",omitempty"`
-	Current params.Status `json:"current,omitempty" yaml:"current,omitempty"`
+	Current status.Status `json:"current,omitempty" yaml:"current,omitempty"`
 	Message string        `json:"message,omitempty" yaml:"message,omitempty"`
 	Since   string        `json:"since,omitempty" yaml:"since,omitempty"`
 	Version string        `json:"version,omitempty" yaml:"version,omitempty"`
+	Life    string        `json:"life,omitempty" yaml:"life,omitempty"`
 }
 
 type statusInfoContentsNoMarshal statusInfoContents

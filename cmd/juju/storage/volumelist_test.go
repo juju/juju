@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
@@ -201,7 +202,7 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 				VolumeId: "provider-supplied-volume-0-0",
 				Size:     512,
 			},
-			Status: createTestStatus(params.StatusAttached, ""),
+			Status: createTestStatus(status.StatusAttached, ""),
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				"machine-0": params.VolumeAttachmentInfo{
 					DeviceName: "loop0",
@@ -211,7 +212,7 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 				StorageTag: "storage-db-dir-1001",
 				OwnerTag:   "unit-abc-0",
 				Kind:       params.StorageKindBlock,
-				Status:     createTestStatus(params.StatusAttached, ""),
+				Status:     createTestStatus(status.StatusAttached, ""),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-abc-0": params.StorageAttachmentDetails{
 						StorageTag: "storage-db-dir-1001",
@@ -232,7 +233,7 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 				Persistent: true,
 				Size:       2048,
 			},
-			Status: createTestStatus(params.StatusAttaching, "failed to attach, will retry"),
+			Status: createTestStatus(status.StatusAttaching, "failed to attach, will retry"),
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				"machine-0": params.VolumeAttachmentInfo{},
 			},
@@ -244,7 +245,7 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 			Info: params.VolumeInfo{
 				Size: 42,
 			},
-			Status: createTestStatus(params.StatusPending, ""),
+			Status: createTestStatus(status.StatusPending, ""),
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				"machine-1": params.VolumeAttachmentInfo{},
 			},
@@ -257,7 +258,7 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 				VolumeId: "provider-supplied-volume-2",
 				Size:     3,
 			},
-			Status: createTestStatus(params.StatusAttached, ""),
+			Status: createTestStatus(status.StatusAttached, ""),
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				"machine-1": params.VolumeAttachmentInfo{
 					DeviceName: "xvdf1",
@@ -273,7 +274,7 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 				Persistent: true,
 				Size:       1024,
 			},
-			Status: createTestStatus(params.StatusAttached, ""),
+			Status: createTestStatus(status.StatusAttached, ""),
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				"machine-0": params.VolumeAttachmentInfo{
 					DeviceName: "xvdf2",
@@ -288,7 +289,7 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 				StorageTag: "storage-shared-fs-0",
 				OwnerTag:   "service-transcode",
 				Kind:       params.StorageKindBlock,
-				Status:     createTestStatus(params.StatusAttached, ""),
+				Status:     createTestStatus(status.StatusAttached, ""),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-transcode-0": params.StorageAttachmentDetails{
 						StorageTag: "storage-shared-fs-0",
@@ -309,9 +310,9 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 	return results, nil
 }
 
-func createTestStatus(status params.Status, message string) params.EntityStatus {
+func createTestStatus(testStatus status.Status, message string) params.EntityStatus {
 	return params.EntityStatus{
-		Status: status,
+		Status: testStatus,
 		Info:   message,
 		Since:  &time.Time{},
 	}

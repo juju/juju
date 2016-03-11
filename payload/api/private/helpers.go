@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
+	resourcesapi "github.com/juju/juju/resource/api"
 )
 
 // NewPayloadResult builds a new PayloadResult from the provided tag
@@ -49,7 +50,7 @@ func API2Result(r PayloadResult) (payload.Result, error) {
 	}
 
 	if r.Error != nil {
-		result.Error = common.RestoreError(r.Error)
+		result.Error = resourcesapi.RestoreError(r.Error)
 	}
 
 	return result, nil

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/status"
 )
 
 // VolumeInfo defines the serialization behaviour for storage volume.
@@ -39,7 +40,7 @@ type VolumeInfo struct {
 }
 
 type EntityStatus struct {
-	Current params.Status `json:"current,omitempty" yaml:"current,omitempty"`
+	Current status.Status `json:"current,omitempty" yaml:"current,omitempty"`
 	Message string        `json:"message,omitempty" yaml:"message,omitempty"`
 	Since   string        `json:"since,omitempty" yaml:"since,omitempty"`
 }
