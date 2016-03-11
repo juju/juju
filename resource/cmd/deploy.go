@@ -27,6 +27,9 @@ type DeployResourcesArgs struct {
 	// ServiceID identifies the service being deployed.
 	ServiceID string
 
+	// CharmURL identifies the service's charm.
+	CharmURL *charm.URL
+
 	// Specified is the set of resources for which a filename
 	// was provided at the command-line.
 	Specified map[string]string
@@ -45,6 +48,7 @@ type DeployResourcesArgs struct {
 func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error) {
 	d := deployUploader{
 		serviceID: args.ServiceID,
+		cURL:      args.CharmURL,
 		client:    args.Client,
 		resources: args.ResourcesMeta,
 		osOpen:    func(s string) (ReadSeekCloser, error) { return os.Open(s) },
