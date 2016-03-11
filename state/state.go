@@ -31,6 +31,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -81,6 +82,7 @@ type State struct {
 	pwatcher *presence.Watcher
 	// leadershipManager keeps track of units' service leadership leases
 	// within this environment.
+	leadershipClient  corelease.Client
 	leadershipManager *lease.Manager
 	// singularManager keeps track of which controller machine is responsible
 	// for managing this state's environment.
@@ -219,6 +221,7 @@ func (st *State) start(controllerTag names.ModelTag) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot create leadership lease client")
 	}
+	st.leadershipClient = leadershipClient
 	logger.Infof("starting leadership lease manager")
 	leadershipManager, err := lease.NewManager(lease.ManagerConfig{
 		Secretary: leadershipSecretary{},

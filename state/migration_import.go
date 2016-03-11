@@ -4,6 +4,8 @@
 package state
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -16,6 +18,13 @@ import (
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
+
+// When we import a new model, we need to give the leaders some time to
+// settle. We don't want to have leader switches just because we migrated an
+// environment, so this time needs to be long enough to make sure we cover
+// the time taken to migration a reasonable sized environment. We don't yet
+// know how long this is going to be, but we need something.
+var initialLeaderClaimTime = time.Minute
 
 // Import the database agnostic model representation into the database.
 func (st *State) Import(model description.Model) (_ *Model, _ *State, err error) {
@@ -537,6 +546,15 @@ func (i *importer) service(s description.Service) error {
 
 	for _, unit := range s.Units() {
 		if err := i.unit(s, unit); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	if s.Leader() != "" {
+		if err := i.st.LeadershipClaimer().ClaimLeadership(
+			s.Name(),
+			s.Leader(),
+			initialLeaderClaimTime); err != nil {
 			return errors.Trace(err)
 		}
 	}

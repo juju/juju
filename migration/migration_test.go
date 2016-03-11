@@ -268,6 +268,20 @@ func (*noOpUploader) UploadTools(io.ReadSeeker, version.Binary, ...string) (*too
 	return nil, nil
 }
 
+type ExportSuite struct {
+	statetesting.StateSuite
+}
+
+var _ = gc.Suite(&ExportSuite{})
+
+func (s *ExportSuite) TestExportModel(c *gc.C) {
+	bytes, err := migration.ExportModel(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	// The bytes must be a valid model.
+	_, err = description.Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type PrecheckSuite struct {
 	testing.BaseSuite
 }
