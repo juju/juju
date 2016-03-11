@@ -281,3 +281,43 @@ func (s *ExportSuite) TestExportModel(c *gc.C) {
 	_, err = description.Deserialize(bytes)
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+type PrecheckSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&PrecheckSuite{})
+
+// Assert that *state.State implements the PrecheckBackend
+var _ migration.PrecheckBackend = (*state.State)(nil)
+
+func (*PrecheckSuite) TestPrecheckCleanups(c *gc.C) {
+	backend := &fakePrecheckBackend{}
+	err := migration.Precheck(backend)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (*PrecheckSuite) TestPrecheckCleanupsError(c *gc.C) {
+	backend := &fakePrecheckBackend{
+		cleanupError: errors.New("boom"),
+	}
+	err := migration.Precheck(backend)
+	c.Assert(err, gc.ErrorMatches, "precheck cleanups: boom")
+}
+
+func (*PrecheckSuite) TestPrecheckCleanupsNeeded(c *gc.C) {
+	backend := &fakePrecheckBackend{
+		cleanupNeeded: true,
+	}
+	err := migration.Precheck(backend)
+	c.Assert(err, gc.ErrorMatches, "precheck failed: cleanup needed")
+}
+
+type fakePrecheckBackend struct {
+	cleanupNeeded bool
+	cleanupError  error
+}
+
+func (f *fakePrecheckBackend) NeedsCleanup() (bool, error) {
+	return f.cleanupNeeded, f.cleanupError
+}
