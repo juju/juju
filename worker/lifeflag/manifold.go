@@ -57,7 +57,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 func manifoldOutput(in worker.Worker, out interface{}) error {
 	inWorker, ok := in.(*Worker)
 	if !ok {
-		return errors.Errorf("expected in to be a *FlagWorker, got a %T", in)
+		return errors.Errorf("expected in to be a *Worker, got a %T", in)
 	}
 	outFlag, ok := out.(*dependency.Flag)
 	if !ok {
