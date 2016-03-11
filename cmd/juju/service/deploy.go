@@ -616,7 +616,8 @@ func handleResources(c APICmd, resources map[string]string, serviceName string, 
 		return nil, errors.Trace(err)
 	}
 
-	ids, err := resourceadapters.DeployResources(serviceName, resources, metaResources, api)
+	var cURL *charm.URL
+	ids, err := resourceadapters.DeployResources(serviceName, cURL, resources, metaResources, api)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
