@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
@@ -16,7 +17,7 @@ import (
 // for deploy.
 type DeployClient interface {
 	// AddPendingResources adds pending metadata for store-based resources.
-	AddPendingResources(serviceID string, resources []charmresource.Resource) (ids []string, err error)
+	AddPendingResources(serviceID string, cURL *charm.URL, resources []charmresource.Resource) (ids []string, err error)
 	// AddPendingResource uploads data and metadata for a pending resource for the given service.
 	AddPendingResource(serviceID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error)
 }
@@ -42,6 +43,7 @@ func DeployResources(serviceID string, files map[string]string, resources map[st
 
 type deployUploader struct {
 	serviceID string
+	cURL      *charm.URL
 	resources map[string]charmresource.Meta
 	client    DeployClient
 	osOpen    func(path string) (ReadSeekCloser, error)
@@ -64,7 +66,7 @@ func (d deployUploader) upload(files map[string]string) (map[string]string, erro
 	storeResources := d.storeResources(files)
 	pending := map[string]string{}
 	if len(storeResources) > 0 {
-		ids, err := d.client.AddPendingResources(d.serviceID, storeResources)
+		ids, err := d.client.AddPendingResources(d.serviceID, d.cURL, storeResources)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

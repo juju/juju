@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/apiserver/common"
@@ -105,8 +106,8 @@ func (c Client) Upload(service, name, filename string, reader io.ReadSeeker) err
 
 // AddPendingResources sends the provided resource info up to Juju
 // without making it available yet.
-func (c Client) AddPendingResources(serviceID string, resources []charmresource.Resource) (pendingIDs []string, err error) {
-	args, err := api.NewAddPendingResourcesArgs(serviceID, resources)
+func (c Client) AddPendingResources(serviceID string, cURL *charm.URL, resources []charmresource.Resource) (pendingIDs []string, err error) {
+	args, err := api.NewAddPendingResourcesArgs(serviceID, cURL, resources)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -137,7 +138,8 @@ func (c Client) AddPendingResources(serviceID string, resources []charmresource.
 // without making it available yet. For example, AddPendingResource()
 // is used before the service is deployed.
 func (c Client) AddPendingResource(serviceID string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
-	ids, err := c.AddPendingResources(serviceID, []charmresource.Resource{res})
+	var cURL *charm.URL
+	ids, err := c.AddPendingResources(serviceID, cURL, []charmresource.Resource{res})
 	if err != nil {
 		return "", errors.Trace(err)
 	}

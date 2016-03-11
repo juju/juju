@@ -12,6 +12,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
@@ -31,6 +32,7 @@ func (s *DeploySuite) SetUpTest(c *gc.C) {
 
 func (s DeploySuite) TestUploadOK(c *gc.C) {
 	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
+	var cURL *charm.URL
 	du := deployUploader{
 		serviceID: "mysql",
 		client:    deps,
@@ -60,13 +62,14 @@ func (s DeploySuite) TestUploadOK(c *gc.C) {
 		"store":  "id-store",
 	})
 
+	s.stub.CheckCallNames(c, "Stat", "AddPendingResources", "Open", "AddPendingResource")
 	expectedStore := []charmresource.Resource{
 		{
 			Meta:   du.resources["store"],
 			Origin: charmresource.OriginStore,
 		},
 	}
-	s.stub.CheckCall(c, 1, "AddPendingResources", "mysql", expectedStore)
+	s.stub.CheckCall(c, 1, "AddPendingResources", "mysql", cURL, expectedStore)
 	s.stub.CheckCall(c, 2, "Open", "foobar.txt")
 
 	expectedUpload := charmresource.Resource{
@@ -129,8 +132,8 @@ type uploadDeps struct {
 	ReadSeekCloser ReadSeekCloser
 }
 
-func (s uploadDeps) AddPendingResources(serviceID string, resources []charmresource.Resource) (ids []string, err error) {
-	s.stub.AddCall("AddPendingResources", serviceID, resources)
+func (s uploadDeps) AddPendingResources(serviceID string, cURL *charm.URL, resources []charmresource.Resource) (ids []string, err error) {
+	s.stub.AddCall("AddPendingResources", serviceID, cURL, resources)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
