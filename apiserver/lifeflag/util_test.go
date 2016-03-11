@@ -40,7 +40,7 @@ func (mock *mockBackend) ModelUUID() string {
 
 func (mock *mockBackend) FindEntity(tag names.Tag) (state.Entity, error) {
 	if tag != coretesting.ModelTag {
-		panic("should never happen -- bad auth somewhere")
+		panic("should never happen -- auth failed somewhere")
 	}
 	if !mock.exist {
 		return nil, errors.NotFoundf("model")

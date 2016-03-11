@@ -20,13 +20,13 @@ func NewFacade(backend Backend, resources *common.Resources, authorizer common.A
 		return nil, common.ErrPerm
 	}
 	expect := names.NewModelTag(backend.ModelUUID())
-	access := func() (common.AuthFunc, error) {
+	getCanAccess := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return tag == expect
 		}, nil
 	}
-	life := common.NewLifeGetter(backend, access)
-	watch := common.NewAgentEntityWatcher(backend, resources, access)
+	life := common.NewLifeGetter(backend, getCanAccess)
+	watch := common.NewAgentEntityWatcher(backend, resources, getCanAccess)
 	return &Facade{
 		LifeGetter:         life,
 		AgentEntityWatcher: watch,

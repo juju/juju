@@ -541,19 +541,19 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 	// Check that the provisioner and firewaller are alive by doing
 	// a rudimentary check that it responds to state changes.
 
-	// Add one unit to a service; it should get allocated a machine
-	// and then its ports should be opened.
+	// Create an exposed service, and add a unit.
 	charm := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "test-service", charm)
 	err := svc.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := juju.AddUnits(s.State, svc, 1, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), gc.NotNil)
 
-	// Wait for the instance id to show up in the state, then induce
-	// the firewaller to do something as well.
+	// It should be allocated to a machine, which should then be provisioned.
+	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), gc.NotNil)
 	s.waitProvisioned(c, units[0])
+
+	// Open a port on the unit; it should be handled by the firewaller.
 	err = units[0].OpenPort("tcp", 999)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpOpenPorts{}), gc.NotNil)
@@ -675,11 +675,6 @@ func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool
 	go func() {
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
-
-	// Wait for the worker that starts before the addresser to start.
-	_ = s.singularRecord.nextRunner(c)
-	r := s.singularRecord.nextRunner(c)
-	r.waitForWorker(c, "cleaner")
 	started.assertTriggered(c, "addresser to start")
 }
 
@@ -986,7 +981,7 @@ func (s *MachineSuite) TestManageModelRunsCleaner(c *gc.C) {
 }
 
 func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
-	s.assertJobWithState(c, state.JobManageModel, func(conf agent.Config, agentState *state.State) {
+	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, agentState *state.State) {
 		// Ensure that the MinUnits worker is alive by doing a simple check
 		// that it responds to state changes: add a service, set its minimum
 		// number of units to one, wait for the worker to add the missing unit.
@@ -1605,6 +1600,10 @@ func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 	c.Fatalf("write me")
 }
 
+func (s *MachineSuite) TestModelWorkersRespectSingularFlag(c *gc.C) {
+	c.Fatalf("write me")
+}
+
 func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()) {
 	// Create a new environment, tests can now watch if workers start for it.
 	newSt = s.Factory.MakeModel(c, &factory.ModelParams{
@@ -1615,29 +1614,6 @@ func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()
 	})
 	return newSt, func() {
 		newSt.Close()
-	}
-}
-
-func (s *MachineSuite) setUpAgent(c *gc.C) (expectedWorkers []string, closer func()) {
-	expectedWorkers = make([]string, 0, len(perEnvSingularWorkers)+1)
-	for _, w := range perEnvSingularWorkers {
-		expectedWorkers = append(expectedWorkers, w)
-		if w == "environ-provisioner" {
-			expectedWorkers = append(expectedWorkers, "environ-storageprovisioner")
-		}
-	}
-	s.PatchValue(&watcher.Period, 100*time.Millisecond)
-
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-
-	_ = s.singularRecord.nextRunner(c) // Don't care about this one for this test.
-
-	// XXX worth waiting for all workers here?
-
-	return expectedWorkers, func() {
-		c.Check(a.Stop(), jc.ErrorIsNil)
 	}
 }
 
