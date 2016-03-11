@@ -91,7 +91,10 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 
 // NewCharmStoreClientConfig returns the client config to use.
 // It is defined at top level for testing purposes.
-var NewCharmStoreClientConfig func() charmstore.ClientConfig
+var NewCharmStoreClientConfig = func() charmstore.ClientConfig {
+	var config charmstore.ClientConfig
+	return config
+}
 
 // newCharmStoreClient instantiates a new charm store repository.
 func newCharmStoreClient(modelUUID string) (*charmstore.Client, error) {
