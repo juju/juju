@@ -37,8 +37,8 @@ type Predicate func(Value) bool
 // IsNotAlive is a Predicate that returns true if the supplied value
 // is not Alive.
 //
-// This generally indicates that the entity in question is at
-// some stage of destruction/cleanup.
+// This generally indicates that the entity in question is at some
+// stage of destruction/cleanup.
 func IsNotAlive(v Value) bool {
 	return v != Alive
 }
