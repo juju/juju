@@ -93,7 +93,11 @@ func (s *UploadSuite) TestPendingResources(c *gc.C) {
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	pendingIDs, err := cl.AddPendingResources("a-service", cURL, resources)
+	pendingIDs, err := cl.AddPendingResources(client.AddPendingResourcesArgs{
+		ServiceID: "a-service",
+		CharmURL:  cURL,
+		Resources: resources,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "FacadeCall")
