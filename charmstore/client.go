@@ -75,13 +75,18 @@ type baseClient struct {
 	asRepo func() *charmrepo.CharmStore
 }
 
-func newBaseClient(raw *csclient.Client, config ClientConfig) *baseClient {
+// TODO(ericsnow) We must make the Juju metadata available here since
+// we must use charmrepo.NewCharmStore(), which doesn't give us an
+// alternative.
+
+func newBaseClient(raw *csclient.Client, config ClientConfig, meta JujuMetadata) *baseClient {
 	base := &baseClient{
 		Client: raw,
 	}
 	base.asRepo = func() *charmrepo.CharmStore {
 		// TODO(ericsnow) Use charmrepo.NewCharmStoreFromClient(), when available?
-		return charmrepo.NewCharmStore(config.NewCharmStoreParams)
+		repo := charmrepo.NewCharmStore(config.NewCharmStoreParams)
+		return repo.WithJujuAttrs(meta.asAttrs())
 	}
 	return base
 }
@@ -129,18 +134,19 @@ type Client struct {
 func NewClient(config ClientConfig) *Client {
 	base := config.newCSClient()
 	closer := ioutil.NopCloser(nil)
-	return newClient(base, config, closer)
+	var meta JujuMetadata
+	return newClient(base, config, meta, closer)
 }
 
-func newClient(base *csclient.Client, config ClientConfig, closer io.Closer) *Client {
+func newClient(base *csclient.Client, config ClientConfig, meta JujuMetadata, closer io.Closer) *Client {
 	c := &Client{
-		BaseClient: newBaseClient(base, config),
+		BaseClient: newBaseClient(base, config, meta),
 		Closer:     closer,
+		meta:       meta,
 	}
 	c.newCopy = func() *Client {
 		newBase := *base // a copy
-		copied := newClient(&newBase, config, closer)
-		copied.meta = c.meta
+		copied := newClient(&newBase, config, c.meta, closer)
 		return copied
 	}
 	return c
