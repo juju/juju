@@ -18,19 +18,6 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-/*type ListSuite struct {
-	SubStorageSuite
-	mockAPI *mockListAPI
-}*/
-
-/*var _ = gc.Suite(&ListSuite{})
-
-func (s *ListSuite) SetUpTest(c *gc.C) {
-	s.SubStorageSuite.SetUpTest(c)
-
-	s.mockAPI = &mockListAPI{}
-}*/
-
 func (s *ListSuite) TestFilesystemListEmpty(c *gc.C) {
 	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsListResult, error) {
 		return nil, nil
@@ -179,14 +166,6 @@ func (s *ListSuite) assertUserFacingOutput(c *gc.C, context *cmd.Context, expect
 	obtainedErr := testing.Stderr(context)
 	c.Assert(obtainedErr, gc.Equals, expectedErr)
 }
-
-/*type mockListAPI struct {
-	listFilesystems func([]string) ([]params.FilesystemDetailsListResult, error)
-}
-
-func (s mockListAPI) Close() error {
-	return nil
-}*/
 
 func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDetailsListResult, error) {
 	if s.listFilesystems != nil {

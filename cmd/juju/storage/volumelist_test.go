@@ -19,18 +19,6 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-/*type ListSuite struct {
-	SubStorageSuite
-	mockAPI *mockListAPI
-}
-
-var _ = gc.Suite(&ListSuite{})
-
-func (s *ListSuite) SetUpTest(c *gc.C) {
-	s.SubStorageSuite.SetUpTest(c)
-	s.mockAPI = &mockListAPI{}
-}*/
-
 func (s *ListSuite) TestVolumeListEmpty(c *gc.C) {
 	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsListResult, error) {
 		return nil, nil
@@ -179,14 +167,6 @@ func (s *ListSuite) assertUserFacingVolumeOutput(c *gc.C, context *cmd.Context, 
 	obtainedErr := testing.Stderr(context)
 	c.Assert(obtainedErr, gc.Equals, expectedErr)
 }
-
-/*type mockListAPI struct {
-	listVolumes func([]string) ([]params.VolumeDetailsListResult, error)
-}
-
-func (s mockListAPI) Close() error {
-	return nil
-}*/
 
 func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListResult, error) {
 	if s.listVolumes != nil {

@@ -13,26 +13,6 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 )
 
-const filesystemCmdDoc = `
-"juju storage filesystem" is used to manage storage filesystems in
- the Juju model.
-`
-
-const filesystemCmdPurpose = "manage storage filesystems"
-
-// NewFilesystemSuperCommand creates the storage filesystem super subcommand and
-// registers the subcommands that it supports.
-/*func NewFilesystemSuperCommand() cmd.Command {
-	supercmd := jujucmd.NewSubSuperCommand(cmd.SuperCommandParams{
-		Name:        "filesystem",
-		Doc:         filesystemCmdDoc,
-		UsagePrefix: "juju storage",
-		Purpose:     filesystemCmdPurpose,
-	})
-	supercmd.Register(newFilesystemListCommand())
-	return supercmd
-}*/
-
 // FilesystemCommandBase is a helper base structure for filesystem commands.
 type FilesystemCommandBase struct {
 	StorageCommandBase
