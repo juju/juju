@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/resource"
@@ -112,6 +113,10 @@ type AddPendingResourcesArgs struct {
 	// CharmURL identifies the service's charm.
 	CharmURL *charm.URL
 
+	// CharmStoreMacaroon is the macaroon to use for the charm when
+	// interacting with the charm store.
+	CharmStoreMacaroon *macaroon.Macaroon
+
 	// Resources holds the charm store info for each of the resources
 	// that should be added/updated on the controller.
 	Resources []charmresource.Resource
@@ -120,7 +125,7 @@ type AddPendingResourcesArgs struct {
 // AddPendingResources sends the provided resource info up to Juju
 // without making it available yet.
 func (c Client) AddPendingResources(args AddPendingResourcesArgs) (pendingIDs []string, err error) {
-	apiArgs, err := api.NewAddPendingResourcesArgs(args.ServiceID, args.CharmURL, args.Resources)
+	apiArgs, err := api.NewAddPendingResourcesArgs(args.ServiceID, args.CharmURL, args.CharmStoreMacaroon, args.Resources)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
