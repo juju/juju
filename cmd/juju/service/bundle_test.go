@@ -502,6 +502,7 @@ func (s *deployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *gc.C
         services:
             wordpress:
                 charm: trusty/wordpress-42
+                series: trusty
                 num_units: 1
             mysql:
                 charm: %s

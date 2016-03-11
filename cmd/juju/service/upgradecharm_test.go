@@ -369,7 +369,7 @@ func (s *UpgradeCharmCharmStoreSuite) TestUpgradeCharmAuthorization(c *gc.C) {
 
 func (s *UpgradeCharmCharmStoreSuite) TestSwitch(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/riak-0", "riak")
-	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/riak-7", "riak")
+	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/anotherriak-7", "riak")
 	err := runDeploy(c, "cs:~other/trusty/riak-0")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -380,19 +380,19 @@ func (s *UpgradeCharmCharmStoreSuite) TestSwitch(c *gc.C) {
 	c.Assert(ch.Revision(), gc.Equals, 0)
 	c.Assert(forced, jc.IsFalse)
 
-	err = runUpgradeCharm(c, "riak", "--switch=cs:~other/trusty/riak")
+	err = runUpgradeCharm(c, "riak", "--switch=cs:~other/trusty/anotherriak")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := s.assertUpgraded(c, riak, 7, false)
-	c.Assert(curl.String(), gc.Equals, "cs:~other/trusty/riak-7")
+	c.Assert(curl.String(), gc.Equals, "cs:~other/trusty/anotherriak-7")
 
 	// Now try the same with explicit revision - should fail.
-	err = runUpgradeCharm(c, "riak", "--switch=cs:~other/trusty/riak-7")
-	c.Assert(err, gc.ErrorMatches, `already running specified charm "cs:~other/trusty/riak-7"`)
+	err = runUpgradeCharm(c, "riak", "--switch=cs:~other/trusty/anotherriak-7")
+	c.Assert(err, gc.ErrorMatches, `already running specified charm "cs:~other/trusty/anotherriak-7"`)
 
 	// Change the revision to 42 and upgrade to it with explicit revision.
-	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/riak-42", "riak")
-	err = runUpgradeCharm(c, "riak", "--switch=cs:~other/trusty/riak-42")
+	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/anotherriak-42", "riak")
+	err = runUpgradeCharm(c, "riak", "--switch=cs:~other/trusty/anotherriak-42")
 	c.Assert(err, jc.ErrorIsNil)
 	curl = s.assertUpgraded(c, riak, 42, false)
-	c.Assert(curl.String(), gc.Equals, "cs:~other/trusty/riak-42")
+	c.Assert(curl.String(), gc.Equals, "cs:~other/trusty/anotherriak-42")
 }
