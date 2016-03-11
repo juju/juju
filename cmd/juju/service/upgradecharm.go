@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"launchpad.net/gnuflag"
 
@@ -19,6 +20,8 @@ import (
 	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourceadapters"
 )
 
 // NewUpgradeCharmCommand returns a command which upgrades service's charm.
@@ -196,28 +199,9 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	charmInfo, err := client.CharmInfo(addedURL.String())
+	ids, err := c.upgradeResources(client, addedURL)
 	if err != nil {
-		return err
-	}
-
-	var ids map[string]string
-
-	if len(c.Resources) > 0 {
-		metaRes := charmInfo.Meta.Resources
-		// only include resource metadata for the files we're actually uploading,
-		// otherwise the server will create empty resources that'll overwrite any
-		// existing resources.
-		for name, _ := range charmInfo.Meta.Resources {
-			if _, ok := c.Resources[name]; !ok {
-				delete(metaRes, name)
-			}
-		}
-
-		ids, err = handleResources(c, c.Resources, c.ServiceName, metaRes)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		return errors.Trace(err)
 	}
 
 	cfg := apiservice.SetCharmConfig{
@@ -229,6 +213,69 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 
 	return block.ProcessBlockedError(serviceClient.SetCharm(cfg), block.BlockChange)
+}
+
+// upgradeResources pushes metadata up to the server for each resource defined
+// in the new charm's metadata and returns a map of resource names to pending
+// IDs to include in the upgrage-charm call.
+func (c *upgradeCharmCommand) upgradeResources(client *api.Client, cURL *charm.URL) (map[string]string, error) {
+	// this gets the charm info that was added to the controller using addcharm.
+	charmInfo, err := client.CharmInfo(cURL.String())
+	if err != nil {
+		return nil, err
+	}
+	if len(charmInfo.Meta.Resources) == 0 {
+		return nil, nil
+	}
+	resclient, err := resourceadapters.NewAPIClient(c.NewAPIRoot)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	svcs, err := resclient.ListResources([]string{c.ServiceName})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// ListResources guarantees a number of values returned == number of
+	// services passed in.
+	currentResources := svcs[0].Resources
+	current := make(map[string]resource.Resource, len(currentResources))
+	for _, res := range currentResources {
+		current[res.Name] = res
+	}
+
+	metaRes := make(map[string]charmresource.Meta, len(charmInfo.Meta.Resources))
+	for name, res := range charmInfo.Meta.Resources {
+		if shouldUploadMeta(res, c.Resources, current) {
+			metaRes[name] = res
+		}
+	}
+
+	// Note: the validity of user-supplied resources to be uploaded will be
+	// checked further down the stack.
+	return handleResources(c, c.Resources, c.ServiceName, metaRes)
+}
+
+// shouldUploadMeta reports whether we should upload the metadata for the given
+// resource.  This is always true for resources we're adding with the --resource
+// flag. For resources we're not adding with --resource, we only upload metadata
+// for charmstore resources.  Previously uploaded resources stay pinned to the
+// data the user uploaded.
+func shouldUploadMeta(res charmresource.Meta, uploads map[string]string, current map[string]resource.Resource) bool {
+	// Always upload metadata for resources the user is uploading during
+	// upgrade-charm.
+	if _, ok := uploads[res.Name]; ok {
+		return true
+	}
+	cur, ok := current[res.Name]
+	if !ok {
+		// If there's no information on the server, there should be.
+		return true
+	}
+	// Never override existing resources a user has already uploaded.
+	if cur.Origin == charmresource.OriginUpload {
+		return false
+	}
+	return true
 }
 
 // addCharm interprets the new charmRef and adds the specified charm if the new charm is different
