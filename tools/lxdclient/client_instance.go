@@ -326,7 +326,7 @@ func (client *instanceClient) Addresses(name string) ([]network.Address, error) 
 
 			addr := network.NewAddress(addr.Address)
 			if addr.Scope == network.ScopeLinkLocal || addr.Scope == network.ScopeMachineLocal {
-				logger.Tracef("for container %q ignoring address", name, addr)
+				logger.Tracef("for container %q ignoring address", name)
 				continue
 			}
 			addrs = append(addrs, addr)
