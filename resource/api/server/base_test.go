@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
@@ -36,8 +37,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.csClient = &stubCSClient{Stub: s.stub}
 }
 
-func (s *BaseSuite) newCSClient(cURL *charm.URL) (server.CharmStore, error) {
-	s.stub.AddCall("newCSClient", cURL)
+func (s *BaseSuite) newCSClient(cURL *charm.URL, csMac *macaroon.Macaroon) (server.CharmStore, error) {
+	s.stub.AddCall("newCSClient", cURL, csMac)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/resource"
@@ -65,8 +66,8 @@ func NewPublicFacade(st *corestate.State, _ *common.Resources, authorizer common
 		Resources: rst,
 		State:     st,
 	}
-	newClient := func(cURL *charm.URL) (server.CharmStore, error) {
-		opener := newCharmstoreOpener(cURL)
+	newClient := func(cURL *charm.URL, csMac *macaroon.Macaroon) (server.CharmStore, error) {
+		opener := newCharmstoreOpener(cURL, csMac)
 		return opener.NewClient()
 	}
 	return server.NewFacade(ds, newClient), nil

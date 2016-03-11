@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -45,11 +46,11 @@ type Facade struct {
 	// store is the data source for the facade.
 	store resourceInfoStore
 
-	newCharmstoreClient func(*charm.URL) (CharmStore, error)
+	newCharmstoreClient func(*charm.URL, *macaroon.Macaroon) (CharmStore, error)
 }
 
 // NewFacade returns a new resoures facade for the given Juju state.
-func NewFacade(store DataStore, newClient func(*charm.URL) (CharmStore, error)) *Facade {
+func NewFacade(store DataStore, newClient func(*charm.URL, *macaroon.Macaroon) (CharmStore, error)) *Facade {
 	return &Facade{
 		store:               store,
 		newCharmstoreClient: newClient,
@@ -119,7 +120,7 @@ func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPe
 	}
 	serviceID := tag.Id()
 
-	ids, err := f.addPendingResources(serviceID, args.URL, args.Resources)
+	ids, err := f.addPendingResources(serviceID, args.URL, args.CharmStoreMacaroon, args.Resources)
 	if err != nil {
 		result.Error = common.ServerError(err)
 		return result, nil
@@ -128,7 +129,7 @@ func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPe
 	return result, nil
 }
 
-func (f Facade) addPendingResources(serviceID, chRef string, apiResources []api.CharmResource) ([]string, error) {
+func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Macaroon, apiResources []api.CharmResource) ([]string, error) {
 	var resources []charmresource.Resource
 	for _, apiRes := range apiResources {
 		orig := apiRes.Revision
@@ -148,7 +149,7 @@ func (f Facade) addPendingResources(serviceID, chRef string, apiResources []api.
 		if err != nil {
 			return nil, err
 		}
-		storeResources, err := f.resourcesFromCharmstore(cURL, resources)
+		storeResources, err := f.resourcesFromCharmstore(cURL, csMac, resources)
 		if err != nil {
 			return nil, err
 		}
@@ -169,12 +170,12 @@ func (f Facade) addPendingResources(serviceID, chRef string, apiResources []api.
 	return ids, nil
 }
 
-func (f Facade) resourcesFromCharmstore(cURL *charm.URL, resources []charmresource.Resource) ([]charmresource.Resource, error) {
+func (f Facade) resourcesFromCharmstore(cURL *charm.URL, csMac *macaroon.Macaroon, resources []charmresource.Resource) ([]charmresource.Resource, error) {
 	if f.newCharmstoreClient == nil {
 		return nil, errors.NotSupportedf("could not get resource info from charm store")
 	}
 
-	client, err := f.newCharmstoreClient(cURL)
+	client, err := f.newCharmstoreClient(cURL, csMac)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

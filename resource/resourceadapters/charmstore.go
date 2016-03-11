@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/charmstore"
@@ -46,12 +47,15 @@ func (cache *charmstoreEntityCache) OpenResource(name string) (resource.Resource
 }
 
 type charmstoreOpener struct {
-	// TODO(ericsnow) What do we need?
+	csMac *macaroon.Macaroon
+	// TODO(ericsnow) What else do we need?
 }
 
-func newCharmstoreOpener(cURL *charm.URL) *charmstoreOpener {
+func newCharmstoreOpener(cURL *charm.URL, csMac *macaroon.Macaroon) *charmstoreOpener {
 	// TODO(ericsnow) Extract the charm store URL from the charm URL.
-	return &charmstoreOpener{}
+	return &charmstoreOpener{
+		csMac: csMac,
+	}
 }
 
 // NewClient opens a new charm store client.
