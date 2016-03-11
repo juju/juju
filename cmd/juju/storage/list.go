@@ -4,7 +4,6 @@
 package storage
 
 import (
-	"fmt"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
@@ -82,64 +81,17 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 
 	var output interface{}
 	if c.filesystem {
-	/*	results, err := api.ListFilesystems(c.Ids)
-		if err != nil {
-			return err
-		}*/
-		output, err = c.listFilesystemscrap(ctx, api)
-		if err != nil {
-			return err
-		}
-		if output == nil {
-			return nil
-		}
+		output, err = c.generateListFilesystemsOutput(ctx, api)
 	} else if c.volume {
-		results, err := api.ListVolumes(c.Ids)
-		if err != nil {
-			return err
-		}
-		// filter out valid output, if any
-		var valid []params.VolumeDetails
-		for _, result := range results {
-			if result.Error == nil {
-				valid = append(valid, result.Result...)
-				continue
-			}
-			// display individual error
-			fmt.Fprintf(ctx.Stderr, "%v\n", result.Error)
-		}
-		if len(valid) == 0 {
-			return nil
-		}
-		info, err := convertToVolumeInfo(valid)
-		if err != nil {
-			return err
-		}
-		switch c.out.Name() {
-		case "yaml", "json":
-			output = map[string]map[string]VolumeInfo{"volumes": info}
-		default:
-			output = info
-		}
+		output, err = c.generateListVolumeOutput(ctx, api)
 	} else {
-
-		results, err := api.ListStorageDetails()
-		if err != nil {
-			return err
-		}
-		if len(results) == 0 {
-			return nil
-		}
-		details, err := formatStorageDetails(results)
-		if err != nil {
-			return err
-		}
-		switch c.out.Name() {
-		case "yaml", "json":
-			output = map[string]map[string]StorageInfo{"storage": details}
-		default:
-			output = details
-		}
+		output, err = c.generateListOutput(ctx, api)
+	}
+	if err != nil {
+		return err
+	}
+	if output == nil {
+		return nil
 	}
 	return c.out.Write(ctx, output)
 }
@@ -152,51 +104,45 @@ type StorageListAPI interface {
 	ListVolumes(machines []string) ([]params.VolumeDetailsListResult, error)
 }
 
-/*func (c *listCommand) listFilesystems(ctx *cmd.Context, results []params.FilesystemDetailsListResult) (output interface{}, err error) {
-		// filter out valid output, if any
-		var valid []params.FilesystemDetails
-		for _, result := range results {
-			if result.Error == nil {
-				valid = append(valid, result.Result...)
-				continue
-			}
-			// display individual error
-			fmt.Fprintf(ctx.Stderr, "%v\n", result.Error)
-		}
-		if len(valid) == 0 {
-			return nil, nil
-		}
-		info, err := convertToFilesystemInfo(valid)
-		if err != nil {
-			return nil, err
-		}
-		switch c.out.Name() {
-		case "yaml", "json":
-			output = map[string]map[string]FilesystemInfo{"filesystems": info}
-		default:
-			output = info
-		}
+// generateListOutput returns a map of storage details
+func (c *listCommand) generateListOutput(ctx *cmd.Context, api StorageListAPI) (output interface{}, err error) {
 
-		return output, nil
-}*/
+	results, err := api.ListStorageDetails()
+	if err != nil {
+		return nil, err
+	}
+	if len(results) == 0 {
+		return nil, nil
+	}
+	details, err := formatStorageDetails(results)
+	if err != nil {
+		return nil, err
+	}
+	switch c.out.Name() {
+	case "yaml", "json":
+		output = map[string]map[string]StorageInfo{"storage": details}
+	default:
+		output = details
+	}
+	return output, nil
+}
 
 func formatListTabular(value interface{}) ([]byte, error) {
-	_, ok := value.(map[string]StorageInfo)
-	if ok {
+
+	switch value.(type) {
+	case map[string]StorageInfo:
 		output, err := formatStorageListTabular(value)
 		return output, err
-	}
-	_, ok2 := value.(map[string]FilesystemInfo)
-	if ok2 {
+
+	case map[string]FilesystemInfo:
 		output, err := formatFilesystemListTabular(value)
 		return output, err
-	}
-	_, ok3 := value.(map[string]VolumeInfo)
-	if ok3 {
+
+	case map[string]VolumeInfo:
 		output, err := formatVolumeListTabular(value)
 		return output, err
-	} else {
+
+	default:
 		return nil, errors.Errorf("unexpected value of type %T", value)
 	}
-
 }

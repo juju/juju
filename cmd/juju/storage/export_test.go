@@ -31,14 +31,6 @@ func NewPoolCreateCommandForTest(api PoolCreateAPI, store jujuclient.ClientStore
 	return modelcmd.Wrap(cmd)
 }
 
-/*func NewVolumeListCommandForTest(api VolumeListAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &volumeListCommand{newAPIFunc: func() (VolumeListAPI, error) {
-		return api, nil
-	}}
-	cmd.SetClientStore(store)
-	return modelcmd.Wrap(cmd)
-}*/
-
 func NewShowCommandForTest(api StorageShowAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &showCommand{newAPIFunc: func() (StorageShowAPI, error) {
 		return api, nil
@@ -62,11 +54,3 @@ func NewAddCommandForTest(api StorageAddAPI, store jujuclient.ClientStore) cmd.C
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
-
-/*func NewFilesystemListCommandForTest(api FilesystemListAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &filesystemListCommand{newAPIFunc: func() (FilesystemListAPI, error) {
-		return api, nil
-	}}
-	cmd.SetClientStore(store)
-	return modelcmd.Wrap(cmd)
-}*/
