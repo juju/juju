@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource/api/client"
@@ -81,7 +82,26 @@ func (s *UploadSuite) TestRequestFailed(c *gc.C) {
 	s.stub.CheckCallNames(c, "Read", "Read", "Seek", "Do")
 }
 
-func (s *UploadSuite) TestPendingOkay(c *gc.C) {
+func (s *UploadSuite) TestPendingResources(c *gc.C) {
+	res, apiResult := newResourceResult(c, "a-service", "spam")
+	resources := []charmresource.Resource{res[0].Resource}
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []string{uuid.String()}
+	s.response.Resource = apiResult.Resources[0]
+	s.facade.pendingIDs = expected
+	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
+	cl := client.NewClient(s.facade, s, s.facade)
+
+	pendingIDs, err := cl.AddPendingResources("a-service", cURL, resources)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "FacadeCall")
+	//s.stub.CheckCall(c, 0, "FacadeCall", "AddPendingResources", args, result)
+	c.Check(pendingIDs, jc.DeepEquals, expected)
+}
+
+func (s *UploadSuite) TestPendingResourceOkay(c *gc.C) {
 	res, apiResult := newResourceResult(c, "a-service", "spam")
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -116,7 +136,7 @@ func (s *UploadSuite) TestPendingOkay(c *gc.C) {
 	c.Check(uploadID, gc.Equals, expected)
 }
 
-func (s *UploadSuite) TestPendingNoFile(c *gc.C) {
+func (s *UploadSuite) TestPendingResourceNoFile(c *gc.C) {
 	res, apiResult := newResourceResult(c, "a-service", "spam")
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -134,7 +154,7 @@ func (s *UploadSuite) TestPendingNoFile(c *gc.C) {
 	c.Check(uploadID, gc.Equals, expected)
 }
 
-func (s *UploadSuite) TestPendingBadService(c *gc.C) {
+func (s *UploadSuite) TestPendingResourceBadService(c *gc.C) {
 	res, _ := newResourceResult(c, "a-service", "spam")
 	s.facade.FacadeCallFn = nil
 	cl := client.NewClient(s.facade, s, s.facade)
@@ -145,7 +165,7 @@ func (s *UploadSuite) TestPendingBadService(c *gc.C) {
 	s.stub.CheckNoCalls(c)
 }
 
-func (s *UploadSuite) TestPendingBadRequest(c *gc.C) {
+func (s *UploadSuite) TestPendingResourceBadRequest(c *gc.C) {
 	res, _ := newResource(c, "spam", "", "")
 	chRes := res.Resource
 	reader := &stubFile{stub: s.stub}
@@ -160,7 +180,7 @@ func (s *UploadSuite) TestPendingBadRequest(c *gc.C) {
 	s.stub.CheckCallNames(c, "FacadeCall", "Read")
 }
 
-func (s *UploadSuite) TestPendingRequestFailed(c *gc.C) {
+func (s *UploadSuite) TestPendingResourceRequestFailed(c *gc.C) {
 	res, _ := newResourceResult(c, "a-service", "spam")
 	reader := &stubFile{stub: s.stub}
 	reader.returnRead = strings.NewReader("<data>")
