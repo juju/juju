@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	internalserver "github.com/juju/juju/resource/api/private/server"
 	"github.com/juju/juju/resource/api/server"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state"
@@ -68,6 +67,6 @@ func newUnitResourceHandler(httpCtxt httpContext) http.Handler {
 	extractor := resourceadapters.HTTPDownloadRequestExtractor{
 		Connector: &resourcesHandlerDeps{httpCtxt},
 	}
-	deps := internalserver.NewLegacyHTTPHandlerDeps(extractor)
-	return internalserver.NewLegacyHTTPHandler(deps)
+	deps := server.NewUnitResourceHandlerDeps(extractor)
+	return server.NewUnitResourceHandler(deps)
 }
