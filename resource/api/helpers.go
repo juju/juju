@@ -188,43 +188,49 @@ func API2CharmResource(apiInfo CharmResource) (charmresource.Resource, error) {
 	return res, nil
 }
 
-var singletonErrorCodes = map[error]string{
-	state.ErrCannotEnterScopeYet: params.CodeCannotEnterScopeYet,
-	state.ErrCannotEnterScope:    params.CodeCannotEnterScope,
-	state.ErrUnitHasSubordinates: params.CodeUnitHasSubordinates,
-	state.ErrDead:                params.CodeDead,
-	txn.ErrExcessiveContention:   params.CodeExcessiveContention,
-	leadership.ErrClaimDenied:    params.CodeLeadershipClaimDenied,
-	lease.ErrClaimDenied:         params.CodeLeaseClaimDenied,
-	common.ErrBadId:              params.CodeNotFound,
-	common.ErrBadCreds:           params.CodeUnauthorized,
-	common.ErrPerm:               params.CodeUnauthorized,
-	common.ErrNotLoggedIn:        params.CodeUnauthorized,
-	common.ErrUnknownWatcher:     params.CodeNotFound,
-	common.ErrStoppedWatcher:     params.CodeStopped,
-	common.ErrTryAgain:           params.CodeTryAgain,
-	common.ErrActionNotAvailable: params.CodeActionNotAvailable,
-}
-
-func singletonCode(err error) (string, bool) {
-	// All error types may not be hashable; deal with
-	// that by catching the panic if we try to look up
-	// a non-hashable type.
-	defer func() {
-		recover()
-	}()
-	code, ok := singletonErrorCodes[err]
-	return code, ok
-}
+var singletonErrorCodes = map[error]string{}
 
 func singletonError(err error) (error, bool) {
-	errCode := params.ErrCode(err)
-	for singleton, code := range singletonErrorCodes {
-		if errCode == code && singleton.Error() == err.Error() {
-			return singleton, true
-		}
+	sameErr := func(err2 error) (error, bool) {
+		return err, err.Error() == err2.Error()
 	}
-	return nil, false
+	switch params.ErrCode(err) {
+	case params.CodeCannotEnterScopeYet:
+		return sameErr(state.ErrCannotEnterScopeYet)
+	case params.CodeCannotEnterScope:
+		return sameErr(state.ErrCannotEnterScope)
+	case params.CodeUnitHasSubordinates:
+		return sameErr(state.ErrUnitHasSubordinates)
+	case params.CodeDead:
+		return sameErr(state.ErrDead)
+	case params.CodeExcessiveContention:
+		return sameErr(txn.ErrExcessiveContention)
+	case params.CodeLeadershipClaimDenied:
+		return sameErr(leadership.ErrClaimDenied)
+	case params.CodeLeaseClaimDenied:
+		return sameErr(lease.ErrClaimDenied)
+	case params.CodeNotFound:
+		if err, ok := sameErr(common.ErrBadId); ok {
+			return err, ok
+		}
+		return sameErr(common.ErrUnknownWatcher)
+	case params.CodeUnauthorized:
+		if err, ok := sameErr(common.ErrBadCreds); ok {
+			return err, ok
+		}
+		if err, ok := sameErr(common.ErrPerm); ok {
+			return err, ok
+		}
+		return sameErr(common.ErrNotLoggedIn)
+	case params.CodeStopped:
+		return sameErr(common.ErrStoppedWatcher)
+	case params.CodeTryAgain:
+		return sameErr(common.ErrTryAgain)
+	case params.CodeActionNotAvailable:
+		return sameErr(common.ErrActionNotAvailable)
+	default:
+		return nil, false
+	}
 }
 
 // RestoreError makes a best effort at converting the given error
