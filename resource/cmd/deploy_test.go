@@ -30,11 +30,53 @@ func (s *DeploySuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 }
 
+func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
+	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
+	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
+	resources := map[string]charmresource.Meta{
+		"store-tarball": {
+			Name: "store-tarball",
+			Type: charmresource.TypeFile,
+			Path: "store.tgz",
+		},
+		"store-zip": {
+			Name: "store-zip",
+			Type: charmresource.TypeFile,
+			Path: "store.zip",
+		},
+	}
+
+	ids, err := DeployResources(DeployResourcesArgs{
+		ServiceID:     "mysql",
+		CharmURL:      cURL,
+		Specified:     nil,
+		Client:        deps,
+		ResourcesMeta: resources,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(ids, gc.DeepEquals, map[string]string{
+		"store-tarball": "id-store-tarball",
+		"store-zip":     "id-store-zip",
+	})
+
+	s.stub.CheckCallNames(c, "AddPendingResources")
+	expectedStore := []charmresource.Resource{{
+		Meta:   resources["store-tarball"],
+		Origin: charmresource.OriginStore,
+	}, {
+		Meta:   resources["store-zip"],
+		Origin: charmresource.OriginStore,
+	}}
+	s.stub.CheckCall(c, 0, "AddPendingResources", "mysql", cURL, expectedStore)
+}
+
 func (s DeploySuite) TestUploadOK(c *gc.C) {
 	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
-	var cURL *charm.URL
+	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
 	du := deployUploader{
 		serviceID: "mysql",
+		cURL:      cURL,
 		client:    deps,
 		resources: map[string]charmresource.Meta{
 			"upload": {
