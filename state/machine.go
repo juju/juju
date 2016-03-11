@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -33,6 +34,8 @@ type Machine struct {
 	st  *State
 	doc machineDoc
 	presence.Presencer
+	status.StatusHistoryGetter
+	status.InstanceStatusHistoryGetter
 }
 
 // MachineJob values define responsibilities that machines may be
@@ -193,6 +196,16 @@ func (m *Machine) ContainerType() instance.ContainerType {
 // machineGlobalKey returns the global database key for the identified machine.
 func machineGlobalKey(id string) string {
 	return "m#" + id
+}
+
+// machineGlobalInstanceKey returns the global database key for the identified machine's instance.
+func machineGlobalInstanceKey(id string) string {
+	return machineGlobalKey(id) + "#instance"
+}
+
+// globalInstanceKey returns the global database key for the machinei's instance.
+func (m *Machine) globalInstanceKey() string {
+	return machineGlobalInstanceKey(m.doc.Id)
 }
 
 // globalKey returns the global database key for the machine.
@@ -880,12 +893,8 @@ func (m *Machine) Remove() (err error) {
 			Id:     m.doc.DocID,
 			Assert: isDeadDoc,
 		},
-		{
-			C:      instanceDataC,
-			Id:     m.doc.DocID,
-			Remove: true,
-		},
 		removeStatusOp(m.st, m.globalKey()),
+		removeStatusOp(m.st, m.globalInstanceKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
 		removeRequestedNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
@@ -1006,36 +1015,41 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 
 // InstanceStatus returns the provider specific instance status for this machine,
 // or a NotProvisionedError if instance is not yet provisioned.
-func (m *Machine) InstanceStatus() (string, error) {
-	instData, err := getInstanceData(m.st, m.Id())
-	if errors.IsNotFound(err) {
-		err = errors.NotProvisionedf("machine %v", m.Id())
-	}
+func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
+	machineStatus, err := getStatus(m.st, m.globalInstanceKey(), "instance")
 	if err != nil {
-		return "", err
+		logger.Warningf("error when retrieving instance status for machine: %s, %v", m.Id(), err)
+		return status.StatusInfo{}, err
 	}
-	return instData.Status, err
+	return machineStatus, nil
 }
 
 // SetInstanceStatus sets the provider specific instance status for a machine.
-func (m *Machine) SetInstanceStatus(status string) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set instance status for machine %q", m)
+func (m *Machine) SetInstanceStatus(instanceStatus status.Status, info string, data map[string]interface{}) (err error) {
+	return setStatus(m.st, setStatusParams{
+		badge:     "instance",
+		globalKey: m.globalInstanceKey(),
+		status:    instanceStatus,
+		message:   info,
+		rawData:   data,
+	})
 
-	ops := []txn.Op{
-		{
-			C:      instanceDataC,
-			Id:     m.doc.DocID,
-			Assert: txn.DocExists,
-			Update: bson.D{{"$set", bson.D{{"status", status}}}},
-		},
-	}
+}
 
-	if err = m.st.runTransaction(ops); err == nil {
-		return nil
-	} else if err != txn.ErrAborted {
-		return err
-	}
-	return errors.NotProvisionedf("machine %v", m.Id())
+// InstanceStatusHistory returns a slice of at most <size> StatusInfo items
+// representing past statuses for this machine instance.
+// Instance represents the provider underlying [v]hardware or container where
+// this juju machine is deployed.
+func (u *Machine) InstanceStatusHistory(size int) ([]status.StatusInfo, error) {
+	return statusHistory(u.st, u.globalInstanceKey(), size)
+}
+
+// StatusHistory returns a slice of at most <size> StatusInfo items
+// representing past statuses for this machine.
+// Machine refers to what juju calls Machine which is an entity representing
+// the underlying [v]hardware and its characteristics.
+func (u *Machine) StatusHistory(size int) ([]status.StatusInfo, error) {
+	return statusHistory(u.st, u.globalKey(), size)
 }
 
 // AvailabilityZone returns the provier-specific instance availability
@@ -1680,19 +1694,23 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 }
 
 // Status returns the status of the machine.
-func (m *Machine) Status() (StatusInfo, error) {
-	return getStatus(m.st, m.globalKey(), "machine")
+func (m *Machine) Status() (status.StatusInfo, error) {
+	mStatus, err := getStatus(m.st, m.globalKey(), "machine")
+	if err != nil {
+		return mStatus, err
+	}
+	return mStatus, nil
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(status Status, info string, data map[string]interface{}) error {
-	switch status {
-	case StatusStarted, StatusStopped:
-	case StatusError:
+func (m *Machine) SetStatus(machineStatus status.Status, info string, data map[string]interface{}) error {
+	switch machineStatus {
+	case status.StatusStarted, status.StatusStopped:
+	case status.StatusError:
 		if info == "" {
-			return errors.Errorf("cannot set status %q without info", status)
+			return errors.Errorf("cannot set status %q without info", machineStatus)
 		}
-	case StatusPending:
+	case status.StatusPending:
 		// If a machine is not yet provisioned, we allow its status
 		// to be set back to pending (when a retry is to occur).
 		_, err := m.InstanceId()
@@ -1701,15 +1719,15 @@ func (m *Machine) SetStatus(status Status, info string, data map[string]interfac
 			break
 		}
 		fallthrough
-	case StatusDown:
-		return errors.Errorf("cannot set status %q", status)
+	case status.StatusDown:
+		return errors.Errorf("cannot set status %q", machineStatus)
 	default:
-		return errors.Errorf("cannot set invalid status %q", status)
+		return errors.Errorf("cannot set invalid status %q", machineStatus)
 	}
 	return setStatus(m.st, setStatusParams{
 		badge:     "machine",
 		globalKey: m.globalKey(),
-		status:    status,
+		status:    machineStatus,
 		message:   info,
 		rawData:   data,
 	})
@@ -1804,10 +1822,10 @@ func (m *Machine) markInvalidContainers() error {
 				logger.Errorf("finding status of container %v to mark as invalid: %v", containerId, err)
 				continue
 			}
-			if statusInfo.Status == StatusPending {
+			if statusInfo.Status == status.StatusPending {
 				containerType := ContainerTypeFromId(containerId)
 				container.SetStatus(
-					StatusError, "unsupported container", map[string]interface{}{"type": containerType})
+					status.StatusError, "unsupported container", map[string]interface{}{"type": containerType})
 			} else {
 				logger.Errorf("unsupported container %v has unexpected status %v", containerId, statusInfo.Status)
 			}

@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 )
 
 // StatusSetCommand implements the status-set command.
@@ -39,11 +39,11 @@ status and message are the same as what's already set.
 	}
 }
 
-var validStatus = []params.Status{
-	params.StatusMaintenance,
-	params.StatusBlocked,
-	params.StatusWaiting,
-	params.StatusActive,
+var validStatus = []status.Status{
+	status.StatusMaintenance,
+	status.StatusBlocked,
+	status.StatusWaiting,
+	status.StatusActive,
 }
 
 func (c *StatusSetCommand) SetFlags(f *gnuflag.FlagSet) {
