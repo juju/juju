@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker"
 )
 
@@ -30,7 +31,7 @@ type stateInterface interface {
 type stateMachine interface {
 	Id() string
 	InstanceId() (instance.Id, error)
-	Status() (state.StatusInfo, error)
+	Status() (status.StatusInfo, error)
 	Refresh() error
 	Watch() state.NotifyWatcher
 	WantsVote() bool
@@ -444,16 +445,16 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 		}
 
 		// Don't add the machine unless it is "Started"
-		status, err := stm.Status()
+		machineStatus, err := stm.Status()
 		if err != nil {
 			return false, errors.Annotatef(err, "cannot get status for machine %q", id)
 		}
-		if status.Status == state.StatusStarted {
+		if machineStatus.Status == status.StatusStarted {
 			logger.Tracef("machine %q has started, adding it to peergrouper list", id)
 			infow.worker.machines[id] = infow.worker.newMachine(stm)
 			changed = true
 		} else {
-			logger.Tracef("machine %q not ready: %v", id, status.Status)
+			logger.Tracef("machine %q not ready: %v", id, machineStatus.Status)
 		}
 
 	}

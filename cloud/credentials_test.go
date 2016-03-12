@@ -452,3 +452,26 @@ func (s *credentialsSuite) TestFinalizeCredentialNotSupported(c *gc.C) {
 func readFileNotSupported(f string) ([]byte, error) {
 	return nil, errors.NotSupportedf("reading file %q", f)
 }
+
+func (s *credentialsSuite) TestRemoveSecrets(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"username": "user",
+			"password": "secret",
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"username": {},
+		"password": {
+			Hidden: true,
+		},
+	}
+	sanitisedCred, err := cloud.RemoveSecrets(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: schema,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sanitisedCred.Attributes(), jc.DeepEquals, map[string]string{
+		"username": "user",
+	})
+}

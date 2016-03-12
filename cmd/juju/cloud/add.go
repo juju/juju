@@ -13,7 +13,6 @@ import (
 
 type addCloudCommand struct {
 	cmd.CommandBase
-	out cmd.Output
 
 	// Replace, if true, existing cloud information is overwritten.
 	Replace bool
@@ -58,6 +57,7 @@ func (c *addCloudCommand) Info() *cmd.Info {
 		Name:    "add-cloud",
 		Purpose: "adds a named cloud definition to the list of those which can run Juju workloads",
 		Doc:     addCloudDoc,
+		Args:    "<cloud-name> <cloud.yaml>",
 	}
 }
 

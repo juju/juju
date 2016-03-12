@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 )
@@ -96,7 +97,7 @@ func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
 		// Signal that we're in Status.
 		waitStatus <- struct{}{}
 		return params.StatusResult{
-			Status: params.StatusPending,
+			Status: status.StatusPending,
 			Info:   "",
 			Data:   map[string]interface{}{},
 			Since:  nil,

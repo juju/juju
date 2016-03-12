@@ -162,7 +162,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
-	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storageConfig)
+	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storageConfig, args.StatusCallback)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, err
@@ -488,13 +488,55 @@ var setupRoutesAndIPTables = func(
 }
 
 var (
-	netInterfaces  = net.Interfaces
-	interfaceAddrs = (*net.Interface).Addrs
+	netInterfaceByName = net.InterfaceByName
+	netInterfaces      = net.Interfaces
+	interfaceAddrs     = (*net.Interface).Addrs
 )
 
-// discoverPrimaryNIC returns the name of the first network interface
-// on the machine which is up and has address, along with the first
-// address it has.
+// discoverIPv4InterfaceAddress returns the address for ifaceName
+// (e.g., br-eth1). This method is a stop-gap measure to unblock
+// master CI failures and will be removed once multi-NIC container
+// support is landed from the maas-spaces2 feature branch.
+func discoverIPv4InterfaceAddress(ifaceName string) (*network.Address, error) {
+	iface, err := netInterfaceByName(ifaceName)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get interface %q", ifaceName)
+	}
+
+	addrs, err := interfaceAddrs(iface)
+
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get network addresses for interface %q", ifaceName)
+	}
+
+	for _, addr := range addrs {
+		// Check if it's an IP or a CIDR.
+
+		ip := net.ParseIP(addr.String())
+
+		if ip != nil && ip.To4() == nil {
+			logger.Debugf("skipping IPv6 address: %q", ip)
+			continue
+		}
+
+		if ip == nil {
+			// Try a CIDR.
+			ip, _, err = net.ParseCIDR(addr.String())
+			if ip != nil && ip.To4() == nil {
+				logger.Debugf("skipping IPv6 address: %q", ip)
+				continue
+			}
+			if err != nil {
+				return nil, errors.Annotatef(err, "cannot parse address %q", addr)
+			}
+		}
+		logger.Tracef("network interface %q has address %q", ifaceName, ip)
+		addr := network.NewAddress(ip.String())
+		return &addr, nil
+	}
+	return nil, errors.Errorf("no addresses found for %q", ifaceName)
+}
+
 func discoverPrimaryNIC() (string, network.Address, error) {
 	interfaces, err := netInterfaces()
 	if err != nil {
@@ -689,9 +731,18 @@ func prepareOrGetContainerInterfaceInfo(
 		return nil, errors.Trace(dnsErr)
 	}
 
+	bridgeDeviceAddress, err := discoverIPv4InterfaceAddress(bridgeDevice)
+
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	for i, _ := range preparedInfo {
 		preparedInfo[i].DNSServers = dnsServers
 		preparedInfo[i].DNSSearch = searchDomain
+		if preparedInfo[i].GatewayAddress.Value == "" {
+			preparedInfo[i].GatewayAddress = *bridgeDeviceAddress
+		}
 	}
 
 	log.Tracef("PrepareContainerInterfaceInfo returned %#v", preparedInfo)

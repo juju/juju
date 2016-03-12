@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/agenttools"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/api/statushistory"
@@ -91,7 +90,6 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
-	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/undertaker"
 	"github.com/juju/juju/worker/unitassigner"
@@ -730,13 +728,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	}
 
 	if isModelManager {
-		runner.StartWorker("toolsversionchecker", func() (worker.Worker, error) {
-			// 4 times a day seems a decent enough amount of checks.
-			checkerParams := toolsversionchecker.VersionCheckerParams{
-				CheckInterval: time.Hour * 6,
-			}
-			return toolsversionchecker.New(agenttools.NewFacade(apiConn), &checkerParams), nil
-		})
 
 	} else {
 		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
@@ -864,8 +855,12 @@ func (a *MachineAgent) updateSupportedContainers(
 			// Explicitly call the non-named constructor so if anyone
 			// adds additional fields, this fails.
 			container.ImageURLGetterConfig{
-				st.Addr(), modelUUID.Id(), []byte(agentConfig.CACert()),
-				cfg.CloudImageBaseURL(), container.ImageDownloadURL,
+				ServerRoot:        st.Addr(),
+				ModelUUID:         modelUUID.Id(),
+				CACert:            []byte(agentConfig.CACert()),
+				CloudimgBaseUrl:   cfg.CloudImageBaseURL(),
+				Stream:            cfg.ImageStream(),
+				ImageDownloadFunc: container.ImageDownloadURL,
 			})
 	}
 	params := provisioner.ContainerSetupParams{
@@ -1195,6 +1190,11 @@ func (a *MachineAgent) startEnvWorkers(
 		}
 		return w, nil
 	})
+
+	for name, factory := range registeredModelWorkers {
+		newWorker := factory(st)
+		singularRunner.StartWorker(name, newWorker)
+	}
 
 	return runner, nil
 }
