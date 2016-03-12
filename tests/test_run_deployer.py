@@ -50,6 +50,8 @@ class TestParseArgs(tests.TestCase):
         self.assertEqual(args.verbose, logging.INFO)
         self.assertEqual(args.upgrade, False)
         self.assertEqual(args.upgrade_condition, None)
+        self.assertEqual(args.agent_timeout, 1200)
+        self.assertEqual(args.workload_timeout, 1800)
 
     def test_allow_native_bundle(self):
         args = parse_args(['./bundle/path', 'an_env', './juju', './logs',
@@ -86,7 +88,7 @@ class TestMain(tests.FakeHomeTestCase):
                         main(args)
         e_mock.assert_called_once_with('an-env')
         c_mock.assert_called_once_with(env, '/bin/juju', debug=False)
-        ad_mock.assert_called_once_with(parse_args(args), client)
+        ad_mock.assert_called_once_with(parse_args(args), client, 1200, 1800)
 
 
 class TestAssessDeployer(tests.TestCase):
@@ -111,7 +113,7 @@ class TestAssessDeployer(tests.TestCase):
         args = self.make_args(health_cmd='/tmp/check')
         client_mock = Mock(spec=EnvJujuClient)
         with patch('run_deployer.check_health', autospec=True) as ch_mock:
-            assess_deployer(args, client_mock)
+            assess_deployer(args, client_mock, 600, 1800)
         client_mock.deployer.assert_called_once_with('bundle.yaml', 'bu')
         client_mock.wait_for_workloads.assert_called_once_with(timeout=1800)
         environ = client_mock._shell_environ()
@@ -121,7 +123,7 @@ class TestAssessDeployer(tests.TestCase):
         args = self.make_args(juju_bin='new/juju', upgrade=True)
         client_mock = Mock(spec=EnvJujuClient)
         with patch('run_deployer.assess_upgrade', autospec=True) as au_mock:
-            assess_deployer(args, client_mock)
+            assess_deployer(args, client_mock, 600, 1800)
         client_mock.deployer.assert_called_once_with('bundle.yaml', 'bu')
         client_mock.show_status.assert_called_once_with()
         au_mock.assert_called_once_with(client_mock, 'new/juju')
@@ -135,7 +137,7 @@ class TestAssessDeployer(tests.TestCase):
         client_mock = Mock(spec=EnvJujuClient)
         with patch('run_deployer.assess_upgrade', autospec=True) as au_mock:
             with patch('run_deployer.check_health', autospec=True) as ch_mock:
-                assess_deployer(args, client_mock)
+                assess_deployer(args, client_mock, 600, 1800)
         client_mock.deployer.assert_called_once_with('bundle.yaml', 'bu')
         client_mock.show_status.assert_called_once_with()
         au_mock.assert_called_once_with(client_mock, 'new/juju')
@@ -157,7 +159,7 @@ class TestAssessDeployer(tests.TestCase):
                    return_value=client):
             with patch('run_deployer.apply_condition') as ac_mock:
                 with patch('run_deployer.assess_upgrade') as au_mock:
-                    assess_deployer(args, client)
+                    assess_deployer(args, client, 600, 1800)
         self.assertEqual(2, ac_mock.call_count)
         self.assertEqual(
             ac_mock.call_args_list,
@@ -168,9 +170,9 @@ class TestAssessDeployer(tests.TestCase):
     def test_allow_native_deploy(self):
         args = self.make_args(allow_native_deploy=True)
         client_mock = Mock(spec=EnvJujuClient)
-        assess_deployer(args, client_mock)
+        assess_deployer(args, client_mock, 600, 1800)
         client_mock.deploy_bundle.assert_called_once_with('bundle.yaml')
-        client_mock.wait_for_started.assert_called_once_with()
+        client_mock.wait_for_started.assert_called_once_with(timeout=600)
         client_mock.wait_for_workloads.assert_called_once_with(timeout=1800)
 
 
