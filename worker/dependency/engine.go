@@ -19,22 +19,27 @@ var logger = loggo.GetLogger("juju.worker.dependency")
 // EngineConfig defines the parameters needed to create a new engine.
 type EngineConfig struct {
 
-	// IsFatal returns true when passed an error that should stop the engine.
-	// It must not be nil.
+	// IsFatal returns true when passed an error that should stop
+	// the engine. It must not be nil.
 	IsFatal IsFatalFunc
 
-	// WorstError returns the more important of two fatal errors passed to it,
-	// and is used to determine which fatal error to report when there's more
-	// than one. It must not be nil.
+	// WorstError returns the more important of two fatal errors
+	// passed to it, and is used to determine which fatal error to
+	// report when there's more than one. It must not be nil.
 	WorstError WorstErrorFunc
 
-	// ErrorDelay controls how long the engine waits before restarting a worker
-	// that encountered an unknown error. It must not be negative.
+	// Filter, if not nil, will modify any fatal error reported from
+	// Wait().
+	Filter FilterFunc
+
+	// ErrorDelay controls how long the engine waits before starting
+	// a worker that stopped with an unknown error. It must not be
+	// negative.
 	ErrorDelay time.Duration
 
-	// BounceDelay controls how long the engine waits before restarting a worker
-	// that was deliberately shut down because its dependencies changed. It must
-	// not be negative.
+	// BounceDelay controls how long the engine waits before starting
+	// a worker that was deliberately stopped because its dependencies
+	// changed. It must not be negative.
 	BounceDelay time.Duration
 }
 
@@ -165,7 +170,11 @@ func (engine *engine) Wait() error {
 	if tombError := engine.tomb.Wait(); tombError != nil {
 		return tombError
 	}
-	return engine.worstError
+	err := engine.worstError
+	if engine.config.Filter != nil {
+		return engine.config.Filter(err)
+	}
+	return err
 }
 
 // Report is part of the Reporter interface.
