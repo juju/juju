@@ -4,7 +4,6 @@
 package charmcmd
 
 import (
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -13,22 +12,17 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/persistent-cookiejar"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/jujuclient"
 )
 
 // TODO(ericsnow) Factor out code from cmd/juju/commands/common.go and
 // cmd/envcmd/base.go into cmd/charmstore.go and cmd/apicontext.go. Then
 // use those here instead of copy-and-pasting here.
-
-// CharmstoreClient exposes the functionality of the charm store client.
-type CharmstoreClient interface {
-	// TODO(ericsnow) Embed github.com/juju/juju/charmstore.Client.
-	io.Closer
-}
 
 ///////////////////
 // The charmstoreSpec code is based loosely on code in cmd/juju/commands/deploy.go.
@@ -37,7 +31,7 @@ type CharmstoreClient interface {
 // store client.
 type CharmstoreSpec interface {
 	// Connect connects to the specified charm store.
-	Connect(ctx *cmd.Context) (CharmstoreClient, error)
+	Connect(ctx *cmd.Context) (*charmstore.Client, error)
 }
 
 type charmstoreSpec struct{}
@@ -49,7 +43,7 @@ func newCharmstoreSpec() CharmstoreSpec {
 }
 
 // Connect implements CharmstoreSpec.
-func (cs charmstoreSpec) Connect(ctx *cmd.Context) (CharmstoreClient, error) {
+func (cs charmstoreSpec) Connect(ctx *cmd.Context) (*charmstore.Client, error) {
 	visitWebPage := httpbakery.OpenWebBrowser
 	if ctx != nil {
 		filler := &form.IOFiller{
@@ -66,33 +60,16 @@ func (cs charmstoreSpec) Connect(ctx *cmd.Context) (CharmstoreClient, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	baseClient := csclient.New(csclient.Params{
-		HTTPClient:   apiContext.HTTPClient(),
-		VisitWebPage: visitWebPage,
+	client := charmstore.NewClient(charmstore.ClientConfig{
+		charmrepo.NewCharmStoreParams{
+			HTTPClient:   apiContext.HTTPClient(),
+			VisitWebPage: visitWebPage,
+		},
 	})
-
-	csClient := &charmstoreClient{
-		Client:     baseClient,
-		apiContext: apiContext,
-	}
-	return csClient, nil
+	return client, nil
 }
 
 // TODO(ericsnow) Also add charmstoreSpec.Repo() -> charmrepo.Interface?
-
-///////////////////
-// charmstoreClient is based loosely on cmd/juju/commands/common.go.
-
-type charmstoreClient struct {
-	*csclient.Client
-	*apiContext
-}
-
-// Close implements io.Closer.
-func (cs *charmstoreClient) Close() error {
-	return cs.apiContext.Close()
-}
 
 ///////////////////
 // For the most part, apiContext is copied directly from cmd/envcmd/base.go.
