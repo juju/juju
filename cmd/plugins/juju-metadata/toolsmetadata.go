@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	coretools "github.com/juju/juju/tools"
 )
@@ -146,7 +147,7 @@ func toolsDataSources(urls ...string) []simplestreams.DataSource {
 		dataSources[i] = simplestreams.NewURLSignedDataSource(
 			"local source",
 			url,
-			simplestreams.SimplestreamsJujuPublicKey,
+			juju.JujuPublicKey,
 			utils.VerifySSLHostnames,
 			simplestreams.CUSTOM_CLOUD_DATA,
 			false)

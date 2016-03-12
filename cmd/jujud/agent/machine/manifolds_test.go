@@ -58,6 +58,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"machiner",
 		"deployer",
 		"authenticationworker",
+		"storage-provisioner-machine",
 		"resumer",
 		"identity-file-writer",
 		"tools-version-checker",

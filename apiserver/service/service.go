@@ -250,7 +250,7 @@ func (api *API) Update(args params.ServiceUpdate) error {
 	}
 	// Set the charm for the given service.
 	if args.CharmUrl != "" {
-		if err = api.serviceSetCharm(svc, args.CharmUrl, args.ForceSeries, args.ForceCharmUrl); err != nil {
+		if err = api.serviceSetCharm(svc, args.CharmUrl, args.ForceSeries, args.ForceCharmUrl, nil); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -289,11 +289,11 @@ func (api *API) SetCharm(args params.ServiceSetCharm) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return api.serviceSetCharm(service, args.CharmUrl, args.ForceSeries, args.ForceUnits)
+	return api.serviceSetCharm(service, args.CharmUrl, args.ForceSeries, args.ForceUnits, args.ResourceIDs)
 }
 
 // serviceSetCharm sets the charm for the given service.
-func (api *API) serviceSetCharm(service *state.Service, url string, forceSeries, forceUnits bool) error {
+func (api *API) serviceSetCharm(service *state.Service, url string, forceSeries, forceUnits bool, resourceIDs map[string]string) error {
 	curl, err := charm.ParseURL(url)
 	if err != nil {
 		return errors.Trace(err)
@@ -302,7 +302,13 @@ func (api *API) serviceSetCharm(service *state.Service, url string, forceSeries,
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return service.SetCharm(sch, forceSeries, forceUnits)
+	cfg := state.SetCharmConfig{
+		Charm:       sch,
+		ForceSeries: forceSeries,
+		ForceUnits:  forceUnits,
+		ResourceIDs: resourceIDs,
+	}
+	return service.SetCharm(cfg)
 }
 
 // settingsYamlFromGetYaml will parse a yaml produced by juju get and generate

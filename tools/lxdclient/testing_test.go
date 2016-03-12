@@ -108,8 +108,8 @@ func (s *stubClient) Delete(name string) (*lxd.Response, error) {
 	return s.Response, nil
 }
 
-func (s *stubClient) Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error) {
-	s.stub.AddCall("Action", name, action, timeout, force)
+func (s *stubClient) Action(name string, action shared.ContainerAction, timeout int, force bool, stateful bool) (*lxd.Response, error) {
+	s.stub.AddCall("Action", name, action, timeout, force, stateful)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}

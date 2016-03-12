@@ -116,7 +116,6 @@ var (
 	newMachiner              = machiner.NewMachiner
 	newDiscoverSpaces        = discoverspaces.NewWorker
 	newFirewaller            = firewaller.NewFirewaller
-	newStorageWorker         = storageprovisioner.NewStorageProvisioner
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
 	newInstancePoller        = instancepoller.NewWorker
 	newCleaner               = cleaner.NewCleaner
@@ -483,6 +482,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
 			LogSource:            a.bufferedLogs,
 			NewDeployContext:     newDeployContext,
+			Clock:                clock.WallClock,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -726,31 +726,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		return nil, fmt.Errorf("cannot read model config: %v", err)
 	}
 
-	runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
-		scope := agentConfig.Tag()
-		api, err := apistorageprovisioner.NewState(apiConn, scope)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-		w, err := newStorageWorker(storageprovisioner.Config{
-			Scope:       scope,
-			StorageDir:  storageDir,
-			Volumes:     api,
-			Filesystems: api,
-			Life:        api,
-			Environ:     api,
-			Machines:    api,
-			Status:      api,
-			Clock:       clock.WallClock,
-		})
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot start machine-local storage provisioner worker")
-		}
-		return w, nil
-
-	})
-
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, apiConn, agentConfig); err != nil {
 		cause := errors.Cause(err)
@@ -900,8 +875,12 @@ func (a *MachineAgent) updateSupportedContainers(
 			// Explicitly call the non-named constructor so if anyone
 			// adds additional fields, this fails.
 			container.ImageURLGetterConfig{
-				st.Addr(), modelUUID.Id(), []byte(agentConfig.CACert()),
-				cfg.CloudImageBaseURL(), container.ImageDownloadURL,
+				ServerRoot:        st.Addr(),
+				ModelUUID:         modelUUID.Id(),
+				CACert:            []byte(agentConfig.CACert()),
+				CloudimgBaseUrl:   cfg.CloudImageBaseURL(),
+				Stream:            cfg.ImageStream(),
+				ImageDownloadFunc: container.ImageDownloadURL,
 			})
 	}
 	params := provisioner.ContainerSetupParams{
@@ -1119,7 +1098,7 @@ func (a *MachineAgent) startEnvWorkers(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		w, err := newStorageWorker(storageprovisioner.Config{
+		w, err := storageprovisioner.NewStorageProvisioner(storageprovisioner.Config{
 			Scope:       scope,
 			Volumes:     api,
 			Filesystems: api,
@@ -1231,6 +1210,11 @@ func (a *MachineAgent) startEnvWorkers(
 		}
 		return w, nil
 	})
+
+	for name, factory := range registeredModelWorkers {
+		newWorker := factory(st)
+		singularRunner.StartWorker(name, newWorker)
+	}
 
 	return runner, nil
 }

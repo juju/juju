@@ -31,7 +31,7 @@ func (*fakeStatusAPI) Status(c []string) (*params.FullStatus, error) {
 		Machines: map[string]params.MachineStatus{
 			"0": {
 				Id: "0",
-				Agent: params.AgentStatus{
+				AgentStatus: params.DetailedStatus{
 					Status: "started",
 				},
 				DNSName:    "10.0.0.1",
@@ -41,7 +41,7 @@ func (*fakeStatusAPI) Status(c []string) (*params.FullStatus, error) {
 			},
 			"1": {
 				Id: "1",
-				Agent: params.AgentStatus{
+				AgentStatus: params.DetailedStatus{
 					Status: "pending",
 				},
 				DNSName:    "10.0.0.2",
@@ -80,13 +80,15 @@ func (s *MachineListCommandSuite) TestListMachineYaml(c *gc.C) {
 		"model: dummyenv\n"+
 		"machines:\n"+
 		"  \"0\":\n"+
-		"    agent-state: started\n"+
+		"    juju-status:\n"+
+		"      current: started\n"+
 		"    dns-name: 10.0.0.1\n"+
 		"    instance-id: juju-dummy-machine-0\n"+
 		"    series: trusty\n"+
 		"    hardware: availability-zone=us-east-1\n"+
 		"  \"1\":\n"+
-		"    agent-state: pending\n"+
+		"    juju-status:\n"+
+		"      current: pending\n"+
 		"    dns-name: 10.0.0.2\n"+
 		"    instance-id: juju-dummy-machine-1\n"+
 		"    series: trusty\n")
@@ -96,7 +98,7 @@ func (s *MachineListCommandSuite) TestListMachineJson(c *gc.C) {
 	context, err := testing.RunCommand(c, newMachineListCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"{\"model\":\"dummyenv\",\"machines\":{\"0\":{\"agent-state\":\"started\",\"dns-name\":\"10.0.0.1\",\"instance-id\":\"juju-dummy-machine-0\",\"series\":\"trusty\",\"hardware\":\"availability-zone=us-east-1\"},\"1\":{\"agent-state\":\"pending\",\"dns-name\":\"10.0.0.2\",\"instance-id\":\"juju-dummy-machine-1\",\"series\":\"trusty\"}}}\n")
+		"{\"model\":\"dummyenv\",\"machines\":{\"0\":{\"juju-status\":{\"current\":\"started\"},\"dns-name\":\"10.0.0.1\",\"instance-id\":\"juju-dummy-machine-0\",\"machine-status\":{},\"series\":\"trusty\",\"hardware\":\"availability-zone=us-east-1\"},\"1\":{\"juju-status\":{\"current\":\"pending\"},\"dns-name\":\"10.0.0.2\",\"instance-id\":\"juju-dummy-machine-1\",\"machine-status\":{},\"series\":\"trusty\"}}}\n")
 }
 
 func (s *MachineListCommandSuite) TestListMachineArgsError(c *gc.C) {

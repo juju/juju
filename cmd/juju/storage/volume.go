@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/status"
 )
 
 const volumeCmdDoc = `
@@ -64,7 +65,7 @@ type VolumeInfo struct {
 }
 
 type EntityStatus struct {
-	Current params.Status `json:"current,omitempty" yaml:"current,omitempty"`
+	Current status.Status `json:"current,omitempty" yaml:"current,omitempty"`
 	Message string        `json:"message,omitempty" yaml:"message,omitempty"`
 	Since   string        `json:"since,omitempty" yaml:"since,omitempty"`
 }

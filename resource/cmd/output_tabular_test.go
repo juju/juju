@@ -110,7 +110,9 @@ func (s *SvcTabularSuite) TestFormatServiceOkay(c *gc.C) {
 		Timestamp: time.Now(),
 	}
 
-	formatted := []FormattedSvcResource{FormatSvcResource(res)}
+	formatted := FormattedServiceInfo{
+		Resources: []FormattedSvcResource{FormatSvcResource(res)},
+	}
 
 	data, err := FormatSvcTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
@@ -150,7 +152,7 @@ openjdk  7
 `[1:])
 }
 
-func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
+func (s *SvcTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 	res := []resource.Resource{
 		{
 			Resource: charmresource.Resource{
@@ -167,6 +169,7 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 				Meta: charmresource.Meta{
 					Name:        "website",
 					Description: "your website data",
+					Type:        charmresource.TypeFile,
 				},
 				Origin: charmresource.OriginUpload,
 			},
@@ -195,10 +198,53 @@ func (s *SvcTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 		},
 	}
 
-	formatted := make([]FormattedSvcResource, len(res))
-	for i := range res {
-		formatted[i] = FormatSvcResource(res[i])
+	charmResources := []charmresource.Resource{
+		{
+			// This resource has a higher revision than the corresponding one
+			// above.
+			Meta: charmresource.Meta{
+				Name:        "openjdk",
+				Description: "the java runtime",
+			},
+			Revision: 10,
+			Origin:   charmresource.OriginStore,
+		},
+		{
+			// This resource is the same revision as the corresponding one
+			// above.
+			Meta: charmresource.Meta{
+				Name:        "openjdk2",
+				Description: "your website data",
+				Type:        charmresource.TypeFile,
+				Path:        "foobar",
+			},
+			Revision: 8,
+			Origin:   charmresource.OriginStore,
+		},
+		{
+			// This resource has been overridden by an uploaded resource above,
+			// so we won't show it as an available update.
+			Meta: charmresource.Meta{
+				Name:        "website2",
+				Description: "your website data",
+			},
+			Revision: 99,
+			Origin:   charmresource.OriginStore,
+		},
+		{
+			Meta: charmresource.Meta{
+				Name:        "website",
+				Description: "your website data",
+				Type:        charmresource.TypeFile,
+			},
+		},
 	}
+
+	formatted, err := formatServiceResources(resource.ServiceResources{
+		Resources:           res,
+		CharmStoreResources: charmResources,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	data, err := FormatSvcTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
@@ -211,6 +257,10 @@ openjdk  charmstore  7
 website  upload      -
 openjdk2 charmstore  8
 website2 Bill User   2012-12-12T12:12
+
+[Updates Available]
+RESOURCE REVISION
+openjdk  10
 `[1:])
 }
 
@@ -226,20 +276,26 @@ type DetailsTabularSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *DetailsTabularSuite) TestFormatDetailsOkay(c *gc.C) {
-	data := []FormattedDetailResource{
-		{
-			UnitID:     "svc/10",
-			unitNumber: 10,
-			Unit:       fakeFmtSvcRes("data", "1"),
-			Expected:   fakeFmtSvcRes("data", "1"),
+func (s *DetailsTabularSuite) TestFormatServiceDetailsOkay(c *gc.C) {
+	res := charmRes(c, "spam", ".tgz", "...", "")
+	updates := []FormattedCharmResource{FormatCharmResource(res)}
+
+	data := FormattedServiceDetails{
+		Resources: []FormattedDetailResource{
+			{
+				UnitID:     "svc/10",
+				unitNumber: 10,
+				Unit:       fakeFmtSvcRes("data", "1"),
+				Expected:   fakeFmtSvcRes("data", "1"),
+			},
+			{
+				UnitID:     "svc/5",
+				unitNumber: 5,
+				Unit:       fakeFmtSvcRes("config", "2"),
+				Expected:   fakeFmtSvcRes("config", "3"),
+			},
 		},
-		{
-			UnitID:     "svc/5",
-			unitNumber: 5,
-			Unit:       fakeFmtSvcRes("config", "2"),
-			Expected:   fakeFmtSvcRes("config", "3"),
-		},
+		Updates: updates,
 	}
 
 	output, err := FormatSvcTabular(data)
@@ -250,6 +306,10 @@ func (s *DetailsTabularSuite) TestFormatDetailsOkay(c *gc.C) {
 UNIT RESOURCE REVISION EXPECTED
 5    config   combRev2 combRev3
 10   data     combRev1 combRev1
+
+[Updates Available]
+RESOURCE REVISION
+spam     1
 `[1:])
 }
 
