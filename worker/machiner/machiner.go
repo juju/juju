@@ -4,15 +4,13 @@ package machiner
 
 import (
 	"net"
-	"regexp"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
@@ -86,7 +84,7 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	}
 	mr.machine = m
 
-	observedConfig, err := getObservedNetworkConfig()
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot discover observed network config")
 	}
@@ -149,85 +147,6 @@ func setMachineAddresses(tag names.MachineTag, m Machine) error {
 	hostAddresses = network.FilterLXCAddresses(hostAddresses)
 	logger.Infof("setting addresses for %v to %q", tag, hostAddresses)
 	return m.SetMachineAddresses(hostAddresses)
-}
-
-var vlanInterfaceNameRegex = regexp.MustCompile(`^.+\.[0-9]{1,4}[^0-9]?$`)
-
-// getObservedNetworkConfig discovers what network interfaces exist on the
-// machine, and returns that as []params.NetworkConfig to later update the state
-// network config we have about the machine.
-func getObservedNetworkConfig() ([]params.NetworkConfig, error) {
-	logger.Debugf("discovering observed machine network config...")
-
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get network interfaces")
-	}
-
-	childNameToParentName := make(map[string]string)
-	var observedConfig []params.NetworkConfig
-	for _, nic := range interfaces {
-		isUp := nic.Flags&net.FlagUp > 0
-		isLoopback := nic.Flags&net.FlagLoopback > 0
-		derivedType := network.EthernetInterface
-		if strings.HasPrefix(nic.Name, instancecfg.DefaultBridgePrefix) {
-			unprefixedName := strings.TrimPrefix(nic.Name, instancecfg.DefaultBridgePrefix)
-			// TODO(dimitern): Do this in a better way, like matching
-			// unprefixedName to another seen NIC with the same MACAddress?
-			derivedType = network.BridgeInterface
-			childNameToParentName[unprefixedName] = nic.Name
-		} else if vlanInterfaceNameRegex.MatchString(nic.Name) {
-			derivedType = network.VLAN_8021QInterface
-		} else if isLoopback {
-			derivedType = network.LoopbackInterface
-		}
-
-		parentName, _ := childNameToParentName[nic.Name]
-		nicConfig := params.NetworkConfig{
-			DeviceIndex:         nic.Index,
-			MACAddress:          nic.HardwareAddr.String(),
-			MTU:                 nic.MTU,
-			InterfaceName:       nic.Name,
-			InterfaceType:       string(derivedType),
-			ParentInterfaceName: parentName,
-			NoAutoStart:         !isUp,
-			Disabled:            !isUp,
-		}
-
-		addrs, err := nic.Addrs()
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot get interface %q addresses", nic.Name)
-		}
-
-		if len(addrs) == 0 {
-			observedConfig = append(observedConfig, nicConfig)
-			logger.Warningf("no addresses observed on interface %q", nic.Name)
-			continue
-		}
-
-		for _, addr := range addrs {
-			cidrAddress := addr.String()
-			if cidrAddress == "" {
-				continue
-			}
-			ip, ipNet, err := net.ParseCIDR(cidrAddress)
-			if err != nil {
-				return nil, errors.Annotatef(
-					err, "cannot parse interface %q address %q as CIDR",
-					nic.Name, cidrAddress,
-				)
-			}
-			nicConfigCopy := nicConfig
-			nicConfigCopy.CIDR = ipNet.String()
-			nicConfigCopy.Address = ip.String()
-			// TODO(dimitern): Add DNS servers, search domains, and gateway
-			// later.
-
-			observedConfig = append(observedConfig, nicConfigCopy)
-		}
-	}
-	logger.Debugf("about to update network config with observed: %+v", observedConfig)
-	return observedConfig, nil
 }
 
 func (mr *Machiner) Handle(_ <-chan struct{}) error {

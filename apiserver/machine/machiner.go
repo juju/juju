@@ -155,35 +155,61 @@ func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkCo
 	} else if err != nil {
 		return errors.Trace(err)
 	}
+	observedConfig := args.Config
+	logger.Tracef("observed network config of machine %q: %+v", m.Id(), observedConfig)
 
-	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigToStateArgs(args.Config)
-	logger.Debugf("all observed devices on machine %q: %+v", m.Id(), devicesArgs)
-	logger.Debugf("about to set devices addresses: %+v", devicesAddrs)
-
-	// Filter all but bridge devices as we only need those for multi-NIC
-	// containers.
-	var bridgeDevicesArgs []state.LinkLayerDeviceArgs
-	for _, deviceArgs := range devicesArgs {
-		if deviceArgs.Type != state.BridgeDevice {
-			// FIXME: Loopback shouldn't be skipped.
-			logger.Debugf("skipping non-bridge device %q", deviceArgs.Name)
-			continue
-		}
-		logger.Debugf("will add observed device: %+v", deviceArgs)
-		bridgeDevicesArgs = append(bridgeDevicesArgs, deviceArgs)
-	}
-	if err := m.AddLinkLayerDevices(bridgeDevicesArgs...); errors.IsAlreadyExists(err) {
-		// FIXME: Trying to add the same device more than once should be handled
-		// better - as an update rather than insert.
-		logger.Warningf("ignoring non-fatal error: %v", err)
-	} else if err != nil {
+	// Get the provider network config to combine with the observed config.
+	instId, err := m.InstanceId()
+	if err != nil {
 		return errors.Trace(err)
 	}
-
-	if err := m.SetDevicesAddresses(devicesAddrs...); errors.IsNotFound(err) {
-		// FIXME: device not found here should be handled better.
-		logger.Warningf("ignoring non-fatal error: %v", err)
+	netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(api.st)
+	if errors.IsNotSupported(err) {
+		logger.Debugf("not merging observed and provider network config: %v", err)
 	} else if err != nil {
+		return errors.Annotate(err, "cannot get provider network config")
+	}
+	interfaceInfos, err := netEnviron.NetworkInterfaces(instId)
+	if err != nil {
+		return errors.Annotatef(err, "cannot get network interfaces of %q", instId)
+	}
+	if len(interfaceInfos) == 0 {
+		logger.Warningf("instance %q has no network interfaces; using observed only", instId)
+	}
+	providerConfig := networkingcommon.NetworkConfigFromInterfaceInfo(interfaceInfos)
+	logger.Tracef("provider network config instance %q: %+v", instId, observedConfig)
+
+	mergedConfig := networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
+	logger.Tracef("merged network config: %+v", instId, observedConfig)
+
+	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(mergedConfig)
+
+	// Becausee we can't add parent and children devices in one call, we need to
+	// split the devicesArgs into multiple calls. As the config and args are
+	// already sorted, we can make a call once the parent changes.
+	var pendingArgs []state.LinkLayerDeviceArgs
+	lastParent := ""
+	for _, deviceArgs := range devicesArgs {
+		if lastParent != deviceArgs.ParentName && len(pendingArgs) > 0 {
+			logger.Debugf("adding devices: %+v", pendingArgs)
+			if err := m.AddLinkLayerDevices(pendingArgs...); err != nil {
+				return errors.Trace(err)
+			}
+			pendingArgs = []state.LinkLayerDeviceArgs{}
+		}
+
+		pendingArgs = append(pendingArgs, deviceArgs)
+		lastParent = deviceArgs.ParentName
+	}
+	if len(pendingArgs) > 0 {
+		logger.Debugf("adding devices: %+v", pendingArgs)
+		if err := m.AddLinkLayerDevices(pendingArgs...); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	logger.Debugf("setting addresses: %+v", devicesAddrs)
+	if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
 		return errors.Trace(err)
 	}
 

@@ -544,9 +544,6 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		if err != nil {
 			return err
 		}
-		devicesArgs, devicesAddrs := networkingcommon.NetworkConfigToStateArgs(arg.NetworkConfig)
-		logger.Debugf("about to add devices: %+v", devicesArgs)
-		logger.Debugf("about to set devices addresses: %+v", devicesAddrs)
 		volumes, err := storagecommon.VolumesToState(arg.Volumes)
 		if err != nil {
 			return err
@@ -555,14 +552,13 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		if err != nil {
 			return err
 		}
-		if err = machine.SetInstanceInfo(
+		err = machine.SetInstanceInfo(
 			arg.InstanceId, arg.Nonce, arg.Characteristics,
-			devicesArgs, devicesAddrs, volumes, volumeAttachments); err != nil {
-			return errors.Annotatef(
-				err,
-				"cannot record provisioning info for %q",
-				arg.InstanceId,
-			)
+			nil, nil, // FIXME: Drop these now that SetObservedNetworkConfig does it better
+			volumes, volumeAttachments,
+		)
+		if err != nil {
+			return errors.Annotatef(err, "cannot record provisioning info for %q", arg.InstanceId)
 		}
 		return nil
 	}
@@ -841,27 +837,10 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 	return result, nil
 }
 
-func (p *ProvisionerAPI) maybeGetNetworkingEnviron() (environs.NetworkingEnviron, error) {
-	cfg, err := p.st.ModelConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to get model config")
-	}
-	environ, err := environs.New(cfg)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to construct a model from config")
-	}
-	netEnviron, supported := environs.SupportsNetworking(environ)
-	if !supported {
-		// " not supported" will be appended to the message below.
-		return nil, errors.NotSupportedf("model %q networking", cfg.Name())
-	}
-	return netEnviron, nil
-}
-
 // prepareContainerAccessEnvironment retrieves the environment, host machine, and access
 // for working with containers.
 func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.NetworkingEnviron, *state.Machine, common.AuthFunc, error) {
-	netEnviron, err := p.maybeGetNetworkingEnviron()
+	netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(p.st)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}

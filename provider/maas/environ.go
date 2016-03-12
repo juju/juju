@@ -116,6 +116,17 @@ func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr networ
 	return err
 }
 
+type deviceProvisioner interface {
+	CreateDevice(parentID instance.Id, primaryMACAddress string) (deviceID instance.Id, _ error)
+	CreatePhysicalInterface(deviceID instance.Id, interfaceName, macAddress, maasVLANID string) (interfaceID string, _ error)
+	UpdatePhysicalInterface(deviceID instance.Id, interfaceID, nameToUpdate, macAddress, maasVLANID string) error
+
+	LinkDeviceInterfaceToSubnet(deviceID instance.Id, interfaceID string, mode maasLinkMode, maasSubnetID string) (maasLinkID string, _ error)
+
+	DeviceNetworkInterfaces(deviceID instance.Id) ([]network.InterfaceInfo, error)
+	// NOTE: just reuse maasObjectNetworkInterfaces here?
+}
+
 func reserveIPAddressOnDevice(devices gomaasapi.MAASObject, deviceID, macAddress string, addr network.Address) (network.Address, error) {
 	device := devices.GetSubObject(deviceID)
 	params := url.Values{}

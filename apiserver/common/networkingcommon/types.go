@@ -204,7 +204,7 @@ func SortNetworkConfigs(input []params.NetworkConfig) []params.NetworkConfig {
 // NetworkConfigsToIndentedJSON returns the given input as an indented JSON
 // string.
 func NetworkConfigsToIndentedJSON(input []params.NetworkConfig) (string, error) {
-	jsonBytes, err := json.MarshalIndent(input, "", "")
+	jsonBytes, err := json.MarshalIndent(input, "", "  ")
 	if err != nil {
 		return "", err
 	}

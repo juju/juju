@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -708,7 +709,7 @@ func (task *provisionerTask) startMachine(
 	inst := result.Instance
 	hardware := result.Hardware
 	nonce := startInstanceParams.InstanceConfig.MachineNonce
-	networkConfig := networkConfigFromInterfaceInfo(result.NetworkInfo)
+	networkConfig := networkingcommon.NetworkConfigFromInterfaceInfo(result.NetworkInfo)
 	volumes := volumesToApiserver(result.Volumes)
 	volumeAttachments := volumeAttachmentsToApiserver(result.VolumeAttachments)
 
@@ -786,39 +787,6 @@ func volumeAttachmentsToApiserver(attachments []storage.VolumeAttachment) map[st
 			a.DeviceLink,
 			a.BusAddress,
 			a.ReadOnly,
-		}
-	}
-	return result
-}
-
-func networkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []params.NetworkConfig {
-	result := make([]params.NetworkConfig, len(interfaceInfos))
-	for i, v := range interfaceInfos {
-		var dnsServers []string
-		for _, nameserver := range v.DNSServers {
-			dnsServers = append(dnsServers, nameserver.Value)
-		}
-		result[i] = params.NetworkConfig{
-			DeviceIndex:         v.DeviceIndex,
-			MACAddress:          v.MACAddress,
-			CIDR:                v.CIDR,
-			MTU:                 v.MTU,
-			ProviderId:          string(v.ProviderId),
-			ProviderSubnetId:    string(v.ProviderSubnetId),
-			ProviderSpaceId:     string(v.ProviderSpaceId),
-			ProviderVLANId:      string(v.ProviderVLANId),
-			ProviderAddressId:   string(v.ProviderAddressId),
-			VLANTag:             v.VLANTag,
-			InterfaceName:       v.InterfaceName,
-			ParentInterfaceName: v.ParentInterfaceName,
-			InterfaceType:       string(v.InterfaceType),
-			Disabled:            v.Disabled,
-			NoAutoStart:         v.NoAutoStart,
-			ConfigType:          string(v.ConfigType),
-			Address:             v.Address.Value,
-			DNSServers:          dnsServers,
-			DNSSearchDomains:    v.DNSSearchDomains,
-			GatewayAddress:      v.GatewayAddress.Value,
 		}
 	}
 	return result

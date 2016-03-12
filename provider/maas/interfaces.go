@@ -16,7 +16,6 @@ import (
 	"github.com/juju/gomaasapi"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -143,16 +142,6 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			NoAutoStart:         !iface.Enabled,
 			// This is not needed anymore, but the provisioner still validates it's set.
 			NetworkName: network.DefaultPrivate,
-		}
-
-		// FIXME: Bootstrap completes, MA starts and calls
-		// SetObservedNetworkConfig BEFORE the provisioner had a chance to
-		// update instance info.
-		// Also the dirty hack below overcomes the lack of LLD.SetParentName()
-		if nicInfo.ParentInterfaceName == "" {
-			nicInfo.ParentInterfaceName = fmt.Sprintf("%s%s", instancecfg.DefaultBridgePrefix, nicInfo.InterfaceName)
-		} else {
-			nicInfo.ParentInterfaceName = instancecfg.DefaultBridgePrefix + nicInfo.InterfaceName
 		}
 
 		for _, link := range iface.Links {
