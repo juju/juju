@@ -188,9 +188,17 @@ func (f Facade) resourcesFromCharmstore(cURL *charm.URL, csMac *macaroon.Macaroo
 		storeResources[res.Name] = res
 	}
 
+	combined := make([]charmresource.Resource, len(resources))
+	copy(combined, resources)
 	for i, res := range resources {
-		storeRes := storeResources[res.Name]
-		// TODO(ericsnow) Fail if not in the map?
+		if res.Origin != charmresource.OriginStore {
+			continue
+		}
+		storeRes, ok := storeResources[res.Name]
+		if !ok {
+			// TODO(ericsnow) Fail instead?
+			continue
+		}
 		revision := neededRevision(res, storeRes)
 		if revision < 0 {
 			// The resource info is already okay.
@@ -205,16 +213,13 @@ func (f Facade) resourcesFromCharmstore(cURL *charm.URL, csMac *macaroon.Macaroo
 			return nil, errors.NotSupportedf("could not get resource info")
 		}
 		// Otherwise we use the info from the store as-is.
-		resources[i] = storeRes
+		combined[i] = storeRes
 	}
 
-	return resources, nil
+	return combined, nil
 }
 
 func neededRevision(res, latest charmresource.Resource) int {
-	if res.Origin != charmresource.OriginStore {
-		return -1 // use it as-is
-	}
 	if res.Revision < 0 {
 		return latest.Revision
 	}
