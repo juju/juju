@@ -187,7 +187,7 @@ func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	fp, err := charmresource.GenerateFingerprint(bytes.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
 
-	resourceFile := path.Join(c.MkDir(), "data.lib")
+	resourceFile := path.Join(c.MkDir(), "data.xml")
 	err = ioutil.WriteFile(resourceFile, data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -260,7 +260,6 @@ Deploying charm "cs:trusty/starsay-1" with the charm series "trusty".
 			ServiceID: "starsay",
 			Username:  "admin@local",
 			// Timestamp is checked above
-
 		},
 	}
 
