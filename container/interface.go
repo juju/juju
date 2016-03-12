@@ -6,6 +6,7 @@ package container
 import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
 )
 
 const (
@@ -45,7 +46,8 @@ type Manager interface {
 		instanceConfig *instancecfg.InstanceConfig,
 		series string,
 		network *NetworkConfig,
-		storage *StorageConfig) (instance.Instance, *instance.HardwareCharacteristics, error)
+		storage *StorageConfig,
+		callback func(settableStatus status.Status, info string, data map[string]interface{}) error) (instance.Instance, *instance.HardwareCharacteristics, error)
 
 	// DestroyContainer stops and destroyes the container identified by
 	// instance id.

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -34,8 +35,24 @@ func (inst *environInstance) Id() instance.Id {
 }
 
 // Status implements instance.Instance.
-func (inst *environInstance) Status() string {
-	return inst.raw.Status()
+func (inst *environInstance) Status() instance.InstanceStatus {
+	jujuStatus := status.StatusPending
+	instStatus := inst.raw.Status()
+	switch instStatus {
+	case lxdclient.StatusStarting, lxdclient.StatusStarted:
+		jujuStatus = status.StatusAllocating
+	case lxdclient.StatusRunning:
+		jujuStatus = status.StatusRunning
+	case lxdclient.StatusFreezing, lxdclient.StatusFrozen, lxdclient.StatusThawed, lxdclient.StatusStopping, lxdclient.StatusStopped:
+		jujuStatus = status.StatusEmpty
+	default:
+		jujuStatus = status.StatusEmpty
+	}
+	return instance.InstanceStatus{
+		Status:  jujuStatus,
+		Message: instStatus,
+	}
+
 }
 
 // Addresses implements instance.Instance.

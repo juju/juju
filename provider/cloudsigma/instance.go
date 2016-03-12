@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 var _ instance.Instance = (*sigmaInstance)(nil)
@@ -27,10 +28,29 @@ func (i sigmaInstance) Id() instance.Id {
 }
 
 // Status returns the provider-specific status for the instance.
-func (i sigmaInstance) Status() string {
-	status := i.server.Status()
-	logger.Tracef("sigmaInstance.Status: %s", status)
-	return status
+func (i sigmaInstance) Status() instance.InstanceStatus {
+	entityStatus := i.server.Status()
+	logger.Tracef("sigmaInstance.Status: %s", entityStatus)
+	jujuStatus := status.StatusPending
+	switch entityStatus {
+	case gosigma.ServerStarting:
+		jujuStatus = status.StatusAllocating
+	case gosigma.ServerRunning:
+		jujuStatus = status.StatusRunning
+	case gosigma.ServerStopping, gosigma.ServerStopped:
+		jujuStatus = status.StatusEmpty
+	case gosigma.ServerUnavailable:
+		// I am not sure about this one.
+		jujuStatus = status.StatusPending
+	default:
+		jujuStatus = status.StatusPending
+	}
+
+	return instance.InstanceStatus{
+		Status:  jujuStatus,
+		Message: entityStatus,
+	}
+
 }
 
 // Addresses returns a list of hostnames or ip addresses

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 )
@@ -2088,7 +2089,7 @@ func (s *ServiceSuite) TestMetricCredentialsOnDying(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot update metric credentials: service not found or not alive")
 }
 
-func (s *ServiceSuite) testStatus(c *gc.C, status1, status2, expected state.Status) {
+func (s *ServiceSuite) testStatus(c *gc.C, status1, status2, expected status.Status) {
 	u1, err := s.mysql.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = u1.SetStatus(status1, "status 1", nil)
@@ -2096,7 +2097,7 @@ func (s *ServiceSuite) testStatus(c *gc.C, status1, status2, expected state.Stat
 
 	u2, err := s.mysql.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	if status2 == state.StatusError {
+	if status2 == status.StatusError {
 		err = u2.SetAgentStatus(status2, "status 2", nil)
 	} else {
 		err = u2.SetStatus(status2, "status 2", nil)
@@ -2107,7 +2108,7 @@ func (s *ServiceSuite) testStatus(c *gc.C, status1, status2, expected state.Stat
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Since, gc.NotNil)
 	statusInfo.Since = nil
-	c.Assert(statusInfo, jc.DeepEquals, state.StatusInfo{
+	c.Assert(statusInfo, jc.DeepEquals, status.StatusInfo{
 		Status:  expected,
 		Message: "status 2",
 		Data:    map[string]interface{}{},
@@ -2115,16 +2116,16 @@ func (s *ServiceSuite) testStatus(c *gc.C, status1, status2, expected state.Stat
 }
 
 func (s *ServiceSuite) TestStatus(c *gc.C) {
-	for _, t := range []struct{ status1, status2, expected state.Status }{
-		{state.StatusActive, state.StatusWaiting, state.StatusWaiting},
-		{state.StatusMaintenance, state.StatusWaiting, state.StatusWaiting},
-		{state.StatusActive, state.StatusBlocked, state.StatusBlocked},
-		{state.StatusWaiting, state.StatusBlocked, state.StatusBlocked},
-		{state.StatusMaintenance, state.StatusBlocked, state.StatusBlocked},
-		{state.StatusMaintenance, state.StatusError, state.StatusError},
-		{state.StatusBlocked, state.StatusError, state.StatusError},
-		{state.StatusWaiting, state.StatusError, state.StatusError},
-		{state.StatusActive, state.StatusError, state.StatusError},
+	for _, t := range []struct{ status1, status2, expected status.Status }{
+		{status.StatusActive, status.StatusWaiting, status.StatusWaiting},
+		{status.StatusMaintenance, status.StatusWaiting, status.StatusWaiting},
+		{status.StatusActive, status.StatusBlocked, status.StatusBlocked},
+		{status.StatusWaiting, status.StatusBlocked, status.StatusBlocked},
+		{status.StatusMaintenance, status.StatusBlocked, status.StatusBlocked},
+		{status.StatusMaintenance, status.StatusError, status.StatusError},
+		{status.StatusBlocked, status.StatusError, status.StatusError},
+		{status.StatusWaiting, status.StatusError, status.StatusError},
+		{status.StatusActive, status.StatusError, status.StatusError},
 	} {
 		s.testStatus(c, t.status1, t.status2, t.expected)
 	}

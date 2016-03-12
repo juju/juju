@@ -265,7 +265,11 @@ var testNetworkValues = []struct {
 func (suite *environSuite) getInstance(systemId string) *maasInstance {
 	input := fmt.Sprintf(`{"system_id": %q}`, systemId)
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	return &maasInstance{&node, nil}
+	statusGetter := func(instance.Id) (string, string) {
+		return "unknown", "FAKE"
+	}
+
+	return &maasInstance{&node, statusGetter}
 }
 
 func (suite *environSuite) newNetwork(name string, id int, vlanTag int, defaultGateway string) *gomaasapi.MAASObject {
