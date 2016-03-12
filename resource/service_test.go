@@ -102,28 +102,6 @@ func (s *ServiceResourcesSuite) TestUpdatesNone(c *gc.C) {
 	c.Check(updates, gc.HasLen, 0)
 }
 
-func (s *ServiceResourcesSuite) TestAsMap(c *gc.C) {
-	spam := newStoreResource(c, "spam", "a-service", 2)
-	eggs := newStoreResource(c, "eggs", "a-service", 3)
-	sr := resource.ServiceResources{
-		Resources: []resource.Resource{
-			spam,
-			eggs,
-		},
-		CharmStoreResources: []charmresource.Resource{
-			spam.Resource,
-			eggs.Resource,
-		},
-	}
-
-	resources := sr.AsMap()
-
-	c.Check(resources, jc.DeepEquals, map[string]resource.Resource{
-		"spam": spam,
-		"eggs": eggs,
-	})
-}
-
 func newStoreResource(c *gc.C, name, serviceID string, revision int) resource.Resource {
 	content := name
 	opened := resourcetesting.NewResource(c, nil, name, serviceID, content)

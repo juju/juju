@@ -117,3 +117,13 @@ func (res Resource) RevisionString() string {
 		return "-"
 	}
 }
+
+// AsMap returns the mapping of resource name to info for each of the
+// given resources.
+func AsMap(resources []Resource) map[string]Resource {
+	results := make(map[string]Resource, len(resources))
+	for _, res := range resources {
+		results[res.Name] = res
+	}
+	return results
+}

@@ -205,3 +205,19 @@ func (ResourceSuite) TestRevisionStringNumber(c *gc.C) {
 
 	c.Check(res.RevisionString(), gc.Equals, "7")
 }
+
+func (s *ResourceSuite) TestAsMap(c *gc.C) {
+	spam := newStoreResource(c, "spam", "a-service", 2)
+	eggs := newStoreResource(c, "eggs", "a-service", 3)
+	resources := []resource.Resource{
+		spam,
+		eggs,
+	}
+
+	resMap := resource.AsMap(resources)
+
+	c.Check(resMap, jc.DeepEquals, map[string]resource.Resource{
+		"spam": spam,
+		"eggs": eggs,
+	})
+}

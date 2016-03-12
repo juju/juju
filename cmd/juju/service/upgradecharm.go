@@ -261,7 +261,7 @@ func getResources(serviceID string, newAPIRoot func() (api.Connection, error)) (
 	}
 	// ListResources guarantees a number of values returned == number of
 	// services passed in.
-	return svcs[0].AsMap(), nil
+	return resource.AsMap(svcs[0].Resources), nil
 }
 
 // TODO(ericsnow) Move filterResources() and shouldUploadMeta()
