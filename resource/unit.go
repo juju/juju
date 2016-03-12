@@ -4,7 +4,6 @@
 package resource
 
 import (
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 )
 
@@ -20,13 +19,4 @@ type Unit interface {
 
 	// CharmURL returns the unit's charm URL.
 	CharmURL() (*charm.URL, bool)
-}
-
-// UnitResources conains the list of resources used by a unit.
-type UnitResources struct {
-	// Tag is the tag of the unit.
-	Tag names.UnitTag
-
-	// Resources are the resource versions currently in use by this unit.
-	Resources []Resource
 }
