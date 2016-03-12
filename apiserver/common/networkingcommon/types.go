@@ -4,12 +4,19 @@
 package networkingcommon
 
 import (
+	"encoding/json"
+	"net"
+	"regexp"
+	"sort"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
@@ -153,7 +160,102 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 	}
 }
 
-func NetworkConfigToStateArgs(networkConfig []params.NetworkConfig) (
+type byMACThenCIDRThenIndexThenName []params.NetworkConfig
+
+func (c byMACThenCIDRThenIndexThenName) Len() int {
+	return len(c)
+}
+
+func (c byMACThenCIDRThenIndexThenName) Swap(i, j int) {
+	orgI, orgJ := c[i], c[j]
+	c[j], c[i] = orgI, orgJ
+}
+
+func (c byMACThenCIDRThenIndexThenName) Less(i, j int) bool {
+	if c[i].MACAddress == c[j].MACAddress {
+		// Same MACAddress means related interfaces.
+		if c[i].CIDR == "" || c[j].CIDR == "" {
+			// Empty CIDRs go at the bottom, otherwise order by InterfaceName.
+			return c[i].CIDR != "" || c[i].InterfaceName < c[j].InterfaceName
+		}
+		if c[i].DeviceIndex == c[j].DeviceIndex {
+			if c[i].InterfaceName == c[j].InterfaceName {
+				// Sort addresses of the same interface.
+				return c[i].CIDR < c[j].CIDR || c[i].Address < c[j].Address
+			}
+			// Prefer shorter names (e.g. parents) with equal DeviceIndex.
+			return c[i].InterfaceName < c[j].InterfaceName
+		}
+		// When both CIDR and DeviceIndex are non-empty, order by DeviceIndex
+		return c[i].DeviceIndex < c[j].DeviceIndex
+	}
+	// Group by MACAddress.
+	return c[i].MACAddress < c[j].MACAddress
+}
+
+// SortNetworkConfigs returns the given input sorted, such that any child
+// interfaces appear after their parents.
+func SortNetworkConfigs(input []params.NetworkConfig) []params.NetworkConfig {
+	sortedInputCopy := CopyNetworkConfigs(input)
+	sort.Stable(byMACThenCIDRThenIndexThenName(sortedInputCopy))
+	return sortedInputCopy
+}
+
+// NetworkConfigsToIndentedJSON returns the given input as an indented JSON
+// string.
+func NetworkConfigsToIndentedJSON(input []params.NetworkConfig) (string, error) {
+	jsonBytes, err := json.MarshalIndent(input, "", "")
+	if err != nil {
+		return "", err
+	}
+	return string(jsonBytes), nil
+}
+
+// CopyNetworkConfigs returns a copy of the given input
+func CopyNetworkConfigs(input []params.NetworkConfig) []params.NetworkConfig {
+	return append([]params.NetworkConfig(nil), input...)
+}
+
+// NetworkConfigFromInterfaceInfo converts a slice of network.InterfaceInfo into
+// the equivalent params.NetworkConfig slice.
+func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []params.NetworkConfig {
+	result := make([]params.NetworkConfig, len(interfaceInfos))
+	for i, v := range interfaceInfos {
+		var dnsServers []string
+		for _, nameserver := range v.DNSServers {
+			dnsServers = append(dnsServers, nameserver.Value)
+		}
+		result[i] = params.NetworkConfig{
+			DeviceIndex:         v.DeviceIndex,
+			MACAddress:          v.MACAddress,
+			CIDR:                v.CIDR,
+			MTU:                 v.MTU,
+			ProviderId:          string(v.ProviderId),
+			ProviderSubnetId:    string(v.ProviderSubnetId),
+			ProviderSpaceId:     string(v.ProviderSpaceId),
+			ProviderVLANId:      string(v.ProviderVLANId),
+			ProviderAddressId:   string(v.ProviderAddressId),
+			VLANTag:             v.VLANTag,
+			InterfaceName:       v.InterfaceName,
+			ParentInterfaceName: v.ParentInterfaceName,
+			InterfaceType:       string(v.InterfaceType),
+			Disabled:            v.Disabled,
+			NoAutoStart:         v.NoAutoStart,
+			ConfigType:          string(v.ConfigType),
+			Address:             v.Address.Value,
+			DNSServers:          dnsServers,
+			DNSSearchDomains:    v.DNSSearchDomains,
+			GatewayAddress:      v.GatewayAddress.Value,
+		}
+	}
+	return result
+}
+
+// NetworkConfigsToStateArgs splits the given networkConfig into a slice of
+// state.LinkLayerDeviceArgs and a slice of state.LinkLayerDeviceAddress. The
+// input is expected to come from MergeProviderAndObservedNetworkConfigs and to
+// be sorted.
+func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 	[]state.LinkLayerDeviceArgs,
 	[]state.LinkLayerDeviceAddress,
 ) {
@@ -182,26 +284,32 @@ func NetworkConfigToStateArgs(networkConfig []params.NetworkConfig) (
 			devicesArgs = append(devicesArgs, args)
 		}
 
-		cidrAddress := netConfig.Address
-		if cidrAddress == "" {
-			logger.Warningf("no address to update for %q", netConfig.InterfaceName)
+		if netConfig.CIDR == "" || netConfig.Address == "" {
+			logger.Debugf(
+				"skipping empty CIDR %q and/or Address %q of %q",
+				netConfig.CIDR, netConfig.Address, netConfig.InterfaceName,
+			)
 			continue
 		}
-
-		rangeSeparatorIndex := strings.LastIndex(netConfig.CIDR, "/")
-		if rangeSeparatorIndex < 0 {
-			logger.Errorf("FIXME: unexpected CIDR format %q on %q", cidrAddress, netConfig.InterfaceName)
+		_, ipNet, err := net.ParseCIDR(netConfig.CIDR)
+		if err != nil {
+			logger.Warningf("FIXME: ignoring unexpected CIDR format %q: %v", netConfig.CIDR, err)
 			continue
-		} else {
-			cidrAddress += netConfig.CIDR[rangeSeparatorIndex:]
 		}
+		ipAddr := net.ParseIP(netConfig.Address)
+		if ipAddr == nil {
+			logger.Warningf("FIXME: ignoring unexpected Address format %q", netConfig.Address)
+			continue
+		}
+		ipNet.IP = ipAddr
+		cidrAddress := ipNet.String()
 
 		var derivedConfigMethod state.AddressConfigMethod
 		switch method := state.AddressConfigMethod(netConfig.ConfigType); method {
 		case state.StaticAddress, state.DynamicAddress,
 			state.LoopbackAddress, state.ManualAddress:
 			derivedConfigMethod = method
-		case "dhcp":
+		case "dhcp": // awkward special case
 			derivedConfigMethod = state.DynamicAddress
 		default:
 			derivedConfigMethod = state.StaticAddress
@@ -219,4 +327,199 @@ func NetworkConfigToStateArgs(networkConfig []params.NetworkConfig) (
 		devicesAddrs = append(devicesAddrs, addr)
 	}
 	return devicesArgs, devicesAddrs
+}
+
+// ModelConfigGetter is used to get the current model configuration.
+type ModelConfigGetter interface {
+	ModelConfig() (*config.Config, error)
+}
+
+// NetworkingEnvironFromModelConfig constructs and returns
+// environs.NetworkingEnviron using the given configGetter. Returns an error
+// satisfying errors.IsNotSupported() if the model config does not support
+// networking features.
+func NetworkingEnvironFromModelConfig(configGetter ModelConfigGetter) (environs.NetworkingEnviron, error) {
+	modelConfig, err := configGetter.ModelConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to get model config")
+	}
+	model, err := environs.New(modelConfig)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to construct a model from config")
+	}
+	netEnviron, supported := environs.SupportsNetworking(model)
+	if !supported {
+		// " not supported" will be appended to the message below.
+		return nil, errors.NotSupportedf("model %q networking", modelConfig.Name())
+	}
+	return netEnviron, nil
+}
+
+var vlanInterfaceNameRegex = regexp.MustCompile(`^.+\.[0-9]{1,4}[^0-9]?$`)
+
+var (
+	netInterfaces  = net.Interfaces
+	interfaceAddrs = (*net.Interface).Addrs
+)
+
+// GetObservedNetworkConfig discovers what network interfaces exist on the
+// machine, and returns that as a sorted slice of params.NetworkConfig to later
+// update the state network config we have about the machine.
+func GetObservedNetworkConfig() ([]params.NetworkConfig, error) {
+	logger.Debugf("discovering observed machine network config...")
+
+	interfaces, err := netInterfaces()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get network interfaces")
+	}
+
+	var observedConfig []params.NetworkConfig
+	for _, nic := range interfaces {
+		isUp := nic.Flags&net.FlagUp > 0
+
+		derivedType := network.EthernetInterface
+		derivedConfigType := ""
+		if nic.Flags&net.FlagLoopback > 0 {
+			derivedType = network.LoopbackInterface
+			derivedConfigType = string(network.ConfigLoopback)
+		} else if vlanInterfaceNameRegex.MatchString(nic.Name) {
+			derivedType = network.VLAN_8021QInterface
+		}
+
+		nicConfig := params.NetworkConfig{
+			DeviceIndex:   nic.Index,
+			MACAddress:    nic.HardwareAddr.String(),
+			ConfigType:    derivedConfigType,
+			MTU:           nic.MTU,
+			InterfaceName: nic.Name,
+			InterfaceType: string(derivedType),
+			NoAutoStart:   !isUp,
+			Disabled:      !isUp,
+		}
+
+		addrs, err := interfaceAddrs(&nic)
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot get interface %q addresses", nic.Name)
+		}
+
+		if len(addrs) == 0 {
+			observedConfig = append(observedConfig, nicConfig)
+			logger.Warningf("no addresses observed on interface %q", nic.Name)
+			continue
+		}
+
+		for _, addr := range addrs {
+			cidrAddress := addr.String()
+			if cidrAddress == "" {
+				continue
+			}
+			ip, ipNet, err := net.ParseCIDR(cidrAddress)
+			if err != nil {
+				return nil, errors.Annotatef(err, "cannot parse interface %q address %q as CIDR", nic.Name, cidrAddress)
+			}
+			if ip.To4() == nil {
+				logger.Warningf("skipping observed IPv6 address %q on %q: not fully supported yet", ip, nic.Name)
+				continue
+			}
+
+			nicConfigCopy := nicConfig
+			nicConfigCopy.CIDR = ipNet.String()
+			nicConfigCopy.Address = ip.String()
+
+			// TODO(dimitern): Add DNS servers, search domains, and gateway
+			// later.
+
+			observedConfig = append(observedConfig, nicConfigCopy)
+		}
+	}
+	sortedConfig := SortNetworkConfigs(observedConfig)
+
+	logger.Debugf("about to update network config with observed: %+v", sortedConfig)
+	return sortedConfig, nil
+}
+
+// MergeProviderAndObservedNetworkConfigs returns the effective, sorted, network
+// configs after merging providerConfig with observedConfig.
+func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []params.NetworkConfig) []params.NetworkConfig {
+	providerConfigsByName := make(map[string][]params.NetworkConfig)
+	sortedProviderConfigs := SortNetworkConfigs(providerConfigs)
+	for _, config := range sortedProviderConfigs {
+		name := config.InterfaceName
+		providerConfigsByName[config.InterfaceName] = append(providerConfigsByName[name], config)
+	}
+
+	mergedConfigs := make([]params.NetworkConfig, 0, len(providerConfigs)+len(observedConfigs))
+	sortedObservedConfigs := SortNetworkConfigs(observedConfigs)
+	for _, config := range sortedObservedConfigs {
+		name := config.InterfaceName
+		if strings.HasPrefix(name, instancecfg.DefaultBridgePrefix) {
+			unprefixedName := strings.TrimPrefix(name, instancecfg.DefaultBridgePrefix)
+			underlyingConfigs, underlyingKnownByProvider := providerConfigsByName[unprefixedName]
+			if underlyingKnownByProvider {
+				// This config is for a bridge created by Juju and not known by
+				// the provider. The bridge is configured to adopt the address
+				// allocated to the underlying interface, which is known by the
+				// provider. However, since the same underlying interface can
+				// have multiple addresses, we need to match the adopted
+				// bridgeConfig to the correct address.
+
+				var underlyingConfig params.NetworkConfig
+				for i, underlying := range underlyingConfigs {
+					if underlying.Address == config.Address {
+						// Remove what we found before changing it below.
+						underlyingConfig = underlying
+						underlyingConfigs = append(underlyingConfigs[:i], underlyingConfigs[i+1:]...)
+						break
+					}
+				}
+
+				bridgeConfig := config
+				bridgeConfig.InterfaceType = string(network.BridgeInterface)
+				bridgeConfig.ConfigType = underlyingConfig.ConfigType
+				bridgeConfig.VLANTag = underlyingConfig.VLANTag
+				bridgeConfig.ProviderSpaceId = underlyingConfig.ProviderSpaceId
+				bridgeConfig.ProviderVLANId = underlyingConfig.ProviderVLANId
+				bridgeConfig.ProviderSubnetId = underlyingConfig.ProviderSubnetId
+				bridgeConfig.ProviderAddressId = underlyingConfig.ProviderAddressId
+				if underlyingParent := underlyingConfig.ParentInterfaceName; underlyingParent != "" {
+					bridgeConfig.ParentInterfaceName = instancecfg.DefaultBridgePrefix + underlyingParent
+				}
+
+				underlyingConfig.ConfigType = string(network.ConfigManual)
+				underlyingConfig.ParentInterfaceName = name
+				underlyingConfig.ProviderAddressId = ""
+				underlyingConfig.CIDR = ""
+				underlyingConfig.Address = ""
+
+				underlyingConfigs = append(underlyingConfigs, underlyingConfig)
+				providerConfigsByName[unprefixedName] = underlyingConfigs
+
+				mergedConfigs = append(mergedConfigs, bridgeConfig)
+				continue
+			}
+		}
+
+		providerConfigs, knownByProvider := providerConfigsByName[name]
+		if !knownByProvider {
+			// Not known by the provider and not a Juju-created bridge, so just
+			// use the observed config for it.
+			mergedConfigs = append(mergedConfigs, config)
+			continue
+		}
+
+		for _, providerConfig := range providerConfigs {
+			if providerConfig.Address == config.Address {
+				// Prefer observed device indices and MTU values as more up-to-date.
+				providerConfig.DeviceIndex = config.DeviceIndex
+				providerConfig.MTU = config.MTU
+
+				mergedConfigs = append(mergedConfigs, providerConfig)
+				break
+			}
+		}
+	}
+
+	// No need to re-sort the result as both inputs were sorted and processed in
+	// order.
+	return mergedConfigs
 }
