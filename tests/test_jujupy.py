@@ -784,7 +784,6 @@ class TestEnvJujuClient(ClientTest):
             yield '1.27.1'
             yield '2.0-alpha1'
             yield '2.0-alpha2'
-            yield '2.0-alpha2-fake-wrapper'
             yield '2.0-alpha3'
             yield '2.0-beta1'
             yield '2.0-delta1'
@@ -826,9 +825,6 @@ class TestEnvJujuClient(ClientTest):
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient2A2)
             self.assertEqual(client.version, '2.0-alpha2')
-            client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
-            self.assertEqual(client.version, '2.0-alpha1-juju-wrapped')
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-alpha3')
@@ -2542,7 +2538,6 @@ class TestEnvJujuClient1X(ClientTest):
             yield '1.27.1'
             yield '2.0-alpha1'
             yield '2.0-alpha2'
-            yield '2.0-alpha2-fake-wrapper'
             yield '2.0-alpha3'
             yield '2.0-beta1'
             yield '2.0-delta1'
@@ -2584,9 +2579,6 @@ class TestEnvJujuClient1X(ClientTest):
             client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient2A2)
             self.assertEqual(client.version, '2.0-alpha2')
-            client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
-            self.assertEqual(client.version, '2.0-alpha1-juju-wrapped')
             client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-alpha3')
