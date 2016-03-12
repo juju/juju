@@ -139,6 +139,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(status.NewStatusCommand())
 	r.Register(newSwitchCommand())
 	r.Register(status.NewStatusHistoryCommand())
+	r.Register(status.NewHealthCommand())
 
 	// Error resolution and debugging commands.
 	r.Register(newRunCommand())
