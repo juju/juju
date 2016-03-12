@@ -131,7 +131,7 @@ func (suite *providerSuite) getInstance(systemId string) *maasInstance {
 	statusGetter := func(instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
-	return &maasInstance{&node, statusGetter}
+	return &maasInstance{&node, nil, statusGetter}
 }
 
 func (suite *providerSuite) getNetwork(name string, id int, vlanTag int) *gomaasapi.MAASObject {

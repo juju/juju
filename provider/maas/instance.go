@@ -17,7 +17,7 @@ import (
 
 type maasInstance struct {
 	maasObject   *gomaasapi.MAASObject
-	environ    *maasEnviron
+	environ      *maasEnviron
 	statusGetter func(instance.Id) (string, string)
 }
 

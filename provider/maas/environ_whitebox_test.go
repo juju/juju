@@ -269,7 +269,7 @@ func (suite *environSuite) getInstance(systemId string) *maasInstance {
 		return "unknown", "FAKE"
 	}
 
-	return &maasInstance{&node, statusGetter}
+	return &maasInstance{&node, nil, statusGetter}
 }
 
 func (suite *environSuite) newNetwork(name string, id int, vlanTag int, defaultGateway string) *gomaasapi.MAASObject {

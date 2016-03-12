@@ -79,7 +79,7 @@ func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
 		return "unknown", "FAKE"
 	}
 
-	instance := maasInstance{&obj, statusGetter}
+	instance := maasInstance{&obj, nil, statusGetter}
 	mTag := names.NewMachineTag("1")
 	volumes, attachments, err := instance.volumes(mTag, []names.VolumeTag{
 		names.NewVolumeTag("1"),
@@ -138,7 +138,7 @@ func (s *volumeSuite) TestInstanceVolumesOldMass(c *gc.C) {
 		return "provisioning", "substatus"
 	}
 
-	instance := maasInstance{&obj, statusGetter}
+	instance := maasInstance{&obj, nil, statusGetter}
 	volumes, attachments, err := instance.volumes(names.NewMachineTag("1"), []names.VolumeTag{
 		names.NewVolumeTag("1"),
 		names.NewVolumeTag("2"),
