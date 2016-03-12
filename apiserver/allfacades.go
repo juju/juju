@@ -32,6 +32,7 @@ import (
 	_ "github.com/juju/juju/apiserver/instancepoller"
 	_ "github.com/juju/juju/apiserver/keymanager"
 	_ "github.com/juju/juju/apiserver/keyupdater"
+	_ "github.com/juju/juju/apiserver/lifeflag"
 	_ "github.com/juju/juju/apiserver/logger"
 	_ "github.com/juju/juju/apiserver/machine"
 	_ "github.com/juju/juju/apiserver/machinemanager"
