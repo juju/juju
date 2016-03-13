@@ -44,6 +44,10 @@ def parse_args(argv=None):
                         help='unit_name:<conditions>'
                         ' One or more of the following conditions to apply'
                         ' to the given unit_name: clock_skew.')
+    parser.add_argument('--agent-timeout', type=int, default=1200,
+                        help='The time to wait for agents to start')
+    parser.add_argument('--workload-timeout', type=int, default=1800,
+                        help='The time to wait for workloads to active')
     args = parser.parse_args(argv)
     if args.allow_native_deploy and args.bundle_name:
         parser.error('cannot supply bundle name with native juju deploying')
@@ -93,14 +97,14 @@ def apply_condition(client, condition):
             raise ErrUnitCondition("%s: Unknown condition type." % action)
 
 
-def assess_deployer(args, client):
+def assess_deployer(args, client, agent_timeout, workload_timeout):
     """Run juju-deployer, based on command line configuration values."""
     if args.allow_native_deploy:
         client.deploy_bundle(args.bundle_path)
-        client.wait_for_started()
+        client.wait_for_started(timeout=agent_timeout)
     else:
         client.deployer(args.bundle_path, args.bundle_name)
-    client.wait_for_workloads(timeout=1800)
+    client.wait_for_workloads(timeout=workload_timeout)
     if args.health_cmd:
         environ = client._shell_environ()
         check_health(args.health_cmd, args.temp_env_name, environ)
@@ -126,7 +130,8 @@ def main(argv=None):
                       args.agent_url, args.agent_stream, args.logs,
                       args.keep_env, upload_tools=args.upload_tools,
                       region=args.region):
-        assess_deployer(args, client)
+        assess_deployer(
+            args, client, args.agent_timeout, args.workload_timeout)
     return 0
 
 
