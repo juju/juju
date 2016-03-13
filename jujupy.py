@@ -323,7 +323,7 @@ class EnvJujuClient:
                    timeout=None, include_e=True, admin=False):
         # sudo is not needed for devel releases.
         if admin:
-            e_arg = ('-m', 'admin')
+            e_arg = ('-m', self.get_admin_model_name())
         elif self.env is None or not include_e:
             e_arg = ()
         else:
@@ -847,7 +847,7 @@ class EnvJujuClient:
         reporter = GroupReporter(sys.stdout, desired_state)
         try:
             for remaining in until_timeout(timeout):
-                status = self.get_status()
+                status = self.get_status(admin=True)
                 states = {}
                 for machine, info in status.iter_machines():
                     status = self.get_controller_member_status(info)

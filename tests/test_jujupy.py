@@ -914,9 +914,12 @@ class TestEnvJujuClient(ClientTest):
     def test_full_args_admin(self):
         env = JujuData('foo')
         client = EnvJujuClient(env, None, 'my/juju/bin')
-        full = client._full_args('bar', False, ('baz', 'qux'), admin=True)
+        with patch.object(client, 'get_admin_model_name',
+                          return_value='admin') as gamn_mock:
+            full = client._full_args('bar', False, ('baz', 'qux'), admin=True)
         self.assertEqual((
             'juju', '--show-log', 'bar', '-m', 'admin', 'baz', 'qux'), full)
+        gamn_mock.assert_called_once_with()
 
     def test__bootstrap_config(self):
         env = JujuData('foo', {
@@ -2711,6 +2714,13 @@ class TestEnvJujuClient1X(ClientTest):
         full = client._full_args('bar', False, ('baz', 'qux'))
         self.assertEqual((
             'juju', '--debug', 'bar', '-e', 'foo', 'baz', 'qux'), full)
+
+    def test_full_args_admin(self):
+        env = SimpleEnvironment('foo')
+        client = EnvJujuClient1X(env, None, 'my/juju/bin')
+        full = client._full_args('bar', False, ('baz', 'qux'), admin=True)
+        self.assertEqual((
+            'juju', '--show-log', 'bar', '-e', 'foo', 'baz', 'qux'), full)
 
     def test_full_args_action(self):
         env = SimpleEnvironment('foo')
