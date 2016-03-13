@@ -1666,7 +1666,8 @@ class TestEnvJujuClient(ClientTest):
                           return_value=data) as gjo_mock:
             endpoint = client.get_controller_endpoint()
         self.assertEqual('10.0.0.1', endpoint)
-        gjo_mock.assert_called_once_with('show-controller', ('foo', ))
+        gjo_mock.assert_called_once_with(
+            'show-controller', 'foo', include_e=False)
 
     def test_get_controller_endpoint_ipv6(self):
         data = """\
@@ -1679,7 +1680,8 @@ class TestEnvJujuClient(ClientTest):
                           return_value=data) as gjo_mock:
             endpoint = client.get_controller_endpoint()
         self.assertEqual('::1', endpoint)
-        gjo_mock.assert_called_once_with('show-controller', ('foo', ))
+        gjo_mock.assert_called_once_with(
+            'show-controller', 'foo', include_e=False)
 
     def test_get_controller_members(self):
         status = Status.from_text("""\
@@ -3868,7 +3870,7 @@ class TestEnvJujuClient1X(ClientTest):
                           return_value='10.0.0.1:17070') as gjo_mock:
             endpoint = client.get_controller_endpoint()
         self.assertEqual('10.0.0.1', endpoint)
-        gjo_mock.assert_called_once_with('api-endpoints', ())
+        gjo_mock.assert_called_once_with('api-endpoints')
 
     def test_get_controller_endpoint_ipv6(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
@@ -3877,7 +3879,7 @@ class TestEnvJujuClient1X(ClientTest):
                           return_value='[::1]:17070') as gjo_mock:
             endpoint = client.get_controller_endpoint()
         self.assertEqual('::1', endpoint)
-        gjo_mock.assert_called_once_with('api-endpoints', ())
+        gjo_mock.assert_called_once_with('api-endpoints')
 
     def test_action_do(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),

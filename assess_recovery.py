@@ -37,8 +37,6 @@ def deploy_stack(client, charm_prefix):
     client.juju('deploy', (charm_prefix + 'ubuntu',))
     client.wait_for_started().status
     print_now("%s is ready to testing" % client.env.environment)
-    instance_id = client.get_status().status['machines']['0']['instance-id']
-    return instance_id
 
 
 def restore_present_state_server(client, backup_file):

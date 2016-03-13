@@ -768,8 +768,9 @@ class EnvJujuClient:
 
     def get_controller_endpoint(self):
         """Return the address of the controller leader."""
-        info = yaml_loads(self.get_juju_output(
-            'show-controller', (self.env.environment, )))
+        output = self.get_juju_output(
+            'show-controller', self.env.environment, include_e=False)
+        info = yaml_loads(output)
         endpoint = info[self.env.environment]['details']['api-endpoints'][0]
         address, port = split_address_port(endpoint)
         return address
@@ -1296,7 +1297,7 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     def get_controller_endpoint(self):
         """Return the address of the state-server leader."""
-        endpoint = self.get_juju_output('api-endpoints', ())
+        endpoint = self.get_juju_output('api-endpoints')
         address, port = split_address_port(endpoint)
         return address
 
