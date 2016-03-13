@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"github.com/juju/juju/worker/imagemetadataworker"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -35,7 +36,7 @@ func (s *MachineMockProviderSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
 		close(started)
 		return worker.NewNoOpWorker()
 	}
-	s.PatchValue(&newMetadataUpdater, newWorker)
+	s.PatchValue(&imagemetadataworker.NewWorker, newWorker)
 	s.PatchValue(&newEnvirons, func(config *config.Config) (environs.Environ, error) {
 		return &dummyEnviron{}, nil
 	})

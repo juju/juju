@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/identityfilewriter"
+	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
@@ -299,6 +300,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeWaiterName: upgradeWaiterName,
 		}),
 
+		imagemetadataName: imagemetadataworker.Manifold(imagemetadataworker.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
+		}),
+
 		toolsversioncheckerName: toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
 			AgentName:         agentName,
 			APICallerName:     apiCallerName,
@@ -332,5 +339,6 @@ const (
 	storageprovisionerName   = "storage-provisioner-machine"
 	resumerName              = "resumer"
 	identityFileWriterName   = "identity-file-writer"
+	imagemetadataName        = "image-metadata"
 	toolsversioncheckerName  = "tools-version-checker"
 )

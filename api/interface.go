@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/api/firewaller"
-	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/provisioner"
@@ -174,6 +173,5 @@ type Connection interface {
 	InstancePoller() *instancepoller.API
 	CharmRevisionUpdater() *charmrevisionupdater.State
 	Cleaner() *cleaner.API
-	MetadataUpdater() *imagemetadata.Client
 	UnitAssigner() unitassigner.API
 }
