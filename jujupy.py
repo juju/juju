@@ -1178,6 +1178,19 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
     def enable_ha(self):
         self.juju('ensure-availability', ('-n', '3'))
 
+    def list_models(self):
+        """List the models registered with the current controller."""
+        log.info('The model is environment {}'.format(self.env.environment))
+
+    def get_models(self):
+        """return a models dict with a 'models': [] key-value pair."""
+        return {}
+
+    def list_controllers(self):
+        """List the controllers."""
+        log.info(
+            'The controller is environment {}'.format(self.env.environment))
+
     @staticmethod
     def get_controller_member_status(info_dict):
         return info_dict.get('state-server-member-status')
