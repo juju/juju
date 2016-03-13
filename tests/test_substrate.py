@@ -29,6 +29,7 @@ from substrate import (
     get_job_instances,
     get_libvirt_domstate,
     JoyentAccount,
+    LXDAccount,
     make_substrate_manager,
     MAASAccount,
     OpenStackAccount,
@@ -48,6 +49,12 @@ def get_aws_env():
         'region': 'ca-west',
         'access-key': 'skeleton-key',
         'secret-key': 'secret-skeleton-key',
+        })
+
+
+def get_lxd_env():
+    return SimpleEnvironment('mas', {
+        'type': 'lxd'
         })
 
 
@@ -212,6 +219,17 @@ class TestTerminateInstances(TestCase):
             terminate_instances(
                 SimpleEnvironment('foo', get_joyent_config()), ['ab', 'cd'])
         ti_mock.assert_called_once_with(['ab', 'cd'])
+
+    def test_terminate_lxd(self):
+        env = get_lxd_env()
+        with patch('subprocess.check_call') as cc_mock:
+            terminate_instances(env, ['foo', 'bar'])
+        self.assertEqual(
+            [call(['lxc', 'stop', '--force', 'foo']),
+             call(['lxc', 'delete', '--force', 'foo']),
+             call(['lxc', 'stop', '--force', 'bar']),
+             call(['lxc', 'delete', '--force', 'bar'])],
+            cc_mock.mock_calls)
 
     def test_terminate_uknown(self):
         env = SimpleEnvironment('foo', {'type': 'unknown'})
@@ -548,6 +566,39 @@ class TestJoyentAccount(TestCase):
             account.terminate_instances(['b', 'c', 'a'])
         self.assertEqual(exc.exception.instance_ids, ['b', 'c'])
         client.delete_machine.assert_called_once_with('a')
+
+
+def get_lxd_config():
+    return {'type': 'lxd'}
+
+
+class TestLXDAccount(TestCase):
+
+    def test_manager_from_config(self):
+        config = get_lxd_config()
+        with LXDAccount.manager_from_config(config) as account:
+            self.assertIsNone(account.remote)
+        config['region'] = 'lxd-server'
+        with LXDAccount.manager_from_config(config) as account:
+            self.assertEqual('lxd-server', account.remote)
+
+    def test_terminate_instances(self):
+        account = LXDAccount()
+        with patch('subprocess.check_call', autospec=True) as cc_mock:
+            account.terminate_instances(['asdf'])
+        self.assertEqual(
+            [call(['lxc', 'stop', '--force', 'asdf']),
+             call(['lxc', 'delete', '--force', 'asdf'])],
+            cc_mock.mock_calls)
+
+    def test_terminate_instances_with_remote(self):
+        account = LXDAccount(remote='lxd-server')
+        with patch('subprocess.check_call', autospec=True) as cc_mock:
+            account.terminate_instances(['asdf'])
+        self.assertEqual(
+            [call(['lxc', 'stop', '--force', 'asdf']),
+             call(['lxc', 'delete', '--force', 'lxd-server:asdf'])],
+            cc_mock.mock_calls)
 
 
 def make_sms(instance_ids):
