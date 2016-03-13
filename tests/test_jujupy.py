@@ -3863,6 +3863,82 @@ class TestEnvJujuClient1X(ClientTest):
              'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
         )
 
+    def test_list_models(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient1X(env, '1.23-series-arch', None)
+        with patch.object(client, 'juju') as j_mock:
+            client.list_models()
+        j_mock.assert_called_once_with(
+            'list-models', ('-c', 'foo'), include_e=False)
+
+    def test_get_models(self):
+        data = """\
+            models:
+            - name: foo
+              model-uuid: aaaa
+              owner: admin@local
+            - name: bar
+              model-uuid: bbbb
+              owner: admin@local
+            current-model: foo
+        """
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient1X(env, '1.23-series-arch', None)
+        with patch.object(client, 'get_juju_output',
+                          return_value=data) as gjo_mock:
+            models = client.get_models()
+        gjo_mock.assert_called_once_with(
+            'list-models', '-c', 'foo', '--format', 'yaml', include_e=False)
+        expected_models = {
+            'models': [
+                {'name': 'foo', 'model-uuid': 'aaaa', 'owner': 'admin@local'},
+                {'name': 'bar', 'model-uuid': 'bbbb', 'owner': 'admin@local'}],
+            'current-model': 'foo'
+        }
+        self.assertEqual(expected_models, models)
+
+    def test_get_admin_model_name(self):
+        models = {
+            'models': [
+                {'name': 'admin', 'model-uuid': 'aaaa'},
+                {'name': 'bar', 'model-uuid': 'bbbb'}],
+            'current-model': 'bar'
+        }
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient1X(env, '1.23-series-arch', None)
+        with patch.object(client, 'get_models',
+                          return_value=models) as gm_mock:
+            admin_name = client.get_admin_model_name()
+        gm_mock.assert_called_once_with()
+        self.assertEqual('admin', admin_name)
+
+    def test_get_admin_model_name_without_admin(self):
+        models = {
+            'models': [
+                {'name': 'bar', 'model-uuid': 'aaaa'},
+                {'name': 'baz', 'model-uuid': 'bbbb'}],
+            'current-model': 'bar'
+        }
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient1X(env, '1.23-series-arch', None)
+        with patch.object(client, 'get_models', return_value=models):
+            admin_name = client.get_admin_model_name()
+        self.assertEqual('foo', admin_name)
+
+    def test_get_admin_model_name_no_models(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient1X(env, '1.23-series-arch', None)
+        with patch.object(client, 'get_models', return_value={}):
+            admin_name = client.get_admin_model_name()
+        self.assertEqual('foo', admin_name)
+
+    def test_list_controllers(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient1X(env, '1.23-series-arch', None)
+        with patch.object(client, 'juju') as j_mock:
+            client.list_controllers()
+        j_mock.assert_called_once_with('list-controllers', (), include_e=False)
+
     def test_get_controller_endpoint_ipv4(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
         client = EnvJujuClient1X(env, '1.23-series-arch', None)

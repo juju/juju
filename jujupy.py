@@ -766,6 +766,38 @@ class EnvJujuClient:
         self._wait_for_status(reporter, status_to_version, VersionsNotUpdated,
                               timeout=timeout, start=start)
 
+    def list_models(self):
+        """List the models registered with the current controller."""
+        self.juju('list-models', ('-c', self.env.environment), include_e=False)
+
+    def get_models(self):
+        """return a models dict with a 'models': [] key-value pair."""
+        output = self.get_juju_output(
+            'list-models', '-c', self.env.environment, '--format', 'yaml',
+            include_e=False)
+        models = yaml_loads(output)
+        return models
+
+    def get_admin_model_name(self):
+        """Return the name of the 'admin' model.
+
+        Return the name of the environment when an 'admin' model does
+        not exist.
+        """
+        models = self.get_models()
+        # The dict can be empty because 1.x does not support the models.
+        # This is an ambiguous case for the jes feature flag which supports
+        # multiple models, but none is named 'admin' by default. Since the
+        # jes case also uses '-e' for models, the env is the admin model.
+        for model in models.get('models', []):
+            if 'admin' in model['name']:
+                return 'admin'
+        return self.env.environment
+
+    def list_controllers(self):
+        """List the controllers."""
+        self.juju('list-controllers', (), include_e=False)
+
     def get_controller_endpoint(self):
         """Return the address of the controller leader."""
         output = self.get_juju_output(
