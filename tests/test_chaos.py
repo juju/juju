@@ -328,7 +328,7 @@ class TestUnleashOnce(FakeHomeTestCase):
         expected = ['abcd' * 9, '1234' * 9]
         self.assertEqual(
             [
-                call('show-status', '--format', 'yaml'),
+                call('show-status', '--format', 'yaml', admin=False),
                 call('run-action', 'chaos-monkey/1', 'start', 'mode=single',
                      'enablement-timeout=120'),
                 call('run-action', 'chaos-monkey/0', 'start', 'mode=single',
@@ -344,7 +344,7 @@ class TestUnleashOnce(FakeHomeTestCase):
             monkey_runner.unleash_once()
         self.assertEqual(
             [
-                call('show-status', '--format', 'yaml'),
+                call('show-status', '--format', 'yaml', admin=False),
                 call('run-action',
                      'chaos-monkey/1', 'start', 'mode=single',
                      'enablement-timeout=120',

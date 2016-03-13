@@ -911,6 +911,13 @@ class TestEnvJujuClient(ClientTest):
             'juju', '--show-log', 'action', 'bar', '-m', 'foo', 'baz', 'qux'),
             full)
 
+    def test_full_args_admin(self):
+        env = JujuData('foo')
+        client = EnvJujuClient(env, None, 'my/juju/bin')
+        full = client._full_args('bar', False, ('baz', 'qux'), admin=True)
+        self.assertEqual((
+            'juju', '--show-log', 'bar', '-m', 'admin', 'baz', 'qux'), full)
+
     def test__bootstrap_config(self):
         env = JujuData('foo', {
             'access-key': 'foo',
@@ -1209,7 +1216,8 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(client, 'get_juju_output',
                           return_value=output_text) as gjo_mock:
             result = client.get_status()
-        gjo_mock.assert_called_once_with('show-status', '--format', 'yaml')
+        gjo_mock.assert_called_once_with(
+            'show-status', '--format', 'yaml', admin=False)
         self.assertEqual(Status, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
@@ -1218,7 +1226,7 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(env, None, None)
         client.attempt = 0
 
-        def get_juju_output(command, *args):
+        def get_juju_output(command, *args, **kwargs):
             if client.attempt == 1:
                 return '"hello"'
             client.attempt += 1
@@ -1950,7 +1958,7 @@ class TestEnvJujuClient(ClientTest):
         status = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
         actions = [err, status]
 
-        def get_juju_output_fake(*args):
+        def get_juju_output_fake(*args, **kwargs):
             action = actions.pop(0)
             if isinstance(action, Exception):
                 raise action
@@ -1966,7 +1974,7 @@ class TestEnvJujuClient(ClientTest):
         status = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
         actions = [err, status]
 
-        def get_juju_output_fake(*args):
+        def get_juju_output_fake(*args, **kwargs):
             action = actions.pop(0)
             if isinstance(action, Exception):
                 raise action
@@ -2981,7 +2989,8 @@ class TestEnvJujuClient1X(ClientTest):
         with patch.object(client, 'get_juju_output',
                           return_value=output_text) as gjo_mock:
             result = client.get_status()
-        gjo_mock.assert_called_once_with('status', '--format', 'yaml')
+        gjo_mock.assert_called_once_with(
+            'status', '--format', 'yaml', admin=False)
         self.assertEqual(Status, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
@@ -2990,7 +2999,7 @@ class TestEnvJujuClient1X(ClientTest):
         client = EnvJujuClient1X(env, None, None)
         client.attempt = 0
 
-        def get_juju_output(command, *args):
+        def get_juju_output(command, *args, **kwargs):
             if client.attempt == 1:
                 return '"hello"'
             client.attempt += 1
@@ -3495,7 +3504,7 @@ class TestEnvJujuClient1X(ClientTest):
         status = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
         actions = [err, status]
 
-        def get_juju_output_fake(*args):
+        def get_juju_output_fake(*args, **kwargs):
             action = actions.pop(0)
             if isinstance(action, Exception):
                 raise action
@@ -3511,7 +3520,7 @@ class TestEnvJujuClient1X(ClientTest):
         status = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
         actions = [err, status]
 
-        def get_juju_output_fake(*args):
+        def get_juju_output_fake(*args, **kwargs):
             action = actions.pop(0)
             if isinstance(action, Exception):
                 raise action

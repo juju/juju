@@ -319,9 +319,12 @@ class EnvJujuClient:
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=True)
 
-    def _full_args(self, command, sudo, args, timeout=None, include_e=True):
+    def _full_args(self, command, sudo, args,
+                   timeout=None, include_e=True, admin=False):
         # sudo is not needed for devel releases.
-        if self.env is None or not include_e:
+        if admin:
+            e_arg = ('-m', 'admin')
+        elif self.env is None or not include_e:
             e_arg = ()
         else:
             e_arg = ('-m', self.env.environment)
@@ -499,7 +502,8 @@ class EnvJujuClient:
         """
         args = self._full_args(command, False, args,
                                timeout=kwargs.get('timeout'),
-                               include_e=kwargs.get('include_e', True))
+                               include_e=kwargs.get('include_e', True),
+                               admin=kwargs.get('admin', False))
         env = self._shell_environ()
         log.debug(args)
         # Mutate os.environ instead of supplying env parameter so
@@ -527,7 +531,7 @@ class EnvJujuClient:
         """Print the status to output."""
         self.juju(self._show_status, ('--format', 'yaml'))
 
-    def get_status(self, timeout=60, raw=False, *args):
+    def get_status(self, timeout=60, raw=False, admin=False, *args):
         """Get the current status as a dict."""
         # GZ 2015-12-16: Pass remaining timeout into get_juju_output call.
         for ignored in until_timeout(timeout):
@@ -536,7 +540,7 @@ class EnvJujuClient:
                     return self.get_juju_output(self._show_status, *args)
                 return Status.from_text(
                     self.get_juju_output(
-                        self._show_status, '--format', 'yaml'))
+                        self._show_status, '--format', 'yaml', admin=admin))
             except subprocess.CalledProcessError:
                 pass
         raise Exception(
@@ -1109,8 +1113,10 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=False)
 
-    def _full_args(self, command, sudo, args, timeout=None, include_e=True):
+    def _full_args(self, command, sudo, args,
+                   timeout=None, include_e=True, admin=False):
         # sudo is not needed for devel releases.
+        # admin is ignored. only environment exists.
         if self.env is None or not include_e:
             e_arg = ()
         else:
