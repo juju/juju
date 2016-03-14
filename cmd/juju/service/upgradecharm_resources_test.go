@@ -179,6 +179,9 @@ func (s *UpgradeCharmStoreResourceSuite) SetUpSuite(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TODO(ericsnow) Adapt this test to check passing revisions once the
+// charmstore endpoints are implemented.
+
 func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/starsay-1", "starsay")
 
