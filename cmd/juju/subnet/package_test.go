@@ -125,20 +125,20 @@ func (s *BaseSubnetSuite) TestHelp(c *gc.C) {
 		// Subcommands embed ModelCommandBase and have an extra
 		// "[options]" prepended before the args.
 		cmdInfo = s.command.Info()
-		expected = "(?sm).*^usage: juju subnet " +
+		expected = "(?sm).*^Usage: juju subnet " +
 			regexp.QuoteMeta(cmdInfo.Name) +
 			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
 	} else {
-		expected = "(?sm).*^usage: juju subnet" +
+		expected = "(?sm).*^Usage: juju subnet" +
 			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
 	}
 	c.Check(cmdInfo, gc.NotNil)
 	c.Check(stderr, gc.Matches, expected)
 
-	expected = "(?sm).*^purpose: " + regexp.QuoteMeta(cmdInfo.Purpose) + "$.*"
+	expected = "(?sm).*^Summary:\n" + regexp.QuoteMeta(cmdInfo.Purpose) + "$.*"
 	c.Check(stderr, gc.Matches, expected)
 
-	expected = "(?sm).*^" + regexp.QuoteMeta(cmdInfo.Doc) + "$.*"
+	expected = "(?sm).*^Details:\n" + regexp.QuoteMeta(cmdInfo.Doc) + "$.*"
 	c.Check(stderr, gc.Matches, expected)
 }
 
