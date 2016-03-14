@@ -458,7 +458,7 @@ func (s *modelManagerSuite) TestRevokeModelMissingUser(c *gc.C) {
 
 	result, err := s.modelmanager.ModifyModelAccess(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.ErrorMatches, `could not revoke model access: model user "bob@local" does not exist: transaction aborted`)
+	c.Assert(result.OneError(), gc.ErrorMatches, `could not revoke model access: model user "bob@local" does not exist`)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.NotNil)
 
@@ -594,7 +594,7 @@ func (s *modelManagerSuite) TestGrantModelAddUserTwice(c *gc.C) {
 	c.Assert(modelUser.UserName(), gc.Equals, user.UserTag().Canonical())
 }
 
-func (s *modelManagerSuite) TestGrantModelInvalidTags(c *gc.C) {
+func (s *modelManagerSuite) TestGrantModelInvalidUserTag(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	for _, testParam := range []struct {
 		tag      string

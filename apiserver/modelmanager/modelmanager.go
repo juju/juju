@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/txn"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/apiserver/common"
@@ -381,10 +382,7 @@ func (em *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList,
 // ModifyModelAccess changes the model access granted to users.
 func (em *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest) (result params.ErrorResults, err error) {
 	// API user must be a controller admin.
-	createdBy, ok := em.authorizer.GetAuthTag().(names.UserTag)
-	if !ok {
-		return result, errors.Errorf("api connection is not through a user")
-	}
+	createdBy, _ := em.authorizer.GetAuthTag().(names.UserTag)
 	isAdmin, err := em.state.IsControllerAdministrator(createdBy)
 	if err != nil {
 		return result, errors.Trace(err)
@@ -470,6 +468,10 @@ func ChangeModelAccess(accessor stateAccessor, modelTag names.ModelTag, createdB
 		_, err = st.AddModelUser(state.ModelUserSpec{User: accessedBy, CreatedBy: createdBy, Access: stateAccess})
 		if errors.IsAlreadyExists(err) {
 			modelUser, err := st.ModelUser(accessedBy)
+			if errors.IsNotFound(err) {
+				// Conflicts with prior check, must be inconsistent state.
+				err = txn.ErrExcessiveContention
+			}
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}

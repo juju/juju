@@ -286,7 +286,7 @@ func (st *State) RemoveModelUser(user names.UserTag) error {
 	}}
 	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
-		err = errors.NewNotFound(err, fmt.Sprintf("model user %q does not exist", user.Canonical()))
+		err = errors.NewNotFound(nil, fmt.Sprintf("model user %q does not exist", user.Canonical()))
 	}
 	if err != nil {
 		return errors.Trace(err)
