@@ -966,7 +966,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	// non-existent key. This problem does not occur on amd64
 	// using gc or gccgo-4.9. Nor does it happen using go1.6 on
 	// ppc64. Once we switch to go1.6 across the board this change
-	// should be reverted.
+	// should be reverted. See http://pad.lv/1556116.
 	expectedUnits := map[string]string{
 		"sql/0": "0/lxc/0",
 		"sql/1": "2",
