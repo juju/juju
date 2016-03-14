@@ -64,14 +64,13 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 	})
 
 	s.stub.CheckCallNames(c, "AddPendingResources")
-	expectedStore := []charmresource.Resource{{
+	s.stub.CheckCall(c, 0, "AddPendingResources", "mysql", cURL, csMac, []charmresource.Resource{{
 		Meta:   resources["store-tarball"],
 		Origin: charmresource.OriginStore,
 	}, {
 		Meta:   resources["store-zip"],
 		Origin: charmresource.OriginStore,
-	}}
-	s.stub.CheckCall(c, 0, "AddPendingResources", "mysql", cURL, csMac, expectedStore)
+	}})
 }
 
 func (s DeploySuite) TestUploadOK(c *gc.C) {
@@ -180,6 +179,7 @@ type uploadDeps struct {
 }
 
 func (s uploadDeps) AddPendingResources(serviceID string, cURL *charm.URL, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error) {
+	charmresource.Sort(resources)
 	s.stub.AddCall("AddPendingResources", serviceID, cURL, csMac, resources)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
