@@ -586,20 +586,7 @@ func (c *DeployCommand) deployCharm(
 		spaceBindings: c.Bindings,
 		resources:     ids,
 	}
-	if err := deployer.serviceDeploy(params); err != nil {
-		return err
-	}
-
-	state, err = c.NewAPIRoot()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	httpClient, err = c.HTTPClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return err
+	return deployer.serviceDeploy(params)
 }
 
 type APICmd interface {
