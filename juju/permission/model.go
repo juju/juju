@@ -16,19 +16,19 @@ const (
 	// ModelReadAccess allows a user to read a model but not to change it.
 	ModelReadAccess ModelAccess = iota
 
-	// ModelAdminAccess allows a user full control over the model.
-	ModelAdminAccess ModelAccess = iota
+	// ModelWriteAccess allows a user write access to the model.
+	ModelWriteAccess ModelAccess = iota
 )
 
-// ParseModelAccess parses a string representation of a model access permission
-// into its corresponding, effective model access permission type.
+// ParseModelAccess parses a user-facing string representation of a model
+// access permission into a logical representation.
 func ParseModelAccess(access string) (ModelAccess, error) {
 	var fail = ModelAccess(0)
 	switch access {
 	case "read":
 		return ModelReadAccess, nil
-	case "write", "admin":
-		return ModelAdminAccess, nil
+	case "write":
+		return ModelWriteAccess, nil
 	default:
 		return fail, errors.Errorf("invalid model access permission %q", access)
 	}

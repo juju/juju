@@ -119,12 +119,12 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 	})
 }
 
-func (s *userManagerSuite) TestAddReadOnlyUserWithSharedModel(c *gc.C) {
+func (s *userManagerSuite) TestAddReadAccessUser(c *gc.C) {
 	s.addUserWithSharedModel(c, params.ModelReadAccess)
 }
 
-func (s *userManagerSuite) TestAddAdminUserWithSharedModel(c *gc.C) {
-	s.addUserWithSharedModel(c, params.ModelAdminAccess)
+func (s *userManagerSuite) TestAddWriteAccessUser(c *gc.C) {
+	s.addUserWithSharedModel(c, params.ModelWriteAccess)
 }
 
 func (s *userManagerSuite) addUserWithSharedModel(c *gc.C, access params.ModelAccessPermission) {

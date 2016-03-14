@@ -81,5 +81,5 @@ type ModelAccessPermission string
 // Model access permissions that may be set on a user.
 const (
 	ModelReadAccess  ModelAccessPermission = "read"
-	ModelAdminAccess ModelAccessPermission = "admin"
+	ModelWriteAccess ModelAccessPermission = "write"
 )

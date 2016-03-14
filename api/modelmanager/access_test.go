@@ -89,7 +89,7 @@ func (s *accessSuite) adminUser(c *gc.C, action params.ModelAction) {
 		if req, ok := paramsIn.(params.ModifyModelAccessRequest); ok {
 			c.Assert(req.Changes, gc.HasLen, 1)
 			c.Assert(string(req.Changes[0].Action), gc.Equals, string(action))
-			c.Assert(string(req.Changes[0].Access), gc.Equals, string(params.ModelAdminAccess))
+			c.Assert(string(req.Changes[0].Access), gc.Equals, string(params.ModelWriteAccess))
 			c.Assert(req.Changes[0].ModelTag, gc.Equals, someModelTag)
 		} else {
 			c.Fatalf("wrong input structure")
@@ -104,8 +104,6 @@ func (s *accessSuite) adminUser(c *gc.C, action params.ModelAction) {
 
 	fn := s.accessFunc(action)
 	err := fn(s.Factory.MakeModelUser(c, nil).UserTag().Name(), "write", someModelUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	err = fn(s.Factory.MakeModelUser(c, nil).UserTag().Name(), "admin", someModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

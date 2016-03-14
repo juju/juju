@@ -393,7 +393,7 @@ func (s *modelManagerSuite) TestGrantMissingModelFails(c *gc.C) {
 
 func (s *modelManagerSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
-	user := s.Factory.MakeModelUser(c, &factory.ModelUserParams{ReadOnly: false})
+	user := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: state.ModelAdminAccess})
 	modelUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -401,7 +401,7 @@ func (s *modelManagerSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
 		Changes: []params.ModifyModelAccess{{
 			UserTag:  user.UserTag().String(),
 			Action:   params.RevokeModelAccess,
-			Access:   params.ModelAdminAccess,
+			Access:   params.ModelWriteAccess,
 			ModelTag: modelUser.ModelTag().String(),
 		}}}
 
@@ -542,7 +542,7 @@ func (s *modelManagerSuite) TestGrantModelAddAdminUser(c *gc.C) {
 		Changes: []params.ModifyModelAccess{{
 			UserTag:  user.Tag().String(),
 			Action:   params.GrantModelAccess,
-			Access:   params.ModelAdminAccess,
+			Access:   params.ModelWriteAccess,
 			ModelTag: model.ModelTag().String(),
 		}}}
 
@@ -669,7 +669,7 @@ func (s *modelManagerSuite) TestModifyModelAccessEmptyArgs(c *gc.C) {
 
 	result, err := s.modelmanager.ModifyModelAccess(args)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := `could not share model: invalid model access permission ""`
+	expectedErr := `could not modify model access: invalid model access permission ""`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)

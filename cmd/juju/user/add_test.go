@@ -129,11 +129,11 @@ Please send this command to foobar:
 }
 
 func (s *UserAddCommandSuite) TestAddUserWithUsernameAndACL(c *gc.C) {
-	context, err := s.run(c, "--acl", "amazing", "foobar")
+	context, err := s.run(c, "--acl", "write", "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
 	c.Assert(s.mockAPI.displayname, gc.Equals, "")
-	c.Assert(s.mockAPI.access, gc.Equals, "amazing")
+	c.Assert(s.mockAPI.access, gc.Equals, "write")
 	c.Assert(s.mockAPI.models, gc.HasLen, 0)
 	expected := `
 User "foobar" added

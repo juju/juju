@@ -58,7 +58,7 @@ type ModelUserParams struct {
 	User        string
 	DisplayName string
 	CreatedBy   names.Tag
-	ReadOnly    bool
+	Access      state.ModelAccess
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -178,6 +178,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 			User:        user.UserTag(),
 			CreatedBy:   names.NewUserTag(user.CreatedBy()),
 			DisplayName: params.DisplayName,
+			Access:      state.ModelAdminAccess,
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -213,7 +214,7 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.M
 		User:        names.NewUserTag(params.User),
 		CreatedBy:   createdByUserTag,
 		DisplayName: params.DisplayName,
-		ReadOnly:    params.ReadOnly,
+		Access:      params.Access,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return modelUser

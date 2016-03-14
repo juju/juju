@@ -47,7 +47,7 @@ func (s *usermanagerSuite) TestAddUserWithModelAccess(c *gc.C) {
 	foobarTag, _, err := s.usermanager.AddUser("foobar", "Foo Bar", "password", "read", sharedModelState.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	altAdminTag, _, err := s.usermanager.AddUser("altadmin", "Alt Admin", "password", "admin", sharedModelState.ModelUUID())
+	altAdminTag, _, err := s.usermanager.AddUser("altadmin", "Alt Admin", "password", "write", sharedModelState.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check model is shared with expected users.

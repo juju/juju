@@ -25,14 +25,30 @@ type ModelUser struct {
 }
 
 type modelUserDoc struct {
-	ID          string    `bson:"_id"`
-	ModelUUID   string    `bson:"model-uuid"`
-	UserName    string    `bson:"user"`
-	DisplayName string    `bson:"displayname"`
-	CreatedBy   string    `bson:"createdby"`
-	DateCreated time.Time `bson:"datecreated"`
-	ReadOnly    bool      `bson:"readonly"`
+	ID          string      `bson:"_id"`
+	ModelUUID   string      `bson:"model-uuid"`
+	UserName    string      `bson:"user"`
+	DisplayName string      `bson:"displayname"`
+	CreatedBy   string      `bson:"createdby"`
+	DateCreated time.Time   `bson:"datecreated"`
+	Access      ModelAccess `bson:"access"`
 }
+
+// ModelAccess represents the level of access granted to a user on a model.
+type ModelAccess string
+
+const (
+	// ModelUndefinedAccess is not a valid access type. It is the value
+	// unmarshaled when access is not defined by the document at all.
+	ModelUndefinedAccess ModelAccess = ""
+
+	// ModelReadAccess allows a user to read information about a model, without
+	// being able to make any changes.
+	ModelReadAccess ModelAccess = "read"
+
+	// ModelAdminAccess allows a user full control over the model.
+	ModelAdminAccess ModelAccess = "admin"
+)
 
 // modelUserLastConnectionDoc is updated by the apiserver whenever the user
 // connects over the API. This update is not done using mgo.txn so the values
@@ -84,17 +100,27 @@ func (e *ModelUser) DateCreated() time.Time {
 // ReadOnly returns whether or not the user has write access or only
 // read access to the model.
 func (e *ModelUser) ReadOnly() bool {
-	return e.doc.ReadOnly
+	// Fall back to read-only if access is undefined.
+	return e.doc.Access == ModelUndefinedAccess || e.doc.Access == ModelReadAccess
 }
 
-// SetReadOnly changes the user's access to the model. The user
-// will have read-only access if true, read-write if false.
-func (e *ModelUser) SetReadOnly(readOnly bool) error {
+// Access returns the access permission that the user has to the model.
+func (e *ModelUser) Access() ModelAccess {
+	return e.doc.Access
+}
+
+// SetAccess changes the user's access permissions on the model.
+func (e *ModelUser) SetAccess(access ModelAccess) error {
+	switch access {
+	case ModelReadAccess, ModelAdminAccess:
+	default:
+		return errors.Errorf("invalid model access %q", access)
+	}
 	op := txn.Op{
 		C:      modelUsersC,
 		Id:     e.st.docID(strings.ToLower(e.UserName())),
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"readonly", readOnly}}}},
+		Update: bson.D{{"$set", bson.D{{"access", access}}}},
 	}
 	err := e.st.runTransaction([]txn.Op{op})
 	return errors.Trace(err)
@@ -184,7 +210,7 @@ type ModelUserSpec struct {
 	User        names.UserTag
 	CreatedBy   names.UserTag
 	DisplayName string
-	ReadOnly    bool
+	Access      ModelAccess
 }
 
 // AddModelUser adds a new user to the database.
@@ -207,8 +233,13 @@ func (st *State) AddModelUser(spec ModelUserSpec) (*ModelUser, error) {
 		}
 	}
 
+	// Default to read access if not otherwise specified.
+	if spec.Access == ModelUndefinedAccess {
+		spec.Access = ModelReadAccess
+	}
+
 	modelUUID := st.ModelUUID()
-	op := createModelUserOp(modelUUID, spec.User, spec.CreatedBy, spec.DisplayName, nowToTheSecond(), spec.ReadOnly)
+	op := createModelUserOp(modelUUID, spec.User, spec.CreatedBy, spec.DisplayName, nowToTheSecond(), spec.Access)
 	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		err = errors.AlreadyExistsf("model user %q", spec.User.Canonical())
@@ -226,14 +257,14 @@ func modelUserID(user names.UserTag) string {
 	return strings.ToLower(username)
 }
 
-func createModelUserOp(modelUUID string, user, createdBy names.UserTag, displayName string, dateCreated time.Time, readOnly bool) txn.Op {
+func createModelUserOp(modelUUID string, user, createdBy names.UserTag, displayName string, dateCreated time.Time, access ModelAccess) txn.Op {
 	creatorname := createdBy.Canonical()
 	doc := &modelUserDoc{
 		ID:          modelUserID(user),
 		ModelUUID:   modelUUID,
 		UserName:    user.Canonical(),
 		DisplayName: displayName,
-		ReadOnly:    readOnly,
+		Access:      access,
 		CreatedBy:   creatorname,
 		DateCreated: dateCreated,
 	}

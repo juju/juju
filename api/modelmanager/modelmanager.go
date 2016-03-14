@@ -115,8 +115,8 @@ func ParseModelAccess(access string) (params.ModelAccessPermission, error) {
 	switch modelAccess {
 	case permission.ModelReadAccess:
 		accessPermission = params.ModelReadAccess
-	case permission.ModelAdminAccess:
-		accessPermission = params.ModelAdminAccess
+	case permission.ModelWriteAccess:
+		accessPermission = params.ModelWriteAccess
 	default:
 		return fail, errors.Errorf("unsupported model access permission %v", modelAccess)
 	}

@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package model
@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/juju/permission"
 )
 
 type accessCommand struct {
@@ -22,11 +23,13 @@ type accessCommand struct {
 	ModelAccess string
 }
 
+// SetFlags implements cmd.Command.
 func (c *accessCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ModelAccess, "acl", "read", "access control")
 }
 
-func (c *accessCommand) Init(args []string) (err error) {
+// Init implements cmd.Command.
+func (c *accessCommand) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.New("no user specified")
 	}
@@ -35,32 +38,14 @@ func (c *accessCommand) Init(args []string) (err error) {
 		return errors.New("no model specified")
 	}
 
+	_, err := permission.ParseModelAccess(c.ModelAccess)
+	if err != nil {
+		return err
+	}
+
 	c.User = args[0]
 	c.ModelNames = args[1:]
 	return nil
-}
-
-func (c *accessCommand) modelUUIDs(ctx *cmd.Context) ([]string, error) {
-	var result []string
-	store := c.ClientStore()
-	controllerName := c.ControllerName()
-	accountName := c.AccountName()
-	for _, modelName := range c.ModelNames {
-		model, err := store.ModelByName(controllerName, accountName, modelName)
-		if errors.IsNotFound(err) {
-			// The model isn't known locally, so query the models available in the controller.
-			ctx.Verbosef("model %q not cached locally, refreshing models from controller", modelName)
-			if err := c.RefreshModels(store, controllerName, accountName); err != nil {
-				return nil, errors.Annotatef(err, "refreshing model %q", modelName)
-			}
-			model, err = store.ModelByName(controllerName, accountName, modelName)
-		}
-		if err != nil {
-			return nil, errors.Annotatef(err, "model %q not found", modelName)
-		}
-		result = append(result, model.ModelUUID)
-	}
-	return result, nil
 }
 
 const grantModelHelpDoc = `
@@ -77,6 +62,7 @@ Examples:
      Grant user "sam" default (read) access to two models named "model1" and "model2".
  `
 
+// NewGrantCommand returns a new grant command.
 func NewGrantCommand() cmd.Command {
 	return modelcmd.WrapController(&grantCommand{})
 }
@@ -110,6 +96,7 @@ type GrantModelAPI interface {
 	GrantModel(user, access string, modelUUIDs ...string) error
 }
 
+// Run implements cmd.Command.
 func (c *grantCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
@@ -117,7 +104,7 @@ func (c *grantCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	models, err := c.modelUUIDs(ctx)
+	models, err := c.ModelUUIDs(c.ModelNames)
 	if err != nil {
 		return err
 	}
@@ -137,6 +124,7 @@ Examples:
      Revoke write access from user "joe" for models "model1" and "model2".
 `
 
+// NewRevokeCommand returns a new revoke command.
 func NewRevokeCommand() cmd.Command {
 	return modelcmd.WrapController(&revokeCommand{})
 }
@@ -147,6 +135,7 @@ type revokeCommand struct {
 	api RevokeModelAPI
 }
 
+// Info implements cmd.Command.
 func (c *revokeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "revoke",
@@ -169,6 +158,7 @@ type RevokeModelAPI interface {
 	RevokeModel(user, access string, modelUUIDs ...string) error
 }
 
+// Run implements cmd.Command.
 func (c *revokeCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
@@ -176,7 +166,7 @@ func (c *revokeCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	modelUUIDs, err := c.modelUUIDs(ctx)
+	modelUUIDs, err := c.ModelUUIDs(c.ModelNames)
 	if err != nil {
 		return err
 	}

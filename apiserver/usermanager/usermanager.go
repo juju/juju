@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -103,13 +102,12 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 		}
 
 		if len(arg.SharedModelTags) > 0 {
-			modelAccess, err := permission.ParseModelAccess(string(arg.ModelAccess))
+			modelAccess, err := modelmanager.FromModelAccessParam(arg.ModelAccess)
 			if err != nil {
-				err = errors.Annotate(err, "failed to create user")
+				err = errors.Annotatef(err, "user %q created but models not shared", arg.Username)
 				result.Results[i].Error = common.ServerError(err)
 				continue
 			}
-			readOnly := (modelAccess == permission.ModelReadAccess)
 			userTag := user.Tag().(names.UserTag)
 			for _, modelTagStr := range arg.SharedModelTags {
 				modelTag, err := names.ParseModelTag(modelTagStr)
@@ -118,7 +116,7 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 					result.Results[i].Error = common.ServerError(err)
 					break
 				}
-				err = modelmanager.ChangeModelAccess(api.state, modelTag, loggedInUser, userTag, params.GrantModelAccess, readOnly)
+				err = modelmanager.ChangeModelAccess(api.state, modelTag, loggedInUser, userTag, params.GrantModelAccess, modelAccess)
 				if err != nil {
 					err = errors.Annotatef(err, "user %q created but model %q not shared", arg.Username, modelTagStr)
 					result.Results[i].Error = common.ServerError(err)

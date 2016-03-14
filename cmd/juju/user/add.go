@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/juju/permission"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -84,6 +85,12 @@ func (c *addCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no username supplied")
 	}
+
+	_, err := permission.ParseModelAccess(c.ModelAccess)
+	if err != nil {
+		return err
+	}
+
 	c.User, args = args[0], args[1:]
 	if len(args) > 0 {
 		c.DisplayName, args = args[0], args[1:]
@@ -112,24 +119,9 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// If we need to share a model, look up the model UUID from the supplied name.
-	var modelUUIDs []string
-	for _, modelName := range modelNames {
-		store := c.ClientStore()
-		controllerName := c.ControllerName()
-		accountName := c.AccountName()
-		model, err := store.ModelByName(controllerName, accountName, modelName)
-		if errors.IsNotFound(err) {
-			// The model isn't known locally, so query the models available in the controller.
-			ctx.Verbosef("model %q not cached locally, refreshing models from controller", modelName)
-			if err := c.RefreshModels(store, controllerName, accountName); err != nil {
-				return errors.Annotate(err, "refreshing models")
-			}
-			model, err = store.ModelByName(controllerName, accountName, modelName)
-		}
-		if err != nil {
-			return err
-		}
-		modelUUIDs = append(modelUUIDs, model.ModelUUID)
+	modelUUIDs, err := c.ModelUUIDs(modelNames)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	// Add a user without a password. This will generate a temporary

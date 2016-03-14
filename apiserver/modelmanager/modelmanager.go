@@ -401,13 +401,12 @@ func (em *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessReques
 	}
 
 	for i, arg := range args.Changes {
-		modelAccess, err := permission.ParseModelAccess(string(arg.Access))
+		modelAccess, err := FromModelAccessParam(arg.Access)
 		if err != nil {
-			err = errors.Annotate(err, "could not share model")
+			err = errors.Annotate(err, "could not modify model access")
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		readOnly := (modelAccess == permission.ModelReadAccess)
 
 		userTagString := arg.UserTag
 		user, err := names.ParseUserTag(userTagString)
@@ -423,7 +422,7 @@ func (em *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessReques
 		}
 
 		result.Results[i].Error = common.ServerError(
-			ChangeModelAccess(em.state, model, createdBy, user, arg.Action, readOnly))
+			ChangeModelAccess(em.state, model, createdBy, user, arg.Action, modelAccess))
 	}
 	return result, nil
 }
@@ -432,10 +431,25 @@ type stateAccessor interface {
 	ForModel(tag names.ModelTag) (*state.State, error)
 }
 
+func resolveStateAccess(access permission.ModelAccess) (state.ModelAccess, error) {
+	var fail state.ModelAccess
+	switch access {
+	case permission.ModelReadAccess:
+		return state.ModelReadAccess, nil
+	case permission.ModelWriteAccess:
+		// TODO: Initially, we'll map "write" access to admin-level access.
+		// Post Juju-2.0, support for more nuanced access will be added to the
+		// permission business logic and state model.
+		return state.ModelAdminAccess, nil
+	}
+	logger.Errorf("invalid access permission: %+v", access)
+	return fail, errors.Errorf("invalid access permission")
+}
+
 // ChangeModelAccess performs the requested access grant or revoke action for the
 // specified user on the specified model.
-func ChangeModelAccess(stateAccess stateAccessor, modelTag names.ModelTag, createdBy, accessedBy names.UserTag, action params.ModelAction, readAccess bool) error {
-	st, err := stateAccess.ForModel(modelTag)
+func ChangeModelAccess(accessor stateAccessor, modelTag names.ModelTag, createdBy, accessedBy names.UserTag, action params.ModelAction, access permission.ModelAccess) error {
+	st, err := accessor.ForModel(modelTag)
 	if err != nil {
 		return errors.Annotate(err, "could not lookup model")
 	}
@@ -446,37 +460,65 @@ func ChangeModelAccess(stateAccess stateAccessor, modelTag names.ModelTag, creat
 		return errors.Trace(err)
 	}
 
+	stateAccess, err := resolveStateAccess(access)
+	if err != nil {
+		return errors.Annotate(err, "could not resolve model access")
+	}
+
 	switch action {
 	case params.GrantModelAccess:
-		_, err = st.AddModelUser(state.ModelUserSpec{User: accessedBy, CreatedBy: createdBy, ReadOnly: readAccess})
+		_, err = st.AddModelUser(state.ModelUserSpec{User: accessedBy, CreatedBy: createdBy, Access: stateAccess})
 		if errors.IsAlreadyExists(err) {
 			modelUser, err := st.ModelUser(accessedBy)
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}
-			err = modelUser.SetReadOnly(readAccess)
-			if err != nil {
-				return errors.Annotate(err, "could not set model access for user")
+
+			// Only set access if greater access is being granted.
+			if modelUser.Access() == state.ModelReadAccess {
+				err = modelUser.SetAccess(stateAccess)
+				if err != nil {
+					return errors.Annotate(err, "could not set model access for user")
+				}
+			} else {
+				return errors.Errorf("user already has %q access", modelUser.Access())
 			}
 			return nil
 		}
 		return errors.Annotate(err, "could not grant model access")
 
 	case params.RevokeModelAccess:
-		// Revoking read access removes all access.
-		if readAccess {
+		if stateAccess == state.ModelReadAccess {
+			// Revoking read access removes all access.
 			err := st.RemoveModelUser(accessedBy)
 			return errors.Annotate(err, "could not revoke model access")
+
+		} else if stateAccess == state.ModelAdminAccess {
+			// Revoking admin access sets read-only.
+			modelUser, err := st.ModelUser(accessedBy)
+			if err != nil {
+				return errors.Annotate(err, "could not look up model access for user")
+			}
+			err = modelUser.SetAccess(state.ModelReadAccess)
+			return errors.Annotate(err, "could not set model access to read-only")
+
+		} else {
+			return errors.Errorf("don't know how to revoke %q access", stateAccess)
 		}
-		// Otherwise remove write access by setting read-only.
-		modelUser, err := st.ModelUser(accessedBy)
-		if err != nil {
-			return errors.Annotate(err, "could not look up model access for user")
-		}
-		err = modelUser.SetReadOnly(true)
-		return errors.Annotate(err, "could not set model access to read-only")
 
 	default:
 		return errors.Errorf("unknown action %q", action)
 	}
+}
+
+// FromModelAccessParam returns the logical model access type from the API wireformat type.
+func FromModelAccessParam(paramAccess params.ModelAccessPermission) (permission.ModelAccess, error) {
+	var fail permission.ModelAccess
+	switch paramAccess {
+	case params.ModelReadAccess:
+		return permission.ModelReadAccess, nil
+	case params.ModelWriteAccess:
+		return permission.ModelWriteAccess, nil
+	}
+	return fail, errors.Errorf("invalid model access permission %q", paramAccess)
 }
