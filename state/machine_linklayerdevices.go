@@ -789,3 +789,34 @@ func (m *Machine) AllAddresses() ([]*Address, error) {
 	}
 	return allAddresses, nil
 }
+
+// SetParentLinkLayerDevicesBeforeTheirChildren splits the given devicesArgs
+// into multiple sets of args and calls SetLinkLayerDevices() for each set, such
+// that child devices are set only after their parents.
+func (m *Machine) SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs []LinkLayerDeviceArgs) error {
+	seenNames := set.NewStrings("") // sentinel for empty ParentName.
+	for {
+		argsToSet := []LinkLayerDeviceArgs{}
+		for _, args := range devicesArgs {
+			if seenNames.Contains(args.Name) {
+				// Already added earlier.
+				continue
+			}
+			if seenNames.Contains(args.ParentName) {
+				argsToSet = append(argsToSet, args)
+			}
+		}
+		if len(argsToSet) == 0 {
+			// We're done.
+			break
+		}
+		logger.Debugf("setting link-layer devices %+v", argsToSet)
+		if err := m.SetLinkLayerDevices(argsToSet...); err != nil {
+			return errors.Trace(err)
+		}
+		for _, args := range argsToSet {
+			seenNames.Add(args.Name)
+		}
+	}
+	return nil
+}

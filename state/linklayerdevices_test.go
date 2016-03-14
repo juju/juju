@@ -962,7 +962,7 @@ func (s *linkLayerDevicesStateSuite) TestMachineSetParentLinkLayerDevicesBeforeT
 		ParentName: "bond0",
 	}}
 
-	err := state.SetParentLinkLayerDevicesBeforeTheirChildren(s.machine, nestedArgs)
+	err := s.machine.SetParentLinkLayerDevicesBeforeTheirChildren(nestedArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAllLinkLayerDevicesOnMachineMatchCount(c, s.machine, len(nestedArgs))
 }

@@ -182,36 +182,17 @@ func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkCo
 	mergedConfig := networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
 	logger.Tracef("merged network config: %+v", instId, mergedConfig)
 
-	// devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(mergedConfig)
+	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(mergedConfig)
 
-	// // Becausee we can't add parent and children devices in one call, we need to
-	// // split the devicesArgs into multiple calls. As the config and args are
-	// // already sorted, we can make a call once the parent changes.
-	// var pendingArgs []state.LinkLayerDeviceArgs
-	// lastParent := ""
-	// for _, deviceArgs := range devicesArgs {
-	// 	if lastParent != deviceArgs.ParentName && len(pendingArgs) > 0 {
-	// 		logger.Debugf("adding devices: %+v", pendingArgs)
-	// 		if err := m.AddLinkLayerDevices(pendingArgs...); err != nil {
-	// 			return errors.Trace(err)
-	// 		}
-	// 		pendingArgs = []state.LinkLayerDeviceArgs{}
-	// 	}
+	logger.Debugf("setting devices: %+v", devicesArgs)
+	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
+		return errors.Trace(err)
+	}
 
-	// 	pendingArgs = append(pendingArgs, deviceArgs)
-	// 	lastParent = deviceArgs.ParentName
-	// }
-	// if len(pendingArgs) > 0 {
-	// 	logger.Debugf("adding devices: %+v", pendingArgs)
-	// 	if err := m.AddLinkLayerDevices(pendingArgs...); err != nil {
-	// 		return errors.Trace(err)
-	// 	}
-	// }
-
-	// logger.Debugf("setting addresses: %+v", devicesAddrs)
-	// if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
-	// 	return errors.Trace(err)
-	// }
+	logger.Debugf("setting addresses: %+v", devicesAddrs)
+	if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
+		return errors.Trace(err)
+	}
 
 	logger.Debugf("updated machine %q network config", m.Id())
 	return nil

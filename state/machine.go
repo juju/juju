@@ -1173,7 +1173,7 @@ func (m *Machine) SetInstanceInfo(
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 ) error {
 
-	if err := m.setParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
+	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
 		return errors.Trace(err)
 	}
 	if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
@@ -1186,36 +1186,6 @@ func (m *Machine) SetInstanceInfo(
 		return errors.Trace(err)
 	}
 	return m.SetProvisioned(id, nonce, characteristics)
-}
-
-func (m *Machine) setParentLinkLayerDevicesBeforeTheirChildren(devicesArgs []LinkLayerDeviceArgs) error {
-	// We cannot set parent and child devices in the same call, so we must split
-	// devicesArgs into 2 or more sets of args.
-	seenNames := set.NewStrings("") // sentinel for empty ParentName.
-	for {
-		argsToSet := []LinkLayerDeviceArgs{}
-		for _, args := range devicesArgs {
-			if seenNames.Contains(args.Name) {
-				// Already added earlier.
-				continue
-			}
-			if seenNames.Contains(args.ParentName) {
-				argsToSet = append(argsToSet, args)
-			}
-		}
-		if len(argsToSet) == 0 {
-			// We're done.
-			break
-		}
-		logger.Debugf("setting link-layer devices %+v", argsToSet)
-		if err := m.SetLinkLayerDevices(argsToSet...); err != nil {
-			return errors.Trace(err)
-		}
-		for _, args := range argsToSet {
-			seenNames.Add(args.Name)
-		}
-	}
-	return nil
 }
 
 // Addresses returns any hostnames and ips associated with a machine,
