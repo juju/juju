@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -137,20 +137,20 @@ func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *gc.C) {
 
 func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
-	status, err := ctx.UnitStatus()
+	unitStatus, err := ctx.UnitStatus()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(status.Status, gc.Equals, "unknown")
-	c.Check(status.Data, gc.DeepEquals, map[string]interface{}{})
+	c.Check(unitStatus.Status, gc.Equals, "unknown")
+	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{})
 
 	// Change remote state.
-	err = s.unit.SetStatus(state.StatusActive, "it works", nil)
+	err = s.unit.SetStatus(status.StatusActive, "it works", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Local view is unchanged.
-	status, err = ctx.UnitStatus()
+	unitStatus, err = ctx.UnitStatus()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(status.Status, gc.Equals, "unknown")
-	c.Check(status.Data, gc.DeepEquals, map[string]interface{}{})
+	c.Check(unitStatus.Status, gc.Equals, "unknown")
+	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{})
 }
 
 func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {

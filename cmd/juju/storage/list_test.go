@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
 	_ "github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
@@ -151,7 +152,7 @@ func (s mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		OwnerTag:   "unit-transcode-0",
 		Kind:       params.StorageKindBlock,
 		Status: params.EntityStatus{
-			Status: params.StatusPending,
+			Status: status.StatusPending,
 			Since:  &epoch,
 		},
 		Attachments: map[string]params.StorageAttachmentDetails{
@@ -164,7 +165,7 @@ func (s mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		OwnerTag:   "unit-postgresql-0",
 		Kind:       params.StorageKindBlock,
 		Status: params.EntityStatus{
-			Status: params.StatusAttached,
+			Status: status.StatusAttached,
 			Since:  &epoch,
 		},
 		Persistent: true,
@@ -178,7 +179,7 @@ func (s mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		OwnerTag:   "service-transcode",
 		Kind:       params.StorageKindFilesystem,
 		Status: params.EntityStatus{
-			Status: params.StatusAttached,
+			Status: status.StatusAttached,
 			Since:  &epoch,
 		},
 		Persistent: true,

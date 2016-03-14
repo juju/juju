@@ -12,11 +12,13 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 type maasInstance struct {
-	maasObject *gomaasapi.MAASObject
-	environ    *maasEnviron
+	maasObject   *gomaasapi.MAASObject
+	environ      *maasEnviron
+	statusGetter func(instance.Id) (string, string)
 }
 
 var _ instance.Instance = (*maasInstance)(nil)
@@ -44,13 +46,36 @@ func maasObjectId(maasObject *gomaasapi.MAASObject) instance.Id {
 	return instance.Id(maasObject.URI().String())
 }
 
-func (mi *maasInstance) Status() string {
-	// MAAS does not track node status once they're allocated.
-	// Since any instance that juju knows about will be an
-	// allocated one, it doesn't make sense to report any
-	// state unless we obtain it through some means other than
-	// through the MAAS API.
-	return ""
+// Status returns a juju status based on the maas instance returned
+// status message.
+func (mi *maasInstance) Status() instance.InstanceStatus {
+	maasInstanceStatus := status.StatusEmpty
+	statusMsg, substatus := mi.statusGetter(mi.Id())
+	switch statusMsg {
+	case "":
+		logger.Debugf("unable to obtain status of instance %s", mi.Id())
+		statusMsg = "error in getting status"
+	case "Deployed":
+		maasInstanceStatus = status.StatusRunning
+	case "Deploying":
+		maasInstanceStatus = status.StatusAllocating
+		if substatus != "" {
+			statusMsg = fmt.Sprintf("%s: %s", statusMsg, substatus)
+		}
+	case "Failed Deployment":
+		maasInstanceStatus = status.StatusProvisioningError
+		if substatus != "" {
+			statusMsg = fmt.Sprintf("%s: %s", statusMsg, substatus)
+		}
+	default:
+		maasInstanceStatus = status.StatusEmpty
+		statusMsg = fmt.Sprintf("%s: %s", statusMsg, substatus)
+	}
+
+	return instance.InstanceStatus{
+		Status:  maasInstanceStatus,
+		Message: statusMsg,
+	}
 }
 
 func (mi *maasInstance) Addresses() ([]network.Address, error) {

@@ -53,6 +53,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -652,7 +653,7 @@ var instanceGathering = []struct {
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	// goose's test service always returns ACTIVE state.
 	inst, _ := testing.AssertStartInstance(c, s.env, "100")
-	c.Assert(inst.Status(), gc.Equals, nova.StatusActive)
+	c.Assert(inst.Status().Status, gc.Equals, status.StatusRunning)
 	err := s.env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -762,7 +763,7 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
-	c.Assert(instances[0].Status(), gc.Equals, nova.StatusBuildSpawning)
+	c.Assert(instances[0].Status().Message, gc.Equals, nova.StatusBuildSpawning)
 }
 
 func (s *localServerSuite) TestInstancesShutoffSuspended(c *gc.C) {
@@ -795,8 +796,8 @@ func (s *localServerSuite) TestInstancesShutoffSuspended(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 2)
-	c.Assert(instances[0].Status(), gc.Equals, nova.StatusShutoff)
-	c.Assert(instances[1].Status(), gc.Equals, nova.StatusSuspended)
+	c.Assert(instances[0].Status().Message, gc.Equals, nova.StatusShutoff)
+	c.Assert(instances[1].Status().Message, gc.Equals, nova.StatusSuspended)
 }
 
 func (s *localServerSuite) TestInstancesErrorResponse(c *gc.C) {

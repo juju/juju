@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 type kvmInstance struct {
@@ -23,11 +24,17 @@ func (kvm *kvmInstance) Id() instance.Id {
 }
 
 // Status implements instance.Instance.Status.
-func (kvm *kvmInstance) Status() string {
+func (kvm *kvmInstance) Status() instance.InstanceStatus {
 	if kvm.container.IsRunning() {
-		return "running"
+		return instance.InstanceStatus{
+			Status:  status.StatusRunning,
+			Message: "running",
+		}
 	}
-	return "stopped"
+	return instance.InstanceStatus{
+		Status:  status.StatusStopped,
+		Message: "stopped",
+	}
 }
 
 func (*kvmInstance) Refresh() error {

@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -63,7 +64,11 @@ func (s *instanceTest) TestId(c *gc.C) {
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	resourceURI, _ := obj.GetField("resource_uri")
-	instance := maasInstance{&obj, nil}
+	// TODO(perrito666) make a decent mock status getter
+	statusGetter := func(instance.Id) (string, string) {
+		return "unknown", "FAKE"
+	}
+	instance := maasInstance{&obj, nil, statusGetter}
 
 	c.Check(string(instance.Id()), gc.Equals, resourceURI)
 }
@@ -71,7 +76,11 @@ func (s *instanceTest) TestId(c *gc.C) {
 func (s *instanceTest) TestString(c *gc.C) {
 	jsonValue := `{"hostname": "thethingintheplace", "system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	instance := &maasInstance{&obj, nil}
+	statusGetter := func(instance.Id) (string, string) {
+		return "unknown", "FAKE"
+	}
+
+	instance := &maasInstance{&obj, nil, statusGetter}
 	hostname, err := instance.hostname()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := hostname + ":" + string(instance.Id())
@@ -82,7 +91,11 @@ func (s *instanceTest) TestStringWithoutHostname(c *gc.C) {
 	// For good measure, test what happens if we don't have a hostname.
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	instance := &maasInstance{&obj, nil}
+	statusGetter := func(instance.Id) (string, string) {
+		return "unknown", "FAKE"
+	}
+
+	instance := &maasInstance{&obj, nil, statusGetter}
 	_, err := instance.hostname()
 	c.Assert(err, gc.NotNil)
 	expected := fmt.Sprintf("<DNSName failed: %q>", err) + ":" + string(instance.Id())
@@ -99,7 +112,11 @@ func (s *instanceTest) TestAddressesLegacy(c *gc.C) {
 			"ip_addresses": [ "1.2.3.4", "fe80::d806:dbff:fe23:1199" ]
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{&obj, s.makeEnviron()}
+	statusGetter := func(instance.Id) (string, string) {
+		return "unknown", "FAKE"
+	}
+
+	inst := maasInstance{&obj, s.makeEnviron(), statusGetter}
 
 	expected := []network.Address{
 		network.NewScopedAddress("testing.invalid", network.ScopePublic),
@@ -121,35 +138,39 @@ func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
 	// interface_set for a node. To verify we use interfaces we deliberately put
 	// different items in ip_addresses
 	jsonValue := `{
-			"hostname": "-testing.invalid",
-			"system_id": "system_id",
-            "interface_set" : [
-              { "name": "eth0", "links": [
-                  { "subnet": { "space": "bar", "cidr": "8.7.6.0/24" }, "ip_address": "8.7.6.5" },
-                  { "subnet": { "space": "bar", "cidr": "8.7.6.0/24"  }, "ip_address": "8.7.6.6" }
-              ] },
-              { "name": "eth1", "links": [
-                  { "subnet": { "space": "storage", "cidr": "10.0.1.1/24" }, "ip_address": "10.0.1.1" }
-               ] },
-              { "name": "eth3", "links": [
-                  { "subnet": { "space": "db", "cidr": "fc00::/64" }, "ip_address": "fc00::123" }
-               ] },
-              { "name": "eth4" },
-              { "name": "eth5", "links": [
-                  { "mode": "link-up" }
-               ] }
-           ],
-			"ip_addresses": [ "anything", "foo", "0.1.2.3" ]
-		}`
+    "hostname": "-testing.invalid",
+    "system_id": "system_id",
+    "interface_set" : [
+	{ "name": "eth0", "links": [
+	    { "subnet": { "space": "bar", "cidr": "8.7.6.0/24" }, "ip_address": "8.7.6.5" },
+	    { "subnet": { "space": "bar", "cidr": "8.7.6.0/24"  }, "ip_address": "8.7.6.6" }
+	] },
+	{ "name": "eth1", "links": [
+	    { "subnet": { "space": "storage", "cidr": "10.0.1.1/24" }, "ip_address": "10.0.1.1" }
+	] },
+	{ "name": "eth3", "links": [
+	    { "subnet": { "space": "db", "cidr": "fc00::/64" }, "ip_address": "fc00::123" }
+	] },
+	{ "name": "eth4" },
+	{ "name": "eth5", "links": [
+	    { "mode": "link-up" }
+	] }
+    ],
+    "ip_addresses": [ "anything", "foo", "0.1.2.3" ]
+}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
+	statusGetter := func(instance.Id) (string, string) {
+		return "unknown", "FAKE"
+	}
+
 	barSpace := server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "bar"}))
 	storageSpace := server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "storage"}))
 	dbSpace := server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "db"}))
 	server.NewSubnet(s.newSubnet("8.7.6.0/24", "bar", 2))
 	server.NewSubnet(s.newSubnet("10.0.1.1/24", "storage", 3))
 	server.NewSubnet(s.newSubnet("fc00::/64", "db", 4))
+	inst := maasInstance{&obj, s.makeEnviron(), statusGetter}
 
-	inst := maasInstance{&obj, s.makeEnviron()}
 	// Since gomaasapi treats "interface_set" specially and the only way to
 	// change it is via SetNodeNetworkLink(), which in turn does not allow you
 	// to specify ip_address, we need to patch the call which gets a fresh copy
@@ -182,7 +203,11 @@ func (s *instanceTest) TestAddressesMissing(c *gc.C) {
 		"system_id": "system_id"
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{&obj, s.makeEnviron()}
+	statusGetter := func(instance.Id) (string, string) {
+		return "unknown", "FAKE"
+	}
+
+	inst := maasInstance{&obj, s.makeEnviron(), statusGetter}
 
 	addr, err := inst.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
@@ -199,7 +224,11 @@ func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
 		"ip_addresses": "incompatible"
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{&obj, s.makeEnviron()}
+	statusGetter := func(instance.Id) (string, string) {
+		return "unknown", "FAKE"
+	}
+
+	inst := maasInstance{&obj, s.makeEnviron(), statusGetter}
 
 	_, err := inst.Addresses()
 	c.Assert(err, gc.NotNil)
@@ -212,7 +241,11 @@ func (s *instanceTest) TestAddressesInvalidContents(c *gc.C) {
 		"ip_addresses": [42]
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{&obj, s.makeEnviron()}
+	statusGetter := func(instance.Id) (string, string) {
+		return "unknown", "FAKE"
+	}
+
+	inst := maasInstance{&obj, s.makeEnviron(), statusGetter}
 
 	_, err := inst.Addresses()
 	c.Assert(err, gc.NotNil)
@@ -226,7 +259,11 @@ func (s *instanceTest) TestHardwareCharacteristics(c *gc.C) {
         "memory": 16384
 	}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{&obj, nil}
+	statusGetter := func(instance.Id) (string, string) {
+		return "unknown", "FAKE"
+	}
+
+	inst := maasInstance{&obj, nil, statusGetter}
 	hc, err := inst.hardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc, gc.NotNil)
@@ -242,7 +279,11 @@ func (s *instanceTest) TestHardwareCharacteristicsWithTags(c *gc.C) {
         "tag_names": ["a", "b"]
 	}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{&obj, nil}
+	statusGetter := func(instance.Id) (string, string) {
+		return "unknown", "FAKE"
+	}
+
+	inst := maasInstance{&obj, nil, statusGetter}
 	hc, err := inst.hardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc, gc.NotNil)
@@ -262,7 +303,11 @@ func (s *instanceTest) TestHardwareCharacteristicsMissing(c *gc.C) {
 
 func (s *instanceTest) testHardwareCharacteristicsMissing(c *gc.C, json, expect string) {
 	obj := s.testMAASObject.TestServer.NewNode(json)
-	inst := maasInstance{&obj, nil}
+	statusGetter := func(instance.Id) (string, string) {
+		return "unknown", "FAKE"
+	}
+
+	inst := maasInstance{&obj, nil, statusGetter}
 	_, err := inst.hardwareCharacteristics()
 	c.Assert(err, gc.ErrorMatches, expect)
 }

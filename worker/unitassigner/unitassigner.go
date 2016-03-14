@@ -6,6 +6,7 @@ package unitassigner
 import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
@@ -76,7 +77,7 @@ func (u unitAssignerHandler) Handle(_ <-chan struct{}, ids []string) error {
 		for unit, err := range failures {
 			args.Entities[x] = params.EntityStatusArgs{
 				Tag:    unit,
-				Status: params.StatusError,
+				Status: status.StatusError,
 				Info:   err.Error(),
 			}
 			x++
