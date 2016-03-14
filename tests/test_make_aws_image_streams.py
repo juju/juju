@@ -7,6 +7,7 @@ from mock import (
 
 from make_aws_image_streams import (
     is_china,
+    iter_centos_images,
     iter_region_connection,
     )
 
@@ -21,15 +22,23 @@ class TestIsChina(TestCase):
         self.assertIs(False, is_china(region))
 
 
+def make_mock_region(stem, name=None, endpoint=None):
+    if endpoint is None:
+        endpoint = '{}-end'.format(stem)
+    region = Mock(endpoint=endpoint)
+    if name is None:
+        name = '{}-name'.format(stem)
+    region.name = name
+    return region
+
+
 class IterRegionConnection(TestCase):
 
     def test_iter_region_connection(self):
-        east = Mock(endpoint='east-end')
-        west = Mock(endpoint='west-end')
-        east.name = 'east-name'
-        west.name = 'west-name'
+        east = make_mock_region('east')
+        west = make_mock_region('west')
         aws = {}
-        with patch('make_aws_image_streams.ec2.regions',
+        with patch('make_aws_image_streams.ec2.regions', autospec=True,
                    return_value=[east, west]) as regions_mock:
             connections = [x for x in iter_region_connection(aws, None)]
         regions_mock.assert_called_once_with()
@@ -40,12 +49,10 @@ class IterRegionConnection(TestCase):
         west.connect.assert_called_once_with(**aws)
 
     def test_gov_region(self):
-        east = Mock(endpoint='east-end')
-        gov = Mock(endpoint='west-end')
-        east.name = 'east-name'
-        gov.name = 'foo-us-gov-bar'
+        east = make_mock_region('east')
+        gov = make_mock_region('west', name='foo-us-gov-bar')
         aws = {}
-        with patch('make_aws_image_streams.ec2.regions',
+        with patch('make_aws_image_streams.ec2.regions', autospec=True,
                    return_value=[east, gov]) as regions_mock:
             connections = [x for x in iter_region_connection(aws, None)]
         regions_mock.assert_called_once_with()
@@ -55,13 +62,13 @@ class IterRegionConnection(TestCase):
         self.assertEqual(0, gov.connect.call_count)
 
     def test_china_region(self):
-        east = Mock(endpoint='east-end')
-        west = Mock(endpoint='west-end.amazonaws.com.cn')
+        east = make_mock_region('east')
+        west = make_mock_region('west', endpoint='west-end.amazonaws.com.cn')
         east.name = 'east-name'
         west.name = 'west-name'
         aws = {'name': 'aws'}
         aws_cn = {'name': 'aws-cn'}
-        with patch('make_aws_image_streams.ec2.regions',
+        with patch('make_aws_image_streams.ec2.regions', autospec=True,
                    return_value=[east, west]) as regions_mock:
             connections = [x for x in iter_region_connection(aws, aws_cn)]
         regions_mock.assert_called_once_with()
@@ -70,3 +77,29 @@ class IterRegionConnection(TestCase):
             connections)
         east.connect.assert_called_once_with(**aws)
         west.connect.assert_called_once_with(**aws_cn)
+
+
+class IterCentosImages(TestCase):
+
+    def test_iter_centos_images(self):
+        aws = {'name': 'aws'}
+        aws_cn = {'name': 'aws-cn'}
+        east_imgs = ['east-1', 'east-2']
+        west_imgs = ['west-1', 'west-2']
+        east_conn = Mock()
+        east_conn.get_all_images.return_value = east_imgs
+        west_conn = Mock()
+        west_conn.get_all_images.return_value = west_imgs
+        with patch('make_aws_image_streams.iter_region_connection',
+                   return_value=[east_conn, west_conn],
+                   autospec=True) as irc_mock:
+            imgs = list(iter_centos_images(aws, aws_cn))
+        self.assertEqual(east_imgs + west_imgs, imgs)
+        east_conn.get_all_images.assert_called_once_with(filters={
+            'owner_alias': 'aws-marketplace',
+            'product_code': 'aw0evgkw8e5c1q413zgy5pjce',
+            })
+        west_conn.get_all_images.assert_called_once_with(filters={
+            'owner_alias': 'aws-marketplace',
+            'product_code': 'aw0evgkw8e5c1q413zgy5pjce',
+            })

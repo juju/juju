@@ -45,19 +45,11 @@ def iter_region_connection(credentials, china_credentials):
 
 def iter_centos_images(access_key_id, secret_access_key):
     for conn in iter_region_connection(access_key_id, secret_access_key):
-        try:
-            images = conn.get_all_images(filters={
-                'owner_alias': 'aws-marketplace',
-                'product_code': 'aw0evgkw8e5c1q413zgy5pjce',
-                # 'name': 'CentOS Linux 7*',
-                })
-        except EC2ResponseError as e:
-            if e.status != 401:
-                raise
-            logging.warning(
-                'Skipping {} due to bad credentials'.format(
-                    conn.region.endpoint))
-            continue
+        images = conn.get_all_images(filters={
+            'owner_alias': 'aws-marketplace',
+            'product_code': 'aw0evgkw8e5c1q413zgy5pjce',
+            # 'name': 'CentOS Linux 7*',
+            })
         for image in images:
             yield image
 
@@ -147,7 +139,7 @@ def main():
     updated = timestamp()
     data = {'updated': updated, 'datatype': 'image-ids'}
     trees = items2content_trees(items, data)
-    write_juju_streams(args.output, trees, updated)
+    write_juju_streams(args.streams, trees, updated)
 
 
 if __name__ == '__main__':
