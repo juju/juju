@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -117,6 +118,14 @@ func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
 func (s *DeploySuite) TestInvalidPath(c *gc.C) {
 	err := runDeploy(c, "/home/nowhere")
 	c.Assert(err, gc.ErrorMatches, `charm or bundle URL has invalid form: "/home/nowhere"`)
+}
+
+func (s *DeploySuite) TestInvalidFileFormat(c *gc.C) {
+	path := filepath.Join(c.MkDir(), "bundle.yaml")
+	err := ioutil.WriteFile(path, []byte(":"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	err = runDeploy(c, path)
+	c.Assert(err, gc.ErrorMatches, `invalid charm or bundle provided at ".*/bundle.yaml"`)
 }
 
 func (s *DeploySuite) TestPathWithNoCharm(c *gc.C) {

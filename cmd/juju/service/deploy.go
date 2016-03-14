@@ -4,6 +4,7 @@
 package service
 
 import (
+	"archive/zip"
 	"fmt"
 	"net/http"
 	"os"
@@ -320,10 +321,10 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	bundleData, err := charmrepo.ReadBundleFile(bundlePath)
 	if err != nil {
 		// We may have been given a local bundle archive or exploded directory.
-		if bundle, burl, pathErr := charmrepo.NewBundleAtPath(bundlePath); err == nil {
+		if bundle, burl, pathErr := charmrepo.NewBundleAtPath(bundlePath); pathErr == nil {
 			bundleData = bundle.Data()
 			bundlePath = burl.String()
-			err = pathErr
+			err = nil
 		}
 	}
 	// If not a bundle then maybe a local charm.
@@ -344,6 +345,9 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		}
 		if charm.IsUnsupportedSeriesError(charmErr) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", charmErr)
+		}
+		if errors.Cause(charmErr) == zip.ErrFormat {
+			return errors.Errorf("invalid charm or bundle provided at %q", c.CharmOrBundle)
 		}
 		err = charmErr
 	}
