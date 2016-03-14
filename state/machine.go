@@ -1173,37 +1173,12 @@ func (m *Machine) SetInstanceInfo(
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 ) error {
 
-	// // We cannot add parent and child devices in the same call, so we must make
-	// // 2 calls at least, ideally more but we don't yet have a case where we get
-	// // more than 1 "level" of parent-child structure.
-	// var (
-	// 	parentDevicesArgs   []LinkLayerDeviceArgs
-	// 	childrenDevicesArgs []LinkLayerDeviceArgs
-	// )
-	// for _, args := range devicesArgs {
-	// 	logger.Debugf("about to add link-layer %s device %q with parent %q", args.Name, args.Type, args.ParentName)
-	// 	// FIXME: Import loop happens below if we use instancecfg.DefaultBridgePrefix instead!
-	// 	if args.ParentName == "" {
-	// 		parentDevicesArgs = append(parentDevicesArgs, args)
-	// 	} else {
-	// 		childrenDevicesArgs = append(childrenDevicesArgs, args)
-	// 	}
-	// }
-
-	// if len(parentDevicesArgs) > 0 {
-	// 	if err := m.SetLinkLayerDevices(parentDevicesArgs...); err != nil {
-	// 		return errors.Trace(err)
-	// 	}
-	// } else {
-	// 	logger.Debugf("no new parent devices to add")
-	// }
-	// if err := m.AddLinkLayerDevices(childrenDevicesArgs...); err != nil {
-	// 	return errors.Trace(err)
-	// }
-
-	// if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
-	// 	return errors.Trace(err)
-	// }
+	if err := m.setParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
+		return errors.Trace(err)
+	}
+	if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
+		return errors.Trace(err)
+	}
 	if err := setProvisionedVolumeInfo(m.st, volumes); err != nil {
 		return errors.Trace(err)
 	}
@@ -1211,6 +1186,36 @@ func (m *Machine) SetInstanceInfo(
 		return errors.Trace(err)
 	}
 	return m.SetProvisioned(id, nonce, characteristics)
+}
+
+func (m *Machine) setParentLinkLayerDevicesBeforeTheirChildren(devicesArgs []LinkLayerDeviceArgs) error {
+	// We cannot set parent and child devices in the same call, so we must split
+	// devicesArgs into 2 or more sets of args.
+	seenNames := set.NewStrings("") // sentinel for empty ParentName.
+	for {
+		argsToSet := []LinkLayerDeviceArgs{}
+		for _, args := range devicesArgs {
+			if seenNames.Contains(args.Name) {
+				// Already added earlier.
+				continue
+			}
+			if seenNames.Contains(args.ParentName) {
+				argsToSet = append(argsToSet, args)
+			}
+		}
+		if len(argsToSet) == 0 {
+			// We're done.
+			break
+		}
+		logger.Debugf("setting link-layer devices %+v", argsToSet)
+		if err := m.SetLinkLayerDevices(argsToSet...); err != nil {
+			return errors.Trace(err)
+		}
+		for _, args := range argsToSet {
+			seenNames.Add(args.Name)
+		}
+	}
+	return nil
 }
 
 // Addresses returns any hostnames and ips associated with a machine,

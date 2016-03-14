@@ -924,3 +924,45 @@ func (s *linkLayerDevicesStateSuite) TestMachineRemoveAlsoRemoveAllLinkLayerDevi
 
 	s.assertNoDevicesOnMachine(c, s.machine)
 }
+
+func (s *linkLayerDevicesStateSuite) TestMachineSetParentLinkLayerDevicesBeforeTheirChildren(c *gc.C) {
+	nestedArgs := []state.LinkLayerDeviceArgs{{
+		Name: "lo",
+		Type: state.LoopbackDevice,
+	}, {
+		Name: "br-bond0",
+		Type: state.BridgeDevice,
+	}, {
+		Name:       "br-bond0.12",
+		Type:       state.BridgeDevice,
+		ParentName: "br-bond0",
+	}, {
+		Name:       "br-bond0.34",
+		Type:       state.BridgeDevice,
+		ParentName: "br-bond0",
+	}, {
+		Name:       "bond0",
+		Type:       state.BondDevice,
+		ParentName: "br-bond0",
+	}, {
+		Name:       "bond0.12",
+		Type:       state.VLAN_8021QDevice,
+		ParentName: "bond0",
+	}, {
+		Name:       "bond0.34",
+		Type:       state.VLAN_8021QDevice,
+		ParentName: "bond0",
+	}, {
+		Name:       "eth0",
+		Type:       state.EthernetDevice,
+		ParentName: "bond0",
+	}, {
+		Name:       "eth1",
+		Type:       state.EthernetDevice,
+		ParentName: "bond0",
+	}}
+
+	err := state.SetParentLinkLayerDevicesBeforeTheirChildren(s.machine, nestedArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertAllLinkLayerDevicesOnMachineMatchCount(c, s.machine, len(nestedArgs))
+}

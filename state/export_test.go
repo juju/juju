@@ -41,21 +41,22 @@ const (
 )
 
 var (
-	ToolstorageNewStorage  = &toolstorageNewStorage
-	ImageStorageNewStorage = &imageStorageNewStorage
-	MachineIdLessThan      = machineIdLessThan
-	ControllerAvailable    = &controllerAvailable
-	GetOrCreatePorts       = getOrCreatePorts
-	GetPorts               = getPorts
-	PortsGlobalKey         = portsGlobalKey
-	CurrentUpgradeId       = currentUpgradeId
-	NowToTheSecond         = nowToTheSecond
-	PickAddress            = &pickAddress
-	AddVolumeOps           = (*State).addVolumeOps
-	CombineMeterStatus     = combineMeterStatus
-	ServiceGlobalKey       = serviceGlobalKey
-	MergeBindings          = mergeBindings
-	UpgradeInProgressError = errUpgradeInProgress
+	ToolstorageNewStorage                        = &toolstorageNewStorage
+	ImageStorageNewStorage                       = &imageStorageNewStorage
+	MachineIdLessThan                            = machineIdLessThan
+	ControllerAvailable                          = &controllerAvailable
+	GetOrCreatePorts                             = getOrCreatePorts
+	GetPorts                                     = getPorts
+	PortsGlobalKey                               = portsGlobalKey
+	CurrentUpgradeId                             = currentUpgradeId
+	NowToTheSecond                               = nowToTheSecond
+	PickAddress                                  = &pickAddress
+	AddVolumeOps                                 = (*State).addVolumeOps
+	CombineMeterStatus                           = combineMeterStatus
+	ServiceGlobalKey                             = serviceGlobalKey
+	MergeBindings                                = mergeBindings
+	UpgradeInProgressError                       = errUpgradeInProgress
+	SetParentLinkLayerDevicesBeforeTheirChildren = (*Machine).setParentLinkLayerDevicesBeforeTheirChildren
 )
 
 type (
