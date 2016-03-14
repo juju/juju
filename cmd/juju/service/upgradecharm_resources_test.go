@@ -221,9 +221,10 @@ Deploying charm "cs:trusty/starsay-1" with the charm series "trusty".
 		{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
-					Name: "install-resource",
-					Type: charmresource.TypeFile,
-					Path: "gotta-have-it.txt",
+					Name:        "install-resource",
+					Type:        charmresource.TypeFile,
+					Path:        "gotta-have-it.txt",
+					Description: "get things started",
 				},
 				Origin:   charmresource.OriginStore,
 				Revision: 0,
@@ -234,9 +235,10 @@ Deploying charm "cs:trusty/starsay-1" with the charm series "trusty".
 		{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
-					Name: "store-resource",
-					Type: charmresource.TypeFile,
-					Path: "filename.tgz",
+					Name:        "store-resource",
+					Type:        charmresource.TypeFile,
+					Path:        "filename.tgz",
+					Description: "One line that is useful when operators need to push it.",
 				},
 				Origin:   charmresource.OriginStore,
 				Revision: 0,
@@ -247,9 +249,10 @@ Deploying charm "cs:trusty/starsay-1" with the charm series "trusty".
 		{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
-					Name: "upload-resource",
-					Type: charmresource.TypeFile,
-					Path: "somename.xml",
+					Name:        "upload-resource",
+					Type:        charmresource.TypeFile,
+					Path:        "somename.xml",
+					Description: "Who uses xml anymore?",
 				},
 				Origin:      charmresource.OriginUpload,
 				Revision:    0,
