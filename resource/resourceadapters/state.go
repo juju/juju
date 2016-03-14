@@ -101,7 +101,8 @@ func (p resourcePersistence) StageResource(res resource.Resource, storagePath st
 }
 
 // NewResourcePersistence is a function that may be passed to
-// state.SetResourcesPersistence().
+// state.SetResourcesPersistence(). It will be used in the core state
+// package to produce the resource persistence.
 func NewResourcePersistence(persist corestate.Persistence) corestate.ResourcesPersistence {
 	return corestate.NewResourcePersistence(persist)
 }
