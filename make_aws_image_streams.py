@@ -40,6 +40,17 @@ def get_parameters(argv=None):
     return args.streams, creds_filename
 
 
+def make_aws_credentials(creds):
+    """Convert credentials from juju format to AWS/Boto format."""
+    for creds in creds.values():
+        return {
+            'aws_access_key_id': creds['access-key'],
+            'aws_secret_access_key': creds['secret-key'],
+            }
+    else:
+        raise LookupError('No credentials found!')
+
+
 def is_china(region):
     """Determine whether the supplied region is in AWS-China."""
     return region.endpoint.endswith('.amazonaws.com.cn')
@@ -62,8 +73,9 @@ def iter_region_connection(credentials, china_credentials):
             yield region.connect(**credentials)
 
 
-def iter_centos_images(access_key_id, secret_access_key):
-    for conn in iter_region_connection(access_key_id, secret_access_key):
+def iter_centos_images(credentials, china_credentials):
+    """Iterate through CentOS 7 images in standard AWS and AWS China."""
+    for conn in iter_region_connection(credentials, china_credentials):
         images = conn.get_all_images(filters={
             'owner_alias': 'aws-marketplace',
             'product_code': 'aw0evgkw8e5c1q413zgy5pjce',
@@ -73,17 +85,11 @@ def iter_centos_images(access_key_id, secret_access_key):
             yield image
 
 
-def make_aws_credentials(creds):
-    for creds in creds.values():
-        return {
-            'aws_access_key_id': creds['access-key'],
-            'aws_secret_access_key': creds['secret-key'],
-            }
-    else:
-        raise LookupError('No credentials found!')
-
-
 def make_item(image, now):
+    """Convert Centos 7 Boto image to simplestreams Item.
+
+    :param now: the current datetime.
+    """
     if image.architecture != 'x86_64':
         raise ValueError(
             'Architecture is "{}", not "x86_64".'.format(image.architecture))
@@ -116,6 +122,13 @@ def make_item(image, now):
 
 
 def write_streams(credentials, china_credentials, now, streams):
+    """Write image streams for Centos 7.
+
+    :param credentials: The standard AWS credentials.
+    :param china_credentials: The AWS China crentials.
+    :param now: The current datetime.
+    :param streams: The directory to store streams metadata in.
+    """
     items = [make_item(i, now) for i in iter_centos_images(
         credentials, china_credentials)]
     updated = timestamp()
