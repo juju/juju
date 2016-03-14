@@ -16,7 +16,9 @@ import (
 )
 
 const (
-	cleanupKindResourceBlob = "resourceBlob"
+	// CleanupKindResourceBlob identifies the cleanup kind
+	// for resource blobs.
+	CleanupKindResourceBlob = "resourceBlob"
 )
 
 // ResourcePersistenceBase exposes the core persistence functionality
@@ -368,7 +370,7 @@ func (p ResourcePersistence) NewRemoveResourcesOps(serviceID string) ([]txn.Op, 
 
 	ops := newRemoveResourcesOps(docs)
 	for _, doc := range docs {
-		ops = append(ops, p.base.NewCleanupOp(cleanupKindResourceBlob, doc.StoragePath))
+		ops = append(ops, p.base.NewCleanupOp(CleanupKindResourceBlob, doc.StoragePath))
 	}
 	return ops, nil
 }
