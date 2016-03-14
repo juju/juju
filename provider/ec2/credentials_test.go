@@ -4,6 +4,7 @@
 package ec2_test
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
-	"io/ioutil"
 )
 
 type credentialsSuite struct {
@@ -69,12 +69,14 @@ func (s *credentialsSuite) TestDetectCredentialsEnvironmentVariables(c *gc.C) {
 
 	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials.AuthCredentials["fred"], jc.DeepEquals, cloud.NewCredential(
+	expected := cloud.NewCredential(
 		cloud.AccessKeyAuthType, map[string]string{
 			"access-key": "key-id",
 			"secret-key": "secret-access-key",
 		},
-	))
+	)
+	expected.Label = `aws credential "fred"`
+	c.Assert(credentials.AuthCredentials["fred"], jc.DeepEquals, expected)
 }
 
 func (s *credentialsSuite) assertDetectCredentialsKnownLocation(c *gc.C, dir string) {
@@ -105,12 +107,14 @@ region=region
 	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
-	c.Assert(credentials.AuthCredentials["fred"], jc.DeepEquals, cloud.NewCredential(
+	expected := cloud.NewCredential(
 		cloud.AccessKeyAuthType, map[string]string{
 			"access-key": "aws-key-id",
 			"secret-key": "aws-secret-access-key",
 		},
-	))
+	)
+	expected.Label = `aws credential "fred"`
+	c.Assert(credentials.AuthCredentials["fred"], jc.DeepEquals, expected)
 }
 
 func (s *credentialsSuite) TestDetectCredentialsKnownLocationUnix(c *gc.C) {

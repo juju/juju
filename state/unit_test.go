@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -88,7 +89,8 @@ func (s *UnitSuite) TestConfigSettingsReflectCharm(c *gc.C) {
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 	newCharm := s.AddConfigCharm(c, "wordpress", "options: {}", 123)
-	err = s.service.SetCharm(newCharm, false, false)
+	cfg := state.SetCharmConfig{Charm: newCharm}
+	err = s.service.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Settings still reflect charm set on unit.
@@ -140,7 +142,8 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 
 	// Change service's charm; nothing detected.
 	newCharm := s.AddConfigCharm(c, "wordpress", floatConfig, 123)
-	err = s.service.SetCharm(newCharm, false, false)
+	cfg := state.SetCharmConfig{Charm: newCharm}
+	err = s.service.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -645,7 +648,8 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 				// Set a different charm to force a retry: first on
 				// the service, so the settings are created, then on
 				// the unit.
-				err := s.service.SetCharm(sch, false, false)
+				cfg := state.SetCharmConfig{Charm: sch}
+				err := s.service.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
 				err = s.unit.SetCharmURL(sch.URL())
 				c.Assert(err, jc.ErrorIsNil)
@@ -653,7 +657,8 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 			After: func() {
 				// Set back the same charm on the service, so the
 				// settings refcount is correct..
-				err := s.service.SetCharm(s.charm, false, false)
+				cfg := state.SetCharmConfig{Charm: s.charm}
+				err := s.service.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
@@ -676,7 +681,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.SetAgentStatus(state.StatusIdle, "", nil)
+		err := s.unit.SetAgentStatus(status.StatusIdle, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func() {
 		assertLife(c, s.unit, state.Dying)
@@ -702,7 +707,8 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 	newCharm := s.AddConfigCharm(c, "mysql", "options: {}", 99)
-	err = s.service.SetCharm(newCharm, false, false)
+	cfg := state.SetCharmConfig{Charm: newCharm}
+	err = s.service.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetRetryHooks(c, s.State, func() {
@@ -779,16 +785,16 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 	for i, test := range []struct {
-		status state.Status
+		status status.Status
 		info   string
 	}{{
-		state.StatusExecuting, "blah",
+		status.StatusExecuting, "blah",
 	}, {
-		state.StatusIdle, "blah",
+		status.StatusIdle, "blah",
 	}, {
-		state.StatusFailed, "blah",
+		status.StatusFailed, "blah",
 	}, {
-		state.StatusRebooting, "blah",
+		status.StatusRebooting, "blah",
 	}} {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.service.AddUnit()
@@ -905,7 +911,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not in an error state`)
 
-	err = s.unit.SetAgentStatus(state.StatusError, "gaaah", nil)
+	err = s.unit.SetAgentStatus(status.StatusError, "gaaah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(false)
 	c.Assert(err, jc.ErrorIsNil)

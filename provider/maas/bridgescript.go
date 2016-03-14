@@ -80,6 +80,7 @@ class LogicalInterface(object):
         self.is_alias = ":" in self.name
         self.is_vlan = [x for x in self.options if x.startswith("vlan-raw-device")]
         self.is_active = self.method == "dhcp" or self.method == "static"
+        self.is_bridged = [x for x in self.options if x.startswith("bridge_ports ")]
 
     def __str__(self):
         return self.name
@@ -89,8 +90,8 @@ class LogicalInterface(object):
         if bridge_name is None:
             bridge_name = prefix + self.name
         # Note: the testing order here is significant.
-        if not self.is_active:
-            return self._bridge_inactive(add_auto_stanza)
+        if not self.is_active or self.is_bridged:
+            return self._bridge_unchanged(add_auto_stanza)
         elif self.is_alias:
             return self._bridge_alias(add_auto_stanza)
         elif self.is_vlan:
@@ -140,7 +141,7 @@ class LogicalInterface(object):
         stanzas.extend([s1, s2, s3])
         return stanzas
 
-    def _bridge_inactive(self, add_auto_stanza):
+    def _bridge_unchanged(self, add_auto_stanza):
         stanzas = []
         if add_auto_stanza:
             stanzas.append(AutoStanza(self.name))
@@ -179,7 +180,7 @@ class NetworkInterfaceParser(object):
 
     def __init__(self, filename):
         self._stanzas = []
-        with open(filename) as f:
+        with open(filename, 'r') as f:
             lines = f.readlines()
         line_iterator = SeekableIterator(lines)
         for line in line_iterator:
@@ -288,9 +289,9 @@ def print_shell_cmd(s, verbose=True, exit_on_error=False):
         print(s)
     out, err, retcode = shell_cmd(s)
     if out and len(out) > 0:
-        print(out.rstrip('\n'))
+        print(out.decode().rstrip('\n'))
     if err and len(err) > 0:
-        print(err.rstrip('\n'))
+        print(err.decode().rstrip('\n'))
     if exit_on_error and retcode != 0:
         exit(1)
 
@@ -357,12 +358,12 @@ def main(args):
         if not os.path.isfile(backup_file):
             shutil.copy2(args.filename, backup_file)
 
-    ifquery = "$(ifquery -i {} --exclude=lo -l)".format(args.filename)
+    ifquery = "$(ifquery --interfaces={} --exclude=lo --list)".format(args.filename)
 
     print("**** Original configuration")
     print_shell_cmd("cat {}".format(args.filename))
     print_shell_cmd("ifconfig -a")
-    print_shell_cmd("ifdown --exclude=lo -i {} {}".format(args.filename, ifquery))
+    print_shell_cmd("ifdown --exclude=lo --interfaces={} {}".format(args.filename, ifquery))
 
     print("**** Activating new configuration")
 
@@ -371,7 +372,7 @@ def main(args):
         f.close()
 
     print_shell_cmd("cat {}".format(args.filename))
-    print_shell_cmd("ifup --exclude=lo -i {} {}".format(args.filename, ifquery))
+    print_shell_cmd("ifup --exclude=lo --interfaces={} {}".format(args.filename, ifquery))
     print_shell_cmd("ip link show up")
     print_shell_cmd("ifconfig -a")
     print_shell_cmd("ip route show")

@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/status"
 )
 
 // Service represents the state of a service.
@@ -33,21 +34,22 @@ type Service struct {
 // serviceDoc represents the internal state of a service in MongoDB.
 // Note the correspondence with ServiceInfo in apiserver.
 type serviceDoc struct {
-	DocID             string     `bson:"_id"`
-	Name              string     `bson:"name"`
-	ModelUUID         string     `bson:"model-uuid"`
-	Series            string     `bson:"series"`
-	Subordinate       bool       `bson:"subordinate"`
-	CharmURL          *charm.URL `bson:"charmurl"`
-	ForceCharm        bool       `bson:"forcecharm"`
-	Life              Life       `bson:"life"`
-	UnitCount         int        `bson:"unitcount"`
-	RelationCount     int        `bson:"relationcount"`
-	Exposed           bool       `bson:"exposed"`
-	MinUnits          int        `bson:"minunits"`
-	OwnerTag          string     `bson:"ownertag"`
-	TxnRevno          int64      `bson:"txn-revno"`
-	MetricCredentials []byte     `bson:"metric-credentials"`
+	DocID                string     `bson:"_id"`
+	Name                 string     `bson:"name"`
+	ModelUUID            string     `bson:"model-uuid"`
+	Series               string     `bson:"series"`
+	Subordinate          bool       `bson:"subordinate"`
+	CharmURL             *charm.URL `bson:"charmurl"`
+	CharmModifiedVersion int        `bson:"charmmodifiedversion"`
+	ForceCharm           bool       `bson:"forcecharm"`
+	Life                 Life       `bson:"life"`
+	UnitCount            int        `bson:"unitcount"`
+	RelationCount        int        `bson:"relationcount"`
+	Exposed              bool       `bson:"exposed"`
+	MinUnits             int        `bson:"minunits"`
+	OwnerTag             string     `bson:"ownertag"`
+	TxnRevno             int64      `bson:"txn-revno"`
+	MetricCredentials    []byte     `bson:"metric-credentials"`
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
@@ -297,6 +299,12 @@ func (s *Service) IsPrincipal() bool {
 	return !s.doc.Subordinate
 }
 
+// CharmModifiedVersion increases whenever the service's charm is changed in any
+// way.
+func (s *Service) CharmModifiedVersion() int {
+	return s.doc.CharmModifiedVersion
+}
+
 // CharmURL returns the service's charm URL, and whether units should upgrade
 // to the charm with that URL even if they are in an error state.
 func (s *Service) CharmURL() (curl *charm.URL, force bool) {
@@ -471,7 +479,7 @@ func (s *Service) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
 
 // changeCharmOps returns the operations necessary to set a service's
 // charm URL to a new value.
-func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
+func (s *Service) changeCharmOps(ch *Charm, forceUnits bool, resourceIDs map[string]string) ([]txn.Op, error) {
 	// Build the new service config from what can be used of the old one.
 	var newSettings charm.Settings
 	oldSettings, err := readSettings(s.st, s.settingsKey())
@@ -535,11 +543,23 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
 			Update: bson.D{{"$set", bson.D{{"charmurl", ch.URL()}, {"forcecharm", forceUnits}}}},
 		},
 	}...)
+
+	ops = append(ops, incCharmModifiedVersionOps(s.doc.DocID)...)
+
 	// Add any extra peer relations that need creation.
 	newPeers := s.extraPeerRelations(ch.Meta())
 	peerOps, err := s.st.addPeerRelationsOps(s.doc.Name, newPeers)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	if len(resourceIDs) > 0 {
+		// Collect pending resource resolution operations.
+		resOps, err := s.resolveResourceOps(resourceIDs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, resOps...)
 	}
 
 	// Get all relations - we need to check them later.
@@ -589,25 +609,59 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool) ([]txn.Op, error) {
 	return append(ops, decOps...), nil
 }
 
+// incCharmModifiedVersionOps returns the operations necessary to increment
+// the CharmModifiedVersion field for the given service.
+func incCharmModifiedVersionOps(serviceID string) []txn.Op {
+	return []txn.Op{{
+		C:      servicesC,
+		Id:     serviceID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$inc", bson.D{{"charmmodifiedversion", 1}}}},
+	}}
+}
+
+func (s *Service) resolveResourceOps(resourceIDs map[string]string) ([]txn.Op, error) {
+	// Collect pending resource resolution operations.
+	resources, err := s.st.Resources()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return resources.NewResolvePendingResourcesOps(s.doc.Name, resourceIDs)
+}
+
+// SetCharmConfig sets the charm for the service.
+type SetCharmConfig struct {
+	// Charm is the new charm to use for the service.
+	Charm *Charm
+	// ForceUnits forces the upgrade on units in an error state.
+	ForceUnits bool `json:"forceunits"`
+	// ForceSeries forces the use of the charm even if it doesn't match the
+	// series of the unit.
+	ForceSeries bool `json:"forceseries"`
+	// ResourceIDs is a map of resource names to resource IDs to activate during
+	// the upgrade.
+	ResourceIDs map[string]string `json:"resourceids"`
+}
+
 // SetCharm changes the charm for the service. New units will be started with
 // this charm, and existing units will be upgraded to use it.
 // If forceUnits is true, units will be upgraded even if they are in an error state.
 // If forceSeries is true, the charm will be used even if it's the service's series
 // is not supported by the charm.
-func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool) error {
-	if ch.Meta().Subordinate != s.doc.Subordinate {
+func (s *Service) SetCharm(cfg SetCharmConfig) error {
+	if cfg.Charm.Meta().Subordinate != s.doc.Subordinate {
 		return errors.Errorf("cannot change a service's subordinacy")
 	}
 	// For old style charms written for only one series, we still retain
 	// this check. Newer charms written for multi-series have a URL
 	// with series = "".
-	if ch.URL().Series != "" {
-		if ch.URL().Series != s.doc.Series {
+	if cfg.Charm.URL().Series != "" {
+		if cfg.Charm.URL().Series != s.doc.Series {
 			return errors.Errorf("cannot change a service's series")
 		}
-	} else if !forceSeries {
+	} else if !cfg.ForceSeries {
 		supported := false
-		for _, series := range ch.Meta().Series {
+		for _, series := range cfg.Charm.Meta().Series {
 			if series == s.doc.Series {
 				supported = true
 				break
@@ -615,8 +669,8 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool) error {
 		}
 		if !supported {
 			supportedSeries := "no series"
-			if len(ch.Meta().Series) > 0 {
-				supportedSeries = strings.Join(ch.Meta().Series, ", ")
+			if len(cfg.Charm.Meta().Series) > 0 {
+				supportedSeries = strings.Join(cfg.Charm.Meta().Series, ", ")
 			}
 			return errors.Errorf("cannot upgrade charm, only these series are supported: %v", supportedSeries)
 		}
@@ -630,7 +684,7 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool) error {
 			return err
 		}
 		supportedOS := false
-		for _, chSeries := range ch.Meta().Series {
+		for _, chSeries := range cfg.Charm.Meta().Series {
 			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
 			if err != nil {
 				return nil
@@ -648,6 +702,9 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool) error {
 	services, closer := s.st.getCollection(servicesC)
 	defer closer()
 
+	// this value holds the *previous* charm modified version, before this
+	// transaction commits.
+	var charmModifiedVersion int
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// NOTE: We're explicitly allowing SetCharm to succeed
@@ -661,33 +718,65 @@ func (s *Service) SetCharm(ch *Charm, forceSeries, forceUnits bool) error {
 				return nil, ErrDead
 			}
 		}
+
+		// We can't update the in-memory service doc inside the transaction, so
+		// we manually udpate it at the end of the SetCharm method. However, we
+		// have no way of knowing what the charmModifiedVersion will be, since
+		// it's just incrementing the value in the DB (and that might be out of
+		// step with the value we have in memory).  What we have to do is read
+		// the DB, store the charmModifiedVersion we get, run the transaction,
+		// assert in the transaction that the charmModifiedVersion hasn't
+		// changed since we retrieved it, and then we know what its value must
+		// be after this transaction ends.  It's hacky, but there's no real
+		// other way to do it, thanks to the way mgo's transactions work.
+		var doc serviceDoc
+		err := services.FindId(s.doc.DocID).One(&doc)
+		var charmModifiedVersion int
+		switch {
+		case err == mgo.ErrNotFound:
+			// 0 is correct, since no previous charm existed.
+		case err != nil:
+			return nil, errors.Annotate(err, "can't open previous copy of charm")
+		default:
+			charmModifiedVersion = doc.CharmModifiedVersion
+		}
+		ops := []txn.Op{{
+			C:      servicesC,
+			Id:     s.doc.DocID,
+			Assert: bson.D{{"charmmodifiedversion", charmModifiedVersion}},
+		}}
+
 		// Make sure the service doesn't have this charm already.
-		sel := bson.D{{"_id", s.doc.DocID}, {"charmurl", ch.URL()}}
-		var ops []txn.Op
-		if count, err := services.Find(sel).Count(); err != nil {
+		sel := bson.D{{"_id", s.doc.DocID}, {"charmurl", cfg.Charm.URL()}}
+		count, err := services.Find(sel).Count()
+		if err != nil {
 			return nil, errors.Trace(err)
-		} else if count == 1 {
+		}
+		if count > 0 {
 			// Charm URL already set; just update the force flag.
-			sameCharm := bson.D{{"charmurl", ch.URL()}}
-			ops = []txn.Op{{
+			sameCharm := bson.D{{"charmurl", cfg.Charm.URL()}}
+			ops = append(ops, []txn.Op{{
 				C:      servicesC,
 				Id:     s.doc.DocID,
 				Assert: append(notDeadDoc, sameCharm...),
-				Update: bson.D{{"$set", bson.D{{"forcecharm", forceUnits}}}},
-			}}
+				Update: bson.D{{"$set", bson.D{{"forcecharm", cfg.ForceUnits}}}},
+			}}...)
 		} else {
 			// Change the charm URL.
-			ops, err = s.changeCharmOps(ch, forceUnits)
+			chng, err := s.changeCharmOps(cfg.Charm, cfg.ForceUnits, cfg.ResourceIDs)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			ops = append(ops, chng...)
 		}
+
 		return ops, nil
 	}
 	err := s.st.run(buildTxn)
 	if err == nil {
-		s.doc.CharmURL = ch.URL()
-		s.doc.ForceCharm = forceUnits
+		s.doc.CharmURL = cfg.Charm.URL()
+		s.doc.ForceCharm = cfg.ForceUnits
+		s.doc.CharmModifiedVersion = charmModifiedVersion + 1
 	}
 	return err
 }
@@ -814,12 +903,12 @@ func (s *Service) addUnitOpsWithCons(args serviceAddUnitOpsArgs) (string, []txn.
 	}
 	now := time.Now()
 	agentStatusDoc := statusDoc{
-		Status:  StatusAllocating,
+		Status:  status.StatusAllocating,
 		Updated: now.UnixNano(),
 	}
 	unitStatusDoc := statusDoc{
 		// TODO(fwereade): this violates the spec. Should be "waiting".
-		Status:     StatusUnknown,
+		Status:     status.StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    now.UnixNano(),
 	}
@@ -1375,12 +1464,12 @@ type settingsRefsDoc struct {
 // Only unit leaders are allowed to set the status of the service.
 // If no status is recorded, then there are no unit leaders and the
 // status is derived from the unit status values.
-func (s *Service) Status() (StatusInfo, error) {
+func (s *Service) Status() (status.StatusInfo, error) {
 	statuses, closer := s.st.getCollection(statusesC)
 	defer closer()
 	query := statuses.Find(bson.D{{"_id", s.globalKey()}, {"neverset", true}})
 	if count, err := query.Count(); err != nil {
-		return StatusInfo{}, errors.Trace(err)
+		return status.StatusInfo{}, errors.Trace(err)
 	} else if count != 0 {
 		// This indicates that SetStatus has never been called on this service.
 		// This in turn implies the service status document is likely to be
@@ -1394,7 +1483,7 @@ func (s *Service) Status() (StatusInfo, error) {
 		// the right places rather than being applied at seeming random.
 		units, err := s.AllUnits()
 		if err != nil {
-			return StatusInfo{}, err
+			return status.StatusInfo{}, err
 		}
 		logger.Tracef("service %q has %d units", s.Name(), len(units))
 		if len(units) > 0 {
@@ -1405,34 +1494,34 @@ func (s *Service) Status() (StatusInfo, error) {
 }
 
 // SetStatus sets the status for the service.
-func (s *Service) SetStatus(status Status, info string, data map[string]interface{}) error {
-	if !ValidWorkloadStatus(status) {
-		return errors.Errorf("cannot set invalid status %q", status)
+func (s *Service) SetStatus(serviceStatus status.Status, info string, data map[string]interface{}) error {
+	if !status.ValidWorkloadStatus(serviceStatus) {
+		return errors.Errorf("cannot set invalid status %q", serviceStatus)
 	}
 	return setStatus(s.st, setStatusParams{
 		badge:     "service",
 		globalKey: s.globalKey(),
-		status:    status,
+		status:    serviceStatus,
 		message:   info,
 		rawData:   data,
 	})
 }
 
 // ServiceAndUnitsStatus returns the status for this service and all its units.
-func (s *Service) ServiceAndUnitsStatus() (StatusInfo, map[string]StatusInfo, error) {
+func (s *Service) ServiceAndUnitsStatus() (status.StatusInfo, map[string]status.StatusInfo, error) {
 	serviceStatus, err := s.Status()
 	if err != nil {
-		return StatusInfo{}, nil, errors.Trace(err)
+		return status.StatusInfo{}, nil, errors.Trace(err)
 	}
 	units, err := s.AllUnits()
 	if err != nil {
-		return StatusInfo{}, nil, err
+		return status.StatusInfo{}, nil, err
 	}
-	results := make(map[string]StatusInfo, len(units))
+	results := make(map[string]status.StatusInfo, len(units))
 	for _, unit := range units {
 		unitStatus, err := unit.Status()
 		if err != nil {
-			return StatusInfo{}, nil, err
+			return status.StatusInfo{}, nil, err
 		}
 		results[unit.Name()] = unitStatus
 	}
@@ -1440,13 +1529,13 @@ func (s *Service) ServiceAndUnitsStatus() (StatusInfo, map[string]StatusInfo, er
 
 }
 
-func (s *Service) deriveStatus(units []*Unit) (StatusInfo, error) {
-	var result StatusInfo
+func (s *Service) deriveStatus(units []*Unit) (status.StatusInfo, error) {
+	var result status.StatusInfo
 	for _, unit := range units {
 		currentSeverity := statusServerities[result.Status]
 		unitStatus, err := unit.Status()
 		if err != nil {
-			return StatusInfo{}, errors.Annotatef(err, "deriving service status from %q", unit.Name())
+			return status.StatusInfo{}, errors.Annotatef(err, "deriving service status from %q", unit.Name())
 		}
 		unitSeverity := statusServerities[unitStatus.Status]
 		if unitSeverity > currentSeverity {
@@ -1461,14 +1550,14 @@ func (s *Service) deriveStatus(units []*Unit) (StatusInfo, error) {
 
 // statusSeverities holds status values with a severity measure.
 // Status values with higher severity are used in preference to others.
-var statusServerities = map[Status]int{
-	StatusError:       100,
-	StatusBlocked:     90,
-	StatusWaiting:     80,
-	StatusMaintenance: 70,
-	StatusTerminated:  60,
-	StatusActive:      50,
-	StatusUnknown:     40,
+var statusServerities = map[status.Status]int{
+	status.StatusError:       100,
+	status.StatusBlocked:     90,
+	status.StatusWaiting:     80,
+	status.StatusMaintenance: 70,
+	status.StatusTerminated:  60,
+	status.StatusActive:      50,
+	status.StatusUnknown:     40,
 }
 
 type addServiceOpsArgs struct {

@@ -6,3 +6,12 @@
 package lxdclient
 
 var NewInstanceSummary = newInstanceSummary
+
+type RawInstanceClient rawInstanceClient
+
+func NewInstanceClient(raw RawInstanceClient) *instanceClient {
+	return &instanceClient{
+		raw:    rawInstanceClient(raw),
+		remote: "",
+	}
+}

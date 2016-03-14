@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
@@ -54,7 +55,7 @@ var alternatePassword = "bar-12345678901234567890"
 // asserting the behaviour of a given method in each state, and the unit quick-
 // remove change caused many of these to fail.
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
-	err := u.SetAgentStatus(state.StatusIdle, "", nil)
+	err := u.SetAgentStatus(status.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3875,9 +3876,7 @@ func (s *StateSuite) TestSetEnvironAgentFailsIfUpgrading(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.SetModelAgentVersion(nextVersion)
-	c.Assert(errors.Cause(err), gc.Equals, state.UpgradeInProgressError)
-	c.Assert(err, gc.ErrorMatches,
-		"an upgrade is already in progress or the last upgrade did not complete")
+	c.Assert(err, jc.Satisfies, state.IsUpgradeInProgressError)
 }
 
 func (s *StateSuite) TestSetEnvironAgentFailsReportsCorrectError(c *gc.C) {

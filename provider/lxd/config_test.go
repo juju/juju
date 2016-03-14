@@ -67,6 +67,7 @@ func (s *configSuite) TestClientConfigLocal(c *gc.C) {
 			Cert:          nil,
 			ServerPEMCert: "",
 		},
+		ImageStream: "released",
 	})
 }
 
@@ -95,6 +96,7 @@ func (s *configSuite) TestClientConfigNonLocal(c *gc.C) {
 			},
 			ServerPEMCert: "<a valid x.509 server cert>",
 		},
+		ImageStream: "released",
 	})
 }
 
