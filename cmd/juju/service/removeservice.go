@@ -14,6 +14,7 @@ import (
 	"github.com/juju/romulus/api/budget"
 	wireformat "github.com/juju/romulus/wireformat/budget"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api/charms"
@@ -144,9 +145,13 @@ func (c *removeServiceCommand) removeAllocation(ctx *cmd.Context) error {
 var getBudgetAPIClient = getBudgetAPIClientImpl
 
 func getBudgetAPIClientImpl(ctx *cmd.Context, client *http.Client) (budgetAPIClient, error) {
+	filler := &form.IOFiller{
+		In:  ctx.Stdin,
+		Out: ctx.Stderr,
+	}
 	bakeryClient := &httpbakery.Client{
 		Client:       client,
-		VisitWebPage: ussologin.VisitWebPage(CommandFiller(ctx), client, tokenStore())}
+		VisitWebPage: ussologin.VisitWebPage(filler, client, tokenStore())}
 	c := budget.NewClient(bakeryClient)
 	return c, nil
 }

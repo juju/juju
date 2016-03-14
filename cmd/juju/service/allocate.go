@@ -110,17 +110,14 @@ func parseBudgetWithLimit(bl string) (string, string, error) {
 
 var getApiClient = getApiClientImpl
 
-func CommandFiller(ctx *cmd.Context) *form.IOFiller {
-	return &form.IOFiller{
-		In:  ctx.Stdin,
-		Out: ctx.Stderr,
-	}
-}
-
 var tokenStore = jujuclient.NewTokenStore
 
 func getApiClientImpl(ctx *cmd.Context, client *http.Client) (apiClient, error) {
-	bakeryClient := &httpbakery.Client{Client: client, VisitWebPage: ussologin.VisitWebPage(CommandFiller(ctx), client, tokenStore())}
+	filler := &form.IOFiller{
+		In:  ctx.Stdin,
+		Out: ctx.Stderr,
+	}
+	bakeryClient := &httpbakery.Client{Client: client, VisitWebPage: ussologin.VisitWebPage(filler, client, tokenStore())}
 	c := budget.NewClient(bakeryClient)
 	return c, nil
 }

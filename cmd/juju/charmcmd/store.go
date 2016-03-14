@@ -99,7 +99,7 @@ func (cs *charmstoreClient) Close() error {
 
 // newAPIContext returns a new api context, which should be closed
 // when done with.
-func newAPIContext(f func(*url.URL) error) (*apiContext, error) {
+func newAPIContext(visitWebPage func(*url.URL) error) (*apiContext, error) {
 	jar, err := cookiejar.New(&cookiejar.Options{
 		Filename: cookieFile(),
 	})
@@ -108,7 +108,7 @@ func newAPIContext(f func(*url.URL) error) (*apiContext, error) {
 	}
 	client := httpbakery.NewClient()
 	client.Jar = jar
-	client.VisitWebPage = f
+	client.VisitWebPage = visitWebPage
 
 	return &apiContext{
 		jar:    jar,

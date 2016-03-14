@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
@@ -153,10 +154,14 @@ type csClient struct {
 // non-public charm deployments. It is defined as a variable so it can
 // be changed for testing purposes.
 var newCharmStoreClient = func(ctx *cmd.Context, client *http.Client) *csClient {
+	filler := &form.IOFiller{
+		In:  ctx.Stdin,
+		Out: ctx.Stderr,
+	}
 	return &csClient{
 		params: charmrepo.NewCharmStoreParams{
 			HTTPClient:   client,
-			VisitWebPage: ussologin.VisitWebPage(CommandFiller(ctx), client, tokenStore()),
+			VisitWebPage: ussologin.VisitWebPage(filler, client, tokenStore()),
 		},
 	}
 }

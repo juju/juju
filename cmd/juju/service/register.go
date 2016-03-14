@@ -14,6 +14,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/idmclient/ussologin"
+	"gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"launchpad.net/gnuflag"
 
@@ -60,9 +61,14 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 		return nil
 	}
 
+	filler := &form.IOFiller{
+		In:  ctx.Stdin,
+		Out: ctx.Stderr,
+	}
+
 	bakeryClient := httpbakery.Client{
 		Client:       client,
-		VisitWebPage: ussologin.VisitWebPage(CommandFiller(ctx), client, tokenStore())}
+		VisitWebPage: ussologin.VisitWebPage(filler, client, tokenStore())}
 
 	if r.Plan == "" && deployInfo.CharmURL.Schema == "cs" {
 		r.Plan, err = r.getDefaultPlan(client, deployInfo.CharmURL.String())
