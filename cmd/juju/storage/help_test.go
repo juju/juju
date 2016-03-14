@@ -33,9 +33,9 @@ func (s *HelpStorageSuite) assertHelp(c *gc.C, expectedNames []string) {
 
 	super, ok := s.command.(*cmd.SuperCommand)
 	c.Assert(ok, jc.IsTrue)
-	expected := "(?sm).*^purpose: " + super.Purpose + "$.*"
+	expected := "(?sm).*^Summary:\n" + super.Purpose + "$.*"
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)
-	expected = "(?sm).*^" + super.Doc + "$.*"
+	expected = "(?sm).*^Details:" + super.Doc + "$.*"
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)
 
 	s.checkHelpCommands(c, ctx, expectedNames)

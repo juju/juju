@@ -66,10 +66,10 @@ func (*instancecfgSuite) TestJujuTools(c *gc.C) {
 	icfg := &instancecfg.InstanceConfig{
 		DataDir: "/path/to/datadir/",
 		Tools: &coretools.Tools{
-			Version: version.MustParseBinary("2.3.4-wily-amd64"),
+			Version: version.MustParseBinary("2.3.4-trusty-amd64"),
 		},
 	}
-	c.Assert(icfg.JujuTools(), gc.Equals, "/path/to/datadir/tools/2.3.4-wily-amd64")
+	c.Assert(icfg.JujuTools(), gc.Equals, "/path/to/datadir/tools/2.3.4-trusty-amd64")
 }
 
 func (*instancecfgSuite) TestGUITools(c *gc.C) {
