@@ -366,7 +366,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	if err != nil {
 		return errors.Trace(err)
 	}
-	csClient := newCharmStoreClient(httpClient)
+	csClient := newCharmStoreClient(ctx, httpClient)
 
 	var charmOrBundleURL *charm.URL
 	var repo charmrepo.Interface

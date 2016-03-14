@@ -6,13 +6,15 @@ package modelcmd
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/loggo"
-
+	"gopkg.in/juju/environschema.v1/form"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
@@ -307,6 +309,20 @@ type modelCommandWrapper struct {
 	useDefaultModel bool
 	allowEmptyEnv   bool
 	modelName       string
+}
+
+func (w *modelCommandWrapper) Run(ctx *cmd.Context) error {
+	filler := &form.IOFiller{
+		In:  ctx.Stdin,
+		Out: ctx.Stderr,
+	}
+	w.ModelCommand.setVisitWebPage(
+		ussologin.VisitWebPage(
+			filler,
+			&http.Client{},
+			jujuclient.NewTokenStore(),
+		))
+	return w.ModelCommand.Run(ctx)
 }
 
 func (w *modelCommandWrapper) SetFlags(f *gnuflag.FlagSet) {

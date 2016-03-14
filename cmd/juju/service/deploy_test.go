@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
@@ -814,8 +815,8 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 
 	// Point the CLI to the charm store testing server.
 	original := newCharmStoreClient
-	s.PatchValue(&newCharmStoreClient, func(httpClient *http.Client) *csClient {
-		csclient := original(httpClient)
+	s.PatchValue(&newCharmStoreClient, func(ctx *cmd.Context, httpClient *http.Client) *csClient {
+		csclient := original(ctx, httpClient)
 		csclient.params.URL = s.srv.URL
 		// Add a cookie so that the discharger can detect whether the
 		// HTTP client is the juju environment or the juju client.
@@ -831,7 +832,9 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	// Point the Juju API server to the charm store testing server.
 	s.PatchValue(&csclient.ServerURL, s.srv.URL)
 
-	s.PatchValue(&getApiClient, func(*http.Client) (apiClient, error) { return &mockBudgetAPIClient{&jujutesting.Stub{}}, nil })
+	s.PatchValue(&getApiClient, func(*cmd.Context, *http.Client) (apiClient, error) {
+		return &mockBudgetAPIClient{&jujutesting.Stub{}}, nil
+	})
 }
 
 func (s *charmStoreSuite) TearDownTest(c *gc.C) {
