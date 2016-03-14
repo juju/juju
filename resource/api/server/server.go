@@ -132,15 +132,10 @@ func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPe
 func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Macaroon, apiResources []api.CharmResource) ([]string, error) {
 	var resources []charmresource.Resource
 	for _, apiRes := range apiResources {
-		orig := apiRes.Revision
-		if apiRes.Revision < 0 {
-			apiRes.Revision = 0
-		}
 		res, err := api.API2CharmResource(apiRes)
 		if err != nil {
 			return nil, errors.Annotatef(err, "bad resource info for %q", apiRes.Name)
 		}
-		res.Revision = orig
 		resources = append(resources, res)
 	}
 

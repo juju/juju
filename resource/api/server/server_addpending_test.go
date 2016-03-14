@@ -160,7 +160,8 @@ func (s *AddPendingResourcesSuite) TestWithURLNoRevision(c *gc.C) {
 	res1.Size = 10
 	apiRes1.Origin = charmresource.OriginStore.String()
 	apiRes1.Revision = -1
-	apiRes1.Size = 11
+	apiRes1.Size = 0
+	apiRes1.Fingerprint = nil
 	id1 := "some-unique-ID"
 	s.data.ReturnAddPendingResource = id1
 	csRes := res1 // a copy
