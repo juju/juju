@@ -27,7 +27,7 @@ var errNoNameSpecified = errors.New("no name specified")
 type CommandBase interface {
 	cmd.Command
 
-	// closeContext closes the commands API context.
+	// closeContext closes the command's API context.
 	closeContext()
 }
 
