@@ -344,7 +344,7 @@ class FakeJujuClient:
     def show_status(self):
         pass
 
-    def get_status(self):
+    def get_status(self, admin=False):
         status_dict = self._backing_state.get_status_dict()
         return Status(status_dict, yaml.safe_dump(status_dict))
 
