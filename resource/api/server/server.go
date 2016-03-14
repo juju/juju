@@ -144,11 +144,15 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 		if err != nil {
 			return nil, err
 		}
-		storeResources, err := f.resourcesFromCharmstore(cURL, csMac, resources)
+		storeResources, err := f.resourcesFromCharmstore(cURL, csMac)
 		if err != nil {
 			return nil, err
 		}
-		resources = storeResources
+		combined, err := combineResources(storeResources, resources)
+		if err != nil {
+			return nil, err
+		}
+		resources = combined
 	}
 
 	var ids []string
@@ -165,7 +169,7 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 	return ids, nil
 }
 
-func (f Facade) resourcesFromCharmstore(cURL *charm.URL, csMac *macaroon.Macaroon, resources []charmresource.Resource) ([]charmresource.Resource, error) {
+func (f Facade) resourcesFromCharmstore(cURL *charm.URL, csMac *macaroon.Macaroon) (map[string]charmresource.Resource, error) {
 	if f.newCharmstoreClient == nil {
 		return nil, errors.NotSupportedf("could not get resource info from charm store")
 	}
@@ -182,7 +186,10 @@ func (f Facade) resourcesFromCharmstore(cURL *charm.URL, csMac *macaroon.Macaroo
 	for _, res := range results[0] {
 		storeResources[res.Name] = res
 	}
+	return storeResources, nil
+}
 
+func combineResources(storeResources map[string]charmresource.Resource, resources []charmresource.Resource) ([]charmresource.Resource, error) {
 	combined := make([]charmresource.Resource, len(resources))
 	copy(combined, resources)
 	for i, res := range resources {
