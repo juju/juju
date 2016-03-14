@@ -243,6 +243,7 @@ var commandNames = []string{
 	"import-ssh-keys",
 	"kill-controller",
 	"list-actions",
+	"list-agreements",
 	"list-all-blocks",
 	"list-budgets",
 	"list-clouds",
