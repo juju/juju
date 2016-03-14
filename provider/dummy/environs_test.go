@@ -119,6 +119,7 @@ func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.Networki
 		environs.PrepareParams{
 			BaseConfig:     s.TestConfig,
 			ControllerName: s.TestConfig["name"].(string),
+			CloudName:      "dummy",
 		},
 	)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))

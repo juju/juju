@@ -163,6 +163,7 @@ func (t *LiveTests) prepareForBootstrapParams(c *gc.C) environs.PrepareParams {
 		CloudEndpoint:  t.CloudEndpoint,
 		CloudRegion:    t.CloudRegion,
 		ControllerName: t.TestConfig["name"].(string),
+		CloudName:      t.TestConfig["type"].(string),
 	}
 }
 

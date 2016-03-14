@@ -58,6 +58,7 @@ func (t *Tests) Prepare(c *gc.C) environs.Environ {
 		BaseConfig:     t.TestConfig,
 		Credential:     credential,
 		ControllerName: t.TestConfig["name"].(string),
+		CloudName:      t.TestConfig["type"].(string),
 		CloudEndpoint:  t.CloudEndpoint,
 		CloudRegion:    t.CloudRegion,
 	}

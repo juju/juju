@@ -54,6 +54,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	env, err := environs.Prepare(ctx, cache, environs.PrepareParams{
 		ControllerName: cfg.Name(),
 		BaseConfig:     cfg.AllAttrs(),
+		CloudName:      "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -84,6 +85,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	_, err = environs.Prepare(ctx, store, environs.PrepareParams{
 		ControllerName: "controller-name",
 		BaseConfig:     cfg.AllAttrs(),
+		CloudName:      "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -139,6 +141,7 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	env, err := environs.Prepare(ctx, controllerStore, environs.PrepareParams{
 		ControllerName: cfg.Name(),
 		BaseConfig:     cfg.AllAttrs(),
+		CloudName:      "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -167,6 +170,7 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	env, err = environs.Prepare(ctx, controllerStore, environs.PrepareParams{
 		ControllerName: cfg.Name(),
 		BaseConfig:     cfg.AllAttrs(),
+		CloudName:      "dummy",
 	})
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 	c.Assert(err, gc.ErrorMatches, `controller "erewhemos" already exists`)
@@ -184,6 +188,7 @@ func (*OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
 	env0, err := environs.Prepare(ctx, jujuclienttesting.NewMemStore(), environs.PrepareParams{
 		ControllerName: "erewhemos",
 		BaseConfig:     baselineAttrs,
+		CloudName:      "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	adminSecret0 := env0.Config().AdminSecret()
@@ -198,6 +203,7 @@ func (*OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
 	env1, err := environs.Prepare(ctx, jujuclienttesting.NewMemStore(), environs.PrepareParams{
 		ControllerName: "erewhemos",
 		BaseConfig:     baselineAttrs,
+		CloudName:      "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	adminSecret1 := env1.Config().AdminSecret()
@@ -220,6 +226,7 @@ func (*OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 	env, err := environs.Prepare(envtesting.BootstrapContext(c), controllerStore, environs.PrepareParams{
 		ControllerName: cfg.Name(),
 		BaseConfig:     cfg.AllAttrs(),
+		CloudName:      "dummy",
 	})
 	c.Assert(err, gc.ErrorMatches, "cannot ensure CA certificate: controller configuration with a certificate but no CA private key")
 	c.Assert(env, gc.IsNil)
@@ -239,6 +246,7 @@ func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
 	env, err := environs.Prepare(ctx, jujuclienttesting.NewMemStore(), environs.PrepareParams{
 		ControllerName: cfg.Name(),
 		BaseConfig:     cfg.AllAttrs(),
+		CloudName:      "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	cfgCertPEM, cfgCertOK := env.Config().CACert()
@@ -265,6 +273,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	e, err := environs.Prepare(ctx, store, environs.PrepareParams{
 		ControllerName: "controller-name",
 		BaseConfig:     cfg.AllAttrs(),
+		CloudName:      "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = store.ControllerByName("controller-name")

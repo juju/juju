@@ -707,7 +707,9 @@ func (s *store) UpdateBootstrapConfig(controllerName string, cfg BootstrapConfig
 	if err := ValidateControllerName(controllerName); err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(axw) validate bootstrap config
+	if err := ValidateBootstrapConfig(cfg); err != nil {
+		return errors.Trace(err)
+	}
 
 	lock, err := s.lock("update-bootstrap-config")
 	if err != nil {

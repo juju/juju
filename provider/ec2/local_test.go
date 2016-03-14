@@ -1270,6 +1270,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 				},
 			),
 			ControllerName: localConfigAttrs["name"].(string),
+			CloudName:      "ec2",
 			CloudRegion:    "test",
 		},
 	)

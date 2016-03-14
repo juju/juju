@@ -6,6 +6,7 @@ package ec2
 // TODO: Clean this up so it matches environs/openstack/config_test.go.
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -312,30 +313,34 @@ func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
 
 func (s *ConfigSuite) TestPrepareForCreateInsertsUniqueControlBucket(c *gc.C) {
 	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
+	uuid1 := utils.MustNewUUID()
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
+		"uuid": uuid1.String(),
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg1, err := providerInstance.PrepareForCreateEnvironment(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-
 	bucket1 := cfg1.UnknownAttrs()["control-bucket"]
-	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
+	c.Assert(bucket1, gc.Equals, fmt.Sprintf("%x", uuid1.Raw()))
 
+	uuid2 := utils.MustNewUUID()
+	cfg, err = cfg.Apply(map[string]interface{}{"uuid": uuid2.String()})
+	c.Assert(err, jc.ErrorIsNil)
 	cfg2, err := providerInstance.PrepareForCreateEnvironment(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	bucket2 := cfg2.UnknownAttrs()["control-bucket"]
-	c.Assert(bucket2, gc.Matches, "[a-f0-9]{32}")
-
-	c.Assert(bucket1, gc.Not(gc.Equals), bucket2)
+	c.Assert(bucket2, gc.Equals, fmt.Sprintf("%x", uuid2.Raw()))
 }
 
 func (s *ConfigSuite) TestBootstrapConfigInsertsUniqueControlBucket(c *gc.C) {
 	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
+	uuid0 := utils.MustNewUUID()
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
+		"uuid": uuid0.String(),
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -353,8 +358,11 @@ func (s *ConfigSuite) TestBootstrapConfigInsertsUniqueControlBucket(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	bucket0 := cfg0.UnknownAttrs()["control-bucket"]
-	c.Assert(bucket0, gc.Matches, "[a-f0-9]{32}")
+	c.Assert(bucket0, gc.Equals, fmt.Sprintf("%x", uuid0.Raw()))
 
+	uuid1 := utils.MustNewUUID()
+	cfg, err = cfg.Apply(map[string]interface{}{"uuid": uuid1.String()})
+	c.Assert(err, jc.ErrorIsNil)
 	cfg1, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
 		Config: cfg,
 		Credentials: cloud.NewCredential(
@@ -368,9 +376,7 @@ func (s *ConfigSuite) TestBootstrapConfigInsertsUniqueControlBucket(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	bucket1 := cfg1.UnknownAttrs()["control-bucket"]
-	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
-
-	c.Assert(bucket1, gc.Not(gc.Equals), bucket0)
+	c.Assert(bucket1, gc.Equals, fmt.Sprintf("%x", uuid1.Raw()))
 }
 
 func (s *ConfigSuite) TestBootstrapConfigDoesNotTouchExistingControlBucket(c *gc.C) {

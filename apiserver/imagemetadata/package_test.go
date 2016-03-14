@@ -128,6 +128,7 @@ func testConfig(c *gc.C) *config.Config {
 		environs.PrepareParams{
 			ControllerName: "dummycontroller",
 			BaseConfig:     attrs,
+			CloudName:      "dummy",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

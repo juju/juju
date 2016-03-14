@@ -59,6 +59,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		environs.PrepareParams{
 			ControllerName: cfg.Name(),
 			BaseConfig:     cfg.AllAttrs(),
+			CloudName:      "dummy",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

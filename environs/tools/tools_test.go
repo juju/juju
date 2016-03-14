@@ -101,6 +101,7 @@ func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}
 		environs.PrepareParams{
 			ControllerName: attrs["name"].(string),
 			BaseConfig:     attrs,
+			CloudName:      "dummy",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

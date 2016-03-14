@@ -169,6 +169,7 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 			environs.PrepareParams{
 				ControllerName: "dummycontroller",
 				BaseConfig:     dummy.SampleConfig(),
+				CloudName:      "dummy",
 			},
 		)
 		c.Assert(err, jc.ErrorIsNil)

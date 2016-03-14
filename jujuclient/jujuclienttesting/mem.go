@@ -63,6 +63,7 @@ func (c *MemStore) RemoveController(name string) error {
 	if err := jujuclient.ValidateControllerName(name); err != nil {
 		return err
 	}
+	delete(c.BootstrapConfig, name)
 	delete(c.Controllers, name)
 	return nil
 }
@@ -360,7 +361,9 @@ func (c *MemStore) UpdateBootstrapConfig(controllerName string, cfg jujuclient.B
 	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
 		return err
 	}
-	// TODO(axw) validate bootstrap config
+	if err := jujuclient.ValidateBootstrapConfig(cfg); err != nil {
+		return err
+	}
 	c.BootstrapConfig[controllerName] = cfg
 	return nil
 

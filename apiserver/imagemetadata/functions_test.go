@@ -38,6 +38,7 @@ func (s *funcSuite) SetUpTest(c *gc.C) {
 		environs.PrepareParams{
 			ControllerName: "dummycontroller",
 			BaseConfig:     mockConfig(),
+			CloudName:      "dummy",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

@@ -275,6 +275,7 @@ func testingEnvConfig(c *gc.C) *config.Config {
 		environs.PrepareParams{
 			BaseConfig:     cfg.AllAttrs(),
 			ControllerName: "dummycontroller",
+			CloudName:      "dummy",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

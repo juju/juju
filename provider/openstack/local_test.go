@@ -1714,6 +1714,7 @@ func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) env
 		BaseConfig:     attrs,
 		ControllerName: attrs["name"].(string),
 		Credential:     makeCredential(cred),
+		CloudName:      "openstack",
 		CloudEndpoint:  cred.URL,
 		CloudRegion:    cred.Region,
 	}

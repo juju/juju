@@ -93,6 +93,7 @@ func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclien
 	env, err := environs.Prepare(ctx, store, environs.PrepareParams{
 		ControllerName: controllerName,
 		BaseConfig:     dummy.SampleConfig(),
+		CloudName:      "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

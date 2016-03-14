@@ -34,6 +34,7 @@ func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 		environs.PrepareParams{
 			BaseConfig:     attrs,
 			ControllerName: attrs["name"].(string),
+			CloudName:      "dummy",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -95,6 +96,7 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 			environs.PrepareParams{
 				ControllerName: cfg.Name(),
 				BaseConfig:     cfg.AllAttrs(),
+				CloudName:      "dummy",
 			},
 		)
 		if test.errorMsg != "" {

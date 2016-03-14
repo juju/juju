@@ -49,6 +49,7 @@ func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) envir
 		environs.PrepareParams{
 			ControllerName: attrs["name"].(string),
 			BaseConfig:     attrs,
+			CloudName:      "dummy",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

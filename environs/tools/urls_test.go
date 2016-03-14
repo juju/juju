@@ -47,6 +47,7 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 		environs.PrepareParams{
 			ControllerName: attrs["name"].(string),
 			BaseConfig:     attrs,
+			CloudName:      "dummy",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
