@@ -175,7 +175,7 @@ func (s *ResourceSuite) TestSetResourceInfoOnly(c *gc.C) {
 
 func (s *ResourceSuite) TestSetResourceBadResource(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
-	res.Revision = -1
+	res.Fingerprint = charmresource.Fingerprint{}
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
 	st.currentTimestamp = s.now
