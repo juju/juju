@@ -193,6 +193,18 @@ func (s *store) RemoveController(name string) error {
 		}
 	}
 
+	// Remove bootstrap config for the controller.
+	bootstrapConfigurations, err := ReadBootstrapConfigFile(JujuBootstrapConfigPath())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, ok := bootstrapConfigurations[name]; ok {
+		delete(bootstrapConfigurations, name)
+		if err := WriteBootstrapConfigFile(bootstrapConfigurations); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	// Remove the controller.
 	delete(controllers, name)
 	return WriteControllersFile(controllers)
@@ -688,4 +700,44 @@ func (s *store) AllCredentials() (map[string]cloud.CloudCredential, error) {
 		return nil, errors.Trace(err)
 	}
 	return cloudCredentials, nil
+}
+
+// UpdateBootstrapConfig implements BootstrapConfigUpdater.
+func (s *store) UpdateBootstrapConfig(controllerName string, cfg BootstrapConfig) error {
+	if err := ValidateControllerName(controllerName); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ValidateBootstrapConfig(cfg); err != nil {
+		return errors.Trace(err)
+	}
+
+	lock, err := s.lock("update-bootstrap-config")
+	if err != nil {
+		return errors.Annotatef(err, "cannot update bootstrap config for controller %s", controllerName)
+	}
+	defer s.unlock(lock)
+
+	all, err := ReadBootstrapConfigFile(JujuBootstrapConfigPath())
+	if err != nil {
+		return errors.Annotate(err, "cannot get bootstrap config")
+	}
+
+	if all == nil {
+		all = make(map[string]BootstrapConfig)
+	}
+	all[controllerName] = cfg
+	return WriteBootstrapConfigFile(all)
+}
+
+// BootstrapConfigForController implements BootstrapConfigGetter.
+func (s *store) BootstrapConfigForController(controllerName string) (*BootstrapConfig, error) {
+	configs, err := ReadBootstrapConfigFile(JujuBootstrapConfigPath())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, ok := configs[controllerName]
+	if !ok {
+		return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)
+	}
+	return &cfg, nil
 }

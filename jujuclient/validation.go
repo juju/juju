@@ -61,6 +61,17 @@ func ValidateAccountName(name string) error {
 	return validateUser(name)
 }
 
+// ValidateBootstrapConfig validates the given boostrap config.
+func ValidateBootstrapConfig(cfg BootstrapConfig) error {
+	if cfg.Cloud == "" {
+		return errors.NotValidf("empty cloud name")
+	}
+	if len(cfg.Config) == 0 {
+		return errors.NotValidf("empty config")
+	}
+	return nil
+}
+
 func validateUser(name string) error {
 	if !names.IsValidUser(name) {
 		return errors.NotValidf("account name %q", name)

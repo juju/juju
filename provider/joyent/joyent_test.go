@@ -4,12 +4,6 @@
 package joyent_test
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
-
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	envtesting "github.com/juju/juju/environs/testing"
@@ -70,7 +64,6 @@ func (s *providerSuite) TearDownSuite(c *gc.C) {
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.AddCleanup(CreateTestKey(c))
 }
 
 func (s *providerSuite) TearDownTest(c *gc.C) {
@@ -80,28 +73,17 @@ func (s *providerSuite) TearDownTest(c *gc.C) {
 
 func GetFakeConfig(sdcUrl, mantaUrl string) coretesting.Attrs {
 	return coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"name":             "joyent test model",
-		"type":             "joyent",
-		"sdc-user":         testUser,
-		"sdc-key-id":       testKeyFingerprint,
-		"sdc-url":          sdcUrl,
-		"manta-user":       testUser,
-		"manta-key-id":     testKeyFingerprint,
-		"manta-url":        mantaUrl,
-		"private-key-path": fmt.Sprintf("~/.ssh/%s", testKeyFileName),
-		"algorithm":        "rsa-sha256",
-		"control-dir":      "juju-test",
-		"agent-version":    coretesting.FakeVersionNumber.String(),
+		"name":          "joyent test model",
+		"type":          "joyent",
+		"sdc-user":      testUser,
+		"sdc-key-id":    testKeyFingerprint,
+		"sdc-url":       sdcUrl,
+		"manta-user":    testUser,
+		"manta-key-id":  testKeyFingerprint,
+		"manta-url":     mantaUrl,
+		"private-key":   testPrivateKey,
+		"algorithm":     "rsa-sha256",
+		"control-dir":   "juju-test",
+		"agent-version": coretesting.FakeVersionNumber.String(),
 	})
-}
-
-func CreateTestKey(c *gc.C) func(*gc.C) {
-	keyFile := fmt.Sprintf("~/.ssh/%s", testKeyFileName)
-	keyFilePath, err := utils.NormalizePath(keyFile)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(keyFilePath, []byte(testPrivateKey), 400)
-	c.Assert(err, jc.ErrorIsNil)
-	return func(c *gc.C) {
-		os.Remove(keyFilePath)
-	}
 }

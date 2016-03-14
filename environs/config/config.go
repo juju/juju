@@ -103,6 +103,9 @@ const (
 	// Settings Attributes
 	//
 
+	// CACertKey is the key for the controller's CA certificate attribute.
+	CACertKey = "ca-cert"
+
 	// UUIDKey is the key for the model UUID attribute.
 	UUIDKey = "uuid"
 
@@ -455,7 +458,7 @@ func (c *Config) fillInDefaults() error {
 	if name == "" {
 		return fmt.Errorf("empty name in model configuration")
 	}
-	err := maybeReadAttrFromFile(c.defined, "ca-cert", name+"-cert.pem")
+	err := maybeReadAttrFromFile(c.defined, CACertKey, name+"-cert.pem")
 	if err != nil {
 		return err
 	}
@@ -963,7 +966,7 @@ func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
 // CACert returns the certificate of the CA that signed the controller
 // certificate, in PEM format, and whether the setting is available.
 func (c *Config) CACert() (string, bool) {
-	if s, ok := c.defined["ca-cert"]; ok {
+	if s, ok := c.defined[CACertKey]; ok {
 		return s.(string), true
 	}
 	return "", false
@@ -1287,7 +1290,7 @@ var fields = func() schema.Fields {
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
 	"agent-version":              schema.Omit,
-	"ca-cert":                    schema.Omit,
+	CACertKey:                    schema.Omit,
 	"authorized-keys":            schema.Omit,
 	"authorized-keys-path":       schema.Omit,
 	"ca-cert-path":               schema.Omit,
@@ -1662,7 +1665,7 @@ var configSchema = environschema.Fields{
 		Immutable:   true,
 		Group:       environschema.EnvironGroup,
 	},
-	"ca-cert": {
+	CACertKey: {
 		Description: `The certificate of the CA that signed the controller certificate, in PEM format`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,

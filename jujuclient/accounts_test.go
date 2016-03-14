@@ -177,10 +177,3 @@ func (s *AccountsSuite) TestRemoveControllerRemovesaccounts(c *gc.C) {
 	_, ok := accounts["kontroll"]
 	c.Assert(ok, jc.IsFalse) // kontroll accounts are removed
 }
-
-func (s *AccountsSuite) accountDetails(c *gc.C, controller, account string) jujuclient.AccountDetails {
-	details, err := s.store.AccountByName(controller, account)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details, gc.IsNil)
-	return *details
-}

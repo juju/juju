@@ -35,6 +35,9 @@ type StubStore struct {
 	CredentialForCloudFunc func(string) (*cloud.CloudCredential, error)
 	AllCredentialsFunc     func() (map[string]cloud.CloudCredential, error)
 	UpdateCredentialFunc   func(cloudName string, details cloud.CloudCredential) error
+
+	BootstrapConfigForControllerFunc func(controllerName string) (*jujuclient.BootstrapConfig, error)
+	UpdateBootstrapConfigFunc        func(controllerName string, cfg jujuclient.BootstrapConfig) error
 }
 
 func NewStubStore() *StubStore {
@@ -101,6 +104,13 @@ func NewStubStore() *StubStore {
 	result.UpdateCredentialFunc = func(cloudName string, details cloud.CloudCredential) error {
 		return result.Stub.NextErr()
 	}
+
+	result.BootstrapConfigForControllerFunc = func(controllerName string) (*jujuclient.BootstrapConfig, error) {
+		return nil, result.Stub.NextErr()
+	}
+	result.UpdateBootstrapConfigFunc = func(controllerName string, cfg jujuclient.BootstrapConfig) error {
+		return result.Stub.NextErr()
+	}
 	return result
 }
 
@@ -125,6 +135,8 @@ func WrapClientStore(underlying jujuclient.ClientStore) *StubStore {
 	stub.CurrentAccountFunc = underlying.CurrentAccount
 	stub.AccountByNameFunc = underlying.AccountByName
 	stub.RemoveAccountFunc = underlying.RemoveAccount
+	stub.BootstrapConfigForControllerFunc = underlying.BootstrapConfigForController
+	stub.UpdateBootstrapConfigFunc = underlying.UpdateBootstrapConfig
 	return stub
 }
 
@@ -240,4 +252,16 @@ func (c *StubStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
 func (c *StubStore) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
 	c.MethodCall(c, "UpdateCredential", cloudName, details)
 	return c.UpdateCredentialFunc(cloudName, details)
+}
+
+// BootstrapConfigForController implements BootstrapConfigGetter.
+func (c *StubStore) BootstrapConfigForController(controllerName string) (*jujuclient.BootstrapConfig, error) {
+	c.MethodCall(c, "BootstrapConfigForController", controllerName)
+	return c.BootstrapConfigForControllerFunc(controllerName)
+}
+
+// UpdateBootstrapConfig implements BootstrapConfigUpdater.
+func (c *StubStore) UpdateBootstrapConfig(controllerName string, cfg jujuclient.BootstrapConfig) error {
+	c.MethodCall(c, "UpdateBootstrapConfig", controllerName, cfg)
+	return c.UpdateBootstrapConfigFunc(controllerName, cfg)
 }

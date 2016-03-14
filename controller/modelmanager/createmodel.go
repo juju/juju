@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils"
 
 	"fmt"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/tools"
@@ -22,7 +23,7 @@ var (
 
 	configValuesFromController = []string{
 		"type",
-		"ca-cert",
+		config.CACertKey,
 		"state-port",
 		"api-port",
 		config.ControllerUUIDKey,

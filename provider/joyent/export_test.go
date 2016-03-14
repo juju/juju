@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -187,7 +186,7 @@ func CreateContainer(s *JoyentStorage) error {
 
 func CredentialsAttributes(attrs testing.Attrs) map[string]string {
 	credentialAttrs := make(map[string]string)
-	for _, attr := range []string{"sdc-user", "sdc-key-id", "manta-user", "manta-key-id", "private-key", "private-key-path"} {
+	for _, attr := range []string{"sdc-user", "sdc-key-id", "manta-user", "manta-key-id", "private-key"} {
 		if v, ok := attrs[attr]; ok && v != "" {
 			credentialAttrs[attr] = fmt.Sprintf("%v", v)
 		}
@@ -197,15 +196,14 @@ func CredentialsAttributes(attrs testing.Attrs) map[string]string {
 
 // MakeConfig creates a functional environConfig for a test.
 func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		cfg.Name(),
-		environs.PrepareForBootstrapParams{
-			Config: cfg,
-			Credentials: cloud.NewCredential(
+		environs.PrepareParams{
+			BaseConfig:     attrs,
+			ControllerName: attrs["name"].(string),
+			CloudName:      "joyent",
+			Credential: cloud.NewCredential(
 				cloud.UserPassAuthType,
 				CredentialsAttributes(attrs),
 			),

@@ -223,9 +223,8 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	otherEnvOwner := s.Factory.MakeModelUser(c, nil)
 	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name:    "dummytoo",
-		Owner:   otherEnvOwner.UserTag(),
-		Prepare: true,
+		Name:  "dummytoo",
+		Owner: otherEnvOwner.UserTag(),
 		ConfigAttrs: testing.Attrs{
 			"controller": false,
 		},

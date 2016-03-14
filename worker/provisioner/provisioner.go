@@ -201,7 +201,7 @@ func (p *environProvisioner) loop() error {
 	}
 	modelConfigChanges = modelWatcher.Changes()
 
-	p.environ, err = environ.WaitForEnviron(modelWatcher, p.st, p.catacomb.Dying())
+	p.environ, err = environ.WaitForEnviron(modelWatcher, p.st, environs.New, p.catacomb.Dying())
 	if err != nil {
 		if err == environ.ErrWaitAborted {
 			return p.catacomb.ErrDying()

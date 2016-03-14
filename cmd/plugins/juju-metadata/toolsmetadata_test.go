@@ -55,8 +55,12 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
 		modelcmd.BootstrapContextNoVerify(coretesting.Context(c)),
-		jujuclienttesting.NewMemStore(), cfg.Name(),
-		environs.PrepareForBootstrapParams{Config: cfg},
+		jujuclienttesting.NewMemStore(),
+		environs.PrepareParams{
+			ControllerName: cfg.Name(),
+			BaseConfig:     cfg.AllAttrs(),
+			CloudName:      "dummy",
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env

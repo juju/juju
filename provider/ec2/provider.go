@@ -35,7 +35,7 @@ func (p environProvider) RestrictedConfigAttributes() []string {
 func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
 	attrs := cfg.UnknownAttrs()
 	if _, ok := attrs["control-bucket"]; !ok {
-		uuid, err := utils.NewUUID()
+		uuid, err := utils.UUIDFromString(cfg.UUID())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -44,6 +44,7 @@ func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 	return cfg.Apply(attrs)
 }
 
+// Open is specified in the EnvironProvider interface.
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening model %q", cfg.Name())
 	e := new(environ)
@@ -55,10 +56,8 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
-func (p environProvider) PrepareForBootstrap(
-	ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams,
-) (environs.Environ, error) {
-
+// BootstrapConfig is specified in the EnvironProvider interface.
+func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	// Add credentials to the configuration.
 	attrs := map[string]interface{}{
 		"region": args.CloudRegion,
@@ -75,15 +74,24 @@ func (p environProvider) PrepareForBootstrap(
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
 	}
+
+	// Set the default block-storage source.
+	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
+		attrs[config.StorageDefaultBlockSourceKey] = EBS_ProviderType
+	}
+
 	cfg, err := args.Config.Apply(attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return p.PrepareForCreateEnvironment(cfg)
+}
 
-	cfg, err = p.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, err
-	}
+// PrepareForBootstrap is specified in the EnvironProvider interface.
+func (p environProvider) PrepareForBootstrap(
+	ctx environs.BootstrapContext,
+	cfg *config.Config,
+) (environs.Environ, error) {
 	e, err := p.Open(cfg)
 	if err != nil {
 		return nil, err
@@ -96,6 +104,7 @@ func (p environProvider) PrepareForBootstrap(
 	return e, nil
 }
 
+// Validate is specified in the EnvironProvider interface.
 func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	newEcfg, err := validateConfig(cfg, old)
 	if err != nil {
@@ -121,6 +130,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	}, nil
 }
 
+// SecretAttrs is specified in the EnvironProvider interface.
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	m := make(map[string]string)
 	ecfg, err := providerInstance.newConfig(cfg)

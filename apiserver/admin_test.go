@@ -718,7 +718,6 @@ func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
 		ConfigAttrs: map[string]interface{}{
 			"controller": false,
 		},
-		Prepare: true,
 	})
 	defer envState.Close()
 

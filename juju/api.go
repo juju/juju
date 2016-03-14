@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 )
@@ -48,14 +47,11 @@ func NewAPIConnection(
 	store jujuclient.ClientStore,
 	controllerName, accountName, modelName string,
 	bClient *httpbakery.Client,
+	getBootstrapConfig func(controllerName string) (*config.Config, error),
 ) (api.Connection, error) {
-	legacyStore, err := configstore.Default()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	st, err := newAPIFromStore(
 		controllerName, accountName, modelName,
-		legacyStore, store, defaultAPIOpen, bClient,
+		store, defaultAPIOpen, bClient, getBootstrapConfig,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -77,10 +73,10 @@ var serverAddress = func(hostPort string) (network.HostPort, error) {
 // testing purposes.
 func newAPIFromStore(
 	controllerName, accountName, modelName string,
-	legacyStore configstore.Storage,
 	store jujuclient.ClientStore,
 	apiOpen api.OpenFunc,
 	bClient *httpbakery.Client,
+	getBootstrapConfig func(controllerName string) (*config.Config, error),
 ) (api.Connection, error) {
 
 	controllerDetails, err := store.ControllerByName(controllerName)
@@ -143,16 +139,29 @@ func newAPIFromStore(
 	} else {
 		logger.Debugf("no cached API connection settings found")
 	}
-	try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-		cfg, err := getBootstrapConfig(legacyStore, controllerName, modelName)
-		if err != nil {
-			return nil, err
-		}
-		return apiConfigConnect(
-			cfg, accountDetails, modelDetails,
-			apiOpen, stop, delay, bClient,
-		)
-	})
+
+	// If the client has bootstrap config for the controller, we'll also
+	// attempt to connect by fetching new addresses from the cloud
+	// directly. This is only attempted after a delay, to give the
+	// faster cached-addresses method a chance to complete.
+	cfg, err := getBootstrapConfig(controllerName)
+	if err == nil {
+		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
+			cfg, err := apiConfigConnect(
+				cfg, accountDetails, modelDetails,
+				apiOpen, stop, delay, bClient,
+			)
+			if err != nil {
+				// Errors are swallowed by parallel.Try, so we
+				// log the failure here to aid in debugging.
+				logger.Debugf("failed to connect via bootstrap config: %v", err)
+			}
+			return cfg, err
+		})
+	} else if !errors.IsNotFound(err) || len(controllerDetails.APIEndpoints) == 0 {
+		return nil, err
+	}
+
 	try.Close()
 	val0, err := try.Result()
 	if err != nil {
@@ -242,7 +251,7 @@ func apiInfoConnect(
 func apiConfigConnect(
 	cfg *config.Config,
 	accountDetails *jujuclient.AccountDetails,
-	modelDetails *jujuclient.ModelDetails,
+	model *jujuclient.ModelDetails,
 	apiOpen api.OpenFunc,
 	stop <-chan struct{},
 	delay time.Duration,
@@ -255,17 +264,20 @@ func apiConfigConnect(
 	}
 	environ, err := environs.New(cfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "constructing environ")
 	}
 	apiInfo, err := environs.APIInfo(environ)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "getting API info")
 	}
 	if accountDetails != nil && accountDetails.Password != "" {
 		apiInfo.Tag = names.NewUserTag(accountDetails.User)
 		apiInfo.Password = accountDetails.Password
 	} else {
 		apiInfo.UseMacaroons = true
+	}
+	if model != nil {
+		apiInfo.ModelTag = names.NewModelTag(model.ModelUUID)
 	}
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.BakeryClient = bClient
@@ -274,29 +286,6 @@ func apiConfigConnect(
 		return nil, errors.Trace(err)
 	}
 	return apiStateCachedInfo{st, apiInfo}, nil
-}
-
-// getBootstrapConfig looks for configuration info on the given environment
-func getBootstrapConfig(legacyStore configstore.Storage, controllerName, modelName string) (*config.Config, error) {
-	// TODO(axw) model name will be unnecessary when we stop using
-	// configstore.
-	if modelName == "" {
-		modelName = configstore.AdminModelName
-	}
-	// TODO(axw) we need to store bootstrap config, or enough information
-	// to derive it, in jujuclient.
-	info, err := legacyStore.ReadInfo(configstore.EnvironInfoName(controllerName, modelName))
-	if err != nil {
-		return nil, errors.Annotate(err, "getting bootstrap controller info")
-	}
-	if len(info.BootstrapConfig()) == 0 {
-		return nil, errors.NotFoundf("bootstrap config")
-	}
-	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
-	if err != nil {
-		logger.Warningf("failed to parse bootstrap-config: %v", err)
-	}
-	return cfg, err
 }
 
 var resolveOrDropHostnames = network.ResolveOrDropHostnames

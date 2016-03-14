@@ -166,7 +166,9 @@ func (c *createModelCommand) Run(ctx *cmd.Context) error {
 
 	accountDetails := map[string]interface{}{}
 	if c.CredentialName != "" {
-		cred, _, err := common.GetCredentials(ctx, c.credentialStore, "", c.CredentialName, c.CloudName, c.CloudType)
+		cred, _, _, err := modelcmd.GetCredentials(
+			c.credentialStore, "", c.CredentialName, c.CloudName, c.CloudType,
+		)
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
@@ -114,12 +113,14 @@ func (s *suite) TearDownTest(c *gc.C) {
 
 func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.NetworkingEnviron {
 	s.TestConfig["prefer-ipv6"] = preferIPv6
-	cfg, err := config.New(config.NoDefaults, s.TestConfig)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
 		envtesting.BootstrapContext(c),
-		s.ControllerStore, cfg.Name(),
-		environs.PrepareForBootstrapParams{Config: cfg},
+		s.ControllerStore,
+		environs.PrepareParams{
+			BaseConfig:     s.TestConfig,
+			ControllerName: s.TestConfig["name"].(string),
+			CloudName:      "dummy",
+		},
 	)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))
 	c.Assert(env, gc.NotNil)

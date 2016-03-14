@@ -1,17 +1,23 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common
+package modelcmd
 
 import (
 	"io/ioutil"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/utils"
+
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/utils"
+)
+
+var (
+	// ErrMultipleCredentials is the error returned by DetectCredential
+	// if more than one credential is detected.
+	ErrMultipleCredentials = errors.New("more than one credential detected")
 )
 
 // GetCredentials returns a curated set of credential values for a given cloud.
@@ -19,14 +25,14 @@ import (
 // finalises the values to resolve things like json files.
 // If region is not specified, the default credential region is used.
 func GetCredentials(
-	ctx *cmd.Context, store jujuclient.CredentialGetter, region, credentialName, cloudName, cloudType string,
-) (_ *jujucloud.Credential, regionName string, _ error) {
+	store jujuclient.CredentialGetter, region, credentialName, cloudName, cloudType string,
+) (_ *cloud.Credential, chosenCredentialName, regionName string, _ error) {
 
 	credential, credentialName, defaultRegion, err := credentialByName(
 		store, cloudName, credentialName,
 	)
 	if err != nil {
-		return nil, "", errors.Trace(err)
+		return nil, "", "", errors.Trace(err)
 	}
 
 	regionName = region
@@ -39,25 +45,25 @@ func GetCredentials(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return ioutil.ReadFile(ctx.AbsPath(f))
+		return ioutil.ReadFile(f)
 	}
 
 	// Finalize credential against schemas supported by the provider.
 	provider, err := environs.Provider(cloudType)
 	if err != nil {
-		return nil, "", errors.Trace(err)
+		return nil, "", "", errors.Trace(err)
 	}
 
-	credential, err = jujucloud.FinalizeCredential(
+	credential, err = cloud.FinalizeCredential(
 		*credential, provider.CredentialSchemas(), readFile,
 	)
 	if err != nil {
-		return nil, "", errors.Annotatef(
+		return nil, "", "", errors.Annotatef(
 			err, "validating %q credential for cloud %q",
 			credentialName, cloudName,
 		)
 	}
-	return credential, regionName, nil
+	return credential, credentialName, regionName, nil
 }
 
 // credentialByName returns the credential and default region to use for the
@@ -71,7 +77,7 @@ func GetCredentials(
 // errors.IsNotFound will be returned.
 func credentialByName(
 	store jujuclient.CredentialGetter, cloudName, credentialName string,
-) (_ *jujucloud.Credential, credentialNameUsed string, defaultRegion string, _ error) {
+) (_ *cloud.Credential, credentialNameUsed string, defaultRegion string, _ error) {
 
 	cloudCredentials, err := store.CredentialForCloud(cloudName)
 	if err != nil {
@@ -92,4 +98,31 @@ func credentialByName(
 		)
 	}
 	return &credential, credentialName, cloudCredentials.DefaultRegion, nil
+}
+
+// DetectCredential detects credentials for the specified cloud type, and, if
+// exactly one is detected, returns it.
+//
+// If no credentials are detected, an error satisfying errors.IsNotFound will
+// be returned. If more than one credential is detected, ErrMultipleCredentials
+// will be returned.
+func DetectCredential(cloudName, cloudType string) (*cloud.CloudCredential, error) {
+	provider, err := environs.Provider(cloudType)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	detected, err := provider.DetectCredentials()
+	if err != nil {
+		return nil, errors.Annotatef(
+			err, "detecting credentials for %q cloud provider", cloudName,
+		)
+	}
+	logger.Tracef("provider detected credentials: %v", detected)
+	if len(detected.AuthCredentials) == 0 {
+		return nil, errors.NotFoundf("credentials for cloud %q", cloudName)
+	}
+	if len(detected.AuthCredentials) > 1 {
+		return nil, ErrMultipleCredentials
+	}
+	return detected, nil
 }

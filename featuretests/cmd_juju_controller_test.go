@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api/modelmanager"
 	undertakerapi "github.com/juju/juju/api/undertaker"
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
@@ -30,16 +31,6 @@ import (
 
 type cmdControllerSuite struct {
 	jujutesting.JujuConnSuite
-}
-
-func (s *cmdControllerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	// Write the legacy cache info to simulate a bootstrap occurring.
-	cfg := s.Environ.Config()
-	info := s.ConfigStore.CreateInfo(cfg.ControllerUUID(), "kontroll:admin")
-	info.SetBootstrapConfig(cfg.AllAttrs())
-	err := info.Write()
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
@@ -110,7 +101,7 @@ func (s *cmdControllerSuite) TestCreateModel(c *gc.C) {
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	api, err := juju.NewAPIConnection(s.ControllerStore, "kontroll", "admin@local", "new-model", nil)
+	api, err := juju.NewAPIConnection(s.ControllerStore, "kontroll", "admin@local", "new-model", nil, noBootstrapConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()
 }
@@ -225,7 +216,8 @@ func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c 
 	// Ensure that Destroy was called on the hosted model ...
 	opRecvTimeout(c, st, opc, dummy.OpDestroy{})
 
-	// ... and that the configstore was removed.
+	// ... and that the details were removed removed from
+	// the client store.
 	_, err = store.ControllerByName("kontroll")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -247,4 +239,8 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 			c.Fatalf("time out wating for operation")
 		}
 	}
+}
+
+func noBootstrapConfig(controllerName string) (*config.Config, error) {
+	return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)
 }

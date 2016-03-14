@@ -1,20 +1,21 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common_test
+package modelcmd_test
 
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"io/ioutil"
+	"path/filepath"
+
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
-	"io/ioutil"
-	"path/filepath"
 )
 
 func init() {
@@ -66,13 +67,16 @@ func (s *credentialsSuite) assertGetCredentials(c *gc.C, region string) {
 		},
 	}
 
-	credential, regionName, err := common.GetCredentials(testing.Context(c), store, region, "secrets", "cloud", "fake")
+	credential, credentialName, regionName, err := modelcmd.GetCredentials(
+		store, region, "secrets", "cloud", "fake",
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedRegion := region
 	if expectedRegion == "" {
 		expectedRegion = "default-region"
 	}
 	c.Assert(regionName, gc.Equals, expectedRegion)
+	c.Assert(credentialName, gc.Equals, "secrets")
 	c.Assert(credential.Attributes(), jc.DeepEquals, map[string]string{
 		"key":      "value",
 		"username": "user",

@@ -9,14 +9,12 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	envtesting "github.com/juju/juju/environs/testing"
 	jp "github.com/juju/juju/provider/joyent"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -30,16 +28,16 @@ func newConfig(c *gc.C, attrs coretesting.Attrs) *config.Config {
 
 func validAttrs() coretesting.Attrs {
 	return coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"type":             "joyent",
-		"sdc-user":         "test",
-		"sdc-key-id":       "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
-		"sdc-url":          "test://test.api.joyentcloud.com",
-		"manta-user":       "test",
-		"manta-key-id":     "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
-		"manta-url":        "test://test.manta.joyent.com",
-		"private-key-path": "~/.ssh/provider_id_rsa",
-		"algorithm":        "rsa-sha256",
-		"control-dir":      "juju-test",
+		"type":         "joyent",
+		"sdc-user":     "test",
+		"sdc-key-id":   "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
+		"sdc-url":      "test://test.api.joyentcloud.com",
+		"manta-user":   "test",
+		"manta-key-id": "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
+		"manta-url":    "test://test.manta.joyent.com",
+		"private-key":  testPrivateKey,
+		"algorithm":    "rsa-sha256",
+		"control-dir":  "juju-test",
 	})
 }
 
@@ -79,7 +77,6 @@ func generatePrivateKey(c *gc.C) string {
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.AddCleanup(CreateTestKey(c))
 	for _, envVar := range jp.EnvironmentVariables {
 		s.PatchEnvironment(envVar, "")
 	}
@@ -205,20 +202,6 @@ var newConfigTests = []configtest{{
 	insert: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
 	expect: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
 }, {
-	info:   "can get private-key-path from env variable",
-	insert: coretesting.Attrs{"private-key-path": ""},
-	expect: coretesting.Attrs{"private-key-path": "some-file"},
-	envVars: map[string]string{
-		"MANTA_PRIVATE_KEY_FILE": "some-file",
-	},
-}, {
-	info:   "can get private-key-path from model variable, missing from config",
-	remove: []string{"private-key-path"},
-	expect: coretesting.Attrs{"private-key-path": "some-file"},
-	envVars: map[string]string{
-		"MANTA_PRIVATE_KEY_FILE": "some-file",
-	},
-}, {
 	info:   "algorithm is inserted if missing",
 	expect: coretesting.Attrs{"algorithm": "rsa-sha256"},
 }, {
@@ -229,10 +212,6 @@ var newConfigTests = []configtest{{
 	info:   "unknown field is not touched",
 	insert: coretesting.Attrs{"unknown-field": 12345},
 	expect: coretesting.Attrs{"unknown-field": 12345},
-}, {
-	info:   "can specify just private-key",
-	remove: []string{"private-key-path"},
-	insert: coretesting.Attrs{"private-key": "foo"},
 }}
 
 func (s *ConfigSuite) TestNewModelConfig(c *gc.C) {
@@ -307,12 +286,10 @@ var changeConfigTests = []struct {
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 	attrs := validAttrs()
-	attrs["private-key"] = s.privateKeyData
 	baseConfig := newConfig(c, attrs)
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		attrs["private-key"] = s.privateKeyData
 		testConfig := newConfig(c, attrs)
 		validatedConfig, err := jp.Provider.Validate(testConfig, baseConfig)
 		if test.err == "" {
@@ -355,41 +332,32 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	}
 }
 
-func validPrepareAttrs() coretesting.Attrs {
+func validBootstrapConfigAttrs() coretesting.Attrs {
 	return validAttrs().Delete("private-key")
 }
 
 // TODO(wallyworld) - add tests for cloud endpoint passed in via bootstrap args
-var prepareConfigTests = []struct {
+var bootstrapConfigTests = []struct {
 	info   string
 	insert coretesting.Attrs
 	remove []string
 	expect coretesting.Attrs
 	err    string
 }{{
-	info:   "All value provided, nothig to do",
-	expect: validPrepareAttrs(),
-}, {
-	info:   "private key is loaded from key file",
-	insert: coretesting.Attrs{"private-key-path": fmt.Sprintf("~/.ssh/%s", testKeyFileName)},
-	expect: coretesting.Attrs{"private-key": testPrivateKey},
-}, {
-	info:   "bad private-key-path errors, not panics",
-	insert: coretesting.Attrs{"private-key-path": "~/.ssh/no-such-file"},
-	err:    "invalid Joyent provider config: open .*: " + utils.NoSuchFileErrRegexp,
+	info:   "All value provided, nothing to do",
+	expect: validBootstrapConfigAttrs(),
 }}
 
-func (s *ConfigSuite) TestPrepareForBootstrap(c *gc.C) {
-	ctx := envtesting.BootstrapContext(c)
-	for i, test := range prepareConfigTests {
+func (s *ConfigSuite) TestBootstrapConfig(c *gc.C) {
+	for i, test := range bootstrapConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		attrs := validPrepareAttrs().Merge(test.insert).Delete(test.remove...)
+		attrs := validBootstrapConfigAttrs().Merge(test.insert).Delete(test.remove...)
 		credentialAttrs := make(map[string]string, len(attrs))
 		for k, v := range attrs.Delete("type", "control-dir") {
 			credentialAttrs[k] = fmt.Sprintf("%v", v)
 		}
 		testConfig := newConfig(c, attrs)
-		preparedConfig, err := jp.Provider.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		preparedConfig, err := jp.Provider.BootstrapConfig(environs.BootstrapConfigParams{
 			Config: testConfig,
 			Credentials: cloud.NewCredential(
 				cloud.UserPassAuthType,
@@ -398,7 +366,7 @@ func (s *ConfigSuite) TestPrepareForBootstrap(c *gc.C) {
 		})
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
-			attrs := preparedConfig.Config().AllAttrs()
+			attrs := preparedConfig.AllAttrs()
 			for field, value := range test.expect {
 				c.Check(attrs[field], gc.Equals, value)
 			}

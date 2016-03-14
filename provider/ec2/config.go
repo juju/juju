@@ -101,19 +101,6 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// Add EC2 specific defaults.
-	providerDefaults := make(map[string]interface{})
-
-	// Storage.
-	if _, ok := cfg.StorageDefaultBlockSource(); !ok {
-		providerDefaults[config.StorageDefaultBlockSourceKey] = EBS_ProviderType
-	}
-	if len(providerDefaults) > 0 {
-		if cfg, err = cfg.Apply(providerDefaults); err != nil {
-			return nil, err
-		}
-	}
 	ecfg := &environConfig{cfg, validated}
 
 	if ecfg.accessKey() == "" || ecfg.secretKey() == "" {

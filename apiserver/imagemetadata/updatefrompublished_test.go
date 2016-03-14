@@ -163,12 +163,14 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 	// testingEnvConfig prepares an environment configuration using
 	// the dummy provider since it doesn't implement simplestreams.HasRegion.
 	s.state.environConfig = func() (*config.Config, error) {
-		cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
-		c.Assert(err, jc.ErrorIsNil)
 		env, err := environs.Prepare(
 			modelcmd.BootstrapContext(testing.Context(c)),
 			jujuclienttesting.NewMemStore(),
-			"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
+			environs.PrepareParams{
+				ControllerName: "dummycontroller",
+				BaseConfig:     dummy.SampleConfig(),
+				CloudName:      "dummy",
+			},
 		)
 		c.Assert(err, jc.ErrorIsNil)
 		return env.Config(), err
@@ -220,7 +222,11 @@ type mockEnvironProvider struct {
 	environs.EnvironProvider
 }
 
-func (p mockEnvironProvider) PrepareForBootstrap(environs.BootstrapContext, environs.PrepareForBootstrapParams) (environs.Environ, error) {
+func (p mockEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+	return args.Config, nil
+}
+
+func (p mockEnvironProvider) PrepareForBootstrap(environs.BootstrapContext, *config.Config) (environs.Environ, error) {
 	return &mockEnviron{}, nil
 }
 

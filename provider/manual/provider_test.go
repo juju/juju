@@ -56,21 +56,25 @@ func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string
 	minimal["use-sshstorage"] = true
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := envtesting.BootstrapContext(c)
-	_, err = manual.ProviderInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+	testConfig, err = manual.ProviderInstance.BootstrapConfig(environs.BootstrapConfigParams{
 		Config:        testConfig,
 		CloudEndpoint: endpoint,
 		CloudRegion:   region,
 	})
+	if err != nil {
+		return nil, err
+	}
+	ctx := envtesting.BootstrapContext(c)
+	_, err = manual.ProviderInstance.PrepareForBootstrap(ctx, testConfig)
 	return ctx, err
 }
 
-func (s *providerSuite) TestPrepareUseSSHStorage(c *gc.C) {
+func (s *providerSuite) TestBootstrapConfigUseSSHStorage(c *gc.C) {
 	minimal := manual.MinimalConfigValues()
 	minimal["use-sshstorage"] = false
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+	_, err = manual.ProviderInstance.BootstrapConfig(environs.BootstrapConfigParams{
 		Config:        testConfig,
 		CloudEndpoint: "hostname",
 	})
@@ -79,26 +83,25 @@ func (s *providerSuite) TestPrepareUseSSHStorage(c *gc.C) {
 	minimal["use-sshstorage"] = true
 	testConfig, err = config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+	_, err = manual.ProviderInstance.BootstrapConfig(environs.BootstrapConfigParams{
 		Config:        testConfig,
 		CloudEndpoint: "hostname",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *providerSuite) TestPrepareSetsUseSSHStorage(c *gc.C) {
+func (s *providerSuite) TestBootstrapConfigSetsUseSSHStorage(c *gc.C) {
 	attrs := manual.MinimalConfigValues()
 	delete(attrs, "use-sshstorage")
 	testConfig, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := manual.ProviderInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+	testConfig, err = manual.ProviderInstance.BootstrapConfig(environs.BootstrapConfigParams{
 		Config:        testConfig,
 		CloudEndpoint: "hostname",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	cfg := env.Config()
-	value := cfg.AllAttrs()["use-sshstorage"]
+	value := testConfig.AllAttrs()["use-sshstorage"]
 	c.Assert(value, jc.IsTrue)
 }
 

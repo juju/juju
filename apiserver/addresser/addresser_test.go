@@ -273,12 +273,14 @@ func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {
 // testingEnvConfig prepares an environment configuration using
 // the dummy provider.
 func testingEnvConfig(c *gc.C) *config.Config {
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
 		modelcmd.BootstrapContext(coretesting.Context(c)),
 		jujuclienttesting.NewMemStore(),
-		"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
+		environs.PrepareParams{
+			ControllerName: "dummycontroller",
+			BaseConfig:     dummy.SampleConfig(),
+			CloudName:      "dummy",
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()
@@ -298,12 +300,14 @@ func nonexTestingEnvConfig(c *gc.C) *config.Config {
 // mockTestingEnvConfig prepares an environment configuration using
 // the mock provider which does not support networking.
 func mockTestingEnvConfig(c *gc.C) *config.Config {
-	cfg, err := config.New(config.NoDefaults, mockConfig())
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
 		modelcmd.BootstrapContext(coretesting.Context(c)),
 		jujuclienttesting.NewMemStore(),
-		"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
+		environs.PrepareParams{
+			ControllerName: "dummycontroller",
+			BaseConfig:     mockConfig(),
+			CloudName:      "dummy",
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()

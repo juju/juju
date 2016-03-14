@@ -16,6 +16,9 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 )
@@ -235,11 +238,90 @@ func (ctx *apiContext) newAPIRoot(store jujuclient.ClientStore, controllerName, 
 	if controllerName == "" {
 		return nil, errors.Trace(errNoNameSpecified)
 	}
-	return juju.NewAPIConnection(store, controllerName, accountName, modelName, ctx.client)
+	return juju.NewAPIConnection(
+		store, controllerName, accountName, modelName, ctx.client,
+		NewGetBootstrapConfigFunc(store),
+	)
 }
 
 // httpClient returns an http.Client that contains the loaded
 // persistent cookie jar.
 func (ctx *apiContext) httpClient() *http.Client {
 	return ctx.client.Client
+}
+
+// NewGetBootstrapConfigFunc returns a function that, given a controller name,
+// returns the bootstrap config for that controller in the given client store.
+func NewGetBootstrapConfigFunc(store jujuclient.ClientStore) func(string) (*config.Config, error) {
+	return bootstrapConfigGetter{store}.getBootstrapConfig
+}
+
+type bootstrapConfigGetter struct {
+	jujuclient.ClientStore
+}
+
+func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*config.Config, error) {
+	controllerName, err := ResolveControllerName(g.ClientStore, controllerName)
+	if err != nil {
+		return nil, errors.Annotate(err, "resolving controller name")
+	}
+	bootstrapConfig, err := g.BootstrapConfigForController(controllerName)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting bootstrap config")
+	}
+	cloudType, ok := bootstrapConfig.Config["type"].(string)
+	if !ok {
+		return nil, errors.NotFoundf("cloud type in bootstrap config")
+	}
+
+	var credential *cloud.Credential
+	if bootstrapConfig.Credential != "" {
+		credential, _, _, err = GetCredentials(
+			g.ClientStore,
+			bootstrapConfig.CloudRegion,
+			bootstrapConfig.Credential,
+			bootstrapConfig.Cloud,
+			cloudType,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		// The credential was auto-detected; run auto-detection again.
+		cloudCredential, err := DetectCredential(
+			bootstrapConfig.Cloud, cloudType,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// DetectCredential ensures that there is only one credential
+		// to choose from. It's still in a map, though, hence for..range.
+		for _, one := range cloudCredential.AuthCredentials {
+			credential = &one
+		}
+	}
+
+	// Add attributes from the controller details.
+	controllerDetails, err := g.ControllerByName(controllerName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	bootstrapConfig.Config[config.CACertKey] = controllerDetails.CACert
+	bootstrapConfig.Config[config.UUIDKey] = controllerDetails.ControllerUUID
+	bootstrapConfig.Config[config.ControllerUUIDKey] = controllerDetails.ControllerUUID
+
+	cfg, err := config.New(config.UseDefaults, bootstrapConfig.Config)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	provider, err := environs.Provider(cfg.Type())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return provider.BootstrapConfig(environs.BootstrapConfigParams{
+		cfg, *credential,
+		bootstrapConfig.CloudRegion,
+		bootstrapConfig.CloudEndpoint,
+		bootstrapConfig.CloudStorageEndpoint,
+	})
 }

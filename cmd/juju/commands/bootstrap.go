@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
@@ -104,16 +103,16 @@ See Also:
 const defaultHostedModelName = "default"
 
 func newBootstrapCommand() cmd.Command {
-	return modelcmd.Wrap(&bootstrapCommand{
-		CredentialStore: jujuclient.NewFileCredentialStore(),
-	}, modelcmd.ModelSkipFlags, modelcmd.ModelSkipDefault)
+	return modelcmd.Wrap(
+		&bootstrapCommand{},
+		modelcmd.ModelSkipFlags, modelcmd.ModelSkipDefault,
+	)
 }
 
 // bootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type bootstrapCommand struct {
 	modelcmd.ModelCommandBase
-	CredentialStore jujuclient.CredentialStore
 
 	Constraints           constraints.Value
 	BootstrapConstraints  constraints.Value
@@ -302,26 +301,20 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	// Get the credentials and region name.
-	credential, regionName, err := common.GetCredentials(ctx, c.CredentialStore, c.Region, c.CredentialName, c.Cloud, cloud.Type)
+	store := c.ClientStore()
+	credential, credentialName, regionName, err := modelcmd.GetCredentials(
+		store, c.Region, c.CredentialName, c.Cloud, cloud.Type,
+	)
 	if errors.IsNotFound(err) && c.CredentialName == "" {
 		// No credential was explicitly specified, and no credential
 		// was found in credentials.yaml; have the provider detect
 		// credentials from the environment.
 		ctx.Verbosef("no credentials found, checking environment")
-		provider, err := environs.Provider(cloud.Type)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		detected, err := provider.DetectCredentials()
-		if err != nil {
-			return errors.Annotatef(err, "detecting credentials for %q cloud provider", c.Cloud)
-		}
-		logger.Tracef("provider detected credentials: %v", detected)
-		if len(detected.AuthCredentials) == 0 {
-			return errors.NotFoundf("credentials for cloud %q", c.Cloud)
-		}
-		if len(detected.AuthCredentials) > 1 {
+		detected, err := modelcmd.DetectCredential(c.Cloud, cloud.Type)
+		if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
 			return ambiguousCredentialError
+		} else if err != nil {
+			return errors.Trace(err)
 		}
 		// We have one credential so extract it from the map.
 		var oneCredential jujucloud.Credential
@@ -366,41 +359,26 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		configAttrs[k] = v
 	}
 	logger.Debugf("preparing controller with config: %v", configAttrs)
-	cfg, err := config.New(config.UseDefaults, configAttrs)
-	if err != nil {
-		return errors.Annotate(err, "creating environment configuration")
-	}
-	store := c.ClientStore()
 	environ, err := environsPrepare(
-		modelcmd.BootstrapContext(ctx), store, c.controllerName,
-		environs.PrepareForBootstrapParams{
-			Config:               cfg,
-			Credentials:          *credential,
+		modelcmd.BootstrapContext(ctx), store,
+		environs.PrepareParams{
+			BaseConfig:           configAttrs,
+			ControllerName:       c.controllerName,
+			CloudName:            c.Cloud,
 			CloudRegion:          region.Name,
 			CloudEndpoint:        region.Endpoint,
 			CloudStorageEndpoint: region.StorageEndpoint,
+			Credential:           *credential,
+			CredentialName:       credentialName,
 		},
 	)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Store the legacy bootstrap config.
-	legacyStore, err := configstore.Default()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	info := legacyStore.CreateInfo(controllerUUID.String(), configstore.EnvironInfoName(c.controllerName, cfg.Name()))
-	var accountName string
 	defer func() {
 		if resultErr == nil {
 			return
-		}
-		if err := info.Destroy(); err != nil {
-			logger.Warningf(
-				"cannot destroy newly created controller bootstrap config %q info: %v",
-				c.controllerName, err,
-			)
 		}
 		if err := store.RemoveController(c.controllerName); err != nil {
 			logger.Warningf(
@@ -408,23 +386,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 				c.controllerName, err,
 			)
 		}
-		if accountName != "" {
-			if err := store.RemoveAccount(c.controllerName, accountName); err != nil {
-				logger.Warningf(
-					"cannot destroy newly created account info %q info: %v",
-					accountName, err,
-				)
-			}
-		}
 	}()
 
-	info.SetBootstrapConfig(environ.Config().AllAttrs())
-	if err := info.Write(); err != nil {
-		return errors.Trace(err)
-	}
-
 	// Set the current model to the initial hosted model.
-	accountName, err = store.CurrentAccount(c.controllerName)
+	accountName, err := store.CurrentAccount(c.controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -463,7 +428,7 @@ to clean up the model.`[1:])
 			} else {
 				handleBootstrapError(ctx, resultErr, func() error {
 					return environsDestroy(
-						c.controllerName, environ, legacyStore, store,
+						c.controllerName, environ, store,
 					)
 				})
 			}
