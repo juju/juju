@@ -129,7 +129,7 @@ func (s *accessSuite) threeModels(c *gc.C, action params.ModelAction) {
 			c.Fail()
 		}
 		if result, ok := response.(*params.ErrorResults); ok {
-			*result = params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}}
+			*result = params.ErrorResults{Results: []params.ErrorResult{{Error: nil}, {Error: nil}, {Error: nil}}}
 		} else {
 			c.Log("wrong output structure")
 			c.Fail()
@@ -164,7 +164,7 @@ func (s *accessSuite) errorResult(c *gc.C, action params.ModelAction) {
 		}
 		if result, ok := response.(*params.ErrorResults); ok {
 			err := &params.Error{Message: "unfortunate mishap"}
-			*result = params.ErrorResults{Results: []params.ErrorResult{{Error: err}, {Error: nil}, {Error: nil}}}
+			*result = params.ErrorResults{Results: []params.ErrorResult{{Error: err}}}
 		} else {
 			c.Log("wrong output structure")
 			c.Fail()
@@ -175,4 +175,18 @@ func (s *accessSuite) errorResult(c *gc.C, action params.ModelAction) {
 	fn := s.accessFunc(action)
 	err := fn("aaa", "write", someModelUUID)
 	c.Assert(err, gc.ErrorMatches, "unfortunate mishap")
+}
+
+func (s *accessSuite) TestInvalidResultCount(c *gc.C) {
+	modelmanager.PatchFacadeCall(s, s.modelmanager, func(request string, paramsIn interface{}, response interface{}) error {
+		if result, ok := response.(*params.ErrorResults); ok {
+			*result = params.ErrorResults{Results: nil}
+		} else {
+			c.Fatalf("wrong input structure")
+		}
+		return nil
+	})
+
+	err := s.modelmanager.GrantModel("bob", "write", someModelUUID, someModelUUID)
+	c.Assert(err, gc.ErrorMatches, "expected 2 results, got 0")
 }

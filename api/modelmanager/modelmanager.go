@@ -163,6 +163,9 @@ func (c *Client) modifyModelUser(action params.ModelAction, user, access string,
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if len(result.Results) != len(args.Changes) {
+		return errors.Errorf("expected %d results, got %d", len(args.Changes), len(result.Results))
+	}
 
 	for i, r := range result.Results {
 		if r.Error != nil && r.Error.Code == params.CodeAlreadyExists {
