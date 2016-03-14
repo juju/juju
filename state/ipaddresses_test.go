@@ -566,3 +566,48 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithDuplicateProviderIDSu
 	err := s.machine.SetDevicesAddresses(secondAddressArgs)
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *ipAddressesStateSuite) TestMachineSetDevicesAddressesIdempotentlyOnce(c *gc.C) {
+	s.testMachineSetDevicesAddressesIdempotently(c)
+}
+
+func (s *ipAddressesStateSuite) TestMachineSetDevicesAddressesIdempotentlyTwice(c *gc.C) {
+	s.testMachineSetDevicesAddressesIdempotently(c)
+	s.testMachineSetDevicesAddressesIdempotently(c)
+}
+
+func (s *ipAddressesStateSuite) testMachineSetDevicesAddressesIdempotently(c *gc.C) {
+	err := s.machine.SetParentLinkLayerDevicesBeforeTheirChildren(nestedDevicesArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := []state.LinkLayerDeviceAddress{{
+		DeviceName:   "lo",
+		CIDRAddress:  "127.0.0.1/8",
+		ConfigMethod: state.LoopbackAddress,
+	}, {
+		DeviceName:   "br-bond0",
+		CIDRAddress:  "10.20.0.100/16",
+		ConfigMethod: state.StaticAddress,
+		ProviderID:   "200",
+	}, {
+		DeviceName:   "br-bond0.12",
+		CIDRAddress:  "0.1.2.112/24",
+		ConfigMethod: state.StaticAddress,
+		ProviderID:   "201",
+	}, {
+		DeviceName:   "br-bond0.34",
+		CIDRAddress:  "0.1.2.134/24",
+		ConfigMethod: state.StaticAddress,
+		ProviderID:   "202",
+	}}
+	err = s.machine.SetDevicesAddressesIdempotently(args)
+	c.Assert(err, jc.ErrorIsNil)
+	allAddresses, err := s.machine.AllAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allAddresses, gc.HasLen, len(args))
+	for _, address := range allAddresses {
+		if address.ConfigMethod() != state.LoopbackAddress && address.ConfigMethod() != state.ManualAddress {
+			c.Check(address.ProviderID(), gc.Not(gc.Equals), network.Id(""))
+		}
+	}
+}

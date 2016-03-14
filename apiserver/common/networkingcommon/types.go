@@ -477,6 +477,7 @@ func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []p
 				bridgeConfig.InterfaceType = string(network.BridgeInterface)
 				bridgeConfig.ConfigType = underlyingConfig.ConfigType
 				bridgeConfig.VLANTag = underlyingConfig.VLANTag
+				bridgeConfig.ProviderId = "" // Juju-created bridges never have a ProviderID
 				bridgeConfig.ProviderSpaceId = underlyingConfig.ProviderSpaceId
 				bridgeConfig.ProviderVLANId = underlyingConfig.ProviderVLANId
 				bridgeConfig.ProviderSubnetId = underlyingConfig.ProviderSubnetId

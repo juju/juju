@@ -811,12 +811,40 @@ func (m *Machine) SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs []Lin
 			break
 		}
 		logger.Debugf("setting link-layer devices %+v", argsToSet)
-		if err := m.SetLinkLayerDevices(argsToSet...); err != nil {
+		if err := m.SetLinkLayerDevices(argsToSet...); IsProviderIDNotUniqueError(err) {
+			// FIXME: Make updating devices with unchanged ProviderID idempotent.
+			for i, args := range argsToSet {
+				args.ProviderID = ""
+				argsToSet[i] = args
+			}
+			if err := m.SetLinkLayerDevices(argsToSet...); err != nil {
+				return errors.Trace(err)
+			}
+		} else if err != nil {
 			return errors.Trace(err)
 		}
 		for _, args := range argsToSet {
 			seenNames.Add(args.Name)
 		}
+	}
+	return nil
+}
+
+// SetDevicesAddressesIdempotently calls SetDevicesAddresses() and if it fails
+// with ErrProviderIDNotUnique, retries the call with all ProviderID fields in
+// devicesAddresses set to empty.
+func (m *Machine) SetDevicesAddressesIdempotently(devicesAddresses []LinkLayerDeviceAddress) error {
+	if err := m.SetDevicesAddresses(devicesAddresses...); IsProviderIDNotUniqueError(err) {
+		// FIXME: Make updating addresses with unchanged ProviderID idempotent.
+		for i, args := range devicesAddresses {
+			args.ProviderID = ""
+			devicesAddresses[i] = args
+		}
+		if err := m.SetDevicesAddresses(devicesAddresses...); err != nil {
+			return errors.Trace(err)
+		}
+	} else if err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

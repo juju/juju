@@ -190,7 +190,7 @@ func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkCo
 	}
 
 	logger.Debugf("setting addresses: %+v", devicesAddrs)
-	if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
+	if err := m.SetDevicesAddressesIdempotently(devicesAddrs); err != nil {
 		return errors.Trace(err)
 	}
 

@@ -925,44 +925,65 @@ func (s *linkLayerDevicesStateSuite) TestMachineRemoveAlsoRemoveAllLinkLayerDevi
 	s.assertNoDevicesOnMachine(c, s.machine)
 }
 
-func (s *linkLayerDevicesStateSuite) TestMachineSetParentLinkLayerDevicesBeforeTheirChildren(c *gc.C) {
-	nestedArgs := []state.LinkLayerDeviceArgs{{
-		Name: "lo",
-		Type: state.LoopbackDevice,
-	}, {
-		Name: "br-bond0",
-		Type: state.BridgeDevice,
-	}, {
-		Name:       "br-bond0.12",
-		Type:       state.BridgeDevice,
-		ParentName: "br-bond0",
-	}, {
-		Name:       "br-bond0.34",
-		Type:       state.BridgeDevice,
-		ParentName: "br-bond0",
-	}, {
-		Name:       "bond0",
-		Type:       state.BondDevice,
-		ParentName: "br-bond0",
-	}, {
-		Name:       "bond0.12",
-		Type:       state.VLAN_8021QDevice,
-		ParentName: "bond0",
-	}, {
-		Name:       "bond0.34",
-		Type:       state.VLAN_8021QDevice,
-		ParentName: "bond0",
-	}, {
-		Name:       "eth0",
-		Type:       state.EthernetDevice,
-		ParentName: "bond0",
-	}, {
-		Name:       "eth1",
-		Type:       state.EthernetDevice,
-		ParentName: "bond0",
-	}}
+func (s *linkLayerDevicesStateSuite) TestMachineSetParentLinkLayerDevicesBeforeTheirChildrenUnchangedProviderIDsOK(c *gc.C) {
+	s.testMachineSetParentLinkLayerDevicesBeforeTheirChildren(c)
+}
 
-	err := s.machine.SetParentLinkLayerDevicesBeforeTheirChildren(nestedArgs)
+func (s *linkLayerDevicesStateSuite) TestMachineSetParentLinkLayerDevicesBeforeTheirChildrenIdempotent(c *gc.C) {
+	s.testMachineSetParentLinkLayerDevicesBeforeTheirChildren(c)
+	s.testMachineSetParentLinkLayerDevicesBeforeTheirChildren(c)
+}
+
+var nestedDevicesArgs = []state.LinkLayerDeviceArgs{{
+	Name: "lo",
+	Type: state.LoopbackDevice,
+}, {
+	Name: "br-bond0",
+	Type: state.BridgeDevice,
+}, {
+	Name:       "br-bond0.12",
+	Type:       state.BridgeDevice,
+	ParentName: "br-bond0",
+}, {
+	Name:       "br-bond0.34",
+	Type:       state.BridgeDevice,
+	ParentName: "br-bond0",
+}, {
+	Name:       "bond0",
+	Type:       state.BondDevice,
+	ParentName: "br-bond0",
+	ProviderID: "100",
+}, {
+	Name:       "bond0.12",
+	Type:       state.VLAN_8021QDevice,
+	ParentName: "bond0",
+	ProviderID: "101",
+}, {
+	Name:       "bond0.34",
+	Type:       state.VLAN_8021QDevice,
+	ParentName: "bond0",
+	ProviderID: "102",
+}, {
+	Name:       "eth0",
+	Type:       state.EthernetDevice,
+	ParentName: "bond0",
+	ProviderID: "103",
+}, {
+	Name:       "eth1",
+	Type:       state.EthernetDevice,
+	ParentName: "bond0",
+	ProviderID: "104",
+}}
+
+func (s *linkLayerDevicesStateSuite) testMachineSetParentLinkLayerDevicesBeforeTheirChildren(c *gc.C) {
+	err := s.machine.SetParentLinkLayerDevicesBeforeTheirChildren(nestedDevicesArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertAllLinkLayerDevicesOnMachineMatchCount(c, s.machine, len(nestedArgs))
+	allDevices, err := s.machine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allDevices, gc.HasLen, len(nestedDevicesArgs))
+	for _, device := range allDevices {
+		if device.Type() != state.LoopbackDevice && device.Type() != state.BridgeDevice {
+			c.Check(device.ProviderID(), gc.Not(gc.Equals), network.Id(""))
+		}
+	}
 }
