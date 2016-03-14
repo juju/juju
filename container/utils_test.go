@@ -7,12 +7,14 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+var _ = gc.Suite(&UtilsSuite{})
+
 type UtilsSuite struct {
 	testing.BaseSuite
 }
 
 func (s *UtilsSuite) TestIsLXCSupportedOnHost(c *gc.C) {
-	s.PatchValue(RunningInContainer, func() bool {
+	s.PatchValue(&RunningInContainer, func() bool {
 		return false
 	})
 	supports := ContainersSupported()
@@ -20,7 +22,7 @@ func (s *UtilsSuite) TestIsLXCSupportedOnHost(c *gc.C) {
 }
 
 func (s *UtilsSuite) TestIsLXCSupportedOnLXCContainer(c *gc.C) {
-	s.PatchValue(RunningInContainer, func() bool {
+	s.PatchValue(&RunningInContainer, func() bool {
 		return true
 	})
 	supports := ContainersSupported()
