@@ -237,34 +237,28 @@ func resolveStoreResource(res charmresource.Resource, storeResources map[string]
 		// relevant charm revision).
 		return res, errors.NotFoundf("charm store resource %q", res.Name)
 	}
-	revision := neededRevision(res, storeRes)
-	if revision < 0 {
-		// The resource info is already okay.
-		// TODO(ericsnow) Verify that the info is correct via a
-		// client.GetResource() call?
-		return res, nil
+
+	if res.Revision < 0 {
+		// The caller wants to use the charm store info.
+		return storeRes, nil
 	}
-	if revision != storeRes.Revision {
-		// We have a desired revision but are missing the
-		// fingerprint, etc.
+	if res.Revision == storeRes.Revision {
+		// We don't worry about if they otherwise match. Only the
+		// revision is significant here. So we use the info from the
+		// charm store since it is authoritative.
+		return storeRes, nil
+	}
+	if res.Fingerprint.IsZero() {
+		// The caller wants resource info from the charm store, but with
+		// a different resource revision than the one associated with
+		// the charm in the store.
 		// TODO(ericsnow) Call client.GetResource() to get info for that revision.
 		return storeRes, errors.NewNotSupported(nil, "could not get resource info from charm store")
 	}
-	// Otherwise we use the info from the store as-is.
-	return storeRes, nil
-}
-
-func neededRevision(res, latest charmresource.Resource) int {
-	if res.Revision < 0 {
-		return latest.Revision
-	}
-	if res.Revision == latest.Revision {
-		return latest.Revision
-	}
-	if res.Fingerprint.IsZero() {
-		return res.Revision
-	}
-	return -1 // use it as-is
+	// The caller fully-specified a resource with a different resource
+	// revision than the one associated with the charm in the store. So
+	// we use the provided info as-is.
+	return res, nil
 }
 
 func (f Facade) addPendingResource(serviceID string, chRes charmresource.Resource) (pendingID string, err error) {
