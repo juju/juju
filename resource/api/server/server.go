@@ -156,15 +156,16 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 		if err != nil {
 			return nil, err
 		}
+		// TODO(ericsnow) Do something else for local charms.
 		storeResources, err := f.resourcesFromCharmstore(cURL, csMac)
 		if err != nil {
 			return nil, err
 		}
-		combined, err := combineResources(storeResources, resources)
+		resolved, err := resolveResources(resources, storeResources)
 		if err != nil {
 			return nil, err
 		}
-		resources = combined
+		resources = resolved
 	}
 
 	var ids []string
@@ -181,6 +182,10 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 	return ids, nil
 }
 
+// resourcesFromCharmstore gets the info for the charm's resources in
+// the charm store. If the charm URL has a revision then that revision's
+// resources are returned. Otherwise the latest info for each of the
+// resources is returned.
 func (f Facade) resourcesFromCharmstore(cURL *charm.URL, csMac *macaroon.Macaroon) (map[string]charmresource.Resource, error) {
 	client, err := f.newCharmstoreClient(cURL, csMac)
 	if err != nil {
@@ -197,36 +202,52 @@ func (f Facade) resourcesFromCharmstore(cURL *charm.URL, csMac *macaroon.Macaroo
 	return storeResources, nil
 }
 
-func combineResources(storeResources map[string]charmresource.Resource, resources []charmresource.Resource) ([]charmresource.Resource, error) {
-	combined := make([]charmresource.Resource, len(resources))
-	copy(combined, resources)
+// resolveResources determines the resource info that should actually
+// be stored on the controller. That decision is based on the provided
+// resources along with those in the charm store (if any).
+func resolveResources(resources []charmresource.Resource, storeResources map[string]charmresource.Resource) ([]charmresource.Resource, error) {
+	allResolved := make([]charmresource.Resource, len(resources))
+	copy(allResolved, resources)
 	for i, res := range resources {
+		// Note that incoming "upload" resources take precedence over
+		// ones already known to the controller, regardless of their
+		// origin.
 		if res.Origin != charmresource.OriginStore {
 			continue
 		}
-		storeRes, ok := storeResources[res.Name]
-		if !ok {
-			// TODO(ericsnow) Fail instead?
-			continue
-		}
-		revision := neededRevision(res, storeRes)
-		if revision < 0 {
-			// The resource info is already okay.
-			// TODO(ericsnow) Verify that the info is correct via a
-			// client.GetResource() call?
-			continue
-		}
-		if revision != storeRes.Revision {
-			// We have a desired revision but are missing the
-			// fingerprint, etc.
-			// TODO(ericsnow) Call client.GetResource() to get info for that revision.
-			return nil, errors.NotSupportedf("could not get resource info")
-		}
-		// Otherwise we use the info from the store as-is.
-		combined[i] = storeRes
-	}
 
-	return combined, nil
+		resolved, err := resolveStoreResource(res, storeResources)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		allResolved[i] = resolved
+	}
+	return allResolved, nil
+}
+
+// resolveStoreResource selects the resource info to use. It decides
+// between the provided and latest info based on the revision.
+func resolveStoreResource(res charmresource.Resource, storeResources map[string]charmresource.Resource) (charmresource.Resource, error) {
+	storeRes, ok := storeResources[res.Name]
+	if !ok {
+		// TODO(ericsnow) Fail instead?
+		return res, nil
+	}
+	revision := neededRevision(res, storeRes)
+	if revision < 0 {
+		// The resource info is already okay.
+		// TODO(ericsnow) Verify that the info is correct via a
+		// client.GetResource() call?
+		return res, nil
+	}
+	if revision != storeRes.Revision {
+		// We have a desired revision but are missing the
+		// fingerprint, etc.
+		// TODO(ericsnow) Call client.GetResource() to get info for that revision.
+		return storeRes, errors.NotSupportedf("could not get resource info")
+	}
+	// Otherwise we use the info from the store as-is.
+	return storeRes, nil
 }
 
 func neededRevision(res, latest charmresource.Resource) int {
