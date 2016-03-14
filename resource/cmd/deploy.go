@@ -36,9 +36,9 @@ type DeployResourcesArgs struct {
 	// interacting with the charm store.
 	CharmStoreMacaroon *macaroon.Macaroon
 
-	// Specified is the set of resources for which a filename
+	// Filenames is the set of resources for which a filename
 	// was provided at the command-line.
-	Specified map[string]string
+	Filenames map[string]string
 
 	// ResourcesMeta holds the charm metadata for each of the resources
 	// that should be added/updated on the controller.
@@ -62,7 +62,7 @@ func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error
 		osStat:    func(s string) error { _, err := os.Stat(s); return err },
 	}
 
-	ids, err = d.upload(args.Specified)
+	ids, err = d.upload(args.Filenames)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

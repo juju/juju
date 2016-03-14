@@ -52,7 +52,7 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 		ServiceID:          "mysql",
 		CharmURL:           cURL,
 		CharmStoreMacaroon: csMac,
-		Specified:          nil,
+		Filenames:          nil,
 		Client:             deps,
 		ResourcesMeta:      resources,
 	})
