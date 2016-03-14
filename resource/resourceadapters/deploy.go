@@ -27,7 +27,7 @@ func DeployResources(serviceID string, cURL *charm.URL, csMac *macaroon.Macaroon
 		ServiceID:          serviceID,
 		CharmURL:           cURL,
 		CharmStoreMacaroon: csMac,
-		Specified:          files,
+		Filenames:          files,
 		ResourcesMeta:      resources,
 		Client:             &deployClient{client},
 	})
