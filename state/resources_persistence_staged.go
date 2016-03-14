@@ -21,8 +21,6 @@ type StagedResource struct {
 }
 
 func (staged StagedResource) stage() error {
-	// TODO(ericsnow) Ensure that the service is still there?
-
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var ops []txn.Op
 		switch attempt {
@@ -33,6 +31,7 @@ func (staged StagedResource) stage() error {
 		default:
 			return nil, errors.NewAlreadyExists(nil, "already staged")
 		}
+		ops = append(ops, staged.base.ServiceExistsOps(staged.stored.ServiceID)...)
 
 		return ops, nil
 	}
@@ -63,8 +62,6 @@ func (staged StagedResource) Unstage() error {
 
 // Activate makes the staged resource the active resource.
 func (staged StagedResource) Activate() error {
-	// TODO(ericsnow) Ensure that the service is still there?
-
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// This is an "upsert".
 		var ops []txn.Op
@@ -76,6 +73,7 @@ func (staged StagedResource) Activate() error {
 		default:
 			return nil, errors.New("setting the resource failed")
 		}
+		ops = append(ops, staged.base.ServiceExistsOps(staged.stored.ServiceID)...)
 		// No matter what, we always remove any staging.
 		ops = append(ops, newRemoveStagedResourceOps(staged.id)...)
 

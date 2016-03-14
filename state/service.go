@@ -180,6 +180,14 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		}
 		ops = append(ops, relOps...)
 	}
+	// TODO(ericsnow) Use a generic registry instead.
+	if removeResourcesOps != nil {
+		resOps, err := removeResourcesOps(s.st, s.doc.Name, "")
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, resOps...)
+	}
 	// If the service has no units, and all its known relations will be
 	// removed, the service can also be removed.
 	if s.doc.UnitCount == 0 && s.doc.RelationCount == removeCount {
@@ -218,6 +226,29 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		Assert: notLastRefs,
 		Update: update,
 	}), nil
+}
+
+func removeResourcesOps(st *State, serviceID, unitID string) ([]txn.Op, error) {
+	persist, err := st.ResourcesPersistence()
+	if errors.IsNotSupported(err) {
+		// Nothing to see here, move along.
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if unitID != "" {
+		ops, err := persist.NewRemoveUnitResourcesOps(unitID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ops, nil
+	}
+	ops, err := persist.NewRemoveResourcesOps(serviceID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ops, nil
 }
 
 // removeOps returns the operations required to remove the service. Supplied
@@ -1028,6 +1059,14 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	storageInstanceOps, err := removeStorageInstancesOps(s.st, u.Tag())
 	if err != nil {
 		return nil, err
+	}
+	// TODO(ericsnow) Use a generic registry instead.
+	if removeResourcesOps != nil {
+		resOps, err := removeResourcesOps(s.st, u.doc.Service, u.doc.Name)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, resOps...)
 	}
 
 	observedFieldsMatch := bson.D{

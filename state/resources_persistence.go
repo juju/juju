@@ -15,6 +15,10 @@ import (
 	"github.com/juju/juju/resource"
 )
 
+const (
+	cleanupKindResourceBlob = "resourceBlob"
+)
+
 // ResourcePersistenceBase exposes the core persistence functionality
 // needed for resources.
 type ResourcePersistenceBase interface {
@@ -30,9 +34,17 @@ type ResourcePersistenceBase interface {
 	// function. It may be retried several times.
 	Run(transactions jujutxn.TransactionSource) error
 
+	// ServiceExistsOps returns the operations that verify that the
+	// identified service exists.
+	ServiceExistsOps(serviceID string) []txn.Op
+
 	// IncCharmModifiedVersionOps returns the operations necessary to increment
 	// the CharmModifiedVersion field for the given service.
 	IncCharmModifiedVersionOps(serviceID string) []txn.Op
+
+	// NewCleanupOp creates a mgo transaction operation that queues up
+	// some cleanup action in state.
+	NewCleanupOp(kind, prefix string) txn.Op
 }
 
 // ResourcePersistence provides the persistence functionality for the
@@ -52,8 +64,6 @@ func NewResourcePersistence(base ResourcePersistenceBase) *ResourcePersistence {
 // identified service.
 func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceResources, error) {
 	logger.Tracef("listing all resources for service %q", serviceID)
-
-	// TODO(ericsnow) Ensure that the service is still there?
 
 	docs, err := p.resources(serviceID)
 	if err != nil {
@@ -178,8 +188,6 @@ func (p ResourcePersistence) SetResource(res resource.Resource) error {
 	// so then the following line is unnecessary.
 	stored.Resource = res
 
-	// TODO(ericsnow) Ensure that the service is still there?
-
 	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
 	}
@@ -196,6 +204,7 @@ func (p ResourcePersistence) SetResource(res resource.Resource) error {
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
 		}
+		ops = append(ops, p.base.ServiceExistsOps(res.ServiceID)...)
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {
@@ -230,6 +239,7 @@ func (p ResourcePersistence) SetCharmStoreResource(id, serviceID string, res cha
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
 		}
+		ops = append(ops, p.base.ServiceExistsOps(serviceID)...)
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {
@@ -249,8 +259,6 @@ func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resourc
 	// so then the following line is unnecessary.
 	stored.Resource = res
 
-	// TODO(ericsnow) Ensure that the service is still there?
-
 	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
 	}
@@ -267,6 +275,7 @@ func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resourc
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
 		}
+		ops = append(ops, p.base.ServiceExistsOps(res.ServiceID)...)
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {
@@ -323,5 +332,34 @@ func (p ResourcePersistence) NewResolvePendingResourceOps(resID, pendingID strin
 	}
 
 	ops := newResolvePendingResourceOps(pending, exists)
+	return ops, nil
+}
+
+// NewRemoveUnitResourcesOps returns mgo transaction operations
+// that remove resource information specific to the unit from state.
+func (p ResourcePersistence) NewRemoveUnitResourcesOps(unitID string) ([]txn.Op, error) {
+	docs, err := p.unitResources(unitID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ops := newRemoveResourcesOps(docs)
+	// We do not remove the resource from the blob store here. That is
+	// a service-level matter.
+	return ops, nil
+}
+
+// NewRemoveResourcesOps returns mgo transaction operations that
+// remove all the service's resources from state.
+func (p ResourcePersistence) NewRemoveResourcesOps(serviceID string) ([]txn.Op, error) {
+	docs, err := p.resources(serviceID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ops := newRemoveResourcesOps(docs)
+	for _, doc := range docs {
+		ops = append(ops, p.base.NewCleanupOp(cleanupKindResourceBlob, doc.StoragePath))
+	}
 	return ops, nil
 }

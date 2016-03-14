@@ -33,6 +33,11 @@ func (s *ResourcePersistenceSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.base = statetest.NewStubPersistence(s.stub)
+	s.base.ReturnServiceExistsOps = []txn.Op{{
+		C:      "service",
+		Id:     "a-service",
+		Assert: txn.DocExists,
+	}}
 }
 
 func (s *ResourcePersistenceSuite) TestListResourcesOkay(c *gc.C) {
@@ -184,17 +189,21 @@ func (s *ResourcePersistenceSuite) TestStageResourceOkay(c *gc.C) {
 	doc.DocID += "#staged"
 	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, nil, ignoredErr)
+	s.stub.SetErrors(nil, nil, nil, ignoredErr)
 
 	staged, err := p.StageResource(res.Resource, res.storagePath)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Run", "RunTransaction")
-	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
+	s.stub.CheckCallNames(c, "Run", "ServiceExistsOps", "RunTransaction")
+	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam#staged",
 		Assert: txn.DocMissing,
 		Insert: &doc,
+	}, {
+		C:      "service",
+		Id:     "a-service",
+		Assert: txn.DocExists,
 	}})
 	c.Check(staged, jc.DeepEquals, &StagedResource{
 		base:   s.base,
@@ -232,7 +241,7 @@ func (s *ResourcePersistenceSuite) TestSetResourceOkay(c *gc.C) {
 	s.base.ReturnOne = doc
 	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, nil, nil, ignoredErr)
+	s.stub.SetErrors(nil, nil, nil, nil, ignoredErr)
 
 	err := p.SetResource(res.Resource)
 	c.Assert(err, jc.ErrorIsNil)
@@ -240,13 +249,18 @@ func (s *ResourcePersistenceSuite) TestSetResourceOkay(c *gc.C) {
 	s.stub.CheckCallNames(c,
 		"One",
 		"Run",
+		"ServiceExistsOps",
 		"RunTransaction",
 	)
-	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
+	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam",
 		Assert: txn.DocMissing,
 		Insert: &doc,
+	}, {
+		C:      "service",
+		Id:     "a-service",
+		Assert: txn.DocExists,
 	}})
 }
 
@@ -259,7 +273,7 @@ func (s *ResourcePersistenceSuite) TestSetResourceNotFound(c *gc.C) {
 	p := NewResourcePersistence(s.base)
 	notFound := errors.NewNotFound(nil, "")
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(notFound, nil, nil, ignoredErr)
+	s.stub.SetErrors(notFound, nil, nil, nil, ignoredErr)
 
 	err := p.SetResource(res.Resource)
 	c.Assert(err, jc.ErrorIsNil)
@@ -267,13 +281,18 @@ func (s *ResourcePersistenceSuite) TestSetResourceNotFound(c *gc.C) {
 	s.stub.CheckCallNames(c,
 		"One",
 		"Run",
+		"ServiceExistsOps",
 		"RunTransaction",
 	)
-	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
+	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam",
 		Assert: txn.DocMissing,
 		Insert: &expected,
+	}, {
+		C:      "service",
+		Id:     "a-service",
+		Assert: txn.DocExists,
 	}})
 }
 
@@ -296,13 +315,18 @@ func (s *ResourcePersistenceSuite) TestSetCharmStoreResourceOkay(c *gc.C) {
 
 	s.stub.CheckCallNames(c,
 		"Run",
+		"ServiceExistsOps",
 		"RunTransaction",
 	)
-	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
+	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam#charmstore",
 		Assert: txn.DocMissing,
 		Insert: &expected,
+	}, {
+		C:      "service",
+		Id:     "a-service",
+		Assert: txn.DocExists,
 	}})
 }
 
@@ -313,17 +337,21 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 	s.base.ReturnOne = doc
 	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, nil, nil, ignoredErr)
+	s.stub.SetErrors(nil, nil, nil, nil, ignoredErr)
 
 	err := p.SetUnitResource("a-service/0", res)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "One", "Run", "RunTransaction")
-	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
+	s.stub.CheckCallNames(c, "One", "Run", "ServiceExistsOps", "RunTransaction")
+	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/eggs#unit-a-service/0",
 		Assert: txn.DocMissing,
 		Insert: &doc,
+	}, {
+		C:      "service",
+		Id:     "a-service",
+		Assert: txn.DocExists,
 	}})
 }
 
@@ -347,19 +375,23 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
 	s.base.ReturnOne = doc
 	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, nil, txn.ErrAborted, nil, ignoredErr)
+	s.stub.SetErrors(nil, nil, nil, txn.ErrAborted, nil, nil, ignoredErr)
 
 	err := p.SetUnitResource("a-service/0", res)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "One", "Run", "RunTransaction", "RunTransaction")
-	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
+	s.stub.CheckCallNames(c, "One", "Run", "ServiceExistsOps", "RunTransaction", "ServiceExistsOps", "RunTransaction")
+	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam#unit-a-service/0",
 		Assert: txn.DocMissing,
 		Insert: &doc,
+	}, {
+		C:      "service",
+		Id:     "a-service",
+		Assert: txn.DocExists,
 	}})
-	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
+	s.stub.CheckCall(c, 5, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-service/spam#unit-a-service/0",
 		Assert: txn.DocExists,
@@ -369,6 +401,10 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
 		Id:     "resource#a-service/spam#unit-a-service/0",
 		Assert: txn.DocMissing,
 		Insert: &doc,
+	}, {
+		C:      "service",
+		Id:     "a-service",
+		Assert: txn.DocExists,
 	}})
 }
 

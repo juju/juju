@@ -74,8 +74,8 @@ func (s *ResourceSuite) TestListResourcesOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(resources.Resources, jc.DeepEquals, expected)
-	s.stub.CheckCallNames(c, "ListResources")
-	s.stub.CheckCall(c, 0, "ListResources", "a-service")
+	s.stub.CheckCallNames(c, "VerifyService", "ListResources")
+	s.stub.CheckCall(c, 1, "ListResources", "a-service")
 }
 
 func (s *ResourceSuite) TestListResourcesEmpty(c *gc.C) {
@@ -86,7 +86,7 @@ func (s *ResourceSuite) TestListResourcesEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(resources.Resources, gc.HasLen, 0)
-	s.stub.CheckCallNames(c, "ListResources")
+	s.stub.CheckCallNames(c, "VerifyService", "ListResources")
 }
 
 func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
@@ -95,12 +95,12 @@ func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
-	s.stub.SetErrors(failure)
+	s.stub.SetErrors(nil, failure)
 
 	_, err := st.ListResources("a-service")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.stub.CheckCallNames(c, "ListResources")
+	s.stub.CheckCallNames(c, "VerifyService", "ListResources")
 }
 
 func (s *ResourceSuite) TestGetPendingResource(c *gc.C) {
@@ -114,8 +114,8 @@ func (s *ResourceSuite) TestGetPendingResource(c *gc.C) {
 	res, err := st.GetPendingResource("a-service", "eggs", "other-unique-id")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "ListPendingResources")
-	s.stub.CheckCall(c, 0, "ListPendingResources", "a-service")
+	s.stub.CheckCallNames(c, "VerifyService", "ListPendingResources")
+	s.stub.CheckCall(c, 1, "ListPendingResources", "a-service")
 	c.Check(res, jc.DeepEquals, resources[1])
 }
 
@@ -394,8 +394,8 @@ func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {
 	info, reader, err := st.OpenResource("a-service", "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "GetResource", "Get")
-	s.stub.CheckCall(c, 1, "Get", "service-a-service/resources/spam")
+	s.stub.CheckCallNames(c, "VerifyService", "GetResource", "Get")
+	s.stub.CheckCall(c, 2, "Get", "service-a-service/resources/spam")
 	c.Check(info, jc.DeepEquals, opened.Resource)
 	c.Check(reader, gc.Equals, opened.ReadCloser)
 }
@@ -406,7 +406,7 @@ func (s *ResourceSuite) TestOpenResourceNotFound(c *gc.C) {
 
 	_, _, err := st.OpenResource("a-service", "spam")
 
-	s.stub.CheckCallNames(c, "GetResource")
+	s.stub.CheckCallNames(c, "VerifyService", "GetResource")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -419,7 +419,7 @@ func (s *ResourceSuite) TestOpenResourcePlaceholder(c *gc.C) {
 
 	_, _, err := st.OpenResource("a-service", "spam")
 
-	s.stub.CheckCallNames(c, "GetResource")
+	s.stub.CheckCallNames(c, "VerifyService", "GetResource")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -435,7 +435,7 @@ func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 
 	_, _, err := st.OpenResource("a-service", "spam")
 
-	s.stub.CheckCallNames(c, "GetResource", "Get")
+	s.stub.CheckCallNames(c, "VerifyService", "GetResource", "Get")
 	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)
 }
 
@@ -452,8 +452,8 @@ func (s *ResourceSuite) TestOpenResourceForUniterOkay(c *gc.C) {
 	info, reader, err := st.OpenResourceForUniter(unit, "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "ServiceName", "GetResource", "Get")
-	s.stub.CheckCall(c, 2, "Get", "service-a-service/resources/spam")
+	s.stub.CheckCallNames(c, "ServiceName", "VerifyService", "GetResource", "Get")
+	s.stub.CheckCall(c, 3, "Get", "service-a-service/resources/spam")
 	c.Check(info, jc.DeepEquals, opened.Resource)
 
 	b, err := ioutil.ReadAll(reader)
@@ -469,7 +469,7 @@ func (s *ResourceSuite) TestOpenResourceForUniterNotFound(c *gc.C) {
 
 	_, _, err := st.OpenResourceForUniter(unit, "spam")
 
-	s.stub.CheckCallNames(c, "ServiceName", "GetResource")
+	s.stub.CheckCallNames(c, "ServiceName", "VerifyService", "GetResource")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -483,7 +483,7 @@ func (s *ResourceSuite) TestOpenResourceForUniterPlaceholder(c *gc.C) {
 
 	_, _, err := st.OpenResourceForUniter(unit, "spam")
 
-	s.stub.CheckCallNames(c, "ServiceName", "GetResource")
+	s.stub.CheckCallNames(c, "ServiceName", "VerifyService", "GetResource")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -500,7 +500,7 @@ func (s *ResourceSuite) TestOpenResourceForUniterSizeMismatch(c *gc.C) {
 
 	_, _, err := st.OpenResourceForUniter(unit, "spam")
 
-	s.stub.CheckCallNames(c, "ServiceName", "GetResource", "Get")
+	s.stub.CheckCallNames(c, "ServiceName", "VerifyService", "GetResource", "Get")
 	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)
 }
 

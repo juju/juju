@@ -70,6 +70,11 @@ type StagedResource interface {
 	Activate() error
 }
 
+type rawState interface {
+	// VerifyService ensures that the service is in state.
+	VerifyService(id string) error
+}
+
 type resourceStorage interface {
 	// PutAndCheckHash stores the content of the reader into the storage.
 	PutAndCheckHash(path string, r io.Reader, length int64, hash string) error
@@ -84,6 +89,7 @@ type resourceStorage interface {
 
 type resourceState struct {
 	persist resourcePersistence
+	raw     rawState
 	storage resourceStorage
 
 	newPendingID     func() (string, error)
@@ -92,6 +98,9 @@ type resourceState struct {
 
 // ListResources returns the resource data for the given service ID.
 func (st resourceState) ListResources(serviceID string) (resource.ServiceResources, error) {
+	if err := st.raw.VerifyService(serviceID); err != nil {
+		return resource.ServiceResources{}, errors.Trace(err)
+	}
 	resources, err := st.persist.ListResources(serviceID)
 	if err != nil {
 		return resource.ServiceResources{}, errors.Trace(err)
@@ -102,6 +111,9 @@ func (st resourceState) ListResources(serviceID string) (resource.ServiceResourc
 
 // GetResource returns the resource data for the identified resource.
 func (st resourceState) GetResource(serviceID, name string) (resource.Resource, error) {
+	if err := st.raw.VerifyService(serviceID); err != nil {
+		return resource.Resource{}, errors.Trace(err)
+	}
 	id := newResourceID(serviceID, name)
 	res, _, err := st.persist.GetResource(id)
 	if err != nil {
@@ -113,6 +125,10 @@ func (st resourceState) GetResource(serviceID, name string) (resource.Resource, 
 // GetPendingResource returns the resource data for the identified resource.
 func (st resourceState) GetPendingResource(serviceID, name, pendingID string) (resource.Resource, error) {
 	var res resource.Resource
+
+	if err := st.raw.VerifyService(serviceID); err != nil {
+		return res, errors.Trace(err)
+	}
 
 	resources, err := st.persist.ListPendingResources(serviceID)
 	if err != nil {
@@ -235,6 +251,9 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 // OpenResource returns metadata about the resource, and a reader for
 // the resource.
 func (st resourceState) OpenResource(serviceID, name string) (resource.Resource, io.ReadCloser, error) {
+	if err := st.raw.VerifyService(serviceID); err != nil {
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
 	id := newResourceID(serviceID, name)
 	resourceInfo, storagePath, err := st.persist.GetResource(id)
 	if err != nil {
