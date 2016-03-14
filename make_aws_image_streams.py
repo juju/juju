@@ -3,14 +3,12 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 from datetime import datetime
-import logging
 import os
 import sys
 from textwrap import dedent
 import yaml
 
 from boto import ec2
-from boto.exception import EC2ResponseError
 from simplestreams.generate_simplestreams import (
     items2content_trees,
     )
@@ -19,6 +17,27 @@ from simplestreams.json2streams import (
     write_juju_streams,
     )
 from simplestreams.util import timestamp
+
+
+def get_parameters(argv=None):
+    """Return streams, creds_filename for this invocation.
+
+    streams is the directory to write streams into.
+    creds_filename is the filename to get credentials from.
+    """
+    parser = ArgumentParser(description=dedent("""
+        Write image streams for AWS images.  Only CentOS 7 is currently
+        supported."""))
+    parser.add_argument('streams', help='The directory to write streams to.')
+    args = parser.parse_args(argv)
+    try:
+        juju_data = os.environ['JUJU_DATA']
+    except KeyError:
+        print('JUJU_DATA must be set to a directory containing'
+              ' credentials.yaml.', file=sys.stderr)
+        sys.exit(1)
+    creds_filename = os.path.join(juju_data, 'credentials.yaml')
+    return args.streams, creds_filename
 
 
 def is_china(region):
@@ -64,35 +83,15 @@ def make_aws_credentials(creds):
         raise LookupError('No credentials found!')
 
 
-def make_json(image, now):
-    version_name = datetime.utcnow().strftime('%Y%m%d')
-    content_id = 'com.ubuntu.cloud.released:aws'
-    if is_china(image.region):
-        content_id = 'com.ubuntu.cloud.released:aws-cn'
-    else:
-        content_id = 'com.ubuntu.cloud.released:aws'
-    return {
-            'content_id': content_id,
-            'endpoint': 'https://{}'.format(image.region.endpoint),
-            'region': image.region.name,
-            'arch': 'amd64',
-            'os': 'centos',
-            'virt': image.virtualization_type,
-            'id': image.id,
-            'version': 'centos7',
-            'product_name': 'com.ubuntu.cloud:server:centos7:amd64',
-            'item_name': image.region.name,
-            'label': 'release',
-            'release': 'centos7',
-            'release_codename': 'centos7',
-            'release_title': 'Centos 7',
-            'root_store': image.root_device_type,
-            'version_name': version_name,
-        }
-
-
 def make_item(image, now):
-    version_name = datetime.utcnow().strftime('%Y%m%d')
+    if image.architecture != 'x86_64':
+        raise ValueError(
+            'Architecture is "{}", not "x86_64".'.format(image.architecture))
+    if not image.name.startswith('CentOS Linux 7 '):
+        raise ValueError(
+            'Name "{}" does not begin with "CentOS Linux 7".'.format(
+                image.name))
+    version_name = now.strftime('%Y%m%d')
     content_id = 'com.ubuntu.cloud.released:aws'
     if is_china(image.region):
         content_id = 'com.ubuntu.cloud.released:aws-cn'
@@ -113,33 +112,26 @@ def make_item(image, now):
             'release_codename': 'centos7',
             'release_title': 'Centos 7',
             'root_store': image.root_device_type,
-            'version_name': version_name,
         })
 
 
-def main():
-    parser = ArgumentParser(description=dedent("""
-        Write image streams for AWS images.  Only CentOS 7 is currently
-        supported."""))
-    parser.add_argument('streams', help='The directory to write streams to.')
-    args = parser.parse_args()
-    try:
-        juju_data = os.environ['JUJU_DATA']
-    except KeyError:
-        print('JUJU_DATA must be set to a directory containing'
-              ' credentials.yaml.', file=sys.stderr)
-        sys.exit(1)
-    creds_filename = os.path.join(juju_data, 'credentials.yaml')
-    with open(creds_filename) as creds_file:
-        credentials = yaml.safe_load(creds_file)['credentials']
-    aws = make_aws_credentials(credentials['aws'])
-    aws_china = make_aws_credentials(credentials['aws-china'])
-    now = datetime.utcnow()
-    items = [make_item(i, now) for i in iter_centos_images(aws, aws_china)]
+def write_streams(credentials, china_credentials, now, streams):
+    items = [make_item(i, now) for i in iter_centos_images(
+        credentials, china_credentials)]
     updated = timestamp()
     data = {'updated': updated, 'datatype': 'image-ids'}
     trees = items2content_trees(items, data)
-    write_juju_streams(args.streams, trees, updated)
+    write_juju_streams(streams, trees, updated)
+
+
+def main():
+    streams, creds_filename = get_parameters()
+    with open(creds_filename) as creds_file:
+        all_credentials = yaml.safe_load(creds_file)['credentials']
+    credentials = make_aws_credentials(all_credentials['aws'])
+    china_credentials = make_aws_credentials(all_credentials['aws-china'])
+    now = datetime.utcnow()
+    write_streams(credentials, china_credentials, now, streams)
 
 
 if __name__ == '__main__':
