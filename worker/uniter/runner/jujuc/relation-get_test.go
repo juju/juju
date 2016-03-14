@@ -216,10 +216,12 @@ func (s *RelationGetSuite) TestRelationGetFormat(c *gc.C) {
 }
 
 var helpTemplate = `
-usage: %s
-purpose: get relation settings
+Usage: %s
 
-options:
+Summary:
+get relation settings
+
+Options:
 --format  (= smart)
     specify output format (json|smart|yaml)
 -o, --output (= "")
@@ -227,6 +229,7 @@ options:
 -r, --relation  (= %s)
     specify a relation by id
 
+Details:
 relation-get prints the value of a unit's relation setting, specified by key.
 If no key is given, or if the key is "-", all keys and values will be printed.
 %s`[1:]

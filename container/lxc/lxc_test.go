@@ -159,7 +159,7 @@ func (s *LxcSuite) TestContainerManagerLXCClone(c *gc.C) {
 		mgr, err := lxc.NewContainerManager(container.ManagerConfig{
 			container.ConfigName: "juju",
 			"use-clone":          test.useClone,
-		}, &containertesting.MockURLGetter{}, nil)
+		}, &containertesting.MockURLGetter{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(lxc.GetCreateWithCloneValue(mgr), gc.Equals, test.expectClone)
 	}
@@ -600,7 +600,7 @@ func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 	if s.useAUFS {
 		params["use-aufs"] = "true"
 	}
-	manager, err := lxc.NewContainerManager(
+	manager, err := lxc.NewContainerManagerForTest(
 		params, &containertesting.MockURLGetter{},
 		&s.loopDeviceManager,
 	)
@@ -612,7 +612,7 @@ func (*LxcSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 	_, err := lxc.NewContainerManager(container.ManagerConfig{
 		container.ConfigName: "BillyBatson",
 		"shazam":             "Captain Marvel",
-	}, &containertesting.MockURLGetter{}, nil)
+	}, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }

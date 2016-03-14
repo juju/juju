@@ -28,14 +28,14 @@ func (s *ActionCommandSuite) TestHelp(c *gc.C) {
 	ctx, err := testing.RunCommand(c, s.command, "--help")
 	c.Assert(err, gc.IsNil)
 
-	expected := "(?s).*^usage: juju action \\[options\\] <command> .+"
+	expected := "(?s).*^Usage: juju action \\[options\\] <command> .+"
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)
 
 	supercommand, ok := s.command.(*cmd.SuperCommand)
 	c.Check(ok, jc.IsTrue)
-	expected = "(?sm).*^purpose: " + supercommand.Purpose + "$.*"
+	expected = "(?sm).*^Summary:\n" + supercommand.Purpose + "$.*"
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)
-	expected = "(?sm).*^" + supercommand.Doc + "$.*"
+	expected = "(?sm).*^Details:" + supercommand.Doc + "$.*"
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)
 
 	// Check that we've properly registered all subcommands

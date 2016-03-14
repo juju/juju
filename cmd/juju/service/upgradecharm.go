@@ -189,7 +189,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	csClient := newCharmStoreClient(httpClient)
+	csClient := newCharmStoreClient(ctx, httpClient)
 
 	addedURL, err := c.addCharm(oldURL, newRef, ctx, client, csClient)
 	if err != nil {
