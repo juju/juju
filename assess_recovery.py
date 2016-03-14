@@ -159,11 +159,11 @@ def main(argv):
                 leader_only = True
             else:
                 leader_only = False
-            deleted_numbers = delete_controller_members(
+            deleted_machine_ids = delete_controller_members(
                 client, leader_only=leader_only)
-            for num in deleted_numbers:
-                if bs_manager.known_hosts.get(num):
-                    del bs_manager.known_hosts[num]
+            for m_id in deleted_machine_ids:
+                if bs_manager.known_hosts.get(m_id):
+                    del bs_manager.known_hosts[m_id]
             if args.strategy == 'ha':
                 client.get_status(600)
             else:
