@@ -153,7 +153,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(result.Error, gc.ErrorMatches, `.* not supported`)
+	c.Check(result.Error, gc.ErrorMatches, `could not get resource info from charm store`)
 	s.stub.CheckCallNames(c, "newCSClient", "ListResources")
 }
 
@@ -240,7 +240,35 @@ func (s *AddPendingResourcesSuite) TestWithURLUpload(c *gc.C) {
 	})
 }
 
-func (s *AddPendingResourcesSuite) TestError(c *gc.C) {
+func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
+	_, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
+	apiRes1.Origin = "store"
+	facade, err := server.NewFacade(s.data, s.newCSClient)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
+		Entity: params.Entity{
+			Tag: "service-a-service",
+		},
+		AddCharmWithAuthorization: params.AddCharmWithAuthorization{
+			URL: "cs:~a-user/trusty/spam-5",
+		},
+		Resources: []api.CharmResource{
+			apiRes1.CharmResource,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "newCSClient", "ListResources")
+	c.Check(result, jc.DeepEquals, api.AddPendingResourcesResult{
+		ErrorResult: params.ErrorResult{Error: &params.Error{
+			Message: `charm store resource "spam" not found`,
+			Code:    params.CodeNotFound,
+		}},
+	})
+}
+
+func (s *AddPendingResourcesSuite) TestDataStoreError(c *gc.C) {
 	_, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)

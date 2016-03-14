@@ -196,8 +196,10 @@ func (f Facade) resourcesFromCharmstore(cURL *charm.URL, csMac *macaroon.Macaroo
 		return nil, errors.Trace(err)
 	}
 	storeResources := make(map[string]charmresource.Resource)
-	for _, res := range results[0] {
-		storeResources[res.Name] = res
+	if len(results) != 0 {
+		for _, res := range results[0] {
+			storeResources[res.Name] = res
+		}
 	}
 	return storeResources, nil
 }
@@ -230,8 +232,10 @@ func resolveResources(resources []charmresource.Resource, storeResources map[str
 func resolveStoreResource(res charmresource.Resource, storeResources map[string]charmresource.Resource) (charmresource.Resource, error) {
 	storeRes, ok := storeResources[res.Name]
 	if !ok {
-		// TODO(ericsnow) Fail instead?
-		return res, nil
+		// This indicates that AddPendingResources() was called for
+		// a resource the charm store doesn't know about (for the
+		// relevant charm revision).
+		return res, errors.NotFoundf("charm store resource %q", res.Name)
 	}
 	revision := neededRevision(res, storeRes)
 	if revision < 0 {
@@ -244,7 +248,7 @@ func resolveStoreResource(res charmresource.Resource, storeResources map[string]
 		// We have a desired revision but are missing the
 		// fingerprint, etc.
 		// TODO(ericsnow) Call client.GetResource() to get info for that revision.
-		return storeRes, errors.NotSupportedf("could not get resource info")
+		return storeRes, errors.NewNotSupported(nil, "could not get resource info from charm store")
 	}
 	// Otherwise we use the info from the store as-is.
 	return storeRes, nil
