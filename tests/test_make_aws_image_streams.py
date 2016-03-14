@@ -9,6 +9,7 @@ from make_aws_image_streams import (
     is_china,
     iter_centos_images,
     iter_region_connection,
+    make_aws_credentials,
     )
 
 
@@ -103,3 +104,38 @@ class IterCentosImages(TestCase):
             'owner_alias': 'aws-marketplace',
             'product_code': 'aw0evgkw8e5c1q413zgy5pjce',
             })
+
+
+class TestMakeAWSCredentials(TestCase):
+
+    def test_happy_path(self):
+        aws_credentials = make_aws_credentials({'credentials': {
+            'access-key': 'foo',
+            'secret-key': 'bar',
+            }})
+        self.assertEqual({
+            'aws_access_key_id': 'foo',
+            'aws_secret_access_key': 'bar',
+            }, aws_credentials)
+
+    def test_no_credentials(self):
+        with self.assertRaisesRegexp(LookupError, 'No credentials found!'):
+            make_aws_credentials({})
+
+    def test_multiple_credentials(self):
+        # If multiple credentials are present, an arbitrary credential will be
+        # used.
+        aws_credentials = make_aws_credentials({
+            'credentials-1': {
+                'access-key': 'foo',
+                'secret-key': 'bar',
+                },
+            'credentials-2': {
+                'access-key': 'baz',
+                'secret-key': 'qux',
+                },
+            })
+        self.assertIn(aws_credentials, [
+            {'aws_access_key_id': 'foo', 'aws_secret_access_key': 'bar'},
+            {'aws_access_key_id': 'baz', 'aws_secret_access_key': 'qux'},
+            ])

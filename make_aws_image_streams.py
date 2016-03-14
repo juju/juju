@@ -54,14 +54,14 @@ def iter_centos_images(access_key_id, secret_access_key):
             yield image
 
 
-def mangle(creds):
+def make_aws_credentials(creds):
     for creds in creds.values():
         return {
             'aws_access_key_id': creds['access-key'],
             'aws_secret_access_key': creds['secret-key'],
             }
     else:
-        raise LookupError('No Credentials found!')
+        raise LookupError('No credentials found!')
 
 
 def make_json(image, now):
@@ -132,8 +132,8 @@ def main():
     creds_filename = os.path.join(juju_data, 'credentials.yaml')
     with open(creds_filename) as creds_file:
         credentials = yaml.safe_load(creds_file)['credentials']
-    aws = mangle(credentials['aws'])
-    aws_china = mangle(credentials['aws-china'])
+    aws = make_aws_credentials(credentials['aws'])
+    aws_china = make_aws_credentials(credentials['aws-china'])
     now = datetime.utcnow()
     items = [make_item(i, now) for i in iter_centos_images(aws, aws_china)]
     updated = timestamp()
