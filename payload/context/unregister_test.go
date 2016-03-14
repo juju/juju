@@ -51,9 +51,12 @@ func (s *unregisterSuite) TestHelp(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 
 	c.Check(s.ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
-usage: payload-unregister <class> <id>
-purpose: stop tracking a payload
+Usage: payload-unregister <class> <id>
 
+Summary:
+stop tracking a payload
+
+Details:
 "payload-unregister" is used while a hook is running to let Juju know
 that a payload has been manually stopped. The <class> and <id> provided
 must match a payload that has been previously registered with juju using
