@@ -22,18 +22,25 @@ from simplestreams.util import timestamp
 
 
 def is_china(region):
+    """Determine whether the supplied region is in AWS-China."""
     return region.endpoint.endswith('.amazonaws.com.cn')
 
 
-def iter_region_connection(aws, aws_china):
+def iter_region_connection(credentials, china_credentials):
+    """Iterate through connections for all regions except gov.
+
+    AWS-China regions will be connected using china_credentials.
+    US-GOV regions will be skipped.
+    All other regions will be connected using credentials.
+    """
     regions = ec2.regions()
     for region in regions:
         if 'us-gov' in region.name:
             continue
         if is_china(region):
-            yield region.connect(**aws_china)
+            yield region.connect(**china_credentials)
         else:
-            yield region.connect(**aws)
+            yield region.connect(**credentials)
 
 
 def iter_centos_images(access_key_id, secret_access_key):
