@@ -2329,27 +2329,6 @@ func (m *mockMetricAPI) Stop() {
 	close(m.stop)
 }
 
-func mkdtemp(prefix string) string {
-	d, err := ioutil.TempDir("", prefix)
-	if err != nil {
-		panic(err)
-	}
-	return d
-}
-
-func mktemp(prefix string, content string) string {
-	f, err := ioutil.TempFile("", prefix)
-	if err != nil {
-		panic(err)
-	}
-	_, err = f.WriteString(content)
-	if err != nil {
-		panic(err)
-	}
-	f.Close()
-	return f.Name()
-}
-
 type mockLoopDeviceManager struct {
 	detachLoopDevicesArgRootfs string
 	detachLoopDevicesArgPrefix string

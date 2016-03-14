@@ -9,7 +9,6 @@ package storage
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/storage"
@@ -17,8 +16,6 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
-
-var logger = loggo.GetLogger("juju.cmd.juju.storage")
 
 const storageCmdDoc = `
 "juju storage" is used to manage storage instances in

@@ -255,17 +255,6 @@ func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
 	return controller.NewClient(root), nil
 }
 
-func (c *destroyCommandBase) getClientAPI() (destroyClientAPI, error) {
-	if c.clientapi != nil {
-		return c.clientapi, nil
-	}
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return root.Client(), nil
-}
-
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")

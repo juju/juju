@@ -73,15 +73,6 @@ var unsupportedConstraints = []string{
 	constraints.Networks,
 }
 
-// instanceTypeConstraints defines the fields defined on each of the
-// instance types.  See instancetypes.go.
-var instanceConstraints = []string{
-	constraints.Arch, // Arches
-	constraints.CpuCores,
-	constraints.CpuPower,
-	constraints.Mem,
-}
-
 // ConstraintsValidator returns a Validator value which is used to
 // validate and merge constraints.
 func (env *environ) ConstraintsValidator() (constraints.Validator, error) {

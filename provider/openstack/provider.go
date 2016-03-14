@@ -7,8 +7,6 @@ package openstack
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -186,31 +184,6 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 		return nil, err
 	}
 	return &environConfig{valid, valid.UnknownAttrs()}, nil
-}
-
-func retryGet(uri string) (data []byte, err error) {
-	for a := shortAttempt.Start(); a.Next(); {
-		var resp *http.Response
-		resp, err = http.Get(uri)
-		if err != nil {
-			continue
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			err = fmt.Errorf("bad http response %v", resp.Status)
-			continue
-		}
-		var data []byte
-		data, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			continue
-		}
-		return data, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("cannot get %q: %v", uri, err)
-	}
-	return
 }
 
 type Environ struct {

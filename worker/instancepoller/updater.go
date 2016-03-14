@@ -67,11 +67,6 @@ type machineContext interface {
 	instanceInfo(id instance.Id) (instanceInfo, error)
 }
 
-type machineAddress struct {
-	machine   machine
-	addresses []network.Address
-}
-
 type updaterContext interface {
 	lifetimeContext
 	newMachineContext() machineContext

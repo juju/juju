@@ -4,12 +4,8 @@
 package rackspace
 
 import (
-	"github.com/juju/loggo"
-
 	"github.com/juju/juju/environs"
 )
-
-var logger = loggo.GetLogger("juju.provider.rackspace")
 
 type environProvider struct {
 	environs.EnvironProvider
