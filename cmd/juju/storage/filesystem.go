@@ -5,6 +5,7 @@ package storage
 
 import (
 	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -50,7 +51,7 @@ type MachineFilesystemAttachment struct {
 	ReadOnly   bool   `yaml:"read-only" json:"read-only"`
 }
 
-// generateListFilesystemOutput returns a map of filesystem info
+// generateListFilesystemOutput returns a map filesystem IDs to filesystem info
 func (c *listCommand) generateListFilesystemsOutput(ctx *cmd.Context, api StorageListAPI) (output interface{}, err error) {
 
 	results, err := api.ListFilesystems(c.Ids)

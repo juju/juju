@@ -55,7 +55,7 @@ Model default values will be used for all ommitted constraint values.
 There is no need to comma-separate ommitted constraints. 
 
 Example:
-    Add 3 ebs storage instances for "data" storage to unit u/0:     
+    Add 3 ebs storage instances for "data" storage to unit u/0:
 
       juju add-storage u/0 data=ebs,1024,3 
     or

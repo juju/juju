@@ -53,7 +53,8 @@ func (c *listCommand) Init(args []string) (err error) {
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-storage",
-		Purpose: "lists storage",
+		Args:    "<machineID> ...",
+		Purpose: "lists storage details",
 		Doc:     listCommandDoc,
 		Aliases: []string{"storage"},
 	}

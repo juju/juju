@@ -52,6 +52,7 @@ options:
         for e.g. tags, size, path, etc...
 `
 
+// NewPoolCreateCommand returns a command that creates or defines a storage pool
 func NewPoolCreateCommand() cmd.Command {
 	cmd := &poolCreateCommand{}
 	cmd.newAPIFunc = func() (PoolCreateAPI, error) {

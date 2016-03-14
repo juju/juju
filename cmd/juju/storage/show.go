@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
+// NewShowCommand returns a command that shows storage details
+// on the specified machine
 func NewShowCommand() cmd.Command {
 	cmd := &showCommand{}
 	cmd.newAPIFunc = func() (StorageShowAPI, error) {

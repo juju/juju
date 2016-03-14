@@ -38,6 +38,7 @@ options:
 
 `
 
+// NewPoolListCommand returns a command that lists storage pools on a model
 func NewPoolListCommand() cmd.Command {
 	cmd := &poolListCommand{}
 	cmd.newAPIFunc = func() (PoolListAPI, error) {
