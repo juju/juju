@@ -97,7 +97,7 @@ func (s *ClientSuite) TestFakeGetResource(c *gc.C) {
 	cURL := charm.MustParseURL("cs:quantal/spam-17")
 	client := charmstore.NewClient(s.config)
 
-	_, err := client.GetResource(cURL, "spam", 3)
+	_, _, err := client.GetResource(cURL, "spam", 3)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }

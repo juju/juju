@@ -97,15 +97,17 @@ func newCSRetryClient(client *charmstore.Client) *CSRetryClient {
 }
 
 // GetResource returns a reader for the resource's data.
-func (client CSRetryClient) GetResource(cURL *charm.URL, resourceName string, revision int) (io.ReadCloser, error) {
+func (client CSRetryClient) GetResource(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, io.ReadCloser, error) {
 	args := client.retryArgs // a copy
 
+	var chRes charmresource.Resource
 	var reader io.ReadCloser
 	args.Func = func() error {
-		csReader, err := client.Client.GetResource(cURL, resourceName, revision)
+		csRes, csReader, err := client.Client.GetResource(cURL, resourceName, revision)
 		if err != nil {
 			return errors.Trace(err)
 		}
+		chRes = csRes
 		reader = csReader
 		return nil
 	}
@@ -119,11 +121,11 @@ func (client CSRetryClient) GetResource(cURL *charm.URL, resourceName string, re
 
 	err := retry.Call(args)
 	if retry.IsAttemptsExceeded(err) {
-		return nil, errors.Annotate(lastErr, "failed after retrying")
+		return chRes, nil, errors.Annotate(lastErr, "failed after retrying")
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return chRes, nil, errors.Trace(err)
 	}
 
-	return reader, nil
+	return chRes, reader, nil
 }
