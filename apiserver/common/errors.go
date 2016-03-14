@@ -4,7 +4,6 @@
 package common
 
 import (
-	stderrors "errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -20,17 +19,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type notSupportedError struct {
-	tag       names.Tag
-	operation string
-}
-
-func (e *notSupportedError) Error() string {
-	return fmt.Sprintf("entity %q does not support %s", e.tag, e.operation)
-}
-
 func NotSupportedError(tag names.Tag, operation string) error {
-	return &notSupportedError{tag, operation}
+	return errors.Errorf("entity %q does not support %s", tag, operation)
 }
 
 type noAddressSetError struct {
@@ -46,7 +36,7 @@ func NoAddressSetError(unitTag names.UnitTag, addressName string) error {
 	return &noAddressSetError{unitTag, addressName}
 }
 
-func IsNoAddressSetError(err error) bool {
+func isNoAddressSetError(err error) bool {
 	_, ok := err.(*noAddressSetError)
 	return ok
 }
@@ -88,16 +78,16 @@ func IsDischargeRequiredError(err error) bool {
 }
 
 var (
-	ErrBadId              = stderrors.New("id not found")
-	ErrBadCreds           = stderrors.New("invalid entity name or password")
-	ErrPerm               = stderrors.New("permission denied")
-	ErrNotLoggedIn        = stderrors.New("not logged in")
-	ErrUnknownWatcher     = stderrors.New("unknown watcher id")
-	ErrUnknownPinger      = stderrors.New("unknown pinger id")
-	ErrStoppedWatcher     = stderrors.New("watcher has been stopped")
-	ErrBadRequest         = stderrors.New("invalid request")
-	ErrTryAgain           = stderrors.New("try again")
-	ErrActionNotAvailable = stderrors.New("action no longer available")
+	ErrBadId              = errors.New("id not found")
+	ErrBadCreds           = errors.New("invalid entity name or password")
+	ErrPerm               = errors.New("permission denied")
+	ErrNotLoggedIn        = errors.New("not logged in")
+	ErrUnknownWatcher     = errors.New("unknown watcher id")
+	ErrUnknownPinger      = errors.New("unknown pinger id")
+	ErrStoppedWatcher     = errors.New("watcher has been stopped")
+	ErrBadRequest         = errors.New("invalid request")
+	ErrTryAgain           = errors.New("try again")
+	ErrActionNotAvailable = errors.New("action no longer available")
 )
 
 // OperationBlockedError returns an error which signifies that
@@ -113,43 +103,35 @@ func OperationBlockedError(msg string) error {
 	}
 }
 
-var singletonErrorCodes = map[error]string{
-	state.ErrCannotEnterScopeYet: params.CodeCannotEnterScopeYet,
-	state.ErrCannotEnterScope:    params.CodeCannotEnterScope,
-	state.ErrUnitHasSubordinates: params.CodeUnitHasSubordinates,
-	state.ErrDead:                params.CodeDead,
-	txn.ErrExcessiveContention:   params.CodeExcessiveContention,
-	leadership.ErrClaimDenied:    params.CodeLeadershipClaimDenied,
-	lease.ErrClaimDenied:         params.CodeLeaseClaimDenied,
-	ErrBadId:                     params.CodeNotFound,
-	ErrBadCreds:                  params.CodeUnauthorized,
-	ErrPerm:                      params.CodeUnauthorized,
-	ErrNotLoggedIn:               params.CodeUnauthorized,
-	ErrUnknownWatcher:            params.CodeNotFound,
-	ErrStoppedWatcher:            params.CodeStopped,
-	ErrTryAgain:                  params.CodeTryAgain,
-	ErrActionNotAvailable:        params.CodeActionNotAvailable,
-}
-
 func singletonCode(err error) (string, bool) {
-	// All error types may not be hashable; deal with
-	// that by catching the panic if we try to look up
-	// a non-hashable type.
-	defer func() {
-		recover()
-	}()
-	code, ok := singletonErrorCodes[err]
-	return code, ok
-}
-
-func singletonError(err error) (error, bool) {
-	errCode := params.ErrCode(err)
-	for singleton, code := range singletonErrorCodes {
-		if errCode == code && singleton.Error() == err.Error() {
-			return singleton, true
-		}
+	switch err {
+	case state.ErrCannotEnterScopeYet:
+		return params.CodeCannotEnterScopeYet, true
+	case state.ErrCannotEnterScope:
+		return params.CodeCannotEnterScope, true
+	case state.ErrUnitHasSubordinates:
+		return params.CodeUnitHasSubordinates, true
+	case state.ErrDead:
+		return params.CodeDead, true
+	case txn.ErrExcessiveContention:
+		return params.CodeExcessiveContention, true
+	case leadership.ErrClaimDenied:
+		return params.CodeLeadershipClaimDenied, true
+	case lease.ErrClaimDenied:
+		return params.CodeLeaseClaimDenied, true
+	case ErrBadId, ErrUnknownWatcher:
+		return params.CodeNotFound, true
+	case ErrBadCreds, ErrPerm, ErrNotLoggedIn:
+		return params.CodeUnauthorized, true
+	case ErrStoppedWatcher:
+		return params.CodeStopped, true
+	case ErrTryAgain:
+		return params.CodeTryAgain, true
+	case ErrActionNotAvailable:
+		return params.CodeActionNotAvailable, true
+	default:
+		return "", false
 	}
-	return nil, false
 }
 
 // ServerErrorAndStatus is like ServerError but also
@@ -206,7 +188,7 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotAssigned
 	case state.IsHasAssignedUnitsError(err):
 		code = params.CodeHasAssignedUnits
-	case IsNoAddressSetError(err):
+	case isNoAddressSetError(err):
 		code = params.CodeNoAddressSet
 	case errors.IsNotProvisioned(err):
 		code = params.CodeNotProvisioned
@@ -252,68 +234,4 @@ func DestroyErr(desc string, ids, errs []string) error {
 	}
 	msg = fmt.Sprintf(msg, desc)
 	return errors.Errorf("%s: %s", msg, strings.Join(errs, "; "))
-}
-
-// RestoreError makes a best effort at converting the given error
-// back into an error originally converted by ServerError(). If the
-// error could not be converted then false is returned.
-func RestoreError(err error) (error, bool) {
-	err = errors.Cause(err)
-
-	if apiErr, ok := err.(*params.Error); !ok {
-		return err, false
-	} else if apiErr == nil {
-		return nil, true
-	}
-	if params.ErrCode(err) == "" {
-		return err, false
-	}
-	msg := err.Error()
-
-	if singleton, ok := singletonError(err); ok {
-		return singleton, true
-	}
-
-	// TODO(ericsnow) Support the other error types handled by ServerError().
-	switch {
-	case params.IsCodeUnauthorized(err):
-		return errors.NewUnauthorized(nil, msg), true
-	case params.IsCodeNotFound(err):
-		// TODO(ericsnow) UnknownModelError should be handled here too.
-		// ...by parsing msg?
-		return errors.NewNotFound(nil, msg), true
-	case params.IsCodeAlreadyExists(err):
-		return errors.NewAlreadyExists(nil, msg), true
-	case params.IsCodeNotAssigned(err):
-		return errors.NewNotAssigned(nil, msg), true
-	case params.IsCodeHasAssignedUnits(err):
-		// TODO(ericsnow) Handle state.HasAssignedUnitsError here.
-		// ...by parsing msg?
-		return err, false
-	case params.IsCodeNoAddressSet(err):
-		// TODO(ericsnow) Handle isNoAddressSetError here.
-		// ...by parsing msg?
-		return err, false
-	case params.IsCodeNotProvisioned(err):
-		return errors.NewNotProvisioned(nil, msg), true
-	case params.IsCodeUpgradeInProgress(err):
-		// TODO(ericsnow) Handle state.UpgradeInProgressError here.
-		// ...by parsing msg?
-		return err, false
-	case params.IsCodeMachineHasAttachedStorage(err):
-		// TODO(ericsnow) Handle state.HasAttachmentsError here.
-		// ...by parsing msg?
-		return err, false
-	case params.IsCodeNotSupported(err):
-		return errors.NewNotSupported(nil, msg), true
-	case params.IsBadRequest(err):
-		return errors.NewBadRequest(nil, msg), true
-	case params.IsMethodNotAllowed(err):
-		return errors.NewMethodNotAllowed(nil, msg), true
-	case params.ErrCode(err) == params.CodeDischargeRequired:
-		// TODO(ericsnow) Handle DischargeRequiredError here.
-		return err, false
-	default:
-		return err, false
-	}
 }

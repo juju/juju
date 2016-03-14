@@ -149,7 +149,13 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 		c.Assert(args.ForceUnits, gc.Equals, true)
 		return nil
 	})
-	err := s.client.SetCharm("service", "charmURL", true, true)
+	cfg := service.SetCharmConfig{
+		ServiceName: "service",
+		CharmUrl:    "charmURL",
+		ForceSeries: true,
+		ForceUnits:  true,
+	}
+	err := s.client.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

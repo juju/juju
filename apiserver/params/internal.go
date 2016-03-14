@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -166,6 +167,21 @@ type BoolResults struct {
 	Results []BoolResult
 }
 
+// IntResults holds multiple results with an int in each.
+type IntResults struct {
+	// Results holds a list of results for calls that return an int or error.
+	Results []IntResult
+}
+
+// IntResult holds the result of an API call that returns a
+// int or an error.
+type IntResult struct {
+	// Error holds the error (if any) of this call.
+	Error *Error
+	// Result holds the integer result of the call (if Error is nil).
+	Result int
+}
+
 // Settings holds relation settings names and values.
 type Settings map[string]string
 
@@ -317,7 +333,7 @@ type InstancesInfo struct {
 
 // EntityStatus holds the status of an entity.
 type EntityStatus struct {
-	Status Status
+	Status status.Status
 	Info   string
 	Data   map[string]interface{}
 	Since  *time.Time
@@ -326,7 +342,7 @@ type EntityStatus struct {
 // EntityStatus holds parameters for setting the status of a single entity.
 type EntityStatusArgs struct {
 	Tag    string
-	Status Status
+	Status status.Status
 	Info   string
 	Data   map[string]interface{}
 }
@@ -334,18 +350,6 @@ type EntityStatusArgs struct {
 // SetStatus holds the parameters for making a SetStatus/UpdateStatus call.
 type SetStatus struct {
 	Entities []EntityStatusArgs
-}
-
-// InstanceStatus holds an entity tag and instance status.
-type InstanceStatus struct {
-	Tag    string
-	Status string
-}
-
-// SetInstancesStatus holds parameters for making a
-// SetInstanceStatus() call.
-type SetInstancesStatus struct {
-	Entities []InstanceStatus
 }
 
 // ConstraintsResult holds machine constraints or an error.

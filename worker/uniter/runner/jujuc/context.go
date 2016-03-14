@@ -123,9 +123,9 @@ type ContextStatus interface {
 	SetServiceStatus(StatusInfo) error
 }
 
-// ContextInstance is the part of a hook context related to the unit's intance.
+// ContextInstance is the part of a hook context related to the unit's instance.
 type ContextInstance interface {
-	// AvailabilityZone returns the executing unit's availablilty zone or an error
+	// AvailabilityZone returns the executing unit's availability zone or an error
 	// if it was not found (or is not available).
 	AvailabilityZone() (string, error)
 

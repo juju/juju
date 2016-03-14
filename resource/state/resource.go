@@ -41,6 +41,10 @@ type resourcePersistence interface {
 	// SetResource stores the info for the resource.
 	SetResource(args resource.Resource) error
 
+	// SetCharmStoreResource stores the resource info that was retrieved
+	// from the charm store.
+	SetCharmStoreResource(id, serviceID string, res charmresource.Resource, lastPolled time.Time) error
+
 	// SetUnitResource stores the resource info for a unit.
 	SetUnitResource(unitID string, args resource.Resource) error
 
@@ -230,9 +234,7 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 
 // OpenResource returns metadata about the resource, and a reader for
 // the resource.
-func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
-	serviceID := unit.ServiceName()
-
+func (st resourceState) OpenResource(serviceID, name string) (resource.Resource, io.ReadCloser, error) {
 	id := newResourceID(serviceID, name)
 	resourceInfo, storagePath, err := st.persist.GetResource(id)
 	if err != nil {
@@ -252,6 +254,20 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 		return resource.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)
 	}
 
+	return resourceInfo, resourceReader, nil
+}
+
+// OpenResourceForUniter returns metadata about the resource and
+// a reader for the resource. The resource is associated with
+// the unit once the reader is completely exhausted.
+func (st resourceState) OpenResourceForUniter(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
+	serviceID := unit.ServiceName()
+
+	resourceInfo, resourceReader, err := st.OpenResource(serviceID, name)
+	if err != nil {
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
+
 	resourceReader = unitSetter{
 		ReadCloser: resourceReader,
 		persist:    st.persist,
@@ -260,6 +276,20 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 	}
 
 	return resourceInfo, resourceReader, nil
+}
+
+// SetCharmStoreResources sets the "polled" resources for the
+// service to the provided values.
+func (st resourceState) SetCharmStoreResources(serviceID string, info []charmresource.Resource, lastPolled time.Time) error {
+	for _, chRes := range info {
+		id := newResourceID(serviceID, chRes.Name)
+		if err := st.persist.SetCharmStoreResource(id, serviceID, chRes, lastPolled); err != nil {
+			return errors.Trace(err)
+		}
+		// TODO(ericsnow) Worry about extras? missing?
+	}
+
+	return nil
 }
 
 // TODO(ericsnow) Rename NewResolvePendingResourcesOps to reflect that

@@ -33,13 +33,13 @@ github.com/juju/replicaset	git	fb7294cf57a1e2f08a57691f1246d129a87ab7e8	2015-05-
 github.com/juju/retry	git	62c62032529169c7ec02fa48f93349604c345e1f	2015-10-29T02:48:21Z
 github.com/juju/romulus	git	90860c5f2f755a1d36f4382112a78d8cd65ffae4	2016-02-24T20:19:24Z
 github.com/juju/schema	git	47d9b102199f4c67e5bfb28eb07bbe39411754fe	2016-01-19T21:19:26Z
-github.com/juju/testing	git	321edad6b2d1ccac4af9ee05c25b8ad734d40546	2016-02-01T15:50:06Z
+github.com/juju/testing	git	4d5a7d64948aae30698f5d97b4c0d1a85a4504b7	2016-03-07T15:50:06Z
 github.com/juju/txn	git	99ec629d0066a4d73c54d8e021a7fc1dc07df614	2015-06-09T16:58:27Z
-github.com/juju/utils	git	6a56fe5cf0ae360cb6bf19f287289eaf9e28aea9	2015-12-11T00:56:23Z
+github.com/juju/utils	git	af32cfaf28093965fdf63373d8447c489efb2875	2016-03-09T18:28:39Z
 github.com/juju/webbrowser	git	54b8c57083b4afb7dc75da7f13e2967b2606a507	2016-03-09T14:36:29Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
 github.com/julienschmidt/httprouter	git	109e267447e95ad1bb48b758e40dd7453eb7b039	2015-09-05T17:25:33Z
-github.com/lxc/lxd	git	e471e1b8d18d1477f5c421e5de3ba2cfa0684290	2016-02-18T03:41:21Z
+github.com/lxc/lxd	git	711f3f7590fcdbcbb14083d1a0d8d827e4458ef6	2016-03-10T03:41:21Z
 github.com/mattn/go-colorable	git	40e4aedc8fabf8c23e040057540867186712faa5	2015-06-25T15:46:42Z
 github.com/mattn/go-runewidth	git	d96d1bd051f2bd9e7e43d602782b37b93b1b5666	2015-11-18T07:21:59Z
 github.com/mattn/go-isatty	git	d6aaa2f596ae91a0a58d8e7f2c79670991468e4f	2015-11-07T15:36:48Z
@@ -60,7 +60,7 @@ gopkg.in/juju/charmrepo.v2-unstable	git	b17697d8bb60cdac7d8ffd61e1357c9977cc2096
 gopkg.in/juju/charmstore.v5-unstable	git	c727ba087ec577cd0f9d0eca475279992e7a626f	2015-12-16T15:38:24Z
 gopkg.in/juju/environschema.v1	git	7bea6a9a531586600a7741e9bdd5e3c978ffda15	2015-10-20T16:12:31Z
 gopkg.in/juju/jujusvg.v1	git	2c97ff517dee12dc48bb3c2d2b113e5045a75b71	2015-11-19T14:54:17Z
-gopkg.in/macaroon-bakery.v1	git	7b63aca524cc3f7b1ad0171e54cb78b33ce1e747	2015-12-01T10:11:23Z
+gopkg.in/macaroon-bakery.v1	git	ecc4ca6efa5ce1e50b79eb0f4027a6e70997f45a	2016-03-02T14:10:11Z
 gopkg.in/macaroon.v1	git	ab3940c6c16510a850e1c2dd628b919f0f3f1464	2015-01-21T11:42:31Z
 gopkg.in/mgo.v2	git	4d04138ffef2791c479c0c8bbffc30b34081b8d9	2015-10-26T16:34:53Z
 gopkg.in/natefinch/lumberjack.v2	git	588a21fb0fa0ebdfde42670fa214576b6f0f22df	2015-05-21T01:59:18Z

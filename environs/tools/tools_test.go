@@ -17,11 +17,11 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
@@ -46,7 +46,7 @@ func (s *SimpleStreamsToolsSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.customToolsDir = c.MkDir()
 	s.publicToolsDir = c.MkDir()
-	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {

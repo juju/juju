@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/status"
 	"github.com/juju/names"
 )
 
@@ -13,7 +14,7 @@ type UnitAgent struct {
 	st   *State
 	tag  names.Tag
 	name string
-	StatusHistoryGetter
+	status.StatusHistoryGetter
 }
 
 func newUnitAgent(st *State, tag names.Tag, name string) *UnitAgent {
@@ -32,18 +33,18 @@ func (u *UnitAgent) String() string {
 }
 
 // Status returns the status of the unit agent.
-func (u *UnitAgent) Status() (StatusInfo, error) {
+func (u *UnitAgent) Status() (status.StatusInfo, error) {
 	info, err := getStatus(u.st, u.globalKey(), "agent")
 	if err != nil {
-		return StatusInfo{}, errors.Trace(err)
+		return status.StatusInfo{}, errors.Trace(err)
 	}
 	// The current health spec says when a hook error occurs, the workload should
 	// be in error state, but the state model more correctly records the agent
 	// itself as being in error. So we'll do that model translation here.
 	// TODO(fwereade): this should absolutely not be happpening in the model.
-	if info.Status == StatusError {
-		return StatusInfo{
-			Status:  StatusIdle,
+	if info.Status == status.StatusError {
+		return status.StatusInfo{
+			Status:  status.StatusIdle,
 			Message: "",
 			Data:    map[string]interface{}{},
 			Since:   info.Since,
@@ -54,22 +55,22 @@ func (u *UnitAgent) Status() (StatusInfo, error) {
 
 // SetStatus sets the status of the unit agent. The optional values
 // allow to pass additional helpful status data.
-func (u *UnitAgent) SetStatus(status Status, info string, data map[string]interface{}) (err error) {
-	switch status {
-	case StatusIdle, StatusExecuting, StatusRebooting, StatusFailed:
-	case StatusError:
+func (u *UnitAgent) SetStatus(unitAgentStatus status.Status, info string, data map[string]interface{}) (err error) {
+	switch unitAgentStatus {
+	case status.StatusIdle, status.StatusExecuting, status.StatusRebooting, status.StatusFailed:
+	case status.StatusError:
 		if info == "" {
-			return errors.Errorf("cannot set status %q without info", status)
+			return errors.Errorf("cannot set status %q without info", unitAgentStatus)
 		}
-	case StatusAllocating, StatusLost:
-		return errors.Errorf("cannot set status %q", status)
+	case status.StatusAllocating, status.StatusLost:
+		return errors.Errorf("cannot set status %q", unitAgentStatus)
 	default:
-		return errors.Errorf("cannot set invalid status %q", status)
+		return errors.Errorf("cannot set invalid status %q", unitAgentStatus)
 	}
 	return setStatus(u.st, setStatusParams{
 		badge:     "agent",
 		globalKey: u.globalKey(),
-		status:    status,
+		status:    unitAgentStatus,
 		message:   info,
 		rawData:   data,
 	})
@@ -77,7 +78,7 @@ func (u *UnitAgent) SetStatus(status Status, info string, data map[string]interf
 
 // StatusHistory returns a slice of at most <size> StatusInfo items
 // representing past statuses for this agent.
-func (u *UnitAgent) StatusHistory(size int) ([]StatusInfo, error) {
+func (u *UnitAgent) StatusHistory(size int) ([]status.StatusInfo, error) {
 	return statusHistory(u.st, u.globalKey(), size)
 }
 

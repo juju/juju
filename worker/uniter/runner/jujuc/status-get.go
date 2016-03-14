@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 )
 
 // StatusGetCommand implements the status-get command.
@@ -79,7 +79,7 @@ func (c *StatusGetCommand) ServiceStatus(ctx *cmd.Context) error {
 	serviceStatus, err := c.ctx.ServiceStatus()
 	if err != nil {
 		if errors.IsNotImplemented(err) {
-			return c.out.Write(ctx, params.StatusUnknown)
+			return c.out.Write(ctx, status.StatusUnknown)
 		}
 		return errors.Annotatef(err, "finding service status")
 	}
@@ -111,7 +111,7 @@ func (c *StatusGetCommand) unitOrServiceStatus(ctx *cmd.Context) error {
 	unitStatus, err := c.ctx.UnitStatus()
 	if err != nil {
 		if errors.IsNotImplemented(err) {
-			return c.out.Write(ctx, params.StatusUnknown)
+			return c.out.Write(ctx, status.StatusUnknown)
 		}
 		return errors.Annotatef(err, "finding workload status")
 	}

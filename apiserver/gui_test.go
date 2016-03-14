@@ -273,6 +273,11 @@ deep space nine
 }}
 
 func (s *guiSuite) TestGUIHandler(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		// Skipping the tests on Windows is not a problem as the Juju GUI is
+		// only served from Linux machines.
+		c.Skip("bzip2 command not available")
+	}
 	sendRequest := func(setup guiSetupFunc, pathAndquery string) *http.Response {
 		// Set up the GUI base directory.
 		datadir := filepath.ToSlash(s.DataDir())

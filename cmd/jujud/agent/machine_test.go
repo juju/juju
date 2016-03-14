@@ -63,6 +63,7 @@ import (
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -466,7 +467,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 	// "start the agent" for u0 to prevent short-circuited remove-on-destroy;
 	// check that it's kept deployed despite being Dying.
-	err = u0.SetAgentStatus(state.StatusIdle, "", nil)
+	err = u0.SetAgentStatus(status.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -711,7 +712,8 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		instStatus, err := m.InstanceStatus()
 		c.Assert(err, jc.ErrorIsNil)
-		if reflect.DeepEqual(m.Addresses(), addrs) && instStatus == "running" {
+		c.Logf("found status is %q %q", instStatus.Status, instStatus.Message)
+		if reflect.DeepEqual(m.Addresses(), addrs) && instStatus.Message == "running" {
 			break
 		}
 	}
@@ -795,6 +797,26 @@ func (s *MachineSuite) TestManageModelRunsStatusHistoryPruner(c *gc.C) {
 	_ = s.singularRecord.nextRunner(c)
 	runner := s.singularRecord.nextRunner(c)
 	runner.waitForWorker(c, "statushistorypruner")
+}
+
+func (s *MachineSuite) TestManageModelRunsRegisteredWorkers(c *gc.C) {
+	stub := &gitjujutesting.Stub{}
+	factory := newStubWorkerFactory(stub)
+	err := RegisterModelWorker("testing-spam", factory.NewModelWorker)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { delete(registeredModelWorkers, "testing-spam") }()
+	m, _, _ := s.primeAgent(c, state.JobManageModel)
+	a := s.newAgent(c, m)
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+
+	_ = s.singularRecord.nextRunner(c)
+	runner := s.singularRecord.nextRunner(c)
+	runner.waitForWorker(c, "testing-spam")
+
+	stub.CheckCallNames(c, "NewModelWorker")
+	expectedState := stub.Calls()[0].Args[0] // yuck
+	stub.CheckCall(c, 0, "NewModelWorker", expectedState)
 }
 
 func (s *MachineSuite) TestManageModelCallsUseMultipleCPUs(c *gc.C) {
