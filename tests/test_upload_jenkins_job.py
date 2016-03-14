@@ -336,7 +336,7 @@ class TestS3Uploader(TestCase):
 
     def test_make_headers_yaml(self):
         headers = S3Uploader.make_headers('path.yaml')
-        expected = {'Content-Type': 'text/plain'}
+        expected = {'Content-Type': 'text/x-yaml'}
         self.assertEqual(headers, expected)
 
     def test_make_headers_unknown(self):
@@ -372,7 +372,7 @@ class TestS3Uploader(TestCase):
             for filename, i in zip(['foo.log.gz', 'foo.svg'], xrange(1, 3)):
                 yield filename, "artifact data {}".format(i)
 
-        _, _, s3_mock, jenkins_mock = (self._make_upload_artifacts(BUILD_NUM))
+        _, _, s3_mock, jenkins_mock = self._make_upload_artifacts(BUILD_NUM)
         jenkins_mock.artifacts.return_value = artifacts_fake()
         h = S3Uploader(s3_mock, jenkins_mock)
         h.upload_artifacts()

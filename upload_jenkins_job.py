@@ -269,7 +269,7 @@ class S3Uploader:
     def make_headers(filename):
         mime = MimeTypes()
         mime.add_type('text/plain', '.log')
-        mime.add_type('text/plain', '.yaml')
+        mime.add_type('text/x-yaml', '.yaml')
         content_type, encoding = mime.guess_type(filename)
         headers = {"Content-Type": "application/octet-stream"}
         if content_type:
