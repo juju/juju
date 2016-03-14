@@ -157,7 +157,11 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 			return nil, err
 		}
 		// TODO(ericsnow) Do something else for local charms.
-		storeResources, err := f.resourcesFromCharmstore(cURL, csMac)
+		client, err := f.newCharmstoreClient(cURL, csMac)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		storeResources, err := f.resourcesFromCharmstore(cURL, client)
 		if err != nil {
 			return nil, err
 		}
@@ -165,6 +169,8 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 		if err != nil {
 			return nil, err
 		}
+		// TODO(ericsnow) Ensure that the non-upload resource revisions
+		// match a previously published revision set?
 		resources = resolved
 	}
 
@@ -186,11 +192,7 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 // the charm store. If the charm URL has a revision then that revision's
 // resources are returned. Otherwise the latest info for each of the
 // resources is returned.
-func (f Facade) resourcesFromCharmstore(cURL *charm.URL, csMac *macaroon.Macaroon) (map[string]charmresource.Resource, error) {
-	client, err := f.newCharmstoreClient(cURL, csMac)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func (f Facade) resourcesFromCharmstore(cURL *charm.URL, client CharmStore) (map[string]charmresource.Resource, error) {
 	results, err := client.ListResources([]*charm.URL{cURL})
 	if err != nil {
 		return nil, errors.Trace(err)
