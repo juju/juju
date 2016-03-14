@@ -70,5 +70,9 @@ func NewPublicFacade(st *corestate.State, _ *common.Resources, authorizer common
 		opener := newCharmstoreOpener(cURL, csMac)
 		return opener.NewClient()
 	}
-	return server.NewFacade(ds, newClient), nil
+	facade, err := server.NewFacade(ds, newClient)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return facade, nil
 }

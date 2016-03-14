@@ -50,11 +50,23 @@ type Facade struct {
 }
 
 // NewFacade returns a new resoures facade for the given Juju state.
-func NewFacade(store DataStore, newClient func(*charm.URL, *macaroon.Macaroon) (CharmStore, error)) *Facade {
-	return &Facade{
+func NewFacade(store DataStore, newClient func(*charm.URL, *macaroon.Macaroon) (CharmStore, error)) (*Facade, error) {
+	if store == nil {
+		return nil, errors.Errorf("missing data store")
+	}
+	if newClient == nil {
+		// Technically this only matters for one code path through
+		// AddPendingResources(). However, that functionality should be
+		// provided. So we indicate the problem here instead of later
+		// in the specific place where it actually matters.
+		return nil, errors.Errorf("missing factory for new charm store clients")
+	}
+
+	f := &Facade{
 		store:               store,
 		newCharmstoreClient: newClient,
 	}
+	return f, nil
 }
 
 // resourceInfoStore is the portion of Juju's "state" needed
@@ -170,10 +182,6 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 }
 
 func (f Facade) resourcesFromCharmstore(cURL *charm.URL, csMac *macaroon.Macaroon) (map[string]charmresource.Resource, error) {
-	if f.newCharmstoreClient == nil {
-		return nil, errors.NotSupportedf("could not get resource info from charm store")
-	}
-
 	client, err := f.newCharmstoreClient(cURL, csMac)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -24,7 +24,8 @@ func (s *AddPendingResourcesSuite) TestNoURL(c *gc.C) {
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	id1 := "some-unique-ID"
 	s.data.ReturnAddPendingResource = id1
-	facade := server.NewFacade(s.data, s.newCSClient)
+	facade, err := server.NewFacade(s.data, s.newCSClient)
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
@@ -56,7 +57,8 @@ func (s *AddPendingResourcesSuite) TestWithURLUpToDate(c *gc.C) {
 	s.csClient.ReturnListResources = [][]charmresource.Resource{{
 		res1.Resource,
 	}}
-	facade := server.NewFacade(s.data, s.newCSClient)
+	facade, err := server.NewFacade(s.data, s.newCSClient)
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
@@ -94,7 +96,8 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchComplete(c *gc.C) {
 	s.csClient.ReturnListResources = [][]charmresource.Resource{{
 		csRes.Resource,
 	}}
-	facade := server.NewFacade(s.data, s.newCSClient)
+	facade, err := server.NewFacade(s.data, s.newCSClient)
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
@@ -134,7 +137,8 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 	s.csClient.ReturnListResources = [][]charmresource.Resource{{
 		csRes.Resource,
 	}}
-	facade := server.NewFacade(s.data, s.newCSClient)
+	facade, err := server.NewFacade(s.data, s.newCSClient)
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
@@ -170,7 +174,8 @@ func (s *AddPendingResourcesSuite) TestWithURLNoRevision(c *gc.C) {
 	s.csClient.ReturnListResources = [][]charmresource.Resource{{
 		csRes.Resource,
 	}}
-	facade := server.NewFacade(s.data, s.newCSClient)
+	facade, err := server.NewFacade(s.data, s.newCSClient)
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
@@ -209,7 +214,8 @@ func (s *AddPendingResourcesSuite) TestWithURLUpload(c *gc.C) {
 	s.csClient.ReturnListResources = [][]charmresource.Resource{{
 		csRes.Resource,
 	}}
-	facade := server.NewFacade(s.data, s.newCSClient)
+	facade, err := server.NewFacade(s.data, s.newCSClient)
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
@@ -238,7 +244,8 @@ func (s *AddPendingResourcesSuite) TestError(c *gc.C) {
 	_, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
-	facade := server.NewFacade(s.data, s.newCSClient)
+	facade, err := server.NewFacade(s.data, s.newCSClient)
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
