@@ -8,12 +8,12 @@ resources:
   store-resource:
     type: file
     filename: filename.tgz
-    comment: One line that is useful when operators need to push it.
+    description: One line that is useful when operators need to push it.
   install-resource:
     type: file
     filename: gotta-have-it.txt
-    comment: get things started
+    description: get things started
   upload-resource:
     type: file
     filename: somename.xml
-    comment: Who uses xml anymore?
+    description: Who uses xml anymore?
