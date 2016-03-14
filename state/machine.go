@@ -1173,37 +1173,37 @@ func (m *Machine) SetInstanceInfo(
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 ) error {
 
-	// We cannot add parent and child devices in the same call, so we must make
-	// 2 calls at least, ideally more but we don't yet have a case where we get
-	// more than 1 "level" of parent-child structure.
-	var (
-		parentDevicesArgs   []LinkLayerDeviceArgs
-		childrenDevicesArgs []LinkLayerDeviceArgs
-	)
-	for _, args := range devicesArgs {
-		logger.Debugf("about to add link-layer %s device %q with parent %q", args.Name, args.Type, args.ParentName)
-		// FIXME: Import loop happens below if we use instancecfg.DefaultBridgePrefix instead!
-		if args.ParentName == "" {
-			parentDevicesArgs = append(parentDevicesArgs, args)
-		} else {
-			childrenDevicesArgs = append(childrenDevicesArgs, args)
-		}
-	}
+	// // We cannot add parent and child devices in the same call, so we must make
+	// // 2 calls at least, ideally more but we don't yet have a case where we get
+	// // more than 1 "level" of parent-child structure.
+	// var (
+	// 	parentDevicesArgs   []LinkLayerDeviceArgs
+	// 	childrenDevicesArgs []LinkLayerDeviceArgs
+	// )
+	// for _, args := range devicesArgs {
+	// 	logger.Debugf("about to add link-layer %s device %q with parent %q", args.Name, args.Type, args.ParentName)
+	// 	// FIXME: Import loop happens below if we use instancecfg.DefaultBridgePrefix instead!
+	// 	if args.ParentName == "" {
+	// 		parentDevicesArgs = append(parentDevicesArgs, args)
+	// 	} else {
+	// 		childrenDevicesArgs = append(childrenDevicesArgs, args)
+	// 	}
+	// }
 
-	if len(parentDevicesArgs) > 0 {
-		if err := m.AddLinkLayerDevices(parentDevicesArgs...); err != nil {
-			return errors.Trace(err)
-		}
-	} else {
-		logger.Debugf("no new parent devices to add")
-	}
-	if err := m.AddLinkLayerDevices(childrenDevicesArgs...); err != nil {
-		return errors.Trace(err)
-	}
+	// if len(parentDevicesArgs) > 0 {
+	// 	if err := m.SetLinkLayerDevices(parentDevicesArgs...); err != nil {
+	// 		return errors.Trace(err)
+	// 	}
+	// } else {
+	// 	logger.Debugf("no new parent devices to add")
+	// }
+	// if err := m.AddLinkLayerDevices(childrenDevicesArgs...); err != nil {
+	// 	return errors.Trace(err)
+	// }
 
-	if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
-		return errors.Trace(err)
-	}
+	// if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
+	// 	return errors.Trace(err)
+	// }
 	if err := setProvisionedVolumeInfo(m.st, volumes); err != nil {
 		return errors.Trace(err)
 	}
