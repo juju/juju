@@ -313,6 +313,37 @@ class TestS3Uploader(TestCase):
         jenkins_mock.get_console_text.return_value = "log text"
         return filename, headers, s3_mock, jenkins_mock
 
+    def test_make_headers_svg(self):
+        headers = S3Uploader.make_headers('/file/path.svg')
+        expected = {'Content-Type': 'image/svg+xml'}
+        self.assertEqual(headers, expected)
+
+    def test_make_headers_txt_gz(self):
+        headers = S3Uploader.make_headers('/file/path.txt.gz')
+        expected = {'Content-Type': 'text/plain',
+                    'Content-Encoding': 'gzip'}
+        self.assertEqual(headers, expected)
+
+    def test_make_headers_log_gz(self):
+        headers = S3Uploader.make_headers('path.log.gz')
+        expected = {'Content-Type': 'text/plain', 'Content-Encoding': 'gzip'}
+        self.assertEqual(headers, expected)
+
+    def test_make_headers_json(self):
+        headers = S3Uploader.make_headers('path.json')
+        expected = {'Content-Type': 'application/json'}
+        self.assertEqual(headers, expected)
+
+    def test_make_headers_yaml(self):
+        headers = S3Uploader.make_headers('path.yaml')
+        expected = {'Content-Type': 'text/x-yaml'}
+        self.assertEqual(headers, expected)
+
+    def test_make_headers_unknown(self):
+        headers = S3Uploader.make_headers('path.ab123')
+        expected = {'Content-Type': 'application/octet-stream'}
+        self.assertEqual(headers, expected)
+
     def test_upload_artifacts(self):
         filename, headers, s3_mock, jenkins_mock = (
             self._make_upload_artifacts(BUILD_NUM))
@@ -332,6 +363,24 @@ class TestS3Uploader(TestCase):
         calls = [call(filename, 'artifact data 1', headers=headers),
                  call(filename, 'artifact data 2', headers=headers),
                  call(filename, 'artifact data 3', headers=headers)]
+        self.assertEqual(s3_mock.store.mock_calls, calls)
+        jenkins_mock.artifacts.assert_called_once_with()
+
+    def test_upload_artifacts_content_type(self):
+
+        def artifacts_fake():
+            for filename, i in zip(['foo.log.gz', 'foo.svg'], xrange(1, 3)):
+                yield filename, "artifact data {}".format(i)
+
+        _, _, s3_mock, jenkins_mock = self._make_upload_artifacts(BUILD_NUM)
+        jenkins_mock.artifacts.return_value = artifacts_fake()
+        h = S3Uploader(s3_mock, jenkins_mock)
+        h.upload_artifacts()
+        calls = [call('1277-log-foo.log.gz', 'artifact data 1',
+                      headers={'Content-Type': 'text/plain',
+                               'Content-Encoding': 'gzip'}),
+                 call('1277-log-foo.svg', 'artifact data 2',
+                      headers={'Content-Type': 'image/svg+xml'})]
         self.assertEqual(s3_mock.store.mock_calls, calls)
         jenkins_mock.artifacts.assert_called_once_with()
 

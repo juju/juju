@@ -4,6 +4,7 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 import json
+from mimetypes import MimeTypes
 import os
 import sys
 from time import sleep
@@ -264,10 +265,23 @@ class S3Uploader:
         self.s3.store(
             filename, self.jenkins_build.get_console_text(), headers=headers)
 
-    def upload_artifacts(self):
+    @staticmethod
+    def make_headers(filename):
+        mime = MimeTypes()
+        mime.add_type('text/plain', '.log')
+        mime.add_type('text/x-yaml', '.yaml')
+        content_type, encoding = mime.guess_type(filename)
         headers = {"Content-Type": "application/octet-stream"}
+        if content_type:
+            headers['Content-Type'] = content_type
+        if encoding:
+            headers['Content-Encoding'] = encoding
+        return headers
+
+    def upload_artifacts(self):
         for filename, content in self.jenkins_build.artifacts():
             filename = self._create_filename(filename)
+            headers = self.make_headers(filename)
             self.s3.store(filename, content, headers=headers)
 
     def _create_filename(self, filename):
