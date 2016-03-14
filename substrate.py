@@ -55,6 +55,10 @@ def terminate_instances(env, instance_ids):
         with MAASAccount.manager_from_config(env.config) as substrate:
             substrate.terminate_instances(instance_ids)
         return
+    elif provider_type == 'lxd':
+        with LXDAccount.manager_from_config(env.config) as substrate:
+            substrate.terminate_instances(instance_ids)
+        return
     else:
         with make_substrate_manager(env.config) as substrate:
             if substrate is None:
@@ -411,6 +415,28 @@ class MAASAccount:
         return ips
 
 
+class LXDAccount:
+    """Represent a LXD account."""
+
+    def __init__(self, remote=None):
+        self.remote = remote
+
+    @classmethod
+    @contextmanager
+    def manager_from_config(cls, config):
+        """Create a ContextManager for a LXDAccount."""
+        remote = config.get('region', None)
+        yield cls(remote=remote)
+
+    def terminate_instances(self, instance_ids):
+        """Terminate the specified instances."""
+        for instance_id in instance_ids:
+            subprocess.check_call(['lxc', 'stop', '--force', instance_id])
+            if self.remote:
+                instance_id = '{}:{}'.format(self.remote, instance_id)
+            subprocess.check_call(['lxc', 'delete', '--force', instance_id])
+
+
 @contextmanager
 def make_substrate_manager(config):
     """A ContextManager that returns an Account for the config's substrate.
@@ -423,6 +449,7 @@ def make_substrate_manager(config):
         'rackspace': OpenStackAccount.manager_from_config,
         'joyent': JoyentAccount.manager_from_config,
         'azure': AzureAccount.manager_from_config,
+        'lxd': LXDAccount.manager_from_config,
     }
     factory = substrate_factory.get(config['type'])
     if factory is None:

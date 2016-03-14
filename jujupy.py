@@ -319,9 +319,12 @@ class EnvJujuClient:
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=True)
 
-    def _full_args(self, command, sudo, args, timeout=None, include_e=True):
+    def _full_args(self, command, sudo, args,
+                   timeout=None, include_e=True, admin=False):
         # sudo is not needed for devel releases.
-        if self.env is None or not include_e:
+        if admin:
+            e_arg = ('-m', self.get_admin_model_name())
+        elif self.env is None or not include_e:
             e_arg = ()
         else:
             e_arg = ('-m', self.env.environment)
@@ -499,7 +502,8 @@ class EnvJujuClient:
         """
         args = self._full_args(command, False, args,
                                timeout=kwargs.get('timeout'),
-                               include_e=kwargs.get('include_e', True))
+                               include_e=kwargs.get('include_e', True),
+                               admin=kwargs.get('admin', False))
         env = self._shell_environ()
         log.debug(args)
         # Mutate os.environ instead of supplying env parameter so
@@ -527,7 +531,7 @@ class EnvJujuClient:
         """Print the status to output."""
         self.juju(self._show_status, ('--format', 'yaml'))
 
-    def get_status(self, timeout=60, raw=False, *args):
+    def get_status(self, timeout=60, raw=False, admin=False, *args):
         """Get the current status as a dict."""
         # GZ 2015-12-16: Pass remaining timeout into get_juju_output call.
         for ignored in until_timeout(timeout):
@@ -536,7 +540,7 @@ class EnvJujuClient:
                     return self.get_juju_output(self._show_status, *args)
                 return Status.from_text(
                     self.get_juju_output(
-                        self._show_status, '--format', 'yaml'))
+                        self._show_status, '--format', 'yaml', admin=admin))
             except subprocess.CalledProcessError:
                 pass
         raise Exception(
@@ -766,10 +770,43 @@ class EnvJujuClient:
         self._wait_for_status(reporter, status_to_version, VersionsNotUpdated,
                               timeout=timeout, start=start)
 
+    def list_models(self):
+        """List the models registered with the current controller."""
+        self.juju('list-models', ('-c', self.env.environment), include_e=False)
+
+    def get_models(self):
+        """return a models dict with a 'models': [] key-value pair."""
+        output = self.get_juju_output(
+            'list-models', '-c', self.env.environment, '--format', 'yaml',
+            include_e=False)
+        models = yaml_loads(output)
+        return models
+
+    def get_admin_model_name(self):
+        """Return the name of the 'admin' model.
+
+        Return the name of the environment when an 'admin' model does
+        not exist.
+        """
+        models = self.get_models()
+        # The dict can be empty because 1.x does not support the models.
+        # This is an ambiguous case for the jes feature flag which supports
+        # multiple models, but none is named 'admin' by default. Since the
+        # jes case also uses '-e' for models, the env is the admin model.
+        for model in models.get('models', []):
+            if 'admin' in model['name']:
+                return 'admin'
+        return self.env.environment
+
+    def list_controllers(self):
+        """List the controllers."""
+        self.juju('list-controllers', (), include_e=False)
+
     def get_controller_endpoint(self):
         """Return the address of the controller leader."""
-        info = yaml_loads(self.get_juju_output(
-            'show-controller', (self.env.environment, )))
+        output = self.get_juju_output(
+            'show-controller', self.env.environment, include_e=False)
+        info = yaml_loads(output)
         endpoint = info[self.env.environment]['details']['api-endpoints'][0]
         address, port = split_address_port(endpoint)
         return address
@@ -810,7 +847,7 @@ class EnvJujuClient:
         reporter = GroupReporter(sys.stdout, desired_state)
         try:
             for remaining in until_timeout(timeout):
-                status = self.get_status()
+                status = self.get_status(admin=True)
                 states = {}
                 for machine, info in status.iter_machines():
                     status = self.get_controller_member_status(info)
@@ -1076,8 +1113,10 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=False)
 
-    def _full_args(self, command, sudo, args, timeout=None, include_e=True):
+    def _full_args(self, command, sudo, args,
+                   timeout=None, include_e=True, admin=False):
         # sudo is not needed for devel releases.
+        # admin is ignored. only environment exists.
         if self.env is None or not include_e:
             e_arg = ()
         else:
@@ -1144,6 +1183,19 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
 
     def enable_ha(self):
         self.juju('ensure-availability', ('-n', '3'))
+
+    def list_models(self):
+        """List the models registered with the current controller."""
+        log.info('The model is environment {}'.format(self.env.environment))
+
+    def get_models(self):
+        """return a models dict with a 'models': [] key-value pair."""
+        return {}
+
+    def list_controllers(self):
+        """List the controllers."""
+        log.info(
+            'The controller is environment {}'.format(self.env.environment))
 
     @staticmethod
     def get_controller_member_status(info_dict):
@@ -1296,7 +1348,7 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     def get_controller_endpoint(self):
         """Return the address of the state-server leader."""
-        endpoint = self.get_juju_output('api-endpoints', ())
+        endpoint = self.get_juju_output('api-endpoints')
         address, port = split_address_port(endpoint)
         return address
 

@@ -1439,7 +1439,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
         with patch_status(client, status) as gs_mock:
             self.assertEqual(ensure_iter.next(), {
                 'test_id': 'ensure-availability-n3', 'result': True})
-        gs_mock.assert_called_once_with()
+        gs_mock.assert_called_once_with(admin=True)
 
     def test_iter_steps_failure(self):
         client = FakeEnvJujuClient()

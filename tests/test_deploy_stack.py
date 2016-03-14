@@ -668,7 +668,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
         self.assertEqual(cc_mock.call_count, 4)
         self.assertEqual(
             [
-                call('show-status', '--format', 'yaml'),
+                call('show-status', '--format', 'yaml', admin=False)
             ],
             gjo_mock.call_args_list)
 

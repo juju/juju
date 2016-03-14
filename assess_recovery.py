@@ -13,7 +13,6 @@ from deploy_stack import (
     wait_for_state_server_to_shutdown,
 )
 from jujupy import (
-    get_machine_dns_name,
     make_client,
     parse_new_state_server_from_error,
 )
@@ -38,8 +37,6 @@ def deploy_stack(client, charm_prefix):
     client.juju('deploy', (charm_prefix + 'ubuntu',))
     client.wait_for_started().status
     print_now("%s is ready to testing" % client.env.environment)
-    instance_id = client.get_status().status['machines']['0']['instance-id']
-    return instance_id
 
 
 def restore_present_state_server(client, backup_file):
@@ -63,23 +60,29 @@ def restore_present_state_server(client, backup_file):
             output)
 
 
-def delete_instance(client, instance_id):
-    """Delete the instance using the providers tools."""
-    print_now("Instrumenting a bootstrap node failure.")
-    return terminate_instances(client.env, [instance_id])
+def delete_controller_members(client, leader_only=False):
+    """Delete controller members.
 
-
-def delete_extra_state_servers(client, instance_id):
-    """Delete the extra state-server instances."""
-    status = client.get_status()
-    for machine, info in status.iter_machines():
-        extra_instance_id = info.get('instance-id')
-        status = client.get_controller_member_status(info)
-        if extra_instance_id != instance_id and status is not None:
-            print_now("Deleting state-server-member {}".format(machine))
-            host = get_machine_dns_name(client, machine)
-            delete_instance(client, extra_instance_id)
-            wait_for_state_server_to_shutdown(host, client, extra_instance_id)
+    The all members are delete by default. The followers are deleted before the
+    leader to simulates a total controller failure. When leader_only is true,
+    the leader is deleted to trigger a new leader election.
+    """
+    if leader_only:
+        leader = client.get_controller_leader()
+        members = [leader]
+    else:
+        members = client.get_controller_members()
+        members.reverse()
+    deleted_machines = []
+    for machine in members:
+        instance_id = machine.info.get('instance-id')
+        host = machine.info.get('dns-name')
+        print_now("Instrumenting node failure for member {}: {} at {}".format(
+                  machine.number, instance_id, host))
+        terminate_instances(client.env, [instance_id])
+        wait_for_state_server_to_shutdown(host, client, instance_id)
+        deleted_machines.append(machine.number)
+    return deleted_machines
 
 
 def restore_missing_state_server(client, backup_file):
@@ -145,19 +148,22 @@ def main(argv):
         jes_enabled=jes_enabled)
     with bs_manager.booted_context(upload_tools=False):
         try:
-            instance_id = deploy_stack(client, args.charm_prefix)
+            deploy_stack(client, args.charm_prefix)
             if args.strategy in ('ha', 'ha-backup'):
                 client.enable_ha()
                 client.wait_for_ha()
             if args.strategy in ('ha-backup', 'backup'):
                 backup_file = client.backup()
                 restore_present_state_server(client, backup_file)
-            if args.strategy == 'ha-backup':
-                delete_extra_state_servers(client, instance_id)
-            delete_instance(client, instance_id)
-            wait_for_state_server_to_shutdown(
-                bs_manager.known_hosts['0'], client, instance_id)
-            del bs_manager.known_hosts['0']
+            if args.strategy == 'ha':
+                leader_only = True
+            else:
+                leader_only = False
+            deleted_machine_ids = delete_controller_members(
+                client, leader_only=leader_only)
+            for m_id in deleted_machine_ids:
+                if bs_manager.known_hosts.get(m_id):
+                    del bs_manager.known_hosts[m_id]
             if args.strategy == 'ha':
                 client.get_status(600)
             else:

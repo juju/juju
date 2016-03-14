@@ -344,7 +344,7 @@ class FakeJujuClient:
     def show_status(self):
         pass
 
-    def get_status(self):
+    def get_status(self, admin=False):
         status_dict = self._backing_state.get_status_dict()
         return Status(status_dict, yaml.safe_dump(status_dict))
 
@@ -911,6 +911,16 @@ class TestEnvJujuClient(ClientTest):
             'juju', '--show-log', 'action', 'bar', '-m', 'foo', 'baz', 'qux'),
             full)
 
+    def test_full_args_admin(self):
+        env = JujuData('foo')
+        client = EnvJujuClient(env, None, 'my/juju/bin')
+        with patch.object(client, 'get_admin_model_name',
+                          return_value='admin') as gamn_mock:
+            full = client._full_args('bar', False, ('baz', 'qux'), admin=True)
+        self.assertEqual((
+            'juju', '--show-log', 'bar', '-m', 'admin', 'baz', 'qux'), full)
+        gamn_mock.assert_called_once_with()
+
     def test__bootstrap_config(self):
         env = JujuData('foo', {
             'access-key': 'foo',
@@ -1209,7 +1219,8 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(client, 'get_juju_output',
                           return_value=output_text) as gjo_mock:
             result = client.get_status()
-        gjo_mock.assert_called_once_with('show-status', '--format', 'yaml')
+        gjo_mock.assert_called_once_with(
+            'show-status', '--format', 'yaml', admin=False)
         self.assertEqual(Status, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
@@ -1218,7 +1229,7 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(env, None, None)
         client.attempt = 0
 
-        def get_juju_output(command, *args):
+        def get_juju_output(command, *args, **kwargs):
             if client.attempt == 1:
                 return '"hello"'
             client.attempt += 1
@@ -1655,6 +1666,76 @@ class TestEnvJujuClient(ClientTest):
                     client.wait_for_workloads(timeout=1)
         self.assertEqual(writes, [])
 
+    def test_list_models(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'juju') as j_mock:
+            client.list_models()
+        j_mock.assert_called_once_with(
+            'list-models', ('-c', 'foo'), include_e=False)
+
+    def test_get_models(self):
+        data = """\
+            models:
+            - name: foo
+              model-uuid: aaaa
+              owner: admin@local
+            - name: bar
+              model-uuid: bbbb
+              owner: admin@local
+            current-model: foo
+        """
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_juju_output',
+                          return_value=data) as gjo_mock:
+            models = client.get_models()
+        gjo_mock.assert_called_once_with(
+            'list-models', '-c', 'foo', '--format', 'yaml', include_e=False)
+        expected_models = {
+            'models': [
+                {'name': 'foo', 'model-uuid': 'aaaa', 'owner': 'admin@local'},
+                {'name': 'bar', 'model-uuid': 'bbbb', 'owner': 'admin@local'}],
+            'current-model': 'foo'
+        }
+        self.assertEqual(expected_models, models)
+
+    def test_get_admin_model_name(self):
+        models = {
+            'models': [
+                {'name': 'admin', 'model-uuid': 'aaaa'},
+                {'name': 'bar', 'model-uuid': 'bbbb'}],
+            'current-model': 'bar'
+        }
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_models',
+                          return_value=models) as gm_mock:
+            admin_name = client.get_admin_model_name()
+        gm_mock.assert_called_once_with()
+        self.assertEqual('admin', admin_name)
+
+    def test_get_admin_model_name_without_admin(self):
+        models = {
+            'models': [
+                {'name': 'bar', 'model-uuid': 'aaaa'},
+                {'name': 'baz', 'model-uuid': 'bbbb'}],
+            'current-model': 'bar'
+        }
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_models', return_value=models):
+            admin_name = client.get_admin_model_name()
+        self.assertEqual('foo', admin_name)
+
+    def test_get_admin_model_name_no_models(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_models', return_value={}):
+            admin_name = client.get_admin_model_name()
+        self.assertEqual('foo', admin_name)
+
+    def test_list_controllers(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'juju') as j_mock:
+            client.list_controllers()
+        j_mock.assert_called_once_with('list-controllers', (), include_e=False)
+
     def test_get_controller_endpoint_ipv4(self):
         data = """\
           foo:
@@ -1666,7 +1747,8 @@ class TestEnvJujuClient(ClientTest):
                           return_value=data) as gjo_mock:
             endpoint = client.get_controller_endpoint()
         self.assertEqual('10.0.0.1', endpoint)
-        gjo_mock.assert_called_once_with('show-controller', ('foo', ))
+        gjo_mock.assert_called_once_with(
+            'show-controller', 'foo', include_e=False)
 
     def test_get_controller_endpoint_ipv6(self):
         data = """\
@@ -1679,7 +1761,8 @@ class TestEnvJujuClient(ClientTest):
                           return_value=data) as gjo_mock:
             endpoint = client.get_controller_endpoint()
         self.assertEqual('::1', endpoint)
-        gjo_mock.assert_called_once_with('show-controller', ('foo', ))
+        gjo_mock.assert_called_once_with(
+            'show-controller', 'foo', include_e=False)
 
     def test_get_controller_members(self):
         status = Status.from_text("""\
@@ -1777,8 +1860,11 @@ class TestEnvJujuClient(ClientTest):
             'services': {},
         })
         client = EnvJujuClient(JujuData('local'), None, None)
-        with patch.object(client, 'get_juju_output', return_value=value):
+        with patch.object(client, 'get_juju_output',
+                          return_value=value) as gjo_mock:
             client.wait_for_ha()
+        gjo_mock.assert_called_once_with(
+            'show-status', '--format', 'yaml', admin=True)
 
     def test_wait_for_ha_no_has_vote(self):
         value = yaml.safe_dump({
@@ -1878,7 +1964,7 @@ class TestEnvJujuClient(ClientTest):
         status = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
         actions = [err, status]
 
-        def get_juju_output_fake(*args):
+        def get_juju_output_fake(*args, **kwargs):
             action = actions.pop(0)
             if isinstance(action, Exception):
                 raise action
@@ -1894,7 +1980,7 @@ class TestEnvJujuClient(ClientTest):
         status = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
         actions = [err, status]
 
-        def get_juju_output_fake(*args):
+        def get_juju_output_fake(*args, **kwargs):
             action = actions.pop(0)
             if isinstance(action, Exception):
                 raise action
@@ -2632,6 +2718,13 @@ class TestEnvJujuClient1X(ClientTest):
         self.assertEqual((
             'juju', '--debug', 'bar', '-e', 'foo', 'baz', 'qux'), full)
 
+    def test_full_args_admin(self):
+        env = SimpleEnvironment('foo')
+        client = EnvJujuClient1X(env, None, 'my/juju/bin')
+        full = client._full_args('bar', False, ('baz', 'qux'), admin=True)
+        self.assertEqual((
+            'juju', '--show-log', 'bar', '-e', 'foo', 'baz', 'qux'), full)
+
     def test_full_args_action(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, 'my/juju/bin')
@@ -2909,7 +3002,8 @@ class TestEnvJujuClient1X(ClientTest):
         with patch.object(client, 'get_juju_output',
                           return_value=output_text) as gjo_mock:
             result = client.get_status()
-        gjo_mock.assert_called_once_with('status', '--format', 'yaml')
+        gjo_mock.assert_called_once_with(
+            'status', '--format', 'yaml', admin=False)
         self.assertEqual(Status, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
@@ -2918,7 +3012,7 @@ class TestEnvJujuClient1X(ClientTest):
         client = EnvJujuClient1X(env, None, None)
         client.attempt = 0
 
-        def get_juju_output(command, *args):
+        def get_juju_output(command, *args, **kwargs):
             if client.attempt == 1:
                 return '"hello"'
             client.attempt += 1
@@ -2950,6 +3044,20 @@ class TestEnvJujuClient1X(ClientTest):
                 with self.assertRaises(StopIteration):
                     client.get_status(500)
         mock_ut.assert_called_with(500)
+
+    def test_get_status_admin(self):
+        output_text = """\
+            - a
+            - b
+            - c
+        """
+        env = SimpleEnvironment('foo')
+        client = EnvJujuClient1X(env, None, None)
+        with patch.object(client, 'get_juju_output',
+                          return_value=output_text) as gjo_mock:
+            client.get_status(admin=True)
+        gjo_mock.assert_called_once_with(
+            'status', '--format', 'yaml', admin=True)
 
     @staticmethod
     def make_status_yaml(key, machine_value, unit_value):
@@ -3423,7 +3531,7 @@ class TestEnvJujuClient1X(ClientTest):
         status = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
         actions = [err, status]
 
-        def get_juju_output_fake(*args):
+        def get_juju_output_fake(*args, **kwargs):
             action = actions.pop(0)
             if isinstance(action, Exception):
                 raise action
@@ -3439,7 +3547,7 @@ class TestEnvJujuClient1X(ClientTest):
         status = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
         actions = [err, status]
 
-        def get_juju_output_fake(*args):
+        def get_juju_output_fake(*args, **kwargs):
             action = actions.pop(0)
             if isinstance(action, Exception):
                 raise action
@@ -3861,6 +3969,34 @@ class TestEnvJujuClient1X(ClientTest):
              'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
         )
 
+    def test_list_models(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient1X(env, '1.23-series-arch', None)
+        client.list_models()
+        self.assertEqual(
+            'INFO The model is environment foo\n',
+            self.log_stream.getvalue())
+
+    def test_get_models(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient1X(env, '1.23-series-arch', None)
+        self.assertEqual({}, client.get_models())
+
+    def test_get_admin_model_name_no_models(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient1X(env, '1.23-series-arch', None)
+        with patch.object(client, 'get_models', return_value={}):
+            admin_name = client.get_admin_model_name()
+        self.assertEqual('foo', admin_name)
+
+    def test_list_controllers(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = EnvJujuClient1X(env, '1.23-series-arch', None)
+        client.list_controllers()
+        self.assertEqual(
+            'INFO The controller is environment foo\n',
+            self.log_stream.getvalue())
+
     def test_get_controller_endpoint_ipv4(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
         client = EnvJujuClient1X(env, '1.23-series-arch', None)
@@ -3868,7 +4004,7 @@ class TestEnvJujuClient1X(ClientTest):
                           return_value='10.0.0.1:17070') as gjo_mock:
             endpoint = client.get_controller_endpoint()
         self.assertEqual('10.0.0.1', endpoint)
-        gjo_mock.assert_called_once_with('api-endpoints', ())
+        gjo_mock.assert_called_once_with('api-endpoints')
 
     def test_get_controller_endpoint_ipv6(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
@@ -3877,7 +4013,7 @@ class TestEnvJujuClient1X(ClientTest):
                           return_value='[::1]:17070') as gjo_mock:
             endpoint = client.get_controller_endpoint()
         self.assertEqual('::1', endpoint)
-        gjo_mock.assert_called_once_with('api-endpoints', ())
+        gjo_mock.assert_called_once_with('api-endpoints')
 
     def test_action_do(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
