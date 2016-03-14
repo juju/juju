@@ -129,7 +129,7 @@ func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
 // if there is no current server available to restore to.
 func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
 
-	// TODO(axw) delete this and -b in 2.0-beta2. We will update bootstrap
+	// TODO(axw) delete this and -b before 2.0. We will update bootstrap
 	// with a flag to specify a restore file. When we do that, we'll need
 	// to extract the CA cert from the backup, and we'll need to reset the
 	// password after restore so the admin user can login.

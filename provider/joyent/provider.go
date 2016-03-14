@@ -50,6 +50,7 @@ func (joyentProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.C
 	return cfg.Apply(attrs)
 }
 
+// BootstrapConfig is specified in the EnvironProvider interface.
 func (p joyentProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	// We don't have a way of passing more than one
 	// API endpoint from clouds.yaml, so we can't
@@ -79,6 +80,7 @@ func (p joyentProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*c
 	return p.PrepareForCreateEnvironment(cfg)
 }
 
+// PrepareForBootstrap is specified in the EnvironProvider interface.
 func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	e, err := p.Open(cfg)
 	if err != nil {

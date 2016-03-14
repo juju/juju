@@ -243,7 +243,7 @@ func ensureCertificate(cfg *config.Config) (*config.Config, string, error) {
 		return nil, "", errors.Trace(err)
 	}
 	cfg, err = cfg.Apply(map[string]interface{}{
-		"ca-cert":        string(caCert),
+		config.CACertKey: string(caCert),
 		"ca-private-key": string(caKey),
 	})
 	if err != nil {

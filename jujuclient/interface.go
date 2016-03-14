@@ -85,7 +85,7 @@ type ControllerRemover interface {
 	// controllers collection.
 	//
 	// Removing a controller will remove all information related to that
-	// controller (models, accounts, etc.)
+	// controller (models, accounts, bootstrap config.)
 	RemoveController(controllerName string) error
 }
 

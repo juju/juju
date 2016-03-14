@@ -294,9 +294,10 @@ func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*confi
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		// DetectCredential ensures that there is only one credential
+		// to choose from. It's still in a map, though, hence for..range.
 		for _, one := range cloudCredential.AuthCredentials {
 			credential = &one
-			break
 		}
 	}
 
@@ -305,7 +306,7 @@ func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*confi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bootstrapConfig.Config["ca-cert"] = controllerDetails.CACert
+	bootstrapConfig.Config[config.CACertKey] = controllerDetails.CACert
 	bootstrapConfig.Config[config.UUIDKey] = controllerDetails.ControllerUUID
 	bootstrapConfig.Config[config.ControllerUUIDKey] = controllerDetails.ControllerUUID
 

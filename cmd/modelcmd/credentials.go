@@ -15,6 +15,8 @@ import (
 )
 
 var (
+	// ErrMultipleCredentials is the error returned by DetectCredential
+	// if more than one credential is detected.
 	ErrMultipleCredentials = errors.New("more than one credential detected")
 )
 

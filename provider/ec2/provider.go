@@ -44,6 +44,7 @@ func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 	return cfg.Apply(attrs)
 }
 
+// Open is specified in the EnvironProvider interface.
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening model %q", cfg.Name())
 	e := new(environ)
@@ -55,6 +56,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
+// BootstrapConfig is specified in the EnvironProvider interface.
 func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	// Add credentials to the configuration.
 	attrs := map[string]interface{}{
@@ -85,6 +87,7 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	return p.PrepareForCreateEnvironment(cfg)
 }
 
+// PrepareForBootstrap is specified in the EnvironProvider interface.
 func (p environProvider) PrepareForBootstrap(
 	ctx environs.BootstrapContext,
 	cfg *config.Config,
@@ -101,6 +104,7 @@ func (p environProvider) PrepareForBootstrap(
 	return e, nil
 }
 
+// Validate is specified in the EnvironProvider interface.
 func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	newEcfg, err := validateConfig(cfg, old)
 	if err != nil {
@@ -126,6 +130,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	}, nil
 }
 
+// SecretAttrs is specified in the EnvironProvider interface.
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	m := make(map[string]string)
 	ecfg, err := providerInstance.newConfig(cfg)

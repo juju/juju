@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-// JujuBootstrapConfigPath is the location where accounts information is
+// JujuBootstrapConfigPath is the location where bootstrap config is
 // expected to be found.
 func JujuBootstrapConfigPath() string {
 	return osenv.JujuXDGDataHomePath("bootstrap-config.yaml")
