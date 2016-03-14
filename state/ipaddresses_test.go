@@ -90,7 +90,7 @@ func (s *ipAddressesStateSuite) addNamedDeviceForMachine(c *gc.C, name string, m
 		Name: name,
 		Type: state.EthernetDevice,
 	}
-	err := machine.AddLinkLayerDevices(deviceArgs)
+	err := machine.SetLinkLayerDevices(deviceArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	device, err := machine.LinkLayerDevice(name)
 	c.Assert(err, jc.ErrorIsNil)
