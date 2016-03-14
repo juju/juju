@@ -180,13 +180,11 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		ops = append(ops, relOps...)
 	}
 	// TODO(ericsnow) Use a generic registry instead.
-	if removeResourcesOps != nil {
-		resOps, err := removeResourcesOps(s.st, s.doc.Name, "")
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, resOps...)
+	resOps, err := removeResourcesOps(s.st, s.doc.Name, "")
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	ops = append(ops, resOps...)
 	// If the service has no units, and all its known relations will be
 	// removed, the service can also be removed.
 	if s.doc.UnitCount == 0 && s.doc.RelationCount == removeCount {
@@ -1060,13 +1058,11 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		return nil, err
 	}
 	// TODO(ericsnow) Use a generic registry instead.
-	if removeResourcesOps != nil {
-		resOps, err := removeResourcesOps(s.st, u.doc.Service, u.doc.Name)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, resOps...)
+	resOps, err := removeResourcesOps(s.st, u.doc.Service, u.doc.Name)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	ops = append(ops, resOps...)
 
 	observedFieldsMatch := bson.D{
 		{"charmurl", u.doc.CharmURL},
