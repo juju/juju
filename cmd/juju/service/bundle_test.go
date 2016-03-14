@@ -952,12 +952,29 @@ deployment of bundle "local:bundle/example-0" completed`
 		},
 	})
 	s.assertRelationsEstablished(c)
-	s.assertUnitsCreated(c, map[string]string{
+
+	// We explicitly pull out the map creation in the call to
+	// s.assertUnitsCreated() and create the map as a new variable
+	// because this /appears/ to tickle a bug on ppc64le using
+	// gccgo-4.9; the bug is that the map on the receiving side
+	// does not have the same contents as it does here - which is
+	// weird because that pattern is used elsewhere in this
+	// function. And just pulling the map instantiation out of the
+	// call is not enough; we need to do something benign with the
+	// variable to keep a reference beyond the call to the
+	// s.assertUnitsCreated(). I have to chosen to delete a
+	// non-existent key. This problem does not occur on amd64
+	// using gc or gccgo-4.9. Nor does it happen using go1.6 on
+	// ppc64. Once we switch to go1.6 across the board this change
+	// should be reverted. See http://pad.lv/1556116.
+	expectedUnits := map[string]string{
 		"sql/0": "0/lxc/0",
 		"sql/1": "2",
 		"wp/0":  "0",
 		"wp/1":  "1/lxc/0",
-	})
+	}
+	s.assertUnitsCreated(c, expectedUnits)
+	delete(expectedUnits, "non-existent")
 
 	// Redeploy the same bundle again.
 	output, err = s.deployBundleYAML(c, content)
