@@ -235,7 +235,10 @@ func resolveStoreResource(res charmresource.Resource, storeResources map[string]
 		// This indicates that AddPendingResources() was called for
 		// a resource the charm store doesn't know about (for the
 		// relevant charm revision).
-		return res, errors.NotFoundf("charm store resource %q", res.Name)
+		// TODO(ericsnow) Do the following once the charm store supports
+		// the necessary endpoints:
+		// return res, errors.NotFoundf("charm store resource %q", res.Name)
+		return res, nil
 	}
 
 	if res.Revision < 0 {

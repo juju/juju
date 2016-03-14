@@ -240,9 +240,46 @@ func (s *AddPendingResourcesSuite) TestWithURLUpload(c *gc.C) {
 	})
 }
 
+// TODO(ericsnow) Once the CS API has ListResources() implemented:
+//func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
+//	_, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
+//	apiRes1.Origin = charmresource.OriginStore.String()
+//	facade, err := server.NewFacade(s.data, s.newCSClient)
+//	c.Assert(err, jc.ErrorIsNil)
+//
+//	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
+//		Entity: params.Entity{
+//			Tag: "service-a-service",
+//		},
+//		AddCharmWithAuthorization: params.AddCharmWithAuthorization{
+//			URL: "cs:~a-user/trusty/spam-5",
+//		},
+//		Resources: []api.CharmResource{
+//			apiRes1.CharmResource,
+//		},
+//	})
+//	c.Assert(err, jc.ErrorIsNil)
+//
+//	s.stub.CheckCallNames(c, "newCSClient", "ListResources")
+//	c.Check(result, jc.DeepEquals, api.AddPendingResourcesResult{
+//		ErrorResult: params.ErrorResult{Error: &params.Error{
+//			Message: `charm store resource "spam" not found`,
+//			Code:    params.CodeNotFound,
+//		}},
+//	})
+//}
+
 func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
-	_, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
-	apiRes1.Origin = "store"
+	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
+	res1.Origin = charmresource.OriginStore
+	res1.Revision = 3
+	apiRes1.Origin = charmresource.OriginStore.String()
+	apiRes1.Revision = 3
+	id1 := "some-unique-ID"
+	s.data.ReturnAddPendingResource = id1
+	s.csClient.ReturnListResources = [][]charmresource.Resource{{
+		res1.Resource,
+	}}
 	facade, err := server.NewFacade(s.data, s.newCSClient)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -259,12 +296,12 @@ func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "newCSClient", "ListResources")
+	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
+	s.stub.CheckCall(c, 2, "AddPendingResource", "a-service", "", res1.Resource, nil)
 	c.Check(result, jc.DeepEquals, api.AddPendingResourcesResult{
-		ErrorResult: params.ErrorResult{Error: &params.Error{
-			Message: `charm store resource "spam" not found`,
-			Code:    params.CodeNotFound,
-		}},
+		PendingIDs: []string{
+			id1,
+		},
 	})
 }
 
