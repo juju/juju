@@ -39,6 +39,12 @@ type CharmStore interface {
 	// are those associated with the specific charm revision. They
 	// include the resource's metadata and revision.
 	ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error)
+
+	// GetResource returns a reader for the resource's data. That data
+	// is streamed from the charm store. The charm's revision, if any,
+	// is ignored. If the identified resource is not in the charm store
+	// then errors.NotFound is returned.
+	GetResource(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, io.ReadCloser, error)
 }
 
 // Facade is the public API facade for resources.
@@ -165,7 +171,7 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 		if err != nil {
 			return nil, err
 		}
-		resolved, err := resolveResources(resources, storeResources)
+		resolved, err := resolveResources(resources, storeResources, cURL, client)
 		if err != nil {
 			return nil, err
 		}
@@ -209,7 +215,7 @@ func (f Facade) resourcesFromCharmstore(cURL *charm.URL, client CharmStore) (map
 // resolveResources determines the resource info that should actually
 // be stored on the controller. That decision is based on the provided
 // resources along with those in the charm store (if any).
-func resolveResources(resources []charmresource.Resource, storeResources map[string]charmresource.Resource) ([]charmresource.Resource, error) {
+func resolveResources(resources []charmresource.Resource, storeResources map[string]charmresource.Resource, cURL *charm.URL, client CharmStore) ([]charmresource.Resource, error) {
 	allResolved := make([]charmresource.Resource, len(resources))
 	copy(allResolved, resources)
 	for i, res := range resources {
@@ -220,7 +226,7 @@ func resolveResources(resources []charmresource.Resource, storeResources map[str
 			continue
 		}
 
-		resolved, err := resolveStoreResource(res, storeResources)
+		resolved, err := resolveStoreResource(res, storeResources, cURL, client)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -231,7 +237,7 @@ func resolveResources(resources []charmresource.Resource, storeResources map[str
 
 // resolveStoreResource selects the resource info to use. It decides
 // between the provided and latest info based on the revision.
-func resolveStoreResource(res charmresource.Resource, storeResources map[string]charmresource.Resource) (charmresource.Resource, error) {
+func resolveStoreResource(res charmresource.Resource, storeResources map[string]charmresource.Resource, cURL *charm.URL, client CharmStore) (charmresource.Resource, error) {
 	storeRes, ok := storeResources[res.Name]
 	if !ok {
 		// This indicates that AddPendingResources() was called for
@@ -257,8 +263,12 @@ func resolveStoreResource(res charmresource.Resource, storeResources map[string]
 		// The caller wants resource info from the charm store, but with
 		// a different resource revision than the one associated with
 		// the charm in the store.
-		// TODO(ericsnow) Call client.GetResource() to get info for that revision.
-		return storeRes, errors.NewNotSupported(nil, "could not get resource info from charm store")
+		storeRes, r, err := client.GetResource(cURL, res.Name, res.Revision)
+		if err != nil {
+			return storeRes, errors.Trace(err)
+		}
+		r.Close() // We don't care about the file.
+		return storeRes, nil
 	}
 	// The caller fully-specified a resource with a different resource
 	// revision than the one associated with the charm in the store. So
