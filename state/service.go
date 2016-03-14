@@ -180,7 +180,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		ops = append(ops, relOps...)
 	}
 	// TODO(ericsnow) Use a generic registry instead.
-	resOps, err := removeResourcesOps(s.st, s.doc.Name, "")
+	resOps, err := removeResourcesOps(s.st, s.doc.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -225,7 +225,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 	}), nil
 }
 
-func removeResourcesOps(st *State, serviceID, unitID string) ([]txn.Op, error) {
+func removeResourcesOps(st *State, serviceID string) ([]txn.Op, error) {
 	persist, err := st.ResourcesPersistence()
 	if errors.IsNotSupported(err) {
 		// Nothing to see here, move along.
@@ -233,13 +233,6 @@ func removeResourcesOps(st *State, serviceID, unitID string) ([]txn.Op, error) {
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	if unitID != "" {
-		ops, err := persist.NewRemoveUnitResourcesOps(unitID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return ops, nil
 	}
 	ops, err := persist.NewRemoveResourcesOps(serviceID)
 	if err != nil {
@@ -1058,7 +1051,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		return nil, err
 	}
 	// TODO(ericsnow) Use a generic registry instead.
-	resOps, err := removeResourcesOps(s.st, u.doc.Service, u.doc.Name)
+	resOps, err := removeUnitResourcesOps(s.st, u.doc.Service, u.doc.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1115,6 +1108,22 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	}
 	ops = append(ops, svcOp)
 
+	return ops, nil
+}
+
+func removeUnitResourcesOps(st *State, serviceID, unitID string) ([]txn.Op, error) {
+	persist, err := st.ResourcesPersistence()
+	if errors.IsNotSupported(err) {
+		// Nothing to see here, move along.
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops, err := persist.NewRemoveUnitResourcesOps(unitID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return ops, nil
 }
 
