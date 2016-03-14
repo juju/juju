@@ -11,18 +11,22 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
+	"github.com/juju/juju/resource/api/server"
 	"github.com/juju/juju/resource/resourcetesting"
 )
 
 type BaseSuite struct {
 	testing.IsolationSuite
 
-	stub *testing.Stub
-	data *stubDataStore
+	stub     *testing.Stub
+	data     *stubDataStore
+	csClient *stubCSClient
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -30,6 +34,16 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.data = &stubDataStore{stub: s.stub}
+	s.csClient = &stubCSClient{Stub: s.stub}
+}
+
+func (s *BaseSuite) newCSClient(cURL *charm.URL, csMac *macaroon.Macaroon) (server.CharmStore, error) {
+	s.stub.AddCall("newCSClient", cURL, csMac)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, err
+	}
+
+	return s.csClient, nil
 }
 
 func newResource(c *gc.C, name, username, data string) (resource.Resource, api.Resource) {
@@ -132,4 +146,19 @@ func (s *stubDataStore) Units(serviceID string) ([]names.UnitTag, error) {
 	}
 
 	return s.ReturnUnits, nil
+}
+
+type stubCSClient struct {
+	*testing.Stub
+
+	ReturnListResources [][]charmresource.Resource
+}
+
+func (s *stubCSClient) ListResources(cURLs []*charm.URL) ([][]charmresource.Resource, error) {
+	s.AddCall("ListResources", cURLs)
+	if err := s.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.ReturnListResources, nil
 }

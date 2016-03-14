@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/api"
@@ -50,7 +51,7 @@ func deployBundle(
 	data *charm.BundleData, client *api.Client, serviceDeployer *serviceDeployer,
 	csclient *csClient, repoPath string, conf *config.Config, log deploymentLogger,
 	bundleStorage map[string]map[string]storage.Constraints,
-) error {
+) (map[*charm.URL]*macaroon.Macaroon, error) {
 	verifyConstraints := func(s string) error {
 		_, err := constraints.Parse(s)
 		return err
@@ -60,7 +61,7 @@ func deployBundle(
 		return err
 	}
 	if err := data.Verify(verifyConstraints, verifyStorage); err != nil {
-		return errors.Annotate(err, "cannot deploy bundle")
+		return nil, errors.Annotate(err, "cannot deploy bundle")
 	}
 
 	// Retrieve bundle changes.
@@ -70,7 +71,7 @@ func deployBundle(
 	// Initialize the unit status.
 	status, err := client.Status(nil)
 	if err != nil {
-		return errors.Annotate(err, "cannot get model status")
+		return nil, errors.Annotate(err, "cannot get model status")
 	}
 	unitStatus := make(map[string]string, numChanges)
 	for _, serviceData := range status.Services {
@@ -82,18 +83,18 @@ func deployBundle(
 	// Instantiate a watcher used to follow the deployment progress.
 	watcher, err := watchAll(client)
 	if err != nil {
-		return errors.Annotate(err, "cannot watch model")
+		return nil, errors.Annotate(err, "cannot watch model")
 	}
 	defer watcher.Stop()
 
 	serviceClient, err := serviceDeployer.newServiceAPIClient()
 	if err != nil {
-		return errors.Annotate(err, "cannot get service client")
+		return nil, errors.Annotate(err, "cannot get service client")
 	}
 
 	annotationsClient, err := serviceDeployer.newAnnotationsAPIClient()
 	if err != nil {
-		return errors.Annotate(err, "cannot get annotations client")
+		return nil, errors.Annotate(err, "cannot get annotations client")
 	}
 
 	// Instantiate the bundle handler.
@@ -117,10 +118,15 @@ func deployBundle(
 	}
 
 	// Deploy the bundle.
+	csMacs := make(map[*charm.URL]*macaroon.Macaroon)
 	for _, change := range changes {
 		switch change := change.(type) {
 		case *bundlechanges.AddCharmChange:
-			err = h.addCharm(change.Id(), change.Params)
+			cURL, csMac, err2 := h.addCharm(change.Id(), change.Params)
+			if err2 == nil {
+				csMacs[cURL] = csMac
+			}
+			err = err2
 		case *bundlechanges.AddMachineChange:
 			err = h.addMachine(change.Id(), change.Params)
 		case *bundlechanges.AddRelationChange:
@@ -134,13 +140,13 @@ func deployBundle(
 		case *bundlechanges.SetAnnotationsChange:
 			err = h.setAnnotations(change.Id(), change.Params)
 		default:
-			return errors.Errorf("unknown change type: %T", change)
+			return nil, errors.Errorf("unknown change type: %T", change)
 		}
 		if err != nil {
-			return errors.Annotate(err, "cannot deploy bundle")
+			return nil, errors.Annotate(err, "cannot deploy bundle")
 		}
 	}
-	return nil
+	return csMacs, nil
 }
 
 // bundleHandler provides helpers and the state required to deploy a bundle.
@@ -198,7 +204,7 @@ type bundleHandler struct {
 }
 
 // addCharm adds a charm to the environment.
-func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) error {
+func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*charm.URL, *macaroon.Macaroon, error) {
 	url, _, repo, err := resolveCharmStoreEntityURL(resolveCharmStoreEntityParams{
 		urlStr:   p.Charm,
 		csParams: h.csclient.params,
@@ -206,18 +212,19 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) erro
 		conf:     h.conf,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
+		return nil, nil, errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
 	if url.Series == "bundle" {
-		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
+		return nil, nil, errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
-	url, err = addCharmFromURL(h.client, url, repo, h.csclient)
+	var csMac *macaroon.Macaroon
+	url, csMac, err = addCharmFromURL(h.client, url, repo, h.csclient)
 	if err != nil {
-		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
+		return nil, nil, errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
 	h.log.Infof("added charm %s", url)
 	h.results[id] = url.String()
-	return nil
+	return url, csMac, nil
 }
 
 // addService deploys or update a service with no units. Service options are

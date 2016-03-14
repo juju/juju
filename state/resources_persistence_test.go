@@ -396,27 +396,53 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsExists(c *gc
 	s.base.ReturnOne = doc
 	p := NewResourcePersistence(s.base)
 
+	lastPolled := time.Now().UTC().Round(time.Second)
+
 	ops, err := p.NewResolvePendingResourceOps(stored.ID, stored.PendingID)
 	c.Assert(err, jc.ErrorIsNil)
 
+	csresourceDoc := expected
+	csresourceDoc.DocID = "resource#a-service/spam#charmstore"
+	csresourceDoc.Username = ""
+	csresourceDoc.Timestamp = time.Time{}
+	csresourceDoc.StoragePath = ""
+	csresourceDoc.LastPolled = lastPolled
+
+	res := ops[4].Insert.(*resourceDoc)
+	res.LastPolled = res.LastPolled.Round(time.Second)
+
 	s.stub.CheckCallNames(c, "One", "One")
 	s.stub.CheckCall(c, 0, "One", "resources", "resource#a-service/spam#pending-some-unique-ID-001", &doc)
-	c.Check(ops, jc.DeepEquals, []txn.Op{{
-		C:      "resources",
-		Id:     doc.DocID,
-		Assert: txn.DocExists,
-		Remove: true,
-	}, {
-		C:      "resources",
-		Id:     expected.DocID,
-		Assert: txn.DocExists,
-		Remove: true,
-	}, {
-		C:      "resources",
-		Id:     expected.DocID,
-		Assert: txn.DocMissing,
-		Insert: &expected,
-	}})
+	c.Check(ops, jc.DeepEquals, []txn.Op{
+		{
+			C:      "resources",
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Remove: true,
+		}, {
+			C:      "resources",
+			Id:     expected.DocID,
+			Assert: txn.DocExists,
+			Remove: true,
+		}, {
+			C:      "resources",
+			Id:     expected.DocID,
+			Assert: txn.DocMissing,
+			Insert: &expected,
+		},
+		{
+			C:      "resources",
+			Id:     csresourceDoc.DocID,
+			Assert: txn.DocExists,
+			Remove: true,
+		},
+		{
+			C:      "resources",
+			Id:     csresourceDoc.DocID,
+			Assert: txn.DocMissing,
+			Insert: &csresourceDoc,
+		},
+	})
 }
 
 func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsNotFound(c *gc.C) {
@@ -431,22 +457,42 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsNotFound(c *
 	s.stub.SetErrors(nil, notFound)
 	p := NewResourcePersistence(s.base)
 
+	lastPolled := time.Now().UTC().Round(time.Second)
 	ops, err := p.NewResolvePendingResourceOps(stored.ID, stored.PendingID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "One", "One")
 	s.stub.CheckCall(c, 0, "One", "resources", "resource#a-service/spam#pending-some-unique-ID-001", &doc)
-	c.Check(ops, jc.DeepEquals, []txn.Op{{
-		C:      "resources",
-		Id:     doc.DocID,
-		Assert: txn.DocExists,
-		Remove: true,
-	}, {
-		C:      "resources",
-		Id:     expected.DocID,
-		Assert: txn.DocMissing,
-		Insert: &expected,
-	}})
+
+	csresourceDoc := expected
+	csresourceDoc.DocID = "resource#a-service/spam#charmstore"
+	csresourceDoc.Username = ""
+	csresourceDoc.Timestamp = time.Time{}
+	csresourceDoc.StoragePath = ""
+	csresourceDoc.LastPolled = lastPolled
+
+	res := ops[2].Insert.(*resourceDoc)
+	res.LastPolled = res.LastPolled.Round(time.Second)
+
+	c.Check(ops, jc.DeepEquals, []txn.Op{
+		{
+			C:      "resources",
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Remove: true,
+		}, {
+			C:      "resources",
+			Id:     expected.DocID,
+			Assert: txn.DocMissing,
+			Insert: &expected,
+		},
+		{
+			C:      "resources",
+			Id:     csresourceDoc.DocID,
+			Assert: txn.DocMissing,
+			Insert: &csresourceDoc,
+		},
+	})
 }
 
 func newPersistenceResources(c *gc.C, serviceID string, names ...string) (resource.ServiceResources, []resourceDoc) {

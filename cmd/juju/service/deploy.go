@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/macaroon.v1"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
@@ -334,7 +335,8 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 			if curl, charmErr = client.AddLocalCharm(curl, ch); charmErr != nil {
 				return charmErr
 			}
-			return c.deployCharm(curl, curl.Series, ctx, client, &deployer)
+			var csMac *macaroon.Macaroon // local charms don't need one.
+			return c.deployCharm(curl, csMac, curl.Series, ctx, client, &deployer)
 		}
 		// We check for several types of known error which indicate
 		// that the supplied reference was indeed a path but there was
@@ -403,7 +405,8 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		if flags := getFlags(c.flagSet, charmOnlyFlags); len(flags) > 0 {
 			return errors.Errorf("Flags provided but not supported when deploying a bundle: %s.", strings.Join(flags, ", "))
 		}
-		if err := deployBundle(
+		// TODO(ericsnow) Do something with the CS macaroons that were returned?
+		if _, err := deployBundle(
 			bundleData, client, &deployer, csClient,
 			repoPath, conf, ctx, c.BundleStorage,
 		); err != nil {
@@ -422,7 +425,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	}
 	// Store the charm in state.
-	curl, err := addCharmFromURL(client, charmOrBundleURL, repo, csClient)
+	curl, csMac, err := addCharmFromURL(client, charmOrBundleURL, repo, csClient)
 	if err != nil {
 		if err1, ok := errors.Cause(err).(*termsRequiredError); ok {
 			terms := strings.Join(err1.Terms, " ")
@@ -432,7 +435,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	}
 	ctx.Infof("Added charm %q to the model.", curl)
 	ctx.Infof("Deploying charm %q %v.", curl, fmt.Sprintf(message, series))
-	return c.deployCharm(curl, series, ctx, client, &deployer)
+	return c.deployCharm(curl, csMac, series, ctx, client, &deployer)
 }
 
 const (
@@ -496,7 +499,7 @@ func charmSeries(
 }
 
 func (c *DeployCommand) deployCharm(
-	curl *charm.URL, series string, ctx *cmd.Context,
+	curl *charm.URL, csMac *macaroon.Macaroon, series string, ctx *cmd.Context,
 	client *api.Client, deployer *serviceDeployer,
 ) (rErr error) {
 	if c.BumpRevision {
@@ -568,7 +571,7 @@ func (c *DeployCommand) deployCharm(
 			strings.Join(charmInfo.Meta.Terms, " "))
 	}
 
-	ids, err := handleResources(c, c.Resources, serviceName, charmInfo.Meta.Resources)
+	ids, err := handleResources(c, c.Resources, serviceName, curl, csMac, charmInfo.Meta.Resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -606,7 +609,7 @@ type APICmd interface {
 	NewAPIRoot() (api.Connection, error)
 }
 
-func handleResources(c APICmd, resources map[string]string, serviceName string, metaResources map[string]charmresource.Meta) (map[string]string, error) {
+func handleResources(c APICmd, resources map[string]string, serviceName string, cURL *charm.URL, csMac *macaroon.Macaroon, metaResources map[string]charmresource.Meta) (map[string]string, error) {
 	if len(resources) == 0 && len(metaResources) == 0 {
 		return nil, nil
 	}
@@ -616,7 +619,7 @@ func handleResources(c APICmd, resources map[string]string, serviceName string, 
 		return nil, errors.Trace(err)
 	}
 
-	ids, err := resourceadapters.DeployResources(serviceName, resources, metaResources, api)
+	ids, err := resourceadapters.DeployResources(serviceName, cURL, csMac, resources, metaResources, api)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
