@@ -120,11 +120,21 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 	infos := make([]network.InterfaceInfo, 0, len(interfaces))
 	for i, iface := range interfaces {
 
+		// The below works for all types except bonds and their members.
+		parentName := strings.Join(iface.Parents, "")
 		var nicType network.InterfaceType
 		switch iface.Type {
 		case typePhysical:
 			nicType = network.EthernetInterface
+			children := strings.Join(iface.Children, "")
+			if parentName == "" && len(iface.Children) == 1 && strings.HasPrefix(children, "bond") {
+				// FIXME: Verify the bond exists, regardless of its name.
+				// This is a bond member, set the parent correctly (from
+				// Juju's perspective) - to the bond itself.
+				parentName = children
+			}
 		case typeBond:
+			parentName = ""
 			nicType = network.BondInterface
 		case typeVLAN:
 			nicType = network.VLAN_8021QInterface
@@ -137,7 +147,7 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			VLANTag:             iface.VLAN.VID,
 			InterfaceName:       iface.Name,
 			InterfaceType:       nicType,
-			ParentInterfaceName: strings.Join(iface.Parents, ""), // FIXME: I've yet to see a multi-parent NIC in MAAS
+			ParentInterfaceName: parentName,
 			Disabled:            !iface.Enabled,
 			NoAutoStart:         !iface.Enabled,
 			// This is not needed anymore, but the provisioner still validates it's set.
