@@ -243,7 +243,7 @@ func (c *upgradeMongoCommand) migratableMachines() (upgradeMongoParams, error) {
 	}
 
 	defer haClient.Close()
-	results, err := haClient.MongoUpgradeMode(mongo.Mongo30wt)
+	results, err := haClient.MongoUpgradeMode(mongo.Mongo32wt)
 	if err != nil {
 		return upgradeMongoParams{}, errors.Annotate(err, "cannot enter mongo upgrade mode")
 	}
