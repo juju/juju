@@ -1860,8 +1860,11 @@ class TestEnvJujuClient(ClientTest):
             'services': {},
         })
         client = EnvJujuClient(JujuData('local'), None, None)
-        with patch.object(client, 'get_juju_output', return_value=value):
+        with patch.object(client, 'get_juju_output',
+                          return_value=value) as gjo_mock:
             client.wait_for_ha()
+        gjo_mock.assert_called_once_with(
+            'show-status', '--format', 'yaml', admin=True)
 
     def test_wait_for_ha_no_has_vote(self):
         value = yaml.safe_dump({
@@ -3041,6 +3044,20 @@ class TestEnvJujuClient1X(ClientTest):
                 with self.assertRaises(StopIteration):
                     client.get_status(500)
         mock_ut.assert_called_with(500)
+
+    def test_get_status_admin(self):
+        output_text = """\
+            - a
+            - b
+            - c
+        """
+        env = SimpleEnvironment('foo')
+        client = EnvJujuClient1X(env, None, None)
+        with patch.object(client, 'get_juju_output',
+                          return_value=output_text) as gjo_mock:
+            client.get_status(admin=True)
+        gjo_mock.assert_called_once_with(
+            'status', '--format', 'yaml', admin=True)
 
     @staticmethod
     def make_status_yaml(key, machine_value, unit_value):
