@@ -552,9 +552,12 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		if err != nil {
 			return err
 		}
+
+		devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(arg.NetworkConfig)
+
 		err = machine.SetInstanceInfo(
 			arg.InstanceId, arg.Nonce, arg.Characteristics,
-			nil, nil, // FIXME: Drop these now that SetObservedNetworkConfig does it better
+			devicesArgs, devicesAddrs,
 			volumes, volumeAttachments,
 		)
 		if err != nil {
