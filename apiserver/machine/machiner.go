@@ -180,7 +180,7 @@ func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkCo
 	logger.Tracef("provider network config instance %q: %+v", instId, observedConfig)
 
 	mergedConfig := networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
-	logger.Tracef("merged network config: %+v", instId, mergedConfig)
+	logger.Tracef("merged network config: %+v", mergedConfig)
 
 	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(mergedConfig)
 
