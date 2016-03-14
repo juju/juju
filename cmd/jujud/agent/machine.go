@@ -257,7 +257,6 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
-	loopDeviceManager looputil.LoopDeviceManager,
 	rootDir string,
 ) func(string) *MachineAgent {
 	return func(machineId string) *MachineAgent {
@@ -266,7 +265,7 @@ func MachineAgentFactoryFn(
 			agentConfWriter,
 			bufferedLogs,
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
-			loopDeviceManager,
+			looputil.NewLoopDeviceManager(),
 			rootDir,
 		)
 	}
