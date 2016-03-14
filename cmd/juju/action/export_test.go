@@ -17,72 +17,72 @@ var (
 	AddValueToMap      = addValueToMap
 )
 
-type FetchCommand struct {
-	*fetchCommand
+type ShowOutputCommand struct {
+	*showOutputCommand
 }
 
 type StatusCommand struct {
 	*statusCommand
 }
 
-type DoCommand struct {
-	*doCommand
+type RunCommand struct {
+	*runCommand
 }
 
-func (c *DoCommand) UnitTag() names.UnitTag {
+func (c *RunCommand) UnitTag() names.UnitTag {
 	return c.unitTag
 }
 
-func (c *DoCommand) ActionName() string {
+func (c *RunCommand) ActionName() string {
 	return c.actionName
 }
 
-func (c *DoCommand) ParseStrings() bool {
+func (c *RunCommand) ParseStrings() bool {
 	return c.parseStrings
 }
 
-func (c *DoCommand) ParamsYAML() cmd.FileVar {
+func (c *RunCommand) ParamsYAML() cmd.FileVar {
 	return c.paramsYAML
 }
 
-func (c *DoCommand) Args() [][]string {
+func (c *RunCommand) Args() [][]string {
 	return c.args
 }
 
-type DefinedCommand struct {
-	*definedCommand
+type ListCommand struct {
+	*listCommand
 }
 
-func (c *DefinedCommand) ServiceTag() names.ServiceTag {
+func (c *ListCommand) ServiceTag() names.ServiceTag {
 	return c.serviceTag
 }
 
-func (c *DefinedCommand) FullSchema() bool {
+func (c *ListCommand) FullSchema() bool {
 	return c.fullSchema
 }
 
-func NewFetchCommand(store jujuclient.ClientStore) (cmd.Command, *FetchCommand) {
-	c := &fetchCommand{}
+func NewShowOutputCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ShowOutputCommand) {
+	c := &showOutputCommand{}
 	c.SetClientStore(store)
-	return modelcmd.Wrap(c), &FetchCommand{c}
+	return modelcmd.Wrap(c), &ShowOutputCommand{c}
 }
 
-func NewStatusCommand(store jujuclient.ClientStore) (cmd.Command, *StatusCommand) {
+func NewStatusCommandForTest(store jujuclient.ClientStore) (cmd.Command, *StatusCommand) {
 	c := &statusCommand{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c), &StatusCommand{c}
 }
 
-func NewDefinedCommand(store jujuclient.ClientStore) (cmd.Command, *DefinedCommand) {
-	c := &definedCommand{}
+func NewListCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ListCommand) {
+	c := &listCommand{}
 	c.SetClientStore(store)
-	return modelcmd.Wrap(c, modelcmd.ModelSkipDefault), &DefinedCommand{c}
+	return modelcmd.Wrap(c, modelcmd.ModelSkipDefault), &ListCommand{c}
 }
 
-func NewDoCommand(store jujuclient.ClientStore) (cmd.Command, *DoCommand) {
-	c := &doCommand{}
+func NewRunCommandForTest(store jujuclient.ClientStore) (cmd.Command, *RunCommand) {
+	c := &runCommand{}
 	c.SetClientStore(store)
-	return modelcmd.Wrap(c, modelcmd.ModelSkipDefault), &DoCommand{c}
+	return modelcmd.Wrap(c, modelcmd.ModelSkipDefault), &RunCommand{c}
 }
 
 func ActionResultsToMap(results []params.ActionResult) map[string]interface{} {

@@ -6,7 +6,7 @@ package action_test
 import (
 	"errors"
 	"io/ioutil"
-	"regexp"
+	//"regexp"
 	"testing"
 	"time"
 
@@ -49,7 +49,6 @@ type BaseActionSuite struct {
 
 func (s *BaseActionSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.command = action.NewSuperCommand()
 
 	s.modelFlags = []string{"-m", "--model"}
 
@@ -69,7 +68,7 @@ func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
 	)
 }
 
-func (s *BaseActionSuite) checkHelp(c *gc.C, subcmd cmd.Command) {
+/*func (s *BaseActionSuite) checkHelp(c *gc.C, subcmd cmd.Command) {
 	ctx, err := coretesting.RunCommand(c, s.command, subcmd.Info().Name, "--help")
 	c.Assert(err, gc.IsNil)
 
@@ -83,7 +82,7 @@ func (s *BaseActionSuite) checkHelp(c *gc.C, subcmd cmd.Command) {
 
 	expected = "(?sm).*^" + regexp.QuoteMeta(subcmd.Info().Doc) + "$.*"
 	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
-}
+}*/
 
 var someCharmActions = &charm.Actions{
 	ActionSpecs: map[string]charm.ActionSpec{

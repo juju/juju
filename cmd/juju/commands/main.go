@@ -203,11 +203,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewUsersCommand())
 
 	// Manage and control actions
-	r.Register(action.NewSuperCommand())
-	r.RegisterSuperAlias("run-action", "action", "do", nil)
-	r.RegisterSuperAlias("list-actions", "action", "defined", nil)
-	r.RegisterSuperAlias("show-action-output", "action", "fetch", nil)
-	r.RegisterSuperAlias("show-action-status", "action", "status", nil)
+	r.Register(action.NewStatusCommand())
+	r.Register(action.NewRunCommand())
+	r.Register(action.NewShowOutputCommand())
+	r.Register(action.NewListCommand())
 
 	// Manage controller availability
 	r.Register(newEnableHACommand())

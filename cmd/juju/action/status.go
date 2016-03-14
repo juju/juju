@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newStatusCommand() cmd.Command {
+func NewStatusCommand() cmd.Command {
 	return modelcmd.Wrap(&statusCommand{})
 }
 
@@ -35,7 +35,7 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *statusCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "status",
+		Name:    "show-action-status",
 		Args:    "[<action ID>|<action ID prefix>]",
 		Purpose: "show results of all actions filtered by optional ID prefix",
 		Doc:     statusDoc,
