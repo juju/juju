@@ -30,10 +30,6 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 )
 
-// TODO(perrito666) create an authoritative source for all possible
-// uses of this const, not only here but all around juju
-const restoreUserHome = "/home/ubuntu/"
-
 // resetReplicaSet re-initiates replica-set using the new controller
 // values, this is required after a mongo restore.
 // In case of failure returns error.

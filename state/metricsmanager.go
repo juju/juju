@@ -7,13 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
-
-var metricsManagerLogger = loggo.GetLogger("juju.state.metricsmanager")
 
 const (
 	defaultGracePeriod                      = 7 * 24 * time.Hour // 1 week in hours

@@ -2297,16 +2297,6 @@ func ensureSuffixFn(marker string) func(string) string {
 	}
 }
 
-// watchEnqueuedActions starts and returns a StringsWatcher that
-// notifies on new Actions being enqueued.
-func (st *State) watchEnqueuedActions() StringsWatcher {
-	return newcollectionWatcher(st, colWCfg{
-		col:    actionNotificationsC,
-		filter: makeIdFilter(st, actionMarker),
-		idconv: actionNotificationIdToActionId,
-	})
-}
-
 // watchEnqueuedActionsFilteredBy starts and returns a StringsWatcher
 // that notifies on new Actions being enqueued on the ActionRecevers
 // being watched.

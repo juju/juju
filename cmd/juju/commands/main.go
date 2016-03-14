@@ -280,10 +280,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	rcmd.RegisterAll(r)
 }
 
-func main() {
-	Main(os.Args)
-}
-
 type versionDeprecation struct {
 	replacement string
 	deprecate   version.Number
