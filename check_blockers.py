@@ -51,23 +51,36 @@ def parse_args(args=None):
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
     check_parser = subparsers.add_parser(
         'check', help='Check if merges are blocked for a branch.')
-    check_parser.add_argument('branch', default='master', nargs='?',
-                              help='The branch to merge into.')
+    check_parser.add_argument(
+        'branch', default='master', nargs='?', type=str.lower,
+        help='The branch to merge into.')
     check_parser.add_argument('pull_request', default=None, nargs='?',
                               help='The pull request to be merged')
+    block_ci_testing_parser = subparsers.add_parser(
+        'block-ci-testing',
+        help='Check if ci testing is blocked for the branch.')
+    block_ci_testing_parser.add_argument(
+        'branch', type=str.lower, help='The branch to merge into.')
     update_parser = subparsers.add_parser(
         'update', help='Update blocking for a branch that passed CI.')
     update_parser.add_argument(
         '-d', '--dry-run', action='store_true', default=False,
         help='Do not make changes.')
-    update_parser.add_argument('branch', help='The branch that passed.')
+    update_parser.add_argument(
+        'branch', type=str.lower, help='The branch that passed.')
     update_parser.add_argument(
         'build', help='The build-revision build number.')
-    return parser.parse_args(args)
+    args = parser.parse_args(args)
+    if not getattr(args, 'pull_request', None):
+        args.pull_request = None
+    return args
 
 
-def get_lp_bugs(lp, branch, with_ci=False):
+def get_lp_bugs(lp, branch, tags):
     """Return a dict of blocker critical bug tasks for the branch."""
+    if not tags:
+        raise ValueError('tags must be a list of bug tags')
+    bug_tags = tags
     bugs = {}
     project = lp.projects['juju-core']
     if branch == 'master':
@@ -77,10 +90,6 @@ def get_lp_bugs(lp, branch, with_ci=False):
         target = project.getSeries(name=branch)
     if not target:
         return bugs
-    if with_ci:
-        bug_tags = BUG_TAGS + ['ci']
-    else:
-        bug_tags = BUG_TAGS
     bug_tasks = target.searchTasks(
         status=BUG_STATUSES, importance=BUG_IMPORTANCES,
         tags=bug_tags, tags_combinator='All')
@@ -136,11 +145,15 @@ def main(argv):
     args = parse_args(argv)
     lp = get_lp('check_blockers', credentials_file=args.credentials_file)
     if args.command == 'check':
-        bugs = get_lp_bugs(lp, args.branch, with_ci=False)
+        bugs = get_lp_bugs(lp, args.branch, tags=['blocker'])
+        code, reason = get_reason(bugs, args)
+        print(reason)
+    if args.command == 'block-ci-testing':
+        bugs = get_lp_bugs(lp, args.branch, tags=['block-ci-testing'])
         code, reason = get_reason(bugs, args)
         print(reason)
     elif args.command == 'update':
-        bugs = get_lp_bugs(lp, args.branch, with_ci=True)
+        bugs = get_lp_bugs(lp, args.branch, tags=['blocker', 'ci'])
         code, changes = update_bugs(
             bugs, args.branch, args.build, dry_run=args.dry_run)
         print(changes)
