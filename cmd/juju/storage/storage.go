@@ -16,8 +16,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.storage")
-
 // StorageCommandBase is a helper base structure that has a method to get the
 // storage managing client.
 type StorageCommandBase struct {
