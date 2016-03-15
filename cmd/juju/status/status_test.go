@@ -3221,11 +3221,11 @@ mysql       wordpress db                regular
 wordpress   logging   logging-directory subordinate 
 
 [Units]     
-ID          WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS   MESSAGE                        
-mysql/0     maintenance    idle        1.2.3   2             dummymodel-2.dns installing all the things      
-  logging/1 error          idle                              dummymodel-2.dns somehow lost in all those logs 
-wordpress/0 active         idle        1.2.3   1             dummymodel-1.dns                                
-  logging/0 active         idle                              dummymodel-1.dns                                
+ID          WORKLOAD-STATUS JUJU-STATUS VERSION MACHINE PORTS PUBLIC-ADDRESS   MESSAGE                        
+mysql/0     maintenance     idle        1.2.3   2             dummymodel-2.dns installing all the things      
+  logging/1 error           idle                              dummymodel-2.dns somehow lost in all those logs 
+wordpress/0 active          idle        1.2.3   1             dummymodel-1.dns                                
+  logging/0 active          idle                              dummymodel-1.dns                                
 
 [Machines] 
 ID         STATE   DNS              INS-ID       SERIES  AZ         
@@ -3280,9 +3280,9 @@ NAME       STATUS EXPOSED CHARM
 foo               false         
 
 [Units] 
-ID      WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                           
-foo/0   maintenance    executing                                        (config-changed) doing some work  
-foo/1   maintenance    executing                                        (backup database) doing some work 
+ID      WORKLOAD-STATUS JUJU-STATUS VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                           
+foo/0   maintenance     executing                                        (config-changed) doing some work  
+foo/1   maintenance     executing                                        (backup database) doing some work 
 
 [Machines] 
 ID         STATE DNS INS-ID SERIES AZ 
