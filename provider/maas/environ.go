@@ -898,6 +898,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 
 	inst := &maasInstance{
 		maasObject:   selectedNode,
+		environ:      environ,
 		statusGetter: environ.deploymentStatusOne,
 	}
 	defer func() {
@@ -1346,6 +1347,7 @@ func (environ *maasEnviron) instances(filter url.Values) ([]instance.Instance, e
 		}
 		instances[index] = &maasInstance{
 			maasObject:   &node,
+			environ:      environ,
 			statusGetter: environ.deploymentStatusOne,
 		}
 	}
