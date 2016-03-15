@@ -25,6 +25,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/joyent"
 	coretesting "github.com/juju/juju/testing"
@@ -153,7 +154,7 @@ type localServerSuite struct {
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
-	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 
 	s.providerSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
@@ -279,7 +280,7 @@ var instanceGathering = []struct {
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := s.Prepare(c)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
-	c.Assert(inst.Status(), gc.Equals, "running")
+	c.Assert(inst.Status().Message, gc.Equals, "running")
 	err := env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }

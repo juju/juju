@@ -5,13 +5,19 @@ package charmcmd
 
 import (
 	"net/http"
+	"net/url"
 	"os"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/persistent-cookiejar"
+	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/jujuclient"
 )
 
 // TODO(ericsnow) Factor out code from cmd/juju/commands/common.go and
@@ -25,46 +31,45 @@ import (
 // store client.
 type CharmstoreSpec interface {
 	// Connect connects to the specified charm store.
-	Connect() (*charmstore.Client, error)
+	Connect(ctx *cmd.Context) (*charmstore.Client, error)
 }
 
-type charmstoreSpec struct {
-	config charmstore.ClientConfig
-}
+type charmstoreSpec struct{}
 
 // newCharmstoreSpec creates a new charm store spec with default
 // settings.
 func newCharmstoreSpec() CharmstoreSpec {
-	var config charmstore.ClientConfig
-	// We use the default for URL and set HTTPClient later.
-	config.VisitWebPage = httpbakery.OpenWebBrowser
-	return &charmstoreSpec{
-		config: config,
-	}
+	return &charmstoreSpec{}
 }
 
 // Connect implements CharmstoreSpec.
-func (cs charmstoreSpec) Connect() (*charmstore.Client, error) {
-	config, apiContext, err := cs.connect()
+func (cs charmstoreSpec) Connect(ctx *cmd.Context) (*charmstore.Client, error) {
+	visitWebPage := httpbakery.OpenWebBrowser
+	if ctx != nil {
+		filler := &form.IOFiller{
+			In:  ctx.Stdin,
+			Out: ctx.Stderr,
+		}
+		visitWebPage = ussologin.VisitWebPage(
+			filler,
+			&http.Client{},
+			jujuclient.NewTokenStore(),
+		)
+	}
+	apiContext, err := newAPIContext(visitWebPage)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	csClient := charmstore.NewClient(config)
-	csClient.Closer = apiContext
-	return csClient, nil
-}
 
-// TODO(ericsnow) Also add charmstoreSpec.Repo() -> charmrepo.Interface?
+	client := charmstore.NewClient(charmstore.ClientConfig{
+		charmrepo.NewCharmStoreParams{
+			HTTPClient:   apiContext.HTTPClient(),
+			VisitWebPage: visitWebPage,
+		},
+	})
+	client.Closer = apiContext
 
-func (cs charmstoreSpec) connect() (charmstore.ClientConfig, *apiContext, error) {
-	apiContext, err := newAPIContext()
-	if err != nil {
-		return charmstore.ClientConfig{}, nil, errors.Trace(err)
-	}
-
-	config := cs.config // a copy
-	config.HTTPClient = apiContext.HTTPClient()
-	return config, apiContext, nil
+	return client, nil
 }
 
 ///////////////////
@@ -72,7 +77,7 @@ func (cs charmstoreSpec) connect() (charmstore.ClientConfig, *apiContext, error)
 
 // newAPIContext returns a new api context, which should be closed
 // when done with.
-func newAPIContext() (*apiContext, error) {
+func newAPIContext(visitWebPage func(*url.URL) error) (*apiContext, error) {
 	jar, err := cookiejar.New(&cookiejar.Options{
 		Filename: cookieFile(),
 	})
@@ -81,7 +86,7 @@ func newAPIContext() (*apiContext, error) {
 	}
 	client := httpbakery.NewClient()
 	client.Jar = jar
-	client.VisitWebPage = httpbakery.OpenWebBrowser
+	client.VisitWebPage = visitWebPage
 
 	return &apiContext{
 		jar:    jar,

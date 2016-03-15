@@ -7,8 +7,6 @@
 package cleaner
 
 import (
-	"github.com/juju/loggo"
-
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -18,8 +16,6 @@ import (
 func init() {
 	common.RegisterStandardFacade("Cleaner", 2, NewCleanerAPI)
 }
-
-var logger = loggo.GetLogger("juju.apiserver.cleaner")
 
 // CleanerAPI implements the API used by the cleaner worker.
 type CleanerAPI struct {

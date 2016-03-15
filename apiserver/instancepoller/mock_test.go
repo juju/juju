@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 // mockState implements StateInterface and allows inspection of called
@@ -206,8 +207,8 @@ func (m *mockState) StartSync() {}
 type machineInfo struct {
 	id                string
 	instanceId        instance.Id
-	status            state.StatusInfo
-	instanceStatus    string
+	status            status.StatusInfo
+	instanceStatus    status.StatusInfo
 	providerAddresses []network.Address
 	life              state.Life
 	isManual          bool
@@ -264,27 +265,31 @@ func (m *mockMachine) SetProviderAddresses(addrs ...network.Address) error {
 }
 
 // InstanceStatus implements StateMachine.
-func (m *mockMachine) InstanceStatus() (string, error) {
+func (m *mockMachine) InstanceStatus() (status.StatusInfo, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	m.MethodCall(m, "InstanceStatus")
 	if err := m.NextErr(); err != nil {
-		return "", err
+		return status.StatusInfo{}, err
 	}
 	return m.instanceStatus, nil
 }
 
 // SetInstanceStatus implements StateMachine.
-func (m *mockMachine) SetInstanceStatus(status string) error {
+func (m *mockMachine) SetInstanceStatus(instanceStatus status.Status, info string, data map[string]interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.MethodCall(m, "SetInstanceStatus", status)
+	m.MethodCall(m, "SetInstanceStatus", instanceStatus)
 	if err := m.NextErr(); err != nil {
 		return err
 	}
-	m.instanceStatus = status
+	m.instanceStatus = status.StatusInfo{
+		Status:  instanceStatus,
+		Message: info,
+		Data:    data,
+	}
 	return nil
 }
 
@@ -308,7 +313,7 @@ func (m *mockMachine) IsManual() (bool, error) {
 }
 
 // Status implements StateMachine.
-func (m *mockMachine) Status() (state.StatusInfo, error) {
+func (m *mockMachine) Status() (status.StatusInfo, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
+	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
 	"github.com/juju/juju/worker/upgradewaiter"
@@ -297,6 +298,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:     apiCallerName,
 			UpgradeWaiterName: upgradeWaiterName,
 		}),
+
+		toolsversioncheckerName: toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
+		}),
 	}
 }
 
@@ -304,7 +311,6 @@ const (
 	agentName                = "agent"
 	terminationName          = "termination"
 	apiCallerName            = "api-caller"
-	apiInfoGateName          = "api-info-gate"
 	upgradeStepsGateName     = "upgrade-steps-gate"
 	upgradeCheckGateName     = "upgrade-check-gate"
 	upgraderName             = "upgrader"
@@ -325,4 +331,5 @@ const (
 	storageprovisionerName   = "storage-provisioner-machine"
 	resumerName              = "resumer"
 	identityFileWriterName   = "identity-file-writer"
+	toolsversioncheckerName  = "tools-version-checker"
 )

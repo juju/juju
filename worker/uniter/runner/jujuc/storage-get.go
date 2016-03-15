@@ -8,8 +8,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
-
-	"github.com/juju/juju/apiserver/params"
 )
 
 // StorageGetCommand implements the storage-get command.
@@ -59,16 +57,6 @@ func (c *StorageGetCommand) Init(args []string) error {
 	}
 	c.key = key
 	return nil
-}
-
-func storageKindString(k params.StorageKind) string {
-	switch k {
-	case params.StorageKindBlock:
-		return "block"
-	case params.StorageKindFilesystem:
-		return "filesystem"
-	}
-	return "unknown"
 }
 
 func (c *StorageGetCommand) Run(ctx *cmd.Context) error {

@@ -1502,7 +1502,7 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 			u.st.docID(u.globalMeterStatusKey()),
 		}, {
 			metricsManagerC,
-			u.st.docID(metricsManagerKey),
+			metricsManagerKey,
 		},
 	})
 }
@@ -2295,16 +2295,6 @@ func ensureSuffixFn(marker string) func(string) string {
 		}
 		return p
 	}
-}
-
-// watchEnqueuedActions starts and returns a StringsWatcher that
-// notifies on new Actions being enqueued.
-func (st *State) watchEnqueuedActions() StringsWatcher {
-	return newcollectionWatcher(st, colWCfg{
-		col:    actionNotificationsC,
-		filter: makeIdFilter(st, actionMarker),
-		idconv: actionNotificationIdToActionId,
-	})
 }
 
 // watchEnqueuedActionsFilteredBy starts and returns a StringsWatcher

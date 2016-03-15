@@ -61,6 +61,13 @@ func deployBundle(
 		return err
 	}
 	if err := data.Verify(verifyConstraints, verifyStorage); err != nil {
+		if verr, ok := err.(*charm.VerificationError); ok {
+			errs := make([]string, len(verr.Errors))
+			for i, err := range verr.Errors {
+				errs[i] = err.Error()
+			}
+			return nil, errors.New("the provided bundle has the following errors:\n" + strings.Join(errs, "\n"))
+		}
 		return nil, errors.Annotate(err, "cannot deploy bundle")
 	}
 

@@ -9,17 +9,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 )
-
-var logger = loggo.GetLogger("juju.resource.api.client")
 
 // TODO(ericsnow) Move FacadeCaller to a component-central package.
 
@@ -135,7 +131,7 @@ func (c Client) AddPendingResources(args AddPendingResourcesArgs) (pendingIDs []
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
-		err := common.RestoreError(result.Error)
+		err := api.RestoreError(result.Error)
 		return nil, errors.Trace(err)
 	}
 

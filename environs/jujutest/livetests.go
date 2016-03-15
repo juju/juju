@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
@@ -105,7 +104,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.TestDataSuite.SetUpSuite(c)
 	t.ConfigStore = configstore.NewMem()
 	t.ControllerStore = jujuclienttesting.NewMemStore()
-	t.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+	t.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
@@ -119,19 +118,6 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
 	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c))
-}
-
-func publicAttrs(e environs.Environ) map[string]interface{} {
-	cfg := e.Config()
-	secrets, err := e.Provider().SecretAttrs(cfg)
-	if err != nil {
-		panic(err)
-	}
-	attrs := cfg.AllAttrs()
-	for attr := range secrets {
-		delete(attrs, attr)
-	}
-	return attrs
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -710,23 +696,6 @@ var waitAgent = utils.AttemptStrategy{
 	Delay: 1 * time.Second,
 }
 
-func (t *LiveTests) assertStartInstance(c *gc.C, m *state.Machine) {
-	// Wait for machine to get an instance id.
-	for a := waitAgent.Start(); a.Next(); {
-		err := m.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		instId, err := m.InstanceId()
-		if err != nil {
-			c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
-			continue
-		}
-		_, err = t.Env.Instances([]instance.Id{instId})
-		c.Assert(err, jc.ErrorIsNil)
-		return
-	}
-	c.Fatalf("provisioner failed to start machine after %v", waitAgent.Total)
-}
-
 func (t *LiveTests) assertStopInstance(c *gc.C, env environs.Environ, instId instance.Id) {
 	var err error
 	for a := waitAgent.Start(); a.Next(); {
@@ -740,32 +709,6 @@ func (t *LiveTests) assertStopInstance(c *gc.C, env environs.Environ, instId ins
 		c.Logf("error from Instances: %v", err)
 	}
 	c.Fatalf("provisioner failed to stop machine after %v", waitAgent.Total)
-}
-
-// assertInstanceId asserts that the machine has an instance id
-// that matches that of the given instance. If the instance is nil,
-// It asserts that the instance id is unset.
-func assertInstanceId(c *gc.C, m *state.Machine, inst instance.Instance) {
-	var wantId, gotId instance.Id
-	var err error
-	if inst != nil {
-		wantId = inst.Id()
-	}
-	for a := waitAgent.Start(); a.Next(); {
-		err := m.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		gotId, err = m.InstanceId()
-		if err != nil {
-			c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
-			if inst == nil {
-				return
-			}
-			continue
-		}
-		break
-	}
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotId, gc.Equals, wantId)
 }
 
 // Check that we get a consistent error when asking for an instance without

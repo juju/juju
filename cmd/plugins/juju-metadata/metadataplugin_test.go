@@ -103,7 +103,7 @@ func (s *MetadataSuite) TestHelpCommands(c *gc.C) {
 }
 
 func (s *MetadataSuite) assertHelpOutput(c *gc.C, cmd string) {
-	expected := fmt.Sprintf("usage: juju metadata %s [options]", cmd)
+	expected := fmt.Sprintf("Usage: juju metadata %s [options]", cmd)
 	out := badrun(c, 0, cmd, "--help")
 	lines := strings.Split(out, "\n")
 	c.Assert(lines[0], gc.Equals, expected)

@@ -7,8 +7,6 @@ package openstack
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -37,6 +35,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
@@ -187,31 +186,6 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 	return &environConfig{valid, valid.UnknownAttrs()}, nil
 }
 
-func retryGet(uri string) (data []byte, err error) {
-	for a := shortAttempt.Start(); a.Next(); {
-		var resp *http.Response
-		resp, err = http.Get(uri)
-		if err != nil {
-			continue
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			err = fmt.Errorf("bad http response %v", resp.Status)
-			continue
-		}
-		var data []byte
-		data, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			continue
-		}
-		return data, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("cannot get %q: %v", uri, err)
-	}
-	return
-}
-
 type Environ struct {
 	common.SupportsUnitPlacementPolicy
 
@@ -286,8 +260,30 @@ func (inst *openstackInstance) Id() instance.Id {
 	return instance.Id(inst.getServerDetail().Id)
 }
 
-func (inst *openstackInstance) Status() string {
-	return inst.getServerDetail().Status
+func (inst *openstackInstance) Status() instance.InstanceStatus {
+	instStatus := inst.getServerDetail().Status
+	jujuStatus := status.StatusPending
+	switch instStatus {
+	case nova.StatusActive:
+		jujuStatus = status.StatusRunning
+	case nova.StatusError:
+		jujuStatus = status.StatusProvisioningError
+	case nova.StatusBuild, nova.StatusBuildSpawning,
+		nova.StatusDeleted, nova.StatusHardReboot,
+		nova.StatusPassword, nova.StatusReboot,
+		nova.StatusRebuild, nova.StatusRescue,
+		nova.StatusResize, nova.StatusShutoff,
+		nova.StatusSuspended, nova.StatusVerifyResize:
+		jujuStatus = status.StatusEmpty
+	case nova.StatusUnknown:
+		jujuStatus = status.StatusUnknown
+	default:
+		jujuStatus = status.StatusEmpty
+	}
+	return instance.InstanceStatus{
+		Status:  jujuStatus,
+		Message: instStatus,
+	}
 }
 
 func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareCharacteristics {
