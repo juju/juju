@@ -103,6 +103,21 @@ func (s *Suite) TestSetPhaseError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "failed to set phase: blam")
 }
 
+func (s *Suite) TestExport(c *gc.C) {
+	exportModel := func(migrationmaster.Backend) ([]byte, error) {
+		return []byte("foo"), nil
+	}
+	migrationmaster.PatchExportModel(s, exportModel)
+	api := s.mustMakeAPI(c)
+
+	serialized, err := api.Export()
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(serialized, gc.DeepEquals, params.SerializedModel{
+		Bytes: []byte("foo"),
+	})
+}
+
 func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 	return migrationmaster.NewAPI(nil, s.resources, s.authorizer)
 }

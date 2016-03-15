@@ -11,6 +11,10 @@ func PatchState(p Patcher, st Backend) {
 	})
 }
 
+func PatchExportModel(p Patcher, f func(Backend) ([]byte, error)) {
+	p.PatchValue(&exportModel, f)
+}
+
 type Patcher interface {
 	PatchValue(ptr, value interface{})
 }

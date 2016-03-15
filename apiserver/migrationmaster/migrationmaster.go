@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/migration"
+	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
 )
 
@@ -19,7 +19,7 @@ func init() {
 // API implements the API required for the model migration
 // master worker.
 type API struct {
-	state      Backend
+	backend    Backend
 	authorizer common.Authorizer
 	resources  *common.Resources
 }
@@ -35,7 +35,7 @@ func NewAPI(
 		return nil, common.ErrPerm
 	}
 	return &API{
-		state:      getBackend(st),
+		backend:    getBackend(st),
 		authorizer: authorizer,
 		resources:  resources,
 	}, nil
@@ -45,7 +45,7 @@ func NewAPI(
 // associated with the API connection. The returned id should be used
 // with Next on the MigrationMasterWatcher endpoint to receive deltas.
 func (api *API) Watch() (params.NotifyWatchResult, error) {
-	w, err := api.state.WatchForModelMigration()
+	w, err := api.backend.WatchForModelMigration()
 	if err != nil {
 		return params.NotifyWatchResult{}, errors.Trace(err)
 	}
@@ -58,12 +58,12 @@ func (api *API) Watch() (params.NotifyWatchResult, error) {
 // phase must be a valid phase value, for example QUIESCE" or
 // "ABORT". See the core/migration package for the complete list.
 func (api *API) SetPhase(args params.SetMigrationPhaseArgs) error {
-	mig, err := api.state.GetModelMigration()
+	mig, err := api.backend.GetModelMigration()
 	if err != nil {
 		return errors.Annotate(err, "could not get migration")
 	}
 
-	phase, ok := migration.ParsePhase(args.Phase)
+	phase, ok := coremigration.ParsePhase(args.Phase)
 	if !ok {
 		return errors.Errorf("invalid phase: %q", args.Phase)
 	}
@@ -73,4 +73,17 @@ func (api *API) SetPhase(args params.SetMigrationPhaseArgs) error {
 		return errors.Annotate(err, "failed to set phase")
 	}
 	return nil
+}
+
+// Export serializes the model associated with the API connection.
+func (api *API) Export() (params.SerializedModel, error) {
+	var serialized params.SerializedModel
+
+	bytes, err := exportModel(api.backend)
+	if err != nil {
+		return serialized, err
+	}
+
+	serialized.Bytes = bytes
+	return serialized, nil
 }
