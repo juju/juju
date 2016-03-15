@@ -15,7 +15,7 @@ import (
 )
 
 // formatListTabular returns a tabular summary of storage instances.
-func formatListTabular(value interface{}) ([]byte, error) {
+func formatStorageListTabular(value interface{}) ([]byte, error) {
 	storageInfo, ok := value.(map[string]StorageInfo)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", storageInfo, value)

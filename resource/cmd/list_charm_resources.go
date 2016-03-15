@@ -17,7 +17,9 @@ import (
 // needed here.
 type CharmCommandBase interface {
 	// Connect connects to the charm store and returns a client.
-	Connect() (CharmResourceLister, error)
+	// cmd.Context needs to be passed in so that we can do authentication
+	// via the cli if available.
+	Connect(*cmd.Context) (CharmResourceLister, error)
 }
 
 // CharmResourceLister has the charm store API methods needed by ListCharmResourcesCommand.
@@ -102,7 +104,7 @@ func (c *ListCharmResourcesCommand) Init(args []string) error {
 func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 	// TODO(ericsnow) Adjust this to the charm store.
 
-	apiclient, err := c.Connect()
+	apiclient, err := c.Connect(ctx)
 	if err != nil {
 		// TODO(ericsnow) Return a more user-friendly error?
 		return errors.Trace(err)

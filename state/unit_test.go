@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -680,7 +681,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.SetAgentStatus(state.StatusIdle, "", nil)
+		err := s.unit.SetAgentStatus(status.StatusIdle, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func() {
 		assertLife(c, s.unit, state.Dying)
@@ -784,16 +785,16 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 	for i, test := range []struct {
-		status state.Status
+		status status.Status
 		info   string
 	}{{
-		state.StatusExecuting, "blah",
+		status.StatusExecuting, "blah",
 	}, {
-		state.StatusIdle, "blah",
+		status.StatusIdle, "blah",
 	}, {
-		state.StatusFailed, "blah",
+		status.StatusFailed, "blah",
 	}, {
-		state.StatusRebooting, "blah",
+		status.StatusRebooting, "blah",
 	}} {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.service.AddUnit()
@@ -910,7 +911,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not in an error state`)
 
-	err = s.unit.SetAgentStatus(state.StatusError, "gaaah", nil)
+	err = s.unit.SetAgentStatus(status.StatusError, "gaaah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(false)
 	c.Assert(err, jc.ErrorIsNil)

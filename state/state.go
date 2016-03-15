@@ -39,6 +39,7 @@ import (
 	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/lease"
 )
@@ -349,8 +350,6 @@ func (st *State) MongoVersion() (string, error) {
 func (st *State) MongoSession() *mgo.Session {
 	return st.session
 }
-
-type closeFunc func()
 
 func (st *State) Watch() *Multiwatcher {
 	st.mu.Lock()
@@ -1301,7 +1300,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		// TODO(fwereade): this violates the spec. Should be "waiting".
 		// Implemented like this to be consistent with incorrect add-unit
 		// behaviour.
-		Status:     StatusUnknown,
+		Status:     status.StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    time.Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour

@@ -63,6 +63,7 @@ import (
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -76,6 +77,7 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
+	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
@@ -235,13 +237,28 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 	return m, agentConfig, tools
 }
 
+func NewTestMachineAgentFactory(
+	agentConfWriter AgentConfigWriter,
+	bufferedLogs logsender.LogRecordCh,
+	rootDir string,
+) func(string) *MachineAgent {
+	return func(machineId string) *MachineAgent {
+		return NewMachineAgent(
+			machineId,
+			agentConfWriter,
+			bufferedLogs,
+			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
+			&mockLoopDeviceManager{},
+			rootDir,
+		)
+	}
+}
+
 // newAgent returns a new MachineAgent instance
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	agentConf := agentConf{dataDir: s.DataDir()}
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
-	machineAgentFactory := MachineAgentFactoryFn(
-		&agentConf, nil, &mockLoopDeviceManager{}, c.MkDir(),
-	)
+	machineAgentFactory := NewTestMachineAgentFactory(&agentConf, nil, c.MkDir())
 	return machineAgentFactory(m.Id())
 }
 
@@ -250,7 +267,7 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		agentConf := agentConf{dataDir: s.DataDir()}
 		a := NewMachineAgentCmd(
 			nil,
-			MachineAgentFactoryFn(&agentConf, nil, &mockLoopDeviceManager{}, c.MkDir()),
+			NewTestMachineAgentFactory(&agentConf, nil, c.MkDir()),
 			&agentConf,
 			&agentConf,
 		)
@@ -325,7 +342,7 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(agentConf, nil, &mockLoopDeviceManager{}, c.MkDir()),
+		NewTestMachineAgentFactory(&agentConf, nil, c.MkDir()),
 		agentConf,
 		agentConf,
 	)
@@ -349,7 +366,7 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(agentConf, nil, &mockLoopDeviceManager{}, c.MkDir()),
+		NewTestMachineAgentFactory(&agentConf, nil, c.MkDir()),
 		agentConf,
 		agentConf,
 	)
@@ -466,7 +483,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 	// "start the agent" for u0 to prevent short-circuited remove-on-destroy;
 	// check that it's kept deployed despite being Dying.
-	err = u0.SetAgentStatus(state.StatusIdle, "", nil)
+	err = u0.SetAgentStatus(status.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -711,7 +728,8 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		instStatus, err := m.InstanceStatus()
 		c.Assert(err, jc.ErrorIsNil)
-		if reflect.DeepEqual(m.Addresses(), addrs) && instStatus == "running" {
+		c.Logf("found status is %q %q", instStatus.Status, instStatus.Message)
+		if reflect.DeepEqual(m.Addresses(), addrs) && instStatus.Message == "running" {
 			break
 		}
 	}
@@ -2325,27 +2343,6 @@ func (m *mockMetricAPI) CleanupCalled() <-chan struct{} {
 
 func (m *mockMetricAPI) Stop() {
 	close(m.stop)
-}
-
-func mkdtemp(prefix string) string {
-	d, err := ioutil.TempDir("", prefix)
-	if err != nil {
-		panic(err)
-	}
-	return d
-}
-
-func mktemp(prefix string, content string) string {
-	f, err := ioutil.TempFile("", prefix)
-	if err != nil {
-		panic(err)
-	}
-	_, err = f.WriteString(content)
-	if err != nil {
-		panic(err)
-	}
-	f.Close()
-	return f.Name()
 }
 
 type mockLoopDeviceManager struct {

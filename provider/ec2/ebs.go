@@ -53,9 +53,7 @@ const (
 // AWS error codes
 const (
 	deviceInUse        = "InvalidDevice.InUse"
-	volumeInUse        = "VolumeInUse"
 	attachmentNotFound = "InvalidAttachment.NotFound"
-	incorrectState     = "IncorrectState"
 )
 
 const (
@@ -65,8 +63,6 @@ const (
 
 	attachmentStatusAttaching = "attaching"
 	attachmentStatusAttached  = "attached"
-	attachmentStatusDetaching = "detaching"
-	attachmentStatusDetached  = "detached"
 
 	instanceStateShuttingDown = "shutting-down"
 	instanceStateTerminated   = "terminated"

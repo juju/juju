@@ -4,34 +4,15 @@
 package storage
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
-	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 )
-
-const filesystemCmdDoc = `
-"juju storage filesystem" is used to manage storage filesystems in
- the Juju model.
-`
-
-const filesystemCmdPurpose = "manage storage filesystems"
-
-// NewFilesystemSuperCommand creates the storage filesystem super subcommand and
-// registers the subcommands that it supports.
-func NewFilesystemSuperCommand() cmd.Command {
-	supercmd := jujucmd.NewSubSuperCommand(cmd.SuperCommandParams{
-		Name:        "filesystem",
-		Doc:         filesystemCmdDoc,
-		UsagePrefix: "juju storage",
-		Purpose:     filesystemCmdPurpose,
-	})
-	supercmd.Register(newFilesystemListCommand())
-	return supercmd
-}
 
 // FilesystemCommandBase is a helper base structure for filesystem commands.
 type FilesystemCommandBase struct {
@@ -68,6 +49,41 @@ type FilesystemAttachments struct {
 type MachineFilesystemAttachment struct {
 	MountPoint string `yaml:"mount-point" json:"mount-point"`
 	ReadOnly   bool   `yaml:"read-only" json:"read-only"`
+}
+
+// generateListFilesystemOutput returns a map filesystem IDs to filesystem info
+func (c *listCommand) generateListFilesystemsOutput(ctx *cmd.Context, api StorageListAPI) (output interface{}, err error) {
+
+	results, err := api.ListFilesystems(c.ids)
+	if err != nil {
+		return nil, err
+	}
+
+	// filter out valid output, if any
+	var valid []params.FilesystemDetails
+	for _, result := range results {
+		if result.Error == nil {
+			valid = append(valid, result.Result...)
+			continue
+		}
+		// display individual error
+		fmt.Fprintf(ctx.Stderr, "%v\n", result.Error)
+	}
+	if len(valid) == 0 {
+		return nil, nil
+	}
+	info, err := convertToFilesystemInfo(valid)
+	if err != nil {
+		return nil, err
+	}
+	switch c.out.Name() {
+	case "yaml", "json":
+		output = map[string]map[string]FilesystemInfo{"filesystems": info}
+	default:
+		output = info
+	}
+
+	return output, nil
 }
 
 // convertToFilesystemInfo returns a map of filesystem IDs to filesystem info.

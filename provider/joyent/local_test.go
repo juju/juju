@@ -280,7 +280,7 @@ var instanceGathering = []struct {
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := s.Prepare(c)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
-	c.Assert(inst.Status(), gc.Equals, "running")
+	c.Assert(inst.Status().Message, gc.Equals, "running")
 	err := env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
