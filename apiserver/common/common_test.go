@@ -115,9 +115,7 @@ func (s *commonSuite) TestAuthEither(c *gc.C) {
 	}
 }
 
-func u(unit string) names.Tag             { return names.NewUnitTag(unit) }
-func serviceTag(service string) names.Tag { return names.NewServiceTag(service) }
-func m(machine string) names.Tag          { return names.NewMachineTag(machine) }
+func u(unit string) names.Tag { return names.NewUnitTag(unit) }
 
 func (s *commonSuite) TestAuthFuncForTagKind(c *gc.C) {
 	// TODO(dimitern): This list of all supported tags and kinds needs

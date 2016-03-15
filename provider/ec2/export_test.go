@@ -4,17 +4,13 @@
 package ec2
 
 import (
-	"io"
-
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
-	"gopkg.in/amz.v3/s3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	jujustorage "github.com/juju/juju/storage"
 )
@@ -25,10 +21,6 @@ func EBSProvider() jujustorage.Provider {
 
 func StorageEC2(vs jujustorage.VolumeSource) *ec2.EC2 {
 	return vs.(*ebsVolumeSource).ec2
-}
-
-func ControlBucketName(e environs.Environ) string {
-	return e.(*environ).ecfg().controlBucket()
 }
 
 func JujuGroupName(e environs.Environ) string {
@@ -54,19 +46,6 @@ var (
 	BlockDeviceNamer            = blockDeviceNamer
 	GetBlockDeviceMappings      = getBlockDeviceMappings
 )
-
-// BucketStorage returns a storage instance addressing
-// an arbitrary s3 bucket.
-func BucketStorage(b *s3.Bucket) storage.Storage {
-	return &ec2storage{
-		bucket: b,
-	}
-}
-
-// DeleteBucket deletes the s3 bucket used by the storage instance.
-func DeleteBucket(s storage.Storage) error {
-	return deleteBucket(s.(*ec2storage))
-}
 
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.
 
@@ -104,10 +83,6 @@ var (
 	DestroyVolumeAttempt = &destroyVolumeAttempt
 )
 
-func EC2ErrCode(err error) string {
-	return ec2ErrCode(err)
-}
-
 // FabricateInstance creates a new fictitious instance
 // given an existing instance and a new id.
 func FabricateInstance(inst instance.Instance, newId string) instance.Instance {
@@ -119,12 +94,6 @@ func FabricateInstance(inst instance.Instance, newId string) instance.Instance {
 	*newi.Instance = *oldi.Instance
 	newi.InstanceId = newId
 	return newi
-}
-
-// Access non exported methods on ec2.storage
-type Storage interface {
-	Put(file string, r io.Reader, length int64) error
-	ResetMadeBucket()
 }
 
 func (s *ec2storage) ResetMadeBucket() {

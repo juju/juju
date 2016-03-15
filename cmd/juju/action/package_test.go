@@ -28,7 +28,6 @@ const (
 	validActionTagString   = "action-f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	invalidActionTagString = "action-f47ac10b-58cc-4372-a567-0e02b2c3d47"
 	validActionId          = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	invalidActionId        = "f47ac10b-58cc-4372-a567-0e02b2c3d47"
 	validUnitId            = "mysql/0"
 	invalidUnitId          = "something-strange-"
 	validServiceId         = "mysql"

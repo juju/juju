@@ -36,8 +36,6 @@ func init() {
 	}
 }
 
-const unknownExecutable = "/sbin/unknown/init/system"
-
 type discoveryTest struct {
 	os       jujuos.OSType
 	series   string
@@ -61,10 +59,6 @@ func (dt discoveryTest) disableLocalDiscovery(c *gc.C, s *discoverySuite) {
 func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
 	dt.os = jujuos.Unknown
 	dt.setVersion(s)
-}
-
-func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) {
-	s.PatchLocalDiscoveryNoMatch(dt.expected)
 }
 
 func (dt discoveryTest) setVersion(s *discoverySuite) version.Binary {

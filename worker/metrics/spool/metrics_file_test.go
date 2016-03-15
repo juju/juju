@@ -25,12 +25,6 @@ func (s *metricFileSuite) SetUpTest(c *gc.C) {
 	s.spoolDir = c.MkDir()
 }
 
-func cleanupFile(f *metricFile) {
-	if f != nil {
-		f.File.Close()
-	}
-}
-
 func (s *metricFileSuite) TestRenameOnClose(c *gc.C) {
 	fileName := filepath.Join(s.spoolDir, "foo")
 	mf, err := createMetricFile(fileName)

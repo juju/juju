@@ -195,11 +195,6 @@ func (c *environConfig) namespace() string {
 	return raw.(string)
 }
 
-func (c *environConfig) dirname() string {
-	// TODO(ericsnow) Put it under one of the juju/paths.*() directories.
-	return ""
-}
-
 func (c *environConfig) remoteURL() string {
 	raw := c.attrs[cfgRemoteURL]
 	return raw.(string)

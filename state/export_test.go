@@ -32,12 +32,9 @@ const (
 	NetworkInterfacesC = networkInterfacesC
 	ServicesC          = servicesC
 	EndpointBindingsC  = endpointBindingsC
-	SettingsC          = settingsC
-	UnitsC             = unitsC
 	UsersC             = usersC
 	BlockDevicesC      = blockDevicesC
 	StorageInstancesC  = storageInstancesC
-	StatusesHistoryC   = statusesHistoryC
 )
 
 var (
@@ -47,8 +44,6 @@ var (
 	ControllerAvailable    = &controllerAvailable
 	GetOrCreatePorts       = getOrCreatePorts
 	GetPorts               = getPorts
-	PortsGlobalKey         = portsGlobalKey
-	CurrentUpgradeId       = currentUpgradeId
 	NowToTheSecond         = nowToTheSecond
 	PickAddress            = &pickAddress
 	AddVolumeOps           = (*State).addVolumeOps
@@ -59,12 +54,8 @@ var (
 )
 
 type (
-	CharmDoc        charmDoc
-	MachineDoc      machineDoc
-	RelationDoc     relationDoc
-	ServiceDoc      serviceDoc
-	UnitDoc         unitDoc
-	BlockDevicesDoc blockDevicesDoc
+	CharmDoc   charmDoc
+	MachineDoc machineDoc
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
@@ -189,19 +180,6 @@ func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	sch, err := st.AddCharm(ch, curl, "dummy-path", ident+"-sha256")
 	c.Assert(err, jc.ErrorIsNil)
 	return sch
-}
-
-// SetCharmBundleURL sets the deprecated bundleurl field in the
-// charm document for the charm with the specified URL.
-func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
-	ops := []txn.Op{{
-		C:      charmsC,
-		Id:     st.docID(curl.String()),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"bundleurl", bundleURL}}}},
-	}}
-	err := st.runTransaction(ops)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 // SCHEMACHANGE
@@ -471,10 +449,6 @@ func IsManagerMachineError(err error) bool {
 }
 
 var ActionNotificationIdToActionId = actionNotificationIdToActionId
-
-func UpdateModelUserLastConnection(e *ModelUser, when time.Time) error {
-	return e.updateLastConnection(when)
-}
 
 func RemoveEndpointBindingsForService(c *gc.C, service *Service) {
 	globalKey := service.globalKey()

@@ -47,14 +47,6 @@ func assertSignal(c *gc.C, signal <-chan struct{}) {
 	}
 }
 
-func assertNoSignal(c *gc.C, signal <-chan struct{}) {
-	select {
-	case <-signal:
-		c.Fatal("unexpected signal")
-	case <-time.After(coretesting.ShortWait):
-	}
-}
-
 func (s *ConnectedWorkerSuite) TestConfigValidation(c *gc.C) {
 	tests := []struct {
 		cfg      meterstatus.ConnectedConfig

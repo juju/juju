@@ -489,12 +489,6 @@ func newSimpleTools(vers string) *tools.Tools {
 	}
 }
 
-func newFileTools(vers, path string) *tools.Tools {
-	tools := newSimpleTools(vers)
-	tools.URL = "file://" + path
-	return tools
-}
-
 func getAgentConfig(c *gc.C, tag string, scripts []string) (cfg string) {
 	c.Assert(scripts, gc.Not(gc.HasLen), 0)
 	re := regexp.MustCompile(`cat > .*agents/` + regexp.QuoteMeta(tag) + `/agent\.conf' << 'EOF'\n((\n|.)+)\nEOF`)

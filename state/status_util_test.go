@@ -11,8 +11,6 @@ import (
 	"github.com/juju/juju/status"
 )
 
-type statusHistoryFunc func(int) ([]status.StatusInfo, error)
-
 func checkInitialWorkloadStatus(c *gc.C, statusInfo status.StatusInfo) {
 	c.Check(statusInfo.Status, gc.Equals, status.StatusUnknown)
 	c.Check(statusInfo.Message, gc.Equals, "Waiting for agent initialization to finish")

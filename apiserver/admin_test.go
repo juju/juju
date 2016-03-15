@@ -51,20 +51,6 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 }
 
-func (s *baseLoginSuite) setupServer(c *gc.C) (api.Connection, func()) {
-	return s.setupServerForEnvironment(c, s.State.ModelTag())
-}
-
-func (s *baseLoginSuite) setupServerForEnvironment(c *gc.C, modelTag names.ModelTag) (api.Connection, func()) {
-	info, cleanup := s.setupServerForEnvironmentWithValidator(c, modelTag, nil)
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	return st, func() {
-		st.Close()
-		cleanup()
-	}
-}
-
 func (s *baseLoginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
 	machine, password := s.Factory.MakeMachineReturningPassword(
 		c, &factory.MachineParams{Nonce: "fake_nonce"})
@@ -185,26 +171,6 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
 	})
-}
-
-func (s *baseLoginSuite) runLoginSetsLogIdentifier(c *gc.C) {
-	info, cleanup := s.setupServerWithValidator(c, nil)
-	defer cleanup()
-
-	machine, password := s.Factory.MakeMachineReturningPassword(
-		c, &factory.MachineParams{Nonce: "fake_nonce"})
-
-	info.Tag = machine.Tag()
-	info.Password = password
-	info.Nonce = "fake_nonce"
-
-	apiConn, err := api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	defer apiConn.Close()
-
-	apiMachine, err := apiConn.Machiner().Machine(machine.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiMachine.Tag(), gc.Equals, machine.Tag())
 }
 
 func (s *loginSuite) TestLoginAddrs(c *gc.C) {

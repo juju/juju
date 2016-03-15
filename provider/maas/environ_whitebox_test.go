@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -52,21 +51,6 @@ const (
 )
 
 var _ = gc.Suite(&environSuite{})
-
-// getTestConfig creates a customized sample MAAS provider configuration.
-func getTestConfig(name, server, oauth, secret string) *config.Config {
-	ecfg, err := newConfig(map[string]interface{}{
-		"name":            name,
-		"maas-server":     server,
-		"maas-oauth":      oauth,
-		"admin-secret":    secret,
-		"authorized-keys": "I-am-not-a-real-key",
-	})
-	if err != nil {
-		panic(err)
-	}
-	return ecfg.Config
-}
 
 func (suite *environSuite) setupFakeTools(c *gc.C) {
 	suite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
@@ -230,36 +214,6 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	instance, _, _, err = testing.StartInstance(env, "2")
 	c.Check(instance, gc.IsNil)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
-}
-
-var testNetworkValues = []struct {
-	includeNetworks []string
-	excludeNetworks []string
-	expectedResult  url.Values
-}{
-	{
-		nil,
-		nil,
-		url.Values{},
-	},
-	{
-		[]string{"included_net_1"},
-		nil,
-		url.Values{"networks": {"included_net_1"}},
-	},
-	{
-		nil,
-		[]string{"excluded_net_1"},
-		url.Values{"not_networks": {"excluded_net_1"}},
-	},
-	{
-		[]string{"included_net_1", "included_net_2"},
-		[]string{"excluded_net_1", "excluded_net_2"},
-		url.Values{
-			"networks":     {"included_net_1", "included_net_2"},
-			"not_networks": {"excluded_net_1", "excluded_net_2"},
-		},
-	},
 }
 
 func (suite *environSuite) getInstance(systemId string) *maasInstance {

@@ -14,14 +14,9 @@ import (
 	"github.com/juju/juju/worker/lease"
 )
 
-const (
-	defaultMaxSleep = time.Hour
-	almostOneSecond = time.Second - time.Nanosecond
-)
+const defaultMaxSleep = time.Hour
 
-var (
-	defaultClockStart time.Time
-)
+var defaultClockStart time.Time
 
 func init() {
 	// We pick a time with a comfortable h:m:s component but:

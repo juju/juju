@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/watcher"
 )
 
-const attachedVolumeId = "1"
 const needsInstanceVolumeId = "23"
 
 var dyingVolumeAttachmentId = params.MachineStorageId{

@@ -33,16 +33,11 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
-
-type Killer interface {
-	Kill() error
-}
 
 type serverSuite struct {
 	baseSuite
@@ -61,17 +56,6 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 	}
 	s.client, err = client.NewClient(s.State, common.NewResources(), auth)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Pinger {
-	m, err := s.State.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
-	pinger, err := m.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	s.State.StartSync()
-	err = m.WaitAgentPresence(coretesting.LongWait)
-	c.Assert(err, jc.ErrorIsNil)
-	return pinger
 }
 
 func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
@@ -701,10 +685,6 @@ func assertRemoved(c *gc.C, entity state.Living) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func assertKill(c *gc.C, killer Killer) {
-	c.Assert(killer.Kill(), gc.IsNil)
-}
-
 func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.Machine, *state.Machine, *state.Unit) {
 	m0, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1276,13 +1256,6 @@ func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	c.Assert(machines[0].Machine, gc.Equals, "0/lxc/0")
-}
-
-// updateConfig sets config variable with given key to a given value
-// Asserts that no errors were encountered.
-func (s *baseSuite) updateConfig(c *gc.C, key string, block bool) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{key: block}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {

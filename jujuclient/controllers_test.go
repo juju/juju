@@ -102,15 +102,6 @@ func (s *ControllersSuite) TestRemoveController(c *gc.C) {
 	c.Assert(found, gc.IsNil)
 }
 
-func (s *ControllersSuite) assertWriteFails(c *gc.C, failureMessage string) {
-	err := s.store.UpdateController(s.controllerName, s.controller)
-	c.Assert(err, gc.ErrorMatches, failureMessage)
-
-	found, err := s.store.ControllerByName(s.controllerName)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("controller %v not found", s.controllerName))
-	c.Assert(found, gc.IsNil)
-}
-
 func (s *ControllersSuite) assertControllerNotExists(c *gc.C) {
 	all := writeTestControllersFile(c)
 	_, exists := all[s.controllerName]

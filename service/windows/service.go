@@ -31,15 +31,6 @@ const (
 	// c_ERROR_SERVICE_EXISTS is returned by the operating system if the service
 	// we are trying to create, already exists
 	c_ERROR_SERVICE_EXISTS syscall.Errno = 0x431
-
-	// This is the user under which juju services start. We chose to use a
-	// normal user for this purpose because some installers require a normal
-	// user with a proper user profile to actually run. This user is created
-	// via userdata, and should exist on all juju bootstrapped systems.
-	// Required privileges for this user are:
-	// SeAssignPrimaryTokenPrivilege
-	// SeServiceLogonRight
-	jujudUser = ".\\jujud"
 )
 
 // IsRunning returns whether or not windows is the local init system.

@@ -72,15 +72,6 @@ func (s *debugLogBaseSuite) openWebsocket(c *gc.C, values url.Values) *bufio.Rea
 	return bufio.NewReader(conn)
 }
 
-func (s *debugLogBaseSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio.Reader {
-	server := s.logURL(c, "wss", nil)
-	server.Path = path
-	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
-	conn := s.dialWebsocketFromURL(c, server.String(), header)
-	s.AddCleanup(func(_ *gc.C) { conn.Close() })
-	return bufio.NewReader(conn)
-}
-
 func (s *debugLogBaseSuite) logURL(c *gc.C, scheme string, queryParams url.Values) *url.URL {
 	return s.makeURL(c, scheme, "/log", queryParams)
 }

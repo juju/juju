@@ -112,49 +112,6 @@ func TestingRestrictedApiHandler(st *state.State) rpc.MethodFinder {
 	return newRestrictedRoot(r)
 }
 
-type preFacadeAdminApi struct{}
-
-func newPreFacadeAdminApi(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
-	return &preFacadeAdminApi{}
-}
-
-func (r *preFacadeAdminApi) Admin(id string) (*preFacadeAdminApi, error) {
-	return r, nil
-}
-
-var PreFacadeModelTag = names.NewModelTag("383c49f3-526d-4f9e-b50a-1e6fa4e9b3d9")
-
-func (r *preFacadeAdminApi) Login(c params.Creds) (params.LoginResult, error) {
-	return params.LoginResult{
-		ModelTag: PreFacadeModelTag.String(),
-	}, nil
-}
-
-type failAdminApi struct{}
-
-func newFailAdminApi(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
-	return &failAdminApi{}
-}
-
-func (r *failAdminApi) Admin(id string) (*failAdminApi, error) {
-	return r, nil
-}
-
-func (r *failAdminApi) Login(c params.Creds) (params.LoginResult, error) {
-	return params.LoginResult{}, fmt.Errorf("fail")
-}
-
-// SetPreFacadeAdminApi is used to create a test scenario where the API server
-// does not know about API facade versioning. In this case, the client should
-// login to the v1 facade, which sends backwards-compatible login fields.
-// The v0 facade will fail on a pre-defined error.
-func SetPreFacadeAdminApi(srv *Server) {
-	srv.adminApiFactories = map[int]adminApiFactory{
-		0: newFailAdminApi,
-		1: newPreFacadeAdminApi,
-	}
-}
-
 func SetAdminApiVersions(srv *Server, versions ...int) {
 	factories := make(map[int]adminApiFactory)
 	for _, n := range versions {

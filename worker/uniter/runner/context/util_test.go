@@ -31,9 +31,10 @@ import (
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
 
-var noProxies = proxy.Settings{}
-var apiAddrs = []string{"a1:123", "a2:123"}
-var expectedApiAddrs = strings.Join(apiAddrs, " ")
+var (
+	noProxies proxy.Settings
+	apiAddrs  = []string{"a1:123", "a2:123"}
+)
 
 // HookContextSuite contains shared setup for various other test suites. Test
 // methods should not be added to this type, because they'll get run repeatedly.

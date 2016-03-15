@@ -4,8 +4,7 @@
 package manual
 
 var (
-	NetLookupHost         = &netLookupHost
-	ProvisionMachineAgent = &provisionMachineAgent
+	NetLookupHost = &netLookupHost
 )
 
 const (

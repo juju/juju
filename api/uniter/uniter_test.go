@@ -4,13 +4,11 @@
 package uniter_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -120,15 +118,4 @@ func (s *uniterSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScop
 	ok, err := relUnit.InScope()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ok, gc.Equals, inScope)
-}
-
-func (s *uniterSuite) patchNewState(
-	c *gc.C,
-	patchFunc func(_ base.APICaller, _ names.UnitTag) *uniter.State,
-) {
-	s.PatchValue(&uniter.NewState, patchFunc)
-	var err error
-	s.uniter, err = s.st.Uniter()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.uniter, gc.NotNil)
 }

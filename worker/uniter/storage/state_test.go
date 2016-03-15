@@ -30,11 +30,6 @@ func writeFile(c *gc.C, path string, content string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func assertFileNotExist(c *gc.C, path string) {
-	_, err := os.Stat(path)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-}
-
 func (s *stateSuite) TestReadAllStateFiles(c *gc.C) {
 	dir := c.MkDir()
 	writeFile(c, filepath.Join(dir, "data-0"), "attached: true")

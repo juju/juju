@@ -22,8 +22,6 @@ var (
 	MakeMachineStatus = makeMachineStatus
 )
 
-type MachineAndContainers machineAndContainers
-
 var (
 	StartSerialWaitParallel = startSerialWaitParallel
 	GetEnvironment          = &getEnvironment

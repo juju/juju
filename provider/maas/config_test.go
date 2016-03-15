@@ -19,15 +19,6 @@ type configSuite struct {
 
 var _ = gc.Suite(&configSuite{})
 
-// copyAttrs copies values from src into dest.  If src contains a key that was
-// already in dest, its value in dest will still be updated to the one from
-// src.
-func copyAttrs(src, dest map[string]interface{}) {
-	for k, v := range src {
-		dest[k] = v
-	}
-}
-
 // newConfig creates a MAAS environment config from attributes.
 func newConfig(values map[string]interface{}) (*maasModelConfig, error) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{

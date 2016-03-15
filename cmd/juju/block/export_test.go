@@ -11,9 +11,8 @@ import (
 )
 
 var (
-	BlockClient   = &getBlockClientAPI
-	UnblockClient = &getUnblockClientAPI
-	ListClient    = &getBlockListAPI
+	BlockClient = &getBlockClientAPI
+	ListClient  = &getBlockListAPI
 
 	NewDestroyCommand = newDestroyCommand
 	NewRemoveCommand  = newRemoveCommand

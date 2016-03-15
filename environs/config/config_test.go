@@ -1022,10 +1022,6 @@ func missingAttributeNoDefault(attrName string) configTest {
 	}
 }
 
-type testFile struct {
-	name, data string
-}
-
 func (s *ConfigSuite) TestConfig(c *gc.C) {
 	files := []gitjujutesting.TestFile{
 		{".ssh/id_dsa.pub", "dsa"},

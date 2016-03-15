@@ -26,17 +26,6 @@ type rootSuite struct {
 
 var _ = gc.Suite(&rootSuite{})
 
-var allowedDiscardedMethods = []string{
-	"AuthClient",
-	"AuthModelManager",
-	"AuthMachineAgent",
-	"AuthOwner",
-	"AuthUnitAgent",
-	"FindMethod",
-	"GetAuthEntity",
-	"GetAuthTag",
-}
-
 func (r *rootSuite) TestPingTimeout(c *gc.C) {
 	closedc := make(chan time.Time, 1)
 	action := func() {

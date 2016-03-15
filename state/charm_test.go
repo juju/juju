@@ -97,11 +97,6 @@ func assertCustomCharm(c *gc.C, ch *state.Charm, series string, meta *charm.Meta
 	// Ignore the StoragePath and BundleSHA256 methods, they're irrelevant.
 }
 
-func assertStandardCharm(c *gc.C, ch *state.Charm, series string) {
-	chd := testcharms.Repo.CharmDir(ch.Meta().Name)
-	assertCustomCharm(c, ch, series, chd.Meta(), chd.Config(), chd.Metrics(), chd.Revision())
-}
-
 func forEachStandardCharm(c *gc.C, f func(name string)) {
 	for _, name := range []string{
 		"logging", "mysql", "riak", "wordpress",

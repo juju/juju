@@ -5,7 +5,6 @@ package gce
 
 import (
 	"fmt"
-	"strings"
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -55,14 +54,6 @@ const (
 
 // These are fake config values for use in tests.
 var (
-	AuthFile = fmt.Sprintf(`{
-  "private_key_id": "abcdef0123456789abcdef0123456789abcdef01",
-  "private_key": "%s",
-  "client_email": "%s",
-  "client_id": "%s",
-  "type": "service_account"
-}`, strings.Replace(PrivateKey, "\n", "\\n", -1), ClientEmail, ClientID)
-
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
 		"type":           "gce",
 		"private-key":    PrivateKey,

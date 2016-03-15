@@ -82,33 +82,6 @@ func (err execFailure) Error() string {
 	return fmt.Sprintf("got non-zero code from %q: (%d) %s", err.cmd, err.code, err.stderr)
 }
 
-func (client *instanceClient) exec(spec InstanceSpec, cmd []string) error {
-	var env map[string]string
-
-	cmdStr := strings.Join(cmd, " ")
-	fmt.Println("running", cmdStr)
-
-	var input, output closingBuffer
-	stdin, stdout, stderr := &input, &output, &output
-	rc, err := client.raw.Exec(spec.Name, cmd, env, stdin, stdout, stderr, nil)
-	if err != nil {
-		return errors.Trace(err)
-	} else if rc != 0 {
-		msg := output.String()
-		if msg == "" {
-			msg = "<reason unknown>"
-		}
-		err := &execFailure{
-			cmd:    cmdStr,
-			code:   rc,
-			stderr: msg,
-		}
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
 func (client *instanceClient) startInstance(spec InstanceSpec) error {
 	timeout := -1
 	force := false

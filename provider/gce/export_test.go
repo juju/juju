@@ -18,7 +18,6 @@ var (
 	CheckInstanceType                             = checkInstanceType
 	GetMetadata                                   = getMetadata
 	GetDisks                                      = getDisks
-	ConfigImmutable                               = configImmutableFields
 	UbuntuImageBasePath                           = ubuntuImageBasePath
 	WindowsImageBasePath                          = windowsImageBasePath
 )
