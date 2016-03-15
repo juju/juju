@@ -55,6 +55,7 @@ def parse_args(args=None):
                               help='The branch to merge into.')
     check_parser.add_argument('pull_request', default=None, nargs='?',
                               help='The pull request to be merged')
+    check_parser.set_defaults(pull_request=None)
     block_ci_testing_parser = subparsers.add_parser(
         'block-ci-testing',
         help='Check if ci testing is blocked for the branch.')
@@ -68,7 +69,10 @@ def parse_args(args=None):
     update_parser.add_argument('branch', help='The branch that passed.')
     update_parser.add_argument(
         'build', help='The build-revision build number.')
-    return parser.parse_args(args)
+    args = parser.parse_args(args)
+    if not getattr(args, 'pull_request', None):
+        args.pull_request = None
+    return args
 
 
 def get_lp_bugs(lp, branch, tags=None):

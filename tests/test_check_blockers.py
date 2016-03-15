@@ -53,18 +53,19 @@ class CheckBlockers(TestCase):
         args = check_blockers.parse_args(['check', 'master'])
         self.assertEqual('check', args.command)
         self.assertEqual('master', args.branch)
-        self.assertEqual(None, args.pull_request)
+        self.assertIsNone(args.pull_request)
 
     def test_parse_args_block_ci_testing(self):
         args = check_blockers.parse_args(['block-ci-testing', 'feature'])
         self.assertEqual('block-ci-testing', args.command)
         self.assertEqual('feature', args.branch)
+        self.assertIsNone(args.pull_request)
 
     def test_parse_args_check_branch_optional(self):
         args = check_blockers.parse_args(['check'])
         self.assertEqual('check', args.command)
         self.assertEqual('master', args.branch)
-        self.assertEqual(None, args.pull_request)
+        self.assertIsNone(args.pull_request)
 
     def test_parse_args_update(self):
         args = check_blockers.parse_args(
