@@ -95,6 +95,11 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 	series := args.Tools.OneSeries()
 	image := "ubuntu-" + series
 
+	err := env.raw.EnsureImageExists(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	metadata, err := getMetadata(args)
 	if err != nil {
 		return nil, errors.Trace(err)

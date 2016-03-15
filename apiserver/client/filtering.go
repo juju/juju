@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 var InvalidFormatErr = errors.Errorf("the given filter did not match any known patterns.")
@@ -182,21 +183,6 @@ func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
 	return matchExposure(patterns, s)
 }
 
-func unitMatchSubnet(u *state.Unit, patterns []string) (bool, bool, error) {
-	pub, pubErr := u.PublicAddress()
-	if pubErr != nil && !network.IsNoAddress(pubErr) {
-		return true, false, errors.Trace(pubErr)
-	}
-	priv, privErr := u.PrivateAddress()
-	if privErr != nil && !network.IsNoAddress(privErr) {
-		return true, false, errors.Trace(privErr)
-	}
-	if pubErr != nil && privErr != nil {
-		return true, false, nil
-	}
-	return matchSubnet(patterns, pub.Value, priv.Value)
-}
-
 func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
 	portRanges, err := u.OpenedPorts()
 	if err != nil {
@@ -337,11 +323,11 @@ func matchExposure(patterns []string, s *state.Service) (bool, bool, error) {
 	return false, false, nil
 }
 
-func matchWorkloadStatus(patterns []string, workloadStatus state.Status, agentStatus state.Status) (bool, bool, error) {
+func matchWorkloadStatus(patterns []string, workloadStatus status.Status, agentStatus status.Status) (bool, bool, error) {
 	oneValidStatus := false
 	for _, p := range patterns {
 		// If the pattern isn't a known status, ignore it.
-		ps := state.Status(p)
+		ps := status.Status(p)
 		if !ps.KnownWorkloadStatus() {
 			continue
 		}
@@ -349,24 +335,24 @@ func matchWorkloadStatus(patterns []string, workloadStatus state.Status, agentSt
 		oneValidStatus = true
 		// To preserve current expected behaviour, we only report on workload status
 		// if the agent itself is not in error.
-		if agentStatus != state.StatusError && workloadStatus.WorkloadMatches(ps) {
+		if agentStatus != status.StatusError && workloadStatus.WorkloadMatches(ps) {
 			return true, true, nil
 		}
 	}
 	return false, oneValidStatus, nil
 }
 
-func matchAgentStatus(patterns []string, status state.Status) (bool, bool, error) {
+func matchAgentStatus(patterns []string, agentStatus status.Status) (bool, bool, error) {
 	oneValidStatus := false
 	for _, p := range patterns {
 		// If the pattern isn't a known status, ignore it.
-		ps := state.Status(p)
+		ps := status.Status(p)
 		if !ps.KnownAgentStatus() {
 			continue
 		}
 
 		oneValidStatus = true
-		if status.Matches(ps) {
+		if agentStatus.Matches(ps) {
 			return true, true, nil
 		}
 	}

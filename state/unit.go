@@ -4,7 +4,6 @@
 package state
 
 import (
-	stderrors "errors"
 	"fmt"
 	"time"
 
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
@@ -71,16 +71,6 @@ type port struct {
 	Number   int    `bson:"number"`
 }
 
-// networkPorts is a convenience helper to return the state type
-// as network type, here for a slice of Port.
-func networkPorts(ports []port) []network.Port {
-	netPorts := make([]network.Port, len(ports))
-	for i, port := range ports {
-		netPorts[i] = network.Port{port.Protocol, port.Number}
-	}
-	return netPorts
-}
-
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in apiserver/params.
 type unitDoc struct {
@@ -112,7 +102,7 @@ type Unit struct {
 	st  *State
 	doc unitDoc
 	presence.Presencer
-	StatusHistoryGetter
+	status.StatusHistoryGetter
 }
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
@@ -395,14 +385,14 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	} else if agentErr != nil {
 		return nil, errors.Trace(agentErr)
 	}
-	if agentStatusInfo.Status != StatusAllocating {
+	if agentStatusInfo.Status != status.StatusAllocating {
 		return setDyingOps, nil
 	}
 
 	ops := []txn.Op{{
 		C:      statusesC,
 		Id:     u.st.docID(agentStatusDocId),
-		Assert: bson.D{{"status", StatusAllocating}},
+		Assert: bson.D{{"status", status.StatusAllocating}},
 	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, bson.DocElem{
 		"$and", []bson.D{
@@ -510,7 +500,7 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	return ops, nil
 }
 
-var errAlreadyRemoved = stderrors.New("entity has already been removed")
+var errAlreadyRemoved = errors.New("entity has already been removed")
 
 // removeOps returns the operations necessary to remove the unit, assuming
 // the supplied asserts apply to the unit document.
@@ -528,7 +518,7 @@ func (u *Unit) removeOps(asserts bson.D) ([]txn.Op, error) {
 // ErrUnitHasSubordinates is a standard error to indicate that a Unit
 // cannot complete an operation to end its life because it still has
 // subordinate services
-var ErrUnitHasSubordinates = stderrors.New("unit has subordinates")
+var ErrUnitHasSubordinates = errors.New("unit has subordinates")
 
 var unitHasNoSubordinates = bson.D{{
 	"$or", []bson.D{
@@ -540,7 +530,7 @@ var unitHasNoSubordinates = bson.D{{
 // ErrUnitHasStorageAttachments is a standard error to indicate that
 // a Unit cannot complete an operation to end its life because it still
 // has storage attachments.
-var ErrUnitHasStorageAttachments = stderrors.New("unit has storage attachments")
+var ErrUnitHasStorageAttachments = errors.New("unit has storage attachments")
 
 var unitHasNoStorageAttachments = bson.D{{
 	"$or", []bson.D{
@@ -599,7 +589,7 @@ func (u *Unit) EnsureDead() (err error) {
 func (u *Unit) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove unit %q", u)
 	if u.doc.Life != Dead {
-		return stderrors.New("unit is not dead")
+		return errors.New("unit is not dead")
 	}
 
 	// Now the unit is Dead, we can be sure that it's impossible for it to
@@ -787,29 +777,29 @@ func (u *Unit) Agent() *UnitAgent {
 
 // AgentHistory returns an StatusHistoryGetter which can
 //be used to query the status history of the unit's agent.
-func (u *Unit) AgentHistory() StatusHistoryGetter {
+func (u *Unit) AgentHistory() status.StatusHistoryGetter {
 	return u.Agent()
 }
 
 // SetAgentStatus calls SetStatus for this unit's agent, this call
 // is equivalent to the former call to SetStatus when Agent and Unit
 // where not separate entities.
-func (u *Unit) SetAgentStatus(status Status, info string, data map[string]interface{}) error {
+func (u *Unit) SetAgentStatus(agentStatus status.Status, info string, data map[string]interface{}) error {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
-	return agent.SetStatus(status, info, data)
+	return agent.SetStatus(agentStatus, info, data)
 }
 
 // AgentStatus calls Status for this unit's agent, this call
 // is equivalent to the former call to Status when Agent and Unit
 // where not separate entities.
-func (u *Unit) AgentStatus() (StatusInfo, error) {
+func (u *Unit) AgentStatus() (status.StatusInfo, error) {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
 	return agent.Status()
 }
 
 // StatusHistory returns a slice of at most <size> StatusInfo items
 // representing past statuses for this unit.
-func (u *Unit) StatusHistory(size int) ([]StatusInfo, error) {
+func (u *Unit) StatusHistory(size int) ([]status.StatusInfo, error) {
 	return statusHistory(u.st, u.globalKey(), size)
 }
 
@@ -817,7 +807,7 @@ func (u *Unit) StatusHistory(size int) ([]StatusInfo, error) {
 // This method relies on globalKey instead of globalAgentKey since it is part of
 // the effort to separate Unit from UnitAgent. Now the Status for UnitAgent is in
 // the UnitAgent struct.
-func (u *Unit) Status() (StatusInfo, error) {
+func (u *Unit) Status() (status.StatusInfo, error) {
 	// The current health spec says when a hook error occurs, the workload should
 	// be in error state, but the state model more correctly records the agent
 	// itself as being in error. So we'll do that model translation here.
@@ -825,12 +815,12 @@ func (u *Unit) Status() (StatusInfo, error) {
 	// For now, pretend we're always reading the unit status.
 	info, err := getStatus(u.st, u.globalAgentKey(), "unit")
 	if err != nil {
-		return StatusInfo{}, err
+		return status.StatusInfo{}, err
 	}
-	if info.Status != StatusError {
+	if info.Status != status.StatusError {
 		info, err = getStatus(u.st, u.globalKey(), "unit")
 		if err != nil {
-			return StatusInfo{}, err
+			return status.StatusInfo{}, err
 		}
 	}
 	return info, nil
@@ -841,14 +831,14 @@ func (u *Unit) Status() (StatusInfo, error) {
 // This method relies on globalKey instead of globalAgentKey since it is part of
 // the effort to separate Unit from UnitAgent. Now the SetStatus for UnitAgent is in
 // the UnitAgent struct.
-func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}) error {
-	if !ValidWorkloadStatus(status) {
-		return errors.Errorf("cannot set invalid status %q", status)
+func (u *Unit) SetStatus(unitStatus status.Status, info string, data map[string]interface{}) error {
+	if !status.ValidWorkloadStatus(unitStatus) {
+		return errors.Errorf("cannot set invalid status %q", unitStatus)
 	}
 	return setStatus(u.st, setStatusParams{
 		badge:     "unit",
 		globalKey: u.globalKey(),
-		status:    status,
+		status:    unitStatus,
 		message:   info,
 		rawData:   data,
 	})
@@ -1023,26 +1013,6 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	return err
 }
 
-func (u *Unit) charm() (*Charm, error) {
-	if u.doc.CharmURL == nil {
-		s, err := u.Service()
-		if err != nil {
-			return nil, errors.Annotatef(err, "getting service for unit %v", u.Tag().Id())
-		}
-		ch, _, err := s.Charm()
-		if err != nil {
-			return nil, errors.Annotatef(err, "getting charm for unit %q", u.Tag().Id())
-		}
-		return ch, nil
-	}
-
-	ch, err := u.st.Charm(u.doc.CharmURL)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return ch, nil
-}
-
 // AgentPresence returns whether the respective remote agent is alive.
 func (u *Unit) AgentPresence() (bool, error) {
 	return u.st.pwatcher.Alive(u.globalAgentKey())
@@ -1125,11 +1095,11 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 }
 
 var (
-	machineNotAliveErr = stderrors.New("machine is not alive")
-	machineNotCleanErr = stderrors.New("machine is dirty")
-	unitNotAliveErr    = stderrors.New("unit is not alive")
-	alreadyAssignedErr = stderrors.New("unit is already assigned to a machine")
-	inUseErr           = stderrors.New("machine is not unused")
+	machineNotAliveErr = errors.New("machine is not alive")
+	machineNotCleanErr = errors.New("machine is dirty")
+	unitNotAliveErr    = errors.New("unit is not alive")
+	alreadyAssignedErr = errors.New("unit is already assigned to a machine")
+	inUseErr           = errors.New("machine is not unused")
 )
 
 // assignToMachine is the internal version of AssignToMachine,
@@ -1758,7 +1728,7 @@ func machineStorageParamsForStorageInstance(
 	return result, nil
 }
 
-var noCleanMachines = stderrors.New("all eligible machines in use")
+var noCleanMachines = errors.New("all eligible machines in use")
 
 // AssignToCleanMachine assigns u to a machine which is marked as clean. A machine
 // is clean if it has never had any principal units assigned to it.
@@ -2133,7 +2103,7 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	if err != nil {
 		return err
 	}
-	if statusInfo.Status != StatusError {
+	if statusInfo.Status != status.StatusError {
 		return errors.Errorf("unit %q is not in an error state", u)
 	}
 	mode := ResolvedNoHooks

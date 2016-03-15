@@ -17,7 +17,6 @@ const (
 	Alive Life = iota
 	Dying
 	Dead
-	nLife
 )
 
 func (l Life) String() string {

@@ -92,11 +92,36 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
 
 	preparedConfig := environ.Config()
 	unknownAttrs := preparedConfig.UnknownAttrs()
+	c.Assert(unknownAttrs["maas-server"], gc.Equals, "http://maas.testing.invalid/maas/")
 
 	uuid, ok := unknownAttrs["maas-agent-name"]
-
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(uuid, jc.Satisfies, utils.IsValidUUIDString)
+}
+
+func (suite *EnvironProviderSuite) TestMAASServerFromRegion(c *gc.C) {
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type": "maas",
+	})
+	config, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := envtesting.BootstrapContext(c)
+	environ, err := providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		Config:      config,
+		CloudRegion: "maas.testing",
+		Credentials: cloud.NewCredential(
+			cloud.OAuth1AuthType,
+			map[string]string{
+				"maas-oauth": "aa:bb:cc",
+			},
+		),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	preparedConfig := environ.Config()
+	unknownAttrs := preparedConfig.UnknownAttrs()
+	c.Assert(unknownAttrs["maas-server"], gc.Equals, "http://maas.testing/MAAS")
 }
 
 func (suite *EnvironProviderSuite) TestPrepareSetsAgentName(c *gc.C) {

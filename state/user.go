@@ -23,10 +23,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-const (
-	localUserProviderName = "local"
-)
-
 func (st *State) checkUserExists(name string) (bool, error) {
 	users, closer := st.getCollection(usersC)
 	defer closer()

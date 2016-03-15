@@ -8,7 +8,6 @@ package lxdclient
 import (
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/gorilla/websocket"
@@ -26,7 +25,7 @@ type rawInstanceClient interface {
 	ListContainers() ([]shared.ContainerInfo, error)
 	ContainerInfo(name string) (*shared.ContainerInfo, error)
 	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, ephem bool) (*lxd.Response, error)
-	Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error)
+	Action(name string, action shared.ContainerAction, timeout int, force bool, stateful bool) (*lxd.Response, error)
 	Exec(name string, cmd []string, env map[string]string, stdin io.ReadCloser, stdout io.WriteCloser, stderr io.WriteCloser, controlHandler func(*lxd.Client, *websocket.Conn)) (int, error)
 	Delete(name string) (*lxd.Response, error)
 
@@ -46,10 +45,6 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 	}
 
 	imageAlias := spec.Image
-	if imageAlias == "" {
-		// TODO(ericsnow) Do not have a default?
-		imageAlias = "ubuntu"
-	}
 
 	var profiles *[]string
 	if len(spec.Profiles) > 0 {
@@ -114,23 +109,11 @@ func (client *instanceClient) exec(spec InstanceSpec, cmd []string) error {
 	return nil
 }
 
-func (client *instanceClient) chmod(spec InstanceSpec, filename string, mode os.FileMode) error {
-	cmd := []string{
-		"/bin/chmod",
-		fmt.Sprintf("%s", mode),
-		filename,
-	}
-
-	if err := client.exec(spec, cmd); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 func (client *instanceClient) startInstance(spec InstanceSpec) error {
 	timeout := -1
 	force := false
-	resp, err := client.raw.Action(spec.Name, shared.Start, timeout, force)
+	stateful := false
+	resp, err := client.raw.Action(spec.Name, shared.Start, timeout, force, stateful)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -237,7 +220,8 @@ func (client *instanceClient) removeInstance(name string) error {
 	if info.StatusCode != shared.Stopped {
 		timeout := -1
 		force := true
-		resp, err := client.raw.Action(name, shared.Stop, timeout, force)
+		stateful := false
+		resp, err := client.raw.Action(name, shared.Stop, timeout, force, stateful)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -328,7 +312,7 @@ func (client *instanceClient) Addresses(name string) ([]network.Address, error) 
 
 			addr := network.NewAddress(addr.Address)
 			if addr.Scope == network.ScopeLinkLocal || addr.Scope == network.ScopeMachineLocal {
-				logger.Tracef("for container %q ignoring address", name, addr)
+				logger.Tracef("for container %q ignoring address %q", name, addr)
 				continue
 			}
 			addrs = append(addrs, addr)

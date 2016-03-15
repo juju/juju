@@ -5,20 +5,17 @@ package conv2state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
-	apimachiner "github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/watcher"
 )
 
-var logger = loggo.GetLogger("juju.worker.conv2state")
-
 // New returns a new notify watch handler that will convert the given machine &
 // agent to a controller.
-func New(m *apimachiner.State, agent Agent) watcher.NotifyHandler {
+func New(m *machiner.State, agent Agent) watcher.NotifyHandler {
 	return &converter{machiner: wrapper{m}, agent: agent}
 }
 
@@ -26,19 +23,16 @@ func New(m *apimachiner.State, agent Agent) watcher.NotifyHandler {
 // state machine.
 type converter struct {
 	agent    Agent
-	machiner machiner
-	machine  machine
+	machiner interface {
+		Machine(tag names.MachineTag) (machine, error)
+	}
+	machine machine
 }
 
 // Agent is an interface that can have its password set and be told to restart.
 type Agent interface {
 	Restart() error
 	Tag() names.Tag
-}
-
-// machiner is a type that creates machines from a tag.
-type machiner interface {
-	Machine(tag names.MachineTag) (machine, error)
 }
 
 // machine is a type that has a list of jobs and can be watched.
@@ -50,7 +44,7 @@ type machine interface {
 // wrapper is a wrapper around api/machiner.State to match the (local) machiner
 // interface.
 type wrapper struct {
-	m *apimachiner.State
+	m *machiner.State
 }
 
 // Machines implements machiner.Machine and returns a machine from the wrapper

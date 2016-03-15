@@ -164,13 +164,13 @@ func networkSecurityGroupSender(rules []network.SecurityRule) *azuretesting.Mock
 
 func (s *instanceSuite) TestInstanceStatus(c *gc.C) {
 	inst := s.getInstance(c)
-	c.Assert(inst.Status(), gc.Equals, "Successful")
+	c.Assert(inst.Status().Message, gc.Equals, "Successful")
 }
 
 func (s *instanceSuite) TestInstanceStatusNilProvisioningState(c *gc.C) {
 	s.virtualMachines[0].Properties.ProvisioningState = nil
 	inst := s.getInstance(c)
-	c.Assert(inst.Status(), gc.Equals, "")
+	c.Assert(inst.Status().Message, gc.Equals, "")
 }
 
 func (s *instanceSuite) TestInstanceStatusNoVM(c *gc.C) {
@@ -179,7 +179,7 @@ func (s *instanceSuite) TestInstanceStatusNoVM(c *gc.C) {
 	// "Partially Deleted" from Instance.Status().
 	s.virtualMachines = nil
 	inst := s.getInstance(c)
-	c.Assert(inst.Status(), gc.Equals, "Partially Deleted")
+	c.Assert(inst.Status().Message, gc.Equals, "Partially Deleted")
 }
 
 func (s *instanceSuite) TestInstanceAddressesEmpty(c *gc.C) {

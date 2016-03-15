@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -137,6 +136,24 @@ func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 	c.Assert(*hc.RootDisk, gc.Equals, uint64(8192))
 	c.Assert(*hc.CpuCores, gc.Equals, uint64(2))
 	c.Assert(*hc.CpuPower, gc.Equals, uint64(650))
+}
+
+func (t *LiveTests) TestControllerInstances(c *gc.C) {
+	t.BootstrapOnce(c)
+	allInsts, err := t.Env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allInsts, gc.HasLen, 1) // bootstrap instance
+	bootstrapInstId := allInsts[0].Id()
+
+	inst0, _ := testing.AssertStartInstance(c, t.Env, "98")
+	defer t.Env.StopInstances(inst0.Id())
+
+	inst1, _ := testing.AssertStartInstance(c, t.Env, "99")
+	defer t.Env.StopInstances(inst1.Id())
+
+	insts, err := t.Env.ControllerInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(insts, gc.DeepEquals, []instance.Id{bootstrapInstId})
 }
 
 func (t *LiveTests) TestInstanceGroups(c *gc.C) {
@@ -348,32 +365,6 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 	if !gone {
 		c.Errorf("after termination, instances remaining: %v", insts)
 	}
-}
-
-func (t *LiveTests) TestPutBucketOnlyOnce(c *gc.C) {
-	t.PrepareOnce(c)
-	s3inst := ec2.EnvironS3(t.Env)
-	b, err := s3inst.Bucket("test-once-" + uniqueName)
-	c.Assert(err, jc.ErrorIsNil)
-	s := ec2.BucketStorage(b)
-
-	// Check that we don't do a PutBucket every time by
-	// getting it to create the bucket, destroying the bucket behind
-	// the scenes, and trying to put another object,
-	// which should fail because it doesn't try to do
-	// the PutBucket again.
-
-	err = s.Put("test-object", strings.NewReader("test"), 4)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.Remove("test-object")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = ec2.DeleteBucket(s)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.Put("test-object", strings.NewReader("test"), 4)
-	c.Assert(err, gc.ErrorMatches, ".*The specified bucket does not exist")
 }
 
 // createGroup creates a new EC2 group and returns it. If it already exists,

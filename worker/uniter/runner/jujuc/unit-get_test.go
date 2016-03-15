@@ -57,10 +57,12 @@ func (s *UnitGetSuite) TestHelp(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: unit-get [options] <setting>
-purpose: print public-address or private-address
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: unit-get [options] <setting>
 
-options:
+Summary:
+print public-address or private-address
+
+Options:
 --format  (= smart)
     specify output format (json|smart|yaml)
 -o, --output (= "")

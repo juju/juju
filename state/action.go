@@ -239,13 +239,6 @@ func (a *Action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 	return a.st.Action(a.Id())
 }
 
-// newActionTagFromNotification converts an actionNotificationDoc into
-// an names.ActionTag
-func newActionTagFromNotification(doc actionNotificationDoc) names.ActionTag {
-	actionLogger.Debugf("newActionTagFromNotification doc: '%#v'", doc)
-	return names.NewActionTag(doc.ActionID)
-}
-
 // newAction builds an Action for the given State and actionDoc.
 func newAction(st *State, adoc actionDoc) *Action {
 	return &Action{
@@ -395,26 +388,6 @@ func (st *State) matchingActionsByReceiverId(id string) ([]*Action, error) {
 		actions = append(actions, newAction(st, doc))
 	}
 	return actions, errors.Trace(iter.Close())
-}
-
-// matchingActionNotifications finds actionNotifications that match ActionReceiver.
-func (st *State) matchingActionNotifications(ar ActionReceiver) ([]names.ActionTag, error) {
-	return st.matchingActionNotificationsByReceiverId(ar.Tag().Id())
-}
-
-// matchingActionNotificationsByReceiverId finds actionNotifications that match ActionReceiver.
-func (st *State) matchingActionNotificationsByReceiverId(id string) ([]names.ActionTag, error) {
-	var doc actionNotificationDoc
-	var tags []names.ActionTag
-
-	notificationCollection, closer := st.getCollection(actionNotificationsC)
-	defer closer()
-
-	iter := notificationCollection.Find(bson.D{{"receiver", id}}).Iter()
-	for iter.Next(&doc) {
-		tags = append(tags, newActionTagFromNotification(doc))
-	}
-	return tags, errors.Trace(iter.Close())
 }
 
 // matchingActionsPending finds actions that match ActionReceiver and

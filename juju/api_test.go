@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -47,7 +46,7 @@ var _ = gc.Suite(&NewAPIClientSuite{})
 func (cs *NewAPIClientSuite) SetUpSuite(c *gc.C) {
 	cs.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	cs.MgoSuite.SetUpSuite(c)
-	cs.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+	cs.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	// Since most tests use invalid testing API server addresses, we
 	// need to mock this to avoid errors.
 	cs.PatchValue(juju.ServerAddress, func(addr string) (network.HostPort, error) {

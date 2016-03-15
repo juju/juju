@@ -64,6 +64,7 @@ import (
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -467,7 +468,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 	// "start the agent" for u0 to prevent short-circuited remove-on-destroy;
 	// check that it's kept deployed despite being Dying.
-	err = u0.SetAgentStatus(state.StatusIdle, "", nil)
+	err = u0.SetAgentStatus(status.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -712,7 +713,8 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		instStatus, err := m.InstanceStatus()
 		c.Assert(err, jc.ErrorIsNil)
-		if reflect.DeepEqual(m.Addresses(), addrs) && instStatus == "running" {
+		c.Logf("found status is %q %q", instStatus.Status, instStatus.Message)
+		if reflect.DeepEqual(m.Addresses(), addrs) && instStatus.Message == "running" {
 			break
 		}
 	}
@@ -2326,27 +2328,6 @@ func (m *mockMetricAPI) CleanupCalled() <-chan struct{} {
 
 func (m *mockMetricAPI) Stop() {
 	close(m.stop)
-}
-
-func mkdtemp(prefix string) string {
-	d, err := ioutil.TempDir("", prefix)
-	if err != nil {
-		panic(err)
-	}
-	return d
-}
-
-func mktemp(prefix string, content string) string {
-	f, err := ioutil.TempFile("", prefix)
-	if err != nil {
-		panic(err)
-	}
-	_, err = f.WriteString(content)
-	if err != nil {
-		panic(err)
-	}
-	f.Close()
-	return f.Name()
 }
 
 type mockLoopDeviceManager struct {

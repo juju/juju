@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
@@ -1175,25 +1176,16 @@ func (s *MachineSuite) TestMachineSetInstanceStatus(c *gc.C) {
 	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.SetInstanceStatus("ALIVE")
+	err = s.machine.SetInstanceStatus(status.StatusRunning, "alive", map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Reload machine and check result.
 	err = s.machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	status, err := s.machine.InstanceStatus()
+	machineStatus, err := s.machine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.DeepEquals, "ALIVE")
-}
-
-func (s *MachineSuite) TestNotProvisionedMachineSetInstanceStatus(c *gc.C) {
-	err := s.machine.SetInstanceStatus("ALIVE")
-	c.Assert(err, gc.ErrorMatches, ".* not provisioned")
-}
-
-func (s *MachineSuite) TestNotProvisionedMachineInstanceStatus(c *gc.C) {
-	_, err := s.machine.InstanceStatus()
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(machineStatus.Status, gc.DeepEquals, status.StatusRunning)
+	c.Assert(machineStatus.Message, gc.DeepEquals, "alive")
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
@@ -1431,7 +1423,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetAgentStatus(state.StatusIdle, "", nil)
+	err = mysql0.SetAgentStatus(status.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1460,7 +1452,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetAgentStatus(state.StatusIdle, "", nil)
+	err = logging0.SetAgentStatus(status.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1535,7 +1527,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetAgentStatus(state.StatusIdle, "", nil)
+	err = mysql0.SetAgentStatus(status.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1565,7 +1557,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetAgentStatus(state.StatusIdle, "", nil)
+	err = logging0.SetAgentStatus(status.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -2495,14 +2487,14 @@ func (s *MachineSuite) TestSetSupportedContainersSetsUnknownToError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := supportedContainer.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
+	c.Assert(statusInfo.Status, gc.Equals, status.StatusPending)
 
 	// An unsupported (lxc) container will have an error status.
 	err = container.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err = container.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
 	c.Assert(statusInfo.Message, gc.Equals, "unsupported container")
 	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{"type": "lxc"})
 }
@@ -2530,7 +2522,7 @@ func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		statusInfo, err := container.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
 		c.Assert(statusInfo.Message, gc.Equals, "unsupported container")
 		containerType := state.ContainerTypeFromId(container.Id())
 		c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{"type": string(containerType)})

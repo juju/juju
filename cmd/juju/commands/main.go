@@ -259,11 +259,15 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(setmeterstatus.New())
 
 	// Manage clouds and credentials
+	r.Register(cloud.NewUpdateCloudsCommand())
 	r.Register(cloud.NewListCloudsCommand())
 	r.Register(cloud.NewShowCloudCommand())
 	r.Register(cloud.NewAddCloudCommand())
 	r.Register(cloud.NewListCredentialsCommand())
 	r.Register(cloud.NewDetectCredentialsCommand())
+	r.Register(cloud.NewSetDefaultRegionCommand())
+	r.Register(cloud.NewSetDefaultCredentialCommand())
+	r.Register(cloud.NewAddCredentialCommand())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {
@@ -275,10 +279,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(modelcmd.Wrap(command))
 	}
 	rcmd.RegisterAll(r)
-}
-
-func main() {
-	Main(os.Args)
 }
 
 type versionDeprecation struct {
