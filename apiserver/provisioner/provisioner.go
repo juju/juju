@@ -812,7 +812,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 		logger.Debugf("got allocated info from provider: %+v", allocatedInfo)
 
 		allocatedConfig := networkingcommon.NetworkConfigFromInterfaceInfo(allocatedInfo)
-		sortedAllocatedConfig := networkingcommon.SortNetworkConfigs(allocatedConfig)
+		sortedAllocatedConfig := networkingcommon.SortNetworkConfigsByInterfaceName(allocatedConfig)
 		logger.Debugf("allocated sorted network config: %+v", sortedAllocatedConfig)
 		result.Results[i].Config = sortedAllocatedConfig
 	}

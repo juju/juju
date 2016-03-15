@@ -193,11 +193,34 @@ func (c byMACThenCIDRThenIndexThenName) Less(i, j int) bool {
 	return c[i].MACAddress < c[j].MACAddress
 }
 
-// SortNetworkConfigs returns the given input sorted, such that any child
-// interfaces appear after their parents.
-func SortNetworkConfigs(input []params.NetworkConfig) []params.NetworkConfig {
+// SortNetworkConfigsByParents returns the given input sorted, such that any
+// child interfaces appear after their parents.
+func SortNetworkConfigsByParents(input []params.NetworkConfig) []params.NetworkConfig {
 	sortedInputCopy := CopyNetworkConfigs(input)
 	sort.Stable(byMACThenCIDRThenIndexThenName(sortedInputCopy))
+	return sortedInputCopy
+}
+
+type byInterfaceName []params.NetworkConfig
+
+func (c byInterfaceName) Len() int {
+	return len(c)
+}
+
+func (c byInterfaceName) Swap(i, j int) {
+	orgI, orgJ := c[i], c[j]
+	c[j], c[i] = orgI, orgJ
+}
+
+func (c byInterfaceName) Less(i, j int) bool {
+	return c[i].InterfaceName < c[j].InterfaceName
+}
+
+// SortNetworkConfigsByInterfaceName returns the given input sorted by
+// InterfaceName.
+func SortNetworkConfigsByInterfaceName(input []params.NetworkConfig) []params.NetworkConfig {
+	sortedInputCopy := CopyNetworkConfigs(input)
+	sort.Stable(byInterfaceName(sortedInputCopy))
 	return sortedInputCopy
 }
 
@@ -432,7 +455,7 @@ func GetObservedNetworkConfig() ([]params.NetworkConfig, error) {
 			observedConfig = append(observedConfig, nicConfigCopy)
 		}
 	}
-	sortedConfig := SortNetworkConfigs(observedConfig)
+	sortedConfig := SortNetworkConfigsByParents(observedConfig)
 
 	logger.Debugf("about to update network config with observed: %+v", sortedConfig)
 	return sortedConfig, nil
@@ -442,14 +465,14 @@ func GetObservedNetworkConfig() ([]params.NetworkConfig, error) {
 // configs after merging providerConfig with observedConfig.
 func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []params.NetworkConfig) []params.NetworkConfig {
 	providerConfigsByName := make(map[string][]params.NetworkConfig)
-	sortedProviderConfigs := SortNetworkConfigs(providerConfigs)
+	sortedProviderConfigs := SortNetworkConfigsByParents(providerConfigs)
 	for _, config := range sortedProviderConfigs {
 		name := config.InterfaceName
 		providerConfigsByName[config.InterfaceName] = append(providerConfigsByName[name], config)
 	}
 
 	mergedConfigs := make([]params.NetworkConfig, 0, len(providerConfigs)+len(observedConfigs))
-	sortedObservedConfigs := SortNetworkConfigs(observedConfigs)
+	sortedObservedConfigs := SortNetworkConfigsByParents(observedConfigs)
 	for _, config := range sortedObservedConfigs {
 		name := config.InterfaceName
 		if strings.HasPrefix(name, instancecfg.DefaultBridgePrefix) {

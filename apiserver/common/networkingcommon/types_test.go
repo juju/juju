@@ -670,6 +670,23 @@ var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
 	VLANTag:             13,
 }}
 
+var expectedSortedNetworkConfigsByInterfaceName = []params.NetworkConfig{
+	{InterfaceName: "br-eth0"},
+	{InterfaceName: "br-eth0.12"},
+	{InterfaceName: "br-eth0.34"},
+	{InterfaceName: "br-eth1"},
+	{InterfaceName: "br-eth1.100"},
+	{InterfaceName: "br-eth1.250"},
+	{InterfaceName: "br-eth1.50"},
+	{InterfaceName: "eth0"},
+	{InterfaceName: "eth0.12"},
+	{InterfaceName: "eth0.34"},
+	{InterfaceName: "eth1"},
+	{InterfaceName: "eth1.100"},
+	{InterfaceName: "eth1.250"},
+	{InterfaceName: "eth1.50"},
+}
+
 var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDeviceArgs{{
 	Name:        "lo",
 	MTU:         65536,
@@ -863,16 +880,16 @@ var expectedLinkLayerDeviceAdressesWithMergedNetworkConfig = []state.LinkLayerDe
 	ProviderID:   "1302",
 }}
 
-func (s *TypesSuite) TestSortNetworkConfigsWithObservedConfigs(c *gc.C) {
-	s.checkSortNetworkConfigWithAllInputPremutationsMatches(c, expectedSortedObservedNetworkConfigs)
+func (s *TypesSuite) TestSortNetworkConfigsByParentsWithObservedConfigs(c *gc.C) {
+	s.checkSortNetworkConfigsByParentsWithAllInputPremutationsMatches(c, expectedSortedObservedNetworkConfigs)
 }
 
-func (s *TypesSuite) checkSortNetworkConfigWithAllInputPremutationsMatches(c *gc.C, expectedOutput []params.NetworkConfig) {
+func (s *TypesSuite) checkSortNetworkConfigsByParentsWithAllInputPremutationsMatches(c *gc.C, expectedOutput []params.NetworkConfig) {
 	expectedLength := len(expectedOutput)
 	jsonExpected := s.networkConfigsAsJSON(c, expectedOutput)
 	for i := 0; i < expectedLength; i++ {
 		shuffledInput := shuffleNetworkConfigs(expectedOutput)
-		result := networkingcommon.SortNetworkConfigs(shuffledInput)
+		result := networkingcommon.SortNetworkConfigsByParents(shuffledInput)
 		c.Assert(result, gc.HasLen, expectedLength)
 		jsonResult := s.networkConfigsAsJSON(c, result)
 		c.Check(jsonResult, fancycheck.StringEquals, jsonExpected)
@@ -885,14 +902,6 @@ func (s *TypesSuite) networkConfigsAsJSON(c *gc.C, input []params.NetworkConfig)
 	return asJSON
 }
 
-func (s *TypesSuite) TestSortNetworkConfigsWithProviderConfigs(c *gc.C) {
-	s.checkSortNetworkConfigWithAllInputPremutationsMatches(c, expectedSortedProviderNetworkConfigs)
-}
-
-func (s *TypesSuite) TestSortNetworkConfigsWithMergedConfigs(c *gc.C) {
-	s.checkSortNetworkConfigWithAllInputPremutationsMatches(c, expectedSortedMergedNetworkConfigs)
-}
-
 func shuffleNetworkConfigs(input []params.NetworkConfig) []params.NetworkConfig {
 	inputLength := len(input)
 	output := make([]params.NetworkConfig, inputLength)
@@ -901,6 +910,26 @@ func shuffleNetworkConfigs(input []params.NetworkConfig) []params.NetworkConfig 
 		output[i] = input[j]
 	}
 	return output
+}
+
+func (s *TypesSuite) TestSortNetworkConfigsByParentsWithProviderConfigs(c *gc.C) {
+	s.checkSortNetworkConfigsByParentsWithAllInputPremutationsMatches(c, expectedSortedProviderNetworkConfigs)
+}
+
+func (s *TypesSuite) TestSortNetworkConfigsByParentsWithMergedConfigs(c *gc.C) {
+	s.checkSortNetworkConfigsByParentsWithAllInputPremutationsMatches(c, expectedSortedMergedNetworkConfigs)
+}
+
+func (s *TypesSuite) TestSortNetworkConfigsByInterfaceName(c *gc.C) {
+	expectedLength := len(expectedSortedNetworkConfigsByInterfaceName)
+	jsonExpected := s.networkConfigsAsJSON(c, expectedSortedNetworkConfigsByInterfaceName)
+	for i := 0; i < expectedLength; i++ {
+		shuffledInput := shuffleNetworkConfigs(expectedSortedNetworkConfigsByInterfaceName)
+		result := networkingcommon.SortNetworkConfigsByInterfaceName(shuffledInput)
+		c.Assert(result, gc.HasLen, expectedLength)
+		jsonResult := s.networkConfigsAsJSON(c, result)
+		c.Check(jsonResult, fancycheck.StringEquals, jsonExpected)
+	}
 }
 
 func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigs(c *gc.C) {
