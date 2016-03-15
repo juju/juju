@@ -466,6 +466,33 @@ func (s *modelManagerSuite) TestRevokeModelMissingUser(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
+func (s *modelManagerSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+	s.setAPIUser(c, s.AdminUserTag(c))
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.ModifyModelAccessRequest{
+		Changes: []params.ModifyModelAccess{{
+			UserTag:  user.UserTag().String(),
+			Action:   params.GrantModelAccess,
+			Access:   params.ModelReadAccess,
+			ModelTag: model.ModelTag().String(),
+		}}}
+
+	result, err := s.modelmanager.ModifyModelAccess(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	result, err = s.modelmanager.ModifyModelAccess(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, `user already has "read" access`)
+}
+
 func (s *modelManagerSuite) TestGrantModelAddLocalUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoModelUser: true})
 	s.setAPIUser(c, s.AdminUserTag(c))

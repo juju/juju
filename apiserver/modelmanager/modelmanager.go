@@ -429,6 +429,8 @@ type stateAccessor interface {
 	ForModel(tag names.ModelTag) (*state.State, error)
 }
 
+// resolveStateAccess returns the state representation of the logical model
+// access type.
 func resolveStateAccess(access permission.ModelAccess) (state.ModelAccess, error) {
 	var fail state.ModelAccess
 	switch access {
@@ -442,6 +444,15 @@ func resolveStateAccess(access permission.ModelAccess) (state.ModelAccess, error
 	}
 	logger.Errorf("invalid access permission: %+v", access)
 	return fail, errors.Errorf("invalid access permission")
+}
+
+// isGreaterAccess returns whether the new access provides more permissions
+// than the current access.
+func isGreaterAccess(currentAccess, newAccess state.ModelAccess) bool {
+	if currentAccess == state.ModelReadAccess && newAccess == state.ModelAdminAccess {
+		return true
+	}
+	return false
 }
 
 // ChangeModelAccess performs the requested access grant or revoke action for the
@@ -477,7 +488,7 @@ func ChangeModelAccess(accessor stateAccessor, modelTag names.ModelTag, createdB
 			}
 
 			// Only set access if greater access is being granted.
-			if modelUser.Access() == state.ModelReadAccess {
+			if isGreaterAccess(modelUser.Access(), stateAccess) {
 				err = modelUser.SetAccess(stateAccess)
 				if err != nil {
 					return errors.Annotate(err, "could not set model access for user")
