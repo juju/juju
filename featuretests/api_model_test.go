@@ -129,10 +129,11 @@ func (s *apiEnvironmentSuite) TestUploadToolsOtherEnvironment(c *gc.C) {
 	defer otherClient.ClientFacade.Close()
 
 	newVersion := version.MustParseBinary("5.4.3-quantal-amd64")
+	vers := newVersion.String()
 
 	// build fake tools
 	tgz, checksum := coretesting.TarGz(
-		coretesting.NewTarFile(jujunames.Jujud, 0777, "jujud contents "+newVersion.String()))
+		coretesting.NewTarFile(jujunames.Jujud, 0777, "jujud contents "+vers))
 
 	tool, err := otherClient.UploadTools(bytes.NewReader(tgz), newVersion)
 	c.Assert(err, jc.ErrorIsNil)
@@ -141,9 +142,9 @@ func (s *apiEnvironmentSuite) TestUploadToolsOtherEnvironment(c *gc.C) {
 	toolStrg, err := otherState.ToolsStorage()
 	defer toolStrg.Close()
 	c.Assert(err, jc.ErrorIsNil)
-	meta, closer, err := toolStrg.Tools(newVersion)
+	meta, closer, err := toolStrg.Open(vers)
 	defer closer.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meta.SHA256, gc.Equals, checksum)
-	c.Assert(meta.Version, gc.Equals, newVersion)
+	c.Assert(meta.Version, gc.Equals, vers)
 }

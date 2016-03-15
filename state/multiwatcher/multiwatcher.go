@@ -204,7 +204,7 @@ type UnitInfo struct {
 	Subordinate    bool
 	// Workload and agent state are modelled separately.
 	WorkloadStatus StatusInfo
-	AgentStatus    StatusInfo
+	JujuStatus     StatusInfo
 }
 
 // EntityId returns a unique identifier for a unit across

@@ -84,6 +84,9 @@ type InstanceConfig struct {
 	// Tools is juju tools to be used on the new instance.
 	Tools *coretools.Tools
 
+	// GUI is the Juju GUI archive to be installed in the new instance.
+	GUI *coretools.GUIArchive
+
 	// DataDir holds the directory that juju state will be put in the new
 	// instance.
 	DataDir string
@@ -251,8 +254,14 @@ func (cfg *InstanceConfig) AgentConfig(
 	return agent.NewStateMachineConfig(configParams, *cfg.StateServingInfo)
 }
 
+// JujuTools returns the directory where Juju tools are stored.
 func (cfg *InstanceConfig) JujuTools() string {
 	return agenttools.SharedToolsDir(cfg.DataDir, cfg.Tools.Version)
+}
+
+// GUITools returns the directory where the Juju GUI release is stored.
+func (cfg *InstanceConfig) GUITools() string {
+	return agenttools.SharedGUIDir(cfg.DataDir)
 }
 
 func (cfg *InstanceConfig) stateHostAddrs() []string {

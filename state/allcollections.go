@@ -87,6 +87,10 @@ func allCollections() collectionSchema {
 		// the simplestreams data source pointing to binaries required by juju.
 		toolsmetadataC: {global: true},
 
+		// This collection holds a convenient representation of the content of
+		// the simplestreams data source pointing to Juju GUI archives.
+		guimetadataC: {global: true},
+
 		// This collection holds model information; in particular its
 		// Life and its UUID.
 		modelsC: {global: true},
@@ -393,6 +397,7 @@ const (
 	controllersC             = "controllers"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
+	guimetadataC             = "guimetadata"
 	instanceDataC            = "instanceData"
 	ipaddressesC             = "ipaddresses"
 	leaseC                   = "lease"
