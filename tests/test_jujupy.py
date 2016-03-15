@@ -42,6 +42,7 @@ from jujupy import (
     EnvJujuClient26,
     EnvJujuClient2A1,
     EnvJujuClient2A2,
+    EnvJujuClient2B2,
     ErroredUnit,
     GroupReporter,
     get_cache_path,
@@ -826,10 +827,10 @@ class TestEnvJujuClient(ClientTest):
             self.assertIs(type(client), EnvJujuClient2A2)
             self.assertEqual(client.version, '2.0-alpha2')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2B2)
             self.assertEqual(client.version, '2.0-alpha3')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2B2)
             self.assertEqual(client.version, '2.0-beta1')
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
@@ -1003,7 +1004,8 @@ class TestEnvJujuClient(ClientTest):
             mock.assert_called_with(
                 'bootstrap', (
                     '--constraints', 'mem=2G arch=amd64', 'maas', 'foo/asdf',
-                    '--config', config_file.name, '--agent-version', '2.0'),
+                    '--config', config_file.name, '--default-model', 'maas',
+                    '--agent-version', '2.0'),
                 include_e=False)
 
     def test_bootstrap_joyent(self):
@@ -1018,7 +1020,8 @@ class TestEnvJujuClient(ClientTest):
                 client, 'bootstrap', (
                     '--constraints', 'mem=2G cpu-cores=1', 'joyent',
                     'joyent/foo', '--config', config_file.name,
-                    '--agent-version', '2.0'), include_e=False)
+                    '--default-model', 'joyent', '--agent-version', '2.0',
+                    ), include_e=False)
 
     def test_bootstrap(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
@@ -1030,6 +1033,7 @@ class TestEnvJujuClient(ClientTest):
                     'bootstrap', ('--constraints', 'mem=2G',
                                   'foo', 'bar/baz',
                                   '--config', config_file.name,
+                                  '--default-model', 'foo',
                                   '--agent-version', '2.0'), include_e=False)
                 config_file.seek(0)
                 config = yaml.safe_load(config_file)
@@ -1045,7 +1049,8 @@ class TestEnvJujuClient(ClientTest):
             mock.assert_called_with(
                 'bootstrap', (
                     '--upload-tools', '--constraints', 'mem=2G', 'foo',
-                    'foo/baz', '--config', config_file.name), include_e=False)
+                    'foo/baz', '--config', config_file.name,
+                    '--default-model', 'foo'), include_e=False)
 
     def test_bootstrap_args(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
@@ -1056,7 +1061,7 @@ class TestEnvJujuClient(ClientTest):
         mock.assert_called_with(
             'bootstrap', (
                 '--constraints', 'mem=2G', 'foo', 'bar/baz',
-                '--config', config_file.name,
+                '--config', config_file.name, '--default-model', 'foo',
                 '--agent-version', '2.0',
                 '--bootstrap-series', 'angsty'), include_e=False)
 
@@ -1071,6 +1076,7 @@ class TestEnvJujuClient(ClientTest):
                         client, 'bootstrap', (
                             '--constraints', 'mem=2G', 'foo', 'bar/baz',
                             '--config', config_file.name,
+                            '--default-model', 'foo',
                             '--agent-version', '2.0'), include_e=False)
 
     def test_bootstrap_async_upload_tools(self):
@@ -1082,7 +1088,9 @@ class TestEnvJujuClient(ClientTest):
                     mock.assert_called_with(
                         client, 'bootstrap', (
                             '--upload-tools', '--constraints', 'mem=2G',
-                            'foo', 'bar/baz', '--config', config_file.name),
+                            'foo', 'bar/baz', '--config', config_file.name,
+                            '--default-model', 'foo',
+                            ),
                         include_e=False)
 
     def test_get_bootstrap_args_bootstrap_series(self):
@@ -1093,7 +1101,8 @@ class TestEnvJujuClient(ClientTest):
                                          bootstrap_series='angsty')
         self.assertEqual(args, (
             '--upload-tools', '--constraints', 'mem=2G', 'foo', 'bar/baz',
-            '--config', 'config', '--bootstrap-series', 'angsty'))
+            '--config', 'config', '--default-model', 'foo',
+            '--bootstrap-series', 'angsty'))
 
     def test_create_environment_hypenated_controller(self):
         self.do_create_environment(
@@ -2523,6 +2532,111 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(str(ctx.exception), "Unknown feature flag: 'nomongo'")
 
 
+class TestEnvJujuClient2B2(ClientTest):
+
+    def test_get_bootstrap_args_bootstrap_series(self):
+        env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
+        client = EnvJujuClient2B2(env, '2.0-zeta1', None)
+        args = client.get_bootstrap_args(upload_tools=True,
+                                         config_filename='config',
+                                         bootstrap_series='angsty')
+        self.assertEqual(args, (
+            '--upload-tools', '--constraints', 'mem=2G', 'foo', 'bar/baz',
+            '--config', 'config', '--bootstrap-series', 'angsty'))
+
+    def test_bootstrap_upload_tools(self):
+        env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
+        client = EnvJujuClient2B2(env, '2.0-zeta1', None)
+        with patch.object(client.env, 'needs_sudo', lambda: True):
+            with observable_temp_file() as config_file:
+                with patch.object(client, 'juju') as mock:
+                    client.bootstrap(upload_tools=True)
+            mock.assert_called_with(
+                'bootstrap', (
+                    '--upload-tools', '--constraints', 'mem=2G', 'foo',
+                    'foo/baz', '--config', config_file.name), include_e=False)
+
+    def test_bootstrap_maas(self):
+        env = JujuData('maas', {'type': 'foo', 'region': 'asdf'})
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client = EnvJujuClient2B2(env, '2.0-zeta1', None)
+            with patch.object(client.env, 'maas', lambda: True):
+                with observable_temp_file() as config_file:
+                    client.bootstrap()
+            mock.assert_called_with(
+                'bootstrap', (
+                    '--constraints', 'mem=2G arch=amd64', 'maas', 'foo/asdf',
+                    '--config', config_file.name, '--agent-version', '2.0'),
+                include_e=False)
+
+    def test_bootstrap_joyent(self):
+        env = JujuData('joyent', {
+            'type': 'joyent', 'sdc-url': 'https://foo.api.joyentcloud.com'})
+        with patch.object(EnvJujuClient, 'juju', autospec=True) as mock:
+            client = EnvJujuClient2B2(env, '2.0-zeta1', None)
+            with patch.object(client.env, 'joyent', lambda: True):
+                with observable_temp_file() as config_file:
+                    client.bootstrap()
+            mock.assert_called_once_with(
+                client, 'bootstrap', (
+                    '--constraints', 'mem=2G cpu-cores=1', 'joyent',
+                    'joyent/foo', '--config', config_file.name,
+                    '--agent-version', '2.0'), include_e=False)
+
+    def test_bootstrap_async_upload_tools(self):
+        env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
+        with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
+            client = EnvJujuClient2B2(env, '2.0-zeta1', None)
+            with observable_temp_file() as config_file:
+                with client.bootstrap_async(upload_tools=True):
+                    mock.assert_called_with(
+                        client, 'bootstrap', (
+                            '--upload-tools', '--constraints', 'mem=2G',
+                            'foo', 'bar/baz', '--config', config_file.name),
+                        include_e=False)
+
+    def test_bootstrap_async(self):
+        env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
+        with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
+            client = EnvJujuClient2B2(env, '2.0-zeta1', None)
+            client.env.juju_home = 'foo'
+            with observable_temp_file() as config_file:
+                with client.bootstrap_async():
+                    mock.assert_called_once_with(
+                        client, 'bootstrap', (
+                            '--constraints', 'mem=2G', 'foo', 'bar/baz',
+                            '--config', config_file.name,
+                            '--agent-version', '2.0'), include_e=False)
+
+    def test_bootstrap_args(self):
+        env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
+        client = EnvJujuClient2B2(env, '2.0-zeta1', None)
+        with patch.object(client, 'juju') as mock:
+            with observable_temp_file() as config_file:
+                client.bootstrap(bootstrap_series='angsty')
+        mock.assert_called_with(
+            'bootstrap', (
+                '--constraints', 'mem=2G', 'foo', 'bar/baz',
+                '--config', config_file.name,
+                '--agent-version', '2.0',
+                '--bootstrap-series', 'angsty'), include_e=False)
+
+    def test_bootstrap(self):
+        env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
+        with observable_temp_file() as config_file:
+            with patch.object(EnvJujuClient, 'juju') as mock:
+                client = EnvJujuClient2B2(env, '2.0-zeta1', None)
+                client.bootstrap()
+                mock.assert_called_with(
+                    'bootstrap', ('--constraints', 'mem=2G',
+                                  'foo', 'bar/baz',
+                                  '--config', config_file.name,
+                                  '--agent-version', '2.0'), include_e=False)
+                config_file.seek(0)
+                config = yaml.safe_load(config_file)
+        self.assertEqual({'test-mode': True}, config)
+
+
 class TestEnvJujuClient2A2(TestCase):
 
     def test_raise_on_juju_data(self):
@@ -2666,10 +2780,10 @@ class TestEnvJujuClient1X(ClientTest):
             self.assertIs(type(client), EnvJujuClient2A2)
             self.assertEqual(client.version, '2.0-alpha2')
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2B2)
             self.assertEqual(client.version, '2.0-alpha3')
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2B2)
             self.assertEqual(client.version, '2.0-beta1')
             client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient)

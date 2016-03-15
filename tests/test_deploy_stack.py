@@ -1322,7 +1322,7 @@ class TestBootContext(FakeHomeTestCase):
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '--constraints',
             'mem=2G', 'bar', 'paas/qux', '--config', config_file.name,
-            '--agent-version', '1.23'), 0)
+            '--default-model', 'bar', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'show-status', '-m', 'bar',
             '--format', 'yaml'), 1)
@@ -1354,7 +1354,7 @@ class TestBootContext(FakeHomeTestCase):
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '--constraints',
             'mem=2G', 'bar', 'paas/qux', '--config', config_file.name,
-            '--agent-version', '1.23'), 0)
+            '--default-model', 'bar', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'show-status', '-m', 'bar',
             '--format', 'yaml'), 1)
@@ -1386,7 +1386,7 @@ class TestBootContext(FakeHomeTestCase):
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '--upload-tools',
             '--constraints', 'mem=2G', 'bar', 'paas/qux', '--config',
-            config_file.name), 0)
+            config_file.name, '--default-model', 'bar'), 0)
 
     def test_upload_tools_non_jes(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
@@ -1418,7 +1418,8 @@ class TestBootContext(FakeHomeTestCase):
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
             'bar', 'paas/qux', '--config', config_file.name,
-            '--agent-version', '1.23', '--bootstrap-series', 'wacky'), 0)
+            '--default-model', 'bar', '--agent-version', '1.23',
+            '--bootstrap-series', 'wacky'), 0)
 
     def test_calls_update_env_1(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))

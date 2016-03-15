@@ -290,8 +290,10 @@ class EnvJujuClient:
             client_class = EnvJujuClient2A1
         elif re.match('^2\.0-alpha2', version):
             client_class = EnvJujuClient2A2
-        else:
+        elif re.match('^2\.0-delta1', version):
             client_class = EnvJujuClient
+        else:
+            client_class = EnvJujuClient2B2
         return client_class(env, version, full_path, debug=debug)
 
     def clone(self, env=None, version=None, full_path=None, debug=None,
@@ -412,7 +414,8 @@ class EnvJujuClient:
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                              self.env.get_region())
         args = ['--constraints', constraints, self.env.environment,
-                cloud_region, '--config', config_filename]
+                cloud_region, '--config', config_filename,
+                '--default-model', self.env.environment]
         if upload_tools:
             args.insert(0, '--upload-tools')
         else:
@@ -1059,6 +1062,32 @@ class EnvJujuClient:
 
     def add_subnet(self, subnet, space):
         self.juju('add-subnet', (subnet, space))
+
+
+class EnvJujuClient2B2(EnvJujuClient):
+
+    def get_bootstrap_args(self, upload_tools, config_filename,
+                           bootstrap_series=None):
+        """Return the bootstrap arguments for the substrate."""
+        if self.env.maas:
+            constraints = 'mem=2G arch=amd64'
+        elif self.env.joyent:
+            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
+            constraints = 'mem=2G cpu-cores=1'
+        else:
+            constraints = 'mem=2G'
+        cloud_region = self.get_cloud_region(self.env.get_cloud(),
+                                             self.env.get_region())
+        args = ['--constraints', constraints, self.env.environment,
+                cloud_region, '--config', config_filename]
+        if upload_tools:
+            args.insert(0, '--upload-tools')
+        else:
+            args.extend(['--agent-version', self.get_matching_agent_version()])
+
+        if bootstrap_series is not None:
+            args.extend(['--bootstrap-series', bootstrap_series])
+        return tuple(args)
 
 
 class EnvJujuClient2A2(EnvJujuClient):
