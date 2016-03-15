@@ -100,7 +100,7 @@ func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 	_, err := st.ListResources("a-service")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.stub.CheckCallNames(c, "ListResources")
+	s.stub.CheckCallNames(c, "ListResources", "VerifyService")
 }
 
 func (s *ResourceSuite) TestGetPendingResource(c *gc.C) {
@@ -198,7 +198,7 @@ func (s *ResourceSuite) TestSetResourceStagingFailure(c *gc.C) {
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, failure, nil, nil, ignoredErr)
+	s.stub.SetErrors(nil, failure, ignoredErr)
 
 	_, err := st.SetResource("a-service", "a-user", expected.Resource, file)
 
@@ -403,10 +403,12 @@ func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {
 func (s *ResourceSuite) TestOpenResourceNotFound(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
+	errNotFound := errors.NotFoundf("resource")
+	s.stub.SetErrors(errNotFound)
 
 	_, _, err := st.OpenResource("a-service", "spam")
 
-	s.stub.CheckCallNames(c, "GetResource")
+	s.stub.CheckCallNames(c, "GetResource", "VerifyService")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -466,10 +468,12 @@ func (s *ResourceSuite) TestOpenResourceForUniterNotFound(c *gc.C) {
 	unit := newUnit(s.stub, "a-service/0")
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
+	errNotFound := errors.NotFoundf("resource")
+	s.stub.SetErrors(nil, errNotFound)
 
 	_, _, err := st.OpenResourceForUniter(unit, "spam")
 
-	s.stub.CheckCallNames(c, "ServiceName", "GetResource")
+	s.stub.CheckCallNames(c, "ServiceName", "GetResource", "VerifyService")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 

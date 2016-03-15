@@ -29,6 +29,10 @@ type Persistence interface {
 	// NewStorage returns a new blob storage for the environment.
 	NewStorage() storage.Storage
 
+	// ServiceExistsOps returns the operations that verify that the
+	// identified service exists.
+	ServiceExistsOps(serviceID string) []txn.Op
+
 	// IncCharmModifiedVersionOps returns the operations necessary to increment
 	// the CharmModifiedVersion field for the given service.
 	IncCharmModifiedVersionOps(serviceID string) []txn.Op
@@ -84,6 +88,20 @@ func (sp *statePersistence) NewStorage() storage.Storage {
 	session := sp.st.session
 	store := storage.NewStorage(envUUID, session)
 	return store
+}
+
+// ServiceExistsOps returns the operations that verify that the
+// identified service exists.
+func (sp *statePersistence) ServiceExistsOps(serviceID string) []txn.Op {
+	return []txn.Op{{
+		C:      servicesC,
+		Id:     serviceID,
+		Assert: txn.DocExists,
+	}, {
+		C:      servicesC,
+		Id:     serviceID,
+		Assert: isAliveDoc,
+	}}
 }
 
 // IncCharmModifiedVersionOps returns the operations necessary to increment the

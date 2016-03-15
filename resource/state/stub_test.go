@@ -37,6 +37,15 @@ func (s *stubRawState) Storage() Storage {
 	return s.ReturnStorage
 }
 
+func (s *stubRawState) VerifyService(serviceID string) error {
+	s.stub.AddCall("VerifyService", serviceID)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
 type stubPersistence struct {
 	stub *testing.Stub
 

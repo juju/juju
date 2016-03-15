@@ -70,6 +70,11 @@ type StagedResource interface {
 	Activate() error
 }
 
+type rawState interface {
+	// VerifyService ensures that the service is in state.
+	VerifyService(id string) error
+}
+
 type resourceStorage interface {
 	// PutAndCheckHash stores the content of the reader into the storage.
 	PutAndCheckHash(path string, r io.Reader, length int64, hash string) error
@@ -84,6 +89,7 @@ type resourceStorage interface {
 
 type resourceState struct {
 	persist resourcePersistence
+	raw     rawState
 	storage resourceStorage
 
 	newPendingID     func() (string, error)
@@ -94,6 +100,9 @@ type resourceState struct {
 func (st resourceState) ListResources(serviceID string) (resource.ServiceResources, error) {
 	resources, err := st.persist.ListResources(serviceID)
 	if err != nil {
+		if err := st.raw.VerifyService(serviceID); err != nil {
+			return resource.ServiceResources{}, errors.Trace(err)
+		}
 		return resource.ServiceResources{}, errors.Trace(err)
 	}
 
@@ -105,6 +114,9 @@ func (st resourceState) GetResource(serviceID, name string) (resource.Resource, 
 	id := newResourceID(serviceID, name)
 	res, _, err := st.persist.GetResource(id)
 	if err != nil {
+		if err := st.raw.VerifyService(serviceID); err != nil {
+			return resource.Resource{}, errors.Trace(err)
+		}
 		return res, errors.Trace(err)
 	}
 	return res, nil
@@ -116,6 +128,8 @@ func (st resourceState) GetPendingResource(serviceID, name, pendingID string) (r
 
 	resources, err := st.persist.ListPendingResources(serviceID)
 	if err != nil {
+		// We do not call VerifyService() here because pending resources
+		// do not have to have an existing service.
 		return res, errors.Trace(err)
 	}
 
@@ -146,7 +160,7 @@ func (st resourceState) AddPendingResource(serviceID, userID string, chRes charm
 	if err != nil {
 		return "", errors.Annotate(err, "could not generate resource ID")
 	}
-	logger.Tracef("adding pending resource %q for service %q (ID: %s)", chRes.Name, serviceID, pendingID)
+	logger.Debugf("adding pending resource %q for service %q (ID: %s)", chRes.Name, serviceID, pendingID)
 
 	if _, err := st.setResource(pendingID, serviceID, userID, chRes, r); err != nil {
 		return "", errors.Trace(err)
@@ -238,6 +252,9 @@ func (st resourceState) OpenResource(serviceID, name string) (resource.Resource,
 	id := newResourceID(serviceID, name)
 	resourceInfo, storagePath, err := st.persist.GetResource(id)
 	if err != nil {
+		if err := st.raw.VerifyService(serviceID); err != nil {
+			return resource.Resource{}, nil, errors.Trace(err)
+		}
 		return resource.Resource{}, nil, errors.Annotate(err, "while getting resource info")
 	}
 	if resourceInfo.IsPlaceholder() {

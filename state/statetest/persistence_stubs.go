@@ -20,6 +20,7 @@ type StubPersistence struct {
 	ReturnAll interface{} // homegenous(?) list of doc struct (not pointers)
 	ReturnOne interface{} // a doc struct (not a pointer)
 
+	ReturnServiceExistsOps           []txn.Op
 	ReturnIncCharmModifiedVersionOps []txn.Op
 }
 
@@ -108,6 +109,15 @@ func (s *StubPersistence) RunTransaction(ops []txn.Op) error {
 	}
 
 	return nil
+}
+
+func (s *StubPersistence) ServiceExistsOps(serviceID string) []txn.Op {
+	s.AddCall("ServiceExistsOps", serviceID)
+	// pop off an error so num errors == num calls, even though this call
+	// doesn't actually use the error.
+	s.NextErr()
+
+	return s.ReturnServiceExistsOps
 }
 
 func (s *StubPersistence) IncCharmModifiedVersionOps(serviceID string) []txn.Op {
