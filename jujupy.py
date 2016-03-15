@@ -8,6 +8,7 @@ from contextlib import (
     contextmanager,
     nested,
 )
+from copy import deepcopy
 from cStringIO import StringIO
 from datetime import timedelta
 import errno
@@ -791,15 +792,12 @@ class EnvJujuClient:
         Return the name of the environment when an 'admin' model does
         not exist.
         """
-        models = self.get_models()
-        # The dict can be empty because 1.x does not support the models.
-        # This is an ambiguous case for the jes feature flag which supports
-        # multiple models, but none is named 'admin' by default. Since the
-        # jes case also uses '-e' for models, the env is the admin model.
-        for model in models.get('models', []):
-            if 'admin' in model['name']:
-                return 'admin'
-        return self.env.environment
+        return 'admin'
+
+    def get_admin_client(self):
+        admin_jujudata = self.env.clone(
+            model_name=self.get_admin_model_name())
+        return self.clone(env=admin_jujudata)
 
     def list_controllers(self):
         """List the controllers."""
@@ -1089,8 +1087,27 @@ class EnvJujuClient2B2(EnvJujuClient):
             args.extend(['--bootstrap-series', bootstrap_series])
         return tuple(args)
 
+    def get_admin_client(self):
+        return self
 
-class EnvJujuClient2A2(EnvJujuClient):
+    def get_admin_model_name(self):
+        """Return the name of the 'admin' model.
+
+        Return the name of the environment when an 'admin' model does
+        not exist.
+        """
+        models = self.get_models()
+        # The dict can be empty because 1.x does not support the models.
+        # This is an ambiguous case for the jes feature flag which supports
+        # multiple models, but none is named 'admin' by default. Since the
+        # jes case also uses '-e' for models, the env is the admin model.
+        for model in models.get('models', []):
+            if 'admin' in model['name']:
+                return 'admin'
+        return self.env.environment
+
+
+class EnvJujuClient2A2(EnvJujuClient2B2):
     """Drives Juju 2.0-alpha2 clients."""
 
     @classmethod
@@ -1840,6 +1857,17 @@ class JujuData(SimpleEnvironment):
         super(JujuData, self).__init__(environment, config, juju_home)
         self.credentials = {}
         self.clouds = {}
+
+    def clone(self, model_name=None):
+        config = deepcopy(self.config)
+        if model_name is None:
+            model_name = self.environment
+        else:
+            config['name'] = model_name
+        result = self.__class__(model_name, config, self.juju_home)
+        result.credentials = deepcopy(self.credentials)
+        result.clouds = deepcopy(self.clouds)
+        return result
 
     @classmethod
     def from_env(cls, env):

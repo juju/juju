@@ -94,6 +94,7 @@ def make_mocked_client(name, status_error=None):
     patch.object(client, 'kill_controller', autospec=True).start()
     patch.object(client, 'is_jes_enabled', autospec=True,
                  return_value=True).start()
+    patch.object(client, 'get_admin_client', autospec=True).start()
     return client
 
 
@@ -124,7 +125,8 @@ class TestMain(FakeHomeTestCase):
         client.wait_for_ha.assert_called_once_with()
         client.get_status.assert_called_once_with(600)
         self.assertEqual(2, client.kill_controller.call_count)
-        dns_mock.assert_called_once_with(client, '0')
+        dns_mock.assert_called_once_with(client.get_admin_client.return_value,
+                                         '0')
         ds_mock.assert_called_once_with(client, 'prefix')
         dcm_mock.assert_called_once_with(client, leader_only=True)
         cache_path = get_cache_path(client.env.juju_home, models=True)
@@ -147,7 +149,8 @@ class TestMain(FakeHomeTestCase):
         client.wait_for_ha.assert_called_once_with()
         client.get_status.assert_called_once_with(600)
         self.assertEqual(2, client.kill_controller.call_count)
-        dns_mock.assert_called_once_with(client, '0')
+        dns_mock.assert_called_once_with(
+            client.get_admin_client.return_value, '0')
         ds_mock.assert_called_once_with(client, 'prefix')
         dcm_mock.assert_called_once_with(client, leader_only=True)
         ns_mock.assert_called_once_with(error)

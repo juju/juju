@@ -249,6 +249,9 @@ class FakeJujuClient:
     def get_matching_agent_version(self):
         return '1.2-alpha3'
 
+    def get_admin_client(self):
+        return self
+
     def is_jes_enabled(self):
         return self._jes_enabled
 
@@ -1718,7 +1721,7 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(client, 'get_models',
                           return_value=models) as gm_mock:
             admin_name = client.get_admin_model_name()
-        gm_mock.assert_called_once_with()
+        self.assertEqual(0, gm_mock.call_count)
         self.assertEqual('admin', admin_name)
 
     def test_get_admin_model_name_without_admin(self):
@@ -1731,13 +1734,20 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_models', return_value=models):
             admin_name = client.get_admin_model_name()
-        self.assertEqual('foo', admin_name)
+        self.assertEqual('admin', admin_name)
 
     def test_get_admin_model_name_no_models(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_models', return_value={}):
             admin_name = client.get_admin_model_name()
-        self.assertEqual('foo', admin_name)
+        self.assertEqual('admin', admin_name)
+
+    def test_get_admin_client(self):
+        client = EnvJujuClient(JujuData('foo'), {'bar': 'baz'}, 'myhome')
+        admin_client = client.get_admin_client()
+        admin_env = admin_client.env
+        self.assertEqual('admin', admin_env.environment)
+        self.assertEqual(client.env.config, admin_env.config)
 
     def test_list_controllers(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
@@ -2636,6 +2646,37 @@ class TestEnvJujuClient2B2(ClientTest):
                 config = yaml.safe_load(config_file)
         self.assertEqual({'test-mode': True}, config)
 
+    def test_get_admin_model_name(self):
+        models = {
+            'models': [
+                {'name': 'admin', 'model-uuid': 'aaaa'},
+                {'name': 'bar', 'model-uuid': 'bbbb'}],
+            'current-model': 'bar'
+        }
+        client = EnvJujuClient2B2(JujuData('foo'), None, None)
+        with patch.object(client, 'get_models',
+                          return_value=models) as gm_mock:
+            admin_name = client.get_admin_model_name()
+        gm_mock.assert_called_once_with()
+        self.assertEqual('admin', admin_name)
+
+    def test_get_admin_model_name_without_admin(self):
+        models = {
+            'models': [
+                {'name': 'bar', 'model-uuid': 'aaaa'},
+                {'name': 'baz', 'model-uuid': 'bbbb'}],
+            'current-model': 'bar'
+        }
+        client = EnvJujuClient2B2(JujuData('foo'), None, None)
+        with patch.object(client, 'get_models', return_value=models):
+            admin_name = client.get_admin_model_name()
+        self.assertEqual('foo', admin_name)
+
+    def test_get_admin_model_name_no_models(self):
+        client = EnvJujuClient2B2(JujuData('foo'), None, None)
+        with patch.object(client, 'get_models', return_value={}):
+            admin_name = client.get_admin_model_name()
+        self.assertEqual('foo', admin_name)
 
 class TestEnvJujuClient2A2(TestCase):
 
@@ -4103,6 +4144,12 @@ class TestEnvJujuClient1X(ClientTest):
             admin_name = client.get_admin_model_name()
         self.assertEqual('foo', admin_name)
 
+    def test_get_admin_client(self):
+        client = EnvJujuClient1X(SimpleEnvironment('foo'), {'bar': 'baz'},
+                                 'myhome')
+        admin_client = client.get_admin_client()
+        self.assertIs(client, admin_client)
+
     def test_list_controllers(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
         client = EnvJujuClient1X(env, '1.23-series-arch', None)
@@ -5171,6 +5218,29 @@ class TestSimpleEnvironment(TestCase):
 
 
 class TestJujuData(TestCase):
+
+    def test_clone(self):
+        orig = JujuData('foo', {'type': 'bar'}, 'myhome')
+        orig.credentials = {'secret': 'password'}
+        orig.clouds = {'name': {'meta': 'data'}}
+        copy = orig.clone()
+        self.assertIsNot(orig, copy)
+        self.assertEqual(copy.environment, 'foo')
+        self.assertIsNot(orig.config, copy.config)
+        self.assertEqual({'type': 'bar'}, copy.config)
+        self.assertEqual('myhome', copy.juju_home)
+        self.assertIsNot(orig.credentials, copy.credentials)
+        self.assertEqual(orig.credentials, copy.credentials)
+        self.assertIsNot(orig.clouds, copy.clouds)
+        self.assertEqual(orig.clouds, copy.clouds)
+
+    def test_clone_model_name(self):
+        orig = JujuData('foo', {'type': 'bar', 'name': 'oldname'}, 'myhome')
+        orig.credentials = {'secret': 'password'}
+        orig.clouds = {'name': {'meta': 'data'}}
+        copy = orig.clone(model_name='newname')
+        self.assertEqual('newname', copy.environment)
+        self.assertEqual('newname', copy.config['name'])
 
     def test_get_cloud_random_provider(self):
         self.assertEqual(
