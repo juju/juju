@@ -12,19 +12,20 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/version"
 )
 
 // Unit represents a state.Unit.
 type Unit interface {
-	state.StatusHistoryGetter
+	status.StatusHistoryGetter
 	Life() state.Life
 	Destroy() (err error)
 	IsPrincipal() bool
 	PublicAddress() (network.Address, error)
 	PrivateAddress() (network.Address, error)
 	Resolve(retryHooks bool) error
-	AgentHistory() state.StatusHistoryGetter
+	AgentHistory() status.StatusHistoryGetter
 }
 
 // stateInterface contains the state.State methods used in this package,

@@ -34,7 +34,7 @@ func (s *instanceSuite) TestID(c *gc.C) {
 }
 
 func (s *instanceSuite) TestStatus(c *gc.C) {
-	status := s.Instance.Status()
+	status := s.Instance.Status().Message
 
 	c.Check(status, gc.Equals, google.StatusRunning)
 	s.CheckNoAPI(c)
