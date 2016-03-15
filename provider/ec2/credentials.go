@@ -25,10 +25,12 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 		cloud.AccessKeyAuthType: {
 			"access-key": {
 				Description: "The EC2 access key",
+				Require: &cloud.RequireAttr{cloud.AuthTypeFieldName, cloud.AccessKeyAuthType},
 			},
 			"secret-key": {
 				Description: "The EC2 secret key",
 				Hidden:      true,
+				Require: &cloud.RequireAttr{cloud.AuthTypeFieldName, cloud.AccessKeyAuthType},
 			},
 		},
 	}

@@ -98,7 +98,7 @@ func FinalizeCredential(
 	if !ok {
 		return nil, errors.NotSupportedf("auth-type %q", credential.authType)
 	}
-	attrs, err := schema.Finalize(credential.attributes, readFile)
+	attrs, err := schema.Finalize(credential.authType, credential.attributes, readFile)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -112,6 +112,7 @@ func FinalizeCredential(
 // deleted, and replaced by their non-file counterparts with the values set
 // to the contents of the files.
 func (s CredentialSchema) Finalize(
+	authType AuthType,
 	attrs map[string]string,
 	readFile func(string) ([]byte, error),
 ) (map[string]string, error) {
@@ -129,39 +130,73 @@ func (s CredentialSchema) Finalize(
 	}
 
 	resultMap := result.(map[string]interface{})
+	// Add auth-type to the resultMap of values so any
+	// credentials fields which are dependent on auth-type
+	// can be filtered out if needed.
+	resultMap["auth-type"] = string(authType)
 	newAttrs := make(map[string]string)
 	for name, field := range s {
-		if field.FileAttr == "" {
-			newAttrs[name] = resultMap[name].(string)
-			continue
-		}
-		if fieldVal, ok := resultMap[name]; ok {
-			if _, ok := resultMap[field.FileAttr]; ok {
-				return nil, errors.NotValidf(
-					"specifying both %q and %q",
-					name, field.FileAttr,
-				)
+		if field.Require != nil {
+			if err := s.checkFieldRequired(name, field, resultMap); err != nil {
+				return nil, err
 			}
-			newAttrs[name] = fieldVal.(string)
+		}
+		if field.FileAttr != "" {
+			if err := s.processFileAttrValue(name, field, resultMap, newAttrs, readFile); err != nil {
+				return nil, err
+			}
 			continue
 		}
-		fieldVal, ok := resultMap[field.FileAttr]
-		if !ok {
-			return nil, errors.NewNotValid(nil, fmt.Sprintf(
-				"either %q or %q must be specified",
-				name, field.FileAttr,
-			))
-		}
-		data, err := readFile(fieldVal.(string))
-		if err != nil {
-			return nil, errors.Annotatef(err, "reading file for %q", name)
-		}
-		if len(data) == 0 {
-			return nil, errors.NotValidf("empty file for %q", name)
-		}
-		newAttrs[name] = string(data)
+		newAttrs[name] = resultMap[name].(string)
 	}
 	return newAttrs, nil
+}
+
+func (s CredentialSchema) processFileAttrValue(
+	name string, field CredentialAttr, resultMap map[string]interface{}, newAttrs map[string]string,
+	readFile func(string) ([]byte, error),
+) error {
+	if fieldVal, ok := resultMap[name]; ok {
+		if _, ok := resultMap[field.FileAttr]; ok {
+			return errors.NotValidf(
+				"specifying both %q and %q",
+				name, field.FileAttr,
+			)
+		}
+		newAttrs[name] = fieldVal.(string)
+		return nil
+	}
+	fieldVal, ok := resultMap[field.FileAttr]
+	if !ok {
+		return errors.NewNotValid(nil, fmt.Sprintf(
+			"either %q or %q must be specified",
+			name, field.FileAttr,
+		))
+	}
+	data, err := readFile(fieldVal.(string))
+	if err != nil {
+		return errors.Annotatef(err, "reading file for %q", name)
+	}
+	if len(data) == 0 {
+		return errors.NotValidf("empty file for %q", name)
+	}
+	newAttrs[name] = string(data)
+	return nil
+}
+
+func (s CredentialSchema) checkFieldRequired(
+	name string, field CredentialAttr, resultMap map[string]interface{},
+) error {
+	requiredFieldVal, ok := resultMap[field.Require.Name]
+	if !ok {
+		return errors.NotValidf(
+			"required field %q", field.Require.Name,
+		)
+	}
+	if requiredFieldVal != field.Require.Value {
+		return errors.Errorf("field %q requires field %q to have value %q", name, field.Require.Name, field.Require.Value)
+	}
+	return nil
 }
 
 func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
@@ -192,11 +227,42 @@ func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
 			Secret:      false,
 		}
 	}
+
+	// TODO(wallyworld) - add support to environschema for attribute whose
+	// validity is determined by the value of another attribute.
+	for fieldName, field := range s {
+		if field.Require == nil {
+			continue
+		}
+		if field.Require.Name == "" {
+			return nil, errors.NotValidf("required modifier for field %q", fieldName)
+		}
+		// CredentialSchema already has auth-type stripped out. It is a valid
+		// Require.Name though.
+		if field.Require.Name == "auth-type" {
+			continue
+		}
+		if _, ok := fields[field.Require.Name]; !ok {
+			return nil, errors.NotValidf("required field name %q", field.Require.Name)
+		}
+	}
+
 	schemaFields, schemaDefaults, err := fields.ValidationSchema()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return schema.FieldMap(schemaFields, schemaDefaults), nil
+}
+
+// RequireAttr describes the value of an attribute and is used to
+// determine the validity of another attribute.
+type RequireAttr struct {
+	// Name is the name of an attribute whose value is being evaluated.
+	Name string
+
+	// Value is the value of an attribute which determines if another
+	// attribute is required.
+	Value string
 }
 
 // CredentialAttr describes the properties of a credential attribute.
@@ -214,6 +280,10 @@ type CredentialAttr struct {
 	// of this one, which points to a file that will be read in and its
 	// value used for this attribute.
 	FileAttr string
+
+	// Require is used to indicate that this attribute is only valid if the
+	// nominated attribute has the specified value.
+	Require *RequireAttr
 }
 
 type cloudCredentialChecker struct{}

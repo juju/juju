@@ -453,6 +453,90 @@ func readFileNotSupported(f string) ([]byte, error) {
 	return nil, errors.NotSupportedf("reading file %q", f)
 }
 
+func (s *credentialsSuite) TestFinalizeCredentialRequiredField(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"username": "user",
+			"password": "secret",
+			"domain":   "domain",
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"username": {
+			Require: &cloud.RequireAttr{"auth-type", "userpass"},
+		},
+		"password": {
+			Hidden:  true,
+			Require: &cloud.RequireAttr{"auth-type", "userpass"},
+		},
+		"domain": {},
+	}
+	newCred, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: schema,
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newCred.Attributes(), jc.DeepEquals, map[string]string{
+		"username": "user",
+		"password": "secret",
+		"domain":   "domain",
+	})
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialRequiredFieldWrongFieldValue(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"access-key": "key",
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"access-key": {
+			Require: &cloud.RequireAttr{"auth-type", "access-key"},
+		},
+	}
+	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: schema,
+	}, nil)
+	c.Assert(err, gc.ErrorMatches, `field "access-key" requires field "auth-type" to have value "access-key"`)
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialInvalidRequiredField(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"access-key": "key",
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"access-key": {
+			Require: &cloud.RequireAttr{"foo", "access-key"},
+		},
+	}
+	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: schema,
+	}, nil)
+	c.Assert(err, gc.ErrorMatches, `required field name "foo" not valid`)
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialRequiredFieldNameMissing(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"access-key": "key",
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"access-key": {
+			Require: &cloud.RequireAttr{"", "access-key"},
+		},
+	}
+	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: schema,
+	}, nil)
+	c.Assert(err, gc.ErrorMatches, `required modifier for field "access-key" not valid`)
+}
+
 func (s *credentialsSuite) TestRemoveSecrets(c *gc.C) {
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,

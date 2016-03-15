@@ -26,6 +26,9 @@ import (
 type AuthType string
 
 const (
+	// AuthTypeFieldName is the name of the field used to hold the auth-type value.
+	AuthTypeFieldName = "auth-type"
+
 	// AccessKeyAuthType is an authentication type using a key and secret.
 	AccessKeyAuthType AuthType = "access-key"
 
