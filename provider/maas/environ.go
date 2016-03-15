@@ -348,12 +348,12 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 
 // SupportsSpaces is specified on environs.Networking.
 func (env *maasEnviron) SupportsSpaces() (bool, error) {
-	return env.supportsNetworkDeploymentUbuntu, nil
+	return true, nil
 }
 
 // SupportsSpaceDiscovery is specified on environs.Networking.
 func (env *maasEnviron) SupportsSpaceDiscovery() (bool, error) {
-	return env.supportsNetworkDeploymentUbuntu, nil
+	return true, nil
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
@@ -933,18 +933,11 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		// acquire-time details (no IP addresses for NICs set to "auto" vs
 		// "static"), we use the up-to-date statedNode response to get the
 		// interfaces.
-
-		if environ.supportsNetworkDeploymentUbuntu {
-			subnetsMap, err := environ.subnetToSpaceIds()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			// Use the new 1.9 API when available.
-			interfaces, err = maasObjectNetworkInterfaces(startedNode, subnetsMap)
-		} else {
-			// Use the legacy approach.
-			interfaces, err = environ.setupNetworks(inst)
+		subnetsMap, err := environ.subnetToSpaceIds()
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+		interfaces, err = maasObjectNetworkInterfaces(startedNode, subnetsMap)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1996,9 +1989,6 @@ func (environ *maasEnviron) subnetToSpaceIds() (map[string]network.Id, error) {
 // Space name is not filled in as the provider doesn't know the juju name for
 // the space.
 func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
-	if !environ.supportsNetworkDeploymentUbuntu {
-		return nil, errors.NotSupportedf("Spaces")
-	}
 	spacesClient := environ.getMAASClient().GetSubObject("spaces")
 	spacesJson, err := spacesClient.CallGet("", nil)
 	if err != nil {
@@ -2048,87 +2038,7 @@ func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
 // by the provider for the specified instance. subnetIds must not be
 // empty. Implements NetworkingEnviron.Subnets.
 func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	if environ.supportsNetworkDeploymentUbuntu {
-		return environ.subnetsWithSpaces(instId, subnetIds)
-	}
-	// When not using MAAS API with spaces support, we require both instance ID
-	// and list of subnet IDs, that's due to the limitations of the old API.
-	if instId == instance.UnknownId {
-		return nil, errors.Errorf("instance ID is required")
-	}
-	inst, err := environ.getInstance(instId)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(subnetIds) == 0 {
-		return nil, errors.Errorf("subnet IDs must not be empty")
-	}
-	// The MAAS API get networks call returns named subnets, not physical networks,
-	// so we save the data from this call into a variable called subnets.
-	// http://maas.ubuntu.com/docs/api.html#networks
-	subnets, err := environ.getInstanceNetworks(inst)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get instance %q subnets", instId)
-	}
-	logger.Debugf("instance %q has subnets %v", instId, subnets)
-
-	nodegroups, err := environ.getNodegroups()
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get instance %q node groups", instId)
-	}
-	nodegroupInterfaces := environ.getNodegroupInterfaces(nodegroups)
-
-	subnetIdSet := make(map[string]bool)
-	for _, netId := range subnetIds {
-		subnetIdSet[string(netId)] = false
-	}
-
-	var networkInfo []network.SubnetInfo
-	for _, subnet := range subnets {
-		found, ok := subnetIdSet[subnet.Name]
-		if !ok {
-			// This id is not what we're looking for.
-			continue
-		}
-		if found {
-			// Don't add the same subnet twice.
-			continue
-		}
-		// mark that we've found this subnet
-		subnetIdSet[subnet.Name] = true
-		netCIDR := &net.IPNet{
-			IP:   net.ParseIP(subnet.IP),
-			Mask: net.IPMask(net.ParseIP(subnet.Mask)),
-		}
-		var allocatableHigh, allocatableLow net.IP
-		for ip, bounds := range nodegroupInterfaces {
-			contained := netCIDR.Contains(net.ParseIP(ip))
-			if contained {
-				allocatableLow = bounds[0]
-				allocatableHigh = bounds[1]
-				break
-			}
-		}
-		subnetInfo := network.SubnetInfo{
-			CIDR:              netCIDR.String(),
-			VLANTag:           subnet.VLANTag,
-			ProviderId:        network.Id(subnet.Name),
-			AllocatableIPLow:  allocatableLow,
-			AllocatableIPHigh: allocatableHigh,
-		}
-
-		// Verify we filled-in everything for all networks
-		// and drop incomplete records.
-		if subnetInfo.ProviderId == "" || subnetInfo.CIDR == "" {
-			logger.Infof("ignoring subnet  %q: missing information (%#v)", subnet.Name, subnetInfo)
-			continue
-		}
-
-		logger.Tracef("found subnet with info %#v", subnetInfo)
-		networkInfo = append(networkInfo, subnetInfo)
-	}
-	logger.Debugf("available subnets for instance %v: %#v", inst.Id(), networkInfo)
-	return networkInfo, checkNotFound(subnetIdSet)
+	return environ.subnetsWithSpaces(instId, subnetIds)
 }
 
 func checkNotFound(subnetIdSet map[string]bool) error {
