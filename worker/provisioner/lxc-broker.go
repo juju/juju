@@ -721,6 +721,29 @@ func prepareOrGetContainerInterfaceInfo(
 	}
 	log.Tracef("PrepareContainerInterfaceInfo returned %+v", preparedInfo)
 
+	dnsServersFound := false
+	for _, info := range preparedInfo {
+		if len(info.DNSServers) > 0 {
+			dnsServersFound = true
+			break
+		}
+	}
+	if !dnsServersFound {
+		logger.Warningf("no DNS settings found, discovering the host settings")
+		dnsServers, searchDomain, err := localDNSServers()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// Since the result is sorted, the first entry is the primary NIC.
+		preparedInfo[0].DNSServers = dnsServers
+		preparedInfo[0].DNSSearchDomains = []string{searchDomain}
+		logger.Debugf(
+			"setting DNS servers %+v and domains %+v on container interface %q",
+			preparedInfo[0].DNSServers, preparedInfo[0].DNSSearchDomains, preparedInfo[0].InterfaceName,
+		)
+	}
+
 	return preparedInfo, nil
 }
 

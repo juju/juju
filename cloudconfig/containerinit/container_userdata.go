@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 )
@@ -89,12 +90,15 @@ iface lo inet loopback
 {{range $nic := .}}{{template "single" $nic}}{{end}}
 {{define "single"}}{{if not .NoAutoStart}}
 auto {{.InterfaceName}}{{end}}
-iface {{.InterfaceName}} inet {{.ConfigType}}
-  address {{.CIDRAddress}}{{if .GatewayAddress.Value}}
-  gateway {{.GatewayAddress.Value}}{{end}}{{if .MACAddress}}
-  hwaddress {{.MACAddress}}{{end}}{{if .DNSServers}}
+iface {{.InterfaceName}} inet manual{{if .DNSServers}}
   dns-nameservers{{range $srv := .DNSServers}} {{$srv.Value}}{{end}}{{end}}{{if .DNSSearchDomains}}
   dns-search{{range $dom := .DNSSearchDomains}} {{$dom}}{{end}}{{end}}
+  pre-up ip address add {{.CIDRAddress}} dev {{.InterfaceName}} || true
+  up ip route replace {{.CIDR}} dev {{.InterfaceName}} || true
+  down ip route del {{.CIDR}} dev {{.InterfaceName}} || true
+  post-down address del {{.CIDRAddress}} dev {{.InterfaceName}} || true{{if .GatewayAddress.Value}}
+  up ip route replace default via {{.GatewayAddress.Value}} || true
+  down ip route del default via {{.GatewayAddress.Value}} || true{{end}}
 {{end}}`
 
 var networkInterfacesFile = "/etc/network/interfaces"
@@ -112,6 +116,9 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 	for i, info := range networkConfig.Interfaces {
 		if info.MACAddress != "" {
 			info.MACAddress = ""
+		}
+		if info.InterfaceName != "eth0" {
+			info.GatewayAddress = network.Address{}
 		}
 		networkConfig.Interfaces[i] = info
 	}
@@ -143,7 +150,6 @@ func newCloudInitConfigWithNetworks(series string, networkConfig *container.Netw
 		return cloudConfig, errors.Trace(err)
 	}
 
-	// Now add it to cloud-init as a file created early in the boot process.
 	cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
 	return cloudConfig, nil
 }
