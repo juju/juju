@@ -28,6 +28,8 @@ type Config struct {
 	// ImageStream can be either blank (""), "released", or "daily".
 	// This decides what Ubuntu stream we will use for LXD images.
 	ImageStream ImageStream
+	// // ImageSourceURLs are locations where we will look for
+	// ImageSourceURLs []string
 
 	// Remote identifies the remote server to which the client should
 	// connect. For the default "remote" use Local.

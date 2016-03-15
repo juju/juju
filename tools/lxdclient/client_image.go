@@ -6,10 +6,12 @@
 package lxdclient
 
 import (
-	"github.com/lxc/lxd"
-	"github.com/lxc/lxd/shared"
+	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/lxc/lxd"
+	"github.com/lxc/lxd/shared"
 )
 
 type rawImageClient interface {
@@ -21,7 +23,27 @@ type imageClient struct {
 	config Config
 }
 
-func (i *imageClient) EnsureImageExists(series string) error {
+// progressContext takes progress messages from LXD and just writes them to
+// the associated logger at the given log level.
+type progressContext struct {
+	logger  loggo.Logger
+	level   loggo.Level
+	context string       // a format string that should take a single %s parameter
+	forward func(string) // pass messages onward
+}
+
+func (p *progressContext) copyProgress(progress string) {
+	msg := fmt.Sprintf(p.context, progress)
+	p.logger.Logf(p.level, msg)
+	if p.forward != nil {
+		p.forward(msg)
+	}
+}
+
+func (i *imageClient) EnsureImageExists(series string, copyProgressHandler func(string)) error {
+	// TODO(jam) We should add Architecture in this information as well
+	// TODO(jam) We should also update this for multiple locations to copy
+	// from
 	name := i.ImageNameForSeries(series)
 
 	aliases, err := i.raw.ListAliases()
@@ -31,6 +53,8 @@ func (i *imageClient) EnsureImageExists(series string) error {
 
 	for _, alias := range aliases {
 		if alias.Description == name {
+			logger.Infof("found cached image %q = %s",
+				alias.Description, alias.Target)
 			return nil
 		}
 	}
@@ -44,8 +68,18 @@ func (i *imageClient) EnsureImageExists(series string) error {
 	if !ok {
 		return errors.Errorf("can't use a fake client as target")
 	}
-
-	return ubuntu.CopyImage(series, client, false, []string{name}, false, true, nil)
+	adapter := &progressContext{
+		logger:  logger,
+		level:   loggo.INFO,
+		context: fmt.Sprintf("copying image for %s from %s: %%s", series, ubuntu.BaseURL),
+		forward: copyProgressHandler,
+	}
+	target := ubuntu.GetAlias(series)
+	logger.Infof("found image from %s for %s = %s",
+		ubuntu.BaseURL, series, target)
+	return ubuntu.CopyImage(
+		target, client, false, []string{name}, false,
+		true, adapter.copyProgress)
 }
 
 // A common place to compute image names (alises) based on the series
