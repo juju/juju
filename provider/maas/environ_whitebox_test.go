@@ -569,26 +569,7 @@ func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
 	c.Assert(supported, jc.IsTrue)
 }
 
-func (suite *environSuite) TestSupportsSpacesDefaultFalse(c *gc.C) {
-	env := suite.makeEnviron()
-	supported, err := env.SupportsSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supported, jc.IsFalse)
-}
-
-func (suite *environSuite) TestSupportsSpaceDiscoveryDefaultFalse(c *gc.C) {
-	env := suite.makeEnviron()
-	supported, err := env.SupportsSpaceDiscovery()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supported, jc.IsFalse)
-}
-
-func (suite *environSuite) setNetworkDeployment() {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
-}
-
 func (suite *environSuite) TestSupportsSpaces(c *gc.C) {
-	suite.setNetworkDeployment()
 	env := suite.makeEnviron()
 	supported, err := env.SupportsSpaces()
 	c.Assert(err, jc.ErrorIsNil)
@@ -596,11 +577,14 @@ func (suite *environSuite) TestSupportsSpaces(c *gc.C) {
 }
 
 func (suite *environSuite) TestSupportsSpaceDiscovery(c *gc.C) {
-	suite.setNetworkDeployment()
 	env := suite.makeEnviron()
 	supported, err := env.SupportsSpaceDiscovery()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supported, jc.IsTrue)
+}
+
+func (suite *environSuite) setNetworkDeployment() {
+	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
 }
 
 func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Instance {
