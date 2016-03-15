@@ -311,7 +311,6 @@ const (
 	agentName                = "agent"
 	terminationName          = "termination"
 	apiCallerName            = "api-caller"
-	apiInfoGateName          = "api-info-gate"
 	upgradeStepsGateName     = "upgrade-steps-gate"
 	upgradeCheckGateName     = "upgrade-check-gate"
 	upgraderName             = "upgrader"

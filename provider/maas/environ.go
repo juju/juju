@@ -572,7 +572,6 @@ func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, 
 }
 
 const (
-	capNetworksManagement      = "networks-management"
 	capStaticIPAddresses       = "static-ipaddresses"
 	capDevices                 = "devices-management"
 	capNetworkDeploymentUbuntu = "network-deployment-ubuntu"

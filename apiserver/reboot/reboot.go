@@ -6,7 +6,6 @@ package reboot
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
@@ -14,8 +13,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.reboot")
 
 // RebootAPI provides access to the Upgrader API facade.
 type RebootAPI struct {

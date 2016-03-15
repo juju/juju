@@ -405,18 +405,6 @@ func (u *modelUserEntity) UpdateLastLogin() error {
 	return err
 }
 
-func checkForValidMachineAgent(entity state.Entity, req params.LoginRequest) error {
-	// If this is a machine agent connecting, we need to check the
-	// nonce matches, otherwise the wrong agent might be trying to
-	// connect.
-	if machine, ok := entity.(*state.Machine); ok {
-		if !machine.CheckProvisioned(req.Nonce) {
-			return errors.NotProvisionedf("machine %v", machine.Id())
-		}
-	}
-	return nil
-}
-
 // machinePinger wraps a presence.Pinger.
 type machinePinger struct {
 	*presence.Pinger

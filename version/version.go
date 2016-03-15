@@ -24,10 +24,6 @@ const version = "2.0-beta3"
 // The version that we switched over from old style numbering to new style.
 var switchOverVersion = semversion.MustParse("1.19.9")
 
-// osReleaseFile is the name of the file that is read in order to determine
-// the linux type release version.
-var osReleaseFile = "/etc/os-release"
-
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.

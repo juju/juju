@@ -40,10 +40,12 @@ func (s *RelationSetSuite) TestHelp(c *gc.C) {
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, fmt.Sprintf(`
-usage: relation-set [options] key=value [key=value ...]
-purpose: set relation settings
+Usage: relation-set [options] key=value [key=value ...]
 
-options:
+Summary:
+set relation settings
+
+Options:
 --file  (= )
     file containing key-value pairs
 --format (= "")
@@ -51,6 +53,7 @@ options:
 -r, --relation  (= %s)
     specify a relation by id
 
+Details:
 "relation-set" writes the local unit's settings for some relation.
 If no relation is specified then the current relation is used. The
 setting values are not inspected and are stored as strings. Setting

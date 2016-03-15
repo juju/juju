@@ -352,8 +352,6 @@ func (st *State) MongoSession() *mgo.Session {
 	return st.session
 }
 
-type closeFunc func()
-
 func (st *State) Watch() *Multiwatcher {
 	st.mu.Lock()
 	if st.allManager == nil {

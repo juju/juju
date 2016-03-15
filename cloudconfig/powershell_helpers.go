@@ -261,53 +261,51 @@ namespace PSCarbon
 
 		private static IntPtr GetIdentitySid(string identity)
 		{
-			var sid =
+			SecurityIdentifier sid =
 				new NTAccount(identity).Translate(typeof (SecurityIdentifier)) as SecurityIdentifier;
 			if (sid == null)
 			{
 				throw new ArgumentException(string.Format("Account {0} not found.", identity));
 			}
-			var sidBytes = new byte[sid.BinaryLength];
+			byte[] sidBytes = new byte[sid.BinaryLength];
 			sid.GetBinaryForm(sidBytes, 0);
-			var sidPtr = Marshal.AllocHGlobal(sidBytes.Length);
+			System.IntPtr sidPtr = Marshal.AllocHGlobal(sidBytes.Length);
 			Marshal.Copy(sidBytes, 0, sidPtr, sidBytes.Length);
 			return sidPtr;
 		}
 
 		private static IntPtr GetLsaPolicyHandle()
 		{
-			var computerName = Environment.MachineName;
+			string computerName = Environment.MachineName;
 			IntPtr hPolicy;
-			var objectAttributes = new LSA_OBJECT_ATTRIBUTES
-			{
-				Length = 0,
-				RootDirectory = IntPtr.Zero,
-				Attributes = 0,
-				SecurityDescriptor = IntPtr.Zero,
-				SecurityQualityOfService = IntPtr.Zero
-			};
+			LSA_OBJECT_ATTRIBUTES objectAttributes = new LSA_OBJECT_ATTRIBUTES();
+			objectAttributes.Length = 0;
+			objectAttributes.RootDirectory = IntPtr.Zero;
+			objectAttributes.Attributes = 0;
+			objectAttributes.SecurityDescriptor = IntPtr.Zero;
+			objectAttributes.SecurityQualityOfService = IntPtr.Zero;
 
 			const uint ACCESS_MASK = POLICY_CREATE_SECRET | POLICY_LOOKUP_NAMES | POLICY_VIEW_LOCAL_INFORMATION;
-			var machineNameLsa = new LSA_UNICODE_STRING(computerName);
-			var result = LsaOpenPolicy(ref machineNameLsa, ref objectAttributes, ACCESS_MASK, out hPolicy);
+			LSA_UNICODE_STRING machineNameLsa = new LSA_UNICODE_STRING(computerName);
+			uint result = LsaOpenPolicy(ref machineNameLsa, ref objectAttributes, ACCESS_MASK, out hPolicy);
 			HandleLsaResult(result);
 			return hPolicy;
 		}
 
 		public static string[] GetPrivileges(string identity)
 		{
-			var sidPtr = GetIdentitySid(identity);
-			var hPolicy = GetLsaPolicyHandle();
-			var rightsPtr = IntPtr.Zero;
+			IntPtr sidPtr = GetIdentitySid(identity);
+			IntPtr hPolicy = GetLsaPolicyHandle();
+			IntPtr rightsPtr = IntPtr.Zero;
 
 			try
 			{
 
-				var privileges = new List<string>();
+				List<string> privileges = new List<string>();
 
 				uint rightsCount;
-				var result = LsaEnumerateAccountRights(hPolicy, sidPtr, out rightsPtr, out rightsCount);
-				var win32ErrorCode = LsaNtStatusToWinError(result);
+				uint result = LsaEnumerateAccountRights(hPolicy, sidPtr, out rightsPtr, out rightsCount);
+				int win32ErrorCode = LsaNtStatusToWinError(result);
 				// the user has no privileges
 				if( win32ErrorCode == STATUS_OBJECT_NAME_NOT_FOUND )
 				{
@@ -315,14 +313,14 @@ namespace PSCarbon
 				}
 				HandleLsaResult(result);
 
-				var myLsaus = new LSA_UNICODE_STRING();
+				LSA_UNICODE_STRING myLsaus = new LSA_UNICODE_STRING();
 				for (ulong i = 0; i < rightsCount; i++)
 				{
-					var itemAddr = new IntPtr(rightsPtr.ToInt64() + (long) (i*(ulong) Marshal.SizeOf(myLsaus)));
+					IntPtr itemAddr = new IntPtr(rightsPtr.ToInt64() + (long) (i*(ulong) Marshal.SizeOf(myLsaus)));
 					myLsaus = (LSA_UNICODE_STRING) Marshal.PtrToStructure(itemAddr, myLsaus.GetType());
-					var cvt = new char[myLsaus.Length/UnicodeEncoding.CharSize];
+					char[] cvt = new char[myLsaus.Length/UnicodeEncoding.CharSize];
 					Marshal.Copy(myLsaus.Buffer, cvt, 0, myLsaus.Length/UnicodeEncoding.CharSize);
-					var thisRight = new string(cvt);
+					string thisRight = new string(cvt);
 					privileges.Add(thisRight);
 				}
 				return privileges.ToArray();
@@ -330,7 +328,7 @@ namespace PSCarbon
 			finally
 			{
 				Marshal.FreeHGlobal(sidPtr);
-				var result = LsaClose(hPolicy);
+				uint result = LsaClose(hPolicy);
 				HandleLsaResult(result);
 				result = LsaFreeMemory(rightsPtr);
 				HandleLsaResult(result);
@@ -339,19 +337,19 @@ namespace PSCarbon
 
 		public static void GrantPrivileges(string identity, string[] privileges)
 		{
-			var sidPtr = GetIdentitySid(identity);
-			var hPolicy = GetLsaPolicyHandle();
+			IntPtr sidPtr = GetIdentitySid(identity);
+			IntPtr hPolicy = GetLsaPolicyHandle();
 
 			try
 			{
-				var lsaPrivileges = StringsToLsaStrings(privileges);
-				var result = LsaAddAccountRights(hPolicy, sidPtr, lsaPrivileges, (uint)lsaPrivileges.Length);
+				LSA_UNICODE_STRING[] lsaPrivileges = StringsToLsaStrings(privileges);
+				uint result = LsaAddAccountRights(hPolicy, sidPtr, lsaPrivileges, (uint)lsaPrivileges.Length);
 				HandleLsaResult(result);
 			}
 			finally
 			{
 				Marshal.FreeHGlobal(sidPtr);
-				var result = LsaClose(hPolicy);
+				uint result = LsaClose(hPolicy);
 				HandleLsaResult(result);
 			}
 		}
@@ -367,22 +365,22 @@ namespace PSCarbon
 		const int STATUS_INTERNAL_DB_ERROR = 0x00000567;
 		const int STATUS_INSUFFICIENT_RESOURCES = 0x000005AA;
 
-		private static Dictionary<int, string> ErrorMessages = new Dictionary<int, string>
-									{
-										{STATUS_OBJECT_NAME_NOT_FOUND, "Object name not found. An object in the LSA policy database was not found. The object may have been specified either by SID or by name, depending on its type."},
-										{STATUS_ACCESS_DENIED, "Access denied. Caller does not have the appropriate access to complete the operation."},
-										{STATUS_INVALID_HANDLE, "Invalid handle. Indicates an object or RPC handle is not valid in the context used."},
-										{STATUS_UNSUCCESSFUL, "Unsuccessful. Generic failure, such as RPC connection failure."},
-										{STATUS_INVALID_PARAMETER, "Invalid parameter. One of the parameters is not valid."},
-										{STATUS_NO_SUCH_PRIVILEGE, "No such privilege. Indicates a specified privilege does not exist."},
-										{STATUS_INVALID_SERVER_STATE, "Invalid server state. Indicates the LSA server is currently disabled."},
-										{STATUS_INTERNAL_DB_ERROR, "Internal database error. The LSA database contains an internal inconsistency."},
-										{STATUS_INSUFFICIENT_RESOURCES, "Insufficient resources. There are not enough system resources (such as memory to allocate buffers) to complete the call."}
-									};
+		private static Dictionary<int, string> ErrorMessages = new Dictionary<int, string>();
+		public Lsa () {
+			ErrorMessages.Add(STATUS_ACCESS_DENIED, "Access denied. Caller does not have the appropriate access to complete the operation.");
+			ErrorMessages.Add(STATUS_INVALID_HANDLE, "Invalid handle. Indicates an object or RPC handle is not valid in the context used.");
+			ErrorMessages.Add(STATUS_UNSUCCESSFUL, "Unsuccessful. Generic failure, such as RPC connection failure.");
+			ErrorMessages.Add(STATUS_INVALID_PARAMETER, "Invalid parameter. One of the parameters is not valid.");
+			ErrorMessages.Add(STATUS_NO_SUCH_PRIVILEGE, "No such privilege. Indicates a specified privilege does not exist.");
+			ErrorMessages.Add(STATUS_INVALID_SERVER_STATE, "Invalid server state. Indicates the LSA server is currently disabled.");
+			ErrorMessages.Add(STATUS_INTERNAL_DB_ERROR, "Internal database error. The LSA database contains an internal inconsistency.");
+			ErrorMessages.Add(STATUS_INSUFFICIENT_RESOURCES, "Insufficient resources. There are not enough system resources (such as memory to allocate buffers) to complete the call.");
+			ErrorMessages.Add(STATUS_OBJECT_NAME_NOT_FOUND, "Object name not found. An object in the LSA policy database was not found. The object may have been specified either by SID or by name, depending on its type.");
+		}
 
 		private static void HandleLsaResult(uint returnCode)
 		{
-			var win32ErrorCode = LsaNtStatusToWinError(returnCode);
+			int win32ErrorCode = LsaNtStatusToWinError(returnCode);
 
 			if( win32ErrorCode == STATUS_SUCCESS)
 				return;
@@ -397,24 +395,24 @@ namespace PSCarbon
 
 		public static void RevokePrivileges(string identity, string[] privileges)
 		{
-			var sidPtr = GetIdentitySid(identity);
-			var hPolicy = GetLsaPolicyHandle();
+			IntPtr sidPtr = GetIdentitySid(identity);
+			IntPtr hPolicy = GetLsaPolicyHandle();
 
 			try
 			{
-				var currentPrivileges = GetPrivileges(identity);
+				string[] currentPrivileges = GetPrivileges(identity);
 				if (currentPrivileges.Length == 0)
 				{
 					return;
 				}
-				var lsaPrivileges = StringsToLsaStrings(privileges);
-				var result = LsaRemoveAccountRights(hPolicy, sidPtr, false, lsaPrivileges, (uint)lsaPrivileges.Length);
+				LSA_UNICODE_STRING[] lsaPrivileges = StringsToLsaStrings(privileges);
+				uint result = LsaRemoveAccountRights(hPolicy, sidPtr, false, lsaPrivileges, (uint)lsaPrivileges.Length);
 				HandleLsaResult(result);
 			}
 			finally
 			{
 				Marshal.FreeHGlobal(sidPtr);
-				var result = LsaClose(hPolicy);
+				uint result = LsaClose(hPolicy);
 				HandleLsaResult(result);
 			}
 
@@ -422,8 +420,8 @@ namespace PSCarbon
 
 		private static LSA_UNICODE_STRING[] StringsToLsaStrings(string[] privileges)
 		{
-			var lsaPrivileges = new LSA_UNICODE_STRING[privileges.Length];
-			for (var idx = 0; idx < privileges.Length; ++idx)
+			LSA_UNICODE_STRING[] lsaPrivileges = new LSA_UNICODE_STRING[privileges.Length];
+			for (int idx = 0; idx < privileges.Length; ++idx)
 			{
 				lsaPrivileges[idx] = new LSA_UNICODE_STRING(privileges[idx]);
 			}
@@ -438,7 +436,7 @@ Add-Type -TypeDefinition $SourcePolicy -Language CSharp
 function SetAssignPrimaryTokenPrivilege($UserName)
 {
 	$privilege = "SeAssignPrimaryTokenPrivilege"
-	if (![PSCarbon.Lsa]::GetPrivileges($UserName).Contains($privilege))
+	if (!([PSCarbon.Lsa]::GetPrivileges($UserName) -contains $privilege))
 	{
 		[PSCarbon.Lsa]::GrantPrivileges($UserName, $privilege)
 	}
@@ -447,7 +445,7 @@ function SetAssignPrimaryTokenPrivilege($UserName)
 function SetUserLogonAsServiceRights($UserName)
 {
 	$privilege = "SeServiceLogonRight"
-	if (![PSCarbon.Lsa]::GetPrivileges($UserName).Contains($privilege))
+	if (!([PSCarbon.Lsa]::GetPrivileges($UserName) -Contains $privilege))
 	{
 		[PSCarbon.Lsa]::GrantPrivileges($UserName, $privilege)
 	}
@@ -641,7 +639,12 @@ namespace Tarer
 
 		private string fileName;
 		protected DateTime dateTime1970 = new DateTime(1970, 1, 1, 0, 0, 0);
-		public EntryType EntryType { get; set; }
+		private Tarer.EntryType _entryType;
+		public EntryType EntryType
+		{
+			get { return _entryType; }
+			set { _entryType = value; }
+		}
 		private static byte[] spaces = Encoding.ASCII.GetBytes("        ");
 
 		public virtual string FileName
@@ -650,11 +653,19 @@ namespace Tarer
 			set { fileName = value; }
 		}
 
-		public long SizeInBytes { get; set; }
+		private long _sizeInBytes;
+		public long SizeInBytes {
+			get{ return _sizeInBytes; }
+			set{ _sizeInBytes = value; }
+		}
 
 		public string SizeString { get { return Convert.ToString(SizeInBytes, 8).PadLeft(11, '0'); } }
 
-		public DateTime LastModification { get; set; }
+		private DateTime _lastModified;
+		public DateTime LastModification {
+			get{return _lastModified;}
+			set{_lastModified = value;}
+		}
 
 		public virtual int HeaderSize { get { return 512; } }
 
@@ -681,7 +692,7 @@ namespace Tarer
 			long unixTimeStamp = Convert.ToInt64(Encoding.ASCII.GetString(buffer,136,11).Trim(),8);
 			LastModification = dateTime1970.AddSeconds(unixTimeStamp);
 
-			var storedChecksum = Convert.ToInt64(Encoding.ASCII.GetString(buffer,148,6).Trim(), 8);
+			long storedChecksum = Convert.ToInt64(Encoding.ASCII.GetString(buffer,148,6).Trim(), 8);
 			RecalculateChecksum(buffer);
 			if (storedChecksum == headerChecksum)
 			{

@@ -37,12 +37,6 @@ const (
 // maasStorageProvider allows volumes to be specified when a node is acquired.
 type maasStorageProvider struct{}
 
-var _ storage.Provider = (*maasStorageProvider)(nil)
-
-var validConfigOptions = set.NewStrings(
-	tagsAttribute,
-)
-
 var storageConfigFields = schema.Fields{
 	tagsAttribute: schema.OneOf(
 		schema.List(schema.String()),

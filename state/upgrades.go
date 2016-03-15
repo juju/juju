@@ -40,31 +40,6 @@ func AddPreferredAddressesToMachines(st *State) error {
 	return nil
 }
 
-// readBsonDField returns the value of a given field in a bson.D.
-func readBsonDField(d bson.D, name string) (interface{}, error) {
-	for i := range d {
-		field := &d[i]
-		if field.Name == name {
-			return field.Value, nil
-		}
-	}
-	return nil, errors.NotFoundf("field %q", name)
-}
-
-// addBsonDField adds a new field to the end of a bson.D, returning
-// the updated bson.D.
-func addBsonDField(d bson.D, name string, value interface{}) (bson.D, error) {
-	for i := range d {
-		if d[i].Name == name {
-			return nil, errors.AlreadyExistsf("field %q", name)
-		}
-	}
-	return append(d, bson.DocElem{
-		Name:  name,
-		Value: value,
-	}), nil
-}
-
 // runForAllEnvStates will run runner function for every env passing a state
 // for that env.
 func runForAllEnvStates(st *State, runner func(st *State) error) error {

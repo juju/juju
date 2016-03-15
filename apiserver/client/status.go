@@ -408,28 +408,6 @@ func fetchAllServicesAndUnits(
 	return svcMap, unitMap, latestCharms, nil
 }
 
-// fetchUnitMachineIds returns a set of IDs for machines that
-// the specified units reside on, and those machines' ancestors.
-func fetchUnitMachineIds(units map[string]map[string]*state.Unit) (set.Strings, error) {
-	machineIds := make(set.Strings)
-	for _, svcUnitMap := range units {
-		for _, unit := range svcUnitMap {
-			if !unit.IsPrincipal() {
-				continue
-			}
-			mid, err := unit.AssignedMachineId()
-			if err != nil {
-				return nil, err
-			}
-			for mid != "" {
-				machineIds.Add(mid)
-				mid = state.ParentId(mid)
-			}
-		}
-	}
-	return machineIds, nil
-}
-
 // fetchRelations returns a map of all relations keyed by service name.
 //
 // This structure is useful for processServiceRelations() which needs
