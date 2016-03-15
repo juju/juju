@@ -126,7 +126,8 @@ func (s *DeploySuite) TestInvalidFileFormat(c *gc.C) {
 	err := ioutil.WriteFile(path, []byte(":"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	err = runDeploy(c, path)
-	c.Assert(err, gc.ErrorMatches, `invalid charm or bundle provided at ".*/bundle.yaml"`)
+	c.Assert(err, gc.ErrorMatches,
+		`invalid charm or bundle provided at ".*`+filepath.FromSlash("/bundle.yaml")+`"`)
 }
 
 func (s *DeploySuite) TestPathWithNoCharm(c *gc.C) {
