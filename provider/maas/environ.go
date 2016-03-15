@@ -60,6 +60,7 @@ var (
 	UpdateDeviceHostname     = updateDeviceHostname
 	ReleaseIPAddress         = releaseIPAddress
 	DeploymentStatusCall     = deploymentStatusCall
+	GetCapabilities          = getCapabilities
 )
 
 func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error) {
@@ -309,7 +310,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 		return errors.Trace(err)
 	}
 	env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
-	caps, err := getCapabilities(env.maasClientUnlocked)
+	caps, err := GetCapabilities(env.maasClientUnlocked)
 	if err != nil {
 		return errors.Trace(err)
 	}

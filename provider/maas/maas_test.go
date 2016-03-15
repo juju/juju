@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
@@ -66,6 +67,10 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
+	mockCapabilities := func(client *gomaasapi.MAASObject) (set.Strings, error) {
+		return set.NewStrings("network-deployment-ubuntu"), nil
+	}
+	s.PatchValue(&GetCapabilities, mockCapabilities)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.SetFeatureFlags(feature.AddressAllocation)

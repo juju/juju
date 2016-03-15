@@ -53,6 +53,13 @@ const (
 
 var _ = gc.Suite(&environSuite{})
 
+// ifaceInfo describes an interface to be created on the test server.
+type ifaceInfo struct {
+	DeviceIndex   int
+	InterfaceName string
+	Disabled      bool
+}
+
 // getTestConfig creates a customized sample MAAS provider configuration.
 func getTestConfig(name, server, oauth, secret string) *config.Config {
 	ecfg, err := newConfig(map[string]interface{}{
@@ -553,31 +560,6 @@ func (suite *environSuite) TestSupportsNetworking(c *gc.C) {
 	env := suite.makeEnviron()
 	_, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, jc.IsTrue)
-
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node_1"}`)
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node_2"}`)
-	suite.testMAASObject.TestServer.NewNetwork(
-		`{"name": "net_1","ip":"0.1.2.0","netmask":"255.255.255.0"}`,
-	)
-	suite.testMAASObject.TestServer.NewNetwork(
-		`{"name": "net_2","ip":"0.2.2.0","netmask":"255.255.255.0"}`,
-	)
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_2", "net_2", "aa:bb:cc:dd:ee:22")
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_1", "net_1", "aa:bb:cc:dd:ee:11")
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_2", "net_1", "aa:bb:cc:dd:ee:21")
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_1", "net_2", "aa:bb:cc:dd:ee:12")
-
-	networks, err := env.getNetworkMACs("net_1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(networks, jc.SameContents, []string{"aa:bb:cc:dd:ee:11", "aa:bb:cc:dd:ee:21"})
-
-	networks, err = env.getNetworkMACs("net_2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(networks, jc.SameContents, []string{"aa:bb:cc:dd:ee:12", "aa:bb:cc:dd:ee:22"})
-
-	networks, err = env.getNetworkMACs("net_3")
-	c.Check(networks, gc.HasLen, 0)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
