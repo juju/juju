@@ -66,8 +66,11 @@ def parse_args(args=None):
     return parser.parse_args(args)
 
 
-def get_lp_bugs(lp, branch, with_ci=False):
+def get_lp_bugs(lp, branch, tags=None):
     """Return a dict of blocker critical bug tasks for the branch."""
+    if not tags:
+        raise ValueError('tags must be a list of bug tags')
+    bug_tags = tags
     bugs = {}
     project = lp.projects['juju-core']
     if branch == 'master':
@@ -77,10 +80,6 @@ def get_lp_bugs(lp, branch, with_ci=False):
         target = project.getSeries(name=branch)
     if not target:
         return bugs
-    if with_ci:
-        bug_tags = BUG_TAGS + ['ci']
-    else:
-        bug_tags = BUG_TAGS
     bug_tasks = target.searchTasks(
         status=BUG_STATUSES, importance=BUG_IMPORTANCES,
         tags=bug_tags, tags_combinator='All')
@@ -136,11 +135,11 @@ def main(argv):
     args = parse_args(argv)
     lp = get_lp('check_blockers', credentials_file=args.credentials_file)
     if args.command == 'check':
-        bugs = get_lp_bugs(lp, args.branch, with_ci=False)
+        bugs = get_lp_bugs(lp, args.branch, tags=['blocker'])
         code, reason = get_reason(bugs, args)
         print(reason)
     elif args.command == 'update':
-        bugs = get_lp_bugs(lp, args.branch, with_ci=True)
+        bugs = get_lp_bugs(lp, args.branch, tags=['blocker', 'ci'])
         code, changes = update_bugs(
             bugs, args.branch, args.build, dry_run=args.dry_run)
         print(changes)
