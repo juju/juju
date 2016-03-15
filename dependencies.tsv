@@ -49,7 +49,7 @@ golang.org/x/net	git	ea47fc708ee3e20177f3ca3716217c4ab75942cb	2015-08-29T23:03:1
 golang.org/x/oauth2	git	11c60b6f71a6ad48ed6f93c65fa4c6f9b1b5b46a	2015-03-25T02:00:22Z
 google.golang.org/api	git	0d3983fb069cb6651353fc44c5cb604e263f2a93	2014-12-10T23:51:26Z
 google.golang.org/cloud	git	f20d6dcccb44ed49de45ae3703312cb46e627db1	2015-03-19T22:36:35Z
-gopkg.in/amz.v3	git	eeb872b6f9d1da6e1ab7bcffe3ffc33e20c3b213	2016-01-25T18:30:43Z
+gopkg.in/amz.v3	git	345e9291dbc9e6dd7b6c6c679b32b6d3366ca851	2016-01-25T18:30:43Z
 gopkg.in/check.v1	git	b3d3430320d4260e5fea99841af984b3badcea63	2015-06-26T10:50:28Z
 gopkg.in/errgo.v1	git	66cb46252b94c1f3d65646f54ee8043ab38d766c	2015-10-07T15:31:57Z
 gopkg.in/goose.v1	git	33121bddecedb2c9f9053c5c84ee729c379ab5ac	2015-11-13T22:25:24Z
