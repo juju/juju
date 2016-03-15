@@ -123,7 +123,7 @@ type region struct {
 }
 
 // BuiltInProviderNames work out of the box.
-var BuiltInProviderNames = []string{"lxd", "manual"}
+var BuiltInProviderNames = []string{"lxd", "manual", "maas"}
 
 // CloudByName returns the cloud with the specified name.
 // If there exists no cloud with the specified name, an

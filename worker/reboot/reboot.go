@@ -43,22 +43,17 @@ func NewReboot(st reboot.State, agentConfig agent.Config, machineLock *fslock.Lo
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: r,
 	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return w, nil
+	return w, errors.Trace(err)
 }
 
 func (r *Reboot) checkForRebootState() error {
-	var err error
 	if r.machineLock.IsLocked() == false {
 		return nil
 	}
 
 	if r.machineLock.Message() == RebootMessage {
 		// Not a lock held by the machne agent in order to reboot
-		err = r.machineLock.BreakLock()
-		if err != nil {
+		if err := r.machineLock.BreakLock(); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -66,16 +61,11 @@ func (r *Reboot) checkForRebootState() error {
 }
 
 func (r *Reboot) SetUp() (watcher.NotifyWatcher, error) {
-	logger.Debugf("Reboot worker setup")
-	err := r.checkForRebootState()
-	if err != nil {
+	if err := r.checkForRebootState(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	watcher, err := r.st.WatchForRebootEvent()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return watcher, nil
+	return watcher, errors.Trace(err)
 }
 
 func (r *Reboot) Handle(_ <-chan struct{}) error {

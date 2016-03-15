@@ -15,11 +15,11 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -86,7 +86,7 @@ func NewLock(a agent.Agent) (gate.Lock, error) {
 // StatusSetter defines the single method required to set an agent's
 // status.
 type StatusSetter interface {
-	SetStatus(status params.Status, info string, data map[string]interface{}) error
+	SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error
 }
 
 // NewWorker returns a new instance of the upgradesteps worker. It
@@ -222,7 +222,7 @@ func (w *upgradesteps) run() error {
 	} else {
 		// Upgrade succeeded - signal that the upgrade is complete.
 		logger.Infof("upgrade to %v completed successfully.", w.toVersion)
-		w.machine.SetStatus(params.StatusStarted, "", nil)
+		w.machine.SetStatus(status.StatusStarted, "", nil)
 		w.upgradeComplete.Unlock()
 	}
 	return nil
@@ -342,7 +342,7 @@ func (w *upgradesteps) waitForOtherControllers(info *state.UpgradeInfo) error {
 // designed to be called via a machine agent's ChangeConfig method.
 func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	var upgradeErr error
-	w.machine.SetStatus(params.StatusStarted, fmt.Sprintf("upgrading to %v", w.toVersion), nil)
+	w.machine.SetStatus(status.StatusStarted, fmt.Sprintf("upgrading to %v", w.toVersion), nil)
 
 	context := upgrades.NewContext(agentConfig, w.apiConn, w.st)
 	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
@@ -376,7 +376,7 @@ func (w *upgradesteps) reportUpgradeFailure(err error, willRetry bool) {
 	}
 	logger.Errorf("upgrade from %v to %v for %q failed (%s): %v",
 		w.fromVersion, w.toVersion, w.tag, retryText, err)
-	w.machine.SetStatus(params.StatusError,
+	w.machine.SetStatus(status.StatusError,
 		fmt.Sprintf("upgrade to %v failed (%s): %v", w.toVersion, retryText, err), nil)
 }
 

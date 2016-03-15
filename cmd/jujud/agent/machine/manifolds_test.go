@@ -58,6 +58,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"stateworkers",
 		"storage-provisioner-machine",
 		"termination",
+		"tools-version-checker",
 		"uninstaller",
 		"upgrade-check-gate",
 		"upgrade-steps-gate",
