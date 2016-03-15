@@ -40,8 +40,6 @@ func (s *cmdEnvironmentSuite) run(c *gc.C, args ...string) *cmd.Context {
 
 func (s *cmdEnvironmentSuite) TestGrantModelCmdStack(c *gc.C) {
 	username := "bar@ubuntuone"
-	s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: username})
-
 	context := s.run(c, "grant", username, "dummymodel")
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
@@ -60,13 +58,8 @@ func (s *cmdEnvironmentSuite) TestGrantModelCmdStack(c *gc.C) {
 func (s *cmdEnvironmentSuite) TestRevokeModelCmdStack(c *gc.C) {
 	// Firstly share an environment with a user
 	username := "bar@ubuntuone"
-	s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: username})
-
-	context := s.run(c, "grant", username, "dummymodel")
-	user := names.NewUserTag(username)
-	modelUser, err := s.State.ModelUser(user)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser, gc.NotNil)
+	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
+		User: username, Access: state.ModelReadAccess})
 
 	// Because we are calling into juju through the main command,
 	// and the main command adds a warning logging writer, we need
@@ -74,12 +67,13 @@ func (s *cmdEnvironmentSuite) TestRevokeModelCmdStack(c *gc.C) {
 	loggo.RemoveWriter("warning")
 
 	// Then test that the unshare command stack is hooked up
-	context = s.run(c, "revoke", username, "dummymodel")
+	context := s.run(c, "revoke", username, "dummymodel")
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
 
-	modelUser, err = s.State.ModelUser(user)
+	user := names.NewUserTag(username)
+	modelUser, err := s.State.ModelUser(user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 	c.Assert(modelUser, gc.IsNil)
 }

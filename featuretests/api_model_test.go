@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -41,16 +42,17 @@ func (s *apiEnvironmentSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *apiEnvironmentSuite) TestGrantModel(c *gc.C) {
-	user := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "foo@ubuntuone"})
+	username := "foo@ubuntuone"
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	mm := modelmanager.NewClient(s.APIState)
-	err = mm.GrantModel(user.UserName(), "read", model.UUID())
+	err = mm.GrantModel(username, "read", model.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelUser, err := s.State.ModelUser(user.UserTag())
+	user := names.NewUserTag(username)
+	modelUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName(), gc.Equals, user.UserTag().Canonical())
+	c.Assert(modelUser.UserName(), gc.Equals, user.Canonical())
 	c.Assert(modelUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Canonical())
 	lastConn, err := modelUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
@@ -63,8 +65,6 @@ func (s *apiEnvironmentSuite) TestRevokeModel(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	mm := modelmanager.NewClient(s.APIState)
-	err = mm.GrantModel(user.UserName(), "read", model.UUID())
-	c.Assert(err, jc.ErrorIsNil)
 
 	modelUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)

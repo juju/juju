@@ -29,11 +29,10 @@ func (s *permissionSuite) TestParseModelAccessValid(c *gc.C) {
 
 	access, err = permission.ParseModelAccess("write")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(access, gc.Equals, permission.ModelAdminAccess)
+	c.Check(access, gc.Equals, permission.ModelWriteAccess)
 
-	access, err = permission.ParseModelAccess("admin")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(access, gc.Equals, permission.ModelAdminAccess)
+	access, err = permission.ParseModelAccess("orange")
+	c.Check(err, gc.ErrorMatches, "invalid model access permission.*")
 }
 
 func (s *permissionSuite) TestParseModelAccessInvalid(c *gc.C) {
