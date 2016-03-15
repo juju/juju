@@ -795,6 +795,7 @@ class EnvJujuClient:
         return 'admin'
 
     def get_admin_client(self):
+        """Return a client for the admin model.  May return self."""
         admin_jujudata = self.env.clone(
             model_name=self.get_admin_model_name())
         return self.clone(env=admin_jujudata)
@@ -1088,6 +1089,7 @@ class EnvJujuClient2B2(EnvJujuClient):
         return tuple(args)
 
     def get_admin_client(self):
+        """Return a client for the admin model.  May return self."""
         return self
 
     def get_admin_model_name(self):
