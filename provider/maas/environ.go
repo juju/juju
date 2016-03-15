@@ -38,8 +38,6 @@ import (
 )
 
 const (
-	// We're using v1.0 of the MAAS API.
-	apiVersion = "1.0"
 	// The string from the api indicating the dynamic range of a subnet.
 	dynamicRange = "dynamic-range"
 )
@@ -198,10 +196,8 @@ type maasEnviron struct {
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
 
-	// The following are initialized from the discovered MAAS API capabilities.
-	supportsDevices                 bool
-	supportsStaticIPs               bool
-	supportsNetworkDeploymentUbuntu bool
+	// apiVersion tells us if we are using the MAAS 1.0 or 2.0 api.
+	apiVersion string
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -215,28 +211,8 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	env.name = cfg.Name()
 	env.storageUnlocked = NewStorage(env)
 
-	// Since we need to switch behavior based on the available API capabilities,
-	// get them as soon as possible and cache them.
-	capabilities, err := env.getCapabilities()
-	if err != nil {
-		logger.Warningf("cannot get MAAS API capabilities: %v", err)
-	}
-	logger.Tracef("MAAS API capabilities: %v", capabilities.SortedValues())
-	env.supportsDevices = capabilities.Contains(capDevices)
-	env.supportsStaticIPs = capabilities.Contains(capStaticIPAddresses)
-	env.supportsNetworkDeploymentUbuntu = capabilities.Contains(capNetworkDeploymentUbuntu)
 	return env, nil
 }
-
-var noDevicesWarning = `
-Using MAAS version older than 1.8.2: devices API support not detected!
-
-Juju cannot guarantee resources allocated to containers, like DHCP
-leases or static IP addresses will be properly cleaned up when the
-container, its host, or the model is destroyed.
-
-Juju recommends upgrading MAAS to version 1.8.2 or later.
-`[1:]
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
@@ -250,11 +226,6 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 			instancecfg.DefaultBridgeName,
 		)
 		args.ContainerBridgeName = instancecfg.DefaultBridgeName
-
-		if !env.supportsDevices {
-			// Inform the user container resources might leak.
-			ctx.Infof("WARNING: %s", noDevicesWarning)
-		}
 	} else {
 		logger.Debugf(
 			"address allocation feature enabled; using static IPs for containers: %q",
@@ -319,20 +290,33 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	}
 	cfg, err := env.Provider().Validate(cfg, oldCfg)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	env.ecfgUnlocked = ecfg
 
-	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion)
+	// We need to know the version of the server we're on. We support 1.9
+	// and 2.0. MAAS 1.9 uses the 1.0 api version and 2.0 uses the 2.0 api
+	// version.
+	// TODO (mfoord): support for 2.0 will be in a follow up.
+	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), "1.0")
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
+	caps, err := getCapabilities(authClient)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !caps.Contains(capNetworkDeploymentUbuntu) {
+		return errors.NotSupportedf("MAAS 1.9 or more recent is required")
+	}
+	env.apiVersion = "1.0"
+
 	env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
 
 	return nil
@@ -376,15 +360,7 @@ func (env *maasEnviron) SupportsSpaceDiscovery() (bool, error) {
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *maasEnviron) SupportsAddressAllocation(_ network.Id) (bool, error) {
-	if !environs.AddressAllocationEnabled() {
-		if !env.supportsDevices {
-			return false, errors.NotSupportedf("address allocation")
-		}
-		// We can use devices for DHCP-allocated container IPs.
-		return true, nil
-	}
-
-	return env.supportsStaticIPs, nil
+	return true, nil
 }
 
 // allBootImages queries MAAS for all of the boot-images across
@@ -612,25 +588,22 @@ func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, 
 }
 
 const (
-	capNetworksManagement      = "networks-management"
-	capStaticIPAddresses       = "static-ipaddresses"
-	capDevices                 = "devices-management"
 	capNetworkDeploymentUbuntu = "network-deployment-ubuntu"
 )
 
 // getCapabilities asks the MAAS server for its capabilities, if
 // supported by the server.
-func (env *maasEnviron) getCapabilities() (set.Strings, error) {
+func getCapabilities(client *gomaasapi.MAASObject) (set.Strings, error) {
 	caps := make(set.Strings)
 	var result gomaasapi.JSONObject
 	var err error
 
 	for a := shortAttempt.Start(); a.Next(); {
-		client := env.getMAASClient().GetSubObject("version/")
-		result, err = client.CallGet("", nil)
+		version := client.GetSubObject("version/")
+		result, err = version.CallGet("", nil)
 		if err != nil {
 			if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == 404 {
-				return caps, fmt.Errorf("MAAS does not support version info")
+				return caps, errors.NotSupportedf("MAAS version 1.9 or more recent is required")
 			}
 		} else {
 			break
@@ -1551,13 +1524,6 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 	}
 
 	if !environs.AddressAllocationEnabled() {
-		if !environ.supportsDevices {
-			logger.Warningf(
-				"resources used by container %q with MAC address %q can leak: devices API not supported",
-				hostname, macAddress,
-			)
-			return errors.NotSupportedf("address allocation")
-		}
 		logger.Tracef("creating device for container %q with MAC %q", hostname, macAddress)
 		deviceID, err := environ.createOrFetchDevice(macAddress, instId, hostname)
 		if err != nil {
@@ -1586,56 +1552,25 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
 
 	client := environ.getMAASClient()
-	var maasErr gomaasapi.ServerError
-	if environ.supportsDevices {
-		deviceID, err := environ.createOrFetchDevice(macAddress, instId, hostname)
-		if err != nil {
-			return err
-		}
+	deviceID, err := environ.createOrFetchDevice(macAddress, instId, hostname)
+	if err != nil {
+		return err
+	}
 
-		devices := client.GetSubObject("devices")
-		newAddr, err := ReserveIPAddressOnDevice(devices, deviceID, macAddress, *addr)
-		if err == nil {
-			logger.Infof(
-				"allocated address %q for instance %q on device %q (asked for address %q)",
-				addr, instId, deviceID, newAddr,
-			)
-			return nil
-		}
+	devices := client.GetSubObject("devices")
+	newAddr, err := ReserveIPAddressOnDevice(devices, deviceID, macAddress, *addr)
+	if err == nil {
+		logger.Infof(
+			"allocated address %q for instance %q on device %q (asked for address %q)",
+			addr, instId, deviceID, newAddr,
+		)
+		return nil
+	}
 
-		var ok bool
-		maasErr, ok = err.(gomaasapi.ServerError)
-		if !ok {
-			return errors.Trace(err)
-		}
-	} else {
-
-		var subnets []network.SubnetInfo
-
-		subnets, err = environ.Subnets(instId, []network.Id{subnetId})
-		logger.Tracef("Subnets(%q, %q, %q) returned: %v (%v)", instId, subnetId, *addr, subnets, err)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if len(subnets) != 1 {
-			return errors.Errorf("could not find subnet matching %q", subnetId)
-		}
-		foundSub := subnets[0]
-		logger.Tracef("found subnet %#v", foundSub)
-
-		cidr := foundSub.CIDR
-		ipaddresses := client.GetSubObject("ipaddresses")
-		err = ReserveIPAddress(ipaddresses, cidr, *addr)
-		if err == nil {
-			logger.Infof("allocated address %q for instance %q on subnet %q", *addr, instId, cidr)
-			return nil
-		}
-
-		var ok bool
-		maasErr, ok = err.(gomaasapi.ServerError)
-		if !ok {
-			return errors.Trace(err)
-		}
+	var ok bool
+	maasErr, ok := err.(gomaasapi.ServerError)
+	if !ok {
+		return errors.Trace(err)
 	}
 	// For an "out of range" IP address, maas raises
 	// StaticIPAddressOutOfRange - an error 403
@@ -1659,13 +1594,6 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 // AllocateAddress.
 func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, macAddress, hostname string) (err error) {
 	if !environs.AddressAllocationEnabled() {
-		if !environ.supportsDevices {
-			logger.Warningf(
-				"resources used by container %q with MAC address %q can leak: devices API not supported",
-				hostname, macAddress,
-			)
-			return errors.NotSupportedf("address allocation")
-		}
 		logger.Tracef("getting device ID for container %q with MAC %q", macAddress, hostname)
 		deviceID, err := environ.fetchDevice(macAddress)
 		if err != nil {
@@ -1691,12 +1619,12 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 	defer errors.DeferredAnnotatef(&err, "failed to release IP address %q from instance %q", addr, instId)
 
 	logger.Infof(
-		"releasing address: %q, MAC address: %q, hostname: %q, supports devices: %v",
-		addr, macAddress, hostname, environ.supportsDevices,
+		"releasing address: %q, MAC address: %q, hostname: %q",
+		addr, macAddress, hostname,
 	)
 	// Addresses originally allocated without a device will have macAddress
 	// set to "". We shouldn't look for a device for these addresses.
-	if environ.supportsDevices && macAddress != "" {
+	if macAddress != "" {
 		device, err := environ.fetchFullDevice(macAddress)
 		if err == nil {
 			addresses, err := device["ip_addresses"].GetArray()
@@ -2231,11 +2159,6 @@ func (env *maasEnviron) Storage() storage.Storage {
 }
 
 func (environ *maasEnviron) Destroy() error {
-	if !environ.supportsDevices {
-		// Warn the user that container resources can leak.
-		logger.Warningf(noDevicesWarning)
-	}
-
 	if err := common.Destroy(environ); err != nil {
 		return errors.Trace(err)
 	}
