@@ -13,12 +13,9 @@ import (
 var (
 	ConvertToVolumeInfo     = convertToVolumeInfo
 	ConvertToFilesystemInfo = convertToFilesystemInfo
-
-	NewPoolSuperCommand   = newPoolSuperCommand
-	NewVolumeSuperCommand = newVolumeSuperCommand
 )
 
-func NewPoolListCommand(api PoolListAPI, store jujuclient.ClientStore) cmd.Command {
+func NewPoolListCommandForTest(api PoolListAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &poolListCommand{newAPIFunc: func() (PoolListAPI, error) {
 		return api, nil
 	}}
@@ -26,7 +23,7 @@ func NewPoolListCommand(api PoolListAPI, store jujuclient.ClientStore) cmd.Comma
 	return modelcmd.Wrap(cmd)
 }
 
-func NewPoolCreateCommand(api PoolCreateAPI, store jujuclient.ClientStore) cmd.Command {
+func NewPoolCreateCommandForTest(api PoolCreateAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &poolCreateCommand{newAPIFunc: func() (PoolCreateAPI, error) {
 		return api, nil
 	}}
@@ -34,15 +31,7 @@ func NewPoolCreateCommand(api PoolCreateAPI, store jujuclient.ClientStore) cmd.C
 	return modelcmd.Wrap(cmd)
 }
 
-func NewVolumeListCommand(api VolumeListAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &volumeListCommand{newAPIFunc: func() (VolumeListAPI, error) {
-		return api, nil
-	}}
-	cmd.SetClientStore(store)
-	return modelcmd.Wrap(cmd)
-}
-
-func NewShowCommand(api StorageShowAPI, store jujuclient.ClientStore) cmd.Command {
+func NewShowCommandForTest(api StorageShowAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &showCommand{newAPIFunc: func() (StorageShowAPI, error) {
 		return api, nil
 	}}
@@ -50,7 +39,7 @@ func NewShowCommand(api StorageShowAPI, store jujuclient.ClientStore) cmd.Comman
 	return modelcmd.Wrap(cmd)
 }
 
-func NewListCommand(api StorageListAPI, store jujuclient.ClientStore) cmd.Command {
+func NewListCommandForTest(api StorageListAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &listCommand{newAPIFunc: func() (StorageListAPI, error) {
 		return api, nil
 	}}
@@ -58,16 +47,8 @@ func NewListCommand(api StorageListAPI, store jujuclient.ClientStore) cmd.Comman
 	return modelcmd.Wrap(cmd)
 }
 
-func NewAddCommand(api StorageAddAPI, store jujuclient.ClientStore) cmd.Command {
+func NewAddCommandForTest(api StorageAddAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &addCommand{newAPIFunc: func() (StorageAddAPI, error) {
-		return api, nil
-	}}
-	cmd.SetClientStore(store)
-	return modelcmd.Wrap(cmd)
-}
-
-func NewFilesystemListCommand(api FilesystemListAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &filesystemListCommand{newAPIFunc: func() (FilesystemListAPI, error) {
 		return api, nil
 	}}
 	cmd.SetClientStore(store)

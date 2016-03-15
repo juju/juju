@@ -8,7 +8,6 @@ package lxdclient
 import (
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/gorilla/websocket"
@@ -107,19 +106,6 @@ func (client *instanceClient) exec(spec InstanceSpec, cmd []string) error {
 		return errors.Trace(err)
 	}
 
-	return nil
-}
-
-func (client *instanceClient) chmod(spec InstanceSpec, filename string, mode os.FileMode) error {
-	cmd := []string{
-		"/bin/chmod",
-		fmt.Sprintf("%s", mode),
-		filename,
-	}
-
-	if err := client.exec(spec, cmd); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }
 

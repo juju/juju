@@ -11,6 +11,28 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
+// PoolCommandBase is a helper base structure for pool commands.
+type PoolCommandBase struct {
+	StorageCommandBase
+}
+
+// PoolInfo defines the serialization behaviour of the storage pool information.
+type PoolInfo struct {
+	Provider string                 `yaml:"provider" json:"provider"`
+	Attrs    map[string]interface{} `yaml:"attrs,omitempty" json:"attrs,omitempty"`
+}
+
+func formatPoolInfo(all []params.StoragePool) map[string]PoolInfo {
+	output := make(map[string]PoolInfo)
+	for _, one := range all {
+		output[one.Name] = PoolInfo{
+			Provider: one.Provider,
+			Attrs:    one.Attrs,
+		}
+	}
+	return output
+}
+
 const poolListCommandDoc = `
 Lists storage pools.
 The user can filter on pool type, name.
@@ -38,7 +60,8 @@ options:
 
 `
 
-func newPoolListCommand() cmd.Command {
+// NewPoolListCommand returns a command that lists storage pools on a model
+func NewPoolListCommand() cmd.Command {
 	cmd := &poolListCommand{}
 	cmd.newAPIFunc = func() (PoolListAPI, error) {
 		return cmd.NewStorageAPI()
@@ -63,7 +86,7 @@ func (c *poolListCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *poolListCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
+		Name:    "list-storage-pools",
 		Purpose: "list storage pools",
 		Doc:     poolListCommandDoc,
 	}
@@ -75,7 +98,7 @@ func (c *poolListCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.Providers), "provider", "only show pools of these provider types")
 	f.Var(cmd.NewAppendStringsValue(&c.Names), "name", "only show pools with these names")
 
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
+	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 		"tabular": formatPoolListTabular,

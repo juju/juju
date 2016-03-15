@@ -6,8 +6,6 @@
 package resumer
 
 import (
-	"github.com/juju/loggo"
-
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/state"
 )
@@ -15,8 +13,6 @@ import (
 func init() {
 	common.RegisterStandardFacade("Resumer", 2, NewResumerAPI)
 }
-
-var logger = loggo.GetLogger("juju.apiserver.resumer")
 
 // ResumerAPI implements the API used by the resumer worker.
 type ResumerAPI struct {

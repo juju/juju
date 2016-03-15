@@ -30,12 +30,6 @@ type httpContext struct {
 	srv *Server
 }
 
-type errorSender interface {
-	sendError(w http.ResponseWriter, code int, err error)
-}
-
-var errUnauthorized = errors.NewUnauthorized(nil, "unauthorized")
-
 // stateForRequestUnauthenticated returns a state instance appropriate for
 // using for the model implicit in the given request
 // without checking any authentication information.

@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/agenttools"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/api/statushistory"
@@ -83,7 +82,6 @@ import (
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/modelworkermanager"
@@ -93,18 +91,14 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
-	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/undertaker"
 	"github.com/juju/juju/worker/unitassigner"
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
-const bootstrapMachineId = "0"
-
 var (
 	logger       = loggo.GetLogger("juju.cmd.jujud")
-	retryDelay   = 3 * time.Second
 	jujuRun      = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
 	jujuDumpLogs = paths.MustSucceed(paths.JujuDumpLogs(series.HostSeries()))
 
@@ -115,7 +109,6 @@ var (
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
-	newMachiner              = machiner.NewMachiner
 	newDiscoverSpaces        = discoverspaces.NewWorker
 	newFirewaller            = firewaller.NewFirewaller
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
@@ -264,7 +257,6 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
-	loopDeviceManager looputil.LoopDeviceManager,
 	rootDir string,
 ) func(string) *MachineAgent {
 	return func(machineId string) *MachineAgent {
@@ -273,7 +265,7 @@ func MachineAgentFactoryFn(
 			agentConfWriter,
 			bufferedLogs,
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
-			loopDeviceManager,
+			looputil.NewLoopDeviceManager(),
 			rootDir,
 		)
 	}
@@ -738,13 +730,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	}
 
 	if isModelManager {
-		runner.StartWorker("toolsversionchecker", func() (worker.Worker, error) {
-			// 4 times a day seems a decent enough amount of checks.
-			checkerParams := toolsversionchecker.VersionCheckerParams{
-				CheckInterval: time.Hour * 6,
-			}
-			return toolsversionchecker.New(agenttools.NewFacade(apiConn), &checkerParams), nil
-		})
 
 		// Published image metadata for some providers are in simple streams.
 		// Providers that do not depend on simple streams do not need this worker.
