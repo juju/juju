@@ -5,7 +5,6 @@ package migrationtarget
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
@@ -13,8 +12,6 @@ import (
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 )
-
-var logger loggo.Logger
 
 func init() {
 	common.RegisterStandardFacade("MigrationTarget", 1, NewAPI)
