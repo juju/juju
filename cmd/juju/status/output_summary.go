@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/status"
 )
 
 // FormatSummary returns a summary of the current environment
@@ -68,7 +68,7 @@ func newSummaryFormatter() *summaryFormatter {
 		ipAddrs:     make([]net.IPNet, 0),
 		netStrings:  make([]string, 0),
 		openPorts:   set.NewStrings(),
-		stateToUnit: make(map[params.Status]int),
+		stateToUnit: make(map[status.Status]int),
 	}
 	f.tw = tabwriter.NewWriter(&f.out, 0, 1, 1, ' ', 0)
 	return f
@@ -80,7 +80,7 @@ type summaryFormatter struct {
 	numUnits   int
 	openPorts  set.Strings
 	// status -> count
-	stateToUnit map[params.Status]int
+	stateToUnit map[status.Status]int
 	tw          *tabwriter.Writer
 	out         bytes.Buffer
 }
@@ -121,10 +121,10 @@ func (f *summaryFormatter) trackUnit(name string, status unitStatus, indentLevel
 	f.stateToUnit[status.WorkloadStatusInfo.Current]++
 }
 
-func (f *summaryFormatter) printStateToCount(m map[params.Status]int) {
-	for _, status := range common.SortStringsNaturally(stringKeysFromMap(m)) {
-		numInStatus := m[params.Status(status)]
-		f.delimitValuesWithTabs(status+":", fmt.Sprintf(" %d ", numInStatus))
+func (f *summaryFormatter) printStateToCount(m map[status.Status]int) {
+	for _, stateToCount := range common.SortStringsNaturally(stringKeysFromMap(m)) {
+		numInStatus := m[status.Status(stateToCount)]
+		f.delimitValuesWithTabs(stateToCount+":", fmt.Sprintf(" %d ", numInStatus))
 	}
 }
 
@@ -154,14 +154,14 @@ func (f *summaryFormatter) resolveAndTrackIp(publicDns string) {
 	f.trackIp(ip.IP)
 }
 
-func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineStatus) map[params.Status]int {
-	stateToMachine := make(map[params.Status]int)
+func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineStatus) map[status.Status]int {
+	stateToMachine := make(map[status.Status]int)
 	for _, name := range common.SortStringsNaturally(stringKeysFromMap(machines)) {
 		m := machines[name]
 		f.resolveAndTrackIp(m.DNSName)
 
-		if agentState := m.AgentState; agentState == "" {
-			agentState = params.StatusPending
+		if agentState := m.JujuStatus.Current; agentState == "" {
+			agentState = status.StatusPending
 		} else {
 			stateToMachine[agentState]++
 		}
