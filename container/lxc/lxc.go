@@ -91,13 +91,14 @@ type containerManager struct {
 	loopDeviceManager looputil.LoopDeviceManager
 }
 
-// containerManager implements container.Manager.
-var _ container.Manager = (*containerManager)(nil)
-
 // NewContainerManager returns a manager object that can start and
 // stop lxc containers. The containers that are created are namespaced
 // by the name parameter inside the given ManagerConfig.
-func NewContainerManager(
+func NewContainerManager(conf container.ManagerConfig, imageURLGetter container.ImageURLGetter) (container.Manager, error) {
+	return newContainerManager(conf, imageURLGetter, looputil.NewLoopDeviceManager())
+}
+
+func newContainerManager(
 	conf container.ManagerConfig,
 	imageURLGetter container.ImageURLGetter,
 	loopDeviceManager looputil.LoopDeviceManager,

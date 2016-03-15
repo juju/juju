@@ -5,14 +5,11 @@ package discoverspaces
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 )
-
-var logger = loggo.GetLogger("juju.api.discoverspaces")
 
 const discoverspacesFacade = "DiscoverSpaces"
 

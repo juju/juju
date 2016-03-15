@@ -51,7 +51,6 @@ func Connect(cfg Config) (*Client, error) {
 }
 
 var lxdNewClientFromInfo = lxd.NewClientFromInfo
-var lxdLoadConfig = lxd.LoadConfig
 
 // newRawClient connects to the LXD host that is defined in Config.
 func newRawClient(cfg Config) (*lxd.Client, error) {

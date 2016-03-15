@@ -612,7 +612,6 @@ func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, 
 }
 
 const (
-	capNetworksManagement      = "networks-management"
 	capStaticIPAddresses       = "static-ipaddresses"
 	capDevices                 = "devices-management"
 	capNetworkDeploymentUbuntu = "network-deployment-ubuntu"
@@ -2231,6 +2230,13 @@ func (env *maasEnviron) Storage() storage.Storage {
 }
 
 func (environ *maasEnviron) Destroy() error {
+	if environ.ecfg().maasAgentName() == "" {
+		logger.Warningf("No MAAS agent name specified.\n\n" +
+			"The environment is either not running or from a very early Juju version.\n" +
+			"It is not safe to release all MAAS instances without an agent name.\n" +
+			"If the environment is still running, please manually decomission the MAAS machines.")
+		return errors.New("unsafe destruction")
+	}
 	if !environ.supportsDevices {
 		// Warn the user that container resources can leak.
 		logger.Warningf(noDevicesWarning)

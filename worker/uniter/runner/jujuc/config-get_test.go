@@ -130,10 +130,12 @@ func (s *ConfigGetSuite) TestHelp(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: config-get [options] [<key>]
-purpose: print service configuration
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: config-get [options] [<key>]
 
-options:
+Summary:
+print service configuration
+
+Options:
 -a, --all  (= false)
     print all keys
 --format  (= smart)
@@ -141,6 +143,7 @@ options:
 -o, --output (= "")
     specify an output file
 
+Details:
 When no <key> is supplied, all keys with values or defaults are printed. If
 --all is set, all known keys are printed; those without defaults or values are
 reported as null. <key> and --all are mutually exclusive.

@@ -112,10 +112,12 @@ func (s *NetworkGetSuite) TestNetworkGet(c *gc.C) {
 func (s *NetworkGetSuite) TestHelp(c *gc.C) {
 
 	var helpTemplate = `
-usage: network-get [options] <binding-name> --primary-address
-purpose: get network config
+Usage: network-get [options] <binding-name> --primary-address
 
-options:
+Summary:
+get network config
+
+Options:
 --format  (= smart)
     specify output format (json|smart|yaml)
 -o, --output (= "")
@@ -123,6 +125,7 @@ options:
 --primary-address  (= false)
     get the primary address for the binding
 
+Details:
 network-get returns the network config for a given binding name. The only
 supported flag for now is --primary-address, which is required and returns
 the IP address the local unit should advertise as its endpoint to its peers.

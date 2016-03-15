@@ -4,7 +4,6 @@
 package gce
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/environs/tags"
@@ -42,6 +41,4 @@ const (
 
 var (
 	logger = loggo.GetLogger("juju.provider.gce")
-
-	errNotImplemented = errors.NotImplementedf("gce provider functionality")
 )

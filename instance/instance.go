@@ -67,13 +67,6 @@ type HardwareCharacteristics struct {
 	AvailabilityZone *string `json:",omitempty" yaml:"availabilityzone,omitempty"`
 }
 
-func uintStr(i uint64) string {
-	if i == 0 {
-		return ""
-	}
-	return fmt.Sprintf("%d", i)
-}
-
 // An error reporting that an error has occurred during instance creation
 // (e.g. due to a failed container from on of previous deploys) and
 // that it is safe to restart instance creation

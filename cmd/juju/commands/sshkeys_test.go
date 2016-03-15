@@ -29,7 +29,7 @@ func (s *SSHKeysSuite) assertHelpOutput(c *gc.C, cmd, args string) {
 	if args != "" {
 		args = " " + args
 	}
-	expected := fmt.Sprintf("usage: juju %s [options]%s", cmd, args)
+	expected := fmt.Sprintf("Usage: juju %s [options]%s", cmd, args)
 	out := badrun(c, 0, cmd, "--help")
 	lines := strings.Split(out, "\n")
 	c.Assert(lines[0], gc.Equals, expected)

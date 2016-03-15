@@ -7,7 +7,6 @@ package machine
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
@@ -19,8 +18,6 @@ import (
 func init() {
 	common.RegisterStandardFacade("Machiner", 1, NewMachinerAPI)
 }
-
-var logger = loggo.GetLogger("juju.apiserver.machine")
 
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {

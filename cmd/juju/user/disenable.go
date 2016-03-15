@@ -106,12 +106,6 @@ type disenableUserAPI interface {
 	Close() error
 }
 
-func (c *disenableUserBase) getDisableUserAPI() (disenableUserAPI, error) {
-	return c.NewUserManagerAPIClient()
-}
-
-var getDisableUserAPI = (*disenableUserBase).getDisableUserAPI
-
 // Run implements Command.Run.
 func (c *disableCommand) Run(ctx *cmd.Context) error {
 	if c.api == nil {

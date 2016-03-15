@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
@@ -29,10 +28,6 @@ const (
 	// MaxLeaseRequest is the longest duration for which we will accept
 	// a leadership claim.
 	MaxLeaseRequest = 5 * time.Minute
-)
-
-var (
-	logger = loggo.GetLogger("juju.apiserver.leadership")
 )
 
 func init() {

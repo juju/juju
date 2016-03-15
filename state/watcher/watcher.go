@@ -327,11 +327,6 @@ func (w *Watcher) handle(req interface{}) {
 	}
 }
 
-type logInfo struct {
-	Docs   []interface{} `bson:"d"`
-	Revnos []int64       `bson:"r"`
-}
-
 // initLastId reads the most recent changelog document and initializes
 // lastId with it. This causes all history that precedes the creation
 // of the watcher to be ignored.

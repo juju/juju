@@ -9,7 +9,6 @@ import (
 	"os/exec"
 
 	"github.com/juju/cmd"
-	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -33,8 +32,6 @@ func Main(args []string) {
 	}
 	os.Exit(cmd.Main(newRestoreCommand(), ctx, args[1:]))
 }
-
-var logger = loggo.GetLogger("juju.plugins.restore")
 
 func newRestoreCommand() cmd.Command {
 	return modelcmd.Wrap(&restoreCommand{})
