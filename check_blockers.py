@@ -143,6 +143,10 @@ def main(argv):
         bugs = get_lp_bugs(lp, args.branch, tags=['blocker'])
         code, reason = get_reason(bugs, args)
         print(reason)
+    if args.command == 'block-ci-testing':
+        bugs = get_lp_bugs(lp, args.branch, tags=['block-ci-testing'])
+        code, reason = get_reason(bugs, args)
+        print(reason)
     elif args.command == 'update':
         bugs = get_lp_bugs(lp, args.branch, tags=['blocker', 'ci'])
         code, changes = update_bugs(

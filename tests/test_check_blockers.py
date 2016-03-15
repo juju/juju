@@ -89,6 +89,21 @@ class CheckBlockers(TestCase):
         gr.assert_called_with(bugs, args)
         self.assertEqual(0, code)
 
+    def test_main_block_ci_testing(self):
+        bugs = {}
+        args = check_blockers.parse_args(['block-ci-testing', 'feature'])
+        with patch('check_blockers.get_lp', autospec=True,
+                   return_value='lp') as gl:
+            with patch('check_blockers.get_lp_bugs', autospec=True,
+                       return_value=bugs) as glb:
+                with patch('check_blockers.get_reason', autospec=True,
+                           return_value=(0, 'foo')) as gr:
+                    code = check_blockers.main(['block-ci-testing', 'feature'])
+        gl.assert_called_with('check_blockers', credentials_file=None)
+        glb.assert_called_with('lp', 'feature', ['block-ci-testing'])
+        gr.assert_called_with(bugs, args)
+        self.assertEqual(0, code)
+
     def test_main_update(self):
         bugs = {}
         argv = ['-c', './foo.cred', 'update', '--dry-run', 'master', '1234']
