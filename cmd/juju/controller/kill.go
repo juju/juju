@@ -124,7 +124,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Obtain bootstrap / controller environ information
-	controllerEnviron, err := c.getControllerEnviron(cfgInfo, api)
+	controllerEnviron, err := c.getControllerModel(cfgInfo, api)
 	if err != nil {
 		return errors.Annotate(err, "cannot obtain bootstrap information")
 	}
@@ -146,10 +146,10 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", c.ControllerName())
 
 	updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.ModelUUID)
-	for ctrStatus, envsStatus := updateStatus(0); hasUnDeadEnvirons(envsStatus); ctrStatus, envsStatus = updateStatus(2 * time.Second) {
+	for ctrStatus, modelsStatus := updateStatus(0); hasUnDeadModels(modelsStatus); ctrStatus, modelsStatus = updateStatus(2 * time.Second) {
 		ctx.Infof(fmtCtrStatus(ctrStatus))
-		for _, envStatus := range envsStatus {
-			ctx.Verbosef(fmtEnvStatus(envStatus))
+		for _, modelStatus := range modelsStatus {
+			ctx.Verbosef(fmtModelStatus(modelStatus))
 		}
 	}
 

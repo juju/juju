@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
@@ -106,7 +105,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.TestDataSuite.SetUpSuite(c)
 	t.ConfigStore = configstore.NewMem()
 	t.ControllerStore = jujuclienttesting.NewMemStore()
-	t.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+	t.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {

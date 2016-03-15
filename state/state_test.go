@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
@@ -55,7 +56,7 @@ var alternatePassword = "bar-12345678901234567890"
 // asserting the behaviour of a given method in each state, and the unit quick-
 // remove change caused many of these to fail.
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
-	err := u.SetAgentStatus(state.StatusIdle, "", nil)
+	err := u.SetAgentStatus(status.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

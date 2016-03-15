@@ -32,6 +32,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -117,10 +118,14 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}}
+	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error {
+		return nil
+	}
 	result, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:    cons,
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
+		StatusCallback: callback,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return result.Instance
@@ -137,10 +142,14 @@ func (s *kvmBrokerSuite) maintainInstance(c *gc.C, machineId string) {
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}}
+	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error {
+		return nil
+	}
 	err = s.broker.MaintainInstance(environs.StartInstanceParams{
 		Constraints:    cons,
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
+		StatusCallback: callback,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -254,10 +263,14 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}}
+	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error {
+		return nil
+	}
 	result, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:    constraints.Value{},
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
+		StatusCallback: callback,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.NetworkInfo, gc.HasLen, 1)

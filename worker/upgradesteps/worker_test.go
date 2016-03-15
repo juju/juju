@@ -17,7 +17,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/upgrades"
@@ -290,7 +290,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesntStartUpgrade(c *gc.C) {
 			"aborted wait for other controllers:" + causeMsg},
 	})
 	c.Assert(statusCalls, jc.DeepEquals, []StatusCall{{
-		params.StatusError,
+		status.StatusError,
 		fmt.Sprintf(
 			"upgrade to %s failed (giving up): aborted wait for other controllers:"+causeMsg,
 			jujuversion.Current),
@@ -387,7 +387,7 @@ func (s *UpgradeSuite) TestPreUpgradeFail(c *gc.C) {
 	statusMessage := fmt.Sprintf(
 		`upgrade to %s failed (giving up): %s`, jujuversion.Current, causeMessage)
 	c.Assert(statusCalls, jc.DeepEquals, []StatusCall{{
-		params.StatusError, statusMessage,
+		status.StatusError, statusMessage,
 	}})
 }
 
@@ -494,22 +494,22 @@ func (s *UpgradeSuite) setInstantRetryStrategy(c *gc.C) {
 
 func (s *UpgradeSuite) makeExpectedStatusCalls(retryCount int, expectFail bool, failReason string) []StatusCall {
 	calls := []StatusCall{{
-		params.StatusStarted,
+		status.StatusStarted,
 		fmt.Sprintf("upgrading to %s", jujuversion.Current),
 	}}
 	for i := 0; i < retryCount; i++ {
 		calls = append(calls, StatusCall{
-			params.StatusError,
+			status.StatusError,
 			fmt.Sprintf("upgrade to %s failed (will retry): %s", jujuversion.Current, failReason),
 		})
 	}
 	if expectFail {
 		calls = append(calls, StatusCall{
-			params.StatusError,
+			status.StatusError,
 			fmt.Sprintf("upgrade to %s failed (giving up): %s", jujuversion.Current, failReason),
 		})
 	} else {
-		calls = append(calls, StatusCall{params.StatusStarted, ""})
+		calls = append(calls, StatusCall{status.StatusStarted, ""})
 	}
 	return calls
 }
@@ -611,7 +611,7 @@ func (a *fakeAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 }
 
 type StatusCall struct {
-	Status params.Status
+	Status status.Status
 	Info   string
 }
 
@@ -619,7 +619,7 @@ type testStatusSetter struct {
 	Calls []StatusCall
 }
 
-func (s *testStatusSetter) SetStatus(status params.Status, info string, _ map[string]interface{}) error {
+func (s *testStatusSetter) SetStatus(status status.Status, info string, _ map[string]interface{}) error {
 	s.Calls = append(s.Calls, StatusCall{status, info})
 	return nil
 }

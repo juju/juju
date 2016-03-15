@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
@@ -112,7 +113,7 @@ type Unit struct {
 	st  *State
 	doc unitDoc
 	presence.Presencer
-	StatusHistoryGetter
+	status.StatusHistoryGetter
 }
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
@@ -395,14 +396,14 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	} else if agentErr != nil {
 		return nil, errors.Trace(agentErr)
 	}
-	if agentStatusInfo.Status != StatusAllocating {
+	if agentStatusInfo.Status != status.StatusAllocating {
 		return setDyingOps, nil
 	}
 
 	ops := []txn.Op{{
 		C:      statusesC,
 		Id:     u.st.docID(agentStatusDocId),
-		Assert: bson.D{{"status", StatusAllocating}},
+		Assert: bson.D{{"status", status.StatusAllocating}},
 	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, bson.DocElem{
 		"$and", []bson.D{
@@ -787,29 +788,29 @@ func (u *Unit) Agent() *UnitAgent {
 
 // AgentHistory returns an StatusHistoryGetter which can
 //be used to query the status history of the unit's agent.
-func (u *Unit) AgentHistory() StatusHistoryGetter {
+func (u *Unit) AgentHistory() status.StatusHistoryGetter {
 	return u.Agent()
 }
 
 // SetAgentStatus calls SetStatus for this unit's agent, this call
 // is equivalent to the former call to SetStatus when Agent and Unit
 // where not separate entities.
-func (u *Unit) SetAgentStatus(status Status, info string, data map[string]interface{}) error {
+func (u *Unit) SetAgentStatus(agentStatus status.Status, info string, data map[string]interface{}) error {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
-	return agent.SetStatus(status, info, data)
+	return agent.SetStatus(agentStatus, info, data)
 }
 
 // AgentStatus calls Status for this unit's agent, this call
 // is equivalent to the former call to Status when Agent and Unit
 // where not separate entities.
-func (u *Unit) AgentStatus() (StatusInfo, error) {
+func (u *Unit) AgentStatus() (status.StatusInfo, error) {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
 	return agent.Status()
 }
 
 // StatusHistory returns a slice of at most <size> StatusInfo items
 // representing past statuses for this unit.
-func (u *Unit) StatusHistory(size int) ([]StatusInfo, error) {
+func (u *Unit) StatusHistory(size int) ([]status.StatusInfo, error) {
 	return statusHistory(u.st, u.globalKey(), size)
 }
 
@@ -817,7 +818,7 @@ func (u *Unit) StatusHistory(size int) ([]StatusInfo, error) {
 // This method relies on globalKey instead of globalAgentKey since it is part of
 // the effort to separate Unit from UnitAgent. Now the Status for UnitAgent is in
 // the UnitAgent struct.
-func (u *Unit) Status() (StatusInfo, error) {
+func (u *Unit) Status() (status.StatusInfo, error) {
 	// The current health spec says when a hook error occurs, the workload should
 	// be in error state, but the state model more correctly records the agent
 	// itself as being in error. So we'll do that model translation here.
@@ -825,12 +826,12 @@ func (u *Unit) Status() (StatusInfo, error) {
 	// For now, pretend we're always reading the unit status.
 	info, err := getStatus(u.st, u.globalAgentKey(), "unit")
 	if err != nil {
-		return StatusInfo{}, err
+		return status.StatusInfo{}, err
 	}
-	if info.Status != StatusError {
+	if info.Status != status.StatusError {
 		info, err = getStatus(u.st, u.globalKey(), "unit")
 		if err != nil {
-			return StatusInfo{}, err
+			return status.StatusInfo{}, err
 		}
 	}
 	return info, nil
@@ -841,14 +842,14 @@ func (u *Unit) Status() (StatusInfo, error) {
 // This method relies on globalKey instead of globalAgentKey since it is part of
 // the effort to separate Unit from UnitAgent. Now the SetStatus for UnitAgent is in
 // the UnitAgent struct.
-func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}) error {
-	if !ValidWorkloadStatus(status) {
-		return errors.Errorf("cannot set invalid status %q", status)
+func (u *Unit) SetStatus(unitStatus status.Status, info string, data map[string]interface{}) error {
+	if !status.ValidWorkloadStatus(unitStatus) {
+		return errors.Errorf("cannot set invalid status %q", unitStatus)
 	}
 	return setStatus(u.st, setStatusParams{
 		badge:     "unit",
 		globalKey: u.globalKey(),
-		status:    status,
+		status:    unitStatus,
 		message:   info,
 		rawData:   data,
 	})
@@ -2133,7 +2134,7 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	if err != nil {
 		return err
 	}
-	if statusInfo.Status != StatusError {
+	if statusInfo.Status != status.StatusError {
 		return errors.Errorf("unit %q is not in an error state", u)
 	}
 	mode := ResolvedNoHooks

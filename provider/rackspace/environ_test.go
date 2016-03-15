@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/rackspace"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/utils/ssh"
@@ -258,9 +259,12 @@ func (e *fakeInstance) Id() instance.Id {
 	return instance.Id("")
 }
 
-func (e *fakeInstance) Status() string {
+func (e *fakeInstance) Status() instance.InstanceStatus {
 	e.Push("Status")
-	return ""
+	return instance.InstanceStatus{
+		Status:  status.StatusProvisioning,
+		Message: "a message",
+	}
 }
 
 func (e *fakeInstance) Refresh() error {
