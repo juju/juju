@@ -686,14 +686,6 @@ func newStoreResource(c *gc.C, name, data string) resource.Resource {
 	return res
 }
 
-func newCharmResource(c *gc.C, name, data string, rev int) charmresource.Resource {
-	opened := resourcetesting.NewResource(c, nil, name, "a-service", data)
-	chRes := opened.Resource.Resource
-	chRes.Origin = charmresource.OriginStore
-	chRes.Revision = rev
-	return chRes
-}
-
 func newUnit(stub *testing.Stub, name string) *resourcetesting.StubUnit {
 	return &resourcetesting.StubUnit{
 		Stub:              stub,

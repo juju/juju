@@ -269,35 +269,6 @@ var (
 		"series":   "quantal",
 		"hardware": "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
-	machine1WithContainersScoped = M{
-		"juju-status": M{
-			"current": "started",
-			"since":   "01 Apr 15 01:23+10:00",
-		},
-		"containers": M{
-			"1/lxc/0": M{
-				"juju-status": M{
-					"current": "started",
-					"since":   "01 Apr 15 01:23+10:00",
-				},
-				"dns-name":    "dummymodel-2.dns",
-				"instance-id": "dummymodel-2",
-				"machine-status": M{
-					"current": "pending",
-					"since":   "01 Apr 15 01:23+10:00",
-				},
-				"series": "quantal",
-			},
-		},
-		"dns-name":    "dummymodel-1.dns",
-		"instance-id": "dummymodel-1",
-		"machine-status": M{
-			"current": "pending",
-			"since":   "01 Apr 15 01:23+10:00",
-		},
-		"series":   "quantal",
-		"hardware": "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
-	}
 	unexposedService = M{
 		"service-status": M{
 			"current": "unknown",
@@ -2978,12 +2949,6 @@ type fakeApiClient struct {
 	statusReturn *params.FullStatus
 	patternsUsed []string
 	closeCalled  bool
-}
-
-func newFakeApiClient(statusReturn *params.FullStatus) fakeApiClient {
-	return fakeApiClient{
-		statusReturn: statusReturn,
-	}
 }
 
 func (a *fakeApiClient) Status(patterns []string) (*params.FullStatus, error) {

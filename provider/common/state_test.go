@@ -5,8 +5,6 @@ package common_test
 
 import (
 	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 
@@ -38,17 +36,6 @@ func (suite *StateSuite) newStorageWithDataDir(c *gc.C) (storage.Storage, string
 func (suite *StateSuite) newStorage(c *gc.C) storage.Storage {
 	stor, _ := suite.newStorageWithDataDir(c)
 	return stor
-}
-
-// testingHTTPSServer creates a tempdir backed https server with internal
-// self-signed certs that will not be accepted as valid.
-func (suite *StateSuite) testingHTTPSServer(c *gc.C) (string, string) {
-	dataDir := c.MkDir()
-	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.Dir(dataDir)))
-	server := httptest.NewTLSServer(mux)
-	suite.AddCleanup(func(*gc.C) { server.Close() })
-	return server.URL, dataDir
 }
 
 func (suite *StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {

@@ -137,10 +137,6 @@ func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 	c.Assert(testing.Stdout(ctx), gc.Equals, "this is the log output")
 }
 
-func newFakeDebugLogAPI(log string) DebugLogAPI {
-	return &fakeDebugLogAPI{log: log}
-}
-
 type fakeDebugLogAPI struct {
 	log    string
 	params api.DebugLogParams

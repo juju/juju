@@ -175,24 +175,6 @@ func (ctx *context) writeHook(c *gc.C, path string, good bool) {
 	ctx.writeExplicitHook(c, path, content)
 }
 
-func (ctx *context) writeActions(c *gc.C, path string, names []string) {
-	for _, name := range names {
-		ctx.writeAction(c, path, name)
-	}
-}
-
-func (ctx *context) writeMetricsYaml(c *gc.C, path string) {
-	metricsYamlPath := filepath.Join(path, "metrics.yaml")
-	var metricsYamlFull []byte = []byte(`
-metrics:
-  pings:
-    type: gauge
-    description: sample metric
-`)
-	err := ioutil.WriteFile(metricsYamlPath, []byte(metricsYamlFull), 0755)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (ctx *context) writeAction(c *gc.C, path, name string) {
 	actionPath := filepath.Join(path, "actions", name)
 	action := actions[name]
@@ -349,10 +331,6 @@ func (s createCharm) step(c *gc.C, ctx *context) {
 	err = dir.SetDiskRevision(s.revision)
 	c.Assert(err, jc.ErrorIsNil)
 	step(c, ctx, addCharm{dir, curl(s.revision)})
-}
-
-func (s createCharm) charmURL() string {
-	return curl(s.revision).String()
 }
 
 type addCharm struct {
@@ -685,8 +663,6 @@ func (s resolveError) step(c *gc.C, ctx *context) {
 }
 
 type statusfunc func() (status.StatusInfo, error)
-
-type statusfuncGetter func(ctx *context) statusfunc
 
 var unitStatusGetter = func(ctx *context) statusfunc {
 	return func() (status.StatusInfo, error) {

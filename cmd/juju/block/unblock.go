@@ -168,7 +168,3 @@ type UnblockClientAPI interface {
 	Close() error
 	SwitchBlockOff(blockType string) error
 }
-
-var getUnblockClientAPI = func(p *unblockCommand) (UnblockClientAPI, error) {
-	return getBlockAPI(&p.ModelCommandBase)
-}

@@ -26,7 +26,6 @@ const (
 	mockVolSize  = 1024 * 2
 	mockVolName  = "123"
 	mockServerId = "mock-server-id"
-	mockVolJson  = `{"volume":{"id": "` + mockVolId + `", "size":1,"name":"` + mockVolName + `"}}`
 )
 
 var (

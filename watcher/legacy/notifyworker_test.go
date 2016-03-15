@@ -298,10 +298,6 @@ func (s *NotifyWorkerSuite) TestNoticesStoppedWatcher(c *gc.C) {
 	s.worker = nil
 }
 
-func noopHandler(watcher.Errer) error {
-	return nil
-}
-
 type CannedErrer struct {
 	err error
 }

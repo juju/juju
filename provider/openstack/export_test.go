@@ -32,6 +32,11 @@ var (
 	ShortAttempt   = &shortAttempt
 	StorageAttempt = &storageAttempt
 	CinderAttempt  = &cinderAttempt
+
+	PortsToRuleInfo      = portsToRuleInfo
+	RuleMatchesPortRange = ruleMatchesPortRange
+	MakeServiceURL       = &makeServiceURL
+	GetVolumeEndpointURL = getVolumeEndpointURL
 )
 
 // MetadataStorage returns a Storage instance which is used to store simplestreams metadata for tests.
@@ -302,15 +307,6 @@ func FindInstanceSpec(
 	}, imageMetadata)
 }
 
-func GetSwiftURL(e environs.Environ) (string, error) {
-	return e.(*Environ).client.MakeServiceURL("object-store", nil)
-}
-
-func SetUseFloatingIP(e environs.Environ, val bool) {
-	env := e.(*Environ)
-	env.ecfg().attrs["use-floating-ip"] = val
-}
-
 func SetUpGlobalGroup(e environs.Environ, name string, apiPort int) (nova.SecurityGroup, error) {
 	return e.(*Environ).firewaller.(*defaultFirewaller).setUpGlobalGroup(name, apiPort)
 }
@@ -356,11 +352,3 @@ func GetNovaClient(e environs.Environ) *nova.Client {
 func ResolveNetwork(e environs.Environ, networkName string) (string, error) {
 	return e.(*Environ).resolveNetwork(networkName)
 }
-
-var PortsToRuleInfo = portsToRuleInfo
-var RuleMatchesPortRange = ruleMatchesPortRange
-
-var MakeServiceURL = &makeServiceURL
-var ProviderInstance = providerInstance
-
-var GetVolumeEndpointURL = getVolumeEndpointURL

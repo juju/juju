@@ -69,11 +69,6 @@ func (s *toolsCommonSuite) assertUploadResponse(c *gc.C, resp *http.Response, ag
 	c.Check(toolsResponse.Tools, gc.DeepEquals, agentTools)
 }
 
-func (s *toolsCommonSuite) assertGetFileResponse(c *gc.C, resp *http.Response, expBody, expContentType string) {
-	body := assertResponse(c, resp, http.StatusOK, expContentType)
-	c.Check(string(body), gc.Equals, expBody)
-}
-
 func (s *toolsCommonSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
 	toolsResponse := s.assertResponse(c, resp, expCode)
 	c.Assert(toolsResponse.Error, gc.NotNil)

@@ -18,9 +18,6 @@ import (
 )
 
 var (
-	defaultClient     = "default-client"
-	defaultNamespace  = "default-namespace"
-	defaultCollection = "default-collection"
 	defaultClockStart time.Time
 )
 

@@ -64,7 +64,7 @@ func (s *firewallerSuite) TestWatchModelMachines(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestWatch(c *gc.C) {
-	s.testWatch(c, s.firewaller, cannotWatchUnits)
+	s.testWatch(c, s.firewaller)
 }
 
 func (s *firewallerSuite) TestWatchUnits(c *gc.C) {

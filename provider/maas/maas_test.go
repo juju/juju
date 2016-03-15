@@ -17,9 +17,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -100,41 +98,6 @@ func (suite *providerSuite) makeEnviron() *maasEnviron {
 		panic(err)
 	}
 	return env
-}
-
-func (suite *providerSuite) setupFakeTools(c *gc.C) {
-	storageDir := c.MkDir()
-	suite.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
-	suite.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
-}
-
-func (suite *providerSuite) addNode(jsonText string) instance.Id {
-	node := suite.testMAASObject.TestServer.NewNode(jsonText)
-	resourceURI, _ := node.GetField("resource_uri")
-	return instance.Id(resourceURI)
-}
-
-func (suite *providerSuite) getInstance(systemId string) *maasInstance {
-	input := fmt.Sprintf(`{"system_id": %q}`, systemId)
-	node := suite.testMAASObject.TestServer.NewNode(input)
-	statusGetter := func(instance.Id) (string, string) {
-		return "unknown", "FAKE"
-	}
-	return &maasInstance{&node, statusGetter}
-}
-
-func (suite *providerSuite) getNetwork(name string, id int, vlanTag int) *gomaasapi.MAASObject {
-	var vlan string
-	if vlanTag == 0 {
-		vlan = "null"
-	} else {
-		vlan = fmt.Sprintf("%d", vlanTag)
-	}
-	var input string
-	input = fmt.Sprintf(`{"name": %q, "ip":"192.168.%d.1", "netmask": "255.255.255.0",`+
-		`"vlan_tag": %s, "description": "%s_%d_%d" }`, name, id, vlan, name, id, vlanTag)
-	network := suite.testMAASObject.TestServer.NewNetwork(input)
-	return &network
 }
 
 func createSubnetInfo(subnetID, spaceID, ipRange uint) network.SubnetInfo {

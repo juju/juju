@@ -8,12 +8,6 @@ import (
 	"github.com/juju/testing"
 )
 
-var (
-	JujudUser                    = jujudUser
-	ERROR_SERVICE_DOES_NOT_EXIST = c_ERROR_SERVICE_DOES_NOT_EXIST
-	ERROR_SERVICE_EXISTS         = c_ERROR_SERVICE_EXISTS
-)
-
 type patcher interface {
 	PatchValue(interface{}, interface{})
 }

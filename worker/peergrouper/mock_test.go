@@ -347,12 +347,6 @@ func (m *fakeMachine) setStateHostPort(hostPort string) {
 	})
 }
 
-func (m *fakeMachine) setMongoHostPorts(hostPorts []network.HostPort) {
-	m.mutate(func(doc *machineDoc) {
-		doc.mongoHostPorts = hostPorts
-	})
-}
-
 func (m *fakeMachine) setAPIHostPorts(hostPorts []network.HostPort) {
 	m.mutate(func(doc *machineDoc) {
 		doc.apiHostPorts = hostPorts

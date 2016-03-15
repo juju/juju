@@ -198,10 +198,6 @@ func (ecfg *environConfig) sdcUrl() string {
 	return ecfg.attrs[sdcUrl].(string)
 }
 
-func (ecfg *environConfig) sdcUser() string {
-	return ecfg.attrs[sdcUser].(string)
-}
-
 func (ecfg *environConfig) sdcKeyId() string {
 	return ecfg.attrs[sdcKeyId].(string)
 }

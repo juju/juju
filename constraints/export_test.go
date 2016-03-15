@@ -3,8 +3,6 @@
 
 package constraints
 
-var WithFallbacks = withFallbacks
-
 func Without(cons Value, attrTags ...string) (Value, error) {
 	return cons.without(attrTags...)
 }

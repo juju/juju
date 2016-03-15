@@ -9,14 +9,13 @@ import (
 )
 
 var (
-	CertDir               = &certDir
-	NewWebsocketDialer    = newWebsocketDialer
-	NewWebsocketDialerPtr = &newWebsocketDialer
-	WebsocketDialConfig   = &websocketDialConfig
-	SlideAddressToFront   = slideAddressToFront
-	BestVersion           = bestVersion
-	FacadeVersions        = &facadeVersions
-	ConnectWebsocket      = connectWebsocket
+	CertDir             = &certDir
+	NewWebsocketDialer  = newWebsocketDialer
+	WebsocketDialConfig = &websocketDialConfig
+	SlideAddressToFront = slideAddressToFront
+	BestVersion         = bestVersion
+	FacadeVersions      = &facadeVersions
+	ConnectWebsocket    = connectWebsocket
 )
 
 // SetServerAddress allows changing the URL to the internal API server

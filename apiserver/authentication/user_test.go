@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -25,8 +24,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.authentication")
 
 type userAuthenticatorSuite struct {
 	jujutesting.JujuConnSuite

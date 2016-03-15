@@ -335,16 +335,6 @@ func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 	c.Assert(f.args.Placement, gc.DeepEquals, placement)
 }
 
-func (s *DeployLocalSuite) assertAssignedUnit(c *gc.C, u *state.Unit, mId string, cons constraints.Value) {
-	id, err := u.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
-	c.Assert(err, jc.ErrorIsNil)
-	machineCons, err := machine.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineCons, gc.DeepEquals, cons)
-}
-
 func (s *DeployLocalSuite) assertCharm(c *gc.C, service *state.Service, expect *charm.URL) {
 	curl, force := service.CharmURL()
 	c.Assert(curl, gc.DeepEquals, expect)

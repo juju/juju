@@ -203,14 +203,6 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	return machineParams, nil
 }
 
-var provisionMachineAgent = func(host string, icfg *instancecfg.InstanceConfig, progressWriter io.Writer) error {
-	script, err := ProvisioningScript(icfg)
-	if err != nil {
-		return err
-	}
-	return runProvisionScript(script, host, progressWriter)
-}
-
 // ProvisioningScript generates a bash script that can be
 // executed on a remote host to carry out the cloud-init
 // configuration.

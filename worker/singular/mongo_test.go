@@ -6,7 +6,6 @@ package singular_test
 import (
 	"flag"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/juju/loggo"
@@ -342,22 +341,6 @@ func (g *globalAgentState) possibleEvents() []event {
 	return possible
 }
 
-func mkEvent(s string) event {
-	var e event
-	if n, _ := fmt.Sscanf(s, "%s %d", &e.kind, &e.id); n != 2 {
-		panic("invalid event " + s)
-	}
-	return e
-}
-
-func mkEvents(ss ...string) []event {
-	events := make([]event, len(ss))
-	for i, s := range ss {
-		events[i] = mkEvent(s)
-	}
-	return events
-}
-
 type event struct {
 	kind string
 	id   int
@@ -370,10 +353,6 @@ func (e event) String() string {
 	} else {
 		return fmt.Sprintf("%s %d", e.kind, e.id)
 	}
-}
-
-func oneOf(possible ...string) string {
-	return strings.Join(possible, "|")
 }
 
 func expectNotification(c *gc.C, notifyCh <-chan event, possible []event) event {

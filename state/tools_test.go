@@ -28,15 +28,6 @@ type tooler interface {
 	Refresh() error
 }
 
-func newTools(vers, url string) *tools.Tools {
-	return &tools.Tools{
-		Version: version.MustParseBinary(vers),
-		URL:     url,
-		Size:    10,
-		SHA256:  "1234",
-	}
-}
-
 func testAgentTools(c *gc.C, obj tooler, agent string) {
 	// object starts with zero'd tools.
 	t, err := obj.AgentTools()

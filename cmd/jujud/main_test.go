@@ -30,14 +30,6 @@ import (
 
 var caCertFile string
 
-func mkdtemp(prefix string) string {
-	d, err := ioutil.TempDir("", prefix)
-	if err != nil {
-		panic(err)
-	}
-	return d
-}
-
 func mktemp(prefix string, content string) string {
 	f, err := ioutil.TempFile("", prefix)
 	if err != nil {

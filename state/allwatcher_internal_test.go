@@ -2789,7 +2789,6 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 type initFlag int
 
 const (
-	noFlag     initFlag = 0
 	assignUnit initFlag = 1
 	openPorts  initFlag = 2
 	closePorts initFlag = 4
@@ -3167,9 +3166,4 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 		c.Errorf(firstDiffError)
 	}
 	c.FailNow()
-}
-
-func deepEqual(c *gc.C, got, want interface{}) bool {
-	same, err := jc.DeepEqual(got, want)
-	return err == nil && same
 }

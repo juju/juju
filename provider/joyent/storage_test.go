@@ -6,8 +6,6 @@ package joyent_test
 import (
 	"fmt"
 	"io/ioutil"
-	"math/rand"
-	"net/http"
 	"net/url"
 	"strings"
 
@@ -59,23 +57,6 @@ func (s *storageSuite) assertContainer(storage *jp.JoyentStorage, c *gc.C) {
 func (s *storageSuite) assertFile(storage *jp.JoyentStorage, c *gc.C) {
 	err := storage.Put(fileName, strings.NewReader(fileBlobContent), int64(len(fileBlobContent)))
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-// makeRandomBytes returns an array of arbitrary byte values.
-func makeRandomBytes(length int) []byte {
-	data := make([]byte, length)
-	for index := range data {
-		data[index] = byte(rand.Intn(256))
-	}
-	return data
-}
-
-func makeResponse(content string, status int) *http.Response {
-	return &http.Response{
-		Status:     fmt.Sprintf("%d", status),
-		StatusCode: status,
-		Body:       ioutil.NopCloser(strings.NewReader(content)),
-	}
 }
 
 func (s *storageSuite) TestList(c *gc.C) {

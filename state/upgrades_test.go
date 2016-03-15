@@ -23,17 +23,6 @@ type upgradesSuite struct {
 
 var _ = gc.Suite(&upgradesSuite{})
 
-func (s *upgradesSuite) addLegacyDoc(c *gc.C, collName string, legacyDoc bson.M) {
-	ops := []txn.Op{{
-		C:      collName,
-		Id:     legacyDoc["_id"],
-		Assert: txn.DocMissing,
-		Insert: legacyDoc,
-	}}
-	err := s.state.runRawTransaction(ops)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *upgradesSuite) FindId(c *gc.C, coll *mgo.Collection, id interface{}, doc interface{}) {
 	err := coll.FindId(id).One(doc)
 	c.Assert(err, jc.ErrorIsNil)
@@ -192,37 +181,6 @@ func (s *upgradesSuite) TestAddPreferredAddressesToMachinesUpdatesExistingFields
 	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
 	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
 	assertMachineAddresses(c, m3, "", "")
-}
-
-func (s *upgradesSuite) readDocIDs(c *gc.C, coll, regex string) []string {
-	settings, closer := s.state.getRawCollection(coll)
-	defer closer()
-	var docs []bson.M
-	err := settings.Find(bson.D{{"_id", bson.D{{"$regex", regex}}}}).All(&docs)
-	c.Assert(err, jc.ErrorIsNil)
-	var actualDocIDs []string
-	for _, doc := range docs {
-		actualDocIDs = append(actualDocIDs, doc["_id"].(string))
-	}
-	return actualDocIDs
-}
-
-func (s *upgradesSuite) getDocMap(c *gc.C, docID, collection string) (map[string]interface{}, error) {
-	docMap := map[string]interface{}{}
-	coll, closer := s.state.getRawCollection(collection)
-	defer closer()
-	err := coll.Find(bson.D{{"_id", docID}}).One(&docMap)
-	return docMap, err
-}
-
-func unsetField(st *State, id, collection, field string) error {
-	return st.runTransaction(
-		[]txn.Op{{
-			C:      collection,
-			Id:     id,
-			Update: bson.D{{"$unset", bson.D{{field, nil}}}},
-		},
-		})
 }
 
 func setupMachineBoundStorageTests(c *gc.C, st *State) (*Machine, Volume, Filesystem, func() error) {

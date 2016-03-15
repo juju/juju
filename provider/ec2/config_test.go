@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -244,15 +243,6 @@ var configTests = []configTest{
 			"future": "hammerstein",
 		},
 	},
-}
-
-func indent(s string, with string) string {
-	var r string
-	lines := strings.Split(s, "\n")
-	for _, l := range lines {
-		r += with + l + "\n"
-	}
-	return r
 }
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {

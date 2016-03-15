@@ -30,13 +30,6 @@ func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
 	envtesting.AssertProviderAuthTypes(c, s.provider, "userpass")
 }
 
-var sampleCredentialAttributes = map[string]string{
-	"application-id":       "application",
-	"application-password": "password",
-	"subscription-id":      "subscription",
-	"tenant-id":            "tenant",
-}
-
 func (s *credentialsSuite) TestUserPassCredentialsValid(c *gc.C) {
 	envtesting.AssertProviderCredentialsValid(c, s.provider, "userpass", map[string]string{
 		"application-id":       "application",

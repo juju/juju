@@ -24,11 +24,6 @@ func (s *DisableUserSuite) SetUpTest(c *gc.C) {
 	s.mock = &mockDisenableUserAPI{}
 }
 
-type disenableCommand interface {
-	cmd.Command
-	Username() string
-}
-
 func (s *DisableUserSuite) testInit(c *gc.C, wrappedCommand cmd.Command, command *user.DisenableUserBase) {
 	for i, test := range []struct {
 		args     []string

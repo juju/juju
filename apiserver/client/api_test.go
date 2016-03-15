@@ -5,9 +5,7 @@ package client_test
 
 import (
 	"fmt"
-	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,16 +14,11 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -42,53 +35,6 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 }
 
 var _ = gc.Suite(&baseSuite{})
-
-func chanReadEmpty(c *gc.C, ch <-chan struct{}, what string) bool {
-	select {
-	case _, ok := <-ch:
-		return ok
-	case <-time.After(10 * time.Second):
-		c.Fatalf("timed out reading from %s", what)
-	}
-	panic("unreachable")
-}
-
-func chanReadStrings(c *gc.C, ch <-chan []string, what string) ([]string, bool) {
-	select {
-	case changes, ok := <-ch:
-		return changes, ok
-	case <-time.After(10 * time.Second):
-		c.Fatalf("timed out reading from %s", what)
-	}
-	panic("unreachable")
-}
-
-func chanReadConfig(c *gc.C, ch <-chan *config.Config, what string) (*config.Config, bool) {
-	select {
-	case envConfig, ok := <-ch:
-		return envConfig, ok
-	case <-time.After(10 * time.Second):
-		c.Fatalf("timed out reading from %s", what)
-	}
-	panic("unreachable")
-}
-
-func removeServiceAndUnits(c *gc.C, service *state.Service) {
-	// Destroy all units for the service.
-	units, err := service.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	for _, unit := range units {
-		err = unit.EnsureDead()
-		c.Assert(err, jc.ErrorIsNil)
-		err = unit.Remove()
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	err = service.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = service.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
 
 // apiAuthenticator represents a simple authenticator object with only the
 // SetPassword and Tag methods.  This will fit types from both the state
@@ -114,19 +60,6 @@ type setStatuser interface {
 func setDefaultStatus(c *gc.C, entity setStatuser) {
 	err := entity.SetStatus(status.StatusStarted, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) error {
-	stateInfo := s.MongoInfo(c)
-	stateInfo.Tag = e.Tag()
-	stateInfo.Password = password
-	st, err := state.Open(s.State.ModelTag(), stateInfo, mongo.DialOpts{
-		Timeout: 25 * time.Millisecond,
-	}, environs.NewStatePolicy())
-	if err == nil {
-		st.Close()
-	}
-	return err
 }
 
 // openAs connects to the API state as the given entity
@@ -452,16 +385,6 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		add(lu)
 	}
 	return
-}
-
-func (s *baseSuite) setupStoragePool(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateModelConfig(map[string]interface{}{
-		"storage-default-block-source": "loop-pool",
-	}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *baseSuite) setAgentPresence(c *gc.C, u *state.Unit) {

@@ -22,12 +22,6 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-type machines struct {
-	machine     *state.Machine
-	stateAPI    api.Connection
-	rebootState apireboot.State
-}
-
 type rebootSuite struct {
 	jujutesting.JujuConnSuite
 

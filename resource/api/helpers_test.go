@@ -22,12 +22,6 @@ import (
 
 const fingerprint = "123456789012345678901234567890123456789012345678"
 
-func newFingerprint(c *gc.C, data string) charmresource.Fingerprint {
-	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
-	return fp
-}
-
 type HelpersSuite struct {
 	testing.IsolationSuite
 }

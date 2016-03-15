@@ -105,11 +105,6 @@ type ProvisionerSuite struct {
 
 var _ = gc.Suite(&ProvisionerSuite{})
 
-var veryShortAttempt = utils.AttemptStrategy{
-	Total: 1 * time.Second,
-	Delay: 80 * time.Millisecond,
-}
-
 func (s *CommonProvisionerSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	s.defaultConstraints = constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 root-disk=8G")

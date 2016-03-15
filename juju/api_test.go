@@ -484,12 +484,6 @@ func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
 	c.Check(st, gc.IsNil)
 }
 
-func defaultConfigStore(c *gc.C) configstore.Storage {
-	store, err := configstore.Default()
-	c.Assert(err, jc.ErrorIsNil)
-	return store
-}
-
 func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	legacyStore, store := s.bootstrapEnv(c)
@@ -722,10 +716,6 @@ func (s *CacheAPIEndpointsSuite) assertControllerDetailsUpdated(c *gc.C, name st
 
 func (s *CacheAPIEndpointsSuite) assertControllerUpdated(c *gc.C, name string) {
 	s.assertControllerDetailsUpdated(c, name, gc.Not(gc.HasLen))
-}
-
-func (s *CacheAPIEndpointsSuite) assertControllerNotUpdated(c *gc.C, name string) {
-	s.assertControllerDetailsUpdated(c, name, gc.HasLen)
 }
 
 func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6True(c *gc.C) {

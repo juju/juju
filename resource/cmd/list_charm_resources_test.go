@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	jujucmd "github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -29,15 +28,6 @@ func (s *ListCharmSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.client = &stubCharmStore{stub: s.stub}
-}
-
-func (s *ListCharmSuite) newAPIClient(c *ListCharmResourcesCommand) (CharmResourceLister, error) {
-	s.stub.AddCall("newAPIClient", c)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.client, nil
 }
 
 func (s *ListCharmSuite) TestInfo(c *gc.C) {

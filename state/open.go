@@ -307,6 +307,5 @@ func (st *State) Close() (err error) {
 		}
 		return errs[0]
 	}
-	logger.Debugf("closed state without error")
 	return nil
 }

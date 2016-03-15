@@ -5,7 +5,6 @@ package modelcmd
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -233,10 +232,6 @@ func (c *ModelCommandBase) ConnectionCredentials() (configstore.APICredentials, 
 		return emptyCreds, errors.Trace(err)
 	}
 	return info.APICredentials(), nil
-}
-
-var endpointRefresher = func(c *ModelCommandBase) (io.Closer, error) {
-	return c.NewAPIRoot()
 }
 
 var getConfigStore = func() (configstore.Storage, error) {

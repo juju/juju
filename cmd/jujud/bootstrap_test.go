@@ -385,18 +385,6 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
 }
 
-func testOpenState(c *gc.C, info *mongo.MongoInfo, expectErrType error) {
-	st, err := state.Open(testing.ModelTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
-	if st != nil {
-		st.Close()
-	}
-	if expectErrType != nil {
-		c.Assert(err, gc.FitsTypeOf, expectErrType)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
 func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, jc.ErrorIsNil)

@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"io/ioutil"
 	"math/rand"
-	"net/http"
 	"net/url"
 	"sync"
 
@@ -223,19 +222,6 @@ func (s *storageSuite) TestListOperatesOnFlatNamespace(c *gc.C) {
 	listing, err := storage.List(stor, "a/b")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(listing, gc.DeepEquals, []string{"a/b/c/d"})
-}
-
-// getFileAtURL requests, and returns, the file at the given URL.
-func getFileAtURL(fileURL string) ([]byte, error) {
-	response, err := http.Get(fileURL)
-	if err != nil {
-		return nil, err
-	}
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
-	return body, nil
 }
 
 func (s *storageSuite) TestURLReturnsURLCorrespondingToFile(c *gc.C) {

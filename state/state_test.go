@@ -3263,12 +3263,6 @@ func testSetAgentCompatPassword(c *gc.C, entity state.Authenticator) {
 	c.Assert(entity.PasswordValid("short"), jc.IsTrue)
 }
 
-type entity interface {
-	state.Entity
-	state.Lifer
-	state.Authenticator
-}
-
 type findEntityTest struct {
 	tag names.Tag
 	err string
