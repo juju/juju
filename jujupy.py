@@ -128,7 +128,7 @@ class JESByDefault(Exception):
             'This client does not need to enable JES')
 
 
-Machine = namedtuple('Machine', ['number', 'info'])
+Machine = namedtuple('Machine', ['machine_id', 'info'])
 
 
 def yaml_loads(yaml_str):
@@ -819,9 +819,9 @@ class EnvJujuClient:
         """
         members = []
         status = self.get_status()
-        for number, machine in status.iter_machines():
+        for machine_id, machine in status.iter_machines():
             if self.get_controller_member_status(machine):
-                members.append(Machine(number, machine))
+                members.append(Machine(machine_id, machine))
         if len(members) <= 1:
             return members
         # Search for the leader and make it the first in the list.
