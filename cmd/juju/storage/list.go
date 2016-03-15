@@ -37,7 +37,7 @@ options:
 type listCommand struct {
 	StorageCommandBase
 	out        cmd.Output
-	Ids        []string
+	ids        []string
 	filesystem bool
 	volume     bool
 	newAPIFunc func() (StorageListAPI, error)
@@ -45,7 +45,7 @@ type listCommand struct {
 
 // Init implements Command.Init.
 func (c *listCommand) Init(args []string) (err error) {
-	c.Ids = args
+	c.ids = args
 	return nil
 }
 
