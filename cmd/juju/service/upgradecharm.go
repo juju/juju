@@ -220,6 +220,22 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 // in the new charm's metadata and returns a map of resource names to pending
 // IDs to include in the upgrage-charm call.
 func (c *upgradeCharmCommand) upgradeResources(client *api.Client, cURL *charm.URL, csMac *macaroon.Macaroon) (map[string]string, error) {
+	filtered, err := getUpgradeResources(c, c.ServiceName, cURL, client, c.Resources)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(filtered) == 0 {
+		return nil, nil
+	}
+
+	// Note: the validity of user-supplied resources to be uploaded will be
+	// checked further down the stack.
+	return handleResources(c, c.Resources, c.ServiceName, cURL, csMac, filtered)
+}
+
+// TODO(ericsnow) Move these helpers into handleResources()?
+
+func getUpgradeResources(c APICmd, serviceID string, cURL *charm.URL, client *api.Client, cliResources map[string]string) (map[string]charmresource.Meta, error) {
 	meta, err := getMetaResources(cURL, client)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -228,18 +244,13 @@ func (c *upgradeCharmCommand) upgradeResources(client *api.Client, cURL *charm.U
 		return nil, nil
 	}
 
-	current, err := getResources(c.ServiceName, c.NewAPIRoot)
+	current, err := getResources(serviceID, c.NewAPIRoot)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	filtered := filterResources(meta, current, c.Resources)
-
-	// Note: the validity of user-supplied resources to be uploaded will be
-	// checked further down the stack.
-	return handleResources(c, c.Resources, c.ServiceName, cURL, csMac, filtered)
+	filtered := filterResources(meta, current, cliResources)
+	return filtered, nil
 }
-
-// TODO(ericsnow) Move these helpers into handleResources()?
 
 func getMetaResources(cURL *charm.URL, client *api.Client) (map[string]charmresource.Meta, error) {
 	// this gets the charm info that was added to the controller using addcharm.
