@@ -42,16 +42,27 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.networkInterfacesFile = filepath.Join(c.MkDir(), "interfaces")
 	s.fakeInterfaces = []network.InterfaceInfo{{
-		InterfaceName:  "eth0",
-		CIDR:           "0.1.2.0/24",
-		ConfigType:     network.ConfigStatic,
-		NoAutoStart:    false,
-		Address:        network.NewAddress("0.1.2.3"),
-		DNSServers:     network.NewAddresses("ns1.invalid", "ns2.invalid"),
-		DNSSearch:      "foo.bar",
-		GatewayAddress: network.NewAddress("0.1.2.1"),
+		InterfaceName:    "eth0",
+		CIDR:             "0.1.2.0/24",
+		ConfigType:       network.ConfigStatic,
+		NoAutoStart:      false,
+		Address:          network.NewAddress("0.1.2.3"),
+		DNSServers:       network.NewAddresses("ns1.invalid", "ns2.invalid"),
+		DNSSearchDomains: []string{"foo", "bar"},
+		GatewayAddress:   network.NewAddress("0.1.2.1"),
+		MACAddress:       "aa:bb:cc:dd:ee:f0",
 	}, {
-		InterfaceName: "eth1",
+		InterfaceName:    "eth1",
+		CIDR:             "0.1.2.0/24",
+		ConfigType:       network.ConfigStatic,
+		NoAutoStart:      false,
+		Address:          network.NewAddress("0.1.2.4"),
+		DNSServers:       network.NewAddresses("ns1.invalid", "ns2.invalid"),
+		DNSSearchDomains: []string{"foo", "bar"},
+		GatewayAddress:   network.NewAddress("0.1.2.1"),
+		MACAddress:       "aa:bb:cc:dd:ee:f0",
+	}, {
+		InterfaceName: "eth2",
 		ConfigType:    network.ConfigDHCP,
 		NoAutoStart:   true,
 	}}

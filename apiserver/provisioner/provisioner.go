@@ -691,9 +691,138 @@ func generateMACAddress() string {
 	return fmt.Sprintf(MACAddressTemplate, digits...)
 }
 
-// prepareOrGetContainerInterfaceInfo optionally allocates an address and returns information
-// for configuring networking on a container. It accepts container tags as arguments.
-func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
+func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities, maintain bool) (params.MachineNetworkConfigResults, error) {
+	result := params.MachineNetworkConfigResults{
+		Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
+	}
+
+	netEnviron, hostMachine, canAccess, err := p.prepareContainerAccessEnvironment()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	instId, err := hostMachine.InstanceId()
+	if errors.IsNotProvisioned(err) {
+		err = errors.NotProvisionedf("cannot prepare container network config: host machine %q", hostMachine)
+		return result, err
+	} else if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	for i, entity := range args.Entities {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		// The auth function (canAccess) checks that the machine is a
+		// top level machine (we filter those out next) or that the
+		// machine has the host as a parent.
+		container, err := p.getMachine(canAccess, tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		} else if !container.IsContainer() {
+			err = errors.Errorf("cannot prepare network config for %q: not a container", tag)
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		} else if ciid, cerr := container.InstanceId(); maintain == true && cerr == nil {
+			// Since we want to configure and create NICs on the
+			// container before it starts, it must also be not
+			// provisioned yet.
+			err = errors.Errorf("container %q already provisioned as %q", container, ciid)
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		} else if cerr != nil && !errors.IsNotProvisioned(cerr) {
+			// Any other error needs to be reported.
+			result.Results[i].Error = common.ServerError(cerr)
+			continue
+		}
+
+		if err := hostMachine.SetContainerLinkLayerDevices(container); err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		containerDevices, err := container.AllLinkLayerDevices()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		preparedInfo := make([]network.InterfaceInfo, len(containerDevices))
+		preparedOK := true
+		for j, device := range containerDevices {
+			parentDevice, err := device.ParentDevice()
+			if err != nil {
+				result.Results[i].Error = common.ServerError(err)
+				preparedOK = false
+				break
+			}
+			parentAddrs, err := parentDevice.Addresses()
+			if err != nil {
+				result.Results[i].Error = common.ServerError(err)
+				preparedOK = false
+				break
+			}
+			if len(parentAddrs) == 0 {
+				err = errors.Errorf("host machine device %q has no addresses", parentDevice.Name())
+				result.Results[i].Error = common.ServerError(err)
+				preparedOK = false
+				break
+			}
+			parentDeviceSubnet, err := parentAddrs[0].Subnet()
+			if err != nil {
+				err = errors.Errorf(
+					"host machine device %q address %q has no subnet",
+					parentDevice.Name(), parentAddrs[0],
+				)
+				result.Results[i].Error = common.ServerError(err)
+				preparedOK = false
+				break
+			}
+
+			info := network.InterfaceInfo{
+				InterfaceName:       device.Name(),
+				MACAddress:          device.MACAddress(),
+				ConfigType:          network.ConfigStatic,
+				InterfaceType:       network.InterfaceType(device.Type()),
+				NoAutoStart:         !device.IsAutoStart(),
+				Disabled:            !device.IsUp(),
+				MTU:                 int(device.MTU()),
+				CIDR:                parentDeviceSubnet.CIDR(),
+				ProviderSubnetId:    parentDeviceSubnet.ProviderId(),
+				VLANTag:             parentDeviceSubnet.VLANTag(),
+				ParentInterfaceName: parentDevice.Name(),
+			}
+			logger.Debugf("prepared info for container interface %q: %+v", info.InterfaceName, info)
+			preparedOK = true
+			preparedInfo[j] = info
+		}
+
+		if !preparedOK {
+			// Error result is already set.
+			continue
+		}
+
+		allocatedInfo, err := netEnviron.AllocateContainerAddresses(instId, preparedInfo)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		logger.Debugf("got allocated info from provider: %+v", allocatedInfo)
+
+		allocatedConfig := networkingcommon.NetworkConfigFromInterfaceInfo(allocatedInfo)
+		sortedAllocatedConfig := networkingcommon.SortNetworkConfigs(allocatedConfig)
+		logger.Debugf("allocated sorted network config: %+v", sortedAllocatedConfig)
+		result.Results[i].Config = sortedAllocatedConfig
+	}
+	return result, nil
+}
+
+// legacyPrepareOrGetContainerInterfaceInfo optionally allocates an address and
+// returns information for configuring networking on a container. It accepts
+// container tags as arguments.
+func (p *ProvisionerAPI) legacyPrepareOrGetContainerInterfaceInfo(
 	args params.Entities,
 	provisionContainer bool,
 ) (

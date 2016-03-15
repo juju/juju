@@ -81,6 +81,22 @@ iface {{.InterfaceName}} inet dhcp
 {{end}}{{range $nic := . }}{{if eq $nic.ConfigType "static"}}
 {{template "static" $nic}}{{else}}{{template "dhcp" $nic}}{{end}}{{end}}`
 
+// multiBridgeNetworkConfigTemplate defines how to render /etc/network/interfaces
+// file for a multi-NIC container.
+const multiBridgeNetworkConfigTemplate = `
+auto lo
+iface lo inet loopback
+{{range $nic := .}}{{template "single" $nic}}{{end}}
+{{define "single"}}{{if not .NoAutoStart}}
+auto {{.InterfaceName}}{{end}}
+iface {{.InterfaceName}} inet {{.ConfigType}}
+  address {{.CIDRAddress}}{{if .GatewayAddress.Value}}
+  gateway {{.GatewayAddress.Value}}{{end}}{{if .MACAddress}}
+  hwaddress {{.MACAddress}}{{end}}{{if .DNSServers}}
+  dns-nameservers{{range $srv := .DNSServers}} {{$srv.Value}}{{end}}{{end}}{{if .DNSSearchDomains}}
+  dns-search{{range $dom := .DNSSearchDomains}} {{$dom}}{{end}}{{end}}
+{{end}}`
+
 var networkInterfacesFile = "/etc/network/interfaces"
 
 // GenerateNetworkConfig renders a network config for one or more
@@ -93,8 +109,15 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 		return "", nil
 	}
 
+	for i, info := range networkConfig.Interfaces {
+		if info.MACAddress != "" {
+			info.MACAddress = ""
+		}
+		networkConfig.Interfaces[i] = info
+	}
+
 	// Render the config first.
-	tmpl, err := template.New("config").Parse(networkConfigTemplate)
+	tmpl, err := template.New("config").Parse(multiBridgeNetworkConfigTemplate)
 	if err != nil {
 		return "", errors.Annotate(err, "cannot parse network config template")
 	}

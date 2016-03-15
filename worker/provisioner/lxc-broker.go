@@ -17,7 +17,6 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/exec"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
@@ -707,7 +706,7 @@ func prepareOrGetContainerInterfaceInfo(
 		return nil, nil
 	}
 
-	log.Debugf("address allocation feature flag not enabled; using DHCP for container %q", machineID)
+	log.Debugf("address allocation feature flag not enabled; using multi-bridge networking for container %q", machineID)
 
 	// In case we're running on MAAS 1.8+ with devices support, we'll still
 	// call PrepareContainerInterfaceInfo(), but we'll ignore a NotSupported
@@ -720,38 +719,8 @@ func prepareOrGetContainerInterfaceInfo(
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
+	log.Tracef("PrepareContainerInterfaceInfo returned %+v", preparedInfo)
 
-	dnsServers, searchDomain, dnsErr := localDNSServers()
-
-	if dnsErr != nil {
-		return nil, errors.Trace(dnsErr)
-	}
-
-	bridgeDeviceAddress, err := discoverIPv4InterfaceAddress(bridgeDevice)
-
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	for i, _ := range preparedInfo {
-		preparedInfo[i].DNSServers = dnsServers
-		preparedInfo[i].DNSSearchDomains = []string{searchDomain}
-		if preparedInfo[i].GatewayAddress.Value == "" {
-			preparedInfo[i].GatewayAddress = *bridgeDeviceAddress
-		}
-	}
-
-	log.Tracef("PrepareContainerInterfaceInfo returned %#v", preparedInfo)
-	// Most likely there will be only one item in the list, but check
-	// all of them for forward compatibility.
-	macAddresses := set.NewStrings()
-	for _, prepInfo := range preparedInfo {
-		macAddresses.Add(prepInfo.MACAddress)
-	}
-	log.Infof(
-		"new container %q registered as a MAAS device with MAC address(es) %v",
-		machineID, macAddresses.SortedValues(),
-	)
 	return preparedInfo, nil
 }
 

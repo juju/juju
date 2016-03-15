@@ -155,6 +155,10 @@ func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkCo
 	} else if err != nil {
 		return errors.Trace(err)
 	}
+	if m.IsContainer() {
+		logger.Warningf("not updating observed network config for container %q", m.Id())
+		return nil
+	}
 	observedConfig := args.Config
 	logger.Tracef("observed network config of machine %q: %+v", m.Id(), observedConfig)
 

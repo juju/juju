@@ -59,6 +59,11 @@ type Networking interface {
 	// details of all associated subnets, about all spaces known to the
 	// provider that have subnets available.
 	Spaces() ([]network.SpaceInfo, error)
+
+	// AllocateContainerAddresses allocates a static address for each of the
+	// container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
+	// network config including all allocated addresses on success.
+	AllocateContainerAddresses(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error)
 }
 
 // NetworkingEnviron combines the standard Environ interface with the

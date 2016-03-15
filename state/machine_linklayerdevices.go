@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 
 	"github.com/juju/errors"
@@ -847,4 +848,59 @@ func (m *Machine) SetDevicesAddressesIdempotently(devicesAddresses []LinkLayerDe
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// SetContainerLinkLayerDevices sets the link-layer devices of the given
+// containerMachine, setting each device linked to the corresponding
+// BridgeDevice of the host machine m.
+func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error {
+	allDevices, err := m.AllLinkLayerDevices()
+	if err != nil {
+		return errors.Annotate(err, "cannot get host machine devices")
+	}
+	logger.Debugf("using host machine %q devices: %+v", m.Id(), allDevices)
+
+	var containerDevicesArgs []LinkLayerDeviceArgs
+	for _, hostDevice := range allDevices {
+		if hostDevice.Type() == BridgeDevice {
+			containerDeviceName := fmt.Sprintf("eth%d", len(containerDevicesArgs))
+			generatedMAC := generateMACAddress()
+			args := LinkLayerDeviceArgs{
+				Name:        containerDeviceName,
+				Type:        EthernetDevice,
+				MACAddress:  generatedMAC,
+				MTU:         hostDevice.MTU(),
+				IsUp:        true,
+				IsAutoStart: true,
+				ParentName:  hostDevice.globalKey(),
+			}
+			containerDevicesArgs = append(containerDevicesArgs, args)
+		}
+	}
+	logger.Debugf("prepared container %q network config: %+v", containerMachine.Id(), containerDevicesArgs)
+
+	if err := containerMachine.SetLinkLayerDevices(containerDevicesArgs...); err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Debugf("container %q network config set", containerMachine.Id())
+	return nil
+}
+
+// MACAddressTemplate is used to generate a unique MAC address for a
+// container. Every '%x' is replaced by a random hexadecimal digit,
+// while the rest is kept as-is.
+const macAddressTemplate = "00:16:3e:%02x:%02x:%02x"
+
+// generateMACAddress creates a random MAC address within the space defined by
+// macAddressTemplate above.
+//
+// TODO(dimitern): We should make a best effort to ensure the MAC address we
+// generate is unique at least within the current environment.
+func generateMACAddress() string {
+	digits := make([]interface{}, 3)
+	for i := range digits {
+		digits[i] = rand.Intn(256)
+	}
+	return fmt.Sprintf(macAddressTemplate, digits...)
 }

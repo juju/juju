@@ -313,6 +313,23 @@ func (i *InterfaceInfo) IsVLAN() bool {
 	return i.VLANTag > 0
 }
 
+// CIDRAddress returns Address.Value combined with CIDR mask.
+func (i *InterfaceInfo) CIDRAddress() string {
+	if i.CIDR == "" || i.Address.Value == "" {
+		return ""
+	}
+	_, ipNet, err := net.ParseCIDR(i.CIDR)
+	if err != nil {
+		return errors.Trace(err).Error()
+	}
+	ip := net.ParseIP(i.Address.Value)
+	if ip == nil {
+		return errors.Errorf("cannot parse IP address %q", i.Address.Value).Error()
+	}
+	ipNet.IP = ip
+	return ipNet.String()
+}
+
 var preferIPv6 uint32
 
 // PreferIPV6 returns true if this process prefers IPv6.

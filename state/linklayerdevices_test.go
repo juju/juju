@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -985,5 +986,29 @@ func (s *linkLayerDevicesStateSuite) testMachineSetParentLinkLayerDevicesBeforeT
 		if device.Type() != state.LoopbackDevice && device.Type() != state.BridgeDevice {
 			c.Check(device.ProviderID(), gc.Not(gc.Equals), network.Id(""))
 		}
+	}
+}
+
+func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevices(c *gc.C) {
+	err := s.machine.SetParentLinkLayerDevicesBeforeTheirChildren(nestedDevicesArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	s.addContainerMachine(c)
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+
+	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerDevices, gc.HasLen, 3)
+
+	for i, containerDevice := range containerDevices {
+		c.Check(containerDevice.Name(), gc.Matches, "eth"+strconv.Itoa(i))
+		c.Check(containerDevice.Type(), gc.Equals, state.EthernetDevice)
+		c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
+		c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
+		c.Check(containerDevice.IsUp(), jc.IsTrue)
+		c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
+		c.Check(containerDevice.ParentName(), gc.Matches, `m#0#d#br-bond0(|\.12|\.34)`)
 	}
 }

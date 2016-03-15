@@ -1681,3 +1681,7 @@ func delay() {
 		<-time.After(providerDelay)
 	}
 }
+
+func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotSupportedf("container address allocation")
+}
