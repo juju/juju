@@ -13,10 +13,6 @@ import (
 	"github.com/juju/juju/network"
 )
 
-var supportedContainerTypes = []string{
-	"lxd",
-}
-
 type policyProvider interface {
 	// SupportedArchitectures returns the list of image architectures
 	// supported by this environment.

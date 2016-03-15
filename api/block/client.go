@@ -5,13 +5,10 @@ package block
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
-
-var logger = loggo.GetLogger("juju.api.block")
 
 // Client allows access to the block API end point.
 type Client struct {

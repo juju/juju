@@ -151,13 +151,6 @@ func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestrea
 	return list, err
 }
 
-func stringOrEmpty(pstr *string) string {
-	if pstr == nil {
-		return ""
-	}
-	return *pstr
-}
-
 // FindExactTools returns only the tools that match the supplied version.
 func FindExactTools(env environs.Environ, vers version.Number, series string, arch string) (t *coretools.Tools, err error) {
 	logger.Infof("finding exact version %s", vers)

@@ -82,7 +82,6 @@ import (
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/modelworkermanager"
@@ -98,11 +97,8 @@ import (
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
-const bootstrapMachineId = "0"
-
 var (
 	logger       = loggo.GetLogger("juju.cmd.jujud")
-	retryDelay   = 3 * time.Second
 	jujuRun      = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
 	jujuDumpLogs = paths.MustSucceed(paths.JujuDumpLogs(series.HostSeries()))
 
@@ -113,7 +109,6 @@ var (
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
-	newMachiner              = machiner.NewMachiner
 	newDiscoverSpaces        = discoverspaces.NewWorker
 	newFirewaller            = firewaller.NewFirewaller
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
