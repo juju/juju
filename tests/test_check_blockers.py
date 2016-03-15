@@ -44,7 +44,7 @@ def make_fake_lp(series=False, bugs=False):
 class CheckBlockers(TestCase):
 
     def test_parse_args_check(self):
-        args = check_blockers.parse_args(['check', 'master', '17'])
+        args = check_blockers.parse_args(['check', 'MASTER', '17'])
         self.assertEqual('check', args.command)
         self.assertEqual('master', args.branch)
         self.assertEqual('17', args.pull_request)
@@ -53,17 +53,23 @@ class CheckBlockers(TestCase):
         args = check_blockers.parse_args(['check', 'master'])
         self.assertEqual('check', args.command)
         self.assertEqual('master', args.branch)
-        self.assertEqual(None, args.pull_request)
+        self.assertIsNone(args.pull_request)
+
+    def test_parse_args_block_ci_testing(self):
+        args = check_blockers.parse_args(['block-ci-testing', 'FEATURE'])
+        self.assertEqual('block-ci-testing', args.command)
+        self.assertEqual('feature', args.branch)
+        self.assertIsNone(args.pull_request)
 
     def test_parse_args_check_branch_optional(self):
         args = check_blockers.parse_args(['check'])
         self.assertEqual('check', args.command)
         self.assertEqual('master', args.branch)
-        self.assertEqual(None, args.pull_request)
+        self.assertIsNone(args.pull_request)
 
     def test_parse_args_update(self):
         args = check_blockers.parse_args(
-            ['-c', './foo.cred', 'update', 'master', '1234'])
+            ['-c', './foo.cred', 'update', 'MASTER', '1234'])
         self.assertEqual('update', args.command)
         self.assertEqual('master', args.branch)
         self.assertEqual('1234', args.build)
@@ -80,7 +86,22 @@ class CheckBlockers(TestCase):
                            return_value=(0, 'foo')) as gr:
                     code = check_blockers.main(['check', 'master', '17'])
         gl.assert_called_with('check_blockers', credentials_file=None)
-        glb.assert_called_with('lp', 'master', with_ci=False)
+        glb.assert_called_with('lp', 'master', ['blocker'])
+        gr.assert_called_with(bugs, args)
+        self.assertEqual(0, code)
+
+    def test_main_block_ci_testing(self):
+        bugs = {}
+        args = check_blockers.parse_args(['block-ci-testing', 'feature'])
+        with patch('check_blockers.get_lp', autospec=True,
+                   return_value='lp') as gl:
+            with patch('check_blockers.get_lp_bugs', autospec=True,
+                       return_value=bugs) as glb:
+                with patch('check_blockers.get_reason', autospec=True,
+                           return_value=(0, 'foo')) as gr:
+                    code = check_blockers.main(['block-ci-testing', 'feature'])
+        gl.assert_called_with('check_blockers', credentials_file=None)
+        glb.assert_called_with('lp', 'feature', ['block-ci-testing'])
         gr.assert_called_with(bugs, args)
         self.assertEqual(0, code)
 
@@ -95,13 +116,13 @@ class CheckBlockers(TestCase):
                            return_value=[0, 'Updating']) as ub:
                     code = check_blockers.main(argv)
         gl.assert_called_with('check_blockers', credentials_file='./foo.cred')
-        glb.assert_called_with('lp', 'master', with_ci=True)
+        glb.assert_called_with('lp', 'master', ['blocker', 'ci'])
         ub.assert_called_with(bugs, 'master', '1234', dry_run=True)
         self.assertEqual(0, code)
 
     def test_get_lp_bugs_with_master_branch(self):
         lp = make_fake_lp(series=False, bugs=True)
-        bugs = check_blockers.get_lp_bugs(lp, 'master')
+        bugs = check_blockers.get_lp_bugs(lp, 'master', ['blocker'])
         self.assertEqual(['54321', '98765'], sorted(bugs.keys()))
         project = lp.projects['juju-core']
         self.assertEqual(0, project.getSeries.call_count)
@@ -112,7 +133,7 @@ class CheckBlockers(TestCase):
 
     def test_get_lp_bugs_with_supported_branch(self):
         lp = make_fake_lp(series=True, bugs=True)
-        bugs = check_blockers.get_lp_bugs(lp, '1.20')
+        bugs = check_blockers.get_lp_bugs(lp, '1.20', ['blocker'])
         self.assertEqual(['54321', '98765'], sorted(bugs.keys()))
         project = lp.projects['juju-core']
         project.getSeries.assert_called_with(name='1.20')
@@ -124,7 +145,7 @@ class CheckBlockers(TestCase):
 
     def test_get_lp_bugs_with_unsupported_branch(self):
         lp = make_fake_lp(series=False, bugs=False)
-        bugs = check_blockers.get_lp_bugs(lp, 'foo')
+        bugs = check_blockers.get_lp_bugs(lp, 'foo', ['blocker'])
         self.assertEqual({}, bugs)
         project = lp.projects['juju-core']
         project.getSeries.assert_called_with(name='foo')
@@ -132,7 +153,7 @@ class CheckBlockers(TestCase):
 
     def test_get_lp_bugs_without_blocking_bugs(self):
         lp = make_fake_lp(series=False, bugs=False)
-        bugs = check_blockers.get_lp_bugs(lp, 'master')
+        bugs = check_blockers.get_lp_bugs(lp, 'master', ['blocker'])
         self.assertEqual({}, bugs)
         project = lp.projects['juju-core']
         project.searchTasks.assert_called_with(
@@ -140,15 +161,10 @@ class CheckBlockers(TestCase):
             importance=check_blockers.BUG_IMPORTANCES,
             tags=check_blockers.BUG_TAGS, tags_combinator='All')
 
-    def test_get_lp_bugs_with_ci(self):
+    def test_get_lp_bugs_error(self):
         lp = make_fake_lp(series=False, bugs=True)
-        check_blockers.get_lp_bugs(lp, 'master', with_ci=True)
-        project = lp.projects['juju-core']
-        bug_tags = check_blockers.BUG_TAGS + ['ci']
-        project.searchTasks.assert_called_with(
-            status=check_blockers.BUG_STATUSES,
-            importance=check_blockers.BUG_IMPORTANCES,
-            tags=bug_tags, tags_combinator='All')
+        with self.assertRaises(ValueError):
+            check_blockers.get_lp_bugs(lp, 'master', [])
 
     def test_get_reason_without_blocking_bugs(self):
         args = check_blockers.parse_args(['check', 'master', '17'])
@@ -236,7 +252,7 @@ class CheckBlockers(TestCase):
 
     def test_update_bugs(self):
         lp = make_fake_lp(series=False, bugs=True)
-        bugs = check_blockers.get_lp_bugs(lp, 'master')
+        bugs = check_blockers.get_lp_bugs(lp, 'master', ['blocker'])
         code, changes = check_blockers.update_bugs(
             bugs, 'master', '1234', dry_run=False)
         self.assertEqual(0, code)
@@ -252,7 +268,7 @@ class CheckBlockers(TestCase):
 
     def test_update_bugs_with_dry_run(self):
         lp = make_fake_lp(series=False, bugs=True)
-        bugs = check_blockers.get_lp_bugs(lp, 'master')
+        bugs = check_blockers.get_lp_bugs(lp, 'master', ['blocker'])
         code, changes = check_blockers.update_bugs(
             bugs, 'master', '1234', dry_run=True)
         self.assertEqual(0, bugs['54321'].lp_save.call_count)
