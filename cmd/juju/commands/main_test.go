@@ -238,6 +238,7 @@ var commandNames = []string{
 	"get-constraints",
 	"get-model-config",
 	"get-model-constraints",
+	"gui",
 	"help",
 	"help-tool",
 	"import-ssh-key",

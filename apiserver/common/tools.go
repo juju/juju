@@ -17,7 +17,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/toolstorage"
+	"github.com/juju/juju/state/binarystorage"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -43,8 +43,8 @@ type APIHostPortsGetter interface {
 
 // ToolsStorageGetter is an interface providing the ToolsStorage method.
 type ToolsStorageGetter interface {
-	// ToolsStorage returns a toolstorage.StorageCloser.
-	ToolsStorage() (toolstorage.StorageCloser, error)
+	// ToolsStorage returns a binarystorage.StorageCloser.
+	ToolsStorage() (binarystorage.StorageCloser, error)
 }
 
 // ToolsGetter implements a common Tools method for use by various
@@ -114,7 +114,7 @@ func (t *ToolsGetter) getGlobalAgentVersion() (version.Number, error) {
 	return agentVersion, nil
 }
 
-func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersion version.Number, storage toolstorage.Storage) (*coretools.Tools, error) {
+func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersion version.Number, storage binarystorage.Storage) (*coretools.Tools, error) {
 	if !canRead(tag) {
 		return nil, ErrPerm
 	}
@@ -228,7 +228,7 @@ func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 		return nil, err
 	}
 	// Rewrite the URLs so they point at the API server. If the
-	// tools are not in toolstorage, then the API server will
+	// tools are not in tools storage, then the API server will
 	// download and cache them if the client requests that version.
 	for _, tools := range list {
 		url, err := f.urlGetter.ToolsURL(tools.Version)
@@ -240,9 +240,9 @@ func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 	return list, nil
 }
 
-// findMatchingTools searches toolstorage and simplestreams for tools matching the
+// findMatchingTools searches tools storage and simplestreams for tools matching the
 // given parameters. If an exact match is specified (number, series and arch)
-// and is found in toolstorage, then simplestreams will not be searched.
+// and is found in tools storage, then simplestreams will not be searched.
 func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.List, error) {
 	exactMatch := args.Number != version.Zero && args.Series != "" && args.Arch != ""
 	storageList, err := f.matchingStorageTools(args)
@@ -286,7 +286,7 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.
 }
 
 // matchingStorageTools returns a coretools.List, with an entry for each
-// metadata entry in the toolstorage that matches the given parameters.
+// metadata entry in the tools storage that matches the given parameters.
 func (f *ToolsFinder) matchingStorageTools(args params.FindToolsParams) (coretools.List, error) {
 	storage, err := f.toolsStorageGetter.ToolsStorage()
 	if err != nil {
@@ -299,8 +299,12 @@ func (f *ToolsFinder) matchingStorageTools(args params.FindToolsParams) (coretoo
 	}
 	list := make(coretools.List, len(allMetadata))
 	for i, m := range allMetadata {
+		vers, err := version.ParseBinary(m.Version)
+		if err != nil {
+			return nil, errors.Annotatef(err, "unexpectedly bad version %q in tools storage", m.Version)
+		}
 		list[i] = &coretools.Tools{
-			Version: m.Version,
+			Version: vers,
 			Size:    m.Size,
 			SHA256:  m.SHA256,
 		}

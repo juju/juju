@@ -41,7 +41,7 @@ const (
 )
 
 var (
-	ToolstorageNewStorage  = &toolstorageNewStorage
+	BinarystorageNew       = &binarystorageNew
 	ImageStorageNewStorage = &imageStorageNewStorage
 	MachineIdLessThan      = machineIdLessThan
 	ControllerAvailable    = &controllerAvailable
