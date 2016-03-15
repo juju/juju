@@ -2678,6 +2678,7 @@ class TestEnvJujuClient2B2(ClientTest):
             admin_name = client.get_admin_model_name()
         self.assertEqual('foo', admin_name)
 
+
 class TestEnvJujuClient2A2(TestCase):
 
     def test_raise_on_juju_data(self):
