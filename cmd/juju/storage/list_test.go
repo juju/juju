@@ -31,7 +31,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ListSuite) runList(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, storage.NewListCommand(s.mockAPI, s.store), args...)
+	return testing.RunCommand(c, storage.NewListCommandForTest(s.mockAPI, s.store), args...)
 }
 
 func (s *ListSuite) TestList(c *gc.C) {
@@ -129,7 +129,9 @@ func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid string
 }
 
 type mockListAPI struct {
-	listErrors bool
+	listErrors      bool
+	listFilesystems func([]string) ([]params.FilesystemDetailsListResult, error)
+	listVolumes     func([]string) ([]params.VolumeDetailsListResult, error)
 }
 
 func (s mockListAPI) Close() error {
