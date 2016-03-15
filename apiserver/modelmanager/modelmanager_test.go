@@ -589,7 +589,7 @@ func (s *modelManagerSuite) TestGrantModelAddAdminUser(c *gc.C) {
 	c.Assert(lastConn, gc.Equals, time.Time{})
 }
 
-func (s *modelManagerSuite) TestGrantModelAddUserTwice(c *gc.C) {
+func (s *modelManagerSuite) TestGrantModelIncreaseAccess(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 	s.setAPIUser(c, s.AdminUserTag(c))
 	st := s.Factory.MakeModel(c, nil)
@@ -610,6 +610,15 @@ func (s *modelManagerSuite) TestGrantModelAddUserTwice(c *gc.C) {
 	c.Assert(result.OneError(), gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	args = params.ModifyModelAccessRequest{
+		Changes: []params.ModifyModelAccess{{
+			UserTag:  user.Tag().String(),
+			Action:   params.GrantModelAccess,
+			Access:   params.ModelWriteAccess,
+			ModelTag: model.ModelTag().String(),
+		}}}
+
 	result, err = s.modelmanager.ModifyModelAccess(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), gc.IsNil)
@@ -619,6 +628,7 @@ func (s *modelManagerSuite) TestGrantModelAddUserTwice(c *gc.C) {
 	modelUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName(), gc.Equals, user.UserTag().Canonical())
+	c.Assert(modelUser.Access(), gc.Equals, state.ModelAdminAccess)
 }
 
 func (s *modelManagerSuite) TestGrantModelInvalidUserTag(c *gc.C) {
