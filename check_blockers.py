@@ -56,7 +56,6 @@ def parse_args(args=None):
         help='The branch to merge into.')
     check_parser.add_argument('pull_request', default=None, nargs='?',
                               help='The pull request to be merged')
-    check_parser.set_defaults(pull_request=None)
     block_ci_testing_parser = subparsers.add_parser(
         'block-ci-testing',
         help='Check if ci testing is blocked for the branch.')
@@ -77,7 +76,7 @@ def parse_args(args=None):
     return args
 
 
-def get_lp_bugs(lp, branch, tags=None):
+def get_lp_bugs(lp, branch, tags):
     """Return a dict of blocker critical bug tasks for the branch."""
     if not tags:
         raise ValueError('tags must be a list of bug tags')

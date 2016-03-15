@@ -164,7 +164,7 @@ class CheckBlockers(TestCase):
     def test_get_lp_bugs_error(self):
         lp = make_fake_lp(series=False, bugs=True)
         with self.assertRaises(ValueError):
-            check_blockers.get_lp_bugs(lp, 'master')
+            check_blockers.get_lp_bugs(lp, 'master', [])
 
     def test_get_reason_without_blocking_bugs(self):
         args = check_blockers.parse_args(['check', 'master', '17'])
