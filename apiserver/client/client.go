@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/service"
-	"github.com/juju/juju/apiserver/usermanager"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
@@ -351,34 +350,6 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 		ControllerUUID: env.ControllerUUID(),
 	}
 	return info, nil
-}
-
-// ShareModel manages allowing and denying the given user(s) access to the model.
-func (c *Client) ShareModel(args params.ModifyModelUsers) (result params.ErrorResults, err error) {
-	var createdBy names.UserTag
-	var ok bool
-	if createdBy, ok = c.api.auth.GetAuthTag().(names.UserTag); !ok {
-		return result, errors.Errorf("api connection is not through a user")
-	}
-
-	result = params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Changes)),
-	}
-	if len(args.Changes) == 0 {
-		return result, nil
-	}
-
-	for i, arg := range args.Changes {
-		userTagString := arg.UserTag
-		user, err := names.ParseUserTag(userTagString)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not share model"))
-			continue
-		}
-		result.Results[i].Error = common.ServerError(
-			usermanager.ShareModelAction(c.api.stateAccessor, c.api.stateAccessor.ModelTag(), createdBy, user, arg.Action))
-	}
-	return result, nil
 }
 
 // ModelUserInfo returns information on all users in the model.
