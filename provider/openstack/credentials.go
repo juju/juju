@@ -24,12 +24,12 @@ func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.Credent
 		cloud.UserPassAuthType: {
 			"username": {
 				Description: "The username to authenticate with.",
-				Require: &cloud.RequireAttr{cloud.AuthTypeFieldName, cloud.UserPassAuthType},
+				Require:     &cloud.RequireAttr{cloud.AuthTypeFieldName, string(cloud.UserPassAuthType)},
 			},
 			"password": {
 				Description: "The password for the specified username.",
 				Hidden:      true,
-				Require: &cloud.RequireAttr{cloud.AuthTypeFieldName, cloud.UserPassAuthType},
+				Require:     &cloud.RequireAttr{cloud.AuthTypeFieldName, string(cloud.UserPassAuthType)},
 			},
 			"tenant-name": {
 				Description: "The OpenStack tenant name.",
@@ -38,11 +38,11 @@ func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.Credent
 		cloud.AccessKeyAuthType: {
 			"access-key": {
 				Description: "The access key to authenticate with.",
-				Require: &cloud.RequireAttr{cloud.AuthTypeFieldName, cloud.AccessKeyAuthType},
+				Require:     &cloud.RequireAttr{cloud.AuthTypeFieldName, string(cloud.AccessKeyAuthType)},
 			},
 			"secret-key": {
 				Description: "The secret key to authenticate with.",
-				Require: &cloud.RequireAttr{cloud.AuthTypeFieldName, cloud.AccessKeyAuthType},
+				Require:     &cloud.RequireAttr{cloud.AuthTypeFieldName, string(cloud.AccessKeyAuthType)},
 				Hidden:      true,
 			},
 			"tenant-name": {
