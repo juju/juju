@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
@@ -37,7 +38,7 @@ type MigrationSuite struct {
 }
 
 type statusSetter interface {
-	SetStatus(state.Status, string, map[string]interface{}) error
+	SetStatus(status.Status, string, map[string]interface{}) error
 }
 
 func (s *MigrationSuite) setLatestTools(c *gc.C, latestTools version.Number) {
@@ -59,10 +60,10 @@ func (s *MigrationSuite) setRandSequenceValue(c *gc.C, name string) int {
 	return value + 1
 }
 
-func (s *MigrationSuite) primeStatusHistory(c *gc.C, entity statusSetter, status state.Status, count int) {
+func (s *MigrationSuite) primeStatusHistory(c *gc.C, entity statusSetter, statusVal status.Status, count int) {
 	for i := 0; i < count; i++ {
 		c.Logf("setting status for %v", entity)
-		err := entity.SetStatus(status, "", map[string]interface{}{"index": count - i})
+		err := entity.SetStatus(statusVal, "", map[string]interface{}{"index": count - i})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -94,9 +95,9 @@ type MigrationExportSuite struct {
 
 var _ = gc.Suite(&MigrationExportSuite{})
 
-func (s *MigrationExportSuite) checkStatusHistory(c *gc.C, history []description.Status, status state.Status) {
+func (s *MigrationExportSuite) checkStatusHistory(c *gc.C, history []description.Status, statusVal status.Status) {
 	for i, st := range history {
-		c.Check(st.Value(), gc.Equals, string(status))
+		c.Check(st.Value(), gc.Equals, string(statusVal))
 		c.Check(st.Message(), gc.Equals, "")
 		c.Check(st.Data(), jc.DeepEquals, map[string]interface{}{"index": i + 1})
 	}
@@ -194,7 +195,7 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
 	err := s.State.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, machine1, state.StatusStarted, addedHistoryCount)
+	s.primeStatusHistory(c, machine1, status.StatusStarted, addedHistoryCount)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -219,7 +220,7 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 
 	history := exported.StatusHistory()
 	c.Assert(history, gc.HasLen, expectedHistoryCount)
-	s.checkStatusHistory(c, history[:addedHistoryCount], state.StatusStarted)
+	s.checkStatusHistory(c, history[:addedHistoryCount], status.StatusStarted)
 
 	containers := exported.Containers()
 	c.Assert(containers, gc.HasLen, 1)
@@ -242,7 +243,7 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(service, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, service, state.StatusActive, addedHistoryCount)
+	s.primeStatusHistory(c, service, status.StatusActive, addedHistoryCount)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -272,7 +273,7 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 
 	history := exported.StatusHistory()
 	c.Assert(history, gc.HasLen, expectedHistoryCount)
-	s.checkStatusHistory(c, history[:addedHistoryCount], state.StatusActive)
+	s.checkStatusHistory(c, history[:addedHistoryCount], status.StatusActive)
 }
 
 func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
@@ -295,8 +296,8 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(unit, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, unit, state.StatusActive, addedHistoryCount)
-	s.primeStatusHistory(c, unit.Agent(), state.StatusIdle, addedHistoryCount)
+	s.primeStatusHistory(c, unit, status.StatusActive, addedHistoryCount)
+	s.primeStatusHistory(c, unit.Agent(), status.StatusIdle, addedHistoryCount)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -323,11 +324,11 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 
 	workloadHistory := exported.WorkloadStatusHistory()
 	c.Assert(workloadHistory, gc.HasLen, expectedHistoryCount)
-	s.checkStatusHistory(c, workloadHistory[:addedHistoryCount], state.StatusActive)
+	s.checkStatusHistory(c, workloadHistory[:addedHistoryCount], status.StatusActive)
 
 	agentHistory := exported.AgentStatusHistory()
 	c.Assert(agentHistory, gc.HasLen, expectedHistoryCount)
-	s.checkStatusHistory(c, agentHistory[:addedHistoryCount], state.StatusIdle)
+	s.checkStatusHistory(c, agentHistory[:addedHistoryCount], status.StatusIdle)
 }
 
 func (s *MigrationExportSuite) TestServiceLeadership(c *gc.C) {

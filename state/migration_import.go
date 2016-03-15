@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -239,20 +240,27 @@ func (i *importer) machine(m description.Machine) error {
 	//    - adds machine block devices doc
 
 	// TODO: consider filesystems and volumes
-	status := m.Status()
-	if status == nil {
+	mStatus := m.Status()
+	if mStatus == nil {
 		return errors.NotValidf("missing status")
 	}
-	statusDoc := statusDoc{
+	machineStatusDoc := statusDoc{
 		ModelUUID:  i.st.ModelUUID(),
-		Status:     Status(status.Value()),
-		StatusInfo: status.Message(),
-		StatusData: status.Data(),
-		Updated:    status.Updated().UnixNano(),
+		Status:     status.Status(mStatus.Value()),
+		StatusInfo: mStatus.Message(),
+		StatusData: mStatus.Data(),
+		Updated:    mStatus.Updated().UnixNano(),
+	}
+	// XXX(mjs) - this needs to be included in the serialized model
+	// (a card exists for the work). Fake it for now.
+	instanceStatusDoc := statusDoc{
+		ModelUUID: i.st.ModelUUID(),
+		Status:    status.StatusStarted,
 	}
 	cons := i.constraints(m.Constraints())
 	networks := []string{}
-	prereqOps, machineOp := i.st.baseNewMachineOps(mdoc, statusDoc, cons, networks)
+	prereqOps, machineOp := i.st.baseNewMachineOps(mdoc, machineStatusDoc,
+		instanceStatusDoc, cons, networks)
 
 	// 3. create op for adding in instance data
 	if instance := m.Instance(); instance != nil {
@@ -492,12 +500,12 @@ func (i *importer) loadUnits() error {
 }
 
 // makeStatusDoc assumes status is non-nil.
-func (i *importer) makeStatusDoc(status description.Status) statusDoc {
+func (i *importer) makeStatusDoc(statusVal description.Status) statusDoc {
 	return statusDoc{
-		Status:     Status(status.Value()),
-		StatusInfo: status.Message(),
-		StatusData: status.Data(),
-		Updated:    status.Updated().UnixNano(),
+		Status:     status.Status(statusVal.Value()),
+		StatusInfo: statusVal.Message(),
+		StatusData: statusVal.Data(),
+		Updated:    statusVal.Updated().UnixNano(),
 	}
 }
 
@@ -773,13 +781,13 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 
 func (i *importer) importStatusHistory(globalKey string, history []description.Status) error {
 	docs := make([]interface{}, len(history))
-	for i, status := range history {
+	for i, statusVal := range history {
 		docs[i] = historicalStatusDoc{
 			GlobalKey:  globalKey,
-			Status:     Status(status.Value()),
-			StatusInfo: status.Message(),
-			StatusData: status.Data(),
-			Updated:    status.Updated().UnixNano(),
+			Status:     status.Status(statusVal.Value()),
+			StatusInfo: statusVal.Message(),
+			StatusData: statusVal.Data(),
+			Updated:    statusVal.Updated().UnixNano(),
 		}
 	}
 

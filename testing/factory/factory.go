@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -89,7 +90,7 @@ type ServiceParams struct {
 	Name        string
 	Charm       *state.Charm
 	Creator     names.Tag
-	Status      *state.StatusInfo
+	Status      *status.StatusInfo
 	Settings    map[string]interface{}
 	Constraints constraints.Value
 }
@@ -100,7 +101,7 @@ type UnitParams struct {
 	Machine     *state.Machine
 	Password    string
 	SetCharmURL bool
-	Status      *state.StatusInfo
+	Status      *status.StatusInfo
 	Constraints constraints.Value
 }
 
