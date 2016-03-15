@@ -161,7 +161,7 @@ func (st resourceState) AddPendingResource(serviceID, userID string, chRes charm
 	if err != nil {
 		return "", errors.Annotate(err, "could not generate resource ID")
 	}
-	logger.Tracef("adding pending resource %q for service %q (ID: %s)", chRes.Name, serviceID, pendingID)
+	logger.Debugf("adding pending resource %q for service %q (ID: %s)", chRes.Name, serviceID, pendingID)
 
 	if _, err := st.setResource(pendingID, serviceID, userID, chRes, r); err != nil {
 		return "", errors.Trace(err)
