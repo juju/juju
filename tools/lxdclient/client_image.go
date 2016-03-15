@@ -71,7 +71,7 @@ func (i *imageClient) EnsureImageExists(series string, copyProgressHandler func(
 	adapter := &progressContext{
 		logger:  logger,
 		level:   loggo.INFO,
-		context: fmt.Sprintf("copying image for %s from %s: %%s", series, ubuntu.BaseURL),
+		context: fmt.Sprintf("copying image for %s from %s: %%s", name, ubuntu.BaseURL),
 		forward: copyProgressHandler,
 	}
 	target := ubuntu.GetAlias(series)
