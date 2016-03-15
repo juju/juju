@@ -19,6 +19,7 @@ type stateInterface interface {
 	IsControllerAdministrator(user names.UserTag) (bool, error)
 	NewModel(*config.Config, names.UserTag) (*state.Model, *state.State, error)
 	ControllerModel() (*state.Model, error)
+	ForModel(tag names.ModelTag) (*state.State, error)
 }
 
 type stateShim struct {

@@ -42,30 +42,6 @@ func NewRetryProvisioningCommandForTest(api RetryProvisioningAPI) cmd.Command {
 	return modelcmd.Wrap(cmd)
 }
 
-type ShareCommand struct {
-	*shareCommand
-}
-
-// NewShareCommandForTest returns a ShareCommand with the api provided as specified.
-func NewShareCommandForTest(api ShareEnvironmentAPI) (cmd.Command, *ShareCommand) {
-	cmd := &shareCommand{
-		api: api,
-	}
-	return modelcmd.Wrap(cmd), &ShareCommand{cmd}
-}
-
-type UnshareCommand struct {
-	*unshareCommand
-}
-
-// NewUnshareCommandForTest returns an unshareCommand with the api provided as specified.
-func NewUnshareCommandForTest(api UnshareEnvironmentAPI) (cmd.Command, *UnshareCommand) {
-	cmd := &unshareCommand{
-		api: api,
-	}
-	return modelcmd.Wrap(cmd), &UnshareCommand{cmd}
-}
-
 // NewUsersCommandForTest returns a UsersCommand with the api provided as specified.
 func NewUsersCommandForTest(api UsersAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &usersCommand{api: api}
@@ -84,4 +60,30 @@ func NewDestroyCommandForTest(api DestroyEnvironmentAPI, store jujuclient.Client
 		modelcmd.ModelSkipDefault,
 		modelcmd.ModelSkipFlags,
 	)
+}
+
+type GrantCommand struct {
+	*grantCommand
+}
+
+type RevokeCommand struct {
+	*revokeCommand
+}
+
+// NewGrantCommandForTest returns a GrantCommand with the api provided as specified.
+func NewGrantCommandForTest(api GrantModelAPI, store jujuclient.ClientStore) (cmd.Command, *GrantCommand) {
+	cmd := &grantCommand{
+		api: api,
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.WrapController(cmd), &GrantCommand{cmd}
+}
+
+// NewRevokeCommandForTest returns an revokeCommand with the api provided as specified.
+func NewRevokeCommandForTest(api RevokeModelAPI, store jujuclient.ClientStore) (cmd.Command, *RevokeCommand) {
+	cmd := &revokeCommand{
+		api: api,
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.WrapController(cmd), &RevokeCommand{cmd}
 }

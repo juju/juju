@@ -36,7 +36,7 @@ func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 	c.Assert(modelUser.ModelTag(), gc.Equals, s.modelTag)
 	c.Assert(modelUser.UserName(), gc.Equals, "validusername@local")
 	c.Assert(modelUser.DisplayName(), gc.Equals, user.DisplayName())
-	c.Assert(modelUser.ReadOnly(), jc.IsFalse)
+	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
 	c.Assert(modelUser.CreatedBy(), gc.Equals, "createdby@local")
 	c.Assert(modelUser.DateCreated().Equal(now) || modelUser.DateCreated().After(now), jc.IsTrue)
 	when, err := modelUser.LastConnection()
@@ -49,7 +49,7 @@ func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 	c.Assert(modelUser.ModelTag(), gc.Equals, s.modelTag)
 	c.Assert(modelUser.UserName(), gc.Equals, "validusername@local")
 	c.Assert(modelUser.DisplayName(), gc.Equals, user.DisplayName())
-	c.Assert(modelUser.ReadOnly(), jc.IsFalse)
+	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
 	c.Assert(modelUser.CreatedBy(), gc.Equals, "createdby@local")
 	c.Assert(modelUser.DateCreated().Equal(now) || modelUser.DateCreated().After(now), jc.IsTrue)
 	when, err = modelUser.LastConnection()
@@ -61,7 +61,7 @@ func (s *ModelUserSuite) TestAddReadOnlyModelUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoModelUser: true})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	modelUser, err := s.State.AddModelUser(state.ModelUserSpec{
-		User: user.UserTag(), CreatedBy: createdBy.UserTag(), ReadOnly: true})
+		User: user.UserTag(), CreatedBy: createdBy.UserTag(), Access: state.ModelReadAccess})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(modelUser.UserName(), gc.Equals, "validusername@local")
@@ -73,6 +73,33 @@ func (s *ModelUserSuite) TestAddReadOnlyModelUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName(), gc.Equals, "validusername@local")
 	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
+}
+
+func (s *ModelUserSuite) TestDefaultAccessModelUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoModelUser: true})
+	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
+	modelUser, err := s.State.AddModelUser(state.ModelUserSpec{
+		User: user.UserTag(), CreatedBy: createdBy.UserTag()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
+	c.Assert(modelUser.Access(), gc.Equals, state.ModelReadAccess)
+}
+
+func (s *ModelUserSuite) TestSetAccessModelUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoModelUser: true})
+	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
+	modelUser, err := s.State.AddModelUser(state.ModelUserSpec{
+		User: user.UserTag(), CreatedBy: createdBy.UserTag(), Access: state.ModelAdminAccess})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelUser.ReadOnly(), jc.IsFalse)
+	c.Assert(modelUser.Access(), gc.Equals, state.ModelAdminAccess)
+
+	modelUser.SetAccess(state.ModelReadAccess)
+
+	modelUser, err = s.State.ModelUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
+	c.Assert(modelUser.Access(), gc.Equals, state.ModelReadAccess)
 }
 
 func (s *ModelUserSuite) TestCaseUserNameVsId(c *gc.C) {

@@ -52,6 +52,9 @@ type AddUser struct {
 	// be possible to login with a password until
 	// registration with the secret key is completed.
 	Password string `json:"password,omitempty"`
+
+	// ModelAccess is the permission that the user will have to access the models.
+	ModelAccess ModelAccessPermission `json:"model-access-permission,omitempty"`
 }
 
 // AddUserResults holds the results of the bulk AddUser API call.
