@@ -217,7 +217,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgent {
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
 	agentConf.ReadConfig(m.Tag().String())
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, nil, nil, c.MkDir())
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, nil, c.MkDir())
 	return machineAgentFactory(m.Id())
 }
 
