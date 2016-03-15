@@ -196,7 +196,10 @@ func (p ResourcePersistence) SetResource(res resource.Resource) error {
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
 		}
-		ops = append(ops, p.base.ServiceExistsOps(res.ServiceID)...)
+		if stored.PendingID == "" {
+			// Only non-pending resources must have an existing service.
+			ops = append(ops, p.base.ServiceExistsOps(res.ServiceID)...)
+		}
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {
@@ -231,6 +234,7 @@ func (p ResourcePersistence) SetCharmStoreResource(id, serviceID string, res cha
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
 		}
+		// No pending resources so we always do this here.
 		ops = append(ops, p.base.ServiceExistsOps(serviceID)...)
 		return ops, nil
 	}
@@ -243,6 +247,10 @@ func (p ResourcePersistence) SetCharmStoreResource(id, serviceID string, res cha
 // SetUnitResource stores the resource info for a particular unit. The
 // resource must already be set for the service.
 func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resource) error {
+	if res.PendingID != "" {
+		return errors.Errorf("pending resources not allowed")
+	}
+
 	stored, err := p.getStored(res)
 	if err != nil {
 		return errors.Trace(err)
@@ -267,6 +275,7 @@ func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resourc
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
 		}
+		// No pending resources so we always do this here.
 		ops = append(ops, p.base.ServiceExistsOps(res.ServiceID)...)
 		return ops, nil
 	}

@@ -31,7 +31,10 @@ func (staged StagedResource) stage() error {
 		default:
 			return nil, errors.NewAlreadyExists(nil, "already staged")
 		}
-		ops = append(ops, staged.base.ServiceExistsOps(staged.stored.ServiceID)...)
+		if staged.stored.PendingID == "" {
+			// Only non-pending resources must have an existing service.
+			ops = append(ops, staged.base.ServiceExistsOps(staged.stored.ServiceID)...)
+		}
 
 		return ops, nil
 	}
@@ -73,7 +76,10 @@ func (staged StagedResource) Activate() error {
 		default:
 			return nil, errors.New("setting the resource failed")
 		}
-		ops = append(ops, staged.base.ServiceExistsOps(staged.stored.ServiceID)...)
+		if staged.stored.PendingID == "" {
+			// Only non-pending resources must have an existing service.
+			ops = append(ops, staged.base.ServiceExistsOps(staged.stored.ServiceID)...)
+		}
 		// No matter what, we always remove any staging.
 		ops = append(ops, newRemoveStagedResourceOps(staged.id)...)
 

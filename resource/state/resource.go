@@ -128,9 +128,8 @@ func (st resourceState) GetPendingResource(serviceID, name, pendingID string) (r
 
 	resources, err := st.persist.ListPendingResources(serviceID)
 	if err != nil {
-		if err := st.raw.VerifyService(serviceID); err != nil {
-			return res, errors.Trace(err)
-		}
+		// We do not call VerifyService() here because pending resources
+		// do not have to have an existing service.
 		return res, errors.Trace(err)
 	}
 
