@@ -44,7 +44,7 @@ def make_fake_lp(series=False, bugs=False):
 class CheckBlockers(TestCase):
 
     def test_parse_args_check(self):
-        args = check_blockers.parse_args(['check', 'master', '17'])
+        args = check_blockers.parse_args(['check', 'MASTER', '17'])
         self.assertEqual('check', args.command)
         self.assertEqual('master', args.branch)
         self.assertEqual('17', args.pull_request)
@@ -56,7 +56,7 @@ class CheckBlockers(TestCase):
         self.assertIsNone(args.pull_request)
 
     def test_parse_args_block_ci_testing(self):
-        args = check_blockers.parse_args(['block-ci-testing', 'feature'])
+        args = check_blockers.parse_args(['block-ci-testing', 'FEATURE'])
         self.assertEqual('block-ci-testing', args.command)
         self.assertEqual('feature', args.branch)
         self.assertIsNone(args.pull_request)
@@ -69,7 +69,7 @@ class CheckBlockers(TestCase):
 
     def test_parse_args_update(self):
         args = check_blockers.parse_args(
-            ['-c', './foo.cred', 'update', 'master', '1234'])
+            ['-c', './foo.cred', 'update', 'MASTER', '1234'])
         self.assertEqual('update', args.command)
         self.assertEqual('master', args.branch)
         self.assertEqual('1234', args.build)

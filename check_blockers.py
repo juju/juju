@@ -51,8 +51,9 @@ def parse_args(args=None):
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
     check_parser = subparsers.add_parser(
         'check', help='Check if merges are blocked for a branch.')
-    check_parser.add_argument('branch', default='master', nargs='?',
-                              help='The branch to merge into.')
+    check_parser.add_argument(
+        'branch', default='master', nargs='?', type=str.lower,
+        help='The branch to merge into.')
     check_parser.add_argument('pull_request', default=None, nargs='?',
                               help='The pull request to be merged')
     check_parser.set_defaults(pull_request=None)
@@ -60,13 +61,14 @@ def parse_args(args=None):
         'block-ci-testing',
         help='Check if ci testing is blocked for the branch.')
     block_ci_testing_parser.add_argument(
-        'branch', help='The branch to merge into.')
+        'branch', type=str.lower, help='The branch to merge into.')
     update_parser = subparsers.add_parser(
         'update', help='Update blocking for a branch that passed CI.')
     update_parser.add_argument(
         '-d', '--dry-run', action='store_true', default=False,
         help='Do not make changes.')
-    update_parser.add_argument('branch', help='The branch that passed.')
+    update_parser.add_argument(
+        'branch', type=str.lower, help='The branch that passed.')
     update_parser.add_argument(
         'build', help='The build-revision build number.')
     args = parser.parse_args(args)
