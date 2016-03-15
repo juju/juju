@@ -1743,11 +1743,12 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual('admin', admin_name)
 
     def test_get_admin_client(self):
-        client = EnvJujuClient(JujuData('foo'), {'bar': 'baz'}, 'myhome')
+        client = EnvJujuClient(
+            JujuData('foo', {'bar': 'baz'}, 'myhome'), None, None)
         admin_client = client.get_admin_client()
         admin_env = admin_client.env
         self.assertEqual('admin', admin_env.environment)
-        self.assertEqual(client.env.config, admin_env.config)
+        self.assertEqual({'bar': 'baz', 'name': 'admin'}, admin_env.config)
 
     def test_list_controllers(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
