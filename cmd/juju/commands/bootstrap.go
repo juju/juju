@@ -455,6 +455,14 @@ to clean up the model.`[1:])
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
+	// TODO(axw) 2015-03-15 #1557254
+	//
+	// We need to use the canonical model name here in case someone
+	// switches controllers while this bootstrap is ongoing. We don't
+	// currently test this behaviour, because we have no straight-
+	// forward way to change the current controller in tests. When
+	// we move current-controller logic to jujuclient, we can easily
+	// test this with a mock store.
 	if err := c.SetModelName(modelcmd.JoinModelName(c.controllerName, cfg.Name())); err != nil {
 		return errors.Trace(err)
 	}
