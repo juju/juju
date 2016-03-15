@@ -99,3 +99,17 @@ type resourcePersistence struct {
 func (p resourcePersistence) StageResource(res resource.Resource, storagePath string) (state.StagedResource, error) {
 	return p.ResourcePersistence.StageResource(res, storagePath)
 }
+
+// NewResourcePersistence is a function that may be passed to
+// state.SetResourcesPersistence(). It will be used in the core state
+// package to produce the resource persistence.
+func NewResourcePersistence(persist corestate.Persistence) corestate.ResourcesPersistence {
+	return corestate.NewResourcePersistence(persist)
+}
+
+// CleanUpBlob is a cleanup handler that will be used in state cleanup.
+func CleanUpBlob(st *corestate.State, persist corestate.Persistence, storagePath string) error {
+	// TODO(ericsnow) Move this to state.RemoveResource().
+	storage := persist.NewStorage()
+	return storage.Remove(storagePath)
+}

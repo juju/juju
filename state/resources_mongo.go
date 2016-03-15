@@ -171,6 +171,22 @@ func newUpdateUnitResourceOps(unitID string, stored storedResource) []txn.Op {
 	}}, newInsertUnitResourceOps(unitID, stored)...)
 }
 
+func newRemoveResourcesOps(docs []resourceDoc) []txn.Op {
+	// The likelihood of a race is small and the consequences are minor,
+	// so we don't worry about the corner case of missing a doc here.
+	var ops []txn.Op
+	for _, doc := range docs {
+		// We do not bother to assert txn.DocExists since it will be
+		// gone either way, which is the result we're after.
+		ops = append(ops, txn.Op{
+			C:      resourcesC,
+			Id:     doc.DocID,
+			Remove: true,
+		})
+	}
+	return ops
+}
+
 // newResolvePendingResourceOps generates transaction operations that
 // will resolve a pending resource doc and make it active.
 //
@@ -243,6 +259,15 @@ func (p ResourcePersistence) resources(serviceID string) ([]resourceDoc, error) 
 		return nil, errors.Trace(err)
 	}
 	logger.Tracef("found %d resources", len(docs))
+	return docs, nil
+}
+
+func (p ResourcePersistence) unitResources(unitID string) ([]resourceDoc, error) {
+	var docs []resourceDoc
+	query := bson.D{{"unit-id", unitID}}
+	if err := p.base.All(resourcesC, query, &docs); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return docs, nil
 }
 

@@ -15,6 +15,12 @@ import (
 	"github.com/juju/juju/resource"
 )
 
+const (
+	// CleanupKindResourceBlob identifies the cleanup kind
+	// for resource blobs.
+	CleanupKindResourceBlob = "resourceBlob"
+)
+
 // ResourcePersistenceBase exposes the core persistence functionality
 // needed for resources.
 type ResourcePersistenceBase interface {
@@ -37,6 +43,10 @@ type ResourcePersistenceBase interface {
 	// IncCharmModifiedVersionOps returns the operations necessary to increment
 	// the CharmModifiedVersion field for the given service.
 	IncCharmModifiedVersionOps(serviceID string) []txn.Op
+
+	// NewCleanupOp creates a mgo transaction operation that queues up
+	// some cleanup action in state.
+	NewCleanupOp(kind, prefix string) txn.Op
 }
 
 // ResourcePersistence provides the persistence functionality for the
@@ -333,5 +343,34 @@ func (p ResourcePersistence) NewResolvePendingResourceOps(resID, pendingID strin
 	}
 
 	ops := newResolvePendingResourceOps(pending, exists)
+	return ops, nil
+}
+
+// NewRemoveUnitResourcesOps returns mgo transaction operations
+// that remove resource information specific to the unit from state.
+func (p ResourcePersistence) NewRemoveUnitResourcesOps(unitID string) ([]txn.Op, error) {
+	docs, err := p.unitResources(unitID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ops := newRemoveResourcesOps(docs)
+	// We do not remove the resource from the blob store here. That is
+	// a service-level matter.
+	return ops, nil
+}
+
+// NewRemoveResourcesOps returns mgo transaction operations that
+// remove all the service's resources from state.
+func (p ResourcePersistence) NewRemoveResourcesOps(serviceID string) ([]txn.Op, error) {
+	docs, err := p.resources(serviceID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ops := newRemoveResourcesOps(docs)
+	for _, doc := range docs {
+		ops = append(ops, p.base.NewCleanupOp(CleanupKindResourceBlob, doc.StoragePath))
+	}
 	return ops, nil
 }

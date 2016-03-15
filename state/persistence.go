@@ -36,6 +36,10 @@ type Persistence interface {
 	// IncCharmModifiedVersionOps returns the operations necessary to increment
 	// the CharmModifiedVersion field for the given service.
 	IncCharmModifiedVersionOps(serviceID string) []txn.Op
+
+	// NewCleanupOp creates a mgo transaction operation that queues up
+	// some cleanup action in state.
+	NewCleanupOp(kind, prefix string) txn.Op
 }
 
 type statePersistence struct {
@@ -108,4 +112,10 @@ func (sp *statePersistence) ServiceExistsOps(serviceID string) []txn.Op {
 // CharmModifiedVersion field for the given service.
 func (sp *statePersistence) IncCharmModifiedVersionOps(serviceID string) []txn.Op {
 	return incCharmModifiedVersionOps(serviceID)
+}
+
+// NewCleanupOp creates a mgo transaction operation that queues up
+// some cleanup action in state.
+func (sp *statePersistence) NewCleanupOp(kind, prefix string) txn.Op {
+	return sp.st.newCleanupOp(cleanupKind(kind), prefix)
 }
