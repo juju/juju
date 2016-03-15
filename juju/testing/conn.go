@@ -41,8 +41,8 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
 	statestorage "github.com/juju/juju/state/storage"
-	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -342,8 +342,8 @@ func (s *JujuConnSuite) AddToolsToState(c *gc.C, versions ...version.Binary) {
 	for _, v := range versions {
 		content := v.String()
 		hash := fmt.Sprintf("sha256(%s)", content)
-		err := stor.AddTools(strings.NewReader(content), toolstorage.Metadata{
-			Version: v,
+		err := stor.Add(strings.NewReader(content), binarystorage.Metadata{
+			Version: v.String(),
 			Size:    int64(len(content)),
 			SHA256:  hash,
 		})

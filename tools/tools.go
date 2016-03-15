@@ -14,3 +14,11 @@ type Tools struct {
 	SHA256  string         `json:"sha256,omitempty"`
 	Size    int64          `json:"size"`
 }
+
+// GUI represents the location and version of a GUI release archive.
+type GUIArchive struct {
+	Version version.Number `json:"version"`
+	URL     string         `json:"url"`
+	SHA256  string         `json:"sha256,omitempty"`
+	Size    int64          `json:"size"`
+}

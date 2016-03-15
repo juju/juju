@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/toolstorage"
+	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -91,11 +91,11 @@ func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]b
 		return nil, errors.Annotate(err, "error getting tools storage")
 	}
 	defer storage.Close()
-	_, reader, err := storage.Tools(version)
+	_, reader, err := storage.Open(version.String())
 	if errors.IsNotFound(err) {
-		// Tools could not be found in toolstorage,
+		// Tools could not be found in tools storage,
 		// so look for them in simplestreams, fetch
-		// them and cache in toolstorage.
+		// them and cache in tools storage.
 		logger.Infof("%v tools not found locally, fetching", version)
 		reader, err = h.fetchAndCacheTools(version, storage, st)
 		if err != nil {
@@ -114,9 +114,9 @@ func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]b
 }
 
 // fetchAndCacheTools fetches tools with the specified version by searching for a URL
-// in simplestreams and GETting it, caching the result in toolstorage before returning
+// in simplestreams and GETting it, caching the result in tools storage before returning
 // to the caller.
-func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor toolstorage.Storage, st *state.State) (io.ReadCloser, error) {
+func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor binarystorage.Storage, st *state.State) (io.ReadCloser, error) {
 	envcfg, err := st.ModelConfig()
 	if err != nil {
 		return nil, err
@@ -155,13 +155,13 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor toolsto
 		return nil, errors.Errorf("hash mismatch for %s", tools.URL)
 	}
 
-	// Cache tarball in toolstorage before returning.
-	metadata := toolstorage.Metadata{
-		Version: v,
+	// Cache tarball in tools storage before returning.
+	metadata := binarystorage.Metadata{
+		Version: v.String(),
 		Size:    tools.Size,
 		SHA256:  tools.SHA256,
 	}
-	if err := stor.AddTools(bytes.NewReader(data), metadata); err != nil {
+	if err := stor.Add(bytes.NewReader(data), metadata); err != nil {
 		return nil, errors.Annotate(err, "error caching tools")
 	}
 	return ioutil.NopCloser(bytes.NewReader(data)), nil
@@ -258,15 +258,15 @@ func (h *toolsUploadHandler) handleUpload(r io.Reader, toolsVersions []version.B
 
 	// TODO(wallyworld): check integrity of tools tarball.
 
-	// Store tools and metadata in toolstorage.
+	// Store tools and metadata in tools storage.
 	for _, v := range toolsVersions {
-		metadata := toolstorage.Metadata{
-			Version: v,
+		metadata := binarystorage.Metadata{
+			Version: v.String(),
 			Size:    int64(len(data)),
 			SHA256:  sha256,
 		}
 		logger.Debugf("uploading tools %+v to storage", metadata)
-		if err := storage.AddTools(bytes.NewReader(data), metadata); err != nil {
+		if err := storage.Add(bytes.NewReader(data), metadata); err != nil {
 			return nil, err
 		}
 	}

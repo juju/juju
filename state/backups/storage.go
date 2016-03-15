@@ -183,7 +183,7 @@ func newStorageMetaDoc(meta *Metadata) storageMetaDoc {
 // DB operations
 
 // TODO(ericsnow) Merge storageDBWrapper with the storage implementation in
-// state/storage.go (also see state/toolstorage).
+// state/storage.go (also see state/binarystorage).
 
 // storageDBWrapper performs all state database operations needed for backups.
 type storageDBWrapper struct {

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"path"
 	"path/filepath"
 	"strings"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
+	coretools "github.com/juju/juju/tools"
 )
 
 const (
@@ -305,6 +307,34 @@ func (w *unixConfigure) ConfigureJuju() error {
 	}
 
 	if w.icfg.Bootstrap {
+		// Add the Juju GUI to the bootstrap node.
+		guiData, err := w.fetchGUI(w.icfg.GUI)
+		if err != nil {
+			return errors.Annotate(err, "cannot fetch Juju GUI")
+		}
+		// TODO frankban: guiData will never be nil at this point when using
+		// simplestreams. This will be fixed before landing to master.
+		if guiData != nil {
+			guiJson, err := json.Marshal(w.icfg.GUI)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			guiDir := w.icfg.GUITools()
+			w.conf.AddScripts(
+				"gui="+shquote(guiDir),
+				"mkdir -p $gui",
+			)
+			w.conf.AddRunBinaryFile(path.Join(guiDir, "gui.tar.bz2"), []byte(guiData), 0644)
+			w.conf.AddScripts(
+				"sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256",
+				fmt.Sprintf(`grep '%s' $gui/jujugui.sha256 || (echo Juju GUI checksum mismatch; exit 1)`, w.icfg.GUI.SHA256),
+				fmt.Sprintf("printf %%s %s > $gui/downloaded-gui.txt", shquote(string(guiJson))),
+			)
+			// Don't remove the GUI archive until after bootstrap agent runs,
+			// so it has a chance to add it to its catalogue.
+			defer w.conf.AddRunCmd("rm $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt")
+		}
+
 		var metadataDir string
 		if len(w.icfg.CustomImageMetadata) > 0 {
 			metadataDir = path.Join(w.icfg.DataDir, "simplestreams")
@@ -355,6 +385,29 @@ func (w *unixConfigure) ConfigureJuju() error {
 	}
 
 	return w.addMachineAgentToBoot()
+}
+
+// fetchGUI fetches the Juju GUI.
+func (w *unixConfigure) fetchGUI(gui *coretools.GUIArchive) ([]byte, error) {
+	if gui == nil {
+		// TODO frankban: return an error in this case.
+		// This will be fixed before landing to master.
+		return nil, nil
+	}
+	u, err := url.Parse(gui.URL)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot parse Juju GUI URL")
+	}
+	if u.Scheme != "file" {
+		// TODO frankban: support retrieving the GUI archive from the web.
+		// This will be fixed before landing to master.
+		return nil, nil
+	}
+	guiData, err := ioutil.ReadFile(filepath.FromSlash(u.Path))
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot read Juju GUI archive")
+	}
+	return guiData, nil
 }
 
 // toolsDownloadCommand takes a curl command minus the source URL,

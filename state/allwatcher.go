@@ -299,9 +299,9 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 			Since:   unitStatus.Since,
 		}
 		if u.Tools != nil {
-			info.AgentStatus.Version = u.Tools.Version.Number.String()
+			info.JujuStatus.Version = u.Tools.Version.Number.String()
 		}
-		info.AgentStatus = multiwatcher.StatusInfo{
+		info.JujuStatus = multiwatcher.StatusInfo{
 			Current: status.Status(agentStatus.Status),
 			Message: agentStatus.Message,
 			Data:    normaliseStatusData(agentStatus.Data),
@@ -319,7 +319,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 		// The entry already exists, so preserve the current status and ports.
 		oldInfo := oldInfo.(*multiwatcher.UnitInfo)
 		// Unit and workload status.
-		info.AgentStatus = oldInfo.AgentStatus
+		info.JujuStatus = oldInfo.JujuStatus
 		info.WorkloadStatus = oldInfo.WorkloadStatus
 		info.Ports = oldInfo.Ports
 		info.PortRanges = oldInfo.PortRanges
@@ -665,10 +665,10 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 		newInfo.WorkloadStatus.Data = normaliseStatusData(s.StatusData)
 		newInfo.WorkloadStatus.Since = unixNanoToTime(s.Updated)
 	} else {
-		newInfo.AgentStatus.Current = s.Status
-		newInfo.AgentStatus.Message = s.StatusInfo
-		newInfo.AgentStatus.Data = normaliseStatusData(s.StatusData)
-		newInfo.AgentStatus.Since = unixNanoToTime(s.Updated)
+		newInfo.JujuStatus.Current = s.Status
+		newInfo.JujuStatus.Message = s.StatusInfo
+		newInfo.JujuStatus.Data = normaliseStatusData(s.StatusData)
+		newInfo.JujuStatus.Since = unixNanoToTime(s.Updated)
 		// If the unit was in error and now it's not, we need to reset its
 		// status back to what was previously recorded.
 		if newInfo.WorkloadStatus.Current == status.StatusError {

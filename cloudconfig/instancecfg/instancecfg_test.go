@@ -11,6 +11,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
 type instancecfgSuite struct {
@@ -58,4 +60,21 @@ func (*instancecfgSuite) TestInstanceTagsUserSpecified(c *gc.C) {
 func testInstanceTags(c *gc.C, cfg *config.Config, jobs []multiwatcher.MachineJob, expectTags map[string]string) {
 	tags := instancecfg.InstanceTags(cfg, jobs)
 	c.Assert(tags, jc.DeepEquals, expectTags)
+}
+
+func (*instancecfgSuite) TestJujuTools(c *gc.C) {
+	icfg := &instancecfg.InstanceConfig{
+		DataDir: "/path/to/datadir/",
+		Tools: &coretools.Tools{
+			Version: version.MustParseBinary("2.3.4-trusty-amd64"),
+		},
+	}
+	c.Assert(icfg.JujuTools(), gc.Equals, "/path/to/datadir/tools/2.3.4-trusty-amd64")
+}
+
+func (*instancecfgSuite) TestGUITools(c *gc.C) {
+	icfg := &instancecfg.InstanceConfig{
+		DataDir: "/path/to/datadir/",
+	}
+	c.Assert(icfg.GUITools(), gc.Equals, "/path/to/datadir/gui")
 }

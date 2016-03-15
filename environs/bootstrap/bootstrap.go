@@ -4,10 +4,15 @@
 package bootstrap
 
 import (
+	"archive/tar"
+	"compress/bzip2"
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -229,6 +234,16 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 	instanceConfig.Tools = selectedTools
 	instanceConfig.CustomImageMetadata = customImageMetadata
+
+	gui, err := guiArchive()
+	if err != nil {
+		return errors.Annotate(err, "cannot set up Juju GUI")
+	}
+	if gui != nil {
+		instanceConfig.GUI = gui
+		ctx.Infof("Using Juju GUI %s from %s", gui.Version, gui.URL)
+	}
+
 	if err := result.Finalize(ctx, instanceConfig); err != nil {
 		return err
 	}
@@ -439,4 +454,79 @@ func validateConstraints(env environs.Environ, cons constraints.Value) error {
 		logger.Warningf("unsupported constraints: %v", unsupported)
 	}
 	return err
+}
+
+func guiArchive() (*coretools.GUIArchive, error) {
+	// TODO frankban: by default the GUI archive must be retrieved from
+	// simplestreams. The environment variable is only used temporarily for
+	// development purposes. This will be fixed before landing to master.
+	path := os.Getenv("JUJU_GUI")
+	if path == "" {
+		// TODO frankban: implement the simplestreams case.
+		// This will be fixed before landing to master.
+		return nil, nil
+	}
+	number, err := guiVersion(path)
+	if err != nil {
+		return nil, errors.Mask(err)
+	}
+	hash, size, err := hashAndSize(path)
+	if err != nil {
+		return nil, errors.Mask(err)
+	}
+	return &coretools.GUIArchive{
+		Version: number,
+		URL:     "file://" + filepath.ToSlash(path),
+		SHA256:  hash,
+		Size:    size,
+	}, nil
+}
+
+// guiVersion retrieves the GUI version from the juju-gui-* directory included
+// in the bz2 archive at the given path.
+func guiVersion(path string) (version.Number, error) {
+	var number version.Number
+	f, err := os.Open(path)
+	if err != nil {
+		return number, errors.Annotate(err, "cannot open Juju GUI archive")
+	}
+	defer f.Close()
+	prefix := "jujugui-"
+	r := tar.NewReader(bzip2.NewReader(f))
+	for {
+		hdr, err := r.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return number, errors.New("cannot read Juju GUI archive")
+		}
+		info := hdr.FileInfo()
+		if !info.IsDir() || !strings.HasPrefix(hdr.Name, prefix) {
+			continue
+		}
+		n := info.Name()[len(prefix):]
+		number, err = version.Parse(n)
+		if err != nil {
+			return number, errors.Errorf("cannot parse version %q", n)
+		}
+		return number, nil
+	}
+	return number, errors.New("cannot find Juju GUI version")
+}
+
+// hashAndSize calculates and returns the SHA256 hash and the size of the file
+// located at the given path.
+func hashAndSize(path string) (hash string, size int64, err error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", 0, errors.Mask(err)
+	}
+	defer f.Close()
+	h := sha256.New()
+	size, err = io.Copy(h, f)
+	if err != nil {
+		return "", 0, errors.Mask(err)
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), size, nil
 }
