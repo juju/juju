@@ -448,6 +448,10 @@ func resolveStateAccess(access permission.ModelAccess) (state.ModelAccess, error
 
 // isGreaterAccess returns whether the new access provides more permissions
 // than the current access.
+// TODO(cmars): If/when more access types are implemented in state,
+//   the implementation of this function will certainly need to change, and it
+//   should be abstracted away to juju/permission as pure business logic
+//   instead of operating on state values.
 func isGreaterAccess(currentAccess, newAccess state.ModelAccess) bool {
 	if currentAccess == state.ModelReadAccess && newAccess == state.ModelAdminAccess {
 		return true
