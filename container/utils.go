@@ -9,7 +9,7 @@ var (
 	runtimeGOOS = runtime.GOOS
 )
 
-func RunningInContainer() bool {
+var RunningInContainer = func() bool {
 	if runtimeGOOS != "linux" {
 		return false
 	}

@@ -804,7 +804,10 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, errors.Errorf("cannot run instances: %v", err)
 	}
 
-	inst := &maasInstance{selectedNode}
+	inst := &maasInstance{
+		maasObject:   selectedNode,
+		statusGetter: environ.deploymentStatusOne,
+	}
 	defer func() {
 		if err != nil {
 			if err := environ.StopInstances(inst.Id()); err != nil {
@@ -940,6 +943,48 @@ func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
 		}
 	}
 	return errors.Errorf("instance %q is started but not deployed", id)
+}
+
+func (environ *maasEnviron) deploymentStatusOne(id instance.Id) (string, string) {
+	results, err := environ.deploymentStatus(id)
+	if err != nil {
+		return "", ""
+	}
+	systemId := extractSystemId(id)
+	substatus := environ.getDeploymentSubstatus(systemId)
+	return results[systemId], substatus
+}
+
+func (environ *maasEnviron) getDeploymentSubstatus(systemId string) string {
+	nodesAPI := environ.getMAASClient().GetSubObject("nodes")
+	result, err := nodesAPI.CallGet("list", nil)
+	if err != nil {
+		return ""
+	}
+	slices, err := result.GetArray()
+	if err != nil {
+		return ""
+	}
+	for _, slice := range slices {
+		resultMap, err := slice.GetMap()
+		if err != nil {
+			continue
+		}
+		sysId, err := resultMap["system_id"].GetString()
+		if err != nil {
+			continue
+		}
+		if sysId == systemId {
+			message, err := resultMap["substatus_message"].GetString()
+			if err != nil {
+				logger.Warningf("could not get string for substatus_message: %v", resultMap["substatus_message"])
+				return ""
+			}
+			return message
+		}
+	}
+
+	return ""
 }
 
 // deploymentStatus returns the deployment state of MAAS instances with
@@ -1203,7 +1248,10 @@ func (environ *maasEnviron) instances(filter url.Values) ([]instance.Instance, e
 		if err != nil {
 			return nil, err
 		}
-		instances[index] = &maasInstance{&node}
+		instances[index] = &maasInstance{
+			maasObject:   &node,
+			statusGetter: environ.deploymentStatusOne,
+		}
 	}
 	return instances, nil
 }
@@ -2043,6 +2091,13 @@ func (env *maasEnviron) Storage() storage.Storage {
 }
 
 func (environ *maasEnviron) Destroy() error {
+	if environ.ecfg().maasAgentName() == "" {
+		logger.Warningf("No MAAS agent name specified.\n\n" +
+			"The environment is either not running or from a very early Juju version.\n" +
+			"It is not safe to release all MAAS instances without an agent name.\n" +
+			"If the environment is still running, please manually decomission the MAAS machines.")
+		return errors.New("unsafe destruction")
+	}
 	if !environ.supportsDevices {
 		// Warn the user that container resources can leak.
 		logger.Warningf(noDevicesWarning)

@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
 
@@ -62,7 +63,7 @@ func (testsuite) TestHandleError(c *gc.C) {
 	c.Assert(entities, gc.HasLen, 1)
 	c.Assert(entities[0], gc.DeepEquals, params.EntityStatusArgs{
 		Tag:    "unit-foo-0",
-		Status: params.StatusError,
+		Status: status.StatusError,
 		Info:   e.Error(),
 	})
 }

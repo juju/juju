@@ -9,15 +9,16 @@ import (
 	"runtime"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxd"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools/lxdclient"
-	jc "github.com/juju/testing/checkers"
-
-	gc "gopkg.in/check.v1"
 )
 
 func Test(t *stdtesting.T) {
@@ -74,11 +75,13 @@ func (t *LxdSuite) TestNotAllContainersAreDeleted(c *gc.C) {
 	networkConfig := container.BridgeNetworkConfig("nic42", 4321, nil)
 
 	manager := t.makeManager(c, "manager")
+	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
 	_, _, err = manager.CreateContainer(
 		instanceConfig,
 		"xenial",
 		networkConfig,
 		storageConfig,
+		callback,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

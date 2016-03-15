@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
@@ -26,7 +27,7 @@ type MigrationImportSuite struct {
 
 var _ = gc.Suite(&MigrationImportSuite{})
 
-func (s *MigrationImportSuite) checkStatusHistory(c *gc.C, exported, imported state.StatusHistoryGetter, size int) {
+func (s *MigrationImportSuite) checkStatusHistory(c *gc.C, exported, imported status.StatusHistoryGetter, size int) {
 	exportedHistory, err := exported.StatusHistory(size)
 	c.Assert(err, jc.ErrorIsNil)
 	importedHistory, err := imported.StatusHistory(size)
@@ -220,7 +221,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	})
 	err := s.State.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, machine1, state.StatusStarted, 5)
+	s.primeStatusHistory(c, machine1, status.StatusStarted, 5)
 
 	// machine1 should have some instance data.
 	hardware, err := machine1.HardwareCharacteristics()
@@ -283,7 +284,7 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(service.SetExposed(), jc.ErrorIsNil)
 	err = s.State.SetAnnotations(service, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, service, state.StatusActive, 5)
+	s.primeStatusHistory(c, service, status.StatusActive, 5)
 
 	allServices, err := s.State.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -351,8 +352,8 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(exported, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, exported, state.StatusActive, 5)
-	s.primeStatusHistory(c, exported.Agent(), state.StatusIdle, 5)
+	s.primeStatusHistory(c, exported, status.StatusActive, 5)
+	s.primeStatusHistory(c, exported.Agent(), status.StatusIdle, 5)
 
 	_, newSt := s.importModel(c)
 	defer newSt.Close()
