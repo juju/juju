@@ -308,7 +308,8 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	caps, err := getCapabilities(authClient)
+	env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
+	caps, err := getCapabilities(env.maasClientUnlocked)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -316,9 +317,6 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 		return errors.NotSupportedf("MAAS 1.9 or more recent is required")
 	}
 	env.apiVersion = "1.0"
-
-	env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
-
 	return nil
 }
 
