@@ -583,10 +583,6 @@ func (suite *environSuite) TestSupportsSpaceDiscovery(c *gc.C) {
 	c.Assert(supported, jc.IsTrue)
 }
 
-func (suite *environSuite) setNetworkDeployment() {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
-}
-
 func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Instance {
 	testInstance := suite.getInstance("node1")
 	testServer := suite.testMAASObject.TestServer
@@ -677,7 +673,6 @@ func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Inst
 }
 
 func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIds(c *gc.C) {
-	suite.setNetworkDeployment()
 	server := suite.testMAASObject.TestServer
 	var subnetIDs []network.Id
 	var uintIDs []uint
@@ -707,7 +702,6 @@ func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIds(c *gc.C) {
 }
 
 func (suite *environSuite) createTwoSpaces() {
-	suite.setNetworkDeployment()
 	server := suite.testMAASObject.TestServer
 	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-1"}))
 	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-2"}))
@@ -783,7 +777,6 @@ func (suite *environSuite) TestSubnetsNoInstanceIdNoSubnetIds(c *gc.C) {
 }
 
 func (suite *environSuite) TestSubnetsMissingSubnet(c *gc.C) {
-	suite.setNetworkDeployment()
 	testInstance := suite.getInstance("node1")
 	suite.addSubnet(c, 1, 1, "node1")
 	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"1", "2"})
@@ -853,15 +846,9 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 	c.Assert(spaces, jc.DeepEquals, expectedSpaces)
 }
 
-func (suite *environSuite) TestSpacesNeedsSupportsSpaces(c *gc.C) {
-	_, err := suite.makeEnviron().Spaces()
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-}
-
 func (suite *environSuite) assertSpaces(c *gc.C, numberOfSubnets int, filters []network.Id) {
-	suite.setNetworkDeployment()
 	server := suite.testMAASObject.TestServer
-	testInstance := suite.createSubnets(c, false)
+	testInstance := suite.getInstance("node1")
 	systemID := "node1"
 	for i := 1; i <= numberOfSubnets; i++ {
 		server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: fmt.Sprintf("space-%d", i)}))
@@ -893,7 +880,6 @@ func (suite *environSuite) TestSubnetsWithSpacesFilteredIds(c *gc.C) {
 }
 
 func (suite *environSuite) TestSubnetsWithSpacesMissingSubnet(c *gc.C) {
-	suite.setNetworkDeployment()
 	testInstance := suite.createSubnets(c, false)
 	for _, i := range []uint{1, 2} {
 		suite.addSubnet(c, i, i, "node1")
@@ -909,8 +895,6 @@ func (suite *environSuite) TestSubnetsWithSpacesMissingSubnet(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
-
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
@@ -921,7 +905,6 @@ func (suite *environSuite) TestAllocateAddress(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses", "devices-management"]}`)
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
@@ -1059,7 +1042,6 @@ func (suite *environSuite) patchDeviceCreation() {
 
 func (suite *environSuite) TestAllocateAddressDevicesFailures(c *gc.C) {
 	suite.SetFeatureFlags()
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["devices-management"]}`)
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 	suite.patchDeviceCreation()
@@ -1109,7 +1091,6 @@ func (suite *environSuite) getDeviceArray(c *gc.C) []gomaasapi.JSONObject {
 }
 
 func (suite *environSuite) TestReleaseAddressDeletesDevice(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses", "devices-management"]}`)
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 	suite.patchDeviceCreation()
@@ -1133,7 +1114,6 @@ func (suite *environSuite) TestReleaseAddressDeletesDevice(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	env := suite.makeEnviron()
 	addr := network.Address{Value: "192.168.2.1"}
 	instId := instance.Id("foo")
@@ -1143,7 +1123,6 @@ func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 	err := env.AllocateAddress(testInstance.Id(), "bar", &network.Address{Value: "192.168.2.1"}, "foo", "bar")
@@ -1151,7 +1130,6 @@ func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
@@ -1176,7 +1154,6 @@ func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 }
 
 func (suite *environSuite) TestReleaseAddress(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
 
@@ -1197,7 +1174,6 @@ func (suite *environSuite) TestReleaseAddress(c *gc.C) {
 }
 
 func (suite *environSuite) TestReleaseAddressRetry(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	// Patch short attempt params.
 	suite.PatchValue(&shortAttempt, utils.AttemptStrategy{
 		Min: 5,

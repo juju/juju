@@ -15,8 +15,6 @@ import (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
-// New (1.9 and later) environs.NetworkInterfaces() implementation details follow.
-
 // TODO(dimitern): The types below should be part of gomaasapi.
 // LKK Card: https://canonical.leankit.com/Boards/View/101652562/119310616
 
