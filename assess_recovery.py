@@ -78,10 +78,10 @@ def delete_controller_members(client, leader_only=False):
         instance_id = machine.info.get('instance-id')
         host = machine.info.get('dns-name')
         print_now("Instrumenting node failure for member {}: {} at {}".format(
-                  machine.number, instance_id, host))
+                  machine.machine_id, instance_id, host))
         terminate_instances(client.env, [instance_id])
         wait_for_state_server_to_shutdown(host, client, instance_id)
-        deleted_machines.append(machine.number)
+        deleted_machines.append(machine.machine_id)
     return deleted_machines
 
 

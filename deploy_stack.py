@@ -624,7 +624,8 @@ class BootstrapManager:
         try:
             try:
                 if len(self.known_hosts) == 0:
-                    host = get_machine_dns_name(self.client, '0')
+                    host = get_machine_dns_name(self.client.get_admin_client(),
+                                                '0')
                     if host is None:
                         raise ValueError('Could not get machine 0 host')
                     self.known_hosts['0'] = host

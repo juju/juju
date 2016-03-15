@@ -8,6 +8,7 @@ from contextlib import (
     contextmanager,
     nested,
 )
+from copy import deepcopy
 from cStringIO import StringIO
 from datetime import timedelta
 import errno
@@ -128,7 +129,7 @@ class JESByDefault(Exception):
             'This client does not need to enable JES')
 
 
-Machine = namedtuple('Machine', ['number', 'info'])
+Machine = namedtuple('Machine', ['machine_id', 'info'])
 
 
 def yaml_loads(yaml_str):
@@ -290,8 +291,10 @@ class EnvJujuClient:
             client_class = EnvJujuClient2A1
         elif re.match('^2\.0-alpha2', version):
             client_class = EnvJujuClient2A2
-        else:
+        elif re.match('^2\.0-delta1', version):
             client_class = EnvJujuClient
+        else:
+            client_class = EnvJujuClient2B2
         return client_class(env, version, full_path, debug=debug)
 
     def clone(self, env=None, version=None, full_path=None, debug=None,
@@ -412,7 +415,8 @@ class EnvJujuClient:
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                              self.env.get_region())
         args = ['--constraints', constraints, self.env.environment,
-                cloud_region, '--config', config_filename]
+                cloud_region, '--config', config_filename,
+                '--default-model', self.env.environment]
         if upload_tools:
             args.insert(0, '--upload-tools')
         else:
@@ -788,15 +792,13 @@ class EnvJujuClient:
         Return the name of the environment when an 'admin' model does
         not exist.
         """
-        models = self.get_models()
-        # The dict can be empty because 1.x does not support the models.
-        # This is an ambiguous case for the jes feature flag which supports
-        # multiple models, but none is named 'admin' by default. Since the
-        # jes case also uses '-e' for models, the env is the admin model.
-        for model in models.get('models', []):
-            if 'admin' in model['name']:
-                return 'admin'
-        return self.env.environment
+        return 'admin'
+
+    def get_admin_client(self):
+        """Return a client for the admin model.  May return self."""
+        admin_jujudata = self.env.clone(
+            model_name=self.get_admin_model_name())
+        return self.clone(env=admin_jujudata)
 
     def list_controllers(self):
         """List the controllers."""
@@ -819,9 +821,9 @@ class EnvJujuClient:
         """
         members = []
         status = self.get_status()
-        for number, machine in status.iter_machines():
+        for machine_id, machine in status.iter_machines():
             if self.get_controller_member_status(machine):
-                members.append(Machine(number, machine))
+                members.append(Machine(machine_id, machine))
         if len(members) <= 1:
             return members
         # Search for the leader and make it the first in the list.
@@ -1061,7 +1063,53 @@ class EnvJujuClient:
         self.juju('add-subnet', (subnet, space))
 
 
-class EnvJujuClient2A2(EnvJujuClient):
+class EnvJujuClient2B2(EnvJujuClient):
+
+    def get_bootstrap_args(self, upload_tools, config_filename,
+                           bootstrap_series=None):
+        """Return the bootstrap arguments for the substrate."""
+        if self.env.maas:
+            constraints = 'mem=2G arch=amd64'
+        elif self.env.joyent:
+            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
+            constraints = 'mem=2G cpu-cores=1'
+        else:
+            constraints = 'mem=2G'
+        cloud_region = self.get_cloud_region(self.env.get_cloud(),
+                                             self.env.get_region())
+        args = ['--constraints', constraints, self.env.environment,
+                cloud_region, '--config', config_filename]
+        if upload_tools:
+            args.insert(0, '--upload-tools')
+        else:
+            args.extend(['--agent-version', self.get_matching_agent_version()])
+
+        if bootstrap_series is not None:
+            args.extend(['--bootstrap-series', bootstrap_series])
+        return tuple(args)
+
+    def get_admin_client(self):
+        """Return a client for the admin model.  May return self."""
+        return self
+
+    def get_admin_model_name(self):
+        """Return the name of the 'admin' model.
+
+        Return the name of the environment when an 'admin' model does
+        not exist.
+        """
+        models = self.get_models()
+        # The dict can be empty because 1.x does not support the models.
+        # This is an ambiguous case for the jes feature flag which supports
+        # multiple models, but none is named 'admin' by default. Since the
+        # jes case also uses '-e' for models, the env is the admin model.
+        for model in models.get('models', []):
+            if 'admin' in model['name']:
+                return 'admin'
+        return self.env.environment
+
+
+class EnvJujuClient2A2(EnvJujuClient2B2):
     """Drives Juju 2.0-alpha2 clients."""
 
     @classmethod
@@ -1811,6 +1859,17 @@ class JujuData(SimpleEnvironment):
         super(JujuData, self).__init__(environment, config, juju_home)
         self.credentials = {}
         self.clouds = {}
+
+    def clone(self, model_name=None):
+        config = deepcopy(self.config)
+        if model_name is None:
+            model_name = self.environment
+        else:
+            config['name'] = model_name
+        result = self.__class__(model_name, config, self.juju_home)
+        result.credentials = deepcopy(self.credentials)
+        result.clouds = deepcopy(self.clouds)
+        return result
 
     @classmethod
     def from_env(cls, env):
