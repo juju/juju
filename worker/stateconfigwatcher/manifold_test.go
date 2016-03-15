@@ -4,6 +4,7 @@
 package stateconfigwatcher_test
 
 import (
+	"sync"
 	"time"
 
 	"github.com/juju/names"
@@ -36,7 +37,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = new(mockAgent)
-	s.agent.conf.stateServingInfoSet = true
+	s.agent.conf.setStateServingInfo(true)
 	s.agent.conf.tag = names.NewMachineTag("99")
 
 	s.goodGetResource = dt.StubGetResource(dt.StubResources{
@@ -99,7 +100,7 @@ func (s *ManifoldSuite) TestOutputWrongType(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestOutputSuccessNotStateServer(c *gc.C) {
-	s.agent.conf.stateServingInfoSet = false
+	s.agent.conf.setStateServingInfo(false)
 	w, err := s.manifold.Start(s.goodGetResource)
 	c.Assert(err, jc.ErrorIsNil)
 	defer checkStop(c, w)
@@ -111,7 +112,7 @@ func (s *ManifoldSuite) TestOutputSuccessNotStateServer(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestOutputSuccessStateServer(c *gc.C) {
-	s.agent.conf.stateServingInfoSet = true
+	s.agent.conf.setStateServingInfo(true)
 	w, err := s.manifold.Start(s.goodGetResource)
 	c.Assert(err, jc.ErrorIsNil)
 	defer checkStop(c, w)
@@ -123,7 +124,7 @@ func (s *ManifoldSuite) TestOutputSuccessStateServer(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestBounceOnChange(c *gc.C) {
-	s.agent.conf.stateServingInfoSet = false
+	s.agent.conf.setStateServingInfo(false)
 	w, err := s.manifold.Start(s.goodGetResource)
 	c.Assert(err, jc.ErrorIsNil)
 	checkNotExiting(c, w)
@@ -146,7 +147,7 @@ func (s *ManifoldSuite) TestBounceOnChange(c *gc.C) {
 
 	// Now change the config to include state serving info, worker
 	// should bounce.
-	s.agent.conf.stateServingInfoSet = true
+	s.agent.conf.setStateServingInfo(true)
 	s.agentConfigChanged.Set(0)
 	checkExitsWithError(c, w, dependency.ErrBounce)
 
@@ -163,7 +164,7 @@ func (s *ManifoldSuite) TestBounceOnChange(c *gc.C) {
 	checkOutput(true)
 
 	// Now remove the state serving info, the agent should bounce.
-	s.agent.conf.stateServingInfoSet = false
+	s.agent.conf.setStateServingInfo(false)
 	s.agentConfigChanged.Set(0)
 	checkExitsWithError(c, w, dependency.ErrBounce)
 }
@@ -227,16 +228,25 @@ func (ma *mockAgent) CurrentConfig() coreagent.Config {
 
 type mockConfig struct {
 	coreagent.ConfigSetter
-	tag                 names.Tag
-	stateServingInfoSet bool
+	tag         names.Tag
+	mu          sync.Mutex
+	ssInfoIsSet bool
 }
 
 func (mc *mockConfig) Tag() names.Tag {
 	return mc.tag
 }
 
+func (mc *mockConfig) setStateServingInfo(isSet bool) {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	mc.ssInfoIsSet = isSet
+}
+
 func (mc *mockConfig) StateServingInfo() (params.StateServingInfo, bool) {
-	return params.StateServingInfo{}, mc.stateServingInfoSet
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	return params.StateServingInfo{}, mc.ssInfoIsSet
 }
 
 type dummyWorker struct {
