@@ -45,15 +45,14 @@ func Connect(cfg Config) (*Client, error) {
 		certClient:         &certClient{raw},
 		profileClient:      &profileClient{raw},
 		instanceClient:     &instanceClient{raw, remote},
-		imageClient:        &imageClient{raw},
+		imageClient:        &imageClient{raw, cfg},
 	}
 	return conn, nil
 }
 
-var lxdNewClient = lxd.NewClient
 var lxdNewClientFromInfo = lxd.NewClientFromInfo
-var lxdLoadConfig = lxd.LoadConfig
 
+// newRawClient connects to the LXD host that is defined in Config.
 func newRawClient(cfg Config) (*lxd.Client, error) {
 	logger.Debugf("using LXD remote %q", cfg.Remote.ID())
 	remote := cfg.Remote.ID()
@@ -79,8 +78,13 @@ func newRawClient(cfg Config) (*lxd.Client, error) {
 	}
 
 	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
-		Name:          cfg.Remote.ID(),
-		Addr:          host,
+		Name: cfg.Remote.ID(),
+		RemoteConfig: lxd.RemoteConfig{
+			Addr:     host,
+			Static:   false,
+			Public:   false,
+			Protocol: "",
+		},
 		ClientPEMCert: clientCert,
 		ClientPEMKey:  clientKey,
 		ServerPEMCert: cfg.Remote.ServerPEMCert,
@@ -89,6 +93,39 @@ func newRawClient(cfg Config) (*lxd.Client, error) {
 		if remote == remoteIDForLocal {
 			return nil, errors.Annotate(err, "can't connect to the local LXD server")
 		}
+		return nil, errors.Trace(err)
+	}
+	return client, nil
+}
+
+// lxdClientForCloudImages creates a lxd.Client that you can use to get images
+// from cloud-images.ubuntu.com using the LXD mechanisms.
+// We support Config.ImageStream being "", "releases", or "released" to all
+// mean use the "releases" stream, while "daily" switches to daily images.
+func lxdClientForCloudImages(cfg Config) (*lxd.Client, error) {
+	clientCert := ""
+	clientKey := ""
+	if cfg.Remote.Cert != nil {
+		if cfg.Remote.Cert.CertPEM != nil {
+			clientCert = string(cfg.Remote.Cert.CertPEM)
+		}
+		if cfg.Remote.Cert.KeyPEM != nil {
+			clientKey = string(cfg.Remote.Cert.KeyPEM)
+		}
+	}
+
+	remote := lxd.UbuntuRemote
+	if cfg.ImageStream == StreamDaily {
+		remote = lxd.UbuntuDailyRemote
+	}
+	// No ServerPEMCert for static hosts
+	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
+		Name:          cfg.Remote.ID(),
+		RemoteConfig:  remote,
+		ClientPEMCert: clientCert,
+		ClientPEMKey:  clientKey,
+	})
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return client, nil

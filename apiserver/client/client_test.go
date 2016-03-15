@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -335,11 +336,11 @@ var _ = gc.Suite(&clientSuite{})
 func clearSinceTimes(status *params.FullStatus) {
 	for serviceId, service := range status.Services {
 		for unitId, unit := range service.Units {
-			unit.Workload.Since = nil
-			unit.UnitAgent.Since = nil
+			unit.WorkloadStatus.Since = nil
+			unit.AgentStatus.Since = nil
 			for id, subord := range unit.Subordinates {
-				subord.Workload.Since = nil
-				subord.UnitAgent.Since = nil
+				subord.WorkloadStatus.Since = nil
+				subord.AgentStatus.Since = nil
 				unit.Subordinates[id] = subord
 			}
 			service.Units[unitId] = unit
@@ -348,7 +349,8 @@ func clearSinceTimes(status *params.FullStatus) {
 		status.Services[serviceId] = service
 	}
 	for id, machine := range status.Machines {
-		machine.Agent.Since = nil
+		machine.AgentStatus.Since = nil
+		machine.InstanceStatus.Since = nil
 		status.Machines[id] = machine
 	}
 }
@@ -511,7 +513,7 @@ func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolv
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetAgentStatus(state.StatusError, "gaaah", nil)
+	err = u.SetAgentStatus(status.StatusError, "gaaah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Code under test:
 	err = s.APIState.Client().Resolved("wordpress/0", retry)
@@ -537,7 +539,7 @@ func (s *clientSuite) setupResolved(c *gc.C) *state.Unit {
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetAgentStatus(state.StatusError, "gaaah", nil)
+	err = u.SetAgentStatus(status.StatusError, "gaaah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return u
 }
@@ -623,13 +625,24 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	}()
 	deltas, err := watcher.Next()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(deltas), gc.Equals, 1)
+	d0, ok := deltas[0].Entity.(*multiwatcher.MachineInfo)
+	c.Assert(ok, jc.IsTrue)
+	d0.JujuStatus.Since = nil
+	d0.MachineStatus.Since = nil
 	if !c.Check(deltas, gc.DeepEquals, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
-			ModelUUID:               s.State.ModelUUID(),
-			Id:                      m.Id(),
-			InstanceId:              "i-0",
-			Status:                  multiwatcher.Status("pending"),
-			StatusData:              map[string]interface{}{},
+			ModelUUID:  s.State.ModelUUID(),
+			Id:         m.Id(),
+			InstanceId: "i-0",
+			JujuStatus: multiwatcher.StatusInfo{
+				Current: status.StatusPending,
+				Data:    map[string]interface{}{},
+			},
+			MachineStatus: multiwatcher.StatusInfo{
+				Current: status.StatusPending,
+				Data:    map[string]interface{}{},
+			},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
 			Jobs:                    []multiwatcher.MachineJob{state.JobManageModel.ToParams()},
@@ -1382,14 +1395,14 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetStatus(state.StatusError, "error", nil)
+	err = machine.SetStatus(status.StatusError, "error", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 
 	statusInfo, err := machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
 	c.Assert(statusInfo.Message, gc.Equals, "error")
 	c.Assert(statusInfo.Data["transient"], jc.IsTrue)
 }
@@ -1397,7 +1410,7 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetStatus(state.StatusError, "error", nil)
+	err = machine.SetStatus(status.StatusError, "error", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
@@ -1407,7 +1420,7 @@ func (s *clientSuite) assertRetryProvisioning(c *gc.C, machine *state.Machine) {
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
 	c.Assert(statusInfo.Message, gc.Equals, "error")
 	c.Assert(statusInfo.Data["transient"], jc.IsTrue)
 }

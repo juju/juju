@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 	statetxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
@@ -19,8 +18,6 @@ import (
 	"github.com/juju/juju/network"
 )
 
-var portLogger = loggo.GetLogger("juju.state.ports")
-
 // A regular expression for parsing ports document id into
 // corresponding machine and network ids.
 var portsIdRe = regexp.MustCompile(fmt.Sprintf("m#(?P<machine>%s)#n#(?P<network>%s)$", names.MachineSnippet, names.NetworkSnippet))
@@ -28,7 +25,7 @@ var portsIdRe = regexp.MustCompile(fmt.Sprintf("m#(?P<machine>%s)#n#(?P<network>
 type portIdPart int
 
 const (
-	fullId portIdPart = iota
+	_ portIdPart = iota
 	machineIdPart
 	networkNamePart
 )

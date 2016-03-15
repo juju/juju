@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -326,22 +327,22 @@ func (s *withoutControllerSuite) TestRemove(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestSetStatus(c *gc.C) {
-	err := s.machines[0].SetStatus(state.StatusStarted, "blah", nil)
+	err := s.machines[0].SetStatus(status.StatusStarted, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machines[1].SetStatus(state.StatusStopped, "foo", nil)
+	err = s.machines[1].SetStatus(status.StatusStopped, "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machines[2].SetStatus(state.StatusError, "not really", nil)
+	err = s.machines[2].SetStatus(status.StatusError, "not really", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: s.machines[0].Tag().String(), Status: params.StatusError, Info: "not really",
+			{Tag: s.machines[0].Tag().String(), Status: status.StatusError, Info: "not really",
 				Data: map[string]interface{}{"foo": "bar"}},
-			{Tag: s.machines[1].Tag().String(), Status: params.StatusStopped, Info: "foobar"},
-			{Tag: s.machines[2].Tag().String(), Status: params.StatusStarted, Info: "again"},
-			{Tag: "machine-42", Status: params.StatusStarted, Info: "blah"},
-			{Tag: "unit-foo-0", Status: params.StatusStopped, Info: "foobar"},
-			{Tag: "service-bar", Status: params.StatusStopped, Info: "foobar"},
+			{Tag: s.machines[1].Tag().String(), Status: status.StatusStopped, Info: "foobar"},
+			{Tag: s.machines[2].Tag().String(), Status: status.StatusStarted, Info: "again"},
+			{Tag: "machine-42", Status: status.StatusStarted, Info: "blah"},
+			{Tag: "unit-foo-0", Status: status.StatusStopped, Info: "foobar"},
+			{Tag: "service-bar", Status: status.StatusStopped, Info: "foobar"},
 		}}
 	result, err := s.provisioner.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -357,23 +358,23 @@ func (s *withoutControllerSuite) TestSetStatus(c *gc.C) {
 	})
 
 	// Verify the changes.
-	s.assertStatus(c, 0, state.StatusError, "not really", map[string]interface{}{"foo": "bar"})
-	s.assertStatus(c, 1, state.StatusStopped, "foobar", map[string]interface{}{})
-	s.assertStatus(c, 2, state.StatusStarted, "again", map[string]interface{}{})
+	s.assertStatus(c, 0, status.StatusError, "not really", map[string]interface{}{"foo": "bar"})
+	s.assertStatus(c, 1, status.StatusStopped, "foobar", map[string]interface{}{})
+	s.assertStatus(c, 2, status.StatusStarted, "again", map[string]interface{}{})
 }
 
 func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
-	err := s.machines[0].SetStatus(state.StatusStarted, "blah", nil)
+	err := s.machines[0].SetStatus(status.StatusStarted, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machines[1].SetStatus(state.StatusError, "transient error",
+	err = s.machines[1].SetStatus(status.StatusError, "transient error",
 		map[string]interface{}{"transient": true, "foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machines[2].SetStatus(state.StatusError, "error", map[string]interface{}{"transient": false})
+	err = s.machines[2].SetStatus(status.StatusError, "error", map[string]interface{}{"transient": false})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machines[3].SetStatus(state.StatusError, "error", nil)
+	err = s.machines[3].SetStatus(status.StatusError, "error", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Machine 4 is provisioned but error not reset yet.
-	err = s.machines[4].SetStatus(state.StatusError, "transient error",
+	err = s.machines[4].SetStatus(status.StatusError, "transient error",
 		map[string]interface{}{"transient": true, "foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
@@ -397,14 +398,14 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
 		anAuthorizer)
-	err = s.machines[0].SetStatus(state.StatusStarted, "blah", nil)
+	err = s.machines[0].SetStatus(status.StatusStarted, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machines[1].SetStatus(state.StatusError, "transient error",
+	err = s.machines[1].SetStatus(status.StatusError, "transient error",
 		map[string]interface{}{"transient": true, "foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machines[2].SetStatus(state.StatusError, "error", map[string]interface{}{"transient": false})
+	err = s.machines[2].SetStatus(status.StatusError, "error", map[string]interface{}{"transient": false})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machines[3].SetStatus(state.StatusError, "error", nil)
+	err = s.machines[3].SetStatus(status.StatusError, "error", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := aProvisioner.MachinesWithTransientErrors()
@@ -457,7 +458,7 @@ func (s *withoutControllerSuite) assertLife(c *gc.C, index int, expectLife state
 	c.Assert(s.machines[index].Life(), gc.Equals, expectLife)
 }
 
-func (s *withoutControllerSuite) assertStatus(c *gc.C, index int, expectStatus state.Status, expectInfo string,
+func (s *withoutControllerSuite) assertStatus(c *gc.C, index int, expectStatus status.Status, expectInfo string,
 	expectData map[string]interface{}) {
 
 	statusInfo, err := s.machines[index].Status()
@@ -554,11 +555,11 @@ func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestStatus(c *gc.C) {
-	err := s.machines[0].SetStatus(state.StatusStarted, "blah", nil)
+	err := s.machines[0].SetStatus(status.StatusStarted, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machines[1].SetStatus(state.StatusStopped, "foo", nil)
+	err = s.machines[1].SetStatus(status.StatusStopped, "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machines[2].SetStatus(state.StatusError, "not really", map[string]interface{}{"foo": "bar"})
+	err = s.machines[2].SetStatus(status.StatusError, "not really", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -582,9 +583,9 @@ func (s *withoutControllerSuite) TestStatus(c *gc.C) {
 	}
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
-			{Status: params.StatusStarted, Info: "blah", Data: map[string]interface{}{}},
-			{Status: params.StatusStopped, Info: "foo", Data: map[string]interface{}{}},
-			{Status: params.StatusError, Info: "not really", Data: map[string]interface{}{"foo": "bar"}},
+			{Status: status.StatusStarted, Info: "blah", Data: map[string]interface{}{}},
+			{Status: status.StatusStopped, Info: "foo", Data: map[string]interface{}{}},
+			{Status: status.StatusError, Info: "not really", Data: map[string]interface{}{"foo": "bar"}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

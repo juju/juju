@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	// "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -37,7 +36,6 @@ type RebootSuite struct {
 var _ = gc.Suite(&RebootSuite{})
 
 func (s *RebootSuite) SetUpTest(c *gc.C) {
-	var err error
 	s.JujuConnSuite.SetUpTest(c)
 	testing.PatchExecutableAsEchoArgs(c, s, rebootBin)
 	s.PatchEnvironment("TEMP", c.MkDir())
@@ -50,7 +48,7 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.mgoInst.EnableAuth = true
-	err = s.mgoInst.Start(coretesting.Certs)
+	err := s.mgoInst.Start(coretesting.Certs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	configParams := agent.AgentConfigParams{

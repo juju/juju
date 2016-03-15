@@ -137,10 +137,12 @@ func (s *RelationListSuite) TestRelationList(c *gc.C) {
 
 func (s *RelationListSuite) TestRelationListHelp(c *gc.C) {
 	template := `
-usage: relation-list [options]
-purpose: list relation units
+Usage: relation-list [options]
 
-options:
+Summary:
+list relation units
+
+Options:
 --format  (= smart)
     specify output format (json|smart|yaml)
 -o, --output (= "")
@@ -152,7 +154,7 @@ options:
 	for relid, t := range map[int]struct {
 		usage, doc string
 	}{
-		-1: {"", "\n-r must be specified when not in a relation hook\n"},
+		-1: {"", "\nDetails:\n-r must be specified when not in a relation hook\n"},
 		0:  {"peer0:0", ""},
 	} {
 		c.Logf("test relid %d", relid)

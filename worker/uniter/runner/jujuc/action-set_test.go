@@ -143,9 +143,12 @@ func (s *ActionSetSuite) TestHelp(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: action-set <key>=<value> [<key>=<value> ...]
-purpose: set action results
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-set <key>=<value> [<key>=<value> ...]
 
+Summary:
+set action results
+
+Details:
 action-set adds the given values to the results map of the Action.  This map
 is returned to the user after the completion of the Action.  Keys must start
 and end with lowercase alphanumeric, and contain only lowercase alphanumeric,

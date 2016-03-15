@@ -22,10 +22,6 @@ func toTags(tags *map[string]*string) map[string]string {
 	return to.StringMap(*tags)
 }
 
-func toStringSlicePtr(s ...string) *[]string {
-	return &s
-}
-
 // randomAdminPassword returns a random administrator password for
 // Windows machines.
 func randomAdminPassword() string {

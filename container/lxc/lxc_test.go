@@ -35,6 +35,7 @@ import (
 	instancetest "github.com/juju/juju/instance/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -158,7 +159,7 @@ func (s *LxcSuite) TestContainerManagerLXCClone(c *gc.C) {
 		mgr, err := lxc.NewContainerManager(container.ManagerConfig{
 			container.ConfigName: "juju",
 			"use-clone":          test.useClone,
-		}, &containertesting.MockURLGetter{}, nil)
+		}, &containertesting.MockURLGetter{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(lxc.GetCreateWithCloneValue(mgr), gc.Equals, test.expectClone)
 	}
@@ -599,7 +600,7 @@ func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 	if s.useAUFS {
 		params["use-aufs"] = "true"
 	}
-	manager, err := lxc.NewContainerManager(
+	manager, err := lxc.NewContainerManagerForTest(
 		params, &containertesting.MockURLGetter{},
 		&s.loopDeviceManager,
 	)
@@ -611,7 +612,7 @@ func (*LxcSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 	_, err := lxc.NewContainerManager(container.ManagerConfig{
 		container.ConfigName: "BillyBatson",
 		"shazam":             "Captain Marvel",
-	}, &containertesting.MockURLGetter{}, nil)
+	}, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
@@ -793,6 +794,7 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 	authorizedKeys := "authorized keys list"
 	aptProxy := proxy.Settings{}
 	aptMirror := "http://my.archive.ubuntu.com/ubuntu"
+	callback := func(containerStatus status.Status, info string, data map[string]interface{}) error { return nil }
 	template, err := lxc.EnsureCloneTemplate(
 		"ext4",
 		"quantal",
@@ -804,6 +806,7 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 		true,
 		&containertesting.MockURLGetter{},
 		false,
+		callback,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(template.Name(), gc.Equals, name)
@@ -876,18 +879,19 @@ func (s *LxcSuite) TestCreateContainerWithCloneMountsAndAutostarts(c *gc.C) {
 }
 
 func (s *LxcSuite) TestContainerState(c *gc.C) {
+	// TODO(perrito666) refactor state reporting to return a proper state.
 	manager := s.makeManager(c, "test")
 	c.Logf("%#v", manager)
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
 	// The mock container will be immediately "running".
-	c.Assert(instance.Status(), gc.Equals, string(golxc.StateRunning))
+	c.Assert(instance.Status().Message, gc.Equals, string(golxc.StateRunning))
 
 	// DestroyContainer stops and then destroys the container, putting it
 	// into "unknown" state.
 	err := manager.DestroyContainer(instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instance.Status(), gc.Equals, string(golxc.StateUnknown))
+	c.Assert(instance.Status().Message, gc.Equals, string(golxc.StateUnknown))
 }
 
 func (s *LxcSuite) TestDestroyContainer(c *gc.C) {

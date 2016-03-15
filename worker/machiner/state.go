@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
 
@@ -21,7 +22,7 @@ type Machine interface {
 	Life() params.Life
 	EnsureDead() error
 	SetMachineAddresses(addresses []network.Address) error
-	SetStatus(status params.Status, info string, data map[string]interface{}) error
+	SetStatus(machineStatus status.Status, info string, data map[string]interface{}) error
 	Watch() (watcher.NotifyWatcher, error)
 }
 

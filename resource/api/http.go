@@ -21,12 +21,6 @@ import (
 var logger = loggo.GetLogger("juju.resource.api")
 
 const (
-	// HTTPEndpointPattern is the URL path pattern registered with
-	// the API server. This includes wildcards (starting with ":") that
-	// are converted into URL query values by the pattern mux. Also see
-	// apiserver/apiserver.go.
-	HTTPEndpointPattern = "/services/:service/resources/:resource"
-
 	// HTTPEndpointPath is the URL path, with substitutions, for
 	// a resource request.
 	HTTPEndpointPath = "/services/%s/resources/%s"
