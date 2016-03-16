@@ -285,7 +285,7 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams, 
 	if err != nil {
 		return err
 	}
-	resIDs, err := handleResources(h.serviceDeployer.api, resources, p.Service, cURL, csMac, charmInfo.Meta.Resources)
+	resNames2IDs, err := handleResources(h.serviceDeployer.api, resources, p.Service, cURL, csMac, charmInfo.Meta.Resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -297,10 +297,10 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams, 
 		constraints:   cons,
 		storage:       storageConstraints,
 		spaceBindings: p.EndpointBindings,
-		resources:     resIDs,
+		resources:     resNames2IDs,
 	}); err == nil {
 		h.log.Infof("service %s deployed (charm: %s)", p.Service, ch)
-		for resName := range resIDs {
+		for resName := range resNames2IDs {
 			h.log.Infof("added resource %s", resName)
 		}
 		return nil
@@ -731,9 +731,9 @@ func (h *bundleHandler) upgradeCharm(service string, cURL *charm.URL, csMac *mac
 	if err != nil {
 		return errors.Trace(err)
 	}
-	var resIDs map[string]string
+	var resNames2IDs map[string]string
 	if len(filtered) != 0 {
-		resIDs, err = handleResources(h.serviceDeployer.api, resources, service, url, csMac, filtered)
+		resNames2IDs, err = handleResources(h.serviceDeployer.api, resources, service, url, csMac, filtered)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -741,13 +741,13 @@ func (h *bundleHandler) upgradeCharm(service string, cURL *charm.URL, csMac *mac
 	cfg := apiservice.SetCharmConfig{
 		ServiceName: service,
 		CharmUrl:    id,
-		ResourceIDs: resIDs,
+		ResourceIDs: resNames2IDs,
 	}
 	if err := h.serviceClient.SetCharm(cfg); err != nil {
 		return errors.Annotatef(err, "cannot upgrade charm to %q", id)
 	}
 	h.log.Infof("upgraded charm for existing service %s (from %s to %s)", service, existing, id)
-	for resName := range resIDs {
+	for resName := range resNames2IDs {
 		h.log.Infof("added resource %s", resName)
 	}
 	return nil
