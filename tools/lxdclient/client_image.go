@@ -44,6 +44,9 @@ func (i *imageClient) EnsureImageExists(series string, copyProgressHandler func(
 	// TODO(jam) We should add Architecture in this information as well
 	// TODO(jam) We should also update this for multiple locations to copy
 	// from
+	// TODO(jam) Find a way to test this, even though lxd.Client can't
+	// really be stubbed out because CopyImage takes one directly and pokes
+	// at private methods so we can't easily tweak it.
 	name := i.ImageNameForSeries(series)
 
 	aliases, err := i.raw.ListAliases()
