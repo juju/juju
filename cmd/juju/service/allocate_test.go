@@ -33,7 +33,7 @@ func (s *allocationSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.apiClient = &mockBudgetAPIClient{Stub: s.stub}
 	s.allocate = &AllocateBudget{AllocationSpec: "personal:100"}
-	s.PatchValue(&getApiClient, func(*http.Client) (apiClient, error) { return s.apiClient, nil })
+	s.PatchValue(&getApiClient, func(*cmd.Context, *http.Client) (apiClient, error) { return s.apiClient, nil })
 	s.ctx = coretesting.Context(c)
 }
 

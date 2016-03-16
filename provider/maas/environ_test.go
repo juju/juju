@@ -153,6 +153,16 @@ func (*environSuite) TestSetConfigAllowsEmptyFromNilAgentName(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, ".*cannot change maas-agent-name.*")
 }
 
+func (*environSuite) TestDestroyWithEmptyAgentName(c *gc.C) {
+	// Related bug #1256179, comment as above.
+	baseCfg := getSimpleTestConfig(c, coretesting.Attrs{"maas-agent-name": ""})
+	env, err := maas.NewEnviron(baseCfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = env.Destroy()
+	c.Assert(err, gc.ErrorMatches, "unsafe destruction")
+}
+
 func (*environSuite) TestSetConfigAllowsChangingNilAgentNameToEmptyString(c *gc.C) {
 	oldCfg := getSimpleTestConfig(c, nil)
 	newCfgTwo := getSimpleTestConfig(c, coretesting.Attrs{"maas-agent-name": ""})

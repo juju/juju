@@ -517,10 +517,6 @@ func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
 	return charmURL, err
 }
 
-func (u *Uniter) operationState() operation.State {
-	return u.operationExecutor.State()
-}
-
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
 	// TODO(axw) drop this when we move the run-listener to an independent

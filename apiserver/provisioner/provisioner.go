@@ -24,9 +24,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider/registry"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.provisioner")
@@ -488,48 +485,6 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
-}
-
-// storageConfig returns the provider type and config attributes for the
-// specified poolName. If no such pool exists, we check to see if poolName is
-// actually a provider type, in which case config will be empty.
-func storageConfig(st *state.State, poolName string) (storage.ProviderType, map[string]interface{}, error) {
-	pm := poolmanager.New(state.NewStateSettings(st))
-	p, err := pm.Get(poolName)
-	// If not a storage pool, then maybe a provider type.
-	if errors.IsNotFound(err) {
-		providerType := storage.ProviderType(poolName)
-		if _, err1 := registry.StorageProvider(providerType); err1 != nil {
-			return "", nil, errors.Trace(err)
-		}
-		return providerType, nil, nil
-	}
-	if err != nil {
-		return "", nil, errors.Trace(err)
-	}
-	return p.Provider(), p.Attrs(), nil
-}
-
-// volumeAttachmentsToState converts a slice of storage.VolumeAttachment to a
-// mapping of volume names to state.VolumeAttachmentInfo.
-func volumeAttachmentsToState(in []params.VolumeAttachment) (map[names.VolumeTag]state.VolumeAttachmentInfo, error) {
-	m := make(map[names.VolumeTag]state.VolumeAttachmentInfo)
-	for _, v := range in {
-		if v.VolumeTag == "" {
-			return nil, errors.New("Tag is empty")
-		}
-		volumeTag, err := names.ParseVolumeTag(v.VolumeTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		m[volumeTag] = state.VolumeAttachmentInfo{
-			v.Info.DeviceName,
-			v.Info.DeviceLink,
-			v.Info.BusAddress,
-			v.Info.ReadOnly,
-		}
-	}
-	return m, nil
 }
 
 func networkParamsToStateParams(networks []params.Network, ifaces []params.NetworkInterface) (

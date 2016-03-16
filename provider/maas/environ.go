@@ -871,6 +871,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 
 	inst := &maasInstance{
 		maasObject:   selectedNode,
+		environ:      environ,
 		statusGetter: environ.deploymentStatusOne,
 	}
 	defer func() {
@@ -1153,7 +1154,7 @@ if [ ! -z "${juju_networking_preferred_python_binary:-}" ]; then
 # For the moment we want master and 1.25 to not bridge all interfaces.
 # This setting allows us to easily switch the behaviour when merging
 # the code between those various branches.
-        juju_bridge_all_interfaces=1
+        juju_bridge_all_interfaces=0
         if [ $juju_bridge_all_interfaces -eq 1 ]; then
             $juju_networking_preferred_python_binary %[1]q --bridge-prefix=%[2]q --one-time-backup --activate %[4]q
         else
@@ -1312,6 +1313,7 @@ func (environ *maasEnviron) instances(filter url.Values) ([]instance.Instance, e
 		}
 		instances[index] = &maasInstance{
 			maasObject:   &node,
+			environ:      environ,
 			statusGetter: environ.deploymentStatusOne,
 		}
 	}
@@ -2068,6 +2070,13 @@ func (env *maasEnviron) Storage() storage.Storage {
 }
 
 func (environ *maasEnviron) Destroy() error {
+	if environ.ecfg().maasAgentName() == "" {
+		logger.Warningf("No MAAS agent name specified.\n\n" +
+			"The environment is either not running or from a very early Juju version.\n" +
+			"It is not safe to release all MAAS instances without an agent name.\n" +
+			"If the environment is still running, please manually decomission the MAAS machines.")
+		return errors.New("unsafe destruction")
+	}
 	if err := common.Destroy(environ); err != nil {
 		return errors.Trace(err)
 	}

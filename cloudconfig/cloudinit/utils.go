@@ -33,19 +33,6 @@ func addPackageSourceCmds(cfg CloudConfig, src packaging.PackageSource) []string
 	return cmds
 }
 
-// addPackagePreferencesCmds is a helper function which returns the bootcmds
-// which set the given PackagePreferences.
-func addPackagePreferencesCmds(cfg CloudConfig, prefs []packaging.PackagePreferences) []string {
-	cmds := []string{}
-	for _, pref := range prefs {
-		prefFile, _ := cfg.getPackagingConfigurer().RenderPreferences(pref)
-		data := []byte(prefFile)
-		cmds = append(cmds, addFileCmds(pref.Path, data, 0644, false)...)
-	}
-
-	return cmds
-}
-
 // addFile is a helper function returns all the required shell commands to write
 // a file (be it text or binary) with regards to the given parameters
 // NOTE: if the file already exists, it will be overwritten.

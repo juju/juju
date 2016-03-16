@@ -11,15 +11,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 )
-
-var logger = loggo.GetLogger("juju.api.leadership")
 
 type client struct {
 	base.FacadeCaller
