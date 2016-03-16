@@ -791,16 +791,15 @@ class EnvJujuClient:
         return self.get_models()['models']
 
     def iter_model_clients(self):
+        """Iterate through all the models that share this model's controller.
+
+        Works only if JES is enabled.
+        """
         models = self._get_models()
         if not models:
             yield self
         for model in models:
-            name = model['name']
-            if name == self.env.environment:
-                yield self
-            else:
-                env = self.env.clone(model_name=name)
-                yield self.clone(env=env)
+            yield self._acquire_model_client(model['name'])
 
     def get_admin_model_name(self):
         """Return the name of the 'admin' model.
@@ -810,15 +809,24 @@ class EnvJujuClient:
         """
         return 'admin'
 
+    def _acquire_model_client(self, name):
+        """Get a client for a model with the supplied name.
+
+        If the name matches self, self is used.  Otherwise, a clone is used.
+        """
+        if name == self.env.environment:
+            return self
+        else:
+            env = self.env.clone(model_name=name)
+            return self.clone(env=env)
+
     def get_admin_client(self):
         """Return a client for the admin model.  May return self.
 
         This may be inaccurate for models created using create_environment
         rather than bootstrap.
         """
-        admin_jujudata = self.env.clone(
-            model_name=self.get_admin_model_name())
-        return self.clone(env=admin_jujudata)
+        return self._acquire_model_client(self.get_admin_model_name())
 
     def list_controllers(self):
         """List the controllers."""
