@@ -316,17 +316,14 @@ lxc.network.type = veth
 lxc.network.link = nic42
 lxc.network.flags = up
 lxc.network.name = eth0
-lxc.network.hwaddr = aa:bb:cc:dd:ee:f0
-lxc.network.ipv4 = 0.1.2.3/32
+lxc.network.ipv4 = 0.1.2.3/20
 lxc.network.ipv4.gateway = 0.1.2.1
-lxc.network.mtu = 4321
 
 # interface "eth1"
 lxc.network.type = veth
 lxc.network.link = nic42
 lxc.network.flags = up
 lxc.network.name = eth1
-lxc.network.mtu = 4321
 
 
 lxc.mount.entry = %s var/log/juju none defaults,bind 0 0
@@ -367,17 +364,14 @@ lxc.cgroup.devices.allow = c 10:237 rwm
 lxc.network.type = bar
 lxc.network.flags = up
 lxc.network.name = em0
-lxc.network.hwaddr = ff:ee:dd:cc:bb:aa
-lxc.network.ipv4 = 0.1.2.3/32
+lxc.network.ipv4 = 0.1.2.3/20
 lxc.network.ipv4.gateway = 0.1.2.1
-lxc.network.mtu = 1234
 
 # interface "eth1"
 lxc.network.type = foo
 lxc.network.link = nic42
 lxc.network.flags = up
 lxc.network.name = em1
-lxc.network.mtu = 4321
 
 
 
@@ -391,6 +385,8 @@ lxc.network.vlan.id = 69
 something else  # ignore
 lxc.network.type = phys
 lxc.network.link = foo  # comment
+lxc.network.hwaddr = ff:ee:dd:cc:bb:aa
+lxc.network.mtu = 1234
 lxc.network.hwaddr = deadbeef
 lxc.network.hwaddr = nonsense
 lxc.missing = appended
@@ -1126,7 +1122,6 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.flags = up",
 			"lxc.network.mtu = 1500",
 		},
-		logContains: `INFO juju.container.lxc setting MTU to 1500 for all LXC network interfaces`,
 	}, {
 		about:  "phys config with MTU 9000, device foo, no NICs",
 		config: container.PhysicalNetworkConfig("foo", 9000, nil),
@@ -1136,7 +1131,6 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.flags = up",
 			"lxc.network.mtu = 9000",
 		},
-		logContains: `INFO juju.container.lxc setting MTU to 9000 for all LXC network interfaces`,
 	}, {
 		about:  "bridge config with MTU 8000, device foo, all NICs",
 		config: container.BridgeNetworkConfig("foo", 8000, allNICs),
@@ -1147,25 +1141,19 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.flags = up",
 			"lxc.network.name = eth0",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f0",
-			"lxc.network.mtu = 8000",
 
 			"lxc.network.type = veth",
 			"lxc.network.link = foo",
 			"lxc.network.flags = up",
 			"lxc.network.name = eth1",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
-			"lxc.network.ipv4 = 0.1.2.3/32",
-			"lxc.network.ipv4.gateway = 0.1.2.1",
-			"lxc.network.mtu = 8000",
+			"lxc.network.ipv4 = 0.1.2.3/20",
 
-			"lxc.network.type = vlan",
-			"lxc.network.vlan.id = 42",
+			"lxc.network.type = veth",
 			"lxc.network.link = foo",
 			"lxc.network.name = eth2",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f2",
-			"lxc.network.mtu = 8000",
 		},
-		logContains: `INFO juju.container.lxc setting MTU to 8000 for all LXC network interfaces`,
 	}, {
 		about:  "bridge config with MTU 0, device foo, staticNICNoCIDR",
 		config: container.BridgeNetworkConfig("foo", 0, []network.InterfaceInfo{staticNICNoCIDR}),
@@ -1176,8 +1164,6 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.flags = up",
 			"lxc.network.name = eth1",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
-			"lxc.network.ipv4 = 0.1.2.3/32",
-			"lxc.network.ipv4.gateway = 0.1.2.1",
 		},
 		logDoesNotContain: `INFO juju.container.lxc setting MTU to 0 for all LXC network interfaces`,
 	}, {
@@ -1190,8 +1176,7 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.flags = up",
 			"lxc.network.name = eth1",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
-			"lxc.network.ipv4 = 0.1.2.3/32",
-			"lxc.network.ipv4.gateway = 0.1.2.1",
+			"lxc.network.ipv4 = invalid CIDR address: bad",
 		},
 	}, {
 		about:  "bridge config with MTU 0, device foo, staticNICNoAutoWithGW",
@@ -1202,9 +1187,8 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.link = foo",
 			"lxc.network.name = eth1",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
-			"lxc.network.ipv4 = 0.1.2.3/32",
+			"lxc.network.ipv4 = 0.1.2.3/20",
 		},
-		logContains: `WARNING juju.container.lxc not setting IPv4 gateway "0.1.2.1" for non-auto start interface "eth1"`,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
 		config := lxc.GenerateNetworkConfig(test.config)
@@ -1258,9 +1242,6 @@ func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
 	log := c.GetTestLog()
 	c.Assert(log, jc.Contains,
 		`WARNING juju.container.lxc unknown network type "foo", using the default "bridge" config`,
-	)
-	c.Assert(log, jc.Contains,
-		`INFO juju.container.lxc setting MTU to 4321 for all LXC network interfaces`,
 	)
 }
 
