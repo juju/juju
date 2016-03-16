@@ -284,6 +284,8 @@ class FakeJujuClient:
         return self._acquire_state_client(admin_model)
 
     def iter_model_clients(self):
+        if not self._jes_enabled:
+            raise JESNotSupported()
         for state in self._backing_state.controller.models.values():
             yield self._acquire_state_client(state)
 
@@ -350,11 +352,15 @@ class FakeJujuClient:
         self._backing_state.deploy_bundle(bundle)
 
     def create_environment(self, controller_client, config_file):
+        if not self._jes_enabled:
+            raise JESNotSupported()
         model_state = controller_client._backing_state.controller.create_model(
             self.env.environment)
         self._backing_state = model_state
 
     def destroy_model(self):
+        if not self._jes_enabled:
+            raise JESNotSupported()
         self._backing_state.destroy_model()
 
     def destroy_environment(self, force=True, delete_jenv=False):
