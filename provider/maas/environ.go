@@ -1189,7 +1189,7 @@ if [ ! -z "${juju_networking_preferred_python_binary:-}" ]; then
 # For the moment we want master and 1.25 to not bridge all interfaces.
 # This setting allows us to easily switch the behaviour when merging
 # the code between those various branches.
-        juju_bridge_all_interfaces=0
+        juju_bridge_all_interfaces=1
         if [ $juju_bridge_all_interfaces -eq 1 ]; then
             $juju_networking_preferred_python_binary %[1]q --bridge-prefix=%[2]q --one-time-backup --activate %[4]q
         else
