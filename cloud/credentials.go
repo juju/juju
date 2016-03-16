@@ -139,7 +139,9 @@ func (s CredentialSchema) Finalize(
 			}
 			continue
 		}
-		newAttrs[name] = resultMap[name].(string)
+		if val, ok := resultMap[name]; ok {
+			newAttrs[name] = val.(string)
+		}
 	}
 	return newAttrs, nil
 }
