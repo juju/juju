@@ -130,7 +130,7 @@ class TestMain(FakeHomeTestCase):
                                          '0')
         ds_mock.assert_called_once_with(client, 'prefix')
         dcm_mock.assert_called_once_with(client, leader_only=True)
-        dal_mock.assert_called_once_with(client)
+        self.assertTrue(dal_mock.called)
         self.assertEqual(0, ns_mock.call_count)
 
     def test_ha_error(self, so_mock, cc_mock, co_mock,
@@ -154,7 +154,7 @@ class TestMain(FakeHomeTestCase):
         ds_mock.assert_called_once_with(client, 'prefix')
         dcm_mock.assert_called_once_with(client, leader_only=True)
         ns_mock.assert_called_once_with(error)
-        dal_mock.assert_called_once_with(client)
+        self.assertTrue(dal_mock.called)
 
     def test_destroy_on_boot_error(self, so_mock, cc_mock, co_mock,
                                    dns_mock, ds_mock, dcm_mock, ns_mock,

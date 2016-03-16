@@ -1154,18 +1154,19 @@ class TestBootstrapManager(FakeHomeTestCase):
                 bs_manager.tear_down()
         self.assertEqual('barfoo', tear_down_client.env.juju_home)
 
-    def test_runtime_context_uses_known_hosts(self):
+    def test_dump_all_logs_uses_known_hosts(self):
         client = FakeJujuClient()
-        bs_manager = BootstrapManager(
-            'foobar', client, client,
-            None, [], None, None, None, None, client.env.juju_home, False,
-            False, False)
-        bs_manager.known_hosts['2'] = 'example.org'
-        with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
-            with bs_manager.runtime_context([]):
-                pass
+        with temp_dir() as log_dir:
+            bs_manager = BootstrapManager(
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                False, False)
+            bs_manager.known_hosts['2'] = 'example.org'
+            with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
+                bs_manager.dump_all_logs()
         del_mock.assert_called_once_with(
-            client, 'foo', 'foo/environments/name.jenv', {
+            client, os.path.join(log_dir, 'name'),
+            'foo/environments/name.jenv', {
                 '2': 'example.org',
                 })
 
@@ -1176,13 +1177,11 @@ class TestBootstrapManager(FakeHomeTestCase):
             'foobar', client, client,
             None, [], None, None, None, None, client.env.juju_home, False,
             False, False)
-        with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
+        with patch.object(bs_manager, 'dump_all_logs',
+                          autospec=True) as dal_mock:
             with bs_manager.runtime_context([]):
-                pass
-        del_mock.assert_called_once_with(
-            client, 'foo', 'foo/environments/name.jenv', {
-                '0': '0.example.com',
-                })
+                self.assertEqual({
+                    '0': '0.example.com'}, bs_manager.known_hosts)
 
     @patch('deploy_stack.dump_env_logs_known_hosts', autospec=True)
     def test_runtime_context_addable_machines_no_known_hosts(self, del_mock):
@@ -1195,21 +1194,24 @@ class TestBootstrapManager(FakeHomeTestCase):
         bs_manager.known_hosts = {}
         with patch.object(bs_manager.client, 'add_ssh_machines',
                           autospec=True) as ads_mock:
-            with bs_manager.runtime_context(['baz']):
-                ads_mock.assert_called_once_with(['baz'])
+            with patch.object(bs_manager, 'dump_all_logs',
+                              autospec=True) as dal_mock:
+                with bs_manager.runtime_context(['baz']):
+                    ads_mock.assert_called_once_with(['baz'])
 
     @patch('deploy_stack.dump_env_logs_known_hosts', autospec=True)
     def test_runtime_context_addable_machines_with_known_hosts(self, del_mock):
         client = FakeJujuClient()
-        bs_manager = BootstrapManager(
-            'foobar', client, client,
-            None, [], None, None, None, None, client.env.juju_home, False,
-            False, False)
-        bs_manager.known_hosts['0'] = 'example.org'
-        with patch.object(bs_manager.client, 'add_ssh_machines',
-                          autospec=True) as ads_mock:
-            with bs_manager.runtime_context(['baz']):
-                ads_mock.assert_called_once_with(['baz'])
+        with temp_dir() as log_dir:
+            bs_manager = BootstrapManager(
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                False, False)
+            bs_manager.known_hosts['0'] = 'example.org'
+            with patch.object(bs_manager.client, 'add_ssh_machines',
+                              autospec=True) as ads_mock:
+                with bs_manager.runtime_context(['baz']):
+                    ads_mock.assert_called_once_with(['baz'])
 
     def test_booted_context_handles_logged_exception(self):
         client = FakeJujuClient()
@@ -1266,8 +1268,8 @@ class TestBootContext(FakeHomeTestCase):
 
     @contextmanager
     def bc_context(self, client, log_dir=None, jes=None, keep_env=False):
-        dl_mock = self.addContext(
-            patch('deploy_stack.dump_env_logs_known_hosts'))
+        dal_mock = self.addContext(
+            patch('deploy_stack.BootstrapManager.dump_all_logs'))
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo', autospec=True))
         c_mock = self.addContext(patch('subprocess.call', autospec=True,
@@ -1291,8 +1293,7 @@ class TestBootContext(FakeHomeTestCase):
         else:
             runtime_config = os.path.join(client.env.juju_home, 'environments',
                                           'bar.jenv')
-        dl_mock.assert_called_once_with(client, log_dir, runtime_config,
-                                        {'0': 'foo'})
+        dal_mock.assert_called_once_with()
         if keep_env:
             tear_down_count = 1
         else:
