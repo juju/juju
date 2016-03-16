@@ -652,7 +652,12 @@ class BootstrapManager:
         if not self.jes_enabled:
             clients = [self.client]
         else:
-            clients = self.client.iter_model_clients()
+            try:
+                clients = list(self.client.iter_model_clients())
+            except Exception:
+                clients = [admin_client]
+                if self.client is not admin_client:
+                    clients.append(self.client)
         for client in clients:
             if client.env.environment == admin_client.env.environment:
                 known_hosts = self.known_hosts

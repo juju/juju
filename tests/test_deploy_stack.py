@@ -1154,6 +1154,61 @@ class TestBootstrapManager(FakeHomeTestCase):
                 bs_manager.tear_down()
         self.assertEqual('barfoo', tear_down_client.env.juju_home)
 
+    def test_dump_all_no_jes_one_model(self):
+        client = FakeJujuClient()
+        client.bootstrap()
+        with temp_dir() as log_dir:
+            bs_manager = BootstrapManager(
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                False, jes_enabled=False)
+            with patch('deploy_stack.dump_env_logs_known_hosts'):
+                with patch.object(client, 'iter_model_clients') as imc_mock:
+                    bs_manager.dump_all_logs()
+        self.assertEqual(0, imc_mock.call_count)
+
+    def test_dump_all_multi_model(self):
+        client = FakeJujuClient(jes_enabled=True)
+        client.bootstrap()
+        with temp_dir() as log_dir:
+            bs_manager = BootstrapManager(
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                permanent=True, jes_enabled=True)
+            with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
+                bs_manager.dump_all_logs()
+
+        clients = dict((c[1][0].env.environment, c[1][0])
+                       for c in del_mock.mock_calls)
+
+        self.assertItemsEqual(
+            [call(client, os.path.join(log_dir, 'name'), None, {}),
+             call(clients['admin'], os.path.join(log_dir, 'admin'),
+                  'foo/models/cache.yaml', {})],
+            del_mock.mock_calls)
+
+    def test_dump_all_multi_model_iter_failure(self):
+        client = FakeJujuClient(jes_enabled=True)
+        client.bootstrap()
+        with temp_dir() as log_dir:
+            bs_manager = BootstrapManager(
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                permanent=True, jes_enabled=True)
+            with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
+                with patch.object(client, 'iter_model_clients',
+                                  side_effect=Exception):
+                    bs_manager.dump_all_logs()
+
+        clients = dict((c[1][0].env.environment, c[1][0])
+                       for c in del_mock.mock_calls)
+
+        self.assertItemsEqual(
+            [call(client, os.path.join(log_dir, 'name'), None, {}),
+             call(clients['admin'], os.path.join(log_dir, 'admin'),
+                  'foo/models/cache.yaml', {})],
+            del_mock.mock_calls)
+
     def test_dump_all_logs_uses_known_hosts(self):
         client = FakeJujuClient()
         with temp_dir() as log_dir:
