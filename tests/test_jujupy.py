@@ -91,13 +91,32 @@ def assert_juju_call(test_case, mock_method, client, expected_args,
     test_case.assertEqual(args, (expected_args,))
 
 
+class FakeControllerState:
+
+    def __init__(self):
+        self.state = 'not-bootstrapped'
+        self.models = {}
+        self.admin_model = None
+
+    def create_model(self, name):
+        state = FakeEnvironmentState()
+        state.name = name
+        self.models[name] = state
+        state.controller = self
+        state.controller.state = 'created'
+        return state
+
+
 class FakeEnvironmentState:
     """A Fake environment state that can be used by multiple FakeClients."""
 
-    def __init__(self):
+    def __init__(self, controller=None):
         self._clear()
+        if controller is not None:
+            self.controller = controller
 
     def _clear(self):
+        self.controller = FakeControllerState()
         self.name = None
         self.machine_id_iter = count()
         self.state_servers = []
@@ -108,10 +127,12 @@ class FakeEnvironmentState:
         self.token = None
         self.exposed = set()
         self.machine_host_names = {}
-        self.state = 'not-bootstrapped'
         self.current_bundle = None
-        self.models = {}
         self.model_config = None
+
+    @property
+    def state(self):
+        return self.controller.state
 
     def add_machine(self):
         machine_id = str(self.machine_id_iter.next())
@@ -137,31 +158,31 @@ class FakeEnvironmentState:
         self.machines.remove(machine_id)
         self.containers.pop(machine_id, None)
 
-    def bootstrap(self, env, commandline_config):
+    def bootstrap(self, env, commandline_config, separate_admin):
         self.name = env.environment
         self.state_servers.append(self.add_machine())
-        self.state = 'bootstrapped'
+        self.controller.state = 'bootstrapped'
         self.model_config = copy.deepcopy(env.config)
         self.model_config.update(commandline_config)
+        self.controller.models[self.name] = self
+        if separate_admin:
+            self.controller.admin_model = self.controller.create_model('admin')
+        else:
+            self.controller.admin_model = self
 
     def destroy_environment(self):
         self._clear()
-        self.state = 'destroyed'
+        self.controller.state = 'destroyed'
         return 0
 
     def kill_controller(self):
         self._clear()
-        self.state = 'controller-killed'
-
-    def create_model(self, name):
-        state = FakeEnvironmentState()
-        self.models[name] = state
-        state.state = 'created'
-        return state
+        self.controller.state = 'controller-killed'
 
     def destroy_model(self):
+        del self.controller.models[self.name]
         self._clear()
-        self.state = 'model-destroyed'
+        self.controller.state = 'model-destroyed'
 
     def deploy(self, charm_name, service_name):
         self.add_unit(service_name)
@@ -232,6 +253,7 @@ class FakeJujuClient:
         self.debug = debug
         self.bootstrap_replaces = {}
         self._jes_enabled = jes_enabled
+        self._separate_admin = jes_enabled
 
     def clone(self, env, full_path=None, debug=None):
         if full_path is None:
@@ -249,11 +271,21 @@ class FakeJujuClient:
     def get_matching_agent_version(self):
         return '1.2-alpha3'
 
+    def _acquire_state_client(self, state):
+        if state.name == self.env.environment:
+            return self
+        new_env = self.env.clone(model_name=state.name)
+        new_client = self.clone(new_env)
+        new_client._backing_state = state
+        return new_client
+
     def get_admin_client(self):
-        return self
+        admin_model = self._backing_state.controller.admin_model
+        return self._acquire_state_client(admin_model)
 
     def iter_model_clients(self):
-        yield self
+        for state in self._backing_state.controller.models.values():
+            yield self._acquire_state_client(state)
 
     def is_jes_enabled(self):
         return self._jes_enabled
@@ -306,18 +338,19 @@ class FakeJujuClient:
         commandline_config = {}
         if bootstrap_series is not None:
             commandline_config['default-series'] = bootstrap_series
-        self._backing_state.bootstrap(self.env, commandline_config)
+        self._backing_state.bootstrap(self.env, commandline_config,
+                                      self._separate_admin)
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False):
         yield
 
     def quickstart(self, bundle):
-        self._backing_state.bootstrap(self.env, {})
+        self._backing_state.bootstrap(self.env, {}, self._separate_admin)
         self._backing_state.deploy_bundle(bundle)
 
     def create_environment(self, controller_client, config_file):
-        model_state = controller_client._backing_state.create_model(
+        model_state = controller_client._backing_state.controller.create_model(
             self.env.environment)
         self._backing_state = model_state
 
