@@ -113,6 +113,10 @@ var validationTests = []struct {
 			"instance-type": {"foo", "bar"},
 			"arch":          {"amd64", "i386"}},
 	},
+	{
+		cons:  "virt-type=bar",
+		vocab: map[string][]interface{}{"virt-type": {"bar"}},
+	},
 }
 
 func (s *validationSuite) TestValidation(c *gc.C) {

@@ -30,6 +30,7 @@ const (
 	InstanceType = "instance-type"
 	Networks     = "networks"
 	Spaces       = "spaces"
+	VirtType     = "virt-type"
 )
 
 // Value describes a user's requirements of the hardware on which units
@@ -88,6 +89,10 @@ type Value struct {
 	// TODO(dimitern): Drop this as soon as spaces can be used for
 	// deployments instead.
 	Networks *[]string `json:"networks,omitempty" yaml:"networks,omitempty"`
+
+	// VirtType, if not nil or empty, indicates that a machine must run the named
+	// virtual type. Only valid for clouds with multi-hypervisor support.
+	VirtType *string `json:"virt-type,omitempty" yaml:"virt-type,omitempty"`
 }
 
 // fieldNames records a mapping from the constraint tag to struct field name.
@@ -199,6 +204,11 @@ func (v *Value) HaveNetworks() bool {
 	return v.Networks != nil && len(*v.Networks) > 0
 }
 
+// HasVirtType returns true if the constraints.Value specifies an virtual type.
+func (v *Value) HasVirtType() bool {
+	return v.VirtType != nil && *v.VirtType != ""
+}
+
 // String expresses a constraints.Value in the language in which it was specified.
 func (v Value) String() string {
 	var strs []string
@@ -243,6 +253,9 @@ func (v Value) String() string {
 		s := strings.Join(*v.Networks, ",")
 		strs = append(strs, "networks="+s)
 	}
+	if v.VirtType != nil {
+		strs = append(strs, "virt-type="+string(*v.VirtType))
+	}
 	return strings.Join(strs, " ")
 }
 
@@ -285,6 +298,9 @@ func (v Value) GoString() string {
 		values = append(values, fmt.Sprintf("Networks: %q", *v.Networks))
 	} else if v.Networks != nil {
 		values = append(values, "Networks: (*[]string)(nil)")
+	}
+	if v.VirtType != nil {
+		values = append(values, fmt.Sprintf("VirtType: %q", *v.VirtType))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(values, ", "))
 }
@@ -427,6 +443,8 @@ func (v *Value) setRaw(raw string) error {
 		err = v.setSpaces(str)
 	case Networks:
 		err = v.setNetworks(str)
+	case VirtType:
+		err = v.setVirtType(str)
 	default:
 		return errors.Errorf("unknown constraint %q", name)
 	}
@@ -487,6 +505,8 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			if err == nil {
 				v.Networks = networks
 			}
+		case VirtType:
+			v.VirtType = &vstr
 		default:
 			return errors.Errorf("unknown constraint value: %v", k)
 		}
@@ -625,6 +645,16 @@ func (v *Value) validateNetworks(networks *[]string) error {
 			return errors.Errorf("%q is not a valid network name", netName)
 		}
 	}
+	return nil
+}
+
+func (v *Value) setVirtType(str string) error {
+	if v.VirtType != nil {
+		return errors.Errorf("already set")
+	}
+	// TODO (anastasiamac 2016-03-15)
+	// Do I need to validate that this is a supported virt type?
+	v.VirtType = &str
 	return nil
 }
 
