@@ -65,15 +65,17 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 
 	s.stub.CheckCallNames(c, "AddPendingResources")
 	s.stub.CheckCall(c, 0, "AddPendingResources", "mysql", cURL, csMac, []charmresource.Resource{{
-		Meta:   resources["store-tarball"],
-		Origin: charmresource.OriginStore,
+		Meta:     resources["store-tarball"],
+		Origin:   charmresource.OriginStore,
+		Revision: -1,
 	}, {
-		Meta:   resources["store-zip"],
-		Origin: charmresource.OriginStore,
+		Meta:     resources["store-zip"],
+		Origin:   charmresource.OriginStore,
+		Revision: -1,
 	}})
 }
 
-func (s DeploySuite) TestUploadOK(c *gc.C) {
+func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
 	csMac := &macaroon.Macaroon{}
@@ -101,7 +103,8 @@ func (s DeploySuite) TestUploadOK(c *gc.C) {
 	files := map[string]string{
 		"upload": "foobar.txt",
 	}
-	ids, err := du.upload(files)
+	revisions := map[string]int{}
+	ids, err := du.upload(files, revisions)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ids, gc.DeepEquals, map[string]string{
 		"upload": "id-upload",
@@ -111,8 +114,9 @@ func (s DeploySuite) TestUploadOK(c *gc.C) {
 	s.stub.CheckCallNames(c, "Stat", "AddPendingResources", "Open", "AddPendingResource")
 	expectedStore := []charmresource.Resource{
 		{
-			Meta:   du.resources["store"],
-			Origin: charmresource.OriginStore,
+			Meta:     du.resources["store"],
+			Origin:   charmresource.OriginStore,
+			Revision: -1,
 		},
 	}
 	s.stub.CheckCall(c, 1, "AddPendingResources", "mysql", cURL, csMac, expectedStore)
@@ -125,7 +129,112 @@ func (s DeploySuite) TestUploadOK(c *gc.C) {
 	s.stub.CheckCall(c, 3, "AddPendingResource", "mysql", expectedUpload, "foobar.txt", deps.ReadSeekCloser)
 }
 
-func (s DeploySuite) TestUploadUnexpectedResource(c *gc.C) {
+func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
+	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
+	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
+	csMac := &macaroon.Macaroon{}
+	du := deployUploader{
+		serviceID: "mysql",
+		cURL:      cURL,
+		csMac:     csMac,
+		client:    deps,
+		resources: map[string]charmresource.Meta{
+			"upload": {
+				Name: "upload",
+				Type: charmresource.TypeFile,
+				Path: "upload",
+			},
+			"store": {
+				Name: "store",
+				Type: charmresource.TypeFile,
+				Path: "store",
+			},
+		},
+		osOpen: deps.Open,
+		osStat: deps.Stat,
+	}
+
+	files := map[string]string{}
+	revisions := map[string]int{
+		"store": 3,
+	}
+	ids, err := du.upload(files, revisions)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ids, gc.DeepEquals, map[string]string{
+		"upload": "id-upload",
+		"store":  "id-store",
+	})
+
+	s.stub.CheckCallNames(c, "AddPendingResources")
+	expectedStore := []charmresource.Resource{{
+		Meta:     du.resources["store"],
+		Origin:   charmresource.OriginStore,
+		Revision: 3,
+	}, {
+		Meta:     du.resources["upload"],
+		Origin:   charmresource.OriginStore,
+		Revision: -1,
+	}}
+	s.stub.CheckCall(c, 0, "AddPendingResources", "mysql", cURL, csMac, expectedStore)
+}
+
+func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
+	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
+	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
+	csMac := &macaroon.Macaroon{}
+	du := deployUploader{
+		serviceID: "mysql",
+		cURL:      cURL,
+		csMac:     csMac,
+		client:    deps,
+		resources: map[string]charmresource.Meta{
+			"upload": {
+				Name: "upload",
+				Type: charmresource.TypeFile,
+				Path: "upload",
+			},
+			"store": {
+				Name: "store",
+				Type: charmresource.TypeFile,
+				Path: "store",
+			},
+		},
+		osOpen: deps.Open,
+		osStat: deps.Stat,
+	}
+
+	files := map[string]string{
+		"upload": "foobar.txt",
+	}
+	revisions := map[string]int{
+		"store": 3,
+	}
+	ids, err := du.upload(files, revisions)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ids, gc.DeepEquals, map[string]string{
+		"upload": "id-upload",
+		"store":  "id-store",
+	})
+
+	s.stub.CheckCallNames(c, "Stat", "AddPendingResources", "Open", "AddPendingResource")
+	expectedStore := []charmresource.Resource{
+		{
+			Meta:     du.resources["store"],
+			Origin:   charmresource.OriginStore,
+			Revision: 3,
+		},
+	}
+	s.stub.CheckCall(c, 1, "AddPendingResources", "mysql", cURL, csMac, expectedStore)
+	s.stub.CheckCall(c, 2, "Open", "foobar.txt")
+
+	expectedUpload := charmresource.Resource{
+		Meta:   du.resources["upload"],
+		Origin: charmresource.OriginUpload,
+	}
+	s.stub.CheckCall(c, 3, "AddPendingResource", "mysql", expectedUpload, "foobar.txt", deps.ReadSeekCloser)
+}
+
+func (s DeploySuite) TestUploadUnexpectedResourceFile(c *gc.C) {
 	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
 	du := deployUploader{
 		serviceID: "mysql",
@@ -142,7 +251,32 @@ func (s DeploySuite) TestUploadUnexpectedResource(c *gc.C) {
 	}
 
 	files := map[string]string{"some bad resource": "foobar.txt"}
-	_, err := du.upload(files)
+	revisions := map[string]int{}
+	_, err := du.upload(files, revisions)
+	c.Check(err, gc.ErrorMatches, `unrecognized resource "some bad resource"`)
+
+	s.stub.CheckNoCalls(c)
+}
+
+func (s DeploySuite) TestUploadUnexpectedResourceRevision(c *gc.C) {
+	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
+	du := deployUploader{
+		serviceID: "mysql",
+		client:    deps,
+		resources: map[string]charmresource.Meta{
+			"res1": {
+				Name: "res1",
+				Type: charmresource.TypeFile,
+				Path: "path",
+			},
+		},
+		osOpen: deps.Open,
+		osStat: deps.Stat,
+	}
+
+	files := map[string]string{}
+	revisions := map[string]int{"some bad resource": 2}
+	_, err := du.upload(files, revisions)
 	c.Check(err, gc.ErrorMatches, `unrecognized resource "some bad resource"`)
 
 	s.stub.CheckNoCalls(c)
@@ -168,7 +302,8 @@ func (s DeploySuite) TestMissingResource(c *gc.C) {
 	s.stub.SetErrors(os.ErrNotExist)
 
 	files := map[string]string{"res1": "foobar.txt"}
-	_, err := du.upload(files)
+	revisions := map[string]int{}
+	_, err := du.upload(files, revisions)
 	c.Check(err, gc.ErrorMatches, `file for resource "res1".*`)
 	c.Check(errors.Cause(err), jc.Satisfies, os.IsNotExist)
 }

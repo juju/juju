@@ -5,6 +5,7 @@ package server_test
 
 import (
 	"io"
+	"io/ioutil"
 	"time"
 
 	"github.com/juju/errors"
@@ -152,6 +153,7 @@ type stubCSClient struct {
 	*testing.Stub
 
 	ReturnListResources [][]charmresource.Resource
+	ReturnGetResource   *charmresource.Resource
 }
 
 func (s *stubCSClient) ListResources(cURLs []*charm.URL) ([][]charmresource.Resource, error) {
@@ -161,4 +163,16 @@ func (s *stubCSClient) ListResources(cURLs []*charm.URL) ([][]charmresource.Reso
 	}
 
 	return s.ReturnListResources, nil
+}
+
+func (s *stubCSClient) GetResource(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, io.ReadCloser, error) {
+	s.AddCall("GetResource", cURL, resourceName, revision)
+	if err := s.NextErr(); err != nil {
+		return charmresource.Resource{}, nil, errors.Trace(err)
+	}
+
+	if s.ReturnGetResource == nil {
+		return charmresource.Resource{}, nil, errors.NotFoundf("resource %q", resourceName)
+	}
+	return *s.ReturnGetResource, ioutil.NopCloser(nil), nil
 }
