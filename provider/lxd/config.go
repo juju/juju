@@ -236,9 +236,11 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	}
 
 	cfg := lxdclient.Config{
-		Namespace:   c.namespace(),
-		Remote:      remote,
-		ImageStream: lxdclient.ImageStream(c.ImageStream()),
+		Namespace: c.namespace(),
+		Remote:    remote,
+		/// TODO: switch to mulitple ImageSources taken from
+		//environs.ImageMetadataSources()
+		///		ImageStream: lxdclient.ImageStream(c.ImageStream()),
 	}
 	cfg, err := cfg.WithDefaults()
 	if err != nil {

@@ -41,9 +41,9 @@ type configSuite struct {
 
 func (s *configSuite) TestWithDefaultsOkay(c *gc.C) {
 	cfg := lxdclient.Config{
-		Namespace:   "my-ns",
-		ImageStream: lxdclient.StreamReleased,
-		Remote:      s.remote,
+		Namespace:    "my-ns",
+		Remote:       s.remote,
+		ImageSources: lxdclient.DefaultRemotes,
 	}
 	updated, err := cfg.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
@@ -53,16 +53,15 @@ func (s *configSuite) TestWithDefaultsOkay(c *gc.C) {
 
 func (s *configSuite) TestWithDefaultsMissingRemote(c *gc.C) {
 	cfg := lxdclient.Config{
-		Namespace:   "my-ns",
-		ImageStream: lxdclient.StreamReleased,
+		Namespace: "my-ns",
 	}
 	updated, err := cfg.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(updated, jc.DeepEquals, lxdclient.Config{
-		Namespace:   "my-ns",
-		Remote:      lxdclient.Local,
-		ImageStream: lxdclient.StreamReleased,
+		Namespace:    "my-ns",
+		Remote:       lxdclient.Local,
+		ImageSources: lxdclient.DefaultRemotes,
 	})
 }
 
@@ -75,54 +74,21 @@ func (s *configSuite) TestWithDefaultsMissingStream(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(updated, jc.DeepEquals, lxdclient.Config{
-		Namespace:   "my-ns",
-		Remote:      s.remote,
-		ImageStream: lxdclient.StreamReleased,
+		Namespace:    "my-ns",
+		Remote:       s.remote,
+		ImageSources: lxdclient.DefaultRemotes,
 	})
 }
 
 func (s *configSuite) TestValidateOkay(c *gc.C) {
 	cfg := lxdclient.Config{
-		Namespace:   "my-ns",
-		Remote:      s.remote,
-		ImageStream: "",
+		Namespace:    "my-ns",
+		Remote:       s.remote,
+		ImageSources: lxdclient.DefaultRemotes,
 	}
 	err := cfg.Validate()
 
 	c.Check(err, jc.ErrorIsNil)
-}
-
-func (s *configSuite) TestValidateDailyOk(c *gc.C) {
-	cfg := lxdclient.Config{
-		Namespace:   "my-ns",
-		Remote:      s.remote,
-		ImageStream: lxdclient.StreamDaily,
-	}
-	err := cfg.Validate()
-
-	c.Check(err, jc.ErrorIsNil)
-}
-
-func (s *configSuite) TestValidateReleasedOk(c *gc.C) {
-	cfg := lxdclient.Config{
-		Namespace:   "my-ns",
-		Remote:      s.remote,
-		ImageStream: lxdclient.StreamReleased,
-	}
-	err := cfg.Validate()
-
-	c.Check(err, jc.ErrorIsNil)
-}
-
-func (s *configSuite) TestValidateWrongStream(c *gc.C) {
-	cfg := lxdclient.Config{
-		Namespace:   "my-ns",
-		Remote:      s.remote,
-		ImageStream: "arbitrarily-wrong",
-	}
-	err := cfg.Validate()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *configSuite) TestValidateOnlyRemote(c *gc.C) {

@@ -27,9 +27,10 @@ type remoteSuite struct {
 
 func (s *remoteSuite) TestWithDefaultsNoop(c *gc.C) {
 	remote := lxdclient.Remote{
-		Name: "my-remote",
-		Host: "some-host",
-		Cert: s.Cert,
+		Name:     "my-remote",
+		Host:     "some-host",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     s.Cert,
 	}
 	updated, err := remote.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
@@ -41,9 +42,10 @@ func (s *remoteSuite) TestWithDefaultsNoop(c *gc.C) {
 
 func (s *remoteSuite) TestWithDefaultsMissingName(c *gc.C) {
 	remote := lxdclient.Remote{
-		Name: "",
-		Host: "some-host",
-		Cert: s.Cert,
+		Name:     "",
+		Host:     "some-host",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     s.Cert,
 	}
 	updated, err := remote.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
@@ -54,23 +56,46 @@ func (s *remoteSuite) TestWithDefaultsMissingName(c *gc.C) {
 // TODO(ericsnow) Move this test to a functional suite.
 func (s *remoteSuite) TestWithDefaultsMissingCert(c *gc.C) {
 	remote := lxdclient.Remote{
-		Name: "my-remote",
-		Host: "some-host",
-		Cert: nil,
+		Name:     "my-remote",
+		Host:     "some-host",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     nil,
 	}
-	err := remote.Validate()
-	c.Assert(err, gc.NotNil) // Make sure the original is invalid.
-
 	updated, err := remote.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 	err = updated.Validate()
 
 	c.Check(err, jc.ErrorIsNil)
+	c.Assert(updated.Cert, gc.NotNil)
+	c.Check(updated.Cert.Validate(), jc.ErrorIsNil)
 	updated.Cert = nil // Validate ensured that the cert was okay.
 	c.Check(updated, jc.DeepEquals, lxdclient.Remote{
+		Name:     "my-remote",
+		Host:     "some-host",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     nil,
+	})
+}
+
+func (s *remoteSuite) TestWithDefaultsMissingProtocol(c *gc.C) {
+	remote := lxdclient.Remote{
 		Name: "my-remote",
 		Host: "some-host",
-		Cert: nil,
+		Cert: s.Cert,
+	}
+	updated, err := remote.WithDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	err = updated.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(updated.Cert, gc.NotNil)
+	c.Check(updated.Cert.Validate(), jc.ErrorIsNil)
+	updated.Cert = nil // Validate ensured that the cert was okay.
+	c.Check(updated, jc.DeepEquals, lxdclient.Remote{
+		Name:     "my-remote",
+		Host:     "some-host",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     nil,
 	})
 }
 
@@ -82,9 +107,10 @@ func (s *remoteSuite) TestWithDefaultsZeroValue(c *gc.C) {
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(updated, jc.DeepEquals, lxdclient.Remote{
-		Name: "local",
-		Host: "",
-		Cert: nil,
+		Name:     "local",
+		Host:     "",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     nil,
 	})
 }
 
@@ -100,9 +126,10 @@ func (s *remoteSuite) TestWithDefaultsLocalNoop(c *gc.C) {
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(updated, jc.DeepEquals, lxdclient.Remote{
-		Name: "my-local",
-		Host: "",
-		Cert: nil,
+		Name:     "my-local",
+		Host:     "",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     nil,
 	})
 }
 
@@ -118,17 +145,19 @@ func (s *remoteSuite) TestWithDefaultsLocalMissingName(c *gc.C) {
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(updated, jc.DeepEquals, lxdclient.Remote{
-		Name: "local",
-		Host: "",
-		Cert: nil,
+		Name:     "local",
+		Host:     "",
+		Cert:     nil,
+		Protocol: lxdclient.LXDProtocol,
 	})
 }
 
 func (s *remoteSuite) TestValidateOkay(c *gc.C) {
 	remote := lxdclient.Remote{
-		Name: "my-remote",
-		Host: "some-host",
-		Cert: s.Cert,
+		Name:     "my-remote",
+		Host:     "some-host",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     s.Cert,
 	}
 	err := remote.Validate()
 
@@ -144,9 +173,10 @@ func (s *remoteSuite) TestValidateZeroValue(c *gc.C) {
 
 func (s *remoteSuite) TestValidateMissingName(c *gc.C) {
 	remote := lxdclient.Remote{
-		Name: "",
-		Host: "some-host",
-		Cert: s.Cert,
+		Name:     "",
+		Host:     "some-host",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     s.Cert,
 	}
 	err := remote.Validate()
 
@@ -154,21 +184,25 @@ func (s *remoteSuite) TestValidateMissingName(c *gc.C) {
 }
 
 func (s *remoteSuite) TestValidateMissingCert(c *gc.C) {
+	// We can have "public" remotes that don't require a client certificate
+	// to connect to and get images from.
 	remote := lxdclient.Remote{
-		Name: "my-remote",
-		Host: "some-host",
-		Cert: nil,
+		Name:     "my-remote",
+		Host:     "some-host",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     nil,
 	}
 	err := remote.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *remoteSuite) TestValidateBadCert(c *gc.C) {
 	remote := lxdclient.Remote{
-		Name: "my-remote",
-		Host: "some-host",
-		Cert: &lxdclient.Cert{},
+		Name:     "my-remote",
+		Host:     "some-host",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     &lxdclient.Cert{},
 	}
 	err := remote.Validate()
 
@@ -177,9 +211,10 @@ func (s *remoteSuite) TestValidateBadCert(c *gc.C) {
 
 func (s *remoteSuite) TestValidateLocalOkay(c *gc.C) {
 	remote := lxdclient.Remote{
-		Name: "my-local",
-		Host: "",
-		Cert: nil,
+		Name:     "my-local",
+		Host:     "",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     nil,
 	}
 	err := remote.Validate()
 
@@ -188,9 +223,22 @@ func (s *remoteSuite) TestValidateLocalOkay(c *gc.C) {
 
 func (s *remoteSuite) TestValidateLocalMissingName(c *gc.C) {
 	remote := lxdclient.Remote{
-		Name: "",
-		Host: "",
-		Cert: nil,
+		Name:     "",
+		Host:     "",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     nil,
+	}
+	err := remote.Validate()
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *remoteSuite) TestValidateLocalSimplestreamsInvalid(c *gc.C) {
+	remote := lxdclient.Remote{
+		Name:     "",
+		Host:     "",
+		Protocol: lxdclient.SimplestreamsProtocol,
+		Cert:     nil,
 	}
 	err := remote.Validate()
 
@@ -199,9 +247,34 @@ func (s *remoteSuite) TestValidateLocalMissingName(c *gc.C) {
 
 func (s *remoteSuite) TestValidateLocalWithCert(c *gc.C) {
 	remote := lxdclient.Remote{
-		Name: "my-local",
-		Host: "",
-		Cert: &lxdclient.Cert{},
+		Name:     "my-local",
+		Host:     "",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     &lxdclient.Cert{},
+	}
+	err := remote.Validate()
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *remoteSuite) TestValidateSimplestreamsOkay(c *gc.C) {
+	remote := lxdclient.Remote{
+		Name:     "remote",
+		Host:     "http://somewhere/else",
+		Protocol: lxdclient.SimplestreamsProtocol,
+		Cert:     nil,
+	}
+	err := remote.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *remoteSuite) TestValidateUnknownProtocol(c *gc.C) {
+	remote := lxdclient.Remote{
+		Name:     "remote",
+		Host:     "http://somewhere/else",
+		Protocol: "bogus-protocol",
+		Cert:     nil,
 	}
 	err := remote.Validate()
 
@@ -246,9 +319,10 @@ func (s *remoteSuite) TestUsingTCPOkay(c *gc.C) {
 
 func (s *remoteSuite) TestUsingTCPNoop(c *gc.C) {
 	remote := lxdclient.Remote{
-		Name: "my-remote",
-		Host: "some-host",
-		Cert: s.Cert,
+		Name:     "my-remote",
+		Host:     "some-host",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     s.Cert,
 	}
 	nonlocal, err := remote.UsingTCP()
 	c.Assert(err, jc.ErrorIsNil)
@@ -275,9 +349,10 @@ func (s *remoteFunctionalSuite) TestUsingTCP(c *gc.C) {
 
 	checkValidRemote(c, &nonlocal)
 	c.Check(nonlocal, jc.DeepEquals, lxdclient.Remote{
-		Name: "my-remote",
-		Host: nonlocal.Host,
-		Cert: nonlocal.Cert,
+		Name:     "my-remote",
+		Host:     nonlocal.Host,
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     nonlocal.Cert,
 	})
 }
 

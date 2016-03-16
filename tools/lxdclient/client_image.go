@@ -49,6 +49,9 @@ func (i *imageClient) EnsureImageExists(series string, copyProgressHandler func(
 	// at private methods so we can't easily tweak it.
 	name := i.ImageNameForSeries(series)
 
+	// TODO(jam) Add a flag to not trust local aliases, which would allow
+	// non-state machines to only trust the alias that is set on the state
+	// machines.
 	aliases, err := i.raw.ListAliases()
 	if err != nil {
 		return err
@@ -62,30 +65,50 @@ func (i *imageClient) EnsureImageExists(series string, copyProgressHandler func(
 		}
 	}
 
-	ubuntu, err := lxdClientForCloudImages(i.config)
-	if err != nil {
-		return err
-	}
-
 	client, ok := i.raw.(*lxd.Client)
 	if !ok {
-		return errors.Errorf("can't use a fake client as target")
+		return errors.Errorf("can only copy images to a real lxd.Client instance")
 	}
-	adapter := &progressContext{
-		logger:  logger,
-		level:   loggo.INFO,
-		context: fmt.Sprintf("copying image for %s from %s: %%s", name, ubuntu.BaseURL),
-		forward: copyProgressHandler,
+	var lastErr error
+	for _, remote := range i.config.ImageSources {
+		source, err := newRawClient(remote)
+		if err != nil {
+			logger.Infof("failed to connect to %q: %s", remote.Host, err)
+			lastErr = err
+			continue
+		}
+
+		adapter := &progressContext{
+			logger: logger,
+			level:  loggo.INFO,
+			context: fmt.Sprintf("copying image for %s from %s: %%s", name,
+				source.BaseURL),
+			forward: copyProgressHandler,
+		}
+		// TODO: there are multiple possible spellings for aliases,
+		// unfortunately. cloud-images only hosts ubuntu images, and
+		// aliases them as "trusty" or "trusty/amd64" or
+		// "trusty/amd64/20160304". However, we should be more
+		// explicit. and use "ubuntu/trusty/amd64" as our default
+		// naming scheme, and only fall back for synchronization.
+		target := source.GetAlias(series)
+		if target == "" {
+			logger.Infof("no image for %s found in %s", name, source.BaseURL)
+		}
+		logger.Infof("found image from %s for %s = %s",
+			source.BaseURL, series, target)
+		return source.CopyImage(
+			target, client, false, []string{name}, false,
+			true, adapter.copyProgress)
 	}
-	target := ubuntu.GetAlias(series)
-	logger.Infof("found image from %s for %s = %s",
-		ubuntu.BaseURL, series, target)
-	return ubuntu.CopyImage(
-		target, client, false, []string{name}, false,
-		true, adapter.copyProgress)
+	return lastErr
 }
 
-// A common place to compute image names (alises) based on the series
+func ImageName(series string, architecture string) string {
+	return fmt.Sprintf("ubuntu/%s/%s", series, architecture)
+}
+
+// A common place to compute image names (aliases) based on the series
 func (i imageClient) ImageNameForSeries(series string) string {
 	return "ubuntu-" + series
 }
