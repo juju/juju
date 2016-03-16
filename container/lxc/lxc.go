@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/storage/looputil"
@@ -44,7 +43,6 @@ var (
 	LxcRestartDir    = "/etc/lxc/auto"
 	LxcObjectFactory = golxc.Factory()
 	runtimeGOOS      = runtime.GOOS
-	runningInsideLXC = lxcutils.RunningInsideLXC
 	writeWgetTmpFile = ioutil.WriteFile
 	lxcRetryCount    = 3
 	lxcRetryDelay    = 10
@@ -93,10 +91,7 @@ func IsLXCSupported() (bool, error) {
 		return false, nil
 	}
 	// We do not support running nested LXC containers.
-	insideLXC, err := runningInsideLXC()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
+	insideLXC := container.RunningInContainer()
 	return !insideLXC, nil
 }
 

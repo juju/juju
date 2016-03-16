@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
-	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
@@ -1770,10 +1769,8 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		errors = append(errors, err)
 	}
 
-	insideLXC, err := lxcutils.RunningInsideLXC()
-	if err != nil {
-		errors = append(errors, err)
-	} else if insideLXC {
+	insideLXC := container.RunningInsideLXC()
+	if insideLXC {
 		// We're running inside LXC, so loop devices may leak. Detach
 		// any loop devices that are backed by files on this machine.
 		//
