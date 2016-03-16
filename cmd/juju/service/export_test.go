@@ -38,8 +38,8 @@ type Patcher interface {
 
 func PatchNewCharmStoreClient(s Patcher, url string) {
 	original := newCharmStoreClient
-	s.PatchValue(&newCharmStoreClient, func(httpClient *http.Client) *csClient {
-		csclient := original(httpClient)
+	s.PatchValue(&newCharmStoreClient, func(ctx *cmd.Context, httpClient *http.Client) *csClient {
+		csclient := original(ctx, httpClient)
 		csclient.params.URL = url
 		return csclient
 	})
