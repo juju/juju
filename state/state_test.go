@@ -1877,7 +1877,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
 	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model "testenv" is no longer alive`)
 }
 
 func (s *StateSuite) TestServiceNotFound(c *gc.C) {
@@ -1979,10 +1979,6 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 		bindings:      map[string]string{"extra": "missing"},
 		expectedError: `unknown endpoint "extra" not valid`,
 	}, {
-		about:         "ensure network.DefaultSpace is not treated specially",
-		bindings:      map[string]string{"server": network.DefaultSpace},
-		expectedError: `unknown space "default" not valid`,
-	}, {
 		about:         "extra endpoint not bound to a space",
 		bindings:      map[string]string{"extra": ""},
 		expectedError: `unknown endpoint "extra" not valid`,
@@ -2004,7 +2000,7 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 		expectedError: `unknown space "invalid" not valid`,
 	}, {
 		about:         "known endpoint bound correctly and an extra endpoint",
-		bindings:      map[string]string{"server": "db", "foo": ""},
+		bindings:      map[string]string{"server": "db", "foo": "public"},
 		expectedError: `unknown endpoint "foo" not valid`,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
@@ -4636,6 +4632,64 @@ func (s *StateSuite) TestUnitsForInvalidId(c *gc.C) {
 	units, err := s.State.UnitsFor("invalid-id")
 	c.Assert(units, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `"invalid-id" is not a valid machine id`)
+}
+
+func (s *StateSuite) TestSetOrGetMongoSpaceNameSets(c *gc.C) {
+	info, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.MongoSpaceName, gc.Equals, "")
+	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceUnknown)
+
+	spaceName := network.SpaceName("foo")
+
+	name, err := s.State.SetOrGetMongoSpaceName(spaceName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, spaceName)
+
+	info, err = s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.MongoSpaceName, gc.Equals, string(spaceName))
+	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceValid)
+}
+
+func (s *StateSuite) TestSetOrGetMongoSpaceNameDoesNotReplaceValidSpace(c *gc.C) {
+	spaceName := network.SpaceName("foo")
+	name, err := s.State.SetOrGetMongoSpaceName(spaceName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, spaceName)
+
+	name, err = s.State.SetOrGetMongoSpaceName(network.SpaceName("bar"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, spaceName)
+
+	info, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.MongoSpaceName, gc.Equals, string(spaceName))
+	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceValid)
+}
+
+func (s *StateSuite) TestSetMongoSpaceStateSetsValidStates(c *gc.C) {
+	mongoStates := []state.MongoSpaceStates{
+		state.MongoSpaceUnknown,
+		state.MongoSpaceValid,
+		state.MongoSpaceInvalid,
+		state.MongoSpaceUnsupported,
+	}
+	for _, st := range mongoStates {
+		err := s.State.SetMongoSpaceState(st)
+		c.Assert(err, jc.ErrorIsNil)
+		info, err := s.State.ControllerInfo()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(info.MongoSpaceState, gc.Equals, st)
+	}
+}
+
+func (s *StateSuite) TestSetMongoSpaceStateErrorOnInvalidStates(c *gc.C) {
+	err := s.State.SetMongoSpaceState(state.MongoSpaceStates("bad"))
+	c.Assert(err, gc.ErrorMatches, "mongoSpaceState: bad not valid")
+	info, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceUnknown)
 }
 
 type SetAdminMongoPasswordSuite struct {

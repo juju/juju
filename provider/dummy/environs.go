@@ -1086,7 +1086,8 @@ func (env *environ) Spaces() ([]network.SpaceInfo, error) {
 		return []network.SpaceInfo{}, err
 	}
 	return []network.SpaceInfo{{
-		ProviderId: network.Id("foo"),
+		Name:       "foo",
+		ProviderId: network.Id("0"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("1"),
 			AvailabilityZones: []string{"zone1"},
@@ -1094,17 +1095,20 @@ func (env *environ) Spaces() ([]network.SpaceInfo, error) {
 			ProviderId:        network.Id("2"),
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
-		ProviderId: network.Id("Another Foo 99!"),
+		Name:       "Another Foo 99!",
+		ProviderId: "1",
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("3"),
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
-		ProviderId: network.Id("foo-"),
+		Name:       "foo-",
+		ProviderId: "2",
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("4"),
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
-		ProviderId: network.Id("---"),
+		Name:       "---",
+		ProviderId: "3",
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("5"),
 			AvailabilityZones: []string{"zone1"},
