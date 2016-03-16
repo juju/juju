@@ -227,10 +227,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(block.NewUnblockCommand())
 
 	// Manage storage
-	r.Register(storage.NewSuperCommand())
-	r.RegisterSuperAlias("list-storage", "storage", "list", nil)
-	r.RegisterSuperAlias("show-storage", "storage", "show", nil)
-	r.RegisterSuperAlias("add-storage", "storage", "add", nil)
+	r.Register(storage.NewAddCommand())
+	r.Register(storage.NewListCommand())
+	r.Register(storage.NewPoolCreateCommand())
+	r.Register(storage.NewPoolListCommand())
+	r.Register(storage.NewShowCommand())
 
 	// Manage spaces
 	r.Register(space.NewSuperCommand())
@@ -244,7 +245,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage controllers
 	r.Register(controller.NewCreateModelCommand())
 	r.Register(controller.NewDestroyCommand())
-	r.Register(controller.NewModelsCommand())
+	r.Register(controller.NewListModelsCommand())
 	r.Register(controller.NewKillCommand())
 	r.Register(controller.NewListControllersCommand())
 	r.Register(controller.NewListBlocksCommand())
@@ -258,11 +259,15 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(setmeterstatus.New())
 
 	// Manage clouds and credentials
+	r.Register(cloud.NewUpdateCloudsCommand())
 	r.Register(cloud.NewListCloudsCommand())
 	r.Register(cloud.NewShowCloudCommand())
 	r.Register(cloud.NewAddCloudCommand())
 	r.Register(cloud.NewListCredentialsCommand())
 	r.Register(cloud.NewDetectCredentialsCommand())
+	r.Register(cloud.NewSetDefaultRegionCommand())
+	r.Register(cloud.NewSetDefaultCredentialCommand())
+	r.Register(cloud.NewAddCredentialCommand())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {
@@ -274,10 +279,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(modelcmd.Wrap(command))
 	}
 	rcmd.RegisterAll(r)
-}
-
-func main() {
-	Main(os.Args)
 }
 
 type versionDeprecation struct {

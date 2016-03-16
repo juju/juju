@@ -7,9 +7,7 @@
 package storage
 
 import (
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/storage"
@@ -17,34 +15,6 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
-
-var logger = loggo.GetLogger("juju.cmd.juju.storage")
-
-const storageCmdDoc = `
-"juju storage" is used to manage storage instances in
- the Juju model.
-`
-
-const storageCmdPurpose = "manage storage instances"
-
-// NewSuperCommand creates the storage supercommand and
-// registers the subcommands that it supports.
-func NewSuperCommand() cmd.Command {
-	storagecmd := cmd.NewSuperCommand(
-		cmd.SuperCommandParams{
-			Name:        "storage",
-			Doc:         storageCmdDoc,
-			UsagePrefix: "juju",
-			Purpose:     storageCmdPurpose,
-		})
-	storagecmd.Register(newShowCommand())
-	storagecmd.Register(newListCommand())
-	storagecmd.Register(newAddCommand())
-	storagecmd.Register(newPoolSuperCommand())
-	storagecmd.Register(newVolumeSuperCommand())
-	storagecmd.Register(NewFilesystemSuperCommand())
-	return storagecmd
-}
 
 // StorageCommandBase is a helper base structure that has a method to get the
 // storage managing client.

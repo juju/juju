@@ -101,10 +101,12 @@ func (s *NetworkGetSuite) TestNetworkGet(c *gc.C) {
 func (s *NetworkGetSuite) TestHelp(c *gc.C) {
 
 	var helpTemplate = `
-usage: network-get [options] --primary-address
-purpose: get network config
+Usage: network-get [options] --primary-address
 
-options:
+Summary:
+get network config
+
+Options:
 --format  (= smart)
     specify output format (json|smart|yaml)
 -o, --output (= "")
@@ -114,6 +116,7 @@ options:
 -r, --relation  (= %s)
     specify a relation by id
 
+Details:
 network-get returns the network config for a relation. The only supported
 flag for now is --primary-address, which is required and returns the IP
 address the local unit should advertise as its endpoint to its peers.

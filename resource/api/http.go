@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
@@ -20,12 +21,6 @@ import (
 var logger = loggo.GetLogger("juju.resource.api")
 
 const (
-	// HTTPEndpointPattern is the URL path pattern registered with
-	// the API server. This includes wildcards (starting with ":") that
-	// are converted into URL query values by the pattern mux. Also see
-	// apiserver/apiserver.go.
-	HTTPEndpointPattern = "/services/:service/resources/:resource"
-
 	// HTTPEndpointPath is the URL path, with substitutions, for
 	// a resource request.
 	HTTPEndpointPath = "/services/%s/resources/%s"
@@ -97,7 +92,7 @@ func SendHTTPError(w http.ResponseWriter, err error) {
 func SendHTTPStatusAndJSON(w http.ResponseWriter, statusCode int, response interface{}) {
 	body, err := json.Marshal(response)
 	if err != nil {
-		logger.Errorf("cannot marshal JSON result %#v: %v", response, err)
+		http.Error(w, errors.Annotatef(err, "cannot marshal JSON result %#v", response).Error(), 504)
 		return
 	}
 

@@ -4,6 +4,8 @@
 package resourceadapters
 
 import (
+	jjcmd "github.com/juju/cmd"
+
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/resource/cmd"
 )
@@ -14,6 +16,6 @@ type CharmCmdBase struct {
 }
 
 // Connect implements cmd.CommandBase.
-func (c *CharmCmdBase) Connect() (cmd.CharmResourceLister, error) {
-	return c.CommandBase.Connect()
+func (c *CharmCmdBase) Connect(ctx *jjcmd.Context) (cmd.CharmResourceLister, error) {
+	return c.CommandBase.Connect(ctx)
 }

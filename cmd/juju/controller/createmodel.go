@@ -28,7 +28,7 @@ func NewCreateModelCommand() cmd.Command {
 // createModelCommand calls the API to create a new model.
 type createModelCommand struct {
 	modelcmd.ControllerCommandBase
-	api CreateEnvironmentAPI
+	api CreateModelAPI
 
 	Name         string
 	Owner        string
@@ -37,7 +37,7 @@ type createModelCommand struct {
 	configParser func(interface{}) (interface{}, error)
 }
 
-const createEnvHelpDoc = `
+const createModelHelpDoc = `
 This command will create another model within the current Juju
 Controller. The provider has to match, and the model config must
 specify all the required configuration values for the provider. In the cases
@@ -62,7 +62,7 @@ func (c *createModelCommand) Info() *cmd.Info {
 		Name:    "create-model",
 		Args:    "<name> [key=[value] ...]",
 		Purpose: "create an model within the Juju Model Server",
-		Doc:     strings.TrimSpace(createEnvHelpDoc),
+		Doc:     strings.TrimSpace(createModelHelpDoc),
 	}
 }
 
@@ -94,13 +94,13 @@ func (c *createModelCommand) Init(args []string) error {
 	return nil
 }
 
-type CreateEnvironmentAPI interface {
+type CreateModelAPI interface {
 	Close() error
 	ConfigSkeleton(provider, region string) (params.ModelConfig, error)
 	CreateModel(owner string, account, config map[string]interface{}) (params.Model, error)
 }
 
-func (c *createModelCommand) getAPI() (CreateEnvironmentAPI, error) {
+func (c *createModelCommand) getAPI() (CreateModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}

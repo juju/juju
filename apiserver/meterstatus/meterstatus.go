@@ -5,17 +5,12 @@
 package meterstatus
 
 import (
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
-)
-
-var (
-	logger = loggo.GetLogger("juju.apiserver.meterstatus")
 )
 
 func init() {
@@ -35,8 +30,6 @@ type MeterStatusAPI struct {
 	accessUnit common.GetAuthFunc
 	resources  *common.Resources
 }
-
-var _ MeterStatus = (*MeterStatusAPI)(nil)
 
 // NewMeterStatusAPI creates a new API endpoint for dealing with unit meter status.
 func NewMeterStatusAPI(

@@ -8,7 +8,6 @@ package lxdclient
 import (
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/gorilla/websocket"
@@ -26,7 +25,7 @@ type rawInstanceClient interface {
 	ListContainers() ([]shared.ContainerInfo, error)
 	ContainerInfo(name string) (*shared.ContainerInfo, error)
 	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, ephem bool) (*lxd.Response, error)
-	Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error)
+	Action(name string, action shared.ContainerAction, timeout int, force bool, stateful bool) (*lxd.Response, error)
 	Exec(name string, cmd []string, env map[string]string, stdin io.ReadCloser, stdout io.WriteCloser, stderr io.WriteCloser, controlHandler func(*lxd.Client, *websocket.Conn)) (int, error)
 	Delete(name string) (*lxd.Response, error)
 
@@ -46,10 +45,6 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 	}
 
 	imageAlias := spec.Image
-	if imageAlias == "" {
-		// TODO(ericsnow) Do not have a default?
-		imageAlias = "ubuntu"
-	}
 
 	var profiles *[]string
 	if len(spec.Profiles) > 0 {
@@ -114,23 +109,11 @@ func (client *instanceClient) exec(spec InstanceSpec, cmd []string) error {
 	return nil
 }
 
-func (client *instanceClient) chmod(spec InstanceSpec, filename string, mode os.FileMode) error {
-	cmd := []string{
-		"/bin/chmod",
-		fmt.Sprintf("%s", mode),
-		filename,
-	}
-
-	if err := client.exec(spec, cmd); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 func (client *instanceClient) startInstance(spec InstanceSpec) error {
 	timeout := -1
 	force := false
-	resp, err := client.raw.Action(spec.Name, shared.Start, timeout, force)
+	stateful := false
+	resp, err := client.raw.Action(spec.Name, shared.Start, timeout, force, stateful)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -237,7 +220,8 @@ func (client *instanceClient) removeInstance(name string) error {
 	if info.StatusCode != shared.Stopped {
 		timeout := -1
 		force := true
-		resp, err := client.raw.Action(name, shared.Stop, timeout, force)
+		stateful := false
+		resp, err := client.raw.Action(name, shared.Stop, timeout, force, stateful)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -305,17 +289,6 @@ func checkInstanceName(name string, instances []Instance) bool {
 	return false
 }
 
-func lxdAddressFamilyToNetworkType(addrFamily string) (network.AddressType, error) {
-	switch addrFamily {
-	case "inet":
-		return network.IPv4Address, nil
-	case "inet6":
-		return network.IPv6Address, nil
-	default:
-		return "", errors.Errorf("invalid LXD address family type %s", addrFamily)
-	}
-}
-
 // Addresses returns the list of network.Addresses for this instance. It
 // converts the information that LXD tracks into the Juju network model.
 func (client *instanceClient) Addresses(name string) ([]network.Address, error) {
@@ -331,26 +304,19 @@ func (client *instanceClient) Addresses(name string) ([]network.Address, error) 
 
 	addrs := []network.Address{}
 
-	for name, net := range networks {
+	for _, net := range networks {
 		for _, addr := range net.Addresses {
-			type_, err := lxdAddressFamilyToNetworkType(addr.Family)
 			if err != nil {
 				return nil, err
 			}
 
-			// TODO(jam) 2016-02-26 For multi NIC support we'll
-			// need to start tracking scope and space information.
-			// But it doesn't make sense for lxdclient to be space
-			// aware. That information at best would need to be
-			// passed in. (only the DB really knows what spaces are
-			// available, and lxdclient doesn't talk to the DB.)
-			addrs = append(addrs, network.Address{
-				Value:       addr.Address,
-				Type:        type_,
-				NetworkName: name,
-			})
+			addr := network.NewAddress(addr.Address)
+			if addr.Scope == network.ScopeLinkLocal || addr.Scope == network.ScopeMachineLocal {
+				logger.Tracef("for container %q ignoring address %q", name, addr)
+				continue
+			}
+			addrs = append(addrs, addr)
 		}
 	}
-
 	return addrs, nil
 }

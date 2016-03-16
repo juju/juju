@@ -125,10 +125,12 @@ func (s *RelationIdsSuite) TestRelationIds(c *gc.C) {
 
 func (s *RelationIdsSuite) TestHelp(c *gc.C) {
 	template := `
-usage: %s
-purpose: list all relation ids with the given relation name
+Usage: %s
 
-options:
+Summary:
+list all relation ids with the given relation name
+
+Options:
 --format  (= smart)
     specify output format (json|smart|yaml)
 -o, --output (= "")
@@ -139,8 +141,8 @@ options:
 		usage, doc string
 	}{
 		-1: {"relation-ids [options] <name>", ""},
-		0:  {"relation-ids [options] [<name>]", "\nCurrent default relation name is \"x\".\n"},
-		3:  {"relation-ids [options] [<name>]", "\nCurrent default relation name is \"y\".\n"},
+		0:  {"relation-ids [options] [<name>]", "\nDetails:\nCurrent default relation name is \"x\".\n"},
+		3:  {"relation-ids [options] [<name>]", "\nDetails:\nCurrent default relation name is \"y\".\n"},
 	} {
 		c.Logf("relid %d", relid)
 		hctx, _ := s.newHookContext(relid, "")

@@ -4,12 +4,8 @@
 package tools
 
 import (
-	"github.com/juju/loggo"
-
 	"github.com/juju/juju/version"
 )
-
-var logger = loggo.GetLogger("juju.tools")
 
 // Tools represents the location and version of a tools tarball.
 type Tools struct {

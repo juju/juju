@@ -5,13 +5,10 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
-
-var meterStatusLogger = loggo.GetLogger("juju.state.meterstatus")
 
 // MeterStatus represents the metering status of a unit.
 type MeterStatus struct {

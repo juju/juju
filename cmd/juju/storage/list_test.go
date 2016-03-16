@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
 	_ "github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
@@ -30,7 +31,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ListSuite) runList(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, storage.NewListCommand(s.mockAPI, s.store), args...)
+	return testing.RunCommand(c, storage.NewListCommandForTest(s.mockAPI, s.store), args...)
 }
 
 func (s *ListSuite) TestList(c *gc.C) {
@@ -128,7 +129,9 @@ func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid string
 }
 
 type mockListAPI struct {
-	listErrors bool
+	listErrors      bool
+	listFilesystems func([]string) ([]params.FilesystemDetailsListResult, error)
+	listVolumes     func([]string) ([]params.VolumeDetailsListResult, error)
 }
 
 func (s mockListAPI) Close() error {
@@ -151,7 +154,7 @@ func (s mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		OwnerTag:   "unit-transcode-0",
 		Kind:       params.StorageKindBlock,
 		Status: params.EntityStatus{
-			Status: params.StatusPending,
+			Status: status.StatusPending,
 			Since:  &epoch,
 		},
 		Attachments: map[string]params.StorageAttachmentDetails{
@@ -164,7 +167,7 @@ func (s mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		OwnerTag:   "unit-postgresql-0",
 		Kind:       params.StorageKindBlock,
 		Status: params.EntityStatus{
-			Status: params.StatusAttached,
+			Status: status.StatusAttached,
 			Since:  &epoch,
 		},
 		Persistent: true,
@@ -178,7 +181,7 @@ func (s mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		OwnerTag:   "service-transcode",
 		Kind:       params.StorageKindFilesystem,
 		Status: params.EntityStatus{
-			Status: params.StatusAttached,
+			Status: status.StatusAttached,
 			Since:  &epoch,
 		},
 		Persistent: true,

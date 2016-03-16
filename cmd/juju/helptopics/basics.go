@@ -11,7 +11,6 @@ Juju provides easy, intelligent service orchestration on top of models
 such as Amazon EC2, HP Cloud, OpenStack, MaaS, or your own local machine.
 
 Basic commands:
-  juju init             generate boilerplate configuration for juju models
   juju bootstrap        start up a model from scratch
 
   juju deploy           deploy a new service

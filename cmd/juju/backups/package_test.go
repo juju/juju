@@ -80,20 +80,20 @@ func (s *BaseBackupsSuite) checkHelp(c *gc.C, subcmd cmd.Command) {
 
 	var expected string
 	if subcmd.Info().Args != "" {
-		expected = "(?sm).*^usage: juju backups " +
+		expected = "(?sm).*^Usage: juju backups " +
 			regexp.QuoteMeta(subcmd.Info().Name) +
 			` \[options\] ` + regexp.QuoteMeta(subcmd.Info().Args) + ".+"
 	} else {
-		expected = "(?sm).*^usage: juju backups " +
+		expected = "(?sm).*^Usage: juju backups " +
 			regexp.QuoteMeta(subcmd.Info().Name) +
 			` \[options\].+`
 	}
 	c.Check(jujutesting.Stdout(ctx), gc.Matches, expected)
 
-	expected = "(?sm).*^purpose: " + regexp.QuoteMeta(subcmd.Info().Purpose) + "$.*"
+	expected = "(?sm).*^Summary:\n" + regexp.QuoteMeta(subcmd.Info().Purpose) + "$.*"
 	c.Check(jujutesting.Stdout(ctx), gc.Matches, expected)
 
-	expected = "(?sm).*^" + regexp.QuoteMeta(subcmd.Info().Doc) + "$.*"
+	expected = "(?sm).*^Details:" + regexp.QuoteMeta(subcmd.Info().Doc) + "$.*"
 	c.Check(jujutesting.Stdout(ctx), gc.Matches, expected)
 }
 

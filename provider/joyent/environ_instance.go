@@ -23,8 +23,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -179,12 +177,6 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 		env:     env,
 	}
 
-	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
-		if err := common.AddStateInstance(env.Storage(), inst.Id()); err != nil {
-			logger.Errorf("could not record instance in provider-state: %v", err)
-		}
-	}
-
 	disk64 := uint64(machine.Disk)
 	hc := instance.HardwareCharacteristics{
 		Arch:     &spec.Image.Arch,
@@ -278,7 +270,7 @@ func (env *joyentEnviron) StopInstances(ids ...instance.Id) error {
 		return errors.Annotate(err, "cannot stop all instances")
 	default:
 	}
-	return common.RemoveStateInstances(env.Storage(), ids...)
+	return nil
 }
 
 func (env *joyentEnviron) stopInstance(id string) error {

@@ -241,7 +241,7 @@ func (s *DestroySuite) TestDestroyUnknownController(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyNonControllerEnvFails(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test2")
-	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a controller; use juju model destroy to destroy it")
+	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a controller; use juju destroy-model to destroy it")
 }
 
 func (s *DestroySuite) TestDestroyControllerNotFoundNotRemovedFromStore(c *gc.C) {

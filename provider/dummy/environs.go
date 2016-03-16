@@ -53,6 +53,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -287,7 +288,9 @@ func init() {
 		}
 	}()
 	discardOperations = c
-	Reset()
+	if err := Reset(); err != nil {
+		panic(err)
+	}
 
 	// parse errors are ignored
 	providerDelay, _ = time.ParseDuration(os.Getenv("JUJU_DUMMY_DELAY"))
@@ -296,7 +299,7 @@ func init() {
 // Reset resets the entire dummy environment and forgets any registered
 // operation listener.  All opened environments after Reset will share
 // the same underlying state.
-func Reset() {
+func Reset() error {
 	logger.Infof("reset model")
 	p := &providerInstance
 	p.mu.Lock()
@@ -310,11 +313,14 @@ func Reset() {
 	}
 	providerInstance.state = make(map[int]*environState)
 	if mongoAlive() {
-		gitjujutesting.MgoServer.Reset()
+		if err := gitjujutesting.MgoServer.Reset(); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	providerInstance.statePolicy = environs.NewStatePolicy()
 	providerInstance.supportsSpaces = true
 	providerInstance.supportsSpaceDiscovery = false
+	return nil
 }
 
 func (state *environState) destroy() {
@@ -1520,10 +1526,23 @@ func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
 }
 
-func (inst *dummyInstance) Status() string {
+func (inst *dummyInstance) Status() instance.InstanceStatus {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
-	return inst.status
+	// TODO(perrito666) add a provider status -> juju status mapping.
+	jujuStatus := status.StatusPending
+	if inst.status != "" {
+		dummyStatus := status.Status(inst.status)
+		if dummyStatus.KnownInstanceStatus() {
+			jujuStatus = dummyStatus
+		}
+	}
+
+	return instance.InstanceStatus{
+		Status:  jujuStatus,
+		Message: inst.status,
+	}
+
 }
 
 // SetInstanceAddresses sets the addresses associated with the given

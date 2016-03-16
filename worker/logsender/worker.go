@@ -16,8 +16,6 @@ import (
 
 const loggerName = "juju.worker.logsender"
 
-var logger = loggo.GetLogger(loggerName)
-
 // New starts a logsender worker which reads log message structs from
 // a channel and sends them to the JES via the logsink API.
 func New(logs LogRecordCh, logSenderAPI *logsender.API) worker.Worker {

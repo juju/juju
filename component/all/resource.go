@@ -134,10 +134,6 @@ func (r resources) registerPublicCommands() {
 	})
 }
 
-type apicommand interface {
-	NewAPIRoot() (api.Connection, error)
-}
-
 // TODO(katco): This seems to be common across components. Pop up a
 // level and genericize?
 func (r resources) registerHookContext() {

@@ -6,7 +6,6 @@ package charmcmd
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-
 	"github.com/juju/juju/charmstore"
 )
 
@@ -34,11 +33,11 @@ type CommandBase struct {
 }
 
 // Connect implements CommandBase.
-func (c *CommandBase) Connect() (*charmstore.Client, error) {
+func (c *CommandBase) Connect(ctx *cmd.Context) (*charmstore.Client, error) {
 	if c.spec == nil {
 		return nil, errors.Errorf("missing charm store spec")
 	}
-	client, err := c.spec.Connect()
+	client, err := c.spec.Connect(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

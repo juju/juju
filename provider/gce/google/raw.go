@@ -26,10 +26,6 @@ var (
 		Total: 5 * time.Minute,
 		Delay: 2 * time.Second,
 	}
-	attemptsShort = utils.AttemptStrategy{
-		Total: 1 * time.Minute,
-		Delay: 1 * time.Second,
-	}
 )
 
 func convertRawAPIError(err error) error {

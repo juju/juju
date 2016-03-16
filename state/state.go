@@ -29,6 +29,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -38,6 +39,7 @@ import (
 	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/lease"
 )
@@ -349,8 +351,6 @@ func (st *State) MongoSession() *mgo.Session {
 	return st.session
 }
 
-type closeFunc func()
-
 func (st *State) Watch() *Multiwatcher {
 	st.mu.Lock()
 	if st.allManager == nil {
@@ -464,11 +464,12 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	return nil
 }
 
-var UpgradeInProgressError = errors.New("an upgrade is already in progress or the last upgrade did not complete")
+var errUpgradeInProgress = errors.New(params.CodeUpgradeInProgress)
 
-// IsUpgradeInProgressError returns true if the error given is UpgradeInProgressError.
+// IsUpgradeInProgressError returns true if the error is cause by an
+// upgrade in progress
 func IsUpgradeInProgressError(err error) bool {
-	return errors.Cause(err) == UpgradeInProgressError
+	return errors.Cause(err) == errUpgradeInProgress
 }
 
 // SetModelAgentVersion changes the agent version for the model to the
@@ -527,7 +528,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
 		// return a more helpful error message in the case of an
 		// active upgradeInfo document being in place.
 		if upgrading, _ := st.IsUpgrading(); upgrading {
-			err = UpgradeInProgressError
+			err = errUpgradeInProgress
 		} else {
 			err = errors.Annotate(err, "cannot set agent version")
 		}
@@ -1299,7 +1300,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		// TODO(fwereade): this violates the spec. Should be "waiting".
 		// Implemented like this to be consistent with incorrect add-unit
 		// behaviour.
-		Status:     StatusUnknown,
+		Status:     status.StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    time.Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour

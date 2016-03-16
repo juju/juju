@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -332,7 +333,7 @@ type InstancesInfo struct {
 
 // EntityStatus holds the status of an entity.
 type EntityStatus struct {
-	Status Status
+	Status status.Status
 	Info   string
 	Data   map[string]interface{}
 	Since  *time.Time
@@ -341,7 +342,7 @@ type EntityStatus struct {
 // EntityStatus holds parameters for setting the status of a single entity.
 type EntityStatusArgs struct {
 	Tag    string
-	Status Status
+	Status status.Status
 	Info   string
 	Data   map[string]interface{}
 }
@@ -349,18 +350,6 @@ type EntityStatusArgs struct {
 // SetStatus holds the parameters for making a SetStatus/UpdateStatus call.
 type SetStatus struct {
 	Entities []EntityStatusArgs
-}
-
-// InstanceStatus holds an entity tag and instance status.
-type InstanceStatus struct {
-	Tag    string
-	Status string
-}
-
-// SetInstancesStatus holds parameters for making a
-// SetInstanceStatus() call.
-type SetInstancesStatus struct {
-	Entities []InstanceStatus
 }
 
 // ConstraintsResult holds machine constraints or an error.
