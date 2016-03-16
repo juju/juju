@@ -527,7 +527,7 @@ func (s *credentialsSuite) TestFinalizeCredentialExtraField(c *gc.C) {
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
 	}, nil)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`credential attributes contain unexpected values for field(s): "access-key"`))
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`unknown key "access-key" (value "access-key")`))
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialInvalidChoice(c *gc.C) {
@@ -547,7 +547,7 @@ func (s *credentialsSuite) TestFinalizeCredentialInvalidChoice(c *gc.C) {
 			Hidden: true,
 		},
 		"algorithm": {
-			Choices: []interface{}{"bar", "foobar"},
+			Options: []interface{}{"bar", "foobar"},
 		},
 	}
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{

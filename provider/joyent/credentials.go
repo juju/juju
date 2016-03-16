@@ -37,7 +37,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 			algorithm: {
 				Description: "Algorithm used to generate the private key (default rsa-sha256)",
 				Optional:    true,
-				Choices:     []interface{}{"rsa-sha256", "rsa-sha1", "rsa-sha224", "rsa-sha384", "rsa-sha512"},
+				Options:     []interface{}{"rsa-sha256", "rsa-sha1", "rsa-sha224", "rsa-sha384", "rsa-sha512"},
 			},
 		},
 	}

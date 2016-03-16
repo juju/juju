@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/utils/set"
-
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
@@ -121,45 +119,19 @@ func (s CredentialSchema) Finalize(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	// Record the keys which are used as file attributes as we will
-	// exclude these from the check for unrecognised schema fields.
-	fileAttrFields := set.NewStrings()
-	for name := range s {
-		if s[name].FileAttr != "" {
-			fileAttrFields.Add(s[name].FileAttr)
-		}
-	}
-
-	// Record which attributes we have and copy incoming attrs.
-	attrFields := set.NewStrings()
 	m := make(map[string]interface{})
-	for name, v := range attrs {
-		m[name] = v
-		attrFields.Add(name)
+	for k, v := range attrs {
+		m[k] = v
 	}
 	result, err := checker.Coerce(m, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// Check that we don't have any attribute not supported by the schema.
-	schemaFields := set.NewStrings()
-	for name := range s {
-		schemaFields.Add(name)
-	}
-	extraFields := attrFields.Difference(schemaFields).Difference(fileAttrFields)
-	if len(extraFields) > 0 {
-		return nil, errors.Errorf(
-			"credential attributes contain unexpected values for field(s): %q",
-			strings.Join(extraFields.Values(), ", "))
-	}
-
 	resultMap := result.(map[string]interface{})
 	newAttrs := make(map[string]string)
 
-	// Process and file attributes - load values from the nominated file
-	// into the values map.
+	// Construct the final credential attributes map, reading values from files as necessary.
 	for name, field := range s {
 		if field.FileAttr != "" {
 			if err := s.processFileAttrValue(name, field, resultMap, newAttrs, readFile); err != nil {
@@ -213,7 +185,7 @@ func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
 			Group:       environschema.AccountGroup,
 			Mandatory:   field.FileAttr == "" && !field.Optional,
 			Secret:      field.Hidden,
-			Values:      field.Choices,
+			Values:      field.Options,
 		}
 	}
 	// TODO(axw) add support to environschema for attributes whose values
@@ -238,7 +210,7 @@ func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return schema.FieldMap(schemaFields, schemaDefaults), nil
+	return schema.StrictFieldMap(schemaFields, schemaDefaults), nil
 }
 
 // CredentialAttr describes the properties of a credential attribute.
@@ -261,8 +233,8 @@ type CredentialAttr struct {
 	// value or not. Attributes default to mandatory.
 	Optional bool
 
-	// Choices, if set, define the allowed values for this field.
-	Choices []interface{}
+	// Options, if set, define the allowed values for this field.
+	Options []interface{}
 }
 
 type cloudCredentialChecker struct{}
