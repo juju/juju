@@ -304,7 +304,7 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams, 
 		for resName := range resIDs {
 			resNames = append(resNames, resName)
 		}
-		sort.Strings(resNames) // for the sake of testing...
+		sort.Strings(resNames) // give the output a consistent ordering...
 		for _, resName := range resNames {
 			h.log.Infof("added resource %s", resName)
 		}
@@ -756,7 +756,7 @@ func (h *bundleHandler) upgradeCharm(service string, cURL *charm.URL, csMac *mac
 	for resName := range resIDs {
 		resNames = append(resNames, resName)
 	}
-	sort.Strings(resNames) // for the sake of testing...
+	sort.Strings(resNames) // give the output a consistent ordering...
 	for _, resName := range resNames {
 		h.log.Infof("added resource %s", resName)
 	}
