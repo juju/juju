@@ -480,9 +480,8 @@ class EnvJujuClient:
                     self.env.environment))
 
     def create_environment(self, controller_client, config_file):
-        self.juju('create-model', (
-            '-c', controller_client.env.environment, self.env.environment,
-            '--config', config_file), include_e=False)
+        controller_client.controller_juju('create-model', (
+            self.env.environment, '--config', config_file))
 
     def destroy_model(self):
         exit_status = self.juju(
@@ -494,7 +493,7 @@ class EnvJujuClient:
         """Kill a controller and its environments."""
         seen_cmd = self.get_jes_command()
         self.juju(
-            _jes_cmds[seen_cmd]['kill'], (self.env.environment, '-y'),
+            _jes_cmds[seen_cmd]['kill'], (self.env.controller.name, '-y'),
             include_e=False, check=False, timeout=600)
 
     def get_juju_output(self, command, *args, **kwargs):
@@ -614,6 +613,10 @@ class EnvJujuClient:
         self.juju_timings.setdefault(args, []).append(
             (time.time() - start_time))
         return rval
+
+    def controller_juju(self, command, args):
+        args = ('-c', self.env.controller.name) + args
+        return self.juju(command, args, include_e=False)
 
     def get_juju_timings(self):
         stringified_timings = {}
@@ -776,7 +779,7 @@ class EnvJujuClient:
 
     def list_models(self):
         """List the models registered with the current controller."""
-        self.juju('list-models', ('-c', self.env.environment), include_e=False)
+        self.controller_juju('list-models', ())
 
     def get_models(self):
         """return a models dict with a 'models': [] key-value pair."""
@@ -1720,6 +1723,13 @@ def _dns_name_for_machine(status, machine):
     return host
 
 
+class Controller:
+
+    def __init__(self, name):
+        self.name = name
+        self.admin_model = None
+
+
 class Status:
 
     def __init__(self, status, status_text):
@@ -1832,7 +1842,11 @@ class Status:
 
 class SimpleEnvironment:
 
-    def __init__(self, environment, config=None, juju_home=None):
+    def __init__(self, environment, config=None, juju_home=None,
+                 controller=None):
+        if controller is None:
+            controller = Controller(environment)
+        self.controller = controller
         self.environment = environment
         self.config = config
         self.juju_home = juju_home
@@ -1854,7 +1868,8 @@ class SimpleEnvironment:
             model_name = self.environment
         else:
             config['name'] = model_name
-        result = self.__class__(model_name, config, self.juju_home)
+        result = self.__class__(model_name, config, self.juju_home,
+                                self.controller)
         result.local = self.local
         result.kvm = self.kvm
         result.maas = self.maas
@@ -1906,10 +1921,12 @@ class SimpleEnvironment:
 
 class JujuData(SimpleEnvironment):
 
-    def __init__(self, environment, config=None, juju_home=None):
+    def __init__(self, environment, config=None, juju_home=None,
+                 controller=None):
         if juju_home is None:
             juju_home = get_juju_home()
-        super(JujuData, self).__init__(environment, config, juju_home)
+        super(JujuData, self).__init__(environment, config, juju_home,
+                                       controller)
         self.credentials = {}
         self.clouds = {}
 

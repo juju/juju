@@ -34,6 +34,7 @@ from jujupy import (
     BootstrapMismatch,
     CannotConnectEnv,
     CONTROLLER,
+    Controller,
     EnvJujuClient,
     EnvJujuClient1X,
     EnvJujuClient22,
@@ -1160,10 +1161,16 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(client, 'get_jes_command',
                           return_value=jes_command):
             with patch.object(client, 'juju') as juju_mock:
-                client.create_environment(controller_client, 'temp')
-        juju_mock.assert_called_once_with(
-            create_cmd, controller_option + ('bar', '--config', 'temp'),
-            include_e=False)
+                with patch.object(controller_client, 'juju') as ccj_mock:
+                    client.create_environment(controller_client, 'temp')
+        if juju_mock.call_count == 0:
+            ccj_mock.assert_called_once_with(
+                create_cmd, controller_option + ('bar', '--config', 'temp'),
+                include_e=False)
+        else:
+            juju_mock.assert_called_once_with(
+                create_cmd, controller_option + ('bar', '--config', 'temp'),
+                include_e=False)
 
     def test_destroy_environment(self):
         env = JujuData('foo')
@@ -5220,7 +5227,19 @@ def temp_config():
         yield
 
 
+class TestController(TestCase):
+
+    def test_controller(self):
+        controller = Controller('ctrl')
+        self.assertEqual('ctrl', controller.name)
+        self.assertIs(None, controller.admin_model)
+
+
 class TestSimpleEnvironment(TestCase):
+
+    def test_default_controller(self):
+        default =  SimpleEnvironment('foo')
+        self.assertEqual('foo', default.controller.name)
 
     def test_clone(self):
         orig = SimpleEnvironment('foo', {'type': 'bar'}, 'myhome')
@@ -5239,6 +5258,7 @@ class TestSimpleEnvironment(TestCase):
         self.assertEqual('kvm1', copy.kvm)
         self.assertEqual('maas1', copy.maas)
         self.assertEqual('joyent1', copy.joyent)
+        self.assertIs(orig.controller, copy.controller)
 
     def test_clone_model_name(self):
         orig = SimpleEnvironment('foo', {'type': 'bar', 'name': 'oldname'},
