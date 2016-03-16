@@ -8,3 +8,8 @@ package params
 type SetMigrationPhaseArgs struct {
 	Phase string `json:"phase"`
 }
+
+// SerializedModel wraps a buffer contain a serialised Juju model.
+type SerializedModel struct {
+	Bytes []byte `json:"bytes"`
+}

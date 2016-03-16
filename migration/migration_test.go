@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/migration"
+	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	statetesting "github.com/juju/juju/state/testing"
@@ -320,4 +321,58 @@ type fakePrecheckBackend struct {
 
 func (f *fakePrecheckBackend) NeedsCleanup() (bool, error) {
 	return f.cleanupNeeded, f.cleanupError
+}
+
+type InternalSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&InternalSuite{})
+
+func (s *InternalSuite) TestControllerValues(c *gc.C) {
+	config := testing.ModelConfig(c)
+	fields := migration.ControllerValues(config)
+	c.Assert(fields, jc.DeepEquals, map[string]interface{}{
+		"state-port": 19034,
+		"api-port":   17777,
+		"ca-cert":    testing.CACert,
+	})
+}
+
+func (s *InternalSuite) TestUpdateConfigFromProvider(c *gc.C) {
+	controllerConfig := testing.ModelConfig(c)
+	configAttrs := testing.FakeConfig()
+	configAttrs["type"] = "dummy"
+	// Fake the "state-id" so the provider thinks it is prepared already.
+	configAttrs["state-id"] = "42"
+	// We need to specify a valid provider type, so we use dummy.
+	// The dummy provider grabs the UUID from the controller config
+	// and returns it in the map with the key "controller-uuid", similar
+	// to what the azure provider will need to do.
+	model := description.NewModel(description.ModelArgs{
+		Owner:  names.NewUserTag("test-admin"),
+		Config: configAttrs,
+	})
+
+	err := migration.UpdateConfigFromProvider(model, controllerConfig)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelConfig := model.Config()
+	controllerUUID, ok := controllerConfig.UUID()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(modelConfig["controller-uuid"], gc.Equals, controllerUUID)
+}
+
+type CharmInternalSuite struct {
+	statetesting.StateSuite
+}
+
+var _ = gc.Suite(&CharmInternalSuite{})
+
+func (s *CharmInternalSuite) TestCharmStoragePath(c *gc.C) {
+	charm := s.Factory.MakeCharm(c, nil)
+
+	path, err := migration.GetCharmStoragePath(s.State, charm.URL())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(path, gc.Equals, "fake-storage-path")
 }
