@@ -42,11 +42,20 @@ type maasInterfaceLink struct {
 	Mode      maasLinkMode `json:"mode"`
 }
 
+type maasInterfaceType string
+
+const (
+	typeUnknown  maasInterfaceType = ""
+	typePhysical maasInterfaceType = "physical"
+	typeVLAN     maasInterfaceType = "vlan"
+	typeBond     maasInterfaceType = "bond"
+)
+
 type maasInterface struct {
-	ID      int    `json:"id"`
-	Name    string `json:"name"`
-	Type    string `json:"type"`
-	Enabled bool   `json:"enabled"`
+	ID      int               `json:"id"`
+	Name    string            `json:"name"`
+	Type    maasInterfaceType `json:"type"`
+	Enabled bool              `json:"enabled"`
 
 	MACAddress  string   `json:"mac_address"`
 	VLAN        maasVLAN `json:"vlan"`
