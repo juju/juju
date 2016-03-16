@@ -283,9 +283,10 @@ func (s *remoteSuite) TestValidateUnknownProtocol(c *gc.C) {
 
 func (s *remoteSuite) TestLocal(c *gc.C) {
 	expected := lxdclient.Remote{
-		Name: "local",
-		Host: "",
-		Cert: nil,
+		Name:     "local",
+		Host:     "",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     nil,
 	}
 	c.Check(lxdclient.Local, jc.DeepEquals, expected)
 }

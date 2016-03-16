@@ -27,6 +27,7 @@ var Local = Remote{
 	Name: remoteLocalName,
 	Host: "", // If Host is empty we will translate it into the local Unix socket
 	// No certificates are used when connecting to the Unix socket
+	Protocol:      LXDProtocol,
 	Cert:          nil,
 	ServerPEMCert: "",
 }
@@ -46,7 +47,7 @@ var CloudImagesRemote = Remote{
 	ServerPEMCert: "",
 }
 
-var DefaultRemotes = []Remote{CloudImagesRemote}
+var DefaultImageSources = []Remote{CloudImagesRemote}
 
 // Remote describes a LXD "remote" server for a client. In
 // particular it holds the information needed for the client
@@ -147,6 +148,9 @@ func (r Remote) Validate() error {
 	}
 
 	// TODO(ericsnow) Ensure the host is a valid hostname or address?
+	// TODO(jam) lxd.NewClientFromInfo() requires that we only pass host
+	// URLs that are "https://" or have no prefix. If we pass "http://" it
+	// tries to connect to "https://http://..." and obviously fails
 	if r.Protocol == "" {
 		return errors.NotValidf("missing Protocol")
 	}

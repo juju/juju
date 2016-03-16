@@ -29,9 +29,10 @@ func (s *configBaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.remote = lxdclient.Remote{
-		Name: "my-remote",
-		Host: "some-host",
-		Cert: s.Cert,
+		Name:     "my-remote",
+		Host:     "some-host",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     s.Cert,
 	}
 }
 
@@ -41,9 +42,8 @@ type configSuite struct {
 
 func (s *configSuite) TestWithDefaultsOkay(c *gc.C) {
 	cfg := lxdclient.Config{
-		Namespace:    "my-ns",
-		Remote:       s.remote,
-		ImageSources: lxdclient.DefaultRemotes,
+		Namespace: "my-ns",
+		Remote:    s.remote,
 	}
 	updated, err := cfg.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
@@ -59,9 +59,8 @@ func (s *configSuite) TestWithDefaultsMissingRemote(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(updated, jc.DeepEquals, lxdclient.Config{
-		Namespace:    "my-ns",
-		Remote:       lxdclient.Local,
-		ImageSources: lxdclient.DefaultRemotes,
+		Namespace: "my-ns",
+		Remote:    lxdclient.Local,
 	})
 }
 
@@ -74,17 +73,15 @@ func (s *configSuite) TestWithDefaultsMissingStream(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(updated, jc.DeepEquals, lxdclient.Config{
-		Namespace:    "my-ns",
-		Remote:       s.remote,
-		ImageSources: lxdclient.DefaultRemotes,
+		Namespace: "my-ns",
+		Remote:    s.remote,
 	})
 }
 
 func (s *configSuite) TestValidateOkay(c *gc.C) {
 	cfg := lxdclient.Config{
-		Namespace:    "my-ns",
-		Remote:       s.remote,
-		ImageSources: lxdclient.DefaultRemotes,
+		Namespace: "my-ns",
+		Remote:    s.remote,
 	}
 	err := cfg.Validate()
 

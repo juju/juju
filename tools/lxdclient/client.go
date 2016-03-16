@@ -45,7 +45,7 @@ func Connect(cfg Config) (*Client, error) {
 		certClient:         &certClient{raw},
 		profileClient:      &profileClient{raw},
 		instanceClient:     &instanceClient{raw, remote},
-		imageClient:        &imageClient{raw, cfg},
+		imageClient:        &imageClient{raw},
 	}
 	return conn, nil
 }
@@ -54,9 +54,9 @@ var lxdNewClientFromInfo = lxd.NewClientFromInfo
 
 // newRawClient connects to the LXD host that is defined in Config.
 func newRawClient(remote Remote) (*lxd.Client, error) {
-	logger.Debugf("using LXD remote %q", remote.ID())
-
 	host := remote.Host
+	logger.Debugf("connecting to LXD remote %q: %q", remote.ID(), host)
+
 	if remote.ID() == remoteIDForLocal || host == "" {
 		host = "unix://" + lxdshared.VarPath("unix.socket")
 	} else {
@@ -77,13 +77,20 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 		clientKey = string(remote.Cert.KeyPEM)
 	}
 
+	static := false
+	public := false
+	if remote.Protocol == SimplestreamsProtocol {
+		static = true
+		public = true
+	}
+
 	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
 		Name: remote.ID(),
 		RemoteConfig: lxd.RemoteConfig{
 			Addr:     host,
-			Static:   false,
-			Public:   false,
-			Protocol: "",
+			Static:   static,
+			Public:   public,
+			Protocol: string(remote.Protocol),
 		},
 		ClientPEMCert: clientCert,
 		ClientPEMKey:  clientKey,

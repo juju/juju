@@ -19,8 +19,7 @@ type rawImageClient interface {
 }
 
 type imageClient struct {
-	raw    rawImageClient
-	config Config
+	raw rawImageClient
 }
 
 // progressContext takes progress messages from LXD and just writes them to
@@ -40,7 +39,7 @@ func (p *progressContext) copyProgress(progress string) {
 	}
 }
 
-func (i *imageClient) EnsureImageExists(series string, copyProgressHandler func(string)) error {
+func (i *imageClient) EnsureImageExists(series string, sources []Remote, copyProgressHandler func(string)) error {
 	// TODO(jam) We should add Architecture in this information as well
 	// TODO(jam) We should also update this for multiple locations to copy
 	// from
@@ -52,6 +51,7 @@ func (i *imageClient) EnsureImageExists(series string, copyProgressHandler func(
 	// TODO(jam) Add a flag to not trust local aliases, which would allow
 	// non-state machines to only trust the alias that is set on the state
 	// machines.
+	// if IgnoreLocalAliases {}
 	aliases, err := i.raw.ListAliases()
 	if err != nil {
 		return err
@@ -70,7 +70,7 @@ func (i *imageClient) EnsureImageExists(series string, copyProgressHandler func(
 		return errors.Errorf("can only copy images to a real lxd.Client instance")
 	}
 	var lastErr error
-	for _, remote := range i.config.ImageSources {
+	for _, remote := range sources {
 		source, err := newRawClient(remote)
 		if err != nil {
 			logger.Infof("failed to connect to %q: %s", remote.Host, err)
@@ -85,7 +85,7 @@ func (i *imageClient) EnsureImageExists(series string, copyProgressHandler func(
 				source.BaseURL),
 			forward: copyProgressHandler,
 		}
-		// TODO: there are multiple possible spellings for aliases,
+		// TODO(jam): there are multiple possible spellings for aliases,
 		// unfortunately. cloud-images only hosts ubuntu images, and
 		// aliases them as "trusty" or "trusty/amd64" or
 		// "trusty/amd64/20160304". However, we should be more
@@ -94,12 +94,22 @@ func (i *imageClient) EnsureImageExists(series string, copyProgressHandler func(
 		target := source.GetAlias(series)
 		if target == "" {
 			logger.Infof("no image for %s found in %s", name, source.BaseURL)
+			// TODO(jam) Add a test that we skip sources that don't
+			// have what we are looking for
+			continue
 		}
 		logger.Infof("found image from %s for %s = %s",
 			source.BaseURL, series, target)
-		return source.CopyImage(
+		err = source.CopyImage(
 			target, client, false, []string{name}, false,
 			true, adapter.copyProgress)
+		if err != nil {
+			// TODO(jam) Should this be fatal? Or just set lastErr
+			// and then continue on?
+			logger.Warningf("error copying image: %s", err)
+			return errors.Annotatef(err, "unable to get LXD image for %s", name)
+		}
+		return nil
 	}
 	return lastErr
 }

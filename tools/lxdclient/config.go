@@ -20,9 +20,6 @@ type Config struct {
 	// Remote identifies the remote server to which the client should
 	// connect. For the default "remote" use Local.
 	Remote Remote
-
-	// ImageSources are remotes that we can use to copy images from.
-	ImageSources []Remote
 }
 
 // WithDefaults updates a copy of the config with default values
@@ -36,11 +33,6 @@ func (cfg Config) WithDefaults() (Config, error) {
 	if err != nil {
 		return cfg, errors.Trace(err)
 	}
-	if len(cfg.ImageSources) == 0 {
-		// Copy DefaultRemotes so nobody can mutate it
-		cfg.ImageSources = append([]Remote(nil), DefaultRemotes...)
-	}
-
 	return cfg, nil
 }
 

@@ -91,9 +91,11 @@ func (manager *containerManager) CreateContainer(
 		}
 	}
 
-	err = manager.client.EnsureImageExists(series, func(progress string) {
-		callback(status.StatusAllocating, progress, nil)
-	})
+	err = manager.client.EnsureImageExists(series,
+		lxdclient.DefaultImageSources,
+		func(progress string) {
+			callback(status.StatusAllocating, progress, nil)
+		})
 	if err != nil {
 		return
 	}

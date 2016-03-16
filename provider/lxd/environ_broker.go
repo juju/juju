@@ -7,6 +7,7 @@ package lxd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
@@ -90,14 +91,59 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) erro
 	return nil
 }
 
+func (env *environ) getImageSources() ([]lxdclient.Remote, error) {
+	metadataSources, err := environs.ImageMetadataSources(env)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	remotes := make([]lxdclient.Remote, 0)
+	for _, source := range metadataSources {
+		url, err := source.URL("")
+		if err != nil {
+			logger.Debugf("failed to get the URL for metadataSource: %s", err)
+			continue
+		}
+		/// XXX(jam) It seems that LXD will let you pass a host of
+		// "https://foo/bar" but if you pass "http://foo/bar" then it
+		// ends up trying to connect to "https://http://foo/bar". We
+		// can also just pass "foo/bar" which will be easier
+		// anyway.
+		if strings.HasPrefix(url, "http://") {
+			url = strings.TrimPrefix(url, "http://")
+			url = "https://" + url
+		}
+		// TODO(jam) Add tests that when a user sets a
+		// "image-metadata-url" we do the right thing. We *might* need
+		// to add support for pure "http" as an image source to LXD.
+		remotes = append(remotes, lxdclient.Remote{
+			Name:          source.Description(),
+			Host:          url,
+			Protocol:      lxdclient.SimplestreamsProtocol,
+			Cert:          nil,
+			ServerPEMCert: "",
+		})
+	}
+	return remotes, nil
+}
+
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclient.Instance, error) {
 	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
 
+	// Note: other providers have the ImageMetadata already read for them
+	// and passed in as args.ImageMetadata. However, lxd provider doesn't
+	// use datatype: image-ids, it uses datatype: image-download, and we
+	// don't have a registered cloud/region.
+	imageSources, err := env.getImageSources()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	series := args.Tools.OneSeries()
 	image := "ubuntu-" + series
+	// TODO: support args.Constraints.Arch, we'll want to map from
 
 	var callback func(string)
 	if args.StatusCallback != nil {
@@ -105,8 +151,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 			args.StatusCallback(status.StatusAllocating, copyProgress, nil)
 		}
 	}
-	err := env.raw.EnsureImageExists(series, callback)
-	if err != nil {
+	if err := env.raw.EnsureImageExists(series, imageSources, callback); err != nil {
 		return nil, errors.Trace(err)
 	}
 
