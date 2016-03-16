@@ -274,6 +274,12 @@ func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
 
 var unsupportedConstraints = []string{
 	constraints.Tags,
+	// TODO (anastasiamac 2016-03-16)
+	// virt-type for ec2 exists
+	// but because we sort alphabetically and
+	// up until recently not filtered on virt-type,
+	// does it make sense here?
+	constraints.VirtType,
 }
 
 // ConstraintsValidator is defined on the Environs interface.

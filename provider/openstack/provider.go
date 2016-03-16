@@ -423,6 +423,7 @@ func (e *Environ) SupportedArchitectures() ([]string, error) {
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.CpuPower,
+	constraints.VirtType,
 }
 
 // ConstraintsValidator is defined on the Environs interface.

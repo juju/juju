@@ -17,6 +17,7 @@ import (
 var unsupportedConstraints = []string{
 	constraints.CpuPower,
 	constraints.InstanceType,
+	constraints.VirtType,
 }
 
 // ConstraintsValidator is defined on the Environs interface.
