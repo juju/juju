@@ -1,9 +1,10 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package logger
+package rsyslogger
 
 import (
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
@@ -12,46 +13,45 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+var logger = loggo.GetLogger("juju.apiserver.rsyslogger")
+
 func init() {
-	common.RegisterStandardFacade("Logger", 1, NewLoggerAPI)
+	common.RegisterStandardFacade("RsyslogConfig", 1, NewRsyslogConfigAPI)
 }
 
-// Logger defines the methods on the logger API end point.  Unfortunately, the
-// api infrastructure doesn't allow interfaces to be used as an actual
-// endpoint because our rpc mechanism panics.  However, I still feel that this
-// provides a useful documentation purpose.
-type Logger interface {
-	WatchLoggingConfig(args params.Entities) params.NotifyWatchResults
-	LoggingConfig(args params.Entities) params.StringResults
+// RsyslogConfigWatcher defines the methods on the logger API end point.
+type RsyslogConfigWatcher interface {
+	WatchRsyslogConfig(args params.Entities) params.NotifyWatchResults
+	RsyslogConfig(args params.Entities) params.RsyslogConfigResults
 }
 
-// LoggerAPI implements the Logger interface and is the concrete
+// RsyslogConfigAPI implements the RsyslogConfigWatcher interface and is the concrete
 // implementation of the api end point.
-type LoggerAPI struct {
+type RsyslogConfigAPI struct {
 	state      *state.State
 	resources  *common.Resources
 	authorizer common.Authorizer
 }
 
-var _ Logger = (*LoggerAPI)(nil)
+var _ RsyslogConfigWatcher = (*RsyslogConfigAPI)(nil)
 
-// NewLoggerAPI creates a new server-side logger API end point.
-func NewLoggerAPI(
+// NewRsyslogConfigWatcher creates a new server-side rsyslogger API end point.
+func NewRsyslogConfigAPI(
 	st *state.State,
 	resources *common.Resources,
 	authorizer common.Authorizer,
-) (*LoggerAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() {
+) (*RsyslogConfigAPI, error) {
+	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
-	return &LoggerAPI{state: st, resources: resources, authorizer: authorizer}, nil
+	return &RsyslogConfigAPI{state: st, resources: resources, authorizer: authorizer}, nil
 }
 
-// WatchLoggingConfig starts a watcher to track changes to the logging config
-// for the agents specified..  Unfortunately the current infrastructure makes
+// WatchRsyslogConfig starts a watcher to track changes to the rsyslog config
+// for the agents specified.  Unfortunately the current infrastructure makes
 // watching parts of the config non-trivial, so currently any change to the
 // config will cause the watcher to notify the client.
-func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatchResults {
+func (api *RsyslogConfigAPI) WatchRsyslogConfig(arg params.Entities) params.NotifyWatchResults {
 	result := make([]params.NotifyWatchResult, len(arg.Entities))
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
@@ -77,13 +77,17 @@ func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 	return params.NotifyWatchResults{Results: result}
 }
 
-// LoggingConfig reports the logging configuration for the agents specified.
-func (api *LoggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
+// RsyslogConfig reports the rsyslog config for the specified agents.
+func (api *RsyslogConfigAPI) RsyslogConfig(arg params.Entities) params.RsyslogConfigResults {
 	if len(arg.Entities) == 0 {
-		return params.StringResults{}
+		return params.RsyslogConfigResults{}
 	}
-	results := make([]params.StringResult, len(arg.Entities))
+	results := make([]params.RsyslogConfigResult, len(arg.Entities))
 	config, configErr := api.state.ModelConfig()
+	url, _ := config.RsyslogURL()
+	caCert, _ := config.RsyslogCACert()
+	clientCert, _ := config.RsyslogClientCert()
+	clientKey, _ := config.RsyslogClientKey()
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
@@ -93,7 +97,10 @@ func (api *LoggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
 		err = common.ErrPerm
 		if api.authorizer.AuthOwner(tag) {
 			if configErr == nil {
-				results[i].Result = config.LoggingConfig()
+				results[i].URL = url
+				results[i].CACert = caCert
+				results[i].ClientCert = clientCert
+				results[i].ClientKey = clientKey
 				err = nil
 			} else {
 				err = configErr
@@ -101,5 +108,5 @@ func (api *LoggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
 		}
 		results[i].Error = common.ServerError(err)
 	}
-	return params.StringResults{Results: results}
+	return params.RsyslogConfigResults{Results: results}
 }

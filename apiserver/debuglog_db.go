@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
 
@@ -23,8 +24,11 @@ func handleDebugLogDBRequest(
 	socket debugLogSocket,
 	stop <-chan struct{},
 ) error {
-	params := makeLogTailerParams(reqParams)
-	tailer := newLogTailer(st, params)
+	tailerParams := makeLogTailerParams(reqParams)
+	tailer, err := newLogTailer(st, tailerParams)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer tailer.Stop()
 
 	// Indicate that all is well.
@@ -40,10 +44,23 @@ func handleDebugLogDBRequest(
 				return errors.Annotate(tailer.Err(), "tailer stopped")
 			}
 
-			line := formatLogRecord(rec)
-			_, err := socket.Write([]byte(line))
-			if err != nil {
-				return errors.Annotate(err, "sending failed")
+			if reqParams.format == "json" {
+				err = socket.WriteJSON(params.LogRecord{
+					ModelUUID: rec.ModelUUID,
+					Time:      rec.Time,
+					Module:    rec.Module,
+					Location:  rec.Location,
+					Level:     rec.Level,
+					Message:   rec.Message,
+				})
+				if err != nil {
+					return errors.Trace(err)
+				}
+			} else {
+				_, err = socket.Write([]byte(formatLogRecord(rec)))
+				if err != nil {
+					return errors.Annotate(err, "sending failed")
+				}
 			}
 
 			lineCount++
@@ -63,6 +80,7 @@ func makeLogTailerParams(reqParams *debugLogParams) *state.LogTailerParams {
 		ExcludeEntity: reqParams.excludeEntity,
 		IncludeModule: reqParams.includeModule,
 		ExcludeModule: reqParams.excludeModule,
+		AllModels:     reqParams.allModels,
 	}
 	if reqParams.fromTheStart {
 		params.InitialLines = 0
@@ -87,6 +105,6 @@ func formatTime(t time.Time) string {
 
 var newLogTailer = _newLogTailer // For replacing in tests
 
-func _newLogTailer(st state.LoggingState, params *state.LogTailerParams) state.LogTailer {
+func _newLogTailer(st state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
 	return state.NewLogTailer(st, params)
 }

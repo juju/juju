@@ -47,9 +47,10 @@ var (
 		"status-history-pruner",
 		"storage-provisioner",
 		"unit-assigner",
+		"rsyslog-forwarder",
 	}
 	deadModelWorkers = []string{
-		"environ-tracker", "undertaker",
+		"environ-tracker", "undertaker", "rsyslog-forwarder",
 	}
 
 	// ReallyLongTimeout should be long enough for the model-tracker

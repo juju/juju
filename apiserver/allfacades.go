@@ -51,6 +51,7 @@ import (
 	_ "github.com/juju/juju/apiserver/reboot"
 	_ "github.com/juju/juju/apiserver/resumer"
 	_ "github.com/juju/juju/apiserver/retrystrategy"
+	_ "github.com/juju/juju/apiserver/rsyslogger"
 	_ "github.com/juju/juju/apiserver/service"
 	_ "github.com/juju/juju/apiserver/servicescaler"
 	_ "github.com/juju/juju/apiserver/singular"

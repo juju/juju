@@ -55,6 +55,7 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 		"storage-provisioner",
 		"undertaker",
 		"unit-assigner",
+		"rsyslog-forwarder",
 	})
 }
 
@@ -68,6 +69,7 @@ func (s *ManifoldsSuite) TestResponsibleFlagDependencies(c *gc.C) {
 		"is-responsible-flag",
 		"not-alive-flag",
 		"not-dead-flag",
+		"rsyslog-forwarder",
 	)
 	manifolds := model.Manifolds(model.ManifoldsConfig{
 		Agent: &mockAgent{},

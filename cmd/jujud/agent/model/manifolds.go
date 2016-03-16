@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/provisioner"
+	"github.com/juju/juju/worker/rsyslogger"
 	"github.com/juju/juju/worker/servicescaler"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
@@ -242,6 +243,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			// TODO(fwereade): 2016-03-17 lp:1558657
 			NewTimer: worker.NewTimer,
 		})),
+		rsyslogForwarderName: ifResponsible(rsyslogger.Manifold(rsyslogger.ManifoldConfig{
+			APICallerName: apiCallerName,
+			AgentName:     agentName,
+		})),
 	}
 }
 
@@ -299,4 +304,5 @@ const (
 	migrationMasterName         = "migration-master"
 	discoverSpacesCheckGateName = "discover-spaces-check-gate"
 	discoverSpacesName          = "discover-spaces"
+	rsyslogForwarderName        = "rsyslog-forwarder"
 )

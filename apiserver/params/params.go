@@ -751,15 +751,23 @@ type RebootActionResult struct {
 	Error  *Error       `json:"error,omitempty"`
 }
 
+// LogRecordResult struct is used to transmit log messages over
+// a channel.
+type LogRecordResult struct {
+	LogRecord
+	Error *Error
+}
+
 // LogRecord is used to transmit log messages to the logsink API
 // endpoint.  Single character field names are used for serialisation
 // to keep the size down. These messages are going to be sent a lot.
 type LogRecord struct {
-	Time     time.Time   `json:"t"`
-	Module   string      `json:"m"`
-	Location string      `json:"l"`
-	Level    loggo.Level `json:"v"`
-	Message  string      `json:"x"`
+	ModelUUID string      `json:"e"`
+	Time      time.Time   `json:"t"`
+	Module    string      `json:"m"`
+	Location  string      `json:"l"`
+	Level     loggo.Level `json:"v"`
+	Message   string      `json:"x"`
 }
 
 // GetBundleChangesParams holds parameters for making GetBundleChanges calls.
