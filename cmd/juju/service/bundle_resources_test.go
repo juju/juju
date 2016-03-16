@@ -99,14 +99,9 @@ func (s *ResourcesBundleSuite) checkResources(c *gc.C, serviceName string, expec
 	c.Check(err, jc.ErrorIsNil)
 	st, err := s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)
-	resources, err := st.ListResources("starsay")
+	svcResources, err := st.ListResources("starsay")
 	c.Assert(err, jc.ErrorIsNil)
-	var csExpected []charmresource.Resource
-	for _, res := range expected {
-		csExpected = append(csExpected, res.Resource)
-	}
-	c.Assert(resources, jc.DeepEquals, resource.ServiceResources{
-		Resources:           expected,
-		CharmStoreResources: csExpected,
-	})
+	resources := svcResources.Resources
+	resource.Sort(resources)
+	c.Assert(resources, jc.DeepEquals, expected)
 }
