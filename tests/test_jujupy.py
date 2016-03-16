@@ -252,6 +252,9 @@ class FakeJujuClient:
     def get_admin_client(self):
         return self
 
+    def iter_model_clients(self):
+        yield self
+
     def is_jes_enabled(self):
         return self._jes_enabled
 
@@ -1709,6 +1712,24 @@ class TestEnvJujuClient(ClientTest):
             'current-model': 'foo'
         }
         self.assertEqual(expected_models, models)
+
+    def test_iter_model_clients(self):
+        data = """\
+            models:
+            - name: foo
+              model-uuid: aaaa
+              owner: admin@local
+            - name: bar
+              model-uuid: bbbb
+              owner: admin@local
+            current-model: foo
+        """
+        client = EnvJujuClient(JujuData('foo', {}), None, None)
+        with patch.object(client, 'get_juju_output', return_value=data):
+            model_clients = list(client.iter_model_clients())
+        self.assertEqual(2, len(model_clients))
+        self.assertIs(client, model_clients[0])
+        self.assertEqual('bar', model_clients[1].env.environment)
 
     def test_get_admin_model_name(self):
         models = {
@@ -4139,6 +4160,22 @@ class TestEnvJujuClient1X(ClientTest):
         client = EnvJujuClient1X(env, '1.23-series-arch', None)
         self.assertEqual({}, client.get_models())
 
+    def test_iter_model_clients(self):
+        data = """\
+            - name: foo
+              model-uuid: aaaa
+              owner: admin@local
+            - name: bar
+              model-uuid: bbbb
+              owner: admin@local
+        """
+        client = EnvJujuClient1X(SimpleEnvironment('foo', {}), None, None)
+        with patch.object(client, 'get_juju_output', return_value=data):
+            model_clients = list(client.iter_model_clients())
+        self.assertEqual(2, len(model_clients))
+        self.assertIs(client, model_clients[0])
+        self.assertEqual('bar', model_clients[1].env.environment)
+
     def test_get_admin_model_name_no_models(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
         client = EnvJujuClient1X(env, '1.23-series-arch', None)
@@ -5146,6 +5183,31 @@ def temp_config():
 
 class TestSimpleEnvironment(TestCase):
 
+    def test_clone(self):
+        orig = SimpleEnvironment('foo', {'type': 'bar'}, 'myhome')
+        orig.local = 'local1'
+        orig.kvm = 'kvm1'
+        orig.maas = 'maas1'
+        orig.joyent = 'joyent1'
+        copy = orig.clone()
+        self.assertIs(SimpleEnvironment, type(copy))
+        self.assertIsNot(orig, copy)
+        self.assertEqual(copy.environment, 'foo')
+        self.assertIsNot(orig.config, copy.config)
+        self.assertEqual({'type': 'bar'}, copy.config)
+        self.assertEqual('myhome', copy.juju_home)
+        self.assertEqual('local1', copy.local)
+        self.assertEqual('kvm1', copy.kvm)
+        self.assertEqual('maas1', copy.maas)
+        self.assertEqual('joyent1', copy.joyent)
+
+    def test_clone_model_name(self):
+        orig = SimpleEnvironment('foo', {'type': 'bar', 'name': 'oldname'},
+                                 'myhome')
+        copy = orig.clone(model_name='newname')
+        self.assertEqual('newname', copy.environment)
+        self.assertEqual('newname', copy.config['name'])
+
     def test_local_from_config(self):
         env = SimpleEnvironment('local', {'type': 'openstack'})
         self.assertFalse(env.local, 'Does not respect config type.')
@@ -5226,6 +5288,7 @@ class TestJujuData(TestCase):
         orig.credentials = {'secret': 'password'}
         orig.clouds = {'name': {'meta': 'data'}}
         copy = orig.clone()
+        self.assertIs(JujuData, type(copy))
         self.assertIsNot(orig, copy)
         self.assertEqual(copy.environment, 'foo')
         self.assertIsNot(orig.config, copy.config)
