@@ -1215,6 +1215,7 @@ func (s *environSuite) TestPrecheckNodePlacement(c *gc.C) {
 func (s *environSuite) TestStartInstanceAvailZone(c *gc.C) {
 	// Add a node for the started instance.
 	s.newNode(c, "thenode1", "host1", map[string]interface{}{"zone": "test-available"})
+	s.addSubnet(c, 1, 1, "thenode1")
 	s.testMAASObject.TestServer.AddZone("test-available", "description")
 	inst, err := s.testStartInstanceAvailZone(c, "test-available")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1240,6 +1241,7 @@ func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instanc
 func (s *environSuite) TestStartInstanceUnmetConstraints(c *gc.C) {
 	env := s.bootstrap(c)
 	s.newNode(c, "thenode1", "host1", nil)
+	s.addSubnet(c, 1, 1, "thenode1")
 	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G")}
 	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, gc.ErrorMatches, "cannot run instances:.* 409.*")
@@ -1248,7 +1250,9 @@ func (s *environSuite) TestStartInstanceUnmetConstraints(c *gc.C) {
 func (s *environSuite) TestStartInstanceConstraints(c *gc.C) {
 	env := s.bootstrap(c)
 	s.newNode(c, "thenode1", "host1", nil)
+	s.addSubnet(c, 1, 1, "thenode1")
 	s.newNode(c, "thenode2", "host2", map[string]interface{}{"memory": 8192})
+	s.addSubnet(c, 2, 2, "thenode2")
 	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G")}
 	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1437,11 +1441,13 @@ func (s *environSuite) TestStartInstanceDistributionParams(c *gc.C) {
 
 	// no distribution group specified
 	s.newNode(c, "node1", "host1", nil)
+	s.addSubnet(c, 1, 1, "node1")
 	testing.AssertStartInstance(c, env, "1")
 	c.Assert(mock.group, gc.HasLen, 0)
 
 	// distribution group specified: ensure it's passed through to AvailabilityZone.
 	s.newNode(c, "node2", "host2", nil)
+	s.addSubnet(c, 2, 2, "node2")
 	expectedInstances := []instance.Id{"i-0", "i-1"}
 	params := environs.StartInstanceParams{
 		DistributionGroup: func() ([]instance.Id, error) {
@@ -1477,6 +1483,7 @@ func (s *environSuite) TestStartInstanceDistribution(c *gc.C) {
 	env := s.bootstrap(c)
 	s.testMAASObject.TestServer.AddZone("test-available", "description")
 	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "test-available"})
+	s.addSubnet(c, 1, 1, "node1")
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(inst.(*maasInstance).zone(), gc.Equals, "test-available")
 }
@@ -1489,6 +1496,7 @@ func (s *environSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
 
 	// Instance will be created without an availability zone specified.
 	s.newNode(c, "node1", "host1", nil)
+	s.addSubnet(c, 1, 1, "node1")
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(inst.(*maasInstance).zone(), gc.Equals, "")
 }
@@ -1507,6 +1515,7 @@ func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "description")
 	s.testMAASObject.TestServer.AddZone("zone2", "description")
 	s.newNode(c, "node2", "host2", map[string]interface{}{"zone": "zone2"})
+	s.addSubnet(c, 1, 1, "node2")
 
 	env := s.bootstrap(c)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
@@ -1542,7 +1551,9 @@ func (s *environSuite) TestStartInstanceDistributionOneAssigned(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "description")
 	s.testMAASObject.TestServer.AddZone("zone2", "description")
 	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "zone1"})
+	s.addSubnet(c, 1, 1, "node1")
 	s.newNode(c, "node2", "host2", map[string]interface{}{"zone": "zone2"})
+	s.addSubnet(c, 2, 2, "node2")
 
 	env := s.bootstrap(c)
 	testing.AssertStartInstance(c, env, "1")
