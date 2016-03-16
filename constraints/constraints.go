@@ -652,8 +652,6 @@ func (v *Value) setVirtType(str string) error {
 	if v.VirtType != nil {
 		return errors.Errorf("already set")
 	}
-	// TODO (anastasiamac 2016-03-15)
-	// Do I need to validate that this is a supported virt type?
 	v.VirtType = &str
 	return nil
 }
