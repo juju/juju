@@ -34,42 +34,54 @@ type CharmstoreSpec interface {
 	Connect(ctx *cmd.Context) (*charmstore.Client, error)
 }
 
-type charmstoreSpec struct{}
+type charmstoreSpec struct {
+	config charmstore.ClientConfig
+}
 
 // newCharmstoreSpec creates a new charm store spec with default
 // settings.
 func newCharmstoreSpec() CharmstoreSpec {
 	return &charmstoreSpec{}
+	var config charmstore.ClientConfig
+	// We use the default for URL and set HTTPClient later.
+	// We also change VisitWebPage later, if necessary.
+	config.VisitWebPage = httpbakery.OpenWebBrowser
+	return &charmstoreSpec{
+		config: config,
+	}
 }
 
 // Connect implements CharmstoreSpec.
 func (cs charmstoreSpec) Connect(ctx *cmd.Context) (*charmstore.Client, error) {
-	visitWebPage := httpbakery.OpenWebBrowser
+	config, apiContext, err := cs.connect(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	csClient := charmstore.NewClient(config)
+	csClient.Closer = apiContext
+	return csClient, nil
+}
+
+// TODO(ericsnow) Also add charmstoreSpec.Repo() -> charmrepo.CharmStore?
+
+func (cs charmstoreSpec) connect(ctx *cmd.Context) (charmstore.ClientConfig, *apiContext, error) {
+	config := cs.config // a copy
 	if ctx != nil {
 		filler := &form.IOFiller{
 			In:  ctx.Stdin,
 			Out: ctx.Stderr,
 		}
-		visitWebPage = ussologin.VisitWebPage(
-			filler,
-			&http.Client{},
-			jujuclient.NewTokenStore(),
-		)
+		httpClient := &http.Client{}
+		tokens := jujuclient.NewTokenStore()
+		config.VisitWebPage = ussologin.VisitWebPage(filler, httpClient, tokens)
 	}
-	apiContext, err := newAPIContext(visitWebPage)
+
+	apiContext, err := newAPIContext(config.VisitWebPage)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return charmstore.ClientConfig{}, nil, errors.Trace(err)
 	}
-
-	client := charmstore.NewClient(charmstore.ClientConfig{
-		charmrepo.NewCharmStoreParams{
-			HTTPClient:   apiContext.HTTPClient(),
-			VisitWebPage: visitWebPage,
-		},
-	})
-	client.Closer = apiContext
-
-	return client, nil
+	config.HTTPClient = apiContext.HTTPClient()
+	return config, apiContext, nil
 }
 
 ///////////////////
