@@ -32,7 +32,7 @@ func AssertProviderCredentialsValid(c *gc.C, p environs.EnvironProvider, authTyp
 	schema, ok := p.CredentialSchemas()[authType]
 	c.Assert(ok, jc.IsTrue, gc.Commentf("missing schema for %q auth-type", authType))
 	validate := func(attrs map[string]string) error {
-		_, err := schema.Finalize(authType, attrs, func(string) ([]byte, error) {
+		_, err := schema.Finalize(attrs, func(string) ([]byte, error) {
 			return nil, errors.NotSupportedf("reading files")
 		})
 		return err

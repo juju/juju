@@ -100,7 +100,7 @@ func FinalizeCredential(
 	if !ok {
 		return nil, errors.NotSupportedf("auth-type %q", credential.authType)
 	}
-	attrs, err := schema.Finalize(credential.authType, credential.attributes, readFile)
+	attrs, err := schema.Finalize(credential.attributes, readFile)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -114,7 +114,6 @@ func FinalizeCredential(
 // deleted, and replaced by their non-file counterparts with the values set
 // to the contents of the files.
 func (s CredentialSchema) Finalize(
-	authType AuthType,
 	attrs map[string]string,
 	readFile func(string) ([]byte, error),
 ) (map[string]string, error) {
