@@ -21,22 +21,30 @@ import (
 // authContext holds authentication context shared
 // between all API endpoints.
 type authContext struct {
-	srv *Server
+	st *state.State
 
 	agentAuth authentication.AgentAuthenticator
 	userAuth  authentication.UserAuthenticator
 
 	// macaroonAuthOnce guards the fields below it.
 	macaroonAuthOnce   sync.Once
-	_macaroonAuth      *authentication.MacaroonAuthenticator
+	_macaroonAuth      *authentication.ExternalMacaroonAuthenticator
 	_macaroonAuthError error
 }
 
-// newAuthContext creates a new authentication context for srv.
-func newAuthContext(srv *Server) *authContext {
-	return &authContext{
-		srv: srv,
+// newAuthContext creates a new authentication context for st.
+func newAuthContext(st *state.State) (*authContext, error) {
+	ctxt := &authContext{st: st}
+
+	// TODO(axw) consider storing macaroons in Mongo. We're currently
+	// storing them in-memory, which means that if a client logs into
+	// one API server, they cannot use the macaroon in another one.
+	bakeryService, err := newBakeryService(st, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	ctxt.userAuth.Service = bakeryService
+	return ctxt, nil
 }
 
 // Authenticate implements authentication.EntityAuthenticator
@@ -78,7 +86,7 @@ func (ctxt *authContext) authenticatorForTag(tag names.Tag) (authentication.Enti
 // logins. If it fails once, it will always fail.
 func (ctxt *authContext) macaroonAuth() (authentication.EntityAuthenticator, error) {
 	ctxt.macaroonAuthOnce.Do(func() {
-		ctxt._macaroonAuth, ctxt._macaroonAuthError = newMacaroonAuth(ctxt.srv.statePool.SystemState())
+		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctxt.st)
 	})
 	if ctxt._macaroonAuth == nil {
 		return nil, errors.Trace(ctxt._macaroonAuthError)
@@ -88,9 +96,9 @@ func (ctxt *authContext) macaroonAuth() (authentication.EntityAuthenticator, err
 
 var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not configured")
 
-// newMacaroonAuth returns an authenticator that can authenticate
+// newExternalMacaroonAuth returns an authenticator that can authenticate
 // macaroon-based logins. This is just a helper function for authCtxt.macaroonAuth.
-func newMacaroonAuth(st *state.State) (*authentication.MacaroonAuthenticator, error) {
+func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonAuthenticator, error) {
 	envCfg, err := st.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get model config")
@@ -109,18 +117,13 @@ func newMacaroonAuth(st *state.State) (*authentication.MacaroonAuthenticator, er
 			return nil, errors.Annotate(err, "cannot get identity public key")
 		}
 	}
-	svc, err := bakery.NewService(
-		bakery.NewServiceParams{
-			Location: "juju model " + st.ModelUUID(),
-			Locator: bakery.PublicKeyLocatorMap{
-				idURL: idPK,
-			},
-		},
-	)
+	svc, err := newBakeryService(st, bakery.PublicKeyLocatorMap{
+		idURL: idPK,
+	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make bakery service")
 	}
-	var auth authentication.MacaroonAuthenticator
+	var auth authentication.ExternalMacaroonAuthenticator
 	auth.Service = svc
 	auth.Macaroon, err = svc.NewMacaroon("api-login", nil, nil)
 	if err != nil {
@@ -128,4 +131,12 @@ func newMacaroonAuth(st *state.State) (*authentication.MacaroonAuthenticator, er
 	}
 	auth.IdentityLocation = idURL
 	return &auth, nil
+}
+
+// newBakeryService creates a new bakery.Service.
+func newBakeryService(st *state.State, locator bakery.PublicKeyLocator) (*bakery.Service, error) {
+	return bakery.NewService(bakery.NewServiceParams{
+		Location: "juju model " + st.ModelUUID(),
+		Locator:  locator,
+	})
 }

@@ -34,6 +34,11 @@ type AccountDetails struct {
 
 	// Password is the password for the account.
 	Password string `yaml:"password,omitempty"`
+
+	// Macaroon is a time-limited macaroon that may be
+	// used to log in. This string is the JSON-encoding
+	// of a gopkg.in/macaroon.v1.Macaroon.
+	Macaroon string `yaml:"macaroon,omitempty"`
 }
 
 // BootstrapConfig holds the configuration used to bootstrap a controller.

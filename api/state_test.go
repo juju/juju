@@ -47,6 +47,8 @@ func (s *stateSuite) OpenAPIWithoutLogin(c *gc.C) (api.Connection, names.Tag, st
 	password := info.Password
 	info.Tag = nil
 	info.Password = ""
+	info.Macaroons = nil
+	info.SkipLogin = true
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	return apistate, tag, password
@@ -82,7 +84,7 @@ func (s *stateSuite) TestLoginSetsModelTag(c *gc.C) {
 	modelTag, err := apistate.ModelTag()
 	c.Check(err, gc.ErrorMatches, `"" is not a valid tag`)
 	c.Check(modelTag, gc.Equals, names.ModelTag{})
-	err = apistate.Login(tag, password, "")
+	err = apistate.Login(tag, password, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Now that we've logged in, ModelTag should be updated correctly.
 	modelTag, err = apistate.ModelTag()
@@ -100,7 +102,7 @@ func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {
 	defer apistate.Close()
 	// We haven't called Login yet, so the Facade Versions should be empty
 	c.Check(apistate.AllFacadeVersions(), gc.HasLen, 0)
-	err := apistate.Login(tag, password, "")
+	err := apistate.Login(tag, password, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Now that we've logged in, AllFacadeVersions should be updated.
 	allVersions := apistate.AllFacadeVersions()

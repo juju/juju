@@ -120,7 +120,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
 		return expectState, nil
 	}
 
-	st, err := juju.NewAPIFromStore("noconfig", "admin@local", "admin", store, apiOpen, noBootstrapConfig)
+	st, err := newAPIConnectionFromNames(c, "noconfig", "admin@local", "admin", store, apiOpen, noBootstrapConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
@@ -136,11 +136,11 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
 
 	// If APIHostPorts haven't changed, then the store won't be updated.
 	stubStore := jujuclienttesting.WrapClientStore(store)
-	st, err = juju.NewAPIFromStore("noconfig", "admin@local", "admin", stubStore, apiOpen, noBootstrapConfig)
+	st, err = newAPIConnectionFromNames(c, "noconfig", "admin@local", "admin", stubStore, apiOpen, noBootstrapConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 2)
-	stubStore.CheckCallNames(c, "ControllerByName", "AccountByName", "ModelByName")
+	stubStore.CheckCallNames(c, "AccountByName", "ModelByName", "ControllerByName")
 
 	controllerAfter, err := store.ControllerByName("noconfig")
 	c.Assert(err, jc.ErrorIsNil)
@@ -160,7 +160,7 @@ func (s *NewAPIClientSuite) TestWithInfoError(c *gc.C) {
 		return nil, expectErr
 	}
 
-	client, err := juju.NewAPIFromStore("noconfig", "", "", store, panicAPIOpen, getBootstrapConfig)
+	client, err := newAPIConnectionFromNames(c, "noconfig", "", "", store, panicAPIOpen, getBootstrapConfig)
 	c.Assert(errors.Cause(err), gc.Equals, expectErr)
 	c.Assert(client, gc.IsNil)
 }
@@ -173,7 +173,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := juju.NewAPIFromStore("noconfig", "admin@local", "", store, panicAPIOpen, noBootstrapConfig)
+	st, err := newAPIConnectionFromNames(c, "noconfig", "admin@local", "", store, panicAPIOpen, noBootstrapConfig)
 	c.Assert(err, gc.ErrorMatches, "bootstrap config for controller noconfig not found")
 	c.Assert(st, gc.IsNil)
 }
@@ -227,10 +227,10 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return nil, errors.Errorf("an error")
 	}
-	st, err := juju.NewAPIFromStore("noconfig", "", "", jujuClient, apiOpen, noBootstrapConfig)
+	st, err := newAPIConnectionFromNames(c, "noconfig", "", "", jujuClient, apiOpen, noBootstrapConfig)
 	// We expect to get the error from apiOpen, because it is not
 	// fatal to have no bootstrap config.
-	c.Assert(err, gc.ErrorMatches, "an error")
+	c.Assert(err, gc.ErrorMatches, "connecting with cached addresses: an error")
 	c.Assert(st, gc.IsNil)
 }
 
@@ -263,7 +263,7 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	cfgOpenedState.close = infoOpenedState.close
 
 	startTime := time.Now()
-	st, err := juju.NewAPIFromStore(
+	st, err := newAPIConnectionFromNames(c,
 		"local.my-controller", "admin@local", "only", store, apiOpen,
 		modelcmd.NewGetBootstrapConfigFunc(store),
 	)
@@ -330,7 +330,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 
 	done := make(chan struct{})
 	go func() {
-		st, err := juju.NewAPIFromStore(
+		st, err := newAPIConnectionFromNames(c,
 			"local.my-controller", "admin@local", "only", store, apiOpen,
 			modelcmd.NewGetBootstrapConfigFunc(store),
 		)
@@ -386,8 +386,8 @@ func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
 		}
 		return nil, fmt.Errorf("config connect failed")
 	}
-	st, err := juju.NewAPIFromStore("local.my-controller", "admin@local", "only", store, apiOpen, getBootstrapConfig)
-	c.Check(err, gc.ErrorMatches, "config connect failed")
+	st, err := newAPIConnectionFromNames(c, "local.my-controller", "admin@local", "only", store, apiOpen, getBootstrapConfig)
+	c.Check(err, gc.ErrorMatches, "connecting with bootstrap config: config connect failed")
 	c.Check(st, gc.IsNil)
 }
 
@@ -801,4 +801,30 @@ var fakeUUID = "df136476-12e9-11e4-8a70-b2227cce2b54"
 
 func noBootstrapConfig(controllerName string) (*config.Config, error) {
 	return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)
+}
+
+func newAPIConnectionFromNames(
+	c *gc.C,
+	controller, account, model string,
+	store jujuclient.ClientStore,
+	apiOpen api.OpenFunc,
+	getBootstrapConfig func(string) (*config.Config, error),
+) (api.Connection, error) {
+	params := juju.NewAPIConnectionParams{
+		Store:           store,
+		ControllerName:  controller,
+		BootstrapConfig: getBootstrapConfig,
+		DialOpts:        api.DefaultDialOpts(),
+	}
+	if account != "" {
+		accountDetails, err := store.AccountByName(controller, account)
+		c.Assert(err, jc.ErrorIsNil)
+		params.AccountDetails = accountDetails
+	}
+	if model != "" {
+		modelDetails, err := store.ModelByName(controller, account, model)
+		c.Assert(err, jc.ErrorIsNil)
+		params.ModelUUID = modelDetails.ModelUUID
+	}
+	return juju.NewAPIFromStore(params, apiOpen)
 }

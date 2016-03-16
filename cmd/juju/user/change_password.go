@@ -11,11 +11,11 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/readpass"
+	"gopkg.in/macaroon.v1"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
 )
 
 // randomPasswordNotify is called when a random password is generated.
@@ -81,6 +81,7 @@ func (c *changePasswordCommand) Init(args []string) error {
 // ChangePasswordAPI defines the usermanager API methods that the change
 // password command uses.
 type ChangePasswordAPI interface {
+	CreateLocalLoginMacaroon(names.UserTag) (*macaroon.Macaroon, error)
 	SetPassword(username, password string) error
 	Close() error
 }
@@ -96,7 +97,7 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		defer c.api.Close()
 	}
 
-	newPassword, err := c.generateOrReadPassword(ctx, c.Generate)
+	newPassword, err := generateOrReadPassword(ctx, c.Generate)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -120,40 +121,44 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	var oldPassword string
-	if accountDetails != nil {
-		oldPassword = accountDetails.Password
-		accountDetails.Password = newPassword
-	} else {
-		accountDetails = &jujuclient.AccountDetails{
-			User:     accountName,
-			Password: newPassword,
+	if accountDetails != nil && accountDetails.Macaroon == "" {
+		// Generate a macaroon first to guard against I/O failures
+		// occurring after the password has been changed, preventing
+		// future logins.
+		userTag := names.NewUserTag(accountName)
+		macaroon, err := c.api.CreateLocalLoginMacaroon(userTag)
+		if err != nil {
+			return errors.Trace(err)
 		}
-	}
-	if err := c.api.SetPassword(accountDetails.User, newPassword); err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange)
+		accountDetails.Password = ""
+
+		// TODO(axw) update jujuclient with code for marshalling
+		// and unmarshalling macaroons as YAML.
+		macaroonJSON, err := macaroon.MarshalJSON()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		accountDetails.Macaroon = string(macaroonJSON)
+
+		if err := store.UpdateAccount(controllerName, accountName, *accountDetails); err != nil {
+			return errors.Annotate(err, "failed to update client credentials")
+		}
 	}
 
-	if err := store.UpdateAccount(controllerName, accountName, *accountDetails); err != nil {
-		if oldPassword != "" {
-			logger.Errorf("updating the cached credentials failed, reverting to original password: %v", err)
-			if setErr := c.api.SetPassword(accountDetails.User, oldPassword); setErr != nil {
-				logger.Errorf(
-					"failed to reset to the old password, you will need to edit your " +
-						"accounts file by hand to specify the new password",
-				)
-				return errors.Annotate(setErr, "failed to set password back")
-			}
-		}
-		return errors.Annotate(err, "failed to record password change for client")
+	if err := c.api.SetPassword(accountName, newPassword); err != nil {
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
-	ctx.Infof("Your password has been updated.")
+	if accountDetails == nil {
+		ctx.Infof("Password for %q has been updated.", c.User)
+	} else {
+		ctx.Infof("Your password has been updated.")
+	}
 	return nil
 }
 
 var readPassword = readpass.ReadPassword
 
-func (*changePasswordCommand) generateOrReadPassword(ctx *cmd.Context, generate bool) (string, error) {
+func generateOrReadPassword(ctx *cmd.Context, generate bool) (string, error) {
 	if generate {
 		password, err := utils.RandomPassword()
 		if err != nil {
@@ -162,7 +167,10 @@ func (*changePasswordCommand) generateOrReadPassword(ctx *cmd.Context, generate 
 		randomPasswordNotify(password)
 		return password, nil
 	}
+	return readAndConfirmPassword(ctx)
+}
 
+func readAndConfirmPassword(ctx *cmd.Context) (string, error) {
 	// Don't add the carriage returns before readPassword, but add
 	// them directly after the readPassword so any errors are output
 	// on their own lines.
@@ -172,6 +180,10 @@ func (*changePasswordCommand) generateOrReadPassword(ctx *cmd.Context, generate 
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	if password == "" {
+		return "", errors.Errorf("you must enter a password")
+	}
+
 	fmt.Fprint(ctx.Stdout, "type password again: ")
 	verify, err := readPassword()
 	fmt.Fprint(ctx.Stdout, "\n")

@@ -84,10 +84,27 @@ func (c *JujuCommandBase) NewAPIRoot(
 	store jujuclient.ClientStore,
 	controllerName, accountName, modelName string,
 ) (api.Connection, error) {
-	if err := c.initAPIContext(); err != nil {
+	params, err := c.NewAPIConnectionParams(
+		store, controllerName, accountName, modelName,
+	)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.apiContext.newAPIRoot(store, controllerName, accountName, modelName)
+	return juju.NewAPIConnection(params)
+}
+
+// NewAPIConnectionParams returns a juju.NewAPIConnectionParams with the
+// given arguments such that a call to juju.NewAPIConnection with the
+// result behaves the same as a call to JujuCommandBase.NewAPIRoot with
+// the same arguments.
+func (c *JujuCommandBase) NewAPIConnectionParams(
+	store jujuclient.ClientStore,
+	controllerName, accountName, modelName string,
+) (juju.NewAPIConnectionParams, error) {
+	if err := c.initAPIContext(); err != nil {
+		return juju.NewAPIConnectionParams{}, errors.Trace(err)
+	}
+	return c.apiContext.newAPIConnectionParams(store, controllerName, accountName, modelName)
 }
 
 // HTTPClient returns an http.Client that contains the loaded
@@ -242,16 +259,41 @@ func (ctx *apiContext) apiOpen(info *api.Info, opts api.DialOpts) (api.Connectio
 	return api.Open(info, opts)
 }
 
-// newAPIRoot establishes a connection to the API server for
-// the named system or model.
-func (ctx *apiContext) newAPIRoot(store jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error) {
+func (ctx *apiContext) newAPIConnectionParams(
+	store jujuclient.ClientStore,
+	controllerName,
+	accountName,
+	modelName string,
+) (juju.NewAPIConnectionParams, error) {
 	if controllerName == "" {
-		return nil, errors.Trace(errNoNameSpecified)
+		return juju.NewAPIConnectionParams{}, errors.Trace(errNoNameSpecified)
 	}
-	return juju.NewAPIConnection(
-		store, controllerName, accountName, modelName, ctx.client,
-		NewGetBootstrapConfigFunc(store),
-	)
+	var accountDetails *jujuclient.AccountDetails
+	if accountName != "" {
+		var err error
+		accountDetails, err = store.AccountByName(controllerName, accountName)
+		if err != nil {
+			return juju.NewAPIConnectionParams{}, errors.Trace(err)
+		}
+	}
+	var modelUUID string
+	if modelName != "" {
+		modelDetails, err := store.ModelByName(controllerName, accountName, modelName)
+		if err != nil {
+			return juju.NewAPIConnectionParams{}, errors.Trace(err)
+		}
+		modelUUID = modelDetails.ModelUUID
+	}
+	dialOpts := api.DefaultDialOpts()
+	dialOpts.BakeryClient = ctx.client
+	return juju.NewAPIConnectionParams{
+		Store:           store,
+		ControllerName:  controllerName,
+		BootstrapConfig: NewGetBootstrapConfigFunc(store),
+		AccountDetails:  accountDetails,
+		ModelUUID:       modelUUID,
+		DialOpts:        dialOpts,
+	}, nil
 }
 
 // httpClient returns an http.Client that contains the loaded

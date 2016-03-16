@@ -6,9 +6,11 @@ package user_test
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/jujuclient"
@@ -85,7 +87,7 @@ func (s *ChangePasswordCommandSuite) assertSetPassword(c *gc.C, user, pass strin
 }
 
 func (s *ChangePasswordCommandSuite) assertSetPasswordN(c *gc.C, n int, user, pass string) {
-	s.mockAPI.CheckCall(c, n, "SetPassword", user, pass)
+	s.mockAPI.CheckCall(c, n+1, "SetPassword", user, pass)
 }
 
 func (s *ChangePasswordCommandSuite) assertStorePassword(c *gc.C, user, pass string) {
@@ -114,21 +116,21 @@ func (s *ChangePasswordCommandSuite) TestChangePasswordGenerate(c *gc.C) {
 }
 
 func (s *ChangePasswordCommandSuite) TestChangePasswordFail(c *gc.C) {
-	s.mockAPI.SetErrors(errors.New("failed to do something"))
+	s.mockAPI.SetErrors(nil, errors.New("failed to do something"))
 	_, err := s.run(c, "--generate")
 	c.Assert(err, gc.ErrorMatches, "failed to do something")
 	s.assertSetPassword(c, "current-user@local", s.randomPassword)
-	s.assertStorePassword(c, "current-user@local", "old-password")
 }
 
-// The first write fails, so we try to revert the password which succeeds
-func (s *ChangePasswordCommandSuite) TestRevertPasswordAfterFailedWrite(c *gc.C) {
+// We create a macaroon, but fail to write it to accounts.yaml.
+// We should not call SetPassword subsequently.
+func (s *ChangePasswordCommandSuite) TestNoSetPasswordAfterFailedWrite(c *gc.C) {
 	store := jujuclienttesting.NewStubStore()
 	store.CurrentAccountFunc = func(string) (string, error) {
 		return "account-name", nil
 	}
 	store.AccountByNameFunc = func(string, string) (*jujuclient.AccountDetails, error) {
-		return &jujuclient.AccountDetails{"user", "old-password"}, nil
+		return &jujuclient.AccountDetails{"user", "old-password", ""}, nil
 	}
 	store.ControllerByNameFunc = func(string) (*jujuclient.ControllerDetails, error) {
 		return &jujuclient.ControllerDetails{}, nil
@@ -137,29 +139,8 @@ func (s *ChangePasswordCommandSuite) TestRevertPasswordAfterFailedWrite(c *gc.C)
 	store.SetErrors(errors.New("failed to write"))
 
 	_, err := s.run(c, "--generate")
-	c.Assert(err, gc.ErrorMatches, "failed to record password change for client: failed to write")
-	s.assertSetPasswordN(c, 0, "user", s.randomPassword)
-	s.assertSetPasswordN(c, 1, "user", "old-password")
-}
-
-// SetPassword api works the first time, but the write fails, our second call to set password fails
-func (s *ChangePasswordCommandSuite) TestChangePasswordRevertApiFails(c *gc.C) {
-	s.mockAPI.SetErrors(nil, errors.New("failed to do something"))
-	store := jujuclienttesting.NewStubStore()
-	store.CurrentAccountFunc = func(string) (string, error) {
-		return "account-name", nil
-	}
-	store.AccountByNameFunc = func(string, string) (*jujuclient.AccountDetails, error) {
-		return &jujuclient.AccountDetails{"user", "old-password"}, nil
-	}
-	store.ControllerByNameFunc = func(string) (*jujuclient.ControllerDetails, error) {
-		return &jujuclient.ControllerDetails{}, nil
-	}
-	s.store = store
-	store.SetErrors(errors.New("failed to write"))
-
-	_, err := s.run(c, "--generate")
-	c.Assert(err, gc.ErrorMatches, "failed to set password back: failed to do something")
+	c.Assert(err, gc.ErrorMatches, "failed to update client credentials: failed to write")
+	s.mockAPI.CheckCallNames(c, "CreateLocalLoginMacaroon") // no SetPassword
 }
 
 func (s *ChangePasswordCommandSuite) TestChangeOthersPassword(c *gc.C) {
@@ -174,6 +155,14 @@ type mockChangePasswordAPI struct {
 	testing.Stub
 }
 
+func (m *mockChangePasswordAPI) CreateLocalLoginMacaroon(tag names.UserTag) (*macaroon.Macaroon, error) {
+	m.MethodCall(m, "CreateLocalLoginMacaroon", tag)
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	return fakeLocalLoginMacaroon(tag), nil
+}
+
 func (m *mockChangePasswordAPI) SetPassword(username, password string) error {
 	m.MethodCall(m, "SetPassword", username, password)
 	return m.NextErr()
@@ -181,4 +170,12 @@ func (m *mockChangePasswordAPI) SetPassword(username, password string) error {
 
 func (*mockChangePasswordAPI) Close() error {
 	return nil
+}
+
+func fakeLocalLoginMacaroon(tag names.UserTag) *macaroon.Macaroon {
+	mac, err := macaroon.New([]byte("abcdefghijklmnopqrstuvwx"), tag.Canonical(), "juju")
+	if err != nil {
+		panic(err)
+	}
+	return mac
 }
