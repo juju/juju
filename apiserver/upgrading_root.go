@@ -4,10 +4,10 @@
 package apiserver
 
 import (
-	"errors"
-
+	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
 )
@@ -21,8 +21,6 @@ type upgradingRoot struct {
 func newUpgradingRoot(finder rpc.MethodFinder) *upgradingRoot {
 	return &upgradingRoot{finder}
 }
-
-var inUpgradeError = errors.New("upgrade in progress - Juju functionality is limited")
 
 // allowedMethodsDuringUpgrades stores api calls
 // that are not blocked during the upgrade process
@@ -52,16 +50,16 @@ func IsMethodAllowedDuringUpgrade(rootName, methodName string) bool {
 	return methods.Contains(methodName)
 }
 
-// FindMethod returns inUpgradeError for most API calls except those that are
+// FindMethod returns UpgradeInProgressError for most API calls except those that are
 // deemed safe or important for use while Juju is upgrading.
 func (r *upgradingRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
 	caller, err := r.MethodFinder.FindMethod(rootName, version, methodName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if !IsMethodAllowedDuringUpgrade(rootName, methodName) {
-		logger.Debugf("Facade (%v) method (%v) was called during the upgrade but it was blocked.\n", rootName, methodName)
-		return nil, inUpgradeError
+		logger.Debugf("Facade (%v) method (%v) was called during the upgrade but it was blocked.", rootName, methodName)
+		return nil, params.UpgradeInProgressError
 	}
 	return caller, nil
 }

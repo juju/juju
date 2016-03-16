@@ -1466,14 +1466,14 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
 		switch authTag := authTag.(type) {
 		case names.UserTag:
 			// use a restricted API mode
-			return apiserver.UpgradeInProgressError
+			return params.UpgradeInProgressError
 		case names.MachineTag:
 			if authTag == a.Tag() {
 				// allow logins from the local machine
 				return nil
 			}
 		}
-		return errors.Errorf("login for %q blocked because %s", authTag, apiserver.UpgradeInProgressError.Error())
+		return errors.Errorf("login for %q blocked because %s", authTag, params.CodeUpgradeInProgress)
 	} else {
 		return nil // allow all logins
 	}

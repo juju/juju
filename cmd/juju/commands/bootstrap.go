@@ -18,7 +18,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	apiblock "github.com/juju/juju/api/block"
-	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -649,7 +649,7 @@ func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err err
 		// these too, hoping that things come back up before the end of the
 		// retry poll count.
 		errorMessage := err.Error()
-		if strings.Contains(errorMessage, apiserver.UpgradeInProgressError.Error()) ||
+		if strings.Contains(errorMessage, params.UpgradeInProgressError.Error()) ||
 			strings.HasSuffix(errorMessage, "EOF") ||
 			strings.HasSuffix(errorMessage, "connection is shut down") {
 			ctx.Infof("Waiting for API to become available")
