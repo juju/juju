@@ -423,6 +423,8 @@ func (e *Environ) SupportedArchitectures() ([]string, error) {
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.CpuPower,
+	// TODO(anastasiamac 2016-03-16) LP#1524297
+	// use virt-type in StartInstances
 	constraints.VirtType,
 }
 
