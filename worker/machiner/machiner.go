@@ -74,6 +74,8 @@ var NewMachiner = func(cfg Config) (worker.Worker, error) {
 	return w, nil
 }
 
+var getObservedNetworkConfig = networkingcommon.GetObservedNetworkConfig
+
 func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
 	m, err := mr.config.MachineAccessor.Machine(mr.config.Tag)
@@ -84,12 +86,16 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	}
 	mr.machine = m
 
-	observedConfig, err := networkingcommon.GetObservedNetworkConfig()
+	observedConfig, err := getObservedNetworkConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot discover observed network config")
+	} else if len(observedConfig) == 0 {
+		logger.Warningf("not updating network config: no observed config found to update")
 	}
-	if err := m.SetObservedNetworkConfig(observedConfig); err != nil {
-		return nil, errors.Annotate(err, "cannot update observed network config")
+	if len(observedConfig) > 0 {
+		if err := m.SetObservedNetworkConfig(observedConfig); err != nil {
+			return nil, errors.Annotate(err, "cannot update observed network config")
+		}
 	}
 
 	if mr.config.ClearMachineAddressesOnStart {

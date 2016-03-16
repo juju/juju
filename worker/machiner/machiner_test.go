@@ -54,6 +54,9 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(machiner.InterfaceAddrs, func() ([]net.Addr, error) {
 		return s.addresses, nil
 	})
+	s.PatchValue(machiner.GetObservedNetworkConfig, func() ([]params.NetworkConfig, error) {
+		return nil, nil
+	})
 }
 
 func (s *MachinerSuite) TestMachinerConfigValidate(c *gc.C) {
@@ -288,7 +291,9 @@ func (s *MachinerStateSuite) SetUpTest(c *gc.C) {
 		return nil, nil
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, "")
-
+	s.PatchValue(machiner.GetObservedNetworkConfig, func() ([]params.NetworkConfig, error) {
+		return nil, nil
+	})
 }
 
 func (s *MachinerStateSuite) waitMachineStatus(c *gc.C, m *state.Machine, expectStatus status.Status) {
