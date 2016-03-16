@@ -12,6 +12,8 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/testing"
+	"io/ioutil"
+	"path/filepath"
 )
 
 type credentialsSuite struct {
@@ -554,6 +556,68 @@ func (s *credentialsSuite) TestFinalizeCredentialInvalidChoice(c *gc.C) {
 		cloud.UserPassAuthType: schema,
 	}, nil)
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`algorithm: expected one of [bar foobar], got "foo"`))
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialFilePath(c *gc.C) {
+	dir := c.MkDir()
+	filename := filepath.Join(dir, "filename")
+	err := ioutil.WriteFile(filename, []byte{}, 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cred := cloud.NewCredential(
+		cloud.JSONFileAuthType,
+		map[string]string{
+			"file": filename,
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"file": {
+			FilePath: true,
+		},
+	}
+	newCred, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.JSONFileAuthType: schema,
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newCred.Attributes(), jc.DeepEquals, map[string]string{
+		"file": filename,
+	})
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialInvalidFilePath(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.JSONFileAuthType,
+		map[string]string{
+			"file": "/some/file",
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"file": {
+			FilePath: true,
+		},
+	}
+	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.JSONFileAuthType: schema,
+	}, nil)
+	c.Assert(err, gc.ErrorMatches, "invalid file path: /some/file")
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialRelativeFilePath(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.JSONFileAuthType,
+		map[string]string{
+			"file": "file",
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"file": {
+			FilePath: true,
+		},
+	}
+	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.JSONFileAuthType: schema,
+	}, nil)
+	c.Assert(err, gc.ErrorMatches, "file path must be an absolute path: file")
 }
 
 func (s *credentialsSuite) TestRemoveSecrets(c *gc.C) {

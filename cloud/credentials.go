@@ -5,10 +5,13 @@ package cloud
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
+	"github.com/juju/utils"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 )
@@ -139,11 +142,40 @@ func (s CredentialSchema) Finalize(
 			}
 			continue
 		}
+		if field.FilePath {
+			pathValue, ok := resultMap[name]
+			if ok && pathValue != "" {
+				if absPath, err := s.validateFileAttrValue(pathValue.(string)); err != nil {
+					return nil, errors.Trace(err)
+				} else {
+					newAttrs[name] = absPath
+					continue
+				}
+			}
+		}
 		if val, ok := resultMap[name]; ok {
 			newAttrs[name] = val.(string)
 		}
 	}
 	return newAttrs, nil
+}
+
+func (s CredentialSchema) validateFileAttrValue(path string) (string, error) {
+	if !filepath.IsAbs(path) {
+		return "", errors.Errorf("file path must be an absolute path: %s", path)
+	}
+	absPath, err := utils.NormalizePath(path)
+	if err != nil {
+		return "", err
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return "", errors.Errorf("invalid file path: %s", absPath)
+	}
+	if info.IsDir() {
+		return "", errors.Errorf("file path must be a file: %s", absPath)
+	}
+	return absPath, nil
 }
 
 func (s CredentialSchema) processFileAttrValue(
@@ -230,6 +262,9 @@ type CredentialAttr struct {
 	// of this one, which points to a file that will be read in and its
 	// value used for this attribute.
 	FileAttr string
+
+	// FilePath is true is the value of this attribute is a file path.
+	FilePath bool
 
 	// Optional controls whether the attribute is required to have a non-empty
 	// value or not. Attributes default to mandatory.

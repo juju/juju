@@ -39,6 +39,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 		cloud.JSONFileAuthType: {
 			"file": {
 				Description: "path to the .json file containing your Google Compute Engine project credentials",
+				FilePath: true,
 			},
 		},
 	}

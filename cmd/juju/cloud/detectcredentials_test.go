@@ -31,6 +31,7 @@ var _ = gc.Suite(&detectCredentialsSuite{})
 type mockProvider struct {
 	environs.EnvironProvider
 	detectedCreds *jujucloud.CloudCredential
+	credSchemas   *map[jujucloud.AuthType]jujucloud.CredentialSchema
 }
 
 func (p *mockProvider) DetectCredentials() (*jujucloud.CloudCredential, error) {
@@ -41,31 +42,34 @@ func (p *mockProvider) DetectCredentials() (*jujucloud.CloudCredential, error) {
 }
 
 func (p *mockProvider) CredentialSchemas() map[jujucloud.AuthType]jujucloud.CredentialSchema {
-	return map[jujucloud.AuthType]jujucloud.CredentialSchema{
-		jujucloud.AccessKeyAuthType: {
-			"access-key": {},
-			"secret-key": {
-				Hidden: true,
+	if p.credSchemas == nil {
+		return map[jujucloud.AuthType]jujucloud.CredentialSchema{
+			jujucloud.AccessKeyAuthType: {
+				"access-key": {},
+				"secret-key": {
+					Hidden: true,
+				},
 			},
-		},
-		jujucloud.UserPassAuthType: {
-			"username": {},
-			"password": {
-				Hidden: true,
+			jujucloud.UserPassAuthType: {
+				"username": {},
+				"password": {
+					Hidden: true,
+				},
+				"application-password": {
+					Hidden: true,
+				},
 			},
-			"application-password": {
-				Hidden: true,
+			jujucloud.OAuth2AuthType: {
+				"client-id":    {},
+				"client-email": {},
+				"private-key": {
+					Hidden: true,
+				},
+				"project-id": {},
 			},
-		},
-		jujucloud.OAuth2AuthType: {
-			"client-id":    {},
-			"client-email": {},
-			"private-key": {
-				Hidden: true,
-			},
-			"project-id": {},
-		},
+		}
 	}
+	return *p.credSchemas
 }
 
 func (s *detectCredentialsSuite) SetUpSuite(c *gc.C) {
