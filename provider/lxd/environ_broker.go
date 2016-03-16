@@ -108,6 +108,7 @@ func (env *environ) getImageSources() ([]lxdclient.Remote, error) {
 		// ends up trying to connect to "https://http://foo/bar". We
 		// can also just pass "foo/bar" which will be easier
 		// anyway.
+		// https://github.com/lxc/lxd/issues/1763
 		if strings.HasPrefix(url, "http://") {
 			url = strings.TrimPrefix(url, "http://")
 			url = "https://" + url
