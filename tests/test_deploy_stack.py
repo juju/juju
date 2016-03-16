@@ -1177,8 +1177,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             'foobar', client, client,
             None, [], None, None, None, None, client.env.juju_home, False,
             False, False)
-        with patch.object(bs_manager, 'dump_all_logs',
-                          autospec=True) as dal_mock:
+        with patch.object(bs_manager, 'dump_all_logs', autospec=True):
             with bs_manager.runtime_context([]):
                 self.assertEqual({
                     '0': '0.example.com'}, bs_manager.known_hosts)
@@ -1194,8 +1193,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         bs_manager.known_hosts = {}
         with patch.object(bs_manager.client, 'add_ssh_machines',
                           autospec=True) as ads_mock:
-            with patch.object(bs_manager, 'dump_all_logs',
-                              autospec=True) as dal_mock:
+            with patch.object(bs_manager, 'dump_all_logs', autospec=True):
                 with bs_manager.runtime_context(['baz']):
                     ads_mock.assert_called_once_with(['baz'])
 
@@ -1288,11 +1286,6 @@ class TestBootContext(FakeHomeTestCase):
                 'juju', '--show-log', 'help', 'commands'),
                 call_index=help_index)
         self.assertEqual(po_count, po_mock.call_count)
-        if jes:
-            runtime_config = client.get_cache_path()
-        else:
-            runtime_config = os.path.join(client.env.juju_home, 'environments',
-                                          'bar.jenv')
         dal_mock.assert_called_once_with()
         if keep_env:
             tear_down_count = 1
