@@ -4,6 +4,8 @@
 package migrationmaster
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -42,7 +44,7 @@ func (c *client) Watch() (watcher.MigrationMasterWatcher, error) {
 	var result params.NotifyWatchResult
 	err := c.caller.FacadeCall("Watch", nil, &result)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
 		return nil, result.Error
