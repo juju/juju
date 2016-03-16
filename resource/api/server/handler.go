@@ -15,10 +15,10 @@ import (
 // TODO(ericsnow) Define the HTTPHandlerConstraints here? Perhaps
 // even the HTTPHandlerSpec?
 
-// ResourceHandler is the HTTP handler for the resources endpoint. We
+// LegacyHTTPHandler is the HTTP handler for the resources endpoint. We
 // use it rather having a separate handler for each HTTP method since
 // registered API handlers must handle *all* HTTP methods currently.
-type ResourceHandler struct {
+type LegacyHTTPHandler struct {
 	// Connect opens a connection to state resources.
 	Connect func(*http.Request) (DataStore, names.Tag, error)
 
@@ -28,9 +28,9 @@ type ResourceHandler struct {
 
 // TODO(ericsnow) Can username be extracted from the request?
 
-// NewResourceHandler creates a new http.Handler for the resources endpoint.
-func NewResourceHandler(connect func(*http.Request) (DataStore, names.Tag, error)) *ResourceHandler {
-	return &ResourceHandler{
+// NewLegacyHTTPHandler creates a new http.Handler for the resources endpoint.
+func NewLegacyHTTPHandler(connect func(*http.Request) (DataStore, names.Tag, error)) *LegacyHTTPHandler {
+	return &LegacyHTTPHandler{
 		Connect: connect,
 		HandleUpload: func(username string, st DataStore, req *http.Request) (*api.UploadResult, error) {
 			uh := UploadHandler{
@@ -43,7 +43,7 @@ func NewResourceHandler(connect func(*http.Request) (DataStore, names.Tag, error
 }
 
 // ServeHTTP implements http.Handler.
-func (h *ResourceHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	st, tag, err := h.Connect(req)
 	if err != nil {
 		api.SendHTTPError(resp, err)
