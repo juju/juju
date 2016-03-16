@@ -276,16 +276,16 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 	iface := result.NetworkInfo[0]
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(iface, jc.DeepEquals, network.InterfaceInfo{
-		DeviceIndex:    0,
-		CIDR:           "0.1.2.0/24",
-		ConfigType:     network.ConfigStatic,
-		InterfaceName:  "eth0", // generated from the device index.
-		MACAddress:     "aa:bb:cc:dd:ee:ff",
-		DNSServers:     network.NewAddresses("ns1.dummy"),
-		Address:        network.NewAddress("0.1.2.3"),
-		GatewayAddress: network.NewAddress("0.1.2.1"),
-		NetworkName:    network.DefaultPrivate,
-		ProviderId:     network.DefaultProviderId,
+		DeviceIndex:      0,
+		CIDR:             "0.1.2.0/24",
+		ConfigType:       network.ConfigStatic,
+		InterfaceName:    "eth0", // generated from the device index.
+		DNSServers:       network.NewAddresses("ns1.dummy"),
+		DNSSearchDomains: []string{""},
+		Address:          network.NewAddress("0.1.2.3"),
+		GatewayAddress:   network.NewAddress("0.1.2.1"),
+		NetworkName:      network.DefaultPrivate,
+		ProviderId:       network.DefaultProviderId,
 	})
 }
 
