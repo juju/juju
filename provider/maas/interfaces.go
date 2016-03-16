@@ -96,6 +96,7 @@ func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
 // error satisfying errors.IsNotSupported() if it cannot find the required
 // "interface_set" node details field.
 func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap map[string]network.Id) ([]network.InterfaceInfo, error) {
+	logger.Errorf("maasObject %#v", maasObject)
 
 	interfaceSet, ok := maasObject.GetMap()["interface_set"]
 	if !ok || interfaceSet.IsNil() {

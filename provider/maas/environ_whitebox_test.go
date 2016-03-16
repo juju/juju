@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -783,34 +782,6 @@ func (suite *environSuite) TestSubnetsMissingSubnet(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: 2")
 }
 
-func (suite *environSuite) TestSubnetsNoDuplicates(c *gc.C) {
-	testInstance := suite.createSubnets(c, true)
-
-	subnetsInfo, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"LAN", "Virt", "WLAN"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedInfo := []network.SubnetInfo{{
-		CIDR:              "192.168.2.2/24",
-		ProviderId:        "LAN",
-		VLANTag:           42,
-		AllocatableIPLow:  net.ParseIP("192.168.2.0"),
-		AllocatableIPHigh: net.ParseIP("192.168.2.127"),
-	}, {
-		CIDR:              "192.168.3.2/24",
-		ProviderId:        "Virt",
-		AllocatableIPLow:  nil,
-		AllocatableIPHigh: nil,
-		VLANTag:           0,
-	}, {
-		CIDR:              "192.168.1.2/24",
-		ProviderId:        "WLAN",
-		VLANTag:           0,
-		AllocatableIPLow:  net.ParseIP("192.168.1.129"),
-		AllocatableIPHigh: net.ParseIP("192.168.1.255"),
-	}}
-	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
-}
-
 func (suite *environSuite) TestSpaces(c *gc.C) {
 	suite.createTwoSpaces()
 	suite.testMAASObject.TestServer.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-3"}))
@@ -1445,6 +1416,7 @@ func (s *environSuite) newNode(c *gc.C, nodename, hostname string, attrs map[str
 
 func (s *environSuite) bootstrap(c *gc.C) environs.Environ {
 	s.newNode(c, "node0", "bootstrap-host", nil)
+	//s.addSubnet(c, 9, 9, "node0)
 	s.setupFakeTools(c)
 	env := s.makeEnviron()
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
