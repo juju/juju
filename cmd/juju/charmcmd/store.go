@@ -35,16 +35,20 @@ func (cs charmstoreSpec) Connect(ctx *cmd.Context) (*charmstore.Client, error) {
 	// Note that creating the API context in Connect is technically
 	// wrong, as it means we'll be creating the bakery context
 	// (and reading/writing the cookies) each time it's called.
-	// TODO(ericsnow) Use modelcmd.ModelCommandBase instead.
+	// TODO(ericsnow) Move apiContext to a field on charmstoreSpec.
 	apiContext, err := modelcmd.NewAPIContext(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	client := charmstore.NewClient(charmstore.ClientConfig{
-		charmrepo.NewCharmStoreParams{
+
+	// We use the default for URL. We do not bother with VisitWebPage
+	// since that is addressed via BakeryClient.
+	config := charmstore.ClientConfig{
+		NewCharmStoreParams: charmrepo.NewCharmStoreParams{
 			BakeryClient: apiContext.BakeryClient,
 		},
-	})
+	}
+	client := charmstore.NewClient(config)
 	client.Closer = apiContext
 
 	return client, nil
