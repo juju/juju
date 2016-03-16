@@ -12,7 +12,8 @@ import (
 	"github.com/juju/juju/apiserver/migrationmaster"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/migration"
+	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -77,7 +78,7 @@ func (s *Suite) TestSetPhase(c *gc.C) {
 	err := api.SetPhase(params.SetMigrationPhaseArgs{Phase: "ABORT"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.backend.migration.phaseSet, gc.Equals, migration.ABORT)
+	c.Assert(s.backend.migration.phaseSet, gc.Equals, coremigration.ABORT)
 }
 
 func (s *Suite) TestSetPhaseNoMigration(c *gc.C) {
@@ -104,7 +105,7 @@ func (s *Suite) TestSetPhaseError(c *gc.C) {
 }
 
 func (s *Suite) TestExport(c *gc.C) {
-	exportModel := func(migrationmaster.Backend) ([]byte, error) {
+	exportModel := func(migration.StateExporter) ([]byte, error) {
 		return []byte("foo"), nil
 	}
 	migrationmaster.PatchExportModel(s, exportModel)
@@ -129,6 +130,8 @@ func (s *Suite) mustMakeAPI(c *gc.C) *migrationmaster.API {
 }
 
 type stubBackend struct {
+	migrationmaster.Backend
+
 	watchError error
 	getErr     error
 	migration  *stubMigration
@@ -151,10 +154,10 @@ func (b *stubBackend) GetModelMigration() (state.ModelMigration, error) {
 type stubMigration struct {
 	state.ModelMigration
 	setPhaseErr error
-	phaseSet    migration.Phase
+	phaseSet    coremigration.Phase
 }
 
-func (m *stubMigration) SetPhase(phase migration.Phase) error {
+func (m *stubMigration) SetPhase(phase coremigration.Phase) error {
 	if m.setPhaseErr != nil {
 		return m.setPhaseErr
 	}

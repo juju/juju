@@ -3,7 +3,10 @@
 
 package migrationmaster
 
-import "github.com/juju/juju/state"
+import (
+	"github.com/juju/juju/migration"
+	"github.com/juju/juju/state"
+)
 
 func PatchState(p Patcher, st Backend) {
 	p.PatchValue(&getBackend, func(*state.State) Backend {
@@ -11,7 +14,7 @@ func PatchState(p Patcher, st Backend) {
 	})
 }
 
-func PatchExportModel(p Patcher, f func(Backend) ([]byte, error)) {
+func PatchExportModel(p Patcher, f func(migration.StateExporter) ([]byte, error)) {
 	p.PatchValue(&exportModel, f)
 }
 

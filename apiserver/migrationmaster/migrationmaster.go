@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 )
 
@@ -69,11 +70,10 @@ func (api *API) SetPhase(args params.SetMigrationPhaseArgs) error {
 	}
 
 	err = mig.SetPhase(phase)
-	if err != nil {
-		return errors.Annotate(err, "failed to set phase")
-	}
-	return nil
+	return errors.Annotate(err, "failed to set phase")
 }
+
+var exportModel = migration.ExportModel
 
 // Export serializes the model associated with the API connection.
 func (api *API) Export() (params.SerializedModel, error) {
