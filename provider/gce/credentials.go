@@ -24,26 +24,21 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 		cloud.OAuth2AuthType: {
 			"client-id": {
 				Description: "client ID",
-				Require:     &cloud.RequireAttr{cloud.AuthTypeFieldName, string(cloud.OAuth2AuthType)},
 			},
 			"client-email": {
 				Description: "client e-mail address",
-				Require:     &cloud.RequireAttr{cloud.AuthTypeFieldName, string(cloud.OAuth2AuthType)},
 			},
 			"private-key": {
 				Description: "client secret",
 				Hidden:      true,
-				Require:     &cloud.RequireAttr{cloud.AuthTypeFieldName, string(cloud.OAuth2AuthType)},
 			},
 			"project-id": {
 				Description: "project ID",
-				Require:     &cloud.RequireAttr{cloud.AuthTypeFieldName, string(cloud.OAuth2AuthType)},
 			},
 		},
 		cloud.JSONFileAuthType: {
 			"file": {
 				Description: "path to the .json file containing your Google Compute Engine project credentials",
-				Require:     &cloud.RequireAttr{cloud.AuthTypeFieldName, string(cloud.JSONFileAuthType)},
 			},
 		},
 	}

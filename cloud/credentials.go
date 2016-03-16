@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/utils/set"
+
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
@@ -120,27 +122,46 @@ func (s CredentialSchema) Finalize(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// Record the keys which are used as file attributes as we will
+	// exclude these from the check for unrecognised schema fields.
+	fileAttrFields := set.NewStrings()
+	for name := range s {
+		if s[name].FileAttr != "" {
+			fileAttrFields.Add(s[name].FileAttr)
+		}
+	}
+
+	// Record which attributes we have and copy incoming attrs.
+	attrFields := set.NewStrings()
 	m := make(map[string]interface{})
-	for k, v := range attrs {
-		m[k] = v
+	for name, v := range attrs {
+		m[name] = v
+		attrFields.Add(name)
 	}
 	result, err := checker.Coerce(m, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	// Check that we don't have any attribute not supported by the schema.
+	schemaFields := set.NewStrings()
+	for name := range s {
+		schemaFields.Add(name)
+	}
+	extraFields := attrFields.Difference(schemaFields).Difference(fileAttrFields)
+	if len(extraFields) > 0 {
+		return nil, errors.Errorf(
+			"credential attributes contain unexpected values for field(s): %q",
+			strings.Join(extraFields.Values(), ", "))
+	}
+
 	resultMap := result.(map[string]interface{})
-	// Add auth-type to the resultMap of values so any
-	// credentials fields which are dependent on auth-type
-	// can be filtered out if needed.
-	resultMap["auth-type"] = string(authType)
 	newAttrs := make(map[string]string)
+
+	// Process and file attributes - load values from the nominated file
+	// into the values map.
 	for name, field := range s {
-		if field.Require != nil {
-			if err := s.checkFieldRequired(name, field, resultMap); err != nil {
-				return nil, err
-			}
-		}
 		if field.FileAttr != "" {
 			if err := s.processFileAttrValue(name, field, resultMap, newAttrs, readFile); err != nil {
 				return nil, err
@@ -184,21 +205,6 @@ func (s CredentialSchema) processFileAttrValue(
 	return nil
 }
 
-func (s CredentialSchema) checkFieldRequired(
-	name string, field CredentialAttr, resultMap map[string]interface{},
-) error {
-	requiredFieldVal, ok := resultMap[field.Require.Name]
-	if !ok {
-		return errors.NotValidf(
-			"required field %q", field.Require.Name,
-		)
-	}
-	if requiredFieldVal != field.Require.Value {
-		return errors.Errorf("field %q requires field %q to have value %q", name, field.Require.Name, field.Require.Value)
-	}
-	return nil
-}
-
 func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
 	fields := make(environschema.Fields)
 	for name, field := range s {
@@ -206,8 +212,9 @@ func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
 			Description: field.Description,
 			Type:        environschema.Tstring,
 			Group:       environschema.AccountGroup,
-			Mandatory:   field.FileAttr == "",
+			Mandatory:   field.FileAttr == "" && !field.Optional,
 			Secret:      field.Hidden,
+			Values:      field.Choices,
 		}
 	}
 	// TODO(axw) add support to environschema for attributes whose values
@@ -228,41 +235,11 @@ func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
 		}
 	}
 
-	// TODO(wallyworld) - add support to environschema for attribute whose
-	// validity is determined by the value of another attribute.
-	for fieldName, field := range s {
-		if field.Require == nil {
-			continue
-		}
-		if field.Require.Name == "" {
-			return nil, errors.NotValidf("required modifier for field %q", fieldName)
-		}
-		// CredentialSchema already has auth-type stripped out. It is a valid
-		// Require.Name though.
-		if field.Require.Name == "auth-type" {
-			continue
-		}
-		if _, ok := fields[field.Require.Name]; !ok {
-			return nil, errors.NotValidf("required field name %q", field.Require.Name)
-		}
-	}
-
 	schemaFields, schemaDefaults, err := fields.ValidationSchema()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return schema.FieldMap(schemaFields, schemaDefaults), nil
-}
-
-// RequireAttr describes the value of an attribute and is used to
-// determine the validity of another attribute.
-type RequireAttr struct {
-	// Name is the name of an attribute whose value is being evaluated.
-	Name string
-
-	// Value is the value of an attribute which determines if another
-	// attribute is required.
-	Value string
 }
 
 // CredentialAttr describes the properties of a credential attribute.
@@ -281,9 +258,12 @@ type CredentialAttr struct {
 	// value used for this attribute.
 	FileAttr string
 
-	// Require is used to indicate that this attribute is only valid if the
-	// nominated attribute has the specified value.
-	Require *RequireAttr
+	// Optional controls whether the attribute is required to have a non-empty
+	// value or not. Attributes default to mandatory.
+	Optional bool
+
+	// Choices, if set, define the allowed values for this field.
+	Choices []interface{}
 }
 
 type cloudCredentialChecker struct{}
