@@ -164,7 +164,7 @@ func (s CredentialSchema) Finalize(
 	for name, field := range s {
 		if field.FileAttr != "" {
 			if err := s.processFileAttrValue(name, field, resultMap, newAttrs, readFile); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			continue
 		}
