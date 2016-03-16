@@ -144,7 +144,6 @@ type LinkLayerDeviceArgs struct {
 // field can be empty if not supported by the provider, but when set must be
 // unique within the model, and cannot be unset once set. Errors are returned in
 // the following cases:
-// - Zero arguments given;
 // - Machine is no longer alive or is missing;
 // - Model no longer alive;
 // - errors.NotValidError, when any of the fields in args contain invalid values;
@@ -155,7 +154,8 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 	defer errors.DeferredAnnotatef(&err, "cannot set link-layer devices to machine %q", m.doc.Id)
 
 	if len(devicesArgs) == 0 {
-		return errors.Errorf("no devices to set")
+		logger.Warningf("no device addresses to set")
+		return nil
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -540,7 +540,6 @@ type LinkLayerDeviceAddress struct {
 // transaction. ProviderID field can be empty if not supported by the provider,
 // but when set must be unique within the model. Errors are returned in the
 // following cases:
-// - Zero arguments given;
 // - Machine is no longer alive or is missing;
 // - Subnet inferred from any CIDRAddress field in args is no longer alive or
 //   is missing, except if that CIDRAddress matches IPv4 or IPv6 loopback range;
@@ -552,7 +551,8 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 	defer errors.DeferredAnnotatef(&err, "cannot set link-layer device addresses of machine %q", m.doc.Id)
 
 	if len(devicesAddresses) == 0 {
-		return errors.Errorf("no addresses to set")
+		logger.Warningf("no device addresses to set")
+		return nil
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {

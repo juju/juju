@@ -282,9 +282,9 @@ func (s *ipAddressesStateSuite) TestMachineRemoveAlsoRemoveAllAddresses(c *gc.C)
 	s.assertNoAddressesOnMachine(c, s.machine)
 }
 
-func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithEmptyArgs(c *gc.C) {
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesDoesNothingWithEmptyArgs(c *gc.C) {
 	err := s.machine.SetDevicesAddresses() // takes varargs, which includes none.
-	c.Assert(err, gc.ErrorMatches, `.*no addresses to set`)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithEmptyCIDRAddress(c *gc.C) {

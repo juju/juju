@@ -46,8 +46,7 @@ func (s *linkLayerDevicesStateSuite) SetUpTest(c *gc.C) {
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesNoArgs(c *gc.C) {
 	err := s.machine.SetLinkLayerDevices() // takes varargs, which includes none.
-	expectedError := fmt.Sprintf("cannot set link-layer devices to machine %q: no devices to set", s.machine.Id())
-	c.Assert(err, gc.ErrorMatches, expectedError)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesEmptyArgs(c *gc.C) {
