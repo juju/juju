@@ -19,8 +19,8 @@ type stubCharmStore struct {
 	ReturnListResources [][]charmresource.Resource
 }
 
-func (s *stubCharmStore) Connect(_ *cmd.Context) (CharmResourceLister, error) {
-	s.stub.AddCall("Connect")
+func (s *stubCharmStore) Connect(ctx *cmd.Context) (CharmResourceLister, error) {
+	s.stub.AddCall("Connect", ctx)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
