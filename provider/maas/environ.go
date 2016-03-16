@@ -964,7 +964,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, err
 	}
 	if len(resultVolumes) != len(requestedVolumes) {
-		err = errors.New("the version of MAAS being used does not support Juju storage")
+		err = errors.Errorf("requested %v storage volumes. %v returned.", len(requestedVolumes), len(resultVolumes))
 		return nil, err
 	}
 
