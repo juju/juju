@@ -4,7 +4,7 @@
 package maas
 
 import (
-	"github.com/juju/gomaasapi"
+	"github.com/voidspace/gomaasapi"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs"

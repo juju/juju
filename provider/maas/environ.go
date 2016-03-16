@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/gomaasapi"
+	"github.com/voidspace/gomaasapi"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/os"

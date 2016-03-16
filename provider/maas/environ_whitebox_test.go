@@ -15,11 +15,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/gomaasapi"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/voidspace/gomaasapi"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -175,6 +175,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
 	c.Assert(err, jc.ErrorIsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("node0", lshwXML)
+	suite.addSubnet(c, 9, 9, "node0")
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// The bootstrap node has been acquired and started.
@@ -201,6 +202,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	lshwXML, err = suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f1": {0, "eth0", false}})
 	c.Assert(err, jc.ErrorIsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
+	suite.addSubnet(c, 8, 8, "node1")
 	instance, hc := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instance, gc.NotNil)
@@ -1416,7 +1418,7 @@ func (s *environSuite) newNode(c *gc.C, nodename, hostname string, attrs map[str
 
 func (s *environSuite) bootstrap(c *gc.C) environs.Environ {
 	s.newNode(c, "node0", "bootstrap-host", nil)
-	//s.addSubnet(c, 9, 9, "node0)
+	s.addSubnet(c, 9, 9, "node0")
 	s.setupFakeTools(c)
 	env := s.makeEnviron()
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{

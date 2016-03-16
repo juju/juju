@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/gomaasapi"
+	"github.com/voidspace/gomaasapi"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -86,8 +86,6 @@ func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
 // error satisfying errors.IsNotSupported() if it cannot find the required
 // "interface_set" node details field.
 func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap map[string]network.Id) ([]network.InterfaceInfo, error) {
-	logger.Errorf("maasObject %#v", maasObject)
-
 	interfaceSet, ok := maasObject.GetMap()["interface_set"]
 	if !ok || interfaceSet.IsNil() {
 		// This means we're using an older MAAS API.
