@@ -786,6 +786,22 @@ class EnvJujuClient:
         models = yaml_loads(output)
         return models
 
+    def _get_models(self):
+        """return a list of model dicts."""
+        return self.get_models()['models']
+
+    def iter_model_clients(self):
+        models = self._get_models()
+        if not models:
+            yield self
+        for model in models:
+            name = model['name']
+            if name == self.env.environment:
+                yield self
+            else:
+                env = self.env.clone(model_name=name)
+                yield self.clone(env=env)
+
     def get_admin_model_name(self):
         """Return the name of the 'admin' model.
 
@@ -795,7 +811,11 @@ class EnvJujuClient:
         return 'admin'
 
     def get_admin_client(self):
-        """Return a client for the admin model.  May return self."""
+        """Return a client for the admin model.  May return self.
+
+        This may be inaccurate for models created using create_environment
+        rather than bootstrap.
+        """
         admin_jujudata = self.env.clone(
             model_name=self.get_admin_model_name())
         return self.clone(env=admin_jujudata)
@@ -1240,6 +1260,12 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
         """return a models dict with a 'models': [] key-value pair."""
         return {}
 
+    def _get_models(self):
+        """return a list of model dicts."""
+        # In 2.0-alpha1, 'list-models' produced a yaml list rather than a
+        # dict, but the command and parsing are the same.
+        return super(EnvJujuClient2A1, self).get_models()
+
     def list_controllers(self):
         """List the controllers."""
         log.info(
@@ -1389,6 +1415,12 @@ class EnvJujuClient1X(EnvJujuClient2A1):
             jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
             ensure_deleted(jenv_path)
         return exit_status
+
+    def _get_models(self):
+        """return a list of model dicts."""
+        return yaml.safe_load(self.get_juju_output(
+            'environments', '-s', self.env.environment, '--format', 'yaml',
+            include_e=False))
 
     def deploy_bundle(self, bundle, timeout=_DEFAULT_BUNDLE_TIMEOUT):
         """Deploy bundle using deployer for Juju 1.X version."""
@@ -1808,6 +1840,19 @@ class SimpleEnvironment:
             self.maas = False
             self.joyent = False
 
+    def clone(self, model_name=None):
+        config = deepcopy(self.config)
+        if model_name is None:
+            model_name = self.environment
+        else:
+            config['name'] = model_name
+        result = self.__class__(model_name, config, self.juju_home)
+        result.local = self.local
+        result.kvm = self.kvm
+        result.maas = self.maas
+        result.joyent = self.joyent
+        return result
+
     def __eq__(self, other):
         if type(self) != type(other):
             return False
@@ -1861,12 +1906,7 @@ class JujuData(SimpleEnvironment):
         self.clouds = {}
 
     def clone(self, model_name=None):
-        config = deepcopy(self.config)
-        if model_name is None:
-            model_name = self.environment
-        else:
-            config['name'] = model_name
-        result = self.__class__(model_name, config, self.juju_home)
+        result = super(JujuData, self).clone(model_name)
         result.credentials = deepcopy(self.credentials)
         result.clouds = deepcopy(self.clouds)
         return result
