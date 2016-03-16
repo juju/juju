@@ -4,6 +4,8 @@
 package migrationmaster
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -21,6 +23,10 @@ type Client interface {
 	// SetPhase updates the phase of the currently active model
 	// migration.
 	SetPhase(migration.Phase) error
+
+	// Export returns a serialized representation of the model
+	// associated with the API connection.
+	Export() ([]byte, error)
 }
 
 // NewClient returns a new Client based on an existing API connection.
@@ -38,7 +44,7 @@ func (c *client) Watch() (watcher.MigrationMasterWatcher, error) {
 	var result params.NotifyWatchResult
 	err := c.caller.FacadeCall("Watch", nil, &result)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
 		return nil, result.Error
@@ -53,4 +59,14 @@ func (c *client) SetPhase(phase migration.Phase) error {
 		Phase: phase.String(),
 	}
 	return c.caller.FacadeCall("SetPhase", args, nil)
+}
+
+// Export implements Client.
+func (c *client) Export() ([]byte, error) {
+	var serialized params.SerializedModel
+	err := c.caller.FacadeCall("Export", nil, &serialized)
+	if err != nil {
+		return nil, err
+	}
+	return serialized.Bytes, nil
 }

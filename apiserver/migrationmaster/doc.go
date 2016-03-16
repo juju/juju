@@ -2,5 +2,5 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // This package defines the API facade for use by the migration master
-// worker.
+// worker when communicating to it's own controller.
 package migrationmaster

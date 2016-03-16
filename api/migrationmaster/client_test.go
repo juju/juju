@@ -68,8 +68,7 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 				return
 			}
 		}
-
-		c.Assert(stub.Calls(), jc.DeepEquals, expectedCalls)
+		stub.CheckCalls(c, expectedCalls)
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for watcher to die")
 	}
@@ -79,7 +78,6 @@ func (s *ClientSuite) TestWatchErr(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("boom")
 	})
-
 	client := migrationmaster.NewClient(apiCaller)
 	_, err := client.Watch()
 	c.Assert(err, gc.ErrorMatches, "boom")
@@ -92,9 +90,7 @@ func (s *ClientSuite) TestSetPhase(c *gc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller)
-
 	err := client.SetPhase(migration.QUIESCE)
-
 	c.Assert(err, jc.ErrorIsNil)
 	expectedArg := params.SetMigrationPhaseArgs{Phase: "QUIESCE"}
 	stub.CheckCalls(c, []jujutesting.StubCall{
@@ -103,11 +99,36 @@ func (s *ClientSuite) TestSetPhase(c *gc.C) {
 }
 
 func (s *ClientSuite) TestSetPhaseError(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
 		return errors.New("boom")
 	})
 	client := migrationmaster.NewClient(apiCaller)
-
 	err := client.SetPhase(migration.QUIESCE)
 	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *ClientSuite) TestExport(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		stub.AddCall(objType+"."+request, id, arg)
+		out := result.(*params.SerializedModel)
+		*out = params.SerializedModel{Bytes: []byte("foo")}
+		return nil
+	})
+	client := migrationmaster.NewClient(apiCaller)
+	bytes, err := client.Export()
+	c.Assert(err, jc.ErrorIsNil)
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"MigrationMaster.Export", []interface{}{"", nil}},
+	})
+	c.Assert(string(bytes), gc.Equals, "foo")
+}
+
+func (s *ClientSuite) TestExportError(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+		return errors.New("blam")
+	})
+	client := migrationmaster.NewClient(apiCaller)
+	_, err := client.Export()
+	c.Assert(err, gc.ErrorMatches, "blam")
 }

@@ -27,10 +27,18 @@ import (
 
 var logger = loggo.GetLogger("juju.migration")
 
-// ExportModel creates a description.Model representation of the active model
-// for the state instance, and returns the serialized version. Primarily here
-// as a symetric method for ImportModel.
-func ExportModel(st *state.State) ([]byte, error) {
+// StateExporter describes interface on state required to export a
+// model.
+type StateExporter interface {
+	// Export generates an abstract representation of a model.
+	Export() (description.Model, error)
+}
+
+// ExportModel creates a description.Model representation of the
+// active model for StateExporter (typically a *state.State), and
+// returns the serialized version. It provides the symmetric
+// functionality to ImportModel.
+func ExportModel(st StateExporter) ([]byte, error) {
 	model, err := st.Export()
 	if err != nil {
 		return nil, errors.Trace(err)
