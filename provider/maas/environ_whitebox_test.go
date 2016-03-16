@@ -532,10 +532,10 @@ func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
 	env := suite.makeEnviron()
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo")
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "virt-type"})
 }
 
 func (suite *environSuite) TestConstraintsValidatorVocab(c *gc.C) {

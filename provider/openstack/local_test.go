@@ -953,10 +953,10 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.Open(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 cpu-power=10")
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, jc.SameContents, []string{"cpu-power"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "virt-type"})
 }
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
