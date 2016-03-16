@@ -8,7 +8,7 @@ import (
 	"runtime"
 )
 
-func RunningInContainer() bool {
+var RunningInContainer = func() bool {
 	if runtime.GOOS != "linux" {
 		return false
 	}

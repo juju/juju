@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"text/template"
@@ -42,7 +41,6 @@ var (
 	LxcContainerDir  = golxc.GetDefaultLXCContainerDir()
 	LxcRestartDir    = "/etc/lxc/auto"
 	LxcObjectFactory = golxc.Factory()
-	runtimeGOOS      = runtime.GOOS
 	writeWgetTmpFile = ioutil.WriteFile
 	lxcRetryCount    = 3
 	lxcRetryDelay    = 10
@@ -82,17 +80,6 @@ func containerDirFilesystem() (string, error) {
 		return "", errors.Errorf("could not determine filesystem type")
 	}
 	return lines[1], nil
-}
-
-// IsLXCSupported returns a boolean value indicating whether or not
-// we can run LXC containers.
-func IsLXCSupported() (bool, error) {
-	if runtimeGOOS != "linux" {
-		return false, nil
-	}
-	// We do not support running nested LXC containers.
-	insideLXC := container.RunningInContainer()
-	return !insideLXC, nil
 }
 
 type containerManager struct {

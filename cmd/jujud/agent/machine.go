@@ -44,7 +44,6 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
-	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
@@ -932,13 +931,8 @@ var shouldWriteProxyFiles = func(conf agent.Config) bool {
 // initialises suitable infrastructure to support such containers.
 func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connection, agentConfig agent.Config) error {
 	var supportedContainers []instance.ContainerType
-	// LXC containers are only supported on bare metal and fully virtualized linux systems
-	// Nested LXC containers and Windows machines cannot run LXC containers
-	supportsLXC, err := lxc.IsLXCSupported()
-	if err != nil {
-		logger.Warningf("no lxc containers possible: %v", err)
-	}
-	if err == nil && supportsLXC {
+	supportsContainers := container.ContainersSupported()
+	if supportsContainers {
 		supportedContainers = append(supportedContainers, instance.LXC)
 	}
 
@@ -1769,8 +1763,8 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		errors = append(errors, err)
 	}
 
-	insideLXC := container.RunningInContainer()
-	if insideLXC {
+	insideContainer := container.RunningInContainer()
+	if insideContainer {
 		// We're running inside LXC, so loop devices may leak. Detach
 		// any loop devices that are backed by files on this machine.
 		//
