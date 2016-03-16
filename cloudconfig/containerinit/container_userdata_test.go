@@ -9,6 +9,7 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/axw/fancycheck"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
@@ -67,24 +68,35 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 		NoAutoStart:   true,
 	}}
 	s.expectedNetConfig = `
-# loopback interface
 auto lo
 iface lo inet loopback
 
-# interface "eth0"
 auto eth0
 iface eth0 inet manual
-    dns-nameservers ns1.invalid ns2.invalid
-    dns-search foo.bar
-    pre-up ip address add 0.1.2.3/32 dev eth0 &> /dev/null || true
-    up ip route replace 0.1.2.1 dev eth0
-    up ip route replace default via 0.1.2.1
-    down ip route del default via 0.1.2.1 &> /dev/null || true
-    down ip route del 0.1.2.1 dev eth0 &> /dev/null || true
-    post-down ip address del 0.1.2.3/32 dev eth0 &> /dev/null || true
+  dns-nameservers ns1.invalid ns2.invalid
+  dns-search foo bar
+  pre-up ip address add 0.1.2.3/24 dev eth0 || true
+  up ip route replace 0.1.2.0/24 dev eth0 || true
+  down ip route del 0.1.2.0/24 dev eth0 || true
+  post-down address del 0.1.2.3/24 dev eth0 || true
+  up ip route replace default via 0.1.2.1 || true
+  down ip route del default via 0.1.2.1 || true
 
-# interface "eth1"
-iface eth1 inet dhcp
+auto eth1
+iface eth1 inet manual
+  dns-nameservers ns1.invalid ns2.invalid
+  dns-search foo bar
+  pre-up ip address add 0.1.2.4/24 dev eth1 || true
+  up ip route replace 0.1.2.0/24 dev eth1 || true
+  down ip route del 0.1.2.0/24 dev eth1 || true
+  post-down address del 0.1.2.4/24 dev eth1 || true
+
+iface eth2 inet manual
+  pre-up ip address add  dev eth2 || true
+  up ip route replace  dev eth2 || true
+  down ip route del  dev eth2 || true
+  post-down address del  dev eth2 || true
+
 `
 	s.PatchValue(containerinit.NetworkInterfacesFile, s.networkInterfacesFile)
 }
@@ -113,8 +125,8 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworks(c *gc.C) {
 	// We need to indent expectNetConfig to make it valid YAML,
 	// dropping the last new line and using unindented blank lines.
 	lines := strings.Split(s.expectedNetConfig, "\n")
-	indentedNetConfig := strings.Join(lines[:len(lines)-1], "\n  ")
-	indentedNetConfig = strings.Replace(indentedNetConfig, "\n  \n", "\n\n", -1)
+	indentedNetConfig := strings.Join(lines[:len(lines)-2], "\n  ")
+	indentedNetConfig = strings.Replace(indentedNetConfig, "\n  \n", "\n\n", -1) + "\n"
 	expected := `
 #cloud-config
 bootcmd:
@@ -148,7 +160,7 @@ func (s *UserDataSuite) TestCloudInitUserData(c *gc.C) {
 func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
 	data, err := cloudConf.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, expected)
+	c.Assert(string(data), fancycheck.StringEquals, expected)
 	// Make sure it's valid YAML as well.
 	out := make(map[string]interface{})
 	err = yaml.Unmarshal(data, &out)
