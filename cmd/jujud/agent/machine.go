@@ -1769,7 +1769,7 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		errors = append(errors, err)
 	}
 
-	insideLXC := container.RunningInsideLXC()
+	insideLXC := container.RunningInContainer()
 	if insideLXC {
 		// We're running inside LXC, so loop devices may leak. Detach
 		// any loop devices that are backed by files on this machine.

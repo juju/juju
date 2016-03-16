@@ -363,8 +363,7 @@ func (manager *containerManager) CreateContainer(
 	// method as we have passed it through at container creation time.  This
 	// is necessary to get the appropriate rootfs reference without explicitly
 	// setting it ourselves.
-	if err = lxcContainer.Start("", consoleFile); err != nil {
-		logger.Warningf("container failed to start %v", err)
+	if err := lxcContainer.Start("", consoleFile); err != nil {
 		// if the container fails to start we should try to destroy it
 		// check if the container has been constructed
 		if lxcContainer.IsConstructed() {
@@ -372,13 +371,10 @@ func (manager *containerManager) CreateContainer(
 			if derr := lxcContainer.Destroy(); derr != nil {
 				// if an error is reported there is probably a leftover
 				// container that the user should clean up manually
-				logger.Errorf("container failed to start and failed to destroy: %v", derr)
-				return nil, nil, errors.Annotate(err, "container failed to start and failed to destroy: manual cleanup of containers needed")
+				return nil, nil, errors.Annotatef(err, "container failed to start and failed to destroy: manual cleanup of containers needed: %v", derr)
 			}
-			logger.Warningf("container failed to start and was destroyed - safe to retry")
 			return nil, nil, errors.Wrap(err, instance.NewRetryableCreationError("container failed to start and was destroyed: "+lxcContainer.Name(), 1, 0))
 		}
-		logger.Warningf("container failed to start: %v", err)
 		return nil, nil, errors.Annotate(err, "container failed to start")
 	}
 
