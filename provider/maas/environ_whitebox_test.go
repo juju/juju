@@ -1299,6 +1299,7 @@ func (s *environSuite) TestStartInstanceStorage(c *gc.C) {
 		"physicalblockdevice_set": nodeStorageAttrs,
 		"constraint_map":          storageConstraintAttrs,
 	})
+	s.addSubnet(c, 1, 1, "thenode1")
 	params := environs.StartInstanceParams{Volumes: []storage.VolumeParams{
 		{Tag: names.NewVolumeTag("1"), Size: 2000000},
 		{Tag: names.NewVolumeTag("3"), Size: 2000000},
