@@ -1162,6 +1162,7 @@ class TestBootstrapManager(FakeHomeTestCase):
                 None, [], None, None, None, None, log_dir, False,
                 False, False)
             bs_manager.known_hosts['2'] = 'example.org'
+            client.bootstrap()
             with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
                 bs_manager.dump_all_logs()
         del_mock.assert_called_once_with(
@@ -1197,8 +1198,8 @@ class TestBootstrapManager(FakeHomeTestCase):
                 with bs_manager.runtime_context(['baz']):
                     ads_mock.assert_called_once_with(['baz'])
 
-    @patch('deploy_stack.dump_env_logs_known_hosts', autospec=True)
-    def test_runtime_context_addable_machines_with_known_hosts(self, del_mock):
+    @patch('deploy_stack.BootstrapManager.dump_all_logs', autospec=True)
+    def test_runtime_context_addable_machines_with_known_hosts(self, dal_mock):
         client = FakeJujuClient()
         with temp_dir() as log_dir:
             bs_manager = BootstrapManager(
