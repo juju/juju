@@ -655,6 +655,9 @@ class BootstrapManager:
             try:
                 clients = list(self.client.iter_model_clients())
             except Exception:
+                # Even if the controller is unreachable, we may still be able
+                # to gather some logs.  admin_client and self.client are all
+                # we have knowledge of.
                 clients = [admin_client]
                 if self.client is not admin_client:
                     clients.append(self.client)
