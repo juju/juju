@@ -201,6 +201,11 @@ class TestContainerNetworking(TestCase):
         args = jcnet.parse_args(cmdline + opts)
         self.assertEqual(args.machine_type, jcnet.LXC_MACHINE)
 
+        # Machine type can also be lxd
+        opts = ['--machine-type', jcnet.LXD_MACHINE]
+        args = jcnet.parse_args(cmdline + opts)
+        self.assertEqual(args.machine_type, jcnet.LXD_MACHINE)
+
         # Set up an error (bob is invalid)
         opts = ['--machine-type', 'bob']
         with parse_error(self) as stderr:
@@ -424,6 +429,7 @@ class TestMain(FakeHomeTestCase):
     def test_bootstrap_required(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
         client = Mock(spec=["bootstrap", "enable_feature", "is_jes_enabled"])
+        client.version = "1.25.5"
         with patch("assess_container_networking.assess_container_networking",
                    autospec=True) as mock_assess:
             with self.patch_bootstrap_manager() as mock_bc:
@@ -433,7 +439,7 @@ class TestMain(FakeHomeTestCase):
         client.bootstrap.assert_called_once_with(False)
         self.assertEqual("", self.log_stream.getvalue())
         self.assertEqual(mock_bc.call_count, 1)
-        mock_assess.assert_called_once_with(client, None)
+        mock_assess.assert_called_once_with(client, ["kvm", "lxc"])
         self.assertEqual(ret, 0)
 
     def test_clean_existing_env(self):
@@ -441,6 +447,7 @@ class TestMain(FakeHomeTestCase):
                 "--clean-environment"]
         client = Mock(spec=["enable_feature", "env", "get_status",
                             "is_jes_enabled", "wait_for", "wait_for_started"])
+        client.version = "1.25.5"
         client.get_status.return_value = Status.from_text("""
             machines:
                 "0":
@@ -455,7 +462,7 @@ class TestMain(FakeHomeTestCase):
         self.assertEqual(client.env.environment, "an-env-mod")
         self.assertEqual("", self.log_stream.getvalue())
         self.assertEqual(mock_bc.call_count, 0)
-        mock_assess.assert_called_once_with(client, None)
+        mock_assess.assert_called_once_with(client, ["kvm", "lxc"])
         self.assertEqual(ret, 0)
 
     def test_clean_missing_env(self):
@@ -463,6 +470,7 @@ class TestMain(FakeHomeTestCase):
                 "--clean-environment"]
         client = Mock(spec=["bootstrap", "enable_feature", "env", "get_status",
                             "is_jes_enabled", "wait_for", "wait_for_started"])
+        client.version = "1.25.5"
         client.get_status.side_effect = [
             Exception("Timeout"),
             Status.from_text("""
@@ -483,7 +491,7 @@ class TestMain(FakeHomeTestCase):
             "INFO Could not clean existing env: Timeout\n",
             self.log_stream.getvalue())
         self.assertEqual(mock_bc.call_count, 1)
-        mock_assess.assert_called_once_with(client, None)
+        mock_assess.assert_called_once_with(client, ["kvm", "lxc"])
         self.assertEqual(ret, 0)
 
     def test_final_clean_fails(self):
@@ -491,6 +499,7 @@ class TestMain(FakeHomeTestCase):
                 "--clean-environment"]
         client = Mock(spec=["enable_feature", "env", "get_status",
                             "is_jes_enabled", "wait_for", "wait_for_started"])
+        client.version = "1.25.5"
         client.get_status.side_effect = [
             Status.from_text("""
                 machines:
@@ -510,5 +519,37 @@ class TestMain(FakeHomeTestCase):
             "INFO Could not clean existing env: Timeout\n",
             self.log_stream.getvalue())
         self.assertEqual(mock_bc.call_count, 0)
-        mock_assess.assert_called_once_with(client, None)
+        mock_assess.assert_called_once_with(client, ["kvm", "lxc"])
         self.assertEqual(ret, 1)
+
+    def test_lxd_unsupported_on_juju_1(self):
+        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose",
+                "--machine-type=lxd"]
+        client = Mock(spec=["bootstrap", "enable_feature", "is_jes_enabled"])
+        client.version = "1.25.5"
+        with self.patch_main(argv, client, logging.DEBUG):
+            with self.assertRaises(Exception) as exc_ctx:
+                jcnet.main(argv)
+            self.assertEqual(
+                str(exc_ctx.exception),
+                "no lxd support on juju 1.25.5")
+        client.enable_feature.assert_called_once_with('address-allocation')
+        self.assertEqual(client.bootstrap.call_count, 0)
+        self.assertEqual("", self.log_stream.getvalue())
+
+    def test_lxd_tested_on_juju_2(self):
+        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
+        client = Mock(spec=["bootstrap", "enable_feature", "is_jes_enabled"])
+        client.version = "2.0-beta3"
+        with patch("assess_container_networking.assess_container_networking",
+                   autospec=True) as mock_assess:
+            with self.patch_bootstrap_manager() as mock_bc:
+                with self.patch_main(argv, client, logging.DEBUG):
+                    ret = jcnet.main(argv)
+        client.enable_feature.assert_called_once_with('address-allocation')
+        client.bootstrap.assert_called_once_with(False)
+        self.assertEqual("", self.log_stream.getvalue())
+        self.assertEqual(mock_bc.call_count, 1)
+        mock_assess.assert_called_once_with(client, ["kvm", "lxc", "lxd"])
+        self.assertEqual(ret, 0)
+
