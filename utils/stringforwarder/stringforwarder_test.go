@@ -6,10 +6,10 @@ package stringforwarder_test
 import (
 	"time"
 
+	gc "gopkg.in/check.v1"
+
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/stringforwarder"
-
-	gc "gopkg.in/check.v1"
 )
 
 type stringForwarderSuite struct{}
