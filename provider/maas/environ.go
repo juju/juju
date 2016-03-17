@@ -54,7 +54,6 @@ var shortAttempt = utils.AttemptStrategy{
 
 var (
 	ReleaseNodes             = releaseNodes
-	ReserveIPAddress         = reserveIPAddress
 	ReserveIPAddressOnDevice = reserveIPAddressOnDevice
 	NewDeviceParams          = newDeviceParams
 	UpdateDeviceHostname     = updateDeviceHostname
@@ -104,14 +103,6 @@ func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 	_, err := nodes.CallPost("release", ids)
-	return err
-}
-
-func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
-	params := url.Values{}
-	params.Add("network", cidr)
-	params.Add("requested_address", addr.Value)
-	_, err := ipaddresses.CallPost("reserve", params)
 	return err
 }
 

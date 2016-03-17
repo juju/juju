@@ -589,96 +589,6 @@ func (suite *environSuite) TestSupportsSpaceDiscovery(c *gc.C) {
 	c.Assert(supported, jc.IsTrue)
 }
 
-func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Instance {
-	testInstance := suite.getInstance("node1")
-	suite.addSubnet(c, 6, 6, "node1")
-	testServer := suite.testMAASObject.TestServer
-	templateInterfaces := map[string]ifaceInfo{
-		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
-		"aa:bb:cc:dd:ee:f1": {1, "eth0", false},
-		"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
-	}
-	if duplicates {
-		templateInterfaces["aa:bb:cc:dd:ee:f3"] = ifaceInfo{3, "eth1", true}
-		templateInterfaces["aa:bb:cc:dd:ee:f4"] = ifaceInfo{4, "vnet2", false}
-	}
-	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
-	c.Assert(err, jc.ErrorIsNil)
-
-	testServer.AddNodeDetails("node1", lshwXML)
-	// resulting CIDR 192.168.2.1/24
-	suite.newNetwork("LAN", 2, 42, "192.168.2.1") // primary + gateway
-	testServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
-	// resulting CIDR 192.168.3.1/24
-	suite.newNetwork("Virt", 3, 0, "")
-	testServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
-	// resulting CIDR 192.168.1.1/24
-	suite.newNetwork("WLAN", 1, 0, "")
-	testServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
-	if duplicates {
-		testServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f3")
-		testServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f4")
-	}
-
-	// needed for getNodeGroups to work
-	testServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
-	testServer.AddBootImage("uuid-1", `{"architecture": "amd64", "release": "precise"}`)
-
-	jsonText1 := `{
-		"ip_range_high":        "192.168.2.255",
-		"ip_range_low":         "192.168.2.128",
-		"broadcast_ip":         "192.168.2.255",
-		"static_ip_range_low":  "192.168.2.0",
-		"name":                 "eth0",
-		"ip":                   "192.168.2.1",
-		"subnet_mask":          "255.255.255.0",
-		"management":           2,
-		"static_ip_range_high": "192.168.2.127",
-		"interface":            "eth0"
-	}`
-	jsonText2 := `{
-		"ip_range_high":        "172.16.0.128",
-		"ip_range_low":         "172.16.0.2",
-		"broadcast_ip":         "172.16.0.255",
-		"static_ip_range_low":  "172.16.0.129",
-		"name":                 "eth1",
-		"ip":                   "172.16.0.2",
-		"subnet_mask":          "255.255.255.0",
-		"management":           2,
-		"static_ip_range_high": "172.16.0.255",
-		"interface":            "eth1"
-	}`
-	jsonText3 := `{
-		"ip_range_high":        "192.168.1.128",
-		"ip_range_low":         "192.168.1.2",
-		"broadcast_ip":         "192.168.1.255",
-		"static_ip_range_low":  "192.168.1.129",
-		"name":                 "eth2",
-		"ip":                   "192.168.1.2",
-		"subnet_mask":          "255.255.255.0",
-		"management":           2,
-		"static_ip_range_high": "192.168.1.255",
-		"interface":            "eth2"
-	}`
-	jsonText4 := `{
-		"ip_range_high":        "172.16.8.128",
-		"ip_range_low":         "172.16.8.2",
-		"broadcast_ip":         "172.16.8.255",
-		"static_ip_range_low":  "172.16.0.129",
-		"name":                 "eth3",
-		"ip":                   "172.16.8.2",
-		"subnet_mask":          "255.255.255.0",
-		"management":           2,
-		"static_ip_range_high": "172.16.8.255",
-		"interface":            "eth3"
-	}`
-	testServer.NewNodegroupInterface("uuid-0", jsonText1)
-	testServer.NewNodegroupInterface("uuid-0", jsonText2)
-	testServer.NewNodegroupInterface("uuid-1", jsonText3)
-	testServer.NewNodegroupInterface("uuid-1", jsonText4)
-	return testInstance
-}
-
 func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIds(c *gc.C) {
 	server := suite.testMAASObject.TestServer
 	var subnetIDs []network.Id
@@ -1104,10 +1014,10 @@ func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
 	suite.patchDeviceCreation()
 	env := suite.makeEnviron()
 
-	mockReserve := func(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
-		return gomaasapi.ServerError{StatusCode: 404}
+	mockReserve := func(ipaddresses gomaasapi.MAASObject, deviceId, mac string, addr network.Address) (network.Address, error) {
+		return network.Address{}, gomaasapi.ServerError{StatusCode: 404}
 	}
-	suite.PatchValue(&ReserveIPAddress, mockReserve)
+	suite.PatchValue(&ReserveIPAddressOnDevice, mockReserve)
 
 	ipAddress := network.Address{Value: "192.168.2.1"}
 	err := env.AllocateAddress(testInstance.Id(), "any", &ipAddress, "foo", "bar")
