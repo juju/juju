@@ -15,6 +15,11 @@ type stringForwarder struct {
 }
 
 func NewStringForwarder(callback func(string)) *stringForwarder {
+	if callback == nil {
+		// Nothing to forward to, so no need to start the loop(). We'll
+		// just count the discardCount.
+		return &stringForwarder{}
+	}
 	forwarder := &stringForwarder{
 		callback:     callback,
 		buffer:       make(chan string),

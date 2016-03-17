@@ -54,6 +54,14 @@ func (*stringForwarderSuite) TestMessagesDroppedAfterStop(c *gc.C) {
 	c.Check(messages, gc.DeepEquals, []string{})
 }
 
+func (*stringForwarderSuite) TestAllDroppedWithNoCallback(c *gc.C) {
+	forwarder := stringforwarder.NewStringForwarder(nil)
+	forwarder.Receive("one")
+	forwarder.Receive("two")
+	forwarder.Receive("three")
+	c.Check(forwarder.Stop(), gc.Equals, 3)
+}
+
 func (*stringForwarderSuite) TestMessagesDroppedWhenBusy(c *gc.C) {
 	messages := make([]string, 0)
 	next := make(chan struct{})
