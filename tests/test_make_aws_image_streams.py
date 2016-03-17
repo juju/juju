@@ -16,6 +16,7 @@ from make_aws_image_streams import (
     get_parameters,
     make_aws_credentials,
     make_item,
+    make_item_name,
     write_streams,
     )
 from utils import temp_dir
@@ -150,9 +151,9 @@ class TestMakeAWSCredentials(TestCase):
             ])
 
 
-def make_mock_image(region_name='bar'):
-    image = Mock(virtualization_type='baz', id='qux',
-                 root_device_type='quxx', architecture='x86_64')
+def make_mock_image(region_name='us-northeast-3'):
+    image = Mock(virtualization_type='hvm', id='qux',
+                 root_device_type='ebs', architecture='x86_64')
     image.name = 'CentOS Linux 7 foo'
     image.region.endpoint = 'foo'
     image.region.name = region_name
@@ -168,21 +169,21 @@ class TetMakeItem(TestCase):
         self.assertEqual(item.content_id, 'com.ubuntu.cloud.released:aws')
         self.assertEqual(item.product_name,
                          'com.ubuntu.cloud:server:centos7:amd64')
-        self.assertEqual(item.item_name, 'bar')
+        self.assertEqual(item.item_name, 'usne3he')
         self.assertEqual(item.version_name, '20010203')
         self.assertEqual(item.data, {
             'endpoint': 'https://foo',
-            'region': 'bar',
+            'region': 'us-northeast-3',
             'arch': 'amd64',
             'os': 'centos',
-            'virt': 'baz',
+            'virt': 'hvm',
             'id': 'qux',
             'version': 'centos7',
             'label': 'release',
             'release': 'centos7',
             'release_codename': 'centos7',
             'release_title': 'Centos 7',
-            'root_store': 'quxx',
+            'root_store': 'ebs',
             })
 
     def test_china(self):
@@ -231,6 +232,15 @@ class TestGetParameters(TestCase):
             ' credentials.yaml.\n')
 
 
+class TestMakeItemName(TestCase):
+
+    def test_make_item_name(self):
+        item_name = make_item_name('us-east-1', 'paravirtual', 'instance')
+        self.assertEqual(item_name, 'usee1pi')
+        item_name = make_item_name('cn-northwest-3', 'hvm', 'ebs')
+        self.assertEqual(item_name, 'cnnw3he')
+
+
 def load_json(parent, filename):
     with open(os.path.join(parent, 'streams', 'v1', filename)) as f:
         return json.load(f)
@@ -243,10 +253,10 @@ class TestWriteStreams(TestCase):
         credentials = {'name': 'aws'}
         china_credentials = {'name': 'aws-cn'}
         east_conn = Mock()
-        east_image = make_mock_image(region_name='east')
+        east_image = make_mock_image(region_name='us-east-1')
         east_conn.get_all_images.return_value = [east_image]
         west_conn = Mock()
-        west_image = make_mock_image(region_name='west')
+        west_image = make_mock_image(region_name='us-west-1')
         west_conn.get_all_images.return_value = [west_image]
         with temp_dir() as streams:
             with patch('make_aws_image_streams.iter_region_connection',
@@ -279,21 +289,21 @@ class TestWriteStreams(TestCase):
             'updated': 'now',
             'datatype': 'image-ids',
             'products': {'com.ubuntu.cloud:server:centos7:amd64': {
-                'root_store': 'quxx',
+                'root_store': 'ebs',
                 'endpoint': 'https://foo',
                 'arch': 'amd64',
                 'release_title': 'Centos 7',
                 'label': 'release',
                 'release_codename': 'centos7',
                 'version': 'centos7',
-                'virt': 'baz',
+                'virt': 'hvm',
                 'release': 'centos7',
                 'os': 'centos',
                 'id': 'qux',
                 'versions': {'20010203': {
                     'items': {
-                        'west': {'region': 'west'},
-                        'east': {'region': 'east'},
+                        'usww1he': {'region': 'us-west-1'},
+                        'usee1he': {'region': 'us-east-1'},
                         }
                     }},
                 }},

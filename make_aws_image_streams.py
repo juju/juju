@@ -85,6 +85,57 @@ def iter_centos_images(credentials, china_credentials):
             yield image
 
 
+def make_item_name(region, vtype, store):
+    """Determine the item_name, given an image's attributes.
+
+    :param region: The region name
+    :param vtype: The virtualization type
+    :param store: The root device type.
+    """
+    # This is a port of code from simplestreams/tools/make-test-data, which is
+    # not provided as library code.
+    dmap = {
+        "north": "nn",
+        "northeast": "ne",
+        "east": "ee",
+        "southeast": "se",
+        "south": "ss",
+        "southwest": "sw",
+        "west": "ww",
+        "northwest": "nw",
+        "central": "cc",
+    }
+    itmap = {
+        'pv': {'instance': "pi", "ebs": "pe", "ssd": "es", "io1": "eo"},
+        'hvm': {'instance': "hi", "ebs": "he", "ssd": "hs", "io1": "ho"}
+    }
+    if store == "instance-store":
+        store = 'instance'
+    elif '-' in store:
+        store = store.split('-')[-1]
+    if vtype == "paravirtual":
+        vtype = "pv"
+
+    # create the item key:
+    #  - 2 letter country code (us) . 3 for govcloud (gww)
+    #  - 2 letter direction (nn=north, nw=northwest, cc=central)
+    #  - 1 digit number
+    #  - 1 char for virt type
+    #  - 1 char for root-store type
+
+    # Handle special case of 'gov' regions
+    pre_cc = ""
+    _region = region
+    if '-gov-' in region:
+        _region = region.replace('gov-', '')
+        pre_cc = "g"
+
+    (cc, direction, num) = _region.split("-")
+
+    ikey = pre_cc + cc + dmap[direction] + num + itmap[vtype][store]
+    return ikey
+
+
 def make_item(image, now):
     """Convert Centos 7 Boto image to simplestreams Item.
 
@@ -97,6 +148,8 @@ def make_item(image, now):
         raise ValueError(
             'Name "{}" does not begin with "CentOS Linux 7".'.format(
                 image.name))
+    item_name = make_item_name(image.region.name, image.virtualization_type,
+                               image.root_device_type)
     version_name = now.strftime('%Y%m%d')
     content_id = 'com.ubuntu.cloud.released:aws'
     if is_china(image.region):
@@ -105,7 +158,7 @@ def make_item(image, now):
         content_id = 'com.ubuntu.cloud.released:aws'
     return Item(
         content_id, 'com.ubuntu.cloud:server:centos7:amd64', version_name,
-        image.region.name, {
+        item_name, {
             'endpoint': 'https://{}'.format(image.region.endpoint),
             'region': image.region.name,
             'arch': 'amd64',
