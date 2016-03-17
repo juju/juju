@@ -213,10 +213,14 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 							Description: "awesome data",
 						},
 						Origin: charmresource.OriginUpload,
+						Size:   15,
 					},
 					Username:  "Bill User",
 					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 				},
+			},
+			DownloadProgress: map[string]int64{
+				"website2": 12,
 			},
 		}},
 	}}
@@ -254,6 +258,7 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 					},
 					Origin:   charmresource.OriginStore,
 					Revision: 15,
+					Size:     113,
 				},
 				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 			},
@@ -264,6 +269,7 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 						Description: "awesome data",
 					},
 					Origin: charmresource.OriginUpload,
+					Size:   9835617,
 				},
 				Username:  "Bill User",
 				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
@@ -333,6 +339,10 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 					},
 					// note we're missing the beta resource for this unit
 				},
+				DownloadProgress: map[string]int64{
+					"alpha":   17,
+					"charlie": 899937,
+				},
 			},
 			{
 				Tag: names.NewUnitTag("svc/5"),
@@ -371,6 +381,9 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 						Username:  "Bill User",
 						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 					},
+				},
+				DownloadProgress: map[string]int64{
+					"charlie": 177331,
 				},
 			},
 		},
@@ -451,6 +464,7 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 							},
 							Origin:   charmresource.OriginStore,
 							Revision: 10, // note the reivision is different for this unit
+							Size:     113,
 						},
 						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 					},
@@ -461,6 +475,7 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 								Description: "awesome data",
 							},
 							Origin: charmresource.OriginUpload,
+							Size:   9835617,
 						},
 						Username: "Bill User",
 						// note the different time
@@ -506,6 +521,9 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 						Username:  "Bill User",
 						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 					},
+				},
+				DownloadProgress: map[string]int64{
+					"charlie": 17,
 				},
 			},
 		},

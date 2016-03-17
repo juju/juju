@@ -58,6 +58,7 @@ type FormattedDetailResource struct {
 	UnitID     string               `json:"unitID" yaml:"unitID"`
 	Unit       FormattedSvcResource `json:"unit" yaml:"unit"`
 	Expected   FormattedSvcResource `json:"expected" yaml:"expected"`
+	Progress   int64                `json:"progress,omitempty" yaml:"progress,omitempty"`
 	unitNumber int
 }
 

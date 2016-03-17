@@ -120,7 +120,7 @@ func FormatServiceDetails(sr resource.ServiceResources) (FormattedServiceDetails
 }
 
 // FormatDetailResource converts the arguments into a FormattedServiceResource.
-func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource) (FormattedDetailResource, error) {
+func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource, progress int64) (FormattedDetailResource, error) {
 	// note that the unit resource can be a zero value here, to indicate that
 	// the unit has not downloaded that resource yet.
 
@@ -133,6 +133,7 @@ func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource) (Forma
 		unitNumber: unitNum,
 		Unit:       FormatSvcResource(unit),
 		Expected:   FormatSvcResource(svc),
+		Progress:   progress,
 	}, nil
 }
 
@@ -186,7 +187,8 @@ func detailedResources(unit string, sr resource.ServiceResources) ([]FormattedDe
 		if unit == "" || unit == ur.Tag.Id() {
 			units := resourceMap(ur.Resources)
 			for _, svc := range sr.Resources {
-				f, err := FormatDetailResource(ur.Tag, svc, units[svc.Name])
+				progress := ur.DownloadProgress[svc.Name]
+				f, err := FormatDetailResource(ur.Tag, svc, units[svc.Name], progress)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
