@@ -479,7 +479,7 @@ func (s *ResourceSuite) TestOpenResourceForUniterOkay(c *gc.C) {
 	info, reader, err := st.OpenResourceForUniter(unit, "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "ServiceName", "GetResource", "Get")
+	s.stub.CheckCallNames(c, "ServiceName", "GetResource", "Get", "Name", "SetUnitResourceProgress")
 	s.stub.CheckCall(c, 2, "Get", "service-a-service/resources/spam")
 	c.Check(info, jc.DeepEquals, opened.Resource)
 
@@ -638,7 +638,7 @@ func (s *ResourceSuite) TestUnitSetterNoEOF(c *gc.C) {
 
 	// Assert that we don't call SetUnitResource if we read but don't reach the
 	// end of the buffer.
-	s.stub.CheckNoCalls(c)
+	s.stub.CheckCallNames(c, "Name", "SetUnitResourceProgress")
 }
 
 func (s *ResourceSuite) TestUnitSetterSetUnitErr(c *gc.C) {

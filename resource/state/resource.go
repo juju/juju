@@ -49,6 +49,10 @@ type resourcePersistence interface {
 	// SetUnitResource stores the resource info for a unit.
 	SetUnitResource(unitID string, args resource.Resource) error
 
+	// SetUnitResourceProgress stores the resource info and download
+	// progressfor a unit.
+	SetUnitResourceProgress(unitID string, args resource.Resource, progress int64) error
+
 	// NewResolvePendingResourceOps generates mongo transaction operations
 	// to set the identified resource as active.
 	NewResolvePendingResourceOps(resID, pendingID string) ([]txn.Op, error)
@@ -317,7 +321,12 @@ func (st resourceState) OpenResourceForUniter(unit resource.Unit, name string) (
 	pending := resourceInfo // a copy
 	pending.PendingID = pendingID
 
-	resourceReader = unitSetter{
+	if err := st.persist.SetUnitResourceProgress(unit.Name(), pending, 0); err != nil {
+		resourceReader.Close()
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
+
+	resourceReader = &unitSetter{
 		ReadCloser: resourceReader,
 		persist:    st.persist,
 		unit:       unit,
@@ -415,16 +424,23 @@ type unitSetter struct {
 	unit     resource.Unit
 	pending  resource.Resource
 	resource resource.Resource
+	progress int64
 }
 
 // Read implements io.Reader.
-func (u unitSetter) Read(p []byte) (n int, err error) {
+func (u *unitSetter) Read(p []byte) (n int, err error) {
 	n, err = u.ReadCloser.Read(p)
 	if err == io.EOF {
 		// record that the unit is now using this version of the resource
 		if err := u.persist.SetUnitResource(u.unit.Name(), u.resource); err != nil {
 			msg := "Failed to record that unit %q is using resource %q revision %v"
 			logger.Errorf(msg, u.unit.Name(), u.resource.Name, u.resource.RevisionString())
+		}
+	} else {
+		u.progress += int64(n)
+		// TODO(ericsnow) Don't do this every time?
+		if err := u.persist.SetUnitResourceProgress(u.unit.Name(), u.pending, u.progress); err != nil {
+			logger.Errorf("failed to track progress: %v", err)
 		}
 	}
 	return n, err

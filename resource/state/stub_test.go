@@ -133,6 +133,15 @@ func (s *stubPersistence) SetUnitResource(unitID string, res resource.Resource) 
 	return nil
 }
 
+func (s *stubPersistence) SetUnitResourceProgress(unitID string, res resource.Resource, progress int64) error {
+	s.stub.AddCall("SetUnitResourceProgress", unitID, res, progress)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
 func (s *stubPersistence) NewResolvePendingResourceOps(resID, pendingID string) ([]txn.Op, error) {
 	s.stub.AddCall("NewResolvePendingResourceOps", resID, pendingID)
 	if err := s.stub.NextErr(); err != nil {
