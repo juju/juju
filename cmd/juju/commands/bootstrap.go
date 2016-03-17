@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"launchpad.net/gnuflag"
 
@@ -33,7 +34,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // provisionalProviders is the names of providers that are hidden behind
@@ -51,12 +52,12 @@ that machine.
 The controller will be setup with an intial controller model called "admin" as well
 as a hosted model which can be used to run workloads.
 
-If boostrap-constraints are specified in the bootstrap command, 
-they will apply to the machine provisioned for the juju controller, 
+If boostrap-constraints are specified in the bootstrap command,
+they will apply to the machine provisioned for the juju controller,
 and any future controllers provisioned for HA.
 
-If constraints are specified, they will be set as the default constraints 
-on the model for all future workload machines, 
+If constraints are specified, they will be set as the default constraints
+on the model for all future workload machines,
 exactly as if the constraints were set with juju set-constraints.
 
 It is possible to override constraints and the automatic machine selection
@@ -187,7 +188,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	}
 	if !c.AutoUpgrade {
 		// With no auto upgrade chosen, we default to the version matching the bootstrap client.
-		vers := version.Current
+		vers := jujuversion.Current
 		c.AgentVersion = &vers
 	}
 	if c.AgentVersionParam != "" {
@@ -199,7 +200,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 			return err
 		}
 	}
-	if c.AgentVersion != nil && (c.AgentVersion.Major != version.Current.Major || c.AgentVersion.Minor != version.Current.Minor) {
+	if c.AgentVersion != nil && (c.AgentVersion.Major != jujuversion.Current.Major || c.AgentVersion.Minor != jujuversion.Current.Minor) {
 		return fmt.Errorf("requested agent version major.minor mismatch")
 	}
 

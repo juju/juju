@@ -140,6 +140,10 @@ func deployService(st *state.State, owner string, args params.ServiceDeploy) err
 		return errors.Trace(err)
 	}
 
+	if err := checkMinVersion(ch); err != nil {
+		return errors.Trace(err)
+	}
+
 	var settings charm.Settings
 	if len(args.ConfigYAML) > 0 {
 		settings, err = ch.Config().ParseSettingsYAML([]byte(args.ConfigYAML), args.ServiceName)

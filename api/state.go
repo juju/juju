@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/version"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api/addresser"
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/version"
 )
 
 // Login authenticates as the entity with the given name and password.

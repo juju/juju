@@ -18,6 +18,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -36,7 +37,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const (
@@ -60,7 +61,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 }
 
@@ -255,7 +256,7 @@ func (s *bootstrapSuite) TestSetBootstrapTools(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		err = env.SetConfig(cfg)
 		c.Assert(err, jc.ErrorIsNil)
-		s.PatchValue(&version.Current, t.currentVersion)
+		s.PatchValue(&jujuversion.Current, t.currentVersion)
 		bootstrapTools, err := bootstrap.SetBootstrapTools(env, availableTools)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(bootstrapTools.Version.Number, gc.Equals, t.expectedTools)
@@ -425,11 +426,11 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 }
 
 func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, clientMinor int, toolsVersion *version.Number) (error, int, version.Number) {
-	currentVersion := version.Current
+	currentVersion := jujuversion.Current
 	currentVersion.Major = clientMajor
 	currentVersion.Minor = clientMinor
 	currentVersion.Tag = ""
-	s.PatchValue(&version.Current, currentVersion)
+	s.PatchValue(&jujuversion.Current, currentVersion)
 	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 

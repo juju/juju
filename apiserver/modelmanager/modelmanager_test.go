@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 	// Register the providers for the field check test
 	_ "github.com/juju/juju/provider/azure"
 	_ "github.com/juju/juju/provider/ec2"
@@ -29,7 +30,6 @@ import (
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
 )
 
 type modelManagerBaseSuite struct {
@@ -257,20 +257,20 @@ func (s *modelManagerSuite) TestCreateModelBadConfig(c *gc.C) {
 func (s *modelManagerSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
-	args := s.createArgsForVersion(c, admin, version.Current.String())
+	args := s.createArgsForVersion(c, admin, jujuversion.Current.String())
 	_, err := s.modelmanager.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelManagerSuite) TestCreateModelBadAgentVersion(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
 
-	bigger := version.Current
+	bigger := jujuversion.Current
 	bigger.Minor += 1
 
-	smaller := version.Current
+	smaller := jujuversion.Current
 	smaller.Minor -= 1
 
 	for i, test := range []struct {

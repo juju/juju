@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var envtoolsFindTools = envtools.FindTools

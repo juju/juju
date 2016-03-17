@@ -16,7 +16,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 // modelGlobalKey is the key for the model, its

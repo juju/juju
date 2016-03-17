@@ -4,7 +4,7 @@
 package tools
 
 import (
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 // Tools represents the location and version of a tools tarball.

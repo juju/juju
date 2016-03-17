@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/shell"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -32,7 +33,6 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.instancecfg")
