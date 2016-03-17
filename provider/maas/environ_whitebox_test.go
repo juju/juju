@@ -439,6 +439,7 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
 		arch.HostArch()),
 	)
+	suite.addSubnet(c, 9, 9, "thenode")
 	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
 	c.Assert(err, jc.ErrorIsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
@@ -453,6 +454,7 @@ func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
 		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
 		arch.HostArch()),
 	)
+	suite.addSubnet(c, 9, 9, "thenode")
 	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
 	c.Assert(err, jc.ErrorIsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
@@ -469,6 +471,7 @@ func (suite *environSuite) TestBootstrapNodeFailedDeploy(c *gc.C) {
 		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
 		arch.HostArch()),
 	)
+	suite.addSubnet(c, 9, 9, "thenode")
 	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
 	c.Assert(err, jc.ErrorIsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
@@ -529,6 +532,8 @@ func (suite *environSuite) TestSupportedArchitecturesFallback(c *gc.C) {
 	// then Juju will fall over to listing all the available nodes.
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "architecture": "amd64/generic"}`)
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "architecture": "armhf"}`)
+	suite.addSubnet(c, 9, 9, "node0")
+	suite.addSubnet(c, 9, 9, "node1")
 	env := suite.makeEnviron()
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, jc.ErrorIsNil)
@@ -586,6 +591,7 @@ func (suite *environSuite) TestSupportsSpaceDiscovery(c *gc.C) {
 
 func (suite *environSuite) createSubnets(c *gc.C, duplicates bool) instance.Instance {
 	testInstance := suite.getInstance("node1")
+	suite.addSubnet(c, 6, 6, "node1")
 	testServer := suite.testMAASObject.TestServer
 	templateInterfaces := map[string]ifaceInfo{
 		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
@@ -777,13 +783,6 @@ func (suite *environSuite) TestSubnetsNoInstanceIdNoSubnetIds(c *gc.C) {
 	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
 }
 
-func (suite *environSuite) TestSubnetsMissingSubnet(c *gc.C) {
-	testInstance := suite.getInstance("node1")
-	suite.addSubnet(c, 1, 1, "node1")
-	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"1", "2"})
-	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: 2")
-}
-
 func (suite *environSuite) TestSpaces(c *gc.C) {
 	suite.createTwoSpaces()
 	suite.testMAASObject.TestServer.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-3"}))
@@ -844,16 +843,16 @@ func (suite *environSuite) assertSpaces(c *gc.C, numberOfSubnets int, filters []
 
 }
 
-func (suite *environSuite) TestSubnetsWithSpacesAllSubnets(c *gc.C) {
+func (suite *environSuite) TestSubnetsAllSubnets(c *gc.C) {
 	suite.assertSpaces(c, 3, []network.Id{})
 }
 
-func (suite *environSuite) TestSubnetsWithSpacesFilteredIds(c *gc.C) {
+func (suite *environSuite) TestSubnetsFilteredIds(c *gc.C) {
 	suite.assertSpaces(c, 4, []network.Id{"1", "3"})
 }
 
-func (suite *environSuite) TestSubnetsWithSpacesMissingSubnet(c *gc.C) {
-	testInstance := suite.createSubnets(c, false)
+func (suite *environSuite) TestSubnetsMissingSubnet(c *gc.C) {
+	testInstance := suite.getInstance("node1")
 	for _, i := range []uint{1, 2} {
 		suite.addSubnet(c, i, i, "node1")
 	}
@@ -868,17 +867,19 @@ func (suite *environSuite) TestSubnetsWithSpacesMissingSubnet(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
-	testInstance := suite.createSubnets(c, false)
+	testInstance := suite.getInstance("node0")
+	subnetId := suite.addSubnet(c, 2, 2, "node0")
 	env := suite.makeEnviron()
 
 	// note that the default test server always succeeds if we provide a
 	// valid instance id and net id
-	err := env.AllocateAddress(testInstance.Id(), "LAN", &network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), network.Id(string(int(subnetId))), &network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
-	testInstance := suite.createSubnets(c, false)
+	testInstance := suite.getInstance("node0")
+	subnetId := suite.addSubnet(c, 2, 2, "node0")
 	env := suite.makeEnviron()
 
 	// Work around the lack of support for devices PUT and POST without hostname
@@ -907,7 +908,7 @@ func (suite *environSuite) TestAllocateAddressDevices(c *gc.C) {
 	// valid instance id and net id
 	err := env.AllocateAddress(
 		testInstance.Id(),
-		"LAN",
+		network.Id(string(int(subnetId))),
 		&network.Address{Value: "192.168.2.1"},
 		"aa:bb:cc:dd:ee:f0",
 		"juju-machine-0-kvm-5",
