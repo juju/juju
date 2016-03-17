@@ -44,11 +44,16 @@ func (s *ResourcePersistenceSuite) TestListResourcesOkay(c *gc.C) {
 	expected, docs := newPersistenceResources(c, "a-service", "spam", "eggs")
 	expected.CharmStoreResources[1].Revision += 1
 	docs[3].Revision += 1
-	unitRes, doc := newPersistenceUnitResource(c, "a-service", "a-service/0", "something")
+	unitRes, doc := newPersistenceUnitResource(c, "a-service", "a-service/0", "eggs")
+	var progress int64 = 3
+	doc.DownloadProgress = &progress
 	expected.UnitResources = []resource.UnitResources{{
 		Tag: names.NewUnitTag("a-service/0"),
 		Resources: []resource.Resource{
 			unitRes,
+		},
+		DownloadProgress: map[string]int64{
+			"eggs": progress,
 		},
 	}}
 	docs = append(docs, doc)

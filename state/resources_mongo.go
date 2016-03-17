@@ -318,6 +318,8 @@ type resourceDoc struct {
 
 	StoragePath string `bson:"storage-path"`
 
+	DownloadProgress *int64 `bson:"download-progress,omitempty"`
+
 	LastPolled time.Time `bson:"timestamp-when-last-polled"`
 }
 

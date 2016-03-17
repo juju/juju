@@ -74,6 +74,7 @@ func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceRe
 
 	store := map[string]charmresource.Resource{}
 	units := map[names.UnitTag][]resource.Resource{}
+	downloadProgress := make(map[names.UnitTag]map[string]int64)
 
 	var results resource.ServiceResources
 	for _, doc := range docs {
@@ -95,6 +96,12 @@ func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceRe
 		}
 		tag := names.NewUnitTag(doc.UnitID)
 		units[tag] = append(units[tag], res)
+		if doc.DownloadProgress != nil {
+			if downloadProgress[tag] == nil {
+				downloadProgress[tag] = make(map[string]int64)
+			}
+			downloadProgress[tag][doc.Name] = *doc.DownloadProgress
+		}
 	}
 	for _, res := range results.Resources {
 		storeRes := store[res.Name]
@@ -102,8 +109,9 @@ func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceRe
 	}
 	for tag, res := range units {
 		results.UnitResources = append(results.UnitResources, resource.UnitResources{
-			Tag:       tag,
-			Resources: res,
+			Tag:              tag,
+			Resources:        res,
+			DownloadProgress: downloadProgress[tag],
 		})
 	}
 	return results, nil
