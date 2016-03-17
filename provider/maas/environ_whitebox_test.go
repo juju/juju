@@ -1016,7 +1016,8 @@ func (suite *environSuite) patchDeviceCreation() {
 
 func (suite *environSuite) TestAllocateAddressDevicesFailures(c *gc.C) {
 	suite.SetFeatureFlags()
-	testInstance := suite.createSubnets(c, false)
+	testInstance := suite.getInstance("node1")
+	suite.addSubnet(c, 2, 2, "node1")
 	env := suite.makeEnviron()
 	suite.patchDeviceCreation()
 
@@ -1065,12 +1066,13 @@ func (suite *environSuite) getDeviceArray(c *gc.C) []gomaasapi.JSONObject {
 }
 
 func (suite *environSuite) TestReleaseAddressDeletesDevice(c *gc.C) {
-	testInstance := suite.createSubnets(c, false)
+	testInstance := suite.getInstance("node1")
+	subnetId := suite.addSubnet(c, 2, 2, "node1")
 	env := suite.makeEnviron()
 	suite.patchDeviceCreation()
 
 	addr := network.NewAddress("192.168.2.1")
-	err := env.AllocateAddress(testInstance.Id(), "LAN", &addr, "foo", "juju-lxc")
+	err := env.AllocateAddress(testInstance.Id(), network.Id(string(int(subnetId))), &addr, "foo", "juju-lxc")
 	c.Assert(err, jc.ErrorIsNil)
 
 	devicesArray := suite.getDeviceArray(c)
@@ -1096,15 +1098,9 @@ func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, expected)
 }
 
-func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
-	testInstance := suite.createSubnets(c, false)
-	env := suite.makeEnviron()
-	err := env.AllocateAddress(testInstance.Id(), "bar", &network.Address{Value: "192.168.2.1"}, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "failed to find the following subnets: bar")
-}
-
 func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
-	testInstance := suite.createSubnets(c, false)
+	testInstance := suite.getInstance("node1")
+	subnetId := suite.addSubnet(c, 2, 2, "node1")
 	env := suite.makeEnviron()
 
 	reserveIPAddress := func(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
@@ -1113,7 +1109,7 @@ func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
 	suite.PatchValue(&ReserveIPAddress, reserveIPAddress)
 
 	ipAddress := network.Address{Value: "192.168.2.1"}
-	err := env.AllocateAddress(testInstance.Id(), "LAN", &ipAddress, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), network.Id(string(int(subnetId))), &ipAddress, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
 	expected := fmt.Sprintf("failed to allocate address %q for instance %q.*", ipAddress, testInstance.Id())
 	c.Assert(err, gc.ErrorMatches, expected)
