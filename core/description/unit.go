@@ -19,11 +19,11 @@ type unit struct {
 
 	Machine_ string `yaml:"machine"`
 
-	AgentStatus_        *status       `yaml:"agent-status"`
-	AgentStatusHistory_ statusHistory `yaml:"agent-status-history"`
+	AgentStatus_        *status        `yaml:"agent-status"`
+	AgentStatusHistory_ StatusHistory_ `yaml:"agent-status-history"`
 
-	WorkloadStatus_        *status       `yaml:"workload-status"`
-	WorkloadStatusHistory_ statusHistory `yaml:"workload-status-history"`
+	WorkloadStatus_        *status        `yaml:"workload-status"`
+	WorkloadStatusHistory_ StatusHistory_ `yaml:"workload-status-history"`
 
 	Principal_    string   `yaml:"principal,omitempty"`
 	Subordinates_ []string `yaml:"subordinates,omitempty"`
@@ -38,8 +38,7 @@ type unit struct {
 	MeterStatusCode_ string `yaml:"meter-status-code,omitempty"`
 	MeterStatusInfo_ string `yaml:"meter-status-info,omitempty"`
 
-	// annotations is exported as it is a composed type, even if private.
-	annotations `yaml:"annotations,omitempty"`
+	Annotations_ `yaml:"annotations,omitempty"`
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
 }

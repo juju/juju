@@ -191,7 +191,7 @@ func (s *StatusHistorySerializationSuite) TestSetStatusHistory(c *gc.C) {
 	}
 }
 
-func (s *StatusHistorySerializationSuite) exportImport(c *gc.C, status_ statusHistory) statusHistory {
+func (s *StatusHistorySerializationSuite) exportImport(c *gc.C, status_ StatusHistory_) StatusHistory_ {
 	bytes, err := yaml.Marshal(status_)
 	c.Assert(err, jc.ErrorIsNil)
 

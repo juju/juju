@@ -83,8 +83,7 @@ type model struct {
 
 	Sequences_ map[string]int `yaml:"sequences"`
 
-	// annotations is exported as it is a composed type, even if private.
-	annotations `yaml:"annotations,omitempty"`
+	Annotations_ `yaml:"annotations,omitempty"`
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
 

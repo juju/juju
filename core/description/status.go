@@ -22,7 +22,7 @@ type StatusArgs struct {
 func newStatus(args StatusArgs) *status {
 	return &status{
 		Version: 1,
-		statusPoint: statusPoint{
+		StatusPoint_: StatusPoint_{
 			Value_:   args.Value,
 			Message_: args.Message,
 			Data_:    args.Data,
@@ -31,16 +31,16 @@ func newStatus(args StatusArgs) *status {
 	}
 }
 
-func newStatusHistory() statusHistory {
-	return statusHistory{
+func newStatusHistory() StatusHistory_ {
+	return StatusHistory_{
 		Version: 1,
 	}
 }
 
-// statusPoint implements Status, and represents the status
+// StatusPoint_ implements Status, and represents the status
 // of an entity at a point in time. Used in the serialization of
-// both status and statusHistory.
-type statusPoint struct {
+// both status and StatusHistory_.
+type StatusPoint_ struct {
 	Value_   string                 `yaml:"value"`
 	Message_ string                 `yaml:"message,omitempty"`
 	Data_    map[string]interface{} `yaml:"data,omitempty"`
@@ -48,32 +48,32 @@ type statusPoint struct {
 }
 
 type status struct {
-	Version     int `yaml:"version"`
-	statusPoint `yaml:"status"`
+	Version      int `yaml:"version"`
+	StatusPoint_ `yaml:"status"`
 }
 
-type statusHistory struct {
-	Version int            `yaml:"version"`
-	History []*statusPoint `yaml:"history"`
+type StatusHistory_ struct {
+	Version int             `yaml:"version"`
+	History []*StatusPoint_ `yaml:"history"`
 }
 
 // Value implements Status.
-func (a *statusPoint) Value() string {
+func (a *StatusPoint_) Value() string {
 	return a.Value_
 }
 
 // Message implements Status.
-func (a *statusPoint) Message() string {
+func (a *StatusPoint_) Message() string {
 	return a.Message_
 }
 
 // Data implements Status.
-func (a *statusPoint) Data() map[string]interface{} {
+func (a *StatusPoint_) Data() map[string]interface{} {
 	return a.Data_
 }
 
 // Updated implements Status.
-func (a *statusPoint) Updated() time.Time {
+func (a *StatusPoint_) Updated() time.Time {
 	return a.Updated_
 }
 
@@ -97,12 +97,12 @@ func importStatus(source map[string]interface{}) (*status, error) {
 		return nil, errors.Trace(err)
 	}
 	return &status{
-		Version:     1,
-		statusPoint: point,
+		Version:      1,
+		StatusPoint_: point,
 	}, nil
 }
 
-func importStatusHistory(history *statusHistory, source map[string]interface{}) error {
+func importStatusHistory(history *StatusHistory_, source map[string]interface{}) error {
 	checker := versionedChecker("history")
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
@@ -125,8 +125,8 @@ func importStatusHistory(history *statusHistory, source map[string]interface{}) 
 	return nil
 }
 
-func importStatusList(sourceList []interface{}, importFunc statusDeserializationFunc) ([]*statusPoint, error) {
-	result := make([]*statusPoint, 0, len(sourceList))
+func importStatusList(sourceList []interface{}, importFunc statusDeserializationFunc) ([]*StatusPoint_, error) {
+	result := make([]*StatusPoint_, 0, len(sourceList))
 	for i, value := range sourceList {
 		source, ok := value.(map[string]interface{})
 		if !ok {
@@ -141,13 +141,13 @@ func importStatusList(sourceList []interface{}, importFunc statusDeserialization
 	return result, nil
 }
 
-type statusDeserializationFunc func(map[string]interface{}) (statusPoint, error)
+type statusDeserializationFunc func(map[string]interface{}) (StatusPoint_, error)
 
 var statusDeserializationFuncs = map[int]statusDeserializationFunc{
 	1: importStatusV1,
 }
 
-func importStatusV1(source map[string]interface{}) (statusPoint, error) {
+func importStatusV1(source map[string]interface{}) (StatusPoint_, error) {
 	fields := schema.Fields{
 		"value":   schema.String(),
 		"message": schema.String(),
@@ -163,7 +163,7 @@ func importStatusV1(source map[string]interface{}) (statusPoint, error) {
 
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
-		return statusPoint{}, errors.Annotatef(err, "status v1 schema check failed")
+		return StatusPoint_{}, errors.Annotatef(err, "status v1 schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
 	// From here we know that the map returned from the schema coercion
@@ -173,7 +173,7 @@ func importStatusV1(source map[string]interface{}) (statusPoint, error) {
 	if sourceData, set := valid["data"]; set {
 		data = sourceData.(map[string]interface{})
 	}
-	return statusPoint{
+	return StatusPoint_{
 		Value_:   valid["value"].(string),
 		Message_: valid["message"].(string),
 		Data_:    data,
@@ -182,7 +182,7 @@ func importStatusV1(source map[string]interface{}) (statusPoint, error) {
 }
 
 // StatusHistory implements HasStatusHistory.
-func (s *statusHistory) StatusHistory() []Status {
+func (s *StatusHistory_) StatusHistory() []Status {
 	var result []Status
 	if count := len(s.History); count > 0 {
 		result = make([]Status, count)
@@ -194,10 +194,10 @@ func (s *statusHistory) StatusHistory() []Status {
 }
 
 // SetStatusHistory implements HasStatusHistory.
-func (s *statusHistory) SetStatusHistory(args []StatusArgs) {
-	points := make([]*statusPoint, len(args))
+func (s *StatusHistory_) SetStatusHistory(args []StatusArgs) {
+	points := make([]*StatusPoint_, len(args))
 	for i, arg := range args {
-		points[i] = &statusPoint{
+		points[i] = &StatusPoint_{
 			Value_:   arg.Value,
 			Message_: arg.Message,
 			Data_:    arg.Data,
@@ -211,6 +211,6 @@ func addStatusHistorySchema(fields schema.Fields) {
 	fields["status-history"] = schema.StringMap(schema.Any())
 }
 
-func (s *statusHistory) importStatusHistory(valid map[string]interface{}) error {
+func (s *StatusHistory_) importStatusHistory(valid map[string]interface{}) error {
 	return importStatusHistory(s, valid["status-history"].(map[string]interface{}))
 }
