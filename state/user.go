@@ -101,16 +101,16 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	return user, nil
 }
 
-func createInitialUserOp(st *State, user names.UserTag, password string) txn.Op {
+func createInitialUserOp(st *State, user names.UserTag, password, salt string) txn.Op {
 	nameToLower := strings.ToLower(user.Name())
 	doc := userDoc{
 		DocID:        nameToLower,
 		Name:         user.Name(),
 		DisplayName:  user.Name(),
-		PasswordHash: password,
-		// Empty PasswordSalt means utils.CompatSalt
-		CreatedBy:   user.Name(),
-		DateCreated: nowToTheSecond(),
+		PasswordHash: utils.UserPasswordHash(password, salt),
+		PasswordSalt: salt,
+		CreatedBy:    user.Name(),
+		DateCreated:  nowToTheSecond(),
 	}
 	return txn.Op{
 		C:      usersC,

@@ -147,7 +147,9 @@ func (s *UserSuite) TestDisable(c *gc.C) {
 func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 
-	err := user.SetPasswordHash(utils.UserPasswordHash("foo", utils.CompatSalt), utils.CompatSalt)
+	salt, err := utils.RandomSalt()
+	c.Assert(err, jc.ErrorIsNil)
+	err = user.SetPasswordHash(utils.UserPasswordHash("foo", salt), salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
@@ -169,9 +171,8 @@ func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
-	salt, hash := state.GetUserPasswordSaltAndHash(user)
+	salt, _ := state.GetUserPasswordSaltAndHash(user)
 	c.Assert(salt, gc.Equals, "salted")
-	c.Assert(hash, gc.Not(gc.Equals), utils.UserPasswordHash("foo", utils.CompatSalt))
 }
 
 func (s *UserSuite) TestCantDisableAdmin(c *gc.C) {

@@ -152,7 +152,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(icfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
 	c.Check(icfg.DisableSSLHostnameVerification, jc.IsFalse)
-	password := utils.UserPasswordHash("lisboan-pork", utils.CompatSalt)
+	password := "lisboan-pork"
 	c.Check(icfg.APIInfo, gc.DeepEquals, &api.Info{
 		Password: password, CACert: testing.CACert,
 		ModelTag: testing.ModelTag,
