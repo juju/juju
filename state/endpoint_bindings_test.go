@@ -25,9 +25,9 @@ var _ = gc.Suite(&BindingsSuite{})
 func (s *BindingsSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
-	const dummyCharmWithOneOfEachRelationType = `
+	const dummyCharmWithOneOfEachRelationTypeAndExtraBindings = `
 name: dummy
-summary: "That's a dummy charm with one relation of each type."
+summary: "That's a dummy charm with one relation of each type and extra-bindings."
 description: "This is a longer description."
 provides:
   foo1:
@@ -38,16 +38,19 @@ requires:
 peers:
   self:
     interface: dummy
+extra-bindings:
+  one-extra:
 `
-	oldCharm := s.AddMetaCharm(c, "dummy", dummyCharmWithOneOfEachRelationType, 1)
+	oldCharm := s.AddMetaCharm(c, "dummy", dummyCharmWithOneOfEachRelationTypeAndExtraBindings, 1)
 	s.oldMeta = oldCharm.Meta()
 	s.oldDefaults = map[string]string{
-		"foo1": "",
-		"bar1": "",
-		"self": "",
+		"foo1":      "",
+		"bar1":      "",
+		"self":      "",
+		"one-extra": "",
 	}
 
-	const dummyCharmWithTwoOfEachRelationType = `
+	const dummyCharmWithTwoOfEachRelationTypeAndNoExtraBindings = `
 name: dummy
 summary: "That's a dummy charm with 2 relations for each type."
 description: "This is a longer description."
@@ -65,7 +68,7 @@ peers:
     interface: dummy
   me: peer
 `
-	newCharm := s.AddMetaCharm(c, "dummy", dummyCharmWithTwoOfEachRelationType, 2)
+	newCharm := s.AddMetaCharm(c, "dummy", dummyCharmWithTwoOfEachRelationTypeAndNoExtraBindings, 2)
 	s.newMeta = newCharm.Meta()
 	s.newDefaults = map[string]string{
 		"foo1": "",
@@ -88,6 +91,7 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 	// The test cases below are not exhaustive, but just check basic
 	// functionality. Most of the logic is tested by calling service.SetCharm()
 	// in various ways.
+
 	for i, test := range []struct {
 		about          string
 		newMap, oldMap map[string]string
@@ -110,17 +114,19 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		},
 		meta: s.oldMeta,
 		updated: map[string]string{
-			"foo1": "client",
-			"bar1": "",
-			"self": "db",
+			"foo1":      "client",
+			"bar1":      "",
+			"self":      "db",
+			"one-extra": "",
 		},
 		removed: nil,
 	}, {
 		about: "oldMap overrides defaults, newMap overrides oldMap",
 		newMap: map[string]string{
-			"foo1": "",
-			"self": "db",
-			"bar1": "client",
+			"foo1":      "",
+			"self":      "db",
+			"bar1":      "client",
+			"one-extra": "apps",
 		},
 		oldMap: map[string]string{
 			"foo1": "client",
@@ -128,9 +134,10 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		},
 		meta: s.oldMeta,
 		updated: map[string]string{
-			"foo1": "",
-			"bar1": "client",
-			"self": "db",
+			"foo1":      "",
+			"bar1":      "client",
+			"self":      "db",
+			"one-extra": "apps",
 		},
 		removed: nil,
 	}, {
@@ -141,9 +148,10 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		oldMap: nil,
 		meta:   s.oldMeta,
 		updated: map[string]string{
-			"foo1": "",
-			"bar1": "",
-			"self": "db",
+			"foo1":      "",
+			"bar1":      "",
+			"self":      "db",
+			"one-extra": "",
 		},
 		removed: nil,
 	}, {
@@ -152,12 +160,14 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		oldMap: map[string]string{
 			"any-old-thing": "boo",
 			"self":          "db",
+			"one-extra":     "apps",
 		},
 		meta: s.oldMeta,
 		updated: map[string]string{
-			"foo1": "",
-			"bar1": "",
-			"self": "db",
+			"foo1":      "",
+			"bar1":      "",
+			"self":      "db",
+			"one-extra": "apps",
 		},
 		removed: []string{"any-old-thing"},
 	}, {
@@ -177,7 +187,7 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 			"self": "",
 			"me":   "client",
 		},
-		removed: []string{"bar1"},
+		removed: []string{"bar1", "one-extra"},
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
 
@@ -186,25 +196,6 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		c.Check(updated, jc.DeepEquals, test.updated)
 		c.Check(removed, jc.DeepEquals, test.removed)
 	}
-}
-
-func (s *BindingsSuite) TestCombinedCharmRelations(c *gc.C) {
-	_, err := state.CombinedCharmRelations(nil)
-	c.Check(err, gc.ErrorMatches, "nil charm metadata")
-
-	meta := s.newMeta
-	allRelations, err := state.CombinedCharmRelations(meta)
-	c.Check(err, jc.ErrorIsNil)
-	combinedLength := len(meta.Provides) + len(meta.Requires) + len(meta.Peers)
-	c.Check(allRelations, gc.HasLen, combinedLength)
-	c.Check(allRelations, jc.DeepEquals, map[string]charm.Relation{
-		"foo1": meta.Provides["foo1"],
-		"foo2": meta.Provides["foo2"],
-		"bar2": meta.Requires["bar2"],
-		"bar3": meta.Requires["bar3"],
-		"self": meta.Peers["self"],
-		"me":   meta.Peers["me"],
-	})
 }
 
 func (s *BindingsSuite) copyMap(input map[string]string) map[string]string {

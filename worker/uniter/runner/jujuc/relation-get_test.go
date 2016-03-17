@@ -27,8 +27,8 @@ var _ = gc.Suite(&RelationGetSuite{})
 func (s *RelationGetSuite) newHookContext(relid int, remote string) (jujuc.Context, *relationInfo) {
 	hctx, info := s.relationSuite.newHookContext(relid, remote)
 	info.rels[0].Units["u/0"]["private-address"] = "foo: bar\n"
-	info.rels[1].SetRelated("m/0", jujuctesting.Settings{"pew": "pew\npew\n"}, nil)
-	info.rels[1].SetRelated("u/1", jujuctesting.Settings{"value": "12345"}, nil)
+	info.rels[1].SetRelated("m/0", jujuctesting.Settings{"pew": "pew\npew\n"})
+	info.rels[1].SetRelated("u/1", jujuctesting.Settings{"value": "12345"})
 	return hctx, info
 }
 
