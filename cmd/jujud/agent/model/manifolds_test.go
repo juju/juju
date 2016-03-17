@@ -29,6 +29,8 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 	for name := range manifolds {
 		actual.Add(name)
 	}
+	// NOTE: if this test failed, the cmd/jujud/agent tests will
+	// also fail. Search for 'ModelWorkers' to find affected vars.
 	c.Check(actual.Values(), jc.SameContents, []string{
 		"agent", "clock", "api-caller",
 		"is-responsible-flag", "not-dead-flag", "not-alive-flag",

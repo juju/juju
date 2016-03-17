@@ -12,11 +12,17 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/jujud/agent/model"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 
 var (
+	// These vars hold the per-model workers we expect to run in
+	// various circumstances. Note the absence of dyingModelWorkers:
+	// it's not a stable state, because it's responsible for making
+	// the model Dead via the undertaker, so it can't be waited for
+	// reliably.
 	alwaysModelWorkers = []string{
 		"agent", "clock", "api-caller",
 		"is-responsible-flag", "not-alive-flag", "not-dead-flag",
@@ -30,6 +36,13 @@ var (
 	deadModelWorkers = []string{
 		"environ-tracker", "undertaker",
 	}
+
+	// ReallyLongTimeout should be long enough for the model-tracker
+	// tests that depend on a hosted model; its backing state is not
+	// accessible for StartSyncs, so we generally have to wait for at
+	// least two 5s ticks to pass, and should expect rare circumstances
+	// to take even longer.
+	ReallyLongWait = coretesting.LongWait * 3
 )
 
 // modelMatchFunc returns a func that will return whether the current

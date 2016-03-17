@@ -1627,7 +1627,7 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 	st, closer := s.setUpNewModel(c)
 	defer closer()
 	uuid := st.ModelUUID()
-	timeout := time.After(coretesting.LongWait)
+	timeout := time.After(ReallyLongWait)
 
 	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
 		for {
@@ -1654,7 +1654,7 @@ func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 	st, closer := s.setUpNewModel(c)
 	defer closer()
 	uuid := st.ModelUUID()
-	timeout := time.After(coretesting.LongWait * 10)
+	timeout := time.After(ReallyLongWait)
 
 	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
 		model, err := st.Model()
