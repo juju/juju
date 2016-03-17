@@ -55,6 +55,7 @@ Example:
 
 See Also:
    juju list-credentials
+   juju remove-credential
 `
 
 // NewAddCredentialCommand returns a command to add credential information.
