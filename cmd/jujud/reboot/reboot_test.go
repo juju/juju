@@ -36,6 +36,10 @@ type RebootSuite struct {
 var _ = gc.Suite(&RebootSuite{})
 
 func (s *RebootSuite) SetUpTest(c *gc.C) {
+	if testing.GOVERSION < 1.3 {
+		c.Skip("skipping test, lxd requires Go 1.3 or later")
+	}
+
 	s.JujuConnSuite.SetUpTest(c)
 	testing.PatchExecutableAsEchoArgs(c, s, rebootBin)
 	s.PatchEnvironment("TEMP", c.MkDir())
