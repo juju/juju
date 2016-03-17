@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -188,22 +187,8 @@ func (e *environ) ec2() *ec2.EC2 {
 	return ec2
 }
 
-func (e *environ) s3() *s3.S3 {
-	e.ecfgMutex.Lock()
-	s3 := e.s3Unlocked
-	e.ecfgMutex.Unlock()
-	return s3
-}
-
 func (e *environ) Name() string {
 	return e.name
-}
-
-func (e *environ) Storage() envstorage.Storage {
-	e.ecfgMutex.Lock()
-	stor := e.storageUnlocked
-	e.ecfgMutex.Unlock()
-	return stor
 }
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
@@ -211,7 +196,38 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 }
 
 func (e *environ) ControllerInstances() ([]instance.Id, error) {
-	return common.ProviderStateInstances(e, e.Storage())
+	eUUID, ok := e.Config().UUID()
+	if !ok {
+		return nil, errors.NotFoundf("enviroment UUID in configuration")
+	}
+
+	filter := ec2.NewFilter()
+	filter.Add("instance-state-name", "pending", "running")
+	filter.Add(fmt.Sprintf("tag:%s", tags.JujuModel), eUUID)
+	filter.Add(fmt.Sprintf("tag:%s", tags.JujuController), "true")
+	err := e.addGroupFilter(filter)
+	if err != nil {
+		if ec2ErrCode(err) == "InvalidGroup.NotFound" {
+			return nil, environs.ErrNotBootstrapped
+		}
+		return nil, errors.Annotate(err, "adding a group filter for instances")
+	}
+	resp, err := e.ec2().Instances(nil, filter)
+	if err != nil {
+		return nil, errors.Annotate(err, "listing instances")
+	}
+	var insts []instance.Id
+	for _, r := range resp.Reservations {
+		for i := range r.Instances {
+			inst := &ec2Instance{
+				e:        e,
+				Instance: &r.Instances[i],
+			}
+			insts = append(insts, inst.Id())
+		}
+	}
+	return insts, nil
+
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
@@ -258,6 +274,9 @@ func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
 
 var unsupportedConstraints = []string{
 	constraints.Tags,
+	// TODO(anastasiamac 2016-03-16) LP#1557874
+	// use virt-type in StartInstances
+	constraints.VirtType,
 }
 
 // ConstraintsValidator is defined on the Environs interface.
@@ -654,12 +673,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		}
 	}
 
-	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
-		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
-			return nil, errors.Annotate(err, "recording instance in provider-state")
-		}
-	}
-
 	hc := instance.HardwareCharacteristics{
 		Arch:     &spec.Image.Arch,
 		Mem:      &spec.InstanceType.Mem,
@@ -748,10 +761,7 @@ func _runInstances(e *ec2.EC2, ri *ec2.RunInstances) (resp *ec2.RunInstancesResp
 }
 
 func (e *environ) StopInstances(ids ...instance.Id) error {
-	if err := e.terminateInstances(ids); err != nil {
-		return errors.Trace(err)
-	}
-	return common.RemoveStateInstances(e.Storage(), ids...)
+	return errors.Trace(e.terminateInstances(ids))
 }
 
 // groupInfoByName returns information on the security group
@@ -1213,10 +1223,12 @@ func (e *environ) Destroy() error {
 	if err := common.Destroy(e); err != nil {
 		return errors.Trace(err)
 	}
+
 	if err := e.cleanEnvironmentSecurityGroup(); err != nil {
 		logger.Warningf("cannot delete default security group: %v", err)
 	}
-	return e.Storage().RemoveAll()
+
+	return nil
 }
 
 func portsToIPPerms(ports []network.PortRange) []ec2.IPPerm {

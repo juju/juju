@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	uc "github.com/juju/utils/clock"
 
 	apiundertaker "github.com/juju/juju/api/undertaker"
@@ -16,8 +15,6 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 )
-
-var logger = loggo.GetLogger("juju.worker.undertaker")
 
 // ripTime is the time to wait after an model has been set to
 // dead, before removing all model docs.

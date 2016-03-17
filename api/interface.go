@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	"github.com/juju/version"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api/addresser"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/version"
 )
 
 // Info encapsulates information about a server holding juju state and

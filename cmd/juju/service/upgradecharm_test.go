@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -49,8 +50,8 @@ func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	original := newCharmStoreClient
-	s.PatchValue(&newCharmStoreClient, func(httpClient *http.Client) *csClient {
-		csclient := original(httpClient)
+	s.PatchValue(&newCharmStoreClient, func(ctx *cmd.Context, httpClient *http.Client) *csClient {
+		csclient := original(ctx, httpClient)
 		csclient.params.URL = s.srv.URL
 		return csclient
 	})

@@ -4,6 +4,8 @@
 package cloud_test
 
 import (
+	"regexp"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -451,6 +453,107 @@ func (s *credentialsSuite) TestFinalizeCredentialNotSupported(c *gc.C) {
 
 func readFileNotSupported(f string) ([]byte, error) {
 	return nil, errors.NotSupportedf("reading file %q", f)
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialMandatoryFieldMissing(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"password": "secret",
+			"domain":   "domain",
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"username": {
+			Optional: false,
+		},
+		"password": {
+			Hidden: true,
+		},
+		"domain": {},
+	}
+	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: schema,
+	}, nil)
+	c.Assert(err, gc.ErrorMatches, "username: expected string, got nothing")
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialMandatoryFieldFromFile(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"key-file": "path",
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"key": {
+			Description: "key credential",
+			Optional:    false,
+			FileAttr:    "key-file",
+		},
+	}
+	readFile := func(s string) ([]byte, error) {
+		c.Assert(s, gc.Equals, "path")
+		return []byte("file-value"), nil
+	}
+	newCred, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: schema,
+	}, readFile)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newCred.Attributes(), jc.DeepEquals, map[string]string{
+		"key": "file-value",
+	})
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialExtraField(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"username":   "user",
+			"password":   "secret",
+			"domain":     "domain",
+			"access-key": "access-key",
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"username": {
+			Optional: false,
+		},
+		"password": {
+			Hidden: true,
+		},
+		"domain": {},
+	}
+	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: schema,
+	}, nil)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`unknown key "access-key" (value "access-key")`))
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialInvalidChoice(c *gc.C) {
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"username":  "user",
+			"password":  "secret",
+			"algorithm": "foo",
+		},
+	)
+	schema := cloud.CredentialSchema{
+		"username": {
+			Optional: false,
+		},
+		"password": {
+			Hidden: true,
+		},
+		"algorithm": {
+			Options: []interface{}{"bar", "foobar"},
+		},
+	}
+	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: schema,
+	}, nil)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`algorithm: expected one of [bar foobar], got "foo"`))
 }
 
 func (s *credentialsSuite) TestRemoveSecrets(c *gc.C) {

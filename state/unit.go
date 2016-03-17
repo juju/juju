@@ -4,7 +4,6 @@
 package state
 
 import (
-	stderrors "errors"
 	"fmt"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var unitLogger = loggo.GetLogger("juju.state.unit")
@@ -70,16 +69,6 @@ const (
 type port struct {
 	Protocol string `bson:"protocol"`
 	Number   int    `bson:"number"`
-}
-
-// networkPorts is a convenience helper to return the state type
-// as network type, here for a slice of Port.
-func networkPorts(ports []port) []network.Port {
-	netPorts := make([]network.Port, len(ports))
-	for i, port := range ports {
-		netPorts[i] = network.Port{port.Protocol, port.Number}
-	}
-	return netPorts
 }
 
 // unitDoc represents the internal state of a unit in MongoDB.
@@ -511,7 +500,7 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	return ops, nil
 }
 
-var errAlreadyRemoved = stderrors.New("entity has already been removed")
+var errAlreadyRemoved = errors.New("entity has already been removed")
 
 // removeOps returns the operations necessary to remove the unit, assuming
 // the supplied asserts apply to the unit document.
@@ -529,7 +518,7 @@ func (u *Unit) removeOps(asserts bson.D) ([]txn.Op, error) {
 // ErrUnitHasSubordinates is a standard error to indicate that a Unit
 // cannot complete an operation to end its life because it still has
 // subordinate services
-var ErrUnitHasSubordinates = stderrors.New("unit has subordinates")
+var ErrUnitHasSubordinates = errors.New("unit has subordinates")
 
 var unitHasNoSubordinates = bson.D{{
 	"$or", []bson.D{
@@ -541,7 +530,7 @@ var unitHasNoSubordinates = bson.D{{
 // ErrUnitHasStorageAttachments is a standard error to indicate that
 // a Unit cannot complete an operation to end its life because it still
 // has storage attachments.
-var ErrUnitHasStorageAttachments = stderrors.New("unit has storage attachments")
+var ErrUnitHasStorageAttachments = errors.New("unit has storage attachments")
 
 var unitHasNoStorageAttachments = bson.D{{
 	"$or", []bson.D{
@@ -600,7 +589,7 @@ func (u *Unit) EnsureDead() (err error) {
 func (u *Unit) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove unit %q", u)
 	if u.doc.Life != Dead {
-		return stderrors.New("unit is not dead")
+		return errors.New("unit is not dead")
 	}
 
 	// Now the unit is Dead, we can be sure that it's impossible for it to
@@ -1024,26 +1013,6 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	return err
 }
 
-func (u *Unit) charm() (*Charm, error) {
-	if u.doc.CharmURL == nil {
-		s, err := u.Service()
-		if err != nil {
-			return nil, errors.Annotatef(err, "getting service for unit %v", u.Tag().Id())
-		}
-		ch, _, err := s.Charm()
-		if err != nil {
-			return nil, errors.Annotatef(err, "getting charm for unit %q", u.Tag().Id())
-		}
-		return ch, nil
-	}
-
-	ch, err := u.st.Charm(u.doc.CharmURL)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return ch, nil
-}
-
 // AgentPresence returns whether the respective remote agent is alive.
 func (u *Unit) AgentPresence() (bool, error) {
 	return u.st.pwatcher.Alive(u.globalAgentKey())
@@ -1126,11 +1095,11 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 }
 
 var (
-	machineNotAliveErr = stderrors.New("machine is not alive")
-	machineNotCleanErr = stderrors.New("machine is dirty")
-	unitNotAliveErr    = stderrors.New("unit is not alive")
-	alreadyAssignedErr = stderrors.New("unit is already assigned to a machine")
-	inUseErr           = stderrors.New("machine is not unused")
+	machineNotAliveErr = errors.New("machine is not alive")
+	machineNotCleanErr = errors.New("machine is dirty")
+	unitNotAliveErr    = errors.New("unit is not alive")
+	alreadyAssignedErr = errors.New("unit is already assigned to a machine")
+	inUseErr           = errors.New("machine is not unused")
 )
 
 // assignToMachine is the internal version of AssignToMachine,
@@ -1759,7 +1728,7 @@ func machineStorageParamsForStorageInstance(
 	return result, nil
 }
 
-var noCleanMachines = stderrors.New("all eligible machines in use")
+var noCleanMachines = errors.New("all eligible machines in use")
 
 // AssignToCleanMachine assigns u to a machine which is marked as clean. A machine
 // is clean if it has never had any principal units assigned to it.

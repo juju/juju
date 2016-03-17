@@ -4,6 +4,7 @@
 package service
 
 import (
+	"archive/zip"
 	"fmt"
 	"net/http"
 	"os"
@@ -320,10 +321,10 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	bundleData, err := charmrepo.ReadBundleFile(bundlePath)
 	if err != nil {
 		// We may have been given a local bundle archive or exploded directory.
-		if bundle, burl, pathErr := charmrepo.NewBundleAtPath(bundlePath); err == nil {
+		if bundle, burl, pathErr := charmrepo.NewBundleAtPath(bundlePath); pathErr == nil {
 			bundleData = bundle.Data()
 			bundlePath = burl.String()
-			err = pathErr
+			err = nil
 		}
 	}
 	// If not a bundle then maybe a local charm.
@@ -344,6 +345,9 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		}
 		if charm.IsUnsupportedSeriesError(charmErr) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", charmErr)
+		}
+		if errors.Cause(charmErr) == zip.ErrFormat {
+			return errors.Errorf("invalid charm or bundle provided at %q", c.CharmOrBundle)
 		}
 		err = charmErr
 	}
@@ -366,7 +370,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	if err != nil {
 		return errors.Trace(err)
 	}
-	csClient := newCharmStoreClient(httpClient)
+	csClient := newCharmStoreClient(ctx, httpClient)
 
 	var charmOrBundleURL *charm.URL
 	var repo charmrepo.Interface
@@ -586,20 +590,7 @@ func (c *DeployCommand) deployCharm(
 		spaceBindings: c.Bindings,
 		resources:     ids,
 	}
-	if err := deployer.serviceDeploy(params); err != nil {
-		return err
-	}
-
-	state, err = c.NewAPIRoot()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	httpClient, err = c.HTTPClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return err
+	return deployer.serviceDeploy(params)
 }
 
 type APICmd interface {
@@ -624,13 +615,14 @@ func handleResources(c APICmd, resources map[string]string, serviceName string, 
 	return ids, nil
 }
 
-const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<relation-name>=<space>] [<relation2-name>=<space2>] ...]'. "
+const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<endpoint-name>=<space> ...]'. "
 
 // parseBind parses the --bind option. Valid forms are:
 // * relation-name=space-name
-// * space-name
+// * extra-binding-name=space-name
+// * space-name (equivalent to binding all endpoints to the same space, i.e. service-default)
 // * The above in a space separated list to specify multiple bindings,
-//   e.g. "rel1=space1 rel2=space2 space3"
+//   e.g. "rel1=space1 ext1=space2 space3"
 func (c *DeployCommand) parseBind() error {
 	bindings := make(map[string]string)
 	if c.BindToSpaces == "" {
@@ -651,7 +643,7 @@ func (c *DeployCommand) parseBind() error {
 			space = v[0]
 		case 2:
 			if v[0] == "" {
-				return errors.New(parseBindErrorPrefix + "Found = without relation name. Use a lone space name to set the default.")
+				return errors.New(parseBindErrorPrefix + "Found = without endpoint name. Use a lone space name to set the default.")
 			}
 			endpoint = v[0]
 			space = v[1]

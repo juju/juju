@@ -98,7 +98,3 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) (err error) {
 	_, err = io.Copy(ctx.Stdout, debugLog)
 	return err
 }
-
-var runSSHCommand = func(sshCmd *sshCommand, ctx *cmd.Context) error {
-	return sshCmd.Run(ctx)
-}

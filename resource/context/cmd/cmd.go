@@ -3,12 +3,6 @@
 
 package cmd
 
-import (
-	"github.com/juju/loggo"
-)
-
-var logger = loggo.GetLogger("juju.resource.context.cmd")
-
 // HookContext exposes the functionality needed by the "resource-*"
 // hook commands.
 type HookContext interface {

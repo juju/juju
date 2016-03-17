@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -84,7 +85,6 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 	}
 	for i, arg := range args.Users {
 		var user *state.User
-		var err error
 		if arg.Password != "" {
 			user, err = api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, loggedInUser.Id())
 		} else {
@@ -100,47 +100,32 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 				SecretKey: user.SecretKey(),
 			}
 		}
-		userTag := user.Tag().(names.UserTag)
-		for _, modelTagStr := range arg.SharedModelTags {
-			modelTag, err := names.ParseModelTag(modelTagStr)
+
+		if len(arg.SharedModelTags) > 0 {
+			modelAccess, err := modelmanager.FromModelAccessParam(arg.ModelAccess)
 			if err != nil {
-				err = errors.Annotatef(err, "user %q created but model %q not shared", arg.Username, modelTagStr)
+				err = errors.Annotatef(err, "user %q created but models not shared", arg.Username)
 				result.Results[i].Error = common.ServerError(err)
-				break
+				continue
 			}
-			err = ShareModelAction(api.state, modelTag, loggedInUser, userTag, params.AddModelUser)
-			if err != nil {
-				err = errors.Annotatef(err, "user %q created but model %q not shared", arg.Username, modelTagStr)
-				result.Results[i].Error = common.ServerError(err)
-				break
+			userTag := user.Tag().(names.UserTag)
+			for _, modelTagStr := range arg.SharedModelTags {
+				modelTag, err := names.ParseModelTag(modelTagStr)
+				if err != nil {
+					err = errors.Annotatef(err, "user %q created but model %q not shared", arg.Username, modelTagStr)
+					result.Results[i].Error = common.ServerError(err)
+					break
+				}
+				err = modelmanager.ChangeModelAccess(api.state, modelTag, loggedInUser, userTag, params.GrantModelAccess, modelAccess)
+				if err != nil {
+					err = errors.Annotatef(err, "user %q created but model %q not shared", arg.Username, modelTagStr)
+					result.Results[i].Error = common.ServerError(err)
+					break
+				}
 			}
 		}
 	}
 	return result, nil
-}
-
-type stateAccessor interface {
-	ForModel(tag names.ModelTag) (*state.State, error)
-}
-
-// ShareModelAction performs the requested share action (add/remove) for the specified
-// sharedWith user on the specified model.
-func ShareModelAction(stateAccess stateAccessor, modelTag names.ModelTag, createdBy, sharedWith names.UserTag, action params.ModelAction) error {
-	st, err := stateAccess.ForModel(modelTag)
-	if err != nil {
-		return errors.Annotate(err, "could lookup model")
-	}
-	defer st.Close()
-	switch action {
-	case params.AddModelUser:
-		_, err = st.AddModelUser(state.ModelUserSpec{User: sharedWith, CreatedBy: createdBy})
-		return errors.Annotate(err, "could not share model")
-	case params.RemoveModelUser:
-		err := st.RemoveModelUser(sharedWith)
-		return errors.Annotate(err, "could not unshare model")
-	default:
-		return errors.Errorf("unknown action %q", action)
-	}
 }
 
 func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {

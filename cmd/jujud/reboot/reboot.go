@@ -132,7 +132,5 @@ func (r *Reboot) waitForContainersOrTimeout() error {
 		return errors.New("Timeout reached waiting for containers to shutdown")
 	case err := <-c:
 		return errors.Trace(err)
-	default:
-		return nil
 	}
 }

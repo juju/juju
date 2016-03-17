@@ -15,8 +15,8 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.instancecfg")
@@ -403,10 +402,6 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	}
 	return nil
 }
-
-// logDir returns a filesystem path to the location where applications
-// may create a folder containing logs
-var logDir = paths.MustSucceed(paths.LogDir(series.HostSeries()))
 
 // DefaultBridgePrefix is the prefix for all network bridge device
 // name used for LXC and KVM containers.

@@ -8,7 +8,6 @@ import (
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/worker/upgradewaiter"
 	"github.com/juju/juju/worker/util"
 	"github.com/juju/utils/clock"
+	"github.com/juju/version"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -311,7 +311,6 @@ const (
 	agentName                = "agent"
 	terminationName          = "termination"
 	apiCallerName            = "api-caller"
-	apiInfoGateName          = "api-info-gate"
 	upgradeStepsGateName     = "upgrade-steps-gate"
 	upgradeCheckGateName     = "upgrade-check-gate"
 	upgraderName             = "upgrader"

@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type serviceSuite struct {
@@ -235,6 +236,23 @@ func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 			Pool:  "loop",
 		},
 	})
+}
+
+func (s *serviceSuite) TestMinJujuVersionTooHigh(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "quantal/minjujuversion-0", "minjujuversion")
+	args := params.ServiceDeploy{
+		ServiceName: "minver",
+		CharmUrl:    curl.String(),
+		NumUnits:    1,
+	}
+	res, err := s.serviceApi.Deploy(params.ServicesDeploy{
+		Services: []params.ServiceDeploy{args}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, gc.NotNil)
+	match := fmt.Sprintf(`charm's min version (999.999.999) is higher than this juju environment's version (%s)`, jujuversion.Current)
+	c.Assert(res.Results[0].Error.Error(), gc.Equals, match)
 }
 
 func (s *serviceSuite) TestServiceDeployWithInvalidStoragePool(c *gc.C) {

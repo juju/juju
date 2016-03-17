@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
@@ -90,6 +91,34 @@ type NetworkSuite struct {
 }
 
 var _ = gc.Suite(&NetworkSuite{})
+
+func (s *NetworkSuite) TestConvertSpaceName(c *gc.C) {
+	empty := set.Strings{}
+	nameTests := []struct {
+		name     string
+		existing set.Strings
+		expected string
+	}{
+		{"foo", empty, "foo"},
+		{"foo1", empty, "foo1"},
+		{"Foo Thing", empty, "foo-thing"},
+		{"foo^9*//++!!!!", empty, "foo9"},
+		{"--Foo", empty, "foo"},
+		{"---^^&*()!", empty, "empty"},
+		{" ", empty, "empty"},
+		{"", empty, "empty"},
+		{"foo\u2318", empty, "foo"},
+		{"foo--", empty, "foo"},
+		{"-foo--foo----bar-", empty, "foo-foo-bar"},
+		{"foo-", set.NewStrings("foo", "bar", "baz"), "foo-2"},
+		{"foo", set.NewStrings("foo", "foo-2"), "foo-3"},
+		{"---", set.NewStrings("empty"), "empty-2"},
+	}
+	for _, test := range nameTests {
+		result := network.ConvertSpaceName(test.name, test.existing)
+		c.Check(result, gc.Equals, test.expected)
+	}
+}
 
 func (*NetworkSuite) TestInitializeFromConfig(c *gc.C) {
 	c.Check(network.PreferIPv6(), jc.IsFalse)
