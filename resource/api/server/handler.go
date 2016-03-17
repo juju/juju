@@ -12,9 +12,6 @@ import (
 	"github.com/juju/juju/resource/api"
 )
 
-// TODO(ericsnow) Define the HTTPHandlerConstraints here? Perhaps
-// even the HTTPHandlerSpec?
-
 // LegacyHTTPHandler is the HTTP handler for the resources endpoint. We
 // use it rather having a separate handler for each HTTP method since
 // registered API handlers must handle *all* HTTP methods currently.

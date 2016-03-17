@@ -12,14 +12,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/api"
+	coreapi "github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/client"
 	internalclient "github.com/juju/juju/resource/api/private/client"
 	internalserver "github.com/juju/juju/resource/api/private/server"
@@ -66,7 +68,16 @@ func (r resources) registerPublicFacade() {
 		server.Version,
 		resourceadapters.NewPublicFacade,
 	)
-	api.RegisterFacadeVersion(resource.ComponentName, server.Version)
+	coreapi.RegisterFacadeVersion(resource.ComponentName, server.Version)
+
+	common.RegisterAPIModelEndpoint(api.HTTPEndpointPattern, apihttp.HandlerSpec{
+		Constraints: apihttp.HandlerConstraints{
+			AuthKind:            names.UserTagKind,
+			StrictValidation:    true,
+			ControllerModelOnly: false,
+		},
+		NewHandler: resourceadapters.NewUploadHandler,
+	})
 }
 
 // resourcesApiClient adds a Close() method to the resources public API client.
@@ -190,7 +201,7 @@ func (r resources) registerHookContextFacade() {
 		r.newHookContextFacade,
 		reflect.TypeOf(&internalserver.UnitFacade{}),
 	)
-	api.RegisterFacadeVersion(context.HookContextFacade, internalserver.FacadeVersion)
+	coreapi.RegisterFacadeVersion(context.HookContextFacade, internalserver.FacadeVersion)
 }
 
 // resourcesUnitDatastore is a shim to elide serviceName from
