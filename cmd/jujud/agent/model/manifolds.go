@@ -212,7 +212,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:    apiCallerName,
 			MaxLogsPerEntity: config.EntityStatusHistoryCount,
 			PruneInterval:    config.EntityStatusHistoryInterval,
-			// TODO(fwereade): use the clock
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			NewTimer: worker.NewTimer,
 		})),
 	}

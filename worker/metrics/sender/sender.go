@@ -86,6 +86,7 @@ func (s *sender) Handle(c net.Conn) (err error) {
 		}
 		c.Close()
 	}()
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	err = c.SetDeadline(time.Now().Add(spool.DefaultTimeout))
 	if err != nil {
 		return errors.Annotate(err, "failed to set the deadline")

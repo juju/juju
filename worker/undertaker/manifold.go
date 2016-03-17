@@ -14,6 +14,8 @@ import (
 	"github.com/juju/utils/clock"
 )
 
+// ManifoldConfig holds the names of the resources used by, and the
+// additional dependencies of, an undertaker worker.
 type ManifoldConfig struct {
 	APICallerName string
 	EnvironName   string
@@ -55,6 +57,8 @@ func (config ManifoldConfig) start(getResource dependency.GetResourceFunc) (work
 	return worker, nil
 }
 
+// Manifold returns a dependency.Manifold that runs a worker responsible
+// for shepherding a Dying model into Dead and ultimate removal.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{

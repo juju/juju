@@ -37,7 +37,7 @@ func (mock *mockFacade) WatchModelResources() (watcher.NotifyWatcher, error) {
 	if err := mock.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	count := 5
+	const count = 5
 	changes := make(chan struct{}, count)
 	for i := 0; i < count; i++ {
 		changes <- struct{}{}

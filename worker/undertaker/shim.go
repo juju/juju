@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/worker"
 )
 
+// NewFacade creates a Facade from a base.APICaller, by calling the
+// constructor in api/undertaker that returns a more specific type.
 func NewFacade(apiCaller base.APICaller) (Facade, error) {
 	facade, err := undertaker.NewClient(apiCaller, watcher.NewNotifyWatcher)
 	if err != nil {
@@ -20,6 +22,8 @@ func NewFacade(apiCaller base.APICaller) (Facade, error) {
 	return facade, nil
 }
 
+// NewFacade creates a worker.Worker from a Config, by calling the
+// local constructor that returns a more specific type.
 func NewWorker(config Config) (worker.Worker, error) {
 	worker, err := NewUndertaker(config)
 	if err != nil {

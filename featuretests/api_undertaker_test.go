@@ -21,7 +21,9 @@ import (
 	"github.com/juju/juju/watcher/watchertest"
 )
 
-// TODO(fwereade): I don't see how this is a feature test?
+// TODO(fwereade) 2016-03-17 lp:1558668
+// this is not a feature test; much of it is redundant, and other
+// bits should be tested elsewhere.
 type undertakerSuite struct {
 	jujutesting.JujuConnSuite
 }

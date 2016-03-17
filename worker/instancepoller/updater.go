@@ -211,6 +211,7 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 		case <-context.dying():
 			return context.errDying()
 		case <-time.After(pollInterval):
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			pollInstance = true
 		case <-changed:
 			if err := m.Refresh(); err != nil {
