@@ -867,6 +867,7 @@ func (suite *environSuite) TestSubnetsMissingSubnet(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
+	suite.patchDeviceCreation()
 	testInstance := suite.getInstance("node0")
 	subnetId := suite.addSubnet(c, 2, 2, "node0")
 	env := suite.makeEnviron()
@@ -1100,16 +1101,16 @@ func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
 
 func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
 	testInstance := suite.getInstance("node1")
-	subnetId := suite.addSubnet(c, 2, 2, "node1")
+	suite.patchDeviceCreation()
 	env := suite.makeEnviron()
 
-	reserveIPAddress := func(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
+	mockReserve := func(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
 		return gomaasapi.ServerError{StatusCode: 404}
 	}
-	suite.PatchValue(&ReserveIPAddress, reserveIPAddress)
+	suite.PatchValue(&ReserveIPAddress, mockReserve)
 
 	ipAddress := network.Address{Value: "192.168.2.1"}
-	err := env.AllocateAddress(testInstance.Id(), network.Id(string(int(subnetId))), &ipAddress, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), "any", &ipAddress, "foo", "bar")
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
 	expected := fmt.Sprintf("failed to allocate address %q for instance %q.*", ipAddress, testInstance.Id())
 	c.Assert(err, gc.ErrorMatches, expected)

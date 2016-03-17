@@ -1549,7 +1549,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 	client := environ.getMAASClient()
 	deviceID, err := environ.createOrFetchDevice(macAddress, instId, hostname)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	devices := client.GetSubObject("devices")
@@ -1562,7 +1562,6 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 		return nil
 	}
 
-	var ok bool
 	maasErr, ok := err.(gomaasapi.ServerError)
 	if !ok {
 		return errors.Trace(err)
