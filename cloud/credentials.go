@@ -82,8 +82,8 @@ func NewEmptyCloudCredential() *CloudCredential {
 	return &CloudCredential{AuthCredentials: map[string]Credential{"default": NewEmptyCredential()}}
 }
 
-// CredentialValue describes the properties of a named credential attribute.
-type CredentialValue struct {
+// NamedCredentialAttr describes the properties of a named credential attribute.
+type NamedCredentialAttr struct {
 	// Name is the name of the credential value.
 	Name string
 
@@ -93,7 +93,7 @@ type CredentialValue struct {
 
 // CredentialSchema describes the schema of a credential. Credential schemas
 // are specific to cloud providers.
-type CredentialSchema []CredentialValue
+type CredentialSchema []NamedCredentialAttr
 
 // Attribute returns the named CredentialAttr value.
 func (s CredentialSchema) Attribute(name string) (*CredentialAttr, bool) {
@@ -202,7 +202,7 @@ func ValidateFileAttrValue(path string) (string, error) {
 }
 
 func (s CredentialSchema) processFileAttrValue(
-	field CredentialValue, resultMap map[string]interface{}, newAttrs map[string]string,
+	field NamedCredentialAttr, resultMap map[string]interface{}, newAttrs map[string]string,
 	readFile func(string) ([]byte, error),
 ) error {
 	name := field.Name
