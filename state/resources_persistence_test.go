@@ -44,19 +44,17 @@ func (s *ResourcePersistenceSuite) TestListResourcesOkay(c *gc.C) {
 	expected, docs := newPersistenceResources(c, "a-service", "spam", "eggs")
 	expected.CharmStoreResources[1].Revision += 1
 	docs[3].Revision += 1
-	unitRes, doc := newPersistenceUnitResource(c, "a-service", "a-service/0", "eggs")
+	unitRes, unitDocs := newPersistenceUnitResources(c, "a-service", "a-service/0", expected.Resources)
 	var progress int64 = 3
-	doc.DownloadProgress = &progress
+	unitDocs[1].DownloadProgress = &progress // the "eggs" doc
 	expected.UnitResources = []resource.UnitResources{{
-		Tag: names.NewUnitTag("a-service/0"),
-		Resources: []resource.Resource{
-			unitRes,
-		},
+		Tag:       names.NewUnitTag("a-service/0"),
+		Resources: unitRes,
 		DownloadProgress: map[string]int64{
 			"eggs": progress,
 		},
 	}}
-	docs = append(docs, doc)
+	docs = append(docs, unitDocs...)
 	s.base.ReturnAll = docs
 	p := NewResourcePersistence(s.base)
 
@@ -536,6 +534,24 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsNotFound(c *
 	})
 }
 
+func newPersistenceUnitResources(c *gc.C, serviceID, unitID string, resources []resource.Resource) ([]resource.Resource, []resourceDoc) {
+	var unitResources []resource.Resource
+	var docs []resourceDoc
+	for _, res := range resources {
+		res, doc := newPersistenceUnitResource(c, serviceID, unitID, res.Name)
+		unitResources = append(unitResources, res)
+		docs = append(docs, doc)
+	}
+	return unitResources, docs
+}
+
+func newPersistenceUnitResource(c *gc.C, serviceID, unitID, name string) (resource.Resource, resourceDoc) {
+	res, doc := newPersistenceResource(c, serviceID, name)
+	doc.DocID += "#unit-" + unitID
+	doc.UnitID = unitID
+	return res.Resource, doc
+}
+
 func newPersistenceResources(c *gc.C, serviceID string, names ...string) (resource.ServiceResources, []resourceDoc) {
 	var svcResources resource.ServiceResources
 	var docs []resourceDoc
@@ -553,13 +569,6 @@ func newPersistenceResources(c *gc.C, serviceID string, names ...string) (resour
 		docs = append(docs, csDoc)
 	}
 	return svcResources, docs
-}
-
-func newPersistenceUnitResource(c *gc.C, serviceID, unitID, name string) (resource.Resource, resourceDoc) {
-	res, doc := newPersistenceResource(c, serviceID, name)
-	doc.DocID += "#unit-" + unitID
-	doc.UnitID = unitID
-	return res.Resource, doc
 }
 
 func newPersistenceResource(c *gc.C, serviceID, name string) (storedResource, resourceDoc) {
