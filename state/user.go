@@ -370,20 +370,6 @@ func (u *User) PasswordValid(password string) bool {
 	if u.doc.PasswordSalt != "" {
 		return utils.UserPasswordHash(password, u.doc.PasswordSalt) == u.doc.PasswordHash
 	}
-	// In Juju 1.16 and older, we did not set a Salt for the user password,
-	// so check if the password hash matches using CompatSalt. if it
-	// does, then set the password again so that we get a proper salt
-	if utils.UserPasswordHash(password, utils.CompatSalt) == u.doc.PasswordHash {
-		// This will set a new Salt for the password. We ignore if it
-		// fails because we will try again at the next request
-		logger.Debugf("User %s logged in with CompatSalt resetting password for new salt",
-			u.Name())
-		err := u.SetPassword(password)
-		if err != nil {
-			logger.Errorf("Cannot set resalted password for user %q", u.Name())
-		}
-		return true
-	}
 	return false
 }
 

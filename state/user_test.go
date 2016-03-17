@@ -174,33 +174,6 @@ func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
 	c.Assert(hash, gc.Not(gc.Equals), utils.UserPasswordHash("foo", utils.CompatSalt))
 }
 
-func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
-	user := s.Factory.MakeUser(c, nil)
-
-	compatHash := utils.UserPasswordHash("foo", utils.CompatSalt)
-	err := user.SetPasswordHash(compatHash, "")
-	c.Assert(err, jc.ErrorIsNil)
-	beforeSalt, beforeHash := state.GetUserPasswordSaltAndHash(user)
-	c.Assert(beforeSalt, gc.Equals, "")
-	c.Assert(beforeHash, gc.Equals, compatHash)
-	c.Assert(user.PasswordValid("bar"), jc.IsFalse)
-	// A bad password doesn't trigger a rewrite
-	afterBadSalt, afterBadHash := state.GetUserPasswordSaltAndHash(user)
-	c.Assert(afterBadSalt, gc.Equals, "")
-	c.Assert(afterBadHash, gc.Equals, compatHash)
-	// When we get a valid check, we then add a salt and rewrite the hash
-	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
-	afterSalt, afterHash := state.GetUserPasswordSaltAndHash(user)
-	c.Assert(afterSalt, gc.Not(gc.Equals), "")
-	c.Assert(afterHash, gc.Not(gc.Equals), compatHash)
-	c.Assert(afterHash, gc.Equals, utils.UserPasswordHash("foo", afterSalt))
-	// running PasswordValid again doesn't trigger another rewrite
-	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
-	lastSalt, lastHash := state.GetUserPasswordSaltAndHash(user)
-	c.Assert(lastSalt, gc.Equals, afterSalt)
-	c.Assert(lastHash, gc.Equals, afterHash)
-}
-
 func (s *UserSuite) TestCantDisableAdmin(c *gc.C) {
 	user, err := s.State.User(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
