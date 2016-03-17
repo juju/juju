@@ -682,7 +682,7 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 		subnetID = ""
 	} else {
 		if err := m.verifyAddressSubnetAliveIfKnownWhenSet(subnetID); errors.IsNotFound(err) {
-			logger.Warningf("address %q on machine %q uses unknown subnet %q", addressValue, m.Id(), subnetID)
+			logger.Infof("address %q on machine %q uses unknown subnet %q", addressValue, m.Id(), subnetID)
 			subnetID = ""
 		} else if err != nil {
 			return nil, errors.Trace(err)
