@@ -363,13 +363,16 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		srv: srv,
 	}
 
-	var endpoints []apihttp.Endpoint
+	endpoints := common.ResolveAPIEndpoints(srv.newHandlerArgs)
+
+	// TODO(ericsnow) Add the following to the registry instead.
+
 	add := func(pattern string, handler http.Handler) {
 		// TODO: We can switch from all methods to specific ones for entries
 		// where we only want to support specific request methods. However, our
 		// tests currently assert that errors come back as application/json and
 		// pat only does "text/plain" responses.
-		for _, method := range []string{"GET", "POST", "HEAD", "PUT", "DEL", "OPTIONS"} {
+		for _, method := range common.DefaultHTTPMethods {
 			endpoints = append(endpoints, apihttp.Endpoint{
 				Pattern: pattern,
 				Method:  method,
@@ -452,6 +455,33 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	add("/", mainAPIHandler)
 
 	return endpoints
+}
+
+func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHandlerArgs {
+	ctxt := httpContext{
+		srv:                 srv,
+		strictValidation:    spec.StrictValidation,
+		controllerModelOnly: spec.ControllerModelOnly,
+	}
+
+	var args apihttp.NewHandlerArgs
+	switch spec.AuthKind {
+	case names.UserTagKind:
+		args.Connect = ctxt.stateForRequestAuthenticatedUser
+	case "":
+		logger.Tracef(`no access level specified; proceeding with "unauthenticated"`)
+		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
+			st, err := ctxt.stateForRequestUnauthenticated(req)
+			return st, nil, err
+		}
+	default:
+		logger.Warningf(`unrecognized access level %q; proceeding with "unauthenticated"`, spec.AuthKind)
+		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
+			st, err := ctxt.stateForRequestUnauthenticated(req)
+			return st, nil, err
+		}
+	}
+	return args
 }
 
 // trackRequests wraps a http.Handler, incrementing and decrementing
