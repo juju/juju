@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/params"
-	resourceapi "github.com/juju/juju/resource/api"
 	resourceinternal "github.com/juju/juju/resource/api/private"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -389,9 +388,6 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	logSinkHandler := srv.trackRequests(newLogSinkHandler(httpCtxt, srv.logDir))
 	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
 
-	add("/model/:modeluuid"+resourceapi.HTTPEndpointPattern,
-		newResourceHandler(httpCtxt),
-	)
 	add("/model/:modeluuid"+resourceinternal.HTTPEndpointPattern,
 		newUnitResourceHandler(httpCtxt),
 	)
