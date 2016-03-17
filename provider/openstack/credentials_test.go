@@ -123,16 +123,17 @@ func (s *credentialsSuite) TestDetectCredentialsNovarc(c *gc.C) {
 
 	content := `
 # Some secrets
-OS_TENANT_NAME=gary
-OS_USERNAME=bob
-OS_PASSWORD=dobbs
+export OS_TENANT_NAME=gary
+EXPORT OS_USERNAME=bob
+  export  OS_PASSWORD = dobbs
+OS_REGION_NAME=region  
 `[1:]
 	novarc := filepath.Join(dir, ".novarc")
 	err := ioutil.WriteFile(novarc, []byte(content), 0600)
 
 	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials.DefaultRegion, gc.Equals, "")
+	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
 	expected := cloud.NewCredential(
 		cloud.UserPassAuthType, map[string]string{
 			"username":    "bob",
@@ -140,6 +141,6 @@ OS_PASSWORD=dobbs
 			"tenant-name": "gary",
 		},
 	)
-	expected.Label = `openstack region "<unspecified>" project "gary" user "bob"`
+	expected.Label = `openstack region "region" project "gary" user "bob"`
 	c.Assert(credentials.AuthCredentials["bob"], jc.DeepEquals, expected)
 }
