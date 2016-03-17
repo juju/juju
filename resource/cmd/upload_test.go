@@ -89,7 +89,7 @@ func (s *UploadSuite) TestInfo(c *gc.C) {
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
-		Name:    "push-resource",
+		Name:    "attach",
 		Args:    "service name=file",
 		Purpose: "upload a file as a resource for a service",
 		Doc: `
