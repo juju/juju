@@ -58,13 +58,25 @@ func APIResult2ServiceResources(apiResult ResourcesResult) (resource.ServiceReso
 		if err != nil {
 			return resource.ServiceResources{}, errors.Annotate(err, "got bad data from server")
 		}
+		resNames := map[string]bool{}
 		unitResources := resource.UnitResources{Tag: tag}
 		for _, apiRes := range unitRes.Resources {
 			res, err := API2Resource(apiRes)
 			if err != nil {
 				return resource.ServiceResources{}, errors.Annotate(err, "got bad data from server")
 			}
+			resNames[res.Name] = true
 			unitResources.Resources = append(unitResources.Resources, res)
+		}
+		if len(unitRes.DownloadProgress) > 0 {
+			unitResources.DownloadProgress = make(map[string]int64)
+			for resName, progress := range unitRes.DownloadProgress {
+				if !resNames[resName] {
+					err := errors.Errorf("got progress from unrecognized resource %q", resName)
+					return resource.ServiceResources{}, errors.Annotate(err, "got bad data from server")
+				}
+				unitResources.DownloadProgress[resName] = progress
+			}
 		}
 		result.UnitResources = append(result.UnitResources, unitResources)
 	}
@@ -97,6 +109,12 @@ func ServiceResources2APIResult(svcRes resource.ServiceResources, units []names.
 		}
 		for _, res := range unitResources[tag].Resources {
 			apiRes.Resources = append(apiRes.Resources, Resource2API(res))
+		}
+		if len(unitResources[tag].DownloadProgress) > 0 {
+			apiRes.DownloadProgress = make(map[string]int64)
+			for resName, progress := range unitResources[tag].DownloadProgress {
+				apiRes.DownloadProgress[resName] = progress
+			}
 		}
 		result.UnitResources[i] = apiRes
 	}

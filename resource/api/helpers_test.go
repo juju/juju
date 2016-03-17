@@ -206,6 +206,9 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 				Resources: []api.Resource{
 					unitRes,
 				},
+				DownloadProgress: map[string]int64{
+					unitRes.Name: 8,
+				},
 			},
 		},
 	})
@@ -223,6 +226,9 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 				Tag: names.NewUnitTag("foo/0"),
 				Resources: []resource.Resource{
 					unitExpected,
+				},
+				DownloadProgress: map[string]int64{
+					unitRes.Name: 8,
 				},
 			},
 		},
@@ -530,6 +536,9 @@ func (HelpersSuite) TestServiceResource2API(c *gc.C) {
 					res1,
 					res2,
 				},
+				DownloadProgress: map[string]int64{
+					res2.Name: 2,
+				},
 			},
 			// note: nothing for tag1
 		},
@@ -560,6 +569,9 @@ func (HelpersSuite) TestServiceResource2API(c *gc.C) {
 				Resources: []api.Resource{
 					apiRes1,
 					apiRes2,
+				},
+				DownloadProgress: map[string]int64{
+					res2.Name: 2,
 				},
 			},
 			{
