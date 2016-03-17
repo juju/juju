@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api"
 	masterapi "github.com/juju/juju/api/migrationmaster"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
@@ -28,6 +29,8 @@ type Suite struct {
 
 var _ = gc.Suite(&Suite{})
 
+var fakeSerializedModel = []byte("model")
+
 func (s *Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
@@ -41,31 +44,17 @@ func (s *Suite) apiOpen(info *api.Info, dialOpts api.DialOpts) (api.Connection, 
 	return &s.connection, nil
 }
 
-func (s *Suite) TestMigrationHandling(c *gc.C) {
-	client := newMockClient()
-	w := migrationmaster.New(client)
+func (s *Suite) TestMigration(c *gc.C) {
+	masterClient := newStubMasterClient(s.stub)
+	w := migrationmaster.New(masterClient)
 
 	doneC := make(chan error)
 	go func() {
 		doneC <- w.Wait()
 	}()
 
-	// Wait for Watch to be called
-	select {
-	case <-client.watchCalled:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for Watch to be called")
-	}
-
-	// Ensure worker is staying alive
-	select {
-	case <-doneC:
-		c.Fatal("worker terminated prematurely")
-	case <-time.After(coretesting.ShortWait):
-	}
-
 	// Trigger migration.
-	client.watcher.changes <- migration.TargetInfo{
+	masterClient.watcher.changes <- migration.TargetInfo{
 		ControllerTag: names.NewModelTag("uuid"),
 		Addrs:         []string{"1.2.3.4:5"},
 		CACert:        "cert",
@@ -81,24 +70,27 @@ func (s *Suite) TestMigrationHandling(c *gc.C) {
 		c.Fatal("timed out waiting for worker to stop")
 	}
 
-	// API connection should have been established and closed.
-	expectedApiInfo := &api.Info{
-		Addrs:    []string{"1.2.3.4:5"},
-		CACert:   "cert",
-		Tag:      names.NewUserTag("admin"),
-		Password: "secret",
-	}
+	// Observe that the migration was seen, the model exported, an API
+	// connection to the target controller was made, the model was
+	// imported and then the migration aborted.
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"apiOpen", []interface{}{expectedApiInfo, api.DefaultDialOpts()}},
-		{"Connection.Close", []interface{}{}},
+		{"masterClient.Watch", nil},
+		{"masterClient.Export", nil},
+		{"apiOpen", []interface{}{&api.Info{
+			Addrs:    []string{"1.2.3.4:5"},
+			CACert:   "cert",
+			Tag:      names.NewUserTag("admin"),
+			Password: "secret",
+		}, api.DefaultDialOpts()}},
+		{"APICall:MigrationTarget.Import",
+			[]interface{}{params.SerializedModel{Bytes: fakeSerializedModel}}},
+		{"masterClient.SetPhase", []interface{}{migration.ABORT}},
+		{"Connection.Close", nil},
 	})
-
-	// The migration should have been aborted.
-	c.Assert(client.phaseSet, gc.Equals, migration.ABORT)
 }
 
 func (s *Suite) TestWatchFailure(c *gc.C) {
-	client := newMockClient()
+	client := newStubMasterClient(s.stub)
 	client.watchErr = errors.New("boom")
 	w := migrationmaster.New(client)
 
@@ -115,31 +107,35 @@ func (s *Suite) TestWatchFailure(c *gc.C) {
 	}
 }
 
-func newMockClient() *mockClient {
-	return &mockClient{
-		watchCalled: make(chan bool),
-		watcher:     newMockWatcher(),
+func newStubMasterClient(stub *jujutesting.Stub) *stubMasterClient {
+	return &stubMasterClient{
+		stub:    stub,
+		watcher: newMockWatcher(),
 	}
 }
 
-type mockClient struct {
+type stubMasterClient struct {
 	masterapi.Client
-	watchCalled chan bool
-	watchErr    error
-	watcher     *mockWatcher
-	phaseSet    migration.Phase
+	stub     *jujutesting.Stub
+	watcher  *mockWatcher
+	watchErr error
 }
 
-func (c *mockClient) Watch() (watcher.MigrationMasterWatcher, error) {
-	close(c.watchCalled)
+func (c *stubMasterClient) Watch() (watcher.MigrationMasterWatcher, error) {
+	c.stub.AddCall("masterClient.Watch")
 	if c.watchErr != nil {
 		return nil, c.watchErr
 	}
 	return c.watcher, nil
 }
 
-func (c *mockClient) SetPhase(phase migration.Phase) error {
-	c.phaseSet = phase
+func (c *stubMasterClient) Export() ([]byte, error) {
+	c.stub.AddCall("masterClient.Export")
+	return fakeSerializedModel, nil
+}
+
+func (c *stubMasterClient) SetPhase(phase migration.Phase) error {
+	c.stub.AddCall("masterClient.SetPhase", phase)
 	return nil
 }
 
@@ -170,6 +166,22 @@ func (w *mockWatcher) Changes() <-chan migration.TargetInfo {
 type stubConnection struct {
 	api.Connection
 	stub *jujutesting.Stub
+}
+
+func (c *stubConnection) BestFacadeVersion(string) int {
+	return 1
+}
+
+func (c *stubConnection) APICall(objType string, version int, id, request string, params, response interface{}) error {
+	c.stub.AddCall("APICall:"+objType+"."+request, params)
+
+	if objType == "MigrationTarget" {
+		switch request {
+		case "Import":
+			return nil
+		}
+	}
+	return errors.New("unexpected API call")
 }
 
 func (c *stubConnection) Close() error {

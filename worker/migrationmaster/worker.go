@@ -5,13 +5,17 @@ package migrationmaster
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api"
 	masterapi "github.com/juju/juju/api/migrationmaster"
+	"github.com/juju/juju/api/migrationtarget"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/worker"
 )
+
+var logger = loggo.GetLogger("juju.worker.migrationmaster")
 
 var apiOpen = api.Open
 
@@ -44,23 +48,41 @@ func (w *migrationMaster) Wait() error {
 }
 
 func (w *migrationMaster) run() error {
+	// TODO(mjs) - run the migration phase changes and abort the
+	// migration when things go wrong.
+
+	// TODO(mjs) - more logging when things go wrong.
+
 	targetInfo, err := w.waitForMigration()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	logger.Infof("exporting model")
+	bytes, err := w.client.Export()
+	if err != nil {
+		return errors.Annotate(err, "model export")
+	}
+
+	logger.Infof("opening API connection to target controller")
 	conn, err := openAPIConn(targetInfo)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	conn.Close()
+	defer conn.Close()
+
+	logger.Infof("importing model into target controller")
+	targetClient := migrationtarget.NewClient(conn)
+	err = targetClient.Import(bytes)
+	if err != nil {
+		return errors.Annotate(err, "model import")
+	}
 
 	// For now just abort the migration (this is a work in progress)
 	err = w.client.SetPhase(migration.ABORT)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	return errors.New("migration seen and aborted")
 }
 
