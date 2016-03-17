@@ -162,16 +162,14 @@ func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNotFoundErrorWhenMissing(
 	c.Assert(result, gc.IsNil)
 }
 
-func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNoErrorWithEmptySubnetID(c *gc.C) {
-	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "127.0.1.1/8", "::1/128")
+func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNoErrorWithEmptySubnetIDForLoopbackOrUnknownSubnets(c *gc.C) {
+	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "127.0.1.1/8", "::1/128", "8.8.0.0/16")
 
-	result, err := addresses[0].Subnet()
-	c.Assert(result, gc.IsNil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err = addresses[1].Subnet()
-	c.Assert(result, gc.IsNil)
-	c.Assert(err, jc.ErrorIsNil)
+	for _, address := range addresses {
+		result, err := address.Subnet()
+		c.Check(result, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
+	}
 }
 
 func (s *ipAddressesStateSuite) TestRemoveSuccess(c *gc.C) {
@@ -366,20 +364,17 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidGatewayAd
 	s.assertSetDevicesAddressesFailsValidationForArgs(c, args, `GatewayAddress "boo hoo" not valid`)
 }
 
-func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressDoesNotMatchKnownSubnet(c *gc.C) {
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesOKWhenCIDRAddressDoesNotMatchKnownSubnet(c *gc.C) {
 	s.addNamedDevice(c, "eth0")
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:  "192.168.123.42/16",
 		DeviceName:   "eth0",
 		ConfigMethod: state.StaticAddress,
 	}
+	err := s.machine.SetDevicesAddresses(args)
+	c.Assert(err, jc.ErrorIsNil)
 
-	inferredSubnetCIDR := "192.168.0.0/16"
-	expectedError := fmt.Sprintf(
-		"invalid address %q: subnet %q not found or not alive",
-		args.CIDRAddress, inferredSubnetCIDR,
-	)
-	s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
+	s.assertAllAddressesOnMachineMatchCount(c, s.machine, 1)
 }
 
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressMatchesDeadSubnet(c *gc.C) {
@@ -396,7 +391,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressMatch
 		ConfigMethod: state.StaticAddress,
 	}
 	expectedError := fmt.Sprintf(
-		"invalid address %q: subnet %q not found or not alive",
+		"invalid address %q: subnet %q is not alive",
 		args.CIDRAddress, subnetCIDR,
 	)
 	s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
