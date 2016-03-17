@@ -85,4 +85,11 @@ type UnitResources struct {
 
 	// Resources are the resource versions currently in use by this unit.
 	Resources []Resource
+
+	// DownloadProgress indicates the number of bytes of the unit's
+	// resources, identified by name, that have been downloaded so far
+	// by the uniter. This only applies to resources that are currently
+	// being downloaded to the unit. All other resources for the unit
+	// will not be found in the map.
+	DownloadProgress map[string]int64
 }
