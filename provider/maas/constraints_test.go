@@ -388,10 +388,10 @@ func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
 		expected: "volume-1:1234(tag1,tag2),volume-2:4567(tag1,tag3)",
 	}} {
 		c.Logf("test #%d: volumes=%v", i, test.volumes)
-		server.SetVersionJSON(`{"capabilities": []}`)
 		env := suite.makeEnviron()
-		// Make sure spaces are not supported.
+		server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-1"}))
 		server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+		suite.addSubnet(c, 1, 1, "node0")
 		_, err := env.acquireNode("", "", constraints.Value{}, nil, test.volumes)
 		c.Check(err, jc.ErrorIsNil)
 		requestValues := server.NodeOperationRequestValues()
