@@ -11,11 +11,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
-	"github.com/voidspace/gomaasapi"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"

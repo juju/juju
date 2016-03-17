@@ -15,8 +15,8 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/gomaasapi"
 	"github.com/juju/utils"
-	"github.com/voidspace/gomaasapi"
 
 	"github.com/juju/juju/environs/storage"
 )
