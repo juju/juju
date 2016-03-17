@@ -7,6 +7,7 @@ package openstack
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -590,6 +591,27 @@ func (e *Environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
+type newClientFunc func(*identity.Credentials, identity.AuthMode, *log.Logger) client.AuthenticatingClient
+
+func determineBestClient(options identity.AuthOptions, client client.AuthenticatingClient,
+	cred *identity.Credentials, newClient newClientFunc) client.AuthenticatingClient {
+	for _, option := range options {
+		if option.Mode != identity.AuthUserPassV3 {
+			continue
+		}
+		cred.URL = option.Endpoint
+		v3client := newClient(cred, identity.AuthUserPassV3, nil)
+		// V3 being advertised is not necessaritly a guarantee that it will
+		// work.
+		err := v3client.Authenticate()
+		if err == nil {
+			return v3client
+		}
+	}
+	return client
+
+}
+
 func authClient(ecfg *environConfig) client.AuthenticatingClient {
 	cred := &identity.Credentials{
 		User:       ecfg.username(),
@@ -620,28 +642,14 @@ func authClient(ecfg *environConfig) client.AuthenticatingClient {
 	}
 	client := newClient(cred, authMode, nil)
 
-	// before returning, lets make sure that we wanth to have AuthMode
+	// before returning, lets make sure that we want to have AuthMode
 	// AuthUserPass instead of its V3 counterpart.
 	if authMode == identity.AuthUserPass {
 		options, err := client.IdentityAuthOptions()
 		if err != nil {
 			logger.Errorf("cannot determine available auth versions %v", err)
 		} else {
-			for _, option := range options {
-				if option.Mode == identity.AuthUserPassV3 {
-					authMode = identity.AuthUserPassV3
-					cred.URL = option.Endpoint
-					v3client := newClient(cred, identity.AuthUserPassV3, nil)
-					// V3 being advertised is not necessaritly a guarantee that it will
-					// work.
-					err := v3client.Authenticate()
-					if err == nil {
-						client = v3client
-						break
-					}
-
-				}
-			}
+			client = determineBestClient(options, client, cred, newClient)
 		}
 
 	}

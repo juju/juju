@@ -116,7 +116,6 @@ func (c *environConfig) domainName() string {
 		return dname.(string)
 	}
 	return ""
-
 }
 
 func (c *environConfig) authURL() string {
