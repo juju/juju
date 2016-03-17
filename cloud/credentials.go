@@ -166,7 +166,7 @@ func (s CredentialSchema) Finalize(
 		if field.FilePath {
 			pathValue, ok := resultMap[name]
 			if ok && pathValue != "" {
-				if absPath, err := s.validateFileAttrValue(pathValue.(string)); err != nil {
+				if absPath, err := ValidateFileAttrValue(pathValue.(string)); err != nil {
 					return nil, errors.Trace(err)
 				} else {
 					newAttrs[name] = absPath
@@ -181,8 +181,10 @@ func (s CredentialSchema) Finalize(
 	return newAttrs, nil
 }
 
-func (s CredentialSchema) validateFileAttrValue(path string) (string, error) {
-	if !filepath.IsAbs(path) {
+// ValidateFileAttrValue returns the normalised file path, so
+// long as the specified path is valid and not a directory.
+func ValidateFileAttrValue(path string) (string, error) {
+	if !filepath.IsAbs(path) && !strings.HasPrefix(path, "~") {
 		return "", errors.Errorf("file path must be an absolute path: %s", path)
 	}
 	absPath, err := utils.NormalizePath(path)

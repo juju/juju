@@ -265,7 +265,7 @@ func (c *addCredentialCommand) promptCredentialAttributes(
 		value := ""
 		for {
 			// Formulate the prompt for the list of valid options.
-			choicesPrompt := ""
+			optionsPrompt := ""
 			if len(attr.Options) > 0 {
 				options := make([]string, len(attr.Options))
 				for i, opt := range attr.Options {
@@ -274,11 +274,11 @@ func (c *addCredentialCommand) promptCredentialAttributes(
 						options[i] += "*"
 					}
 				}
-				choicesPrompt = fmt.Sprintf(" [%v]", strings.Join(options, ","))
+				optionsPrompt = fmt.Sprintf(" [%v]", strings.Join(options, ","))
 			}
 
 			// Prompt for and accept input for field value.
-			fmt.Fprintf(out, "  %s%s: ", name, choicesPrompt)
+			fmt.Fprintf(out, "  %s%s: ", name, optionsPrompt)
 			var input string
 			var err error
 			if attr.Hidden {
@@ -293,6 +293,7 @@ func (c *addCredentialCommand) promptCredentialAttributes(
 			value = strings.TrimSpace(input)
 
 			// Validate the entered value matches any options.
+			// If the user just hits Enter, the first option is used.
 			if len(attr.Options) > 0 {
 				isValid := false
 				for _, choice := range attr.Options {
@@ -312,14 +313,9 @@ func (c *addCredentialCommand) promptCredentialAttributes(
 
 			// Validate any file attribute is a valid file.
 			if value != "" && (fileAttrs.Contains(name) || attr.FilePath) {
-				filename := ctxt.AbsPath(value)
-				info, err := os.Stat(filename)
+				value, err = jujucloud.ValidateFileAttrValue(value)
 				if err != nil {
-					fmt.Fprintf(out, "  ...invalid file path: %s\n", filename)
-					continue
-				}
-				if info.IsDir() {
-					fmt.Fprintf(out, "  ...file path must be a file: %s\n", filename)
+					fmt.Fprintf(out, "  ...%s\n", err.Error())
 					continue
 				}
 			}

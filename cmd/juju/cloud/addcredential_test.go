@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"fmt"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -147,6 +148,8 @@ func (s *addCredentialSuite) TestAddNewFromFile(c *gc.C) {
 	})
 }
 
+// TODO(wallyworld) - these tests should also validate that the prompts and messages are as expected.
+
 func (s *addCredentialSuite) assertAddUserpassCredential(c *gc.C, input string) {
 	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
 		jujucloud.UserPassAuthType: {
@@ -201,11 +204,12 @@ func (s *addCredentialSuite) TestAddJsonFileCredential(c *gc.C) {
 		},
 	}
 	dir := c.MkDir()
-	err := ioutil.WriteFile(filepath.Join(dir, "jsonfile"), []byte{}, 0600)
+	filename := filepath.Join(dir, "jsonfile")
+	err := ioutil.WriteFile(filename, []byte{}, 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Input includes invalid file info.
-	stdin := strings.NewReader("fred\nbadfile\n.\njsonfile\n")
+	stdin := strings.NewReader(fmt.Sprintf("fred\nbadfile\n.\n%s\n", filename))
 	addCmd := cloud.NewAddCredentialCommandForTest(s.store, s.cloudByNameFunc)
 	err = testing.InitCommand(addCmd, []string{"somecloud"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -218,7 +222,7 @@ func (s *addCredentialSuite) TestAddJsonFileCredential(c *gc.C) {
 		"somecloud": {
 			AuthCredentials: map[string]jujucloud.Credential{
 				"fred": jujucloud.NewCredential(jujucloud.JSONFileAuthType, map[string]string{
-					"file": "jsonfile",
+					"file": filename,
 				}),
 			},
 		},
