@@ -12,6 +12,10 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
+// TODO(ericsnow) Factor out code from cmd/juju/commands/common.go and                                                                                                                                                                                                          │
+// cmd/envcmd/base.go into cmd/charmstore.go and cmd/apicontext.go. Then                                                                                                                                                                                                        │
+// use those here instead of copy-and-pasting here.
+
 ///////////////////
 // The charmstoreSpec code is based loosely on code in cmd/juju/commands/deploy.go.
 
