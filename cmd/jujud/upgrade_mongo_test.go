@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/names"
 	"github.com/juju/replicaset"
@@ -331,7 +331,7 @@ func (s *UpgradeMongoCommandSuite) createFakeAgentConf(c *gc.C, agentDir string,
 			DataDir: agentDir,
 		},
 		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
 		StateAddresses:    []string{"localhost:1234"},

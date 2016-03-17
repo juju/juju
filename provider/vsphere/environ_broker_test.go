@@ -12,6 +12,7 @@ import (
 	"github.com/juju/govmomi/vim25/types"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 type environBrokerSuite struct {

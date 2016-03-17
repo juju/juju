@@ -22,6 +22,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	goyaml "gopkg.in/yaml.v2"
@@ -55,7 +56,7 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // We don't want to use JujuConnSuite because it gives us
@@ -89,7 +90,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
-	s.PatchValue(&version.Current, testing.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	s.makeTestEnv(c)
 }
 
@@ -114,7 +115,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -124,6 +125,16 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	err = ioutil.WriteFile(filepath.Join(toolsDir, "tools.tar.gz"), nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.writeDownloadedTools(c, &tools.Tools{Version: current})
+
+	// Create fake gui.tar.bz2 and downloaded-gui.txt.
+	guiDir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
+	err = os.MkdirAll(guiDir, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(guiDir, "gui.tar.bz2"), nil, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	s.writeDownloadedGUI(c, &tools.GUIArchive{
+		Version: version.MustParse("2.0.42"),
+	})
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
@@ -139,6 +150,67 @@ func (s *BootstrapSuite) writeDownloadedTools(c *gc.C, tools *tools.Tools) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(toolsDir, "downloaded-tools.txt"), data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *BootstrapSuite) writeDownloadedGUI(c *gc.C, gui *tools.GUIArchive) {
+	guiDir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
+	err := os.MkdirAll(guiDir, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := json.Marshal(gui)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(guiDir, "downloaded-gui.txt"), data, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
+	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
+	info := filepath.Join(dir, "downloaded-gui.txt")
+	err := os.Remove(info)
+	c.Assert(err, jc.ErrorIsNil)
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	c.Assert(err, jc.ErrorIsNil)
+	// TODO frankban: this must return an error before the feature branch is
+	// merged into master.
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *BootstrapSuite) TestGUIArchiveError(c *gc.C) {
+	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
+	archive := filepath.Join(dir, "gui.tar.bz2")
+	err := os.Remove(archive)
+	c.Assert(err, jc.ErrorIsNil)
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.ErrorMatches, "cannot read GUI archive: .*")
+}
+
+func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Retrieve the state so that it is possible to access the GUI storage.
+	st, err := state.Open(testing.ModelTag, &mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
+		Password: testPasswordHash(),
+	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	// The GUI archive has been uploaded to the GUI storage.
+	storage, err := st.GUIStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer storage.Close()
+	allMeta, err := storage.AllMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allMeta, gc.HasLen, 1)
+	c.Assert(allMeta[0].Version, gc.Equals, "2.0.42")
 }
 
 var testPassword = "my-admin-secret"
@@ -165,7 +237,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 		},
 		Jobs:              jobs,
 		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          testPasswordHash(),
 		Nonce:             agent.BootstrapNonce,
 		Model:             testing.ModelTag,
@@ -588,7 +660,7 @@ func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 	// Tools uploaded over ssh.
 	s.writeDownloadedTools(c, &tools.Tools{
 		Version: version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		},
@@ -644,7 +716,8 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata, gc.HasLen, expectedSeries.Size())
 	for _, m := range metadata {
-		c.Assert(expectedSeries.Contains(m.Version.Series), jc.IsTrue)
+		v := version.MustParseBinary(m.Version)
+		c.Assert(expectedSeries.Contains(v.Series), jc.IsTrue)
 	}
 }
 
@@ -682,8 +755,8 @@ const (
                     "items": {
                         "%v": {
                             "id": "%v",
-                            "root_store": "%v", 
-                            "virt": "%v", 
+                            "root_store": "%v",
+                            "virt": "%v",
                             "region": "%v",
                             "endpoint": "endpoint"
                         }
@@ -852,7 +925,7 @@ func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
 func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"agent-version":     version.Current.String(),
+			"agent-version":     jujuversion.Current.String(),
 			"bootstrap-timeout": "123",
 		},
 	).Delete("admin-secret", "ca-private-key")

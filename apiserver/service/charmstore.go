@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this
@@ -93,6 +95,10 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 		return errors.Trace(err)
 	}
 
+	if err := checkMinVersion(downloadedCharm); err != nil {
+		return errors.Trace(err)
+	}
+
 	// Open it and calculate the SHA256 hash.
 	downloadedBundle, ok := downloadedCharm.(*charm.CharmArchive)
 	if !ok {
@@ -120,6 +126,25 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 		size,
 		bundleSHA256,
 	)
+}
+
+func checkMinVersion(ch charm.Charm) error {
+	minver := ch.Meta().MinJujuVersion
+	if minver != version.Zero && minver.Compare(jujuversion.Current) > 0 {
+		return minVersionError(minver, jujuversion.Current)
+	}
+	return nil
+}
+
+type minJujuVersionErr struct {
+	*errors.Err
+}
+
+func minVersionError(minver, jujuver version.Number) error {
+	err := errors.NewErr("charm's min version (%s) is higher than this juju environment's version (%s)",
+		minver, jujuver)
+	err.SetLocation(1)
+	return minJujuVersionErr{&err}
 }
 
 // StoreCharmArchive stores a charm archive in environment storage.

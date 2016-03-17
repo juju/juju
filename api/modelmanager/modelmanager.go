@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/juju/permission"
 )
 
 var logger = loggo.GetLogger("juju.api.modelmanager")
@@ -99,4 +100,78 @@ func (c *Client) ListModels(user string) ([]base.UserModel, error) {
 		}
 	}
 	return result, nil
+}
+
+// ParseModelAccess parses an access permission argument into
+// a type suitable for making an API facade call.
+func ParseModelAccess(access string) (params.ModelAccessPermission, error) {
+	var fail params.ModelAccessPermission
+
+	modelAccess, err := permission.ParseModelAccess(access)
+	if err != nil {
+		return fail, errors.Trace(err)
+	}
+	var accessPermission params.ModelAccessPermission
+	switch modelAccess {
+	case permission.ModelReadAccess:
+		accessPermission = params.ModelReadAccess
+	case permission.ModelWriteAccess:
+		accessPermission = params.ModelWriteAccess
+	default:
+		return fail, errors.Errorf("unsupported model access permission %v", modelAccess)
+	}
+	return accessPermission, nil
+}
+
+// GrantModel grants a user access to the specified models.
+func (c *Client) GrantModel(user, access string, modelUUIDs ...string) error {
+	return c.modifyModelUser(params.GrantModelAccess, user, access, modelUUIDs)
+}
+
+// RevokeModel revokes a user's access to the specified models.
+func (c *Client) RevokeModel(user, access string, modelUUIDs ...string) error {
+	return c.modifyModelUser(params.RevokeModelAccess, user, access, modelUUIDs)
+}
+
+func (c *Client) modifyModelUser(action params.ModelAction, user, access string, modelUUIDs []string) error {
+	var args params.ModifyModelAccessRequest
+
+	if !names.IsValidUser(user) {
+		return errors.Errorf("invalid username: %q", user)
+	}
+	userTag := names.NewUserTag(user)
+
+	accessPermission, err := ParseModelAccess(access)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, model := range modelUUIDs {
+		if !names.IsValidModel(model) {
+			return errors.Errorf("invalid model: %q", model)
+		}
+		modelTag := names.NewModelTag(model)
+		args.Changes = append(args.Changes, params.ModifyModelAccess{
+			UserTag:  userTag.String(),
+			Action:   action,
+			Access:   accessPermission,
+			ModelTag: modelTag.String(),
+		})
+	}
+
+	var result params.ErrorResults
+	err = c.facade.FacadeCall("ModifyModelAccess", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(result.Results) != len(args.Changes) {
+		return errors.Errorf("expected %d results, got %d", len(args.Changes), len(result.Results))
+	}
+
+	for i, r := range result.Results {
+		if r.Error != nil && r.Error.Code == params.CodeAlreadyExists {
+			logger.Warningf("model %q is already shared with %q", modelUUIDs[i], userTag.Canonical())
+			result.Results[i].Error = nil
+		}
+	}
+	return result.Combine()
 }

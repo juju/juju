@@ -27,7 +27,8 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 const (
@@ -52,6 +53,7 @@ type UserParams struct {
 	Creator     names.Tag
 	NoModelUser bool
 	Disabled    bool
+	Access      state.ModelAccess
 }
 
 // ModelUserParams defines the parameters for creating an environment user.
@@ -59,7 +61,7 @@ type ModelUserParams struct {
 	User        string
 	DisplayName string
 	CreatedBy   names.Tag
-	ReadOnly    bool
+	Access      state.ModelAccess
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -170,6 +172,9 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		c.Assert(err, jc.ErrorIsNil)
 		params.Creator = env.Owner()
 	}
+	if params.Access == state.ModelUndefinedAccess {
+		params.Access = state.ModelAdminAccess
+	}
 	creatorUserTag := params.Creator.(names.UserTag)
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
@@ -179,6 +184,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 			User:        user.UserTag(),
 			CreatedBy:   names.NewUserTag(user.CreatedBy()),
 			DisplayName: params.DisplayName,
+			Access:      params.Access,
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -204,6 +210,9 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.M
 	if params.DisplayName == "" {
 		params.DisplayName = uniqueString("display name")
 	}
+	if params.Access == state.ModelUndefinedAccess {
+		params.Access = state.ModelAdminAccess
+	}
 	if params.CreatedBy == nil {
 		env, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
@@ -214,7 +223,7 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.M
 		User:        names.NewUserTag(params.User),
 		CreatedBy:   createdByUserTag,
 		DisplayName: params.DisplayName,
-		ReadOnly:    params.ReadOnly,
+		Access:      params.Access,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return modelUser
@@ -273,7 +282,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 	err = m.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
 	c.Assert(err, jc.ErrorIsNil)
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -314,7 +323,7 @@ func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachinePar
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -423,7 +432,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	c.Assert(err, jc.ErrorIsNil)
 
 	agentTools := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: params.Service.Series(),
 	}

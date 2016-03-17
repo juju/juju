@@ -9,6 +9,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -17,7 +18,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher/watchertest"
 )
 
@@ -37,7 +38,7 @@ type unitUpgraderSuite struct {
 var _ = gc.Suite(&unitUpgraderSuite{})
 
 var current = version.Binary{
-	Number: version.Current,
+	Number: jujuversion.Current,
 	Arch:   arch.HostArch(),
 	Series: series.HostSeries(),
 }

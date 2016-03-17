@@ -367,7 +367,8 @@ var deployBundleErrorsTests = []struct {
                 charm: mysql
                 num_units: -1
     `,
-	err: `cannot deploy bundle: negative number of units specified on service "mysql"`,
+	err: `the provided bundle has the following errors:
+negative number of units specified on service "mysql"`,
 }, {
 	about: "invalid constraints",
 	content: `
@@ -377,7 +378,20 @@ var deployBundleErrorsTests = []struct {
                 num_units: 1
                 constraints: bad-wolf
     `,
-	err: `cannot deploy bundle: invalid constraints "bad-wolf" in service "mysql": malformed constraint "bad-wolf"`,
+	err: `the provided bundle has the following errors:
+invalid constraints "bad-wolf" in service "mysql": malformed constraint "bad-wolf"`,
+}, {
+	about: "multiple bundle verification errors",
+	content: `
+        services:
+            mysql:
+                charm: mysql
+                num_units: -1
+                constraints: bad-wolf
+    `,
+	err: `the provided bundle has the following errors:
+invalid constraints "bad-wolf" in service "mysql": malformed constraint "bad-wolf"
+negative number of units specified on service "mysql"`,
 }, {
 	about: "bundle inception",
 	content: `
@@ -507,6 +521,24 @@ deployment of bundle "local:bundle/example-0" completed`
 		"mysql/1":     "1",
 		"wordpress/0": "2",
 	})
+}
+
+func (s *deployRepoCharmStoreSuite) TestDeployBundleFromBundlePath(c *gc.C) {
+	testcharms.Repo.ClonedDirPath(s.SeriesPath, "wordpress")
+	bundlePath := filepath.Join(c.MkDir(), "example")
+	err := os.Mkdir(bundlePath, 0777)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(bundlePath, "bundle.yaml"), []byte(`
+        services:
+            wordpress:
+                charm: local:wordpress
+                num_units: 1
+    `), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = runDeployCommand(c, bundlePath)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *gc.C) {

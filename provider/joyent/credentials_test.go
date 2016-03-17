@@ -39,7 +39,7 @@ func (s *credentialsSuite) TestUserPassCredentialsValid(c *gc.C) {
 		"manta-user":   "manta-user",
 		"manta-key-id": "manta-key-id",
 		"private-key":  "private-key",
-		"algorithm":    "algorithm",
+		"algorithm":    "rsa-sha256",
 	})
 }
 
