@@ -22,27 +22,27 @@ type OpenstackCredentials struct{}
 func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: {
-			"username": {
-				Description: "The username to authenticate with.",
-			},
-			"password": {
-				Description: "The password for the specified username.",
-				Hidden:      true,
-			},
-			"tenant-name": {
-				Description: "The OpenStack tenant name.",
+			{
+				"username", cloud.CredentialAttr{Description: "The username to authenticate with."},
+			}, {
+				"password", cloud.CredentialAttr{
+					Description: "The password for the specified username.",
+					Hidden:      true,
+				},
+			}, {
+				"tenant-name", cloud.CredentialAttr{Description: "The OpenStack tenant name."},
 			},
 		},
 		cloud.AccessKeyAuthType: {
-			"access-key": {
-				Description: "The access key to authenticate with.",
-			},
-			"secret-key": {
-				Description: "The secret key to authenticate with.",
-				Hidden:      true,
-			},
-			"tenant-name": {
-				Description: "The OpenStack tenant name.",
+			{
+				"access-key", cloud.CredentialAttr{Description: "The access key to authenticate with."},
+			}, {
+				"secret-key", cloud.CredentialAttr{
+					Description: "The secret key to authenticate with.",
+					Hidden:      true,
+				},
+			}, {
+				"tenant-name", cloud.CredentialAttr{Description: "The OpenStack tenant name."},
 			},
 		},
 	}

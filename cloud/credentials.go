@@ -82,9 +82,29 @@ func NewEmptyCloudCredential() *CloudCredential {
 	return &CloudCredential{AuthCredentials: map[string]Credential{"default": NewEmptyCredential()}}
 }
 
+// CredentialValue describes the properties of a named credential attribute.
+type CredentialValue struct {
+	// Name is the name of the credential value.
+	Name string
+
+	// CredentialAttr are the properties of the credential value.
+	CredentialAttr
+}
+
 // CredentialSchema describes the schema of a credential. Credential schemas
 // are specific to cloud providers.
-type CredentialSchema map[string]CredentialAttr
+type CredentialSchema []CredentialValue
+
+// Attribute returns the named CredentialAttr value.
+func (s CredentialSchema) Attribute(name string) *CredentialAttr {
+	for _, value := range s {
+		if value.Name == name {
+			result := value.CredentialAttr
+			return &result
+		}
+	}
+	return nil
+}
 
 // FinalizeCredential finalizes a credential by matching it with one of the
 // provided credential schemas, and reading any file attributes into their
@@ -135,13 +155,14 @@ func (s CredentialSchema) Finalize(
 	newAttrs := make(map[string]string)
 
 	// Construct the final credential attributes map, reading values from files as necessary.
-	for name, field := range s {
+	for _, field := range s {
 		if field.FileAttr != "" {
-			if err := s.processFileAttrValue(name, field, resultMap, newAttrs, readFile); err != nil {
+			if err := s.processFileAttrValue(field, resultMap, newAttrs, readFile); err != nil {
 				return nil, errors.Trace(err)
 			}
 			continue
 		}
+		name := field.Name
 		if field.FilePath {
 			pathValue, ok := resultMap[name]
 			if ok && pathValue != "" {
@@ -179,9 +200,10 @@ func (s CredentialSchema) validateFileAttrValue(path string) (string, error) {
 }
 
 func (s CredentialSchema) processFileAttrValue(
-	name string, field CredentialAttr, resultMap map[string]interface{}, newAttrs map[string]string,
+	field CredentialValue, resultMap map[string]interface{}, newAttrs map[string]string,
 	readFile func(string) ([]byte, error),
 ) error {
+	name := field.Name
 	if fieldVal, ok := resultMap[name]; ok {
 		if _, ok := resultMap[field.FileAttr]; ok {
 			return errors.NotValidf(
@@ -212,8 +234,8 @@ func (s CredentialSchema) processFileAttrValue(
 
 func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
 	fields := make(environschema.Fields)
-	for name, field := range s {
-		fields[name] = environschema.Attr{
+	for _, field := range s {
+		fields[field.Name] = environschema.Attr{
 			Description: field.Description,
 			Type:        environschema.Tstring,
 			Group:       environschema.AccountGroup,
@@ -358,9 +380,9 @@ func RemoveSecrets(
 		return nil, errors.NotSupportedf("auth-type %q", credential.authType)
 	}
 	redactedAttrs := credential.Attributes()
-	for attrName, attr := range schema {
+	for _, attr := range schema {
 		if attr.Hidden {
-			delete(redactedAttrs, attrName)
+			delete(redactedAttrs, attr.Name)
 		}
 	}
 	return &Credential{authType: credential.authType, attributes: redactedAttrs}, nil

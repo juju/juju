@@ -45,27 +45,31 @@ func (p *mockProvider) CredentialSchemas() map[jujucloud.AuthType]jujucloud.Cred
 	if p.credSchemas == nil {
 		return map[jujucloud.AuthType]jujucloud.CredentialSchema{
 			jujucloud.AccessKeyAuthType: {
-				"access-key": {},
-				"secret-key": {
-					Hidden: true,
+				{
+					"access-key", jujucloud.CredentialAttr{},
+				}, {
+					"secret-key", jujucloud.CredentialAttr{Hidden: true},
 				},
 			},
 			jujucloud.UserPassAuthType: {
-				"username": {},
-				"password": {
-					Hidden: true,
-				},
-				"application-password": {
-					Hidden: true,
+				{
+					"username", jujucloud.CredentialAttr{},
+				}, {
+					"password", jujucloud.CredentialAttr{Hidden: true},
+				}, {
+					"application-password", jujucloud.CredentialAttr{Hidden: true},
 				},
 			},
 			jujucloud.OAuth2AuthType: {
-				"client-id":    {},
-				"client-email": {},
-				"private-key": {
-					Hidden: true,
+				{
+					"client-id", jujucloud.CredentialAttr{},
+				}, {
+					"client-email", jujucloud.CredentialAttr{},
+				}, {
+					"private-key", jujucloud.CredentialAttr{Hidden: true},
+				}, {
+					"project-id", jujucloud.CredentialAttr{},
 				},
-				"project-id": {},
 			},
 		}
 	}

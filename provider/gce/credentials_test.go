@@ -60,10 +60,15 @@ func (s *credentialsSuite) TestOAuth2HiddenAttributes(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestJSONFileCredentialsValid(c *gc.C) {
+	dir := c.MkDir()
+	filename := filepath.Join(dir, "somefile")
+	err := ioutil.WriteFile(filename, []byte{}, 0600)
+	c.Assert(err, jc.ErrorIsNil)
 	envtesting.AssertProviderCredentialsValid(c, s.provider, "jsonfile", map[string]string{
 		// For now at least, the contents of the file are not validated
 		// by the credentials schema. That is left to the provider.
-		"file": "whatever",
+		// The file does need to be an absolute path though and exist.
+		"file": filename,
 	})
 }
 

@@ -4,6 +4,8 @@
 package cloud_test
 
 import (
+	"io/ioutil"
+	"path/filepath"
 	"regexp"
 
 	"github.com/juju/errors"
@@ -12,8 +14,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/testing"
-	"io/ioutil"
-	"path/filepath"
 )
 
 type credentialsSuite struct {
@@ -319,9 +319,12 @@ func (s *credentialsSuite) TestFinalizeCredential(c *gc.C) {
 		},
 	)
 	schema := cloud.CredentialSchema{
-		"key": {
-			Description: "key credential",
-			Hidden:      true,
+		{
+			"key",
+			cloud.CredentialAttr{
+				Description: "key credential",
+				Hidden:      true,
+			},
 		},
 	}
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
@@ -339,13 +342,15 @@ func (s *credentialsSuite) TestFinalizeCredentialFileAttr(c *gc.C) {
 		},
 	)
 	schema := cloud.CredentialSchema{
-		"key": {
-			Description: "key credential",
-			Hidden:      true,
-			FileAttr:    "key-file",
-		},
-		"quay": {
-			FileAttr: "quay-file",
+		{
+			"key",
+			cloud.CredentialAttr{
+				Description: "key credential",
+				Hidden:      true,
+				FileAttr:    "key-file",
+			},
+		}, {
+			"quay", cloud.CredentialAttr{FileAttr: "quay-file"},
 		},
 	}
 	readFile := func(s string) ([]byte, error) {
@@ -370,10 +375,13 @@ func (s *credentialsSuite) TestFinalizeCredentialFileEmpty(c *gc.C) {
 		},
 	)
 	schema := cloud.CredentialSchema{
-		"key": {
-			Description: "key credential",
-			Hidden:      true,
-			FileAttr:    "key-file",
+		{
+			"key",
+			cloud.CredentialAttr{
+				Description: "key credential",
+				Hidden:      true,
+				FileAttr:    "key-file",
+			},
 		},
 	}
 	readFile := func(string) ([]byte, error) {
@@ -391,10 +399,13 @@ func (s *credentialsSuite) TestFinalizeCredentialFileAttrNeither(c *gc.C) {
 		map[string]string{},
 	)
 	schema := cloud.CredentialSchema{
-		"key": {
-			Description: "key credential",
-			Hidden:      true,
-			FileAttr:    "key-file",
+		{
+			"key",
+			cloud.CredentialAttr{
+				Description: "key credential",
+				Hidden:      true,
+				FileAttr:    "key-file",
+			},
 		},
 	}
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
@@ -412,10 +423,13 @@ func (s *credentialsSuite) TestFinalizeCredentialFileAttrBoth(c *gc.C) {
 		},
 	)
 	schema := cloud.CredentialSchema{
-		"key": {
-			Description: "key credential",
-			Hidden:      true,
-			FileAttr:    "key-file",
+		{
+			"key",
+			cloud.CredentialAttr{
+				Description: "key credential",
+				Hidden:      true,
+				FileAttr:    "key-file",
+			},
 		},
 	}
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
@@ -430,9 +444,12 @@ func (s *credentialsSuite) TestFinalizeCredentialInvalid(c *gc.C) {
 		map[string]string{},
 	)
 	schema := cloud.CredentialSchema{
-		"key": {
-			Description: "key credential",
-			Hidden:      true,
+		{
+			"key",
+			cloud.CredentialAttr{
+				Description: "key credential",
+				Hidden:      true,
+			},
 		},
 	}
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
@@ -466,13 +483,13 @@ func (s *credentialsSuite) TestFinalizeCredentialMandatoryFieldMissing(c *gc.C) 
 		},
 	)
 	schema := cloud.CredentialSchema{
-		"username": {
-			Optional: false,
+		{
+			"username", cloud.CredentialAttr{Optional: false},
+		}, {
+			"password", cloud.CredentialAttr{Hidden: true},
+		}, {
+			"domain", cloud.CredentialAttr{},
 		},
-		"password": {
-			Hidden: true,
-		},
-		"domain": {},
 	}
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
@@ -488,10 +505,13 @@ func (s *credentialsSuite) TestFinalizeCredentialMandatoryFieldFromFile(c *gc.C)
 		},
 	)
 	schema := cloud.CredentialSchema{
-		"key": {
-			Description: "key credential",
-			Optional:    false,
-			FileAttr:    "key-file",
+		{
+			"key",
+			cloud.CredentialAttr{
+				Description: "key credential",
+				Optional:    false,
+				FileAttr:    "key-file",
+			},
 		},
 	}
 	readFile := func(s string) ([]byte, error) {
@@ -518,13 +538,13 @@ func (s *credentialsSuite) TestFinalizeCredentialExtraField(c *gc.C) {
 		},
 	)
 	schema := cloud.CredentialSchema{
-		"username": {
-			Optional: false,
+		{
+			"username", cloud.CredentialAttr{Optional: false},
+		}, {
+			"password", cloud.CredentialAttr{Hidden: true},
+		}, {
+			"domain", cloud.CredentialAttr{},
 		},
-		"password": {
-			Hidden: true,
-		},
-		"domain": {},
 	}
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
@@ -542,14 +562,12 @@ func (s *credentialsSuite) TestFinalizeCredentialInvalidChoice(c *gc.C) {
 		},
 	)
 	schema := cloud.CredentialSchema{
-		"username": {
-			Optional: false,
-		},
-		"password": {
-			Hidden: true,
-		},
-		"algorithm": {
-			Options: []interface{}{"bar", "foobar"},
+		{
+			"username", cloud.CredentialAttr{Optional: false},
+		}, {
+			"password", cloud.CredentialAttr{Hidden: true},
+		}, {
+			"algorithm", cloud.CredentialAttr{Options: []interface{}{"bar", "foobar"}},
 		},
 	}
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
@@ -571,8 +589,8 @@ func (s *credentialsSuite) TestFinalizeCredentialFilePath(c *gc.C) {
 		},
 	)
 	schema := cloud.CredentialSchema{
-		"file": {
-			FilePath: true,
+		{
+			"file", cloud.CredentialAttr{FilePath: true},
 		},
 	}
 	newCred, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
@@ -592,8 +610,8 @@ func (s *credentialsSuite) TestFinalizeCredentialInvalidFilePath(c *gc.C) {
 		},
 	)
 	schema := cloud.CredentialSchema{
-		"file": {
-			FilePath: true,
+		{
+			"file", cloud.CredentialAttr{FilePath: true},
 		},
 	}
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
@@ -610,8 +628,8 @@ func (s *credentialsSuite) TestFinalizeCredentialRelativeFilePath(c *gc.C) {
 		},
 	)
 	schema := cloud.CredentialSchema{
-		"file": {
-			FilePath: true,
+		{
+			"file", cloud.CredentialAttr{FilePath: true},
 		},
 	}
 	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
@@ -629,9 +647,10 @@ func (s *credentialsSuite) TestRemoveSecrets(c *gc.C) {
 		},
 	)
 	schema := cloud.CredentialSchema{
-		"username": {},
-		"password": {
-			Hidden: true,
+		{
+			"username", cloud.CredentialAttr{},
+		}, {
+			"password", cloud.CredentialAttr{Hidden: true},
 		},
 	}
 	sanitisedCred, err := cloud.RemoveSecrets(cred, map[cloud.AuthType]cloud.CredentialSchema{

@@ -150,13 +150,13 @@ func (s *addCredentialSuite) TestAddNewFromFile(c *gc.C) {
 func (s *addCredentialSuite) assertAddUserpassCredential(c *gc.C, input string) {
 	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
 		jujucloud.UserPassAuthType: {
-			"username": {
-				Optional: false,
+			{
+				"username", jujucloud.CredentialAttr{Optional: false},
+			}, {
+				"password", jujucloud.CredentialAttr{Hidden: true},
 			},
-			"password": {
-				Hidden: true,
-			},
-		}}
+		},
+	}
 	stdin := strings.NewReader(input)
 	_, err := s.run(c, stdin, "somecloud")
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,11 +191,15 @@ func (s *addCredentialSuite) TestAddJsonFileCredential(c *gc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.JSONFileAuthType}
 	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
 		jujucloud.JSONFileAuthType: {
-			"file": {
-				Optional: false,
-				FilePath: true,
+			{
+				"file",
+				jujucloud.CredentialAttr{
+					Optional: false,
+					FilePath: true,
+				},
 			},
-		}}
+		},
+	}
 	dir := c.MkDir()
 	err := ioutil.WriteFile(filepath.Join(dir, "jsonfile"), []byte{}, 0600)
 	c.Assert(err, jc.ErrorIsNil)
@@ -225,13 +229,13 @@ func (s *addCredentialSuite) assertAddCredentialWithOptions(c *gc.C, input strin
 	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
 	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
 		jujucloud.UserPassAuthType: {
-			"username": {
-				Optional: false,
+			{
+				"username", jujucloud.CredentialAttr{Optional: false},
+			}, {
+				"algorithm", jujucloud.CredentialAttr{Options: []interface{}{"optionA", "optionB"}},
 			},
-			"algorithm": {
-				Options: []interface{}{"optionA", "optionB"},
-			},
-		}}
+		},
+	}
 	// Input includes a bad option
 	stdin := strings.NewReader(input)
 	_, err := s.run(c, stdin, "somecloud")

@@ -260,7 +260,8 @@ func (c *addCredentialCommand) promptCredentialAttributes(
 	}
 
 	attrs := make(map[string]string)
-	for name, attr := range schema {
+	for _, attr := range schema {
+		name := attr.Name
 		value := ""
 		for {
 			// Formulate the prompt for the list of valid options.
