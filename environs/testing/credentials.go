@@ -42,7 +42,7 @@ func AssertProviderCredentialsValid(c *gc.C, p environs.EnvironProvider, authTyp
 	c.Assert(err, jc.ErrorIsNil)
 
 	for excludedKey := range attrs {
-		field := schema.Attribute(excludedKey)
+		field, _ := schema.Attribute(excludedKey)
 		if field.Optional {
 			continue
 		}

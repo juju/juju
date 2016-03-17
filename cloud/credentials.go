@@ -87,7 +87,7 @@ type CredentialValue struct {
 	// Name is the name of the credential value.
 	Name string
 
-	// CredentialAttr are the properties of the credential value.
+	// CredentialAttr holds the properties of the credential value.
 	CredentialAttr
 }
 
@@ -96,14 +96,14 @@ type CredentialValue struct {
 type CredentialSchema []CredentialValue
 
 // Attribute returns the named CredentialAttr value.
-func (s CredentialSchema) Attribute(name string) *CredentialAttr {
+func (s CredentialSchema) Attribute(name string) (*CredentialAttr, bool) {
 	for _, value := range s {
 		if value.Name == name {
 			result := value.CredentialAttr
-			return &result
+			return &result, true
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // FinalizeCredential finalizes a credential by matching it with one of the
