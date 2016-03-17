@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/params"
-	resourceinternal "github.com/juju/juju/resource/api/private"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
@@ -385,9 +384,6 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	logSinkHandler := srv.trackRequests(newLogSinkHandler(httpCtxt, srv.logDir))
 	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
 
-	add("/model/:modeluuid"+resourceinternal.HTTPEndpointPattern,
-		newUnitResourceHandler(httpCtxt),
-	)
 	add("/model/:modeluuid/logsink", logSinkHandler)
 	add("/model/:modeluuid/log", debugLogHandler)
 	add("/model/:modeluuid/charms",
@@ -462,6 +458,8 @@ func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHa
 	switch spec.AuthKind {
 	case names.UserTagKind:
 		args.Connect = ctxt.stateForRequestAuthenticatedUser
+	case names.UnitTagKind:
+		args.Connect = ctxt.stateForRequestAuthenticatedAgent
 	case "":
 		logger.Tracef(`no access level specified; proceeding with "unauthenticated"`)
 		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
