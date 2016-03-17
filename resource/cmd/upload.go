@@ -54,7 +54,7 @@ func NewUploadCommand(deps UploadDeps) *UploadCommand {
 // Info implements cmd.Command.Info
 func (c *UploadCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "push-resource",
+		Name:    "attach",
 		Args:    "service name=file",
 		Purpose: "upload a file as a resource for a service",
 		Doc: `
