@@ -53,14 +53,20 @@ func NewAddCredentialCommandForTest(
 	}
 }
 
-func NewsetDefaultRegionCommandForTest(testStore jujuclient.CredentialStore) *setDefaultRegionCommand {
-	return &setDefaultRegionCommand{
+func NewRemoveCredentialCommandForTest(testStore jujuclient.CredentialStore) *removeCredentialCommand {
+	return &removeCredentialCommand{
 		store: testStore,
 	}
 }
 
 func NewSetDefaultCredentialCommandForTest(testStore jujuclient.CredentialStore) *setDefaultCredentialCommand {
 	return &setDefaultCredentialCommand{
+		store: testStore,
+	}
+}
+
+func NewSetDefaultRegionCommandForTest(testStore jujuclient.CredentialStore) *setDefaultRegionCommand {
+	return &setDefaultRegionCommand{
 		store: testStore,
 	}
 }

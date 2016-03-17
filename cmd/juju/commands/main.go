@@ -269,6 +269,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cloud.NewSetDefaultRegionCommand())
 	r.Register(cloud.NewSetDefaultCredentialCommand())
 	r.Register(cloud.NewAddCredentialCommand())
+	r.Register(cloud.NewRemoveCredentialCommand())
 
 	// Juju GUI commands.
 	r.Register(gui.NewGUICommand())
