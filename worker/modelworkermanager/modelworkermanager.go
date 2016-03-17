@@ -117,6 +117,12 @@ func (m *modelWorkerManager) loop() error {
 
 func (m *modelWorkerManager) ensure(uuid string) error {
 	if m.started.Contains(uuid) {
+		// m.runner *would* function as we desire if we didn't
+		// have this guard; but that depends on a surprising
+		// and potentially harmful property of worker.Runner
+		// (that worker replacements are only applied late,
+		// when the previous implementation stops of its own
+		// accord).
 		return nil
 	}
 	starter := m.starter(uuid)
@@ -137,10 +143,10 @@ func (m *modelWorkerManager) starter(uuid string) func() (worker.Worker, error) 
 	}
 }
 
-func neverFatal(_ error) bool {
+func neverFatal(error) bool {
 	return false
 }
 
-func neverImportant(_, _ error) bool {
+func neverImportant(error, error) bool {
 	return false
 }

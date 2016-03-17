@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/worker/dependency"
 )
 
+// ManifoldConfig describes how to configure and construct a Worker,
+// and what registered resources it may depend upon.
 type ManifoldConfig struct {
 	APICallerName string
 	Entity        names.Tag
@@ -45,6 +47,8 @@ func (config ManifoldConfig) start(getResource dependency.GetResourceFunc) (work
 	return worker, nil
 }
 
+// Manifold returns a dependency.Manifold that will run a Worker as
+// configured.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.APICallerName},

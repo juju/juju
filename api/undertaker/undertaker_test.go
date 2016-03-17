@@ -82,7 +82,7 @@ func (s *UndertakerSuite) mockClient(c *gc.C, expectedRequest string, callback f
 	return client
 }
 
-func (s *UndertakerSuite) TestWatchModelResourcesGetsChange(c *gc.C) {
+func (s *UndertakerSuite) TestWatchModelResourcesCreatesWatcher(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(
 		objType string,
 		version int,

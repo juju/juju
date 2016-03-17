@@ -88,7 +88,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewConnection: apicaller.OnlyConnect,
 		}),
 
-		//
+		// All other manifolds should depend on at least one of these
+		// three, which handle all the tasks that are safe and sane
+		// to run in *all* controller machines.
 		notDeadFlagName: lifeflag.Manifold(lifeflag.ManifoldConfig{
 			APICallerName: apiCallerName,
 			Entity:        modelTag,
@@ -107,7 +109,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade: lifeflag.NewFacade,
 			NewWorker: lifeflag.NewWorker,
 		}),
-		runFlagName: singular.Manifold(singular.ManifoldConfig{
+		isResponsibleFlagName: singular.Manifold(singular.ManifoldConfig{
 			ClockName:     clockName,
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -117,8 +119,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: singular.NewWorker,
 		}),
 
-		// Everything else should depend on run-flag, to ensure that
-		// only one controller is administering this model at a time.
+		// Everything else should be wrapped in ifResponsible,
+		// ifNotAlive, or ifNotDead, to ensure that only a single
+		// controller is administering this model at a time.
 		//
 		// NOTE: not perfectly reliable at this stage? i.e. a worker
 		// that ignores its stop signal for "too long" might continue
@@ -139,12 +142,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// discovery worker and the undertaker, but could/should be
 		// used by several others (firewaller, provisioners, instance
 		// poller).
-		environTrackerName: runFlag(environ.Manifold(environ.ManifoldConfig{
+		environTrackerName: ifResponsible(environ.Manifold(environ.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
 
-		// The undertaker is currently the only notAliveFlag worker.
-		undertakerName: notAliveFlag(undertaker.Manifold(undertaker.ManifoldConfig{
+		// The undertaker is currently the only ifNotAlive worker.
+		undertakerName: ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
 			ClockName:     clockName,
@@ -154,41 +157,41 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: undertaker.NewWorker,
 		})),
 
-		// All the rest depend on notDeadFlag.
-		spaceImporterName: notDeadFlag(discoverspaces.Manifold(discoverspaces.ManifoldConfig{
+		// All the rest depend on ifNotDead.
+		spaceImporterName: ifNotDead(discoverspaces.Manifold(discoverspaces.ManifoldConfig{
 			EnvironName:   environTrackerName,
 			APICallerName: apiCallerName,
-			// No unlocker name for now; might never be necessary
+			// No UnlockerName for now; might never be necessary
 			// in exactly this form (because we should probably
 			// just have a persistent flag set/read via the api).
 
 			NewFacade: discoverspaces.NewFacade,
 			NewWorker: discoverspaces.NewWorker,
 		})),
-		computeProvisionerName: notDeadFlag(provisioner.Manifold(provisioner.ManifoldConfig{
+		computeProvisionerName: ifNotDead(provisioner.Manifold(provisioner.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
-		storageProvisionerName: notDeadFlag(storageprovisioner.Manifold(storageprovisioner.ManifoldConfig{
+		storageProvisionerName: ifNotDead(storageprovisioner.Manifold(storageprovisioner.ManifoldConfig{
 			APICallerName: apiCallerName,
 			ClockName:     clockName,
 			Scope:         modelTag,
 		})),
-		firewallerName: notDeadFlag(firewaller.Manifold(firewaller.ManifoldConfig{
+		firewallerName: ifNotDead(firewaller.Manifold(firewaller.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		unitAssignerName: notDeadFlag(unitassigner.Manifold(unitassigner.ManifoldConfig{
+		unitAssignerName: ifNotDead(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		serviceScalerName: notDeadFlag(servicescaler.Manifold(servicescaler.ManifoldConfig{
+		serviceScalerName: ifNotDead(servicescaler.Manifold(servicescaler.ManifoldConfig{
 			APICallerName: apiCallerName,
 			NewFacade:     servicescaler.NewFacade,
 			NewWorker:     servicescaler.New,
 		})),
-		instancePollerName: notDeadFlag(instancepoller.Manifold(instancepoller.ManifoldConfig{
+		instancePollerName: ifNotDead(instancepoller.Manifold(instancepoller.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		charmRevisionUpdaterName: notDeadFlag(charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
+		charmRevisionUpdaterName: ifNotDead(charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 			APICallerName: apiCallerName,
 			ClockName:     clockName,
 			Period:        config.CharmRevisionUpdateInterval,
@@ -196,16 +199,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade: charmrevisionmanifold.NewAPIFacade,
 			NewWorker: charmrevision.NewWorker,
 		})),
-		metricWorkerName: notDeadFlag(metricworker.Manifold(metricworker.ManifoldConfig{
+		metricWorkerName: ifNotDead(metricworker.Manifold(metricworker.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		stateCleanerName: notDeadFlag(cleaner.Manifold(cleaner.ManifoldConfig{
+		stateCleanerName: ifNotDead(cleaner.Manifold(cleaner.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		addressCleanerName: notDeadFlag(addresser.Manifold(addresser.ManifoldConfig{
+		addressCleanerName: ifNotDead(addresser.Manifold(addresser.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		statusHistoryPrunerName: notDeadFlag(statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
+		statusHistoryPrunerName: ifNotDead(statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
 			APICallerName:    apiCallerName,
 			MaxLogsPerEntity: config.EntityStatusHistoryCount,
 			PruneInterval:    config.EntityStatusHistoryInterval,
@@ -215,21 +218,22 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 }
 
-// runFlag wraps a manifold such that it only runs if the run flag is set.
-func runFlag(manifold dependency.Manifold) dependency.Manifold {
-	return dependency.WithFlag(manifold, runFlagName)
+// ifResponsible wraps a manifold such that it only runs if the
+// responsibility flag is set.
+func ifResponsible(manifold dependency.Manifold) dependency.Manifold {
+	return dependency.WithFlag(manifold, isResponsibleFlagName)
 }
 
-// notAliveFlag wraps a manifold such that it only runs if the run flag
-// is set and the model is Dying or Dead.
-func notAliveFlag(manifold dependency.Manifold) dependency.Manifold {
-	return runFlag(dependency.WithFlag(manifold, notAliveFlagName))
+// ifNotAlive wraps a manifold such that it only runs if the
+// responsibility flag is set and the model is Dying or Dead.
+func ifNotAlive(manifold dependency.Manifold) dependency.Manifold {
+	return ifResponsible(dependency.WithFlag(manifold, notAliveFlagName))
 }
 
-// notDeadFlag wraps a manifold such that it only runs if the run flag
-// is set and the model is Alive or Dying.
-func notDeadFlag(manifold dependency.Manifold) dependency.Manifold {
-	return runFlag(dependency.WithFlag(manifold, notDeadFlagName))
+// ifNotDead wraps a manifold such that it only runs if the responsibility
+// flag is set and the model is Alive or Dying.
+func ifNotDead(manifold dependency.Manifold) dependency.Manifold {
+	return ifResponsible(dependency.WithFlag(manifold, notDeadFlagName))
 }
 
 // clockManifold expresses a Clock as a ValueWorker manifold.
@@ -247,9 +251,9 @@ const (
 	clockName     = "clock"
 	apiCallerName = "api-caller"
 
-	runFlagName      = "run-flag"
-	notDeadFlagName  = "not-dead-flag"
-	notAliveFlagName = "not-alive-flag"
+	isResponsibleFlagName = "is-responsible-flag"
+	notDeadFlagName       = "not-dead-flag"
+	notAliveFlagName      = "not-alive-flag"
 
 	environTrackerName       = "environ-tracker"
 	undertakerName           = "undertaker"

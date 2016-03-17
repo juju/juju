@@ -31,7 +31,7 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 	}
 	c.Check(actual.Values(), jc.SameContents, []string{
 		"agent", "clock", "api-caller",
-		"run-flag", "not-dead-flag", "not-alive-flag",
+		"is-responsible-flag", "not-dead-flag", "not-alive-flag",
 		"environ-tracker", "undertaker", "space-importer",
 		"storage-provisioner", "compute-provisioner",
 		"firewaller", "unit-assigner", "service-scaler",
@@ -41,10 +41,10 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 	})
 }
 
-func (s *ManifoldsSuite) TestRunFlagDependencies(c *gc.C) {
+func (s *ManifoldsSuite) TestResponsibleFlagDependencies(c *gc.C) {
 	exclusions := set.NewStrings(
 		"agent", "api-caller", "clock",
-		"run-flag", "not-dead-flag", "not-alive-flag",
+		"is-responsible-flag", "not-dead-flag", "not-alive-flag",
 	)
 	manifolds := model.Manifolds(model.ManifoldsConfig{
 		Agent: &mockAgent{},
@@ -55,7 +55,7 @@ func (s *ManifoldsSuite) TestRunFlagDependencies(c *gc.C) {
 			continue
 		}
 		inputs := set.NewStrings(manifold.Inputs...)
-		c.Check(inputs.Contains("run-flag"), jc.IsTrue)
+		c.Check(inputs.Contains("is-responsible-flag"), jc.IsTrue)
 	}
 }
 

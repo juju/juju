@@ -1592,16 +1592,125 @@ func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
 	c.Assert(a.IsRestoreRunning(), jc.IsFalse)
 }
 
-func (s *MachineSuite) TestNewModelRunsWorkers(c *gc.C) {
-	c.Fatalf("write me")
+func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
+	tracker := newModelTracker(c)
+	check := modelMatchFunc(c, tracker, append(
+		alwaysModelWorkers, aliveModelWorkers...,
+	))
+	s.PatchValue(&modelManifolds, tracker.Manifolds)
+
+	uuid := s.BackingState.ModelUUID()
+	timeout := time.After(coretesting.LongWait)
+
+	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
+		for {
+			if check(uuid) {
+				break
+			}
+			select {
+			case <-time.After(coretesting.ShortWait):
+				s.BackingState.StartSync()
+			case <-timeout:
+				c.Fatalf("timed out waiting for workers")
+			}
+		}
+	})
+}
+
+func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
+	tracker := newModelTracker(c)
+	check := modelMatchFunc(c, tracker, append(
+		alwaysModelWorkers, aliveModelWorkers...,
+	))
+	s.PatchValue(&modelManifolds, tracker.Manifolds)
+
+	st, closer := s.setUpNewModel(c)
+	defer closer()
+	uuid := st.ModelUUID()
+	timeout := time.After(coretesting.LongWait)
+
+	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
+		for {
+			if check(uuid) {
+				break
+			}
+			select {
+			case <-time.After(coretesting.ShortWait):
+				s.BackingState.StartSync()
+			case <-timeout:
+				c.Fatalf("timed out waiting for workers")
+			}
+		}
+	})
 }
 
 func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
-	c.Fatalf("write me")
+	tracker := newModelTracker(c)
+	check := modelMatchFunc(c, tracker, append(
+		alwaysModelWorkers, deadModelWorkers...,
+	))
+	s.PatchValue(&modelManifolds, tracker.Manifolds)
+
+	st, closer := s.setUpNewModel(c)
+	defer closer()
+	uuid := st.ModelUUID()
+	timeout := time.After(coretesting.LongWait * 10)
+
+	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
+		model, err := st.Model()
+		c.Assert(err, jc.ErrorIsNil)
+		err = model.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+
+		// Wait for the running workers to imply that we've
+		// passed beyond Dying...
+		for {
+			if check(uuid) {
+				break
+			}
+			select {
+			case <-time.After(coretesting.ShortWait):
+				s.BackingState.StartSync()
+			case <-timeout:
+				c.Fatalf("timed out waiting for workers")
+			}
+		}
+
+		// ...and verify that's reflected in the database.
+		err = model.Refresh()
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(model.Life(), gc.Equals, state.Dead)
+	})
 }
 
-func (s *MachineSuite) TestModelWorkersRespectSingularFlag(c *gc.C) {
-	c.Fatalf("write me")
+func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C) {
+
+	// Grab responsibility for the model on behalf of another machine.
+	claimer := s.BackingState.SingularClaimer()
+	uuid := s.BackingState.ModelUUID()
+	err := claimer.Claim(uuid, "machine-999-lxc-99", time.Hour)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Then run a normal model-tracking test, just checking for
+	// a different set of workers.
+	tracker := newModelTracker(c)
+	check := modelMatchFunc(c, tracker, alwaysModelWorkers)
+	s.PatchValue(&modelManifolds, tracker.Manifolds)
+
+	timeout := time.After(coretesting.LongWait)
+	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
+		for {
+			if check(uuid) {
+				break
+			}
+			select {
+			case <-time.After(coretesting.ShortWait):
+				s.BackingState.StartSync()
+			case <-timeout:
+				c.Fatalf("timed out waiting for workers")
+			}
+		}
+	})
 }
 
 func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()) {
@@ -1613,7 +1722,8 @@ func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()
 		Prepare: true,
 	})
 	return newSt, func() {
-		newSt.Close()
+		err := newSt.Close()
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 

@@ -106,6 +106,7 @@ var (
 	useMultipleCPUs          = utils.UseMultipleCPUs
 	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
+	modelManifolds           = model.Manifolds
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
 	newMachiner              = machiner.NewMachiner
@@ -1076,7 +1077,7 @@ func (a *MachineAgent) startModelWorkers(uuid string) (worker.Worker, error) {
 		return nil, err
 	}
 
-	manifolds := model.Manifolds(model.ManifoldsConfig{
+	manifolds := modelManifolds(model.ManifoldsConfig{
 		Agent:                       modelAgent,
 		Clock:                       clock.WallClock,
 		RunFlagDuration:             time.Minute,
