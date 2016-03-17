@@ -70,12 +70,60 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	return &containerManager{name: name}, nil
 }
 
+type progressForwarderWithDiscarding struct {
+	callback     container.StatusCallback
+	buffer       chan string
+	stop         chan struct{}
+	discardCount int
+}
+
+// NewProgressForwarder creates an object that can forward string messages into
+// a StatusCallback function. However if it receives messages faster than
+// callback can handle, it will discard them.
+func NewProgressForwarder(callback container.StatusCallback) *progressForwarderWithDiscarding {
+	forwarder := &progressForwarderWithDiscarding{
+		callback:     callback,
+		buffer:       make(chan string, 1),
+		stop:         make(chan struct{}, 0),
+		discardCount: 0,
+	}
+	go forwarder.loop()
+	return forwarder
+}
+
+func (p *progressForwarderWithDiscarding) receive(message string) {
+	// Try to push the message into the buffer, but otherwise just discard
+	// it if the buffer is full
+	select {
+	case p.buffer <- message:
+	default:
+		p.discardCount++
+	}
+}
+
+func (p *progressForwarderWithDiscarding) loop() {
+	for {
+		select {
+		case msg := <-p.buffer:
+			p.callback(status.StatusProvisioning, msg, nil)
+		case <-p.stop:
+			return
+		}
+	}
+}
+
+// Stop the forwarder, and report how many messages we discarded
+func (p *progressForwarderWithDiscarding) Stop() int {
+	close(p.stop)
+	return p.discardCount
+}
+
 func (manager *containerManager) CreateContainer(
 	instanceConfig *instancecfg.InstanceConfig,
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
-	callback func(status status.Status, info string, data map[string]interface{}) error,
+	callback container.StatusCallback,
 ) (inst instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 
 	defer func() {
@@ -87,16 +135,19 @@ func (manager *containerManager) CreateContainer(
 	if manager.client == nil {
 		manager.client, err = ConnectLocal(manager.name)
 		if err != nil {
+			err = errors.Annotatef(err, "failed to connect to local LXD")
 			return
 		}
 	}
-
-	err = manager.client.EnsureImageExists(series,
-		func(progress string) {
-			callback(status.StatusProvisioning, progress, nil)
-		})
+	forwarder := NewProgressForwarder(callback)
+	err = manager.client.EnsureImageExists(series, forwarder.receive)
 	if err != nil {
+		err = errors.Annotatef(err, "failed to ensure LXD image")
 		return
+	}
+	count := forwarder.Stop()
+	if count > 0 {
+		logger.Debugf("omitted %d progress messages", count)
 	}
 
 	name := names.NewMachineTag(instanceConfig.MachineId).String()
