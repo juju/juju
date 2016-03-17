@@ -4,6 +4,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+from contextlib import contextmanager
 import re
 from subprocess import CalledProcessError
 import sys
@@ -39,10 +40,10 @@ def deploy_stack(client, charm_prefix):
     print_now("%s is ready to testing" % client.env.environment)
 
 
-def restore_present_state_server(client, backup_file):
+def restore_present_state_server(admin_client, backup_file):
     """juju-restore won't restore when the state-server is still present."""
     try:
-        output = client.restore_backup(backup_file)
+        output = admin_client.restore_backup(backup_file)
     except CalledProcessError as e:
         print_now(
             "juju-restore correctly refused to restore "
@@ -85,11 +86,11 @@ def delete_controller_members(client, leader_only=False):
     return deleted_machines
 
 
-def restore_missing_state_server(client, backup_file):
+def restore_missing_state_server(client, admin_client, backup_file):
     """juju-restore creates a replacement state-server for the services."""
     print_now("Starting restore.")
     try:
-        output = client.restore_backup(backup_file)
+        output = admin_client.restore_backup(backup_file)
     except CalledProcessError as e:
         print_now('Call of juju restore exited with an error\n')
         message = 'Restore failed: \n%s' % e.stderr
@@ -97,7 +98,7 @@ def restore_missing_state_server(client, backup_file):
         print_now('\n')
         raise Exception(message)
     print_now(output)
-    client.wait_for_started(600).status
+    admin_client.wait_for_started(600).status
     print_now("%s restored" % client.env.environment)
     print_now("PASS")
 
@@ -137,6 +138,40 @@ def make_client_from_args(args):
                        args.temp_env_name)
 
 
+@contextmanager
+def detect_bootstrap_machine(bs_manager):
+    try:
+        yield
+    except Exception as e:
+        bs_manager.known_hosts['0'] = parse_new_state_server_from_error(e)
+        raise
+
+
+def assess_recovery(bs_manager, strategy, charm_prefix):
+    client = bs_manager.client
+    deploy_stack(client, charm_prefix)
+    admin_client = client.get_admin_client()
+    if strategy in ('ha', 'ha-backup'):
+        admin_client.enable_ha()
+        admin_client.wait_for_ha()
+    if strategy in ('ha-backup', 'backup'):
+        backup_file = admin_client.backup()
+        restore_present_state_server(admin_client, backup_file)
+    if strategy == 'ha':
+        leader_only = True
+    else:
+        leader_only = False
+    deleted_machine_ids = delete_controller_members(
+        admin_client, leader_only=leader_only)
+    for m_id in deleted_machine_ids:
+        if bs_manager.known_hosts.get(m_id):
+            del bs_manager.known_hosts[m_id]
+    if strategy == 'ha':
+        client.get_status(600)
+    else:
+        restore_missing_state_server(client, admin_client, backup_file)
+
+
 def main(argv):
     args = parse_args(argv)
     client = make_client_from_args(args)
@@ -147,30 +182,8 @@ def main(argv):
         log_dir=args.logs, keep_env=False, permanent=jes_enabled,
         jes_enabled=jes_enabled)
     with bs_manager.booted_context(upload_tools=False):
-        try:
-            deploy_stack(client, args.charm_prefix)
-            if args.strategy in ('ha', 'ha-backup'):
-                client.enable_ha()
-                client.wait_for_ha()
-            if args.strategy in ('ha-backup', 'backup'):
-                backup_file = client.backup()
-                restore_present_state_server(client, backup_file)
-            if args.strategy == 'ha':
-                leader_only = True
-            else:
-                leader_only = False
-            deleted_machine_ids = delete_controller_members(
-                client, leader_only=leader_only)
-            for m_id in deleted_machine_ids:
-                if bs_manager.known_hosts.get(m_id):
-                    del bs_manager.known_hosts[m_id]
-            if args.strategy == 'ha':
-                client.get_status(600)
-            else:
-                restore_missing_state_server(client, backup_file)
-        except Exception as e:
-            bs_manager.known_hosts['0'] = parse_new_state_server_from_error(e)
-            raise
+        with detect_bootstrap_machine(bs_manager):
+            assess_recovery(bs_manager, args.strategy, args.charm_prefix)
 
 
 if __name__ == '__main__':

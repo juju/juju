@@ -82,6 +82,14 @@ from utility import (
 __metaclass__ = type
 
 
+class AdminOperation(Exception):
+
+    def __init__(self, operation):
+        super(AdminOperation, self).__init__(
+            'Operation "{}" can only be performed on admin models.'.format(
+                operation))
+
+
 def assert_juju_call(test_case, mock_method, client, expected_args,
                      call_index=None):
     if call_index is None:
@@ -158,17 +166,22 @@ class FakeEnvironmentState:
         self.machines.remove(machine_id)
         self.containers.pop(machine_id, None)
 
+    def remove_state_server(self, machine_id):
+        self.remove_machine(machine_id)
+        self.state_servers.remove(machine_id)
+
     def bootstrap(self, env, commandline_config, separate_admin):
         self.name = env.environment
-        self.state_servers.append(self.add_machine())
+        if separate_admin:
+            admin_model = self.controller.create_model('admin')
+        else:
+            admin_model = self
+        self.controller.admin_model = admin_model
+        admin_model.state_servers.append(admin_model.add_machine())
         self.controller.state = 'bootstrapped'
         self.model_config = copy.deepcopy(env.config)
         self.model_config.update(commandline_config)
         self.controller.models[self.name] = self
-        if separate_admin:
-            self.controller.admin_model = self.controller.create_model('admin')
-        else:
-            self.controller.admin_model = self
 
     def destroy_environment(self):
         self._clear()
@@ -382,7 +395,7 @@ class FakeJujuClient:
         self._backing_state.destroy_service(service)
 
     def wait_for_started(self, timeout=1200, start=None):
-        pass
+        return self.get_status()
 
     def wait_for_deploy_started(self):
         pass
@@ -415,6 +428,34 @@ class FakeJujuClient:
 
     def get_juju_timings(self):
         pass
+
+    def _require_admin(self, operation):
+        if self.get_admin_client() != self:
+            raise AdminOperation(operation)
+
+    def backup(self):
+        self._require_admin('backup')
+
+    def restore_backup(self, backup_file):
+        self._require_admin('restore')
+        if len(self._backing_state.state_servers) > 0:
+            exc = subprocess.CalledProcessError('Operation not permitted', 1,
+                                                2)
+            exc.stderr = 'Operation not permitted'
+            raise exc
+
+    def enable_ha(self):
+        self._require_admin('enable-ha')
+
+    def wait_for_ha(self):
+        self._require_admin('wait-for-ha')
+
+    def get_controller_leader(self):
+        return self.get_controller_members()[0]
+
+    def get_controller_members(self):
+        return [Machine(s, {'instance-id': s})
+                for s in self._backing_state.state_servers]
 
 
 class TestErroredUnit(TestCase):
