@@ -159,19 +159,19 @@ class TestJES(tests.FakeHomeTestCase):
 class TestHostedEnvironment(tests.FakeHomeTestCase):
 
     def test_hosted_environment(self):
-        hosting_client = FakeJujuClient()
+        hosting_client = FakeJujuClient(jes_enabled=True)
         log_dir = os.path.join(self.home_dir, 'logs')
         os.mkdir(log_dir)
         with hosted_environment(hosting_client, log_dir, 'bar') as client:
             model_state = client._backing_state
             self.assertEqual({'name-bar': model_state},
-                             hosting_client._backing_state.models)
+                             hosting_client._backing_state.controller.models)
             self.assertEqual('created', model_state.state)
         self.assertEqual('model-destroyed', model_state.state)
         self.assertTrue(os.path.isdir(os.path.join(log_dir, 'bar')))
 
     def test_gathers_machine_logs(self):
-        hosting_client = FakeJujuClient()
+        hosting_client = FakeJujuClient(jes_enabled=True)
         log_dir = os.path.join(self.home_dir, 'logs')
         os.mkdir(log_dir)
         with patch("deploy_stack.copy_remote_logs", autospec=True) as mock_crl:

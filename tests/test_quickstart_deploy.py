@@ -101,7 +101,7 @@ class TestQuickstartTest(FakeHomeTestCase):
         self.assertEqual('All Agents started', step['agents_started'])
         with patch('deploy_stack.safe_print_status'):
             with patch('deploy_stack.tear_down'):
-                with patch('deploy_stack.dump_env_logs_known_hosts'):
+                with patch('quickstart_deploy.BootstrapManager.dump_all_logs'):
                     steps.close()
 
     def test_iter_steps_context(self):

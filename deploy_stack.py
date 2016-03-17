@@ -640,16 +640,43 @@ class BootstrapManager:
                 raise LoggedException(e)
         finally:
             safe_print_status(self.client)
-            if self.jes_enabled:
-                runtime_config = self.client.get_cache_path()
-            else:
-                runtime_config = get_jenv_path(self.client.env.juju_home,
-                                               self.client.env.environment)
-            dump_env_logs_known_hosts(
-                self.client, self.log_dir, runtime_config,
-                self.known_hosts)
+            self.dump_all_logs()
             if not self.keep_env:
                 self.tear_down(self.jes_enabled)
+
+    def dump_all_logs(self):
+        """Dump logs for all models in the bootstrapped controller."""
+        # This is accurate because we bootstrapped self.client.  It might not
+        # be accurate for a model created by create_environment.
+        admin_client = self.client.get_admin_client()
+        if not self.jes_enabled:
+            clients = [self.client]
+        else:
+            try:
+                clients = list(self.client.iter_model_clients())
+            except Exception:
+                # Even if the controller is unreachable, we may still be able
+                # to gather some logs.  admin_client and self.client are all
+                # we have knowledge of.
+                clients = [admin_client]
+                if self.client is not admin_client:
+                    clients.append(self.client)
+        for client in clients:
+            if client.env.environment == admin_client.env.environment:
+                known_hosts = self.known_hosts
+                if self.jes_enabled:
+                    runtime_config = self.client.get_cache_path()
+                else:
+                    runtime_config = get_jenv_path(
+                        self.client.env.juju_home,
+                        self.client.env.environment)
+            else:
+                known_hosts = {}
+                runtime_config = None
+            artifacts_dir = os.path.join(self.log_dir, client.env.environment)
+            os.mkdir(artifacts_dir)
+            dump_env_logs_known_hosts(
+                client, artifacts_dir, runtime_config, known_hosts)
 
     @contextmanager
     def top_context(self):
