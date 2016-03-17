@@ -134,7 +134,7 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	}
 	sort.Strings(expected)
 	sort.Strings(unsupported)
-	c.Check(unsupported, jc.DeepEquals, expected)
+	c.Check(unsupported, jc.SameContents, expected)
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabArchKnown(c *gc.C) {
