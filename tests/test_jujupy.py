@@ -97,7 +97,6 @@ class FakeControllerState:
     def __init__(self):
         self.state = 'not-bootstrapped'
         self.models = {}
-        self.admin_model = None
 
     def create_model(self, name):
         state = FakeEnvironmentState()
