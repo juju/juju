@@ -9,7 +9,6 @@ import (
 	"strings"
 	stdtesting "testing"
 
-	"github.com/axw/fancycheck"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
@@ -160,7 +159,7 @@ func (s *UserDataSuite) TestCloudInitUserData(c *gc.C) {
 func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
 	data, err := cloudConf.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), fancycheck.StringEquals, expected)
+	c.Assert(string(data), gc.Equals, expected)
 	// Make sure it's valid YAML as well.
 	out := make(map[string]interface{})
 	err = yaml.Unmarshal(data, &out)
