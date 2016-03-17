@@ -22,7 +22,6 @@ import (
 
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 const current = "2.0.42-trusty-amd64"
