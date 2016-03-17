@@ -5,6 +5,7 @@ package description
 
 import (
 	"encoding/base64"
+
 	"github.com/juju/utils/set"
 
 	"github.com/juju/errors"
@@ -30,8 +31,8 @@ type service struct {
 	Exposed_    bool `yaml:"exposed,omitempty"`
 	MinUnits_   int  `yaml:"min-units,omitempty"`
 
-	Status_       *status `yaml:"status"`
-	statusHistory `yaml:"status-history"`
+	Status_        *status `yaml:"status"`
+	StatusHistory_ `yaml:"status-history"`
 
 	Settings_         map[string]interface{} `yaml:"settings"`
 	SettingsRefCount_ int                    `yaml:"settings-refcount"`
@@ -44,8 +45,7 @@ type service struct {
 	// unit count will be assumed by the number of units associated.
 	Units_ units `yaml:"units"`
 
-	// annotations is exported as it is a composed type, even if private.
-	annotations `yaml:"annotations,omitempty"`
+	Annotations_ `yaml:"annotations,omitempty"`
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
 
@@ -86,7 +86,7 @@ func newService(args ServiceArgs) *service {
 		Leader_:               args.Leader,
 		LeadershipSettings_:   args.LeadershipSettings,
 		MetricsCredentials_:   creds,
-		statusHistory:         newStatusHistory(),
+		StatusHistory_:        newStatusHistory(),
 	}
 	svc.setUnits(nil)
 	return svc
@@ -342,7 +342,7 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		SettingsRefCount_:     int(valid["settings-refcount"].(int64)),
 		Leader_:               valid["leader"].(string),
 		LeadershipSettings_:   valid["leadership-settings"].(map[string]interface{}),
-		statusHistory:         newStatusHistory(),
+		StatusHistory_:        newStatusHistory(),
 	}
 	result.importAnnotations(valid)
 	if err := result.importStatusHistory(valid); err != nil {

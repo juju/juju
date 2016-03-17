@@ -25,8 +25,8 @@ type machine struct {
 	Series_        string         `yaml:"series"`
 	ContainerType_ string         `yaml:"container-type,omitempty"`
 
-	Status_       *status `yaml:"status"`
-	statusHistory `yaml:"status-history"`
+	Status_        *status `yaml:"status"`
+	StatusHistory_ `yaml:"status-history"`
 
 	ProviderAddresses_ []*address `yaml:"provider-addresses,omitempty"`
 	MachineAddresses_  []*address `yaml:"machine-addresses,omitempty"`
@@ -43,8 +43,7 @@ type machine struct {
 
 	NetworkPorts_ *versionedNetworkPorts `yaml:"network-ports,omitempty"`
 
-	// annotations is exported as it is a composed type, even if private.
-	annotations `yaml:"annotations,omitempty"`
+	Annotations_ `yaml:"annotations,omitempty"`
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
 }
@@ -77,7 +76,7 @@ func newMachine(args MachineArgs) *machine {
 		Series_:        args.Series,
 		ContainerType_: args.ContainerType,
 		Jobs_:          jobs,
-		statusHistory:  newStatusHistory(),
+		StatusHistory_: newStatusHistory(),
 	}
 	if args.SupportedContainers != nil {
 		supported := make([]string, len(*args.SupportedContainers))
@@ -415,7 +414,7 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		Placement_:     valid["placement"].(string),
 		Series_:        valid["series"].(string),
 		ContainerType_: valid["container-type"].(string),
-		statusHistory:  newStatusHistory(),
+		StatusHistory_: newStatusHistory(),
 	}
 	result.importAnnotations(valid)
 	if err := result.importStatusHistory(valid); err != nil {

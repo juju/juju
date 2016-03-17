@@ -8,15 +8,21 @@ import (
 )
 
 // Instead of copy / pasting the Annotations, SetAnnotations, and the import
-// three lines into every entity that has annotations, we provide a helper
-// struct used in composition. This allows the accessor and setter methods to
-// work. This type is composed without a name so the methods get promoted so
-// they satisfy the HasAnnotations interface, but it does require that the
-// name is serialized as "annotations".
-type annotations map[string]string
+// three lines into every entity that has annotations, the Annotations_ helper
+// type is provided for use in composition. This type is composed without a
+// name so the methods get promoted so they satisfy the HasAnnotations
+// interface.
+//
+// NOTE(mjs) - The type is exported due to a limitation with go-yaml under
+// 1.6. Once that's fixed it should be possible to make it private again.
+//
+// NOTE(mjs) - The trailing underscore on the type name is to avoid collisions
+// between the type name and the Annotations method. The underscore can go once
+// the type becomes private again (revert to "annotations").
+type Annotations_ map[string]string
 
 // Annotations implements HasAnnotations.
-func (a *annotations) Annotations() map[string]string {
+func (a *Annotations_) Annotations() map[string]string {
 	if a == nil {
 		return nil
 	}
@@ -24,11 +30,11 @@ func (a *annotations) Annotations() map[string]string {
 }
 
 // SetAnnotations implements HasAnnotations.
-func (a *annotations) SetAnnotations(annotations map[string]string) {
+func (a *Annotations_) SetAnnotations(annotations map[string]string) {
 	*a = annotations
 }
 
-func (a *annotations) importAnnotations(valid map[string]interface{}) {
+func (a *Annotations_) importAnnotations(valid map[string]interface{}) {
 	if annotations := convertToStringMap(valid["annotations"]); annotations != nil {
 		a.SetAnnotations(annotations)
 	}
