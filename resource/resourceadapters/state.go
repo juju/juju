@@ -30,28 +30,6 @@ func (s *service) CharmURL() *charm.URL {
 	return cURL
 }
 
-// DataStore implements functionality wrapping state for resources.
-type DataStore struct {
-	corestate.Resources
-	State *corestate.State
-}
-
-// Units returns the tags for all units in the service.
-func (d DataStore) Units(serviceID string) (tags []names.UnitTag, err error) {
-	svc, err := d.State.Service(serviceID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	units, err := svc.AllUnits()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, u := range units {
-		tags = append(tags, u.UnitTag())
-	}
-	return tags, nil
-}
-
 // rawState is a wrapper around state.State that supports the needs
 // of resources.
 type rawState struct {

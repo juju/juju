@@ -52,17 +52,14 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 					res2,
 				},
 			},
-			// note: nothing for tag1
+			{
+				Tag: tag1,
+			},
 		},
 		CharmStoreResources: []charmresource.Resource{
 			chres1,
 			chres2,
 		},
-	}
-
-	s.data.ReturnUnits = []names.UnitTag{
-		tag0,
-		tag1,
 	}
 
 	facade, err := server.NewFacade(s.data, s.newCSClient)
@@ -105,7 +102,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 			},
 		}},
 	})
-	s.stub.CheckCallNames(c, "ListResources", "Units")
+	s.stub.CheckCallNames(c, "ListResources")
 	s.stub.CheckCall(c, 0, "ListResources", "a-service")
 }
 
@@ -123,7 +120,7 @@ func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
 	c.Check(results, jc.DeepEquals, api.ResourcesResults{
 		Results: []api.ResourcesResult{{}},
 	})
-	s.stub.CheckCallNames(c, "ListResources", "Units")
+	s.stub.CheckCallNames(c, "ListResources")
 }
 
 func (s *ListResourcesSuite) TestError(c *gc.C) {

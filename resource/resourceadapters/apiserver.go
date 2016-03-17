@@ -58,19 +58,14 @@ func NewPublicFacade(st *corestate.State, _ *common.Resources, authorizer common
 	}
 
 	rst, err := st.Resources()
-
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	ds := DataStore{
-		Resources: rst,
-		State:     st,
 	}
 	newClient := func(cURL *charm.URL, csMac *macaroon.Macaroon) (server.CharmStore, error) {
 		opener := newCharmstoreOpener(cURL, csMac)
 		return opener.NewClient()
 	}
-	facade, err := server.NewFacade(ds, newClient)
+	facade, err := server.NewFacade(rst, newClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
