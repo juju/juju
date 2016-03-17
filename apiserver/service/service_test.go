@@ -63,11 +63,10 @@ func (s *serviceSuite) TearDownSuite(c *gc.C) {
 
 func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
-
 	s.CharmStoreSuite.Session = s.JujuConnSuite.Session
 	s.CharmStoreSuite.SetUpTest(c)
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
 	s.service = s.Factory.MakeService(c, nil)
 
