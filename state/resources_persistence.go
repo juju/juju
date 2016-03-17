@@ -270,7 +270,20 @@ func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resourc
 	if res.PendingID != "" {
 		return errors.Errorf("pending resources not allowed")
 	}
+	return p.setUnitResource(unitID, res, nil)
+}
 
+// SetUnitResource stores the resource info for a particular unit. The
+// resource must already be set for the service. The provided progress
+// is stored in the DB.
+func (p ResourcePersistence) SetUnitResourceProgress(unitID string, res resource.Resource, progress int64) error {
+	if res.PendingID == "" {
+		return errors.Errorf("only pending resources may track progress")
+	}
+	return p.setUnitResource(unitID, res, &progress)
+}
+
+func (p ResourcePersistence) setUnitResource(unitID string, res resource.Resource, progress *int64) error {
 	stored, err := p.getStored(res)
 	if err != nil {
 		return errors.Trace(err)
@@ -288,9 +301,9 @@ func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resourc
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newInsertUnitResourceOps(unitID, stored)
+			ops = newInsertUnitResourceOps(unitID, stored, progress)
 		case 1:
-			ops = newUpdateUnitResourceOps(unitID, stored)
+			ops = newUpdateUnitResourceOps(unitID, stored, progress)
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")

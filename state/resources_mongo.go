@@ -148,8 +148,9 @@ func newUpdateCharmStoreResourceOps(res charmStoreResource) []txn.Op {
 	}}, newInsertCharmStoreResourceOps(res)...)
 }
 
-func newInsertUnitResourceOps(unitID string, stored storedResource) []txn.Op {
+func newInsertUnitResourceOps(unitID string, stored storedResource, progress *int64) []txn.Op {
 	doc := newUnitResourceDoc(unitID, stored)
+	doc.DownloadProgress = progress
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -159,8 +160,9 @@ func newInsertUnitResourceOps(unitID string, stored storedResource) []txn.Op {
 	}}
 }
 
-func newUpdateUnitResourceOps(unitID string, stored storedResource) []txn.Op {
+func newUpdateUnitResourceOps(unitID string, stored storedResource, progress *int64) []txn.Op {
 	doc := newUnitResourceDoc(unitID, stored)
+	doc.DownloadProgress = progress
 
 	// TODO(ericsnow) Using "update" doesn't work right...
 	return append([]txn.Op{{
@@ -168,7 +170,7 @@ func newUpdateUnitResourceOps(unitID string, stored storedResource) []txn.Op {
 		Id:     doc.DocID,
 		Assert: txn.DocExists,
 		Remove: true,
-	}}, newInsertUnitResourceOps(unitID, stored)...)
+	}}, newInsertUnitResourceOps(unitID, stored, progress)...)
 }
 
 func newRemoveResourcesOps(docs []resourceDoc) []txn.Op {

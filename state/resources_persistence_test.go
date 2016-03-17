@@ -425,6 +425,37 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceBadResource(c *gc.C) {
 	s.stub.CheckCallNames(c, "One")
 }
 
+func (s *ResourcePersistenceSuite) TestSetUnitResourceProgress(c *gc.C) {
+	servicename := "a-service"
+	unitname := "a-service/0"
+	res, doc := newPersistenceUnitResource(c, servicename, unitname, "eggs")
+	s.base.ReturnOne = doc
+	pendingID := "<a pending ID>"
+	res.PendingID = pendingID
+	expected := doc // a copy
+	expected.PendingID = pendingID
+	var progress int64 = 2
+	expected.DownloadProgress = &progress
+	p := NewResourcePersistence(s.base)
+	ignoredErr := errors.New("<never reached>")
+	s.stub.SetErrors(nil, nil, nil, nil, ignoredErr)
+
+	err := p.SetUnitResourceProgress("a-service/0", res, progress)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "One", "Run", "ServiceExistsOps", "RunTransaction")
+	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
+		C:      "resources",
+		Id:     "resource#a-service/eggs#unit-a-service/0",
+		Assert: txn.DocMissing,
+		Insert: &expected,
+	}, {
+		C:      "service",
+		Id:     "a-service",
+		Assert: txn.DocExists,
+	}})
+}
+
 func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsExists(c *gc.C) {
 	pendingID := "some-unique-ID-001"
 	stored, expected := newPersistenceResource(c, "a-service", "spam")
