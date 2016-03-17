@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -67,9 +68,11 @@ func (c OpenstackCredentials) DetectCredentials() (*cloud.CloudCredential, error
 	if err != nil {
 		return nil, errors.Annotate(err, "loading novarc file")
 	}
+	stripExport := regexp.MustCompile(`(?i)^\s*export\s*`)
 	keyValues := novaInfo.Section(ini.DEFAULT_SECTION).KeysHash()
 	if len(keyValues) > 0 {
 		for k, v := range keyValues {
+			k = stripExport.ReplaceAllString(k, "")
 			os.Setenv(k, v)
 		}
 		creds, user, region, err := c.detectCredential()
