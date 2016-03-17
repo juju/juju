@@ -22,6 +22,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 	goyaml "gopkg.in/yaml.v2"
 	"launchpad.net/gnuflag"
 
@@ -45,7 +46,7 @@ import (
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 )
 
@@ -147,7 +148,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// Check to see if a newer agent version has been requested
 	// by the bootstrap client.
 	desiredVersion, ok := envCfg.AgentVersion()
-	if ok && desiredVersion != version.Current {
+	if ok && desiredVersion != jujuversion.Current {
 		// If we have been asked for a newer version, ensure the newer
 		// tools can actually be found, or else bootstrap won't complete.
 		stream := envtools.PreferredStream(&desiredVersion, envCfg.Development(), envCfg.AgentStream())
@@ -164,8 +165,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		if errors.IsNotFound(toolsErr) {
 			// Newer tools not available, so revert to using the tools
 			// matching the current agent version.
-			logger.Warningf("newer tools for %q not available, sticking with version %q", desiredVersion, version.Current)
-			newConfigAttrs["agent-version"] = version.Current.String()
+			logger.Warningf("newer tools for %q not available, sticking with version %q", desiredVersion, jujuversion.Current)
+			newConfigAttrs["agent-version"] = jujuversion.Current.String()
 		} else if toolsErr != nil {
 			logger.Errorf("cannot find newer tools: %v", toolsErr)
 			return toolsErr
@@ -383,7 +384,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	dataDir := agentConfig.DataDir()
 
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}

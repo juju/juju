@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func init() {
@@ -389,7 +389,7 @@ func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
 
 // AgentVersion returns the current version that the API server is running.
 func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
-	return params.AgentVersionResult{Version: version.Current}, nil
+	return params.AgentVersionResult{Version: jujuversion.Current}, nil
 }
 
 // ModelGet implements the server-side part of the

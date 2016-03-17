@@ -27,7 +27,8 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 const (
@@ -281,7 +282,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 	err = m.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
 	c.Assert(err, jc.ErrorIsNil)
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -322,7 +323,7 @@ func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachinePar
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -431,7 +432,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	c.Assert(err, jc.ErrorIsNil)
 
 	agentTools := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: params.Service.Series(),
 	}

@@ -14,13 +14,14 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // TODO(ericsnow) Use errors.Trace, etc. in this file.
@@ -111,7 +112,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	dataDir := ctx.agentConfig.DataDir()
 	logDir := ctx.agentConfig.LogDir()
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -137,7 +138,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 				LogDir:          logDir,
 				MetricsSpoolDir: agent.DefaultPaths.MetricsSpoolDir,
 			},
-			UpgradedToVersion: version.Current,
+			UpgradedToVersion: jujuversion.Current,
 			Tag:               tag,
 			Password:          initialPassword,
 			Nonce:             "unused",

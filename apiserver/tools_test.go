@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -29,7 +30,7 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // charmsCommonSuite wraps authHttpSuite and adds
@@ -297,7 +298,7 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 
 func (s *toolsSuite) TestDownloadModelUUIDPath(c *gc.C) {
 	v := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -312,7 +313,7 @@ func (s *toolsSuite) TestDownloadModelUUIDPath(c *gc.C) {
 func (s *toolsSuite) TestDownloadOtherModelUUIDPath(c *gc.C) {
 	envState := s.setupOtherModel(c)
 	v := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -326,7 +327,7 @@ func (s *toolsSuite) TestDownloadOtherModelUUIDPath(c *gc.C) {
 
 func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
 	v := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -356,11 +357,11 @@ func (s *toolsSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 
 func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
-	s.PatchValue(&version.Current, testing.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor, "released")
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -375,11 +376,11 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 
 func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
-	s.PatchValue(&version.Current, testing.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor, "released")
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -450,7 +451,7 @@ func (s *toolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) 
 
 func (s *toolsSuite) TestDownloadRejectsWrongModelUUIDPath(c *gc.C) {
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}

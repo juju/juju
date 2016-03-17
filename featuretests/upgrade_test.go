@@ -37,9 +37,10 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
+	"github.com/juju/version"
 )
 
 const (
@@ -61,7 +62,7 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 
 	s.oldVersion = version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -173,7 +174,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 	s.configureMachine(c, changes.Added[1], s.oldVersion)
 
 	// One of the other controllers is ready for upgrade (but machine C isn't).
-	info, err := s.State.EnsureUpgradeInfo(machineB.Id(), s.oldVersion.Number, version.Current)
+	info, err := s.State.EnsureUpgradeInfo(machineB.Id(), s.oldVersion.Number, jujuversion.Current)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the agent will think it's the master controller.
@@ -198,7 +199,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 		}
 		// Confirm that the downgrade is back to the previous version.
 		current := version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		}
@@ -367,7 +368,7 @@ func waitForUpgradeToFinish(c *gc.C, conf agent.Config) {
 	success := false
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		diskConf := readConfigFromDisk(c, conf.DataDir(), conf.Tag())
-		success = diskConf.UpgradedToVersion() == version.Current
+		success = diskConf.UpgradedToVersion() == jujuversion.Current
 		if success {
 			break
 		}

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 
@@ -43,7 +44,7 @@ import (
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // LiveTests contains tests that are designed to run against a live server
@@ -109,7 +110,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.CleanupSuite.SetUpTest(c)
-	t.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	t.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	storageDir := c.MkDir()
 	t.DefaultBaseURL = "file://" + storageDir + "/tools"
 	t.ToolsFixture.SetUpTest(c)
@@ -457,7 +458,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := cfg.AgentVersion()
 	c.Check(ok, jc.IsTrue)
-	c.Check(agentVersion, gc.Equals, version.Current)
+	c.Check(agentVersion, gc.Equals, jujuversion.Current)
 
 	// Check that the constraints have been set in the environment.
 	cons, err := st.ModelConstraints()
@@ -482,7 +483,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 
 	// If the series has not been specified, we expect the most recent Ubuntu LTS release to be used.
 	expectedVersion := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: config.LatestLtsSeries(),
 	}
@@ -750,7 +751,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	}
 
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}

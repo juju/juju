@@ -32,7 +32,7 @@ GOPATH=$WORK go build -v github.com/juju/juju/...
 
 # Change the generic release to the proper juju-core version.
 VERSION=$(sed -n 's/^const version = "\(.*\)"/\1/p' \
-    $WORK/src/github.com/juju/juju/version/version.go)
+    $WORK/src/github.com/juju/version/version.go)
 mv $WORK $TMP_DIR/juju-core_${VERSION}/
 
 # Tar it up.

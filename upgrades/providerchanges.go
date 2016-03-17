@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider"
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 func upgradeProviderChanges(env environs.Environ, reader environConfigReader, ver version.Number) error {

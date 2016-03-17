@@ -19,6 +19,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -30,7 +31,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const noToolsMessage = `Juju cannot bootstrap because no tools are available for your model.
@@ -169,7 +170,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	// agent-version set anyway, to appease FinishInstanceConfig.
 	// In the latter case, setBootstrapTools will later set
 	// agent-version to the correct thing.
-	agentVersion := version.Current
+	agentVersion := jujuversion.Current
 	if args.AgentVersion != nil {
 		agentVersion = *args.AgentVersion
 	}
@@ -374,12 +375,12 @@ func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 	// We should only ever bootstrap the exact same version as the client,
 	// or we risk bootstrap incompatibility. We still set agent-version to
 	// the newest version, so the agent will immediately upgrade itself.
-	if !isCompatibleVersion(newVersion, version.Current) {
-		compatibleVersion, compatibleTools := findCompatibleTools(possibleTools, version.Current)
+	if !isCompatibleVersion(newVersion, jujuversion.Current) {
+		compatibleVersion, compatibleTools := findCompatibleTools(possibleTools, jujuversion.Current)
 		if len(compatibleTools) == 0 {
 			logger.Warningf(
 				"failed to find %s tools, will attempt to use %s",
-				version.Current, newVersion,
+				jujuversion.Current, newVersion,
 			)
 		} else {
 			bootstrapVersion, toolsList = compatibleVersion, compatibleTools
@@ -390,7 +391,7 @@ func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 }
 
 // findCompatibleTools finds tools in the list that have the same major, minor
-// and patch level as version.Current.
+// and patch level as jujuversion.Current.
 //
 // Build number is not important to match; uploaded tools will have
 // incremented build number, and we want to match them.
