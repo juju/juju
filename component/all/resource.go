@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/client"
+	internalapi "github.com/juju/juju/resource/api/private"
 	internalclient "github.com/juju/juju/resource/api/private/client"
 	internalserver "github.com/juju/juju/resource/api/private/server"
 	"github.com/juju/juju/resource/api/server"
@@ -202,6 +203,15 @@ func (r resources) registerHookContextFacade() {
 		reflect.TypeOf(&internalserver.UnitFacade{}),
 	)
 	coreapi.RegisterFacadeVersion(context.HookContextFacade, internalserver.FacadeVersion)
+
+	common.RegisterAPIModelEndpoint(internalapi.HTTPEndpointPattern, apihttp.HandlerSpec{
+		Constraints: apihttp.HandlerConstraints{
+			AuthKind:            names.UnitTagKind,
+			StrictValidation:    true,
+			ControllerModelOnly: false,
+		},
+		NewHandler: resourceadapters.NewDownloadHandler,
+	})
 }
 
 // resourcesUnitDatastore is a shim to elide serviceName from
