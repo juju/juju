@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/persistent-cookiejar"
-	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
