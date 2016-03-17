@@ -95,7 +95,9 @@ func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceRe
 			continue
 		}
 		tag := names.NewUnitTag(doc.UnitID)
-		units[tag] = append(units[tag], res)
+		if doc.PendingID == "" {
+			units[tag] = append(units[tag], res)
+		}
 		if doc.DownloadProgress != nil {
 			if downloadProgress[tag] == nil {
 				downloadProgress[tag] = make(map[string]int64)
