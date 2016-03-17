@@ -98,16 +98,6 @@ type FakeJujuXDGDataHomeSuite struct {
 	oldJujuXDGDataHome string
 }
 
-func (s *FakeJujuXDGDataHomeSuite) SetUpSuite(c *gc.C) {
-	s.JujuOSEnvSuite.SetUpTest(c)
-	s.FakeHomeSuite.SetUpTest(c)
-}
-
-func (s *FakeJujuXDGDataHomeSuite) TearDownSuite(c *gc.C) {
-	s.FakeHomeSuite.SetUpTest(c)
-	s.JujuOSEnvSuite.SetUpTest(c)
-}
-
 func (s *FakeJujuXDGDataHomeSuite) SetUpTest(c *gc.C) {
 	s.JujuOSEnvSuite.SetUpTest(c)
 	s.FakeHomeSuite.SetUpTest(c)
