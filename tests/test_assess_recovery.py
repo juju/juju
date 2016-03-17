@@ -1,10 +1,13 @@
 from argparse import Namespace
+from contextlib import contextmanager
 from mock import (
     call,
     patch,
+    Mock,
 )
 
 from assess_recovery import (
+    assess_recovery,
     delete_controller_members,
     main,
     make_client_from_args,
@@ -20,6 +23,7 @@ from tests import (
     FakeHomeTestCase,
     TestCase,
 )
+from tests.test_jujupy import FakeJujuClient
 
 
 class TestParseArgs(TestCase):
@@ -93,10 +97,64 @@ def make_mocked_client(name, status_error=None):
     patch.object(client, 'kill_controller', autospec=True).start()
     patch.object(client, 'is_jes_enabled', autospec=True,
                  return_value=True).start()
-    patch.object(client, 'get_admin_client', autospec=True).start()
+    patch.object(client, 'get_admin_client', autospec=True,
+                 return_value=client).start()
     patch.object(client, 'iter_model_clients', autospec=True,
                  return_value=[client]).start()
     return client
+
+
+class TestAssessRecovery(TestCase):
+
+    @contextmanager
+    def assess_recovery_cxt(self, client):
+        client.bootstrap()
+
+        def terminate(env, instance_ids):
+            for instance_id in instance_ids:
+                admin_model = client._backing_state.controller.admin_model
+                admin_model.remove_state_server(instance_id)
+
+        with patch('assess_recovery.terminate_instances',
+                   side_effect=terminate):
+            with patch('deploy_stack.wait_for_port', autospec=True):
+                yield
+
+    def test_backup(self):
+        client = FakeJujuClient()
+        bs_manager = Mock(client=client, known_hosts={})
+        with self.assess_recovery_cxt(client):
+            assess_recovery(bs_manager, 'backup', 'trusty')
+
+    def test_ha(self):
+        client = FakeJujuClient()
+        bs_manager = Mock(client=client, known_hosts={})
+        with self.assess_recovery_cxt(client):
+            assess_recovery(bs_manager, 'ha', 'trusty')
+
+    def test_ha_backup(self):
+        client = FakeJujuClient()
+        bs_manager = Mock(client=client, known_hosts={})
+        with self.assess_recovery_cxt(client):
+            assess_recovery(bs_manager, 'ha-backup', 'trusty')
+
+    def test_admin_model_backup(self):
+        client = FakeJujuClient(jes_enabled=True)
+        bs_manager = Mock(client=client, known_hosts={})
+        with self.assess_recovery_cxt(client):
+            assess_recovery(bs_manager, 'backup', 'trusty')
+
+    def test_admin_model_ha(self):
+        client = FakeJujuClient(jes_enabled=True)
+        bs_manager = Mock(client=client, known_hosts={})
+        with self.assess_recovery_cxt(client):
+            assess_recovery(bs_manager, 'ha', 'trusty')
+
+    def test_admin_model_ha_backup(self):
+        client = FakeJujuClient(jes_enabled=True)
+        bs_manager = Mock(client=client, known_hosts={})
+        with self.assess_recovery_cxt(client):
+            assess_recovery(bs_manager, 'ha-backup', 'trusty')
 
 
 @patch('assess_recovery.BootstrapManager.dump_all_logs', autospec=True)
