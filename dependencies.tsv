@@ -53,7 +53,7 @@ google.golang.org/cloud	git	f20d6dcccb44ed49de45ae3703312cb46e627db1	2015-03-19T
 gopkg.in/amz.v3	git	345e9291dbc9e6dd7b6c6c679b32b6d3366ca851	2016-01-25T18:30:43Z
 gopkg.in/check.v1	git	b3d3430320d4260e5fea99841af984b3badcea63	2015-06-26T10:50:28Z
 gopkg.in/errgo.v1	git	66cb46252b94c1f3d65646f54ee8043ab38d766c	2015-10-07T15:31:57Z
-gopkg.in/goose.v1	git	33121bddecedb2c9f9053c5c84ee729c379ab5ac	2015-12-21T19:50:40Z
+gopkg.in/goose.v1       git     495e6fa2ab89bc5ed2c8e1bbcbc4c9e4a3c97d37        2016-03-17T17:25:46Z
 gopkg.in/inconshreveable/log15.v2	git	b105bd37f74e5d9dc7b6ad7806715c7a2b83fd3f	2015-09-21T21:38:54Z
 gopkg.in/ini.v1	git	776aa739ce9373377cd16f526cdf06cb4c89b40f	2016-02-22T23:24:41Z
 gopkg.in/juju/blobstore.v2	git	51fa6e26128d74e445c72d3a91af555151cc3654	2016-01-25T02:37:03Z
