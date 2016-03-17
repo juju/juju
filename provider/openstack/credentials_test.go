@@ -104,6 +104,7 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassEnvironmentVariables(c *
 			"username":    "bob",
 			"password":    "dobbs",
 			"tenant-name": "gary",
+			"domain-name": "",
 		},
 	)
 	expected.Label = `openstack region "west" project "gary" user "bob"`
@@ -138,6 +139,7 @@ OS_PASSWORD=dobbs
 			"username":    "bob",
 			"password":    "dobbs",
 			"tenant-name": "gary",
+			"domain-name": "",
 		},
 	)
 	expected.Label = `openstack region "<unspecified>" project "gary" user "bob"`

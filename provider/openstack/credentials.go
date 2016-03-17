@@ -32,6 +32,10 @@ func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.Credent
 			"tenant-name": {
 				Description: "The OpenStack tenant name.",
 			},
+			"domain-name": {
+				Description: "The OpenStack domain name.",
+				Optional:    true,
+			},
 		},
 		cloud.AccessKeyAuthType: {
 			"access-key": {
@@ -111,6 +115,7 @@ func (c OpenstackCredentials) detectCredential() (*cloud.Credential, string, str
 				"username":    creds.User,
 				"password":    creds.Secrets,
 				"tenant-name": creds.TenantName,
+				"domain-name": creds.DomainName,
 			},
 		)
 	} else {
