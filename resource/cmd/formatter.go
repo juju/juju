@@ -128,12 +128,17 @@ func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource, progre
 	if err != nil {
 		return FormattedDetailResource{}, errors.Trace(err)
 	}
+	progressStr := "100%"
+	if unit.Size > 0 {
+		progressStr = fmt.Sprintf("%3.1f%%", float64(progress)*100.0/float64(unit.Size))
+	}
 	return FormattedDetailResource{
 		UnitID:     tag.Id(),
 		unitNumber: unitNum,
 		Unit:       FormatSvcResource(unit),
 		Expected:   FormatSvcResource(svc),
 		Progress:   progress,
+		progress:   progressStr,
 	}, nil
 }
 

@@ -60,6 +60,7 @@ type FormattedDetailResource struct {
 	Expected   FormattedSvcResource `json:"expected" yaml:"expected"`
 	Progress   int64                `json:"progress,omitempty" yaml:"progress,omitempty"`
 	unitNumber int
+	progress   string
 }
 
 // FormattedServiceDetails is the data for the tabular output for juju resources

@@ -188,8 +188,9 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 			unitNumber: 55,
 			UnitID:     "a-service/55",
 			Expected:   FormatSvcResource(svc),
-			Unit:       FormatSvcResource(unit),
 			Progress:   8,
+			progress:   "53.3%",
+			Unit:       FormatSvcResource(unit),
 		},
 	)
 }
@@ -228,6 +229,7 @@ func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *gc.C) {
 			UnitID:     "a-service/55",
 			Expected:   FormatSvcResource(svc),
 			Progress:   0,
+			progress:   "100%",
 			Unit:       FormatSvcResource(unit),
 		},
 	)
