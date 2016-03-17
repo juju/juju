@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"text/template"
@@ -29,7 +28,6 @@ import (
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/storage/looputil"
@@ -43,8 +41,6 @@ var (
 	LxcContainerDir  = golxc.GetDefaultLXCContainerDir()
 	LxcRestartDir    = "/etc/lxc/auto"
 	LxcObjectFactory = golxc.Factory()
-	runtimeGOOS      = runtime.GOOS
-	runningInsideLXC = lxcutils.RunningInsideLXC
 	writeWgetTmpFile = ioutil.WriteFile
 	lxcRetryCount    = 3
 	lxcRetryDelay    = 10
@@ -84,20 +80,6 @@ func containerDirFilesystem() (string, error) {
 		return "", errors.Errorf("could not determine filesystem type")
 	}
 	return lines[1], nil
-}
-
-// IsLXCSupported returns a boolean value indicating whether or not
-// we can run LXC containers.
-func IsLXCSupported() (bool, error) {
-	if runtimeGOOS != "linux" {
-		return false, nil
-	}
-	// We do not support running nested LXC containers.
-	insideLXC, err := runningInsideLXC()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return !insideLXC, nil
 }
 
 type containerManager struct {
@@ -368,8 +350,7 @@ func (manager *containerManager) CreateContainer(
 	// method as we have passed it through at container creation time.  This
 	// is necessary to get the appropriate rootfs reference without explicitly
 	// setting it ourselves.
-	if err = lxcContainer.Start("", consoleFile); err != nil {
-		logger.Warningf("container failed to start %v", err)
+	if err := lxcContainer.Start("", consoleFile); err != nil {
 		// if the container fails to start we should try to destroy it
 		// check if the container has been constructed
 		if lxcContainer.IsConstructed() {
@@ -377,13 +358,10 @@ func (manager *containerManager) CreateContainer(
 			if derr := lxcContainer.Destroy(); derr != nil {
 				// if an error is reported there is probably a leftover
 				// container that the user should clean up manually
-				logger.Errorf("container failed to start and failed to destroy: %v", derr)
-				return nil, nil, errors.Annotate(err, "container failed to start and failed to destroy: manual cleanup of containers needed")
+				return nil, nil, errors.Annotatef(err, "container failed to start and failed to destroy: manual cleanup of containers needed: %v", derr)
 			}
-			logger.Warningf("container failed to start and was destroyed - safe to retry")
 			return nil, nil, errors.Wrap(err, instance.NewRetryableCreationError("container failed to start and was destroyed: "+lxcContainer.Name(), 1, 0))
 		}
-		logger.Warningf("container failed to start: %v", err)
 		return nil, nil, errors.Annotate(err, "container failed to start")
 	}
 

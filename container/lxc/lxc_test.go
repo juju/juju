@@ -1266,34 +1266,6 @@ func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
 	)
 }
 
-func (s *LxcSuite) TestIsLXCSupportedOnHost(c *gc.C) {
-	s.PatchValue(lxc.RunningInsideLXC, func() (bool, error) {
-		return false, nil
-	})
-	supports, err := lxc.IsLXCSupported()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supports, jc.IsTrue)
-}
-
-func (s *LxcSuite) TestIsLXCSupportedOnLXCContainer(c *gc.C) {
-	s.PatchValue(lxc.RunningInsideLXC, func() (bool, error) {
-		return true, nil
-	})
-	supports, err := lxc.IsLXCSupported()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supports, jc.IsFalse)
-}
-
-func (s *LxcSuite) TestIsLXCSupportedNonLinuxSystem(c *gc.C) {
-	s.PatchValue(lxc.RuntimeGOOS, "windows")
-	s.PatchValue(lxc.RunningInsideLXC, func() (bool, error) {
-		panic("should not be called")
-	})
-	supports, err := lxc.IsLXCSupported()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supports, jc.IsFalse)
-}
-
 func (s *LxcSuite) TestWgetEnvironmentUsesNoProxy(c *gc.C) {
 	var wgetScript []byte
 	fakeCert := []byte("fakeCert")
