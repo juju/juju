@@ -173,6 +173,22 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context) error
 		fmt.Fprintln(ctxt.Stderr, "credentials entry aborted")
 		return nil
 	}
+
+	// Prompt to overwrite if needed.
+	existingCredentials, err := c.existingCredentialsForCloud()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, ok := existingCredentials.AuthCredentials[credentialName]; ok {
+		overwrite, err := c.promptReplace(ctxt.Stderr, ctxt.Stdin)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !overwrite {
+			return nil
+		}
+	}
+
 	authType, err := c.promptAuthType(ctxt.Stderr, ctxt.Stdin, c.cloud.AuthTypes)
 	if err != nil {
 		return errors.Trace(err)
@@ -183,10 +199,6 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context) error
 	}
 
 	attrs, err := c.promptCredentialAttributes(ctxt, ctxt.Stderr, ctxt.Stdin, authType, schema)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	existingCredentials, err := c.existingCredentialsForCloud()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -207,6 +219,15 @@ func (c *addCredentialCommand) promptCredentialName(out io.Writer, in io.Reader)
 		return "", errors.Trace(err)
 	}
 	return strings.TrimSpace(input), nil
+}
+
+func (c *addCredentialCommand) promptReplace(out io.Writer, in io.Reader) (bool, error) {
+	fmt.Fprint(out, "  replace existing credential? [y/N]: ")
+	input, err := readLine(in)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return strings.ToLower(strings.TrimSpace(input)) == "y", nil
 }
 
 func (c *addCredentialCommand) promptAuthType(out io.Writer, in io.Reader, authTypes []jujucloud.AuthType) (jujucloud.AuthType, error) {

@@ -150,7 +150,7 @@ func (s *addCredentialSuite) TestAddNewFromFile(c *gc.C) {
 
 // TODO(wallyworld) - these tests should also validate that the prompts and messages are as expected.
 
-func (s *addCredentialSuite) assertAddUserpassCredential(c *gc.C, input string) {
+func (s *addCredentialSuite) assertAddUserpassCredential(c *gc.C, input string, expected *jujucloud.Credential) {
 	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
 		jujucloud.UserPassAuthType: {
 			{
@@ -163,13 +163,19 @@ func (s *addCredentialSuite) assertAddUserpassCredential(c *gc.C, input string) 
 	stdin := strings.NewReader(input)
 	_, err := s.run(c, stdin, "somecloud")
 	c.Assert(err, jc.ErrorIsNil)
+	var cred jujucloud.Credential
+	if expected == nil {
+		cred = jujucloud.NewCredential(jujucloud.UserPassAuthType, map[string]string{
+			"username": "user",
+			"password": "password",
+		})
+	} else {
+		cred = *expected
+	}
 	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
 		"somecloud": {
 			AuthCredentials: map[string]jujucloud.Credential{
-				"fred": jujucloud.NewCredential(jujucloud.UserPassAuthType, map[string]string{
-					"username": "user",
-					"password": "password",
-				}),
+				"fred": cred,
 			},
 		},
 	})
@@ -177,17 +183,40 @@ func (s *addCredentialSuite) assertAddUserpassCredential(c *gc.C, input string) 
 
 func (s *addCredentialSuite) TestAddCredentialSingleAuthType(c *gc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
-	s.assertAddUserpassCredential(c, "fred\nuser\npassword\n")
+	s.assertAddUserpassCredential(c, "fred\nuser\npassword\n", nil)
 }
 
 func (s *addCredentialSuite) TestAddCredentialRetryOnMissingMandatoryAttribute(c *gc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
-	s.assertAddUserpassCredential(c, "fred\n\nuser\npassword\n")
+	s.assertAddUserpassCredential(c, "fred\n\nuser\npassword\n", nil)
 }
 
 func (s *addCredentialSuite) TestAddCredentialMultipleAuthType(c *gc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType, jujucloud.AccessKeyAuthType}
-	s.assertAddUserpassCredential(c, "fred\nuserpass\nuser\npassword\n")
+	s.assertAddUserpassCredential(c, "fred\nuserpass\nuser\npassword\n", nil)
+}
+
+func (s *addCredentialSuite) TestAddCredentialReplace(c *gc.C) {
+	s.store.Credentials = map[string]jujucloud.CloudCredential{
+		"somecloud": {
+			AuthCredentials: map[string]jujucloud.Credential{
+				"fred": jujucloud.NewCredential(jujucloud.UserPassAuthType, nil)},
+		},
+	}
+	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
+	s.assertAddUserpassCredential(c, "fred\ny\nuser\npassword\n", nil)
+}
+
+func (s *addCredentialSuite) TestAddCredentialReplaceDecline(c *gc.C) {
+	cred := jujucloud.NewCredential(jujucloud.UserPassAuthType, nil)
+	s.store.Credentials = map[string]jujucloud.CloudCredential{
+		"somecloud": {
+			AuthCredentials: map[string]jujucloud.Credential{
+				"fred": cred},
+		},
+	}
+	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
+	s.assertAddUserpassCredential(c, "fred\nn\n", &cred)
 }
 
 func (s *addCredentialSuite) TestAddJsonFileCredential(c *gc.C) {
