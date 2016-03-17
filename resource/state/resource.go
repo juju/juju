@@ -304,15 +304,24 @@ func (st resourceState) OpenResource(serviceID, name string) (resource.Resource,
 func (st resourceState) OpenResourceForUniter(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
 	serviceID := unit.ServiceName()
 
+	pendingID, err := newPendingID()
+	if err != nil {
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
+
 	resourceInfo, resourceReader, err := st.OpenResource(serviceID, name)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
+	pending := resourceInfo // a copy
+	pending.PendingID = pendingID
+
 	resourceReader = unitSetter{
 		ReadCloser: resourceReader,
 		persist:    st.persist,
 		unit:       unit,
+		pending:    pending,
 		resource:   resourceInfo,
 	}
 
@@ -404,6 +413,7 @@ type unitSetter struct {
 	io.ReadCloser
 	persist  resourcePersistence
 	unit     resource.Unit
+	pending  resource.Resource
 	resource resource.Resource
 }
 
