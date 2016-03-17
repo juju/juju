@@ -321,6 +321,21 @@ func (st *State) FindActionTagsByPrefix(prefix string) []names.ActionTag {
 	return results
 }
 
+// FindActionsByName finds Actions with the given name.
+func (st *State) FindActionsByName(name string) ([]Action, error) {
+	var results []Action
+	var doc actionDoc
+
+	actions, closer := st.getCollection(actionsC)
+	defer closer()
+
+	iter := actions.Find(bson.D{{"name", name}}).Iter()
+	for iter.Next(&doc) {
+		results = append(results, newAction(st, doc))
+	}
+	return results, errors.Trace(iter.Close())
+}
+
 // EnqueueAction
 func (st *State) EnqueueAction(receiver names.Tag, actionName string, payload map[string]interface{}) (Action, error) {
 	if len(actionName) == 0 {

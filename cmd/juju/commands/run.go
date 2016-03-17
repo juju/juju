@@ -64,6 +64,8 @@ the unit.
 in the model.  If you specify --all you cannot provide additional
 targets.
 
+Since juju run creates actions, you can query for commands started with
+juju run by calling "juju show-action-status --name juju-run".
 `
 
 func (c *runCommand) Info() *cmd.Info {

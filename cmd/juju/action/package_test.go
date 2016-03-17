@@ -130,6 +130,7 @@ type fakeAPIClient struct {
 	enqueuedActions    params.Actions
 	actionsByReceivers []params.ActionsByReceiver
 	actionTagMatches   params.FindTagsResults
+	actionsByNames     params.ActionsByNames
 	charmActions       *charm.Actions
 	apiErr             error
 }
@@ -208,4 +209,8 @@ func (c *fakeAPIClient) Actions(args params.Entities) (params.ActionResults, err
 
 func (c *fakeAPIClient) FindActionTagsByPrefix(arg params.FindTags) (params.FindTagsResults, error) {
 	return c.actionTagMatches, c.apiErr
+}
+
+func (c *fakeAPIClient) FindActionsByNames(args params.FindActionsByNames) (params.ActionsByNames, error) {
+	return c.actionsByNames, c.apiErr
 }
