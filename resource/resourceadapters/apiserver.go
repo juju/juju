@@ -7,10 +7,12 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api/server"
 	corestate "github.com/juju/juju/state"
@@ -75,4 +77,25 @@ func NewPublicFacade(st *corestate.State, _ *common.Resources, authorizer common
 		return nil, errors.Trace(err)
 	}
 	return facade, nil
+}
+
+// NewUploadHandler returns a new HTTP handler for the given args.
+func NewUploadHandler(args apihttp.NewHandlerArgs) http.Handler {
+	return server.NewLegacyHTTPHandler(
+		func(req *http.Request) (server.DataStore, names.Tag, error) {
+			st, entity, err := args.Connect(req)
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+			resources, err := st.Resources()
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+			ds := DataStore{
+				Resources: resources,
+				State:     st,
+			}
+			return ds, entity.Tag(), nil
+		},
+	)
 }
