@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"net"
 
-	"github.com/axw/fancycheck"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -892,7 +891,7 @@ func (s *TypesSuite) checkSortNetworkConfigsByParentsWithAllInputPremutationsMat
 		result := networkingcommon.SortNetworkConfigsByParents(shuffledInput)
 		c.Assert(result, gc.HasLen, expectedLength)
 		jsonResult := s.networkConfigsAsJSON(c, result)
-		c.Check(jsonResult, fancycheck.StringEquals, jsonExpected)
+		c.Check(jsonResult, gc.Equals, jsonExpected)
 	}
 }
 
@@ -928,7 +927,7 @@ func (s *TypesSuite) TestSortNetworkConfigsByInterfaceName(c *gc.C) {
 		result := networkingcommon.SortNetworkConfigsByInterfaceName(shuffledInput)
 		c.Assert(result, gc.HasLen, expectedLength)
 		jsonResult := s.networkConfigsAsJSON(c, result)
-		c.Check(jsonResult, fancycheck.StringEquals, jsonExpected)
+		c.Check(jsonResult, gc.Equals, jsonExpected)
 	}
 }
 
@@ -943,7 +942,7 @@ func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigs(c *gc.C) {
 
 			mergedConfigs := networkingcommon.MergeProviderAndObservedNetworkConfigs(shuffledProviderConfigs, shuffledObservedConfigs)
 			jsonResult := s.networkConfigsAsJSON(c, mergedConfigs)
-			c.Check(jsonResult, fancycheck.StringEquals, jsonExpected)
+			c.Check(jsonResult, gc.Equals, jsonExpected)
 		}
 	}
 }
@@ -964,12 +963,12 @@ func (s *TypesSuite) TestGetObservedNetworkConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	jsonResult := s.networkConfigsAsJSON(c, observedConfig)
 	jsonExpected := s.networkConfigsAsJSON(c, expectedSortedObservedNetworkConfigs)
-	c.Check(jsonResult, fancycheck.StringEquals, jsonExpected)
+	c.Check(jsonResult, gc.Equals, jsonExpected)
 }
 
 func (s *TypesSuite) TestNetworkConfigsToStateArgs(c *gc.C) {
 	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(expectedSortedMergedNetworkConfigs)
 
-	c.Check(devicesArgs, fancycheck.StringEquals, expectedLinkLayerDeviceArgsWithMergedNetworkConfig)
-	c.Check(devicesAddrs, fancycheck.StringEquals, expectedLinkLayerDeviceAdressesWithMergedNetworkConfig)
+	c.Check(devicesArgs, jc.DeepEquals, expectedLinkLayerDeviceArgsWithMergedNetworkConfig)
+	c.Check(devicesAddrs, jc.DeepEquals, expectedLinkLayerDeviceAdressesWithMergedNetworkConfig)
 }
