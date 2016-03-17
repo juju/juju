@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/txn"
@@ -21,6 +22,7 @@ type stubRawState struct {
 
 	ReturnPersistence Persistence
 	ReturnStorage     Storage
+	ReturnUnits       []names.UnitTag
 }
 
 func (s *stubRawState) Persistence() Persistence {
@@ -44,6 +46,15 @@ func (s *stubRawState) VerifyService(serviceID string) error {
 	}
 
 	return nil
+}
+
+func (s *stubRawState) Units(serviceID string) ([]names.UnitTag, error) {
+	s.stub.AddCall("Units", serviceID)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.ReturnUnits, nil
 }
 
 type stubPersistence struct {

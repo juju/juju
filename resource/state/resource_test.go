@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -67,6 +68,8 @@ func (s *ResourceSuite) newPendingID() (string, error) {
 func (s *ResourceSuite) TestListResourcesOkay(c *gc.C) {
 	expected := newUploadResources(c, "spam", "eggs")
 	s.persist.ReturnListResources = resource.ServiceResources{Resources: expected}
+	tag := names.NewUnitTag("a-service/0")
+	s.raw.ReturnUnits = []names.UnitTag{tag}
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
@@ -74,11 +77,32 @@ func (s *ResourceSuite) TestListResourcesOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(resources.Resources, jc.DeepEquals, expected)
-	s.stub.CheckCallNames(c, "ListResources")
+	c.Check(resources.UnitResources, jc.DeepEquals, []resource.UnitResources{{
+		Tag: tag,
+	}})
+	s.stub.CheckCallNames(c, "ListResources", "Units")
+	s.stub.CheckCall(c, 0, "ListResources", "a-service")
+}
+
+func (s *ResourceSuite) TestListResourcesNoUnits(c *gc.C) {
+	expected := newUploadResources(c, "spam", "eggs")
+	s.persist.ReturnListResources = resource.ServiceResources{Resources: expected}
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	resources, err := st.ListResources("a-service")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(resources.Resources, jc.DeepEquals, expected)
+	c.Check(resources.UnitResources, gc.HasLen, 0)
+	s.stub.CheckCallNames(c, "ListResources", "Units")
 	s.stub.CheckCall(c, 0, "ListResources", "a-service")
 }
 
 func (s *ResourceSuite) TestListResourcesEmpty(c *gc.C) {
+	s.raw.ReturnUnits = []names.UnitTag{
+		names.NewUnitTag("a-service/0"),
+	}
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
@@ -86,7 +110,8 @@ func (s *ResourceSuite) TestListResourcesEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(resources.Resources, gc.HasLen, 0)
-	s.stub.CheckCallNames(c, "ListResources")
+	c.Check(resources.UnitResources, gc.HasLen, 1)
+	s.stub.CheckCallNames(c, "ListResources", "Units")
 }
 
 func (s *ResourceSuite) TestListResourcesError(c *gc.C) {

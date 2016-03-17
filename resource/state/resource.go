@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/txn"
@@ -73,6 +74,9 @@ type StagedResource interface {
 type rawState interface {
 	// VerifyService ensures that the service is in state.
 	VerifyService(id string) error
+
+	// Units returns the tags for all units in the service.
+	Units(serviceID string) ([]names.UnitTag, error)
 }
 
 type resourceStorage interface {
@@ -104,6 +108,26 @@ func (st resourceState) ListResources(serviceID string) (resource.ServiceResourc
 			return resource.ServiceResources{}, errors.Trace(err)
 		}
 		return resource.ServiceResources{}, errors.Trace(err)
+	}
+
+	unitIDs, err := st.raw.Units(serviceID)
+	if err != nil {
+		return resource.ServiceResources{}, errors.Trace(err)
+	}
+	for _, unitID := range unitIDs {
+		found := false
+		for _, unitRes := range resources.UnitResources {
+			if unitID.String() == unitRes.Tag.String() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			unitRes := resource.UnitResources{
+				Tag: unitID,
+			}
+			resources.UnitResources = append(resources.UnitResources, unitRes)
+		}
 	}
 
 	return resources, nil

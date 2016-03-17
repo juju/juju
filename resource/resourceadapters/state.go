@@ -79,6 +79,22 @@ func (st rawState) Storage() state.Storage {
 	return st.persist.NewStorage()
 }
 
+// Units returns the tags for all units in the service.
+func (st rawState) Units(serviceID string) (tags []names.UnitTag, err error) {
+	svc, err := st.base.Service(serviceID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	units, err := svc.AllUnits()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, u := range units {
+		tags = append(tags, u.UnitTag())
+	}
+	return tags, nil
+}
+
 // VerifyService implements resource/state.RawState.
 func (st rawState) VerifyService(id string) error {
 	svc, err := st.base.Service(id)
