@@ -198,10 +198,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewUnsetCommand())
 	r.Register(model.NewRetryProvisioningCommand())
 	r.Register(model.NewDestroyCommand())
-
-	r.Register(model.NewShareCommand())
-	r.Register(model.NewUnshareCommand())
 	r.Register(model.NewUsersCommand())
+	r.Register(model.NewGrantCommand())
+	r.Register(model.NewRevokeCommand())
 
 	// Manage and control actions
 	r.Register(action.NewSuperCommand())
