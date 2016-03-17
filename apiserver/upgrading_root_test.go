@@ -54,7 +54,7 @@ func (r *upgradingRootSuite) TestFindNonExistentMethod(c *gc.C) {
 func (r *upgradingRootSuite) TestFindMethodNonExistentVersion(c *gc.C) {
 	root := apiserver.TestingUpgradingRoot(nil)
 
-	caller, err := root.FindMethod("Client", 99999999, "Status")
+	caller, err := root.FindMethod("Client", 99999999, "FullStatus")
 
 	c.Assert(err, gc.ErrorMatches, "unknown version \\(99999999\\) of interface \"Client\"")
 	c.Assert(caller, gc.IsNil)

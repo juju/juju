@@ -854,12 +854,6 @@ func (s *UnitSuite) TestSetPassword(c *gc.C) {
 	})
 }
 
-func (s *UnitSuite) TestSetAgentCompatPassword(c *gc.C) {
-	e, err := s.State.Unit(s.unit.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	testSetAgentCompatPassword(c, e)
-}
-
 func (s *UnitSuite) TestUnitSetAgentPresence(c *gc.C) {
 	alive, err := s.unit.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
