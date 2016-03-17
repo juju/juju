@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/migrationmaster"
 )
 
@@ -48,11 +49,6 @@ func (s *Suite) TestMigration(c *gc.C) {
 	masterClient := newStubMasterClient(s.stub)
 	w := migrationmaster.New(masterClient)
 
-	doneC := make(chan error)
-	go func() {
-		doneC <- w.Wait()
-	}()
-
 	// Trigger migration.
 	masterClient.watcher.changes <- migration.TargetInfo{
 		ControllerTag: names.NewModelTag("uuid"),
@@ -62,13 +58,8 @@ func (s *Suite) TestMigration(c *gc.C) {
 		Password:      "secret",
 	}
 
-	// Worker should exit for now (TEMPORARY)
-	select {
-	case err := <-doneC:
-		c.Assert(err, gc.ErrorMatches, "migration seen and aborted")
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for worker to stop")
-	}
+	// This error is temporary while migrationmaster is a WIP.
+	runWorkerAndWait(c, w, "migration seen and aborted")
 
 	// Observe that the migration was seen, the model exported, an API
 	// connection to the target controller was made, the model was
@@ -93,15 +84,17 @@ func (s *Suite) TestWatchFailure(c *gc.C) {
 	client := newStubMasterClient(s.stub)
 	client.watchErr = errors.New("boom")
 	w := migrationmaster.New(client)
+	runWorkerAndWait(c, w, "watching for migration: boom")
+}
 
+func runWorkerAndWait(c *gc.C, w worker.Worker, expectedErr string) {
 	doneC := make(chan error)
 	go func() {
 		doneC <- w.Wait()
 	}()
-
 	select {
 	case err := <-doneC:
-		c.Assert(err, gc.ErrorMatches, "watching for migration: boom")
+		c.Assert(err, gc.ErrorMatches, expectedErr)
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for worker to stop")
 	}
