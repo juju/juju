@@ -1405,7 +1405,8 @@ func newDeviceParams(macAddress string, instId instance.Id, _ string) url.Values
 func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id, hostnameSuffix string) (string, error) {
 	client := environ.getMAASClient()
 	devices := client.GetSubObject("devices")
-	// Work around the limitation of gomaasapi's testservice expecting all 3
+	// Make the params in a separate function to make it easier to work
+	// around the limitation of gomaasapi's testservice expecting all 3
 	// arguments (parent, mac_addresses, and hostname) to be filled in.
 	params := NewDeviceParams(macAddress, instId, hostnameSuffix)
 	logger.Tracef(

@@ -1127,15 +1127,17 @@ func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 }
 
 func (suite *environSuite) TestReleaseAddress(c *gc.C) {
-	testInstance := suite.createSubnets(c, false)
+	suite.patchDeviceCreation()
+	testInstance := suite.getInstance("node1")
+	subnetId := suite.addSubnet(c, 2, 2, "node1")
 	env := suite.makeEnviron()
 
-	err := env.AllocateAddress(testInstance.Id(), "LAN", &network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), network.Id(string(int(subnetId))), &network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	ipAddress := network.Address{Value: "192.168.2.1"}
 	macAddress := "foobar"
-	hostname := "myhostname"
+	hostname := "node1"
 	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress, hostname)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1147,6 +1149,7 @@ func (suite *environSuite) TestReleaseAddress(c *gc.C) {
 }
 
 func (suite *environSuite) TestReleaseAddressRetry(c *gc.C) {
+	suite.patchDeviceCreation()
 	// Patch short attempt params.
 	suite.PatchValue(&shortAttempt, utils.AttemptStrategy{
 		Min: 5,
@@ -1162,10 +1165,11 @@ func (suite *environSuite) TestReleaseAddressRetry(c *gc.C) {
 		return nil
 	})
 
-	testInstance := suite.createSubnets(c, false)
+	testInstance := suite.getInstance("node1")
+	subnetId := suite.addSubnet(c, 2, 2, "node1")
 	env := suite.makeEnviron()
 
-	err := env.AllocateAddress(testInstance.Id(), "LAN", &network.Address{Value: "192.168.2.1"}, "foo", "bar")
+	err := env.AllocateAddress(testInstance.Id(), network.Id(string(int(subnetId))), &network.Address{Value: "192.168.2.1"}, "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ReleaseAddress must fail with 5 retries.
