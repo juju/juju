@@ -98,18 +98,18 @@ type localLiveSuite struct {
 
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.providerSuite.SetUpSuite(c)
+	s.LiveTests.SetUpSuite(c)
 	s.cSrv = &localCloudAPIServer{}
 	s.mSrv = &localMantaServer{}
 	s.cSrv.setupServer(c)
 	s.mSrv.setupServer(c)
-	s.AddSuiteCleanup(func(*gc.C) { envtesting.PatchAttemptStrategies(&joyent.ShortAttempt) })
 
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
 		"image-metadata-url": "test://host",
 	})
 	s.LiveTests.UploadArches = []string{arch.AMD64}
-	s.LiveTests.SetUpSuite(c)
+	s.AddSuiteCleanup(func(*gc.C) { envtesting.PatchAttemptStrategies(&joyent.ShortAttempt) })
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -121,8 +121,8 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.providerSuite.SetUpTest(c)
+	s.LiveTests.SetUpTest(c)
 	credentialsAttrs := joyent.CredentialsAttributes(s.TestConfig)
 	s.Credential = cloud.NewCredential(
 		cloud.UserPassAuthType,
@@ -133,7 +133,7 @@ func (s *localLiveSuite) SetUpTest(c *gc.C) {
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
-	s.LiveTests.SetUpTest(c)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 }
 
 func (s *localLiveSuite) TearDownTest(c *gc.C) {
