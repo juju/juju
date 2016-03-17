@@ -541,8 +541,9 @@ type LinkLayerDeviceAddress struct {
 // but when set must be unique within the model. Errors are returned in the
 // following cases:
 // - Machine is no longer alive or is missing;
-// - Subnet inferred from any CIDRAddress field in args is no longer alive or
-//   is missing, except if that CIDRAddress matches IPv4 or IPv6 loopback range;
+// - Subnet inferred from any CIDRAddress field in args is known but no longer
+//   alive (no error reported if the CIDRAddress matches IPv4 or IPv6 loopback
+//   range or an unknown subnet);
 // - Model no longer alive;
 // - errors.NotValidError, when any of the fields in args contain invalid values;
 // - errors.NotFoundError, when any DeviceName in args refers to unknown device;
@@ -679,8 +680,13 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 		subnetID == network.LoopbackIPv6CIDR {
 		// Loopback addresses are not linked to a subnet.
 		subnetID = ""
-	} else if err := m.verifySubnetStillAliveWhenSet(subnetID); err != nil {
-		return nil, errors.Trace(err)
+	} else {
+		if err := m.verifyAddressSubnetAliveIfKnownWhenSet(subnetID); errors.IsNotFound(err) {
+			logger.Warningf("address %q on machine %q uses unknown subnet %q", addressValue, m.Id(), subnetID)
+			subnetID = ""
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	globalKey := ipAddressGlobalKey(m.doc.Id, args.DeviceName, addressValue)
@@ -708,14 +714,17 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 	return newDoc, nil
 }
 
-func (m *Machine) verifySubnetStillAliveWhenSet(subnetID string) error {
+func (m *Machine) verifyAddressSubnetAliveIfKnownWhenSet(subnetID string) error {
 	if subnetID == "" {
 		return nil
 	}
-	if subnetAlive, err := isAlive(m.st, subnetsC, subnetID); err != nil {
+
+	subnet, err := m.st.Subnet(subnetID)
+	if err != nil {
 		return errors.Trace(err)
-	} else if !subnetAlive {
-		return errors.Errorf("subnet %q not found or not alive", subnetID)
+	}
+	if subnet.Life() != Alive {
+		return errors.Errorf("subnet %q is not alive", subnetID)
 	}
 	return nil
 }

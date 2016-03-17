@@ -34,7 +34,9 @@ type ipAddressDoc struct {
 	MachineID string `bson:"machine-id"`
 
 	// SubnetID is the ID of the subnet this IP address belongs to. Must be
-	// empty for ConfigType LoopbackIPAddress.
+	// empty for ConfigType LoopbackIPAddress or if the address Value refers
+	// to an unknown subnet (i.e. machine-local or other RFC 1918, like the
+	// 10.0.3.0/24 range for lxcbr0).
 	SubnetID string `bson:"subnet-id"`
 
 	// ConfigMethod is the method used to configure this IP address.
