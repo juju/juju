@@ -30,9 +30,9 @@ type HandlerConstraints struct {
 	// httpContext (see apiserver/httpcontext.go).
 	StrictValidation bool
 
-	// StateServerEnvOnly is the value that will be used for the handler's
+	// ControllerModelOnly is the value that will be used for the handler's
 	// httpContext (see apiserver/httpcontext.go).
-	StateServerEnvOnly bool
+	ControllerModelOnly bool
 }
 
 // HandlerSpec defines an HTTP handler for a specific endpoint
