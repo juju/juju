@@ -63,9 +63,13 @@ def iter_region_connection(credentials, china_credentials):
     US-GOV regions will be skipped.
     All other regions will be connected using credentials.
     """
-    regions = ec2.regions()
+    regions = ec2.regions(**credentials)
     for region in regions:
         if 'us-gov' in region.name:
+            continue
+        if region.endpoint == 'ec2.eu-central-1.amazonaws.com':
+            continue
+        if region.endpoint == 'ec2.ap-northeast-2.amazonaws.com':
             continue
         if is_china(region):
             yield region.connect(**china_credentials)
