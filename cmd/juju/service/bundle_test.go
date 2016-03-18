@@ -309,9 +309,9 @@ func (s *deployRepoCharmStoreSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *deployRepoCharmStoreSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&watcher.Period, 10*time.Millisecond)
 	s.charmStoreSuite.SetUpTest(c)
 	s.BaseRepoSuite.SetUpTest(c)
+	s.PatchValue(&watcher.Period, 10*time.Millisecond)
 }
 
 func (s *deployRepoCharmStoreSuite) TearDownTest(c *gc.C) {
