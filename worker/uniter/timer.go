@@ -14,6 +14,7 @@ const (
 
 // updateStatusSignal returns a time channel that fires after a given interval.
 func updateStatusSignal() <-chan time.Time {
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	return time.After(statusPollInterval)
 }
 

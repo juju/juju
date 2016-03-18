@@ -277,8 +277,7 @@ func (u *User) LastLogin() (time.Time, error) {
 // handle. When serializing time in and out of mongo, we lose enough
 // precision that it's misleading to store any more than precision to
 // the second.
-// TODO(jcw4) time dependencies should be injectable, not just internal
-// to package.
+// TODO(fwereade): 2016-03-17 lp:1558657
 var nowToTheSecond = func() time.Time { return time.Now().Round(time.Second).UTC() }
 
 // NeverLoggedInError is used to indicate that a user has never logged in.

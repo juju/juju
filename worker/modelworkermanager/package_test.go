@@ -1,7 +1,7 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package undertaker_test
+package modelworkermanager_test
 
 import (
 	"testing"
@@ -9,6 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-func TestAll(t *testing.T) {
+func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }

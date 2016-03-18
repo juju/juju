@@ -43,6 +43,7 @@ func (c *AddMetricCommand) Info() *cmd.Info {
 
 // Init parses the command's parameters.
 func (c *AddMetricCommand) Init(args []string) error {
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	now := time.Now()
 	if len(args) == 0 {
 		return fmt.Errorf("no metrics specified")
