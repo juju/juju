@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/txn"
@@ -21,6 +22,7 @@ type stubRawState struct {
 
 	ReturnPersistence Persistence
 	ReturnStorage     Storage
+	ReturnUnits       []names.UnitTag
 }
 
 func (s *stubRawState) Persistence() Persistence {
@@ -44,6 +46,15 @@ func (s *stubRawState) VerifyService(serviceID string) error {
 	}
 
 	return nil
+}
+
+func (s *stubRawState) Units(serviceID string) ([]names.UnitTag, error) {
+	s.stub.AddCall("Units", serviceID)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.ReturnUnits, nil
 }
 
 type stubPersistence struct {
@@ -115,6 +126,15 @@ func (s *stubPersistence) SetCharmStoreResource(id, serviceID string, chRes char
 
 func (s *stubPersistence) SetUnitResource(unitID string, res resource.Resource) error {
 	s.stub.AddCall("SetUnitResource", unitID, res)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (s *stubPersistence) SetUnitResourceProgress(unitID string, res resource.Resource, progress int64) error {
+	s.stub.AddCall("SetUnitResourceProgress", unitID, res, progress)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

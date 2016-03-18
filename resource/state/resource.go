@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/txn"
@@ -48,6 +49,10 @@ type resourcePersistence interface {
 	// SetUnitResource stores the resource info for a unit.
 	SetUnitResource(unitID string, args resource.Resource) error
 
+	// SetUnitResourceProgress stores the resource info and download
+	// progressfor a unit.
+	SetUnitResourceProgress(unitID string, args resource.Resource, progress int64) error
+
 	// NewResolvePendingResourceOps generates mongo transaction operations
 	// to set the identified resource as active.
 	NewResolvePendingResourceOps(resID, pendingID string) ([]txn.Op, error)
@@ -73,6 +78,9 @@ type StagedResource interface {
 type rawState interface {
 	// VerifyService ensures that the service is in state.
 	VerifyService(id string) error
+
+	// Units returns the tags for all units in the service.
+	Units(serviceID string) ([]names.UnitTag, error)
 }
 
 type resourceStorage interface {
@@ -104,6 +112,26 @@ func (st resourceState) ListResources(serviceID string) (resource.ServiceResourc
 			return resource.ServiceResources{}, errors.Trace(err)
 		}
 		return resource.ServiceResources{}, errors.Trace(err)
+	}
+
+	unitIDs, err := st.raw.Units(serviceID)
+	if err != nil {
+		return resource.ServiceResources{}, errors.Trace(err)
+	}
+	for _, unitID := range unitIDs {
+		found := false
+		for _, unitRes := range resources.UnitResources {
+			if unitID.String() == unitRes.Tag.String() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			unitRes := resource.UnitResources{
+				Tag: unitID,
+			}
+			resources.UnitResources = append(resources.UnitResources, unitRes)
+		}
 	}
 
 	return resources, nil
@@ -280,15 +308,29 @@ func (st resourceState) OpenResource(serviceID, name string) (resource.Resource,
 func (st resourceState) OpenResourceForUniter(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
 	serviceID := unit.ServiceName()
 
+	pendingID, err := newPendingID()
+	if err != nil {
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
+
 	resourceInfo, resourceReader, err := st.OpenResource(serviceID, name)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
-	resourceReader = unitSetter{
+	pending := resourceInfo // a copy
+	pending.PendingID = pendingID
+
+	if err := st.persist.SetUnitResourceProgress(unit.Name(), pending, 0); err != nil {
+		resourceReader.Close()
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
+
+	resourceReader = &unitSetter{
 		ReadCloser: resourceReader,
 		persist:    st.persist,
 		unit:       unit,
+		pending:    pending,
 		resource:   resourceInfo,
 	}
 
@@ -380,17 +422,25 @@ type unitSetter struct {
 	io.ReadCloser
 	persist  resourcePersistence
 	unit     resource.Unit
+	pending  resource.Resource
 	resource resource.Resource
+	progress int64
 }
 
 // Read implements io.Reader.
-func (u unitSetter) Read(p []byte) (n int, err error) {
+func (u *unitSetter) Read(p []byte) (n int, err error) {
 	n, err = u.ReadCloser.Read(p)
 	if err == io.EOF {
 		// record that the unit is now using this version of the resource
 		if err := u.persist.SetUnitResource(u.unit.Name(), u.resource); err != nil {
 			msg := "Failed to record that unit %q is using resource %q revision %v"
 			logger.Errorf(msg, u.unit.Name(), u.resource.Name, u.resource.RevisionString())
+		}
+	} else {
+		u.progress += int64(n)
+		// TODO(ericsnow) Don't do this every time?
+		if err := u.persist.SetUnitResourceProgress(u.unit.Name(), u.pending, u.progress); err != nil {
+			logger.Errorf("failed to track progress: %v", err)
 		}
 	}
 	return n, err

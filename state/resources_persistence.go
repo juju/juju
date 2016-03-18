@@ -74,6 +74,7 @@ func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceRe
 
 	store := map[string]charmresource.Resource{}
 	units := map[names.UnitTag][]resource.Resource{}
+	downloadProgress := make(map[names.UnitTag]map[string]int64)
 
 	var results resource.ServiceResources
 	for _, doc := range docs {
@@ -94,7 +95,15 @@ func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceRe
 			continue
 		}
 		tag := names.NewUnitTag(doc.UnitID)
-		units[tag] = append(units[tag], res)
+		if doc.PendingID == "" {
+			units[tag] = append(units[tag], res)
+		}
+		if doc.DownloadProgress != nil {
+			if downloadProgress[tag] == nil {
+				downloadProgress[tag] = make(map[string]int64)
+			}
+			downloadProgress[tag][doc.Name] = *doc.DownloadProgress
+		}
 	}
 	for _, res := range results.Resources {
 		storeRes := store[res.Name]
@@ -102,8 +111,9 @@ func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceRe
 	}
 	for tag, res := range units {
 		results.UnitResources = append(results.UnitResources, resource.UnitResources{
-			Tag:       tag,
-			Resources: res,
+			Tag:              tag,
+			Resources:        res,
+			DownloadProgress: downloadProgress[tag],
 		})
 	}
 	return results, nil
@@ -260,7 +270,20 @@ func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resourc
 	if res.PendingID != "" {
 		return errors.Errorf("pending resources not allowed")
 	}
+	return p.setUnitResource(unitID, res, nil)
+}
 
+// SetUnitResource stores the resource info for a particular unit. The
+// resource must already be set for the service. The provided progress
+// is stored in the DB.
+func (p ResourcePersistence) SetUnitResourceProgress(unitID string, res resource.Resource, progress int64) error {
+	if res.PendingID == "" {
+		return errors.Errorf("only pending resources may track progress")
+	}
+	return p.setUnitResource(unitID, res, &progress)
+}
+
+func (p ResourcePersistence) setUnitResource(unitID string, res resource.Resource, progress *int64) error {
 	stored, err := p.getStored(res)
 	if err != nil {
 		return errors.Trace(err)
@@ -278,9 +301,9 @@ func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resourc
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newInsertUnitResourceOps(unitID, stored)
+			ops = newInsertUnitResourceOps(unitID, stored, progress)
 		case 1:
-			ops = newUpdateUnitResourceOps(unitID, stored)
+			ops = newUpdateUnitResourceOps(unitID, stored, progress)
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")

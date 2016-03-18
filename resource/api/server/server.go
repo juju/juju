@@ -86,9 +86,6 @@ type resourceInfoStore interface {
 	// it is resolved. The returned ID is used to identify the pending
 	// resources when resolving it.
 	AddPendingResource(serviceID, userID string, chRes charmresource.Resource, r io.Reader) (string, error)
-
-	// Units returns the tags for all units in the given service.
-	Units(serviceID string) (units []names.UnitTag, err error)
 }
 
 // ListResources returns the list of resources for the given service.
@@ -114,13 +111,7 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 			continue
 		}
 
-		units, err := f.store.Units(tag.Id())
-		if err != nil {
-			r.Results[i] = errorResult(err)
-			continue
-		}
-
-		r.Results[i] = api.ServiceResources2APIResult(svcRes, units)
+		r.Results[i] = api.ServiceResources2APIResult(svcRes)
 	}
 	return r, nil
 }
