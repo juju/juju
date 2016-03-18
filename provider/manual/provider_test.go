@@ -33,6 +33,14 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	})
 }
 
+func (s *providerSuite) TestPrepareForCreateEnvironment(c *gc.C) {
+	testConfig, err := config.New(config.UseDefaults, manual.MinimalConfigValues())
+	c.Assert(err, jc.ErrorIsNil)
+	cfg, err := manual.ProviderInstance.PrepareForCreateEnvironment(testConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg, gc.Equals, testConfig)
+}
+
 func (s *providerSuite) TestPrepareForBootstrapCloudEndpointAndRegion(c *gc.C) {
 	ctx, err := s.testPrepareForBootstrap(c, "endpoint", "region")
 	c.Assert(err, jc.ErrorIsNil)
