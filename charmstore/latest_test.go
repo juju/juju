@@ -33,10 +33,10 @@ func (s *LatestCharmInfoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
-	cURLs := []*charm.URL{
-		charm.MustParseURL("cs:quantal/spam-17"),
-		charm.MustParseURL("cs:quantal/eggs-2"),
-		charm.MustParseURL("cs:quantal/ham-1"),
+	charms := []charmstore.Charm{
+		{charm.MustParseURL("cs:quantal/spam-17"), "stable"},
+		{charm.MustParseURL("cs:quantal/eggs-2"), "stable"},
+		{charm.MustParseURL("cs:quantal/ham-1"), "stable"},
 	}
 	notFound := errors.New("not found")
 	s.client.ReturnLatestRevisions = []charmrepo.CharmRevision{{
@@ -54,12 +54,12 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 		nil,
 	}
 
-	results, err := charmstore.LatestCharmInfo(s.client, cURLs, "stable")
+	results, err := charmstore.LatestCharmInfo(s.client, charms)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "LatestRevisions", "ListResources")
-	s.stub.CheckCall(c, 0, "LatestRevisions", cURLs, "stable")
-	s.stub.CheckCall(c, 1, "ListResources", cURLs, "stable")
+	s.stub.CheckCall(c, 0, "LatestRevisions", charms)
+	s.stub.CheckCall(c, 1, "ListResources", charms)
 	timestamp := results[0].Timestamp
 	results[2].Error = errors.Cause(results[2].Error)
 	c.Check(results, jc.DeepEquals, []charmstore.CharmInfoResult{{

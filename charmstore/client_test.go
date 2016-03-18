@@ -57,10 +57,10 @@ func (s *ClientSuite) TestWithMetadata(c *gc.C) {
 }
 
 func (s *ClientSuite) TestLatestRevisions(c *gc.C) {
-	cURLs := []*charm.URL{
-		charm.MustParseURL("cs:quantal/spam-17"),
-		charm.MustParseURL("cs:quantal/eggs-2"),
-		charm.MustParseURL("cs:quantal/ham-1"),
+	charms := []charmstore.Charm{
+		{charm.MustParseURL("cs:quantal/spam-17"), "stable"},
+		{charm.MustParseURL("cs:quantal/eggs-2"), "stable"},
+		{charm.MustParseURL("cs:quantal/ham-1"), "stable"},
 	}
 	expected := []charmrepo.CharmRevision{{
 		Revision: 17,
@@ -72,11 +72,11 @@ func (s *ClientSuite) TestLatestRevisions(c *gc.C) {
 	s.client.ReturnLatestRevisions = expected
 	client := charmstore.Client{BaseClient: s.client}
 
-	revisions, err := client.LatestRevisions(cURLs, "stable")
+	revisions, err := client.LatestRevisions(charms)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "LatestRevisions")
-	s.stub.CheckCall(c, 0, "LatestRevisions", cURLs, "stable")
+	s.stub.CheckCall(c, 0, "LatestRevisions", charms)
 	c.Check(revisions, jc.DeepEquals, expected)
 }
 
@@ -90,8 +90,8 @@ type stubClient struct {
 	ReturnLatestRevisions []charmrepo.CharmRevision
 }
 
-func (s *stubClient) ListResources(cURLs []*charm.URL, channel string) ([][]charmresource.Resource, error) {
-	s.AddCall("ListResources", cURLs, channel)
+func (s *stubClient) ListResources(charms []charmstore.Charm) ([][]charmresource.Resource, error) {
+	s.AddCall("ListResources", charms)
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -108,8 +108,8 @@ func (s *stubClient) Close() error {
 	return nil
 }
 
-func (s *stubClient) LatestRevisions(cURLs []*charm.URL, channel string) ([]charmrepo.CharmRevision, error) {
-	s.AddCall("LatestRevisions", cURLs, channel)
+func (s *stubClient) LatestRevisions(charms []charmstore.Charm) ([]charmrepo.CharmRevision, error) {
+	s.AddCall("LatestRevisions", charms)
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}

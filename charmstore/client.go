@@ -38,7 +38,7 @@ type BaseClient interface {
 	// LatestRevisions returns the latest revision for each of the
 	// identified charms in the given channel. The revisions in the provided
 	// URLs are ignored.
-	LatestRevisions(urls []*charm.URL, channel string) ([]charmrepo.CharmRevision, error)
+	LatestRevisions(charms []Charm) ([]charmrepo.CharmRevision, error)
 
 	// TODO(ericsnow) Replace use of Get with use of more specific API
 	// methods? We only use Get() for authorization on the Juju client
@@ -61,7 +61,7 @@ type ResourcesClient interface {
 	// list of details for each of the charm's resources. Those details
 	// are those associated with the specific charm revision. They
 	// include the resource's metadata and revision.
-	ListResources(charmURLs []*charm.URL, channel string) ([][]charmresource.Resource, error)
+	ListResources(charms []Charm) ([][]charmresource.Resource, error)
 
 	// GetResource returns a reader for the resource's data. That data
 	// is streamed from the charm store. The charm's revision, if any,
@@ -86,16 +86,51 @@ func newBaseClient(raw *csclient.Client, config ClientConfig, meta JujuMetadata)
 }
 
 // LatestRevisions implements BaseClient.
-func (base baseClient) LatestRevisions(cURLs []*charm.URL, channel string) ([]charmrepo.CharmRevision, error) {
+func (base baseClient) LatestRevisions(charms []Charm) ([]charmrepo.CharmRevision, error) {
 	// TODO(ericsnow) Fix this:
 	// We must use charmrepo.CharmStore since csclient.Client does not
 	// have the "Latest" method.
 
 	// unfortunately, the way the csclient.Client uses channels is pretty
 	// awkward for our uses.  It's an unexported field that only gets set by
-	// WithChannel, so we have to do this:
-	repo := charmrepo.NewCharmStoreFromClient(base.Client.WithChannel(params.Channel(channel)))
-	return repo.Latest(cURLs...)
+	// WithChannel, so we have to do make one bulk request per channel.
+
+	// collate charms into map[channel]charmIndex
+	req := collate(charms)
+
+	results := make([]charmrepo.CharmRevision, len(charms))
+
+	for channel, ci := range req {
+		repo := charmrepo.NewCharmStoreFromClient(base.Client.WithChannel(params.Channel(channel)))
+		revisions, err := repo.Latest(ci.ids...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for i, rev := range revisions {
+			idx := ci.indices[i]
+			results[idx] = rev
+		}
+	}
+	return results, nil
+}
+
+type charmIndex struct {
+	ids     []*charm.URL
+	indices []int
+}
+
+// collate returns a map of channels to charmIndices.  The charmIndex holds a
+// slice of charms for that channel, and a corresponding slice of the index of
+// each charm in the orignal slice.
+func collate(charms []Charm) map[string]charmIndex {
+	results := map[string]charmIndex{}
+	for i, c := range charms {
+		ci := results[c.Channel]
+		ci.ids = append(ci.ids, c.ID)
+		ci.indices = append(ci.indices, i)
+		results[c.Channel] = ci
+	}
+	return results
 }
 
 // GetResource implements BaseClient by calling csclient.Client's GetResource function.
@@ -122,32 +157,36 @@ func (base baseClient) GetResource(cURL *charm.URL, resourceName string, revisio
 }
 
 // ListResources implements BaseClient by calling csclient.Client's ListResources function.
-func (base baseClient) ListResources(charmURLs []*charm.URL, channel string) ([][]charmresource.Resource, error) {
-	client := base.Client.WithChannel(params.Channel(channel))
+func (base baseClient) ListResources(charms []Charm) ([][]charmresource.Resource, error) {
+	req := collate(charms)
+	result := make([][]charmresource.Resource, len(charms))
+	for channel, ci := range req {
+		// we have to make one bulk call per channel, unfortunately
+		client := base.Client.WithChannel(params.Channel(channel))
 
-	resmap, err := client.ListResources(charmURLs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	result := make([][]charmresource.Resource, len(charmURLs))
-	for i, id := range charmURLs {
-		resources, ok := resmap[id.String()]
-		if !ok {
-			continue
+		resmap, err := client.ListResources(ci.ids)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		list := make([]charmresource.Resource, len(resources))
-		for j, res := range resources {
-			resource, err := apiResource2Resource(res)
-			if err != nil {
-				return nil, errors.Annotatef(err, "got bad data from server for resource %q", res.Name)
+
+		for i, id := range ci.ids {
+			resources, ok := resmap[id.String()]
+			if !ok {
+				continue
 			}
-			list[j] = resource
+			list := make([]charmresource.Resource, len(resources))
+			for j, res := range resources {
+				resource, err := apiResource2Resource(res)
+				if err != nil {
+					return nil, errors.Annotatef(err, "got bad data from server for resource %q", res.Name)
+				}
+				list[j] = resource
+			}
+			idx := ci.indices[i]
+			result[idx] = list
 		}
-		result[i] = list
 	}
 	return result, nil
-
 }
 
 // ClientConfig holds the configuration of a charm store client.
@@ -234,14 +273,14 @@ func (c Client) Metadata() JujuMetadata {
 // identified charms. The revisions in the provided URLs are ignored.
 // Note that this differs from BaseClient.LatestRevisions() exclusively
 // due to taking into account Juju metadata (if any).
-func (c *Client) LatestRevisions(cURLs []*charm.URL, channel string) ([]charmrepo.CharmRevision, error) {
+func (c *Client) LatestRevisions(charms []Charm) ([]charmrepo.CharmRevision, error) {
 	if !c.meta.IsZero() {
 		c = c.newCopy()
 		if err := c.meta.setOnClient(c.BaseClient); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	return c.BaseClient.LatestRevisions(cURLs, channel)
+	return c.BaseClient.LatestRevisions(charms)
 }
 
 func apiResource2Resource(res params.Resource) (charmresource.Resource, error) {
