@@ -9,13 +9,14 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type toolsSuite struct {
@@ -30,9 +31,9 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostArch(c *gc.C) {
 	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
-	devVersion := version.Current
+	devVersion := jujuversion.Current
 	devVersion.Build = 1234
-	s.PatchValue(&version.Current, devVersion)
+	s.PatchValue(&jujuversion.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	arch := arch.PPC64EL
 	err := bootstrap.ValidateUploadAllowed(env, &arch, nil)
@@ -54,9 +55,9 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleTargetArch(c *gc.C) {
 	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
-	devVersion := version.Current
+	devVersion := jujuversion.Current
 	devVersion.Build = 1234
-	s.PatchValue(&version.Current, devVersion)
+	s.PatchValue(&jujuversion.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err := bootstrap.ValidateUploadAllowed(env, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "ppc64el"`)
@@ -79,8 +80,8 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 	var findStream string
 	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
 		called++
-		c.Check(major, gc.Equals, version.Current.Major)
-		c.Check(minor, gc.Equals, version.Current.Minor)
+		c.Check(major, gc.Equals, jujuversion.Current.Major)
+		c.Check(minor, gc.Equals, jujuversion.Current.Minor)
 		findStream = stream
 		filter = f
 		return nil, nil
@@ -147,7 +148,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 		if test.stream != "" {
 			c.Check(findStream, gc.Equals, test.stream)
 		} else {
-			if test.dev || test.version.IsDev() {
+			if test.dev || jujuversion.IsDev(*test.version) {
 				c.Check(findStream, gc.Equals, "devel")
 			} else {
 				c.Check(findStream, gc.Equals, "released")
@@ -188,7 +189,7 @@ func (s *toolsSuite) TestFindAvailableToolsForceUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadedTools, gc.Not(gc.HasLen), 0)
 	c.Assert(findToolsCalled, gc.Equals, 0)
-	expectedVersion := version.Current
+	expectedVersion := jujuversion.Current
 	expectedVersion.Build++
 	for _, tools := range uploadedTools {
 		c.Assert(tools.Version.Number, gc.Equals, expectedVersion)
@@ -213,13 +214,13 @@ func (s *toolsSuite) TestFindAvailableToolsForceUploadInvalidArch(c *gc.C) {
 
 func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 	currentVersion := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
 	currentVersion.Major = 2
 	currentVersion.Minor = 3
-	s.PatchValue(&version.Current, currentVersion.Number)
+	s.PatchValue(&jujuversion.Current, currentVersion.Number)
 	var findToolsCalled int
 	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
 		c.Assert(f.Number.Major, gc.Equals, 10)
@@ -263,7 +264,7 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 	c.Assert(len(availableTools), jc.GreaterThan, 1)
 	c.Assert(env.supportedArchitecturesCount, gc.Equals, 1)
 	var trustyToolsFound int
-	expectedVersion := version.Current
+	expectedVersion := jujuversion.Current
 	expectedVersion.Build++
 	for _, tools := range availableTools {
 		if tools == trustyTools {
@@ -283,7 +284,7 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 	var allTools tools.List
 	for _, series := range series.SupportedSeries() {
 		binary := version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Series: series,
 			Arch:   arch.HostArch(),
 		}

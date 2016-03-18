@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.agent")

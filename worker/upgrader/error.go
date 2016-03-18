@@ -4,8 +4,9 @@
 package upgrader
 
 import (
+	"github.com/juju/version"
+
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/version"
 )
 
 // UpgradeReadyError is returned by an Upgrader to report that

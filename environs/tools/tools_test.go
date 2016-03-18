@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -26,7 +27,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type SimpleStreamsToolsSuite struct {
@@ -53,13 +54,13 @@ func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.DefaultBaseURL = utils.MakeFileURL(s.publicToolsDir)
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.origCurrentVersion = version.Current
+	s.origCurrentVersion = jujuversion.Current
 	s.reset(c, nil)
 }
 
 func (s *SimpleStreamsToolsSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	version.Current = s.origCurrentVersion
+	jujuversion.Current = s.origCurrentVersion
 	s.ToolsFixture.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
@@ -95,7 +96,7 @@ func (s *SimpleStreamsToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary
 }
 
 func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
-	version.Current = s.origCurrentVersion
+	jujuversion.Current = s.origCurrentVersion
 	dummy.Reset()
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(attrs))
 	c.Assert(err, jc.ErrorIsNil)
@@ -165,7 +166,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 		s.reset(c, nil)
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
-		stream := envtools.PreferredStream(&version.Current, s.env.Config().Development(), s.env.Config().AgentStream())
+		stream := envtools.PreferredStream(&jujuversion.Current, s.env.Config().Development(), s.env.Config().AgentStream())
 		actual, err := envtools.FindTools(s.env, test.major, test.minor, stream, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
@@ -319,7 +320,7 @@ var preferredStreamTests = []struct {
 func (s *SimpleStreamsToolsSuite) TestPreferredStream(c *gc.C) {
 	for i, test := range preferredStreamTests {
 		c.Logf("\ntest %d", i)
-		s.PatchValue(&version.Current, version.MustParse(test.currentVers))
+		s.PatchValue(&jujuversion.Current, version.MustParse(test.currentVers))
 		var vers *version.Number
 		if test.explicitVers != "" {
 			v := version.MustParse(test.explicitVers)

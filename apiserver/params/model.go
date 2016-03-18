@@ -6,7 +6,7 @@ package params
 import (
 	"time"
 
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 // ModelConfigResults contains the result of client API calls

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -34,7 +35,6 @@ import (
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
 )
 
 type clientSuite struct {
@@ -169,6 +169,69 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 
 	_, err := client.AddLocalCharm(curl, charmArchive)
 	c.Assert(err, gc.ErrorMatches, `POST http://.*/model/deadbeef-0bad-400d-8000-4b1d0d06f00d/charms\?series=quantal: the POST method is not allowed`)
+}
+
+func (s *clientSuite) TestMinVersionLocalCharm(c *gc.C) {
+	tests := []minverTest{
+		{"2.0.0", "1.0.0", true},
+		{"1.0.0", "2.0.0", false},
+		{"1.25.0", "1.24.0", true},
+		{"1.24.0", "1.25.0", false},
+		{"1.25.1", "1.25.0", true},
+		{"1.25.0", "1.25.1", false},
+		{"1.25.0", "1.25.0", true},
+		{"1.25.0", "1.25-alpha1", true},
+		{"1.25-alpha1", "1.25.0", false},
+	}
+	client := s.APIState.Client()
+	for _, t := range tests {
+		testMinVer(client, t, c)
+	}
+}
+
+type minverTest struct {
+	juju  string
+	charm string
+	ok    bool
+}
+
+func testMinVer(client *api.Client, t minverTest, c *gc.C) {
+	charmMinVer := version.MustParse(t.charm)
+	jujuVer := version.MustParse(t.juju)
+
+	cleanup := api.PatchClientFacadeCall(client,
+		func(request string, paramsIn interface{}, response interface{}) error {
+			c.Assert(paramsIn, gc.IsNil)
+			if response, ok := response.(*params.AgentVersionResult); ok {
+				response.Version = jujuVer
+			} else {
+				c.Log("wrong output structure")
+				c.Fail()
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+	)
+	charmArchive.Meta().MinJujuVersion = charmMinVer
+
+	_, err := client.AddLocalCharm(curl, charmArchive)
+
+	if t.ok {
+		if err != nil {
+			c.Errorf("Unexpected non-nil error for jujuver %v, minver %v: %#v", t.juju, t.charm, err)
+		}
+	} else {
+		if err == nil {
+			c.Errorf("Unexpected nil error for jujuver %v, minver %v", t.juju, t.charm)
+		} else if !api.IsMinVersionError(err) {
+			c.Errorf("Wrong error for jujuver %v, minver %v: expected minVersionError, got: %#v", t.juju, t.charm, err)
+		}
+	}
 }
 
 func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle func(http.ResponseWriter, *http.Request)) net.Listener {

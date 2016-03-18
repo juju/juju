@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
@@ -27,7 +28,7 @@ import (
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -73,7 +74,7 @@ func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, 
 	var versions []version.Binary
 	for _, arch := range arches {
 		v := version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch,
 		}
 		for _, series := range toolsLtsSeries {
@@ -272,7 +273,7 @@ func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 	var versions []version.Binary
 	for _, series := range toolsSeries.Values() {
 		vers := version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series,
 		}
@@ -285,7 +286,7 @@ func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 }
 
 // UploadFakeTools puts fake tools into the supplied storage with a binary
-// version matching version.Current; if version.Current's series is different
+// version matching jujuversion.Current; if jujuversion.Current's series is different
 // to coretesting.FakeDefaultSeries, matching fake tools will be uploaded for that
 // series.  This is useful for tests that are kinda casual about specifying
 // their environment.
@@ -304,7 +305,7 @@ func MustUploadFakeTools(stor storage.Storage, toolsDir, stream string) {
 func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	c.Logf("removing fake tools")
 	toolsVersion := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}

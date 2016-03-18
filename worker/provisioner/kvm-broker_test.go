@@ -16,6 +16,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -34,7 +35,7 @@ import (
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -85,7 +86,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 		agent.AgentConfigParams{
 			Paths:             agent.NewPathsWithDefaults(agent.Paths{DataDir: "/not/used/here"}),
 			Tag:               names.NewUnitTag("ubuntu/1"),
-			UpgradedToVersion: version.Current,
+			UpgradedToVersion: jujuversion.Current,
 			Password:          "dummy-secret",
 			Nonce:             "nonce",
 			APIAddresses:      []string{"10.0.0.1:1234"},

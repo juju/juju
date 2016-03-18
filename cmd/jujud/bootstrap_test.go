@@ -18,10 +18,10 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	goyaml "gopkg.in/yaml.v2"
@@ -55,7 +55,7 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // We don't want to use JujuConnSuite because it gives us
@@ -89,7 +89,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 		restorer()
 	})
 	s.MgoSuite.SetUpSuite(c)
-	s.PatchValue(&version.Current, testing.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	s.makeTestEnv(c)
 }
 
@@ -114,7 +114,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -197,7 +197,7 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -213,10 +213,6 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 }
 
 var testPassword = "my-admin-secret"
-
-func testPasswordHash() string {
-	return utils.UserPasswordHash(testPassword, utils.CompatSalt)
-}
 
 func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.MachineJob, args ...string) (machineConf agent.ConfigSetterWriter, cmd *BootstrapCommand, err error) {
 	if len(jobs) == 0 {
@@ -236,8 +232,8 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 		},
 		Jobs:              jobs,
 		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: version.Current,
-		Password:          testPasswordHash(),
+		UpgradedToVersion: jujuversion.Current,
+		Password:          testPassword,
 		Nonce:             agent.BootstrapNonce,
 		Model:             testing.ModelTag,
 		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
@@ -305,7 +301,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -359,7 +355,7 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -389,7 +385,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -426,7 +422,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -447,7 +443,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -484,7 +480,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	// Check we can log in to mongo as admin.
 	// TODO(dfc) does passing nil for the admin user name make your skin crawl ? mine too.
-	info.Tag, info.Password = nil, testPasswordHash()
+	info.Tag, info.Password = nil, testPassword
 	st, err := state.Open(testing.ModelTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -659,7 +655,7 @@ func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 	// Tools uploaded over ssh.
 	s.writeDownloadedTools(c, &tools.Tools{
 		Version: version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		},
@@ -689,7 +685,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -815,7 +811,7 @@ func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -924,7 +920,7 @@ func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
 func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"agent-version":     version.Current.String(),
+			"agent-version":     jujuversion.Current.String(),
 			"bootstrap-timeout": "123",
 		},
 	).Delete("admin-secret", "ca-private-key")
@@ -980,7 +976,7 @@ func (s *BootstrapSuite) TestDefaultStoragePools(c *gc.C) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()

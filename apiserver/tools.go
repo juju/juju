@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // toolsHandler handles tool upload through HTTPS in the API server.

@@ -23,7 +23,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // uniqueName is generated afresh for every test run, so that
@@ -78,7 +78,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.BaseSuite.SetUpSuite(c)
 	t.LiveTests.SetUpSuite(c)
-	t.BaseSuite.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
 }

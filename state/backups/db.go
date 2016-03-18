@@ -11,12 +11,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/imagestorage"
-	"github.com/juju/juju/version"
 )
 
 // db is a surrogate for the proverbial DB layer abstraction that we

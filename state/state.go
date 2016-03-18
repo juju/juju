@@ -24,6 +24,7 @@ import (
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -40,7 +41,7 @@ import (
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/lease"
 )
 
@@ -477,10 +478,10 @@ func IsUpgradeInProgressError(err error) bool {
 // running the current version). If this is a hosted model, newVersion
 // cannot be higher than the controller version.
 func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
-	if newVersion.Compare(version.Current) > 0 && !st.IsController() {
+	if newVersion.Compare(jujuversion.Current) > 0 && !st.IsController() {
 		return errors.Errorf("a hosted model cannot have a higher version than the server model: %s > %s",
 			newVersion.String(),
-			version.Current,
+			jujuversion.Current,
 		)
 	}
 
@@ -839,6 +840,10 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSh
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
+	if err := validateCharmVersion(ch); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	query := charms.FindId(curl.String()).Select(bson.D{{"placeholder", 1}})
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -858,6 +863,20 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSh
 		return st.Charm(curl)
 	}
 	return nil, errors.Trace(err)
+}
+
+type hasMeta interface {
+	Meta() *charm.Meta
+}
+
+func validateCharmVersion(ch hasMeta) error {
+	minver := ch.Meta().MinJujuVersion
+	if minver != version.Zero {
+		if minver.Compare(jujuversion.Current) > 0 {
+			return errors.Errorf("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, jujuversion.Current)
+		}
+	}
+	return nil
 }
 
 // AllCharms returns all charms in state.
@@ -1169,6 +1188,11 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if args.Charm == nil {
 		return nil, errors.Errorf("charm is nil")
 	}
+
+	if err := validateCharmVersion(args.Charm); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if exists, err := isNotDead(st, servicesC, args.Name); err != nil {
 		return nil, errors.Trace(err)
 	} else if exists {

@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/joyent"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func registerLocalTests() {
@@ -133,7 +133,7 @@ func (s *localLiveSuite) SetUpTest(c *gc.C) {
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 }
 
 func (s *localLiveSuite) TearDownTest(c *gc.C) {
@@ -164,7 +164,7 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.providerSuite.SetUpTest(c)
 
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.cSrv = &localCloudAPIServer{}
 	s.mSrv = &localMantaServer{}
 	s.cSrv.setupServer(c)

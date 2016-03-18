@@ -14,6 +14,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -26,7 +27,6 @@ import (
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // Machine represents the state of a machine.
@@ -461,21 +461,7 @@ func (m *Machine) getPasswordHash() string {
 // for the given machine.
 func (m *Machine) PasswordValid(password string) bool {
 	agentHash := utils.AgentPasswordHash(password)
-	if agentHash == m.doc.PasswordHash {
-		return true
-	}
-	// In Juju 1.16 and older we used the slower password hash for unit
-	// agents. So check to see if the supplied password matches the old
-	// path, and if so, update it to the new mechanism.
-	// We ignore any error in setting the password, as we'll just try again
-	// next time
-	if utils.UserPasswordHash(password, utils.CompatSalt) == m.doc.PasswordHash {
-		logger.Debugf("%s logged in with old password hash, changing to AgentPasswordHash",
-			m.Tag())
-		m.setPasswordHash(agentHash)
-		return true
-	}
-	return false
+	return agentHash == m.doc.PasswordHash
 }
 
 // Destroy sets the machine lifecycle to Dying if it is Alive. It does

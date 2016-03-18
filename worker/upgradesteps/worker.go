@@ -21,10 +21,11 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/upgrades"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/wrench"
+	"github.com/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.worker.upgradesteps")
@@ -68,12 +69,12 @@ func NewLock(a agent.Agent) (gate.Lock, error) {
 	err := a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		if !upgrades.AreUpgradesDefined(agentConfig.UpgradedToVersion()) {
 			logger.Infof("no upgrade steps required or upgrade steps for %v "+
-				"have already been run.", version.Current)
+				"have already been run.", jujuversion.Current)
 			lock.Unlock()
 
 			// Even if no upgrade is required the version number in
 			// the agent's config still needs to be bumped.
-			agentConfig.SetUpgradedToVersion(version.Current)
+			agentConfig.SetUpgradedToVersion(jujuversion.Current)
 		}
 		return nil
 	})
@@ -175,7 +176,7 @@ func (w *upgradesteps) run() error {
 	}
 
 	w.fromVersion = w.agent.CurrentConfig().UpgradedToVersion()
-	w.toVersion = version.Current
+	w.toVersion = jujuversion.Current
 	if w.fromVersion == w.toVersion {
 		logger.Infof("upgrade to %v already completed.", w.toVersion)
 		w.upgradeComplete.Unlock()

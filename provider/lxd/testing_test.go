@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/tools/lxdclient"
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 // These values are stub LXD client credentials for use in tests.

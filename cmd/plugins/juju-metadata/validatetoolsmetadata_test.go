@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ValidateToolsMetadataSuite struct {
@@ -196,7 +196,7 @@ func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 }
 
 func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
-	s.makeLocalMetadata(c, "released", version.Current.String(), "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "released", jujuversion.Current.String(), "region-2", "raring", "some-auth-url")
 	ctx, err := runValidateToolsMetadata(c, s.store,
 		"-p", "openstack", "-s", "raring", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir,
@@ -208,7 +208,7 @@ func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
 }
 
 func (s *ValidateToolsMetadataSuite) TestStream(c *gc.C) {
-	s.makeLocalMetadata(c, "proposed", version.Current.String(), "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "proposed", jujuversion.Current.String(), "region-2", "raring", "some-auth-url")
 	ctx, err := runValidateToolsMetadata(c, s.store,
 		"-p", "openstack", "-s", "raring", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir, "--stream", "proposed",
@@ -244,7 +244,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
 }
 
 func (s *ValidateToolsMetadataSuite) TestJustDirectory(c *gc.C) {
-	s.makeLocalMetadata(c, "released", version.Current.String(), "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "released", jujuversion.Current.String(), "region-2", "raring", "some-auth-url")
 	ctx, err := runValidateToolsMetadata(c, s.store,
 		"-s", "raring", "-d", s.metadataDir,
 	)

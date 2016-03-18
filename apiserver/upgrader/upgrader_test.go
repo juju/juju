@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -21,7 +22,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type upgraderSuite struct {
@@ -149,7 +150,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 
 func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -193,7 +194,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 			Tag: s.rawMachine.Tag().String(),
 			Tools: &params.Version{
 				Version: version.Binary{
-					Number: version.Current,
+					Number: jujuversion.Current,
 					Arch:   arch.HostArch(),
 					Series: series.HostSeries(),
 				},
@@ -208,7 +209,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 
 func (s *upgraderSuite) TestSetTools(c *gc.C) {
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -270,7 +271,7 @@ func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	agentVersion := results.Results[0].Version
 	c.Assert(agentVersion, gc.NotNil)
-	c.Check(*agentVersion, gc.DeepEquals, version.Current)
+	c.Check(*agentVersion, gc.DeepEquals, jujuversion.Current)
 
 	c.Assert(results.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 	c.Assert(results.Results[1].Version, gc.IsNil)
@@ -285,14 +286,14 @@ func (s *upgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	agentVersion := results.Results[0].Version
 	c.Assert(agentVersion, gc.NotNil)
-	c.Check(*agentVersion, gc.DeepEquals, version.Current)
+	c.Check(*agentVersion, gc.DeepEquals, jujuversion.Current)
 }
 
 func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
 	// In order to call SetModelAgentVersion we have to first SetTools on
 	// all the existing machines
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -330,7 +331,7 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 
 func (s *upgraderSuite) TestDesiredVersionRestrictedForNonAPIAgents(c *gc.C) {
 	newVersion := s.bumpDesiredAgentVersion(c)
-	c.Assert(newVersion, gc.Not(gc.Equals), version.Current)
+	c.Assert(newVersion, gc.Not(gc.Equals), jujuversion.Current)
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	results, err := s.upgrader.DesiredVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -338,5 +339,5 @@ func (s *upgraderSuite) TestDesiredVersionRestrictedForNonAPIAgents(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	agentVersion := results.Results[0].Version
 	c.Assert(agentVersion, gc.NotNil)
-	c.Check(*agentVersion, gc.DeepEquals, version.Current)
+	c.Check(*agentVersion, gc.DeepEquals, jujuversion.Current)
 }

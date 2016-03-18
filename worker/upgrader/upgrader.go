@@ -14,12 +14,13 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/upgrader"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/gate"
 )
@@ -115,7 +116,7 @@ func allowedTargetVersion(
 func (u *Upgrader) loop() error {
 	// Start by reporting current tools (which includes arch/series, and is
 	// used by the controller in communicating the desired version below).
-	if err := u.st.SetVersion(u.tag.String(), toBinaryVersion(version.Current)); err != nil {
+	if err := u.st.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current)); err != nil {
 		return errors.Annotate(err, "cannot set agent version")
 	}
 
@@ -174,12 +175,12 @@ func (u *Upgrader) loop() error {
 		}
 		logger.Infof("desired tool version: %v", wantVersion)
 
-		if wantVersion == version.Current {
+		if wantVersion == jujuversion.Current {
 			u.initialUpgradeCheckComplete.Unlock()
 			continue
 		} else if !allowedTargetVersion(
 			u.origAgentVersion,
-			version.Current,
+			jujuversion.Current,
 			!u.upgradeStepsWaiter.IsUnlocked(),
 			wantVersion,
 		) {
@@ -189,11 +190,11 @@ func (u *Upgrader) loop() error {
 			// downgrade when its associate machine agent has not
 			// finished upgrading.
 			logger.Infof("desired tool version: %s is older than current %s, refusing to downgrade",
-				wantVersion, version.Current)
+				wantVersion, jujuversion.Current)
 			u.initialUpgradeCheckComplete.Unlock()
 			continue
 		}
-		logger.Infof("upgrade requested from %v to %v", version.Current, wantVersion)
+		logger.Infof("upgrade requested from %v to %v", jujuversion.Current, wantVersion)
 
 		// Check if tools have already been downloaded.
 		wantVersionBinary := toBinaryVersion(wantVersion)
@@ -237,7 +238,7 @@ func (u *Upgrader) toolsAlreadyDownloaded(wantVersion version.Binary) bool {
 
 func (u *Upgrader) newUpgradeReadyError(newVersion version.Binary) *UpgradeReadyError {
 	return &UpgradeReadyError{
-		OldTools:  toBinaryVersion(version.Current),
+		OldTools:  toBinaryVersion(jujuversion.Current),
 		NewTools:  newVersion,
 		AgentName: u.tag.String(),
 		DataDir:   u.dataDir,

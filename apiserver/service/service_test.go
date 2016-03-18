@@ -6,6 +6,7 @@ package service_test
 import (
 	"fmt"
 	"io"
+	"regexp"
 	"sync"
 
 	"github.com/juju/errors"
@@ -35,6 +36,7 @@ import (
 	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type serviceSuite struct {
@@ -196,6 +198,8 @@ func setupStoragePool(c *gc.C, st *state.State) {
 func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 	setupStoragePool(c, s.State)
 	curl, ch := s.UploadCharm(c, "utopic/storage-block-10", "storage-block")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
 	storageConstraints := map[string]storage.Constraints{
 		"data": {
 			Count: 1,
@@ -236,9 +240,18 @@ func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 	})
 }
 
+func (s *serviceSuite) TestMinJujuVersionTooHigh(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "quantal/minjujuversion-0", "minjujuversion")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	match := fmt.Sprintf(`charm's min version (999.999.999) is higher than this juju environment's version (%s)`, jujuversion.Current)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(match))
+}
+
 func (s *serviceSuite) TestServiceDeployWithInvalidStoragePool(c *gc.C) {
 	setupStoragePool(c, s.State)
 	curl, _ := s.UploadCharm(c, "utopic/storage-block-0", "storage-block")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
 	storageConstraints := map[string]storage.Constraints{
 		"data": storage.Constraints{
 			Pool:  "foo",
@@ -270,6 +283,8 @@ func (s *serviceSuite) TestServiceDeployWithUnsupportedStoragePool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl, _ := s.UploadCharm(c, "utopic/storage-block-0", "storage-block")
+	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
 	storageConstraints := map[string]storage.Constraints{
 		"data": storage.Constraints{
 			Pool:  "host-loop-pool",
@@ -298,6 +313,8 @@ func (s *serviceSuite) TestServiceDeployWithUnsupportedStoragePool(c *gc.C) {
 func (s *serviceSuite) TestServiceDeployDefaultFilesystemStorage(c *gc.C) {
 	setupStoragePool(c, s.State)
 	curl, ch := s.UploadCharm(c, "trusty/storage-filesystem-1", "storage-filesystem")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
 	var cons constraints.Value
 	args := params.ServiceDeploy{
 		ServiceName: "service",
@@ -376,6 +393,8 @@ func (s *serviceSuite) TestServiceDeployWithInvalidPlacement(c *gc.C) {
 
 func (s *serviceSuite) testClientServicesDeployWithBindings(c *gc.C, endpointBindings, expected map[string]string) {
 	curl, _ := s.UploadCharm(c, "utopic/riak-42", "riak")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
 
 	var cons constraints.Value
 	args := params.ServiceDeploy{

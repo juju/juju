@@ -11,11 +11,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/version"
 )
 
 // FakeAuthKeys holds the authorized key used for testing
