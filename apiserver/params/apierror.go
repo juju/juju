@@ -10,6 +10,9 @@ import (
 	"gopkg.in/macaroon.v1"
 )
 
+// UpgradeInProgressError signifies an upgrade is in progress.
+var UpgradeInProgressError = errors.New(CodeUpgradeInProgress)
+
 // Error is the type of error returned by any call to the state API.
 type Error struct {
 	Message string

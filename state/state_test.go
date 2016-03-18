@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
@@ -43,7 +44,7 @@ import (
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var goodPassword = "foo-12345678901234567890"
@@ -3004,7 +3005,7 @@ func (s *StateSuite) TestWatchModelConfigDiesOnStateClose(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
-	cur := version.Current
+	cur := jujuversion.Current
 	err := statetesting.SetAgentVersion(s.State, cur)
 	c.Assert(err, jc.ErrorIsNil)
 	w := s.State.WatchForModelConfigChanges()
@@ -3214,49 +3215,6 @@ func testSetPassword(c *gc.C, getEntity func() (state.Authenticator, error)) {
 			return e.SetPassword("arble-farble-dying-yarble")
 		})
 	}
-}
-
-func testSetAgentCompatPassword(c *gc.C, entity state.Authenticator) {
-	// In Juju versions 1.16 and older we used UserPasswordHash(password,CompatSalt)
-	// for Machine and Unit agents. This was determined to be overkill
-	// (since we know that Unit agents will actually use
-	// utils.RandomPassword() and get 18 bytes of entropy, and thus won't
-	// be brute-forced.)
-	c.Assert(entity.PasswordValid(goodPassword), jc.IsFalse)
-	agentHash := utils.AgentPasswordHash(goodPassword)
-	err := state.SetPasswordHash(entity, agentHash)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
-	c.Assert(entity.PasswordValid(alternatePassword), jc.IsFalse)
-	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
-
-	backwardsCompatibleHash := utils.UserPasswordHash(goodPassword, utils.CompatSalt)
-	c.Assert(backwardsCompatibleHash, gc.Not(gc.Equals), agentHash)
-	err = state.SetPasswordHash(entity, backwardsCompatibleHash)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity.PasswordValid(alternatePassword), jc.IsFalse)
-	c.Assert(state.GetPasswordHash(entity), gc.Equals, backwardsCompatibleHash)
-	// After succeeding to log in with the old compatible hash, the db
-	// should be updated with the new hash
-	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
-	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
-	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
-
-	// Agents are unable to set short passwords
-	err = entity.SetPassword("short")
-	c.Check(err, gc.ErrorMatches, "password is only 5 bytes long, and is not a valid Agent password")
-	// Grandfather clause. Agents that have short passwords are allowed if
-	// it was done in the compatHash form
-	agentHash = utils.AgentPasswordHash("short")
-	backwardsCompatibleHash = utils.UserPasswordHash("short", utils.CompatSalt)
-	err = state.SetPasswordHash(entity, backwardsCompatibleHash)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity.PasswordValid("short"), jc.IsTrue)
-	// We'll still update the hash, but now it points to the hash of the
-	// shorter password. Agents still can't set the password to it
-	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
-	// Still valid with the shorter password
-	c.Assert(entity.PasswordValid("short"), jc.IsTrue)
 }
 
 type entity interface {
@@ -3804,7 +3762,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 
 func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	current := version.MustParseBinary("1.24.7-trusty-amd64")
-	s.PatchValue(&version.Current, current.Number)
+	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
 	s.PatchValue(&series.HostSeries, func() string { return current.Series })
 
@@ -3820,15 +3778,15 @@ func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	assertAgentVersion(c, otherSt, lower.Number.String())
 
 	// Set other environ version == server environ version
-	err = otherSt.SetModelAgentVersion(version.Current)
+	err = otherSt.SetModelAgentVersion(jujuversion.Current)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, otherSt, version.Current.String())
+	assertAgentVersion(c, otherSt, jujuversion.Current.String())
 
 	// Set other environ version to > server environ version
 	err = otherSt.SetModelAgentVersion(higher.Number)
 	expected := fmt.Sprintf("a hosted model cannot have a higher version than the server model: %s > %s",
 		higher.Number,
-		version.Current,
+		jujuversion.Current,
 	)
 	c.Assert(err, gc.ErrorMatches, expected)
 }

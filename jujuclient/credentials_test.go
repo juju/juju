@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -75,6 +76,25 @@ func (s *CredentialsSuite) TestUpdateCredential(c *gc.C) {
 	err := s.store.UpdateCredential(s.cloudName, s.credentials)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpdateSucceeded(c)
+}
+
+func (s *CredentialsSuite) TestUpdateCredentialRemovesDefaultIfNecessary(c *gc.C) {
+	origHome := osenv.SetJujuXDGDataHome(c.MkDir())
+	s.AddCleanup(func(*gc.C) { osenv.SetJujuXDGDataHome(origHome) })
+
+	s.cloudName = firstTestCloudName(c)
+
+	store := jujuclient.NewFileCredentialStore()
+	err := store.UpdateCredential(s.cloudName, s.credentials)
+	c.Assert(err, jc.ErrorIsNil)
+	newCreds := s.credentials
+	// "peter" is the default credential
+	delete(newCreds.AuthCredentials, "peter")
+	err = store.UpdateCredential(s.cloudName, newCreds)
+	c.Assert(err, jc.ErrorIsNil)
+	creds, err := store.AllCredentials()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(creds[s.cloudName].DefaultCredential, gc.Equals, "")
 }
 
 func (s *CredentialsSuite) assertCredentialsNotExists(c *gc.C) {

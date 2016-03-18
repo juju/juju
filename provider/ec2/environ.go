@@ -274,6 +274,9 @@ func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
 
 var unsupportedConstraints = []string{
 	constraints.Tags,
+	// TODO(anastasiamac 2016-03-16) LP#1557874
+	// use virt-type in StartInstances
+	constraints.VirtType,
 }
 
 // ConstraintsValidator is defined on the Environs interface.

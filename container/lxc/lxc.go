@@ -181,7 +181,7 @@ func (manager *containerManager) CreateContainer(
 	} else if storageConfig == nil {
 		panic("storageConfig is nil")
 	} else if callback == nil {
-		panic("storageConfig is nil")
+		panic("status callback is nil")
 	}
 
 	// Log how long the start took

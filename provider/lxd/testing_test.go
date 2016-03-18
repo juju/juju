@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/tools/lxdclient"
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 // These values are stub LXD client credentials for use in tests.
@@ -504,7 +504,7 @@ func (conn *stubClient) RemoveInstances(prefix string, ids ...string) error {
 	return nil
 }
 
-func (conn *stubClient) EnsureImageExists(series string) error {
+func (conn *stubClient) EnsureImageExists(series string, _ func(string)) error {
 	conn.stub.AddCall("EnsureImageExists", series)
 	if err := conn.stub.NextErr(); err != nil {
 		return errors.Trace(err)
