@@ -151,6 +151,7 @@ func newCloudInitConfigWithNetworks(series string, networkConfig *container.Netw
 	}
 
 	cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
+	cloudConfig.AddRunCmd("ifup -a || true")
 	return cloudConfig, nil
 }
 
