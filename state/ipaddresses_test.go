@@ -365,7 +365,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidGatewayAd
 }
 
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesOKWhenCIDRAddressDoesNotMatchKnownSubnet(c *gc.C) {
-	s.addNamedDevice(c, "eth0")
+	device := s.addNamedDevice(c, "eth0")
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:  "192.168.123.42/16",
 		DeviceName:   "eth0",
@@ -374,7 +374,22 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesOKWhenCIDRAddressDoesNotM
 	err := s.machine.SetDevicesAddresses(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertAllAddressesOnMachineMatchCount(c, s.machine, 1)
+	assertDeviceHasOneAddressWithSubnetIDEquals := func(subnetID string) {
+		addresses, err := device.Addresses()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(addresses, gc.HasLen, 1)
+		c.Assert(addresses[0].SubnetID(), gc.Equals, subnetID)
+	}
+	assertDeviceHasOneAddressWithSubnetIDEquals("")
+
+	// Add the subnet so it's known and retry setting the same address to verify
+	// SubnetID gets updated.
+	_, err = s.State.AddSubnet(state.SubnetInfo{CIDR: "192.168.0.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetDevicesAddresses(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertDeviceHasOneAddressWithSubnetIDEquals("192.168.0.0/16")
 }
 
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressMatchesDeadSubnet(c *gc.C) {

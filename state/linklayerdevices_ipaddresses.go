@@ -252,6 +252,10 @@ func updateIPAddressDocOp(existingDoc, newDoc *ipAddressDoc) txn.Op {
 		changes["config-method"] = newDoc.ConfigMethod
 	}
 
+	if existingDoc.SubnetID != newDoc.SubnetID {
+		changes["subnet-id"] = newDoc.SubnetID
+	}
+
 	if newDoc.DNSServers == nil {
 		deletes["dns-servers"] = 1
 	} else {
