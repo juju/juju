@@ -71,7 +71,7 @@ func APIResult2ServiceResources(apiResult ResourcesResult) (resource.ServiceReso
 		if len(unitRes.DownloadProgress) > 0 {
 			unitResources.DownloadProgress = make(map[string]int64)
 			for resName, progress := range unitRes.DownloadProgress {
-				if !resNames[resName] {
+				if _, ok := resNames[resName]; !ok {
 					err := errors.Errorf("got progress from unrecognized resource %q", resName)
 					return resource.ServiceResources{}, errors.Annotate(err, "got bad data from server")
 				}
