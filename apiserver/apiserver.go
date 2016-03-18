@@ -22,6 +22,7 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -308,40 +309,6 @@ func (n *requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
 func (n *requestNotifier) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
 }
 
-// trackRequests wraps a http.Handler, incrementing and decrementing
-// the apiserver's WaitGroup and blocking request when the apiserver
-// is shutting down.
-//
-// Note: It is only safe to use trackRequests with API handlers which
-// are interruptible (i.e. they pay attention to the apiserver tomb)
-// or are guaranteed to be short-lived. If it's used with long running
-// API handlers which don't watch the apiserver's tomb, apiserver
-// shutdown will be blocked until the API handler returns.
-func (srv *Server) trackRequests(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		srv.wg.Add(1)
-		defer srv.wg.Done()
-		// If we've got to this stage and the tomb is still
-		// alive, we know that any tomb.Kill must occur after we
-		// have called wg.Add, so we avoid the possibility of a
-		// handler goroutine running after Stop has returned.
-		if srv.tomb.Err() != tomb.ErrStillAlive {
-			return
-		}
-
-		handler.ServeHTTP(w, r)
-	})
-}
-
-func handleAll(mux *pat.PatternServeMux, pattern string, handler http.Handler) {
-	mux.Get(pattern, handler)
-	mux.Post(pattern, handler)
-	mux.Head(pattern, handler)
-	mux.Put(pattern, handler)
-	mux.Del(pattern, handler)
-	mux.Options(pattern, handler)
-}
-
 func (srv *Server) run() {
 	logger.Infof("listening on %q", srv.lis.Addr())
 
@@ -373,84 +340,9 @@ func (srv *Server) run() {
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
 	mux := pat.New()
-
-	httpCtxt := httpContext{
-		srv: srv,
+	for _, endpoint := range srv.endpoints() {
+		registerEndpoint(endpoint, mux)
 	}
-
-	mainAPIHandler := srv.trackRequests(http.HandlerFunc(srv.apiHandler))
-	logSinkHandler := srv.trackRequests(newLogSinkHandler(httpCtxt, srv.logDir))
-	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
-
-	handleAll(mux, "/model/:modeluuid/services/:service/resources/:resource",
-		newResourceHandler(httpCtxt),
-	)
-	handleAll(mux, "/model/:modeluuid/units/:unit/resources/:resource",
-		newUnitResourceHandler(httpCtxt),
-	)
-	handleAll(mux, "/model/:modeluuid/logsink", logSinkHandler)
-	handleAll(mux, "/model/:modeluuid/log", debugLogHandler)
-	handleAll(mux, "/model/:modeluuid/charms",
-		&charmsHandler{
-			ctxt:    httpCtxt,
-			dataDir: srv.dataDir},
-	)
-	// TODO: We can switch from handleAll to mux.Post/Get/etc for entries
-	// where we only want to support specific request methods. However, our
-	// tests currently assert that errors come back as application/json and
-	// pat only does "text/plain" responses.
-	handleAll(mux, "/model/:modeluuid/tools",
-		&toolsUploadHandler{
-			ctxt: httpCtxt,
-		},
-	)
-	handleAll(mux, "/model/:modeluuid/tools/:version",
-		&toolsDownloadHandler{
-			ctxt: httpCtxt,
-		},
-	)
-	strictCtxt := httpCtxt
-	strictCtxt.strictValidation = true
-	strictCtxt.controllerModelOnly = true
-	handleAll(mux, "/model/:modeluuid/backups",
-		&backupHandler{
-			ctxt: strictCtxt,
-		},
-	)
-	handleAll(mux, "/model/:modeluuid/api", mainAPIHandler)
-
-	handleAll(mux, "/model/:modeluuid/images/:kind/:series/:arch/:filename",
-		&imagesDownloadHandler{
-			ctxt:    httpCtxt,
-			dataDir: srv.dataDir,
-			state:   srv.state,
-		},
-	)
-	// For backwards compatibility we register all the old paths
-	handleAll(mux, "/log", debugLogHandler)
-
-	handleAll(mux, "/charms",
-		&charmsHandler{
-			ctxt:    httpCtxt,
-			dataDir: srv.dataDir,
-		},
-	)
-	handleAll(mux, "/tools",
-		&toolsUploadHandler{
-			ctxt: httpCtxt,
-		},
-	)
-	handleAll(mux, "/tools/:version",
-		&toolsDownloadHandler{
-			ctxt: httpCtxt,
-		},
-	)
-	handleAll(mux, "/register",
-		&registerUserHandler{
-			ctxt: httpCtxt,
-		},
-	)
-	handleAll(mux, "/", mainAPIHandler)
 
 	go func() {
 		addr := srv.lis.Addr() // not valid after addr closed
@@ -463,6 +355,167 @@ func (srv *Server) run() {
 	}()
 
 	<-srv.tomb.Dying()
+}
+
+func (srv *Server) endpoints() []apihttp.Endpoint {
+	httpCtxt := httpContext{
+		srv: srv,
+	}
+
+	endpoints := common.ResolveAPIEndpoints(srv.newHandlerArgs)
+
+	// TODO(ericsnow) Add the following to the registry instead.
+
+	add := func(pattern string, handler http.Handler) {
+		// TODO: We can switch from all methods to specific ones for entries
+		// where we only want to support specific request methods. However, our
+		// tests currently assert that errors come back as application/json and
+		// pat only does "text/plain" responses.
+		for _, method := range common.DefaultHTTPMethods {
+			endpoints = append(endpoints, apihttp.Endpoint{
+				Pattern: pattern,
+				Method:  method,
+				Handler: handler,
+			})
+		}
+	}
+
+	mainAPIHandler := srv.trackRequests(http.HandlerFunc(srv.apiHandler))
+	logSinkHandler := srv.trackRequests(newLogSinkHandler(httpCtxt, srv.logDir))
+	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
+
+	add("/model/:modeluuid/logsink", logSinkHandler)
+	add("/model/:modeluuid/log", debugLogHandler)
+	add("/model/:modeluuid/charms",
+		&charmsHandler{
+			ctxt:    httpCtxt,
+			dataDir: srv.dataDir},
+	)
+	add("/model/:modeluuid/tools",
+		&toolsUploadHandler{
+			ctxt: httpCtxt,
+		},
+	)
+	add("/model/:modeluuid/tools/:version",
+		&toolsDownloadHandler{
+			ctxt: httpCtxt,
+		},
+	)
+	strictCtxt := httpCtxt
+	strictCtxt.strictValidation = true
+	strictCtxt.controllerModelOnly = true
+	add("/model/:modeluuid/backups",
+		&backupHandler{
+			ctxt: strictCtxt,
+		},
+	)
+	add("/model/:modeluuid/api", mainAPIHandler)
+
+	add("/model/:modeluuid/images/:kind/:series/:arch/:filename",
+		&imagesDownloadHandler{
+			ctxt:    httpCtxt,
+			dataDir: srv.dataDir,
+			state:   srv.state,
+		},
+	)
+	// For backwards compatibility we register all the old paths
+	add("/log", debugLogHandler)
+
+	add("/charms",
+		&charmsHandler{
+			ctxt:    httpCtxt,
+			dataDir: srv.dataDir,
+		},
+	)
+	add("/tools",
+		&toolsUploadHandler{
+			ctxt: httpCtxt,
+		},
+	)
+	add("/tools/:version",
+		&toolsDownloadHandler{
+			ctxt: httpCtxt,
+		},
+	)
+	add("/register",
+		&registerUserHandler{
+			ctxt: httpCtxt,
+		},
+	)
+	add("/", mainAPIHandler)
+
+	return endpoints
+}
+
+func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHandlerArgs {
+	ctxt := httpContext{
+		srv:                 srv,
+		strictValidation:    spec.StrictValidation,
+		controllerModelOnly: spec.ControllerModelOnly,
+	}
+
+	var args apihttp.NewHandlerArgs
+	switch spec.AuthKind {
+	case names.UserTagKind:
+		args.Connect = ctxt.stateForRequestAuthenticatedUser
+	case names.UnitTagKind:
+		args.Connect = ctxt.stateForRequestAuthenticatedAgent
+	case "":
+		logger.Tracef(`no access level specified; proceeding with "unauthenticated"`)
+		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
+			st, err := ctxt.stateForRequestUnauthenticated(req)
+			return st, nil, err
+		}
+	default:
+		logger.Warningf(`unrecognized access level %q; proceeding with "unauthenticated"`, spec.AuthKind)
+		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
+			st, err := ctxt.stateForRequestUnauthenticated(req)
+			return st, nil, err
+		}
+	}
+	return args
+}
+
+// trackRequests wraps a http.Handler, incrementing and decrementing
+// the apiserver's WaitGroup and blocking request when the apiserver
+// is shutting down.
+//
+// Note: It is only safe to use trackRequests with API handlers which
+// are interruptible (i.e. they pay attention to the apiserver tomb)
+// or are guaranteed to be short-lived. If it's used with long running
+// API handlers which don't watch the apiserver's tomb, apiserver
+// shutdown will be blocked until the API handler returns.
+func (srv *Server) trackRequests(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv.wg.Add(1)
+		defer srv.wg.Done()
+		// If we've got to this stage and the tomb is still
+		// alive, we know that any tomb.Kill must occur after we
+		// have called wg.Add, so we avoid the possibility of a
+		// handler goroutine running after Stop has returned.
+		if srv.tomb.Err() != tomb.ErrStillAlive {
+			return
+		}
+
+		handler.ServeHTTP(w, r)
+	})
+}
+
+func registerEndpoint(ep apihttp.Endpoint, mux *pat.PatternServeMux) {
+	switch ep.Method {
+	case "GET":
+		mux.Get(ep.Pattern, ep.Handler)
+	case "POST":
+		mux.Post(ep.Pattern, ep.Handler)
+	case "HEAD":
+		mux.Head(ep.Pattern, ep.Handler)
+	case "PUT":
+		mux.Put(ep.Pattern, ep.Handler)
+	case "DEL":
+		mux.Del(ep.Pattern, ep.Handler)
+	case "OPTIONS":
+		mux.Options(ep.Pattern, ep.Handler)
+	}
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
