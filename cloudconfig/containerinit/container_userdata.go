@@ -113,14 +113,16 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 		return "", nil
 	}
 
-	for i, info := range networkConfig.Interfaces {
+	// Copy the InterfaceInfo before modifying the original.
+	interfacesCopy := networkConfig.Interfaces
+	for i, info := range interfacesCopy {
 		if info.MACAddress != "" {
 			info.MACAddress = ""
 		}
 		if info.InterfaceName != "eth0" {
 			info.GatewayAddress = network.Address{}
 		}
-		networkConfig.Interfaces[i] = info
+		interfacesCopy[i] = info
 	}
 
 	// Render the config first.
@@ -130,7 +132,7 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 	}
 
 	var buf bytes.Buffer
-	if err = tmpl.Execute(&buf, networkConfig.Interfaces); err != nil {
+	if err = tmpl.Execute(&buf, interfacesCopy); err != nil {
 		return "", errors.Annotate(err, "cannot render network config")
 	}
 
