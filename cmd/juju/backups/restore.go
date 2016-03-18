@@ -21,20 +21,23 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-func newRestoreCommand() cmd.Command {
-	return modelcmd.Wrap(&restoreCommand{})
+func newRestoreCommand(getEnvironFunc func(string) (environs.Environ, error)) cmd.Command {
+	if getEnvironFunc == nil {
+		getEnvironFunc = getEnviron
+	}
+	return modelcmd.Wrap(&restoreCommand{getEnvironFunc: getEnvironFunc})
 }
 
 // restoreCommand is a subcommand of backups that implement the restore behavior
 // it is invoked with "juju restore-backup".
 type restoreCommand struct {
 	CommandBase
-	constraints constraints.Value
-	filename    string
-	backupId    string
-	bootstrap   bool
-	uploadTools bool
-	fakeEnviron environs.Environ
+	constraints    constraints.Value
+	filename       string
+	backupId       string
+	bootstrap      bool
+	uploadTools    bool
+	getEnvironFunc func(string) (environs.Environ, error)
 }
 
 var restoreDoc = `
@@ -132,17 +135,12 @@ func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
 
 // getEnviron returns the environ for the specified controller, or
 // mocked out environ for testing.
-func (c *restoreCommand) getEnviron() (environs.Environ, error) {
+func getEnviron(controllerName string) (environs.Environ, error) {
 	// TODO(axw) delete this and -b in 2.0-beta2. We will update bootstrap
 	// with a flag to specify a restore file. When we do that, we'll need
 	// to extract the CA cert from the backup, and we'll need to reset the
 	// password after restore so the admin user can login.
 
-	if c.fakeEnviron != nil {
-		return c.fakeEnviron, nil
-	}
-
-	controllerName := c.ControllerName()
 	legacyStore, err := configstore.Default()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -172,7 +170,7 @@ func (c *restoreCommand) getEnviron() (environs.Environ, error) {
 // rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
 // if there is no current server available to restore to.
 func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
-	env, err := c.getEnviron()
+	env, err := c.getEnvironFunc(c.ControllerName())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -180,7 +178,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine controller instances")
 	}
-	if len(instanceIds) != 0 {
+	if len(instanceIds) > 0 {
 		inst, err := env.Instances(instanceIds)
 		if err == nil {
 			return errors.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)

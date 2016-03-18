@@ -39,15 +39,19 @@ func (s *restoreSuite) TestRestoreArgs(c *gc.C) {
 }
 
 func (s *restoreSuite) TestRestoreReboostrapControllerExists(c *gc.C) {
-	fakeEnv := fakeEnviron{instances: []instance.Id{"1"}}
-	s.command = backups.NewRestoreCommand(fakeEnv)
+	fakeEnv := fakeEnviron{controllerInstances: []instance.Id{"1"}}
+	s.command = backups.NewRestoreCommand(func(string) (environs.Environ, error) {
+		return fakeEnv, nil
+	})
 	_, err := testing.RunCommand(c, s.command, "restore", "--file", "afile", "-b")
 	c.Assert(err, gc.ErrorMatches, ".*still seems to exist.*")
 }
 
 func (s *restoreSuite) TestRestoreReboostrapNoControllers(c *gc.C) {
 	fakeEnv := fakeEnviron{}
-	s.command = backups.NewRestoreCommand(fakeEnv)
+	s.command = backups.NewRestoreCommand(func(string) (environs.Environ, error) {
+		return fakeEnv, nil
+	})
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
 		return errors.New("failed to bootstrap new controller")
 	})
@@ -63,11 +67,11 @@ type fakeInstance struct {
 
 type fakeEnviron struct {
 	environs.Environ
-	instances []instance.Id
+	controllerInstances []instance.Id
 }
 
 func (f fakeEnviron) ControllerInstances() ([]instance.Id, error) {
-	return f.instances, nil
+	return f.controllerInstances, nil
 }
 
 func (f fakeEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
