@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package status
@@ -29,7 +29,7 @@ The command outputs a single line summary with any unhealthy units 1 per line on
 The return code of this is 0 for Okay, 1 for warning, 2 for critical, 3 for unknown
 `
 
-// NewStatusHistoryCommand returns a command that reports the health of the Juju deployment
+// NewHealthCommand returns a command that reports the health of the Juju deployment
 func NewHealthCommand() cmd.Command {
 	return modelcmd.Wrap(&statusHealthCommand{})
 }
@@ -155,7 +155,7 @@ func (s *serviceStatus) Health() (int, []string) {
 		if 1 > exitCode {
 			exitCode = 1
 		}
-		notOkay = append(notOkay, fmt.Sprintf("Status: %s, Error:", s.StatusInfo.Current, s.StatusInfo.Err))
+		notOkay = append(notOkay, fmt.Sprintf("Status: %s, Error:%s", s.StatusInfo.Current, s.StatusInfo.Err))
 	}
 
 	//parse all units
