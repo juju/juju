@@ -50,8 +50,8 @@ func (f *stringForwarder) Stop() int {
 }
 
 func (f *stringForwarder) loop(started chan struct{}) {
-	close(started)
 	stopch := f.stopch
+	close(started)
 	for {
 		select {
 		case msg := <-f.buffer:

@@ -16,6 +16,25 @@ type stringForwarderSuite struct{}
 
 var _ = gc.Suite(&stringForwarderSuite{})
 
+// waitFor event to happen, or timeout and fail the test
+func waitFor(c *gc.C, event <-chan struct{}) {
+	select {
+	case <-event:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout waiting for event")
+	}
+}
+
+// sendEvent will send a message on a channel, or timeout if the channel is
+// never available and fail the test.
+func sendEvent(c *gc.C, event chan struct{}) {
+	select {
+	case event <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("failed to send the event")
+	}
+}
+
 func (*stringForwarderSuite) TestReceives(c *gc.C) {
 	messages := make([]string, 0)
 	received := make(chan struct{}, 10)
@@ -24,11 +43,7 @@ func (*stringForwarderSuite) TestReceives(c *gc.C) {
 		received <- struct{}{}
 	})
 	forwarder.Receive("one")
-	select {
-	case <-received:
-	case <-time.After(coretesting.LongWait):
-		c.Errorf("timeout waiting for a message to be received")
-	}
+	waitFor(c, received)
 	c.Check(forwarder.Stop(), gc.Equals, 0)
 	c.Check(messages, gc.DeepEquals, []string{"one"})
 }
@@ -64,15 +79,12 @@ func (*stringForwarderSuite) TestAllDroppedWithNoCallback(c *gc.C) {
 
 func (*stringForwarderSuite) TestMessagesDroppedWhenBusy(c *gc.C) {
 	messages := make([]string, 0)
+	received := make(chan struct{}, 10)
 	next := make(chan struct{})
 	blockingCallback := func(msg string) {
-		select {
-		case <-next:
-			messages = append(messages, msg)
-		case <-time.After(coretesting.LongWait):
-			c.Error("timeout waiting for next")
-			return
-		}
+		waitFor(c, next)
+		messages = append(messages, msg)
+		sendEvent(c, received)
 	}
 	forwarder := stringforwarder.NewStringForwarder(blockingCallback)
 	forwarder.Receive("first")
@@ -80,20 +92,14 @@ func (*stringForwarderSuite) TestMessagesDroppedWhenBusy(c *gc.C) {
 	forwarder.Receive("third")
 	// At this point we should have started processing "first", but the
 	// other two messages are dropped.
-	select {
-	case next <- struct{}{}:
-	case <-time.After(coretesting.LongWait):
-		c.Error("failed to send next signal")
-	}
+	sendEvent(c, next)
+	waitFor(c, received)
 	// now we should be ready to get another message
 	forwarder.Receive("fourth")
 	forwarder.Receive("fifth")
 	// finish fourth
-	select {
-	case next <- struct{}{}:
-	case <-time.After(coretesting.LongWait):
-		c.Error("failed to send next signal")
-	}
+	sendEvent(c, next)
+	waitFor(c, received)
 	dropCount := forwarder.Stop()
 	c.Check(messages, gc.DeepEquals, []string{"first", "fourth"})
 	c.Check(dropCount, gc.Equals, 3)
