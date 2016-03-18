@@ -27,11 +27,11 @@ type LeadershipSuite struct {
 var _ = gc.Suite(&LeadershipSuite{})
 
 func (s *LeadershipSuite) SetUpTest(c *gc.C) {
+	s.ConnSuite.SetUpTest(c)
 	s.clock = coretesting.NewClock(time.Now())
 	s.PatchValue(&state.GetClock, func() clock.Clock {
 		return s.clock
 	})
-	s.ConnSuite.SetUpTest(c)
 
 	s.checker = s.State.LeadershipChecker()
 	s.claimer = s.State.LeadershipClaimer()
