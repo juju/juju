@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools/lxdclient"
 )
@@ -118,12 +119,19 @@ func (manager *containerManager) CreateContainer(
 		"boot.autostart": "true",
 	}
 
+	networkProfile := fmt.Sprintf("%s-network", name)
+
+	err = manager.createNetworkProfile(networkProfile, networkConfig)
+	if err != nil {
+		return
+	}
+
 	spec := lxdclient.InstanceSpec{
 		Name:     name,
 		Image:    manager.client.ImageNameForSeries(series),
 		Metadata: metadata,
 		Profiles: []string{
-			"default",
+			networkProfile,
 		},
 	}
 
@@ -187,4 +195,54 @@ func (manager *containerManager) IsInitialized() bool {
 // support (i.e. it was built on a golang version < 1.2
 func HasLXDSupport() bool {
 	return true
+}
+
+func (manager *containerManager) createNetworkProfile(profile string, networkConfig *container.NetworkConfig) error {
+	found, err := manager.client.HasProfile(profile)
+
+	if err != nil {
+		return err
+	}
+
+	if found {
+		logger.Infof("deleting existing profile %q", profile)
+		if err := manager.client.ProfileDelete(profile); err != nil {
+			return err
+		}
+	}
+
+	if err := manager.client.CreateProfile(profile, nil); err != nil {
+		return err
+	}
+
+	for _, v := range networkConfig.Interfaces {
+		if v.InterfaceType == network.LoopbackInterface {
+			continue
+		}
+
+		if v.InterfaceType != network.EthernetInterface {
+			return errors.Errorf("interface type %q not supported", v.InterfaceType)
+		}
+
+		var props = []string{}
+		props = append(props, "nictype=bridged")
+		props = append(props, fmt.Sprintf("parent=%v", v.ParentInterfaceName))
+		props = append(props, fmt.Sprintf("name=%v", v.InterfaceName))
+
+		if v.MACAddress != "" {
+			props = append(props, fmt.Sprintf("hwaddr=%v", v.MACAddress))
+		}
+
+		if v.MTU > 0 {
+			props = append(props, fmt.Sprintf("mtu=%v", v.MTU))
+		}
+
+		_, err := manager.client.ProfileDeviceAdd(profile, v.InterfaceName, "nic", props)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
