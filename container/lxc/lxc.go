@@ -397,7 +397,7 @@ func createContainer(
 	if err := ioutil.WriteFile(configPath, []byte(netConfig), 0644); err != nil {
 		return errors.Annotatef(err, "failed to write container config %q", configPath)
 	}
-	logger.Tracef("wrote initial config %q for container %q", configPath, lxcContainer.Name())
+	logger.Tracef("wrote initial config %q for container %q: %+v", configPath, lxcContainer.Name(), netConfig)
 
 	var err error
 	var execEnv []string = nil
@@ -861,6 +861,7 @@ lxc.network.mtu = {{$nic.MTU}}{{end}}
 `
 
 func networkConfigTemplate(config container.NetworkConfig) string {
+	logger.Debugf("preparing to render container network config from %+v", config)
 	type nicData struct {
 		Name        string
 		NoAutoStart bool
@@ -915,6 +916,12 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 			// Only the primary NIC needs a gateway otherwise lxc and/or ifup
 			// inside the container will fail.
 			nic.IPv4Gateway = iface.GatewayAddress.Value
+		}
+		if iface.MACAddress == "" || nic.MACAddress == "" {
+			logger.Warningf(
+				"empty MAC address %q from config for %q (rendered as %q)",
+				iface.MACAddress, iface.InterfaceName, nic.MACAddress,
+			)
 		}
 
 		data.Interfaces = append(data.Interfaces, nic)

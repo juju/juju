@@ -285,8 +285,10 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 	var devicesArgs []state.LinkLayerDeviceArgs
 	var devicesAddrs []state.LinkLayerDeviceAddress
 
+	logger.Debugf("transforming network config to state args: %+v", networkConfig)
 	seenDeviceNames := set.NewStrings()
 	for _, netConfig := range networkConfig {
+		logger.Debugf("transforming device %q", netConfig.InterfaceName)
 		if !seenDeviceNames.Contains(netConfig.InterfaceName) {
 			// First time we see this, add it to devicesArgs.
 			seenDeviceNames.Add(netConfig.InterfaceName)
@@ -304,6 +306,7 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 				IsUp:        !netConfig.Disabled,
 				ParentName:  netConfig.ParentInterfaceName,
 			}
+			logger.Debugf("state device args for device: %+v", args)
 			devicesArgs = append(devicesArgs, args)
 		}
 
@@ -347,8 +350,11 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 			DNSSearchDomains: netConfig.DNSSearchDomains,
 			GatewayAddress:   netConfig.GatewayAddress,
 		}
+		logger.Debugf("state address args for device: %+v", addr)
 		devicesAddrs = append(devicesAddrs, addr)
 	}
+	logger.Debugf("seen devices: %+v", seenDeviceNames.SortedValues())
+	logger.Debugf("network config transformed to state args:\n%+v\n%+v", devicesArgs, devicesAddrs)
 	return devicesArgs, devicesAddrs
 }
 
@@ -468,16 +474,20 @@ func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []p
 	sortedProviderConfigs := SortNetworkConfigsByParents(providerConfigs)
 	for _, config := range sortedProviderConfigs {
 		name := config.InterfaceName
-		providerConfigsByName[config.InterfaceName] = append(providerConfigsByName[name], config)
+		providerConfigsByName[name] = append(providerConfigsByName[name], config)
 	}
+	logger.Debugf("provider network config by name: %+v", providerConfigsByName)
 
 	mergedConfigs := make([]params.NetworkConfig, 0, len(providerConfigs)+len(observedConfigs))
 	sortedObservedConfigs := SortNetworkConfigsByParents(observedConfigs)
 	for _, config := range sortedObservedConfigs {
 		name := config.InterfaceName
+		logger.Debugf("merging observed config for device %q", name)
 		if strings.HasPrefix(name, instancecfg.DefaultBridgePrefix) {
+			logger.Debugf("found potential juju bridge %q in observed config", name)
 			unprefixedName := strings.TrimPrefix(name, instancecfg.DefaultBridgePrefix)
 			underlyingConfigs, underlyingKnownByProvider := providerConfigsByName[unprefixedName]
+			logger.Debugf("device %q underlying %q has provider config: %+v", name, unprefixedName, underlyingConfigs)
 			if underlyingKnownByProvider {
 				// This config is for a bridge created by Juju and not known by
 				// the provider. The bridge is configured to adopt the address
@@ -489,12 +499,14 @@ func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []p
 				var underlyingConfig params.NetworkConfig
 				for i, underlying := range underlyingConfigs {
 					if underlying.Address == config.Address {
+						logger.Debugf("replacing undelying config %+v", underlying)
 						// Remove what we found before changing it below.
 						underlyingConfig = underlying
 						underlyingConfigs = append(underlyingConfigs[:i], underlyingConfigs[i+1:]...)
 						break
 					}
 				}
+				logger.Debugf("underlying provider config after update: %+v", underlyingConfigs)
 
 				bridgeConfig := config
 				bridgeConfig.InterfaceType = string(network.BridgeInterface)
@@ -517,6 +529,7 @@ func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []p
 
 				underlyingConfigs = append(underlyingConfigs, underlyingConfig)
 				providerConfigsByName[unprefixedName] = underlyingConfigs
+				logger.Debugf("updated provider network config by name: %+v", providerConfigsByName)
 
 				mergedConfigs = append(mergedConfigs, bridgeConfig)
 				continue
@@ -527,12 +540,14 @@ func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []p
 		if !knownByProvider {
 			// Not known by the provider and not a Juju-created bridge, so just
 			// use the observed config for it.
+			logger.Debugf("adding observed config for %q: %+v", name, providerConfigs)
 			mergedConfigs = append(mergedConfigs, config)
 			continue
 		}
 
 		for _, providerConfig := range providerConfigs {
 			if providerConfig.Address == config.Address {
+				logger.Debugf("adding provider config %+v updated with observed %+v for device %q", providerConfig, config, name)
 				// Prefer observed device indices and MTU values as more up-to-date.
 				providerConfig.DeviceIndex = config.DeviceIndex
 				providerConfig.MTU = config.MTU
