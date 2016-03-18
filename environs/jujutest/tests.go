@@ -12,7 +12,9 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -43,6 +45,7 @@ type Tests struct {
 	// such as controllers, accounts, etc., used when preparing
 	// the environment. This is initialized by SetUpSuite.
 	ControllerStore jujuclient.ClientStore
+	toolsStorage    storage.Storage
 }
 
 // Open opens an instance of the testing environment.
@@ -82,7 +85,10 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	storageDir := c.MkDir()
 	t.DefaultBaseURL = "file://" + storageDir + "/tools"
 	t.ToolsFixture.SetUpTest(c)
-	t.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, jc.ErrorIsNil)
+	t.UploadFakeTools(c, stor, "released", "released")
+	t.toolsStorage = stor
 	t.ConfigStore = configstore.NewMem()
 	t.ControllerStore = jujuclienttesting.NewMemStore()
 }
