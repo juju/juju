@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"golang.org/x/crypto/ssh/terminal"
 	"launchpad.net/gnuflag"
 
@@ -272,52 +271,29 @@ func (c *addCredentialCommand) promptCredentialAttributes(
 	ctxt *cmd.Context, out io.Writer, in io.Reader, authType jujucloud.AuthType, schema jujucloud.CredentialSchema,
 ) (map[string]string, error) {
 
-	// Record any file attributes for later validation.
-	fileAttrs := set.NewStrings()
-	for _, attr := range schema {
-		if attr.FileAttr != "" {
-			fileAttrs.Add(attr.FileAttr)
-		}
-	}
-
 	attrs := make(map[string]string)
+	// currentAttr is the current attribute we are prompting for.
+	// It may be modified inside the loop if needed, depending on
+	// what the user types in. It is declared outside the loop so that
+	// its value can be used again if we need to re-prompt for a value.
+	var currentAttr *jujucloud.NamedCredentialAttr
 	for _, attr := range schema {
-		name := attr.Name
+		if currentAttr == nil {
+			currentAttr = &attr
+		}
 		value := ""
 		for {
-			// Formulate the prompt for the list of valid options.
-			optionsPrompt := ""
-			if len(attr.Options) > 0 {
-				options := make([]string, len(attr.Options))
-				for i, opt := range attr.Options {
-					options[i] = fmt.Sprintf("%v", opt)
-					if i == 0 {
-						options[i] += "*"
-					}
-				}
-				optionsPrompt = fmt.Sprintf(" [%v]", strings.Join(options, ","))
-			}
-
-			// Prompt for and accept input for field value.
-			fmt.Fprintf(out, "  %s%s: ", name, optionsPrompt)
-			var input string
 			var err error
-			if attr.Hidden {
-				input, err = c.readHiddenField(in)
-				fmt.Fprintln(out)
-			} else {
-				input, err = readLine(in)
-			}
+			value, err = c.promptFieldValue(out, in, currentAttr)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, err
 			}
-			value = strings.TrimSpace(input)
 
 			// Validate the entered value matches any options.
 			// If the user just hits Enter, the first option is used.
-			if len(attr.Options) > 0 {
+			if len(currentAttr.Options) > 0 {
 				isValid := false
-				for _, choice := range attr.Options {
+				for _, choice := range currentAttr.Options {
 					if choice == value || value == "" {
 						isValid = true
 						break
@@ -327,13 +303,27 @@ func (c *addCredentialCommand) promptCredentialAttributes(
 					fmt.Fprintf(out, "  ...invalid value %q\n", value)
 					continue
 				}
-				if value == "" && !attr.Optional {
-					value = fmt.Sprintf("%v", attr.Options[0])
+				if value == "" && !currentAttr.Optional {
+					value = fmt.Sprintf("%v", currentAttr.Options[0])
+				}
+			}
+
+			// If the entered value is empty and the attribute can come
+			// for a file, prompt for that.
+			if value == "" && currentAttr.FileAttr != "" {
+				fileAttr := *currentAttr
+				fileAttr.Name = currentAttr.FileAttr
+				fileAttr.Hidden = false
+				fileAttr.FilePath = true
+				currentAttr = &fileAttr
+				value, err = c.promptFieldValue(out, in, currentAttr)
+				if err != nil {
+					return nil, err
 				}
 			}
 
 			// Validate any file attribute is a valid file.
-			if value != "" && (fileAttrs.Contains(name) || attr.FilePath) {
+			if value != "" && currentAttr.FilePath {
 				value, err = jujucloud.ValidateFileAttrValue(value)
 				if err != nil {
 					fmt.Fprintf(out, "  ...%s\n", err.Error())
@@ -342,15 +332,51 @@ func (c *addCredentialCommand) promptCredentialAttributes(
 			}
 
 			// Stay in the loop if we need a mandatory value.
-			if value != "" || attr.Optional {
+			if value != "" || currentAttr.Optional {
 				break
 			}
 		}
 		if value != "" {
-			attrs[name] = value
+			attrs[currentAttr.Name] = value
 		}
+		currentAttr = nil
 	}
 	return attrs, nil
+}
+
+func (c *addCredentialCommand) promptFieldValue(
+	out io.Writer, in io.Reader, attr *jujucloud.NamedCredentialAttr,
+) (string, error) {
+
+	name := attr.Name
+	// Formulate the prompt for the list of valid options.
+	optionsPrompt := ""
+	if len(attr.Options) > 0 {
+		options := make([]string, len(attr.Options))
+		for i, opt := range attr.Options {
+			options[i] = fmt.Sprintf("%v", opt)
+			if i == 0 {
+				options[i] += "*"
+			}
+		}
+		optionsPrompt = fmt.Sprintf(" [%v]", strings.Join(options, ","))
+	}
+
+	// Prompt for and accept input for field value.
+	fmt.Fprintf(out, "  %s%s: ", name, optionsPrompt)
+	var input string
+	var err error
+	if attr.Hidden {
+		input, err = c.readHiddenField(in)
+		fmt.Fprintln(out)
+	} else {
+		input, err = readLine(in)
+	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	value := strings.TrimSpace(input)
+	return value, nil
 }
 
 func (c *addCredentialCommand) readHiddenField(in io.Reader) (string, error) {

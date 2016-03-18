@@ -219,6 +219,32 @@ func (s *addCredentialSuite) TestAddCredentialReplaceDecline(c *gc.C) {
 	s.assertAddUserpassCredential(c, "fred\nn\n", &cred)
 }
 
+func (s *addCredentialSuite) assertAddFileCredential(c *gc.C, input, fileKey string) {
+	dir := c.MkDir()
+	filename := filepath.Join(dir, "jsonfile")
+	err := ioutil.WriteFile(filename, []byte{}, 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	stdin := strings.NewReader(fmt.Sprintf(input, filename))
+	addCmd := cloud.NewAddCredentialCommandForTest(s.store, s.cloudByNameFunc)
+	err = testing.InitCommand(addCmd, []string{"somecloud"})
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := testing.ContextForDir(c, dir)
+	ctx.Stdin = stdin
+	err = addCmd.Run(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+		"somecloud": {
+			AuthCredentials: map[string]jujucloud.Credential{
+				"fred": jujucloud.NewCredential(s.authTypes[0], map[string]string{
+					fileKey: filename,
+				}),
+			},
+		},
+	})
+}
+
 func (s *addCredentialSuite) TestAddJsonFileCredential(c *gc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.JSONFileAuthType}
 	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
@@ -232,30 +258,24 @@ func (s *addCredentialSuite) TestAddJsonFileCredential(c *gc.C) {
 			},
 		},
 	}
-	dir := c.MkDir()
-	filename := filepath.Join(dir, "jsonfile")
-	err := ioutil.WriteFile(filename, []byte{}, 0600)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Input includes invalid file info.
-	stdin := strings.NewReader(fmt.Sprintf("fred\nbadfile\n.\n%s\n", filename))
-	addCmd := cloud.NewAddCredentialCommandForTest(s.store, s.cloudByNameFunc)
-	err = testing.InitCommand(addCmd, []string{"somecloud"})
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.ContextForDir(c, dir)
-	ctx.Stdin = stdin
-	err = addCmd.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	s.assertAddFileCredential(c, "fred\nbadfile\n.\n%s\n", "file")
+}
 
-	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
-		"somecloud": {
-			AuthCredentials: map[string]jujucloud.Credential{
-				"fred": jujucloud.NewCredential(jujucloud.JSONFileAuthType, map[string]string{
-					"file": filename,
-				}),
+func (s *addCredentialSuite) TestAddCredentialWithFileAttr(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
+	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
+		jujucloud.UserPassAuthType: {
+			{
+				"key",
+				jujucloud.CredentialAttr{
+					FileAttr: "key-file",
+				},
 			},
 		},
-	})
+	}
+	// Input includes invalid file info.
+	s.assertAddFileCredential(c, "fred\n\nbadfile\n.\n%s\n", "key-file")
 }
 
 func (s *addCredentialSuite) assertAddCredentialWithOptions(c *gc.C, input string) {
