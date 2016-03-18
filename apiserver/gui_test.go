@@ -12,6 +12,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,13 +20,14 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const (
@@ -325,7 +327,7 @@ func (s *guiSuite) TestGUIHandler(c *gc.C) {
 			test.expectedStatus = http.StatusOK
 		}
 		if test.expectedError != "" {
-			test.expectedContentType = "application/json"
+			test.expectedContentType = params.ContentTypeJSON
 		}
 		body := assertResponse(c, resp, test.expectedStatus, test.expectedContentType)
 		if test.expectedError == "" {
@@ -410,7 +412,7 @@ var config = {
     socket: '/model/$uuid/api',
     uuid: '%s',
     version: '%s'
-};`, s.modelUUID, s.baseURL(c).Host, s.modelUUID, version.Current)
+};`, s.modelUUID, s.baseURL(c).Host, s.modelUUID, jujuversion.Current)
 
 	// Make a request for the Juju GUI config.
 	resp := s.sendRequest(c, httpRequestParams{
@@ -450,6 +452,207 @@ func (s *guiSuite) TestGUIDirectory(c *gc.C) {
 	b, err := ioutil.ReadFile(indexPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(b), gc.Equals, indexContent)
+}
+
+type guiArchiveSuite struct {
+	authHttpSuite
+}
+
+var _ = gc.Suite(&guiArchiveSuite{})
+
+// guiURL returns the URL used to retrieve info on or upload Juju GUI archives.
+func (s *guiArchiveSuite) guiURL(c *gc.C) string {
+	u := s.baseURL(c)
+	u.Path = "/gui-archive"
+	return u.String()
+}
+
+var guiArchiveGetTests = []struct {
+	about    string
+	versions []string
+}{{
+	about: "empty storage",
+}, {
+	about:    "one version",
+	versions: []string{"2.42.0"},
+}, {
+	about:    "multiple versions",
+	versions: []string{"2.42.0", "3.0.0", "2.47.1"},
+}}
+
+func (s *guiArchiveSuite) TestGUIArchiveGet(c *gc.C) {
+	for i, test := range guiArchiveGetTests {
+		c.Logf("\n%d: %s", i, test.about)
+
+		uploadVersions := func(versions []string) params.GUIArchiveResponse {
+			// Open the GUI storage.
+			storage, err := s.State.GUIStorage()
+			c.Assert(err, jc.ErrorIsNil)
+			defer storage.Close()
+
+			// Add the versions to the storage.
+			expectedVersions := make([]params.GUIArchiveVersion, len(versions))
+			for i, vers := range versions {
+				files := map[string]string{"file": fmt.Sprintf("content %d", i)}
+				hash := setupGUIArchive(c, storage, vers, files)
+				expectedVersions[i] = params.GUIArchiveVersion{
+					Version: version.MustParse(vers),
+					SHA256:  hash,
+					// TODO frankban: use real current one.
+					Current: true,
+				}
+			}
+			return params.GUIArchiveResponse{
+				Versions: expectedVersions,
+			}
+		}
+
+		// Reset the db so that the GUI storage is empty in each test.
+		s.Reset(c)
+
+		// Send the request to retrieve GUI version information.
+		expectedResponse := uploadVersions(test.versions)
+		resp := s.sendRequest(c, httpRequestParams{
+			url: s.guiURL(c),
+		})
+
+		// Check that a successful response is returned.
+		body := assertResponse(c, resp, http.StatusOK, params.ContentTypeJSON)
+		var jsonResponse params.GUIArchiveResponse
+		err := json.Unmarshal(body, &jsonResponse)
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
+		c.Assert(jsonResponse, jc.DeepEquals, expectedResponse)
+	}
+}
+
+var guiArchivePostErrorsTests = []struct {
+	about           string
+	contentType     string
+	query           string
+	noContentLength bool
+	expectedStatus  int
+	expectedError   string
+}{{
+	about:          "no content type",
+	expectedStatus: http.StatusBadRequest,
+	expectedError:  fmt.Sprintf(`invalid content type "": expected %q`, apiserver.BZMimeType),
+}, {
+	about:          "invalid content type",
+	contentType:    "text/html",
+	expectedStatus: http.StatusBadRequest,
+	expectedError:  fmt.Sprintf(`invalid content type "text/html": expected %q`, apiserver.BZMimeType),
+}, {
+	about:          "no version provided",
+	contentType:    apiserver.BZMimeType,
+	expectedStatus: http.StatusBadRequest,
+	expectedError:  "version parameter not provided",
+}, {
+	about:          "invalid version",
+	contentType:    apiserver.BZMimeType,
+	query:          "?version=bad-wolf",
+	expectedStatus: http.StatusBadRequest,
+	expectedError:  `invalid version parameter "bad-wolf"`,
+}, {
+	about:          "no hash provided",
+	contentType:    apiserver.BZMimeType,
+	query:          "?version=2.0.42",
+	expectedStatus: http.StatusBadRequest,
+	expectedError:  "hash parameter not provided",
+}, {
+	about:           "no content length provided",
+	contentType:     apiserver.BZMimeType,
+	query:           "?version=2.0.42&hash=sha",
+	noContentLength: true,
+	expectedStatus:  http.StatusBadRequest,
+	expectedError:   "content length not provided",
+}, {
+	about:          "content hash mismatch",
+	contentType:    apiserver.BZMimeType,
+	query:          "?version=2.0.42&hash=bad-wolf",
+	expectedStatus: http.StatusBadRequest,
+	expectedError:  "archive does not match provided hash",
+}}
+
+func (s *guiArchiveSuite) TestGUIArchivePostErrors(c *gc.C) {
+	type exoticReader struct {
+		io.Reader
+	}
+	for i, test := range guiArchivePostErrorsTests {
+		c.Logf("\n%d: %s", i, test.about)
+
+		// Prepare the request.
+		var r io.Reader = strings.NewReader("archive contents")
+		if test.noContentLength {
+			// net/http will automatically add a Content-Length header if it
+			// sees *strings.Reader, but not if it's a type it doesn't know.
+			r = exoticReader{r}
+		}
+
+		// Send the request and retrieve the error response.
+		resp := s.authRequest(c, httpRequestParams{
+			method:      "POST",
+			url:         s.guiURL(c) + test.query,
+			contentType: test.contentType,
+			body:        r,
+		})
+		body := assertResponse(c, resp, test.expectedStatus, params.ContentTypeJSON)
+		var jsonResp params.ErrorResult
+		err := json.Unmarshal(body, &jsonResp)
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
+		c.Assert(jsonResp.Error.Message, gc.Matches, test.expectedError)
+	}
+}
+
+func (s *guiArchiveSuite) TestGUIArchivePostErrorUnauthorized(c *gc.C) {
+	resp := s.sendRequest(c, httpRequestParams{
+		method:      "POST",
+		url:         s.guiURL(c) + "?version=2.0.0&hash=sha",
+		contentType: apiserver.BZMimeType,
+		body:        strings.NewReader("archive contents"),
+	})
+	body := assertResponse(c, resp, http.StatusUnauthorized, params.ContentTypeJSON)
+	var jsonResp params.ErrorResult
+	err := json.Unmarshal(body, &jsonResp)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
+	c.Assert(jsonResp.Error.Message, gc.Matches, "cannot open state: no credentials provided")
+}
+
+func (s *guiArchiveSuite) TestGUIArchivePostSuccess(c *gc.C) {
+	// Create a GUI archive to be uploaded.
+	vers := "2.0.42"
+	r, hash, size := makeGUIArchive(c, vers, nil)
+
+	// Prepare and send the request to upload a new GUI archive.
+	v := url.Values{}
+	v.Set("version", vers)
+	v.Set("hash", hash)
+	resp := s.authRequest(c, httpRequestParams{
+		method:      "POST",
+		url:         s.guiURL(c) + "?" + v.Encode(),
+		contentType: apiserver.BZMimeType,
+		body:        r,
+	})
+
+	// Check that the response reflects a successful upload.
+	body := assertResponse(c, resp, http.StatusOK, params.ContentTypeJSON)
+	var jsonResponse params.GUIArchiveVersion
+	err := json.Unmarshal(body, &jsonResponse)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
+	c.Assert(jsonResponse, jc.DeepEquals, params.GUIArchiveVersion{
+		Version: version.MustParse(vers),
+		SHA256:  hash,
+		Current: true,
+	})
+
+	// Check that the new archive is actually present in the GUI storage.
+	storage, err := s.State.GUIStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer storage.Close()
+	allMeta, err := storage.AllMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allMeta, gc.HasLen, 1)
+	c.Assert(allMeta[0].SHA256, gc.Equals, hash)
+	c.Assert(allMeta[0].Size, gc.Equals, size)
 }
 
 // makeGUIArchive creates a Juju GUI tar.bz2 archive with the given files.
