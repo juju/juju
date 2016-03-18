@@ -4,7 +4,6 @@
 package backups_test
 
 import (
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 
@@ -17,7 +16,6 @@ import (
 
 type restoreSuite struct {
 	BaseBackupsSuite
-	command cmd.Command
 }
 
 var _ = gc.Suite(&restoreSuite{})
