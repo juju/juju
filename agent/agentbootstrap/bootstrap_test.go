@@ -127,7 +127,8 @@ LXC_BRIDGE="ignored"`[1:])
 	provider, err := environs.Provider("dummy")
 	c.Assert(err, jc.ErrorIsNil)
 	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
-		"agent-version": version.Current.String(),
+		"agent-version":  version.Current.String(),
+		"not-for-hosted": "foo",
 	})
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -184,6 +185,10 @@ LXC_BRIDGE="ignored"`[1:])
 	hostedModel, err := hostedModelSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
+	hostedCfg, err := hostedModelSt.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
+	c.Assert(hasUnexpected, jc.IsFalse)
 
 	// Check that the bootstrap machine looks correct.
 	c.Assert(m.Id(), gc.Equals, "0")
