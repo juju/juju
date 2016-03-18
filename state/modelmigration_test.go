@@ -472,6 +472,85 @@ func (s *ModelMigrationSuite) createWatcher(c *gc.C, st *state.State) (
 	return w, statetesting.NewNotifyWatcherC(c, st, w)
 }
 
+func (s *ModelMigrationSuite) TestWatchMigrationStatus(c *gc.C) {
+	w, wc := s.createStatusWatcher(c, s.State2)
+	wc.AssertNoChange()
+
+	// Create a migration.
+	mig, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// End it.
+	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Start another.
+	mig2, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Change phase.
+	c.Assert(mig2.SetPhase(migration.READONLY), jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// End it.
+	c.Assert(mig2.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *ModelMigrationSuite) TestWatchMigrationStatusPreexisting(c *gc.C) {
+	// Create an aborted migration.
+	mig, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+
+	_, wc := s.createStatusWatcher(c, s.State2)
+	wc.AssertOneChange()
+}
+
+func (s *ModelMigrationSuite) TestWatchMigrationStatusMultiModel(c *gc.C) {
+	_, wc2 := s.createStatusWatcher(c, s.State2)
+	wc2.AssertNoChange()
+
+	// Create another hosted model to migrate and watch for
+	// migrations.
+	State3 := s.Factory.MakeModel(c, nil)
+	s.AddCleanup(func(*gc.C) { State3.Close() })
+	_, wc3 := s.createStatusWatcher(c, State3)
+	wc3.AssertNoChange()
+
+	// Create a migration for 2.
+	mig, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	wc2.AssertOneChange()
+	wc3.AssertNoChange()
+
+	// Create a migration for 3.
+	_, err = State3.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	wc2.AssertNoChange()
+	wc3.AssertOneChange()
+
+	// Update the migration for 2.
+	err = mig.SetPhase(migration.ABORT)
+	c.Assert(err, jc.ErrorIsNil)
+	wc2.AssertOneChange()
+	wc3.AssertNoChange()
+}
+
+func (s *ModelMigrationSuite) createStatusWatcher(c *gc.C, st *state.State) (
+	state.NotifyWatcher, statetesting.NotifyWatcherC,
+) {
+	w, err := st.WatchMigrationStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { statetesting.AssertStop(c, w) })
+	return w, statetesting.NewNotifyWatcherC(c, st, w)
+}
+
 func assertPhase(c *gc.C, mig state.ModelMigration, phase migration.Phase) {
 	actualPhase, err := mig.Phase()
 	c.Assert(err, jc.ErrorIsNil)
