@@ -43,7 +43,8 @@ type relationFormatter struct {
 
 func newRelationFormatter() *relationFormatter {
 	return &relationFormatter{
-		relations: make(map[string]*statusRelation),
+		relationIndex: set.NewStrings(),
+		relations:     make(map[string]*statusRelation),
 	}
 }
 
