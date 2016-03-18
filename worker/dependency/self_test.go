@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type SelfSuite struct {
@@ -99,6 +100,7 @@ func (s *SelfSuite) TestActuallyWorks(c *gc.C) {
 		// Give it a moment to screw up if it's going to
 		// (injudicious implementation could induce deadlock)
 		// then let the fixture worry about a clean kill.
+		workertest.CheckAlive(c, engine)
 	})
 }
 
@@ -114,5 +116,6 @@ func (s *SelfSuite) TestStress(c *gc.C) {
 		// Give it a moment to screw up if it's going to
 		// (injudicious implementation could induce deadlock)
 		// then let the fixture worry about a clean kill.
+		workertest.CheckAlive(c, engine)
 	})
 }

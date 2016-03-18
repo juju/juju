@@ -245,8 +245,9 @@ var globalCounter int64
 
 func newRequestNotifier(count *int32) *requestNotifier {
 	return &requestNotifier{
-		id:    atomic.AddInt64(&globalCounter, 1),
-		tag_:  "<unknown>",
+		id:   atomic.AddInt64(&globalCounter, 1),
+		tag_: "<unknown>",
+		// TODO(fwereade): 2016-03-17 lp:1558657
 		start: time.Now(),
 		count: count,
 	}
@@ -515,6 +516,7 @@ func (srv *Server) newAPIHandler(conn *rpc.Conn, reqNotifier *requestNotifier, m
 }
 
 func (srv *Server) mongoPinger() error {
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	timer := time.NewTimer(0)
 	session := srv.state.MongoSession().Copy()
 	defer session.Close()

@@ -61,6 +61,7 @@ func (rr *Resumer) loop() error {
 		case <-rr.tomb.Dying():
 			return tomb.ErrDying
 		case <-time.After(interval):
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			if err := rr.tr.ResumeTransactions(); err != nil {
 				logger.Errorf("cannot resume transactions: %v", err)
 			}

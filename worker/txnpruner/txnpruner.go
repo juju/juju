@@ -24,6 +24,7 @@ func New(tp TransactionPruner, interval time.Duration) worker.Worker {
 		// Use a timer rather than a ticker because pruning could
 		// sometimes take a while and we don't want pruning attempts
 		// to occur back-to-back.
+		// TODO(fwereade): 2016-03-17 lp:1558657
 		timer := time.NewTimer(interval)
 		defer timer.Stop()
 		for {

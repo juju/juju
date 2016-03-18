@@ -488,7 +488,8 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	statusDoc := statusDoc{
 		Status:    StatusPending,
 		ModelUUID: st.ModelUUID(),
-		Updated:   time.Now().UnixNano(),
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		Updated: time.Now().UnixNano(),
 	}
 	globalKey := machineGlobalKey(mdoc.Id)
 	prereqOps = []txn.Op{

@@ -243,6 +243,7 @@ func apiInfoConnect(info configstore.EnvironInfo, apiOpen api.OpenFunc, stop <-c
 func apiConfigConnect(cfg *config.Config, apiOpen api.OpenFunc, stop <-chan struct{}, delay time.Duration, user names.Tag) (api.Connection, error) {
 	select {
 	case <-time.After(delay):
+		// TODO(fwereade): 2016-03-17 lp:1558657
 	case <-stop:
 		return nil, errAborted
 	}

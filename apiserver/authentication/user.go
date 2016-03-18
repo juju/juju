@@ -62,6 +62,7 @@ func (m *MacaroonAuthenticator) newDischargeRequiredError(cause error) error {
 		return errors.Trace(cause)
 	}
 	mac := m.Macaroon.Clone()
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	err := m.Service.AddCaveat(mac, checkers.TimeBeforeCaveat(time.Now().Add(time.Hour)))
 	if err != nil {
 		return errors.Annotatef(err, "cannot create macaroon")
