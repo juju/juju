@@ -41,6 +41,7 @@ func (s *clientSuite) TestUploadGUIArchive(c *gc.C) {
 	).Close()
 
 	// Check that the API client POSTs the GUI archive to the correct endpoint.
-	client.UploadGUIArchive(bytes.NewReader(archive), hash, size, vers)
+	err := client.UploadGUIArchive(bytes.NewReader(archive), hash, size, vers)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
