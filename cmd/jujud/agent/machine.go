@@ -69,21 +69,15 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/certupdater"
-	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
-	"github.com/juju/juju/worker/discoverspaces"
-	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/imagemetadataworker"
-	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
@@ -109,18 +103,11 @@ var (
 	modelManifolds           = model.Manifolds
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
-	newMachiner              = machiner.NewMachiner
-	newDiscoverSpaces        = discoverspaces.NewWorker
-	newFirewaller            = firewaller.NewFirewaller
 	newStorageWorker         = storageprovisioner.NewStorageProvisioner
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
-	newInstancePoller        = instancepoller.NewWorker
-	newCleaner               = cleaner.NewCleaner
-	newAddresser             = addresser.NewWorker
 	newMetadataUpdater       = imagemetadataworker.NewWorker
 	newUpgradeMongoWorker    = mongoupgrader.New
 	reportOpenedState        = func(io.Closer) {}
-	getMetricAPI             = metricAPI
 )
 
 // Variable to override in tests, default is true

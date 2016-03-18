@@ -7,15 +7,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 )
-
-var logger = loggo.GetLogger("juju.worker.modelworkermanager")
 
 // Backend defines the State functionality used by the manager worker.
 type Backend interface {
@@ -117,12 +114,12 @@ func (m *modelWorkerManager) loop() error {
 
 func (m *modelWorkerManager) ensure(uuid string) error {
 	if m.started.Contains(uuid) {
-		// m.runner *would* function as we desire if we didn't
-		// have this guard; but that depends on a surprising
-		// and potentially harmful property of worker.Runner
-		// (that worker replacements are only applied late,
-		// when the previous implementation stops of its own
-		// accord).
+		// A second StartWorker for a given ID is mostly
+		// harmless -- it will probably be ignored, but
+		// might work if the previous worker has already
+		// stopped without error. Neither situation will
+		// hurt us directly, but we prefer to eliminate
+		// the messy uncertainty.
 		return nil
 	}
 	starter := m.starter(uuid)

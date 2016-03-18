@@ -37,10 +37,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	apiaddresser "github.com/juju/juju/api/addresser"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/imagemetadata"
-	apimetricsmanager "github.com/juju/juju/api/metricsmanager"
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
@@ -65,7 +63,6 @@ import (
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
@@ -258,7 +255,6 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 
 type MachineSuite struct {
 	commonMachineSuite
-	metricAPI *mockMetricAPI
 }
 
 var perEnvSingularWorkers = []string{
@@ -277,11 +273,6 @@ const initialMachinePassword = "machine-password-1234567890"
 
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.commonMachineSuite.SetUpTest(c)
-	s.metricAPI = newMockMetricAPI()
-	s.PatchValue(&getMetricAPI, func(_ api.Connection) (apimetricsmanager.MetricsManagerClient, error) {
-		return s.metricAPI, nil
-	})
-	s.AddCleanup(func(*gc.C) { s.metricAPI.Stop() })
 	// Most of these tests normally finish sub-second on a fast machine.
 	// If any given test hits a minute, we have almost certainly become
 	// wedged, so dump the logs.
@@ -648,44 +639,6 @@ func (s *MachineSuite) TestManageModelRunsPeergrouper(c *gc.C) {
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
 	started.assertTriggered(c, "peergrouperworker to start")
-}
-
-func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool) {
-	// TODO(dimitern): Fix this in a follow-up.
-	c.Skip("Test temporarily disabled as flaky - see bug lp:1488576")
-
-	started := newSignal()
-	s.PatchValue(&newAddresser, func(api *apiaddresser.API) (worker.Worker, error) {
-		started.trigger()
-		w, err := addresser.NewWorker(api)
-		c.Check(err, jc.ErrorIsNil)
-		if expectFinished {
-			// When the address-allocation feature flag is disabled.
-			c.Check(w, gc.FitsTypeOf, worker.FinishedWorker{})
-		} else {
-			// When the address-allocation feature flag is enabled.
-			c.Check(w, gc.Not(gc.FitsTypeOf), worker.FinishedWorker{})
-		}
-		return w, err
-	})
-
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	defer a.Stop()
-	go func() {
-		c.Check(a.Run(nil), jc.ErrorIsNil)
-	}()
-	started.assertTriggered(c, "addresser to start")
-}
-
-func (s *MachineSuite) TestAddresserWorkerDoesNotStopWhenAddressDeallocationSupported(c *gc.C) {
-	s.SetFeatureFlags(feature.AddressAllocation)
-	s.testAddresserNewWorkerResult(c, false)
-}
-
-func (s *MachineSuite) TestAddresserWorkerStopsWhenAddressDeallocationNotSupported(c *gc.C) {
-	s.SetFeatureFlags()
-	s.testAddresserNewWorkerResult(c, true)
 }
 
 func (s *MachineSuite) TestManageModelRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {
@@ -1596,6 +1549,34 @@ func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 	tracker := newModelTracker(c)
 	check := modelMatchFunc(c, tracker, append(
 		alwaysModelWorkers, aliveModelWorkers...,
+	))
+	s.PatchValue(&modelManifolds, tracker.Manifolds)
+
+	uuid := s.BackingState.ModelUUID()
+	timeout := time.After(coretesting.LongWait)
+
+	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
+		for {
+			if check(uuid) {
+				break
+			}
+			select {
+			case <-time.After(coretesting.ShortWait):
+				s.BackingState.StartSync()
+			case <-timeout:
+				c.Fatalf("timed out waiting for workers")
+			}
+		}
+	})
+}
+
+func (s *MachineSuite) TestAddressAllocationModelWorkers(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
+
+	tracker := newModelTracker(c)
+	almostAllWorkers := append(alwaysModelWorkers, aliveModelWorkers...)
+	check := modelMatchFunc(c, tracker, append(
+		almostAllWorkers, "address-cleaner",
 	))
 	s.PatchValue(&modelManifolds, tracker.Manifolds)
 
