@@ -27,7 +27,7 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *restoreSuite) TestRestoreArgs(c *gc.C) {
-	s.command = backups.NewRestoreCommand(nil)
+	s.command = backups.NewRestoreCommandForTest(nil)
 	_, err := testing.RunCommand(c, s.command, "restore")
 	c.Assert(err, gc.ErrorMatches, "you must specify either a file or a backup id.")
 
@@ -40,7 +40,7 @@ func (s *restoreSuite) TestRestoreArgs(c *gc.C) {
 
 func (s *restoreSuite) TestRestoreReboostrapControllerExists(c *gc.C) {
 	fakeEnv := fakeEnviron{controllerInstances: []instance.Id{"1"}}
-	s.command = backups.NewRestoreCommand(func(string) (environs.Environ, error) {
+	s.command = backups.NewRestoreCommandForTest(func(string) (environs.Environ, error) {
 		return fakeEnv, nil
 	})
 	_, err := testing.RunCommand(c, s.command, "restore", "--file", "afile", "-b")
@@ -49,7 +49,7 @@ func (s *restoreSuite) TestRestoreReboostrapControllerExists(c *gc.C) {
 
 func (s *restoreSuite) TestRestoreReboostrapNoControllers(c *gc.C) {
 	fakeEnv := fakeEnviron{}
-	s.command = backups.NewRestoreCommand(func(string) (environs.Environ, error) {
+	s.command = backups.NewRestoreCommandForTest(func(string) (environs.Environ, error) {
 		return fakeEnv, nil
 	})
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {

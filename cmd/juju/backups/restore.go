@@ -21,11 +21,8 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-func newRestoreCommand(getEnvironFunc func(string) (environs.Environ, error)) cmd.Command {
-	if getEnvironFunc == nil {
-		getEnvironFunc = getEnviron
-	}
-	return modelcmd.Wrap(&restoreCommand{getEnvironFunc: getEnvironFunc})
+func newRestoreCommand() cmd.Command {
+	return modelcmd.Wrap(&restoreCommand{getEnvironFunc: getEnviron})
 }
 
 // restoreCommand is a subcommand of backups that implement the restore behavior

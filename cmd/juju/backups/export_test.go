@@ -63,7 +63,7 @@ func NewRemoveCommand() cmd.Command {
 	return modelcmd.Wrap(c)
 }
 
-func NewRestoreCommand(getEnvironFunc func(string) (environs.Environ, error)) cmd.Command {
+func NewRestoreCommandForTest(getEnvironFunc func(string) (environs.Environ, error)) cmd.Command {
 	c := &restoreCommand{getEnvironFunc: getEnvironFunc}
 	c.Log = &cmd.Log{}
 	return modelcmd.Wrap(c)

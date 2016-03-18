@@ -43,7 +43,7 @@ func NewSuperCommand() cmd.Command {
 	backupsCmd.Register(newDownloadCommand())
 	backupsCmd.Register(newUploadCommand())
 	backupsCmd.Register(newRemoveCommand())
-	backupsCmd.Register(newRestoreCommand(nil))
+	backupsCmd.Register(newRestoreCommand())
 	return backupsCmd
 }
 
