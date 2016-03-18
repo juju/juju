@@ -54,12 +54,12 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 		nil,
 	}
 
-	results, err := charmstore.LatestCharmInfo(s.client, cURLs)
+	results, err := charmstore.LatestCharmInfo(s.client, cURLs, "stable")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "LatestRevisions", "ListResources")
-	s.stub.CheckCall(c, 0, "LatestRevisions", cURLs)
-	s.stub.CheckCall(c, 1, "ListResources", cURLs)
+	s.stub.CheckCall(c, 0, "LatestRevisions", cURLs, "stable")
+	s.stub.CheckCall(c, 1, "ListResources", cURLs, "stable")
 	timestamp := results[0].Timestamp
 	results[2].Error = errors.Cause(results[2].Error)
 	c.Check(results, jc.DeepEquals, []charmstore.CharmInfoResult{{

@@ -28,8 +28,8 @@ func (s *stubCharmStore) Connect(ctx *cmd.Context) (CharmResourceLister, error) 
 	return s, nil
 }
 
-func (s *stubCharmStore) ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error) {
-	s.stub.AddCall("ListResources", charmURLs)
+func (s *stubCharmStore) ListResources(charmURLs []*charm.URL, channel string) ([][]charmresource.Resource, error) {
+	s.stub.AddCall("ListResources", charmURLs, channel)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}

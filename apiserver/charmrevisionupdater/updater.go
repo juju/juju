@@ -130,6 +130,7 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 	var resultsIndexedServices []*state.Service
 	for _, service := range services {
 		curl, _ := service.CharmURL()
+
 		if curl.Schema == "local" {
 			// Version checking for charms from local repositories is not
 			// currently supported, since we don't yet support passing in
@@ -145,7 +146,7 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		return nil, err
 	}
 
-	results, err := charmstore.LatestCharmInfo(client, curls)
+	results, err := charmstore.LatestCharmInfo(client, curls, "stable")
 	if err != nil {
 		return nil, err
 	}

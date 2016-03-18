@@ -25,7 +25,7 @@ type CharmCommandBase interface {
 // CharmResourceLister has the charm store API methods needed by ListCharmResourcesCommand.
 type CharmResourceLister interface {
 	// ListResources lists the resources for each of the identified charms.
-	ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error)
+	ListResources(charmURLs []*charm.URL, channel string) ([][]charmresource.Resource, error)
 
 	// Close closes the client.
 	Close() error
@@ -85,7 +85,8 @@ func (c *ListCharmResourcesCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 	})
-	f.StringVar(&c.channel, "channel", "", "the charmstore channel of the charm")
+	f.StringVar(&c.channel, "c", "stable", "the channel the charm or bundle is assigned to")
+	f.StringVar(&c.channel, "channel", "stable", "")
 }
 
 // Init implements cmd.Command.
@@ -118,7 +119,7 @@ func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	resources, err := apiclient.ListResources(charmURLs)
+	resources, err := apiclient.ListResources(charmURLs, c.channel)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -38,7 +38,7 @@ type CharmStore interface {
 	// list of details for each of the charm's resources. Those details
 	// are those associated with the specific charm revision. They
 	// include the resource's metadata and revision.
-	ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error)
+	ListResources(charmURLs []*charm.URL, channel string) ([][]charmresource.Resource, error)
 
 	// GetResource returns a reader for the resource's data. That data
 	// is streamed from the charm store. The charm's revision, if any,
@@ -190,7 +190,8 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 // resources are returned. Otherwise the latest info for each of the
 // resources is returned.
 func (f Facade) resourcesFromCharmstore(cURL *charm.URL, client CharmStore) (map[string]charmresource.Resource, error) {
-	results, err := client.ListResources([]*charm.URL{cURL})
+	// TODO(natefinch): get the real channel when that comes available.
+	results, err := client.ListResources([]*charm.URL{cURL}, "stable")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

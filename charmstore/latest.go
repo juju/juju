@@ -13,12 +13,12 @@ import (
 // LatestCharmInfo returns the most up-to-date information about each
 // of the identified charms at their latest revision. The revisions in
 // the provided URLs are ignored.
-func LatestCharmInfo(client BaseClient, cURLs []*charm.URL) ([]CharmInfoResult, error) {
+func LatestCharmInfo(client BaseClient, cURLs []*charm.URL, channel string) ([]CharmInfoResult, error) {
 	now := time.Now().UTC()
 
 	// Do a bulk call to get the revision info for all charms.
 	logger.Infof("retrieving revision information for %d charms", len(cURLs))
-	revResults, err := client.LatestRevisions(cURLs)
+	revResults, err := client.LatestRevisions(cURLs, channel)
 	if err != nil {
 		err = errors.Annotate(err, "while getting latest charm revision info")
 		logger.Infof(err.Error())
@@ -27,7 +27,7 @@ func LatestCharmInfo(client BaseClient, cURLs []*charm.URL) ([]CharmInfoResult, 
 
 	// Do a bulk call to get the latest info for each charm's resources.
 	// TODO(ericsnow) Only do this for charms that *have* resources.
-	chResources, err := client.ListResources(cURLs)
+	chResources, err := client.ListResources(cURLs, channel)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

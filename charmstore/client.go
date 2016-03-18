@@ -13,6 +13,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 )
 
 var logger = loggo.GetLogger("juju.charmstore")
@@ -35,8 +36,9 @@ type BaseClient interface {
 	// charmrepo/csclient/params, but we don't have one yet.
 
 	// LatestRevisions returns the latest revision for each of the
-	// identified charms. The revisions in the provided URLs are ignored.
-	LatestRevisions([]*charm.URL) ([]charmrepo.CharmRevision, error)
+	// identified charms in the given channel. The revisions in the provided
+	// URLs are ignored.
+	LatestRevisions(urls []*charm.URL, channel string) ([]charmrepo.CharmRevision, error)
 
 	// TODO(ericsnow) Replace use of Get with use of more specific API
 	// methods? We only use Get() for authorization on the Juju client
@@ -59,7 +61,7 @@ type ResourcesClient interface {
 	// list of details for each of the charm's resources. Those details
 	// are those associated with the specific charm revision. They
 	// include the resource's metadata and revision.
-	ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error)
+	ListResources(charmURLs []*charm.URL, channel string) ([][]charmresource.Resource, error)
 
 	// GetResource returns a reader for the resource's data. That data
 	// is streamed from the charm store. The charm's revision, if any,
@@ -70,9 +72,6 @@ type ResourcesClient interface {
 
 type baseClient struct {
 	*csclient.Client
-	fakeCharmStoreClient
-
-	asRepo func() *charmrepo.CharmStore
 }
 
 // TODO(ericsnow) We must make the Juju metadata available here since
@@ -83,21 +82,72 @@ func newBaseClient(raw *csclient.Client, config ClientConfig, meta JujuMetadata)
 	base := &baseClient{
 		Client: raw,
 	}
-	base.asRepo = func() *charmrepo.CharmStore {
-		// TODO(ericsnow) Use charmrepo.NewCharmStoreFromClient(), when available?
-		repo := charmrepo.NewCharmStore(config.NewCharmStoreParams)
-		return repo.WithJujuAttrs(meta.asAttrs())
-	}
 	return base
 }
 
 // LatestRevisions implements BaseClient.
-func (base baseClient) LatestRevisions(cURLs []*charm.URL) ([]charmrepo.CharmRevision, error) {
+func (base baseClient) LatestRevisions(cURLs []*charm.URL, channel string) ([]charmrepo.CharmRevision, error) {
 	// TODO(ericsnow) Fix this:
 	// We must use charmrepo.CharmStore since csclient.Client does not
 	// have the "Latest" method.
-	repo := base.asRepo()
+
+	// unfortunately, the way the csclient.Client uses channels is pretty
+	// awkward for our uses.  It's an unexported field that only gets set by
+	// WithChannel, so we have to do this:
+	repo := charmrepo.NewCharmStoreFromClient(base.Client.WithChannel(params.Channel(channel)))
 	return repo.Latest(cURLs...)
+}
+
+// GetResource implements BaseClient by calling csclient.Client's GetResource function.
+func (base baseClient) GetResource(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, io.ReadCloser, error) {
+	data, err := base.Client.GetResource(cURL, revision, resourceName)
+	if err != nil {
+		return charmresource.Resource{}, nil, errors.Trace(err)
+	}
+
+	fp, err := charmresource.ParseFingerprint(data.Hash)
+	if err != nil {
+		return charmresource.Resource{}, nil, errors.Trace(err)
+	}
+	// TODO(natefinch): We don't actually have the full metadata here... how do
+	// we fix that?
+	return charmresource.Resource{
+		Meta: charmresource.Meta{
+			Name: resourceName,
+		},
+		Revision:    data.Revision,
+		Fingerprint: fp,
+		Size:        data.Size,
+	}, data.ReadCloser, nil
+}
+
+// ListResources implements BaseClient by calling csclient.Client's ListResources function.
+func (base baseClient) ListResources(charmURLs []*charm.URL, channel string) ([][]charmresource.Resource, error) {
+	client := base.Client.WithChannel(params.Channel(channel))
+
+	resmap, err := client.ListResources(charmURLs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	result := make([][]charmresource.Resource, len(charmURLs))
+	for i, id := range charmURLs {
+		resources, ok := resmap[id.String()]
+		if !ok {
+			continue
+		}
+		list := make([]charmresource.Resource, len(resources))
+		for j, res := range resources {
+			resource, err := apiResource2Resource(res)
+			if err != nil {
+				return nil, errors.Annotatef(err, "got bad data from server for resource %q", res.Name)
+			}
+			list[j] = resource
+		}
+		result[i] = list
+	}
+	return result, nil
+
 }
 
 // ClientConfig holds the configuration of a charm store client.
@@ -184,29 +234,60 @@ func (c Client) Metadata() JujuMetadata {
 // identified charms. The revisions in the provided URLs are ignored.
 // Note that this differs from BaseClient.LatestRevisions() exclusively
 // due to taking into account Juju metadata (if any).
-func (c *Client) LatestRevisions(cURLs []*charm.URL) ([]charmrepo.CharmRevision, error) {
+func (c *Client) LatestRevisions(cURLs []*charm.URL, channel string) ([]charmrepo.CharmRevision, error) {
 	if !c.meta.IsZero() {
 		c = c.newCopy()
 		if err := c.meta.setOnClient(c.BaseClient); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	return c.BaseClient.LatestRevisions(cURLs)
+	return c.BaseClient.LatestRevisions(cURLs, channel)
 }
 
-// TODO(ericsnow) Add an "AsRepo() charmrepo.Interface" method.
-
-// TODO(ericsnow) Remove the fake once the charm store adds support.
-
-type fakeCharmStoreClient struct{}
-
-// ListResources implements BaseClient as a noop.
-func (fakeCharmStoreClient) ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error) {
-	res := make([][]charmresource.Resource, len(charmURLs))
-	return res, nil
+func apiResource2Resource(res params.Resource) (charmresource.Resource, error) {
+	var result charmresource.Resource
+	resType, err := apiResourceType2ResourceType(res.Type)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	origin, err := apiOrigin2Origin(res.Origin)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	fp, err := charmresource.NewFingerprint(res.Fingerprint)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	return charmresource.Resource{
+		Meta: charmresource.Meta{
+			Name:        res.Name,
+			Type:        resType,
+			Path:        res.Path,
+			Description: res.Description,
+		},
+		Origin:      origin,
+		Revision:    res.Revision,
+		Fingerprint: fp,
+		Size:        res.Size,
+	}, nil
 }
 
-// GetResource implements BaseClient as a noop.
-func (fakeCharmStoreClient) GetResource(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, io.ReadCloser, error) {
-	return charmresource.Resource{}, nil, errors.NotFoundf("resource %q", resourceName)
+func apiResourceType2ResourceType(t string) (charmresource.Type, error) {
+	switch t {
+	case "file":
+		return charmresource.TypeFile, nil
+	default:
+		return 0, errors.Errorf("unknown resource type: %v", t)
+	}
+}
+
+func apiOrigin2Origin(origin string) (charmresource.Origin, error) {
+	switch origin {
+	case "store":
+		return charmresource.OriginStore, nil
+	case "ulpoad":
+		return charmresource.OriginUpload, nil
+	default:
+		return 0, errors.Errorf("unknown origin: %v", origin)
+	}
 }

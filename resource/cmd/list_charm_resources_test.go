@@ -99,7 +99,7 @@ music    1
 		Revision: -1,
 		Series:   "",
 		Channel:  "",
-	}})
+	}}, "stable")
 }
 
 func (s *ListCharmSuite) TestNoResources(c *gc.C) {

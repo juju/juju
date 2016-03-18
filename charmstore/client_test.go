@@ -72,34 +72,12 @@ func (s *ClientSuite) TestLatestRevisions(c *gc.C) {
 	s.client.ReturnLatestRevisions = expected
 	client := charmstore.Client{BaseClient: s.client}
 
-	revisions, err := client.LatestRevisions(cURLs)
+	revisions, err := client.LatestRevisions(cURLs, "stable")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "LatestRevisions")
-	s.stub.CheckCall(c, 0, "LatestRevisions", cURLs)
+	s.stub.CheckCall(c, 0, "LatestRevisions", cURLs, "stable")
 	c.Check(revisions, jc.DeepEquals, expected)
-}
-
-func (s *ClientSuite) TestFakeListResources(c *gc.C) {
-	cURLs := []*charm.URL{
-		charm.MustParseURL("cs:quantal/spam-17"),
-		charm.MustParseURL("cs:quantal/eggs-2"),
-	}
-	client := charmstore.NewClient(s.config)
-
-	results, err := client.ListResources(cURLs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(results, jc.DeepEquals, [][]charmresource.Resource{{}, {}})
-}
-
-func (s *ClientSuite) TestFakeGetResource(c *gc.C) {
-	cURL := charm.MustParseURL("cs:quantal/spam-17")
-	client := charmstore.NewClient(s.config)
-
-	_, _, err := client.GetResource(cURL, "spam", 3)
-
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 // TODO(ericsnow) Move the stub client and repo to a testing package.
@@ -112,8 +90,8 @@ type stubClient struct {
 	ReturnLatestRevisions []charmrepo.CharmRevision
 }
 
-func (s *stubClient) ListResources(cURLs []*charm.URL) ([][]charmresource.Resource, error) {
-	s.AddCall("ListResources", cURLs)
+func (s *stubClient) ListResources(cURLs []*charm.URL, channel string) ([][]charmresource.Resource, error) {
+	s.AddCall("ListResources", cURLs, channel)
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -130,8 +108,8 @@ func (s *stubClient) Close() error {
 	return nil
 }
 
-func (s *stubClient) LatestRevisions(cURLs []*charm.URL) ([]charmrepo.CharmRevision, error) {
-	s.AddCall("LatestRevisions", cURLs)
+func (s *stubClient) LatestRevisions(cURLs []*charm.URL, channel string) ([]charmrepo.CharmRevision, error) {
+	s.AddCall("LatestRevisions", cURLs, channel)
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
