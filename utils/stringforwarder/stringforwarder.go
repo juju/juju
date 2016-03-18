@@ -3,6 +3,10 @@
 
 package stringforwarder
 
+import (
+	"sync/atomic"
+)
+
 // stringForwarder will take messages on a receive() method and forward them to
 // callback, but will drop them if callback() has not finished processing the
 // last message. We will track how many messages we have discarded.
@@ -11,7 +15,7 @@ type stringForwarder struct {
 	buffer       chan string
 	stopch       chan struct{}
 	started      chan struct{}
-	discardCount int
+	discardCount uint64
 }
 
 func NewStringForwarder(callback func(string)) *stringForwarder {
@@ -36,17 +40,16 @@ func (f *stringForwarder) Receive(msg string) {
 	select {
 	case f.buffer <- msg:
 	default:
-		// sync.Atomic?
-		f.discardCount++
+		atomic.AddUint64(&f.discardCount, 1)
 	}
 }
 
-func (f *stringForwarder) Stop() int {
+func (f *stringForwarder) Stop() uint64 {
 	if f.stopch != nil {
 		close(f.stopch)
 		f.stopch = nil
 	}
-	return f.discardCount
+	return atomic.LoadUint64(&f.discardCount)
 }
 
 func (f *stringForwarder) loop(started chan struct{}) {

@@ -6,6 +6,7 @@ package stringforwarder_test
 import (
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
@@ -44,7 +45,7 @@ func (*stringForwarderSuite) TestReceives(c *gc.C) {
 	})
 	forwarder.Receive("one")
 	waitFor(c, received)
-	c.Check(forwarder.Stop(), gc.Equals, 0)
+	c.Check(forwarder.Stop(), gc.Equals, uint64(0))
 	c.Check(messages, gc.DeepEquals, []string{"one"})
 }
 
@@ -74,7 +75,7 @@ func (*stringForwarderSuite) TestAllDroppedWithNoCallback(c *gc.C) {
 	forwarder.Receive("one")
 	forwarder.Receive("two")
 	forwarder.Receive("three")
-	c.Check(forwarder.Stop(), gc.Equals, 3)
+	c.Check(forwarder.Stop(), gc.Equals, uint64(3))
 }
 
 func (*stringForwarderSuite) TestMessagesDroppedWhenBusy(c *gc.C) {
@@ -102,5 +103,30 @@ func (*stringForwarderSuite) TestMessagesDroppedWhenBusy(c *gc.C) {
 	waitFor(c, received)
 	dropCount := forwarder.Stop()
 	c.Check(messages, gc.DeepEquals, []string{"first", "fourth"})
-	c.Check(dropCount, gc.Equals, 3)
+	c.Check(dropCount, gc.Equals, uint64(3))
+}
+
+func (*stringForwarderSuite) TestRace(c *gc.C) {
+	forwarder := stringforwarder.NewStringForwarder(noopCallback)
+	stop := make(chan struct{})
+	go func() {
+		// In 100ms we can hit 1M calls, so make this 10M, and make the
+		// timeout 1ms, that gives us a safety factor of 1000.
+		for i := 0; i < 10*1000*1000; i++ {
+			select {
+			case <-stop:
+				return
+			default:
+				forwarder.Receive("next message")
+			}
+		}
+		c.Errorf("managed to send too many messages without being stopped")
+	}()
+	// Note: we intentionally don't use synchronization primatives in the
+	// test suite, because we want to test that the stringForwarder itself
+	// is race free.
+	time.Sleep(1 * time.Millisecond)
+	count := forwarder.Stop()
+	close(stop)
+	c.Check(count, jc.GreaterThan, uint64(0))
 }
