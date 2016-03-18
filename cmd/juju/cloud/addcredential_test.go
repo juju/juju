@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"path/filepath"
@@ -14,7 +15,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"fmt"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -69,8 +69,11 @@ func (s *addCredentialSuite) TestBadArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `Usage: juju add-credential <cloud-name> \[-f <credentials.yaml>\]`)
 	_, err = s.run(c, nil, "somecloud", "-f", "credential.yaml", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
-	_, err = s.run(c, nil, "bad-cloud", "-f", "credential.yaml")
-	c.Assert(err, gc.ErrorMatches, `cloud bad-cloud not valid`)
+}
+
+func (s *addCredentialSuite) TestBadCloudName(c *gc.C) {
+	_, err := s.run(c, nil, "badcloud")
+	c.Assert(err, gc.ErrorMatches, "cloud badcloud not valid")
 }
 
 func (s *addCredentialSuite) TestAddFromFileBadFilename(c *gc.C) {

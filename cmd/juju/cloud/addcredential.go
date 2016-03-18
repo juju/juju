@@ -34,8 +34,7 @@ type addCredentialCommand struct {
 	// CredentialsFile is the name of the credentials YAML file.
 	CredentialsFile string
 
-	cloud               *jujucloud.Cloud
-	credentialsProvider environs.ProviderCredentials
+	cloud *jujucloud.Cloud
 }
 
 var addCredentialDoc = `
@@ -94,8 +93,13 @@ func (c *addCredentialCommand) Init(args []string) (err error) {
 	if len(args) < 1 {
 		return errors.New("Usage: juju add-credential <cloud-name> [-f <credentials.yaml>]")
 	}
-	// Check that the supplied cloud is valid.
 	c.CloudName = args[0]
+	return cmd.CheckEmpty(args[1:])
+}
+
+func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
+	// Check that the supplied cloud is valid.
+	var err error
 	if c.cloud, err = c.cloudByNameFunc(c.CloudName); err != nil {
 		if errors.IsNotFound(err) {
 			return errors.NotValidf("cloud %v", c.CloudName)
@@ -105,17 +109,14 @@ func (c *addCredentialCommand) Init(args []string) (err error) {
 		if len(c.cloud.AuthTypes) == 0 {
 			return errors.Errorf("cloud %q does not require credentials", c.cloud)
 		}
-		c.credentialsProvider, err = environs.Provider(c.cloud.Type)
+	}
+
+	if c.CredentialsFile == "" {
+		credentialsProvider, err := environs.Provider(c.cloud.Type)
 		if err != nil {
 			return errors.Annotate(err, "getting provider for cloud")
 		}
-	}
-	return cmd.CheckEmpty(args[1:])
-}
-
-func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
-	if c.CredentialsFile == "" {
-		return c.interactiveAddCredential(ctxt)
+		return c.interactiveAddCredential(ctxt, credentialsProvider.CredentialSchemas())
 	}
 	data, err := ioutil.ReadFile(c.CredentialsFile)
 	if err != nil {
@@ -162,7 +163,7 @@ func (c *addCredentialCommand) existingCredentialsForCloud() (*jujucloud.CloudCr
 	return existingCredentials, nil
 }
 
-func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context) error {
+func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schemas map[jujucloud.AuthType]jujucloud.CredentialSchema) error {
 	var err error
 	credentialName, err := c.promptCredentialName(ctxt.Stderr, ctxt.Stdin)
 	if err != nil {
@@ -192,7 +193,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context) error
 	if err != nil {
 		return errors.Trace(err)
 	}
-	schema, ok := c.credentialsProvider.CredentialSchemas()[authType]
+	schema, ok := schemas[authType]
 	if !ok {
 		return errors.NotSupportedf("auth type %q for cloud %q", authType, c.CloudName)
 	}
@@ -272,15 +273,8 @@ func (c *addCredentialCommand) promptCredentialAttributes(
 ) (map[string]string, error) {
 
 	attrs := make(map[string]string)
-	// currentAttr is the current attribute we are prompting for.
-	// It may be modified inside the loop if needed, depending on
-	// what the user types in. It is declared outside the loop so that
-	// its value can be used again if we need to re-prompt for a value.
-	var currentAttr *jujucloud.NamedCredentialAttr
 	for _, attr := range schema {
-		if currentAttr == nil {
-			currentAttr = &attr
-		}
+		currentAttr := attr
 		value := ""
 		for {
 			var err error
@@ -309,13 +303,13 @@ func (c *addCredentialCommand) promptCredentialAttributes(
 			}
 
 			// If the entered value is empty and the attribute can come
-			// for a file, prompt for that.
+			// from a file, prompt for that.
 			if value == "" && currentAttr.FileAttr != "" {
-				fileAttr := *currentAttr
+				fileAttr := currentAttr
 				fileAttr.Name = currentAttr.FileAttr
 				fileAttr.Hidden = false
 				fileAttr.FilePath = true
-				currentAttr = &fileAttr
+				currentAttr = fileAttr
 				value, err = c.promptFieldValue(out, in, currentAttr)
 				if err != nil {
 					return nil, err
@@ -339,13 +333,12 @@ func (c *addCredentialCommand) promptCredentialAttributes(
 		if value != "" {
 			attrs[currentAttr.Name] = value
 		}
-		currentAttr = nil
 	}
 	return attrs, nil
 }
 
 func (c *addCredentialCommand) promptFieldValue(
-	out io.Writer, in io.Reader, attr *jujucloud.NamedCredentialAttr,
+	out io.Writer, in io.Reader, attr jujucloud.NamedCredentialAttr,
 ) (string, error) {
 
 	name := attr.Name
