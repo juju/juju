@@ -846,7 +846,13 @@ func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {
 	name := string(instance.Id())
 	cloned := <-s.events
 	s.AssertEvent(c, cloned, mock.Cloned, "juju-quantal-lxc-template")
-	c.Assert(cloned.Args, gc.IsNil)
+	// Note: It might be better to override ContainerDirFilesystem as a
+	// function and force it to report a known FS.
+	if lxc.ContainerDirFilesystem() == lxc.Btrfs {
+		c.Assert(cloned.Args, gc.DeepEquals, []string{"--snapshot"})
+	} else {
+		c.Assert(cloned.Args, gc.IsNil)
+	}
 	s.AssertEvent(c, <-s.events, mock.Started, name)
 }
 
@@ -859,7 +865,13 @@ func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateAUFS(c *gc.
 	name := string(instance.Id())
 	cloned := <-s.events
 	s.AssertEvent(c, cloned, mock.Cloned, "juju-quantal-lxc-template")
-	c.Assert(cloned.Args, gc.DeepEquals, []string{"--snapshot", "--backingstore", "aufs"})
+	// Note: It might be better to override ContainerDirFilesystem as a
+	// function and force it to report a known FS.
+	if fs, err := lxc.ContainerDirFilesystem(); err == nil && fs == lxc.Btrfs {
+		c.Assert(cloned.Args, gc.DeepEquals, []string{"--snapshot"})
+	} else {
+		c.Assert(cloned.Args, gc.DeepEquals, []string{"--snapshot", "--backingstore", "aufs"})
+	}
 	s.AssertEvent(c, <-s.events, mock.Started, name)
 }
 
