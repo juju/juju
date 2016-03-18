@@ -24,8 +24,6 @@ import (
 
 var logger = loggo.GetLogger("juju.agent.agentbootstrap")
 
-const AdminModelName = "admin"
-
 // BootstrapMachineConfig holds configuration information
 // to attach to the bootstrap machine.
 type BootstrapMachineConfig struct {
@@ -124,8 +122,9 @@ func InitializeState(
 	}
 
 	// Create the initial hosted model, with the model config passed to
-	// bootstrap, which contains the UUID and name for the hosted model.
-	attrs := cfg.AllAttrs()
+	// bootstrap, which contains the UUID, name for the hosted model,
+	// and any user supplied config.
+	attrs := make(map[string]interface{})
 	for k, v := range hostedModelConfigAttrs {
 		attrs[k] = v
 	}
