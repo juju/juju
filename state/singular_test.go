@@ -22,12 +22,16 @@ type SingularSuite struct {
 
 var _ = gc.Suite(&SingularSuite{})
 
-func (s *SingularSuite) SetUpTest(c *gc.C) {
-	s.ConnSuite.SetUpTest(c)
-	s.clock = coretesting.NewClock(time.Now())
+func (s *SingularSuite) SetUpSuite(c *gc.C) {
+	s.ConnSuite.SetUpSuite(c)
 	s.PatchValue(&state.GetClock, func() clock.Clock {
 		return s.clock
 	})
+}
+
+func (s *SingularSuite) SetUpTest(c *gc.C) {
+	s.clock = coretesting.NewClock(time.Now())
+	s.ConnSuite.SetUpTest(c)
 }
 
 func (s *SingularSuite) TestClaimBadLease(c *gc.C) {
