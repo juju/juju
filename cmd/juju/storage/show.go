@@ -13,7 +13,9 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newShowCommand() cmd.Command {
+// NewShowCommand returns a command that shows storage details
+// on the specified machine
+func NewShowCommand() cmd.Command {
 	cmd := &showCommand{}
 	cmd.newAPIFunc = func() (StorageShowAPI, error) {
 		return cmd.NewStorageAPI()
@@ -57,7 +59,7 @@ func (c *showCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *showCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "show",
+		Name:    "show-storage",
 		Purpose: "shows storage instance",
 		Doc:     showCommandDoc,
 	}

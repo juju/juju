@@ -129,38 +129,52 @@ func (s CredentialSchema) Finalize(
 
 	resultMap := result.(map[string]interface{})
 	newAttrs := make(map[string]string)
+
+	// Construct the final credential attributes map, reading values from files as necessary.
 	for name, field := range s {
-		if field.FileAttr == "" {
-			newAttrs[name] = resultMap[name].(string)
-			continue
-		}
-		if fieldVal, ok := resultMap[name]; ok {
-			if _, ok := resultMap[field.FileAttr]; ok {
-				return nil, errors.NotValidf(
-					"specifying both %q and %q",
-					name, field.FileAttr,
-				)
+		if field.FileAttr != "" {
+			if err := s.processFileAttrValue(name, field, resultMap, newAttrs, readFile); err != nil {
+				return nil, errors.Trace(err)
 			}
-			newAttrs[name] = fieldVal.(string)
 			continue
 		}
-		fieldVal, ok := resultMap[field.FileAttr]
-		if !ok {
-			return nil, errors.NewNotValid(nil, fmt.Sprintf(
-				"either %q or %q must be specified",
-				name, field.FileAttr,
-			))
+		if val, ok := resultMap[name]; ok {
+			newAttrs[name] = val.(string)
 		}
-		data, err := readFile(fieldVal.(string))
-		if err != nil {
-			return nil, errors.Annotatef(err, "reading file for %q", name)
-		}
-		if len(data) == 0 {
-			return nil, errors.NotValidf("empty file for %q", name)
-		}
-		newAttrs[name] = string(data)
 	}
 	return newAttrs, nil
+}
+
+func (s CredentialSchema) processFileAttrValue(
+	name string, field CredentialAttr, resultMap map[string]interface{}, newAttrs map[string]string,
+	readFile func(string) ([]byte, error),
+) error {
+	if fieldVal, ok := resultMap[name]; ok {
+		if _, ok := resultMap[field.FileAttr]; ok {
+			return errors.NotValidf(
+				"specifying both %q and %q",
+				name, field.FileAttr,
+			)
+		}
+		newAttrs[name] = fieldVal.(string)
+		return nil
+	}
+	fieldVal, ok := resultMap[field.FileAttr]
+	if !ok {
+		return errors.NewNotValid(nil, fmt.Sprintf(
+			"either %q or %q must be specified",
+			name, field.FileAttr,
+		))
+	}
+	data, err := readFile(fieldVal.(string))
+	if err != nil {
+		return errors.Annotatef(err, "reading file for %q", name)
+	}
+	if len(data) == 0 {
+		return errors.NotValidf("empty file for %q", name)
+	}
+	newAttrs[name] = string(data)
+	return nil
 }
 
 func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
@@ -170,8 +184,9 @@ func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
 			Description: field.Description,
 			Type:        environschema.Tstring,
 			Group:       environschema.AccountGroup,
-			Mandatory:   field.FileAttr == "",
+			Mandatory:   field.FileAttr == "" && !field.Optional,
 			Secret:      field.Hidden,
+			Values:      field.Options,
 		}
 	}
 	// TODO(axw) add support to environschema for attributes whose values
@@ -191,11 +206,12 @@ func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
 			Secret:      false,
 		}
 	}
+
 	schemaFields, schemaDefaults, err := fields.ValidationSchema()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return schema.FieldMap(schemaFields, schemaDefaults), nil
+	return schema.StrictFieldMap(schemaFields, schemaDefaults), nil
 }
 
 // CredentialAttr describes the properties of a credential attribute.
@@ -213,6 +229,13 @@ type CredentialAttr struct {
 	// of this one, which points to a file that will be read in and its
 	// value used for this attribute.
 	FileAttr string
+
+	// Optional controls whether the attribute is required to have a non-empty
+	// value or not. Attributes default to mandatory.
+	Optional bool
+
+	// Options, if set, define the allowed values for this field.
+	Options []interface{}
 }
 
 type cloudCredentialChecker struct{}

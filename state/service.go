@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/status"
 )
 
 // Service represents the state of a service.
@@ -902,12 +903,12 @@ func (s *Service) addUnitOpsWithCons(args serviceAddUnitOpsArgs) (string, []txn.
 	}
 	now := time.Now()
 	agentStatusDoc := statusDoc{
-		Status:  StatusAllocating,
+		Status:  status.StatusAllocating,
 		Updated: now.UnixNano(),
 	}
 	unitStatusDoc := statusDoc{
 		// TODO(fwereade): this violates the spec. Should be "waiting".
-		Status:     StatusUnknown,
+		Status:     status.StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    now.UnixNano(),
 	}
@@ -1328,7 +1329,7 @@ func (s *Service) defaultEndpointBindings() (map[string]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return defaultEndpointBindingsForCharm(charm.Meta())
+	return DefaultEndpointBindingsForCharm(charm.Meta()), nil
 }
 
 // MetricCredentials returns any metric credentials associated with this service.
@@ -1463,12 +1464,12 @@ type settingsRefsDoc struct {
 // Only unit leaders are allowed to set the status of the service.
 // If no status is recorded, then there are no unit leaders and the
 // status is derived from the unit status values.
-func (s *Service) Status() (StatusInfo, error) {
+func (s *Service) Status() (status.StatusInfo, error) {
 	statuses, closer := s.st.getCollection(statusesC)
 	defer closer()
 	query := statuses.Find(bson.D{{"_id", s.globalKey()}, {"neverset", true}})
 	if count, err := query.Count(); err != nil {
-		return StatusInfo{}, errors.Trace(err)
+		return status.StatusInfo{}, errors.Trace(err)
 	} else if count != 0 {
 		// This indicates that SetStatus has never been called on this service.
 		// This in turn implies the service status document is likely to be
@@ -1482,7 +1483,7 @@ func (s *Service) Status() (StatusInfo, error) {
 		// the right places rather than being applied at seeming random.
 		units, err := s.AllUnits()
 		if err != nil {
-			return StatusInfo{}, err
+			return status.StatusInfo{}, err
 		}
 		logger.Tracef("service %q has %d units", s.Name(), len(units))
 		if len(units) > 0 {
@@ -1493,34 +1494,34 @@ func (s *Service) Status() (StatusInfo, error) {
 }
 
 // SetStatus sets the status for the service.
-func (s *Service) SetStatus(status Status, info string, data map[string]interface{}) error {
-	if !ValidWorkloadStatus(status) {
-		return errors.Errorf("cannot set invalid status %q", status)
+func (s *Service) SetStatus(serviceStatus status.Status, info string, data map[string]interface{}) error {
+	if !status.ValidWorkloadStatus(serviceStatus) {
+		return errors.Errorf("cannot set invalid status %q", serviceStatus)
 	}
 	return setStatus(s.st, setStatusParams{
 		badge:     "service",
 		globalKey: s.globalKey(),
-		status:    status,
+		status:    serviceStatus,
 		message:   info,
 		rawData:   data,
 	})
 }
 
 // ServiceAndUnitsStatus returns the status for this service and all its units.
-func (s *Service) ServiceAndUnitsStatus() (StatusInfo, map[string]StatusInfo, error) {
+func (s *Service) ServiceAndUnitsStatus() (status.StatusInfo, map[string]status.StatusInfo, error) {
 	serviceStatus, err := s.Status()
 	if err != nil {
-		return StatusInfo{}, nil, errors.Trace(err)
+		return status.StatusInfo{}, nil, errors.Trace(err)
 	}
 	units, err := s.AllUnits()
 	if err != nil {
-		return StatusInfo{}, nil, err
+		return status.StatusInfo{}, nil, err
 	}
-	results := make(map[string]StatusInfo, len(units))
+	results := make(map[string]status.StatusInfo, len(units))
 	for _, unit := range units {
 		unitStatus, err := unit.Status()
 		if err != nil {
-			return StatusInfo{}, nil, err
+			return status.StatusInfo{}, nil, err
 		}
 		results[unit.Name()] = unitStatus
 	}
@@ -1528,13 +1529,13 @@ func (s *Service) ServiceAndUnitsStatus() (StatusInfo, map[string]StatusInfo, er
 
 }
 
-func (s *Service) deriveStatus(units []*Unit) (StatusInfo, error) {
-	var result StatusInfo
+func (s *Service) deriveStatus(units []*Unit) (status.StatusInfo, error) {
+	var result status.StatusInfo
 	for _, unit := range units {
 		currentSeverity := statusServerities[result.Status]
 		unitStatus, err := unit.Status()
 		if err != nil {
-			return StatusInfo{}, errors.Annotatef(err, "deriving service status from %q", unit.Name())
+			return status.StatusInfo{}, errors.Annotatef(err, "deriving service status from %q", unit.Name())
 		}
 		unitSeverity := statusServerities[unitStatus.Status]
 		if unitSeverity > currentSeverity {
@@ -1549,14 +1550,14 @@ func (s *Service) deriveStatus(units []*Unit) (StatusInfo, error) {
 
 // statusSeverities holds status values with a severity measure.
 // Status values with higher severity are used in preference to others.
-var statusServerities = map[Status]int{
-	StatusError:       100,
-	StatusBlocked:     90,
-	StatusWaiting:     80,
-	StatusMaintenance: 70,
-	StatusTerminated:  60,
-	StatusActive:      50,
-	StatusUnknown:     40,
+var statusServerities = map[status.Status]int{
+	status.StatusError:       100,
+	status.StatusBlocked:     90,
+	status.StatusWaiting:     80,
+	status.StatusMaintenance: 70,
+	status.StatusTerminated:  60,
+	status.StatusActive:      50,
+	status.StatusUnknown:     40,
 }
 
 type addServiceOpsArgs struct {

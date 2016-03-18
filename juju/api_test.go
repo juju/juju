@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -33,7 +32,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type NewAPIClientSuite struct {
@@ -47,7 +46,7 @@ var _ = gc.Suite(&NewAPIClientSuite{})
 func (cs *NewAPIClientSuite) SetUpSuite(c *gc.C) {
 	cs.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	cs.MgoSuite.SetUpSuite(c)
-	cs.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+	cs.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	// Since most tests use invalid testing API server addresses, we
 	// need to mock this to avoid errors.
 	cs.PatchValue(juju.ServerAddress, func(addr string) (network.HostPort, error) {
@@ -237,7 +236,7 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 
 func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	c.Skip("wallyworld - this is a dumb test relying on an arbitary 50ms delay to pass")
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	_, store := s.bootstrapModel(c)
 	setEndpointAddressAndHostname(c, store, "0.1.2.3", "infoapi.invalid")
 
@@ -300,7 +299,7 @@ func setEndpointAddressAndHostname(c *gc.C, store jujuclient.ControllerStore, ad
 }
 
 func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 
 	_, store := s.bootstrapModel(c)
 	setEndpointAddressAndHostname(c, store, "0.1.2.3", "infoapi.invalid")
@@ -372,7 +371,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	env, store := s.bootstrapModel(c)
 	setEndpointAddressAndHostname(c, store, "0.1.2.3", "infoapi.invalid")
 

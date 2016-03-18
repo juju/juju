@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -88,6 +88,16 @@ func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
 	c.Check(zone, gc.Equals, "a-zone")
 }
 
+func (s *InterfaceSuite) TestUnitNetworkConfig(c *gc.C) {
+	// Only the error case is tested to ensure end-to-end integration, the rest
+	// of the cases are tested separately for network-get, api/uniter, and
+	// apiserver/uniter, respectively.
+	ctx := s.GetContext(c, -1, "")
+	netConfig, err := ctx.NetworkConfig("unknown")
+	c.Check(err, gc.ErrorMatches, `binding name "unknown" not defined by the unit's charm`)
+	c.Check(netConfig, gc.IsNil)
+}
+
 func (s *InterfaceSuite) TestUnitStatus(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	defer context.PatchCachedStatus(ctx.(runner.Context), "maintenance", "working", map[string]interface{}{"hello": "world"})()
@@ -127,20 +137,20 @@ func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *gc.C) {
 
 func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
-	status, err := ctx.UnitStatus()
+	unitStatus, err := ctx.UnitStatus()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(status.Status, gc.Equals, "unknown")
-	c.Check(status.Data, gc.DeepEquals, map[string]interface{}{})
+	c.Check(unitStatus.Status, gc.Equals, "unknown")
+	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{})
 
 	// Change remote state.
-	err = s.unit.SetStatus(state.StatusActive, "it works", nil)
+	err = s.unit.SetStatus(status.StatusActive, "it works", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Local view is unchanged.
-	status, err = ctx.UnitStatus()
+	unitStatus, err = ctx.UnitStatus()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(status.Status, gc.Equals, "unknown")
-	c.Check(status.Data, gc.DeepEquals, map[string]interface{}{})
+	c.Check(unitStatus.Status, gc.Equals, "unknown")
+	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{})
 }
 
 func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {

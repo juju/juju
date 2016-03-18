@@ -29,23 +29,25 @@ func GetRetryWatcher(p Provisioner) (watcher.NotifyWatcher, error) {
 }
 
 var (
-	ContainerManagerConfig     = containerManagerConfig
-	GetToolsFinder             = &getToolsFinder
-	SysctlConfig               = &sysctlConfig
-	ResolvConf                 = &resolvConf
-	LocalDNSServers            = localDNSServers
-	MustParseTemplate          = mustParseTemplate
-	RunTemplateCommand         = runTemplateCommand
-	IptablesRules              = &iptablesRules
-	NetInterfaces              = &netInterfaces
-	InterfaceAddrs             = &interfaceAddrs
-	DiscoverPrimaryNIC         = discoverPrimaryNIC
-	ConfigureContainerNetwork  = configureContainerNetwork
-	MaybeOverrideDefaultLXCNet = maybeOverrideDefaultLXCNet
-	EtcDefaultLXCNetPath       = &etcDefaultLXCNetPath
-	EtcDefaultLXCNet           = etcDefaultLXCNet
-	RetryStrategyDelay         = &retryStrategyDelay
-	RetryStrategyCount         = &retryStrategyCount
+	ContainerManagerConfig       = containerManagerConfig
+	GetToolsFinder               = &getToolsFinder
+	SysctlConfig                 = &sysctlConfig
+	ResolvConf                   = &resolvConf
+	LocalDNSServers              = localDNSServers
+	MustParseTemplate            = mustParseTemplate
+	RunTemplateCommand           = runTemplateCommand
+	IptablesRules                = &iptablesRules
+	NetInterfaceByName           = &netInterfaceByName
+	NetInterfaces                = &netInterfaces
+	InterfaceAddrs               = &interfaceAddrs
+	DiscoverPrimaryNIC           = discoverPrimaryNIC
+	DiscoverIPv4InterfaceAddress = discoverIPv4InterfaceAddress
+	ConfigureContainerNetwork    = configureContainerNetwork
+	MaybeOverrideDefaultLXCNet   = maybeOverrideDefaultLXCNet
+	EtcDefaultLXCNetPath         = &etcDefaultLXCNetPath
+	EtcDefaultLXCNet             = etcDefaultLXCNet
+	RetryStrategyDelay           = &retryStrategyDelay
+	RetryStrategyCount           = &retryStrategyCount
 )
 
 const (

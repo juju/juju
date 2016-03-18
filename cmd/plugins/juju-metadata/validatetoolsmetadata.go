@@ -10,13 +10,14 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func newValidateToolsMetadataCommand() cmd.Command {
@@ -133,7 +134,7 @@ func (c *validateToolsMetadataCommand) Init(args []string) error {
 		}
 	}
 	if c.exactVersion == "current" {
-		c.exactVersion = version.Current.String()
+		c.exactVersion = jujuversion.Current.String()
 	}
 	if c.partVersion != "" {
 		var err error

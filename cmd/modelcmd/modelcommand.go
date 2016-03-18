@@ -5,13 +5,15 @@ package modelcmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/loggo"
-
+	"gopkg.in/juju/environschema.v1/form"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
@@ -20,7 +22,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-var logger = loggo.GetLogger("juju.cmd.envcmd")
+var logger = loggo.GetLogger("juju.cmd.modelcmd")
 
 // ErrNoModelSpecified is returned by commands that operate on
 // an environment if there is no current model, no model
@@ -259,6 +261,20 @@ type modelCommandWrapper struct {
 	useDefaultModel bool
 	allowEmptyEnv   bool
 	modelName       string
+}
+
+func (w *modelCommandWrapper) Run(ctx *cmd.Context) error {
+	filler := &form.IOFiller{
+		In:  ctx.Stdin,
+		Out: ctx.Stderr,
+	}
+	w.ModelCommand.setVisitWebPage(
+		ussologin.VisitWebPage(
+			filler,
+			&http.Client{},
+			jujuclient.NewTokenStore(),
+		))
+	return w.ModelCommand.Run(ctx)
 }
 
 func (w *modelCommandWrapper) SetFlags(f *gnuflag.FlagSet) {

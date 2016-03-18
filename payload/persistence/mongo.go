@@ -38,10 +38,6 @@ func (pp Persistence) extractPayload(id string, payloadDocs map[string]payloadDo
 	return &p, true
 }
 
-func (pp Persistence) one(id string, doc interface{}) error {
-	return errors.Trace(pp.st.One(payloadsC, id, doc))
-}
-
 func (pp Persistence) all(query bson.D, docs interface{}) error {
 	return errors.Trace(pp.st.All(payloadsC, query, docs))
 }

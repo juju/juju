@@ -16,11 +16,6 @@ import (
 )
 
 const (
-	tempPrefix = "juju-lxd-"
-
-	pemBlockTypeCert = "CERTIFICATE"
-	pemBlockTypeKey  = "RSA PRIVATE KEY"
-
 	certDefaultName = "juju-client-certificate"
 )
 
@@ -59,13 +54,6 @@ func (cert Cert) WithDefaults() (Cert, error) {
 	// WithDefaults doesn't populate CertPEM or KeyPEM because those aren't
 	// used when contacting the LXD service via the unix socket.
 	return cert, nil
-}
-
-func (cert *Cert) isZero() bool {
-	if cert == nil {
-		return true
-	}
-	return len(cert.CertPEM) == 0 && len(cert.KeyPEM) == 0
 }
 
 // Validate ensures that the cert is valid.

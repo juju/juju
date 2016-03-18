@@ -5,13 +5,10 @@ package imagemetadata
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
-
-var logger = loggo.GetLogger("juju.api.imagemetadata")
 
 // Client provides access to cloud image metadata.
 // It is used to find, save and update image metadata.

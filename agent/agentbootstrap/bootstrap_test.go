@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type bootstrapSuite struct {
@@ -74,14 +74,13 @@ LXC_BRIDGE="ignored"`[1:])
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 
-	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: dataDir},
 		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
-		Password:          pwHash,
+		Password:          testing.DefaultMongoPassword,
 		Model:             testing.ModelTag,
 	}
 	servingInfo := params.StateServingInfo{
@@ -127,7 +126,7 @@ LXC_BRIDGE="ignored"`[1:])
 	provider, err := environs.Provider("dummy")
 	c.Assert(err, jc.ErrorIsNil)
 	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
-		"agent-version":  version.Current.String(),
+		"agent-version":  jujuversion.Current.String(),
 		"not-for-hosted": "foo",
 	})
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
@@ -160,7 +159,7 @@ LXC_BRIDGE="ignored"`[1:])
 
 	// Check that initial admin user has been set up correctly.
 	modelTag := env.Tag().(names.ModelTag)
-	s.assertCanLogInAsAdmin(c, modelTag, pwHash)
+	s.assertCanLogInAsAdmin(c, modelTag, testing.DefaultMongoPassword)
 	user, err := st.User(env.Owner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
@@ -232,16 +231,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(newCfg.Tag(), gc.Equals, machine0)
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-
-	assertPasswordFails := func(password string) {
-		infoCopy := *info
-		infoCopy.Password = password
-		_, err := state.Open(newCfg.Model(), &infoCopy, mongo.DefaultDialOpts(), environs.NewStatePolicy())
-		c.Assert(err, gc.ErrorMatches, "cannot log in.*auth fails")
-	}
-	assertPasswordFails(pwHash)
-	assertPasswordFails(testing.DefaultMongoPassword)
-
+	c.Assert(info.Password, gc.Not(gc.Equals), testing.DefaultMongoPassword)
 	st1, err := state.Open(newCfg.Model(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
@@ -251,7 +241,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: c.MkDir()},
 		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          "fake",
@@ -272,14 +262,13 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	dataDir := c.MkDir()
 
-	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: dataDir},
 		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
-		Password:          pwHash,
+		Password:          testing.DefaultMongoPassword,
 		Model:             testing.ModelTag,
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
@@ -300,7 +289,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		Characteristics:      expectHW,
 	}
 	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
-		"agent-version": version.Current.String(),
+		"agent-version": jujuversion.Current.String(),
 	})
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, jc.ErrorIsNil)

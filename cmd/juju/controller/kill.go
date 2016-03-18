@@ -86,7 +86,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	store := c.ClientStore()
 	controllerDetails, err := store.ControllerByName(controllerName)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "cannot read controller info")
 	}
 
 	if !c.assumeYes {

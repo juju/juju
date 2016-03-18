@@ -8,6 +8,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -23,7 +24,6 @@ import (
 	_ "github.com/juju/juju/provider/openstack"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 type ModelConfigCreatorSuite struct {

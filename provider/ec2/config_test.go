@@ -6,7 +6,6 @@ package ec2
 // TODO: Clean this up so it matches environs/openstack/config_test.go.
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -48,9 +47,6 @@ type configTest struct {
 	change             map[string]interface{}
 	expect             map[string]interface{}
 	region             string
-	cbucket            string
-	pbucket            string
-	pbucketRegion      string
 	accessKey          string
 	secretKey          string
 	firewallMode       string
@@ -62,8 +58,7 @@ type attrs map[string]interface{}
 
 func (t configTest) check(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type":           "ec2",
-		"control-bucket": "x",
+		"type": "ec2",
 	}).Merge(t.config)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -92,7 +87,6 @@ func (t configTest) check(c *gc.C) {
 
 	ecfg := e.(*environ).ecfg()
 	c.Assert(ecfg.Name(), gc.Equals, "testenv")
-	c.Assert(ecfg.controlBucket(), gc.Equals, "x")
 	if t.region != "" {
 		c.Assert(ecfg.region(), gc.Equals, t.region)
 	}
@@ -118,16 +112,6 @@ func (t configTest) check(c *gc.C) {
 		actual, found := ecfg.UnknownAttrs()[name]
 		c.Check(found, jc.IsTrue)
 		c.Check(actual, gc.Equals, expect)
-	}
-
-	// check storage bucket is configured correctly
-	env := e.(*environ)
-	c.Assert(env.Storage().(*ec2storage).bucket.Region.Name, gc.Equals, ecfg.region())
-
-	if t.blockStorageSource != "" {
-		storage, ok := ecfg.StorageDefaultBlockSource()
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(storage, gc.Equals, t.blockStorageSource)
 	}
 }
 
@@ -178,16 +162,6 @@ var configTests = []configTest{
 		err: `.*expected string, got int\(666\)`,
 	}, {
 		config: attrs{
-			"control-bucket": 666,
-		},
-		err: `.*expected string, got int\(666\)`,
-	}, {
-		change: attrs{
-			"control-bucket": "new-x",
-		},
-		err: `.*cannot change control-bucket from "x" to "new-x"`,
-	}, {
-		config: attrs{
 			"access-key": "jujuer",
 			"secret-key": "open sesame",
 		},
@@ -210,6 +184,9 @@ var configTests = []configTest{
 	}, {
 		config:       attrs{},
 		firewallMode: config.FwInstance,
+	}, {
+		config:             attrs{},
+		blockStorageSource: "ebs",
 	}, {
 		config: attrs{
 			"storage-default-block-source": "ebs-fast",
@@ -311,98 +288,6 @@ func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
 	test.check(c)
 }
 
-func (s *ConfigSuite) TestPrepareForCreateInsertsUniqueControlBucket(c *gc.C) {
-	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
-	uuid1 := utils.MustNewUUID()
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type": "ec2",
-		"uuid": uuid1.String(),
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg1, err := providerInstance.PrepareForCreateEnvironment(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	bucket1 := cfg1.UnknownAttrs()["control-bucket"]
-	c.Assert(bucket1, gc.Equals, fmt.Sprintf("%x", uuid1.Raw()))
-
-	uuid2 := utils.MustNewUUID()
-	cfg, err = cfg.Apply(map[string]interface{}{"uuid": uuid2.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	cfg2, err := providerInstance.PrepareForCreateEnvironment(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	bucket2 := cfg2.UnknownAttrs()["control-bucket"]
-	c.Assert(bucket2, gc.Equals, fmt.Sprintf("%x", uuid2.Raw()))
-}
-
-func (s *ConfigSuite) TestBootstrapConfigInsertsUniqueControlBucket(c *gc.C) {
-	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
-	uuid0 := utils.MustNewUUID()
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type": "ec2",
-		"uuid": uuid0.String(),
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg0, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
-		Config: cfg,
-		Credentials: cloud.NewCredential(
-			cloud.AccessKeyAuthType,
-			map[string]string{
-				"access-key": "x",
-				"secret-key": "y",
-			},
-		),
-		CloudRegion: "test",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	bucket0 := cfg0.UnknownAttrs()["control-bucket"]
-	c.Assert(bucket0, gc.Equals, fmt.Sprintf("%x", uuid0.Raw()))
-
-	uuid1 := utils.MustNewUUID()
-	cfg, err = cfg.Apply(map[string]interface{}{"uuid": uuid1.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	cfg1, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
-		Config: cfg,
-		Credentials: cloud.NewCredential(
-			cloud.AccessKeyAuthType,
-			map[string]string{
-				"access-key": "x",
-				"secret-key": "y",
-			},
-		),
-		CloudRegion: "test",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	bucket1 := cfg1.UnknownAttrs()["control-bucket"]
-	c.Assert(bucket1, gc.Equals, fmt.Sprintf("%x", uuid1.Raw()))
-}
-
-func (s *ConfigSuite) TestBootstrapConfigDoesNotTouchExistingControlBucket(c *gc.C) {
-	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type":           "ec2",
-		"control-bucket": "burblefoo",
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg, err = providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
-		Config: cfg,
-		Credentials: cloud.NewCredential(
-			cloud.AccessKeyAuthType,
-			map[string]string{
-				"access-key": "x",
-				"secret-key": "y",
-			},
-		),
-		CloudRegion: "test",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.UnknownAttrs()["control-bucket"], gc.Equals, "burblefoo")
-}
-
 func (s *ConfigSuite) TestBootstrapConfigSetsDefaultBlockSource(c *gc.C) {
 	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
@@ -423,6 +308,32 @@ func (s *ConfigSuite) TestBootstrapConfigSetsDefaultBlockSource(c *gc.C) {
 		CloudRegion: "test",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	source, ok := cfg.StorageDefaultBlockSource()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(source, gc.Equals, "ebs")
+}
+
+func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
+	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type": "ec2",
+	})
+	config, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
+		Config:      config,
+		CloudRegion: "test",
+		Credentials: cloud.NewCredential(
+			cloud.AccessKeyAuthType,
+			map[string]string{
+				"access-key": "x",
+				"secret-key": "y",
+			},
+		),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	source, ok := cfg.StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(source, gc.Equals, "ebs")

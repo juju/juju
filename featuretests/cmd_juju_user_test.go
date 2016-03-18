@@ -45,13 +45,13 @@ func (s *UserSuite) TestUserAdd(c *gc.C) {
 	c.Assert(user.IsDisabled(), jc.IsFalse)
 }
 
-func (s *UserSuite) TestUserAddShareModel(c *gc.C) {
+func (s *UserSuite) TestUserAddGrantModel(c *gc.C) {
 	sharedModelState := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "amodel",
 	})
 	defer sharedModelState.Close()
 
-	ctx, err := s.RunUserCommand(c, "add-user", "test", "--share", "amodel")
+	ctx, err := s.RunUserCommand(c, "add-user", "test", "--models", "amodel")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), jc.HasPrefix, `User "test" added`)
 	user, err := s.State.User(names.NewLocalUserTag("test"))

@@ -80,6 +80,7 @@ class LogicalInterface(object):
         self.is_alias = ":" in self.name
         self.is_vlan = [x for x in self.options if x.startswith("vlan-raw-device")]
         self.is_active = self.method == "dhcp" or self.method == "static"
+        self.is_bridged = [x for x in self.options if x.startswith("bridge_ports ")]
 
     def __str__(self):
         return self.name
@@ -89,8 +90,8 @@ class LogicalInterface(object):
         if bridge_name is None:
             bridge_name = prefix + self.name
         # Note: the testing order here is significant.
-        if not self.is_active:
-            return self._bridge_inactive(add_auto_stanza)
+        if not self.is_active or self.is_bridged:
+            return self._bridge_unchanged(add_auto_stanza)
         elif self.is_alias:
             return self._bridge_alias(add_auto_stanza)
         elif self.is_vlan:
@@ -140,7 +141,7 @@ class LogicalInterface(object):
         stanzas.extend([s1, s2, s3])
         return stanzas
 
-    def _bridge_inactive(self, add_auto_stanza):
+    def _bridge_unchanged(self, add_auto_stanza):
         stanzas = []
         if add_auto_stanza:
             stanzas.append(AutoStanza(self.name))

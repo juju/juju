@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -32,10 +33,11 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher/watchertest"
 )
 
@@ -117,19 +119,38 @@ func (s *provisionerSuite) TestGetSetStatus(c *gc.C) {
 	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, err := apiMachine.Status()
+	machineStatus, info, err := apiMachine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, params.StatusPending)
+	c.Assert(machineStatus, gc.Equals, status.StatusPending)
 	c.Assert(info, gc.Equals, "")
 
-	err = apiMachine.SetStatus(params.StatusStarted, "blah", nil)
+	err = apiMachine.SetStatus(status.StatusStarted, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, err = apiMachine.Status()
+	machineStatus, info, err = apiMachine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, params.StatusStarted)
+	c.Assert(machineStatus, gc.Equals, status.StatusStarted)
 	c.Assert(info, gc.Equals, "blah")
 	statusInfo, err := s.machine.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Data, gc.HasLen, 0)
+}
+
+func (s *provisionerSuite) TestGetSetInstanceStatus(c *gc.C) {
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
+	c.Assert(err, jc.ErrorIsNil)
+
+	instanceStatus, info, err := apiMachine.InstanceStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instanceStatus, gc.Equals, status.StatusPending)
+	c.Assert(info, gc.Equals, "")
+	err = apiMachine.SetInstanceStatus(status.StatusStarted, "blah", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	instanceStatus, info, err = apiMachine.InstanceStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instanceStatus, gc.Equals, status.StatusStarted)
+	c.Assert(info, gc.Equals, "blah")
+	statusInfo, err := s.machine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Data, gc.HasLen, 0)
 }
@@ -138,12 +159,12 @@ func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
 	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = apiMachine.SetStatus(params.StatusError, "blah", map[string]interface{}{"foo": "bar"})
+	err = apiMachine.SetStatus(status.StatusError, "blah", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, err := apiMachine.Status()
+	machineStatus, info, err := apiMachine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(machineStatus, gc.Equals, status.StatusError)
 	c.Assert(info, gc.Equals, "blah")
 	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -153,7 +174,7 @@ func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
 func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetStatus(state.StatusError, "blah", map[string]interface{}{"transient": true})
+	err = machine.SetStatus(status.StatusError, "blah", map[string]interface{}{"transient": true})
 	c.Assert(err, jc.ErrorIsNil)
 	machines, info, err := s.provisioner.MachinesWithTransientErrors()
 	c.Assert(err, jc.ErrorIsNil)
@@ -547,7 +568,7 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 
 	// Change something other than the containers and make sure it's
 	// not detected.
-	err = apiMachine.SetStatus(params.StatusStarted, "not really", nil)
+	err = apiMachine.SetStatus(status.StatusStarted, "not really", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -799,7 +820,7 @@ func (s *provisionerSuite) TestFindToolsLogicError(c *gc.C) {
 
 func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logicError error) {
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -816,7 +837,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		called = true
 		c.Assert(request, gc.Equals, "FindTools")
 		expected := params.FindToolsParams{
-			Number:       version.Current,
+			Number:       jujuversion.Current,
 			Series:       series.HostSeries(),
 			Arch:         a,
 			MinorVersion: -1,
@@ -830,7 +851,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		}
 		return apiError
 	})
-	apiList, err := s.provisioner.FindTools(version.Current, series.HostSeries(), a)
+	apiList, err := s.provisioner.FindTools(jujuversion.Current, series.HostSeries(), a)
 	c.Assert(called, jc.IsTrue)
 	if apiError != nil {
 		c.Assert(err, gc.Equals, apiError)

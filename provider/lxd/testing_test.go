@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/tools/lxdclient"
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 // These values are stub LXD client credentials for use in tests.
@@ -287,6 +287,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	// Patch out all expensive external deps.
 	s.Env.raw = &rawProvider{
 		lxdInstances:   s.Client,
+		lxdImages:      s.Client,
 		Firewaller:     s.Firewaller,
 		policyProvider: s.Policy,
 	}
@@ -496,6 +497,15 @@ func (conn *stubClient) AddInstance(spec lxdclient.InstanceSpec) (*lxdclient.Ins
 
 func (conn *stubClient) RemoveInstances(prefix string, ids ...string) error {
 	conn.stub.AddCall("RemoveInstances", prefix, ids)
+	if err := conn.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (conn *stubClient) EnsureImageExists(series string, _ func(string)) error {
+	conn.stub.AddCall("EnsureImageExists", series)
 	if err := conn.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

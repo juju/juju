@@ -12,10 +12,13 @@ import (
 	"github.com/juju/replicaset"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/apiserver/common/networkingcommon"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker"
 )
 
@@ -25,12 +28,16 @@ type stateInterface interface {
 	WatchControllerStatusChanges() state.StringsWatcher
 	ControllerInfo() (*state.ControllerInfo, error)
 	MongoSession() mongoSession
+	Space(id string) (SpaceReader, error)
+	SetOrGetMongoSpaceName(spaceName network.SpaceName) (network.SpaceName, error)
+	SetMongoSpaceState(mongoSpaceState state.MongoSpaceStates) error
+	ModelConfig() (*config.Config, error)
 }
 
 type stateMachine interface {
 	Id() string
 	InstanceId() (instance.Id, error)
-	Status() (state.StatusInfo, error)
+	Status() (status.StatusInfo, error)
 	Refresh() error
 	Watch() state.NotifyWatcher
 	WantsVote() bool
@@ -111,6 +118,8 @@ type pgWorker struct {
 	// publisher holds the implementation of the API
 	// address publisher.
 	publisher publisherInterface
+
+	providerSupportsSpaces bool
 }
 
 // New returns a new worker that maintains the mongo replica set
@@ -129,10 +138,11 @@ func New(st *state.State) (worker.Worker, error) {
 
 func newWorker(st stateInterface, pub publisherInterface) worker.Worker {
 	w := &pgWorker{
-		st:        st,
-		notifyCh:  make(chan notifyFunc),
-		machines:  make(map[string]*machine),
-		publisher: pub,
+		st:                     st,
+		notifyCh:               make(chan notifyFunc),
+		machines:               make(map[string]*machine),
+		publisher:              pub,
+		providerSupportsSpaces: networkingcommon.SupportsSpaces(st) == nil,
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -259,7 +269,60 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 		return nil, fmt.Errorf("cannot get replica set members: %v", err)
 	}
 	info.machines = w.machines
+
+	if err = w.getMongoSpace(info); err != nil {
+		return nil, err
+	}
+
 	return info, nil
+}
+
+// getMongoSpace updates info with the space that Mongo servers should exist in.
+func (w *pgWorker) getMongoSpace(info *peerGroupInfo) error {
+	stateInfo, err := w.st.ControllerInfo()
+	if err != nil {
+		return errors.Annotate(err, "cannot get state server info")
+	}
+
+	switch stateInfo.MongoSpaceState {
+	case state.MongoSpaceUnknown:
+		if !w.providerSupportsSpaces {
+			err = w.st.SetMongoSpaceState(state.MongoSpaceUnsupported)
+			if err != nil {
+				return errors.Annotate(err, "cannot set Mongo space state")
+			}
+			return nil
+		}
+
+		// We want to find a space that contains all Mongo servers so we can
+		// use it to look up the IP address of each Mongo server to be used
+		// to set up the peer group.
+		spaceStats := generateSpaceStats(mongoAddresses(info.machines))
+		if spaceStats.LargestSpaceContainsAll == false {
+			err = w.st.SetMongoSpaceState(state.MongoSpaceInvalid)
+			if err != nil {
+				return errors.Annotate(err, "cannot set Mongo space state")
+			}
+
+			return fmt.Errorf("couldn't find a space containing all peer group machines")
+		} else {
+			info.mongoSpace, err = w.st.SetOrGetMongoSpaceName(spaceStats.LargestSpace)
+			if err != nil {
+				return fmt.Errorf("error setting/getting Mongo space: %v", err)
+			}
+			info.mongoSpaceValid = true
+		}
+
+	case state.MongoSpaceValid:
+		space, err := w.st.Space(stateInfo.MongoSpaceName)
+		if err != nil {
+			return fmt.Errorf("error looking up space: %v", err)
+		}
+		info.mongoSpace = network.SpaceName(space.Name())
+		info.mongoSpaceValid = true
+	}
+
+	return nil
 }
 
 // replicaSetError holds an error returned as a result
@@ -444,16 +507,16 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 		}
 
 		// Don't add the machine unless it is "Started"
-		status, err := stm.Status()
+		machineStatus, err := stm.Status()
 		if err != nil {
 			return false, errors.Annotatef(err, "cannot get status for machine %q", id)
 		}
-		if status.Status == state.StatusStarted {
+		if machineStatus.Status == status.StatusStarted {
 			logger.Tracef("machine %q has started, adding it to peergrouper list", id)
 			infow.worker.machines[id] = infow.worker.newMachine(stm)
 			changed = true
 		} else {
-			logger.Tracef("machine %q not ready: %v", id, status.Status)
+			logger.Tracef("machine %q not ready: %v", id, machineStatus.Status)
 		}
 
 	}
@@ -467,12 +530,17 @@ type machine struct {
 	apiHostPorts   []network.HostPort
 	mongoHostPorts []network.HostPort
 
-	worker         *pgWorker
-	stm            stateMachine
-	machineWatcher state.NotifyWatcher
+	worker          *pgWorker
+	stm             stateMachine
+	machineWatcher  state.NotifyWatcher
+	mongoSpace      network.SpaceName
+	mongoSpaceValid bool
 }
 
 func (m *machine) mongoHostPort() string {
+	if m.mongoSpaceValid {
+		return mongo.SelectPeerHostPortBySpace(m.mongoHostPorts, m.mongoSpace)
+	}
 	return mongo.SelectPeerHostPort(m.mongoHostPorts)
 }
 
@@ -564,4 +632,47 @@ func inStrings(t string, ss []string) bool {
 		}
 	}
 	return false
+}
+
+// allSpaceStats holds a SpaceStats for both API and Mongo machines
+type allSpaceStats struct {
+	APIMachines   spaceStats
+	MongoMachines spaceStats
+}
+
+// SpaceStats holds information useful when choosing which space to pick an
+// address from.
+type spaceStats struct {
+	SpaceRefCount           map[network.SpaceName]int
+	LargestSpace            network.SpaceName
+	LargestSpaceSize        int
+	LargestSpaceContainsAll bool
+}
+
+// generateSpaceStats takes a list of machine addresses and returns information
+// about what spaces are referenced by those machines.
+func generateSpaceStats(addresses [][]network.Address) spaceStats {
+	var stats spaceStats
+	stats.SpaceRefCount = make(map[network.SpaceName]int)
+
+	for i := range addresses {
+		for _, addr := range addresses[i] {
+			v, ok := stats.SpaceRefCount[addr.SpaceName]
+			if !ok {
+				v = 0
+			}
+
+			v++
+			stats.SpaceRefCount[addr.SpaceName] = v
+
+			if v > stats.LargestSpaceSize {
+				stats.LargestSpace = addr.SpaceName
+				stats.LargestSpaceSize = v
+			}
+		}
+	}
+
+	stats.LargestSpaceContainsAll = stats.LargestSpaceSize == len(addresses)
+
+	return stats
 }

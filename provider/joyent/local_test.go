@@ -25,10 +25,11 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/joyent"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func registerLocalTests() {
@@ -120,7 +121,7 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.providerSuite.SetUpTest(c)
 	credentialsAttrs := joyent.CredentialsAttributes(s.TestConfig)
 	s.Credential = cloud.NewCredential(
@@ -153,7 +154,7 @@ type localServerSuite struct {
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
-	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 
 	s.providerSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
@@ -163,7 +164,7 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.providerSuite.SetUpTest(c)
 
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.cSrv = &localCloudAPIServer{}
 	s.mSrv = &localMantaServer{}
 	s.cSrv.setupServer(c)
@@ -279,7 +280,7 @@ var instanceGathering = []struct {
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := s.Prepare(c)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
-	c.Assert(inst.Status(), gc.Equals, "running")
+	c.Assert(inst.Status().Message, gc.Equals, "running")
 	err := env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -393,10 +394,10 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10")
+	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10 virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "tags"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "tags", "virt-type"})
 }
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {

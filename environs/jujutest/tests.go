@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // Tests is a gocheck suite containing tests verifying juju functionality
@@ -83,7 +83,7 @@ func (t *Tests) TearDownTest(c *gc.C) {
 func (t *Tests) TestStartStop(c *gc.C) {
 	e := t.Prepare(c)
 	cfg, err := e.Config().Apply(map[string]interface{}{
-		"agent-version": version.Current.String(),
+		"agent-version": jujuversion.Current.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = e.SetConfig(cfg)

@@ -310,18 +310,39 @@ var parseConstraintsTests = []struct {
 		args:    []string{"instance-type="},
 	},
 
+	// "virt-type" in detail.
+	{
+		summary: "set virt-type empty",
+		args:    []string{"virt-type="},
+	}, {
+		summary: "set virt-type kvm",
+		args:    []string{"virt-type=kvm"},
+	}, {
+		summary: "set virt-type lxd",
+		args:    []string{"virt-type=lxd"},
+	}, {
+		summary: "double set virt-type together",
+		args:    []string{"virt-type=kvm virt-type=kvm"},
+		err:     `bad "virt-type" constraint: already set`,
+	}, {
+		summary: "double set virt-type separately",
+		args:    []string{"virt-type=kvm", "virt-type="},
+		err:     `bad "virt-type" constraint: already set`,
+	},
+
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
 		args: []string{
 			"root-disk=8G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxc " +
-				"tags=foo,bar spaces=space1,^space2 networks=net,^net2 instance-type=foo"},
+				"tags=foo,bar spaces=space1,^space2 networks=net,^net2 instance-type=foo",
+			"virt-type=kvm"},
 	}, {
 		summary: "kitchen sink separately",
 		args: []string{
 			"root-disk=8G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=armhf",
 			"container=lxc", "tags=foo,bar", "spaces=space1,^space2", "networks=net1,^net2",
-			"instance-type=foo"},
+			"instance-type=foo", "virt-type=kvm"},
 	},
 }
 

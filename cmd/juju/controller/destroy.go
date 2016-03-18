@@ -95,7 +95,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	store := c.ClientStore()
 	controllerDetails, err := store.ControllerByName(controllerName)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "cannot read controller info")
 	}
 
 	if !c.assumeYes {
@@ -241,17 +241,6 @@ func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	return controller.NewClient(root), nil
-}
-
-func (c *destroyCommandBase) getClientAPI() (destroyClientAPI, error) {
-	if c.clientapi != nil {
-		return c.clientapi, nil
-	}
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return root.Client(), nil
 }
 
 // SetFlags implements Command.SetFlags.

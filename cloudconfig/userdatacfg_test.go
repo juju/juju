@@ -6,8 +6,11 @@ package cloudconfig_test
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -16,6 +19,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	pacconf "github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -34,7 +38,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 type cloudinitSuite struct {
@@ -155,6 +158,17 @@ func (cfg *testInstanceConfig) setMachineID(id string) *testInstanceConfig {
 	}
 	if cfg.APIInfo != nil {
 		cfg.APIInfo.Tag = names.NewMachineTag(id)
+	}
+	return cfg
+}
+
+// setGUI populates the configuration with the Juju GUI tools.
+func (cfg *testInstanceConfig) setGUI(path string) *testInstanceConfig {
+	cfg.GUI = &tools.GUIArchive{
+		URL:     "file://" + filepath.ToSlash(path),
+		Version: version.MustParse("1.2.3"),
+		Size:    42,
+		SHA256:  "1234",
 	}
 	return cfg
 }
@@ -387,6 +401,40 @@ printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 `,
 	},
 
+	// non controller with GUI (the GUI is not installed)
+	{
+		cfg: makeNormalConfig("quantal").setGUI("/path/to/gui.tar.bz2"),
+		expectScripts: `
+set -xe
+install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown\.conf'
+printf '%s\\n' '.*"Stop all network interfaces on shutdown".*' > '/etc/init/juju-clean-shutdown\.conf'
+install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
+printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
+test -e /proc/self/fd/9 \|\| exec 9>&2
+\(\[ ! -e /home/ubuntu/\.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
+mkdir -p /var/lib/juju/locks
+\(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
+mkdir -p /var/log/juju
+chown syslog:adm /var/log/juju
+bin='/var/lib/juju/tools/1\.2\.3-quantal-amd64'
+mkdir -p \$bin
+echo 'Fetching tools.*
+curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/tools/1\.2\.3-quantal-amd64'
+sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-quantal-amd64\.sha256
+grep '1234' \$bin/juju1\.2\.3-quantal-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
+tar zxf \$bin/tools.tar.gz -C \$bin
+printf %s '{"version":"1\.2\.3-quantal-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-quantal-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+mkdir -p '/var/lib/juju/agents/machine-99'
+cat > '/var/lib/juju/agents/machine-99/agent\.conf' << 'EOF'\\n.*\\nEOF
+chmod 0600 '/var/lib/juju/agents/machine-99/agent\.conf'
+ln -s 1\.2\.3-quantal-amd64 '/var/lib/juju/tools/machine-99'
+echo 'Starting Juju machine agent \(jujud-machine-99\)'.*
+cat > /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju agent for machine-99"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-99\.log\\n  chown syslog:syslog /var/log/juju/machine-99\.log\\n  chmod 0600 /var/log/juju/machine-99\.log\\n\\n  exec '/var/lib/juju/tools/machine-99/jujud' machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nend script\\nEOF\\n
+start jujud-machine-99
+rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-quantal-amd64\.sha256
+`,
+	},
+
 	// CentOS non controller with systemd
 	{
 		cfg:          makeNormalConfig("centos7"),
@@ -594,6 +642,50 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		needCloudArchive := testConfig.Series == "precise"
 		checkAptSource(c, configKeyValues, source, pacconf.UbuntuCloudArchiveSigningKey, needCloudArchive)
 	}
+}
+
+func (*cloudinitSuite) TestCloudInitWithGUI(c *gc.C) {
+	guiPath := path.Join(c.MkDir(), "gui.tar.bz2")
+	err := ioutil.WriteFile(guiPath, []byte("content"), 0644)
+	cfg := makeBootstrapConfig("precise").setGUI(guiPath)
+	envConfig := minimalModelConfig(c)
+	testConfig := cfg.maybeSetModelConfig(envConfig).render()
+	ci, err := cloudinit.New(testConfig.Series)
+	c.Assert(err, jc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
+	c.Assert(err, jc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ci, gc.NotNil)
+	data, err := ci.RenderYAML()
+	c.Assert(err, jc.ErrorIsNil)
+
+	configKeyValues := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(data, &configKeyValues)
+	c.Assert(err, jc.ErrorIsNil)
+
+	guiJson, err := json.Marshal(cfg.GUI)
+	c.Assert(err, jc.ErrorIsNil)
+
+	scripts := getScripts(configKeyValues)
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256
+grep '1234' $gui/jujugui.sha256 || (echo Juju GUI checksum mismatch; exit 1)
+printf %%s '%s' > $gui/downloaded-gui.txt
+rm $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt
+`, guiJson))
+	assertScriptMatch(c, scripts, expectedScripts, false)
+}
+
+func (*cloudinitSuite) TestCloudInitWithGUIError(c *gc.C) {
+	cfg := makeBootstrapConfig("precise").setGUI("/path/to/gui.tar.bz2")
+	envConfig := minimalModelConfig(c)
+	testConfig := cfg.maybeSetModelConfig(envConfig).render()
+	ci, err := cloudinit.New(testConfig.Series)
+	c.Assert(err, jc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
+	c.Assert(err, jc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, gc.ErrorMatches, "cannot fetch Juju GUI: cannot read Juju GUI archive: .*")
 }
 
 func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {

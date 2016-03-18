@@ -16,6 +16,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/environschema.v1"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 func Test(t *stdtesting.T) {
@@ -691,7 +691,6 @@ var configTests = []configTest{
 			"admin-secret":              "",
 			"ssl-hostname-verification": true,
 			"authorized-keys":           "ssh-rsa mykeys rog@rog-x220\n",
-			"control-bucket":            "rog-some-control-bucket",
 			"region":                    "us-east-1",
 			"image-metadata-url":        "",
 			"ca-private-key":            "",

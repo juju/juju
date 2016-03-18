@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/juju/osenv"
@@ -122,7 +123,7 @@ type region struct {
 }
 
 // BuiltInProviderNames work out of the box.
-var BuiltInProviderNames = []string{"lxd", "manual"}
+var BuiltInProviderNames = []string{"lxd", "manual", "maas"}
 
 // CloudByName returns the cloud with the specified name.
 // If there exists no cloud with the specified name, an
@@ -213,6 +214,31 @@ func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 		clouds[name] = meta
 	}
 	return clouds, nil
+}
+
+// WritePublicCloudMetadata marshals to YAML and writes the cloud metadata
+// to the public cloud file.
+func WritePublicCloudMetadata(cloudsMap map[string]Cloud) error {
+	data, err := marshalCloudMetadata(cloudsMap)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return utils.AtomicWriteFile(JujuPublicCloudsPath(), data, 0600)
+}
+
+// IsSameCloudMetadata returns true if both meta and meta2 contain the
+// same cloud metadata.
+func IsSameCloudMetadata(meta1, meta2 map[string]Cloud) (bool, error) {
+	// The easiest approach is to simply marshall to YAML and compare.
+	yaml1, err := marshalCloudMetadata(meta1)
+	if err != nil {
+		return false, err
+	}
+	yaml2, err := marshalCloudMetadata(meta2)
+	if err != nil {
+		return false, err
+	}
+	return string(yaml1) == string(yaml2), nil
 }
 
 // marshalCloudMetadata marshals the given clouds to YAML.

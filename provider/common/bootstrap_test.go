@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -26,7 +27,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type BootstrapSuite struct {
@@ -82,7 +83,7 @@ func configGetter(c *gc.C) configFunc {
 }
 
 func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	checkPlacement := "directive"
 	checkCons := constraints.MustParse("mem=8G")
 	env := &mockEnviron{
@@ -125,7 +126,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		AvailableTools: tools.List{
 			&tools.Tools{
 				Version: version.Binary{
-					Number: version.Current,
+					Number: jujuversion.Current,
 					Arch:   arch.HostArch(),
 					Series: series.HostSeries(),
 				},
@@ -135,7 +136,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestSuccess(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	stor := newStorage(s, c)
 	checkInstanceId := "i-success"
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
@@ -169,7 +170,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		AvailableTools: tools.List{
 			&tools.Tools{
 				Version: version.Binary{
-					Number: version.Current,
+					Number: jujuversion.Current,
 					Arch:   arch.HostArch(),
 					Series: series.HostSeries(),
 				},

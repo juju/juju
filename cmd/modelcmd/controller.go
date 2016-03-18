@@ -159,6 +159,30 @@ func (c *ControllerCommandBase) NewAPIRoot() (api.Connection, error) {
 	return opener.Open(c.store, c.controllerName, c.accountName, "")
 }
 
+// ModelUUIDs returns the model UUIDs for the given model names.
+func (c *ControllerCommandBase) ModelUUIDs(modelNames []string) ([]string, error) {
+	var result []string
+	store := c.ClientStore()
+	controllerName := c.ControllerName()
+	accountName := c.AccountName()
+	for _, modelName := range modelNames {
+		model, err := store.ModelByName(controllerName, accountName, modelName)
+		if errors.IsNotFound(err) {
+			// The model isn't known locally, so query the models available in the controller.
+			logger.Infof("model %q not cached locally, refreshing models from controller", modelName)
+			if err := c.RefreshModels(store, controllerName, accountName); err != nil {
+				return nil, errors.Annotatef(err, "refreshing model %q", modelName)
+			}
+			model, err = store.ModelByName(controllerName, accountName, modelName)
+		}
+		if err != nil {
+			return nil, errors.Annotatef(err, "model %q not found", modelName)
+		}
+		result = append(result, model.ModelUUID)
+	}
+	return result, nil
+}
+
 // WrapControllerOption sets various parameters of the
 // ControllerCommand wrapper.
 type WrapControllerOption func(*sysCommandWrapper)

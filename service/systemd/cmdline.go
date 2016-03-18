@@ -40,29 +40,8 @@ func (c commands) listAll() string {
 	return c.resolve(args)
 }
 
-func (c commands) listRunning() string {
-	args := `--no-legend --no-page -t service` +
-		` | grep -o -P '^\w[\S]*(?=\.service)'`
-	return c.resolve(args)
-}
-
-func (c commands) activeStatus(name string) string {
-	args := fmt.Sprintf("is-active %s.service || exit 0", name)
-	return c.resolve(args)
-}
-
-func (c commands) loadStatus(name string) string {
-	args := fmt.Sprintf("is-enabled %s.service || exit 0", name)
-	return c.resolve(args)
-}
-
 func (c commands) start(name string) string {
 	args := fmt.Sprintf("start %s.service", name)
-	return c.resolve(args)
-}
-
-func (c commands) stop(name string) string {
-	args := fmt.Sprintf("stop %s.service", name)
 	return c.resolve(args)
 }
 
@@ -75,11 +54,6 @@ func (c commands) link(name, dirname string) string {
 func (c commands) enableLinked(name, dirname string) string {
 	filename := c.unitFilename(name, dirname)
 	args := fmt.Sprintf("enable %s", c.Quote(filename))
-	return c.resolve(args)
-}
-
-func (c commands) enable(name string) string {
-	args := fmt.Sprintf("enable %s.service", name)
 	return c.resolve(args)
 }
 

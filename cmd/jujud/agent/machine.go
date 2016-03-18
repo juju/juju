@@ -28,6 +28,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
+	"github.com/juju/version"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -37,7 +38,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/agenttools"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/api/statushistory"
@@ -65,7 +65,7 @@ import (
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/upgrades"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
@@ -83,7 +83,6 @@ import (
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/modelworkermanager"
@@ -93,18 +92,14 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
-	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/undertaker"
 	"github.com/juju/juju/worker/unitassigner"
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
-const bootstrapMachineId = "0"
-
 var (
 	logger       = loggo.GetLogger("juju.cmd.jujud")
-	retryDelay   = 3 * time.Second
 	jujuRun      = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
 	jujuDumpLogs = paths.MustSucceed(paths.JujuDumpLogs(series.HostSeries()))
 
@@ -115,7 +110,6 @@ var (
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
-	newMachiner              = machiner.NewMachiner
 	newDiscoverSpaces        = discoverspaces.NewWorker
 	newFirewaller            = firewaller.NewFirewaller
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
@@ -264,7 +258,6 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
-	loopDeviceManager looputil.LoopDeviceManager,
 	rootDir string,
 ) func(string) *MachineAgent {
 	return func(machineId string) *MachineAgent {
@@ -273,7 +266,7 @@ func MachineAgentFactoryFn(
 			agentConfWriter,
 			bufferedLogs,
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
-			loopDeviceManager,
+			looputil.NewLoopDeviceManager(),
 			rootDir,
 		)
 	}
@@ -414,7 +407,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
 
-	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
+	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), jujuversion.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
@@ -738,13 +731,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	}
 
 	if isModelManager {
-		runner.StartWorker("toolsversionchecker", func() (worker.Worker, error) {
-			// 4 times a day seems a decent enough amount of checks.
-			checkerParams := toolsversionchecker.VersionCheckerParams{
-				CheckInterval: time.Hour * 6,
-			}
-			return toolsversionchecker.New(agenttools.NewFacade(apiConn), &checkerParams), nil
-		})
 
 		// Published image metadata for some providers are in simple streams.
 		// Providers that do not depend on simple streams do not need this worker.
@@ -884,8 +870,12 @@ func (a *MachineAgent) updateSupportedContainers(
 			// Explicitly call the non-named constructor so if anyone
 			// adds additional fields, this fails.
 			container.ImageURLGetterConfig{
-				st.Addr(), modelUUID.Id(), []byte(agentConfig.CACert()),
-				cfg.CloudImageBaseURL(), container.ImageDownloadURL,
+				ServerRoot:        st.Addr(),
+				ModelUUID:         modelUUID.Id(),
+				CACert:            []byte(agentConfig.CACert()),
+				CloudimgBaseUrl:   cfg.CloudImageBaseURL(),
+				Stream:            cfg.ImageStream(),
+				ImageDownloadFunc: container.ImageDownloadURL,
 			})
 	}
 	params := provisioner.ContainerSetupParams{
@@ -1477,14 +1467,14 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
 		switch authTag := authTag.(type) {
 		case names.UserTag:
 			// use a restricted API mode
-			return apiserver.UpgradeInProgressError
+			return params.UpgradeInProgressError
 		case names.MachineTag:
 			if authTag == a.Tag() {
 				// allow logins from the local machine
 				return nil
 			}
 		}
-		return errors.Errorf("login for %q blocked because %s", authTag, apiserver.UpgradeInProgressError.Error())
+		return errors.Errorf("login for %q blocked because %s", authTag, params.CodeUpgradeInProgress)
 	} else {
 		return nil // allow all logins
 	}

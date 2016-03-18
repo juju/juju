@@ -74,29 +74,6 @@ func (s *relationUnitSuite) TestRelation(c *gc.C) {
 	c.Assert(apiRel.String(), gc.Equals, "wordpress:db mysql:server")
 }
 
-func (s *relationUnitSuite) TestNetworkConfig(c *gc.C) {
-	// Set some provider addresses bound to both "public" and "internal"
-	// spaces.
-	addresses := []network.Address{
-		network.NewAddressOnSpace("public", "8.8.8.8"),
-		network.NewAddressOnSpace("", "8.8.4.4"),
-		network.NewAddressOnSpace("internal", "10.0.0.1"),
-		network.NewAddressOnSpace("internal", "10.0.0.2"),
-		network.NewAddressOnSpace("public", "fc00::1"),
-	}
-	err := s.wordpressMachine.SetProviderAddresses(addresses...)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, apiRelUnit := s.getRelationUnits(c)
-
-	netConfig, err := apiRelUnit.NetworkConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(netConfig, jc.DeepEquals, []params.NetworkConfig{
-		{Address: "10.0.0.1"},
-		{Address: "10.0.0.2"},
-	})
-}
-
 func (s *relationUnitSuite) TestEndpoint(c *gc.C) {
 	_, apiRelUnit := s.getRelationUnits(c)
 

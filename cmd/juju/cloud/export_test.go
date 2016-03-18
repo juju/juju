@@ -5,8 +5,17 @@ package cloud
 
 import (
 	jujucloud "github.com/juju/juju/cloud"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/jujuclient"
 )
+
+func NewUpdateCloudsCommandForTest(publicCloudURL string) *updateCloudsCommand {
+	return &updateCloudsCommand{
+		// TODO(wallyworld) - move testing key elsewhere
+		publicSigningKey: sstesting.SignedMetadataPublicKey,
+		publicCloudURL:   publicCloudURL,
+	}
+}
 
 func NewListCredentialsCommandForTest(
 	testStore jujuclient.CredentialGetter,
@@ -34,14 +43,30 @@ func NewDetectCredentialsCommandForTest(
 	}
 }
 
-func NewsetDefaultRegionCommandForTest(testStore jujuclient.CredentialStore) *setDefaultRegionCommand {
-	return &setDefaultRegionCommand{
+func NewAddCredentialCommandForTest(
+	testStore jujuclient.CredentialStore,
+	cloudByNameFunc func(string) (*jujucloud.Cloud, error),
+) *addCredentialCommand {
+	return &addCredentialCommand{
+		store:           testStore,
+		cloudByNameFunc: cloudByNameFunc,
+	}
+}
+
+func NewRemoveCredentialCommandForTest(testStore jujuclient.CredentialStore) *removeCredentialCommand {
+	return &removeCredentialCommand{
 		store: testStore,
 	}
 }
 
 func NewSetDefaultCredentialCommandForTest(testStore jujuclient.CredentialStore) *setDefaultCredentialCommand {
 	return &setDefaultCredentialCommand{
+		store: testStore,
+	}
+}
+
+func NewSetDefaultRegionCommandForTest(testStore jujuclient.CredentialStore) *setDefaultRegionCommand {
+	return &setDefaultRegionCommand{
 		store: testStore,
 	}
 }

@@ -68,6 +68,7 @@ var unsupportedConstraints = []string{
 	constraints.Tags,
 	// TODO(dimitern: Replace Networks with Spaces in a follow-up.
 	constraints.Networks,
+	constraints.VirtType,
 }
 
 // instanceTypeConstraints defines the fields defined on each of the
