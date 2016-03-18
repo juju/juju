@@ -6,13 +6,16 @@ import StringIO
 
 from assess_cs_staging import (
     assess_deploy,
+    _get_ssh_script,
     parse_args,
     main,
+    _set_charm_store_ip,
 )
 from tests import (
     parse_error,
     TestCase,
 )
+from tests.test_jujupy import FakeJujuClient
 
 
 class TestParseArgs(TestCase):
@@ -34,6 +37,31 @@ class TestParseArgs(TestCase):
             with patch("sys.stdout", fake_stdout):
                 parse_args(["--help"])
         self.assertEqual("", fake_stderr.getvalue())
+
+
+class TestSetCharmStoreIP(TestCase):
+
+    def test_default_as_admin(self):
+        client = FakeJujuClient()
+        client.bootstrap()
+        with patch.object(client, 'juju', autospec=True) as juju_mock:
+            _set_charm_store_ip(client, '1.2.3.4')
+        juju_mock.assert_called_once_with(
+            'ssh', ('0', _get_ssh_script('1.2.3.4')))
+
+    def test_separate_admin(self):
+        client = FakeJujuClient(jes_enabled=True)
+        client.bootstrap()
+        admin_client = client.get_admin_client()
+        # Force get_admin_client to return the *same* client, instead of an
+        # equivalent one.
+        with patch.object(client, 'get_admin_client',
+                          return_value=admin_client, autospec=True):
+            with patch.object(admin_client, 'juju',
+                              autospec=True) as juju_mock:
+                _set_charm_store_ip(client, '1.2.3.4')
+        juju_mock.assert_called_once_with(
+            'ssh', ('0', _get_ssh_script('1.2.3.4')))
 
 
 class TestMain(TestCase):

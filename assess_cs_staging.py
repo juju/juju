@@ -21,11 +21,14 @@ __metaclass__ = type
 log = logging.getLogger("assess_cs_staging")
 
 
-def _set_charm_store_ip(client, ip):
-    cmd = (
+def _get_ssh_script(ip):
+    return (
         '''sudo bash -c "echo '%s store.juju.ubuntu.com' >> /etc/hosts"'''
         % ip)
-    client.juju('ssh', ('0', cmd))
+
+
+def _set_charm_store_ip(client, ip):
+    client.get_admin_client().juju('ssh', ('0', _get_ssh_script(ip)))
 
 
 def assess_deploy(client, charm):
