@@ -81,12 +81,27 @@ class IterRegionConnection(TestCase):
         with patch('make_aws_image_streams.ec2.regions', autospec=True,
                    return_value=[east, west]) as regions_mock:
             connections = [x for x in iter_region_connection(aws, aws_cn)]
-        regions_mock.assert_called_once_with()
+        regions_mock.assert_called_once_with(**aws)
         self.assertEqual(
             [east.connect.return_value, west.connect.return_value],
             connections)
         east.connect.assert_called_once_with(**aws)
         west.connect.assert_called_once_with(**aws_cn)
+
+    def test_unauth_region(self):
+        eu_central_1 = make_mock_region(
+            'eu-central-1', endpoint='ec2.eu-central-1.amazonaws.com')
+        ap_northeast_2 = make_mock_region(
+            'ap-northeast-2', endpoint='ec2.ap-northeast-2.amazonaws.com')
+        aws = {}
+        with patch('make_aws_image_streams.ec2.regions', autospec=True,
+                   return_value=[eu_central_1, ap_northeast_2]
+                   ) as regions_mock:
+            connections = [x for x in iter_region_connection(aws, None)]
+        regions_mock.assert_called_once_with()
+        self.assertEqual([], connections)
+        self.assertEqual(0, eu_central_1.connect.call_count)
+        self.assertEqual(0, ap_northeast_2.connect.call_count)
 
 
 class IterCentosImages(TestCase):
