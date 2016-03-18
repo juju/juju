@@ -37,7 +37,7 @@ func (s *statusRelation) relationType() string {
 }
 
 type relationFormatter struct {
-	relationIndex []string
+	relationIndex set.Strings
 	relations     map[string]*statusRelation
 }
 
@@ -48,7 +48,7 @@ func newRelationFormatter() *relationFormatter {
 }
 
 func (r *relationFormatter) len() int {
-	return len(r.relationIndex)
+	return r.relationIndex.Size()
 }
 
 func (r *relationFormatter) add(rel1, rel2, relation string, is2SubOf1 bool) {
@@ -63,12 +63,11 @@ func (r *relationFormatter) add(rel1, rel2, relation string, is2SubOf1 bool) {
 		relation:    relation,
 		subordinate: is2SubOf1,
 	}
-	r.relationIndex = append(r.relationIndex, k)
+	r.relationIndex.Add(k)
 }
 
 func (r *relationFormatter) sorted() []string {
-	sort.Sort(sort.StringSlice(r.relationIndex))
-	return r.relationIndex
+	return r.relationIndex.SortedValues()
 }
 
 func (r *relationFormatter) get(k string) *statusRelation {
