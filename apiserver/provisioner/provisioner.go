@@ -753,7 +753,11 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 		preparedOK := true
 		for j, device := range containerDevices {
 			parentDevice, err := device.ParentDevice()
-			if err != nil {
+			if err != nil || parentDevice == nil {
+				err = errors.Errorf(
+					"cannot get parent %q of container device %q: %v",
+					device.ParentName(), device.Name(), err,
+				)
 				result.Results[i].Error = common.ServerError(err)
 				preparedOK = false
 				break
@@ -770,11 +774,12 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 				preparedOK = false
 				break
 			}
-			parentDeviceSubnet, err := parentAddrs[0].Subnet()
-			if err != nil {
+			firstAddress := parentAddrs[0]
+			parentDeviceSubnet, err := firstAddress.Subnet()
+			if err != nil || parentDeviceSubnet == nil {
 				err = errors.Errorf(
-					"host machine device %q address %q has no subnet",
-					parentDevice.Name(), parentAddrs[0],
+					"cannot get subnet %q used by address %q of host machine device %q: %v",
+					firstAddress.SubnetID(), firstAddress.Value(), parentDevice.Name(), err,
 				)
 				result.Results[i].Error = common.ServerError(err)
 				preparedOK = false

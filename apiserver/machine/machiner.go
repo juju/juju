@@ -169,7 +169,8 @@ func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkCo
 	}
 	netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(api.st)
 	if errors.IsNotSupported(err) {
-		logger.Debugf("not merging observed and provider network config: %v", err)
+		logger.Infof("not merging observed and provider network config: %v", err)
+		return nil
 	} else if err != nil {
 		return errors.Annotate(err, "cannot get provider network config")
 	}
