@@ -192,7 +192,6 @@ type localServerSuite struct {
 
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.SetUpSuite(c)
-	t.Tests.SetUpSuite(c)
 	t.Credential = cloud.NewCredential(
 		cloud.AccessKeyAuthType,
 		map[string]string{
@@ -211,6 +210,9 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
+	t.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	t.BaseSuite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	t.Tests.SetUpSuite(c)
 }
 
 func (t *localServerSuite) TearDownSuite(c *gc.C) {
@@ -221,9 +223,9 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
-	t.Tests.SetUpTest(c)
 	t.SetFeatureFlags(feature.AddressAllocation)
 	t.srv.startServer(c)
+	t.Tests.SetUpTest(c)
 }
 
 func (t *localServerSuite) TearDownTest(c *gc.C) {
