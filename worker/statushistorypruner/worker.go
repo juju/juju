@@ -28,7 +28,8 @@ type Config struct {
 	Facade           Facade
 	MaxLogsPerEntity uint
 	PruneInterval    time.Duration
-	NewTimer         worker.NewTimerFunc
+	// TODO(fwereade): 2016-03-17 lp:1558657
+	NewTimer worker.NewTimerFunc
 }
 
 // Validate will err unless basic requirements for a valid

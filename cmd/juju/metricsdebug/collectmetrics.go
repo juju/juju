@@ -153,6 +153,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 	for _ = range runResults {
 		select {
 		case <-resultChannel:
+		// TODO(fwereade): 2016-03-17 lp:1558657
 		case <-time.After(3 * time.Second):
 			fmt.Fprintf(ctx.Stdout, "wait result timeout")
 			break

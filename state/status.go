@@ -126,6 +126,7 @@ func setStatus(st *State, params setStatusParams) (err error) {
 	// status was *set*, not the time it happened to arrive in state.
 	// We should almost certainly be accepting StatusInfo in the exposed
 	// SetStatus methods, for symetry with the Status methods.
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	now := time.Now().UnixNano()
 	doc := statusDoc{
 		Status:     params.status,

@@ -120,6 +120,7 @@ func NewBackups(stor filestorage.FileStorage) Backups {
 // Create creates and stores a new juju backup archive and updates the
 // provided metadata.
 func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo) error {
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	meta.Started = time.Now().UTC()
 
 	// The metadata file will not contain the ID or the "finished" data.

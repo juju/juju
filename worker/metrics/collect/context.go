@@ -24,6 +24,7 @@ type hookContext struct {
 }
 
 func newHookContext(unitName string, recorder spool.MetricRecorder) *hookContext {
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	id := fmt.Sprintf("%s-%s-%d", unitName, "collect-metrics", rand.New(rand.NewSource(time.Now().Unix())).Int63())
 	return &hookContext{unitName: unitName, id: id, recorder: recorder}
 }
@@ -58,6 +59,7 @@ func (ctx *hookContext) AddMetric(key string, value string, created time.Time) e
 // is defined for this context.
 func (ctx *hookContext) addJujuUnitsMetric() error {
 	if ctx.recorder.IsDeclaredMetric("juju-units") {
+		// TODO(fwereade): 2016-03-17 lp:1558657
 		err := ctx.recorder.AddMetric("juju-units", "1", time.Now().UTC())
 		if err != nil {
 			return errors.Trace(err)

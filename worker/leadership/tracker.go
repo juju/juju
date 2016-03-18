@@ -163,6 +163,7 @@ func (t *Tracker) loop() error {
 func (t *Tracker) refresh() error {
 	logger.Debugf("checking %s for %s leadership", t.unitName, t.serviceName)
 	leaseDuration := 2 * t.duration
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	untilTime := time.Now().Add(leaseDuration)
 	err := t.claimer.ClaimLeadership(t.serviceName, t.unitName, leaseDuration)
 	switch {
@@ -181,6 +182,7 @@ func (t *Tracker) setLeader(untilTime time.Time) error {
 	logger.Infof("%s will renew %s leadership at %s", t.unitName, t.serviceName, renewTime)
 	t.isMinion = false
 	t.claimLease = nil
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	t.renewLease = time.After(renewTime.Sub(time.Now()))
 
 	for len(t.waitingLeader) > 0 {

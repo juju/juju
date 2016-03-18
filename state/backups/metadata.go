@@ -69,7 +69,8 @@ type Metadata struct {
 func NewMetadata() *Metadata {
 	return &Metadata{
 		FileMetadata: filestorage.NewMetadata(),
-		Started:      time.Now().UTC(),
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		Started: time.Now().UTC(),
 		Origin: Origin{
 			Version: version.Current,
 		},
@@ -105,6 +106,7 @@ func (m *Metadata) MarkComplete(size int64, checksum string) error {
 		return errors.New("missing checksum")
 	}
 	format := checksumFormat
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	finished := time.Now().UTC()
 
 	if err := m.SetFileInfo(size, checksum, format); err != nil {

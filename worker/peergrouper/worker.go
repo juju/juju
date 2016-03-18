@@ -175,6 +175,7 @@ func (w *pgWorker) loop() error {
 				break
 			}
 			// Try to update the replica set immediately.
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			updateChan = time.After(0)
 
 		case <-updateChan:
@@ -198,9 +199,11 @@ func (w *pgWorker) loop() error {
 				// Update the replica set members occasionally
 				// to keep them up to date with the current
 				// replica set member statuses.
+				// TODO(fwereade): 2016-03-17 lp:1558657
 				updateChan = time.After(pollInterval)
 				retryInterval = initialRetryInterval
 			} else {
+				// TODO(fwereade): 2016-03-17 lp:1558657
 				updateChan = time.After(retryInterval)
 				retryInterval *= 2
 				if retryInterval > maxRetryInterval {

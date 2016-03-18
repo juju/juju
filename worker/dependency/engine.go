@@ -398,6 +398,7 @@ func (engine *engine) runWorker(name string, delay time.Duration, start StartFun
 		defer resourceGetter.expire()
 		logger.Tracef("starting %q manifold worker in %s...", name, delay)
 		select {
+		// TODO(fwereade): 2016-03-17 lp:1558657
 		case <-time.After(delay):
 		case <-engine.tomb.Dying():
 			return nil, errAborted
