@@ -6,8 +6,10 @@ package tools
 import (
 	"fmt"
 
+	"github.com/juju/version"
+
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // ToolsMetadataLookupParams is used to query metadata for matching tools.
@@ -28,7 +30,7 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 		return nil, nil, fmt.Errorf("required parameter sources not specified")
 	}
 	if params.Version == "" && params.Major == 0 {
-		params.Version = version.Current.String()
+		params.Version = jujuversion.Current.String()
 	}
 	var toolsConstraint *ToolsConstraint
 	if params.Version == "" {

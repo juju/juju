@@ -517,7 +517,7 @@ func (s *loginSuite) TestLoginValidationFail(c *gc.C) {
 
 func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 	validator := func(params.LoginRequest) error {
-		return apiserver.UpgradeInProgressError
+		return params.UpgradeInProgressError
 	}
 	checker := func(c *gc.C, loginErr error, st api.Connection) {
 		c.Assert(loginErr, gc.IsNil)
@@ -527,7 +527,7 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = st.APICall("Client", 1, "", "DestroyModel", nil, nil)
-		c.Assert(err, gc.ErrorMatches, ".*upgrade in progress - Juju functionality is limited.*")
+		c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress})
 	}
 	s.checkLoginWithValidator(c, validator, checker)
 }

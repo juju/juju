@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/joyent"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func registerLocalTests() {
@@ -121,7 +121,7 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.providerSuite.SetUpTest(c)
 	credentialsAttrs := joyent.CredentialsAttributes(s.TestConfig)
 	s.Credential = cloud.NewCredential(
@@ -164,7 +164,7 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.providerSuite.SetUpTest(c)
 
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.cSrv = &localCloudAPIServer{}
 	s.mSrv = &localMantaServer{}
 	s.cSrv.setupServer(c)
@@ -394,10 +394,10 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10")
+	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10 virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "tags"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "tags", "virt-type"})
 }
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {

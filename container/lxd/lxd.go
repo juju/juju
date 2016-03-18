@@ -91,7 +91,9 @@ func (manager *containerManager) CreateContainer(
 		}
 	}
 
-	err = manager.client.EnsureImageExists(series)
+	err = manager.client.EnsureImageExists(series, func(progress string) {
+		callback(status.StatusAllocating, progress, nil)
+	})
 	if err != nil {
 		return
 	}

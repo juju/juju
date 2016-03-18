@@ -11,14 +11,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/toolstorage"
+	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 type tooler interface {
@@ -26,15 +26,6 @@ type tooler interface {
 	AgentTools() (*tools.Tools, error)
 	SetAgentVersion(v version.Binary) error
 	Refresh() error
-}
-
-func newTools(vers, url string) *tools.Tools {
-	return &tools.Tools{
-		Version: version.MustParseBinary(vers),
-		URL:     url,
-		Size:    10,
-		SHA256:  "1234",
-	}
 }
 
 func testAgentTools(c *gc.C, obj tooler, agent string) {
@@ -63,55 +54,73 @@ func testAgentTools(c *gc.C, obj tooler, agent string) {
 	})
 }
 
-var _ = gc.Suite(&ToolsSuite{})
-
-type ToolsSuite struct {
+type binaryStorageSuite struct {
 	ConnSuite
 }
 
-func (s *ToolsSuite) TestStorage(c *gc.C) {
+var _ = gc.Suite(&binaryStorageSuite{})
+
+type storageOpener func() (binarystorage.StorageCloser, error)
+
+func (s *binaryStorageSuite) TestToolsStorage(c *gc.C) {
+	s.testStorage(c, "toolsmetadata", s.State.ToolsStorage)
+}
+
+func (s *binaryStorageSuite) TestToolsStorageParams(c *gc.C) {
+	s.testStorageParams(c, "toolsmetadata", s.State.ToolsStorage)
+}
+
+func (s *binaryStorageSuite) TestGUIArchiveStorage(c *gc.C) {
+	s.testStorage(c, "guimetadata", s.State.GUIStorage)
+}
+
+func (s *binaryStorageSuite) TestGUIArchiveStorageParams(c *gc.C) {
+	s.testStorageParams(c, "guimetadata", s.State.GUIStorage)
+}
+
+func (s *binaryStorageSuite) testStorage(c *gc.C, collName string, openStorage storageOpener) {
 	session := s.State.MongoSession()
 	collectionNames, err := session.DB("juju").CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
 	nameSet := set.NewStrings(collectionNames...)
-	c.Assert(nameSet.Contains("toolsmetadata"), jc.IsFalse)
+	c.Assert(nameSet.Contains(collName), jc.IsFalse)
 
-	storage, err := s.State.ToolsStorage()
+	storage, err := openStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := storage.Close()
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	err = storage.AddTools(strings.NewReader(""), toolstorage.Metadata{})
+	err = storage.Add(strings.NewReader(""), binarystorage.Metadata{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	collectionNames, err = session.DB("juju").CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
 	nameSet = set.NewStrings(collectionNames...)
-	c.Assert(nameSet.Contains("toolsmetadata"), jc.IsTrue)
+	c.Assert(nameSet.Contains(collName), jc.IsTrue)
 }
 
-func (s *ToolsSuite) TestStorageParams(c *gc.C) {
+func (s *binaryStorageSuite) testStorageParams(c *gc.C, collName string, openStorage storageOpener) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	var called bool
-	s.PatchValue(state.ToolstorageNewStorage, func(
+	s.PatchValue(state.BinarystorageNew, func(
 		modelUUID string,
 		managedStorage blobstore.ManagedStorage,
 		metadataCollection *mgo.Collection,
 		runner jujutxn.Runner,
-	) toolstorage.Storage {
+	) binarystorage.Storage {
 		called = true
 		c.Assert(modelUUID, gc.Equals, env.UUID())
 		c.Assert(managedStorage, gc.NotNil)
-		c.Assert(metadataCollection.Name, gc.Equals, "toolsmetadata")
+		c.Assert(metadataCollection.Name, gc.Equals, collName)
 		c.Assert(runner, gc.NotNil)
 		return nil
 	})
 
-	storage, err := s.State.ToolsStorage()
+	storage, err := openStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	storage.Close()
 	c.Assert(called, jc.IsTrue)

@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/logsender"
@@ -119,7 +119,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	}
 	agentConfig := a.CurrentConfig()
 
-	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), version.Current, runtime.Compiler)
+	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), jujuversion.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}

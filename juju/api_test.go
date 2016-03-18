@@ -32,7 +32,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type NewAPIClientSuite struct {
@@ -308,7 +308,7 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 
 func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	c.Skip("wallyworld - this is a dumb test relying on an arbitary 50ms delay to pass")
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	legacyStore, store := s.bootstrapEnv(c)
 	setEndpointAddressAndHostname(c, store, "0.1.2.3", "infoapi.invalid")
 
@@ -399,7 +399,7 @@ func setEndpointAddressAndHostname(c *gc.C, store jujuclient.ControllerStore, ad
 }
 
 func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 
 	legacyStore, store := s.bootstrapEnv(c)
 	setEndpointAddressAndHostname(c, store, "0.1.2.3", "infoapi.invalid")
@@ -468,7 +468,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	legacyStore, store := s.bootstrapEnv(c)
 	setEndpointAddressAndHostname(c, store, "0.1.2.3", "infoapi.invalid")
 
@@ -491,7 +491,7 @@ func defaultConfigStore(c *gc.C) configstore.Storage {
 }
 
 func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	legacyStore, store := s.bootstrapEnv(c)
 
 	details, err := store.ControllerByName("local.my-controller")

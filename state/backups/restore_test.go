@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&RestoreSuite{})
@@ -207,7 +207,7 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 				DataDir: dataDir,
 				LogDir:  logDir,
 			},
-			UpgradedToVersion: version.Current,
+			UpgradedToVersion: jujuversion.Current,
 			Tag:               machineTag,
 			Model:             coretesting.ModelTag,
 			Password:          "placeholder",

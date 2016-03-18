@@ -34,7 +34,7 @@ type lxdProfiles interface {
 }
 
 type lxdImages interface {
-	EnsureImageExists(series string) error
+	EnsureImageExists(series string, copyProgressHandler func(string)) error
 }
 
 func newRawProvider(ecfg *environConfig) (*rawProvider, error) {

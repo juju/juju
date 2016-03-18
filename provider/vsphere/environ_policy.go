@@ -71,6 +71,7 @@ func (env *environ) lookupArchitectures() ([]string, error) {
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.Networks,
+	constraints.VirtType,
 }
 
 // ConstraintsValidator returns a Validator value which is used to

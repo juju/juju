@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/filestorage"
@@ -33,13 +34,13 @@ import (
 	"github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func GetMockBundleTools(c *gc.C) tools.BundleToolsFunc {
 	return func(w io.Writer, forceVersion *version.Number) (version.Binary, string, error) {
 		vers := version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		}
@@ -56,7 +57,7 @@ func GetMockBundleTools(c *gc.C) tools.BundleToolsFunc {
 func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
 	return func(forceVersion *version.Number, stream string) (*sync.BuiltTools, error) {
 		vers := version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		}
