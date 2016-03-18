@@ -5231,13 +5231,12 @@ class TestController(TestCase):
     def test_controller(self):
         controller = Controller('ctrl')
         self.assertEqual('ctrl', controller.name)
-        self.assertIs(None, controller.admin_model)
 
 
 class TestSimpleEnvironment(TestCase):
 
     def test_default_controller(self):
-        default =  SimpleEnvironment('foo')
+        default = SimpleEnvironment('foo')
         self.assertEqual('foo', default.controller.name)
 
     def test_clone(self):
@@ -5265,6 +5264,20 @@ class TestSimpleEnvironment(TestCase):
         copy = orig.clone(model_name='newname')
         self.assertEqual('newname', copy.environment)
         self.assertEqual('newname', copy.config['name'])
+
+    def test_set_model_name(self):
+        env = SimpleEnvironment('foo', {})
+        env.set_model_name('bar')
+        self.assertEqual(env.environment, 'bar')
+        self.assertEqual(env.controller.name, 'bar')
+        self.assertEqual(env.config['name'], 'bar')
+
+    def test_set_model_name_not_controller(self):
+        env = SimpleEnvironment('foo', {})
+        env.set_model_name('bar', set_controller=False)
+        self.assertEqual(env.environment, 'bar')
+        self.assertEqual(env.controller.name, 'foo')
+        self.assertEqual(env.config['name'], 'bar')
 
     def test_local_from_config(self):
         env = SimpleEnvironment('local', {'type': 'openstack'})

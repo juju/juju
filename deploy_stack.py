@@ -383,8 +383,7 @@ def deploy_job():
 def update_env(env, new_env_name, series=None, bootstrap_host=None,
                agent_url=None, agent_stream=None, region=None):
     # Rename to the new name.
-    env.environment = new_env_name
-    env.config['name'] = new_env_name
+    env.set_model_name(new_env_name)
     if series is not None:
         env.config['default-series'] = series
     if bootstrap_host is not None:

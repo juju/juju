@@ -524,10 +524,11 @@ class TestMultiIndustrialTest(TestCase):
             DestroyEnvironmentAttempt]), 'log-dir', 5)
         with self.patch_client(lambda x, y=None, debug=False: (x, y)):
             industrial = mit.make_industrial_test()
-        self.assertEqual(industrial.old_client,
-                         (SimpleEnvironment('foo-env-old', {}), None))
-        self.assertEqual(industrial.new_client,
-                         (SimpleEnvironment('foo-env-new', {}), 'bar-path'))
+        self.assertEqual(industrial.old_client, (
+            SimpleEnvironment('foo-env-old', {'name': 'foo-env-old'}), None))
+        self.assertEqual(industrial.new_client, (
+            SimpleEnvironment('foo-env-new', {'name': 'foo-env-new'}),
+            'bar-path'))
         self.assertEqual(len(industrial.stage_attempts), 1)
         self.assertEqual([mit.stages], [sa.attempt_list for sa in
                          industrial.stage_attempts])
@@ -541,7 +542,9 @@ class TestMultiIndustrialTest(TestCase):
         self.assertEqual(
             industrial.new_client, (
                 SimpleEnvironment('foo-env-new', {
-                    'tools-metadata-url': 'http://example.com'}),
+                    'name': 'foo-env-new',
+                    'tools-metadata-url': 'http://example.com',
+                    }),
                 'bar-path')
             )
 
@@ -832,10 +835,11 @@ class TestIndustrialTest(JujuPyTestCase):
                 industrial = IndustrialTest.from_args(
                     'foo', 'new-juju-path', [])
         self.assertIsInstance(industrial, IndustrialTest)
-        self.assertEqual(industrial.old_client,
-                         (SimpleEnvironment('foo-old', {}), None))
-        self.assertEqual(industrial.new_client,
-                         (SimpleEnvironment('foo-new', {}), 'new-juju-path'))
+        self.assertEqual(industrial.old_client, (
+            SimpleEnvironment('foo-old', {'name': 'foo-old'}), None))
+        self.assertEqual(industrial.new_client, (
+            SimpleEnvironment('foo-new', {'name': 'foo-new'}),
+            'new-juju-path'))
         self.assertNotEqual(industrial.old_client[0].environment,
                             industrial.new_client[0].environment)
 

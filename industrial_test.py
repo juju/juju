@@ -198,10 +198,10 @@ class IndustrialTest:
         :param debug: If True, use juju --debug logging.
         """
         old_env = SimpleEnvironment.from_config(env)
-        old_env.environment = env + '-old'
+        old_env.set_model_name(env + '-old')
         old_client = EnvJujuClient.by_version(old_env, debug=debug)
         new_env = SimpleEnvironment.from_config(env)
-        new_env.environment = env + '-new'
+        new_env.set_model_name(env + '-new')
         if new_agent_url is not None:
             new_env.config['tools-metadata-url'] = new_agent_url
         uniquify_local(new_env)
@@ -975,7 +975,7 @@ def maybe_write_json(filename, results):
 
 def run_single(args):
     env = SimpleEnvironment.from_config(args.env)
-    env.environment = env.environment + '-single'
+    env.set_model_name(env.environment + '-single')
     upgrade_client = EnvJujuClient.by_version(
         env, debug=args.debug)
     client = EnvJujuClient.by_version(

@@ -148,11 +148,12 @@ def coalesce_agent_status(agent_item):
     return state
 
 
+
+
 def make_client(juju_path, debug, env_name, temp_env_name):
     env = SimpleEnvironment.from_config(env_name)
     if temp_env_name is not None:
-        env.environment = temp_env_name
-        env.config['name'] = temp_env_name
+        env.set_model_name(temp_env_name)
     return EnvJujuClient.by_version(env, juju_path, debug)
 
 
@@ -462,8 +463,14 @@ class EnvJujuClient:
         with temp_yaml_file(config_dict) as config_filename:
             yield config_filename
 
+    def _check_bootstrap(self):
+        if self.env.environment != self.env.controller.name:
+            raise AssertionError(
+                'Controller and environment names should not vary (yet)')
+
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
         """Bootstrap a controller."""
+        self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series)
@@ -471,6 +478,7 @@ class EnvJujuClient:
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False, bootstrap_series=None):
+        self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series)
@@ -1161,11 +1169,13 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
         """Bootstrap a controller."""
+        self._check_bootstrap()
         args = self.get_bootstrap_args(upload_tools, bootstrap_series)
         self.juju('bootstrap', args, self.env.needs_sudo())
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False):
+        self._check_bootstrap()
         args = self.get_bootstrap_args(upload_tools)
         with self.juju_async('bootstrap', args):
             yield
@@ -1890,6 +1900,12 @@ class SimpleEnvironment:
 
     def __ne__(self, other):
         return not self == other
+
+    def set_model_name(self, model_name, set_controller=True):
+        if set_controller:
+            self.controller.name = model_name
+        self.environment = model_name
+        self.config['name'] = model_name
 
     @classmethod
     def from_config(cls, name):
