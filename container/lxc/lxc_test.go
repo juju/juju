@@ -839,6 +839,7 @@ lxc.network.mtu = 4321
 }
 
 func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {
+	s.HookCommandOutput(&lxc.FsCommandOutput, []byte("Type\next4\n"), nil)
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
 	manager := s.makeManager(c, "test")
@@ -846,17 +847,12 @@ func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {
 	name := string(instance.Id())
 	cloned := <-s.events
 	s.AssertEvent(c, cloned, mock.Cloned, "juju-quantal-lxc-template")
-	// Note: It might be better to override ContainerDirFilesystem as a
-	// function and force it to report a known FS.
-	if lxc.ContainerDirFilesystem() == lxc.Btrfs {
-		c.Assert(cloned.Args, gc.DeepEquals, []string{"--snapshot"})
-	} else {
-		c.Assert(cloned.Args, gc.IsNil)
-	}
+	c.Assert(cloned.Args, gc.IsNil)
 	s.AssertEvent(c, <-s.events, mock.Started, name)
 }
 
 func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateAUFS(c *gc.C) {
+	s.HookCommandOutput(&lxc.FsCommandOutput, []byte("Type\next4\n"), nil)
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
 	s.PatchValue(&s.useAUFS, true)
@@ -865,13 +861,20 @@ func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateAUFS(c *gc.
 	name := string(instance.Id())
 	cloned := <-s.events
 	s.AssertEvent(c, cloned, mock.Cloned, "juju-quantal-lxc-template")
-	// Note: It might be better to override ContainerDirFilesystem as a
-	// function and force it to report a known FS.
-	if fs, err := lxc.ContainerDirFilesystem(); err == nil && fs == lxc.Btrfs {
-		c.Assert(cloned.Args, gc.DeepEquals, []string{"--snapshot"})
-	} else {
-		c.Assert(cloned.Args, gc.DeepEquals, []string{"--snapshot", "--backingstore", "aufs"})
-	}
+	c.Assert(cloned.Args, gc.DeepEquals, []string{"--snapshot", "--backingstore", "aufs"})
+	s.AssertEvent(c, <-s.events, mock.Started, name)
+}
+
+func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateBtrfs(c *gc.C) {
+	s.HookCommandOutput(&lxc.FsCommandOutput, []byte("Type\nbtrfs\n"), nil)
+	s.createTemplate(c)
+	s.PatchValue(&s.useClone, true)
+	manager := s.makeManager(c, "test")
+	instance := containertesting.CreateContainer(c, manager, "1")
+	name := string(instance.Id())
+	cloned := <-s.events
+	s.AssertEvent(c, cloned, mock.Cloned, "juju-quantal-lxc-template")
+	c.Assert(cloned.Args, gc.DeepEquals, []string{"--snapshot"})
 	s.AssertEvent(c, <-s.events, mock.Started, name)
 }
 
