@@ -13,6 +13,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/axw/fancycheck"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -316,6 +317,7 @@ lxc.network.type = veth
 lxc.network.link = nic42
 lxc.network.flags = up
 lxc.network.name = eth0
+lxc.network.hwaddr = aa:bb:cc:dd:ee:f0
 lxc.network.ipv4 = 0.1.2.3/20
 lxc.network.ipv4.gateway = 0.1.2.1
 
@@ -364,6 +366,7 @@ lxc.cgroup.devices.allow = c 10:237 rwm
 lxc.network.type = bar
 lxc.network.flags = up
 lxc.network.name = em0
+lxc.network.hwaddr = ff:ee:dd:cc:bb:aa
 lxc.network.ipv4 = 0.1.2.3/20
 lxc.network.ipv4.gateway = 0.1.2.1
 
@@ -385,9 +388,8 @@ lxc.network.vlan.id = 69
 something else  # ignore
 lxc.network.type = phys
 lxc.network.link = foo  # comment
-lxc.network.hwaddr = ff:ee:dd:cc:bb:aa
-lxc.network.mtu = 1234
 lxc.network.hwaddr = deadbeef
+lxc.network.mtu = 1234
 lxc.network.hwaddr = nonsense
 lxc.missing = appended
 lxc.rootfs = /bar/foo
@@ -396,7 +398,7 @@ lxc.rootfs = /bar/foo
 	c.Assert(err, jc.ErrorIsNil)
 	lxcConfContents, err = ioutil.ReadFile(configPath)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(lxcConfContents), gc.Equals, updatedConfig)
+	c.Assert(string(lxcConfContents), fancycheck.StringEquals, updatedConfig)
 
 	// Now test the example in updateContainerConfig's doc string.
 	oldConfig := `

@@ -394,6 +394,7 @@ func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfoWithAddressAllocat
 		InterfaceName:    "eth0", // generated from the device index.
 		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
 		DNSSearchDomains: []string{"dummy"},
+		MACAddress:       "aa:bb:cc:dd:ee:ff",
 		Address:          network.NewAddress("0.1.2.3"),
 		GatewayAddress:   network.NewAddress("0.1.2.1"),
 		NetworkName:      network.DefaultPrivate,
@@ -414,7 +415,9 @@ func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfoWithoutAddressAllo
 		InterfaceName:    "dummy0", // generated from the device index.
 		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
 		DNSSearchDomains: []string{"dummy"},
+		MACAddress:       "aa:bb:cc:dd:ee:ff",
 		Address:          network.NewAddress("0.1.2.3"),
+		GatewayAddress:   network.NewAddress("0.1.2.1"),
 	})
 }
 

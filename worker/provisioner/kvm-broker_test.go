@@ -283,6 +283,7 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 		InterfaceName:    "eth0", // generated from the device index.
 		DNSServers:       network.NewAddresses("ns1.dummy"),
 		DNSSearchDomains: []string{""},
+		MACAddress:       "aa:bb:cc:dd:ee:ff",
 		Address:          network.NewAddress("0.1.2.3"),
 		GatewayAddress:   network.NewAddress("0.1.2.1"),
 		NetworkName:      network.DefaultPrivate,
