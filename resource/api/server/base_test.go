@@ -145,8 +145,8 @@ type stubCSClient struct {
 	ReturnGetResource   *charmresource.Resource
 }
 
-func (s *stubCSClient) ListResources(cURLs []*charm.URL) ([][]charmresource.Resource, error) {
-	s.AddCall("ListResources", cURLs)
+func (s *stubCSClient) ListResources(cURLs []*charm.URL, channel string) ([][]charmresource.Resource, error) {
+	s.AddCall("ListResources", cURLs, channel)
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
