@@ -284,22 +284,6 @@ func (c *DeployCommand) Init(args []string) error {
 	return c.UnitCommandBase.Init(args)
 }
 
-func (c *DeployCommand) newServiceAPIClient() (*apiservice.Client, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return apiservice.NewClient(root), nil
-}
-
-func (c *DeployCommand) newAnnotationsAPIClient() (*apiannotations.Client, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return apiannotations.NewClient(root), nil
-}
-
 type ModelConfigGetter interface {
 	ModelGet() (map[string]interface{}, error)
 }
@@ -315,7 +299,7 @@ var getClientConfig = func(client ModelConfigGetter) (*config.Config, error) {
 }
 
 func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client) error {
-	deployer := serviceDeployer{ctx, c.newServiceAPIClient, c.newAnnotationsAPIClient}
+	deployer := serviceDeployer{ctx, c}
 
 	// We may have been given a local bundle file.
 	bundlePath := c.CharmOrBundle
@@ -678,9 +662,24 @@ type serviceDeployParams struct {
 }
 
 type serviceDeployer struct {
-	ctx                     *cmd.Context
-	newServiceAPIClient     func() (*apiservice.Client, error)
-	newAnnotationsAPIClient func() (*apiannotations.Client, error)
+	ctx *cmd.Context
+	api APICmd
+}
+
+func (d *serviceDeployer) newServiceAPIClient() (*apiservice.Client, error) {
+	root, err := d.api.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apiservice.NewClient(root), nil
+}
+
+func (d *serviceDeployer) newAnnotationsAPIClient() (*apiannotations.Client, error) {
+	root, err := d.api.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apiannotations.NewClient(root), nil
 }
 
 func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {

@@ -137,6 +137,14 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 	s.csClient.ReturnListResources = [][]charmresource.Resource{{
 		csRes.Resource,
 	}}
+	expected := charmresource.Resource{
+		Meta:        csRes.Meta,
+		Origin:      charmresource.OriginStore,
+		Revision:    3,
+		Fingerprint: res1.Fingerprint,
+		Size:        res1.Size,
+	}
+	s.csClient.ReturnGetResource = &expected
 	facade, err := server.NewFacade(s.data, s.newCSClient)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -153,8 +161,13 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(result.Error, gc.ErrorMatches, `could not get resource info from charm store`)
-	s.stub.CheckCallNames(c, "newCSClient", "ListResources")
+	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "GetResource", "AddPendingResource")
+	s.stub.CheckCall(c, 3, "AddPendingResource", "a-service", "", expected, nil)
+	c.Check(result, jc.DeepEquals, api.AddPendingResourcesResult{
+		PendingIDs: []string{
+			id1,
+		},
+	})
 }
 
 func (s *AddPendingResourcesSuite) TestWithURLNoRevision(c *gc.C) {

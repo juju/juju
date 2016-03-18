@@ -118,6 +118,11 @@ type UnitResources struct {
 
 	// Resources is a list of resources for the unit.
 	Resources []Resource
+
+	// DownloadProgress indicates the number of bytes of a resource file
+	// have been downloaded so far the uniter. Only currently downloading
+	// resources are included.
+	DownloadProgress map[string]int64
 }
 
 // UploadResult is the response from an upload request.

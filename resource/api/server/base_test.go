@@ -5,10 +5,10 @@ package server_test
 
 import (
 	"io"
+	"io/ioutil"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -82,7 +82,6 @@ type stubDataStore struct {
 	ReturnGetPendingResource    resource.Resource
 	ReturnSetResource           resource.Resource
 	ReturnUpdatePendingResource resource.Resource
-	ReturnUnits                 []names.UnitTag
 }
 
 func (s *stubDataStore) ListResources(service string) (resource.ServiceResources, error) {
@@ -139,19 +138,11 @@ func (s *stubDataStore) UpdatePendingResource(serviceID, pendingID, userID strin
 	return s.ReturnUpdatePendingResource, nil
 }
 
-func (s *stubDataStore) Units(serviceID string) ([]names.UnitTag, error) {
-	s.stub.AddCall("Units", serviceID)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.ReturnUnits, nil
-}
-
 type stubCSClient struct {
 	*testing.Stub
 
 	ReturnListResources [][]charmresource.Resource
+	ReturnGetResource   *charmresource.Resource
 }
 
 func (s *stubCSClient) ListResources(cURLs []*charm.URL) ([][]charmresource.Resource, error) {
@@ -161,4 +152,16 @@ func (s *stubCSClient) ListResources(cURLs []*charm.URL) ([][]charmresource.Reso
 	}
 
 	return s.ReturnListResources, nil
+}
+
+func (s *stubCSClient) GetResource(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, io.ReadCloser, error) {
+	s.AddCall("GetResource", cURL, resourceName, revision)
+	if err := s.NextErr(); err != nil {
+		return charmresource.Resource{}, nil, errors.Trace(err)
+	}
+
+	if s.ReturnGetResource == nil {
+		return charmresource.Resource{}, nil, errors.NotFoundf("resource %q", resourceName)
+	}
+	return *s.ReturnGetResource, ioutil.NopCloser(nil), nil
 }

@@ -139,7 +139,12 @@ func deployBundle(
 		case *bundlechanges.AddRelationChange:
 			err = h.addRelation(change.Id(), change.Params)
 		case *bundlechanges.AddServiceChange:
-			err = h.addService(change.Id(), change.Params)
+			var cURL *charm.URL
+			cURL, err = charm.ParseURL(resolve(change.Params.Charm, h.results))
+			if err == nil {
+				csMac := csMacs[cURL]
+				err = h.addService(change.Id(), change.Params, cURL, csMac)
+			}
 		case *bundlechanges.AddUnitChange:
 			err = h.addUnit(change.Id(), change.Params)
 		case *bundlechanges.ExposeChange:
@@ -236,9 +241,9 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*ch
 
 // addService deploys or update a service with no units. Service options are
 // also set or updated.
-func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) error {
+func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams, cURL *charm.URL, csMac *macaroon.Macaroon) error {
 	h.results[id] = p.Service
-	ch := resolve(p.Charm, h.results)
+	ch := cURL.String()
 	// Handle service configuration.
 	configYAML := ""
 	if len(p.Options) > 0 {
@@ -272,6 +277,18 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) 
 			storageConstraints[k] = cons
 		}
 	}
+	resources := make(map[string]string)
+	for resName, revision := range p.Resources {
+		resources[resName] = fmt.Sprint(revision)
+	}
+	charmInfo, err := h.client.CharmInfo(ch)
+	if err != nil {
+		return err
+	}
+	resNames2IDs, err := handleResources(h.serviceDeployer.api, resources, p.Service, cURL, csMac, charmInfo.Meta.Resources)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	// Deploy the service.
 	if err := h.serviceDeployer.serviceDeploy(serviceDeployParams{
 		charmURL:      ch,
@@ -280,8 +297,12 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) 
 		constraints:   cons,
 		storage:       storageConstraints,
 		spaceBindings: p.EndpointBindings,
+		resources:     resNames2IDs,
 	}); err == nil {
 		h.log.Infof("service %s deployed (charm: %s)", p.Service, ch)
+		for resName := range resNames2IDs {
+			h.log.Infof("added resource %s", resName)
+		}
 		return nil
 	} else if !isErrServiceExists(err) {
 		return errors.Annotatef(err, "cannot deploy service %q", p.Service)
@@ -290,7 +311,7 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) 
 	// charm is compatible with the one declared in the bundle. If it is,
 	// reuse the existing service or upgrade to a specified revision.
 	// Exit with an error otherwise.
-	if err := upgradeCharm(h.serviceClient, h.log, p.Service, ch); err != nil {
+	if err := h.upgradeCharm(p.Service, cURL, csMac, resources); err != nil {
 		return errors.Annotatef(err, "cannot upgrade service %q", p.Service)
 	}
 	// Update service configuration.
@@ -689,13 +710,14 @@ func resolve(placeholder string, results map[string]string) string {
 // If the service is already deployed using the given charm id, do nothing.
 // This function returns an error if the existing charm and the target one are
 // incompatible, meaning an upgrade from one to the other is not allowed.
-func upgradeCharm(client *apiservice.Client, log deploymentLogger, service, id string) error {
-	existing, err := client.GetCharmURL(service)
+func (h *bundleHandler) upgradeCharm(service string, cURL *charm.URL, csMac *macaroon.Macaroon, resources map[string]string) error {
+	id := cURL.String()
+	existing, err := h.serviceClient.GetCharmURL(service)
 	if err != nil {
 		return errors.Annotatef(err, "cannot retrieve info for service %q", service)
 	}
 	if existing.String() == id {
-		log.Infof("reusing service %s (charm: %s)", service, id)
+		h.log.Infof("reusing service %s (charm: %s)", service, id)
 		return nil
 	}
 	url, err := charm.ParseURL(id)
@@ -705,14 +727,29 @@ func upgradeCharm(client *apiservice.Client, log deploymentLogger, service, id s
 	if url.WithRevision(-1).Path() != existing.WithRevision(-1).Path() {
 		return errors.Errorf("bundle charm %q is incompatible with existing charm %q", id, existing)
 	}
+	filtered, err := getUpgradeResources(h.serviceDeployer.api, service, url, h.client, resources)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var resNames2IDs map[string]string
+	if len(filtered) != 0 {
+		resNames2IDs, err = handleResources(h.serviceDeployer.api, resources, service, url, csMac, filtered)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
 	cfg := apiservice.SetCharmConfig{
 		ServiceName: service,
 		CharmUrl:    id,
+		ResourceIDs: resNames2IDs,
 	}
-	if err := client.SetCharm(cfg); err != nil {
+	if err := h.serviceClient.SetCharm(cfg); err != nil {
 		return errors.Annotatef(err, "cannot upgrade charm to %q", id)
 	}
-	log.Infof("upgraded charm for existing service %s (from %s to %s)", service, existing, id)
+	h.log.Infof("upgraded charm for existing service %s (from %s to %s)", service, existing, id)
+	for resName := range resNames2IDs {
+		h.log.Infof("added resource %s", resName)
+	}
 	return nil
 }
 

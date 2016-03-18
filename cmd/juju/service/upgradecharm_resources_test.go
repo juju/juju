@@ -179,6 +179,9 @@ func (s *UpgradeCharmStoreResourceSuite) SetUpSuite(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TODO(ericsnow) Adapt this test to check passing revisions once the
+// charmstore endpoints are implemented.
+
 func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/starsay-1", "starsay")
 
@@ -227,7 +230,7 @@ Deploying charm "cs:trusty/starsay-1" with the charm series "trusty".
 					Description: "get things started",
 				},
 				Origin:   charmresource.OriginStore,
-				Revision: 0,
+				Revision: -1,
 			},
 			ID:        "starsay/install-resource",
 			ServiceID: "starsay",
@@ -241,7 +244,7 @@ Deploying charm "cs:trusty/starsay-1" with the charm series "trusty".
 					Description: "One line that is useful when operators need to push it.",
 				},
 				Origin:   charmresource.OriginStore,
-				Revision: 0,
+				Revision: -1,
 			},
 			ID:        "starsay/store-resource",
 			ServiceID: "starsay",
