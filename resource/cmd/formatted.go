@@ -55,12 +55,13 @@ type FormattedUnitResource FormattedSvcResource
 // FormattedDetailResource is the data for a single line of tabular output for
 // juju resources <service> --details.
 type FormattedDetailResource struct {
-	UnitID     string               `json:"unitID" yaml:"unitID"`
-	Unit       FormattedSvcResource `json:"unit" yaml:"unit"`
-	Expected   FormattedSvcResource `json:"expected" yaml:"expected"`
-	Progress   int64                `json:"progress,omitempty" yaml:"progress,omitempty"`
-	unitNumber int
-	progress   string
+	UnitID      string               `json:"unitID" yaml:"unitID"`
+	Unit        FormattedSvcResource `json:"unit" yaml:"unit"`
+	Expected    FormattedSvcResource `json:"expected" yaml:"expected"`
+	Progress    int64                `json:"progress,omitempty" yaml:"progress,omitempty"`
+	unitNumber  int
+	progress    string
+	revProgress string
 }
 
 // FormattedServiceDetails is the data for the tabular output for juju resources

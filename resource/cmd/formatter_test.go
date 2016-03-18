@@ -185,12 +185,13 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d, gc.Equals,
 		FormattedDetailResource{
-			unitNumber: 55,
-			UnitID:     "a-service/55",
-			Expected:   FormatSvcResource(svc),
-			Progress:   8,
-			progress:   "53.3%",
-			Unit:       FormatSvcResource(unit),
+			unitNumber:  55,
+			UnitID:      "a-service/55",
+			Expected:    FormatSvcResource(svc),
+			Progress:    8,
+			progress:    "80%",
+			revProgress: "5 (fetching: 80%)",
+			Unit:        FormatSvcResource(unit),
 		},
 	)
 }
@@ -225,12 +226,13 @@ func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d, gc.Equals,
 		FormattedDetailResource{
-			unitNumber: 55,
-			UnitID:     "a-service/55",
-			Expected:   FormatSvcResource(svc),
-			Progress:   0,
-			progress:   "100%",
-			Unit:       FormatSvcResource(unit),
+			unitNumber:  55,
+			UnitID:      "a-service/55",
+			Expected:    FormatSvcResource(svc),
+			Progress:    0,
+			progress:    "0%",
+			revProgress: "5 (fetching: 0%)",
+			Unit:        FormatSvcResource(unit),
 		},
 	)
 }
