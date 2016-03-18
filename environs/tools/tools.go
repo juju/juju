@@ -10,11 +10,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.tools")
@@ -151,13 +152,6 @@ func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestrea
 	return list, err
 }
 
-func stringOrEmpty(pstr *string) string {
-	if pstr == nil {
-		return ""
-	}
-	return *pstr
-}
-
 // FindExactTools returns only the tools that match the supplied version.
 func FindExactTools(env environs.Environ, vers version.Number, series string, arch string) (t *coretools.Tools, err error) {
 	logger.Infof("finding exact version %s", vers)
@@ -217,11 +211,11 @@ func PreferredStream(vers *version.Number, forceDevel bool, stream string) strin
 	// If we're not upgrading from a known version, we use the
 	// currently running version.
 	if vers == nil {
-		vers = &version.Current
+		vers = &jujuversion.Current
 	}
 	// Devel versions are alpha or beta etc as defined by the version tag.
 	// The user can also force the use of devel streams via config.
-	if forceDevel || vers.IsDev() {
+	if forceDevel || jujuversion.IsDev(*vers) {
 		return DevelStream
 	}
 	return ReleasedStream

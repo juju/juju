@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -35,7 +36,8 @@ type registrationSuite struct {
 func (s *registrationSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.stub = &testing.Stub{}
-	s.PatchValue(&getApiClient, func(*http.Client) (apiClient, error) { return &mockBudgetAPIClient{s.stub}, nil })
+	s.PatchValue(&getApiClient, func(*cmd.Context, *http.Client) (apiClient, error) { return &mockBudgetAPIClient{s.stub}, nil })
+	s.PatchValue(&tokenStore, func() *ussologin.FileTokenStore { return nil })
 	s.handler = &testMetricsRegistrationHandler{Stub: s.stub}
 	s.server = httptest.NewServer(s.handler)
 	s.register = &RegisterMeteredCharm{

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"gopkg.in/amz.v3/ec2"
 
@@ -33,15 +32,7 @@ func (p environProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	attrs := cfg.UnknownAttrs()
-	if _, ok := attrs["control-bucket"]; !ok {
-		uuid, err := utils.UUIDFromString(cfg.UUID())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
-	}
-	return cfg.Apply(attrs)
+	return cfg, nil
 }
 
 // Open is specified in the EnvironProvider interface.

@@ -6,16 +6,16 @@
 package modelmanager
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-
-	"fmt"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var (

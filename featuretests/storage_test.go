@@ -64,7 +64,7 @@ func (s *cmdStorageSuite) SetUpTest(c *gc.C) {
 }
 
 func runShow(c *gc.C, expectedError string, args ...string) {
-	cmdArgs := append([]string{"storage", "show"}, args...)
+	cmdArgs := append([]string{"show-storage"}, args...)
 	context, err := runJujuCommand(c, cmdArgs...)
 	if expectedError == "" {
 		c.Assert(err, jc.ErrorIsNil)
@@ -97,7 +97,7 @@ data/0:
       storage-block/0:
         machine: "0"
 `[1:]
-	context, err := runJujuCommand(c, "storage", "show", "data/0")
+	context, err := runJujuCommand(c, "show-storage", "data/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Matches, expected)
 }
@@ -114,7 +114,7 @@ func (s *cmdStorageSuite) TestStorageShowNoMatch(c *gc.C) {
 }
 
 func runList(c *gc.C, expectedOutput string, args ...string) {
-	cmdArgs := append([]string{"storage", "list"}, args...)
+	cmdArgs := append([]string{"list-storage"}, args...)
 	context, err := runJujuCommand(c, cmdArgs...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)
@@ -173,7 +173,7 @@ data/0:
       storage-block/0:
         machine: "0"
 `[1:]
-	context, err := runJujuCommand(c, "storage", "show", "data/0")
+	context, err := runJujuCommand(c, "show-storage", "data/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Matches, expected)
 }
@@ -195,7 +195,7 @@ data/0:
       storage-block/0:
         machine: "0"
 `[1:]
-	context, err := runJujuCommand(c, "storage", "show", "data/0")
+	context, err := runJujuCommand(c, "show-storage", "data/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Matches, expected)
 }
@@ -213,7 +213,7 @@ func runJujuCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 }
 
 func runPoolList(c *gc.C, args ...string) (string, string, error) {
-	cmdArgs := append([]string{"storage", "pool", "list"}, args...)
+	cmdArgs := append([]string{"list-storage-pools"}, args...)
 	ctx, err := runJujuCommand(c, cmdArgs...)
 	stdout, stderr := "", ""
 	if ctx != nil {
@@ -224,7 +224,7 @@ func runPoolList(c *gc.C, args ...string) (string, string, error) {
 }
 
 func (s *cmdStorageSuite) TestListPools(c *gc.C) {
-	stdout, _, err := runPoolList(c)
+	stdout, _, err := runPoolList(c, "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 block:
@@ -244,7 +244,7 @@ tmpfs:
 }
 
 func (s *cmdStorageSuite) TestListPoolsTabular(c *gc.C) {
-	stdout, _, err := runPoolList(c, "--format", "tabular")
+	stdout, _, err := runPoolList(c)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 NAME    PROVIDER  ATTRS
@@ -259,7 +259,7 @@ tmpfs   tmpfs
 }
 
 func (s *cmdStorageSuite) TestListPoolsName(c *gc.C) {
-	stdout, _, err := runPoolList(c, "--name", "block")
+	stdout, _, err := runPoolList(c, "--format", "yaml", "--name", "block")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 block:
@@ -284,7 +284,7 @@ func (s *cmdStorageSuite) TestListPoolsNameInvalid(c *gc.C) {
 }
 
 func (s *cmdStorageSuite) TestListPoolsProvider(c *gc.C) {
-	stdout, _, err := runPoolList(c, "--provider", "loop")
+	stdout, _, err := runPoolList(c, "--format", "yaml", "--provider", "loop")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 block:
@@ -305,7 +305,7 @@ func (s *cmdStorageSuite) registerTmpProviderType(c *gc.C) {
 
 func (s *cmdStorageSuite) TestListPoolsProviderNoMatch(c *gc.C) {
 	s.registerTmpProviderType(c)
-	stdout, _, err := runPoolList(c, "--provider", string(provider.TmpfsProviderType))
+	stdout, _, err := runPoolList(c, "--format", "yaml", "--provider", string(provider.TmpfsProviderType))
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 tmpfs:
@@ -321,7 +321,7 @@ func (s *cmdStorageSuite) TestListPoolsProviderUnregistered(c *gc.C) {
 }
 
 func (s *cmdStorageSuite) TestListPoolsNameAndProvider(c *gc.C) {
-	stdout, _, err := runPoolList(c, "--name", "block", "--provider", "loop")
+	stdout, _, err := runPoolList(c, "--format", "yaml", "--name", "block", "--provider", "loop")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 block:
@@ -355,7 +355,7 @@ func (s *cmdStorageSuite) TestListPoolsNotNameAndNotProvider(c *gc.C) {
 }
 
 func runPoolCreate(c *gc.C, args ...string) (string, string, error) {
-	cmdArgs := append([]string{"storage", "pool", "create"}, args...)
+	cmdArgs := append([]string{"create-storage-pool"}, args...)
 	ctx, err := runJujuCommand(c, cmdArgs...)
 	stdout, stderr := "", ""
 	if ctx != nil {
@@ -430,7 +430,7 @@ func assertPoolExists(c *gc.C, st *state.State, pname, provider, attr string) {
 }
 
 func runVolumeList(c *gc.C, args ...string) (string, string, error) {
-	cmdArgs := append([]string{"storage", "volume", "list"}, args...)
+	cmdArgs := append([]string{"list-storage", "--volume"}, args...)
 	ctx, err := runJujuCommand(c, cmdArgs...)
 	return testing.Stdout(ctx), testing.Stderr(ctx), err
 }
@@ -454,7 +454,7 @@ MACHINE  UNIT             STORAGE  ID   PROVIDER-ID  DEVICE  SIZE  STATE    MESS
 }
 
 func runAddToUnit(c *gc.C, args ...string) *cmd.Context {
-	cmdArgs := append([]string{"storage", "add"}, args...)
+	cmdArgs := append([]string{"add-storage"}, args...)
 	context, err := runJujuCommand(c, cmdArgs...)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
@@ -530,7 +530,7 @@ storage-filesystem/0 data/0          pending
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumesAfter, gc.HasLen, 2)
 
-	context, err = runJujuCommand(c, "storage", "list")
+	context, err = runJujuCommand(c, "list-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
 [Storage]            

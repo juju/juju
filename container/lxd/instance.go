@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -36,13 +37,29 @@ func (lxd *lxdInstance) Addresses() ([]network.Address, error) {
 }
 
 // Status implements instance.Instance.Status.
-func (lxd *lxdInstance) Status() string {
-	// On error, the state will be "unknown".
-	status, err := lxd.client.Status(lxd.id)
+func (lxd *lxdInstance) Status() instance.InstanceStatus {
+	jujuStatus := status.StatusPending
+	instStatus, err := lxd.client.Status(lxd.id)
 	if err != nil {
-		return "unknown"
+		return instance.InstanceStatus{
+			Status:  status.StatusEmpty,
+			Message: fmt.Sprintf("could not get status: %v", err),
+		}
 	}
-	return status
+	switch instStatus {
+	case lxdclient.StatusStarting, lxdclient.StatusStarted:
+		jujuStatus = status.StatusAllocating
+	case lxdclient.StatusRunning:
+		jujuStatus = status.StatusRunning
+	case lxdclient.StatusFreezing, lxdclient.StatusFrozen, lxdclient.StatusThawed, lxdclient.StatusStopping, lxdclient.StatusStopped:
+		jujuStatus = status.StatusEmpty
+	default:
+		jujuStatus = status.StatusEmpty
+	}
+	return instance.InstanceStatus{
+		Status:  jujuStatus,
+		Message: instStatus,
+	}
 }
 
 // OpenPorts implements instance.Instance.OpenPorts.

@@ -12,11 +12,18 @@ import (
 	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 // An instance Id is a provider-specific identifier associated with an
 // instance (physical or virtual machine allocated in the provider).
 type Id string
+
+// InstanceStatus represents the status for a provider instance.
+type InstanceStatus struct {
+	Status  status.Status
+	Message string
+}
 
 // UnknownId can be used to explicitly specify the instance ID does not matter.
 const UnknownId Id = ""
@@ -27,7 +34,7 @@ type Instance interface {
 	Id() Id
 
 	// Status returns the provider-specific status for the instance.
-	Status() string
+	Status() InstanceStatus
 
 	// Addresses returns a list of hostnames or ip addresses
 	// associated with the instance.
@@ -58,13 +65,6 @@ type HardwareCharacteristics struct {
 	Tags     *[]string `json:",omitempty" yaml:"tags,omitempty"`
 
 	AvailabilityZone *string `json:",omitempty" yaml:"availabilityzone,omitempty"`
-}
-
-func uintStr(i uint64) string {
-	if i == 0 {
-		return ""
-	}
-	return fmt.Sprintf("%d", i)
 }
 
 // An error reporting that an error has occurred during instance creation

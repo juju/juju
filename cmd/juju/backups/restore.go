@@ -20,18 +20,23 @@ import (
 )
 
 func newRestoreCommand() cmd.Command {
-	return modelcmd.Wrap(&restoreCommand{})
+	restoreCmd := &restoreCommand{}
+	restoreCmd.getEnvironFunc = func(controllerNme string) (environs.Environ, error) {
+		return restoreCmd.getEnviron(controllerNme)
+	}
+	return modelcmd.Wrap(restoreCmd)
 }
 
 // restoreCommand is a subcommand of backups that implement the restore behavior
 // it is invoked with "juju restore-backup".
 type restoreCommand struct {
 	CommandBase
-	constraints constraints.Value
-	filename    string
-	backupId    string
-	bootstrap   bool
-	uploadTools bool
+	constraints    constraints.Value
+	filename       string
+	backupId       string
+	bootstrap      bool
+	uploadTools    bool
+	getEnvironFunc func(string) (environs.Environ, error)
 }
 
 var restoreDoc = `
@@ -50,6 +55,8 @@ an appropriate message.  For instance, if the existing bootstrap
 instance is already running then the command will fail with a message
 to that effect.
 `
+
+var BootstrapFunc = bootstrap.Bootstrap
 
 // Info returns the content for --help.
 func (c *restoreCommand) Info() *cmd.Info {
@@ -125,18 +132,16 @@ func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
 	return nil
 }
 
-// rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
-// if there is no current server available to restore to.
-func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
-
-	// TODO(axw) delete this and -b before 2.0. We will update bootstrap
+// getEnviron returns the environ for the specified controller, or
+// mocked out environ for testing.
+func (c *restoreCommand) getEnviron(controllerName string) (environs.Environ, error) {
+	// TODO(axw) delete this and -b in 2.0-beta2. We will update bootstrap
 	// with a flag to specify a restore file. When we do that, we'll need
 	// to extract the CA cert from the backup, and we'll need to reset the
 	// password after restore so the admin user can login.
-	controllerName := c.ControllerName()
 	cfg, err := modelcmd.NewGetBootstrapConfigFunc(c.ClientStore())(controllerName)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	// Turn on safe mode so that the newly bootstrapped instance
@@ -145,9 +150,15 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
 		"provisioner-safe-mode": true,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot enable provisioner-safe-mode")
+		return nil, errors.Annotatef(err, "cannot enable provisioner-safe-mode")
 	}
-	env, err := environs.New(cfg)
+	return environs.New(cfg)
+}
+
+// rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
+// if there is no current server available to restore to.
+func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
+	env, err := c.getEnvironFunc(c.ControllerName())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -155,20 +166,19 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine controller instances")
 	}
-	if len(instanceIds) == 0 {
-		return errors.Errorf("no instances found; perhaps the model was not bootstrapped")
-	}
-	inst, err := env.Instances(instanceIds)
-	if err == nil {
-		return errors.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
-	}
-	if err != environs.ErrNoInstances {
-		return errors.Annotatef(err, "cannot detect whether old instance is still running")
+	if len(instanceIds) > 0 {
+		inst, err := env.Instances(instanceIds)
+		if err == nil {
+			return errors.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
+		}
+		if err != environs.ErrNoInstances {
+			return errors.Annotatef(err, "cannot detect whether old instance is still running")
+		}
 	}
 
 	cons := c.constraints
 	args := bootstrap.BootstrapParams{ModelConstraints: cons, UploadTools: c.uploadTools}
-	if err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, args); err != nil {
+	if err := BootstrapFunc(modelcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")
 	}
 	return nil

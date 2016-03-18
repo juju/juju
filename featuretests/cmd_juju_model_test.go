@@ -38,9 +38,9 @@ func (s *cmdModelSuite) run(c *gc.C, args ...string) *cmd.Context {
 	return context
 }
 
-func (s *cmdModelSuite) TestModelShareCmdStack(c *gc.C) {
+func (s *cmdModelSuite) TestGrantModelCmdStack(c *gc.C) {
 	username := "bar@ubuntuone"
-	context := s.run(c, "share-model", username)
+	context := s.run(c, "grant", username, "admin")
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
@@ -55,14 +55,11 @@ func (s *cmdModelSuite) TestModelShareCmdStack(c *gc.C) {
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
 
-func (s *cmdModelSuite) TestModelUnshareCmdStack(c *gc.C) {
-	// Firstly share an model with a user
+func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
+	// Firstly share a model with a user
 	username := "bar@ubuntuone"
-	context := s.run(c, "share-model", username)
-	user := names.NewUserTag(username)
-	modelUser, err := s.State.ModelUser(user)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser, gc.NotNil)
+	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
+		User: username, Access: state.ModelReadAccess})
 
 	// Because we are calling into juju through the main command,
 	// and the main command adds a warning logging writer, we need
@@ -70,12 +67,13 @@ func (s *cmdModelSuite) TestModelUnshareCmdStack(c *gc.C) {
 	loggo.RemoveWriter("warning")
 
 	// Then test that the unshare command stack is hooked up
-	context = s.run(c, "unshare-model", username)
+	context := s.run(c, "revoke", username, "admin")
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
 
-	modelUser, err = s.State.ModelUser(user)
+	user := names.NewUserTag(username)
+	modelUser, err := s.State.ModelUser(user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 	c.Assert(modelUser, gc.IsNil)
 }
@@ -83,7 +81,7 @@ func (s *cmdModelSuite) TestModelUnshareCmdStack(c *gc.C) {
 func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	// Firstly share an model with a user
 	username := "bar@ubuntuone"
-	context := s.run(c, "share-model", username)
+	context := s.run(c, "grant", username, "admin")
 	user := names.NewUserTag(username)
 	modelUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)

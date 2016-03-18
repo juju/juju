@@ -36,7 +36,7 @@ func (s *poolListSuite) SetUpTest(c *gc.C) {
 
 func (s *poolListSuite) runPoolList(c *gc.C, args []string) (*cmd.Context, error) {
 	args = append(args, []string{"-m", "admin"}...)
-	return testing.RunCommand(c, storage.NewPoolListCommand(s.mockAPI, s.store), args...)
+	return testing.RunCommand(c, storage.NewPoolListCommandForTest(s.mockAPI, s.store), args...)
 }
 
 func (s *poolListSuite) TestPoolListEmpty(c *gc.C) {
@@ -59,12 +59,13 @@ const (
 	nameXYZ = "xyz"
 )
 
-func (s *poolListSuite) TestPoolList(c *gc.C) {
+func (s *poolListSuite) TestPoolListYAML(c *gc.C) {
 	s.assertUnmarshalledOutput(c, goyaml.Unmarshal,
 		"--provider", providerA,
 		"--provider", providerB,
 		"--name", nameABC,
-		"--name", nameXYZ)
+		"--name", nameXYZ,
+		"--format", "yaml")
 }
 
 func (s *poolListSuite) TestPoolListJSON(c *gc.C) {

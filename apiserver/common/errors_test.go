@@ -242,18 +242,6 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 			// ServerError doesn't actually have a case for this code.
 			continue
 		}
-
-		c.Logf("  checking restore (%#v)", err1)
-		restored := common.RestoreError(err1)
-		if t.err == nil {
-			c.Check(restored, jc.ErrorIsNil)
-		} else if t.code == "" {
-			c.Check(restored.Error(), gc.Equals, t.err.Error())
-		} else {
-			// TODO(ericsnow) Use a stricter DeepEquals check.
-			c.Check(errors.Cause(restored), gc.FitsTypeOf, t.err)
-			c.Check(restored.Error(), gc.Equals, t.err.Error())
-		}
 	}
 }
 

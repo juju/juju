@@ -343,6 +343,7 @@ func (env *azureEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	validator.RegisterUnsupported([]string{
 		constraints.CpuPower,
 		constraints.Tags,
+		constraints.VirtType,
 	})
 	validator.RegisterVocabulary(
 		constraints.Arch,

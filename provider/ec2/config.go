@@ -33,10 +33,6 @@ var configSchema = environschema.Fields{
 		Description: "The EC2 region to use",
 		Type:        environschema.Tstring,
 	},
-	"control-bucket": {
-		Description: "The S3 bucket used to store environment metadata",
-		Type:        environschema.Tstring,
-	},
 }
 
 var configFields = func() schema.Fields {
@@ -48,10 +44,9 @@ var configFields = func() schema.Fields {
 }()
 
 var configDefaults = schema.Defaults{
-	"access-key":     "",
-	"secret-key":     "",
-	"region":         "us-east-1",
-	"control-bucket": "",
+	"access-key": "",
+	"secret-key": "",
+	"region":     "us-east-1",
 }
 
 type environConfig struct {
@@ -61,10 +56,6 @@ type environConfig struct {
 
 func (c *environConfig) region() string {
 	return c.attrs["region"].(string)
-}
-
-func (c *environConfig) controlBucket() string {
-	return c.attrs["control-bucket"].(string)
 }
 
 func (c *environConfig) accessKey() string {
@@ -119,9 +110,6 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 		attrs := old.UnknownAttrs()
 		if region, _ := attrs["region"].(string); ecfg.region() != region {
 			return nil, fmt.Errorf("cannot change region from %q to %q", region, ecfg.region())
-		}
-		if bucket, _ := attrs["control-bucket"].(string); ecfg.controlBucket() != bucket {
-			return nil, fmt.Errorf("cannot change control-bucket from %q to %q", bucket, ecfg.controlBucket())
 		}
 	}
 

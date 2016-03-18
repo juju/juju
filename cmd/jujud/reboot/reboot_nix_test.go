@@ -91,7 +91,6 @@ func (s *RebootSuite) TestRebootWithContainers(c *gc.C) {
 	testing.PatchExecutable(c, s, "lxc-info", lxcInfoScript)
 	expectedRebootParams := s.rebootCommandParams(c)
 
-	// Timeout after 5 seconds
 	s.PatchValue(reboot.Timeout, time.Duration(5*time.Second))
 	w, err := reboot.NewRebootWaiter(s.st, s.acfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -105,17 +104,13 @@ func (s *RebootSuite) TestRebootWithContainers(c *gc.C) {
 func (s *RebootSuite) TestRebootWithMissbehavingContainers(c *gc.C) {
 	testing.PatchExecutable(c, s, "lxc-ls", lxcLsScript)
 	testing.PatchExecutable(c, s, "lxc-info", lxcInfoScriptMissbehave)
-	expectedRebootParams := s.rebootCommandParams(c)
 
-	// Timeout after 5 seconds
-	s.PatchValue(reboot.Timeout, time.Duration(5*time.Second))
+	s.PatchValue(reboot.Timeout, time.Duration(1*time.Second))
 	w, err := reboot.NewRebootWaiter(s.st, s.acfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = w.ExecuteReboot(params.ShouldReboot)
-	c.Assert(err, jc.ErrorIsNil)
-	testing.AssertEchoArgs(c, rebootBin, expectedRebootParams...)
-	ft.File{s.rebootScriptName, expectedRebootScript, 0755}.Check(c, s.tmpDir)
+	c.Assert(err, gc.ErrorMatches, "Timeout reached waiting for containers to shutdown")
 }
 
 func (s *RebootSuite) TestRebootNoContainers(c *gc.C) {

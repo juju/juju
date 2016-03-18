@@ -10,12 +10,12 @@ import (
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&DiskManagerSuite{})
@@ -90,12 +90,12 @@ func (s *DiskManagerSuite) assertToolsContents(c *gc.C, t *coretools.Tools, file
 	for _, f := range files {
 		wantNames = append(wantNames, f.Header.Name)
 	}
-	wantNames = append(wantNames, toolsFile)
+	wantNames = append(wantNames, agenttools.ToolsFile)
 	dir := s.manager.(*agenttools.DiskManager).SharedToolsDir(t.Version)
 	assertDirNames(c, dir, wantNames)
 	expectedFileContents, err := json.Marshal(t)
 	c.Assert(err, jc.ErrorIsNil)
-	assertFileContents(c, dir, toolsFile, string(expectedFileContents), 0200)
+	assertFileContents(c, dir, agenttools.ToolsFile, string(expectedFileContents), 0200)
 	for _, f := range files {
 		assertFileContents(c, dir, f.Header.Name, f.Contents, 0400)
 	}

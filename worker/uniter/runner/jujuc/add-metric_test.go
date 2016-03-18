@@ -29,8 +29,10 @@ func (s *AddMetricSuite) TestHelp(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
-usage: add-metric key1=value1 [key2=value2 ...]
-purpose: send metrics
+Usage: add-metric key1=value1 [key2=value2 ...]
+
+Summary:
+send metrics
 `[1:])
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }

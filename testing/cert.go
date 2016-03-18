@@ -70,14 +70,6 @@ func mustNewServer() (string, string) {
 	return string(srvCert), string(srvKey)
 }
 
-func mustParseCert(pemData string) *x509.Certificate {
-	cert, err := cert.ParseCert(pemData)
-	if err != nil {
-		panic(err)
-	}
-	return cert
-}
-
 func mustParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.PrivateKey) {
 	cert, key, err := cert.ParseCertAndKey(certPEM, keyPEM)
 	if err != nil {

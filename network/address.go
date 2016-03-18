@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -22,6 +23,14 @@ var (
 	classBPrivate   = mustParseCIDR("172.16.0.0/12")
 	classCPrivate   = mustParseCIDR("192.168.0.0/16")
 	ipv6UniqueLocal = mustParseCIDR("fc00::/7")
+)
+
+const (
+	// LoopbackIPv4CIDR is the loopback CIDR range for IPv4.
+	LoopbackIPv4CIDR = "127.0.0.0/8"
+
+	// LoopbackIPv6CIDR is the loopback CIDR range for IPv6.
+	LoopbackIPv6CIDR = "::1/128"
 )
 
 func mustParseCIDR(s string) *net.IPNet {
@@ -51,6 +60,25 @@ type Scope string
 
 // SpaceName holds the Juju space name of an address.
 type SpaceName string
+type spaceNameList []SpaceName
+
+func (s spaceNameList) String() string {
+	namesString := make([]string, len(s))
+	for i, v := range s {
+		namesString[i] = string(v)
+	}
+
+	return strings.Join(namesString, ", ")
+}
+
+func (s spaceNameList) IndexOf(name SpaceName) int {
+	for i := range s {
+		if s[i] == name {
+			return i
+		}
+	}
+	return -1
+}
 
 const (
 	ScopeUnknown      Scope = ""
@@ -118,6 +146,19 @@ func (a Address) GoString() string {
 // NewScopedAddress(value, ScopeUnknown).
 func NewAddress(value string) Address {
 	return NewScopedAddress(value, ScopeUnknown)
+}
+
+// NewScopedNamedAddress creates a new Address, deriving its type from the value.
+// TODO(dooferlad): Once NetworkName has gone strip that out and rename to
+// NewScopedAddressWithoutDeriveScope (better names may be available).
+func NewScopedNamedAddress(value, networkName string, scope Scope) Address {
+	addr := Address{
+		Value:       value,
+		Type:        DeriveAddressType(value),
+		NetworkName: networkName,
+		Scope:       scope,
+	}
+	return addr
 }
 
 // NewScopedAddress creates a new Address, deriving its type from the
@@ -243,59 +284,54 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 	return false
 }
 
-// SelectAddressBySpace picks the first address from the given slice that has
+// SelectAddressBySpaces picks the first address from the given slice that has
 // the given space name associated.
-func SelectAddressBySpace(addresses []Address, spaceName string) (Address, bool) {
+func SelectAddressBySpaces(addresses []Address, spaceNames ...SpaceName) (Address, bool) {
 	for _, addr := range addresses {
-		if addr.SpaceName == SpaceName(spaceName) {
-			logger.Debugf("selected %q as first address in space %q", addr.Value, spaceName)
+		if spaceNameList(spaceNames).IndexOf(addr.SpaceName) >= 0 {
+			logger.Debugf("selected %q as first address in space %q", addr.Value, addr.SpaceName)
 			return addr, true
 		}
 	}
-	logger.Warningf("no addresses found in space %q", spaceName)
+
+	if len(spaceNames) == 0 {
+		logger.Warningf("no spaces to select addresses from")
+	} else {
+		logger.Warningf("no addresses found in spaces %s", spaceNames)
+	}
 	return Address{}, false
 }
 
-// SelectHostPortBySpace picks the first HostPort from the given slice that has
+// SelectHostsPortBySpaces picks the first HostPort from the given slice that has
 // the given space name associated.
-func SelectHostPortBySpace(hps []HostPort, spaceName string) (HostPort, bool) {
+func SelectHostsPortBySpaces(hps []HostPort, spaceNames ...SpaceName) ([]HostPort, bool) {
+	if len(spaceNames) == 0 {
+		logger.Warningf("host ports not filtered - no spaces given.")
+		return hps, false
+	}
+
+	var selectedHostPorts []HostPort
 	for _, hp := range hps {
-		if hp.SpaceName == SpaceName(spaceName) {
-			logger.Debugf("selected %q as first hostPort in space %q", hp.Value, spaceName)
-			return hp, true
+		if spaceNameList(spaceNames).IndexOf(hp.SpaceName) >= 0 {
+			logger.Debugf("selected %q as a hostPort in space %q", hp.Value, hp.SpaceName)
+			selectedHostPorts = append(selectedHostPorts, hp)
 		}
 	}
-	logger.Warningf("no hostPorts found in space %q", spaceName)
-	return HostPort{}, false
+
+	if len(selectedHostPorts) > 0 {
+		return selectedHostPorts, true
+	}
+
+	logger.Warningf("no hostPorts found in spaces %s", spaceNames)
+	return hps, false
 }
 
 // SelectControllerAddress returns the most suitable address to use as a Juju
-// Controller (API/state server) endpoint given the list of addresses. It first
-// tries to find the first address bound to the DefaultSpace, failing that uses
-// the older address selection method based on scope. The second return is false
-// when no address can be returned. When machineLocal is true and an address
-// can't be selected by space both ScopeCloudLocal and ScopeMachineLocal
-// addresses are considered during the selection, otherwise just ScopeCloudLocal
-// are.
-//
-// TODO(dimitern): This needs to change to not assume the default space name is
-// always "default", once we can determine this. Also, in case we're using
-// IPv6-only deployments on MAAS, it's still possible to get a node provisioned
-// with an IPv6 address not part of the default space (which should be possible
-// to detect early and/or prevent by using stricter node selection constraints).
-//
-// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119282343
+// Controller (API/state server) endpoint given the list of addresses.
+// The second return value is false when no address can be returned.
+// When machineLocal is true both ScopeCloudLocal and ScopeMachineLocal
+// addresses are considered during the selection, otherwise just ScopeCloudLocal are.
 func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, bool) {
-	defaultSpaceAddress, ok := SelectAddressBySpace(addresses, DefaultSpace)
-	if ok {
-		logger.Debugf(
-			"selected %q as controller address, using space %q",
-			defaultSpaceAddress.Value, DefaultSpace,
-		)
-		return defaultSpaceAddress, true
-	}
-	// Fallback to using the legacy and error-prone approach using scope
-	// selection instead.
 	internalAddress, ok := SelectInternalAddress(addresses, machineLocal)
 	logger.Debugf(
 		"selected %q as controller address, using scope %q",
@@ -304,22 +340,25 @@ func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, b
 	return internalAddress, ok
 }
 
-// SelectControllerHostPort returns the most suitable HostPort (as string) to
+// SelectMongoHostPorts returns the most suitable HostPort (as string) to
 // use as a Juju Controller (API/state server) endpoint given the list of
 // hostPorts. It first tries to find the first HostPort bound to the
-// DefaultSpace, failing that uses the older selection method based on scope.
+// spaces provided, then, if that fails, uses the older selection method based on scope.
 // When machineLocal is true and an address can't be selected by space both
 // ScopeCloudLocal and ScopeMachineLocal addresses are considered during the
 // selection, otherwise just ScopeCloudLocal are.
-func SelectControllerHostPort(hostPorts []HostPort, machineLocal bool) string {
-	defaultSpaceHP, ok := SelectHostPortBySpace(hostPorts, DefaultSpace)
+func SelectMongoHostPortsBySpaces(hostPorts []HostPort, spaces []SpaceName) ([]string, bool) {
+	filteredHostPorts, ok := SelectHostsPortBySpaces(hostPorts, spaces...)
 	if ok {
 		logger.Debugf(
-			"selected %q as controller host:port, using space %q",
-			defaultSpaceHP.Value, DefaultSpace,
+			"selected %q as controller host:port, using spaces %q",
+			filteredHostPorts, spaces,
 		)
-		return defaultSpaceHP.NetAddr()
 	}
+	return HostPortsToStrings(filteredHostPorts), ok
+}
+
+func SelectMongoHostPortsByScope(hostPorts []HostPort, machineLocal bool) []string {
 	// Fallback to using the legacy and error-prone approach using scope
 	// selection instead.
 	internalHP := SelectInternalHostPort(hostPorts, machineLocal)
@@ -327,7 +366,7 @@ func SelectControllerHostPort(hostPorts []HostPort, machineLocal bool) string {
 		"selected %q as controller host:port, using scope selection",
 		internalHP,
 	)
-	return internalHP
+	return []string{internalHP}
 }
 
 // SelectPublicAddress picks one address from a slice that would be

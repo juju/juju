@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -56,9 +57,20 @@ func (p maasEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*c
 
 // BootstrapConfig is specified in the EnvironProvider interface.
 func (p maasEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	// For MAAS, the endpoint from the cloud definition defines the MAAS server.
+	// For MAAS, either:
+	// 1. the endpoint from the cloud definition defines the MAAS server URL
+	//    (if a full cloud definition had been set up)
+	// 2. the region defines the MAAS server ip/host
+	//    (if the bootstrap shortcut is used)
+	server := args.CloudEndpoint
+	if server == "" && args.CloudRegion != "" {
+		server = fmt.Sprintf("http://%s/MAAS", args.CloudRegion)
+	}
+	if server == "" {
+		return nil, errors.New("MAAS server not specified")
+	}
 	attrs := map[string]interface{}{
-		"maas-server": args.CloudEndpoint,
+		"maas-server": server,
 	}
 	// Add the credentials.
 	switch authType := args.Credentials.AuthType(); authType {
@@ -112,4 +124,9 @@ func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]stri
 	}
 	secretAttrs["maas-oauth"] = maasCfg.maasOAuth()
 	return secretAttrs, nil
+}
+
+// DetectRegions is specified in the environs.CloudRegionDetector interface.
+func (p maasEnvironProvider) DetectRegions() ([]cloud.Region, error) {
+	return nil, errors.NotFoundf("regions")
 }

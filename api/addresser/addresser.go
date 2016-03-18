@@ -5,15 +5,12 @@ package addresser
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
 )
-
-var logger = loggo.GetLogger("juju.api.addresser")
 
 const addresserFacade = "Addresser"
 

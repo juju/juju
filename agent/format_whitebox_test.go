@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type formatSuite struct {
@@ -30,7 +30,7 @@ var _ = gc.Suite(&formatSuite{})
 // located here for easy reuse.
 var agentParams = AgentConfigParams{
 	Tag:               names.NewMachineTag("1"),
-	UpgradedToVersion: version.Current,
+	UpgradedToVersion: jujuversion.Current,
 	Jobs:              []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 	Password:          "sekrit",
 	CACert:            "ca cert",

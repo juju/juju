@@ -274,15 +274,18 @@ func (s *ActionGetSuite) TestHelp(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: action-get [options] [<key>[.<key>.<key>...]]
-purpose: get action parameters
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-get [options] [<key>[.<key>.<key>...]]
 
-options:
+Summary:
+get action parameters
+
+Options:
 --format  (= smart)
     specify output format (json|smart|yaml)
 -o, --output (= "")
     specify an output file
 
+Details:
 action-get will print the value of the parameter at the given key, serialized
 as YAML.  If multiple keys are passed, action-get will recurse into the param
 map as needed.

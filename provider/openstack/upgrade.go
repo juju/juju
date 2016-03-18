@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 	"gopkg.in/goose.v1/nova"
 )
 

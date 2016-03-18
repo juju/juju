@@ -229,9 +229,9 @@ func initAPIHostPorts(c agent.ConfigSetter, st *state.State, addrs []network.Add
 	var hostPorts []network.HostPort
 	// First try to select the correct address using the default space where all
 	// API servers should be accessible on.
-	spaceAddr, ok := network.SelectAddressBySpace(addrs, network.DefaultSpace)
+	spaceAddr, ok := network.SelectAddressBySpaces(addrs)
 	if ok {
-		logger.Debugf("selected %q as API address, using space %q", spaceAddr.Value, network.DefaultSpace)
+		logger.Debugf("selected %q as API address", spaceAddr.Value)
 		hostPorts = network.AddressesWithPort([]network.Address{spaceAddr}, apiPort)
 	} else {
 		// Fallback to using all instead.

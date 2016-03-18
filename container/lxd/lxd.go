@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -74,7 +75,15 @@ func (manager *containerManager) CreateContainer(
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
+	callback func(status status.Status, info string, data map[string]interface{}) error,
 ) (inst instance.Instance, _ *instance.HardwareCharacteristics, err error) {
+
+	defer func() {
+		if err != nil {
+			callback(status.StatusProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
+		}
+	}()
+
 	if manager.client == nil {
 		manager.client, err = ConnectLocal(manager.name)
 		if err != nil {
@@ -82,7 +91,9 @@ func (manager *containerManager) CreateContainer(
 		}
 	}
 
-	err = manager.client.EnsureImageExists(series)
+	err = manager.client.EnsureImageExists(series, func(progress string) {
+		callback(status.StatusAllocating, progress, nil)
+	})
 	if err != nil {
 		return
 	}
@@ -117,6 +128,7 @@ func (manager *containerManager) CreateContainer(
 	}
 
 	logger.Infof("starting instance %q (image %q)...", spec.Name, spec.Image)
+	callback(status.StatusAllocating, "Creating container; it might take some time", nil)
 	_, err = manager.client.AddInstance(spec)
 	if err != nil {
 		return

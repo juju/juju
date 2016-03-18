@@ -6,6 +6,7 @@ package resourceadapters
 import (
 	"io"
 
+	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
@@ -59,8 +60,8 @@ func NewFakeCharmCmdBase(base *charmcmd.CommandBase) cmd.CharmCommandBase {
 }
 
 // Connect implements cmd.CommandBase.
-func (c *fakeCharmCmdBase) Connect() (cmd.CharmResourceLister, error) {
-	client, err := c.CommandBase.Connect()
+func (c *fakeCharmCmdBase) Connect(ctx *jujucmd.Context) (cmd.CharmResourceLister, error) {
+	client, err := c.CommandBase.Connect(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

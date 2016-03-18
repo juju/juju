@@ -9,10 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/utils/arch"
+	"github.com/juju/version"
+
 	"github.com/juju/juju/environs/storage"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
-	"github.com/juju/utils/arch"
 )
 
 var ErrNoTools = errors.New("no tools available")
