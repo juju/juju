@@ -47,8 +47,7 @@ func (p manualProvider) DetectRegions() ([]cloud.Region, error) {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p manualProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	// Not even sure if this will ever make sense.
-	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
+	return cfg, nil
 }
 
 // BootstrapConfig is specified in the EnvironProvider interface.
