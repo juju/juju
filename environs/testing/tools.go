@@ -81,6 +81,7 @@ func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, 
 			versions = append(versions, v)
 		}
 	}
+	c.Logf("uploading fake tool versions: %v", versions)
 	_, err := UploadFakeToolsVersions(stor, toolsDir, stream, versions...)
 	c.Assert(err, jc.ErrorIsNil)
 }

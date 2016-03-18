@@ -78,6 +78,9 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.BaseSuite.SetUpSuite(c)
 	t.LiveTests.SetUpSuite(c)
+	t.BaseSuite.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -88,9 +91,6 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
-	t.BaseSuite.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
 }
 
 func (t *LiveTests) TearDownTest(c *gc.C) {
