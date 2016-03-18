@@ -122,7 +122,8 @@ func InitializeState(
 	}
 
 	// Create the initial hosted model, with the model config passed to
-	// bootstrap, which contains the UUID and name for the hosted model.
+	// bootstrap, which contains the UUID, name for the hosted model,
+	// and any user supplied config.
 	attrs := make(map[string]interface{})
 	for k, v := range hostedModelConfigAttrs {
 		attrs[k] = v

@@ -493,8 +493,10 @@ func (s *BootstrapSuite) TestBootstrapDefaultModel(c *gc.C) {
 		"devcontroller", "dummy",
 		"--auto-upgrade",
 		"--default-model", "mymodel",
+		"--config", "foo=bar",
 	)
 	c.Assert(bootstrap.args.HostedModelConfig["name"], gc.Equals, "mymodel")
+	c.Assert(bootstrap.args.HostedModelConfig["foo"], gc.Equals, "bar")
 }
 
 type mockBootstrapInstance struct {

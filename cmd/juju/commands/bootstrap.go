@@ -467,6 +467,13 @@ to clean up the model.`[1:])
 	}
 	logger.Infof("combined bootstrap constraints: %v", bootstrapConstraints)
 
+	hostedModelConfig := map[string]interface{}{
+		"name":         c.hostedModelName,
+		config.UUIDKey: hostedModelUUID.String(),
+	}
+	for k, v := range userConfigAttrs {
+		hostedModelConfig[k] = v
+	}
 	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ModelConstraints:     c.Constraints,
 		BootstrapConstraints: bootstrapConstraints,
@@ -476,10 +483,7 @@ to clean up the model.`[1:])
 		UploadTools:          c.UploadTools,
 		AgentVersion:         c.AgentVersion,
 		MetadataDir:          metadataDir,
-		HostedModelConfig: map[string]interface{}{
-			"name":         c.hostedModelName,
-			config.UUIDKey: hostedModelUUID.String(),
-		},
+		HostedModelConfig:    hostedModelConfig,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap model")
