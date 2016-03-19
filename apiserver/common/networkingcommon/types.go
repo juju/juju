@@ -444,7 +444,13 @@ func GetObservedNetworkConfig() ([]params.NetworkConfig, error) {
 			}
 			ip, ipNet, err := net.ParseCIDR(cidrAddress)
 			if err != nil {
-				return nil, errors.Annotatef(err, "cannot parse interface %q address %q as CIDR", nic.Name, cidrAddress)
+				logger.Warningf("cannot parse interface %q address %q as CIDR: %v", nic.Name, cidrAddress, err)
+				if ip := net.ParseIP(cidrAddress); ip == nil {
+					return nil, errors.Errorf("cannot parse interface %q IP address %q", nic.Name, cidrAddress)
+				}
+				ipNet.IP = ip
+				ipNet.Mask = net.IPv4Mask(255, 255, 255, 0)
+				logger.Infof("assuming interface %q has observed address %q", nic.Name, ipNet.String())
 			}
 			if ip.To4() == nil {
 				logger.Warningf("skipping observed IPv6 address %q on %q: not fully supported yet", ip, nic.Name)
