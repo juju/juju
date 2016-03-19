@@ -13,7 +13,6 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/axw/fancycheck"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -398,7 +397,7 @@ lxc.rootfs = /bar/foo
 	c.Assert(err, jc.ErrorIsNil)
 	lxcConfContents, err = ioutil.ReadFile(configPath)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(lxcConfContents), fancycheck.StringEquals, updatedConfig)
+	c.Assert(string(lxcConfContents), gc.Equals, updatedConfig)
 
 	// Now test the example in updateContainerConfig's doc string.
 	oldConfig := `
