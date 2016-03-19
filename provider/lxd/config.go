@@ -13,17 +13,18 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/lxd/lxdclient"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 // TODO(ericsnow) Support providing cert/key file.
 
 // The LXD-specific config keys.
 const (
-	cfgNamespace  = "namespace"
-	cfgRemoteURL  = "remote-url"
-	cfgClientCert = "client-cert"
-	cfgClientKey  = "client-key"
+	cfgNamespace     = "namespace"
+	cfgRemoteURL     = "remote-url"
+	cfgClientCert    = "client-cert"
+	cfgClientKey     = "client-key"
+	cfgServerPEMCert = "server-cert"
 )
 
 // configSchema defines the schema for the configuration attributes
@@ -49,6 +50,11 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Immutable:   true,
 	},
+	cfgServerPEMCert: {
+		Description: `The certificate of the LXD server on the host machine.`,
+		Type:        environschema.Tstring,
+		Immutable:   true,
+	},
 }
 
 var (
@@ -56,10 +62,11 @@ var (
 	// (or if) environschema.Attr supports defaults.
 
 	configBaseDefaults = schema.Defaults{
-		cfgNamespace:  "",
-		cfgRemoteURL:  "",
-		cfgClientCert: "",
-		cfgClientKey:  "",
+		cfgNamespace:     "",
+		cfgRemoteURL:     "",
+		cfgClientCert:    "",
+		cfgClientKey:     "",
+		cfgServerPEMCert: "",
 	}
 
 	configFields, configDefaults = func() (schema.Fields, schema.Defaults) {
@@ -71,17 +78,9 @@ var (
 		return fields, defaults
 	}()
 
-	configImmutableFields = func() []string {
-		var names []string
-		for name, attr := range configSchema {
-			if attr.Immutable {
-				names = append(names, name)
-			}
-		}
-		return names
-	}()
-
-	configSecretFields = []string{}
+	configSecretFields = []string{
+		cfgClientKey, // only privileged agents should get to talk to LXD
+	}
 )
 
 func updateDefaults(defaults schema.Defaults, updates schema.Defaults) schema.Defaults {
@@ -216,11 +215,17 @@ func (c *environConfig) clientKey() string {
 	return raw.(string)
 }
 
+func (c *environConfig) serverPEMCert() string {
+	raw := c.attrs[cfgServerPEMCert]
+	return raw.(string)
+}
+
 // clientConfig builds a LXD Config based on the env config and returns it.
 func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	remote := lxdclient.Remote{
-		Name: "juju-remote",
-		Host: c.remoteURL(),
+		Name:          "juju-remote",
+		Host:          c.remoteURL(),
+		ServerPEMCert: c.serverPEMCert(),
 	}
 	if c.clientCert() != "" {
 		certPEM := []byte(c.clientCert())
@@ -231,9 +236,9 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	}
 
 	cfg := lxdclient.Config{
-		Namespace: c.namespace(),
-		Dirname:   lxdclient.ConfigPath("juju-" + c.namespace()),
-		Remote:    remote,
+		Namespace:   c.namespace(),
+		Remote:      remote,
+		ImageStream: lxdclient.ImageStream(c.ImageStream()),
 	}
 	cfg, err := cfg.WithDefaults()
 	if err != nil {
@@ -255,6 +260,8 @@ func (c *environConfig) updateForClientConfig(clientCfg lxdclient.Config) (*envi
 	c.attrs[cfgNamespace] = clientCfg.Namespace
 
 	c.attrs[cfgRemoteURL] = clientCfg.Remote.Host
+
+	c.attrs[cfgServerPEMCert] = clientCfg.Remote.ServerPEMCert
 
 	var cert lxdclient.Cert
 	if clientCfg.Remote.Cert != nil {

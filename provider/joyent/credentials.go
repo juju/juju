@@ -35,13 +35,15 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 				FileAttr:    privateKeyPath,
 			},
 			algorithm: {
-				Description: "Algorithm used to generate the private key",
+				Description: "Algorithm used to generate the private key (default rsa-sha256)",
+				Optional:    true,
+				Options:     []interface{}{"rsa-sha256", "rsa-sha1", "rsa-sha224", "rsa-sha384", "rsa-sha512"},
 			},
 		},
 	}
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
-func (environProviderCredentials) DetectCredentials() ([]cloud.Credential, error) {
+func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
 	return nil, errors.NotFoundf("credentials")
 }

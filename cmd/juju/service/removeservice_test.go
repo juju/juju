@@ -36,8 +36,8 @@ func (s *RemoveServiceSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 	s.stub = &jutesting.Stub{}
-	s.budgetAPIClient = &mockAPIClient{Stub: s.stub}
-	s.PatchValue(&getBudgetAPIClient, func(*http.Client) (budgetAPIClient, error) { return s.budgetAPIClient, nil })
+	s.budgetAPIClient = &mockBudgetAPIClient{Stub: s.stub}
+	s.PatchValue(&getBudgetAPIClient, func(*cmd.Context, *http.Client) (budgetAPIClient, error) { return s.budgetAPIClient, nil })
 }
 
 func runRemoveService(c *gc.C, args ...string) error {
@@ -64,7 +64,8 @@ func (s *RemoveServiceSuite) TestSuccess(c *gc.C) {
 
 func (s *RemoveServiceSuite) TestRemoveLocalMetered(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "metered")
-	err := runDeploy(c, "local:metered", "metered")
+	deploy := &DeployCommand{}
+	_, err := testing.RunCommand(c, modelcmd.Wrap(deploy), "local:metered")
 	c.Assert(err, jc.ErrorIsNil)
 	err = runRemoveService(c, "metered")
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,8 +122,8 @@ func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 
 	s.ctx = testing.Context(c)
 	s.stub = &jutesting.Stub{}
-	s.budgetAPIClient = &mockAPIClient{Stub: s.stub}
-	s.PatchValue(&getBudgetAPIClient, func(*http.Client) (budgetAPIClient, error) { return s.budgetAPIClient, nil })
+	s.budgetAPIClient = &mockBudgetAPIClient{Stub: s.stub}
+	s.PatchValue(&getBudgetAPIClient, func(*cmd.Context, *http.Client) (budgetAPIClient, error) { return s.budgetAPIClient, nil })
 
 	testcharms.UploadCharm(c, s.client, "cs:quantal/metered-1", "metered")
 	deploy := &DeployCommand{}

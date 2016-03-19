@@ -123,9 +123,9 @@ type ContextStatus interface {
 	SetServiceStatus(StatusInfo) error
 }
 
-// ContextInstance is the part of a hook context related to the unit's intance.
+// ContextInstance is the part of a hook context related to the unit's instance.
 type ContextInstance interface {
-	// AvailabilityZone returns the executing unit's availablilty zone or an error
+	// AvailabilityZone returns the executing unit's availability zone or an error
 	// if it was not found (or is not available).
 	AvailabilityZone() (string, error)
 
@@ -157,6 +157,15 @@ type ContextNetworking interface {
 	// unit on its assigned machine. The result is sorted first by
 	// protocol, then by number.
 	OpenedPorts() []network.PortRange
+
+	// NetworkConfig returns the network configuration for the unit and the
+	// given bindingName.
+	//
+	// TODO(dimitern): Currently, only the Address is populated, add the
+	// rest later.
+	//
+	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
+	NetworkConfig(bindingName string) ([]params.NetworkConfig, error)
 }
 
 // ContextLeadership is the part of a hook context related to the
@@ -260,14 +269,6 @@ type ContextRelation interface {
 
 	// ReadSettings returns the settings of any remote unit in the relation.
 	ReadSettings(unit string) (params.Settings, error)
-
-	// NetworkConfig returns the network configuration for the relation.
-	//
-	// TODO(dimitern): Currently, only the Address is populated, add the
-	// rest later.
-	//
-	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
-	NetworkConfig() ([]params.NetworkConfig, error)
 }
 
 // ContextStorageAttachment expresses the capabilities of a hook with

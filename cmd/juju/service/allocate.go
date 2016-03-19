@@ -11,14 +11,17 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/romulus/api/budget"
 	wireformat "github.com/juju/romulus/wireformat/budget"
+	"gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/jujuclient"
 )
 
 var budgetWithLimitRe = regexp.MustCompile(`^[a-zA-Z0-9\-]+:[0-9]+$`)
@@ -28,6 +31,8 @@ type AllocateBudget struct {
 	AllocationSpec string
 	APIClient      apiClient
 	allocated      bool
+	Budget         string
+	Limit          string
 }
 
 // SetFlags is part of the DeployStep interface.
@@ -58,14 +63,15 @@ func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *
 	if err != nil {
 		return errors.Trace(err)
 	}
-	a.APIClient, err = getApiClient(client)
+	a.Budget, a.Limit = allocBudget, allocLimit
+	a.APIClient, err = getApiClient(ctx, client)
 	if err != nil {
 		return errors.Annotate(err, "could not create API client")
 	}
 	resp, err := a.APIClient.CreateAllocation(allocBudget, allocLimit, deployInfo.ModelUUID, []string{deployInfo.ServiceName})
 	if err != nil {
 		if wireformat.IsNotAvail(err) {
-			fmt.Fprintf(ctx.Stdout, "WARNING: Allocation not created - %s.\n", err.Error())
+			fmt.Fprintf(ctx.Stdout, "WARNING: Budget allocation not created - %s.\n", err.Error())
 			return nil
 		}
 		return errors.Annotate(err, "could not create budget allocation")
@@ -81,7 +87,7 @@ func (a *AllocateBudget) RunPost(_ api.Connection, client *http.Client, ctx *cmd
 	}
 	var err error
 	if a.APIClient == nil {
-		a.APIClient, err = getApiClient(client)
+		a.APIClient, err = getApiClient(ctx, client)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -96,7 +102,7 @@ func (a *AllocateBudget) RunPost(_ api.Connection, client *http.Client, ctx *cmd
 
 func parseBudgetWithLimit(bl string) (string, string, error) {
 	if !budgetWithLimitRe.MatchString(bl) {
-		return "", "", errors.New("invalid budget specification, expecting <budget>:<limit>")
+		return "", "", errors.New("invalid allocation, expecting <budget>:<limit>")
 	}
 	parts := strings.Split(bl, ":")
 	return parts[0], parts[1], nil
@@ -104,8 +110,14 @@ func parseBudgetWithLimit(bl string) (string, string, error) {
 
 var getApiClient = getApiClientImpl
 
-func getApiClientImpl(client *http.Client) (apiClient, error) {
-	bakeryClient := &httpbakery.Client{Client: client, VisitWebPage: httpbakery.OpenWebBrowser}
+var tokenStore = jujuclient.NewTokenStore
+
+func getApiClientImpl(ctx *cmd.Context, client *http.Client) (apiClient, error) {
+	filler := &form.IOFiller{
+		In:  ctx.Stdin,
+		Out: ctx.Stderr,
+	}
+	bakeryClient := &httpbakery.Client{Client: client, VisitWebPage: ussologin.VisitWebPage(filler, client, tokenStore())}
 	c := budget.NewClient(bakeryClient)
 	return c, nil
 }

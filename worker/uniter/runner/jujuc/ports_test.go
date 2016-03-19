@@ -119,17 +119,22 @@ func (s *PortsSuite) TestHelp(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	flags := testing.NewFlagSet()
 	c.Assert(string(open.Info().Help(flags)), gc.Equals, `
-usage: open-port <port>[/<protocol>] or <from>-<to>[/<protocol>]
-purpose: register a port or range to open
+Usage: open-port <port>[/<protocol>] or <from>-<to>[/<protocol>]
 
+Summary:
+register a port or range to open
+
+Details:
 The port range will only be open while the service is exposed.
 `[1:])
 
 	close, err := jujuc.NewCommand(hctx, cmdString("close-port"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(close.Info().Help(flags)), gc.Equals, `
-usage: close-port <port>[/<protocol>] or <from>-<to>[/<protocol>]
-purpose: ensure a port or range is always closed
+Usage: close-port <port>[/<protocol>] or <from>-<to>[/<protocol>]
+
+Summary:
+ensure a port or range is always closed
 `[1:])
 }
 

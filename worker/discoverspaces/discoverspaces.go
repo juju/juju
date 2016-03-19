@@ -193,7 +193,7 @@ func (dw *discoverspacesWorker) handleSubnets() error {
 		} else {
 			// The space is new, we need to create a valid name for it
 			// in state.
-			spaceName := string(space.ProviderId)
+			spaceName := string(space.Name)
 			// Convert the name into a valid name that isn't already in
 			// use.
 			spaceName = dw.config.NewName(spaceName, spaceNames)

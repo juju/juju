@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/client"
 	"gopkg.in/goose.v1/identity"
@@ -47,14 +48,16 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ProviderSuite struct {
@@ -251,7 +254,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 		"image-metadata-url": containerURL + "/juju-dist-test",
 		"auth-url":           s.cred.URL,
 	})
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.Tests.SetUpTest(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	s.env = s.Prepare(c)
@@ -426,7 +429,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	// Ensure amd64 tools are available, to ensure an amd64 image.
 	amd64Version := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.AMD64,
 	}
 	for _, series := range series.SupportedSeries() {
@@ -651,7 +654,7 @@ var instanceGathering = []struct {
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	// goose's test service always returns ACTIVE state.
 	inst, _ := testing.AssertStartInstance(c, s.env, "100")
-	c.Assert(inst.Status(), gc.Equals, nova.StatusActive)
+	c.Assert(inst.Status().Status, gc.Equals, status.StatusRunning)
 	err := s.env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -761,7 +764,7 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
-	c.Assert(instances[0].Status(), gc.Equals, nova.StatusBuildSpawning)
+	c.Assert(instances[0].Status().Message, gc.Equals, nova.StatusBuildSpawning)
 }
 
 func (s *localServerSuite) TestInstancesShutoffSuspended(c *gc.C) {
@@ -794,8 +797,8 @@ func (s *localServerSuite) TestInstancesShutoffSuspended(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 2)
-	c.Assert(instances[0].Status(), gc.Equals, nova.StatusShutoff)
-	c.Assert(instances[1].Status(), gc.Equals, nova.StatusSuspended)
+	c.Assert(instances[0].Status().Message, gc.Equals, nova.StatusShutoff)
+	c.Assert(instances[1].Status().Message, gc.Equals, nova.StatusSuspended)
 }
 
 func (s *localServerSuite) TestInstancesErrorResponse(c *gc.C) {
@@ -951,10 +954,10 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.Open(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 cpu-power=10")
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, jc.SameContents, []string{"cpu-power"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "virt-type"})
 }
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
@@ -1157,7 +1160,7 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 
 func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.srv.UseTLS = true
 	cred := &identity.Credentials{
 		User:       "fred",
@@ -1747,7 +1750,7 @@ func (s *noSwiftSuite) SetUpSuite(c *gc.C) {
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
-	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *noSwiftSuite) SetUpTest(c *gc.C) {
@@ -1767,7 +1770,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 		"agent-version":   coretesting.FakeVersionNumber.String(),
 		"authorized-keys": "fakekey",
 	})
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	// Serve fake tools and image metadata using "filestorage",
 	// rather than Swift as the rest of the tests do.
 	storageDir := c.MkDir()
@@ -1814,17 +1817,18 @@ func newFullOpenstackService(mux *http.ServeMux, cred *identity.Credentials, aut
 }
 
 func newNovaOnlyOpenstackService(mux *http.ServeMux, cred *identity.Credentials, auth identity.AuthMode) *novaservice.Nova {
-	var identityService identityservice.IdentityService
+	var identityService, fallbackService identityservice.IdentityService
 	if auth == identity.AuthKeyPair {
 		identityService = identityservice.NewKeyPair()
 	} else {
 		identityService = identityservice.NewUserPass()
+		fallbackService = identityservice.NewV3UserPass()
 	}
 	userInfo := identityService.AddUser(cred.User, cred.Secrets, cred.TenantName)
 	if cred.TenantName == "" {
 		panic("Openstack service double requires a tenant to be specified.")
 	}
-	novaService := novaservice.New(cred.URL, "v2", userInfo.TenantId, cred.Region, identityService)
+	novaService := novaservice.New(cred.URL, "v2", userInfo.TenantId, cred.Region, identityService, fallbackService)
 	identityService.SetupHTTP(mux)
 	novaService.SetupHTTP(mux)
 	return novaService

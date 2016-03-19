@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.agent")
@@ -563,15 +563,8 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 	}
 	var addrs []string
 	for _, serverHostPorts := range servers {
-		// Try the preferred approach first.
-		serverHP, ok := network.SelectHostPortBySpace(serverHostPorts, network.DefaultSpace)
-		if ok {
-			addrs = append(addrs, serverHP.NetAddr())
-		} else {
-			// Fallback to the legacy approach.
-			hps := network.SelectInternalHostPorts(serverHostPorts, false)
-			addrs = append(addrs, hps...)
-		}
+		hps := network.SelectInternalHostPorts(serverHostPorts, false)
+		addrs = append(addrs, hps...)
 	}
 	c.apiDetails.addresses = addrs
 	logger.Infof("API server address details %q written to agent config as %q", servers, addrs)

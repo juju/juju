@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/rpc"
@@ -120,7 +121,7 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 		if c.isClosing() || err == io.EOF {
 			return io.EOF
 		}
-		return fmt.Errorf("error receiving message: %v", err)
+		return errors.Annotate(err, "error receiving message")
 	}
 	hdr.RequestId = c.msg.RequestId
 	hdr.Request = rpc.Request{

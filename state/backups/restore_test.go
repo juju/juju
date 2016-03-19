@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&RestoreSuite{})
@@ -108,7 +108,8 @@ func (r *RestoreSuite) TestReplicasetIsReset(c *gc.C) {
 	dialInfo.Addrs = []string{mgoAddr}
 	err = resetReplicaSet(dialInfo, mgoAddr)
 
-	session := server.MustDial()
+	session, err := server.Dial()
+	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
 	cfg, err = replicaset.CurrentConfig(session)
 	c.Assert(err, jc.ErrorIsNil)
@@ -206,7 +207,7 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 				DataDir: dataDir,
 				LogDir:  logDir,
 			},
-			UpgradedToVersion: version.Current,
+			UpgradedToVersion: jujuversion.Current,
 			Tag:               machineTag,
 			Model:             coretesting.ModelTag,
 			Password:          "placeholder",
@@ -258,7 +259,8 @@ func (r *RestoreSuite) TestUpdateMongoEntries(c *gc.C) {
 	err = updateMongoEntries("1234", "0", "0", dialInfo)
 	c.Assert(err, gc.ErrorMatches, "cannot update machine 0 instance information: not found")
 
-	session := server.MustDial()
+	session, err := server.Dial()
+	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
 
 	err = session.DB("juju").C("machines").Insert(bson.M{"machineid": "0", "instanceid": "0"})

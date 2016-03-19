@@ -53,6 +53,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -287,7 +288,9 @@ func init() {
 		}
 	}()
 	discardOperations = c
-	Reset()
+	if err := Reset(); err != nil {
+		panic(err)
+	}
 
 	// parse errors are ignored
 	providerDelay, _ = time.ParseDuration(os.Getenv("JUJU_DUMMY_DELAY"))
@@ -296,7 +299,7 @@ func init() {
 // Reset resets the entire dummy environment and forgets any registered
 // operation listener.  All opened environments after Reset will share
 // the same underlying state.
-func Reset() {
+func Reset() error {
 	logger.Infof("reset model")
 	p := &providerInstance
 	p.mu.Lock()
@@ -310,11 +313,14 @@ func Reset() {
 	}
 	providerInstance.state = make(map[int]*environState)
 	if mongoAlive() {
-		gitjujutesting.MgoServer.Reset()
+		if err := gitjujutesting.MgoServer.Reset(); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	providerInstance.statePolicy = environs.NewStatePolicy()
 	providerInstance.supportsSpaces = true
 	providerInstance.supportsSpaceDiscovery = false
+	return nil
 }
 
 func (state *environState) destroy() {
@@ -514,8 +520,8 @@ func (p *environProvider) CredentialSchemas() map[cloud.AuthType]cloud.Credentia
 	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
 }
 
-func (*environProvider) DetectCredentials() ([]cloud.Credential, error) {
-	return []cloud.Credential{cloud.NewEmptyCredential()}, nil
+func (*environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	return cloud.NewEmptyCloudCredential(), nil
 }
 
 func (*environProvider) DetectRegions() ([]cloud.Region, error) {
@@ -852,7 +858,7 @@ func (e *environ) Destroy() (res error) {
 // ConstraintsValidator is defined on the Environs interface.
 func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
-	validator.RegisterUnsupported([]string{constraints.CpuPower})
+	validator.RegisterUnsupported([]string{constraints.CpuPower, constraints.VirtType})
 	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 	return validator, nil
 }
@@ -1080,7 +1086,8 @@ func (env *environ) Spaces() ([]network.SpaceInfo, error) {
 		return []network.SpaceInfo{}, err
 	}
 	return []network.SpaceInfo{{
-		ProviderId: network.Id("foo"),
+		Name:       "foo",
+		ProviderId: network.Id("0"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("1"),
 			AvailabilityZones: []string{"zone1"},
@@ -1088,17 +1095,20 @@ func (env *environ) Spaces() ([]network.SpaceInfo, error) {
 			ProviderId:        network.Id("2"),
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
-		ProviderId: network.Id("Another Foo 99!"),
+		Name:       "Another Foo 99!",
+		ProviderId: "1",
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("3"),
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
-		ProviderId: network.Id("foo-"),
+		Name:       "foo-",
+		ProviderId: "2",
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("4"),
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
-		ProviderId: network.Id("---"),
+		Name:       "---",
+		ProviderId: "3",
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("5"),
 			AvailabilityZones: []string{"zone1"},
@@ -1520,10 +1530,23 @@ func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
 }
 
-func (inst *dummyInstance) Status() string {
+func (inst *dummyInstance) Status() instance.InstanceStatus {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
-	return inst.status
+	// TODO(perrito666) add a provider status -> juju status mapping.
+	jujuStatus := status.StatusPending
+	if inst.status != "" {
+		dummyStatus := status.Status(inst.status)
+		if dummyStatus.KnownInstanceStatus() {
+			jujuStatus = dummyStatus
+		}
+	}
+
+	return instance.InstanceStatus{
+		Status:  jujuStatus,
+		Message: inst.status,
+	}
+
 }
 
 // SetInstanceAddresses sets the addresses associated with the given

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
@@ -39,11 +40,16 @@ var marshalTestCases = []struct {
 	about: "MachineInfo Delta",
 	value: multiwatcher.Delta{
 		Entity: &multiwatcher.MachineInfo{
-			ModelUUID:               "uuid",
-			Id:                      "Benji",
-			InstanceId:              "Shazam",
-			Status:                  "error",
-			StatusInfo:              "foo",
+			ModelUUID:  "uuid",
+			Id:         "Benji",
+			InstanceId: "Shazam",
+			JujuStatus: multiwatcher.StatusInfo{
+				Current: status.StatusError,
+				Message: "foo",
+			},
+			MachineStatus: multiwatcher.StatusInfo{
+				Current: status.StatusPending,
+			},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "trusty",
 			SupportedContainers:     []instance.ContainerType{instance.LXC},
@@ -52,7 +58,7 @@ var marshalTestCases = []struct {
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
 	},
-	json: `["machine","change",{"ModelUUID": "uuid", "Id":"Benji","InstanceId":"Shazam","HasVote":false,"WantsVote":false,"Status":"error","StatusInfo":"foo","StatusData":null,"Life":"alive","Series":"trusty","SupportedContainers":["lxc"],"SupportedContainersKnown":false,"Jobs":["JobManageModel"],"Addresses":[],"HardwareCharacteristics":{}}]`,
+	json: `["machine","change",{"ModelUUID":"uuid","Id":"Benji","InstanceId":"Shazam","JujuStatus":{"Err":null,"Current":"error","Message":"foo","Since":null,"Version":"","Data":null},"MachineStatus":{"Err":null,"Current":"pending","Message":"","Since":null,"Version":"","Data":null},"Life":"alive","Series":"trusty","SupportedContainers":["lxc"],"SupportedContainersKnown":false,"HardwareCharacteristics":{},"Jobs":["JobManageModel"],"Addresses":[],"HasVote":false,"WantsVote":false}]`,
 }, {
 	about: "ServiceInfo Delta",
 	value: multiwatcher.Delta{
@@ -70,7 +76,7 @@ var marshalTestCases = []struct {
 				"foo":   false,
 			},
 			Status: multiwatcher.StatusInfo{
-				Current: multiwatcher.Status("active"),
+				Current: status.StatusActive,
 				Message: "all good",
 			},
 		},
@@ -97,18 +103,16 @@ var marshalTestCases = []struct {
 			PublicAddress:  "testing.invalid",
 			PrivateAddress: "10.0.0.1",
 			MachineId:      "1",
-			Status:         "error",
-			StatusInfo:     "foo",
 			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: multiwatcher.Status("active"),
+				Current: status.StatusActive,
 				Message: "all good",
 			},
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: multiwatcher.Status("idle"),
+			JujuStatus: multiwatcher.StatusInfo{
+				Current: status.StatusIdle,
 			},
 		},
 	},
-	json: `["unit", "change", {"ModelUUID": "uuid", "CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "testing.invalid", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Ports": [{"Protocol": "http", "Number": 80}], "PortRanges": [{"FromPort": 80, "ToPort": 80, "Protocol": "http"}], "Status": "error", "StatusInfo": "foo", "StatusData": null, "WorkloadStatus":{"Current":"active", "Message":"all good", "Version": "", "Err": null, "Data": null, "Since": null}, "AgentStatus":{"Current":"idle", "Message":"", "Version": "", "Err": null, "Data": null, "Since": null}, "Subordinate": false}]`,
+	json: `["unit","change",{"ModelUUID":"uuid","Name":"Benji","Service":"Shazam","Series":"precise","CharmURL":"cs:~user/precise/wordpress-42","PublicAddress":"testing.invalid","PrivateAddress":"10.0.0.1","MachineId":"1","Ports":[{"Protocol":"http","Number":80}],"PortRanges":[{"FromPort":80,"ToPort":80,"Protocol":"http"}],"Subordinate":false,"WorkloadStatus":{"Err":null,"Current":"active","Message":"all good","Since":null,"Version":"","Data":null},"JujuStatus":{"Err":null,"Current":"idle","Message":"","Since":null,"Version":"","Data":null}}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: multiwatcher.Delta{

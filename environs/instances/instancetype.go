@@ -62,6 +62,9 @@ func (itype InstanceType) match(cons constraints.Value) (InstanceType, bool) {
 	if cons.Tags != nil && len(*cons.Tags) > 0 && !tagsMatch(*cons.Tags, itype.Tags) {
 		return nothing, false
 	}
+	if cons.HasVirtType() && (itype.VirtType == nil || *itype.VirtType != *cons.VirtType) {
+		return nothing, false
+	}
 	return itype, true
 }
 

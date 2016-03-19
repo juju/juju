@@ -4,7 +4,6 @@
 package model_test
 
 import (
-	"github.com/juju/names"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -27,11 +26,9 @@ func (s *fakeEnvSuite) SetUpTest(c *gc.C) {
 }
 
 type fakeEnvAPI struct {
-	values      map[string]interface{}
-	err         error
-	keys        []string
-	addUsers    []names.UserTag
-	removeUsers []names.UserTag
+	values map[string]interface{}
+	err    error
+	keys   []string
 }
 
 func (f *fakeEnvAPI) Close() error {
@@ -49,15 +46,5 @@ func (f *fakeEnvAPI) ModelSet(config map[string]interface{}) error {
 
 func (f *fakeEnvAPI) ModelUnset(keys ...string) error {
 	f.keys = keys
-	return f.err
-}
-
-func (f *fakeEnvAPI) ShareModel(users ...names.UserTag) error {
-	f.addUsers = users
-	return f.err
-}
-
-func (f *fakeEnvAPI) UnshareModel(users ...names.UserTag) error {
-	f.removeUsers = users
 	return f.err
 }

@@ -149,7 +149,7 @@ deployment of bundle "cs:bundle/wordpress-with-mysql-storage-1" completed`
 
 func (s *DeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissing(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-extra-bindings-47", "wordpress-extra-bindings")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings")
 	output, err := runDeployCommand(c, "bundle/wordpress-with-endpoint-bindings")
 	c.Assert(err, gc.ErrorMatches,
@@ -168,44 +168,48 @@ func (s *DeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-extra-bindings-47", "wordpress-extra-bindings")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings")
 	output, err := runDeployCommand(c, "bundle/wordpress-with-endpoint-bindings")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:trusty/mysql-42
 service mysql deployed (charm: cs:trusty/mysql-42)
-added charm cs:trusty/wordpress-47
-service wordpress deployed (charm: cs:trusty/wordpress-47)
-related wordpress:db and mysql:server
+added charm cs:trusty/wordpress-extra-bindings-47
+service wordpress-extra-bindings deployed (charm: cs:trusty/wordpress-extra-bindings-47)
+related wordpress-extra-bindings:db and mysql:server
 added mysql/0 unit to new machine
-added wordpress/0 unit to new machine
+added wordpress-extra-bindings/0 unit to new machine
 deployment of bundle "cs:bundle/wordpress-with-endpoint-bindings-1" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
+	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-extra-bindings-47")
 
 	s.assertServicesDeployed(c, map[string]serviceInfo{
-		"mysql":     {charm: "cs:trusty/mysql-42"},
-		"wordpress": {charm: "cs:trusty/wordpress-47"},
+		"mysql":                    {charm: "cs:trusty/mysql-42"},
+		"wordpress-extra-bindings": {charm: "cs:trusty/wordpress-extra-bindings-47"},
 	})
 	s.assertDeployedServiceBindings(c, map[string]serviceInfo{
 		"mysql": {
 			endpointBindings: map[string]string{"server": "db"},
 		},
-		"wordpress": {
+		"wordpress-extra-bindings": {
 			endpointBindings: map[string]string{
 				"cache":           "",
 				"url":             "public",
 				"logging-dir":     "",
 				"monitoring-port": "",
 				"db":              "db",
+				"cluster":         "",
+				"db-client":       "db",
+				"admin-api":       "public",
+				"foo-bar":         "",
 			},
 		},
 	})
-	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
+	s.assertRelationsEstablished(c, "wordpress-extra-bindings:cluster", "wordpress-extra-bindings:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{
-		"mysql/0":     "0",
-		"wordpress/0": "1",
+		"mysql/0":                    "0",
+		"wordpress-extra-bindings/0": "1",
 	})
 }
 
@@ -363,7 +367,8 @@ var deployBundleErrorsTests = []struct {
                 charm: mysql
                 num_units: -1
     `,
-	err: `cannot deploy bundle: negative number of units specified on service "mysql"`,
+	err: `the provided bundle has the following errors:
+negative number of units specified on service "mysql"`,
 }, {
 	about: "invalid constraints",
 	content: `
@@ -373,7 +378,20 @@ var deployBundleErrorsTests = []struct {
                 num_units: 1
                 constraints: bad-wolf
     `,
-	err: `cannot deploy bundle: invalid constraints "bad-wolf" in service "mysql": malformed constraint "bad-wolf"`,
+	err: `the provided bundle has the following errors:
+invalid constraints "bad-wolf" in service "mysql": malformed constraint "bad-wolf"`,
+}, {
+	about: "multiple bundle verification errors",
+	content: `
+        services:
+            mysql:
+                charm: mysql
+                num_units: -1
+                constraints: bad-wolf
+    `,
+	err: `the provided bundle has the following errors:
+invalid constraints "bad-wolf" in service "mysql": malformed constraint "bad-wolf"
+negative number of units specified on service "mysql"`,
 }, {
 	about: "bundle inception",
 	content: `
@@ -503,6 +521,24 @@ deployment of bundle "local:bundle/example-0" completed`
 		"mysql/1":     "1",
 		"wordpress/0": "2",
 	})
+}
+
+func (s *deployRepoCharmStoreSuite) TestDeployBundleFromBundlePath(c *gc.C) {
+	testcharms.Repo.ClonedDirPath(s.SeriesPath, "wordpress")
+	bundlePath := filepath.Join(c.MkDir(), "example")
+	err := os.Mkdir(bundlePath, 0777)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(bundlePath, "bundle.yaml"), []byte(`
+        services:
+            wordpress:
+                charm: local:wordpress
+                num_units: 1
+    `), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = runDeployCommand(c, bundlePath)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *gc.C) {
@@ -948,12 +984,29 @@ deployment of bundle "local:bundle/example-0" completed`
 		},
 	})
 	s.assertRelationsEstablished(c)
-	s.assertUnitsCreated(c, map[string]string{
+
+	// We explicitly pull out the map creation in the call to
+	// s.assertUnitsCreated() and create the map as a new variable
+	// because this /appears/ to tickle a bug on ppc64le using
+	// gccgo-4.9; the bug is that the map on the receiving side
+	// does not have the same contents as it does here - which is
+	// weird because that pattern is used elsewhere in this
+	// function. And just pulling the map instantiation out of the
+	// call is not enough; we need to do something benign with the
+	// variable to keep a reference beyond the call to the
+	// s.assertUnitsCreated(). I have to chosen to delete a
+	// non-existent key. This problem does not occur on amd64
+	// using gc or gccgo-4.9. Nor does it happen using go1.6 on
+	// ppc64. Once we switch to go1.6 across the board this change
+	// should be reverted. See http://pad.lv/1556116.
+	expectedUnits := map[string]string{
 		"sql/0": "0/lxc/0",
 		"sql/1": "2",
 		"wp/0":  "0",
 		"wp/1":  "1/lxc/0",
-	})
+	}
+	s.assertUnitsCreated(c, expectedUnits)
+	delete(expectedUnits, "non-existent")
 
 	// Redeploy the same bundle again.
 	output, err = s.deployBundleYAML(c, content)

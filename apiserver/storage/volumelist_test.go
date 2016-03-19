@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 type volumeSuite struct {
@@ -150,7 +151,7 @@ func (s *volumeSuite) TestListVolumesStorageLocationNoBlockDevice(c *gc.C) {
 	}
 	expected := s.expectedVolumeDetails()
 	expected.Storage.Kind = params.StorageKindBlock
-	expected.Storage.Status.Status = params.StatusAttached
+	expected.Storage.Status.Status = status.StatusAttached
 	expected.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentInfo{
 		ReadOnly: true,
 	}
@@ -176,7 +177,7 @@ func (s *volumeSuite) TestListVolumesStorageLocationBlockDevicePath(c *gc.C) {
 	}
 	expected := s.expectedVolumeDetails()
 	expected.Storage.Kind = params.StorageKindBlock
-	expected.Storage.Status.Status = params.StatusAttached
+	expected.Storage.Status.Status = status.StatusAttached
 	storageAttachmentDetails := expected.Storage.Attachments["unit-mysql-0"]
 	storageAttachmentDetails.Location = filepath.FromSlash("/dev/sdd")
 	expected.Storage.Attachments["unit-mysql-0"] = storageAttachmentDetails

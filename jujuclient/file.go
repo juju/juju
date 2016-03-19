@@ -18,6 +18,7 @@ import (
 	// TODO(axw) replace with flock on file in $XDG_RUNTIME_DIR
 	"github.com/juju/utils/fslock"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -31,6 +32,12 @@ var lockTimeout = 5 * time.Second
 // NewFileClientStore returns a new filesystem-based client store
 // that manages files in $XDG_DATA_HOME/juju.
 func NewFileClientStore() ClientStore {
+	return &store{}
+}
+
+// NewFileCredentialStore returns a new filesystem-based credentials store
+// that manages credentials in $XDG_DATA_HOME/juju.
+func NewFileCredentialStore() CredentialStore {
 	return &store{}
 }
 
@@ -192,8 +199,11 @@ func (s *store) RemoveController(name string) error {
 }
 
 // UpdateModel implements ModelUpdater.
-func (s *store) UpdateModel(controllerName, modelName string, details ModelDetails) error {
+func (s *store) UpdateModel(controllerName, accountName, modelName string, details ModelDetails) error {
 	if err := ValidateControllerName(controllerName); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ValidateAccountName(accountName); err != nil {
 		return errors.Trace(err)
 	}
 	if err := ValidateModelName(modelName); err != nil {
@@ -209,31 +219,25 @@ func (s *store) UpdateModel(controllerName, modelName string, details ModelDetai
 	}
 	defer s.unlock(lock)
 
-	controllerModels, err := ReadModelsFile(JujuModelsPath())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if controllerModels == nil {
-		controllerModels = make(map[string]*ControllerModels)
-	}
-	models, ok := controllerModels[controllerName]
-	if !ok {
-		models = &ControllerModels{
-			Models: make(map[string]ModelDetails),
-		}
-		controllerModels[controllerName] = models
-	}
-	if oldDetails, ok := models.Models[modelName]; ok && details == oldDetails {
-		return nil
-	}
-
-	models.Models[modelName] = details
-	return errors.Trace(WriteModelsFile(controllerModels))
+	return errors.Trace(updateAccountModels(
+		controllerName, accountName,
+		func(models *AccountModels) (bool, error) {
+			oldDetails, ok := models.Models[modelName]
+			if ok && details == oldDetails {
+				return false, nil
+			}
+			models.Models[modelName] = details
+			return true, nil
+		},
+	))
 }
 
 // SetCurrentModel implements ModelUpdater.
-func (s *store) SetCurrentModel(controllerName, modelName string) error {
+func (s *store) SetCurrentModel(controllerName, accountName, modelName string) error {
 	if err := ValidateControllerName(controllerName); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ValidateAccountName(accountName); err != nil {
 		return errors.Trace(err)
 	}
 	if err := ValidateModelName(modelName); err != nil {
@@ -246,28 +250,32 @@ func (s *store) SetCurrentModel(controllerName, modelName string) error {
 	}
 	defer s.unlock(lock)
 
-	controllerModels, err := ReadModelsFile(JujuModelsPath())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	models, ok := controllerModels[controllerName]
-	if !ok {
-		return errors.NotFoundf("controller %s", controllerName)
-	}
-	if models.CurrentModel == modelName {
-		return nil
-	}
-	if _, ok := models.Models[modelName]; !ok {
-		return errors.NotFoundf("model %s:%s", controllerName, modelName)
-	}
-
-	models.CurrentModel = modelName
-	return errors.Trace(WriteModelsFile(controllerModels))
+	return errors.Trace(updateAccountModels(
+		controllerName, accountName,
+		func(models *AccountModels) (bool, error) {
+			if models.CurrentModel == modelName {
+				return false, nil
+			}
+			if _, ok := models.Models[modelName]; !ok {
+				return false, errors.NotFoundf(
+					"model %s:%s:%s",
+					controllerName,
+					accountName,
+					modelName,
+				)
+			}
+			models.CurrentModel = modelName
+			return true, nil
+		},
+	))
 }
 
 // AllModels implements ModelGetter.
-func (s *store) AllModels(controllerName string) (map[string]ModelDetails, error) {
+func (s *store) AllModels(controllerName, accountName string) (map[string]ModelDetails, error) {
 	if err := ValidateControllerName(controllerName); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := ValidateAccountName(accountName); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -277,20 +285,33 @@ func (s *store) AllModels(controllerName string) (map[string]ModelDetails, error
 	}
 	defer s.unlock(lock)
 
-	controllerModels, err := ReadModelsFile(JujuModelsPath())
+	all, err := ReadModelsFile(JujuModelsPath())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	models, ok := controllerModels[controllerName]
+	controllerAccountModels, ok := all[controllerName]
 	if !ok {
-		return nil, errors.NotFoundf("models for controller %s", controllerName)
+		return nil, errors.NotFoundf(
+			"models for controller %s",
+			controllerName,
+		)
 	}
-	return models.Models, nil
+	accountModels, ok := controllerAccountModels.AccountModels[accountName]
+	if !ok {
+		return nil, errors.NotFoundf(
+			"models for account %s on controller %s",
+			accountName, controllerName,
+		)
+	}
+	return accountModels.Models, nil
 }
 
 // CurrentModel implements ModelGetter.
-func (s *store) CurrentModel(controllerName string) (string, error) {
+func (s *store) CurrentModel(controllerName, accountName string) (string, error) {
 	if err := ValidateControllerName(controllerName); err != nil {
+		return "", errors.Trace(err)
+	}
+	if err := ValidateAccountName(accountName); err != nil {
 		return "", errors.Trace(err)
 	}
 
@@ -300,20 +321,33 @@ func (s *store) CurrentModel(controllerName string) (string, error) {
 	}
 	defer s.unlock(lock)
 
-	controllerModels, err := ReadModelsFile(JujuModelsPath())
+	all, err := ReadModelsFile(JujuModelsPath())
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	models, ok := controllerModels[controllerName]
-	if !ok || models.CurrentModel == "" {
-		return "", errors.NotFoundf("current model for controller %s", controllerName)
+	controllerAccountModels, ok := all[controllerName]
+	if !ok {
+		return "", errors.NotFoundf(
+			"current model for controller %s",
+			controllerName,
+		)
 	}
-	return models.CurrentModel, nil
+	accountModels, ok := controllerAccountModels.AccountModels[accountName]
+	if !ok || accountModels.CurrentModel == "" {
+		return "", errors.NotFoundf(
+			"current model for account %s on controller %s",
+			accountName, controllerName,
+		)
+	}
+	return accountModels.CurrentModel, nil
 }
 
 // ModelByName implements ModelGetter.
-func (s *store) ModelByName(controllerName, modelName string) (*ModelDetails, error) {
+func (s *store) ModelByName(controllerName, accountName, modelName string) (*ModelDetails, error) {
 	if err := ValidateControllerName(controllerName); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := ValidateAccountName(accountName); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := ValidateModelName(modelName); err != nil {
@@ -326,24 +360,42 @@ func (s *store) ModelByName(controllerName, modelName string) (*ModelDetails, er
 	}
 	defer s.unlock(lock)
 
-	controllerModels, err := ReadModelsFile(JujuModelsPath())
+	all, err := ReadModelsFile(JujuModelsPath())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	models, ok := controllerModels[controllerName]
+	controllerAccountModels, ok := all[controllerName]
 	if !ok {
-		return nil, errors.NotFoundf("controller %s", controllerName)
+		return nil, errors.NotFoundf(
+			"models for controller %s",
+			controllerName,
+		)
 	}
-	details, ok := models.Models[modelName]
+	accountModels, ok := controllerAccountModels.AccountModels[accountName]
 	if !ok {
-		return nil, errors.NotFoundf("model %s:%s", controllerName, modelName)
+		return nil, errors.NotFoundf(
+			"models for account %s on controller %s",
+			accountName, controllerName,
+		)
+	}
+	details, ok := accountModels.Models[modelName]
+	if !ok {
+		return nil, errors.NotFoundf(
+			"model %s:%s:%s",
+			controllerName,
+			accountName,
+			modelName,
+		)
 	}
 	return &details, nil
 }
 
 // RemoveModel implements ModelRemover.
-func (s *store) RemoveModel(controllerName, modelName string) error {
+func (s *store) RemoveModel(controllerName, accountName, modelName string) error {
 	if err := ValidateControllerName(controllerName); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ValidateAccountName(accountName); err != nil {
 		return errors.Trace(err)
 	}
 	if err := ValidateModelName(modelName); err != nil {
@@ -356,23 +408,59 @@ func (s *store) RemoveModel(controllerName, modelName string) error {
 	}
 	defer s.unlock(lock)
 
-	controllerModels, err := ReadModelsFile(JujuModelsPath())
+	return errors.Trace(updateAccountModels(
+		controllerName, accountName,
+		func(models *AccountModels) (bool, error) {
+			if _, ok := models.Models[modelName]; !ok {
+				return false, errors.NotFoundf(
+					"model %s:%s:%s",
+					controllerName,
+					accountName,
+					modelName,
+				)
+			}
+			delete(models.Models, modelName)
+			if models.CurrentModel == modelName {
+				models.CurrentModel = modelName
+			}
+			return true, nil
+		},
+	))
+}
+
+func updateAccountModels(
+	controllerName, accountName string,
+	update func(*AccountModels) (bool, error),
+) error {
+	all, err := ReadModelsFile(JujuModelsPath())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	models, ok := controllerModels[controllerName]
+	if all == nil {
+		all = make(map[string]ControllerAccountModels)
+	}
+	controllerAccountModels, ok := all[controllerName]
 	if !ok {
-		return errors.NotFoundf("controller %s", controllerName)
+		controllerAccountModels = ControllerAccountModels{
+			make(map[string]*AccountModels),
+		}
+		all[controllerName] = controllerAccountModels
 	}
-	if _, ok := models.Models[modelName]; !ok {
-		return errors.NotFoundf("model %s:%s", controllerName, modelName)
+	accountModels, ok := controllerAccountModels.AccountModels[accountName]
+	if !ok {
+		accountModels = &AccountModels{
+			Models: make(map[string]ModelDetails),
+		}
+		controllerAccountModels.AccountModels[accountName] = accountModels
 	}
-
-	delete(models.Models, modelName)
-	if models.CurrentModel == modelName {
-		models.CurrentModel = ""
+	updated, err := update(accountModels)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return errors.Trace(WriteModelsFile(controllerModels))
+	if updated {
+		return errors.Trace(WriteModelsFile(all))
+	}
+	return nil
 }
 
 // UpdateAccount implements AccountUpdater.
@@ -436,7 +524,7 @@ func (s *store) SetCurrentAccount(controllerName, accountName string) error {
 	}
 	accounts, ok := controllerAccounts[controllerName]
 	if !ok {
-		return errors.NotFoundf("controller %s", controllerName)
+		return errors.NotFoundf("account %s:%s", controllerName, accountName)
 	}
 	if accounts.CurrentAccount == accountName {
 		return nil
@@ -557,4 +645,61 @@ func (s *store) RemoveAccount(controllerName, accountName string) error {
 		accounts.CurrentAccount = ""
 	}
 	return errors.Trace(WriteAccountsFile(controllerAccounts))
+}
+
+// UpdateCredential implements CredentialUpdater.
+func (s *store) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
+	lock, err := s.lock("update-credentials")
+	if err != nil {
+		return errors.Annotatef(err, "cannot update credentials for %v", cloudName)
+	}
+	defer s.unlock(lock)
+
+	all, err := ReadCredentialsFile(JujuCredentialsPath())
+	if err != nil {
+		return errors.Annotate(err, "cannot get credentials")
+	}
+
+	if len(all) == 0 {
+		all = make(map[string]cloud.CloudCredential)
+	}
+
+	// Clear the default credential if we are removing that one.
+	if existing, ok := all[cloudName]; ok && existing.DefaultCredential != "" {
+		stillHaveDefault := false
+		for name := range details.AuthCredentials {
+			if name == existing.DefaultCredential {
+				stillHaveDefault = true
+				break
+			}
+		}
+		if !stillHaveDefault {
+			details.DefaultCredential = ""
+		}
+	}
+
+	all[cloudName] = details
+	return WriteCredentialsFile(all)
+}
+
+// CredentialForCloud implements CredentialGetter.
+func (s *store) CredentialForCloud(cloudName string) (*cloud.CloudCredential, error) {
+	cloudCredentials, err := s.AllCredentials()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	credentials, ok := cloudCredentials[cloudName]
+	if !ok {
+		return nil, errors.NotFoundf("credentials for cloud %s", cloudName)
+	}
+	return &credentials, nil
+}
+
+// AllCredentials implements CredentialGetter.
+func (s *store) AllCredentials() (map[string]cloud.CloudCredential, error) {
+	cloudCredentials, err := ReadCredentialsFile(JujuCredentialsPath())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cloudCredentials, nil
 }

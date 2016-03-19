@@ -8,9 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v1"
-
-	"github.com/juju/juju/rpc"
 )
+
+// UpgradeInProgressError signifies an upgrade is in progress.
+var UpgradeInProgressError = errors.New(CodeUpgradeInProgress)
 
 // Error is the type of error returned by any call to the state API.
 type Error struct {
@@ -48,8 +49,6 @@ func (e Error) ErrorCode() string {
 	return e.Code
 }
 
-var _ rpc.ErrorCoder = (*Error)(nil)
-
 // GoString implements fmt.GoStringer.  It means that a *Error shows its
 // contents correctly when printed with %#v.
 func (e Error) GoString() string {
@@ -72,7 +71,7 @@ const (
 	CodeNotProvisioned            = "not provisioned"
 	CodeNoAddressSet              = "no address set"
 	CodeTryAgain                  = "try again"
-	CodeNotImplemented            = rpc.CodeNotImplemented
+	CodeNotImplemented            = "not implemented" // asserted to match rpc.codeNotImplemented in rpc/rpc_test.go
 	CodeAlreadyExists             = "already exists"
 	CodeUpgradeInProgress         = "upgrade in progress"
 	CodeActionNotAvailable        = "action no longer available"
@@ -90,11 +89,15 @@ const (
 // the given error, or the empty string if there
 // is none.
 func ErrCode(err error) string {
-	err = errors.Cause(err)
-	if err, _ := err.(rpc.ErrorCoder); err != nil {
-		return err.ErrorCode()
+	type ErrorCoder interface {
+		ErrorCode() string
 	}
-	return ""
+	switch err := errors.Cause(err).(type) {
+	case ErrorCoder:
+		return err.ErrorCode()
+	default:
+		return ""
+	}
 }
 
 func IsCodeActionNotAvailable(err error) bool {

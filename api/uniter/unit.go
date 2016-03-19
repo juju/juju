@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
 
@@ -54,14 +55,14 @@ func (u *Unit) Refresh() error {
 }
 
 // SetUnitStatus sets the status of the unit.
-func (u *Unit) SetUnitStatus(status params.Status, info string, data map[string]interface{}) error {
+func (u *Unit) SetUnitStatus(unitStatus status.Status, info string, data map[string]interface{}) error {
 	if u.st.facade.BestAPIVersion() < 2 {
 		return errors.NotImplementedf("SetUnitStatus")
 	}
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: u.tag.String(), Status: status, Info: info, Data: data},
+			{Tag: u.tag.String(), Status: unitStatus, Info: info, Data: data},
 		},
 	}
 	err := u.st.facade.FacadeCall("SetUnitStatus", args, &result)
@@ -94,11 +95,11 @@ func (u *Unit) UnitStatus() (params.StatusResult, error) {
 }
 
 // SetAgentStatus sets the status of the unit agent.
-func (u *Unit) SetAgentStatus(status params.Status, info string, data map[string]interface{}) error {
+func (u *Unit) SetAgentStatus(agentStatus status.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: u.tag.String(), Status: status, Info: info, Data: data},
+			{Tag: u.tag.String(), Status: agentStatus, Info: info, Data: data},
 		},
 	}
 	setStatusFacadeCall := "SetAgentStatus"
@@ -708,4 +709,32 @@ func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) er
 	}
 
 	return results.Combine()
+}
+
+// NetworkConfig requests network config information for the unit and the given
+// bindingName.
+func (u *Unit) NetworkConfig(bindingName string) ([]params.NetworkConfig, error) {
+	var results params.UnitNetworkConfigResults
+	args := params.UnitsNetworkConfig{
+		Args: []params.UnitNetworkConfig{{
+			BindingName: bindingName,
+			UnitTag:     u.tag.String(),
+		}},
+	}
+
+	err := u.st.facade.FacadeCall("NetworkConfig", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return result.Config, nil
 }

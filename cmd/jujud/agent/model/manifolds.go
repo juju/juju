@@ -172,7 +172,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
-		storageProvisionerName: ifNotDead(storageprovisioner.Manifold(storageprovisioner.ManifoldConfig{
+		storageProvisionerName: ifNotDead(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName: apiCallerName,
 			ClockName:     clockName,
 			Scope:         modelTag,

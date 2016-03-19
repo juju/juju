@@ -5,6 +5,7 @@ package modelcmd
 
 import (
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/juju/cmd"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 )
@@ -28,8 +28,9 @@ var errNoNameSpecified = errors.New("no name specified")
 type CommandBase interface {
 	cmd.Command
 
-	// closeContext closes the commands API context.
+	// closeContext closes the command's API context.
 	closeContext()
+	setVisitWebPage(func(*url.URL) error)
 }
 
 // ModelAPI provides access to the model client facade methods.
@@ -42,8 +43,9 @@ type ModelAPI interface {
 // an API connection.
 type JujuCommandBase struct {
 	cmd.CommandBase
-	apiContext *apiContext
-	modelApi   ModelAPI
+	apiContext   *apiContext
+	modelApi     ModelAPI
+	visitWebPage func(*url.URL) error
 }
 
 // closeContext closes the command's API context
@@ -61,11 +63,11 @@ func (c *JujuCommandBase) SetModelApi(api ModelAPI) {
 	c.modelApi = api
 }
 
-func (c *JujuCommandBase) modelAPI(store jujuclient.ClientStore, controllerName string) (ModelAPI, error) {
+func (c *JujuCommandBase) modelAPI(store jujuclient.ClientStore, controllerName, accountName string) (ModelAPI, error) {
 	if c.modelApi != nil {
 		return c.modelApi, nil
 	}
-	conn, err := c.NewAPIRoot(store, controllerName, "")
+	conn, err := c.NewAPIRoot(store, controllerName, accountName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -77,12 +79,12 @@ func (c *JujuCommandBase) modelAPI(store jujuclient.ClientStore, controllerName 
 // model or controller.
 func (c *JujuCommandBase) NewAPIRoot(
 	store jujuclient.ClientStore,
-	controllerName, modelName string,
+	controllerName, accountName, modelName string,
 ) (api.Connection, error) {
 	if err := c.initAPIContext(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.apiContext.newAPIRoot(store, controllerName, modelName)
+	return c.apiContext.newAPIRoot(store, controllerName, accountName, modelName)
 }
 
 // HTTPClient returns an http.Client that contains the loaded
@@ -108,36 +110,17 @@ func (c *JujuCommandBase) APIOpen(info *api.Info, opts api.DialOpts) (api.Connec
 
 // RefreshModels refreshes the local models cache for the current user
 // on the specified controller.
-func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controllerName string) error {
-	accountName, err := store.CurrentAccount(controllerName)
-	if err != nil {
-		return errors.Trace(err)
-	}
+func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controllerName, accountName string) error {
 	accountDetails, err := store.AccountByName(controllerName, accountName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	modelManager, err := c.modelAPI(store, controllerName)
+	modelManager, err := c.modelAPI(store, controllerName, accountName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer modelManager.Close()
-
-	// TODO(axw) remove this when we stop using configstore.
-	legacyStore, err := configstore.Default()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	controllerInfo, err := legacyStore.ReadInfo(
-		configstore.EnvironInfoName(
-			controllerName,
-			configstore.AdminModelName(controllerName),
-		),
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	models, err := modelManager.ListModels(accountDetails.User)
 	if err != nil {
@@ -145,21 +128,7 @@ func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controller
 	}
 	for _, model := range models {
 		modelDetails := jujuclient.ModelDetails{model.UUID}
-		if err := store.UpdateModel(controllerName, model.Name, modelDetails); err != nil {
-			return errors.Trace(err)
-		}
-		environInfoName := configstore.EnvironInfoName(controllerName, model.Name)
-		modelInfo, err := legacyStore.ReadInfo(environInfoName)
-		if errors.IsNotFound(err) {
-			modelInfo = legacyStore.CreateInfo(environInfoName)
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-		apiEndpoint := controllerInfo.APIEndpoint()
-		apiEndpoint.ModelUUID = modelDetails.ModelUUID
-		modelInfo.SetAPIEndpoint(apiEndpoint)
-		modelInfo.SetAPICredentials(controllerInfo.APICredentials())
-		if err := modelInfo.Write(); err != nil {
+		if err := store.UpdateModel(controllerName, accountName, model.Name, modelDetails); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -173,7 +142,10 @@ func (c *JujuCommandBase) initAPIContext() error {
 	if c.apiContext != nil {
 		return nil
 	}
-	ctxt, err := newAPIContext()
+	if c.visitWebPage == nil {
+		c.visitWebPage = httpbakery.OpenWebBrowser
+	}
+	ctxt, err := newAPIContext(c.visitWebPage)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -220,9 +192,13 @@ func cookieFile() string {
 	return cookiejar.DefaultCookieFile()
 }
 
+func (c *JujuCommandBase) setVisitWebPage(f func(*url.URL) error) {
+	c.visitWebPage = f
+}
+
 // newAPIContext returns a new api context, which should be closed
 // when done with.
-func newAPIContext() (*apiContext, error) {
+func newAPIContext(f func(*url.URL) error) (*apiContext, error) {
 	jar, err := cookiejar.New(&cookiejar.Options{
 		Filename: cookieFile(),
 	})
@@ -231,7 +207,7 @@ func newAPIContext() (*apiContext, error) {
 	}
 	client := httpbakery.NewClient()
 	client.Jar = jar
-	client.VisitWebPage = httpbakery.OpenWebBrowser
+	client.VisitWebPage = f
 
 	return &apiContext{
 		jar:    jar,
@@ -265,11 +241,11 @@ func (ctx *apiContext) apiOpen(info *api.Info, opts api.DialOpts) (api.Connectio
 
 // newAPIRoot establishes a connection to the API server for
 // the named system or model.
-func (ctx *apiContext) newAPIRoot(store jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
-	if controllerName == "" && modelName == "" {
+func (ctx *apiContext) newAPIRoot(store jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error) {
+	if controllerName == "" {
 		return nil, errors.Trace(errNoNameSpecified)
 	}
-	return juju.NewAPIConnection(store, controllerName, modelName, ctx.client)
+	return juju.NewAPIConnection(store, controllerName, accountName, modelName, ctx.client)
 }
 
 // httpClient returns an http.Client that contains the loaded

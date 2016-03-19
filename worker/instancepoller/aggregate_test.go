@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
@@ -46,8 +47,8 @@ func (t *testInstance) Addresses() ([]network.Address, error) {
 	return t.addresses, nil
 }
 
-func (t *testInstance) Status() string {
-	return t.status
+func (t *testInstance) Status() instance.InstanceStatus {
+	return instance.InstanceStatus{Status: status.StatusUnknown, Message: t.status}
 }
 
 type testInstanceGetter struct {
@@ -91,7 +92,7 @@ func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 	info, err := aggregator.instanceInfo("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, gc.DeepEquals, instanceInfo{
-		status:    "foobar",
+		status:    instance.InstanceStatus{Status: status.StatusUnknown, Message: "foobar"},
 		addresses: instance1.addresses,
 	})
 	c.Assert(testGetter.ids, gc.DeepEquals, []instance.Id{"foo"})
@@ -120,7 +121,7 @@ func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 	checkInfo := func(id instance.Id, expectStatus string) {
 		info, err := aggregator.instanceInfo(id)
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(info.status, gc.Equals, expectStatus)
+		c.Check(info.status.Message, gc.Equals, expectStatus)
 		wg.Done()
 	}
 

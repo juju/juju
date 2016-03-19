@@ -7,15 +7,11 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-
-	"github.com/juju/loggo"
 )
 
 func init() {
 	common.RegisterStandardFacade("StatusHistory", 2, NewAPI)
 }
-
-var logger = loggo.GetLogger("juju.apiserver.statushistory")
 
 // API is the concrete implementation of the Pruner endpoint..
 type API struct {

@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/juju/cmd"
@@ -35,7 +36,7 @@ CONTROLLER  MODEL  USER  SERVER
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	s.expectedOutput = `
 CONTROLLER                 MODEL     USER         SERVER
-local.aws-test             admin     -            instance-1-2-4.useast.aws.com
+local.aws-test             -         -            instance-1-2-4.useast.aws.com
 local.mallards*            my-model  admin@local  maas-1-05.cluster.mallards
 local.mark-test-prodstack  -         -            vm-23532.prodstack.canonical.com
 
@@ -49,14 +50,25 @@ func (s *ListControllersSuite) TestListControllersYaml(c *gc.C) {
 	s.expectedOutput = `
 controllers:
   local.aws-test:
-    model: admin
-    server: instance-1-2-4.useast.aws.com
+    recent-server: instance-1-2-4.useast.aws.com
+    servers: [instance-1-2-4.useast.aws.com]
+    uuid: this-is-the-aws-test-uuid
+    api-endpoints: [this-is-aws-test-of-many-api-endpoints]
+    ca-cert: this-is-aws-test-ca-cert
   local.mallards:
-    model: my-model
+    current-model: my-model
     user: admin@local
-    server: maas-1-05.cluster.mallards
+    recent-server: maas-1-05.cluster.mallards
+    servers: [maas-1-05.cluster.mallards]
+    uuid: this-is-another-uuid
+    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
+    ca-cert: this-is-another-ca-cert
   local.mark-test-prodstack:
-    server: vm-23532.prodstack.canonical.com
+    recent-server: vm-23532.prodstack.canonical.com
+    servers: [vm-23532.prodstack.canonical.com, great.test.server.hostname.co.nz]
+    uuid: this-is-a-uuid
+    api-endpoints: [this-is-one-of-many-api-endpoints]
+    ca-cert: this-is-a-ca-cert
 current-controller: local.mallards
 `[1:]
 
@@ -65,12 +77,40 @@ current-controller: local.mallards
 }
 
 func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
-	s.expectedOutput = `
-{"controllers":{"local.aws-test":{"model":"admin","server":"instance-1-2-4.useast.aws.com"},"local.mallards":{"model":"my-model","user":"admin@local","server":"maas-1-05.cluster.mallards"},"local.mark-test-prodstack":{"server":"vm-23532.prodstack.canonical.com"}},"current-controller":"local.mallards"}
-`[1:]
-
+	s.expectedOutput = ""
 	s.createTestClientStore(c)
-	s.assertListControllers(c, "--format", "json")
+	jsonOut := s.assertListControllers(c, "--format", "json")
+	var result controller.ControllerSet
+	err := json.Unmarshal([]byte(jsonOut), &result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, controller.ControllerSet{
+		Controllers: map[string]controller.ControllerItem{
+			"local.aws-test": {
+				ControllerUUID: "this-is-the-aws-test-uuid",
+				Server:         "instance-1-2-4.useast.aws.com",
+				Servers:        []string{"instance-1-2-4.useast.aws.com"},
+				APIEndpoints:   []string{"this-is-aws-test-of-many-api-endpoints"},
+				CACert:         "this-is-aws-test-ca-cert",
+			},
+			"local.mallards": {
+				ControllerUUID: "this-is-another-uuid",
+				ModelName:      "my-model",
+				User:           "admin@local",
+				Server:         "maas-1-05.cluster.mallards",
+				Servers:        []string{"maas-1-05.cluster.mallards"},
+				APIEndpoints:   []string{"this-is-another-of-many-api-endpoints", "this-is-one-more-of-many-api-endpoints"},
+				CACert:         "this-is-another-ca-cert",
+			},
+			"local.mark-test-prodstack": {
+				ControllerUUID: "this-is-a-uuid",
+				Server:         "vm-23532.prodstack.canonical.com",
+				Servers:        []string{"vm-23532.prodstack.canonical.com", "great.test.server.hostname.co.nz"},
+				APIEndpoints:   []string{"this-is-one-of-many-api-endpoints"},
+				CACert:         "this-is-a-ca-cert",
+			},
+		},
+		CurrentController: "local.mallards",
+	})
 }
 
 func (s *ListControllersSuite) TestListControllersReadFromStoreErr(c *gc.C) {
@@ -110,8 +150,12 @@ func (s *ListControllersSuite) assertListControllersFailed(c *gc.C, args ...stri
 	c.Assert(err, gc.ErrorMatches, s.expectedErr)
 }
 
-func (s *ListControllersSuite) assertListControllers(c *gc.C, args ...string) {
+func (s *ListControllersSuite) assertListControllers(c *gc.C, args ...string) string {
 	context, err := s.runListControllers(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, s.expectedOutput)
+	output := testing.Stdout(context)
+	if s.expectedOutput != "" {
+		c.Assert(output, gc.Equals, s.expectedOutput)
+	}
+	return output
 }

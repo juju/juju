@@ -4,9 +4,8 @@
 package testing
 
 import (
+	wireformat "github.com/juju/romulus/wireformat/metrics"
 	"github.com/juju/utils"
-
-	"github.com/juju/juju/apiserver/metricsender/wireformat"
 )
 
 // MockSender implements the metric sender interface.

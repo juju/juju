@@ -30,12 +30,6 @@ type httpContext struct {
 	srv *Server
 }
 
-type errorSender interface {
-	sendError(w http.ResponseWriter, code int, err error)
-}
-
-var errUnauthorized = errors.NewUnauthorized(nil, "unauthorized")
-
 // stateForRequestUnauthenticated returns a state instance appropriate for
 // using for the model implicit in the given request
 // without checking any authentication information.
@@ -147,6 +141,12 @@ func (ctxt *httpContext) loginRequest(r *http.Request) (params.LoginRequest, err
 		Credentials: tagPass[1],
 		Nonce:       r.Header.Get(params.MachineNonceHeader),
 	}, nil
+}
+
+// stop returns a channel which will be closed when a handler should
+// exit.
+func (ctxt *httpContext) stop() <-chan struct{} {
+	return ctxt.srv.tomb.Dying()
 }
 
 // sendJSON writes a JSON-encoded response value

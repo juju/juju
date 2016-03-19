@@ -14,15 +14,15 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type OpenSuite struct {
@@ -35,7 +35,7 @@ var _ = gc.Suite(&OpenSuite{})
 func (s *OpenSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *OpenSuite) TearDownTest(c *gc.C) {
@@ -45,7 +45,7 @@ func (s *OpenSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
-	s.PatchValue(&version.Current, testing.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	// matches *Settings.Map()
 	cfg, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
@@ -97,7 +97,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 		ControllerUUID: info.APIEndpoint().ServerUUID,
 		CACert:         info.APIEndpoint().CACert,
 	})
-	foundModel, err := cache.ModelByName("controller-name", "admin-model")
+	foundModel, err := cache.ModelByName("controller-name", "admin@local", "admin-model")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foundModel, jc.DeepEquals, &jujuclient.ModelDetails{
 		ModelUUID: foundController.ControllerUUID,

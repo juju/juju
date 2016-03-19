@@ -46,8 +46,9 @@ func (w *apiConnWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
-// loop is somewhat out of the ordinary, because an api.State *does* maintain an
-// internal workeresque heartbeat goroutine, but it doesn't implement Worker.
+// loop is somewhat out of the ordinary, because an api.Connection
+// *does* maintain an internal workeresque heartbeat goroutine, but it
+// doesn't implement Worker.
 func (w *apiConnWorker) loop() (err error) {
 	// TODO(fwereade): we should make this rational at some point.
 

@@ -22,10 +22,13 @@ import (
 )
 
 var (
-	NewPingTimeout        = newPingTimeout
-	MaxClientPingInterval = &maxClientPingInterval
-	MongoPingInterval     = &mongoPingInterval
-	NewBackups            = &newBackups
+	NewPingTimeout               = newPingTimeout
+	MaxClientPingInterval        = &maxClientPingInterval
+	MongoPingInterval            = &mongoPingInterval
+	NewBackups                   = &newBackups
+	AllowedMethodsDuringUpgrades = allowedMethodsDuringUpgrades
+	JSMimeType                   = jsMimeType
+	SpritePath                   = spritePath
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {

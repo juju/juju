@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	wireformat "github.com/juju/romulus/wireformat/metrics"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -33,6 +34,30 @@ func (s *MetricSenderSuite) SetUpTest(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
 	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
 	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+}
+
+func (s *MetricSenderSuite) TestToWire(c *gc.C) {
+	now := time.Now().Round(time.Second)
+	metric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now})
+	result := metricsender.ToWire(metric)
+	m := metric.Metrics()[0]
+	metrics := []wireformat.Metric{
+		{
+			Key:   m.Key,
+			Value: m.Value,
+			Time:  m.Time.UTC(),
+		},
+	}
+	expected := &wireformat.MetricBatch{
+		UUID:        metric.UUID(),
+		ModelUUID:   metric.ModelUUID(),
+		UnitName:    metric.Unit(),
+		CharmUrl:    metric.CharmURL(),
+		Created:     metric.Created().UTC(),
+		Metrics:     metrics,
+		Credentials: metric.Credentials(),
+	}
+	c.Assert(result, gc.DeepEquals, expected)
 }
 
 // TestSendMetrics creates 2 unsent metrics and a sent metric

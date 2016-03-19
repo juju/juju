@@ -366,6 +366,18 @@ func NetworkHostsPorts(hpm [][]HostPort) [][]network.HostPort {
 	return nhpm
 }
 
+// UnitsNetworkConfig holds the parameters for calling Uniter.NetworkConfig()
+// API.
+type UnitsNetworkConfig struct {
+	Args []UnitNetworkConfig `json:"Args"`
+}
+
+// UnitNetworkConfig holds a unit tag and an endpoint binding name.
+type UnitNetworkConfig struct {
+	UnitTag     string `json:"UnitTag"`
+	BindingName string `json:"BindingName"`
+}
+
 // MachineAddresses holds an machine tag and addresses.
 type MachineAddresses struct {
 	Tag       string    `json:"Tag"`

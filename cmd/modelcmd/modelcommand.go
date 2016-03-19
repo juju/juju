@@ -6,13 +6,15 @@ package modelcmd
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/loggo"
-
+	"gopkg.in/juju/environschema.v1/form"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
@@ -22,7 +24,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-var logger = loggo.GetLogger("juju.cmd.envcmd")
+var logger = loggo.GetLogger("juju.cmd.modelcmd")
 
 // ErrNoModelSpecified is returned by commands that operate on
 // an environment if there is no current model, no model
@@ -50,7 +52,14 @@ func GetCurrentModel(store jujuclient.ClientStore) (string, error) {
 		return "", nil
 	}
 
-	currentModel, err := store.CurrentModel(currentController)
+	currentAccount, err := store.CurrentAccount(currentController)
+	if errors.IsNotFound(err) {
+		return "", nil
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	currentModel, err := store.CurrentModel(currentController, currentAccount)
 	if errors.IsNotFound(err) {
 		return "", nil
 	} else if err != nil {
@@ -105,13 +114,11 @@ type ModelCommandBase struct {
 	store jujuclient.ClientStore
 
 	modelName      string
+	accountName    string
 	controllerName string
 
 	// opener is the strategy used to open the API connection.
 	opener APIOpener
-
-	envGetterClient ModelGetter
-	envGetterErr    error
 }
 
 // SetClientStore implements the ModelCommand interface.
@@ -132,15 +139,35 @@ func (c *ModelCommandBase) SetModelName(modelName string) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+		if currentController == "" {
+			return errors.Errorf("no current controller, and none specified")
+		}
 		controllerName = currentController
+	} else {
+		var err error
+		controllerName, err = ResolveControllerName(c.store, controllerName)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
-	c.controllerName, c.modelName = controllerName, modelName
+	accountName, err := c.store.CurrentAccount(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.controllerName = controllerName
+	c.accountName = accountName
+	c.modelName = modelName
 	return nil
 }
 
 // ModelName implements the ModelCommand interface.
 func (c *ModelCommandBase) ModelName() string {
 	return c.modelName
+}
+
+// AccountName implements the ModelCommand interface.
+func (c *ModelCommandBase) AccountName() string {
+	return c.accountName
 }
 
 // ControllerName implements the ModelCommand interface.
@@ -162,20 +189,6 @@ func (c *ModelCommandBase) NewAPIClient() (*api.Client, error) {
 	return root.Client(), nil
 }
 
-// NewModelGetter returns a new object which implements the
-// ModelGetter interface.
-func (c *ModelCommandBase) NewModelGetter() (ModelGetter, error) {
-	if c.envGetterErr != nil {
-		return nil, c.envGetterErr
-	}
-
-	if c.envGetterClient != nil {
-		return c.envGetterClient, nil
-	}
-
-	return c.NewAPIClient()
-}
-
 // NewAPIRoot returns a new connection to the API server for the environment.
 func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 	// This is work in progress as we remove the ModelName from downstream code.
@@ -191,19 +204,19 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 	// TODO(axw) stop checking c.store != nil once we've updated all the
 	// tests, and have excised configstore.
 	if c.modelName != "" && c.controllerName != "" && c.store != nil {
-		_, err := c.store.ModelByName(c.controllerName, c.modelName)
+		_, err := c.store.ModelByName(c.controllerName, c.accountName, c.modelName)
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				return nil, errors.Trace(err)
 			}
 			// The model isn't known locally, so query the models
 			// available in the controller, and cache them locally.
-			if err := c.RefreshModels(c.store, c.controllerName); err != nil {
+			if err := c.RefreshModels(c.store, c.controllerName, c.accountName); err != nil {
 				return nil, errors.Annotate(err, "refreshing models")
 			}
 		}
 	}
-	return opener.Open(c.store, c.controllerName, c.modelName)
+	return opener.Open(c.store, c.controllerName, c.accountName, c.modelName)
 }
 
 // ConnectionCredentials returns the credentials used to connect to the API for
@@ -220,41 +233,6 @@ func (c *ModelCommandBase) ConnectionCredentials() (configstore.APICredentials, 
 		return emptyCreds, errors.Trace(err)
 	}
 	return info.APICredentials(), nil
-}
-
-// ConnectionEndpoint returns the end point information used to
-// connect to the API for the specified environment.
-func (c *ModelCommandBase) ConnectionEndpoint(refresh bool) (configstore.APIEndpoint, error) {
-	// TODO: the endpoint information may soon be specified through the command line
-	// or through an environment setting, so return these when they are ready.
-	// NOTE: refresh when specified through command line should error.
-	var emptyEndpoint configstore.APIEndpoint
-	if c.modelName == "" {
-		return emptyEndpoint, errors.Trace(ErrNoModelSpecified)
-	}
-	info, err := connectionInfoForName(c.controllerName, c.modelName)
-	if err != nil {
-		return emptyEndpoint, errors.Trace(err)
-	}
-	endpoint := info.APIEndpoint()
-	if !refresh && len(endpoint.Addresses) > 0 {
-		logger.Debugf("found cached addresses, not connecting to API server")
-		return endpoint, nil
-	}
-
-	// We need to connect to refresh our endpoint settings
-	// The side effect of connecting is that we update the store with new API information
-	refresher, err := endpointRefresher(c)
-	if err != nil {
-		return emptyEndpoint, err
-	}
-	refresher.Close()
-
-	info, err = connectionInfoForName(c.controllerName, c.modelName)
-	if err != nil {
-		return emptyEndpoint, err
-	}
-	return info.APIEndpoint(), nil
 }
 
 var endpointRefresher = func(c *ModelCommandBase) (io.Closer, error) {
@@ -333,6 +311,20 @@ type modelCommandWrapper struct {
 	modelName       string
 }
 
+func (w *modelCommandWrapper) Run(ctx *cmd.Context) error {
+	filler := &form.IOFiller{
+		In:  ctx.Stdin,
+		Out: ctx.Stderr,
+	}
+	w.ModelCommand.setVisitWebPage(
+		ussologin.VisitWebPage(
+			filler,
+			&http.Client{},
+			jujuclient.NewTokenStore(),
+		))
+	return w.ModelCommand.Run(ctx)
+}
+
 func (w *modelCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	if !w.skipFlags {
 		f.StringVar(&w.modelName, "m", "", "juju model to operate in")
@@ -364,8 +356,10 @@ func (w *modelCommandWrapper) Init(args []string) error {
 			}
 		}
 	}
-	if err := w.SetModelName(w.modelName); err != nil {
-		return errors.Annotate(err, "setting model name")
+	if w.modelName != "" {
+		if err := w.SetModelName(w.modelName); err != nil {
+			return errors.Annotate(err, "setting model name")
+		}
 	}
 	return w.ModelCommand.Init(args)
 }

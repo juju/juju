@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher/watchertest"
 )
 
@@ -114,6 +115,13 @@ func (s *serviceSuite) TestCharmURL(c *gc.C) {
 	c.Assert(force, jc.IsFalse)
 }
 
+func (s *serviceSuite) TestCharmModifiedVersion(c *gc.C) {
+	// Get the charm URL through state calls.
+	ver, err := s.apiService.CharmModifiedVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ver, gc.Equals, s.wordpressService.CharmModifiedVersion())
+}
+
 func (s *serviceSuite) TestOwnerTag(c *gc.C) {
 	tag, err := s.apiService.OwnerTag()
 	c.Assert(err, jc.ErrorIsNil)
@@ -124,20 +132,20 @@ func (s *serviceSuite) TestSetServiceStatus(c *gc.C) {
 	message := "a test message"
 	stat, err := s.wordpressService.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stat.Status, gc.Not(gc.Equals), state.Status(params.StatusActive))
+	c.Assert(stat.Status, gc.Not(gc.Equals), status.StatusActive)
 	c.Assert(stat.Message, gc.Not(gc.Equals), message)
 
-	err = s.apiService.SetStatus(s.wordpressUnit.Name(), params.StatusActive, message, map[string]interface{}{})
+	err = s.apiService.SetStatus(s.wordpressUnit.Name(), status.StatusActive, message, map[string]interface{}{})
 	c.Check(err, gc.ErrorMatches, `"wordpress/0" is not leader of "wordpress"`)
 
 	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
 
-	err = s.apiService.SetStatus(s.wordpressUnit.Name(), params.StatusActive, message, map[string]interface{}{})
+	err = s.apiService.SetStatus(s.wordpressUnit.Name(), status.StatusActive, message, map[string]interface{}{})
 	c.Check(err, jc.ErrorIsNil)
 
 	stat, err = s.wordpressService.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(stat.Status, gc.Equals, state.Status(params.StatusActive))
+	c.Check(stat.Status, gc.Equals, status.StatusActive)
 	c.Check(stat.Message, gc.Equals, message)
 }
 
@@ -145,15 +153,15 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 	message := "a test message"
 	stat, err := s.wordpressService.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stat.Status, gc.Not(gc.Equals), state.Status(params.StatusActive))
+	c.Assert(stat.Status, gc.Not(gc.Equals), status.StatusActive)
 	c.Assert(stat.Message, gc.Not(gc.Equals), message)
 
-	err = s.wordpressService.SetStatus(state.Status(params.StatusActive), message, map[string]interface{}{})
+	err = s.wordpressService.SetStatus(status.StatusActive, message, map[string]interface{}{})
 	c.Check(err, jc.ErrorIsNil)
 
 	stat, err = s.wordpressService.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(stat.Status, gc.Equals, state.Status(params.StatusActive))
+	c.Check(stat.Status, gc.Equals, status.StatusActive)
 	c.Check(stat.Message, gc.Equals, message)
 
 	result, err := s.apiService.Status(s.wordpressUnit.Name())
@@ -162,7 +170,7 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
 	result, err = s.apiService.Status(s.wordpressUnit.Name())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(result.Service.Status, gc.Equals, params.StatusActive)
+	c.Check(result.Service.Status, gc.Equals, status.StatusActive)
 }
 
 func (s *serviceSuite) claimLeadership(c *gc.C, unit *state.Unit, service *state.Service) {

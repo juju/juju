@@ -15,13 +15,15 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	jujuseries "github.com/juju/utils/series"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/juju"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.sync")
@@ -80,10 +82,10 @@ func SyncTools(syncContext *SyncContext) error {
 
 	logger.Infof("listing available tools")
 	if syncContext.MajorVersion == 0 && syncContext.MinorVersion == 0 {
-		syncContext.MajorVersion = version.Current.Major
+		syncContext.MajorVersion = jujuversion.Current.Major
 		syncContext.MinorVersion = -1
 		if !syncContext.AllVersions {
-			syncContext.MinorVersion = version.Current.Minor
+			syncContext.MinorVersion = jujuversion.Current.Minor
 		}
 	}
 
@@ -93,7 +95,7 @@ func SyncTools(syncContext *SyncContext) error {
 		// We now store the tools in a directory named after their stream, but the
 		// legacy behaviour is to store all tools in a single "releases" directory.
 		toolsDir = envtools.LegacyReleaseDirectory
-		syncContext.Stream = envtools.PreferredStream(&version.Current, false, syncContext.Stream)
+		syncContext.Stream = envtools.PreferredStream(&jujuversion.Current, false, syncContext.Stream)
 	}
 	sourceTools, err := envtools.FindToolsForCloud(
 		[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
@@ -159,7 +161,7 @@ func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource,
 		return nil, err
 	}
 	logger.Infof("using sync tools source: %v", sourceURL)
-	return simplestreams.NewURLSignedDataSource("sync tools source", sourceURL, simplestreams.SimplestreamsJujuPublicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false), nil
+	return simplestreams.NewURLSignedDataSource("sync tools source", sourceURL, juju.JujuPublicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false), nil
 }
 
 // copyTools copies a set of tools from the source to the target.

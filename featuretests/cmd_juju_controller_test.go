@@ -14,7 +14,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -41,11 +40,8 @@ func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
 }
 
 func (s *cmdControllerSuite) createEnv(c *gc.C, envname string, isServer bool) {
-	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { conn.Close() })
-	modelManager := modelmanager.NewClient(conn)
-	_, err = modelManager.CreateModel(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
+	modelManager := modelmanager.NewClient(s.APIState)
+	_, err := modelManager.CreateModel(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
 		"name":            envname,
 		"authorized-keys": "ssh-key",
 		"controller":      isServer,
@@ -68,9 +64,9 @@ func (s *cmdControllerSuite) TestControllerModelsCommand(c *gc.C) {
 	s.createEnv(c, "new-model", false)
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME        OWNER        LAST CONNECTION\n"+
-		"dummymodel  admin@local  just now\n"+
-		"new-model   admin@local  never connected\n"+
+		"NAME         OWNER        LAST CONNECTION\n"+
+		"dummymodel*  admin@local  just now\n"+
+		"new-model    admin@local  never connected\n"+
 		"\n")
 }
 
@@ -85,7 +81,7 @@ func (s *cmdControllerSuite) TestCreateModel(c *gc.C) {
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	api, err := juju.NewAPIConnection(s.ControllerStore, "dummymodel", "new-model", nil)
+	api, err := juju.NewAPIConnection(s.ControllerStore, "dummymodel", "admin@local", "new-model", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()
 }

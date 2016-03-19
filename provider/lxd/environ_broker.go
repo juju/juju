@@ -17,8 +17,9 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/lxd/lxdclient"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 func isController(icfg *instancecfg.InstanceConfig) bool {
@@ -54,6 +55,9 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 
 	raw, err := env.newRawInstance(args)
 	if err != nil {
+		if args.StatusCallback != nil {
+			args.StatusCallback(status.StatusProvisioningError, err.Error(), nil)
+		}
 		return nil, errors.Trace(err)
 	}
 	logger.Infof("started instance %q", raw.Name)
@@ -94,6 +98,17 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 
 	series := args.Tools.OneSeries()
 	image := "ubuntu-" + series
+
+	var callback func(string)
+	if args.StatusCallback != nil {
+		callback = func(copyProgress string) {
+			args.StatusCallback(status.StatusAllocating, copyProgress, nil)
+		}
+	}
+	err := env.raw.EnsureImageExists(series, callback)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	metadata, err := getMetadata(args)
 	if err != nil {

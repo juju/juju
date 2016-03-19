@@ -36,6 +36,8 @@ type upgradeCharmCommand struct {
 	SwitchURL   string
 	CharmPath   string
 	Revision    int // defaults to -1 (latest)
+	// Resources is a map of resource name to filename to be uploaded on upgrade.
+	Resources map[string]string
 }
 
 const upgradeCharmDoc = `
@@ -61,6 +63,14 @@ When deploying from a path, the --path flag is used to specify the location from
 which to load the updated charm. Note that the directory containing the charm must
 match what was originally used to deploy the charm as a superficial check that the
 updated charm is compatible.
+
+Resources may be uploaded at upgrade time by specifying the --resource flag.
+Following the resource flag should be name=filepath pair.  This flag may be
+repeated more than once to upload more than one resource.
+
+  juju upgrade-charm foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
+
+Where bar and baz are resources named in the metadata for the foo charm.
 
 If the new version of a charm does not explicitly support the service's series, the
 upgrade is disallowed unless the --force-series flag is used. This option should be
@@ -112,6 +122,7 @@ func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.SwitchURL, "switch", "", "crossgrade to a different charm")
 	f.StringVar(&c.CharmPath, "path", "", "upgrade to a charm located at path")
 	f.IntVar(&c.Revision, "revision", -1, "explicit revision of current charm")
+	f.Var(stringMap{&c.Resources}, "resource", "resource to be uploaded to the controller")
 }
 
 func (c *upgradeCharmCommand) Init(args []string) error {
@@ -178,16 +189,46 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	csClient := newCharmStoreClient(httpClient)
+	csClient := newCharmStoreClient(ctx, httpClient)
 
 	addedURL, err := c.addCharm(oldURL, newRef, ctx, client, csClient)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	return block.ProcessBlockedError(
-		serviceClient.SetCharm(c.ServiceName, addedURL.String(), c.ForceSeries, c.ForceUnits),
-		block.BlockChange)
+	charmInfo, err := client.CharmInfo(addedURL.String())
+	if err != nil {
+		return err
+	}
+
+	var ids map[string]string
+
+	if len(c.Resources) > 0 {
+		metaRes := charmInfo.Meta.Resources
+		// only include resource metadata for the files we're actually uploading,
+		// otherwise the server will create empty resources that'll overwrite any
+		// existing resources.
+		for name, _ := range charmInfo.Meta.Resources {
+			if _, ok := c.Resources[name]; !ok {
+				delete(metaRes, name)
+			}
+		}
+
+		ids, err = handleResources(c, c.Resources, c.ServiceName, metaRes)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	cfg := apiservice.SetCharmConfig{
+		ServiceName: c.ServiceName,
+		CharmUrl:    addedURL.String(),
+		ForceSeries: c.ForceSeries,
+		ForceUnits:  c.ForceUnits,
+		ResourceIDs: ids,
+	}
+
+	return block.ProcessBlockedError(serviceClient.SetCharm(cfg), block.BlockChange)
 }
 
 // addCharm interprets the new charmRef and adds the specified charm if the new charm is different
