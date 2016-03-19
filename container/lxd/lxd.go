@@ -37,6 +37,8 @@ type containerManager struct {
 	name string
 	// A cached client.
 	client *lxdclient.Client
+	// Profiles that need to be deleted when the container is destroyed
+	createdProfiles []string
 }
 
 // containerManager implements container.Manager.
@@ -139,10 +141,12 @@ func (manager *containerManager) CreateContainer(
 	callback(status.StatusAllocating, "Creating container; it might take some time", nil)
 	_, err = manager.client.AddInstance(spec)
 	if err != nil {
+		manager.client.ProfileDelete(networkProfile)
 		return
 	}
 
 	inst = &lxdInstance{name, manager.client}
+	manager.createdProfiles = append(manager.createdProfiles, networkProfile)
 	return
 }
 
@@ -152,6 +156,13 @@ func (manager *containerManager) DestroyContainer(id instance.Id) error {
 		manager.client, err = ConnectLocal(manager.name)
 		if err != nil {
 			return err
+		}
+	}
+
+	for _, profile := range manager.createdProfiles {
+		logger.Infof("deleting profile %q", profile)
+		if err := manager.client.ProfileDelete(profile); err != nil {
+			logger.Warningf("discarding profile delete error: %v", err)
 		}
 	}
 
