@@ -786,3 +786,8 @@ func (ctx *HookContext) killCharmHook() error {
 		tick = ctx.clock.After(100 * time.Millisecond)
 	}
 }
+
+// NetworkConfig returns the network config for the given bindingName.
+func (ctx *HookContext) NetworkConfig(bindingName string) ([]params.NetworkConfig, error) {
+	return ctx.unit.NetworkConfig(bindingName)
+}

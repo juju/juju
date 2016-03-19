@@ -107,12 +107,12 @@ var marshalTestCases = []struct {
 				Current: status.StatusActive,
 				Message: "all good",
 			},
-			AgentStatus: multiwatcher.StatusInfo{
+			JujuStatus: multiwatcher.StatusInfo{
 				Current: status.StatusIdle,
 			},
 		},
 	},
-	json: `["unit","change",{"ModelUUID":"uuid","Name":"Benji","Service":"Shazam","Series":"precise","CharmURL":"cs:~user/precise/wordpress-42","PublicAddress":"testing.invalid","PrivateAddress":"10.0.0.1","MachineId":"1","Ports":[{"Protocol":"http","Number":80}],"PortRanges":[{"FromPort":80,"ToPort":80,"Protocol":"http"}],"Subordinate":false,"WorkloadStatus":{"Err":null,"Current":"active","Message":"all good","Since":null,"Version":"","Data":null},"AgentStatus":{"Err":null,"Current":"idle","Message":"","Since":null,"Version":"","Data":null}}]`,
+	json: `["unit","change",{"ModelUUID":"uuid","Name":"Benji","Service":"Shazam","Series":"precise","CharmURL":"cs:~user/precise/wordpress-42","PublicAddress":"testing.invalid","PrivateAddress":"10.0.0.1","MachineId":"1","Ports":[{"Protocol":"http","Number":80}],"PortRanges":[{"FromPort":80,"ToPort":80,"Protocol":"http"}],"Subordinate":false,"WorkloadStatus":{"Err":null,"Current":"active","Message":"all good","Since":null,"Version":"","Data":null},"JujuStatus":{"Err":null,"Current":"idle","Message":"","Since":null,"Version":"","Data":null}}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: multiwatcher.Delta{

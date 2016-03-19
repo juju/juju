@@ -126,7 +126,7 @@ func (s *DeploySuite) TestInvalidFileFormat(c *gc.C) {
 	err := ioutil.WriteFile(path, []byte(":"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	err = runDeploy(c, path)
-	c.Assert(err, gc.ErrorMatches, `invalid charm or bundle provided at ".*/bundle.yaml"`)
+	c.Assert(err, gc.ErrorMatches, `invalid charm or bundle provided at ".*bundle.yaml"`)
 }
 
 func (s *DeploySuite) TestPathWithNoCharm(c *gc.C) {
@@ -1115,20 +1115,24 @@ func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecified
 	_, err = s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	testcharms.UploadCharm(c, s.client, "cs:quantal/wordpress-1", "wordpress")
-	err = runDeploy(c, "cs:quantal/wordpress-1", "--bind", "db=db public")
+	testcharms.UploadCharm(c, s.client, "cs:quantal/wordpress-extra-bindings-1", "wordpress-extra-bindings")
+	err = runDeploy(c, "cs:quantal/wordpress-extra-bindings-1", "--bind", "db=db db-client=db public admin-api=public")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertServicesDeployed(c, map[string]serviceInfo{
-		"wordpress": {charm: "cs:quantal/wordpress-1"},
+		"wordpress-extra-bindings": {charm: "cs:quantal/wordpress-extra-bindings-1"},
 	})
 	s.assertDeployedServiceBindings(c, map[string]serviceInfo{
-		"wordpress": {
+		"wordpress-extra-bindings": {
 			endpointBindings: map[string]string{
 				"cache":           "public",
 				"url":             "public",
 				"logging-dir":     "public",
 				"monitoring-port": "public",
 				"db":              "db",
+				"db-client":       "db",
+				"admin-api":       "public",
+				"foo-bar":         "public",
+				"cluster":         "public",
 			},
 		},
 	})
@@ -1164,65 +1168,57 @@ type ParseBindSuite struct {
 
 var _ = gc.Suite(&ParseBindSuite{})
 
-func (s *ParseBindSuite) TestBindParseEmpty(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: ""}
-	err := deploy.parseBind()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deploy.Bindings, gc.IsNil)
+func (s *ParseBindSuite) TestParseSuccessWithEmptyArgs(c *gc.C) {
+	s.checkParseOKForArgs(c, "", nil)
 }
 
-func (s *ParseBindSuite) TestBindParseOK(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "foo=a bar=b"}
-	err := deploy.parseBind()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"foo": "a", "bar": "b"})
+func (s *ParseBindSuite) TestParseSuccessWithEndpointsOnly(c *gc.C) {
+	s.checkParseOKForArgs(c, "foo=a bar=b", map[string]string{"foo": "a", "bar": "b"})
 }
 
-func (s *ParseBindSuite) TestBindParseServiceDefault(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "service-default"}
-	err := deploy.parseBind()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"": "service-default"})
+func (s *ParseBindSuite) TestParseSuccessWithServiceDefaultSpaceOnly(c *gc.C) {
+	s.checkParseOKForArgs(c, "service-default", map[string]string{"": "service-default"})
 }
 
-func (s *ParseBindSuite) TestBindParseNoEndpoint(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "=bad"}
-	err := deploy.parseBind()
-	c.Assert(err.Error(), gc.Equals, parseBindErrorPrefix+"Found = without relation name. Use a lone space name to set the default.")
-	c.Assert(deploy.Bindings, gc.IsNil)
+func (s *ParseBindSuite) TestBindingsOrderForDefaultSpaceAndEndpointsDoesNotMatter(c *gc.C) {
+	expectedBindings := map[string]string{
+		"ep1": "sp1",
+		"ep2": "sp2",
+		"":    "sp3",
+	}
+	s.checkParseOKForArgs(c, "ep1=sp1 ep2=sp2 sp3", expectedBindings)
+	s.checkParseOKForArgs(c, "ep1=sp1 sp3 ep2=sp2", expectedBindings)
+	s.checkParseOKForArgs(c, "ep2=sp2 ep1=sp1 sp3", expectedBindings)
+	s.checkParseOKForArgs(c, "ep2=sp2 sp3 ep1=sp1", expectedBindings)
+	s.checkParseOKForArgs(c, "sp3 ep1=sp1 ep2=sp2", expectedBindings)
+	s.checkParseOKForArgs(c, "sp3 ep2=sp2 ep1=sp1", expectedBindings)
 }
 
-func (s *ParseBindSuite) TestBindParseBadList(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "foo=bar=baz"}
-	err := deploy.parseBind()
-	c.Assert(err.Error(), gc.Equals, parseBindErrorPrefix+"Found multiple = in binding. Did you forget to space-separate the binding list?")
-	c.Assert(deploy.Bindings, gc.IsNil)
+func (s *ParseBindSuite) TestParseFailsWithSpaceNameButNoEndpoint(c *gc.C) {
+	s.checkParseFailsForArgs(c, "=bad", "Found = without endpoint name. Use a lone space name to set the default.")
 }
 
-func (s *ParseBindSuite) TestBindParseDefaultAndEndpoints(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "rel1=space1  rel2=space2 space3"}
-	err := deploy.parseBind()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"rel1": "space1", "rel2": "space2", "": "space3"})
+func (s *ParseBindSuite) TestParseFailsWithTooManyEqualsSignsInArgs(c *gc.C) {
+	s.checkParseFailsForArgs(c, "foo=bar=baz", "Found multiple = in binding. Did you forget to space-separate the binding list?")
 }
 
-func (s *ParseBindSuite) TestBindParseDefaultAndEndpoints2(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "rel1=space1  space3 rel2=space2"}
-	err := deploy.parseBind()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"rel1": "space1", "rel2": "space2", "": "space3"})
+func (s *ParseBindSuite) TestParseFailsWithBadSpaceName(c *gc.C) {
+	s.checkParseFailsForArgs(c, "rel1=spa#ce1", "Space name invalid.")
 }
 
-func (s *ParseBindSuite) TestBindParseDefaultAndEndpoints3(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "space3  rel1=space1 rel2=space2"}
-	err := deploy.parseBind()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deploy.Bindings, jc.DeepEquals, map[string]string{"rel1": "space1", "rel2": "space2", "": "space3"})
+func (s *ParseBindSuite) runParseBindWithArgs(args string) (error, map[string]string) {
+	deploy := &DeployCommand{BindToSpaces: args}
+	return deploy.parseBind(), deploy.Bindings
 }
 
-func (s *ParseBindSuite) TestBindParseBadSpace(c *gc.C) {
-	deploy := &DeployCommand{BindToSpaces: "rel1=spa#ce1"}
-	err := deploy.parseBind()
-	c.Assert(err.Error(), gc.Equals, parseBindErrorPrefix+"Space name invalid.")
-	c.Assert(deploy.Bindings, gc.IsNil)
+func (s *ParseBindSuite) checkParseOKForArgs(c *gc.C, args string, expectedBindings map[string]string) {
+	err, parsedBindings := s.runParseBindWithArgs(args)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(parsedBindings, jc.DeepEquals, expectedBindings)
+}
+
+func (s *ParseBindSuite) checkParseFailsForArgs(c *gc.C, args string, expectedErrorSuffix string) {
+	err, parsedBindings := s.runParseBindWithArgs(args)
+	c.Check(err.Error(), gc.Equals, parseBindErrorPrefix+expectedErrorSuffix)
+	c.Check(parsedBindings, gc.IsNil)
 }

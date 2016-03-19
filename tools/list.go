@@ -9,8 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
-
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 // List holds tools available in an environment. The order of tools within

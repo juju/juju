@@ -7,9 +7,11 @@
 package featuretests
 
 import (
+	"reflect"
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -28,22 +30,22 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
+	"github.com/juju/version"
 )
 
-type exposedAPI bool
-
-var (
-	FullAPIExposed       exposedAPI = true
-	RestrictedAPIExposed exposedAPI = false
+const (
+	FullAPIExposed       = true
+	RestrictedAPIExposed = false
 )
 
 var ShortAttempt = &utils.AttemptStrategy{
@@ -60,7 +62,7 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 
 	s.oldVersion = version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -172,7 +174,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 	s.configureMachine(c, changes.Added[1], s.oldVersion)
 
 	// One of the other controllers is ready for upgrade (but machine C isn't).
-	info, err := s.State.EnsureUpgradeInfo(machineB.Id(), s.oldVersion.Number, version.Current)
+	info, err := s.State.EnsureUpgradeInfo(machineB.Id(), s.oldVersion.Number, jujuversion.Current)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the agent will think it's the master controller.
@@ -197,7 +199,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 		}
 		// Confirm that the downgrade is back to the previous version.
 		current := version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		}
@@ -299,7 +301,7 @@ func canLoginToAPIAsMachine(c *gc.C, fromConf, toConf agent.Config) bool {
 	return apiState != nil && err == nil
 }
 
-func (s *upgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectFullApi exposedAPI) {
+func (s *upgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectFullApi bool) {
 	var err error
 	// Multiple attempts may be necessary because there is a small gap
 	// between the post-upgrade version being written to the agent's
@@ -315,7 +317,7 @@ func (s *upgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectF
 				return
 			}
 		case RestrictedAPIExposed:
-			if err != nil && strings.HasPrefix(err.Error(), "upgrade in progress") {
+			if reflect.DeepEqual(errors.Cause(err), &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress}) {
 				return
 			}
 		}
@@ -366,7 +368,7 @@ func waitForUpgradeToFinish(c *gc.C, conf agent.Config) {
 	success := false
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		diskConf := readConfigFromDisk(c, conf.DataDir(), conf.Tag())
-		success = diskConf.UpgradedToVersion() == version.Current
+		success = diskConf.UpgradedToVersion() == jujuversion.Current
 		if success {
 			break
 		}

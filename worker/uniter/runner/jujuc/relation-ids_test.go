@@ -24,8 +24,8 @@ var _ = gc.Suite(&RelationIdsSuite{})
 func (s *RelationIdsSuite) newHookContext(relid int, remote string) (jujuc.Context, *relationInfo) {
 	hctx, info := s.relationSuite.newHookContext(-1, "")
 	info.reset()
-	info.addRelatedServices("x", 3, nil)
-	info.addRelatedServices("y", 1, nil)
+	info.addRelatedServices("x", 3)
+	info.addRelatedServices("y", 1)
 	if relid >= 0 {
 		info.SetAsRelationHook(relid, remote)
 	}

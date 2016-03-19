@@ -4,8 +4,12 @@
 package bootstrap_test
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -14,6 +18,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -32,7 +37,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const (
@@ -56,7 +61,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 }
 
@@ -251,13 +256,83 @@ func (s *bootstrapSuite) TestSetBootstrapTools(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		err = env.SetConfig(cfg)
 		c.Assert(err, jc.ErrorIsNil)
-		s.PatchValue(&version.Current, t.currentVersion)
+		s.PatchValue(&jujuversion.Current, t.currentVersion)
 		bootstrapTools, err := bootstrap.SetBootstrapTools(env, availableTools)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(bootstrapTools.Version.Number, gc.Equals, t.expectedTools)
 		agentVersion, _ := env.Config().AgentVersion()
 		c.Assert(agentVersion, gc.Equals, t.expectedAgentVersion)
 	}
+}
+
+func (s *bootstrapSuite) TestBootstrapGUISuccess(c *gc.C) {
+	path := makeGUIArchive(c, "jujugui-2.0.42")
+	s.PatchEnvironment("JUJU_GUI", path)
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check GUI URL and version.
+	c.Assert(env.instanceConfig.GUI.URL, gc.Equals, "file://"+path)
+	c.Assert(env.instanceConfig.GUI.Version.String(), gc.Equals, "2.0.42")
+
+	// Check GUI size.
+	f, err := os.Open(path)
+	c.Assert(err, jc.ErrorIsNil)
+	defer f.Close()
+	info, err := f.Stat()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.instanceConfig.GUI.Size, gc.Equals, info.Size())
+
+	// Check GUI hash.
+	h := sha256.New()
+	_, err = io.Copy(h, f)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.instanceConfig.GUI.SHA256, gc.Equals, fmt.Sprintf("%x", h.Sum(nil)))
+}
+
+func (s *bootstrapSuite) TestBootstrapGUIErrorNotFound(c *gc.C) {
+	s.PatchEnvironment("JUJU_GUI", "/no/such/file")
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.ErrorMatches, "cannot set up Juju GUI: cannot open Juju GUI archive: .*")
+}
+
+func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidArchive(c *gc.C) {
+	path := filepath.Join(c.MkDir(), "gui.bz2")
+	err := ioutil.WriteFile(path, []byte("invalid"), 0666)
+	c.Assert(err, jc.ErrorIsNil)
+	s.PatchEnvironment("JUJU_GUI", path)
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.ErrorMatches, "cannot set up Juju GUI: cannot read Juju GUI archive")
+}
+
+func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidVersion(c *gc.C) {
+	s.PatchEnvironment("JUJU_GUI", makeGUIArchive(c, "jujugui-invalid"))
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.ErrorMatches, `cannot set up Juju GUI: cannot parse version "invalid"`)
+}
+
+func (s *bootstrapSuite) TestBootstrapGUIErrorUnexpectedArchive(c *gc.C) {
+	s.PatchEnvironment("JUJU_GUI", makeGUIArchive(c, "not-a-gui"))
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.ErrorMatches, "cannot set up Juju GUI: cannot find Juju GUI version")
+}
+
+func makeGUIArchive(c *gc.C, dir string) string {
+	if runtime.GOOS == "windows" {
+		c.Skip("tar command not available")
+	}
+	target := filepath.Join(c.MkDir(), "gui.tar.bz2")
+	source := c.MkDir()
+	err := os.Mkdir(filepath.Join(source, dir), 0777)
+	c.Assert(err, jc.ErrorIsNil)
+	err = exec.Command("tar", "cjf", target, "-C", source, dir).Run()
+	c.Assert(err, jc.ErrorIsNil)
+	return target
 }
 
 // createImageMetadata creates some image metadata in a local directory.
@@ -351,11 +426,11 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 }
 
 func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, clientMinor int, toolsVersion *version.Number) (error, int, version.Number) {
-	currentVersion := version.Current
+	currentVersion := jujuversion.Current
 	currentVersion.Major = clientMajor
 	currentVersion.Minor = clientMinor
 	currentVersion.Tag = ""
-	s.PatchValue(&version.Current, currentVersion)
+	s.PatchValue(&jujuversion.Current, currentVersion)
 	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 

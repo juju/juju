@@ -57,6 +57,7 @@ func (env *joyentEnviron) machineFullName(machineId string) string {
 var unsupportedConstraints = []string{
 	constraints.CpuPower,
 	constraints.Tags,
+	constraints.VirtType,
 }
 
 // ConstraintsValidator is defined on the Environs interface.

@@ -11,11 +11,12 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/worker/environ"
 )
 
 // SupportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
-func SupportsSpaces(backing NetworkBacking) error {
+func SupportsSpaces(backing environ.ConfigGetter) error {
 	config, err := backing.ModelConfig()
 	if err != nil {
 		return errors.Annotate(err, "getting model config")

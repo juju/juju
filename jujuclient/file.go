@@ -664,6 +664,20 @@ func (s *store) UpdateCredential(cloudName string, details cloud.CloudCredential
 		all = make(map[string]cloud.CloudCredential)
 	}
 
+	// Clear the default credential if we are removing that one.
+	if existing, ok := all[cloudName]; ok && existing.DefaultCredential != "" {
+		stillHaveDefault := false
+		for name := range details.AuthCredentials {
+			if name == existing.DefaultCredential {
+				stillHaveDefault = true
+				break
+			}
+		}
+		if !stillHaveDefault {
+			details.DefaultCredential = ""
+		}
+	}
+
 	all[cloudName] = details
 	return WriteCredentialsFile(all)
 }

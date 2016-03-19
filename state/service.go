@@ -1373,7 +1373,7 @@ func (s *Service) defaultEndpointBindings() (map[string]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return defaultEndpointBindingsForCharm(charm.Meta())
+	return DefaultEndpointBindingsForCharm(charm.Meta()), nil
 }
 
 // MetricCredentials returns any metric credentials associated with this service.
