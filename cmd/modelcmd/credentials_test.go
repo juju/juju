@@ -32,10 +32,12 @@ type mockProvider struct {
 
 func (mockProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	schema := cloud.CredentialSchema{
-		"username": {},
-		"password": {},
-		"key": {
-			FileAttr: "key-file",
+		{
+			"username", cloud.CredentialAttr{},
+		}, {
+			"password", cloud.CredentialAttr{},
+		}, {
+			"key", cloud.CredentialAttr{FileAttr: "key-file"},
 		},
 	}
 	return map[cloud.AuthType]cloud.CredentialSchema{
