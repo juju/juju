@@ -213,6 +213,8 @@ func (manager *containerManager) createNetworkProfile(profile string, networkCon
 		return err
 	}
 
+	logger.Infof("created new network profile %q", profile)
+
 	for _, v := range networkConfig.Interfaces {
 		if v.InterfaceType == network.LoopbackInterface {
 			continue
@@ -234,6 +236,9 @@ func (manager *containerManager) createNetworkProfile(profile string, networkCon
 		if v.MTU > 0 {
 			props = append(props, fmt.Sprintf("mtu=%v", v.MTU))
 		}
+
+		logger.Infof("adding nic device %q with properties %+v to profile %q",
+			v.InterfaceName, props, profile)
 
 		_, err := manager.client.ProfileDeviceAdd(profile, v.InterfaceName, "nic", props)
 
