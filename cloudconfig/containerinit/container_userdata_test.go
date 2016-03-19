@@ -133,6 +133,8 @@ bootcmd:
 - |-
   printf '%s\n' '` + indentedNetConfig + `
   ' > '` + s.networkInterfacesFile + `'
+runcmd:
+- ifup -a || true
 `
 	assertUserData(c, cloudConf, expected)
 }
