@@ -662,6 +662,10 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 // is not enabled, it returns a NotSupported error.
 func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (
 	params.MachineNetworkConfigResults, error) {
+	if environs.AddressAllocationEnabled() {
+		logger.Warningf("address allocation enabled - using legacyPrepareOrGetContainerInterfaceInfo(true)")
+		return p.legacyPrepareOrGetContainerInterfaceInfo(args, true)
+	}
 	return p.prepareOrGetContainerInterfaceInfo(args, true)
 }
 
@@ -670,6 +674,10 @@ func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (
 // allocation feature flag is not enabled, it returns a NotSupported error.
 func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
 	params.MachineNetworkConfigResults, error) {
+	if environs.AddressAllocationEnabled() {
+		logger.Warningf("address allocation enabled - using legacyPrepareOrGetContainerInterfaceInfo(false)")
+		return p.legacyPrepareOrGetContainerInterfaceInfo(args, false)
+	}
 	return p.prepareOrGetContainerInterfaceInfo(args, false)
 }
 
