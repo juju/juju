@@ -32,10 +32,11 @@ func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.Credent
 				},
 			}, {
 				"tenant-name", cloud.CredentialAttr{Description: "The OpenStack tenant name."},
-			},
-			"domain-name": {
-				Description: "The OpenStack domain name.",
-				Optional:    true,
+			}, {
+				"domain-name", cloud.CredentialAttr{
+					Description: "The OpenStack domain name.",
+					Optional:    true,
+				},
 			},
 		},
 		cloud.AccessKeyAuthType: {
