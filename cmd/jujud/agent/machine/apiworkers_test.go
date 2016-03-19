@@ -6,6 +6,7 @@ package machine_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
@@ -101,5 +102,14 @@ type mockAPIConn struct {
 }
 
 type mockWorker struct {
-	worker.Worker
+	tomb tomb.Tomb
+}
+
+func (w *mockWorker) Kill() {
+	w.tomb.Kill(nil)
+	w.tomb.Done()
+}
+
+func (w *mockWorker) Wait() error {
+	return w.tomb.Wait()
 }

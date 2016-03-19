@@ -17,27 +17,26 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 		// TODO(axw) we need a more appropriate name for this authentication
 		//           type. ssh?
 		cloud.UserPassAuthType: {
-			sdcUser: {
-				Description: "SmartDataCenter user ID",
-			},
-			sdcKeyId: {
-				Description: "SmartDataCenter key ID",
-			},
-			mantaUser: {
-				Description: "Manta user ID",
-			},
-			mantaKeyId: {
-				Description: "Manta key ID",
-			},
-			privateKey: {
-				Description: "Private key used to sign requests",
-				Hidden:      true,
-				FileAttr:    privateKeyPath,
-			},
-			algorithm: {
-				Description: "Algorithm used to generate the private key (default rsa-sha256)",
-				Optional:    true,
-				Options:     []interface{}{"rsa-sha256", "rsa-sha1", "rsa-sha224", "rsa-sha384", "rsa-sha512"},
+			{
+				sdcUser, cloud.CredentialAttr{Description: "SmartDataCenter user ID"},
+			}, {
+				sdcKeyId, cloud.CredentialAttr{Description: "SmartDataCenter key ID"},
+			}, {
+				mantaUser, cloud.CredentialAttr{Description: "Manta user ID"},
+			}, {
+				mantaKeyId, cloud.CredentialAttr{Description: "Manta key ID"},
+			}, {
+				privateKey, cloud.CredentialAttr{
+					Description: "Private key used to sign requests",
+					Hidden:      true,
+					FileAttr:    privateKeyPath,
+				},
+			}, {
+				algorithm, cloud.CredentialAttr{
+					Description: "Algorithm used to generate the private key (default rsa-sha256)",
+					Optional:    true,
+					Options:     []interface{}{"rsa-sha256", "rsa-sha1", "rsa-sha224", "rsa-sha384", "rsa-sha512"},
+				},
 			},
 		},
 	}
