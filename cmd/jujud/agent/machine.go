@@ -28,6 +28,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
+	"github.com/juju/version"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -61,10 +62,9 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/upgrades"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
@@ -220,11 +220,10 @@ func (a *machineAgentCmd) Init(args []string) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot read agent configuration")
 	}
-	agentConfig := a.currentConfig.CurrentConfig()
 
 	// the context's stderr is set as the loggo writer in github.com/juju/cmd/logging.go
 	a.ctx.Stderr = &lumberjack.Logger{
-		Filename:   agent.LogFilename(agentConfig),
+		Filename:   agent.LogFilename(a.currentConfig.CurrentConfig()),
 		MaxSize:    300, // megabytes
 		MaxBackups: 2,
 	}
@@ -283,6 +282,7 @@ func NewMachineAgent(
 	return &MachineAgent{
 		machineId:                   machineId,
 		AgentConfigWriter:           agentConfWriter,
+		configChangedVal:            voyeur.NewValue(true),
 		bufferedLogs:                bufferedLogs,
 		workersStarted:              make(chan struct{}),
 		runner:                      runner,
@@ -302,7 +302,7 @@ type MachineAgent struct {
 	runner           worker.Runner
 	rootDir          string
 	bufferedLogs     logsender.LogRecordCh
-	configChangedVal voyeur.Value
+	configChangedVal *voyeur.Value
 	upgradeComplete  gate.Lock
 	workersStarted   chan struct{}
 
@@ -406,7 +406,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
 
-	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
+	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), jujuversion.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
@@ -433,7 +433,6 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		return err
 	}
 	a.runner.StartWorker("engine", createEngine)
-	a.runner.StartWorker("statestarter", a.newStateStarterWorker)
 
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
@@ -468,9 +467,12 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 		manifolds := machine.Manifolds(machine.ManifoldsConfig{
 			PreviousAgentVersion: previousAgentVersion,
 			Agent:                agent.APIHostPortsSetter{a},
+			AgentConfigChanged:   a.configChangedVal,
 			UpgradeStepsLock:     a.upgradeComplete,
 			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
+			OpenState:            a.initState,
 			OpenStateForUpgrade:  a.openStateForUpgrade,
+			StartStateWorkers:    a.startStateWorkers,
 			WriteUninstallFile:   a.writeUninstallAgentFile,
 			StartAPIWorkers:      a.startAPIWorkers,
 			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
@@ -519,11 +521,8 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 
 func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	err := a.AgentConfigWriter.ChangeConfig(mutate)
-	a.configChangedVal.Set(struct{}{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	a.configChangedVal.Set(true)
+	return errors.Trace(err)
 }
 
 func (a *MachineAgent) maybeStopMongo(ver mongo.Version, isMaster bool) error {
@@ -636,48 +635,6 @@ func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct
 	}
 }
 
-// newStateStarterWorker wraps stateStarter in a simple worker for use in
-// a.runner.StartWorker.
-func (a *MachineAgent) newStateStarterWorker() (worker.Worker, error) {
-	return worker.NewSimpleWorker(a.stateStarter), nil
-}
-
-// stateStarter watches for changes to the agent configuration, and
-// starts or stops the state worker as appropriate. We watch the agent
-// configuration because the agent configuration has all the details
-// that we need to start a controller, whether they have been cached
-// or read from the state.
-//
-// It will stop working as soon as stopch is closed.
-func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
-	confWatch := a.configChangedVal.Watch()
-	defer confWatch.Close()
-	watchCh := make(chan struct{})
-	go func() {
-		for confWatch.Next() {
-			watchCh <- struct{}{}
-		}
-	}()
-	for {
-		select {
-		case <-watchCh:
-			agentConfig := a.CurrentConfig()
-
-			// N.B. StartWorker and StopWorker are idempotent.
-			_, ok := agentConfig.StateServingInfo()
-			if ok {
-				a.runner.StartWorker("state", func() (worker.Worker, error) {
-					return a.StateWorker()
-				})
-			} else {
-				a.runner.StopWorker("state")
-			}
-		case <-stopch:
-			return nil
-		}
-	}
-}
-
 var newEnvirons = environs.New
 
 // startAPIWorkers is called to start workers which rely on the
@@ -773,29 +730,20 @@ func (a *MachineAgent) Restart() error {
 //
 // TODO(mjs)- review the need for this once the dependency engine is
 // in use. Why can't upgradesteps depend on the main state connection?
-func (a *MachineAgent) openStateForUpgrade() (*state.State, func(), error) {
+func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	agentConfig := a.CurrentConfig()
 	if err := a.ensureMongoServer(agentConfig); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	info, ok := agentConfig.MongoInfo()
 	if !ok {
-		return nil, nil, errors.New("no state info available")
+		return nil, errors.New("no state info available")
 	}
 	st, err := state.Open(agentConfig.Model(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-
-	// Ensure storage is available during upgrades.
-	stor := statestorage.NewStorage(st.ModelUUID(), st.MongoSession())
-	registerSimplestreamsDataSource(stor, false)
-
-	closer := func() {
-		unregisterSimplestreamsDataSource()
-		st.Close()
-	}
-	return st, closer, nil
+	return st, nil
 }
 
 // setupContainerSupport determines what containers can be run on this machine and
@@ -900,20 +848,31 @@ func (a *MachineAgent) updateSupportedContainers(
 	return nil
 }
 
-// StateWorker returns a worker running all the workers that require
-// a *state.State connection.
-func (a *MachineAgent) StateWorker() (worker.Worker, error) {
-	agentConfig := a.CurrentConfig()
-
+func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error) {
 	// Start MongoDB server and dial.
 	if err := a.ensureMongoServer(agentConfig); err != nil {
 		return nil, err
 	}
-	st, m, err := openState(agentConfig, stateWorkerDialOpts)
+
+	st, _, err := openState(agentConfig, stateWorkerDialOpts)
 	if err != nil {
 		return nil, err
 	}
+
 	reportOpenedState(st)
+
+	return st, nil
+}
+
+// startStateWorkers returns a worker running all the workers that
+// require a *state.State connection.
+func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error) {
+	agentConfig := a.CurrentConfig()
+
+	m, err := getMachine(st, agentConfig.Tag())
+	if err != nil {
+		return nil, errors.Annotate(err, "machine lookup")
+	}
 
 	runner := newConnRunner(st)
 	singularRunner, err := newSingularStateRunner(runner, st, m)
@@ -965,10 +924,10 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			//
 			// TODO(ericsnow) For now we simply do not close the channel.
 			certChangedChan := make(chan params.StateServingInfo, 10)
-			// Each time aipserver worker is restarted, we need a fresh copy of state due
+			// Each time apiserver worker is restarted, we need a fresh copy of state due
 			// to the fact that state holds lease managers which are killed and need to be reset.
 			stateOpener := func() (*state.State, error) {
-				logger.Debugf("opening state for apistate worker")
+				logger.Debugf("opening state for apiserver worker")
 				st, _, err := openState(agentConfig, stateWorkerDialOpts)
 				return st, err
 			}
@@ -1000,18 +959,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			return nil, errors.Errorf("unknown job type %q", job)
 		}
 	}
-	return cmdutil.NewCloseWorker(logger, runner, stateWorkerCloser{st}), nil
-}
-
-type stateWorkerCloser struct {
-	stateCloser io.Closer
-}
-
-func (s stateWorkerCloser) Close() error {
-	// This state-dependent data source will be useless once state is closed -
-	// un-register it before closing state.
-	unregisterSimplestreamsDataSource()
-	return s.stateCloser.Close()
+	return runner, nil
 }
 
 // startEnvWorkers starts controller workers that need to run per
@@ -1744,6 +1692,14 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 		return nil, nil, worker.ErrTerminateAgent
 	}
 	return st, m, nil
+}
+
+func getMachine(st *state.State, tag names.Tag) (*state.Machine, error) {
+	m0, err := st.FindEntity(tag)
+	if err != nil {
+		return nil, err
+	}
+	return m0.(*state.Machine), nil
 }
 
 // startWorkerAfterUpgrade starts a worker to run the specified child worker

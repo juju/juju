@@ -13,9 +13,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/shell"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.instancecfg")
@@ -571,17 +570,16 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	if password == "" {
 		return errors.New("model configuration has no admin-secret")
 	}
-	passwordHash := utils.UserPasswordHash(password, utils.CompatSalt)
 	modelUUID, uuidSet := cfg.UUID()
 	if !uuidSet {
 		return errors.New("config missing model uuid")
 	}
 	icfg.APIInfo = &api.Info{
-		Password: passwordHash,
+		Password: password,
 		CACert:   caCert,
 		ModelTag: names.NewModelTag(modelUUID),
 	}
-	icfg.MongoInfo = &mongo.MongoInfo{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
+	icfg.MongoInfo = &mongo.MongoInfo{Password: password, Info: mongo.Info{CACert: caCert}}
 
 	// These really are directly relevant to running a controller.
 	// Initially, generate a controller certificate with no host IP

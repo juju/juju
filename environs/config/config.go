@@ -18,6 +18,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/environschema.v1"
@@ -26,7 +27,6 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.local/share")

@@ -111,8 +111,8 @@ func (s *RelationListSuite) TestRelationList(c *gc.C) {
 	for i, t := range relationListTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx, info := s.newHookContext(t.relid, "")
-		info.setRelations(0, t.members0, nil)
-		info.setRelations(1, t.members1, nil)
+		info.setRelations(0, t.members0)
+		info.setRelations(1, t.members1)
 		c.Logf("%#v %#v", info.rels[t.relid], t.members1)
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-list"))
 		c.Assert(err, jc.ErrorIsNil)

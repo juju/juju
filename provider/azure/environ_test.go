@@ -37,7 +37,7 @@ import (
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 type environSuite struct {

@@ -9,6 +9,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/shell"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type provisionerSuite struct {

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/network"
 )
 
 var unsupportedConstraints = []string{
@@ -133,7 +134,7 @@ var numericLabelLimit uint = 0xffff
 func addInterfaces(
 	params url.Values,
 	bindings []interfaceBinding,
-	positiveSpaces, negativeSpaces []string,
+	positiveSpaces, negativeSpaces []network.SpaceInfo,
 ) error {
 	var (
 		index            uint
@@ -164,11 +165,11 @@ func addInterfaces(
 	}
 
 	for _, space := range positiveSpaces {
-		if spacesSet.Contains(space) {
+		if spacesSet.Contains(string(space.ProviderId)) {
 			// Skip duplicates in positiveSpaces.
 			continue
 		}
-		spacesSet.Add(space)
+		spacesSet.Add(string(space.ProviderId))
 		// Make sure we pick a label that doesn't clash with possible bindings.
 		var label string
 		for {
@@ -182,20 +183,20 @@ func addInterfaces(
 			index++
 		}
 		namesSet.Add(label)
-		item := fmt.Sprintf("%s:space=%s", label, space)
+		item := fmt.Sprintf("%s:space=%s", label, space.ProviderId)
 		combinedBindings = append(combinedBindings, item)
 		index++
 	}
 
 	var negatives []string
 	for _, space := range negativeSpaces {
-		if spacesSet.Contains(space) {
+		if spacesSet.Contains(string(space.ProviderId)) {
 			return errors.NewNotValid(nil, fmt.Sprintf(
 				"negative space %q from constraints clashes with interface bindings",
-				space,
+				space.Name,
 			))
 		}
-		negatives = append(negatives, fmt.Sprintf("space:%s", space))
+		negatives = append(negatives, fmt.Sprintf("space:%s", space.ProviderId))
 	}
 
 	if len(combinedBindings) > 0 {

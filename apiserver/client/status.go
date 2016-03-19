@@ -300,23 +300,6 @@ func (c *Client) newToolsVersionAvailable() (string, error) {
 	return "", nil
 }
 
-// Status is a stub version of FullStatus that was introduced in 1.16
-func (c *Client) Status() (params.LegacyStatus, error) {
-	var legacyStatus params.LegacyStatus
-	status, err := c.FullStatus(params.StatusParams{})
-	if err != nil {
-		return legacyStatus, err
-	}
-
-	legacyStatus.Machines = make(map[string]params.LegacyMachineStatus)
-	for machineName, machineStatus := range status.Machines {
-		legacyStatus.Machines[machineName] = params.LegacyMachineStatus{
-			InstanceId: string(machineStatus.InstanceId),
-		}
-	}
-	return legacyStatus, nil
-}
-
 type statusContext struct {
 	// machines: top-level machine id -> list of machines nested in
 	// this machine.

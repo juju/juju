@@ -110,6 +110,14 @@ func (c *environConfig) tenantName() string {
 	return c.attrs["tenant-name"].(string)
 }
 
+func (c *environConfig) domainName() string {
+	dname, ok := c.attrs["domain-name"]
+	if ok {
+		return dname.(string)
+	}
+	return ""
+}
+
 func (c *environConfig) authURL() string {
 	return c.attrs["auth-url"].(string)
 }
