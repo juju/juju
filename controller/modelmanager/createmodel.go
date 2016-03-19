@@ -227,7 +227,8 @@ func maybeCopyControllerSecrets(provider environs.ProviderCredentials, controlle
 		// possibleCredentialValues holds any values from attrs that belong to
 		// the credential schema.
 		possibleCredentialValues := make(map[string]string)
-		for attrName := range schema {
+		for _, attr := range schema {
+			attrName := attr.Name
 			if v, ok := attrs[attrName]; ok && v != "" {
 				possibleCredentialValues[attrName] = fmt.Sprintf("%v", attrs[attrName])
 			}
