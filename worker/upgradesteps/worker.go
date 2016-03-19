@@ -98,7 +98,7 @@ func NewWorker(
 	agent agent.Agent,
 	apiConn api.Connection,
 	jobs []multiwatcher.MachineJob,
-	openState func() (*state.State, func(), error),
+	openState func() (*state.State, error),
 	preUpgradeSteps func(st *state.State, agentConf agent.Config, isController, isMasterServer bool) error,
 	machine StatusSetter,
 ) (worker.Worker, error) {
@@ -129,7 +129,7 @@ type upgradesteps struct {
 	agent           agent.Agent
 	apiConn         api.Connection
 	jobs            []multiwatcher.MachineJob
-	openState       func() (*state.State, func(), error)
+	openState       func() (*state.State, error)
 	preUpgradeSteps func(st *state.State, agentConf agent.Config, isController, isMaster bool) error
 	machine         StatusSetter
 
@@ -195,12 +195,11 @@ func (w *upgradesteps) run() error {
 	// of StateWorker, because we have no guarantees about when
 	// and how often StateWorker might run.
 	if w.isController {
-		var closer func()
 		var err error
-		if w.st, closer, err = w.openState(); err != nil {
+		if w.st, err = w.openState(); err != nil {
 			return err
 		}
-		defer closer()
+		defer w.st.Close()
 
 		if w.isMaster, err = IsMachineMaster(w.st, w.tag.Id()); err != nil {
 			return errors.Trace(err)

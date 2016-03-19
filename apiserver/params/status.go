@@ -138,16 +138,6 @@ type DetailedStatus struct {
 	Err     error
 }
 
-// LegacyStatus holds minimal information on the status of a juju model.
-type LegacyStatus struct {
-	Machines map[string]LegacyMachineStatus
-}
-
-// LegacyMachineStatus holds just the instance-id of a machine.
-type LegacyMachineStatus struct {
-	InstanceId string // Not type instance.Id just to match original api.
-}
-
 // StatusHistoryArgs holds the parameters to filter a status history query.
 type StatusHistoryArgs struct {
 	Kind HistoryKind

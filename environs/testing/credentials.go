@@ -42,7 +42,7 @@ func AssertProviderCredentialsValid(c *gc.C, p environs.EnvironProvider, authTyp
 	c.Assert(err, jc.ErrorIsNil)
 
 	for excludedKey := range attrs {
-		field := schema[excludedKey]
+		field, _ := schema.Attribute(excludedKey)
 		if field.Optional {
 			continue
 		}
@@ -71,9 +71,9 @@ func AssertProviderCredentialsAttributesHidden(c *gc.C, p environs.EnvironProvid
 	var hidden []string
 	schema, ok := p.CredentialSchemas()[authType]
 	c.Assert(ok, jc.IsTrue, gc.Commentf("missing schema for %q auth-type", authType))
-	for key, field := range schema {
+	for _, field := range schema {
 		if field.Hidden {
-			hidden = append(hidden, key)
+			hidden = append(hidden, field.Name)
 		}
 	}
 	c.Assert(hidden, jc.SameContents, expectedHidden)
