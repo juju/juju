@@ -340,12 +340,13 @@ func (p *fakeProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.
 func (p *fakeProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: {
-			"username": {
-				Description: "The username",
-			},
-			"password": {
-				Description: "The password",
-				Hidden:      true,
+			{
+				"username", cloud.CredentialAttr{Description: "The username"},
+			}, {
+				"password", cloud.CredentialAttr{
+					Description: "The password",
+					Hidden:      true,
+				},
 			},
 		},
 	}

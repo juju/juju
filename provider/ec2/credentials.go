@@ -23,12 +23,17 @@ type environProviderCredentials struct{}
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.AccessKeyAuthType: {
-			"access-key": {
-				Description: "The EC2 access key",
-			},
-			"secret-key": {
-				Description: "The EC2 secret key",
-				Hidden:      true,
+			{
+				"access-key",
+				cloud.CredentialAttr{
+					Description: "The EC2 access key",
+				},
+			}, {
+				"secret-key",
+				cloud.CredentialAttr{
+					Description: "The EC2 secret key",
+					Hidden:      true,
+				},
 			},
 		},
 	}
