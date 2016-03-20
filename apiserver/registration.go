@@ -6,7 +6,6 @@ package apiserver
 import (
 	"crypto/rand"
 	"encoding/json"
-	"io"
 	"io/ioutil"
 	"net/http"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/juju/names"
 	"golang.org/x/crypto/nacl/secretbox"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -151,12 +149,4 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 		ControllerUUID: st.ModelUUID(),
 	}
 	return &payload, nil
-}
-
-// sendError sends a JSON-encoded error response.
-func (h *registerUserHandler) sendError(w io.Writer, req *http.Request, err error) {
-	if err != nil {
-		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
-	}
-	sendJSON(w, &params.ErrorResult{Error: common.ServerError(err)})
 }

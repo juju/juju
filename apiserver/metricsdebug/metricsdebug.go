@@ -7,16 +7,11 @@ package metricsdebug
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-)
-
-var (
-	logger = loggo.GetLogger("juju.apiserver.metricsdebug")
 )
 
 func init() {

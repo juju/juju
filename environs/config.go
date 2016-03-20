@@ -14,15 +14,6 @@ import (
 
 var logger = loggo.GetLogger("juju.environs")
 
-// disallowedWithNew holds those attributes
-// that can not be set in an initial environment
-// config used to bootstrap (they must only be set
-// on a running environment where appropriate
-// validation can be performed).
-var disallowedWithBootstrap = []string{
-	config.StorageDefaultBlockSourceKey,
-}
-
 // ProviderRegistry is an interface that provides methods for registering
 // and obtaining environment providers by provider name.
 type ProviderRegistry interface {

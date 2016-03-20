@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/rpc/rpcreflect"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 )
 
@@ -51,7 +52,7 @@ func (s *clientAuthRootSuite) TestNormalUser(c *gc.C) {
 }
 
 func (s *clientAuthRootSuite) TestReadOnlyUser(c *gc.C) {
-	envUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{ReadOnly: true})
+	envUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: state.ModelReadAccess})
 	client := newClientAuthRoot(&fakeFinder{}, envUser)
 	// deploys are bad
 	s.AssertCallErrPerm(c, client, "Service", 3, "Deploy")

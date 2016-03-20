@@ -6,7 +6,6 @@ package instancepoller
 import (
 	"fmt"
 
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,8 +17,6 @@ import (
 func init() {
 	common.RegisterStandardFacade("InstancePoller", 2, NewInstancePollerAPI)
 }
-
-var logger = loggo.GetLogger("juju.apiserver.instancepoller")
 
 // InstancePollerAPI provides access to the InstancePoller API facade.
 type InstancePollerAPI struct {

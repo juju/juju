@@ -59,13 +59,13 @@ func (s *defaultRegionSuite) assertSetDefaultRegion(c *gc.C, cmd cmd.Command, st
 
 func (s *defaultRegionSuite) TestSetDefaultRegion(c *gc.C) {
 	store := jujuclienttesting.NewMemStore()
-	cmd := cloud.NewsetDefaultRegionCommandForTest(store)
+	cmd := cloud.NewSetDefaultRegionCommandForTest(store)
 	s.assertSetDefaultRegion(c, cmd, store)
 }
 
 func (s *defaultRegionSuite) TestOverwriteDefaultRegion(c *gc.C) {
 	store := jujuclienttesting.NewMemStore()
 	store.Credentials["aws"] = jujucloud.CloudCredential{DefaultRegion: "us-east-1"}
-	cmd := cloud.NewsetDefaultRegionCommandForTest(store)
+	cmd := cloud.NewSetDefaultRegionCommandForTest(store)
 	s.assertSetDefaultRegion(c, cmd, store)
 }

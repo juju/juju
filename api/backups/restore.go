@@ -5,13 +5,12 @@ package backups
 
 import (
 	"io"
-	"strings"
+	"reflect"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 )
@@ -33,8 +32,7 @@ var (
 // the error type returned from a facade call is rpc.RequestError
 // and we cannot use params.IsCodeUpgradeInProgress
 func isUpgradeInProgressErr(err error) bool {
-	errorMessage := err.Error()
-	return strings.Contains(errorMessage, apiserver.UpgradeInProgressError.Error())
+	return reflect.DeepEqual(errors.Cause(err), &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress})
 }
 
 // ClientConnection type represents a function capable of spawning a new Client connection

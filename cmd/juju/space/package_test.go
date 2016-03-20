@@ -133,20 +133,20 @@ func (s *BaseSpaceSuite) TestHelp(c *gc.C) {
 	if s.command != nil {
 		// Subcommands embed ModelCommandBase
 		cmdInfo = s.command.Info()
-		expected = "(?sm).*^usage: juju space " +
+		expected = "(?sm).*^Usage: juju space " +
 			regexp.QuoteMeta(cmdInfo.Name) +
 			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
 	} else {
-		expected = "(?sm).*^usage: juju space" +
+		expected = "(?sm).*^Usage: juju space" +
 			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
 	}
 	c.Check(cmdInfo, gc.NotNil)
 	c.Check(stderr, gc.Matches, expected)
 
-	expected = "(?sm).*^purpose: " + regexp.QuoteMeta(cmdInfo.Purpose) + "$.*"
+	expected = "(?sm).*^Summary:\n" + regexp.QuoteMeta(cmdInfo.Purpose) + "$.*"
 	c.Check(stderr, gc.Matches, expected)
 
-	expected = "(?sm).*^" + regexp.QuoteMeta(cmdInfo.Doc) + "$.*"
+	expected = "(?sm).*^Details:\n" + regexp.QuoteMeta(cmdInfo.Doc) + "$.*"
 	c.Check(stderr, gc.Matches, expected)
 }
 

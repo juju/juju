@@ -7,12 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/worker"
 )
-
-var logger = loggo.GetLogger("juju.worker.networktoolsversionchecker")
 
 // VersionCheckerParams holds params for the version checker worker..
 type VersionCheckerParams struct {

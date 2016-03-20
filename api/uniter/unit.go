@@ -710,3 +710,31 @@ func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) er
 
 	return results.Combine()
 }
+
+// NetworkConfig requests network config information for the unit and the given
+// bindingName.
+func (u *Unit) NetworkConfig(bindingName string) ([]params.NetworkConfig, error) {
+	var results params.UnitNetworkConfigResults
+	args := params.UnitsNetworkConfig{
+		Args: []params.UnitNetworkConfig{{
+			BindingName: bindingName,
+			UnitTag:     u.tag.String(),
+		}},
+	}
+
+	err := u.st.facade.FacadeCall("NetworkConfig", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return result.Config, nil
+}

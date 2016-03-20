@@ -40,8 +40,8 @@ type tstData struct {
 }
 
 var errorTsts = []tstData{
-	{nil, ".*storage add requires a unit and a storage directive.*"},
-	{[]string{"tst/123"}, ".*storage add requires a unit and a storage directive.*"},
+	{nil, ".*add-storage requires a unit and a storage directive.*"},
+	{[]string{"tst/123"}, ".*add-storage requires a unit and a storage directive.*"},
 	{[]string{"tst/123", "data="}, `.*storage constraints require at least one.*`},
 	{[]string{"tst/123", "data=-676"}, `.*count must be greater than zero, got "-676".*`},
 	{[]string{"tst/123", "data=676", "data=676"}, `.*storage "data" specified more than once.*`},
@@ -61,7 +61,7 @@ func (s *addSuite) assertAddErrorOutput(c *gc.C, expected string) {
 }
 
 func (s *addSuite) runAdd(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, storage.NewAddCommand(s.mockAPI, s.store), args...)
+	return testing.RunCommand(c, storage.NewAddCommandForTest(s.mockAPI, s.store), args...)
 }
 
 func (s *addSuite) TestAddInvalidUnit(c *gc.C) {

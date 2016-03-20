@@ -4,7 +4,6 @@
 package logger
 
 import (
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
@@ -12,8 +11,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
-
-var logger = loggo.GetLogger("juju.api.logger")
 
 func init() {
 	common.RegisterStandardFacade("Logger", 1, NewLoggerAPI)

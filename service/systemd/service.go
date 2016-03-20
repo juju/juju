@@ -50,30 +50,6 @@ func ListServices() ([]string, error) {
 	return names, nil
 }
 
-func listServices() ([]string, error) {
-	conn, err := newConn()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer conn.Close()
-
-	units, err := conn.ListUnits()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var services []string
-	for _, unit := range units {
-		name := unit.Name
-		if !strings.HasSuffix(name, ".service") {
-			continue
-		}
-		name = strings.TrimSuffix(name, ".service")
-		services = append(services, name)
-	}
-	return services, nil
-}
-
 // ListCommand returns a command that will list the services on a host.
 func ListCommand() string {
 	return cmds.listAll()

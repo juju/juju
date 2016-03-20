@@ -27,10 +27,11 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/version"
 )
 
 type ProvisionerTask interface {
@@ -636,7 +637,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 		}
 
 		possibleTools, err := task.toolsFinder.FindTools(
-			version.Current,
+			jujuversion.Current,
 			pInfo.Series,
 			arch,
 		)

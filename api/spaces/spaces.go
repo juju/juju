@@ -5,14 +5,11 @@ package spaces
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
-
-var logger = loggo.GetLogger("juju.api.spaces")
 
 const spacesFacade = "Spaces"
 

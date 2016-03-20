@@ -4,10 +4,12 @@
 package apiserver_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
 )
 
@@ -36,7 +38,7 @@ func (r *upgradingRootSuite) TestFindDisallowedMethod(c *gc.C) {
 
 	caller, err := root.FindMethod("Client", 1, "ModelSet")
 
-	c.Assert(err, gc.ErrorMatches, "upgrade in progress - Juju functionality is limited")
+	c.Assert(errors.Cause(err), gc.Equals, params.UpgradeInProgressError)
 	c.Assert(caller, gc.IsNil)
 }
 
@@ -52,7 +54,7 @@ func (r *upgradingRootSuite) TestFindNonExistentMethod(c *gc.C) {
 func (r *upgradingRootSuite) TestFindMethodNonExistentVersion(c *gc.C) {
 	root := apiserver.TestingUpgradingRoot(nil)
 
-	caller, err := root.FindMethod("Client", 99999999, "Status")
+	caller, err := root.FindMethod("Client", 99999999, "FullStatus")
 
 	c.Assert(err, gc.ErrorMatches, "unknown version \\(99999999\\) of interface \"Client\"")
 	c.Assert(caller, gc.IsNil)

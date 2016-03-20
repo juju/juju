@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -20,9 +21,9 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/toolstorage"
+	"github.com/juju/juju/state/binarystorage"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type toolsSuite struct {
@@ -33,7 +34,7 @@ type toolsSuite struct {
 var _ = gc.Suite(&toolsSuite{})
 
 var current = version.Binary{
-	Number: version.Current,
+	Number: jujuversion.Current,
 	Arch:   arch.HostArch(),
 	Series: series.HostSeries(),
 }
@@ -159,8 +160,8 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 			Version: version.MustParseBinary("123.456.1-win81-alpha"),
 		},
 	}
-	storageMetadata := []toolstorage.Metadata{{
-		Version: version.MustParseBinary("123.456.0-win81-alpha"),
+	storageMetadata := []binarystorage.Metadata{{
+		Version: "123.456.0-win81-alpha",
 		Size:    1024,
 		SHA256:  "feedface",
 	}}
@@ -184,10 +185,10 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.DeepEquals, coretools.List{
 		&coretools.Tools{
-			Version: storageMetadata[0].Version,
+			Version: version.MustParseBinary(storageMetadata[0].Version),
 			Size:    storageMetadata[0].Size,
 			SHA256:  storageMetadata[0].SHA256,
-			URL:     "tools:" + storageMetadata[0].Version.String(),
+			URL:     "tools:" + storageMetadata[0].Version,
 		},
 		envtoolsList[1],
 	})
@@ -205,25 +206,25 @@ func (s *toolsSuite) TestFindToolsNotFound(c *gc.C) {
 
 func (s *toolsSuite) TestFindToolsExactInStorage(c *gc.C) {
 	mockToolsStorage := &mockToolsStorage{
-		metadata: []toolstorage.Metadata{
-			{Version: version.MustParseBinary("1.22-beta1-trusty-amd64")},
-			{Version: version.MustParseBinary("1.22.0-trusty-amd64")},
+		metadata: []binarystorage.Metadata{
+			{Version: "1.22-beta1-trusty-amd64"},
+			{Version: "1.22.0-trusty-amd64"},
 		},
 	}
 
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
-	s.PatchValue(&version.Current, version.MustParseBinary("1.22-beta1-trusty-amd64").Number)
+	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22-beta1-trusty-amd64").Number)
 	s.testFindToolsExact(c, mockToolsStorage, true, true)
-	s.PatchValue(&version.Current, version.MustParseBinary("1.22.0-trusty-amd64").Number)
+	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22.0-trusty-amd64").Number)
 	s.testFindToolsExact(c, mockToolsStorage, true, false)
 }
 
 func (s *toolsSuite) TestFindToolsExactNotInStorage(c *gc.C) {
 	mockToolsStorage := &mockToolsStorage{}
-	s.PatchValue(&version.Current, version.MustParse("1.22-beta1"))
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.22-beta1"))
 	s.testFindToolsExact(c, mockToolsStorage, false, true)
-	s.PatchValue(&version.Current, version.MustParse("1.22.0"))
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.22.0"))
 	s.testFindToolsExact(c, mockToolsStorage, false, false)
 }
 
@@ -231,7 +232,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 	var called bool
 	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, stream string, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
-		c.Assert(filter.Number, gc.Equals, version.Current)
+		c.Assert(filter.Number, gc.Equals, jujuversion.Current)
 		c.Assert(filter.Series, gc.Equals, series.HostSeries())
 		c.Assert(filter.Arch, gc.Equals, arch.HostArch())
 		if develVersion {
@@ -243,7 +244,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 	})
 	toolsFinder := common.NewToolsFinder(s.State, t, sprintfURLGetter("tools:%s"))
 	result, err := toolsFinder.FindTools(params.FindToolsParams{
-		Number:       version.Current,
+		Number:       jujuversion.Current,
 		MajorVersion: -1,
 		MinorVersion: -1,
 		Series:       series.HostSeries(),
@@ -319,12 +320,12 @@ func (g mockAPIHostPortsGetter) APIHostPorts() ([][]network.HostPort, error) {
 }
 
 type mockToolsStorage struct {
-	toolstorage.Storage
-	metadata []toolstorage.Metadata
+	binarystorage.Storage
+	metadata []binarystorage.Metadata
 	err      error
 }
 
-func (s *mockToolsStorage) ToolsStorage() (toolstorage.StorageCloser, error) {
+func (s *mockToolsStorage) ToolsStorage() (binarystorage.StorageCloser, error) {
 	return s, nil
 }
 
@@ -332,6 +333,6 @@ func (s *mockToolsStorage) Close() error {
 	return nil
 }
 
-func (s *mockToolsStorage) AllMetadata() ([]toolstorage.Metadata, error) {
+func (s *mockToolsStorage) AllMetadata() ([]binarystorage.Metadata, error) {
 	return s.metadata, s.err
 }

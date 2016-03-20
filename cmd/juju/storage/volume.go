@@ -4,40 +4,16 @@
 package storage
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
-	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/status"
 )
-
-const volumeCmdDoc = `
-"juju storage volume" is used to manage storage volumes in
- the Juju model.
-`
-
-const volumeCmdPurpose = "manage storage volumes"
-
-// newVolumeSuperCommand creates the storage volume super subcommand and
-// registers the subcommands that it supports.
-func newVolumeSuperCommand() cmd.Command {
-	supercmd := jujucmd.NewSubSuperCommand(cmd.SuperCommandParams{
-		Name:        "volume",
-		Doc:         volumeCmdDoc,
-		UsagePrefix: "juju storage",
-		Purpose:     volumeCmdPurpose,
-	})
-	supercmd.Register(newVolumeListCommand())
-	return supercmd
-}
-
-// VolumeCommandBase is a helper base structure for volume commands.
-type VolumeCommandBase struct {
-	StorageCommandBase
-}
 
 // VolumeInfo defines the serialization behaviour for storage volume.
 type VolumeInfo struct {
@@ -81,6 +57,39 @@ type MachineVolumeAttachment struct {
 	BusAddress string `yaml:"bus-address,omitempty" json:"bus-address,omitempty"`
 	ReadOnly   bool   `yaml:"read-only" json:"read-only"`
 	// TODO(axw) add machine volume attachment status when we have it
+}
+
+//generateListVolumeOutput returns a map of volume info
+func (c *listCommand) generateListVolumeOutput(ctx *cmd.Context, api StorageListAPI) (output interface{}, err error) {
+
+	results, err := api.ListVolumes(c.ids)
+	if err != nil {
+		return nil, err
+	}
+	// filter out valid output, if any
+	var valid []params.VolumeDetails
+	for _, result := range results {
+		if result.Error == nil {
+			valid = append(valid, result.Result...)
+			continue
+		}
+		// display individual error
+		fmt.Fprintf(ctx.Stderr, "%v\n", result.Error)
+	}
+	if len(valid) == 0 {
+		return nil, nil
+	}
+	info, err := convertToVolumeInfo(valid)
+	if err != nil {
+		return nil, err
+	}
+	switch c.out.Name() {
+	case "yaml", "json":
+		output = map[string]map[string]VolumeInfo{"volumes": info}
+	default:
+		output = info
+	}
+	return output, nil
 }
 
 // convertToVolumeInfo returns a map of volume IDs to volume info.
