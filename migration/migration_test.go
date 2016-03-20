@@ -10,11 +10,10 @@ import (
 	"io/ioutil"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/state/storage"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 )
 
 type ImportSuite struct {
@@ -216,7 +216,7 @@ func (f *fakeStateStorage) Charm(*charm.URL) (*state.Charm, error) {
 	return nil, nil
 }
 
-func (f *fakeToolsStorage) Tools(v version.Binary) (binarystorage.Metadata, io.ReadCloser, error) {
+func (f *fakeToolsStorage) Open(v string) (binarystorage.Metadata, io.ReadCloser, error) {
 	buff := bytes.NewBufferString(fmt.Sprintf("fake tools %s", v))
 	return binarystorage.Metadata{}, ioutil.NopCloser(buff), nil
 }

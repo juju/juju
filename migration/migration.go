@@ -9,9 +9,9 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/version"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 
@@ -236,7 +236,7 @@ func uploadTools(config UploadBinariesConfig) error {
 
 	for toolsVersion := range usedVersions {
 		logger.Debugf("send tools version %s to target", toolsVersion)
-		_, reader, err := storage.Tools(toolsVersion)
+		_, reader, err := storage.Open(toolsVersion.String())
 		if err != nil {
 			return errors.Trace(err)
 		}
