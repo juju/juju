@@ -24,9 +24,9 @@ import (
 	"github.com/juju/juju/migration"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/storage"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/testing"
 )
 
@@ -196,11 +196,11 @@ type fakeAPIConnection struct {
 }
 
 type fakeToolsStorage struct {
-	toolstorage.Storage
+	binarystorage.Storage
 	closed bool
 }
 
-func (f *fakeStateStorage) ToolsStorage() (toolstorage.StorageCloser, error) {
+func (f *fakeStateStorage) ToolsStorage() (binarystorage.StorageCloser, error) {
 	return &f.tools, nil
 }
 
@@ -216,9 +216,9 @@ func (f *fakeStateStorage) Charm(*charm.URL) (*state.Charm, error) {
 	return nil, nil
 }
 
-func (f *fakeToolsStorage) Tools(v version.Binary) (toolstorage.Metadata, io.ReadCloser, error) {
+func (f *fakeToolsStorage) Tools(v version.Binary) (binarystorage.Metadata, io.ReadCloser, error) {
 	buff := bytes.NewBufferString(fmt.Sprintf("fake tools %s", v))
-	return toolstorage.Metadata{}, ioutil.NopCloser(buff), nil
+	return binarystorage.Metadata{}, ioutil.NopCloser(buff), nil
 }
 
 func (f *fakeToolsStorage) Close() error {

@@ -7,8 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/names"
-
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 // HasAnnotations defines the common methods for setting and
