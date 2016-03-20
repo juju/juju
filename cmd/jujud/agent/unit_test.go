@@ -15,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -25,9 +26,10 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -147,13 +149,13 @@ func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
 			statusInfo, err := unit.Status()
 			c.Assert(err, jc.ErrorIsNil)
 			switch statusInfo.Status {
-			case state.StatusMaintenance, state.StatusWaiting, state.StatusBlocked:
+			case status.StatusMaintenance, status.StatusWaiting, status.StatusBlocked:
 				c.Logf("waiting...")
 				continue
-			case state.StatusActive:
+			case status.StatusActive:
 				c.Logf("active!")
 				return
-			case state.StatusUnknown:
+			case status.StatusUnknown:
 				// Active units may have a status of unknown if they have
 				// started but not run status-set.
 				c.Logf("unknown but active!")
@@ -164,10 +166,10 @@ func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
 			statusInfo, err = unit.AgentStatus()
 			c.Assert(err, jc.ErrorIsNil)
 			switch statusInfo.Status {
-			case state.StatusAllocating, state.StatusExecuting, state.StatusRebooting, state.StatusIdle:
+			case status.StatusAllocating, status.StatusExecuting, status.StatusRebooting, status.StatusIdle:
 				c.Logf("waiting...")
 				continue
-			case state.StatusError:
+			case status.StatusError:
 				stateConn.StartSync()
 				c.Logf("unit is still down")
 			default:
@@ -189,7 +191,7 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	machine, unit, _, currentTools := s.primeAgent(c)
 	agent := s.newAgent(c, unit)
 	newVers := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -225,7 +227,7 @@ func (s *UnitSuite) TestUpgradeFailsWithoutTools(c *gc.C) {
 	machine, unit, _, _ := s.primeAgent(c)
 	agent := s.newAgent(c, unit)
 	newVers := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -267,7 +269,7 @@ func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 	_, unit, _, _ := s.primeAgent(c)
 	vers := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -289,11 +291,11 @@ func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			agentTools, err := unit.AgentTools()
 			c.Assert(err, jc.ErrorIsNil)
-			if agentTools.Version.Minor != version.Current.Minor {
+			if agentTools.Version.Minor != jujuversion.Current.Minor {
 				continue
 			}
 			current := version.Binary{
-				Number: version.Current,
+				Number: jujuversion.Current,
 				Arch:   arch.HostArch(),
 				Series: series.HostSeries(),
 			}

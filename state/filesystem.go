@@ -18,6 +18,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 )
 
@@ -31,8 +32,8 @@ var ErrNoBackingVolume = errors.New("filesystem has no backing volume")
 type Filesystem interface {
 	GlobalEntity
 	LifeBinder
-	StatusGetter
-	StatusSetter
+	status.StatusGetter
+	status.StatusSetter
 
 	// FilesystemTag returns the tag for the filesystem.
 	FilesystemTag() names.FilesystemTag
@@ -269,13 +270,13 @@ func (f *filesystem) Params() (FilesystemParams, bool) {
 }
 
 // Status is required to implement StatusGetter.
-func (f *filesystem) Status() (StatusInfo, error) {
+func (f *filesystem) Status() (status.StatusInfo, error) {
 	return f.st.FilesystemStatus(f.FilesystemTag())
 }
 
 // SetStatus is required to implement StatusSetter.
-func (f *filesystem) SetStatus(status Status, info string, data map[string]interface{}) error {
-	return f.st.SetFilesystemStatus(f.FilesystemTag(), status, info, data)
+func (f *filesystem) SetStatus(fsStatus status.Status, info string, data map[string]interface{}) error {
+	return f.st.SetFilesystemStatus(f.FilesystemTag(), fsStatus, info, data)
 }
 
 // Filesystem is required to implement FilesystemAttachment.
@@ -754,7 +755,7 @@ func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]
 
 	filesystemOps := []txn.Op{
 		createStatusOp(st, filesystemGlobalKey(filesystemId), statusDoc{
-			Status: StatusPending,
+			Status: status.StatusPending,
 			// TODO(fwereade): 2016-03-17 lp:1558657
 			Updated: time.Now().UnixNano(),
 		}),
@@ -1134,19 +1135,19 @@ func filesystemGlobalKey(name string) string {
 }
 
 // FilesystemStatus returns the status of the specified filesystem.
-func (st *State) FilesystemStatus(tag names.FilesystemTag) (StatusInfo, error) {
+func (st *State) FilesystemStatus(tag names.FilesystemTag) (status.StatusInfo, error) {
 	return getStatus(st, filesystemGlobalKey(tag.Id()), "filesystem")
 }
 
 // SetFilesystemStatus sets the status of the specified filesystem.
-func (st *State) SetFilesystemStatus(tag names.FilesystemTag, status Status, info string, data map[string]interface{}) error {
-	switch status {
-	case StatusAttaching, StatusAttached, StatusDetaching, StatusDetached, StatusDestroying:
-	case StatusError:
+func (st *State) SetFilesystemStatus(tag names.FilesystemTag, fsStatus status.Status, info string, data map[string]interface{}) error {
+	switch fsStatus {
+	case status.StatusAttaching, status.StatusAttached, status.StatusDetaching, status.StatusDetached, status.StatusDestroying:
+	case status.StatusError:
 		if info == "" {
-			return errors.Errorf("cannot set status %q without info", status)
+			return errors.Errorf("cannot set status %q without info", fsStatus)
 		}
-	case StatusPending:
+	case status.StatusPending:
 		// If a filesystem is not yet provisioned, we allow its status
 		// to be set back to pending (when a retry is to occur).
 		v, err := st.Filesystem(tag)
@@ -1157,14 +1158,14 @@ func (st *State) SetFilesystemStatus(tag names.FilesystemTag, status Status, inf
 		if errors.IsNotProvisioned(err) {
 			break
 		}
-		return errors.Errorf("cannot set status %q", status)
+		return errors.Errorf("cannot set status %q", fsStatus)
 	default:
-		return errors.Errorf("cannot set invalid status %q", status)
+		return errors.Errorf("cannot set invalid status %q", fsStatus)
 	}
 	return setStatus(st, setStatusParams{
 		badge:     "filesystem",
 		globalKey: filesystemGlobalKey(tag.Id()),
-		status:    status,
+		status:    fsStatus,
 		message:   info,
 		rawData:   data,
 	})

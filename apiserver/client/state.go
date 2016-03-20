@@ -5,6 +5,7 @@ package client
 
 import (
 	"github.com/juju/names"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/constraints"
@@ -12,19 +13,19 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/status"
 )
 
 // Unit represents a state.Unit.
 type Unit interface {
-	state.StatusHistoryGetter
+	status.StatusHistoryGetter
 	Life() state.Life
 	Destroy() (err error)
 	IsPrincipal() bool
 	PublicAddress() (network.Address, error)
 	PrivateAddress() (network.Address, error)
 	Resolve(retryHooks bool) error
-	AgentHistory() state.StatusHistoryGetter
+	AgentHistory() status.StatusHistoryGetter
 }
 
 // stateInterface contains the state.State methods used in this package,

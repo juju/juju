@@ -8,19 +8,18 @@ import (
 )
 
 var (
-	ContainerConfigFilename = containerConfigFilename
-	ContainerDirFilesystem  = containerDirFilesystem
-	GenerateNetworkConfig   = generateNetworkConfig
-	ParseConfigLine         = parseConfigLine
-	UpdateContainerConfig   = updateContainerConfig
-	ReorderNetworkConfig    = reorderNetworkConfig
-	NetworkConfigTemplate   = networkConfigTemplate
-	RestartSymlink          = restartSymlink
-	ReleaseVersion          = &releaseVersion
-	PreferFastLXC           = preferFastLXC
-	RuntimeGOOS             = &runtimeGOOS
-	RunningInsideLXC        = &runningInsideLXC
-	WriteWgetTmpFile        = &writeWgetTmpFile
+	ContainerConfigFilename    = containerConfigFilename
+	ContainerDirFilesystem     = containerDirFilesystem
+	GenerateNetworkConfig      = generateNetworkConfig
+	ParseConfigLine            = parseConfigLine
+	UpdateContainerConfig      = updateContainerConfig
+	ReorderNetworkConfig       = reorderNetworkConfig
+	NetworkConfigTemplate      = networkConfigTemplate
+	RestartSymlink             = restartSymlink
+	ReleaseVersion             = &releaseVersion
+	PreferFastLXC              = preferFastLXC
+	WriteWgetTmpFile           = &writeWgetTmpFile
+	NewContainerManagerForTest = newContainerManager
 )
 
 func GetCreateWithCloneValue(mgr container.Manager) bool {

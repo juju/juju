@@ -24,12 +24,14 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/version"
 )
 
 type ProvisionerTask interface {
@@ -196,14 +198,14 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 	}
 	logger.Tracef("processMachinesWithTransientErrors(%v)", statusResults)
 	var pending []*apiprovisioner.Machine
-	for i, status := range statusResults {
-		if status.Error != nil {
-			logger.Errorf("cannot retry provisioning of machine %q: %v", status.Id, status.Error)
+	for i, statusResult := range statusResults {
+		if statusResult.Error != nil {
+			logger.Errorf("cannot retry provisioning of machine %q: %v", statusResult.Id, statusResult.Error)
 			continue
 		}
 		machine := machines[i]
-		if err := machine.SetStatus(params.StatusPending, "", nil); err != nil {
-			logger.Errorf("cannot reset status of machine %q: %v", status.Id, err)
+		if err := machine.SetStatus(status.StatusPending, "", nil); err != nil {
+			logger.Errorf("cannot reset status of machine %q: %v", statusResult.Id, err)
 			continue
 		}
 		task.machines[machine.Tag().String()] = machine
@@ -355,7 +357,7 @@ type ClassifiableMachine interface {
 	Life() params.Life
 	InstanceId() (instance.Id, error)
 	EnsureDead() error
-	Status() (params.Status, string, error)
+	Status() (status.Status, string, error)
 	Id() string
 }
 
@@ -389,12 +391,12 @@ func classifyMachine(machine ClassifiableMachine) (
 		if !params.IsCodeNotProvisioned(err) {
 			return None, errors.Annotatef(err, "failed to load machine id:%s, details:%v", machine.Id(), machine)
 		}
-		status, _, err := machine.Status()
+		machineStatus, _, err := machine.Status()
 		if err != nil {
 			logger.Infof("cannot get machine id:%s, details:%v, err:%v", machine.Id(), machine, err)
 			return None, nil
 		}
-		if status == params.StatusPending {
+		if machineStatus == status.StatusPending {
 			logger.Infof("found machine pending provisioning id:%s, details:%v", machine.Id(), machine)
 			return Pending, nil
 		}
@@ -597,6 +599,7 @@ func constructStartInstanceParams(
 		SubnetsToZones:    subnetsToZones,
 		EndpointBindings:  endpointBindings,
 		ImageMetadata:     possibleImageMetadata,
+		StatusCallback:    machine.SetInstanceStatus,
 	}, nil
 }
 
@@ -634,7 +637,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 		}
 
 		possibleTools, err := task.toolsFinder.FindTools(
-			version.Current,
+			jujuversion.Current,
 			pInfo.Series,
 			arch,
 		)
@@ -661,7 +664,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 
 func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisioner.Machine, err error) error {
 	logger.Errorf(message, machine, err)
-	if err1 := machine.SetStatus(params.StatusError, err.Error(), nil); err1 != nil {
+	if err1 := machine.SetStatus(status.StatusError, err.Error(), nil); err1 != nil {
 		// Something is wrong with this machine, better report it back.
 		return errors.Annotatef(err1, "cannot set error status for machine %q", machine)
 	}

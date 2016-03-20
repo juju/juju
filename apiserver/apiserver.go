@@ -23,7 +23,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	resourceapi "github.com/juju/juju/resource/api"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
@@ -310,6 +309,31 @@ func (n *requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
 func (n *requestNotifier) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
 }
 
+// trackRequests wraps a http.Handler, incrementing and decrementing
+// the apiserver's WaitGroup and blocking request when the apiserver
+// is shutting down.
+//
+// Note: It is only safe to use trackRequests with API handlers which
+// are interruptible (i.e. they pay attention to the apiserver tomb)
+// or are guaranteed to be short-lived. If it's used with long running
+// API handlers which don't watch the apiserver's tomb, apiserver
+// shutdown will be blocked until the API handler returns.
+func (srv *Server) trackRequests(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv.wg.Add(1)
+		defer srv.wg.Done()
+		// If we've got to this stage and the tomb is still
+		// alive, we know that any tomb.Kill must occur after we
+		// have called wg.Add, so we avoid the possibility of a
+		// handler goroutine running after Stop has returned.
+		if srv.tomb.Err() != tomb.ErrStillAlive {
+			return
+		}
+
+		handler.ServeHTTP(w, r)
+	})
+}
+
 func handleAll(mux *pat.PatternServeMux, pattern string, handler http.Handler) {
 	mux.Get(pattern, handler)
 	mux.Post(pattern, handler)
@@ -321,13 +345,12 @@ func handleAll(mux *pat.PatternServeMux, pattern string, handler http.Handler) {
 
 func (srv *Server) run() {
 	logger.Infof("listening on %q", srv.lis.Addr())
+
 	defer func() {
 		addr := srv.lis.Addr().String() // Addr not valid after close
 		err := srv.lis.Close()
 		logger.Infof("closed listening socket %q with final error: %v", addr, err)
-	}()
 
-	defer func() {
 		srv.state.HackLeadership() // Break deadlocks caused by BlockUntil... calls.
 		srv.wg.Wait()              // wait for any outstanding requests to complete.
 		srv.tomb.Done()
@@ -352,20 +375,22 @@ func (srv *Server) run() {
 	// registered first.
 	mux := pat.New()
 
-	srvDying := srv.tomb.Dying()
 	httpCtxt := httpContext{
 		srv: srv,
 	}
-	handleAll(mux, "/model/:modeluuid"+resourceapi.HTTPEndpointPattern,
+
+	mainAPIHandler := srv.trackRequests(http.HandlerFunc(srv.apiHandler))
+	logSinkHandler := srv.trackRequests(newLogSinkHandler(httpCtxt, srv.logDir))
+	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
+
+	handleAll(mux, "/model/:modeluuid/services/:service/resources/:resource",
 		newResourceHandler(httpCtxt),
 	)
 	handleAll(mux, "/model/:modeluuid/units/:unit/resources/:resource",
 		newUnitResourceHandler(httpCtxt),
 	)
-	handleAll(mux, "/model/:modeluuid/logsink",
-		newLogSinkHandler(httpCtxt, srv.logDir))
-	handleAll(mux, "/model/:modeluuid/log",
-		newDebugLogDBHandler(httpCtxt, srvDying))
+	handleAll(mux, "/model/:modeluuid/logsink", logSinkHandler)
+	handleAll(mux, "/model/:modeluuid/log", debugLogHandler)
 	handleAll(mux, "/model/:modeluuid/charms",
 		&charmsHandler{
 			ctxt:    httpCtxt,
@@ -393,7 +418,7 @@ func (srv *Server) run() {
 			ctxt: strictCtxt,
 		},
 	)
-	handleAll(mux, "/model/:modeluuid/api", http.HandlerFunc(srv.apiHandler))
+	handleAll(mux, "/model/:modeluuid/api", mainAPIHandler)
 
 	handleAll(mux, "/model/:modeluuid/images/:kind/:series/:arch/:filename",
 		&imagesDownloadHandler{
@@ -402,8 +427,11 @@ func (srv *Server) run() {
 			state:   srv.state,
 		},
 	)
+
+	handleGUI(mux, "/gui/:modeluuid/", srv.dataDir, httpCtxt)
+
 	// For backwards compatibility we register all the old paths
-	handleAll(mux, "/log", newDebugLogDBHandler(httpCtxt, srvDying))
+	handleAll(mux, "/log", debugLogHandler)
 
 	handleAll(mux, "/charms",
 		&charmsHandler{
@@ -426,7 +454,7 @@ func (srv *Server) run() {
 			ctxt: httpCtxt,
 		},
 	)
-	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
+	handleAll(mux, "/", mainAPIHandler)
 
 	go func() {
 		addr := srv.lis.Addr() // not valid after addr closed
@@ -447,15 +475,6 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	defer reqNotifier.leave()
 	wsServer := websocket.Server{
 		Handler: func(conn *websocket.Conn) {
-			srv.wg.Add(1)
-			defer srv.wg.Done()
-			// If we've got to this stage and the tomb is still
-			// alive, we know that any tomb.Kill must occur after we
-			// have called wg.Add, so we avoid the possibility of a
-			// handler goroutine running after Stop has returned.
-			if srv.tomb.Err() != tomb.ErrStillAlive {
-				return
-			}
 			modelUUID := req.URL.Query().Get(":modeluuid")
 			logger.Tracef("got a request for model %q", modelUUID)
 			if err := srv.serveConn(conn, reqNotifier, modelUUID); err != nil {

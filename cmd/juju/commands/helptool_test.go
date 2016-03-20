@@ -21,8 +21,10 @@ var _ = gc.Suite(&HelpToolSuite{})
 
 func (suite *HelpToolSuite) TestHelpToolHelp(c *gc.C) {
 	output := badrun(c, 0, "help", "help-tool")
-	c.Assert(output, gc.Equals, `usage: juju help-tool [tool]
-purpose: show help on a juju charm tool
+	c.Assert(output, gc.Equals, `Usage: juju help-tool [tool]
+
+Summary:
+show help on a juju charm tool
 `)
 }
 
@@ -48,11 +50,15 @@ func (suite *HelpToolSuite) TestHelpToolName(c *gc.C) {
 	} else {
 		output = badrun(c, 0, "help-tool", "relation-get")
 	}
-	expectedHelp := `usage: relation-get \[options\] <key> <unit id>
-purpose: get relation settings
+	expectedHelp := `Usage: relation-get \[options\] <key> <unit id>
 
-options:
+Summary:
+get relation settings
+
+Options:
 (.|\n)*
+
+Details:
 relation-get prints the value(.|\n)*`
 	c.Assert(output, gc.Matches, expectedHelp)
 }

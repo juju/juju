@@ -6,6 +6,7 @@ package cmd
 import (
 	"io"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -18,7 +19,7 @@ type stubCharmStore struct {
 	ReturnListResources [][]charmresource.Resource
 }
 
-func (s *stubCharmStore) Connect() (CharmResourceLister, error) {
+func (s *stubCharmStore) Connect(_ *cmd.Context) (CharmResourceLister, error) {
 	s.stub.AddCall("Connect")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -27,7 +28,7 @@ func (s *stubCharmStore) Connect() (CharmResourceLister, error) {
 	return s, nil
 }
 
-func (s *stubCharmStore) ListResources(charmURLs []charm.URL) ([][]charmresource.Resource, error) {
+func (s *stubCharmStore) ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error) {
 	s.stub.AddCall("ListResources", charmURLs)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

@@ -16,10 +16,17 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-// ErrNoControllerSpecified is returned by commands that operate on
-// a controller if there is no current controller, no controller has been
-// explicitly specified, and there is no default controller.
-var ErrNoControllerSpecified = errors.New("no controller specified")
+var (
+	// ErrNoControllerSpecified is returned by commands that operate on
+	// a controller if there is no current controller, no controller has been
+	// explicitly specified, and there is no default controller.
+	ErrNoControllerSpecified = errors.New("no controller specified")
+
+	// ErrNoAccountSpecified is returned by commands that operate on a
+	// controller if there is no current account associated with the
+	// controller.
+	ErrNoAccountSpecified = errors.New("no account specified")
+)
 
 // ControllerCommand is intended to be a base for all commands
 // that need to operate on controllers as opposed to models.
@@ -39,7 +46,7 @@ type ControllerCommand interface {
 	// the active controller name. The controller name is guaranteed to be non-empty
 	// at entry of Init. It records the current model name in the
 	// ControllerCommandBase.
-	SetControllerName(controllerName string)
+	SetControllerName(controllerName string) error
 
 	// ControllerName returns the name of the controller or model used to
 	// determine that API end point.
@@ -57,6 +64,7 @@ type ControllerCommandBase struct {
 
 	store          jujuclient.ClientStore
 	controllerName string
+	accountName    string
 
 	// opener is the strategy used to open the API connection.
 	opener APIOpener
@@ -73,13 +81,30 @@ func (c *ControllerCommandBase) ClientStore() jujuclient.ClientStore {
 }
 
 // SetControllerName implements the ControllerCommand interface.
-func (c *ControllerCommandBase) SetControllerName(controllerName string) {
+func (c *ControllerCommandBase) SetControllerName(controllerName string) error {
+	actualControllerName, err := ResolveControllerName(c.ClientStore(), controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	controllerName = actualControllerName
+
+	accountName, err := c.store.CurrentAccount(controllerName)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
 	c.controllerName = controllerName
+	c.accountName = accountName
+	return nil
 }
 
 // ControllerName implements the ControllerCommand interface.
 func (c *ControllerCommandBase) ControllerName() string {
 	return c.controllerName
+}
+
+// AccountName implements the ControllerCommand interface.
+func (c *ControllerCommandBase) AccountName() string {
+	return c.accountName
 }
 
 // SetAPIOpener specifies the strategy used by the command to open
@@ -125,11 +150,14 @@ func (c *ControllerCommandBase) NewAPIRoot() (api.Connection, error) {
 	if c.controllerName == "" {
 		return nil, errors.Trace(ErrNoControllerSpecified)
 	}
+	if c.accountName == "" {
+		return nil, errors.Trace(ErrNoAccountSpecified)
+	}
 	opener := c.opener
 	if opener == nil {
 		opener = OpenFunc(c.JujuCommandBase.NewAPIRoot)
 	}
-	return opener.Open(c.store, c.controllerName, "")
+	return opener.Open(c.store, c.controllerName, c.accountName, "")
 }
 
 // ConnectionCredentials returns the credentials used to connect to the API for
@@ -173,6 +201,30 @@ func (c *ControllerCommandBase) ConnectionInfo() (configstore.EnvironInfo, error
 		return nil, errors.Trace(err)
 	}
 	return info, nil
+}
+
+// ModelUUIDs returns the model UUIDs for the given model names.
+func (c *ControllerCommandBase) ModelUUIDs(modelNames []string) ([]string, error) {
+	var result []string
+	store := c.ClientStore()
+	controllerName := c.ControllerName()
+	accountName := c.AccountName()
+	for _, modelName := range modelNames {
+		model, err := store.ModelByName(controllerName, accountName, modelName)
+		if errors.IsNotFound(err) {
+			// The model isn't known locally, so query the models available in the controller.
+			logger.Infof("model %q not cached locally, refreshing models from controller", modelName)
+			if err := c.RefreshModels(store, controllerName, accountName); err != nil {
+				return nil, errors.Annotatef(err, "refreshing model %q", modelName)
+			}
+			model, err = store.ModelByName(controllerName, accountName, modelName)
+		}
+		if err != nil {
+			return nil, errors.Annotatef(err, "model %q not found", modelName)
+		}
+		result = append(result, model.ModelUUID)
+	}
+	return result, nil
 }
 
 // WrapControllerOption sets various parameters of the
@@ -240,6 +292,11 @@ func (w *sysCommandWrapper) getDefaultControllerName() (string, error) {
 
 // Init implements Command.Init, then calls the wrapped command's Init.
 func (w *sysCommandWrapper) Init(args []string) error {
+	store := w.ClientStore()
+	if store == nil {
+		store = jujuclient.NewFileClientStore()
+		w.SetClientStore(store)
+	}
 	if w.setFlags {
 		if w.controllerName == "" && w.useDefaultControllerName {
 			name, err := w.getDefaultControllerName()
@@ -252,11 +309,33 @@ func (w *sysCommandWrapper) Init(args []string) error {
 			return ErrNoControllerSpecified
 		}
 	}
-	store := w.ClientStore()
-	if store == nil {
-		store = jujuclient.NewFileClientStore()
-		w.SetClientStore(store)
+	if w.controllerName != "" {
+		if err := w.SetControllerName(w.controllerName); err != nil {
+			return errors.Trace(err)
+		}
 	}
-	w.SetControllerName(w.controllerName)
 	return w.ControllerCommand.Init(args)
+}
+
+// ResolveControllerName returns the canonical name of a controller given
+// an unambiguous identifier for that controller.
+// Locally created controllers (i.e. those whose names begin with "local.")
+// may be identified with or without the "local." prefix if there exists no
+// other controller in the store with the same unprefixed name.
+func ResolveControllerName(store jujuclient.ControllerStore, controllerName string) (string, error) {
+	_, err := store.ControllerByName(controllerName)
+	if err == nil {
+		return controllerName, nil
+	}
+	if !errors.IsNotFound(err) {
+		return "", err
+	}
+	var secondErr error
+	localName := "local." + controllerName
+	_, secondErr = store.ControllerByName(localName)
+	// If fallback name not found, return the original error.
+	if errors.IsNotFound(secondErr) {
+		return "", err
+	}
+	return localName, secondErr
 }

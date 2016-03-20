@@ -138,7 +138,11 @@ func (s *WorkerSuite) TestWorkerIgnoresExistingSpacesAndSubnets(c *gc.C) {
 	c.Assert(subnetResult.Results, gc.HasLen, 1)
 	c.Assert(subnetResult.Results[0].Error, gc.IsNil)
 
-	s.unlockCheck(c, s.assertDiscoveredSpaces)
+	s.unlockCheck(c, func(c *gc.C) {
+		spaces, err := s.State.AllSpaces()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(spaces, gc.HasLen, 5)
+	})
 }
 
 func (s *WorkerSuite) startWorker(c *gc.C) (worker.Worker, gate.Lock) {
@@ -183,7 +187,7 @@ func (s *WorkerSuite) assertDiscoveredSpaces(c *gc.C) {
 	c.Assert(spaces, gc.HasLen, 4)
 	expectedSpaces := []network.SpaceInfo{{
 		Name:       "foo",
-		ProviderId: network.Id("foo"),
+		ProviderId: network.Id("0"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("1"),
 			CIDR:              "192.168.1.0/24",
@@ -194,21 +198,21 @@ func (s *WorkerSuite) assertDiscoveredSpaces(c *gc.C) {
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
 		Name:       "another-foo-99",
-		ProviderId: network.Id("Another Foo 99!"),
+		ProviderId: network.Id("1"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("3"),
 			CIDR:              "192.168.3.0/24",
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
 		Name:       "foo-2",
-		ProviderId: network.Id("foo-"),
+		ProviderId: network.Id("2"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("4"),
 			CIDR:              "192.168.4.0/24",
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
 		Name:       "empty",
-		ProviderId: network.Id("---"),
+		ProviderId: network.Id("3"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("5"),
 			CIDR:              "192.168.5.0/24",

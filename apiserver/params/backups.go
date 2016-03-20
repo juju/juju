@@ -6,7 +6,7 @@ package params
 import (
 	"time"
 
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 // BackupsCreateArgs holds the args for the API Create method.

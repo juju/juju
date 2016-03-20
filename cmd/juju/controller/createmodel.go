@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -29,7 +28,7 @@ func NewCreateModelCommand() cmd.Command {
 // createModelCommand calls the API to create a new model.
 type createModelCommand struct {
 	modelcmd.ControllerCommandBase
-	api CreateEnvironmentAPI
+	api CreateModelAPI
 
 	Name         string
 	Owner        string
@@ -38,7 +37,7 @@ type createModelCommand struct {
 	configParser func(interface{}) (interface{}, error)
 }
 
-const createEnvHelpDoc = `
+const createModelHelpDoc = `
 This command will create another model within the current Juju
 Controller. The provider has to match, and the model config must
 specify all the required configuration values for the provider. In the cases
@@ -63,7 +62,7 @@ func (c *createModelCommand) Info() *cmd.Info {
 		Name:    "create-model",
 		Args:    "<name> [key=[value] ...]",
 		Purpose: "create an model within the Juju Model Server",
-		Doc:     strings.TrimSpace(createEnvHelpDoc),
+		Doc:     strings.TrimSpace(createModelHelpDoc),
 	}
 }
 
@@ -95,78 +94,43 @@ func (c *createModelCommand) Init(args []string) error {
 	return nil
 }
 
-type CreateEnvironmentAPI interface {
+type CreateModelAPI interface {
 	Close() error
 	ConfigSkeleton(provider, region string) (params.ModelConfig, error)
 	CreateModel(owner string, account, config map[string]interface{}) (params.Model, error)
 }
 
-func (c *createModelCommand) getAPI() (CreateEnvironmentAPI, error) {
+func (c *createModelCommand) getAPI() (CreateModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
 	return c.NewModelManagerAPIClient()
 }
 
-func (c *createModelCommand) Run(ctx *cmd.Context) (return_err error) {
+func (c *createModelCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer client.Close()
 
-	creds, err := c.ConnectionCredentials()
+	store := c.ClientStore()
+	controllerName := c.ControllerName()
+	accountName, err := store.CurrentAccount(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	currentAccount, err := store.AccountByName(controllerName, accountName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	creatingForSelf := true
-	envOwner := creds.User
+	modelOwner := currentAccount.User
 	if c.Owner != "" {
-		owner := names.NewUserTag(c.Owner)
-		user := names.NewUserTag(creds.User)
-		creatingForSelf = owner == user
-		envOwner = c.Owner
-	}
-
-	var info configstore.EnvironInfo
-	var endpoint configstore.APIEndpoint
-	if creatingForSelf {
-		logger.Debugf("create cache entry for %q", c.Name)
-		// Create the configstore entry and write it to disk, as this will error
-		// if one with the same name already exists.
-		endpoint, err = c.ConnectionEndpoint()
-		if err != nil {
-			return errors.Trace(err)
+		if !names.IsValidUser(c.Owner) {
+			return errors.Errorf("%q is not a valid user name", c.Owner)
 		}
-
-		store, err := configstore.Default()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		info = store.CreateInfo(
-			configstore.EnvironInfoName(c.ControllerName(), c.Name),
-		)
-		info.SetAPICredentials(creds)
-		endpoint.ModelUUID = ""
-		if err := info.Write(); err != nil {
-			if errors.Cause(err) == configstore.ErrEnvironInfoAlreadyExists {
-				newErr := errors.AlreadyExistsf("model %q", c.Name)
-				return errors.Wrap(err, newErr)
-			}
-			return errors.Trace(err)
-		}
-		defer func() {
-			if return_err != nil {
-				logger.Debugf("error found, remove cache entry")
-				e := info.Destroy()
-				if e != nil {
-					logger.Errorf("could not remove model file: %v", e)
-				}
-			}
-		}()
-	} else {
-		logger.Debugf("skipping cache entry for %q as owned %q", c.Name, c.Owner)
+		modelOwner = names.NewUserTag(c.Owner).Canonical()
 	}
 
 	serverSkeleton, err := client.ConfigSkeleton("", "")
@@ -179,27 +143,20 @@ func (c *createModelCommand) Run(ctx *cmd.Context) (return_err error) {
 		return errors.Trace(err)
 	}
 
-	// We pass nil through for the account details until we implement that bit.
-	env, err := client.CreateModel(envOwner, nil, attrs)
+	// TODO we pass nil for the account details until we implement that bit.
+	model, err := client.CreateModel(modelOwner, nil, attrs)
 	if err != nil {
-		// cleanup configstore
 		return errors.Trace(err)
 	}
-	if creatingForSelf {
-		// update the cached details with the model uuid
-		endpoint.ModelUUID = env.UUID
-		info.SetAPIEndpoint(endpoint)
-		if err := info.Write(); err != nil {
-			return errors.Trace(err)
-		}
-		store := c.ClientStore()
+	if modelOwner == currentAccount.User {
 		controllerName := c.ControllerName()
-		if err := store.UpdateModel(controllerName, c.Name, jujuclient.ModelDetails{
-			env.UUID,
+		accountName := c.AccountName()
+		if err := store.UpdateModel(controllerName, accountName, c.Name, jujuclient.ModelDetails{
+			model.UUID,
 		}); err != nil {
 			return errors.Trace(err)
 		}
-		if err := store.SetCurrentModel(controllerName, c.Name); err != nil {
+		if err := store.SetCurrentModel(controllerName, accountName, c.Name); err != nil {
 			return errors.Trace(err)
 		}
 		ctx.Infof("created model %q", c.Name)

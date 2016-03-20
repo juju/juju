@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	rcmd "github.com/juju/romulus/cmd/commands"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/version"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/cmd/juju/gui"
 	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
@@ -34,9 +36,9 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	jujuversion "github.com/juju/juju/version"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.commands")
@@ -180,6 +182,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(user.NewListCommand())
 	r.Register(user.NewEnableCommand())
 	r.Register(user.NewDisableCommand())
+	r.Register(user.NewSwitchUserCommand())
 
 	// Manage cached images
 	r.Register(cachedimages.NewSuperCommand())
@@ -196,10 +199,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewUnsetCommand())
 	r.Register(model.NewRetryProvisioningCommand())
 	r.Register(model.NewDestroyCommand())
-
-	r.Register(model.NewShareCommand())
-	r.Register(model.NewUnshareCommand())
 	r.Register(model.NewUsersCommand())
+	r.Register(model.NewGrantCommand())
+	r.Register(model.NewRevokeCommand())
 
 	// Manage and control actions
 	r.Register(action.NewSuperCommand())
@@ -226,10 +228,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(block.NewUnblockCommand())
 
 	// Manage storage
-	r.Register(storage.NewSuperCommand())
-	r.RegisterSuperAlias("list-storage", "storage", "list", nil)
-	r.RegisterSuperAlias("show-storage", "storage", "show", nil)
-	r.RegisterSuperAlias("add-storage", "storage", "add", nil)
+	r.Register(storage.NewAddCommand())
+	r.Register(storage.NewListCommand())
+	r.Register(storage.NewPoolCreateCommand())
+	r.Register(storage.NewPoolListCommand())
+	r.Register(storage.NewShowCommand())
 
 	// Manage spaces
 	r.Register(space.NewSuperCommand())
@@ -243,7 +246,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage controllers
 	r.Register(controller.NewCreateModelCommand())
 	r.Register(controller.NewDestroyCommand())
-	r.Register(controller.NewModelsCommand())
+	r.Register(controller.NewListModelsCommand())
 	r.Register(controller.NewKillCommand())
 	r.Register(controller.NewListControllersCommand())
 	r.Register(controller.NewListBlocksCommand())
@@ -257,10 +260,19 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(setmeterstatus.New())
 
 	// Manage clouds and credentials
+	r.Register(cloud.NewUpdateCloudsCommand())
 	r.Register(cloud.NewListCloudsCommand())
 	r.Register(cloud.NewShowCloudCommand())
 	r.Register(cloud.NewAddCloudCommand())
 	r.Register(cloud.NewListCredentialsCommand())
+	r.Register(cloud.NewDetectCredentialsCommand())
+	r.Register(cloud.NewSetDefaultRegionCommand())
+	r.Register(cloud.NewSetDefaultCredentialCommand())
+	r.Register(cloud.NewAddCredentialCommand())
+	r.Register(cloud.NewRemoveCredentialCommand())
+
+	// Juju GUI commands.
+	r.Register(gui.NewGUICommand())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {
@@ -274,10 +286,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	rcmd.RegisterAll(r)
 }
 
-func main() {
-	Main(os.Args)
-}
-
 type versionDeprecation struct {
 	replacement string
 	deprecate   version.Number
@@ -288,7 +296,7 @@ type versionDeprecation struct {
 // If the current version is after the deprecate version number,
 // the command is deprecated and the replacement should be used.
 func (v *versionDeprecation) Deprecated() (bool, string) {
-	if version.Current.Compare(v.deprecate) > 0 {
+	if jujuversion.Current.Compare(v.deprecate) > 0 {
 		return true, v.replacement
 	}
 	return false, ""
@@ -298,7 +306,7 @@ func (v *versionDeprecation) Deprecated() (bool, string) {
 // If the current version is after the obsolete version number,
 // the command is obsolete and shouldn't be registered.
 func (v *versionDeprecation) Obsolete() bool {
-	return version.Current.Compare(v.obsolete) > 0
+	return jujuversion.Current.Compare(v.obsolete) > 0
 }
 
 func twoDotOhDeprecation(replacement string) cmd.DeprecationCheck {

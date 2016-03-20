@@ -60,6 +60,13 @@ func deployBundle(
 		return err
 	}
 	if err := data.Verify(verifyConstraints, verifyStorage); err != nil {
+		if verr, ok := err.(*charm.VerificationError); ok {
+			errs := make([]string, len(verr.Errors))
+			for i, err := range verr.Errors {
+				errs[i] = err.Error()
+			}
+			return errors.New("the provided bundle has the following errors:\n" + strings.Join(errs, "\n"))
+		}
 		return errors.Annotate(err, "cannot deploy bundle")
 	}
 
@@ -692,7 +699,11 @@ func upgradeCharm(client *apiservice.Client, log deploymentLogger, service, id s
 	if url.WithRevision(-1).Path() != existing.WithRevision(-1).Path() {
 		return errors.Errorf("bundle charm %q is incompatible with existing charm %q", id, existing)
 	}
-	if err := client.SetCharm(service, id, false, false); err != nil {
+	cfg := apiservice.SetCharmConfig{
+		ServiceName: service,
+		CharmUrl:    id,
+	}
+	if err := client.SetCharm(cfg); err != nil {
 		return errors.Annotatef(err, "cannot upgrade charm to %q", id)
 	}
 	log.Infof("upgraded charm for existing service %s (from %s to %s)", service, existing, id)

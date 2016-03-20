@@ -6,6 +6,7 @@ package jujuclienttesting
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -13,15 +14,17 @@ import (
 // intended for testing.
 type MemStore struct {
 	Controllers map[string]jujuclient.ControllerDetails
-	Models      map[string]*jujuclient.ControllerModels
+	Models      map[string]jujuclient.ControllerAccountModels
 	Accounts    map[string]*jujuclient.ControllerAccounts
+	Credentials map[string]cloud.CloudCredential
 }
 
 func NewMemStore() *MemStore {
 	return &MemStore{
 		make(map[string]jujuclient.ControllerDetails),
-		make(map[string]*jujuclient.ControllerModels),
+		make(map[string]jujuclient.ControllerAccountModels),
 		make(map[string]*jujuclient.ControllerAccounts),
+		make(map[string]cloud.CloudCredential),
 	}
 }
 
@@ -63,8 +66,11 @@ func (c *MemStore) RemoveController(name string) error {
 }
 
 // UpdateModel implements ModelUpdater.
-func (c *MemStore) UpdateModel(controller, model string, details jujuclient.ModelDetails) error {
+func (c *MemStore) UpdateModel(controller, account, model string, details jujuclient.ModelDetails) error {
 	if err := jujuclient.ValidateControllerName(controller); err != nil {
+		return err
+	}
+	if err := jujuclient.ValidateAccountName(account); err != nil {
 		return err
 	}
 	if err := jujuclient.ValidateModelName(model); err != nil {
@@ -73,101 +79,146 @@ func (c *MemStore) UpdateModel(controller, model string, details jujuclient.Mode
 	if err := jujuclient.ValidateModelDetails(details); err != nil {
 		return err
 	}
-	models, ok := c.Models[controller]
+	controllerAccountModels, ok := c.Models[controller]
 	if !ok {
-		models = &jujuclient.ControllerModels{
+		controllerAccountModels.AccountModels = make(map[string]*jujuclient.AccountModels)
+		c.Models[controller] = controllerAccountModels
+	}
+	accountModels, ok := controllerAccountModels.AccountModels[account]
+	if !ok {
+		accountModels = &jujuclient.AccountModels{
 			Models: make(map[string]jujuclient.ModelDetails),
 		}
-		c.Models[controller] = models
+		controllerAccountModels.AccountModels[account] = accountModels
 	}
-	models.Models[model] = details
+	accountModels.Models[model] = details
 	return nil
 }
 
 // SetCurrentModel implements ModelUpdater.
-func (c *MemStore) SetCurrentModel(controllerName, modelName string) error {
+func (c *MemStore) SetCurrentModel(controllerName, accountName, modelName string) error {
 	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
 		return errors.Trace(err)
+	}
+	if err := jujuclient.ValidateAccountName(accountName); err != nil {
+		return err
 	}
 	if err := jujuclient.ValidateModelName(modelName); err != nil {
 		return errors.Trace(err)
 	}
-	models, ok := c.Models[controllerName]
+	controllerAccountModels, ok := c.Models[controllerName]
 	if !ok {
-		return errors.NotFoundf("controller %s", controllerName)
+		return errors.NotFoundf("models for controller %s", controllerName)
 	}
-	if models.CurrentModel == modelName {
-		return nil
+	accountModels, ok := controllerAccountModels.AccountModels[accountName]
+	if !ok {
+		return errors.NotFoundf(
+			"models for account %s on controller %s",
+			accountName, controllerName,
+		)
 	}
-	if _, ok := models.Models[modelName]; !ok {
-		return errors.NotFoundf("model %s:%s", controllerName, modelName)
+	if _, ok := accountModels.Models[modelName]; !ok {
+		return errors.NotFoundf("model %s:%s:%s", controllerName, accountName, modelName)
 	}
-
-	models.CurrentModel = modelName
+	accountModels.CurrentModel = modelName
 	return nil
 }
 
 // RemoveModel implements ModelRemover.
-func (c *MemStore) RemoveModel(controller, model string) error {
+func (c *MemStore) RemoveModel(controller, account, model string) error {
 	if err := jujuclient.ValidateControllerName(controller); err != nil {
+		return err
+	}
+	if err := jujuclient.ValidateAccountName(account); err != nil {
 		return err
 	}
 	if err := jujuclient.ValidateModelName(model); err != nil {
 		return err
 	}
-	models, ok := c.Models[controller]
+	controllerAccountModels, ok := c.Models[controller]
 	if !ok {
-		return errors.NotFoundf("controller %s", controller)
+		return errors.NotFoundf("models for controller %s", controller)
 	}
-	if _, ok := models.Models[model]; !ok {
-		return errors.NotFoundf("model %s:%s", controller, model)
+	accountModels, ok := controllerAccountModels.AccountModels[account]
+	if !ok {
+		return errors.NotFoundf(
+			"models for account %s on controller %s",
+			account, controller,
+		)
 	}
-	delete(models.Models, model)
+	if _, ok := accountModels.Models[model]; !ok {
+		return errors.NotFoundf("model %s:%s:%s", controller, account, model)
+	}
+	delete(accountModels.Models, model)
+	if accountModels.CurrentModel == model {
+		accountModels.CurrentModel = ""
+	}
 	return nil
 }
 
 // AllModels implements ModelGetter.
-func (c *MemStore) AllModels(controller string) (map[string]jujuclient.ModelDetails, error) {
+func (c *MemStore) AllModels(controller, account string) (map[string]jujuclient.ModelDetails, error) {
 	if err := jujuclient.ValidateControllerName(controller); err != nil {
 		return nil, err
 	}
-	models, ok := c.Models[controller]
-	if !ok {
-		return nil, errors.NotFoundf("controller %s", controller)
+	if err := jujuclient.ValidateAccountName(account); err != nil {
+		return nil, err
 	}
-	return models.Models, nil
+	controllerAccountModels, ok := c.Models[controller]
+	if !ok {
+		return nil, errors.NotFoundf("models for controller %s", controller)
+	}
+	accountModels, ok := controllerAccountModels.AccountModels[account]
+	if !ok {
+		return nil, errors.NotFoundf("models for account %s on controller %s", account, controller)
+	}
+	return accountModels.Models, nil
 }
 
 // CurrentModel implements ModelGetter.
-func (c *MemStore) CurrentModel(controller string) (string, error) {
+func (c *MemStore) CurrentModel(controller, account string) (string, error) {
 	if err := jujuclient.ValidateControllerName(controller); err != nil {
 		return "", err
 	}
-	models, ok := c.Models[controller]
+	if err := jujuclient.ValidateAccountName(account); err != nil {
+		return "", err
+	}
+	controllerAccountModels, ok := c.Models[controller]
 	if !ok {
-		return "", errors.NotFoundf("controller %s", controller)
+		return "", errors.NotFoundf("models for controller %s", controller)
 	}
-	if models.CurrentModel == "" {
-		return "", errors.NotFoundf("current model for controller %s", controller)
+	accountModels, ok := controllerAccountModels.AccountModels[account]
+	if !ok {
+		return "", errors.NotFoundf("models for account %s on controller %s", account, controller)
 	}
-	return models.CurrentModel, nil
+	if accountModels.CurrentModel == "" {
+		return "", errors.NotFoundf("current model for account %s on controller %s", account, controller)
+	}
+	return accountModels.CurrentModel, nil
 }
 
 // ModelByName implements ModelGetter.
-func (c *MemStore) ModelByName(controller, model string) (*jujuclient.ModelDetails, error) {
+func (c *MemStore) ModelByName(controller, account, model string) (*jujuclient.ModelDetails, error) {
 	if err := jujuclient.ValidateControllerName(controller); err != nil {
+		return nil, err
+	}
+	if err := jujuclient.ValidateAccountName(account); err != nil {
 		return nil, err
 	}
 	if err := jujuclient.ValidateModelName(model); err != nil {
 		return nil, err
 	}
-	models, ok := c.Models[controller]
+	controllerAccountModels, ok := c.Models[controller]
 	if !ok {
-		return nil, errors.NotFoundf("controller %s", controller)
+		return nil, errors.NotFoundf("models for controller %s", controller)
 	}
-	details, ok := models.Models[model]
+	accountModels, ok := controllerAccountModels.AccountModels[account]
 	if !ok {
-		return nil, errors.NotFoundf("model %s:%s", controller, model)
+		return nil, errors.NotFoundf("models for account %s on controller %s", account, controller)
+	}
+	details, ok := accountModels.Models[model]
+	if !ok {
+		return nil, errors.NotFoundf("model %s:%s:%s", controller, account, model)
 	}
 	return &details, nil
 }
@@ -205,7 +256,7 @@ func (c *MemStore) SetCurrentAccount(controllerName, accountName string) error {
 	}
 	accounts, ok := c.Accounts[controllerName]
 	if !ok {
-		return errors.NotFoundf("controller %s", controllerName)
+		return errors.NotFoundf("accounts for controller %s", controllerName)
 	}
 	if _, ok := accounts.Accounts[accountName]; !ok {
 		return errors.NotFoundf("account %s:%s", controllerName, accountName)
@@ -221,7 +272,7 @@ func (c *MemStore) AllAccounts(controllerName string) (map[string]jujuclient.Acc
 	}
 	accounts, ok := c.Accounts[controllerName]
 	if !ok {
-		return nil, errors.NotFoundf("controller %s", controllerName)
+		return nil, errors.NotFoundf("accounts for controller %s", controllerName)
 	}
 	return accounts.Accounts, nil
 }
@@ -233,7 +284,7 @@ func (c *MemStore) CurrentAccount(controllerName string) (string, error) {
 	}
 	accounts, ok := c.Accounts[controllerName]
 	if !ok {
-		return "", errors.NotFoundf("controller %s", controllerName)
+		return "", errors.NotFoundf("accounts for controller %s", controllerName)
 	}
 	if accounts.CurrentAccount == "" {
 		return "", errors.NotFoundf("current account for controller %s", controllerName)
@@ -251,7 +302,7 @@ func (c *MemStore) AccountByName(controllerName, accountName string) (*jujuclien
 	}
 	accounts, ok := c.Accounts[controllerName]
 	if !ok {
-		return nil, errors.NotFoundf("controller %s", controllerName)
+		return nil, errors.NotFoundf("accounts for controller %s", controllerName)
 	}
 	details, ok := accounts.Accounts[accountName]
 	if !ok {
@@ -270,11 +321,34 @@ func (c *MemStore) RemoveAccount(controllerName, accountName string) error {
 	}
 	accounts, ok := c.Accounts[controllerName]
 	if !ok {
-		return errors.NotFoundf("controller %s", controllerName)
+		return errors.NotFoundf("accounts for controller %s", controllerName)
 	}
 	if _, ok := accounts.Accounts[accountName]; !ok {
 		return errors.NotFoundf("account %s:%s", controllerName, accountName)
 	}
 	delete(accounts.Accounts, accountName)
 	return nil
+}
+
+// UpdateCredential implements CredentialsUpdater.
+func (c *MemStore) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
+	c.Credentials[cloudName] = details
+	return nil
+}
+
+// CredentialForCloud implements CredentialsGetter.
+func (c *MemStore) CredentialForCloud(cloudName string) (*cloud.CloudCredential, error) {
+	if result, ok := c.Credentials[cloudName]; ok {
+		return &result, nil
+	}
+	return nil, errors.NotFoundf("credentials for cloud %s", cloudName)
+}
+
+// AllCredentials implements CredentialsGetter.
+func (c *MemStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
+	result := make(map[string]cloud.CloudCredential)
+	for k, v := range c.Credentials {
+		result[k] = v
+	}
+	return result, nil
 }

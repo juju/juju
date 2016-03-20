@@ -38,7 +38,7 @@ func (s *ShowSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ShowSuite) runShow(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, storage.NewShowCommand(s.mockAPI), args...)
+	return testing.RunCommand(c, storage.NewShowCommandForTest(s.mockAPI, s.store), args...)
 }
 
 func (s *ShowSuite) TestShowNoMatch(c *gc.C) {

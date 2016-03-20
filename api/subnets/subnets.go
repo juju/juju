@@ -5,15 +5,12 @@ package subnets
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 )
-
-var logger = loggo.GetLogger("juju.api.subnets")
 
 const subnetsFacade = "Subnets"
 

@@ -13,6 +13,8 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -22,8 +24,11 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 const (
@@ -48,6 +53,7 @@ type UserParams struct {
 	Creator     names.Tag
 	NoModelUser bool
 	Disabled    bool
+	Access      state.ModelAccess
 }
 
 // ModelUserParams defines the parameters for creating an environment user.
@@ -55,7 +61,7 @@ type ModelUserParams struct {
 	User        string
 	DisplayName string
 	CreatedBy   names.Tag
-	ReadOnly    bool
+	Access      state.ModelAccess
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -81,10 +87,11 @@ type MachineParams struct {
 
 // ServiceParams is used when specifying parameters for a new service.
 type ServiceParams struct {
-	Name    string
-	Charm   *state.Charm
-	Creator names.Tag
-	Status  *state.StatusInfo
+	Name     string
+	Charm    *state.Charm
+	Creator  names.Tag
+	Status   *status.StatusInfo
+	Settings map[string]interface{}
 }
 
 // UnitParams are used to create units.
@@ -93,7 +100,7 @@ type UnitParams struct {
 	Machine     *state.Machine
 	Password    string
 	SetCharmURL bool
-	Status      *state.StatusInfo
+	Status      *status.StatusInfo
 }
 
 // RelationParams are used to create relations.
@@ -165,6 +172,9 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		c.Assert(err, jc.ErrorIsNil)
 		params.Creator = env.Owner()
 	}
+	if params.Access == state.ModelUndefinedAccess {
+		params.Access = state.ModelAdminAccess
+	}
 	creatorUserTag := params.Creator.(names.UserTag)
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
@@ -174,6 +184,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 			User:        user.UserTag(),
 			CreatedBy:   names.NewUserTag(user.CreatedBy()),
 			DisplayName: params.DisplayName,
+			Access:      params.Access,
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -199,6 +210,9 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.M
 	if params.DisplayName == "" {
 		params.DisplayName = uniqueString("display name")
 	}
+	if params.Access == state.ModelUndefinedAccess {
+		params.Access = state.ModelAdminAccess
+	}
 	if params.CreatedBy == nil {
 		env, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
@@ -209,7 +223,7 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.M
 		User:        names.NewUserTag(params.User),
 		CreatedBy:   createdByUserTag,
 		DisplayName: params.DisplayName,
-		ReadOnly:    params.ReadOnly,
+		Access:      params.Access,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return modelUser
@@ -236,32 +250,43 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 		params.Password, err = utils.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	return params
-}
-
-func machineParamsToTemplate(p *MachineParams) state.MachineTemplate {
-	return state.MachineTemplate{
-		Series:     p.Series,
-		Nonce:      p.Nonce,
-		Jobs:       p.Jobs,
-		InstanceId: p.InstanceId,
+	if params.Characteristics == nil {
+		arch := "amd64"
+		mem := uint64(64 * 1024 * 1024 * 1024)
+		hardware := instance.HardwareCharacteristics{
+			Arch: &arch,
+			Mem:  &mem,
+		}
+		params.Characteristics = &hardware
 	}
+
+	return params
 }
 
 // MakeMachineNested will make a machine nested in the machine with ID given.
 func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *MachineParams) *state.Machine {
 	params = factory.paramsFillDefaults(c, params)
-	mTmpl := machineParamsToTemplate(params)
-	// Cannot specify an instance id for a new container.
-	mTmpl.InstanceId = ""
-	// Cannot specify a nonce without an instance ID.
-	mTmpl.Nonce = ""
+	machineTemplate := state.MachineTemplate{
+		Series:      params.Series,
+		Jobs:        params.Jobs,
+		Volumes:     params.Volumes,
+		Filesystems: params.Filesystems,
+	}
 
 	m, err := factory.st.AddMachineInsideMachine(
-		mTmpl,
+		machineTemplate,
 		parentId,
 		instance.LXC,
 	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
+	c.Assert(err, jc.ErrorIsNil)
+	current := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	return m
 }
@@ -297,6 +322,13 @@ func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachinePar
 		err := machine.SetProviderAddresses(params.Addresses...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
+	current := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	err = machine.SetAgentVersion(current)
+	c.Assert(err, jc.ErrorIsNil)
 	return machine, params.Password
 }
 
@@ -352,7 +384,12 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 		params.Creator = creator.Tag()
 	}
 	_ = params.Creator.(names.UserTag)
-	service, err := factory.st.AddService(state.AddServiceArgs{Name: params.Name, Owner: params.Creator.String(), Charm: params.Charm})
+	service, err := factory.st.AddService(state.AddServiceArgs{
+		Name:     params.Name,
+		Owner:    params.Creator.String(),
+		Charm:    params.Charm,
+		Settings: charm.Settings(params.Settings),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {
@@ -392,6 +429,14 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	unit, err := params.Service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(params.Machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	agentTools := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: params.Service.Series(),
+	}
+	err = unit.SetAgentVersion(agentTools)
 	c.Assert(err, jc.ErrorIsNil)
 	if params.SetCharmURL {
 		serviceCharmURL, _ := params.Service.CharmURL()

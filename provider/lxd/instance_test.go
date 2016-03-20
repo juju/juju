@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/provider/lxd/lxdclient"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type instanceSuite struct {
@@ -37,9 +37,9 @@ func (s *instanceSuite) TestID(c *gc.C) {
 }
 
 func (s *instanceSuite) TestStatus(c *gc.C) {
-	status := s.Instance.Status()
+	instanceStatus := s.Instance.Status()
 
-	c.Check(status, gc.Equals, lxdclient.StatusRunning)
+	c.Check(instanceStatus.Message, gc.Equals, lxdclient.StatusRunning)
 	s.CheckNoAPI(c)
 }
 
@@ -48,7 +48,6 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(addresses, jc.DeepEquals, s.Addresses)
-	s.CheckNoAPI(c)
 }
 
 func (s *instanceSuite) TestOpenPortsAPI(c *gc.C) {

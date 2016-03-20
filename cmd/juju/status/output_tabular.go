@@ -15,9 +15,9 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
 )
 
 type statusRelation struct {
@@ -137,15 +137,15 @@ func FormatTabular(value interface{}) ([]byte, error) {
 
 	pUnit := func(name string, u unitStatus, level int) {
 		message := u.WorkloadStatusInfo.Message
-		agentDoing := agentDoing(u.AgentStatusInfo)
+		agentDoing := agentDoing(u.JujuStatusInfo)
 		if agentDoing != "" {
 			message = fmt.Sprintf("(%s) %s", agentDoing, message)
 		}
 		p(
 			indent("", level*2, name),
 			u.WorkloadStatusInfo.Current,
-			u.AgentStatusInfo.Current,
-			u.AgentStatusInfo.Version,
+			u.JujuStatusInfo.Current,
+			u.JujuStatusInfo.Version,
 			u.Machine,
 			strings.Join(u.OpenedPorts, ","),
 			u.PublicAddress,
@@ -153,7 +153,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		)
 	}
 
-	header := []string{"ID", "WORKLOAD-STATE", "AGENT-STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS", "MESSAGE"}
+	header := []string{"ID", "WORKLOAD-STATUS", "JUJU-STATUS", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS", "MESSAGE"}
 
 	p("\n[Units]")
 	p(strings.Join(header, "\t"))
@@ -178,7 +178,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		if hw.AvailabilityZone != nil {
 			az = *hw.AvailabilityZone
 		}
-		p(m.Id, m.AgentState, m.DNSName, m.InstanceId, m.Series, az)
+		p(m.Id, m.JujuStatus.Current, m.DNSName, m.InstanceId, m.Series, az)
 	}
 	tw.Flush()
 	return out.Bytes(), nil
@@ -213,7 +213,7 @@ func FormatMachineTabular(value interface{}) ([]byte, error) {
 		if hw.AvailabilityZone != nil {
 			az = *hw.AvailabilityZone
 		}
-		p(m.Id, m.AgentState, m.DNSName, m.InstanceId, m.Series, az)
+		p(m.Id, m.JujuStatus.Current, m.DNSName, m.InstanceId, m.Series, az)
 	}
 	tw.Flush()
 
@@ -223,8 +223,8 @@ func FormatMachineTabular(value interface{}) ([]byte, error) {
 // agentDoing returns what hook or action, if any,
 // the agent is currently executing.
 // The hook name or action is extracted from the agent message.
-func agentDoing(status statusInfoContents) string {
-	if status.Current != params.StatusExecuting {
+func agentDoing(agentStatus statusInfoContents) string {
+	if agentStatus.Current != status.StatusExecuting {
 		return ""
 	}
 	// First see if we can determine a hook name.
@@ -236,13 +236,13 @@ func agentDoing(status statusInfoContents) string {
 		hookNames = append(hookNames, string(h))
 	}
 	hookExp := regexp.MustCompile(fmt.Sprintf(`running (?P<hook>%s?) hook`, strings.Join(hookNames, "|")))
-	match := hookExp.FindStringSubmatch(status.Message)
+	match := hookExp.FindStringSubmatch(agentStatus.Message)
 	if len(match) > 0 {
 		return match[1]
 	}
 	// Now try for an action name.
 	actionExp := regexp.MustCompile(`running action (?P<action>.*)`)
-	match = actionExp.FindStringSubmatch(status.Message)
+	match = actionExp.FindStringSubmatch(agentStatus.Message)
 	if len(match) > 0 {
 		return match[1]
 	}

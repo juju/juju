@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"text/template"
@@ -31,8 +30,8 @@ import (
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/looputil"
 )
 
@@ -43,8 +42,6 @@ var (
 	LxcContainerDir  = golxc.GetDefaultLXCContainerDir()
 	LxcRestartDir    = "/etc/lxc/auto"
 	LxcObjectFactory = golxc.Factory()
-	runtimeGOOS      = runtime.GOOS
-	runningInsideLXC = lxcutils.RunningInsideLXC
 	writeWgetTmpFile = ioutil.WriteFile
 )
 
@@ -84,20 +81,6 @@ func containerDirFilesystem() (string, error) {
 	return lines[1], nil
 }
 
-// IsLXCSupported returns a boolean value indicating whether or not
-// we can run LXC containers.
-func IsLXCSupported() (bool, error) {
-	if runtimeGOOS != "linux" {
-		return false, nil
-	}
-	// We do not support running nested LXC containers.
-	insideLXC, err := runningInsideLXC()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return !insideLXC, nil
-}
-
 type containerManager struct {
 	name              string
 	logdir            string
@@ -108,13 +91,14 @@ type containerManager struct {
 	loopDeviceManager looputil.LoopDeviceManager
 }
 
-// containerManager implements container.Manager.
-var _ container.Manager = (*containerManager)(nil)
-
 // NewContainerManager returns a manager object that can start and
 // stop lxc containers. The containers that are created are namespaced
 // by the name parameter inside the given ManagerConfig.
-func NewContainerManager(
+func NewContainerManager(conf container.ManagerConfig, imageURLGetter container.ImageURLGetter) (container.Manager, error) {
+	return newContainerManager(conf, imageURLGetter, looputil.NewLoopDeviceManager())
+}
+
+func newContainerManager(
 	conf container.ManagerConfig,
 	imageURLGetter container.ImageURLGetter,
 	loopDeviceManager looputil.LoopDeviceManager,
@@ -185,6 +169,7 @@ func (manager *containerManager) CreateContainer(
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
+	callback func(containerStatus status.Status, info string, data map[string]interface{}) error,
 ) (inst instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 	// Check our preconditions
 	if manager == nil {
@@ -195,6 +180,8 @@ func (manager *containerManager) CreateContainer(
 		panic("networkConfig is nil")
 	} else if storageConfig == nil {
 		panic("storageConfig is nil")
+	} else if callback == nil {
+		panic("status callback is nil")
 	}
 
 	// Log how long the start took
@@ -233,6 +220,7 @@ func (manager *containerManager) CreateContainer(
 			instanceConfig.EnableOSUpgrade,
 			manager.imageURLGetter,
 			manager.useAUFS,
+			callback,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "failed to retrieve the template to clone")
@@ -266,6 +254,10 @@ func (manager *containerManager) CreateContainer(
 			return nil, nil, errors.Annotate(err, "failed to reorder network settings")
 		}
 
+		err = callback(status.StatusProvisioning, "Cloning template container", nil)
+		if err != nil {
+			logger.Warningf("Cannot set instance status for container: %v", err)
+		}
 		lxcContainer, err = templateContainer.Clone(name, extraCloneArgs, templateParams)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, instance.NewRetryableCreationError("lxc container cloning failed"))
@@ -303,6 +295,8 @@ func (manager *containerManager) CreateContainer(
 			return nil, nil, errors.Trace(err)
 		}
 	}
+
+	callback(status.StatusProvisioning, "Configuring container", nil)
 
 	if err := autostartContainer(name); err != nil {
 		return nil, nil, errors.Annotate(err, "failed to configure the container for autostart")
@@ -360,13 +354,13 @@ func (manager *containerManager) CreateContainer(
 	consoleFile := filepath.Join(directory, "console.log")
 	lxcContainer.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
 	logger.Tracef("start the container")
+	callback(status.StatusProvisioning, "Starting container", nil)
 
 	// We explicitly don't pass through the config file to the container.Start
 	// method as we have passed it through at container creation time.  This
 	// is necessary to get the appropriate rootfs reference without explicitly
 	// setting it ourselves.
-	if err = lxcContainer.Start("", consoleFile); err != nil {
-		logger.Warningf("container failed to start %v", err)
+	if err := lxcContainer.Start("", consoleFile); err != nil {
 		// if the container fails to start we should try to destroy it
 		// check if the container has been constructed
 		if lxcContainer.IsConstructed() {
@@ -374,13 +368,10 @@ func (manager *containerManager) CreateContainer(
 			if derr := lxcContainer.Destroy(); derr != nil {
 				// if an error is reported there is probably a leftover
 				// container that the user should clean up manually
-				logger.Errorf("container failed to start and failed to destroy: %v", derr)
-				return nil, nil, errors.Annotate(err, "container failed to start and failed to destroy: manual cleanup of containers needed")
+				return nil, nil, errors.Annotatef(err, "container failed to start and failed to destroy: manual cleanup of containers needed: %v", derr)
 			}
-			logger.Warningf("container failed to start and was destroyed - safe to retry")
 			return nil, nil, errors.Wrap(err, instance.NewRetryableCreationError("container failed to start and was destroyed: "+lxcContainer.Name()))
 		}
-		logger.Warningf("container failed to start: %v", err)
 		return nil, nil, errors.Annotate(err, "container failed to start")
 	}
 
@@ -389,6 +380,7 @@ func (manager *containerManager) CreateContainer(
 		Arch: &arch,
 	}
 
+	callback(status.StatusRunning, "Container started", nil)
 	return &lxcInstance{lxcContainer, name}, hardware, nil
 }
 

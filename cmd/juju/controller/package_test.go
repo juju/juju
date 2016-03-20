@@ -76,21 +76,30 @@ controllers:
 const testModelsYaml = `
 controllers:
   local.aws-test:
-    models:
-      admin:
-        uuid: ghi
-    current-model: admin
+    accounts:
+      admin@local:
+        models:
+          admin:
+            uuid: ghi
+        current-model: admin
   local.mallards:
-    models:
-      admin:
-        uuid: abc
-      my-model:
-        uuid: def
-    current-model: my-model
+    accounts:
+      admin@local:
+        models:
+          admin:
+            uuid: abc
+          my-model:
+            uuid: def
+        current-model: my-model
 `
 
 const testAccountsYaml = `
 controllers:
+  local.aws-test:
+    accounts:
+      admin@local:
+        user: admin@local
+        password: hun+er2
   local.mark-test-prodstack:
     accounts:
       admin@local:

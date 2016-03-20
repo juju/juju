@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/apiserver/params"
@@ -15,8 +14,6 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
-
-var logger = loggo.GetLogger("juju.worker.undertaker")
 
 // Facade covers the parts of the api/undertaker.UndertakerClient that we
 // need for the worker. It's more than a little raw, but we'll survive.

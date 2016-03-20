@@ -81,7 +81,7 @@ func (r *Relation) Refresh() error {
 		return errors.NotFoundf("relation %v", r)
 	}
 	if err != nil {
-		return fmt.Errorf("cannot refresh relation %v: %v", r, err)
+		return errors.Annotatef(err, "cannot refresh relation %v", r)
 	}
 	if r.doc.Id != doc.Id {
 		// The relation has been destroyed and recreated. This is *not* the
@@ -103,7 +103,7 @@ func (r *Relation) Life() Life {
 func (r *Relation) Destroy() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy relation %q", r)
 	if len(r.doc.Endpoints) == 1 && r.doc.Endpoints[0].Role == charm.RolePeer {
-		return fmt.Errorf("is a peer relation")
+		return errors.Errorf("is a peer relation")
 	}
 	defer func() {
 		if err == nil {
@@ -243,7 +243,7 @@ func (r *Relation) Endpoint(serviceName string) (Endpoint, error) {
 			return ep, nil
 		}
 	}
-	return Endpoint{}, fmt.Errorf("service %q is not a member of %q", serviceName, r)
+	return Endpoint{}, errors.Errorf("service %q is not a member of %q", serviceName, r)
 }
 
 // Endpoints returns the endpoints for the relation.
@@ -267,7 +267,7 @@ func (r *Relation) RelatedEndpoints(serviceName string) ([]Endpoint, error) {
 		}
 	}
 	if eps == nil {
-		return nil, fmt.Errorf("no endpoints of %q relate to service %q", r, serviceName)
+		return nil, errors.Errorf("no endpoints of %q relate to service %q", r, serviceName)
 	}
 	return eps, nil
 }

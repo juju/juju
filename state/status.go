@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/status"
 )
 
 // statusDoc represents a entity status in Mongodb.  The implicit
@@ -22,7 +23,7 @@ import (
 // direct use of the document in both create and update transactions.
 type statusDoc struct {
 	ModelUUID  string                 `bson:"model-uuid"`
-	Status     Status                 `bson:"status"`
+	Status     status.Status          `bson:"status"`
 	StatusInfo string                 `bson:"statusinfo"`
 	StatusData map[string]interface{} `bson:"statusdata"`
 
@@ -72,7 +73,7 @@ func unescapeKeys(input map[string]interface{}) map[string]interface{} {
 // getStatus retrieves the status document associated with the given
 // globalKey and converts it to a StatusInfo. If the status document
 // is not found, a NotFoundError referencing badge will be returned.
-func getStatus(st *State, globalKey, badge string) (_ StatusInfo, err error) {
+func getStatus(st *State, globalKey, badge string) (_ status.StatusInfo, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get status")
 	statuses, closer := st.getCollection(statusesC)
 	defer closer()
@@ -80,12 +81,12 @@ func getStatus(st *State, globalKey, badge string) (_ StatusInfo, err error) {
 	var doc statusDoc
 	err = statuses.FindId(globalKey).One(&doc)
 	if err == mgo.ErrNotFound {
-		return StatusInfo{}, errors.NotFoundf(badge)
+		return status.StatusInfo{}, errors.NotFoundf(badge)
 	} else if err != nil {
-		return StatusInfo{}, errors.Trace(err)
+		return status.StatusInfo{}, errors.Trace(err)
 	}
 
-	return StatusInfo{
+	return status.StatusInfo{
 		Status:  doc.Status,
 		Message: doc.StatusInfo,
 		Data:    unescapeKeys(doc.StatusData),
@@ -104,7 +105,7 @@ type setStatusParams struct {
 	globalKey string
 
 	// status is the status value.
-	status Status
+	status status.Status
 
 	// message is an optional string elaborating upon the status.
 	message string
@@ -192,7 +193,7 @@ func removeStatusOp(st *State, globalKey string) txn.Op {
 type historicalStatusDoc struct {
 	ModelUUID  string                 `bson:"model-uuid"`
 	GlobalKey  string                 `bson:"globalkey"`
-	Status     Status                 `bson:"status"`
+	Status     status.Status          `bson:"status"`
 	StatusInfo string                 `bson:"statusinfo"`
 	StatusData map[string]interface{} `bson:"statusdata"`
 
@@ -218,7 +219,7 @@ func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
 	}
 }
 
-func statusHistory(st *State, globalKey string, size int) ([]StatusInfo, error) {
+func statusHistory(st *State, globalKey string, size int) ([]status.StatusInfo, error) {
 	statusHistory, closer := st.getCollection(statusesHistoryC)
 	defer closer()
 
@@ -226,14 +227,14 @@ func statusHistory(st *State, globalKey string, size int) ([]StatusInfo, error) 
 	query := statusHistory.Find(bson.D{{"globalkey", globalKey}})
 	err := query.Sort("-updated").Limit(size).All(&docs)
 	if err == mgo.ErrNotFound {
-		return []StatusInfo{}, errors.NotFoundf("status history")
+		return []status.StatusInfo{}, errors.NotFoundf("status history")
 	} else if err != nil {
-		return []StatusInfo{}, errors.Annotatef(err, "cannot get status history")
+		return []status.StatusInfo{}, errors.Annotatef(err, "cannot get status history")
 	}
 
-	results := make([]StatusInfo, len(docs))
+	results := make([]status.StatusInfo, len(docs))
 	for i, doc := range docs {
-		results[i] = StatusInfo{
+		results[i] = status.StatusInfo{
 			Status:  doc.Status,
 			Message: doc.StatusInfo,
 			Data:    unescapeKeys(doc.StatusData),

@@ -6,8 +6,6 @@ package cloud
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -17,18 +15,24 @@ import (
 	"launchpad.net/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/jujuclient"
 )
 
 type listCredentialsCommand struct {
 	cmd.CommandBase
-	out       cmd.Output
-	cloudName string
+	out         cmd.Output
+	cloudName   string
+	showSecrets bool
+
+	store              jujuclient.CredentialGetter
+	personalCloudsFunc func() (map[string]jujucloud.Cloud, error)
+	cloudByNameFunc    func(string) (*jujucloud.Cloud, error)
 }
 
 var listCredentialsDoc = `
 The list-credentials command lists the credentials for clouds on which Juju workloads
-can be deployed. The credentials listed are those added with the add-credentials
-command.
+can be deployed. The credentials listed are those added with the add-credential command.
 
 Example:
    # List all credentials.
@@ -36,6 +40,13 @@ Example:
 
    # List credentials for the aws cloud only.
    juju list-credentials aws
+   
+   # List detailed credential information including passwords.
+   juju list-credentials --format yaml --show-secrets
+   
+See Also:
+   juju add-credential
+   juju remove-credential   
 `
 
 type credentialsMap struct {
@@ -44,7 +55,10 @@ type credentialsMap struct {
 
 // NewListCredentialsCommand returns a command to list cloud credentials.
 func NewListCredentialsCommand() cmd.Command {
-	return &listCredentialsCommand{}
+	return &listCredentialsCommand{
+		store:           jujuclient.NewFileCredentialStore(),
+		cloudByNameFunc: jujucloud.CloudByName,
+	}
 }
 
 func (c *listCredentialsCommand) Info() *cmd.Info {
@@ -57,6 +71,7 @@ func (c *listCredentialsCommand) Info() *cmd.Info {
 }
 
 func (c *listCredentialsCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&c.showSecrets, "show-secrets", false, "show secrets for displayed credentials")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -73,15 +88,28 @@ func (c *listCredentialsCommand) Init(args []string) error {
 	return nil
 }
 
+func (c *listCredentialsCommand) personalClouds() (map[string]jujucloud.Cloud, error) {
+	if c.personalCloudsFunc == nil {
+		return jujucloud.PersonalCloudMetadata()
+	}
+	return c.personalCloudsFunc()
+}
+
+// displayCloudName returns the provided cloud name prefixed
+// with "local:" if it is a local cloud.
+func displayCloudName(cloudName string, personalCloudNames []string) string {
+	for _, name := range personalCloudNames {
+		if cloudName == name {
+			return localPrefix + cloudName
+		}
+	}
+	return cloudName
+}
+
 func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 	var credentials map[string]jujucloud.CloudCredential
-	data, err := ioutil.ReadFile(jujucloud.JujuCredentials())
-	if err == nil {
-		credentials, err = jujucloud.ParseCredentials(data)
-		if err != nil {
-			return err
-		}
-	} else if !os.IsNotExist(err) {
+	credentials, err := c.store.AllCredentials()
+	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
 	if c.cloudName != "" {
@@ -91,7 +119,47 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 			}
 		}
 	}
-	return c.out.Write(ctxt, credentialsMap{credentials})
+
+	// Find local cloud names.
+	personalClouds, err := c.personalClouds()
+	if err != nil {
+		return err
+	}
+	var personalCloudNames []string
+	for name := range personalClouds {
+		personalCloudNames = append(personalCloudNames, name)
+	}
+
+	displayCredentials := make(map[string]jujucloud.CloudCredential)
+	for cloudName, cred := range credentials {
+		if !c.showSecrets {
+			if err := c.removeSecrets(cloudName, &cred); err != nil {
+				return errors.Annotatef(err, "removing secrets from credentials for cloud %v", cloudName)
+			}
+		}
+		displayCredentials[displayCloudName(cloudName, personalCloudNames)] = cred
+	}
+	return c.out.Write(ctxt, credentialsMap{displayCredentials})
+}
+
+func (c *listCredentialsCommand) removeSecrets(cloudName string, cloudCred *jujucloud.CloudCredential) error {
+	cloud, err := c.cloudByNameFunc(cloudName)
+	if err != nil {
+		return err
+	}
+	provider, err := environs.Provider(cloud.Type)
+	if err != nil {
+		return err
+	}
+	schemas := provider.CredentialSchemas()
+	for name, cred := range cloudCred.AuthCredentials {
+		sanitisedCred, err := jujucloud.RemoveSecrets(cred, schemas)
+		if err != nil {
+			return err
+		}
+		cloudCred.AuthCredentials[name] = *sanitisedCred
+	}
+	return nil
 }
 
 // formatCredentialsTabular returns a tabular summary of cloud information.

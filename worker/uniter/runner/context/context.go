@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -341,20 +342,20 @@ func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
 }
 
 // SetUnitStatus will set the given status for this unit.
-func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
+func (ctx *HookContext) SetUnitStatus(unitStatus jujuc.StatusInfo) error {
 	ctx.hasRunStatusSet = true
-	logger.Tracef("[WORKLOAD-STATUS] %s: %s", status.Status, status.Info)
+	logger.Tracef("[WORKLOAD-STATUS] %s: %s", unitStatus.Status, unitStatus.Info)
 	return ctx.unit.SetUnitStatus(
-		params.Status(status.Status),
-		status.Info,
-		status.Data,
+		status.Status(unitStatus.Status),
+		unitStatus.Info,
+		unitStatus.Data,
 	)
 }
 
 // SetServiceStatus will set the given status to the service to which this
 // unit's belong, only if this unit is the leader.
-func (ctx *HookContext) SetServiceStatus(status jujuc.StatusInfo) error {
-	logger.Tracef("[SERVICE-STATUS] %s: %s", status.Status, status.Info)
+func (ctx *HookContext) SetServiceStatus(serviceStatus jujuc.StatusInfo) error {
+	logger.Tracef("[SERVICE-STATUS] %s: %s", serviceStatus.Status, serviceStatus.Info)
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
@@ -369,9 +370,9 @@ func (ctx *HookContext) SetServiceStatus(status jujuc.StatusInfo) error {
 	}
 	return service.SetStatus(
 		ctx.unit.Name(),
-		params.Status(status.Status),
-		status.Info,
-		status.Data,
+		status.Status(serviceStatus.Status),
+		serviceStatus.Info,
+		serviceStatus.Data,
 	)
 }
 
@@ -615,7 +616,7 @@ func (ctx *HookContext) handleReboot(err *error) {
 	case jujuc.RebootNow:
 		*err = ErrRequeueAndReboot
 	}
-	err2 := ctx.unit.SetUnitStatus(params.StatusRebooting, "", nil)
+	err2 := ctx.unit.SetUnitStatus(status.StatusRebooting, "", nil)
 	if err2 != nil {
 		logger.Errorf("updating agent status: %v", err2)
 	}
@@ -784,4 +785,9 @@ func (ctx *HookContext) killCharmHook() error {
 		logger.Infof("waiting for context process %v to die", proc.Pid())
 		tick = ctx.clock.After(100 * time.Millisecond)
 	}
+}
+
+// NetworkConfig returns the network config for the given bindingName.
+func (ctx *HookContext) NetworkConfig(bindingName string) ([]params.NetworkConfig, error) {
+	return ctx.unit.NetworkConfig(bindingName)
 }

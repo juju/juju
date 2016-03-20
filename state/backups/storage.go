@@ -12,12 +12,11 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/filestorage"
+	"github.com/juju/version"
 	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/version"
 )
 
 // backupIDTimstamp is used to format the timestamp from a backup
@@ -183,7 +182,7 @@ func newStorageMetaDoc(meta *Metadata) storageMetaDoc {
 // DB operations
 
 // TODO(ericsnow) Merge storageDBWrapper with the storage implementation in
-// state/storage.go (also see state/toolstorage).
+// state/storage.go (also see state/binarystorage).
 
 // storageDBWrapper performs all state database operations needed for backups.
 type storageDBWrapper struct {

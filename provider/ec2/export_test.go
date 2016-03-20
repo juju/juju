@@ -43,10 +43,6 @@ func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2()
 }
 
-func EnvironS3(e environs.Environ) *s3.S3 {
-	return e.(*environ).s3()
-}
-
 func InstanceEC2(inst instance.Instance) *ec2.Instance {
 	return inst.(*ec2Instance).Instance
 }

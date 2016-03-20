@@ -23,7 +23,7 @@ type ManifoldConfig struct {
 	AgentName            string
 	APICallerName        string
 	UpgradeStepsGateName string
-	OpenStateForUpgrade  func() (*state.State, func(), error)
+	OpenStateForUpgrade  func() (*state.State, error)
 	PreUpgradeSteps      func(*state.State, agent.Config, bool, bool) error
 }
 

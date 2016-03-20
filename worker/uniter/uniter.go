@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/fortress"
@@ -74,7 +75,7 @@ type Uniter struct {
 	// Cache the last reported status information
 	// so we don't make unnecessary api calls.
 	setStatusMutex      sync.Mutex
-	lastReportedStatus  params.Status
+	lastReportedStatus  status.Status
 	lastReportedMessage string
 
 	deployer             *deployerProxy
@@ -162,6 +163,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	// is any remote state, and before the remote state watcher
 	// is started.
 	var charmURL *corecharm.URL
+	var charmModifiedVersion int
 	opState := u.operationExecutor.State()
 	if opState.Kind == operation.Install {
 		logger.Infof("resuming charm install")
@@ -179,6 +181,14 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			return errors.Trace(err)
 		}
 		charmURL = curl
+		svc, err := u.unit.Service()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		charmModifiedVersion, err = svc.CharmModifiedVersion()
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	var (
@@ -246,7 +256,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			// error state.
 			return nil
 		}
-		return setAgentStatus(u, params.StatusIdle, "", nil)
+		return setAgentStatus(u, status.StatusIdle, "", nil)
 	}
 
 	clearResolved := func() error {
@@ -287,7 +297,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		case <-watcher.RemoteStateChanged():
 		}
 
-		localState := resolver.LocalState{CharmURL: charmURL}
+		localState := resolver.LocalState{
+			CharmURL:             charmURL,
+			CharmModifiedVersion: charmModifiedVersion,
+		}
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{
 				Resolver:      uniterResolver,
@@ -319,7 +332,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				// handling is outside of the resolver's control.
 				if operation.IsDeployConflictError(cause) {
 					localState.Conflicted = true
-					err = setAgentStatus(u, params.StatusError, "upgrade failed", nil)
+					err = setAgentStatus(u, status.StatusError, "upgrade failed", nil)
 				} else {
 					reportAgentError(u, "resolver loop error", err)
 				}
@@ -504,10 +517,6 @@ func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
 	return charmURL, err
 }
 
-func (u *Uniter) operationState() operation.State {
-	return u.operationExecutor.State()
-}
-
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
 	// TODO(axw) drop this when we move the run-listener to an independent
@@ -559,5 +568,5 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookName)
-	return setAgentStatus(u, params.StatusError, statusMessage, statusData)
+	return setAgentStatus(u, status.StatusError, statusMessage, statusData)
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
 )
 
 // allWatcherStateBacking implements Backing by fetching entities for
@@ -145,25 +146,42 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 		SupportedContainersKnown: m.SupportedContainersKnown,
 		HasVote:                  m.HasVote,
 		WantsVote:                wantsVote(m.Jobs, m.NoVote),
-		StatusData:               make(map[string]interface{}),
 	}
 
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
 		// so fetch the associated machine status.
-		statusInfo, err := getStatus(st, machineGlobalKey(m.Id), "machine")
+		entity, err := st.FindEntity(names.NewMachineTag(m.Id))
 		if err != nil {
-			return err
+			return errors.Annotatef(err, "retrieving machine %q", m.Id)
 		}
-		info.Status = multiwatcher.Status(statusInfo.Status)
-		info.StatusInfo = statusInfo.Message
+		machine, ok := entity.(status.StatusGetter)
+		if !ok {
+			return errors.Errorf("the given entity does not support Status %v", entity)
+		}
+		jujuStatus, err := machine.Status()
+		if err != nil {
+			return errors.Annotatef(err, "retrieving juju status for machine %q", m.Id)
+		}
+		info.JujuStatus = multiwatcher.NewStatusInfo(jujuStatus, err)
+
+		inst := machine.(status.InstanceStatusGetter)
+		if !ok {
+			return errors.Errorf("the given entity does not support InstanceStatus %v", entity)
+		}
+
+		machineStatus, err := inst.InstanceStatus()
+		if err != nil {
+			return errors.Annotatef(err, "retrieving instance status for machine %q", m.Id)
+		}
+		info.MachineStatus = multiwatcher.NewStatusInfo(machineStatus, err)
 	} else {
 		// The entry already exists, so preserve the current status and
 		// instance data.
 		oldInfo := oldInfo.(*multiwatcher.MachineInfo)
-		info.Status = oldInfo.Status
-		info.StatusInfo = oldInfo.StatusInfo
+		info.JujuStatus = oldInfo.JujuStatus
+		info.MachineStatus = oldInfo.MachineStatus
 		info.InstanceId = oldInfo.InstanceId
 		info.HardwareCharacteristics = oldInfo.HardwareCharacteristics
 	}
@@ -236,7 +254,7 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 	return portRanges, compatiblePorts, nil
 }
 
-func unitAndAgentStatus(st *State, name string) (unitStatus, agentStatus *StatusInfo, err error) {
+func unitAndAgentStatus(st *State, name string) (unitStatus, agentStatus *status.StatusInfo, err error) {
 	unit, err := st.Unit(name)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -260,7 +278,6 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 		Series:      u.Series,
 		MachineId:   u.MachineId,
 		Subordinate: u.Principal != "",
-		StatusData:  make(map[string]interface{}),
 	}
 	if u.CharmURL != nil {
 		info.CharmURL = u.CharmURL.String()
@@ -276,35 +293,19 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 		}
 		// Unit and workload status.
 		info.WorkloadStatus = multiwatcher.StatusInfo{
-			Current: multiwatcher.Status(unitStatus.Status),
+			Current: status.Status(unitStatus.Status),
 			Message: unitStatus.Message,
 			Data:    normaliseStatusData(unitStatus.Data),
 			Since:   unitStatus.Since,
 		}
 		if u.Tools != nil {
-			info.AgentStatus.Version = u.Tools.Version.Number.String()
+			info.JujuStatus.Version = u.Tools.Version.Number.String()
 		}
-		info.AgentStatus = multiwatcher.StatusInfo{
-			Current: multiwatcher.Status(agentStatus.Status),
+		info.JujuStatus = multiwatcher.StatusInfo{
+			Current: status.Status(agentStatus.Status),
 			Message: agentStatus.Message,
 			Data:    normaliseStatusData(agentStatus.Data),
 			Since:   agentStatus.Since,
-		}
-		// Legacy status info.
-		if unitStatus.Status == StatusError {
-			info.Status = multiwatcher.Status(unitStatus.Status)
-			info.StatusInfo = unitStatus.Message
-			info.StatusData = normaliseStatusData(unitStatus.Data)
-		} else {
-			legacyStatus, ok := TranslateToLegacyAgentState(agentStatus.Status, unitStatus.Status, unitStatus.Message)
-			if !ok {
-				logger.Warningf(
-					"translate to legacy status encounted unexpected workload status %q and agent status %q",
-					unitStatus.Status, agentStatus.Status)
-			}
-			info.Status = multiwatcher.Status(legacyStatus)
-			info.StatusInfo = agentStatus.Message
-			info.StatusData = normaliseStatusData(agentStatus.Data)
 		}
 
 		portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(st, u.Name)
@@ -317,11 +318,8 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 	} else {
 		// The entry already exists, so preserve the current status and ports.
 		oldInfo := oldInfo.(*multiwatcher.UnitInfo)
-		// Legacy status.
-		info.Status = oldInfo.Status
-		info.StatusInfo = oldInfo.StatusInfo
 		// Unit and workload status.
-		info.AgentStatus = oldInfo.AgentStatus
+		info.JujuStatus = oldInfo.JujuStatus
 		info.WorkloadStatus = oldInfo.WorkloadStatus
 		info.Ports = oldInfo.Ports
 		info.PortRanges = oldInfo.PortRanges
@@ -418,7 +416,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 		}
 		if err == nil {
 			info.Status = multiwatcher.StatusInfo{
-				Current: multiwatcher.Status(serviceStatus.Status),
+				Current: serviceStatus.Status,
 				Message: serviceStatus.Message,
 				Data:    normaliseStatusData(serviceStatus.Data),
 				Since:   serviceStatus.Since,
@@ -432,7 +430,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 			// TODO(fwereade): 2016-03-17 lp:1558657
 			now := time.Now()
 			info.Status = multiwatcher.StatusInfo{
-				Current: multiwatcher.Status(StatusUnknown),
+				Current: status.StatusUnknown,
 				Since:   &now,
 				Data:    normaliseStatusData(nil),
 			}
@@ -632,16 +630,26 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 		info0 = &newInfo
 	case *multiwatcher.ServiceInfo:
 		newInfo := *info
-		newInfo.Status.Current = multiwatcher.Status(s.Status)
+		newInfo.Status.Current = s.Status
 		newInfo.Status.Message = s.StatusInfo
 		newInfo.Status.Data = normaliseStatusData(s.StatusData)
 		newInfo.Status.Since = unixNanoToTime(s.Updated)
 		info0 = &newInfo
 	case *multiwatcher.MachineInfo:
 		newInfo := *info
-		newInfo.Status = multiwatcher.Status(s.Status)
-		newInfo.StatusInfo = s.StatusInfo
-		newInfo.StatusData = normaliseStatusData(s.StatusData)
+		// lets dissambiguate between juju machine agent and provider instance statuses.
+		if strings.HasSuffix(id, "#instance") {
+			newInfo.MachineStatus.Current = s.Status
+			newInfo.MachineStatus.Message = s.StatusInfo
+			newInfo.MachineStatus.Data = normaliseStatusData(s.StatusData)
+			newInfo.MachineStatus.Since = unixNanoToTime(s.Updated)
+
+		} else {
+			newInfo.JujuStatus.Current = s.Status
+			newInfo.JujuStatus.Message = s.StatusInfo
+			newInfo.JujuStatus.Data = normaliseStatusData(s.StatusData)
+			newInfo.JujuStatus.Since = unixNanoToTime(s.Updated)
+		}
 		info0 = &newInfo
 	default:
 		return errors.Errorf("status for unexpected entity with id %q; type %T", id, info)
@@ -650,46 +658,26 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 	return nil
 }
 
-func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, id string, unitStatus StatusInfo, newInfo *multiwatcher.UnitInfo) error {
+func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, id string, unitStatus status.StatusInfo, newInfo *multiwatcher.UnitInfo) error {
 	// Unit or workload status - display the agent status or any error.
-	if strings.HasSuffix(id, "#charm") || s.Status == StatusError {
-		newInfo.WorkloadStatus.Current = multiwatcher.Status(s.Status)
+	if strings.HasSuffix(id, "#charm") || s.Status == status.StatusError {
+		newInfo.WorkloadStatus.Current = s.Status
 		newInfo.WorkloadStatus.Message = s.StatusInfo
 		newInfo.WorkloadStatus.Data = normaliseStatusData(s.StatusData)
 		newInfo.WorkloadStatus.Since = unixNanoToTime(s.Updated)
 	} else {
-		newInfo.AgentStatus.Current = multiwatcher.Status(s.Status)
-		newInfo.AgentStatus.Message = s.StatusInfo
-		newInfo.AgentStatus.Data = normaliseStatusData(s.StatusData)
-		newInfo.AgentStatus.Since = unixNanoToTime(s.Updated)
+		newInfo.JujuStatus.Current = s.Status
+		newInfo.JujuStatus.Message = s.StatusInfo
+		newInfo.JujuStatus.Data = normaliseStatusData(s.StatusData)
+		newInfo.JujuStatus.Since = unixNanoToTime(s.Updated)
 		// If the unit was in error and now it's not, we need to reset its
 		// status back to what was previously recorded.
-		if newInfo.WorkloadStatus.Current == multiwatcher.Status(StatusError) {
-			newInfo.WorkloadStatus.Current = multiwatcher.Status(unitStatus.Status)
+		if newInfo.WorkloadStatus.Current == status.StatusError {
+			newInfo.WorkloadStatus.Current = unitStatus.Status
 			newInfo.WorkloadStatus.Message = unitStatus.Message
 			newInfo.WorkloadStatus.Data = normaliseStatusData(unitStatus.Data)
 			newInfo.WorkloadStatus.Since = unixNanoToTime(s.Updated)
 		}
-	}
-
-	// Legacy status info - it is an aggregated value between workload and agent statuses.
-	legacyStatus, ok := TranslateToLegacyAgentState(
-		Status(newInfo.AgentStatus.Current),
-		Status(newInfo.WorkloadStatus.Current),
-		newInfo.WorkloadStatus.Message,
-	)
-	if !ok {
-		logger.Warningf(
-			"translate to legacy status encounted unexpected workload status %q and agent status %q",
-			newInfo.WorkloadStatus.Current, newInfo.AgentStatus.Current)
-	}
-	newInfo.Status = multiwatcher.Status(legacyStatus)
-	if newInfo.Status == multiwatcher.Status(StatusError) {
-		newInfo.StatusInfo = newInfo.WorkloadStatus.Message
-		newInfo.StatusData = normaliseStatusData(newInfo.WorkloadStatus.Data)
-	} else {
-		newInfo.StatusInfo = newInfo.AgentStatus.Message
-		newInfo.StatusData = normaliseStatusData(newInfo.AgentStatus.Data)
 	}
 
 	// A change in a unit's status might also affect it's service.
@@ -710,7 +698,7 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 		return errors.Trace(err)
 	}
 	newServiceInfo := *serviceInfo.(*multiwatcher.ServiceInfo)
-	newServiceInfo.Status.Current = multiwatcher.Status(status.Status)
+	newServiceInfo.Status.Current = status.Status
 	newServiceInfo.Status.Message = status.Message
 	newServiceInfo.Status.Data = normaliseStatusData(status.Data)
 	newServiceInfo.Status.Since = status.Since

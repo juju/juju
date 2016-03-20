@@ -799,10 +799,6 @@ func (u *UpgradeMongoCommand) rollbackAgentConfig() error {
 	return errors.Annotate(u.agentConfig.Write(), "could not rollback mongo version in agent.config")
 }
 
-func enoughFreeSpace() bool {
-	return true
-}
-
 func (u *UpgradeMongoCommand) upgradeSlave(dataDir string) error {
 	if err := u.satisfyPrerequisites(u.series); err != nil {
 		return errors.Annotate(err, "cannot satisfy pre-requisites for the migration")
