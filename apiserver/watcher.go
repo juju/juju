@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -54,6 +55,10 @@ func init() {
 	common.RegisterFacade(
 		"MigrationMasterWatcher", 1, newMigrationMasterWatcher,
 		reflect.TypeOf((*srvMigrationMasterWatcher)(nil)),
+	)
+	common.RegisterFacade(
+		"MigrationAgentWatcher", 1, newMigrationAgentWatcher,
+		reflect.TypeOf((*srvMigrationAgentWatcher)(nil)),
 	)
 }
 
@@ -393,7 +398,7 @@ func newMigrationMasterWatcher(
 		watcher:   w,
 		id:        id,
 		resources: resources,
-		st:        migrationGetter(st),
+		st:        getMigrationBackend(st),
 	}, nil
 }
 
@@ -401,15 +406,18 @@ type srvMigrationMasterWatcher struct {
 	watcher   state.NotifyWatcher
 	id        string
 	resources *common.Resources
-	st        modelMigrationGetter
+	st        migrationBackend
 }
 
-var migrationGetter = func(st *state.State) modelMigrationGetter {
+var getMigrationBackend = func(st *state.State) migrationBackend {
 	return st
 }
 
-type modelMigrationGetter interface {
+// migrationBackend defines State functionality required by the
+// migration watchers.
+type migrationBackend interface {
 	GetModelMigration() (state.ModelMigration, error)
+	APIHostPorts() ([][]network.HostPort, error)
 }
 
 // Next returns when a model migration is active for the associated
@@ -445,5 +453,91 @@ func (w *srvMigrationMasterWatcher) Next() (params.ModelMigrationTargetInfo, err
 
 // Stop stops the watcher.
 func (w *srvMigrationMasterWatcher) Stop() error {
+	return w.resources.Stop(w.id)
+}
+
+func newMigrationAgentWatcher(
+	st *state.State,
+	resources *common.Resources,
+	auth common.Authorizer,
+	id string,
+) (interface{}, error) {
+	if !(auth.AuthMachineAgent() || auth.AuthUnitAgent()) {
+		return nil, common.ErrPerm
+	}
+	w, ok := resources.Get(id).(state.NotifyWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvMigrationAgentWatcher{
+		watcher:   w,
+		id:        id,
+		resources: resources,
+		st:        getMigrationBackend(st),
+	}, nil
+}
+
+type srvMigrationAgentWatcher struct {
+	watcher   state.NotifyWatcher
+	id        string
+	resources *common.Resources
+	st        migrationBackend
+}
+
+// Next returns when the status for a model migration for the
+// associated model changes. The current details for the active
+// migration are returned.
+func (w *srvMigrationAgentWatcher) Next() (params.MigrationStatus, error) {
+	empty := params.MigrationStatus{}
+
+	if _, ok := <-w.watcher.Changes(); !ok {
+		err := w.watcher.Err()
+		if err == nil {
+			err = common.ErrStoppedWatcher
+		}
+		return empty, err
+	}
+
+	mig, err := w.st.GetModelMigration()
+	if err != nil {
+		return empty, errors.Annotate(err, "migration lookup")
+	}
+
+	attempt, err := mig.Attempt()
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+
+	phase, err := mig.Phase()
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+
+	hostports, err := w.st.APIHostPorts()
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+	sourceAddrs := make([]string, 0)
+	for _, section := range hostports {
+		for _, hostport := range section {
+			sourceAddrs = append(sourceAddrs, hostport.String())
+		}
+	}
+
+	target, err := mig.TargetInfo()
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+
+	return params.MigrationStatus{
+		Attempt:        attempt,
+		Phase:          phase,
+		SourceAPIAddrs: sourceAddrs,
+		TargetAPIAddrs: target.Addrs,
+	}, nil
+}
+
+// Stop stops the watcher.
+func (w *srvMigrationAgentWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
