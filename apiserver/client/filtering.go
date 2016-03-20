@@ -183,21 +183,6 @@ func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
 	return matchExposure(patterns, s)
 }
 
-func unitMatchSubnet(u *state.Unit, patterns []string) (bool, bool, error) {
-	pub, pubErr := u.PublicAddress()
-	if pubErr != nil && !network.IsNoAddress(pubErr) {
-		return true, false, errors.Trace(pubErr)
-	}
-	priv, privErr := u.PrivateAddress()
-	if privErr != nil && !network.IsNoAddress(privErr) {
-		return true, false, errors.Trace(privErr)
-	}
-	if pubErr != nil && privErr != nil {
-		return true, false, nil
-	}
-	return matchSubnet(patterns, pub.Value, priv.Value)
-}
-
 func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
 	portRanges, err := u.OpenedPorts()
 	if err != nil {

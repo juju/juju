@@ -27,6 +27,8 @@ var (
 	MongoPingInterval            = &mongoPingInterval
 	NewBackups                   = &newBackups
 	AllowedMethodsDuringUpgrades = allowedMethodsDuringUpgrades
+	JSMimeType                   = jsMimeType
+	SpritePath                   = spritePath
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {

@@ -11,7 +11,7 @@ PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 
 ifeq ($(shell uname -p | sed -r 's/.*(86|armel|armhf).*/golang/'), golang)
 	GO_C := golang
-	INSTALL_FLAGS := 
+	INSTALL_FLAGS :=
 else
 	GO_C := gccgo-4.9  gccgo-go
 	INSTALL_FLAGS := -gccgoflags=-static-libgo
@@ -19,6 +19,7 @@ endif
 
 define DEPENDENCIES
   ca-certificates
+  bzip2
   bzr
   distro-info-data
   git-core

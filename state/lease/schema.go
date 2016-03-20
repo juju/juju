@@ -27,7 +27,6 @@ const (
 	typeClock = "clock"
 
 	// fieldLease* identify the fields in a leaseDoc.
-	fieldLeaseName   = "name"
 	fieldLeaseHolder = "holder"
 	fieldLeaseExpiry = "expiry"
 	fieldLeaseWriter = "writer"

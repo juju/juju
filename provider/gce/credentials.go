@@ -22,23 +22,26 @@ type environProviderCredentials struct{}
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.OAuth2AuthType: {
-			"client-id": {
-				Description: "client ID",
-			},
-			"client-email": {
-				Description: "client e-mail address",
-			},
-			"private-key": {
-				Description: "client secret",
-				Hidden:      true,
-			},
-			"project-id": {
-				Description: "project ID",
+			{
+				"client-id", cloud.CredentialAttr{Description: "client ID"},
+			}, {
+				"client-email", cloud.CredentialAttr{Description: "client e-mail address"},
+			}, {
+				"private-key",
+				cloud.CredentialAttr{
+					Description: "client secret",
+					Hidden:      true,
+				},
+			}, {
+				"project-id", cloud.CredentialAttr{Description: "project ID"},
 			},
 		},
 		cloud.JSONFileAuthType: {
-			"file": {
-				Description: "path to the .json file containing your Google Compute Engine project credentials",
+			{
+				"file", cloud.CredentialAttr{
+					Description: "path to the .json file containing your Google Compute Engine project credentials",
+					FilePath:    true,
+				},
 			},
 		},
 	}

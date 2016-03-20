@@ -3,7 +3,7 @@
 
 package provider
 
-import "github.com/juju/juju/version"
+import "github.com/juju/version"
 
 // Upgradeable represents a provider that supports upgrade steps
 // if present, these steps will get called upon upgrading.

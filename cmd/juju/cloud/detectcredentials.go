@@ -330,7 +330,7 @@ func (c *detectCredentialsCommand) printCredentialOptions(ctxt *cmd.Context, dis
 func (c *detectCredentialsCommand) promptCredentialNumber(out io.Writer, in io.Reader) (string, error) {
 	fmt.Fprint(out, "Save any? Type number, or Q to quit, then enter. ")
 	defer out.Write([]byte{'\n'})
-	input, err := c.readLine(in)
+	input, err := readLine(in)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -341,7 +341,7 @@ func (c *detectCredentialsCommand) promptCloudName(out io.Writer, in io.Reader, 
 	text := fmt.Sprintf(`Enter cloud to which the credential belongs, or Q to quit [%s] `, defaultCloudName)
 	fmt.Fprint(out, text)
 	defer out.Write([]byte{'\n'})
-	input, err := c.readLine(in)
+	input, err := readLine(in)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -362,7 +362,7 @@ func (c *detectCredentialsCommand) promptCloudName(out io.Writer, in io.Reader, 
 	return cloudName, nil
 }
 
-func (c *detectCredentialsCommand) readLine(stdin io.Reader) (string, error) {
+func readLine(stdin io.Reader) (string, error) {
 	// Read one byte at a time to avoid reading beyond the delimiter.
 	line, err := bufio.NewReader(byteAtATimeReader{stdin}).ReadString('\n')
 	if err != nil {

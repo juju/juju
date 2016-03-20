@@ -30,7 +30,6 @@ type maasLinkMode string
 
 const (
 	modeUnknown maasLinkMode = ""
-	modeAuto    maasLinkMode = "auto"
 	modeStatic  maasLinkMode = "static"
 	modeDHCP    maasLinkMode = "dhcp"
 	modeLinkUp  maasLinkMode = "link_up"
@@ -43,20 +42,11 @@ type maasInterfaceLink struct {
 	Mode      maasLinkMode `json:"mode"`
 }
 
-type maasInterfaceType string
-
-const (
-	typeUnknown  maasInterfaceType = ""
-	typePhysical maasInterfaceType = "physical"
-	typeVLAN     maasInterfaceType = "vlan"
-	typeBond     maasInterfaceType = "bond"
-)
-
 type maasInterface struct {
-	ID      int               `json:"id"`
-	Name    string            `json:"name"`
-	Type    maasInterfaceType `json:"type"`
-	Enabled bool              `json:"enabled"`
+	ID      int    `json:"id"`
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	Enabled bool   `json:"enabled"`
 
 	MACAddress  string   `json:"mac_address"`
 	VLAN        maasVLAN `json:"vlan"`
@@ -103,7 +93,7 @@ func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
 // maasObject to extract all the relevant InterfaceInfo fields. It returns an
 // error satisfying errors.IsNotSupported() if it cannot find the required
 // "interface_set" node details field.
-func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject) ([]network.InterfaceInfo, error) {
+func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap map[string]network.Id) ([]network.InterfaceInfo, error) {
 
 	interfaceSet, ok := maasObject.GetMap()["interface_set"]
 	if !ok || interfaceSet.IsNil() {
@@ -174,11 +164,25 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject) ([]network.In
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
 			nicInfo.Address = network.NewAddressOnSpace(sub.Space, link.IPAddress)
+			spaceId, ok := subnetsMap[string(sub.CIDR)]
+			if !ok {
+				// The space we found is not recognised, no
+				// provider id available.
+				logger.Warningf("interface %q link %d has unrecognised space %q", iface.Name, link.ID, sub.Space)
+			} else {
+
+				nicInfo.Address.SpaceProviderId = spaceId
+			}
 
 			gwAddr := network.NewAddressOnSpace(sub.Space, sub.GatewayIP)
-			nicInfo.GatewayAddress = gwAddr
-
 			nicInfo.DNSServers = network.NewAddressesOnSpace(sub.Space, sub.DNSServers...)
+			if ok {
+				gwAddr.SpaceProviderId = spaceId
+				for i := range nicInfo.DNSServers {
+					nicInfo.DNSServers[i].SpaceProviderId = spaceId
+				}
+			}
+			nicInfo.GatewayAddress = gwAddr
 			nicInfo.MTU = sub.VLAN.MTU
 
 			// Each link we represent as a separate InterfaceInfo, but with the
@@ -201,8 +205,12 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	subnetsMap, err := environ.subnetToSpaceIds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	mi := inst.(*maasInstance)
-	return maasObjectNetworkInterfaces(mi.maasObject)
+	return maasObjectNetworkInterfaces(mi.maasObject, subnetsMap)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

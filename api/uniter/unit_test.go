@@ -303,6 +303,42 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(address, gc.Equals, "1.2.3.4")
 }
 
+func (s *unitSuite) TestNetworkConfig(c *gc.C) {
+	// Set some provider addresses bound to both "public" and "internal"
+	// spaces.
+	addresses := []network.Address{
+		network.NewAddressOnSpace("public", "8.8.8.8"),
+		network.NewAddressOnSpace("", "8.8.4.4"),
+		network.NewAddressOnSpace("internal", "10.0.0.1"),
+		network.NewAddressOnSpace("internal", "10.0.0.2"),
+		network.NewAddressOnSpace("public", "fc00::1"),
+	}
+	err := s.wordpressMachine.SetProviderAddresses(addresses...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	netConfig, err := s.apiUnit.NetworkConfig("db") // relation name, bound to "internal"
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(netConfig, jc.DeepEquals, []params.NetworkConfig{
+		{Address: "10.0.0.1"},
+		{Address: "10.0.0.2"},
+	})
+
+	netConfig, err = s.apiUnit.NetworkConfig("admin-api") // extra-binding name, bound to "public"
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(netConfig, jc.DeepEquals, []params.NetworkConfig{
+		{Address: "8.8.8.8"},
+		{Address: "fc00::1"},
+	})
+
+	netConfig, err = s.apiUnit.NetworkConfig("unknown")
+	c.Assert(err, gc.ErrorMatches, `binding name "unknown" not defined by the unit's charm`)
+	c.Assert(netConfig, gc.IsNil)
+
+	netConfig, err = s.apiUnit.NetworkConfig("")
+	c.Assert(err, gc.ErrorMatches, "binding name cannot be empty")
+	c.Assert(netConfig, gc.IsNil)
+}
+
 func (s *unitSuite) TestAvailabilityZone(c *gc.C) {
 	uniter.PatchUnitResponse(s, s.apiUnit, "AvailabilityZone",
 		func(result interface{}) error {

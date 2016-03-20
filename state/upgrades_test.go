@@ -459,7 +459,7 @@ func (s *upgradesSuite) setupAddDefaultEndpointBindingsToServices(c *gc.C) []*Se
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add a coule of test spaces, but notably NOT the default one.
+	// Add a couple of test spaces
 	_, err = s.state.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.state.AddSpace("apps", "", nil, true)
@@ -520,11 +520,16 @@ func (s *upgradesSuite) testAddDefaultEndpointBindingsToServices(c *gc.C, runTwi
 	services := s.setupAddDefaultEndpointBindingsToServices(c)
 	initialBindings := s.getServicesBindings(c, services)
 	wpAllDefaults := map[string]string{
+		// relation names
 		"url":             "",
 		"logging-dir":     "",
 		"monitoring-port": "",
 		"db":              "",
 		"cache":           "",
+		// extra-bindings
+		"db-client": "",
+		"admin-api": "",
+		"foo-bar":   "",
 	}
 	msAllDefaults := map[string]string{
 		"server": "",
@@ -538,6 +543,9 @@ func (s *upgradesSuite) testAddDefaultEndpointBindingsToServices(c *gc.C, runTwi
 			"monitoring-port": "",
 			"db":              "db",
 			"cache":           "",
+			"db-client":       "",
+			"admin-api":       "",
+			"foo-bar":         "",
 		},
 
 		"ms-no-bindings":      msAllDefaults,

@@ -300,23 +300,6 @@ func (c *Client) newToolsVersionAvailable() (string, error) {
 	return "", nil
 }
 
-// Status is a stub version of FullStatus that was introduced in 1.16
-func (c *Client) Status() (params.LegacyStatus, error) {
-	var legacyStatus params.LegacyStatus
-	status, err := c.FullStatus(params.StatusParams{})
-	if err != nil {
-		return legacyStatus, err
-	}
-
-	legacyStatus.Machines = make(map[string]params.LegacyMachineStatus)
-	for machineName, machineStatus := range status.Machines {
-		legacyStatus.Machines[machineName] = params.LegacyMachineStatus{
-			InstanceId: string(machineStatus.InstanceId),
-		}
-	}
-	return legacyStatus, nil
-}
-
 type statusContext struct {
 	// machines: top-level machine id -> list of machines nested in
 	// this machine.
@@ -406,28 +389,6 @@ func fetchAllServicesAndUnits(
 		latestCharms[baseURL] = ch.String()
 	}
 	return svcMap, unitMap, latestCharms, nil
-}
-
-// fetchUnitMachineIds returns a set of IDs for machines that
-// the specified units reside on, and those machines' ancestors.
-func fetchUnitMachineIds(units map[string]map[string]*state.Unit) (set.Strings, error) {
-	machineIds := make(set.Strings)
-	for _, svcUnitMap := range units {
-		for _, unit := range svcUnitMap {
-			if !unit.IsPrincipal() {
-				continue
-			}
-			mid, err := unit.AssignedMachineId()
-			if err != nil {
-				return nil, err
-			}
-			for mid != "" {
-				machineIds.Add(mid)
-				mid = state.ParentId(mid)
-			}
-		}
-	}
-	return machineIds, nil
 }
 
 // fetchRelations returns a map of all relations keyed by service name.

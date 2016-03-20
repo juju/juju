@@ -33,6 +33,14 @@ func (s *stateShim) Machine(id string) (stateMachine, error) {
 	}, nil
 }
 
+type SpaceReader interface {
+	Name() string
+}
+
+func (st *stateShim) Space(name string) (SpaceReader, error) {
+	return st.Space(name)
+}
+
 func (s *stateShim) MongoSession() mongoSession {
 	return mongoSessionShim{s.State.MongoSession()}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -33,7 +34,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // dummySampleConfig returns the dummy sample config without
@@ -152,7 +152,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(icfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
 	c.Check(icfg.DisableSSLHostnameVerification, jc.IsFalse)
-	password := utils.UserPasswordHash("lisboan-pork", utils.CompatSalt)
+	password := "lisboan-pork"
 	c.Check(icfg.APIInfo, gc.DeepEquals, &api.Info{
 		Password: password, CACert: testing.CACert,
 		ModelTag: testing.ModelTag,

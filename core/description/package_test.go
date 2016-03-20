@@ -6,7 +6,6 @@ package description
 import (
 	"testing"
 
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
@@ -29,6 +28,6 @@ var _ = gc.Suite(&ImportTest{})
 func (*ImportTest) TestImports(c *gc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/description")
 
-	// This package only uses 'version' from the main repo.
-	c.Assert(found, jc.SameContents, []string{"version"})
+	// This package brings in nothing else from juju/juju
+	c.Assert(found, gc.HasLen, 0)
 }

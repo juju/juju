@@ -21,6 +21,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
+	"github.com/juju/version"
 	"golang.org/x/net/websocket"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
@@ -29,7 +30,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.api")

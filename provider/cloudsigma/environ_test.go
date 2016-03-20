@@ -4,6 +4,7 @@
 package cloudsigma
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
@@ -82,4 +83,25 @@ func (s *environSuite) TestBase(c *gc.C) {
 	ports, err := env.Ports()
 	c.Check(ports, gc.IsNil)
 	c.Check(err, gc.IsNil)
+}
+
+func (s *environSuite) TestUnsupportedConstraints(c *gc.C) {
+	s.PatchValue(&newClient, func(*environConfig) (*environClient, error) {
+		return nil, nil
+	})
+
+	baseConfig := newConfig(c, validAttrs().Merge(testing.Attrs{"name": "testname"}))
+	env, err := environs.New(baseConfig)
+	c.Assert(err, gc.IsNil)
+	env.(*environ).supportedArchitectures = []string{arch.AMD64}
+
+	validator, err := env.ConstraintsValidator()
+	c.Check(validator, gc.NotNil)
+	c.Check(err, gc.IsNil)
+
+	unsupported, err := validator.Validate(constraints.MustParse(
+		"arch=amd64 tags=foo cpu-power=100 virt-type=kvm",
+	))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unsupported, jc.SameContents, []string{"tags", "virt-type"})
 }

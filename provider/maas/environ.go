@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -62,6 +63,45 @@ var (
 	ReleaseIPAddress         = releaseIPAddress
 	DeploymentStatusCall     = deploymentStatusCall
 )
+
+func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error) {
+	spacesJson, err := spaces.CallGet("", nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	spacesArray, err := spacesJson.GetArray()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	subnetsMap := make(map[string]network.Id)
+	for _, spaceJson := range spacesArray {
+		spaceMap, err := spaceJson.GetMap()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		providerIdRaw, err := spaceMap["id"].GetFloat64()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		providerId := network.Id(fmt.Sprintf("%.0f", providerIdRaw))
+		subnetsArray, err := spaceMap["subnets"].GetArray()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, subnetJson := range subnetsArray {
+			subnetMap, err := subnetJson.GetMap()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			subnet, err := subnetMap["cidr"].GetString()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			subnetsMap[subnet] = providerId
+		}
+	}
+	return subnetsMap, nil
+}
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 	_, err := nodes.CallPost("release", ids)
@@ -572,7 +612,6 @@ func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, 
 }
 
 const (
-	capNetworksManagement      = "networks-management"
 	capStaticIPAddresses       = "static-ipaddresses"
 	capDevices                 = "devices-management"
 	capNetworkDeploymentUbuntu = "network-deployment-ubuntu"
@@ -630,6 +669,51 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 	return env.maasClientUnlocked
 }
 
+var dashSuffix = regexp.MustCompile("^(.*)-\\d+$")
+
+func spaceNamesToSpaceInfo(spaces []string, spaceMap map[string]network.SpaceInfo) ([]network.SpaceInfo, error) {
+	spaceInfos := []network.SpaceInfo{}
+	for _, name := range spaces {
+		info, ok := spaceMap[name]
+		if !ok {
+			matches := dashSuffix.FindAllStringSubmatch(name, 1)
+			if matches == nil {
+				return nil, errors.Errorf("unrecognised space in constraint %q", name)
+			}
+			// A -number was added to the space name when we
+			// converted to a juju name, we found
+			info, ok = spaceMap[matches[0][1]]
+			if !ok {
+				return nil, errors.Errorf("unrecognised space in constraint %q", name)
+			}
+		}
+		spaceInfos = append(spaceInfos, info)
+	}
+	return spaceInfos, nil
+}
+
+func (environ *maasEnviron) spaceNamesToSpaceInfo(positiveSpaces, negativeSpaces []string) ([]network.SpaceInfo, []network.SpaceInfo, error) {
+	spaces, err := environ.Spaces()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	spaceMap := make(map[string]network.SpaceInfo)
+	empty := set.Strings{}
+	for _, space := range spaces {
+		jujuName := network.ConvertSpaceName(space.Name, empty)
+		spaceMap[jujuName] = space
+	}
+	positiveSpaceIds, err := spaceNamesToSpaceInfo(positiveSpaces, spaceMap)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	negativeSpaceIds, err := spaceNamesToSpaceInfo(negativeSpaces, spaceMap)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return positiveSpaceIds, negativeSpaceIds, nil
+}
+
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(
 	nodeName, zoneName string,
@@ -639,10 +723,18 @@ func (environ *maasEnviron) acquireNode(
 ) (gomaasapi.MAASObject, error) {
 
 	acquireParams := convertConstraints(cons)
-	positiveSpaces, negativeSpaces := convertSpacesFromConstraints(cons.Spaces)
-	err := addInterfaces(acquireParams, interfaces, positiveSpaces, negativeSpaces)
+	positiveSpaceNames, negativeSpaceNames := convertSpacesFromConstraints(cons.Spaces)
+	positiveSpaces, negativeSpaces, err := environ.spaceNamesToSpaceInfo(positiveSpaceNames, negativeSpaceNames)
+	// If spaces aren't supported the constraints should be empty anyway.
+	if err != nil && !errors.IsNotSupported(err) {
+		return gomaasapi.MAASObject{}, errors.Trace(err)
+	}
+	// TODO: (mfoord) for better error reporting (names rather than ids) it
+	// would be better to pass network.SpaceInfo rather than just space ids.
+	// The same is true of interfaceBinding.
+	err = addInterfaces(acquireParams, interfaces, positiveSpaces, negativeSpaces)
 	if err != nil {
-		return gomaasapi.MAASObject{}, err
+		return gomaasapi.MAASObject{}, errors.Trace(err)
 	}
 	addStorage(acquireParams, volumes)
 	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
@@ -806,6 +898,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 
 	inst := &maasInstance{
 		maasObject:   selectedNode,
+		environ:      environ,
 		statusGetter: environ.deploymentStatusOne,
 	}
 	defer func() {
@@ -871,8 +964,12 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		// interfaces.
 
 		if environ.supportsNetworkDeploymentUbuntu {
+			subnetsMap, err := environ.subnetToSpaceIds()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			// Use the new 1.9 API when available.
-			interfaces, err = maasObjectNetworkInterfaces(startedNode)
+			interfaces, err = maasObjectNetworkInterfaces(startedNode, subnetsMap)
 		} else {
 			// Use the legacy approach.
 			interfaces, err = environ.setupNetworks(inst)
@@ -1250,6 +1347,7 @@ func (environ *maasEnviron) instances(filter url.Values) ([]instance.Instance, e
 		}
 		instances[index] = &maasInstance{
 			maasObject:   &node,
+			environ:      environ,
 			statusGetter: environ.deploymentStatusOne,
 		}
 	}
@@ -1786,7 +1884,7 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 }
 
 // subnetsWithSpaces uses the MAAS 1.9+ API to fetch subnet information
-// including space name.
+// including space id.
 func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	var nodeId string
 	if instId != instance.UnknownId {
@@ -1815,7 +1913,7 @@ func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []ne
 // subnetFromJson populates a network.SubnetInfo from a gomaasapi.JSONObject
 // representing a single subnet. This can come from either the subnets api
 // endpoint or the node endpoint.
-func (environ *maasEnviron) subnetFromJson(subnet gomaasapi.JSONObject) (network.SubnetInfo, error) {
+func (environ *maasEnviron) subnetFromJson(subnet gomaasapi.JSONObject, spaceId network.Id) (network.SubnetInfo, error) {
 	var subnetInfo network.SubnetInfo
 	fields, err := subnet.GetMap()
 	if err != nil {
@@ -1828,11 +1926,7 @@ func (environ *maasEnviron) subnetFromJson(subnet gomaasapi.JSONObject) (network
 	subnetId := strconv.Itoa(int(subnetIdFloat))
 	cidr, err := fields["cidr"].GetString()
 	if err != nil {
-		return subnetInfo, errors.Errorf("cannot get cidr: %v", err)
-	}
-	spaceName, err := fields["space"].GetString()
-	if err != nil {
-		return subnetInfo, errors.Errorf("cannot get space name: %v", err)
+		return subnetInfo, errors.Annotatef(err, "cannot get cidr")
 	}
 	vid := 0
 	vidField, ok := fields["vid"]
@@ -1853,7 +1947,7 @@ func (environ *maasEnviron) subnetFromJson(subnet gomaasapi.JSONObject) (network
 		ProviderId:        network.Id(subnetId),
 		VLANTag:           vid,
 		CIDR:              cidr,
-		SpaceProviderId:   network.Id(spaceName),
+		SpaceProviderId:   spaceId,
 		AllocatableIPLow:  allocatableLow,
 		AllocatableIPHigh: allocatableHigh,
 	}
@@ -1883,6 +1977,11 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 		subnetIdSet[string(netId)] = false
 	}
 
+	subnetsMap, err := environ.subnetToSpaceIds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	subnets := []network.SubnetInfo{}
 	for _, jsonNet := range jsonNets {
 		fields, err := jsonNet.GetMap()
@@ -1891,10 +1990,9 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 		}
 		subnetIdFloat, err := fields["id"].GetFloat64()
 		if err != nil {
-			return nil, errors.Errorf("cannot get subnet Id: %v", err)
+			return nil, errors.Annotatef(err, "cannot get subnet Id: %v")
 		}
 		subnetId := strconv.Itoa(int(subnetIdFloat))
-
 		// If we're filtering by subnet id check if this subnet is one
 		// we're looking for.
 		if len(subnetIds) != 0 {
@@ -1905,7 +2003,17 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 			}
 			subnetIdSet[subnetId] = true
 		}
-		subnetInfo, err := environ.subnetFromJson(jsonNet)
+		cidr, err := fields["cidr"].GetString()
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot get subnet Id")
+		}
+		spaceId, ok := subnetsMap[cidr]
+		if !ok {
+			logger.Warningf("unrecognised subnet: %q, setting empty space id", cidr)
+			spaceId = network.UnknownId
+		}
+
+		subnetInfo, err := environ.subnetFromJson(jsonNet, spaceId)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1934,9 +2042,6 @@ func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, 
 // JSON response or an error. If capNetworkDeploymentUbuntu is not available, an
 // error satisfying errors.IsNotSupported will be returned.
 func (environ *maasEnviron) fetchAllSubnets() ([]gomaasapi.JSONObject, error) {
-	if !environ.supportsNetworkDeploymentUbuntu {
-		return nil, errors.NotSupportedf("Spaces")
-	}
 	client := environ.getMAASClient().GetSubObject("subnets")
 
 	json, err := client.CallGet("", nil)
@@ -1946,34 +2051,70 @@ func (environ *maasEnviron) fetchAllSubnets() ([]gomaasapi.JSONObject, error) {
 	return json.GetArray()
 }
 
+// subnetToSpaceIds fetches the spaces from MAAS and builds a map of subnets to
+// space ids.
+func (environ *maasEnviron) subnetToSpaceIds() (map[string]network.Id, error) {
+	subnetsMap := make(map[string]network.Id)
+	spaces, err := environ.Spaces()
+	if err != nil {
+		return subnetsMap, errors.Trace(err)
+	}
+	for _, space := range spaces {
+		for _, subnet := range space.Subnets {
+			subnetsMap[subnet.CIDR] = space.ProviderId
+		}
+	}
+	return subnetsMap, nil
+}
+
 // Spaces returns all the spaces, that have subnets, known to the provider.
 // Space name is not filled in as the provider doesn't know the juju name for
 // the space.
 func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
-	jsonNets, err := environ.fetchAllSubnets()
+	if !environ.supportsNetworkDeploymentUbuntu {
+		return nil, errors.NotSupportedf("Spaces")
+	}
+	spacesClient := environ.getMAASClient().GetSubObject("spaces")
+	spacesJson, err := spacesClient.CallGet("", nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	spaceMap := make(map[network.Id]*network.SpaceInfo)
-	names := set.Strings{}
-	for _, jsonNet := range jsonNets {
-		subnetInfo, err := environ.subnetFromJson(jsonNet)
+	spacesArray, err := spacesJson.GetArray()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	spaces := []network.SpaceInfo{}
+	for _, spaceJson := range spacesArray {
+		spaceMap, err := spaceJson.GetMap()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		space, ok := spaceMap[subnetInfo.SpaceProviderId]
-		if !ok {
-			space = &network.SpaceInfo{
-				ProviderId: subnetInfo.SpaceProviderId,
-			}
-			spaceMap[space.ProviderId] = space
-			names.Add(string(space.ProviderId))
+		providerIdRaw, err := spaceMap["id"].GetFloat64()
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		space.Subnets = append(space.Subnets, subnetInfo)
-	}
-	spaces := make([]network.SpaceInfo, len(names))
-	for i, name := range names.SortedValues() {
-		spaces[i] = *spaceMap[network.Id(name)]
+		providerId := network.Id(fmt.Sprintf("%.0f", providerIdRaw))
+		name, err := spaceMap["name"].GetString()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		space := network.SpaceInfo{Name: name, ProviderId: providerId}
+		subnetsArray, err := spaceMap["subnets"].GetArray()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, subnetJson := range subnetsArray {
+			subnet, err := environ.subnetFromJson(subnetJson, providerId)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			space.Subnets = append(space.Subnets, subnet)
+		}
+		// Skip spaces with no subnets.
+		if len(space.Subnets) > 0 {
+			spaces = append(spaces, space)
+		}
 	}
 	return spaces, nil
 }

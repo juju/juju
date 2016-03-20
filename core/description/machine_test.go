@@ -6,10 +6,9 @@ package description
 import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
-
-	"github.com/juju/juju/version"
 )
 
 type MachineSerializationSuite struct {

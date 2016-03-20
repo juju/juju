@@ -23,8 +23,6 @@ type Relation struct {
 	Units map[string]Settings
 	// UnitName is data for jujuc.ContextRelation.
 	UnitName string
-	// NetworkConfig is data for jujuc.ContextRelation.
-	NetworkConfig []params.NetworkConfig
 }
 
 // Reset clears the Relation's settings.
@@ -33,12 +31,11 @@ func (r *Relation) Reset() {
 }
 
 // SetRelated adds the relation settings for the unit.
-func (r *Relation) SetRelated(name string, settings Settings, netConfig []params.NetworkConfig) {
+func (r *Relation) SetRelated(name string, settings Settings) {
 	if r.Units == nil {
 		r.Units = make(map[string]Settings)
 	}
 	r.Units[name] = settings
-	r.NetworkConfig = netConfig
 }
 
 // ContextRelation is a test double for jujuc.ContextRelation.
@@ -110,14 +107,4 @@ func (r *ContextRelation) ReadSettings(name string) (params.Settings, error) {
 		return nil, fmt.Errorf("unknown unit %s", name)
 	}
 	return s.Map(), nil
-}
-
-func (r *ContextRelation) NetworkConfig() ([]params.NetworkConfig, error) {
-	r.stub.AddCall("NetworkConfig")
-
-	if err := r.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return r.info.NetworkConfig, nil
 }

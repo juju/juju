@@ -25,9 +25,6 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-// sshHostPrefix is the prefix for a machine to be "manually provisioned".
-const sshHostPrefix = "ssh:"
-
 var addMachineDoc = `
 
 Juju supports adding machines using provider-specific machine instances

@@ -43,6 +43,10 @@ Example:
    
    # List detailed credential information including passwords.
    juju list-credentials --format yaml --show-secrets
+   
+See Also:
+   juju add-credential
+   juju remove-credential   
 `
 
 type credentialsMap struct {

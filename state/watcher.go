@@ -191,7 +191,7 @@ func (st *State) WatchModels() StringsWatcher {
 // WatchIPAddresses returns a StringsWatcher that notifies of changes to the
 // lifecycles of IP addresses.
 func (st *State) WatchIPAddresses() StringsWatcher {
-	return newLifecycleWatcher(st, ipaddressesC, nil, nil, nil)
+	return newLifecycleWatcher(st, legacyipaddressesC, nil, nil, nil)
 }
 
 // WatchModelVolumes returns a StringsWatcher that notifies of changes to
@@ -1502,7 +1502,7 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 			u.st.docID(u.globalMeterStatusKey()),
 		}, {
 			metricsManagerC,
-			u.st.docID(metricsManagerKey),
+			metricsManagerKey,
 		},
 	})
 }
@@ -2295,16 +2295,6 @@ func ensureSuffixFn(marker string) func(string) string {
 		}
 		return p
 	}
-}
-
-// watchEnqueuedActions starts and returns a StringsWatcher that
-// notifies on new Actions being enqueued.
-func (st *State) watchEnqueuedActions() StringsWatcher {
-	return newcollectionWatcher(st, colWCfg{
-		col:    actionNotificationsC,
-		filter: makeIdFilter(st, actionMarker),
-		idconv: actionNotificationIdToActionId,
-	})
 }
 
 // watchEnqueuedActionsFilteredBy starts and returns a StringsWatcher

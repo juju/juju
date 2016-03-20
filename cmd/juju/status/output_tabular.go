@@ -153,7 +153,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		)
 	}
 
-	header := []string{"ID", "WORKLOAD-STATE", "AGENT-STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS", "MESSAGE"}
+	header := []string{"ID", "WORKLOAD-STATUS", "JUJU-STATUS", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS", "MESSAGE"}
 
 	p("\n[Units]")
 	p(strings.Join(header, "\t"))

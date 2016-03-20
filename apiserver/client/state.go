@@ -5,6 +5,7 @@ package client
 
 import (
 	"github.com/juju/names"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/constraints"
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/version"
 )
 
 // Unit represents a state.Unit.

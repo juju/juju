@@ -4,54 +4,14 @@
 package action
 
 import (
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.action")
-
-// displayActionResult returns any error from an ActionResult and displays
-// its response values otherwise.
-func displayActionResult(result params.ActionResult, ctx *cmd.Context, out cmd.Output) error {
-	if result.Error != nil {
-		return result.Error
-	}
-
-	if result.Action == nil {
-		return errors.New("action for result was nil")
-	}
-
-	output, err := yaml.Marshal(result.Output)
-	if err != nil {
-		return err
-	}
-
-	response := struct {
-		Action  string
-		Target  string
-		Status  string
-		Message string
-		Results string
-	}{
-		Action:  result.Action.Name,
-		Target:  result.Action.Receiver,
-		Status:  result.Status,
-		Message: result.Message,
-		Results: string(output),
-	}
-
-	err = out.Write(ctx, response)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
 
 // getActionTagByPrefix uses the APIClient to get all ActionTags matching a prefix.
 func getActionTagsByPrefix(api APIClient, prefix string) ([]names.ActionTag, error) {

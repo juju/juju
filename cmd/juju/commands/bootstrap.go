@@ -14,11 +14,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"launchpad.net/gnuflag"
 
 	apiblock "github.com/juju/juju/api/block"
-	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -33,7 +34,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // provisionalProviders is the names of providers that are hidden behind
@@ -51,12 +52,12 @@ that machine.
 The controller will be setup with an intial controller model called "admin" as well
 as a hosted model which can be used to run workloads.
 
-If boostrap-constraints are specified in the bootstrap command, 
-they will apply to the machine provisioned for the juju controller, 
+If boostrap-constraints are specified in the bootstrap command,
+they will apply to the machine provisioned for the juju controller,
 and any future controllers provisioned for HA.
 
-If constraints are specified, they will be set as the default constraints 
-on the model for all future workload machines, 
+If constraints are specified, they will be set as the default constraints
+on the model for all future workload machines,
 exactly as if the constraints were set with juju set-constraints.
 
 It is possible to override constraints and the automatic machine selection
@@ -187,7 +188,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	}
 	if !c.AutoUpgrade {
 		// With no auto upgrade chosen, we default to the version matching the bootstrap client.
-		vers := version.Current
+		vers := jujuversion.Current
 		c.AgentVersion = &vers
 	}
 	if c.AgentVersionParam != "" {
@@ -199,7 +200,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 			return err
 		}
 	}
-	if c.AgentVersion != nil && (c.AgentVersion.Major != version.Current.Major || c.AgentVersion.Minor != version.Current.Minor) {
+	if c.AgentVersion != nil && (c.AgentVersion.Major != jujuversion.Current.Major || c.AgentVersion.Minor != jujuversion.Current.Minor) {
 		return fmt.Errorf("requested agent version major.minor mismatch")
 	}
 
@@ -455,7 +456,15 @@ to clean up the model.`[1:])
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	if err := c.SetModelName(cfg.Name()); err != nil {
+	// TODO(axw) 2015-03-15 #1557254
+	//
+	// We need to use the canonical model name here in case someone
+	// switches controllers while this bootstrap is ongoing. We don't
+	// currently test this behaviour, because we have no straight-
+	// forward way to change the current controller in tests. When
+	// we move current-controller logic to jujuclient, we can easily
+	// test this with a mock store.
+	if err := c.SetModelName(modelcmd.JoinModelName(c.controllerName, cfg.Name())); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -641,7 +650,7 @@ func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err err
 		// these too, hoping that things come back up before the end of the
 		// retry poll count.
 		errorMessage := err.Error()
-		if strings.Contains(errorMessage, apiserver.UpgradeInProgressError.Error()) ||
+		if strings.Contains(errorMessage, params.UpgradeInProgressError.Error()) ||
 			strings.HasSuffix(errorMessage, "EOF") ||
 			strings.HasSuffix(errorMessage, "connection is shut down") {
 			ctx.Infof("Waiting for API to become available")

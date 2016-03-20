@@ -9,9 +9,9 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/version"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 
@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/tools"
 )
 
@@ -122,7 +122,7 @@ type UploadBackend interface {
 	Charm(*charm.URL) (*state.Charm, error)
 	ModelUUID() string
 	MongoSession() *mgo.Session
-	ToolsStorage() (toolstorage.StorageCloser, error)
+	ToolsStorage() (binarystorage.StorageCloser, error)
 }
 
 // CharmUploader defines a simple single method interface that is used to
@@ -236,7 +236,7 @@ func uploadTools(config UploadBinariesConfig) error {
 
 	for toolsVersion := range usedVersions {
 		logger.Debugf("send tools version %s to target", toolsVersion)
-		_, reader, err := storage.Tools(toolsVersion)
+		_, reader, err := storage.Open(toolsVersion.String())
 		if err != nil {
 			return errors.Trace(err)
 		}

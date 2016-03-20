@@ -11,9 +11,8 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/schema"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/yaml.v2"
-
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.state.migration")
