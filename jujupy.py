@@ -1021,6 +1021,7 @@ class EnvJujuClient:
             with scoped_environ(environ):
                 args = self._full_args(
                     'create-backup', False, (), include_e=True)
+                log.info(' '.join(args))
                 output = subprocess.check_output(args)
         except subprocess.CalledProcessError as e:
             log.info(e.output)
@@ -1247,7 +1248,9 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
             # Mutate os.environ instead of supplying env parameter so Windows
             # can search env['PATH']
             with scoped_environ(environ):
-                output = subprocess.check_output(['juju', 'backup'])
+                args = ['juju', 'backup']
+                log.info(' '.join(args))
+                output = subprocess.check_output(args)
         except subprocess.CalledProcessError as e:
             log.info(e.output)
             raise
