@@ -152,7 +152,7 @@ func (env *environ) findInstanceSpec(
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
-	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
+	machineID := common.MachineFullName(env.Config().UUID(), args.InstanceConfig.MachineId)
 
 	os, err := series.GetOSFromSeries(args.InstanceConfig.Series)
 	if err != nil {
@@ -313,7 +313,7 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 		ids = append(ids, string(id))
 	}
 
-	prefix := common.MachineFullName(env, "")
+	prefix := common.MachineFullName(env.Config().UUID(), "")
 	err := env.gce.RemoveInstances(prefix, ids...)
 	return errors.Trace(err)
 }
