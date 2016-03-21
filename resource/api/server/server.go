@@ -153,21 +153,19 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 		if err != nil {
 			return nil, err
 		}
-		// TODO(ericsnow) Do something else for local charms.
-		client, err := f.newCharmstoreClient(cURL, csMac)
+		var resolve func(*charm.URL, *macaroon.Macaroon, []charmresource.Resource) ([]charmresource.Resource, error)
+		switch cURL.Schema {
+		case "cs":
+			resolve = f.resolveCharmstoreResources
+		case "local":
+			resolve = f.resolveLocalResources
+		default:
+			return nil, errors.Errorf("unrecognized charm schema %q", cURL.Schema)
+		}
+		resolved, err := resolve(cURL, csMac, resources)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		storeResources, err := f.resourcesFromCharmstore(cURL, client)
-		if err != nil {
-			return nil, err
-		}
-		resolved, err := resolveResources(resources, storeResources, cURL, client)
-		if err != nil {
-			return nil, err
-		}
-		// TODO(ericsnow) Ensure that the non-upload resource revisions
-		// match a previously published revision set?
 		resources = resolved
 	}
 
@@ -183,6 +181,35 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 		ids = append(ids, pendingID)
 	}
 	return ids, nil
+}
+
+func (f Facade) resolveCharmstoreResources(cURL *charm.URL, csMac *macaroon.Macaroon, resources []charmresource.Resource) ([]charmresource.Resource, error) {
+	client, err := f.newCharmstoreClient(cURL, csMac)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storeResources, err := f.resourcesFromCharmstore(cURL, client)
+	if err != nil {
+		return nil, err
+	}
+	resolved, err := resolveResources(resources, storeResources, cURL, client)
+	if err != nil {
+		return nil, err
+	}
+	// TODO(ericsnow) Ensure that the non-upload resource revisions
+	// match a previously published revision set?
+	return resolved, nil
+}
+
+func (f Facade) resolveLocalResources(cURL *charm.URL, _ *macaroon.Macaroon, resources []charmresource.Resource) ([]charmresource.Resource, error) {
+	var resolved []charmresource.Resource
+	for _, res := range resources {
+		resolved = append(resolved, charmresource.Resource{
+			Meta:   res.Meta,
+			Origin: charmresource.OriginUpload,
+		})
+	}
+	return resolved, nil
 }
 
 // resourcesFromCharmstore gets the info for the charm's resources in
