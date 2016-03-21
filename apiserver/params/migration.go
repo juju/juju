@@ -13,3 +13,8 @@ type SetMigrationPhaseArgs struct {
 type SerializedModel struct {
 	Bytes []byte `json:"bytes"`
 }
+
+// ModelArgs wraps a simple model tag.
+type ModelArgs struct {
+	ModelTag string `json:"model-tag"`
+}
