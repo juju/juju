@@ -69,6 +69,25 @@ func (s *UploadSuite) TestHandleRequestOkay(c *gc.C) {
 	})
 }
 
+func (s *UploadSuite) TestExtensionMismatch(c *gc.C) {
+	content := "<some data>"
+
+	// newResource returns a resource with a Path = name + ".tgz"
+	res, _ := newResource(c, "spam", "a-user", content)
+	stored, _ := newResource(c, "spam", "", "")
+	s.data.ReturnGetResource = stored
+	s.data.ReturnSetResource = res
+	uh := server.UploadHandler{
+		Username: "a-user",
+		Store:    s.data,
+	}
+	req, _ := newUploadRequest(c, "spam", "a-service", content)
+	req.Header.Set("Content-Disposition", "form-data; filename=different.ext")
+
+	_, err := uh.HandleRequest(req)
+	c.Assert(err, gc.ErrorMatches, `incorrect extension on resource upload "different.ext", expected ".tgz"`)
+}
+
 func (s *UploadSuite) TestHandleRequestPending(c *gc.C) {
 	content := "<some data>"
 	res, _ := newResource(c, "spam", "a-user", content)
@@ -237,6 +256,7 @@ func newUploadRequest(c *gc.C, name, service, content string) (*http.Request, io
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-Length", fmt.Sprint(len(content)))
 	req.Header.Set("Content-SHA384", fp.String())
+	req.Header.Set("Content-Disposition", "form-data; filename="+name+".tgz")
 
 	return req, body
 }

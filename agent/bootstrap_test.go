@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
@@ -73,14 +72,13 @@ LXC_BRIDGE="ignored"`[1:])
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 
-	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: dataDir},
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: jujuversion.Current,
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
-		Password:          pwHash,
+		Password:          testing.DefaultMongoPassword,
 		Model:             testing.ModelTag,
 	}
 	servingInfo := params.StateServingInfo{
@@ -145,7 +143,7 @@ LXC_BRIDGE="ignored"`[1:])
 
 	// Check that initial admin user has been set up correctly.
 	modelTag := env.Tag().(names.ModelTag)
-	s.assertCanLogInAsAdmin(c, modelTag, pwHash)
+	s.assertCanLogInAsAdmin(c, modelTag, testing.DefaultMongoPassword)
 	user, err := st.User(env.Owner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
@@ -199,7 +197,7 @@ LXC_BRIDGE="ignored"`[1:])
 	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, machine0))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newCfg.Tag(), gc.Equals, machine0)
-	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
+	//c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
@@ -233,14 +231,13 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	dataDir := c.MkDir()
 
-	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: dataDir},
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: jujuversion.Current,
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
-		Password:          pwHash,
+		Password:          testing.DefaultMongoPassword,
 		Model:             testing.ModelTag,
 	}
 	cfg, err := agent.NewAgentConfig(configParams)

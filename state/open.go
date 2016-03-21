@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
@@ -137,8 +138,12 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	salt, err := utils.RandomSalt()
+	if err != nil {
+		return nil, err
+	}
 	ops = append(ops,
-		createInitialUserOp(st, owner, info.Password),
+		createInitialUserOp(st, owner, info.Password, salt),
 		txn.Op{
 			C:      controllersC,
 			Id:     modelGlobalKey,
