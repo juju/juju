@@ -72,6 +72,7 @@ type ResourcesClient interface {
 
 type baseClient struct {
 	*csclient.Client
+	meta JujuMetadata
 }
 
 // TODO(ericsnow) We must make the Juju metadata available here since
@@ -81,6 +82,7 @@ type baseClient struct {
 func newBaseClient(raw *csclient.Client, config ClientConfig, meta JujuMetadata) *baseClient {
 	base := &baseClient{
 		Client: raw,
+		meta:   meta,
 	}
 	return base
 }
@@ -102,6 +104,7 @@ func (base baseClient) LatestRevisions(charms []CharmID) ([]charmrepo.CharmRevis
 
 	for channel, ci := range req {
 		repo := charmrepo.NewCharmStoreFromClient(base.Client.WithChannel(params.Channel(channel)))
+		repo = repo.WithJujuAttrs(base.meta.asAttrs())
 		revisions, err := repo.Latest(ci.ids...)
 		if err != nil {
 			return nil, errors.Trace(err)
