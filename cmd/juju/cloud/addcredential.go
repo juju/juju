@@ -103,13 +103,18 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	var err error
 	if c.cloud, err = c.cloudByNameFunc(c.CloudName); err != nil {
 		if errors.IsNotFound(err) {
-			return errors.NotValidf("cloud %v", c.CloudName)
+			builtInProviders := builtInProviders()
+			if builtIn, ok := builtInProviders[c.CloudName]; !ok {
+				return errors.NotValidf("cloud %v", c.CloudName)
+			} else {
+				c.cloud = &builtIn
+			}
+		} else {
+			return err
 		}
-		return err
-	} else {
-		if len(c.cloud.AuthTypes) == 0 {
-			return errors.Errorf("cloud %q does not require credentials", c.cloud)
-		}
+	}
+	if len(c.cloud.AuthTypes) == 0 {
+		return errors.Errorf("cloud %q does not require credentials", c.CloudName)
 	}
 
 	if c.CredentialsFile == "" {
