@@ -146,7 +146,13 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		return nil, err
 	}
 
-	results, err := charmstore.LatestCharmInfo(client, curls, "stable")
+	// TODO(natefinch): get the real channel when we have one.
+	charms := make([]charmstore.Charm, len(curls))
+	for i, c := range curls {
+		charms[i] = charmstore.Charm{ID: c, Channel: "stable"}
+	}
+
+	results, err := charmstore.LatestCharmInfo(client, charms)
 	if err != nil {
 		return nil, err
 	}

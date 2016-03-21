@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/testing"
-	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 )
 
@@ -28,8 +28,8 @@ func (s *stubCharmStore) Connect(ctx *cmd.Context) (CharmResourceLister, error) 
 	return s, nil
 }
 
-func (s *stubCharmStore) ListResources(charmURLs []*charm.URL, channel string) ([][]charmresource.Resource, error) {
-	s.stub.AddCall("ListResources", charmURLs, channel)
+func (s *stubCharmStore) ListResources(charms []charmstore.Charm) ([][]charmresource.Resource, error) {
+	s.stub.AddCall("ListResources", charms)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}

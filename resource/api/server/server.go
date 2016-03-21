@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 )
@@ -38,7 +39,7 @@ type CharmStore interface {
 	// list of details for each of the charm's resources. Those details
 	// are those associated with the specific charm revision. They
 	// include the resource's metadata and revision.
-	ListResources(charmURLs []*charm.URL, channel string) ([][]charmresource.Resource, error)
+	ListResources([]charmstore.Charm) ([][]charmresource.Resource, error)
 
 	// GetResource returns a reader for the resource's data. That data
 	// is streamed from the charm store. The charm's revision, if any,
@@ -129,7 +130,8 @@ func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPe
 	}
 	serviceID := tag.Id()
 
-	ids, err := f.addPendingResources(serviceID, args.URL, args.CharmStoreMacaroon, args.Resources)
+	// TODO(natefinch): use a real channel once we support that.
+	ids, err := f.addPendingResources(serviceID, args.URL, "stable", args.CharmStoreMacaroon, args.Resources)
 	if err != nil {
 		result.Error = common.ServerError(err)
 		return result, nil
@@ -138,7 +140,7 @@ func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPe
 	return result, nil
 }
 
-func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Macaroon, apiResources []api.CharmResource) ([]string, error) {
+func (f Facade) addPendingResources(serviceID, chRef, channel string, csMac *macaroon.Macaroon, apiResources []api.CharmResource) ([]string, error) {
 	var resources []charmresource.Resource
 	for _, apiRes := range apiResources {
 		res, err := api.API2CharmResource(apiRes)
@@ -158,7 +160,7 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		storeResources, err := f.resourcesFromCharmstore(cURL, client)
+		storeResources, err := f.resourcesFromCharmstore([]charmstore.Charm{{ID: cURL, Channel: channel}}, client)
 		if err != nil {
 			return nil, err
 		}
@@ -189,9 +191,9 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 // the charm store. If the charm URL has a revision then that revision's
 // resources are returned. Otherwise the latest info for each of the
 // resources is returned.
-func (f Facade) resourcesFromCharmstore(cURL *charm.URL, client CharmStore) (map[string]charmresource.Resource, error) {
+func (f Facade) resourcesFromCharmstore(charms []charmstore.Charm, client CharmStore) (map[string]charmresource.Resource, error) {
 	// TODO(natefinch): get the real channel when that comes available.
-	results, err := client.ListResources([]*charm.URL{cURL}, "stable")
+	results, err := client.ListResources(charms)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
