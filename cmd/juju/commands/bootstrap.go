@@ -362,49 +362,15 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	logger.Debugf("preparing controller with config: %v", configAttrs)
 
 	// Read existing current controller, account, model so we can clean up on error.
-	var oldCurrentController, oldCurrentAccount, oldCurrentModel string
+	var oldCurrentController string
 	oldCurrentController, err = modelcmd.ReadCurrentController()
 	if err != nil {
 		return errors.Annotate(err, "error reading current controller")
-	}
-	if oldCurrentController != "" {
-		oldCurrentAccount, err = store.CurrentAccount(oldCurrentController)
-		if err != nil && !errors.IsNotFound(err) {
-			return errors.Annotate(err, "error reading current account")
-		}
-	}
-	if oldCurrentAccount != "" {
-		oldCurrentModel, err = store.CurrentModel(oldCurrentController, oldCurrentAccount)
-		if err != nil && !errors.IsNotFound(err) {
-			return errors.Annotate(err, "error reading current model")
-		}
 	}
 
 	defer func() {
 		if resultErr == nil || errors.IsAlreadyExists(resultErr) {
 			return
-		}
-		if err := store.RemoveController(c.controllerName); err != nil {
-			logger.Warningf(
-				"cannot destroy newly created controller metadata info %q info: %v",
-				c.controllerName, err,
-			)
-		}
-		if oldCurrentModel != "" {
-			if err := store.SetCurrentModel(oldCurrentController, oldCurrentAccount, oldCurrentModel); err != nil {
-				logger.Warningf(
-					"cannot reset current model to %q: %v",
-					oldCurrentModel, err,
-				)
-			}
-		}
-		if oldCurrentAccount != "" {
-			if err := store.SetCurrentAccount(oldCurrentController, oldCurrentAccount); err != nil {
-				logger.Warningf(
-					"cannot reset current account to %q: %v",
-					oldCurrentAccount, err,
-				)
-			}
 		}
 		if oldCurrentController != "" {
 			if err := modelcmd.WriteCurrentController(oldCurrentController); err != nil {
@@ -413,6 +379,12 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 					oldCurrentController, err,
 				)
 			}
+		}
+		if err := store.RemoveController(c.controllerName); err != nil {
+			logger.Warningf(
+				"cannot destroy newly created controller metadata info %q info: %v",
+				c.controllerName, err,
+			)
 		}
 	}()
 
