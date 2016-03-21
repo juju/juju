@@ -638,8 +638,11 @@ class BootstrapManager:
                 logging.exception(e)
                 raise LoggedException(e)
         finally:
-            safe_print_status(self.client)
-            self.dump_all_logs()
+            try:
+                safe_print_status(self.client)
+                self.dump_all_logs()
+            except KeyboardInterrupt:
+                pass
             if not self.keep_env:
                 self.tear_down(self.jes_enabled)
 

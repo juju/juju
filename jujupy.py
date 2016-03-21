@@ -148,8 +148,6 @@ def coalesce_agent_status(agent_item):
     return state
 
 
-
-
 def make_client(juju_path, debug, env_name, temp_env_name):
     env = SimpleEnvironment.from_config(env_name)
     if temp_env_name is not None:
@@ -529,7 +527,7 @@ class EnvJujuClient:
             if proc.returncode != 0:
                 log.debug(sub_error)
                 e = subprocess.CalledProcessError(
-                    proc.returncode, args[0], sub_output)
+                    proc.returncode, args, sub_output)
                 e.stderr = sub_error
                 if (
                     'Unable to connect to environment' in sub_error or
