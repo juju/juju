@@ -145,10 +145,29 @@ func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkCo
 	if m.IsContainer() {
 		return nil
 	}
-	sortedObservedConfig := networkingcommon.SortNetworkConfigsByInterfaceName(args.Config)
-	logger.Tracef("observed network config of machine %q: %+v", m.Id(), sortedObservedConfig)
+	observedConfig := args.Config
+	logger.Tracef("observed network config of machine %q: %+v", m.Id(), observedConfig)
+	if len(observedConfig) == 0 {
+		logger.Infof("not updating machine network config: no observed network config found")
+		return nil
+	}
 
-	return api.setOneMachineNetworkConfig(m, sortedObservedConfig)
+	providerConfig, err := api.getOneMachineProviderNetworkConfig(m)
+	if errors.IsNotProvisioned(err) {
+		logger.Infof("not updating provider network config: %v", err)
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	if len(providerConfig) == 0 {
+		logger.Infof("not updating machine network config: no provider network config found")
+		return nil
+	}
+
+	mergedConfig := networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
+	logger.Tracef("merged observed and provider network config: %+v", mergedConfig)
+
+	return api.setOneMachineNetworkConfig(m, mergedConfig)
 }
 
 func (api *MachinerAPI) getMachineForSettingNetworkConfig(machineTag string) (*state.Machine, error) {
@@ -212,36 +231,16 @@ func (api *MachinerAPI) SetProviderNetworkConfig(args params.Entities) (params.E
 			continue
 		}
 
-		instId, err := m.InstanceId()
+		providerConfig, err := api.getOneMachineProviderNetworkConfig(m)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
-		}
-
-		netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(api.st)
-		if errors.IsNotSupported(err) {
-			logger.Infof("not updating provider network config: %v", err)
-			continue
-		} else if err != nil {
-			err = errors.Annotate(err, "cannot get provider network config")
-			result.Results[i].Error = common.ServerError(err)
+		} else if len(providerConfig) == 0 {
 			continue
 		}
 
-		interfaceInfos, err := netEnviron.NetworkInterfaces(instId)
-		if err != nil {
-			err = errors.Annotatef(err, "cannot get network interfaces of %q", instId)
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		if len(interfaceInfos) == 0 {
-			logger.Infof("not updating provider network config: no interfaces returned")
-			continue
-		}
-
-		providerConfig := networkingcommon.NetworkConfigFromInterfaceInfo(interfaceInfos)
 		sortedProviderConfig := networkingcommon.SortNetworkConfigsByParents(providerConfig)
-		logger.Tracef("provider network config instance %q: %+v", instId, sortedProviderConfig)
+		logger.Tracef("sorted provider network config for %q: %+v", m.Id(), sortedProviderConfig)
 
 		if err := api.setOneMachineNetworkConfig(m, sortedProviderConfig); err != nil {
 			result.Results[i].Error = common.ServerError(err)
@@ -249,4 +248,33 @@ func (api *MachinerAPI) SetProviderNetworkConfig(args params.Entities) (params.E
 		}
 	}
 	return result, nil
+}
+
+func (api *MachinerAPI) getOneMachineProviderNetworkConfig(m *state.Machine) ([]params.NetworkConfig, error) {
+	instId, err := m.InstanceId()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	netEnviron, err := networkingcommon.NetworkingEnvironFromModelConfig(api.st)
+	if errors.IsNotSupported(err) {
+		logger.Infof("not updating provider network config: %v", err)
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Annotate(err, "cannot get provider network config")
+	}
+
+	interfaceInfos, err := netEnviron.NetworkInterfaces(instId)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get network interfaces of %q", instId)
+	}
+	if len(interfaceInfos) == 0 {
+		logger.Infof("not updating provider network config: no interfaces returned")
+		return nil, nil
+	}
+
+	providerConfig := networkingcommon.NetworkConfigFromInterfaceInfo(interfaceInfos)
+	logger.Tracef("provider network config instance %q: %+v", instId, providerConfig)
+
+	return providerConfig, nil
 }

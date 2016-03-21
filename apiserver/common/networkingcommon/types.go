@@ -482,13 +482,27 @@ func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []p
 		name := config.InterfaceName
 		providerConfigsByName[name] = append(providerConfigsByName[name], config)
 	}
-	logger.Debugf("provider network config by name: %+v", providerConfigsByName)
 
-	mergedConfigs := make([]params.NetworkConfig, 0, len(providerConfigs)+len(observedConfigs))
+	jsonProviderConfig, err := NetworkConfigsToIndentedJSON(sortedProviderConfigs)
+	if err != nil {
+		logger.Warningf("cannot serialize provider config %#v as JSON: %v", sortedProviderConfigs, err)
+	} else {
+		logger.Infof("provider network config of machine:\n%s", jsonProviderConfig)
+	}
+
 	sortedObservedConfigs := SortNetworkConfigsByParents(observedConfigs)
+
+	jsonObservedConfig, err := NetworkConfigsToIndentedJSON(sortedObservedConfigs)
+	if err != nil {
+		logger.Warningf("cannot serialize observed config %#v as JSON: %v", sortedObservedConfigs, err)
+	} else {
+		logger.Infof("observed network config of machine:\n%s", jsonObservedConfig)
+	}
+
+	var mergedConfigs []params.NetworkConfig
 	for _, config := range sortedObservedConfigs {
 		name := config.InterfaceName
-		logger.Debugf("merging observed config for device %q", name)
+		logger.Debugf("merging observed config for device %q: %+v", name, config)
 		if strings.HasPrefix(name, instancecfg.DefaultBridgePrefix) {
 			logger.Debugf("found potential juju bridge %q in observed config", name)
 			unprefixedName := strings.TrimPrefix(name, instancecfg.DefaultBridgePrefix)
@@ -542,29 +556,45 @@ func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []p
 			}
 		}
 
-		providerConfigs, knownByProvider := providerConfigsByName[name]
+		knownProviderConfigs, knownByProvider := providerConfigsByName[name]
 		if !knownByProvider {
 			// Not known by the provider and not a Juju-created bridge, so just
 			// use the observed config for it.
-			logger.Debugf("adding observed config for %q: %+v", name, providerConfigs)
+			logger.Debugf("device %q not known to provider - adding only observed config: %+v", name, config)
 			mergedConfigs = append(mergedConfigs, config)
 			continue
 		}
+		logger.Debugf("device %q has known provider network config: %+v", name, knownProviderConfigs)
 
-		for _, providerConfig := range providerConfigs {
+		for _, providerConfig := range knownProviderConfigs {
 			if providerConfig.Address == config.Address {
-				logger.Debugf("adding provider config %+v updated with observed %+v for device %q", providerConfig, config, name)
+				logger.Debugf(
+					"device %q has observed address %q, index %d, and MTU %q; overriding index %d and MTU %d from provider config",
+					name, config.Address, config.DeviceIndex, config.MTU, providerConfig.DeviceIndex, providerConfig.MTU,
+				)
 				// Prefer observed device indices and MTU values as more up-to-date.
 				providerConfig.DeviceIndex = config.DeviceIndex
 				providerConfig.MTU = config.MTU
 
 				mergedConfigs = append(mergedConfigs, providerConfig)
-				break
+			} else {
+				logger.Warningf(
+					"device %q has observed address %q and provider address %q - using observed",
+					name, config.Address, providerConfig.Address,
+				)
+				mergedConfigs = append(mergedConfigs, config)
 			}
 		}
 	}
 
 	// No need to re-sort the result as both inputs were sorted and processed in
 	// order.
+	jsonMergedConfig, err := NetworkConfigsToIndentedJSON(mergedConfigs)
+	if err != nil {
+		logger.Warningf("cannot serialize merged config %#v as JSON: %v", mergedConfigs, err)
+	} else {
+		logger.Infof("combined machine network config:\n%s", jsonMergedConfig)
+	}
+
 	return mergedConfigs
 }

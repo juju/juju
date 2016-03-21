@@ -269,11 +269,27 @@ func (s *machinerSuite) TestSetObservedNetworkConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(devices, gc.HasLen, 0)
 
-	observedConfig := []params.NetworkConfig{
-		{InterfaceName: "lo", InterfaceType: "loopback"},
-		{InterfaceName: "eth0", InterfaceType: "ethernet", MACAddress: "aa:bb:cc:dd:ee:f0"},
-		{InterfaceName: "eth1", InterfaceType: "ethernet", MACAddress: "aa:bb:cc:dd:ee:f1"},
-	}
+	err = s.machine1.SetInstanceInfo("i-foo", "FAKE_NONCE", nil, nil, nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	observedConfig := []params.NetworkConfig{{
+		InterfaceName: "lo",
+		InterfaceType: "loopback",
+		CIDR:          "127.0.0.0/8",
+		Address:       "127.0.0.1",
+	}, {
+		InterfaceName: "eth0",
+		InterfaceType: "ethernet",
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		CIDR:          "0.10.0.0/24",
+		Address:       "0.10.0.11",
+	}, {
+		InterfaceName: "eth1",
+		InterfaceType: "ethernet",
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		CIDR:          "0.20.0.0/24",
+		Address:       "0.20.0.22",
+	}}
 	args := params.SetMachineNetworkConfig{
 		Tag:    s.machine1.Tag().String(),
 		Config: observedConfig,
