@@ -603,12 +603,10 @@ func (s *credentialsSuite) TestFinalizeCredentialFilePath(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialInvalidFilePath(c *gc.C) {
-	dir, err := ioutil.TempDir(c.MkDir(), "testinvalid")
-	c.Assert(err, jc.ErrorIsNil)
 	cred := cloud.NewCredential(
 		cloud.JSONFileAuthType,
 		map[string]string{
-			"file": filepath.Join(dir, "somefile"),
+			"file": filepath.Join(c.MkDir(), "somefile"),
 		},
 	)
 	schema := cloud.CredentialSchema{
@@ -616,7 +614,7 @@ func (s *credentialsSuite) TestFinalizeCredentialInvalidFilePath(c *gc.C) {
 			"file", cloud.CredentialAttr{FilePath: true},
 		},
 	}
-	_, err = cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.JSONFileAuthType: schema,
 	}, nil)
 	c.Assert(err, gc.ErrorMatches, "invalid file path: .*")
