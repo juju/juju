@@ -766,7 +766,7 @@ func (t *localServerSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, gc.DeepEquals, []string{"tags", "virt-type"})
+	c.Assert(unsupported, jc.SameContents, []string{"tags", "virt-type"})
 }
 
 func (t *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {

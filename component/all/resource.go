@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/resource/context"
 	contextcmd "github.com/juju/juju/resource/context/cmd"
 	"github.com/juju/juju/resource/resourceadapters"
-	"github.com/juju/juju/resource/state"
 	corestate "github.com/juju/juju/state"
 	unitercontext "github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -65,28 +64,9 @@ func (r resources) registerPublicFacade() {
 	common.RegisterStandardFacade(
 		resource.ComponentName,
 		server.Version,
-		r.newPublicFacade,
+		resourceadapters.NewPublicFacade,
 	)
 	api.RegisterFacadeVersion(resource.ComponentName, server.Version)
-}
-
-// newPublicFacade is passed into common.RegisterStandardFacade
-// in registerPublicFacade.
-func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, authorizer common.Authorizer) (*server.Facade, error) {
-	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
-	}
-
-	rst, err := st.Resources()
-
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ds := resourceadapters.DataStore{
-		Resources: rst,
-		State:     st,
-	}
-	return server.NewFacade(ds), nil
 }
 
 // resourcesApiClient adds a Close() method to the resources public API client.
@@ -115,38 +95,9 @@ func (resources) registerState() {
 		return
 	}
 
-	newResources := func(persist corestate.Persistence) corestate.Resources {
-		st := state.NewState(&resourceState{persist: persist})
-		return st
-	}
-
-	corestate.SetResourcesComponent(newResources)
-}
-
-// resourceState is a wrapper around state.State that supports the needs
-// of resources.
-type resourceState struct {
-	persist corestate.Persistence
-}
-
-// Persistence implements resource/state.RawState.
-func (st resourceState) Persistence() state.Persistence {
-	persist := corestate.NewResourcePersistence(st.persist)
-	return resourcePersistence{persist}
-}
-
-// Storage implements resource/state.RawState.
-func (st resourceState) Storage() state.Storage {
-	return st.persist.NewStorage()
-}
-
-type resourcePersistence struct {
-	*corestate.ResourcePersistence
-}
-
-// StageResource implements state.resourcePersistence.
-func (p resourcePersistence) StageResource(res resource.Resource, storagePath string) (state.StagedResource, error) {
-	return p.ResourcePersistence.StageResource(res, storagePath)
+	corestate.SetResourcesComponent(resourceadapters.NewResourceState)
+	corestate.SetResourcesPersistence(resourceadapters.NewResourcePersistence)
+	corestate.RegisterCleanupHandler(corestate.CleanupKindResourceBlob, resourceadapters.CleanUpBlob)
 }
 
 // registerPublicCommands adds the resources-related commands

@@ -15,6 +15,12 @@ import (
 	"github.com/juju/juju/resource"
 )
 
+const (
+	// CleanupKindResourceBlob identifies the cleanup kind
+	// for resource blobs.
+	CleanupKindResourceBlob = "resourceBlob"
+)
+
 // ResourcePersistenceBase exposes the core persistence functionality
 // needed for resources.
 type ResourcePersistenceBase interface {
@@ -30,9 +36,17 @@ type ResourcePersistenceBase interface {
 	// function. It may be retried several times.
 	Run(transactions jujutxn.TransactionSource) error
 
+	// ServiceExistsOps returns the operations that verify that the
+	// identified service exists.
+	ServiceExistsOps(serviceID string) []txn.Op
+
 	// IncCharmModifiedVersionOps returns the operations necessary to increment
 	// the CharmModifiedVersion field for the given service.
 	IncCharmModifiedVersionOps(serviceID string) []txn.Op
+
+	// NewCleanupOp creates a mgo transaction operation that queues up
+	// some cleanup action in state.
+	NewCleanupOp(kind, prefix string) txn.Op
 }
 
 // ResourcePersistence provides the persistence functionality for the
@@ -53,8 +67,6 @@ func NewResourcePersistence(base ResourcePersistenceBase) *ResourcePersistence {
 func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceResources, error) {
 	logger.Tracef("listing all resources for service %q", serviceID)
 
-	// TODO(ericsnow) Ensure that the service is still there?
-
 	docs, err := p.resources(serviceID)
 	if err != nil {
 		return resource.ServiceResources{}, errors.Trace(err)
@@ -62,6 +74,7 @@ func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceRe
 
 	store := map[string]charmresource.Resource{}
 	units := map[names.UnitTag][]resource.Resource{}
+	downloadProgress := make(map[names.UnitTag]map[string]int64)
 
 	var results resource.ServiceResources
 	for _, doc := range docs {
@@ -82,7 +95,15 @@ func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceRe
 			continue
 		}
 		tag := names.NewUnitTag(doc.UnitID)
-		units[tag] = append(units[tag], res)
+		if doc.PendingID == "" {
+			units[tag] = append(units[tag], res)
+		}
+		if doc.DownloadProgress != nil {
+			if downloadProgress[tag] == nil {
+				downloadProgress[tag] = make(map[string]int64)
+			}
+			downloadProgress[tag][doc.Name] = *doc.DownloadProgress
+		}
 	}
 	for _, res := range results.Resources {
 		storeRes := store[res.Name]
@@ -90,8 +111,9 @@ func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceRe
 	}
 	for tag, res := range units {
 		results.UnitResources = append(results.UnitResources, resource.UnitResources{
-			Tag:       tag,
-			Resources: res,
+			Tag:              tag,
+			Resources:        res,
+			DownloadProgress: downloadProgress[tag],
 		})
 	}
 	return results, nil
@@ -178,8 +200,6 @@ func (p ResourcePersistence) SetResource(res resource.Resource) error {
 	// so then the following line is unnecessary.
 	stored.Resource = res
 
-	// TODO(ericsnow) Ensure that the service is still there?
-
 	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
 	}
@@ -195,6 +215,10 @@ func (p ResourcePersistence) SetResource(res resource.Resource) error {
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
+		}
+		if stored.PendingID == "" {
+			// Only non-pending resources must have an existing service.
+			ops = append(ops, p.base.ServiceExistsOps(res.ServiceID)...)
 		}
 		return ops, nil
 	}
@@ -230,6 +254,8 @@ func (p ResourcePersistence) SetCharmStoreResource(id, serviceID string, res cha
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
 		}
+		// No pending resources so we always do this here.
+		ops = append(ops, p.base.ServiceExistsOps(serviceID)...)
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {
@@ -241,6 +267,23 @@ func (p ResourcePersistence) SetCharmStoreResource(id, serviceID string, res cha
 // SetUnitResource stores the resource info for a particular unit. The
 // resource must already be set for the service.
 func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resource) error {
+	if res.PendingID != "" {
+		return errors.Errorf("pending resources not allowed")
+	}
+	return p.setUnitResource(unitID, res, nil)
+}
+
+// SetUnitResource stores the resource info for a particular unit. The
+// resource must already be set for the service. The provided progress
+// is stored in the DB.
+func (p ResourcePersistence) SetUnitResourceProgress(unitID string, res resource.Resource, progress int64) error {
+	if res.PendingID == "" {
+		return errors.Errorf("only pending resources may track progress")
+	}
+	return p.setUnitResource(unitID, res, &progress)
+}
+
+func (p ResourcePersistence) setUnitResource(unitID string, res resource.Resource, progress *int64) error {
 	stored, err := p.getStored(res)
 	if err != nil {
 		return errors.Trace(err)
@@ -248,8 +291,6 @@ func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resourc
 	// TODO(ericsnow) Ensure that stored.Resource matches res? If we do
 	// so then the following line is unnecessary.
 	stored.Resource = res
-
-	// TODO(ericsnow) Ensure that the service is still there?
 
 	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
@@ -260,13 +301,15 @@ func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resourc
 		var ops []txn.Op
 		switch attempt {
 		case 0:
-			ops = newInsertUnitResourceOps(unitID, stored)
+			ops = newInsertUnitResourceOps(unitID, stored, progress)
 		case 1:
-			ops = newUpdateUnitResourceOps(unitID, stored)
+			ops = newUpdateUnitResourceOps(unitID, stored, progress)
 		default:
 			// Either insert or update will work so we should not get here.
 			return nil, errors.New("setting the resource failed")
 		}
+		// No pending resources so we always do this here.
+		ops = append(ops, p.base.ServiceExistsOps(res.ServiceID)...)
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {
@@ -323,5 +366,34 @@ func (p ResourcePersistence) NewResolvePendingResourceOps(resID, pendingID strin
 	}
 
 	ops := newResolvePendingResourceOps(pending, exists)
+	return ops, nil
+}
+
+// NewRemoveUnitResourcesOps returns mgo transaction operations
+// that remove resource information specific to the unit from state.
+func (p ResourcePersistence) NewRemoveUnitResourcesOps(unitID string) ([]txn.Op, error) {
+	docs, err := p.unitResources(unitID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ops := newRemoveResourcesOps(docs)
+	// We do not remove the resource from the blob store here. That is
+	// a service-level matter.
+	return ops, nil
+}
+
+// NewRemoveResourcesOps returns mgo transaction operations that
+// remove all the service's resources from state.
+func (p ResourcePersistence) NewRemoveResourcesOps(serviceID string) ([]txn.Op, error) {
+	docs, err := p.resources(serviceID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ops := newRemoveResourcesOps(docs)
+	for _, doc := range docs {
+		ops = append(ops, p.base.NewCleanupOp(CleanupKindResourceBlob, doc.StoragePath))
+	}
 	return ops, nil
 }

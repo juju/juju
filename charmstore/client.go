@@ -65,7 +65,7 @@ type ResourcesClient interface {
 	// is streamed from the charm store. The charm's revision, if any,
 	// is ignored. If the identified resource is not in the charm store
 	// then errors.NotFound is returned.
-	GetResource(cURL *charm.URL, resourceName string, revision int) (io.ReadCloser, error)
+	GetResource(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, io.ReadCloser, error)
 }
 
 type baseClient struct {
@@ -207,6 +207,6 @@ func (fakeCharmStoreClient) ListResources(charmURLs []*charm.URL) ([][]charmreso
 }
 
 // GetResource implements BaseClient as a noop.
-func (fakeCharmStoreClient) GetResource(cURL *charm.URL, resourceName string, revision int) (io.ReadCloser, error) {
-	return nil, errors.NotFoundf("resource %q", resourceName)
+func (fakeCharmStoreClient) GetResource(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, io.ReadCloser, error) {
+	return charmresource.Resource{}, nil, errors.NotFoundf("resource %q", resourceName)
 }
