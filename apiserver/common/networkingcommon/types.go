@@ -577,12 +577,7 @@ func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []p
 				providerConfig.MTU = config.MTU
 
 				mergedConfigs = append(mergedConfigs, providerConfig)
-			} else {
-				logger.Warningf(
-					"device %q has observed address %q and provider address %q - using observed",
-					name, config.Address, providerConfig.Address,
-				)
-				mergedConfigs = append(mergedConfigs, config)
+				break
 			}
 		}
 	}

@@ -282,13 +282,13 @@ func (s *machinerSuite) TestSetObservedNetworkConfig(c *gc.C) {
 		InterfaceType: "ethernet",
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		CIDR:          "0.10.0.0/24",
-		Address:       "0.10.0.11",
+		Address:       "0.10.0.2",
 	}, {
 		InterfaceName: "eth1",
 		InterfaceType: "ethernet",
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		CIDR:          "0.20.0.0/24",
-		Address:       "0.20.0.22",
+		Address:       "0.20.0.2",
 	}}
 	args := params.SetMachineNetworkConfig{
 		Tag:    s.machine1.Tag().String(),
