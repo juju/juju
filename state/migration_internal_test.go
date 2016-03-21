@@ -149,14 +149,12 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 }
 
 func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
-	fields := set.NewStrings(
+	ignored := set.NewStrings(
 		// UUID and Mame are constructed from the model config.
 		"UUID",
 		"Name",
 		// Life will always be alive, or we won't be migrating.
 		"Life",
-		"Owner",
-		"LatestAvailableTools",
 		// ServerUUID is recreated when the new model is created in the
 		// new controller (yay name changes).
 		"ServerUUID",
@@ -164,8 +162,13 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		// is alive.
 		"TimeOfDying",
 		"TimeOfDeath",
+		"MigrationMode",
 	)
-	s.AssertExportedFields(c, modelDoc{}, fields)
+	migrated := set.NewStrings(
+		"Owner",
+		"LatestAvailableTools",
+	)
+	s.AssertExportedFields(c, modelDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) TestEnvUserDocFields(c *gc.C) {

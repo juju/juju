@@ -318,7 +318,7 @@ func (em *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	// NOTE: check the agent-version of the config, and if it is > the current
 	// version, it is not supported, also check existing tools, and if we don't
 	// have tools for that version, also die.
-	model, st, err := em.state.NewModel(newConfig, ownerTag)
+	model, st, err := em.state.NewModel(state.ModelArgs{Config: newConfig, Owner: ownerTag})
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create new model")
 	}

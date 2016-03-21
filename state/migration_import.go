@@ -47,7 +47,11 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	dbModel, newSt, err := st.NewModel(cfg, model.Owner())
+	dbModel, newSt, err := st.NewModel(ModelArgs{
+		Config:        cfg,
+		Owner:         model.Owner(),
+		MigrationMode: MigrationModeImporting,
+	})
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

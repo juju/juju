@@ -37,6 +37,7 @@ func (s *ModelSuite) TestModel(c *gc.C) {
 	c.Assert(model.Life(), gc.Equals, state.Alive)
 	c.Assert(model.TimeOfDying().IsZero(), jc.IsTrue)
 	c.Assert(model.TimeOfDeath().IsZero(), jc.IsTrue)
+	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeActive)
 }
 
 func (s *ModelSuite) TestModelDestroy(c *gc.C) {
@@ -61,7 +62,7 @@ func (s *ModelSuite) TestNewModelNonExistentLocalUser(c *gc.C) {
 	cfg, _ := s.createTestEnvConfig(c)
 	owner := names.NewUserTag("non-existent@local")
 
-	_, _, err := s.State.NewModel(cfg, owner)
+	_, _, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner})
 	c.Assert(err, gc.ErrorMatches, `cannot create model: user "non-existent" not found`)
 }
 
@@ -70,7 +71,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	owner := s.Factory.MakeUser(c, nil).UserTag()
 
 	// Create the first model.
-	_, st1, err := s.State.NewModel(cfg, owner)
+	_, st1, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 
@@ -82,7 +83,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 		"name": cfg.Name(),
 		"uuid": newUUID.String(),
 	})
-	_, _, err = s.State.NewModel(cfg2, owner)
+	_, _, err = s.State.NewModel(state.ModelArgs{Config: cfg2, Owner: owner})
 	errMsg := fmt.Sprintf("model %q for %s already exists", cfg2.Name(), owner.Canonical())
 	c.Assert(err, gc.ErrorMatches, errMsg)
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
@@ -101,7 +102,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should now be able to create the other model.
-	env2, st2, err := s.State.NewModel(cfg2, owner)
+	env2, st2, err := s.State.NewModel(state.ModelArgs{Config: cfg2, Owner: owner})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st2.Close()
 	c.Assert(env2, gc.NotNil)
@@ -112,7 +113,7 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	cfg, uuid := s.createTestEnvConfig(c)
 	owner := names.NewUserTag("test@remote")
 
-	env, st, err := s.State.NewModel(cfg, owner)
+	env, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -149,6 +150,34 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ModelSuite) TestNewModelImportingMode(c *gc.C) {
+	cfg, _ := s.createTestEnvConfig(c)
+	owner := names.NewUserTag("test@remote")
+
+	env, st, err := s.State.NewModel(state.ModelArgs{
+		Config:        cfg,
+		Owner:         owner,
+		MigrationMode: state.MigrationModeImporting,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	c.Assert(env.MigrationMode(), gc.Equals, state.MigrationModeImporting)
+}
+
+func (s *ModelSuite) TestSetMigrationMode(c *gc.C) {
+	cfg, _ := s.createTestEnvConfig(c)
+	owner := names.NewUserTag("test@remote")
+
+	env, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	err = env.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.MigrationMode(), gc.Equals, state.MigrationModeExporting)
+}
+
 func (s *ModelSuite) TestControllerModel(c *gc.C) {
 	env, err := s.State.ControllerModel()
 	c.Assert(err, jc.ErrorIsNil)
@@ -163,7 +192,10 @@ func (s *ModelSuite) TestControllerModel(c *gc.C) {
 
 func (s *ModelSuite) TestControllerModelAccessibleFromOtherModels(c *gc.C) {
 	cfg, _ := s.createTestEnvConfig(c)
-	_, st, err := s.State.NewModel(cfg, names.NewUserTag("test@remote"))
+	_, st, err := s.State.NewModel(state.ModelArgs{
+		Config: cfg,
+		Owner:  names.NewUserTag("test@remote"),
+	})
 	defer st.Close()
 
 	env, err := st.ControllerModel()

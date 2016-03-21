@@ -562,7 +562,10 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		"state-port": currentCfg.StatePort(),
 		"api-port":   currentCfg.APIPort(),
 	}.Merge(params.ConfigAttrs))
-	_, st, err := factory.st.NewModel(cfg, params.Owner.(names.UserTag))
+	_, st, err := factory.st.NewModel(state.ModelArgs{
+		Config: cfg,
+		Owner:  params.Owner.(names.UserTag),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	if params.Prepare {
 		if params.Credential == nil {
