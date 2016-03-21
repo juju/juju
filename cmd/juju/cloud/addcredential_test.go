@@ -83,8 +83,8 @@ func (s *addCredentialSuite) TestAddFromFileBadFilename(c *gc.C) {
 }
 
 func (s *addCredentialSuite) TestNoCredentialsRequired(c *gc.C) {
-	_, err := s.run(c, nil, "lxd")
-	c.Assert(err, gc.ErrorMatches, `cloud "lxd" does not require credentials`)
+	_, err := s.run(c, nil, "manual")
+	c.Assert(err, gc.ErrorMatches, `cloud "manual" does not require credentials`)
 }
 
 func (s *addCredentialSuite) createTestCredentialData(c *gc.C) string {
