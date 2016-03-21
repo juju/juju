@@ -149,23 +149,16 @@ func (c *Client) SetModelConstraints(constraints constraints.Value) error {
 	return c.facade.FacadeCall("SetModelConstraints", params, nil)
 }
 
-// CharmInfo holds information about a charm.
-type CharmInfo struct {
-	Revision int
-	URL      string
-	Config   *charm.Config
-	Meta     *charm.Meta
-	Actions  *charm.Actions
-}
-
 // CharmInfo returns information about the requested charm.
-func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
-	args := params.CharmInfo{CharmURL: charmURL}
-	info := new(CharmInfo)
-	if err := c.facade.FacadeCall("CharmInfo", args, info); err != nil {
+func (c *Client) CharmInfo(charmURL string) (*params.CharmInfo, error) {
+	args := struct {
+		CharmURL string
+	}{charmURL}
+	var info params.CharmInfo
+	if err := c.facade.FacadeCall("CharmInfo", args, &info); err != nil {
 		return nil, err
 	}
-	return info, nil
+	return &info, nil
 }
 
 // ModelInfo returns details about the Juju model.

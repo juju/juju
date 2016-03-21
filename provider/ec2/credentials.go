@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"gopkg.in/amz.v3/aws"
-	"gopkg.in/ini.v1"
 
 	"github.com/juju/juju/cloud"
 )

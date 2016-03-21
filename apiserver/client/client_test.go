@@ -18,7 +18,6 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -442,7 +441,7 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
-		expected := &api.CharmInfo{
+		expected := &params.CharmInfo{
 			Revision: charm.Revision(),
 			URL:      charm.URL().String(),
 			Config:   charm.Config(),

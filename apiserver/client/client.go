@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/service"
@@ -309,17 +308,22 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 	return common.DestroyMachines(c.api.stateAccessor, args.Force, args.MachineNames...)
 }
 
+// CharmInfo holds the url of the requested charm.
+type CharmInfo struct {
+	CharmURL string
+}
+
 // CharmInfo returns information about the requested charm.
-func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
+func (c *Client) CharmInfo(args CharmInfo) (params.CharmInfo, error) {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
-		return api.CharmInfo{}, err
+		return params.CharmInfo{}, err
 	}
 	charm, err := c.api.stateAccessor.Charm(curl)
 	if err != nil {
-		return api.CharmInfo{}, err
+		return params.CharmInfo{}, err
 	}
-	info := api.CharmInfo{
+	info := params.CharmInfo{
 		Revision: charm.Revision(),
 		URL:      curl.String(),
 		Config:   charm.Config(),

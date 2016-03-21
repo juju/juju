@@ -833,3 +833,12 @@ type MeterStatusParam struct {
 type MeterStatusParams struct {
 	Statuses []MeterStatusParam `json:"statues"`
 }
+
+// CharmInfo holds information about a charm.
+type CharmInfo struct {
+	Revision int
+	URL      string
+	Config   *charm.Config
+	Meta     *charm.Meta
+	Actions  *charm.Actions
+}
