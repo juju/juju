@@ -102,15 +102,14 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	// Check that the supplied cloud is valid.
 	var err error
 	if c.cloud, err = c.cloudByNameFunc(c.CloudName); err != nil {
-		if errors.IsNotFound(err) {
-			builtInProviders := builtInProviders()
-			if builtIn, ok := builtInProviders[c.CloudName]; !ok {
-				return errors.NotValidf("cloud %v", c.CloudName)
-			} else {
-				c.cloud = &builtIn
-			}
-		} else {
+		if !errors.IsNotFound(err) {
 			return err
+		}
+		builtInProviders := builtInProviders()
+		if builtIn, ok := builtInProviders[c.CloudName]; !ok {
+			return errors.NotValidf("cloud %v", c.CloudName)
+		} else {
+			c.cloud = &builtIn
 		}
 	}
 	if len(c.cloud.AuthTypes) == 0 {
