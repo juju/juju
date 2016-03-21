@@ -58,13 +58,25 @@ func APIResult2ServiceResources(apiResult ResourcesResult) (resource.ServiceReso
 		if err != nil {
 			return resource.ServiceResources{}, errors.Annotate(err, "got bad data from server")
 		}
+		resNames := map[string]bool{}
 		unitResources := resource.UnitResources{Tag: tag}
 		for _, apiRes := range unitRes.Resources {
 			res, err := API2Resource(apiRes)
 			if err != nil {
 				return resource.ServiceResources{}, errors.Annotate(err, "got bad data from server")
 			}
+			resNames[res.Name] = true
 			unitResources.Resources = append(unitResources.Resources, res)
+		}
+		if len(unitRes.DownloadProgress) > 0 {
+			unitResources.DownloadProgress = make(map[string]int64)
+			for resName, progress := range unitRes.DownloadProgress {
+				if _, ok := resNames[resName]; !ok {
+					err := errors.Errorf("got progress from unrecognized resource %q", resName)
+					return resource.ServiceResources{}, errors.Annotate(err, "got bad data from server")
+				}
+				unitResources.DownloadProgress[resName] = progress
+			}
 		}
 		result.UnitResources = append(result.UnitResources, unitResources)
 	}
@@ -80,25 +92,27 @@ func APIResult2ServiceResources(apiResult ResourcesResult) (resource.ServiceReso
 	return result, nil
 }
 
-func ServiceResources2APIResult(svcRes resource.ServiceResources, units []names.UnitTag) ResourcesResult {
+func ServiceResources2APIResult(svcRes resource.ServiceResources) ResourcesResult {
 	var result ResourcesResult
 	for _, res := range svcRes.Resources {
 		result.Resources = append(result.Resources, Resource2API(res))
 	}
-	unitResources := make(map[names.UnitTag]resource.UnitResources, len(svcRes.UnitResources))
-	for _, unitRes := range svcRes.UnitResources {
-		unitResources[unitRes.Tag] = unitRes
-	}
 
-	result.UnitResources = make([]UnitResources, len(units))
-	for i, tag := range units {
+	for _, unitResources := range svcRes.UnitResources {
+		tag := unitResources.Tag
 		apiRes := UnitResources{
 			Entity: params.Entity{Tag: tag.String()},
 		}
-		for _, res := range unitResources[tag].Resources {
-			apiRes.Resources = append(apiRes.Resources, Resource2API(res))
+		for _, unitRes := range unitResources.Resources {
+			apiRes.Resources = append(apiRes.Resources, Resource2API(unitRes))
 		}
-		result.UnitResources[i] = apiRes
+		if len(unitResources.DownloadProgress) > 0 {
+			apiRes.DownloadProgress = make(map[string]int64)
+			for resName, progress := range unitResources.DownloadProgress {
+				apiRes.DownloadProgress[resName] = progress
+			}
+		}
+		result.UnitResources = append(result.UnitResources, apiRes)
 	}
 
 	result.CharmStoreResources = make([]CharmResource, len(svcRes.CharmStoreResources))

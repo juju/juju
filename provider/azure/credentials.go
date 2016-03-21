@@ -18,18 +18,17 @@ type environProviderCredentials struct{}
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: {
-			configAttrAppId: {
-				Description: "Azure Active Directory application ID",
-			},
-			configAttrSubscriptionId: {
-				Description: "Azure subscription ID",
-			},
-			configAttrTenantId: {
-				Description: "Azure Active Directory tenant ID",
-			},
-			configAttrAppPassword: {
-				Description: "Azure Active Directory application password",
-				Hidden:      true,
+			{
+				configAttrAppId, cloud.CredentialAttr{Description: "Azure Active Directory application ID"},
+			}, {
+				configAttrSubscriptionId, cloud.CredentialAttr{Description: "Azure subscription ID"},
+			}, {
+				configAttrTenantId, cloud.CredentialAttr{Description: "Azure Active Directory tenant ID"},
+			}, {
+				configAttrAppPassword, cloud.CredentialAttr{
+					Description: "Azure Active Directory application password",
+					Hidden:      true,
+				},
 			},
 		},
 	}

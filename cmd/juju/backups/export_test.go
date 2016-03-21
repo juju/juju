@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs"
 )
 
 const (
@@ -62,8 +63,8 @@ func NewRemoveCommand() cmd.Command {
 	return modelcmd.Wrap(c)
 }
 
-func NewRestoreCommand() cmd.Command {
-	c := &restoreCommand{}
+func NewRestoreCommandForTest(getEnvironFunc func(string) (environs.Environ, error)) cmd.Command {
+	c := &restoreCommand{getEnvironFunc: getEnvironFunc}
 	c.Log = &cmd.Log{}
 	return modelcmd.Wrap(c)
 }

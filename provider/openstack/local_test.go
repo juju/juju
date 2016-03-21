@@ -1817,17 +1817,18 @@ func newFullOpenstackService(mux *http.ServeMux, cred *identity.Credentials, aut
 }
 
 func newNovaOnlyOpenstackService(mux *http.ServeMux, cred *identity.Credentials, auth identity.AuthMode) *novaservice.Nova {
-	var identityService identityservice.IdentityService
+	var identityService, fallbackService identityservice.IdentityService
 	if auth == identity.AuthKeyPair {
 		identityService = identityservice.NewKeyPair()
 	} else {
 		identityService = identityservice.NewUserPass()
+		fallbackService = identityservice.NewV3UserPass()
 	}
 	userInfo := identityService.AddUser(cred.User, cred.Secrets, cred.TenantName)
 	if cred.TenantName == "" {
 		panic("Openstack service double requires a tenant to be specified.")
 	}
-	novaService := novaservice.New(cred.URL, "v2", userInfo.TenantId, cred.Region, identityService)
+	novaService := novaservice.New(cred.URL, "v2", userInfo.TenantId, cred.Region, identityService, fallbackService)
 	identityService.SetupHTTP(mux)
 	novaService.SetupHTTP(mux)
 	return novaService

@@ -35,8 +35,8 @@ type statusHistoryCommand struct {
 
 var statusHistoryDoc = `
 This command will report the history of status changes for
-a given unit.
-The statuses for the unit workload and/or agent are available.
+a given entity.
+The statuses are available for the following types.
 -type supports:
     juju-unit: will show statuses for the unit's juju agent.
     workload: will show statuses for the unit's workload.
@@ -46,19 +46,20 @@ The statuses for the unit workload and/or agent are available.
     juju-container: will show statuses for the container's juju agent.
     container: will show statuses for containers.
  and sorted by time of occurrence.
+ The default is unit.
 `
 
 func (c *statusHistoryCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status-history",
-		Args:    "[-n N] <unit>",
-		Purpose: "output past statuses for a unit",
+		Args:    "[-n N] [--type T] [--utc] <entity name>",
+		Purpose: "output past statuses for the passed entity",
 		Doc:     statusHistoryDoc,
 	}
 }
 
 func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.outputContent, "type", "combined", "type of statuses to be displayed [agent|workload|combined|machine|machineInstance|container|containerinstance].")
+	f.StringVar(&c.outputContent, "type", "unit", "type of statuses to be displayed [agent|workload|combined|machine|machineInstance|container|containerinstance].")
 	f.IntVar(&c.backlogSize, "n", 20, "size of logs backlog.")
 	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
 }
@@ -66,9 +67,9 @@ func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *statusHistoryCommand) Init(args []string) error {
 	switch {
 	case len(args) > 1:
-		return errors.Errorf("unexpected arguments after unit name.")
+		return errors.Errorf("unexpected arguments after entity name.")
 	case len(args) == 0:
-		return errors.Errorf("unit name is missing.")
+		return errors.Errorf("entity name is missing.")
 	default:
 		c.unitName = args[0]
 	}
