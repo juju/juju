@@ -140,7 +140,7 @@ func (s *UnitSuite) TestParseUnknown(c *gc.C) {
 }
 
 func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
-	timeout := time.After(5 * time.Second)
+	timeout := time.After(coretesting.LongWait)
 
 	for {
 		select {
