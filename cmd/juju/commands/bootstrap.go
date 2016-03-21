@@ -360,6 +360,62 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		configAttrs[k] = v
 	}
 	logger.Debugf("preparing controller with config: %v", configAttrs)
+
+	// Read existing current controller, account, model so we can clean up on error.
+	var oldCurrentController, oldCurrentAccount, oldCurrentModel string
+	oldCurrentController, err = modelcmd.ReadCurrentController()
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Annotate(err, "error reading current controller")
+	}
+	if oldCurrentController != "" {
+		oldCurrentAccount, err = store.CurrentAccount(oldCurrentController)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Annotate(err, "error reading current account")
+		}
+	}
+	if oldCurrentAccount != "" {
+		oldCurrentModel, err = store.CurrentModel(oldCurrentController, oldCurrentAccount)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Annotate(err, "error reading current model")
+		}
+	}
+
+	defer func() {
+		if resultErr == nil {
+			return
+		}
+		if err := store.RemoveController(c.controllerName); err != nil {
+			logger.Warningf(
+				"cannot destroy newly created controller metadata info %q info: %v",
+				c.controllerName, err,
+			)
+		}
+		if oldCurrentModel != "" {
+			if err := store.SetCurrentModel(oldCurrentController, oldCurrentAccount, oldCurrentModel); err != nil {
+				logger.Warningf(
+					"cannot restore old controller model metadata %q: %v",
+					oldCurrentModel, err,
+				)
+			}
+		}
+		if oldCurrentAccount != "" {
+			if err := store.SetCurrentAccount(oldCurrentController, oldCurrentAccount); err != nil {
+				logger.Warningf(
+					"cannot restore old controller account metadata %q: %v",
+					oldCurrentAccount, err,
+				)
+			}
+		}
+		if oldCurrentController != "" {
+			if err := modelcmd.WriteCurrentController(oldCurrentController); err != nil {
+				logger.Warningf(
+					"cannot restore old controller metadata %q: %v",
+					oldCurrentController, err,
+				)
+			}
+		}
+	}()
+
 	environ, err := environsPrepare(
 		modelcmd.BootstrapContext(ctx), store,
 		environs.PrepareParams{
@@ -376,18 +432,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	defer func() {
-		if resultErr == nil {
-			return
-		}
-		if err := store.RemoveController(c.controllerName); err != nil {
-			logger.Warningf(
-				"cannot destroy newly created controller info %q info: %v",
-				c.controllerName, err,
-			)
-		}
-	}()
 
 	// Set the current model to the initial hosted model.
 	accountName, err := store.CurrentAccount(c.controllerName)
