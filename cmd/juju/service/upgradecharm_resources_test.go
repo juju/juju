@@ -138,7 +138,7 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 		AuthUsername: "test-user",
 		AuthPassword: "test-password",
 	}
-	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
+	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
 	c.Assert(err, jc.ErrorIsNil)
 	s.handler = handler
 	s.srv = httptest.NewServer(handler)

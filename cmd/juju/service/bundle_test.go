@@ -814,6 +814,20 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *gc.
     `)
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": bundle charm "cs:trusty/incompatible-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
 
+	// Try upgrading to a different series.
+	// Note that this test comes before the next one because
+	// otherwise we can't resolve the charm URL because the charm's
+	// "base entity" is not marked as promulgated so the query by
+	// promulgated will find it.
+	testcharms.UploadCharm(c, s.client, "vivid/wordpress-42", "wordpress")
+	_, err = s.DeployBundleYAML(c, `
+        services:
+            wordpress:
+                charm: vivid/wordpress
+                num_units: 1
+    `)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": bundle charm "cs:vivid/wordpress-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
+
 	// Try upgrading to a different user.
 	testcharms.UploadCharm(c, s.client, "~who/trusty/wordpress-42", "wordpress")
 	_, err = s.DeployBundleYAML(c, `
@@ -823,16 +837,6 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *gc.
                 num_units: 1
     `)
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": bundle charm "cs:~who/trusty/wordpress-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
-
-	// Try upgrading to a different series.
-	testcharms.UploadCharm(c, s.client, "vivid/wordpress-42", "wordpress")
-	_, err = s.DeployBundleYAML(c, `
-        services:
-            wordpress:
-                charm: vivid/wordpress
-                num_units: 1
-    `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": bundle charm "cs:vivid/wordpress-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C) {

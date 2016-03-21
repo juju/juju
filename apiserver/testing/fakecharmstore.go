@@ -56,7 +56,7 @@ func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
 		IdentityLocation: s.discharger.Location(),
 		PublicKeyLocator: s.discharger,
 	}
-	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
+	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
 	c.Assert(err, jc.ErrorIsNil)
 	s.handler = handler
 	s.Srv = httptest.NewServer(handler)

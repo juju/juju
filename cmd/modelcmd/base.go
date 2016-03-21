@@ -5,12 +5,9 @@ package modelcmd
 
 import (
 	"net/http"
-	"net/url"
-	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/persistent-cookiejar"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"launchpad.net/gnuflag"
 
@@ -30,7 +27,7 @@ type CommandBase interface {
 
 	// closeContext closes the command's API context.
 	closeContext()
-	setVisitWebPage(func(*url.URL) error)
+	setCmdContext(*cmd.Context)
 }
 
 // ModelAPI provides access to the model client facade methods.
@@ -43,16 +40,16 @@ type ModelAPI interface {
 // an API connection.
 type JujuCommandBase struct {
 	cmd.CommandBase
-	apiContext   *apiContext
-	modelApi     ModelAPI
-	visitWebPage func(*url.URL) error
+	cmdContext *cmd.Context
+	apiContext *APIContext
+	modelApi   ModelAPI
 }
 
 // closeContext closes the command's API context
 // if it has actually been created.
 func (c *JujuCommandBase) closeContext() {
 	if c.apiContext != nil {
-		if err := c.apiContext.close(); err != nil {
+		if err := c.apiContext.Close(); err != nil {
 			logger.Errorf("%v", err)
 		}
 	}
@@ -84,7 +81,7 @@ func (c *JujuCommandBase) NewAPIRoot(
 	if err := c.initAPIContext(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.apiContext.newAPIRoot(store, controllerName, accountName, modelName)
+	return c.newAPIRoot(store, controllerName, accountName, modelName)
 }
 
 // HTTPClient returns an http.Client that contains the loaded
@@ -96,16 +93,25 @@ func (c *JujuCommandBase) HTTPClient() (*http.Client, error) {
 	if err := c.initAPIContext(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.apiContext.httpClient(), nil
+	return c.apiContext.BakeryClient.Client, nil
+}
+
+// BakeryClient returns a macaroon bakery client that
+// uses the same HTTP client returned by HTTPClient.
+func (c *JujuCommandBase) BakeryClient() (*httpbakery.Client, error) {
+	if err := c.initAPIContext(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.apiContext.BakeryClient, nil
 }
 
 // APIOpen establishes a connection to the API server using the
-// the give api.Info and api.DialOpts.
+// the given api.Info and api.DialOpts.
 func (c *JujuCommandBase) APIOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 	if err := c.initAPIContext(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.apiContext.apiOpen(info, opts)
+	return c.apiOpen(info, opts)
 }
 
 // RefreshModels refreshes the local models cache for the current user
@@ -142,15 +148,31 @@ func (c *JujuCommandBase) initAPIContext() error {
 	if c.apiContext != nil {
 		return nil
 	}
-	if c.visitWebPage == nil {
-		c.visitWebPage = httpbakery.OpenWebBrowser
-	}
-	ctxt, err := newAPIContext(c.visitWebPage)
+	apiContext, err := NewAPIContext(c.cmdContext)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	c.apiContext = ctxt
+	c.apiContext = apiContext
 	return nil
+}
+
+func (c *JujuCommandBase) setCmdContext(ctx *cmd.Context) {
+	c.cmdContext = ctx
+}
+
+// apiOpen establishes a connection to the API server using the
+// the give api.Info and api.DialOpts.
+func (c *JujuCommandBase) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+	return api.Open(info, opts)
+}
+
+// newAPIRoot establishes a connection to the API server for
+// the named system or model.
+func (c *JujuCommandBase) newAPIRoot(store jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error) {
+	if controllerName == "" {
+		return nil, errors.Trace(errNoNameSpecified)
+	}
+	return juju.NewAPIConnection(store, controllerName, accountName, modelName, c.apiContext.BakeryClient)
 }
 
 // WrapBase wraps the specified CommandBase, returning a Command
@@ -163,7 +185,6 @@ func WrapBase(c CommandBase) cmd.Command {
 
 type baseCommandWrapper struct {
 	CommandBase
-	*apiContext
 }
 
 // Run implements Command.Run.
@@ -180,76 +201,4 @@ func (w *baseCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 // Init implements Command.Init.
 func (w *baseCommandWrapper) Init(args []string) error {
 	return w.CommandBase.Init(args)
-}
-
-// cookieFile returns the path to the cookie used to store authorization
-// macaroons. The returned value can be overridden by setting the
-// JUJU_COOKIEFILE or GO_COOKIEFILE environment variables.
-func cookieFile() string {
-	if file := os.Getenv("JUJU_COOKIEFILE"); file != "" {
-		return file
-	}
-	return cookiejar.DefaultCookieFile()
-}
-
-func (c *JujuCommandBase) setVisitWebPage(f func(*url.URL) error) {
-	c.visitWebPage = f
-}
-
-// newAPIContext returns a new api context, which should be closed
-// when done with.
-func newAPIContext(f func(*url.URL) error) (*apiContext, error) {
-	jar, err := cookiejar.New(&cookiejar.Options{
-		Filename: cookieFile(),
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	client := httpbakery.NewClient()
-	client.Jar = jar
-	client.VisitWebPage = f
-
-	return &apiContext{
-		jar:    jar,
-		client: client,
-	}, nil
-}
-
-// apiContext is a convenience type that can be embedded wherever
-// we need an API connection.
-// It also stores a bakery bakery client allowing the API
-// to be used using macaroons to authenticate. It stores
-// obtained macaroons and discharges in a cookie jar file.
-type apiContext struct {
-	jar    *cookiejar.Jar
-	client *httpbakery.Client
-}
-
-// Close saves the embedded cookie jar.
-func (c *apiContext) close() error {
-	if err := c.jar.Save(); err != nil {
-		return errors.Annotatef(err, "cannot save cookie jar")
-	}
-	return nil
-}
-
-// apiOpen establishes a connection to the API server using the
-// the give api.Info and api.DialOpts.
-func (ctx *apiContext) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-	return api.Open(info, opts)
-}
-
-// newAPIRoot establishes a connection to the API server for
-// the named system or model.
-func (ctx *apiContext) newAPIRoot(store jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error) {
-	if controllerName == "" {
-		return nil, errors.Trace(errNoNameSpecified)
-	}
-	return juju.NewAPIConnection(store, controllerName, accountName, modelName, ctx.client)
-}
-
-// httpClient returns an http.Client that contains the loaded
-// persistent cookie jar.
-func (ctx *apiContext) httpClient() *http.Client {
-	return ctx.client.Client
 }

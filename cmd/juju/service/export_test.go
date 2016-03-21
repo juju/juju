@@ -4,9 +4,8 @@
 package service
 
 import (
-	"net/http"
-
 	"github.com/juju/cmd"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -38,8 +37,8 @@ type Patcher interface {
 
 func PatchNewCharmStoreClient(s Patcher, url string) {
 	original := newCharmStoreClient
-	s.PatchValue(&newCharmStoreClient, func(ctx *cmd.Context, httpClient *http.Client) *csClient {
-		csclient := original(ctx, httpClient)
+	s.PatchValue(&newCharmStoreClient, func(bakeryClient *httpbakery.Client) *csClient {
+		csclient := original(bakeryClient)
 		csclient.params.URL = url
 		return csclient
 	})
