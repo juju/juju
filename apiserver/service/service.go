@@ -125,6 +125,18 @@ func deployService(st *state.State, owner string, args params.ServiceDeploy) err
 
 	// Try to find the charm URL in state first.
 	ch, err := st.Charm(curl)
+	// TODO(wallyworld) - remove for 2.0 beta4
+	if errors.IsNotFound(err) {
+		// Clients written to expect 1.16 compatibility require this next block.
+		if curl.Schema != "cs" {
+			return errors.Errorf(`charm url has unsupported schema %q`, curl.Schema)
+		}
+		if err = AddCharmWithAuthorization(st, params.AddCharmWithAuthorization{
+			URL: args.CharmUrl,
+		}); err == nil {
+			ch, err = st.Charm(curl)
+		}
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
