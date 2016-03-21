@@ -286,8 +286,7 @@ func (*RestrictedProviderFieldsSuite) TestRestrictedProviderFields(c *gc.C) {
 		provider: "azure",
 		expected: []string{
 			"type", "ca-cert", "state-port", "api-port", "controller-uuid",
-			"subscription-id", "tenant-id", "application-id", "application-password",
-			"location", "controller-resource-group", "storage-account-type",
+			"location", "endpoint", "storage-endpoint", "controller-resource-group",
 		},
 	}, {
 		provider: "dummy",

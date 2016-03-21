@@ -78,13 +78,10 @@ func (prov *azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, er
 // will be copied across to a hosted environment's initial configuration.
 func (prov *azureEnvironProvider) RestrictedConfigAttributes() []string {
 	return []string{
-		configAttrSubscriptionId,
-		configAttrTenantId,
-		configAttrAppId,
-		configAttrAppPassword,
 		configAttrLocation,
+		configAttrEndpoint,
 		configAttrControllerResourceGroup,
-		configAttrStorageAccountType,
+		configAttrStorageEndpoint,
 	}
 }
 
