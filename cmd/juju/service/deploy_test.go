@@ -16,7 +16,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
@@ -812,7 +811,7 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 		PublicKeyLocator: keyring,
 		TermsLocation:    s.termsDischarger.Location(),
 	}
-	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
+	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
 	c.Assert(err, jc.ErrorIsNil)
 	s.handler = handler
 	s.srv = httptest.NewServer(handler)
@@ -827,14 +826,14 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 
 	// Point the CLI to the charm store testing server.
 	original := newCharmStoreClient
-	s.PatchValue(&newCharmStoreClient, func(ctx *cmd.Context, httpClient *http.Client) *csClient {
-		csclient := original(ctx, httpClient)
+	s.PatchValue(&newCharmStoreClient, func(client *httpbakery.Client) *csClient {
+		csclient := original(client)
 		csclient.params.URL = s.srv.URL
 		// Add a cookie so that the discharger can detect whether the
 		// HTTP client is the juju environment or the juju client.
 		lurl, err := url.Parse(s.discharger.Location())
 		c.Assert(err, jc.ErrorIsNil)
-		csclient.params.HTTPClient.Jar.SetCookies(lurl, []*http.Cookie{{
+		csclient.params.BakeryClient.Jar.SetCookies(lurl, []*http.Cookie{{
 			Name:  clientUserCookie,
 			Value: clientUserName,
 		}})
@@ -844,7 +843,7 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	// Point the Juju API server to the charm store testing server.
 	s.PatchValue(&csclient.ServerURL, s.srv.URL)
 
-	s.PatchValue(&getApiClient, func(*cmd.Context, *http.Client) (apiClient, error) {
+	s.PatchValue(&getApiClient, func(*httpbakery.Client) (apiClient, error) {
 		return &mockBudgetAPIClient{&jujutesting.Stub{}}, nil
 	})
 }

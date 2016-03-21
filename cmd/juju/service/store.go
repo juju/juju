@@ -5,20 +5,16 @@ package service
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	"gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
@@ -155,15 +151,10 @@ type csClient struct {
 // helpers to save the local authorization cookies and to authorize
 // non-public charm deployments. It is defined as a variable so it can
 // be changed for testing purposes.
-var newCharmStoreClient = func(ctx *cmd.Context, client *http.Client) *csClient {
-	filler := &form.IOFiller{
-		In:  ctx.Stdin,
-		Out: ctx.Stderr,
-	}
+var newCharmStoreClient = func(client *httpbakery.Client) *csClient {
 	return &csClient{
 		params: charmrepo.NewCharmStoreParams{
-			HTTPClient:   client,
-			VisitWebPage: ussologin.VisitWebPage(filler, client, tokenStore()),
+			BakeryClient: client,
 		},
 	}
 }
@@ -179,8 +170,7 @@ func (c *csClient) authorize(curl *charm.URL) (*macaroon.Macaroon, error) {
 
 	client := csclient.New(csclient.Params{
 		URL:          c.params.URL,
-		HTTPClient:   c.params.HTTPClient,
-		VisitWebPage: c.params.VisitWebPage,
+		BakeryClient: c.params.BakeryClient,
 	})
 	endpoint := "/delegatable-macaroon"
 	endpoint += "?id=" + url.QueryEscape(curl.String())

@@ -7,13 +7,11 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"net/http/httptest"
 	"os"
 	"path"
 	"path/filepath"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -21,6 +19,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -43,15 +42,15 @@ func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 	handler, err := charmstore.NewServer(s.Session.DB("juju-testing"), nil, "", charmstore.ServerParams{
 		AuthUsername: "test-user",
 		AuthPassword: "test-password",
-	}, charmstore.V4)
+	}, charmstore.V5)
 	c.Assert(err, jc.ErrorIsNil)
 	s.handler = handler
 	s.srv = httptest.NewServer(handler)
 
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	original := newCharmStoreClient
-	s.PatchValue(&newCharmStoreClient, func(ctx *cmd.Context, httpClient *http.Client) *csClient {
-		csclient := original(ctx, httpClient)
+	s.PatchValue(&newCharmStoreClient, func(bakeryClient *httpbakery.Client) *csClient {
+		csclient := original(bakeryClient)
 		csclient.params.URL = s.srv.URL
 		return csclient
 	})

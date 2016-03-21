@@ -6,7 +6,6 @@ package service
 import (
 	"archive/zip"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 
@@ -16,6 +15,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 	"launchpad.net/gnuflag"
 
@@ -206,10 +206,10 @@ type DeployStep interface {
 	// Set flags necessary for the deploy step.
 	SetFlags(*gnuflag.FlagSet)
 	// RunPre runs before the call is made to add the charm to the environment.
-	RunPre(api.Connection, *http.Client, *cmd.Context, DeploymentInfo) error
+	RunPre(api.Connection, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
 	// RunPost runs after the call is made to add the charm to the environment.
 	// The error parameter is used to notify the step of a previously occurred error.
-	RunPost(api.Connection, *http.Client, *cmd.Context, DeploymentInfo, error) error
+	RunPost(api.Connection, *httpbakery.Client, *cmd.Context, DeploymentInfo, error) error
 }
 
 // DeploymentInfo is used to maintain all deployment information for
@@ -352,11 +352,11 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		return err
 	}
 
-	httpClient, err := c.HTTPClient()
+	bakeryClient, err := c.BakeryClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	csClient := newCharmStoreClient(ctx, httpClient)
+	csClient := newCharmStoreClient(bakeryClient)
 
 	var charmOrBundleURL *charm.URL
 	var repo charmrepo.Interface
@@ -527,7 +527,7 @@ func (c *DeployCommand) deployCharm(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	httpClient, err := c.HTTPClient()
+	bakeryClient, err := c.BakeryClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -539,7 +539,7 @@ func (c *DeployCommand) deployCharm(
 	}
 
 	for _, step := range c.Steps {
-		err = step.RunPre(state, httpClient, ctx, deployInfo)
+		err = step.RunPre(state, bakeryClient, ctx, deployInfo)
 		if err != nil {
 			return err
 		}
@@ -547,7 +547,7 @@ func (c *DeployCommand) deployCharm(
 
 	defer func() {
 		for _, step := range c.Steps {
-			err = step.RunPost(state, httpClient, ctx, deployInfo, rErr)
+			err = step.RunPost(state, bakeryClient, ctx, deployInfo, rErr)
 			if err != nil {
 				rErr = err
 			}

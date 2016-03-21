@@ -189,11 +189,11 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		newRef = oldURL.WithRevision(c.Revision).String()
 	}
 
-	httpClient, err := c.HTTPClient()
+	bakeryClient, err := c.BakeryClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	csClient := newCharmStoreClient(ctx, httpClient)
+	csClient := newCharmStoreClient(bakeryClient)
 
 	addedURL, csMac, err := c.addCharm(oldURL, newRef, ctx, client, csClient)
 	if err != nil {
