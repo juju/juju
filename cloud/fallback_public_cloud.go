@@ -46,7 +46,7 @@ clouds:
         endpoint: https://ec2.us-gov-west-1.amazonaws-govcloud.com
   google:
     type: gce
-    auth-types: [ oauth2 ]
+    auth-types: [ jsonfile, oauth2 ]
     regions:
       us-east1:
         endpoint: https://www.googleapis.com

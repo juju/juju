@@ -35,8 +35,9 @@ type CharmResourceLister interface {
 type ListCharmResourcesCommand struct {
 	modelcmd.ModelCommandBase
 	CharmCommandBase
-	out   cmd.Output
-	charm string
+	out     cmd.Output
+	channel string
+	charm   string
 }
 
 // NewListCharmResourcesCommand returns a new command that lists resources defined
@@ -84,6 +85,7 @@ func (c *ListCharmResourcesCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 	})
+	f.StringVar(&c.channel, "channel", "", "the charmstore channel of the charm")
 }
 
 // Init implements cmd.Command.

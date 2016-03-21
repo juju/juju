@@ -206,6 +206,9 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 				Resources: []api.Resource{
 					unitRes,
 				},
+				DownloadProgress: map[string]int64{
+					unitRes.Name: 8,
+				},
 			},
 		},
 	})
@@ -223,6 +226,9 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 				Tag: names.NewUnitTag("foo/0"),
 				Resources: []resource.Resource{
 					unitExpected,
+				},
+				DownloadProgress: map[string]int64{
+					unitRes.Name: 8,
 				},
 			},
 		},
@@ -506,7 +512,7 @@ func (HelpersSuite) TestAPI2CharmResource(c *gc.C) {
 	c.Check(res, jc.DeepEquals, expected)
 }
 
-func (HelpersSuite) TestServiceResource2API(c *gc.C) {
+func (HelpersSuite) TestServiceResources2API(c *gc.C) {
 	res1 := resourcetesting.NewResource(c, nil, "res1", "a-service", "data").Resource
 	res2 := resourcetesting.NewResource(c, nil, "res2", "a-service", "data2").Resource
 
@@ -530,8 +536,13 @@ func (HelpersSuite) TestServiceResource2API(c *gc.C) {
 					res1,
 					res2,
 				},
+				DownloadProgress: map[string]int64{
+					res2.Name: 2,
+				},
 			},
-			// note: nothing for tag1
+			{
+				Tag: tag1,
+			},
 		},
 		CharmStoreResources: []charmresource.Resource{
 			chres1,
@@ -539,7 +550,7 @@ func (HelpersSuite) TestServiceResource2API(c *gc.C) {
 		},
 	}
 
-	result := api.ServiceResources2APIResult(svcRes, []names.UnitTag{tag0, tag1})
+	result := api.ServiceResources2APIResult(svcRes)
 
 	apiRes1 := api.Resource2API(res1)
 	apiRes2 := api.Resource2API(res2)
@@ -561,6 +572,9 @@ func (HelpersSuite) TestServiceResource2API(c *gc.C) {
 					apiRes1,
 					apiRes2,
 				},
+				DownloadProgress: map[string]int64{
+					res2.Name: 2,
+				},
 			},
 			{
 				// we should have a listing for every unit, even if they
@@ -575,5 +589,4 @@ func (HelpersSuite) TestServiceResource2API(c *gc.C) {
 			apiChRes2,
 		},
 	})
-
 }

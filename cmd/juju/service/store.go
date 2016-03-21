@@ -111,35 +111,37 @@ func resolveCharmStoreEntityURL(args resolveCharmStoreEntityParams) (*charm.URL,
 // given charm URL to state. For non-public charm URLs, this function also
 // handles the macaroon authorization process using the given csClient.
 // The resulting charm URL of the added charm is displayed on stdout.
-func addCharmFromURL(client *api.Client, curl *charm.URL, repo charmrepo.Interface, csclient *csClient) (*charm.URL, error) {
+func addCharmFromURL(client *api.Client, curl *charm.URL, repo charmrepo.Interface, csclient *csClient) (*charm.URL, *macaroon.Macaroon, error) {
+	var csMac *macaroon.Macaroon
 	switch curl.Schema {
 	case "local":
 		ch, err := repo.Get(curl)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		stateCurl, err := client.AddLocalCharm(curl, ch)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		curl = stateCurl
 	case "cs":
 		if err := client.AddCharm(curl); err != nil {
 			if !params.IsCodeUnauthorized(err) {
-				return nil, errors.Trace(err)
+				return nil, nil, errors.Trace(err)
 			}
 			m, err := csclient.authorize(curl)
 			if err != nil {
-				return nil, maybeTermsAgreementError(err)
+				return nil, nil, maybeTermsAgreementError(err)
 			}
 			if err := client.AddCharmWithAuthorization(curl, m); err != nil {
-				return nil, errors.Trace(err)
+				return nil, nil, errors.Trace(err)
 			}
+			csMac = m
 		}
 	default:
-		return nil, fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
+		return nil, nil, fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
 	}
-	return curl, nil
+	return curl, csMac, nil
 }
 
 // csClient gives access to the charm store server and provides parameters
