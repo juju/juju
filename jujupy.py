@@ -845,10 +845,11 @@ class EnvJujuClient:
 
     def get_controller_endpoint(self):
         """Return the address of the controller leader."""
+        controller = self.env.controller.name
         output = self.get_juju_output(
-            'show-controller', self.env.environment, include_e=False)
+            'show-controller', controller, include_e=False)
         info = yaml_loads(output)
-        endpoint = info[self.env.environment]['details']['api-endpoints'][0]
+        endpoint = info[controller]['details']['api-endpoints'][0]
         address, port = split_address_port(endpoint)
         return address
 
