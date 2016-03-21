@@ -304,6 +304,7 @@ var _ = gc.Suite(&DeployRepoCharmStoreSuite{})
 func (s *DeployRepoCharmStoreSuite) SetUpSuite(c *gc.C) {
 	s.charmStoreSuite.SetUpSuite(c)
 	s.BaseRepoSuite.SetUpSuite(c)
+	s.PatchValue(&watcher.Period, 10*time.Millisecond)
 }
 
 func (s *DeployRepoCharmStoreSuite) TearDownSuite(c *gc.C) {
@@ -312,7 +313,6 @@ func (s *DeployRepoCharmStoreSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *DeployRepoCharmStoreSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&watcher.Period, 10*time.Millisecond)
 	s.charmStoreSuite.SetUpTest(c)
 	s.BaseRepoSuite.SetUpTest(c)
 

@@ -28,12 +28,11 @@ type ModelMigrationSuite struct {
 var _ = gc.Suite(new(ModelMigrationSuite))
 
 func (s *ModelMigrationSuite) SetUpTest(c *gc.C) {
+	s.ConnSuite.SetUpTest(c)
 	s.clock = coretesting.NewClock(time.Now().Truncate(time.Second))
 	s.PatchValue(&state.GetClock, func() clock.Clock {
 		return s.clock
 	})
-
-	s.ConnSuite.SetUpTest(c)
 
 	// Create a hosted model to migrate.
 	s.State2 = s.Factory.MakeModel(c, nil)

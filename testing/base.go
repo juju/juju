@@ -146,6 +146,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
+	c.Assert(utils.OutgoingAccessAllowed, gc.Equals, false)
 
 	// We do this to isolate invocations of bash from pulling in the
 	// ambient user environment, and potentially affecting the tests.

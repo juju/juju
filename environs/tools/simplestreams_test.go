@@ -1023,6 +1023,7 @@ type signedSuite struct {
 }
 
 func (s *signedSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
 	var imageData = map[string]string{
 		"/unsigned/streams/v1/index.json":          unsignedIndex,
 		"/unsigned/streams/v1/tools_metadata.json": unsignedProduct,
@@ -1053,6 +1054,7 @@ func (s *signedSuite) SetUpSuite(c *gc.C) {
 
 func (s *signedSuite) TearDownSuite(c *gc.C) {
 	sstesting.SetRoundTripperFiles(nil, nil)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {

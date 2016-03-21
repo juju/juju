@@ -839,6 +839,7 @@ lxc.network.mtu = 4321
 }
 
 func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {
+	s.HookCommandOutput(&lxc.FsCommandOutput, []byte("Type\next4\n"), nil)
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
 	manager := s.makeManager(c, "test")
@@ -851,6 +852,7 @@ func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {
 }
 
 func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateAUFS(c *gc.C) {
+	s.HookCommandOutput(&lxc.FsCommandOutput, []byte("Type\next4\n"), nil)
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
 	s.PatchValue(&s.useAUFS, true)
@@ -860,6 +862,19 @@ func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateAUFS(c *gc.
 	cloned := <-s.events
 	s.AssertEvent(c, cloned, mock.Cloned, "juju-quantal-lxc-template")
 	c.Assert(cloned.Args, gc.DeepEquals, []string{"--snapshot", "--backingstore", "aufs"})
+	s.AssertEvent(c, <-s.events, mock.Started, name)
+}
+
+func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateBtrfs(c *gc.C) {
+	s.HookCommandOutput(&lxc.FsCommandOutput, []byte("Type\nbtrfs\n"), nil)
+	s.createTemplate(c)
+	s.PatchValue(&s.useClone, true)
+	manager := s.makeManager(c, "test")
+	instance := containertesting.CreateContainer(c, manager, "1")
+	name := string(instance.Id())
+	cloned := <-s.events
+	s.AssertEvent(c, cloned, mock.Cloned, "juju-quantal-lxc-template")
+	c.Assert(cloned.Args, gc.DeepEquals, []string{"--snapshot"})
 	s.AssertEvent(c, <-s.events, mock.Started, name)
 }
 
