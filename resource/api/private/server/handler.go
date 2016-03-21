@@ -18,23 +18,23 @@ import (
 // TODO(ericsnow) Define the HTTPHandlerConstraints here? Perhaps
 // even the HTTPHandlerSpec?
 
-// UnitResourceHandler is the HTTP handler for the resources
+// LegacyHTTPHandler is the HTTP handler for the resources
 // endpoint. We use it rather having a separate handler for each HTTP
 // method since registered API handlers must handle *all* HTTP methods
 // currently.
-type UnitResourceHandler struct {
-	UnitResourceHandlerDeps
+type LegacyHTTPHandler struct {
+	LegacyHTTPHandlerDeps
 }
 
-// NewUnitResourceHandler creates a new http.Handler for the resources endpoint.
-func NewUnitResourceHandler(deps UnitResourceHandlerDeps) *UnitResourceHandler {
-	return &UnitResourceHandler{
-		UnitResourceHandlerDeps: deps,
+// NewLegacyHTTPHandler creates a new http.Handler for the resources endpoint.
+func NewLegacyHTTPHandler(deps LegacyHTTPHandlerDeps) *LegacyHTTPHandler {
+	return &LegacyHTTPHandler{
+		LegacyHTTPHandlerDeps: deps,
 	}
 }
 
 // ServeHTTP implements http.Handler.
-func (h *UnitResourceHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	opener, err := h.NewResourceOpener(req)
 	if err != nil {
 		h.SendHTTPError(resp, err)
@@ -71,20 +71,20 @@ func (h *UnitResourceHandler) ServeHTTP(resp http.ResponseWriter, req *http.Requ
 	}
 }
 
-// UnitResourceHandlerDeps exposes the external dependencies
-// of UnitResourceHandler.
-type UnitResourceHandlerDeps interface {
-	baseUnitResourceHandlerDeps
+// LegacyHTTPHandlerDeps exposes the external dependencies
+// of LegacyHTTPHandler.
+type LegacyHTTPHandlerDeps interface {
+	baseLegacyHTTPHandlerDeps
 	ExtraDeps
 }
 
-//ExtraDeps exposes the non-superficial dependencies of UnitResourceHandler.
+//ExtraDeps exposes the non-superficial dependencies of LegacyHTTPHandler.
 type ExtraDeps interface {
 	// NewResourceOpener returns a new opener for the request.
 	NewResourceOpener(*http.Request) (resource.Opener, error)
 }
 
-type baseUnitResourceHandlerDeps interface {
+type baseLegacyHTTPHandlerDeps interface {
 	// UpdateDownloadResponse updates the HTTP response with the info
 	// from the resource.
 	UpdateDownloadResponse(http.ResponseWriter, resource.Resource)
@@ -99,36 +99,36 @@ type baseUnitResourceHandlerDeps interface {
 	Copy(io.Writer, io.Reader) error
 }
 
-// NewUnitResourceHandlerDeps returns an implementation of UnitResourceHandlerDeps.
-func NewUnitResourceHandlerDeps(extraDeps ExtraDeps) UnitResourceHandlerDeps {
-	return &unitResourceHandlerDeps{
+// NewLegacyHTTPHandlerDeps returns an implementation of LegacyHTTPHandlerDeps.
+func NewLegacyHTTPHandlerDeps(extraDeps ExtraDeps) LegacyHTTPHandlerDeps {
+	return &legacyHTTPHandlerDeps{
 		ExtraDeps: extraDeps,
 	}
 }
 
-// unitResourceHandlerDeps is a partial implementation of LegacyHandlerDeps.
-type unitResourceHandlerDeps struct {
+// legacyHTTPHandlerDeps is a partial implementation of LegacyHandlerDeps.
+type legacyHTTPHandlerDeps struct {
 	ExtraDeps
 }
 
-// SendHTTPError implements UnitResourceHandlerDeps.
-func (deps unitResourceHandlerDeps) SendHTTPError(resp http.ResponseWriter, err error) {
+// SendHTTPError implements LegacyHTTPHandlerDeps.
+func (deps legacyHTTPHandlerDeps) SendHTTPError(resp http.ResponseWriter, err error) {
 	api.SendHTTPError(resp, err)
 }
 
-// UpdateDownloadResponse implements UnitResourceHandlerDeps.
-func (deps unitResourceHandlerDeps) UpdateDownloadResponse(resp http.ResponseWriter, info resource.Resource) {
+// UpdateDownloadResponse implements LegacyHTTPHandlerDeps.
+func (deps legacyHTTPHandlerDeps) UpdateDownloadResponse(resp http.ResponseWriter, info resource.Resource) {
 	api.UpdateDownloadResponse(resp, info)
 }
 
-// HandleDownload implements UnitResourceHandlerDeps.
-func (deps unitResourceHandlerDeps) HandleDownload(opener resource.Opener, req *http.Request) (resource.Opened, error) {
+// HandleDownload implements LegacyHTTPHandlerDeps.
+func (deps legacyHTTPHandlerDeps) HandleDownload(opener resource.Opener, req *http.Request) (resource.Opened, error) {
 	name := api.ExtractDownloadRequest(req)
 	return opener.OpenResource(name)
 }
 
-// Copy implements UnitResourceHandlerDeps.
-func (deps unitResourceHandlerDeps) Copy(w io.Writer, r io.Reader) error {
+// Copy implements LegacyHTTPHandlerDeps.
+func (deps legacyHTTPHandlerDeps) Copy(w io.Writer, r io.Reader) error {
 	_, err := io.Copy(w, r)
 	return err
 }
