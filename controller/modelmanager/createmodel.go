@@ -255,7 +255,7 @@ func maybeCopyControllerSecrets(provider environs.ProviderCredentials, controlle
 
 	// Ensure any required attributes which are empty are copied from the controller config.
 	for _, attrName := range requiredControllerAttrNames {
-		if val, ok := attrs[attrName]; !ok || val == "" {
+		if _, ok := attrs[attrName]; !ok {
 			attrs[attrName] = controllerAttrs[attrName]
 		}
 	}

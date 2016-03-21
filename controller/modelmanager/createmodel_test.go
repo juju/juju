@@ -127,8 +127,7 @@ func (s *ModelConfigCreatorSuite) TestCreateModelEnsuresRequiredFields(c *gc.C) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	newAttrs := coretesting.Attrs{
-		"name":            "new-model",
-		"authorized-keys": "",
+		"name": "new-model",
 	}
 	_, err = s.newModelConfigAdmin(newAttrs)
 	c.Assert(err, jc.ErrorIsNil)
