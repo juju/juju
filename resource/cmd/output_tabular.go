@@ -150,7 +150,7 @@ func formatServiceDetailTabular(resources FormattedServiceDetails) []byte {
 			r.unitNumber,
 			r.Expected.Name,
 			r.Unit.combinedRevision,
-			r.Expected.combinedRevision,
+			r.revProgress,
 		)
 	}
 	tw.Flush()
@@ -178,7 +178,7 @@ func formatUnitDetailTabular(resources FormattedUnitDetails) []byte {
 		fmt.Fprintf(tw, "%v\t%v\t%v\n",
 			r.Expected.Name,
 			r.Unit.combinedRevision,
-			r.Expected.combinedRevision,
+			r.revProgress,
 		)
 	}
 	tw.Flush()

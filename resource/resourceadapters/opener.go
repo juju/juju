@@ -6,6 +6,7 @@ package resourceadapters
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/charmstore"
@@ -15,6 +16,7 @@ import (
 // resourceOpener is an implementation of server.ResourceOpener.
 type resourceOpener struct {
 	st     corestate.Resources
+	csMac  *macaroon.Macaroon
 	userID names.Tag
 	unit   resource.Unit
 }
@@ -26,7 +28,8 @@ func (ro *resourceOpener) OpenResource(name string) (resource.Opened, error) {
 	}
 	cURL, _ := ro.unit.CharmURL()
 
-	csOpener := newCharmstoreOpener(cURL)
+	// TODO(ericsnow) We will need an actual macaroon here.
+	csOpener := newCharmstoreOpener(cURL, ro.csMac)
 	client, err := csOpener.NewClient()
 	if err != nil {
 		return resource.Opened{}, errors.Trace(err)

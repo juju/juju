@@ -66,10 +66,9 @@ func (cs charmstoreSpec) Connect(ctx *cmd.Context) (*charmstore.Client, error) {
 			VisitWebPage: visitWebPage,
 		},
 	})
+	client.Closer = apiContext
 	return client, nil
 }
-
-// TODO(ericsnow) Also add charmstoreSpec.Repo() -> charmrepo.Interface?
 
 ///////////////////
 // For the most part, apiContext is copied directly from cmd/envcmd/base.go.
