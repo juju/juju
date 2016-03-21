@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-func (s *clientSuite) TestUploadGUIArchive(c *gc.C) {
+func (s *clientSuite) TestUploadGUIArchiveSuccess(c *gc.C) {
 	otherSt, otherAPISt := s.otherEnviron(c)
 	defer otherSt.Close()
 	defer otherAPISt.Close()
@@ -31,12 +31,20 @@ func (s *clientSuite) TestUploadGUIArchive(c *gc.C) {
 			called = true
 			err := req.ParseForm()
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(req.Form.Get("hash"), gc.Equals, hash)
+			// Check version and content length.
 			c.Assert(req.Form.Get("version"), gc.Equals, vers.String())
 			c.Assert(req.ContentLength, gc.Equals, size)
+			// Check request body.
 			obtainedArchive, err := ioutil.ReadAll(req.Body)
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(obtainedArchive, gc.DeepEquals, archive)
+			// Check hash, and fail if hash is empty.
+			h := req.Form.Get("hash")
+			if h == "" {
+				w.WriteHeader(http.StatusBadRequest)
+			} else {
+				c.Assert(h, gc.Equals, hash)
+			}
 		},
 	).Close()
 
@@ -44,4 +52,8 @@ func (s *clientSuite) TestUploadGUIArchive(c *gc.C) {
 	err := client.UploadGUIArchive(bytes.NewReader(archive), hash, size, vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+
+	// Fail by passing an empty hash.
+	err = client.UploadGUIArchive(bytes.NewReader(archive), "", size, vers)
+	c.Assert(err, gc.ErrorMatches, "cannot upload the GUI archive: .*")
 }

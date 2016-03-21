@@ -29,8 +29,11 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-var (
+const (
 	bzMimeType = "application/x-tar-bzip2"
+)
+
+var (
 	jsMimeType = mime.TypeByExtension(".js")
 	spritePath = filepath.FromSlash("static/gui/build/app/assets/stack/svg/sprite.css.svg")
 )
@@ -446,12 +449,12 @@ func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request)
 
 	// Read and validate the archive data.
 	data, hash, err := readAndHash(req.Body)
-	if hash != hashParam {
-		return errors.BadRequestf("archive does not match provided hash")
-	}
 	size := int64(len(data))
 	if size != req.ContentLength {
 		return errors.BadRequestf("archive does not match provided content length")
+	}
+	if hash != hashParam {
+		return errors.BadRequestf("archive does not match provided hash")
 	}
 
 	// Add the archive to the GUI storage.
@@ -463,8 +466,6 @@ func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request)
 	if err := storage.Add(bytes.NewReader(data), metadata); err != nil {
 		return errors.Annotate(err, "cannot add GUI archive to storage")
 	}
-
-	// TODO frankban: set this version as current somewhere in state.
 
 	// Return the response with current version.
 	sendStatusAndJSON(w, http.StatusOK, params.GUIArchiveVersion{

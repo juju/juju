@@ -553,18 +553,18 @@ var guiArchivePostErrorsTests = []struct {
 	expectedStatus: http.StatusBadRequest,
 	expectedError:  `invalid version parameter "bad-wolf"`,
 }, {
-	about:          "no hash provided",
-	contentType:    apiserver.BZMimeType,
-	query:          "?version=2.0.42",
-	expectedStatus: http.StatusBadRequest,
-	expectedError:  "hash parameter not provided",
-}, {
 	about:           "no content length provided",
 	contentType:     apiserver.BZMimeType,
 	query:           "?version=2.0.42&hash=sha",
 	noContentLength: true,
 	expectedStatus:  http.StatusBadRequest,
 	expectedError:   "content length not provided",
+}, {
+	about:          "no hash provided",
+	contentType:    apiserver.BZMimeType,
+	query:          "?version=2.0.42",
+	expectedStatus: http.StatusBadRequest,
+	expectedError:  "hash parameter not provided",
 }, {
 	about:          "content hash mismatch",
 	contentType:    apiserver.BZMimeType,
