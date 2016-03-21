@@ -19,6 +19,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
@@ -78,6 +79,7 @@ type MachineParams struct {
 	Jobs            []state.MachineJob
 	Password        string
 	Nonce           string
+	Constraints     constraints.Value
 	InstanceId      instance.Id
 	Characteristics *instance.HardwareCharacteristics
 	Addresses       []network.Address
@@ -87,11 +89,12 @@ type MachineParams struct {
 
 // ServiceParams is used when specifying parameters for a new service.
 type ServiceParams struct {
-	Name     string
-	Charm    *state.Charm
-	Creator  names.Tag
-	Status   *status.StatusInfo
-	Settings map[string]interface{}
+	Name        string
+	Charm       *state.Charm
+	Creator     names.Tag
+	Status      *status.StatusInfo
+	Settings    map[string]interface{}
+	Constraints constraints.Value
 }
 
 // UnitParams are used to create units.
@@ -101,6 +104,7 @@ type UnitParams struct {
 	Password    string
 	SetCharmURL bool
 	Status      *status.StatusInfo
+	Constraints constraints.Value
 }
 
 // RelationParams are used to create relations.
@@ -271,6 +275,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 		Jobs:        params.Jobs,
 		Volumes:     params.Volumes,
 		Filesystems: params.Filesystems,
+		Constraints: params.Constraints,
 	}
 
 	m, err := factory.st.AddMachineInsideMachine(
@@ -311,6 +316,7 @@ func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachinePar
 		Jobs:        params.Jobs,
 		Volumes:     params.Volumes,
 		Filesystems: params.Filesystems,
+		Constraints: params.Constraints,
 	}
 	machine, err := factory.st.AddOneMachine(machineTemplate)
 	c.Assert(err, jc.ErrorIsNil)
@@ -385,10 +391,11 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 	}
 	_ = params.Creator.(names.UserTag)
 	service, err := factory.st.AddService(state.AddServiceArgs{
-		Name:     params.Name,
-		Owner:    params.Creator.String(),
-		Charm:    params.Charm,
-		Settings: charm.Settings(params.Settings),
+		Name:        params.Name,
+		Owner:       params.Creator.String(),
+		Charm:       params.Charm,
+		Settings:    charm.Settings(params.Settings),
+		Constraints: params.Constraints,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -419,7 +426,9 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		params.Machine = factory.MakeMachine(c, nil)
 	}
 	if params.Service == nil {
-		params.Service = factory.MakeService(c, nil)
+		params.Service = factory.MakeService(c, &ServiceParams{
+			Constraints: params.Constraints,
+		})
 	}
 	if params.Password == "" {
 		var err error
