@@ -76,9 +76,6 @@ func (p manualProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*c
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if use, ok := cfg.UnknownAttrs()["use-sshstorage"].(bool); ok && !use {
-		return nil, fmt.Errorf("use-sshstorage must not be specified")
-	}
 	envConfig, err := p.validate(cfg, nil)
 	if err != nil {
 		return nil, err
@@ -152,10 +149,6 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 			if err = checkImmutableString(envConfig, oldEnvConfig, key); err != nil {
 				return nil, err
 			}
-		}
-		oldUseSSHStorage, newUseSSHStorage := oldEnvConfig.useSSHStorage(), envConfig.useSSHStorage()
-		if oldUseSSHStorage != newUseSSHStorage && newUseSSHStorage == true {
-			return nil, fmt.Errorf("cannot change use-sshstorage from %v to %v", oldUseSSHStorage, newUseSSHStorage)
 		}
 	}
 
