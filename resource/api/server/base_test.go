@@ -15,6 +15,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/server"
@@ -145,8 +146,8 @@ type stubCSClient struct {
 	ReturnGetResource   *charmresource.Resource
 }
 
-func (s *stubCSClient) ListResources(cURLs []*charm.URL, channel string) ([][]charmresource.Resource, error) {
-	s.AddCall("ListResources", cURLs, channel)
+func (s *stubCSClient) ListResources(charms []charmstore.Charm) ([][]charmresource.Resource, error) {
+	s.AddCall("ListResources", charms)
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
