@@ -382,7 +382,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 		if err := store.RemoveController(c.controllerName); err != nil {
 			logger.Warningf(
-				"cannot destroy newly created controller details %q info: %v",
+				"cannot destroy newly created controller %q details: %v",
 				c.controllerName, err,
 			)
 		}
