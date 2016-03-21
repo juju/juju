@@ -12,6 +12,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
+
+	"github.com/juju/juju/utils/stringforwarder"
 )
 
 type rawImageClient interface {
@@ -71,18 +73,24 @@ func (i *imageClient) EnsureImageExists(series string, copyProgressHandler func(
 	if !ok {
 		return errors.Errorf("can't use a fake client as target")
 	}
+	forwarder := stringforwarder.NewStringForwarder(copyProgressHandler)
+	defer func() {
+		dropCount := forwarder.Stop()
+		logger.Debugf("dropped %d progress messages", dropCount)
+	}()
 	adapter := &progressContext{
 		logger:  logger,
 		level:   loggo.INFO,
 		context: fmt.Sprintf("copying image for %s from %s: %%s", name, ubuntu.BaseURL),
-		forward: copyProgressHandler,
+		forward: forwarder.Receive,
 	}
 	target := ubuntu.GetAlias(series)
 	logger.Infof("found image from %s for %s = %s",
 		ubuntu.BaseURL, series, target)
-	return ubuntu.CopyImage(
+	err = ubuntu.CopyImage(
 		target, client, false, []string{name}, false,
 		true, adapter.copyProgress)
+	return err
 }
 
 // A common place to compute image names (alises) based on the series
