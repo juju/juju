@@ -315,6 +315,9 @@ func (s *DeploySuite) TestResources(c *gc.C) {
 	})
 }
 
+// TODO(ericsnow) Add tests for charmstore-based resources once the
+// endpoints are implemented.
+
 func (s *DeploySuite) TestNetworksIsDeprecated(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "--networks", ", net1, net2 , ", "--constraints", "mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4")
