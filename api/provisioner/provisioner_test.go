@@ -779,8 +779,6 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 }
 
 func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
-	c.Skip("dimitern: temporary disabled to pass a CI run")
-
 	// This test exercises just the success path, all the other cases
 	// are already tested in the apiserver package.
 	template := state.MachineTemplate{
@@ -797,11 +795,11 @@ func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
 	expectInfo := []network.InterfaceInfo{{
 		DeviceIndex:      0,
 		CIDR:             "0.10.0.0/24",
-		NetworkName:      "juju-private",
 		ProviderId:       "dummy-eth0",
 		ProviderSubnetId: "dummy-private",
 		VLANTag:          0,
 		InterfaceName:    "eth0",
+		InterfaceType:    "ethernet",
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigStatic,

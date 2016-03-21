@@ -504,6 +504,7 @@ func (s *workerSuite) TestMongoFindAndUseSpace(c *gc.C) {
 }
 
 func (s *workerSuite) TestMongoErrorNoCommonSpace(c *gc.C) {
+	c.Skip("dimitern: test disabled as it needs refactoring")
 	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
 		st, machines, hostPorts := mongoSpaceTestCommonSetup(c, ipVersion, false)
 

@@ -968,6 +968,7 @@ func (p *ProvisionerAPI) legacyPrepareOrGetContainerInterfaceInfo(
 				ProviderId:       string(interfaceInfo.ProviderId),
 				ProviderSubnetId: string(subnetInfo.ProviderId),
 				VLANTag:          interfaceInfo.VLANTag,
+				InterfaceType:    string(interfaceInfo.InterfaceType),
 				InterfaceName:    interfaceInfo.InterfaceName,
 				Disabled:         interfaceInfo.Disabled,
 				NoAutoStart:      interfaceInfo.NoAutoStart,

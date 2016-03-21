@@ -19,8 +19,8 @@ type stubCharmStore struct {
 	ReturnListResources [][]charmresource.Resource
 }
 
-func (s *stubCharmStore) Connect(_ *cmd.Context) (CharmResourceLister, error) {
-	s.stub.AddCall("Connect")
+func (s *stubCharmStore) Connect(ctx *cmd.Context) (CharmResourceLister, error) {
+	s.stub.AddCall("Connect", ctx)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -50,8 +50,8 @@ type stubAPIClient struct {
 	stub *testing.Stub
 }
 
-func (s *stubAPIClient) Upload(service, name string, resource io.ReadSeeker) error {
-	s.stub.AddCall("Upload", service, name, resource)
+func (s *stubAPIClient) Upload(service, name, filename string, resource io.ReadSeeker) error {
+	s.stub.AddCall("Upload", service, name, filename, resource)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

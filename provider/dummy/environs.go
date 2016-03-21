@@ -1225,6 +1225,7 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 			DeviceIndex:      i,
 			ProviderId:       network.Id(fmt.Sprintf("dummy-eth%d", i)),
 			ProviderSubnetId: network.Id("dummy-" + netName),
+			InterfaceType:    network.EthernetInterface,
 			NetworkName:      "juju-" + netName,
 			CIDR:             fmt.Sprintf("0.%d.0.0/24", (i+1)*10),
 			InterfaceName:    fmt.Sprintf("eth%d", i),

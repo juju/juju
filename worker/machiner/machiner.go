@@ -50,8 +50,9 @@ func (cfg *Config) Validate() error {
 
 // Machiner is responsible for a machine agent's lifecycle.
 type Machiner struct {
-	config  Config
-	machine Machine
+	config            Config
+	machine           Machine
+	observedConfigSet bool
 }
 
 // NewMachiner returns a Worker that will wait for the identified machine
@@ -85,18 +86,6 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 		return nil, errors.Trace(err)
 	}
 	mr.machine = m
-
-	observedConfig, err := getObservedNetworkConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot discover observed network config")
-	} else if len(observedConfig) == 0 {
-		logger.Warningf("not updating network config: no observed config found to update")
-	}
-	if len(observedConfig) > 0 {
-		if err := m.SetObservedNetworkConfig(observedConfig); err != nil {
-			return nil, errors.Annotate(err, "cannot update observed network config")
-		}
-	}
 
 	if mr.config.ClearMachineAddressesOnStart {
 		logger.Debugf("machine addresses ignored on start - resetting machine addresses")
@@ -166,8 +155,28 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 	} else if err != nil {
 		return err
 	}
+
 	life := mr.machine.Life()
 	if life == params.Alive {
+		if mr.observedConfigSet {
+			logger.Infof("observed network config already updated")
+			return nil
+		}
+
+		observedConfig, err := getObservedNetworkConfig()
+		if err != nil {
+			return errors.Annotate(err, "cannot discover observed network config")
+		} else if len(observedConfig) == 0 {
+			logger.Warningf("not updating network config: no observed config found to update")
+		}
+		if len(observedConfig) > 0 {
+			if err := mr.machine.SetObservedNetworkConfig(observedConfig); err != nil {
+				return errors.Annotate(err, "cannot update observed network config")
+			}
+		}
+		logger.Infof("observed network config updated")
+		mr.observedConfigSet = true
+
 		return nil
 	}
 	logger.Debugf("%q is now %s", mr.config.Tag, life)

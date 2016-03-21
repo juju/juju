@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/provisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -32,8 +33,6 @@ type containerSuite struct {
 const regexpMACAddress = "([a-f0-9]{2}:){5}[a-f0-9]{2}"
 
 func (s *containerSuite) SetUpTest(c *gc.C) {
-	c.Skip("dimitern: suite disabled to pass a CI run - most of it it legacy code that will get dropped anyway")
-
 	s.setUpTest(c, false)
 	// Reset any "broken" dummy provider methods.
 	s.breakEnvironMethods(c)
@@ -183,7 +182,7 @@ func (s *prepareSuite) TestErrorWithNoFeatureFlag(c *gc.C) {
 	container := s.newAPI(c, true, true)
 	args := s.makeArgs(container)
 	expectedError := &params.Error{
-		Message: `failed to allocate an address for "0/lxc/0": address allocation not supported`,
+		Message: `container address allocation not supported`,
 		Code:    params.CodeNotSupported,
 	}
 	s.assertCall(c, args, &params.MachineNetworkConfigResults{
@@ -191,53 +190,6 @@ func (s *prepareSuite) TestErrorWithNoFeatureFlag(c *gc.C) {
 			{Error: expectedError},
 		},
 	}, "")
-}
-
-func (s *prepareSuite) TestErrorWithNoFeatureFlagAndBrokenAllocate(c *gc.C) {
-	s.breakEnvironMethods(c, "AllocateAddress")
-	s.SetFeatureFlags()
-	// Use the special "i-alloc-" prefix to force the dummy provider to allow
-	// AllocateAddress to run without the feature flag.
-	container := s.newCustomAPI(c, "i-alloc-me", true, false)
-	args := s.makeArgs(container)
-	expectedError := &params.Error{
-		Message: `failed to allocate an address for "0/lxc/0": dummy.AllocateAddress is broken`,
-	}
-	s.assertCall(c, args, &params.MachineNetworkConfigResults{
-		Results: []params.MachineNetworkConfigResult{
-			{Error: expectedError},
-		},
-	}, "")
-}
-
-func (s *prepareSuite) TestErrorWithNoFeatureFlagAllocateSuccess(c *gc.C) {
-	s.SetFeatureFlags()
-	s.breakEnvironMethods(c)
-	// Use the special "i-alloc-" prefix to force the dummy provider to allow
-	// AllocateAddress to run without the feature flag, which simulates a MAAS
-	// 1.8+ environment where without the flag we still try calling
-	// AllocateAddress for the device we created for the container.
-	container := s.newCustomAPI(c, "i-alloc-me", true, false)
-	args := s.makeArgs(container)
-	_, testLog := s.assertCall(c, args, s.makeResults([]params.NetworkConfig{{
-		DeviceIndex:    0,
-		NetworkName:    "juju-private",
-		ProviderId:     "dummy-eth0",
-		InterfaceName:  "eth0",
-		DNSServers:     []string{"ns1.dummy", "ns2.dummy"},
-		GatewayAddress: "0.10.0.1",
-		ConfigType:     "static",
-		MACAddress:     "regex:" + regexpMACAddress,
-		Address:        "regex:0.10.0.[0-9]{1,3}", // we don't care about the actual value.
-	}}), "")
-
-	c.Assert(testLog, jc.LogMatches, jc.SimpleMessages{{
-		loggo.INFO,
-		`allocated address ".+" on instance "i-alloc-me" for container "juju-machine-0-lxc-0"`,
-	}, {
-		loggo.INFO,
-		`assigned address ".+" to container "0/lxc/0"`,
-	}})
 }
 
 func (s *prepareSuite) TestErrorWithNonProvisionedHost(c *gc.C) {
@@ -388,6 +340,8 @@ func (s *prepareSuite) TestErrorWithEnvironMethodsFailing(c *gc.C) {
 }
 
 func (s *prepareSuite) TestRetryingOnAllocateAddressFailure(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
+
 	// This test verifies the retrying logic when AllocateAddress
 	// and/or setAddrState return errors.
 
@@ -577,6 +531,7 @@ func (s *prepareSuite) TestReleaseAndRetryWhenSetOnlyFails(c *gc.C) {
 		CIDR:             "0.10.0.0/24",
 		DeviceIndex:      0,
 		InterfaceName:    "eth0",
+		InterfaceType:    "ethernet",
 		VLANTag:          0,
 		MACAddress:       "regex:" + regexpMACAddress,
 		Disabled:         false,
@@ -659,6 +614,7 @@ func (s *prepareSuite) TestSuccessWithSingleContainer(c *gc.C) {
 		CIDR:             "0.10.0.0/24",
 		DeviceIndex:      0,
 		InterfaceName:    "eth0",
+		InterfaceType:    "ethernet",
 		VLANTag:          0,
 		MACAddress:       "regex:" + regexpMACAddress,
 		Disabled:         false,
@@ -696,6 +652,7 @@ func (s *prepareSuite) TestSuccessWhenFirstSubnetNotAllocatable(c *gc.C) {
 		CIDR:             "0.20.0.0/24",
 		DeviceIndex:      1,
 		InterfaceName:    "eth1",
+		InterfaceType:    "ethernet",
 		VLANTag:          1,
 		MACAddress:       "regex:" + regexpMACAddress,
 		Disabled:         false,

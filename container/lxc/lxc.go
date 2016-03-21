@@ -169,7 +169,7 @@ func (manager *containerManager) CreateContainer(
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
-	callback func(containerStatus status.Status, info string, data map[string]interface{}) error,
+	callback container.StatusCallback,
 ) (inst instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 	// Check our preconditions
 	if manager == nil {

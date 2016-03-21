@@ -6,6 +6,7 @@
 package lxdclient
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/lxc/lxd"
@@ -24,6 +25,11 @@ type Client struct {
 	*profileClient
 	*instanceClient
 	*imageClient
+	baseURL string
+}
+
+func (c Client) String() string {
+	return fmt.Sprintf("Client(%s)", c.baseURL)
 }
 
 // Connect opens an API connection to LXD and returns a high-level
@@ -46,6 +52,7 @@ func Connect(cfg Config) (*Client, error) {
 		profileClient:      &profileClient{raw},
 		instanceClient:     &instanceClient{raw, remote},
 		imageClient:        &imageClient{raw, cfg},
+		baseURL:            raw.BaseURL,
 	}
 	return conn, nil
 }
