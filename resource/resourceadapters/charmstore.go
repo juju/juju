@@ -52,7 +52,7 @@ type charmstoreOpener struct {
 }
 
 func newCharmstoreOpener(cURL *charm.URL, csMac *macaroon.Macaroon) *charmstoreOpener {
-	// TODO(ericsnow) Extract the charm store URL from the charm URL.
+	// TODO(ericsnow) Extract the charm store URL from the charm URL?
 	return &charmstoreOpener{
 		csMac: csMac,
 	}
@@ -60,13 +60,23 @@ func newCharmstoreOpener(cURL *charm.URL, csMac *macaroon.Macaroon) *charmstoreO
 
 // NewClient opens a new charm store client.
 func (cs *charmstoreOpener) NewClient() (*CSRetryClient, error) {
-	// TODO(ericsnow) Use a valid charm store client.
-	var config charmstore.ClientConfig
-	config.URL = "<not valid>"
-	client := charmstore.NewClient(config)
-	// TODO(ericsnow) client.Closer will be meaningful once we factor
-	// out the Juju HTTP context (a la cmd/juju/charmcmd/store.go).
+	client := cs.newClient()
 	return newCSRetryClient(client), nil
+}
+
+func (cs *charmstoreOpener) newClient() *charmstore.Client {
+	var config charmstore.ClientConfig
+
+	httpClient := httpbakery.NewClient()
+	// Set the provided charmstore authorizing macaroon
+	// as a cookie in the HTTP client.
+	// TODO discharge any third party caveats in the macaroon.
+	ms := []*macaroon.Macaroon{cs.csMac}
+	httpbakery.SetCookie(httpClient.Jar, config.URL, ms)
+	config.HTTPClient = httpClient
+
+	client := charmstore.NewClient(config)
+	return client
 }
 
 // CSRetryClient is a wrapper around a Juju charm store client that
