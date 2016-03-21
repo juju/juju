@@ -96,8 +96,12 @@ func (ex *httpDownloadRequestExtractor) NewResourceOpener(req *http.Request) (re
 		return nil, errors.Trace(err)
 	}
 
+	// TODO(ericsnow) We will need to get the macaroon from state.
+	var csMac *macaroon.Macaroon
+
 	opener := &resourceOpener{
 		st:     resources,
+		csMac:  csMac,
 		userID: unit.Tag(),
 		unit:   unit,
 	}
