@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -67,6 +68,8 @@ func (s *ResourceSuite) newPendingID() (string, error) {
 func (s *ResourceSuite) TestListResourcesOkay(c *gc.C) {
 	expected := newUploadResources(c, "spam", "eggs")
 	s.persist.ReturnListResources = resource.ServiceResources{Resources: expected}
+	tag := names.NewUnitTag("a-service/0")
+	s.raw.ReturnUnits = []names.UnitTag{tag}
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
@@ -74,11 +77,32 @@ func (s *ResourceSuite) TestListResourcesOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(resources.Resources, jc.DeepEquals, expected)
-	s.stub.CheckCallNames(c, "ListResources")
+	c.Check(resources.UnitResources, jc.DeepEquals, []resource.UnitResources{{
+		Tag: tag,
+	}})
+	s.stub.CheckCallNames(c, "ListResources", "Units")
+	s.stub.CheckCall(c, 0, "ListResources", "a-service")
+}
+
+func (s *ResourceSuite) TestListResourcesNoUnits(c *gc.C) {
+	expected := newUploadResources(c, "spam", "eggs")
+	s.persist.ReturnListResources = resource.ServiceResources{Resources: expected}
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	resources, err := st.ListResources("a-service")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(resources.Resources, jc.DeepEquals, expected)
+	c.Check(resources.UnitResources, gc.HasLen, 0)
+	s.stub.CheckCallNames(c, "ListResources", "Units")
 	s.stub.CheckCall(c, 0, "ListResources", "a-service")
 }
 
 func (s *ResourceSuite) TestListResourcesEmpty(c *gc.C) {
+	s.raw.ReturnUnits = []names.UnitTag{
+		names.NewUnitTag("a-service/0"),
+	}
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
@@ -86,7 +110,8 @@ func (s *ResourceSuite) TestListResourcesEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(resources.Resources, gc.HasLen, 0)
-	s.stub.CheckCallNames(c, "ListResources")
+	c.Check(resources.UnitResources, gc.HasLen, 1)
+	s.stub.CheckCallNames(c, "ListResources", "Units")
 }
 
 func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
@@ -100,7 +125,7 @@ func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 	_, err := st.ListResources("a-service")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.stub.CheckCallNames(c, "ListResources")
+	s.stub.CheckCallNames(c, "ListResources", "VerifyService")
 }
 
 func (s *ResourceSuite) TestGetPendingResource(c *gc.C) {
@@ -175,7 +200,7 @@ func (s *ResourceSuite) TestSetResourceInfoOnly(c *gc.C) {
 
 func (s *ResourceSuite) TestSetResourceBadResource(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
-	res.Revision = -1
+	res.Fingerprint = charmresource.Fingerprint{}
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
 	st.currentTimestamp = s.now
@@ -198,7 +223,7 @@ func (s *ResourceSuite) TestSetResourceStagingFailure(c *gc.C) {
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, failure, nil, nil, ignoredErr)
+	s.stub.SetErrors(nil, failure, ignoredErr)
 
 	_, err := st.SetResource("a-service", "a-user", expected.Resource, file)
 
@@ -403,10 +428,12 @@ func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {
 func (s *ResourceSuite) TestOpenResourceNotFound(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
+	errNotFound := errors.NotFoundf("resource")
+	s.stub.SetErrors(errNotFound)
 
 	_, _, err := st.OpenResource("a-service", "spam")
 
-	s.stub.CheckCallNames(c, "GetResource")
+	s.stub.CheckCallNames(c, "GetResource", "VerifyService")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -452,7 +479,7 @@ func (s *ResourceSuite) TestOpenResourceForUniterOkay(c *gc.C) {
 	info, reader, err := st.OpenResourceForUniter(unit, "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "ServiceName", "GetResource", "Get")
+	s.stub.CheckCallNames(c, "ServiceName", "GetResource", "Get", "Name", "SetUnitResourceProgress")
 	s.stub.CheckCall(c, 2, "Get", "service-a-service/resources/spam")
 	c.Check(info, jc.DeepEquals, opened.Resource)
 
@@ -466,10 +493,12 @@ func (s *ResourceSuite) TestOpenResourceForUniterNotFound(c *gc.C) {
 	unit := newUnit(s.stub, "a-service/0")
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
+	errNotFound := errors.NotFoundf("resource")
+	s.stub.SetErrors(nil, errNotFound)
 
 	_, _, err := st.OpenResourceForUniter(unit, "spam")
 
-	s.stub.CheckCallNames(c, "ServiceName", "GetResource")
+	s.stub.CheckCallNames(c, "ServiceName", "GetResource", "VerifyService")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -609,7 +638,7 @@ func (s *ResourceSuite) TestUnitSetterNoEOF(c *gc.C) {
 
 	// Assert that we don't call SetUnitResource if we read but don't reach the
 	// end of the buffer.
-	s.stub.CheckNoCalls(c)
+	s.stub.CheckCallNames(c, "Name", "SetUnitResourceProgress")
 }
 
 func (s *ResourceSuite) TestUnitSetterSetUnitErr(c *gc.C) {

@@ -6,6 +6,7 @@ package server
 import (
 	"io"
 	"net/http"
+	"path"
 
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
@@ -102,6 +103,11 @@ func (uh UploadHandler) ReadResource(req *http.Request) (*UploadedResource, erro
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+	}
+
+	ext := path.Ext(res.Path)
+	if path.Ext(uReq.Filename) != ext {
+		return nil, errors.Errorf("incorrect extension on resource upload %q, expected %q", uReq.Filename, ext)
 	}
 
 	chRes, err := uh.updateResource(res.Resource, uReq.Fingerprint, uReq.Size)
