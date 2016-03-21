@@ -277,7 +277,9 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	var result params.ProvisioningScriptResult
 	icfg, err := InstanceConfig(c.api.state(), args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
-		return result, err
+		return result, common.ServerError(errors.Annotate(
+			err, "getting instance config",
+		))
 	}
 
 	// Until DisablePackageCommands is retired, for backwards
@@ -290,14 +292,21 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 		icfg.EnableOSRefreshUpdate = false
 		icfg.EnableOSUpgrade = false
 	} else if cfg, err := c.api.stateAccessor.ModelConfig(); err != nil {
-		return result, err
+		return result, common.ServerError(errors.Annotate(
+			err, "getting model config",
+		))
 	} else {
 		icfg.EnableOSUpgrade = cfg.EnableOSUpgrade()
 		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
 	}
 
 	result.Script, err = manual.ProvisioningScript(icfg)
-	return result, err
+	if err != nil {
+		return result, common.ServerError(errors.Annotate(
+			err, "getting provisioning script",
+		))
+	}
+	return result, nil
 }
 
 // DestroyMachines removes a given set of machines.
