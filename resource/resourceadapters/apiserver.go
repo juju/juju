@@ -32,7 +32,7 @@ func NewPublicFacade(st *corestate.State, _ *common.Resources, authorizer common
 	}
 	newClient := func(cURL *charm.URL, csMac *macaroon.Macaroon) (server.CharmStore, error) {
 		opener := newCharmstoreOpener(cURL, csMac)
-		return opener.NewClient()
+		return opener.newClient()
 	}
 	facade, err := server.NewFacade(rst, newClient)
 	if err != nil {
