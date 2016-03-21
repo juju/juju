@@ -1891,6 +1891,22 @@ class TestEnvJujuClient(ClientTest):
         gjo_mock.assert_called_once_with(
             'show-controller', 'foo', include_e=False)
 
+    def test_get_controller_controller_name(self):
+        data = """\
+          bar:
+            details:
+              api-endpoints: ['[::1]:17070', '[fe80::216:3eff:0:9dc7]:17070']
+        """
+        client = EnvJujuClient(JujuData('foo', {}), None, None)
+        admin_client = client.get_admin_client()
+        client.env.controller.name = 'bar'
+        with patch.object(admin_client, 'get_juju_output',
+                          return_value=data) as gjo:
+            endpoint = admin_client.get_controller_endpoint()
+        gjo.assert_called_once_with('show-controller', 'bar',
+                                    include_e=False)
+        self.assertEqual('::1', endpoint)
+
     def test_get_controller_members(self):
         status = Status.from_text("""\
             model: admin
