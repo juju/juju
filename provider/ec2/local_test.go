@@ -1290,7 +1290,7 @@ func patchEC2ForTesting(c *gc.C) func() {
 	ec2.UseTestImageData(c, ec2.TestImagesData)
 	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
 	ec2.UseTestRegionData(ec2.TestRegions)
-	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
+	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt, ec2.LongAttempt)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	return func() {
 		restoreFinishBootstrap()
