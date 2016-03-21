@@ -5,22 +5,22 @@ package common
 
 import "fmt"
 
-// ModelFullName returns a string based on the provided model
+// EnvFullName returns a string based on the provided model
 // UUID that is suitable for identifying the env on a provider.
 //
 // The resulting string clearly associates the value with juju,
 // whereas the model's UUID alone isn't very distinctive for humans.
 // This benefits users by helping them quickly identify in their
 // hosting management tools which instances are juju related.
-func ModelFullName(modelUUID string) string {
+func EnvFullName(modelUUID string) string {
 	return fmt.Sprintf("juju-%s", modelUUID)
 }
 
 // MachineFullName returns a string based on the provided model
 // UUID and machine ID that is suitable for identifying instances
-// on a provider. See ModelFullName for an explanation on how this
+// on a provider. See EnvFullName for an explanation on how this
 // function helps juju users.
 func MachineFullName(modelUUID, machineID string) string {
-	modelstr := ModelFullName(modelUUID)
+	modelstr := EnvFullName(modelUUID)
 	return fmt.Sprintf("%s-machine-%s", modelstr, machineID)
 }
