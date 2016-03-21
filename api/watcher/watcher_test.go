@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/migrationmaster"
+	"github.com/juju/juju/api/migrationminion"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
@@ -262,13 +263,13 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 	}
 }
 
-type migrationWatcherSuite struct {
+type migrationSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = gc.Suite(&migrationWatcherSuite{})
+var _ = gc.Suite(&migrationSuite{})
 
-func (s *migrationWatcherSuite) TestWatch(c *gc.C) {
+func (s *migrationSuite) TestMigrationMaster(c *gc.C) {
 	// Create a state server
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Jobs:  []state.MachineJob{state.JobManageModel},
@@ -299,6 +300,7 @@ func (s *migrationWatcherSuite) TestWatch(c *gc.C) {
 	}()
 
 	// Should be no initial events.
+	s.BackingState.StartSync()
 	select {
 	case _, ok := <-w.Changes():
 		c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
@@ -320,6 +322,7 @@ func (s *migrationWatcherSuite) TestWatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Event with correct target details should be emitted.
+	s.BackingState.StartSync()
 	select {
 	case reportedTargetInfo, ok := <-w.Changes():
 		c.Assert(ok, jc.IsTrue)
@@ -327,4 +330,85 @@ func (s *migrationWatcherSuite) TestWatch(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("watcher didn't emit an event")
 	}
+}
+
+func (s *migrationSuite) TestMigrationminion(c *gc.C) {
+	const nonce = "noncey"
+
+	// Create a model to migrate.
+	hostedState := s.Factory.MakeModel(c, &factory.ModelParams{Prepare: true})
+	defer hostedState.Close()
+	hostedFactory := factory.NewFactory(hostedState)
+
+	// Create a machine in the hosted model to connect as.
+	m, password := hostedFactory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Nonce: nonce,
+	})
+
+	// Connect as the machine to watch for migration status.
+	apiInfo := s.APIInfo(c)
+	apiInfo.Tag = m.Tag()
+	apiInfo.Password = password
+	apiInfo.ModelTag = hostedState.ModelTag()
+	apiInfo.Nonce = nonce
+
+	apiConn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer apiConn.Close()
+
+	// Start watching for a migration.
+	client := migrationminion.NewClient(apiConn)
+	w, err := client.Watch()
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		c.Assert(worker.Stop(w), jc.ErrorIsNil)
+	}()
+
+	assertNoChange := func() {
+		hostedState.StartSync()
+		select {
+		case _, ok := <-w.Changes():
+			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
+		case <-time.After(coretesting.ShortWait):
+		}
+	}
+
+	assertChange := func(phase migration.Phase) {
+		hostedState.StartSync()
+		select {
+		case status, ok := <-w.Changes():
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(status.Phase, gc.Equals, phase)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("watcher didn't emit an event")
+		}
+		assertNoChange()
+	}
+
+	// Should be no initial events.
+	assertNoChange()
+
+	// Now create a migration, should trigger watcher.
+	spec := state.ModelMigrationSpec{
+		InitiatedBy: names.NewUserTag("someone"),
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),
+			Addrs:         []string{"1.2.3.4:5"},
+			CACert:        "cert",
+			AuthTag:       names.NewUserTag("dog"),
+			Password:      "sekret",
+		},
+	}
+	mig, err := hostedState.CreateModelMigration(spec)
+	c.Assert(err, jc.ErrorIsNil)
+	assertChange(migration.QUIESCE)
+
+	// Now abort the migration, this should be reported too.
+	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	assertChange(migration.ABORT)
+
+	// Start a new migration, this should also trigger.
+	_, err = hostedState.CreateModelMigration(spec)
+	c.Assert(err, jc.ErrorIsNil)
+	assertChange(migration.QUIESCE)
 }
