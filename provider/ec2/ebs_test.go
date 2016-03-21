@@ -95,9 +95,9 @@ func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
+	s.restoreEC2Patching()
 	s.Tests.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
-	s.restoreEC2Patching()
 }
 
 func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {

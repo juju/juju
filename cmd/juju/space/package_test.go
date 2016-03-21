@@ -68,8 +68,8 @@ func (s *BaseSpaceSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *BaseSpaceSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 // RunSuperCommand executes the super command passing any args and
