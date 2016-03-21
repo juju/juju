@@ -346,6 +346,8 @@ func SetPreferIPv6(prefer bool) {
 		b = 1
 	}
 	atomic.StoreUint32(&preferIPv6, b)
+	// TODO(dimitern): Drop prefer-ipv6 entirely.
+	prefer = false
 	logger.Infof("setting prefer-ipv6 to %v", prefer)
 }
 
