@@ -433,6 +433,7 @@ class EnvJujuClient:
         # Strip unneeded variables.
         config_dict = dict((k, v) for k, v in config_dict.items() if k not in {
             'access-key',
+            'admin-secret',
             'application-id',
             'application-password',
             'auth-url',

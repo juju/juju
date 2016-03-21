@@ -1057,7 +1057,6 @@ class TestEnvJujuClient(ClientTest):
         with client._bootstrap_config() as config_filename:
             with open(config_filename) as f:
                 self.assertEqual({
-                    'admin-secret': 'foo',
                     'agent-metadata-url': 'frank',
                     'agent-stream': 'foo',
                     'authorized-keys': 'foo',
