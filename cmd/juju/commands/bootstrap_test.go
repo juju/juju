@@ -628,17 +628,22 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	expectedBootstrappedName := bootstrappedControllerName(controllerName)
 	s.patchVersionAndSeries(c, "raring")
 
-	err := s.store.UpdateController("local.devcontroller", jujuclient.ControllerDetails{
-		CACert:         "x",
-		ControllerUUID: "y",
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	s.writeControllerModelAccountInfo(c, "local.devcontroller", "fredmodel", "fred@local")
 
 	ctx := coretesting.Context(c)
 	_, errc := cmdtesting.RunCommand(ctx, s.newBootstrapCommand(), controllerName, "dummy", "--auto-upgrade")
-	err = <-errc
+	err := <-errc
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`controller %q already exists`, expectedBootstrappedName))
+	currentController, err := modelcmd.ReadCurrentController()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(currentController, gc.Equals, "local.devcontroller")
+	currentAccount, err := s.store.CurrentAccount(currentController)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(currentAccount, gc.Equals, "fred@local")
+	currentModel, err := s.store.CurrentModel(currentController, currentAccount)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(currentModel, gc.Equals, "fredmodel")
 }
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
