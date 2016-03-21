@@ -60,7 +60,7 @@ func (s *ModelMigrationSuite) TestCreate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(mig.ModelUUID(), gc.Equals, s.State2.ModelUUID())
-	c.Check(mig.Id(), gc.Equals, mig.ModelUUID()+":0")
+	checkIdAndAttempt(c, mig, 0)
 
 	c.Check(mig.StartTime(), gc.Equals, s.clock.Now())
 
@@ -86,35 +86,29 @@ func (s *ModelMigrationSuite) TestIdSequencesAreIndependent(c *gc.C) {
 
 	mig2, err := st2.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mig2.Id(), gc.Equals, st2.ModelUUID()+":0")
+	checkIdAndAttempt(c, mig2, 0)
 
 	mig3, err := st3.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mig3.Id(), gc.Equals, st3.ModelUUID()+":0")
+	checkIdAndAttempt(c, mig3, 0)
 }
 
 func (s *ModelMigrationSuite) TestIdSequencesIncrement(c *gc.C) {
-	createAndAbort := func() string {
+	for attempt := 0; attempt < 3; attempt++ {
 		mig, err := s.State2.CreateModelMigration(s.stdSpec)
 		c.Assert(err, jc.ErrorIsNil)
+		checkIdAndAttempt(c, mig, attempt)
 		c.Check(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
-		return mig.Id()
 	}
-
-	modelUUID := s.State2.ModelUUID()
-	c.Check(createAndAbort(), gc.Equals, modelUUID+":0")
-	c.Check(createAndAbort(), gc.Equals, modelUUID+":1")
-	c.Check(createAndAbort(), gc.Equals, modelUUID+":2")
 }
 
 func (s *ModelMigrationSuite) TestIdSequencesIncrementOnlyWhenNecessary(c *gc.C) {
 	// Ensure that sequence numbers aren't "used up" unnecessarily
 	// when the create txn is going to fail.
-	modelUUID := s.State2.ModelUUID()
 
 	mig, err := s.State2.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mig.Id(), gc.Equals, modelUUID+":0")
+	checkIdAndAttempt(c, mig, 0)
 
 	// This attempt will fail because a migration is already in
 	// progress.
@@ -127,7 +121,7 @@ func (s *ModelMigrationSuite) TestIdSequencesIncrementOnlyWhenNecessary(c *gc.C)
 
 	mig, err = s.State2.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mig.Id(), gc.Equals, modelUUID+":1")
+	checkIdAndAttempt(c, mig, 1)
 }
 
 func (s *ModelMigrationSuite) TestSpecValidation(c *gc.C) {
@@ -568,4 +562,11 @@ func isMigrationActive(c *gc.C, st *state.State) bool {
 	isActive, err := st.IsModelMigrationActive()
 	c.Assert(err, jc.ErrorIsNil)
 	return isActive
+}
+
+func checkIdAndAttempt(c *gc.C, mig state.ModelMigration, expected int) {
+	c.Check(mig.Id(), gc.Equals, fmt.Sprintf("%s:%d", mig.ModelUUID(), expected))
+	attempt, err := mig.Attempt()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(attempt, gc.Equals, expected)
 }
