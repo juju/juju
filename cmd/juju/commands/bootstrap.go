@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"launchpad.net/gnuflag"
@@ -472,8 +473,18 @@ to clean up the model.`[1:])
 		"name":         c.hostedModelName,
 		config.UUIDKey: hostedModelUUID.String(),
 	}
+
+	// We copy across any user supplied attributes to the hosted model config.
+	// But only if the attributes have not been removed from the controller
+	// model config as part of preparing the controller model.
+	controllerCfgAttrs := set.NewStrings()
+	for attr := range environ.Config().AllAttrs() {
+		controllerCfgAttrs.Add(attr)
+	}
 	for k, v := range userConfigAttrs {
-		hostedModelConfig[k] = v
+		if controllerCfgAttrs.Contains(k) {
+			hostedModelConfig[k] = v
+		}
 	}
 	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ModelConstraints:     c.Constraints,
