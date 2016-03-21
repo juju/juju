@@ -74,6 +74,10 @@ def setup_test_logging(testcase, level=None):
         log.setLevel(level)
 
 
+# suppress nosetests
+setup_test_logging.__test__ = False
+
+
 @contextmanager
 def parse_error(test_case):
     stderr = StringIO.StringIO()

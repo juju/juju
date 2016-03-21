@@ -981,11 +981,10 @@ class TestBootstrapManager(FakeHomeTestCase):
 
     def make_client(self):
         client = MagicMock()
-        client.env.environment = 'foo'
+        client.env = SimpleEnvironment(
+            'foo', {'type': 'baz'}, use_context(self, temp_dir()))
         client.is_jes_enabled.return_value = False
-        client.env.config = {'type': 'baz'}
         client.get_matching_agent_version.return_value = '3.14'
-        client.env.juju_home = use_context(self, temp_dir())
         client.get_cache_path.return_value = get_cache_path(
             client.env.juju_home)
         return client

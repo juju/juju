@@ -352,6 +352,10 @@ def add_basic_testing_arguments(parser, using_jes=False):
     return parser
 
 
+# suppress nosetests
+add_basic_testing_arguments.__test__ = False
+
+
 def configure_logging(log_level):
     logging.basicConfig(
         level=log_level, format='%(asctime)s %(levelname)s %(message)s',

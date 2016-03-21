@@ -22,7 +22,7 @@ def main():
     args = parser.parse_args()
     env = SimpleEnvironment.from_config(args.env)
     if args.name is not None:
-        env.environment = args.name
+        env.set_model_name(args.name)
     for option in args.option:
         key, value = option.split('=', 1)
         env.config[key] = value
