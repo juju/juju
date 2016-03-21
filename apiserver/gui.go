@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/bzip2"
 	"fmt"
 	"io"
@@ -20,10 +21,16 @@ import (
 
 	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
+	"github.com/juju/version"
 
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
+)
+
+const (
+	bzMimeType = "application/x-tar-bzip2"
 )
 
 var (
@@ -320,7 +327,7 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 		"host":    req.Host,
 		"socket":  "/model/$uuid/api",
 		"uuid":    h.uuid,
-		"version": version.Current.String(),
+		"version": jujuversion.Current.String(),
 	})
 }
 
@@ -340,4 +347,131 @@ func renderGUITemplate(w http.ResponseWriter, tmpl string, ctx map[string]interf
 	if err := t.Execute(w, ctx); err != nil {
 		sendError(w, errors.Annotate(err, "cannot render template"))
 	}
+}
+
+// guiArchiveHandler serves the Juju GUI archive endpoints, used for uploading
+// and retrieving information about GUI archives.
+type guiArchiveHandler struct {
+	ctxt httpContext
+}
+
+// ServeHTTP implements http.Handler.
+func (h *guiArchiveHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	var handler func(http.ResponseWriter, *http.Request) error
+	switch req.Method {
+	case "GET":
+		handler = h.handleGet
+	case "POST":
+		handler = h.handlePost
+	default:
+		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
+		return
+	}
+	if err := handler(w, req); err != nil {
+		sendError(w, errors.Trace(err))
+	}
+}
+
+// handleGet returns information on Juju GUI archives in the controller.
+func (h *guiArchiveHandler) handleGet(w http.ResponseWriter, req *http.Request) error {
+	// Open the GUI archive storage.
+	st, err := h.ctxt.stateForRequestUnauthenticated(req)
+	if err != nil {
+		return errors.Annotate(err, "cannot open state")
+	}
+	storage, err := st.GUIStorage()
+	if err != nil {
+		return errors.Annotate(err, "cannot open GUI storage")
+	}
+	defer storage.Close()
+
+	// Retrieve metadata information.
+	allMeta, err := storage.AllMetadata()
+	if err != nil {
+		return errors.Annotate(err, "cannot retrieve GUI metadata")
+	}
+
+	// Prepare and send the response.
+	versions := make([]params.GUIArchiveVersion, len(allMeta))
+	for i, m := range allMeta {
+		vers, err := version.Parse(m.Version)
+		if err != nil {
+			return errors.Annotate(err, "cannot parse GUI version")
+		}
+		versions[i] = params.GUIArchiveVersion{
+			Version: vers,
+			SHA256:  m.SHA256,
+			// TODO frankban: check that this is the current version.
+			Current: true,
+		}
+	}
+	sendStatusAndJSON(w, http.StatusOK, params.GUIArchiveResponse{
+		Versions: versions,
+	})
+	return nil
+}
+
+// handlePost is used to upload new Juju GUI archives to the controller.
+func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request) error {
+	// Validate the request.
+	if ctype := req.Header.Get("Content-Type"); ctype != bzMimeType {
+		return errors.BadRequestf("invalid content type %q: expected %q", ctype, bzMimeType)
+	}
+	if err := req.ParseForm(); err != nil {
+		return errors.Annotate(err, "cannot parse form")
+	}
+	versParam := req.Form.Get("version")
+	if versParam == "" {
+		return errors.BadRequestf("version parameter not provided")
+	}
+	vers, err := version.Parse(versParam)
+	if err != nil {
+		return errors.BadRequestf("invalid version parameter %q", versParam)
+	}
+	hashParam := req.Form.Get("hash")
+	if hashParam == "" {
+		return errors.BadRequestf("hash parameter not provided")
+	}
+	if req.ContentLength == -1 {
+		return errors.BadRequestf("content length not provided")
+	}
+
+	// Open the GUI archive storage.
+	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+	if err != nil {
+		return errors.Annotate(err, "cannot open state")
+	}
+	storage, err := st.GUIStorage()
+	if err != nil {
+		return errors.Annotate(err, "cannot open GUI storage")
+	}
+	defer storage.Close()
+
+	// Read and validate the archive data.
+	data, hash, err := readAndHash(req.Body)
+	size := int64(len(data))
+	if size != req.ContentLength {
+		return errors.BadRequestf("archive does not match provided content length")
+	}
+	if hash != hashParam {
+		return errors.BadRequestf("archive does not match provided hash")
+	}
+
+	// Add the archive to the GUI storage.
+	metadata := binarystorage.Metadata{
+		Version: vers.String(),
+		Size:    size,
+		SHA256:  hash,
+	}
+	if err := storage.Add(bytes.NewReader(data), metadata); err != nil {
+		return errors.Annotate(err, "cannot add GUI archive to storage")
+	}
+
+	// Return the response with current version.
+	sendStatusAndJSON(w, http.StatusOK, params.GUIArchiveVersion{
+		Version: vers,
+		SHA256:  hash,
+		Current: true,
+	})
+	return nil
 }

@@ -27,6 +27,7 @@ var (
 	MongoPingInterval            = &mongoPingInterval
 	NewBackups                   = &newBackups
 	AllowedMethodsDuringUpgrades = allowedMethodsDuringUpgrades
+	BZMimeType                   = bzMimeType
 	JSMimeType                   = jsMimeType
 	SpritePath                   = spritePath
 )
