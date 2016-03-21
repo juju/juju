@@ -503,6 +503,27 @@ func (s *BootstrapSuite) TestBootstrapDefaultModel(c *gc.C) {
 	c.Assert(bootstrap.args.HostedModelConfig["foo"], gc.Equals, "bar")
 }
 
+func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+
+	fakeSSHFile := filepath.Join(c.MkDir(), "ssh")
+	err := ioutil.WriteFile(fakeSSHFile, []byte("ssh-key"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	coretesting.RunCommand(
+		c, s.newBootstrapCommand(),
+		"devcontroller", "dummy",
+		"--auto-upgrade",
+		"--config", "authorized-keys-path="+fakeSSHFile,
+	)
+	_, ok := bootstrap.args.HostedModelConfig["authorized-keys-path"]
+	c.Assert(ok, jc.IsFalse)
+}
+
 type mockBootstrapInstance struct {
 	instance.Instance
 }

@@ -472,8 +472,15 @@ to clean up the model.`[1:])
 		"name":         c.hostedModelName,
 		config.UUIDKey: hostedModelUUID.String(),
 	}
+
+	// We copy across any user supplied attributes to the hosted model config.
+	// But only if the attributes have not been removed from the controller
+	// model config as part of preparing the controller model.
+	controllerConfigAttrs := environ.Config().AllAttrs()
 	for k, v := range userConfigAttrs {
-		hostedModelConfig[k] = v
+		if _, ok := controllerConfigAttrs[k]; ok {
+			hostedModelConfig[k] = v
+		}
 	}
 	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ModelConstraints:     c.Constraints,

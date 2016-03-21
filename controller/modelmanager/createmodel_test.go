@@ -120,6 +120,20 @@ func (s *ModelConfigCreatorSuite) TestCreateModelForAdminUserCopiesSecrets(c *gc
 	c.Assert(validateCall.Args[1], gc.IsNil)
 }
 
+func (s *ModelConfigCreatorSuite) TestCreateModelEnsuresRequiredFields(c *gc.C) {
+	var err error
+	s.baseConfig, err = s.baseConfig.Apply(coretesting.Attrs{
+		"authorized-keys": "ssh-key",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	newAttrs := coretesting.Attrs{
+		"name": "new-model",
+	}
+	_, err = s.newModelConfigAdmin(newAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newAttrs["authorized-keys"], gc.Equals, "ssh-key")
+}
+
 func (s *ModelConfigCreatorSuite) TestCreateModelForAdminUserPrefersUserSecrets(c *gc.C) {
 	var err error
 	s.baseConfig, err = s.baseConfig.Apply(coretesting.Attrs{

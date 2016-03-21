@@ -253,7 +253,7 @@ func maybeCopyControllerSecrets(provider environs.ProviderCredentials, controlle
 		}
 	}
 
-	// No user supplied credentials so use the ones from the controller.
+	// Ensure any required attributes which are empty are copied from the controller config.
 	for _, attrName := range requiredControllerAttrNames {
 		if _, ok := attrs[attrName]; !ok {
 			attrs[attrName] = controllerAttrs[attrName]
