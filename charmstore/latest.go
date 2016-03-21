@@ -12,7 +12,7 @@ import (
 // LatestCharmInfo returns the most up-to-date information about each
 // of the identified charms at their latest revision. The revisions in
 // the provided URLs are ignored.
-func LatestCharmInfo(client BaseClient, charms []Charm) ([]CharmInfoResult, error) {
+func LatestCharmInfo(client BaseClient, charms []CharmID) ([]CharmInfoResult, error) {
 	now := time.Now().UTC()
 
 	// Do a bulk call to get the revision info for all charms.
@@ -38,7 +38,7 @@ func LatestCharmInfo(client BaseClient, charms []Charm) ([]CharmInfoResult, erro
 		resources := chResources[i]
 
 		var result CharmInfoResult
-		result.OriginalURL = charm.ID
+		result.OriginalURL = charm.URL
 		result.Timestamp = now
 		if revResult.Err != nil {
 			result.Error = errors.Trace(revResult.Err)

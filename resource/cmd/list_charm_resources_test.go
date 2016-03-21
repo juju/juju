@@ -93,9 +93,9 @@ music    1
 		"ListResources",
 		"Close",
 	)
-	s.stub.CheckCall(c, 1, "ListResources", []charmstore.Charm{
+	s.stub.CheckCall(c, 1, "ListResources", []charmstore.CharmID{
 		{
-			ID: &charm.URL{
+			URL: &charm.URL{
 				Schema:   "cs",
 				User:     "",
 				Name:     "a-charm",

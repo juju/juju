@@ -26,7 +26,7 @@ type CharmCommandBase interface {
 // CharmResourceLister has the charm store API methods needed by ListCharmResourcesCommand.
 type CharmResourceLister interface {
 	// ListResources lists the resources for each of the identified charms.
-	ListResources([]charmstore.Charm) ([][]charmresource.Resource, error)
+	ListResources([]charmstore.CharmID) ([][]charmresource.Resource, error)
 
 	// Close closes the client.
 	Close() error
@@ -120,9 +120,9 @@ func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	charms := make([]charmstore.Charm, len(charmURLs))
+	charms := make([]charmstore.CharmID, len(charmURLs))
 	for i, id := range charmURLs {
-		charms[i] = charmstore.Charm{ID: id, Channel: c.channel}
+		charms[i] = charmstore.CharmID{URL: id, Channel: c.channel}
 	}
 
 	resources, err := apiclient.ListResources(charms)

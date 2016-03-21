@@ -57,11 +57,12 @@ func (s *ClientSuite) TestWithMetadata(c *gc.C) {
 }
 
 func (s *ClientSuite) TestLatestRevisions(c *gc.C) {
-	charms := []charmstore.Charm{
+	charms := []charmstore.CharmID{
 		{charm.MustParseURL("cs:quantal/spam-17"), "stable"},
 		{charm.MustParseURL("cs:quantal/eggs-2"), "stable"},
 		{charm.MustParseURL("cs:quantal/ham-1"), "stable"},
 	}
+
 	expected := []charmrepo.CharmRevision{{
 		Revision: 17,
 	}, {
@@ -90,7 +91,7 @@ type stubClient struct {
 	ReturnLatestRevisions []charmrepo.CharmRevision
 }
 
-func (s *stubClient) ListResources(charms []charmstore.Charm) ([][]charmresource.Resource, error) {
+func (s *stubClient) ListResources(charms []charmstore.CharmID) ([][]charmresource.Resource, error) {
 	s.AddCall("ListResources", charms)
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -108,7 +109,7 @@ func (s *stubClient) Close() error {
 	return nil
 }
 
-func (s *stubClient) LatestRevisions(charms []charmstore.Charm) ([]charmrepo.CharmRevision, error) {
+func (s *stubClient) LatestRevisions(charms []charmstore.CharmID) ([]charmrepo.CharmRevision, error) {
 	s.AddCall("LatestRevisions", charms)
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)

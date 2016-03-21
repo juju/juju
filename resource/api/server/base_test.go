@@ -146,7 +146,7 @@ type stubCSClient struct {
 	ReturnGetResource   *charmresource.Resource
 }
 
-func (s *stubCSClient) ListResources(charms []charmstore.Charm) ([][]charmresource.Resource, error) {
+func (s *stubCSClient) ListResources(charms []charmstore.CharmID) ([][]charmresource.Resource, error) {
 	s.AddCall("ListResources", charms)
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)

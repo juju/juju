@@ -38,7 +38,7 @@ type BaseClient interface {
 	// LatestRevisions returns the latest revision for each of the
 	// identified charms in the given channel. The revisions in the provided
 	// URLs are ignored.
-	LatestRevisions(charms []Charm) ([]charmrepo.CharmRevision, error)
+	LatestRevisions(charms []CharmID) ([]charmrepo.CharmRevision, error)
 
 	// TODO(ericsnow) Replace use of Get with use of more specific API
 	// methods? We only use Get() for authorization on the Juju client
@@ -61,7 +61,7 @@ type ResourcesClient interface {
 	// list of details for each of the charm's resources. Those details
 	// are those associated with the specific charm revision. They
 	// include the resource's metadata and revision.
-	ListResources(charms []Charm) ([][]charmresource.Resource, error)
+	ListResources(charms []CharmID) ([][]charmresource.Resource, error)
 
 	// GetResource returns a reader for the resource's data. That data
 	// is streamed from the charm store. The charm's revision, if any,
@@ -86,7 +86,7 @@ func newBaseClient(raw *csclient.Client, config ClientConfig, meta JujuMetadata)
 }
 
 // LatestRevisions implements BaseClient.
-func (base baseClient) LatestRevisions(charms []Charm) ([]charmrepo.CharmRevision, error) {
+func (base baseClient) LatestRevisions(charms []CharmID) ([]charmrepo.CharmRevision, error) {
 	// TODO(ericsnow) Fix this:
 	// We must use charmrepo.CharmStore since csclient.Client does not
 	// have the "Latest" method.
@@ -122,11 +122,11 @@ type charmIndex struct {
 // collate returns a map of channels to charmIndices.  The charmIndex holds a
 // slice of charms for that channel, and a corresponding slice of the index of
 // each charm in the orignal slice.
-func collate(charms []Charm) map[string]charmIndex {
+func collate(charms []CharmID) map[string]charmIndex {
 	results := map[string]charmIndex{}
 	for i, c := range charms {
 		ci := results[c.Channel]
-		ci.ids = append(ci.ids, c.ID)
+		ci.ids = append(ci.ids, c.URL)
 		ci.indices = append(ci.indices, i)
 		results[c.Channel] = ci
 	}
@@ -157,7 +157,7 @@ func (base baseClient) GetResource(cURL *charm.URL, resourceName string, revisio
 }
 
 // ListResources implements BaseClient by calling csclient.Client's ListResources function.
-func (base baseClient) ListResources(charms []Charm) ([][]charmresource.Resource, error) {
+func (base baseClient) ListResources(charms []CharmID) ([][]charmresource.Resource, error) {
 	req := collate(charms)
 	result := make([][]charmresource.Resource, len(charms))
 	for channel, ci := range req {
@@ -273,7 +273,7 @@ func (c Client) Metadata() JujuMetadata {
 // identified charms. The revisions in the provided URLs are ignored.
 // Note that this differs from BaseClient.LatestRevisions() exclusively
 // due to taking into account Juju metadata (if any).
-func (c *Client) LatestRevisions(charms []Charm) ([]charmrepo.CharmRevision, error) {
+func (c *Client) LatestRevisions(charms []CharmID) ([]charmrepo.CharmRevision, error) {
 	if !c.meta.IsZero() {
 		c = c.newCopy()
 		if err := c.meta.setOnClient(c.BaseClient); err != nil {

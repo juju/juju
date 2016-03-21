@@ -33,7 +33,7 @@ func (s *LatestCharmInfoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
-	charms := []charmstore.Charm{
+	charms := []charmstore.CharmID{
 		{charm.MustParseURL("cs:quantal/spam-17"), "stable"},
 		{charm.MustParseURL("cs:quantal/eggs-2"), "stable"},
 		{charm.MustParseURL("cs:quantal/ham-1"), "stable"},

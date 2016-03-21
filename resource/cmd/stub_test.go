@@ -28,7 +28,7 @@ func (s *stubCharmStore) Connect(ctx *cmd.Context) (CharmResourceLister, error) 
 	return s, nil
 }
 
-func (s *stubCharmStore) ListResources(charms []charmstore.Charm) ([][]charmresource.Resource, error) {
+func (s *stubCharmStore) ListResources(charms []charmstore.CharmID) ([][]charmresource.Resource, error) {
 	s.stub.AddCall("ListResources", charms)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
