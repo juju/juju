@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
+	csclientparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 	"launchpad.net/gnuflag"
@@ -51,7 +52,12 @@ type DeployCommand struct {
 	// CharmOrBundle is either a charm URL, a path where a charm can be found,
 	// or a bundle name.
 	CharmOrBundle string
-	Series        string
+
+	// Channel holds the charmstore channel to use when obtaining
+	// the charm to be deployed.
+	Channel csclientparams.Channel
+
+	Series string
 
 	// Force is used to allow a charm to be deployed onto a machine
 	// running an unsupported series.
@@ -243,6 +249,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision (DEPRECATED)")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
+	f.StringVar((*string)(&c.Channel), "channel", "", "channel to use when getting the charm or bundle from the charm store")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set service constraints")
 	f.StringVar(&c.Networks, "networks", "", "deprecated and ignored: use space constraints instead.")
@@ -309,7 +316,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		if bundle, burl, pathErr := charmrepo.NewBundleAtPath(bundlePath); pathErr == nil {
 			bundleData = bundle.Data()
 			bundlePath = burl.String()
-			err = nil
+			err = pathErr
 		}
 	}
 	// If not a bundle then maybe a local charm.
@@ -337,13 +344,15 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		}
 		err = charmErr
 	}
-	if _, ok := err.(*charmrepo.NotFoundError); ok {
-		return errors.Errorf("no charm or bundle found at %q", c.CharmOrBundle)
-	}
-	// If we get a "not exists" error then we attempt to interpret the supplied
-	// charm or bundle reference as a URL below, otherwise we return the error.
-	if err != nil && err != os.ErrNotExist {
-		return err
+	if err != nil {
+		if _, ok := errors.Cause(err).(*charmrepo.NotFoundError); ok {
+			return errors.Errorf("no charm or bundle found at %q: %v", c.CharmOrBundle, err)
+		}
+		if errors.Cause(err) != os.ErrNotExist {
+			return err
+		}
+		// We've got a "not exists" error. Attempt to interpret the supplied
+		// charm or bundle reference as a URL.
 	}
 
 	repoPath := ctx.AbsPath(c.RepoPath)
@@ -356,7 +365,9 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	if err != nil {
 		return errors.Trace(err)
 	}
-	csClient := newCharmStoreClient(bakeryClient)
+	csClient := newCharmStoreClient(bakeryClient).WithChannel(c.Channel)
+
+	resolver := newCharmURLResolver(conf, csClient, repoPath)
 
 	var charmOrBundleURL *charm.URL
 	var repo charmrepo.Interface
@@ -364,14 +375,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	// If we don't already have a bundle loaded, we try the charm store for a charm or bundle.
 	if bundleData == nil {
 		// Charm or bundle has been supplied as a URL so we resolve and deploy using the store.
-		charmOrBundleURL, supportedSeries, repo, err = resolveCharmStoreEntityURL(resolveCharmStoreEntityParams{
-			urlStr:          c.CharmOrBundle,
-			requestedSeries: c.Series,
-			forceSeries:     c.Force,
-			csParams:        csClient.params,
-			repoPath:        repoPath,
-			conf:            conf,
-		})
+		charmOrBundleURL, supportedSeries, repo, err = resolver.resolve(c.CharmOrBundle)
 		if charm.IsUnsupportedSeriesError(err) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 		}
@@ -395,8 +399,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		}
 		// TODO(ericsnow) Do something with the CS macaroons that were returned?
 		if _, err := deployBundle(
-			bundleData, client, &deployer, csClient,
-			repoPath, conf, ctx, c.BundleStorage,
+			bundleData, client, &deployer, resolver, ctx, c.BundleStorage,
 		); err != nil {
 			return errors.Trace(err)
 		}
@@ -413,7 +416,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	}
 	// Store the charm in state.
-	curl, csMac, err := addCharmFromURL(client, charmOrBundleURL, repo, csClient)
+	curl, csMac, err := addCharmFromURL(client, charmOrBundleURL, repo)
 	if err != nil {
 		if err1, ok := errors.Cause(err).(*termsRequiredError); ok {
 			terms := strings.Join(err1.Terms, " ")

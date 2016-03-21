@@ -18,6 +18,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	csclientparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/charmstore.v5-unstable"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
@@ -48,11 +50,11 @@ func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 	s.srv = httptest.NewServer(handler)
 
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
-	original := newCharmStoreClient
-	s.PatchValue(&newCharmStoreClient, func(bakeryClient *httpbakery.Client) *csClient {
-		csclient := original(bakeryClient)
-		csclient.params.URL = s.srv.URL
-		return csclient
+	s.PatchValue(&newCharmStoreClient, func(bakeryClient *httpbakery.Client) *csclient.Client {
+		return csclient.New(csclient.Params{
+			URL:          s.srv.URL,
+			BakeryClient: bakeryClient,
+		})
 	})
 }
 
@@ -448,4 +450,28 @@ func (s *UpgradeCharmCharmStoreSuite) TestUpgradeCharmAuthorization(c *gc.C) {
 		}
 		c.Assert(err, jc.ErrorIsNil)
 	}
+}
+
+func (s *UpgradeCharmCharmStoreSuite) TestUpgradeCharmWithChannel(c *gc.C) {
+	id, ch := testcharms.UploadCharm(c, s.client, "cs:~client-username/trusty/wordpress-0", "wordpress")
+	err := runDeploy(c, "cs:~client-username/trusty/wordpress-0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Upload a new revision of the charm, but publish it
+	// only to the development channel.
+
+	id.Revision = 1
+	err = s.client.UploadCharmWithRevision(id, ch, -1)
+	c.Assert(err, gc.IsNil)
+
+	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.DevelopmentChannel}, nil)
+	c.Assert(err, gc.IsNil)
+
+	err = runUpgradeCharm(c, "wordpress", "--channel", "development")
+	c.Assert(err, gc.IsNil)
+
+	s.assertCharmsUploaded(c, "cs:~client-username/trusty/wordpress-0", "cs:~client-username/trusty/wordpress-1")
+	s.assertServicesDeployed(c, map[string]serviceInfo{
+		"wordpress": {charm: "cs:~client-username/trusty/wordpress-1"},
+	})
 }
