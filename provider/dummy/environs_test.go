@@ -18,9 +18,11 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -57,6 +59,7 @@ func (s *liveSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.LiveTests.SetUpSuite(c)
+	s.BaseSuite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *liveSuite) TearDownSuite(c *gc.C) {

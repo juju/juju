@@ -2367,6 +2367,14 @@ type uniterNetworkConfigSuite struct {
 
 var _ = gc.Suite(&uniterNetworkConfigSuite{})
 
+func (s *uniterNetworkConfigSuite) SetUpSuite(c *gc.C) {
+	s.base.SetUpSuite(c)
+}
+
+func (s *uniterNetworkConfigSuite) TearDownSuite(c *gc.C) {
+	s.base.TearDownSuite(c)
+}
+
 func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	s.base.JujuConnSuite.SetUpTest(c)
 

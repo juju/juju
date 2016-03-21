@@ -19,7 +19,7 @@ type ConnectSuite struct {
 
 var _ = gc.Suite(&ConnectSuite{})
 
-func (cs ConnectSuite) TestLocalConnectError(c *gc.C) {
+func (cs *ConnectSuite) TestLocalConnectError(c *gc.C) {
 	cs.PatchValue(&lxdNewClientFromInfo, fakeNewClientFromInfo)
 
 	cfg, err := Config{
@@ -33,7 +33,7 @@ func (cs ConnectSuite) TestLocalConnectError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "can't connect to the local LXD server.*")
 }
 
-func (cs ConnectSuite) TestRemoteConnectError(c *gc.C) {
+func (cs *ConnectSuite) TestRemoteConnectError(c *gc.C) {
 	cs.PatchValue(&lxdNewClientFromInfo, fakeNewClientFromInfo)
 
 	cfg, err := Config{
@@ -53,7 +53,7 @@ func (cs ConnectSuite) TestRemoteConnectError(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, testerr)
 }
 
-func (cs ConnectSuite) TestLXDClientForCloudImagesDefault(c *gc.C) {
+func (cs *ConnectSuite) TestLXDClientForCloudImagesDefault(c *gc.C) {
 	// Note: this assumes current LXD behavior to not actually connect to
 	// the remote host until we try to perform an action.
 	client, err := lxdClientForCloudImages(Config{})
@@ -61,7 +61,7 @@ func (cs ConnectSuite) TestLXDClientForCloudImagesDefault(c *gc.C) {
 	c.Check(client.BaseURL, gc.Equals, lxd.UbuntuRemote.Addr)
 }
 
-func (cs ConnectSuite) TestLXDClientForCloudImagesDaily(c *gc.C) {
+func (cs *ConnectSuite) TestLXDClientForCloudImagesDaily(c *gc.C) {
 	client, err := lxdClientForCloudImages(Config{
 		ImageStream: StreamDaily,
 	})
@@ -69,7 +69,7 @@ func (cs ConnectSuite) TestLXDClientForCloudImagesDaily(c *gc.C) {
 	c.Check(client.BaseURL, gc.Equals, lxd.UbuntuDailyRemote.Addr)
 }
 
-func (cs ConnectSuite) TestLXDClientForCloudImagesReleased(c *gc.C) {
+func (cs *ConnectSuite) TestLXDClientForCloudImagesReleased(c *gc.C) {
 	client, err := lxdClientForCloudImages(Config{
 		ImageStream: StreamReleased,
 	})
