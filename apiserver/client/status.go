@@ -258,7 +258,7 @@ type statusContext struct {
 	relations    map[string][]*state.Relation
 	units        map[string]map[string]*state.Unit
 	networks     map[string]*state.Network
-	latestCharms map[charm.URL]string
+	latestCharms map[charm.URL]*state.Charm
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
@@ -298,11 +298,11 @@ func fetchMachines(st *state.State, machineIds set.Strings) (map[string][]*state
 func fetchAllServicesAndUnits(
 	st *state.State,
 	matchAny bool,
-) (map[string]*state.Service, map[string]map[string]*state.Unit, map[charm.URL]string, error) {
+) (map[string]*state.Service, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, error) {
 
 	svcMap := make(map[string]*state.Service)
 	unitMap := make(map[string]map[string]*state.Unit)
-	latestCharms := make(map[charm.URL]string)
+	latestCharms := make(map[charm.URL]*state.Charm)
 	services, err := st.AllServices()
 	if err != nil {
 		return nil, nil, nil, err
@@ -323,7 +323,7 @@ func fetchAllServicesAndUnits(
 			// the latest store revision can be looked up.
 			charmURL, _ := s.CharmURL()
 			if charmURL.Schema == "cs" {
-				latestCharms[*charmURL.WithRevision(-1)] = ""
+				latestCharms[*charmURL.WithRevision(-1)] = nil
 			}
 		}
 	}
@@ -335,7 +335,7 @@ func fetchAllServicesAndUnits(
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		latestCharms[baseURL] = ch.String()
+		latestCharms[baseURL] = ch
 	}
 	return svcMap, unitMap, latestCharms, nil
 }
@@ -586,10 +586,12 @@ func (context *statusContext) processService(service *state.Service) (status par
 	status.Exposed = service.IsExposed()
 	status.Life = processLife(service)
 
-	latestCharm, ok := context.latestCharms[*serviceCharmURL.WithRevision(-1)]
-	if ok && latestCharm != serviceCharmURL.String() {
-		status.CanUpgradeTo = latestCharm
+	if latestCharm, ok := context.latestCharms[*serviceCharmURL.WithRevision(-1)]; ok && latestCharm != nil {
+		if latestCharm.Revision() > serviceCharmURL.Revision {
+			status.CanUpgradeTo = latestCharm.String()
+		}
 	}
+
 	var err error
 	status.Relations, status.SubordinateTo, err = context.processServiceRelations(service)
 	if err != nil {
