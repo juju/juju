@@ -263,3 +263,92 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
 }
+
+func (s *machinerSuite) TestSetObservedNetworkConfig(c *gc.C) {
+	devices, err := s.machine1.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devices, gc.HasLen, 0)
+
+	observedConfig := []params.NetworkConfig{
+		{InterfaceName: "lo", InterfaceType: "loopback"},
+		{InterfaceName: "eth0", InterfaceType: "ethernet", MACAddress: "aa:bb:cc:dd:ee:f0"},
+		{InterfaceName: "eth1", InterfaceType: "ethernet", MACAddress: "aa:bb:cc:dd:ee:f1"},
+	}
+	args := params.SetMachineNetworkConfig{
+		Tag:    s.machine1.Tag().String(),
+		Config: observedConfig,
+	}
+
+	err = s.machiner.SetObservedNetworkConfig(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	devices, err = s.machine1.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devices, gc.HasLen, 3)
+
+	for _, device := range devices {
+		c.Check(device.Name(), gc.Matches, `(lo|eth0|eth1)`)
+		c.Check(string(device.Type()), gc.Matches, `(loopback|ethernet)`)
+		c.Check(device.MACAddress(), gc.Matches, `(|aa:bb:cc:dd:ee:f0|aa:bb:cc:dd:ee:f1)`)
+	}
+}
+
+func (s *machinerSuite) TestSetObservedNetworkConfigPermissions(c *gc.C) {
+	args := params.SetMachineNetworkConfig{
+		Tag:    "machine-0",
+		Config: nil,
+	}
+
+	err := s.machiner.SetObservedNetworkConfig(args)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *machinerSuite) TestSetProviderNetworkConfig(c *gc.C) {
+	devices, err := s.machine1.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devices, gc.HasLen, 0)
+
+	err = s.machine1.SetInstanceInfo("i-foo", "FAKE_NONCE", nil, nil, nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machine1.Tag().String()},
+	}}
+
+	result, err := s.machiner.SetProviderNetworkConfig(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{nil}},
+	})
+
+	devices, err = s.machine1.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devices, gc.HasLen, 3)
+
+	for _, device := range devices {
+		c.Check(device.Name(), gc.Matches, `eth[0-2]`)
+		c.Check(string(device.Type()), gc.Equals, "ethernet")
+		c.Check(device.MACAddress(), gc.Matches, `aa:bb:cc:dd:ee:f[0-2]`)
+		addrs, err := device.Addresses()
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(addrs, gc.HasLen, 1)
+	}
+}
+
+func (s *machinerSuite) TestSetProviderNetworkConfigPermissions(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+		{Tag: "machine-0"},
+		{Tag: "machine-42"},
+	}}
+
+	result, err := s.machiner.SetProviderNetworkConfig(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: apiservertesting.NotProvisionedError(s.machine1.Id())},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}

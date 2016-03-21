@@ -86,18 +86,6 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	}
 	mr.machine = m
 
-	observedConfig, err := getObservedNetworkConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot discover observed network config")
-	} else if len(observedConfig) == 0 {
-		logger.Warningf("not updating network config: no observed config found to update")
-	}
-	if len(observedConfig) > 0 {
-		if err := m.SetObservedNetworkConfig(observedConfig); err != nil {
-			return nil, errors.Annotate(err, "cannot update observed network config")
-		}
-	}
-
 	if mr.config.ClearMachineAddressesOnStart {
 		logger.Debugf("machine addresses ignored on start - resetting machine addresses")
 		if err := m.SetMachineAddresses(nil); err != nil {
@@ -166,8 +154,21 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 	} else if err != nil {
 		return err
 	}
+
 	life := mr.machine.Life()
 	if life == params.Alive {
+		observedConfig, err := getObservedNetworkConfig()
+		if err != nil {
+			return errors.Annotate(err, "cannot discover observed network config")
+		} else if len(observedConfig) == 0 {
+			logger.Warningf("not updating network config: no observed config found to update")
+		}
+		if len(observedConfig) > 0 {
+			if err := mr.machine.SetObservedNetworkConfig(observedConfig); err != nil {
+				return errors.Annotate(err, "cannot update observed network config")
+			}
+		}
+
 		return nil
 	}
 	logger.Debugf("%q is now %s", mr.config.Tag, life)
