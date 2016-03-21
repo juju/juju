@@ -75,7 +75,7 @@ func (manager *containerManager) CreateContainer(
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
-	callback func(status status.Status, info string, data map[string]interface{}) error,
+	callback container.StatusCallback,
 ) (inst instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 
 	defer func() {
@@ -87,14 +87,17 @@ func (manager *containerManager) CreateContainer(
 	if manager.client == nil {
 		manager.client, err = ConnectLocal(manager.name)
 		if err != nil {
+			err = errors.Annotatef(err, "failed to connect to local LXD")
 			return
 		}
 	}
 
-	err = manager.client.EnsureImageExists(series, func(progress string) {
-		callback(status.StatusAllocating, progress, nil)
-	})
+	err = manager.client.EnsureImageExists(series,
+		func(progress string) {
+			callback(status.StatusProvisioning, progress, nil)
+		})
 	if err != nil {
+		err = errors.Annotatef(err, "failed to ensure LXD image")
 		return
 	}
 
@@ -128,12 +131,13 @@ func (manager *containerManager) CreateContainer(
 	}
 
 	logger.Infof("starting instance %q (image %q)...", spec.Name, spec.Image)
-	callback(status.StatusAllocating, "Creating container; it might take some time", nil)
+	callback(status.StatusProvisioning, "Starting container", nil)
 	_, err = manager.client.AddInstance(spec)
 	if err != nil {
 		return
 	}
 
+	callback(status.StatusRunning, "Container started", nil)
 	inst = &lxdInstance{name, manager.client}
 	return
 }
