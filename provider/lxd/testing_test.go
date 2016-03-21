@@ -70,13 +70,14 @@ const (
 // These are stub config values for use in tests.
 var (
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
-		"type":        "lxd",
-		"namespace":   "",
-		"remote-url":  "",
-		"client-cert": "",
-		"client-key":  "",
-		"server-cert": "",
-		"uuid":        "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
+		"type":            "lxd",
+		"namespace":       "",
+		"remote-url":      "",
+		"client-cert":     "",
+		"client-key":      "",
+		"server-cert":     "",
+		"uuid":            "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
+		"controller-uuid": "bfef02f1-932a-425a-a102-62175dcabd1d",
 	})
 )
 
@@ -266,7 +267,7 @@ type BaseSuite struct {
 	BaseSuiteUnpatched
 
 	Stub       *gitjujutesting.Stub
-	Client     *stubClient
+	Client     *StubClient
 	Firewaller *stubFirewaller
 	Common     *stubCommon
 	Policy     *stubPolicy
@@ -279,7 +280,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuiteUnpatched.SetUpTest(c)
 
 	s.Stub = &gitjujutesting.Stub{}
-	s.Client = &stubClient{stub: s.Stub}
+	s.Client = &StubClient{Stub: s.Stub}
 	s.Firewaller = &stubFirewaller{stub: s.Stub}
 	s.Common = &stubCommon{stub: s.Stub}
 	s.Policy = &stubPolicy{stub: s.Stub}
@@ -470,52 +471,52 @@ func (s *stubPolicy) SupportedArchitectures() ([]string, error) {
 	return s.Arches, nil
 }
 
-type stubClient struct {
-	stub *gitjujutesting.Stub
+type StubClient struct {
+	*gitjujutesting.Stub
 
 	Insts []lxdclient.Instance
 	Inst  *lxdclient.Instance
 }
 
-func (conn *stubClient) Instances(prefix string, statuses ...string) ([]lxdclient.Instance, error) {
-	conn.stub.AddCall("Instances", prefix, statuses)
-	if err := conn.stub.NextErr(); err != nil {
+func (conn *StubClient) Instances(prefix string, statuses ...string) ([]lxdclient.Instance, error) {
+	conn.AddCall("Instances", prefix, statuses)
+	if err := conn.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return conn.Insts, nil
 }
 
-func (conn *stubClient) AddInstance(spec lxdclient.InstanceSpec) (*lxdclient.Instance, error) {
-	conn.stub.AddCall("AddInstance", spec)
-	if err := conn.stub.NextErr(); err != nil {
+func (conn *StubClient) AddInstance(spec lxdclient.InstanceSpec) (*lxdclient.Instance, error) {
+	conn.AddCall("AddInstance", spec)
+	if err := conn.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return conn.Inst, nil
 }
 
-func (conn *stubClient) RemoveInstances(prefix string, ids ...string) error {
-	conn.stub.AddCall("RemoveInstances", prefix, ids)
-	if err := conn.stub.NextErr(); err != nil {
+func (conn *StubClient) RemoveInstances(prefix string, ids ...string) error {
+	conn.AddCall("RemoveInstances", prefix, ids)
+	if err := conn.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
 	return nil
 }
 
-func (conn *stubClient) EnsureImageExists(series string, _ func(string)) error {
-	conn.stub.AddCall("EnsureImageExists", series)
-	if err := conn.stub.NextErr(); err != nil {
+func (conn *StubClient) EnsureImageExists(series string, _ func(string)) error {
+	conn.AddCall("EnsureImageExists", series)
+	if err := conn.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
 	return nil
 }
 
-func (conn *stubClient) Addresses(name string) ([]network.Address, error) {
-	conn.stub.AddCall("Addresses", name)
-	if err := conn.stub.NextErr(); err != nil {
+func (conn *StubClient) Addresses(name string) ([]network.Address, error) {
+	conn.AddCall("Addresses", name)
+	if err := conn.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 

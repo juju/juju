@@ -64,14 +64,15 @@ var (
 }`, strings.Replace(PrivateKey, "\n", "\\n", -1), ClientEmail, ClientID)
 
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
-		"type":           "gce",
-		"private-key":    PrivateKey,
-		"client-id":      ClientID,
-		"client-email":   ClientEmail,
-		"region":         "home",
-		"project-id":     "my-juju",
-		"image-endpoint": "https://www.googleapis.com",
-		"uuid":           "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
+		"type":            "gce",
+		"private-key":     PrivateKey,
+		"client-id":       ClientID,
+		"client-email":    ClientEmail,
+		"region":          "home",
+		"project-id":      "my-juju",
+		"image-endpoint":  "https://www.googleapis.com",
+		"uuid":            "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
+		"controller-uuid": "bfef02f1-932a-425a-a102-62175dcabd1d",
 	})
 )
 

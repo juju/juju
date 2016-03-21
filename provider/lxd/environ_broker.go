@@ -94,7 +94,7 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) erro
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclient.Instance, error) {
-	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
+	machineID := common.MachineFullName(env.Config().UUID(), args.InstanceConfig.MachineId)
 
 	series := args.Tools.OneSeries()
 	image := "ubuntu-" + series
@@ -220,7 +220,7 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 		ids = append(ids, string(id))
 	}
 
-	prefix := common.MachineFullName(env, "")
+	prefix := common.MachineFullName(env.Config().UUID(), "")
 	err := env.raw.RemoveInstances(prefix, ids...)
 	return errors.Trace(err)
 }
