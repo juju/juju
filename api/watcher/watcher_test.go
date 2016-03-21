@@ -266,6 +266,8 @@ type migrationWatcherSuite struct {
 	testing.JujuConnSuite
 }
 
+var _ = gc.Suite(&migrationWatcherSuite{})
+
 func (s *migrationWatcherSuite) TestWatch(c *gc.C) {
 	// Create a state server
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
@@ -275,6 +277,7 @@ func (s *migrationWatcherSuite) TestWatch(c *gc.C) {
 
 	// Create a model to migrate.
 	hostedState := s.Factory.MakeModel(c, nil)
+	defer hostedState.Close()
 
 	// Connect as a state server to the hosted environment.
 	apiInfo := s.APIInfo(c)
