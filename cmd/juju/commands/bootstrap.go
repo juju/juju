@@ -631,7 +631,7 @@ func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) error {
 		if err != nil {
 			// Logins are prevented whilst space discovery is ongoing.
 			errorMessage := errors.Cause(err).Error()
-			if strings.Contains(errorMessage, "space discovery still in progress") {
+			if strings.Contains(errorMessage, "spaces are still being discovered") {
 				continue
 			}
 			break
