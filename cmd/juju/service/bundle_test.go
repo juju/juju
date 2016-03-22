@@ -72,7 +72,7 @@ added mysql/0 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "cs:bundle/wordpress-simple-1" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
+	s.assertCharmsUploaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"mysql":     {charm: "cs:trusty/mysql-42"},
 		"wordpress": {charm: "cs:trusty/wordpress-47"},
@@ -99,7 +99,7 @@ added terms1/0 unit to new machine
 added terms2/0 unit to new machine
 deployment of bundle "cs:bundle/terms-simple-1" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUplodaded(c, "cs:trusty/terms1-17", "cs:trusty/terms2-42")
+	s.assertCharmsUploaded(c, "cs:trusty/terms1-17", "cs:trusty/terms2-42")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"terms1": {charm: "cs:trusty/terms1-17"},
 		"terms2": {charm: "cs:trusty/terms2-42"},
@@ -130,7 +130,7 @@ added mysql/0 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "cs:bundle/wordpress-with-mysql-storage-1" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
+	s.assertCharmsUploaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"mysql": {
 			charm: "cs:trusty/mysql-42",
@@ -157,7 +157,7 @@ func (s *DeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissing(c *
 		"cannot deploy bundle: cannot deploy service \"mysql\": "+
 			"cannot add service \"mysql\": unknown space \"db\" not valid")
 	c.Assert(output, gc.Equals, "added charm cs:trusty/mysql-42")
-	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42")
+	s.assertCharmsUploaded(c, "cs:trusty/mysql-42")
 	s.assertServicesDeployed(c, map[string]serviceInfo{})
 	s.assertUnitsCreated(c, map[string]string{})
 }
@@ -183,7 +183,7 @@ added mysql/0 unit to new machine
 added wordpress-extra-bindings/0 unit to new machine
 deployment of bundle "cs:bundle/wordpress-with-endpoint-bindings-1" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-extra-bindings-47")
+	s.assertCharmsUploaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-extra-bindings-47")
 
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"mysql":                    {charm: "cs:trusty/mysql-42"},
@@ -232,7 +232,7 @@ avoid adding new units to service mysql: 1 unit already present
 avoid adding new units to service wordpress: 1 unit already present
 deployment of bundle "cs:bundle/wordpress-simple-1" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
+	s.assertCharmsUploaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"mysql":     {charm: "cs:trusty/mysql-42"},
 		"wordpress": {charm: "cs:trusty/wordpress-47"},
@@ -251,7 +251,7 @@ func (s *DeployCharmStoreSuite) TestDeployBundleGatedCharm(c *gc.C) {
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
 	_, err := runDeployCommand(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
+	s.assertCharmsUploaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"mysql":     {charm: "cs:trusty/mysql-42"},
 		"wordpress": {charm: "cs:trusty/wordpress-47"},
@@ -277,7 +277,7 @@ service wordpress deployed (charm: cs:trusty/wordpress-47)
 added wordpress/0 unit to new machine
 deployment of bundle %q completed`, path)
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUplodaded(c, "cs:trusty/wordpress-47")
+	s.assertCharmsUploaded(c, "cs:trusty/wordpress-47")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"wordpress": {charm: "cs:trusty/wordpress-47"},
 	})
@@ -521,7 +521,7 @@ added mysql/1 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUplodaded(c, "local:trusty/mysql-1", "local:trusty/wordpress-3")
+	s.assertCharmsUploaded(c, "local:trusty/mysql-1", "local:trusty/wordpress-3")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"mysql":     {charm: "local:trusty/mysql-1"},
 		"wordpress": {charm: "local:trusty/wordpress-3"},
@@ -577,7 +577,7 @@ added mysql/0 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUplodaded(c, "local:trusty/mysql-1", "cs:trusty/wordpress-42")
+	s.assertCharmsUploaded(c, "local:trusty/mysql-1", "cs:trusty/wordpress-42")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"mysql":     {charm: "local:trusty/mysql-1"},
 		"wordpress": {charm: "cs:trusty/wordpress-42"},
@@ -616,7 +616,7 @@ added customized/0 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUplodaded(c, "cs:precise/dummy-0", "cs:trusty/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:precise/dummy-0", "cs:trusty/wordpress-42")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"customized": {
 			charm:  "cs:precise/dummy-0",
@@ -655,7 +655,7 @@ service wordpress deployed (charm: cs:trusty/wordpress-42)
 added customized/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUplodaded(c, "cs:precise/dummy-0", "cs:trusty/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:precise/dummy-0", "cs:trusty/wordpress-42")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"customized": {
 			charm:       "cs:precise/dummy-0",
@@ -699,7 +699,7 @@ added up/0 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUplodaded(c, "cs:vivid/upgrade-1", "cs:trusty/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:trusty/wordpress-42")
 
 	// Then deploy a new bundle with modified charm revision and options.
 	output, err = s.DeployBundleYAML(c, `
@@ -726,7 +726,7 @@ avoid adding new units to service up: 1 unit already present
 avoid adding new units to service wordpress: 1 unit already present
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUplodaded(c, "cs:vivid/upgrade-1", "cs:vivid/upgrade-2", "cs:trusty/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:vivid/upgrade-2", "cs:trusty/wordpress-42")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"up": {charm: "cs:vivid/upgrade-2"},
 		"wordpress": {
@@ -814,6 +814,20 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *gc.
     `)
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": bundle charm "cs:trusty/incompatible-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
 
+	// Try upgrading to a different series.
+	// Note that this test comes before the next one because
+	// otherwise we can't resolve the charm URL because the charm's
+	// "base entity" is not marked as promulgated so the query by
+	// promulgated will find it.
+	testcharms.UploadCharm(c, s.client, "vivid/wordpress-42", "wordpress")
+	_, err = s.DeployBundleYAML(c, `
+        services:
+            wordpress:
+                charm: vivid/wordpress
+                num_units: 1
+    `)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": bundle charm "cs:vivid/wordpress-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
+
 	// Try upgrading to a different user.
 	testcharms.UploadCharm(c, s.client, "~who/trusty/wordpress-42", "wordpress")
 	_, err = s.DeployBundleYAML(c, `
@@ -823,16 +837,6 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *gc.
                 num_units: 1
     `)
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": bundle charm "cs:~who/trusty/wordpress-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
-
-	// Try upgrading to a different series.
-	testcharms.UploadCharm(c, s.client, "vivid/wordpress-42", "wordpress")
-	_, err = s.DeployBundleYAML(c, `
-        services:
-            wordpress:
-                charm: vivid/wordpress
-                num_units: 1
-    `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": bundle charm "cs:vivid/wordpress-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C) {
