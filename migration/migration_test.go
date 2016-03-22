@@ -19,8 +19,12 @@ import (
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/migration"
+	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
@@ -43,10 +47,18 @@ func (s *ImportSuite) SetUpTest(c *gc.C) {
 	// is one that isn't registered as a valid provider. For our tests here we
 	// need a real registered provider, so we use the dummy provider.
 	// NOTE: make a better test provider.
-	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{
-		"type":     "dummy",
-		"state-id": "42",
-	})
+	env, err := environs.Prepare(
+		modelcmd.BootstrapContext(testing.Context(c)),
+		jujuclienttesting.NewMemStore(),
+		environs.PrepareParams{
+			ControllerName: "dummycontroller",
+			BaseConfig:     dummy.SampleConfig(),
+			CloudName:      "dummy",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.InitialConfig = testing.CustomModelConfig(c, env.Config().AllAttrs())
 	s.StateSuite.SetUpTest(c)
 }
 
@@ -331,9 +343,10 @@ func (s *InternalSuite) TestControllerValues(c *gc.C) {
 	config := testing.ModelConfig(c)
 	fields := migration.ControllerValues(config)
 	c.Assert(fields, jc.DeepEquals, map[string]interface{}{
-		"state-port": 19034,
-		"api-port":   17777,
-		"ca-cert":    testing.CACert,
+		"controller-uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"state-port":      19034,
+		"api-port":        17777,
+		"ca-cert":         testing.CACert,
 	})
 }
 
