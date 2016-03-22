@@ -189,11 +189,19 @@ func (srv *Server) Addr() *net.TCPAddr {
 	return srv.lis.Addr().(*net.TCPAddr) // cannot fail
 }
 
-// PatchMigrationGetter overrides the migrationGetter function to
-// support testing.
-func PatchMigrationGetter(p Patcher, st modelMigrationGetter) {
-	p.PatchValue(&migrationGetter, func(*state.State) modelMigrationGetter {
+// PatchGetMigrationBackend overrides the getMigrationBackend function
+// to support testing.
+func PatchGetMigrationBackend(p Patcher, st migrationBackend) {
+	p.PatchValue(&getMigrationBackend, func(*state.State) migrationBackend {
 		return st
+	})
+}
+
+// PatchGetControllerCACert overrides the getControllerCACert function
+// to support testing.
+func PatchGetControllerCACert(p Patcher, caCert string) {
+	p.PatchValue(&getControllerCACert, func(migrationBackend) (string, error) {
+		return caCert, nil
 	})
 }
 
