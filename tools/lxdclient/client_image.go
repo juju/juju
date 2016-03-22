@@ -120,10 +120,6 @@ func (i *imageClient) EnsureImageExists(series string, sources []Remote, copyPro
 	return lastErr
 }
 
-func ImageName(series string, architecture string) string {
-	return fmt.Sprintf("ubuntu/%s/%s", series, architecture)
-}
-
 // A common place to compute image names (aliases) based on the series
 func (i imageClient) ImageNameForSeries(series string) string {
 	return "ubuntu-" + series

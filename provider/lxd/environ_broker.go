@@ -103,11 +103,8 @@ func (env *environ) getImageSources() ([]lxdclient.Remote, error) {
 			logger.Debugf("failed to get the URL for metadataSource: %s", err)
 			continue
 		}
-		/// XXX(jam) It seems that LXD will let you pass a host of
-		// "https://foo/bar" but if you pass "http://foo/bar" then it
-		// ends up trying to connect to "https://http://foo/bar". We
-		// can also just pass "foo/bar" which will be easier
-		// anyway.
+		// NOTE(jam) LXD only allows you to pass HTTPS URLs. So strip
+		// off http:// and replace it with https://
 		// https://github.com/lxc/lxd/issues/1763
 		if strings.HasPrefix(url, "http://") {
 			url = strings.TrimPrefix(url, "http://")

@@ -147,10 +147,6 @@ func (r Remote) Validate() error {
 		return nil
 	}
 
-	// TODO(ericsnow) Ensure the host is a valid hostname or address?
-	// TODO(jam) lxd.NewClientFromInfo() requires that we only pass host
-	// URLs that are "https://" or have no prefix. If we pass "http://" it
-	// tries to connect to "https://http://..." and obviously fails
 	if r.Protocol == "" {
 		return errors.NotValidf("missing Protocol")
 	}
