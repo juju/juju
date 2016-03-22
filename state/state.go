@@ -125,6 +125,17 @@ func (st *State) IsController() bool {
 // this method. Otherwise, there is a race condition in which collections
 // could be added to during or after the running of this method.
 func (st *State) RemoveAllModelDocs() error {
+	return st.removeAllModelDocs(bson.D{{"life", Dead}})
+}
+
+// RemoveImportingModelDocs removes all documents from multi-model collections
+// for the current model. This method asserts that the model's migration mode
+// is "importing".
+func (st *State) RemoveImportingModelDocs() error {
+	return st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeImporting}})
+}
+
+func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	env, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
@@ -138,7 +149,7 @@ func (st *State) RemoveAllModelDocs() error {
 	}, {
 		C:      modelsC,
 		Id:     st.ModelUUID(),
-		Assert: bson.D{{"life", Dead}},
+		Assert: modelAssertion,
 		Remove: true,
 	}}
 
