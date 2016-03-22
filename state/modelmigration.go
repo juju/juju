@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/juju/errors"
@@ -27,6 +28,10 @@ type ModelMigration interface {
 
 	// ModelUUID returns the UUID for the model being migrated.
 	ModelUUID() string
+
+	// Attempt returns the migration attempt identifier. This
+	// increments for each migration attempt for the model.
+	Attempt() (int, error)
 
 	// StartTime returns the time when the migration was started.
 	StartTime() time.Time
@@ -158,6 +163,16 @@ func (mig *modelMigration) Id() string {
 // ModelUUID implements ModelMigration.
 func (mig *modelMigration) ModelUUID() string {
 	return mig.doc.ModelUUID
+}
+
+// Attempt implements ModelMigration.
+func (mig *modelMigration) Attempt() (int, error) {
+	attempt, err := strconv.Atoi(mig.st.localID(mig.doc.Id))
+	if err != nil {
+		// This really shouldn't happen.
+		return -1, errors.Errorf("invalid migration id: %v", mig.doc.Id)
+	}
+	return attempt, nil
 }
 
 // StartTime implements ModelMigration.
