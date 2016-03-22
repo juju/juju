@@ -68,16 +68,16 @@ func NewRemoveCommand() cmd.Command {
 func NewRestoreCommandForTest(
 	store jujuclient.ClientStore,
 	api RestoreAPI,
-	getArchiveFunc func(string) (ArchiveReader, *params.BackupsMetadataResult, error),
-	getEnvironFunc func(string, *params.BackupsMetadataResult) (environs.Environ, error),
+	getArchive func(string) (ArchiveReader, *params.BackupsMetadataResult, error),
+	getEnviron func(string, *params.BackupsMetadataResult) (environs.Environ, error),
 ) cmd.Command {
 	c := &restoreCommand{
-		getArchiveFunc: getArchiveFunc,
-		getEnvironFunc: getEnvironFunc,
+		getArchiveFunc: getArchive,
+		getEnvironFunc: getEnviron,
 		newAPIFunc: func() (RestoreAPI, error) {
 			return api, nil
 		}}
-	if getEnvironFunc == nil {
+	if getEnviron == nil {
 		c.getEnvironFunc = func(controllerNme string, meta *params.BackupsMetadataResult) (environs.Environ, error) {
 			return c.getEnviron(controllerNme, meta)
 		}
