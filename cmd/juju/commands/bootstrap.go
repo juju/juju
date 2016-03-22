@@ -498,6 +498,13 @@ to clean up the model.`[1:])
 			hostedModelConfig[k] = v
 		}
 	}
+	// Ensure that certain config attributes are not included in the hosted
+	// model config. These attributes may be modified during bootstrap; by
+	// removing them from this map, we ensure the modified values are
+	// inherited.
+	delete(hostedModelConfig, config.AuthKeysConfig)
+	delete(hostedModelConfig, config.AgentVersionKey)
+
 	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ModelConstraints:     c.Constraints,
 		BootstrapConstraints: bootstrapConstraints,

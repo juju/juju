@@ -103,6 +103,9 @@ const (
 	// Settings Attributes
 	//
 
+	// AgentVersionKey is the key for the model's Juju agent version.
+	AgentVersionKey = "agent-version"
+
 	// CACertKey is the key for the controller's CA certificate attribute.
 	CACertKey = "ca-cert"
 
@@ -599,7 +602,7 @@ func Validate(cfg, old *Config) error {
 
 	// Check that the agent version parses ok if set explicitly; otherwise leave
 	// it alone.
-	if v, ok := cfg.defined["agent-version"].(string); ok {
+	if v, ok := cfg.defined[AgentVersionKey].(string); ok {
 		if _, err := version.Parse(v); err != nil {
 			return fmt.Errorf("invalid agent version in model configuration: %q", v)
 		}
@@ -1001,7 +1004,7 @@ func (c *Config) FirewallMode() string {
 // and whether it has been set. Once an environment is bootstrapped, this
 // must always be valid.
 func (c *Config) AgentVersion() (version.Number, bool) {
-	if v, ok := c.defined["agent-version"].(string); ok {
+	if v, ok := c.defined[AgentVersionKey].(string); ok {
 		n, err := version.Parse(v)
 		if err != nil {
 			panic(err) // We should have checked it earlier.
@@ -1289,7 +1292,7 @@ var fields = func() schema.Fields {
 // but some fields listed as optional here are actually mandatory
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
-	"agent-version":              schema.Omit,
+	AgentVersionKey:              schema.Omit,
 	CACertKey:                    schema.Omit,
 	"authorized-keys":            schema.Omit,
 	"authorized-keys-path":       schema.Omit,
@@ -1581,7 +1584,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"agent-version": {
+	AgentVersionKey: {
 		Description: "The desired Juju agent version to use",
 		Type:        environschema.Tstring,
 		Group:       environschema.JujuGroup,

@@ -524,6 +524,30 @@ func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *
 	c.Assert(ok, jc.IsFalse)
 }
 
+func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsInheritedAttributes(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+
+	fakeSSHFile := filepath.Join(c.MkDir(), "ssh")
+	err := ioutil.WriteFile(fakeSSHFile, []byte("ssh-key"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	coretesting.RunCommand(
+		c, s.newBootstrapCommand(),
+		"devcontroller", "dummy",
+		"--auto-upgrade",
+		"--config", "authorized-keys=ssh-key",
+		"--config", "agent-version=1.19.0",
+	)
+	_, ok := bootstrap.args.HostedModelConfig["authorized-keys"]
+	c.Assert(ok, jc.IsFalse)
+	_, ok = bootstrap.args.HostedModelConfig["agent-version"]
+	c.Assert(ok, jc.IsFalse)
+}
+
 type mockBootstrapInstance struct {
 	instance.Instance
 }
