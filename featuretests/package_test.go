@@ -38,6 +38,7 @@ func init() {
 	gc.Suite(&dumpLogsCommandSuite{})
 	gc.Suite(&upgradeSuite{})
 	gc.Suite(&cmdRegistrationSuite{})
+	gc.Suite(&cmdLoginSuite{})
 }
 
 func TestPackage(t *stdtesting.T) {

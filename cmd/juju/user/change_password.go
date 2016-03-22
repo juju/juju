@@ -4,13 +4,16 @@
 package user
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/readpass"
+	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/macaroon.v1"
 	"launchpad.net/gnuflag"
 
@@ -70,10 +73,6 @@ func (c *changePasswordCommand) Init(args []string) error {
 	c.User, err = cmd.ZeroOrOneArgs(args)
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if c.User != "" {
-		// TODO(axw) too magical. drop, or error if Generate is not specified
-		c.Generate = true
 	}
 	return nil
 }
@@ -156,8 +155,6 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-var readPassword = readpass.ReadPassword
-
 func generateOrReadPassword(ctx *cmd.Context, generate bool) (string, error) {
 	if generate {
 		password, err := utils.RandomPassword()
@@ -174,9 +171,9 @@ func readAndConfirmPassword(ctx *cmd.Context) (string, error) {
 	// Don't add the carriage returns before readPassword, but add
 	// them directly after the readPassword so any errors are output
 	// on their own lines.
-	fmt.Fprint(ctx.Stdout, "password: ")
-	password, err := readPassword()
-	fmt.Fprint(ctx.Stdout, "\n")
+	fmt.Fprint(ctx.Stderr, "password: ")
+	password, err := readPassword(ctx.Stdin)
+	fmt.Fprint(ctx.Stderr, "\n")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -184,9 +181,9 @@ func readAndConfirmPassword(ctx *cmd.Context) (string, error) {
 		return "", errors.Errorf("you must enter a password")
 	}
 
-	fmt.Fprint(ctx.Stdout, "type password again: ")
-	verify, err := readPassword()
-	fmt.Fprint(ctx.Stdout, "\n")
+	fmt.Fprint(ctx.Stderr, "type password again: ")
+	verify, err := readPassword(ctx.Stdin)
+	fmt.Fprint(ctx.Stderr, "\n")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -194,4 +191,32 @@ func readAndConfirmPassword(ctx *cmd.Context) (string, error) {
 		return "", errors.New("Passwords do not match")
 	}
 	return password, nil
+}
+
+func readPassword(stdin io.Reader) (string, error) {
+	if f, ok := stdin.(*os.File); ok && terminal.IsTerminal(int(f.Fd())) {
+		password, err := terminal.ReadPassword(int(f.Fd()))
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		return string(password), nil
+	}
+	return readLine(stdin)
+}
+
+func readLine(stdin io.Reader) (string, error) {
+	// Read one byte at a time to avoid reading beyond the delimiter.
+	line, err := bufio.NewReader(byteAtATimeReader{stdin}).ReadString('\n')
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return line[:len(line)-1], nil
+}
+
+type byteAtATimeReader struct {
+	io.Reader
+}
+
+func (r byteAtATimeReader) Read(out []byte) (int, error) {
+	return r.Reader.Read(out[:1])
 }

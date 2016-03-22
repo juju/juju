@@ -4,6 +4,8 @@
 package user_test
 
 import (
+	"strings"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -39,7 +41,13 @@ func (s *ChangePasswordCommandSuite) SetUpTest(c *gc.C) {
 
 func (s *ChangePasswordCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	changePasswordCommand, _ := user.NewChangePasswordCommandForTest(s.mockAPI, s.store)
-	return coretesting.RunCommand(c, changePasswordCommand, args...)
+	ctx := coretesting.Context(c)
+	ctx.Stdin = strings.NewReader("sekrit\nsekrit\n")
+	err := coretesting.InitCommand(changePasswordCommand, args)
+	if err != nil {
+		return ctx, err
+	}
+	return ctx, changePasswordCommand.Run(ctx)
 }
 
 func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
@@ -55,9 +63,8 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 			args:     []string{"--generate"},
 			generate: true,
 		}, {
-			args:     []string{"foobar"},
-			user:     "foobar",
-			generate: true,
+			args: []string{"foobar"},
+			user: "foobar",
 		}, {
 			args:     []string{"foobar", "--generate"},
 			user:     "foobar",
@@ -100,12 +107,12 @@ func (s *ChangePasswordCommandSuite) TestChangePassword(c *gc.C) {
 	context, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSetPassword(c, "current-user@local", "sekrit")
-	expected := `
+	c.Assert(coretesting.Stdout(context), gc.Equals, "")
+	c.Assert(coretesting.Stderr(context), gc.Equals, `
 password: 
 type password again: 
-`[1:]
-	c.Assert(coretesting.Stdout(context), gc.Equals, expected)
-	c.Assert(coretesting.Stderr(context), gc.Equals, "Your password has been updated.\n")
+Your password has been updated.
+`[1:])
 }
 
 func (s *ChangePasswordCommandSuite) TestChangePasswordGenerate(c *gc.C) {
@@ -146,7 +153,7 @@ func (s *ChangePasswordCommandSuite) TestNoSetPasswordAfterFailedWrite(c *gc.C) 
 func (s *ChangePasswordCommandSuite) TestChangeOthersPassword(c *gc.C) {
 	// The checks for user existence and admin rights are tested
 	// at the apiserver level.
-	_, err := s.run(c, "other")
+	_, err := s.run(c, "other", "--generate")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSetPassword(c, "other@local", s.randomPassword)
 }

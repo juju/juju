@@ -13,7 +13,6 @@ import (
 
 var (
 	RandomPasswordNotify = &randomPasswordNotify
-	ReadPassword         = &readPassword
 )
 
 type AddCommand struct {
