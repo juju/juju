@@ -388,7 +388,7 @@ class FakeJujuClient:
 
     def deploy(self, charm_name, service_name=None):
         if service_name is None:
-            service_name = charm_name.split(':')[-1]
+            service_name = charm_name.split(':')[-1].split('/')[-1]
         self._backing_state.deploy(charm_name, service_name)
 
     def remove_service(self, service):

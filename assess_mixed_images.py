@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Assess mixed deployment of images two sets of simplestreams."""
+"""Assess mixed deployment of images from two sets of simplestreams."""
 
 from __future__ import print_function
 
@@ -37,7 +37,8 @@ def assess_mixed_images(client):
 
 def parse_args(argv):
     """Parse all arguments."""
-    parser = argparse.ArgumentParser(description="TODO: script info")
+    parser = argparse.ArgumentParser(
+        description="Deploy images from two sets of simplestreams.")
     add_basic_testing_arguments(parser)
     # Fallback behaviour fails without --bootstrap-series: Bug 1560625
     parser.set_defaults(series='trusty')
