@@ -5,16 +5,13 @@ package service
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/names"
 	"github.com/juju/romulus/api/budget"
 	wireformat "github.com/juju/romulus/wireformat/budget"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api/charms"
@@ -121,16 +118,13 @@ func (c *removeServiceCommand) removeAllocation(ctx *cmd.Context) error {
 	}
 
 	modelUUID := client.ModelUUID()
-	httpClient, err := c.HTTPClient()
+	bakeryClient, err := c.BakeryClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	bClient, err := getBudgetAPIClient(ctx, httpClient)
-	if err != nil {
-		return errors.Trace(err)
-	}
+	budgetClient := getBudgetAPIClient(bakeryClient)
 
-	resp, err := bClient.DeleteAllocation(modelUUID, c.ServiceName)
+	resp, err := budgetClient.DeleteAllocation(modelUUID, c.ServiceName)
 	if wireformat.IsNotAvail(err) {
 		fmt.Fprintf(ctx.Stdout, "WARNING: Allocation not removed - %s.\n", err.Error())
 	} else if err != nil {
@@ -144,16 +138,8 @@ func (c *removeServiceCommand) removeAllocation(ctx *cmd.Context) error {
 
 var getBudgetAPIClient = getBudgetAPIClientImpl
 
-func getBudgetAPIClientImpl(ctx *cmd.Context, client *http.Client) (budgetAPIClient, error) {
-	filler := &form.IOFiller{
-		In:  ctx.Stdin,
-		Out: ctx.Stderr,
-	}
-	bakeryClient := &httpbakery.Client{
-		Client:       client,
-		VisitWebPage: ussologin.VisitWebPage(filler, client, tokenStore())}
-	c := budget.NewClient(bakeryClient)
-	return c, nil
+func getBudgetAPIClientImpl(bakeryClient *httpbakery.Client) budgetAPIClient {
+	return budget.NewClient(bakeryClient)
 }
 
 type budgetAPIClient interface {

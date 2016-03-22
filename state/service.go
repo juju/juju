@@ -1551,6 +1551,12 @@ func (s *Service) SetStatus(serviceStatus status.Status, info string, data map[s
 	})
 }
 
+// StatusHistory returns a slice of at most <size> StatusInfo items
+// representing past statuses for this service.
+func (s *Service) StatusHistory(size int) ([]status.StatusInfo, error) {
+	return statusHistory(s.st, s.globalKey(), size)
+}
+
 // ServiceAndUnitsStatus returns the status for this service and all its units.
 func (s *Service) ServiceAndUnitsStatus() (status.StatusInfo, map[string]status.StatusInfo, error) {
 	serviceStatus, err := s.Status()

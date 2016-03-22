@@ -267,6 +267,7 @@ var commandNames = []string{
 	"login",
 	"machine",
 	"machines",
+	"migrate",
 	"publish",
 	"register",
 	"remove-all-blocks",

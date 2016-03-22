@@ -1659,3 +1659,10 @@ func delay() {
 		<-time.After(providerDelay)
 	}
 }
+
+// MigrationConfigUpdate implements MigrationConfigUpdater.
+func (*environ) MigrationConfigUpdate(controllerConfig *config.Config) map[string]interface{} {
+	return map[string]interface{}{
+		"controller-uuid": controllerConfig.UUID(),
+	}
+}

@@ -7,14 +7,19 @@ import "github.com/juju/juju/cloud"
 
 // ControllerDetails holds the details needed to connect to a controller.
 type ControllerDetails struct {
-	// Servers contains the addresses of hosts that form the Juju controller
-	// cluster.
+	// Servers holds a list of API addresses which may contain
+	// unresolved hostnames. It's used to compare more recent API
+	// addresses before resolving hostnames to determine if the cached
+	// addresses have changed and therefore perform (a possibly slow)
+	// local DNS resolution before comparing them against Addresses.
 	Servers []string `yaml:"servers,flow"`
 
 	// ControllerUUID is the unique ID for the controller.
 	ControllerUUID string `yaml:"uuid"`
 
-	// APIEndpoints is the collection of API endpoints running in this controller.
+	// APIEndpoints holds a list of API addresses. It may not be
+	// current, and it will be empty if the environment has not been
+	// bootstrapped.
 	APIEndpoints []string `yaml:"api-endpoints,flow"`
 
 	// CACert is a security certificate for this controller.
