@@ -13,8 +13,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/idmclient/ussologin"
-	"gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"launchpad.net/gnuflag"
 
@@ -47,8 +45,8 @@ func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
 
 // RunPre obtains authorization to deploy this charm. The authorization, if received is not
 // sent to the controller, rather it is kept as an attribute on RegisterMeteredCharm.
-func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
-	err := r.AllocateBudget.RunPre(state, client, ctx, deployInfo)
+func (r *RegisterMeteredCharm) RunPre(state api.Connection, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
+	err := r.AllocateBudget.RunPre(state, bakeryClient, ctx, deployInfo)
 	if err != nil {
 		return errors.Annotate(err, "failed to register metrics")
 	}
@@ -61,20 +59,11 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 		return nil
 	}
 
-	filler := &form.IOFiller{
-		In:  ctx.Stdin,
-		Out: ctx.Stderr,
-	}
-
-	bakeryClient := httpbakery.Client{
-		Client:       client,
-		VisitWebPage: ussologin.VisitWebPage(filler, client, tokenStore())}
-
 	if r.Plan == "" && deployInfo.CharmURL.Schema == "cs" {
-		r.Plan, err = r.getDefaultPlan(client, deployInfo.CharmURL.String())
+		r.Plan, err = r.getDefaultPlan(bakeryClient, deployInfo.CharmURL.String())
 		if err != nil {
 			if isNoDefaultPlanError(err) {
-				options, err1 := r.getCharmPlans(client, deployInfo.CharmURL.String())
+				options, err1 := r.getCharmPlans(bakeryClient, deployInfo.CharmURL.String())
 				if err1 != nil {
 					return err1
 				}
@@ -91,7 +80,7 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 		deployInfo.ServiceName,
 		r.AllocateBudget.Budget,
 		r.AllocateBudget.Limit,
-		&bakeryClient)
+		bakeryClient)
 	if err != nil {
 		if deployInfo.CharmURL.Schema == "cs" {
 			logger.Infof("failed to obtain plan authorization: %v", err)
@@ -103,8 +92,8 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, client *http.Client,
 }
 
 // RunPost sends credentials obtained during the call to RunPre to the controller.
-func (r *RegisterMeteredCharm) RunPost(state api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
-	err := r.AllocateBudget.RunPost(state, client, ctx, deployInfo, prevErr)
+func (r *RegisterMeteredCharm) RunPost(state api.Connection, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
+	err := r.AllocateBudget.RunPost(state, bakeryClient, ctx, deployInfo, prevErr)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -143,7 +132,7 @@ func isNoDefaultPlanError(e error) bool {
 	return ok
 }
 
-func (r *RegisterMeteredCharm) getDefaultPlan(client *http.Client, cURL string) (string, error) {
+func (r *RegisterMeteredCharm) getDefaultPlan(client *httpbakery.Client, cURL string) (string, error) {
 	if r.QueryURL == "" {
 		return "", errors.Errorf("no plan query url specified")
 	}
@@ -186,7 +175,7 @@ func (r *RegisterMeteredCharm) getDefaultPlan(client *http.Client, cURL string) 
 	return planInfo.URL, nil
 }
 
-func (r *RegisterMeteredCharm) getCharmPlans(client *http.Client, cURL string) ([]string, error) {
+func (r *RegisterMeteredCharm) getCharmPlans(client *httpbakery.Client, cURL string) ([]string, error) {
 	if r.QueryURL == "" {
 		return nil, errors.Errorf("no plan query url specified")
 	}

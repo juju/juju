@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/tools"
 )
@@ -142,12 +143,16 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	logger.Debugf("joyent user data: %d bytes", len(userData))
 
 	var machine *cloudapi.Machine
+	args.InstanceConfig.Tags["tag.group"] = "juju"
+	args.InstanceConfig.Tags["tag.env"] = env.Config().Name()
+	logger.Debugf("Now tags are:  %+v", args.InstanceConfig.Tags)
+
 	machine, err = env.compute.cloudapi.CreateMachine(cloudapi.CreateMachineOpts{
 		//Name:	 env.machineFullName(machineConf.MachineId),
 		Package:  spec.InstanceType.Name,
 		Image:    spec.Image.Id,
 		Metadata: map[string]string{"metadata.cloud-init:user-data": string(userData)},
-		Tags:     map[string]string{"tag.group": "juju", "tag.env": env.Config().Name()},
+		Tags:     args.InstanceConfig.Tags,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create instances")
@@ -198,7 +203,12 @@ func (env *joyentEnviron) AllInstances() ([]instance.Instance, error) {
 
 	filter := cloudapi.NewFilter()
 	filter.Set("tag.group", "juju")
-	filter.Set("tag.env", env.Config().Name())
+
+	eUUID, ok := env.Config().UUID()
+	if !ok {
+		return nil, errors.NotFoundf("enviroment UUID in configuration")
+	}
+	filter.Set(tags.JujuModel, eUUID)
 
 	machines, err := env.compute.cloudapi.ListMachines(filter)
 	if err != nil {
