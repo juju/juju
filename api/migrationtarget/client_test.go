@@ -47,7 +47,7 @@ func (s *ClientSuite) TestAbort(c *gc.C) {
 
 	tag := names.NewModelTag("fake-uuid")
 	err := client.Abort(tag)
-	s.AssertModelCall(c, tag, "Abort", err)
+	s.AssertModelCall(c, stub, tag, "Abort", err)
 }
 
 func (s *ClientSuite) TestActivate(c *gc.C) {
@@ -55,13 +55,13 @@ func (s *ClientSuite) TestActivate(c *gc.C) {
 
 	tag := names.NewModelTag("fake-uuid")
 	err := client.Activate(tag)
-	s.AssertModelCall(c, tag, "Activate", err)
+	s.AssertModelCall(c, stub, tag, "Activate", err)
 }
 
-func (s *ClientSuite) AssertModelCall(c *gc.C, tag names.ModelTag, call string, err error) {
+func (s *ClientSuite) AssertModelCall(c *gc.C, stub *jujutesting.Stub, tag names.ModelTag, call string, err error) {
 	expectedArg := params.ModelArgs{ModelTag: tag.String()}
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationTarget."+call, []interface{}{"", expectedArg}},
+		{"MigrationTarget." + call, []interface{}{"", expectedArg}},
 	})
 	c.Assert(err, gc.ErrorMatches, "boom")
-}}
+}
