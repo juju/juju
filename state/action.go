@@ -10,16 +10,52 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
 
-var actionLogger = loggo.GetLogger("juju.state.action")
+const (
+	actionMarker      = "_a_"
+	JujuRunActionName = "juju-run"
+)
 
-// NewUUID wraps the utils.NewUUID() call, and exposes it as a var to
-// facilitate patching.
-var NewUUID = func() (utils.UUID, error) { return utils.NewUUID() }
+var (
+	actionLogger = loggo.GetLogger("juju.state.action")
+
+	// NewUUID wraps the utils.NewUUID() call, and exposes it as a var to
+	// facilitate patching.
+	NewUUID = func() (utils.UUID, error) { return utils.NewUUID() }
+
+	// Predefined actions should contain a list of actions predefined by
+	// juju, that will override any actions with the same name defined in charms.
+	PredefinedActions = set.NewStrings(JujuRunActionName)
+
+	// DefaultPredefinedActionsSpec defines a spec for each action in the set above.
+	DefaultPredefinedActionsSpec = map[string]charm.ActionSpec{
+		JujuRunActionName: charm.ActionSpec{
+			Description: "predefined juju-run action",
+			Params: map[string]interface{}{
+				"type":        "object",
+				"title":       "juju-run",
+				"description": "predefined juju-run action params",
+				"required":    []interface{}{"command", "timeout"},
+				"properties": map[string]interface{}{
+					"command": map[string]interface{}{
+						"type":        "string",
+						"description": "command to be ran under juju-run",
+					},
+					"timeout": map[string]interface{}{
+						"type":        "number",
+						"description": "timeout for command execution",
+					},
+				},
+			},
+		},
+	}
+)
 
 // ActionStatus represents the possible end states for an action.
 type ActionStatus string
@@ -40,7 +76,6 @@ const (
 	// ActionRunning indicates that the Action is currently running.
 	ActionRunning ActionStatus = "running"
 )
-const actionMarker string = "_a_"
 
 type actionNotificationDoc struct {
 	// DocId is the composite _id that can be matched by an

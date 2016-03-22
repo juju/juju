@@ -2000,16 +2000,24 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 	if len(name) == 0 {
 		return nil, errors.New("no action name given")
 	}
-	specs, err := u.ActionSpecs()
-	if err != nil {
-		return nil, err
-	}
-	spec, ok := specs[name]
-	if !ok {
-		return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
+
+	var spec charm.ActionSpec
+	// If the action is predefined inside juju, get spec from map
+	if PredefinedActions.Contains(name) {
+		spec = DefaultPredefinedActionsSpec[name]
+	} else {
+		specs, err := u.ActionSpecs()
+		if err != nil {
+			return nil, err
+		}
+		var ok bool
+		spec, ok = specs[name]
+		if !ok {
+			return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
+		}
 	}
 	// Reject bad payloads before attempting to insert defaults.
-	err = spec.ValidateParams(payload)
+	err := spec.ValidateParams(payload)
 	if err != nil {
 		return nil, err
 	}
