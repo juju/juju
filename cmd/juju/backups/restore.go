@@ -24,9 +24,7 @@ import (
 
 func newRestoreCommand() cmd.Command {
 	restoreCmd := &restoreCommand{}
-	restoreCmd.getEnvironFunc = func(controllerNme string, meta *params.BackupsMetadataResult) (environs.Environ, error) {
-		return restoreCmd.getEnviron(controllerNme, meta)
-	}
+	restoreCmd.getEnvironFunc = restoreCmd.getEnviron
 	restoreCmd.newAPIFunc = func() (RestoreAPI, error) {
 		return restoreCmd.newClient()
 	}
@@ -49,9 +47,15 @@ type restoreCommand struct {
 	getArchiveFunc func(string) (ArchiveReader, *params.BackupsMetadataResult, error)
 }
 
+// RestoreAPI is used to invoke various API calls.
 type RestoreAPI interface {
+	// Close is taken from io.Closer.
 	Close() error
+
+	// Restore is taken from backups.Client.
 	Restore(backupId string, newClient backups.ClientConnection) error
+
+	// RestoreReader is taken from backups.Client.
 	RestoreReader(r io.ReadSeeker, meta *params.BackupsMetadataResult, newClient backups.ClientConnection) error
 }
 
