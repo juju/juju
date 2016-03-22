@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
+	csclientparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon.v1"
 	"launchpad.net/gnuflag"
 
@@ -42,6 +43,10 @@ type upgradeCharmCommand struct {
 	Revision    int // defaults to -1 (latest)
 	// Resources is a map of resource name to filename to be uploaded on upgrade.
 	Resources map[string]string
+
+	// Channel holds the charmstore channel to use when obtaining
+	// the charm to be upgraded to.
+	Channel csclientparams.Channel
 }
 
 const upgradeCharmDoc = `
@@ -121,6 +126,7 @@ func (c *upgradeCharmCommand) Info() *cmd.Info {
 
 func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.ForceUnits, "force-units", false, "upgrade all units immediately, even if in error state")
+	f.StringVar((*string)(&c.Channel), "channel", "", "channel to use when getting the charm or bundle from the charm store")
 	f.BoolVar(&c.ForceSeries, "force-series", false, "upgrade even if series of deployed services are not supported by the new charm")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository path")
 	f.StringVar(&c.SwitchURL, "switch", "", "crossgrade to a different charm")
@@ -193,12 +199,18 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	csClient := newCharmStoreClient(bakeryClient)
+	csClient := newCharmStoreClient(bakeryClient).WithChannel(c.Channel)
 
-	addedURL, csMac, err := c.addCharm(oldURL, newRef, ctx, client, csClient)
+	conf, err := getClientConfig(client)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	resolver := newCharmURLResolver(conf, csClient, ctx.AbsPath(c.RepoPath))
+	addedURL, csMac, err := c.addCharm(oldURL, newRef, client, resolver)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
+	ctx.Infof("Added charm %q to the model.", addedURL)
 
 	ids, err := c.upgradeResources(client, addedURL, csMac)
 	if err != nil {
@@ -313,8 +325,11 @@ func shouldUpgradeResource(res charmresource.Meta, uploads map[string]string, cu
 
 // addCharm interprets the new charmRef and adds the specified charm if the new charm is different
 // to what's already deployed as specified by oldURL.
-func (c *upgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *cmd.Context,
-	client *api.Client, csClient *csClient,
+func (c *upgradeCharmCommand) addCharm(
+	oldURL *charm.URL,
+	charmRef string,
+	client *api.Client,
+	resolver *charmURLResolver,
 ) (*charm.URL, *macaroon.Macaroon, error) {
 	// Charm may have been supplied via a path reference.
 	ch, newURL, err := charmrepo.NewCharmAtPathForceSeries(charmRef, oldURL.Series, c.ForceSeries)
@@ -336,19 +351,7 @@ func (c *upgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *
 	}
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	conf, err := getClientConfig(client)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	newURL, supportedSeries, repo, err := resolveCharmStoreEntityURL(resolveCharmStoreEntityParams{
-		urlStr:          charmRef,
-		requestedSeries: oldURL.Series,
-		forceSeries:     c.ForceSeries,
-		csParams:        csClient.params,
-		repoPath:        ctx.AbsPath(c.RepoPath),
-		conf:            conf,
-	})
+	newURL, supportedSeries, repo, err := resolver.resolve(charmRef)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -377,10 +380,5 @@ func (c *upgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *
 		}
 	}
 
-	addedURL, csMac, err := addCharmFromURL(client, newURL, repo, csClient)
-	if err != nil {
-		return nil, nil, err
-	}
-	ctx.Infof("Added charm %q to the model.", addedURL)
-	return addedURL, csMac, nil
+	return addCharmFromURL(client, newURL, repo)
 }
