@@ -56,12 +56,21 @@ type Metadata struct {
 
 	// Started records when the backup was started.
 	Started time.Time
+
 	// Finished records when the backup was complete.
 	Finished *time.Time
+
 	// Origin identifies where the backup was created.
 	Origin Origin
+
 	// Notes is an optional user-supplied annotation.
 	Notes string
+
+	// CACert is the controller CA certificate.
+	CACert string
+
+	// CAPrivateKey is the controller CA private key.
+	CAPrivateKey string
 }
 
 // NewMetadata returns a new Metadata for a state backup archive.  Only
@@ -92,6 +101,17 @@ func NewMetadataState(db DB, machine string) (*Metadata, error) {
 	meta.Origin.Model = db.ModelTag().Id()
 	meta.Origin.Machine = machine
 	meta.Origin.Hostname = hostname
+
+	si, err := db.StateServingInfo()
+	if err != nil {
+		return nil, errors.Annotate(err, "could not get server secrets")
+	}
+	cfg, err := db.ModelConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "could not get model config")
+	}
+	meta.CACert, _ = cfg.CACert()
+	meta.CAPrivateKey = si.CAPrivateKey
 	return meta, nil
 }
 
@@ -134,6 +154,9 @@ type flatMetadata struct {
 	Machine     string
 	Hostname    string
 	Version     version.Number
+
+	CACert       string
+	CAPrivateKey string
 }
 
 // TODO(ericsnow) Move AsJSONBuffer to filestorage.Metadata.
@@ -147,12 +170,14 @@ func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
 		ChecksumFormat: m.ChecksumFormat(),
 		Size:           m.Size(),
 
-		Started:     m.Started,
-		Notes:       m.Notes,
-		Environment: m.Origin.Model,
-		Machine:     m.Origin.Machine,
-		Hostname:    m.Origin.Hostname,
-		Version:     m.Origin.Version,
+		Started:      m.Started,
+		Notes:        m.Notes,
+		Environment:  m.Origin.Model,
+		Machine:      m.Origin.Machine,
+		Hostname:     m.Origin.Hostname,
+		Version:      m.Origin.Version,
+		CACert:       m.CACert,
+		CAPrivateKey: m.CAPrivateKey,
 	}
 
 	stored := m.Stored()
@@ -201,6 +226,10 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 		Hostname: flat.Hostname,
 		Version:  flat.Version,
 	}
+
+	// TODO(wallyworld) - put these in a separate file.
+	meta.CACert = flat.CACert
+	meta.CAPrivateKey = flat.CAPrivateKey
 
 	return meta, nil
 }

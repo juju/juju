@@ -111,6 +111,11 @@ func ResultFromMetadata(meta *backups.Metadata) params.BackupsMetadataResult {
 	result.Hostname = meta.Origin.Hostname
 	result.Version = meta.Origin.Version
 
+	// These are used by the restore CLI when re-bootstrapping.
+	// They are not used elsewhere.
+	result.CACert = meta.CACert
+	result.CAPrivateKey = meta.CAPrivateKey
+
 	return result
 }
 

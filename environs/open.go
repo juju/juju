@@ -21,7 +21,7 @@ import (
 const ControllerModelName = "admin"
 
 // adminUser is the initial admin user created for all controllers.
-const adminUser = "admin@local"
+const AdminUser = "admin@local"
 
 // New returns a new environment based on the provided configuration.
 func New(config *config.Config) (Environ, error) {
@@ -188,7 +188,7 @@ func prepare(
 
 	details.CACert = caCert
 	details.ControllerUUID = cfg.ControllerUUID()
-	details.User = adminUser
+	details.User = AdminUser
 	details.Password = adminSecret
 	details.ModelUUID = cfg.UUID()
 	details.CloudRegion = args.CloudRegion

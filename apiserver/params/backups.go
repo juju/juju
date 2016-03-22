@@ -66,6 +66,9 @@ type BackupsMetadataResult struct {
 	Machine  string
 	Hostname string
 	Version  version.Number
+
+	CACert       string
+	CAPrivateKey string
 }
 
 // RestoreArgs Holds the backup file or id
