@@ -105,10 +105,15 @@ func (env *environ) getImageSources() ([]lxdclient.Remote, error) {
 		}
 		// NOTE(jam) LXD only allows you to pass HTTPS URLs. So strip
 		// off http:// and replace it with https://
+		// Arguably we could give the user a direct error if
+		// env.ImageMetadataURL is http instead of https, but we also
+		// get http from the DefaultImageSources, which is why we
+		// replace it.
 		// https://github.com/lxc/lxd/issues/1763
 		if strings.HasPrefix(url, "http://") {
 			url = strings.TrimPrefix(url, "http://")
 			url = "https://" + url
+			logger.Debugf("LXD requires https://, using: %s", url)
 		}
 		// TODO(jam) Add tests that when a user sets a
 		// "image-metadata-url" we do the right thing. We *might* need
@@ -140,6 +145,8 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 	}
 
 	series := args.Tools.OneSeries()
+	// TODO(jam): We should get this information from EnsureImageExists, or
+	// something given to us from 'raw', not assume it ourselves.
 	image := "ubuntu-" + series
 	// TODO: support args.Constraints.Arch, we'll want to map from
 
