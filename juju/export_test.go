@@ -1,10 +1,6 @@
 package juju
 
-import (
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/jujuclient"
-)
+import "github.com/juju/juju/api"
 
 var (
 	ProviderConnectDelay   = &providerConnectDelay
@@ -12,11 +8,6 @@ var (
 	ServerAddress          = &serverAddress
 )
 
-func NewAPIFromStore(
-	controllerName, accountName, modelName string,
-	store jujuclient.ClientStore,
-	open api.OpenFunc,
-	getBootstrapConfig func(controllerName string) (*config.Config, error),
-) (api.Connection, error) {
-	return newAPIFromStore(controllerName, accountName, modelName, store, open, nil, getBootstrapConfig)
+func NewAPIFromStore(args NewAPIConnectionParams, open api.OpenFunc) (api.Connection, error) {
+	return newAPIFromStore(args, open)
 }

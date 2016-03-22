@@ -7,7 +7,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -21,9 +20,6 @@ type BaseSuite struct {
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.PatchValue(user.ReadPassword, func() (string, error) {
-		return "sekrit", nil
-	})
 	err := modelcmd.WriteCurrentController("testing")
 	c.Assert(err, jc.ErrorIsNil)
 

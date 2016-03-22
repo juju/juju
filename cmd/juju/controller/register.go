@@ -250,13 +250,21 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 	r := bytes.NewReader(buf)
 
 	// Determine which address to use by attempting to open an API
-	// connection with each of the addresses. Note that we don't
-	// set a username/password, so no login will be attempted; and
-	// we skip verification, because we don't know the CA certificate
-	// and we do not send anything sensitive.
+	// connection with each of the addresses. Note that we do not
+	// know the CA certificate yet, so we do not want to send any
+	// sensitive information. We make no attempt to log in until
+	// we can verify the server's identity.
 	opts := api.DefaultDialOpts()
 	opts.InsecureSkipVerify = true
-	conn, err := c.apiOpen(&api.Info{Addrs: addrs}, opts)
+	conn, err := c.apiOpen(&api.Info{
+		Addrs:     addrs,
+		SkipLogin: true,
+		// NOTE(axw) CACert is required, but ignored if
+		// InsecureSkipVerify is set. We should try to
+		// bring together CACert and InsecureSkipVerify
+		// so they can be validated together.
+		CACert: "ignored",
+	}, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -4,6 +4,7 @@
 package juju
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"time"
@@ -12,7 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/parallel"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
@@ -40,66 +41,52 @@ var errAborted = fmt.Errorf("aborted")
 
 var defaultAPIOpen = api.Open
 
+// NewAPIConnectionParams contains the parameters for creating a new Juju API
+// connection.
+type NewAPIConnectionParams struct {
+	// ControllerName is the name of the controller to connect to.
+	ControllerName string
+
+	// Store is the jujuclient.ClientStore from which the controller's
+	// details will be fetched, and updated on address changes.
+	Store jujuclient.ClientStore
+
+	// DialOpts contains the options used to dial the API connection.
+	DialOpts api.DialOpts
+
+	// BootstrapConfig returns the bootstrap configuration for the named
+	// controller.
+	BootstrapConfig func(controllerName string) (*config.Config, error)
+
+	// AccountDetails contains the account details to use for logging
+	// in to the Juju API. If this is nil, then no login will take
+	// place.
+	AccountDetails *jujuclient.AccountDetails
+
+	// ModelUUID is an optional model UUID. If specified, the API connection
+	// will be scoped to the model with that UUID; otherwise it will be
+	// scoped to the controller.
+	ModelUUID string
+}
+
 // NewAPIConnection returns an api.Connection to the specified Juju controller,
 // with specified account credentials, optionally scoped to the specified model
 // name.
-func NewAPIConnection(
-	store jujuclient.ClientStore,
-	controllerName, accountName, modelName string,
-	bClient *httpbakery.Client,
-	getBootstrapConfig func(controllerName string) (*config.Config, error),
-) (api.Connection, error) {
-	st, err := newAPIFromStore(
-		controllerName, accountName, modelName,
-		store, defaultAPIOpen, bClient, getBootstrapConfig,
-	)
+func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
+	st, err := newAPIFromStore(args, defaultAPIOpen)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
 }
 
-// serverAddress returns the given string address:port as network.HostPort.
-var serverAddress = func(hostPort string) (network.HostPort, error) {
-	addrConnectedTo, err := network.ParseHostPorts(hostPort)
-	if err != nil {
-		// Should never happen, since we've just connected with it.
-		return network.HostPort{}, errors.Annotatef(err, "invalid API address %q", hostPort)
-	}
-	return addrConnectedTo[0], nil
-}
-
 // newAPIFromStore implements the bulk of NewAPIConnection but is separate for
 // testing purposes.
-func newAPIFromStore(
-	controllerName, accountName, modelName string,
-	store jujuclient.ClientStore,
-	apiOpen api.OpenFunc,
-	bClient *httpbakery.Client,
-	getBootstrapConfig func(controllerName string) (*config.Config, error),
-) (api.Connection, error) {
+func newAPIFromStore(args NewAPIConnectionParams, apiOpen api.OpenFunc) (api.Connection, error) {
 
-	controllerDetails, err := store.ControllerByName(controllerName)
+	controllerDetails, err := args.Store.ControllerByName(args.ControllerName)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller details")
-	}
-
-	// There may be no current account, in which case we'll use macaroons.
-	// TODO(axw) store macaroons in the account details, and require the
-	// account name to be specified.
-	var accountDetails *jujuclient.AccountDetails
-	if accountName != "" {
-		accountDetails, err = store.AccountByName(controllerName, accountName)
-		if err != nil {
-			return nil, errors.Annotate(err, "getting account details")
-		}
-	}
-	var modelDetails *jujuclient.ModelDetails
-	if modelName != "" {
-		modelDetails, err = store.ModelByName(controllerName, accountName, modelName)
-		if err != nil {
-			return nil, errors.Annotate(err, "getting model details")
-		}
 	}
 
 	// Try to connect to the API concurrently using two different
@@ -129,8 +116,10 @@ func newAPIFromStore(
 	if len(controllerDetails.APIEndpoints) > 0 {
 		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
 			return apiInfoConnect(
-				controllerDetails, accountDetails, modelDetails,
-				apiOpen, stop, bClient,
+				controllerDetails,
+				args.AccountDetails,
+				args.ModelUUID, apiOpen,
+				stop, args.DialOpts,
 			)
 		})
 		// Delay the config connection until we've spent
@@ -144,12 +133,13 @@ func newAPIFromStore(
 	// attempt to connect by fetching new addresses from the cloud
 	// directly. This is only attempted after a delay, to give the
 	// faster cached-addresses method a chance to complete.
-	cfg, err := getBootstrapConfig(controllerName)
+	cfg, err := args.BootstrapConfig(args.ControllerName)
 	if err == nil {
 		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
 			cfg, err := apiConfigConnect(
-				cfg, accountDetails, modelDetails,
-				apiOpen, stop, delay, bClient,
+				cfg, args.AccountDetails,
+				args.ModelUUID, apiOpen,
+				stop, delay, args.DialOpts,
 			)
 			if err != nil {
 				// Errors are swallowed by parallel.Try, so we
@@ -180,7 +170,7 @@ func newAPIFromStore(
 	// Update API addresses if they've changed. Error is non-fatal.
 	hostPorts := st.APIHostPorts()
 	if localerr := updateControllerAddresses(
-		store, controllerName, controllerDetails, hostPorts, addrConnectedTo,
+		args.Store, args.ControllerName, controllerDetails, hostPorts, addrConnectedTo,
 	); localerr != nil {
 		logger.Warningf("cannot cache API addresses: %v", localerr)
 	}
@@ -214,10 +204,10 @@ type infoConnectError struct {
 func apiInfoConnect(
 	controller *jujuclient.ControllerDetails,
 	account *jujuclient.AccountDetails,
-	model *jujuclient.ModelDetails,
+	modelUUID string,
 	apiOpen api.OpenFunc,
 	stop <-chan struct{},
-	bClient *httpbakery.Client,
+	dialOpts api.DialOpts,
 ) (api.Connection, error) {
 
 	logger.Infof("connecting to API addresses: %v", controller.APIEndpoints)
@@ -225,20 +215,11 @@ func apiInfoConnect(
 		Addrs:  controller.APIEndpoints,
 		CACert: controller.CACert,
 	}
-	if account != nil && account.Password != "" {
-		apiInfo.Tag = names.NewUserTag(account.User)
-		apiInfo.Password = account.Password
-	} else {
-		apiInfo.UseMacaroons = true
-	}
-	if model != nil {
-		apiInfo.ModelTag = names.NewModelTag(model.ModelUUID)
-	}
-	dialOpts := api.DefaultDialOpts()
-	dialOpts.BakeryClient = bClient
-	st, err := apiOpen(apiInfo, dialOpts)
+	st, err := commonConnect(apiOpen, apiInfo, account, modelUUID, dialOpts)
 	if err != nil {
-		return nil, &infoConnectError{err}
+		return nil, &infoConnectError{errors.Annotate(
+			err, "connecting with cached addresses",
+		)}
 	}
 	return st, nil
 }
@@ -251,11 +232,11 @@ func apiInfoConnect(
 func apiConfigConnect(
 	cfg *config.Config,
 	accountDetails *jujuclient.AccountDetails,
-	model *jujuclient.ModelDetails,
+	modelUUID string,
 	apiOpen api.OpenFunc,
 	stop <-chan struct{},
 	delay time.Duration,
-	bClient *httpbakery.Client,
+	dialOpts api.DialOpts,
 ) (api.Connection, error) {
 	select {
 	case <-time.After(delay):
@@ -270,22 +251,49 @@ func apiConfigConnect(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API info")
 	}
-	if accountDetails != nil && accountDetails.Password != "" {
-		apiInfo.Tag = names.NewUserTag(accountDetails.User)
-		apiInfo.Password = accountDetails.Password
-	} else {
-		apiInfo.UseMacaroons = true
-	}
-	if model != nil {
-		apiInfo.ModelTag = names.NewModelTag(model.ModelUUID)
-	}
-	dialOpts := api.DefaultDialOpts()
-	dialOpts.BakeryClient = bClient
-	st, err := apiOpen(apiInfo, dialOpts)
+	st, err := commonConnect(apiOpen, apiInfo, accountDetails, modelUUID, dialOpts)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "connecting with bootstrap config")
 	}
 	return apiStateCachedInfo{st, apiInfo}, nil
+}
+
+func commonConnect(
+	apiOpen api.OpenFunc,
+	apiInfo *api.Info,
+	accountDetails *jujuclient.AccountDetails,
+	modelUUID string,
+	dialOpts api.DialOpts,
+) (api.Connection, error) {
+	if accountDetails != nil {
+		// We only set the tag if either a password or
+		// macaroon is found in the accounts.yaml file.
+		// If neither is found, we'll use external
+		// macaroon authentication which requires that
+		// no tag be specified.
+		userTag := names.NewUserTag(accountDetails.User)
+		if accountDetails.Password != "" {
+			// If a password is available, we always use
+			// that.
+			//
+			// TODO(axw) make it invalid to store both
+			// password and macaroon in accounts.yaml?
+			apiInfo.Tag = userTag
+			apiInfo.Password = accountDetails.Password
+		} else if accountDetails.Macaroon != "" {
+			var m macaroon.Macaroon
+			if err := json.Unmarshal([]byte(accountDetails.Macaroon), &m); err != nil {
+				return nil, errors.Trace(err)
+			}
+			apiInfo.Tag = userTag
+			apiInfo.Macaroons = []macaroon.Slice{{&m}}
+		}
+	}
+	if modelUUID != "" {
+		apiInfo.ModelTag = names.NewModelTag(modelUUID)
+	}
+	st, err := apiOpen(apiInfo, dialOpts)
+	return st, errors.Trace(err)
 }
 
 var resolveOrDropHostnames = network.ResolveOrDropHostnames
@@ -421,4 +429,16 @@ func updateControllerAddresses(
 	controllerDetails.APIEndpoints = addrs
 	err := store.UpdateController(controllerName, *controllerDetails)
 	return errors.Trace(err)
+}
+
+// serverAddress returns the given string address:port as network.HostPort.
+//
+// TODO(axw) fix the tests that pass invalid addresses, and drop this.
+var serverAddress = func(hostPort string) (network.HostPort, error) {
+	addrConnectedTo, err := network.ParseHostPorts(hostPort)
+	if err != nil {
+		// Should never happen, since we've just connected with it.
+		return network.HostPort{}, errors.Annotatef(err, "invalid API address %q", hostPort)
+	}
+	return addrConnectedTo[0], nil
 }

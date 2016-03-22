@@ -15,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
 	undertakerapi "github.com/juju/juju/api/undertaker"
 	"github.com/juju/juju/cmd/juju/commands"
@@ -101,7 +102,18 @@ func (s *cmdControllerSuite) TestCreateModel(c *gc.C) {
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	api, err := juju.NewAPIConnection(s.ControllerStore, "kontroll", "admin@local", "new-model", nil, noBootstrapConfig)
+	accountDetails, err := s.ControllerStore.AccountByName("kontroll", "admin@local")
+	c.Assert(err, jc.ErrorIsNil)
+	modelDetails, err := s.ControllerStore.ModelByName("kontroll", "admin@local", "new-model")
+	c.Assert(err, jc.ErrorIsNil)
+	api, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
+		Store:           s.ControllerStore,
+		ControllerName:  "kontroll",
+		AccountDetails:  accountDetails,
+		ModelUUID:       modelDetails.ModelUUID,
+		BootstrapConfig: noBootstrapConfig,
+		DialOpts:        api.DefaultDialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()
 }
