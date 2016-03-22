@@ -122,8 +122,12 @@ func (s *binaryStorage) Add(r io.Reader, metadata Metadata) (resultErr error) {
 	return nil
 }
 
-func (s *binaryStorage) Remove(v version.Binary) error {
-	metaDataDoc, err := s.toolsMetadata(v)
+func (s *binaryStorage) Remove(ver string) error {
+	v, err := version.ParseBinary(ver)
+	if err != nil {
+		return errors.Annotatef(err, "removing %q from storage", ver)
+	}
+	metaDataDoc, err := s.findMetadata(v.String())
 	if err != nil {
 		return errors.Annotate(err, "retrieving metadata to remove from storage")
 	}

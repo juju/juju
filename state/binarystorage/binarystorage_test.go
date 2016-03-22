@@ -74,14 +74,14 @@ func (s *binaryStorageSuite) TestAddReplaces(c *gc.C) {
 }
 
 func (s *binaryStorageSuite) TestRemoveTools(c *gc.C) {
-	s.testAddTools(c, "some-tools")
-	m, _, err := s.storage.Tools(current)
+	s.testAdd(c, "some-tools")
+	m, _, err := s.storage.Open(current)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.SHA256, gc.Equals, "hash(some-tools)")
 	err = s.storage.Remove(current)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, err = s.storage.Tools(current)
-	c.Assert(err, gc.ErrorMatches, "* tools metadata not found")
+	_, _, err = s.storage.Open(current)
+	c.Assert(err, gc.ErrorMatches, "* binary metadata not found")
 }
 
 func (s *binaryStorageSuite) testAdd(c *gc.C, content string) {
