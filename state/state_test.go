@@ -2956,7 +2956,7 @@ func (s *StateSuite) AssertModelDeleted(c *gc.C, st *state.State) {
 	}
 }
 
-func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
+func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -2974,7 +2974,7 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	s.AssertModelDeleted(c, st)
 }
 
-func (s *StateSuite) TestRemoveAllEnvironDocsAliveEnvFails(c *gc.C) {
+func (s *StateSuite) TestRemoveAllModelDocsAliveEnvFails(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
