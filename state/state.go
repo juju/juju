@@ -1340,7 +1340,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	// so we add it here.
 	ops := append(
 		[]txn.Op{
-			env.assertAliveOp(),
+			env.assertActiveOp(),
 			endpointBindingsOp,
 		},
 		addServiceOps(st, addServiceOpsArgs{
@@ -1659,7 +1659,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 		return nil, err
 	}
 	ops := []txn.Op{
-		assertModelAliveOp(st.ModelUUID()),
+		assertModelActiveOp(st.ModelUUID()),
 		{
 			C:      subnetsC,
 			Id:     subnetID,
@@ -1750,7 +1750,7 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	}
 	doc := st.newNetworkDoc(args)
 	ops := []txn.Op{
-		assertModelAliveOp(st.ModelUUID()),
+		assertModelActiveOp(st.ModelUUID()),
 		{
 			C:      networksC,
 			Id:     doc.DocID,

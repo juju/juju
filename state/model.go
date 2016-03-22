@@ -480,7 +480,7 @@ func (m *Model) destroyOps(destroyHostedModels bool) ([]txn.Op, error) {
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     uuid,
-		Assert: isModelAliveDoc,
+		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{
 			{"life", Dying},
 			{"time-of-dying", nowToTheSecond()},
@@ -639,38 +639,28 @@ func createUniqueOwnerModelNameOp(owner names.UserTag, envName string) txn.Op {
 }
 
 // assertAliveOp returns a txn.Op that asserts the model is alive.
-func (m *Model) assertAliveOp() txn.Op {
-	return assertModelAliveOp(m.UUID())
+func (m *Model) assertActiveOp() txn.Op {
+	return assertModelActiveOp(m.UUID())
 }
 
-// assertModelAliveOp returns a txn.Op that asserts the given
+// assertModelActiveOp returns a txn.Op that asserts the given
 // model UUID refers to an Alive model.
-func assertModelAliveOp(modelUUID string) txn.Op {
+func assertModelActiveOp(modelUUID string) txn.Op {
 	return txn.Op{
 		C:      modelsC,
 		Id:     modelUUID,
-		Assert: isModelAliveDoc,
+		Assert: append(isAliveDoc, bson.DocElem{"migration-mode", MigrationModeActive}),
 	}
 }
 
-// isModelAlive is a model-specific version of isAliveDoc.
-//
-// Model documents from versions of Juju prior to 1.17
-// do not have the life field; if it does not exist, it should
-// be considered to have the value Alive.
-//
-// TODO(mjs) - this should be removed with existing uses replaced with
-// isAliveDoc. A DB migration should convert nil to Alive.
-var isModelAliveDoc = bson.D{
-	{"life", bson.D{{"$in", []interface{}{Alive, nil}}}},
-}
-
 func checkModeLife(st *State) error {
-	env, err := st.Model()
-	if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
-		return errors.Errorf("model %q is no longer alive", env.Name())
+	model, err := st.Model()
+	if (err == nil && model.Life() != Alive) || errors.IsNotFound(err) {
+		return errors.Errorf("model %q is no longer alive", model.Name())
 	} else if err != nil {
 		return errors.Annotate(err, "unable to read model")
+	} else if mode := model.MigrationMode(); mode != MigrationModeActive {
+		return errors.Errorf("model %q is being migrated", model.Name())
 	}
 	return nil
 }

@@ -42,7 +42,7 @@ func (m *Machine) setFlag() error {
 		return mgo.ErrNotFound
 	}
 	ops := []txn.Op{
-		assertModelAliveOp(m.st.ModelUUID()),
+		assertModelActiveOp(m.st.ModelUUID()),
 		{
 			C:      machinesC,
 			Id:     m.doc.DocID,

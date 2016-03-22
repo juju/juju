@@ -268,8 +268,8 @@ func (s *ModelMigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 	st := s.State2
 
 	mig, err := st.CreateModelMigration(s.stdSpec)
-	c.Assert(mig, gc.Not(gc.IsNil))
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mig, gc.NotNil)
 
 	mig2, err := st.GetModelMigration()
 	c.Assert(err, jc.ErrorIsNil)

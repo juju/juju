@@ -206,7 +206,7 @@ func (ni *NetworkInterface) setDisabled(shouldDisable bool) error {
 	if err != nil {
 		return err
 	}
-	ops = append(ops, assertModelAliveOp(ni.st.ModelUUID()))
+	ops = append(ops, assertModelActiveOp(ni.st.ModelUUID()))
 	err = ni.st.runTransaction(ops)
 	if err != nil {
 		if err := checkModeLife(ni.st); err != nil {

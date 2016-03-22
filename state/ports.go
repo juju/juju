@@ -227,7 +227,7 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 		}
 
 		ops := []txn.Op{
-			assertModelAliveOp(p.st.ModelUUID()),
+			assertModelActiveOp(p.st.ModelUUID()),
 		}
 		if ports.areNew {
 			// Create a new document.

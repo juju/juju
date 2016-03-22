@@ -183,7 +183,7 @@ func (m *Machine) AddLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 		}
 
 		ops := []txn.Op{
-			assertModelAliveOp(m.st.ModelUUID()),
+			assertModelActiveOp(m.st.ModelUUID()),
 			m.assertAliveOp(),
 		}
 
@@ -585,7 +585,7 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 		}
 
 		ops := []txn.Op{
-			assertModelAliveOp(m.st.ModelUUID()),
+			assertModelActiveOp(m.st.ModelUUID()),
 			m.assertAliveOp(),
 		}
 

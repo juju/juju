@@ -50,7 +50,7 @@ func addIPAddress(st *State, addr network.Address, subnetid string) (ipaddress *
 
 	ipaddress = &IPAddress{doc: ipDoc, st: st}
 	ops := []txn.Op{
-		assertModelAliveOp(st.ModelUUID()),
+		assertModelActiveOp(st.ModelUUID()),
 		{
 			C:      legacyipaddressesC,
 			Id:     addressID,
@@ -414,7 +414,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId, macAddress string) (err e
 
 		}
 		return []txn.Op{
-			assertModelAliveOp(i.st.ModelUUID()),
+			assertModelActiveOp(i.st.ModelUUID()),
 			{
 				C:      legacyipaddressesC,
 				Id:     i.doc.DocID,
