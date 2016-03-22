@@ -5,10 +5,13 @@ package cloud
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
+	"github.com/juju/utils"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 )
@@ -79,9 +82,29 @@ func NewEmptyCloudCredential() *CloudCredential {
 	return &CloudCredential{AuthCredentials: map[string]Credential{"default": NewEmptyCredential()}}
 }
 
+// NamedCredentialAttr describes the properties of a named credential attribute.
+type NamedCredentialAttr struct {
+	// Name is the name of the credential value.
+	Name string
+
+	// CredentialAttr holds the properties of the credential value.
+	CredentialAttr
+}
+
 // CredentialSchema describes the schema of a credential. Credential schemas
 // are specific to cloud providers.
-type CredentialSchema map[string]CredentialAttr
+type CredentialSchema []NamedCredentialAttr
+
+// Attribute returns the named CredentialAttr value.
+func (s CredentialSchema) Attribute(name string) (*CredentialAttr, bool) {
+	for _, value := range s {
+		if value.Name == name {
+			result := value.CredentialAttr
+			return &result, true
+		}
+	}
+	return nil, false
+}
 
 // FinalizeCredential finalizes a credential by matching it with one of the
 // provided credential schemas, and reading any file attributes into their
@@ -132,12 +155,24 @@ func (s CredentialSchema) Finalize(
 	newAttrs := make(map[string]string)
 
 	// Construct the final credential attributes map, reading values from files as necessary.
-	for name, field := range s {
+	for _, field := range s {
 		if field.FileAttr != "" {
-			if err := s.processFileAttrValue(name, field, resultMap, newAttrs, readFile); err != nil {
+			if err := s.processFileAttrValue(field, resultMap, newAttrs, readFile); err != nil {
 				return nil, errors.Trace(err)
 			}
 			continue
+		}
+		name := field.Name
+		if field.FilePath {
+			pathValue, ok := resultMap[name]
+			if ok && pathValue != "" {
+				if absPath, err := ValidateFileAttrValue(pathValue.(string)); err != nil {
+					return nil, errors.Trace(err)
+				} else {
+					newAttrs[name] = absPath
+					continue
+				}
+			}
 		}
 		if val, ok := resultMap[name]; ok {
 			newAttrs[name] = val.(string)
@@ -146,10 +181,31 @@ func (s CredentialSchema) Finalize(
 	return newAttrs, nil
 }
 
+// ValidateFileAttrValue returns the normalised file path, so
+// long as the specified path is valid and not a directory.
+func ValidateFileAttrValue(path string) (string, error) {
+	if !filepath.IsAbs(path) && !strings.HasPrefix(path, "~") {
+		return "", errors.Errorf("file path must be an absolute path: %s", path)
+	}
+	absPath, err := utils.NormalizePath(path)
+	if err != nil {
+		return "", err
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return "", errors.Errorf("invalid file path: %s", absPath)
+	}
+	if info.IsDir() {
+		return "", errors.Errorf("file path must be a file: %s", absPath)
+	}
+	return absPath, nil
+}
+
 func (s CredentialSchema) processFileAttrValue(
-	name string, field CredentialAttr, resultMap map[string]interface{}, newAttrs map[string]string,
+	field NamedCredentialAttr, resultMap map[string]interface{}, newAttrs map[string]string,
 	readFile func(string) ([]byte, error),
 ) error {
+	name := field.Name
 	if fieldVal, ok := resultMap[name]; ok {
 		if _, ok := resultMap[field.FileAttr]; ok {
 			return errors.NotValidf(
@@ -180,8 +236,8 @@ func (s CredentialSchema) processFileAttrValue(
 
 func (s CredentialSchema) schemaChecker() (schema.Checker, error) {
 	fields := make(environschema.Fields)
-	for name, field := range s {
-		fields[name] = environschema.Attr{
+	for _, field := range s {
+		fields[field.Name] = environschema.Attr{
 			Description: field.Description,
 			Type:        environschema.Tstring,
 			Group:       environschema.AccountGroup,
@@ -230,6 +286,9 @@ type CredentialAttr struct {
 	// of this one, which points to a file that will be read in and its
 	// value used for this attribute.
 	FileAttr string
+
+	// FilePath is true is the value of this attribute is a file path.
+	FilePath bool
 
 	// Optional controls whether the attribute is required to have a non-empty
 	// value or not. Attributes default to mandatory.
@@ -323,9 +382,9 @@ func RemoveSecrets(
 		return nil, errors.NotSupportedf("auth-type %q", credential.authType)
 	}
 	redactedAttrs := credential.Attributes()
-	for attrName, attr := range schema {
+	for _, attr := range schema {
 		if attr.Hidden {
-			delete(redactedAttrs, attrName)
+			delete(redactedAttrs, attr.Name)
 		}
 	}
 	return &Credential{authType: credential.authType, attributes: redactedAttrs}, nil

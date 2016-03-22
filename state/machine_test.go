@@ -704,12 +704,6 @@ func (s *MachineSuite) TestSetPasswordPreModelUUID(c *gc.C) {
 	c.Assert(m.PasswordValid(goodPassword), jc.IsTrue)
 }
 
-func (s *MachineSuite) TestSetAgentCompatPassword(c *gc.C) {
-	e, err := s.State.Machine(s.machine.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	testSetAgentCompatPassword(c, e)
-}
-
 func (s *MachineSuite) TestMachineWaitAgentPresence(c *gc.C) {
 	alive, err := s.machine.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)

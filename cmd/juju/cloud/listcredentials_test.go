@@ -36,6 +36,7 @@ var _ = gc.Suite(&listCredentialsSuite{
 })
 
 func (s *listCredentialsSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
 	environs.RegisterProvider("test-provider", &mockProvider{})
 }
 

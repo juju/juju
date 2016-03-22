@@ -16,7 +16,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
@@ -26,6 +25,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	csclientparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/charmstore.v5-unstable"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
@@ -314,6 +314,9 @@ func (s *DeploySuite) TestResources(c *gc.C) {
 		"bar": barpath,
 	})
 }
+
+// TODO(ericsnow) Add tests for charmstore-based resources once the
+// endpoints are implemented.
 
 func (s *DeploySuite) TestNetworksIsDeprecated(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
@@ -723,7 +726,7 @@ Deploying charm "cs:trusty/terms1-1" with the charm series "trusty".
 Deployment under prior agreement to terms: term1/1 term3/1
 `
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUplodaded(c, "cs:trusty/terms1-1")
+	s.assertCharmsUploaded(c, "cs:trusty/terms1-1")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"terms1": {charm: "cs:trusty/terms1-1"},
 	})
@@ -740,6 +743,23 @@ func (s *DeployCharmStoreSuite) TestDeployWithTermsNotSigned(c *gc.C) {
 	_, err := runDeployCommand(c, "quantal/terms1")
 	expectedError := `Declined: please agree to the following terms term/1 term/2. Try: "juju agree term/1 term/2"`
 	c.Assert(err, gc.ErrorMatches, expectedError)
+}
+
+func (s *DeployCharmStoreSuite) TestDeployWithChannel(c *gc.C) {
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "wordpress")
+	id := charm.MustParseURL("cs:~client-username/precise/wordpress-0")
+	err := s.client.UploadCharmWithRevision(id, ch, -1)
+	c.Assert(err, gc.IsNil)
+
+	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.DevelopmentChannel}, nil)
+	c.Assert(err, gc.IsNil)
+
+	_, err = runDeployCommand(c, "--channel", "development", "~client-username/wordpress")
+	c.Assert(err, gc.IsNil)
+	s.assertCharmsUploaded(c, "cs:~client-username/precise/wordpress-0")
+	s.assertServicesDeployed(c, map[string]serviceInfo{
+		"wordpress": {charm: "cs:~client-username/precise/wordpress-0"},
+	})
 }
 
 const (
@@ -809,10 +829,11 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 		PublicKeyLocator: keyring,
 		TermsLocation:    s.termsDischarger.Location(),
 	}
-	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
+	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
 	c.Assert(err, jc.ErrorIsNil)
 	s.handler = handler
 	s.srv = httptest.NewServer(handler)
+	c.Logf("started charmstore on %v", s.srv.URL)
 	s.client = csclient.New(csclient.Params{
 		URL:      s.srv.URL,
 		User:     params.AuthUsername,
@@ -823,25 +844,25 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 
 	// Point the CLI to the charm store testing server.
-	original := newCharmStoreClient
-	s.PatchValue(&newCharmStoreClient, func(ctx *cmd.Context, httpClient *http.Client) *csClient {
-		csclient := original(ctx, httpClient)
-		csclient.params.URL = s.srv.URL
+	s.PatchValue(&newCharmStoreClient, func(client *httpbakery.Client) *csclient.Client {
 		// Add a cookie so that the discharger can detect whether the
 		// HTTP client is the juju environment or the juju client.
 		lurl, err := url.Parse(s.discharger.Location())
 		c.Assert(err, jc.ErrorIsNil)
-		csclient.params.HTTPClient.Jar.SetCookies(lurl, []*http.Cookie{{
+		client.Jar.SetCookies(lurl, []*http.Cookie{{
 			Name:  clientUserCookie,
 			Value: clientUserName,
 		}})
-		return csclient
+		return csclient.New(csclient.Params{
+			URL:          s.srv.URL,
+			BakeryClient: client,
+		})
 	})
 
 	// Point the Juju API server to the charm store testing server.
 	s.PatchValue(&csclient.ServerURL, s.srv.URL)
 
-	s.PatchValue(&getApiClient, func(*cmd.Context, *http.Client) (apiClient, error) {
+	s.PatchValue(&getApiClient, func(*httpbakery.Client) (apiClient, error) {
 		return &mockBudgetAPIClient{&jujutesting.Stub{}}, nil
 	})
 }
@@ -860,8 +881,8 @@ func (s *charmStoreSuite) changeReadPerm(c *gc.C, url *charm.URL, perms ...strin
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// assertCharmsUplodaded checks that the given charm ids have been uploaded.
-func (s *charmStoreSuite) assertCharmsUplodaded(c *gc.C, ids ...string) {
+// assertCharmsUploaded checks that the given charm ids have been uploaded.
+func (s *charmStoreSuite) assertCharmsUploaded(c *gc.C, ids ...string) {
 	charms, err := s.State.AllCharms()
 	c.Assert(err, jc.ErrorIsNil)
 	uploaded := make([]string, len(charms))
@@ -1095,7 +1116,7 @@ func (s *DeploySuite) TestDeployFlags(c *gc.C) {
 	c.Assert(command.flagSet, jc.DeepEquals, flagSet)
 	// Add to the slice below if a new flag is introduced which is valid for
 	// both charms and bundles.
-	charmAndBundleFlags := []string{"repository", "storage"}
+	charmAndBundleFlags := []string{"channel", "repository", "storage"}
 	var allFlags []string
 	flagSet.VisitAll(func(flag *gnuflag.Flag) {
 		allFlags = append(allFlags, flag.Name)

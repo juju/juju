@@ -37,6 +37,8 @@ const (
 // The name of the manager is used to namespace the containers on the machine.
 type ManagerConfig map[string]string
 
+type StatusCallback func(settableStatus status.Status, info string, data map[string]interface{}) error
+
 // Manager is responsible for starting containers, and stopping and listing
 // containers that it has started.
 type Manager interface {
@@ -47,7 +49,7 @@ type Manager interface {
 		series string,
 		network *NetworkConfig,
 		storage *StorageConfig,
-		callback func(settableStatus status.Status, info string, data map[string]interface{}) error) (instance.Instance, *instance.HardwareCharacteristics, error)
+		callback StatusCallback) (instance.Instance, *instance.HardwareCharacteristics, error)
 
 	// DestroyContainer stops and destroyes the container identified by
 	// instance id.

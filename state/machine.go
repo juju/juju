@@ -461,21 +461,7 @@ func (m *Machine) getPasswordHash() string {
 // for the given machine.
 func (m *Machine) PasswordValid(password string) bool {
 	agentHash := utils.AgentPasswordHash(password)
-	if agentHash == m.doc.PasswordHash {
-		return true
-	}
-	// In Juju 1.16 and older we used the slower password hash for unit
-	// agents. So check to see if the supplied password matches the old
-	// path, and if so, update it to the new mechanism.
-	// We ignore any error in setting the password, as we'll just try again
-	// next time
-	if utils.UserPasswordHash(password, utils.CompatSalt) == m.doc.PasswordHash {
-		logger.Debugf("%s logged in with old password hash, changing to AgentPasswordHash",
-			m.Tag())
-		m.setPasswordHash(agentHash)
-		return true
-	}
-	return false
+	return agentHash == m.doc.PasswordHash
 }
 
 // Destroy sets the machine lifecycle to Dying if it is Alive. It does
@@ -1052,14 +1038,6 @@ func (m *Machine) SetInstanceStatus(instanceStatus status.Status, info string, d
 // this juju machine is deployed.
 func (u *Machine) InstanceStatusHistory(size int) ([]status.StatusInfo, error) {
 	return statusHistory(u.st, u.globalInstanceKey(), size)
-}
-
-// StatusHistory returns a slice of at most <size> StatusInfo items
-// representing past statuses for this machine.
-// Machine refers to what juju calls Machine which is an entity representing
-// the underlying [v]hardware and its characteristics.
-func (u *Machine) StatusHistory(size int) ([]status.StatusInfo, error) {
-	return statusHistory(u.st, u.globalKey(), size)
 }
 
 // AvailabilityZone returns the provier-specific instance availability
@@ -1741,6 +1719,12 @@ func (m *Machine) SetStatus(machineStatus status.Status, info string, data map[s
 		message:   info,
 		rawData:   data,
 	})
+}
+
+// StatusHistory returns a slice of at most <size> StatusInfo items
+// representing past statuses for this machine.
+func (m *Machine) StatusHistory(size int) ([]status.StatusInfo, error) {
+	return statusHistory(m.st, m.globalKey(), size)
 }
 
 // Clean returns true if the machine does not have any deployed units or containers.

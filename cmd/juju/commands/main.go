@@ -203,6 +203,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewGrantCommand())
 	r.Register(model.NewRevokeCommand())
 
+	r.Register(newMigrateCommand())
+
 	// Manage and control actions
 	r.Register(action.NewSuperCommand())
 	r.RegisterSuperAlias("run-action", "action", "do", nil)

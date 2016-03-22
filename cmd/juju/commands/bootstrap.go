@@ -5,6 +5,7 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -513,12 +514,7 @@ func credentialByName(
 	return &credential, credentialName, cloudCredentials.DefaultRegion, nil
 }
 
-func (c *bootstrapCommand) getCredentials(
-	ctx *cmd.Context,
-	cloudName string,
-	cloud *jujucloud.Cloud,
-) (_ *jujucloud.Credential, region string, _ error) {
-
+func (c *bootstrapCommand) getCredentials(ctx *cmd.Context, cloudName string, cloud *jujucloud.Cloud) (*jujucloud.Credential, string, error) {
 	credential, credentialName, defaultRegion, err := credentialByName(
 		c.CredentialStore, cloudName, c.CredentialName,
 	)
@@ -619,27 +615,32 @@ func getBlockAPI(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
 // waitForAgentInitialisation polls the bootstrapped controller with a read-only
 // command which will fail until the controller is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
-func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err error) {
+func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) error {
 	attempts := utils.AttemptStrategy{
 		Min:   bootstrapReadyPollCount,
 		Delay: bootstrapReadyPollDelay,
 	}
-	var client block.BlockListAPI
-	for attempt := attempts.Start(); attempt.Next(); {
+	var (
+		retries int
+		client  block.BlockListAPI
+		err     error
+	)
+
+	for attempt := attempts.Start(); attempt.Next(); retries++ {
 		client, err = blockAPI(&c.ModelCommandBase)
 		if err != nil {
 			// Logins are prevented whilst space discovery is ongoing.
-			errorMessage := err.Error()
+			errorMessage := errors.Cause(err).Error()
 			if strings.Contains(errorMessage, "space discovery still in progress") {
 				continue
 			}
-			return err
+			break
 		}
 		_, err = client.List()
 		client.Close()
 		if err == nil {
 			ctx.Infof("Bootstrap complete, %s now available.", c.controllerName)
-			return nil
+			break
 		}
 		// As the API server is coming up, it goes through a number of steps.
 		// Initially the upgrade steps run, but the api server allows some
@@ -649,16 +650,18 @@ func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err err
 		// lead to EOF or "connection is shut down" error messages. We skip
 		// these too, hoping that things come back up before the end of the
 		// retry poll count.
-		errorMessage := err.Error()
-		if strings.Contains(errorMessage, params.UpgradeInProgressError.Error()) ||
-			strings.HasSuffix(errorMessage, "EOF") ||
-			strings.HasSuffix(errorMessage, "connection is shut down") {
+		switch {
+		case errors.Cause(err) == io.EOF,
+			strings.HasSuffix(errors.Cause(err).Error(), "connection is shut down"):
 			ctx.Infof("Waiting for API to become available")
 			continue
+		case params.ErrCode(err) == params.CodeUpgradeInProgress:
+			ctx.Infof("Waiting for API to become available: %v", err)
+			continue
 		}
-		return err
+		break
 	}
-	return err
+	return errors.Annotatef(err, "unable to contact api server after %d attempts", retries)
 }
 
 // checkProviderType ensures the provider type is okay.

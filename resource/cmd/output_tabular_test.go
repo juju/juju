@@ -283,16 +283,20 @@ func (s *DetailsTabularSuite) TestFormatServiceDetailsOkay(c *gc.C) {
 	data := FormattedServiceDetails{
 		Resources: []FormattedDetailResource{
 			{
-				UnitID:     "svc/10",
-				unitNumber: 10,
-				Unit:       fakeFmtSvcRes("data", "1"),
-				Expected:   fakeFmtSvcRes("data", "1"),
+				UnitID:      "svc/10",
+				unitNumber:  10,
+				Unit:        fakeFmtSvcRes("data", "1"),
+				Expected:    fakeFmtSvcRes("data", "1"),
+				Progress:    17,
+				progress:    "17%",
+				revProgress: "combRev1 (fetching: 17%)",
 			},
 			{
-				UnitID:     "svc/5",
-				unitNumber: 5,
-				Unit:       fakeFmtSvcRes("config", "2"),
-				Expected:   fakeFmtSvcRes("config", "3"),
+				UnitID:      "svc/5",
+				unitNumber:  5,
+				Unit:        fakeFmtSvcRes("config", "2"),
+				Expected:    fakeFmtSvcRes("config", "3"),
+				revProgress: "combRev3",
 			},
 		},
 		Updates: updates,
@@ -305,7 +309,7 @@ func (s *DetailsTabularSuite) TestFormatServiceDetailsOkay(c *gc.C) {
 [Units]
 UNIT RESOURCE REVISION EXPECTED
 5    config   combRev2 combRev3
-10   data     combRev1 combRev1
+10   data     combRev1 combRev1 (fetching: 17%)
 
 [Updates Available]
 RESOURCE REVISION
@@ -316,16 +320,20 @@ spam     1
 func (s *DetailsTabularSuite) TestFormatUnitDetailsOkay(c *gc.C) {
 	data := FormattedUnitDetails{
 		{
-			UnitID:     "svc/10",
-			unitNumber: 10,
-			Unit:       fakeFmtSvcRes("data", "1"),
-			Expected:   fakeFmtSvcRes("data", "1"),
+			UnitID:      "svc/10",
+			unitNumber:  10,
+			Unit:        fakeFmtSvcRes("data", "1"),
+			Expected:    fakeFmtSvcRes("data", "1"),
+			revProgress: "combRev1",
 		},
 		{
-			UnitID:     "svc/10",
-			unitNumber: 10,
-			Unit:       fakeFmtSvcRes("config", "2"),
-			Expected:   fakeFmtSvcRes("config", "3"),
+			UnitID:      "svc/10",
+			unitNumber:  10,
+			Unit:        fakeFmtSvcRes("config", "2"),
+			Expected:    fakeFmtSvcRes("config", "3"),
+			Progress:    91,
+			progress:    "91%",
+			revProgress: "combRev3 (fetching: 91%)",
 		},
 	}
 
@@ -335,7 +343,7 @@ func (s *DetailsTabularSuite) TestFormatUnitDetailsOkay(c *gc.C) {
 	c.Assert(string(output), gc.Equals, `
 [Unit]
 RESOURCE REVISION EXPECTED
-config   combRev2 combRev3
+config   combRev2 combRev3 (fetching: 91%)
 data     combRev1 combRev1
 `[1:])
 }
@@ -350,7 +358,7 @@ func fakeFmtSvcRes(name, suffix string) FormattedSvcResource {
 		Description:      "Desc" + suffix,
 		Revision:         1,
 		Fingerprint:      "Fingerprint" + suffix,
-		Size:             1,
+		Size:             100,
 		Origin:           "Origin" + suffix,
 		Used:             true,
 		Timestamp:        time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
