@@ -49,7 +49,7 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 func (s *environBrokerSuite) TestImageMetadataURL(c *gc.C) {
 	s.UpdateConfig(c, map[string]interface{}{
 		"image-metadata-url": "https://my-test.com/images/",
-		})
+	})
 	s.checkSources(c, []string{
 		"https://my-test.com/images/",
 		"https://streams.canonical.com/juju/images/releases/",
@@ -62,7 +62,7 @@ func (s *environBrokerSuite) TestImageMetadataURLMungesHTTP(c *gc.C) {
 	// https://github.com/lxc/lxd/issues/1763
 	s.UpdateConfig(c, map[string]interface{}{
 		"image-metadata-url": "http://my-test.com/images/",
-		})
+	})
 	s.checkSources(c, []string{
 		"https://my-test.com/images/",
 		"https://streams.canonical.com/juju/images/releases/",
