@@ -456,7 +456,7 @@ Function GUnZip-File{
     $gzipStream = New-Object System.IO.Compression.GzipStream $input, ([IO.Compression.CompressionMode]::Decompress)
 
     $buffer = New-Object byte[](1024)
-    while($true){
+    while($true) {
         $read = $gzipstream.Read($buffer, 0, 1024)
         if ($read -le 0){break}
         $tempOut.Write($buffer, 0, $read)
@@ -478,7 +478,7 @@ Function Untar-File {
         $inStream,
         $outdir
         )
-	$DirectoryEntryType = 0x35
+    $DirectoryEntryType = 0x35
     $headerBytes = New-Object byte[]($HEADERSIZE)
 
     # $headerBytes is written inside, function returns whether we've reached the end
@@ -506,32 +506,32 @@ Function WriteTarEntryToFile {
         $outFile,
         $sizeInBytes
         )
-        $moveToAlign512 = 0
-        $toRead = 0
-        $buf = New-Object byte[](512)
+    $moveToAlign512 = 0
+    $toRead = 0
+    $buf = New-Object byte[](512)
 
-        $remainingBytesInFile = $sizeInBytes
-        while ($remainingBytesInFile -ne 0) {
-            if ($remainingBytesInFile - 512 -lt 0) {
-                $moveToAlign512 = 512 - $remainingBytesInFile
-                $toRead = $remainingBytesInFile
-            } else {
-                $toRead = 512
-            }
-
-            $bytesRead = 0
-            $bytesRemainingToRead = $toRead
-            while ($bytesRead -lt $toRead -and $bytesRemainingToRead -gt 0) {
-                $bytesRead = $inStream.Read($buf, $toRead - $bytesRemainingToRead, $bytesRemainingToRead)
-                $bytesRemainingToRead = $bytesRemainingToRead - $bytesRead
-                $remainingBytesInFile = $remainingBytesInFile - $bytesRead
-                $outFile.Write($buf, 0, $bytesRead)
-            }
-
-            if ($moveToAlign512 -ne 0) {
-                $inStream.Seek($moveToAlign512, [System.IO.SeekOrigin]::Current)
-            }
+    $remainingBytesInFile = $sizeInBytes
+    while ($remainingBytesInFile -ne 0) {
+        if ($remainingBytesInFile - 512 -lt 0) {
+            $moveToAlign512 = 512 - $remainingBytesInFile
+            $toRead = $remainingBytesInFile
+        } else {
+            $toRead = 512
         }
+
+        $bytesRead = 0
+        $bytesRemainingToRead = $toRead
+        while ($bytesRead -lt $toRead -and $bytesRemainingToRead -gt 0) {
+            $bytesRead = $inStream.Read($buf, $toRead - $bytesRemainingToRead, $bytesRemainingToRead)
+            $bytesRemainingToRead = $bytesRemainingToRead - $bytesRead
+            $remainingBytesInFile = $remainingBytesInFile - $bytesRead
+            $outFile.Write($buf, 0, $bytesRead)
+        }
+
+        if ($moveToAlign512 -ne 0) {
+            $inStream.Seek($moveToAlign512, [System.IO.SeekOrigin]::Current)
+        }
+    }
 }
 
 Function GetHeaderBytes {
@@ -539,12 +539,10 @@ Function GetHeaderBytes {
 
     $headerRead = 0
     $bytesRemaining = $HEADERSIZE
-	while ($bytesRemaining -gt 0)
-    {
+    while ($bytesRemaining -gt 0) {
         $headerRead = $inStream.Read($headerBytes, $HEADERSIZE - $bytesRemaining, $bytesRemaining)
         $bytesRemaining -= $headerRead
-        if ($headerRead -le 0 -and $bytesRemaining -gt 0)
-        {
+        if ($headerRead -le 0 -and $bytesRemaining -gt 0) {
             throw "Error reading tar header. Header size invalid"
         }
     }
@@ -552,20 +550,17 @@ Function GetHeaderBytes {
     # Proper end of archive is 2 empty headers
     if (IsEmptyByteArray $headerBytes) {
         $bytesRemaining = $HEADERSIZE
-	    while ($bytesRemaining -gt 0)
-        {
+        while ($bytesRemaining -gt 0) {
             $headerRead = $inStream.Read($headerBytes, $HEADERSIZE - $bytesRemaining, $bytesRemaining)
             $bytesRemaining -= $headerRead
-            if ($headerRead -le 0 -and $bytesRemaining -gt 0)
-            {
+            if ($headerRead -le 0 -and $bytesRemaining -gt 0) {
                 throw "Broken end archive"
             }
         }
-        if ($bytesRemaining -eq 0 -and (IsEmptyByteArray($headerBytes)))
-        {
+        if ($bytesRemaining -eq 0 -and (IsEmptyByteArray($headerBytes))) {
             return $false
         }
-        throw "Error occured: expected end of archive"
+        throw "Error occurred: expected end of archive"
     }
 
     return $true
