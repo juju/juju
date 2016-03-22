@@ -510,7 +510,7 @@ func (h *guiVersionHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 	}
 }
 
-// handlePost is used to switch to a specific Juju GUI version.
+// handlePut is used to switch to a specific Juju GUI version.
 func (h *guiVersionHandler) handlePut(w http.ResponseWriter, req *http.Request) error {
 	// Validate the request.
 	if ctype := req.Header.Get("Content-Type"); ctype != params.ContentTypeJSON {
