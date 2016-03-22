@@ -24,14 +24,9 @@ __metaclass__ = type
 log = logging.getLogger("assess_mixed_images")
 
 IMG_URL = 'https://s3.amazonaws.com/temp-streams/aws-image-streams/'
-# IMG_URL = 'http://s3.amazonaws.com/temp-streams/aws-image-streams'
-# IMG_URL = 'http://abentley-streams.s3.amazonaws.com/image-streams'
 
 
 def assess_mixed_images(client):
-    # client.set_env_option('image-metadata-url', IMG_URL)
-    if client.env.config.get('image-metadata-url') != IMG_URL:
-        client.set_env_option('image-metadata-url', IMG_URL)
     client.deploy('local:centos7/dummy-sink')
     client.deploy('local:trusty/dummy-source')
     client.juju('add-relation', ('dummy-source', 'dummy-sink'))
@@ -57,8 +52,6 @@ def main(argv=None):
     client.env.config['image-metadata-url'] = IMG_URL
     key_path = os.path.join(client.env.juju_home,
                             'juju-qa-public.key')
-    # key_path = os.path.join(os.environ['HOME'], 'sandbox', 'foo')
-
     os.environ['JUJU_STREAMS_PUBLICKEY_FILE'] = key_path
     with bs_manager.booted_context(args.upload_tools):
         assess_mixed_images(bs_manager.client)
