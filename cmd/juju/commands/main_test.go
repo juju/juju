@@ -267,7 +267,6 @@ var commandNames = []string{
 	"list-users",
 	"machine",
 	"machines",
-	"migrate",
 	"publish",
 	"register",
 	"remove-all-blocks",
@@ -328,6 +327,14 @@ var commandNames = []string{
 	"version",
 }
 
+// devFeatures are feature flags that impact registration of commands.
+var devFeatures = []string{feature.Migration}
+
+// These are the commands that are behind the `devFeatures`.
+var commandNamesBehindFlags = set.NewStrings(
+	"migrate",
+)
+
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
 
@@ -336,16 +343,9 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// First check default commands, and then check commands that are
 	// activated by feature flags.
 
-	// Here we can add feature flags for any commands we want to hide by default.
-	devFeatures := []string{feature.Migration}
-	devCommands := set.NewStrings("migrate")
-
 	// remove features behind dev_flag for the first test
 	// since they are not enabled.
 	cmdSet := set.NewStrings(commandNames...)
-	for _, name := range devCommands.Values() {
-		cmdSet.Remove(name)
-	}
 
 	// 1. Default Commands. Disable all features.
 	setFeatureFlags("")
@@ -357,7 +357,7 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	c.Assert(missing, jc.DeepEquals, set.NewStrings())
 
 	// 2. Enable development features, and test again.
-	cmdSet = cmdSet.Union(devCommands)
+	cmdSet = cmdSet.Union(commandNamesBehindFlags)
 	setFeatureFlags(strings.Join(devFeatures, ","))
 	registered = getHelpCommandNames(c)
 	unknown = registered.Difference(cmdSet)
