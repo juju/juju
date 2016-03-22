@@ -23,6 +23,23 @@ import (
 // settings and constraints.
 const modelGlobalKey = "e"
 
+// MigrationMode specifies where the Model is with respect to migration.
+type MigrationMode string
+
+const (
+	// MigrationModeActive is the default mode for a model and reflects
+	// a model that is active within its controller.
+	MigrationModeActive MigrationMode = ""
+
+	// MigrationModeExporting reflects a model that is in the process of being
+	// exported from one controller to another.
+	MigrationModeExporting MigrationMode = "exporting"
+
+	// MigrationModeImporting reflects a model that is being imported into a
+	// controller, but is not yet fully active.
+	MigrationModeImporting MigrationMode = "importing"
+)
+
 // Model represents the state of a model.
 type Model struct {
 	// st is not necessarily the state of this model. Though it is
@@ -35,13 +52,14 @@ type Model struct {
 
 // modelDoc represents the internal state of the model in MongoDB.
 type modelDoc struct {
-	UUID        string `bson:"_id"`
-	Name        string
-	Life        Life
-	Owner       string    `bson:"owner"`
-	ServerUUID  string    `bson:"server-uuid"`
-	TimeOfDying time.Time `bson:"time-of-dying"`
-	TimeOfDeath time.Time `bson:"time-of-death"`
+	UUID          string `bson:"_id"`
+	Name          string
+	Life          Life
+	Owner         string        `bson:"owner"`
+	ServerUUID    string        `bson:"server-uuid"`
+	TimeOfDying   time.Time     `bson:"time-of-dying"`
+	TimeOfDeath   time.Time     `bson:"time-of-death"`
+	MigrationMode MigrationMode `bson:"migration-mode"`
 
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.
@@ -114,6 +132,13 @@ func (st *State) AllModels() ([]*Model, error) {
 	return result, nil
 }
 
+// ModelArgs is a params struct for creating a new model.
+type ModelArgs struct {
+	Config        *config.Config
+	Owner         names.UserTag
+	MigrationMode MigrationMode
+}
+
 // NewModel creates a new model with its own UUID and
 // prepares it for use. Model and State instances for the new
 // model are returned.
@@ -123,7 +148,8 @@ func (st *State) AllModels() ([]*Model, error) {
 // model document means that we have a way to represent external
 // models, perhaps for future use around cross model
 // relations.
-func (st *State) NewModel(cfg *config.Config, owner names.UserTag) (_ *Model, _ *State, err error) {
+func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
+	owner := args.Owner
 	if owner.IsLocal() {
 		if _, err := st.User(owner); err != nil {
 			return nil, nil, errors.Annotate(err, "cannot create model")
@@ -135,7 +161,7 @@ func (st *State) NewModel(cfg *config.Config, owner names.UserTag) (_ *Model, _ 
 		return nil, nil, errors.Annotate(err, "could not load controller model")
 	}
 
-	uuid, ok := cfg.UUID()
+	uuid, ok := args.Config.UUID()
 	if !ok {
 		return nil, nil, errors.Errorf("model uuid was not supplied")
 	}
@@ -149,7 +175,7 @@ func (st *State) NewModel(cfg *config.Config, owner names.UserTag) (_ *Model, _ 
 		}
 	}()
 
-	ops, err := newState.envSetupOps(cfg, uuid, ssEnv.UUID(), owner)
+	ops, err := newState.envSetupOps(args.Config, uuid, ssEnv.UUID(), owner, args.MigrationMode)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
@@ -160,16 +186,17 @@ func (st *State) NewModel(cfg *config.Config, owner names.UserTag) (_ *Model, _ 
 		// which will cause the insert to fail if there is another record with
 		// the same "owner" and "name" in the collection. If the txn is
 		// aborted, check if it is due to the unique key restriction.
+		name := args.Config.Name()
 		models, closer := st.getCollection(modelsC)
 		defer closer()
 		envCount, countErr := models.Find(bson.D{
 			{"owner", owner.Canonical()},
-			{"name", cfg.Name()}},
+			{"name", name}},
 		).Count()
 		if countErr != nil {
 			err = errors.Trace(countErr)
 		} else if envCount > 0 {
-			err = errors.AlreadyExistsf("model %q for %s", cfg.Name(), owner.Canonical())
+			err = errors.AlreadyExistsf("model %q for %s", name, owner.Canonical())
 		} else {
 			err = errors.New("model already exists")
 		}
@@ -218,6 +245,26 @@ func (m *Model) ControllerUUID() string {
 // Name returns the human friendly name of the model.
 func (m *Model) Name() string {
 	return m.doc.Name
+}
+
+// MigrationMode returns whether the model is active or being migrated.
+func (m *Model) MigrationMode() MigrationMode {
+	return m.doc.MigrationMode
+}
+
+// SetMigrationMode updates the migration mode of the model.
+func (m *Model) SetMigrationMode(mode MigrationMode) error {
+	ops := []txn.Op{{
+		C:      modelsC,
+		Id:     m.doc.UUID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"migration-mode", mode}}}},
+	}}
+	err := m.st.runTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return m.Refresh()
 }
 
 // Life returns whether the model is Alive, Dying or Dead.
@@ -517,13 +564,14 @@ func (m *Model) ensureDestroyable() error {
 
 // createModelOp returns the operation needed to create
 // an model document with the given name and UUID.
-func createModelOp(st *State, owner names.UserTag, name, uuid, server string) txn.Op {
+func createModelOp(st *State, owner names.UserTag, name, uuid, server string, mode MigrationMode) txn.Op {
 	doc := &modelDoc{
-		UUID:       uuid,
-		Name:       name,
-		Life:       Alive,
-		Owner:      owner.Canonical(),
-		ServerUUID: server,
+		UUID:          uuid,
+		Name:          name,
+		Life:          Alive,
+		Owner:         owner.Canonical(),
+		ServerUUID:    server,
+		MigrationMode: mode,
 	}
 	return txn.Op{
 		C:      modelsC,

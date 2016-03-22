@@ -134,7 +134,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
 	logger.Infof("initializing controller model %s", uuid)
-	ops, err := st.envSetupOps(cfg, uuid, uuid, owner)
+	ops, err := st.envSetupOps(cfg, uuid, uuid, owner, MigrationModeActive)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -181,7 +181,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	return st, nil
 }
 
-func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, owner names.UserTag) ([]txn.Op, error) {
+func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
 	if err := checkModelConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -196,7 +196,7 @@ func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, o
 		createConstraintsOp(st, modelGlobalKey, constraints.Value{}),
 		createSettingsOp(modelGlobalKey, cfg.AllAttrs()),
 		incHostedModelCountOp(),
-		createModelOp(st, owner, cfg.Name(), modelUUID, serverUUID),
+		createModelOp(st, owner, cfg.Name(), modelUUID, serverUUID, mode),
 		createUniqueOwnerModelNameOp(owner, cfg.Name()),
 		modelUserOp,
 	}
@@ -268,6 +268,7 @@ func (st *State) CACert() string {
 	return st.mongoInfo.CACert
 }
 
+// Close the connection to the database.
 func (st *State) Close() (err error) {
 	defer errors.DeferredAnnotatef(&err, "closing state failed")
 

@@ -93,6 +93,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 
 	c.Assert(newModel.Owner(), gc.Equals, original.Owner())
 	c.Assert(newModel.LatestToolsVersion(), gc.Equals, latestTools)
+	c.Assert(newModel.MigrationMode(), gc.Equals, state.MigrationModeImporting)
 	s.assertAnnotations(c, newSt, newModel)
 
 	originalConfig, err := original.Config()
