@@ -258,6 +258,7 @@ type environState struct {
 	apiListener  net.Listener
 	apiServer    *apiserver.Server
 	apiState     *state.State
+	apiStatePool *state.StatePool
 	preferIPv6   bool
 }
 
@@ -327,16 +328,28 @@ func (state *environState) destroy() {
 	if !state.bootstrapped {
 		return
 	}
+
 	if state.apiServer != nil {
 		if err := state.apiServer.Stop(); err != nil && mongoAlive() {
 			panic(err)
 		}
 		state.apiServer = nil
+	}
+
+	if state.apiStatePool != nil {
+		if err := state.apiStatePool.Close(); err != nil && mongoAlive() {
+			panic(err)
+		}
+		state.apiStatePool = nil
+	}
+
+	if state.apiState != nil {
 		if err := state.apiState.Close(); err != nil && mongoAlive() {
 			panic(err)
 		}
 		state.apiState = nil
 	}
+
 	if mongoAlive() {
 		gitjujutesting.MgoServer.Reset()
 	}
@@ -360,6 +373,17 @@ func (e *environ) GetStateInAPIServer() *state.State {
 		panic(err)
 	}
 	return st.apiState
+}
+
+// GetStatePoolInAPIServer returns the StatePool used by the API
+// server.  As for GetStatePoolInAPIServer, this is so code in the
+// test suite can trigger Syncs etc.
+func (e *environ) GetStatePoolInAPIServer() *state.StatePool {
+	st, err := e.state()
+	if err != nil {
+		panic(err)
+	}
+	return st.apiStatePool
 }
 
 // newState creates the state for a new environment with the given name.
@@ -764,12 +788,15 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		logger.Debugf("setting password for %q to %q", owner.Name(), password)
 		owner.SetPassword(password)
 
+		estate.apiStatePool = state.NewStatePool(st)
+
 		estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
-			Cert:    []byte(testing.ServerCert),
-			Key:     []byte(testing.ServerKey),
-			Tag:     names.NewMachineTag("0"),
-			DataDir: DataDir,
-			LogDir:  LogDir,
+			Cert:      []byte(testing.ServerCert),
+			Key:       []byte(testing.ServerKey),
+			Tag:       names.NewMachineTag("0"),
+			DataDir:   DataDir,
+			LogDir:    LogDir,
+			StatePool: estate.apiStatePool,
 		})
 		if err != nil {
 			panic(err)
