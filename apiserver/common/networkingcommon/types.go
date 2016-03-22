@@ -447,6 +447,8 @@ func GetObservedNetworkConfig() ([]params.NetworkConfig, error) {
 				logger.Warningf("cannot parse interface %q address %q as CIDR: %v", nic.Name, cidrAddress, err)
 				if ip := net.ParseIP(cidrAddress); ip == nil {
 					return nil, errors.Errorf("cannot parse interface %q IP address %q", nic.Name, cidrAddress)
+				} else {
+					ipNet = &net.IPNet{}
 				}
 				ipNet.IP = ip
 				ipNet.Mask = net.IPv4Mask(255, 255, 255, 0)
