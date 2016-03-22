@@ -109,15 +109,16 @@ func (env *environ) getImageSources() ([]lxdclient.Remote, error) {
 		// env.ImageMetadataURL is http instead of https, but we also
 		// get http from the DefaultImageSources, which is why we
 		// replace it.
+		// TODO(jam) Maybe we could add a Validate step that ensures
+		// image-metadata-url is an "https://" URL, so that Users get a
+		// "your configuration is wrong" error, rather than silently
+		// changing it and having them get confused.
 		// https://github.com/lxc/lxd/issues/1763
 		if strings.HasPrefix(url, "http://") {
 			url = strings.TrimPrefix(url, "http://")
 			url = "https://" + url
 			logger.Debugf("LXD requires https://, using: %s", url)
 		}
-		// TODO(jam) Add tests that when a user sets a
-		// "image-metadata-url" we do the right thing. We *might* need
-		// to add support for pure "http" as an image source to LXD.
 		remotes = append(remotes, lxdclient.Remote{
 			Name:          source.Description(),
 			Host:          url,
