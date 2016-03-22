@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
 )
 
 var logger = loggo.GetLogger("juju.network")
@@ -30,10 +31,6 @@ const (
 	// Provider Id for the default network
 	DefaultProviderId = "juju-unknown"
 )
-
-// DefaultSpace is the name used for the default space for an environment.
-// TODO(dimitern): Make this configurable per environment.
-const DefaultSpace = "default"
 
 // SpaceInvalidChars is a regexp for validating that space names contain no
 // invalid characters.
@@ -65,6 +62,45 @@ type Id string
 // providers as "the subnet id does not matter". It's up to the
 // provider how to handle this case - it might return an error.
 const AnySubnet Id = ""
+
+// UnknownId can be used whenever an Id is needed but not known.
+const UnknownId = ""
+
+var dashPrefix = regexp.MustCompile("^-*")
+var dashSuffix = regexp.MustCompile("-*$")
+var multipleDashes = regexp.MustCompile("--+")
+
+// ConvertSpaceName converts names between provider space names and valid juju
+// space names.
+// TODO(mfoord): once MAAS space name rules are in sync with juju space name
+// rules this can go away.
+func ConvertSpaceName(name string, existing set.Strings) string {
+	// First lower case and replace spaces with dashes.
+	name = strings.Replace(name, " ", "-", -1)
+	name = strings.ToLower(name)
+	// Replace any character that isn't in the set "-", "a-z", "0-9".
+	name = SpaceInvalidChars.ReplaceAllString(name, "")
+	// Get rid of any dashes at the start as that isn't valid.
+	name = dashPrefix.ReplaceAllString(name, "")
+	// And any at the end.
+	name = dashSuffix.ReplaceAllString(name, "")
+	// Repleace multiple dashes with a single dash.
+	name = multipleDashes.ReplaceAllString(name, "-")
+	// Special case of when the space name was only dashes or invalid
+	// characters!
+	if name == "" {
+		name = "empty"
+	}
+	// If this name is in use add a numerical suffix.
+	if existing.Contains(name) {
+		counter := 2
+		for existing.Contains(name + fmt.Sprintf("-%d", counter)) {
+			counter += 1
+		}
+		name = name + fmt.Sprintf("-%d", counter)
+	}
+	return name
+}
 
 // SubnetInfo describes the bare minimum information for a subnet,
 // which the provider knows about but juju might not yet.

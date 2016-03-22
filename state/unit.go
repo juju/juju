@@ -13,6 +13,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var unitLogger = loggo.GetLogger("juju.state.unit")
@@ -256,17 +256,6 @@ func (u *Unit) getPasswordHash() string {
 func (u *Unit) PasswordValid(password string) bool {
 	agentHash := utils.AgentPasswordHash(password)
 	if agentHash == u.doc.PasswordHash {
-		return true
-	}
-	// In Juju 1.16 and older we used the slower password hash for unit
-	// agents. So check to see if the supplied password matches the old
-	// path, and if so, update it to the new mechanism.
-	// We ignore any error in setting the password hash, as we'll just try
-	// again next time
-	if utils.UserPasswordHash(password, utils.CompatSalt) == u.doc.PasswordHash {
-		logger.Debugf("%s logged in with old password hash, changing to AgentPasswordHash",
-			u.Tag())
-		u.setPasswordHash(agentHash)
 		return true
 	}
 	return false

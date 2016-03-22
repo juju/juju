@@ -167,7 +167,7 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(unsupported, jc.DeepEquals, []string{"tags", "virt-type"})
+	c.Check(unsupported, jc.SameContents, []string{"tags", "virt-type"})
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabArch(c *gc.C) {

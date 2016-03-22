@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/utils/filestorage"
-
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 // checksumFormat identifies how to interpret the checksum for a backup
@@ -71,7 +71,7 @@ func NewMetadata() *Metadata {
 		FileMetadata: filestorage.NewMetadata(),
 		Started:      time.Now().UTC(),
 		Origin: Origin{
-			Version: version.Current,
+			Version: jujuversion.Current,
 		},
 	}
 }

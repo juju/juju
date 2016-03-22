@@ -28,6 +28,7 @@ func newRestrictedRoot(finder rpc.MethodFinder) *restrictedRoot {
 var restrictedRootNames = set.NewStrings(
 	"AllModelWatcher",
 	"Controller",
+	"MigrationTarget",
 	"ModelManager",
 	"UserManager",
 )

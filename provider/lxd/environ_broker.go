@@ -195,6 +195,9 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if args.StatusCallback != nil {
+		args.StatusCallback(status.StatusRunning, "Container started", nil)
+	}
 	return inst, nil
 }
 

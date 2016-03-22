@@ -12,14 +12,16 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // Tests is a gocheck suite containing tests verifying juju functionality
@@ -43,6 +45,7 @@ type Tests struct {
 	// such as controllers, accounts, etc., used when preparing
 	// the environment. This is initialized by SetUpSuite.
 	ControllerStore jujuclient.ClientStore
+	toolsStorage    storage.Storage
 }
 
 // Open opens an instance of the testing environment.
@@ -82,7 +85,10 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	storageDir := c.MkDir()
 	t.DefaultBaseURL = "file://" + storageDir + "/tools"
 	t.ToolsFixture.SetUpTest(c)
-	t.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, jc.ErrorIsNil)
+	t.UploadFakeTools(c, stor, "released", "released")
+	t.toolsStorage = stor
 	t.ConfigStore = configstore.NewMem()
 	t.ControllerStore = jujuclienttesting.NewMemStore()
 }
@@ -94,7 +100,7 @@ func (t *Tests) TearDownTest(c *gc.C) {
 func (t *Tests) TestStartStop(c *gc.C) {
 	e := t.Prepare(c)
 	cfg, err := e.Config().Apply(map[string]interface{}{
-		"agent-version": version.Current.String(),
+		"agent-version": jujuversion.Current.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = e.SetConfig(cfg)

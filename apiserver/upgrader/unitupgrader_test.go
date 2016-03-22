@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -19,7 +20,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type unitUpgraderSuite struct {
@@ -40,7 +41,7 @@ type unitUpgraderSuite struct {
 var _ = gc.Suite(&unitUpgraderSuite{})
 
 var current = version.Binary{
-	Number: version.Current,
+	Number: jujuversion.Current,
 	Arch:   arch.HostArch(),
 	Series: series.HostSeries(),
 }
@@ -171,7 +172,7 @@ func (s *unitUpgraderSuite) TestToolsForAgent(c *gc.C) {
 		c.Check(results.Results, gc.HasLen, 1)
 		c.Assert(results.Results[0].Error, gc.IsNil)
 		agentTools := results.Results[0].Tools
-		c.Check(agentTools.Version.Number, gc.DeepEquals, version.Current)
+		c.Check(agentTools.Version.Number, gc.DeepEquals, jujuversion.Current)
 		c.Assert(agentTools.URL, gc.NotNil)
 	}
 	assertTools()
@@ -194,7 +195,7 @@ func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 			Tag: s.rawUnit.Tag().String(),
 			Tools: &params.Version{
 				Version: version.Binary{
-					Number: version.Current,
+					Number: jujuversion.Current,
 					Arch:   arch.HostArch(),
 					Series: series.HostSeries(),
 				},
@@ -209,7 +210,7 @@ func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestSetTools(c *gc.C) {
 	cur := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -267,7 +268,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -283,7 +284,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	agentVersion := results.Results[0].Version
 	c.Assert(agentVersion, gc.NotNil)
-	c.Check(*agentVersion, gc.DeepEquals, version.Current)
+	c.Check(*agentVersion, gc.DeepEquals, jujuversion.Current)
 
 	c.Assert(results.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 	c.Assert(results.Results[1].Version, gc.IsNil)
@@ -292,7 +293,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -305,5 +306,5 @@ func (s *unitUpgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	agentVersion := results.Results[0].Version
 	c.Assert(agentVersion, gc.NotNil)
-	c.Check(*agentVersion, gc.DeepEquals, version.Current)
+	c.Check(*agentVersion, gc.DeepEquals, jujuversion.Current)
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -46,7 +47,7 @@ import (
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/provisioner"
@@ -168,7 +169,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(machine.Id(), gc.Equals, "0")
 
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -513,7 +514,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	currentVersion := version.MustParseBinary("1.2.3-quantal-arm64")
 	s.PatchValue(&arch.HostArch, func() string { return currentVersion.Arch })
 	s.PatchValue(&series.HostSeries, func() string { return currentVersion.Series })
-	s.PatchValue(&version.Current, currentVersion.Number)
+	s.PatchValue(&jujuversion.Current, currentVersion.Number)
 
 	// Upload some plausible matches, and some that should be filtered out.
 	compatibleVersion := version.MustParseBinary("1.2.3-quantal-amd64")

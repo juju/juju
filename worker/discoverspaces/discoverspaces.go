@@ -4,10 +4,6 @@
 package discoverspaces
 
 import (
-	"fmt"
-	"regexp"
-	"strings"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -27,38 +23,6 @@ type discoverspacesWorker struct {
 	api               *discoverspaces.API
 	tomb              tomb.Tomb
 	discoveringSpaces chan struct{}
-}
-
-var dashPrefix = regexp.MustCompile("^-*")
-var dashSuffix = regexp.MustCompile("-*$")
-var multipleDashes = regexp.MustCompile("--+")
-
-func convertSpaceName(name string, existing set.Strings) string {
-	// First lower case and replace spaces with dashes.
-	name = strings.Replace(name, " ", "-", -1)
-	name = strings.ToLower(name)
-	// Replace any character that isn't in the set "-", "a-z", "0-9".
-	name = network.SpaceInvalidChars.ReplaceAllString(name, "")
-	// Get rid of any dashes at the start as that isn't valid.
-	name = dashPrefix.ReplaceAllString(name, "")
-	// And any at the end.
-	name = dashSuffix.ReplaceAllString(name, "")
-	// Repleace multiple dashes with a single dash.
-	name = multipleDashes.ReplaceAllString(name, "-")
-	// Special case of when the space name was only dashes or invalid
-	// characters!
-	if name == "" {
-		name = "empty"
-	}
-	// If this name is in use add a numerical suffix.
-	if existing.Contains(name) {
-		counter := 2
-		for existing.Contains(name + fmt.Sprintf("-%d", counter)) {
-			counter += 1
-		}
-		name = name + fmt.Sprintf("-%d", counter)
-	}
-	return name
 }
 
 // NewWorker returns a worker
@@ -177,10 +141,10 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 		} else {
 			// The space is new, we need to create a valid name for it
 			// in state.
-			spaceName := string(space.ProviderId)
+			spaceName := string(space.Name)
 			// Convert the name into a valid name that isn't already in
 			// use.
-			spaceName = convertSpaceName(spaceName, spaceNames)
+			spaceName = network.ConvertSpaceName(spaceName, spaceNames)
 			spaceNames.Add(spaceName)
 			spaceTag = names.NewSpaceTag(spaceName)
 			// We need to create the space.

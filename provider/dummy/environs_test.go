@@ -18,14 +18,16 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -57,6 +59,7 @@ func (s *liveSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.LiveTests.SetUpSuite(c)
+	s.BaseSuite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *liveSuite) TearDownSuite(c *gc.C) {
@@ -99,7 +102,7 @@ func (s *suite) TearDownSuite(c *gc.C) {
 func (s *suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.SetFeatureFlags(feature.AddressAllocation)
-	s.PatchValue(&version.Current, testing.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	s.MgoSuite.SetUpTest(c)
 	s.Tests.SetUpTest(c)
 	s.PatchValue(&dummy.LogDir, c.MkDir())

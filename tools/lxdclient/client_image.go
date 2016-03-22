@@ -12,6 +12,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
+
+	"github.com/juju/juju/utils/stringforwarder"
 )
 
 type rawImageClient interface {
@@ -78,13 +80,6 @@ func (i *imageClient) EnsureImageExists(series string, sources []Remote, copyPro
 			continue
 		}
 
-		adapter := &progressContext{
-			logger: logger,
-			level:  loggo.INFO,
-			context: fmt.Sprintf("copying image for %s from %s: %%s", name,
-				source.BaseURL),
-			forward: copyProgressHandler,
-		}
 		// TODO(jam): there are multiple possible spellings for aliases,
 		// unfortunately. cloud-images only hosts ubuntu images, and
 		// aliases them as "trusty" or "trusty/amd64" or
@@ -100,6 +95,17 @@ func (i *imageClient) EnsureImageExists(series string, sources []Remote, copyPro
 		}
 		logger.Infof("found image from %s for %s = %s",
 			source.BaseURL, series, target)
+		forwarder := stringforwarder.NewStringForwarder(copyProgressHandler)
+		defer func() {
+			dropCount := forwarder.Stop()
+			logger.Debugf("dropped %d progress messages", dropCount)
+		}()
+		adapter := &progressContext{
+			logger:  logger,
+			level:   loggo.INFO,
+			context: fmt.Sprintf("copying image for %s from %s: %%s", name, source.BaseURL),
+			forward: forwarder.Receive,
+		}
 		err = source.CopyImage(
 			target, client, false, []string{name}, false,
 			true, adapter.copyProgress)

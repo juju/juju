@@ -17,10 +17,14 @@ import (
 	"github.com/juju/utils/voyeur"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/apiserver/common/networkingcommon"
+	"github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 )
 
@@ -229,6 +233,50 @@ func (st *fakeState) WatchControllerInfo() state.NotifyWatcher {
 
 func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
 	return WatchStrings(&st.statuses)
+}
+
+func (st *fakeState) Space(name string) (SpaceReader, error) {
+	foo := []networkingcommon.BackingSpace{
+		&testing.FakeSpace{SpaceName: "Space" + name},
+		&testing.FakeSpace{SpaceName: "Space" + name},
+		&testing.FakeSpace{SpaceName: "Space" + name},
+	}
+	return foo[0].(SpaceReader), nil
+}
+
+func (st *fakeState) SetOrGetMongoSpaceName(mongoSpaceName network.SpaceName) (network.SpaceName, error) {
+	inf, _ := st.ControllerInfo()
+	strMongoSpaceName := string(mongoSpaceName)
+
+	if inf.MongoSpaceState == state.MongoSpaceUnknown {
+		inf.MongoSpaceName = strMongoSpaceName
+		inf.MongoSpaceState = state.MongoSpaceValid
+		st.controllers.Set(inf)
+	}
+	return network.SpaceName(inf.MongoSpaceName), nil
+}
+
+func (st *fakeState) SetMongoSpaceState(mongoSpaceState state.MongoSpaceStates) error {
+	inf, _ := st.ControllerInfo()
+	inf.MongoSpaceState = mongoSpaceState
+	st.controllers.Set(inf)
+	return nil
+}
+
+func (st *fakeState) getMongoSpaceName() string {
+	inf, _ := st.ControllerInfo()
+	return inf.MongoSpaceName
+}
+
+func (st *fakeState) getMongoSpaceState() state.MongoSpaceStates {
+	inf, _ := st.ControllerInfo()
+	return inf.MongoSpaceState
+}
+
+func (st *fakeState) ModelConfig() (*config.Config, error) {
+	attrs := coretesting.FakeConfig()
+	cfg, err := config.New(config.NoDefaults, attrs)
+	return cfg, err
 }
 
 type fakeMachine struct {

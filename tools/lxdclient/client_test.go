@@ -19,7 +19,7 @@ type ConnectSuite struct {
 
 var _ = gc.Suite(&ConnectSuite{})
 
-func (cs ConnectSuite) TestLocalConnectError(c *gc.C) {
+func (cs *ConnectSuite) TestLocalConnectError(c *gc.C) {
 	cs.PatchValue(&lxdNewClientFromInfo, fakeNewClientFromInfo)
 
 	cfg, err := Config{
@@ -33,7 +33,7 @@ func (cs ConnectSuite) TestLocalConnectError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "can't connect to the local LXD server.*")
 }
 
-func (cs ConnectSuite) TestRemoteConnectError(c *gc.C) {
+func (cs *ConnectSuite) TestRemoteConnectError(c *gc.C) {
 	cs.PatchValue(&lxdNewClientFromInfo, fakeNewClientFromInfo)
 
 	cfg, err := Config{

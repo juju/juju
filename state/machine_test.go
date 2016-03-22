@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type MachineSuite struct {
@@ -702,12 +702,6 @@ func (s *MachineSuite) TestSetPasswordPreModelUUID(c *gc.C) {
 	err = m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.PasswordValid(goodPassword), jc.IsTrue)
-}
-
-func (s *MachineSuite) TestSetAgentCompatPassword(c *gc.C) {
-	e, err := s.State.Machine(s.machine.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	testSetAgentCompatPassword(c, e)
 }
 
 func (s *MachineSuite) TestMachineWaitAgentPresence(c *gc.C) {
