@@ -238,13 +238,14 @@ func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	http.HandleFunc(address, func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	mux.HandleFunc(address, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == method {
 			handle(w, r)
 		}
 	})
 	go func() {
-		http.Serve(lis, nil)
+		http.Serve(lis, mux)
 	}()
 	api.SetServerAddress(client, "http", lis.Addr().String())
 	return lis
