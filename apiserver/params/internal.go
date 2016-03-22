@@ -661,3 +661,9 @@ type GUIArchiveVersion struct {
 type GUIArchiveResponse struct {
 	Versions []GUIArchiveVersion `json:"versions"`
 }
+
+// GUIVersionRequest holds the body for /gui-version PUT requests.
+type GUIVersionRequest struct {
+	// Version holds the Juju GUI version number.
+	Version version.Number `json:"version"`
+}

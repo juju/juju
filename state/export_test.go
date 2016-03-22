@@ -38,6 +38,7 @@ const (
 	BlockDevicesC      = blockDevicesC
 	StorageInstancesC  = storageInstancesC
 	StatusesHistoryC   = statusesHistoryC
+	GUISettingsC       = guisettingsC
 )
 
 var (

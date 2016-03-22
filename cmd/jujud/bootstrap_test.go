@@ -211,6 +211,11 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allMeta, gc.HasLen, 1)
 	c.Assert(allMeta[0].Version, gc.Equals, "2.0.42")
+
+	// The current GUI version has been set.
+	vers, err := st.GUIVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vers.String(), gc.Equals, "2.0.42")
 }
 
 var testPassword = "my-admin-secret"
