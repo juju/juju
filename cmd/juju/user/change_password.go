@@ -171,6 +171,8 @@ func readAndConfirmPassword(ctx *cmd.Context) (string, error) {
 	// Don't add the carriage returns before readPassword, but add
 	// them directly after the readPassword so any errors are output
 	// on their own lines.
+	//
+	// TODO(axw) retry/loop on failure
 	fmt.Fprint(ctx.Stderr, "password: ")
 	password, err := readPassword(ctx.Stdin)
 	fmt.Fprint(ctx.Stderr, "\n")

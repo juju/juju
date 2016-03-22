@@ -9,8 +9,10 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/usermanager"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
@@ -95,6 +97,35 @@ func (s *stateSuite) TestLoginSetsModelTag(c *gc.C) {
 	controllerTag, err := apistate.ControllerTag()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(controllerTag, gc.Equals, env.ModelTag())
+}
+
+func (s *stateSuite) TestLoginMacaroon(c *gc.C) {
+	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
+	defer apistate.Close()
+	// Use s.APIState, because we can't get at UserManager without logging in.
+	mac, err := usermanager.NewClient(s.APIState).CreateLocalLoginMacaroon(tag.(names.UserTag))
+	c.Assert(err, jc.ErrorIsNil)
+	err = apistate.Login(tag, "", "", []macaroon.Slice{{mac}})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
+	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
+	defer apistate.Close()
+	mac, err := macaroon.New([]byte("root-key"), "id", "juju")
+	c.Assert(err, jc.ErrorIsNil)
+	err = apistate.Login(tag, "", "", []macaroon.Slice{{mac}})
+	c.Assert(err, gc.ErrorMatches, "verification failed: macaroon not found in storage")
+}
+
+func (s *stateSuite) TestLoginInvalidUser(c *gc.C) {
+	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
+	defer apistate.Close()
+	// Use s.APIState, because we can't get at UserManager without logging in.
+	mac, err := usermanager.NewClient(s.APIState).CreateLocalLoginMacaroon(tag.(names.UserTag))
+	c.Assert(err, jc.ErrorIsNil)
+	err = apistate.Login(names.NewUserTag("bob@local"), "", "", []macaroon.Slice{{mac}})
+	c.Assert(err, gc.ErrorMatches, "verification failed: macaroon not found in storage")
 }
 
 func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {

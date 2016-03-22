@@ -97,7 +97,8 @@ func (ctxt *authContext) macaroonAuth() (authentication.EntityAuthenticator, err
 var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not configured")
 
 // newExternalMacaroonAuth returns an authenticator that can authenticate
-// macaroon-based logins. This is just a helper function for authCtxt.macaroonAuth.
+// macaroon-based logins for external users. This is just a helper function
+// for authCtxt.macaroonAuth.
 func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonAuthenticator, error) {
 	envCfg, err := st.ModelConfig()
 	if err != nil {

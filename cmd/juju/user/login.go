@@ -33,6 +33,7 @@ Examples:
 
 `
 
+// NewLoginCommand returns a new cmd.Command to handle "juju login".
 func NewLoginCommand() cmd.Command {
 	return modelcmd.WrapController(&loginCommand{
 		newLoginAPI: func(args juju.NewAPIConnectionParams) (LoginAPI, error) {
