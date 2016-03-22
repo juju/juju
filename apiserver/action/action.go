@@ -20,6 +20,7 @@ type ActionAPI struct {
 	state      *state.State
 	resources  *common.Resources
 	authorizer common.Authorizer
+	check      *common.BlockChecker
 }
 
 // NewActionAPI returns an initialized ActionAPI
@@ -32,6 +33,7 @@ func NewActionAPI(st *state.State, resources *common.Resources, authorizer commo
 		state:      st,
 		resources:  resources,
 		authorizer: authorizer,
+		check:      common.NewBlockChecker(st),
 	}, nil
 }
 
