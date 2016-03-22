@@ -178,7 +178,7 @@ func (s *configFunctionalSuite) TestUsingTCPRemote(c *gc.C) {
 			Name:          lxdclient.Local.Name,
 			Host:          nonlocal.Remote.Host,
 			Cert:          nonlocal.Remote.Cert,
-			Protocol: lxdclient.LXDProtocol,
+			Protocol:      lxdclient.LXDProtocol,
 			ServerPEMCert: nonlocal.Remote.ServerPEMCert,
 		},
 	})
