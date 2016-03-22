@@ -269,6 +269,12 @@ type migrationSuite struct {
 
 var _ = gc.Suite(&migrationSuite{})
 
+func (s *migrationSuite) startSync(c *gc.C, st *state.State) {
+	backingSt, err := s.BackingStatePool.Get(st.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	backingSt.StartSync()
+}
+
 func (s *migrationSuite) TestMigrationMaster(c *gc.C) {
 	// Create a state server
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
@@ -300,7 +306,7 @@ func (s *migrationSuite) TestMigrationMaster(c *gc.C) {
 	}()
 
 	// Should be no initial events.
-	s.BackingState.StartSync()
+	s.startSync(c, hostedState)
 	select {
 	case _, ok := <-w.Changes():
 		c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
@@ -322,7 +328,7 @@ func (s *migrationSuite) TestMigrationMaster(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Event with correct target details should be emitted.
-	s.BackingState.StartSync()
+	s.startSync(c, hostedState)
 	select {
 	case reportedTargetInfo, ok := <-w.Changes():
 		c.Assert(ok, jc.IsTrue)
@@ -365,7 +371,7 @@ func (s *migrationSuite) TestMigrationminion(c *gc.C) {
 	}()
 
 	assertNoChange := func() {
-		hostedState.StartSync()
+		s.startSync(c, hostedState)
 		select {
 		case _, ok := <-w.Changes():
 			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
@@ -374,7 +380,7 @@ func (s *migrationSuite) TestMigrationminion(c *gc.C) {
 	}
 
 	assertChange := func(phase migration.Phase) {
-		hostedState.StartSync()
+		s.startSync(c, hostedState)
 		select {
 		case status, ok := <-w.Changes():
 			c.Assert(ok, jc.IsTrue)
