@@ -2544,5 +2544,5 @@ func (s *MachineSuite) TestMachineAddDifferentAction(c *gc.C) {
 	//check action.Parameters()
 
 	_, err = m.AddAction("benchmark", nil)
-	c.Assert(err, gc.ErrorMatches, "cannot add action benchmark to a machine; only predefined actions allowed")
+	c.Assert(err, gc.ErrorMatches, `cannot add action "benchmark" to a machine; only predefined actions allowed`)
 }
