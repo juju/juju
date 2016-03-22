@@ -5,6 +5,7 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 from contextlib import contextmanager
+import logging
 import re
 from subprocess import CalledProcessError
 import sys
@@ -21,6 +22,7 @@ from substrate import (
     terminate_instances,
 )
 from utility import (
+    LoggedException,
     print_now,
 )
 
@@ -93,10 +95,12 @@ def restore_missing_state_server(client, admin_client, backup_file):
         output = admin_client.restore_backup(backup_file)
     except CalledProcessError as e:
         print_now('Call of juju restore exited with an error\n')
+        print_now('Call: {} \n'.format(e.cmd))
         message = 'Restore failed: \n%s' % e.stderr
         print_now(message)
         print_now('\n')
-        raise Exception(message)
+        logging.exception(e)
+        raise LoggedException(e)
     print_now(output)
     admin_client.wait_for_started(600).status
     print_now("%s restored" % client.env.environment)

@@ -1273,6 +1273,17 @@ class TestEnvJujuClient(ClientTest):
                 client.get_juju_output('bar')
         self.assertEqual(exc.exception.stderr, 'Hello!')
 
+    def test_get_juju_output_full_cmd(self):
+        env = JujuData('foo')
+        fake_popen = FakePopen(None, 'Hello!', 1)
+        client = EnvJujuClient(env, None, None)
+        with self.assertRaises(subprocess.CalledProcessError) as exc:
+            with patch('subprocess.Popen', return_value=fake_popen):
+                client.get_juju_output('bar', '--baz', 'qux')
+        self.assertEqual(
+            ('juju', '--show-log', 'bar', '-m', 'foo', '--baz', 'qux'),
+            exc.exception.cmd)
+
     def test_get_juju_output_accepts_timeout(self):
         env = JujuData('foo')
         fake_popen = FakePopen('asdf', None, 0)
@@ -3232,6 +3243,17 @@ class TestEnvJujuClient1X(ClientTest):
                 client.get_juju_output('bar')
         self.assertEqual(exc.exception.output, 'Hello')
         self.assertEqual(exc.exception.stderr, 'Error!')
+
+    def test_get_juju_output_full_cmd(self):
+        env = SimpleEnvironment('foo')
+        fake_popen = FakePopen(None, 'Hello!', 1)
+        client = EnvJujuClient1X(env, None, None)
+        with self.assertRaises(subprocess.CalledProcessError) as exc:
+            with patch('subprocess.Popen', return_value=fake_popen):
+                client.get_juju_output('bar', '--baz', 'qux')
+        self.assertEqual(
+            ('juju', '--show-log', 'bar', '-e', 'foo', '--baz', 'qux'),
+            exc.exception.cmd)
 
     def test_get_juju_output_accepts_timeout(self):
         env = SimpleEnvironment('foo')

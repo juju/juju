@@ -148,8 +148,6 @@ def coalesce_agent_status(agent_item):
     return state
 
 
-
-
 def make_client(juju_path, debug, env_name, temp_env_name):
     env = SimpleEnvironment.from_config(env_name)
     if temp_env_name is not None:
@@ -529,7 +527,7 @@ class EnvJujuClient:
             if proc.returncode != 0:
                 log.debug(sub_error)
                 e = subprocess.CalledProcessError(
-                    proc.returncode, args[0], sub_output)
+                    proc.returncode, args, sub_output)
                 e.stderr = sub_error
                 if (
                     'Unable to connect to environment' in sub_error or
@@ -1023,6 +1021,7 @@ class EnvJujuClient:
             with scoped_environ(environ):
                 args = self._full_args(
                     'create-backup', False, (), include_e=True)
+                log.info(' '.join(args))
                 output = subprocess.check_output(args)
         except subprocess.CalledProcessError as e:
             log.info(e.output)
@@ -1249,7 +1248,9 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
             # Mutate os.environ instead of supplying env parameter so Windows
             # can search env['PATH']
             with scoped_environ(environ):
-                output = subprocess.check_output(['juju', 'backup'])
+                args = ['juju', 'backup']
+                log.info(' '.join(args))
+                output = subprocess.check_output(args)
         except subprocess.CalledProcessError as e:
             log.info(e.output)
             raise
