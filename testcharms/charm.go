@@ -33,11 +33,8 @@ func UploadCharm(c *gc.C, client *csclient.Client, url, name string) (*charm.URL
 	err := client.UploadCharmWithRevision(id, ch, promulgatedRevision)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Allow read permissions to everyone.
-	err = client.Put("/"+id.Path()+"/meta/perm/read", []string{params.Everyone})
-	c.Assert(err, jc.ErrorIsNil)
+	SetPublic(c, client, id)
 
-	// Return the charm and its URL.
 	return id, ch
 }
 
@@ -56,9 +53,7 @@ func UploadCharmMultiSeries(c *gc.C, client *csclient.Client, url, name string) 
 	curl, err := client.UploadCharm(id, ch)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Allow read permissions to everyone.
-	err = client.Put("/"+curl.Path()+"/meta/perm/read", []string{params.Everyone})
-	c.Assert(err, jc.ErrorIsNil)
+	SetPublic(c, client, curl)
 
 	// Return the charm and its URL.
 	return curl, ch
@@ -80,10 +75,20 @@ func UploadBundle(c *gc.C, client *csclient.Client, url, name string) (*charm.UR
 	err := client.UploadBundleWithRevision(id, b, promulgatedRevision)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Allow read permissions to everyone.
-	err = client.Put("/"+id.Path()+"/meta/perm/read", []string{params.Everyone})
-	c.Assert(err, jc.ErrorIsNil)
+	SetPublic(c, client, id)
 
 	// Return the bundle and its URL.
 	return id, b
+}
+
+// SetPublic sets the charm or bundle with the given id to be
+// published with global read permissions to the stable channel.
+func SetPublic(c *gc.C, client *csclient.Client, id *charm.URL) {
+	// Publish to the stable channel.
+	err := client.Publish(id, []params.Channel{params.StableChannel}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Allow stable read permissions to everyone.
+	err = client.WithChannel(params.StableChannel).Put("/"+id.Path()+"/meta/perm/read", []string{params.Everyone})
+	c.Assert(err, jc.ErrorIsNil)
 }

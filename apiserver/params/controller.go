@@ -46,3 +46,40 @@ type ModelStatus struct {
 type ModelStatusResults struct {
 	Results []ModelStatus `json:"models"`
 }
+
+// InitiateModelMigrationArgs holds the details required to start one
+// or more model migrations.
+type InitiateModelMigrationArgs struct {
+	Specs []ModelMigrationSpec `json:"specs"`
+}
+
+// ModelMigrationSpec holds the details required to start the
+// migration of a single model.
+type ModelMigrationSpec struct {
+	ModelTag   string                   `json:"model-tag"`
+	TargetInfo ModelMigrationTargetInfo `json:"target-info"`
+}
+
+// ModelMigrationTargetInfo holds the details required to connect to
+// and authenticate with a remote controller for model migration.
+type ModelMigrationTargetInfo struct {
+	ControllerTag string   `json:"controller-tag"`
+	Addrs         []string `json:"addrs"`
+	CACert        string   `json:"ca-cert"`
+	AuthTag       string   `json:"auth-tag"`
+	Password      string   `json:"password"`
+}
+
+// InitiateModelMigrationResults is used to return the result of one
+// or more attempts to start model migrations.
+type InitiateModelMigrationResults struct {
+	Results []InitiateModelMigrationResult `json:"results"`
+}
+
+// InitiateModelMigrationResult is used to return the result of one
+// model migration initiation attempt.
+type InitiateModelMigrationResult struct {
+	ModelTag string `json:"model-tag"`
+	Error    *Error `json:"error"`
+	Id       string `json:"id"` // the ID for the migration attempt
+}

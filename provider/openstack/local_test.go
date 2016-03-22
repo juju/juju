@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	jujuerrors "github.com/juju/errors"
@@ -948,10 +949,10 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 cpu-power=10 virt-type=kvm")
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 virt-type=lxd")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "virt-type"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power"})
 }
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
@@ -964,6 +965,10 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
+
+	cons = constraints.MustParse("virt-type=foo")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=foo\nvalid values are: [lxd qemu]"))
 }
 
 func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
@@ -990,6 +995,60 @@ func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.tiny")
+}
+
+func (s *localServerSuite) TestFindInstanceImageConstraintHypervisor(c *gc.C) {
+	testVirtType := "qemu"
+	env := s.Open(c, s.env.Config())
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:       "image-id",
+		Arch:     "amd64",
+		VirtType: testVirtType,
+	}}
+
+	spec, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "virt-type="+testVirtType,
+		imageMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec.InstanceType.VirtType, gc.NotNil)
+	c.Assert(*spec.InstanceType.VirtType, gc.Equals, testVirtType)
+	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.small")
+}
+
+func (s *localServerSuite) TestFindInstanceImageWithHypervisorNoConstraint(c *gc.C) {
+	testVirtType := "qemu"
+	env := s.Open(c, s.env.Config())
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:       "image-id",
+		Arch:     "amd64",
+		VirtType: testVirtType,
+	}}
+
+	spec, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "",
+		imageMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec.InstanceType.VirtType, gc.NotNil)
+	c.Assert(*spec.InstanceType.VirtType, gc.Equals, testVirtType)
+	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.small")
+}
+
+func (s *localServerSuite) TestFindInstanceNoConstraint(c *gc.C) {
+	env := s.Open(c, s.env.Config())
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:   "image-id",
+		Arch: "amd64",
+	}}
+
+	spec, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "",
+		imageMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec.InstanceType.VirtType, gc.IsNil)
+	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.small")
 }
 
 func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {

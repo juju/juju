@@ -5,15 +5,12 @@ package modelcmd
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/environschema.v1/form"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
@@ -264,16 +261,7 @@ type modelCommandWrapper struct {
 }
 
 func (w *modelCommandWrapper) Run(ctx *cmd.Context) error {
-	filler := &form.IOFiller{
-		In:  ctx.Stdin,
-		Out: ctx.Stderr,
-	}
-	w.ModelCommand.setVisitWebPage(
-		ussologin.VisitWebPage(
-			filler,
-			&http.Client{},
-			jujuclient.NewTokenStore(),
-		))
+	w.ModelCommand.setCmdContext(ctx)
 	return w.ModelCommand.Run(ctx)
 }
 

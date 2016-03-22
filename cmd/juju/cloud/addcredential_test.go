@@ -37,6 +37,7 @@ var _ = gc.Suite(&addCredentialSuite{
 })
 
 func (s *addCredentialSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
 	environs.RegisterProvider("mock-addcredential-provider", &mockProvider{credSchemas: &s.schema})
 	s.cloudByNameFunc = func(cloud string) (*jujucloud.Cloud, error) {
 		if cloud != "somecloud" && cloud != "anothercloud" {
