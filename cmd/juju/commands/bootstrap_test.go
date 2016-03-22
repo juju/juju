@@ -104,7 +104,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&blockAPI, func(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
 		if s.mockBlockClient.discoveringSpacesError > 0 {
 			s.mockBlockClient.discoveringSpacesError -= 1
-			return nil, errors.New("space discovery still in progress")
+			return nil, errors.New("spaces are still being discovered")
 		}
 		return s.mockBlockClient, nil
 	})
