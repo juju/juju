@@ -118,14 +118,14 @@ func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "verification failed: macaroon not found in storage")
 }
 
-func (s *stateSuite) TestLoginInvalidUser(c *gc.C) {
+func (s *stateSuite) TestLoginMacaroonInvalidUser(c *gc.C) {
 	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
 	// Use s.APIState, because we can't get at UserManager without logging in.
 	mac, err := usermanager.NewClient(s.APIState).CreateLocalLoginMacaroon(tag.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
 	err = apistate.Login(names.NewUserTag("bob@local"), "", "", []macaroon.Slice{{mac}})
-	c.Assert(err, gc.ErrorMatches, "verification failed: macaroon not found in storage")
+	c.Assert(err, gc.ErrorMatches, `verification failed: caveat "declared username admin@local" not satisfied: got username="bob@local", expected "admin@local"`)
 }
 
 func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {
