@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
@@ -105,10 +106,18 @@ func (f *factory) NewActionRunner(actionId string) (Runner, error) {
 	}
 
 	name := action.Name()
-	spec, ok := ch.Actions().ActionSpecs[name]
-	if !ok {
-		return nil, &badActionError{name, "not defined"}
+
+	var spec charm.ActionSpec
+	if state.PredefinedActions.Contains(name) {
+		spec = state.DefaultPredefinedActionsSpec[name]
+	} else {
+		var ok bool
+		spec, ok = ch.Actions().ActionSpecs[name]
+		if !ok {
+			return nil, &badActionError{name, "not defined"}
+		}
 	}
+
 	params := action.Params()
 	if err := spec.ValidateParams(params); err != nil {
 		return nil, &badActionError{name, err.Error()}
