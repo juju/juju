@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -336,13 +337,14 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// activated by feature flags.
 
 	// Here we can add feature flags for any commands we want to hide by default.
-	devFeatures := []string{}
+	devFeatures := []string{feature.Migration}
+	devCommands := set.NewStrings("migrate")
 
 	// remove features behind dev_flag for the first test
 	// since they are not enabled.
 	cmdSet := set.NewStrings(commandNames...)
-	for _, feature := range devFeatures {
-		cmdSet.Remove(feature)
+	for _, name := range devCommands.Values() {
+		cmdSet.Remove(name)
 	}
 
 	// 1. Default Commands. Disable all features.
@@ -355,6 +357,7 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	c.Assert(missing, jc.DeepEquals, set.NewStrings())
 
 	// 2. Enable development features, and test again.
+	cmdSet = cmdSet.Union(devCommands)
 	setFeatureFlags(strings.Join(devFeatures, ","))
 	registered = getHelpCommandNames(c)
 	unknown = registered.Difference(cmdSet)
@@ -549,27 +552,4 @@ func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
 			)
 		}
 	}
-}
-
-func (s *MainSuite) TestTwoDotOhDeprecation(c *gc.C) {
-	check := twoDotOhDeprecation("the replacement")
-
-	// first check pre-2.0
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.26.4"))
-	deprecated, replacement := check.Deprecated()
-	c.Check(deprecated, jc.IsFalse)
-	c.Check(replacement, gc.Equals, "")
-	c.Check(check.Obsolete(), jc.IsFalse)
-
-	s.PatchValue(&jujuversion.Current, version.MustParse("2.0-alpha1"))
-	deprecated, replacement = check.Deprecated()
-	c.Check(deprecated, jc.IsTrue)
-	c.Check(replacement, gc.Equals, "the replacement")
-	c.Check(check.Obsolete(), jc.IsFalse)
-
-	s.PatchValue(&jujuversion.Current, version.MustParse("3.0-alpha1"))
-	deprecated, replacement = check.Deprecated()
-	c.Check(deprecated, jc.IsTrue)
-	c.Check(replacement, gc.Equals, "the replacement")
-	c.Check(check.Obsolete(), jc.IsTrue)
 }
