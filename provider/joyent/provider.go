@@ -4,15 +4,12 @@
 package joyent
 
 import (
-	"fmt"
-
 	"github.com/joyent/gocommon/client"
 	joyenterrors "github.com/joyent/gocommon/errors"
 	"github.com/joyent/gosdc/cloudapi"
 	"github.com/joyent/gosign/auth"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -38,27 +35,11 @@ func (joyentProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (joyentProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	// Turn an incomplete config into a valid one, if possible.
-	attrs := cfg.UnknownAttrs()
-	if _, ok := attrs["control-dir"]; !ok {
-		uuid, err := utils.UUIDFromString(cfg.UUID())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		attrs["control-dir"] = fmt.Sprintf("%x", uuid.Raw())
-	}
-	return cfg.Apply(attrs)
+	return cfg, nil
 }
 
 // BootstrapConfig is specified in the EnvironProvider interface.
 func (p joyentProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
-	// We don't have a way of passing more than one
-	// API endpoint from clouds.yaml, so we can't
-	// say which Manta URL to use.
-	// Use of Manta is going away. It defaults to
-	// https://us-east.manta.joyent.com, so for now,
-	// if the default value is not correct, it's necessary
-	// to specify the URL in bootstrap config.
 	attrs := map[string]interface{}{}
 	// Add the credential attributes to config.
 	switch authType := args.Credentials.AuthType(); authType {
@@ -95,9 +76,9 @@ func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *
 }
 
 const unauthorisedMessage = `
-Please ensure the Manta username and SSH access key you have
-specified are correct. You can create or import an SSH key via
-the "Account Summary" page in the Joyent console.`
+Please ensure the SSH access key you have specified is correct.
+You can create or import an SSH key via the "Account Summary"
+page in the Joyent console.`
 
 // verifyCredentials issues a cheap, non-modifying request to Joyent to
 // verify the configured credentials. If verification fails, a user-friendly
@@ -122,14 +103,12 @@ var verifyCredentials = func(e *joyentEnviron) error {
 }
 
 func credentials(cfg *environConfig) (*auth.Credentials, error) {
-	authentication, err := auth.NewAuth(cfg.mantaUser(), cfg.privateKey(), cfg.algorithm())
+	authentication, err := auth.NewAuth(cfg.sdcUser(), cfg.privateKey(), cfg.algorithm())
 	if err != nil {
 		return nil, errors.Errorf("cannot create credentials: %v", err)
 	}
 	return &auth.Credentials{
 		UserAuthentication: authentication,
-		MantaKeyId:         cfg.mantaKeyId(),
-		MantaEndpoint:      auth.Endpoint{URL: cfg.mantaUrl()},
 		SdcKeyId:           cfg.sdcKeyId(),
 		SdcEndpoint:        auth.Endpoint{URL: cfg.sdcUrl()},
 	}, nil

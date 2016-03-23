@@ -78,12 +78,8 @@ func GetFakeConfig(sdcUrl, mantaUrl string) coretesting.Attrs {
 		"sdc-user":      testUser,
 		"sdc-key-id":    testKeyFingerprint,
 		"sdc-url":       sdcUrl,
-		"manta-user":    testUser,
-		"manta-key-id":  testKeyFingerprint,
-		"manta-url":     mantaUrl,
 		"private-key":   testPrivateKey,
 		"algorithm":     "rsa-sha256",
-		"control-dir":   "juju-test",
 		"agent-version": coretesting.FakeVersionNumber.String(),
 	})
 }
