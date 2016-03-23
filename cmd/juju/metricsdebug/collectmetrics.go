@@ -13,7 +13,9 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -68,26 +70,49 @@ func (c *collectMetricsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 type runClient interface {
-	Run(run params.RunParams) ([]params.RunResult, error)
-	Close() error
+	action.APIClient
+	Run(run params.RunParams) ([]params.ActionResult, error)
 }
 
 var newRunClient = func(env modelcmd.ModelCommandBase) (runClient, error) {
-	return env.NewAPIClient()
+	root, err := env.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return actionapi.NewClient(root), errors.Trace(err)
 }
 
-func resultError(result params.RunResult) string {
-	if result.Error != "" {
-		return result.Error
+func parseRunOutput(result params.ActionResult) (string, string, error) {
+	if result.Error != nil {
+		return "", "", result.Error
 	}
-	stdout := strings.Trim(string(result.Stdout), " \t\n")
+	stdout, ok := result.Output["Stdout"].(string)
+	if !ok {
+		return "", "", errors.New("could not read stdout")
+	}
+	stderr, ok := result.Output["Stderr"].(string)
+	if !ok {
+		return "", "", errors.New("could not read stderr")
+	}
+	return strings.Trim(stdout, " \t\n"), strings.Trim(stderr, " \t\n"), nil
+}
+
+func parseActionResult(result params.ActionResult) (string, error) {
+	stdout, stderr, err := parseRunOutput(result)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	tag, err := names.ParseUnitTag(result.Action.Receiver)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	if stdout == "ok" {
-		return ""
+		return tag.Id(), nil
 	}
-	if len(result.Stderr) != 0 && strings.Contains(string(result.Stderr), "No such file or directory") {
-		return "not a metered charm"
+	if strings.Contains(stderr, "No such file or directory") {
+		return "", errors.New("not a metered charm")
 	}
-	return ""
+	return tag.Id(), nil
 }
 
 // Run implements Command.Run.
@@ -111,52 +136,78 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	// Give some time for the action to complete after the timeout of the command.
+	wait := time.NewTimer(3*time.Second + 10*time.Second)
 	// trigger sending metrics in parallel
 	resultChannel := make(chan string, len(runResults))
 	for _, result := range runResults {
 		r := result
-		errString := resultError(r)
-		if errString == "" {
+		tag, err := names.ParseActionTag(r.Action.Tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		actionResult, err := getActionResult(runnerClient, tag.Id(), wait)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		unitId, err := parseActionResult(actionResult)
+		if err != nil {
 			go func() {
 				defer func() {
-					resultChannel <- r.UnitId
+					resultChannel <- unitId
 				}()
 				sendParams := params.RunParams{
 					Timeout:  3 * time.Second,
-					Units:    []string{r.UnitId},
+					Units:    []string{unitId},
 					Commands: "nc -U ../metrics-send.socket",
 				}
 				sendResults, err := runnerClient.Run(sendParams)
 				if err != nil {
-					fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", r.UnitId, err)
+					fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
 					return
 				}
 				if len(sendResults) != 1 {
-					fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v\n", r.UnitId)
+					fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v\n", unitId)
 					return
 				}
-				errString := sendResults[0].Error
-				stdout := strings.Trim(string(sendResults[0].Stdout), " \t\n")
-				if stdout != "ok" {
-					errString = strings.Trim(string(sendResults[0].Stderr), " \t\n")
+				tag, err := names.ParseActionTag(sendResults[0].Action.Tag)
+				if err != nil {
+					fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
+					return
 				}
-				if errString != "" {
-					fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", r.UnitId, errString)
+				actionResult, err := getActionResult(runnerClient, tag.Id(), wait)
+				if err != nil {
+					fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
+					return
+				}
+				stdout, stderr, err := parseRunOutput(actionResult)
+				if stdout != "ok" {
+					err = errors.New(stderr)
+				}
+				if err != nil {
+					fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
 				}
 			}()
 		} else {
-			fmt.Fprintf(ctx.Stdout, "failed to collect metrics for unit %v: %v\n", r.UnitId, errString)
-			resultChannel <- r.UnitId
+			fmt.Fprintf(ctx.Stdout, "failed to collect metrics for unit %v: %v\n", unitId, err)
+			resultChannel <- unitId
 		}
 	}
 
 	for _ = range runResults {
 		select {
 		case <-resultChannel:
-		case <-time.After(3 * time.Second):
+		case <-time.After(3*time.Second + 20*time.Second):
+			// We need to wait here for at least 3 seconds for the command timeout
+			// After that there's a delay for getting every action result through the api
 			fmt.Fprintf(ctx.Stdout, "wait result timeout")
 			break
 		}
 	}
 	return nil
+}
+
+// getActionResult abstracts over the action CLI function that we use here to fetch results
+var getActionResult = func(c runClient, actionId string, wait *time.Timer) (params.ActionResult, error) {
+	return action.GetActionResult(c, actionId, wait)
 }

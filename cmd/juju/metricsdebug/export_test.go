@@ -8,8 +8,9 @@ import (
 )
 
 var (
-	NewClient    = &newClient
-	NewRunClient = &newRunClient
+	NewClient       = &newClient
+	NewRunClient    = &newRunClient
+	GetActionResult = &getActionResult
 )
 
 // NewRunClientFnc returns a function that returns a struct that implements the

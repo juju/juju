@@ -4,17 +4,18 @@
 package commands
 
 import (
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -127,53 +128,38 @@ func (c *runCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func encodeBytes(input []byte) (value string, encoding string) {
-	if utf8.Valid(input) {
-		value = string(input)
-		encoding = "utf8"
-	} else {
-		value = base64.StdEncoding.EncodeToString(input)
-		encoding = "base64"
-	}
-	return value, encoding
-}
-
-func storeOutput(values map[string]interface{}, key string, input []byte) {
-	value, encoding := encodeBytes(input)
-	values[key] = value
-	if encoding != "utf8" {
-		values[key+".encoding"] = encoding
-	}
-}
-
-// ConvertRunResults takes the results from the api and creates a map
+// ConvertActionResults takes the results from the api and creates a map
 // suitable for format converstion to YAML or JSON.
-func ConvertRunResults(runResults []params.RunResult) interface{} {
-	var results = make([]interface{}, len(runResults))
-
-	for i, result := range runResults {
-		// We always want to have a string for stdout, but only show stderr,
-		// code and error if they are there.
-		values := make(map[string]interface{})
-		values["MachineId"] = result.MachineId
-		if result.UnitId != "" {
-			values["UnitId"] = result.UnitId
-
-		}
-		storeOutput(values, "Stdout", result.Stdout)
-		if len(result.Stderr) > 0 {
-			storeOutput(values, "Stderr", result.Stderr)
-		}
-		if result.Code != 0 {
-			values["ReturnCode"] = result.Code
-		}
-		if result.Error != "" {
-			values["Error"] = result.Error
-		}
-		results[i] = values
+func ConvertActionResults(result params.ActionResult) map[string]interface{} {
+	values := make(map[string]interface{})
+	if result.Error != nil {
+		// Convert the error string back into an error object.
+		values["Error"] = result.Error.Error()
+		return values
 	}
-
-	return results
+	tag, err := names.ParseTag(result.Action.Receiver)
+	if err != nil {
+		values["Error"] = err.Error()
+		return values
+	}
+	values["Receiver"] = tag.Id()
+	if result.Message != "" {
+		values["Message"] = result.Message
+	}
+	// We always want to have a string for stdout, but only show stderr,
+	// code and error if they are there.
+	if res, ok := result.Output["Stdout"].(string); ok {
+		values["Stdout"] = res
+	} else {
+		values["Stdout"] = ""
+	}
+	if res, ok := result.Output["Stderr"].(string); ok && res != "" {
+		values["Stderr"] = res
+	}
+	if res, ok := result.Output["Code"].(float64); ok && res != 0 {
+		values["Code"] = res
+	}
+	return values
 }
 
 func (c *runCommand) Run(ctx *cmd.Context) error {
@@ -183,7 +169,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	var runResults []params.RunResult
+	var runResults []params.ActionResult
 	if c.all {
 		runResults, err = client.RunOnAllMachines(c.commands, c.timeout)
 	} else {
@@ -201,36 +187,126 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
+	// Give some time for the action to complete after the timeout of the command.
+	wait := time.NewTimer(c.timeout + 10*time.Second)
+
 	// If we are just dealing with one result, AND we are using the smart
 	// format, then pretend we were running it locally.
 	if len(runResults) == 1 && c.out.Name() == "smart" {
 		result := runResults[0]
-		ctx.Stdout.Write(result.Stdout)
-		ctx.Stderr.Write(result.Stderr)
-		if result.Error != "" {
-			// Convert the error string back into an error object.
-			return fmt.Errorf("%s", result.Error)
+		tag, err := names.ParseActionTag(result.Action.Tag)
+		if err != nil {
+			return errors.Trace(err)
 		}
-		if result.Code != 0 {
-			return cmd.NewRcPassthroughError(result.Code)
+		result, err = getActionResult(client, tag.Id(), wait)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.Message != "" {
+			return fmt.Errorf("%s", result.Message)
+		}
+		if res, ok := result.Output["Stdout"].(string); ok {
+			ctx.Stdout.Write([]byte(res))
+		}
+		if res, ok := result.Output["Stderr"].(string); ok && res != "" {
+			ctx.Stderr.Write([]byte(res))
+		}
+		if res, ok := result.Output["Code"].(float64); ok {
+			code := int(res)
+			if code != 0 {
+				return cmd.NewRcPassthroughError(code)
+			}
 		}
 		return nil
 	}
 
-	c.out.Write(ctx, ConvertRunResults(runResults))
+	idValues := []actionReceiverID{}
+	for _, result := range runResults {
+		if result.Error != nil {
+			return result.Error
+		}
+
+		if result.Action == nil {
+			return errors.New("action failed to enqueue")
+		}
+
+		actionTag, err := names.ParseActionTag(result.Action.Tag)
+		if err != nil {
+			return err
+		}
+		receiverTag, err := names.ParseTag(result.Action.Receiver)
+		if err != nil {
+			return err
+		}
+		idValues = append(idValues, actionReceiverID{
+			receiverID: receiverTag.Id(),
+			actionID:   actionTag.Id(),
+		})
+	}
+
+	var printIDsToStderr bool
+	values := []interface{}{}
+	for _, res := range runResults {
+		tag, err := names.ParseActionTag(res.Action.Tag)
+		if err != nil {
+			for _, el := range idValues {
+				fmt.Fprintf(ctx.GetStderr(), "Receiver %s: action ID %s\n", el.receiverID, el.actionID)
+			}
+			return errors.Trace(err)
+		}
+
+		actionResult, err := getActionResult(client, tag.Id(), wait)
+		if err != nil {
+			// If we get one error we want to print
+			// all the action IDs to stderr for debugging
+			printIDsToStderr = true
+			values = append(values, map[string]interface{}{
+				"actionId": tag.Id(),
+				"error":    err.Error(),
+			})
+			continue
+		}
+
+		out := ConvertActionResults(actionResult)
+		values = append(values, out)
+	}
+
+	if printIDsToStderr {
+		for _, el := range idValues {
+			fmt.Fprintf(ctx.GetStderr(), "Receiver %s: action ID %s\n", el.receiverID, el.actionID)
+		}
+	}
+	c.out.Write(ctx, values)
+
 	return nil
 }
 
-// In order to be able to easily mock out the API side for testing,
-// the API client is got using a function.
-
-type RunClient interface {
-	Close() error
-	RunOnAllMachines(commands string, timeout time.Duration) ([]params.RunResult, error)
-	Run(run params.RunParams) ([]params.RunResult, error)
+type actionReceiverID struct {
+	receiverID string
+	actionID   string
 }
 
-// Here we need the signature to be correct for the interface.
+// RunClient exposes the capabilities required by the CLI
+type RunClient interface {
+	action.APIClient
+	RunOnAllMachines(commands string, timeout time.Duration) ([]params.ActionResult, error)
+	Run(params.RunParams) ([]params.ActionResult, error)
+}
+
+// In order to be able to easily mock out the API side for testing,
+// the API client is retrieved using a function.
 var getRunAPIClient = func(c *runCommand) (RunClient, error) {
-	return c.NewAPIClient()
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return actionapi.NewClient(root), errors.Trace(err)
+}
+
+// getActionResult abstracts over the action CLI function that we use here to fetch results
+var getActionResult = func(c RunClient, actionId string, wait *time.Timer) (params.ActionResult, error) {
+	return action.GetActionResult(c, actionId, wait)
 }

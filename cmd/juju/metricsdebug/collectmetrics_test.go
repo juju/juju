@@ -4,12 +4,15 @@
 package metricsdebug_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/action"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
 	coretesting "github.com/juju/juju/testing"
@@ -21,10 +24,18 @@ type collectMetricsSuite struct {
 
 var _ = gc.Suite(&collectMetricsSuite{})
 
+func (s *collectMetricsSuite) setUpGetActionResult(actions map[string]params.ActionResult) {
+	s.PatchValue(&metricsdebug.GetActionResult, func(_ RunClient, id string, _ *time.Timer) (params.ActionResult, error) {
+		if res, ok := actions[id]; ok {
+			return res, nil
+		}
+		return params.ActionResult{}, errors.New("not found")
+	})
+}
+
 func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 	runClient := &testRunClient{}
-	cleanup := testing.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
-	defer cleanup()
+	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
 
 	tests := []struct {
 		about   string
@@ -106,6 +117,7 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 }
 
 type testRunClient struct {
+	action.ActionAPI
 	testing.Stub
 
 	results [][]params.RunResult

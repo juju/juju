@@ -4,18 +4,22 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/testing"
 )
@@ -158,85 +162,50 @@ func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
 func (s *RunSuite) TestConvertRunResults(c *gc.C) {
 	for i, test := range []struct {
 		message  string
-		results  []params.RunResult
-		expected interface{}
+		results  params.ActionResult
+		expected map[string]interface{}
 	}{{
-		message:  "empty",
-		expected: []interface{}{},
-	}, {
-		message: "minimum is machine id and stdout",
-		results: []params.RunResult{
-			makeRunResult(mockResponse{machineId: "1"}),
+		message: "error gets passed through alone",
+		results: makeActionResult(mockResponse{
+			error: &params.Error{
+				Message: "whoops",
+			},
+		}, ""),
+		expected: map[string]interface{}{
+			"Error": "whoops",
 		},
-		expected: []interface{}{
-			map[string]interface{}{
-				"MachineId": "1",
-				"Stdout":    "",
-			}},
+	}, {
+		message: "invalid id is an error",
+		results: makeActionResult(mockResponse{machineTag: "not-a-tag"}, ""),
+		expected: map[string]interface{}{
+			"Error": `"not-a-tag" is not a valid tag`,
+		},
+	}, {
+		message: "minimum is machine id",
+		results: makeActionResult(mockResponse{machineTag: "machine-1"}, ""),
+		expected: map[string]interface{}{
+			"Receiver": "1",
+			"Stdout":   "",
+		},
 	}, {
 		message: "other fields are copied if there",
-		results: []params.RunResult{
-			makeRunResult(mockResponse{
-				machineId: "1",
-				stdout:    "stdout",
-				stderr:    "stderr",
-				code:      42,
-				unitId:    "unit/0",
-				error:     "error",
-			}),
-		},
-		expected: []interface{}{
-			map[string]interface{}{
-				"MachineId":  "1",
-				"Stdout":     "stdout",
-				"Stderr":     "stderr",
-				"ReturnCode": 42,
-				"UnitId":     "unit/0",
-				"Error":      "error",
-			}},
-	}, {
-		message: "stdout and stderr are base64 encoded if not valid utf8",
-		results: []params.RunResult{
-			{
-				ExecResponse: exec.ExecResponse{
-					Stdout: []byte{0xff},
-					Stderr: []byte{0xfe},
-				},
-				MachineId: "jake",
-			},
-		},
-		expected: []interface{}{
-			map[string]interface{}{
-				"MachineId":       "jake",
-				"Stdout":          "/w==",
-				"Stdout.encoding": "base64",
-				"Stderr":          "/g==",
-				"Stderr.encoding": "base64",
-			}},
-	}, {
-		message: "more than one",
-		results: []params.RunResult{
-			makeRunResult(mockResponse{machineId: "1"}),
-			makeRunResult(mockResponse{machineId: "2"}),
-			makeRunResult(mockResponse{machineId: "3"}),
-		},
-		expected: []interface{}{
-			map[string]interface{}{
-				"MachineId": "1",
-				"Stdout":    "",
-			},
-			map[string]interface{}{
-				"MachineId": "2",
-				"Stdout":    "",
-			},
-			map[string]interface{}{
-				"MachineId": "3",
-				"Stdout":    "",
-			},
+		results: makeActionResult(mockResponse{
+			unitTag: "unit-unit-0",
+			stdout:  "stdout",
+			stderr:  "stderr",
+			message: "msg",
+			code:    42,
+		}, ""),
+		expected: map[string]interface{}{
+			"Receiver": "unit/0",
+			"Stdout":   "stdout",
+			"Stderr":   "stderr",
+			"Message":  "msg",
+			"Code":     float64(42),
 		},
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
-		result := ConvertRunResults(test.results)
+		result := ConvertActionResults(test.results)
 		c.Check(result, jc.DeepEquals, test.expected)
 	}
 }
@@ -244,21 +213,27 @@ func (s *RunSuite) TestConvertRunResults(c *gc.C) {
 func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	mock := s.setupMockAPI()
 	machineResponse := mockResponse{
-		stdout:    "megatron\n",
-		machineId: "0",
+		stdout:     "megatron\n",
+		machineTag: "machine-0",
 	}
 	unitResponse := mockResponse{
-		stdout:    "bumblebee",
-		machineId: "1",
-		unitId:    "unit/0",
+		stdout:  "bumblebee",
+		unitTag: "unit-unit-0",
 	}
 	mock.setResponse("0", machineResponse)
 	mock.setResponse("unit/0", unitResponse)
 
-	unformatted := ConvertRunResults([]params.RunResult{
-		makeRunResult(machineResponse),
-		makeRunResult(unitResponse),
+	machineResult := mock.responses["0"]
+	unitResult := mock.responses["unit/0"]
+	s.setUpGetActionResult(map[string]params.ActionResult{
+		mock.receiverIdMap["0"]:      machineResult,
+		mock.receiverIdMap["unit/0"]: unitResult,
 	})
+
+	unformatted := []interface{}{
+		ConvertActionResults(machineResult),
+		ConvertActionResults(unitResult),
+	}
 
 	jsonFormatted, err := cmd.FormatJson(unformatted)
 	c.Assert(err, jc.ErrorIsNil)
@@ -286,21 +261,45 @@ func (s *RunSuite) TestBlockRunForMachineAndUnit(c *gc.C) {
 
 func (s *RunSuite) TestAllMachines(c *gc.C) {
 	mock := s.setupMockAPI()
-	mock.setMachinesAlive("0", "1")
+	mock.setMachinesAlive("0", "1", "2")
 	response0 := mockResponse{
-		stdout:    "megatron\n",
-		machineId: "0",
+		stdout:     "megatron\n",
+		machineTag: "machine-0",
 	}
 	response1 := mockResponse{
-		error:     "command timed out",
-		machineId: "1",
+		message:    "command timed out",
+		machineTag: "machine-1",
+	}
+	response2 := mockResponse{
+		message:    "command timed out",
+		machineTag: "machine-2",
 	}
 	mock.setResponse("0", response0)
+	mock.setResponse("1", response1)
+	mock.setResponse("2", response2)
 
-	unformatted := ConvertRunResults([]params.RunResult{
-		makeRunResult(response0),
-		makeRunResult(response1),
+	machine0Result := mock.responses["0"]
+	machine1Result := mock.responses["1"]
+	s.setUpGetActionResult(map[string]params.ActionResult{
+		mock.receiverIdMap["0"]: machine0Result,
+		mock.receiverIdMap["1"]: machine1Result,
 	})
+
+	unformatted := []interface{}{
+		ConvertActionResults(machine0Result),
+		ConvertActionResults(machine1Result),
+		map[string]interface{}{
+			"actionId": mock.receiverIdMap["2"],
+			"error":    "not found",
+		},
+	}
+
+	// Since we missed one action we will output all id's to stderr
+	expectedStderr := strings.Join([]string{
+		fmt.Sprintf("Receiver %s: action ID %s\n", "0", mock.receiverIdMap["0"]),
+		fmt.Sprintf("Receiver %s: action ID %s\n", "1", mock.receiverIdMap["1"]),
+		fmt.Sprintf("Receiver %s: action ID %s\n", "2", mock.receiverIdMap["2"]),
+	}, "")
 
 	jsonFormatted, err := cmd.FormatJson(unformatted)
 	c.Assert(err, jc.ErrorIsNil)
@@ -309,6 +308,7 @@ func (s *RunSuite) TestAllMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(testing.Stdout(context), gc.Equals, string(jsonFormatted)+"\n")
+	c.Check(testing.Stderr(context), gc.Equals, expectedStderr)
 }
 
 func (s *RunSuite) TestBlockAllMachines(c *gc.C) {
@@ -326,17 +326,26 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 	mock := s.setupMockAPI()
 	mock.setMachinesAlive("0")
 	mockResponse := mockResponse{
-		stdout:    "stdout\n",
-		stderr:    "stderr\n",
-		code:      42,
-		machineId: "0",
+		stdout:     "stdout\n",
+		stderr:     "stderr\n",
+		code:       42,
+		machineTag: "machine-0",
 	}
 	mock.setResponse("0", mockResponse)
-	unformatted := ConvertRunResults([]params.RunResult{
-		makeRunResult(mockResponse)})
-	yamlFormatted, err := cmd.FormatYaml(unformatted)
-	c.Assert(err, jc.ErrorIsNil)
+
+	machineResult := mock.responses["0"]
+	s.setUpGetActionResult(map[string]params.ActionResult{
+		mock.receiverIdMap["0"]: machineResult,
+	})
+
+	unformatted := []interface{}{
+		ConvertActionResults(machineResult),
+	}
+
 	jsonFormatted, err := cmd.FormatJson(unformatted)
+	c.Assert(err, jc.ErrorIsNil)
+
+	yamlFormatted, err := cmd.FormatYaml(unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, test := range []struct {
@@ -376,6 +385,15 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 	}
 }
 
+func (s *RunSuite) setUpGetActionResult(actions map[string]params.ActionResult) {
+	s.PatchValue(&getActionResult, func(_ RunClient, id string, _ *time.Timer) (params.ActionResult, error) {
+		if res, ok := actions[id]; ok {
+			return res, nil
+		}
+		return params.ActionResult{}, errors.New("not found")
+	})
+}
+
 func (s *RunSuite) setupMockAPI() *mockRunAPI {
 	mock := &mockRunAPI{}
 	s.PatchValue(&getRunAPIClient, func(_ *runCommand) (RunClient, error) {
@@ -385,22 +403,25 @@ func (s *RunSuite) setupMockAPI() *mockRunAPI {
 }
 
 type mockRunAPI struct {
+	action.APIClient
 	stdout string
 	stderr string
 	code   int
 	// machines, services, units
-	machines  map[string]bool
-	responses map[string]params.RunResult
-	block     bool
+	machines      map[string]bool
+	responses     map[string]params.ActionResult
+	receiverIdMap map[string]string
+	block         bool
 }
 
 type mockResponse struct {
-	stdout    string
-	stderr    string
-	code      int
-	error     string
-	machineId string
-	unitId    string
+	stdout     interface{}
+	stderr     interface{}
+	code       float64
+	error      *params.Error
+	message    string
+	machineTag string
+	unitTag    string
 }
 
 var _ RunClient = (*mockRunAPI)(nil)
@@ -414,32 +435,49 @@ func (m *mockRunAPI) setMachinesAlive(ids ...string) {
 	}
 }
 
-func makeRunResult(mock mockResponse) params.RunResult {
-	return params.RunResult{
-		ExecResponse: exec.ExecResponse{
-			Stdout: []byte(mock.stdout),
-			Stderr: []byte(mock.stderr),
-			Code:   mock.code,
+func makeActionResult(mock mockResponse, actionTag string) params.ActionResult {
+	var receiverTag string
+	if mock.unitTag != "" {
+		receiverTag = mock.unitTag
+	} else {
+		receiverTag = mock.machineTag
+	}
+	if actionTag == "" {
+		actionTag = names.NewActionTag(utils.MustNewUUID().String()).String()
+	}
+	return params.ActionResult{
+		Action: &params.Action{
+			Tag:      actionTag,
+			Receiver: receiverTag,
 		},
-		MachineId: mock.machineId,
-		UnitId:    mock.unitId,
-		Error:     mock.error,
+		Message: mock.message,
+		Error:   mock.error,
+		Output: map[string]interface{}{
+			"Stdout": mock.stdout,
+			"Stderr": mock.stderr,
+			"Code":   mock.code,
+		},
 	}
 }
 
 func (m *mockRunAPI) setResponse(id string, mock mockResponse) {
 	if m.responses == nil {
-		m.responses = make(map[string]params.RunResult)
+		m.responses = make(map[string]params.ActionResult)
 	}
-	m.responses[id] = makeRunResult(mock)
+	if m.receiverIdMap == nil {
+		m.receiverIdMap = make(map[string]string)
+	}
+	actionTag := names.NewActionTag(utils.MustNewUUID().String())
+	m.receiverIdMap[id] = actionTag.Id()
+	m.responses[id] = makeActionResult(mock, actionTag.String())
 }
 
 func (*mockRunAPI) Close() error {
 	return nil
 }
 
-func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([]params.RunResult, error) {
-	var result []params.RunResult
+func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([]params.ActionResult, error) {
+	var result []params.ActionResult
 
 	if m.block {
 		return result, common.OperationBlockedError("the operation has been blocked")
@@ -454,7 +492,12 @@ func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([
 		response, found := m.responses[machineId]
 		if !found {
 			// Consider this a timeout
-			response = params.RunResult{MachineId: machineId, Error: "command timed out"}
+			response = params.ActionResult{
+				Action: &params.Action{
+					Receiver: names.NewMachineTag(machineId).String(),
+				},
+				Message: exec.ErrCancelled.Error(),
+			}
 		}
 		result = append(result, response)
 	}
@@ -462,8 +505,8 @@ func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([
 	return result, nil
 }
 
-func (m *mockRunAPI) Run(runParams params.RunParams) ([]params.RunResult, error) {
-	var result []params.RunResult
+func (m *mockRunAPI) Run(runParams params.RunParams) ([]params.ActionResult, error) {
+	var result []params.ActionResult
 
 	if m.block {
 		return result, common.OperationBlockedError("the operation has been blocked")
