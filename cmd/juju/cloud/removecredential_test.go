@@ -72,7 +72,7 @@ func (s *removeCredentialSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	output := testing.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
-	c.Assert(output, gc.Equals, `Credential "my-credential" for cloud "my-credential" has been deleted.`)
+	c.Assert(output, gc.Equals, `Credential "my-credential" for cloud "aws" has been deleted.`)
 	_, stillThere := store.Credentials["aws"].AuthCredentials["my-credential"]
 	c.Assert(stillThere, jc.IsFalse)
 	c.Assert(store.Credentials["aws"].AuthCredentials, gc.HasLen, 1)

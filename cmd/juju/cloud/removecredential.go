@@ -70,6 +70,6 @@ func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {
 	if err := c.store.UpdateCredential(c.cloud, *cred); err != nil {
 		return err
 	}
-	ctxt.Infof("Credential %q for cloud %q has been deleted.", c.credential, c.credential)
+	ctxt.Infof("Credential %q for cloud %q has been deleted.", c.credential, c.cloud)
 	return nil
 }
