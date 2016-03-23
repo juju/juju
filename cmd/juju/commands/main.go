@@ -275,6 +275,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Juju GUI commands.
 	r.Register(gui.NewGUICommand())
+	r.Register(gui.NewUpgradeGUICommand())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {

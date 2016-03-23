@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
+// NewGUICommand creates and returns a new gui command.
 func NewGUICommand() cmd.Command {
 	return modelcmd.Wrap(&guiCommand{})
 }
