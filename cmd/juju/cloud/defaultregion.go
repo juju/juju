@@ -61,7 +61,7 @@ func hasRegion(region string, regions []jujucloud.Region) bool {
 }
 
 func (c *setDefaultRegionCommand) Run(ctxt *cmd.Context) error {
-	cloudDetails, err := jujucloud.CloudByName(c.cloud)
+	cloudDetails, err := cloudOrProvider(c.cloud, jujucloud.CloudByName)
 	if err != nil {
 		return err
 	}
