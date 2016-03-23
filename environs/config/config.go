@@ -103,6 +103,12 @@ const (
 	// Settings Attributes
 	//
 
+	// NameKey is the key for the model's name.
+	NameKey = "name"
+
+	// TypeKey is the key for the model's cloud type.
+	TypeKey = "type"
+
 	// AgentVersionKey is the key for the model's Juju agent version.
 	AgentVersionKey = "agent-version"
 
@@ -457,7 +463,7 @@ func (c *Config) fillInDefaults() error {
 
 	// Don't use c.Name() because the name hasn't
 	// been verified yet.
-	name := c.asString("name")
+	name := c.asString(NameKey)
 	if name == "" {
 		return fmt.Errorf("empty name in model configuration")
 	}
@@ -509,8 +515,8 @@ func ProcessDeprecatedAttributes(attrs map[string]interface{}) map[string]interf
 	}
 
 	// Update the provider type from null to manual.
-	if attrs["type"] == "null" {
-		processedAttrs["type"] = "manual"
+	if attrs[TypeKey] == "null" {
+		processedAttrs[TypeKey] = "manual"
 	}
 
 	if _, ok := attrs[ProvisionerHarvestModeKey]; !ok {
@@ -596,7 +602,7 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if strings.ContainsAny(cfg.mustString("name"), "/\\") {
+	if strings.ContainsAny(cfg.mustString(NameKey), "/\\") {
 		return fmt.Errorf("model name contains unsafe characters")
 	}
 
@@ -776,12 +782,12 @@ func (c *Config) mustInt(name string) int {
 
 // Type returns the model's cloud provider type.
 func (c *Config) Type() string {
-	return c.mustString("type")
+	return c.mustString(TypeKey)
 }
 
 // Name returns the model name.
 func (c *Config) Name() string {
-	return c.mustString("name")
+	return c.mustString(NameKey)
 }
 
 // UUID returns the uuid for the model.
@@ -1420,8 +1426,8 @@ var mandatoryWithoutDefaults = []string{
 // which are not allowed to change in the lifetime
 // of an environment.
 var immutableAttributes = []string{
-	"name",
-	"type",
+	NameKey,
+	TypeKey,
 	UUIDKey,
 	ControllerUUIDKey,
 	"firewall-mode",
@@ -1793,7 +1799,7 @@ global or per instance security groups.`,
 		Description: `Whether the LXC provisioner should create a template and use cloning to speed up container provisioning. (deprecated by lxc-clone)`,
 		Type:        environschema.Tbool,
 	},
-	"name": {
+	NameKey: {
 		Description: "The name of the current model",
 		Type:        environschema.Tstring,
 		Mandatory:   true,
@@ -1882,7 +1888,7 @@ data of the store. (default false)`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"type": {
+	TypeKey: {
 		Description: "Type of model, e.g. local, ec2",
 		Type:        environschema.Tstring,
 		Mandatory:   true,

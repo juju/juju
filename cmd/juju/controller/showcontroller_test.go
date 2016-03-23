@@ -109,8 +109,9 @@ func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *gc.C) {
 	store := s.createTestClientStore(c)
 	store.BootstrapConfig["local.mallards"] = jujuclient.BootstrapConfig{
 		Config: map[string]interface{}{
-			"name": "admin",
-			"type": "maas",
+			"name":  "admin",
+			"type":  "maas",
+			"extra": "value",
 		},
 		Credential:    "my-credential",
 		Cloud:         "mallards",
@@ -141,9 +142,9 @@ local.mallards:
   current-account: admin@local
   bootstrap-config:
     config:
-      name: admin
-      type: maas
+      extra: value
     cloud: mallards
+    cloud-type: maas
     region: mallards1
     endpoint: http://mallards.local/MAAS
     credential: my-credential
