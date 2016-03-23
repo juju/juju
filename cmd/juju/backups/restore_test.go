@@ -37,9 +37,9 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 		AccountModels: map[string]*jujuclient.AccountModels{
 			"admin@local": {
 				Models: map[string]jujuclient.ModelDetails{
-					"test1": {"test1-uuid"},
+					"admin": {"test1-uuid"},
 				},
-				CurrentModel: "test1",
+				CurrentModel: "admin",
 			},
 		},
 	}
