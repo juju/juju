@@ -4,10 +4,12 @@ import os
 import stat
 import subprocess
 from tempfile import NamedTemporaryFile
+import urllib2
 import unittest
 
 from mock import (
     call,
+    MagicMock,
     Mock,
     patch,
 )
@@ -19,6 +21,7 @@ from jujupy import (
 from run_deployer import (
     apply_condition,
     assess_deployer,
+    assert_mediawiki_bundle,
     check_health,
     CLOCK_SKEW_SCRIPT,
     ErrUnitCondition,
@@ -89,6 +92,25 @@ class TestMain(tests.FakeHomeTestCase):
         e_mock.assert_called_once_with('an-env')
         c_mock.assert_called_once_with(env, '/bin/juju', debug=False)
         ad_mock.assert_called_once_with(parse_args(args), client, 1200, 1800)
+
+    def test_basic_args_native_deploy(self):
+        args = ['mediawiki-scalable.yaml', 'an-env', '/bin/juju', 'logs',
+                'deployer-env', '--allow-native-deploy']
+        env = JujuData('an-env')
+        client = EnvJujuClient(env, '1.234-76', None)
+        with patch('jujupy.SimpleEnvironment.from_config',
+                   return_value=env) as e_mock:
+            with patch('jujupy.EnvJujuClient.by_version',
+                       return_value=client) as c_mock:
+                with patch('run_deployer.boot_context'):
+                    with patch('run_deployer.assess_deployer') as ad_mock:
+                        with patch('run_deployer.'
+                                   'assert_mediawiki_bundle') as mb_mock:
+                            main(args)
+        e_mock.assert_called_once_with('an-env')
+        c_mock.assert_called_once_with(env, '/bin/juju', debug=False)
+        ad_mock.assert_called_once_with(parse_args(args), client, 1200, 1800)
+        mb_mock.assert_called_once_with(parse_args(args), client)
 
 
 class TestAssessDeployer(tests.TestCase):
@@ -174,6 +196,77 @@ class TestAssessDeployer(tests.TestCase):
         client_mock.deploy_bundle.assert_called_once_with('bundle.yaml')
         client_mock.wait_for_started.assert_called_once_with(timeout=600)
         client_mock.wait_for_workloads.assert_called_once_with(timeout=1800)
+
+    def test_assert_mediawiki_bundle(self):
+        args = self.make_args(allow_native_deploy=True)
+        client = self.deploy_mediawiki()
+        with patch('run_deployer.urllib2.urlopen', autospec=True,
+                   return_value=self.make_response()) as url_mock:
+            assert_mediawiki_bundle(args, client)
+
+        url_mock.assert_called_once_with('http://1.example.com')
+
+    def test_assert_mediawiki_bundle_service_misconfigured(self):
+        args = self.make_args(allow_native_deploy=True)
+        client = FakeJujuClient()
+        client.bootstrap()
+        client.deploy('haproxy')
+        client.deploy('mysql')
+        with patch('run_deployer.urllib2.urlopen', autospec=True,
+                   return_value=self.make_response()):
+            with self.assertRaisesRegexp(
+                    AssertionError, 'Unexpected service configuration'):
+                assert_mediawiki_bundle(args, client)
+
+    def test_assert_mediawiki_bundle_not_reachable(self):
+        args = self.make_args(allow_native_deploy=True)
+        client = self.deploy_mediawiki()
+        with patch('run_deployer.urllib2.urlopen', autospec=True,
+                   return_value=self.make_response(400)):
+            with self.assertRaisesRegexp(
+                    AssertionError, 'haproxy is not reachable'):
+                assert_mediawiki_bundle(args, client)
+
+    def test_assert_mediawiki_bundle_http_error(self):
+        args = self.make_args(allow_native_deploy=True)
+        client = self.deploy_mediawiki()
+        with patch(
+                'run_deployer.urllib2.urlopen', autospec=True,
+                side_effect=urllib2.HTTPError(None, None, None, None, None)):
+            with self.assertRaisesRegexp(
+                    urllib2.HTTPError, 'HTTP Error'):
+                assert_mediawiki_bundle(args, client)
+
+    def test_assert_mediawiki_bundle_not_exposed(self):
+        args = self.make_args(allow_native_deploy=True)
+        client = self.deploy_mediawiki()
+        client.juju = MagicMock(spec=[])
+        with patch('run_deployer.urllib2.urlopen', autospec=True,
+                   return_value=self.make_response(400)):
+            with self.assertRaisesRegexp(
+                    AssertionError, 'haproxy is not exposed'):
+                assert_mediawiki_bundle(args, client)
+
+    def make_response(self, return_code=200):
+
+        class Response:
+
+            def __init__(self, code):
+                self.return_code = code
+
+            def getcode(self):
+                return self.return_code
+        return Response(return_code)
+
+    def deploy_mediawiki(self):
+        client = FakeJujuClient()
+        client.bootstrap()
+        client.deploy('haproxy')
+        client.deploy('mediawiki')
+        client.deploy('mysql')
+        client.deploy('memcached')
+        client.deploy('mysql-slave')
+        return client
 
 
 class FakeRemote():

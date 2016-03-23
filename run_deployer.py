@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 import logging
 import subprocess
 import sys
+import urllib2
 
 from deploy_stack import (
     assess_upgrade,
@@ -97,6 +98,42 @@ def apply_condition(client, condition):
             raise ErrUnitCondition("%s: Unknown condition type." % action)
 
 
+def assert_mediawiki_bundle(args, client):
+    status = client.get_status()
+    expected_services = (
+        ['haproxy', 'mediawiki', 'mysql', 'memcached', 'mysql-slave'])
+    if sorted(status.status['services'].keys()) != sorted(expected_services):
+        raise AssertionError('Unexpected service configuration: {}'.format(
+            status.status['services']))
+    if status.status['services']['haproxy']['exposed']:
+        raise AssertionError('haproxy is exposed.')
+    client.juju('expose', ('haproxy',))
+    status = client.get_status()
+    if not status.status['services']['haproxy']['exposed']:
+        raise AssertionError('haproxy is not exposed.')
+
+    machine_num = (
+        status.status['services']['haproxy']['units']['haproxy/0']['machine'])
+    haproxy_dns_name = status.status['machines'][machine_num]['dns-name']
+    req = urllib2.urlopen('http://{}'.format(haproxy_dns_name))
+    if 200 != req.getcode():
+        raise AssertionError(
+            'haproxy is not reachable: http code: {}'.format(req.getcode))
+
+    client.juju('add-unit', ('mediawiki',))
+    client.juju('add-unit', ('mysql-slave',))
+    client.wait_for_started()
+    status = client.get_status()
+    mediawiki_units = status.status['services']['mediawiki']['units'].values()
+    if len(mediawiki_units) != 2:
+        raise AssertionError(
+            'Unexpected mediawiki units: {}'.format(mediawiki_units))
+    mysql_units = status.status['services']['mysql-slave']['units'].values()
+    if len(mysql_units) != 2:
+        raise AssertionError(
+            'Unexpected mysql-slave units: {}'.format(mysql_units))
+
+
 def assess_deployer(args, client, agent_timeout, workload_timeout):
     """Run juju-deployer, based on command line configuration values."""
     if args.allow_native_deploy:
@@ -132,6 +169,10 @@ def main(argv=None):
                       region=args.region):
         assess_deployer(
             args, client, args.agent_timeout, args.workload_timeout)
+        if (args.allow_native_deploy and
+                args.bundle_path.endswith('mediawiki-scalable.yaml')):
+            assert_mediawiki_bundle(args, client)
+
     return 0
 
 
