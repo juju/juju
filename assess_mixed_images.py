@@ -53,6 +53,7 @@ def main(argv=None):
     client.env.config['image-metadata-url'] = IMG_URL
     key_path = os.path.join(client.env.juju_home,
                             'juju-qa-public.key')
+    log.info("Using JUJU_STREAMS_PUBLICKEY_FILE=%s", key_path)
     os.environ['JUJU_STREAMS_PUBLICKEY_FILE'] = key_path
     with bs_manager.booted_context(args.upload_tools):
         assess_mixed_images(bs_manager.client)

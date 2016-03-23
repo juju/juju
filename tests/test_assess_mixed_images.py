@@ -33,7 +33,6 @@ class TestParseArgs(TestCase):
             with patch("sys.stdout", fake_stdout):
                 parse_args(["--help"])
         self.assertEqual("", fake_stderr.getvalue())
-        self.assertNotIn("TODO", fake_stdout.getvalue())
 
 
 class TestMain(TestCase):
