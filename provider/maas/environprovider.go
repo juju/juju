@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -52,15 +51,12 @@ func (p maasEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*c
 	if found && oldName != "" {
 		return nil, errAgentNameAlreadySet
 	}
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, err
-	}
-	attrs["maas-agent-name"] = uuid.String()
+	attrs["maas-agent-name"] = cfg.UUID()
 	return cfg.Apply(attrs)
 }
 
-func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+// BootstrapConfig is specified in the EnvironProvider interface.
+func (p maasEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	// For MAAS, either:
 	// 1. the endpoint from the cloud definition defines the MAAS server URL
 	//    (if a full cloud definition had been set up)
@@ -90,11 +86,11 @@ func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return p.PrepareForCreateEnvironment(cfg)
+}
 
-	cfg, err = p.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, err
-	}
+// PrepareForBootstrap is specified in the EnvironProvider interface.
+func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	env, err := p.Open(cfg)
 	if err != nil {
 		return nil, err

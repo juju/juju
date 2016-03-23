@@ -265,6 +265,7 @@ var commandNames = []string{
 	"list-storage",
 	"list-storage-pools",
 	"list-users",
+	"login",
 	"machine",
 	"machines",
 	"publish",

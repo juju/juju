@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	envtesting "github.com/juju/juju/environs/testing"
 	jp "github.com/juju/juju/provider/joyent"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -259,20 +258,19 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 }
 
 // TODO(wallyworld) - add tests for cloud endpoint passed in via bootstrap args
-var prepareConfigTests = []struct {
+var bootstrapConfigTests = []struct {
 	info   string
 	insert coretesting.Attrs
 	remove []string
 	expect coretesting.Attrs
 	err    string
 }{{
-	info:   "All value provided, nothig to do",
+	info:   "All value provided, nothing to do",
 	expect: validAttrs(),
 }}
 
-func (s *ConfigSuite) TestPrepareForBootstrap(c *gc.C) {
-	ctx := envtesting.BootstrapContext(c)
-	for i, test := range prepareConfigTests {
+func (s *ConfigSuite) TestBootstrapConfig(c *gc.C) {
+	for i, test := range bootstrapConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		credentialAttrs := make(map[string]string, len(attrs))
@@ -280,7 +278,7 @@ func (s *ConfigSuite) TestPrepareForBootstrap(c *gc.C) {
 			credentialAttrs[k] = fmt.Sprintf("%v", v)
 		}
 		testConfig := newConfig(c, attrs)
-		preparedConfig, err := jp.Provider.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		preparedConfig, err := jp.Provider.BootstrapConfig(environs.BootstrapConfigParams{
 			Config: testConfig,
 			Credentials: cloud.NewCredential(
 				cloud.UserPassAuthType,
@@ -289,7 +287,7 @@ func (s *ConfigSuite) TestPrepareForBootstrap(c *gc.C) {
 		})
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
-			attrs := preparedConfig.Config().AllAttrs()
+			attrs := preparedConfig.AllAttrs()
 			for field, value := range test.expect {
 				c.Check(attrs[field], gc.Equals, value)
 			}

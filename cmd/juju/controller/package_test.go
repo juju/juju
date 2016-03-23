@@ -37,7 +37,7 @@ func (s *baseControllerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *baseControllerSuite) createTestClientStore(c *gc.C) {
+func (s *baseControllerSuite) createTestClientStore(c *gc.C) *jujuclienttesting.MemStore {
 	controllers, err := jujuclient.ParseControllers([]byte(s.controllersYaml))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -47,11 +47,12 @@ func (s *baseControllerSuite) createTestClientStore(c *gc.C) {
 	accounts, err := jujuclient.ParseAccounts([]byte(s.accountsYaml))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.store = &jujuclienttesting.MemStore{
-		Controllers: controllers,
-		Models:      models,
-		Accounts:    accounts,
-	}
+	store := jujuclienttesting.NewMemStore()
+	store.Controllers = controllers
+	store.Models = models
+	store.Accounts = accounts
+	s.store = store
+	return store
 }
 
 const testControllersYaml = `

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
@@ -95,6 +96,61 @@ local.mallards:
 `[1:]
 
 	s.assertShowController(c, "local.mallards", "--show-passwords")
+}
+
+func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *gc.C) {
+	s.controllersYaml = `controllers:
+  local.mallards:
+    servers: [maas-1-05.cluster.mallards]
+    uuid: this-is-another-uuid
+    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
+    ca-cert: this-is-another-ca-cert
+`
+	store := s.createTestClientStore(c)
+	store.BootstrapConfig["local.mallards"] = jujuclient.BootstrapConfig{
+		Config: map[string]interface{}{
+			"name":  "admin",
+			"type":  "maas",
+			"extra": "value",
+		},
+		Credential:    "my-credential",
+		Cloud:         "mallards",
+		CloudRegion:   "mallards1",
+		CloudEndpoint: "http://mallards.local/MAAS",
+	}
+
+	s.expectedOutput = `
+local.mallards:
+  details:
+    servers: [maas-1-05.cluster.mallards]
+    uuid: this-is-another-uuid
+    api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
+    ca-cert: this-is-another-ca-cert
+  accounts:
+    admin@local:
+      user: admin@local
+      models:
+        admin:
+          uuid: abc
+        my-model:
+          uuid: def
+      current-model: my-model
+    bob@local:
+      user: bob@local
+    bob@remote:
+      user: bob@remote
+  current-account: admin@local
+  bootstrap-config:
+    config:
+      extra: value
+    cloud: mallards
+    cloud-type: maas
+    region: mallards1
+    endpoint: http://mallards.local/MAAS
+    credential: my-credential
+`[1:]
+
+	s.assertShowController(c, "local.mallards")
 }
 
 func (s *ShowControllerSuite) TestShowOneControllerManyInStore(c *gc.C) {

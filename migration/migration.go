@@ -87,11 +87,11 @@ func controllerValues(config *config.Config) map[string]interface{} {
 
 	result["state-port"] = config.StatePort()
 	result["api-port"] = config.APIPort()
+	result["controller-uuid"] = config.ControllerUUID()
 	// We ignore the second bool param from the CACert check as if there
 	// wasn't a CACert, there is no way we'd be importing a new model
 	// into the controller
 	result["ca-cert"], _ = config.CACert()
-
 	return result
 }
 

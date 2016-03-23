@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
 )
 
 // NewListModelsCommand returns a command to list models.
@@ -35,7 +34,6 @@ type modelsCommand struct {
 	exactTime bool
 	modelAPI  ModelManagerAPI
 	sysAPI    ModelsSysAPI
-	userCreds *configstore.APICredentials
 }
 
 var listModelsDoc = `
@@ -88,13 +86,6 @@ func (c *modelsCommand) getSysAPI() (ModelsSysAPI, error) {
 	return c.NewControllerAPIClient()
 }
 
-func (c *modelsCommand) getConnectionCredentials() (configstore.APICredentials, error) {
-	if c.userCreds != nil {
-		return *c.userCreds, nil
-	}
-	return c.ConnectionCredentials()
-}
-
 // SetFlags implements Command.SetFlags.
 func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.user, "user", "", "the user to list models for (administrative users only)")
@@ -126,11 +117,13 @@ type UserModel struct {
 // Run implements Command.Run
 func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	if c.user == "" {
-		creds, err := c.getConnectionCredentials()
+		accountDetails, err := c.ClientStore().AccountByName(
+			c.ControllerName(), c.AccountName(),
+		)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
-		c.user = creds.User
+		c.user = accountDetails.User
 	}
 
 	var models []base.UserModel

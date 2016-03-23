@@ -15,12 +15,12 @@ import (
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
-	// EnvironConstraints are merged with the bootstrap constraints
+	// ModelConstraints are merged with the bootstrap constraints
 	// to choose the initial instance, and will be stored in the new
 	// environment's state.
-	EnvironConstraints constraints.Value
+	ModelConstraints constraints.Value
 
-	// BootstrapConstraints, in conjunction with EnvironConstraints,
+	// BootstrapConstraints, in conjunction with ModelConstraints,
 	// are used to choose the initial instance. BootstrapConstraints
 	// will not be stored in state for the environment.
 	BootstrapConstraints constraints.Value

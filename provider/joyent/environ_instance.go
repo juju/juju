@@ -203,12 +203,7 @@ func (env *joyentEnviron) AllInstances() ([]instance.Instance, error) {
 
 	filter := cloudapi.NewFilter()
 	filter.Set("tag.group", "juju")
-
-	eUUID, ok := env.Config().UUID()
-	if !ok {
-		return nil, errors.NotFoundf("enviroment UUID in configuration")
-	}
-	filter.Set(tags.JujuModel, eUUID)
+	filter.Set(tags.JujuModel, env.Config().UUID())
 
 	machines, err := env.compute.cloudapi.ListMachines(filter)
 	if err != nil {

@@ -15,8 +15,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -25,7 +23,6 @@ import (
 type UserAddCommandSuite struct {
 	BaseSuite
 	mockAPI *mockAddUserAPI
-	store   jujuclient.ClientStore
 }
 
 var _ = gc.Suite(&UserAddCommandSuite{})
@@ -34,18 +31,6 @@ func (s *UserAddCommandSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockAPI = &mockAddUserAPI{}
 	s.mockAPI.secretKey = []byte(strings.Repeat("X", 32))
-	store := jujuclienttesting.NewMemStore()
-	store.Controllers["testing"] = jujuclient.ControllerDetails{}
-	store.Accounts["testing"] = &jujuclient.ControllerAccounts{
-		Accounts: map[string]jujuclient.AccountDetails{
-			"current-user@local": {
-				User:     "current-user@local",
-				Password: "old-password",
-			},
-		},
-		CurrentAccount: "current-user@local",
-	}
-	s.store = store
 }
 
 func (s *UserAddCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -103,14 +88,6 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 		}
 	}
 }
-
-/*
-func (s *UserAddCommandSuite) TestRandomPassword(c *gc.C) {
-	_, err := s.run(c, "foobar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.randomPassword, gc.HasLen, 24)
-}
-*/
 
 func (s *UserAddCommandSuite) TestAddUserWithUsername(c *gc.C) {
 	context, err := s.run(c, "foobar")

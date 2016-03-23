@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package agent_test
+package agentbootstrap_test
 
 import (
 	"io/ioutil"
@@ -11,10 +11,12 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/agentbootstrap"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -105,7 +107,7 @@ LXC_BRIDGE="ignored"`[1:])
 		"10.0.3.4", // lxc bridge address filtered (-"-).
 		"10.0.3.3", // not a lxc bridge address
 	)
-	mcfg := agent.BootstrapMachineConfig{
+	mcfg := agentbootstrap.BootstrapMachineConfig{
 		Addresses:            initialAddrs,
 		BootstrapConstraints: expectBootstrapConstraints,
 		ModelConstraints:     expectModelConstraints,
@@ -119,15 +121,31 @@ LXC_BRIDGE="ignored"`[1:])
 		"0.1.2.3",
 		"10.0.3.3",
 	)
+
+	// Prepare bootstrap config, so we can use it in the state policy.
+	provider, err := environs.Provider("dummy")
+	c.Assert(err, jc.ErrorIsNil)
 	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
-		"agent-version": jujuversion.Current.String(),
-		"state-id":      "1", // needed so policy can Open config
+		"agent-version":  jujuversion.Current.String(),
+		"not-for-hosted": "foo",
 	})
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, jc.ErrorIsNil)
+	envCfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{Config: envCfg})
+	c.Assert(err, jc.ErrorIsNil)
+	defer dummy.Reset()
+
+	hostedModelUUID := utils.MustNewUUID().String()
+	hostedModelConfigAttrs := map[string]interface{}{
+		"name": "hosted",
+		"uuid": hostedModelUUID,
+	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	st, m, err := agent.InitializeState(adminUser, cfg, envCfg, mcfg, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, m, err := agentbootstrap.InitializeState(
+		adminUser, cfg, envCfg, hostedModelConfigAttrs, mcfg,
+		mongo.DefaultDialOpts(), environs.NewStatePolicy(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -137,9 +155,7 @@ LXC_BRIDGE="ignored"`[1:])
 	// Check that the environment has been set up.
 	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	uuid, ok := envCfg.UUID()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(env.UUID(), gc.Equals, uuid)
+	c.Assert(env.UUID(), gc.Equals, envCfg.UUID())
 
 	// Check that initial admin user has been set up correctly.
 	modelTag := env.Tag().(names.ModelTag)
@@ -148,7 +164,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
-	// Check that model configuration has been added, and
+	// Check that controller model configuration has been added, and
 	// model constraints set.
 	newEnvCfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -156,6 +172,22 @@ LXC_BRIDGE="ignored"`[1:])
 	gotModelConstraints, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
+
+	// Check that the hosted model has been added, and model constraints
+	// set.
+	hostedModelSt, err := st.ForModel(names.NewModelTag(hostedModelUUID))
+	c.Assert(err, jc.ErrorIsNil)
+	defer hostedModelSt.Close()
+	gotModelConstraints, err = hostedModelSt.ModelConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
+	hostedModel, err := hostedModelSt.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
+	hostedCfg, err := hostedModelSt.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
+	c.Assert(hasUnexpected, jc.IsFalse)
 
 	// Check that the bootstrap machine looks correct.
 	c.Assert(m.Id(), gc.Equals, "0")
@@ -197,10 +229,9 @@ LXC_BRIDGE="ignored"`[1:])
 	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, machine0))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newCfg.Tag(), gc.Equals, machine0)
-	//c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
-	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
+	c.Assert(info.Password, gc.Not(gc.Equals), testing.DefaultMongoPassword)
 	st1, err := state.Open(newCfg.Model(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
@@ -223,7 +254,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	c.Assert(available, jc.IsFalse)
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	_, _, err = agent.InitializeState(adminUser, cfg, nil, agent.BootstrapMachineConfig{}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	_, _, err = agentbootstrap.InitializeState(adminUser, cfg, nil, nil, agentbootstrap.BootstrapMachineConfig{}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }
@@ -251,7 +282,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		SystemIdentity: "qux",
 	})
 	expectHW := instance.MustParseHardware("mem=2048M")
-	mcfg := agent.BootstrapMachineConfig{
+	mcfg := agentbootstrap.BootstrapMachineConfig{
 		BootstrapConstraints: constraints.MustParse("mem=1024M"),
 		Jobs:                 []multiwatcher.MachineJob{multiwatcher.JobManageModel},
 		InstanceId:           "i-bootstrap",
@@ -259,17 +290,24 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	}
 	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": jujuversion.Current.String(),
-		"state-id":      "1", // needed so policy can Open config
 	})
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
+	hostedModelConfigAttrs := map[string]interface{}{
+		"name": "hosted",
+		"uuid": utils.MustNewUUID().String(),
+	}
+
 	adminUser := names.NewLocalUserTag("agent-admin")
-	st, _, err := agent.InitializeState(adminUser, cfg, envCfg, mcfg, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, _, err := agentbootstrap.InitializeState(
+		adminUser, cfg, envCfg, hostedModelConfigAttrs, mcfg,
+		mongo.DefaultDialOpts(), state.Policy(nil),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 
-	st, _, err = agent.InitializeState(adminUser, cfg, envCfg, mcfg, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, _, err = agentbootstrap.InitializeState(adminUser, cfg, envCfg, nil, mcfg, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}
@@ -296,7 +334,7 @@ func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 		err:  `invalid machine job "invalid"`,
 	}}
 	for _, test := range tests {
-		got, err := agent.MachineJobFromParams(test.name)
+		got, err := agentbootstrap.MachineJobFromParams(test.name)
 		if err != nil {
 			c.Check(err, gc.ErrorMatches, test.err)
 		}

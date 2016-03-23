@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/filestorage"
@@ -530,6 +532,12 @@ type DB interface {
 
 	// ModelTag is the concrete model tag for this database.
 	ModelTag() names.ModelTag
+
+	// ModelConfig is the config of the model being backedup.
+	ModelConfig() (*config.Config, error)
+
+	// StateServingInfo is the secrets of the controller.
+	StateServingInfo() (state.StateServingInfo, error)
 }
 
 // NewStorage returns a new FileStorage to use for storing backup

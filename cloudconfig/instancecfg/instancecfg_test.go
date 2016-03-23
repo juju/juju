@@ -34,18 +34,6 @@ func (*instancecfgSuite) TestInstanceTagsController(c *gc.C) {
 	})
 }
 
-func (*instancecfgSuite) TestInstanceTagsNoUUID(c *gc.C) {
-	attrsWithoutUUID := testing.FakeConfig()
-	delete(attrsWithoutUUID, "uuid")
-	cfgWithoutUUID, err := config.New(config.NoDefaults, attrsWithoutUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	testInstanceTags(c,
-		cfgWithoutUUID,
-		[]multiwatcher.MachineJob(nil),
-		map[string]string{"juju-model-uuid": ""},
-	)
-}
-
 func (*instancecfgSuite) TestInstanceTagsUserSpecified(c *gc.C) {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"resource-tags": "a=b c=",

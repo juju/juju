@@ -38,7 +38,8 @@ func (joyentProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.C
 	return cfg, nil
 }
 
-func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+// BootstrapConfig is specified in the EnvironProvider interface.
+func (p joyentProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	attrs := map[string]interface{}{}
 	// Add the credential attributes to config.
 	switch authType := args.Credentials.AuthType(); authType {
@@ -57,11 +58,11 @@ func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return p.PrepareForCreateEnvironment(cfg)
+}
 
-	cfg, err = p.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+// PrepareForBootstrap is specified in the EnvironProvider interface.
+func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	e, err := p.Open(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
