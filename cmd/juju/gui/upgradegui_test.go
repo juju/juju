@@ -328,7 +328,7 @@ func (s *upgradeGUISuite) TestUpgradeGUIIntegration(c *gc.C) {
 	// Check that the uploaded version has been set as the current one.
 	vers, err := s.State.GUIVersion()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers.String(), gc.Equals, "2.42.2")
+	c.Assert(vers.String(), gc.Equals, "2.42.0")
 }
 
 // makeGUIArchive creates a Juju GUI tar.bz2 archive in memory, and returns a
