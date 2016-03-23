@@ -72,7 +72,7 @@ type Metadata struct {
 	// works, we need them and they are no longer available via
 	// bootstrap config. We will need to ifx how re-bootstrap deals
 	// with these keys to address the issue.
-	
+
 	// CACert is the controller CA certificate.
 	CACert string
 
