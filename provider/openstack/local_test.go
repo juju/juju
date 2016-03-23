@@ -968,7 +968,7 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 
 	cons = constraints.MustParse("virt-type=foo")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=foo\nvalid values are: [lxd qemu]"))
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=foo\nvalid values are: [kvm lxd]"))
 }
 
 func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {

@@ -104,7 +104,7 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.cSrv.setupServer(c)
 	s.mSrv.setupServer(c)
 
-	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
+	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL)
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
 		"image-metadata-url": "test://host",
 	})
@@ -172,7 +172,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 
 	s.Tests.ToolsFixture.UploadArches = []string{arch.AMD64}
 	s.Tests.SetUpTest(c)
-	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
+	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL)
 	credentialsAttrs := joyent.CredentialsAttributes(s.TestConfig)
 	s.Credential = cloud.NewCredential(
 		cloud.UserPassAuthType,
