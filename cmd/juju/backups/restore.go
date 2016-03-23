@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/backups"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/config"
 )
 
 func newRestoreCommand() cmd.Command {
@@ -188,8 +190,23 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		}
 	}
 
-	cons := c.constraints
-	args := bootstrap.BootstrapParams{ModelConstraints: cons, UploadTools: c.uploadTools}
+	// TODO(wallyworld) - backup / restore doesn't properly support multi-model.
+	// We require a hosted model config to bootstrap. We'll fill in some defaults
+	// and will need to redo properly later.
+	hostedModelUUID, err := utils.NewUUID()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	hostedModelConfig := map[string]interface{}{
+		"name":         "default",
+		config.UUIDKey: hostedModelUUID.String(),
+	}
+
+	args := bootstrap.BootstrapParams{
+		ModelConstraints:  c.constraints,
+		UploadTools:       c.uploadTools,
+		HostedModelConfig: hostedModelConfig,
+	}
 	if err := BootstrapFunc(modelcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")
 	}
@@ -215,28 +232,40 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
+
+	var archive ArchiveReader
+	var meta *params.BackupsMetadataResult
+	target := c.backupId
+	if c.filename != "" {
+		// Read archive specified by the filename;
+		// we'll need the info later regardless if
+		// we need it now to rebootstrap.
+		target = c.filename
+		var err error
+		archive, meta, err = c.getArchiveFunc(c.filename)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer archive.Close()
+
+		if c.bootstrap {
+			if err := c.rebootstrap(ctx, meta); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+
 	client, err := c.newAPIClientFunc()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer client.Close()
 
-	var target string
+	// We have a backup client, now use the relevant method
+	// to restore the backup.
 	if c.filename != "" {
-		target = c.filename
-		archive, meta, err := c.getArchiveFunc(c.filename)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		defer archive.Close()
-		if c.bootstrap {
-			if err := c.rebootstrap(ctx, meta); err != nil {
-				return errors.Trace(err)
-			}
-		}
 		err = client.RestoreReader(archive, meta, c.newClient)
 	} else {
-		target = c.backupId
 		err = client.Restore(c.backupId, c.newClient)
 	}
 	if err != nil {
