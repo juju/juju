@@ -21,9 +21,13 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -85,19 +89,22 @@ func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
 		"region":     "test",
 	})
 	s.restoreEC2Patching = patchEC2ForTesting(c)
+	s.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	s.BaseSuite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	imagetesting.PatchOfficialDataSources(&s.BaseSuite.CleanupSuite, "test:")
 }
 
 func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
+	s.restoreEC2Patching()
 	s.Tests.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
-	s.restoreEC2Patching()
 }
 
 func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.BaseSuite.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	s.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.BaseSuite.PatchValue(&series.HostSeries, func() string { return testing.FakeDefaultSeries })
-	s.BaseSuite.SetUpTest(c)
 	s.srv.startServer(c)
 	s.Tests.SetUpTest(c)
 	s.PatchValue(&ec2.DestroyVolumeAttempt.Delay, time.Duration(0))

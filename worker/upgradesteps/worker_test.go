@@ -407,13 +407,13 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 	return worker.Wait(), config, machineStatus.Calls, doneLock
 }
 
-func (s *UpgradeSuite) openStateForUpgrade() (*state.State, func(), error) {
+func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
 	mongoInfo := s.State.MongoConnectionInfo()
 	st, err := state.Open(s.State.ModelTag(), mongoInfo, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return st, func() { st.Close() }, nil
+	return st, nil
 }
 
 func (s *UpgradeSuite) preUpgradeSteps(st *state.State, agentConf agent.Config, isController, isMasterController bool) error {

@@ -119,7 +119,7 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
 
 		logger.Infof("starting worker")
-		w := newWorker(st, noPublisher{})
+		w := newWorker(st, noPublisher{}, false)
 		defer func() {
 			c.Check(worker.Stop(w), gc.IsNil)
 		}()
@@ -210,7 +210,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 		mustNext(c, memberWatcher)
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
 
-		w := newWorker(st, noPublisher{})
+		w := newWorker(st, noPublisher{}, false)
 		done := make(chan error)
 		go func() {
 			done <- w.Wait()
@@ -232,7 +232,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 		// Start the worker again - although the membership should
 		// not change, the HasVote status should be updated correctly.
 		st.errors.resetErrors()
-		w = newWorker(st, noPublisher{})
+		w = newWorker(st, noPublisher{}, false)
 
 		// Watch all the machines for changes, so we can check
 		// their has-vote status without polling.
@@ -282,7 +282,7 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
 
 		logger.Infof("starting worker")
-		w := newWorker(st, noPublisher{})
+		w := newWorker(st, noPublisher{}, false)
 		defer func() {
 			c.Check(worker.Stop(w), gc.IsNil)
 		}()
@@ -335,7 +335,7 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 			st.session.InstantlyReady = true
 			InitState(c, st, 3, ipVersion)
 			st.errors.setErrorFor(testCase.errPattern, errors.New("sample"))
-			w := newWorker(st, noPublisher{})
+			w := newWorker(st, noPublisher{}, false)
 			done := make(chan error)
 			go func() {
 				done <- w.Wait()
@@ -365,7 +365,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 		s.PatchValue(&initialRetryInterval, 10*time.Microsecond)
 		s.PatchValue(&maxRetryInterval, coretesting.ShortWait/4)
 
-		w := newWorker(st, noPublisher{})
+		w := newWorker(st, noPublisher{}, false)
 		defer func() {
 			c.Check(worker.Stop(w), gc.IsNil)
 		}()
@@ -394,7 +394,7 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
-		w := newWorker(st, PublisherFunc(publish))
+		w := newWorker(st, PublisherFunc(publish), false)
 		defer func() {
 			c.Check(worker.Stop(w), gc.IsNil)
 		}()
@@ -462,9 +462,7 @@ func mongoSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, noSpaces bool) 
 }
 
 func startWorkerSupportingSpaces(st *fakeState, ipVersion TestIPVersion) *pgWorker {
-	w := newWorker(st, noPublisher{}).(*pgWorker)
-	w.providerSupportsSpaces = true
-	return w
+	return newWorker(st, noPublisher{}, true).(*pgWorker)
 }
 
 func runWorkerUntilMongoStateIs(c *gc.C, st *fakeState, w *pgWorker, mss state.MongoSpaceStates) {
@@ -596,7 +594,7 @@ func (s *workerSuite) TestMongoSpaceNotCalculatedWhenSpacesNotSupported(c *gc.C)
 		st.SetMongoSpaceState(state.MongoSpaceUnknown)
 
 		// Start a worker that doesn't support spaces
-		w := newWorker(st, noPublisher{}).(*pgWorker)
+		w := newWorker(st, noPublisher{}, false).(*pgWorker)
 		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceUnsupported)
 
 		// Only space one has all three servers in it
@@ -625,7 +623,7 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
 
-		w := newWorker(st, PublisherFunc(publish))
+		w := newWorker(st, PublisherFunc(publish), false)
 		defer func() {
 			c.Check(worker.Stop(w), gc.IsNil)
 		}()
@@ -661,7 +659,7 @@ func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
 
-		w := newWorker(st, PublisherFunc(publish))
+		w := newWorker(st, PublisherFunc(publish), false)
 		defer func() {
 			c.Check(worker.Stop(w), gc.IsNil)
 		}()

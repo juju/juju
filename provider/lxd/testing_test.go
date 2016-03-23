@@ -119,7 +119,7 @@ func (s *BaseSuiteUnpatched) SetUpSuite(c *gc.C) {
 		s.osPathOrig =
 			"/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 	}
-	s.IsolationSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpSuite(c)
 }
 
 func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
@@ -272,10 +272,13 @@ type BaseSuite struct {
 	Policy     *stubPolicy
 }
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
-	// Do this *before* s.initEnv() gets called.
+func (s *BaseSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuiteUnpatched.SetUpSuite(c)
+	// Do this *before* s.initEnv() gets called in BaseSuiteUnpatched.SetUpTest
 	s.PatchValue(&asNonLocal, s.asNonLocal)
+}
 
+func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuiteUnpatched.SetUpTest(c)
 
 	s.Stub = &gitjujutesting.Stub{}
@@ -504,7 +507,7 @@ func (conn *stubClient) RemoveInstances(prefix string, ids ...string) error {
 	return nil
 }
 
-func (conn *stubClient) EnsureImageExists(series string, _ func(string)) error {
+func (conn *stubClient) EnsureImageExists(series string, _ []lxdclient.Remote, _ func(string)) error {
 	conn.stub.AddCall("EnsureImageExists", series)
 	if err := conn.stub.NextErr(); err != nil {
 		return errors.Trace(err)

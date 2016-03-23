@@ -50,11 +50,18 @@ const (
 	ChangeBlock
 )
 
-var typeNames = map[BlockType]multiwatcher.BlockType{
-	DestroyBlock: multiwatcher.BlockDestroy,
-	RemoveBlock:  multiwatcher.BlockRemove,
-	ChangeBlock:  multiwatcher.BlockChange,
-}
+var (
+	typeNames = map[BlockType]multiwatcher.BlockType{
+		DestroyBlock: multiwatcher.BlockDestroy,
+		RemoveBlock:  multiwatcher.BlockRemove,
+		ChangeBlock:  multiwatcher.BlockChange,
+	}
+	blockMigrationValue = map[BlockType]string{
+		DestroyBlock: "destroy-model",
+		RemoveBlock:  "remove-object",
+		ChangeBlock:  "all-changes",
+	}
+)
 
 // AllTypes returns all supported block types.
 func AllTypes() []BlockType {
@@ -76,6 +83,15 @@ func (t BlockType) ToParams() multiwatcher.BlockType {
 // String returns humanly readable type representation.
 func (t BlockType) String() string {
 	return string(t.ToParams())
+}
+
+// MigrationValue converts the block type value into a useful human readable
+// string for model migration.
+func (t BlockType) MigrationValue() string {
+	if value, ok := blockMigrationValue[t]; ok {
+		return value
+	}
+	return "unknown"
 }
 
 // ParseBlockType returns BlockType from humanly readable type representation.
@@ -256,6 +272,9 @@ func createModelBlockOps(st *State, t BlockType, msg string) ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting new block id")
 	}
+	// NOTE: if at any time in the future, we change blocks so that the
+	// Tag is different from the model, then the migration of blocks will
+	// need to change format.
 	newDoc := blockDoc{
 		DocID:     st.docID(id),
 		ModelUUID: st.ModelUUID(),
