@@ -1245,23 +1245,25 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		} else {
 			supportedSeries = args.Charm.Meta().Series
 		}
-		seriesOS, err := series.GetOSFromSeries(args.Series)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		supportedOperatingSystems := make(map[os.OSType]bool)
-		for _, supportedSeries := range supportedSeries {
-			os, err := series.GetOSFromSeries(supportedSeries)
+		if len(supportedSeries) > 0 {
+			seriesOS, err := series.GetOSFromSeries(args.Series)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			supportedOperatingSystems[os] = true
-		}
-		if !supportedOperatingSystems[seriesOS] {
-			return nil, errors.NewNotSupported(errors.Errorf(
-				"series %q (OS %q) not supported by charm",
-				args.Series, seriesOS,
-			), "")
+			supportedOperatingSystems := make(map[os.OSType]bool)
+			for _, supportedSeries := range supportedSeries {
+				os, err := series.GetOSFromSeries(supportedSeries)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				supportedOperatingSystems[os] = true
+			}
+			if !supportedOperatingSystems[seriesOS] {
+				return nil, errors.NewNotSupported(errors.Errorf(
+					"series %q (OS %q) not supported by charm, supported series are %q",
+					args.Series, seriesOS, strings.Join(supportedSeries, ", "),
+				), "")
+			}
 		}
 	}
 
