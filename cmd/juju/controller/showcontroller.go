@@ -4,11 +4,14 @@
 package controller
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -84,6 +87,10 @@ type ShowControllerDetails struct {
 	// CurrentAccount is the name of the current account for this controller.
 	CurrentAccount string `yaml:"current-account,omitempty" json:"current-account,omitempty"`
 
+	// BootstrapConfig contains the bootstrap configuration for this controller.
+	// This is only available on the client that bootstrapped the controller.
+	BootstrapConfig *BootstrapConfig `yaml:"bootstrap-config,omitempty" json:"bootstrap-config,omitempty"`
+
 	// Errors is a collection of errors related to accessing this controller details.
 	Errors []string `yaml:"errors,omitempty" json:"errors,omitempty"`
 }
@@ -124,6 +131,17 @@ type AccountDetails struct {
 	CurrentModel string `yaml:"current-model,omitempty" json:"current-model,omitempty"`
 }
 
+// BootstrapConfig holds the configuration used to bootstrap a controller.
+type BootstrapConfig struct {
+	Config               map[string]interface{} `yaml:"config,omitempty" json:"config,omitempty"`
+	Cloud                string                 `yaml:"cloud" json:"cloud"`
+	CloudType            string                 `yaml:"cloud-type" json:"cloud-type"`
+	CloudRegion          string                 `yaml:"region,omitempty" json:"region,omitempty"`
+	CloudEndpoint        string                 `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
+	CloudStorageEndpoint string                 `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
+	Credential           string                 `yaml:"credential,omitempty" json:"credential,omitempty"`
+}
+
 func (c *showControllerCommand) convertControllerForShow(controllerName string, details *jujuclient.ControllerDetails) ShowControllerDetails {
 	controller := ShowControllerDetails{
 		Details: ControllerDetails{
@@ -133,8 +151,8 @@ func (c *showControllerCommand) convertControllerForShow(controllerName string, 
 			CACert:         details.CACert,
 		},
 	}
-
 	c.convertAccountsForShow(controllerName, &controller)
+	c.convertBootstrapConfigForShow(controllerName, &controller)
 	return controller
 }
 
@@ -182,6 +200,39 @@ func (c *showControllerCommand) convertModelsForShow(controllerName, accountName
 		return err
 	}
 	return nil
+}
+
+func (c *showControllerCommand) convertBootstrapConfigForShow(controllerName string, controller *ShowControllerDetails) {
+	bootstrapConfig, err := c.store.BootstrapConfigForController(controllerName)
+	if errors.IsNotFound(err) {
+		return
+	} else if err != nil {
+		controller.Errors = append(controller.Errors, err.Error())
+		return
+	}
+	cfg := make(map[string]interface{})
+	var cloudType string
+	for k, v := range bootstrapConfig.Config {
+		switch k {
+		case config.NameKey:
+			// Name is always "admin" for the admin model,
+			// which is not interesting to us here.
+		case config.TypeKey:
+			// Pull Type up to the top level.
+			cloudType = fmt.Sprint(v)
+		default:
+			cfg[k] = v
+		}
+	}
+	controller.BootstrapConfig = &BootstrapConfig{
+		Config:               cfg,
+		Cloud:                bootstrapConfig.Cloud,
+		CloudType:            cloudType,
+		CloudRegion:          bootstrapConfig.CloudRegion,
+		CloudEndpoint:        bootstrapConfig.CloudEndpoint,
+		CloudStorageEndpoint: bootstrapConfig.CloudStorageEndpoint,
+		Credential:           bootstrapConfig.Credential,
+	}
 }
 
 type showControllerCommand struct {
