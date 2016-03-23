@@ -32,7 +32,7 @@ class LogRotateError(Exception):
         super(LogRotateError, self).__init__(message)
 
 
-def test_debug_log(client, timeout=180, lines=100):
+def assess_debug_log(client, timeout=180, lines=100):
     """After doing log rotation, we should be able to see debug-log output."""
     out = client.get_juju_output("debug-log", "--lines={}".format(lines),
                                  "--limit={}".format(lines), timeout=timeout)
@@ -40,9 +40,6 @@ def test_debug_log(client, timeout=180, lines=100):
     if len(content) != lines:
         raise LogRotateError("We expected {} lines of output, got {}".format(
             lines, len(content)))
-
-
-test_debug_log.__test__ = False
 
 
 def test_unit_rotation(client):
@@ -58,10 +55,10 @@ def test_unit_rotation(client):
                   "fill-unit",
                   "unit-size",
                   "megs=300")
-    # TODO: either call test_debug_log here or add a new assess entry for it.
+    # TODO: either call assess_debug_log here or add a new assess entry for it.
 
 
-def test_machine_rotation(client):
+def assess_machine_rotation(client):
     """Tests machine log rotation."""
     status = client.wait_for_started()
     machine_id = status.get_unit('fill-logs/0')['machine']
@@ -70,9 +67,6 @@ def test_machine_rotation(client):
                   "machine-{}".format(machine_id),
                   "fill-machine",
                   "machine-size", "megs=300", "machine={}".format(machine_id))
-
-
-test_machine_rotation.__test__ = False
 
 
 def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
@@ -233,7 +227,7 @@ def main():
         if args.agent == "unit":
             test_unit_rotation(client)
         if args.agent == "machine":
-            test_machine_rotation(client)
+            assess_machine_rotation(client)
 
 
 if __name__ == '__main__':
