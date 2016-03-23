@@ -1194,20 +1194,16 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: model is no longer alive")
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is no longer alive`)
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially
@@ -1217,7 +1213,17 @@ func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: model is no longer alive")
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is no longer alive`)
+}
+
+func (s *StateSuite) TestAddMachinesEnvironmentMigrating(c *gc.C) {
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+	// Check that machines cannot be added if the model is initially Dying.
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is being migrated`)
 }
 
 func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
@@ -1856,14 +1862,24 @@ func (s *StateSuite) TestAddService(c *gc.C) {
 
 func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	s.AddTestingService(c, "s0", charm)
 	// Check that services cannot be added if the model is initially Dying.
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model "testenv" is no longer alive`)
+}
+
+func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	// Check that services cannot be added if the model is initially Dying.
+	env, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model "testenv" is being migrated`)
 }
 
 func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {

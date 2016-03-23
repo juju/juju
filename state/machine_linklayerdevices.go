@@ -171,7 +171,7 @@ func (m *Machine) AddLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 		}
 
 		if attempt > 0 {
-			if err := checkModeLife(m.st); err != nil {
+			if err := checkModelActive(m.st); err != nil {
 				return nil, errors.Trace(err)
 			}
 			if err := m.isStillAlive(); err != nil {
@@ -183,7 +183,7 @@ func (m *Machine) AddLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 		}
 
 		ops := []txn.Op{
-			assertModelAliveOp(m.st.ModelUUID()),
+			assertModelActiveOp(m.st.ModelUUID()),
 			m.assertAliveOp(),
 		}
 
@@ -576,7 +576,7 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 		}
 
 		if attempt > 0 {
-			if err := checkModeLife(m.st); err != nil {
+			if err := checkModelActive(m.st); err != nil {
 				return nil, errors.Trace(err)
 			}
 			if err := m.isStillAlive(); err != nil {
@@ -585,7 +585,7 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 		}
 
 		ops := []txn.Op{
-			assertModelAliveOp(m.st.ModelUUID()),
+			assertModelActiveOp(m.st.ModelUUID()),
 			m.assertAliveOp(),
 		}
 

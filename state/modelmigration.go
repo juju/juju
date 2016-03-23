@@ -405,7 +405,7 @@ func (st *State) CreateModelMigration(spec ModelMigrationSpec) (ModelMigration, 
 			Id:     modelUUID,
 			Assert: txn.DocMissing,
 			Insert: bson.M{"id": doc.Id},
-		}, model.assertAliveOp(),
+		}, model.assertActiveOp(),
 		}, nil
 	}
 	if err := st.run(buildTxn); err != nil {
