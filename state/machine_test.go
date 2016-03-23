@@ -110,6 +110,30 @@ func (s *MachineSuite) TestSetUnsetRebootFlag(c *gc.C) {
 	c.Assert(rebootFlag, jc.IsFalse)
 }
 
+func (s *MachineSuite) TestAddMachineInsideMachineModelDying(c *gc.C) {
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Destroy(), jc.ErrorIsNil)
+
+	_, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}, s.machine.Id(), instance.LXC)
+	c.Assert(err, gc.ErrorMatches, `model "testenv" is no longer alive`)
+}
+
+func (s *MachineSuite) TestAddMachineInsideMachineModelMigrating(c *gc.C) {
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.SetMigrationMode(state.MigrationModeExporting), jc.ErrorIsNil)
+
+	_, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}, s.machine.Id(), instance.LXC)
+	c.Assert(err, gc.ErrorMatches, `model "testenv" is being migrated`)
+}
+
 func (s *MachineSuite) TestShouldShutdownOrReboot(c *gc.C) {
 	// Add first container.
 	c1, err := s.State.AddMachineInsideMachine(state.MachineTemplate{

@@ -195,21 +195,14 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 }
 
 func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
-	env, err := st.Model()
-	if err != nil {
-		return nil, err
-	} else if env.Life() != Alive {
-		return nil, errors.New("model is no longer alive")
-	}
-	ops = append([]txn.Op{env.assertActiveOp()}, ops...)
+	ops = append([]txn.Op{assertModelActiveOp(st.ModelUUID())}, ops...)
 	if err := st.runTransaction(ops); err != nil {
-		enverr := env.Refresh()
-		if (enverr == nil && env.Life() != Alive) || errors.IsNotFound(enverr) {
-			return nil, errors.New("model is no longer alive")
-		} else if enverr != nil {
-			err = enverr
+		if errors.Cause(err) == txn.ErrAborted {
+			if err := checkModeActive(st); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return newMachine(st, mdoc), nil
 }
