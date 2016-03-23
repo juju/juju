@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	minionapi "github.com/juju/juju/api/migrationminion"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -55,6 +56,27 @@ func (w *migrationMinion) loop() error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
+		case status, ok := <-watcher.Changes():
+			if !ok {
+				return errors.New("watcher channel closed")
+			}
+			switch status.Phase {
+			case migration.QUIESCE:
+				// TODO(mjs) - once Will's stable mode work comes
+				// together this worker will only start up when a
+				// migration is active. Here the minion should report
+				// to the controller that it is running so that the
+				// migration can progress to READONLY.
+			case migration.SUCCESS:
+				// TODO(mjs) - API cutover goes here.
+			case migration.LOGTRANSFER, migration.ABORT, migration.REAPFAILED:
+				// TODO(mjs) - exit here once Will's stable mode work
+				// comes together. The minion is done if these phases
+				// are reached.
+			default:
+				// The minion doesn't need to do anything for other
+				// migration phases.
+			}
 		}
 	}
 }

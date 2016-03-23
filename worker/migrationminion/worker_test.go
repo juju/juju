@@ -47,6 +47,14 @@ func (s *Suite) TestWatchFailure(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "setting up watcher: boom")
 }
 
+func (s *Suite) TestClosedWatcherChannel(c *gc.C) {
+	close(s.client.watcher.changes)
+	w, err := migrationminion.New(s.client)
+	c.Assert(err, jc.ErrorIsNil)
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, "watcher channel closed")
+}
+
 func newStubMinionClient(stub *jujutesting.Stub) *stubMinionClient {
 	return &stubMinionClient{
 		stub:    stub,
