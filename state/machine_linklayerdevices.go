@@ -171,7 +171,7 @@ func (m *Machine) AddLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 		}
 
 		if attempt > 0 {
-			if err := checkModeActive(m.st); err != nil {
+			if err := checkModelActive(m.st); err != nil {
 				return nil, errors.Trace(err)
 			}
 			if err := m.isStillAlive(); err != nil {
@@ -576,7 +576,7 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 		}
 
 		if attempt > 0 {
-			if err := checkModeActive(m.st); err != nil {
+			if err := checkModelActive(m.st); err != nil {
 				return nil, errors.Trace(err)
 			}
 			if err := m.isStillAlive(); err != nil {
