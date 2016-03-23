@@ -507,7 +507,7 @@ func (conn *stubClient) RemoveInstances(prefix string, ids ...string) error {
 	return nil
 }
 
-func (conn *stubClient) EnsureImageExists(series string, _ func(string)) error {
+func (conn *stubClient) EnsureImageExists(series string, _ []lxdclient.Remote, _ func(string)) error {
 	conn.stub.AddCall("EnsureImageExists", series)
 	if err := conn.stub.NextErr(); err != nil {
 		return errors.Trace(err)
