@@ -35,7 +35,6 @@ func (s *RestoreInfoSuite) TestGetSetter(c *gc.C) {
 }
 
 func (s *RestoreInfoSuite) TestGetSetterRace(c *gc.C) {
-	timeout := time.After(coretesting.LongWait)
 	trigger := make(chan struct{})
 	test := func() {
 		select {
@@ -44,7 +43,7 @@ func (s *RestoreInfoSuite) TestGetSetterRace(c *gc.C) {
 			if c.Check(err, jc.ErrorIsNil) {
 				checkStatus(c, setter, state.UnknownRestoreStatus)
 			}
-		case <-timeout:
+		case <-time.After(coretesting.LongWait):
 			c.Errorf("test invoked but not triggered")
 		}
 	}
