@@ -261,7 +261,6 @@ type modelCommandWrapper struct {
 }
 
 func (w *modelCommandWrapper) Run(ctx *cmd.Context) error {
-	w.ModelCommand.setCmdContext(ctx)
 	return w.ModelCommand.Run(ctx)
 }
 

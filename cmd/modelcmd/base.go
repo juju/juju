@@ -201,6 +201,7 @@ type baseCommandWrapper struct {
 // Run implements Command.Run.
 func (w *baseCommandWrapper) Run(ctx *cmd.Context) error {
 	defer w.closeContext()
+	w.setCmdContext(ctx)
 	return w.CommandBase.Run(ctx)
 }
 
