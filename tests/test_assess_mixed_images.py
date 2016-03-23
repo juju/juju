@@ -1,7 +1,7 @@
 """Tests for assess_mixed_images module."""
 
 import logging
-from mock import Mock, patch
+from mock import patch
 import StringIO
 
 from assess_mixed_images import (
@@ -74,7 +74,7 @@ class TestAssess(TestCase):
                     'relations': {'source': ['dummy-source']},
                     'units': {'dummy-sink/0': {'machine': '0'}}
                     },
-               'dummy-source': {
+                'dummy-source': {
                     'exposed': False,
                     'relations': {},
                     'units': {'dummy-source/0': {'machine': '1'}}
