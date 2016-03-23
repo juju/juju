@@ -44,7 +44,7 @@ func unitLogSizes() error {
 }
 
 func machineLogSizes() error {
-	return writeSizes("/var/log/juju/machine-1*.log")
+	return writeSizes("/var/log/juju/machine-*.log")
 }
 
 func fillMachine() (err error) {
