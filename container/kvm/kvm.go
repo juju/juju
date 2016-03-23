@@ -107,7 +107,7 @@ func (manager *containerManager) CreateContainer(
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
-	callback func(status status.Status, info string, data map[string]interface{}) error,
+	callback container.StatusCallback,
 ) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 
 	name := names.NewMachineTag(instanceConfig.MachineId).String()

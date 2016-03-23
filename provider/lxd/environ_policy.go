@@ -13,10 +13,6 @@ import (
 	"github.com/juju/juju/network"
 )
 
-var supportedContainerTypes = []string{
-	"lxd",
-}
-
 type policyProvider interface {
 	// SupportedArchitectures returns the list of image architectures
 	// supported by this environment.
@@ -65,6 +61,7 @@ var unsupportedConstraints = []string{
 	//TODO(ericsnow) Add constraints.Mem as unsupported?
 	constraints.InstanceType,
 	constraints.Tags,
+	constraints.VirtType,
 }
 
 // ConstraintsValidator returns a Validator value which is used to

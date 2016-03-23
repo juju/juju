@@ -108,14 +108,6 @@ var knownStorageAccountTypes = []string{
 	"Standard_LRS", "Standard_GRS", "Standard_RAGRS", "Standard_ZRS", "Premium_LRS",
 }
 
-func (prov *azureEnvironProvider) newConfig(cfg *config.Config) (*azureModelConfig, error) {
-	azureConfig, err := validateConfig(cfg, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return azureConfig, nil
-}
-
 // Validate ensures that the provided configuration is valid for this
 // provider, and that changes between the old (if provided) and new
 // configurations are valid.

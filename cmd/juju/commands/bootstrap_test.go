@@ -19,6 +19,7 @@ import (
 	"github.com/juju/utils/arch"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -46,9 +47,10 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/rpc"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type BootstrapSuite struct {
@@ -84,10 +86,10 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
-	// Set version.Current to a known value, for which we
+	// Set jujuversion.Current to a known value, for which we
 	// will make tools available. Individual tests may
 	// override this.
-	s.PatchValue(&version.Current, v100p64.Number)
+	s.PatchValue(&jujuversion.Current, v100p64.Number)
 	s.PatchValue(&arch.HostArch, func() string { return v100p64.Arch })
 	s.PatchValue(&series.HostSeries, func() string { return v100p64.Series })
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
@@ -139,16 +141,18 @@ type mockBlockClient struct {
 	discoveringSpacesError int
 }
 
+var errOther = errors.New("other error")
+
 func (c *mockBlockClient) List() ([]params.Block, error) {
 	c.retryCount += 1
 	if c.retryCount == 5 {
-		return nil, fmt.Errorf("upgrade in progress")
+		return nil, &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress}
 	}
 	if c.numRetries < 0 {
-		return nil, fmt.Errorf("other error")
+		return nil, errOther
 	}
 	if c.retryCount < c.numRetries {
-		return nil, fmt.Errorf("upgrade in progress")
+		return nil, &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress}
 	}
 	return []params.Block{}, nil
 }
@@ -160,20 +164,23 @@ func (c *mockBlockClient) Close() error {
 func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 	s.PatchValue(&bootstrapReadyPollDelay, 1*time.Millisecond)
 	s.PatchValue(&bootstrapReadyPollCount, 5)
-	defaultSeriesVersion := version.Current
+	defaultSeriesVersion := jujuversion.Current
 	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
 	defaultSeriesVersion.Build = 1234
-	s.PatchValue(&version.Current, defaultSeriesVersion)
+	s.PatchValue(&jujuversion.Current, defaultSeriesVersion)
 	for _, t := range []struct {
 		numRetries int
-		err        string
+		err        error
 	}{
-		{0, ""},                    // agent ready immediately
-		{2, ""},                    // agent ready after 2 polls
-		{6, "upgrade in progress"}, // agent ready after 6 polls but that's too long
-		{-1, "other error"},        // another error is returned
+		{0, nil}, // agent ready immediately
+		{2, nil}, // agent ready after 2 polls
+		{6, &rpc.RequestError{
+			Message: params.CodeUpgradeInProgress,
+			Code:    params.CodeUpgradeInProgress,
+		}}, // agent ready after 6 polls but that's too long
+		{-1, errOther}, // another error is returned
 	} {
 		resetJujuXDGDataHome(c)
 		dummy.Reset()
@@ -185,11 +192,7 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 			c, s.newBootstrapCommand(),
 			"devcontroller", "dummy", "--auto-upgrade",
 		)
-		if t.err == "" {
-			c.Check(err, jc.ErrorIsNil)
-		} else {
-			c.Check(err, gc.ErrorMatches, t.err)
-		}
+		c.Check(errors.Cause(err), gc.DeepEquals, t.err)
 		expectedRetries := t.numRetries
 		if t.numRetries <= 0 {
 			expectedRetries = 1
@@ -203,12 +206,12 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapAPIReadyWaitsForSpaceDiscovery(c *gc.C) {
-	defaultSeriesVersion := version.Current
+	defaultSeriesVersion := jujuversion.Current
 	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
 	defaultSeriesVersion.Build = 1234
-	s.PatchValue(&version.Current, defaultSeriesVersion)
+	s.PatchValue(&jujuversion.Current, defaultSeriesVersion)
 	resetJujuXDGDataHome(c)
 
 	s.mockBlockClient.discoveringSpacesError = 2
@@ -227,7 +230,7 @@ func (s *BootstrapSuite) TestRunTests(c *gc.C) {
 
 type bootstrapTest struct {
 	info string
-	// binary version string used to set version.Current
+	// binary version string used to set jujuversion.Current
 	version string
 	sync    bool
 	args    []string
@@ -252,9 +255,9 @@ func (s *BootstrapSuite) patchVersion(c *gc.C) {
 	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
-	num := version.Current
+	num := jujuversion.Current
 	num.Build = 1234
-	s.PatchValue(&version.Current, num)
+	s.PatchValue(&jujuversion.Current, num)
 }
 
 func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
@@ -270,7 +273,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	if test.version != "" {
 		useVersion := strings.Replace(test.version, "%LTS%", config.LatestLtsSeries(), 1)
 		v := version.MustParseBinary(useVersion)
-		restore = restore.Add(testing.PatchValue(&version.Current, v.Number))
+		restore = restore.Add(testing.PatchValue(&jujuversion.Current, v.Number))
 		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return v.Arch }))
 		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() string { return v.Series }))
 	}
@@ -379,7 +382,7 @@ var bootstrapTests = []bootstrapTest{{
 	version:     "1.3.3-saucy-ppc64el",
 	hostArch:    "ppc64el",
 	args:        []string{"--upload-tools", "--constraints", "arch=ppc64el"},
-	upload:      "1.3.3.1-raring-ppc64el", // from version.Current
+	upload:      "1.3.3.1-raring-ppc64el", // from jujuversion.Current
 	constraints: constraints.MustParse("arch=ppc64el"),
 }, {
 	info:     "--upload-tools rejects mismatched arch",
@@ -554,7 +557,7 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
-	s.PatchValue(&version.Current, version.MustParse("1.2.0"))
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.0"))
 	resetJujuXDGDataHome(c)
 
 	// Bootstrap the controller with an invalid source.
@@ -616,10 +619,10 @@ func (s *BootstrapSuite) checkBootstrapWithVersion(c *gc.C, vers, expect string)
 		return &bootstrap
 	})
 
-	num := version.Current
+	num := jujuversion.Current
 	num.Major = 2
 	num.Minor = 3
-	s.PatchValue(&version.Current, num)
+	s.PatchValue(&jujuversion.Current, num)
 	coretesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"--agent-version", vers,
@@ -655,7 +658,7 @@ func (s *BootstrapSuite) TestBootstrapWithAutoUpgrade(c *gc.C) {
 
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	sourceDir := createToolsSource(c, vAll)
-	s.PatchValue(&version.Current, version.MustParse("1.2.0"))
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.0"))
 	resetJujuXDGDataHome(c)
 
 	// Bootstrap the controller with the valid source.
@@ -690,7 +693,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 	// the version and ensure their later restoring.
 	// Set the current version to be something for which there are no tools
 	// so we can test that an upload is forced.
-	s.PatchValue(&version.Current, version.MustParse(vers))
+	s.PatchValue(&jujuversion.Current, version.MustParse(vers))
 	s.PatchValue(&series.HostSeries, func() string { return ser })
 
 	// Create home with dummy provider and remove all
@@ -990,7 +993,7 @@ clouds:
 // checkTools check if the environment contains the passed envtools.
 func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 	list, err := envtools.FindTools(
-		env, version.Current.Major, version.Current.Minor, "released", coretools.Filter{})
+		env, jujuversion.Current.Major, jujuversion.Current.Minor, "released", coretools.Filter{})
 	c.Check(err, jc.ErrorIsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()

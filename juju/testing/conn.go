@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
@@ -41,12 +42,12 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
 	statestorage "github.com/juju/juju/state/storage"
-	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // JujuConnSuite provides a freshly bootstrapped juju.Conn
@@ -86,8 +87,9 @@ type JujuConnSuite struct {
 	apiStates          []api.Connection // additional api.Connections to close on teardown
 	ConfigStore        configstore.Storage
 	ControllerStore    jujuclient.ClientStore
-	BackingState       *state.State // The State being used by the API server
-	RootDir            string       // The faked-up root directory.
+	BackingState       *state.State     // The State being used by the API server
+	BackingStatePool   *state.StatePool // The StatePool being used by the API server
+	RootDir            string           // The faked-up root directory.
 	LogDir             string
 	oldHome            string
 	oldJujuXDGDataHome string
@@ -100,6 +102,7 @@ const AdminSecret = "dummy-secret"
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
+	s.PatchValue(&utils.OutgoingAccessAllowed, false)
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
@@ -257,12 +260,12 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.PatchValue(&dummy.LogDir, s.LogDir)
 
 	versions := PreferredDefaultVersions(environ.Config(), version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   "amd64",
 		Series: "precise",
 	})
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -283,7 +286,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.BackingState = environ.(GetStater).GetStateInAPIServer()
+	getStater := environ.(GetStater)
+	s.BackingState = getStater.GetStateInAPIServer()
+	s.BackingStatePool = getStater.GetStatePoolInAPIServer()
 
 	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, jc.ErrorIsNil)
@@ -342,8 +347,8 @@ func (s *JujuConnSuite) AddToolsToState(c *gc.C, versions ...version.Binary) {
 	for _, v := range versions {
 		content := v.String()
 		hash := fmt.Sprintf("sha256(%s)", content)
-		err := stor.AddTools(strings.NewReader(content), toolstorage.Metadata{
-			Version: v,
+		err := stor.Add(strings.NewReader(content), binarystorage.Metadata{
+			Version: v.String(),
 			Size:    int64(len(content)),
 			SHA256:  hash,
 		})
@@ -352,18 +357,18 @@ func (s *JujuConnSuite) AddToolsToState(c *gc.C, versions ...version.Binary) {
 }
 
 // AddDefaultToolsToState adds tools to tools storage for
-// {Number: version.Current.Number, Arch: amd64}, for the
+// {Number: jujuversion.Current.Number, Arch: amd64}, for the
 // "precise" series and the environment's preferred series.
 // The preferred series is default-series if specified,
 // otherwise the latest LTS.
 func (s *JujuConnSuite) AddDefaultToolsToState(c *gc.C) {
 	preferredVersion := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   "amd64",
 		Series: series.HostSeries(),
 	}
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -526,7 +531,7 @@ func (s *JujuConnSuite) sampleConfig() testing.Attrs {
 	attrs := s.DummyConfig.Merge(testing.Attrs{
 		"name":           "dummymodel",
 		"admin-secret":   AdminSecret,
-		"agent-version":  version.Current.String(),
+		"agent-version":  jujuversion.Current.String(),
 		"ca-cert":        testing.CACert,
 		"ca-private-key": testing.CAKey,
 	})
@@ -539,6 +544,7 @@ func (s *JujuConnSuite) sampleConfig() testing.Attrs {
 
 type GetStater interface {
 	GetStateInAPIServer() *state.State
+	GetStatePoolInAPIServer() *state.StatePool
 }
 
 func (s *JujuConnSuite) tearDownConn(c *gc.C) {
@@ -640,7 +646,7 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 		agent.AgentConfigParams{
 			Paths:             paths,
 			Tag:               tag,
-			UpgradedToVersion: version.Current,
+			UpgradedToVersion: jujuversion.Current,
 			Password:          password,
 			Nonce:             "nonce",
 			StateAddresses:    s.MongoInfo(c).Addrs,

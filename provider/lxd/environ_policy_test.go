@@ -6,7 +6,6 @@
 package lxd_test
 
 import (
-	"sort"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
@@ -120,6 +119,7 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 		"instance-type=some-type",
 		"cpu-cores=2",
 		"cpu-power=250",
+		"virt-type=kvm",
 	}, " "))
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -129,10 +129,9 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 		"instance-type",
 		"cpu-cores",
 		"cpu-power",
+		"virt-type",
 	}
-	sort.Strings(expected)
-	sort.Strings(unsupported)
-	c.Check(unsupported, jc.DeepEquals, expected)
+	c.Check(unsupported, jc.SameContents, expected)
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabArchKnown(c *gc.C) {

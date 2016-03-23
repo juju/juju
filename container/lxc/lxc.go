@@ -169,7 +169,7 @@ func (manager *containerManager) CreateContainer(
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
-	callback func(containerStatus status.Status, info string, data map[string]interface{}) error,
+	callback container.StatusCallback,
 ) (inst instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 	// Check our preconditions
 	if manager == nil {
@@ -181,7 +181,7 @@ func (manager *containerManager) CreateContainer(
 	} else if storageConfig == nil {
 		panic("storageConfig is nil")
 	} else if callback == nil {
-		panic("storageConfig is nil")
+		panic("status callback is nil")
 	}
 
 	// Log how long the start took

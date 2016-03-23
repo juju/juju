@@ -7,13 +7,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.upgrader")
@@ -160,7 +161,7 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 		return params.VersionResults{}, common.ServerError(err)
 	}
 	// Is the desired version greater than the current API server version?
-	isNewerVersion := agentVersion.Compare(version.Current) > 0
+	isNewerVersion := agentVersion.Compare(jujuversion.Current) > 0
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
@@ -182,8 +183,8 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 			if !isNewerVersion || u.entityIsManager(tag) {
 				results[i].Version = &agentVersion
 			} else {
-				logger.Debugf("desired version is %s, but current version is %s and agent is not a manager node", agentVersion, version.Current)
-				results[i].Version = &version.Current
+				logger.Debugf("desired version is %s, but current version is %s and agent is not a manager node", agentVersion, jujuversion.Current)
+				results[i].Version = &jujuversion.Current
 			}
 			err = nil
 		}

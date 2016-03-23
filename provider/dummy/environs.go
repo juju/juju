@@ -258,6 +258,7 @@ type environState struct {
 	apiListener  net.Listener
 	apiServer    *apiserver.Server
 	apiState     *state.State
+	apiStatePool *state.StatePool
 	preferIPv6   bool
 }
 
@@ -327,16 +328,28 @@ func (state *environState) destroy() {
 	if !state.bootstrapped {
 		return
 	}
+
 	if state.apiServer != nil {
 		if err := state.apiServer.Stop(); err != nil && mongoAlive() {
 			panic(err)
 		}
 		state.apiServer = nil
+	}
+
+	if state.apiStatePool != nil {
+		if err := state.apiStatePool.Close(); err != nil && mongoAlive() {
+			panic(err)
+		}
+		state.apiStatePool = nil
+	}
+
+	if state.apiState != nil {
 		if err := state.apiState.Close(); err != nil && mongoAlive() {
 			panic(err)
 		}
 		state.apiState = nil
 	}
+
 	if mongoAlive() {
 		gitjujutesting.MgoServer.Reset()
 	}
@@ -360,6 +373,17 @@ func (e *environ) GetStateInAPIServer() *state.State {
 		panic(err)
 	}
 	return st.apiState
+}
+
+// GetStatePoolInAPIServer returns the StatePool used by the API
+// server.  As for GetStatePoolInAPIServer, this is so code in the
+// test suite can trigger Syncs etc.
+func (e *environ) GetStatePoolInAPIServer() *state.StatePool {
+	st, err := e.state()
+	if err != nil {
+		panic(err)
+	}
+	return st.apiStatePool
 }
 
 // newState creates the state for a new environment with the given name.
@@ -764,12 +788,15 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		logger.Debugf("setting password for %q to %q", owner.Name(), password)
 		owner.SetPassword(password)
 
+		estate.apiStatePool = state.NewStatePool(st)
+
 		estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
-			Cert:    []byte(testing.ServerCert),
-			Key:     []byte(testing.ServerKey),
-			Tag:     names.NewMachineTag("0"),
-			DataDir: DataDir,
-			LogDir:  LogDir,
+			Cert:      []byte(testing.ServerCert),
+			Key:       []byte(testing.ServerKey),
+			Tag:       names.NewMachineTag("0"),
+			DataDir:   DataDir,
+			LogDir:    LogDir,
+			StatePool: estate.apiStatePool,
 		})
 		if err != nil {
 			panic(err)
@@ -858,7 +885,7 @@ func (e *environ) Destroy() (res error) {
 // ConstraintsValidator is defined on the Environs interface.
 func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
-	validator.RegisterUnsupported([]string{constraints.CpuPower})
+	validator.RegisterUnsupported([]string{constraints.CpuPower, constraints.VirtType})
 	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 	return validator, nil
 }
@@ -1086,7 +1113,8 @@ func (env *environ) Spaces() ([]network.SpaceInfo, error) {
 		return []network.SpaceInfo{}, err
 	}
 	return []network.SpaceInfo{{
-		ProviderId: network.Id("foo"),
+		Name:       "foo",
+		ProviderId: network.Id("0"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("1"),
 			AvailabilityZones: []string{"zone1"},
@@ -1094,17 +1122,20 @@ func (env *environ) Spaces() ([]network.SpaceInfo, error) {
 			ProviderId:        network.Id("2"),
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
-		ProviderId: network.Id("Another Foo 99!"),
+		Name:       "Another Foo 99!",
+		ProviderId: "1",
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("3"),
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
-		ProviderId: network.Id("foo-"),
+		Name:       "foo-",
+		ProviderId: "2",
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("4"),
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
-		ProviderId: network.Id("---"),
+		Name:       "---",
+		ProviderId: "3",
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("5"),
 			AvailabilityZones: []string{"zone1"},

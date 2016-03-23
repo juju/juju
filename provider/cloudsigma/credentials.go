@@ -14,12 +14,13 @@ type environProviderCredentials struct{}
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: {
-			"username": {
-				Description: "account username",
-			},
-			"password": {
-				Description: "account password",
-				Hidden:      true,
+			{
+				"username", cloud.CredentialAttr{Description: "account username"},
+			}, {
+				"password", cloud.CredentialAttr{
+					Description: "account password",
+					Hidden:      true,
+				},
 			},
 		},
 	}

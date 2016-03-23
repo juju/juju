@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type adminApiFactory func(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{}
@@ -34,7 +34,6 @@ type admin struct {
 	loggedIn bool
 }
 
-var UpgradeInProgressError = errors.New("upgrade in progress")
 var AboutToRestoreError = errors.New("restore preparation in progress")
 var RestoreInProgressError = errors.New("restore in progress")
 var MaintenanceNoLoginError = errors.New("login failed - maintenance in progress")
@@ -57,7 +56,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	if a.srv.validator != nil {
 		err := a.srv.validator(req)
 		switch err {
-		case UpgradeInProgressError:
+		case params.UpgradeInProgressError:
 			authedApi = newUpgradingRoot(authedApi)
 		case AboutToRestoreError:
 			authedApi = newAboutToRestoreRoot(authedApi)
@@ -177,7 +176,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		ControllerTag: environ.ControllerTag().String(),
 		Facades:       DescribeFacades(),
 		UserInfo:      maybeUserInfo,
-		ServerVersion: version.Current.String(),
+		ServerVersion: jujuversion.Current.String(),
 	}
 
 	// For sufficiently modern login versions, stop serving the
@@ -403,18 +402,6 @@ func (u *modelUserEntity) UpdateLastLogin() error {
 		}
 	}
 	return err
-}
-
-func checkForValidMachineAgent(entity state.Entity, req params.LoginRequest) error {
-	// If this is a machine agent connecting, we need to check the
-	// nonce matches, otherwise the wrong agent might be trying to
-	// connect.
-	if machine, ok := entity.(*state.Machine); ok {
-		if !machine.CheckProvisioned(req.Nonce) {
-			return errors.NotProvisionedf("machine %v", machine.Id())
-		}
-	}
-	return nil
 }
 
 // machinePinger wraps a presence.Pinger.

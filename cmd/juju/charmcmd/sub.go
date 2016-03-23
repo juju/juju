@@ -6,6 +6,7 @@ package charmcmd
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charmstore"
 )
 
 var registeredSubCommands []func(CharmstoreSpec) cmd.Command
@@ -27,16 +28,17 @@ func NewCommandBase(spec CharmstoreSpec) *CommandBase {
 // CommandBase is the type that should be embedded in "juju charm"
 // sub-commands.
 type CommandBase struct {
+	// TODO(ericsnow) This should be a modelcmd.ModelCommandBase.
 	cmd.CommandBase
 	spec CharmstoreSpec
 }
 
 // Connect implements CommandBase.
-func (c *CommandBase) Connect() (CharmstoreClient, error) {
+func (c *CommandBase) Connect(ctx *cmd.Context) (*charmstore.Client, error) {
 	if c.spec == nil {
 		return nil, errors.Errorf("missing charm store spec")
 	}
-	client, err := c.spec.Connect()
+	client, err := c.spec.Connect(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

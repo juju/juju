@@ -40,7 +40,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type environSuite struct {
@@ -269,7 +269,7 @@ func (suite *environSuite) getInstance(systemId string) *maasInstance {
 		return "unknown", "FAKE"
 	}
 
-	return &maasInstance{&node, statusGetter}
+	return &maasInstance{&node, nil, statusGetter}
 }
 
 func (suite *environSuite) newNetwork(name string, id int, vlanTag int, defaultGateway string) *gomaasapi.MAASObject {
@@ -474,7 +474,7 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron()
 	// Disable auto-uploading by setting the agent version.
 	cfg, err := env.Config().Apply(map[string]interface{}{
-		"agent-version": version.Current.String(),
+		"agent-version": jujuversion.Current.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.SetConfig(cfg)
@@ -532,10 +532,10 @@ func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
 	env := suite.makeEnviron()
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo")
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "virt-type"})
 }
 
 func (suite *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
@@ -601,8 +601,12 @@ func (suite *environSuite) TestSupportsSpaceDiscoveryDefaultFalse(c *gc.C) {
 	c.Assert(supported, jc.IsFalse)
 }
 
-func (suite *environSuite) TestSupportsSpaces(c *gc.C) {
+func (suite *environSuite) setNetworkDeployment() {
 	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+}
+
+func (suite *environSuite) TestSupportsSpaces(c *gc.C) {
+	suite.setNetworkDeployment()
 	env := suite.makeEnviron()
 	supported, err := env.SupportsSpaces()
 	c.Assert(err, jc.ErrorIsNil)
@@ -610,7 +614,7 @@ func (suite *environSuite) TestSupportsSpaces(c *gc.C) {
 }
 
 func (suite *environSuite) TestSupportsSpaceDiscovery(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	suite.setNetworkDeployment()
 	env := suite.makeEnviron()
 	supported, err := env.SupportsSpaceDiscovery()
 	c.Assert(err, jc.ErrorIsNil)
@@ -774,10 +778,12 @@ func (suite *environSuite) TestSubnetsInvalidInstaceIdAnySubnetIdsWhenSpacesNotS
 }
 
 func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIdsWhenSpacesAreSupported(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	suite.setNetworkDeployment()
+	server := suite.testMAASObject.TestServer
 	var subnetIDs []network.Id
 	var uintIDs []uint
 	for _, i := range []uint{1, 2, 3} {
+		server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: fmt.Sprintf("space-%d", i)}))
 		id := suite.addSubnet(c, i, i, "node1")
 		subnetIDs = append(subnetIDs, network.Id(fmt.Sprintf("%v", id)))
 		uintIDs = append(uintIDs, id)
@@ -790,9 +796,9 @@ func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIdsWhenSpacesAreSup
 	subnetsInfo, err := env.Subnets(testInstance.Id(), subnetIDs)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedInfo := []network.SubnetInfo{
-		createSubnetInfo(uintIDs[0], 1, 1),
-		createSubnetInfo(uintIDs[1], 2, 2),
-		createSubnetInfo(uintIDs[2], 3, 3),
+		createSubnetInfo(uintIDs[0], 2, 1),
+		createSubnetInfo(uintIDs[1], 3, 2),
+		createSubnetInfo(uintIDs[2], 4, 3),
 	}
 	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
 
@@ -801,8 +807,15 @@ func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIdsWhenSpacesAreSup
 	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo[1:])
 }
 
+func (suite *environSuite) createTwoSpaces() {
+	suite.setNetworkDeployment()
+	server := suite.testMAASObject.TestServer
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-1"}))
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-2"}))
+}
+
 func (suite *environSuite) TestSubnetsWithInstaceIdNoSubnetIdsWhenSpacesAreSupported(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	suite.createTwoSpaces()
 	id1 := suite.addSubnet(c, 1, 1, "node1")
 	id2 := suite.addSubnet(c, 2, 2, "node1")
 	suite.addSubnet(c, 3, 2, "")      // not linked to a node
@@ -813,8 +826,8 @@ func (suite *environSuite) TestSubnetsWithInstaceIdNoSubnetIdsWhenSpacesAreSuppo
 	subnetsInfo, err := env.Subnets(testInstance.Id(), []network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedInfo := []network.SubnetInfo{
-		createSubnetInfo(id1, 1, 1),
-		createSubnetInfo(id2, 2, 2),
+		createSubnetInfo(id1, 2, 1),
+		createSubnetInfo(id2, 3, 2),
 	}
 	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
 
@@ -824,7 +837,7 @@ func (suite *environSuite) TestSubnetsWithInstaceIdNoSubnetIdsWhenSpacesAreSuppo
 }
 
 func (suite *environSuite) TestSubnetsInvalidInstaceIdAnySubnetIdsWhenSpacesAreSupported(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	suite.createTwoSpaces()
 	suite.addSubnet(c, 1, 1, "node1")
 	suite.addSubnet(c, 2, 2, "node2")
 
@@ -833,7 +846,7 @@ func (suite *environSuite) TestSubnetsInvalidInstaceIdAnySubnetIdsWhenSpacesAreS
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 func (suite *environSuite) TestSubnetsNoInstanceIdWithSubnetIdsWhenSpacesAreSupported(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	suite.createTwoSpaces()
 	id1 := suite.addSubnet(c, 1, 1, "node1")
 	id2 := suite.addSubnet(c, 2, 2, "node2")
 	subnetIDs := []network.Id{
@@ -844,14 +857,14 @@ func (suite *environSuite) TestSubnetsNoInstanceIdWithSubnetIdsWhenSpacesAreSupp
 	subnetsInfo, err := suite.makeEnviron().Subnets(instance.UnknownId, subnetIDs)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedInfo := []network.SubnetInfo{
-		createSubnetInfo(id1, 1, 1),
-		createSubnetInfo(id2, 2, 2),
+		createSubnetInfo(id1, 2, 1),
+		createSubnetInfo(id2, 3, 2),
 	}
 	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
 }
 
 func (suite *environSuite) TestSubnetsNoInstanceIdNoSubnetIdsWhenSpacesAreSupported(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	suite.createTwoSpaces()
 	id1 := suite.addSubnet(c, 1, 1, "node1")
 	id2 := suite.addSubnet(c, 2, 2, "node2")
 	env := suite.makeEnviron()
@@ -859,8 +872,8 @@ func (suite *environSuite) TestSubnetsNoInstanceIdNoSubnetIdsWhenSpacesAreSuppor
 	subnetsInfo, err := suite.makeEnviron().Subnets(instance.UnknownId, []network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedInfo := []network.SubnetInfo{
-		createSubnetInfo(id1, 1, 1),
-		createSubnetInfo(id2, 2, 2),
+		createSubnetInfo(id1, 2, 1),
+		createSubnetInfo(id2, 3, 2),
 	}
 	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
 
@@ -877,7 +890,7 @@ func (suite *environSuite) TestSubnetsMissingSubnetWhenSpacesNotSupported(c *gc.
 }
 
 func (suite *environSuite) TestSubnetsMissingSubnetWhenSpacesAreSupported(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	suite.setNetworkDeployment()
 	testInstance := suite.getInstance("node1")
 	suite.addSubnet(c, 1, 1, "node1")
 	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"1", "2"})
@@ -913,7 +926,8 @@ func (suite *environSuite) TestSubnetsNoDuplicates(c *gc.C) {
 }
 
 func (suite *environSuite) TestSpaces(c *gc.C) {
-	suite.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	suite.createTwoSpaces()
+	suite.testMAASObject.TestServer.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-3"}))
 	for _, i := range []uint{1, 2, 3} {
 		suite.addSubnet(c, i, i, "node1")
 		suite.addSubnet(c, i+5, i, "node1")
@@ -922,22 +936,25 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 	spaces, err := suite.makeEnviron().Spaces()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedSpaces := []network.SpaceInfo{{
-		ProviderId: "Space 1",
+		Name:       "space-1",
+		ProviderId: "2",
 		Subnets: []network.SubnetInfo{
-			createSubnetInfo(1, 1, 1),
-			createSubnetInfo(2, 1, 6),
+			createSubnetInfo(1, 2, 1),
+			createSubnetInfo(2, 2, 6),
 		},
 	}, {
-		ProviderId: "Space 2",
+		Name:       "space-2",
+		ProviderId: "3",
 		Subnets: []network.SubnetInfo{
-			createSubnetInfo(3, 2, 2),
-			createSubnetInfo(4, 2, 7),
+			createSubnetInfo(3, 3, 2),
+			createSubnetInfo(4, 3, 7),
 		},
 	}, {
-		ProviderId: "Space 3",
+		Name:       "space-3",
+		ProviderId: "4",
 		Subnets: []network.SubnetInfo{
-			createSubnetInfo(5, 3, 3),
-			createSubnetInfo(6, 3, 8),
+			createSubnetInfo(5, 4, 3),
+			createSubnetInfo(6, 4, 8),
 		},
 	}}
 	c.Assert(spaces, jc.DeepEquals, expectedSpaces)
@@ -949,11 +966,12 @@ func (suite *environSuite) TestSpacesNeedsSupportsSpaces(c *gc.C) {
 }
 
 func (suite *environSuite) assertSpaces(c *gc.C, numberOfSubnets int, filters []network.Id) {
+	suite.setNetworkDeployment()
 	server := suite.testMAASObject.TestServer
-	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
 	testInstance := suite.createSubnets(c, false)
 	systemID := "node1"
 	for i := 1; i <= numberOfSubnets; i++ {
+		server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: fmt.Sprintf("space-%d", i)}))
 		// Put most, but not all, of the subnets on node1.
 		if i == 2 {
 			systemID = "node2"
@@ -966,8 +984,8 @@ func (suite *environSuite) assertSpaces(c *gc.C, numberOfSubnets int, filters []
 	subnets, err := suite.makeEnviron().Subnets(testInstance.Id(), filters)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedSubnets := []network.SubnetInfo{
-		createSubnetInfo(1, 1, 1),
-		createSubnetInfo(3, 3, 3),
+		createSubnetInfo(1, 2, 1),
+		createSubnetInfo(3, 4, 3),
 	}
 	c.Assert(subnets, jc.DeepEquals, expectedSubnets)
 
@@ -982,8 +1000,7 @@ func (suite *environSuite) TestSubnetsWithSpacesFilteredIds(c *gc.C) {
 }
 
 func (suite *environSuite) TestSubnetsWithSpacesMissingSubnet(c *gc.C) {
-	server := suite.testMAASObject.TestServer
-	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	suite.setNetworkDeployment()
 	testInstance := suite.createSubnets(c, false)
 	for _, i := range []uint{1, 2} {
 		suite.addSubnet(c, i, i, "node1")

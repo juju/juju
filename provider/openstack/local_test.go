@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	jujuerrors "github.com/juju/errors"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/client"
 	"gopkg.in/goose.v1/identity"
@@ -56,7 +58,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ProviderSuite struct {
@@ -253,7 +255,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 		"image-metadata-url": containerURL + "/juju-dist-test",
 		"auth-url":           s.cred.URL,
 	})
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.Tests.SetUpTest(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	s.env = s.Prepare(c)
@@ -428,7 +430,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	// Ensure amd64 tools are available, to ensure an amd64 image.
 	amd64Version := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.AMD64,
 	}
 	for _, series := range series.SupportedSeries() {
@@ -953,7 +955,7 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.Open(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 cpu-power=10")
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 virt-type=lxd")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power"})
@@ -969,6 +971,10 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
+
+	cons = constraints.MustParse("virt-type=foo")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=foo\nvalid values are: [lxd qemu]"))
 }
 
 func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
@@ -995,6 +1001,60 @@ func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.tiny")
+}
+
+func (s *localServerSuite) TestFindInstanceImageConstraintHypervisor(c *gc.C) {
+	testVirtType := "qemu"
+	env := s.Open(c)
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:       "image-id",
+		Arch:     "amd64",
+		VirtType: testVirtType,
+	}}
+
+	spec, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "virt-type="+testVirtType,
+		imageMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec.InstanceType.VirtType, gc.NotNil)
+	c.Assert(*spec.InstanceType.VirtType, gc.Equals, testVirtType)
+	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.small")
+}
+
+func (s *localServerSuite) TestFindInstanceImageWithHypervisorNoConstraint(c *gc.C) {
+	testVirtType := "qemu"
+	env := s.Open(c)
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:       "image-id",
+		Arch:     "amd64",
+		VirtType: testVirtType,
+	}}
+
+	spec, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "",
+		imageMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec.InstanceType.VirtType, gc.NotNil)
+	c.Assert(*spec.InstanceType.VirtType, gc.Equals, testVirtType)
+	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.small")
+}
+
+func (s *localServerSuite) TestFindInstanceNoConstraint(c *gc.C) {
+	env := s.Open(c)
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:   "image-id",
+		Arch: "amd64",
+	}}
+
+	spec, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "",
+		imageMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec.InstanceType.VirtType, gc.IsNil)
+	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.small")
 }
 
 func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
@@ -1159,7 +1219,7 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 
 func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.srv.UseTLS = true
 	cred := &identity.Credentials{
 		User:       "fred",
@@ -1769,7 +1829,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 		"agent-version":   coretesting.FakeVersionNumber.String(),
 		"authorized-keys": "fakekey",
 	})
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	// Serve fake tools and image metadata using "filestorage",
 	// rather than Swift as the rest of the tests do.
 	storageDir := c.MkDir()
@@ -1816,17 +1876,18 @@ func newFullOpenstackService(mux *http.ServeMux, cred *identity.Credentials, aut
 }
 
 func newNovaOnlyOpenstackService(mux *http.ServeMux, cred *identity.Credentials, auth identity.AuthMode) *novaservice.Nova {
-	var identityService identityservice.IdentityService
+	var identityService, fallbackService identityservice.IdentityService
 	if auth == identity.AuthKeyPair {
 		identityService = identityservice.NewKeyPair()
 	} else {
 		identityService = identityservice.NewUserPass()
+		fallbackService = identityservice.NewV3UserPass()
 	}
 	userInfo := identityService.AddUser(cred.User, cred.Secrets, cred.TenantName)
 	if cred.TenantName == "" {
 		panic("Openstack service double requires a tenant to be specified.")
 	}
-	novaService := novaservice.New(cred.URL, "v2", userInfo.TenantId, cred.Region, identityService)
+	novaService := novaservice.New(cred.URL, "v2", userInfo.TenantId, cred.Region, identityService, fallbackService)
 	identityService.SetupHTTP(mux)
 	novaService.SetupHTTP(mux)
 	return novaService

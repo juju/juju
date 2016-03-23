@@ -74,11 +74,7 @@ func (b bindingsMap) GetBSON() (interface{}, error) {
 // keys to remove (if any) - those are present in oldMap but missing in both
 // newMap and defaults.
 func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[string]string, []string, error) {
-
-	defaultsMap, err := defaultEndpointBindingsForCharm(meta)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+	defaultsMap := DefaultEndpointBindingsForCharm(meta)
 
 	// defaultsMap contains all endpoints that must be bound for the given charm
 	// metadata, but we need to figure out which value to use for each key.
@@ -99,7 +95,7 @@ func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[stri
 		updated[key] = effectiveValue
 	}
 
-	// Any extra bindings in newMap are most likely extraneous, but add them
+	// Any other bindings in newMap are most likely extraneous, but add them
 	// anyway and let the validation handle them.
 	for key, newValue := range newMap {
 		if _, defaultExists := defaultsMap[key]; !defaultExists {
@@ -254,12 +250,9 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 		spacesNamesSet.Add(space.Name())
 	}
 
-	allRelations, err := CombinedCharmRelations(charmMeta)
-	if err != nil {
-		return errors.Trace(err)
-	}
+	allBindings := DefaultEndpointBindingsForCharm(charmMeta)
 	endpointsNamesSet := set.NewStrings()
-	for name := range allRelations {
+	for name := range allBindings {
 		endpointsNamesSet.Add(name)
 	}
 
@@ -279,40 +272,17 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 	return nil
 }
 
-// defaultEndpointBindingsForCharm populates a bindings map containing each
-// endpoint of the given charm metadata bound to an empty space.
-func defaultEndpointBindingsForCharm(charmMeta *charm.Meta) (map[string]string, error) {
-	allRelations, err := CombinedCharmRelations(charmMeta)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	bindings := make(map[string]string, len(allRelations))
+// DefaultEndpointBindingsForCharm populates a bindings map containing each
+// endpoint of the given charm metadata (relation name or extra-binding name)
+// bound to an empty space.
+func DefaultEndpointBindingsForCharm(charmMeta *charm.Meta) map[string]string {
+	allRelations := charmMeta.CombinedRelations()
+	bindings := make(map[string]string, len(allRelations)+len(charmMeta.ExtraBindings))
 	for name := range allRelations {
 		bindings[name] = ""
 	}
-	return bindings, nil
-}
-
-// CombinedCharmRelations returns the relations defined in the given charm
-// metadata (from Provides, Requires, and Peers) in a single map. This works
-// because charm relation names must be unique regarless of their kind.
-//
-// TODO(dimitern): 2015-11-27 bug http://pad.lv/1520623
-// This should be moved directly into the charm repo, as it's
-// generally useful.
-func CombinedCharmRelations(charmMeta *charm.Meta) (map[string]charm.Relation, error) {
-	if charmMeta == nil {
-		return nil, errors.Errorf("nil charm metadata")
+	for name := range charmMeta.ExtraBindings {
+		bindings[name] = ""
 	}
-	combined := make(map[string]charm.Relation)
-	for name, relation := range charmMeta.Provides {
-		combined[name] = relation
-	}
-	for name, relation := range charmMeta.Requires {
-		combined[name] = relation
-	}
-	for name, relation := range charmMeta.Peers {
-		combined[name] = relation
-	}
-	return combined, nil
+	return bindings
 }

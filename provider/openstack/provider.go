@@ -7,8 +7,7 @@ package openstack
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -127,6 +126,7 @@ func (p EnvironProvider) PrepareForBootstrap(
 		attrs["username"] = credentialAttrs["username"]
 		attrs["password"] = credentialAttrs["password"]
 		attrs["tenant-name"] = credentialAttrs["tenant-name"]
+		attrs["domain-name"] = credentialAttrs["domain-name"]
 		attrs["auth-mode"] = AuthUserPass
 	case cloud.AccessKeyAuthType:
 		attrs["access-key"] = credentialAttrs["access-key"]
@@ -186,31 +186,6 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 		return nil, err
 	}
 	return &environConfig{valid, valid.UnknownAttrs()}, nil
-}
-
-func retryGet(uri string) (data []byte, err error) {
-	for a := shortAttempt.Start(); a.Next(); {
-		var resp *http.Response
-		resp, err = http.Get(uri)
-		if err != nil {
-			continue
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			err = fmt.Errorf("bad http response %v", resp.Status)
-			continue
-		}
-		var data []byte
-		data, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			continue
-		}
-		return data, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("cannot get %q: %v", uri, err)
-	}
-	return
 }
 
 type Environ struct {
@@ -474,6 +449,7 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 		instTypeNames[i] = flavor.Name
 	}
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
+	validator.RegisterVocabulary(constraints.VirtType, []string{"lxd", "qemu"})
 	return validator, nil
 }
 
@@ -613,6 +589,27 @@ func (e *Environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
+type newClientFunc func(*identity.Credentials, identity.AuthMode, *log.Logger) client.AuthenticatingClient
+
+func determineBestClient(options identity.AuthOptions, client client.AuthenticatingClient,
+	cred *identity.Credentials, newClient newClientFunc) client.AuthenticatingClient {
+	for _, option := range options {
+		if option.Mode != identity.AuthUserPassV3 {
+			continue
+		}
+		cred.URL = option.Endpoint
+		v3client := newClient(cred, identity.AuthUserPassV3, nil)
+		// V3 being advertised is not necessaritly a guarantee that it will
+		// work.
+		err := v3client.Authenticate()
+		if err == nil {
+			return v3client
+		}
+	}
+	return client
+
+}
+
 func authClient(ecfg *environConfig) client.AuthenticatingClient {
 	cred := &identity.Credentials{
 		User:       ecfg.username(),
@@ -620,6 +617,7 @@ func authClient(ecfg *environConfig) client.AuthenticatingClient {
 		Region:     ecfg.region(),
 		TenantName: ecfg.tenantName(),
 		URL:        ecfg.authURL(),
+		DomainName: ecfg.domainName(),
 	}
 	// authModeCfg has already been validated so we know it's one of the values below.
 	var authMode identity.AuthMode
@@ -628,6 +626,9 @@ func authClient(ecfg *environConfig) client.AuthenticatingClient {
 		authMode = identity.AuthLegacy
 	case AuthUserPass:
 		authMode = identity.AuthUserPass
+		if cred.DomainName != "" {
+			authMode = identity.AuthUserPassV3
+		}
 	case AuthKeyPair:
 		authMode = identity.AuthKeyPair
 		cred.User = ecfg.accessKey()
@@ -638,6 +639,18 @@ func authClient(ecfg *environConfig) client.AuthenticatingClient {
 		newClient = client.NewNonValidatingClient
 	}
 	client := newClient(cred, authMode, nil)
+
+	// before returning, lets make sure that we want to have AuthMode
+	// AuthUserPass instead of its V3 counterpart.
+	if authMode == identity.AuthUserPass {
+		options, err := client.IdentityAuthOptions()
+		if err != nil {
+			logger.Errorf("cannot determine available auth versions %v", err)
+		} else {
+			client = determineBestClient(options, client, cred, newClient)
+		}
+
+	}
 	// By default, the client requires "compute" and
 	// "object-store". Juju only requires "compute".
 	client.SetRequiredServiceTypes([]string{"compute"})

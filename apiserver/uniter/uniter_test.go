@@ -2367,6 +2367,14 @@ type uniterNetworkConfigSuite struct {
 
 var _ = gc.Suite(&uniterNetworkConfigSuite{})
 
+func (s *uniterNetworkConfigSuite) SetUpSuite(c *gc.C) {
+	s.base.SetUpSuite(c)
+}
+
+func (s *uniterNetworkConfigSuite) TearDownSuite(c *gc.C) {
+	s.base.TearDownSuite(c)
+}
+
 func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	s.base.JujuConnSuite.SetUpTest(c)
 
@@ -2395,15 +2403,16 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 
 	factory := jujuFactory.NewFactory(s.base.State)
 	s.base.wpCharm = factory.MakeCharm(c, &jujuFactory.CharmParams{
-		Name: "wordpress",
-		URL:  "cs:quantal/wordpress-3",
+		Name: "wordpress-extra-bindings",
+		URL:  "cs:quantal/wordpress-extra-bindings-4",
 	})
 	s.base.wordpress, err = s.base.State.AddService(state.AddServiceArgs{
 		Name:  "wordpress",
 		Charm: s.base.wpCharm,
 		Owner: s.base.AdminUserTag(c).String(),
 		EndpointBindings: map[string]string{
-			"db": "internal",
+			"db":        "internal", // relation name
+			"admin-api": "public",   // extra-binding name
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2466,13 +2475,14 @@ func (s *uniterNetworkConfigSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *sta
 }
 
 func (s *uniterNetworkConfigSuite) TestNetworkConfigPermissions(c *gc.C) {
-	rel := s.addRelationAndAssertInScope(c)
+	s.addRelationAndAssertInScope(c)
 
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: "relation-42", Unit: "unit-foo-0"},
-		{Relation: rel.Tag().String(), Unit: "invalid"},
-		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
-		{Relation: "relation-42", Unit: s.base.wordpressUnit.Tag().String()},
+	args := params.UnitsNetworkConfig{Args: []params.UnitNetworkConfig{
+		{BindingName: "foo", UnitTag: "unit-foo-0"},
+		{BindingName: "db-client", UnitTag: "invalid"},
+		{BindingName: "juju-info", UnitTag: "unit-mysql-0"},
+		{BindingName: "", UnitTag: s.base.wordpressUnit.Tag().String()},
+		{BindingName: "unknown", UnitTag: s.base.wordpressUnit.Tag().String()},
 	}}
 
 	result, err := s.base.uniter.NetworkConfig(args)
@@ -2482,12 +2492,13 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfigPermissions(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ServerError(`"invalid" is not a valid tag`)},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ServerError(`"relation-42" is not a valid relation tag`)},
+			{Error: apiservertesting.ServerError(`binding name cannot be empty`)},
+			{Error: apiservertesting.ServerError(`binding name "unknown" not defined by the unit's charm`)},
 		},
 	})
 }
 
-func (s *uniterNetworkConfigSuite) addRelationAndAssertInScope(c *gc.C) *state.Relation {
+func (s *uniterNetworkConfigSuite) addRelationAndAssertInScope(c *gc.C) {
 	// Add a relation between wordpress and mysql and enter scope with
 	// mysqlUnit.
 	rel := s.base.addRelation(c, "wordpress", "mysql")
@@ -2496,36 +2507,42 @@ func (s *uniterNetworkConfigSuite) addRelationAndAssertInScope(c *gc.C) *state.R
 	err = wpRelUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.base.assertInScope(c, wpRelUnit, true)
-	return rel
 }
 
 func (s *uniterNetworkConfigSuite) TestNetworkConfigForExplicitlyBoundEndpoint(c *gc.C) {
-	rel := s.addRelationAndAssertInScope(c)
+	s.addRelationAndAssertInScope(c)
 
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: rel.Tag().String(), Unit: s.base.wordpressUnit.Tag().String()},
+	args := params.UnitsNetworkConfig{Args: []params.UnitNetworkConfig{
+		{BindingName: "db", UnitTag: s.base.wordpressUnit.Tag().String()},
+		{BindingName: "admin-api", UnitTag: s.base.wordpressUnit.Tag().String()},
 	}}
 
 	// For the relation "wordpress:db mysql:server" we expect to see only
 	// addresses bound to the "internal" space, where the "db" endpoint itself
 	// is bound to.
-	expectedConfig := []params.NetworkConfig{{
+	expectedConfigWithRelationName := []params.NetworkConfig{{
 		Address: "10.0.0.1",
 	}, {
 		Address: "10.0.0.2",
+	}}
+	// For the "admin-api" extra-binding we expect to see only addresses from
+	// the "public" space.
+	expectedConfigWithExtraBindingName := []params.NetworkConfig{{
+		Address: "8.8.8.8",
 	}}
 
 	result, err := s.base.uniter.NetworkConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.UnitNetworkConfigResults{
 		Results: []params.UnitNetworkConfigResult{
-			{Config: expectedConfig},
+			{Config: expectedConfigWithRelationName},
+			{Config: expectedConfigWithExtraBindingName},
 		},
 	})
 }
 
 func (s *uniterNetworkConfigSuite) TestNetworkConfigForImplicitlyBoundEndpoint(c *gc.C) {
-	// Since wordpressUnit as explicit binding for "db", switch the API to
+	// Since wordpressUnit has explicit binding for "db", switch the API to
 	// mysqlUnit and check "mysql:server" uses the machine preferred private
 	// address.
 	s.setupUniterAPIForUnit(c, s.base.mysqlUnit)
@@ -2536,8 +2553,8 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfigForImplicitlyBoundEndpoint(c
 	c.Assert(err, jc.ErrorIsNil)
 	s.base.assertInScope(c, mysqlRelUnit, true)
 
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: rel.Tag().String(), Unit: s.base.mysqlUnit.Tag().String()},
+	args := params.UnitsNetworkConfig{Args: []params.UnitNetworkConfig{
+		{BindingName: "server", UnitTag: s.base.mysqlUnit.Tag().String()},
 	}}
 
 	privateAddress, err := s.base.machine1.PrivateAddress()

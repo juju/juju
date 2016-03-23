@@ -10,11 +10,10 @@ import (
 	"io/ioutil"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
@@ -24,10 +23,11 @@ import (
 	"github.com/juju/juju/migration"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/storage"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 )
 
 type ImportSuite struct {
@@ -196,11 +196,11 @@ type fakeAPIConnection struct {
 }
 
 type fakeToolsStorage struct {
-	toolstorage.Storage
+	binarystorage.Storage
 	closed bool
 }
 
-func (f *fakeStateStorage) ToolsStorage() (toolstorage.StorageCloser, error) {
+func (f *fakeStateStorage) ToolsStorage() (binarystorage.StorageCloser, error) {
 	return &f.tools, nil
 }
 
@@ -216,9 +216,9 @@ func (f *fakeStateStorage) Charm(*charm.URL) (*state.Charm, error) {
 	return nil, nil
 }
 
-func (f *fakeToolsStorage) Tools(v version.Binary) (toolstorage.Metadata, io.ReadCloser, error) {
+func (f *fakeToolsStorage) Open(v string) (binarystorage.Metadata, io.ReadCloser, error) {
 	buff := bytes.NewBufferString(fmt.Sprintf("fake tools %s", v))
-	return toolstorage.Metadata{}, ioutil.NopCloser(buff), nil
+	return binarystorage.Metadata{}, ioutil.NopCloser(buff), nil
 }
 
 func (f *fakeToolsStorage) Close() error {

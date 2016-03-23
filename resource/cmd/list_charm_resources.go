@@ -17,7 +17,9 @@ import (
 // needed here.
 type CharmCommandBase interface {
 	// Connect connects to the charm store and returns a client.
-	Connect() (CharmResourceLister, error)
+	// cmd.Context needs to be passed in so that we can do authentication
+	// via the cli if available.
+	Connect(*cmd.Context) (CharmResourceLister, error)
 }
 
 // CharmResourceLister has the charm store API methods needed by ListCharmResourcesCommand.
@@ -33,8 +35,9 @@ type CharmResourceLister interface {
 type ListCharmResourcesCommand struct {
 	modelcmd.ModelCommandBase
 	CharmCommandBase
-	out   cmd.Output
-	charm string
+	out     cmd.Output
+	channel string
+	charm   string
 }
 
 // NewListCharmResourcesCommand returns a new command that lists resources defined
@@ -82,6 +85,7 @@ func (c *ListCharmResourcesCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 	})
+	f.StringVar(&c.channel, "channel", "", "the charmstore channel of the charm")
 }
 
 // Init implements cmd.Command.
@@ -102,7 +106,7 @@ func (c *ListCharmResourcesCommand) Init(args []string) error {
 func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 	// TODO(ericsnow) Adjust this to the charm store.
 
-	apiclient, err := c.Connect()
+	apiclient, err := c.Connect(ctx)
 	if err != nil {
 		// TODO(ericsnow) Return a more user-friendly error?
 		return errors.Trace(err)

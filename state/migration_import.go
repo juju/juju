@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2/txn"
 
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // When we import a new model, we need to give the leaders some time to
@@ -185,13 +185,17 @@ func (i *importer) modelUsers() error {
 	modelUUID := i.dbModel.UUID()
 	var ops []txn.Op
 	for _, user := range users {
+		access := ModelAdminAccess
+		if user.ReadOnly() {
+			access = ModelReadAccess
+		}
 		ops = append(ops, createModelUserOp(
 			modelUUID,
 			user.Name(),
 			user.CreatedBy(),
 			user.DisplayName(),
 			user.DateCreated(),
-			user.ReadOnly()))
+			access))
 	}
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)

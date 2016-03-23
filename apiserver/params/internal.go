@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/juju/utils/exec"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // MachineContainersParams holds the arguments for making a SetSupportedContainers

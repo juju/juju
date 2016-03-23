@@ -93,14 +93,14 @@ func (s *ConnSuite) AddActionsCharm(c *gc.C, name, actionsYaml string, revision 
 
 // AddMetaCharm clones a testing charm, replaces its metadata with the
 // given YAML string and adds it to the state, using the given revision.
-func (s *ConnSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revsion int) *state.Charm {
-	return state.AddCustomCharm(c, s.State, name, "metadata.yaml", metaYaml, "quantal", revsion)
+func (s *ConnSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revision int) *state.Charm {
+	return state.AddCustomCharm(c, s.State, name, "metadata.yaml", metaYaml, "quantal", revision)
 }
 
 // AddMetricsCharm clones a testing charm, replaces its metrics declaration with the
 // given YAML string and adds it to the state, using the given revision.
-func (s *ConnSuite) AddMetricsCharm(c *gc.C, name, metricsYaml string, revsion int) *state.Charm {
-	return state.AddCustomCharm(c, s.State, name, "metrics.yaml", metricsYaml, "quantal", revsion)
+func (s *ConnSuite) AddMetricsCharm(c *gc.C, name, metricsYaml string, revision int) *state.Charm {
+	return state.AddCustomCharm(c, s.State, name, "metrics.yaml", metricsYaml, "quantal", revision)
 }
 
 // NewStateForModelNamed returns an new model with the given modelName, which

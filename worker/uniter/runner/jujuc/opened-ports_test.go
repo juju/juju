@@ -72,9 +72,12 @@ func (s *OpenedPortsSuite) TestHelp(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	flags := testing.NewFlagSet()
 	c.Assert(string(openedPorts.Info().Help(flags)), gc.Equals, `
-usage: opened-ports
-purpose: lists all ports or ranges opened by the unit
+Usage: opened-ports
 
+Summary:
+lists all ports or ranges opened by the unit
+
+Details:
 Each list entry has format <port>/<protocol> (e.g. "80/tcp") or
 <from>-<to>/<protocol> (e.g. "8080-8088/udp").
 `[1:])

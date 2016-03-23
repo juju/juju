@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
 )
 
 type MigrationImportSuite struct {
@@ -134,10 +134,14 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) *state.ModelUser {
+	access := state.ModelAdminAccess
+	if readOnly {
+		access = state.ModelReadAccess
+	}
 	user, err := s.State.AddModelUser(state.ModelUserSpec{
 		User:      names.NewUserTag(name),
 		CreatedBy: s.Owner,
-		ReadOnly:  readOnly,
+		Access:    access,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	if !lastConnection.IsZero() {

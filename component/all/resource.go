@@ -14,10 +14,10 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api/client"
@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/resource/context"
 	contextcmd "github.com/juju/juju/resource/context/cmd"
 	"github.com/juju/juju/resource/resourceadapters"
-	"github.com/juju/juju/resource/state"
 	corestate "github.com/juju/juju/state"
 	unitercontext "github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -65,28 +64,9 @@ func (r resources) registerPublicFacade() {
 	common.RegisterStandardFacade(
 		resource.ComponentName,
 		server.Version,
-		r.newPublicFacade,
+		resourceadapters.NewPublicFacade,
 	)
 	api.RegisterFacadeVersion(resource.ComponentName, server.Version)
-}
-
-// newPublicFacade is passed into common.RegisterStandardFacade
-// in registerPublicFacade.
-func (resources) newPublicFacade(st *corestate.State, _ *common.Resources, authorizer common.Authorizer) (*server.Facade, error) {
-	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
-	}
-
-	rst, err := st.Resources()
-
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ds := resourceadapters.DataStore{
-		Resources: rst,
-		State:     st,
-	}
-	return server.NewFacade(ds), nil
 }
 
 // resourcesApiClient adds a Close() method to the resources public API client.
@@ -106,8 +86,7 @@ func (r resources) registerAgentWorkers() {
 		return
 	}
 
-	factory := resourceadapters.NewWorkerFactory()
-	agent.RegisterModelWorker(resource.ComponentName+"-charmstore-poller", factory.NewModelWorker)
+	charmrevisionupdater.RegisterLatestCharmHandler("resources", resourceadapters.NewLatestCharmHandler)
 }
 
 // registerState registers the state functionality for resources.
@@ -116,38 +95,9 @@ func (resources) registerState() {
 		return
 	}
 
-	newResources := func(persist corestate.Persistence) corestate.Resources {
-		st := state.NewState(&resourceState{persist: persist})
-		return st
-	}
-
-	corestate.SetResourcesComponent(newResources)
-}
-
-// resourceState is a wrapper around state.State that supports the needs
-// of resources.
-type resourceState struct {
-	persist corestate.Persistence
-}
-
-// Persistence implements resource/state.RawState.
-func (st resourceState) Persistence() state.Persistence {
-	persist := corestate.NewResourcePersistence(st.persist)
-	return resourcePersistence{persist}
-}
-
-// Storage implements resource/state.RawState.
-func (st resourceState) Storage() state.Storage {
-	return st.persist.NewStorage()
-}
-
-type resourcePersistence struct {
-	*corestate.ResourcePersistence
-}
-
-// StageResource implements state.resourcePersistence.
-func (p resourcePersistence) StageResource(res resource.Resource, storagePath string) (state.StagedResource, error) {
-	return p.ResourcePersistence.StageResource(res, storagePath)
+	corestate.SetResourcesComponent(resourceadapters.NewResourceState)
+	corestate.SetResourcesPersistence(resourceadapters.NewResourcePersistence)
+	corestate.RegisterCleanupHandler(corestate.CleanupKindResourceBlob, resourceadapters.CleanUpBlob)
 }
 
 // registerPublicCommands adds the resources-related commands
@@ -159,7 +109,7 @@ func (r resources) registerPublicCommands() {
 
 	charmcmd.RegisterSubCommand(func(spec charmcmd.CharmstoreSpec) jujucmd.Command {
 		base := charmcmd.NewCommandBase(spec)
-		resBase := resourceadapters.NewFakeCharmCmdBase(base)
+		resBase := &resourceadapters.CharmCmdBase{base}
 		return cmd.NewListCharmResourcesCommand(resBase)
 	})
 
@@ -182,10 +132,6 @@ func (r resources) registerPublicCommands() {
 			},
 		})
 	})
-}
-
-type apicommand interface {
-	NewAPIRoot() (api.Connection, error)
 }
 
 // TODO(katco): This seems to be common across components. Pop up a

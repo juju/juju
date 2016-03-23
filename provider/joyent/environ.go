@@ -5,8 +5,10 @@ package joyent
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
+	"github.com/joyent/gosdc/cloudapi"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/constraints"
@@ -14,7 +16,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
@@ -39,7 +41,6 @@ type joyentEnviron struct {
 	// affected fields.
 	lock    sync.Mutex
 	ecfg    *environConfig
-	storage storage.Storage
 	compute *joyentCompute
 }
 
@@ -54,10 +55,6 @@ func newEnviron(cfg *config.Config) (*joyentEnviron, error) {
 	}
 	env.name = cfg.Name()
 	var err error
-	env.storage, err = newStorage(env.ecfg, "")
-	if err != nil {
-		return nil, err
-	}
 	env.compute, err = newCompute(env.ecfg)
 	if err != nil {
 		return nil, err
@@ -139,23 +136,36 @@ func (env *joyentEnviron) Config() *config.Config {
 	return env.getSnapshot().ecfg.Config
 }
 
-func (env *joyentEnviron) Storage() storage.Storage {
-	return env.getSnapshot().storage
-}
-
 func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, env, args)
 }
 
 func (env *joyentEnviron) ControllerInstances() ([]instance.Id, error) {
-	return common.ProviderStateInstances(env, env.Storage())
+	instanceIds := []instance.Id{}
+
+	filter := cloudapi.NewFilter()
+	filter.Set("tag.group", "juju")
+	filter.Set("tag.env", env.Config().Name())
+	filter.Set(tags.JujuController, "true")
+
+	machines, err := env.compute.cloudapi.ListMachines(filter)
+	if err != nil || len(machines) == 0 {
+		return nil, environs.ErrNotBootstrapped
+	}
+
+	for _, m := range machines {
+		if strings.EqualFold(m.State, "provisioning") || strings.EqualFold(m.State, "running") {
+			copy := m
+			ji := &joyentInstance{machine: &copy, env: env}
+			instanceIds = append(instanceIds, ji.Id())
+		}
+	}
+
+	return instanceIds, nil
 }
 
 func (env *joyentEnviron) Destroy() error {
-	if err := common.Destroy(env); err != nil {
-		return errors.Trace(err)
-	}
-	return env.Storage().RemoveAll()
+	return errors.Trace(common.Destroy(env))
 }
 
 func (env *joyentEnviron) Ecfg() *environConfig {

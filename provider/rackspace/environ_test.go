@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 )
 
 type environSuite struct {

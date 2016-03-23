@@ -7,8 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/schema"
-
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 type machines struct {

@@ -35,3 +35,7 @@ func ExposeEnvConfig(env *environ) *environConfig {
 func ExposeEnvClient(env *environ) lxdInstances {
 	return env.raw.lxdInstances
 }
+
+func GetImageSources(env *environ) ([]lxdclient.Remote, error) {
+	return env.getImageSources()
+}

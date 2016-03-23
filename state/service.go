@@ -180,6 +180,12 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		}
 		ops = append(ops, relOps...)
 	}
+	// TODO(ericsnow) Use a generic registry instead.
+	resOps, err := removeResourcesOps(s.st, s.doc.Name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, resOps...)
 	// If the service has no units, and all its known relations will be
 	// removed, the service can also be removed.
 	if s.doc.UnitCount == 0 && s.doc.RelationCount == removeCount {
@@ -218,6 +224,22 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		Assert: notLastRefs,
 		Update: update,
 	}), nil
+}
+
+func removeResourcesOps(st *State, serviceID string) ([]txn.Op, error) {
+	persist, err := st.ResourcesPersistence()
+	if errors.IsNotSupported(err) {
+		// Nothing to see here, move along.
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops, err := persist.NewRemoveResourcesOps(serviceID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ops, nil
 }
 
 // removeOps returns the operations required to remove the service. Supplied
@@ -1029,6 +1051,12 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
+	// TODO(ericsnow) Use a generic registry instead.
+	resOps, err := removeUnitResourcesOps(s.st, u.doc.Service, u.doc.Name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, resOps...)
 
 	observedFieldsMatch := bson.D{
 		{"charmurl", u.doc.CharmURL},
@@ -1081,6 +1109,22 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	}
 	ops = append(ops, svcOp)
 
+	return ops, nil
+}
+
+func removeUnitResourcesOps(st *State, serviceID, unitID string) ([]txn.Op, error) {
+	persist, err := st.ResourcesPersistence()
+	if errors.IsNotSupported(err) {
+		// Nothing to see here, move along.
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops, err := persist.NewRemoveUnitResourcesOps(unitID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return ops, nil
 }
 
@@ -1329,7 +1373,7 @@ func (s *Service) defaultEndpointBindings() (map[string]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return defaultEndpointBindingsForCharm(charm.Meta())
+	return DefaultEndpointBindingsForCharm(charm.Meta()), nil
 }
 
 // MetricCredentials returns any metric credentials associated with this service.

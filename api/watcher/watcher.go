@@ -515,3 +515,62 @@ func (w *migrationMasterWatcher) loop() error {
 func (w *migrationMasterWatcher) Changes() <-chan migration.TargetInfo {
 	return w.out
 }
+
+// NewMigrationStatusWatcher takes the NotifyWatcherId returns by the
+// MigrationSlave.Watch API and returns a watcher which will report
+// status changes for any migration of the model associated with the
+// API connection.
+func NewMigrationStatusWatcher(caller base.APICaller, watcherId string) watcher.MigrationStatusWatcher {
+	w := &migrationStatusWatcher{
+		caller: caller,
+		id:     watcherId,
+		out:    make(chan params.MigrationStatus),
+	}
+	go func() {
+		defer w.tomb.Done()
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+type migrationStatusWatcher struct {
+	commonWatcher
+	caller base.APICaller
+	id     string
+	out    chan params.MigrationStatus
+}
+
+func (w *migrationStatusWatcher) loop() error {
+	w.newResult = func() interface{} { return new(params.MigrationStatus) }
+	w.call = makeWatcherAPICaller(w.caller, "MigrationStatusWatcher", w.id)
+	w.commonWatcher.init()
+	go w.commonLoop()
+
+	for {
+		var data interface{}
+		var ok bool
+
+		select {
+		case data, ok = <-w.in:
+			if !ok {
+				// The tomb is already killed with the correct error
+				// at this point, so just return.
+				return nil
+			}
+		case <-w.tomb.Dying():
+			return nil
+		}
+
+		select {
+		case w.out <- *data.(*params.MigrationStatus):
+		case <-w.tomb.Dying():
+			return nil
+		}
+	}
+}
+
+// Changes returns a channel that reports the latest status of the
+// migration of a model.
+func (w *migrationStatusWatcher) Changes() <-chan params.MigrationStatus {
+	return w.out
+}

@@ -52,6 +52,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		cleanupsC,
 		// We don't export the controller model at this stage.
 		controllersC,
+		// This is controller global, and related to the system state of the
+		// embedded GUI.
+		guimetadataC,
 		// Users aren't migrated.
 		usersC,
 		userLastLoginC,
@@ -90,6 +93,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// This is a transitory collection of units that need to be assigned
 		// to machines.
 		assignUnitC,
+
+		// This has been deprecated in 2.0, and should not contain any data
+		// we actually care about migrating.
+		legacyipaddressesC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -117,7 +124,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		volumeAttachmentsC,
 
 		// network
-		ipaddressesC,
+		ipAddressesC,
+		linkLayerDevicesC,
+		linkLayerDevicesRefsC,
 		networksC,
 		networkInterfacesC,
 		requestedNetworksC,
@@ -183,7 +192,7 @@ func (s *MigrationSuite) TestEnvUserDocFields(c *gc.C) {
 		"DisplayName",
 		"CreatedBy",
 		"DateCreated",
-		"ReadOnly",
+		"Access",
 	)
 	s.AssertExportedFields(c, modelUserDoc{}, fields)
 }
@@ -504,7 +513,7 @@ func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields s
 	removed := fields.Difference(expected)
 	// If this test fails, it means that extra fields have been added to the
 	// doc without thinking about the migration implications.
-	c.Assert(unknown, gc.HasLen, 0)
+	c.Check(unknown, gc.HasLen, 0)
 	c.Assert(removed, gc.HasLen, 0)
 }
 

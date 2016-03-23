@@ -6,6 +6,7 @@ package cmd
 import (
 	"io"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -18,8 +19,8 @@ type stubCharmStore struct {
 	ReturnListResources [][]charmresource.Resource
 }
 
-func (s *stubCharmStore) Connect() (CharmResourceLister, error) {
-	s.stub.AddCall("Connect")
+func (s *stubCharmStore) Connect(ctx *cmd.Context) (CharmResourceLister, error) {
+	s.stub.AddCall("Connect", ctx)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -49,8 +50,8 @@ type stubAPIClient struct {
 	stub *testing.Stub
 }
 
-func (s *stubAPIClient) Upload(service, name string, resource io.ReadSeeker) error {
-	s.stub.AddCall("Upload", service, name, resource)
+func (s *stubAPIClient) Upload(service, name, filename string, resource io.ReadSeeker) error {
+	s.stub.AddCall("Upload", service, name, filename, resource)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
