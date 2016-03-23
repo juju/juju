@@ -92,10 +92,11 @@ type ControllerUpdater interface {
 // ControllerRemover removes controllers.
 type ControllerRemover interface {
 	// RemoveController removes the controller with the given name from the
-	// controllers collection.
+	// controllers collection. Any other controllers with matching UUIDs
+	// will also be removed.
 	//
-	// Removing a controller will remove all information related to that
-	// controller (models, accounts, bootstrap config.)
+	// Removing controllers will remove all information related to those
+	// controllers (models, accounts, bootstrap config.)
 	RemoveController(controllerName string) error
 }
 

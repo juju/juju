@@ -169,15 +169,30 @@ func (s *store) RemoveController(name string) error {
 		return errors.Annotate(err, "cannot get controllers")
 	}
 
+	// We remove all controllers with the same UUID as the named one.
+	namedControllerDetails, ok := controllers[name]
+	if !ok {
+		return nil
+	}
+	var names []string
+	for name, details := range controllers {
+		if details.ControllerUUID == namedControllerDetails.ControllerUUID {
+			names = append(names, name)
+			delete(controllers, name)
+		}
+	}
+
 	// Remove models for the controller.
 	controllerModels, err := ReadModelsFile(JujuModelsPath())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if _, ok := controllerModels[name]; ok {
-		delete(controllerModels, name)
-		if err := WriteModelsFile(controllerModels); err != nil {
-			return errors.Trace(err)
+	for _, name := range names {
+		if _, ok := controllerModels[name]; ok {
+			delete(controllerModels, name)
+			if err := WriteModelsFile(controllerModels); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
@@ -186,10 +201,12 @@ func (s *store) RemoveController(name string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if _, ok := controllerAccounts[name]; ok {
-		delete(controllerAccounts, name)
-		if err := WriteAccountsFile(controllerAccounts); err != nil {
-			return errors.Trace(err)
+	for _, name := range names {
+		if _, ok := controllerAccounts[name]; ok {
+			delete(controllerAccounts, name)
+			if err := WriteAccountsFile(controllerAccounts); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
@@ -198,15 +215,17 @@ func (s *store) RemoveController(name string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if _, ok := bootstrapConfigurations[name]; ok {
-		delete(bootstrapConfigurations, name)
-		if err := WriteBootstrapConfigFile(bootstrapConfigurations); err != nil {
-			return errors.Trace(err)
+	for _, name := range names {
+		if _, ok := bootstrapConfigurations[name]; ok {
+			delete(bootstrapConfigurations, name)
+			if err := WriteBootstrapConfigFile(bootstrapConfigurations); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
-	// Remove the controller.
-	delete(controllers, name)
+	// Finally, remove the controllers. This must be done last
+	// so we don't end up with dangling entries in other files.
 	return WriteControllersFile(controllers)
 }
 
