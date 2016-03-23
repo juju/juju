@@ -68,6 +68,9 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	err = envtesting.UploadFakeToolsToSimpleStreams(stor, "released", "released")
 	c.Assert(err, jc.ErrorIsNil)
+	err = envtesting.UploadFakeToolsToSimpleStreams(stor, "devel", "devel")
+	c.Assert(err, jc.ErrorIsNil)
+
 	//
 	// Patch the function used to retrieve GUI archive info from simplestreams.
 	s.PatchValue(bootstrap.GUIFetchMetadata, func(string, ...simplestreams.DataSource) ([]*gui.Metadata, error) {
@@ -131,7 +134,6 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapSeries(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
-	s.setDummyStorage(c, env)
 	cfg, err := env.Config().Apply(map[string]interface{}{
 		"default-series": "wily",
 	})
@@ -162,7 +164,8 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 
 	metadataDir, metadata := createImageMetadata(c)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
-	envtesting.UploadFakeToolsToSimpleStreams(stor, "released", "released")
+	err = envtesting.UploadFakeToolsToSimpleStreams(stor, "released", "released")
+	c.Assert(err, jc.ErrorIsNil)
 
 	env := bootstrapEnvironWithRegion{
 		newEnviron("foo", useDefaultKeys, nil),
@@ -212,7 +215,8 @@ func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
 	metadataDir, _ := createImageMetadata(c)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, stor, "released", "released")
+	err = envtesting.UploadFakeToolsToSimpleStreams(stor, "released", "released")
+	c.Assert(err, jc.ErrorIsNil)
 
 	env := bootstrapEnvironWithRegion{
 		newEnviron("foo", useDefaultKeys, nil),
@@ -221,7 +225,6 @@ func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
 			Endpoint: "endpoint",
 		},
 	}
-	s.setDummyStorage(c, env.bootstrapEnviron)
 
 	bootstrapCons := constraints.MustParse("arch=amd64")
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
@@ -509,7 +512,8 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 
 	metadataDir, metadata := createImageMetadata(c)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
-	envtesting.UploadFakeToolsToSimpleStreams(stor, "released", "released")
+	err = envtesting.UploadFakeToolsToSimpleStreams(stor, "released", "released")
+	c.Assert(err, jc.ErrorIsNil)
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
@@ -553,7 +557,8 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 	noImagesDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(noImagesDir)
 	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeToolsToSimpleStreams(stor, "released", "released")
+	err = envtesting.UploadFakeToolsToSimpleStreams(stor, "released", "released")
+	c.Assert(err, jc.ErrorIsNil)
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{

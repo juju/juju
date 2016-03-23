@@ -1242,11 +1242,6 @@ func (s *lxcProvisionerSuite) maybeUploadTools(c *gc.C) {
 		return
 	}
 
-	//storageDir := c.MkDir()
-	//s.CommonProvisionerSuite.PatchValue(&tools.DefaultBaseURL, storageDir)
-	//stor, err := filestorage.NewFileStorageWriter(storageDir)
-	//c.Assert(err, jc.ErrorIsNil)
-
 	defaultTools := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),

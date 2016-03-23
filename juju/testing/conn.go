@@ -272,7 +272,6 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	// end up looking in both places.
 	envtesting.AssertUploadFakeToolsVersionsToSimplestreams(c, stor, "devel", "devel", versions...)
 	envtesting.AssertUploadFakeToolsVersionsToSimplestreams(c, stor, "released", "released", versions...)
-	//s.DefaultToolsStorage = stor
 
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{MetadataDir: filepath.Join(s.DefaultToolsStorageDir)})

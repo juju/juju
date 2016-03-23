@@ -620,8 +620,8 @@ func uploadFakeToolsVersionToSimpleStreams(stor storage.Storage, toolsDir string
 	return &coretools.Tools{URL: url, Version: vers, Size: size, SHA256: checksum}, nil
 }
 
-// MustUploadFakeToolsToSimpleStreams acts as UploadFakeToolsToSimpleStreams, but panics on failure.
-func MustUploadFakeToolsToSimpleStreams(stor storage.Storage, toolsDir, stream string) {
+// MustUploadFakeToolsToDirectory acts as UploadFakeToolsToSimpleStreams, but panics on failure.
+func MustUploadFakeToolsToDirectory(stor storage.Storage, toolsDir, stream string) {
 	if err := UploadFakeToolsToSimpleStreams(stor, toolsDir, stream); err != nil {
 		panic(err)
 	}

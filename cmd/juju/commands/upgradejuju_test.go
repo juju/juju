@@ -318,9 +318,9 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		com := newUpgradeJujuCommand(test.upgradeMap)
 		if err := coretesting.InitCommand(com, test.args); err != nil {
 			if test.expectInitErr != "" {
-				c.Assert(err, gc.ErrorMatches, test.expectInitErr)
+				c.Check(err, gc.ErrorMatches, test.expectInitErr)
 			} else {
-				c.Assert(err, jc.ErrorIsNil)
+				c.Check(err, jc.ErrorIsNil)
 			}
 			continue
 		}
@@ -335,12 +335,21 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		for i, v := range test.tools {
 			versions[i] = version.MustParseBinary(v)
 		}
+		stor, err := s.State.ToolsStorage()
+		defer stor.Close()
+		c.Assert(err, jc.ErrorIsNil)
+		// Store needs to be emptied.
+		allMeta, err := stor.AllMetadata()
+		c.Assert(err, jc.ErrorIsNil)
+		for _, m := range allMeta {
+			err := stor.Remove(m.Version)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		allMeta, err = stor.AllMetadata()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(allMeta, gc.HasLen, 0)
 
 		if len(versions) > 0 {
-			stor, err := s.State.ToolsStorage()
-			defer stor.Close()
-			c.Assert(err, jc.ErrorIsNil)
-
 			envtesting.MustUploadFakeToolsVersions(stor, s.Environ.Config().AgentStream(), versions...)
 		}
 
@@ -425,8 +434,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	versions, err := stor.AllMetadata()
 	for _, v := range versions {
 		err := stor.Remove(v.Version)
-		//c.Assert(err, jc.ErrorIsNil)
-		c.Logf("reset errored: %v", err)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	updateAttrs := map[string]interface{}{
 		"default-series": "raring",
@@ -574,7 +582,6 @@ func (s *UpgradeJujuSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agen
 
 	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	//	versions := make([]version.Binary, len(tools))
 	var versions []version.Binary
 	for _, v := range tools {
 		ver, err := version.ParseBinary(v)
