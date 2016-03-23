@@ -706,7 +706,8 @@ func (s *Service) SetCharm(cfg SetCharmConfig) error {
 			return err
 		}
 		supportedOS := false
-		for _, chSeries := range cfg.Charm.Meta().Series {
+		supportedSeries := cfg.Charm.Meta().Series
+		for _, chSeries := range supportedSeries {
 			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
 			if err != nil {
 				return nil
@@ -716,7 +717,7 @@ func (s *Service) SetCharm(cfg SetCharmConfig) error {
 				break
 			}
 		}
-		if !supportedOS {
+		if !supportedOS && len(supportedSeries) > 0 {
 			return errors.Errorf("cannot upgrade charm, OS %q not supported by charm", currentOS)
 		}
 	}
