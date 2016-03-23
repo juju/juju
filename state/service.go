@@ -698,7 +698,8 @@ func (s *Service) SetCharm(cfg SetCharmConfig) error {
 		}
 	} else {
 		// Even with forceSeries=true, we do not allow a charm to be used which is for
-		// a different OS.
+		// a different OS. This assumes the charm declares it has supported series which
+		// we can check for OS compatibility. Otherwise, we just accept the series supplied.
 		currentOS, err := series.GetOSFromSeries(s.doc.Series)
 		if err != nil {
 			// We don't expect an error here but there's not much we can
