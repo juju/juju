@@ -5,6 +5,7 @@ package jujuclienttesting
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/jujuclient"
@@ -63,8 +64,20 @@ func (c *MemStore) RemoveController(name string) error {
 	if err := jujuclient.ValidateControllerName(name); err != nil {
 		return err
 	}
-	delete(c.BootstrapConfig, name)
-	delete(c.Controllers, name)
+	names := set.NewStrings(name)
+	if namedControllerDetails, ok := c.Controllers[name]; ok {
+		for name, details := range c.Controllers {
+			if details.ControllerUUID == namedControllerDetails.ControllerUUID {
+				names.Add(name)
+			}
+		}
+	}
+	for _, name := range names.Values() {
+		delete(c.Models, name)
+		delete(c.Accounts, name)
+		delete(c.BootstrapConfig, name)
+		delete(c.Controllers, name)
+	}
 	return nil
 }
 
