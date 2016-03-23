@@ -48,6 +48,7 @@ Upgrade to a Juju GUI version present in a local tar.bz2 GUI release file.
 	juju upgrade-gui /path/to/jujugui-2.2.0.tar.bz2
 `
 
+// Info implements the cmd.Command interface.
 func (c *upgradeGUICommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upgrade-gui",
@@ -56,6 +57,7 @@ func (c *upgradeGUICommand) Info() *cmd.Info {
 	}
 }
 
+// Init implements the cmd.Command interface.
 func (c *upgradeGUICommand) Init(args []string) error {
 	if len(args) == 1 {
 		c.versOrPath = args[0]
@@ -64,6 +66,7 @@ func (c *upgradeGUICommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+// Run implements the cmd.Command interface.
 func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
 	// Retrieve the GUI archive and its related info.
 	r, hash, size, vers, err := openArchive(c.versOrPath)

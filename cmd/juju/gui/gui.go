@@ -46,6 +46,7 @@ Do not open the browser, just output the GUI URL:
 An error is returned if the Juju GUI is not available in the controller.
 `
 
+// Info implements the cmd.Command interface.
 func (c *guiCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "gui",
@@ -54,11 +55,13 @@ func (c *guiCommand) Info() *cmd.Info {
 	}
 }
 
+// SetFlags implements the cmd.Command interface.
 func (c *guiCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.showCreds, "show-credentials", false, "show admin credentials to use for logging into the Juju GUI")
 	f.BoolVar(&c.noBrowser, "no-browser", false, "do not try to open the web browser, just print the Juju GUI URL")
 }
 
+// Run implements the cmd.Command interface.
 func (c *guiCommand) Run(ctx *cmd.Context) error {
 	// Retrieve model details.
 	conn, err := c.NewAPIRoot()
