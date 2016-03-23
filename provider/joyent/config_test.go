@@ -257,10 +257,6 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	}
 }
 
-func validBootstrapConfigAttrs() coretesting.Attrs {
-	return validAttrs().Delete("private-key")
-}
-
 // TODO(wallyworld) - add tests for cloud endpoint passed in via bootstrap args
 var bootstrapConfigTests = []struct {
 	info   string
@@ -270,13 +266,13 @@ var bootstrapConfigTests = []struct {
 	err    string
 }{{
 	info:   "All value provided, nothing to do",
-	expect: validBootstrapConfigAttrs(),
+	expect: validAttrs(),
 }}
 
 func (s *ConfigSuite) TestBootstrapConfig(c *gc.C) {
 	for i, test := range bootstrapConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		attrs := validBootstrapConfigAttrs().Merge(test.insert).Delete(test.remove...)
+		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		credentialAttrs := make(map[string]string, len(attrs))
 		for k, v := range attrs.Delete("type") {
 			credentialAttrs[k] = fmt.Sprintf("%v", v)

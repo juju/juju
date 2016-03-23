@@ -11,9 +11,8 @@ import (
 )
 
 const (
-	testUser        = "test"
-	testKeyFileName = "provider_id_rsa"
-	testPrivateKey  = `-----BEGIN RSA PRIVATE KEY-----
+	testUser       = "test"
+	testPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
 MIIEpAIBAAKCAQEAza+KvczCrcpQGRq9e347VHx9oEvuhseJt0ydR+UMAveyQprU
 4JHvzwUUhGnG147GJQYyfQ4nzaSG62az/YThoZJzw8gtxGkVHv0wlAlRkYhxbKbq
 8WQIh73xDQkHLw2lXLvf7Tt0Mhow0qGEmkOjTb5fPsj2evphrV3jJ15QlhL4cv33
@@ -71,7 +70,7 @@ func (s *providerSuite) TearDownTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
-func GetFakeConfig(sdcUrl, mantaUrl string) coretesting.Attrs {
+func GetFakeConfig(sdcUrl string) coretesting.Attrs {
 	return coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"name":          "joyent test model",
 		"type":          "joyent",

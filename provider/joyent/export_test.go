@@ -181,7 +181,7 @@ func FindInstanceSpec(
 
 func CredentialsAttributes(attrs testing.Attrs) map[string]string {
 	credentialAttrs := make(map[string]string)
-	for _, attr := range []string{"sdc-user", "sdc-key-id", "manta-user", "manta-key-id", "private-key"} {
+	for _, attr := range []string{"sdc-user", "sdc-key-id", "private-key"} {
 		if v, ok := attrs[attr]; ok && v != "" {
 			credentialAttrs[attr] = fmt.Sprintf("%v", v)
 		}
