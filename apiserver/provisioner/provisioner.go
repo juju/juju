@@ -246,6 +246,11 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 			logger.Debugf("using default MTU %v for all LXC containers NICs", lxcDefaultMTU)
 			cfg[container.ConfigLXCDefaultMTU] = fmt.Sprintf("%d", lxcDefaultMTU)
 		}
+	case instance.LXD:
+		// TODO(jam): DefaultMTU needs to be handled here
+		// TODO(jam): Do we want to handle ImageStream here, or do we
+		// hide it from them? (all cached images must come from the
+		// same image stream?)
 	}
 
 	if !environs.AddressAllocationEnabled() {
