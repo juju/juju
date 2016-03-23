@@ -9,6 +9,7 @@ type Phase int
 // Enumerate all possible migration phases.
 const (
 	UNKNOWN Phase = iota
+	NONE
 	QUIESCE
 	READONLY
 	PRECHECK
@@ -23,7 +24,8 @@ const (
 )
 
 var phaseNames = []string{
-	"UNKNOWN",
+	"UNKNOWN", // To catch uninitialised fields.
+	"NONE",    // For watchers to indicate there's never been a migration attempt.
 	"QUIESCE",
 	"READONLY",
 	"PRECHECK",
