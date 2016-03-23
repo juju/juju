@@ -3,8 +3,6 @@
 package service
 
 import (
-	"net/http"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/romulus/wireformat/budget"
@@ -33,12 +31,12 @@ func (s *allocationSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.apiClient = &mockBudgetAPIClient{Stub: s.stub}
 	s.allocate = &AllocateBudget{AllocationSpec: "personal:100"}
-	s.PatchValue(&getApiClient, func(*cmd.Context, *http.Client) (apiClient, error) { return s.apiClient, nil })
+	s.PatchValue(&getApiClient, func(*httpbakery.Client) (apiClient, error) { return s.apiClient, nil })
 	s.ctx = coretesting.Context(c)
 }
 
 func (s *allocationSuite) TestMeteredCharm(c *gc.C) {
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
@@ -57,7 +55,7 @@ func (s *allocationSuite) TestMeteredCharm(c *gc.C) {
 }
 
 func (s *allocationSuite) TestLocalCharm(c *gc.C) {
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
 		ServiceName: "service name",
@@ -72,7 +70,7 @@ func (s *allocationSuite) TestLocalCharm(c *gc.C) {
 }
 
 func (s *allocationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
@@ -91,7 +89,7 @@ func (s *allocationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 }
 
 func (s *allocationSuite) TestMeteredCharmServiceUnavail(c *gc.C) {
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
@@ -109,7 +107,7 @@ func (s *allocationSuite) TestMeteredCharmServiceUnavail(c *gc.C) {
 }
 
 func (s *allocationSuite) TestMeteredCharmRemoveAllocation(c *gc.C) {
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
@@ -129,7 +127,7 @@ func (s *allocationSuite) TestMeteredCharmRemoveAllocation(c *gc.C) {
 }
 
 func (s *allocationSuite) TestUnmeteredCharm(c *gc.C) {
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/unmetered-1"),
 		ServiceName: "service name",

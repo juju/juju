@@ -138,7 +138,7 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 		AuthUsername: "test-user",
 		AuthPassword: "test-password",
 	}
-	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
+	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
 	c.Assert(err, jc.ErrorIsNil)
 	s.handler = handler
 	s.srv = httptest.NewServer(handler)
@@ -202,7 +202,7 @@ func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 Deploying charm "cs:trusty/starsay-1" with the charm series "trusty".
 `
 	c.Assert(output, gc.Equals, expectedOutput)
-	s.assertCharmsUplodaded(c, "cs:trusty/starsay-1")
+	s.assertCharmsUploaded(c, "cs:trusty/starsay-1")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"starsay": {charm: "cs:trusty/starsay-1"},
 	})
@@ -315,8 +315,8 @@ func (b csbyname) Len() int           { return len(b) }
 func (b csbyname) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
 func (b csbyname) Less(i, j int) bool { return b[i].Name < b[j].Name }
 
-// assertCharmsUplodaded checks that the given charm ids have been uploaded.
-func (s *charmStoreSuite) assertCharmsUplodaded(c *gc.C, ids ...string) {
+// assertCharmsUploaded checks that the given charm ids have been uploaded.
+func (s *charmStoreSuite) assertCharmsUploaded(c *gc.C, ids ...string) {
 	charms, err := s.State.AllCharms()
 	c.Assert(err, jc.ErrorIsNil)
 	uploaded := make([]string, len(charms))

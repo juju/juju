@@ -236,9 +236,8 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	}
 
 	cfg := lxdclient.Config{
-		Namespace:   c.namespace(),
-		Remote:      remote,
-		ImageStream: lxdclient.ImageStream(c.ImageStream()),
+		Namespace: c.namespace(),
+		Remote:    remote,
 	}
 	cfg, err := cfg.WithDefaults()
 	if err != nil {

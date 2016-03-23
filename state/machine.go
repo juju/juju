@@ -1040,14 +1040,6 @@ func (u *Machine) InstanceStatusHistory(size int) ([]status.StatusInfo, error) {
 	return statusHistory(u.st, u.globalInstanceKey(), size)
 }
 
-// StatusHistory returns a slice of at most <size> StatusInfo items
-// representing past statuses for this machine.
-// Machine refers to what juju calls Machine which is an entity representing
-// the underlying [v]hardware and its characteristics.
-func (u *Machine) StatusHistory(size int) ([]status.StatusInfo, error) {
-	return statusHistory(u.st, u.globalKey(), size)
-}
-
 // AvailabilityZone returns the provier-specific instance availability
 // zone in which the machine was provisioned.
 func (m *Machine) AvailabilityZone() (string, error) {
@@ -1727,6 +1719,12 @@ func (m *Machine) SetStatus(machineStatus status.Status, info string, data map[s
 		message:   info,
 		rawData:   data,
 	})
+}
+
+// StatusHistory returns a slice of at most <size> StatusInfo items
+// representing past statuses for this machine.
+func (m *Machine) StatusHistory(size int) ([]status.StatusInfo, error) {
+	return statusHistory(m.st, m.globalKey(), size)
 }
 
 // Clean returns true if the machine does not have any deployed units or containers.

@@ -6,12 +6,16 @@ package watcher_test
 import (
 	"time"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/migrationmaster"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -21,6 +25,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 	corewatcher "github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
+	"github.com/juju/juju/worker"
 )
 
 type watcherSuite struct {
@@ -254,5 +259,69 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 	case <-w.Changes():
 		c.Fatalf("received unexpected change")
 	case <-time.After(coretesting.ShortWait):
+	}
+}
+
+type migrationWatcherSuite struct {
+	testing.JujuConnSuite
+}
+
+func (s *migrationWatcherSuite) TestWatch(c *gc.C) {
+	// Create a state server
+	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Jobs:  []state.MachineJob{state.JobManageModel},
+		Nonce: "noncey",
+	})
+
+	// Create a model to migrate.
+	hostedState := s.Factory.MakeModel(c, nil)
+
+	// Connect as a state server to the hosted environment.
+	apiInfo := s.APIInfo(c)
+	apiInfo.Tag = m.Tag()
+	apiInfo.Password = password
+	apiInfo.ModelTag = hostedState.ModelTag()
+	apiInfo.Nonce = "noncey"
+
+	apiConn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer apiConn.Close()
+
+	// Start watching for a migration.
+	client := migrationmaster.NewClient(apiConn)
+	w, err := client.Watch()
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		c.Assert(worker.Stop(w), jc.ErrorIsNil)
+	}()
+
+	// Should be no initial events.
+	select {
+	case _, ok := <-w.Changes():
+		c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	// Now create a migration.
+	targetInfo := migration.TargetInfo{
+		ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),
+		Addrs:         []string{"1.2.3.4:5"},
+		CACert:        "trust me I'm an authority",
+		AuthTag:       names.NewUserTag("dog"),
+		Password:      "sekret",
+	}
+	_, err = hostedState.CreateModelMigration(state.ModelMigrationSpec{
+		InitiatedBy: names.NewUserTag("someone"),
+		TargetInfo:  targetInfo,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Event with correct target details should be emitted.
+	select {
+	case reportedTargetInfo, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(reportedTargetInfo, jc.DeepEquals, targetInfo)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("watcher didn't emit an event")
 	}
 }
