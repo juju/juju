@@ -7,8 +7,10 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	"fmt"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/jujuclient"
+	"strings"
 )
 
 type setDefaultRegionCommand struct {
@@ -65,8 +67,18 @@ func (c *setDefaultRegionCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	if len(cloudDetails.Regions) == 0 {
+		return errors.Errorf("cloud %s has no regions", c.cloud)
+	}
 	if !hasRegion(c.region, cloudDetails.Regions) {
-		return errors.NotValidf("region %q for cloud %s", c.region, c.cloud)
+		var regionNames []string
+		for _, r := range cloudDetails.Regions {
+			regionNames = append(regionNames, r.Name)
+		}
+		return errors.NewNotValid(
+			nil,
+			fmt.Sprintf("region %q for cloud %s not valid, valid regions are %s",
+				c.region, c.cloud, strings.Join(regionNames, ", ")))
 	}
 	var cred *jujucloud.CloudCredential
 	cred, err = c.store.CredentialForCloud(c.cloud)

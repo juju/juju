@@ -40,7 +40,7 @@ func (s *defaultRegionSuite) TestBadArgs(c *gc.C) {
 func (s *defaultRegionSuite) TestBadRegion(c *gc.C) {
 	cmd := cloud.NewSetDefaultRegionCommand()
 	_, err := testing.RunCommand(c, cmd, "aws", "foo")
-	c.Assert(err, gc.ErrorMatches, `region "foo" for cloud aws not valid`)
+	c.Assert(err, gc.ErrorMatches, `region "foo" for cloud aws not valid, valid regions are .*`)
 }
 
 func (s *defaultRegionSuite) TestBadCloudName(c *gc.C) {
@@ -74,7 +74,7 @@ func (s *defaultRegionSuite) TestSetDefaultRegionBuiltIn(c *gc.C) {
 	store := jujuclienttesting.NewMemStore()
 	cmd := cloud.NewSetDefaultRegionCommandForTest(store)
 	// maas has no regions
-	s.assertSetDefaultRegion(c, cmd, store, "maas", `region "us-west-1" for cloud maas not valid`)
+	s.assertSetDefaultRegion(c, cmd, store, "maas", `cloud maas has no regions`)
 }
 
 func (s *defaultRegionSuite) TestOverwriteDefaultRegion(c *gc.C) {
