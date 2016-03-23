@@ -283,11 +283,16 @@ func (c *addCredentialCommand) promptCredentialAttributes(
 		value := ""
 		for {
 			var err error
-			value, err = c.promptFieldValue(out, in, currentAttr)
-			if err != nil {
-				return nil, err
+			// Interactive add does not support adding multi-line values, which
+			// is what we typically get when the attribute can come from a file.
+			// For now we'll skip, and just get the user to enter the file path.
+			// TODO(wallyworld) - add support for multi-line entry
+			if currentAttr.FileAttr == "" {
+				value, err = c.promptFieldValue(out, in, currentAttr)
+				if err != nil {
+					return nil, err
+				}
 			}
-
 			// Validate the entered value matches any options.
 			// If the user just hits Enter, the first option is used.
 			if len(currentAttr.Options) > 0 {

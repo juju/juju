@@ -285,7 +285,7 @@ func (s *addCredentialSuite) TestAddCredentialWithFileAttr(c *gc.C) {
 		},
 	}
 	// Input includes invalid file info.
-	s.assertAddFileCredential(c, "fred\n\nbadfile\n.\n%s\n", "key-file")
+	s.assertAddFileCredential(c, "fred\nbadfile\n.\n%s\n", "key-file")
 }
 
 func (s *addCredentialSuite) assertAddCredentialWithOptions(c *gc.C, input string) {
