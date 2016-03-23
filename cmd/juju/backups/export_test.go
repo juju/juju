@@ -74,7 +74,7 @@ func NewRestoreCommandForTest(
 	c := &restoreCommand{
 		getArchiveFunc: getArchive,
 		getEnvironFunc: getEnviron,
-		newAPIFunc: func() (RestoreAPI, error) {
+		newAPIClientFunc: func() (RestoreAPI, error) {
 			return api, nil
 		}}
 	if getEnviron == nil {

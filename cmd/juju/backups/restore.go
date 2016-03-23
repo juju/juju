@@ -25,7 +25,7 @@ import (
 func newRestoreCommand() cmd.Command {
 	restoreCmd := &restoreCommand{}
 	restoreCmd.getEnvironFunc = restoreCmd.getEnviron
-	restoreCmd.newAPIFunc = func() (RestoreAPI, error) {
+	restoreCmd.newAPIClientFunc = func() (RestoreAPI, error) {
 		return restoreCmd.newClient()
 	}
 	restoreCmd.getArchiveFunc = getArchive
@@ -42,9 +42,9 @@ type restoreCommand struct {
 	bootstrap   bool
 	uploadTools bool
 
-	newAPIFunc     func() (RestoreAPI, error)
-	getEnvironFunc func(string, *params.BackupsMetadataResult) (environs.Environ, error)
-	getArchiveFunc func(string) (ArchiveReader, *params.BackupsMetadataResult, error)
+	newAPIClientFunc func() (RestoreAPI, error)
+	getEnvironFunc   func(string, *params.BackupsMetadataResult) (environs.Environ, error)
+	getArchiveFunc   func(string) (ArchiveReader, *params.BackupsMetadataResult, error)
 }
 
 // RestoreAPI is used to invoke various API calls.
@@ -196,13 +196,6 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	return nil
 }
 
-func (c *restoreCommand) newAPIClient() (RestoreAPI, error) {
-	if c.newAPIFunc != nil {
-		return c.newAPIFunc()
-	}
-	return c.newClient()
-}
-
 func (c *restoreCommand) newClient() (*backups.Client, error) {
 	client, err := c.NewAPIClient()
 	if err != nil {
@@ -222,7 +215,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	client, err := c.newAPIClient()
+	client, err := c.newAPIClientFunc()
 	if err != nil {
 		return errors.Trace(err)
 	}
