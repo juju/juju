@@ -45,9 +45,11 @@ func (s *cmdRegistrationSuite) TestAddUserAndRegister(c *gc.C) {
 User "Bob Dobbs \(bob\)" added
 Please send this command to bob:
     juju register .*
+
+"Bob Dobbs \(bob\)" has not been granted access to any models(.|\n)*
 `[1:])
 	jujuRegisterCommand := strings.Fields(strings.TrimSpace(
-		stdout[strings.Index(stdout, "juju register"):],
+		strings.SplitN(stdout[strings.Index(stdout, "juju register"):], "\n", 2)[0],
 	))
 	c.Logf("%q", jujuRegisterCommand)
 
@@ -63,6 +65,11 @@ Enter password:
 Confirm password: 
 
 Welcome, bob. You are now logged into "bob-controller".
+
+There are no models available. You can create models with
+"juju create-model", or you can ask an administrator or owner
+of a model to grant access to that model with "juju grant".
+
 `[1:])
 
 	// Make sure that the saved server details are sufficient to connect

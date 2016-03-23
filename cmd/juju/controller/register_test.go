@@ -31,14 +31,14 @@ import (
 
 type RegisterSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	apiConnection         *mockAPIConnection
-	store                 jujuclient.ClientStore
-	apiOpenError          error
-	apiOpenControllerName string
-	apiOpenAccountName    string
-	apiOpenModelName      string
-	server                *httptest.Server
-	httpHandler           http.Handler
+	apiConnection               *mockAPIConnection
+	store                       *jujuclienttesting.MemStore
+	apiOpenError                error
+	refreshModels               func(jujuclient.ClientStore, string, string) error
+	refreshModelsControllerName string
+	refreshModelsAccountName    string
+	server                      *httptest.Server
+	httpHandler                 http.Handler
 }
 
 var _ = gc.Suite(&RegisterSuite{})
@@ -58,9 +58,13 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 		controllerTag: testing.ModelTag,
 		addr:          serverURL.Host,
 	}
-	s.apiOpenControllerName = ""
-	s.apiOpenAccountName = ""
-	s.apiOpenModelName = ""
+	s.refreshModelsControllerName = ""
+	s.refreshModelsAccountName = ""
+	s.refreshModels = func(store jujuclient.ClientStore, controllerName, accountName string) error {
+		s.refreshModelsControllerName = controllerName
+		s.refreshModelsAccountName = accountName
+		return nil
+	}
 
 	s.store = jujuclienttesting.NewMemStore()
 }
@@ -79,18 +83,8 @@ func (s *RegisterSuite) apiOpen(info *api.Info, opts api.DialOpts) (api.Connecti
 	return s.apiConnection, nil
 }
 
-func (s *RegisterSuite) newAPIRoot(store jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error) {
-	if s.apiOpenError != nil {
-		return nil, s.apiOpenError
-	}
-	s.apiOpenControllerName = controllerName
-	s.apiOpenAccountName = accountName
-	s.apiOpenModelName = modelName
-	return s.apiConnection, nil
-}
-
 func (s *RegisterSuite) run(c *gc.C, stdin io.Reader, args ...string) (*cmd.Context, error) {
-	command := controller.NewRegisterCommandForTest(s.apiOpen, s.newAPIRoot, s.store)
+	command := controller.NewRegisterCommandForTest(s.apiOpen, s.refreshModels, s.store)
 	err := testing.InitCommand(command, args)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
@@ -135,6 +129,74 @@ func (s *RegisterSuite) TestInit(c *gc.C) {
 }
 
 func (s *RegisterSuite) TestRegister(c *gc.C) {
+	ctx := s.testRegister(c)
+	c.Assert(s.refreshModelsControllerName, gc.Equals, "controller-name")
+	c.Assert(s.refreshModelsAccountName, gc.Equals, "bob@local")
+	stderr := testing.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+Please set a name for this controller: 
+Enter password: 
+Confirm password: 
+
+Welcome, bob. You are now logged into "controller-name".
+
+There are no models available. You can create models with
+"juju create-model", or you can ask an administrator or owner
+of a model to grant access to that model with "juju grant".
+
+`[1:])
+}
+
+func (s *RegisterSuite) TestRegisterOneModel(c *gc.C) {
+	s.refreshModels = func(store jujuclient.ClientStore, controller, account string) error {
+		err := store.UpdateModel(controller, account, "theoneandonly", jujuclient.ModelDetails{
+			ModelUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		return nil
+	}
+	s.testRegister(c)
+	c.Assert(
+		s.store.Models["controller-name"].AccountModels["bob@local"].CurrentModel,
+		gc.Equals, "theoneandonly",
+	)
+}
+
+func (s *RegisterSuite) TestRegisterMultipleModels(c *gc.C) {
+	s.refreshModels = func(store jujuclient.ClientStore, controller, account string) error {
+		for _, name := range [...]string{"model1", "model2"} {
+			err := store.UpdateModel(controller, account, name, jujuclient.ModelDetails{
+				ModelUUID: "df136476-12e9-11e4-8a70-b2227cce2b54",
+			})
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		return nil
+	}
+	ctx := s.testRegister(c)
+
+	// When there are multiple models, no current model will be set.
+	// Instead, the command will output the list of models and inform
+	// the user how to set the current model.
+	_, err := s.store.CurrentModel("controller-name", "bob@local")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	stderr := testing.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+Please set a name for this controller: 
+Enter password: 
+Confirm password: 
+
+Welcome, bob. You are now logged into "controller-name".
+
+There are 2 models available. Use "juju switch" to select
+one of them:
+  - juju switch model1
+  - juju switch model2
+
+`[1:])
+}
+
+func (s *RegisterSuite) testRegister(c *gc.C) *cmd.Context {
 	secretKey := []byte(strings.Repeat("X", 32))
 	respNonce := []byte(strings.Repeat("X", 24))
 
@@ -162,7 +224,7 @@ func (s *RegisterSuite) TestRegister(c *gc.C) {
 
 	registrationData := s.encodeRegistrationData(c, "bob", secretKey)
 	stdin := strings.NewReader("controller-name\nhunter2\nhunter2\n")
-	_, err = s.run(c, stdin, registrationData)
+	ctx, err := s.run(c, stdin, registrationData)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// There should have been one POST command to "/register".
@@ -198,12 +260,7 @@ func (s *RegisterSuite) TestRegister(c *gc.C) {
 		User:     "bob@local",
 		Password: "hunter2",
 	})
-
-	// The command should have logged into the controller with the
-	// information we checked above.
-	c.Assert(s.apiOpenControllerName, gc.Equals, "controller-name")
-	c.Assert(s.apiOpenAccountName, gc.Equals, "bob@local")
-	c.Assert(s.apiOpenModelName, gc.Equals, "")
+	return ctx
 }
 
 func (s *RegisterSuite) TestRegisterInvalidRegistrationData(c *gc.C) {

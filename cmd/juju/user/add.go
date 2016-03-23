@@ -177,6 +177,11 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	fmt.Fprintf(ctx.Stdout, "    juju register %s\n",
 		base64RegistrationData,
 	)
+	if len(modelNames) == 0 {
+		fmt.Fprintf(ctx.Stdout, `
+%q has not been granted access to any models. You can use "juju grant" to grant access.
+`, displayName)
+	}
 
 	return nil
 }

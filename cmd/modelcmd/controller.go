@@ -19,7 +19,12 @@ var (
 	// ErrNoControllerSpecified is returned by commands that operate on
 	// a controller if there is no current controller, no controller has been
 	// explicitly specified, and there is no default controller.
-	ErrNoControllerSpecified = errors.New("no controller specified")
+	ErrNoControllerSpecified = errors.New(`no controller specified
+
+There is no current controller. Please use "juju switch" to
+set the current controller/model, or create a new controller
+using "juju bootstrap".
+`)
 
 	// ErrNoAccountSpecified is returned by commands that operate on a
 	// controller if there is no current account associated with the
