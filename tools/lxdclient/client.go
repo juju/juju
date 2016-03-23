@@ -6,6 +6,7 @@
 package lxdclient
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/lxc/lxd"
@@ -24,6 +25,11 @@ type Client struct {
 	*profileClient
 	*instanceClient
 	*imageClient
+	baseURL string
+}
+
+func (c Client) String() string {
+	return fmt.Sprintf("Client(%s)", c.baseURL)
 }
 
 // Connect opens an API connection to LXD and returns a high-level
@@ -35,7 +41,7 @@ func Connect(cfg Config) (*Client, error) {
 
 	remote := cfg.Remote.ID()
 
-	raw, err := newRawClient(cfg)
+	raw, err := newRawClient(cfg.Remote)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -45,7 +51,8 @@ func Connect(cfg Config) (*Client, error) {
 		certClient:         &certClient{raw},
 		profileClient:      &profileClient{raw},
 		instanceClient:     &instanceClient{raw, remote},
-		imageClient:        &imageClient{raw, cfg},
+		imageClient:        &imageClient{raw},
+		baseURL:            raw.BaseURL,
 	}
 	return conn, nil
 }
@@ -53,11 +60,11 @@ func Connect(cfg Config) (*Client, error) {
 var lxdNewClientFromInfo = lxd.NewClientFromInfo
 
 // newRawClient connects to the LXD host that is defined in Config.
-func newRawClient(cfg Config) (*lxd.Client, error) {
-	logger.Debugf("using LXD remote %q", cfg.Remote.ID())
-	remote := cfg.Remote.ID()
-	host := cfg.Remote.Host
-	if remote == remoteIDForLocal || host == "" {
+func newRawClient(remote Remote) (*lxd.Client, error) {
+	host := remote.Host
+	logger.Debugf("connecting to LXD remote %q: %q", remote.ID(), host)
+
+	if remote.ID() == remoteIDForLocal || host == "" {
 		host = "unix://" + lxdshared.VarPath("unix.socket")
 	} else {
 		_, _, err := net.SplitHostPort(host)
@@ -68,64 +75,38 @@ func newRawClient(cfg Config) (*lxd.Client, error) {
 	}
 
 	clientCert := ""
-	if cfg.Remote.Cert != nil && cfg.Remote.Cert.CertPEM != nil {
-		clientCert = string(cfg.Remote.Cert.CertPEM)
+	if remote.Cert != nil && remote.Cert.CertPEM != nil {
+		clientCert = string(remote.Cert.CertPEM)
 	}
 
 	clientKey := ""
-	if cfg.Remote.Cert != nil && cfg.Remote.Cert.KeyPEM != nil {
-		clientKey = string(cfg.Remote.Cert.KeyPEM)
+	if remote.Cert != nil && remote.Cert.KeyPEM != nil {
+		clientKey = string(remote.Cert.KeyPEM)
+	}
+
+	static := false
+	public := false
+	if remote.Protocol == SimplestreamsProtocol {
+		static = true
+		public = true
 	}
 
 	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
-		Name: cfg.Remote.ID(),
+		Name: remote.ID(),
 		RemoteConfig: lxd.RemoteConfig{
 			Addr:     host,
-			Static:   false,
-			Public:   false,
-			Protocol: "",
+			Static:   static,
+			Public:   public,
+			Protocol: string(remote.Protocol),
 		},
 		ClientPEMCert: clientCert,
 		ClientPEMKey:  clientKey,
-		ServerPEMCert: cfg.Remote.ServerPEMCert,
+		ServerPEMCert: remote.ServerPEMCert,
 	})
 	if err != nil {
-		if remote == remoteIDForLocal {
+		if remote.ID() == remoteIDForLocal {
 			return nil, errors.Annotate(err, "can't connect to the local LXD server")
 		}
-		return nil, errors.Trace(err)
-	}
-	return client, nil
-}
-
-// lxdClientForCloudImages creates a lxd.Client that you can use to get images
-// from cloud-images.ubuntu.com using the LXD mechanisms.
-// We support Config.ImageStream being "", "releases", or "released" to all
-// mean use the "releases" stream, while "daily" switches to daily images.
-func lxdClientForCloudImages(cfg Config) (*lxd.Client, error) {
-	clientCert := ""
-	clientKey := ""
-	if cfg.Remote.Cert != nil {
-		if cfg.Remote.Cert.CertPEM != nil {
-			clientCert = string(cfg.Remote.Cert.CertPEM)
-		}
-		if cfg.Remote.Cert.KeyPEM != nil {
-			clientKey = string(cfg.Remote.Cert.KeyPEM)
-		}
-	}
-
-	remote := lxd.UbuntuRemote
-	if cfg.ImageStream == StreamDaily {
-		remote = lxd.UbuntuDailyRemote
-	}
-	// No ServerPEMCert for static hosts
-	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
-		Name:          cfg.Remote.ID(),
-		RemoteConfig:  remote,
-		ClientPEMCert: clientCert,
-		ClientPEMKey:  clientKey,
-	})
-	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return client, nil

@@ -192,7 +192,7 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 			c, s.newBootstrapCommand(),
 			"devcontroller", "dummy", "--auto-upgrade",
 		)
-		c.Check(err, gc.DeepEquals, t.err)
+		c.Check(errors.Cause(err), gc.DeepEquals, t.err)
 		expectedRetries := t.numRetries
 		if t.numRetries <= 0 {
 			expectedRetries = 1

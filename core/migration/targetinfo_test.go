@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelmigration_test
+package migration_test
 
 import (
 	"github.com/juju/errors"
@@ -10,7 +10,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	migration "github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -56,11 +56,11 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		},
 		"empty CACert not valid",
 	}, {
-		"EntityTag",
+		"AuthTag",
 		func(info *migration.TargetInfo) {
-			info.EntityTag = names.NewMachineTag("")
+			info.AuthTag = names.UserTag{}
 		},
-		"empty EntityTag not valid",
+		"empty AuthTag not valid",
 	}, {
 		"Password",
 		func(info *migration.TargetInfo) {
@@ -81,7 +81,7 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 			ControllerTag: modelTag,
 			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
 			CACert:        "cert",
-			EntityTag:     names.NewUserTag("user"),
+			AuthTag:       names.NewUserTag("user"),
 			Password:      "password",
 		}
 		test.tweakInfo(&info)

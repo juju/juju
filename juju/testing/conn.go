@@ -101,6 +101,7 @@ const AdminSecret = "dummy-secret"
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
+	s.PatchValue(&utils.OutgoingAccessAllowed, false)
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *gc.C) {

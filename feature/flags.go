@@ -38,3 +38,6 @@ const VSphereProvider = "vsphere-provider"
 
 // ImageMetadata allows custom image metadata to be recorded in state.
 const ImageMetadata = "image-metadata"
+
+// Migration enables the 'juju migrate' command.
+const Migration = "migration"
