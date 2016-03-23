@@ -60,6 +60,10 @@ func ConnectLocal(namespace string) (*lxdclient.Client, error) {
 	return client, nil
 }
 
+// NewContainerManager creates the entity that knows how to create and manage
+// LXD containers.
+// TODO(jam): This needs to grow support for things like LXC's ImageURLGetter
+// functionality.
 func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
 	name := conf.PopValue(container.ConfigName)
 	if name == "" {
@@ -93,6 +97,7 @@ func (manager *containerManager) CreateContainer(
 	}
 
 	err = manager.client.EnsureImageExists(series,
+		lxdclient.DefaultImageSources,
 		func(progress string) {
 			callback(status.StatusProvisioning, progress, nil)
 		})
