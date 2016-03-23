@@ -64,6 +64,8 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
@@ -71,10 +73,7 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 		return set.NewStrings("network-deployment-ubuntu"), nil
 	}
 	s.PatchValue(&GetCapabilities, mockCapabilities)
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.ToolsFixture.SetUpTest(c)
 	s.SetFeatureFlags(feature.AddressAllocation)
-	s.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	// Creating a space ensures that the spaces endpoint won't 404.
 	s.testMAASObject.TestServer.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-0"}))
 }
