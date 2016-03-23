@@ -28,7 +28,7 @@ type ControllerDetails struct {
 
 // ModelDetails holds details of a model.
 type ModelDetails struct {
-	// ModelUUID holds the details of a model.
+	// ModelUUID is the unique ID for the model.
 	ModelUUID string `yaml:"uuid"`
 }
 
