@@ -135,6 +135,12 @@ func (c *restoreCommand) getEnviron(controllerName string, meta *params.BackupsM
 	store := c.ClientStore()
 	cfg, err := modelcmd.NewGetBootstrapConfigFunc(store)(controllerName)
 	if err != nil {
+		return nil, errors.Annotate(err, "cannot restore from a machine other than the one used to bootstrap")
+	}
+
+	// Reset current model to admin so first bootstrap succeeds.
+	err = store.SetCurrentModel(controllerName, environs.AdminUser, "admin")
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -190,9 +196,8 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		}
 	}
 
-	// TODO(wallyworld) - backup / restore doesn't properly support multi-model.
 	// We require a hosted model config to bootstrap. We'll fill in some defaults
-	// and will need to redo properly later.
+	// just to get going. The restore will clear the initial state.
 	hostedModelUUID, err := utils.NewUUID()
 	if err != nil {
 		return errors.Trace(err)
