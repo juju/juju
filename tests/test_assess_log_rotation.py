@@ -14,6 +14,7 @@ from assess_log_rotation import (
     make_client_from_args,
     parse_args,
     test_debug_log,
+    test_machine_rotation,
 )
 from jujupy import (
     EnvJujuClient,
@@ -22,6 +23,7 @@ from jujupy import (
     yaml_loads,
     )
 from tests import TestCase
+from tests.test_jujupy import FakeJujuClient
 
 good_yaml = \
     """
@@ -171,6 +173,29 @@ class TestTestDebugLog(TestCase):
             test_debug_log(client)
         client.get_juju_output.assert_called_once_with(
             "debug-log", "--lines=100", "--limit=100", timeout=180)
+
+
+class TestMachineRoation(TestCase):
+
+    def test_respects_machine_id_0(self):
+        client = FakeJujuClient(jes_enabled=True)
+        client.bootstrap()
+        client.deploy('fill-logs')
+        with patch('assess_log_rotation.test_rotation') as tr_mock:
+            test_machine_rotation(client)
+        tr_mock.assert_called_once_with(
+            client, '/var/log/juju/machine-0.log', 'machine-0', 'fill-machine',
+            'machine-size', 'megs=300', 'machine=0')
+
+    def test_respects_machine_id_1(self):
+        client = FakeJujuClient(jes_enabled=False)
+        client.bootstrap()
+        client.deploy('fill-logs')
+        with patch('assess_log_rotation.test_rotation') as tr_mock:
+            test_machine_rotation(client)
+        tr_mock.assert_called_once_with(
+            client, '/var/log/juju/machine-1.log', 'machine-1',
+            'fill-machine', 'machine-size', 'megs=300', 'machine=1')
 
 
 class TestParseArgs(TestCase):

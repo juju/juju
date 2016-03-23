@@ -42,6 +42,9 @@ def test_debug_log(client, timeout=180, lines=100):
             lines, len(content)))
 
 
+test_debug_log.__test__ = False
+
+
 def test_unit_rotation(client):
     """Tests unit log rotation."""
     # TODO: as part of testing that when a unit sending lots of logs triggers
@@ -60,11 +63,16 @@ def test_unit_rotation(client):
 
 def test_machine_rotation(client):
     """Tests machine log rotation."""
+    status = client.wait_for_started()
+    machine_id = status.get_unit('fill-logs/0')['machine']
     test_rotation(client,
-                  "/var/log/juju/machine-1.log",
-                  "machine-1",
+                  "/var/log/juju/machine-{}.log".format(machine_id),
+                  "machine-{}".format(machine_id),
                   "fill-machine",
-                  "machine-size", "megs=300", "machine=1")
+                  "machine-size", "megs=300", "machine={}".format(machine_id))
+
+
+test_machine_rotation.__test__ = False
 
 
 def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
