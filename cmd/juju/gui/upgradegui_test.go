@@ -153,7 +153,7 @@ func (s *upgradeGUISuite) TestUpgradeGUIUploadGUIArchiveError(c *gc.C) {
 	s.patchClientUploadGUIArchive(c, hash, size, "2.2.0", false, errors.New("bad wolf"))
 	out, err := s.run(c, path)
 	c.Assert(err, gc.ErrorMatches, "cannot upload Juju GUI: bad wolf")
-	c.Assert(out, gc.Equals, "")
+	c.Assert(out, gc.Equals, "uploading Juju GUI 2.2.0")
 }
 
 func (s *upgradeGUISuite) TestUpgradeGUISelectGUIVersionError(c *gc.C) {
@@ -163,7 +163,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISelectGUIVersionError(c *gc.C) {
 	s.patchClientSelectGUIVersion(c, "2.3.0", errors.New("bad wolf"))
 	out, err := s.run(c, path)
 	c.Assert(err, gc.ErrorMatches, "cannot switch to new Juju GUI version: bad wolf")
-	c.Assert(out, gc.Equals, "Juju GUI version 2.3.0 uploaded")
+	c.Assert(out, gc.Equals, "uploading Juju GUI 2.3.0\nupload completed")
 }
 
 var upgradeGUISuccessTests = []struct {
@@ -187,7 +187,7 @@ var upgradeGUISuccessTests = []struct {
 }{{
 	about:          "archive: first archive",
 	archiveVersion: "2.0.0",
-	expectedOutput: "Juju GUI version 2.0.0 uploaded\nJuju GUI switched to version 2.0.0",
+	expectedOutput: "uploading Juju GUI 2.0.0\nupload completed\nJuju GUI switched to version 2.0.0",
 	uploaded:       true,
 	selected:       true,
 }, {
@@ -202,7 +202,7 @@ var upgradeGUISuccessTests = []struct {
 	},
 	uploaded:       true,
 	selected:       true,
-	expectedOutput: "Juju GUI version 2.1.0 uploaded\nJuju GUI switched to version 2.1.0",
+	expectedOutput: "uploading Juju GUI 2.1.0\nupload completed\nJuju GUI switched to version 2.1.0",
 }, {
 	about:          "archive: new archive, existing non-current version",
 	archiveVersion: "2.0.42",
@@ -219,7 +219,7 @@ var upgradeGUISuccessTests = []struct {
 	},
 	uploaded:       true,
 	selected:       true,
-	expectedOutput: "Juju GUI version 2.0.42 uploaded\nJuju GUI switched to version 2.0.42",
+	expectedOutput: "uploading Juju GUI 2.0.42\nupload completed\nJuju GUI switched to version 2.0.42",
 }, {
 	about:          "archive: new archive, existing current version",
 	archiveVersion: "2.0.47",
@@ -231,7 +231,7 @@ var upgradeGUISuccessTests = []struct {
 		}}
 	},
 	uploaded:       true,
-	expectedOutput: "Juju GUI version 2.0.47 uploaded\nJuju GUI already at version 2.0.47",
+	expectedOutput: "uploading Juju GUI 2.0.47\nupload completed\nJuju GUI at version 2.0.47",
 }, {
 	about:          "archive: existing archive, existing non-current version",
 	archiveVersion: "2.0.42",
@@ -258,7 +258,7 @@ var upgradeGUISuccessTests = []struct {
 			Current: true,
 		}}
 	},
-	expectedOutput: "Juju GUI already at version 1.47.0",
+	expectedOutput: "Juju GUI at version 1.47.0",
 }, {
 	about:          "archive: existing archive, different existing version",
 	archiveVersion: "2.0.42",
@@ -275,7 +275,7 @@ var upgradeGUISuccessTests = []struct {
 	},
 	uploaded:       true,
 	selected:       true,
-	expectedOutput: "Juju GUI version 2.0.42 uploaded\nJuju GUI switched to version 2.0.42",
+	expectedOutput: "uploading Juju GUI 2.0.42\nupload completed\nJuju GUI switched to version 2.0.42",
 	// TODO frankban: add simplestreams cases when the feature is implemented.
 }}
 
@@ -305,6 +305,30 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 		c.Assert(uploadGUIArchiveCalled(), gc.Equals, test.uploaded)
 		c.Assert(selectGUIVersionCalled(), gc.Equals, test.selected)
 	}
+}
+
+func (s *upgradeGUISuite) TestUpgradeGUIIntegration(c *gc.C) {
+	// Prepare a GUI archive.
+	path, hash, size := saveGUIArchive(c, "2.42.0")
+
+	// Upload the archive from command line.
+	out, err := s.run(c, path)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, gc.Equals, "uploading Juju GUI 2.42.0\nupload completed\nJuju GUI switched to version 2.42.0")
+
+	// Check that the archive is present in the GUI storage server side.
+	storage, err := s.State.GUIStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer storage.Close()
+	metadata, err := storage.Metadata("2.42.0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metadata.SHA256, gc.Equals, hash)
+	c.Assert(metadata.Size, gc.Equals, size)
+
+	// Check that the uploaded version has been set as the current one.
+	vers, err := s.State.GUIVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vers.String(), gc.Equals, "2.42.2")
 }
 
 // makeGUIArchive creates a Juju GUI tar.bz2 archive in memory, and returns a

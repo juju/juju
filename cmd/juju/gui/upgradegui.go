@@ -58,7 +58,8 @@ func (c *upgradeGUICommand) Info() *cmd.Info {
 
 func (c *upgradeGUICommand) Init(args []string) error {
 	if len(args) == 1 {
-		c.versOrPath, args = args[0], args[1:]
+		c.versOrPath = args[0]
+		return nil
 	}
 	return cmd.CheckEmpty(args)
 }
@@ -86,15 +87,16 @@ func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
 
 	// Upload the release file if required.
 	if hash != existingHash {
+		ctx.Infof("uploading Juju GUI %s", vers)
 		isCurrent, err = clientUploadGUIArchive(client, r, hash, size, vers)
 		if err != nil {
 			return errors.Annotate(err, "cannot upload Juju GUI")
 		}
-		ctx.Infof("Juju GUI version %s uploaded", vers)
+		ctx.Infof("upload completed")
 	}
 	// Switch to the new version if not already at the desired one.
 	if isCurrent {
-		ctx.Infof("Juju GUI already at version %s", vers)
+		ctx.Infof("Juju GUI at version %s", vers)
 		return nil
 	}
 	if err = clientSelectGUIVersion(client, vers); err != nil {
@@ -133,9 +135,15 @@ func openArchive(versOrPath string) (r readSeekCloser, hash string, size int64, 
 	if err != nil {
 		return nil, "", 0, vers, errors.Annotatef(err, "cannot upgrade Juju GUI using %q", versOrPath)
 	}
+	if _, err := f.Seek(0, 0); err != nil {
+		return nil, "", 0, version.Number{}, errors.Annotate(err, "cannot seek archive")
+	}
 	hash, size, err = hashAndSize(f)
 	if err != nil {
-		return nil, "", 0, vers, errors.Annotatef(err, "cannot upgrade Juju GUI using %q", versOrPath)
+		return nil, "", 0, version.Number{}, errors.Annotatef(err, "cannot upgrade Juju GUI using %q", versOrPath)
+	}
+	if _, err := f.Seek(0, 0); err != nil {
+		return nil, "", 0, version.Number{}, errors.Annotate(err, "cannot seek archive")
 	}
 	return f, hash, size, vers, nil
 }
@@ -148,7 +156,7 @@ type readSeekCloser interface {
 
 // archiveVersion retrieves the GUI version from the juju-gui-* directory
 // included in the given tar.bz2 archive reader.
-func archiveVersion(r io.ReadSeeker) (version.Number, error) {
+func archiveVersion(r io.Reader) (version.Number, error) {
 	var vers version.Number
 	prefix := "jujugui-"
 	tr := tar.NewReader(bzip2.NewReader(r))
@@ -169,23 +177,17 @@ func archiveVersion(r io.ReadSeeker) (version.Number, error) {
 		if err != nil {
 			return vers, errors.Errorf("invalid version %q in archive", n)
 		}
-		if _, err := r.Seek(0, 0); err != nil {
-			return vers, errors.Annotate(err, "cannot seek archive")
-		}
 		return vers, nil
 	}
 	return vers, errors.New("cannot find Juju GUI version in archive")
 }
 
 // hashAndSize returns the SHA256 hash and size of the data included in r.
-func hashAndSize(r io.ReadSeeker) (hash string, size int64, err error) {
+func hashAndSize(r io.Reader) (hash string, size int64, err error) {
 	h := sha256.New()
 	size, err = io.Copy(h, r)
 	if err != nil {
 		return "", 0, errors.Annotate(err, "cannot calculate archive hash")
-	}
-	if _, err := r.Seek(0, 0); err != nil {
-		return "", 0, errors.Annotate(err, "cannot seek archive")
 	}
 	return fmt.Sprintf("%x", h.Sum(nil)), size, nil
 }
