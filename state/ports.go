@@ -197,7 +197,7 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			if err := checkModeLife(p.st); err != nil {
+			if err := checkModeActive(p.st); err != nil {
 				return nil, errors.Trace(err)
 			}
 			if err = ports.Refresh(); errors.IsNotFound(err) {

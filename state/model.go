@@ -653,7 +653,7 @@ func assertModelActiveOp(modelUUID string) txn.Op {
 	}
 }
 
-func checkModeLife(st *State) error {
+func checkModeActive(st *State) error {
 	model, err := st.Model()
 	if (err == nil && model.Life() != Alive) || errors.IsNotFound(err) {
 		return errors.Errorf("model %q is no longer alive", model.Name())

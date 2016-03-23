@@ -159,12 +159,6 @@ func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
 func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add a new machine")
 	var ms []*Machine
-	env, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	} else if env.Life() != Alive {
-		return nil, errors.New("model is no longer alive")
-	}
 	var ops []txn.Op
 	var mdocs []*machineDoc
 	for _, template := range templates {
@@ -188,9 +182,14 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, ssOps...)
-	ops = append(ops, env.assertActiveOp())
+	ops = append(ops, assertModelActiveOp(st.ModelUUID()))
 	if err := st.runTransaction(ops); err != nil {
-		return nil, onAbort(err, errors.New("model is no longer alive"))
+		if errors.Cause(err) == txn.ErrAborted {
+			if err := checkModeActive(st); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		return nil, errors.Trace(err)
 	}
 	return ms, nil
 }

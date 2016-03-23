@@ -62,7 +62,7 @@ func addIPAddress(st *State, addr network.Address, subnetid string) (ipaddress *
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
-		if err := checkModeLife(st); err != nil {
+		if err := checkModeActive(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		if _, err = st.IPAddress(addr.Value); err == nil {
@@ -399,7 +399,7 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId, macAddress string) (err e
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			if err := checkModeLife(i.st); err != nil {
+			if err := checkModeActive(i.st); err != nil {
 				return nil, errors.Trace(err)
 			}
 			if err := i.Refresh(); errors.IsNotFound(err) {

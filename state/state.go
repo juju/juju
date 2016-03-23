@@ -1201,11 +1201,8 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	} else if exists {
 		return nil, errors.Errorf("service already exists")
 	}
-	env, err := st.Model()
-	if err != nil {
+	if err := checkModeActive(st); err != nil {
 		return nil, errors.Trace(err)
-	} else if env.Life() != Alive {
-		return nil, errors.Errorf("model is no longer alive")
 	}
 	if _, err := st.ModelUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
@@ -1303,7 +1300,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	svcDoc := &serviceDoc{
 		DocID:         serviceID,
 		Name:          args.Name,
-		ModelUUID:     env.UUID(),
+		ModelUUID:     st.ModelUUID(),
 		Series:        args.Series,
 		Subordinate:   args.Charm.Meta().Subordinate,
 		CharmURL:      args.Charm.URL(),
@@ -1340,7 +1337,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	// so we add it here.
 	ops := append(
 		[]txn.Op{
-			env.assertActiveOp(),
+			assertModelActiveOp(st.ModelUUID()),
 			endpointBindingsOp,
 		},
 		addServiceOps(st, addServiceOpsArgs{
@@ -1392,7 +1389,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	probablyUpdateStatusHistory(st, svc.globalKey(), statusDoc)
 
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
-		if err := checkModeLife(st); err != nil {
+		if err := checkModeActive(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return nil, errors.Errorf("service already exists")
@@ -1671,7 +1668,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
-		if err := checkModeLife(st); err != nil {
+		if err := checkModeActive(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		if _, err = st.Subnet(args.CIDR); err == nil {
@@ -1761,7 +1758,7 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
-		if err := checkModeLife(st); err != nil {
+		if err := checkModeActive(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		if _, err = st.Network(args.Name); err == nil {

@@ -55,7 +55,7 @@ func (m *Machine) setFlag() error {
 	}
 	err := m.st.runTransaction(ops)
 	if err == txn.ErrAborted {
-		if err := checkModeLife(m.st); err != nil {
+		if err := checkModeActive(m.st); err != nil {
 			return errors.Trace(err)
 		}
 		return mgo.ErrNotFound
