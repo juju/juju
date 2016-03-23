@@ -2878,10 +2878,7 @@ func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
+func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 	// insert one doc for each multiEnvCollection
 	var ops []mgotxn.Op
 	for _, collName := range state.MultiEnvCollections() {
@@ -2918,26 +2915,33 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 		c.Assert(n, gc.Not(gc.Equals), 0)
 	}
 
-	// test that we can find the user:envName unique index
-	env, err := st.Model()
+	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	indexColl, closer := state.GetCollection(st, "usermodelname")
+	return state.UserModelNameIndex(model.Owner().Canonical(), model.Name())
+}
+
+type checkUserModelNameArgs struct {
+	st     *state.State
+	id     string
+	exists bool
+}
+
+func (s *StateSuite) checkUserModelNameExists(c *gc.C, args checkUserModelNameArgs) {
+	indexColl, closer := state.GetCollection(args.st, "usermodelname")
 	defer closer()
-	id := state.UserModelNameIndex(env.Owner().Canonical(), env.Name())
-	n, err := indexColl.FindId(id).Count()
+	n, err := indexColl.FindId(args.id).Count()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(n, gc.Equals, 1)
+	if args.exists {
+		c.Assert(n, gc.Equals, 1)
+	} else {
+		c.Assert(n, gc.Equals, 0)
+	}
+}
 
-	err = state.SetModelLifeDead(st, st.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.RemoveAllModelDocs()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// test that we can not find the user:envName unique index
-	n, err = indexColl.FindId(id).Count()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(n, gc.Equals, 0)
+func (s *StateSuite) AssertModelDeleted(c *gc.C, st *state.State) {
+	// check to see if the model itself is gone
+	_, err := st.Model()
+	c.Assert(err, gc.ErrorMatches, `model not found`)
 
 	// ensure all docs for all multiEnvCollections are removed
 	for _, collName := range state.MultiEnvCollections() {
@@ -2949,12 +2953,68 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestRemoveAllEnvironDocsAliveEnvFails(c *gc.C) {
+func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	userModelKey := s.insertFakeModelDocs(c, st)
+	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: true})
+
+	err := state.SetModelLifeDead(st, st.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveAllModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can not find the user:envName unique index
+	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
+	s.AssertModelDeleted(c, st)
+}
+
+func (s *StateSuite) TestRemoveAllModelDocsAliveEnvFails(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
 	err := st.RemoveAllModelDocs()
 	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+}
+
+func (s *StateSuite) TestRemoveImportingModelDocsFailsActive(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	err := st.RemoveImportingModelDocs()
+	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+}
+
+func (s *StateSuite) TestRemoveImportingModelDocsFailsExporting(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveImportingModelDocs()
+	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+}
+
+func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	userModelKey := s.insertFakeModelDocs(c, st)
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveImportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can not find the user:envName unique index
+	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
+	s.AssertModelDeleted(c, st)
 }
 
 type attrs map[string]interface{}

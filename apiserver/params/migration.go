@@ -16,6 +16,11 @@ type SerializedModel struct {
 	Bytes []byte `json:"bytes"`
 }
 
+// ModelArgs wraps a simple model tag.
+type ModelArgs struct {
+	ModelTag string `json:"model-tag"`
+}
+
 // MigrationStatus reports the current status of a model migration.
 type MigrationStatus struct {
 	Attempt        int             `json:"attempt"`

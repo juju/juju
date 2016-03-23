@@ -16,6 +16,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/description"
 	_ "github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 )
@@ -65,20 +66,94 @@ func (s *Suite) TestNotControllerAdmin(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, common.ErrPerm)
 }
 
-func (s *Suite) TestImport(c *gc.C) {
+func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
 	uuid, bytes := s.makeExportedModel(c)
-	api := s.mustNewAPI(c)
-
 	err := api.Import(params.SerializedModel{Bytes: bytes})
 	c.Assert(err, jc.ErrorIsNil)
+	return names.NewModelTag(uuid)
+}
 
+func (s *Suite) TestImport(c *gc.C) {
+	api := s.mustNewAPI(c)
+	tag := s.importModel(c, api)
 	// Check the model was imported.
-	st, err := s.State.ForModel(names.NewModelTag(uuid))
+	model, err := s.State.GetModel(tag)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Name(), gc.Equals, "some-model")
+	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeImporting)
+}
+
+func (s *Suite) TestAbort(c *gc.C) {
+	api := s.mustNewAPI(c)
+	tag := s.importModel(c, api)
+
+	err := api.Abort(params.ModelArgs{ModelTag: tag.String()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The model should no longer exist.
+	_, err = s.State.GetModel(tag)
+	c.Assert(err, gc.ErrorMatches, `model not found`)
+}
+
+func (s *Suite) TestAbortNotATag(c *gc.C) {
+	api := s.mustNewAPI(c)
+	err := api.Abort(params.ModelArgs{ModelTag: "not-a-tag"})
+	c.Assert(err, gc.ErrorMatches, `"not-a-tag" is not a valid tag`)
+}
+
+func (s *Suite) TestAbortMissingEnv(c *gc.C) {
+	api := s.mustNewAPI(c)
+	newUUID := utils.MustNewUUID().String()
+	err := api.Abort(params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
+	c.Assert(err, gc.ErrorMatches, `model not found`)
+}
+
+func (s *Suite) TestAbortNotImportingEnv(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Name(), gc.Equals, "some-model")
+
+	api := s.mustNewAPI(c)
+	err = api.Abort(params.ModelArgs{ModelTag: model.ModelTag().String()})
+	c.Assert(err, gc.ErrorMatches, `migration mode for the model is not importing`)
+}
+
+func (s *Suite) TestActivate(c *gc.C) {
+	api := s.mustNewAPI(c)
+	tag := s.importModel(c, api)
+
+	err := api.Activate(params.ModelArgs{ModelTag: tag.String()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The model should no longer exist.
+	model, err := s.State.GetModel(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeActive)
+}
+
+func (s *Suite) TestActivateNotATag(c *gc.C) {
+	api := s.mustNewAPI(c)
+	err := api.Activate(params.ModelArgs{ModelTag: "not-a-tag"})
+	c.Assert(err, gc.ErrorMatches, `"not-a-tag" is not a valid tag`)
+}
+
+func (s *Suite) TestActivateMissingEnv(c *gc.C) {
+	api := s.mustNewAPI(c)
+	newUUID := utils.MustNewUUID().String()
+	err := api.Activate(params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
+	c.Assert(err, gc.ErrorMatches, `model not found`)
+}
+
+func (s *Suite) TestActivateNotImportingEnv(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	api := s.mustNewAPI(c)
+	err = api.Activate(params.ModelArgs{ModelTag: model.ModelTag().String()})
+	c.Assert(err, gc.ErrorMatches, `migration mode for the model is not importing`)
 }
 
 func (s *Suite) newAPI() (*migrationtarget.API, error) {

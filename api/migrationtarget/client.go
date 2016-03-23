@@ -4,6 +4,8 @@
 package migrationtarget
 
 import (
+	"github.com/juju/names"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -15,6 +17,8 @@ type Client interface {
 	// Import takes a serialized model and imports it into the target
 	// controller.
 	Import([]byte) error
+	Abort(names.ModelTag) error
+	Activate(names.ModelTag) error
 }
 
 // NewClient returns a new Client based on an existing API connection.
@@ -31,4 +35,16 @@ type client struct {
 func (c *client) Import(bytes []byte) error {
 	serialized := params.SerializedModel{Bytes: bytes}
 	return c.caller.FacadeCall("Import", serialized, nil)
+}
+
+// Abort implements Client.
+func (c *client) Abort(tag names.ModelTag) error {
+	args := params.ModelArgs{ModelTag: tag.String()}
+	return c.caller.FacadeCall("Abort", args, nil)
+}
+
+// Activate implements Client.
+func (c *client) Activate(tag names.ModelTag) error {
+	args := params.ModelArgs{ModelTag: tag.String()}
+	return c.caller.FacadeCall("Activate", args, nil)
 }
