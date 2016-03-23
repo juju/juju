@@ -449,7 +449,7 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 		instTypeNames[i] = flavor.Name
 	}
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
-	validator.RegisterVocabulary(constraints.VirtType, []string{"lxd", "qemu"})
+	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
 	return validator, nil
 }
 
