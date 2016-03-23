@@ -1412,6 +1412,18 @@ func (st *State) WatchForEnvironConfigChanges() NotifyWatcher {
 	return newEntityWatcher(st, settingsC, st.docID(environGlobalKey))
 }
 
+func (st *State) WatchForEnvironConfigAndAPIHostPortChanges() NotifyWatcher {
+	return newDocWatcher(st, []docKey{
+		{
+			settingsC,
+			st.docID(environGlobalKey),
+		}, {
+			stateServersC,
+			apiHostPortsKey,
+		},
+	})
+}
+
 // WatchAPIHostPorts returns a NotifyWatcher that notifies
 // when the set of API addresses changes.
 func (st *State) WatchAPIHostPorts() NotifyWatcher {

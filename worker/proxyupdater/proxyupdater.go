@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"strings"
 
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
@@ -15,8 +16,11 @@ import (
 	"github.com/juju/utils/packaging/config"
 	proxyutils "github.com/juju/utils/proxy"
 
-	"github.com/juju/juju/api/environment"
+	"github.com/juju/juju/api/base"
+	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/api/watcher"
+	envconfig "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
@@ -39,13 +43,21 @@ var (
 	Started = func() {}
 )
 
+// APIHostPortFetcher is an interface that is provided to New
+// which can be used to fetch the API host ports
+type API interface {
+	APIHostPorts() ([][]network.HostPort, error)
+	EnvironConfig() (*envconfig.Config, error)
+	WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error)
+}
+
 // proxyWorker is responsible for monitoring the juju environment
 // configuration and making changes on the physical (or virtual) machine as
 // necessary to match the environment changes.  Examples of these types of
 // changes are apt proxy configuration and the juju proxies stored in the juju
 // proxy file.
 type proxyWorker struct {
-	api      *environment.Facade
+	api      API
 	aptProxy proxyutils.Settings
 	proxy    proxyutils.Settings
 
@@ -65,10 +77,11 @@ var _ worker.NotifyWatchHandler = (*proxyWorker)(nil)
 
 // New returns a worker.Worker that updates proxy environment variables for the
 // process; and, if writeSystemFiles is true, for the whole machine.
-var New = func(api *environment.Facade, writeSystemFiles bool) worker.Worker {
+var New = func(api base.APICaller, writeSystemFiles bool) worker.Worker {
+	proxyAPI := apiproxyupdater.NewAPI(api)
 	logger.Debugf("write system files: %v", writeSystemFiles)
 	envWorker := &proxyWorker{
-		api:              api,
+		api:              proxyAPI,
 		writeSystemFiles: writeSystemFiles,
 		first:            true,
 	}
@@ -190,7 +203,17 @@ func (w *proxyWorker) onChange() error {
 	if err != nil {
 		return err
 	}
-	w.handleProxyValues(env.ProxySettings())
+	apiHostPorts, err := w.api.APIHostPorts()
+	proxySettings := env.ProxySettings()
+	noProxy := strings.Split(proxySettings.NoProxy, ",")
+	for _, host := range apiHostPorts {
+		for _, hp := range host {
+			noProxy = append(noProxy, hp.Address.Value)
+		}
+	}
+	proxySettings.NoProxy = strings.Join(noProxy, ",")
+
+	w.handleProxyValues(proxySettings)
 	err = w.handleAptProxyValues(env.AptProxySettings())
 	if err != nil {
 		return err
@@ -208,7 +231,7 @@ func (w *proxyWorker) SetUp() (watcher.NotifyWatcher, error) {
 	}
 	w.first = false
 	Started()
-	return w.api.WatchForEnvironConfigChanges()
+	return w.api.WatchForProxyConfigAndAPIHostPortChanges()
 }
 
 // Handle is defined on the worker.NotifyWatchHandler interface.
