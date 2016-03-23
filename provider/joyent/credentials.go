@@ -34,7 +34,6 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 					Optional:    true,
 					Options:     []interface{}{"rsa-sha256", "rsa-sha1", "rsa-sha224", "rsa-sha384", "rsa-sha512"},
 				},
-
 			},
 		},
 	}

@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -180,10 +179,6 @@ func FindInstanceSpec(
 	return
 }
 
-func CreateContainer(s *JoyentStorage) error {
-	return s.createContainer()
-}
-
 func CredentialsAttributes(attrs testing.Attrs) map[string]string {
 	credentialAttrs := make(map[string]string)
 	for _, attr := range []string{"sdc-user", "sdc-key-id", "manta-user", "manta-key-id", "private-key"} {
@@ -218,13 +213,6 @@ func MakeCredentials(c *gc.C, attrs testing.Attrs) *auth.Credentials {
 	creds, err := credentials(MakeConfig(c, attrs))
 	c.Assert(err, jc.ErrorIsNil)
 	return creds
-}
-
-// MakeStorage creates an env storage for a test.
-func MakeStorage(c *gc.C, attrs testing.Attrs) storage.Storage {
-	stor, err := newStorage(MakeConfig(c, attrs), "")
-	c.Assert(err, jc.ErrorIsNil)
-	return stor
 }
 
 var GetPorts = getPorts

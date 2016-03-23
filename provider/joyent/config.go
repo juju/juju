@@ -30,21 +30,15 @@ const (
 )
 
 var environmentVariables = map[string]string{
-	sdcUser:    SdcAccount,
-	sdcKeyId:   SdcKeyId,
-	sdcUrl:     SdcUrl,
-	mantaUser:  MantaUser,
-	mantaKeyId: MantaKeyId,
-	mantaUrl:   MantaUrl,
+	sdcUser:  SdcAccount,
+	sdcKeyId: SdcKeyId,
+	sdcUrl:   SdcUrl,
 }
 
 var configFields = schema.Fields{
 	sdcUser:    schema.String(),
 	sdcKeyId:   schema.String(),
 	sdcUrl:     schema.String(),
-	mantaUser:  schema.String(),
-	mantaKeyId: schema.String(),
-	mantaUrl:   schema.String(),
 	algorithm:  schema.String(),
 	controlDir: schema.String(),
 	privateKey: schema.String(),
@@ -56,7 +50,6 @@ var configDefaults = schema.Defaults{
 	sdcUser:    schema.Omit,
 	sdcKeyId:   schema.Omit,
 	privateKey: schema.Omit,
-
 }
 
 var requiredFields = []string{

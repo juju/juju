@@ -28,16 +28,13 @@ func newConfig(c *gc.C, attrs coretesting.Attrs) *config.Config {
 
 func validAttrs() coretesting.Attrs {
 	return coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"type":         "joyent",
-		"sdc-user":     "test",
-		"sdc-key-id":   "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
-		"sdc-url":      "test://test.api.joyentcloud.com",
-		"manta-user":   "test",
-		"manta-key-id": "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
-		"manta-url":    "test://test.manta.joyent.com",
-		"private-key":  testPrivateKey,
-		"algorithm":    "rsa-sha256",
-		"control-dir":  "juju-test",
+		"type":        "joyent",
+		"sdc-user":    "test",
+		"sdc-key-id":  "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
+		"sdc-url":     "test://test.api.joyentcloud.com",
+		"private-key": testPrivateKey,
+		"algorithm":   "rsa-sha256",
+		"control-dir": "juju-test",
 	})
 }
 
@@ -55,10 +52,6 @@ func (s *ConfigSuite) SetUpSuite(c *gc.C) {
 	s.AddSuiteCleanup(func(*gc.C) { restoreSdcAccount() })
 	restoreSdcKeyId := testing.PatchEnvironment(jp.SdcKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
 	s.AddSuiteCleanup(func(*gc.C) { restoreSdcKeyId() })
-	restoreMantaUser := testing.PatchEnvironment(jp.MantaUser, "tester")
-	s.AddSuiteCleanup(func(*gc.C) { restoreMantaUser() })
-	restoreMantaKeyId := testing.PatchEnvironment(jp.MantaKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
-	s.AddSuiteCleanup(func(*gc.C) { restoreMantaKeyId() })
 	s.privateKeyData = generatePrivateKey(c)
 	jp.RegisterMachinesEndpoint()
 	s.AddSuiteCleanup(func(*gc.C) { jp.UnregisterMachinesEndpoint() })
@@ -147,61 +140,6 @@ var newConfigTests = []configtest{{
 	insert: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
 	expect: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
 }, {
-	info:   "manta-user is required",
-	remove: []string{"manta-user"},
-	err:    ".* cannot get manta-user value from model variable .*",
-}, {
-	info:   "manta-user cannot be empty",
-	insert: coretesting.Attrs{"manta-user": ""},
-	err:    ".* cannot get manta-user value from model variable .*",
-}, {
-	info:   "can get manta-user from model variable",
-	insert: coretesting.Attrs{"manta-user": ""},
-	expect: coretesting.Attrs{"manta-user": "tester"},
-	envVars: map[string]string{
-		"MANTA_USER": "tester",
-	},
-}, {
-	info:   "can get manta-user from model variable, missing from config",
-	remove: []string{"manta-user"},
-	expect: coretesting.Attrs{"manta-user": "tester"},
-	envVars: map[string]string{
-		"MANTA_USER": "tester",
-	},
-}, {
-	info:   "manta-key-id is required",
-	remove: []string{"manta-key-id"},
-	err:    ".* cannot get manta-key-id value from model variable .*",
-}, {
-	info:   "manta-key-id cannot be empty",
-	insert: coretesting.Attrs{"manta-key-id": ""},
-	err:    ".* cannot get manta-key-id value from model variable .*",
-}, {
-	info:   "can get manta-key-id from env variable",
-	insert: coretesting.Attrs{"manta-key-id": ""},
-	expect: coretesting.Attrs{"manta-key-id": "key"},
-	envVars: map[string]string{
-		"MANTA_KEY_ID": "key",
-	},
-}, {
-	info:   "can get manta-key-id from model variable, missing from config",
-	remove: []string{"manta-key-id"},
-	expect: coretesting.Attrs{"manta-key-id": "key"},
-	envVars: map[string]string{
-		"MANTA_KEY_ID": "key",
-	},
-}, {
-	info:   "manta-url is inserted if missing",
-	expect: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
-}, {
-	info:   "manta-url cannot be empty",
-	insert: coretesting.Attrs{"manta-url": ""},
-	err:    ".* cannot get manta-url value from model variable .*",
-}, {
-	info:   "manta-url is untouched if present",
-	insert: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
-	expect: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
-}, {
 	info:   "algorithm is inserted if missing",
 	expect: coretesting.Attrs{"algorithm": "rsa-sha256"},
 }, {
@@ -266,18 +204,6 @@ var changeConfigTests = []struct {
 	info:   "can change sdc-url",
 	insert: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
 	expect: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
-}, {
-	info:   "can change manta-user",
-	insert: coretesting.Attrs{"manta-user": "manta_user"},
-	expect: coretesting.Attrs{"manta-user": "manta_user"},
-}, {
-	info:   "can change manta-key-id",
-	insert: coretesting.Attrs{"manta-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
-	expect: coretesting.Attrs{"manta-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
-}, {
-	info:   "can change manta-url",
-	insert: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
-	expect: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
 }, {
 	info:   "can insert unknown field",
 	insert: coretesting.Attrs{"unknown": "ignoti"},
