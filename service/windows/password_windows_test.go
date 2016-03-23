@@ -113,6 +113,7 @@ type EnsurePasswordSuite struct {
 }
 
 func (s *EnsurePasswordSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite()
 	s.username = "jujud"
 	s.newPassword = "pass"
 }
