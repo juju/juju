@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
-	"strings"
 
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
@@ -19,8 +18,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/api/watcher"
-	envconfig "github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
@@ -46,8 +44,7 @@ var (
 // APIHostPortFetcher is an interface that is provided to New
 // which can be used to fetch the API host ports
 type API interface {
-	APIHostPorts() ([][]network.HostPort, error)
-	EnvironConfig() (*envconfig.Config, error)
+	ProxyConfig() (params.ProxyConfigResult, error)
 	WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error)
 }
 
@@ -199,22 +196,13 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) erro
 }
 
 func (w *proxyWorker) onChange() error {
-	env, err := w.api.EnvironConfig()
+	cfg, err := w.api.ProxyConfig()
 	if err != nil {
 		return err
 	}
-	apiHostPorts, err := w.api.APIHostPorts()
-	proxySettings := env.ProxySettings()
-	noProxy := strings.Split(proxySettings.NoProxy, ",")
-	for _, host := range apiHostPorts {
-		for _, hp := range host {
-			noProxy = append(noProxy, hp.Address.Value)
-		}
-	}
-	proxySettings.NoProxy = strings.Join(noProxy, ",")
 
-	w.handleProxyValues(proxySettings)
-	err = w.handleAptProxyValues(env.AptProxySettings())
+	w.handleProxyValues(cfg.ProxySettings)
+	err = w.handleAptProxyValues(cfg.APTProxySettings)
 	if err != nil {
 		return err
 	}

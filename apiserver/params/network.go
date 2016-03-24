@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/utils/proxy"
 )
 
 // -----
@@ -563,4 +564,9 @@ type Space struct {
 	Name    string   `json:"Name"`
 	Subnets []Subnet `json:"Subnets"`
 	Error   *Error   `json:"Error,omitempty"`
+}
+
+type ProxyConfigResult struct {
+	ProxySettings    proxy.Settings
+	APTProxySettings proxy.Settings
 }

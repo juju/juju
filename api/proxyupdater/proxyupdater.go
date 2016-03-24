@@ -7,11 +7,9 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 )
 
-const proxyUpdasterFacade = "ProxyUpdater"
+const proxyUpdaterFacade = "ProxyUpdater"
 
 // API provides access to the ProxyUpdater API facade.
 type API struct {
@@ -24,7 +22,7 @@ func NewAPI(caller base.APICaller) *API {
 		panic("caller is nil")
 	}
 	return &API{
-		facade: base.NewFacadeCaller(caller, proxyUpdasterFacade),
+		facade: base.NewFacadeCaller(caller, proxyUpdaterFacade),
 	}
 }
 
@@ -32,7 +30,7 @@ func NewAPI(caller base.APICaller) *API {
 // changes in the proxy configuration or API host ports
 func (api *API) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := api.facade.FacadeCall("WatchForEnvironConfigAndAPIHostPortChanges", nil, &result)
+	err := api.facade.FacadeCall("WatchForProxyConfigAndAPIHostPortChanges", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -40,25 +38,8 @@ func (api *API) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatche
 }
 
 // EnvironConfig returns the current environment configuration.
-func (api *API) EnvironConfig() (*config.Config, error) {
-	var result params.EnvironConfigResult
-	err := api.facade.FacadeCall("EnvironConfig", nil, &result)
-	if err != nil {
-		return nil, err
-	}
-	conf, err := config.New(config.NoDefaults, result.Config)
-	if err != nil {
-		return nil, err
-	}
-	return conf, nil
-}
-
-// APIHostPorts returns the host/port addresses of the API servers.
-func (api *API) APIHostPorts() ([][]network.HostPort, error) {
-	var result params.APIHostPortsResult
-	err := api.facade.FacadeCall("APIHostPorts", nil, &result)
-	if err != nil {
-		return nil, err
-	}
-	return result.NetworkHostsPorts(), nil
+func (api *API) ProxyConfig() (params.ProxyConfigResult, error) {
+	var result params.ProxyConfigResult
+	err := api.facade.FacadeCall("ProxyConfig", nil, &result)
+	return result, err
 }
