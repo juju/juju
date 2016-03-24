@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -131,6 +132,22 @@ func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 	})
 }
 
+func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *gc.C) {
+	w := apiservertesting.NewFakeNotifyWatcher()
+	id := s.resources.Register(w)
+	s.authorizer.Tag = names.NewMachineTag("12")
+	apiserver.PatchGetMigrationBackend(s, &fakeMigrationBackend{noMigration: true})
+
+	w.C <- struct{}{}
+	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id).(migrationStatusWatcher)
+	defer c.Check(facade.Stop(), jc.ErrorIsNil)
+	result, err := facade.Next()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
+		Phase: migration.NONE,
+	})
+}
+
 func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
 	id := s.resources.Register(apiservertesting.NewFakeNotifyWatcher())
 	s.authorizer.Tag = names.NewUserTag("frogdog")
@@ -154,9 +171,14 @@ func (w *fakeStringsWatcher) Changes() <-chan []string {
 	return w.ch
 }
 
-type fakeMigrationBackend struct{}
+type fakeMigrationBackend struct {
+	noMigration bool
+}
 
 func (b *fakeMigrationBackend) GetModelMigration() (state.ModelMigration, error) {
+	if b.noMigration {
+		return nil, errors.NotFoundf("migration")
+	}
 	return new(fakeModelMigration), nil
 }
 

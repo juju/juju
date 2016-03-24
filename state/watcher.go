@@ -2769,18 +2769,7 @@ func (w *migrationStatusWatcher) loop() error {
 	w.st.watcher.WatchCollectionWithFilter(w.collName, in, filter)
 	defer w.st.watcher.UnwatchCollection(w.collName, in)
 
-	var out chan<- struct{}
-
-	// If there is a migration record for the model - active or not -
-	// send an initial event.
-	if _, err := w.st.GetModelMigration(); errors.IsNotFound(err) {
-		// Nothing to report.
-	} else if err != nil {
-		return errors.Trace(err)
-	} else {
-		out = w.sink
-	}
-
+	out := w.sink // out set so that initial event is sent.
 	for {
 		select {
 		case <-w.tomb.Dying():
