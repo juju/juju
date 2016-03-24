@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/state"
 )
 
@@ -64,10 +65,7 @@ func (a *ActionAPI) Run(run params.RunParams) (results params.ActionResults, err
 		}
 	}
 
-	actionParams, err := a.createActionsParams(units, machines, run.Commands, run.Timeout)
-	if err != nil {
-		return results, errors.Trace(err)
-	}
+	actionParams := a.createActionsParams(units, machines, run.Commands, run.Timeout)
 
 	return queueActions(a, actionParams)
 }
@@ -83,16 +81,13 @@ func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.Actio
 		return results, err
 	}
 
-	actionParams, err := a.createActionsParams([]*state.Unit{}, machines, run.Commands, run.Timeout)
-	if err != nil {
-		return results, errors.Trace(err)
-	}
+	actionParams := a.createActionsParams([]*state.Unit{}, machines, run.Commands, run.Timeout)
 
 	return queueActions(a, actionParams)
 }
 
-func (a *ActionAPI) createActionsParams(units []*state.Unit, machines []*state.Machine, quotedCommands string, timeout time.Duration) (params.Actions, error) {
-	// Build actionParams
+func (a *ActionAPI) createActionsParams(units []*state.Unit, machines []*state.Machine, quotedCommands string, timeout time.Duration) params.Actions {
+
 	apiActionParams := params.Actions{Actions: []params.Action{}}
 
 	actionParams := map[string]interface{}{}
@@ -102,7 +97,7 @@ func (a *ActionAPI) createActionsParams(units []*state.Unit, machines []*state.M
 	for _, unit := range units {
 		apiActionParams.Actions = append(apiActionParams.Actions, params.Action{
 			Receiver:   unit.Tag().String(),
-			Name:       state.JujuRunActionName,
+			Name:       actions.JujuRunActionName,
 			Parameters: actionParams,
 		})
 	}
@@ -110,12 +105,12 @@ func (a *ActionAPI) createActionsParams(units []*state.Unit, machines []*state.M
 	for _, machine := range machines {
 		apiActionParams.Actions = append(apiActionParams.Actions, params.Action{
 			Receiver:   machine.Tag().String(),
-			Name:       state.JujuRunActionName,
+			Name:       actions.JujuRunActionName,
 			Parameters: actionParams,
 		})
 	}
 
-	return apiActionParams, nil
+	return apiActionParams
 }
 
 var queueActions = func(a *ActionAPI, args params.Actions) (results params.ActionResults, err error) {

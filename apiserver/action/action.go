@@ -4,6 +4,7 @@
 package action
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
@@ -88,6 +89,10 @@ func (a *ActionAPI) FindActionTagsByPrefix(arg params.FindTags) (params.FindTags
 // enqueued Action, or an error if there was a problem enqueueing the
 // Action.
 func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
+	if err := a.check.ChangeAllowed(); err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
 	for i, action := range arg.Actions {
 		currentResult := &response.Results[i]
@@ -137,6 +142,10 @@ func (a *ActionAPI) ListCompleted(arg params.Entities) (params.ActionsByReceiver
 
 // Cancel attempts to cancel enqueued Actions from running.
 func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
+	if err := a.check.ChangeAllowed(); err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
 	for i, entity := range arg.Entities {
 		currentResult := &response.Results[i]
