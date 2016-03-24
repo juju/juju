@@ -296,7 +296,7 @@ func (*RestrictedProviderFieldsSuite) TestRestrictedProviderFields(c *gc.C) {
 	}, {
 		provider: "joyent",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid",
+			"type", "ca-cert", "state-port", "api-port", "controller-uuid", "sdc-url",
 		},
 	}, {
 		provider: "maas",
