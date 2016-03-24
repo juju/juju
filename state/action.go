@@ -10,7 +10,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -29,12 +28,8 @@ var (
 	// facilitate patching.
 	NewUUID = func() (utils.UUID, error) { return utils.NewUUID() }
 
-	// Predefined actions should contain a list of actions predefined by
-	// juju, that will override any actions with the same name defined in charms.
-	PredefinedActions = set.NewStrings(JujuRunActionName)
-
-	// DefaultPredefinedActionsSpec defines a spec for each action in the set above.
-	DefaultPredefinedActionsSpec = map[string]charm.ActionSpec{
+	// PredefinedActionsSpec defines a spec for each action in the set above.
+	PredefinedActionsSpec = map[string]charm.ActionSpec{
 		JujuRunActionName: charm.ActionSpec{
 			Description: "predefined juju-run action",
 			Params: map[string]interface{}{

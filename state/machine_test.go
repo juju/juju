@@ -2541,7 +2541,6 @@ func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
 func (s *MachineSuite) TestMachineAddDifferentAction(c *gc.C) {
 	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	//check action.Parameters()
 
 	_, err = m.AddAction("benchmark", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add action "benchmark" to a machine; only predefined actions allowed`)

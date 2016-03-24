@@ -2003,9 +2003,8 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 
 	var spec charm.ActionSpec
 	// If the action is predefined inside juju, get spec from map
-	if PredefinedActions.Contains(name) {
-		spec = DefaultPredefinedActionsSpec[name]
-	} else {
+	spec, ok := PredefinedActionsSpec[name]
+	if !ok {
 		specs, err := u.ActionSpecs()
 		if err != nil {
 			return nil, err

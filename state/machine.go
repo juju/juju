@@ -1822,11 +1822,10 @@ func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
 // AddAction is part of the ActionReceiver interface.
 // There are no specs for machine actions, so just send payload along.
 func (m *Machine) AddAction(name string, payload map[string]interface{}) (*Action, error) {
-	if !PredefinedActions.Contains(name) {
+	spec, ok := PredefinedActionsSpec[name]
+	if !ok {
 		return nil, errors.Errorf("cannot add action %q to a machine; only predefined actions allowed", name)
 	}
-
-	spec := DefaultPredefinedActionsSpec[name]
 
 	// Reject bad payloads before attempting to insert defaults.
 	err := spec.ValidateParams(payload)
