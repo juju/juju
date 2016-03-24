@@ -338,7 +338,7 @@ func (s *migrationSuite) TestMigrationMaster(c *gc.C) {
 	}
 }
 
-func (s *migrationSuite) TestMigrationminion(c *gc.C) {
+func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	const nonce = "noncey"
 
 	// Create a model to migrate.
@@ -391,8 +391,8 @@ func (s *migrationSuite) TestMigrationminion(c *gc.C) {
 		assertNoChange()
 	}
 
-	// Should be no initial events.
-	assertNoChange()
+	// Initial event with no migration in progress.
+	assertChange(migration.NONE)
 
 	// Now create a migration, should trigger watcher.
 	spec := state.ModelMigrationSpec{
