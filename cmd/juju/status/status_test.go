@@ -3183,7 +3183,6 @@ logging     mysql     juju-info         regular
 logging     wordpress logging-dir       regular     
 mysql       logging   info              subordinate 
 mysql       wordpress db                regular     
-mysql       wordpress db                regular     
 wordpress   logging   logging-directory subordinate 
 
 [Units]     
