@@ -122,15 +122,20 @@ type mockEnviron struct {
 	environs.Environ
 	testing.Stub
 	cfg *config.Config
+	mu  sync.Mutex
 }
 
 func (e *mockEnviron) Config() *config.Config {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.MethodCall(e, "Config")
 	e.PopNoErr()
 	return e.cfg
 }
 
 func (e *mockEnviron) SetConfig(cfg *config.Config) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.MethodCall(e, "SetConfig", cfg)
 	if err := e.NextErr(); err != nil {
 		return err
