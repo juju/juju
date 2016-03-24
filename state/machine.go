@@ -20,6 +20,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -1822,7 +1823,7 @@ func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
 // AddAction is part of the ActionReceiver interface.
 // There are no specs for machine actions, so just send payload along.
 func (m *Machine) AddAction(name string, payload map[string]interface{}) (*Action, error) {
-	spec, ok := PredefinedActionsSpec[name]
+	spec, ok := actions.PredefinedActionsSpec[name]
 	if !ok {
 		return nil, errors.Errorf("cannot add action %q to a machine; only predefined actions allowed", name)
 	}

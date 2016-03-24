@@ -20,6 +20,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
@@ -2001,9 +2002,8 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 		return nil, errors.New("no action name given")
 	}
 
-	var spec charm.ActionSpec
 	// If the action is predefined inside juju, get spec from map
-	spec, ok := PredefinedActionsSpec[name]
+	spec, ok := actions.PredefinedActionsSpec[name]
 	if !ok {
 		specs, err := u.ActionSpecs()
 		if err != nil {

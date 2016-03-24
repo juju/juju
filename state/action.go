@@ -10,15 +10,13 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
 
 const (
-	actionMarker      = "_a_"
-	JujuRunActionName = "juju-run"
+	actionMarker = "_a_"
 )
 
 var (
@@ -27,29 +25,6 @@ var (
 	// NewUUID wraps the utils.NewUUID() call, and exposes it as a var to
 	// facilitate patching.
 	NewUUID = func() (utils.UUID, error) { return utils.NewUUID() }
-
-	// PredefinedActionsSpec defines a spec for each action in the set above.
-	PredefinedActionsSpec = map[string]charm.ActionSpec{
-		JujuRunActionName: charm.ActionSpec{
-			Description: "predefined juju-run action",
-			Params: map[string]interface{}{
-				"type":        "object",
-				"title":       "juju-run",
-				"description": "predefined juju-run action params",
-				"required":    []interface{}{"command", "timeout"},
-				"properties": map[string]interface{}{
-					"command": map[string]interface{}{
-						"type":        "string",
-						"description": "command to be ran under juju-run",
-					},
-					"timeout": map[string]interface{}{
-						"type":        "number",
-						"description": "timeout for command execution",
-					},
-				},
-			},
-		},
-	}
 )
 
 // ActionStatus represents the possible end states for an action.
