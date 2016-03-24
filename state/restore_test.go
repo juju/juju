@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -23,7 +24,7 @@ import (
 // None of the other functionality is tested, and little of it is reliable or
 // consistent with the other state code, but that's not for today.
 type RestoreInfoSuite struct {
-	StateSuite
+	statetesting.StateSuite
 }
 
 var _ = gc.Suite(&RestoreInfoSuite{})
