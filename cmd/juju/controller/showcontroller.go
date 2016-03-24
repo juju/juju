@@ -97,9 +97,6 @@ type ShowControllerDetails struct {
 
 // ControllerDetails holds details of a controller to show.
 type ControllerDetails struct {
-	// Servers contains the addresses of hosts that form this controller's cluster.
-	Servers []string `yaml:"servers,flow" json:"servers"`
-
 	// ControllerUUID is the unique ID for the controller.
 	ControllerUUID string `yaml:"uuid" json:"uuid"`
 
@@ -145,7 +142,6 @@ type BootstrapConfig struct {
 func (c *showControllerCommand) convertControllerForShow(controllerName string, details *jujuclient.ControllerDetails) ShowControllerDetails {
 	controller := ShowControllerDetails{
 		Details: ControllerDetails{
-			Servers:        details.Servers,
 			ControllerUUID: details.ControllerUUID,
 			APIEndpoints:   details.APIEndpoints,
 			CACert:         details.CACert,

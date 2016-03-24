@@ -211,7 +211,6 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.Controllers[s.controllerName] = jujuclient.ControllerDetails{
-		Servers:        []string{"0.1.2.3"},
 		APIEndpoints:   apiInfo.Addrs,
 		ControllerUUID: apiInfo.ModelTag.Id(),
 		CACert:         apiInfo.CACert,
