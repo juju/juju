@@ -28,6 +28,10 @@ var requiredPackages = []string{
 	"lxd",
 }
 
+var xenialPackages = []string{
+	"zfsutils-linux",
+}
+
 type containerInitialiser struct {
 	series string
 }
@@ -48,7 +52,16 @@ func (ci *containerInitialiser) Initialise() error {
 		return err
 	}
 
-	return configureLXDBridge()
+	err = configureLXDBridge()
+	if err != nil {
+		return err
+	}
+
+	if ci.series >= "xenial" {
+		configureZFS()
+	}
+
+	return nil
 }
 
 // getPackageManager is a helper function which returns the
@@ -61,6 +74,24 @@ func getPackageManager(series string) (manager.PackageManager, error) {
 // packaging configuration manager for the current system.
 func getPackagingConfigurer(series string) (config.PackagingConfigurer, error) {
 	return config.NewPackagingConfigurer(series)
+}
+
+func configureZFS() {
+	/* create a 100 GB pool by default (sparse, so it won't actually fill
+	 * that immediately)
+	*/
+	output, err := exec.Command(
+		"lxd",
+		"init",
+		"--auto",
+		"--storage-backend", "zfs",
+		"--storage-pool", "lxd",
+		"--storage-create-loop", "100",
+	).CombinedOutput()
+
+	if err != nil {
+		logger.Warningf("configuring zfs failed with %s: %s", err, string(output))
+	}
 }
 
 func configureLXDBridge() error {
@@ -216,6 +247,12 @@ func ensureDependencies(series string) error {
 
 		if err := pacman.Install(pkg); err != nil {
 			return err
+		}
+	}
+
+	if series >= "xenial" {
+		for _, pack := range xenialPackages {
+			pacman.Install(fmt.Sprintf("--no-install-recommends %s", pack))
 		}
 	}
 
