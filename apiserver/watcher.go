@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
@@ -500,7 +501,11 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 	}
 
 	mig, err := w.st.GetModelMigration()
-	if err != nil {
+	if errors.IsNotFound(err) {
+		return params.MigrationStatus{
+			Phase: migration.NONE,
+		}, nil
+	} else if err != nil {
 		return empty, errors.Annotate(err, "migration lookup")
 	}
 
