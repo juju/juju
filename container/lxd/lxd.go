@@ -7,6 +7,7 @@ package lxd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -23,10 +24,6 @@ import (
 
 var (
 	logger = loggo.GetLogger("juju.container.lxd")
-)
-
-const (
-	DefaultLxdBridge = "lxcbr0"
 )
 
 // XXX: should we allow managing containers on other hosts? this is
@@ -270,4 +267,19 @@ func (manager *containerManager) createNetworkProfile(profile string, networkCon
 	}
 
 	return nil
+}
+
+// GetDefulatBridgeName returns the name of the default bridge for lxd.
+func GetDefaultBridgeName() (string, error) {
+	_, err := os.Lstat("/sys/class/net/lxdbr0/bridge")
+	if err == nil {
+		return "lxdbr0", nil
+	}
+
+	/* if it was some unknown error, return that */
+	if !os.IsNotExist(err) {
+		return "", err
+	}
+
+	return "lxcbr0", nil
 }
