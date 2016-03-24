@@ -299,7 +299,7 @@ func (s *RunMockContextSuite) TestRunActionParamsFailure(c *gc.C) {
 	c.Assert(errors.Cause(actualErr), gc.Equals, expectErr)
 }
 
-func (s *RunMockContextSuite) TestRunActionSuccessfull(c *gc.C) {
+func (s *RunMockContextSuite) TestRunActionSuccessful(c *gc.C) {
 	ctx := &MockContext{
 		actionData: &context.ActionData{},
 		actionParams: map[string]interface{}{
@@ -312,7 +312,7 @@ func (s *RunMockContextSuite) TestRunActionSuccessfull(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
 	c.Assert(ctx.flushFailure, gc.IsNil)
-	c.Assert(ctx.actionResults["Code"], gc.Equals, "\x00")
+	c.Assert(ctx.actionResults["Code"], gc.Equals, "0")
 	c.Assert(strings.TrimRight(ctx.actionResults["Stdout"].(string), "\r\n"), gc.Equals, "1")
 	c.Assert(ctx.actionResults["Stderr"], gc.Equals, "")
 }
@@ -331,9 +331,9 @@ func (s *RunMockContextSuite) TestRunActionCancelled(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
 	c.Assert(ctx.flushFailure, gc.Equals, exec.ErrCancelled)
-	c.Assert(ctx.actionResults["Code"], gc.Equals, "\x00")
-	c.Assert(ctx.actionResults["Stdout"], gc.Equals, "")
-	c.Assert(ctx.actionResults["Stderr"], gc.Equals, "")
+	c.Assert(ctx.actionResults["Code"], gc.Equals, nil)
+	c.Assert(ctx.actionResults["Stdout"], gc.Equals, nil)
+	c.Assert(ctx.actionResults["Stderr"], gc.Equals, nil)
 }
 
 func (s *RunMockContextSuite) TestRunCommandsFlushSuccess(c *gc.C) {

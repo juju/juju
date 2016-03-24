@@ -16,7 +16,7 @@ import (
 	"github.com/juju/utils/clock"
 	utilexec "github.com/juju/utils/exec"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/debug"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -76,7 +76,7 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 	return result, runner.context.Flush("run commands", err)
 }
 
-// runCommands is a helper to abstract common code between run commands and
+// runCommandsWithTimeout is a helper to abstract common code between run commands and
 // juju-run as an action
 func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Duration, clock clock.Clock) (*utilexec.ExecResponse, error) {
 	srv, err := runner.startJujucServer()
@@ -102,8 +102,9 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 	}
 	runner.context.SetProcess(hookProcess{command.Process()})
 
-	cancel := make(chan struct{})
+	var cancel chan struct{}
 	if timeout != 0 {
+		cancel = make(chan struct{})
 		go func() {
 			<-clock.After(timeout)
 			close(cancel)
@@ -115,7 +116,7 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 }
 
 // runJujuRunAction is the function that executes when a juju-run action is ran.
-func (runner *runner) runJujuRunAction() error {
+func (runner *runner) runJujuRunAction() (err error) {
 	params, err := runner.context.ActionParams()
 	if err != nil {
 		return errors.Trace(err)
@@ -132,27 +133,23 @@ func (runner *runner) runJujuRunAction() error {
 		logger.Debugf("unable to read juju-run action timeout, will continue running action without one")
 	}
 
-	results, runCommandErr := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock)
+	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock)
 
-	if results != nil {
-		// TODO: Should we take this errors into account? This is just a map update
-		// As of now, the only potential error is if contextData is uninitialized which
-		// is not the case here.
-		err = runner.context.UpdateActionResults([]string{"Code"}, string(results.Code))
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = runner.context.UpdateActionResults([]string{"Stdout"}, string(results.Stdout))
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = runner.context.UpdateActionResults([]string{"Stderr"}, string(results.Stderr))
-		if err != nil {
-			return errors.Trace(err)
-		}
+	if err != nil {
+		return runner.context.Flush("juju-run", err)
 	}
 
-	return runner.context.Flush("juju-run", runCommandErr)
+	if err := runner.context.UpdateActionResults([]string{"Code"}, fmt.Sprintf("%d", results.Code)); err != nil {
+		return runner.context.Flush("juju-run", err)
+	}
+	if err := runner.context.UpdateActionResults([]string{"Stdout"}, fmt.Sprintf("%s", results.Stdout)); err != nil {
+		return runner.context.Flush("juju-run", err)
+	}
+	if err := runner.context.UpdateActionResults([]string{"Stderr"}, fmt.Sprintf("%s", results.Stderr)); err != nil {
+		return runner.context.Flush("juju-run", err)
+	}
+
+	return runner.context.Flush("juju-run", nil)
 }
 
 // RunAction exists to satisfy the Runner interface.
@@ -160,7 +157,7 @@ func (runner *runner) RunAction(actionName string) error {
 	if _, err := runner.context.ActionData(); err != nil {
 		return errors.Trace(err)
 	}
-	if actionName == state.JujuRunActionName {
+	if actionName == actions.JujuRunActionName {
 		return runner.runJujuRunAction()
 	}
 	return runner.runCharmHookWithLocation(actionName, "actions")
