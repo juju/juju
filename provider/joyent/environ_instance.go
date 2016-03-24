@@ -148,7 +148,6 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	logger.Debugf("Now tags are:  %+v", args.InstanceConfig.Tags)
 
 	machine, err = env.compute.cloudapi.CreateMachine(cloudapi.CreateMachineOpts{
-		//Name:	 env.machineFullName(machineConf.MachineId),
 		Package:  spec.InstanceType.Name,
 		Image:    spec.Image.Id,
 		Metadata: map[string]string{"metadata.cloud-init:user-data": string(userData)},
@@ -160,6 +159,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	machineId := machine.Id
 
 	logger.Infof("provisioning instance %q", machineId)
+	logger.Infof("machine created with tags %+v", machine.Tags)
 
 	machine, err = env.compute.cloudapi.GetMachine(machineId)
 	if err != nil {
