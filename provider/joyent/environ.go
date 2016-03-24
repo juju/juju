@@ -146,6 +146,7 @@ func (env *joyentEnviron) ControllerInstances() ([]instance.Id, error) {
 	filter := cloudapi.NewFilter()
 	filter.Set("tag.group", "juju")
 	filter.Set("tag.env", env.Config().Name())
+	filter.Set(tags.JujuModel, env.Config().UUID())
 	filter.Set(tags.JujuController, "true")
 
 	machines, err := env.compute.cloudapi.ListMachines(filter)
