@@ -2720,21 +2720,34 @@ func (w *migrationActiveWatcher) loop() error {
 //
 // Note that this watcher does not produce an initial event if there's
 // never been a migration attempt for the model.
+//
+// TODO(fwereade): this is hard to justify. Presumably it's so that we
+// don't have to write a MigrationStatus type that can express that no
+// migration is in progress? I really don't think it's worth the costs.
 func (st *State) WatchMigrationStatus() (NotifyWatcher, error) {
-	return newMigrationStatusWatcher(st), nil
+	return newMigrationStatusWatcher(st, true), nil
+}
+
+// WatchMigrationPhase is like WatchMigrationStatus but it returns a
+// watcher that really behaves like a Watcher, rather than just some
+// type with a Changes channel.
+func (st *State) WatchMigrationPhase() (NotifyWatcher, error) {
+	return newMigrationStatusWatcher(st, false), nil
 }
 
 type migrationStatusWatcher struct {
 	commonWatcher
 	collName string
 	sink     chan struct{}
+	insane   bool
 }
 
-func newMigrationStatusWatcher(st *State) NotifyWatcher {
+func newMigrationStatusWatcher(st *State, insane bool) NotifyWatcher {
 	w := &migrationStatusWatcher{
 		commonWatcher: commonWatcher{st: st},
 		collName:      modelMigrationStatusC,
 		sink:          make(chan struct{}),
+		insane:        insane,
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -2769,7 +2782,19 @@ func (w *migrationStatusWatcher) loop() error {
 	w.st.watcher.WatchCollectionWithFilter(w.collName, in, filter)
 	defer w.st.watcher.UnwatchCollection(w.collName, in)
 
-	out := w.sink // out set so that initial event is sent.
+	var out chan<- struct{}
+
+	// If we want to break the watcher model, suppress initial events.
+	if w.insane {
+		if _, err := w.st.GetModelMigration(); errors.IsNotFound(err) {
+			// Nothing to report.
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		out = w.sink
+	}
+
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -2777,6 +2802,12 @@ func (w *migrationStatusWatcher) loop() error {
 		case <-w.st.watcher.Dead():
 			return stateWatcherDeadError(w.st.watcher.Err())
 		case change := <-in:
+			// TODO(fwereade): why do we have a watcher that acts
+			// so very differently from all the other watchers?
+			// If a migration appears or disappears, that is a
+			// change, and should be reported. It's up to the
+			// client to understand the new state and respond as
+			// appropriate.
 			if change.Revno == -1 {
 				return errors.New("model migration status disappeared (shouldn't happen)")
 			}

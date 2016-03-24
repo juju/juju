@@ -23,10 +23,20 @@ type ModelArgs struct {
 
 // MigrationStatus reports the current status of a model migration.
 type MigrationStatus struct {
-	Attempt        int             `json:"attempt"`
+	Attempt int `json:"attempt"`
+	// TODO(fwereade): shouldn't Phase be a string?
 	Phase          migration.Phase `json:"phase"`
 	SourceAPIAddrs []string        `json:"source-api-addrs"`
 	SourceCACert   string          `json:"source-ca-cert"`
 	TargetAPIAddrs []string        `json:"target-api-addrs"`
 	TargetCACert   string          `json:"target-ca-cert"`
+}
+
+type PhaseResult struct {
+	Phase string `json:"phase"`
+	Error *Error
+}
+
+type PhaseResults struct {
+	Results []PhaseResult `json:"Results"`
 }
