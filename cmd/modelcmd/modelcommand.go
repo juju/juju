@@ -24,7 +24,13 @@ var logger = loggo.GetLogger("juju.cmd.modelcmd")
 // ErrNoModelSpecified is returned by commands that operate on
 // an environment if there is no current model, no model
 // has been explicitly specified, and there is no default model.
-var ErrNoModelSpecified = errors.New("no model specified")
+var ErrNoModelSpecified = errors.New(`no model specified
+
+There is no current model specified for the current controller,
+and none specified on the command line. Please use "juju switch"
+to set the current model, or specify a model on the command line
+using the "-m" flag.
+`)
 
 // GetCurrentModel returns the name of the current Juju model.
 //
@@ -189,6 +195,9 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 	// This is work in progress as we remove the ModelName from downstream code.
 	// We want to be able to specify the environment in a number of ways, one of
 	// which is the connection name on the client machine.
+	if c.controllerName == "" {
+		return nil, errors.Trace(ErrNoControllerSpecified)
+	}
 	if c.modelName == "" {
 		return nil, errors.Trace(ErrNoModelSpecified)
 	}

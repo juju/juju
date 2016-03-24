@@ -343,11 +343,11 @@ func PrepareEndpointsForCaching(
 	needResolving := false
 
 	// Verify if the unresolved addresses have changed.
-	if len(apiHosts) > 0 && len(controllerDetails.Servers) > 0 {
-		if addrsChanged(hostsStrings, controllerDetails.Servers) {
+	if len(apiHosts) > 0 && len(controllerDetails.UnresolvedAPIEndpoints) > 0 {
+		if addrsChanged(hostsStrings, controllerDetails.UnresolvedAPIEndpoints) {
 			logger.Debugf(
 				"API hostnames changed from %v to %v - resolving hostnames",
-				controllerDetails.Servers, hostsStrings,
+				controllerDetails.UnresolvedAPIEndpoints, hostsStrings,
 			)
 			needResolving = true
 		}
@@ -425,7 +425,7 @@ func updateControllerAddresses(
 	}
 
 	// Write the new controller data.
-	controllerDetails.Servers = hosts
+	controllerDetails.UnresolvedAPIEndpoints = hosts
 	controllerDetails.APIEndpoints = addrs
 	err := store.UpdateController(controllerName, *controllerDetails)
 	return errors.Trace(err)

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
 
@@ -29,11 +30,16 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
+var errNoModels = errors.New(`
+There are no models available. You can create models with
+"juju create-model", or you can ask an administrator or owner
+of a model to grant access to that model with "juju grant".`[1:])
+
 // NewRegisterCommand returns a command to allow the user to register a controller.
 func NewRegisterCommand() cmd.Command {
 	cmd := &registerCommand{}
 	cmd.apiOpen = cmd.APIOpen
-	cmd.newAPIRoot = cmd.NewAPIRoot
+	cmd.refreshModels = cmd.RefreshModels
 	cmd.store = jujuclient.NewFileClientStore()
 	return modelcmd.WrapBase(cmd)
 }
@@ -42,10 +48,10 @@ func NewRegisterCommand() cmd.Command {
 // information.
 type registerCommand struct {
 	modelcmd.JujuCommandBase
-	apiOpen     api.OpenFunc
-	newAPIRoot  modelcmd.OpenFunc
-	store       jujuclient.ClientStore
-	EncodedData string
+	apiOpen       api.OpenFunc
+	refreshModels func(_ jujuclient.ClientStore, controller, account string) error
+	store         jujuclient.ClientStore
+	EncodedData   string
 }
 
 var registerDoc = `
@@ -169,11 +175,7 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 
 	// Log into the controller to verify the credentials, and
 	// refresh the connection information.
-	apiConn, err := c.newAPIRoot(c.store, registrationParams.controllerName, accountName, "")
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := apiConn.Close(); err != nil {
+	if err := c.refreshModels(c.store, registrationParams.controllerName, accountName); err != nil {
 		return errors.Trace(err)
 	}
 	if err := modelcmd.WriteCurrentController(registrationParams.controllerName); err != nil {
@@ -184,6 +186,45 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		ctx.Stderr, "\nWelcome, %s. You are now logged into %q.\n",
 		registrationParams.userTag.Id(), registrationParams.controllerName,
 	)
+	return c.maybeSetCurrentModel(ctx, registrationParams.controllerName, accountName)
+}
+
+func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, controllerName, accountName string) error {
+	models, err := c.store.AllModels(controllerName, accountName)
+	if errors.IsNotFound(err) {
+		fmt.Fprintf(ctx.Stderr, "\n%s\n\n", errNoModels.Error())
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	// If we get to here, there is at least one model.
+	if len(models) == 1 {
+		// There is exactly one model shared,
+		// so set it as the current model.
+		var modelName string
+		for modelName = range models {
+			// Loop exists only to obtain one and only key.
+		}
+		err := c.store.SetCurrentModel(controllerName, accountName, modelName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		fmt.Fprintf(ctx.Stderr, "\nCurrent model set to %q\n\n", modelName)
+	} else {
+		fmt.Fprintf(ctx.Stderr, `
+There are %d models available. Use "juju switch" to select
+one of them:
+`, len(models))
+		modelNames := make(set.Strings)
+		for modelName := range models {
+			modelNames.Add(modelName)
+		}
+		for _, modelName := range modelNames.SortedValues() {
+			fmt.Fprintf(ctx.Stderr, "  - juju switch %s\n", modelName)
+		}
+		fmt.Fprintln(ctx.Stderr)
+	}
 	return nil
 }
 

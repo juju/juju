@@ -100,6 +100,8 @@ func (s *UserAddCommandSuite) TestAddUserWithUsername(c *gc.C) {
 User "foobar" added
 Please send this command to foobar:
     juju register MD0TBmZvb2JhcjAREw8xMjcuMC4wLjE6MTIzNDUEIFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhY
+
+"foobar" has not been granted access to any models. You can use "juju grant" to grant access.
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 	c.Assert(testing.Stderr(context), gc.Equals, "")
@@ -116,6 +118,8 @@ func (s *UserAddCommandSuite) TestAddUserWithUsernameAndACL(c *gc.C) {
 User "foobar" added
 Please send this command to foobar:
     juju register MD0TBmZvb2JhcjAREw8xMjcuMC4wLjE6MTIzNDUEIFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhY
+
+"foobar" has not been granted access to any models. You can use "juju grant" to grant access.
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 	c.Assert(testing.Stderr(context), gc.Equals, "")
@@ -132,6 +136,8 @@ func (s *UserAddCommandSuite) TestAddUserWithUsernameAndDisplayname(c *gc.C) {
 User "Foo Bar (foobar)" added
 Please send this command to foobar:
     juju register MD0TBmZvb2JhcjAREw8xMjcuMC4wLjE6MTIzNDUEIFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhY
+
+"Foo Bar (foobar)" has not been granted access to any models. You can use "juju grant" to grant access.
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 	c.Assert(testing.Stderr(context), gc.Equals, "")

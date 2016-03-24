@@ -7,12 +7,12 @@ import "github.com/juju/juju/cloud"
 
 // ControllerDetails holds the details needed to connect to a controller.
 type ControllerDetails struct {
-	// Servers holds a list of API addresses which may contain
-	// unresolved hostnames. It's used to compare more recent API
-	// addresses before resolving hostnames to determine if the cached
-	// addresses have changed and therefore perform (a possibly slow)
-	// local DNS resolution before comparing them against Addresses.
-	Servers []string `yaml:"servers,flow"`
+	// UnresolvedAPIEndpoints holds a list of API addresses which may
+	// contain unresolved hostnames. It's used to compare more recent
+	// API addresses before resolving hostnames to determine if the
+	// cached addresses have changed and therefore perform (a possibly
+	// slow) local DNS resolution before comparing them against Addresses.
+	UnresolvedAPIEndpoints []string `yaml:"unresolved-api-endpoints,flow"`
 
 	// ControllerUUID is the unique ID for the controller.
 	ControllerUUID string `yaml:"uuid"`

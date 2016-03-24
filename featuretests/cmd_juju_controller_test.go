@@ -64,11 +64,11 @@ func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, is
 
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
-	expectedOutput := `
+	expectedOutput := fmt.Sprintf(`
 CONTROLLER  MODEL  USER         SERVER
-kontroll*   admin  admin@local  
+kontroll*   admin  admin@local  %s
 
-`[1:]
+`[1:], s.APIState.Addr())
 	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)
 }
 

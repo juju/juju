@@ -60,8 +60,8 @@ func NewListModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, 
 
 // NewRegisterCommandForTest returns a RegisterCommand with the function used
 // to open the API connection mocked out.
-func NewRegisterCommandForTest(apiOpen api.OpenFunc, newAPIRoot modelcmd.OpenFunc, store jujuclient.ClientStore) *registerCommand {
-	return &registerCommand{apiOpen: apiOpen, newAPIRoot: newAPIRoot, store: store}
+func NewRegisterCommandForTest(apiOpen api.OpenFunc, refreshModels func(jujuclient.ClientStore, string, string) error, store jujuclient.ClientStore) *registerCommand {
+	return &registerCommand{apiOpen: apiOpen, refreshModels: refreshModels, store: store}
 }
 
 // NewRemoveBlocksCommandForTest returns a RemoveBlocksCommand with the

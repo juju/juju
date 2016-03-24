@@ -155,7 +155,17 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	modelSet.CurrentModel = current
-	return c.out.Write(ctx, modelSet)
+	if err := c.out.Write(ctx, modelSet); err != nil {
+		return err
+	}
+
+	if len(models) == 0 && c.out.Name() == "tabular" {
+		// When the output is tabular, we inform the user when there
+		// are no models available, and tell them how to go about
+		// creating or granting access to them.
+		fmt.Fprintf(ctx.Stderr, "\n%s\n\n", errNoModels.Error())
+	}
+	return nil
 }
 
 func (c *modelsCommand) getAllModels() ([]base.UserModel, error) {

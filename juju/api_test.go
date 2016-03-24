@@ -293,7 +293,7 @@ func setEndpointAddressAndHostname(c *gc.C, store jujuclient.ControllerStore, ad
 	details, err := store.ControllerByName("local.my-controller")
 	c.Assert(err, jc.ErrorIsNil)
 	details.APIEndpoints = []string{addr}
-	details.Servers = []string{host}
+	details.UnresolvedAPIEndpoints = []string{host}
 	err = store.UpdateController("local.my-controller", *details)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -491,7 +491,7 @@ func (s *CacheAPIEndpointsSuite) assertCreateController(c *gc.C, name string) ju
 func (s *CacheAPIEndpointsSuite) assertControllerDetailsUpdated(c *gc.C, name string, check gc.Checker) {
 	found, err := s.ControllerStore.ControllerByName(name)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Servers, check, 0)
+	c.Assert(found.UnresolvedAPIEndpoints, check, 0)
 	c.Assert(found.APIEndpoints, check, 0)
 }
 
@@ -523,9 +523,9 @@ func (s *CacheAPIEndpointsSuite) TestResolveSkippedWhenHostnamesUnchanged(c *gc.
 		"10.0.0.1",
 	)
 	controllerDetails := jujuclient.ControllerDetails{
-		ControllerUUID: fakeUUID,
-		CACert:         "certificate",
-		Servers:        network.HostPortsToStrings(hps),
+		ControllerUUID:         fakeUUID,
+		CACert:                 "certificate",
+		UnresolvedAPIEndpoints: network.HostPortsToStrings(hps),
 	}
 	err := s.ControllerStore.UpdateController("controller-name", controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
@@ -572,9 +572,9 @@ func (s *CacheAPIEndpointsSuite) TestResolveCalledWithChangedHostnames(c *gc.C) 
 	)
 	strResolved := network.HostPortsToStrings(resolvedHPs)
 	controllerDetails := jujuclient.ControllerDetails{
-		ControllerUUID: fakeUUID,
-		CACert:         "certificate",
-		Servers:        strUnsorted,
+		ControllerUUID:         fakeUUID,
+		CACert:                 "certificate",
+		UnresolvedAPIEndpoints: strUnsorted,
 	}
 	err := s.ControllerStore.UpdateController("controller-name", controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
@@ -621,10 +621,10 @@ func (s *CacheAPIEndpointsSuite) TestAfterResolvingUnchangedAddressesNotCached(c
 	)
 	strResolved := network.HostPortsToStrings(resolvedHPs)
 	controllerDetails := jujuclient.ControllerDetails{
-		ControllerUUID: fakeUUID,
-		CACert:         "certificate",
-		Servers:        strUnsorted,
-		APIEndpoints:   strResolved,
+		ControllerUUID:         fakeUUID,
+		CACert:                 "certificate",
+		UnresolvedAPIEndpoints: strUnsorted,
+		APIEndpoints:           strResolved,
 	}
 	err := s.ControllerStore.UpdateController("controller-name", controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
@@ -717,7 +717,7 @@ func (s *CacheAPIEndpointsSuite) assertEndpoints(c *gc.C, controllerDetails *juj
 		"[fc00::9]:1234", // From ipv6+6.example.com
 	})
 	// Check Hostnames before resolving
-	c.Check(controllerDetails.Servers, jc.DeepEquals, []string{
+	c.Check(controllerDetails.UnresolvedAPIEndpoints, jc.DeepEquals, []string{
 		s.apiHostPort.NetAddr(), // Last endpoint successfully connected to is always on top.
 		"1.0.0.1:1234",
 		"1.0.0.2:1235",
