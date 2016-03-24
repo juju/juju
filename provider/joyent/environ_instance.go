@@ -147,7 +147,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 		instanceTags[tagKey(tag)] = value
 	}
 	instanceTags[tagKey("group")] = "juju"
-	instanceTags[tagKey("env")] = env.Config().Name()
+	instanceTags[tagKey("model")] = env.Config().Name()
 
 	args.InstanceConfig.Tags = instanceTags
 	logger.Debugf("Now tags are:  %+v", args.InstanceConfig.Tags)

@@ -145,7 +145,7 @@ func (env *joyentEnviron) ControllerInstances() ([]instance.Id, error) {
 
 	filter := cloudapi.NewFilter()
 	filter.Set(tagKey("group"), "juju")
-	filter.Set(tagKey("env"), env.Config().Name())
+	filter.Set(tagKey("model"), env.Config().Name())
 	filter.Set(tagKey(tags.JujuModel), env.Config().UUID())
 	filter.Set(tagKey(tags.JujuController), "true")
 
