@@ -5,9 +5,9 @@
 package machineactions
 
 // Action represents a single instance of an Action call, by name and params.
-// This is currently copied from uniter.Actions, but until the implementations
-// converge, it's saner to duplicate the code since the "correct" abstraction over
-// both is not obvious.
+// TODO(bogdantelega): This is currently copied from uniter.Actions,
+// but until the implementations converge, it's saner to duplicate the code since
+// the "correct" abstraction over both is not obvious.
 type Action struct {
 	name   string
 	params map[string]interface{}

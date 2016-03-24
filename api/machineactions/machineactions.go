@@ -2,6 +2,8 @@
 // Copyright 2016 Cloudbase Solutions
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// machineactions implements the the api side of
+// running actions on machines
 package machineactions
 
 import (
@@ -13,24 +15,24 @@ import (
 	"github.com/juju/names"
 )
 
-type State struct {
+type Client struct {
 	facade base.FacadeCaller
 }
 
-func NewState(caller base.APICaller) *State {
-	return &State{base.NewFacadeCaller(caller, "MachineActions")}
+func NewClient(caller base.APICaller) *Client {
+	return &Client{base.NewFacadeCaller(caller, "MachineActions")}
 }
 
 // WatchActionNotifications returns a StringsWatcher for observing the
-// ids of Actions added to the Machine. The initial event will contain the
-// ids of any Actions pending at the time the Watcher is made.
-func (st *State) WatchActionNotifications(agent names.Tag) (watcher.StringsWatcher, error) {
+// IDs of Actions added to the Machine. The initial event will contain the
+// IDs of any Actions pending at the time the Watcher is made.
+func (c *Client) WatchActionNotifications(agent names.Tag) (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agent.String()}},
 	}
 
-	err := st.facade.FacadeCall("WatchActionNotifications", args, &results)
+	err := c.facade.FacadeCall("WatchActionNotifications", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -41,13 +43,13 @@ func (st *State) WatchActionNotifications(agent names.Tag) (watcher.StringsWatch
 
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, errors.Trace(result.Error)
 	}
-	w := apiwatcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
 
-func (st *State) getOneAction(tag names.ActionTag) (params.ActionResult, error) {
+func (c *Client) getOneAction(tag names.ActionTag) (params.ActionResult, error) {
 	nothing := params.ActionResult{}
 
 	args := params.Entities{
@@ -55,7 +57,7 @@ func (st *State) getOneAction(tag names.ActionTag) (params.ActionResult, error) 
 	}
 
 	var results params.ActionResults
-	err := st.facade.FacadeCall("Actions", args, &results)
+	err := c.facade.FacadeCall("Actions", args, &results)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
@@ -66,15 +68,15 @@ func (st *State) getOneAction(tag names.ActionTag) (params.ActionResult, error) 
 
 	result := results.Results[0]
 	if result.Error != nil {
-		return nothing, result.Error
+		return nothing, errors.Trace(result.Error)
 	}
 
 	return result, nil
 }
 
 // Action returns the Action with the given tag.
-func (st *State) Action(tag names.ActionTag) (*Action, error) {
-	result, err := st.getOneAction(tag)
+func (c *Client) Action(tag names.ActionTag) (*Action, error) {
+	result, err := c.getOneAction(tag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -85,27 +87,23 @@ func (st *State) Action(tag names.ActionTag) (*Action, error) {
 }
 
 // ActionBegin marks an action as running.
-func (st *State) ActionBegin(tag names.ActionTag) error {
+func (c *Client) ActionBegin(tag names.ActionTag) error {
 	var results params.ErrorResults
 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 
-	err := st.facade.FacadeCall("BeginActions", args, &results)
+	err := c.facade.FacadeCall("BeginActions", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if len(results.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-
-	return results.Results[9].Error
+	return results.OneError()
 }
 
 // ActionFinish captures the structured output of an action.
-func (st *State) ActionFinish(tag names.ActionTag, status string, actionResults map[string]interface{}, message string) error {
+func (c *Client) ActionFinish(tag names.ActionTag, status string, actionResults map[string]interface{}, message string) error {
 	var results params.ErrorResults
 
 	args := params.ActionExecutionResults{
@@ -117,27 +115,23 @@ func (st *State) ActionFinish(tag names.ActionTag, status string, actionResults 
 		}},
 	}
 
-	err := st.facade.FacadeCall("FinishActions", args, &results)
+	err := c.facade.FacadeCall("FinishActions", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if len(results.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-
-	return results.Results[9].Error
+	return results.OneError()
 }
 
 // RunningActions returns a list of actions running for the given machine tag.
-func (st *State) RunningActions(agent names.MachineTag) ([]params.ActionResult, error) {
+func (c *Client) RunningActions(agent names.MachineTag) ([]params.ActionResult, error) {
 	var results params.ActionsByReceivers
 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agent.String()}},
 	}
 
-	err := st.facade.FacadeCall("ListRunning", args, &results)
+	err := c.facade.FacadeCall("RunningActions", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

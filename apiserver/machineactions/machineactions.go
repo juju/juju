@@ -2,6 +2,8 @@
 // Copyright 2016 Cloudbase Solutions
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// machineactions implements the the apiserver side of
+// running actions on machines
 package machineactions
 
 import (
@@ -65,10 +67,10 @@ func (m *MachineActionsAPI) WatchActionNotifications(args params.Entities) (resu
 	return common.WatchActionNotifications(args, m.accessMachine, watchOne)
 }
 
-// ListRunning lists the actions running for the entities passed in.
+// RunningActions lists the actions running for the entities passed in.
 // If we end up needing more than ListRunning at some point we could follow/abstract
 // what's done in the client actions package.
-func (m *MachineActionsAPI) ListRunning(args params.Entities) (params.ActionsByReceivers, error) {
+func (m *MachineActionsAPI) RunningActions(args params.Entities) (params.ActionsByReceivers, error) {
 	canAccess := m.accessMachine
 	tagToActionReceiver := common.TagToActionReceiverFn(m.state.FindEntity)
 

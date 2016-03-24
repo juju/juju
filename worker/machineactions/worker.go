@@ -5,20 +5,20 @@
 package machineactions
 
 import (
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/machineactions"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
-	"gopkg.in/juju/charm.v6-unstable"
 )
 
 var logger = loggo.GetLogger("juju.worker.machineactions")
@@ -47,6 +47,9 @@ func (c WorkerConfig) Validate() error {
 	}
 	if c.AgentTag == nil {
 		return errors.NotValidf("nil AgentTag")
+	}
+	if c.HandleAction == nil {
+		return errors.NotValidf("nil HandleAction")
 	}
 	return nil
 }
@@ -94,33 +97,26 @@ func (h *handler) SetUp() (watcher.StringsWatcher, error) {
 // Handle is part of the watcher.StringsHandler interface.
 // It should give us any actions currently enqueued for this machine.
 // We try to execute every action before returning
-func (h *handler) Handle(_ <-chan struct{}, actions []string) error {
-	// TODO: we want to run code for every action here even if some of them fail
-	// handle errors differently
-	for _, actionId := range actions {
+func (h *handler) Handle(_ <-chan struct{}, actionsSlice []string) error {
+	for _, actionId := range actionsSlice {
 		ok := names.IsValidAction(actionId)
 		if !ok {
-			return errors.Errorf("got invalid action id %s", actionId)
+			errors.Errorf("got invalid action id %s", actionId)
 		}
+
 		actionTag := names.NewActionTag(actionId)
 		action, err := h.config.Facade.Action(actionTag)
 		if err != nil {
-			return h.config.Facade.ActionFinish(actionTag, params.ActionCancelled, nil, "could not retrieve action")
+			return errors.Errorf("could not retrieve action %s", actionId)
 		}
 
+		// We don't have to revalidate params here since they can't be stored in state when invalid.
 		name := action.Name()
-
-		var spec charm.ActionSpec
-		if state.PredefinedActions.Contains(name) {
-			spec = state.DefaultPredefinedActionsSpec[name]
-		} else {
-			return h.config.Facade.ActionFinish(actionTag, params.ActionCancelled, nil, "not a valid action")
-
-		}
-
 		actionParams := action.Params()
-		if err := spec.ValidateParams(actionParams); err != nil {
-			return h.config.Facade.ActionFinish(actionTag, params.ActionCancelled, nil, "invalid action parameters")
+
+		err = h.config.Facade.ActionBegin(actionTag)
+		if err != nil {
+			return errors.Errorf("could not begin action %s", name)
 		}
 
 		results, err := h.config.HandleAction(action.Name(), action.Params())
@@ -139,7 +135,7 @@ func (h *handler) TearDown() error {
 }
 
 func HandleAction(name string, params map[string]interface{}) (results map[string]interface{}, err error) {
-	if name == state.JujuRunActionName {
+	if name == actions.JujuRunActionName {
 		return handleJujuRunAction(params)
 	}
 	return nil, errors.Errorf("unexpected action %s", name)
@@ -158,8 +154,8 @@ func handleJujuRunAction(params map[string]interface{}) (results map[string]inte
 	actionResults := map[string]interface{}{}
 	if res != nil {
 		actionResults["Code"] = res.Code
-		actionResults["Stdout"] = string(res.Stdout)
-		actionResults["Stderr"] = string(res.Stderr)
+		actionResults["Stdout"] = fmt.Sprintf("%s", res.Stdout)
+		actionResults["Stderr"] = fmt.Sprintf("%s", res.Stderr)
 	}
 	return actionResults, err
 }
@@ -176,8 +172,9 @@ func runCommandWithTimeout(command string, timeout time.Duration, clock clock.Cl
 		return nil, errors.Trace(err)
 	}
 
-	cancel := make(chan struct{})
+	var cancel chan struct{}
 	if timeout != 0 {
+		cancel = make(chan struct{})
 		go func() {
 			<-clock.After(timeout)
 			close(cancel)
