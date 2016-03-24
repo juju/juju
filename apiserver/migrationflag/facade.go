@@ -13,17 +13,22 @@ import (
 	"github.com/juju/names"
 )
 
+// Backend exposes information about any current model migrations.
 type Backend interface {
 	ModelUUID() string
 	MigrationPhase() (migration.Phase, error)
 	WatchMigrationPhase() (state.NotifyWatcher, error)
 }
 
+// Facade lets clients watch and get models' migration phases.
 type Facade struct {
 	backend   Backend
 	resources *common.Resources
 }
 
+// New creates a Facade backed by backend and resources. If auth
+// doesn't identity the client as a machine agent or a unit agent,
+// it will return common.ErrPerm.
 func New(backend Backend, resources *common.Resources, auth common.Authorizer) (*Facade, error) {
 	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() {
 		return nil, common.ErrPerm
@@ -34,6 +39,8 @@ func New(backend Backend, resources *common.Resources, auth common.Authorizer) (
 	}, nil
 }
 
+// auth is very simplistic: it only accepts the model tag reported by
+// the backend.
 func (facade *Facade) auth(tagString string) error {
 	tag, err := names.ParseModelTag(tagString)
 	if err != nil {
@@ -45,6 +52,8 @@ func (facade *Facade) auth(tagString string) error {
 	return nil
 }
 
+// Phase returns the current migration phase or an error for every
+// supplied entity.
 func (facade *Facade) Phase(entities params.Entities) params.PhaseResults {
 	count := len(entities.Entities)
 	results := params.PhaseResults{
@@ -58,6 +67,7 @@ func (facade *Facade) Phase(entities params.Entities) params.PhaseResults {
 	return results
 }
 
+// onePhase does auth and lookup for a single entity.
 func (facade *Facade) onePhase(tagString string) (string, error) {
 	if err := facade.auth(tagString); err != nil {
 		return "", errors.Trace(err)
@@ -69,6 +79,8 @@ func (facade *Facade) onePhase(tagString string) (string, error) {
 	return phase.String(), nil
 }
 
+// Watch returns an id for use with the NotifyWatcher facade, or an
+// error, for every supplied entity.
 func (facade *Facade) Watch(entities params.Entities) params.NotifyWatchResults {
 	count := len(entities.Entities)
 	results := params.NotifyWatchResults{
@@ -82,6 +94,8 @@ func (facade *Facade) Watch(entities params.Entities) params.NotifyWatchResults 
 	return results
 }
 
+// oneWatch does auth, and watcher creation/registration, for a single
+// entity.
 func (facade *Facade) oneWatch(tagString string) (string, error) {
 	if err := facade.auth(tagString); err != nil {
 		return "", errors.Trace(err)

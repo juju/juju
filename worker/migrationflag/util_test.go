@@ -16,6 +16,11 @@ import (
 	"github.com/juju/juju/worker/workertest"
 )
 
+// newMockFacade returns a mock Facade that will add calls to the
+// supplied testing.Stub, and return errors in the sequences it
+// specifies; if any Phase call does not return an error, it will
+// return a phase consumed from the head of the supplied list (or
+// panic if it's empty).
 func newMockFacade(stub *testing.Stub, phases ...migration.Phase) *mockFacade {
 	return &mockFacade{
 		stub:   stub,
@@ -23,6 +28,7 @@ func newMockFacade(stub *testing.Stub, phases ...migration.Phase) *mockFacade {
 	}
 }
 
+// mockFacade implements migrationflag.Facade for use in the tests.
 type mockFacade struct {
 	stub   *testing.Stub
 	phases []migration.Phase
@@ -37,6 +43,7 @@ func (mock *mockFacade) Phase(uuid string) (migration.Phase, error) {
 	return mock.nextPhase(), nil
 }
 
+// nextPhase consumes a phase and returns it, or panics.
 func (mock *mockFacade) nextPhase() migration.Phase {
 	phase := mock.phases[0]
 	mock.phases = mock.phases[1:]
@@ -52,6 +59,8 @@ func (mock *mockFacade) Watch(uuid string) (watcher.NotifyWatcher, error) {
 	return newMockWatcher(), nil
 }
 
+// newMockWatcher returns a watcher.NotifyWatcher that always
+// sends 3 changes and then sits quietly until killed.
 func newMockWatcher() *mockWatcher {
 	const count = 3
 	changes := make(chan struct{}, count)
@@ -64,6 +73,7 @@ func newMockWatcher() *mockWatcher {
 	}
 }
 
+// mockWatcher implements watcher.NotifyWatcher for use in the tests.
 type mockWatcher struct {
 	worker.Worker
 	changes chan struct{}
@@ -74,6 +84,8 @@ func (mock *mockWatcher) Changes() watcher.NotifyChannel {
 	return mock.changes
 }
 
+// checkCalls checks that all the supplied call names were invoked
+// in the supplied order, and that every one was passed [validUUID].
 func checkCalls(c *gc.C, stub *testing.Stub, names ...string) {
 	stub.CheckCallNames(c, names...)
 	for _, call := range stub.Calls() {
@@ -81,12 +93,20 @@ func checkCalls(c *gc.C, stub *testing.Stub, names ...string) {
 	}
 }
 
+// validUUID is the model UUID we're using in the tests.
 var validUUID = "01234567-89ab-cdef-0123-456789abcdef"
 
-func panicCheck(migration.Phase) bool  { panic("unexpected") }
-func neverCheck(migration.Phase) bool  { return false }
+// panicCheck is a Config.Check value that should not be called.
+func panicCheck(migration.Phase) bool { panic("unexpected") }
+
+// neverCheck is a Config.Check value that always returns false.
+func neverCheck(migration.Phase) bool { return false }
+
+// isQuiesce is a Config.Check value that returns whether the phase is QUIESCE.
 func isQuiesce(p migration.Phase) bool { return p == migration.QUIESCE }
 
+// validConfig returns a minimal config stuffed with dummy objects that
+// will expose when used.
 func validConfig() migrationflag.Config {
 	return migrationflag.Config{
 		Facade: struct{ migrationflag.Facade }{},
@@ -95,6 +115,8 @@ func validConfig() migrationflag.Config {
 	}
 }
 
+// checkNotValid checks that the supplied migrationflag.Config fails to
+// Validate, and cannot be used to construct a migrationflag.Worker.
 func checkNotValid(c *gc.C, config migrationflag.Config, expect string) {
 	check := func(err error) {
 		c.Check(err, gc.ErrorMatches, expect)

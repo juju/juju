@@ -15,6 +15,7 @@ func init() {
 	common.RegisterStandardFacade("MigrationFlag", 1, newFacade)
 }
 
+// newFacade wraps New to express the supplied *state.State as a Backend.
 func newFacade(st *state.State, resources *common.Resources, auth common.Authorizer) (*Facade, error) {
 	facade, err := New(&backend{st}, resources, auth)
 	if err != nil {
@@ -23,14 +24,17 @@ func newFacade(st *state.State, resources *common.Resources, auth common.Authori
 	return facade, nil
 }
 
+// backend implements Backend by wrapping a *state.State.
 type backend struct {
 	st *state.State
 }
 
+// ModelUUID is part of the Backend interface.
 func (shim *backend) ModelUUID() string {
 	return shim.st.ModelUUID()
 }
 
+// WatchMigrationPhase is part of the Backend interface.
 func (shim *backend) WatchMigrationPhase() (state.NotifyWatcher, error) {
 	watcher, err := shim.st.WatchMigrationStatus()
 	if err != nil {
@@ -39,6 +43,7 @@ func (shim *backend) WatchMigrationPhase() (state.NotifyWatcher, error) {
 	return watcher, nil
 }
 
+// MigrationPhase is part of the Backend interface.
 func (shim *backend) MigrationPhase() (migration.Phase, error) {
 	mig, err := shim.st.GetModelMigration()
 	if errors.IsNotFound(err) {
