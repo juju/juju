@@ -22,19 +22,19 @@ type FacadeSuite struct {
 var _ = gc.Suite(&FacadeSuite{})
 
 func (*FacadeSuite) TestAcceptsMachineAgent(c *gc.C) {
-	facade, err := migrationflag.New(nil, agentAuth{machine: true}, nil)
+	facade, err := migrationflag.New(nil, nil, agentAuth{machine: true})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(facade, gc.NotNil)
 }
 
 func (*FacadeSuite) TestAcceptsUnitAgent(c *gc.C) {
-	facade, err := migrationflag.New(nil, agentAuth{machine: true}, nil)
+	facade, err := migrationflag.New(nil, nil, agentAuth{machine: true})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(facade, gc.NotNil)
 }
 
 func (*FacadeSuite) TestRejectsNonAgent(c *gc.C) {
-	facade, err := migrationflag.New(nil, agentAuth{}, nil)
+	facade, err := migrationflag.New(nil, nil, agentAuth{})
 	c.Check(err, gc.Equals, common.ErrPerm)
 	c.Check(facade, gc.IsNil)
 }
@@ -42,7 +42,7 @@ func (*FacadeSuite) TestRejectsNonAgent(c *gc.C) {
 func (*FacadeSuite) TestPhaseSuccess(c *gc.C) {
 	stub := &testing.Stub{}
 	backend := newMockBackend(stub)
-	facade, err := migrationflag.New(backend, authOK, nil)
+	facade, err := migrationflag.New(backend, nil, authOK)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results := facade.Phase(entities(
@@ -62,7 +62,7 @@ func (*FacadeSuite) TestPhaseErrors(c *gc.C) {
 	stub := &testing.Stub{}
 	stub.SetErrors(errors.New("ouch"))
 	backend := newMockBackend(stub)
-	facade, err := migrationflag.New(backend, authOK, nil)
+	facade, err := migrationflag.New(backend, nil, authOK)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// 3 entities: unparseable, unauthorized, call error.
@@ -92,7 +92,7 @@ func (*FacadeSuite) TestWatchSuccess(c *gc.C) {
 	stub := &testing.Stub{}
 	backend := newMockBackend(stub)
 	resources := common.NewResources()
-	facade, err := migrationflag.New(backend, authOK, resources)
+	facade, err := migrationflag.New(backend, resources, authOK)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results := facade.Watch(entities(
@@ -119,7 +119,7 @@ func (*FacadeSuite) TestWatchErrors(c *gc.C) {
 	stub.SetErrors(errors.New("blort"), nil, errors.New("squish"))
 	backend := newMockBackend(stub)
 	resources := common.NewResources()
-	facade, err := migrationflag.New(backend, authOK, resources)
+	facade, err := migrationflag.New(backend, resources, authOK)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// 4 entities: unparseable, unauthorized, watch error, closed chan.

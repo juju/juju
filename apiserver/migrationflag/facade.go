@@ -24,7 +24,7 @@ type Facade struct {
 	resources *common.Resources
 }
 
-func New(backend Backend, auth common.Authorizer, resources *common.Resources) (*Facade, error) {
+func New(backend Backend, resources *common.Resources, auth common.Authorizer) (*Facade, error) {
 	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}

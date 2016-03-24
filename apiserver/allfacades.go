@@ -36,6 +36,7 @@ import (
 	_ "github.com/juju/juju/apiserver/metricsadder"
 	_ "github.com/juju/juju/apiserver/metricsdebug"
 	_ "github.com/juju/juju/apiserver/metricsmanager"
+	_ "github.com/juju/juju/apiserver/migrationflag"
 	_ "github.com/juju/juju/apiserver/migrationmaster"
 	_ "github.com/juju/juju/apiserver/migrationminion"
 	_ "github.com/juju/juju/apiserver/migrationtarget"
