@@ -3,6 +3,13 @@
 
 package backups
 
+import (
+	"github.com/juju/cmd"
+
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs"
+)
+
 const (
 	NotSet          = notset
 	DownloadWarning = downloadWarning
@@ -11,3 +18,8 @@ const (
 var (
 	NewAPIClient = &newAPIClient
 )
+
+func RestoreCommandForTest(environTestFunc func() (environs.Environ, error)) cmd.Command {
+	c := &RestoreCommand{environFunc: environTestFunc}
+	return envcmd.Wrap(c)
+}

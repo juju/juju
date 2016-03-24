@@ -30,6 +30,7 @@ type RestoreCommand struct {
 	backupId    string
 	bootstrap   bool
 	uploadTools bool
+	environFunc func() (environs.Environ, error)
 }
 
 var restoreDoc = `
@@ -49,6 +50,8 @@ an appropriate message.  For instance, if the existing bootstrap
 instance is already running then the command will fail with a message
 to that effect.
 `
+
+var BootstrapFunc = bootstrap.Bootstrap
 
 // Info returns the content for --help.
 func (c *RestoreCommand) Info() *cmd.Info {
@@ -129,16 +132,14 @@ func (c *RestoreCommand) runRestore(ctx *cmd.Context) error {
 	return nil
 }
 
-// rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
-// if there is no current server available to restore to.
-func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) error {
+func (c *RestoreCommand) getEnviron() (environs.Environ, error) {
 	store, err := configstore.Default()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	cfg, err := c.Config(store, nil)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	// Turn on safe mode so that the newly bootstrapped instance
 	// will not destroy all the instances it does not know about.
@@ -146,9 +147,19 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) error {
 		"provisioner-safe-mode": true,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot enable provisioner-safe-mode")
+		return nil, errors.Annotatef(err, "cannot enable provisioner-safe-mode")
 	}
 	env, err := environs.New(cfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return env, nil
+}
+
+// rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
+// if there is no current server available to restore to.
+func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) error {
+	env, err := c.environFunc()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -156,20 +167,19 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine state server instances")
 	}
-	if len(instanceIds) == 0 {
-		return errors.Errorf("no instances found; perhaps the environment was not bootstrapped")
-	}
-	inst, err := env.Instances(instanceIds)
-	if err == nil {
-		return errors.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
-	}
-	if err != environs.ErrNoInstances {
-		return errors.Annotatef(err, "cannot detect whether old instance is still running")
+	if len(instanceIds) > 0 {
+		inst, err := env.Instances(instanceIds)
+		if err == nil {
+			return errors.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
+		}
+		if err != environs.ErrNoInstances {
+			return errors.Annotatef(err, "cannot detect whether old instance is still running")
+		}
 	}
 
 	cons := c.constraints
 	args := bootstrap.BootstrapParams{Constraints: cons, UploadTools: c.uploadTools}
-	if err := bootstrap.Bootstrap(envcmd.BootstrapContext(ctx), env, args); err != nil {
+	if err := BootstrapFunc(envcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")
 	}
 	return nil
