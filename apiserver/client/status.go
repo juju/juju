@@ -598,11 +598,13 @@ func (context *statusContext) processServices() map[string]params.ServiceStatus 
 	return servicesMap
 }
 
-func (context *statusContext) processService(service *state.Service) (processedStatus params.ServiceStatus) {
+func (context *statusContext) processService(service *state.Service) params.ServiceStatus {
 	serviceCharmURL, _ := service.CharmURL()
-	processedStatus.Charm = serviceCharmURL.String()
-	processedStatus.Exposed = service.IsExposed()
-	processedStatus.Life = processLife(service)
+	var processedStatus = params.ServiceStatus{
+		Charm:   serviceCharmURL.String(),
+		Exposed: service.IsExposed(),
+		Life:    processLife(service),
+	}
 
 	if latestCharm, ok := context.latestCharms[*serviceCharmURL.WithRevision(-1)]; ok && latestCharm != nil {
 		if latestCharm.Revision() > serviceCharmURL.Revision {
@@ -614,12 +616,12 @@ func (context *statusContext) processService(service *state.Service) (processedS
 	processedStatus.Relations, processedStatus.SubordinateTo, err = context.processServiceRelations(service)
 	if err != nil {
 		processedStatus.Err = err
-		return
+		return processedStatus
 	}
 	networks, err := service.Networks()
 	if err != nil {
 		processedStatus.Err = err
-		return
+		return processedStatus
 	}
 	var cons constraints.Value
 	if service.IsPrincipal() {
@@ -627,7 +629,7 @@ func (context *statusContext) processService(service *state.Service) (processedS
 		cons, err = service.Constraints()
 		if err != nil {
 			processedStatus.Err = err
-			return
+			return processedStatus
 		}
 	}
 	// TODO(dimitern): Drop support for this in a follow-up.
@@ -646,7 +648,7 @@ func (context *statusContext) processService(service *state.Service) (processedS
 		serviceStatus, err := service.Status()
 		if err != nil {
 			processedStatus.Err = err
-			return
+			return processedStatus
 		}
 		processedStatus.Status.Status = serviceStatus.Status
 		processedStatus.Status.Info = serviceStatus.Message
