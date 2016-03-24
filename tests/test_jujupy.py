@@ -874,6 +874,7 @@ class TestEnvJujuClient(ClientTest):
             yield '2.0-alpha3'
             yield '2.0-beta1'
             yield '2.0-beta2'
+            yield '2.0-beta3'
             yield '2.0-delta1'
 
         context = patch.object(
@@ -920,8 +921,11 @@ class TestEnvJujuClient(ClientTest):
             self.assertIs(type(client), EnvJujuClient2B2)
             self.assertEqual(client.version, '2.0-beta1')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2B2)
             self.assertEqual(client.version, '2.0-beta2')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '2.0-beta3')
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-delta1')
@@ -2921,6 +2925,7 @@ class TestEnvJujuClient1X(ClientTest):
             yield '2.0-alpha3'
             yield '2.0-beta1'
             yield '2.0-beta2'
+            yield '2.0-beta3'
             yield '2.0-delta1'
 
         context = patch.object(
@@ -2967,8 +2972,11 @@ class TestEnvJujuClient1X(ClientTest):
             self.assertIs(type(client), EnvJujuClient2B2)
             self.assertEqual(client.version, '2.0-beta1')
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2B2)
             self.assertEqual(client.version, '2.0-beta2')
+            client = EnvJujuClient1X.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '2.0-beta3')
             client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-delta1')
