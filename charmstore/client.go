@@ -70,9 +70,21 @@ type ResourcesClient interface {
 
 type baseClient struct {
 	*csclient.Client
-	fakeCharmStoreClient
 
 	asRepo func() *charmrepo.CharmStore
+}
+
+// TODO(ericsnow) Remove the fake methods once the charm store adds support.
+
+// ListResources implements ResourcesClient.ListResources as a noop.
+func (baseClient) ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error) {
+	res := make([][]charmresource.Resource, len(charmURLs))
+	return res, nil
+}
+
+// GetResource implements ResourcesClient.GetResource as a noop.
+func (baseClient) GetResource(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, io.ReadCloser, error) {
+	return charmresource.Resource{}, nil, errors.NotFoundf("resource %q", resourceName)
 }
 
 // TODO(ericsnow) We must make the Juju metadata available here since
@@ -192,21 +204,4 @@ func (c *Client) LatestRevisions(cURLs []*charm.URL) ([]charmrepo.CharmRevision,
 		}
 	}
 	return c.BaseClient.LatestRevisions(cURLs)
-}
-
-// TODO(ericsnow) Add an "AsRepo() charmrepo.Interface" method.
-
-// TODO(ericsnow) Remove the fake once the charm store adds support.
-
-type fakeCharmStoreClient struct{}
-
-// ListResources implements BaseClient as a noop.
-func (fakeCharmStoreClient) ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error) {
-	res := make([][]charmresource.Resource, len(charmURLs))
-	return res, nil
-}
-
-// GetResource implements BaseClient as a noop.
-func (fakeCharmStoreClient) GetResource(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, io.ReadCloser, error) {
-	return charmresource.Resource{}, nil, errors.NotFoundf("resource %q", resourceName)
 }

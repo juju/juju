@@ -28,6 +28,7 @@ func NewCommandBase(spec CharmstoreSpec) *CommandBase {
 // CommandBase is the type that should be embedded in "juju charm"
 // sub-commands.
 type CommandBase struct {
+	// TODO(ericsnow) This should be a modelcmd.ModelCommandBase.
 	cmd.CommandBase
 	spec CharmstoreSpec
 }

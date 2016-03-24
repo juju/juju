@@ -32,6 +32,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -83,6 +84,7 @@ type State struct {
 	pwatcher *presence.Watcher
 	// leadershipManager keeps track of units' service leadership leases
 	// within this environment.
+	leadershipClient  corelease.Client
 	leadershipManager *lease.Manager
 	// singularManager keeps track of which controller machine is responsible
 	// for managing this state's environment.
@@ -221,6 +223,7 @@ func (st *State) start(controllerTag names.ModelTag) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot create leadership lease client")
 	}
+	st.leadershipClient = leadershipClient
 	logger.Infof("starting leadership lease manager")
 	leadershipManager, err := lease.NewManager(lease.ManagerConfig{
 		Secretary: leadershipSecretary{},
@@ -1242,23 +1245,25 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		} else {
 			supportedSeries = args.Charm.Meta().Series
 		}
-		seriesOS, err := series.GetOSFromSeries(args.Series)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		supportedOperatingSystems := make(map[os.OSType]bool)
-		for _, supportedSeries := range supportedSeries {
-			os, err := series.GetOSFromSeries(supportedSeries)
+		if len(supportedSeries) > 0 {
+			seriesOS, err := series.GetOSFromSeries(args.Series)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			supportedOperatingSystems[os] = true
-		}
-		if !supportedOperatingSystems[seriesOS] {
-			return nil, errors.NewNotSupported(errors.Errorf(
-				"series %q (OS %q) not supported by charm",
-				args.Series, seriesOS,
-			), "")
+			supportedOperatingSystems := make(map[os.OSType]bool)
+			for _, supportedSeries := range supportedSeries {
+				os, err := series.GetOSFromSeries(supportedSeries)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				supportedOperatingSystems[os] = true
+			}
+			if !supportedOperatingSystems[seriesOS] {
+				return nil, errors.NewNotSupported(errors.Errorf(
+					"series %q (OS %q) not supported by charm, supported series are %q",
+					args.Series, seriesOS, strings.Join(supportedSeries, ", "),
+				), "")
+			}
 		}
 	}
 

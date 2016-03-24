@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/testing"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/state"
@@ -141,25 +140,6 @@ type fakePoolManager struct {
 
 func (pm *fakePoolManager) Get(name string) (*storage.Config, error) {
 	return nil, errors.NotFoundf("pool")
-}
-
-type fakeNotifyWatcher struct {
-	tomb.Tomb
-	ch chan struct{}
-}
-
-func (w *fakeNotifyWatcher) Kill() {
-	w.Tomb.Kill(nil)
-	w.Tomb.Done()
-}
-
-func (w *fakeNotifyWatcher) Stop() error {
-	w.Kill()
-	return w.Wait()
-}
-
-func (w *fakeNotifyWatcher) Changes() <-chan struct{} {
-	return w.ch
 }
 
 type nopSyncStarter struct{}

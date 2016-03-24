@@ -648,8 +648,6 @@ type CacheAPIEndpointsSuite struct {
 var _ = gc.Suite(&CacheAPIEndpointsSuite{})
 
 func (s *CacheAPIEndpointsSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(juju.ResolveOrDropHostnames, s.mockResolveOrDropHostnames)
-
 	s.hostPorts = [][]network.HostPort{
 		network.NewHostPorts(1234,
 			"1.0.0.1",
@@ -685,6 +683,7 @@ func (s *CacheAPIEndpointsSuite) SetUpTest(c *gc.C) {
 	s.store = configstore.NewMem()
 
 	s.JujuConnSuite.SetUpTest(c)
+	s.PatchValue(juju.ResolveOrDropHostnames, s.mockResolveOrDropHostnames)
 
 	apiHostPort, err := network.ParseHostPorts(s.APIState.Addr())
 	c.Assert(err, jc.ErrorIsNil)

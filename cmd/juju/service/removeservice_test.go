@@ -4,12 +4,11 @@
 package service
 
 import (
-	"net/http"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -37,7 +36,7 @@ func (s *RemoveServiceSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 	s.stub = &jutesting.Stub{}
 	s.budgetAPIClient = &mockBudgetAPIClient{Stub: s.stub}
-	s.PatchValue(&getBudgetAPIClient, func(*cmd.Context, *http.Client) (budgetAPIClient, error) { return s.budgetAPIClient, nil })
+	s.PatchValue(&getBudgetAPIClient, func(*httpbakery.Client) budgetAPIClient { return s.budgetAPIClient })
 }
 
 func runRemoveService(c *gc.C, args ...string) error {
@@ -123,7 +122,7 @@ func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 	s.ctx = testing.Context(c)
 	s.stub = &jutesting.Stub{}
 	s.budgetAPIClient = &mockBudgetAPIClient{Stub: s.stub}
-	s.PatchValue(&getBudgetAPIClient, func(*cmd.Context, *http.Client) (budgetAPIClient, error) { return s.budgetAPIClient, nil })
+	s.PatchValue(&getBudgetAPIClient, func(*httpbakery.Client) budgetAPIClient { return s.budgetAPIClient })
 
 	testcharms.UploadCharm(c, s.client, "cs:quantal/metered-1", "metered")
 	deploy := &DeployCommand{}
