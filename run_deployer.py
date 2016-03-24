@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 import logging
 import subprocess
 import sys
+from time import sleep
 import urllib2
 
 from deploy_stack import (
@@ -20,6 +21,7 @@ from utility import (
     add_basic_testing_arguments,
     configure_logging,
     scoped_environ,
+    until_timeout,
 )
 
 
@@ -102,24 +104,34 @@ def assert_mediawiki_bundle(args, client):
     status = client.get_status()
     expected_services = (
         ['haproxy', 'mediawiki', 'mysql', 'memcached', 'mysql-slave'])
-    if sorted(status.status['services'].keys()) != sorted(expected_services):
+    if sorted(status.status['services']) != sorted(expected_services):
         raise AssertionError('Unexpected service configuration: {}'.format(
             status.status['services']))
     if status.status['services']['haproxy']['exposed']:
         raise AssertionError('haproxy is exposed.')
     client.juju('expose', ('haproxy',))
-    status = client.get_status()
-    if not status.status['services']['haproxy']['exposed']:
+    for _ in until_timeout(30):
+        status = client.get_status()
+        if status.status['services']['haproxy']['exposed']:
+            break
+        sleep(.1)
+    else:
         raise AssertionError('haproxy is not exposed.')
 
     machine_num = (
         status.status['services']['haproxy']['units']['haproxy/0']['machine'])
     haproxy_dns_name = status.status['machines'][machine_num]['dns-name']
-    req = urllib2.urlopen('http://{}'.format(haproxy_dns_name))
-    if 200 != req.getcode():
-        raise AssertionError(
-            'haproxy is not reachable: http code: {}'.format(req.getcode))
-
+    for _ in until_timeout(60):
+        try:
+            req = urllib2.urlopen('http://{}'.format(haproxy_dns_name))
+        except (urllib2.URLError, urllib2.HTTPError):
+            sleep(.1)
+            continue
+        if 200 == req.getcode():
+            break
+        sleep(.1)
+    else:
+        raise AssertionError('{} is not reachable'.format(haproxy_dns_name))
     client.juju('add-unit', ('mediawiki',))
     client.juju('add-unit', ('mysql-slave',))
     client.wait_for_started()

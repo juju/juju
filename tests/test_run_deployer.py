@@ -4,12 +4,11 @@ import os
 import stat
 import subprocess
 from tempfile import NamedTemporaryFile
-import urllib2
 import unittest
+import urllib2
 
 from mock import (
     call,
-    MagicMock,
     Mock,
     patch,
 )
@@ -200,10 +199,10 @@ class TestAssessDeployer(tests.TestCase):
     def test_assert_mediawiki_bundle(self):
         args = self.make_args(allow_native_deploy=True)
         client = self.deploy_mediawiki()
-        with patch('run_deployer.urllib2.urlopen', autospec=True,
-                   return_value=self.make_response()) as url_mock:
+        fakeres = FakeResponse()
+        with patch('urllib2.urlopen', autospec=True,
+                   return_value=fakeres) as url_mock:
             assert_mediawiki_bundle(args, client)
-
         url_mock.assert_called_once_with('http://1.example.com')
 
     def test_assert_mediawiki_bundle_service_misconfigured(self):
@@ -212,51 +211,46 @@ class TestAssessDeployer(tests.TestCase):
         client.bootstrap()
         client.deploy('haproxy')
         client.deploy('mysql')
-        with patch('run_deployer.urllib2.urlopen', autospec=True,
-                   return_value=self.make_response()):
+        with self.assertRaisesRegexp(
+                AssertionError, 'Unexpected service configuration'):
+            assert_mediawiki_bundle(args, client)
+
+    def test_assert_mediawiki_bundle_not_exposed(self):
+        args = self.make_args(allow_native_deploy=True)
+        client = self.deploy_mediawiki()
+        with patch('run_deployer.until_timeout',
+                   autospec=True, return_value=[]):
             with self.assertRaisesRegexp(
-                    AssertionError, 'Unexpected service configuration'):
+                    AssertionError, 'haproxy is not exposed.'):
                 assert_mediawiki_bundle(args, client)
 
     def test_assert_mediawiki_bundle_not_reachable(self):
         args = self.make_args(allow_native_deploy=True)
         client = self.deploy_mediawiki()
-        with patch('run_deployer.urllib2.urlopen', autospec=True,
-                   return_value=self.make_response(400)):
-            with self.assertRaisesRegexp(
-                    AssertionError, 'haproxy is not reachable'):
-                assert_mediawiki_bundle(args, client)
+        fake_res = FakeResponse(400)
+        with patch('run_deployer.until_timeout',
+                   autospec=True, return_value=[1]) as ut_mock:
+            with patch('urllib2.urlopen', autospec=True,
+                       return_value=fake_res) as uo_mock:
+                with self.assertRaisesRegexp(
+                        AssertionError, '1.example.com is not reachable'):
+                    assert_mediawiki_bundle(args, client)
+        self.assertEqual(ut_mock.mock_calls, [call(30), call(60)])
+        uo_mock.assert_called_once_with('http://1.example.com')
 
     def test_assert_mediawiki_bundle_http_error(self):
         args = self.make_args(allow_native_deploy=True)
         client = self.deploy_mediawiki()
-        with patch(
-                'run_deployer.urllib2.urlopen', autospec=True,
-                side_effect=urllib2.HTTPError(None, None, None, None, None)):
-            with self.assertRaisesRegexp(
-                    urllib2.HTTPError, 'HTTP Error'):
-                assert_mediawiki_bundle(args, client)
-
-    def test_assert_mediawiki_bundle_not_exposed(self):
-        args = self.make_args(allow_native_deploy=True)
-        client = self.deploy_mediawiki()
-        client.juju = MagicMock(spec=[])
-        with patch('run_deployer.urllib2.urlopen', autospec=True,
-                   return_value=self.make_response(400)):
-            with self.assertRaisesRegexp(
-                    AssertionError, 'haproxy is not exposed'):
-                assert_mediawiki_bundle(args, client)
-
-    def make_response(self, return_code=200):
-
-        class Response:
-
-            def __init__(self, code):
-                self.return_code = code
-
-            def getcode(self):
-                return self.return_code
-        return Response(return_code)
+        with patch('run_deployer.until_timeout',
+                   autospec=True, return_value=[1]) as ut_mock:
+            with patch('urllib2.urlopen', autospec=True,
+                       side_effect=urllib2.HTTPError(
+                           None, None, None, None, None)) as uo_mock:
+                with self.assertRaisesRegexp(
+                        AssertionError, '1.example.com is not reachable'):
+                    assert_mediawiki_bundle(args, client)
+        self.assertEqual(ut_mock.mock_calls, [call(30), call(60)])
+        uo_mock.assert_called_once_with('http://1.example.com')
 
     def deploy_mediawiki(self):
         client = FakeJujuClient()
@@ -267,6 +261,15 @@ class TestAssessDeployer(tests.TestCase):
         client.deploy('memcached')
         client.deploy('mysql-slave')
         return client
+
+
+class FakeResponse:
+
+    def __init__(self, code=200):
+        self.return_code = code
+
+    def getcode(self):
+        return self.return_code
 
 
 class FakeRemote():
