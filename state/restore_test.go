@@ -23,7 +23,7 @@ import (
 // None of the other functionality is tested, and little of it is reliable or
 // consistent with the other state code, but that's not for today.
 type RestoreInfoSuite struct {
-	ConnSuite
+	StateSuite
 }
 
 var _ = gc.Suite(&RestoreInfoSuite{})
@@ -51,15 +51,14 @@ func (s *RestoreInfoSuite) TestGetSetterRace(c *gc.C) {
 	const count = 100
 	wg := sync.WaitGroup{}
 	wg.Add(count)
-	defer wg.Wait()
 	for i := 0; i < count; i++ {
 		go func() {
 			defer wg.Done()
 			test()
 		}()
 	}
-
 	close(trigger)
+	wg.Wait()
 }
 
 func checkStatus(c *gc.C, setter *state.RestoreInfo, status state.RestoreStatus) {
