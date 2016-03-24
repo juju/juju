@@ -30,7 +30,7 @@ var _ simplestreams.HasRegion = (*joyentEnviron)(nil)
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (joyentProvider) RestrictedConfigAttributes() []string {
-	return nil
+	return []string{sdcUrl}
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
