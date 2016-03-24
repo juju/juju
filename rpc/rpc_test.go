@@ -1205,7 +1205,7 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 		if bidir {
 			role = roleBoth
 		}
-		rpcConn := rpc.NewConn(NewJSONCodec(conn, role), serverNotifier)
+		rpcConn := rpc.NewServerConn(NewJSONCodec(conn, role), serverNotifier)
 		if custroot, ok := root.(*CustomMethodFinder); ok {
 			rpcConn.ServeFinder(custroot, tfErr)
 			custroot.root.conn = rpcConn
@@ -1225,7 +1225,7 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 	if bidir {
 		role = roleBoth
 	}
-	client = rpc.NewConn(NewJSONCodec(conn, role), clientNotifier)
+	client = rpc.NewClientConn(NewJSONCodec(conn, role), clientNotifier)
 	client.Start()
 	return client, srvDone, clientNotifier, serverNotifier
 }

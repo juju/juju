@@ -498,7 +498,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 		// know we'll need it.
 		notifier = reqNotifier
 	}
-	conn := rpc.NewConn(codec, notifier)
+	conn := rpc.NewServerConn(codec, notifier)
 
 	h, err := srv.newAPIHandler(conn, reqNotifier, modelUUID)
 	if err != nil {

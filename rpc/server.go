@@ -186,11 +186,19 @@ type RequestNotifier interface {
 	ClientReply(req Request, hdr *Header, body interface{})
 }
 
-// NewConn creates a new connection that uses the given codec for
+func NewClientConn(codec Codec, notifier RequestNotifier) *Conn {
+	return newConn(codec, notifier)
+}
+
+func NewServerConn(codec Codec, notifier RequestNotifier) *Conn {
+	return newConn(codec, notifier)
+}
+
+// newConn creates a new connection that uses the given codec for
 // transport, but it does not start it. Conn.Start must be called before
 // any requests are sent or received. If notifier is non-nil, the
 // appropriate method will be called for every RPC request.
-func NewConn(codec Codec, notifier RequestNotifier) *Conn {
+func newConn(codec Codec, notifier RequestNotifier) *Conn {
 	if notifier == nil {
 		notifier = new(dummyNotifier)
 	}

@@ -27,7 +27,7 @@ var _ = gc.Suite(&dispatchSuite{})
 func (s *dispatchSuite) SetUpSuite(c *gc.C) {
 	rpcServer := func(ws *websocket.Conn) {
 		codec := jsoncodec.NewWebsocket(ws)
-		conn := rpc.NewConn(codec, nil)
+		conn := rpc.NewServerConn(codec, nil)
 
 		conn.Serve(&DispatchRoot{}, nil)
 		conn.Start()
