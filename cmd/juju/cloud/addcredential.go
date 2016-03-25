@@ -98,18 +98,31 @@ func (c *addCredentialCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args[1:])
 }
 
+func cloudOrProvider(cloudName string, cloudByNameFunc func(string) (*jujucloud.Cloud, error)) (cloud *jujucloud.Cloud, err error) {
+	if cloud, err = cloudByNameFunc(cloudName); err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, err
+		}
+		builtInProviders := builtInProviders()
+		if builtIn, ok := builtInProviders[cloudName]; !ok {
+			return nil, errors.NotValidf("cloud %v", cloudName)
+		} else {
+			cloud = &builtIn
+		}
+	}
+	return cloud, nil
+}
+
 func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	// Check that the supplied cloud is valid.
 	var err error
-	if c.cloud, err = c.cloudByNameFunc(c.CloudName); err != nil {
-		if errors.IsNotFound(err) {
-			return errors.NotValidf("cloud %v", c.CloudName)
+	if c.cloud, err = cloudOrProvider(c.CloudName, c.cloudByNameFunc); err != nil {
+		if !errors.IsNotFound(err) {
+			return err
 		}
-		return err
-	} else {
-		if len(c.cloud.AuthTypes) == 0 {
-			return errors.Errorf("cloud %q does not require credentials", c.cloud)
-		}
+	}
+	if len(c.cloud.AuthTypes) == 0 {
+		return errors.Errorf("cloud %q does not require credentials", c.CloudName)
 	}
 
 	if c.CredentialsFile == "" {
@@ -279,11 +292,16 @@ func (c *addCredentialCommand) promptCredentialAttributes(
 		value := ""
 		for {
 			var err error
-			value, err = c.promptFieldValue(out, in, currentAttr)
-			if err != nil {
-				return nil, err
+			// Interactive add does not support adding multi-line values, which
+			// is what we typically get when the attribute can come from a file.
+			// For now we'll skip, and just get the user to enter the file path.
+			// TODO(wallyworld) - add support for multi-line entry
+			if currentAttr.FileAttr == "" {
+				value, err = c.promptFieldValue(out, in, currentAttr)
+				if err != nil {
+					return nil, err
+				}
 			}
-
 			// Validate the entered value matches any options.
 			// If the user just hits Enter, the first option is used.
 			if len(currentAttr.Options) > 0 {

@@ -62,7 +62,7 @@ func initExpectations(com *DeployCommand, store jujuclient.ClientStore) {
 		com.RepoPath = "/path/to/repo"
 	}
 	com.SetClientStore(store)
-	com.SetModelName("dummymodel")
+	com.SetModelName("admin")
 }
 
 func initDeployCommand(store jujuclient.ClientStore, args ...string) (*DeployCommand, error) {
@@ -75,7 +75,8 @@ func (s *CmdSuite) TestDeployCommandInit(c *gc.C) {
 	defer os.Setenv(osenv.JujuRepositoryEnvKey, os.Getenv(osenv.JujuRepositoryEnvKey))
 	os.Setenv(osenv.JujuRepositoryEnvKey, "/path/to/repo")
 
-	for _, t := range deployTests {
+	for i, t := range deployTests {
+		c.Logf("\ntest %d: args %q", i, t.args)
 		initExpectations(t.com, s.ControllerStore)
 		com, err := initDeployCommand(s.ControllerStore, t.args...)
 		// Testing that the flag set is populated is good enough for the scope

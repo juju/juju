@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -23,7 +22,6 @@ import (
 type ModelsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api   *fakeModelMgrAPIClient
-	creds *configstore.APICredentials
 	store *jujuclienttesting.MemStore
 }
 
@@ -84,7 +82,6 @@ func (s *ModelsSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.api = &fakeModelMgrAPIClient{models: models}
-	s.creds = &configstore.APICredentials{User: "admin@local", Password: "password"}
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.Controllers["fake"] = jujuclient.ControllerDetails{}
 	s.store.Models["fake"] = jujuclient.ControllerAccountModels{
@@ -106,7 +103,7 @@ func (s *ModelsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ModelsSuite) newCommand() cmd.Command {
-	return controller.NewListModelsCommandForTest(s.api, s.api, s.store, s.creds)
+	return controller.NewListModelsCommandForTest(s.api, s.api, s.store)
 }
 
 func (s *ModelsSuite) checkSuccess(c *gc.C, user string, args ...string) {

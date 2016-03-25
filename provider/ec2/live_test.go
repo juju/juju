@@ -48,12 +48,11 @@ func registerAmazonTests() {
 	//  access-key: $AWS_ACCESS_KEY_ID
 	//  secret-key: $AWS_SECRET_ACCESS_KEY
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
-		"name":           "sample-" + uniqueName,
-		"type":           "ec2",
-		"control-bucket": "juju-test-" + uniqueName,
-		"admin-secret":   "for real",
-		"firewall-mode":  config.FwInstance,
-		"agent-version":  coretesting.FakeVersionNumber.String(),
+		"name":          "sample-" + uniqueName,
+		"type":          "ec2",
+		"admin-secret":  "for real",
+		"firewall-mode": config.FwInstance,
+		"agent-version": coretesting.FakeVersionNumber.String(),
 	})
 	gc.Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
@@ -78,6 +77,9 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.BaseSuite.SetUpSuite(c)
 	t.LiveTests.SetUpSuite(c)
+	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -86,9 +88,6 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
-	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
 	t.BaseSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
 }

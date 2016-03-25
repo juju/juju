@@ -129,20 +129,22 @@ func New(st *state.State) (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newWorker(&stateShim{
+	shim := &stateShim{
 		State:     st,
 		mongoPort: cfg.StatePort(),
 		apiPort:   cfg.APIPort(),
-	}, newPublisher(st, cfg.PreferIPv6())), nil
+	}
+	supportsSpaces := networkingcommon.SupportsSpaces(shim) == nil
+	return newWorker(shim, newPublisher(st, cfg.PreferIPv6()), supportsSpaces), nil
 }
 
-func newWorker(st stateInterface, pub publisherInterface) worker.Worker {
+func newWorker(st stateInterface, pub publisherInterface, supportsSpaces bool) worker.Worker {
 	w := &pgWorker{
 		st:                     st,
 		notifyCh:               make(chan notifyFunc),
 		machines:               make(map[string]*machine),
 		publisher:              pub,
-		providerSupportsSpaces: networkingcommon.SupportsSpaces(st) == nil,
+		providerSupportsSpaces: supportsSpaces,
 	}
 	go func() {
 		defer w.tomb.Done()

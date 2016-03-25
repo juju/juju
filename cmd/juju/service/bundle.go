@@ -21,7 +21,6 @@ import (
 	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -48,8 +47,11 @@ type deploymentLogger interface {
 // charm store client. The deployment is not transactional, and its progress is
 // notified using the given deployment logger.
 func deployBundle(
-	data *charm.BundleData, client *api.Client, serviceDeployer *serviceDeployer,
-	csclient *csClient, repoPath string, conf *config.Config, log deploymentLogger,
+	data *charm.BundleData,
+	client *api.Client,
+	serviceDeployer *serviceDeployer,
+	resolver *charmURLResolver,
+	log deploymentLogger,
 	bundleStorage map[string]map[string]storage.Constraints,
 ) (map[*charm.URL]*macaroon.Macaroon, error) {
 	verifyConstraints := func(s string) error {
@@ -113,9 +115,7 @@ func deployBundle(
 		annotationsClient: annotationsClient,
 		serviceDeployer:   serviceDeployer,
 		bundleStorage:     bundleStorage,
-		csclient:          csclient,
-		repoPath:          repoPath,
-		conf:              conf,
+		resolver:          resolver,
 		log:               log,
 		data:              data,
 		unitStatus:        unitStatus,
@@ -165,6 +165,7 @@ func deployBundle(
 type bundleHandler struct {
 	// changes holds the changes to be applied in order to deploy the bundle.
 	changes []bundlechanges.Change
+
 	// results collects data resulting from applying changes. Keys identify
 	// changes, values result from interacting with the environment, and are
 	// stored so that they can be potentially reused later, for instance for
@@ -177,39 +178,46 @@ type bundleHandler struct {
 	//   the unit name can be stored. The latter happens when a machine is
 	//   implicitly created by adding a unit without a machine spec.
 	results map[string]string
+
 	// client is used to interact with the environment.
 	client *api.Client
+
 	// serviceClient is used to interact with services.
 	serviceClient *apiservice.Client
+
 	// annotationsClient is used to interact with annotations.
 	annotationsClient *apiannotations.Client
+
 	// serviceDeployer is used to deploy services.
 	serviceDeployer *serviceDeployer
+
 	// bundleStorage contains a mapping of service-specific storage
 	// constraints. For each service, the storage constraints in the
 	// map will replace or augment the storage constraints specified
 	// in the bundle itself.
 	bundleStorage map[string]map[string]storage.Constraints
-	// csclient is used to retrieve charms from the charm store.
-	csclient *csClient
-	// repoPath is used to retrieve charms from a local repository.
-	repoPath string
-	// conf holds the model configuration.
-	conf *config.Config
+
+	// resolver is used to resolve charm and bundle URLs.
+	resolver *charmURLResolver
+
 	// log is used to output messages to the user, so that the user can keep
 	// track of the bundle deployment progress.
 	log deploymentLogger
+
 	// data is the original bundle data that we want to deploy.
 	data *charm.BundleData
+
 	// unitStatus reflects the environment status and maps unit names to their
 	// corresponding machine identifiers. This is kept updated by both change
 	// handlers (addCharm, addService etc.) and by updateUnitStatus.
 	unitStatus map[string]string
+
 	// ignoredMachines and ignoredUnits map service names to whether a machine
 	// or a unit creation has been skipped during the bundle deployment because
 	// the current status of the environment does not require them to be added.
 	ignoredMachines map[string]bool
 	ignoredUnits    map[string]bool
+
 	// watcher holds an environment mega-watcher used to keep the environment
 	// status up to date.
 	watcher allWatcher
@@ -217,12 +225,7 @@ type bundleHandler struct {
 
 // addCharm adds a charm to the environment.
 func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*charm.URL, *macaroon.Macaroon, error) {
-	url, _, repo, err := resolveCharmStoreEntityURL(resolveCharmStoreEntityParams{
-		urlStr:   p.Charm,
-		csParams: h.csclient.params,
-		repoPath: h.repoPath,
-		conf:     h.conf,
-	})
+	url, _, repo, err := h.resolver.resolve(p.Charm)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
@@ -230,7 +233,7 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*ch
 		return nil, nil, errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
 	var csMac *macaroon.Macaroon
-	url, csMac, err = addCharmFromURL(h.client, url, repo, h.csclient)
+	url, csMac, err = addCharmFromURL(h.client, url, repo)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}

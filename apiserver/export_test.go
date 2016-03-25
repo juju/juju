@@ -36,7 +36,7 @@ func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
 	if err != nil {
 		return nil, err
 	}
-	return auth.(*authentication.MacaroonAuthenticator).Macaroon, nil
+	return auth.(*authentication.ExternalMacaroonAuthenticator).Macaroon, nil
 }
 
 func ServerBakeryService(srv *Server) (*bakery.Service, error) {
@@ -44,7 +44,7 @@ func ServerBakeryService(srv *Server) (*bakery.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return auth.(*authentication.MacaroonAuthenticator).Service, nil
+	return auth.(*authentication.ExternalMacaroonAuthenticator).Service, nil
 }
 
 // ServerAuthenticatorForTag calls the authenticatorForTag method
@@ -91,9 +91,12 @@ func TestingApiRoot(st *state.State) rpc.MethodFinder {
 // TestingApiHandler gives you an ApiHandler that isn't connected to
 // anything real. It's enough to let test some basic functionality though.
 func TestingApiHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Resources) {
+	authCtxt, err := newAuthContext(srvSt)
+	c.Assert(err, jc.ErrorIsNil)
 	srv := &Server{
-		state: srvSt,
-		tag:   names.NewMachineTag("0"),
+		authCtxt: authCtxt,
+		state:    srvSt,
+		tag:      names.NewMachineTag("0"),
 	}
 	h, err := newApiHandler(srv, st, nil, nil, st.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
@@ -187,4 +190,18 @@ func TestingAboutToRestoreRoot(st *state.State) *aboutToRestoreRoot {
 // Addr returns the address that the server is listening on.
 func (srv *Server) Addr() *net.TCPAddr {
 	return srv.lis.Addr().(*net.TCPAddr) // cannot fail
+}
+
+// PatchMigrationGetter overrides the migrationGetter function to
+// support testing.
+func PatchMigrationGetter(p Patcher, st modelMigrationGetter) {
+	p.PatchValue(&migrationGetter, func(*state.State) modelMigrationGetter {
+		return st
+	})
+}
+
+// Patcher defines an interface that matches the PatchValue method on
+// CleanupSuite
+type Patcher interface {
+	PatchValue(ptr, value interface{})
 }

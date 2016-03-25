@@ -30,7 +30,12 @@ var ErrWaitAborted = errors.New("environ wait aborted")
 // It never takes responsibility for the supplied watcher; the client remains
 // responsible for detecting and handling any watcher errors that may occur,
 // whether this func succeeds or fails.
-func WaitForEnviron(w watcher.NotifyWatcher, getter ConfigGetter, abort <-chan struct{}) (environs.Environ, error) {
+func WaitForEnviron(
+	w watcher.NotifyWatcher,
+	getter ConfigGetter,
+	newEnviron NewEnvironFunc,
+	abort <-chan struct{},
+) (environs.Environ, error) {
 	for {
 		select {
 		case <-abort:
@@ -43,7 +48,7 @@ func WaitForEnviron(w watcher.NotifyWatcher, getter ConfigGetter, abort <-chan s
 			if err != nil {
 				return nil, errors.Annotate(err, "cannot read environ config")
 			}
-			environ, err := environs.New(config)
+			environ, err := newEnviron(config)
 			if err == nil {
 				return environ, nil
 			}

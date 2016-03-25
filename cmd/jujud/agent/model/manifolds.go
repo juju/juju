@@ -10,6 +10,7 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/agent"
@@ -138,12 +139,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// hates us and will engineer matters such that it happens
 		// sometimes, even when we try to avoid it.
 
-		// The environ tracker is currently only used by the space
-		// discovery worker and the undertaker, but could/should be
-		// used by several others (firewaller, provisioners, instance
-		// poller).
+		// The environ tracker could/should be used by several other
+		// workers (firewaller, provisioners, address-cleaner?).
 		environTrackerName: ifResponsible(environ.Manifold(environ.ManifoldConfig{
-			APICallerName: apiCallerName,
+			APICallerName:  apiCallerName,
+			NewEnvironFunc: environs.New,
 		})),
 
 		// The undertaker is currently the only ifNotAlive worker.
@@ -190,6 +190,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		instancePollerName: ifNotDead(instancepoller.Manifold(instancepoller.ManifoldConfig{
 			APICallerName: apiCallerName,
+			EnvironName:   environTrackerName,
 		})),
 		charmRevisionUpdaterName: ifNotDead(charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 			APICallerName: apiCallerName,

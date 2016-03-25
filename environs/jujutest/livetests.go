@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
@@ -85,11 +84,6 @@ type LiveTests struct {
 	// This is set by PrepareOnce and BootstrapOnce.
 	Env environs.Environ
 
-	// ConfigStore holds the configuration storage
-	// used when preparing the environment.
-	// This is initialized by SetUpSuite.
-	ConfigStore configstore.Storage
-
 	// ControllerStore holds the controller related informtion
 	// such as controllers, accounts, etc., used when preparing
 	// the environment. This is initialized by SetUpSuite.
@@ -103,7 +97,6 @@ type LiveTests struct {
 func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.CleanupSuite.SetUpSuite(c)
 	t.TestDataSuite.SetUpSuite(c)
-	t.ConfigStore = configstore.NewMem()
 	t.ControllerStore = jujuclienttesting.NewMemStore()
 	t.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
@@ -139,25 +132,25 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 		return
 	}
 	args := t.prepareForBootstrapParams(c)
-	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ConfigStore, t.ControllerStore, args.Config.Name(), args)
+	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e
 	t.prepared = true
 }
 
-func (t *LiveTests) prepareForBootstrapParams(c *gc.C) environs.PrepareForBootstrapParams {
-	cfg, err := config.New(config.NoDefaults, t.TestConfig)
-	c.Assert(err, jc.ErrorIsNil)
+func (t *LiveTests) prepareForBootstrapParams(c *gc.C) environs.PrepareParams {
 	credential := t.Credential
 	if credential.AuthType() == "" {
 		credential = cloud.NewEmptyCredential()
 	}
-	return environs.PrepareForBootstrapParams{
-		Config:        cfg,
-		Credentials:   credential,
-		CloudEndpoint: t.CloudEndpoint,
-		CloudRegion:   t.CloudRegion,
+	return environs.PrepareParams{
+		BaseConfig:     t.TestConfig,
+		Credential:     credential,
+		CloudEndpoint:  t.CloudEndpoint,
+		CloudRegion:    t.CloudRegion,
+		ControllerName: t.TestConfig["name"].(string),
+		CloudName:      t.TestConfig["type"].(string),
 	}
 }
 
@@ -175,7 +168,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	}
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{
 		BootstrapConstraints: cons,
-		EnvironConstraints:   cons,
+		ModelConstraints:     cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = true
@@ -185,7 +178,7 @@ func (t *LiveTests) Destroy(c *gc.C) {
 	if t.Env == nil {
 		return
 	}
-	err := environs.Destroy(t.Env.Config().Name(), t.Env, t.ConfigStore, t.ControllerStore)
+	err := environs.Destroy(t.Env.Config().Name(), t.Env, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = false
 	t.prepared = false
@@ -761,32 +754,31 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		other.Series = "precise"
 	}
 
-	dummyCfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
+	dummyCfg := dummy.SampleConfig().Merge(coretesting.Attrs{
 		"controller": false,
 		"name":       "dummy storage",
-	}))
+	})
 	args := t.prepareForBootstrapParams(c)
-	args.Config = dummyCfg
+	args.BaseConfig = dummyCfg
 	dummyenv, err := environs.Prepare(envtesting.BootstrapContext(c),
-		configstore.NewMem(),
 		jujuclienttesting.NewMemStore(),
-		dummyCfg.Name(),
-		args)
+		args,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	defer dummyenv.Destroy()
 
 	t.Destroy(c)
 
-	attrs := t.TestConfig.Merge(coretesting.Attrs{"default-series": other.Series})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	args.Config = cfg
+	attrs := t.TestConfig.Merge(coretesting.Attrs{
+		"name":           "livetests",
+		"default-series": other.Series,
+	})
+	args.BaseConfig = attrs
 	env, err := environs.Prepare(envtesting.BootstrapContext(c),
-		t.ConfigStore,
 		t.ControllerStore,
-		"livetests", args)
+		args)
 	c.Assert(err, jc.ErrorIsNil)
-	defer environs.Destroy("livetests", env, t.ConfigStore, t.ControllerStore)
+	defer environs.Destroy("livetests", env, t.ControllerStore)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)

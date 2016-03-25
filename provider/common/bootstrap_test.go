@@ -66,6 +66,7 @@ func minimalConfig(c *gc.C) *config.Config {
 		"name":            "whatever",
 		"type":            "anything, really",
 		"uuid":            coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ModelTag.Id(),
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
 		"authorized-keys": coretesting.FakeAuthKeys,
@@ -120,7 +121,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	_, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
 		BootstrapConstraints: checkCons,
-		EnvironConstraints:   checkCons,
+		ModelConstraints:     checkCons,
 		Placement:            checkPlacement,
 		AvailableTools: tools.List{
 			&tools.Tools{

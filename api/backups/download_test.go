@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/testing"
 )
 
 type downloadSuite struct {
@@ -28,6 +29,8 @@ func (s *downloadSuite) TestSuccessfulRequest(c *gc.C) {
 	r := strings.NewReader("<compressed archive data>")
 	meta, err := backups.NewMetadataState(s.State, "0")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(meta.CACert, gc.Equals, testing.CACert)
+	c.Assert(meta.CAPrivateKey, gc.Equals, testing.CAKey)
 	// The Add method requires the length to be set
 	// otherwise the content is assumed to have length 0.
 	meta.Raw.Size = int64(r.Len())

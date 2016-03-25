@@ -58,8 +58,8 @@ func (s *undertakerSuite) TestStateEnvironInfo(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	info := result.Result
 	c.Assert(info.UUID, gc.Equals, coretesting.ModelTag.Id())
-	c.Assert(info.Name, gc.Equals, "dummymodel")
-	c.Assert(info.GlobalName, gc.Equals, "user-admin@local/dummymodel")
+	c.Assert(info.Name, gc.Equals, "admin")
+	c.Assert(info.GlobalName, gc.Equals, "user-admin@local/admin")
 	c.Assert(info.IsSystem, jc.IsTrue)
 	c.Assert(info.Life, gc.Equals, params.Alive)
 	c.Assert(info.TimeOfDeath, gc.IsNil)

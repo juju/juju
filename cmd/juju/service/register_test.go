@@ -36,7 +36,7 @@ type registrationSuite struct {
 func (s *registrationSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.stub = &testing.Stub{}
-	s.PatchValue(&getApiClient, func(*cmd.Context, *http.Client) (apiClient, error) { return &mockBudgetAPIClient{s.stub}, nil })
+	s.PatchValue(&getApiClient, func(*httpbakery.Client) (apiClient, error) { return &mockBudgetAPIClient{s.stub}, nil })
 	s.PatchValue(&tokenStore, func() *ussologin.FileTokenStore { return nil })
 	s.handler = &testMetricsRegistrationHandler{Stub: s.stub}
 	s.server = httptest.NewServer(s.handler)
@@ -53,7 +53,7 @@ func (s *registrationSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
@@ -92,7 +92,7 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 }
 
 func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
@@ -127,7 +127,7 @@ func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 }
 
 func (s *registrationSuite) TestMeteredLocalCharmWithPlan(c *gc.C) {
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
 		ServiceName: "service name",
@@ -160,7 +160,7 @@ func (s *registrationSuite) TestMeteredLocalCharmWithPlan(c *gc.C) {
 
 func (s *registrationSuite) TestMeteredLocalCharmNoPlan(c *gc.C) {
 	s.register = &RegisterMeteredCharm{RegisterURL: s.server.URL, QueryURL: s.server.URL}
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
 		ServiceName: "service name",
@@ -195,7 +195,7 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 	s.register = &RegisterMeteredCharm{
 		AllocateBudget: AllocateBudget{AllocationSpec: "personal:100"},
 		RegisterURL:    s.server.URL, QueryURL: s.server.URL}
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
@@ -240,7 +240,7 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 	s.register = &RegisterMeteredCharm{
 		AllocateBudget: AllocateBudget{AllocationSpec: "personal:100"},
 		RegisterURL:    s.server.URL, QueryURL: s.server.URL}
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
@@ -266,7 +266,7 @@ func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
 	s.register = &RegisterMeteredCharm{
 		AllocateBudget: AllocateBudget{AllocationSpec: "personal:100"},
 		RegisterURL:    s.server.URL, QueryURL: s.server.URL}
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
@@ -286,7 +286,7 @@ func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
 }
 
 func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/unmetered-1"),
 		ServiceName: "service name",
@@ -307,7 +307,7 @@ func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 
 func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 	s.stub.SetErrors(nil, nil, nil, fmt.Errorf("could not authorize"))
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",

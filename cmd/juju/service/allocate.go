@@ -5,16 +5,13 @@ package service
 
 import (
 	"fmt"
-	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/romulus/api/budget"
 	wireformat "github.com/juju/romulus/wireformat/budget"
-	"gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"launchpad.net/gnuflag"
 
@@ -41,7 +38,7 @@ func (a *AllocateBudget) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // RunPre is part of the DeployStep interface.
-func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
+func (a *AllocateBudget) RunPre(state api.Connection, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
 	if deployInfo.CharmURL.Schema == "local" {
 		return nil
 	}
@@ -64,7 +61,7 @@ func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *
 		return errors.Trace(err)
 	}
 	a.Budget, a.Limit = allocBudget, allocLimit
-	a.APIClient, err = getApiClient(ctx, client)
+	a.APIClient, err = getApiClient(bakeryClient)
 	if err != nil {
 		return errors.Annotate(err, "could not create API client")
 	}
@@ -81,13 +78,13 @@ func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *
 	return nil
 }
 
-func (a *AllocateBudget) RunPost(_ api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
+func (a *AllocateBudget) RunPost(_ api.Connection, bclient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
 	if prevErr == nil || !a.allocated {
 		return nil
 	}
 	var err error
 	if a.APIClient == nil {
-		a.APIClient, err = getApiClient(ctx, client)
+		a.APIClient, err = getApiClient(bclient)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -112,14 +109,8 @@ var getApiClient = getApiClientImpl
 
 var tokenStore = jujuclient.NewTokenStore
 
-func getApiClientImpl(ctx *cmd.Context, client *http.Client) (apiClient, error) {
-	filler := &form.IOFiller{
-		In:  ctx.Stdin,
-		Out: ctx.Stderr,
-	}
-	bakeryClient := &httpbakery.Client{Client: client, VisitWebPage: ussologin.VisitWebPage(filler, client, tokenStore())}
-	c := budget.NewClient(bakeryClient)
-	return c, nil
+func getApiClientImpl(bclient *httpbakery.Client) (apiClient, error) {
+	return budget.NewClient(bclient), nil
 }
 
 type apiClient interface {

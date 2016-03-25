@@ -64,7 +64,7 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 func (env *environ) instances() ([]instance.Instance, error) {
 	env = env.getSnapshot()
 
-	prefix := common.MachineFullName(env, "")
+	prefix := common.MachineFullName(env.Config().UUID(), "")
 	instances, err := env.client.Instances(prefix)
 	err = errors.Trace(err)
 
@@ -84,7 +84,7 @@ func (env *environ) instances() ([]instance.Instance, error) {
 func (env *environ) ControllerInstances() ([]instance.Id, error) {
 	env = env.getSnapshot()
 
-	prefix := common.MachineFullName(env, "")
+	prefix := common.MachineFullName(env.Config().ControllerUUID(), "")
 	instances, err := env.client.Instances(prefix)
 	if err != nil {
 		return nil, errors.Trace(err)

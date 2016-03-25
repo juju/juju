@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/testing"
 )
 
@@ -36,6 +37,7 @@ var _ = gc.Suite(&addCredentialSuite{
 })
 
 func (s *addCredentialSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
 	environs.RegisterProvider("mock-addcredential-provider", &mockProvider{credSchemas: &s.schema})
 	s.cloudByNameFunc = func(cloud string) (*jujucloud.Cloud, error) {
 		if cloud != "somecloud" && cloud != "anothercloud" {
@@ -79,6 +81,11 @@ func (s *addCredentialSuite) TestBadCloudName(c *gc.C) {
 func (s *addCredentialSuite) TestAddFromFileBadFilename(c *gc.C) {
 	_, err := s.run(c, nil, "somecloud", "-f", "somefile.yaml")
 	c.Assert(err, gc.ErrorMatches, ".*open somefile.yaml: .*")
+}
+
+func (s *addCredentialSuite) TestNoCredentialsRequired(c *gc.C) {
+	_, err := s.run(c, nil, "manual")
+	c.Assert(err, gc.ErrorMatches, `cloud "manual" does not require credentials`)
 }
 
 func (s *addCredentialSuite) createTestCredentialData(c *gc.C) string {
@@ -278,7 +285,7 @@ func (s *addCredentialSuite) TestAddCredentialWithFileAttr(c *gc.C) {
 		},
 	}
 	// Input includes invalid file info.
-	s.assertAddFileCredential(c, "fred\n\nbadfile\n.\n%s\n", "key-file")
+	s.assertAddFileCredential(c, "fred\nbadfile\n.\n%s\n", "key-file")
 }
 
 func (s *addCredentialSuite) assertAddCredentialWithOptions(c *gc.C, input string) {
@@ -314,4 +321,27 @@ func (s *addCredentialSuite) TestAddCredentialWithOptions(c *gc.C) {
 
 func (s *addCredentialSuite) TestAddCredentialWithOptionsAutofill(c *gc.C) {
 	s.assertAddCredentialWithOptions(c, "fred\nuser\n\n")
+}
+
+func (s *addCredentialSuite) TestAddMAASCredential(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.OAuth1AuthType}
+	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
+		jujucloud.OAuth1AuthType: {
+			{
+				"maas-oauth", jujucloud.CredentialAttr{},
+			},
+		},
+	}
+	stdin := strings.NewReader("fred\nauth:token\n")
+	_, err := s.run(c, stdin, "maas")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+		"maas": {
+			AuthCredentials: map[string]jujucloud.Credential{
+				"fred": jujucloud.NewCredential(jujucloud.OAuth1AuthType, map[string]string{
+					"maas-oauth": "auth:token",
+				}),
+			},
+		},
+	})
 }

@@ -309,7 +309,7 @@ type statusContext struct {
 	relations    map[string][]*state.Relation
 	units        map[string]map[string]*state.Unit
 	networks     map[string]*state.Network
-	latestCharms map[charm.URL]string
+	latestCharms map[charm.URL]*state.Charm
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
@@ -349,11 +349,11 @@ func fetchMachines(st stateInterface, machineIds set.Strings) (map[string][]*sta
 func fetchAllServicesAndUnits(
 	st stateInterface,
 	matchAny bool,
-) (map[string]*state.Service, map[string]map[string]*state.Unit, map[charm.URL]string, error) {
+) (map[string]*state.Service, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, error) {
 
 	svcMap := make(map[string]*state.Service)
 	unitMap := make(map[string]map[string]*state.Unit)
-	latestCharms := make(map[charm.URL]string)
+	latestCharms := make(map[charm.URL]*state.Charm)
 	services, err := st.AllServices()
 	if err != nil {
 		return nil, nil, nil, err
@@ -374,7 +374,7 @@ func fetchAllServicesAndUnits(
 			// the latest store revision can be looked up.
 			charmURL, _ := s.CharmURL()
 			if charmURL.Schema == "cs" {
-				latestCharms[*charmURL.WithRevision(-1)] = ""
+				latestCharms[*charmURL.WithRevision(-1)] = nil
 			}
 		}
 	}
@@ -386,8 +386,9 @@ func fetchAllServicesAndUnits(
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		latestCharms[baseURL] = ch.String()
+		latestCharms[baseURL] = ch
 	}
+
 	return svcMap, unitMap, latestCharms, nil
 }
 
@@ -597,26 +598,30 @@ func (context *statusContext) processServices() map[string]params.ServiceStatus 
 	return servicesMap
 }
 
-func (context *statusContext) processService(service *state.Service) (processedStatus params.ServiceStatus) {
+func (context *statusContext) processService(service *state.Service) params.ServiceStatus {
 	serviceCharmURL, _ := service.CharmURL()
-	processedStatus.Charm = serviceCharmURL.String()
-	processedStatus.Exposed = service.IsExposed()
-	processedStatus.Life = processLife(service)
-
-	latestCharm, ok := context.latestCharms[*serviceCharmURL.WithRevision(-1)]
-	if ok && latestCharm != serviceCharmURL.String() {
-		processedStatus.CanUpgradeTo = latestCharm
+	var processedStatus = params.ServiceStatus{
+		Charm:   serviceCharmURL.String(),
+		Exposed: service.IsExposed(),
+		Life:    processLife(service),
 	}
+
+	if latestCharm, ok := context.latestCharms[*serviceCharmURL.WithRevision(-1)]; ok && latestCharm != nil {
+		if latestCharm.Revision() > serviceCharmURL.Revision {
+			processedStatus.CanUpgradeTo = latestCharm.String()
+		}
+	}
+
 	var err error
 	processedStatus.Relations, processedStatus.SubordinateTo, err = context.processServiceRelations(service)
 	if err != nil {
 		processedStatus.Err = err
-		return
+		return processedStatus
 	}
 	networks, err := service.Networks()
 	if err != nil {
 		processedStatus.Err = err
-		return
+		return processedStatus
 	}
 	var cons constraints.Value
 	if service.IsPrincipal() {
@@ -624,7 +629,7 @@ func (context *statusContext) processService(service *state.Service) (processedS
 		cons, err = service.Constraints()
 		if err != nil {
 			processedStatus.Err = err
-			return
+			return processedStatus
 		}
 	}
 	// TODO(dimitern): Drop support for this in a follow-up.
@@ -643,7 +648,7 @@ func (context *statusContext) processService(service *state.Service) (processedS
 		serviceStatus, err := service.Status()
 		if err != nil {
 			processedStatus.Err = err
-			return
+			return processedStatus
 		}
 		processedStatus.Status.Status = serviceStatus.Status
 		processedStatus.Status.Info = serviceStatus.Message

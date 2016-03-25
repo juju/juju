@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"gopkg.in/macaroon.v1"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -186,4 +188,23 @@ func (c *Client) SetPassword(username, password string) error {
 		return err
 	}
 	return results.OneError()
+}
+
+// CreateLocalLoginMacaroon creates a local login macaroon for the
+// authenticated user.
+func (c *Client) CreateLocalLoginMacaroon(tag names.UserTag) (*macaroon.Macaroon, error) {
+	args := params.Entities{Entities: []params.Entity{{tag.String()}}}
+	var results params.MacaroonResults
+	if err := c.facade.FacadeCall("CreateLocalLoginMacaroon", args, &results); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if n := len(results.Results); n != 1 {
+		logger.Errorf("expected 1 result, got %#v", results)
+		return nil, errors.Errorf("expected 1 result, got %d", n)
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, errors.Trace(result.Error)
+	}
+	return result.Result, nil
 }

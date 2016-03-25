@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -170,13 +169,11 @@ func (t configTest) check(c *gc.C) {
 		c.Check(found, jc.IsTrue)
 		c.Check(actual, gc.Equals, expect)
 	}
-	expectedStorage := "cinder"
 	if t.blockStorageSource != "" {
-		expectedStorage = t.blockStorageSource
+		storage, ok := ecfg.StorageDefaultBlockSource()
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(storage, gc.Equals, t.blockStorageSource)
 	}
-	storage, ok := ecfg.StorageDefaultBlockSource()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(storage, gc.Equals, expectedStorage)
 }
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
@@ -405,10 +402,6 @@ var configTests = []configTest{
 		}),
 		network: "a-network-label",
 	}, {
-		summary:            "no default block storage specified",
-		config:             requiredConfig,
-		blockStorageSource: "cinder",
-	}, {
 		summary: "block storage specified",
 		config: requiredConfig.Merge(testing.Attrs{
 			"storage-default-block-source": "my-cinder",
@@ -449,22 +442,24 @@ func (s *ConfigSuite) TestDeprecatedAttributesRemoved(c *gc.C) {
 	}
 }
 
-func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
+func (s *ConfigSuite) TestBootstrapConfigSetsDefaultBlockSource(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "openstack",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
+	_, ok := cfg.StorageDefaultBlockSource()
+	c.Assert(ok, jc.IsFalse)
 
-	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), s.prepareForBootstrapParams(cfg))
+	cfg, err = providerInstance.BootstrapConfig(bootstrapConfigParams(cfg))
 	c.Assert(err, jc.ErrorIsNil)
-	source, ok := env.(*Environ).ecfg().StorageDefaultBlockSource()
+	source, ok := cfg.StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(source, gc.Equals, "cinder")
 }
 
-func (s *ConfigSuite) prepareForBootstrapParams(cfg *config.Config) environs.PrepareForBootstrapParams {
-	return environs.PrepareForBootstrapParams{
+func bootstrapConfigParams(cfg *config.Config) environs.BootstrapConfigParams {
+	return environs.BootstrapConfigParams{
 		Config: cfg,
 		Credentials: cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 			"username":    "user",
