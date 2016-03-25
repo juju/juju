@@ -6,6 +6,7 @@ package commands
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/cmd"
@@ -187,13 +188,19 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	// Give some time for the action to complete after the timeout of the command.
-	wait := time.NewTimer(c.timeout + 10*time.Second)
+	// We want to wait for the action results indefinitely.  Discard the tick.
+	wait := time.NewTimer(0 * time.Second)
+	_ = <-wait.C
 
 	// If we are just dealing with one result, AND we are using the smart
 	// format, then pretend we were running it locally.
 	if len(runResults) == 1 && c.out.Name() == "smart" {
 		result := runResults[0]
+
+		if result.Error != nil {
+			return errors.Trace(result.Error)
+		}
+
 		tag, err := names.ParseActionTag(result.Action.Tag)
 		if err != nil {
 			return errors.Trace(err)
@@ -223,6 +230,8 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return nil
 	}
 
+	// In case the command fails we dump *all* the enqueued id's to stderr.
+	// Normally, there is enough info dumped to stdout to show which action failed.
 	idValues := []actionReceiverID{}
 	for _, result := range runResults {
 		if result.Error != nil {
@@ -247,38 +256,45 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		})
 	}
 
-	var printIDsToStderr bool
-	values := []interface{}{}
-	for _, res := range runResults {
-		tag, err := names.ParseActionTag(res.Action.Tag)
-		if err != nil {
-			for _, el := range idValues {
-				fmt.Fprintf(ctx.GetStderr(), "Receiver %s: action ID %s\n", el.receiverID, el.actionID)
-			}
-			return errors.Trace(err)
-		}
-
-		actionResult, err := getActionResult(client, tag.Id(), wait)
-		if err != nil {
-			// If we get one error we want to print
-			// all the action IDs to stderr for debugging
-			printIDsToStderr = true
-			values = append(values, map[string]interface{}{
-				"actionId": tag.Id(),
-				"error":    err.Error(),
-			})
-			continue
-		}
-
-		out := ConvertActionResults(actionResult)
-		values = append(values, out)
-	}
-
-	if printIDsToStderr {
+	printIDsToStderr := func() {
 		for _, el := range idValues {
 			fmt.Fprintf(ctx.GetStderr(), "Receiver %s: action ID %s\n", el.receiverID, el.actionID)
 		}
 	}
+
+	var once sync.Once
+	var wg sync.WaitGroup
+	values := make([]interface{}, len(runResults))
+	for i, res := range runResults {
+		wg.Add(1)
+		go func(i int, ar params.ActionResult) {
+			defer wg.Done()
+			tag, err := names.ParseActionTag(ar.Action.Tag)
+			if err != nil {
+				once.Do(printIDsToStderr)
+				values[i] = map[string]interface{}{
+					"error": err.Error(),
+				}
+				return
+			}
+
+			actionResult, err := getActionResult(client, tag.Id(), wait)
+			if err != nil {
+				once.Do(printIDsToStderr)
+				values[i] = map[string]interface{}{
+					"actionId": tag.Id(),
+					"error":    err.Error(),
+				}
+				return
+			}
+
+			out := ConvertActionResults(actionResult)
+			values[i] = out
+		}(i, res)
+	}
+
+	wg.Wait()
+
 	c.out.Write(ctx, values)
 
 	return nil

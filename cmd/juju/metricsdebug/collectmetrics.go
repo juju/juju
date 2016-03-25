@@ -19,10 +19,20 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
+// TODO(bogdanteleaga): update this once querying for actions by name is implemented.
 const collectMetricsDoc = `
 collect-metrics
 trigger metrics collection
+
+Collect metrics infinitely waits for the command to finish.
+However if you cancel the command while waiting, you can still
+look for the results under 'juju action status'.
 `
+
+const (
+	// commandTimeout represents the timeout for executing the command itself
+	commandTimeout = 3 * time.Second
+)
 
 // collectMetricsCommand retrieves metrics stored in the juju controller.
 type collectMetricsCommand struct {
@@ -124,7 +134,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 	defer runnerClient.Close()
 
 	runParams := params.RunParams{
-		Timeout:  3 * time.Second,
+		Timeout:  commandTimeout,
 		Units:    c.units,
 		Services: c.services,
 		Commands: "nc -U ../metrics-collect.socket",
@@ -136,72 +146,84 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// Give some time for the action to complete after the timeout of the command.
-	wait := time.NewTimer(3*time.Second + 10*time.Second)
+	// We want to wait for the action results indefinitely.  Discard the tick.
+	wait := time.NewTimer(0 * time.Second)
+	_ = <-wait.C
 	// trigger sending metrics in parallel
 	resultChannel := make(chan string, len(runResults))
 	for _, result := range runResults {
 		r := result
+		if r.Error != nil {
+			fmt.Fprintf(ctx.Stdout, "failed to collect metrics: %v\n", err)
+			resultChannel <- "invalid id"
+			continue
+		}
 		tag, err := names.ParseActionTag(r.Action.Tag)
 		if err != nil {
-			return errors.Trace(err)
+			fmt.Fprintf(ctx.Stdout, "failed to collect metrics: %v\n", err)
+			resultChannel <- "invalid id"
+			continue
 		}
 		actionResult, err := getActionResult(runnerClient, tag.Id(), wait)
 		if err != nil {
-			return errors.Trace(err)
+			fmt.Fprintf(ctx.Stdout, "failed to collect metrics: %v\n", err)
+			resultChannel <- "invalid id"
+			continue
 		}
 		unitId, err := parseActionResult(actionResult)
 		if err != nil {
-			go func() {
-				defer func() {
-					resultChannel <- unitId
-				}()
-				sendParams := params.RunParams{
-					Timeout:  3 * time.Second,
-					Units:    []string{unitId},
-					Commands: "nc -U ../metrics-send.socket",
-				}
-				sendResults, err := runnerClient.Run(sendParams)
-				if err != nil {
-					fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
-					return
-				}
-				if len(sendResults) != 1 {
-					fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v\n", unitId)
-					return
-				}
-				tag, err := names.ParseActionTag(sendResults[0].Action.Tag)
-				if err != nil {
-					fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
-					return
-				}
-				actionResult, err := getActionResult(runnerClient, tag.Id(), wait)
-				if err != nil {
-					fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
-					return
-				}
-				stdout, stderr, err := parseRunOutput(actionResult)
-				if stdout != "ok" {
-					err = errors.New(stderr)
-				}
-				if err != nil {
-					fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
-				}
-			}()
-		} else {
-			fmt.Fprintf(ctx.Stdout, "failed to collect metrics for unit %v: %v\n", unitId, err)
-			resultChannel <- unitId
+			fmt.Fprintf(ctx.Stdout, "failed to collect metrics: %v\n", err)
+			resultChannel <- "invalid id"
+			continue
 		}
+		go func() {
+			defer func() {
+				resultChannel <- unitId
+			}()
+			sendParams := params.RunParams{
+				Timeout:  commandTimeout,
+				Units:    []string{unitId},
+				Commands: "nc -U ../metrics-send.socket",
+			}
+			sendResults, err := runnerClient.Run(sendParams)
+			if err != nil {
+				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
+				return
+			}
+			if len(sendResults) != 1 {
+				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v\n", unitId)
+				return
+			}
+			if sendResults[0].Error != nil {
+				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, sendResults[0].Error)
+				return
+			}
+			tag, err := names.ParseActionTag(sendResults[0].Action.Tag)
+			if err != nil {
+				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
+				return
+			}
+			fmt.Println("hi" + tag.Id())
+			actionResult, err := getActionResult(runnerClient, tag.Id(), wait)
+			if err != nil {
+				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
+				return
+			}
+			stdout, stderr, err := parseRunOutput(actionResult)
+			if err != nil {
+				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
+				return
+			}
+			if stdout != "ok" {
+				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, errors.New(stderr))
+			}
+		}()
 	}
 
 	for _ = range runResults {
+		// The default is to wait forever for the command to finish.
 		select {
 		case <-resultChannel:
-		case <-time.After(3*time.Second + 20*time.Second):
-			// We need to wait here for at least 3 seconds for the command timeout
-			// After that there's a delay for getting every action result through the api
-			fmt.Fprintf(ctx.Stdout, "wait result timeout")
-			break
 		}
 	}
 	return nil
