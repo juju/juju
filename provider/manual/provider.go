@@ -47,12 +47,11 @@ func (p manualProvider) DetectRegions() ([]cloud.Region, error) {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p manualProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	// Not even sure if this will ever make sense.
-	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
+	return cfg, nil
 }
 
-func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
-
+// BootstrapConfig is specified in the EnvironProvider interface.
+func (p manualProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	var bootstrapHost string
 	switch {
 	case args.CloudEndpoint != "":
@@ -77,18 +76,19 @@ func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if use, ok := cfg.UnknownAttrs()["use-sshstorage"].(bool); ok && !use {
-		return nil, fmt.Errorf("use-sshstorage must not be specified")
-	}
 	envConfig, err := p.validate(cfg, nil)
 	if err != nil {
 		return nil, err
 	}
-	cfg, err = cfg.Apply(envConfig.attrs)
-	if err != nil {
+	return cfg.Apply(envConfig.attrs)
+}
+
+// PrepareForBootstrap is specified in the EnvironProvider interface.
+func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+	if _, err := p.validate(cfg, nil); err != nil {
 		return nil, err
 	}
-	envConfig = newModelConfig(cfg, envConfig.attrs)
+	envConfig := newModelConfig(cfg, cfg.UnknownAttrs())
 	if err := ensureBootstrapUbuntuUser(ctx, envConfig); err != nil {
 		return nil, err
 	}
@@ -149,10 +149,6 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 			if err = checkImmutableString(envConfig, oldEnvConfig, key); err != nil {
 				return nil, err
 			}
-		}
-		oldUseSSHStorage, newUseSSHStorage := oldEnvConfig.useSSHStorage(), envConfig.useSSHStorage()
-		if oldUseSSHStorage != newUseSSHStorage && newUseSSHStorage == true {
-			return nil, fmt.Errorf("cannot change use-sshstorage from %v to %v", oldUseSSHStorage, newUseSSHStorage)
 		}
 	}
 

@@ -56,11 +56,6 @@ type volumeSource struct {
 }
 
 func (g *storageProvider) VolumeSource(environConfig *config.Config, cfg *storage.Config) (storage.VolumeSource, error) {
-	uuid, ok := environConfig.UUID()
-	if !ok {
-		return nil, errors.NotFoundf("model UUID")
-	}
-
 	// Connect and authenticate.
 	env, err := newEnviron(environConfig)
 	if err != nil {
@@ -70,7 +65,7 @@ func (g *storageProvider) VolumeSource(environConfig *config.Config, cfg *storag
 	source := &volumeSource{
 		gce:       env.gce,
 		envName:   environConfig.Name(),
-		modelUUID: uuid,
+		modelUUID: environConfig.UUID(),
 	}
 	return source, nil
 }

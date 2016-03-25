@@ -136,56 +136,12 @@ func (s *modelManagerSuite) TestNonAdminCannotCreateModelForSomeoneElse(c *gc.C)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *modelManagerSuite) TestRestrictedProviderFields(c *gc.C) {
-	s.setAPIUser(c, names.NewUserTag("non-admin@remote"))
-	for i, test := range []struct {
-		provider string
-		expected []string
-	}{
-		{
-			provider: "azure",
-			expected: []string{
-				"type", "ca-cert", "state-port", "api-port",
-				"subscription-id", "tenant-id", "application-id", "application-password", "location",
-				"controller-resource-group", "storage-account-type"},
-		}, {
-			provider: "dummy",
-			expected: []string{
-				"type", "ca-cert", "state-port", "api-port"},
-		}, {
-			provider: "joyent",
-			expected: []string{
-				"type", "ca-cert", "state-port", "api-port"},
-		}, {
-			provider: "maas",
-			expected: []string{
-				"type", "ca-cert", "state-port", "api-port",
-				"maas-server"},
-		}, {
-			provider: "openstack",
-			expected: []string{
-				"type", "ca-cert", "state-port", "api-port",
-				"region", "auth-url", "auth-mode"},
-		}, {
-			provider: "ec2",
-			expected: []string{
-				"type", "ca-cert", "state-port", "api-port",
-				"region"},
-		},
-	} {
-		c.Logf("%d: %s provider", i, test.provider)
-		fields, err := modelmanager.RestrictedProviderFields(s.modelmanager, test.provider)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(fields, jc.SameContents, test.expected)
-	}
-}
-
 func (s *modelManagerSuite) TestConfigSkeleton(c *gc.C) {
 	s.setAPIUser(c, names.NewUserTag("non-admin@remote"))
 
 	_, err := s.modelmanager.ConfigSkeleton(
 		params.ModelSkeletonConfigArgs{Provider: "ec2"})
-	c.Check(err, gc.ErrorMatches, `provider value "ec2" not valid`)
+	c.Check(err, gc.ErrorMatches, `cannot create new model with credentials for provider type "ec2" on controller with provider type "dummy"`)
 	_, err = s.modelmanager.ConfigSkeleton(
 		params.ModelSkeletonConfigArgs{Region: "the sun"})
 	c.Check(err, gc.ErrorMatches, `region value "the sun" not valid`)
@@ -198,10 +154,11 @@ func (s *modelManagerSuite) TestConfigSkeleton(c *gc.C) {
 	apiPort := s.Environ.Config().APIPort()
 
 	c.Assert(skeleton.Config, jc.DeepEquals, params.ModelConfig{
-		"type":       "dummy",
-		"ca-cert":    coretesting.CACert,
-		"state-port": 1234,
-		"api-port":   apiPort,
+		"type":            "dummy",
+		"controller-uuid": coretesting.ModelTag.Id(),
+		"ca-cert":         coretesting.CACert,
+		"state-port":      1234,
+		"api-port":        apiPort,
 	})
 }
 
@@ -211,7 +168,9 @@ func (s *modelManagerSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	args := s.createArgs(c, admin)
 	args.Config["controller"] = "maybe"
 	_, err := s.modelmanager.CreateModel(args)
-	c.Assert(err, gc.ErrorMatches, "provider validation failed: controller: expected bool, got string\\(\"maybe\"\\)")
+	c.Assert(err, gc.ErrorMatches,
+		"failed to create config: provider validation failed: controller: expected bool, got string\\(\"maybe\"\\)",
+	)
 }
 
 func (s *modelManagerSuite) TestCreateModelBadConfig(c *gc.C) {
@@ -225,24 +184,24 @@ func (s *modelManagerSuite) TestCreateModelBadConfig(c *gc.C) {
 		{
 			key:      "uuid",
 			value:    "anything",
-			errMatch: `uuid is generated, you cannot specify one`,
+			errMatch: `failed to create config: uuid is generated, you cannot specify one`,
 		}, {
 			key:      "type",
 			value:    "fake",
-			errMatch: `specified type "fake" does not match apiserver "dummy"`,
+			errMatch: `failed to create config: specified type "fake" does not match controller "dummy"`,
 		}, {
 			key:      "ca-cert",
 			value:    coretesting.OtherCACert,
-			errMatch: `(?s)specified ca-cert ".*" does not match apiserver ".*"`,
+			errMatch: `failed to create config: (?s)specified ca-cert ".*" does not match controller ".*"`,
 		}, {
 			key:      "state-port",
 			value:    9876,
-			errMatch: `specified state-port "9876" does not match apiserver "1234"`,
+			errMatch: `failed to create config: specified state-port "9876" does not match controller "1234"`,
 		}, {
 			// The api-port is dynamic, but always in user-space, so > 1024.
 			key:      "api-port",
 			value:    123,
-			errMatch: `specified api-port "123" does not match apiserver ".*"`,
+			errMatch: `failed to create config: specified api-port "123" does not match controller ".*"`,
 		},
 	} {
 		c.Logf("%d: %s", i, test.key)
@@ -263,14 +222,16 @@ func (s *modelManagerSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateModelBadAgentVersion(c *gc.C) {
-	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	err := s.BackingState.SetModelAgentVersion(coretesting.FakeVersionNumber)
+	c.Assert(err, jc.ErrorIsNil)
+
 	admin := s.AdminUserTag(c)
 	s.setAPIUser(c, admin)
 
-	bigger := jujuversion.Current
+	bigger := coretesting.FakeVersionNumber
 	bigger.Minor += 1
 
-	smaller := jujuversion.Current
+	smaller := coretesting.FakeVersionNumber
 	smaller.Minor -= 1
 
 	for i, test := range []struct {
@@ -285,7 +246,7 @@ func (s *modelManagerSuite) TestCreateModelBadAgentVersion(c *gc.C) {
 			errMatch: `failed to create config: invalid version \"not a number\"`,
 		}, {
 			value:    bigger.String(),
-			errMatch: "failed to create config: agent-version cannot be greater than the server: .*",
+			errMatch: "failed to create config: agent-version .* cannot be greater than the controller .*",
 		}, {
 			value:    smaller.String(),
 			errMatch: "failed to create config: no tools found for version .*",
@@ -348,6 +309,18 @@ func (s *modelManagerSuite) TestListModelsDenied(c *gc.C) {
 	other := names.NewUserTag("other@remote")
 	_, err := s.modelmanager.ListModels(params.Entity{other.String()})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *modelManagerSuite) TestAdminModelManager(c *gc.C) {
+	user := s.AdminUserTag(c)
+	s.setAPIUser(c, user)
+	c.Assert(modelmanager.AuthCheck(c, s.modelmanager, user), jc.IsTrue)
+}
+
+func (s *modelManagerSuite) TestNonAdminModelManager(c *gc.C) {
+	user := names.NewUserTag("external@remote")
+	s.setAPIUser(c, user)
+	c.Assert(modelmanager.AuthCheck(c, s.modelmanager, user), jc.IsFalse)
 }
 
 func (s *modelManagerSuite) TestGrantMissingUserFails(c *gc.C) {

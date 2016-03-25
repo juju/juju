@@ -116,5 +116,5 @@ func (s *machineConfigSuite) TestMachineConfigNoTools(c *gc.C) {
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.InstanceConfig(s.State, machines[0].Machine, apiParams.Nonce, "")
-	c.Assert(err, gc.ErrorMatches, coretools.ErrNoMatches.Error())
+	c.Assert(err, gc.ErrorMatches, "finding tools: "+coretools.ErrNoMatches.Error())
 }

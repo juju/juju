@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/gce"
 )
 
@@ -41,8 +40,8 @@ func (s *providerSuite) TestOpen(c *gc.C) {
 	c.Assert(envConfig.Name(), gc.Equals, "testenv")
 }
 
-func (s *providerSuite) TestPrepareForBootstrap(c *gc.C) {
-	env, err := s.provider.PrepareForBootstrap(envtesting.BootstrapContext(c), environs.PrepareForBootstrapParams{
+func (s *providerSuite) TestBootstrapConfig(c *gc.C) {
+	cfg, err := s.provider.BootstrapConfig(environs.BootstrapConfigParams{
 		Config: s.Config,
 		Credentials: cloud.NewCredential(
 			cloud.OAuth2AuthType,
@@ -55,7 +54,7 @@ func (s *providerSuite) TestPrepareForBootstrap(c *gc.C) {
 		),
 	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(env, gc.NotNil)
+	c.Check(cfg, gc.NotNil)
 }
 
 func (s *providerSuite) TestValidate(c *gc.C) {

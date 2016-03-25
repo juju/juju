@@ -1090,8 +1090,8 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	apiParams[0].Placement = instance.MustParsePlacement("lxc")
 	apiParams[1].Placement = instance.MustParsePlacement("lxc:0")
 	apiParams[1].ContainerType = instance.LXC
-	apiParams[2].Placement = instance.MustParsePlacement("dummymodel:invalid")
-	apiParams[3].Placement = instance.MustParsePlacement("dummymodel:valid")
+	apiParams[2].Placement = instance.MustParsePlacement("admin:invalid")
+	apiParams[3].Placement = instance.MustParsePlacement("admin:valid")
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 4)

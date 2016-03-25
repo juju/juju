@@ -10,6 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/environ"
 	"github.com/juju/juju/worker/workertest"
@@ -23,11 +25,23 @@ var _ = gc.Suite(&TrackerSuite{})
 
 func (s *TrackerSuite) TestValidateObserver(c *gc.C) {
 	config := environ.Config{}
-	check := func(err error) {
+	s.testValidate(c, config, func(err error) {
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
 		c.Check(err, gc.ErrorMatches, "nil Observer not valid")
-	}
+	})
+}
 
+func (s *TrackerSuite) TestValidateNewEnvironFunc(c *gc.C) {
+	config := environ.Config{
+		Observer: &runContext{},
+	}
+	s.testValidate(c, config, func(err error) {
+		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, gc.ErrorMatches, "nil NewEnvironFunc not valid")
+	})
+}
+
+func (s *TrackerSuite) testValidate(c *gc.C, config environ.Config, check func(err error)) {
 	err := config.Validate()
 	check(err)
 
@@ -44,30 +58,28 @@ func (s *TrackerSuite) TestModelConfigFails(c *gc.C) {
 	}
 	fix.Run(c, func(context *runContext) {
 		tracker, err := environ.NewTracker(environ.Config{
-			Observer: context,
+			Observer:       context,
+			NewEnvironFunc: newMockEnviron,
 		})
 		c.Check(err, gc.ErrorMatches, "cannot read environ config: no yuo")
 		c.Check(tracker, gc.IsNil)
 		context.CheckCallNames(c, "ModelConfig")
 	})
-
 }
 
 func (s *TrackerSuite) TestModelConfigInvalid(c *gc.C) {
-	fix := &fixture{
-		initialConfig: coretesting.Attrs{
-			"type": "unknown",
-		},
-	}
+	fix := &fixture{}
 	fix.Run(c, func(context *runContext) {
 		tracker, err := environ.NewTracker(environ.Config{
 			Observer: context,
+			NewEnvironFunc: func(*config.Config) (environs.Environ, error) {
+				return nil, errors.NotValidf("config")
+			},
 		})
-		c.Check(err, gc.ErrorMatches, `cannot create environ: no registered provider for "unknown"`)
+		c.Check(err, gc.ErrorMatches, `cannot create environ: config not valid`)
 		c.Check(tracker, gc.IsNil)
 		context.CheckCallNames(c, "ModelConfig")
 	})
-
 }
 
 func (s *TrackerSuite) TestModelConfigValid(c *gc.C) {
@@ -78,7 +90,8 @@ func (s *TrackerSuite) TestModelConfigValid(c *gc.C) {
 	}
 	fix.Run(c, func(context *runContext) {
 		tracker, err := environ.NewTracker(environ.Config{
-			Observer: context,
+			Observer:       context,
+			NewEnvironFunc: newMockEnviron,
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		defer workertest.CleanKill(c, tracker)
@@ -97,7 +110,8 @@ func (s *TrackerSuite) TestWatchFails(c *gc.C) {
 	}
 	fix.Run(c, func(context *runContext) {
 		tracker, err := environ.NewTracker(environ.Config{
-			Observer: context,
+			Observer:       context,
+			NewEnvironFunc: newMockEnviron,
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
@@ -112,7 +126,8 @@ func (s *TrackerSuite) TestWatchCloses(c *gc.C) {
 	fix := &fixture{}
 	fix.Run(c, func(context *runContext) {
 		tracker, err := environ.NewTracker(environ.Config{
-			Observer: context,
+			Observer:       context,
+			NewEnvironFunc: newMockEnviron,
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
@@ -132,7 +147,8 @@ func (s *TrackerSuite) TestWatchedModelConfigFails(c *gc.C) {
 	}
 	fix.Run(c, func(context *runContext) {
 		tracker, err := environ.NewTracker(environ.Config{
-			Observer: context,
+			Observer:       context,
+			NewEnvironFunc: newMockEnviron,
 		})
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
@@ -145,21 +161,22 @@ func (s *TrackerSuite) TestWatchedModelConfigFails(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
-	fix := &fixture{
-		initialConfig: coretesting.Attrs{
-			"broken": "SetConfig",
-		},
-	}
+	fix := &fixture{}
 	fix.Run(c, func(context *runContext) {
 		tracker, err := environ.NewTracker(environ.Config{
 			Observer: context,
+			NewEnvironFunc: func(*config.Config) (environs.Environ, error) {
+				env := &mockEnviron{}
+				env.SetErrors(errors.New("SetConfig is broken"))
+				return env, nil
+			},
 		})
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
 
 		context.SendNotify()
 		err = workertest.CheckKilled(c, tracker)
-		c.Check(err, gc.ErrorMatches, "cannot update environ config: dummy.SetConfig is broken")
+		c.Check(err, gc.ErrorMatches, "cannot update environ config: SetConfig is broken")
 		context.CheckCallNames(c, "ModelConfig", "WatchForModelConfigChanges", "ModelConfig")
 	})
 }
@@ -172,7 +189,8 @@ func (s *TrackerSuite) TestWatchedModelConfigUpdates(c *gc.C) {
 	}
 	fix.Run(c, func(context *runContext) {
 		tracker, err := environ.NewTracker(environ.Config{
-			Observer: context,
+			Observer:       context,
+			NewEnvironFunc: newMockEnviron,
 		})
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.CleanKill(c, tracker)

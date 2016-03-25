@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package common
 
 import (
 	"fmt"
@@ -14,13 +14,15 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type configFlag struct {
+// ConfigFlag records k=v attributes from command arguments
+// and/or specified files containing key values.
+type ConfigFlag struct {
 	files []string
 	attrs map[string]interface{}
 }
 
 // Set implements gnuflag.Value.Set.
-func (f *configFlag) Set(s string) error {
+func (f *ConfigFlag) Set(s string) error {
 	if s == "" {
 		return errors.NotValidf("empty string")
 	}
@@ -42,7 +44,7 @@ func (f *configFlag) Set(s string) error {
 
 // ReadAttrs reads attributes from the specified files, and then overlays
 // the results with the k=v attributes.
-func (f *configFlag) ReadAttrs(ctx *cmd.Context) (map[string]interface{}, error) {
+func (f *ConfigFlag) ReadAttrs(ctx *cmd.Context) (map[string]interface{}, error) {
 	attrs := make(map[string]interface{})
 	for _, f := range f.files {
 		path, err := utils.NormalizePath(f)
@@ -64,7 +66,7 @@ func (f *configFlag) ReadAttrs(ctx *cmd.Context) (map[string]interface{}, error)
 }
 
 // String implements gnuflag.Value.String.
-func (f *configFlag) String() string {
+func (f *ConfigFlag) String() string {
 	strs := make([]string, 0, len(f.attrs)+len(f.files))
 	for _, f := range f.files {
 		strs = append(strs, f)

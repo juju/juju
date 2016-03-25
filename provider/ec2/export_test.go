@@ -27,10 +27,6 @@ func StorageEC2(vs jujustorage.VolumeSource) *ec2.EC2 {
 	return vs.(*ebsVolumeSource).ec2
 }
 
-func ControlBucketName(e environs.Environ) string {
-	return e.(*environ).ecfg().controlBucket()
-}
-
 func JujuGroupName(e environs.Environ) string {
 	return e.(*environ).jujuGroupName()
 }

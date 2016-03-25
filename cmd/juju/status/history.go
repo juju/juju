@@ -97,7 +97,7 @@ func (c *statusHistoryCommand) Init(args []string) error {
 func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := c.NewAPIClient()
 	if err != nil {
-		return fmt.Errorf(connectionError, c.ConnectionName(), err)
+		return errors.Trace(err)
 	}
 	defer apiclient.Close()
 	var statuses *params.StatusHistoryResults
