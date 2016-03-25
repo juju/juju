@@ -1,0 +1,13 @@
+name: dummy-source
+maintainer: Martin Packman <martin.packman@canonical.com>
+summary: Dummy charm that provides data
+description: |
+  This dummy charm is used to verify that a relationship is created correctly
+requires:
+  sink:
+    interface: dummy-token
+categories:
+  - misc
+series:
+  - windows2012
+
