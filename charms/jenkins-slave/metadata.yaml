@@ -1,0 +1,22 @@
+name: jenkins-slave
+maintainer: James Page <james.page@ubuntu.com>
+summary: Jenkins CI Slave
+description: |
+  Jenkins is a Continous Integration server supporting
+  flexible continous integration and deployment methodologies
+  and more.
+  .
+  This charm provides support for jenkins slaves
+categories:
+  - applications
+provides:
+  slave:
+    interface: jenkins-slave
+series:
+  - trusty
+  - precise
+  - utopic
+  - vivid
+  - wily
+  - xenial
+
