@@ -116,7 +116,7 @@ func (s *environInstSuite) TestControllerInstancesAPI(c *gc.C) {
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Instances")
-	c.Check(s.FakeConn.Calls[0].Prefix, gc.Equals, s.Prefix+"machine-")
+	c.Check(s.FakeConn.Calls[0].Prefix, gc.Equals, "juju-"+s.Env.Config().ControllerUUID()+"-machine-")
 	c.Check(s.FakeConn.Calls[0].Statuses, jc.DeepEquals, []string{google.StatusPending, google.StatusStaging, google.StatusRunning})
 }
 

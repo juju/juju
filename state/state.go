@@ -605,13 +605,13 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 	return errors.Trace(err)
 }
 
-// EnvironConstraints returns the current model constraints.
+// ModelConstraints returns the current model constraints.
 func (st *State) ModelConstraints() (constraints.Value, error) {
 	cons, err := readConstraints(st, modelGlobalKey)
 	return cons, errors.Trace(err)
 }
 
-// SetEnvironConstraints replaces the current model constraints.
+// SetModelConstraints replaces the current model constraints.
 func (st *State) SetModelConstraints(cons constraints.Value) error {
 	unsupported, err := st.validateConstraints(cons)
 	if len(unsupported) > 0 {

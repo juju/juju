@@ -34,6 +34,9 @@ func ValidateAccountDetails(details AccountDetails) error {
 	}
 	// It is valid for a password to be blank, because the client
 	// may use macaroons instead.
+	//
+	// TODO(axw) expand validation rules to check that at least
+	// one of Password or Macaroon is non-empty.
 	return nil
 }
 
@@ -59,6 +62,17 @@ func ValidateModelName(name string) error {
 func ValidateAccountName(name string) error {
 	// An account name is a domain-qualified user, e.g. bob@local.
 	return validateUser(name)
+}
+
+// ValidateBootstrapConfig validates the given boostrap config.
+func ValidateBootstrapConfig(cfg BootstrapConfig) error {
+	if cfg.Cloud == "" {
+		return errors.NotValidf("empty cloud name")
+	}
+	if len(cfg.Config) == 0 {
+		return errors.NotValidf("empty config")
+	}
+	return nil
 }
 
 func validateUser(name string) error {

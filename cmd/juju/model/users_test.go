@@ -75,7 +75,7 @@ func (s *UsersCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UsersCommandSuite) TestModelUsers(c *gc.C) {
-	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake, s.store), "-m", "dummymodel")
+	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake, s.store), "-m", "admin")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME                DATE CREATED  LAST CONNECTION\n"+
@@ -86,7 +86,7 @@ func (s *UsersCommandSuite) TestModelUsers(c *gc.C) {
 }
 
 func (s *UsersCommandSuite) TestModelUsersFormatJson(c *gc.C) {
-	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake, s.store), "-m", "dummymodel", "--format", "json")
+	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake, s.store), "-m", "admin", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "["+
 		`{"user-name":"admin@local","date-created":"2014-07-20","last-connection":"2015-03-20"},`+
@@ -96,7 +96,7 @@ func (s *UsersCommandSuite) TestModelUsersFormatJson(c *gc.C) {
 }
 
 func (s *UsersCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
-	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake, s.store), "-m", "dummymodel", "--format", "yaml")
+	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake, s.store), "-m", "admin", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"- user-name: admin@local\n"+
@@ -111,6 +111,6 @@ func (s *UsersCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
 }
 
 func (s *UsersCommandSuite) TestUnrecognizedArg(c *gc.C) {
-	_, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake, s.store), "-m", "dummymodel", "whoops")
+	_, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake, s.store), "-m", "admin", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }

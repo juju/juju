@@ -82,11 +82,7 @@ func APIInfo(env Environ) (*api.Info, error) {
 	apiAddrs := network.HostPortsToStrings(
 		network.AddressesWithPort(addrs, apiPort),
 	)
-	uuid, uuidSet := config.UUID()
-	if !uuidSet {
-		return nil, errors.New("config has no UUID")
-	}
-	modelTag := names.NewModelTag(uuid)
+	modelTag := names.NewModelTag(config.UUID())
 	apiInfo := &api.Info{Addrs: apiAddrs, CACert: cert, ModelTag: modelTag}
 	return apiInfo, nil
 }

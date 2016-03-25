@@ -182,6 +182,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(user.NewEnableCommand())
 	r.Register(user.NewDisableCommand())
 	r.Register(user.NewSwitchUserCommand())
+	r.Register(user.NewLoginCommand())
 
 	// Manage cached images
 	r.Register(cachedimages.NewSuperCommand())

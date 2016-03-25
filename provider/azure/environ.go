@@ -1098,10 +1098,7 @@ func (env *azureEnviron) Provider() environs.EnvironProvider {
 
 // resourceGroupName returns the name of the environment's resource group.
 func resourceGroupName(cfg *config.Config) string {
-	uuid, _ := cfg.UUID()
-	// UUID is always available for azure environments, since the (new)
-	// provider was introduced after environment UUIDs.
-	modelTag := names.NewModelTag(uuid)
+	modelTag := names.NewModelTag(cfg.UUID())
 	return fmt.Sprintf(
 		"juju-%s-%s", cfg.Name(),
 		resourceName(modelTag),

@@ -78,7 +78,7 @@ func (fw *Firewaller) setUp() error {
 	// We won't "wait" actually, because the environ is already
 	// available and has a guaranteed valid config, but until
 	// WaitForEnviron goes away, this code needs to stay.
-	fw.environ, err = environ.WaitForEnviron(fw.modelWatcher, fw.st, fw.catacomb.Dying())
+	fw.environ, err = environ.WaitForEnviron(fw.modelWatcher, fw.st, environs.New, fw.catacomb.Dying())
 	if err != nil {
 		if err == environ.ErrWaitAborted {
 			return fw.catacomb.ErrDying()

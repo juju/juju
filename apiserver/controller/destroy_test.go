@@ -56,9 +56,8 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 
 	s.otherEnvOwner = names.NewUserTag("jess@dummy")
 	s.otherState = factory.NewFactory(s.State).MakeModel(c, &factory.ModelParams{
-		Name:    "dummytoo",
-		Owner:   s.otherEnvOwner,
-		Prepare: true,
+		Name:  "dummytoo",
+		Owner: s.otherEnvOwner,
 		ConfigAttrs: testing.Attrs{
 			"controller": false,
 		},

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -31,23 +30,10 @@ func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Envir
 	// NOTE(axw) this is a work-around for the TODO below. This
 	// means that the command will only work if you've bootstrapped
 	// the specified environment.
-	store, err := configstore.Default()
+	cfg, err := modelcmd.NewGetBootstrapConfigFunc(c.ClientStore())(c.ControllerName())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	info, err := store.ReadInfo(c.ModelName())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	bootstrapConfig := info.BootstrapConfig()
-	if len(bootstrapConfig) == 0 {
-		return nil, errors.NotFoundf("bootstrap config for %q", c.ModelName())
-	}
-	cfg, err := config.New(config.NoDefaults, bootstrapConfig)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// TODO(axw) we'll need to revise the metadata commands to work
 	// without preparing an environment. They should take the same
 	// format as bootstrap, i.e. cloud/region, and we'll use that to

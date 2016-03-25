@@ -9,8 +9,8 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
@@ -115,11 +115,35 @@ func (w *notifyWatcher) Changes() watcher.NotifyChannel {
 // newModelConfig returns an environment config map with the supplied attrs
 // (on top of some default set), or fails the test.
 func newModelConfig(c *gc.C, extraAttrs coretesting.Attrs) map[string]interface{} {
-	attrs := dummy.SampleConfig()
-	attrs["broken"] = ""
-	attrs["state-id"] = "42"
-	for k, v := range extraAttrs {
-		attrs[k] = v
+	return coretesting.CustomModelConfig(c, extraAttrs).AllAttrs()
+}
+
+type mockEnviron struct {
+	environs.Environ
+	testing.Stub
+	cfg *config.Config
+	mu  sync.Mutex
+}
+
+func (e *mockEnviron) Config() *config.Config {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.MethodCall(e, "Config")
+	e.PopNoErr()
+	return e.cfg
+}
+
+func (e *mockEnviron) SetConfig(cfg *config.Config) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.MethodCall(e, "SetConfig", cfg)
+	if err := e.NextErr(); err != nil {
+		return err
 	}
-	return coretesting.CustomModelConfig(c, attrs).AllAttrs()
+	e.cfg = cfg
+	return nil
+}
+
+func newMockEnviron(cfg *config.Config) (environs.Environ, error) {
+	return &mockEnviron{cfg: cfg}, nil
 }

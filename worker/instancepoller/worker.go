@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/instancepoller"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
@@ -51,7 +52,8 @@ func (u *updaterWorker) loop() (err error) {
 
 	// TODO(fwereade): get this as a resource from a dependency.Engine.
 	tracker, err := environ.NewTracker(environ.Config{
-		Observer: u.st,
+		Observer:       u.st,
+		NewEnvironFunc: environs.New,
 	})
 	if err != nil {
 		return errors.Trace(err)

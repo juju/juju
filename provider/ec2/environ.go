@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
-	envstorage "github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -69,11 +68,10 @@ type environ struct {
 	supportedArchitectures []string
 
 	// ecfgMutex protects the *Unlocked fields below.
-	ecfgMutex       sync.Mutex
-	ecfgUnlocked    *environConfig
-	ec2Unlocked     *ec2.EC2
-	s3Unlocked      *s3.S3
-	storageUnlocked envstorage.Storage
+	ecfgMutex    sync.Mutex
+	ecfgUnlocked *environConfig
+	ec2Unlocked  *ec2.EC2
+	s3Unlocked   *s3.S3
 
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
@@ -130,14 +128,6 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	e.ec2Unlocked = ec2Client
 	e.s3Unlocked = s3Client
 
-	bucket, err := e.s3Unlocked.Bucket(ecfg.controlBucket())
-	if err != nil {
-		return err
-	}
-
-	// create new storage instances, existing instances continue
-	// to reference their existing configuration.
-	e.storageUnlocked = &ec2storage{bucket: bucket}
 	return nil
 }
 
@@ -196,14 +186,9 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 }
 
 func (e *environ) ControllerInstances() ([]instance.Id, error) {
-	eUUID, ok := e.Config().UUID()
-	if !ok {
-		return nil, errors.NotFoundf("enviroment UUID in configuration")
-	}
-
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
-	filter.Add(fmt.Sprintf("tag:%s", tags.JujuModel), eUUID)
+	filter.Add(fmt.Sprintf("tag:%s", tags.JujuModel), e.Config().UUID())
 	filter.Add(fmt.Sprintf("tag:%s", tags.JujuController), "true")
 	err := e.addGroupFilter(filter)
 	if err != nil {
@@ -665,8 +650,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 
 	// Tag the machine's root EBS volume, if it has one.
 	if inst.Instance.RootDeviceType == "ebs" {
-		uuid, _ := cfg.UUID()
-		tags := tags.ResourceTags(names.NewModelTag(uuid), cfg)
+		tags := tags.ResourceTags(names.NewModelTag(cfg.UUID()), cfg)
 		tags[tagName] = instanceName + "-root"
 		if err := tagRootDisk(e.ec2(), tags, inst.Instance); err != nil {
 			return nil, errors.Annotate(err, "tagging root disk")
@@ -1195,10 +1179,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	eUUID, ok := e.Config().UUID()
-	if !ok {
-		return nil, errors.NotFoundf("enviroment UUID in configuration")
-	}
+	eUUID := e.Config().UUID()
 	var insts []instance.Instance
 	for _, r := range resp.Reservations {
 		for i := range r.Instances {
@@ -1462,10 +1443,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 }
 
 func (e *environ) uuid() string {
-	// the bool component of uuid is for legacy compatibility
-	// and does not apply in this context.
-	eUUID, _ := e.Config().UUID()
-	return eUUID
+	return e.Config().UUID()
 }
 
 func (e *environ) globalGroupName() string {

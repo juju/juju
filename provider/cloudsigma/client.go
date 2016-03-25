@@ -30,11 +30,7 @@ func (tracer) Logf(format string, args ...interface{}) {
 
 // newClient returns an instance of the CloudSigma client.
 var newClient = func(cfg *environConfig) (client *environClient, err error) {
-	uuid, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.New("Environ uuid must not be empty")
-	}
-
+	uuid := cfg.UUID()
 	logger.Debugf("creating CloudSigma client: id=%q", uuid)
 
 	// create connection to CloudSigma

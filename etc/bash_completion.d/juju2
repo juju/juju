@@ -1,4 +1,3 @@
-#!/bin/bash
 # juju-core.bash_completion.sh: dynamic bash completion for juju cmdline,
 # from parsed (and cached) juju status output.
 #
