@@ -1,0 +1,13 @@
+name: fill-logs
+summary: Test charm that fills the logs
+maintainer: Nate Finch <nate.finch@gmail.com>
+description: Charm fills the logs.
+categories:
+  - application
+series:
+  - trusty
+  - precise
+  - utopic
+  - vivid
+  - wily
+  - xenial
