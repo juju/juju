@@ -26,7 +26,7 @@ func NewClient(caller base.APICaller) *Client {
 // WatchActionNotifications returns a StringsWatcher for observing the
 // IDs of Actions added to the Machine. The initial event will contain the
 // IDs of any Actions pending at the time the Watcher is made.
-func (c *Client) WatchActionNotifications(agent names.Tag) (watcher.StringsWatcher, error) {
+func (c *Client) WatchActionNotifications(agent names.MachineTag) (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agent.String()}},

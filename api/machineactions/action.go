@@ -14,8 +14,8 @@ type Action struct {
 }
 
 // NewAction makes a new Action with specified name and params map.
-func NewAction(name string, params map[string]interface{}) (*Action, error) {
-	return &Action{name: name, params: params}, nil
+func NewAction(name string, params map[string]interface{}) *Action {
+	return &Action{name: name, params: params}
 }
 
 // Name retrieves the name of the Action.
