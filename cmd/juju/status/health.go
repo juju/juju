@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/status"
 )
 
 type statusHealthCommand struct {
@@ -71,7 +71,7 @@ func (c *statusHealthCommand) Run(ctx *cmd.Context) error {
 	// First determine the status
 	apiclient, err := c.NewAPIClient()
 	if err != nil {
-		return fmt.Errorf(connectionError, c.ConnectionName(), err)
+		return errors.Trace(err)
 	}
 	defer apiclient.Close()
 
@@ -122,11 +122,11 @@ func (m *machineStatus) Health() (int, []string) {
 			exitCode = 2
 		}
 		notOkay = append(notOkay, m.Err.Error())
-	} else if m.AgentState != params.StatusStarted {
+	} else if m.JujuStatus.Current != status.StatusStarted {
 		if 1 > exitCode {
 			exitCode = 1
 		}
-		notOkay = append(notOkay, fmt.Sprintf("Status: %s", m.AgentState))
+		notOkay = append(notOkay, fmt.Sprintf("Status: %s", m.JujuStatus.Current))
 	}
 
 	for cname, cstatus := range m.Containers {
@@ -151,7 +151,7 @@ func (s *serviceStatus) Health() (int, []string) {
 			exitCode = 2
 		}
 		notOkay = append(notOkay, s.Err.Error())
-	} else if s.StatusInfo.Current != params.StatusStarted && s.StatusInfo.Current != params.StatusIdle {
+	} else if s.StatusInfo.Current != status.StatusStarted && s.StatusInfo.Current != status.StatusIdle {
 		if 1 > exitCode {
 			exitCode = 1
 		}
@@ -177,18 +177,18 @@ func (u *unitStatus) Health() (int, []string) {
 	var exitCode int
 	var notOkay []string
 
-	if u.AgentStatusInfo.Err != nil {
+	if u.JujuStatusInfo.Err != nil {
 		if 2 > exitCode {
 			exitCode = 2
 		}
-		notOkay = append(notOkay, u.AgentStatusInfo.Err.Error())
-	} else if u.AgentStatusInfo.Current != params.StatusActive {
+		notOkay = append(notOkay, u.JujuStatusInfo.Err.Error())
+	} else if u.JujuStatusInfo.Current != status.StatusActive {
 		if 1 > exitCode {
 			exitCode = 1
 		}
-		notOkay = append(notOkay, fmt.Sprintf("AgentStatus: %s", u.AgentStatusInfo.Current))
+		notOkay = append(notOkay, fmt.Sprintf("AgentStatus: %s", u.JujuStatusInfo.Current))
 		// AgentStatus Info is reliably implemented, WorkloadStatusInfo isn't so skip err and allow unknown
-	} else if u.WorkloadStatusInfo.Current != params.StatusActive && u.WorkloadStatusInfo.Current != params.StatusUnknown {
+	} else if u.WorkloadStatusInfo.Current != status.StatusActive && u.WorkloadStatusInfo.Current != status.StatusUnknown {
 		if 1 > exitCode {
 			exitCode = 1
 		}
