@@ -107,9 +107,9 @@ func (c *statusHealthCommand) Run(ctx *cmd.Context) error {
 	}
 
 	//Output the statuses which aren't okay and exit
-	fmt.Println(summary)
+	fmt.Fprintln(ctx.Stdout, summary)
 	for _, line := range notOkay {
-		fmt.Println(line)
+		fmt.Fprintln(ctx.Stdout, line)
 	}
 	return cmd.NewRcPassthroughError(exitCode)
 }
