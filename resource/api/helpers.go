@@ -8,11 +8,15 @@ package api
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/txn"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/state"
 )
 
 // Resource2API converts a resource.Resource into
@@ -34,7 +38,7 @@ func APIResult2ServiceResources(apiResult ResourcesResult) (resource.ServiceReso
 
 	if apiResult.Error != nil {
 		// TODO(ericsnow) Return the resources too?
-		err := common.RestoreError(apiResult.Error)
+		err := RestoreError(apiResult.Error)
 		return resource.ServiceResources{}, errors.Trace(err)
 	}
 
@@ -54,13 +58,25 @@ func APIResult2ServiceResources(apiResult ResourcesResult) (resource.ServiceReso
 		if err != nil {
 			return resource.ServiceResources{}, errors.Annotate(err, "got bad data from server")
 		}
+		resNames := map[string]bool{}
 		unitResources := resource.UnitResources{Tag: tag}
 		for _, apiRes := range unitRes.Resources {
 			res, err := API2Resource(apiRes)
 			if err != nil {
 				return resource.ServiceResources{}, errors.Annotate(err, "got bad data from server")
 			}
+			resNames[res.Name] = true
 			unitResources.Resources = append(unitResources.Resources, res)
+		}
+		if len(unitRes.DownloadProgress) > 0 {
+			unitResources.DownloadProgress = make(map[string]int64)
+			for resName, progress := range unitRes.DownloadProgress {
+				if _, ok := resNames[resName]; !ok {
+					err := errors.Errorf("got progress from unrecognized resource %q", resName)
+					return resource.ServiceResources{}, errors.Annotate(err, "got bad data from server")
+				}
+				unitResources.DownloadProgress[resName] = progress
+			}
 		}
 		result.UnitResources = append(result.UnitResources, unitResources)
 	}
@@ -76,25 +92,27 @@ func APIResult2ServiceResources(apiResult ResourcesResult) (resource.ServiceReso
 	return result, nil
 }
 
-func ServiceResources2APIResult(svcRes resource.ServiceResources, units []names.UnitTag) ResourcesResult {
+func ServiceResources2APIResult(svcRes resource.ServiceResources) ResourcesResult {
 	var result ResourcesResult
 	for _, res := range svcRes.Resources {
 		result.Resources = append(result.Resources, Resource2API(res))
 	}
-	unitResources := make(map[names.UnitTag]resource.UnitResources, len(svcRes.UnitResources))
-	for _, unitRes := range svcRes.UnitResources {
-		unitResources[unitRes.Tag] = unitRes
-	}
 
-	result.UnitResources = make([]UnitResources, len(units))
-	for i, tag := range units {
+	for _, unitResources := range svcRes.UnitResources {
+		tag := unitResources.Tag
 		apiRes := UnitResources{
 			Entity: params.Entity{Tag: tag.String()},
 		}
-		for _, res := range unitResources[tag].Resources {
-			apiRes.Resources = append(apiRes.Resources, Resource2API(res))
+		for _, unitRes := range unitResources.Resources {
+			apiRes.Resources = append(apiRes.Resources, Resource2API(unitRes))
 		}
-		result.UnitResources[i] = apiRes
+		if len(unitResources.DownloadProgress) > 0 {
+			apiRes.DownloadProgress = make(map[string]int64)
+			for resName, progress := range unitResources.DownloadProgress {
+				apiRes.DownloadProgress[resName] = progress
+			}
+		}
+		result.UnitResources = append(result.UnitResources, apiRes)
 	}
 
 	result.CharmStoreResources = make([]CharmResource, len(svcRes.CharmStoreResources))
@@ -182,4 +200,110 @@ func API2CharmResource(apiInfo CharmResource) (charmresource.Resource, error) {
 		return res, errors.Trace(err)
 	}
 	return res, nil
+}
+
+func singletonError(err error) (error, bool) {
+	sameErr := func(err2 error) (error, bool) {
+		return err2, err.Error() == err2.Error()
+	}
+	switch params.ErrCode(err) {
+	case params.CodeCannotEnterScopeYet:
+		return sameErr(state.ErrCannotEnterScopeYet)
+	case params.CodeCannotEnterScope:
+		return sameErr(state.ErrCannotEnterScope)
+	case params.CodeUnitHasSubordinates:
+		return sameErr(state.ErrUnitHasSubordinates)
+	case params.CodeDead:
+		return sameErr(state.ErrDead)
+	case params.CodeExcessiveContention:
+		return sameErr(txn.ErrExcessiveContention)
+	case params.CodeLeadershipClaimDenied:
+		return sameErr(leadership.ErrClaimDenied)
+	case params.CodeLeaseClaimDenied:
+		return sameErr(lease.ErrClaimDenied)
+	case params.CodeNotFound:
+		if err, ok := sameErr(common.ErrBadId); ok {
+			return err, ok
+		}
+		return sameErr(common.ErrUnknownWatcher)
+	case params.CodeUnauthorized:
+		if err, ok := sameErr(common.ErrBadCreds); ok {
+			return err, ok
+		}
+		if err, ok := sameErr(common.ErrPerm); ok {
+			return err, ok
+		}
+		return sameErr(common.ErrNotLoggedIn)
+	case params.CodeStopped:
+		return sameErr(common.ErrStoppedWatcher)
+	case params.CodeTryAgain:
+		return sameErr(common.ErrTryAgain)
+	case params.CodeActionNotAvailable:
+		return sameErr(common.ErrActionNotAvailable)
+	default:
+		return nil, false
+	}
+}
+
+// RestoreError makes a best effort at converting the given error
+// back into an error originally converted by ServerError().
+func RestoreError(err error) error {
+	err = errors.Cause(err)
+
+	if apiErr, ok := err.(*params.Error); !ok {
+		return err
+	} else if apiErr == nil {
+		return nil
+	}
+	if params.ErrCode(err) == "" {
+		return err
+	}
+	msg := err.Error()
+
+	if singleton, ok := singletonError(err); ok {
+		return singleton
+	}
+
+	// TODO(ericsnow) Support the other error types handled by ServerError().
+	switch {
+	case params.IsCodeUnauthorized(err):
+		return errors.NewUnauthorized(nil, msg)
+	case params.IsCodeNotFound(err):
+		// TODO(ericsnow) UnknownModelError should be handled here too.
+		// ...by parsing msg?
+		return errors.NewNotFound(nil, msg)
+	case params.IsCodeAlreadyExists(err):
+		return errors.NewAlreadyExists(nil, msg)
+	case params.IsCodeNotAssigned(err):
+		return errors.NewNotAssigned(nil, msg)
+	case params.IsCodeHasAssignedUnits(err):
+		// TODO(ericsnow) Handle state.HasAssignedUnitsError here.
+		// ...by parsing msg?
+		return err
+	case params.IsCodeNoAddressSet(err):
+		// TODO(ericsnow) Handle isNoAddressSetError here.
+		// ...by parsing msg?
+		return err
+	case params.IsCodeNotProvisioned(err):
+		return errors.NewNotProvisioned(nil, msg)
+	case params.IsCodeUpgradeInProgress(err):
+		// TODO(ericsnow) Handle state.UpgradeInProgressError here.
+		// ...by parsing msg?
+		return err
+	case params.IsCodeMachineHasAttachedStorage(err):
+		// TODO(ericsnow) Handle state.HasAttachmentsError here.
+		// ...by parsing msg?
+		return err
+	case params.IsCodeNotSupported(err):
+		return errors.NewNotSupported(nil, msg)
+	case params.IsBadRequest(err):
+		return errors.NewBadRequest(nil, msg)
+	case params.IsMethodNotAllowed(err):
+		return errors.NewMethodNotAllowed(nil, msg)
+	case params.ErrCode(err) == params.CodeDischargeRequired:
+		// TODO(ericsnow) Handle DischargeRequiredError here.
+		return err
+	default:
+		return err
+	}
 }

@@ -6,6 +6,7 @@
 package lxdclient
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/lxc/lxd"
@@ -24,6 +25,11 @@ type Client struct {
 	*profileClient
 	*instanceClient
 	*imageClient
+	baseURL string
+}
+
+func (c Client) String() string {
+	return fmt.Sprintf("Client(%s)", c.baseURL)
 }
 
 // Connect opens an API connection to LXD and returns a high-level
@@ -35,7 +41,7 @@ func Connect(cfg Config) (*Client, error) {
 
 	remote := cfg.Remote.ID()
 
-	raw, err := newRawClient(cfg)
+	raw, err := newRawClient(cfg.Remote)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -46,18 +52,19 @@ func Connect(cfg Config) (*Client, error) {
 		profileClient:      &profileClient{raw},
 		instanceClient:     &instanceClient{raw, remote},
 		imageClient:        &imageClient{raw},
+		baseURL:            raw.BaseURL,
 	}
 	return conn, nil
 }
 
 var lxdNewClientFromInfo = lxd.NewClientFromInfo
-var lxdLoadConfig = lxd.LoadConfig
 
-func newRawClient(cfg Config) (*lxd.Client, error) {
-	logger.Debugf("using LXD remote %q", cfg.Remote.ID())
-	remote := cfg.Remote.ID()
-	host := cfg.Remote.Host
-	if remote == remoteIDForLocal || host == "" {
+// newRawClient connects to the LXD host that is defined in Config.
+func newRawClient(remote Remote) (*lxd.Client, error) {
+	host := remote.Host
+	logger.Debugf("connecting to LXD remote %q: %q", remote.ID(), host)
+
+	if remote.ID() == remoteIDForLocal || host == "" {
 		host = "unix://" + lxdshared.VarPath("unix.socket")
 	} else {
 		_, _, err := net.SplitHostPort(host)
@@ -68,24 +75,36 @@ func newRawClient(cfg Config) (*lxd.Client, error) {
 	}
 
 	clientCert := ""
-	if cfg.Remote.Cert != nil && cfg.Remote.Cert.CertPEM != nil {
-		clientCert = string(cfg.Remote.Cert.CertPEM)
+	if remote.Cert != nil && remote.Cert.CertPEM != nil {
+		clientCert = string(remote.Cert.CertPEM)
 	}
 
 	clientKey := ""
-	if cfg.Remote.Cert != nil && cfg.Remote.Cert.KeyPEM != nil {
-		clientKey = string(cfg.Remote.Cert.KeyPEM)
+	if remote.Cert != nil && remote.Cert.KeyPEM != nil {
+		clientKey = string(remote.Cert.KeyPEM)
+	}
+
+	static := false
+	public := false
+	if remote.Protocol == SimplestreamsProtocol {
+		static = true
+		public = true
 	}
 
 	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
-		Name:          cfg.Remote.ID(),
-		Addr:          host,
+		Name: remote.ID(),
+		RemoteConfig: lxd.RemoteConfig{
+			Addr:     host,
+			Static:   static,
+			Public:   public,
+			Protocol: string(remote.Protocol),
+		},
 		ClientPEMCert: clientCert,
 		ClientPEMKey:  clientKey,
-		ServerPEMCert: cfg.Remote.ServerPEMCert,
+		ServerPEMCert: remote.ServerPEMCert,
 	})
 	if err != nil {
-		if remote == remoteIDForLocal {
+		if remote.ID() == remoteIDForLocal {
 			return nil, errors.Annotate(err, "can't connect to the local LXD server")
 		}
 		return nil, errors.Trace(err)

@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -27,12 +26,6 @@ type UserSuite struct {
 }
 
 var _ = gc.Suite(&UserSuite{})
-
-func (s *UserSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	err := modelcmd.WriteCurrentController("dummymodel")
-	c.Assert(err, jc.ErrorIsNil)
-}
 
 func (s *UserSuite) RunUserCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 	context := testing.Context(c)
@@ -52,13 +45,13 @@ func (s *UserSuite) TestUserAdd(c *gc.C) {
 	c.Assert(user.IsDisabled(), jc.IsFalse)
 }
 
-func (s *UserSuite) TestUserAddShareModel(c *gc.C) {
+func (s *UserSuite) TestUserAddGrantModel(c *gc.C) {
 	sharedModelState := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "amodel",
 	})
 	defer sharedModelState.Close()
 
-	ctx, err := s.RunUserCommand(c, "add-user", "test", "--share", "amodel")
+	ctx, err := s.RunUserCommand(c, "add-user", "test", "--models", "amodel")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), jc.HasPrefix, `User "test" added`)
 	user, err := s.State.User(names.NewLocalUserTag("test"))

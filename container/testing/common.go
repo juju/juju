@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -22,8 +23,8 @@ import (
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.container.testing")
@@ -77,7 +78,8 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 		name := "test-" + names.NewMachineTag(instanceConfig.MachineId).String()
 		EnsureLXCRootFSEtcNetwork(c, name)
 	}
-	inst, hardware, err := manager.CreateContainer(instanceConfig, "quantal", networkConfig, storageConfig)
+	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
+	inst, hardware, err := manager.CreateContainer(instanceConfig, "quantal", networkConfig, storageConfig, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	c.Assert(hardware.String(), gc.Not(gc.Equals), "")
@@ -121,7 +123,8 @@ func CreateContainerTest(c *gc.C, manager container.Manager, machineId string) (
 	network := container.BridgeNetworkConfig("nic42", 0, nil)
 	storage := &container.StorageConfig{}
 
-	inst, hardware, err := manager.CreateContainer(instanceConfig, "quantal", network, storage)
+	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
+	inst, hardware, err := manager.CreateContainer(instanceConfig, "quantal", network, storage, callback)
 
 	if err != nil {
 		return nil, errors.Trace(err)

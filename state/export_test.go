@@ -21,6 +21,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
@@ -41,7 +42,7 @@ const (
 )
 
 var (
-	ToolstorageNewStorage  = &toolstorageNewStorage
+	BinarystorageNew       = &binarystorageNew
 	ImageStorageNewStorage = &imageStorageNewStorage
 	MachineIdLessThan      = machineIdLessThan
 	ControllerAvailable    = &controllerAvailable
@@ -185,7 +186,12 @@ func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, 
 
 func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	ident := fmt.Sprintf("%s-%s-%d", series, ch.Meta().Name, ch.Revision())
-	curl := charm.MustParseURL("local:" + series + "/" + ident)
+	url := "local:" + series + "/" + ident
+	if series == "" {
+		ident = fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
+		url = "local:" + ident
+	}
+	curl := charm.MustParseURL(url)
 	sch, err := st.AddCharm(ch, curl, "dummy-path", ident+"-sha256")
 	c.Assert(err, jc.ErrorIsNil)
 	return sch
@@ -485,10 +491,18 @@ func RemoveEndpointBindingsForService(c *gc.C, service *Service) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func RelationCount(service *Service) int {
+	return service.doc.RelationCount
+}
+
 func AssertEndpointBindingsNotFoundForService(c *gc.C, service *Service) {
 	globalKey := service.globalKey()
 	storedBindings, _, err := readEndpointBindings(service.st, globalKey)
 	c.Assert(storedBindings, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("endpoint bindings for %q not found", globalKey))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func LeadershipLeases(st *State) map[string]lease.Info {
+	return st.leadershipClient.Leases()
 }

@@ -16,7 +16,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 // modelGlobalKey is the key for the model, its
@@ -135,10 +135,7 @@ func (st *State) NewModel(cfg *config.Config, owner names.UserTag) (_ *Model, _ 
 		return nil, nil, errors.Annotate(err, "could not load controller model")
 	}
 
-	uuid, ok := cfg.UUID()
-	if !ok {
-		return nil, nil, errors.Errorf("model uuid was not supplied")
-	}
+	uuid := cfg.UUID()
 	newState, err := st.ForModel(names.NewModelTag(uuid))
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not create state for new model")
@@ -620,7 +617,7 @@ var isModelAliveDoc = bson.D{
 func checkModeLife(st *State) error {
 	env, err := st.Model()
 	if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
-		return errors.New("model is no longer alive")
+		return errors.Errorf("model %q is no longer alive", env.Name())
 	} else if err != nil {
 		return errors.Annotate(err, "unable to read model")
 	}

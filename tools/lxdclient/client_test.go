@@ -8,6 +8,7 @@ package lxdclient
 import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/lxc/lxd"
 	gc "gopkg.in/check.v1"
 )
@@ -16,41 +17,44 @@ type ConnectSuite struct {
 	testing.IsolationSuite
 }
 
-func (cs ConnectSuite) TestLocalConnectError(c *gc.C) {
-	cs.PatchValue(lxdNewClientFromInfo, fakeNewClientFromInfo)
-	cs.PatchValue(lxdLoadConfig, fakeLoadConfig)
+var _ = gc.Suite(&ConnectSuite{})
 
-	cfg := Config{
+func (cs *ConnectSuite) TestLocalConnectError(c *gc.C) {
+	cs.PatchValue(&lxdNewClientFromInfo, fakeNewClientFromInfo)
+
+	cfg, err := Config{
 		Remote: Local,
-	}
-	_, err := Connect(cfg)
+	}.WithDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = Connect(cfg)
 
 	// Yes, the error message actually matters here... this is being displayed
 	// to the user.
 	c.Assert(err, gc.ErrorMatches, "can't connect to the local LXD server.*")
 }
 
-func (cs ConnectSuite) TestRemoteConnectError(c *gc.C) {
-	cs.PatchValue(lxdNewClientFromInfo, fakeNewClientFromInfo)
-	cs.PatchValue(lxdLoadConfig, fakeLoadConfig)
+func (cs *ConnectSuite) TestRemoteConnectError(c *gc.C) {
+	cs.PatchValue(&lxdNewClientFromInfo, fakeNewClientFromInfo)
 
-	cfg := Config{
+	cfg, err := Config{
 		Remote: Remote{
 			Name: "foo",
 			Host: "a.b.c",
+			Cert: &Cert{
+				Name:    "really-valid",
+				CertPEM: []byte("kinda-public"),
+				KeyPEM:  []byte("super-secret"),
+			},
 		},
-	}
-	_, err := Connect(cfg)
+	}.WithDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = Connect(cfg)
 
 	c.Assert(errors.Cause(err), gc.Equals, testerr)
 }
 
 var testerr = errors.Errorf("boo!")
 
-func fakeNewClientFromInfo(config *lxd.Config, remote string) (*lxd.Client, error) {
+func fakeNewClientFromInfo(info lxd.ConnectInfo) (*lxd.Client, error) {
 	return nil, testerr
-}
-
-func fakeLoadConfig() (*lxd.Config, error) {
-	return nil, nil
 }

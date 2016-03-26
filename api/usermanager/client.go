@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"strings"
 
+	"gopkg.in/macaroon.v1"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -33,7 +36,7 @@ func NewClient(st base.APICallCloser) *Client {
 
 // AddUser creates a new local user in the controller, sharing with that user any specified models.
 func (c *Client) AddUser(
-	username, displayName, password string, modelUUIDs ...string,
+	username, displayName, password, access string, modelUUIDs ...string,
 ) (_ names.UserTag, secretKey []byte, _ error) {
 	if !names.IsValidUser(username) {
 		return names.UserTag{}, nil, fmt.Errorf("invalid user name %q", username)
@@ -42,15 +45,26 @@ func (c *Client) AddUser(
 	for i, uuid := range modelUUIDs {
 		modelTags[i] = names.NewModelTag(uuid).String()
 	}
+
+	var accessPermission params.ModelAccessPermission
+	var err error
+	if len(modelTags) > 0 {
+		accessPermission, err = modelmanager.ParseModelAccess(access)
+		if err != nil {
+			return names.UserTag{}, nil, errors.Trace(err)
+		}
+	}
+
 	userArgs := params.AddUsers{
 		Users: []params.AddUser{{
 			Username:        username,
 			DisplayName:     displayName,
 			Password:        password,
-			SharedModelTags: modelTags}},
+			SharedModelTags: modelTags,
+			ModelAccess:     accessPermission}},
 	}
 	var results params.AddUserResults
-	err := c.facade.FacadeCall("AddUser", userArgs, &results)
+	err = c.facade.FacadeCall("AddUser", userArgs, &results)
 	if err != nil {
 		return names.UserTag{}, nil, errors.Trace(err)
 	}
@@ -174,4 +188,23 @@ func (c *Client) SetPassword(username, password string) error {
 		return err
 	}
 	return results.OneError()
+}
+
+// CreateLocalLoginMacaroon creates a local login macaroon for the
+// authenticated user.
+func (c *Client) CreateLocalLoginMacaroon(tag names.UserTag) (*macaroon.Macaroon, error) {
+	args := params.Entities{Entities: []params.Entity{{tag.String()}}}
+	var results params.MacaroonResults
+	if err := c.facade.FacadeCall("CreateLocalLoginMacaroon", args, &results); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if n := len(results.Results); n != 1 {
+		logger.Errorf("expected 1 result, got %#v", results)
+		return nil, errors.Errorf("expected 1 result, got %d", n)
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, errors.Trace(result.Error)
+	}
+	return result.Result, nil
 }

@@ -5,7 +5,7 @@ package commands
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -14,26 +14,27 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"launchpad.net/gnuflag"
 
 	apiblock "github.com/juju/juju/api/block"
-	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // provisionalProviders is the names of providers that are hidden behind
@@ -51,12 +52,12 @@ that machine.
 The controller will be setup with an intial controller model called "admin" as well
 as a hosted model which can be used to run workloads.
 
-If boostrap-constraints are specified in the bootstrap command, 
-they will apply to the machine provisioned for the juju controller, 
+If boostrap-constraints are specified in the bootstrap command,
+they will apply to the machine provisioned for the juju controller,
 and any future controllers provisioned for HA.
 
-If constraints are specified, they will be set as the default constraints 
-on the model for all future workload machines, 
+If constraints are specified, they will be set as the default constraints
+on the model for all future workload machines,
 exactly as if the constraints were set with juju set-constraints.
 
 It is possible to override constraints and the automatic machine selection
@@ -99,17 +100,21 @@ See Also:
    juju help placement
 `
 
+// defaultHostedModelName is the name of the hosted model created in each
+// controller for deploying workloads to, in addition to the "admin" model.
+const defaultHostedModelName = "default"
+
 func newBootstrapCommand() cmd.Command {
-	return modelcmd.Wrap(&bootstrapCommand{
-		CredentialStore: jujuclient.NewFileCredentialStore(),
-	})
+	return modelcmd.Wrap(
+		&bootstrapCommand{},
+		modelcmd.ModelSkipFlags, modelcmd.ModelSkipDefault,
+	)
 }
 
 // bootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type bootstrapCommand struct {
 	modelcmd.ModelCommandBase
-	CredentialStore jujuclient.CredentialStore
 
 	Constraints           constraints.Value
 	BootstrapConstraints  constraints.Value
@@ -122,12 +127,13 @@ type bootstrapCommand struct {
 	AutoUpgrade           bool
 	AgentVersionParam     string
 	AgentVersion          *version.Number
-	config                configFlag
+	config                common.ConfigFlag
 
-	controllerName string
-	CredentialName string
-	Cloud          string
-	Region         string
+	controllerName  string
+	hostedModelName string
+	CredentialName  string
+	Cloud           string
+	Region          string
 }
 
 func (c *bootstrapCommand) Info() *cmd.Info {
@@ -154,6 +160,8 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.AgentVersionParam, "agent-version", "", "the version of tools to use for Juju agents")
 	f.StringVar(&c.CredentialName, "credential", "", "the credentials to use when bootstrapping")
 	f.Var(&c.config, "config", "specify a controller config file, or one or more controller configuration options (--config config.yaml [--config k=v ...])")
+	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "the name of the default hosted model for the controller")
+	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "the name of the default hosted model for the controller")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -187,7 +195,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	}
 	if !c.AutoUpgrade {
 		// With no auto upgrade chosen, we default to the version matching the bootstrap client.
-		vers := version.Current
+		vers := jujuversion.Current
 		c.AgentVersion = &vers
 	}
 	if c.AgentVersionParam != "" {
@@ -199,7 +207,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 			return err
 		}
 	}
-	if c.AgentVersion != nil && (c.AgentVersion.Major != version.Current.Major || c.AgentVersion.Minor != version.Current.Minor) {
+	if c.AgentVersion != nil && (c.AgentVersion.Major != jujuversion.Current.Major || c.AgentVersion.Minor != jujuversion.Current.Minor) {
 		return fmt.Errorf("requested agent version major.minor mismatch")
 	}
 
@@ -261,7 +269,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		ctx.Verbosef("cloud %q not found, trying as a provider name", c.Cloud)
 		provider, err := environs.Provider(c.Cloud)
 		if errors.IsNotFound(err) {
-			return errors.NotFoundf("cloud %q", c.Cloud)
+			return errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds"))
 		} else if err != nil {
 			return errors.Trace(err)
 		}
@@ -271,7 +279,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 				"provider %q does not support detecting regions",
 				c.Cloud,
 			)
-			return errors.NotFoundf("cloud %q", c.Cloud)
+			return errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds"))
 		}
 		regions, err := detector.DetectRegions()
 		if err != nil && !errors.IsNotFound(err) {
@@ -295,26 +303,20 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	// Get the credentials and region name.
-	credential, regionName, err := c.getCredentials(ctx, c.Cloud, cloud)
+	store := c.ClientStore()
+	credential, credentialName, regionName, err := modelcmd.GetCredentials(
+		store, c.Region, c.CredentialName, c.Cloud, cloud.Type,
+	)
 	if errors.IsNotFound(err) && c.CredentialName == "" {
 		// No credential was explicitly specified, and no credential
 		// was found in credentials.yaml; have the provider detect
 		// credentials from the environment.
 		ctx.Verbosef("no credentials found, checking environment")
-		provider, err := environs.Provider(cloud.Type)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		detected, err := provider.DetectCredentials()
-		if err != nil {
-			return errors.Annotatef(err, "detecting credentials for %q cloud provider", c.Cloud)
-		}
-		logger.Tracef("provider detected credentials: %v", detected)
-		if len(detected.AuthCredentials) == 0 {
-			return errors.NotFoundf("credentials for cloud %q", c.Cloud)
-		}
-		if len(detected.AuthCredentials) > 1 {
+		detected, err := modelcmd.DetectCredential(c.Cloud, cloud.Type)
+		if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
 			return ambiguousCredentialError
+		} else if err != nil {
+			return errors.Trace(err)
 		}
 		// We have one credential so extract it from the map.
 		var oneCredential jujucloud.Credential
@@ -335,15 +337,21 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
-	// Create an environment config from the cloud and credentials. The
-	// controller's model should be called "admin".
+	hostedModelUUID, err := utils.NewUUID()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	controllerUUID, err := utils.NewUUID()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Create an environment config from the cloud and credentials.
 	configAttrs := map[string]interface{}{
-		"type": cloud.Type,
-		// TODO(axw) for now we call the initial model the same as the
-		// controller, without the "local." prefix. This is necessary
-		// to make CI happy. Once CI is updated, we'll switch over to
-		// "admin".
-		"name": configstore.AdminModelName(c.controllerName),
+		"type":                   cloud.Type,
+		"name":                   environs.ControllerModelName,
+		config.UUIDKey:           controllerUUID.String(),
+		config.ControllerUUIDKey: controllerUUID.String(),
 	}
 	userConfigAttrs, err := c.config.ReadAttrs(ctx)
 	if err != nil {
@@ -353,26 +361,62 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		configAttrs[k] = v
 	}
 	logger.Debugf("preparing controller with config: %v", configAttrs)
-	cfg, err := config.New(config.UseDefaults, configAttrs)
+
+	// Read existing current controller, account, model so we can clean up on error.
+	var oldCurrentController string
+	oldCurrentController, err = modelcmd.ReadCurrentController()
 	if err != nil {
-		return errors.Annotate(err, "creating environment configuration")
+		return errors.Annotate(err, "error reading current controller")
 	}
-	store, err := configstore.Default()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	controllerStore := c.ClientStore()
+
+	defer func() {
+		if resultErr == nil || errors.IsAlreadyExists(resultErr) {
+			return
+		}
+		if oldCurrentController != "" {
+			if err := modelcmd.WriteCurrentController(oldCurrentController); err != nil {
+				logger.Warningf(
+					"cannot reset current controller to %q: %v",
+					oldCurrentController, err,
+				)
+			}
+		}
+		if err := store.RemoveController(c.controllerName); err != nil {
+			logger.Warningf(
+				"cannot destroy newly created controller %q details: %v",
+				c.controllerName, err,
+			)
+		}
+	}()
+
 	environ, err := environsPrepare(
-		modelcmd.BootstrapContext(ctx), store, controllerStore, c.controllerName,
-		environs.PrepareForBootstrapParams{
-			Config:               cfg,
-			Credentials:          *credential,
+		modelcmd.BootstrapContext(ctx), store,
+		environs.PrepareParams{
+			BaseConfig:           configAttrs,
+			ControllerName:       c.controllerName,
+			CloudName:            c.Cloud,
 			CloudRegion:          region.Name,
 			CloudEndpoint:        region.Endpoint,
 			CloudStorageEndpoint: region.StorageEndpoint,
+			Credential:           *credential,
+			CredentialName:       credentialName,
 		},
 	)
 	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Set the current model to the initial hosted model.
+	accountName, err := store.CurrentAccount(c.controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := store.UpdateModel(c.controllerName, accountName, c.hostedModelName, jujuclient.ModelDetails{
+		hostedModelUUID.String(),
+	}); err != nil {
+		return errors.Trace(err)
+	}
+	if err := store.SetCurrentModel(c.controllerName, accountName, c.hostedModelName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -402,7 +446,7 @@ to clean up the model.`[1:])
 			} else {
 				handleBootstrapError(ctx, resultErr, func() error {
 					return environsDestroy(
-						c.controllerName, environ, store, controllerStore,
+						c.controllerName, environ, store,
 					)
 				})
 			}
@@ -441,8 +485,29 @@ to clean up the model.`[1:])
 	}
 	logger.Infof("combined bootstrap constraints: %v", bootstrapConstraints)
 
+	hostedModelConfig := map[string]interface{}{
+		"name":         c.hostedModelName,
+		config.UUIDKey: hostedModelUUID.String(),
+	}
+
+	// We copy across any user supplied attributes to the hosted model config.
+	// But only if the attributes have not been removed from the controller
+	// model config as part of preparing the controller model.
+	controllerConfigAttrs := environ.Config().AllAttrs()
+	for k, v := range userConfigAttrs {
+		if _, ok := controllerConfigAttrs[k]; ok {
+			hostedModelConfig[k] = v
+		}
+	}
+	// Ensure that certain config attributes are not included in the hosted
+	// model config. These attributes may be modified during bootstrap; by
+	// removing them from this map, we ensure the modified values are
+	// inherited.
+	delete(hostedModelConfig, config.AuthKeysConfig)
+	delete(hostedModelConfig, config.AgentVersionKey)
+
 	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
-		EnvironConstraints:   c.Constraints,
+		ModelConstraints:     c.Constraints,
 		BootstrapConstraints: bootstrapConstraints,
 		BootstrapSeries:      c.BootstrapSeries,
 		BootstrapImage:       c.BootstrapImage,
@@ -450,16 +515,17 @@ to clean up the model.`[1:])
 		UploadTools:          c.UploadTools,
 		AgentVersion:         c.AgentVersion,
 		MetadataDir:          metadataDir,
+		HostedModelConfig:    hostedModelConfig,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	if err := c.SetModelName(cfg.Name()); err != nil {
+	if err := c.SetModelName(c.hostedModelName); err != nil {
 		return errors.Trace(err)
 	}
 
-	err = c.setBootstrapEndpointAddress(store, environ)
+	err = c.setBootstrapEndpointAddress(environ)
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
@@ -468,83 +534,6 @@ to clean up the model.`[1:])
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
 	return c.waitForAgentInitialisation(ctx)
-}
-
-// credentialByName returns the credential and default region to use for the
-// specified cloud, optionally specifying a credential name. If no credential
-// name is specified, then use the default credential for the cloud if one has
-// been specified. The credential name is returned also, in case the default
-// credential is used. If there is only one credential, it is implicitly the
-// default.
-//
-// If there exists no matching credentials, an error satisfying
-// errors.IsNotFound will be returned.
-func credentialByName(
-	store jujuclient.CredentialGetter, cloudName, credentialName string,
-) (_ *jujucloud.Credential, credentialNameUsed string, defaultRegion string, _ error) {
-
-	cloudCredentials, err := store.CredentialForCloud(cloudName)
-	if err != nil {
-		return nil, "", "", errors.Annotate(err, "loading credentials")
-	}
-	if credentialName == "" {
-		// No credential specified, so use the default for the cloud.
-		credentialName = cloudCredentials.DefaultCredential
-		if credentialName == "" && len(cloudCredentials.AuthCredentials) == 1 {
-			for credentialName = range cloudCredentials.AuthCredentials {
-			}
-		}
-	}
-	credential, ok := cloudCredentials.AuthCredentials[credentialName]
-	if !ok {
-		return nil, "", "", errors.NotFoundf(
-			"%q credential for cloud %q", credentialName, cloudName,
-		)
-	}
-	return &credential, credentialName, cloudCredentials.DefaultRegion, nil
-}
-
-func (c *bootstrapCommand) getCredentials(
-	ctx *cmd.Context,
-	cloudName string,
-	cloud *jujucloud.Cloud,
-) (_ *jujucloud.Credential, region string, _ error) {
-
-	credential, credentialName, defaultRegion, err := credentialByName(
-		c.CredentialStore, cloudName, c.CredentialName,
-	)
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-
-	regionName := c.Region
-	if regionName == "" {
-		regionName = defaultRegion
-	}
-
-	readFile := func(f string) ([]byte, error) {
-		f, err := utils.NormalizePath(f)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return ioutil.ReadFile(ctx.AbsPath(f))
-	}
-
-	// Finalize credential against schemas supported by the provider.
-	provider, err := environs.Provider(cloud.Type)
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-	credential, err = jujucloud.FinalizeCredential(
-		*credential, provider.CredentialSchemas(), readFile,
-	)
-	if err != nil {
-		return nil, "", errors.Annotatef(
-			err, "validating %q credential for cloud %q",
-			credentialName, cloudName,
-		)
-	}
-	return credential, regionName, nil
 }
 
 // getRegion returns the cloud.Region to use, based on the specified
@@ -579,8 +568,8 @@ func getRegion(cloud *jujucloud.Cloud, cloudName, regionName string) (jujucloud.
 		}
 	}
 	return jujucloud.Region{}, errors.NewNotFound(nil, fmt.Sprintf(
-		"region %q in cloud %q not found (expected one of %q)",
-		regionName, cloudName, cloudRegionNames(cloud),
+		"region %q in cloud %q not found (expected one of %q)\nalternatively, try %q",
+		regionName, cloudName, cloudRegionNames(cloud), "juju update-clouds",
 	))
 }
 
@@ -610,27 +599,32 @@ func getBlockAPI(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
 // waitForAgentInitialisation polls the bootstrapped controller with a read-only
 // command which will fail until the controller is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
-func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err error) {
+func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) error {
 	attempts := utils.AttemptStrategy{
 		Min:   bootstrapReadyPollCount,
 		Delay: bootstrapReadyPollDelay,
 	}
-	var client block.BlockListAPI
-	for attempt := attempts.Start(); attempt.Next(); {
+	var (
+		retries int
+		client  block.BlockListAPI
+		err     error
+	)
+
+	for attempt := attempts.Start(); attempt.Next(); retries++ {
 		client, err = blockAPI(&c.ModelCommandBase)
 		if err != nil {
 			// Logins are prevented whilst space discovery is ongoing.
-			errorMessage := err.Error()
+			errorMessage := errors.Cause(err).Error()
 			if strings.Contains(errorMessage, "space discovery still in progress") {
 				continue
 			}
-			return err
+			break
 		}
 		_, err = client.List()
 		client.Close()
 		if err == nil {
 			ctx.Infof("Bootstrap complete, %s now available.", c.controllerName)
-			return nil
+			break
 		}
 		// As the API server is coming up, it goes through a number of steps.
 		// Initially the upgrade steps run, but the api server allows some
@@ -640,16 +634,18 @@ func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err err
 		// lead to EOF or "connection is shut down" error messages. We skip
 		// these too, hoping that things come back up before the end of the
 		// retry poll count.
-		errorMessage := err.Error()
-		if strings.Contains(errorMessage, apiserver.UpgradeInProgressError.Error()) ||
-			strings.HasSuffix(errorMessage, "EOF") ||
-			strings.HasSuffix(errorMessage, "connection is shut down") {
+		switch {
+		case errors.Cause(err) == io.EOF,
+			strings.HasSuffix(errors.Cause(err).Error(), "connection is shut down"):
 			ctx.Infof("Waiting for API to become available")
 			continue
+		case params.ErrCode(err) == params.CodeUpgradeInProgress:
+			ctx.Infof("Waiting for API to become available: %v", err)
+			continue
 		}
-		return err
+		break
 	}
-	return err
+	return errors.Annotatef(err, "unable to contact api server after %d attempts", retries)
 }
 
 // checkProviderType ensures the provider type is okay.
@@ -687,10 +683,7 @@ var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {
 // bootstrap server into the connection information. This should only be run
 // once directly after Bootstrap. It assumes that there is just one instance
 // in the environment - the bootstrap instance.
-func (c *bootstrapCommand) setBootstrapEndpointAddress(
-	legacyStore configstore.Storage,
-	environ environs.Environ,
-) error {
+func (c *bootstrapCommand) setBootstrapEndpointAddress(environ environs.Environ) error {
 	instances, err := allInstances(environ)
 	if err != nil {
 		return errors.Trace(err)
@@ -713,5 +706,5 @@ func (c *bootstrapCommand) setBootstrapEndpointAddress(
 	cfg := environ.Config()
 	apiPort := cfg.APIPort()
 	apiHostPorts := network.AddressesWithPort(netAddrs, apiPort)
-	return juju.UpdateControllerAddresses(c.ClientStore(), legacyStore, c.controllerName, nil, apiHostPorts...)
+	return juju.UpdateControllerAddresses(c.ClientStore(), c.controllerName, nil, apiHostPorts...)
 }

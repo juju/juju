@@ -78,16 +78,6 @@ var (
 		return fields, defaults
 	}()
 
-	configImmutableFields = func() []string {
-		var names []string
-		for name, attr := range configSchema {
-			if attr.Immutable {
-				names = append(names, name)
-			}
-		}
-		return names
-	}()
-
 	configSecretFields = []string{
 		cfgClientKey, // only privileged agents should get to talk to LXD
 	}

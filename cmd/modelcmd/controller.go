@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/api/usermanager"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -20,7 +19,12 @@ var (
 	// ErrNoControllerSpecified is returned by commands that operate on
 	// a controller if there is no current controller, no controller has been
 	// explicitly specified, and there is no default controller.
-	ErrNoControllerSpecified = errors.New("no controller specified")
+	ErrNoControllerSpecified = errors.New(`no controller specified
+
+There is no current controller. Please use "juju switch" to
+set the current controller/model, or create a new controller
+using "juju bootstrap".
+`)
 
 	// ErrNoAccountSpecified is returned by commands that operate on a
 	// controller if there is no current account associated with the
@@ -160,47 +164,28 @@ func (c *ControllerCommandBase) NewAPIRoot() (api.Connection, error) {
 	return opener.Open(c.store, c.controllerName, c.accountName, "")
 }
 
-// ConnectionCredentials returns the credentials used to connect to the API for
-// the specified controller.
-func (c *ControllerCommandBase) ConnectionCredentials() (configstore.APICredentials, error) {
-	// TODO: the user may soon be specified through the command line
-	// or through an environment setting, so return these when they are ready.
-	var emptyCreds configstore.APICredentials
-	info, err := c.ConnectionInfo()
-	if err != nil {
-		return emptyCreds, errors.Trace(err)
+// ModelUUIDs returns the model UUIDs for the given model names.
+func (c *ControllerCommandBase) ModelUUIDs(modelNames []string) ([]string, error) {
+	var result []string
+	store := c.ClientStore()
+	controllerName := c.ControllerName()
+	accountName := c.AccountName()
+	for _, modelName := range modelNames {
+		model, err := store.ModelByName(controllerName, accountName, modelName)
+		if errors.IsNotFound(err) {
+			// The model isn't known locally, so query the models available in the controller.
+			logger.Infof("model %q not cached locally, refreshing models from controller", modelName)
+			if err := c.RefreshModels(store, controllerName, accountName); err != nil {
+				return nil, errors.Annotatef(err, "refreshing model %q", modelName)
+			}
+			model, err = store.ModelByName(controllerName, accountName, modelName)
+		}
+		if err != nil {
+			return nil, errors.Annotatef(err, "model %q not found", modelName)
+		}
+		result = append(result, model.ModelUUID)
 	}
-	return info.APICredentials(), nil
-}
-
-// ConnectionEndpoint returns the endpoint details used to connect to the API for
-// the specified controller.
-func (c *ControllerCommandBase) ConnectionEndpoint() (configstore.APIEndpoint, error) {
-	// TODO: the user may soon be specified through the command line
-	// or through an environment setting, so return these when they are ready.
-	var empty configstore.APIEndpoint
-	info, err := c.ConnectionInfo()
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-	return info.APIEndpoint(), nil
-}
-
-// ConnectionInfo returns the environ info from the cached config store.
-func (c *ControllerCommandBase) ConnectionInfo() (configstore.EnvironInfo, error) {
-	// TODO: the user may soon be specified through the command line
-	// or through an environment setting, so return these when they are ready.
-	if c.controllerName == "" {
-		return nil, errors.Trace(ErrNoControllerSpecified)
-	}
-	info, err := connectionInfoForName(
-		c.controllerName,
-		configstore.AdminModelName(c.controllerName),
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return info, nil
+	return result, nil
 }
 
 // WrapControllerOption sets various parameters of the

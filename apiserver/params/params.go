@@ -13,6 +13,7 @@ import (
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon.v1"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // FindTags wraps a slice of strings that are prefixes to use when
@@ -832,4 +832,15 @@ type MeterStatusParam struct {
 // MeterStatusParams holds parameters for making SetMeterStatus calls.
 type MeterStatusParams struct {
 	Statuses []MeterStatusParam `json:"statues"`
+}
+
+// MacaroonResults contains a set of MacaroonResults.
+type MacaroonResults struct {
+	Results []MacaroonResult `json:"results"`
+}
+
+// MacaroonResult contains a macaroon or an error.
+type MacaroonResult struct {
+	Result *macaroon.Macaroon `json:"result,omitempty"`
+	Error  *Error             `json:"error,omitempty"`
 }

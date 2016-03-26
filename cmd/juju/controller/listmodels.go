@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
 )
 
 // NewListModelsCommand returns a command to list models.
@@ -35,7 +34,6 @@ type modelsCommand struct {
 	exactTime bool
 	modelAPI  ModelManagerAPI
 	sysAPI    ModelsSysAPI
-	userCreds *configstore.APICredentials
 }
 
 var listModelsDoc = `
@@ -88,13 +86,6 @@ func (c *modelsCommand) getSysAPI() (ModelsSysAPI, error) {
 	return c.NewControllerAPIClient()
 }
 
-func (c *modelsCommand) getConnectionCredentials() (configstore.APICredentials, error) {
-	if c.userCreds != nil {
-		return *c.userCreds, nil
-	}
-	return c.ConnectionCredentials()
-}
-
 // SetFlags implements Command.SetFlags.
 func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.user, "user", "", "the user to list models for (administrative users only)")
@@ -108,6 +99,13 @@ func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
+// ModelSet contains the set of models known to the client,
+// and UUID of the current model.
+type ModelSet struct {
+	Models       []UserModel `yaml:"models" json:"models"`
+	CurrentModel string      `yaml:"current-model,omitempty" json:"current-model,omitempty"`
+}
+
 // Local structure that controls the output structure.
 type UserModel struct {
 	Name           string `json:"name"`
@@ -119,11 +117,13 @@ type UserModel struct {
 // Run implements Command.Run
 func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	if c.user == "" {
-		creds, err := c.getConnectionCredentials()
+		accountDetails, err := c.ClientStore().AccountByName(
+			c.ControllerName(), c.AccountName(),
+		)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
-		c.user = creds.User
+		c.user = accountDetails.User
 	}
 
 	var models []base.UserModel
@@ -137,18 +137,35 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot list models")
 	}
 
-	output := make([]UserModel, len(models))
+	modelDetails := make([]UserModel, len(models))
 	now := time.Now()
 	for i, model := range models {
-		output[i] = UserModel{
+		modelDetails[i] = UserModel{
 			Name:           model.Name,
 			UUID:           model.UUID,
 			Owner:          model.Owner,
 			LastConnection: user.LastConnection(model.LastConnection, now, c.exactTime),
 		}
 	}
+	modelSet := ModelSet{
+		Models: modelDetails,
+	}
+	current, err := c.ClientStore().CurrentModel(c.ControllerName(), c.AccountName())
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	modelSet.CurrentModel = current
+	if err := c.out.Write(ctx, modelSet); err != nil {
+		return err
+	}
 
-	return c.out.Write(ctx, output)
+	if len(models) == 0 && c.out.Name() == "tabular" {
+		// When the output is tabular, we inform the user when there
+		// are no models available, and tell them how to go about
+		// creating or granting access to them.
+		fmt.Fprintf(ctx.Stderr, "\n%s\n\n", errNoModels.Error())
+	}
+	return nil
 }
 
 func (c *modelsCommand) getAllModels() ([]base.UserModel, error) {
@@ -171,9 +188,9 @@ func (c *modelsCommand) getUserModels() ([]base.UserModel, error) {
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
 func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
-	models, ok := value.([]UserModel)
+	modelSet, ok := value.(ModelSet)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", models, value)
+		return nil, errors.Errorf("expected value of type %T, got %T", modelSet, value)
 	}
 	var out bytes.Buffer
 	const (
@@ -190,8 +207,12 @@ func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
 		fmt.Fprintf(tw, "\tMODEL UUID")
 	}
 	fmt.Fprintf(tw, "\tOWNER\tLAST CONNECTION\n")
-	for _, model := range models {
-		fmt.Fprintf(tw, "%s", model.Name)
+	for _, model := range modelSet.Models {
+		name := model.Name
+		if name == modelSet.CurrentModel {
+			name += "*"
+		}
+		fmt.Fprintf(tw, "%s", name)
 		if c.listUUID {
 			fmt.Fprintf(tw, "\t%s", model.UUID)
 		}

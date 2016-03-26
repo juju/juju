@@ -7,6 +7,7 @@ import (
 	"encoding/asn1"
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/juju/permission"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -30,9 +32,12 @@ setting the user's initial password.
 Examples:
     # Add user "foobar"
     juju add-user foobar
-    
-    # Add user and share model.
-    juju add-user foobar --share somemodel
+
+    # Add user with default (read) access to models "qa" and "prod".
+    juju add-user foobar --models qa,prod
+
+    # Add user with write access to model "devel".
+    juju add-user foobar --models devel --acl write
 
 
 See Also:
@@ -42,7 +47,7 @@ See Also:
 
 // AddUserAPI defines the usermanager API methods that the add command uses.
 type AddUserAPI interface {
-	AddUser(username, displayName, password string, modelUUIDs ...string) (names.UserTag, []byte, error)
+	AddUser(username, displayName, password, access string, modelUUIDs ...string) (names.UserTag, []byte, error)
 	Close() error
 }
 
@@ -56,19 +61,21 @@ type addCommand struct {
 	api         AddUserAPI
 	User        string
 	DisplayName string
-	ModelName   string
+	ModelNames  string
+	ModelAccess string
 }
 
 func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.ModelName, "share", "", "share a model with the new user")
+	f.StringVar(&c.ModelNames, "models", "", "models the new user is granted access to")
+	f.StringVar(&c.ModelAccess, "acl", "read", "access controls")
 }
 
 // Info implements Command.Info.
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-user",
-		Args:    "<username> [<display name>] [--share <model name>]",
-		Purpose: "adds a user to a controller and optionally shares a model",
+		Args:    "<username> [<display name>] [--models <model1> [<m2> .. <mN>] ] [--acl <read|write>]",
+		Purpose: "adds a user to a controller, optionally with access to models",
 		Doc:     useraddCommandDoc,
 	}
 }
@@ -78,6 +85,12 @@ func (c *addCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no username supplied")
 	}
+
+	_, err := permission.ParseModelAccess(c.ModelAccess)
+	if err != nil {
+		return err
+	}
+
 	c.User, args = args[0], args[1:]
 	if len(args) > 0 {
 		c.DisplayName, args = args[0], args[1:]
@@ -97,31 +110,24 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		defer api.Close()
 	}
 
-	// If we need to share a model, look up the model UUID from the supplied name.
-	var modelUUIDs []string
-	if c.ModelName != "" {
-		store := c.ClientStore()
-		controllerName := c.ControllerName()
-		accountName := c.AccountName()
-		model, err := store.ModelByName(controllerName, accountName, c.ModelName)
-		if errors.IsNotFound(err) {
-			// The model isn't known locally, so query the models available in the controller.
-			ctx.Verbosef("model %q not cached locally, refreshing models from controller", c.ModelName)
-			if err := c.RefreshModels(store, controllerName, accountName); err != nil {
-				return errors.Annotate(err, "refreshing models")
-			}
-			model, err = store.ModelByName(controllerName, accountName, c.ModelName)
+	var modelNames []string
+	for _, modelArg := range strings.Split(c.ModelNames, ",") {
+		modelArg = strings.TrimSpace(modelArg)
+		if len(modelArg) > 0 {
+			modelNames = append(modelNames, modelArg)
 		}
-		if err != nil {
-			return err
-		}
-		modelUUIDs = []string{model.ModelUUID}
+	}
+
+	// If we need to share a model, look up the model UUIDs from the supplied names.
+	modelUUIDs, err := c.ModelUUIDs(modelNames)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	// Add a user without a password. This will generate a temporary
 	// secret key, which we'll print out for the user to supply to
 	// "juju register".
-	_, secretKey, err := api.AddUser(c.User, c.DisplayName, "", modelUUIDs...)
+	_, secretKey, err := api.AddUser(c.User, c.DisplayName, "", c.ModelAccess, modelUUIDs...)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
@@ -134,13 +140,13 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	// Generate the base64-encoded string for the user to pass to
 	// "juju register". We marshal the information using ASN.1
 	// to keep the size down, since we need to encode binary data.
-	info, err := c.ConnectionInfo()
+	controllerDetails, err := c.ClientStore().ControllerByName(c.ControllerName())
 	if err != nil {
 		return errors.Trace(err)
 	}
 	registrationInfo := jujuclient.RegistrationInfo{
 		User:      c.User,
-		Addrs:     info.APIEndpoint().Addresses,
+		Addrs:     controllerDetails.APIEndpoints,
 		SecretKey: secretKey,
 	}
 	registrationData, err := asn1.Marshal(registrationInfo)
@@ -164,13 +170,18 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	)
 
 	fmt.Fprintf(ctx.Stdout, "User %q added\n", displayName)
-	if c.ModelName != "" {
-		fmt.Fprintf(ctx.Stdout, "Model  %q is now shared\n", c.ModelName)
+	for _, modelName := range modelNames {
+		fmt.Fprintf(ctx.Stdout, "User %q granted %s access to model %q\n", displayName, c.ModelAccess, modelName)
 	}
 	fmt.Fprintf(ctx.Stdout, "Please send this command to %v:\n", c.User)
 	fmt.Fprintf(ctx.Stdout, "    juju register %s\n",
 		base64RegistrationData,
 	)
+	if len(modelNames) == 0 {
+		fmt.Fprintf(ctx.Stdout, `
+%q has not been granted access to any models. You can use "juju grant" to grant access.
+`, displayName)
+	}
 
 	return nil
 }

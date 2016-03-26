@@ -18,3 +18,8 @@ func getDirPerm() os.FileMode {
 var (
 	DirPerm = getDirPerm()
 )
+
+const (
+	ToolsFile      = toolsFile
+	GUIArchiveFile = guiArchiveFile
+)

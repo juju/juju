@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
@@ -29,19 +28,22 @@ func (s *ConfigSuite) TearDownTest(c *gc.C) {
 
 func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	attrs := dummy.SampleConfig().Delete("secret")
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
 	env, err := environs.Prepare(
-		ctx, configstore.NewMem(),
-		jujuclienttesting.NewMemStore(), cfg.Name(),
-		environs.PrepareForBootstrapParams{Config: cfg},
+		ctx, jujuclienttesting.NewMemStore(),
+		environs.PrepareParams{
+			BaseConfig:     attrs,
+			ControllerName: attrs["name"].(string),
+			CloudName:      "dummy",
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	defer env.Destroy()
 	expected := map[string]string{
 		"secret": "pork",
 	}
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
 	actual, err := env.Provider().SecretAttrs(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.DeepEquals, expected)
@@ -90,10 +92,12 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 		}
 		ctx := envtesting.BootstrapContext(c)
 		env, err := environs.Prepare(
-			ctx, configstore.NewMem(),
-			jujuclienttesting.NewMemStore(),
-			cfg.Name(),
-			environs.PrepareForBootstrapParams{Config: cfg},
+			ctx, jujuclienttesting.NewMemStore(),
+			environs.PrepareParams{
+				ControllerName: cfg.Name(),
+				BaseConfig:     cfg.AllAttrs(),
+				CloudName:      "dummy",
+			},
 		)
 		if test.errorMsg != "" {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)

@@ -6,7 +6,9 @@ package manual
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -23,6 +25,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -86,17 +89,9 @@ func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
 	return arch.AllSupportedArches, nil
 }
 
+// Bootstrap is specified on the Environ interface.
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	// Set "use-sshstorage" to false, so agents know not to use sshstorage.
-	cfg, err := e.Config().Apply(map[string]interface{}{"use-sshstorage": false})
-	if err != nil {
-		return nil, err
-	}
-	if err := e.SetConfig(cfg); err != nil {
-		return nil, err
-	}
 	envConfig := e.envConfig()
-	// TODO(axw) consider how we can use placement to override bootstrap-host.
 	host := envConfig.bootstrapHost()
 	provisioned, err := manualCheckProvisioned(host)
 	if err != nil {
@@ -128,10 +123,10 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 
 // ControllerInstances is specified in the Environ interface.
 func (e *manualEnviron) ControllerInstances() ([]instance.Id, error) {
-	// If we're running from the bootstrap host, then
-	// useSSHStorage will be false; in that case, we
-	// do not need or want to verify the bootstrap host.
-	if e.envConfig().useSSHStorage() {
+	arg0 := filepath.Base(os.Args[0])
+	if arg0 != names.Jujud {
+		// Not running inside the controller, so we must
+		// verify the host.
 		if err := e.verifyBootstrapHost(); err != nil {
 			return nil, err
 		}
@@ -255,6 +250,7 @@ var unsupportedConstraints = []string{
 	constraints.CpuPower,
 	constraints.InstanceType,
 	constraints.Tags,
+	constraints.VirtType,
 }
 
 // ConstraintsValidator is defined on the Environs interface.

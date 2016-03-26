@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 	"gopkg.in/goose.v1/nova"
 )
 
@@ -47,10 +47,7 @@ func addUUIDToSecurityGroupNames(e *Environ) error {
 	}
 	cfg := e.Config()
 	eName := cfg.Name()
-	eUUID, ok := cfg.UUID()
-	if !ok {
-		return errors.NotFoundf("model uuid for model %q", eName)
-	}
+	eUUID := cfg.UUID()
 	for _, group := range groups {
 		newName, ok, err := replaceNameWithID(group.Name, eName, eUUID)
 		if err != nil {
@@ -85,10 +82,7 @@ func addUUIDToMachineNames(e *Environ) error {
 	}
 	cfg := e.Config()
 	eName := cfg.Name()
-	eUUID, ok := cfg.UUID()
-	if !ok {
-		return errors.NotFoundf("model uuid for model %q", eName)
-	}
+	eUUID := cfg.UUID()
 	for _, server := range servers {
 		newName, ok, err := replaceNameWithID(server.Name, eName, eUUID)
 		if err != nil {

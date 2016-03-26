@@ -213,10 +213,14 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 							Description: "awesome data",
 						},
 						Origin: charmresource.OriginUpload,
+						Size:   15,
 					},
 					Username:  "Bill User",
 					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 				},
+			},
+			DownloadProgress: map[string]int64{
+				"website2": 12,
 			},
 		}},
 	}}
@@ -254,6 +258,7 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 					},
 					Origin:   charmresource.OriginStore,
 					Revision: 15,
+					Size:     113,
 				},
 				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 			},
@@ -264,6 +269,7 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 						Description: "awesome data",
 					},
 					Origin: charmresource.OriginUpload,
+					Size:   9835617,
 				},
 				Username:  "Bill User",
 				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
@@ -333,6 +339,10 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 					},
 					// note we're missing the beta resource for this unit
 				},
+				DownloadProgress: map[string]int64{
+					"alpha":   17,
+					"charlie": 899937,
+				},
 			},
 			{
 				Tag: names.NewUnitTag("svc/5"),
@@ -372,6 +382,9 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 					},
 				},
+				DownloadProgress: map[string]int64{
+					"charlie": 177331,
+				},
 			},
 		},
 	}}
@@ -392,10 +405,10 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 UNIT RESOURCE REVISION         EXPECTED
 5    alpha    10               15
 5    beta     2012-12-12T12:12 2012-12-12T12:12
-5    charlie  2011-11-11T11:11 2012-12-12T12:12
-10   alpha    10               15
+5    charlie  2011-11-11T11:11 2012-12-12T12:12 (fetching: 2%)
+10   alpha    10               15 (fetching: 15%)
 10   beta     -                2012-12-12T12:12
-10   charlie  2011-11-11T11:11 2012-12-12T12:12
+10   charlie  2011-11-11T11:11 2012-12-12T12:12 (fetching: 9%)
 
 `[1:])
 
@@ -413,6 +426,7 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 					},
 					Origin:   charmresource.OriginStore,
 					Revision: 15,
+					Size:     113,
 				},
 				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 			},
@@ -423,6 +437,7 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 						Description: "awesome data",
 					},
 					Origin: charmresource.OriginUpload,
+					Size:   9835617,
 				},
 				Username:  "Bill User",
 				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
@@ -467,6 +482,9 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 						Timestamp: time.Date(2011, 11, 11, 11, 11, 11, 0, time.UTC),
 					},
 					// note we're missing the beta resource for this unit
+				},
+				DownloadProgress: map[string]int64{
+					"charlie": 17,
 				},
 			},
 			{
@@ -527,7 +545,7 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 RESOURCE REVISION         EXPECTED
 alpha    10               15
 beta     -                2012-12-12T12:12
-charlie  2011-11-11T11:11 2012-12-12T12:12
+charlie  2011-11-11T11:11 2012-12-12T12:12 (fetching: 0%)
 
 `[1:])
 

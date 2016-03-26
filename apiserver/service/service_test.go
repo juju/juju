@@ -6,6 +6,7 @@ package service_test
 import (
 	"fmt"
 	"io"
+	"regexp"
 	"sync"
 
 	"github.com/juju/errors"
@@ -28,12 +29,14 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type serviceSuite struct {
@@ -62,11 +65,10 @@ func (s *serviceSuite) TearDownSuite(c *gc.C) {
 
 func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
-
 	s.CharmStoreSuite.Session = s.JujuConnSuite.Session
 	s.CharmStoreSuite.SetUpTest(c)
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
 	s.service = s.Factory.MakeService(c, nil)
 
@@ -196,6 +198,8 @@ func setupStoragePool(c *gc.C, st *state.State) {
 func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 	setupStoragePool(c, s.State)
 	curl, ch := s.UploadCharm(c, "utopic/storage-block-10", "storage-block")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
 	storageConstraints := map[string]storage.Constraints{
 		"data": {
 			Count: 1,
@@ -236,9 +240,18 @@ func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 	})
 }
 
+func (s *serviceSuite) TestMinJujuVersionTooHigh(c *gc.C) {
+	curl, _ := s.UploadCharm(c, "quantal/minjujuversion-0", "minjujuversion")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	match := fmt.Sprintf(`charm's min version (999.999.999) is higher than this juju environment's version (%s)`, jujuversion.Current)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(match))
+}
+
 func (s *serviceSuite) TestServiceDeployWithInvalidStoragePool(c *gc.C) {
 	setupStoragePool(c, s.State)
 	curl, _ := s.UploadCharm(c, "utopic/storage-block-0", "storage-block")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
 	storageConstraints := map[string]storage.Constraints{
 		"data": storage.Constraints{
 			Pool:  "foo",
@@ -270,6 +283,8 @@ func (s *serviceSuite) TestServiceDeployWithUnsupportedStoragePool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl, _ := s.UploadCharm(c, "utopic/storage-block-0", "storage-block")
+	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
 	storageConstraints := map[string]storage.Constraints{
 		"data": storage.Constraints{
 			Pool:  "host-loop-pool",
@@ -298,6 +313,8 @@ func (s *serviceSuite) TestServiceDeployWithUnsupportedStoragePool(c *gc.C) {
 func (s *serviceSuite) TestServiceDeployDefaultFilesystemStorage(c *gc.C) {
 	setupStoragePool(c, s.State)
 	curl, ch := s.UploadCharm(c, "trusty/storage-filesystem-1", "storage-filesystem")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
 	var cons constraints.Value
 	args := params.ServiceDeploy{
 		ServiceName: "service",
@@ -376,6 +393,8 @@ func (s *serviceSuite) TestServiceDeployWithInvalidPlacement(c *gc.C) {
 
 func (s *serviceSuite) testClientServicesDeployWithBindings(c *gc.C, endpointBindings, expected map[string]string) {
 	curl, _ := s.UploadCharm(c, "utopic/riak-42", "riak")
+	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+	c.Assert(err, jc.ErrorIsNil)
 
 	var cons constraints.Value
 	args := params.ServiceDeploy{
@@ -808,7 +827,7 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot upgrade charm, only these series are supported: trusty, wily")
 }
 
-func (s *serviceSuite) TestServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
+func (s *serviceSuite) assertServiceSetCharmSeries(c *gc.C, upgradeCharm, series string) {
 	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -821,7 +840,12 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	curl, _ = s.UploadCharmMultiSeries(c, "~who/multi-series2", "multi-series2")
+
+	url := upgradeCharm
+	if series != "" {
+		url = series + "/" + upgradeCharm
+	}
+	curl, _ = s.UploadCharmMultiSeries(c, "~who/"+url, upgradeCharm)
 	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -835,7 +859,15 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := svc.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL().String(), gc.Equals, "cs:~who/multi-series2-0")
+	c.Assert(ch.URL().String(), gc.Equals, "cs:~who/"+url+"-0")
+}
+
+func (s *serviceSuite) TestServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
+	s.assertServiceSetCharmSeries(c, "multi-series2", "")
+}
+
+func (s *serviceSuite) TestServiceSetCharmNoExplicitSupportedSeries(c *gc.C) {
+	s.assertServiceSetCharmSeries(c, "dummy", "precise")
 }
 
 func (s *serviceSuite) TestServiceSetCharmWrongOS(c *gc.C) {
@@ -2031,7 +2063,7 @@ func (s *serviceSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetAgentStatus(state.StatusIdle, "", nil)
+		err = unit.SetAgentStatus(status.StatusIdle, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -2108,7 +2140,7 @@ func (s *serviceSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetAgentStatus(state.StatusIdle, "", nil)
+		err = unit.SetAgentStatus(status.StatusIdle, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}

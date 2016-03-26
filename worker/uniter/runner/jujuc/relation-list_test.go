@@ -111,8 +111,8 @@ func (s *RelationListSuite) TestRelationList(c *gc.C) {
 	for i, t := range relationListTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx, info := s.newHookContext(t.relid, "")
-		info.setRelations(0, t.members0, nil)
-		info.setRelations(1, t.members1, nil)
+		info.setRelations(0, t.members0)
+		info.setRelations(1, t.members1)
 		c.Logf("%#v %#v", info.rels[t.relid], t.members1)
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-list"))
 		c.Assert(err, jc.ErrorIsNil)
@@ -137,10 +137,12 @@ func (s *RelationListSuite) TestRelationList(c *gc.C) {
 
 func (s *RelationListSuite) TestRelationListHelp(c *gc.C) {
 	template := `
-usage: relation-list [options]
-purpose: list relation units
+Usage: relation-list [options]
 
-options:
+Summary:
+list relation units
+
+Options:
 --format  (= smart)
     specify output format (json|smart|yaml)
 -o, --output (= "")
@@ -152,7 +154,7 @@ options:
 	for relid, t := range map[int]struct {
 		usage, doc string
 	}{
-		-1: {"", "\n-r must be specified when not in a relation hook\n"},
+		-1: {"", "\nDetails:\n-r must be specified when not in a relation hook\n"},
 		0:  {"peer0:0", ""},
 	} {
 		c.Logf("test relid %d", relid)

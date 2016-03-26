@@ -6,7 +6,7 @@ package params
 import (
 	"time"
 
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 // BackupsCreateArgs holds the args for the API Create method.
@@ -66,6 +66,9 @@ type BackupsMetadataResult struct {
 	Machine  string
 	Hostname string
 	Version  version.Number
+
+	CACert       string
+	CAPrivateKey string
 }
 
 // RestoreArgs Holds the backup file or id

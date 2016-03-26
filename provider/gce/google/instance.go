@@ -14,10 +14,6 @@ import (
 	"github.com/juju/juju/network"
 )
 
-const (
-	partialMachineType = "zones/%s/machineTypes/%s"
-)
-
 // InstanceSpec holds all the information needed to create a new GCE
 // instance within some zone.
 // TODO(ericsnow) Validate the invariants?

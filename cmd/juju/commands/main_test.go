@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/block"
@@ -25,10 +26,11 @@ import (
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type MainSuite struct {
@@ -144,7 +146,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		args:    []string{"version"},
 		code:    0,
 		out: version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		}.String() + "\n",
@@ -194,6 +196,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 var commandNames = []string{
 	"action",
 	"add-cloud",
+	"add-credential",
 	"add-machine",
 	"add-machines",
 	"add-relation",
@@ -218,6 +221,7 @@ var commandNames = []string{
 	"create-backup",
 	"create-budget",
 	"create-model",
+	"create-storage-pool",
 	"debug-hooks",
 	"debug-log",
 	"debug-metrics",
@@ -236,12 +240,15 @@ var commandNames = []string{
 	"get-constraints",
 	"get-model-config",
 	"get-model-constraints",
+	"grant",
+	"gui",
 	"help",
 	"help-tool",
 	"import-ssh-key",
 	"import-ssh-keys",
 	"kill-controller",
 	"list-actions",
+	"list-agreements",
 	"list-all-blocks",
 	"list-budgets",
 	"list-clouds",
@@ -256,12 +263,15 @@ var commandNames = []string{
 	"list-ssh-keys",
 	"list-spaces",
 	"list-storage",
+	"list-storage-pools",
 	"list-users",
+	"login",
 	"machine",
 	"machines",
 	"publish",
 	"register",
 	"remove-all-blocks",
+	"remove-credential",
 	"remove-machine",
 	"remove-machines",
 	"remove-relation", // alias for destroy-relation
@@ -272,6 +282,7 @@ var commandNames = []string{
 	"resolved",
 	"restore-backup",
 	"retry-provisioning",
+	"revoke",
 	"run",
 	"run-action",
 	"scp",
@@ -279,11 +290,12 @@ var commandNames = []string{
 	"set-config",
 	"set-configs",
 	"set-constraints",
+	"set-default-credential",
+	"set-default-region",
 	"set-meter-status",
 	"set-model-config",
 	"set-model-constraints",
 	"set-plan",
-	"share-model",
 	"ssh-key",
 	"ssh-keys",
 	"show-action-output",
@@ -310,11 +322,19 @@ var commandNames = []string{
 	"unexpose",
 	"update-allocation",
 	"unset-model-config",
-	"unshare-model",
+	"update-clouds",
 	"upgrade-charm",
 	"upgrade-juju",
 	"version",
 }
+
+// devFeatures are feature flags that impact registration of commands.
+var devFeatures = []string{feature.Migration}
+
+// These are the commands that are behind the `devFeatures`.
+var commandNamesBehindFlags = set.NewStrings(
+	"migrate",
+)
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
@@ -324,15 +344,9 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// First check default commands, and then check commands that are
 	// activated by feature flags.
 
-	// Here we can add feature flags for any commands we want to hide by default.
-	devFeatures := []string{}
-
 	// remove features behind dev_flag for the first test
 	// since they are not enabled.
 	cmdSet := set.NewStrings(commandNames...)
-	for _, feature := range devFeatures {
-		cmdSet.Remove(feature)
-	}
 
 	// 1. Default Commands. Disable all features.
 	setFeatureFlags("")
@@ -344,6 +358,7 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	c.Assert(missing, jc.DeepEquals, set.NewStrings())
 
 	// 2. Enable development features, and test again.
+	cmdSet = cmdSet.Union(commandNamesBehindFlags)
 	setFeatureFlags(strings.Join(devFeatures, ","))
 	registered = getHelpCommandNames(c)
 	unknown = registered.Difference(cmdSet)
@@ -538,27 +553,4 @@ func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
 			)
 		}
 	}
-}
-
-func (s *MainSuite) TestTwoDotOhDeprecation(c *gc.C) {
-	check := twoDotOhDeprecation("the replacement")
-
-	// first check pre-2.0
-	s.PatchValue(&version.Current, version.MustParse("1.26.4"))
-	deprecated, replacement := check.Deprecated()
-	c.Check(deprecated, jc.IsFalse)
-	c.Check(replacement, gc.Equals, "")
-	c.Check(check.Obsolete(), jc.IsFalse)
-
-	s.PatchValue(&version.Current, version.MustParse("2.0-alpha1"))
-	deprecated, replacement = check.Deprecated()
-	c.Check(deprecated, jc.IsTrue)
-	c.Check(replacement, gc.Equals, "the replacement")
-	c.Check(check.Obsolete(), jc.IsFalse)
-
-	s.PatchValue(&version.Current, version.MustParse("3.0-alpha1"))
-	deprecated, replacement = check.Deprecated()
-	c.Check(deprecated, jc.IsTrue)
-	c.Check(replacement, gc.Equals, "the replacement")
-	c.Check(check.Obsolete(), jc.IsTrue)
 }

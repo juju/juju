@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/charmstore.v5-unstable"
 
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
+	jujucharmstore "github.com/juju/juju/charmstore"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -44,7 +45,7 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 		AuthUsername: "test-user",
 		AuthPassword: "test-password",
 	}
-	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
+	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Handler = handler
 	s.Server = httptest.NewServer(handler)
@@ -66,9 +67,10 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 	s.jcSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	// Patch the charm repo initializer function: it is replaced with a charm
 	// store repo pointing to the testing server.
-	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStore, func(p charmrepo.NewCharmStoreParams) *charmrepo.CharmStore {
-		p.URL = s.Server.URL
-		return charmrepo.NewCharmStore(p)
+	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClientConfig, func() jujucharmstore.ClientConfig {
+		var config jujucharmstore.ClientConfig
+		config.URL = s.Server.URL
+		return config
 	})
 	s.charms = make(map[string]*state.Charm)
 }

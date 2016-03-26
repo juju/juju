@@ -22,10 +22,12 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 	goyaml "gopkg.in/yaml.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -39,19 +41,19 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 )
 
 var (
 	initiateMongoServer  = peergrouper.InitiateMongoServer
-	agentInitializeState = agent.InitializeState
+	agentInitializeState = agentbootstrap.InitializeState
 	sshGenerateKey       = ssh.GenerateKey
 	newStateStorage      = storage.NewStorage
 	minSocketTimeout     = 1 * time.Minute
@@ -62,13 +64,14 @@ var (
 type BootstrapCommand struct {
 	cmd.CommandBase
 	agentcmd.AgentConf
-	EnvConfig            map[string]interface{}
-	BootstrapConstraints constraints.Value
-	EnvironConstraints   constraints.Value
-	Hardware             instance.HardwareCharacteristics
-	InstanceId           string
-	AdminUsername        string
-	ImageMetadataDir     string
+	ControllerModelConfig map[string]interface{}
+	HostedModelConfig     map[string]interface{}
+	BootstrapConstraints  constraints.Value
+	ModelConstraints      constraints.Value
+	Hardware              instance.HardwareCharacteristics
+	InstanceId            string
+	AdminUsername         string
+	ImageMetadataDir      string
 }
 
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
@@ -89,9 +92,10 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 // SetFlags adds the flags for this command to the passed gnuflag.FlagSet.
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
-	yamlBase64Var(f, &c.EnvConfig, "model-config", "", "initial model configuration (yaml, base64 encoded)")
+	yamlBase64Var(f, &c.ControllerModelConfig, "model-config", "", "controller model configuration (yaml, base64 encoded)")
+	yamlBase64Var(f, &c.HostedModelConfig, "hosted-model-config", "", "initial hosted model configuration (yaml, base64 encoded)")
 	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "bootstrap machine constraints (space-separated strings)")
-	f.Var(constraints.ConstraintsValue{Target: &c.EnvironConstraints}, "constraints", "initial constraints (space-separated strings)")
+	f.Var(constraints.ConstraintsValue{Target: &c.ModelConstraints}, "constraints", "initial constraints (space-separated strings)")
 	f.Var(&c.Hardware, "hardware", "hardware characteristics (space-separated strings)")
 	f.StringVar(&c.InstanceId, "instance-id", "", "unique instance-id for bootstrap machine")
 	f.StringVar(&c.AdminUsername, "admin-user", "admin", "set the name for the juju admin user")
@@ -100,8 +104,11 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init initializes the command for running.
 func (c *BootstrapCommand) Init(args []string) error {
-	if len(c.EnvConfig) == 0 {
+	if len(c.ControllerModelConfig) == 0 {
 		return cmdutil.RequiredError("model-config")
+	}
+	if len(c.HostedModelConfig) == 0 {
+		return cmdutil.RequiredError("hosted-model-config")
 	}
 	if c.InstanceId == "" {
 		return cmdutil.RequiredError("instance-id")
@@ -114,7 +121,7 @@ func (c *BootstrapCommand) Init(args []string) error {
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
-	envCfg, err := config.New(config.NoDefaults, c.EnvConfig)
+	envCfg, err := config.New(config.NoDefaults, c.ControllerModelConfig)
 	if err != nil {
 		return err
 	}
@@ -147,7 +154,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// Check to see if a newer agent version has been requested
 	// by the bootstrap client.
 	desiredVersion, ok := envCfg.AgentVersion()
-	if ok && desiredVersion != version.Current {
+	if ok && desiredVersion != jujuversion.Current {
 		// If we have been asked for a newer version, ensure the newer
 		// tools can actually be found, or else bootstrap won't complete.
 		stream := envtools.PreferredStream(&desiredVersion, envCfg.Development(), envCfg.AgentStream())
@@ -164,8 +171,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		if errors.IsNotFound(toolsErr) {
 			// Newer tools not available, so revert to using the tools
 			// matching the current agent version.
-			logger.Warningf("newer tools for %q not available, sticking with version %q", desiredVersion, version.Current)
-			newConfigAttrs["agent-version"] = version.Current.String()
+			logger.Warningf("newer tools for %q not available, sticking with version %q", desiredVersion, jujuversion.Current)
+			newConfigAttrs["agent-version"] = jujuversion.Current.String()
 		} else if toolsErr != nil {
 			logger.Errorf("cannot find newer tools: %v", toolsErr)
 			return toolsErr
@@ -271,11 +278,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		st, m, stateErr = agentInitializeState(
 			adminTag,
 			agentConfig,
-			envCfg,
-			agent.BootstrapMachineConfig{
+			envCfg, c.HostedModelConfig,
+			agentbootstrap.BootstrapMachineConfig{
 				Addresses:            addrs,
 				BootstrapConstraints: c.BootstrapConstraints,
-				ModelConstraints:     c.EnvironConstraints,
+				ModelConstraints:     c.ModelConstraints,
 				Jobs:                 jobs,
 				InstanceId:           instanceId,
 				Characteristics:      c.Hardware,
@@ -293,6 +300,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Populate the tools catalogue.
 	if err := c.populateTools(st, env); err != nil {
+		return err
+	}
+
+	// Populate the GUI archive catalogue.
+	if err := c.populateGUIArchive(st, env); err != nil {
 		return err
 	}
 
@@ -376,8 +388,9 @@ func (c *BootstrapCommand) populateDefaultStoragePools(st *state.State) error {
 func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) error {
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
+
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -394,11 +407,11 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 		return errors.Trace(err)
 	}
 
-	storage, err := st.ToolsStorage()
+	toolstorage, err := st.ToolsStorage()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer storage.Close()
+	defer toolstorage.Close()
 
 	var toolsVersions []version.Binary
 	if strings.HasPrefix(tools.URL, "file://") {
@@ -419,15 +432,47 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	}
 
 	for _, toolsVersion := range toolsVersions {
-		metadata := toolstorage.Metadata{
-			Version: toolsVersion,
+		metadata := binarystorage.Metadata{
+			Version: toolsVersion.String(),
 			Size:    tools.Size,
 			SHA256:  tools.SHA256,
 		}
 		logger.Debugf("Adding tools: %v", toolsVersion)
-		if err := storage.AddTools(bytes.NewReader(data), metadata); err != nil {
+		if err := toolstorage.Add(bytes.NewReader(data), metadata); err != nil {
 			return errors.Trace(err)
 		}
+	}
+	return nil
+}
+
+// populateGUIArchive stores uploaded Juju GUI archive in provider storage
+// and updates the GUI metadata.
+func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Environ) error {
+	agentConfig := c.CurrentConfig()
+	dataDir := agentConfig.DataDir()
+	guistorage, err := st.GUIStorage()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer guistorage.Close()
+	gui, err := agenttools.ReadGUIArchive(dataDir)
+	if err != nil {
+		// TODO frankban: ignore the error for now, as the GUI could not be
+		// there at all. This needs to be changed before merging into master,
+		// return errors.Annotate(err, "cannot fetch GUI info")
+		return nil
+	}
+	f, err := os.Open(filepath.Join(agenttools.SharedGUIDir(dataDir), "gui.tar.bz2"))
+	if err != nil {
+		return errors.Annotate(err, "cannot read GUI archive")
+	}
+	defer f.Close()
+	if err := guistorage.Add(f, binarystorage.Metadata{
+		Version: gui.Version.String(),
+		Size:    gui.Size,
+		SHA256:  gui.SHA256,
+	}); err != nil {
+		return errors.Annotate(err, "cannot store GUI archive")
 	}
 	return nil
 }

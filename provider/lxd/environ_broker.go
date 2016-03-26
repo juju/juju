@@ -7,6 +7,7 @@ package lxd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -54,6 +56,9 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 
 	raw, err := env.newRawInstance(args)
 	if err != nil {
+		if args.StatusCallback != nil {
+			args.StatusCallback(status.StatusProvisioningError, err.Error(), nil)
+		}
 		return nil, errors.Trace(err)
 	}
 	logger.Infof("started instance %q", raw.Name)
@@ -86,14 +91,75 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) erro
 	return nil
 }
 
+func (env *environ) getImageSources() ([]lxdclient.Remote, error) {
+	metadataSources, err := environs.ImageMetadataSources(env)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	remotes := make([]lxdclient.Remote, 0)
+	for _, source := range metadataSources {
+		url, err := source.URL("")
+		if err != nil {
+			logger.Debugf("failed to get the URL for metadataSource: %s", err)
+			continue
+		}
+		// NOTE(jam) LXD only allows you to pass HTTPS URLs. So strip
+		// off http:// and replace it with https://
+		// Arguably we could give the user a direct error if
+		// env.ImageMetadataURL is http instead of https, but we also
+		// get http from the DefaultImageSources, which is why we
+		// replace it.
+		// TODO(jam) Maybe we could add a Validate step that ensures
+		// image-metadata-url is an "https://" URL, so that Users get a
+		// "your configuration is wrong" error, rather than silently
+		// changing it and having them get confused.
+		// https://github.com/lxc/lxd/issues/1763
+		if strings.HasPrefix(url, "http://") {
+			url = strings.TrimPrefix(url, "http://")
+			url = "https://" + url
+			logger.Debugf("LXD requires https://, using: %s", url)
+		}
+		remotes = append(remotes, lxdclient.Remote{
+			Name:          source.Description(),
+			Host:          url,
+			Protocol:      lxdclient.SimplestreamsProtocol,
+			Cert:          nil,
+			ServerPEMCert: "",
+		})
+	}
+	return remotes, nil
+}
+
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclient.Instance, error) {
-	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
+	machineID := common.MachineFullName(env.Config().UUID(), args.InstanceConfig.MachineId)
+
+	// Note: other providers have the ImageMetadata already read for them
+	// and passed in as args.ImageMetadata. However, lxd provider doesn't
+	// use datatype: image-ids, it uses datatype: image-download, and we
+	// don't have a registered cloud/region.
+	imageSources, err := env.getImageSources()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	series := args.Tools.OneSeries()
+	// TODO(jam): We should get this information from EnsureImageExists, or
+	// something given to us from 'raw', not assume it ourselves.
 	image := "ubuntu-" + series
+	// TODO: support args.Constraints.Arch, we'll want to map from
+
+	var callback func(string)
+	if args.StatusCallback != nil {
+		callback = func(copyProgress string) {
+			args.StatusCallback(status.StatusAllocating, copyProgress, nil)
+		}
+	}
+	if err := env.raw.EnsureImageExists(series, imageSources, callback); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	metadata, err := getMetadata(args)
 	if err != nil {
@@ -127,9 +193,15 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 	}
 
 	logger.Infof("starting instance %q (image %q)...", instSpec.Name, instSpec.Image)
+	if args.StatusCallback != nil {
+		args.StatusCallback(status.StatusAllocating, "starting instance", nil)
+	}
 	inst, err := env.raw.AddInstance(instSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if args.StatusCallback != nil {
+		args.StatusCallback(status.StatusRunning, "Container started", nil)
 	}
 	return inst, nil
 }
@@ -205,7 +277,7 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 		ids = append(ids, string(id))
 	}
 
-	prefix := common.MachineFullName(env, "")
+	prefix := common.MachineFullName(env.Config().UUID(), "")
 	err := env.raw.RemoveInstances(prefix, ids...)
 	return errors.Trace(err)
 }

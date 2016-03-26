@@ -21,15 +21,16 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
+	"github.com/juju/version"
 	"golang.org/x/net/websocket"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.api")
@@ -132,11 +133,14 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 // This unexported open method is used both directly above in the Open
 // function, and also the OpenWithVersion function below to explicitly cause
 // the API server to think that the client is older than it really is.
-func open(info *Info, opts DialOpts, loginFunc func(st *state, tag names.Tag, pwd, nonce string) error) (Connection, error) {
-	if info.UseMacaroons {
-		if info.Tag != nil || info.Password != "" {
-			return nil, errors.New("open should specifiy UseMacaroons or a username & password. Not both")
-		}
+func open(
+	info *Info,
+	opts DialOpts,
+	loginFunc func(st *state, tag names.Tag, pwd, nonce string, ms []macaroon.Slice) error,
+) (Connection, error) {
+
+	if err := info.Validate(); err != nil {
+		return nil, errors.Annotate(err, "validating info for opening an API connection")
 	}
 	conn, tlsConfig, err := connectWebsocket(info, opts)
 	if err != nil {
@@ -183,8 +187,8 @@ func open(info *Info, opts DialOpts, loginFunc func(st *state, tag names.Tag, pw
 		tlsConfig:    tlsConfig,
 		bakeryClient: bakeryClient,
 	}
-	if info.Tag != nil || info.Password != "" || info.UseMacaroons {
-		if err := loginFunc(st, info.Tag, info.Password, info.Nonce); err != nil {
+	if !info.SkipLogin {
+		if err := loginFunc(st, info.Tag, info.Password, info.Nonce, info.Macaroons); err != nil {
 			conn.Close()
 			return nil, err
 		}
@@ -219,7 +223,7 @@ func (t *hostSwitchingTransport) RoundTrip(req *http.Request) (*http.Response, e
 // on. This allows the caller to pretend to be an older client, and is used
 // only in testing.
 func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (Connection, error) {
-	var loginFunc func(st *state, tag names.Tag, pwd, nonce string) error
+	var loginFunc func(st *state, tag names.Tag, pwd, nonce string, ms []macaroon.Slice) error
 	switch loginVersion {
 	case 2:
 		loginFunc = (*state).loginV2
@@ -241,11 +245,19 @@ func connectWebsocket(info *Info, opts DialOpts) (*websocket.Conn, *tls.Config, 
 	if len(info.Addrs) == 0 {
 		return nil, nil, errors.New("no API addresses to connect to")
 	}
-	tlsConfig, err := tlsConfigForCACert(info.CACert)
-	if err != nil {
-		return nil, nil, errors.Annotatef(err, "cannot make TLS configuration")
+	tlsConfig := &tls.Config{
+		// We want to be specific here (rather than just using "anything".
+		// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
+		ServerName:         "juju-apiserver",
+		InsecureSkipVerify: opts.InsecureSkipVerify,
 	}
-	tlsConfig.InsecureSkipVerify = opts.InsecureSkipVerify
+	if !tlsConfig.InsecureSkipVerify {
+		certPool, err := CreateCertPool(info.CACert)
+		if err != nil {
+			return nil, nil, errors.Annotate(err, "cert pool creation failed")
+		}
+		tlsConfig.RootCAs = certPool
+	}
 	path := "/"
 	if info.ModelTag.Id() != "" {
 		path = apiPath(info.ModelTag, "/api")
@@ -256,19 +268,6 @@ func connectWebsocket(info *Info, opts DialOpts) (*websocket.Conn, *tls.Config, 
 	}
 	logger.Infof("connection established to %q", conn.RemoteAddr())
 	return conn, tlsConfig, nil
-}
-
-func tlsConfigForCACert(caCert string) (*tls.Config, error) {
-	certPool, err := CreateCertPool(caCert)
-	if err != nil {
-		return nil, errors.Annotate(err, "cert pool creation failed")
-	}
-	return &tls.Config{
-		RootCAs: certPool,
-		// We want to be specific here (rather than just using "anything".
-		// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
-		ServerName: "juju-apiserver",
-	}, nil
 }
 
 // dialWebSocket dials a websocket with one of the provided addresses, the

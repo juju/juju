@@ -13,6 +13,8 @@ import (
 
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
@@ -22,9 +24,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
-	"github.com/juju/utils/arch"
-	"github.com/juju/utils/series"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type providerSuite struct {
@@ -34,6 +34,15 @@ type providerSuite struct {
 }
 
 var _ = gc.Suite(&providerSuite{})
+
+func spaceJSON(space gomaasapi.CreateSpace) *bytes.Buffer {
+	var out bytes.Buffer
+	err := json.NewEncoder(&out).Encode(space)
+	if err != nil {
+		panic(err)
+	}
+	return &out
+}
 
 func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
@@ -54,13 +63,15 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.SetFeatureFlags(feature.AddressAllocation)
 	s.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
+	// Creating a space ensures that the spaces endpoint won't 404.
+	s.testMAASObject.TestServer.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-0"}))
 }
 
 func (s *providerSuite) TearDownTest(c *gc.C) {
@@ -117,7 +128,10 @@ func (suite *providerSuite) addNode(jsonText string) instance.Id {
 func (suite *providerSuite) getInstance(systemId string) *maasInstance {
 	input := fmt.Sprintf(`{"system_id": %q}`, systemId)
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	return &maasInstance{&node}
+	statusGetter := func(instance.Id) (string, string) {
+		return "unknown", "FAKE"
+	}
+	return &maasInstance{&node, nil, statusGetter}
 }
 
 func (suite *providerSuite) getNetwork(name string, id int, vlanTag int) *gomaasapi.MAASObject {
@@ -140,23 +154,33 @@ func createSubnetInfo(subnetID, spaceID, ipRange uint) network.SubnetInfo {
 		ProviderId:        network.Id(strconv.Itoa(int(subnetID))),
 		AllocatableIPLow:  net.ParseIP(fmt.Sprintf("192.168.%d.139", ipRange)).To4(),
 		AllocatableIPHigh: net.ParseIP(fmt.Sprintf("192.168.%d.255", ipRange)).To4(),
-		SpaceProviderId:   network.Id(fmt.Sprintf("Space %d", spaceID)),
+		SpaceProviderId:   network.Id(fmt.Sprintf("%d", spaceID)),
 	}
 }
 
 func createSubnet(ipRange, spaceAndNICID uint) gomaasapi.CreateSubnet {
+	space := fmt.Sprintf("space-%d", spaceAndNICID)
+	return createSubnetWithSpace(ipRange, spaceAndNICID, space)
+}
+
+func createSubnetWithSpace(ipRange, NICID uint, space string) gomaasapi.CreateSubnet {
 	var s gomaasapi.CreateSubnet
 	s.DNSServers = []string{"192.168.1.2"}
-	s.Name = fmt.Sprintf("maas-eth%d", spaceAndNICID)
-	s.Space = fmt.Sprintf("Space %d", spaceAndNICID)
+	s.Name = fmt.Sprintf("maas-eth%d", NICID)
+	s.Space = space
 	s.GatewayIP = fmt.Sprintf("192.168.%v.1", ipRange)
 	s.CIDR = fmt.Sprintf("192.168.%v.0/24", ipRange)
 	return s
 }
 
 func (suite *providerSuite) addSubnet(c *gc.C, ipRange, spaceAndNICID uint, systemID string) uint {
+	space := fmt.Sprintf("space-%d", spaceAndNICID)
+	return suite.addSubnetWithSpace(c, ipRange, spaceAndNICID, space, systemID)
+}
+
+func (suite *providerSuite) addSubnetWithSpace(c *gc.C, ipRange, NICID uint, space string, systemID string) uint {
 	out := bytes.Buffer{}
-	err := json.NewEncoder(&out).Encode(createSubnet(ipRange, spaceAndNICID))
+	err := json.NewEncoder(&out).Encode(createSubnetWithSpace(ipRange, NICID, space))
 	c.Assert(err, jc.ErrorIsNil)
 	subnet := suite.testMAASObject.TestServer.NewSubnet(&out)
 	c.Assert(err, jc.ErrorIsNil)

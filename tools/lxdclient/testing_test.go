@@ -7,7 +7,6 @@ package lxdclient
 
 import (
 	"crypto/x509"
-	"os"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -108,22 +107,13 @@ func (s *stubClient) Delete(name string) (*lxd.Response, error) {
 	return s.Response, nil
 }
 
-func (s *stubClient) Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error) {
-	s.stub.AddCall("Action", name, action, timeout, force)
+func (s *stubClient) Action(name string, action shared.ContainerAction, timeout int, force bool, stateful bool) (*lxd.Response, error) {
+	s.stub.AddCall("Action", name, action, timeout, force, stateful)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return s.Response, nil
-}
-
-func (s *stubClient) Exec(name string, cmd []string, env map[string]string, stdin *os.File, stdout *os.File, stderr *os.File) (int, error) {
-	s.stub.AddCall("Exec", name, cmd, env, stdin, stdout, stderr)
-	if err := s.stub.NextErr(); err != nil {
-		return -1, errors.Trace(err)
-	}
-
-	return s.ReturnCode, nil
 }
 
 func (s *stubClient) SetContainerConfig(name, key, value string) error {

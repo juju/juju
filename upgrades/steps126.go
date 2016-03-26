@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/utils"
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 // stepsFor126 returns upgrade steps for Juju 1.26.

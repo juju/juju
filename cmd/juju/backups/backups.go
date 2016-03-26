@@ -114,12 +114,13 @@ func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetad
 	fmt.Fprintf(ctx.Stdout, "juju version:    %v\n", result.Version)
 }
 
-type readSeekCloser interface {
+// ArchiveReader can read a backup archive.
+type ArchiveReader interface {
 	io.ReadSeeker
 	io.Closer
 }
 
-func getArchive(filename string) (rc readSeekCloser, metaResult *params.BackupsMetadataResult, err error) {
+func getArchive(filename string) (rc ArchiveReader, metaResult *params.BackupsMetadataResult, err error) {
 	defer func() {
 		if err != nil && rc != nil {
 			rc.Close()

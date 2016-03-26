@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -36,25 +35,24 @@ type CreateModelCommand struct {
 // NewCreateModelCommandForTest returns a CreateModelCommand with
 // the api provided as specified.
 func NewCreateModelCommandForTest(
-	api CreateEnvironmentAPI,
+	api CreateModelAPI,
 	store jujuclient.ClientStore,
-	parser func(interface{}) (interface{}, error),
+	credentialStore jujuclient.CredentialStore,
 ) (cmd.Command, *CreateModelCommand) {
 	c := &createModelCommand{
-		api:          api,
-		configParser: parser,
+		api:             api,
+		credentialStore: credentialStore,
 	}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c), &CreateModelCommand{c}
 }
 
-// NewListModelsCommandForTest returns a EnvironmentsCommand with the API
+// NewListModelsCommandForTest returns a ListModelsCommand with the API
 // and userCreds provided as specified.
-func NewListModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, store jujuclient.ClientStore, userCreds *configstore.APICredentials) cmd.Command {
+func NewListModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, store jujuclient.ClientStore) cmd.Command {
 	c := &modelsCommand{
-		modelAPI:  modelAPI,
-		sysAPI:    sysAPI,
-		userCreds: userCreds,
+		modelAPI: modelAPI,
+		sysAPI:   sysAPI,
 	}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c)
@@ -62,8 +60,8 @@ func NewListModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, 
 
 // NewRegisterCommandForTest returns a RegisterCommand with the function used
 // to open the API connection mocked out.
-func NewRegisterCommandForTest(apiOpen api.OpenFunc, newAPIRoot modelcmd.OpenFunc, store jujuclient.ClientStore) *registerCommand {
-	return &registerCommand{apiOpen: apiOpen, newAPIRoot: newAPIRoot, store: store}
+func NewRegisterCommandForTest(apiOpen api.OpenFunc, refreshModels func(jujuclient.ClientStore, string, string) error, store jujuclient.ClientStore) *registerCommand {
+	return &registerCommand{apiOpen: apiOpen, refreshModels: refreshModels, store: store}
 }
 
 // NewRemoveBlocksCommandForTest returns a RemoveBlocksCommand with the
@@ -132,16 +130,16 @@ func NewListBlocksCommandForTest(api listBlocksAPI, apierr error, store jujuclie
 }
 
 type CtrData ctrData
-type EnvData envData
+type ModelData modelData
 
 func FmtCtrStatus(data CtrData) string {
 	return fmtCtrStatus(ctrData(data))
 }
 
-func FmtEnvStatus(data EnvData) string {
-	return fmtEnvStatus(envData(data))
+func FmtModelStatus(data ModelData) string {
+	return fmtModelStatus(modelData(data))
 }
 
-func NewData(api destroyControllerAPI, ctrUUID string) (ctrData, []envData, error) {
+func NewData(api destroyControllerAPI, ctrUUID string) (ctrData, []modelData, error) {
 	return newData(api, ctrUUID)
 }

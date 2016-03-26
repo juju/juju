@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
@@ -36,13 +37,14 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var goodPassword = "foo-12345678901234567890"
@@ -54,7 +56,7 @@ var alternatePassword = "bar-12345678901234567890"
 // asserting the behaviour of a given method in each state, and the unit quick-
 // remove change caused many of these to fail.
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
-	err := u.SetAgentStatus(state.StatusIdle, "", nil)
+	err := u.SetAgentStatus(status.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1876,7 +1878,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
 	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model "testenv" is no longer alive`)
 }
 
 func (s *StateSuite) TestServiceNotFound(c *gc.C) {
@@ -1978,10 +1980,6 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 		bindings:      map[string]string{"extra": "missing"},
 		expectedError: `unknown endpoint "extra" not valid`,
 	}, {
-		about:         "ensure network.DefaultSpace is not treated specially",
-		bindings:      map[string]string{"server": network.DefaultSpace},
-		expectedError: `unknown space "default" not valid`,
-	}, {
 		about:         "extra endpoint not bound to a space",
 		bindings:      map[string]string{"extra": ""},
 		expectedError: `unknown endpoint "extra" not valid`,
@@ -2003,7 +2001,7 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 		expectedError: `unknown space "invalid" not valid`,
 	}, {
 		about:         "known endpoint bound correctly and an extra endpoint",
-		bindings:      map[string]string{"server": "db", "foo": ""},
+		bindings:      map[string]string{"server": "db", "foo": "public"},
 		expectedError: `unknown endpoint "foo" not valid`,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
@@ -2041,7 +2039,7 @@ func (s *StateSuite) TestAddServiceIncompatibleOSWithSeriesInURL(c *gc.C) {
 		Name: "wordpress", Owner: s.Owner.String(), Charm: charm,
 		Series: "centos7",
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": series \"centos7\" \\(OS \"CentOS\"\\) not supported by charm")
+	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": series "centos7" \(OS \"CentOS"\) not supported by charm, supported series are "quantal"`)
 }
 
 func (s *StateSuite) TestAddServiceCompatibleOSWithSeriesInURL(c *gc.C) {
@@ -2055,6 +2053,16 @@ func (s *StateSuite) TestAddServiceCompatibleOSWithSeriesInURL(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *StateSuite) TestAddServiceCompatibleOSWithNoExplicitSupportedSeries(c *gc.C) {
+	// If a charm doesn't declare any series, we can add it with any series we choose.
+	charm := s.AddSeriesCharm(c, "dummy", "")
+	_, err := s.State.AddService(state.AddServiceArgs{
+		Name: "wordpress", Owner: s.Owner.String(), Charm: charm,
+		Series: "quantal",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *StateSuite) TestAddServiceOSIncompatibleWithSupportedSeries(c *gc.C) {
 	charm := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	// A charm with supported series can only be force-deployed to series
@@ -2063,7 +2071,7 @@ func (s *StateSuite) TestAddServiceOSIncompatibleWithSupportedSeries(c *gc.C) {
 		Name: "wordpress", Owner: s.Owner.String(), Charm: charm,
 		Series: "centos7",
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": series \"centos7\" \\(OS \"CentOS\"\\) not supported by charm")
+	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": series "centos7" \(OS "CentOS"\) not supported by charm, supported series are "precise, trusty"`)
 }
 
 func (s *StateSuite) TestAllServices(c *gc.C) {
@@ -3007,7 +3015,7 @@ func (s *StateSuite) TestWatchModelConfigDiesOnStateClose(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
-	cur := version.Current
+	cur := jujuversion.Current
 	err := statetesting.SetAgentVersion(s.State, cur)
 	c.Assert(err, jc.ErrorIsNil)
 	w := s.State.WatchForModelConfigChanges()
@@ -3217,49 +3225,6 @@ func testSetPassword(c *gc.C, getEntity func() (state.Authenticator, error)) {
 			return e.SetPassword("arble-farble-dying-yarble")
 		})
 	}
-}
-
-func testSetAgentCompatPassword(c *gc.C, entity state.Authenticator) {
-	// In Juju versions 1.16 and older we used UserPasswordHash(password,CompatSalt)
-	// for Machine and Unit agents. This was determined to be overkill
-	// (since we know that Unit agents will actually use
-	// utils.RandomPassword() and get 18 bytes of entropy, and thus won't
-	// be brute-forced.)
-	c.Assert(entity.PasswordValid(goodPassword), jc.IsFalse)
-	agentHash := utils.AgentPasswordHash(goodPassword)
-	err := state.SetPasswordHash(entity, agentHash)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
-	c.Assert(entity.PasswordValid(alternatePassword), jc.IsFalse)
-	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
-
-	backwardsCompatibleHash := utils.UserPasswordHash(goodPassword, utils.CompatSalt)
-	c.Assert(backwardsCompatibleHash, gc.Not(gc.Equals), agentHash)
-	err = state.SetPasswordHash(entity, backwardsCompatibleHash)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity.PasswordValid(alternatePassword), jc.IsFalse)
-	c.Assert(state.GetPasswordHash(entity), gc.Equals, backwardsCompatibleHash)
-	// After succeeding to log in with the old compatible hash, the db
-	// should be updated with the new hash
-	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
-	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
-	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
-
-	// Agents are unable to set short passwords
-	err = entity.SetPassword("short")
-	c.Check(err, gc.ErrorMatches, "password is only 5 bytes long, and is not a valid Agent password")
-	// Grandfather clause. Agents that have short passwords are allowed if
-	// it was done in the compatHash form
-	agentHash = utils.AgentPasswordHash("short")
-	backwardsCompatibleHash = utils.UserPasswordHash("short", utils.CompatSalt)
-	err = state.SetPasswordHash(entity, backwardsCompatibleHash)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity.PasswordValid("short"), jc.IsTrue)
-	// We'll still update the hash, but now it points to the hash of the
-	// shorter password. Agents still can't set the password to it
-	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
-	// Still valid with the shorter password
-	c.Assert(entity.PasswordValid("short"), jc.IsTrue)
 }
 
 type entity interface {
@@ -3807,7 +3772,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 
 func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	current := version.MustParseBinary("1.24.7-trusty-amd64")
-	s.PatchValue(&version.Current, current.Number)
+	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
 	s.PatchValue(&series.HostSeries, func() string { return current.Series })
 
@@ -3823,15 +3788,15 @@ func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	assertAgentVersion(c, otherSt, lower.Number.String())
 
 	// Set other environ version == server environ version
-	err = otherSt.SetModelAgentVersion(version.Current)
+	err = otherSt.SetModelAgentVersion(jujuversion.Current)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, otherSt, version.Current.String())
+	assertAgentVersion(c, otherSt, jujuversion.Current.String())
 
 	// Set other environ version to > server environ version
 	err = otherSt.SetModelAgentVersion(higher.Number)
 	expected := fmt.Sprintf("a hosted model cannot have a higher version than the server model: %s > %s",
 		higher.Number,
-		version.Current,
+		jujuversion.Current,
 	)
 	c.Assert(err, gc.ErrorMatches, expected)
 }
@@ -4635,6 +4600,64 @@ func (s *StateSuite) TestUnitsForInvalidId(c *gc.C) {
 	units, err := s.State.UnitsFor("invalid-id")
 	c.Assert(units, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `"invalid-id" is not a valid machine id`)
+}
+
+func (s *StateSuite) TestSetOrGetMongoSpaceNameSets(c *gc.C) {
+	info, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.MongoSpaceName, gc.Equals, "")
+	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceUnknown)
+
+	spaceName := network.SpaceName("foo")
+
+	name, err := s.State.SetOrGetMongoSpaceName(spaceName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, spaceName)
+
+	info, err = s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.MongoSpaceName, gc.Equals, string(spaceName))
+	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceValid)
+}
+
+func (s *StateSuite) TestSetOrGetMongoSpaceNameDoesNotReplaceValidSpace(c *gc.C) {
+	spaceName := network.SpaceName("foo")
+	name, err := s.State.SetOrGetMongoSpaceName(spaceName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, spaceName)
+
+	name, err = s.State.SetOrGetMongoSpaceName(network.SpaceName("bar"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, spaceName)
+
+	info, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.MongoSpaceName, gc.Equals, string(spaceName))
+	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceValid)
+}
+
+func (s *StateSuite) TestSetMongoSpaceStateSetsValidStates(c *gc.C) {
+	mongoStates := []state.MongoSpaceStates{
+		state.MongoSpaceUnknown,
+		state.MongoSpaceValid,
+		state.MongoSpaceInvalid,
+		state.MongoSpaceUnsupported,
+	}
+	for _, st := range mongoStates {
+		err := s.State.SetMongoSpaceState(st)
+		c.Assert(err, jc.ErrorIsNil)
+		info, err := s.State.ControllerInfo()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(info.MongoSpaceState, gc.Equals, st)
+	}
+}
+
+func (s *StateSuite) TestSetMongoSpaceStateErrorOnInvalidStates(c *gc.C) {
+	err := s.State.SetMongoSpaceState(state.MongoSpaceStates("bad"))
+	c.Assert(err, gc.ErrorMatches, "mongoSpaceState: bad not valid")
+	info, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceUnknown)
 }
 
 type SetAdminMongoPasswordSuite struct {

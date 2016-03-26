@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"path"
 	"path/filepath"
 	"strings"
@@ -25,12 +26,12 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
+	coretools "github.com/juju/juju/tools"
 )
 
 const (
@@ -305,6 +306,34 @@ func (w *unixConfigure) ConfigureJuju() error {
 	}
 
 	if w.icfg.Bootstrap {
+		// Add the Juju GUI to the bootstrap node.
+		guiData, err := w.fetchGUI(w.icfg.GUI)
+		if err != nil {
+			return errors.Annotate(err, "cannot fetch Juju GUI")
+		}
+		// TODO frankban: guiData will never be nil at this point when using
+		// simplestreams. This will be fixed before landing to master.
+		if guiData != nil {
+			guiJson, err := json.Marshal(w.icfg.GUI)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			guiDir := w.icfg.GUITools()
+			w.conf.AddScripts(
+				"gui="+shquote(guiDir),
+				"mkdir -p $gui",
+			)
+			w.conf.AddRunBinaryFile(path.Join(guiDir, "gui.tar.bz2"), []byte(guiData), 0644)
+			w.conf.AddScripts(
+				"sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256",
+				fmt.Sprintf(`grep '%s' $gui/jujugui.sha256 || (echo Juju GUI checksum mismatch; exit 1)`, w.icfg.GUI.SHA256),
+				fmt.Sprintf("printf %%s %s > $gui/downloaded-gui.txt", shquote(string(guiJson))),
+			)
+			// Don't remove the GUI archive until after bootstrap agent runs,
+			// so it has a chance to add it to its catalogue.
+			defer w.conf.AddRunCmd("rm $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt")
+		}
+
 		var metadataDir string
 		if len(w.icfg.CustomImageMetadata) > 0 {
 			metadataDir = path.Join(w.icfg.DataDir, "simplestreams")
@@ -323,9 +352,9 @@ func (w *unixConfigure) ConfigureJuju() error {
 		if bootstrapCons != "" {
 			bootstrapCons = " --bootstrap-constraints " + shquote(bootstrapCons)
 		}
-		environCons := w.icfg.EnvironConstraints.String()
-		if environCons != "" {
-			environCons = " --constraints " + shquote(environCons)
+		modelCons := w.icfg.ModelConstraints.String()
+		if modelCons != "" {
+			modelCons = " --constraints " + shquote(modelCons)
 		}
 		var hardware string
 		if w.icfg.HardwareCharacteristics != nil {
@@ -344,17 +373,41 @@ func (w *unixConfigure) ConfigureJuju() error {
 			// The bootstrapping is always run with debug on.
 			w.icfg.JujuTools() + "/jujud bootstrap-state" +
 				" --data-dir " + shquote(w.icfg.DataDir) +
-				" --model-config " + shquote(base64yaml(w.icfg.Config)) +
+				" --model-config " + shquote(base64yaml(w.icfg.Config.AllAttrs())) +
+				" --hosted-model-config " + shquote(base64yaml(w.icfg.HostedModelConfig)) +
 				" --instance-id " + shquote(string(w.icfg.InstanceId)) +
 				hardware +
 				bootstrapCons +
-				environCons +
+				modelCons +
 				metadataDir +
 				loggingOption,
 		)
 	}
 
 	return w.addMachineAgentToBoot()
+}
+
+// fetchGUI fetches the Juju GUI.
+func (w *unixConfigure) fetchGUI(gui *coretools.GUIArchive) ([]byte, error) {
+	if gui == nil {
+		// TODO frankban: return an error in this case.
+		// This will be fixed before landing to master.
+		return nil, nil
+	}
+	u, err := url.Parse(gui.URL)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot parse Juju GUI URL")
+	}
+	if u.Scheme != "file" {
+		// TODO frankban: support retrieving the GUI archive from the web.
+		// This will be fixed before landing to master.
+		return nil, nil
+	}
+	guiData, err := ioutil.ReadFile(filepath.FromSlash(u.Path))
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot read Juju GUI archive")
+	}
+	return guiData, nil
 }
 
 // toolsDownloadCommand takes a curl command minus the source URL,
@@ -378,8 +431,8 @@ func toolsDownloadCommand(curlCommand string, urls []string) string {
 	return buf.String()
 }
 
-func base64yaml(m *config.Config) string {
-	data, err := goyaml.Marshal(m.AllAttrs())
+func base64yaml(attrs map[string]interface{}) string {
+	data, err := goyaml.Marshal(attrs)
 	if err != nil {
 		// can't happen, these values have been validated a number of times
 		panic(err)

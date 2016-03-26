@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	internalserver "github.com/juju/juju/resource/api/private/server"
 	"github.com/juju/juju/resource/api/server"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state"
@@ -45,7 +44,7 @@ func (deps resourcesHandlerDeps) ConnectForUnitAgent(req *http.Request) (*state.
 
 func newResourceHandler(httpCtxt httpContext) http.Handler {
 	deps := resourcesHandlerDeps{httpCtxt}
-	return server.NewLegacyHTTPHandler(
+	return server.NewResourceHandler(
 		func(req *http.Request) (server.DataStore, names.Tag, error) {
 			st, entity, err := deps.ConnectForUser(req)
 			if err != nil {
@@ -55,11 +54,7 @@ func newResourceHandler(httpCtxt httpContext) http.Handler {
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
-			ds := resourceadapters.DataStore{
-				Resources: resources,
-				State:     st,
-			}
-			return ds, entity.Tag(), nil
+			return resources, entity.Tag(), nil
 		},
 	)
 }
@@ -68,6 +63,6 @@ func newUnitResourceHandler(httpCtxt httpContext) http.Handler {
 	extractor := resourceadapters.HTTPDownloadRequestExtractor{
 		Connector: &resourcesHandlerDeps{httpCtxt},
 	}
-	deps := internalserver.NewLegacyHTTPHandlerDeps(extractor)
-	return internalserver.NewLegacyHTTPHandler(deps)
+	deps := server.NewUnitResourceHandlerDeps(extractor)
+	return server.NewUnitResourceHandler(deps)
 }

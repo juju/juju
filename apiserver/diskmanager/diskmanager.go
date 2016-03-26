@@ -4,7 +4,6 @@
 package diskmanager
 
 import (
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
@@ -16,8 +15,6 @@ import (
 func init() {
 	common.RegisterStandardFacade("DiskManager", 2, NewDiskManagerAPI)
 }
-
-var logger = loggo.GetLogger("juju.apiserver.diskmanager")
 
 // DiskManagerAPI provides access to the DiskManager API facade.
 type DiskManagerAPI struct {

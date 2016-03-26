@@ -8,14 +8,12 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
-	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 )
-
-var logger = loggo.GetLogger("juju.worker.mongoupgrader")
 
 // StopMongo represents a function that can issue a stop
 // to a running mongo service.

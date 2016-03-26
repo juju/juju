@@ -5,7 +5,6 @@ package service
 
 import (
 	"fmt"
-	"net/http"
 	"regexp"
 	"strings"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/jujuclient"
 )
 
 var budgetWithLimitRe = regexp.MustCompile(`^[a-zA-Z0-9\-]+:[0-9]+$`)
@@ -38,7 +38,7 @@ func (a *AllocateBudget) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // RunPre is part of the DeployStep interface.
-func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
+func (a *AllocateBudget) RunPre(state api.Connection, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
 	if deployInfo.CharmURL.Schema == "local" {
 		return nil
 	}
@@ -61,7 +61,7 @@ func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *
 		return errors.Trace(err)
 	}
 	a.Budget, a.Limit = allocBudget, allocLimit
-	a.APIClient, err = getApiClient(client)
+	a.APIClient, err = getApiClient(bakeryClient)
 	if err != nil {
 		return errors.Annotate(err, "could not create API client")
 	}
@@ -78,13 +78,13 @@ func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *
 	return nil
 }
 
-func (a *AllocateBudget) RunPost(_ api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
+func (a *AllocateBudget) RunPost(_ api.Connection, bclient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
 	if prevErr == nil || !a.allocated {
 		return nil
 	}
 	var err error
 	if a.APIClient == nil {
-		a.APIClient, err = getApiClient(client)
+		a.APIClient, err = getApiClient(bclient)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -107,10 +107,10 @@ func parseBudgetWithLimit(bl string) (string, string, error) {
 
 var getApiClient = getApiClientImpl
 
-func getApiClientImpl(client *http.Client) (apiClient, error) {
-	bakeryClient := &httpbakery.Client{Client: client, VisitWebPage: httpbakery.OpenWebBrowser}
-	c := budget.NewClient(bakeryClient)
-	return c, nil
+var tokenStore = jujuclient.NewTokenStore
+
+func getApiClientImpl(bclient *httpbakery.Client) (apiClient, error) {
+	return budget.NewClient(bclient), nil
 }
 
 type apiClient interface {

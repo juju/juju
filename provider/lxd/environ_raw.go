@@ -16,6 +16,7 @@ import (
 type rawProvider struct {
 	lxdInstances
 	lxdProfiles
+	lxdImages
 	common.Firewaller
 	policyProvider
 }
@@ -30,6 +31,10 @@ type lxdInstances interface {
 type lxdProfiles interface {
 	CreateProfile(string, map[string]string) error
 	HasProfile(string) (bool, error)
+}
+
+type lxdImages interface {
+	EnsureImageExists(series string, sources []lxdclient.Remote, copyProgressHandler func(string)) error
 }
 
 func newRawProvider(ecfg *environConfig) (*rawProvider, error) {
@@ -48,6 +53,7 @@ func newRawProvider(ecfg *environConfig) (*rawProvider, error) {
 	raw := &rawProvider{
 		lxdInstances:   client,
 		lxdProfiles:    client,
+		lxdImages:      client,
 		Firewaller:     firewaller,
 		policyProvider: policy,
 	}

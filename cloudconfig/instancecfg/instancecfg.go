@@ -13,10 +13,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -33,7 +32,6 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.instancecfg")
@@ -84,6 +82,9 @@ type InstanceConfig struct {
 
 	// Tools is juju tools to be used on the new instance.
 	Tools *coretools.Tools
+
+	// GUI is the Juju GUI archive to be installed in the new instance.
+	GUI *coretools.GUIArchive
 
 	// DataDir holds the directory that juju state will be put in the new
 	// instance.
@@ -138,11 +139,16 @@ type InstanceConfig struct {
 	// Config holds the initial environment configuration.
 	Config *config.Config
 
+	// HostedModelConfig is a set of config attributes to be overlaid
+	// on the controller model config (Config, above) to construct the
+	// initial hosted model config.
+	HostedModelConfig map[string]interface{}
+
 	// Constraints holds the machine constraints.
 	Constraints constraints.Value
 
-	// EnvironConstraints holds the initial environment constraints.
-	EnvironConstraints constraints.Value
+	// ModelConstraints holds the initial model constraints.
+	ModelConstraints constraints.Value
 
 	// DisableSSLHostnameVerification can be set to true to tell cloud-init
 	// that it shouldn't verify SSL certificates
@@ -252,8 +258,14 @@ func (cfg *InstanceConfig) AgentConfig(
 	return agent.NewStateMachineConfig(configParams, *cfg.StateServingInfo)
 }
 
+// JujuTools returns the directory where Juju tools are stored.
 func (cfg *InstanceConfig) JujuTools() string {
 	return agenttools.SharedToolsDir(cfg.DataDir, cfg.Tools.Version)
+}
+
+// GUITools returns the directory where the Juju GUI release is stored.
+func (cfg *InstanceConfig) GUITools() string {
+	return agenttools.SharedGUIDir(cfg.DataDir)
 }
 
 func (cfg *InstanceConfig) stateHostAddrs() []string {
@@ -372,6 +384,9 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 		if cfg.InstanceId == "" {
 			return errors.New("missing instance-id")
 		}
+		if len(cfg.HostedModelConfig) == 0 {
+			return errors.New("missing hosted model config")
+		}
 	} else {
 		if len(cfg.MongoInfo.Addrs) == 0 {
 			return errors.New("missing state hosts")
@@ -388,16 +403,15 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 		if cfg.StateServingInfo != nil {
 			return errors.New("state serving info unexpectedly present")
 		}
+		if len(cfg.HostedModelConfig) != 0 {
+			return errors.New("hosted model config unexpectedly present")
+		}
 	}
 	if cfg.MachineNonce == "" {
 		return errors.New("missing machine nonce")
 	}
 	return nil
 }
-
-// logDir returns a filesystem path to the location where applications
-// may create a folder containing logs
-var logDir = paths.MustSucceed(paths.LogDir(series.HostSeries()))
 
 // DefaultBridgePrefix is the prefix for all network bridge device
 // name used for LXC and KVM containers.
@@ -464,7 +478,10 @@ func NewInstanceConfig(
 // NewBootstrapInstanceConfig sets up a basic machine configuration for a
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
-func NewBootstrapInstanceConfig(cons, environCons constraints.Value, series, publicImageSigningKey string) (*InstanceConfig, error) {
+func NewBootstrapInstanceConfig(
+	cons, modelCons constraints.Value,
+	series, publicImageSigningKey string,
+) (*InstanceConfig, error) {
 	// For a bootstrap instance, FinishInstanceConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
 	icfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, publicImageSigningKey, true, nil, nil, nil)
@@ -477,7 +494,7 @@ func NewBootstrapInstanceConfig(cons, environCons constraints.Value, series, pub
 		multiwatcher.JobHostUnits,
 	}
 	icfg.Constraints = cons
-	icfg.EnvironConstraints = environCons
+	icfg.ModelConstraints = modelCons
 	return icfg, nil
 }
 
@@ -567,17 +584,12 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	if password == "" {
 		return errors.New("model configuration has no admin-secret")
 	}
-	passwordHash := utils.UserPasswordHash(password, utils.CompatSalt)
-	modelUUID, uuidSet := cfg.UUID()
-	if !uuidSet {
-		return errors.New("config missing model uuid")
-	}
 	icfg.APIInfo = &api.Info{
-		Password: passwordHash,
+		Password: password,
 		CACert:   caCert,
-		ModelTag: names.NewModelTag(modelUUID),
+		ModelTag: names.NewModelTag(cfg.UUID()),
 	}
-	icfg.MongoInfo = &mongo.MongoInfo{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
+	icfg.MongoInfo = &mongo.MongoInfo{Password: password, Info: mongo.Info{CACert: caCert}}
 
 	// These really are directly relevant to running a controller.
 	// Initially, generate a controller certificate with no host IP
@@ -609,8 +621,7 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 // InstanceTags returns the minimum set of tags that should be set on a
 // machine instance, if the provider supports them.
 func InstanceTags(cfg *config.Config, jobs []multiwatcher.MachineJob) map[string]string {
-	uuid, _ := cfg.UUID()
-	instanceTags := tags.ResourceTags(names.NewModelTag(uuid), cfg)
+	instanceTags := tags.ResourceTags(names.NewModelTag(cfg.UUID()), cfg)
 	if multiwatcher.AnyJobNeedsState(jobs...) {
 		instanceTags[tags.JujuController] = "true"
 	}

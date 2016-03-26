@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -59,6 +60,10 @@ func ConnectLocal(namespace string) (*lxdclient.Client, error) {
 	return client, nil
 }
 
+// NewContainerManager creates the entity that knows how to create and manage
+// LXD containers.
+// TODO(jam): This needs to grow support for things like LXC's ImageURLGetter
+// functionality.
 func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
 	name := conf.PopValue(container.ConfigName)
 	if name == "" {
@@ -74,16 +79,30 @@ func (manager *containerManager) CreateContainer(
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
+	callback container.StatusCallback,
 ) (inst instance.Instance, _ *instance.HardwareCharacteristics, err error) {
+
+	defer func() {
+		if err != nil {
+			callback(status.StatusProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
+		}
+	}()
+
 	if manager.client == nil {
 		manager.client, err = ConnectLocal(manager.name)
 		if err != nil {
+			err = errors.Annotatef(err, "failed to connect to local LXD")
 			return
 		}
 	}
 
-	err = manager.client.EnsureImageExists(series)
+	err = manager.client.EnsureImageExists(series,
+		lxdclient.DefaultImageSources,
+		func(progress string) {
+			callback(status.StatusProvisioning, progress, nil)
+		})
 	if err != nil {
+		err = errors.Annotatef(err, "failed to ensure LXD image")
 		return
 	}
 
@@ -117,11 +136,13 @@ func (manager *containerManager) CreateContainer(
 	}
 
 	logger.Infof("starting instance %q (image %q)...", spec.Name, spec.Image)
+	callback(status.StatusProvisioning, "Starting container", nil)
 	_, err = manager.client.AddInstance(spec)
 	if err != nil {
 		return
 	}
 
+	callback(status.StatusRunning, "Container started", nil)
 	inst = &lxdInstance{name, manager.client}
 	return
 }

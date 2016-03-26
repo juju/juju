@@ -38,6 +38,16 @@ type BaseSubnetSuite struct {
 
 var _ = gc.Suite(&BaseSubnetSuite{})
 
+func (s *BaseSubnetSuite) SetUpSuite(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
+}
+
+func (s *BaseSubnetSuite) TearDownSuite(c *gc.C) {
+	s.BaseSuite.TearDownSuite(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
+}
+
 func (s *BaseSubnetSuite) SetUpTest(c *gc.C) {
 	// If any post-MVP command suite enabled the flag, keep it.
 	hasFeatureFlag := featureflag.Enabled(feature.PostNetCLIMVP)
@@ -57,6 +67,11 @@ func (s *BaseSubnetSuite) SetUpTest(c *gc.C) {
 
 	// All subcommand suites embedding this one should initialize
 	// s.command immediately after calling this method!
+}
+
+func (s *BaseSubnetSuite) TearDownTest(c *gc.C) {
+	s.BaseSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 // RunSuperCommand executes the super command passing any args and
@@ -125,20 +140,20 @@ func (s *BaseSubnetSuite) TestHelp(c *gc.C) {
 		// Subcommands embed ModelCommandBase and have an extra
 		// "[options]" prepended before the args.
 		cmdInfo = s.command.Info()
-		expected = "(?sm).*^usage: juju subnet " +
+		expected = "(?sm).*^Usage: juju subnet " +
 			regexp.QuoteMeta(cmdInfo.Name) +
 			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
 	} else {
-		expected = "(?sm).*^usage: juju subnet" +
+		expected = "(?sm).*^Usage: juju subnet" +
 			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
 	}
 	c.Check(cmdInfo, gc.NotNil)
 	c.Check(stderr, gc.Matches, expected)
 
-	expected = "(?sm).*^purpose: " + regexp.QuoteMeta(cmdInfo.Purpose) + "$.*"
+	expected = "(?sm).*^Summary:\n" + regexp.QuoteMeta(cmdInfo.Purpose) + "$.*"
 	c.Check(stderr, gc.Matches, expected)
 
-	expected = "(?sm).*^" + regexp.QuoteMeta(cmdInfo.Doc) + "$.*"
+	expected = "(?sm).*^Details:\n" + regexp.QuoteMeta(cmdInfo.Doc) + "$.*"
 	c.Check(stderr, gc.Matches, expected)
 }
 

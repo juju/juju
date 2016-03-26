@@ -106,7 +106,13 @@ func (st *State) Cleanup() (err error) {
 		case cleanupMachinesForDyingModel:
 			err = st.cleanupMachinesForDyingModel()
 		default:
-			err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
+			handler, ok := cleanupHandlers[doc.Kind]
+			if !ok {
+				err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
+			} else {
+				persist := st.newPersistence()
+				err = handler(st, persist, doc.Prefix)
+			}
 		}
 		if err != nil {
 			logger.Warningf("cleanup failed: %v", err)
@@ -121,6 +127,23 @@ func (st *State) Cleanup() (err error) {
 			logger.Warningf("cannot remove empty cleanup document: %v", err)
 		}
 	}
+	return nil
+}
+
+// CleanupHandler is a function that state may call during cleanup
+// to perform cleanup actions for some cleanup type.
+type CleanupHandler func(st *State, persist Persistence, prefix string) error
+
+var cleanupHandlers = map[cleanupKind]CleanupHandler{}
+
+// RegisterCleanupHandler identifies the handler to use a given
+// cleanup kind.
+func RegisterCleanupHandler(kindStr string, handler CleanupHandler) error {
+	kind := cleanupKind(kindStr)
+	if _, ok := cleanupHandlers[kind]; ok {
+		return errors.NewAlreadyExists(nil, fmt.Sprintf("cleanup handler for %q already registered", kindStr))
+	}
+	cleanupHandlers[kind] = handler
 	return nil
 }
 
