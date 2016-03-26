@@ -58,8 +58,8 @@ func TagToActionReceiverFn(findEntity func(names.Tag) (state.Entity, error)) fun
 
 // AuthAndActionFromTagFn takes in an authorizer function and a function that can fetch action by tags from state
 // and returns a function that can fetch an action from state by id and check the authorization.
-func AuthAndActionFromTagFn(canAccess func(names.Tag) bool, getActionByTag func(names.ActionTag) (*state.Action, error)) func(string) (*state.Action, error) {
-	return func(tag string) (*state.Action, error) {
+func AuthAndActionFromTagFn(canAccess AuthFunc, getActionByTag func(names.ActionTag) (state.Action, error)) func(string) (state.Action, error) {
+	return func(tag string) (state.Action, error) {
 		actionTag, err := names.ParseActionTag(tag)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -82,7 +82,7 @@ func AuthAndActionFromTagFn(canAccess func(names.Tag) bool, getActionByTag func(
 // BeginActions is a helper function currently used by the uniter and by machineactions
 // It needs an actionFn that can fetch an action from state using it's id.
 // It is usually created by AuthAndActionFromTagFn
-func BeginActions(args params.Entities, actionFn func(string) (*state.Action, error)) (params.ErrorResults, error) {
+func BeginActions(args params.Entities, actionFn func(string) (state.Action, error)) params.ErrorResults {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Entities))}
 
 	for i, arg := range args.Entities {
@@ -99,13 +99,13 @@ func BeginActions(args params.Entities, actionFn func(string) (*state.Action, er
 		}
 	}
 
-	return results, nil
+	return results
 }
 
 // FinishActions is a helper function currently used by the uniter and by machineactions
 // It needs an actionFn that can fetch an action from state using it's id.
 // It is usually created by AuthAndActionFromTagFn
-func FinishActions(args params.ActionExecutionResults, actionFn func(string) (*state.Action, error)) (params.ErrorResults, error) {
+func FinishActions(args params.ActionExecutionResults, actionFn func(string) (state.Action, error)) params.ErrorResults {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Results))}
 
 	for i, arg := range args.Results {
@@ -127,13 +127,13 @@ func FinishActions(args params.ActionExecutionResults, actionFn func(string) (*s
 		}
 	}
 
-	return results, nil
+	return results
 }
 
 // Actions is a helper function currently used by the uniter and by machineactions
 // It needs an actionFn that can fetch an action from state using it's id.
 // It is usually created by AuthAndActionFromTagFn
-func Actions(args params.Entities, actionFn func(string) (*state.Action, error)) (params.ActionResults, error) {
+func Actions(args params.Entities, actionFn func(string) (state.Action, error)) params.ActionResults {
 	results := params.ActionResults{
 		Results: make([]params.ActionResult, len(args.Entities)),
 	}
@@ -154,7 +154,7 @@ func Actions(args params.Entities, actionFn func(string) (*state.Action, error))
 		}
 	}
 
-	return results, nil
+	return results
 }
 
 // WatchOneActionReceiverNotifications is a helper function currently used by the uniter and by machineactions
@@ -182,9 +182,7 @@ func WatchOneActionReceiverNotifications(tagToActionReceiver func(tag string) (s
 // WatchActionNotifications is a helper function currently used by the uniter and by machineactions
 // to create watchers. The canAccess function is passed in by the respective caller to provide authorization.
 // watchOne is usually a function created by WatchOneActionReceiverNotifications
-func WatchActionNotifications(args params.Entities, canAccess func(names.Tag) bool, watchOne func(names.Tag) (params.StringsWatchResult, error)) (params.StringsWatchResults, error) {
-	nothing := params.StringsWatchResults{}
-
+func WatchActionNotifications(args params.Entities, canAccess AuthFunc, watchOne func(names.Tag) (params.StringsWatchResult, error)) params.StringsWatchResults {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -192,7 +190,8 @@ func WatchActionNotifications(args params.Entities, canAccess func(names.Tag) bo
 	for i, entity := range args.Entities {
 		tag, err := names.ActionReceiverFromTag(entity.Tag)
 		if err != nil {
-			return nothing, err
+			result.Results[i].Error = ServerError(err)
+			continue
 		}
 		err = ErrPerm
 		if canAccess(tag) {
@@ -201,17 +200,17 @@ func WatchActionNotifications(args params.Entities, canAccess func(names.Tag) bo
 		result.Results[i].Error = ServerError(err)
 	}
 
-	return result, nil
+	return result
 }
 
-// getActionsFn declares the function type that returns a slice of
-// *state.Action and error, used to curry specific list functions.
-type getActionsFn func() ([]*state.Action, error)
+// GetActionsFn declares the function type that returns a slice of
+// state.Action and error, used to curry specific list functions.
+type GetActionsFn func() ([]state.Action, error)
 
 // ConvertActions takes a generic getActionsFn to obtain a slice
-// of *state.Action and then converts them to the API slice of
+// of state.Action and then converts them to the API slice of
 // params.ActionResult.
-func ConvertActions(ar state.ActionReceiver, fn getActionsFn) ([]params.ActionResult, error) {
+func ConvertActions(ar state.ActionReceiver, fn GetActionsFn) ([]params.ActionResult, error) {
 	items := []params.ActionResult{}
 	actions, err := fn()
 	if err != nil {
@@ -226,9 +225,9 @@ func ConvertActions(ar state.ActionReceiver, fn getActionsFn) ([]params.ActionRe
 	return items, nil
 }
 
-// MakeActionResult does the actual type conversion from *state.Action
+// MakeActionResult does the actual type conversion from state.Action
 // to params.ActionResult.
-func MakeActionResult(actionReceiverTag names.Tag, action *state.Action) params.ActionResult {
+func MakeActionResult(actionReceiverTag names.Tag, action state.Action) params.ActionResult {
 	output, message := action.Results()
 	return params.ActionResult{
 		Action: &params.Action{

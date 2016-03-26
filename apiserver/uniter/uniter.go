@@ -772,7 +772,7 @@ func (u *UniterAPIV3) WatchActionNotifications(args params.Entities) (params.Str
 	if err != nil {
 		return params.StringsWatchResults{}, err
 	}
-	return common.WatchActionNotifications(args, canAccess, watchOne)
+	return common.WatchActionNotifications(args, canAccess, watchOne), nil
 }
 
 // ConfigSettings returns the complete set of service charm config
@@ -927,7 +927,7 @@ func (u *UniterAPIV3) Actions(args params.Entities) (params.ActionResults, error
 	}
 
 	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
-	return common.Actions(args, actionFn)
+	return common.Actions(args, actionFn), nil
 }
 
 // BeginActions marks the actions represented by the passed in Tags as running.
@@ -938,7 +938,7 @@ func (u *UniterAPIV3) BeginActions(args params.Entities) (params.ErrorResults, e
 	}
 
 	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
-	return common.BeginActions(args, actionFn)
+	return common.BeginActions(args, actionFn), nil
 }
 
 // FinishActions saves the result of a completed Action
@@ -949,7 +949,7 @@ func (u *UniterAPIV3) FinishActions(args params.ActionExecutionResults) (params.
 	}
 
 	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
-	return common.FinishActions(args, actionFn)
+	return common.FinishActions(args, actionFn), nil
 }
 
 // RelationById returns information about all given relations,

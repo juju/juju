@@ -936,18 +936,26 @@ func (s *uniterSuite) TestWatchActionNotificationsMalformedTag(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "ewenit-mysql-0"},
 	}}
-	_, err := s.uniter.WatchActionNotifications(args)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `invalid actionreceiver tag "ewenit-mysql-0"`)
+	results, err := s.uniter.WatchActionNotifications(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.NotNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.NotNil)
+	c.Assert(result.Error.Message, gc.Equals, `invalid actionreceiver tag "ewenit-mysql-0"`)
 }
 
 func (s *uniterSuite) TestWatchActionNotificationsMalformedUnitName(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-01"},
 	}}
-	_, err := s.uniter.WatchActionNotifications(args)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `invalid actionreceiver tag "unit-mysql-01"`)
+	results, err := s.uniter.WatchActionNotifications(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.NotNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.NotNil)
+	c.Assert(result.Error.Message, gc.Equals, `invalid actionreceiver tag "unit-mysql-01"`)
 }
 
 func (s *uniterSuite) TestWatchActionNotificationsNotUnit(c *gc.C) {
@@ -956,9 +964,13 @@ func (s *uniterSuite) TestWatchActionNotificationsNotUnit(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: action.Tag().String()},
 	}}
-	_, err = s.uniter.WatchActionNotifications(args)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `invalid actionreceiver tag "action-`+action.Id()+`"`)
+	results, err := s.uniter.WatchActionNotifications(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.NotNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.NotNil)
+	c.Assert(result.Error.Message, gc.Equals, `invalid actionreceiver tag "action-`+action.Id()+`"`)
 }
 
 func (s *uniterSuite) TestWatchActionNotificationsPermissionDenied(c *gc.C) {
