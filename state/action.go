@@ -106,77 +106,77 @@ type actionDoc struct {
 	Results map[string]interface{} `bson:"results"`
 }
 
-// Action represents an instruction to do some "action" and is expected
+// action represents an instruction to do some "action" and is expected
 // to match an action definition in a charm.
-type Action struct {
+type action struct {
 	st  *State
 	doc actionDoc
 }
 
 // Id returns the local id of the Action.
-func (a *Action) Id() string {
+func (a *action) Id() string {
 	return a.st.localID(a.doc.DocId)
 }
 
 // Receiver returns the Name of the ActionReceiver for which this action
 // is enqueued.  Usually this is a Unit Name().
-func (a *Action) Receiver() string {
+func (a *action) Receiver() string {
 	return a.doc.Receiver
 }
 
 // Name returns the name of the action, as defined in the charm.
-func (a *Action) Name() string {
+func (a *action) Name() string {
 	return a.doc.Name
 }
 
 // Parameters will contain a structure representing arguments or parameters to
 // an action, and is expected to be validated by the Unit using the Charm
 // definition of the Action.
-func (a *Action) Parameters() map[string]interface{} {
+func (a *action) Parameters() map[string]interface{} {
 	return a.doc.Parameters
 }
 
 // Enqueued returns the time the action was added to state as a pending
 // Action.
-func (a *Action) Enqueued() time.Time {
+func (a *action) Enqueued() time.Time {
 	return a.doc.Enqueued
 }
 
 // Started returns the time that the Action execution began.
-func (a *Action) Started() time.Time {
+func (a *action) Started() time.Time {
 	return a.doc.Started
 }
 
 // Completed returns the completion time of the Action.
-func (a *Action) Completed() time.Time {
+func (a *action) Completed() time.Time {
 	return a.doc.Completed
 }
 
 // Status returns the final state of the action.
-func (a *Action) Status() ActionStatus {
+func (a *action) Status() ActionStatus {
 	return a.doc.Status
 }
 
 // Results returns the structured output of the action and any error.
-func (a *Action) Results() (map[string]interface{}, string) {
+func (a *action) Results() (map[string]interface{}, string) {
 	return a.doc.Results, a.doc.Message
 }
 
 // ValidateTag should be called before calls to Tag() or ActionTag(). It verifies
 // that the Action can produce a valid Tag.
-func (a *Action) ValidateTag() bool {
+func (a *action) ValidateTag() bool {
 	return names.IsValidAction(a.Id())
 }
 
 // Tag implements the Entity interface and returns a names.Tag that
 // is a names.ActionTag.
-func (a *Action) Tag() names.Tag {
+func (a *action) Tag() names.Tag {
 	return a.ActionTag()
 }
 
 // ActionTag returns an ActionTag constructed from this action's
 // Prefix and Sequence.
-func (a *Action) ActionTag() names.ActionTag {
+func (a *action) ActionTag() names.ActionTag {
 	return names.NewActionTag(a.Id())
 }
 
@@ -190,7 +190,7 @@ type ActionResults struct {
 
 // Begin marks an action as running, and logs the time it was started.
 // It asserts that the action is currently pending.
-func (a *Action) Begin() (*Action, error) {
+func (a *action) Begin() (Action, error) {
 	err := a.st.runTransaction([]txn.Op{
 		{
 			C:      actionsC,
@@ -209,14 +209,14 @@ func (a *Action) Begin() (*Action, error) {
 
 // Finish removes action from the pending queue and captures the output
 // and end state of the action.
-func (a *Action) Finish(results ActionResults) (*Action, error) {
+func (a *action) Finish(results ActionResults) (Action, error) {
 	return a.removeAndLog(results.Status, results.Results, results.Message)
 }
 
 // removeAndLog takes the action off of the pending queue, and creates
 // an actionresult to capture the outcome of the action. It asserts that
 // the action is not already completed.
-func (a *Action) removeAndLog(finalStatus ActionStatus, results map[string]interface{}, message string) (*Action, error) {
+func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]interface{}, message string) (Action, error) {
 	err := a.st.runTransaction([]txn.Op{
 		{
 			C:  actionsC,
@@ -245,8 +245,8 @@ func (a *Action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 }
 
 // newAction builds an Action for the given State and actionDoc.
-func newAction(st *State, adoc actionDoc) *Action {
-	return &Action{
+func newAction(st *State, adoc actionDoc) Action {
+	return &action{
 		st:  st,
 		doc: adoc,
 	}
@@ -280,7 +280,7 @@ func newActionDoc(st *State, receiverTag names.Tag, actionName string, parameter
 var ensureActionMarker = ensureSuffixFn(actionMarker)
 
 // Action returns an Action by Id, which is a UUID.
-func (st *State) Action(id string) (*Action, error) {
+func (st *State) Action(id string) (Action, error) {
 	actionLogger.Tracef("Action() %q", id)
 	actions, closer := st.getCollection(actionsC)
 	defer closer()
@@ -298,7 +298,7 @@ func (st *State) Action(id string) (*Action, error) {
 }
 
 // ActionByTag returns an Action given an ActionTag.
-func (st *State) ActionByTag(tag names.ActionTag) (*Action, error) {
+func (st *State) ActionByTag(tag names.ActionTag) (Action, error) {
 	return st.Action(tag.Id())
 }
 
@@ -328,7 +328,7 @@ func (st *State) FindActionTagsByPrefix(prefix string) []names.ActionTag {
 }
 
 // EnqueueAction
-func (st *State) EnqueueAction(receiver names.Tag, actionName string, payload map[string]interface{}) (*Action, error) {
+func (st *State) EnqueueAction(receiver names.Tag, actionName string, payload map[string]interface{}) (Action, error) {
 	if len(actionName) == 0 {
 		return nil, errors.New("action name required")
 	}
@@ -376,14 +376,14 @@ func (st *State) EnqueueAction(receiver names.Tag, actionName string, payload ma
 }
 
 // matchingActions finds actions that match ActionReceiver.
-func (st *State) matchingActions(ar ActionReceiver) ([]*Action, error) {
+func (st *State) matchingActions(ar ActionReceiver) ([]Action, error) {
 	return st.matchingActionsByReceiverId(ar.Tag().Id())
 }
 
 // matchingActionsByReceiverId finds actions that match ActionReceiver name.
-func (st *State) matchingActionsByReceiverId(id string) ([]*Action, error) {
+func (st *State) matchingActionsByReceiverId(id string) ([]Action, error) {
 	var doc actionDoc
-	var actions []*Action
+	var actions []Action
 
 	actionsCollection, closer := st.getCollection(actionsC)
 	defer closer()
@@ -397,21 +397,21 @@ func (st *State) matchingActionsByReceiverId(id string) ([]*Action, error) {
 
 // matchingActionsPending finds actions that match ActionReceiver and
 // that are pending.
-func (st *State) matchingActionsPending(ar ActionReceiver) ([]*Action, error) {
+func (st *State) matchingActionsPending(ar ActionReceiver) ([]Action, error) {
 	completed := bson.D{{"status", ActionPending}}
 	return st.matchingActionsByReceiverAndStatus(ar.Tag(), completed)
 }
 
 // matchingActionsRunning finds actions that match ActionReceiver and
 // that are running.
-func (st *State) matchingActionsRunning(ar ActionReceiver) ([]*Action, error) {
+func (st *State) matchingActionsRunning(ar ActionReceiver) ([]Action, error) {
 	completed := bson.D{{"status", ActionRunning}}
 	return st.matchingActionsByReceiverAndStatus(ar.Tag(), completed)
 }
 
 // matchingActionsCompleted finds actions that match ActionReceiver and
 // that are complete.
-func (st *State) matchingActionsCompleted(ar ActionReceiver) ([]*Action, error) {
+func (st *State) matchingActionsCompleted(ar ActionReceiver) ([]Action, error) {
 	completed := bson.D{{"$or", []bson.D{
 		{{"status", ActionCompleted}},
 		{{"status", ActionCancelled}},
@@ -422,9 +422,9 @@ func (st *State) matchingActionsCompleted(ar ActionReceiver) ([]*Action, error) 
 
 // matchingActionsByReceiverAndStatus finds actionNotifications that
 // match ActionReceiver.
-func (st *State) matchingActionsByReceiverAndStatus(tag names.Tag, statusCondition bson.D) ([]*Action, error) {
+func (st *State) matchingActionsByReceiverAndStatus(tag names.Tag, statusCondition bson.D) ([]Action, error) {
 	var doc actionDoc
-	var actions []*Action
+	var actions []Action
 
 	actionsCollection, closer := st.getCollection(actionsC)
 	defer closer()
