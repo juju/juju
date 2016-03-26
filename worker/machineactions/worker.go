@@ -5,28 +5,21 @@
 package machineactions
 
 import (
-	"fmt"
-	"os"
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/machineactions"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/juju/utils/clock"
-	"github.com/juju/utils/exec"
 )
 
 var logger = loggo.GetLogger("juju.worker.machineactions")
 
 // Facade defines the capabilities required by the worker from the API.
 type Facade interface {
-	WatchActionNotifications(agent names.Tag) (watcher.StringsWatcher, error)
-	RunningActions(agent names.Tag) ([]params.ActionResult, error)
+	WatchActionNotifications(agent names.MachineTag) (watcher.StringsWatcher, error)
+	RunningActions(agent names.MachineTag) ([]params.ActionResult, error)
 
 	Action(names.ActionTag) (*machineactions.Action, error)
 	ActionBegin(names.ActionTag) error
@@ -36,7 +29,7 @@ type Facade interface {
 // WorkerConfig defines the worker's dependencies.
 type WorkerConfig struct {
 	Facade       Facade
-	AgentTag     names.Tag
+	MachineTag   names.MachineTag
 	HandleAction func(name string, params map[string]interface{}) (results map[string]interface{}, err error)
 }
 
@@ -45,8 +38,8 @@ func (c WorkerConfig) Validate() error {
 	if c.Facade == nil {
 		return errors.NotValidf("nil Facade")
 	}
-	if c.AgentTag == nil {
-		return errors.NotValidf("nil AgentTag")
+	if c.MachineTag == (names.MachineTag{}) {
+		return errors.NotValidf("unspecified MachineTag")
 	}
 	if c.HandleAction == nil {
 		return errors.NotValidf("nil HandleAction")
@@ -73,7 +66,7 @@ type handler struct {
 
 // SetUp is part of the watcher.StringsHandler interface.
 func (h *handler) SetUp() (watcher.StringsWatcher, error) {
-	actions, err := h.config.Facade.RunningActions(h.config.AgentTag)
+	actions, err := h.config.Facade.RunningActions(h.config.MachineTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -91,7 +84,7 @@ func (h *handler) SetUp() (watcher.StringsWatcher, error) {
 			logger.Infof("tried to cancel action %s but failed with error %v", action.Action.Tag, err)
 		}
 	}
-	return h.config.Facade.WatchActionNotifications(h.config.AgentTag)
+	return h.config.Facade.WatchActionNotifications(h.config.MachineTag)
 }
 
 // Handle is part of the watcher.StringsHandler interface.
@@ -101,29 +94,32 @@ func (h *handler) Handle(_ <-chan struct{}, actionsSlice []string) error {
 	for _, actionId := range actionsSlice {
 		ok := names.IsValidAction(actionId)
 		if !ok {
-			errors.Errorf("got invalid action id %s", actionId)
+			return errors.Errorf("got invalid action id %s", actionId)
 		}
 
 		actionTag := names.NewActionTag(actionId)
 		action, err := h.config.Facade.Action(actionTag)
 		if err != nil {
-			return errors.Errorf("could not retrieve action %s", actionId)
+			return errors.Annotatef(err, "could not retrieve action %s", actionId)
 		}
-
-		// We don't have to revalidate params here since they can't be stored in state when invalid.
-		name := action.Name()
-		actionParams := action.Params()
 
 		err = h.config.Facade.ActionBegin(actionTag)
 		if err != nil {
-			return errors.Errorf("could not begin action %s", name)
+			return errors.Annotatef(err, "could not begin action %s", action.Name())
 		}
 
+		// We try to handle the action. The result returned from handling the action is
+		// sent through using ActionFinish. We only stop the loop if ActionFinish fails.
+		var finishErr error
 		results, err := h.config.HandleAction(action.Name(), action.Params())
 		if err != nil {
-			return h.config.Facade.ActionFinish(actionTag, params.ActionCancelled, nil, err.Error())
+			finishErr = h.config.Facade.ActionFinish(actionTag, params.ActionCancelled, nil, err.Error())
+		} else {
+			finishErr = h.config.Facade.ActionFinish(actionTag, params.ActionCompleted, results, "")
 		}
-		return h.config.Facade.ActionFinish(actionTag, params.ActionCompleted, results, "")
+		if finishErr != nil {
+			return errors.Trace(finishErr)
+		}
 	}
 	return nil
 }
@@ -132,54 +128,4 @@ func (h *handler) Handle(_ <-chan struct{}, actionsSlice []string) error {
 func (h *handler) TearDown() error {
 	// Nothing to cleanup, only state is the watcher
 	return nil
-}
-
-func HandleAction(name string, params map[string]interface{}) (results map[string]interface{}, err error) {
-	if name == actions.JujuRunActionName {
-		return handleJujuRunAction(params)
-	}
-	return nil, errors.Errorf("unexpected action %s", name)
-}
-
-func handleJujuRunAction(params map[string]interface{}) (results map[string]interface{}, err error) {
-	// The spec checks that the parameters are available so we don't need to check again here
-	command, _ := params["command"].(string)
-
-	// The timeout is passed in in nanoseconds(which are represented in go as int64)
-	// But due to serialization it comes out as float64
-	timeout, _ := params["timeout"].(float64)
-
-	res, err := runCommandWithTimeout(command, time.Duration(timeout), clock.WallClock)
-
-	actionResults := map[string]interface{}{}
-	if res != nil {
-		actionResults["Code"] = res.Code
-		actionResults["Stdout"] = fmt.Sprintf("%s", res.Stdout)
-		actionResults["Stderr"] = fmt.Sprintf("%s", res.Stderr)
-	}
-	return actionResults, err
-}
-
-func runCommandWithTimeout(command string, timeout time.Duration, clock clock.Clock) (*exec.ExecResponse, error) {
-	cmd := exec.RunParams{
-		Commands:    command,
-		Environment: os.Environ(),
-		Clock:       clock,
-	}
-
-	err := cmd.Run()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var cancel chan struct{}
-	if timeout != 0 {
-		cancel = make(chan struct{})
-		go func() {
-			<-clock.After(timeout)
-			close(cancel)
-		}()
-	}
-
-	return cmd.WaitWithCancel(cancel)
 }

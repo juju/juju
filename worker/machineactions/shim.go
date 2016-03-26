@@ -12,5 +12,5 @@ import (
 // NewFacade creates a Facade from a base.APICaller.
 // It's a sensible value for ManifoldConfig.NewFacade.
 func NewFacade(apiCaller base.APICaller) Facade {
-	return machineactions.NewState(apiCaller)
+	return machineactions.NewClient(apiCaller)
 }

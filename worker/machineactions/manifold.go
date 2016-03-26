@@ -5,11 +5,13 @@
 package machineactions
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/util"
+	"github.com/juju/names"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
@@ -27,11 +29,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 func (mc ManifoldConfig) start(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
-	agentTag := a.CurrentConfig().Tag()
+	machineTag, ok := a.CurrentConfig().Tag().(names.MachineTag)
+	if !ok {
+		return nil, errors.Errorf("this manifold can only be used inside a machine")
+	}
 	machineActionsFacade := mc.NewFacade(apiCaller)
 	return mc.NewWorker(WorkerConfig{
 		Facade:       machineActionsFacade,
-		AgentTag:     agentTag,
+		MachineTag:   machineTag,
 		HandleAction: HandleAction,
 	})
 }
