@@ -961,6 +961,11 @@ func (p *ProvisionerAPI) legacyPrepareOrGetContainerInterfaceInfo(
 			macAddress = interfaceInfo.MACAddress
 		}
 
+		interfaceType := string(interfaceInfo.InterfaceType)
+		if interfaceType == "" {
+			interfaceType = string(network.EthernetInterface)
+		}
+
 		// TODO(dimitern): Support allocating one address per NIC on
 		// the host, effectively creating the same number of NICs in
 		// the container.
@@ -973,7 +978,7 @@ func (p *ProvisionerAPI) legacyPrepareOrGetContainerInterfaceInfo(
 				ProviderId:       string(interfaceInfo.ProviderId),
 				ProviderSubnetId: string(subnetInfo.ProviderId),
 				VLANTag:          interfaceInfo.VLANTag,
-				InterfaceType:    string(interfaceInfo.InterfaceType),
+				InterfaceType:    interfaceType,
 				InterfaceName:    interfaceInfo.InterfaceName,
 				Disabled:         interfaceInfo.Disabled,
 				NoAutoStart:      interfaceInfo.NoAutoStart,
