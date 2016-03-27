@@ -372,6 +372,9 @@ func NetworkingEnvironFromModelConfig(configGetter ModelConfigGetter) (environs.
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get model config")
 	}
+	if modelConfig.Type() == "dummy" {
+		return nil, errors.NotSupportedf("dummy provider network config")
+	}
 	model, err := environs.New(modelConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to construct a model from config")

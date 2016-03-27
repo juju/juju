@@ -92,7 +92,7 @@ func SampleConfig() testing.Attrs {
 
 		"secret":      "pork",
 		"controller":  true,
-		"prefer-ipv6": true,
+		"prefer-ipv6": false,
 	}
 }
 
