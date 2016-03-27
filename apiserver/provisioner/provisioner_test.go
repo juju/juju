@@ -1109,7 +1109,7 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
-	c.Check(results.PreferIPv6, jc.IsTrue)
+	c.Check(results.PreferIPv6, jc.IsFalse)
 	c.Check(results.AllowLXCLoopMounts, jc.IsTrue)
 }
 

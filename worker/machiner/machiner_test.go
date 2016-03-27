@@ -474,7 +474,7 @@ LXC_BRIDGE="ignored"`[1:])
 
 func (s *MachinerStateSuite) TestMachineAddresses(c *gc.C) {
 	s.setupSetMachineAddresses(c, false)
-	c.Assert(s.machine.MachineAddresses(), jc.DeepEquals, []network.Address{
+	c.Assert(s.machine.MachineAddresses(), jc.SameContents, []network.Address{
 		network.NewAddress("2001:db8::1"),
 		network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal),
 		network.NewScopedAddress("::1", network.ScopeMachineLocal),
