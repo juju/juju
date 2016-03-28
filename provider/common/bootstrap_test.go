@@ -167,7 +167,7 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 		setConfig:     setConfig,
 	}
 	ctx := envtesting.BootstrapContext(c)
-	bootstrapSeries := "xenial"
+	bootstrapSeries := "utopic"
 	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
 		BootstrapSeries: bootstrapSeries,
 		AvailableTools: tools.List{
