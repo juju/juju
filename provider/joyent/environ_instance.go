@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/tools"
 )
@@ -141,13 +142,22 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	}
 	logger.Debugf("joyent user data: %d bytes", len(userData))
 
+	instanceTags := make(map[string]string)
+	for tag, value := range args.InstanceConfig.Tags {
+		instanceTags[tagKey(tag)] = value
+	}
+	instanceTags[tagKey("group")] = "juju"
+	instanceTags[tagKey("model")] = env.Config().Name()
+
+	args.InstanceConfig.Tags = instanceTags
+	logger.Debugf("Now tags are:  %+v", args.InstanceConfig.Tags)
+
 	var machine *cloudapi.Machine
 	machine, err = env.compute.cloudapi.CreateMachine(cloudapi.CreateMachineOpts{
-		//Name:	 env.machineFullName(machineConf.MachineId),
 		Package:  spec.InstanceType.Name,
 		Image:    spec.Image.Id,
 		Metadata: map[string]string{"metadata.cloud-init:user-data": string(userData)},
-		Tags:     map[string]string{"tag.group": "juju", "tag.env": env.Config().Name()},
+		Tags:     args.InstanceConfig.Tags,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create instances")
@@ -155,6 +165,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	machineId := machine.Id
 
 	logger.Infof("provisioning instance %q", machineId)
+	logger.Infof("machine created with tags %+v", machine.Tags)
 
 	machine, err = env.compute.cloudapi.GetMachine(machineId)
 	if err != nil {
@@ -193,12 +204,17 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	}, nil
 }
 
+// Joyent tag must be prefixed with "tag."
+func tagKey(aKey string) string {
+	return "tag." + aKey
+}
+
 func (env *joyentEnviron) AllInstances() ([]instance.Instance, error) {
 	instances := []instance.Instance{}
 
 	filter := cloudapi.NewFilter()
-	filter.Set("tag.group", "juju")
-	filter.Set("tag.env", env.Config().Name())
+	filter.Set(tagKey("group"), "juju")
+	filter.Set(tagKey(tags.JujuModel), env.Config().UUID())
 
 	machines, err := env.compute.cloudapi.ListMachines(filter)
 	if err != nil {

@@ -8,12 +8,13 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -91,58 +92,80 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, seri
 	return nil
 }
 
-func cacheTestEnvConfig(c *gc.C) {
+func cacheTestEnvConfig(c *gc.C, store *jujuclienttesting.MemStore) {
+	ec2UUID := utils.MustNewUUID().String()
 	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":           "ec2",
-		"type":           "ec2",
-		"default-series": "precise",
-		"region":         "us-east-1",
+		"name":            "ec2",
+		"type":            "ec2",
+		"default-series":  "precise",
+		"region":          "us-east-1",
+		"controller-uuid": ec2UUID,
+		"uuid":            ec2UUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	store.Controllers["ec2-controller"] = jujuclient.ControllerDetails{
+		ControllerUUID: coretesting.ModelTag.Id(),
+		CACert:         coretesting.CACert,
+	}
+	store.Accounts["ec2-controller"] = &jujuclient.ControllerAccounts{
+		CurrentAccount: "admin@local",
+	}
+	store.BootstrapConfig["ec2-controller"] = jujuclient.BootstrapConfig{
+		Config:      ec2Config.AllAttrs(),
+		Cloud:       "ec2",
+		CloudRegion: "us-east-1",
+	}
 
+	azureUUID := utils.MustNewUUID().String()
 	azureConfig, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":                      "azure",
-		"type":                      "azure",
-		"default-series":            "raring",
-		"location":                  "West US",
-		"endpoint":                  "https://management.azure.com",
-		"storage-endpoint":          "https://core.windows.net",
-		"subscription-id":           "foo",
-		"application-id":            "bar",
-		"application-password":      "baz",
-		"tenant-id":                 "qux",
-		"controller-resource-group": "fnord",
+		"name":                 "azure",
+		"type":                 "azure",
+		"controller-uuid":      azureUUID,
+		"uuid":                 azureUUID,
+		"default-series":       "raring",
+		"location":             "West US",
+		"subscription-id":      "foo",
+		"application-id":       "bar",
+		"application-password": "baz",
+		"tenant-id":            "qux",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	store, err := configstore.Default()
-	c.Assert(err, jc.ErrorIsNil)
-
-	ec2 := store.CreateInfo("ec2")
-	c.Assert(err, jc.ErrorIsNil)
-	ec2.SetBootstrapConfig(ec2Config.AllAttrs())
-	err = ec2.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	azure := store.CreateInfo("azure")
-	c.Assert(err, jc.ErrorIsNil)
-	azure.SetBootstrapConfig(azureConfig.AllAttrs())
-	err = azure.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	store.Controllers["azure-controller"] = jujuclient.ControllerDetails{
+		ControllerUUID: coretesting.ModelTag.Id(),
+		CACert:         coretesting.CACert,
+	}
+	store.Accounts["azure-controller"] = &jujuclient.ControllerAccounts{
+		CurrentAccount: "admin@local",
+	}
+	store.BootstrapConfig["azure-controller"] = jujuclient.BootstrapConfig{
+		Config:               azureConfig.AllAttrs(),
+		Cloud:                "azure",
+		CloudRegion:          "West US",
+		CloudEndpoint:        "https://management.azure.com",
+		CloudStorageEndpoint: "https://core.windows.net",
+		Credential:           "default",
+	}
+	store.Credentials["azure"] = cloud.CloudCredential{
+		AuthCredentials: map[string]cloud.Credential{
+			"default": cloud.NewCredential(
+				cloud.UserPassAuthType,
+				map[string]string{
+					"application-id":       "application-id",
+					"subscription-id":      "subscription-id",
+					"tenant-id":            "tenant-id",
+					"application-password": "application-password",
+				},
+			),
+		},
+	}
 }
 
 func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
-	cacheTestEnvConfig(c)
 
-	err := modelcmd.WriteCurrentController("testing")
-	c.Assert(err, jc.ErrorIsNil)
 	s.store = jujuclienttesting.NewMemStore()
-	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
-	s.store.Accounts["testing"] = &jujuclient.ControllerAccounts{
-		CurrentAccount: "admin@local",
-	}
+	cacheTestEnvConfig(c, s.store)
 
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
@@ -164,7 +187,7 @@ func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *gc.C, region, stre
 
 func (s *ValidateImageMetadataSuite) assertEc2LocalMetadataUsingEnvironment(c *gc.C, stream string) {
 	s.setupEc2LocalMetadata(c, "us-east-1", stream)
-	ctx, err := runValidateImageMetadata(c, s.store, "-m", "ec2", "-d", s.metadataDir, "--stream", stream)
+	ctx, err := runValidateImageMetadata(c, s.store, "-m", "ec2-controller:ec2", "-d", s.metadataDir, "--stream", stream)
 	c.Assert(err, jc.ErrorIsNil)
 	stdout := coretesting.Stdout(ctx)
 	stderr := coretesting.Stderr(ctx)
@@ -187,8 +210,8 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 	s.PatchEnvironment("EC2_ACCESS_KEY", "")
 	s.PatchEnvironment("EC2_SECRET_KEY", "")
 	s.setupEc2LocalMetadata(c, "us-east-1", "")
-	_, err := runValidateImageMetadata(c, s.store, "-m", "ec2", "-d", s.metadataDir)
-	c.Assert(err, gc.ErrorMatches, `.*model has no access-key or secret-key`)
+	_, err := runValidateImageMetadata(c, s.store, "-m", "ec2-controller:ec2", "-d", s.metadataDir)
+	c.Assert(err, gc.ErrorMatches, `detecting credentials.*AWS_SECRET_ACCESS_KEY not found in environment`)
 }
 
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {

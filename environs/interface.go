@@ -27,10 +27,14 @@ type EnvironProvider interface {
 	// local files, etc are not available.
 	PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error)
 
-	// PrepareForBootstrap prepares an environment for use. Any additional
-	// configuration attributes in the returned environment should
-	// be saved to be used later.
-	PrepareForBootstrap(ctx BootstrapContext, args PrepareForBootstrapParams) (Environ, error)
+	// PrepareForBootstrap prepares an environment for use.
+	PrepareForBootstrap(ctx BootstrapContext, cfg *config.Config) (Environ, error)
+
+	// BootstrapConfig produces the configuration for the initial controller
+	// model, based on the provided arguments. BootstrapConfig is expected
+	// to produce a deterministic output. Any unique values should be based
+	// on the "uuid" attribute of the base configuration.
+	BootstrapConfig(BootstrapConfigParams) (*config.Config, error)
 
 	// Open opens the environment and returns it.
 	// The configuration must have come from a previously
@@ -52,14 +56,15 @@ type EnvironProvider interface {
 	ProviderCredentials
 }
 
-// PrepareForBootstrapParams contains the parameters for
-// EnvironProvider.PrepareForBootstrap.
-type PrepareForBootstrapParams struct {
+// BootstrapConfigParams contains the parameters for EnvironProvider.BootstrapConfig.
+type BootstrapConfigParams struct {
 	// Config is the base configuration for the provider. This should
 	// be updated with the region, endpoint and credentials.
 	Config *config.Config
 
 	// Credentials is the set of credentials to use to bootstrap.
+	//
+	// TODO(axw) rename field to Credential.
 	Credentials cloud.Credential
 
 	// CloudRegion is the name of the region of the cloud to create
@@ -242,4 +247,16 @@ type InstanceTagger interface {
 	// The specified tags will replace any existing ones with the
 	// same names, but other existing tags will be left alone.
 	TagInstance(id instance.Id, tags map[string]string) error
+}
+
+// MigrationConfigUpdater is an optional interface that a provider
+// can implement that will be called when the model is being imported
+// into a new controller as part of model migration. If the provider stores
+// information specific to the controller, this information can be extracted
+// from the controller config.
+//
+// The return value is a map containing changes that are necessary to be
+// applied to the model's config for the new controller.
+type MigrationConfigUpdater interface {
+	MigrationConfigUpdate(controllerConfig *config.Config) map[string]interface{}
 }

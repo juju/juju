@@ -28,10 +28,6 @@ type upgradeModelConfigSuite struct {
 
 var _ = gc.Suite(&upgradeModelConfigSuite{})
 
-func (s *upgradeModelConfigSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-}
-
 func (s *upgradeModelConfigSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 

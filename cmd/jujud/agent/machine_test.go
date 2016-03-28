@@ -61,7 +61,6 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -97,6 +96,8 @@ type commonMachineSuite struct {
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
+	s.AgentSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongo.DefaultDialOpts())
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -105,11 +106,9 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
-	s.AgentSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.AgentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
-	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongo.DefaultDialOpts())
 
 	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
 	s.AgentSuite.PatchValue(&authenticationworker.SSHUser, "")
@@ -1715,12 +1714,7 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 
 func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()) {
 	// Create a new environment, tests can now watch if workers start for it.
-	newSt = s.Factory.MakeModel(c, &factory.ModelParams{
-		ConfigAttrs: map[string]interface{}{
-			"controller": false,
-		},
-		Prepare: true,
-	})
+	newSt = s.Factory.MakeModel(c, nil)
 	return newSt, func() {
 		err := newSt.Close()
 		c.Check(err, jc.ErrorIsNil)

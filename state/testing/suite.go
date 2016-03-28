@@ -8,6 +8,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -20,10 +21,11 @@ var _ = gc.Suite(&StateSuite{})
 type StateSuite struct {
 	jujutesting.MgoSuite
 	testing.BaseSuite
-	Policy  state.Policy
-	State   *state.State
-	Owner   names.UserTag
-	Factory *factory.Factory
+	Policy        state.Policy
+	State         *state.State
+	Owner         names.UserTag
+	Factory       *factory.Factory
+	InitialConfig *config.Config
 }
 
 func (s *StateSuite) SetUpSuite(c *gc.C) {
@@ -41,7 +43,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.Owner = names.NewLocalUserTag("test-admin")
-	s.State = Initialize(c, s.Owner, nil, s.Policy)
+	s.State = Initialize(c, s.Owner, s.InitialConfig, s.Policy)
 	s.AddCleanup(func(*gc.C) { s.State.Close() })
 	s.Factory = factory.NewFactory(s.State)
 }

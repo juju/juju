@@ -698,7 +698,8 @@ func (s *Service) SetCharm(cfg SetCharmConfig) error {
 		}
 	} else {
 		// Even with forceSeries=true, we do not allow a charm to be used which is for
-		// a different OS.
+		// a different OS. This assumes the charm declares it has supported series which
+		// we can check for OS compatibility. Otherwise, we just accept the series supplied.
 		currentOS, err := series.GetOSFromSeries(s.doc.Series)
 		if err != nil {
 			// We don't expect an error here but there's not much we can
@@ -706,7 +707,8 @@ func (s *Service) SetCharm(cfg SetCharmConfig) error {
 			return err
 		}
 		supportedOS := false
-		for _, chSeries := range cfg.Charm.Meta().Series {
+		supportedSeries := cfg.Charm.Meta().Series
+		for _, chSeries := range supportedSeries {
 			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
 			if err != nil {
 				return nil
@@ -716,7 +718,7 @@ func (s *Service) SetCharm(cfg SetCharmConfig) error {
 				break
 			}
 		}
-		if !supportedOS {
+		if !supportedOS && len(supportedSeries) > 0 {
 			return errors.Errorf("cannot upgrade charm, OS %q not supported by charm", currentOS)
 		}
 	}
@@ -1550,6 +1552,12 @@ func (s *Service) SetStatus(serviceStatus status.Status, info string, data map[s
 		message:   info,
 		rawData:   data,
 	})
+}
+
+// StatusHistory returns a slice of at most <size> StatusInfo items
+// representing past statuses for this service.
+func (s *Service) StatusHistory(size int) ([]status.StatusInfo, error) {
+	return statusHistory(s.st, s.globalKey(), size)
 }
 
 // ServiceAndUnitsStatus returns the status for this service and all its units.

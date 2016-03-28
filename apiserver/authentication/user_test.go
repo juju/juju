@@ -217,7 +217,7 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		mac, err := svc.NewMacaroon("", nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
-		authenticator := &authentication.MacaroonAuthenticator{
+		authenticator := &authentication.ExternalMacaroonAuthenticator{
 			Service:          svc,
 			IdentityLocation: s.discharger.Location(),
 			Macaroon:         mac,

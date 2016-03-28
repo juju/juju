@@ -45,6 +45,7 @@ func FakeConfig() Attrs {
 		"type":                      "someprovider",
 		"name":                      "testenv",
 		"uuid":                      ModelTag.Id(),
+		"controller-uuid":           ModelTag.Id(),
 		"authorized-keys":           FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "fish",
@@ -96,16 +97,6 @@ type FakeJujuXDGDataHomeSuite struct {
 	JujuOSEnvSuite
 	gitjujutesting.FakeHomeSuite
 	oldJujuXDGDataHome string
-}
-
-func (s *FakeJujuXDGDataHomeSuite) SetUpSuite(c *gc.C) {
-	s.JujuOSEnvSuite.SetUpTest(c)
-	s.FakeHomeSuite.SetUpTest(c)
-}
-
-func (s *FakeJujuXDGDataHomeSuite) TearDownSuite(c *gc.C) {
-	s.FakeHomeSuite.SetUpTest(c)
-	s.JujuOSEnvSuite.SetUpTest(c)
 }
 
 func (s *FakeJujuXDGDataHomeSuite) SetUpTest(c *gc.C) {
