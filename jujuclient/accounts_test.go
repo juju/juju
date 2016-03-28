@@ -113,16 +113,30 @@ func (s *AccountsSuite) TestUpdateAccountNewController(c *gc.C) {
 	})
 }
 
-func (s *AccountsSuite) TestUpdateAccountExistingControllerNewAccount(c *gc.C) {
+func (s *AccountsSuite) TestUpdateAccountExistingControllerMultipleAccounts(c *gc.C) {
 	testAccountDetails := jujuclient.AccountDetails{User: "bob@environs"}
 	err := s.store.UpdateAccount("kontroll", "bob@environs", testAccountDetails)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, gc.ErrorMatches, "alternative account for controller kontroll already exists")
 	accounts, err := s.store.AllAccounts("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
+	_, ok := accounts["bob@environs"]
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *AccountsSuite) TestUpdateAccountExistingControllerNewAccount(c *gc.C) {
+	accounts, err := s.store.AllAccounts("kontroll")
+	c.Assert(err, jc.ErrorIsNil)
+	for account := range accounts {
+		err := s.store.RemoveAccount("kontroll", account)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	testAccountDetails := jujuclient.AccountDetails{User: "bob@environs"}
+	err = s.store.UpdateAccount("kontroll", "bob@environs", testAccountDetails)
+	c.Assert(err, jc.ErrorIsNil)
+	accounts, err = s.store.AllAccounts("kontroll")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(accounts, jc.DeepEquals, map[string]jujuclient.AccountDetails{
-		"admin@local":  kontrollAdminAccountDetails,
-		"bob@local":    kontrollBobLocalAccountDetails,
-		"bob@remote":   kontrollBobRemoteAccountDetails,
 		"bob@environs": testAccountDetails,
 	})
 }
