@@ -202,7 +202,7 @@ var getDisksTests = []struct {
 
 func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 	for _, test := range getDisksTests {
-		diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, test.Series, "32f7d570-5bac-4b72-b169-250c24a94b2b")
+		diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, test.Series, "32f7d570-5bac-4b72-b169-250c24a94b2b", false)
 		if test.error != nil {
 			c.Assert(err, gc.Equals, err)
 		} else {
