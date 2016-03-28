@@ -45,8 +45,9 @@ func NewAPIContext(ctxt *cmd.Context) (*APIContext, error) {
 			Out: ctxt.Stdout,
 		}
 		client.VisitWebPage = ussologin.VisitWebPage(
-			filler,
+			"juju",
 			&http.Client{},
+			filler,
 			jujuclient.NewTokenStore(),
 		)
 	} else {
