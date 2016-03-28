@@ -23,6 +23,8 @@ github.com/juju/gojsonschema	git	e1ad140384f254c82f89450d9a7c8dd38a632838	2015-0
 github.com/juju/gomaasapi	git	63ded02fe247086e7b898b025fc27b069f66fdf8	2016-02-25T16:06:28Z
 github.com/juju/govmomi	git	4354a88d4b34abe467215f77c2fc1cb9f78b66f7	2015-04-24T01:54:48Z
 github.com/juju/httpprof	git	14bf14c307672fd2456bdbf35d19cf0ccd3cf565	2014-12-17T16:00:36Z
+github.com/juju/httprequest	git	89d547093c45e293599088cc63e805c6f1205dc0	2016-03-02T10:09:58Z
+github.com/juju/idmclient	git	812a86ff450af958df6665839d93590f27961b08	2016-03-16T15:15:55Z
 github.com/juju/loggo	git	8477fc936adf0e382d680310047ca27e128a309a	2015-05-27T03:58:39Z
 github.com/juju/mempool	git	24974d6c264fe5a29716e7d56ea24c4bd904b7cc	2016-02-05T10:49:27Z
 github.com/juju/names	git	ef19de31613af3735aa69ba3b40accce2faf7316	2016-03-01T22:07:10Z
