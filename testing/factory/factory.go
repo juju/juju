@@ -365,7 +365,13 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 
 	curl := charm.MustParseURL(params.URL)
 	bundleSHA256 := uniqueString("bundlesha")
-	charm, err := factory.st.AddCharm(ch, curl, "fake-storage-path", bundleSHA256)
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "fake-storage-path",
+		SHA256:      bundleSHA256,
+	}
+	charm, err := factory.st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	return charm
 }

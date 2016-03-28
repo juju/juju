@@ -376,15 +376,15 @@ func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.
 	}
 	bundleSHA256 := hex.EncodeToString(hash.Sum(nil))
 
+	info := service.CharmArchiveData{
+		ID:     curl,
+		Charm:  archive,
+		Data:   &repackagedArchive,
+		Size:   int64(repackagedArchive.Len()),
+		SHA256: bundleSHA256,
+	}
 	// Store the charm archive in environment storage.
-	return service.StoreCharmArchive(
-		st,
-		curl,
-		archive,
-		&repackagedArchive,
-		int64(repackagedArchive.Len()),
-		bundleSHA256,
-	)
+	return service.StoreCharmArchive(st, info)
 }
 
 // processGet handles a charm file GET request after authentication.

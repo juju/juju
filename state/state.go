@@ -839,31 +839,32 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 
 // AddCharm adds the ch charm with curl to the state.
 // On success the newly added charm state is returned.
-func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string) (stch *Charm, err error) {
+func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
-	if err := validateCharmVersion(ch); err != nil {
+	if err := validateCharmVersion(info.Charm); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	query := charms.FindId(curl.String()).Select(bson.D{{"placeholder", 1}})
+	query := charms.FindId(info.ID.String()).Select(bson.D{{"placeholder", 1}})
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var placeholderDoc struct {
 			Placeholder bool `bson:"placeholder"`
 		}
 		if err := query.One(&placeholderDoc); err == mgo.ErrNotFound {
-			return insertCharmOps(st, ch, curl, storagePath, bundleSha256)
+
+			return insertCharmOps(st, info)
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		} else if placeholderDoc.Placeholder {
-			return updateCharmOps(st, ch, curl, storagePath, bundleSha256, stillPlaceholder)
+			return updateCharmOps(st, info, stillPlaceholder)
 		}
-		return nil, errors.AlreadyExistsf("charm %q", curl)
+		return nil, errors.AlreadyExistsf("charm %q", info.ID)
 	}
 	if err = st.run(buildTxn); err == nil {
-		return st.Charm(curl)
+		return st.Charm(info.ID)
 	}
 	return nil, errors.Trace(err)
 }
@@ -1100,32 +1101,40 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 	return errors.Trace(st.run(buildTxn))
 }
 
+// CharmInfo contains all the data necessary to store a charm's metadata.
+type CharmInfo struct {
+	Charm       charm.Charm
+	ID          *charm.URL
+	StoragePath string
+	SHA256      string
+}
+
 // UpdateUploadedCharm marks the given charm URL as uploaded and
 // updates the rest of its data, returning it as *state.Charm.
-func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string) (*Charm, error) {
+func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
 	doc := &charmDoc{}
-	err := charms.FindId(curl.String()).One(&doc)
+	err := charms.FindId(info.ID.String()).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("charm %q", curl)
+		return nil, errors.NotFoundf("charm %q", info.ID)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if !doc.PendingUpload {
-		return nil, errors.Trace(&ErrCharmAlreadyUploaded{curl})
+		return nil, errors.Trace(&ErrCharmAlreadyUploaded{info.ID})
 	}
 
-	ops, err := updateCharmOps(st, ch, curl, storagePath, bundleSha256, stillPending)
+	ops, err := updateCharmOps(st, info, stillPending)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := st.runTransaction(ops); err != nil {
 		return nil, onAbort(err, ErrCharmRevisionAlreadyModified)
 	}
-	return st.Charm(curl)
+	return st.Charm(info.ID)
 }
 
 // addPeerRelationsOps returns the operations necessary to add the

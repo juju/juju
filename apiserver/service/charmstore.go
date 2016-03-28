@@ -75,10 +75,11 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 		URL:        csURL.String(),
 		HTTPClient: httpbakery.NewHTTPClient(),
 	}
+
 	if args.CharmStoreMacaroon != nil {
 		// Set the provided charmstore authorizing macaroon
 		// as a cookie in the HTTP client.
-		// TODO discharge any third party caveats in the macaroon.
+		// TODO(cmars) discharge any third party caveats in the macaroon.
 		ms := []*macaroon.Macaroon{args.CharmStoreMacaroon}
 		httpbakery.SetCookie(csParams.HTTPClient.Jar, csURL, ms)
 	}
@@ -120,11 +121,13 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 	// Store the charm archive in environment storage.
 	return StoreCharmArchive(
 		st,
-		charmURL,
-		downloadedCharm,
-		archive,
-		size,
-		bundleSHA256,
+		CharmArchiveData{
+			ID:     charmURL,
+			Charm:  downloadedCharm,
+			Data:   archive,
+			Size:   size,
+			SHA256: bundleSHA256,
+		},
 	)
 }
 
@@ -147,19 +150,36 @@ func minVersionError(minver, jujuver version.Number) error {
 	return minJujuVersionErr{&err}
 }
 
+// CharmArchiveData is the data that needs to be stored for a charm archive in
+// state.
+type CharmArchiveData struct {
+	ID     *charm.URL
+	Charm  charm.Charm
+	Data   io.Reader
+	Size   int64
+	SHA256 string
+}
+
 // StoreCharmArchive stores a charm archive in environment storage.
-func StoreCharmArchive(st *state.State, curl *charm.URL, ch charm.Charm, r io.Reader, size int64, sha256 string) error {
+func StoreCharmArchive(st *state.State, data CharmArchiveData) error {
 	storage := newStateStorage(st.ModelUUID(), st.MongoSession())
-	storagePath, err := charmArchiveStoragePath(curl)
+	storagePath, err := charmArchiveStoragePath(data.ID)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate charm archive name")
 	}
-	if err := storage.Put(storagePath, r, size); err != nil {
+	if err := storage.Put(storagePath, data.Data, data.Size); err != nil {
 		return errors.Annotate(err, "cannot add charm to storage")
 	}
 
+	info := state.CharmInfo{
+		Charm:       data.Charm,
+		ID:          data.ID,
+		StoragePath: storagePath,
+		SHA256:      data.SHA256,
+	}
+
 	// Now update the charm data in state and mark it as no longer pending.
-	_, err = st.UpdateUploadedCharm(ch, curl, storagePath, sha256)
+	_, err = st.UpdateUploadedCharm(info)
 	if err != nil {
 		alreadyUploaded := err == state.ErrCharmRevisionAlreadyModified ||
 			errors.Cause(err) == state.ErrCharmRevisionAlreadyModified ||

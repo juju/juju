@@ -48,20 +48,20 @@ type charmDoc struct {
 
 // insertCharmOps returns the txn operations necessary to insert the supplied
 // charm data. If curl is nil, an error will be returned.
-func insertCharmOps(st *State, ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string) ([]txn.Op, error) {
-	if curl == nil {
+func insertCharmOps(st *State, info CharmInfo) ([]txn.Op, error) {
+	if info.ID == nil {
 		return nil, errors.New("*charm.URL was nil")
 	}
 	return insertAnyCharmOps(&charmDoc{
-		DocID:        curl.String(),
-		URL:          curl,
+		DocID:        info.ID.String(),
+		URL:          info.ID,
 		ModelUUID:    st.ModelTag().Id(),
-		Meta:         ch.Meta(),
-		Config:       safeConfig(ch),
-		Metrics:      ch.Metrics(),
-		Actions:      ch.Actions(),
-		BundleSha256: bundleSha256,
-		StoragePath:  storagePath,
+		Meta:         info.Charm.Meta(),
+		Config:       safeConfig(info.Charm),
+		Metrics:      info.Charm.Metrics(),
+		Actions:      info.Charm.Actions(),
+		BundleSha256: info.SHA256,
+		StoragePath:  info.StoragePath,
 	})
 }
 
@@ -110,22 +110,22 @@ func insertAnyCharmOps(cdoc *charmDoc) ([]txn.Op, error) {
 // document with the supplied data, so long as the supplied assert still holds
 // true.
 func updateCharmOps(
-	st *State, ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string, assert bson.D,
+	st *State, info CharmInfo, assert bson.D,
 ) ([]txn.Op, error) {
 
 	updateFields := bson.D{{"$set", bson.D{
-		{"meta", ch.Meta()},
-		{"config", safeConfig(ch)},
-		{"actions", ch.Actions()},
-		{"metrics", ch.Metrics()},
-		{"storagepath", storagePath},
-		{"bundlesha256", bundleSha256},
+		{"meta", info.Charm.Meta()},
+		{"config", safeConfig(info.Charm)},
+		{"actions", info.Charm.Actions()},
+		{"metrics", info.Charm.Metrics()},
+		{"storagepath", info.StoragePath},
+		{"bundlesha256", info.SHA256},
 		{"pendingupload", false},
 		{"placeholder", false},
 	}}}
 	return []txn.Op{{
 		C:      charmsC,
-		Id:     curl.String(),
+		Id:     info.ID.String(),
 		Assert: assert,
 		Update: updateFields,
 	}}, nil
