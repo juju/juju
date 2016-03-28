@@ -505,11 +505,16 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	// removing its deployment, so we need to poll here
 	// until it actually happens.
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		err := u0.Refresh()
-		if err == nil && attempt.HasNext() {
-			continue
+		if !attempt.HasNext() {
+			c.Fatalf("timeout waiting for unit %q to be removed", u0.Name())
 		}
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+		if err := u0.Refresh(); err == nil {
+			c.Logf("waiting unit %q to be removed...", u0.Name())
+			continue
+		} else {
+			c.Assert(err, jc.Satisfies, errors.IsNotFound)
+			break
+		}
 	}
 
 	// short-circuit-remove u1 after it's been deployed; check it's recalled
@@ -567,13 +572,9 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 	go func() {
 		done <- a.Run(nil)
 	}()
-
-	// See controller runners start
+	c.Logf("started test agent, waiting for workers...")
 	r0 := s.singularRecord.nextRunner(c)
 	r0.waitForWorker(c, "txnpruner")
-
-	r1 := s.singularRecord.nextRunner(c)
-	r1.waitForWorkers(c, perEnvSingularWorkers)
 
 	// Check that the provisioner and firewaller are alive by doing
 	// a rudimentary check that it responds to state changes.
@@ -586,14 +587,19 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := juju.AddUnits(s.State, svc, 1, nil)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("service %q added with 1 unit, waiting for unit %q's machine to be started...", svc.Name(), units[0].Name())
+
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), gc.NotNil)
+	c.Logf("machine hosting unit %q started, waiting for the unit to be deployed...", units[0].Name())
 
 	// Wait for the instance id to show up in the state.
 	s.waitProvisioned(c, units[0])
+	c.Logf("unit %q deployed, opening port tcp/999...", units[0].Name())
 	err = units[0].OpenPort("tcp", 999)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpOpenPorts{}), gc.NotNil)
+	c.Logf("unit %q port tcp/999 opened, cleaning up...", units[0].Name())
 
 	// Check that the metrics workers have started by adding metrics
 	select {
@@ -601,11 +607,13 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 		c.Fatalf("timed out waiting for metric cleanup API to be called")
 	case <-s.metricAPI.CleanupCalled():
 	}
+	c.Logf("metric cleanup API called")
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for metric sender API to be called")
 	case <-s.metricAPI.SendCalled():
 	}
+	c.Logf("metric sender API called, stopping test agent...")
 
 	err = a.Stop()
 	c.Assert(err, jc.ErrorIsNil)
@@ -613,9 +621,10 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 	select {
 	case err := <-done:
 		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(5 * time.Second):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
+	c.Logf("test agent stopped successfully.")
 }
 
 func (s *MachineSuite) TestManageModelRunsResumer(c *gc.C) {
@@ -632,10 +641,6 @@ func (s *MachineSuite) TestManageModelRunsResumer(c *gc.C) {
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
 
-	// Wait for the worker that starts before the resumer to start.
-	_ = s.singularRecord.nextRunner(c)
-	r := s.singularRecord.nextRunner(c)
-	r.waitForWorker(c, "charm-revision-updater")
 	started.assertTriggered(c, "resumer worker to start")
 }
 
@@ -653,11 +658,6 @@ func (s *MachineSuite) TestManageModelStartsInstancePoller(c *gc.C) {
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
 
-	// Wait for the worker that starts before the instancepoller to
-	// start.
-	_ = s.singularRecord.nextRunner(c)
-	r := s.singularRecord.nextRunner(c)
-	r.waitForWorker(c, "charm-revision-updater")
 	started.assertTriggered(c, "instancepoller worker to start")
 }
 
@@ -720,8 +720,8 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	dummy.SetInstanceAddresses(insts[0], addrs)
 	dummy.SetInstanceStatus(insts[0], "running")
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if !a.HasNext() {
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		if !attempt.HasNext() {
 			c.Logf("final machine addresses: %#v", m.Addresses())
 			c.Fatalf("timed out waiting for machine to get address")
 		}
@@ -731,8 +731,10 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Logf("found status is %q %q", instStatus.Status, instStatus.Message)
 		if reflect.DeepEqual(m.Addresses(), addrs) && instStatus.Message == "running" {
+			c.Logf("machine %q address updated: %+v", m.Id(), addrs)
 			break
 		}
+		c.Logf("waiting for machine %q address to be updated", m.Id())
 	}
 }
 
@@ -778,10 +780,6 @@ func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
 
-	// Wait for the worker that starts before the addresser to start.
-	_ = s.singularRecord.nextRunner(c)
-	r := s.singularRecord.nextRunner(c)
-	r.waitForWorker(c, "cleaner")
 	started.assertTriggered(c, "addresser to start")
 }
 
@@ -866,6 +864,8 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 		select {
 		case <-timeout:
 			c.Fatalf("timed out waiting for provisioning")
+		case <-time.After(coretesting.ShortWait):
+			s.State.StartSync()
 		case _, ok := <-w.Changes():
 			c.Assert(ok, jc.IsTrue)
 			err := m.Refresh()
@@ -946,7 +946,7 @@ func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgen
 	select {
 	case err := <-done:
 		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(5 * time.Second):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
 }
@@ -1052,7 +1052,7 @@ func (s *MachineSuite) assertDiscoveryBlocksAPIUntilChannelClosed(c *gc.C, space
 	info.Tag = s.AdminUserTag(c)
 	// User can't log in
 	_, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.ErrorMatches, "space discovery still in progress")
+	c.Assert(err, gc.ErrorMatches, "spaces are still being discovered")
 
 	// Local machine can log in
 	info, ok = conf.APIInfo()
@@ -1245,6 +1245,7 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 		case <-timeout:
 			c.Fatalf("timeout while waiting for authorised ssh keys to change")
 		case <-time.After(coretesting.ShortWait):
+			s.State.StartSync()
 			keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
 			c.Assert(err, jc.ErrorIsNil)
 			keysStr := strings.Join(keys, "\n")
@@ -1260,6 +1261,7 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 // be received from ops, and times out if not.
 func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds ...dummy.Operation) dummy.Operation {
 	st.StartSync()
+	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
 		case op := <-opc:
@@ -1269,7 +1271,9 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 				}
 			}
 			c.Logf("discarding unknown event %#v", op)
-		case <-time.After(15 * time.Second):
+		case <-time.After(coretesting.ShortWait):
+			st.StartSync()
+		case <-timeout:
 			c.Fatalf("time out wating for operation")
 		}
 	}
@@ -1468,8 +1472,11 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for config to be updated.
-	s.BackingState.StartSync()
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		s.BackingState.StartSync()
+		if !attempt.HasNext() {
+			break
+		}
 		addrs, err := a.CurrentConfig().APIAddresses()
 		c.Assert(err, jc.ErrorIsNil)
 		if reflect.DeepEqual(addrs, []string{"localhost:1234"}) {
@@ -2054,17 +2061,13 @@ func (s *MachineSuite) TestManageModelRunsUndertaker(c *gc.C) {
 	// controller workers.
 	_ = s.singularRecord.nextRunner(c)
 	// new environ workers.
-	_ = s.singularRecord.nextRunner(c)
+	r := s.singularRecord.nextRunner(c)
+	r.waitForWorker(c, "unitassigner")
 
 	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 
-	// controller workers.
-	_ = s.singularRecord.nextRunner(c)
-	// new environ workers.
-	r := s.singularRecord.nextRunner(c)
-	r.waitForWorker(c, "undertaker")
 	s.assertChannelActive(c, started, "undertaker worker to start")
 }
 
@@ -2145,8 +2148,10 @@ func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureRepl
 
 	var expectedWMode string
 	dialOpts := stateWorkerDialOpts
+	dialOpts.Timeout = coretesting.LongWait
 	if configureReplset {
 		info := inst.DialInfo()
+		info.Timeout = dialOpts.Timeout
 		args := peergrouper.InitiateMongoParams{
 			DialInfo:       info,
 			MemberHostPort: inst.Addr(),
@@ -2195,7 +2200,7 @@ type singularRunnerRecord struct {
 
 func newSingularRunnerRecord() *singularRunnerRecord {
 	return &singularRunnerRecord{
-		runnerC: make(chan *fakeSingularRunner, 5),
+		runnerC: make(chan *fakeSingularRunner, 64),
 	}
 }
 
@@ -2214,11 +2219,12 @@ func (r *singularRunnerRecord) newSingularRunner(runner worker.Runner, conn sing
 
 // nextRunner blocks until a new singular runner is created.
 func (r *singularRunnerRecord) nextRunner(c *gc.C) *fakeSingularRunner {
+	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
 		case r := <-r.runnerC:
 			return r
-		case <-time.After(coretesting.LongWait):
+		case <-timeout:
 			c.Fatal("timed out waiting for singular runner to be created")
 		}
 	}
@@ -2230,6 +2236,7 @@ type fakeSingularRunner struct {
 }
 
 func (r *fakeSingularRunner) StartWorker(name string, start func() (worker.Worker, error)) error {
+	logger.Infof("starting fake worker %q", name)
 	r.startC <- name
 	return r.Runner.StartWorker(name, start)
 }
@@ -2241,11 +2248,15 @@ func (r *fakeSingularRunner) waitForWorker(c *gc.C, target string) []string {
 	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
+		case <-time.After(coretesting.ShortWait):
+			c.Logf("still waiting for %q; workers seen so far: %+v", target, seen)
 		case workerName := <-r.startC:
 			seen = append(seen, workerName)
 			if workerName == target {
+				c.Logf("target worker %q started; workers seen so far: %+v", workerName, seen)
 				return seen
 			}
+			c.Logf("worker %q started; still waiting for %q; workers seen so far: %+v", workerName, target, seen)
 		case <-timeout:
 			c.Fatal("timed out waiting for " + target)
 		}
@@ -2262,6 +2273,7 @@ func (r *fakeSingularRunner) waitForWorkers(c *gc.C, targets []string) []string 
 	for {
 		select {
 		case workerName := <-r.startC:
+			c.Logf("worker %q started; workers seen so far: %+v (len: %d, len(targets): %d)", workerName, seen, len(seen), len(targets))
 			if seenTargets[workerName] == true {
 				c.Fatal("worker started twice: " + workerName)
 			}
@@ -2269,8 +2281,10 @@ func (r *fakeSingularRunner) waitForWorkers(c *gc.C, targets []string) []string 
 			numSeenTargets++
 			seen = append(seen, workerName)
 			if numSeenTargets == len(targets) {
+				c.Logf("all expected target workers started: %+v", seen)
 				return seen
 			}
+			c.Logf("still waiting for workers %+v to start; numSeenTargets=%d", targets, numSeenTargets)
 		case <-timeout:
 			c.Fatalf("timed out waiting for %v", targets)
 		}

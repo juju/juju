@@ -73,7 +73,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		MongoInfo: &mongo.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: false,
-		PreferIPv6:                     true,
+		PreferIPv6:                     false,
 		EnableOSRefreshUpdate:          true,
 		EnableOSUpgrade:                true,
 	}
@@ -129,7 +129,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 		MongoInfo: &mongo.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: true,
-		PreferIPv6:                     true,
+		PreferIPv6:                     false,
 		EnableOSRefreshUpdate:          true,
 		EnableOSUpgrade:                true,
 	})

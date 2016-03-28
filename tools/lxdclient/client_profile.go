@@ -7,16 +7,39 @@ package lxdclient
 
 import (
 	"github.com/juju/errors"
+	"github.com/lxc/lxd"
 )
 
 type rawProfileClient interface {
 	ProfileCreate(name string) error
 	ListProfiles() ([]string, error)
 	SetProfileConfigItem(name, key, value string) error
+	ProfileDelete(profile string) error
+	ProfileDeviceAdd(profile, devname, devtype string, props []string) (*lxd.Response, error)
 }
 
 type profileClient struct {
 	raw rawProfileClient
+}
+
+// ProfileDelete deletes an existing profile. No check is made to
+// verify the profile exists.
+func (p profileClient) ProfileDelete(profile string) error {
+	if err := p.raw.ProfileDelete(profile); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// ProfileDeviceAdd adds a profile device, such as a disk or a nic, to
+// the specified profile. No check is made to verify the profile
+// exists.
+func (p profileClient) ProfileDeviceAdd(profile, devname, devtype string, props []string) (*lxd.Response, error) {
+	resp, err := p.raw.ProfileDeviceAdd(profile, devname, devtype, props)
+	if err != nil {
+		return resp, errors.Trace(err)
+	}
+	return resp, err
 }
 
 // CreateProfile attempts to create a new lxc profile and set the given config.
