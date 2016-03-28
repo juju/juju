@@ -27,10 +27,30 @@ from make_agent_json import StanzaWriter
 from utils import temp_dir
 
 
+class NoDebsFound(Exception):
+    """Raised when no .deb files could be found."""
+
+
 # These are the archives that are searched for matching releases.
 UBUNTU_ARCH = "http://archive.ubuntu.com/ubuntu/pool/universe/j/juju-core/"
 ARM_ARCH = "http://ports.ubuntu.com/pool/universe/j/juju-core/"
 PUBLIC_ARCHIVES = [UBUNTU_ARCH, ARM_ARCH]
+
+
+def move_debs(dest_debs):
+    juju_core_dir = os.path.join(dest_debs, 'juju2')
+    if not os.path.isdir(juju_core_dir):
+        # The juju2 package was not found, try the juju-core package.
+        juju_core_dir = os.path.join(dest_debs, 'juju-core')
+    if os.path.isdir(juju_core_dir):
+        debs = glob.glob(os.path.join(juju_core_dir, '*deb'))
+    else:
+        debs = []
+    if len(debs) == 0:
+        raise NoDebsFound('No deb files found.')
+    for deb in debs:
+        shutil.move(deb, dest_debs)
+    shutil.rmtree(juju_core_dir)
 
 
 def retrieve_packages(release, upatch, archives, dest_debs, s3_config):
@@ -47,15 +67,7 @@ def retrieve_packages(release, upatch, archives, dest_debs, s3_config):
             'lftp', '-c', 'mirror', '-i',
             "(juju2|juju-core).*{}.*\.{}~juj.*\.deb".format(release, upatch),
             archive], cwd=dest_debs)
-    juju_core_dir = os.path.join(dest_debs, 'juju2')
-    if not os.path.isdir(juju_core_dir):
-        # The juju2 package was not found, try the juju-core package.
-        juju_core_dir = os.path.join(dest_debs, 'juju-core')
-    if os.path.isdir(juju_core_dir):
-        debs = glob.glob(os.path.join(juju_core_dir, '*deb'))
-        for deb in debs:
-            shutil.move(deb, dest_debs)
-        shutil.rmtree(juju_core_dir)
+    move_debs(dest_debs)
     if os.path.exists(s3_config):
         print(
             'checking s3://juju-qa-data/agent-archive for'
