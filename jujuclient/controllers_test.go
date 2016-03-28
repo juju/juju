@@ -102,6 +102,23 @@ func (s *ControllersSuite) TestRemoveController(c *gc.C) {
 	c.Assert(found, gc.IsNil)
 }
 
+func (s *ControllersSuite) TestRemoveControllerRemovesIdenticalControllers(c *gc.C) {
+	name := firstTestControllerName(c)
+	details, err := s.store.ControllerByName(name)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.store.UpdateController(name+"-copy", *details)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.store.RemoveController(name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, name := range []string{name, name + "-copy"} {
+		found, err := s.store.ControllerByName(name)
+		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("controller %v not found", name))
+		c.Assert(found, gc.IsNil)
+	}
+}
+
 func (s *ControllersSuite) assertWriteFails(c *gc.C, failureMessage string) {
 	err := s.store.UpdateController(s.controllerName, s.controller)
 	c.Assert(err, gc.ErrorMatches, failureMessage)

@@ -141,3 +141,13 @@ func (StringResource) Stop() error {
 func (s StringResource) String() string {
 	return string(s)
 }
+
+// ValueResource is a Resource with a no-op Stop method, containing an
+// interface{} value.
+type ValueResource struct {
+	Value interface{}
+}
+
+func (r ValueResource) Stop() error {
+	return nil
+}

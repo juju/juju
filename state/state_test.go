@@ -2055,7 +2055,7 @@ func (s *StateSuite) TestAddServiceIncompatibleOSWithSeriesInURL(c *gc.C) {
 		Name: "wordpress", Owner: s.Owner.String(), Charm: charm,
 		Series: "centos7",
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": series \"centos7\" \\(OS \"CentOS\"\\) not supported by charm")
+	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": series "centos7" \(OS \"CentOS"\) not supported by charm, supported series are "quantal"`)
 }
 
 func (s *StateSuite) TestAddServiceCompatibleOSWithSeriesInURL(c *gc.C) {
@@ -2069,6 +2069,16 @@ func (s *StateSuite) TestAddServiceCompatibleOSWithSeriesInURL(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *StateSuite) TestAddServiceCompatibleOSWithNoExplicitSupportedSeries(c *gc.C) {
+	// If a charm doesn't declare any series, we can add it with any series we choose.
+	charm := s.AddSeriesCharm(c, "dummy", "")
+	_, err := s.State.AddService(state.AddServiceArgs{
+		Name: "wordpress", Owner: s.Owner.String(), Charm: charm,
+		Series: "quantal",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *StateSuite) TestAddServiceOSIncompatibleWithSupportedSeries(c *gc.C) {
 	charm := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	// A charm with supported series can only be force-deployed to series
@@ -2077,7 +2087,7 @@ func (s *StateSuite) TestAddServiceOSIncompatibleWithSupportedSeries(c *gc.C) {
 		Name: "wordpress", Owner: s.Owner.String(), Charm: charm,
 		Series: "centos7",
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": series \"centos7\" \\(OS \"CentOS\"\\) not supported by charm")
+	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": series "centos7" \(OS "CentOS"\) not supported by charm, supported series are "precise, trusty"`)
 }
 
 func (s *StateSuite) TestAllServices(c *gc.C) {

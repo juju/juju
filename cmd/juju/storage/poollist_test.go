@@ -35,7 +35,7 @@ func (s *poolListSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *poolListSuite) runPoolList(c *gc.C, args []string) (*cmd.Context, error) {
-	args = append(args, []string{"-m", "dummymodel"}...)
+	args = append(args, []string{"-m", "admin"}...)
 	return testing.RunCommand(c, storage.NewPoolListCommandForTest(s.mockAPI, s.store), args...)
 }
 

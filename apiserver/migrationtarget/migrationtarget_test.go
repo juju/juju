@@ -14,7 +14,11 @@ import (
 	"github.com/juju/juju/apiserver/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -31,11 +35,18 @@ var _ = gc.Suite(&Suite{})
 
 func (s *Suite) SetUpTest(c *gc.C) {
 	// Required to allow model import test to work.
-	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{
-		"type":     "dummy",
-		"state-id": "42",
-	})
 	s.StateSuite.SetUpTest(c)
+	env, err := environs.Prepare(
+		modelcmd.BootstrapContext(testing.Context(c)),
+		jujuclienttesting.NewMemStore(),
+		environs.PrepareParams{
+			ControllerName: "dummycontroller",
+			BaseConfig:     dummy.SampleConfig(),
+			CloudName:      "dummy",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.InitialConfig = testing.CustomModelConfig(c, env.Config().AllAttrs())
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })

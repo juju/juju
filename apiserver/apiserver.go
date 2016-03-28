@@ -210,7 +210,10 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 			3: newAdminApiV3,
 		},
 	}
-	srv.authCtxt = newAuthContext(srv)
+	srv.authCtxt, err = newAuthContext(s)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	go srv.run()
 	return srv, nil
 }

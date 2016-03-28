@@ -63,14 +63,9 @@ func newEnviron(cfg *config.Config, newRawProvider newRawProviderFunc) (*environ
 }
 
 func newEnvironRaw(ecfg *environConfig, raw *rawProvider) (*environ, error) {
-	uuid, ok := ecfg.UUID()
-	if !ok {
-		return nil, errors.New("UUID not set")
-	}
-
 	env := &environ{
 		name: ecfg.Name(),
-		uuid: uuid,
+		uuid: ecfg.UUID(),
 		ecfg: ecfg,
 		raw:  raw,
 	}

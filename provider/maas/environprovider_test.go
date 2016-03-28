@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -47,8 +46,7 @@ func (suite *EnvironProviderSuite) TestCredentialsSetup(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := envtesting.BootstrapContext(c)
-	environ, err := providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+	cfg, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
 		Config:        config,
 		CloudEndpoint: "http://maas.testing.invalid/maas/",
 		Credentials: cloud.NewCredential(
@@ -60,7 +58,6 @@ func (suite *EnvironProviderSuite) TestCredentialsSetup(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg := environ.Config()
 	attrs = cfg.UnknownAttrs()
 	server, ok := attrs["maas-server"]
 	c.Assert(ok, jc.IsTrue)
@@ -77,8 +74,7 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := envtesting.BootstrapContext(c)
-	environ, err := providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+	cfg, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
 		Config:        config,
 		CloudEndpoint: "http://maas.testing.invalid/maas/",
 		Credentials: cloud.NewCredential(
@@ -90,11 +86,11 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	preparedConfig := environ.Config()
-	unknownAttrs := preparedConfig.UnknownAttrs()
+	unknownAttrs := cfg.UnknownAttrs()
 	c.Assert(unknownAttrs["maas-server"], gc.Equals, "http://maas.testing.invalid/maas/")
 
 	uuid, ok := unknownAttrs["maas-agent-name"]
+
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(uuid, jc.Satisfies, utils.IsValidUUIDString)
 }
@@ -106,8 +102,7 @@ func (suite *EnvironProviderSuite) TestMAASServerFromRegion(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := envtesting.BootstrapContext(c)
-	environ, err := providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+	cfg, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
 		Config:      config,
 		CloudRegion: "maas.testing",
 		Credentials: cloud.NewCredential(
@@ -119,8 +114,7 @@ func (suite *EnvironProviderSuite) TestMAASServerFromRegion(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	preparedConfig := environ.Config()
-	unknownAttrs := preparedConfig.UnknownAttrs()
+	unknownAttrs := cfg.UnknownAttrs()
 	c.Assert(unknownAttrs["maas-server"], gc.Equals, "http://maas.testing/MAAS")
 }
 
@@ -163,8 +157,7 @@ func (suite *EnvironProviderSuite) TestAgentNameShouldNotBeSetByHand(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := envtesting.BootstrapContext(c)
-	_, err = providerInstance.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+	_, err = providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
 		Config:        config,
 		CloudEndpoint: "http://maas.testing.invalid/maas/",
 		Credentials: cloud.NewCredential(

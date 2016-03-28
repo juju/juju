@@ -139,11 +139,16 @@ type InstanceConfig struct {
 	// Config holds the initial environment configuration.
 	Config *config.Config
 
+	// HostedModelConfig is a set of config attributes to be overlaid
+	// on the controller model config (Config, above) to construct the
+	// initial hosted model config.
+	HostedModelConfig map[string]interface{}
+
 	// Constraints holds the machine constraints.
 	Constraints constraints.Value
 
-	// EnvironConstraints holds the initial environment constraints.
-	EnvironConstraints constraints.Value
+	// ModelConstraints holds the initial model constraints.
+	ModelConstraints constraints.Value
 
 	// DisableSSLHostnameVerification can be set to true to tell cloud-init
 	// that it shouldn't verify SSL certificates
@@ -379,6 +384,9 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 		if cfg.InstanceId == "" {
 			return errors.New("missing instance-id")
 		}
+		if len(cfg.HostedModelConfig) == 0 {
+			return errors.New("missing hosted model config")
+		}
 	} else {
 		if len(cfg.MongoInfo.Addrs) == 0 {
 			return errors.New("missing state hosts")
@@ -394,6 +402,9 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 		}
 		if cfg.StateServingInfo != nil {
 			return errors.New("state serving info unexpectedly present")
+		}
+		if len(cfg.HostedModelConfig) != 0 {
+			return errors.New("hosted model config unexpectedly present")
 		}
 	}
 	if cfg.MachineNonce == "" {
@@ -467,7 +478,10 @@ func NewInstanceConfig(
 // NewBootstrapInstanceConfig sets up a basic machine configuration for a
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
-func NewBootstrapInstanceConfig(cons, environCons constraints.Value, series, publicImageSigningKey string) (*InstanceConfig, error) {
+func NewBootstrapInstanceConfig(
+	cons, modelCons constraints.Value,
+	series, publicImageSigningKey string,
+) (*InstanceConfig, error) {
 	// For a bootstrap instance, FinishInstanceConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
 	icfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, publicImageSigningKey, true, nil, nil, nil)
@@ -480,7 +494,7 @@ func NewBootstrapInstanceConfig(cons, environCons constraints.Value, series, pub
 		multiwatcher.JobHostUnits,
 	}
 	icfg.Constraints = cons
-	icfg.EnvironConstraints = environCons
+	icfg.ModelConstraints = modelCons
 	return icfg, nil
 }
 
@@ -570,14 +584,10 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	if password == "" {
 		return errors.New("model configuration has no admin-secret")
 	}
-	modelUUID, uuidSet := cfg.UUID()
-	if !uuidSet {
-		return errors.New("config missing model uuid")
-	}
 	icfg.APIInfo = &api.Info{
 		Password: password,
 		CACert:   caCert,
-		ModelTag: names.NewModelTag(modelUUID),
+		ModelTag: names.NewModelTag(cfg.UUID()),
 	}
 	icfg.MongoInfo = &mongo.MongoInfo{Password: password, Info: mongo.Info{CACert: caCert}}
 
@@ -611,8 +621,7 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 // InstanceTags returns the minimum set of tags that should be set on a
 // machine instance, if the provider supports them.
 func InstanceTags(cfg *config.Config, jobs []multiwatcher.MachineJob) map[string]string {
-	uuid, _ := cfg.UUID()
-	instanceTags := tags.ResourceTags(names.NewModelTag(uuid), cfg)
+	instanceTags := tags.ResourceTags(names.NewModelTag(cfg.UUID()), cfg)
 	if multiwatcher.AnyJobNeedsState(jobs...) {
 		instanceTags[tags.JujuController] = "true"
 	}

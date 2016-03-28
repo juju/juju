@@ -11,7 +11,6 @@ import (
 	"github.com/juju/loggo"
 	rcmd "github.com/juju/romulus/cmd/commands"
 	"github.com/juju/utils/featureflag"
-	"github.com/juju/version"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
@@ -34,9 +33,9 @@ import (
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
-	jujuversion "github.com/juju/juju/version"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 )
@@ -183,6 +182,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(user.NewEnableCommand())
 	r.Register(user.NewDisableCommand())
 	r.Register(user.NewSwitchUserCommand())
+	r.Register(user.NewLoginCommand())
 
 	// Manage cached images
 	r.Register(cachedimages.NewSuperCommand())
@@ -203,7 +203,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewGrantCommand())
 	r.Register(model.NewRevokeCommand())
 
-	r.Register(newMigrateCommand())
+	if featureflag.Enabled(feature.Migration) {
+		r.Register(newMigrateCommand())
+	}
 
 	// Manage and control actions
 	r.Register(action.NewSuperCommand())
@@ -286,35 +288,4 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(modelcmd.Wrap(command))
 	}
 	rcmd.RegisterAll(r)
-}
-
-type versionDeprecation struct {
-	replacement string
-	deprecate   version.Number
-	obsolete    version.Number
-}
-
-// Deprecated implements cmd.DeprecationCheck.
-// If the current version is after the deprecate version number,
-// the command is deprecated and the replacement should be used.
-func (v *versionDeprecation) Deprecated() (bool, string) {
-	if jujuversion.Current.Compare(v.deprecate) > 0 {
-		return true, v.replacement
-	}
-	return false, ""
-}
-
-// Obsolete implements cmd.DeprecationCheck.
-// If the current version is after the obsolete version number,
-// the command is obsolete and shouldn't be registered.
-func (v *versionDeprecation) Obsolete() bool {
-	return jujuversion.Current.Compare(v.obsolete) > 0
-}
-
-func twoDotOhDeprecation(replacement string) cmd.DeprecationCheck {
-	return &versionDeprecation{
-		replacement: replacement,
-		deprecate:   version.MustParse("2.0-00"),
-		obsolete:    version.MustParse("3.0-00"),
-	}
 }

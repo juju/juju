@@ -216,9 +216,7 @@ func (s *ModelSuite) TestConfigForControllerEnv(c *gc.C) {
 	conf, err := env.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conf.Name(), gc.Equals, "testenv")
-	uuid, ok := conf.UUID()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(uuid, gc.Equals, s.modelTag.Id())
+	c.Assert(conf.UUID(), gc.Equals, s.modelTag.Id())
 }
 
 func (s *ModelSuite) TestConfigForOtherEnv(c *gc.C) {
@@ -236,9 +234,7 @@ func (s *ModelSuite) TestConfigForOtherEnv(c *gc.C) {
 	conf, err := env.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conf.Name(), gc.Equals, "other")
-	uuid, ok := conf.UUID()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(uuid, gc.Equals, otherEnv.UUID())
+	c.Assert(conf.UUID(), gc.Equals, otherEnv.UUID())
 }
 
 // createTestEnvConfig returns a new model config and its UUID for testing.
@@ -256,9 +252,7 @@ func (s *ModelSuite) TestModelConfigSameEnvAsState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := env.Config()
 	c.Assert(err, jc.ErrorIsNil)
-	uuid, exists := cfg.UUID()
-	c.Assert(exists, jc.IsTrue)
-	c.Assert(uuid, gc.Equals, s.State.ModelUUID())
+	c.Assert(cfg.UUID(), gc.Equals, s.State.ModelUUID())
 }
 
 func (s *ModelSuite) TestModelConfigDifferentEnvThanState(c *gc.C) {
@@ -268,8 +262,7 @@ func (s *ModelSuite) TestModelConfigDifferentEnvThanState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := env.Config()
 	c.Assert(err, jc.ErrorIsNil)
-	uuid, exists := cfg.UUID()
-	c.Assert(exists, jc.IsTrue)
+	uuid := cfg.UUID()
 	c.Assert(uuid, gc.Equals, env.UUID())
 	c.Assert(uuid, gc.Not(gc.Equals), s.State.ModelUUID())
 }

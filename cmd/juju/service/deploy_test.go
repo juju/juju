@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -552,15 +553,9 @@ func (s *DeploySuite) TestCharmSeries(c *gc.C) {
 
 	for i, test := range deploySeriesTests {
 		c.Logf("test %d", i)
-		cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-			"name":            "test",
-			"type":            "dummy",
-			"uuid":            coretesting.ModelTag.Id(),
-			"ca-cert":         coretesting.CACert,
-			"ca-private-key":  coretesting.CAKey,
-			"authorized-keys": coretesting.FakeAuthKeys,
-			"default-series":  test.modelSeries,
-		})
+		cfg, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
+			"default-series": test.modelSeries,
+		}))
 		c.Assert(err, jc.ErrorIsNil)
 		series, msg, err := charmSeries(test.requestedSeries, test.seriesFromCharm, test.supportedSeries, test.force, cfg)
 		if test.err != "" {
@@ -1022,7 +1017,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, curl)
 	c.Assert(called, jc.IsTrue)
-	modelUUID, _ := s.Environ.Config().UUID()
+	modelUUID := s.Environ.Config().UUID()
 	stub.CheckCalls(c, []jujutesting.StubCall{{
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:   modelUUID,
@@ -1069,7 +1064,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, curl)
 	c.Assert(called, jc.IsTrue)
-	modelUUID, _ := s.Environ.Config().UUID()
+	modelUUID := s.Environ.Config().UUID()
 	stub.CheckCalls(c, []jujutesting.StubCall{{
 		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
 	}, {
