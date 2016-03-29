@@ -160,6 +160,7 @@ const SystemIdentity = "system-identity"
 
 const (
 	LxcBridge              = "LXC_BRIDGE"
+	LxdBridge              = "LXD_BRIDGE"
 	ProviderType           = "PROVIDER_TYPE"
 	ContainerType          = "CONTAINER_TYPE"
 	Namespace              = "NAMESPACE"

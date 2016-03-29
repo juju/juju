@@ -147,7 +147,7 @@ func (broker *lxdBroker) MaintainInstance(args environs.StartInstanceParams) err
 	machineID := args.InstanceConfig.MachineId
 
 	// Default to using the host network until we can configure.
-	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
+	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
 	if bridgeDevice == "" {
 		var err error
 		bridgeDevice, err = lxd.GetDefaultBridgeName()
