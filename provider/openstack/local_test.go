@@ -184,7 +184,7 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.Credential = makeCredential(s.cred)
 	s.CloudEndpoint = s.cred.URL
 	s.CloudRegion = s.cred.Region
-
+	s.UploadArches = []string{arch.AMD64}
 	s.LiveTests.SetUpSuite(c)
 	openstack.UseTestImageData(openstack.ImageMetadataStorage(s.Env), s.cred)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
@@ -241,6 +241,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.Credential = makeCredential(s.cred)
 	s.CloudEndpoint = s.cred.URL
 	s.CloudRegion = s.cred.Region
+	s.UploadArches = []string{arch.AMD64}
 
 	cl := client.NewClient(s.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
