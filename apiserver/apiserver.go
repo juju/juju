@@ -518,7 +518,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	return conn.Close()
 }
 
-func (srv *Server) newAPIHandler(conn *rpc.Conn, reqNotifier *requestNotifier, modelUUID string) (*apiHandler, error) {
+func (srv *Server) newAPIHandler(conn rpc.ServerConn, reqNotifier *requestNotifier, modelUUID string) (*apiHandler, error) {
 	// Note that we don't overwrite modelUUID here because
 	// newAPIHandler treats an empty modelUUID as signifying
 	// the API version used.

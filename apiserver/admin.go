@@ -200,7 +200,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		authedApi = newClientAuthRoot(authedApi, envUser)
 	}
 
-	a.root.rpcConn.ServeFinder(authedApi, serverError)
+	a.root.conn.ServeFinder(authedApi, serverError)
 
 	return loginResult, nil
 }
@@ -444,7 +444,7 @@ func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 
 	root.getResources().Register(&machinePinger{pinger, root.mongoUnavailable})
 	action := func() {
-		if err := root.getRpcConn().Close(); err != nil {
+		if err := root.conn.Close(); err != nil {
 			logger.Errorf("error closing the RPC connection: %v", err)
 		}
 	}

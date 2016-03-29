@@ -56,7 +56,7 @@ type stringVal struct {
 
 type Root struct {
 	mu        sync.Mutex
-	conn      *rpc.Conn
+	conn      rpc.ServerConn
 	calls     []*callInfo
 	returnErr bool
 	simple    map[string]*SimpleMethods
@@ -235,7 +235,7 @@ func (a *CallbackMethods) Factorial(x int64val) (int64val, error) {
 		return int64val{1}, nil
 	}
 	var r int64val
-	err := a.root.conn.Call(rpc.Request{"CallbackMethods", 0, "", "Factorial"}, int64val{x.I - 1}, &r)
+	err := a.root.conn.(rpc.ClientConn).Call(rpc.Request{"CallbackMethods", 0, "", "Factorial"}, int64val{x.I - 1}, &r)
 	if err != nil {
 		return int64val{}, err
 	}
@@ -1091,7 +1091,7 @@ func (*rpcSuite) TestBidirectional(c *gc.C) {
 	var srvRoot Root
 	client, srvDone, _, _ := newRPCClientServer(c, &srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
-	server := client.(*rpc.Conn)
+	server := client.(rpc.ServerConn)
 	server.Serve(&Root{conn: server}, nil)
 	var r int64val
 	err := client.Call(rpc.Request{"CallbackMethods", 0, "", "Factorial"}, int64val{12}, &r)
@@ -1228,7 +1228,7 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 	}
 	client := rpc.NewServerConn(NewJSONCodec(conn, role), clientNotifier)
 	client.Start()
-	return client, srvDone, clientNotifier, serverNotifier
+	return client.(rpc.ClientConn), srvDone, clientNotifier, serverNotifier
 }
 
 func closeClient(c *gc.C, client io.Closer, srvDone <-chan error) {

@@ -186,7 +186,73 @@ type RequestNotifier interface {
 	ClientReply(req Request, hdr *Header, body interface{})
 }
 
-func NewServerConn(codec Codec, notifier RequestNotifier) *Conn {
+type ServerConn interface {
+
+	// Serve serves RPC requests on the connection by invoking methods on
+	// root. Note that it does not start the connection running,
+	// though it may be called once the connection is already started.
+	//
+	// The server executes each client request by calling a method on root
+	// to obtain an object to act on; then it invokes an method on that
+	// object with the request parameters, possibly returning some result.
+	//
+	// Methods on the root value are of the form:
+	//
+	//      M(id string) (O, error)
+	//
+	// where M is an exported name, conventionally naming the object type,
+	// id is some identifier for the object and O is the type of the
+	// returned object.
+	//
+	// Methods defined on O may defined in one of the following forms, where
+	// T and R must be struct types.
+	//
+	//      Method()
+	//      Method() R
+	//      Method() (R, error)
+	//      Method() error
+	//      Method(T)
+	//      Method(T) R
+	//      Method(T) (R, error)
+	//      Method(T) error
+	//
+	// If transformErrors is non-nil, it will be called on all returned
+	// non-nil errors, for example to transform the errors into ServerErrors
+	// with specified codes.  There will be a panic if transformErrors
+	// returns nil.
+	//
+	// Serve may be called at any time on a connection to change the
+	// set of methods being served by the connection. This will have
+	// no effect on calls that are currently being services.
+	// If root is nil, the connection will serve no methods.
+	Serve(root interface{}, transformErrors func(error) error)
+
+	// ServeFinder serves RPC requests on the connection by invoking methods retrieved
+	// from root. Note that it does not start the connection running, though
+	// it may be called once the connection is already started.
+	//
+	// The server executes each client request by calling FindMethod to obtain a
+	// method to invoke. It invokes that method with the request parameters,
+	// possibly returning some result.
+	//
+	// root can optionally implement the Killer method. If implemented, when the
+	// connection is closed, root.Kill() will be called.
+	ServeFinder(finder MethodFinder, transformErrors func(error) error)
+
+	// Start starts listening for requests.
+	Start()
+
+	// Dead returns a channel that is closed when the connection
+	// has been closed or the underlying transport has received
+	// an error. There may still be outstanding requests.
+	// Dead must be called after conn.Start has been called.
+	Dead() <-chan struct{}
+
+	// Close shuts down the connection.
+	Close() error
+}
+
+func NewServerConn(codec Codec, notifier RequestNotifier) ServerConn {
 	return newConn(codec, notifier)
 }
 

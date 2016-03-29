@@ -43,7 +43,7 @@ type objectKey struct {
 // uses to dispatch Api calls appropriately.
 type apiHandler struct {
 	state            *state.State
-	rpcConn          *rpc.Conn
+	conn             rpc.ServerConn
 	resources        *common.Resources
 	entity           state.Entity
 	mongoUnavailable *uint32
@@ -54,14 +54,13 @@ type apiHandler struct {
 	modelUUID string
 }
 
-var _ = (*apiHandler)(nil)
-
 // newApiHandler returns a new apiHandler.
-func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier, modelUUID string) (*apiHandler, error) {
+// TODO(dfc) rename to newAPIHandler
+func newApiHandler(srv *Server, st *state.State, conn rpc.ServerConn, reqNotifier *requestNotifier, modelUUID string) (*apiHandler, error) {
 	r := &apiHandler{
 		state:            st,
 		resources:        common.NewResources(),
-		rpcConn:          rpcConn,
+		conn:             conn,
 		modelUUID:        modelUUID,
 		mongoUnavailable: &srv.mongoUnavailable,
 	}
@@ -84,10 +83,6 @@ func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier 
 
 func (r *apiHandler) getResources() *common.Resources {
 	return r.resources
-}
-
-func (r *apiHandler) getRpcConn() *rpc.Conn {
-	return r.rpcConn
 }
 
 // Kill implements rpc.Killer, cleaning up any resources that need
