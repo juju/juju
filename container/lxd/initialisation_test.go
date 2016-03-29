@@ -6,6 +6,9 @@
 package lxd
 
 import (
+	"os/exec"
+	"strconv"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/packaging/commands"
 	"github.com/juju/utils/packaging/manager"
@@ -205,4 +208,19 @@ func (s *InitialiserSuite) TestDetectSubnet(c *gc.C) {
 	result, err := detectSubnet(input)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, "4")
+}
+
+func (s *InitialiserSuite) TestDetectSubnetLocal(c *gc.C) {
+	output, err := exec.Command("ip", "addr", "show").CombinedOutput()
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnet, err := detectSubnet(string(output))
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnetInt, err := strconv.Atoi(subnet)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(subnetInt, jc.GreaterThan, 0)
+	c.Assert(subnetInt, jc.LessThan, 255)
+
 }
