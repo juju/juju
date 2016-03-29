@@ -36,10 +36,6 @@ func getAllUnitNames(st *state.State, units, services []string) (result []*state
 		if err != nil {
 			return nil, err
 		}
-		// We only operate on units that have an assigned machine.
-		if _, err := unit.AssignedMachineId(); err != nil {
-			return nil, err
-		}
 		result = append(result, unit)
 	}
 	return result, nil

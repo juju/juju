@@ -103,10 +103,6 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 		message:  "service with no units is not really an error",
 		services: []string{"no-units"},
 	}, {
-		message:  "A service with units not assigned is an error",
-		services: []string{"not-assigned"},
-		error:    `unit "not-assigned/0" is not assigned to a machine`,
-	}, {
 		message:  "A service with units",
 		services: []string{"magic"},
 		expected: []string{"magic/0", "magic/1"},
