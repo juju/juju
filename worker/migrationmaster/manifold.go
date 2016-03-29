@@ -4,7 +4,6 @@
 package migrationmaster
 
 import (
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	masterapi "github.com/juju/juju/api/migrationmaster"
 	"github.com/juju/juju/worker"
@@ -14,16 +13,17 @@ import (
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
-type ManifoldConfig util.PostUpgradeManifoldConfig
+type ManifoldConfig util.ApiManifoldConfig
 
 // Manifold returns a dependency manifold that runs the migration
 // worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	return util.PostUpgradeManifold(util.PostUpgradeManifoldConfig(config), newWorker)
+	typedConfig := util.ApiManifoldConfig(config)
+	return util.ApiManifold(typedConfig, newWorker)
 }
 
-// newWorker is a shim to allow New to work with PostUpgradeManifold.
-func newWorker(_ agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+// newWorker is a shim to allow New to work with util.ApiManifold.
+func newWorker(apiCaller base.APICaller) (worker.Worker, error) {
 	client := masterapi.NewClient(apiCaller)
 	return New(client), nil
 }

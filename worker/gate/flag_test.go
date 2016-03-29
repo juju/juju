@@ -40,7 +40,7 @@ func (*FlagSuite) TestManifoldOutputBadWorker(c *gc.C) {
 
 func (*FlagSuite) TestManifoldOutputBadTarget(c *gc.C) {
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{})
-	in := &gate.FlagWorker{}
+	in := &gate.Flag{}
 	var out interface{}
 	err := manifold.Output(in, &out)
 	c.Check(err, gc.ErrorMatches, `expected out to be a \*Flag; got a .*`)
@@ -49,7 +49,7 @@ func (*FlagSuite) TestManifoldOutputBadTarget(c *gc.C) {
 
 func (*FlagSuite) TestManifoldOutputSuccess(c *gc.C) {
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{})
-	in := &gate.FlagWorker{}
+	in := &gate.Flag{}
 	var out dependency.Flag
 	err := manifold.Output(in, &out)
 	c.Check(err, jc.ErrorIsNil)
@@ -120,27 +120,27 @@ func (*FlagSuite) TestManifoldStartSuccess(c *gc.C) {
 	c.Check(worker, gc.Equals, expect)
 }
 
-func (*FlagSuite) TestFlagWorkerUnlocked(c *gc.C) {
+func (*FlagSuite) TestFlagUnlocked(c *gc.C) {
 	lock := gate.AlreadyUnlocked{}
-	worker, err := gate.NewFlagWorker(lock)
+	worker, err := gate.NewFlag(lock)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, worker)
 	workertest.CheckAlive(c, worker)
 	c.Check(worker.Check(), jc.IsTrue)
 }
 
-func (*FlagSuite) TestFlagWorkerLocked(c *gc.C) {
+func (*FlagSuite) TestFlagLocked(c *gc.C) {
 	lock := gate.NewLock()
-	worker, err := gate.NewFlagWorker(lock)
+	worker, err := gate.NewFlag(lock)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, worker)
 	workertest.CheckAlive(c, worker)
 	c.Check(worker.Check(), jc.IsFalse)
 }
 
-func (*FlagSuite) TestFlagWorkerUnlockError(c *gc.C) {
+func (*FlagSuite) TestFlagUnlockError(c *gc.C) {
 	lock := gate.NewLock()
-	worker, err := gate.NewFlagWorker(lock)
+	worker, err := gate.NewFlag(lock)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
 	workertest.CheckAlive(c, worker)

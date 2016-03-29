@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/worker/dependency"
 )
 
-// FlagManifoldConfig holds the dependencies required to run a FlagWorker
+// FlagManifoldConfig holds the dependencies required to run a Flag
 // in a dependency.Engine.
 type FlagManifoldConfig struct {
 	GateName  string
@@ -43,10 +43,10 @@ func FlagManifold(config FlagManifoldConfig) dependency.Manifold {
 	}
 }
 
-// NewFlagWorker returns a worker that implements dependency.Flag,
+// NewFlag returns a worker that implements dependency.Flag,
 // backed by the supplied gate's unlockedness.
-func NewFlagWorker(gate Waiter) (*FlagWorker, error) {
-	w := &FlagWorker{
+func NewFlag(gate Waiter) (*Flag, error) {
+	w := &Flag{
 		gate:     gate,
 		unlocked: gate.IsUnlocked(),
 	}
@@ -57,29 +57,29 @@ func NewFlagWorker(gate Waiter) (*FlagWorker, error) {
 	return w, nil
 }
 
-// FlagWorker uses a gate to implement dependency.Flag.
-type FlagWorker struct {
+// Flag uses a gate to implement dependency.Flag.
+type Flag struct {
 	tomb     tomb.Tomb
 	gate     Waiter
 	unlocked bool
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *FlagWorker) Kill() {
+func (w *Flag) Kill() {
 	w.tomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *FlagWorker) Wait() error {
+func (w *Flag) Wait() error {
 	return w.tomb.Wait()
 }
 
 // Check is part of the dependency.Flag interface.
-func (w *FlagWorker) Check() bool {
+func (w *Flag) Check() bool {
 	return w.unlocked
 }
 
-func (w *FlagWorker) loop() error {
+func (w *Flag) loop() error {
 	var bounce <-chan struct{}
 	if !w.unlocked {
 		bounce = w.gate.Unlocked()
@@ -92,7 +92,7 @@ func (w *FlagWorker) loop() error {
 	}
 }
 
-// ErrUnlocked indicates that a FlagWorker's gate has been unlocked and
+// ErrUnlocked indicates that a Flag's gate has been unlocked and
 // it should be restarted to reflect the new value.
 var ErrUnlocked = errors.New("gate unlocked")
 

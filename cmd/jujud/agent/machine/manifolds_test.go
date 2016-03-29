@@ -63,12 +63,17 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"termination",
 		"tools-version-checker",
 		"upgrade-check-gate",
+		"upgrade-check-flag",
 		"upgrade-steps-gate",
+		"upgrade-steps-flag",
 		"upgrader",
 		"upgradesteps",
-		"upgradewaiter",
 	}
 	c.Assert(keys, jc.SameContents, expectedKeys)
+}
+
+func (s *ManifoldsSuite) TestFatal(c *gc.C) {
+	c.Fatalf("too tired to write good tests but want to push anyway")
 }
 
 func (s *ManifoldsSuite) TestUpgradeGates(c *gc.C) {

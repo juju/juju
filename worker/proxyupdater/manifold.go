@@ -15,12 +15,13 @@ import (
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
-type ManifoldConfig util.PostUpgradeManifoldConfig
+type ManifoldConfig util.AgentApiManifoldConfig
 
 // Manifold returns a dependency manifold that runs a proxy updater worker,
 // using the api connection resource named in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	return util.PostUpgradeManifold(util.PostUpgradeManifoldConfig(config), newWorker)
+	typedConfig := util.AgentApiManifoldConfig(config)
+	return util.AgentApiManifold(typedConfig, newWorker)
 }
 
 // newWorker is not currently tested; it should eventually replace New as the

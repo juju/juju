@@ -13,25 +13,24 @@ import (
 	"github.com/juju/juju/worker/util"
 )
 
-// PostUpgradeManifoldTestConfig returns a PostUpgradeManifoldConfig
-// suitable for use with RunPostUpgradeManifold.
-func PostUpgradeManifoldTestConfig() util.PostUpgradeManifoldConfig {
-	return util.PostUpgradeManifoldConfig{
-		AgentName:         "agent-name",
-		APICallerName:     "api-caller-name",
-		UpgradeWaiterName: "upgradewaiter-name",
+// AgentApiManifoldTestConfig returns a AgentApiManifoldConfig
+// suitable for use with RunAgentApiManifold.
+func AgentApiManifoldTestConfig() util.AgentApiManifoldConfig {
+	return util.AgentApiManifoldConfig{
+		AgentName:     "agent-name",
+		APICallerName: "api-caller-name",
 	}
 }
 
-// RunPostUpgradeManifold is useful for testing manifolds based on
-// PostUpgradeManifold. It takes the manifold, sets up the resources
-// required to successfully pass PostUpgradeManifold's checks and then
+// RunAgentApiManifold is useful for testing manifolds based on
+// AgentApiManifold. It takes the manifold, sets up the resources
+// required to successfully pass AgentApiManifold's checks and then
 // runs the manifold start func.
 //
 // An agent and apiCaller may be optionally provided. If they are nil,
-// dummy barely-good-enough default will be used (these dummies are
+// dummy barely-good-enough defaults will be used (these dummies are
 // fine not actually used for much).
-func RunPostUpgradeManifold(
+func RunAgentApiManifold(
 	manifold dependency.Manifold, agent agent.Agent, apiCaller base.APICaller,
 ) (worker.Worker, error) {
 	if agent == nil {
@@ -44,9 +43,8 @@ func RunPostUpgradeManifold(
 			})
 	}
 	getResource := dt.StubGetResource(dt.StubResources{
-		"upgradewaiter-name": dt.StubResource{Output: true},
-		"agent-name":         dt.StubResource{Output: agent},
-		"api-caller-name":    dt.StubResource{Output: apiCaller},
+		"agent-name":      dt.StubResource{Output: agent},
+		"api-caller-name": dt.StubResource{Output: apiCaller},
 	})
 	return manifold.Start(getResource)
 }
