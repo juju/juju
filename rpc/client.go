@@ -43,10 +43,6 @@ func (e *RequestError) ErrorCode() string {
 
 // ClientConn represents a RPC client connection.
 type ClientConn interface {
-
-	// Start starts something
-	Start()
-
 	// Call invokes the named action on the object of the given type with the given
 	// id. The returned values will be stored in response, which should be a pointer.
 	// If the action fails remotely, the error will have a cause of type RequestError.
@@ -59,8 +55,11 @@ type ClientConn interface {
 }
 
 // NewClientConn returns a ClientConn for the underlying codec.
-func NewClientConn(codec Codec, notifier RequestNotifier) ClientConn {
-	return newConn(codec, notifier)
+func NewClientConn(codec Codec) ClientConn {
+	var notifier dummyNotifier
+	client := newConn(codec, &notifier)
+	client.Start()
+	return client
 }
 
 func (conn *Conn) send(call *Call) {

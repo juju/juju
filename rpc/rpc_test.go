@@ -1226,7 +1226,7 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 	if bidir {
 		role = roleBoth
 	}
-	client := rpc.NewClientConn(NewJSONCodec(conn, role), clientNotifier)
+	client := rpc.NewServerConn(NewJSONCodec(conn, role), clientNotifier)
 	client.Start()
 	return client, srvDone, clientNotifier, serverNotifier
 }

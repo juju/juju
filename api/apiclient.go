@@ -147,8 +147,7 @@ func open(
 		return nil, errors.Trace(err)
 	}
 
-	client := rpc.NewClientConn(jsoncodec.NewWebsocket(conn), nil)
-	client.Start()
+	client := rpc.NewClientConn(jsoncodec.NewWebsocket(conn))
 
 	bakeryClient := opts.BakeryClient
 	if bakeryClient == nil {
