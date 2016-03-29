@@ -5,6 +5,7 @@ package rpc
 
 import (
 	"strings"
+	"sync/atomic"
 
 	"github.com/juju/errors"
 )
@@ -77,8 +78,7 @@ func (conn *Conn) send(call *Call) {
 		call.done()
 		return
 	}
-	conn.reqId++
-	reqId := conn.reqId
+	reqId := atomic.AddUint64(&conn.reqId, 1)
 	conn.clientPending[reqId] = call
 	conn.mutex.Unlock()
 

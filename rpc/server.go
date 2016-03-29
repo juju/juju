@@ -107,6 +107,9 @@ type Conn struct {
 	// It also guards shutdown.
 	sending sync.Mutex
 
+	// reqId holds the latest client request id.
+	reqId uint64
+
 	// mutex guards the following values.
 	mutex sync.Mutex
 
@@ -123,9 +126,6 @@ type Conn struct {
 
 	// transformErrors is used to transform returned errors.
 	transformErrors func(error) error
-
-	// reqId holds the latest client request id.
-	reqId uint64
 
 	// clientPending holds all pending client requests.
 	clientPending map[uint64]*Call
