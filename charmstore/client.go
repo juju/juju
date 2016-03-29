@@ -98,7 +98,7 @@ func newBaseClient(raw *csclient.Client, config ClientConfig, meta JujuMetadata)
 	}
 	base.asRepo = func() *charmrepo.CharmStore {
 		// TODO(ericsnow) Use charmrepo.NewCharmStoreFromClient(), when available?
-		repo := charmrepo.NewCharmStore(config.NewCharmStoreParams)
+		repo := config.newCSRepo()
 		return repo.WithJujuAttrs(meta.asAttrs())
 	}
 	return base
