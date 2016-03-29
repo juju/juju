@@ -19,6 +19,20 @@ type Flag interface {
 	Check() bool
 }
 
+// FlagOutput will expose, as a Flag, any worker that implements Flag.
+func FlagOutput(in worker.Worker, out interface{}) error {
+	inFlag, ok := in.(Flag)
+	if !ok {
+		return errors.Errorf("expected in to implement Flag; got a %T", in)
+	}
+	outFlag, ok := out.(*Flag)
+	if !ok {
+		return errors.Errorf("expected out to be a *Flag; got a %T", out)
+	}
+	*outFlag = inFlag
+	return nil
+}
+
 // WithFlag returns a manifold, based on that supplied, which will only run
 // a worker when the named flag manifold's worker is active and set.
 func WithFlag(base Manifold, flagName string) Manifold {
@@ -26,6 +40,7 @@ func WithFlag(base Manifold, flagName string) Manifold {
 		Inputs: append(base.Inputs, flagName),
 		Start:  flagWrap(base.Start, flagName),
 		Output: base.Output,
+		Filter: base.Filter,
 	}
 }
 
