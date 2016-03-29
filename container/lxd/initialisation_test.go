@@ -146,22 +146,62 @@ LXD_IPV6_PROXY="false"
 }
 
 func (s *InitialiserSuite) TestDetectSubnet(c *gc.C) {
-	input := `    inet 127.0.0.1/8 scope host lo
+	input := `1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
     inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 1c:6f:65:d5:56:98 brd ff:ff:ff:ff:ff:ff
     inet 192.168.0.69/24 brd 192.168.0.255 scope global eth0
+       valid_lft forever preferred_lft forever
     inet6 fd5d:e5bb:c5f9::c0c/128 scope global dynamic 
+       valid_lft 83178sec preferred_lft 83178sec
     inet6 fd5d:e5bb:c5f9:0:1e6f:65ff:fed5:5698/64 scope global noprefixroute dynamic 
+       valid_lft 6967sec preferred_lft 1567sec
     inet6 fe80::1e6f:65ff:fed5:5698/64 scope link 
+       valid_lft forever preferred_lft forever
+3: virbr0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default 
+    link/ether 52:54:00:e4:70:2f brd ff:ff:ff:ff:ff:ff
     inet 192.168.122.1/24 brd 192.168.122.255 scope global virbr0
+       valid_lft forever preferred_lft forever
+4: virbr0-nic: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast master virbr0 state DOWN group default qlen 500
+    link/ether 52:54:00:e4:70:2f brd ff:ff:ff:ff:ff:ff
+5: virbr1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default 
+    link/ether 52:54:00:fe:04:e6 brd ff:ff:ff:ff:ff:ff
     inet 192.168.100.1/24 brd 192.168.100.255 scope global virbr1
+       valid_lft forever preferred_lft forever
+6: virbr1-nic: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast master virbr1 state DOWN group default qlen 500
+    link/ether 52:54:00:fe:04:e6 brd ff:ff:ff:ff:ff:ff
+7: lxcbr0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default 
+    link/ether fe:d3:9d:e4:ba:90 brd ff:ff:ff:ff:ff:ff
     inet 10.0.3.1/24 scope global lxcbr0
+       valid_lft forever preferred_lft forever
     inet6 fe80::a00f:35ff:fe81:f7ed/64 scope link 
+       valid_lft forever preferred_lft forever
+25: vethOG10XO@if24: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master lxcbr0 state UP group default qlen 1000
+    link/ether fe:d3:9d:e4:ba:90 brd ff:ff:ff:ff:ff:ff link-netnsid 0
     inet6 fe80::fcd3:9dff:fee4:ba90/64 scope link 
+       valid_lft forever preferred_lft forever
+37: vnet0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master virbr0 state UNKNOWN group default qlen 500
+    link/ether fe:54:00:6e:2d:7d brd ff:ff:ff:ff:ff:ff
     inet6 fe80::fc54:ff:fe6e:2d7d/64 scope link 
+       valid_lft forever preferred_lft forever
+38: vnet1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master virbr0 state UNKNOWN group default qlen 500
+    link/ether fe:54:00:3e:80:18 brd ff:ff:ff:ff:ff:ff
     inet6 fe80::fc54:ff:fe3e:8018/64 scope link 
+       valid_lft forever preferred_lft forever
+39: vnet2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master virbr0 state UNKNOWN group default qlen 500
+    link/ether fe:54:00:ee:c7:95 brd ff:ff:ff:ff:ff:ff
     inet6 fe80::fc54:ff:feee:c795/64 scope link 
+       valid_lft forever preferred_lft forever
+40: vnet3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master virbr0 state UNKNOWN group default qlen 500
+    link/ether fe:54:00:30:92:16 brd ff:ff:ff:ff:ff:ff
     inet6 fe80::fc54:ff:fe30:9216/64 scope link 
+       valid_lft forever preferred_lft forever
 `
+
 	result, err := detectSubnet(input)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, "4")
