@@ -422,11 +422,11 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		},
 	)
 
-	handleGUI(mux, "/gui/:modeluuid/", srv.dataDir, httpCtxt)
-	handleAll(mux, "/gui-archive", &guiArchiveHandler{
+	endpoints = append(endpoints, guiEndpoints("/gui/:modeluuid/", srv.dataDir, httpCtxt)...)
+	add("/gui-archive", &guiArchiveHandler{
 		ctxt: httpCtxt,
 	})
-	handleAll(mux, "/gui-version", &guiVersionHandler{
+	add("/gui-version", &guiVersionHandler{
 		ctxt: httpCtxt,
 	})
 
