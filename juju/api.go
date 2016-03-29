@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/network"
 )
 
-var logger = loggo.GetLogger("juju.api")
+var logger = loggo.GetLogger("juju.juju")
 
 // The following are variables so that they can be
 // changed by tests.

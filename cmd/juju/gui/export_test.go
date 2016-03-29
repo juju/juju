@@ -6,4 +6,8 @@ package gui
 var (
 	ClientGet      = &clientGet
 	WebbrowserOpen = &webbrowserOpen
+
+	ClientGUIArchives      = &clientGUIArchives
+	ClientSelectGUIVersion = &clientSelectGUIVersion
+	ClientUploadGUIArchive = &clientUploadGUIArchive
 )

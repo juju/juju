@@ -42,38 +42,60 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.networkInterfacesFile = filepath.Join(c.MkDir(), "interfaces")
 	s.fakeInterfaces = []network.InterfaceInfo{{
-		InterfaceName:  "eth0",
-		CIDR:           "0.1.2.0/24",
-		ConfigType:     network.ConfigStatic,
-		NoAutoStart:    false,
-		Address:        network.NewAddress("0.1.2.3"),
-		DNSServers:     network.NewAddresses("ns1.invalid", "ns2.invalid"),
-		DNSSearch:      "foo.bar",
-		GatewayAddress: network.NewAddress("0.1.2.1"),
+		InterfaceName:    "eth0",
+		CIDR:             "0.1.2.0/24",
+		ConfigType:       network.ConfigStatic,
+		NoAutoStart:      false,
+		Address:          network.NewAddress("0.1.2.3"),
+		DNSServers:       network.NewAddresses("ns1.invalid", "ns2.invalid"),
+		DNSSearchDomains: []string{"foo", "bar"},
+		GatewayAddress:   network.NewAddress("0.1.2.1"),
+		MACAddress:       "aa:bb:cc:dd:ee:f0",
 	}, {
-		InterfaceName: "eth1",
+		InterfaceName:    "eth1",
+		CIDR:             "0.1.2.0/24",
+		ConfigType:       network.ConfigStatic,
+		NoAutoStart:      false,
+		Address:          network.NewAddress("0.1.2.4"),
+		DNSServers:       network.NewAddresses("ns1.invalid", "ns2.invalid"),
+		DNSSearchDomains: []string{"foo", "bar"},
+		GatewayAddress:   network.NewAddress("0.1.2.1"),
+		MACAddress:       "aa:bb:cc:dd:ee:f0",
+	}, {
+		InterfaceName: "eth2",
 		ConfigType:    network.ConfigDHCP,
 		NoAutoStart:   true,
 	}}
 	s.expectedNetConfig = `
-# loopback interface
 auto lo
 iface lo inet loopback
 
-# interface "eth0"
 auto eth0
 iface eth0 inet manual
-    dns-nameservers ns1.invalid ns2.invalid
-    dns-search foo.bar
-    pre-up ip address add 0.1.2.3/32 dev eth0 &> /dev/null || true
-    up ip route replace 0.1.2.1 dev eth0
-    up ip route replace default via 0.1.2.1
-    down ip route del default via 0.1.2.1 &> /dev/null || true
-    down ip route del 0.1.2.1 dev eth0 &> /dev/null || true
-    post-down ip address del 0.1.2.3/32 dev eth0 &> /dev/null || true
+  dns-nameservers ns1.invalid ns2.invalid
+  dns-search foo bar
+  pre-up ip address add 0.1.2.3/24 dev eth0 || true
+  up ip route replace 0.1.2.0/24 dev eth0 || true
+  down ip route del 0.1.2.0/24 dev eth0 || true
+  post-down address del 0.1.2.3/24 dev eth0 || true
+  up ip route replace default via 0.1.2.1 || true
+  down ip route del default via 0.1.2.1 || true
 
-# interface "eth1"
-iface eth1 inet dhcp
+auto eth1
+iface eth1 inet manual
+  dns-nameservers ns1.invalid ns2.invalid
+  dns-search foo bar
+  pre-up ip address add 0.1.2.4/24 dev eth1 || true
+  up ip route replace 0.1.2.0/24 dev eth1 || true
+  down ip route del 0.1.2.0/24 dev eth1 || true
+  post-down address del 0.1.2.4/24 dev eth1 || true
+
+iface eth2 inet manual
+  pre-up ip address add  dev eth2 || true
+  up ip route replace  dev eth2 || true
+  down ip route del  dev eth2 || true
+  post-down address del  dev eth2 || true
+
 `
 	s.PatchValue(containerinit.NetworkInterfacesFile, s.networkInterfacesFile)
 }
@@ -102,8 +124,8 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworks(c *gc.C) {
 	// We need to indent expectNetConfig to make it valid YAML,
 	// dropping the last new line and using unindented blank lines.
 	lines := strings.Split(s.expectedNetConfig, "\n")
-	indentedNetConfig := strings.Join(lines[:len(lines)-1], "\n  ")
-	indentedNetConfig = strings.Replace(indentedNetConfig, "\n  \n", "\n\n", -1)
+	indentedNetConfig := strings.Join(lines[:len(lines)-2], "\n  ")
+	indentedNetConfig = strings.Replace(indentedNetConfig, "\n  \n", "\n\n", -1) + "\n"
 	expected := `
 #cloud-config
 bootcmd:
@@ -111,6 +133,8 @@ bootcmd:
 - |-
   printf '%s\n' '` + indentedNetConfig + `
   ' > '` + s.networkInterfacesFile + `'
+runcmd:
+- ifup -a || true
 `
 	assertUserData(c, cloudConf, expected)
 }

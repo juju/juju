@@ -92,7 +92,7 @@ func SampleConfig() testing.Attrs {
 
 		"secret":      "pork",
 		"controller":  true,
-		"prefer-ipv6": true,
+		"prefer-ipv6": false,
 	}
 }
 
@@ -1230,6 +1230,7 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 			DeviceIndex:      i,
 			ProviderId:       network.Id(fmt.Sprintf("dummy-eth%d", i)),
 			ProviderSubnetId: network.Id("dummy-" + netName),
+			InterfaceType:    network.EthernetInterface,
 			NetworkName:      "juju-" + netName,
 			CIDR:             fmt.Sprintf("0.%d.0.0/24", (i+1)*10),
 			InterfaceName:    fmt.Sprintf("eth%d", i),
@@ -1685,6 +1686,10 @@ func delay() {
 		logger.Infof("pausing for %v", providerDelay)
 		<-time.After(providerDelay)
 	}
+}
+
+func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotSupportedf("container address allocation")
 }
 
 // MigrationConfigUpdate implements MigrationConfigUpdater.
