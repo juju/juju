@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/charmstore"
@@ -73,7 +74,7 @@ func (cs *charmstoreOpener) newClient() *charmstore.Client {
 	// TODO discharge any third party caveats in the macaroon.
 	ms := []*macaroon.Macaroon{cs.csMac}
 	httpbakery.SetCookie(httpClient.Jar, config.URL, ms)
-	config.HTTPClient = httpClient
+	config.BakeryClient = httpClient
 
 	client := charmstore.NewClient(config)
 	return client
