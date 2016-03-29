@@ -6,6 +6,7 @@ package proxyupdater
 import (
 	"strings"
 
+	"github.com/dooferlad/here"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
@@ -40,14 +41,17 @@ type proxyUpdaterAPI struct {
 
 // NewAPI creates a new API server-side facade with a state.State backing.
 func NewAPI(st *state.State, res *common.Resources, auth common.Authorizer) (API, error) {
+	here.M("apiserver/proxyupdater/NewAPI")
 	return newAPIWithBacking(st, res, auth)
 }
 
 // newAPIWithBacking creates a new server-side API facade with the given Backing.
 func newAPIWithBacking(st State, resources *common.Resources, authorizer common.Authorizer) (API, error) {
 	if !authorizer.AuthClient() {
+		here.M("apiserver/proxyupdater/NewAPI -- BAD!")
 		return nil, common.ErrPerm
 	}
+	here.M("apiserver/proxyupdater/NewAPI -- OK")
 	return &proxyUpdaterAPI{
 		st:         st,
 		resources:  resources,
@@ -64,12 +68,19 @@ func (api *proxyUpdaterAPI) WatchForProxyConfigAndAPIHostPortChanges() state.Not
 }
 
 func (api *proxyUpdaterAPI) ProxyConfig() (params.ProxyConfigResult, error) {
+	here.M("ProxyConfig")
 	var cfg params.ProxyConfigResult
 	env, err := api.st.EnvironConfig()
 	if err != nil {
+		here.Is(err)
 		return cfg, err
 	}
+
 	apiHostPorts, err := api.st.APIHostPorts()
+	if err != nil {
+		here.Is(err)
+		return cfg, err
+	}
 
 	cfg.ProxySettings = env.ProxySettings()
 	cfg.APTProxySettings = env.AptProxySettings()
