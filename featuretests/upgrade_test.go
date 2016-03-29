@@ -287,7 +287,7 @@ func canLoginToAPIAsMachine(c *gc.C, fromConf, toConf agent.Config) bool {
 	for a := ShortAttempt.Start(); a.Next(); {
 		apiState, err = api.Open(fromInfo, upgradeTestDialOpts)
 		// If space discovery is still in progress we retry.
-		if err != nil && strings.Contains(err.Error(), "space discovery still in progress") {
+		if err != nil && strings.Contains(err.Error(), "spaces are still being discovered") {
 			if !a.HasNext() {
 				return false
 			}

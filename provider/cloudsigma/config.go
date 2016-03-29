@@ -7,7 +7,6 @@ import (
 	"github.com/altoros/gosigma"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs/config"
 )
@@ -33,21 +32,6 @@ var configSecretFields = []string{
 var configImmutableFields = []string{
 	"region",
 	"endpoint",
-}
-
-func prepareConfig(cfg *config.Config) (*config.Config, error) {
-	// Turn an incomplete config into a valid one, if possible.
-	attrs := cfg.AllAttrs()
-
-	if _, ok := attrs["uuid"]; !ok {
-		uuid, err := utils.NewUUID()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		attrs["uuid"] = uuid.String()
-	}
-
-	return cfg.Apply(attrs)
 }
 
 func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, error) {

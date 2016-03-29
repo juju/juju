@@ -1,7 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// XXX
 package commands
 
 import (
@@ -11,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -28,6 +28,7 @@ const modelUUID = "deadbeef-0bad-400d-8000-4b1d0d06f00d"
 const targetControllerUUID = "beefdead-0bad-400d-8000-4b1d0d06f00d"
 
 func (s *MigrateSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.Migration)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.store = jujuclienttesting.NewMemStore()

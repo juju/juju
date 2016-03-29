@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
@@ -323,6 +324,49 @@ func insertLinkLayerDeviceDocOp(newDoc *linkLayerDeviceDoc) txn.Op {
 		Id:     newDoc.DocID,
 		Assert: txn.DocMissing,
 		Insert: *newDoc,
+	}
+}
+
+// updateLinkLayerDeviceDocOp returns an operation updating the fields of
+// existingDoc with the respective values of those fields in newDoc. DocID,
+// ModelUUID, MachineID, and Name cannot be changed. ProviderID cannot be
+// changed once set. In all other cases newDoc values overwrites existingDoc
+// values.
+func updateLinkLayerDeviceDocOp(existingDoc, newDoc *linkLayerDeviceDoc) txn.Op {
+	changes := make(bson.M)
+	if existingDoc.ProviderID == "" && newDoc.ProviderID != "" {
+		// Only allow changing the ProviderID if it was empty.
+		changes["providerid"] = newDoc.ProviderID
+	}
+	if existingDoc.Type != newDoc.Type {
+		changes["type"] = newDoc.Type
+	}
+	if existingDoc.MTU != newDoc.MTU {
+		changes["mtu"] = newDoc.MTU
+	}
+	if existingDoc.MACAddress != newDoc.MACAddress {
+		changes["mac-address"] = newDoc.MACAddress
+	}
+	if existingDoc.IsAutoStart != newDoc.IsAutoStart {
+		changes["is-auto-start"] = newDoc.IsAutoStart
+	}
+	if existingDoc.IsUp != newDoc.IsUp {
+		changes["is-up"] = newDoc.IsUp
+	}
+	if existingDoc.ParentName != newDoc.ParentName {
+		changes["parent-name"] = newDoc.ParentName
+	}
+
+	var updates bson.D
+	if len(changes) > 0 {
+		updates = append(updates, bson.DocElem{Name: "$set", Value: changes})
+	}
+
+	return txn.Op{
+		C:      linkLayerDevicesC,
+		Id:     existingDoc.DocID,
+		Assert: txn.DocExists,
+		Update: updates,
 	}
 }
 
