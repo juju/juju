@@ -445,8 +445,8 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	return nil
 }
 
-// populateGUIArchive stores uploaded Juju GUI archive in provider storage
-// and updates the GUI metadata.
+// populateGUIArchive stores uploaded Juju GUI archive in provider storage,
+// updates the GUI metadata and set the current Juju GUI version.
 func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Environ) error {
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
@@ -473,6 +473,9 @@ func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Envi
 		SHA256:  gui.SHA256,
 	}); err != nil {
 		return errors.Annotate(err, "cannot store GUI archive")
+	}
+	if err = st.GUISetVersion(gui.Version); err != nil {
+		return errors.Annotate(err, "cannot set current GUI version")
 	}
 	return nil
 }

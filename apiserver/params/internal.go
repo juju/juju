@@ -649,3 +649,25 @@ type SingularClaim struct {
 type SingularClaims struct {
 	Claims []SingularClaim `json:"Claims"`
 }
+
+// GUIArchiveVersion holds information on a specific GUI archive version.
+type GUIArchiveVersion struct {
+	// Version holds the Juju GUI version number.
+	Version version.Number `json:"version"`
+	// SHA256 holds the SHA256 hash of the GUI tar.bz2 archive.
+	SHA256 string `json:"sha256"`
+	// Current holds whether this specific version is the current one served
+	// by the controller.
+	Current bool `json:"current"`
+}
+
+// GUIArchiveResponse holds the response to /gui-archive GET requests.
+type GUIArchiveResponse struct {
+	Versions []GUIArchiveVersion `json:"versions"`
+}
+
+// GUIVersionRequest holds the body for /gui-version PUT requests.
+type GUIVersionRequest struct {
+	// Version holds the Juju GUI version number.
+	Version version.Number `json:"version"`
+}

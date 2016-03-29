@@ -431,6 +431,12 @@ func (srv *Server) run() {
 	)
 
 	handleGUI(mux, "/gui/:modeluuid/", srv.dataDir, httpCtxt)
+	handleAll(mux, "/gui-archive", &guiArchiveHandler{
+		ctxt: httpCtxt,
+	})
+	handleAll(mux, "/gui-version", &guiVersionHandler{
+		ctxt: httpCtxt,
+	})
 
 	// For backwards compatibility we register all the old paths
 	handleAll(mux, "/log", debugLogHandler)
