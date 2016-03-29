@@ -269,7 +269,7 @@ func (manager *containerManager) createNetworkProfile(profile string, networkCon
 	return nil
 }
 
-// GetDefulatBridgeName returns the name of the default bridge for lxd.
+// GetDefaultBridgeName returns the name of the default bridge for lxd.
 func GetDefaultBridgeName() (string, error) {
 	_, err := os.Lstat("/sys/class/net/lxdbr0/bridge")
 	if err == nil {
