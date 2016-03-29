@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v1"
 
-	"github.com/dooferlad/here"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -40,25 +39,30 @@ type ProxyUpdaterSuite struct {
 type StubBacking struct {
 	*testing.Stub
 
-	EnvConfig *config.Config
-	c         *gc.C
+	EnvConfig   *config.Config
+	c           *gc.C
+	configAttrs coretesting.Attrs
 }
 
 func (sb *StubBacking) SetUp(c *gc.C) {
 	sb.Stub = &testing.Stub{}
 	sb.c = c
+	sb.configAttrs = coretesting.Attrs{
+		"http-proxy":  "http proxy",
+		"https-proxy": "https proxy",
+	}
+}
+
+func (sb *StubBacking) SetEnvironConfig(ca coretesting.Attrs) {
+	sb.configAttrs = ca
 }
 
 func (sb *StubBacking) EnvironConfig() (*config.Config, error) {
 	sb.MethodCall(sb, "EnvironConfig")
-	here.Here()
 	if err := sb.NextErr(); err != nil {
 		return nil, err
 	}
-	return coretesting.CustomEnvironConfig(sb.c, coretesting.Attrs{
-		"http-proxy":  "http proxy",
-		"https-proxy": "https proxy",
-	}), nil
+	return coretesting.CustomEnvironConfig(sb.c, sb.configAttrs), nil
 }
 
 func (sb *StubBacking) APIHostPorts() ([][]network.HostPort, error) {
@@ -68,6 +72,8 @@ func (sb *StubBacking) APIHostPorts() ([][]network.HostPort, error) {
 	}
 	hps := [][]network.HostPort{
 		network.NewHostPorts(1234, "0.1.2.3"),
+		network.NewHostPorts(1234, "0.1.2.4"),
+		network.NewHostPorts(1234, "0.1.2.5"),
 	}
 	return hps, nil
 }
@@ -177,10 +183,60 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 		"APIHostPorts",
 	)
 
+	noProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
+
 	c.Assert(cfg, jc.DeepEquals, params.ProxyConfigResult{
 		ProxySettings: proxy.Settings{
-			Http: "http proxy", Https: "https proxy", Ftp: "", NoProxy: ",0.1.2.3"},
+			Http: "http proxy", Https: "https proxy", Ftp: "", NoProxy: noProxy},
 		APTProxySettings: proxy.Settings{
-			Http: "http://http proxy", Https: "https://https proxy", Ftp: "", NoProxy: ",0.1.2.3"},
+			Http: "http://http proxy", Https: "https://https proxy", Ftp: "", NoProxy: ""},
+	})
+}
+
+func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
+	// Check that the ProxyConfig combines data from EnvironConfig and APIHostPorts
+	s.state.SetEnvironConfig(coretesting.Attrs{
+		"http-proxy":  "http proxy",
+		"https-proxy": "https proxy",
+		"no-proxy":    "9.9.9.9",
+	})
+	cfg, err := s.facade.ProxyConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	s.state.Stub.CheckCallNames(c,
+		"EnvironConfig",
+		"APIHostPorts",
+	)
+
+	expectedNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5,9.9.9.9"
+
+	c.Assert(cfg, jc.DeepEquals, params.ProxyConfigResult{
+		ProxySettings: proxy.Settings{
+			Http: "http proxy", Https: "https proxy", Ftp: "", NoProxy: expectedNoProxy},
+		APTProxySettings: proxy.Settings{
+			Http: "http://http proxy", Https: "https://https proxy", Ftp: "", NoProxy: ""},
+	})
+}
+
+func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
+	// Check that the ProxyConfig combines data from EnvironConfig and APIHostPorts
+	s.state.SetEnvironConfig(coretesting.Attrs{
+		"http-proxy":  "http proxy",
+		"https-proxy": "https proxy",
+		"no-proxy":    "0.1.2.3",
+	})
+	cfg, err := s.facade.ProxyConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	s.state.Stub.CheckCallNames(c,
+		"EnvironConfig",
+		"APIHostPorts",
+	)
+
+	expectedNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
+
+	c.Assert(cfg, jc.DeepEquals, params.ProxyConfigResult{
+		ProxySettings: proxy.Settings{
+			Http: "http proxy", Https: "https proxy", Ftp: "", NoProxy: expectedNoProxy},
+		APTProxySettings: proxy.Settings{
+			Http: "http://http proxy", Https: "https://https proxy", Ftp: "", NoProxy: ""},
 	})
 }

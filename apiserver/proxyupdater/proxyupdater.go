@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/utils/set"
 )
 
 func init() {
@@ -85,18 +86,20 @@ func (api *proxyUpdaterAPI) ProxyConfig() (params.ProxyConfigResult, error) {
 
 	cfg.ProxySettings = env.ProxySettings()
 	cfg.APTProxySettings = env.AptProxySettings()
-	noProxy := strings.Split(cfg.ProxySettings.NoProxy, ",")
-	noAptProxy := strings.Split(cfg.APTProxySettings.NoProxy, ",")
+
+	var noProxy []string
+	if cfg.ProxySettings.NoProxy != "" {
+		noProxy = strings.Split(cfg.ProxySettings.NoProxy, ",")
+	}
+
+	noProxySet := set.NewStrings(noProxy...)
 
 	for _, host := range apiHostPorts {
 		for _, hp := range host {
-			noProxy = append(noProxy, hp.Address.Value)
-			noAptProxy = append(noAptProxy, hp.Address.Value)
+			noProxySet.Add(hp.Address.Value)
 		}
 	}
 
-	cfg.ProxySettings.NoProxy = strings.Join(noProxy, ",")
-	cfg.APTProxySettings.NoProxy = strings.Join(noAptProxy, ",")
-
+	cfg.ProxySettings.NoProxy = strings.Join(noProxySet.SortedValues(), ",")
 	return cfg, nil
 }
