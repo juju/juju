@@ -99,6 +99,8 @@ rm -rf $WORK/src/code.google.com/p/go.net/html/charset/testdata/
 rm -f $WORK/src/code.google.com/p/go.net/html/charset/*test.go
 rm -rf $WORK/src/golang.org/x/net/html/charset/testdata/
 rm -f $WORK/src/golang.org/x/net/html/charset/*test.go
+# Remove backup files that confuse lintian.
+find $WORK/src/ -type f -name *.go.orig -delete
 
 # Validate the go src tree against dependencies.tsv
 $SCRIPT_DIR/check_dependencies.py --delete-unknown --ignore $PACKAGE \
