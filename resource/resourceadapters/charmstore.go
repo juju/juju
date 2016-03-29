@@ -69,11 +69,13 @@ func (cs *charmstoreOpener) newClient() *charmstore.Client {
 	var config charmstore.ClientConfig
 
 	httpClient := httpbakery.NewClient()
-	// Set the provided charmstore authorizing macaroon
-	// as a cookie in the HTTP client.
-	// TODO discharge any third party caveats in the macaroon.
-	ms := []*macaroon.Macaroon{cs.csMac}
-	httpbakery.SetCookie(httpClient.Jar, config.URL, ms)
+	if cs.csMac != nil {
+		// Set the provided charmstore authorizing macaroon
+		// as a cookie in the HTTP client.
+		// TODO discharge any third party caveats in the macaroon.
+		ms := []*macaroon.Macaroon{cs.csMac}
+		httpbakery.SetCookie(httpClient.Jar, config.URL, ms)
+	}
 	config.BakeryClient = httpClient
 
 	client := charmstore.NewClient(config)
