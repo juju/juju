@@ -177,7 +177,7 @@ type Connection interface {
 
 	// RPCClient is apparently exported for testing purposes only, but this
 	// seems to indicate *some* sort of layering confusion.
-	RPCClient() *rpc.Conn
+	RPCClient() rpc.ClientConn
 
 	// I think this is actually dead code. It's tested, at least, so I'm
 	// keeping it for now, but it's not apparently used anywhere else.

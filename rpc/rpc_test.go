@@ -6,6 +6,7 @@ package rpc_test
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"reflect"
 	"regexp"
@@ -416,7 +417,7 @@ func callName(narg, nret int, retErr bool) string {
 type testCallParams struct {
 	// client holds the client-side of the rpc connection that
 	// will be used to make the call.
-	client *rpc.Conn
+	client rpc.ClientConn
 
 	// clientNotifier holds the notifier for the client side.
 	clientNotifier *notifier
@@ -939,7 +940,7 @@ func (*rpcSuite) TestBadCall(c *gc.C) {
 
 func testBadCall(
 	c *gc.C,
-	client *rpc.Conn,
+	client rpc.ClientConn,
 	clientNotifier, serverNotifier *notifier,
 	req rpc.Request,
 	expectedErr string,
@@ -1087,11 +1088,11 @@ func (*rpcSuite) TestRootIsKilledAndCleaned(c *gc.C) {
 }
 
 func (*rpcSuite) TestBidirectional(c *gc.C) {
-	srvRoot := &Root{}
-	client, srvDone, _, _ := newRPCClientServer(c, srvRoot, nil, true)
+	var srvRoot Root
+	client, srvDone, _, _ := newRPCClientServer(c, &srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
-	clientRoot := &Root{conn: client}
-	client.Serve(clientRoot, nil)
+	server := client.(*rpc.Conn)
+	server.Serve(&Root{conn: server}, nil)
 	var r int64val
 	err := client.Call(rpc.Request{"CallbackMethods", 0, "", "Factorial"}, int64val{12}, &r)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1187,13 +1188,13 @@ func chanReadError(c *gc.C, ch <-chan error, what string) error {
 // single client.  When the server has finished serving the connection,
 // it sends a value on the returned channel.
 // If bidir is true, requests can flow in both directions.
-func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidir bool) (client *rpc.Conn, srvDone chan error, clientNotifier, serverNotifier *notifier) {
+func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidir bool) (rpc.ClientConn, chan error, *notifier, *notifier) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	srvDone = make(chan error, 1)
-	clientNotifier = new(notifier)
-	serverNotifier = new(notifier)
+	srvDone := make(chan error, 1)
+	clientNotifier := new(notifier)
+	serverNotifier := new(notifier)
 	go func() {
 		conn, err := l.Accept()
 		if err != nil {
@@ -1225,12 +1226,12 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 	if bidir {
 		role = roleBoth
 	}
-	client = rpc.NewClientConn(NewJSONCodec(conn, role), clientNotifier)
+	client := rpc.NewClientConn(NewJSONCodec(conn, role), clientNotifier)
 	client.Start()
 	return client, srvDone, clientNotifier, serverNotifier
 }
 
-func closeClient(c *gc.C, client *rpc.Conn, srvDone <-chan error) {
+func closeClient(c *gc.C, client io.Closer, srvDone <-chan error) {
 	err := client.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	err = chanReadError(c, srvDone, "server done")

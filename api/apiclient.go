@@ -49,7 +49,7 @@ var (
 
 // state is the internal implementation of the Connection interface.
 type state struct {
-	client *rpc.Conn
+	client rpc.ClientConn
 	conn   *websocket.Conn
 
 	// addr is the address used to connect to the API server.
@@ -575,7 +575,7 @@ func (s *state) Broken() <-chan struct{} {
 // RPCClient returns the RPC client for the state, so that testing
 // functions can tickle parts of the API that the conventional entry
 // points don't reach. This is exported for testing purposes only.
-func (s *state) RPCClient() *rpc.Conn {
+func (s *state) RPCClient() rpc.ClientConn {
 	return s.client
 }
 

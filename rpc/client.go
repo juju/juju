@@ -41,6 +41,28 @@ func (e *RequestError) ErrorCode() string {
 	return e.Code
 }
 
+// ClientConn represents a RPC client connection.
+type ClientConn interface {
+
+	// Start starts something
+	Start()
+
+	// Call invokes the named action on the object of the given type with the given
+	// id. The returned values will be stored in response, which should be a pointer.
+	// If the action fails remotely, the error will have a cause of type RequestError.
+	// The params value may be nil if no parameters are provided; the response value
+	// may be nil to indicate that any result should be discarded.
+	Call(req Request, params, response interface{}) error
+
+	// Close closes the connection.
+	Close() error
+}
+
+// NewClientConn returns a ClientConn for the underlying codec.
+func NewClientConn(codec Codec, notifier RequestNotifier) ClientConn {
+	return newConn(codec, notifier)
+}
+
 func (conn *Conn) send(call *Call) {
 	conn.sending.Lock()
 	defer conn.sending.Unlock()

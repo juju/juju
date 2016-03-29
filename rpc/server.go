@@ -186,10 +186,6 @@ type RequestNotifier interface {
 	ClientReply(req Request, hdr *Header, body interface{})
 }
 
-func NewClientConn(codec Codec, notifier RequestNotifier) *Conn {
-	return newConn(codec, notifier)
-}
-
 func NewServerConn(codec Codec, notifier RequestNotifier) *Conn {
 	return newConn(codec, notifier)
 }
