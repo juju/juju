@@ -79,9 +79,9 @@ func AuthAndActionFromTagFn(canAccess AuthFunc, getActionByTag func(names.Action
 	}
 }
 
-// BeginActions is a helper function currently used by the uniter and by machineactions
-// It needs an actionFn that can fetch an action from state using it's id.
-// It is usually created by AuthAndActionFromTagFn
+// BeginActions calls begin on every action passed in through args.
+// It's a helper function currently used by the uniter and by machineactions
+// It needs an actionFn that can fetch an action from state using it's id, that's usually created by AuthAndActionFromTagFn
 func BeginActions(args params.Entities, actionFn func(string) (state.Action, error)) params.ErrorResults {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Entities))}
 
@@ -102,9 +102,9 @@ func BeginActions(args params.Entities, actionFn func(string) (state.Action, err
 	return results
 }
 
-// FinishActions is a helper function currently used by the uniter and by machineactions
-// It needs an actionFn that can fetch an action from state using it's id.
-// It is usually created by AuthAndActionFromTagFn
+// FinishActions saves the result of a completed Action.
+// It's a helper function currently used by the uniter and by machineactions
+// It needs an actionFn that can fetch an action from state using it's id that's usually created by AuthAndActionFromTagFn
 func FinishActions(args params.ActionExecutionResults, actionFn func(string) (state.Action, error)) params.ErrorResults {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Results))}
 
@@ -130,9 +130,10 @@ func FinishActions(args params.ActionExecutionResults, actionFn func(string) (st
 	return results
 }
 
-// Actions is a helper function currently used by the uniter and by machineactions
-// It needs an actionFn that can fetch an action from state using it's id.
-// It is usually created by AuthAndActionFromTagFn
+// Actions returns the Actions by Tags passed in and ensures that the receiver asking for
+// them is the same one that has the action.
+// It's a helper function currently used by the uniter and by machineactions.
+// It needs an actionFn that can fetch an action from state using it's id that's usually created by AuthAndActionFromTagFn
 func Actions(args params.Entities, actionFn func(string) (state.Action, error)) params.ActionResults {
 	results := params.ActionResults{
 		Results: make([]params.ActionResult, len(args.Entities)),
@@ -157,9 +158,10 @@ func Actions(args params.Entities, actionFn func(string) (state.Action, error)) 
 	return results
 }
 
-// WatchOneActionReceiverNotifications is a helper function currently used by the uniter and by machineactions
-// to create a watcher for one receiver. It needs a tagToActionReceiver function and a registerFunc to register
+// WatchOneActionReceiverNotifications to create a watcher for one receiver.
+// It needs a tagToActionReceiver function and a registerFunc to register
 // resources.
+// It's a helper function currently used by the uniter and by machineactions
 func WatchOneActionReceiverNotifications(tagToActionReceiver func(tag string) (state.ActionReceiver, error), registerFunc func(r Resource) string) func(names.Tag) (params.StringsWatchResult, error) {
 	return func(tag names.Tag) (params.StringsWatchResult, error) {
 		nothing := params.StringsWatchResult{}
@@ -179,8 +181,9 @@ func WatchOneActionReceiverNotifications(tagToActionReceiver func(tag string) (s
 	}
 }
 
-// WatchActionNotifications is a helper function currently used by the uniter and by machineactions
-// to create watchers. The canAccess function is passed in by the respective caller to provide authorization.
+// WatchActionNotifications returns a StringsWatcher for observing incoming actions towards an actionreceiver.
+// It's a helper function currently used by the uniter and by machineactions
+// canAccess is passed in by the respective caller to provide authorization.
 // watchOne is usually a function created by WatchOneActionReceiverNotifications
 func WatchActionNotifications(args params.Entities, canAccess AuthFunc, watchOne func(names.Tag) (params.StringsWatchResult, error)) params.StringsWatchResults {
 	result := params.StringsWatchResults{
