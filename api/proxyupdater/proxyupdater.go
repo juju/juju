@@ -4,7 +4,6 @@
 package proxyupdater
 
 import (
-	"github.com/dooferlad/here"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -41,9 +40,6 @@ func (api *API) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatche
 // EnvironConfig returns the current environment configuration.
 func (api *API) ProxyConfig() (params.ProxyConfigResult, error) {
 	var result params.ProxyConfigResult
-	here.M("About to call ProxyConfig")
 	err := api.facade.FacadeCall("ProxyConfig", nil, &result)
-	here.Is(err)
-	here.Is(result)
 	return result, err
 }

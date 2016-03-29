@@ -6,12 +6,12 @@ package proxyupdater
 import (
 	"strings"
 
-	"github.com/dooferlad/here"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 func init() {
@@ -20,7 +20,7 @@ func init() {
 
 // API defines the methods the ProxyUpdater API facade implements.
 type API interface {
-	WatchForProxyConfigAndAPIHostPortChanges() state.NotifyWatcher
+	WatchForProxyConfigAndAPIHostPortChanges() (params.NotifyWatchResult, error)
 	ProxyConfig() (params.ProxyConfigResult, error)
 }
 
@@ -41,17 +41,14 @@ type proxyUpdaterAPI struct {
 
 // NewAPI creates a new API server-side facade with a state.State backing.
 func NewAPI(st *state.State, res *common.Resources, auth common.Authorizer) (API, error) {
-	here.M("apiserver/proxyupdater/NewAPI")
 	return newAPIWithBacking(st, res, auth)
 }
 
 // newAPIWithBacking creates a new server-side API facade with the given Backing.
 func newAPIWithBacking(st State, resources *common.Resources, authorizer common.Authorizer) (API, error) {
-	if !authorizer.AuthClient() {
-		here.M("apiserver/proxyupdater/NewAPI -- BAD!")
+	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
-	here.M("apiserver/proxyupdater/NewAPI -- OK")
 	return &proxyUpdaterAPI{
 		st:         st,
 		resources:  resources,
@@ -59,26 +56,31 @@ func newAPIWithBacking(st State, resources *common.Resources, authorizer common.
 	}, nil
 }
 
-// WatchForProxyConfigAndAPIHostPortChanges watches both the environment config and the API host
-// ports for changes.
-func (api *proxyUpdaterAPI) WatchForProxyConfigAndAPIHostPortChanges() state.NotifyWatcher {
-	return common.NewMultiNotifyWatcher(
+// WatchChanges watches for cleanups to be perfomed in state
+func (api *proxyUpdaterAPI) WatchForProxyConfigAndAPIHostPortChanges() (params.NotifyWatchResult, error) {
+	watch := common.NewMultiNotifyWatcher(
 		api.st.WatchForEnvironConfigChanges(),
 		api.st.WatchAPIHostPorts())
+
+	if _, ok := <-watch.Changes(); ok {
+		return params.NotifyWatchResult{
+			NotifyWatcherId: api.resources.Register(watch),
+		}, nil
+	}
+	return params.NotifyWatchResult{
+		Error: common.ServerError(watcher.EnsureErr(watch)),
+	}, nil
 }
 
 func (api *proxyUpdaterAPI) ProxyConfig() (params.ProxyConfigResult, error) {
-	here.M("ProxyConfig")
 	var cfg params.ProxyConfigResult
 	env, err := api.st.EnvironConfig()
 	if err != nil {
-		here.Is(err)
 		return cfg, err
 	}
 
 	apiHostPorts, err := api.st.APIHostPorts()
 	if err != nil {
-		here.Is(err)
 		return cfg, err
 	}
 
