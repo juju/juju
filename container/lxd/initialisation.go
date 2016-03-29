@@ -79,7 +79,7 @@ func getPackagingConfigurer(series string) (config.PackagingConfigurer, error) {
 func configureZFS() {
 	/* create a 100 GB pool by default (sparse, so it won't actually fill
 	 * that immediately)
-	*/
+	 */
 	output, err := exec.Command(
 		"lxd",
 		"init",
@@ -134,7 +134,6 @@ func configureLXDBridge() error {
 		return errors.Trace(err)
 	}
 
-
 	/* non-systemd systems don't have the lxd-bridge service, so this always fails */
 	_ = exec.Command("service", "lxd-bridge", "restart").Run()
 	return exec.Command("service", "lxd", "restart").Run()
@@ -186,16 +185,16 @@ func editLXDBridgeFile(input string, subnet string) string {
 	buffer := bytes.Buffer{}
 
 	newValues := map[string]string{
-		"USE_LXD_BRIDGE": "true",
-		"EXISTING_BRIDGE": "",
-		"LXD_BRIDGE": "lxdbr0",
-		"LXD_IPV4_ADDR": fmt.Sprintf("10.0.%s.1", subnet),
-		"LXD_IPV4_NETMASK": "255.255.255.0",
-		"LXD_IPV4_NETWORK": fmt.Sprintf("10.0.%s.1/24", subnet),
+		"USE_LXD_BRIDGE":      "true",
+		"EXISTING_BRIDGE":     "",
+		"LXD_BRIDGE":          "lxdbr0",
+		"LXD_IPV4_ADDR":       fmt.Sprintf("10.0.%s.1", subnet),
+		"LXD_IPV4_NETMASK":    "255.255.255.0",
+		"LXD_IPV4_NETWORK":    fmt.Sprintf("10.0.%s.1/24", subnet),
 		"LXD_IPV4_DHCP_RANGE": fmt.Sprintf("10.0.%s.2,10.0.%s.254", subnet, subnet),
-		"LXD_IPV4_DHCP_MAX": "253",
-		"LXD_IPV4_NAT": "true",
-		"LXD_IPV6_PROXY": "false",
+		"LXD_IPV4_DHCP_MAX":   "253",
+		"LXD_IPV4_NAT":        "true",
+		"LXD_IPV6_PROXY":      "false",
 	}
 	found := map[string]bool{}
 
