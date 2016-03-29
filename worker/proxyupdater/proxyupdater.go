@@ -15,7 +15,6 @@ import (
 	"github.com/juju/utils/packaging/config"
 	proxyutils "github.com/juju/utils/proxy"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
 	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/api/watcher"
@@ -113,7 +112,7 @@ func (w *proxyWorker) writeEnvironmentFile() error {
 		WorkingDir: ProxyDirectory,
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 	if result.Code != 0 {
 		logger.Errorf("failed writing new proxy values: \n%s\n%s", result.Stdout, result.Stderr)
@@ -135,7 +134,7 @@ func (w *proxyWorker) writeEnvironmentToRegistry() error {
 			w.proxy.Http),
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 	if result.Code != 0 {
 		logger.Errorf("failed writing new proxy values: \n%s\n%s", result.Stdout, result.Stderr)
@@ -146,7 +145,7 @@ func (w *proxyWorker) writeEnvironmentToRegistry() error {
 func (w *proxyWorker) writeEnvironment() error {
 	osystem, err := version.GetOSFromSeries(version.Current.Series)
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 	switch osystem {
 	case version.Windows:
@@ -181,7 +180,7 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) erro
 		logger.Debugf("new apt proxy settings %#v", aptSettings)
 		paccmder, err := getPackageCommander()
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		w.aptProxy = aptSettings
 
@@ -199,13 +198,13 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) erro
 func (w *proxyWorker) onChange() error {
 	cfg, err := w.api.ProxyConfig()
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 
 	w.handleProxyValues(cfg.ProxySettings)
 	err = w.handleAptProxyValues(cfg.APTProxySettings)
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 	return nil
 }
@@ -216,7 +215,7 @@ func (w *proxyWorker) SetUp() (watcher.NotifyWatcher, error) {
 	// event.
 	err := w.onChange()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 	w.first = false
 	Started()

@@ -41,7 +41,7 @@ type proxyUpdaterAPI struct {
 
 // NewAPI creates a new API server-side facade with a state.State backing.
 func NewAPI(st *state.State, res *common.Resources, auth common.Authorizer) (API, error) {
-	return newAPIWithBacking(st, res, auth)
+	return newAPIWithBacking(&stateShim{st: st}, res, auth)
 }
 
 // newAPIWithBacking creates a new server-side API facade with the given Backing.
@@ -61,7 +61,6 @@ func (api *proxyUpdaterAPI) WatchForProxyConfigAndAPIHostPortChanges() (params.N
 	watch := common.NewMultiNotifyWatcher(
 		api.st.WatchForEnvironConfigChanges(),
 		api.st.WatchAPIHostPorts())
-
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{
 			NotifyWatcherId: api.resources.Register(watch),
