@@ -135,9 +135,9 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapSeries(c *gc.C) {
 		BootstrapSeries: "trusty",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.bootstrapCount, gc.Equals, 1)
-	c.Assert(env.args.BootstrapSeries, gc.Equals, "trusty")
-	c.Assert(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"trusty"})
+	c.Check(env.bootstrapCount, gc.Equals, 1)
+	c.Check(env.args.BootstrapSeries, gc.Equals, "trusty")
+	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"trusty"})
 }
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {

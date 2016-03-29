@@ -142,17 +142,14 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 	checkInstanceId := "i-success"
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
 
-	startInstance := func(
-		_ string, _ constraints.Value, _ []string, _ tools.List, icfg *instancecfg.InstanceConfig,
-	) (
-		instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
-	) {
+	startInstance := func(_ string, _ constraints.Value, _ []string, _ tools.List, icfg *instancecfg.InstanceConfig) (instance.Instance,
+		*instance.HardwareCharacteristics, []network.InterfaceInfo, error) {
 		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
 	}
 	var mocksConfig = minimalConfig(c)
-	var getConfigCalled int
+	var numGetConfigCalled int
 	getConfig := func() *config.Config {
-		getConfigCalled++
+		numGetConfigCalled++
 		return mocksConfig
 	}
 	setConfig := func(c *config.Config) error {
@@ -180,8 +177,8 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 			},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	c.Assert(result.Series, gc.Equals, bootstrapSeries)
+	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
+	c.Check(result.Series, gc.Equals, bootstrapSeries)
 }
 
 func (s *BootstrapSuite) TestSuccess(c *gc.C) {
