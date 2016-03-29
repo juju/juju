@@ -133,11 +133,17 @@ func (c *guiCommand) showCredentials(ctx *cmd.Context) error {
 	if !c.showCreds {
 		return nil
 	}
-	creds, err := c.ConnectionCredentials()
+	// TODO(wallyworld) - what to do if we are using a macaroon.
+	if c.AccountName() == "" {
+		return errors.Errorf("no connection credentials available")
+	}
+	accountDetails, err := c.ClientStore().AccountByName(
+		c.ControllerName(), c.AccountName(),
+	)
 	if err != nil {
 		return errors.Annotate(err, "cannot retrieve credentials")
 	}
-	ctx.Infof("Username: %s\nPassword: %s", creds.User, creds.Password)
+	ctx.Infof("Username: %s\nPassword: %s", accountDetails.User, accountDetails.Password)
 	return nil
 }
 

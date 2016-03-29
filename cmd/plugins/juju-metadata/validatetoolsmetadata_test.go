@@ -96,16 +96,10 @@ func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version,
 
 func (s *ValidateToolsMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	cacheTestEnvConfig(c)
 	s.metadataDir = c.MkDir()
 
-	err := modelcmd.WriteCurrentController("testing")
-	c.Assert(err, jc.ErrorIsNil)
 	s.store = jujuclienttesting.NewMemStore()
-	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
-	s.store.Accounts["testing"] = &jujuclient.ControllerAccounts{
-		CurrentAccount: "admin@local",
-	}
+	cacheTestEnvConfig(c, s.store)
 
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
@@ -127,7 +121,7 @@ func (s *ValidateToolsMetadataSuite) setupEc2LocalMetadata(c *gc.C, region strin
 
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-east-1")
-	ctx, err := runValidateToolsMetadata(c, s.store, "-m", "ec2", "-j", "1.11.4", "-d", s.metadataDir)
+	ctx, err := runValidateToolsMetadata(c, s.store, "-m", "ec2-controller:ec2", "-j", "1.11.4", "-d", s.metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	errOut := coretesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
@@ -139,8 +133,8 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "")
 	s.setupEc2LocalMetadata(c, "us-east-1")
-	_, err := runValidateToolsMetadata(c, s.store, "-m", "ec2", "-j", "1.11.4")
-	c.Assert(err, gc.ErrorMatches, "invalid EC2 provider config: model has no access-key or secret-key")
+	_, err := runValidateToolsMetadata(c, s.store, "-m", "ec2-controller:ec2", "-j", "1.11.4")
+	c.Assert(err, gc.ErrorMatches, `detecting credentials.*AWS_SECRET_ACCESS_KEY not found in environment`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {

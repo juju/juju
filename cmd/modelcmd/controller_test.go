@@ -24,7 +24,7 @@ var _ = gc.Suite(&ControllerCommandSuite{})
 
 func (s *ControllerCommandSuite) TestControllerCommandNoneSpecified(c *gc.C) {
 	_, err := initTestControllerCommand(c, nil)
-	c.Assert(err, gc.ErrorMatches, "no controller specified")
+	c.Assert(err, gc.ErrorMatches, "no controller specified(.|\n)*")
 }
 
 func (s *ControllerCommandSuite) TestControllerCommandInitSystemFile(c *gc.C) {

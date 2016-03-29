@@ -4,6 +4,7 @@
 package stringforwarder_test
 
 import (
+	"sync"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -13,9 +14,9 @@ import (
 	"github.com/juju/juju/utils/stringforwarder"
 )
 
-type stringForwarderSuite struct{}
+type StringForwarderSuite struct{}
 
-var _ = gc.Suite(&stringForwarderSuite{})
+var _ = gc.Suite(&StringForwarderSuite{})
 
 // waitFor event to happen, or timeout and fail the test
 func waitFor(c *gc.C, event <-chan struct{}) {
@@ -36,14 +37,14 @@ func sendEvent(c *gc.C, event chan struct{}) {
 	}
 }
 
-func (*stringForwarderSuite) TestReceives(c *gc.C) {
-	messages := make([]string, 0)
+func (*StringForwarderSuite) TestReceives(c *gc.C) {
+	var messages []string
 	received := make(chan struct{}, 10)
-	forwarder := stringforwarder.NewStringForwarder(func(msg string) {
+	forwarder := stringforwarder.New(func(msg string) {
 		messages = append(messages, msg)
 		received <- struct{}{}
 	})
-	forwarder.Receive("one")
+	forwarder.Forward("one")
 	waitFor(c, received)
 	c.Check(forwarder.Stop(), gc.Equals, uint64(0))
 	c.Check(messages, gc.DeepEquals, []string{"one"})
@@ -52,34 +53,34 @@ func (*stringForwarderSuite) TestReceives(c *gc.C) {
 func noopCallback(string) {
 }
 
-func (*stringForwarderSuite) TestStopIsReentrant(c *gc.C) {
-	forwarder := stringforwarder.NewStringForwarder(noopCallback)
+func (*StringForwarderSuite) TestStopIsReentrant(c *gc.C) {
+	forwarder := stringforwarder.New(noopCallback)
 	forwarder.Stop()
 	forwarder.Stop()
 }
 
-func (*stringForwarderSuite) TestMessagesDroppedAfterStop(c *gc.C) {
-	messages := make([]string, 0)
-	forwarder := stringforwarder.NewStringForwarder(func(msg string) {
+func (*StringForwarderSuite) TestMessagesDroppedAfterStop(c *gc.C) {
+	var messages []string
+	forwarder := stringforwarder.New(func(msg string) {
 		messages = append(messages, msg)
 	})
 	forwarder.Stop()
-	forwarder.Receive("one")
-	forwarder.Receive("two")
+	forwarder.Forward("one")
+	forwarder.Forward("two")
 	forwarder.Stop()
-	c.Check(messages, gc.DeepEquals, []string{})
+	c.Check(messages, gc.HasLen, 0)
 }
 
-func (*stringForwarderSuite) TestAllDroppedWithNoCallback(c *gc.C) {
-	forwarder := stringforwarder.NewStringForwarder(nil)
-	forwarder.Receive("one")
-	forwarder.Receive("two")
-	forwarder.Receive("three")
+func (*StringForwarderSuite) TestAllDroppedWithNoCallback(c *gc.C) {
+	forwarder := stringforwarder.New(nil)
+	forwarder.Forward("one")
+	forwarder.Forward("two")
+	forwarder.Forward("three")
 	c.Check(forwarder.Stop(), gc.Equals, uint64(3))
 }
 
-func (*stringForwarderSuite) TestMessagesDroppedWhenBusy(c *gc.C) {
-	messages := make([]string, 0)
+func (*StringForwarderSuite) TestMessagesDroppedWhenBusy(c *gc.C) {
+	var messages []string
 	received := make(chan struct{}, 10)
 	next := make(chan struct{})
 	blockingCallback := func(msg string) {
@@ -87,17 +88,17 @@ func (*stringForwarderSuite) TestMessagesDroppedWhenBusy(c *gc.C) {
 		messages = append(messages, msg)
 		sendEvent(c, received)
 	}
-	forwarder := stringforwarder.NewStringForwarder(blockingCallback)
-	forwarder.Receive("first")
-	forwarder.Receive("second")
-	forwarder.Receive("third")
+	forwarder := stringforwarder.New(blockingCallback)
+	forwarder.Forward("first")
+	forwarder.Forward("second")
+	forwarder.Forward("third")
 	// At this point we should have started processing "first", but the
 	// other two messages are dropped.
 	sendEvent(c, next)
 	waitFor(c, received)
 	// now we should be ready to get another message
-	forwarder.Receive("fourth")
-	forwarder.Receive("fifth")
+	forwarder.Forward("fourth")
+	forwarder.Forward("fifth")
 	// finish fourth
 	sendEvent(c, next)
 	waitFor(c, received)
@@ -106,27 +107,28 @@ func (*stringForwarderSuite) TestMessagesDroppedWhenBusy(c *gc.C) {
 	c.Check(dropCount, gc.Equals, uint64(3))
 }
 
-func (*stringForwarderSuite) TestRace(c *gc.C) {
-	forwarder := stringforwarder.NewStringForwarder(noopCallback)
+func (*StringForwarderSuite) TestRace(c *gc.C) {
+	forwarder := stringforwarder.New(noopCallback)
 	stop := make(chan struct{})
-	go func() {
-		// In 100ms we can hit 1M calls, so make this 10M, and make the
-		// timeout 1ms, that gives us a safety factor of 1000.
-		for i := 0; i < 10*1000*1000; i++ {
+	wg := &sync.WaitGroup{}
+	f := func(wg *sync.WaitGroup) {
+		wg.Done()
+		for {
 			select {
 			case <-stop:
 				return
 			default:
-				forwarder.Receive("next message")
+				forwarder.Forward("next message")
 			}
 		}
-		c.Errorf("managed to send too many messages without being stopped")
-	}()
-	// Note: we intentionally don't use synchronization primatives in the
-	// test suite, because we want to test that the stringForwarder itself
-	// is race free.
-	time.Sleep(1 * time.Millisecond)
-	count := forwarder.Stop()
+	}
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go f(wg)
+	}
+	wg.Wait()
+	time.Sleep(10 * time.Millisecond)
 	close(stop)
+	count := forwarder.Stop()
 	c.Check(count, jc.GreaterThan, uint64(0))
 }

@@ -100,6 +100,12 @@ func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
+	s.BaseSuite.Client.CheckCallNames(c, "Instances")
+	s.BaseSuite.Client.CheckCall(
+		c, 0, "Instances",
+		"juju-"+s.Env.Config().ControllerUUID()+"-machine-",
+		[]string{"Starting", "Started", "Running"},
+	)
 }
 
 func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *gc.C) {

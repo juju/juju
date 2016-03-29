@@ -111,6 +111,15 @@ func ResultFromMetadata(meta *backups.Metadata) params.BackupsMetadataResult {
 	result.Hostname = meta.Origin.Hostname
 	result.Version = meta.Origin.Version
 
+	// TODO(wallyworld) - remove these ASAP
+	// These are only used by the restore CLI when re-bootstrapping.
+	// We will use a better solution but the way restore currently
+	// works, we need them and they are no longer available via
+	// bootstrap config. We will need to ifx how re-bootstrap deals
+	// with these keys to address the issue.
+	result.CACert = meta.CACert
+	result.CAPrivateKey = meta.CAPrivateKey
+
 	return result
 }
 

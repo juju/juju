@@ -1,8 +1,15 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package modelmanager
 
-func RestrictedProviderFields(mm *ModelManagerAPI, providerType string) ([]string, error) {
-	return mm.restrictedProviderFields(providerType)
+import (
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/names"
+)
+
+func AuthCheck(c *gc.C, mm *ModelManagerAPI, user names.UserTag) bool {
+	mm.authCheck(user)
+	return mm.isAdmin
 }
