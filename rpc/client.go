@@ -63,24 +63,24 @@ func NewClientConn(codec Codec) ClientConn {
 	return client
 }
 
-func (conn *Conn) send(call *Call) {
-	conn.sending.Lock()
-	defer conn.sending.Unlock()
+func (c *conn) send(call *Call) {
+	c.sending.Lock()
+	defer c.sending.Unlock()
 
 	// Register this call.
-	conn.mutex.Lock()
-	if conn.dead == nil {
+	c.mutex.Lock()
+	if c.dead == nil {
 		panic("rpc: call made when connection not started")
 	}
-	if conn.closing || conn.shutdown {
+	if c.closing || c.shutdown {
 		call.Error = ErrShutdown
-		conn.mutex.Unlock()
+		c.mutex.Unlock()
 		call.done()
 		return
 	}
-	reqId := atomic.AddUint64(&conn.reqId, 1)
-	conn.clientPending[reqId] = call
-	conn.mutex.Unlock()
+	reqId := atomic.AddUint64(&c.reqId, 1)
+	c.clientPending[reqId] = call
+	c.mutex.Unlock()
 
 	// Encode and send the request.
 	hdr := &Header{
@@ -91,14 +91,14 @@ func (conn *Conn) send(call *Call) {
 	if params == nil {
 		params = struct{}{}
 	}
-	if conn.notifier != nil {
-		conn.notifier.ClientRequest(hdr, params)
+	if c.notifier != nil {
+		c.notifier.ClientRequest(hdr, params)
 	}
-	if err := conn.codec.WriteMessage(hdr, params); err != nil {
-		conn.mutex.Lock()
-		call = conn.clientPending[reqId]
-		delete(conn.clientPending, reqId)
-		conn.mutex.Unlock()
+	if err := c.codec.WriteMessage(hdr, params); err != nil {
+		c.mutex.Lock()
+		call = c.clientPending[reqId]
+		delete(c.clientPending, reqId)
+		c.mutex.Unlock()
 		if call != nil {
 			call.Error = err
 			call.done()
@@ -106,12 +106,12 @@ func (conn *Conn) send(call *Call) {
 	}
 }
 
-func (conn *Conn) handleResponse(hdr *Header) error {
+func (c *conn) handleResponse(hdr *Header) error {
 	reqId := hdr.RequestId
-	conn.mutex.Lock()
-	call := conn.clientPending[reqId]
-	delete(conn.clientPending, reqId)
-	conn.mutex.Unlock()
+	c.mutex.Lock()
+	call := c.clientPending[reqId]
+	delete(c.clientPending, reqId)
+	c.mutex.Unlock()
 
 	var err error
 	switch {
@@ -121,10 +121,8 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 		// removed; response is a server telling us about an
 		// error reading request body. We should still attempt
 		// to read error body, but there's no one to give it to.
-		if conn.notifier != nil {
-			conn.notifier.ClientReply(Request{}, hdr, nil)
-		}
-		err = conn.readBody(nil, false)
+		c.notifier.ClientReply(Request{}, hdr, nil)
+		err = c.readBody(nil, false)
 	case hdr.Error != "":
 		// Report rpcreflect.NoSuchMethodError with CodeNotImplemented.
 		if strings.HasPrefix(hdr.Error, "no such request ") && hdr.ErrorCode == "" {
@@ -137,16 +135,12 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 			Message: hdr.Error,
 			Code:    hdr.ErrorCode,
 		}
-		err = conn.readBody(nil, false)
-		if conn.notifier != nil {
-			conn.notifier.ClientReply(call.Request, hdr, nil)
-		}
+		err = c.readBody(nil, false)
+		c.notifier.ClientReply(call.Request, hdr, nil)
 		call.done()
 	default:
-		err = conn.readBody(call.Response, false)
-		if conn.notifier != nil {
-			conn.notifier.ClientReply(call.Request, hdr, call.Response)
-		}
+		err = c.readBody(call.Response, false)
+		c.notifier.ClientReply(call.Request, hdr, call.Response)
 		call.done()
 	}
 	return errors.Annotate(err, "error handling response")
@@ -168,14 +162,14 @@ func (call *Call) done() {
 // If the action fails remotely, the error will have a cause of type RequestError.
 // The params value may be nil if no parameters are provided; the response value
 // may be nil to indicate that any result should be discarded.
-func (conn *Conn) Call(req Request, params, response interface{}) error {
+func (c *conn) Call(req Request, params, response interface{}) error {
 	call := &Call{
 		Request:  req,
 		Params:   params,
 		Response: response,
 		Done:     make(chan *Call, 1),
 	}
-	conn.send(call)
+	c.send(call)
 	result := <-call.Done
 	return errors.Trace(result.Error)
 }

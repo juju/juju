@@ -88,11 +88,11 @@ func (hdr *Header) IsRequest() bool {
 // Note that we use "client request" and "server request" to name
 // requests initiated locally and remotely respectively.
 
-// Conn represents an RPC endpoint.  It can both initiate and receive
+// conn represents an RPC endpoint.  It can both initiate and receive
 // RPC requests.  There may be multiple outstanding Calls associated
 // with a single Client, and a Client may be used by multiple goroutines
 // simultaneously.
-type Conn struct {
+type conn struct {
 	// codec holds the underlying RPC connection.
 	codec Codec
 
@@ -257,14 +257,14 @@ func NewServerConn(codec Codec, notifier RequestNotifier) ServerConn {
 }
 
 // newConn creates a new connection that uses the given codec for
-// transport, but it does not start it. Conn.Start must be called before
+// transport, but it does not start it. conn.Start must be called before
 // any requests are sent or received. If notifier is non-nil, the
 // appropriate method will be called for every RPC request.
-func newConn(codec Codec, notifier RequestNotifier) *Conn {
+func newConn(codec Codec, notifier RequestNotifier) *conn {
 	if notifier == nil {
 		notifier = new(dummyNotifier)
 	}
-	return &Conn{
+	return &conn{
 		codec:         codec,
 		clientPending: make(map[uint64]*Call),
 		notifier:      notifier,
@@ -284,12 +284,12 @@ func (*dummyNotifier) ClientReply(Request, *Header, interface{})                
 // if it has already been called.  By default, a connection serves no
 // methods.  See Conn.Serve for a description of how to serve methods on
 // a Conn.
-func (conn *Conn) Start() {
-	conn.mutex.Lock()
-	defer conn.mutex.Unlock()
-	if conn.dead == nil {
-		conn.dead = make(chan struct{})
-		go conn.input()
+func (c *conn) Start() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	if c.dead == nil {
+		c.dead = make(chan struct{})
+		go c.input()
 	}
 }
 
@@ -330,12 +330,12 @@ func (conn *Conn) Start() {
 // set of methods being served by the connection. This will have
 // no effect on calls that are currently being services.
 // If root is nil, the connection will serve no methods.
-func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) {
+func (c *conn) Serve(root interface{}, transformErrors func(error) error) {
 	rootValue := rpcreflect.ValueOf(reflect.ValueOf(root))
 	if rootValue.IsValid() {
-		conn.serve(rootValue, root, transformErrors)
+		c.serve(rootValue, root, transformErrors)
 	} else {
-		conn.serve(nil, nil, transformErrors)
+		c.serve(nil, nil, transformErrors)
 	}
 }
 
@@ -349,19 +349,19 @@ func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) {
 //
 // root can optionally implement the Killer method. If implemented, when the
 // connection is closed, root.Kill() will be called.
-func (conn *Conn) ServeFinder(finder MethodFinder, transformErrors func(error) error) {
-	conn.serve(finder, finder, transformErrors)
+func (c *conn) ServeFinder(finder MethodFinder, transformErrors func(error) error) {
+	c.serve(finder, finder, transformErrors)
 }
 
-func (conn *Conn) serve(methodFinder MethodFinder, root interface{}, transformErrors func(error) error) {
+func (c *conn) serve(methodFinder MethodFinder, root interface{}, transformErrors func(error) error) {
 	if transformErrors == nil {
 		transformErrors = noopTransform
 	}
-	conn.mutex.Lock()
-	defer conn.mutex.Unlock()
-	conn.methodFinder = methodFinder
-	conn.root = root
-	conn.transformErrors = transformErrors
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.methodFinder = methodFinder
+	c.root = root
+	c.transformErrors = transformErrors
 }
 
 // noopTransform is used when transformErrors is not supplied to Serve.
@@ -373,8 +373,8 @@ func noopTransform(err error) error {
 // has been closed or the underlying transport has received
 // an error. There may still be outstanding requests.
 // Dead must be called after conn.Start has been called.
-func (conn *Conn) Dead() <-chan struct{} {
-	return conn.dead
+func (c *conn) Dead() <-chan struct{} {
+	return c.dead
 }
 
 // Close closes the connection and its underlying codec; it returns when
@@ -386,47 +386,47 @@ func (conn *Conn) Dead() <-chan struct{} {
 // completed.
 //
 // Calling Close multiple times is not an error.
-func (conn *Conn) Close() error {
-	conn.mutex.Lock()
-	if conn.closing {
-		conn.mutex.Unlock()
+func (c *conn) Close() error {
+	c.mutex.Lock()
+	if c.closing {
+		c.mutex.Unlock()
 		// Golang's net/rpc returns rpc.ErrShutdown if you ask to close
 		// a closing or shutdown connection. Our choice is that Close
 		// is an idempotent way to ask for resources to be released and
 		// isn't a failure if called multiple times.
 		return nil
 	}
-	conn.closing = true
-	conn.killRequests()
-	conn.mutex.Unlock()
+	c.closing = true
+	c.killRequests()
+	c.mutex.Unlock()
 
 	// Wait for any outstanding server requests to complete
 	// and write their replies before closing the codec.
-	conn.srvPending.Wait()
+	c.srvPending.Wait()
 
 	// Closing the codec should cause the input loop to terminate.
-	if err := conn.codec.Close(); err != nil {
+	if err := c.codec.Close(); err != nil {
 		logger.Infof("error closing codec: %v", err)
 	}
-	<-conn.dead
+	<-c.dead
 
-	conn.mutex.Lock()
-	conn.cleanRoot()
-	conn.mutex.Unlock()
+	c.mutex.Lock()
+	c.cleanRoot()
+	c.mutex.Unlock()
 
-	return conn.inputLoopError
+	return c.inputLoopError
 }
 
 // Kill server requests if appropriate. Client requests will be
 // terminated when the input loop finishes.
-func (conn *Conn) killRequests() {
-	if killer, ok := conn.root.(Killer); ok {
+func (c *conn) killRequests() {
+	if killer, ok := c.root.(Killer); ok {
 		killer.Kill()
 	}
 }
 
-func (conn *Conn) cleanRoot() {
-	if cleaner, ok := conn.root.(Cleaner); ok {
+func (c *conn) cleanRoot() {
+	if cleaner, ok := c.root.(Cleaner); ok {
 		cleaner.Cleanup()
 	}
 }
@@ -458,34 +458,34 @@ type Cleaner interface {
 
 // input reads messages from the connection and handles them
 // appropriately.
-func (conn *Conn) input() {
-	err := conn.loop()
-	conn.sending.Lock()
-	defer conn.sending.Unlock()
-	conn.mutex.Lock()
-	defer conn.mutex.Unlock()
+func (c *conn) input() {
+	err := c.loop()
+	c.sending.Lock()
+	defer c.sending.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
-	if conn.closing || err == io.EOF {
+	if c.closing || err == io.EOF {
 		err = ErrShutdown
 	} else {
 		// Make the error available for Conn.Close to see.
-		conn.inputLoopError = err
+		c.inputLoopError = err
 	}
 	// Terminate all client requests.
-	for _, call := range conn.clientPending {
+	for _, call := range c.clientPending {
 		call.Error = err
 		call.done()
 	}
-	conn.clientPending = nil
-	conn.shutdown = true
-	close(conn.dead)
+	c.clientPending = nil
+	c.shutdown = true
+	close(c.dead)
 }
 
 // loop implements the looping part of Conn.input.
-func (conn *Conn) loop() error {
+func (c *conn) loop() error {
 	for {
 		var hdr Header
-		err := conn.codec.ReadHeader(&hdr)
+		err := c.codec.ReadHeader(&hdr)
 		switch {
 		case err == io.EOF:
 			// handle sentinel error specially
@@ -493,35 +493,35 @@ func (conn *Conn) loop() error {
 		case err != nil:
 			return errors.Annotate(err, "codec.ReadHeader error")
 		case hdr.IsRequest():
-			if err := conn.handleRequest(&hdr); err != nil {
+			if err := c.handleRequest(&hdr); err != nil {
 				return errors.Annotatef(err, "codec.handleRequest %#v error", hdr)
 			}
 		default:
-			if err := conn.handleResponse(&hdr); err != nil {
+			if err := c.handleResponse(&hdr); err != nil {
 				return errors.Annotatef(err, "codec.handleResponse %#v error", hdr)
 			}
 		}
 	}
 }
 
-func (conn *Conn) readBody(resp interface{}, isRequest bool) error {
+func (c *conn) readBody(resp interface{}, isRequest bool) error {
 	if resp == nil {
 		resp = &struct{}{}
 	}
-	return conn.codec.ReadBody(resp, isRequest)
+	return c.codec.ReadBody(resp, isRequest)
 }
 
-func (conn *Conn) handleRequest(hdr *Header) error {
+func (c *conn) handleRequest(hdr *Header) error {
 	startTime := time.Now()
-	req, err := conn.bindRequest(hdr)
+	req, err := c.bindRequest(hdr)
 	if err != nil {
-		conn.notifier.ServerRequest(hdr, nil)
-		if err := conn.readBody(nil, true); err != nil {
+		c.notifier.ServerRequest(hdr, nil)
+		if err := c.readBody(nil, true); err != nil {
 			return err
 		}
 		// We don't transform the error here. bindRequest will have
 		// already transformed it and returned a zero req.
-		return conn.writeErrorResponse(hdr, err, startTime)
+		return c.writeErrorResponse(hdr, err, startTime)
 	}
 	var argp interface{}
 	var arg reflect.Value
@@ -530,8 +530,8 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		arg = v.Elem()
 		argp = v.Interface()
 	}
-	if err := conn.readBody(argp, true); err != nil {
-		conn.notifier.ServerRequest(hdr, nil)
+	if err := c.readBody(argp, true); err != nil {
+		c.notifier.ServerRequest(hdr, nil)
 		// If we get EOF, we know the connection is a
 		// goner, so don't try to respond.
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
@@ -545,30 +545,30 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		// the error is actually a framing or syntax
 		// problem, then the next ReadHeader should pick
 		// up the problem and abort.
-		return conn.writeErrorResponse(hdr, req.transformErrors(err), startTime)
+		return c.writeErrorResponse(hdr, req.transformErrors(err), startTime)
 	}
 	if req.ParamsType() != nil {
-		conn.notifier.ServerRequest(hdr, arg.Interface())
+		c.notifier.ServerRequest(hdr, arg.Interface())
 	} else {
-		conn.notifier.ServerRequest(hdr, struct{}{})
+		c.notifier.ServerRequest(hdr, struct{}{})
 	}
-	conn.mutex.Lock()
-	closing := conn.closing
+	c.mutex.Lock()
+	closing := c.closing
 	if !closing {
-		conn.srvPending.Add(1)
-		go conn.runRequest(req, arg, startTime)
+		c.srvPending.Add(1)
+		go c.runRequest(req, arg, startTime)
 	}
-	conn.mutex.Unlock()
+	c.mutex.Unlock()
 	if closing {
 		// We're closing down - no new requests may be initiated.
-		return conn.writeErrorResponse(hdr, req.transformErrors(ErrShutdown), startTime)
+		return c.writeErrorResponse(hdr, req.transformErrors(ErrShutdown), startTime)
 	}
 	return nil
 }
 
-func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, startTime time.Time) error {
-	conn.sending.Lock()
-	defer conn.sending.Unlock()
+func (c *conn) writeErrorResponse(reqHdr *Header, err error, startTime time.Time) error {
+	c.sending.Lock()
+	defer c.sending.Unlock()
 	hdr := &Header{
 		RequestId: reqHdr.RequestId,
 	}
@@ -578,8 +578,8 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, startTime time.T
 		hdr.ErrorCode = ""
 	}
 	hdr.Error = err.Error()
-	conn.notifier.ServerReply(reqHdr.Request, hdr, struct{}{}, time.Since(startTime))
-	return conn.codec.WriteMessage(hdr, struct{}{})
+	c.notifier.ServerReply(reqHdr.Request, hdr, struct{}{}, time.Since(startTime))
+	return c.codec.WriteMessage(hdr, struct{}{})
 }
 
 // boundRequest represents an RPC request that is
@@ -593,11 +593,11 @@ type boundRequest struct {
 // bindRequest searches for methods implementing the
 // request held in the given header and returns
 // a boundRequest that can call those methods.
-func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
-	conn.mutex.Lock()
-	methodFinder := conn.methodFinder
-	transformErrors := conn.transformErrors
-	conn.mutex.Unlock()
+func (c *conn) bindRequest(hdr *Header) (boundRequest, error) {
+	c.mutex.Lock()
+	methodFinder := c.methodFinder
+	transformErrors := c.transformErrors
+	c.mutex.Unlock()
 
 	if methodFinder == nil {
 		return boundRequest{}, errors.New("no service")
@@ -622,11 +622,11 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 }
 
 // runRequest runs the given request and sends the reply.
-func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time.Time) {
-	defer conn.srvPending.Done()
+func (c *conn) runRequest(req boundRequest, arg reflect.Value, startTime time.Time) {
+	defer c.srvPending.Done()
 	rv, err := req.Call(req.hdr.Request.Id, arg)
 	if err != nil {
-		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err), startTime)
+		err = c.writeErrorResponse(&req.hdr, req.transformErrors(err), startTime)
 	} else {
 		hdr := &Header{
 			RequestId: req.hdr.RequestId,
@@ -637,10 +637,10 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time
 		} else {
 			rvi = struct{}{}
 		}
-		conn.notifier.ServerReply(req.hdr.Request, hdr, rvi, time.Since(startTime))
-		conn.sending.Lock()
-		err = conn.codec.WriteMessage(hdr, rvi)
-		conn.sending.Unlock()
+		c.notifier.ServerReply(req.hdr.Request, hdr, rvi, time.Since(startTime))
+		c.sending.Lock()
+		err = c.codec.WriteMessage(hdr, rvi)
+		c.sending.Unlock()
 	}
 	if err != nil {
 		logger.Errorf("error writing response: %v", err)
