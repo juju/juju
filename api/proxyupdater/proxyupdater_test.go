@@ -64,31 +64,16 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ProxyUpdaterSuite) TestAPIHostPorts(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 	args := apitesting.CheckArgs{
 		Facade:  "ProxyUpdater",
-		Method:  "APIHostPorts",
+		Method:  "ProxyConfig",
 		Args:    nil,
 		Results: nil,
 	}
 
 	s.init(c, &args, nil)
-	_, err := s.api.APIHostPorts()
+	_, err := s.api.ProxyConfig()
 	c.Assert(s.called, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *ProxyUpdaterSuite) TestEnvironConfig(c *gc.C) {
-	args := apitesting.CheckArgs{
-		Facade:  "ProxyUpdater",
-		Method:  "EnvironConfig",
-		Args:    nil,
-		Results: nil,
-	}
-
-	s.init(c, &args, nil)
-	s.api.EnvironConfig()
-	c.Assert(s.called, gc.Equals, 1)
-	// We don't bother checking the return from EnvironConfig - other tests
-	// check its correctness and here we just want to be sure it is wired up.
 }
