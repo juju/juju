@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/rpc"
 )
 
 // Info encapsulates information about a server holding juju state and
@@ -174,10 +173,6 @@ type Connection interface {
 	// inside it as well. We should figure this out sometime -- we should
 	// either expose Ping() or Broken() but not both.
 	Ping() error
-
-	// RPCClient is apparently exported for testing purposes only, but this
-	// seems to indicate *some* sort of layering confusion.
-	RPCClient() rpc.ClientConn
 
 	// I think this is actually dead code. It's tested, at least, so I'm
 	// keeping it for now, but it's not apparently used anywhere else.

@@ -571,13 +571,6 @@ func (s *state) Broken() <-chan struct{} {
 	return s.broken
 }
 
-// RPCClient returns the RPC client for the state, so that testing
-// functions can tickle parts of the API that the conventional entry
-// points don't reach. This is exported for testing purposes only.
-func (s *state) RPCClient() rpc.ClientConn {
-	return s.client
-}
-
 // Addr returns the address used to connect to the API server.
 func (s *state) Addr() string {
 	return s.addr
