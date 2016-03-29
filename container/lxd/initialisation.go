@@ -185,33 +185,43 @@ func detectSubnet(ipAddrOutput string) (string, error) {
 func editLXDBridgeFile(input string, subnet string) string {
 	buffer := bytes.Buffer{}
 
+	newValues := map[string]string{
+		"USE_LXD_BRIDGE": "true",
+		"EXISTING_BRIDGE": "",
+		"LXD_BRIDGE": "lxdbr0",
+		"LXD_IPV4_ADDR": fmt.Sprintf("10.0.%s.1", subnet),
+		"LXD_IPV4_NETMASK": "255.255.255.0",
+		"LXD_IPV4_NETWORK": fmt.Sprintf("10.0.%s.1/24", subnet),
+		"LXD_IPV4_DHCP_RANGE": fmt.Sprintf("10.0.%s.2,10.0.%s.254", subnet, subnet),
+		"LXD_IPV4_DHCP_MAX": "253",
+		"LXD_IPV4_NAT": "true",
+		"LXD_IPV6_PROXY": "false",
+	}
+	found := map[string]bool{}
+
 	for _, line := range strings.Split(input, "\n") {
 		out := line
 
-		if strings.HasPrefix(line, "USE_LXD_BRIDGE=") {
-			out = `USE_LXD_BRIDGE="true"`
-		} else if strings.HasPrefix(line, "EXISTING_BRIDGE=") {
-			out = `EXISTING_BRIDGE=""`
-		} else if strings.HasPrefix(line, "LXD_BRIDGE=") {
-			out = `LXD_BRIDGE="lxdbr0"`
-		} else if strings.HasPrefix(line, "LXD_IPV4_ADDR=") {
-			out = fmt.Sprintf(`LXD_IPV4_ADDR="10.0.%s.1"`, subnet)
-		} else if strings.HasPrefix(line, "LXD_IPV4_NETMASK=") {
-			out = `LXD_IPV4_NETMASK="255.255.255.0"`
-		} else if strings.HasPrefix(line, "LXD_IPV4_NETWORK=") {
-			out = fmt.Sprintf(`LXD_IPV4_NETWORK="10.0.%s.1/24"`, subnet)
-		} else if strings.HasPrefix(line, "LXD_IPV4_DHCP_RANGE=") {
-			out = fmt.Sprintf(`LXD_IPV4_DHCP_RANGE="10.0.%s.2,10.0.%s.254"`, subnet, subnet)
-		} else if strings.HasPrefix(line, "LXD_IPV4_DHCP_MAX=") {
-			out = `LXD_IPV4_DHCP_MAX="253"`
-		} else if strings.HasPrefix(line, "LXD_IPV4_NAT=") {
-			out = `LXD_IPV4_NAT="true"`
-		} else if strings.HasPrefix(line, "LXD_IPV6_PROXY=") {
-			out = `LXD_IPV6_PROXY="false"`
+		for prefix, value := range newValues {
+			if strings.HasPrefix(line, prefix+"=") {
+				out = fmt.Sprintf(`%s="%s"`, prefix, value)
+				found[prefix] = true
+				break
+			}
 		}
 
 		buffer.WriteString(out)
 		buffer.WriteString("\n")
+	}
+
+	for prefix, value := range newValues {
+		if !found[prefix] {
+			buffer.WriteString(prefix)
+			buffer.WriteString("=")
+			buffer.WriteString(value)
+			buffer.WriteString("\n")
+			found[prefix] = true // not necessary but keeps "found" logically consistent
+		}
 	}
 
 	return buffer.String()
