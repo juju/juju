@@ -224,6 +224,12 @@ func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 			c.Check(diskSpec.ImageURL, gc.Equals, test.basePath+s.spec.Image.Id)
 		}
 	}
+
+	diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, "trusty", "32f7d570-5bac-4b72-b169-250c24a94b2b", true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(diskSpecs, gc.HasLen, 1)
+	spec := diskSpecs[0]
+	c.Assert(spec.ImageURL, gc.Equals, gce.UbuntuDailyImageBasePath+s.spec.Image.Id)
 }
 
 func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {

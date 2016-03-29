@@ -20,6 +20,7 @@ var (
 	GetDisks                                      = getDisks
 	ConfigImmutable                               = configImmutableFields
 	UbuntuImageBasePath                           = ubuntuImageBasePath
+	UbuntuDailyImageBasePath                      = ubuntuDailyImageBasePath
 	WindowsImageBasePath                          = windowsImageBasePath
 )
 
