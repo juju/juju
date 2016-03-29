@@ -153,20 +153,20 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 		if err != nil {
 			return nil, err
 		}
-		var resolve func(*charm.URL, *macaroon.Macaroon, []charmresource.Resource) ([]charmresource.Resource, error)
 		switch cURL.Schema {
 		case "cs":
-			resolve = f.resolveCharmstoreResources
+			resources, err = f.resolveCharmstoreResources(cURL, csMac, resources)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 		case "local":
-			resolve = f.resolveLocalResources
+			resources, err = f.resolveLocalResources(resources)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 		default:
 			return nil, errors.Errorf("unrecognized charm schema %q", cURL.Schema)
 		}
-		resolved, err := resolve(cURL, csMac, resources)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		resources = resolved
 	}
 
 	var ids []string
@@ -201,7 +201,7 @@ func (f Facade) resolveCharmstoreResources(cURL *charm.URL, csMac *macaroon.Maca
 	return resolved, nil
 }
 
-func (f Facade) resolveLocalResources(cURL *charm.URL, _ *macaroon.Macaroon, resources []charmresource.Resource) ([]charmresource.Resource, error) {
+func (f Facade) resolveLocalResources(resources []charmresource.Resource) ([]charmresource.Resource, error) {
 	var resolved []charmresource.Resource
 	for _, res := range resources {
 		resolved = append(resolved, charmresource.Resource{
