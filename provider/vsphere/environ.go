@@ -24,13 +24,13 @@ type environ struct {
 	common.SupportsUnitPlacementPolicy
 
 	name   string
-	ecfg   *environConfig
 	client *client
 
-	lock     sync.Mutex
-	archLock sync.Mutex
-
+	archLock               sync.Mutex // archLock protects access to the following fields.
 	supportedArchitectures []string
+
+	lock sync.Mutex // lock protects access the following fields.
+	ecfg *environConfig
 }
 
 func newEnviron(cfg *config.Config) (*environ, error) {
