@@ -145,15 +145,15 @@ def main(argv):
     args = parse_args(argv)
     lp = get_lp('check_blockers', credentials_file=args.credentials_file)
     if args.command == 'check':
-        bugs = get_lp_bugs(lp, args.branch, tags=['blocker'])
+        bugs = get_lp_bugs(lp, args.branch, ['blocker'])
         code, reason = get_reason(bugs, args)
         print(reason)
     if args.command == 'block-ci-testing':
-        bugs = get_lp_bugs(lp, args.branch, tags=['block-ci-testing'])
+        bugs = get_lp_bugs(lp, args.branch, ['block-ci-testing'])
         code, reason = get_reason(bugs, args)
         print(reason)
     elif args.command == 'update':
-        bugs = get_lp_bugs(lp, args.branch, tags=['blocker', 'ci'])
+        bugs = get_lp_bugs(lp, args.branch, ['blocker', 'ci'])
         code, changes = update_bugs(
             bugs, args.branch, args.build, dry_run=args.dry_run)
         print(changes)
