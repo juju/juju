@@ -186,6 +186,9 @@ type maasEnviron struct {
 	maasClientUnlocked *gomaasapi.MAASObject
 	storageUnlocked    storage.Storage
 
+	// maasController provides access to the MAAS 2.0 API.
+	maasController gomaasapi.Controller
+
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
 
@@ -296,20 +299,27 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	// We need to know the version of the server we're on. We support 1.9
 	// and 2.0. MAAS 1.9 uses the 1.0 api version and 2.0 uses the 2.0 api
 	// version.
-	// TODO (mfoord): support for 2.0 will be in a follow up.
-	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), "1.0")
+	apiVersion := "2.0"
+	controller, err := gomaasapi.NewController(gomaasapi.ControllerArgs{
+		ecfg.maasServer(), ecfg.maasOAuth()})
 	if err != nil {
-		return errors.Trace(err)
+		apiVersion = "1.0"
+		authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), "1.0")
+		if err != nil {
+			return errors.Trace(err)
+		}
+		env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
+		caps, err := GetCapabilities(env.maasClientUnlocked)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !caps.Contains(capNetworkDeploymentUbuntu) {
+			return errors.NotSupportedf("MAAS 1.9 or more recent is required")
+		}
+	} else {
+		env.maasController = controller
 	}
-	env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
-	caps, err := GetCapabilities(env.maasClientUnlocked)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !caps.Contains(capNetworkDeploymentUbuntu) {
-		return errors.NotSupportedf("MAAS 1.9 or more recent is required")
-	}
-	env.apiVersion = "1.0"
+	env.apiVersion = apiVersion
 	return nil
 }
 
