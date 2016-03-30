@@ -21,6 +21,12 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
+func newRestoreCommand() cmd.Command {
+	restoreCmd := &RestoreCommand{}
+	restoreCmd.environFunc = restoreCmd.getEnviron
+	return envcmd.Wrap(restoreCmd)
+}
+
 // RestoreCommand is a subcommand of backups that implement the restore behaior
 // it is invoked with "juju backups restore".
 type RestoreCommand struct {
