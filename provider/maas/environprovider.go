@@ -104,15 +104,16 @@ func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, 
 }
 
 func verifyCredentials(env *maasEnviron) error {
-	// TODO (mfoord): horrible hardcoded version check.
-	// If we're using the 2.0 API we've already made a succesful authenticated
-	// call.
-	if env.apiVersion == "2.0" {
-		return nil
-	}
+	var err error
 	// Verify we can connect to the server and authenticate.
-	_, err := env.getMAASClient().GetSubObject("maas").CallGet("get_config", nil)
-	if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusUnauthorized {
+	// TODO (mfoord): horrible hardcoded version check.
+	if env.apiVersion == "2.0" {
+		// TODO (mfoord): use a lighterweight endpoint than machines.
+		_, err = env.maasController.Machines(gomaasapi.MachinesParams{})
+	} else {
+		_, err = env.getMAASClient().GetSubObject("maas").CallGet("get_config", nil)
+	}
+	if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusUnauthorized {
 		logger.Debugf("authentication failed: %v", err)
 		return errors.New(`authentication failed.
 
