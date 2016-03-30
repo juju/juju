@@ -72,11 +72,11 @@ func (s *ManifoldSuite) TestStartMissingClock(c *gc.C) {
 		APICallerName: "api-caller",
 		AgentName:     "agent",
 	})
-	getResource := dt.StubGetResource(dt.StubResources{
-		"clock": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"clock": dependency.ErrMissing,
 	})
 
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(context)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	c.Check(worker, gc.IsNil)
 }
@@ -87,12 +87,12 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
 		APICallerName: "api-caller",
 		AgentName:     "agent",
 	})
-	getResource := dt.StubGetResource(dt.StubResources{
-		"clock":      dt.StubResource{Output: &fakeClock{}},
-		"api-caller": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"clock":      &fakeClock{},
+		"api-caller": dependency.ErrMissing,
 	})
 
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(context)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	c.Check(worker, gc.IsNil)
 }
@@ -103,13 +103,13 @@ func (s *ManifoldSuite) TestStartMissingAPICaller(c *gc.C) {
 		APICallerName: "api-caller",
 		AgentName:     "agent",
 	})
-	getResource := dt.StubGetResource(dt.StubResources{
-		"clock":      dt.StubResource{Output: &fakeClock{}},
-		"api-caller": dt.StubResource{Output: &fakeAPICaller{}},
-		"agent":      dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"clock":      &fakeClock{},
+		"api-caller": &fakeAPICaller{},
+		"agent":      dependency.ErrMissing,
 	})
 
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(context)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	c.Check(worker, gc.IsNil)
 }
@@ -120,13 +120,13 @@ func (s *ManifoldSuite) TestStartWrongAgent(c *gc.C) {
 		APICallerName: "api-caller",
 		AgentName:     "agent",
 	})
-	getResource := dt.StubGetResource(dt.StubResources{
-		"clock":      dt.StubResource{Output: &fakeClock{}},
-		"api-caller": dt.StubResource{Output: &fakeAPICaller{}},
-		"agent":      dt.StubResource{Output: &mockAgent{wrongKind: true}},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"clock":      &fakeClock{},
+		"api-caller": &fakeAPICaller{},
+		"agent":      &mockAgent{wrongKind: true},
 	})
 
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(context)
 	c.Check(err, gc.ErrorMatches, "singular flag expected a machine agent")
 	c.Check(worker, gc.IsNil)
 }
@@ -143,13 +143,13 @@ func (s *ManifoldSuite) TestStartNewFacadeError(c *gc.C) {
 			return nil, errors.New("grark plop")
 		},
 	})
-	getResource := dt.StubGetResource(dt.StubResources{
-		"clock":      dt.StubResource{Output: &fakeClock{}},
-		"api-caller": dt.StubResource{Output: expectAPICaller},
-		"agent":      dt.StubResource{Output: &mockAgent{}},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"clock":      &fakeClock{},
+		"api-caller": expectAPICaller,
+		"agent":      &mockAgent{},
 	})
 
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(context)
 	c.Check(err, gc.ErrorMatches, "grark plop")
 	c.Check(worker, gc.IsNil)
 }
@@ -171,13 +171,13 @@ func (s *ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
 			return nil, errors.New("blomp tik")
 		},
 	})
-	getResource := dt.StubGetResource(dt.StubResources{
-		"clock":      dt.StubResource{Output: &fakeClock{}},
-		"api-caller": dt.StubResource{Output: &fakeAPICaller{}},
-		"agent":      dt.StubResource{Output: &mockAgent{}},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"clock":      &fakeClock{},
+		"api-caller": &fakeAPICaller{},
+		"agent":      &mockAgent{},
 	})
 
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(context)
 	c.Check(err, gc.ErrorMatches, "blomp tik")
 	c.Check(worker, gc.IsNil)
 }
@@ -195,13 +195,13 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 			return expectWorker, nil
 		},
 	})
-	getResource := dt.StubGetResource(dt.StubResources{
-		"clock":      dt.StubResource{Output: &fakeClock{}},
-		"api-caller": dt.StubResource{Output: &fakeAPICaller{}},
-		"agent":      dt.StubResource{Output: &mockAgent{}},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"clock":      &fakeClock{},
+		"api-caller": &fakeAPICaller{},
+		"agent":      &mockAgent{},
 	})
 
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(context)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, expectWorker)
 }

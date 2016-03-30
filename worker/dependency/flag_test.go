@@ -74,30 +74,30 @@ func (*FlagSuite) TestNonEmptyFilter(c *gc.C) {
 
 func (*FlagSuite) TestStartMissingFlag(c *gc.C) {
 	wrapped := dependency.WithFlag(dependency.Manifold{}, "foo")
-	getResource := dt.StubGetResource(dt.StubResources{
-		"foo": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"foo": dependency.ErrMissing,
 	})
-	worker, err := wrapped.Start(getResource)
+	worker, err := wrapped.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
 func (*FlagSuite) TestStartNotFlag(c *gc.C) {
 	wrapped := dependency.WithFlag(dependency.Manifold{}, "foo")
-	getResource := dt.StubGetResource(dt.StubResources{
-		"foo": dt.StubResource{Output: true},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"foo": true,
 	})
-	worker, err := wrapped.Start(getResource)
+	worker, err := wrapped.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, `cannot set true into \*dependency.Flag`)
 }
 
 func (*FlagSuite) TestStartFalseFlag(c *gc.C) {
 	wrapped := dependency.WithFlag(dependency.Manifold{}, "foo")
-	getResource := dt.StubGetResource(dt.StubResources{
-		"foo": dt.StubResource{Output: stubFlag(false)},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"foo": stubFlag(false),
 	})
-	worker, err := wrapped.Start(getResource)
+	worker, err := wrapped.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
@@ -105,15 +105,15 @@ func (*FlagSuite) TestStartFalseFlag(c *gc.C) {
 func (*FlagSuite) TestStartTrueFlag(c *gc.C) {
 	expectWorker := &stubWorker{}
 	base := dependency.Manifold{
-		Start: func(_ dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(_ dependency.Context) (worker.Worker, error) {
 			return expectWorker, nil
 		},
 	}
 	wrapped := dependency.WithFlag(base, "foo")
-	getResource := dt.StubGetResource(dt.StubResources{
-		"foo": dt.StubResource{Output: stubFlag(true)},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"foo": stubFlag(true),
 	})
-	worker, err := wrapped.Start(getResource)
+	worker, err := wrapped.Start(context)
 	c.Check(worker, gc.Equals, expectWorker)
 	c.Check(err, jc.ErrorIsNil)
 }

@@ -42,11 +42,11 @@ func RunAgentApiManifold(
 				return nil
 			})
 	}
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name":      dt.StubResource{Output: agent},
-		"api-caller-name": dt.StubResource{Output: apiCaller},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name":      agent,
+		"api-caller-name": apiCaller,
 	})
-	return manifold.Start(getResource)
+	return manifold.Start(context)
 }
 
 type dummyAgent struct {

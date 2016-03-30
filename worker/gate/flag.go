@@ -19,9 +19,9 @@ type FlagManifoldConfig struct {
 }
 
 // start is a dependency.StartFunc that uses config.
-func (config FlagManifoldConfig) start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+func (config FlagManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
 	var gate Waiter
-	if err := getResource(config.GateName, &gate); err != nil {
+	if err := context.Get(config.GateName, &gate); err != nil {
 		return nil, errors.Trace(err)
 	}
 	worker, err := config.NewWorker(gate)

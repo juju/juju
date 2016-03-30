@@ -30,7 +30,7 @@ func APIWorkersManifold(config APIWorkersConfig) dependency.Manifold {
 		Inputs: []string{
 			config.APICallerName,
 		},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(context dependency.Context) (worker.Worker, error) {
 			if config.StartAPIWorkers == nil {
 				return nil, errors.New("StartAPIWorkers not specified")
 			}
@@ -39,7 +39,7 @@ func APIWorkersManifold(config APIWorkersConfig) dependency.Manifold {
 			// XXX(fwereade): what is this Connection actually
 			// needed for? should generally be base.APICaller...
 			var apiConn api.Connection
-			if err := getResource(config.APICallerName, &apiConn); err != nil {
+			if err := context.Get(config.APICallerName, &apiConn); err != nil {
 				return nil, err
 			}
 			return config.StartAPIWorkers(apiConn)

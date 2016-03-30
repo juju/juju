@@ -45,27 +45,27 @@ func (s *APIWorkersSuite) TestInputs(c *gc.C) {
 
 func (s *APIWorkersSuite) TestStartNoStartAPIWorkers(c *gc.C) {
 	manifold := machine.APIWorkersManifold(machine.APIWorkersConfig{})
-	worker, err := manifold.Start(dt.StubGetResource(nil))
+	worker, err := manifold.Start(dt.StubContext(nil, nil))
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "StartAPIWorkers not specified")
 	c.Check(s.startCalled, jc.IsFalse)
 }
 
 func (s *APIWorkersSuite) TestStartAPIMissing(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"api-caller": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"api-caller": dependency.ErrMissing,
 	})
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 	c.Check(s.startCalled, jc.IsFalse)
 }
 
 func (s *APIWorkersSuite) TestStartSuccess(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"api-caller": dt.StubResource{Output: new(mockAPIConn)},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"api-caller": new(mockAPIConn),
 	})
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.Not(gc.IsNil))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(s.startCalled, jc.IsTrue)

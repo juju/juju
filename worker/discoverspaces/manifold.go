@@ -40,23 +40,23 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 func startFunc(config ManifoldConfig) dependency.StartFunc {
-	return func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+	return func(context dependency.Context) (worker.Worker, error) {
 
 		// optional unlocker, might stay nil
 		var unlocker gate.Unlocker
 		if config.UnlockerName != "" {
-			if err := getResource(config.UnlockerName, &unlocker); err != nil {
+			if err := context.Get(config.UnlockerName, &unlocker); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
 
 		var environ environs.Environ
-		if err := getResource(config.EnvironName, &environ); err != nil {
+		if err := context.Get(config.EnvironName, &environ); err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		var apiCaller base.APICaller
-		if err := getResource(config.APICallerName, &apiCaller); err != nil {
+		if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 			return nil, errors.Trace(err)
 		}
 		facade, err := config.NewFacade(apiCaller)

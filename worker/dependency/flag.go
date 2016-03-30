@@ -47,16 +47,16 @@ func WithFlag(base Manifold, flagName string) Manifold {
 // flagWrap returns a StartFunc that will return ErrMissing if the named flag
 // resource is not active or not set.
 func flagWrap(inner StartFunc, flagName string) StartFunc {
-	return func(getResource GetResourceFunc) (worker.Worker, error) {
+	return func(context Context) (worker.Worker, error) {
 		var flag Flag
-		if err := getResource(flagName, &flag); err != nil {
+		if err := context.Get(flagName, &flag); err != nil {
 			return nil, errors.Trace(err)
 		}
 		if !flag.Check() {
 			return nil, ErrMissing
 		}
 
-		worker, err := inner(getResource)
+		worker, err := inner(context)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

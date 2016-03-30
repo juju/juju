@@ -76,21 +76,21 @@ func (*FlagSuite) TestManifoldFilterLeavesNil(c *gc.C) {
 }
 
 func (*FlagSuite) TestManifoldStartGateMissing(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"some-gate": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"some-gate": dependency.ErrMissing,
 	})
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{
 		GateName: "some-gate",
 	})
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
 func (*FlagSuite) TestManifoldStartError(c *gc.C) {
 	expect := &dummyWaiter{}
-	getResource := dt.StubGetResource(dt.StubResources{
-		"some-gate": dt.StubResource{Output: expect},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"some-gate": expect,
 	})
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{
 		GateName: "some-gate",
@@ -99,14 +99,14 @@ func (*FlagSuite) TestManifoldStartError(c *gc.C) {
 			return nil, errors.New("gronk")
 		},
 	})
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "gronk")
 }
 
 func (*FlagSuite) TestManifoldStartSuccess(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"some-gate": dt.StubResource{Output: &dummyWaiter{}},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"some-gate": &dummyWaiter{},
 	})
 	expect := &dummyWorker{}
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{
@@ -115,7 +115,7 @@ func (*FlagSuite) TestManifoldStartSuccess(c *gc.C) {
 			return expect, nil
 		},
 	})
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(context)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, expect)
 }
