@@ -147,7 +147,7 @@ func (suite *environSuite) TestStorageReturnsStorage(c *gc.C) {
 	// The Storage object is really a maasStorage.
 	specificStorage := stor.(*maasStorage)
 	// Its environment pointer refers back to its environment.
-	c.Check(specificStorage.environUnlocked, gc.Equals, env)
+	c.Check(specificStorage.environ, gc.Equals, env)
 }
 
 func decodeUserData(userData string) ([]byte, error) {

@@ -298,8 +298,9 @@ func (env *maasEnviron) ControllerInstances() ([]instance.Id, error) {
 // mutex.
 func (env *maasEnviron) ecfg() *maasModelConfig {
 	env.ecfgMutex.Lock()
-	defer env.ecfgMutex.Unlock()
-	return env.ecfgUnlocked
+	cfg := *env.ecfgUnlocked
+	env.ecfgMutex.Unlock()
+	return &cfg
 }
 
 // Config is specified in the Environ interface.
