@@ -92,11 +92,11 @@ type multiNotifyWatcher struct {
 	changes  chan struct{}
 }
 
-// newMultiNotifyWatcher creates a NotifyWatcher that combines
+// NewMultiNotifyWatcher creates a NotifyWatcher that combines
 // each of the NotifyWatchers passed in. Each watcher's initial
 // event is consumed, and a single initial event is sent.
 // Subsequent events are not coalesced.
-func newMultiNotifyWatcher(w ...state.NotifyWatcher) *multiNotifyWatcher {
+func NewMultiNotifyWatcher(w ...state.NotifyWatcher) *multiNotifyWatcher {
 	m := &multiNotifyWatcher{
 		watchers: w,
 		changes:  make(chan struct{}),

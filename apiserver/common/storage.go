@@ -204,7 +204,7 @@ func WatchStorageAttachment(
 		return nil, errors.Errorf("invalid storage kind %v", storageInstance.Kind())
 	}
 	watchers = append(watchers, st.WatchStorageAttachment(storageTag, unitTag))
-	return newMultiNotifyWatcher(watchers...), nil
+	return NewMultiNotifyWatcher(watchers...), nil
 }
 
 // volumeAttachmentDevicePath returns the absolute device path for

@@ -722,7 +722,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	// before we do anything else.
 	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
 	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		return proxyupdater.New(st.Environment(), writeSystemFiles), nil
+		return proxyupdater.New(st, writeSystemFiles), nil
 	})
 
 	if isEnvironManager {
