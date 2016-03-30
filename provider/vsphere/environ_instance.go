@@ -62,8 +62,6 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 // will see they are not tracked in state, assume they're stale/rogue,
 // and shut them down.
 func (env *environ) instances() ([]instance.Instance, error) {
-	env = env.getSnapshot()
-
 	prefix := common.MachineFullName(env.Config().UUID(), "")
 	instances, err := env.client.Instances(prefix)
 	err = errors.Trace(err)
@@ -82,8 +80,6 @@ func (env *environ) instances() ([]instance.Instance, error) {
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
 func (env *environ) ControllerInstances() ([]instance.Id, error) {
-	env = env.getSnapshot()
-
 	prefix := common.MachineFullName(env.Config().ControllerUUID(), "")
 	instances, err := env.client.Instances(prefix)
 	if err != nil {
