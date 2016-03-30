@@ -1794,23 +1794,33 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 	// primary address.
 	//
 	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
-	addresses := machine.ProviderAddresses()
+	addresses, err := machine.AllAddresses()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get devices addresses")
+	}
 	logger.Infof(
 		"geting network config for machine %q with addresses %+v, hosting unit %q of service %q, with bindings %+v",
 		machineID, addresses, unit.Name(), service.Name(), bindings,
 	)
 
 	for _, addr := range addresses {
-		space := string(addr.SpaceName)
-		if space != boundSpace {
-			logger.Debugf("skipping address %q: want bound to space %q, got space %q", addr.Value, boundSpace, space)
+		subnet, err := addr.Subnet()
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot get subnet for address %q", addr)
+		}
+		if subnet == nil {
+			logger.Debugf("skipping %s: not linked to a known subnet", addr)
 			continue
 		}
-		logger.Debugf("endpoint %q bound to space %q has address %q", bindingName, boundSpace, addr.Value)
+		if space := subnet.SpaceName(); space != boundSpace {
+			logger.Debugf("skipping %s: want bound to space %q, got space %q", addr, boundSpace, space)
+			continue
+		}
+		logger.Debugf("endpoint %q bound to space %q has address %q", bindingName, boundSpace, addr)
 
 		// TODO(dimitern): Fill in the rest later (see linked LKK card above).
 		results = append(results, params.NetworkConfig{
-			Address: addr.Value,
+			Address: addr.Value(),
 		})
 	}
 

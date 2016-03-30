@@ -309,7 +309,8 @@ func (w *pgWorker) getMongoSpace(info *peerGroupInfo) error {
 				return errors.Annotate(err, "cannot set Mongo space state")
 			}
 
-			return fmt.Errorf("couldn't find a space containing all peer group machines")
+			logger.Warningf("couldn't find a space containing all peer group machines")
+			return nil
 		} else {
 			info.mongoSpace, err = w.st.SetOrGetMongoSpaceName(spaceStats.LargestSpace)
 			if err != nil {

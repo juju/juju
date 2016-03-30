@@ -54,6 +54,9 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(machiner.InterfaceAddrs, func() ([]net.Addr, error) {
 		return s.addresses, nil
 	})
+	s.PatchValue(machiner.GetObservedNetworkConfig, func() ([]params.NetworkConfig, error) {
+		return nil, nil
+	})
 }
 
 func (s *MachinerSuite) TestMachinerConfigValidate(c *gc.C) {
@@ -288,7 +291,9 @@ func (s *MachinerStateSuite) SetUpTest(c *gc.C) {
 		return nil, nil
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, "")
-
+	s.PatchValue(machiner.GetObservedNetworkConfig, func() ([]params.NetworkConfig, error) {
+		return nil, nil
+	})
 }
 
 func (s *MachinerStateSuite) waitMachineStatus(c *gc.C, m *state.Machine, expectStatus status.Status) {
@@ -469,7 +474,7 @@ LXC_BRIDGE="ignored"`[1:])
 
 func (s *MachinerStateSuite) TestMachineAddresses(c *gc.C) {
 	s.setupSetMachineAddresses(c, false)
-	c.Assert(s.machine.MachineAddresses(), jc.DeepEquals, []network.Address{
+	c.Assert(s.machine.MachineAddresses(), jc.SameContents, []network.Address{
 		network.NewAddress("2001:db8::1"),
 		network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal),
 		network.NewScopedAddress("::1", network.ScopeMachineLocal),
