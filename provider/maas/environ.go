@@ -302,6 +302,8 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	apiVersion := "2.0"
 	controller, err := gomaasapi.NewController(gomaasapi.ControllerArgs{
 		ecfg.maasServer(), ecfg.maasOAuth()})
+	// TODO (mfoord): we should probably be checking specifically for a 404
+	// error here.
 	if err != nil {
 		apiVersion = "1.0"
 		authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), "1.0")
