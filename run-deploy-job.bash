@@ -44,7 +44,7 @@ if [[ $VERSION =~ ^1\.23.*$ ]]; then
 fi
 if [[ $VERSION =~ ^2\..*$ && $extra_args = "--upgrade" ]]; then
     CURRENT_VERSION=$(juju version | cut -d '-' -f 1)
-    if [[ ! $CURRENT_VERSION =~ ^1\.25\.[5-9].*$ ]]; then
+    if [[ ! $CURRENT_VERSION =~ ^2\..*$ ]]; then
         echo "Juju $CURRENT_VERSION does not support upgrade to $VERSION."
         exit 0
     fi
