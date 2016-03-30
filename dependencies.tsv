@@ -39,7 +39,7 @@ gopkg.in/amz.v3	git	eeb872b6f9d1da6e1ab7bcffe3ffc33e20c3b213	2016-01-25T18:30:43
 gopkg.in/check.v1	git	b3d3430320d4260e5fea99841af984b3badcea63	2015-06-26T10:50:28Z
 gopkg.in/errgo.v1	git	15098963088579c1cd9eb1a7da285831e548390b	2015-07-07T18:34:45Z
 gopkg.in/goose.v1	git	e4a91e8b8323b8eef6fe41a66fd3ac6120520bb0	2015-11-13T22:25:24Z
-gopkg.in/juju/charm.v5	git	aece7b0e56c298641968239a7fa0b3466afa6ef5	2015-10-08T18:29:44Z
+gopkg.in/juju/charm.v5	git	84c8fe478fa1b1e67eb552831de5fd2603085c51	2016-03-30T02:02:11Z
 gopkg.in/juju/charmstore.v4	git	b90d24652753eeb1f7d209483d499f6b24dcf25e	2015-07-10T10:24:09Z
 gopkg.in/juju/environschema.v1	git	16cc59268c09c22870cb4de8eb6248652535f315	2015-08-24T13:22:26Z
 gopkg.in/macaroon-bakery.v0	git	9593b80b01ba04b519769d045dffd6abd827d2fd	2015-04-10T07:46:55Z
