@@ -1,11 +1,9 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package proxyupdater
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
@@ -22,105 +20,14 @@ import (
 	"github.com/juju/testing"
 )
 
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
-
 type ProxyUpdaterSuite struct {
 	coretesting.BaseSuite
 	apiservertesting.StubNetwork
 
-	state      *StubBacking
+	state      *stubBackend
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 	facade     API
-}
-
-type StubBacking struct {
-	*testing.Stub
-
-	EnvConfig   *config.Config
-	c           *gc.C
-	configAttrs coretesting.Attrs
-}
-
-func (sb *StubBacking) SetUp(c *gc.C) {
-	sb.Stub = &testing.Stub{}
-	sb.c = c
-	sb.configAttrs = coretesting.Attrs{
-		"http-proxy":  "http proxy",
-		"https-proxy": "https proxy",
-	}
-}
-
-func (sb *StubBacking) SetEnvironConfig(ca coretesting.Attrs) {
-	sb.configAttrs = ca
-}
-
-func (sb *StubBacking) EnvironConfig() (*config.Config, error) {
-	sb.MethodCall(sb, "EnvironConfig")
-	if err := sb.NextErr(); err != nil {
-		return nil, err
-	}
-	return coretesting.CustomEnvironConfig(sb.c, sb.configAttrs), nil
-}
-
-func (sb *StubBacking) APIHostPorts() ([][]network.HostPort, error) {
-	sb.MethodCall(sb, "APIHostPorts")
-	if err := sb.NextErr(); err != nil {
-		return nil, err
-	}
-	hps := [][]network.HostPort{
-		network.NewHostPorts(1234, "0.1.2.3"),
-		network.NewHostPorts(1234, "0.1.2.4"),
-		network.NewHostPorts(1234, "0.1.2.5"),
-	}
-	return hps, nil
-}
-
-func (sb *StubBacking) WatchAPIHostPorts() state.NotifyWatcher {
-	sb.MethodCall(sb, "WatchAPIHostPorts")
-	return NewFakeWatcher()
-}
-
-func (sb *StubBacking) WatchForEnvironConfigChanges() state.NotifyWatcher {
-	sb.MethodCall(sb, "WatchForEnvironConfigChanges")
-	return NewFakeWatcher()
-}
-
-type notAWatcher struct {
-	tomb     tomb.Tomb
-	watchers []state.NotifyWatcher
-	changes  chan struct{}
-}
-
-func NewFakeWatcher() notAWatcher {
-	ch := make(chan struct{}, 2)
-	ch <- struct{}{}
-	ch <- struct{}{}
-	return notAWatcher{
-		changes: ch,
-	}
-}
-
-func (w notAWatcher) Changes() <-chan struct{} {
-	return w.changes
-}
-
-func (w notAWatcher) Stop() error {
-	return nil
-}
-
-func (w notAWatcher) Err() error {
-	return nil
-}
-
-func (w notAWatcher) Kill() {
-	return
-}
-
-func (w notAWatcher) Wait() error {
-	return nil
 }
 
 var _ = gc.Suite(&ProxyUpdaterSuite{})
@@ -136,11 +43,12 @@ func (s *ProxyUpdaterSuite) TearDownSuite(c *gc.C) {
 func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:            names.NewMachineTag("1"),
 		EnvironManager: false,
 	}
-	s.state = &StubBacking{}
+	s.state = &stubBackend{}
 	s.state.SetUp(c)
 
 	var err error
@@ -150,13 +58,6 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 
 	// Shouldn't have any calls yet
 	apiservertesting.CheckMethodCalls(c, s.state.Stub)
-}
-
-func (s *ProxyUpdaterSuite) TearDownTest(c *gc.C) {
-	if s.resources != nil {
-		s.resources.StopAll()
-	}
-	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C) {
@@ -239,4 +140,91 @@ func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
 		APTProxySettings: proxy.Settings{
 			Http: "http://http proxy", Https: "https://https proxy", Ftp: "", NoProxy: ""},
 	})
+}
+
+type stubBackend struct {
+	*testing.Stub
+
+	EnvConfig   *config.Config
+	c           *gc.C
+	configAttrs coretesting.Attrs
+}
+
+func (sb *stubBackend) SetUp(c *gc.C) {
+	sb.Stub = &testing.Stub{}
+	sb.c = c
+	sb.configAttrs = coretesting.Attrs{
+		"http-proxy":  "http proxy",
+		"https-proxy": "https proxy",
+	}
+}
+
+func (sb *stubBackend) SetEnvironConfig(ca coretesting.Attrs) {
+	sb.configAttrs = ca
+}
+
+func (sb *stubBackend) EnvironConfig() (*config.Config, error) {
+	sb.MethodCall(sb, "EnvironConfig")
+	if err := sb.NextErr(); err != nil {
+		return nil, err
+	}
+	return coretesting.CustomEnvironConfig(sb.c, sb.configAttrs), nil
+}
+
+func (sb *stubBackend) APIHostPorts() ([][]network.HostPort, error) {
+	sb.MethodCall(sb, "APIHostPorts")
+	if err := sb.NextErr(); err != nil {
+		return nil, err
+	}
+	hps := [][]network.HostPort{
+		network.NewHostPorts(1234, "0.1.2.3"),
+		network.NewHostPorts(1234, "0.1.2.4"),
+		network.NewHostPorts(1234, "0.1.2.5"),
+	}
+	return hps, nil
+}
+
+func (sb *stubBackend) WatchAPIHostPorts() state.NotifyWatcher {
+	sb.MethodCall(sb, "WatchAPIHostPorts")
+	return newFakeWatcher()
+}
+
+func (sb *stubBackend) WatchForEnvironConfigChanges() state.NotifyWatcher {
+	sb.MethodCall(sb, "WatchForEnvironConfigChanges")
+	return newFakeWatcher()
+}
+
+type notAWatcher struct {
+	tomb     tomb.Tomb
+	watchers []state.NotifyWatcher
+	changes  chan struct{}
+}
+
+func newFakeWatcher() notAWatcher {
+	ch := make(chan struct{}, 2)
+	ch <- struct{}{}
+	ch <- struct{}{}
+	return notAWatcher{
+		changes: ch,
+	}
+}
+
+func (w notAWatcher) Changes() <-chan struct{} {
+	return w.changes
+}
+
+func (w notAWatcher) Stop() error {
+	return nil
+}
+
+func (w notAWatcher) Err() error {
+	return nil
+}
+
+func (w notAWatcher) Kill() {
+	return
+}
+
+func (w notAWatcher) Wait() error {
+	return nil
 }

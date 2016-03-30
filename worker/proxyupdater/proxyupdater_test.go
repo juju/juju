@@ -77,7 +77,7 @@ func (s *ProxyUpdaterSuite) waitProxySettings(c *gc.C, expected proxy.Settings) 
 		case <-time.After(10 * time.Millisecond):
 			obtained := proxy.DetectProxies()
 			if obtained != expected {
-				c.Logf("proxy settings are %#v, still waiting", obtained)
+				c.Logf("proxy settings are \n%#v, should be \n%#v, still waiting", obtained, expected)
 				continue
 			}
 			return
@@ -120,7 +120,7 @@ func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Setting
 		Http:    "http proxy",
 		Https:   "https proxy",
 		Ftp:     "ftp proxy",
-		NoProxy: "no proxy",
+		NoProxy: "localhost,no proxy",
 	}
 	attrs := map[string]interface{}{}
 	for k, v := range config.ProxyConfigMap(proxySettings) {

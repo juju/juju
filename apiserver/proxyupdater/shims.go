@@ -3,16 +3,15 @@
 
 package proxyupdater
 
-// stateShim forwards and adapts state.State methods to Backing
 import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
-// method.
+// stateShim forwards and adapts state.State methods to Backend
 type stateShim struct {
-	State
+	Backend
 	st *state.State
 }
 

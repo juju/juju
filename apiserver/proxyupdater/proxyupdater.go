@@ -25,9 +25,9 @@ type API interface {
 	ProxyConfig() (params.ProxyConfigResult, error)
 }
 
-// Backing defines the state methods this facede needs, so they can be
+// Backend defines the state methods this facade needs, so they can be
 // mocked for testing.
-type State interface {
+type Backend interface {
 	EnvironConfig() (*config.Config, error)
 	APIHostPorts() ([][]network.HostPort, error)
 	WatchAPIHostPorts() state.NotifyWatcher
@@ -35,7 +35,7 @@ type State interface {
 }
 
 type proxyUpdaterAPI struct {
-	st         State
+	st         Backend
 	resources  *common.Resources
 	authorizer common.Authorizer
 }
@@ -46,7 +46,7 @@ func NewAPI(st *state.State, res *common.Resources, auth common.Authorizer) (API
 }
 
 // newAPIWithBacking creates a new server-side API facade with the given Backing.
-func newAPIWithBacking(st State, resources *common.Resources, authorizer common.Authorizer) (API, error) {
+func newAPIWithBacking(st Backend, resources *common.Resources, authorizer common.Authorizer) (API, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}

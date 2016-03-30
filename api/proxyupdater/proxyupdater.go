@@ -37,7 +37,7 @@ func (api *API) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatche
 	return watcher.NewNotifyWatcher(api.facade.RawAPICaller(), result), nil
 }
 
-// EnvironConfig returns the current environment configuration.
+// ProxyConfig returns the current environment configuration.
 func (api *API) ProxyConfig() (params.ProxyConfigResult, error) {
 	var result params.ProxyConfigResult
 	err := api.facade.FacadeCall("ProxyConfig", nil, &result)

@@ -41,7 +41,7 @@ var (
 	Started = func() {}
 )
 
-// APIHostPortFetcher is an interface that is provided to New
+// API is an interface that is provided to New
 // which can be used to fetch the API host ports
 type API interface {
 	ProxyConfig() (params.ProxyConfigResult, error)
@@ -202,11 +202,7 @@ func (w *proxyWorker) onChange() error {
 	}
 
 	w.handleProxyValues(cfg.ProxySettings)
-	err = w.handleAptProxyValues(cfg.APTProxySettings)
-	if err != nil {
-		return err
-	}
-	return nil
+	return w.handleAptProxyValues(cfg.APTProxySettings)
 }
 
 // SetUp is defined on the worker.NotifyWatchHandler interface.
