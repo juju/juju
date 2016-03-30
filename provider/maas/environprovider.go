@@ -109,6 +109,8 @@ func verifyCredentials(env *maasEnviron) error {
 	// TODO (mfoord): horrible hardcoded version check.
 	if env.apiVersion == "2.0" {
 		// TODO (mfoord): use a lighterweight endpoint than machines.
+		// Could implement /api/2.0/maas/ op=get_config in new API
+		// layer.
 		_, err = env.maasController.Machines(gomaasapi.MachinesParams{})
 	} else {
 		_, err = env.getMAASClient().GetSubObject("maas").CallGet("get_config", nil)
