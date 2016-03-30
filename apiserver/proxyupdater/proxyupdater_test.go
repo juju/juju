@@ -4,11 +4,12 @@
 package proxyupdater
 
 import (
+	"errors"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -50,6 +51,7 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	}
 	s.state = &stubBackend{}
 	s.state.SetUp(c)
+	s.AddCleanup(func(_ *gc.C) { s.state.Kill() })
 
 	var err error
 	s.facade, err = newAPIWithBacking(s.state, s.resources, s.authorizer)
@@ -148,6 +150,8 @@ type stubBackend struct {
 	EnvConfig   *config.Config
 	c           *gc.C
 	configAttrs coretesting.Attrs
+	hpWatcher   notAWatcher
+	confWatcher notAWatcher
 }
 
 func (sb *stubBackend) SetUp(c *gc.C) {
@@ -157,6 +161,13 @@ func (sb *stubBackend) SetUp(c *gc.C) {
 		"http-proxy":  "http proxy",
 		"https-proxy": "https proxy",
 	}
+	sb.hpWatcher = newFakeWatcher()
+	sb.confWatcher = newFakeWatcher()
+}
+
+func (sb *stubBackend) Kill() {
+	sb.hpWatcher.Kill()
+	sb.confWatcher.Kill()
 }
 
 func (sb *stubBackend) SetEnvironConfig(ca coretesting.Attrs) {
@@ -186,18 +197,17 @@ func (sb *stubBackend) APIHostPorts() ([][]network.HostPort, error) {
 
 func (sb *stubBackend) WatchAPIHostPorts() state.NotifyWatcher {
 	sb.MethodCall(sb, "WatchAPIHostPorts")
-	return newFakeWatcher()
+	return sb.hpWatcher
 }
 
 func (sb *stubBackend) WatchForEnvironConfigChanges() state.NotifyWatcher {
 	sb.MethodCall(sb, "WatchForEnvironConfigChanges")
-	return newFakeWatcher()
+	return sb.confWatcher
 }
 
 type notAWatcher struct {
-	tomb     tomb.Tomb
-	watchers []state.NotifyWatcher
-	changes  chan struct{}
+	changes chan struct{}
+	die     chan struct{}
 }
 
 func newFakeWatcher() notAWatcher {
@@ -206,6 +216,7 @@ func newFakeWatcher() notAWatcher {
 	ch <- struct{}{}
 	return notAWatcher{
 		changes: ch,
+		die:     make(chan struct{}),
 	}
 }
 
@@ -218,13 +229,18 @@ func (w notAWatcher) Stop() error {
 }
 
 func (w notAWatcher) Err() error {
-	return nil
+	return errors.New("An error")
 }
 
 func (w notAWatcher) Kill() {
-	return
+	select {
+	case <-w.die: // already closed (don't close a closed channel)
+	default:
+		close(w.die)
+	}
 }
 
 func (w notAWatcher) Wait() error {
+	<-w.die // Wait until Kill is called.
 	return nil
 }

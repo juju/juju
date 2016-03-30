@@ -115,3 +115,21 @@ func NotifyingCheckingAPICaller(c *gc.C, args *CheckArgs, called chan struct{}, 
 		},
 	)
 }
+
+// CheckingAPICallerMultiArgs checks each call against the indexed expected argument. Once expected
+// arguments run out it doesn't check them. This is useful if your test continues to make calls after
+// you have checked the ones you care about.
+func CheckingAPICallerMultiArgs(c *gc.C, args []CheckArgs, numCalls *int, err error) base.APICallCloser {
+	if numCalls == nil {
+		panic("numCalls must be non-nill")
+	}
+	return APICallerFunc(
+		func(facade string, version int, id, method string, inArgs, outResults interface{}) error {
+			if len(args) < *numCalls {
+				checkArgs(c, &args[*numCalls], facade, version, id, method, inArgs, outResults)
+			}
+			*numCalls++
+			return err
+		},
+	)
+}

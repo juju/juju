@@ -29,9 +29,9 @@ type ProxyUpdaterSuite struct {
 
 var _ = gc.Suite(&ProxyUpdaterSuite{})
 
-func (s *ProxyUpdaterSuite) init(c *gc.C, args *apitesting.CheckArgs, err error) {
+func (s *ProxyUpdaterSuite) init(c *gc.C, args []apitesting.CheckArgs, err error) {
 	s.called = 0
-	s.apiCaller = apitesting.CheckingAPICaller(c, args, &s.called, err)
+	s.apiCaller = apitesting.CheckingAPICallerMultiArgs(c, args, &s.called, err)
 	s.api = proxyupdater.NewAPI(s.apiCaller)
 	c.Check(s.api, gc.NotNil)
 	c.Check(s.called, gc.Equals, 0)
@@ -51,28 +51,28 @@ func (s *ProxyUpdaterSuite) TestNewAPIWithNilCaller(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C) {
-	args := apitesting.CheckArgs{
+	args := []apitesting.CheckArgs{{
 		Facade:  "ProxyUpdater",
 		Method:  "WatchForProxyConfigAndAPIHostPortChanges",
 		Args:    nil,
 		Results: nil,
-	}
+	}}
 
-	s.init(c, &args, nil)
+	s.init(c, args, nil)
 	_, err := s.api.WatchForProxyConfigAndAPIHostPortChanges()
 	c.Assert(s.called, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
-	args := apitesting.CheckArgs{
+	args := []apitesting.CheckArgs{{
 		Facade:  "ProxyUpdater",
 		Method:  "ProxyConfig",
 		Args:    nil,
 		Results: nil,
-	}
+	}}
 
-	s.init(c, &args, nil)
+	s.init(c, args, nil)
 	_, err := s.api.ProxyConfig()
 	c.Assert(s.called, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
