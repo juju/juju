@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/tomb.v1"
+	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
