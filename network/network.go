@@ -154,11 +154,23 @@ func (s BySpaceName) Less(i, j int) bool {
 type InterfaceConfigType string
 
 const (
-	ConfigUnknown InterfaceConfigType = ""
-	ConfigDHCP    InterfaceConfigType = "dhcp"
-	ConfigStatic  InterfaceConfigType = "static"
-	ConfigManual  InterfaceConfigType = "manual"
-	// add others when needed
+	ConfigUnknown  InterfaceConfigType = ""
+	ConfigDHCP     InterfaceConfigType = "dhcp"
+	ConfigStatic   InterfaceConfigType = "static"
+	ConfigManual   InterfaceConfigType = "manual"
+	ConfigLoopback InterfaceConfigType = "loopback"
+)
+
+// InterfaceType defines valid network interface types.
+type InterfaceType string
+
+const (
+	UnknownInterface    InterfaceType = ""
+	LoopbackInterface   InterfaceType = "loopback"
+	EthernetInterface   InterfaceType = "ethernet"
+	VLAN_8021QInterface InterfaceType = "802.1q"
+	BondInterface       InterfaceType = "bond"
+	BridgeInterface     InterfaceType = "bridge"
 )
 
 // InterfaceInfo describes a single network interface available on an
@@ -178,6 +190,8 @@ type InterfaceInfo struct {
 	CIDR string
 
 	// NetworkName is juju-internal name of the network.
+	//
+	// TODO(dimitern): No longer used, drop at the end of this PoC.
 	NetworkName string
 
 	// ProviderId is a provider-specific NIC id.
@@ -186,6 +200,17 @@ type InterfaceInfo struct {
 	// ProviderSubnetId is the provider-specific id for the associated
 	// subnet.
 	ProviderSubnetId Id
+
+	// ProviderSpaceId is the provider-specific id for the associated space, if
+	// known and supported.
+	ProviderSpaceId Id
+
+	// ProviderVLANId is the provider-specific id of the VLAN for this
+	// interface.
+	ProviderVLANId Id
+
+	// ProviderAddressId is the provider-specific id of the assigned address.
+	ProviderAddressId Id
 
 	// AvailabilityZones describes the availability zones the associated
 	// subnet is in.
@@ -198,6 +223,12 @@ type InterfaceInfo struct {
 	// InterfaceName is the raw OS-specific network device name (e.g.
 	// "eth1", even for a VLAN eth1.42 virtual interface).
 	InterfaceName string
+
+	// ParentInterfaceName is the name of the parent interface to use, if known.
+	ParentInterfaceName string
+
+	// InterfaceType is the type of the interface.
+	InterfaceType InterfaceType
 
 	// Disabled is true when the interface needs to be disabled on the
 	// machine, e.g. not to configure it.
@@ -229,9 +260,9 @@ type InterfaceInfo struct {
 	// when > 0.
 	MTU int
 
-	// DNSSearch contains the default DNS domain to use for
-	// non-FQDN lookups.
-	DNSSearch string
+	// DNSSearchDomains contains the default DNS domain to use for non-FQDN
+	// lookups.
+	DNSSearchDomains []string
 
 	// Gateway address, if set, defines the default gateway to
 	// configure for this network interface. For containers this
@@ -241,6 +272,8 @@ type InterfaceInfo struct {
 	// ExtraConfig can contain any valid setting and its value allowed
 	// inside an "iface" section of a interfaces(5) config file, e.g.
 	// "up", "down", "mtu", etc.
+	//
+	// TODO(dimitern): Never used, drop at the end of this PoC.
 	ExtraConfig map[string]string
 }
 
@@ -280,6 +313,23 @@ func (i *InterfaceInfo) IsVLAN() bool {
 	return i.VLANTag > 0
 }
 
+// CIDRAddress returns Address.Value combined with CIDR mask.
+func (i *InterfaceInfo) CIDRAddress() string {
+	if i.CIDR == "" || i.Address.Value == "" {
+		return ""
+	}
+	_, ipNet, err := net.ParseCIDR(i.CIDR)
+	if err != nil {
+		return errors.Trace(err).Error()
+	}
+	ip := net.ParseIP(i.Address.Value)
+	if ip == nil {
+		return errors.Errorf("cannot parse IP address %q", i.Address.Value).Error()
+	}
+	ipNet.IP = ip
+	return ipNet.String()
+}
+
 var preferIPv6 uint32
 
 // PreferIPV6 returns true if this process prefers IPv6.
@@ -296,6 +346,8 @@ func SetPreferIPv6(prefer bool) {
 		b = 1
 	}
 	atomic.StoreUint32(&preferIPv6, b)
+	// TODO(dimitern): Drop prefer-ipv6 entirely.
+	prefer = false
 	logger.Infof("setting prefer-ipv6 to %v", prefer)
 }
 
