@@ -6,6 +6,7 @@ package maas
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
