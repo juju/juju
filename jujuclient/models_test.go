@@ -186,7 +186,12 @@ func (s *ModelsSuite) TestRemoveModel(c *gc.C) {
 
 func (s *ModelsSuite) TestRemoveControllerRemovesModels(c *gc.C) {
 	store := jujuclient.NewFileClientStore()
-	err := store.RemoveController("kontroll")
+	err := store.UpdateController("kontroll", jujuclient.ControllerDetails{
+		ControllerUUID: "abc",
+		CACert:         "woop",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = store.RemoveController("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
 
 	models, err := jujuclient.ReadModelsFile(jujuclient.JujuModelsPath())

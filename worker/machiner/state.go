@@ -24,6 +24,7 @@ type Machine interface {
 	SetMachineAddresses(addresses []network.Address) error
 	SetStatus(machineStatus status.Status, info string, data map[string]interface{}) error
 	Watch() (watcher.NotifyWatcher, error)
+	SetObservedNetworkConfig(netConfig []params.NetworkConfig) error
 }
 
 type APIMachineAccessor struct {

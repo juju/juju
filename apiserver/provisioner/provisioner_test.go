@@ -965,43 +965,6 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	gotHardware, err := s.machines[1].HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotHardware, gc.DeepEquals, &hwChars)
-	ifacesMachine1, err := s.machines[1].NetworkInterfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifacesMachine1, gc.HasLen, 4)
-	actual := make([]params.NetworkInterface, len(ifacesMachine1))
-	for i, iface := range ifacesMachine1 {
-		actual[i].InterfaceName = iface.InterfaceName()
-		actual[i].NetworkTag = iface.NetworkTag().String()
-		actual[i].MACAddress = iface.MACAddress()
-		actual[i].IsVirtual = iface.IsVirtual()
-		actual[i].Disabled = iface.IsDisabled()
-		c.Check(iface.MachineId(), gc.Equals, s.machines[1].Id())
-		c.Check(iface.MachineTag(), gc.Equals, s.machines[1].Tag())
-	}
-	c.Assert(actual, jc.SameContents, ifaces[:4])
-	ifacesMachine2, err := s.machines[2].NetworkInterfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifacesMachine2, gc.HasLen, 1)
-	c.Assert(ifacesMachine2[0].InterfaceName(), gc.Equals, ifaces[5].InterfaceName)
-	c.Assert(ifacesMachine2[0].MACAddress(), gc.Equals, ifaces[5].MACAddress)
-	c.Assert(ifacesMachine2[0].NetworkTag().String(), gc.Equals, ifaces[5].NetworkTag)
-	c.Assert(ifacesMachine2[0].MachineId(), gc.Equals, s.machines[2].Id())
-	for i := range networks {
-		if i == 3 {
-			// Last one was ignored, so don't check.
-			break
-		}
-		tag, err := names.ParseNetworkTag(networks[i].Tag)
-		c.Assert(err, jc.ErrorIsNil)
-		networkName := tag.Id()
-		nw, err := s.State.Network(networkName)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(nw.Name(), gc.Equals, networkName)
-		c.Check(nw.ProviderId(), gc.Equals, network.Id(networks[i].ProviderId))
-		c.Check(nw.Tag().String(), gc.Equals, networks[i].Tag)
-		c.Check(nw.VLANTag(), gc.Equals, networks[i].VLANTag)
-		c.Check(nw.CIDR(), gc.Equals, networks[i].CIDR)
-	}
 
 	// Verify the machine with requested volumes was provisioned, and the
 	// volume information recorded in state.
@@ -1146,7 +1109,7 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
-	c.Check(results.PreferIPv6, jc.IsTrue)
+	c.Check(results.PreferIPv6, jc.IsFalse)
 	c.Check(results.AllowLXCLoopMounts, jc.IsTrue)
 }
 

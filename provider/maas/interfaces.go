@@ -6,6 +6,7 @@ package maas
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
@@ -34,11 +35,20 @@ type maasInterfaceLink struct {
 	Mode      maasLinkMode `json:"mode"`
 }
 
+type maasInterfaceType string
+
+const (
+	typeUnknown  maasInterfaceType = ""
+	typePhysical maasInterfaceType = "physical"
+	typeVLAN     maasInterfaceType = "vlan"
+	typeBond     maasInterfaceType = "bond"
+)
+
 type maasInterface struct {
-	ID      int    `json:"id"`
-	Name    string `json:"name"`
-	Type    string `json:"type"`
-	Enabled bool   `json:"enabled"`
+	ID      int               `json:"id"`
+	Name    string            `json:"name"`
+	Type    maasInterfaceType `json:"type"`
+	Enabled bool              `json:"enabled"`
 
 	MACAddress  string   `json:"mac_address"`
 	VLAN        maasVLAN `json:"vlan"`
@@ -110,14 +120,37 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 
 	infos := make([]network.InterfaceInfo, 0, len(interfaces))
 	for i, iface := range interfaces {
+
+		// The below works for all types except bonds and their members.
+		parentName := strings.Join(iface.Parents, "")
+		var nicType network.InterfaceType
+		switch iface.Type {
+		case typePhysical:
+			nicType = network.EthernetInterface
+			children := strings.Join(iface.Children, "")
+			if parentName == "" && len(iface.Children) == 1 && strings.HasPrefix(children, "bond") {
+				// FIXME: Verify the bond exists, regardless of its name.
+				// This is a bond member, set the parent correctly (from
+				// Juju's perspective) - to the bond itself.
+				parentName = children
+			}
+		case typeBond:
+			parentName = ""
+			nicType = network.BondInterface
+		case typeVLAN:
+			nicType = network.VLAN_8021QInterface
+		}
+
 		nicInfo := network.InterfaceInfo{
-			DeviceIndex:   i,
-			MACAddress:    iface.MACAddress,
-			ProviderId:    network.Id(fmt.Sprintf("%v", iface.ID)),
-			VLANTag:       iface.VLAN.VID,
-			InterfaceName: iface.Name,
-			Disabled:      !iface.Enabled,
-			NoAutoStart:   !iface.Enabled,
+			DeviceIndex:         i,
+			MACAddress:          iface.MACAddress,
+			ProviderId:          network.Id(fmt.Sprintf("%v", iface.ID)),
+			VLANTag:             iface.VLAN.VID,
+			InterfaceName:       iface.Name,
+			InterfaceType:       nicType,
+			ParentInterfaceName: parentName,
+			Disabled:            !iface.Enabled,
+			NoAutoStart:         !iface.Enabled,
 			// This is not needed anymore, but the provisioner still validates it's set.
 			NetworkName: network.DefaultPrivate,
 		}
@@ -135,15 +168,16 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			}
 
 			if link.IPAddress == "" {
-				logger.Warningf("interface %q has no address", iface.Name)
+				logger.Debugf("interface %q has no address", iface.Name)
 			} else {
 				// We set it here initially without a space, just so we don't
 				// lose it when we have no linked subnet below.
 				nicInfo.Address = network.NewAddress(link.IPAddress)
+				nicInfo.ProviderAddressId = network.Id(fmt.Sprintf("%v", link.ID))
 			}
 
 			if link.Subnet == nil {
-				logger.Warningf("interface %q link %d missing subnet", iface.Name, link.ID)
+				logger.Debugf("interface %q link %d missing subnet", iface.Name, link.ID)
 				infos = append(infos, nicInfo)
 				continue
 			}
@@ -151,6 +185,7 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			sub := link.Subnet
 			nicInfo.CIDR = sub.CIDR
 			nicInfo.ProviderSubnetId = network.Id(fmt.Sprintf("%v", sub.ID))
+			nicInfo.ProviderVLANId = network.Id(fmt.Sprintf("%v", sub.VLAN.ID))
 
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
@@ -161,8 +196,8 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 				// provider id available.
 				logger.Warningf("interface %q link %d has unrecognised space %q", iface.Name, link.ID, sub.Space)
 			} else {
-
 				nicInfo.Address.SpaceProviderId = spaceId
+				nicInfo.ProviderSpaceId = spaceId
 			}
 
 			gwAddr := network.NewAddressOnSpace(sub.Space, sub.GatewayIP)

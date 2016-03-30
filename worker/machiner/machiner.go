@@ -9,6 +9,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
@@ -49,8 +50,9 @@ func (cfg *Config) Validate() error {
 
 // Machiner is responsible for a machine agent's lifecycle.
 type Machiner struct {
-	config  Config
-	machine Machine
+	config            Config
+	machine           Machine
+	observedConfigSet bool
 }
 
 // NewMachiner returns a Worker that will wait for the identified machine
@@ -72,6 +74,8 @@ var NewMachiner = func(cfg Config) (worker.Worker, error) {
 	}
 	return w, nil
 }
+
+var getObservedNetworkConfig = networkingcommon.GetObservedNetworkConfig
 
 func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
@@ -151,8 +155,28 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 	} else if err != nil {
 		return err
 	}
+
 	life := mr.machine.Life()
 	if life == params.Alive {
+		if mr.observedConfigSet {
+			logger.Infof("observed network config already updated")
+			return nil
+		}
+
+		observedConfig, err := getObservedNetworkConfig()
+		if err != nil {
+			return errors.Annotate(err, "cannot discover observed network config")
+		} else if len(observedConfig) == 0 {
+			logger.Warningf("not updating network config: no observed config found to update")
+		}
+		if len(observedConfig) > 0 {
+			if err := mr.machine.SetObservedNetworkConfig(observedConfig); err != nil {
+				return errors.Annotate(err, "cannot update observed network config")
+			}
+		}
+		logger.Infof("observed network config updated")
+		mr.observedConfigSet = true
+
 		return nil
 	}
 	logger.Debugf("%q is now %s", mr.config.Tag, life)

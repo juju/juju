@@ -11,9 +11,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -671,52 +671,6 @@ func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisio
 	return nil
 }
 
-func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.InterfaceInfo) (
-	networks []params.Network, ifaces []params.NetworkInterface, err error) {
-	if len(networkInfo) == 0 {
-		return nil, nil, nil
-	}
-	visitedNetworks := set.NewStrings()
-	for _, info := range networkInfo {
-		// TODO(dimitern): The following few fields are required, but no longer
-		// matter and will be dropped or changed soon as part of making spaces
-		// and subnets usable across the board.
-		if info.NetworkName == "" {
-			info.NetworkName = network.DefaultPrivate
-		}
-		if info.ProviderId == "" {
-			info.ProviderId = network.DefaultPrivate
-		}
-		if info.CIDR == "" {
-			// TODO(dimitern): This is only when NOT using addressable
-			// containers, as we don't fetch the subnet details, but since
-			// networks in state are going away real soon, it's not important.
-			info.CIDR = "0.0.0.0/32"
-		}
-		if !names.IsValidNetwork(info.NetworkName) {
-			return nil, nil, errors.Errorf("invalid network name %q", info.NetworkName)
-		}
-		networkTag := names.NewNetworkTag(info.NetworkName).String()
-		if !visitedNetworks.Contains(networkTag) {
-			networks = append(networks, params.Network{
-				Tag:        networkTag,
-				ProviderId: string(info.ProviderId),
-				CIDR:       info.CIDR,
-				VLANTag:    info.VLANTag,
-			})
-			visitedNetworks.Add(networkTag)
-		}
-		ifaces = append(ifaces, params.NetworkInterface{
-			InterfaceName: info.ActualInterfaceName(),
-			MACAddress:    info.MACAddress,
-			NetworkTag:    networkTag,
-			IsVirtual:     info.IsVirtual(),
-			Disabled:      info.Disabled,
-		})
-	}
-	return networks, ifaces, nil
-}
-
 func (task *provisionerTask) startMachine(
 	machine *apiprovisioner.Machine,
 	provisioningInfo *params.ProvisioningInfo,
@@ -756,24 +710,17 @@ func (task *provisionerTask) startMachine(
 	inst := result.Instance
 	hardware := result.Hardware
 	nonce := startInstanceParams.InstanceConfig.MachineNonce
-	networks, ifaces, err := task.prepareNetworkAndInterfaces(result.NetworkInfo)
-	if err != nil {
-		return task.setErrorStatus("cannot prepare network for machine %q: %v", machine, err)
-	}
+	networkConfig := networkingcommon.NetworkConfigFromInterfaceInfo(result.NetworkInfo)
 	volumes := volumesToApiserver(result.Volumes)
 	volumeAttachments := volumeAttachmentsToApiserver(result.VolumeAttachments)
 
-	// TODO(dimitern) In a newer Provisioner API version, change
-	// SetInstanceInfo or add a new method that takes and saves in
-	// state all the information available on a network.InterfaceInfo
-	// for each interface, so we can later manage interfaces
-	// dynamically at run-time.
-	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networks, ifaces, volumes, volumeAttachments)
+	// TODO(dimitern) Bump provisioner API version.
+	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networkConfig, volumes, volumeAttachments)
 	if err == nil {
 		logger.Infof(
-			"started machine %s as instance %s with hardware %q, networks %v, interfaces %v, volumes %v, volume attachments %v, subnets to zones %v",
+			"started machine %s as instance %s with hardware %q, network config %+v, volumes %v, volume attachments %v, subnets to zones %v",
 			machine, inst.Id(), hardware,
-			networks, ifaces,
+			networkConfig,
 			volumes, volumeAttachments,
 			startInstanceParams.SubnetsToZones,
 		)

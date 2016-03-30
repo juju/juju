@@ -833,3 +833,14 @@ type MeterStatusParam struct {
 type MeterStatusParams struct {
 	Statuses []MeterStatusParam `json:"statues"`
 }
+
+// MacaroonResults contains a set of MacaroonResults.
+type MacaroonResults struct {
+	Results []MacaroonResult `json:"results"`
+}
+
+// MacaroonResult contains a macaroon or an error.
+type MacaroonResult struct {
+	Result *macaroon.Macaroon `json:"result,omitempty"`
+	Error  *Error             `json:"error,omitempty"`
+}

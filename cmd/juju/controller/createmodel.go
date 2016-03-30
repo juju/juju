@@ -9,49 +9,66 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/utils/keyvalues"
-	"gopkg.in/yaml.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 )
 
 // NewCreateModelCommand returns a command to create an model.
 func NewCreateModelCommand() cmd.Command {
-	return modelcmd.WrapController(&createModelCommand{})
+	return modelcmd.WrapController(&createModelCommand{
+		credentialStore: jujuclient.NewFileCredentialStore(),
+	})
 }
 
 // createModelCommand calls the API to create a new model.
 type createModelCommand struct {
 	modelcmd.ControllerCommandBase
-	api CreateModelAPI
+	api             CreateModelAPI
+	credentialStore jujuclient.CredentialStore
 
-	Name         string
-	Owner        string
-	ConfigFile   cmd.FileVar
-	ConfValues   map[string]string
-	configParser func(interface{}) (interface{}, error)
+	Name           string
+	Owner          string
+	CredentialSpec string
+	CloudName      string
+	CloudType      string
+	CredentialName string
+	Config         common.ConfigFlag
 }
 
 const createModelHelpDoc = `
 This command will create another model within the current Juju
 Controller. The provider has to match, and the model config must
-specify all the required configuration values for the provider. In the cases
-of ‘ec2’ and ‘openstack’, the same model variables are checked for the
-access and secret keys.
+specify all the required configuration values for the provider.
 
-If configuration values are passed by both extra command line arguments and
-the --config option, the command line args take priority.
+If configuration values are passed by both extra command line
+arguments and the --config option, the command line args take
+priority.
+
+If creating a model in a controller for which you are not the
+administrator, the cloud credentials and authorized ssh keys must
+be specified. The credentials are specified using the argument
+--credential <cloud>:<credential>. The authorized ssh keys are
+specified using a --config argument, either authorized=keys=value
+or via a config yaml file.
+ 
+Any credentials used must be for a cloud with the same provider
+type as the controller. Controller administrators do not have to
+specify credentials or ssh keys; by default, the credentials and
+keys used to bootstrap the controller are used if no others are
+specified.
 
 Examples:
 
     juju create-model new-model
 
-    juju create-model new-model --config=aws-creds.yaml
+    juju create-model new-model --config aws-creds.yaml --config image-stream=daily
+    
+    juju create-model new-model --credential aws:mysekrets --config authorized-keys="ssh-rsa ..."
 
 See Also:
     juju help model share
@@ -60,7 +77,7 @@ See Also:
 func (c *createModelCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "create-model",
-		Args:    "<name> [key=[value] ...]",
+		Args:    "<name> [--config key=[value] ...] [--credential <cloud>:<credential>]",
 		Purpose: "create an model within the Juju Model Server",
 		Doc:     strings.TrimSpace(createModelHelpDoc),
 	}
@@ -68,7 +85,8 @@ func (c *createModelCommand) Info() *cmd.Info {
 
 func (c *createModelCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Owner, "owner", "", "the owner of the new model if not the current user")
-	f.Var(&c.ConfigFile, "config", "path to yaml-formatted file containing model config values")
+	f.StringVar(&c.CredentialSpec, "credential", "", "the name of the cloud and credentials the new model uses to create cloud resources")
+	f.Var(&c.Config, "config", "specify a controller config file, or one or more controller configuration options (--config config.yaml [--config k=v ...])")
 }
 
 func (c *createModelCommand) Init(args []string) error {
@@ -77,20 +95,23 @@ func (c *createModelCommand) Init(args []string) error {
 	}
 	c.Name, args = args[0], args[1:]
 
-	values, err := keyvalues.Parse(args, true)
-	if err != nil {
-		return err
-	}
-	c.ConfValues = values
-
 	if c.Owner != "" && !names.IsValidUser(c.Owner) {
 		return errors.Errorf("%q is not a valid user", c.Owner)
 	}
 
-	if c.configParser == nil {
-		c.configParser = common.ConformYAML
+	if c.CredentialSpec != "" {
+		parts := strings.Split(c.CredentialSpec, ":")
+		if len(parts) < 2 {
+			return errors.Errorf("invalid cloud credential %s, expected <cloud>:<credential-name>", c.CredentialSpec)
+		}
+		c.CloudName = parts[0]
+		if cloud, err := cloud.CloudByName(c.CloudName); err != nil {
+			return errors.Trace(err)
+		} else {
+			c.CloudType = cloud.Type
+		}
+		c.CredentialName = parts[1]
 	}
-
 	return nil
 }
 
@@ -133,7 +154,7 @@ func (c *createModelCommand) Run(ctx *cmd.Context) error {
 		modelOwner = names.NewUserTag(c.Owner).Canonical()
 	}
 
-	serverSkeleton, err := client.ConfigSkeleton("", "")
+	serverSkeleton, err := client.ConfigSkeleton(c.CloudType, "")
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -143,8 +164,19 @@ func (c *createModelCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// TODO we pass nil for the account details until we implement that bit.
-	model, err := client.CreateModel(modelOwner, nil, attrs)
+	accountDetails := map[string]interface{}{}
+	if c.CredentialName != "" {
+		cred, _, _, err := modelcmd.GetCredentials(
+			c.credentialStore, "", c.CredentialName, c.CloudName, c.CloudType,
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for k, v := range cred.Attributes() {
+			accountDetails[k] = v
+		}
+	}
+	model, err := client.CreateModel(modelOwner, accountDetails, attrs)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -168,51 +200,26 @@ func (c *createModelCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *createModelCommand) getConfigValues(ctx *cmd.Context, serverSkeleton params.ModelConfig) (map[string]interface{}, error) {
-	// The reading of the config YAML is done in the Run
-	// method because the Read method requires the cmd Context
-	// for the current directory.
-	fileConfig := make(map[string]interface{})
-	if c.ConfigFile.Path != "" {
-		configYAML, err := c.ConfigFile.Read(ctx)
-		if err != nil {
-			return nil, errors.Annotate(err, "unable to read config file")
-		}
-
-		rawFileConfig := make(map[string]interface{})
-		err = yaml.Unmarshal(configYAML, &rawFileConfig)
-		if err != nil {
-			return nil, errors.Annotate(err, "unable to parse config file")
-		}
-
-		conformantConfig, err := c.configParser(rawFileConfig)
-		if err != nil {
-			return nil, errors.Annotate(err, "unable to parse config file")
-		}
-		betterConfig, ok := conformantConfig.(map[string]interface{})
-		if !ok {
-			return nil, errors.New("config must contain a YAML map with string keys")
-		}
-
-		fileConfig = betterConfig
-	}
-
 	configValues := make(map[string]interface{})
 	for key, value := range serverSkeleton {
 		configValues[key] = value
 	}
-	for key, value := range fileConfig {
-		configValues[key] = value
+	configAttr, err := c.Config.ReadAttrs(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to parse config")
 	}
-	for key, value := range c.ConfValues {
+	for key, value := range configAttr {
 		configValues[key] = value
 	}
 	configValues["name"] = c.Name
-
-	// TODO: allow version to be specified on the command line and add here.
-	cfg, err := config.New(config.UseDefaults, configValues)
+	coercedValues, err := common.ConformYAML(configValues)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "unable to parse config")
+	}
+	stringParams, ok := coercedValues.(map[string]interface{})
+	if !ok {
+		return nil, errors.New("params must contain a YAML map with string keys")
 	}
 
-	return cfg.AllAttrs(), nil
+	return stringParams, nil
 }

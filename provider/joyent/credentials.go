@@ -22,10 +22,6 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 			}, {
 				sdcKeyId, cloud.CredentialAttr{Description: "SmartDataCenter key ID"},
 			}, {
-				mantaUser, cloud.CredentialAttr{Description: "Manta user ID"},
-			}, {
-				mantaKeyId, cloud.CredentialAttr{Description: "Manta key ID"},
-			}, {
 				privateKey, cloud.CredentialAttr{
 					Description: "Private key used to sign requests",
 					Hidden:      true,

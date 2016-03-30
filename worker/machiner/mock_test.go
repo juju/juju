@@ -55,6 +55,11 @@ func (m *mockMachine) SetMachineAddresses(addresses []network.Address) error {
 	return m.NextErr()
 }
 
+func (m *mockMachine) SetObservedNetworkConfig(netConfig []params.NetworkConfig) error {
+	m.MethodCall(m, "SetObservedNetworkConfig", netConfig)
+	return m.NextErr()
+}
+
 func (m *mockMachine) SetStatus(status status.Status, info string, data map[string]interface{}) error {
 	m.MethodCall(m, "SetStatus", status, info, data)
 	return m.NextErr()

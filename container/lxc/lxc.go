@@ -397,7 +397,7 @@ func createContainer(
 	if err := ioutil.WriteFile(configPath, []byte(netConfig), 0644); err != nil {
 		return errors.Annotatef(err, "failed to write container config %q", configPath)
 	}
-	logger.Tracef("wrote initial config %q for container %q", configPath, lxcContainer.Name())
+	logger.Tracef("wrote initial config %q for container %q: %+v", configPath, lxcContainer.Name(), netConfig)
 
 	var err error
 	var execEnv []string = nil
@@ -848,25 +848,26 @@ lxc.network.hwaddr = {{.MACAddress}}{{end}}
 const multipleNICsTemplate = `
 # network config{{$mtu := .MTU}}{{range $nic := .Interfaces}}
 {{$nic.Name | printf "# interface %q"}}
-lxc.network.type = {{$nic.Type}}{{if $nic.VLANTag}}
-lxc.network.vlan.id = {{$nic.VLANTag}}{{end}}
+lxc.network.type = {{$nic.Type}}
 lxc.network.link = {{$nic.Link}}{{if not $nic.NoAutoStart}}
 lxc.network.flags = up{{end}}{{if $nic.Name}}
 lxc.network.name = {{$nic.Name}}{{end}}{{if $nic.MACAddress}}
 lxc.network.hwaddr = {{$nic.MACAddress}}{{end}}{{if $nic.IPv4Address}}
 lxc.network.ipv4 = {{$nic.IPv4Address}}{{end}}{{if $nic.IPv4Gateway}}
-lxc.network.ipv4.gateway = {{$nic.IPv4Gateway}}{{end}}{{if $mtu}}
-lxc.network.mtu = {{$mtu}}{{end}}
+lxc.network.ipv4.gateway = {{$nic.IPv4Gateway}}{{end}}{{if $nic.MTU}}
+lxc.network.mtu = {{$nic.MTU}}{{end}}
 {{end}}{{/* range */}}
 
 `
 
 func networkConfigTemplate(config container.NetworkConfig) string {
+	logger.Debugf("preparing to render container network config from %+v", config)
 	type nicData struct {
 		Name        string
 		NoAutoStart bool
 		Type        string
 		Link        string
+		MTU         int
 		VLANTag     int
 		MACAddress  string
 		IPv4Address string
@@ -884,9 +885,6 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 		Link: config.Device,
 		MTU:  config.MTU,
 	}
-	if config.MTU > 0 {
-		logger.Infof("setting MTU to %v for all LXC network interfaces", config.MTU)
-	}
 
 	switch config.NetworkType {
 	case container.PhysicalNetwork:
@@ -901,35 +899,29 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 		data.Type = "veth"
 	}
 	for _, iface := range config.Interfaces {
+		linkName := data.Link
+		if iface.ParentInterfaceName != "" {
+			linkName = iface.ParentInterfaceName
+		}
 		nic := nicData{
 			Type:        data.Type,
-			Link:        config.Device,
+			Link:        linkName,
 			Name:        iface.InterfaceName,
+			MTU:         iface.MTU,
 			NoAutoStart: iface.NoAutoStart,
-			VLANTag:     iface.VLANTag,
 			MACAddress:  iface.MACAddress,
-			IPv4Address: iface.Address.Value,
-			IPv4Gateway: iface.GatewayAddress.Value,
+			IPv4Address: iface.CIDRAddress(),
 		}
-		if iface.VLANTag > 0 {
-			nic.Type = "vlan"
+		if nic.Name == "eth0" {
+			// Only the primary NIC needs a gateway otherwise lxc and/or ifup
+			// inside the container will fail.
+			nic.IPv4Gateway = iface.GatewayAddress.Value
 		}
-		if nic.IPv4Address != "" {
-			// LXC expects IPv4 addresses formatted like a CIDR:
-			// 1.2.3.4/5 (but without masking the least significant
-			// octets). Because statically configured IP addresses use
-			// the netmask 255.255.255.255, we always use /32 for
-			// here.
-			nic.IPv4Address += "/32"
-		}
-		if nic.NoAutoStart && nic.IPv4Gateway != "" {
-			// LXC refuses to add an ipv4 gateway when the NIC is not
-			// brought up.
+		if iface.MACAddress == "" || nic.MACAddress == "" {
 			logger.Warningf(
-				"not setting IPv4 gateway %q for non-auto start interface %q",
-				nic.IPv4Gateway, nic.Name,
+				"empty MAC address %q from config for %q (rendered as %q)",
+				iface.MACAddress, iface.InterfaceName, nic.MACAddress,
 			)
-			nic.IPv4Gateway = ""
 		}
 
 		data.Interfaces = append(data.Interfaces, nic)
