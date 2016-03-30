@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -1145,7 +1146,7 @@ if [ ! -z "${juju_networking_preferred_python_binary:-}" ]; then
 # For the moment we want master and 1.25 to not bridge all interfaces.
 # This setting allows us to easily switch the behaviour when merging
 # the code between those various branches.
-        juju_bridge_all_interfaces=0
+        juju_bridge_all_interfaces=1
         if [ $juju_bridge_all_interfaces -eq 1 ]; then
             $juju_networking_preferred_python_binary %[1]q --bridge-prefix=%[2]q --one-time-backup --activate %[4]q
         else
@@ -2102,4 +2103,99 @@ func (environ *maasEnviron) nodeIdFromInstance(inst instance.Instance) (string, 
 		return "", err
 	}
 	return nodeId, err
+}
+
+func (env *maasEnviron) AllocateContainerAddresses(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	if len(preparedInfo) == 0 {
+		return nil, errors.Errorf("no prepared info to allocate")
+	}
+	logger.Debugf("using prepared container info: %+v", preparedInfo)
+
+	subnetCIDRToVLANID := make(map[string]string)
+	subnetsAPI := env.getMAASClient().GetSubObject("subnets")
+	result, err := subnetsAPI.CallGet("", nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get subnets")
+	}
+	subnetsJSON, err := getJSONBytes(result)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get subnets JSON")
+	}
+	var subnets []maasSubnet
+	if err := json.Unmarshal(subnetsJSON, &subnets); err != nil {
+		return nil, errors.Annotate(err, "cannot parse subnets JSON")
+	}
+	for _, subnet := range subnets {
+		subnetCIDRToVLANID[subnet.CIDR] = strconv.Itoa(subnet.VLAN.ID)
+	}
+
+	var primaryNICInfo network.InterfaceInfo
+	for _, nic := range preparedInfo {
+		if nic.InterfaceName == "eth0" {
+			primaryNICInfo = nic
+			break
+		}
+	}
+	if primaryNICInfo.InterfaceName == "" {
+		return nil, errors.Errorf("cannot find primary interface for container")
+	}
+	logger.Debugf("primary device NIC prepared info: %+v", primaryNICInfo)
+
+	primaryMACAddress := primaryNICInfo.MACAddress
+	containerDevice, err := env.createDevice(hostInstanceID, primaryMACAddress)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create device for container")
+	}
+	deviceID := instance.Id(containerDevice.ResourceURI)
+	logger.Debugf("created device %q with primary MAC address %q", deviceID, primaryMACAddress)
+
+	interfaces, err := env.deviceInterfaces(deviceID)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get device interfaces")
+	}
+	if len(interfaces) != 1 {
+		return nil, errors.Errorf("expected 1 device interface, got %d", len(interfaces))
+	}
+
+	primaryNICName := interfaces[0].Name
+	primaryNICID := strconv.Itoa(interfaces[0].ID)
+	primaryNICSubnetCIDR := primaryNICInfo.CIDR
+	primaryNICVLANID := subnetCIDRToVLANID[primaryNICSubnetCIDR]
+	updatedPrimaryNIC, err := env.updateDeviceInterface(deviceID, primaryNICID, primaryNICName, primaryMACAddress, primaryNICVLANID)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot update device interface %q", interfaces[0].Name)
+	}
+	logger.Debugf("device %q primary interface %q updated: %+v", containerDevice.SystemID, primaryNICName, updatedPrimaryNIC)
+
+	deviceNICIDs := make([]string, len(preparedInfo))
+	nameToParentName := make(map[string]string)
+	for i, nic := range preparedInfo {
+		maasNICID := ""
+		nameToParentName[nic.InterfaceName] = nic.ParentInterfaceName
+		if nic.InterfaceName != primaryNICName {
+			nicVLANID := subnetCIDRToVLANID[nic.CIDR]
+			createdNIC, err := env.createDeviceInterface(deviceID, nic.InterfaceName, nic.MACAddress, nicVLANID)
+			if err != nil {
+				return nil, errors.Annotate(err, "creating device interface")
+			}
+			maasNICID = strconv.Itoa(createdNIC.ID)
+			logger.Debugf("created device interface: %+v", createdNIC)
+		} else {
+			maasNICID = primaryNICID
+		}
+		deviceNICIDs[i] = maasNICID
+		subnetID := string(nic.ProviderSubnetId)
+
+		linkedInterface, err := env.linkDeviceInterfaceToSubnet(deviceID, maasNICID, subnetID, modeStatic)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot link device interface to subnet")
+		}
+		logger.Debugf("linked device interface to subnet: %+v", linkedInterface)
+	}
+	finalInterfaces, err := env.deviceInterfaceInfo(deviceID, nameToParentName)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get device interfaces")
+	}
+	logger.Debugf("allocated device interfaces: %+v", finalInterfaces)
+	return finalInterfaces, nil
 }

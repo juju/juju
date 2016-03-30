@@ -4,6 +4,9 @@
 package client_test
 
 import (
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/client"
@@ -14,8 +17,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type statusSuite struct {
@@ -38,7 +39,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	client := s.APIState.Client()
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(status.ModelName, gc.Equals, "dummymodel")
+	c.Check(status.ModelName, gc.Equals, "admin")
 	c.Check(status.Services, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
 	c.Check(status.Networks, gc.HasLen, 0)

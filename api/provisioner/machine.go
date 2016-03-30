@@ -212,12 +212,11 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 	return result.Result, nil
 }
 
-// SetInstanceInfo sets the provider specific instance id, nonce,
-// metadata, networks and interfaces for this machine. Once set, the
-// instance id cannot be changed.
+// SetInstanceInfo sets the provider specific instance id, nonce, metadata,
+// network config for this machine. Once set, the instance id cannot be changed.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
-	networks []params.Network, interfaces []params.NetworkInterface, volumes []params.Volume,
+	networkConfig []params.NetworkConfig, volumes []params.Volume,
 	volumeAttachments map[string]params.VolumeAttachmentInfo,
 ) error {
 	var result params.ErrorResults
@@ -227,10 +226,9 @@ func (m *Machine) SetInstanceInfo(
 			InstanceId:        id,
 			Nonce:             nonce,
 			Characteristics:   characteristics,
-			Networks:          networks,
-			Interfaces:        interfaces,
 			Volumes:           volumes,
 			VolumeAttachments: volumeAttachments,
+			NetworkConfig:     networkConfig,
 		}},
 	}
 	err := m.st.facade.FacadeCall("SetInstanceInfo", args, &result)

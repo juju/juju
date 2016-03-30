@@ -28,8 +28,8 @@ func (s *environInstanceSuite) SetUpTest(c *gc.C) {
 func (s *environAvailzonesSuite) TestInstances(c *gc.C) {
 	client := vsphere.ExposeEnvFakeClient(s.Env)
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
-	vmName1 := common.MachineFullName(s.Env, "1")
-	vmName2 := common.MachineFullName(s.Env, "2")
+	vmName1 := common.MachineFullName(s.Env.Config().UUID(), "1")
+	vmName2 := common.MachineFullName(s.Env.Config().UUID(), "2")
 	s.FakeInstancesWithResourcePool(client, vsphere.InstRp{Inst: vmName1, Rp: "rp1"}, vsphere.InstRp{Inst: vmName2, Rp: "rp2"})
 
 	instances, err := s.Env.Instances([]instance.Id{instance.Id(vmName1), instance.Id(vmName2)})
@@ -53,8 +53,8 @@ func (s *environAvailzonesSuite) TestInstancesReturnNoInstances(c *gc.C) {
 func (s *environAvailzonesSuite) TestInstancesReturnPartialInstances(c *gc.C) {
 	client := vsphere.ExposeEnvFakeClient(s.Env)
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
-	vmName1 := common.MachineFullName(s.Env, "1")
-	vmName2 := common.MachineFullName(s.Env, "2")
+	vmName1 := common.MachineFullName(s.Env.Config().UUID(), "1")
+	vmName2 := common.MachineFullName(s.Env.Config().UUID(), "2")
 	s.FakeInstancesWithResourcePool(client, vsphere.InstRp{Inst: vmName1, Rp: "rp1"}, vsphere.InstRp{Inst: "Some inst", Rp: "rp2"})
 
 	_, err := s.Env.Instances([]instance.Id{instance.Id(vmName1), instance.Id(vmName2)})

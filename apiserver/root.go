@@ -74,6 +74,11 @@ func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier 
 	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := r.resources.RegisterNamed("createLocalLoginMacaroon", common.ValueResource{
+		srv.authCtxt.userAuth.CreateLocalLoginMacaroon,
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return r, nil
 }
 

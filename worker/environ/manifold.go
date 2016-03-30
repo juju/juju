@@ -11,32 +11,43 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldConfig describes the resources used by a Tracker.
-type ManifoldConfig util.ApiManifoldConfig
+type ManifoldConfig struct {
+	APICallerName      string
+	NewEnvironFuncName string
+}
 
 // Manifold returns a Manifold that encapsulates a *Tracker and exposes it as
 // an environs.Environ resource.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	manifold := util.ApiManifold(
-		util.ApiManifoldConfig(config),
-		manifoldStart,
-	)
-	manifold.Output = manifoldOutput
-	return manifold
-}
-
-// manifoldStart creates a *Tracker given a base.APICaller.
-func manifoldStart(apiCaller base.APICaller) (worker.Worker, error) {
-	w, err := NewTracker(Config{
-		Observer: agent.NewState(apiCaller),
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
+	manifold := dependency.Manifold{
+		Inputs: []string{
+			config.APICallerName,
+			config.NewEnvironFuncName,
+		},
+		Output: manifoldOutput,
+		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+			var apiCaller base.APICaller
+			if err := getResource(config.APICallerName, &apiCaller); err != nil {
+				return nil, errors.Trace(err)
+			}
+			var newEnvironFunc NewEnvironFunc
+			if err := getResource(config.NewEnvironFuncName, &newEnvironFunc); err != nil {
+				return nil, errors.Trace(err)
+			}
+			w, err := NewTracker(Config{
+				Observer:       agent.NewState(apiCaller),
+				NewEnvironFunc: newEnvironFunc,
+			})
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return w, nil
+		},
 	}
-	return w, nil
+	return manifold
 }
 
 // manifoldOutput extracts an environs.Environ resource from a *Tracker.
