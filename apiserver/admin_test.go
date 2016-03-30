@@ -79,8 +79,8 @@ func (s *loginSuite) TestLoginWithInvalidTag(c *gc.C) {
 	info := s.APIInfo(c)
 	info.Tag = nil
 	info.Password = ""
-	st, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.openAPIWithoutLogin(c, info)
+	defer st.Close()
 
 	request := &params.LoginRequest{
 		AuthTag:     "bar",
@@ -88,7 +88,7 @@ func (s *loginSuite) TestLoginWithInvalidTag(c *gc.C) {
 	}
 
 	var response params.LoginResult
-	err = st.APICall("Admin", 3, "", "Login", request, &response)
+	err := st.APICall("Admin", 3, "", "Login", request, &response)
 	c.Assert(err, gc.ErrorMatches, `.*"bar" is not a valid tag.*`)
 }
 
@@ -124,25 +124,20 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 		code: params.CodeUnauthorized,
 	}} {
 		c.Logf("test %d; entity %q; password %q", i, t.tag, t.password)
-		// Note that Open does not log in if the tag and password
-		// are empty. This allows us to test operations on the connection
-		// before calling Login, which we could not do if Open
-		// always logged in.
-		info.Tag = nil
-		info.Password = ""
 		func() {
-			st, err := api.Open(info, fastDialOpts)
-			c.Assert(err, jc.ErrorIsNil)
+			// Open the API without logging in, so we can perform
+			// operations on the connection before calling Login.
+			st := s.openAPIWithoutLogin(c, info)
 			defer st.Close()
 
-			_, err = st.Machiner().Machine(names.NewMachineTag("0"))
+			_, err := st.Machiner().Machine(names.NewMachineTag("0"))
 			c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 				Message: `unknown object type "Machiner"`,
 				Code:    "not implemented",
 			})
 
 			// Since these are user login tests, the nonce is empty.
-			err = st.Login(t.tag, t.password, "")
+			err = st.Login(t.tag, t.password, "", nil)
 			c.Assert(errors.Cause(err), gc.DeepEquals, t.err)
 			c.Assert(params.ErrCode(err), gc.Equals, t.code)
 
@@ -159,22 +154,19 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
-	info.Tag = nil
-	info.Password = ""
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.openAPIWithoutLogin(c, info)
 	defer st.Close()
 	password := "password"
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password, Disabled: true})
 
-	_, err = st.Client().Status([]string{})
+	_, err := st.Client().Status([]string{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
 	})
 
 	// Since these are user login tests, the nonce is empty.
-	err = st.Login(u.Tag(), password, "")
+	err = st.Login(u.Tag(), password, "", nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "invalid entity name or password",
 		Code:    "unauthorized access",
@@ -542,7 +534,7 @@ func (s *loginSuite) TestFailedLoginDuringMaintenance(c *gc.C) {
 	checkLogin := func(tag names.Tag) {
 		st := s.openAPIWithoutLogin(c, info)
 		defer st.Close()
-		err := st.Login(tag, "dummy-secret", "nonce")
+		err := st.Login(tag, "dummy-secret", "nonce", nil)
 		c.Assert(err, gc.ErrorMatches, "something")
 	}
 	checkLogin(names.NewUserTag("definitelywontexist"))
@@ -567,7 +559,7 @@ func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.Lo
 
 	adminUser := s.AdminUserTag(c)
 	// Since these are user login tests, the nonce is empty.
-	err = st.Login(adminUser, "dummy-secret", "")
+	err = st.Login(adminUser, "dummy-secret", "", nil)
 
 	checker(c, err, st)
 }
@@ -611,6 +603,7 @@ func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, modelTa
 func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info *api.Info) api.Connection {
 	info.Tag = nil
 	info.Password = ""
+	info.SkipLogin = true
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	return st
@@ -621,12 +614,11 @@ func (s *loginSuite) TestControllerModel(c *gc.C) {
 	defer cleanup()
 
 	c.Assert(info.ModelTag, gc.Equals, s.State.ModelTag())
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.openAPIWithoutLogin(c, info)
 	defer st.Close()
 
 	adminUser := s.AdminUserTag(c)
-	err = st.Login(adminUser, "dummy-secret", "")
+	err := st.Login(adminUser, "dummy-secret", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertRemoteEnvironment(c, st, s.State.ModelTag())
@@ -637,12 +629,11 @@ func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
 	defer cleanup()
 
 	c.Assert(info.ModelTag, gc.Equals, s.State.ModelTag())
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.openAPIWithoutLogin(c, info)
 	defer st.Close()
 
 	adminUser := s.AdminUserTag(c)
-	err = st.Login(adminUser, "bad-password", "")
+	err := st.Login(adminUser, "bad-password", "", nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `invalid entity name or password`,
 		Code:    "unauthorized access",
@@ -656,12 +647,11 @@ func (s *loginSuite) TestNonExistentEnvironment(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	info.ModelTag = names.NewModelTag(uuid.String())
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.openAPIWithoutLogin(c, info)
 	defer st.Close()
 
 	adminUser := s.AdminUserTag(c)
-	err = st.Login(adminUser, "dummy-secret", "")
+	err = st.Login(adminUser, "dummy-secret", "", nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: fmt.Sprintf("unknown model: %q", uuid),
 		Code:    "not found",
@@ -673,12 +663,11 @@ func (s *loginSuite) TestInvalidEnvironment(c *gc.C) {
 	defer cleanup()
 
 	info.ModelTag = names.NewModelTag("rubbish")
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.openAPIWithoutLogin(c, info)
 	defer st.Close()
 
 	adminUser := s.AdminUserTag(c)
-	err = st.Login(adminUser, "dummy-secret", "")
+	err := st.Login(adminUser, "dummy-secret", "", nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown model: "rubbish"`,
 		Code:    "not found",
@@ -695,11 +684,10 @@ func (s *loginSuite) TestOtherEnvironment(c *gc.C) {
 	})
 	defer envState.Close()
 	info.ModelTag = envState.ModelTag()
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.openAPIWithoutLogin(c, info)
 	defer st.Close()
 
-	err = st.Login(envOwner.UserTag(), "password", "")
+	err := st.Login(envOwner.UserTag(), "password", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRemoteEnvironment(c, st, envState.ModelTag())
 }
@@ -718,7 +706,6 @@ func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
 		ConfigAttrs: map[string]interface{}{
 			"controller": false,
 		},
-		Prepare: true,
 	})
 	defer envState.Close()
 
@@ -728,11 +715,10 @@ func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
 	})
 
 	info.ModelTag = envState.ModelTag()
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.openAPIWithoutLogin(c, info)
 	defer st.Close()
 
-	err = st.Login(machine.Tag(), password, "nonce")
+	err := st.Login(machine.Tag(), password, "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -747,11 +733,10 @@ func (s *loginSuite) TestOtherEnvironmentFromController(c *gc.C) {
 	envState := s.Factory.MakeModel(c, nil)
 	defer envState.Close()
 	info.ModelTag = envState.ModelTag()
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.openAPIWithoutLogin(c, info)
 	defer st.Close()
 
-	err = st.Login(machine.Tag(), password, "nonce")
+	err := st.Login(machine.Tag(), password, "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -764,11 +749,10 @@ func (s *loginSuite) TestOtherEnvironmentWhenNotController(c *gc.C) {
 	envState := s.Factory.MakeModel(c, nil)
 	defer envState.Close()
 	info.ModelTag = envState.ModelTag()
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.openAPIWithoutLogin(c, info)
 	defer st.Close()
 
-	err = st.Login(machine.Tag(), password, "nonce")
+	err := st.Login(machine.Tag(), password, "nonce", nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "invalid entity name or password",
 		Code:    "unauthorized access",

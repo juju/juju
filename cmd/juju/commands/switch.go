@@ -38,10 +38,13 @@ type switchCommand struct {
 var switchDoc = `
 Switch to the specified model or controller.
 
-If the name identifies controller, the client will switch to the
+If the name identifies a controller, the client will switch to the
 active model for that controller. Otherwise, the name must specify
 either the name of a model within the active controller, or a
 fully-qualified model with the format "controller:model".
+
+To list the available controllers or models, you can use the
+list-controllers and list-models commands respectively.
 `
 
 func (c *switchCommand) Info() *cmd.Info {

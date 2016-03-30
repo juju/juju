@@ -265,6 +265,7 @@ var commandNames = []string{
 	"list-storage",
 	"list-storage-pools",
 	"list-users",
+	"login",
 	"machine",
 	"machines",
 	"publish",
@@ -323,6 +324,7 @@ var commandNames = []string{
 	"unset-model-config",
 	"update-clouds",
 	"upgrade-charm",
+	"upgrade-gui",
 	"upgrade-juju",
 	"version",
 }

@@ -142,13 +142,18 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	}
 	logger.Debugf("joyent user data: %d bytes", len(userData))
 
-	var machine *cloudapi.Machine
-	args.InstanceConfig.Tags["tag.group"] = "juju"
-	args.InstanceConfig.Tags["tag.env"] = env.Config().Name()
+	instanceTags := make(map[string]string)
+	for tag, value := range args.InstanceConfig.Tags {
+		instanceTags[tagKey(tag)] = value
+	}
+	instanceTags[tagKey("group")] = "juju"
+	instanceTags[tagKey("model")] = env.Config().Name()
+
+	args.InstanceConfig.Tags = instanceTags
 	logger.Debugf("Now tags are:  %+v", args.InstanceConfig.Tags)
 
+	var machine *cloudapi.Machine
 	machine, err = env.compute.cloudapi.CreateMachine(cloudapi.CreateMachineOpts{
-		//Name:	 env.machineFullName(machineConf.MachineId),
 		Package:  spec.InstanceType.Name,
 		Image:    spec.Image.Id,
 		Metadata: map[string]string{"metadata.cloud-init:user-data": string(userData)},
@@ -160,6 +165,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	machineId := machine.Id
 
 	logger.Infof("provisioning instance %q", machineId)
+	logger.Infof("machine created with tags %+v", machine.Tags)
 
 	machine, err = env.compute.cloudapi.GetMachine(machineId)
 	if err != nil {
@@ -198,17 +204,17 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	}, nil
 }
 
+// Joyent tag must be prefixed with "tag."
+func tagKey(aKey string) string {
+	return "tag." + aKey
+}
+
 func (env *joyentEnviron) AllInstances() ([]instance.Instance, error) {
 	instances := []instance.Instance{}
 
 	filter := cloudapi.NewFilter()
-	filter.Set("tag.group", "juju")
-
-	eUUID, ok := env.Config().UUID()
-	if !ok {
-		return nil, errors.NotFoundf("enviroment UUID in configuration")
-	}
-	filter.Set(tags.JujuModel, eUUID)
+	filter.Set(tagKey("group"), "juju")
+	filter.Set(tagKey(tags.JujuModel), env.Config().UUID())
 
 	machines, err := env.compute.cloudapi.ListMachines(filter)
 	if err != nil {

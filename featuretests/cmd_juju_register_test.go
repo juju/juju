@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
@@ -36,8 +36,6 @@ func (s *cmdRegistrationSuite) run(c *gc.C, stdin io.Reader, args ...string) *cm
 }
 
 func (s *cmdRegistrationSuite) TestAddUserAndRegister(c *gc.C) {
-	c.Assert(modelcmd.WriteCurrentController("dummymodel"), jc.ErrorIsNil)
-
 	// First, add user "bob", and record the "juju register" command
 	// that is printed out.
 	context := s.run(c, nil, "add-user", "bob", "Bob Dobbs")
@@ -47,9 +45,11 @@ func (s *cmdRegistrationSuite) TestAddUserAndRegister(c *gc.C) {
 User "Bob Dobbs \(bob\)" added
 Please send this command to bob:
     juju register .*
+
+"Bob Dobbs \(bob\)" has not been granted access to any models(.|\n)*
 `[1:])
 	jujuRegisterCommand := strings.Fields(strings.TrimSpace(
-		stdout[strings.Index(stdout, "juju register"):],
+		strings.SplitN(stdout[strings.Index(stdout, "juju register"):], "\n", 2)[0],
 	))
 	c.Logf("%q", jujuRegisterCommand)
 
@@ -65,11 +65,24 @@ Enter password:
 Confirm password: 
 
 Welcome, bob. You are now logged into "bob-controller".
+
+There are no models available. You can create models with
+"juju create-model", or you can ask an administrator or owner
+of a model to grant access to that model with "juju grant".
+
 `[1:])
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	api, err := juju.NewAPIConnection(s.ControllerStore, "bob-controller", "bob@local", "", nil)
+	accountDetails, err := s.ControllerStore.AccountByName("bob-controller", "bob@local")
+	c.Assert(err, jc.ErrorIsNil)
+	api, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
+		Store:           s.ControllerStore,
+		ControllerName:  "bob-controller",
+		AccountDetails:  accountDetails,
+		BootstrapConfig: noBootstrapConfig,
+		DialOpts:        api.DefaultDialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api.Close(), jc.ErrorIsNil)
 }

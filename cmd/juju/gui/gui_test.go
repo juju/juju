@@ -25,6 +25,7 @@ type guiSuite struct {
 
 var _ = gc.Suite(&guiSuite{})
 
+// run executes the gui command passing the given args.
 func (s *guiSuite) run(c *gc.C, args ...string) (string, error) {
 	ctx, err := coretesting.RunCommand(c, gui.NewGUICommand(), args...)
 	return strings.Trim(coretesting.Stderr(ctx), "\n"), err

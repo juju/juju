@@ -44,14 +44,13 @@ var (
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
-	// EnvironConstraints are merged with the bootstrap constraints
-	// to choose the initial instance, and will be stored in the new
-	// environment's state.
-	EnvironConstraints constraints.Value
+	// ModelConstraints are merged with the bootstrap constraints
+	// to choose the initial instance, and will be stored in the
+	// initial models' states.
+	ModelConstraints constraints.Value
 
 	// BootstrapConstraints are used to choose the initial instance.
-	// BootstrapConstraints does not affect the environment-level
-	// constraints.
+	// BootstrapConstraints does not affect the model constraints.
 	BootstrapConstraints constraints.Value
 
 	// BootstrapSeries, if specified, is the series to use for the
@@ -61,6 +60,11 @@ type BootstrapParams struct {
 	// BootstrapImage, if specified, is the image ID to use for the
 	// initial bootstrap machine.
 	BootstrapImage string
+
+	// HostedModelConfig is the set of config attributes to be overlaid
+	// on the controller config to construct the initial hosted model
+	// config.
+	HostedModelConfig map[string]interface{}
 
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
@@ -114,7 +118,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			return err
 		}
 	}
-	if err := validateConstraints(environ, args.EnvironConstraints); err != nil {
+	if err := validateConstraints(environ, args.ModelConstraints); err != nil {
 		return err
 	}
 	if err := validateConstraints(environ, args.BootstrapConstraints); err != nil {
@@ -126,7 +130,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 	bootstrapConstraints, err := constraintsValidator.Merge(
-		args.EnvironConstraints, args.BootstrapConstraints,
+		args.ModelConstraints, args.BootstrapConstraints,
 	)
 	if err != nil {
 		return err
@@ -185,7 +189,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 
 	ctx.Infof("Starting new instance for initial controller")
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
-		EnvironConstraints:   args.EnvironConstraints,
+		ModelConstraints:     args.ModelConstraints,
 		BootstrapConstraints: args.BootstrapConstraints,
 		Placement:            args.Placement,
 		AvailableTools:       availableTools,
@@ -228,13 +232,14 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		args.BootstrapConstraints, args.EnvironConstraints, result.Series, publicKey,
+		args.BootstrapConstraints, args.ModelConstraints, result.Series, publicKey,
 	)
 	if err != nil {
 		return err
 	}
 	instanceConfig.Tools = selectedTools
 	instanceConfig.CustomImageMetadata = customImageMetadata
+	instanceConfig.HostedModelConfig = args.HostedModelConfig
 
 	gui, err := guiArchive()
 	if err != nil {

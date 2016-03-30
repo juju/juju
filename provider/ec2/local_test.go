@@ -29,8 +29,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
@@ -57,10 +55,9 @@ type ProviderSuite struct {
 var _ = gc.Suite(&ProviderSuite{})
 
 var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
-	"name":           "sample",
-	"type":           "ec2",
-	"control-bucket": "test-bucket",
-	"agent-version":  coretesting.FakeVersionNumber.String(),
+	"name":          "sample",
+	"type":          "ec2",
+	"agent-version": coretesting.FakeVersionNumber.String(),
 })
 
 func registerLocalTests() {
@@ -1269,21 +1266,21 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	}
 	t.srv.startServer(c)
 
-	cfg, err := config.New(config.NoDefaults, localConfigAttrs)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
-		envtesting.BootstrapContext(c), configstore.NewMem(),
+		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		cfg.Name(), environs.PrepareForBootstrapParams{
-			Config: cfg,
-			Credentials: cloud.NewCredential(
+		environs.PrepareParams{
+			BaseConfig: localConfigAttrs,
+			Credential: cloud.NewCredential(
 				cloud.AccessKeyAuthType,
 				map[string]string{
 					"access-key": "x",
 					"secret-key": "x",
 				},
 			),
-			CloudRegion: "test",
+			ControllerName: localConfigAttrs["name"].(string),
+			CloudName:      "ec2",
+			CloudRegion:    "test",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1299,7 +1296,7 @@ func patchEC2ForTesting(c *gc.C) func() {
 	ec2.UseTestImageData(c, ec2.TestImagesData)
 	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
 	ec2.UseTestRegionData(ec2.TestRegions)
-	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
+	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt, ec2.LongAttempt)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	return func() {
 		restoreFinishBootstrap()

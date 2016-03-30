@@ -27,6 +27,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -52,7 +53,7 @@ import (
 
 var (
 	initiateMongoServer  = peergrouper.InitiateMongoServer
-	agentInitializeState = agent.InitializeState
+	agentInitializeState = agentbootstrap.InitializeState
 	sshGenerateKey       = ssh.GenerateKey
 	newStateStorage      = storage.NewStorage
 	minSocketTimeout     = 1 * time.Minute
@@ -63,13 +64,14 @@ var (
 type BootstrapCommand struct {
 	cmd.CommandBase
 	agentcmd.AgentConf
-	EnvConfig            map[string]interface{}
-	BootstrapConstraints constraints.Value
-	EnvironConstraints   constraints.Value
-	Hardware             instance.HardwareCharacteristics
-	InstanceId           string
-	AdminUsername        string
-	ImageMetadataDir     string
+	ControllerModelConfig map[string]interface{}
+	HostedModelConfig     map[string]interface{}
+	BootstrapConstraints  constraints.Value
+	ModelConstraints      constraints.Value
+	Hardware              instance.HardwareCharacteristics
+	InstanceId            string
+	AdminUsername         string
+	ImageMetadataDir      string
 }
 
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
@@ -90,9 +92,10 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 // SetFlags adds the flags for this command to the passed gnuflag.FlagSet.
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
-	yamlBase64Var(f, &c.EnvConfig, "model-config", "", "initial model configuration (yaml, base64 encoded)")
+	yamlBase64Var(f, &c.ControllerModelConfig, "model-config", "", "controller model configuration (yaml, base64 encoded)")
+	yamlBase64Var(f, &c.HostedModelConfig, "hosted-model-config", "", "initial hosted model configuration (yaml, base64 encoded)")
 	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "bootstrap machine constraints (space-separated strings)")
-	f.Var(constraints.ConstraintsValue{Target: &c.EnvironConstraints}, "constraints", "initial constraints (space-separated strings)")
+	f.Var(constraints.ConstraintsValue{Target: &c.ModelConstraints}, "constraints", "initial constraints (space-separated strings)")
 	f.Var(&c.Hardware, "hardware", "hardware characteristics (space-separated strings)")
 	f.StringVar(&c.InstanceId, "instance-id", "", "unique instance-id for bootstrap machine")
 	f.StringVar(&c.AdminUsername, "admin-user", "admin", "set the name for the juju admin user")
@@ -101,8 +104,11 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init initializes the command for running.
 func (c *BootstrapCommand) Init(args []string) error {
-	if len(c.EnvConfig) == 0 {
+	if len(c.ControllerModelConfig) == 0 {
 		return cmdutil.RequiredError("model-config")
+	}
+	if len(c.HostedModelConfig) == 0 {
+		return cmdutil.RequiredError("hosted-model-config")
 	}
 	if c.InstanceId == "" {
 		return cmdutil.RequiredError("instance-id")
@@ -115,7 +121,7 @@ func (c *BootstrapCommand) Init(args []string) error {
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
-	envCfg, err := config.New(config.NoDefaults, c.EnvConfig)
+	envCfg, err := config.New(config.NoDefaults, c.ControllerModelConfig)
 	if err != nil {
 		return err
 	}
@@ -272,11 +278,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		st, m, stateErr = agentInitializeState(
 			adminTag,
 			agentConfig,
-			envCfg,
-			agent.BootstrapMachineConfig{
+			envCfg, c.HostedModelConfig,
+			agentbootstrap.BootstrapMachineConfig{
 				Addresses:            addrs,
 				BootstrapConstraints: c.BootstrapConstraints,
-				ModelConstraints:     c.EnvironConstraints,
+				ModelConstraints:     c.ModelConstraints,
 				Jobs:                 jobs,
 				InstanceId:           instanceId,
 				Characteristics:      c.Hardware,
@@ -439,8 +445,8 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	return nil
 }
 
-// populateGUIArchive stores uploaded Juju GUI archive in provider storage
-// and updates the GUI metadata.
+// populateGUIArchive stores uploaded Juju GUI archive in provider storage,
+// updates the GUI metadata and set the current Juju GUI version.
 func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Environ) error {
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
@@ -467,6 +473,9 @@ func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Envi
 		SHA256:  gui.SHA256,
 	}); err != nil {
 		return errors.Annotate(err, "cannot store GUI archive")
+	}
+	if err = st.GUISetVersion(gui.Version); err != nil {
+		return errors.Annotate(err, "cannot set current GUI version")
 	}
 	return nil
 }
