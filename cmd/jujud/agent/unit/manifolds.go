@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/worker/metrics/sender"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/proxyupdater"
+	"github.com/juju/juju/worker/retrystrategy"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/util"
@@ -134,6 +135,17 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeadershipGuarantee: config.LeadershipGuarantee,
 		}),
 
+		// HookRetryStrategy uses a retrystrategy worker to get a
+		// retry strategy that will be used by the uniter to run its hooks.
+		HookRetryStrategyName: retrystrategy.Manifold(retrystrategy.ManifoldConfig{
+			AgentApiManifoldConfig: util.AgentApiManifoldConfig{
+				AgentName:     AgentName,
+				APICallerName: APICallerName,
+			},
+			NewFacade: retrystrategy.NewFacade,
+			NewWorker: retrystrategy.NewRetryStrategyWorker,
+		}),
+
 		// The uniter installs charms; manages the unit's presence in its
 		// relations; creates suboordinate units; runs all the hooks; sends
 		// metrics; etc etc etc. We expect to break it up further in the
@@ -145,6 +157,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeadershipTrackerName: LeadershipTrackerName,
 			MachineLockName:       MachineLockName,
 			CharmDirName:          CharmDirName,
+			HookRetryStrategyName: HookRetryStrategyName,
 		}),
 
 		// TODO (mattyw) should be added to machine agent.
@@ -202,4 +215,5 @@ const (
 	MeterStatusName          = "meter-status"
 	MetricCollectName        = "metric-collect"
 	MetricSenderName         = "metric-sender"
+	HookRetryStrategyName    = "hook-retry-strategy"
 )
