@@ -105,10 +105,7 @@ func mongodbLogin(session *mgo.Session, mongoInfo *mongo.MongoInfo) error {
 // This needs to be performed only once for the initial controller model.
 // It returns unauthorizedError if access is unauthorized.
 func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (_ *State, err error) {
-	uuid, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.Errorf("model uuid was not supplied")
-	}
+	uuid := cfg.UUID()
 	modelTag := names.NewModelTag(uuid)
 	st, err := open(modelTag, info, opts, policy)
 	if err != nil {

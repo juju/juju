@@ -210,7 +210,10 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 			3: newAdminApiV3,
 		},
 	}
-	srv.authCtxt = newAuthContext(srv)
+	srv.authCtxt, err = newAuthContext(s)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	go srv.run()
 	return srv, nil
 }
@@ -437,6 +440,12 @@ func (srv *Server) run() {
 	)
 
 	handleGUI(mux, "/gui/:modeluuid/", srv.dataDir, httpCtxt)
+	handleAll(mux, "/gui-archive", &guiArchiveHandler{
+		ctxt: httpCtxt,
+	})
+	handleAll(mux, "/gui-version", &guiVersionHandler{
+		ctxt: httpCtxt,
+	})
 
 	// For backwards compatibility we register all the old paths
 	handleAll(mux, "/log", debugLogHandler)

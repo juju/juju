@@ -22,13 +22,12 @@ var _ = gc.Suite(&configSuite{})
 
 func MinimalConfigValues() map[string]interface{} {
 	return map[string]interface{}{
-		"name":           "test",
-		"type":           "manual",
-		"bootstrap-host": "hostname",
-		"bootstrap-user": "",
-		// Not strictly necessary, but simplifies testing by disabling
-		// ssh storage by default.
-		"use-sshstorage": false,
+		"name":            "test",
+		"type":            "manual",
+		"uuid":            coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ModelTag.Id(),
+		"bootstrap-host":  "hostname",
+		"bootstrap-user":  "",
 		// While the ca-cert bits aren't entirely minimal, they avoid the need
 		// to set up a fake home.
 		"ca-cert":        coretesting.CACert,
@@ -104,17 +103,4 @@ func (s *configSuite) TestBootstrapHostUser(c *gc.C) {
 	testConfig = getModelConfig(c, values)
 	c.Assert(testConfig.bootstrapHost(), gc.Equals, "127.0.0.1")
 	c.Assert(testConfig.bootstrapUser(), gc.Equals, "ubuntu")
-}
-
-func (s *configSuite) TestStorageCompat(c *gc.C) {
-	// Older environment configurations will not have the
-	// use-sshstorage attribute. We treat them as if they
-	// have use-sshstorage=false.
-	values := MinimalConfigValues()
-	delete(values, "use-sshstorage")
-	cfg, err := config.New(config.UseDefaults, values)
-	c.Assert(err, jc.ErrorIsNil)
-	envConfig := newModelConfig(cfg, values)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envConfig.useSSHStorage(), jc.IsFalse)
 }

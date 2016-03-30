@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -38,23 +37,22 @@ type CreateModelCommand struct {
 func NewCreateModelCommandForTest(
 	api CreateModelAPI,
 	store jujuclient.ClientStore,
-	parser func(interface{}) (interface{}, error),
+	credentialStore jujuclient.CredentialStore,
 ) (cmd.Command, *CreateModelCommand) {
 	c := &createModelCommand{
-		api:          api,
-		configParser: parser,
+		api:             api,
+		credentialStore: credentialStore,
 	}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c), &CreateModelCommand{c}
 }
 
-// NewListModelsCommandForTest returns a EnvironmentsCommand with the API
+// NewListModelsCommandForTest returns a ListModelsCommand with the API
 // and userCreds provided as specified.
-func NewListModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, store jujuclient.ClientStore, userCreds *configstore.APICredentials) cmd.Command {
+func NewListModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, store jujuclient.ClientStore) cmd.Command {
 	c := &modelsCommand{
-		modelAPI:  modelAPI,
-		sysAPI:    sysAPI,
-		userCreds: userCreds,
+		modelAPI: modelAPI,
+		sysAPI:   sysAPI,
 	}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c)
@@ -62,8 +60,8 @@ func NewListModelsCommandForTest(modelAPI ModelManagerAPI, sysAPI ModelsSysAPI, 
 
 // NewRegisterCommandForTest returns a RegisterCommand with the function used
 // to open the API connection mocked out.
-func NewRegisterCommandForTest(apiOpen api.OpenFunc, newAPIRoot modelcmd.OpenFunc, store jujuclient.ClientStore) *registerCommand {
-	return &registerCommand{apiOpen: apiOpen, newAPIRoot: newAPIRoot, store: store}
+func NewRegisterCommandForTest(apiOpen api.OpenFunc, refreshModels func(jujuclient.ClientStore, string, string) error, store jujuclient.ClientStore) *registerCommand {
+	return &registerCommand{apiOpen: apiOpen, refreshModels: refreshModels, store: store}
 }
 
 // NewRemoveBlocksCommandForTest returns a RemoveBlocksCommand with the

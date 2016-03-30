@@ -41,12 +41,6 @@ func (c *baselistMachinesCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-var connectionError = `Unable to connect to model %q.
-Please check your credentials or use 'juju bootstrap' to create a new model.
-
-Error details:
-%v
-`
 var newAPIClientForMachines = func(c *baselistMachinesCommand) (statusAPI, error) {
 	if c.api != nil {
 		return c.api, nil
@@ -58,7 +52,7 @@ var newAPIClientForMachines = func(c *baselistMachinesCommand) (statusAPI, error
 func (c *baselistMachinesCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := newAPIClientForMachines(c)
 	if err != nil {
-		return errors.Errorf(connectionError, c.ConnectionName(), err)
+		return errors.Trace(err)
 	}
 	defer apiclient.Close()
 

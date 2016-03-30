@@ -78,13 +78,10 @@ func (prov *azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, er
 // will be copied across to a hosted environment's initial configuration.
 func (prov *azureEnvironProvider) RestrictedConfigAttributes() []string {
 	return []string{
-		configAttrSubscriptionId,
-		configAttrTenantId,
-		configAttrAppId,
-		configAttrAppPassword,
 		configAttrLocation,
+		configAttrEndpoint,
 		configAttrControllerResourceGroup,
-		configAttrStorageAccountType,
+		configAttrStorageEndpoint,
 	}
 }
 
@@ -97,9 +94,8 @@ func (prov *azureEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config
 	return env.initResourceGroup()
 }
 
-// PrepareForBootstrap is specified in the EnvironProvider interface.
-func (prov *azureEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
-
+// BootstrapConfig is specified in the EnvironProvider interface.
+func (prov *azureEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	// Ensure that internal configuration is not specified, and then set
 	// what we can now. We only need to do this during bootstrap. Validate
 	// will check for changes later.
@@ -131,7 +127,11 @@ func (prov *azureEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapCont
 	if err != nil {
 		return nil, errors.Annotate(err, "updating config")
 	}
+	return cfg, nil
+}
 
+// PrepareForBootstrap is specified in the EnvironProvider interface.
+func (prov *azureEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	env, err := prov.Open(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)

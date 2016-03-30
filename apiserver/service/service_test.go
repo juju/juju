@@ -827,7 +827,7 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot upgrade charm, only these series are supported: trusty, wily")
 }
 
-func (s *serviceSuite) TestServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
+func (s *serviceSuite) assertServiceSetCharmSeries(c *gc.C, upgradeCharm, series string) {
 	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -840,7 +840,12 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	curl, _ = s.UploadCharmMultiSeries(c, "~who/multi-series2", "multi-series2")
+
+	url := upgradeCharm
+	if series != "" {
+		url = series + "/" + upgradeCharm
+	}
+	curl, _ = s.UploadCharmMultiSeries(c, "~who/"+url, upgradeCharm)
 	err = service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -854,7 +859,15 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := svc.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL().String(), gc.Equals, "cs:~who/multi-series2-0")
+	c.Assert(ch.URL().String(), gc.Equals, "cs:~who/"+url+"-0")
+}
+
+func (s *serviceSuite) TestServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
+	s.assertServiceSetCharmSeries(c, "multi-series2", "")
+}
+
+func (s *serviceSuite) TestServiceSetCharmNoExplicitSupportedSeries(c *gc.C) {
+	s.assertServiceSetCharmSeries(c, "dummy", "precise")
 }
 
 func (s *serviceSuite) TestServiceSetCharmWrongOS(c *gc.C) {

@@ -20,8 +20,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -576,25 +574,5 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		Owner:  params.Owner.(names.UserTag),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	if params.Prepare {
-		if params.Credential == nil {
-			emptyCredential := cloud.NewEmptyCredential()
-			params.Credential = &emptyCredential
-		}
-		args := environs.PrepareForBootstrapParams{
-			Config:        cfg,
-			Credentials:   *params.Credential,
-			CloudEndpoint: params.CloudEndpoint,
-			CloudRegion:   params.CloudRegion,
-		}
-		// Prepare the environment.
-		provider, err := environs.Provider(cfg.Type())
-		c.Assert(err, jc.ErrorIsNil)
-		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), args)
-		c.Assert(err, jc.ErrorIsNil)
-		// Now save the config back.
-		err = st.UpdateModelConfig(env.Config().AllAttrs(), nil, nil)
-		c.Assert(err, jc.ErrorIsNil)
-	}
 	return st
 }

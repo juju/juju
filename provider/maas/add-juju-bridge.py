@@ -94,6 +94,8 @@ class LogicalInterface(object):
         s2 = AutoStanza(bridge_name)
         options = list(self.options)
         options.append("bridge_ports {}".format(self.name))
+        options.append("bridge_stp off")
+        options.append("bridge_maxwait 0")
         s3 = IfaceStanza(bridge_name, self.family, self.method, options)
         return [s1, s2, s3]
 
@@ -105,6 +107,8 @@ class LogicalInterface(object):
             stanzas.append(AutoStanza(bridge_name))
         options = [x for x in self.options if not x.startswith("vlan")]
         options.append("bridge_ports {}".format(self.name))
+        options.append("bridge_stp off")
+        options.append("bridge_maxwait 0")
         s3 = IfaceStanza(bridge_name, self.family, self.method, options)
         stanzas.append(s3)
         return stanzas
@@ -125,6 +129,8 @@ class LogicalInterface(object):
         s2 = AutoStanza(bridge_name)
         options = [x for x in self.options if not x.startswith("bond")]
         options.append("bridge_ports {}".format(self.name))
+        options.append("bridge_stp off")
+        options.append("bridge_maxwait 0")
         s3 = IfaceStanza(bridge_name, self.family, self.method, options)
         stanzas.extend([s1, s2, s3])
         return stanzas
@@ -351,6 +357,7 @@ def main(args):
     print("**** Original configuration")
     print_shell_cmd("cat {}".format(args.filename))
     print_shell_cmd("ifconfig -a")
+    print_shell_cmd("rm /etc/network/if-up.d/ntpdate")
     print_shell_cmd("ifdown --exclude=lo --interfaces={} {}".format(args.filename, ifquery))
 
     print("**** Activating new configuration")

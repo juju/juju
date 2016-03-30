@@ -55,6 +55,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// This is controller global, and related to the system state of the
 		// embedded GUI.
 		guimetadataC,
+		// This is controller global, not migrated.
+		guisettingsC,
 		// Users aren't migrated.
 		usersC,
 		userLastLoginC,

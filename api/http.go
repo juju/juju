@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
@@ -16,14 +17,28 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// HTTPClient implements Connection.APICaller.HTTPClient.
+// HTTPClient implements Connection.APICaller.HTTPClient and returns an HTTP
+// client pointing to the API server "/model/:uuid/" path.
 func (s *state) HTTPClient() (*httprequest.Client, error) {
-	if !s.isLoggedIn() {
-		return nil, errors.New("no HTTP client available without logging in")
-	}
 	baseURL, err := s.apiEndpoint("/", "")
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	return s.httpClient(baseURL)
+}
+
+// HTTPClient implements Connection.APICaller.HTTPClient and returns an HTTP
+// client pointing to the API server root path.
+func (s *state) RootHTTPClient() (*httprequest.Client, error) {
+	return s.httpClient(&url.URL{
+		Scheme: s.serverScheme,
+		Host:   s.Addr(),
+	})
+}
+
+func (s *state) httpClient(baseURL *url.URL) (*httprequest.Client, error) {
+	if !s.isLoggedIn() {
+		return nil, errors.New("no HTTP client available without logging in")
 	}
 	return &httprequest.Client{
 		BaseURL: baseURL.String(),

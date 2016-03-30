@@ -9,14 +9,12 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	envtesting "github.com/juju/juju/environs/testing"
 	jp "github.com/juju/juju/provider/joyent"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -30,16 +28,12 @@ func newConfig(c *gc.C, attrs coretesting.Attrs) *config.Config {
 
 func validAttrs() coretesting.Attrs {
 	return coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"type":             "joyent",
-		"sdc-user":         "test",
-		"sdc-key-id":       "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
-		"sdc-url":          "test://test.api.joyentcloud.com",
-		"manta-user":       "test",
-		"manta-key-id":     "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
-		"manta-url":        "test://test.manta.joyent.com",
-		"private-key-path": "~/.ssh/provider_id_rsa",
-		"algorithm":        "rsa-sha256",
-		"control-dir":      "juju-test",
+		"type":        "joyent",
+		"sdc-user":    "test",
+		"sdc-key-id":  "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
+		"sdc-url":     "test://test.api.joyentcloud.com",
+		"private-key": testPrivateKey,
+		"algorithm":   "rsa-sha256",
 	})
 }
 
@@ -57,10 +51,6 @@ func (s *ConfigSuite) SetUpSuite(c *gc.C) {
 	s.AddSuiteCleanup(func(*gc.C) { restoreSdcAccount() })
 	restoreSdcKeyId := testing.PatchEnvironment(jp.SdcKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
 	s.AddSuiteCleanup(func(*gc.C) { restoreSdcKeyId() })
-	restoreMantaUser := testing.PatchEnvironment(jp.MantaUser, "tester")
-	s.AddSuiteCleanup(func(*gc.C) { restoreMantaUser() })
-	restoreMantaKeyId := testing.PatchEnvironment(jp.MantaKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
-	s.AddSuiteCleanup(func(*gc.C) { restoreMantaKeyId() })
 	s.privateKeyData = generatePrivateKey(c)
 	jp.RegisterMachinesEndpoint()
 	s.AddSuiteCleanup(func(*gc.C) { jp.UnregisterMachinesEndpoint() })
@@ -79,7 +69,6 @@ func generatePrivateKey(c *gc.C) string {
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.AddCleanup(CreateTestKey(c))
 	for _, envVar := range jp.EnvironmentVariables {
 		s.PatchEnvironment(envVar, "")
 	}
@@ -150,75 +139,6 @@ var newConfigTests = []configtest{{
 	insert: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
 	expect: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
 }, {
-	info:   "manta-user is required",
-	remove: []string{"manta-user"},
-	err:    ".* cannot get manta-user value from model variable .*",
-}, {
-	info:   "manta-user cannot be empty",
-	insert: coretesting.Attrs{"manta-user": ""},
-	err:    ".* cannot get manta-user value from model variable .*",
-}, {
-	info:   "can get manta-user from model variable",
-	insert: coretesting.Attrs{"manta-user": ""},
-	expect: coretesting.Attrs{"manta-user": "tester"},
-	envVars: map[string]string{
-		"MANTA_USER": "tester",
-	},
-}, {
-	info:   "can get manta-user from model variable, missing from config",
-	remove: []string{"manta-user"},
-	expect: coretesting.Attrs{"manta-user": "tester"},
-	envVars: map[string]string{
-		"MANTA_USER": "tester",
-	},
-}, {
-	info:   "manta-key-id is required",
-	remove: []string{"manta-key-id"},
-	err:    ".* cannot get manta-key-id value from model variable .*",
-}, {
-	info:   "manta-key-id cannot be empty",
-	insert: coretesting.Attrs{"manta-key-id": ""},
-	err:    ".* cannot get manta-key-id value from model variable .*",
-}, {
-	info:   "can get manta-key-id from env variable",
-	insert: coretesting.Attrs{"manta-key-id": ""},
-	expect: coretesting.Attrs{"manta-key-id": "key"},
-	envVars: map[string]string{
-		"MANTA_KEY_ID": "key",
-	},
-}, {
-	info:   "can get manta-key-id from model variable, missing from config",
-	remove: []string{"manta-key-id"},
-	expect: coretesting.Attrs{"manta-key-id": "key"},
-	envVars: map[string]string{
-		"MANTA_KEY_ID": "key",
-	},
-}, {
-	info:   "manta-url is inserted if missing",
-	expect: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
-}, {
-	info:   "manta-url cannot be empty",
-	insert: coretesting.Attrs{"manta-url": ""},
-	err:    ".* cannot get manta-url value from model variable .*",
-}, {
-	info:   "manta-url is untouched if present",
-	insert: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
-	expect: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
-}, {
-	info:   "can get private-key-path from env variable",
-	insert: coretesting.Attrs{"private-key-path": ""},
-	expect: coretesting.Attrs{"private-key-path": "some-file"},
-	envVars: map[string]string{
-		"MANTA_PRIVATE_KEY_FILE": "some-file",
-	},
-}, {
-	info:   "can get private-key-path from model variable, missing from config",
-	remove: []string{"private-key-path"},
-	expect: coretesting.Attrs{"private-key-path": "some-file"},
-	envVars: map[string]string{
-		"MANTA_PRIVATE_KEY_FILE": "some-file",
-	},
-}, {
 	info:   "algorithm is inserted if missing",
 	expect: coretesting.Attrs{"algorithm": "rsa-sha256"},
 }, {
@@ -229,10 +149,6 @@ var newConfigTests = []configtest{{
 	info:   "unknown field is not touched",
 	insert: coretesting.Attrs{"unknown-field": 12345},
 	expect: coretesting.Attrs{"unknown-field": 12345},
-}, {
-	info:   "can specify just private-key",
-	remove: []string{"private-key-path"},
-	insert: coretesting.Attrs{"private-key": "foo"},
 }}
 
 func (s *ConfigSuite) TestNewModelConfig(c *gc.C) {
@@ -288,18 +204,6 @@ var changeConfigTests = []struct {
 	insert: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
 	expect: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
 }, {
-	info:   "can change manta-user",
-	insert: coretesting.Attrs{"manta-user": "manta_user"},
-	expect: coretesting.Attrs{"manta-user": "manta_user"},
-}, {
-	info:   "can change manta-key-id",
-	insert: coretesting.Attrs{"manta-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
-	expect: coretesting.Attrs{"manta-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
-}, {
-	info:   "can change manta-url",
-	insert: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
-	expect: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
-}, {
 	info:   "can insert unknown field",
 	insert: coretesting.Attrs{"unknown": "ignoti"},
 	expect: coretesting.Attrs{"unknown": "ignoti"},
@@ -307,12 +211,10 @@ var changeConfigTests = []struct {
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 	attrs := validAttrs()
-	attrs["private-key"] = s.privateKeyData
 	baseConfig := newConfig(c, attrs)
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		attrs["private-key"] = s.privateKeyData
 		testConfig := newConfig(c, attrs)
 		validatedConfig, err := jp.Provider.Validate(testConfig, baseConfig)
 		if test.err == "" {
@@ -355,41 +257,28 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	}
 }
 
-func validPrepareAttrs() coretesting.Attrs {
-	return validAttrs().Delete("private-key")
-}
-
 // TODO(wallyworld) - add tests for cloud endpoint passed in via bootstrap args
-var prepareConfigTests = []struct {
+var bootstrapConfigTests = []struct {
 	info   string
 	insert coretesting.Attrs
 	remove []string
 	expect coretesting.Attrs
 	err    string
 }{{
-	info:   "All value provided, nothig to do",
-	expect: validPrepareAttrs(),
-}, {
-	info:   "private key is loaded from key file",
-	insert: coretesting.Attrs{"private-key-path": fmt.Sprintf("~/.ssh/%s", testKeyFileName)},
-	expect: coretesting.Attrs{"private-key": testPrivateKey},
-}, {
-	info:   "bad private-key-path errors, not panics",
-	insert: coretesting.Attrs{"private-key-path": "~/.ssh/no-such-file"},
-	err:    "invalid Joyent provider config: open .*: " + utils.NoSuchFileErrRegexp,
+	info:   "All value provided, nothing to do",
+	expect: validAttrs(),
 }}
 
-func (s *ConfigSuite) TestPrepareForBootstrap(c *gc.C) {
-	ctx := envtesting.BootstrapContext(c)
-	for i, test := range prepareConfigTests {
+func (s *ConfigSuite) TestBootstrapConfig(c *gc.C) {
+	for i, test := range bootstrapConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		attrs := validPrepareAttrs().Merge(test.insert).Delete(test.remove...)
+		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		credentialAttrs := make(map[string]string, len(attrs))
-		for k, v := range attrs.Delete("type", "control-dir") {
+		for k, v := range attrs.Delete("type") {
 			credentialAttrs[k] = fmt.Sprintf("%v", v)
 		}
 		testConfig := newConfig(c, attrs)
-		preparedConfig, err := jp.Provider.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+		preparedConfig, err := jp.Provider.BootstrapConfig(environs.BootstrapConfigParams{
 			Config: testConfig,
 			Credentials: cloud.NewCredential(
 				cloud.UserPassAuthType,
@@ -398,7 +287,7 @@ func (s *ConfigSuite) TestPrepareForBootstrap(c *gc.C) {
 		})
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
-			attrs := preparedConfig.Config().AllAttrs()
+			attrs := preparedConfig.AllAttrs()
 			for field, value := range test.expect {
 				c.Check(attrs[field], gc.Equals, value)
 			}

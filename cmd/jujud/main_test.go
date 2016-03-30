@@ -102,6 +102,7 @@ func (s *MainSuite) TestParseErrors(c *gc.C) {
 	checkMessage(c, msga,
 		"bootstrap-state",
 		"--model-config", b64yaml{"blah": "blah"}.encode(),
+		"--hosted-model-config", b64yaml{"blah": "blah"}.encode(),
 		"--instance-id", "inst",
 		"toastie")
 	checkMessage(c, msga, "unit",

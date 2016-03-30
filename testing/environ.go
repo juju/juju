@@ -45,6 +45,7 @@ func FakeConfig() Attrs {
 		"type":                      "someprovider",
 		"name":                      "testenv",
 		"uuid":                      ModelTag.Id(),
+		"controller-uuid":           ModelTag.Id(),
 		"authorized-keys":           FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "fish",
