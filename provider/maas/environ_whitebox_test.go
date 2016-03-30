@@ -28,12 +28,10 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -72,13 +70,6 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 		panic(err)
 	}
 	return ecfg.Config
-}
-
-func (suite *environSuite) setupFakeTools(c *gc.C) {
-	suite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-	storageDir := c.MkDir()
-	suite.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
-	suite.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
 }
 
 func (suite *environSuite) addNode(jsonText string) instance.Id {

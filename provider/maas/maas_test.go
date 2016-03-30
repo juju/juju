@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -19,14 +20,18 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
+
+var maas2VersionResponse = `{"version": "unknown", "subversion": "", "capabilities": ["networks-management", "static-ipaddresses", "ipv6-deployment-ubuntu", "devices-management", "storage-deployment-ubuntu", "network-deployment-ubuntu"]}`
 
 type baseProviderSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
@@ -34,6 +39,7 @@ type baseProviderSuite struct {
 }
 
 func (suite *baseProviderSuite) setupFakeTools(c *gc.C) {
+	suite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	storageDir := c.MkDir()
 	suite.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
 	suite.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
@@ -80,8 +86,8 @@ type controllerSuite struct {
 
 func (s *controllerSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
-	// TODO (mfoord): not actually useful until addResponse is public.
 	s.testServer = gomaasapi.NewSimpleServer()
+	s.testServer.AddResponse("/api/2.0/version/", http.StatusOK, maas2VersionResponse)
 	s.testServer.Start()
 }
 
