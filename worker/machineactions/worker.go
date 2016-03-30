@@ -79,7 +79,7 @@ func (h *handler) SetUp() (watcher.StringsWatcher, error) {
 			logger.Infof("tried to cancel action %s but failed with error %v", action.Action.Tag, err)
 			continue
 		}
-		err = h.config.Facade.ActionFinish(tag, params.ActionCancelled, nil, "action cancelled")
+		err = h.config.Facade.ActionFinish(tag, params.ActionFailed, nil, "action cancelled")
 		if err != nil {
 			logger.Infof("tried to cancel action %s but failed with error %v", action.Action.Tag, err)
 		}
@@ -113,7 +113,7 @@ func (h *handler) Handle(_ <-chan struct{}, actionsSlice []string) error {
 		var finishErr error
 		results, err := h.config.HandleAction(action.Name(), action.Params())
 		if err != nil {
-			finishErr = h.config.Facade.ActionFinish(actionTag, params.ActionCancelled, nil, err.Error())
+			finishErr = h.config.Facade.ActionFinish(actionTag, params.ActionFailed, nil, err.Error())
 		} else {
 			finishErr = h.config.Facade.ActionFinish(actionTag, params.ActionCompleted, results, "")
 		}

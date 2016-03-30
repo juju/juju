@@ -172,6 +172,8 @@ type GlobalEntity interface {
 	Tag() names.Tag
 }
 
+// Action represents  an instance of an action designated for a unit or machine
+// in the model.
 type Action interface {
 	Entity
 
@@ -205,10 +207,6 @@ type Action interface {
 
 	// Results returns the structured output of the action and any error.
 	Results() (map[string]interface{}, string)
-
-	// ValidateTag should be called before calls to Tag() or ActionTag(). It verifies
-	// that the Action can produce a valid Tag.
-	ValidateTag() bool
 
 	// ActionTag returns an ActionTag constructed from this action's
 	// Prefix and Sequence.

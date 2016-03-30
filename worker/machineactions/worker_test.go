@@ -111,7 +111,7 @@ func (*WorkerSuite) TestWatchErrorNonEmptyRunningActions(c *gc.C) {
 		Args:     []interface{}{fakeTag},
 	}, {
 		FuncName: "ActionFinish",
-		Args:     []interface{}{thirdActionTag, params.ActionCancelled, "action cancelled"},
+		Args:     []interface{}{thirdActionTag, params.ActionFailed, "action cancelled"},
 	}, {
 		FuncName: "WatchActionNotifications",
 		Args:     []interface{}{fakeTag},
@@ -149,7 +149,7 @@ func (*WorkerSuite) TestFirstActionHandleErrAndFinishErr(c *gc.C) {
 	c.Check(errors.Cause(err), gc.ErrorMatches, "slob")
 
 	successfulCalls := getSuccessfulCalls(6)
-	successfulCalls[5].Args = []interface{}{firstActionTag, params.ActionCancelled, "sentToActionFinish"}
+	successfulCalls[5].Args = []interface{}{firstActionTag, params.ActionFailed, "sentToActionFinish"}
 	stub.CheckCalls(c, successfulCalls)
 }
 
@@ -162,7 +162,7 @@ func (*WorkerSuite) TestFirstActionHandleErrButFinishErrCannotRetrieveSecond(c *
 	c.Check(errors.Cause(err), gc.ErrorMatches, "gotcha")
 
 	successfulCalls := getSuccessfulCalls(7)
-	successfulCalls[5].Args = []interface{}{firstActionTag, params.ActionCancelled, "sentToActionFinish"}
+	successfulCalls[5].Args = []interface{}{firstActionTag, params.ActionFailed, "sentToActionFinish"}
 	stub.CheckCalls(c, successfulCalls)
 }
 
@@ -175,7 +175,7 @@ func (*WorkerSuite) TestFailHandlingSecondActionSendAllResults(c *gc.C) {
 	workertest.CleanKill(c, worker)
 
 	successfulCalls := getSuccessfulCalls(allCalls)
-	successfulCalls[9].Args = []interface{}{secondActionTag, params.ActionCancelled, "kryptonite"}
+	successfulCalls[9].Args = []interface{}{secondActionTag, params.ActionFailed, "kryptonite"}
 	stub.CheckCalls(c, successfulCalls)
 }
 

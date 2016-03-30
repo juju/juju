@@ -5,9 +5,11 @@
 package machineactions
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"time"
+	"unicode/utf8"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
@@ -16,6 +18,8 @@ import (
 	"github.com/juju/juju/core/actions"
 )
 
+// HandleAction receives a name and a map of parameters for a given machine action.
+// It will handle that action in a specific way and return a results map suitable for ActionFinish.
 func HandleAction(name string, params map[string]interface{}) (results map[string]interface{}, err error) {
 	spec, ok := actions.PredefinedActionsSpec[name]
 	if !ok {
@@ -44,10 +48,11 @@ func handleJujuRunAction(params map[string]interface{}) (results map[string]inte
 	res, err := runCommandWithTimeout(command, time.Duration(timeout), clock.WallClock)
 
 	actionResults := map[string]interface{}{}
+
 	if res != nil {
-		actionResults["Code"] = res.Code
-		actionResults["Stdout"] = fmt.Sprintf("%s", res.Stdout)
-		actionResults["Stderr"] = fmt.Sprintf("%s", res.Stderr)
+		actionResults["Code"] = fmt.Sprintf("%d", res.Code)
+		storeOutput(actionResults, "Stdout", res.Stdout)
+		storeOutput(actionResults, "Stderr", res.Stderr)
 	}
 	return actionResults, err
 }
@@ -74,4 +79,23 @@ func runCommandWithTimeout(command string, timeout time.Duration, clock clock.Cl
 	}
 
 	return cmd.WaitWithCancel(cancel)
+}
+
+func encodeBytes(input []byte) (value string, encoding string) {
+	if utf8.Valid(input) {
+		value = string(input)
+		encoding = "utf8"
+	} else {
+		value = base64.StdEncoding.EncodeToString(input)
+		encoding = "base64"
+	}
+	return value, encoding
+}
+
+func storeOutput(values map[string]interface{}, key string, input []byte) {
+	value, encoding := encodeBytes(input)
+	values[key] = value
+	if encoding != "utf8" {
+		values[key+".encoding"] = encoding
+	}
 }

@@ -41,7 +41,11 @@ func (s *HandleSuite) TestTimeoutRun(c *gc.C) {
 
 	results, err := machineactions.HandleAction(actions.JujuRunActionName, params)
 	c.Assert(err, gc.Equals, exec.ErrCancelled)
-	c.Assert(results, jc.DeepEquals, map[string]interface{}{})
+	c.Assert(results, jc.DeepEquals, map[string]interface{}{
+		"Stdout": "",
+		"Stderr": "",
+		"Code":   "0",
+	})
 }
 
 func (s *HandleSuite) TestSuccessfulRun(c *gc.C) {
@@ -52,7 +56,7 @@ func (s *HandleSuite) TestSuccessfulRun(c *gc.C) {
 
 	results, err := machineactions.HandleAction(actions.JujuRunActionName, params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results["Code"], gc.Equals, 0)
+	c.Assert(results["Code"], gc.Equals, "0")
 	c.Assert(strings.TrimRight(results["Stdout"].(string), "\r\n"), gc.Equals, "1")
 	c.Assert(results["Stderr"], gc.Equals, "")
 }
@@ -65,7 +69,7 @@ func (s *HandleSuite) TestErrorRun(c *gc.C) {
 
 	results, err := machineactions.HandleAction(actions.JujuRunActionName, params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results["Code"], gc.Equals, 42)
+	c.Assert(results["Code"], gc.Equals, "42")
 	c.Assert(results["Stdout"], gc.Equals, "")
 	c.Assert(results["Stderr"], gc.Equals, "")
 }

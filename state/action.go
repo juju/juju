@@ -162,12 +162,6 @@ func (a *action) Results() (map[string]interface{}, string) {
 	return a.doc.Results, a.doc.Message
 }
 
-// ValidateTag should be called before calls to Tag() or ActionTag(). It verifies
-// that the Action can produce a valid Tag.
-func (a *action) ValidateTag() bool {
-	return names.IsValidAction(a.Id())
-}
-
 // Tag implements the Entity interface and returns a names.Tag that
 // is a names.ActionTag.
 func (a *action) Tag() names.Tag {
