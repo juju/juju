@@ -28,28 +28,20 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type providerSuite struct {
+type baseProviderSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
-	testMAASObject *gomaasapi.TestMAASObject
 }
 
-var _ = gc.Suite(&providerSuite{})
-
-func spaceJSON(space gomaasapi.CreateSpace) *bytes.Buffer {
-	var out bytes.Buffer
-	err := json.NewEncoder(&out).Encode(space)
-	if err != nil {
-		panic(err)
-	}
-	return &out
+func (suite *baseProviderSuite) setupFakeTools(c *gc.C) {
+	storageDir := c.MkDir()
+	suite.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
+	suite.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
 }
 
-func (s *providerSuite) SetUpSuite(c *gc.C) {
+func (s *baseProviderSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	restoreTimeouts := envtesting.PatchAttemptStrategies(&shortAttempt)
-	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
-	s.testMAASObject = TestMAASObject
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) {
 		restoreFinishBootstrap()
@@ -63,33 +55,82 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 	})
 }
 
-func (s *providerSuite) SetUpTest(c *gc.C) {
+func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
+	s.SetFeatureFlags(feature.AddressAllocation)
+}
+
+func (s *baseProviderSuite) TearDownTest(c *gc.C) {
+	s.ToolsFixture.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
+}
+
+func (s *baseProviderSuite) TearDownSuite(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
+}
+
+type controllerSuite struct {
+	baseProviderSuite
+	testServer *gomaasapi.SimpleTestServer
+}
+
+func (s *controllerSuite) SetUpTest(c *gc.C) {
+	s.baseProviderSuite.SetUpTest(c)
+	// TODO (mfoord): not actually useful until addResponse is public.
+	s.testServer = gomaasapi.NewSimpleServer()
+	s.testServer.Start()
+}
+
+func (s *controllerSuite) TearDownTest(c *gc.C) {
+	s.baseProviderSuite.TearDownTest(c)
+	s.testServer.Close()
+}
+
+type providerSuite struct {
+	baseProviderSuite
+	testMAASObject *gomaasapi.TestMAASObject
+}
+
+func spaceJSON(space gomaasapi.CreateSpace) *bytes.Buffer {
+	var out bytes.Buffer
+	err := json.NewEncoder(&out).Encode(space)
+	if err != nil {
+		panic(err)
+	}
+	return &out
+}
+
+const exampleAgentName = "dfb69555-0bc4-4d1f-85f2-4ee390974984"
+
+func (s *providerSuite) SetUpSuite(c *gc.C) {
+	s.baseProviderSuite.SetUpSuite(c)
+	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
+	s.testMAASObject = TestMAASObject
+}
+
+func (s *providerSuite) SetUpTest(c *gc.C) {
+	s.baseProviderSuite.SetUpTest(c)
 	mockCapabilities := func(client *gomaasapi.MAASObject) (set.Strings, error) {
 		return set.NewStrings("network-deployment-ubuntu"), nil
 	}
 	s.PatchValue(&GetCapabilities, mockCapabilities)
-	s.SetFeatureFlags(feature.AddressAllocation)
 	// Creating a space ensures that the spaces endpoint won't 404.
 	s.testMAASObject.TestServer.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-0"}))
 }
 
 func (s *providerSuite) TearDownTest(c *gc.C) {
+	s.baseProviderSuite.TearDownTest(c)
 	s.testMAASObject.TestServer.Clear()
-	s.ToolsFixture.TearDownTest(c)
-	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func (s *providerSuite) TearDownSuite(c *gc.C) {
+	s.baseProviderSuite.TearDownSuite(c)
 	s.testMAASObject.Close()
-	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
-
-const exampleAgentName = "dfb69555-0bc4-4d1f-85f2-4ee390974984"
 
 var maasEnvAttrs = coretesting.Attrs{
 	"name":            "test env",
@@ -115,12 +156,6 @@ func (suite *providerSuite) makeEnviron() *maasEnviron {
 		panic(err)
 	}
 	return env
-}
-
-func (suite *providerSuite) setupFakeTools(c *gc.C) {
-	storageDir := c.MkDir()
-	suite.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
-	suite.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
 }
 
 func (suite *providerSuite) addNode(jsonText string) instance.Id {
