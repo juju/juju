@@ -6,7 +6,6 @@ import logging
 import os
 import sys
 import subprocess
-import uuid
 
 import yaml
 
@@ -30,7 +29,7 @@ def assert_fail(client, charm, ver, cur, name):
     except subprocess.CalledProcessError:
         return
     raise AssertionError(
-        'assert_fail failed min:{} cur{}'.format(ver, cur))
+        'assert_fail failed min: {} cur: {}'.format(ver, cur))
 
 
 def assert_pass(client, charm, ver, cur, name):
@@ -39,7 +38,7 @@ def assert_pass(client, charm, ver, cur, name):
         client.wait_for_started()
     except subprocess.CalledProcessError:
         raise AssertionError(
-            'assert_pass failed min:{} cur:'.format(ver, cur))
+            'assert_pass failed min: {} cur: {}'.format(ver, cur))
 
 
 def make_charm(charm_dir, ver, name='dummy'):
