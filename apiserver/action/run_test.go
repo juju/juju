@@ -92,10 +92,6 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	}{{
 		message: "no units, expected nil slice",
 	}, {
-		message: "asking for a unit that isn't there",
-		units:   []string{"foo/0"},
-		error:   `unit "foo/0" not found`,
-	}, {
 		message:  "asking for a service that isn't there",
 		services: []string{"foo"},
 		error:    `service "foo" not found`,
@@ -126,7 +122,7 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 			c.Check(err, jc.ErrorIsNil)
 			var units []string
 			for _, unit := range result {
-				units = append(units, unit.Name())
+				units = append(units, unit.Id())
 			}
 			c.Check(units, jc.SameContents, test.expected)
 		} else {

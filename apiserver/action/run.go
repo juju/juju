@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/params"
@@ -16,7 +17,7 @@ import (
 
 // getAllUnitNames returns a sequence of valid Unit objects from state. If any
 // of the service names or unit names are not found, an error is returned.
-func getAllUnitNames(st *state.State, units, services []string) (result []*state.Unit, err error) {
+func getAllUnitNames(st *state.State, units, services []string) (result []names.Tag, err error) {
 	unitsSet := set.NewStrings(units...)
 	for _, name := range services {
 		service, err := st.Service(name)
@@ -31,12 +32,8 @@ func getAllUnitNames(st *state.State, units, services []string) (result []*state
 			unitsSet.Add(unit.Name())
 		}
 	}
-	for _, unitName := range unitsSet.Values() {
-		unit, err := st.Unit(unitName)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, unit)
+	for _, unitName := range unitsSet.SortedValues() {
+		result = append(result, names.NewUnitTag(unitName))
 	}
 	return result, nil
 }
@@ -53,15 +50,15 @@ func (a *ActionAPI) Run(run params.RunParams) (results params.ActionResults, err
 		return results, errors.Trace(err)
 	}
 
-	machines := make([]*state.Machine, len(run.Machines))
+	machines := make([]names.Tag, len(run.Machines))
 	for i, machineId := range run.Machines {
-		machines[i], err = a.state.Machine(machineId)
-		if err != nil {
-			return results, err
+		if !names.IsValidMachine(machineId) {
+			return results, errors.Errorf("invalid machine id %q", machineId)
 		}
+		machines[i] = names.NewMachineTag(machineId)
 	}
 
-	actionParams := a.createActionsParams(units, machines, run.Commands, run.Timeout)
+	actionParams := a.createActionsParams(append(units, machines...), run.Commands, run.Timeout)
 
 	return queueActions(a, actionParams)
 }
@@ -76,13 +73,17 @@ func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.Actio
 	if err != nil {
 		return results, err
 	}
+	machineTags := make([]names.Tag, len(machines))
+	for i, machine := range machines {
+		machineTags[i] = machine.Tag()
+	}
 
-	actionParams := a.createActionsParams([]*state.Unit{}, machines, run.Commands, run.Timeout)
+	actionParams := a.createActionsParams(machineTags, run.Commands, run.Timeout)
 
 	return queueActions(a, actionParams)
 }
 
-func (a *ActionAPI) createActionsParams(units []*state.Unit, machines []*state.Machine, quotedCommands string, timeout time.Duration) params.Actions {
+func (a *ActionAPI) createActionsParams(actionReceiverTags []names.Tag, quotedCommands string, timeout time.Duration) params.Actions {
 
 	apiActionParams := params.Actions{Actions: []params.Action{}}
 
@@ -90,17 +91,9 @@ func (a *ActionAPI) createActionsParams(units []*state.Unit, machines []*state.M
 	actionParams["command"] = quotedCommands
 	actionParams["timeout"] = timeout.Nanoseconds()
 
-	for _, unit := range units {
+	for _, tag := range actionReceiverTags {
 		apiActionParams.Actions = append(apiActionParams.Actions, params.Action{
-			Receiver:   unit.Tag().String(),
-			Name:       actions.JujuRunActionName,
-			Parameters: actionParams,
-		})
-	}
-
-	for _, machine := range machines {
-		apiActionParams.Actions = append(apiActionParams.Actions, params.Action{
-			Receiver:   machine.Tag().String(),
+			Receiver:   tag.String(),
 			Name:       actions.JujuRunActionName,
 			Parameters: actionParams,
 		})
