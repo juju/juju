@@ -64,7 +64,7 @@ func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
 	}
 	defer resp.Body.Close()
 
-	noNewClouds := "\nno new public cloud information available at this time"
+	noNewClouds := "\nYour cloud database is up to date, see juju list-clouds."
 	if resp.StatusCode != http.StatusOK {
 		switch resp.StatusCode {
 		case http.StatusNotFound:
