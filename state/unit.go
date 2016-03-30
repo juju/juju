@@ -2009,7 +2009,6 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 		if err != nil {
 			return nil, err
 		}
-		var ok bool
 		spec, ok = specs[name]
 		if !ok {
 			return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())

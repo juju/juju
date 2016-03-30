@@ -1821,7 +1821,6 @@ func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
 }
 
 // AddAction is part of the ActionReceiver interface.
-// There are no specs for machine actions, so just send payload along.
 func (m *Machine) AddAction(name string, payload map[string]interface{}) (*Action, error) {
 	spec, ok := actions.PredefinedActionsSpec[name]
 	if !ok {
