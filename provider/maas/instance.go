@@ -138,9 +138,31 @@ func (mi *maasInstance) architecture() (arch, subarch string, err error) {
 	return arch, subarch, nil
 }
 
-func (mi *maasInstance) zone() string {
-	zone, _ := mi.getMaasObject().GetField("zone")
-	return zone
+func (mi *maasInstance) zone() (string, error) {
+	// This is needed for MAAS prior to 1.9
+	zone, fieldErr := mi.getMaasObject().GetField("zone")
+	if fieldErr == nil && zone != "" {
+		return zone, nil
+	}
+
+	// MAAS 1.9 changes "zone" property to map
+	obj := mi.getMaasObject().GetMap()["zone"]
+	if obj.IsNil() {
+		return "", errors.New("zone property not set on maas")
+	}
+	zoneMap, err := obj.GetMap()
+	if err != nil {
+		return "", errors.New("zone property is not an expected type")
+	}
+	nameObj, ok := zoneMap["name"]
+	if !ok {
+		return "", errors.New("zone property is not set correctly: name is missing")
+	}
+	str, err := nameObj.GetString()
+	if err != nil {
+		return "", err
+	}
+	return str, nil
 }
 
 func (mi *maasInstance) cpuCount() (uint64, error) {
@@ -192,7 +214,10 @@ func (mi *maasInstance) hardwareCharacteristics() (*instance.HardwareCharacteris
 	if err != nil {
 		return nil, errors.Annotate(err, "error determining available memory")
 	}
-	zone := mi.zone()
+	zone, err := mi.zone()
+	if err != nil {
+		return nil, errors.Annotate(err, "error determining availability zone")
+	}
 	hc := &instance.HardwareCharacteristics{
 		Arch:             &nodeArch,
 		CpuCores:         &nodeCpuCount,

@@ -199,7 +199,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	env := suite.makeEnviron()
 	// Create node 0: it will be used as the bootstrap node.
 	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
-		`{"system_id": "node0", "hostname": "host0", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1}`,
+		`{"system_id": "node0", "hostname": "host0", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1, "zone": {"name": "test_zone"}}`,
 		arch.HostArch()),
 	)
 	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
@@ -225,7 +225,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 
 	// Create node 1: it will be used as instance number 1.
 	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
-		`{"system_id": "node1", "hostname": "host1", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1}`,
+		`{"system_id": "node1", "hostname": "host1", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1, "zone": {"name": "test_zone"}}`,
 		arch.HostArch()),
 	)
 	lshwXML, err = suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f1": {0, "eth0", false}})
@@ -235,7 +235,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instance, gc.NotNil)
 	c.Assert(hc, gc.NotNil)
-	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cpu-cores=1 mem=1024M", arch.HostArch()))
+	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cpu-cores=1 mem=1024M availability-zone=test_zone", arch.HostArch()))
 
 	// The instance number 1 has been acquired and started.
 	actions, found = operations["node1"]
@@ -691,7 +691,7 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
-		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
+		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8, "zone": {"name": "test_zone"}}`,
 		arch.HostArch()),
 	)
 	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
@@ -705,7 +705,7 @@ func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
-		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
+		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8, "zone": {"name": "test_zone"}}`,
 		arch.HostArch()),
 	)
 	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
@@ -721,7 +721,7 @@ func (suite *environSuite) TestBootstrapNodeFailedDeploy(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
-		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
+		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8, "zone": {"name": "test_zone"}}`,
 		arch.HostArch()),
 	)
 	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
@@ -1502,7 +1502,9 @@ func (s *environSuite) TestStartInstanceAvailZone(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("test-available", "description")
 	inst, err := s.testStartInstanceAvailZone(c, "test-available")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inst.(*maasInstance).zone(), gc.Equals, "test-available")
+	zone, err := inst.(*maasInstance).zone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zone, gc.Equals, "test-available")
 }
 
 func (s *environSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
@@ -1688,6 +1690,7 @@ func (s *environSuite) newNode(c *gc.C, nodename, hostname string, attrs map[str
 		"architecture": fmt.Sprintf("%s/generic", arch.HostArch()),
 		"memory":       1024,
 		"cpu_count":    1,
+		"zone":         map[string]string{"name": "test_zone"},
 	}
 	for k, v := range attrs {
 		allAttrs[k] = v
@@ -1759,19 +1762,9 @@ func (s *environSuite) TestStartInstanceDistribution(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("test-available", "description")
 	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "test-available"})
 	inst, _ := testing.AssertStartInstance(c, env, "1")
-	c.Assert(inst.(*maasInstance).zone(), gc.Equals, "test-available")
-}
-
-func (s *environSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
-	env := s.bootstrap(c)
-
-	mock := mockAvailabilityZoneAllocations{err: errors.NotImplementedf("availability zones")}
-	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-
-	// Instance will be created without an availability zone specified.
-	s.newNode(c, "node1", "host1", nil)
-	inst, _ := testing.AssertStartInstance(c, env, "1")
-	c.Assert(inst.(*maasInstance).zone(), gc.Equals, "")
+	zone, err := inst.(*maasInstance).zone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zone, gc.Equals, "test-available")
 }
 
 func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
@@ -1791,7 +1784,9 @@ func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
 
 	env := s.bootstrap(c)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
-	c.Assert(inst.(*maasInstance).zone(), gc.Equals, "zone2")
+	zone, err := inst.(*maasInstance).zone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zone, gc.Equals, "zone2")
 	c.Assert(s.testMAASObject.TestServer.NodesOperations(), gc.DeepEquals, []string{
 		// one acquire for the bootstrap, three for StartInstance (with zone failover)
 		"acquire", "acquire", "acquire", "acquire",
