@@ -32,7 +32,7 @@ func NewPublicFacade(st *corestate.State, _ *common.Resources, authorizer common
 	}
 	newClient := func(cURL *charm.URL, csMac *macaroon.Macaroon) (server.CharmStore, error) {
 		opener := newCharmstoreOpener(cURL, csMac)
-		return opener.NewClient()
+		return opener.newClient(), nil
 	}
 	facade, err := server.NewFacade(rst, newClient)
 	if err != nil {
@@ -96,8 +96,12 @@ func (ex *httpDownloadRequestExtractor) NewResourceOpener(req *http.Request) (re
 		return nil, errors.Trace(err)
 	}
 
+	// TODO(ericsnow) We will need to get the macaroon from state.
+	var csMac *macaroon.Macaroon
+
 	opener := &resourceOpener{
 		st:     resources,
+		csMac:  csMac,
 		userID: unit.Tag(),
 		unit:   unit,
 	}
