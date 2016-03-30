@@ -571,7 +571,12 @@ func (e *maasEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string
 		if inst == nil {
 			continue
 		}
-		zones[i] = inst.(*maasInstance).zone()
+		z, err := inst.(*maasInstance).zone()
+		if err != nil {
+			logger.Errorf("could not get availability zone %v", err)
+			continue
+		}
+		zones[i] = z
 	}
 	return zones, nil
 }
