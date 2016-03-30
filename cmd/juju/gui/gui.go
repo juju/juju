@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
+// NewGUICommand creates and returns a new gui command.
 func NewGUICommand() cmd.Command {
 	return modelcmd.Wrap(&guiCommand{})
 }
@@ -45,6 +46,7 @@ Do not open the browser, just output the GUI URL:
 An error is returned if the Juju GUI is not available in the controller.
 `
 
+// Info implements the cmd.Command interface.
 func (c *guiCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "gui",
@@ -53,11 +55,13 @@ func (c *guiCommand) Info() *cmd.Info {
 	}
 }
 
+// SetFlags implements the cmd.Command interface.
 func (c *guiCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.showCreds, "show-credentials", false, "show admin credentials to use for logging into the Juju GUI")
 	f.BoolVar(&c.noBrowser, "no-browser", false, "do not try to open the web browser, just print the Juju GUI URL")
 }
 
+// Run implements the cmd.Command interface.
 func (c *guiCommand) Run(ctx *cmd.Context) error {
 	// Retrieve model details.
 	conn, err := c.NewAPIRoot()
@@ -129,11 +133,17 @@ func (c *guiCommand) showCredentials(ctx *cmd.Context) error {
 	if !c.showCreds {
 		return nil
 	}
-	creds, err := c.ConnectionCredentials()
+	// TODO(wallyworld) - what to do if we are using a macaroon.
+	if c.AccountName() == "" {
+		return errors.Errorf("no connection credentials available")
+	}
+	accountDetails, err := c.ClientStore().AccountByName(
+		c.ControllerName(), c.AccountName(),
+	)
 	if err != nil {
 		return errors.Annotate(err, "cannot retrieve credentials")
 	}
-	ctx.Infof("Username: %s\nPassword: %s", creds.User, creds.Password)
+	ctx.Infof("Username: %s\nPassword: %s", accountDetails.User, accountDetails.Password)
 	return nil
 }
 

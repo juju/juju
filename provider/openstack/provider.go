@@ -109,11 +109,8 @@ func (p EnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 	return cfg, nil
 }
 
-func (p EnvironProvider) PrepareForBootstrap(
-	ctx environs.BootstrapContext,
-	args environs.PrepareForBootstrapParams,
-) (environs.Environ, error) {
-
+// BootstrapConfig is specified in the EnvironProvider interface.
+func (p EnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	// Add credentials to the configuration.
 	attrs := map[string]interface{}{
 		"region":   args.CloudRegion,
@@ -136,15 +133,24 @@ func (p EnvironProvider) PrepareForBootstrap(
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
 	}
+
+	// Set the default block-storage source.
+	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
+		attrs[config.StorageDefaultBlockSourceKey] = CinderProviderType
+	}
+
 	cfg, err := args.Config.Apply(attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return p.PrepareForCreateEnvironment(cfg)
+}
 
-	cfg, err = p.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, err
-	}
+// PrepareForBootstrap is specified in the EnvironProvider interface.
+func (p EnvironProvider) PrepareForBootstrap(
+	ctx environs.BootstrapContext,
+	cfg *config.Config,
+) (environs.Environ, error) {
 	e, err := p.Open(cfg)
 	if err != nil {
 		return nil, err
@@ -449,7 +455,7 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 		instTypeNames[i] = flavor.Name
 	}
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
-	validator.RegisterVocabulary(constraints.VirtType, []string{"lxd", "qemu"})
+	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
 	return validator, nil
 }
 
@@ -934,13 +940,9 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	for _, g := range groups {
 		groupNames = append(groupNames, nova.SecurityGroupName{g.Name})
 	}
-	eUUID, ok := e.Config().UUID()
-	if !ok {
-		return nil, errors.NotFoundf("UUID in environ config")
-	}
 	machineName := resourceName(
 		names.NewMachineTag(args.InstanceConfig.MachineId),
-		eUUID,
+		e.Config().UUID(),
 	)
 
 	var server *nova.Entity
@@ -1148,10 +1150,7 @@ func (e *Environ) AllInstances() (insts []instance.Instance, err error) {
 	}
 	instsById := make(map[string]instance.Instance)
 	cfg := e.Config()
-	eUUID, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.NotFoundf("model UUID")
-	}
+	eUUID := cfg.UUID()
 	for _, server := range servers {
 		modelUUID, ok := server.Metadata[tags.JujuModel]
 		if !ok || modelUUID != eUUID {
@@ -1191,7 +1190,7 @@ func resourceName(tag names.Tag, envName string) string {
 // machinesFilter returns a nova.Filter matching all machines in the environment.
 func (e *Environ) machinesFilter() *nova.Filter {
 	filter := nova.NewFilter()
-	eUUID, _ := e.Config().UUID()
+	eUUID := e.Config().UUID()
 	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", eUUID))
 	return filter
 }

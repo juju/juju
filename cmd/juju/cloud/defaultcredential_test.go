@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"fmt"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
@@ -44,21 +45,29 @@ func (s *defaultCredentialSuite) TestBadCredential(c *gc.C) {
 func (s *defaultCredentialSuite) TestBadCloudName(c *gc.C) {
 	cmd := cloud.NewSetDefaultCredentialCommand()
 	_, err := testing.RunCommand(c, cmd, "somecloud", "us-west-1")
-	c.Assert(err, gc.ErrorMatches, `cloud somecloud not found`)
+	c.Assert(err, gc.ErrorMatches, `cloud somecloud not valid`)
 }
 
-func (s *defaultCredentialSuite) TestSetDefaultCredential(c *gc.C) {
+func (s *defaultCredentialSuite) assertSetDefaultCredential(c *gc.C, cloudName string) {
 	store := jujuclienttesting.NewMemStore()
-	store.Credentials["aws"] = jujucloud.CloudCredential{
+	store.Credentials[cloudName] = jujucloud.CloudCredential{
 		AuthCredentials: map[string]jujucloud.Credential{
 			"my-sekrets": {},
 		},
 	}
 	cmd := cloud.NewSetDefaultCredentialCommandForTest(store)
-	ctx, err := testing.RunCommand(c, cmd, "aws", "my-sekrets")
+	ctx, err := testing.RunCommand(c, cmd, cloudName, "my-sekrets")
 	c.Assert(err, jc.ErrorIsNil)
 	output := testing.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
-	c.Assert(output, gc.Equals, `Default credential for aws set to "my-sekrets".`)
-	c.Assert(store.Credentials["aws"].DefaultCredential, gc.Equals, "my-sekrets")
+	c.Assert(output, gc.Equals, fmt.Sprintf(`Default credential for %s set to "my-sekrets".`, cloudName))
+	c.Assert(store.Credentials[cloudName].DefaultCredential, gc.Equals, "my-sekrets")
+}
+
+func (s *defaultCredentialSuite) TestSetDefaultCredential(c *gc.C) {
+	s.assertSetDefaultCredential(c, "aws")
+}
+
+func (s *defaultCredentialSuite) TestSetDefaultCredentialBuiltIn(c *gc.C) {
+	s.assertSetDefaultCredential(c, "maas")
 }

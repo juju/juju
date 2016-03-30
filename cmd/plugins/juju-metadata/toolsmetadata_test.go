@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju"
@@ -47,15 +46,21 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		loggo.ResetLoggers()
 	})
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":      "erewhemos",
-		"type":      "dummy",
-		"conroller": true,
+		"name":            "erewhemos",
+		"type":            "dummy",
+		"uuid":            coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ModelTag.Id(),
+		"conroller":       true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
 		modelcmd.BootstrapContextNoVerify(coretesting.Context(c)),
-		configstore.NewMem(), jujuclienttesting.NewMemStore(), cfg.Name(),
-		environs.PrepareForBootstrapParams{Config: cfg},
+		jujuclienttesting.NewMemStore(),
+		environs.PrepareParams{
+			ControllerName: cfg.Name(),
+			BaseConfig:     cfg.AllAttrs(),
+			CloudName:      "dummy",
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env

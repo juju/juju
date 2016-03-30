@@ -4,14 +4,16 @@
 package client
 
 import (
-	"errors"
 	"fmt"
 
+	"github.com/juju/errors"
+	"github.com/juju/utils/set"
+
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/authentication"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 )
 
@@ -22,7 +24,7 @@ import (
 func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
 	environConfig, err := st.ModelConfig()
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "getting model config")
 	}
 
 	// Get the machine so we can get its series and arch.
@@ -30,11 +32,11 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	// an error is returned.
 	machine, err := st.Machine(machineId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "getting machine")
 	}
 	hc, err := machine.HardwareCharacteristics()
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "getting machine hardware characteristics")
 	}
 	if hc.Arch == nil {
 		return nil, fmt.Errorf("arch is not set for %q", machine.Tag())
@@ -47,7 +49,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	}
 	environment, err := st.Model()
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "getting state model")
 	}
 	urlGetter := common.NewToolsURLGetter(environment.UUID(), st)
 	toolsFinder := common.NewToolsFinder(st, st, urlGetter)
@@ -59,46 +61,53 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		Arch:         *hc.Arch,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "finding tools")
 	}
 	if findToolsResult.Error != nil {
-		return nil, findToolsResult.Error
+		return nil, errors.Annotate(findToolsResult.Error, "finding tools")
 	}
 	tools := findToolsResult.List[0]
 
-	// Find the API endpoints.
-	env, err := environs.New(environConfig)
+	// Get the API connection info; attempt all API addresses.
+	apiHostPorts, err := st.APIHostPorts()
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "getting API addresses")
 	}
-	apiInfo, err := environs.APIInfo(env)
-	if err != nil {
-		return nil, err
+	apiAddrs := make(set.Strings)
+	for _, hostPorts := range apiHostPorts {
+		for _, hp := range hostPorts {
+			apiAddrs.Add(hp.NetAddr())
+		}
+	}
+	apiInfo := &api.Info{
+		Addrs:    apiAddrs.SortedValues(),
+		CACert:   st.CACert(),
+		ModelTag: st.ModelTag(),
 	}
 
 	auth := authentication.NewAuthenticator(st.MongoConnectionInfo(), apiInfo)
 	mongoInfo, apiInfo, err := auth.SetupAuthentication(machine)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "setting up machine authentication")
 	}
 
 	// Find requested networks.
 	networks, err := machine.RequestedNetworks()
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "getting requested networks for machine")
 	}
 
 	// Figure out if secure connections are supported.
 	info, err := st.StateServingInfo()
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "getting state serving info")
 	}
 	secureServerConnection := info.CAPrivateKey != ""
-	icfg, err := instancecfg.NewInstanceConfig(machineId, nonce, env.Config().ImageStream(), machine.Series(), "",
+	icfg, err := instancecfg.NewInstanceConfig(machineId, nonce, environConfig.ImageStream(), machine.Series(), "",
 		secureServerConnection, networks, mongoInfo, apiInfo,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "initializing instance config")
 	}
 	if dataDir != "" {
 		icfg.DataDir = dataDir
@@ -106,7 +115,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	icfg.Tools = tools
 	err = instancecfg.FinishInstanceConfig(icfg, environConfig)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "finishing instance config")
 	}
 	return icfg, nil
 }

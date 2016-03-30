@@ -36,9 +36,9 @@ CONTROLLER  MODEL  USER  SERVER
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	s.expectedOutput = `
 CONTROLLER                 MODEL     USER         SERVER
-local.aws-test             -         -            instance-1-2-4.useast.aws.com
-local.mallards*            my-model  admin@local  maas-1-05.cluster.mallards
-local.mark-test-prodstack  -         -            vm-23532.prodstack.canonical.com
+local.aws-test             -         -            this-is-aws-test-of-many-api-endpoints
+local.mallards*            my-model  admin@local  this-is-another-of-many-api-endpoints
+local.mark-test-prodstack  -         -            this-is-one-of-many-api-endpoints
 
 `[1:]
 
@@ -50,22 +50,19 @@ func (s *ListControllersSuite) TestListControllersYaml(c *gc.C) {
 	s.expectedOutput = `
 controllers:
   local.aws-test:
-    recent-server: instance-1-2-4.useast.aws.com
-    servers: [instance-1-2-4.useast.aws.com]
+    recent-server: this-is-aws-test-of-many-api-endpoints
     uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     ca-cert: this-is-aws-test-ca-cert
   local.mallards:
     current-model: my-model
     user: admin@local
-    recent-server: maas-1-05.cluster.mallards
-    servers: [maas-1-05.cluster.mallards]
+    recent-server: this-is-another-of-many-api-endpoints
     uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
   local.mark-test-prodstack:
-    recent-server: vm-23532.prodstack.canonical.com
-    servers: [vm-23532.prodstack.canonical.com, great.test.server.hostname.co.nz]
+    recent-server: this-is-one-of-many-api-endpoints
     uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert
@@ -87,8 +84,7 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 		Controllers: map[string]controller.ControllerItem{
 			"local.aws-test": {
 				ControllerUUID: "this-is-the-aws-test-uuid",
-				Server:         "instance-1-2-4.useast.aws.com",
-				Servers:        []string{"instance-1-2-4.useast.aws.com"},
+				Server:         "this-is-aws-test-of-many-api-endpoints",
 				APIEndpoints:   []string{"this-is-aws-test-of-many-api-endpoints"},
 				CACert:         "this-is-aws-test-ca-cert",
 			},
@@ -96,15 +92,13 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 				ControllerUUID: "this-is-another-uuid",
 				ModelName:      "my-model",
 				User:           "admin@local",
-				Server:         "maas-1-05.cluster.mallards",
-				Servers:        []string{"maas-1-05.cluster.mallards"},
+				Server:         "this-is-another-of-many-api-endpoints",
 				APIEndpoints:   []string{"this-is-another-of-many-api-endpoints", "this-is-one-more-of-many-api-endpoints"},
 				CACert:         "this-is-another-ca-cert",
 			},
 			"local.mark-test-prodstack": {
 				ControllerUUID: "this-is-a-uuid",
-				Server:         "vm-23532.prodstack.canonical.com",
-				Servers:        []string{"vm-23532.prodstack.canonical.com", "great.test.server.hostname.co.nz"},
+				Server:         "this-is-one-of-many-api-endpoints",
 				APIEndpoints:   []string{"this-is-one-of-many-api-endpoints"},
 				CACert:         "this-is-a-ca-cert",
 			},

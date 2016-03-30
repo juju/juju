@@ -169,18 +169,16 @@ func (s *AccountsSuite) TestRemoveAccount(c *gc.C) {
 
 func (s *AccountsSuite) TestRemoveControllerRemovesaccounts(c *gc.C) {
 	store := jujuclient.NewFileClientStore()
-	err := store.RemoveController("kontroll")
+	err := store.UpdateController("kontroll", jujuclient.ControllerDetails{
+		ControllerUUID: "abc",
+		CACert:         "woop",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = store.RemoveController("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
 
 	accounts, err := jujuclient.ReadAccountsFile(jujuclient.JujuAccountsPath())
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := accounts["kontroll"]
 	c.Assert(ok, jc.IsFalse) // kontroll accounts are removed
-}
-
-func (s *AccountsSuite) accountDetails(c *gc.C, controller, account string) jujuclient.AccountDetails {
-	details, err := s.store.AccountByName(controller, account)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details, gc.IsNil)
-	return *details
 }

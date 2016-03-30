@@ -40,6 +40,9 @@ func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 	finished := meta.Started.Add(time.Minute)
 	meta.Finished = &finished
 
+	meta.CACert = "ca-cert"
+	meta.CAPrivateKey = "ca-private-key"
+
 	buf, err := meta.AsJSONBuffer()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -55,7 +58,9 @@ func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 		`"Environment":"asdf-zxcv-qwe",`+
 		`"Machine":"0",`+
 		`"Hostname":"myhost",`+
-		`"Version":"1.21-alpha3"`+
+		`"Version":"1.21-alpha3",`+
+		`"CACert":"ca-cert",`+
+		`"CAPrivateKey":"ca-private-key"`+
 		`}`+"\n")
 }
 

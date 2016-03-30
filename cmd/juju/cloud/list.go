@@ -85,10 +85,18 @@ func builtInProviders() map[string]jujucloud.Cloud {
 				logger.Warningf("could not detect regions for %q: %v", name, err)
 			}
 		}
-		builtIn[name] = jujucloud.Cloud{
+		cloud := jujucloud.Cloud{
 			Type:    name,
 			Regions: regions,
 		}
+		schema := provider.CredentialSchemas()
+		for authType := range schema {
+			if authType == jujucloud.EmptyAuthType {
+				continue
+			}
+			cloud.AuthTypes = append(cloud.AuthTypes, authType)
+		}
+		builtIn[name] = cloud
 	}
 	return builtIn
 }

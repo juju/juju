@@ -134,7 +134,7 @@ func (env *environ) getImageSources() ([]lxdclient.Remote, error) {
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclient.Instance, error) {
-	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
+	machineID := common.MachineFullName(env.Config().UUID(), args.InstanceConfig.MachineId)
 
 	// Note: other providers have the ImageMetadata already read for them
 	// and passed in as args.ImageMetadata. However, lxd provider doesn't
@@ -277,7 +277,7 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 		ids = append(ids, string(id))
 	}
 
-	prefix := common.MachineFullName(env, "")
+	prefix := common.MachineFullName(env.Config().UUID(), "")
 	err := env.raw.RemoveInstances(prefix, ids...)
 	return errors.Trace(err)
 }

@@ -111,15 +111,15 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	bootstrapCons := constraints.MustParse("cpu-cores=3 mem=7G")
-	environCons := constraints.MustParse("cpu-cores=2 mem=4G")
+	modelCons := constraints.MustParse("cpu-cores=2 mem=4G")
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		BootstrapConstraints: bootstrapCons,
-		EnvironConstraints:   environCons,
+		ModelConstraints:     modelCons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.BootstrapConstraints, gc.DeepEquals, bootstrapCons)
-	c.Assert(env.args.EnvironConstraints, gc.DeepEquals, environCons)
+	c.Assert(env.args.ModelConstraints, gc.DeepEquals, modelCons)
 }
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {

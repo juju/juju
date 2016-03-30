@@ -118,7 +118,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	// If we need to share a model, look up the model UUID from the supplied name.
+	// If we need to share a model, look up the model UUIDs from the supplied names.
 	modelUUIDs, err := c.ModelUUIDs(modelNames)
 	if err != nil {
 		return errors.Trace(err)
@@ -140,13 +140,13 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	// Generate the base64-encoded string for the user to pass to
 	// "juju register". We marshal the information using ASN.1
 	// to keep the size down, since we need to encode binary data.
-	info, err := c.ConnectionInfo()
+	controllerDetails, err := c.ClientStore().ControllerByName(c.ControllerName())
 	if err != nil {
 		return errors.Trace(err)
 	}
 	registrationInfo := jujuclient.RegistrationInfo{
 		User:      c.User,
-		Addrs:     info.APIEndpoint().Addresses,
+		Addrs:     controllerDetails.APIEndpoints,
 		SecretKey: secretKey,
 	}
 	registrationData, err := asn1.Marshal(registrationInfo)
@@ -177,6 +177,11 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	fmt.Fprintf(ctx.Stdout, "    juju register %s\n",
 		base64RegistrationData,
 	)
+	if len(modelNames) == 0 {
+		fmt.Fprintf(ctx.Stdout, `
+%q has not been granted access to any models. You can use "juju grant" to grant access.
+`, displayName)
+	}
 
 	return nil
 }
