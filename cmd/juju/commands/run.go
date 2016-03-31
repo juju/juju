@@ -5,6 +5,7 @@ package commands
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -151,14 +152,23 @@ func ConvertActionResults(result params.ActionResult) map[string]interface{} {
 	// code and error if they are there.
 	if res, ok := result.Output["Stdout"].(string); ok {
 		values["Stdout"] = res
+		if res, ok := result.Output["Stdout.encoding"].(string); ok && res != "" {
+			values["Stdout.encoding"] = res
+		}
 	} else {
 		values["Stdout"] = ""
 	}
 	if res, ok := result.Output["Stderr"].(string); ok && res != "" {
 		values["Stderr"] = res
+		if res, ok := result.Output["Stderr.encoding"].(string); ok && res != "" {
+			values["Stderr.encoding"] = res
+		}
 	}
-	if res, ok := result.Output["Code"].(float64); ok && res != 0 {
-		values["Code"] = res
+	if res, ok := result.Output["Code"].(string); ok {
+		code, err := strconv.Atoi(res)
+		if err == nil && code != 0 {
+			values["ReturnCode"] = code
+		}
 	}
 	return values
 }
@@ -221,9 +231,9 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		if res, ok := result.Output["Stderr"].(string); ok && res != "" {
 			ctx.Stderr.Write([]byte(res))
 		}
-		if res, ok := result.Output["Code"].(float64); ok {
-			code := int(res)
-			if code != 0 {
+		if res, ok := result.Output["Code"].(string); ok {
+			code, err := strconv.Atoi(res)
+			if err == nil && code != 0 {
 				return cmd.NewRcPassthroughError(code)
 			}
 		}
@@ -232,68 +242,68 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 
 	// In case the command fails we dump *all* the enqueued id's to stderr.
 	// Normally, there is enough info dumped to stdout to show which action failed.
-	idValues := []actionReceiverID{}
+	actionsToQuery := []actionReceiverID{}
 	for _, result := range runResults {
 		if result.Error != nil {
-			return result.Error
+			fmt.Fprintf(ctx.GetStderr(), "couldn't queue one action: %v", result.Error)
+			continue
 		}
-
-		if result.Action == nil {
-			return errors.New("action failed to enqueue")
-		}
-
 		actionTag, err := names.ParseActionTag(result.Action.Tag)
 		if err != nil {
-			return err
+			fmt.Fprintf(ctx.GetStderr(), "got invalid action tag %v for receiver %v", result.Action.Tag, result.Action.Receiver)
+			continue
 		}
 		receiverTag, err := names.ParseTag(result.Action.Receiver)
 		if err != nil {
-			return err
+			fmt.Fprintf(ctx.GetStderr(), "got invalid action tag %v for receiver %v", result.Action.Tag, result.Action.Receiver)
+			continue
 		}
-		idValues = append(idValues, actionReceiverID{
+		actionsToQuery = append(actionsToQuery, actionReceiverID{
+			actionTag:  actionTag,
 			receiverID: receiverTag.Id(),
-			actionID:   actionTag.Id(),
 		})
 	}
 
 	printIDsToStderr := func() {
-		for _, el := range idValues {
-			fmt.Fprintf(ctx.GetStderr(), "Receiver %s: action ID %s\n", el.receiverID, el.actionID)
+		for _, el := range actionsToQuery {
+			fmt.Fprintf(ctx.GetStderr(), "Receiver %s: action ID %s\n", el.receiverID, el.actionTag.Id())
 		}
 	}
 
 	var once sync.Once
-	var wg sync.WaitGroup
-	values := make([]interface{}, len(runResults))
-	for i, res := range runResults {
-		wg.Add(1)
-		go func(i int, ar params.ActionResult) {
-			defer wg.Done()
-			tag, err := names.ParseActionTag(ar.Action.Tag)
-			if err != nil {
+	values := []interface{}{}
+	for len(actionsToQuery) > 0 {
+		actionResults, err := client.Actions(entities(actionsToQuery))
+		if err != nil {
+			once.Do(printIDsToStderr)
+			fmt.Fprintf(ctx.GetStderr(), "failed to retrieve actions: %v", err)
+			continue
+		}
+
+		newActionsToQuery := []actionReceiverID{}
+		for i, result := range actionResults.Results {
+			if result.Error != nil {
 				once.Do(printIDsToStderr)
-				values[i] = map[string]interface{}{
-					"error": err.Error(),
-				}
-				return
+				values = append(values, map[string]interface{}{
+					"actionId": actionsToQuery[i].actionTag.Id(),
+					"Receiver": actionsToQuery[i].receiverID,
+					"Error":    result.Error,
+				})
+				continue
 			}
 
-			actionResult, err := getActionResult(client, tag.Id(), wait)
-			if err != nil {
-				once.Do(printIDsToStderr)
-				values[i] = map[string]interface{}{
-					"actionId": tag.Id(),
-					"error":    err.Error(),
-				}
-				return
+			switch result.Status {
+			case params.ActionRunning, params.ActionPending:
+				newActionsToQuery = append(newActionsToQuery, actionsToQuery[i])
+			default:
+				values = append(values, ConvertActionResults(result))
 			}
+		}
 
-			out := ConvertActionResults(actionResult)
-			values[i] = out
-		}(i, res)
+		actionsToQuery = newActionsToQuery
+
+		<-afterFunc(3 * time.Second)
 	}
-
-	wg.Wait()
 
 	c.out.Write(ctx, values)
 
@@ -301,8 +311,8 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 }
 
 type actionReceiverID struct {
+	actionTag  names.ActionTag
 	receiverID string
-	actionID   string
 }
 
 // RunClient exposes the capabilities required by the CLI
@@ -325,4 +335,19 @@ var getRunAPIClient = func(c *runCommand) (RunClient, error) {
 // getActionResult abstracts over the action CLI function that we use here to fetch results
 var getActionResult = func(c RunClient, actionId string, wait *time.Timer) (params.ActionResult, error) {
 	return action.GetActionResult(c, actionId, wait)
+}
+
+var afterFunc = func(d time.Duration) <-chan time.Time {
+	return time.After(d)
+}
+
+// entities is a convenience constructor for params.Entities.
+func entities(actions []actionReceiverID) params.Entities {
+	entities := params.Entities{
+		Entities: make([]params.Entity, len(actions)),
+	}
+	for i, action := range actions {
+		entities.Entities[i].Tag = action.actionTag.String()
+	}
+	return entities
 }

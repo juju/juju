@@ -194,14 +194,14 @@ func (s *RunSuite) TestConvertRunResults(c *gc.C) {
 			stdout:  "stdout",
 			stderr:  "stderr",
 			message: "msg",
-			code:    42,
+			code:    "42",
 		}, ""),
 		expected: map[string]interface{}{
-			"Receiver": "unit/0",
-			"Stdout":   "stdout",
-			"Stderr":   "stderr",
-			"Message":  "msg",
-			"Code":     float64(42),
+			"Receiver":   "unit/0",
+			"Stdout":     "stdout",
+			"Stderr":     "stderr",
+			"Message":    "msg",
+			"ReturnCode": 42,
 		},
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
@@ -223,12 +223,12 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	mock.setResponse("0", machineResponse)
 	mock.setResponse("unit/0", unitResponse)
 
-	machineResult := mock.responses["0"]
-	unitResult := mock.responses["unit/0"]
-	s.setUpGetActionResult(map[string]params.ActionResult{
+	machineResult := mock.runResponses["0"]
+	unitResult := mock.runResponses["unit/0"]
+	mock.actionResponses = map[string]params.ActionResult{
 		mock.receiverIdMap["0"]:      machineResult,
 		mock.receiverIdMap["unit/0"]: unitResult,
-	})
+	}
 
 	unformatted := []interface{}{
 		ConvertActionResults(machineResult),
@@ -278,19 +278,22 @@ func (s *RunSuite) TestAllMachines(c *gc.C) {
 	mock.setResponse("1", response1)
 	mock.setResponse("2", response2)
 
-	machine0Result := mock.responses["0"]
-	machine1Result := mock.responses["1"]
-	s.setUpGetActionResult(map[string]params.ActionResult{
+	machine0Result := mock.runResponses["0"]
+	machine1Result := mock.runResponses["1"]
+	mock.actionResponses = map[string]params.ActionResult{
 		mock.receiverIdMap["0"]: machine0Result,
 		mock.receiverIdMap["1"]: machine1Result,
-	})
+	}
 
 	unformatted := []interface{}{
 		ConvertActionResults(machine0Result),
 		ConvertActionResults(machine1Result),
 		map[string]interface{}{
 			"actionId": mock.receiverIdMap["2"],
-			"error":    "not found",
+			"Receiver": "2",
+			"Error": &params.Error{
+				Message: "action not found",
+			},
 		},
 	}
 
@@ -328,15 +331,18 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 	mockResponse := mockResponse{
 		stdout:     "stdout\n",
 		stderr:     "stderr\n",
-		code:       42,
+		code:       "42",
 		machineTag: "machine-0",
 	}
 	mock.setResponse("0", mockResponse)
 
-	machineResult := mock.responses["0"]
+	machineResult := mock.runResponses["0"]
 	s.setUpGetActionResult(map[string]params.ActionResult{
 		mock.receiverIdMap["0"]: machineResult,
 	})
+	mock.actionResponses = map[string]params.ActionResult{
+		mock.receiverIdMap["0"]: machineResult,
+	}
 
 	unformatted := []interface{}{
 		ConvertActionResults(machineResult),
@@ -408,16 +414,17 @@ type mockRunAPI struct {
 	stderr string
 	code   int
 	// machines, services, units
-	machines      map[string]bool
-	responses     map[string]params.ActionResult
-	receiverIdMap map[string]string
-	block         bool
+	machines        map[string]bool
+	runResponses    map[string]params.ActionResult
+	actionResponses map[string]params.ActionResult
+	receiverIdMap   map[string]string
+	block           bool
 }
 
 type mockResponse struct {
 	stdout     interface{}
 	stderr     interface{}
-	code       float64
+	code       interface{}
 	error      *params.Error
 	message    string
 	machineTag string
@@ -461,15 +468,15 @@ func makeActionResult(mock mockResponse, actionTag string) params.ActionResult {
 }
 
 func (m *mockRunAPI) setResponse(id string, mock mockResponse) {
-	if m.responses == nil {
-		m.responses = make(map[string]params.ActionResult)
+	if m.runResponses == nil {
+		m.runResponses = make(map[string]params.ActionResult)
 	}
 	if m.receiverIdMap == nil {
 		m.receiverIdMap = make(map[string]string)
 	}
 	actionTag := names.NewActionTag(utils.MustNewUUID().String())
 	m.receiverIdMap[id] = actionTag.Id()
-	m.responses[id] = makeActionResult(mock, actionTag.String())
+	m.runResponses[id] = makeActionResult(mock, actionTag.String())
 }
 
 func (*mockRunAPI) Close() error {
@@ -489,7 +496,7 @@ func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([
 	sort.Strings(sortedMachineIds)
 
 	for _, machineId := range sortedMachineIds {
-		response, found := m.responses[machineId]
+		response, found := m.runResponses[machineId]
 		if !found {
 			// Consider this a timeout
 			response = params.ActionResult{
@@ -513,18 +520,37 @@ func (m *mockRunAPI) Run(runParams params.RunParams) ([]params.ActionResult, err
 	}
 	// Just add in ids that match in order.
 	for _, id := range runParams.Machines {
-		response, found := m.responses[id]
+		response, found := m.runResponses[id]
 		if found {
 			result = append(result, response)
 		}
 	}
 	// mock ignores services
 	for _, id := range runParams.Units {
-		response, found := m.responses[id]
+		response, found := m.runResponses[id]
 		if found {
 			result = append(result, response)
 		}
 	}
 
 	return result, nil
+}
+
+func (m *mockRunAPI) Actions(actionTags params.Entities) (params.ActionResults, error) {
+	results := params.ActionResults{Results: make([]params.ActionResult, len(actionTags.Entities))}
+
+	for i, entity := range actionTags.Entities {
+		response, found := m.actionResponses[entity.Tag[len("action-"):]]
+		if !found {
+			results.Results[i] = params.ActionResult{
+				Error: &params.Error{
+					Message: "action not found",
+				},
+			}
+			continue
+		}
+		results.Results[i] = response
+	}
+
+	return results, nil
 }
