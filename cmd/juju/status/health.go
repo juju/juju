@@ -8,13 +8,12 @@ import (
 	"os"
 	"strconv"
 
-	"launchpad.net/gnuflag"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/status"
+	"launchpad.net/gnuflag"
 )
 
 type statusHealthCommand struct {
@@ -75,7 +74,7 @@ func (c *statusHealthCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	status, err := apiclient.Status([]string{})
+	status, err := apiclient.Status(nil)
 	if err != nil {
 		// problems getting status report Unknown
 		exitCode = 3
@@ -94,20 +93,20 @@ func (c *statusHealthCommand) Run(ctx *cmd.Context) error {
 	}
 
 	//set summary line based on most sever exitcode
-	summary := "Juju Health "
+	var summary string
 	switch exitCode {
 	case 0:
-		summary += "Okay"
+		summary = "Okay"
 	case 1:
-		summary += "Warning"
+		summary = "Warning"
 	case 2:
-		summary += "Critical"
+		summary = "Critical"
 	default:
-		summary += "Unknown"
+		summary = "Unknown"
 	}
 
 	//Output the statuses which aren't okay and exit
-	fmt.Fprintln(ctx.Stdout, summary)
+	fmt.Fprintln(ctx.Stdout, "Juju Health", summary)
 	for _, line := range notOkay {
 		fmt.Fprintln(ctx.Stdout, line)
 	}
