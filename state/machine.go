@@ -1821,7 +1821,7 @@ func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
 }
 
 // AddAction is part of the ActionReceiver interface.
-func (m *Machine) AddAction(name string, payload map[string]interface{}) (*Action, error) {
+func (m *Machine) AddAction(name string, payload map[string]interface{}) (Action, error) {
 	spec, ok := actions.PredefinedActionsSpec[name]
 	if !ok {
 		return nil, errors.Errorf("cannot add action %q to a machine; only predefined actions allowed", name)
@@ -1840,7 +1840,7 @@ func (m *Machine) AddAction(name string, payload map[string]interface{}) (*Actio
 }
 
 // CancelAction is part of the ActionReceiver interface.
-func (m *Machine) CancelAction(action *Action) (*Action, error) {
+func (m *Machine) CancelAction(action Action) (Action, error) {
 	return action.Finish(ActionResults{Status: ActionCancelled})
 }
 
@@ -1850,21 +1850,21 @@ func (m *Machine) WatchActionNotifications() StringsWatcher {
 }
 
 // Actions is part of the ActionReceiver interface.
-func (m *Machine) Actions() ([]*Action, error) {
+func (m *Machine) Actions() ([]Action, error) {
 	return m.st.matchingActions(m)
 }
 
 // CompletedActions is part of the ActionReceiver interface.
-func (m *Machine) CompletedActions() ([]*Action, error) {
+func (m *Machine) CompletedActions() ([]Action, error) {
 	return m.st.matchingActionsCompleted(m)
 }
 
 // PendingActions is part of the ActionReceiver interface.
-func (m *Machine) PendingActions() ([]*Action, error) {
+func (m *Machine) PendingActions() ([]Action, error) {
 	return m.st.matchingActionsPending(m)
 }
 
 // RunningActions is part of the ActionReceiver interface.
-func (m *Machine) RunningActions() ([]*Action, error) {
+func (m *Machine) RunningActions() ([]Action, error) {
 	return m.st.matchingActionsRunning(m)
 }
