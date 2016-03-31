@@ -111,7 +111,7 @@ func verifyCredentials(env *maasEnviron) error {
 		// TODO (mfoord): use a lighterweight endpoint than machines.
 		// Could implement /api/2.0/maas/ op=get_config in new API
 		// layer.
-		_, err = env.maasController.Machines(gomaasapi.MachinesParams{})
+		_, err = env.maasController.Machines(gomaasapi.MachinesArgs{})
 	} else {
 		_, err = env.getMAASClient().GetSubObject("maas").CallGet("get_config", nil)
 	}
