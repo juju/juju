@@ -17,10 +17,29 @@ import (
 
 type fakeController struct {
 	gomaasapi.Controller
+	bootResources      []gomaasapi.BootResource
+	bootResourcesError error
 }
 
-func (fakeController) BootResources() ([]gomaasapi.BootResource, error) {
-	return nil, errors.New("Something terrible!")
+func (c *fakeController) BootResources() ([]gomaasapi.BootResource, error) {
+	if c.bootResourcesError != nil {
+		return nil, c.bootResourcesError
+	}
+	return c.bootResources, nil
+}
+
+type fakeBootResource struct {
+	gomaasapi.BootResource
+	name         string
+	architecture string
+}
+
+func (r *fakeBootResource) Name() string {
+	return r.name
+}
+
+func (r *fakeBootResource) Architecture() string {
+	return r.architecture
 }
 
 type maas2EnvironSuite struct {
@@ -63,11 +82,26 @@ func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestSupportedArchitectures(c *gc.C) {
+	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+		controller := fakeController{
+			bootResources: []gomaasapi.BootResource{
+				&fakeBootResource{name: "wily", architecture: "amd64/blah"},
+				&fakeBootResource{name: "wily", architecture: "amd64/something"},
+				&fakeBootResource{name: "xenial", architecture: "arm/somethingelse"},
+			},
+		}
+		return &controller, nil
+	}
+	suite.PatchValue(&GetMAAS2Controller, mockGetController)
+	env := makeEnviron(c)
+	result, err := env.SupportedArchitectures()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, []string{"amd64", "arm"})
 }
 
 func (suite *maas2EnvironSuite) TestSupportedArchitecturesError(c *gc.C) {
 	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
-		return fakeController{}, nil
+		return &fakeController{bootResourcesError: errors.New("Something terrible!")}, nil
 	}
 	suite.PatchValue(&GetMAAS2Controller, mockGetController)
 	env := makeEnviron(c)
