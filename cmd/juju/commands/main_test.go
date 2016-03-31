@@ -519,8 +519,7 @@ func (s *MainSuite) TestModelCommands(c *gc.C) {
 
 func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
 	// Verify each command that:
-	// - the Purpose field is not empty and begins with a lowercase
-	// letter, and,
+	// - the Purpose field is not empty
 	// - if set, the Doc field either begins with the name of the
 	// command or and uppercase letter.
 	//
@@ -541,12 +540,9 @@ func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
 		}
 
 		c.Check(purpose, gc.Not(gc.Equals), "", comment("has empty Purpose"))
-		if purpose != "" {
-			prefix := string(purpose[0])
-			c.Check(prefix, gc.Equals, strings.ToLower(prefix),
-				comment("expected lowercase first-letter Purpose"),
-			)
-		}
+		// TODO (cherylj) Add back in the check for capitalization of
+		// purpose, but check for upper case.  This requires all commands
+		// to have been updated first.
 		if doc != "" && !strings.HasPrefix(doc, info.Name) {
 			prefix := string(doc[0])
 			c.Check(prefix, gc.Equals, strings.ToUpper(prefix),

@@ -36,7 +36,20 @@ type destroyCommand struct {
 	api       DestroyEnvironmentAPI
 }
 
-var destroyDoc = `Destroys the specified model`
+var destroyDoc = `
+Destroys the specified model. This will result in the non-recoverable
+removal of all the units operating in the model and any resources stored
+there. Due to the irreversible nature of the command, it will prompt for
+confirmation (unless overridden with the '-y' option) before taking any
+action.
+
+Examples:
+
+      juju destroy-model test
+      juju destroy-model -y mymodel
+
+See also: destroy-controller
+`
 var destroyEnvMsg = `
 WARNING! This command will destroy the %q model.
 This includes all machines, services, data and other resources.
@@ -55,14 +68,14 @@ func (c *destroyCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "destroy-model",
 		Args:    "<model name>",
-		Purpose: "terminate all machines and other associated resources for a non-controller model",
+		Purpose: "Terminate all machines and resources for a non-controller model.",
 		Doc:     destroyDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
+	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 }
 
