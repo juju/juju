@@ -9,9 +9,11 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/voyeur"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
@@ -36,12 +38,13 @@ type UnitAgent struct {
 	cmd.CommandBase
 	tomb tomb.Tomb
 	AgentConf
-	UnitName     string
-	runner       worker.Runner
-	bufferedLogs logsender.LogRecordCh
-	setupLogging func(agent.Config) error
-	logToStdErr  bool
-	ctx          *cmd.Context
+	configChangedVal *voyeur.Value
+	UnitName         string
+	runner           worker.Runner
+	bufferedLogs     logsender.LogRecordCh
+	setupLogging     func(agent.Config) error
+	logToStdErr      bool
+	ctx              *cmd.Context
 
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
@@ -53,8 +56,9 @@ type UnitAgent struct {
 // NewUnitAgent creates a new UnitAgent value properly initialized.
 func NewUnitAgent(ctx *cmd.Context, bufferedLogs logsender.LogRecordCh) *UnitAgent {
 	return &UnitAgent{
-		AgentConf: NewAgentConf(""),
-		ctx:       ctx,
+		AgentConf:        NewAgentConf(""),
+		configChangedVal: voyeur.NewValue(true),
+		ctx:              ctx,
 		initialUpgradeCheckComplete: make(chan struct{}),
 		bufferedLogs:                bufferedLogs,
 	}
@@ -192,4 +196,10 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 
 func (a *UnitAgent) Tag() names.Tag {
 	return names.NewUnitTag(a.UnitName)
+}
+
+func (a *UnitAgent) ChangeConfig(mutate agent.ConfigMutator) error {
+	err := a.AgentConf.ChangeConfig(mutate)
+	a.configChangedVal.Set(true)
+	return errors.Trace(err)
 }
