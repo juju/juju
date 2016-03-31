@@ -18,14 +18,14 @@ import (
 	"github.com/juju/juju/worker/util"
 )
 
-// ManifoldConfig defines a storage provisioner's configuration and dependencies.
-type ManifoldConfig struct {
+// MachineManifoldConfig defines a storage provisioner's configuration and dependencies.
+type MachineManifoldConfig struct {
 	util.PostUpgradeManifoldConfig
 	Clock clock.Clock
 }
 
-// Manifold returns a dependency.Manifold that runs a storage provisioner.
-func Manifold(config ManifoldConfig) dependency.Manifold {
+// MachineManifold returns a dependency.Manifold that runs a storage provisioner.
+func MachineManifold(config MachineManifoldConfig) dependency.Manifold {
 	newWorker := func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 		if config.Clock == nil {
 			return nil, dependency.ErrMissing

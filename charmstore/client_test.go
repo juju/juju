@@ -100,7 +100,6 @@ func (s *ClientSuite) TestFakeGetResource(c *gc.C) {
 	client := charmstore.NewClient(s.config)
 
 	_, _, err := client.GetResource(cURL, "spam", 3)
-
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 

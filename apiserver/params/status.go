@@ -150,16 +150,6 @@ type StatusHistoryResults struct {
 	Statuses []DetailedStatus
 }
 
-const (
-	// DefaultMaxLogsPerEntity is the default value for logs for each entity
-	// that should be kept at any given time.
-	DefaultMaxLogsPerEntity = 100
-
-	// DefaultPruneInterval is the default interval that should be waited
-	// between prune calls.
-	DefaultPruneInterval = 5 * time.Minute
-)
-
 // StatusHistoryPruneArgs holds arguments for status history
 // prunning process.
 type StatusHistoryPruneArgs struct {

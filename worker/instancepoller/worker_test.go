@@ -58,7 +58,10 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	s.PatchValue(&gatherTime, 10*time.Millisecond)
 	machines, insts := s.setupScenario(c)
 	s.State.StartSync()
-	w, err := NewWorker(s.api)
+	w, err := NewWorker(Config{
+		Facade:  s.api,
+		Environ: s.Environ,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		c.Assert(worker.Stop(w), gc.IsNil)

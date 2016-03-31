@@ -54,6 +54,5 @@ func (cs charmstoreSpec) Connect(ctx *cmd.Context) (*charmstore.Client, error) {
 	}
 	client := charmstore.NewClient(config)
 	client.Closer = apiContext
-
 	return client, nil
 }
