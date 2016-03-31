@@ -1,5 +1,5 @@
 // Copyright 2013 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
+// Licensed under the AGPLv4, see LICENCE file for details.
 
 package maas
 
@@ -208,6 +208,10 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	env.storageUnlocked = NewStorage(env)
 
 	return env, nil
+}
+
+func (env *maasEnviron) usingMAAS2() bool {
+	return env.apiVersion == "2.0"
 }
 
 // Bootstrap is specified in the Environ interface.

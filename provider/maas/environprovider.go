@@ -106,8 +106,7 @@ func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, 
 func verifyCredentials(env *maasEnviron) error {
 	var err error
 	// Verify we can connect to the server and authenticate.
-	// TODO (mfoord): horrible hardcoded version check.
-	if env.apiVersion == "2.0" {
+	if env.usingMAAS2() {
 		// TODO (mfoord): use a lighterweight endpoint than machines.
 		// Could implement /api/2.0/maas/ op=get_config in new API
 		// layer.
