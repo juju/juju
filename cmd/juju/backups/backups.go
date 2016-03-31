@@ -61,7 +61,7 @@ func NewCommand() cmd.Command {
 	backupsCmd.Register(envcmd.Wrap(&DownloadCommand{}))
 	backupsCmd.Register(envcmd.Wrap(&UploadCommand{}))
 	backupsCmd.Register(envcmd.Wrap(&RemoveCommand{}))
-	backupsCmd.Register(envcmd.Wrap(&RestoreCommand{}))
+	backupsCmd.Register(newRestoreCommand())
 	return &backupsCmd
 }
 
