@@ -949,7 +949,7 @@ class EucaTestCase(TestCase):
             ['euca-create-tags', '--tag', 'job_name=qux', 'i-foo', 'i-baz'],
             env=os.environ)
         di_mock.assert_called_once_with(['i-foo', 'i-baz'], env=os.environ)
-        qa_mock.assert_called_once_with('precise', 'amd64')
+        qa_mock.assert_called_once_with('precise', 'amd64', region=None)
 
     @patch('get_ami.query_ami', autospec=True)
     @patch('substrate.describe_instances', autospec=True)
@@ -965,7 +965,7 @@ class EucaTestCase(TestCase):
         di_mock.return_value = [('i-foo', 'bar-0'), ('i-baz', 'bar-1')]
         qa_mock.return_value = "ami-atest"
         run_instances(2, 'qux', 'wily')
-        qa_mock.assert_called_once_with('wily', 'amd64')
+        qa_mock.assert_called_once_with('wily', 'amd64', region=None)
 
     def test_run_instances_tagging_failed(self):
         euca_data = 'INSTANCE\ti-foo\tblah\tbar-0'

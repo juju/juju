@@ -2,7 +2,7 @@
 # setup-slave.bash private_ip [public_address] [./cloud-city]
 set -eux
 
-MASTER="http://ci-master.vapour.ws:8080/"
+MASTER="http://juju-ci.vapour.ws:8080/"
 KEY="staging-juju-rsa"
 
 SLAVE=$1

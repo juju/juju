@@ -531,7 +531,8 @@ class BootstrapManager:
             yield []
             return
         try:
-            instances = run_instances(3, self.temp_env_name, self.series)
+            instances = run_instances(
+                3, self.temp_env_name, self.series, region=self.region)
             new_bootstrap_host = instances[0][1]
             self.known_hosts['0'] = new_bootstrap_host
             yield [i[1] for i in instances[1:]]

@@ -538,7 +538,7 @@ def parse_euca(euca_output):
         yield fields[1], fields[3]
 
 
-def run_instances(count, job_name, series):
+def run_instances(count, job_name, series, region=None):
     """create a number of instances in ec2 and tag them.
 
     :param count: The number of instances to create.
@@ -549,7 +549,7 @@ def run_instances(count, job_name, series):
     if series is None:
         series = 'precise'
     environ = dict(os.environ)
-    ami = get_ami.query_ami(series, "amd64")
+    ami = get_ami.query_ami(series, "amd64", region=region)
     command = [
         'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
         '-t', 'm1.large', '-g', 'manual-juju-test', ami]
