@@ -9,6 +9,7 @@
 package state
 
 import (
+	"crypto/rand"
 	"fmt"
 	"sort"
 	"strings"
@@ -20,10 +21,6 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-)
-
-const (
-	localUserProviderName = "local"
 )
 
 func (st *State) checkUserExists(name string) (bool, error) {
@@ -40,33 +37,61 @@ func (st *State) checkUserExists(name string) (bool, error) {
 
 // AddUser adds a user to the database.
 func (st *State) AddUser(name, displayName, password, creator string) (*User, error) {
+	return st.addUser(name, displayName, password, creator, nil)
+}
+
+// AddUserWithSecretKey adds the user with the specified name, and assigns it
+// a randomly generated secret key. This secret key may be used for the user
+// and controller to mutually authenticate one another, without without relying
+// on TLS certificates.
+//
+// The new user will not have a password. A password must be set, clearing the
+// secret key in the process, before the user can login normally.
+func (st *State) AddUserWithSecretKey(name, displayName, creator string) (*User, error) {
+	// Generate a random, 32-byte secret key. This can be used
+	// to obtain the controller's (self-signed) CA certificate
+	// and set the user's password.
+	var secretKey [32]byte
+	if _, err := rand.Read(secretKey[:]); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return st.addUser(name, displayName, "", creator, secretKey[:])
+}
+
+func (st *State) addUser(name, displayName, password, creator string, secretKey []byte) (*User, error) {
 	if !names.IsValidUserName(name) {
 		return nil, errors.Errorf("invalid user name %q", name)
 	}
-	salt, err := utils.RandomSalt()
-	if err != nil {
-		return nil, err
-	}
 	nameToLower := strings.ToLower(name)
+
 	user := &User{
 		st: st,
 		doc: userDoc{
-			DocID:        nameToLower,
-			Name:         name,
-			DisplayName:  displayName,
-			PasswordHash: utils.UserPasswordHash(password, salt),
-			PasswordSalt: salt,
-			CreatedBy:    creator,
-			DateCreated:  nowToTheSecond(),
+			DocID:       nameToLower,
+			Name:        name,
+			DisplayName: displayName,
+			SecretKey:   secretKey,
+			CreatedBy:   creator,
+			DateCreated: nowToTheSecond(),
 		},
 	}
+
+	if password != "" {
+		salt, err := utils.RandomSalt()
+		if err != nil {
+			return nil, err
+		}
+		user.doc.PasswordHash = utils.UserPasswordHash(password, salt)
+		user.doc.PasswordSalt = salt
+	}
+
 	ops := []txn.Op{{
 		C:      usersC,
 		Id:     nameToLower,
 		Assert: txn.DocMissing,
 		Insert: &user.doc,
 	}}
-	err = st.runTransaction(ops)
+	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.AlreadyExistsf("user")
 	}
@@ -76,16 +101,16 @@ func (st *State) AddUser(name, displayName, password, creator string) (*User, er
 	return user, nil
 }
 
-func createInitialUserOp(st *State, user names.UserTag, password string) txn.Op {
+func createInitialUserOp(st *State, user names.UserTag, password, salt string) txn.Op {
 	nameToLower := strings.ToLower(user.Name())
 	doc := userDoc{
 		DocID:        nameToLower,
 		Name:         user.Name(),
 		DisplayName:  user.Name(),
-		PasswordHash: password,
-		// Empty PasswordSalt means utils.CompatSalt
-		CreatedBy:   user.Name(),
-		DateCreated: nowToTheSecond(),
+		PasswordHash: utils.UserPasswordHash(password, salt),
+		PasswordSalt: salt,
+		CreatedBy:    user.Name(),
+		DateCreated:  nowToTheSecond(),
 	}
 	return txn.Op{
 		C:      usersC,
@@ -163,6 +188,7 @@ type userDoc struct {
 	DisplayName string `bson:"displayname"`
 	// Removing users means they still exist, but are marked deactivated
 	Deactivated  bool      `bson:"deactivated"`
+	SecretKey    []byte    `bson:"secretkey,omitempty"`
 	PasswordHash string    `bson:"passwordhash"`
 	PasswordSalt string    `bson:"passwordsalt"`
 	CreatedBy    string    `bson:"createdby"`
@@ -289,6 +315,11 @@ func (u *User) UpdateLastLogin() (err error) {
 	return errors.Trace(err)
 }
 
+// SecretKey returns the user's secret key, if any.
+func (u *User) SecretKey() []byte {
+	return u.doc.SecretKey
+}
+
 // SetPassword sets the password associated with the User.
 func (u *User) SetPassword(password string) error {
 	salt, err := utils.RandomSalt()
@@ -298,19 +329,31 @@ func (u *User) SetPassword(password string) error {
 	return u.SetPasswordHash(utils.UserPasswordHash(password, salt), salt)
 }
 
-// SetPasswordHash stores the hash and the salt of the password.
+// SetPasswordHash stores the hash and the salt of the
+// password. If the User has a secret key set then it
+// will be cleared.
 func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
+	update := bson.D{{"$set", bson.D{
+		{"passwordhash", pwHash},
+		{"passwordsalt", pwSalt},
+	}}}
+	if u.doc.SecretKey != nil {
+		update = append(update,
+			bson.DocElem{"$unset", bson.D{{"secretkey", ""}}},
+		)
+	}
 	ops := []txn.Op{{
 		C:      usersC,
 		Id:     u.Name(),
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"passwordhash", pwHash}, {"passwordsalt", pwSalt}}}},
+		Update: update,
 	}}
 	if err := u.st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set password of user %q", u.Name())
 	}
 	u.doc.PasswordHash = pwHash
 	u.doc.PasswordSalt = pwSalt
+	u.doc.SecretKey = nil
 	return nil
 }
 
@@ -326,20 +369,6 @@ func (u *User) PasswordValid(password string) bool {
 	}
 	if u.doc.PasswordSalt != "" {
 		return utils.UserPasswordHash(password, u.doc.PasswordSalt) == u.doc.PasswordHash
-	}
-	// In Juju 1.16 and older, we did not set a Salt for the user password,
-	// so check if the password hash matches using CompatSalt. if it
-	// does, then set the password again so that we get a proper salt
-	if utils.UserPasswordHash(password, utils.CompatSalt) == u.doc.PasswordHash {
-		// This will set a new Salt for the password. We ignore if it
-		// fails because we will try again at the next request
-		logger.Debugf("User %s logged in with CompatSalt resetting password for new salt",
-			u.Name())
-		err := u.SetPassword(password)
-		if err != nil {
-			logger.Errorf("Cannot set resalted password for user %q", u.Name())
-		}
-		return true
 	}
 	return false
 }

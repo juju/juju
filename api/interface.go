@@ -6,8 +6,11 @@ package api
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/version"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/agent"
@@ -16,21 +19,17 @@ import (
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/discoverspaces"
-	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
-	"github.com/juju/juju/api/keyupdater"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
-	"github.com/juju/juju/api/resumer"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/version"
 )
 
 // Info encapsulates information about a server holding juju state and
@@ -53,9 +52,9 @@ type Info struct {
 	// ...but this block of fields is all about the authentication mechanism
 	// to use after connecting -- if any -- and should probably be extracted.
 
-	// UseMacaroons, when true, enables macaroon-based login and ignores
-	// the provided username and password.
-	UseMacaroons bool `yaml:"use-macaroons,omitempty"`
+	// SkipLogin, if true, skips the Login call on connection. It is an
+	// error to set Tag, Password, or Macaroons if SkipLogin is true.
+	SkipLogin bool `yaml:"-"`
 
 	// Tag holds the name of the entity that is connecting.
 	// If this is nil, and the password is empty, no login attempt will be made.
@@ -66,9 +65,35 @@ type Info struct {
 	// Password holds the password for the administrator or connecting entity.
 	Password string
 
+	// Macaroons holds a slice of macaroon.Slice that may be used to
+	// authenticate with the API server.
+	Macaroons []macaroon.Slice `yaml:",omitempty"`
+
 	// Nonce holds the nonce used when provisioning the machine. Used
 	// only by the machine agent.
 	Nonce string `yaml:",omitempty"`
+}
+
+// Validate validates the API info.
+func (info *Info) Validate() error {
+	if len(info.Addrs) == 0 {
+		return errors.NotValidf("missing addresses")
+	}
+	if info.CACert == "" {
+		return errors.NotValidf("missing CA certificate")
+	}
+	if info.SkipLogin {
+		if info.Tag != nil {
+			return errors.NotValidf("specifying Tag and SkipLogin")
+		}
+		if info.Password != "" {
+			return errors.NotValidf("specifying Password and SkipLogin")
+		}
+		if len(info.Macaroons) > 0 {
+			return errors.NotValidf("specifying Macaroons and SkipLogin")
+		}
+	}
+	return nil
 }
 
 // DialOpts holds configuration parameters that control the
@@ -92,6 +117,12 @@ type DialOpts struct {
 	// by Open, and any RoundTripper field
 	// the HTTP client is ignored.
 	BakeryClient *httpbakery.Client
+
+	// InsecureSkipVerify skips TLS certificate verification
+	// when connecting to the controller. This should only
+	// be used in tests, or when verification cannot be
+	// performed and the communication need not be secure.
+	InsecureSkipVerify bool
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
@@ -122,7 +153,7 @@ type Connection interface {
 
 	// These are a bit off -- ServerVersion is apparently not known until after
 	// Login()? Maybe evidence of need for a separate AuthenticatedConnection..?
-	Login(name names.Tag, password, nonce string) error
+	Login(name names.Tag, password, nonce string, ms []macaroon.Slice) error
 	ServerVersion() (version.Number, bool)
 
 	// APICaller provides the facility to make API calls directly.
@@ -159,16 +190,13 @@ type Connection interface {
 	// prohibitively ugly to do so.
 	Client() *Client
 	Machiner() *machiner.State
-	Resumer() *resumer.API
 	Provisioner() *provisioner.State
 	Uniter() (*uniter.State, error)
-	DiskManager() (*diskmanager.State, error)
 	Firewaller() *firewaller.State
 	Agent() *agent.State
 	Upgrader() *upgrader.State
 	Reboot() (reboot.State, error)
 	Deployer() *deployer.State
-	KeyUpdater() *keyupdater.State
 	Addresser() *addresser.API
 	DiscoverSpaces() *discoverspaces.API
 	InstancePoller() *instancepoller.API

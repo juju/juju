@@ -92,7 +92,7 @@ music    1
 		"ListResources",
 		"Close",
 	)
-	s.stub.CheckCall(c, 1, "ListResources", []charm.URL{{
+	s.stub.CheckCall(c, 1, "ListResources", []*charm.URL{{
 		Schema:   "cs",
 		User:     "",
 		Name:     "a-charm",
@@ -190,4 +190,26 @@ music    1
 		c.Check(stdout, gc.Equals, expected)
 		c.Check(stderr, gc.Equals, "")
 	}
+}
+
+func (s *ListCharmSuite) TestChannelFlag(c *gc.C) {
+	fp1, err := charmresource.GenerateFingerprint(strings.NewReader("abc"))
+	c.Assert(err, jc.ErrorIsNil)
+	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("xyz"))
+	c.Assert(err, jc.ErrorIsNil)
+	resources := []charmresource.Resource{
+		charmRes(c, "website", ".tgz", ".tgz of your website", string(fp1.Bytes())),
+		charmRes(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
+	}
+	s.client.ReturnListResources = [][]charmresource.Resource{resources}
+	command := NewListCharmResourcesCommand(s.client)
+
+	code, _, stderr := runCmd(c, command,
+		"--channel", "development",
+		"cs:a-charm",
+	)
+
+	c.Check(code, gc.Equals, 0)
+	c.Check(stderr, gc.Equals, "")
+	c.Check(command.channel, gc.Equals, "development")
 }

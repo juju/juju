@@ -8,9 +8,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc"
 )
 
 type errorSuite struct{}
+
+var _ rpc.ErrorCoder = (*params.Error)(nil)
 
 var _ = gc.Suite(&errorSuite{})
 

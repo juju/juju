@@ -13,53 +13,6 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-const boilerplateConfig = `
-# https://juju.ubuntu.com/docs/config-aws.html
-amazon:
-    type: ec2
-
-    # region specifies the EC2 region. It defaults to us-east-1.
-    #
-    # region: us-east-1
-
-    # access-key holds the EC2 access key. It defaults to the
-    # environment variable AWS_ACCESS_KEY_ID.
-    #
-    # access-key: <secret>
-
-    # secret-key holds the EC2 secret key. It defaults to the
-    # environment variable AWS_SECRET_ACCESS_KEY.
-    #
-    # secret-key: <secret>
-
-    # image-stream chooses a simplestreams stream from which to select
-    # OS images, for example daily or released images (or any other stream
-    # available on simplestreams).
-    #
-    # image-stream: "released"
-
-    # agent-stream chooses a simplestreams stream from which to select tools,
-    # for example released or proposed tools (or any other stream available
-    # on simplestreams).
-    #
-    # agent-stream: "released"
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of true is recommended for use
-    # in production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-upgrade: true
-
-`
-
 var configSchema = environschema.Fields{
 	"access-key": {
 		Description: "The EC2 access key",
@@ -80,10 +33,6 @@ var configSchema = environschema.Fields{
 		Description: "The EC2 region to use",
 		Type:        environschema.Tstring,
 	},
-	"control-bucket": {
-		Description: "The S3 bucket used to store environment metadata",
-		Type:        environschema.Tstring,
-	},
 }
 
 var configFields = func() schema.Fields {
@@ -95,10 +44,9 @@ var configFields = func() schema.Fields {
 }()
 
 var configDefaults = schema.Defaults{
-	"access-key":     "",
-	"secret-key":     "",
-	"region":         "us-east-1",
-	"control-bucket": "",
+	"access-key": "",
+	"secret-key": "",
+	"region":     "us-east-1",
 }
 
 type environConfig struct {
@@ -108,10 +56,6 @@ type environConfig struct {
 
 func (c *environConfig) region() string {
 	return c.attrs["region"].(string)
-}
-
-func (c *environConfig) controlBucket() string {
-	return c.attrs["control-bucket"].(string)
 }
 
 func (c *environConfig) accessKey() string {
@@ -148,19 +92,6 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// Add EC2 specific defaults.
-	providerDefaults := make(map[string]interface{})
-
-	// Storage.
-	if _, ok := cfg.StorageDefaultBlockSource(); !ok {
-		providerDefaults[config.StorageDefaultBlockSourceKey] = EBS_ProviderType
-	}
-	if len(providerDefaults) > 0 {
-		if cfg, err = cfg.Apply(providerDefaults); err != nil {
-			return nil, err
-		}
-	}
 	ecfg := &environConfig{cfg, validated}
 
 	if ecfg.accessKey() == "" || ecfg.secretKey() == "" {
@@ -179,9 +110,6 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 		attrs := old.UnknownAttrs()
 		if region, _ := attrs["region"].(string); ecfg.region() != region {
 			return nil, fmt.Errorf("cannot change region from %q to %q", region, ecfg.region())
-		}
-		if bucket, _ := attrs["control-bucket"].(string); ecfg.controlBucket() != bucket {
-			return nil, fmt.Errorf("cannot change control-bucket from %q to %q", bucket, ecfg.controlBucket())
 		}
 	}
 

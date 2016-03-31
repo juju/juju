@@ -6,9 +6,12 @@ package rackspace_test
 import (
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/errors"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/rackspace"
+	"github.com/juju/juju/testing"
 )
 
 type providerSuite struct {
@@ -27,6 +30,8 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "some-name",
 		"type":            "some-type",
+		"uuid":            testing.ModelTag.Id(),
+		"controller-uuid": testing.ModelTag.Id(),
 		"authorized-keys": "key",
 	})
 	c.Check(err, gc.IsNil)
@@ -64,6 +69,11 @@ func (p *fakeProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.
 	return nil, nil
 }
 
+func (p *fakeProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+	p.Push("BootstrapConfig", args)
+	return nil, nil
+}
+
 func (p *fakeProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	p.Push("PrepareForBootstrap", ctx, cfg)
 	return nil, nil
@@ -74,12 +84,17 @@ func (p *fakeProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 	return cfg, nil
 }
 
-func (p *fakeProvider) BoilerplateConfig() string {
-	p.Push("BoilerplateConfig")
-	return ""
-}
-
 func (p *fakeProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	p.Push("SecretAttrs", cfg)
 	return nil, nil
+}
+
+func (p *fakeProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	p.Push("CredentialSchemas")
+	return nil
+}
+
+func (p *fakeProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	p.Push("DetectCredentials")
+	return nil, errors.NotFoundf("credentials")
 }

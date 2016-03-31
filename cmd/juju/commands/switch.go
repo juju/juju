@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package commands
@@ -9,161 +9,197 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 )
 
 func newSwitchCommand() cmd.Command {
-	return &switchCommand{}
+	cmd := &switchCommand{
+		Store: jujuclient.NewFileClientStore(),
+		ReadCurrentController:  modelcmd.ReadCurrentController,
+		WriteCurrentController: modelcmd.WriteCurrentController,
+	}
+	cmd.RefreshModels = cmd.JujuCommandBase.RefreshModels
+	return modelcmd.WrapBase(cmd)
 }
 
 type switchCommand struct {
-	cmd.CommandBase
-	ModelName string
-	List      bool
+	modelcmd.JujuCommandBase
+	RefreshModels          func(jujuclient.ClientStore, string, string) error
+	ReadCurrentController  func() (string, error)
+	WriteCurrentController func(string) error
+
+	Store  jujuclient.ClientStore
+	Target string
 }
 
 var switchDoc = `
-Show or change the default juju model or controller name.
+Switch to the specified model or controller.
 
-If no command line parameters are passed, switch will output the current
-model as defined by the file $JUJU_DATA/current-model.
+If the name identifies a controller, the client will switch to the
+active model for that controller. Otherwise, the name must specify
+either the name of a model within the active controller, or a
+fully-qualified model with the format "controller:model".
 
-If a command line parameter is passed in, that value will is stored in the
-current model file if it represents a valid model name as
-specified in the environments.yaml file.
+To list the available controllers or models, you can use the
+list-controllers and list-models commands respectively.
 `
-
-const controllerSuffix = " (controller)"
 
 func (c *switchCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "switch",
-		Args:    "[model name]",
-		Purpose: "show or change the default juju model or controller name",
+		Args:    "[<controller>|<model>|<controller>:<model>]",
+		Purpose: "change the active Juju model",
 		Doc:     switchDoc,
 	}
 }
 
-func (c *switchCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.List, "l", false, "list the model names")
-	f.BoolVar(&c.List, "list", false, "")
+func (c *switchCommand) Init(args []string) error {
+	var err error
+	c.Target, err = cmd.ZeroOrOneArgs(args)
+	return err
 }
 
-func (c *switchCommand) Init(args []string) (err error) {
-	c.ModelName, err = cmd.ZeroOrOneArgs(args)
-	return
-}
+func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 
-func getConfigstoreOptions() (set.Strings, set.Strings, error) {
-	store, err := configstore.Default()
+	// Get the current name for logging the transition or printing
+	// the current controller/model.
+	currentControllerName, err := c.ReadCurrentController()
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "failed to get config store")
+		return errors.Trace(err)
 	}
-	environmentNames, err := store.List()
+	if c.Target == "" {
+		currentName, err := c.name(currentControllerName, true)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if currentName == "" {
+			return errors.New("no currently specified model")
+		}
+		fmt.Fprintf(ctx.Stdout, "%s\n", currentName)
+		return nil
+	}
+	currentName, err := c.name(currentControllerName, false)
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "failed to list models in config store")
+		return errors.Trace(err)
 	}
-	controllerNames, err := store.ListSystems()
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "failed to list controllers in config store")
-	}
-	// Also include the controllers.
-	return set.NewStrings(environmentNames...), set.NewStrings(controllerNames...), nil
-}
 
-func (c *switchCommand) Run(ctx *cmd.Context) error {
+	var newName string
+	defer func() {
+		if resultErr != nil {
+			return
+		}
+		logSwitch(ctx, currentName, &newName)
+	}()
+
 	// Switch is an alternative way of dealing with environments than using
 	// the JUJU_MODEL environment setting, and as such, doesn't play too well.
 	// If JUJU_MODEL is set we should report that as the current environment,
 	// and not allow switching when it is set.
-
-	// Passing through the empty string reads the default environments.yaml file.
-	// If the environments.yaml file doesn't exist, just list environments in
-	// the configstore.
-	envFileExists := true
-	names := set.NewStrings()
-	environments, err := environs.ReadEnvirons("")
-	if err != nil {
-		if !environs.IsNoEnv(err) {
-			return errors.Annotate(err, "couldn't read the model")
-		}
-		envFileExists = false
-	} else {
-		for _, name := range environments.Names() {
-			names.Add(name)
-		}
+	if model := os.Getenv(osenv.JujuModelEnvKey); model != "" {
+		return errors.Errorf("cannot switch when JUJU_MODEL is overriding the model (set to %q)", model)
 	}
 
-	configEnvirons, configControllers, err := getConfigstoreOptions()
-	if err != nil {
-		return err
-	}
-	names = names.Union(configEnvirons)
-	names = names.Union(configControllers)
-
-	if c.List {
-		// List all environments and controllers.
-		if c.ModelName != "" {
-			return errors.New("cannot switch and list at the same time")
-		}
-		for _, name := range names.SortedValues() {
-			if configControllers.Contains(name) && !configEnvirons.Contains(name) {
-				name += controllerSuffix
-			}
-			fmt.Fprintf(ctx.Stdout, "%s\n", name)
-		}
-		return nil
-	}
-
-	jujuEnv := os.Getenv("JUJU_MODEL")
-	if jujuEnv != "" {
-		if c.ModelName == "" {
-			fmt.Fprintf(ctx.Stdout, "%s\n", jujuEnv)
+	// If the target identifies a controller, then set that as the current controller.
+	var newControllerName string
+	if newControllerName, err = modelcmd.ResolveControllerName(c.Store, c.Target); err == nil {
+		if newControllerName == currentControllerName {
+			newName = currentName
 			return nil
 		} else {
-			return errors.Errorf("cannot switch when JUJU_MODEL is overriding the model (set to %q)", jujuEnv)
+			newName, err = c.name(newControllerName, false)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			return errors.Trace(c.WriteCurrentController(newControllerName))
 		}
+	} else if !errors.IsNotFound(err) {
+		return errors.Trace(err)
 	}
 
-	current, isController, err := modelcmd.CurrentConnectionName()
+	// The target is not a controller, so check for a model with
+	// the given name. The name can be qualified with the controller
+	// name (<controller>:<model>), or unqualified; in the latter
+	// case, the model must exist in the current controller.
+	newControllerName, modelName := modelcmd.SplitModelName(c.Target)
+	if newControllerName != "" {
+		// A controller was specified so see if we should use a local version.
+		newControllerName, err = modelcmd.ResolveControllerName(c.Store, newControllerName)
+		if err == nil {
+			newName = modelcmd.JoinModelName(newControllerName, modelName)
+		} else {
+			newName = c.Target
+		}
+	} else {
+		if currentControllerName == "" {
+			return unknownSwitchTargetError(c.Target)
+		}
+		newControllerName = currentControllerName
+		newName = modelcmd.JoinModelName(newControllerName, modelName)
+	}
+
+	accountName, err := c.Store.CurrentAccount(newControllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if current == "" {
-		if envFileExists {
-			current = environments.Default
+	err = c.Store.SetCurrentModel(newControllerName, accountName, modelName)
+	if errors.IsNotFound(err) {
+		// The model isn't known locally, so we must query the controller.
+		if err := c.RefreshModels(c.Store, newControllerName, accountName); err != nil {
+			return errors.Annotate(err, "refreshing models cache")
 		}
-	} else if isController {
-		current += controllerSuffix
+		err := c.Store.SetCurrentModel(newControllerName, accountName, modelName)
+		if errors.IsNotFound(err) {
+			return unknownSwitchTargetError(c.Target)
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+	} else if err != nil {
+		return errors.Trace(err)
 	}
+	if currentControllerName != newControllerName {
+		if err := c.WriteCurrentController(newControllerName); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
 
-	// Handle the different operation modes.
-	switch {
-	case c.ModelName == "" && current == "":
-		// Nothing specified and nothing to switch to.
-		return errors.New("no currently specified model")
-	case c.ModelName == "":
-		// Simply print the current environment.
-		fmt.Fprintf(ctx.Stdout, "%s\n", current)
-		return nil
-	default:
-		// Switch the environment.
-		if !names.Contains(c.ModelName) {
-			return errors.Errorf("%q is not a name of an existing defined model or controller", c.ModelName)
-		}
-		// If the name is not in the environment set, but is in the controller
-		// set, then write the name into the current controller file.
-		logger.Debugf("controllers: %v", configControllers)
-		logger.Debugf("models: %v", configEnvirons)
-		newEnv := c.ModelName
-		if configControllers.Contains(newEnv) && !configEnvirons.Contains(newEnv) {
-			return modelcmd.SetCurrentController(ctx, newEnv)
-		}
-		return modelcmd.SetCurrentModel(ctx, newEnv)
+func unknownSwitchTargetError(name string) error {
+	return errors.Errorf("%q is not the name of a model or controller", name)
+}
+
+func logSwitch(ctx *cmd.Context, oldName string, newName *string) {
+	if *newName == oldName {
+		ctx.Infof("%s (no change)", oldName)
+	} else {
+		ctx.Infof("%s -> %s", oldName, *newName)
 	}
+}
+
+// name returns the name of the current model for the specified controller
+// if one is set, otherwise the controller name with an indicator that it
+// is the name of a controller and not a model.
+func (c *switchCommand) name(controllerName string, machineReadable bool) (string, error) {
+	if controllerName == "" {
+		return "", nil
+	}
+	accountName, err := c.Store.CurrentAccount(controllerName)
+	if err == nil {
+		modelName, err := c.Store.CurrentModel(controllerName, accountName)
+		if err == nil {
+			return modelcmd.JoinModelName(controllerName, modelName), nil
+		} else if !errors.IsNotFound(err) {
+			return "", errors.Trace(err)
+		}
+	} else if !errors.IsNotFound(err) {
+		return "", errors.Trace(err)
+	}
+	// No current account or model.
+	if machineReadable {
+		return controllerName, nil
+	}
+	return fmt.Sprintf("%s (controller)", controllerName), nil
 }

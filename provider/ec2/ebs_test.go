@@ -18,15 +18,20 @@ import (
 	"gopkg.in/amz.v3/ec2/ec2test"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type storageSuite struct {
@@ -55,6 +60,7 @@ var _ = gc.Suite(&ebsVolumeSuite{})
 
 type ebsVolumeSuite struct {
 	testing.BaseSuite
+	// TODO(axw) the EBS tests should not be embedding jujutest.Tests.
 	jujutest.Tests
 	srv                localServer
 	restoreEC2Patching func()
@@ -65,24 +71,40 @@ type ebsVolumeSuite struct {
 func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.Tests.SetUpSuite(c)
+	s.Credential = cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "x",
+		},
+	)
+	s.CloudRegion = "test"
+
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	s.UploadArches = []string{arch.AMD64, arch.I386}
-	s.TestConfig = localConfigAttrs
+	s.TestConfig = localConfigAttrs.Merge(testing.Attrs{
+		"access-key": "x",
+		"secret-key": "x",
+		"region":     "test",
+	})
 	s.restoreEC2Patching = patchEC2ForTesting(c)
+	s.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	s.BaseSuite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	imagetesting.PatchOfficialDataSources(&s.BaseSuite.CleanupSuite, "test:")
 }
 
 func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
+	s.restoreEC2Patching()
 	s.Tests.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
-	s.restoreEC2Patching()
 }
 
 func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.PatchValue(&version.Current, testing.FakeVersionNumber)
+	s.BaseSuite.SetUpTest(c)
+	s.BaseSuite.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	s.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.BaseSuite.PatchValue(&series.HostSeries, func() string { return testing.FakeDefaultSeries })
-	s.BaseSuite.SetUpTest(c)
 	s.srv.startServer(c)
 	s.Tests.SetUpTest(c)
 	s.PatchValue(&ec2.DestroyVolumeAttempt.Delay, time.Duration(0))

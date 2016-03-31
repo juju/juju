@@ -26,13 +26,11 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
-	envstorage "github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -70,11 +68,10 @@ type environ struct {
 	supportedArchitectures []string
 
 	// ecfgMutex protects the *Unlocked fields below.
-	ecfgMutex       sync.Mutex
-	ecfgUnlocked    *environConfig
-	ec2Unlocked     *ec2.EC2
-	s3Unlocked      *s3.S3
-	storageUnlocked envstorage.Storage
+	ecfgMutex    sync.Mutex
+	ecfgUnlocked *environConfig
+	ec2Unlocked  *ec2.EC2
+	s3Unlocked   *s3.S3
 
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
@@ -131,14 +128,6 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	e.ec2Unlocked = ec2Client
 	e.s3Unlocked = s3Client
 
-	bucket, err := e.s3Unlocked.Bucket(ecfg.controlBucket())
-	if err != nil {
-		return err
-	}
-
-	// create new storage instances, existing instances continue
-	// to reference their existing configuration.
-	e.storageUnlocked = &ec2storage{bucket: bucket}
 	return nil
 }
 
@@ -188,22 +177,8 @@ func (e *environ) ec2() *ec2.EC2 {
 	return ec2
 }
 
-func (e *environ) s3() *s3.S3 {
-	e.ecfgMutex.Lock()
-	s3 := e.s3Unlocked
-	e.ecfgMutex.Unlock()
-	return s3
-}
-
 func (e *environ) Name() string {
 	return e.name
-}
-
-func (e *environ) Storage() envstorage.Storage {
-	e.ecfgMutex.Lock()
-	stor := e.storageUnlocked
-	e.ecfgMutex.Unlock()
-	return stor
 }
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
@@ -211,7 +186,33 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 }
 
 func (e *environ) ControllerInstances() ([]instance.Id, error) {
-	return common.ProviderStateInstances(e, e.Storage())
+	filter := ec2.NewFilter()
+	filter.Add("instance-state-name", "pending", "running")
+	filter.Add(fmt.Sprintf("tag:%s", tags.JujuModel), e.Config().UUID())
+	filter.Add(fmt.Sprintf("tag:%s", tags.JujuController), "true")
+	err := e.addGroupFilter(filter)
+	if err != nil {
+		if ec2ErrCode(err) == "InvalidGroup.NotFound" {
+			return nil, environs.ErrNotBootstrapped
+		}
+		return nil, errors.Annotate(err, "adding a group filter for instances")
+	}
+	resp, err := e.ec2().Instances(nil, filter)
+	if err != nil {
+		return nil, errors.Annotate(err, "listing instances")
+	}
+	var insts []instance.Id
+	for _, r := range resp.Reservations {
+		for i := range r.Instances {
+			inst := &ec2Instance{
+				e:        e,
+				Instance: &r.Instances[i],
+			}
+			insts = append(insts, inst.Id())
+		}
+	}
+	return insts, nil
+
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
@@ -258,6 +259,9 @@ func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
 
 var unsupportedConstraints = []string{
 	constraints.Tags,
+	// TODO(anastasiamac 2016-03-16) LP#1557874
+	// use virt-type in StartInstances
+	constraints.VirtType,
 }
 
 // ConstraintsValidator is defined on the Environs interface.
@@ -646,17 +650,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 
 	// Tag the machine's root EBS volume, if it has one.
 	if inst.Instance.RootDeviceType == "ebs" {
-		uuid, _ := cfg.UUID()
-		tags := tags.ResourceTags(names.NewModelTag(uuid), cfg)
+		tags := tags.ResourceTags(names.NewModelTag(cfg.UUID()), cfg)
 		tags[tagName] = instanceName + "-root"
 		if err := tagRootDisk(e.ec2(), tags, inst.Instance); err != nil {
 			return nil, errors.Annotate(err, "tagging root disk")
-		}
-	}
-
-	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
-		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
-			return nil, errors.Annotate(err, "recording instance in provider-state")
 		}
 	}
 
@@ -748,10 +745,7 @@ func _runInstances(e *ec2.EC2, ri *ec2.RunInstances) (resp *ec2.RunInstancesResp
 }
 
 func (e *environ) StopInstances(ids ...instance.Id) error {
-	if err := e.terminateInstances(ids); err != nil {
-		return errors.Trace(err)
-	}
-	return common.RemoveStateInstances(e.Storage(), ids...)
+	return errors.Trace(e.terminateInstances(ids))
 }
 
 // groupInfoByName returns information on the security group
@@ -1185,10 +1179,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	eUUID, ok := e.Config().UUID()
-	if !ok {
-		return nil, errors.NotFoundf("enviroment UUID in configuration")
-	}
+	eUUID := e.Config().UUID()
 	var insts []instance.Instance
 	for _, r := range resp.Reservations {
 		for i := range r.Instances {
@@ -1213,10 +1204,12 @@ func (e *environ) Destroy() error {
 	if err := common.Destroy(e); err != nil {
 		return errors.Trace(err)
 	}
+
 	if err := e.cleanEnvironmentSecurityGroup(); err != nil {
 		logger.Warningf("cannot delete default security group: %v", err)
 	}
-	return e.Storage().RemoveAll()
+
+	return nil
 }
 
 func portsToIPPerms(ports []network.PortRange) []ec2.IPPerm {
@@ -1450,10 +1443,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 }
 
 func (e *environ) uuid() string {
-	// the bool component of uuid is for legacy compatibility
-	// and does not apply in this context.
-	eUUID, _ := e.Config().UUID()
-	return eUUID
+	return e.Config().UUID()
 }
 
 func (e *environ) globalGroupName() string {
@@ -1710,4 +1700,8 @@ func ec2ErrCode(err error) string {
 		return ""
 	}
 	return ec2err.Code
+}
+
+func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotSupportedf("container address allocation")
 }

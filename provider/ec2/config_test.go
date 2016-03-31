@@ -16,9 +16,9 @@ import (
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -47,9 +47,6 @@ type configTest struct {
 	change             map[string]interface{}
 	expect             map[string]interface{}
 	region             string
-	cbucket            string
-	pbucket            string
-	pbucketRegion      string
 	accessKey          string
 	secretKey          string
 	firewallMode       string
@@ -61,8 +58,7 @@ type attrs map[string]interface{}
 
 func (t configTest) check(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type":           "ec2",
-		"control-bucket": "x",
+		"type": "ec2",
 	}).Merge(t.config)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,7 +87,6 @@ func (t configTest) check(c *gc.C) {
 
 	ecfg := e.(*environ).ecfg()
 	c.Assert(ecfg.Name(), gc.Equals, "testenv")
-	c.Assert(ecfg.controlBucket(), gc.Equals, "x")
 	if t.region != "" {
 		c.Assert(ecfg.region(), gc.Equals, t.region)
 	}
@@ -118,18 +113,6 @@ func (t configTest) check(c *gc.C) {
 		c.Check(found, jc.IsTrue)
 		c.Check(actual, gc.Equals, expect)
 	}
-
-	// check storage bucket is configured correctly
-	env := e.(*environ)
-	c.Assert(env.Storage().(*ec2storage).bucket.Region.Name, gc.Equals, ecfg.region())
-
-	expectedStorage := "ebs"
-	if t.blockStorageSource != "" {
-		expectedStorage = t.blockStorageSource
-	}
-	storage, ok := ecfg.StorageDefaultBlockSource()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(storage, gc.Equals, expectedStorage)
 }
 
 var configTests = []configTest{
@@ -177,16 +160,6 @@ var configTests = []configTest{
 			"secret-key": 666,
 		},
 		err: `.*expected string, got int\(666\)`,
-	}, {
-		config: attrs{
-			"control-bucket": 666,
-		},
-		err: `.*expected string, got int\(666\)`,
-	}, {
-		change: attrs{
-			"control-bucket": "new-x",
-		},
-		err: `.*cannot change control-bucket from "x" to "new-x"`,
 	}, {
 		config: attrs{
 			"access-key": "jujuer",
@@ -315,7 +288,7 @@ func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
 	test.check(c)
 }
 
-func (s *ConfigSuite) TestPrepareForCreateInsertsUniqueControlBucket(c *gc.C) {
+func (s *ConfigSuite) TestBootstrapConfigSetsDefaultBlockSource(c *gc.C) {
 	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
@@ -323,55 +296,21 @@ func (s *ConfigSuite) TestPrepareForCreateInsertsUniqueControlBucket(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg1, err := providerInstance.PrepareForCreateEnvironment(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	bucket1 := cfg1.UnknownAttrs()["control-bucket"]
-	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
-
-	cfg2, err := providerInstance.PrepareForCreateEnvironment(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	bucket2 := cfg2.UnknownAttrs()["control-bucket"]
-	c.Assert(bucket2, gc.Matches, "[a-f0-9]{32}")
-
-	c.Assert(bucket1, gc.Not(gc.Equals), bucket2)
-}
-
-func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
-	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type": "ec2",
+	cfg, err = providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
+		Config: cfg,
+		Credentials: cloud.NewCredential(
+			cloud.AccessKeyAuthType,
+			map[string]string{
+				"access-key": "x",
+				"secret-key": "y",
+			},
+		),
+		CloudRegion: "test",
 	})
-	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-
-	ctx := envtesting.BootstrapContext(c)
-	env0, err := providerInstance.PrepareForBootstrap(ctx, cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	bucket0 := env0.(*environ).ecfg().controlBucket()
-	c.Assert(bucket0, gc.Matches, "[a-f0-9]{32}")
-
-	env1, err := providerInstance.PrepareForBootstrap(ctx, cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	bucket1 := env1.(*environ).ecfg().controlBucket()
-	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
-
-	c.Assert(bucket1, gc.Not(gc.Equals), bucket0)
-}
-
-func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
-	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type":           "ec2",
-		"control-bucket": "burblefoo",
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	bucket := env.(*environ).ecfg().controlBucket()
-	c.Assert(bucket, gc.Equals, "burblefoo")
+	source, ok := cfg.StorageDefaultBlockSource()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(source, gc.Equals, "ebs")
 }
 
 func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
@@ -379,12 +318,23 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
 	})
-	cfg, err := config.New(config.NoDefaults, attrs)
+	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
+	cfg, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
+		Config:      config,
+		CloudRegion: "test",
+		Credentials: cloud.NewCredential(
+			cloud.AccessKeyAuthType,
+			map[string]string{
+				"access-key": "x",
+				"secret-key": "y",
+			},
+		),
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	source, ok := env.(*environ).ecfg().StorageDefaultBlockSource()
+
+	source, ok := cfg.StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(source, gc.Equals, "ebs")
 }

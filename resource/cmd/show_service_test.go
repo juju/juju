@@ -66,56 +66,101 @@ func (s *ShowServiceSuite) TestInfo(c *gc.C) {
 		Args:    "service-or-unit",
 		Purpose: "show the resources for a service or unit",
 		Doc: `
-This command shows the resources required by and those in use by an existing service or unit in your model.
+This command shows the resources required by and those in use by an existing
+service or unit in your model.  When run for a service, it will also show any
+updates available for resources from the charmstore.
 `,
 	})
 }
 
 func (s *ShowServiceSuite) TestRun(c *gc.C) {
-	data := []resource.ServiceResources{{
-		Resources: []resource.Resource{
-			{
-				Resource: charmresource.Resource{
+	data := []resource.ServiceResources{
+		{
+			Resources: []resource.Resource{
+				{
+					Resource: charmresource.Resource{
+						Meta: charmresource.Meta{
+							Name:        "openjdk",
+							Description: "the java runtime",
+						},
+						Origin:   charmresource.OriginStore,
+						Revision: 7,
+					},
+				},
+				{
+					Resource: charmresource.Resource{
+						Meta: charmresource.Meta{
+							Name:        "website",
+							Description: "your website data",
+						},
+						Origin: charmresource.OriginUpload,
+					},
+				},
+				{
+					Resource: charmresource.Resource{
+						Meta: charmresource.Meta{
+							Name:        "rsc1234",
+							Description: "a big description",
+						},
+						Origin:   charmresource.OriginStore,
+						Revision: 15,
+					},
+					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+				},
+				{
+					Resource: charmresource.Resource{
+						Meta: charmresource.Meta{
+							Name:        "website2",
+							Description: "awesome data",
+						},
+						Origin: charmresource.OriginUpload,
+					},
+					Username:  "Bill User",
+					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+				},
+			},
+			CharmStoreResources: []charmresource.Resource{
+				{
+					// This resource has a higher revision than the corresponding one
+					// above.
 					Meta: charmresource.Meta{
 						Name:        "openjdk",
 						Description: "the java runtime",
+						Type:        charmresource.TypeFile,
+						Path:        "foobar",
 					},
+					Revision: 10,
 					Origin:   charmresource.OriginStore,
-					Revision: 7,
 				},
-			},
-			{
-				Resource: charmresource.Resource{
+				{
+					// This resource is the same revision as the corresponding one
+					// above.
+					Meta: charmresource.Meta{
+						Name:        "rsc1234",
+						Description: "a big description",
+						Type:        charmresource.TypeFile,
+						Path:        "foobar",
+					},
+					Revision: 15,
+					Origin:   charmresource.OriginStore,
+				},
+				{
 					Meta: charmresource.Meta{
 						Name:        "website",
 						Description: "your website data",
 					},
 					Origin: charmresource.OriginUpload,
 				},
-			},
-			{
-				Resource: charmresource.Resource{
-					Meta: charmresource.Meta{
-						Name:        "rsc1234",
-						Description: "a big description",
-					},
-					Origin:   charmresource.OriginStore,
-					Revision: 15,
-				},
-				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
-			},
-			{
-				Resource: charmresource.Resource{
+				{
 					Meta: charmresource.Meta{
 						Name:        "website2",
 						Description: "awesome data",
 					},
 					Origin: charmresource.OriginUpload,
 				},
-				Username:  "Bill User",
-				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 			},
-		}}}
+		},
+	}
 	s.stubDeps.client.ReturnResources = data
 
 	cmd := &ShowServiceCommand{
@@ -125,8 +170,8 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 	}
 
 	code, stdout, stderr := runCmd(c, cmd, "svc")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stderr, gc.Equals, "")
+	c.Check(code, gc.Equals, 0)
+	c.Check(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
 [Service]
@@ -135,6 +180,10 @@ openjdk  charmstore  7
 website  upload      -
 rsc1234  charmstore  15
 website2 Bill User   2012-12-12T12:12
+
+[Updates Available]
+RESOURCE REVISION
+openjdk  10
 
 `[1:])
 
@@ -164,10 +213,14 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 							Description: "awesome data",
 						},
 						Origin: charmresource.OriginUpload,
+						Size:   15,
 					},
 					Username:  "Bill User",
 					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 				},
+			},
+			DownloadProgress: map[string]int64{
+				"website2": 12,
 			},
 		}},
 	}}
@@ -205,6 +258,7 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 					},
 					Origin:   charmresource.OriginStore,
 					Revision: 15,
+					Size:     113,
 				},
 				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 			},
@@ -215,6 +269,7 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 						Description: "awesome data",
 					},
 					Origin: charmresource.OriginUpload,
+					Size:   9835617,
 				},
 				Username:  "Bill User",
 				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
@@ -229,6 +284,30 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 				},
 				Username:  "Bill User",
 				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+			},
+		},
+		CharmStoreResources: []charmresource.Resource{
+			{
+				Meta: charmresource.Meta{
+					Name:        "alpha",
+					Description: "a big comment",
+				},
+				Origin:   charmresource.OriginStore,
+				Revision: 15,
+			},
+			{
+				Meta: charmresource.Meta{
+					Name:        "charlie",
+					Description: "awesome data",
+				},
+				Origin: charmresource.OriginUpload,
+			},
+			{
+				Meta: charmresource.Meta{
+					Name:        "beta",
+					Description: "more data",
+				},
+				Origin: charmresource.OriginUpload,
 			},
 		},
 		UnitResources: []resource.UnitResources{
@@ -259,6 +338,10 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 						Timestamp: time.Date(2011, 11, 11, 11, 11, 11, 0, time.UTC),
 					},
 					// note we're missing the beta resource for this unit
+				},
+				DownloadProgress: map[string]int64{
+					"alpha":   17,
+					"charlie": 899937,
 				},
 			},
 			{
@@ -299,6 +382,9 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 					},
 				},
+				DownloadProgress: map[string]int64{
+					"charlie": 177331,
+				},
 			},
 		},
 	}}
@@ -311,18 +397,18 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 	}
 
 	code, stdout, stderr := runCmd(c, cmd, "svc", "--details")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stderr, gc.Equals, "")
+	c.Check(code, gc.Equals, 0)
+	c.Check(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
 [Units]
 UNIT RESOURCE REVISION         EXPECTED
 5    alpha    10               15
 5    beta     2012-12-12T12:12 2012-12-12T12:12
-5    charlie  2011-11-11T11:11 2012-12-12T12:12
-10   alpha    10               15
+5    charlie  2011-11-11T11:11 2012-12-12T12:12 (fetching: 2%)
+10   alpha    10               15 (fetching: 15%)
 10   beta     -                2012-12-12T12:12
-10   charlie  2011-11-11T11:11 2012-12-12T12:12
+10   charlie  2011-11-11T11:11 2012-12-12T12:12 (fetching: 9%)
 
 `[1:])
 
@@ -340,6 +426,7 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 					},
 					Origin:   charmresource.OriginStore,
 					Revision: 15,
+					Size:     113,
 				},
 				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
 			},
@@ -350,6 +437,7 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 						Description: "awesome data",
 					},
 					Origin: charmresource.OriginUpload,
+					Size:   9835617,
 				},
 				Username:  "Bill User",
 				Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
@@ -394,6 +482,9 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 						Timestamp: time.Date(2011, 11, 11, 11, 11, 11, 0, time.UTC),
 					},
 					// note we're missing the beta resource for this unit
+				},
+				DownloadProgress: map[string]int64{
+					"charlie": 17,
 				},
 			},
 			{
@@ -454,7 +545,7 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 RESOURCE REVISION         EXPECTED
 alpha    10               15
 beta     -                2012-12-12T12:12
-charlie  2011-11-11T11:11 2012-12-12T12:12
+charlie  2011-11-11T11:11 2012-12-12T12:12 (fetching: 0%)
 
 `[1:])
 

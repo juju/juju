@@ -9,6 +9,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
@@ -94,7 +95,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	response, err := s.controller.AllModels()
 	c.Assert(err, jc.ErrorIsNil)
 	// The results are sorted.
-	expected := []string{"dummymodel", "no-access", "owned", "user"}
+	expected := []string{"admin", "no-access", "owned", "user"}
 	var obtained []string
 	for _, env := range response.UserModels {
 		obtained = append(obtained, env.Name)
@@ -120,7 +121,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 
 	c.Assert(list.Models, jc.DeepEquals, []params.ModelBlockInfo{
 		params.ModelBlockInfo{
-			Name:     "dummymodel",
+			Name:     "admin",
 			UUID:     s.State.ModelUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
 			Blocks: []string{
@@ -150,7 +151,7 @@ func (s *controllerSuite) TestListBlockedModelsNoBlocks(c *gc.C) {
 func (s *controllerSuite) TestModelConfig(c *gc.C) {
 	env, err := s.controller.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Config["name"], gc.Equals, "dummymodel")
+	c.Assert(env.Config["name"], gc.Equals, "admin")
 }
 
 func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
@@ -163,7 +164,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := controller.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Config["name"], gc.Equals, "dummymodel")
+	c.Assert(env.Config["name"], gc.Equals, "admin")
 }
 
 func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
@@ -223,9 +224,8 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	otherEnvOwner := s.Factory.MakeModelUser(c, nil)
 	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name:    "dummytoo",
-		Owner:   otherEnvOwner.UserTag(),
-		Prepare: true,
+		Name:  "dummytoo",
+		Owner: otherEnvOwner.UserTag(),
 		ConfigAttrs: testing.Attrs{
 			"controller": false,
 		},
@@ -257,7 +257,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 		ModelTag:           controllerEnvTag,
 		HostedMachineCount: 1,
 		ServiceCount:       1,
-		OwnerTag:           "user-dummy-admin@local",
+		OwnerTag:           "user-admin@local",
 		Life:               params.Alive,
 	}, {
 		ModelTag:           hostedEnvTag,
@@ -266,4 +266,123 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 		OwnerTag:           otherEnvOwner.UserTag().String(),
 		Life:               params.Alive,
 	}})
+}
+
+func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
+	// Create two hosted models to migrate.
+	st1 := s.Factory.MakeModel(c, nil)
+	defer st1.Close()
+
+	st2 := s.Factory.MakeModel(c, nil)
+	defer st2.Close()
+
+	// Kick off the migration.
+	args := params.InitiateModelMigrationArgs{
+		Specs: []params.ModelMigrationSpec{
+			{
+				ModelTag: st1.ModelTag().String(),
+				TargetInfo: params.ModelMigrationTargetInfo{
+					ControllerTag: randomModelTag(),
+					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
+					CACert:        "cert1",
+					AuthTag:       names.NewUserTag("admin1").String(),
+					Password:      "secret1",
+				},
+			}, {
+				ModelTag: st2.ModelTag().String(),
+				TargetInfo: params.ModelMigrationTargetInfo{
+					ControllerTag: randomModelTag(),
+					Addrs:         []string{"3.3.3.3:3333"},
+					CACert:        "cert2",
+					AuthTag:       names.NewUserTag("admin2").String(),
+					Password:      "secret2",
+				},
+			},
+		},
+	}
+	out, err := s.controller.InitiateModelMigration(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.Results, gc.HasLen, 2)
+
+	states := []*state.State{st1, st2}
+	for i, spec := range args.Specs {
+		st := states[i]
+		result := out.Results[i]
+
+		c.Check(result.Error, gc.IsNil)
+		c.Check(result.ModelTag, gc.Equals, spec.ModelTag)
+		expectedId := st.ModelUUID() + ":0"
+		c.Check(result.Id, gc.Equals, expectedId)
+
+		// Ensure the migration made it into the DB correctly.
+		mig, err := st.GetModelMigration()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(mig.Id(), gc.Equals, expectedId)
+		c.Check(mig.ModelUUID(), gc.Equals, st.ModelUUID())
+		c.Check(mig.InitiatedBy(), gc.Equals, s.AdminUserTag(c).Id())
+		targetInfo, err := mig.TargetInfo()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(targetInfo.ControllerTag.String(), gc.Equals, spec.TargetInfo.ControllerTag)
+		c.Check(targetInfo.Addrs, jc.SameContents, spec.TargetInfo.Addrs)
+		c.Check(targetInfo.CACert, gc.Equals, spec.TargetInfo.CACert)
+		c.Check(targetInfo.AuthTag.String(), gc.Equals, spec.TargetInfo.AuthTag)
+		c.Check(targetInfo.Password, gc.Equals, spec.TargetInfo.Password)
+	}
+}
+
+func (s *controllerSuite) TestInitiateModelMigrationValidationError(c *gc.C) {
+	// Create a hosted model to migrate.
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	// Kick off the migration with missing details.
+	args := params.InitiateModelMigrationArgs{
+		Specs: []params.ModelMigrationSpec{{
+			ModelTag: st.ModelTag().String(),
+			// TargetInfo missing
+		}},
+	}
+	out, err := s.controller.InitiateModelMigration(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.Results, gc.HasLen, 1)
+	result := out.Results[0]
+	c.Check(result.ModelTag, gc.Equals, args.Specs[0].ModelTag)
+	c.Check(result.Id, gc.Equals, "")
+	c.Check(result.Error, gc.ErrorMatches, "controller tag: .+ is not a valid tag")
+}
+
+func (s *controllerSuite) TestInitiateModelMigrationPartialFailure(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	args := params.InitiateModelMigrationArgs{
+		Specs: []params.ModelMigrationSpec{
+			{
+				ModelTag: st.ModelTag().String(),
+				TargetInfo: params.ModelMigrationTargetInfo{
+					ControllerTag: randomModelTag(),
+					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
+					CACert:        "cert",
+					AuthTag:       names.NewUserTag("admin").String(),
+					Password:      "secret",
+				},
+			}, {
+				ModelTag: randomModelTag(), // Doesn't exist.
+			},
+		},
+	}
+	out, err := s.controller.InitiateModelMigration(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.Results, gc.HasLen, 2)
+
+	c.Check(out.Results[0].ModelTag, gc.Equals, st.ModelTag().String())
+	c.Check(out.Results[0].Error, gc.IsNil)
+
+	c.Check(out.Results[1].ModelTag, gc.Equals, args.Specs[1].ModelTag)
+	c.Check(out.Results[1].Error, gc.ErrorMatches, "unable to read model: .+")
+}
+
+func randomModelTag() string {
+	uuid := utils.MustNewUUID().String()
+	return names.NewModelTag(uuid).String()
 }

@@ -7,8 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-
-	"github.com/juju/utils"
 )
 
 // Current agent config format is defined as follows:
@@ -56,15 +54,6 @@ const agentConfigFilename = "agent.conf"
 
 // formatPrefix is prefix of the first line in an agent config file.
 const formatPrefix = "# format "
-
-func writeFileCommands(filename string, contents []byte, permission int) []string {
-	quotedFilename := utils.ShQuote(filename)
-	quotedContents := utils.ShQuote(string(contents))
-	return []string{
-		fmt.Sprintf("install -m %o /dev/null %s", permission, quotedFilename),
-		fmt.Sprintf(`printf '%%s\n' %s > %s`, quotedContents, quotedFilename),
-	}
-}
 
 func getFormatter(version string) (formatter, error) {
 	version = strings.TrimSpace(version)

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -21,44 +22,6 @@ type CmdSuite struct {
 }
 
 var _ = gc.Suite(&CmdSuite{})
-
-const modelConfig = `
-default:
-    peckham
-environments:
-    peckham:
-        type: dummy
-        controller: false
-        admin-secret: arble
-        authorized-keys: i-am-a-key
-        default-series: raring
-    walthamstow:
-        type: dummy
-        controller: false
-        authorized-keys: i-am-a-key
-    brokenenv:
-        type: dummy
-        broken: Bootstrap Destroy
-        controller: false
-        authorized-keys: i-am-a-key
-        agent-stream: proposed
-    devenv:
-        type: dummy
-        controller: false
-        admin-secret: arble
-        authorized-keys: i-am-a-key
-        default-series: raring
-        agent-stream: proposed
-`
-
-func (s *CmdSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	coretesting.WriteEnvironments(c, modelConfig, "peckham", "walthamstow", "brokenenv")
-}
-
-func (s *CmdSuite) TearDownTest(c *gc.C) {
-	s.JujuConnSuite.TearDownTest(c)
-}
 
 var deployTests = []struct {
 	args []string
@@ -88,7 +51,7 @@ var deployTests = []struct {
 	},
 }
 
-func initExpectations(com *DeployCommand) {
+func initExpectations(com *DeployCommand, store jujuclient.ClientStore) {
 	if com.CharmOrBundle == "" {
 		com.CharmOrBundle = "charm-name"
 	}
@@ -98,21 +61,24 @@ func initExpectations(com *DeployCommand) {
 	if com.RepoPath == "" {
 		com.RepoPath = "/path/to/repo"
 	}
-	com.SetModelName("peckham")
+	com.SetClientStore(store)
+	com.SetModelName("admin")
 }
 
-func initDeployCommand(args ...string) (*DeployCommand, error) {
+func initDeployCommand(store jujuclient.ClientStore, args ...string) (*DeployCommand, error) {
 	com := &DeployCommand{}
+	com.SetClientStore(store)
 	return com, coretesting.InitCommand(modelcmd.Wrap(com), args)
 }
 
-func (*CmdSuite) TestDeployCommandInit(c *gc.C) {
+func (s *CmdSuite) TestDeployCommandInit(c *gc.C) {
 	defer os.Setenv(osenv.JujuRepositoryEnvKey, os.Getenv(osenv.JujuRepositoryEnvKey))
 	os.Setenv(osenv.JujuRepositoryEnvKey, "/path/to/repo")
 
-	for _, t := range deployTests {
-		initExpectations(t.com)
-		com, err := initDeployCommand(t.args...)
+	for i, t := range deployTests {
+		c.Logf("\ntest %d: args %q", i, t.args)
+		initExpectations(t.com, s.ControllerStore)
+		com, err := initDeployCommand(s.ControllerStore, t.args...)
 		// Testing that the flag set is populated is good enough for the scope
 		// of this test.
 		c.Assert(com.flagSet, gc.NotNil)
@@ -131,20 +97,20 @@ func (*CmdSuite) TestDeployCommandInit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	file.Close()
 
-	com, err := initDeployCommand("--config", "testconfig.yaml", "charm-name")
+	com, err := initDeployCommand(s.ControllerStore, "--config", "testconfig.yaml", "charm-name")
 	c.Assert(err, jc.ErrorIsNil)
 	actual, err := com.Config.Read(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(expected, gc.DeepEquals, actual)
 
 	// missing args
-	_, err = initDeployCommand()
+	_, err = initDeployCommand(s.ControllerStore)
 	c.Assert(err, gc.ErrorMatches, "no charm or bundle specified")
 
 	// bad unit count
-	_, err = initDeployCommand("charm-name", "--num-units", "0")
+	_, err = initDeployCommand(s.ControllerStore, "charm-name", "--num-units", "0")
 	c.Assert(err, gc.ErrorMatches, "--num-units must be a positive integer")
-	_, err = initDeployCommand("charm-name", "-n", "0")
+	_, err = initDeployCommand(s.ControllerStore, "charm-name", "-n", "0")
 	c.Assert(err, gc.ErrorMatches, "--num-units must be a positive integer")
 
 	// environment tested elsewhere

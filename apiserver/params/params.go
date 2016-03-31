@@ -13,6 +13,7 @@ import (
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon.v1"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // FindTags wraps a slice of strings that are prefixes to use when
@@ -224,10 +224,18 @@ type ServiceUpdate struct {
 
 // ServiceSetCharm sets the charm for a given service.
 type ServiceSetCharm struct {
+	// ServiceName is the name of the service to set the charm on.
 	ServiceName string `json:"servicename"`
-	CharmUrl    string `json:"charmurl"`
-	ForceUnits  bool   `json:"forceunits"`
-	ForceSeries bool   `json:"forceseries"`
+	// CharmUrl is the new url for the charm.
+	CharmUrl string `json:"charmurl"`
+	// ForceUnits forces the upgrade on units in an error state.
+	ForceUnits bool `json:"forceunits"`
+	// ForceSeries forces the use of the charm even if it doesn't match the
+	// series of the unit.
+	ForceSeries bool `json:"forceseries"`
+	// ResourceIDs is a map of resource names to resource IDs to activate during
+	// the upgrade.
+	ResourceIDs map[string]string `json:"resourceids"`
 }
 
 // ServiceExpose holds the parameters for making the service Expose call.
@@ -824,4 +832,15 @@ type MeterStatusParam struct {
 // MeterStatusParams holds parameters for making SetMeterStatus calls.
 type MeterStatusParams struct {
 	Statuses []MeterStatusParam `json:"statues"`
+}
+
+// MacaroonResults contains a set of MacaroonResults.
+type MacaroonResults struct {
+	Results []MacaroonResult `json:"results"`
+}
+
+// MacaroonResult contains a macaroon or an error.
+type MacaroonResult struct {
+	Result *macaroon.Macaroon `json:"result,omitempty"`
+	Error  *Error             `json:"error,omitempty"`
 }

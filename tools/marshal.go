@@ -4,9 +4,8 @@
 package tools
 
 import (
+	"github.com/juju/version"
 	"gopkg.in/mgo.v2/bson"
-
-	"github.com/juju/juju/version"
 )
 
 type toolsDoc struct {

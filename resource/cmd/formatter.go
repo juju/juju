@@ -77,8 +77,50 @@ func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 	}
 }
 
+func formatServiceResources(sr resource.ServiceResources) (FormattedServiceInfo, error) {
+	var formatted FormattedServiceInfo
+	updates, err := sr.Updates()
+	if err != nil {
+		return formatted, errors.Trace(err)
+	}
+	formatted = FormattedServiceInfo{
+		Resources: make([]FormattedSvcResource, len(sr.Resources)),
+		Updates:   make([]FormattedCharmResource, len(updates)),
+	}
+
+	for i, r := range sr.Resources {
+		formatted.Resources[i] = FormatSvcResource(r)
+	}
+	for i, u := range updates {
+		formatted.Updates[i] = FormatCharmResource(u)
+	}
+	return formatted, nil
+}
+
+// FormatServiceDetails converts a ServiceResources value into a formatted value
+// for display on the command line.
+func FormatServiceDetails(sr resource.ServiceResources) (FormattedServiceDetails, error) {
+	var formatted FormattedServiceDetails
+	details, err := detailedResources("", sr)
+	if err != nil {
+		return formatted, errors.Trace(err)
+	}
+	updates, err := sr.Updates()
+	if err != nil {
+		return formatted, errors.Trace(err)
+	}
+	formatted = FormattedServiceDetails{
+		Resources: details,
+		Updates:   make([]FormattedCharmResource, len(updates)),
+	}
+	for i, u := range updates {
+		formatted.Updates[i] = FormatCharmResource(u)
+	}
+	return formatted, nil
+}
+
 // FormatDetailResource converts the arguments into a FormattedServiceResource.
-func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource) (FormattedDetailResource, error) {
+func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource, progress int64) (FormattedDetailResource, error) {
 	// note that the unit resource can be a zero value here, to indicate that
 	// the unit has not downloaded that resource yet.
 
@@ -86,11 +128,27 @@ func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource) (Forma
 	if err != nil {
 		return FormattedDetailResource{}, errors.Trace(err)
 	}
+	progressStr := ""
+	fUnit := FormatSvcResource(unit)
+	expected := FormatSvcResource(svc)
+	revProgress := expected.combinedRevision
+	if progress >= 0 {
+		progressStr = "100%"
+		if expected.Size > 0 {
+			progressStr = fmt.Sprintf("%.f%%", float64(progress)*100.0/float64(expected.Size))
+		}
+		if fUnit.combinedRevision != expected.combinedRevision {
+			revProgress = fmt.Sprintf("%s (fetching: %s)", expected.combinedRevision, progressStr)
+		}
+	}
 	return FormattedDetailResource{
-		UnitID:     tag.Id(),
-		unitNumber: unitNum,
-		Unit:       FormatSvcResource(unit),
-		Expected:   FormatSvcResource(svc),
+		UnitID:      tag.Id(),
+		unitNumber:  unitNum,
+		Unit:        fUnit,
+		Expected:    expected,
+		Progress:    progress,
+		progress:    progressStr,
+		revProgress: revProgress,
 	}, nil
 }
 
@@ -133,4 +191,39 @@ func unitNum(unit names.UnitTag) (int, error) {
 		return 0, errors.Annotatef(err, "%q is not a valid unit ID", unit.Id())
 	}
 	return num, nil
+}
+
+// detailedResources shows the version of each resource on each unit, with the
+// corresponding version of the resource that exists in the controller. if unit
+// is non-empty, only units matching that unitID will be returned.
+func detailedResources(unit string, sr resource.ServiceResources) ([]FormattedDetailResource, error) {
+	var formatted []FormattedDetailResource
+	for _, ur := range sr.UnitResources {
+		if unit == "" || unit == ur.Tag.Id() {
+			units := resourceMap(ur.Resources)
+			for _, svc := range sr.Resources {
+				progress, ok := ur.DownloadProgress[svc.Name]
+				if !ok {
+					progress = -1
+				}
+				f, err := FormatDetailResource(ur.Tag, svc, units[svc.Name], progress)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				formatted = append(formatted, f)
+			}
+			if unit != "" {
+				break
+			}
+		}
+	}
+	return formatted, nil
+}
+
+func resourceMap(resources []resource.Resource) map[string]resource.Resource {
+	m := make(map[string]resource.Resource, len(resources))
+	for _, res := range resources {
+		m[res.Name] = res
+	}
+	return m
 }

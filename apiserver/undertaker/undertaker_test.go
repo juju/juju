@@ -32,7 +32,7 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, envName strin
 		EnvironManager: true,
 	}
 
-	st := newMockState(names.NewUserTag("dummy-admin"), envName, isSystem)
+	st := newMockState(names.NewUserTag("admin"), envName, isSystem)
 	api, err := undertaker.NewUndertaker(st, nil, authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	return st, api
@@ -48,7 +48,7 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 			EnvironManager: true,
 		},
 	} {
-		st := newMockState(names.NewUserTag("dummy-admin"), "dummymodel", true)
+		st := newMockState(names.NewUserTag("admin"), "admin", true)
 		_, err := undertaker.NewUndertaker(
 			st,
 			nil,
@@ -60,7 +60,7 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 
 func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 	otherSt, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
-	st, api := s.setupStateAndAPI(c, true, "dummymodel")
+	st, api := s.setupStateAndAPI(c, true, "admin")
 	for _, test := range []struct {
 		st       *mockState
 		api      *undertaker.UndertakerAPI
@@ -68,7 +68,7 @@ func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 		envName  string
 	}{
 		{otherSt, hostedAPI, false, "hostedenv"},
-		{st, api, true, "dummymodel"},
+		{st, api, true, "admin"},
 	} {
 		env, err := test.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
@@ -82,7 +82,7 @@ func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 		c.Assert(result.Error, gc.IsNil)
 
 		c.Assert(info.UUID, gc.Equals, env.UUID())
-		c.Assert(info.GlobalName, gc.Equals, "user-dummy-admin/"+test.envName)
+		c.Assert(info.GlobalName, gc.Equals, "user-admin/"+test.envName)
 		c.Assert(info.Name, gc.Equals, test.envName)
 		c.Assert(info.IsSystem, gc.Equals, test.isSystem)
 		c.Assert(info.Life, gc.Equals, params.Dying)

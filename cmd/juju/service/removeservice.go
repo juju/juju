@@ -5,7 +5,6 @@ package service
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -119,16 +118,13 @@ func (c *removeServiceCommand) removeAllocation(ctx *cmd.Context) error {
 	}
 
 	modelUUID := client.ModelUUID()
-	httpClient, err := c.HTTPClient()
+	bakeryClient, err := c.BakeryClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	bClient, err := getBudgetAPIClient(httpClient)
-	if err != nil {
-		return errors.Trace(err)
-	}
+	budgetClient := getBudgetAPIClient(bakeryClient)
 
-	resp, err := bClient.DeleteAllocation(modelUUID, c.ServiceName)
+	resp, err := budgetClient.DeleteAllocation(modelUUID, c.ServiceName)
 	if wireformat.IsNotAvail(err) {
 		fmt.Fprintf(ctx.Stdout, "WARNING: Allocation not removed - %s.\n", err.Error())
 	} else if err != nil {
@@ -142,10 +138,8 @@ func (c *removeServiceCommand) removeAllocation(ctx *cmd.Context) error {
 
 var getBudgetAPIClient = getBudgetAPIClientImpl
 
-func getBudgetAPIClientImpl(client *http.Client) (budgetAPIClient, error) {
-	bakeryClient := &httpbakery.Client{Client: client, VisitWebPage: httpbakery.OpenWebBrowser}
-	c := budget.NewClient(bakeryClient)
-	return c, nil
+func getBudgetAPIClientImpl(bakeryClient *httpbakery.Client) budgetAPIClient {
+	return budget.NewClient(bakeryClient)
 }
 
 type budgetAPIClient interface {

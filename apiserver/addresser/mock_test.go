@@ -390,7 +390,11 @@ type mockEnvironProvider struct {
 	environs.EnvironProvider
 }
 
-func (p mockEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (p mockEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+	return args.Config, nil
+}
+
+func (p mockEnvironProvider) PrepareForBootstrap(environs.BootstrapContext, *config.Config) (environs.Environ, error) {
 	return &mockEnviron{}, nil
 }
 

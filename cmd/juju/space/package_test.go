@@ -36,6 +36,16 @@ type BaseSpaceSuite struct {
 
 var _ = gc.Suite(&BaseSpaceSuite{})
 
+func (s *BaseSpaceSuite) SetUpSuite(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
+}
+
+func (s *BaseSpaceSuite) TearDownSuite(c *gc.C) {
+	s.BaseSuite.TearDownSuite(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
+}
+
 func (s *BaseSpaceSuite) SetUpTest(c *gc.C) {
 	// If any post-MVP command suite enabled the flag, keep it.
 	hasFeatureFlag := featureflag.Enabled(feature.PostNetCLIMVP)
@@ -55,6 +65,11 @@ func (s *BaseSpaceSuite) SetUpTest(c *gc.C) {
 
 	// All subcommand suites embedding this one should initialize
 	// s.command immediately after calling this method!
+}
+
+func (s *BaseSpaceSuite) TearDownTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 // RunSuperCommand executes the super command passing any args and
@@ -133,20 +148,20 @@ func (s *BaseSpaceSuite) TestHelp(c *gc.C) {
 	if s.command != nil {
 		// Subcommands embed ModelCommandBase
 		cmdInfo = s.command.Info()
-		expected = "(?sm).*^usage: juju space " +
+		expected = "(?sm).*^Usage: juju space " +
 			regexp.QuoteMeta(cmdInfo.Name) +
 			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
 	} else {
-		expected = "(?sm).*^usage: juju space" +
+		expected = "(?sm).*^Usage: juju space" +
 			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
 	}
 	c.Check(cmdInfo, gc.NotNil)
 	c.Check(stderr, gc.Matches, expected)
 
-	expected = "(?sm).*^purpose: " + regexp.QuoteMeta(cmdInfo.Purpose) + "$.*"
+	expected = "(?sm).*^Summary:\n" + regexp.QuoteMeta(cmdInfo.Purpose) + "$.*"
 	c.Check(stderr, gc.Matches, expected)
 
-	expected = "(?sm).*^" + regexp.QuoteMeta(cmdInfo.Doc) + "$.*"
+	expected = "(?sm).*^Details:\n" + regexp.QuoteMeta(cmdInfo.Doc) + "$.*"
 	c.Check(stderr, gc.Matches, expected)
 }
 

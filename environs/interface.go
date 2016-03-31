@@ -4,6 +4,7 @@
 package environs
 
 import (
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -26,11 +27,14 @@ type EnvironProvider interface {
 	// local files, etc are not available.
 	PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error)
 
-	// PrepareForBootstrap prepares an environment for use. Any additional
-	// configuration attributes in the returned environment should
-	// be saved to be used later. If the environment is already
-	// prepared, this call is equivalent to Open.
+	// PrepareForBootstrap prepares an environment for use.
 	PrepareForBootstrap(ctx BootstrapContext, cfg *config.Config) (Environ, error)
+
+	// BootstrapConfig produces the configuration for the initial controller
+	// model, based on the provided arguments. BootstrapConfig is expected
+	// to produce a deterministic output. Any unique values should be based
+	// on the "uuid" attribute of the base configuration.
+	BootstrapConfig(BootstrapConfigParams) (*config.Config, error)
 
 	// Open opens the environment and returns it.
 	// The configuration must have come from a previously
@@ -44,20 +48,77 @@ type EnvironProvider interface {
 	// for consideration when validating changes.
 	Validate(cfg, old *config.Config) (valid *config.Config, err error)
 
-	// Boilerplate returns a default configuration for the environment in yaml format.
-	// The text should be a key followed by some number of attributes:
-	//    `environName:
-	//        type: environTypeName
-	//        attr1: val1
-	//    `
-	// The text is used as a template (see the template package) with one extra template
-	// function available, rand, which expands to a random hexadecimal string when invoked.
-	BoilerplateConfig() string
-
 	// SecretAttrs filters the supplied configuration returning only values
 	// which are considered sensitive. All of the values of these secret
 	// attributes need to be strings.
 	SecretAttrs(cfg *config.Config) (map[string]string, error)
+
+	ProviderCredentials
+}
+
+// BootstrapConfigParams contains the parameters for EnvironProvider.BootstrapConfig.
+type BootstrapConfigParams struct {
+	// Config is the base configuration for the provider. This should
+	// be updated with the region, endpoint and credentials.
+	Config *config.Config
+
+	// Credentials is the set of credentials to use to bootstrap.
+	//
+	// TODO(axw) rename field to Credential.
+	Credentials cloud.Credential
+
+	// CloudRegion is the name of the region of the cloud to create
+	// the Juju controller in. This will be empty for clouds without
+	// regions.
+	CloudRegion string
+
+	// CloudEndpoint is the location of the primary API endpoint to
+	// use when communicating with the cloud.
+	CloudEndpoint string
+
+	// CloudStorageEndpoint is the location of the API endpoint to use
+	// when communicating with the cloud's storage service. This will
+	// be empty for clouds that have no cloud-specific API endpoint.
+	CloudStorageEndpoint string
+}
+
+// ProviderCredentials is an interface that an EnvironProvider implements
+// in order to validate and automatically detect credentials for clouds
+// supported by the provider.
+//
+// TODO(axw) replace CredentialSchemas with an updated environschema.
+// The GUI also needs to be able to handle multiple credential types,
+// and dependencies in config attributes.
+type ProviderCredentials interface {
+	// CredentialSchemas returns credential schemas, keyed on
+	// authentication type. These may be used to validate existing
+	// credentials, or to generate new ones (e.g. to create an
+	// interactive form.)
+	CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema
+
+	// DetectCredentials automatically detects one or more credentials
+	// from the environment. This may involve, for example, inspecting
+	// environment variables, or reading configuration files in
+	// well-defined locations.
+	//
+	// If no credentials can be detected, DetectCredentials should
+	// return an error satisfying errors.IsNotFound.
+	DetectCredentials() (*cloud.CloudCredential, error)
+}
+
+// CloudRegionDetector is an interface that an EnvironProvider implements
+// in order to automatically detect cloud regions from the environment.
+type CloudRegionDetector interface {
+	// DetectRetions automatically detects one or more regions
+	// from the environment. This may involve, for example, inspecting
+	// environment variables, or returning special hard-coded regions
+	// (e.g. "localhost" for lxd). The first item in the list will be
+	// considered the default region for bootstrapping if the user
+	// does not specify one.
+	//
+	// If no regions can be detected, DetectRegions should return
+	// an error satisfying errors.IsNotFound.
+	DetectRegions() ([]cloud.Region, error)
 }
 
 // ModelConfigUpgrader is an interface that an EnvironProvider may
@@ -82,8 +143,7 @@ type ConfigGetter interface {
 	Config() *config.Config
 }
 
-// An Environ represents a juju environment as specified
-// in the environments.yaml file.
+// An Environ represents a Juju environment.
 //
 // Due to the limitations of some providers (for example ec2), the
 // results of the Environ methods may not be fully sequentially
@@ -187,4 +247,16 @@ type InstanceTagger interface {
 	// The specified tags will replace any existing ones with the
 	// same names, but other existing tags will be left alone.
 	TagInstance(id instance.Id, tags map[string]string) error
+}
+
+// MigrationConfigUpdater is an optional interface that a provider
+// can implement that will be called when the model is being imported
+// into a new controller as part of model migration. If the provider stores
+// information specific to the controller, this information can be extracted
+// from the controller config.
+//
+// The return value is a map containing changes that are necessary to be
+// applied to the model's config for the new controller.
+type MigrationConfigUpdater interface {
+	MigrationConfigUpdate(controllerConfig *config.Config) map[string]interface{}
 }

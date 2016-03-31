@@ -30,6 +30,7 @@ import (
 	"github.com/juju/utils/ssh"
 	sshtesting "github.com/juju/utils/ssh/testing"
 	"github.com/juju/utils/symlink"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
@@ -63,11 +64,12 @@ import (
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apicaller"
@@ -76,6 +78,7 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
+	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
@@ -103,6 +106,8 @@ type commonMachineSuite struct {
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
+	s.AgentSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongo.DefaultDialOpts())
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -111,11 +116,9 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
-	s.AgentSuite.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.AgentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
-	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongo.DefaultDialOpts())
 
 	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
 	s.AgentSuite.PatchValue(&authenticationworker.SSHUser, "")
@@ -173,7 +176,7 @@ func (s *commonMachineSuite) TearDownTest(c *gc.C) {
 // agent's configuration and the tools currently running.
 func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
 	vers := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -235,13 +238,28 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 	return m, agentConfig, tools
 }
 
+func NewTestMachineAgentFactory(
+	agentConfWriter AgentConfigWriter,
+	bufferedLogs logsender.LogRecordCh,
+	rootDir string,
+) func(string) *MachineAgent {
+	return func(machineId string) *MachineAgent {
+		return NewMachineAgent(
+			machineId,
+			agentConfWriter,
+			bufferedLogs,
+			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
+			&mockLoopDeviceManager{},
+			rootDir,
+		)
+	}
+}
+
 // newAgent returns a new MachineAgent instance
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	agentConf := agentConf{dataDir: s.DataDir()}
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
-	machineAgentFactory := MachineAgentFactoryFn(
-		&agentConf, nil, &mockLoopDeviceManager{}, c.MkDir(),
-	)
+	machineAgentFactory := NewTestMachineAgentFactory(&agentConf, nil, c.MkDir())
 	return machineAgentFactory(m.Id())
 }
 
@@ -250,7 +268,7 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		agentConf := agentConf{dataDir: s.DataDir()}
 		a := NewMachineAgentCmd(
 			nil,
-			MachineAgentFactoryFn(&agentConf, nil, &mockLoopDeviceManager{}, c.MkDir()),
+			NewTestMachineAgentFactory(&agentConf, nil, c.MkDir()),
 			&agentConf,
 			&agentConf,
 		)
@@ -325,7 +343,7 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(agentConf, nil, &mockLoopDeviceManager{}, c.MkDir()),
+		NewTestMachineAgentFactory(&agentConf, nil, c.MkDir()),
 		agentConf,
 		agentConf,
 	)
@@ -349,7 +367,7 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(agentConf, nil, &mockLoopDeviceManager{}, c.MkDir()),
+		NewTestMachineAgentFactory(&agentConf, nil, c.MkDir()),
 		agentConf,
 		agentConf,
 	)
@@ -466,7 +484,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 	// "start the agent" for u0 to prevent short-circuited remove-on-destroy;
 	// check that it's kept deployed despite being Dying.
-	err = u0.SetAgentStatus(state.StatusIdle, "", nil)
+	err = u0.SetAgentStatus(status.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -487,11 +505,16 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	// removing its deployment, so we need to poll here
 	// until it actually happens.
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		err := u0.Refresh()
-		if err == nil && attempt.HasNext() {
-			continue
+		if !attempt.HasNext() {
+			c.Fatalf("timeout waiting for unit %q to be removed", u0.Name())
 		}
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+		if err := u0.Refresh(); err == nil {
+			c.Logf("waiting unit %q to be removed...", u0.Name())
+			continue
+		} else {
+			c.Assert(err, jc.Satisfies, errors.IsNotFound)
+			break
+		}
 	}
 
 	// short-circuit-remove u1 after it's been deployed; check it's recalled
@@ -533,7 +556,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 
 func (s *MachineSuite) TestManageModel(c *gc.C) {
 	usefulVersion := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: "quantal", // to match the charm created below
 	}
@@ -549,13 +572,9 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 	go func() {
 		done <- a.Run(nil)
 	}()
-
-	// See controller runners start
+	c.Logf("started test agent, waiting for workers...")
 	r0 := s.singularRecord.nextRunner(c)
 	r0.waitForWorker(c, "txnpruner")
-
-	r1 := s.singularRecord.nextRunner(c)
-	r1.waitForWorkers(c, perEnvSingularWorkers)
 
 	// Check that the provisioner and firewaller are alive by doing
 	// a rudimentary check that it responds to state changes.
@@ -568,14 +587,19 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := juju.AddUnits(s.State, svc, 1, nil)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("service %q added with 1 unit, waiting for unit %q's machine to be started...", svc.Name(), units[0].Name())
+
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), gc.NotNil)
+	c.Logf("machine hosting unit %q started, waiting for the unit to be deployed...", units[0].Name())
 
 	// Wait for the instance id to show up in the state.
 	s.waitProvisioned(c, units[0])
+	c.Logf("unit %q deployed, opening port tcp/999...", units[0].Name())
 	err = units[0].OpenPort("tcp", 999)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpOpenPorts{}), gc.NotNil)
+	c.Logf("unit %q port tcp/999 opened, cleaning up...", units[0].Name())
 
 	// Check that the metrics workers have started by adding metrics
 	select {
@@ -583,11 +607,13 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 		c.Fatalf("timed out waiting for metric cleanup API to be called")
 	case <-s.metricAPI.CleanupCalled():
 	}
+	c.Logf("metric cleanup API called")
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for metric sender API to be called")
 	case <-s.metricAPI.SendCalled():
 	}
+	c.Logf("metric sender API called, stopping test agent...")
 
 	err = a.Stop()
 	c.Assert(err, jc.ErrorIsNil)
@@ -595,16 +621,17 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 	select {
 	case err := <-done:
 		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(5 * time.Second):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
+	c.Logf("test agent stopped successfully.")
 }
 
 func (s *MachineSuite) TestManageModelRunsResumer(c *gc.C) {
 	started := newSignal()
-	s.AgentSuite.PatchValue(&newResumer, func(st resumer.TransactionResumer) *resumer.Resumer {
+	s.AgentSuite.PatchValue(&resumer.NewResumer, func(st resumer.TransactionResumer) worker.Worker {
 		started.trigger()
-		return resumer.NewResumer(st)
+		return newDummyWorker()
 	})
 
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
@@ -614,10 +641,6 @@ func (s *MachineSuite) TestManageModelRunsResumer(c *gc.C) {
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
 
-	// Wait for the worker that starts before the resumer to start.
-	_ = s.singularRecord.nextRunner(c)
-	r := s.singularRecord.nextRunner(c)
-	r.waitForWorker(c, "charm-revision-updater")
 	started.assertTriggered(c, "resumer worker to start")
 }
 
@@ -635,11 +658,6 @@ func (s *MachineSuite) TestManageModelStartsInstancePoller(c *gc.C) {
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
 
-	// Wait for the worker that starts before the instancepoller to
-	// start.
-	_ = s.singularRecord.nextRunner(c)
-	r := s.singularRecord.nextRunner(c)
-	r.waitForWorker(c, "charm-revision-updater")
 	started.assertTriggered(c, "instancepoller worker to start")
 }
 
@@ -672,7 +690,7 @@ func (s *MachineSuite) TestManageModelDoesNotRunFirewallerWhenModeIsNone(c *gc.C
 func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	usefulVersion := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: "quantal", // to match the charm created below
 	}
@@ -702,8 +720,8 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	dummy.SetInstanceAddresses(insts[0], addrs)
 	dummy.SetInstanceStatus(insts[0], "running")
 
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if !a.HasNext() {
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		if !attempt.HasNext() {
 			c.Logf("final machine addresses: %#v", m.Addresses())
 			c.Fatalf("timed out waiting for machine to get address")
 		}
@@ -711,9 +729,12 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		instStatus, err := m.InstanceStatus()
 		c.Assert(err, jc.ErrorIsNil)
-		if reflect.DeepEqual(m.Addresses(), addrs) && instStatus == "running" {
+		c.Logf("found status is %q %q", instStatus.Status, instStatus.Message)
+		if reflect.DeepEqual(m.Addresses(), addrs) && instStatus.Message == "running" {
+			c.Logf("machine %q address updated: %+v", m.Id(), addrs)
 			break
 		}
+		c.Logf("waiting for machine %q address to be updated", m.Id())
 	}
 }
 
@@ -759,10 +780,6 @@ func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
 
-	// Wait for the worker that starts before the addresser to start.
-	_ = s.singularRecord.nextRunner(c)
-	r := s.singularRecord.nextRunner(c)
-	r.waitForWorker(c, "cleaner")
 	started.assertTriggered(c, "addresser to start")
 }
 
@@ -800,7 +817,7 @@ func (s *MachineSuite) TestManageModelRunsStatusHistoryPruner(c *gc.C) {
 func (s *MachineSuite) TestManageModelCallsUseMultipleCPUs(c *gc.C) {
 	// If it has been enabled, the JobManageModel agent should call utils.UseMultipleCPUs
 	usefulVersion := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: "quantal", // to match the charm created below
 	}
@@ -847,6 +864,8 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 		select {
 		case <-timeout:
 			c.Fatalf("timed out waiting for provisioning")
+		case <-time.After(coretesting.ShortWait):
+			s.State.StartSync()
 		case _, ok := <-w.Changes():
 			c.Assert(ok, jc.IsTrue)
 			err := m.Refresh()
@@ -863,7 +882,7 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 
 func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, currentTools *tools.Tools) {
 	newVers := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -927,7 +946,7 @@ func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgen
 	select {
 	case err := <-done:
 		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(5 * time.Second):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
 }
@@ -1033,7 +1052,7 @@ func (s *MachineSuite) assertDiscoveryBlocksAPIUntilChannelClosed(c *gc.C, space
 	info.Tag = s.AdminUserTag(c)
 	// User can't log in
 	_, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.ErrorMatches, "space discovery still in progress")
+	c.Assert(err, gc.ErrorMatches, "spaces are still being discovered")
 
 	// Local machine can log in
 	info, ok = conf.APIInfo()
@@ -1092,7 +1111,7 @@ func (s *MachineSuite) TestSpaceDiscoveryErrorDoesntBlockAPI(c *gc.C) {
 
 func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
 	vers := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -1114,11 +1133,11 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob
 			c.Log("Fetching agent tools")
 			agentTools, err := m.AgentTools()
 			c.Assert(err, jc.ErrorIsNil)
-			c.Logf("(%v vs. %v)", agentTools.Version, version.Current)
-			if agentTools.Version.Minor != version.Current.Minor {
+			c.Logf("(%v vs. %v)", agentTools.Version, jujuversion.Current)
+			if agentTools.Version.Minor != jujuversion.Current.Minor {
 				continue
 			}
-			c.Assert(agentTools.Version.Number, gc.DeepEquals, version.Current)
+			c.Assert(agentTools.Version.Number, gc.DeepEquals, jujuversion.Current)
 			done = true
 		}
 	}
@@ -1226,6 +1245,7 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 		case <-timeout:
 			c.Fatalf("timeout while waiting for authorised ssh keys to change")
 		case <-time.After(coretesting.ShortWait):
+			s.State.StartSync()
 			keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
 			c.Assert(err, jc.ErrorIsNil)
 			keysStr := strings.Join(keys, "\n")
@@ -1241,6 +1261,7 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 // be received from ops, and times out if not.
 func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds ...dummy.Operation) dummy.Operation {
 	st.StartSync()
+	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
 		case op := <-opc:
@@ -1250,7 +1271,9 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 				}
 			}
 			c.Logf("discarding unknown event %#v", op)
-		case <-time.After(15 * time.Second):
+		case <-time.After(coretesting.ShortWait):
+			st.StartSync()
+		case <-timeout:
 			c.Fatalf("time out wating for operation")
 		}
 	}
@@ -1449,8 +1472,11 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for config to be updated.
-	s.BackingState.StartSync()
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		s.BackingState.StartSync()
+		if !attempt.HasNext() {
+			break
+		}
 		addrs, err := a.CurrentConfig().APIAddresses()
 		c.Assert(err, jc.ErrorIsNil)
 		if reflect.DeepEqual(addrs, []string{"localhost:1234"}) {
@@ -1467,7 +1493,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 		started.trigger()
 		return worker.NewNoOpWorker()
 	}
-	s.PatchValue(&newDiskManager, newWorker)
+	s.PatchValue(&diskmanager.NewWorker, newWorker)
 
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
@@ -1566,7 +1592,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 		started.trigger()
 		return worker.NewNoOpWorker(), nil
 	}
-	s.PatchValue(&newStorageWorker, newWorker)
+	s.PatchValue(&storageprovisioner.NewStorageProvisioner, newWorker)
 
 	// Start the machine agent.
 	a := s.newAgent(c, m)
@@ -1597,7 +1623,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 		}
 		return worker.NewNoOpWorker(), nil
 	}
-	s.PatchValue(&newStorageWorker, newWorker)
+	s.PatchValue(&storageprovisioner.NewStorageProvisioner, newWorker)
 
 	// Start the machine agent.
 	a := s.newAgent(c, m)
@@ -1721,12 +1747,15 @@ func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 
 func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) chan bool {
 	ignoreAddressCh := make(chan bool, 1)
-	s.AgentSuite.PatchValue(&newMachiner, func(cfg machiner.Config) (worker.Worker, error) {
+	s.AgentSuite.PatchValue(&machiner.NewMachiner, func(cfg machiner.Config) (worker.Worker, error) {
 		select {
 		case ignoreAddressCh <- cfg.ClearMachineAddressesOnStart:
 		default:
 		}
-		return machiner.NewMachiner(cfg)
+
+		// The test just cares that NewMachiner is called with the correct
+		// value, nothing else is done with the worker.
+		return newDummyWorker(), nil
 	})
 
 	attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
@@ -1775,7 +1804,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	vers := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -1911,7 +1940,7 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 		}
 		return worker.NewNoOpWorker(), nil
 	}
-	s.PatchValue(&newStorageWorker, newWorker)
+	s.PatchValue(&storageprovisioner.NewStorageProvisioner, newWorker)
 
 	_, closer = s.setUpAgent(c)
 	defer closer()
@@ -1924,7 +1953,6 @@ func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()
 		ConfigAttrs: map[string]interface{}{
 			"controller": false,
 		},
-		Prepare: true,
 	})
 	return newSt, func() {
 		newSt.Close()
@@ -2033,17 +2061,13 @@ func (s *MachineSuite) TestManageModelRunsUndertaker(c *gc.C) {
 	// controller workers.
 	_ = s.singularRecord.nextRunner(c)
 	// new environ workers.
-	_ = s.singularRecord.nextRunner(c)
+	r := s.singularRecord.nextRunner(c)
+	r.waitForWorker(c, "unitassigner")
 
 	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 
-	// controller workers.
-	_ = s.singularRecord.nextRunner(c)
-	// new environ workers.
-	r := s.singularRecord.nextRunner(c)
-	r.waitForWorker(c, "undertaker")
 	s.assertChannelActive(c, started, "undertaker worker to start")
 }
 
@@ -2124,8 +2148,10 @@ func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureRepl
 
 	var expectedWMode string
 	dialOpts := stateWorkerDialOpts
+	dialOpts.Timeout = coretesting.LongWait
 	if configureReplset {
 		info := inst.DialInfo()
+		info.Timeout = dialOpts.Timeout
 		args := peergrouper.InitiateMongoParams{
 			DialInfo:       info,
 			MemberHostPort: inst.Addr(),
@@ -2174,7 +2200,7 @@ type singularRunnerRecord struct {
 
 func newSingularRunnerRecord() *singularRunnerRecord {
 	return &singularRunnerRecord{
-		runnerC: make(chan *fakeSingularRunner, 5),
+		runnerC: make(chan *fakeSingularRunner, 64),
 	}
 }
 
@@ -2193,11 +2219,12 @@ func (r *singularRunnerRecord) newSingularRunner(runner worker.Runner, conn sing
 
 // nextRunner blocks until a new singular runner is created.
 func (r *singularRunnerRecord) nextRunner(c *gc.C) *fakeSingularRunner {
+	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
 		case r := <-r.runnerC:
 			return r
-		case <-time.After(coretesting.LongWait):
+		case <-timeout:
 			c.Fatal("timed out waiting for singular runner to be created")
 		}
 	}
@@ -2209,6 +2236,7 @@ type fakeSingularRunner struct {
 }
 
 func (r *fakeSingularRunner) StartWorker(name string, start func() (worker.Worker, error)) error {
+	logger.Infof("starting fake worker %q", name)
 	r.startC <- name
 	return r.Runner.StartWorker(name, start)
 }
@@ -2220,11 +2248,15 @@ func (r *fakeSingularRunner) waitForWorker(c *gc.C, target string) []string {
 	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
+		case <-time.After(coretesting.ShortWait):
+			c.Logf("still waiting for %q; workers seen so far: %+v", target, seen)
 		case workerName := <-r.startC:
 			seen = append(seen, workerName)
 			if workerName == target {
+				c.Logf("target worker %q started; workers seen so far: %+v", workerName, seen)
 				return seen
 			}
+			c.Logf("worker %q started; still waiting for %q; workers seen so far: %+v", workerName, target, seen)
 		case <-timeout:
 			c.Fatal("timed out waiting for " + target)
 		}
@@ -2241,6 +2273,7 @@ func (r *fakeSingularRunner) waitForWorkers(c *gc.C, targets []string) []string 
 	for {
 		select {
 		case workerName := <-r.startC:
+			c.Logf("worker %q started; workers seen so far: %+v (len: %d, len(targets): %d)", workerName, seen, len(seen), len(targets))
 			if seenTargets[workerName] == true {
 				c.Fatal("worker started twice: " + workerName)
 			}
@@ -2248,8 +2281,10 @@ func (r *fakeSingularRunner) waitForWorkers(c *gc.C, targets []string) []string 
 			numSeenTargets++
 			seen = append(seen, workerName)
 			if numSeenTargets == len(targets) {
+				c.Logf("all expected target workers started: %+v", seen)
 				return seen
 			}
+			c.Logf("still waiting for workers %+v to start; numSeenTargets=%d", targets, numSeenTargets)
 		case <-timeout:
 			c.Fatalf("timed out waiting for %v", targets)
 		}
@@ -2302,27 +2337,6 @@ func (m *mockMetricAPI) CleanupCalled() <-chan struct{} {
 
 func (m *mockMetricAPI) Stop() {
 	close(m.stop)
-}
-
-func mkdtemp(prefix string) string {
-	d, err := ioutil.TempDir("", prefix)
-	if err != nil {
-		panic(err)
-	}
-	return d
-}
-
-func mktemp(prefix string, content string) string {
-	f, err := ioutil.TempFile("", prefix)
-	if err != nil {
-		panic(err)
-	}
-	_, err = f.WriteString(content)
-	if err != nil {
-		panic(err)
-	}
-	f.Close()
-	return f.Name()
 }
 
 type mockLoopDeviceManager struct {

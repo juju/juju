@@ -15,8 +15,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/configstore"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.model")
@@ -74,9 +72,7 @@ func (c *destroyCommand) Init(args []string) error {
 	case 0:
 		return errors.New("no model specified")
 	case 1:
-		c.envName = args[0]
-		c.SetModelName(c.envName)
-		return nil
+		return c.SetModelName(args[0])
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}
@@ -91,24 +87,25 @@ func (c *destroyCommand) getAPI() (DestroyEnvironmentAPI, error) {
 
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
-	store, err := configstore.Default()
-	if err != nil {
-		return errors.Annotate(err, "cannot open model info storage")
-	}
+	store := c.ClientStore()
+	controllerName := c.ControllerName()
+	accountName := c.AccountName()
+	modelName := c.ModelName()
 
-	cfgInfo, err := store.ReadInfo(c.envName)
+	controllerDetails, err := store.ControllerByName(controllerName)
+	if err != nil {
+		return errors.Annotate(err, "cannot read controller details")
+	}
+	modelDetails, err := store.ModelByName(controllerName, accountName, modelName)
 	if err != nil {
 		return errors.Annotate(err, "cannot read model info")
 	}
-
-	// Verify that we're not destroying a controller
-	apiEndpoint := cfgInfo.APIEndpoint()
-	if apiEndpoint.ServerUUID != "" && apiEndpoint.ModelUUID == apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is a controller; use 'juju destroy-controller' to destroy it", c.envName)
+	if modelDetails.ModelUUID == controllerDetails.ControllerUUID {
+		return errors.Errorf("%q is a controller; use 'juju destroy-controller' to destroy it", modelName)
 	}
 
 	if !c.assumeYes {
-		fmt.Fprintf(ctx.Stdout, destroyEnvMsg, c.envName)
+		fmt.Fprintf(ctx.Stdout, destroyEnvMsg, modelName)
 
 		if err := jujucmd.UserConfirmYes(ctx); err != nil {
 			return errors.Annotate(err, "model destruction")
@@ -125,19 +122,23 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	// Attempt to destroy the model.
 	err = api.DestroyModel()
 	if err != nil {
-		return c.handleError(errors.Annotate(err, "cannot destroy model"))
+		return c.handleError(errors.Annotate(err, "cannot destroy model"), modelName)
 	}
 
-	return environs.DestroyInfo(c.envName, store)
+	err = store.RemoveModel(controllerName, accountName, modelName)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
-func (c *destroyCommand) handleError(err error) error {
+func (c *destroyCommand) handleError(err error, modelName string) error {
 	if err == nil {
 		return nil
 	}
 	if params.IsCodeOperationBlocked(err) {
 		return block.ProcessBlockedError(err, block.BlockDestroy)
 	}
-	logger.Errorf(`failed to destroy model %q`, c.envName)
+	logger.Errorf(`failed to destroy model %q`, modelName)
 	return err
 }

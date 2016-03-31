@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/lxd/lxdclient"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 // instStatus is the list of statuses to accept when filtering
@@ -71,7 +71,7 @@ var getInstances = func(env *environ) ([]instance.Instance, error) {
 func (env *environ) instances() ([]instance.Instance, error) {
 	env = env.getSnapshot()
 
-	prefix := common.MachineFullName(env, "")
+	prefix := common.MachineFullName(env.Config().UUID(), "")
 	instances, err := env.raw.Instances(prefix, instStatuses...)
 	err = errors.Trace(err)
 
@@ -94,7 +94,7 @@ func (env *environ) instances() ([]instance.Instance, error) {
 func (env *environ) ControllerInstances() ([]instance.Id, error) {
 	env = env.getSnapshot()
 
-	prefix := common.MachineFullName(env, "")
+	prefix := common.MachineFullName(env.Config().ControllerUUID(), "")
 	instances, err := env.raw.Instances(prefix, instStatuses...)
 	if err != nil {
 		return nil, errors.Trace(err)

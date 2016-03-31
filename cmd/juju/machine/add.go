@@ -18,17 +18,12 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/version"
 )
-
-// sshHostPrefix is the prefix for a machine to be "manually provisioned".
-const sshHostPrefix = "ssh:"
 
 var addMachineDoc = `
 
@@ -212,11 +207,13 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 
 	logger.Infof("load config")
-	var config *config.Config
-	if defaultStore, err := configstore.Default(); err != nil {
-		return err
-	} else if config, err = c.Config(defaultStore, client); err != nil {
-		return err
+	configAttrs, err := client.ModelGet()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	config, err := config.New(config.NoDefaults, configAttrs)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	if c.Placement != nil && c.Placement.Scope == "ssh" {
@@ -251,21 +248,11 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 
-	envVersion, err := modelcmd.GetEnvironmentVersion(client)
-	if err != nil {
-		return err
-	}
-
-	// Servers before 1.21-alpha2 don't have the networker so don't
-	// try to use JobManageNetworking with them.
-	//
 	// In case of MAAS and Joyent JobManageNetworking is not added
 	// to ensure the non-intrusive start of a networker like above
 	// for the manual provisioning. See this related joyent bug
 	// http://pad.lv/1401423
-	if envVersion.Compare(version.MustParse("1.21-alpha2")) >= 0 &&
-		config.Type() != provider.MAAS &&
-		config.Type() != provider.Joyent {
+	if config.Type() != provider.MAAS && config.Type() != provider.Joyent {
 		jobs = append(jobs, multiwatcher.JobManageNetworking)
 	}
 

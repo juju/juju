@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/state/storage"
 )
@@ -27,6 +28,18 @@ type Persistence interface {
 
 	// NewStorage returns a new blob storage for the environment.
 	NewStorage() storage.Storage
+
+	// ServiceExistsOps returns the operations that verify that the
+	// identified service exists.
+	ServiceExistsOps(serviceID string) []txn.Op
+
+	// IncCharmModifiedVersionOps returns the operations necessary to increment
+	// the CharmModifiedVersion field for the given service.
+	IncCharmModifiedVersionOps(serviceID string) []txn.Op
+
+	// NewCleanupOp creates a mgo transaction operation that queues up
+	// some cleanup action in state.
+	NewCleanupOp(kind, prefix string) txn.Op
 }
 
 type statePersistence struct {
@@ -79,4 +92,30 @@ func (sp *statePersistence) NewStorage() storage.Storage {
 	session := sp.st.session
 	store := storage.NewStorage(envUUID, session)
 	return store
+}
+
+// ServiceExistsOps returns the operations that verify that the
+// identified service exists.
+func (sp *statePersistence) ServiceExistsOps(serviceID string) []txn.Op {
+	return []txn.Op{{
+		C:      servicesC,
+		Id:     serviceID,
+		Assert: txn.DocExists,
+	}, {
+		C:      servicesC,
+		Id:     serviceID,
+		Assert: isAliveDoc,
+	}}
+}
+
+// IncCharmModifiedVersionOps returns the operations necessary to increment the
+// CharmModifiedVersion field for the given service.
+func (sp *statePersistence) IncCharmModifiedVersionOps(serviceID string) []txn.Op {
+	return incCharmModifiedVersionOps(serviceID)
+}
+
+// NewCleanupOp creates a mgo transaction operation that queues up
+// some cleanup action in state.
+func (sp *statePersistence) NewCleanupOp(kind, prefix string) txn.Op {
+	return sp.st.newCleanupOp(cleanupKind(kind), prefix)
 }

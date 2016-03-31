@@ -4,17 +4,21 @@
 package user
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/readpass"
+	"golang.org/x/crypto/ssh/terminal"
+	"gopkg.in/macaroon.v1"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
 )
 
 // randomPasswordNotify is called when a random password is generated.
@@ -44,9 +48,7 @@ func NewChangePasswordCommand() cmd.Command {
 type changePasswordCommand struct {
 	modelcmd.ControllerCommandBase
 	api      ChangePasswordAPI
-	writer   EnvironInfoCredsWriter
 	Generate bool
-	OutPath  string
 	User     string
 }
 
@@ -63,39 +65,24 @@ func (c *changePasswordCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *changePasswordCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Generate, "generate", false, "generate a new strong password")
-	f.StringVar(&c.OutPath, "o", "", "specifies the path of the generated user model file")
-	f.StringVar(&c.OutPath, "output", "", "")
 }
 
 // Init implements Command.Init.
 func (c *changePasswordCommand) Init(args []string) error {
 	var err error
 	c.User, err = cmd.ZeroOrOneArgs(args)
-	if c.User == "" && c.OutPath != "" {
-		return errors.New("output is only a valid option when changing another user's password")
+	if err != nil {
+		return errors.Trace(err)
 	}
-	if c.User != "" {
-		c.Generate = true
-		if c.OutPath == "" {
-			c.OutPath = c.User + ".server"
-		}
-	}
-	return err
+	return nil
 }
 
 // ChangePasswordAPI defines the usermanager API methods that the change
 // password command uses.
 type ChangePasswordAPI interface {
+	CreateLocalLoginMacaroon(names.UserTag) (*macaroon.Macaroon, error)
 	SetPassword(username, password string) error
 	Close() error
-}
-
-// EnvironInfoCredsWriter defines methods of the configstore API info that
-// are used to change the password.
-type EnvironInfoCredsWriter interface {
-	Write() error
-	APICredentials() configstore.APICredentials
-	SetAPICredentials(creds configstore.APICredentials)
 }
 
 // Run implements Command.Run.
@@ -109,60 +96,66 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		defer c.api.Close()
 	}
 
-	password, err := c.generateOrReadPassword(ctx, c.Generate)
+	newPassword, err := generateOrReadPassword(ctx, c.Generate)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	var writer EnvironInfoCredsWriter
-
-	var creds configstore.APICredentials
-
-	if c.User == "" {
-		// We get the creds writer before changing the password just to
-		// minimise the things that could go wrong after changing the password
-		// in the server.
-		if c.writer == nil {
-			writer, err = c.ConnectionInfo()
-			if err != nil {
-				return errors.Trace(err)
-			}
-		} else {
-			writer = c.writer
+	var accountName string
+	controllerName := c.ControllerName()
+	store := c.ClientStore()
+	if c.User != "" {
+		if !names.IsValidUserName(c.User) {
+			return errors.NotValidf("user name %q", c.User)
 		}
-
-		creds = writer.APICredentials()
+		accountName = names.NewUserTag(c.User).Canonical()
 	} else {
-		creds.User = c.User
+		accountName, err = store.CurrentAccount(controllerName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	accountDetails, err := store.AccountByName(controllerName, accountName)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
 	}
 
-	oldPassword := creds.Password
-	creds.Password = password
-	if err = c.api.SetPassword(creds.User, password); err != nil {
+	if accountDetails != nil && accountDetails.Macaroon == "" {
+		// Generate a macaroon first to guard against I/O failures
+		// occurring after the password has been changed, preventing
+		// future logins.
+		userTag := names.NewUserTag(accountName)
+		macaroon, err := c.api.CreateLocalLoginMacaroon(userTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		accountDetails.Password = ""
+
+		// TODO(axw) update jujuclient with code for marshalling
+		// and unmarshalling macaroons as YAML.
+		macaroonJSON, err := macaroon.MarshalJSON()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		accountDetails.Macaroon = string(macaroonJSON)
+
+		if err := store.UpdateAccount(controllerName, accountName, *accountDetails); err != nil {
+			return errors.Annotate(err, "failed to update client credentials")
+		}
+	}
+
+	if err := c.api.SetPassword(accountName, newPassword); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
-
-	if c.User != "" {
-		return writeServerFile(c, ctx, c.User, password, c.OutPath)
+	if accountDetails == nil {
+		ctx.Infof("Password for %q has been updated.", c.User)
+	} else {
+		ctx.Infof("Your password has been updated.")
 	}
-
-	writer.SetAPICredentials(creds)
-	if err := writer.Write(); err != nil {
-		logger.Errorf("updating the cached credentials failed, reverting to original password")
-		setErr := c.api.SetPassword(creds.User, oldPassword)
-		if setErr != nil {
-			logger.Errorf("failed to set password back, you will need to edit your models file by hand to specify the password: %q", password)
-			return errors.Annotate(setErr, "failed to set password back")
-		}
-		return errors.Annotate(err, "failed to write new password to models file")
-	}
-	ctx.Infof("Your password has been updated.")
 	return nil
 }
 
-var readPassword = readpass.ReadPassword
-
-func (*changePasswordCommand) generateOrReadPassword(ctx *cmd.Context, generate bool) (string, error) {
+func generateOrReadPassword(ctx *cmd.Context, generate bool) (string, error) {
 	if generate {
 		password, err := utils.RandomPassword()
 		if err != nil {
@@ -171,19 +164,28 @@ func (*changePasswordCommand) generateOrReadPassword(ctx *cmd.Context, generate 
 		randomPasswordNotify(password)
 		return password, nil
 	}
+	return readAndConfirmPassword(ctx)
+}
 
+func readAndConfirmPassword(ctx *cmd.Context) (string, error) {
 	// Don't add the carriage returns before readPassword, but add
 	// them directly after the readPassword so any errors are output
 	// on their own lines.
-	fmt.Fprint(ctx.Stdout, "password: ")
-	password, err := readPassword()
-	fmt.Fprint(ctx.Stdout, "\n")
+	//
+	// TODO(axw) retry/loop on failure
+	fmt.Fprint(ctx.Stderr, "password: ")
+	password, err := readPassword(ctx.Stdin)
+	fmt.Fprint(ctx.Stderr, "\n")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	fmt.Fprint(ctx.Stdout, "type password again: ")
-	verify, err := readPassword()
-	fmt.Fprint(ctx.Stdout, "\n")
+	if password == "" {
+		return "", errors.Errorf("you must enter a password")
+	}
+
+	fmt.Fprint(ctx.Stderr, "type password again: ")
+	verify, err := readPassword(ctx.Stdin)
+	fmt.Fprint(ctx.Stderr, "\n")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -191,4 +193,32 @@ func (*changePasswordCommand) generateOrReadPassword(ctx *cmd.Context, generate 
 		return "", errors.New("Passwords do not match")
 	}
 	return password, nil
+}
+
+func readPassword(stdin io.Reader) (string, error) {
+	if f, ok := stdin.(*os.File); ok && terminal.IsTerminal(int(f.Fd())) {
+		password, err := terminal.ReadPassword(int(f.Fd()))
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		return string(password), nil
+	}
+	return readLine(stdin)
+}
+
+func readLine(stdin io.Reader) (string, error) {
+	// Read one byte at a time to avoid reading beyond the delimiter.
+	line, err := bufio.NewReader(byteAtATimeReader{stdin}).ReadString('\n')
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return line[:len(line)-1], nil
+}
+
+type byteAtATimeReader struct {
+	io.Reader
+}
+
+func (r byteAtATimeReader) Read(out []byte) (int, error) {
+	return r.Reader.Read(out[:1])
 }

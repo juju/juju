@@ -147,7 +147,9 @@ func (s *UserSuite) TestDisable(c *gc.C) {
 func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 
-	err := user.SetPasswordHash(utils.UserPasswordHash("foo", utils.CompatSalt), utils.CompatSalt)
+	salt, err := utils.RandomSalt()
+	c.Assert(err, jc.ErrorIsNil)
+	err = user.SetPasswordHash(utils.UserPasswordHash("foo", salt), salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
@@ -169,36 +171,8 @@ func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
-	salt, hash := state.GetUserPasswordSaltAndHash(user)
+	salt, _ := state.GetUserPasswordSaltAndHash(user)
 	c.Assert(salt, gc.Equals, "salted")
-	c.Assert(hash, gc.Not(gc.Equals), utils.UserPasswordHash("foo", utils.CompatSalt))
-}
-
-func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
-	user := s.Factory.MakeUser(c, nil)
-
-	compatHash := utils.UserPasswordHash("foo", utils.CompatSalt)
-	err := user.SetPasswordHash(compatHash, "")
-	c.Assert(err, jc.ErrorIsNil)
-	beforeSalt, beforeHash := state.GetUserPasswordSaltAndHash(user)
-	c.Assert(beforeSalt, gc.Equals, "")
-	c.Assert(beforeHash, gc.Equals, compatHash)
-	c.Assert(user.PasswordValid("bar"), jc.IsFalse)
-	// A bad password doesn't trigger a rewrite
-	afterBadSalt, afterBadHash := state.GetUserPasswordSaltAndHash(user)
-	c.Assert(afterBadSalt, gc.Equals, "")
-	c.Assert(afterBadHash, gc.Equals, compatHash)
-	// When we get a valid check, we then add a salt and rewrite the hash
-	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
-	afterSalt, afterHash := state.GetUserPasswordSaltAndHash(user)
-	c.Assert(afterSalt, gc.Not(gc.Equals), "")
-	c.Assert(afterHash, gc.Not(gc.Equals), compatHash)
-	c.Assert(afterHash, gc.Equals, utils.UserPasswordHash("foo", afterSalt))
-	// running PasswordValid again doesn't trigger another rewrite
-	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
-	lastSalt, lastHash := state.GetUserPasswordSaltAndHash(user)
-	c.Assert(lastSalt, gc.Equals, afterSalt)
-	c.Assert(lastHash, gc.Equals, afterHash)
 }
 
 func (s *UserSuite) TestCantDisableAdmin(c *gc.C) {
@@ -264,4 +238,29 @@ func (s *UserSuite) TestAllUsers(c *gc.C) {
 	c.Check(users[4].Name(), gc.Equals, "erica")
 	c.Check(users[5].Name(), gc.Equals, "fred")
 	c.Check(users[6].Name(), gc.Equals, "test-admin")
+}
+
+func (s *UserSuite) TestAddUserNoSecretKey(c *gc.C) {
+	u, err := s.State.AddUser("bob", "display", "pass", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.IsNil)
+}
+
+func (s *UserSuite) TestAddUserSecretKey(c *gc.C) {
+	u, err := s.State.AddUserWithSecretKey("bob", "display", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.HasLen, 32)
+	c.Assert(u.PasswordValid(""), jc.IsFalse)
+}
+
+func (s *UserSuite) TestSetPasswordClearsSecretKey(c *gc.C) {
+	u, err := s.State.AddUserWithSecretKey("bob", "display", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.HasLen, 32)
+	err = u.SetPassword("anything")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.IsNil)
+	err = u.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.IsNil)
 }

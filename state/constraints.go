@@ -49,7 +49,6 @@ func (doc constraintsDoc) value() constraints.Value {
 
 func newConstraintsDoc(st *State, cons constraints.Value) constraintsDoc {
 	return constraintsDoc{
-		ModelUUID:    st.ModelUUID(),
 		Arch:         cons.Arch,
 		CpuCores:     cons.CpuCores,
 		CpuPower:     cons.CpuPower,
@@ -66,7 +65,7 @@ func newConstraintsDoc(st *State, cons constraints.Value) constraintsDoc {
 func createConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 	return txn.Op{
 		C:      constraintsC,
-		Id:     st.docID(id),
+		Id:     id,
 		Assert: txn.DocMissing,
 		Insert: newConstraintsDoc(st, cons),
 	}
@@ -75,7 +74,7 @@ func createConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 func setConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 	return txn.Op{
 		C:      constraintsC,
-		Id:     st.docID(id),
+		Id:     id,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", newConstraintsDoc(st, cons)}},
 	}
@@ -84,7 +83,7 @@ func setConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 func removeConstraintsOp(st *State, id string) txn.Op {
 	return txn.Op{
 		C:      constraintsC,
-		Id:     st.docID(id),
+		Id:     id,
 		Remove: true,
 	}
 }

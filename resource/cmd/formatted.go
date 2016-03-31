@@ -18,6 +18,13 @@ type FormattedCharmResource struct {
 	Origin      string `json:"origin" yaml:"origin"`
 }
 
+// FormattedServiceInfo holds the formatted representation of the information
+// about a service's resources.
+type FormattedServiceInfo struct {
+	Resources []FormattedSvcResource   `json:"resources,omitempty" yaml:"resources,omitempty"`
+	Updates   []FormattedCharmResource `json:"updates,omitempty" yaml:"updates,omitempty"`
+}
+
 // FormattedSvcResource holds the formatted representation of a resource's info.
 type FormattedSvcResource struct {
 	// These fields are exported for the sake of serialization.
@@ -48,10 +55,20 @@ type FormattedUnitResource FormattedSvcResource
 // FormattedDetailResource is the data for a single line of tabular output for
 // juju resources <service> --details.
 type FormattedDetailResource struct {
-	UnitID     string               `json:"unitID" yaml:"unitID"`
-	Unit       FormattedSvcResource `json:"unit" yaml:"unit"`
-	Expected   FormattedSvcResource `json:"expected" yaml:"expected"`
-	unitNumber int
+	UnitID      string               `json:"unitID" yaml:"unitID"`
+	Unit        FormattedSvcResource `json:"unit" yaml:"unit"`
+	Expected    FormattedSvcResource `json:"expected" yaml:"expected"`
+	Progress    int64                `json:"progress,omitempty" yaml:"progress,omitempty"`
+	unitNumber  int
+	progress    string
+	revProgress string
+}
+
+// FormattedServiceDetails is the data for the tabular output for juju resources
+// <service> --details.
+type FormattedServiceDetails struct {
+	Resources []FormattedDetailResource `json:"resources,omitempty" yaml:"resources,omitempty"`
+	Updates   []FormattedCharmResource  `json:"updates,omitempty" yaml:"updates,omitempty"`
 }
 
 // FormattedDetailResource is the data for the tabular output for juju resources

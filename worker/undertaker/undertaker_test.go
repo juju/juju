@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -260,8 +260,7 @@ func assertNoMoreCalls(c *gc.C, client *mockClient) {
 
 func dummyCfgAndUUID(c *gc.C) (*config.Config, string) {
 	cfg := testingEnvConfig(c)
-	uuid, ok := cfg.UUID()
-	c.Assert(ok, jc.IsTrue)
+	uuid := cfg.UUID()
 	return cfg, uuid
 }
 
@@ -270,7 +269,15 @@ func dummyCfgAndUUID(c *gc.C) (*config.Config, string) {
 func testingEnvConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, modelcmd.BootstrapContext(testing.Context(c)), configstore.NewMem())
+	env, err := environs.Prepare(
+		modelcmd.BootstrapContext(testing.Context(c)),
+		jujuclienttesting.NewMemStore(),
+		environs.PrepareParams{
+			BaseConfig:     cfg.AllAttrs(),
+			ControllerName: "dummycontroller",
+			CloudName:      "dummy",
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()
 }

@@ -6,11 +6,14 @@ package usermanager
 import (
 	"time"
 
+	"gopkg.in/macaroon.v1"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -24,9 +27,10 @@ func init() {
 // UserManagerAPI implements the user manager interface and is the concrete
 // implementation of the api end point.
 type UserManagerAPI struct {
-	state      *state.State
-	authorizer common.Authorizer
-	check      *common.BlockChecker
+	state                    *state.State
+	authorizer               common.Authorizer
+	createLocalLoginMacaroon func(names.UserTag) (*macaroon.Macaroon, error)
+	check                    *common.BlockChecker
 }
 
 func NewUserManagerAPI(
@@ -38,10 +42,20 @@ func NewUserManagerAPI(
 		return nil, common.ErrPerm
 	}
 
+	resource, ok := resources.Get("createLocalLoginMacaroon").(common.ValueResource)
+	if !ok {
+		return nil, errors.NotFoundf("userAuth resource")
+	}
+	createLocalLoginMacaroon, ok := resource.Value.(func(names.UserTag) (*macaroon.Macaroon, error))
+	if !ok {
+		return nil, errors.NotValidf("userAuth resource")
+	}
+
 	return &UserManagerAPI{
-		state:      st,
-		authorizer: authorizer,
-		check:      common.NewBlockChecker(st),
+		state:                    st,
+		authorizer:               authorizer,
+		createLocalLoginMacaroon: createLocalLoginMacaroon,
+		check: common.NewBlockChecker(st),
 	}, nil
 }
 
@@ -59,7 +73,8 @@ func (api *UserManagerAPI) permissionCheck(user names.UserTag) error {
 	return nil
 }
 
-// AddUser adds a user.
+// AddUser adds a user with a username, and either a password or
+// a randomly generated secret key which will be returned.
 func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults, error) {
 	result := params.AddUserResults{
 		Results: make([]params.AddUserResult, len(args.Users)),
@@ -76,18 +91,51 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 		return result, errors.Wrap(err, common.ErrPerm)
 	}
 	// TODO(thumper): PERMISSIONS Change this permission check when we have
-	// real permissions. For now, only the owner of the initial environment is
+	// real permissions. For now, only the owner of the initial model is
 	// able to add users.
 	if err := api.permissionCheck(loggedInUser); err != nil {
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Users {
-		user, err := api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, loggedInUser.Id())
+		var user *state.User
+		if arg.Password != "" {
+			user, err = api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, loggedInUser.Id())
+		} else {
+			user, err = api.state.AddUserWithSecretKey(arg.Username, arg.DisplayName, loggedInUser.Id())
+		}
 		if err != nil {
 			err = errors.Annotate(err, "failed to create user")
 			result.Results[i].Error = common.ServerError(err)
+			continue
 		} else {
-			result.Results[i].Tag = user.Tag().String()
+			result.Results[i] = params.AddUserResult{
+				Tag:       user.Tag().String(),
+				SecretKey: user.SecretKey(),
+			}
+		}
+
+		if len(arg.SharedModelTags) > 0 {
+			modelAccess, err := modelmanager.FromModelAccessParam(arg.ModelAccess)
+			if err != nil {
+				err = errors.Annotatef(err, "user %q created but models not shared", arg.Username)
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+			userTag := user.Tag().(names.UserTag)
+			for _, modelTagStr := range arg.SharedModelTags {
+				modelTag, err := names.ParseModelTag(modelTagStr)
+				if err != nil {
+					err = errors.Annotatef(err, "user %q created but model %q not shared", arg.Username, modelTagStr)
+					result.Results[i].Error = common.ServerError(err)
+					break
+				}
+				err = modelmanager.ChangeModelAccess(api.state, modelTag, loggedInUser, userTag, params.GrantModelAccess, modelAccess)
+				if err != nil {
+					err = errors.Annotatef(err, "user %q created but model %q not shared", arg.Username, modelTagStr)
+					result.Results[i].Error = common.ServerError(err)
+					break
+				}
+			}
 		}
 	}
 	return result, nil
@@ -205,24 +253,6 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 	return results, nil
 }
 
-func (api *UserManagerAPI) setPassword(loggedInUser names.UserTag, arg params.EntityPassword, adminUser bool) error {
-	user, err := api.getUser(arg.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if loggedInUser != user.UserTag() && !adminUser {
-		return errors.Trace(common.ErrPerm)
-	}
-	if arg.Password == "" {
-		return errors.New("can not use an empty password")
-	}
-	err = user.SetPassword(arg.Password)
-	if err != nil {
-		return errors.Annotate(err, "failed to set password")
-	}
-	return nil
-}
-
 // SetPassword changes the stored password for the specified users.
 func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.ErrorResults, error) {
 	if err := api.check.ChangeAllowed(); err != nil {
@@ -238,14 +268,79 @@ func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.Erro
 	if err != nil {
 		return result, common.ErrPerm
 	}
-	permErr := api.permissionCheck(loggedInUser)
-	adminUser := permErr == nil
+	adminUser, err := api.checkAdminUser(loggedInUser)
+	if err != nil {
+		return result, common.ServerError(err)
+	}
 	for i, arg := range args.Changes {
 		if err := api.setPassword(loggedInUser, arg, adminUser); err != nil {
 			result.Results[i].Error = common.ServerError(err)
 		}
 	}
 	return result, nil
+}
+
+func (api *UserManagerAPI) setPassword(loggedInUser names.UserTag, arg params.EntityPassword, adminUser bool) error {
+	user, err := api.getUser(arg.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if loggedInUser != user.UserTag() && !adminUser {
+		return errors.Trace(common.ErrPerm)
+	}
+	if arg.Password == "" {
+		return errors.New("cannot use an empty password")
+	}
+	if err := user.SetPassword(arg.Password); err != nil {
+		return errors.Annotate(err, "failed to set password")
+	}
+	return nil
+}
+
+// CreateLocalLoginMacaroon creates a macaroon for the specified users to use
+// for future logins.
+func (api *UserManagerAPI) CreateLocalLoginMacaroon(args params.Entities) (params.MacaroonResults, error) {
+	results := params.MacaroonResults{
+		Results: make([]params.MacaroonResult, len(args.Entities)),
+	}
+	loggedInUser, err := api.getLoggedInUser()
+	if err != nil {
+		return results, common.ErrPerm
+	}
+	adminUser, err := api.checkAdminUser(loggedInUser)
+	if err != nil {
+		return results, common.ServerError(err)
+	}
+	createLocalLoginMacaroon := func(arg params.Entity) (*macaroon.Macaroon, error) {
+		user, err := api.getUser(arg.Tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if loggedInUser != user.UserTag() && !adminUser {
+			return nil, errors.Trace(common.ErrPerm)
+		}
+		return api.createLocalLoginMacaroon(user.UserTag())
+	}
+	for i, arg := range args.Entities {
+		m, err := createLocalLoginMacaroon(arg)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = m
+	}
+	return results, nil
+}
+
+func (api *UserManagerAPI) checkAdminUser(userTag names.UserTag) (bool, error) {
+	err := api.permissionCheck(userTag)
+	switch errors.Cause(err) {
+	case nil:
+		return true, nil
+	case common.ErrPerm:
+		return false, nil
+	}
+	return false, errors.Trace(err)
 }
 
 func (api *UserManagerAPI) getLoggedInUser() (names.UserTag, error) {

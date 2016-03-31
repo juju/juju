@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/controllerserver/authentication"
+	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -135,7 +135,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 	tag := p.agentConfig.Tag()
 	machineTag, ok := tag.(names.MachineTag)
 	if !ok {
-		errors.Errorf("expacted names.MachineTag, got %T", tag)
+		errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
 
 	envCfg, err := p.st.ModelConfig()
@@ -201,7 +201,7 @@ func (p *environProvisioner) loop() error {
 	}
 	modelConfigChanges = modelWatcher.Changes()
 
-	p.environ, err = environ.WaitForEnviron(modelWatcher, p.st, p.catacomb.Dying())
+	p.environ, err = environ.WaitForEnviron(modelWatcher, p.st, environs.New, p.catacomb.Dying())
 	if err != nil {
 		if err == environ.ErrWaitAborted {
 			return p.catacomb.ErrDying()
@@ -210,7 +210,9 @@ func (p *environProvisioner) loop() error {
 	}
 	p.broker = p.environ
 
-	harvestMode := p.environ.Config().ProvisionerHarvestMode()
+	modelConfig := p.environ.Config()
+	p.configObserver.notify(modelConfig)
+	harvestMode := modelConfig.ProvisionerHarvestMode()
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {
 		return loggedErrorStack(errors.Trace(err))
@@ -227,14 +229,14 @@ func (p *environProvisioner) loop() error {
 			if !ok {
 				return errors.New("model configuration watcher closed")
 			}
-			environConfig, err := p.st.ModelConfig()
+			modelConfig, err := p.st.ModelConfig()
 			if err != nil {
 				return errors.Annotate(err, "cannot load model configuration")
 			}
-			if err := p.setConfig(environConfig); err != nil {
+			if err := p.setConfig(modelConfig); err != nil {
 				return errors.Annotate(err, "loaded invalid model configuration")
 			}
-			task.SetHarvestMode(environConfig.ProvisionerHarvestMode())
+			task.SetHarvestMode(modelConfig.ProvisionerHarvestMode())
 		}
 	}
 }
@@ -249,11 +251,11 @@ func (p *environProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
 
 // setConfig updates the environment configuration and notifies
 // the config observer.
-func (p *environProvisioner) setConfig(environConfig *config.Config) error {
-	if err := p.environ.SetConfig(environConfig); err != nil {
+func (p *environProvisioner) setConfig(modelConfig *config.Config) error {
+	if err := p.environ.SetConfig(modelConfig); err != nil {
 		return err
 	}
-	p.configObserver.notify(environConfig)
+	p.configObserver.notify(modelConfig)
 	return nil
 }
 
@@ -299,11 +301,12 @@ func (p *containerProvisioner) loop() error {
 		return errors.Trace(err)
 	}
 
-	config, err := p.st.ModelConfig()
+	modelConfig, err := p.st.ModelConfig()
 	if err != nil {
 		return err
 	}
-	harvestMode := config.ProvisionerHarvestMode()
+	p.configObserver.notify(modelConfig)
+	harvestMode := modelConfig.ProvisionerHarvestMode()
 
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {

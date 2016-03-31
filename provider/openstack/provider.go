@@ -7,8 +7,7 @@ package openstack
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +22,7 @@ import (
 	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/nova"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
@@ -36,19 +36,25 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.provider.openstack")
 
 type EnvironProvider struct {
+	environs.ProviderCredentials
 	Configurator      ProviderConfigurator
 	FirewallerFactory FirewallerFactory
 }
 
 var _ environs.EnvironProvider = (*EnvironProvider)(nil)
 
-var providerInstance *EnvironProvider = &EnvironProvider{&defaultConfigurator{}, &firewallerFactory{}}
+var providerInstance *EnvironProvider = &EnvironProvider{
+	OpenstackCredentials{},
+	&defaultConfigurator{},
+	&firewallerFactory{},
+}
 
 var makeServiceURL = client.AuthenticatingClient.MakeServiceURL
 
@@ -60,183 +66,6 @@ var makeServiceURL = client.AuthenticatingClient.MakeServiceURL
 var shortAttempt = utils.AttemptStrategy{
 	Total: 15 * time.Second,
 	Delay: 200 * time.Millisecond,
-}
-
-func (p EnvironProvider) BoilerplateConfig() string {
-	return `
-# https://juju.ubuntu.com/docs/config-openstack.html
-openstack:
-    type: openstack
-
-    # use-floating-ip specifies whether a floating IP address is
-    # required to give the nodes a public IP address. Some
-    # installations assign public IP addresses by default without
-    # requiring a floating IP address.
-    #
-    # use-floating-ip: false
-
-    # use-default-secgroup specifies whether new machine instances
-    # should have the "default" Openstack security group assigned.
-    #
-    # use-default-secgroup: false
-
-    # network specifies the network label or uuid to bring machines up
-    # on, in the case where multiple networks exist. It may be omitted
-    # otherwise.
-    #
-    # network: <your network label or uuid>
-
-    # agent-metadata-url specifies the location of the Juju tools and
-    # metadata. It defaults to the global public tools metadata
-    # location https://streams.canonical.com/tools.
-    #
-    # agent-metadata-url:  https://your-agent-metadata-url
-
-    # image-metadata-url specifies the location of Ubuntu cloud image
-    # metadata. It defaults to the global public image metadata
-    # location https://cloud-images.ubuntu.com/releases.
-    #
-    # image-metadata-url:  https://your-image-metadata-url
-
-    # image-stream chooses a simplestreams stream from which to select
-    # OS images, for example daily or released images (or any other stream
-    # available on simplestreams).
-    #
-    # image-stream: "released"
-
-    # agent-stream chooses a simplestreams stream from which to select tools,
-    # for example released or proposed tools (or any other stream available
-    # on simplestreams).
-    #
-    # agent-stream: "released"
-
-    # auth-url defaults to the value of the environment variable
-    # OS_AUTH_URL, but can be specified here.
-    #
-    # auth-url: https://yourkeystoneurl:443/v2.0/
-
-    # tenant-name holds the openstack tenant name. It defaults to the
-    # environment variable OS_TENANT_NAME.
-    #
-    # tenant-name: <your tenant name>
-
-    # region holds the openstack region. It defaults to the
-    # environment variable OS_REGION_NAME.
-    #
-    # region: <your region>
-
-    # The auth-mode, username and password attributes are used for
-    # userpass authentication (the default).
-    #
-    # auth-mode holds the authentication mode. For user-password
-    # authentication, auth-mode should be "userpass" and username and
-    # password should be set appropriately; they default to the
-    # environment variables OS_USERNAME and OS_PASSWORD respectively.
-    #
-    # auth-mode: userpass
-    # username: <your username>
-    # password: <secret>
-
-    # For key-pair authentication, auth-mode should be "keypair" and
-    # access-key and secret-key should be set appropriately; they
-    # default to the environment variables OS_ACCESS_KEY and
-    # OS_SECRET_KEY respectively.
-    #
-    # auth-mode: keypair
-    # access-key: <secret>
-    # secret-key: <secret>
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of true is recommended for use
-    # in production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-upgrade: true
-
-# https://juju.ubuntu.com/docs/config-hpcloud.html
-hpcloud:
-    type: openstack
-
-    # use-floating-ip specifies whether a floating IP address is
-    # required to give the nodes a public IP address. Some
-    # installations assign public IP addresses by default without
-    # requiring a floating IP address.
-    #
-    # use-floating-ip: true
-
-    # use-default-secgroup specifies whether new machine instances
-    # should have the "default" Openstack security group assigned.
-    #
-    # use-default-secgroup: false
-
-    # tenant-name holds the openstack tenant name. In HPCloud, this is
-    # synonymous with the project-name It defaults to the environment
-    # variable OS_TENANT_NAME.
-    #
-    # tenant-name: <your tenant name>
-
-    # image-stream chooses a simplestreams stream from which to select
-    # OS images, for example daily or released images (or any other stream
-    # available on simplestreams).
-    #
-    # image-stream: "released"
-
-    # agent-stream chooses a simplestreams stream from which to select tools,
-    # for example released or proposed tools (or any other stream available
-    # on simplestreams).
-    #
-    # agent-stream: "released"
-
-    # auth-url holds the keystone url for authentication. It defaults
-    # to the value of the environment variable OS_AUTH_URL.
-    #
-    # auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
-
-    # region holds the HP Cloud region (e.g. region-a.geo-1). It
-    # defaults to the environment variable OS_REGION_NAME.
-    #
-    # region: <your region>
-
-    # auth-mode holds the authentication mode. For user-password
-    # authentication, auth-mode should be "userpass" and username and
-    # password should be set appropriately; they default to the
-    # environment variables OS_USERNAME and OS_PASSWORD respectively.
-    #
-    # auth-mode: userpass
-    # username: <your_username>
-    # password: <your_password>
-
-    # For key-pair authentication, auth-mode should be "keypair" and
-    # access-key and secret-key should be set appropriately; they
-    # default to the environment variables OS_ACCESS_KEY and
-    # OS_SECRET_KEY respectively.
-    #
-    # auth-mode: keypair
-    # access-key: <secret>
-    # secret-key: <secret>
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of true is recommended for use
-    # in production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-upgrade: true
-
-`[1:]
 }
 
 func (p EnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -258,16 +87,70 @@ func (p EnvironProvider) RestrictedConfigAttributes() []string {
 	return []string{"region", "auth-url", "auth-mode"}
 }
 
+// DetectRegions implements environs.CloudRegionDetector.
+func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
+	// If OS_REGION_NAME and OS_AUTH_URL are both set,
+	// return return a region using them.
+	creds := identity.CredentialsFromEnv()
+	if creds.Region == "" {
+		return nil, errors.NewNotFound(nil, "OS_REGION_NAME environment variable not set")
+	}
+	if creds.URL == "" {
+		return nil, errors.NewNotFound(nil, "OS_AUTH_URL environment variable not set")
+	}
+	return []cloud.Region{{
+		Name:     creds.Region,
+		Endpoint: creds.URL,
+	}}, nil
+}
+
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p EnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 
-func (p EnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, err
+// BootstrapConfig is specified in the EnvironProvider interface.
+func (p EnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+	// Add credentials to the configuration.
+	attrs := map[string]interface{}{
+		"region":   args.CloudRegion,
+		"auth-url": args.CloudEndpoint,
 	}
+	credentialAttrs := args.Credentials.Attributes()
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.UserPassAuthType:
+		// TODO(axw) we need a way of saying to use legacy auth.
+		attrs["username"] = credentialAttrs["username"]
+		attrs["password"] = credentialAttrs["password"]
+		attrs["tenant-name"] = credentialAttrs["tenant-name"]
+		attrs["domain-name"] = credentialAttrs["domain-name"]
+		attrs["auth-mode"] = AuthUserPass
+	case cloud.AccessKeyAuthType:
+		attrs["access-key"] = credentialAttrs["access-key"]
+		attrs["secret-key"] = credentialAttrs["secret-key"]
+		attrs["tenant-name"] = credentialAttrs["tenant-name"]
+		attrs["auth-mode"] = AuthKeyPair
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+
+	// Set the default block-storage source.
+	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
+		attrs[config.StorageDefaultBlockSourceKey] = CinderProviderType
+	}
+
+	cfg, err := args.Config.Apply(attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return p.PrepareForCreateEnvironment(cfg)
+}
+
+// PrepareForBootstrap is specified in the EnvironProvider interface.
+func (p EnvironProvider) PrepareForBootstrap(
+	ctx environs.BootstrapContext,
+	cfg *config.Config,
+) (environs.Environ, error) {
 	e, err := p.Open(cfg)
 	if err != nil {
 		return nil, err
@@ -309,31 +192,6 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 		return nil, err
 	}
 	return &environConfig{valid, valid.UnknownAttrs()}, nil
-}
-
-func retryGet(uri string) (data []byte, err error) {
-	for a := shortAttempt.Start(); a.Next(); {
-		var resp *http.Response
-		resp, err = http.Get(uri)
-		if err != nil {
-			continue
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			err = fmt.Errorf("bad http response %v", resp.Status)
-			continue
-		}
-		var data []byte
-		data, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			continue
-		}
-		return data, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("cannot get %q: %v", uri, err)
-	}
-	return
 }
 
 type Environ struct {
@@ -410,8 +268,30 @@ func (inst *openstackInstance) Id() instance.Id {
 	return instance.Id(inst.getServerDetail().Id)
 }
 
-func (inst *openstackInstance) Status() string {
-	return inst.getServerDetail().Status
+func (inst *openstackInstance) Status() instance.InstanceStatus {
+	instStatus := inst.getServerDetail().Status
+	jujuStatus := status.StatusPending
+	switch instStatus {
+	case nova.StatusActive:
+		jujuStatus = status.StatusRunning
+	case nova.StatusError:
+		jujuStatus = status.StatusProvisioningError
+	case nova.StatusBuild, nova.StatusBuildSpawning,
+		nova.StatusDeleted, nova.StatusHardReboot,
+		nova.StatusPassword, nova.StatusReboot,
+		nova.StatusRebuild, nova.StatusRescue,
+		nova.StatusResize, nova.StatusShutoff,
+		nova.StatusSuspended, nova.StatusVerifyResize:
+		jujuStatus = status.StatusEmpty
+	case nova.StatusUnknown:
+		jujuStatus = status.StatusUnknown
+	default:
+		jujuStatus = status.StatusEmpty
+	}
+	return instance.InstanceStatus{
+		Status:  jujuStatus,
+		Message: instStatus,
+	}
 }
 
 func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareCharacteristics {
@@ -575,6 +455,7 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 		instTypeNames[i] = flavor.Name
 	}
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
+	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
 	return validator, nil
 }
 
@@ -714,6 +595,27 @@ func (e *Environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
+type newClientFunc func(*identity.Credentials, identity.AuthMode, *log.Logger) client.AuthenticatingClient
+
+func determineBestClient(options identity.AuthOptions, client client.AuthenticatingClient,
+	cred *identity.Credentials, newClient newClientFunc) client.AuthenticatingClient {
+	for _, option := range options {
+		if option.Mode != identity.AuthUserPassV3 {
+			continue
+		}
+		cred.URL = option.Endpoint
+		v3client := newClient(cred, identity.AuthUserPassV3, nil)
+		// V3 being advertised is not necessaritly a guarantee that it will
+		// work.
+		err := v3client.Authenticate()
+		if err == nil {
+			return v3client
+		}
+	}
+	return client
+
+}
+
 func authClient(ecfg *environConfig) client.AuthenticatingClient {
 	cred := &identity.Credentials{
 		User:       ecfg.username(),
@@ -721,6 +623,7 @@ func authClient(ecfg *environConfig) client.AuthenticatingClient {
 		Region:     ecfg.region(),
 		TenantName: ecfg.tenantName(),
 		URL:        ecfg.authURL(),
+		DomainName: ecfg.domainName(),
 	}
 	// authModeCfg has already been validated so we know it's one of the values below.
 	var authMode identity.AuthMode
@@ -729,6 +632,9 @@ func authClient(ecfg *environConfig) client.AuthenticatingClient {
 		authMode = identity.AuthLegacy
 	case AuthUserPass:
 		authMode = identity.AuthUserPass
+		if cred.DomainName != "" {
+			authMode = identity.AuthUserPassV3
+		}
 	case AuthKeyPair:
 		authMode = identity.AuthKeyPair
 		cred.User = ecfg.accessKey()
@@ -739,6 +645,18 @@ func authClient(ecfg *environConfig) client.AuthenticatingClient {
 		newClient = client.NewNonValidatingClient
 	}
 	client := newClient(cred, authMode, nil)
+
+	// before returning, lets make sure that we want to have AuthMode
+	// AuthUserPass instead of its V3 counterpart.
+	if authMode == identity.AuthUserPass {
+		options, err := client.IdentityAuthOptions()
+		if err != nil {
+			logger.Errorf("cannot determine available auth versions %v", err)
+		} else {
+			client = determineBestClient(options, client, cred, newClient)
+		}
+
+	}
 	// By default, the client requires "compute" and
 	// "object-store". Juju only requires "compute".
 	client.SetRequiredServiceTypes([]string{"compute"})
@@ -1022,13 +940,9 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	for _, g := range groups {
 		groupNames = append(groupNames, nova.SecurityGroupName{g.Name})
 	}
-	eUUID, ok := e.Config().UUID()
-	if !ok {
-		return nil, errors.NotFoundf("UUID in environ config")
-	}
 	machineName := resourceName(
 		names.NewMachineTag(args.InstanceConfig.MachineId),
-		eUUID,
+		e.Config().UUID(),
 	)
 
 	var server *nova.Entity
@@ -1236,10 +1150,7 @@ func (e *Environ) AllInstances() (insts []instance.Instance, err error) {
 	}
 	instsById := make(map[string]instance.Instance)
 	cfg := e.Config()
-	eUUID, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.NotFoundf("model UUID")
-	}
+	eUUID := cfg.UUID()
 	for _, server := range servers {
 		modelUUID, ok := server.Metadata[tags.JujuModel]
 		if !ok || modelUUID != eUUID {
@@ -1279,7 +1190,7 @@ func resourceName(tag names.Tag, envName string) string {
 // machinesFilter returns a nova.Filter matching all machines in the environment.
 func (e *Environ) machinesFilter() *nova.Filter {
 	filter := nova.NewFilter()
-	eUUID, _ := e.Config().UUID()
+	eUUID := e.Config().UUID()
 	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", eUUID))
 	return filter
 }

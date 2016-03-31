@@ -24,12 +24,15 @@ import (
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -38,7 +41,8 @@ import (
 	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/status"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/lease"
 )
 
@@ -80,6 +84,7 @@ type State struct {
 	pwatcher *presence.Watcher
 	// leadershipManager keeps track of units' service leadership leases
 	// within this environment.
+	leadershipClient  corelease.Client
 	leadershipManager *lease.Manager
 	// singularManager keeps track of which controller machine is responsible
 	// for managing this state's environment.
@@ -218,6 +223,7 @@ func (st *State) start(controllerTag names.ModelTag) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot create leadership lease client")
 	}
+	st.leadershipClient = leadershipClient
 	logger.Infof("starting leadership lease manager")
 	leadershipManager, err := lease.NewManager(lease.ManagerConfig{
 		Secretary: leadershipSecretary{},
@@ -349,8 +355,6 @@ func (st *State) MongoSession() *mgo.Session {
 	return st.session
 }
 
-type closeFunc func()
-
 func (st *State) Watch() *Multiwatcher {
 	st.mu.Lock()
 	if st.allManager == nil {
@@ -464,11 +468,12 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	return nil
 }
 
-var UpgradeInProgressError = errors.New("an upgrade is already in progress or the last upgrade did not complete")
+var errUpgradeInProgress = errors.New(params.CodeUpgradeInProgress)
 
-// IsUpgradeInProgressError returns true if the error given is UpgradeInProgressError.
+// IsUpgradeInProgressError returns true if the error is cause by an
+// upgrade in progress
 func IsUpgradeInProgressError(err error) bool {
-	return errors.Cause(err) == UpgradeInProgressError
+	return errors.Cause(err) == errUpgradeInProgress
 }
 
 // SetModelAgentVersion changes the agent version for the model to the
@@ -476,10 +481,10 @@ func IsUpgradeInProgressError(err error) bool {
 // running the current version). If this is a hosted model, newVersion
 // cannot be higher than the controller version.
 func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
-	if newVersion.Compare(version.Current) > 0 && !st.IsController() {
+	if newVersion.Compare(jujuversion.Current) > 0 && !st.IsController() {
 		return errors.Errorf("a hosted model cannot have a higher version than the server model: %s > %s",
 			newVersion.String(),
-			version.Current,
+			jujuversion.Current,
 		)
 	}
 
@@ -527,7 +532,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
 		// return a more helpful error message in the case of an
 		// active upgradeInfo document being in place.
 		if upgrading, _ := st.IsUpgrading(); upgrading {
-			err = UpgradeInProgressError
+			err = errUpgradeInProgress
 		} else {
 			err = errors.Annotate(err, "cannot set agent version")
 		}
@@ -600,13 +605,13 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 	return errors.Trace(err)
 }
 
-// EnvironConstraints returns the current model constraints.
+// ModelConstraints returns the current model constraints.
 func (st *State) ModelConstraints() (constraints.Value, error) {
 	cons, err := readConstraints(st, modelGlobalKey)
 	return cons, errors.Trace(err)
 }
 
-// SetEnvironConstraints replaces the current model constraints.
+// SetModelConstraints replaces the current model constraints.
 func (st *State) SetModelConstraints(cons constraints.Value) error {
 	unsupported, err := st.validateConstraints(cons)
 	if len(unsupported) > 0 {
@@ -838,6 +843,10 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSh
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
+	if err := validateCharmVersion(ch); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	query := charms.FindId(curl.String()).Select(bson.D{{"placeholder", 1}})
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -857,6 +866,20 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSh
 		return st.Charm(curl)
 	}
 	return nil, errors.Trace(err)
+}
+
+type hasMeta interface {
+	Meta() *charm.Meta
+}
+
+func validateCharmVersion(ch hasMeta) error {
+	minver := ch.Meta().MinJujuVersion
+	if minver != version.Zero {
+		if minver.Compare(jujuversion.Current) > 0 {
+			return errors.Errorf("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, jujuversion.Current)
+		}
+	}
+	return nil
 }
 
 // AllCharms returns all charms in state.
@@ -1168,6 +1191,11 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if args.Charm == nil {
 		return nil, errors.Errorf("charm is nil")
 	}
+
+	if err := validateCharmVersion(args.Charm); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if exists, err := isNotDead(st, servicesC, args.Name); err != nil {
 		return nil, errors.Trace(err)
 	} else if exists {
@@ -1217,23 +1245,25 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		} else {
 			supportedSeries = args.Charm.Meta().Series
 		}
-		seriesOS, err := series.GetOSFromSeries(args.Series)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		supportedOperatingSystems := make(map[os.OSType]bool)
-		for _, supportedSeries := range supportedSeries {
-			os, err := series.GetOSFromSeries(supportedSeries)
+		if len(supportedSeries) > 0 {
+			seriesOS, err := series.GetOSFromSeries(args.Series)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			supportedOperatingSystems[os] = true
-		}
-		if !supportedOperatingSystems[seriesOS] {
-			return nil, errors.NewNotSupported(errors.Errorf(
-				"series %q (OS %q) not supported by charm",
-				args.Series, seriesOS,
-			), "")
+			supportedOperatingSystems := make(map[os.OSType]bool)
+			for _, supportedSeries := range supportedSeries {
+				os, err := series.GetOSFromSeries(supportedSeries)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				supportedOperatingSystems[os] = true
+			}
+			if !supportedOperatingSystems[seriesOS] {
+				return nil, errors.NewNotSupported(errors.Errorf(
+					"series %q (OS %q) not supported by charm, supported series are %q",
+					args.Series, seriesOS, strings.Join(supportedSeries, ", "),
+				), "")
+			}
 		}
 	}
 
@@ -1269,6 +1299,9 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 	// Create the service addition operations.
 	peers := args.Charm.Meta().Peers
+
+	// The doc defaults to CharmModifiedVersion = 0, which is correct, since it
+	// has, by definition, at its initial state.
 	svcDoc := &serviceDoc{
 		DocID:         serviceID,
 		Name:          args.Name,
@@ -1296,7 +1329,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		// TODO(fwereade): this violates the spec. Should be "waiting".
 		// Implemented like this to be consistent with incorrect add-unit
 		// behaviour.
-		Status:     StatusUnknown,
+		Status:     status.StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    time.Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour
@@ -1305,31 +1338,21 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		NeverSet: true,
 	}
 
-	ops := []txn.Op{
-		env.assertAliveOp(),
-		createConstraintsOp(st, svc.globalKey(), args.Constraints),
-		// TODO(dimitern): Drop requested networks across the board in a
-		// follow-up.
-		createRequestedNetworksOp(st, svc.globalKey(), nil),
-		endpointBindingsOp,
-		createStorageConstraintsOp(svc.globalKey(), args.Storage),
-		createSettingsOp(svc.settingsKey(), map[string]interface{}(args.Settings)),
-		addLeadershipSettingsOp(svc.Tag().Id()),
-		createStatusOp(st, svc.globalKey(), statusDoc),
-		{
-			C:      settingsrefsC,
-			Id:     st.docID(svc.settingsKey()),
-			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{
-				RefCount:  1,
-				ModelUUID: st.ModelUUID()},
-		}, {
-			C:      servicesC,
-			Id:     serviceID,
-			Assert: txn.DocMissing,
-			Insert: svcDoc,
+	// The addServiceOps does not include the environment alive assertion,
+	// so we add it here.
+	ops := append(
+		[]txn.Op{
+			env.assertAliveOp(),
+			endpointBindingsOp,
 		},
-	}
+		addServiceOps(st, addServiceOpsArgs{
+			serviceDoc:       svcDoc,
+			statusDoc:        statusDoc,
+			constraints:      args.Constraints,
+			storage:          args.Storage,
+			settings:         map[string]interface{}(args.Settings),
+			settingsRefCount: 1,
+		})...)
 
 	// Collect peer relation addition operations.
 	//
@@ -1356,7 +1379,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 	// Collect unit-adding operations.
 	for x := 0; x < args.NumUnits; x++ {
-		unitName, unitOps, err := svc.addServiceUnitOps(addUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
+		unitName, unitOps, err := svc.addServiceUnitOps(serviceAddUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -2244,6 +2267,8 @@ type controllersDoc struct {
 	ModelUUID        string `bson:"model-uuid"`
 	MachineIds       []string
 	VotingMachineIds []string
+	MongoSpaceName   string `bson:"mongo-space-name"`
+	MongoSpaceState  string `bson:"mongo-space-state"`
 }
 
 // ControllerInfo holds information about currently
@@ -2263,7 +2288,26 @@ type ControllerInfo struct {
 	// configured to run a controller and to have a vote
 	// in peer election.
 	VotingMachineIds []string
+
+	// MongoSpaceName is the space that contains all Mongo servers.
+	MongoSpaceName string
+
+	// MongoSpaceState records the state of the mongo space selection state machine. Valid states are:
+	// * We haven't looked for a Mongo space yet (MongoSpaceUnknown)
+	// * We have looked for a Mongo space, but we didn't find one (MongoSpaceInvalid)
+	// * We have looked for and found a Mongo space (MongoSpaceValid)
+	// * We didn't try to find a Mongo space because the provider doesn't support spaces (MongoSpaceUnsupported)
+	MongoSpaceState MongoSpaceStates
 }
+
+type MongoSpaceStates string
+
+const (
+	MongoSpaceUnknown     MongoSpaceStates = ""
+	MongoSpaceValid       MongoSpaceStates = "valid"
+	MongoSpaceInvalid     MongoSpaceStates = "invalid"
+	MongoSpaceUnsupported MongoSpaceStates = "unsupported"
+)
 
 // ControllerInfo returns information about
 // the currently configured controller machines.
@@ -2314,6 +2358,8 @@ func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 		ModelTag:         names.NewModelTag(doc.ModelUUID),
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,
+		MongoSpaceName:   doc.MongoSpaceName,
+		MongoSpaceState:  MongoSpaceStates(doc.MongoSpaceState),
 	}, nil
 }
 
@@ -2374,6 +2420,70 @@ func SetSystemIdentity(st *State, identity string) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// SetOrGetMongoSpaceName attempts to set the Mongo space or, if that fails, look
+// up the current Mongo space. Either way, it always returns what is in the
+// database by the end of the call.
+func (st *State) SetOrGetMongoSpaceName(mongoSpaceName network.SpaceName) (network.SpaceName, error) {
+	err := st.setMongoSpaceName(mongoSpaceName)
+	if err == txn.ErrAborted {
+		// Failed to set the new space name. Return what is already stored in state.
+		controllerInfo, err := st.ControllerInfo()
+		if err != nil {
+			return network.SpaceName(""), errors.Trace(err)
+		}
+		return network.SpaceName(controllerInfo.MongoSpaceName), nil
+	} else if err != nil {
+		return network.SpaceName(""), errors.Trace(err)
+	}
+	return mongoSpaceName, nil
+}
+
+// SetMongoSpaceState attempts to set the Mongo space state or, if that fails, look
+// up the current Mongo state. Either way, it always returns what is in the
+// database by the end of the call.
+func (st *State) SetMongoSpaceState(mongoSpaceState MongoSpaceStates) error {
+
+	if mongoSpaceState != MongoSpaceUnknown &&
+		mongoSpaceState != MongoSpaceValid &&
+		mongoSpaceState != MongoSpaceInvalid &&
+		mongoSpaceState != MongoSpaceUnsupported {
+		return errors.NotValidf("mongoSpaceState: %s", mongoSpaceState)
+	}
+
+	err := st.setMongoSpaceState(mongoSpaceState)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (st *State) setMongoSpaceName(mongoSpaceName network.SpaceName) error {
+	ops := []txn.Op{{
+		C:      controllersC,
+		Id:     modelGlobalKey,
+		Assert: bson.D{{"mongo-space-state", string(MongoSpaceUnknown)}},
+		Update: bson.D{{
+			"$set",
+			bson.D{
+				{"mongo-space-name", string(mongoSpaceName)},
+				{"mongo-space-state", MongoSpaceValid},
+			},
+		}},
+	}}
+
+	return st.runTransaction(ops)
+}
+
+func (st *State) setMongoSpaceState(mongoSpaceState MongoSpaceStates) error {
+	ops := []txn.Op{{
+		C:      controllersC,
+		Id:     modelGlobalKey,
+		Update: bson.D{{"$set", bson.D{{"mongo-space-state", mongoSpaceState}}}},
+	}}
+
+	return st.runTransaction(ops)
 }
 
 var tagPrefix = map[byte]string{

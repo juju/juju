@@ -13,6 +13,7 @@ import (
 	"github.com/altoros/gosigma/mock"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 type clientSuite struct {
@@ -59,7 +59,8 @@ func testNewClient(c *gc.C, endpoint, username, password string) (*environClient
 	ecfg := &environConfig{
 		Config: newConfig(c, testing.Attrs{"name": "client-test", "uuid": "f54aac3a-9dcd-4a0c-86b5-24091478478c"}),
 		attrs: map[string]interface{}{
-			"region":   endpoint,
+			"region":   "testregion",
+			"endpoint": endpoint,
 			"username": username,
 			"password": password,
 		},

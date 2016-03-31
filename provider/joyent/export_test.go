@@ -14,15 +14,14 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -180,20 +179,31 @@ func FindInstanceSpec(
 	return
 }
 
-func ControlBucketName(e environs.Environ) string {
-	env := e.(*joyentEnviron)
-	return env.Storage().(*JoyentStorage).GetContainerName()
-}
-
-func CreateContainer(s *JoyentStorage) error {
-	return s.createContainer()
+func CredentialsAttributes(attrs testing.Attrs) map[string]string {
+	credentialAttrs := make(map[string]string)
+	for _, attr := range []string{"sdc-user", "sdc-key-id", "private-key"} {
+		if v, ok := attrs[attr]; ok && v != "" {
+			credentialAttrs[attr] = fmt.Sprintf("%v", v)
+		}
+	}
+	return credentialAttrs
 }
 
 // MakeConfig creates a functional environConfig for a test.
 func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	env, err := environs.Prepare(
+		envtesting.BootstrapContext(c),
+		jujuclienttesting.NewMemStore(),
+		environs.PrepareParams{
+			BaseConfig:     attrs,
+			ControllerName: attrs["name"].(string),
+			CloudName:      "joyent",
+			Credential: cloud.NewCredential(
+				cloud.UserPassAuthType,
+				CredentialsAttributes(attrs),
+			),
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env.(*joyentEnviron).Ecfg()
 }
@@ -203,13 +213,6 @@ func MakeCredentials(c *gc.C, attrs testing.Attrs) *auth.Credentials {
 	creds, err := credentials(MakeConfig(c, attrs))
 	c.Assert(err, jc.ErrorIsNil)
 	return creds
-}
-
-// MakeStorage creates an env storage for a test.
-func MakeStorage(c *gc.C, attrs testing.Attrs) storage.Storage {
-	stor, err := newStorage(MakeConfig(c, attrs), "")
-	c.Assert(err, jc.ErrorIsNil)
-	return stor
 }
 
 var GetPorts = getPorts

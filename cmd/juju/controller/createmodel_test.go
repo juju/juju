@@ -14,56 +14,59 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	_ "github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/testing"
 )
 
 type createSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	fake       *fakeCreateClient
-	parser     func(interface{}) (interface{}, error)
-	store      configstore.Storage
-	serverUUID string
-	server     configstore.EnvironInfo
+	fake  *fakeCreateClient
+	store *jujuclienttesting.MemStore
 }
 
 var _ = gc.Suite(&createSuite{})
 
 func (s *createSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.fake = &fakeCreateClient{}
-	s.parser = nil
-	store := configstore.Default
-	s.AddCleanup(func(*gc.C) {
-		configstore.Default = store
-	})
-	s.store = configstore.NewMem()
-	configstore.Default = func() (configstore.Storage, error) {
-		return s.store, nil
+	s.fake = &fakeCreateClient{
+		model: params.Model{
+			Name:     "test",
+			UUID:     "fake-model-uuid",
+			OwnerTag: "ignored-for-now",
+		},
 	}
-	// Set up the current environment, and write just enough info
+
+	// Set up the current controller, and write just enough info
 	// so we don't try to refresh
-	envName := "test-master"
-	s.serverUUID = "fake-server-uuid"
-	info := s.store.CreateInfo(envName)
-	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:  []string{"localhost"},
-		CACert:     testing.CACert,
-		ModelUUID:  s.serverUUID,
-		ServerUUID: s.serverUUID,
-	})
-	info.SetAPICredentials(configstore.APICredentials{User: "bob", Password: "sekrit"})
-	err := info.Write()
+	controllerName := "local.test-master"
+	err := modelcmd.WriteCurrentController(controllerName)
 	c.Assert(err, jc.ErrorIsNil)
-	s.server = info
-	err = modelcmd.WriteCurrentModel(envName)
-	c.Assert(err, jc.ErrorIsNil)
+
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.Controllers["local.test-master"] = jujuclient.ControllerDetails{}
+	s.store.Accounts[controllerName] = &jujuclient.ControllerAccounts{
+		Accounts: map[string]jujuclient.AccountDetails{
+			"bob@local": {User: "bob@local"},
+		},
+		CurrentAccount: "bob@local",
+	}
+	s.store.Credentials["aws"] = cloud.CloudCredential{
+		AuthCredentials: map[string]cloud.Credential{
+			"secrets": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+				"access-key": "key",
+				"secret-key": "sekret",
+			}),
+		},
+	}
 }
 
 func (s *createSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command, _ := controller.NewCreateModelCommandForTest(s.fake, s.parser)
+	command, _ := controller.NewCreateModelCommandForTest(s.fake, s.store, s.store)
 	return testing.RunCommand(c, command, args...)
 }
 
@@ -74,8 +77,7 @@ func (s *createSuite) TestInit(c *gc.C) {
 		err    string
 		name   string
 		owner  string
-		path   string
-		values map[string]string
+		values map[string]interface{}
 	}{
 		{
 			err: "model name is required",
@@ -90,23 +92,16 @@ func (s *createSuite) TestInit(c *gc.C) {
 			args: []string{"new-model", "--owner", "not=valid"},
 			err:  `"not=valid" is not a valid user`,
 		}, {
-			args:   []string{"new-model", "key=value", "key2=value2"},
+			args: []string{"new-model", "--credential", "secrets"},
+			err:  `invalid cloud credential secrets, expected <cloud>:<credential-name>`,
+		}, {
+			args:   []string{"new-model", "--config", "key=value", "--config", "key2=value2"},
 			name:   "new-model",
-			values: map[string]string{"key": "value", "key2": "value2"},
-		}, {
-			args: []string{"new-model", "key=value", "key=value2"},
-			err:  `key "key" specified more than once`,
-		}, {
-			args: []string{"new-model", "another"},
-			err:  `expected "key=value", got "another"`,
-		}, {
-			args: []string{"new-model", "--config", "some-file"},
-			name: "new-model",
-			path: "some-file",
+			values: map[string]interface{}{"key": "value", "key2": "value2"},
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := controller.NewCreateModelCommandForTest(nil, nil)
+		wrappedCommand, command := controller.NewCreateModelCommandForTest(nil, s.store, s.store)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
@@ -116,29 +111,47 @@ func (s *createSuite) TestInit(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(command.Name, gc.Equals, test.name)
 		c.Assert(command.Owner, gc.Equals, test.owner)
-		c.Assert(command.ConfigFile.Path, gc.Equals, test.path)
-		// The config value parse method returns an empty map
-		// if there were no values
+		attrs, err := command.Config.ReadAttrs(nil)
+		c.Assert(err, jc.ErrorIsNil)
 		if len(test.values) == 0 {
-			c.Assert(command.ConfValues, gc.HasLen, 0)
+			c.Assert(attrs, gc.HasLen, 0)
 		} else {
-			c.Assert(command.ConfValues, jc.DeepEquals, test.values)
+			c.Assert(attrs, jc.DeepEquals, test.values)
 		}
 	}
 }
 
 func (s *createSuite) TestCreateExistingName(c *gc.C) {
-	// Make a configstore entry with the same name.
-	info := s.store.CreateInfo("test")
-	err := info.Write()
+	// If there's any model details existing, we just overwrite them. The
+	// controller will error out if the model already exists. Overwriting
+	// means we'll replace any stale details from an previously existing
+	// model with the same name.
+	err := s.store.UpdateModel("local.test-master", "bob@local", "test", jujuclient.ModelDetails{
+		"stale-uuid",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.run(c, "test")
-	c.Assert(err, gc.ErrorMatches, `model "test" already exists`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	details, err := s.store.ModelByName("local.test-master", "bob@local", "test")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
+}
+
+func (s *createSuite) TestCredentialsPassedThrough(c *gc.C) {
+	_, err := s.run(c, "test", "--credential", "aws:secrets")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.fake.config["type"], gc.Equals, "ec2")
+	c.Assert(s.fake.account, jc.DeepEquals, map[string]interface{}{
+		"access-key": "key",
+		"secret-key": "sekret",
+	})
 }
 
 func (s *createSuite) TestComandLineConfigPassedThrough(c *gc.C) {
-	_, err := s.run(c, "test", "account=magic", "cloud=special")
+	_, err := s.run(c, "test", "--config", "account=magic", "--config", "cloud=special")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.fake.config["account"], gc.Equals, "magic")
@@ -202,25 +215,7 @@ func (s *createSuite) TestConfigFileFailsToConform(c *gc.C) {
 	file.Close()
 
 	_, err = s.run(c, "test", "--config", file.Name())
-	c.Assert(err, gc.ErrorMatches, `unable to parse config file: map keyed with non-string value`)
-}
-
-func (s *createSuite) TestConfigFileFailsWithUnknownType(c *gc.C) {
-	config := map[string]interface{}{
-		"account": "magic",
-		"cloud":   "9",
-	}
-
-	bytes, err := yaml.Marshal(config)
-	c.Assert(err, jc.ErrorIsNil)
-	file, err := ioutil.TempFile(c.MkDir(), "")
-	c.Assert(err, jc.ErrorIsNil)
-	file.Write(bytes)
-	file.Close()
-
-	s.parser = func(interface{}) (interface{}, error) { return "not a map", nil }
-	_, err = s.run(c, "test", "--config", file.Name())
-	c.Assert(err, gc.ErrorMatches, `config must contain a YAML map with string keys`)
+	c.Assert(err, gc.ErrorMatches, `unable to parse config: map keyed with non-string value`)
 }
 
 func (s *createSuite) TestConfigFileFormatError(c *gc.C) {
@@ -230,7 +225,7 @@ func (s *createSuite) TestConfigFileFormatError(c *gc.C) {
 	file.Close()
 
 	_, err = s.run(c, "test", "--config", file.Name())
-	c.Assert(err, gc.ErrorMatches, `unable to parse config file: yaml: .*`)
+	c.Assert(err, gc.ErrorMatches, `unable to parse config: yaml: .*`)
 }
 
 func (s *createSuite) TestConfigFileDoesntExist(c *gc.C) {
@@ -251,7 +246,7 @@ func (s *createSuite) TestConfigValuePrecedence(c *gc.C) {
 	file.Write(bytes)
 	file.Close()
 
-	_, err = s.run(c, "test", "--config", file.Name(), "account=magic", "cloud=special")
+	_, err = s.run(c, "test", "--config", file.Name(), "--config", "account=magic", "--config", "cloud=special")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.config["account"], gc.Equals, "magic")
 	c.Assert(s.fake.config["cloud"], gc.Equals, "special")
@@ -263,43 +258,28 @@ func (s *createSuite) TestCreateErrorRemoveConfigstoreInfo(c *gc.C) {
 	_, err := s.run(c, "test")
 	c.Assert(err, gc.ErrorMatches, "bah humbug")
 
-	_, err = s.store.ReadInfo("test")
-	c.Assert(err, gc.ErrorMatches, `model "test" not found`)
+	_, err = s.store.ModelByName("local.test-master", "bob@local", "test")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *createSuite) TestCreateStoresValues(c *gc.C) {
-	s.fake.env = params.Model{
-		Name:     "test",
-		UUID:     "fake-model-uuid",
-		OwnerTag: "ignored-for-now",
-	}
 	_, err := s.run(c, "test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	info, err := s.store.ReadInfo("test")
+	model, err := s.store.ModelByName("local.test-master", "bob@local", "test")
 	c.Assert(err, jc.ErrorIsNil)
-	// Stores the credentials of the original environment
-	c.Assert(info.APICredentials(), jc.DeepEquals, s.server.APICredentials())
-	endpoint := info.APIEndpoint()
-	expected := s.server.APIEndpoint()
-	c.Assert(endpoint.Addresses, jc.DeepEquals, expected.Addresses)
-	c.Assert(endpoint.Hostnames, jc.DeepEquals, expected.Hostnames)
-	c.Assert(endpoint.ServerUUID, gc.Equals, expected.ServerUUID)
-	c.Assert(endpoint.CACert, gc.Equals, expected.CACert)
-	c.Assert(endpoint.ModelUUID, gc.Equals, "fake-model-uuid")
+	c.Assert(model, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
 }
 
 func (s *createSuite) TestNoEnvCacheOtherUser(c *gc.C) {
-	s.fake.env = params.Model{
-		Name:     "test",
-		UUID:     "fake-model-uuid",
-		OwnerTag: "ignored-for-now",
-	}
 	_, err := s.run(c, "test", "--owner", "zeus")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.store.ReadInfo("test")
-	c.Assert(err, gc.ErrorMatches, `model "test" not found`)
+	// Creating a model for another user does not update the model cache.
+	_, err = s.store.ModelByName("local.test-master", "bob@local", "test")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.store.ModelByName("local.test-master", "zeus@local", "test")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 // fakeCreateClient is used to mock out the behavior of the real
@@ -309,28 +289,30 @@ type fakeCreateClient struct {
 	account map[string]interface{}
 	config  map[string]interface{}
 	err     error
-	env     params.Model
+	model   params.Model
 }
 
-var _ controller.CreateEnvironmentAPI = (*fakeCreateClient)(nil)
+var _ controller.CreateModelAPI = (*fakeCreateClient)(nil)
 
 func (*fakeCreateClient) Close() error {
 	return nil
 }
 
 func (*fakeCreateClient) ConfigSkeleton(provider, region string) (params.ModelConfig, error) {
+	if provider == "" {
+		provider = "dummy"
+	}
 	return params.ModelConfig{
-		"type":       "dummy",
+		"type":       provider,
 		"controller": false,
 	}, nil
 }
 func (f *fakeCreateClient) CreateModel(owner string, account, config map[string]interface{}) (params.Model, error) {
-	var env params.Model
 	if f.err != nil {
-		return env, f.err
+		return params.Model{}, f.err
 	}
 	f.owner = owner
 	f.account = account
 	f.config = config
-	return f.env, nil
+	return f.model, nil
 }

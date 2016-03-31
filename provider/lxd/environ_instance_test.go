@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/provider/lxd/lxdclient"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environInstSuite struct {
@@ -100,6 +100,12 @@ func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
+	s.BaseSuite.Client.CheckCallNames(c, "Instances")
+	s.BaseSuite.Client.CheckCall(
+		c, 0, "Instances",
+		"juju-"+s.Env.Config().ControllerUUID()+"-machine-",
+		[]string{"Starting", "Started", "Running"},
+	)
 }
 
 func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *gc.C) {

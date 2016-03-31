@@ -181,14 +181,17 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 	}
 	tag := names.NewUnitTag("a-service/55")
 
-	d, err := FormatDetailResource(tag, svc, unit)
+	d, err := FormatDetailResource(tag, svc, unit, 8)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d, gc.Equals,
 		FormattedDetailResource{
-			unitNumber: 55,
-			UnitID:     "a-service/55",
-			Expected:   FormatSvcResource(svc),
-			Unit:       FormatSvcResource(unit),
+			unitNumber:  55,
+			UnitID:      "a-service/55",
+			Expected:    FormatSvcResource(svc),
+			Progress:    8,
+			progress:    "80%",
+			revProgress: "5 (fetching: 80%)",
+			Unit:        FormatSvcResource(unit),
 		},
 	)
 }
@@ -219,14 +222,17 @@ func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *gc.C) {
 	unit := resource.Resource{}
 	tag := names.NewUnitTag("a-service/55")
 
-	d, err := FormatDetailResource(tag, svc, unit)
+	d, err := FormatDetailResource(tag, svc, unit, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d, gc.Equals,
 		FormattedDetailResource{
-			unitNumber: 55,
-			UnitID:     "a-service/55",
-			Expected:   FormatSvcResource(svc),
-			Unit:       FormatSvcResource(unit),
+			unitNumber:  55,
+			UnitID:      "a-service/55",
+			Expected:    FormatSvcResource(svc),
+			Progress:    0,
+			progress:    "0%",
+			revProgress: "5 (fetching: 0%)",
+			Unit:        FormatSvcResource(unit),
 		},
 	)
 }

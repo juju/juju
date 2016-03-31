@@ -8,6 +8,7 @@ import (
 
 	"github.com/altoros/gosigma/mock"
 	"github.com/juju/loggo"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 type environInstanceSuite struct {
@@ -35,7 +35,8 @@ func (s *environInstanceSuite) SetUpSuite(c *gc.C) {
 	attrs := testing.Attrs{
 		"name":     "testname",
 		"uuid":     "f54aac3a-9dcd-4a0c-86b5-24091478478c",
-		"region":   mock.Endpoint(""),
+		"region":   "testregion",
+		"endpoint": mock.Endpoint(""),
 		"username": mock.TestUser,
 		"password": mock.TestPassword,
 	}
@@ -127,7 +128,8 @@ func (s *environInstanceSuite) TestInstances(c *gc.C) {
 func (s *environInstanceSuite) TestInstancesFail(c *gc.C) {
 	attrs := testing.Attrs{
 		"name":     "testname",
-		"region":   "https://0.1.2.3:2000/api/2.0/",
+		"region":   "testregion",
+		"endpoint": "https://0.1.2.3:2000/api/2.0/",
 		"username": mock.TestUser,
 		"password": mock.TestPassword,
 	}

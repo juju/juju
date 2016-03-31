@@ -29,7 +29,7 @@ func (s *SSHKeysSuite) assertHelpOutput(c *gc.C, cmd, args string) {
 	if args != "" {
 		args = " " + args
 	}
-	expected := fmt.Sprintf("usage: juju %s [options]%s", cmd, args)
+	expected := fmt.Sprintf("Usage: juju %s [options]%s", cmd, args)
 	out := badrun(c, 0, cmd, "--help")
 	lines := strings.Split(out, "\n")
 	c.Assert(lines[0], gc.Equals, expected)
@@ -58,7 +58,7 @@ type keySuiteBase struct {
 
 func (s *keySuiteBase) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.PatchEnvironment(osenv.JujuModelEnvKey, "dummymodel")
+	s.PatchEnvironment(osenv.JujuModelEnvKey, "admin")
 }
 
 func (s *keySuiteBase) SetUpTest(c *gc.C) {
@@ -99,7 +99,7 @@ func (s *ListKeysSuite) TestListKeys(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	output := strings.TrimSpace(coretesting.Stdout(context))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Matches, "Keys used in model: dummymodel\n.*\\(user@host\\)\n.*\\(another@host\\)")
+	c.Assert(output, gc.Matches, "Keys used in model: admin\n.*\\(user@host\\)\n.*\\(another@host\\)")
 }
 
 func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
@@ -111,7 +111,7 @@ func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	output := strings.TrimSpace(coretesting.Stdout(context))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Matches, "Keys used in model: dummymodel\n.*user@host\n.*another@host")
+	c.Assert(output, gc.Matches, "Keys used in model: admin\n.*user@host\n.*another@host")
 }
 
 func (s *ListKeysSuite) TestTooManyArgs(c *gc.C) {

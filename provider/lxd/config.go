@@ -13,83 +13,19 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/lxd/lxdclient"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 // TODO(ericsnow) Support providing cert/key file.
 
 // The LXD-specific config keys.
 const (
-	cfgNamespace  = "namespace"
-	cfgRemoteURL  = "remote-url"
-	cfgClientCert = "client-cert"
-	cfgClientKey  = "client-key"
+	cfgNamespace     = "namespace"
+	cfgRemoteURL     = "remote-url"
+	cfgClientCert    = "client-cert"
+	cfgClientKey     = "client-key"
+	cfgServerPEMCert = "server-cert"
 )
-
-// TODO(ericsnow) Use configSchema.ExampleYAML (once it is implemented)
-// to generate boilerplaceConfig.
-
-// boilerplateConfig will be shown in help output, so please keep it up to
-// date when you change environment configuration below.
-var boilerplateConfig = `
-lxd:
-    type: lxd
-
-    # namespace identifies the namespace to associate with containers
-    # created by the provider.  It is prepended to the container names.
-    # By default the model's name is used as the namespace.
-    #
-    # Setting the namespace is useful when more than one model
-    # is using the same remote (e.g. the local LXD socket).
-    #
-    # namespace: lxd
-
-    # remote-url is the URL to the LXD API server to use for managing
-    # containers, if any. If not specified then the locally running LXD
-    # server is used.
-    #
-    # Note: Juju does not set up remotes for you. Run the following
-    # commands on an LXD remote's host to install LXD:
-    #
-    #   add-apt-repository ppa:ubuntu-lxc/lxd-stable
-    #   apt-get update
-    #   apt-get install lxd
-    #
-    # Before using a locally running LXD (the default for this provider)
-    # after installing it, either through Juju or the LXD CLI ("lxc"),
-    # you must either log out and back in or run this command:
-    #
-    #   newgrp lxd
-    #
-    # You will also need to prepare the "ubuntu" images that Juju uses:
-    #
-    #   lxc remote add images images.linuxcontainers.org
-    #   lxd-images import ubuntu --alias ubuntu-wily wily
-    #
-    # (Also consider the --stream and --sync options.)
-    #
-    # You will need to prepare an image for each Ubuntu series for which
-    # you want to create instances.  The alias must match the series:
-    #
-    #   lxd-images import ubuntu --alias ubuntu-trusty trusty
-    #   lxd-images import ubuntu --alias ubuntu-wily wily
-    #   lxd-images import ubuntu --alias ubuntu-xenial xenial
-    #
-    # See: https://linuxcontainers.org/lxd/getting-started-cli/
-    #
-    # Note: the LXD provider does not support using any series older
-    # than wily for a controller instance.  However, non-controller
-    # instances may be provisioned on earler series (e.g. trusty).
-    #
-    # remote-url:
-
-    # The cert and key the client should use to connect to the remote
-    # may also be provided. If not then they are auto-generated.
-    #
-    # client-cert:
-    # client-key:
-
-`[1:]
 
 // configSchema defines the schema for the configuration attributes
 // defined by the LXD provider.
@@ -114,6 +50,11 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Immutable:   true,
 	},
+	cfgServerPEMCert: {
+		Description: `The certificate of the LXD server on the host machine.`,
+		Type:        environschema.Tstring,
+		Immutable:   true,
+	},
 }
 
 var (
@@ -121,10 +62,11 @@ var (
 	// (or if) environschema.Attr supports defaults.
 
 	configBaseDefaults = schema.Defaults{
-		cfgNamespace:  "",
-		cfgRemoteURL:  "",
-		cfgClientCert: "",
-		cfgClientKey:  "",
+		cfgNamespace:     "",
+		cfgRemoteURL:     "",
+		cfgClientCert:    "",
+		cfgClientKey:     "",
+		cfgServerPEMCert: "",
 	}
 
 	configFields, configDefaults = func() (schema.Fields, schema.Defaults) {
@@ -136,17 +78,9 @@ var (
 		return fields, defaults
 	}()
 
-	configImmutableFields = func() []string {
-		var names []string
-		for name, attr := range configSchema {
-			if attr.Immutable {
-				names = append(names, name)
-			}
-		}
-		return names
-	}()
-
-	configSecretFields = []string{}
+	configSecretFields = []string{
+		cfgClientKey, // only privileged agents should get to talk to LXD
+	}
 )
 
 func updateDefaults(defaults schema.Defaults, updates schema.Defaults) schema.Defaults {
@@ -281,11 +215,17 @@ func (c *environConfig) clientKey() string {
 	return raw.(string)
 }
 
+func (c *environConfig) serverPEMCert() string {
+	raw := c.attrs[cfgServerPEMCert]
+	return raw.(string)
+}
+
 // clientConfig builds a LXD Config based on the env config and returns it.
 func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	remote := lxdclient.Remote{
-		Name: "juju-remote",
-		Host: c.remoteURL(),
+		Name:          "juju-remote",
+		Host:          c.remoteURL(),
+		ServerPEMCert: c.serverPEMCert(),
 	}
 	if c.clientCert() != "" {
 		certPEM := []byte(c.clientCert())
@@ -297,7 +237,6 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 
 	cfg := lxdclient.Config{
 		Namespace: c.namespace(),
-		Dirname:   lxdclient.ConfigPath("juju-" + c.namespace()),
 		Remote:    remote,
 	}
 	cfg, err := cfg.WithDefaults()
@@ -320,6 +259,8 @@ func (c *environConfig) updateForClientConfig(clientCfg lxdclient.Config) (*envi
 	c.attrs[cfgNamespace] = clientCfg.Namespace
 
 	c.attrs[cfgRemoteURL] = clientCfg.Remote.Host
+
+	c.attrs[cfgServerPEMCert] = clientCfg.Remote.ServerPEMCert
 
 	var cert lxdclient.Cert
 	if clientCfg.Remote.Cert != nil {

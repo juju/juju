@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func init() {
@@ -277,7 +277,9 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	var result params.ProvisioningScriptResult
 	icfg, err := InstanceConfig(c.api.state(), args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
-		return result, err
+		return result, common.ServerError(errors.Annotate(
+			err, "getting instance config",
+		))
 	}
 
 	// Until DisablePackageCommands is retired, for backwards
@@ -285,19 +287,26 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	// override any model settings the user may have specified.
 	// If the client does specify this setting, it will only ever be
 	// true. False indicates the client doesn't care and we should use
-	// what's specified in the environments.yaml file.
+	// what's specified in the environment config.
 	if args.DisablePackageCommands {
 		icfg.EnableOSRefreshUpdate = false
 		icfg.EnableOSUpgrade = false
 	} else if cfg, err := c.api.stateAccessor.ModelConfig(); err != nil {
-		return result, err
+		return result, common.ServerError(errors.Annotate(
+			err, "getting model config",
+		))
 	} else {
 		icfg.EnableOSUpgrade = cfg.EnableOSUpgrade()
 		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
 	}
 
 	result.Script, err = manual.ProvisioningScript(icfg)
-	return result, err
+	if err != nil {
+		return result, common.ServerError(errors.Annotate(
+			err, "getting provisioning script",
+		))
+	}
+	return result, nil
 }
 
 // DestroyMachines removes a given set of machines.
@@ -352,49 +361,6 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	return info, nil
 }
 
-// ShareModel manages allowing and denying the given user(s) access to the model.
-func (c *Client) ShareModel(args params.ModifyModelUsers) (result params.ErrorResults, err error) {
-	var createdBy names.UserTag
-	var ok bool
-	if createdBy, ok = c.api.auth.GetAuthTag().(names.UserTag); !ok {
-		return result, errors.Errorf("api connection is not through a user")
-	}
-
-	result = params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Changes)),
-	}
-	if len(args.Changes) == 0 {
-		return result, nil
-	}
-
-	for i, arg := range args.Changes {
-		userTagString := arg.UserTag
-		user, err := names.ParseUserTag(userTagString)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not share model"))
-			continue
-		}
-		switch arg.Action {
-		case params.AddModelUser:
-			_, err := c.api.stateAccessor.AddModelUser(
-				state.ModelUserSpec{User: user, CreatedBy: createdBy})
-			if err != nil {
-				err = errors.Annotate(err, "could not share model")
-				result.Results[i].Error = common.ServerError(err)
-			}
-		case params.RemoveModelUser:
-			err := c.api.stateAccessor.RemoveModelUser(user)
-			if err != nil {
-				err = errors.Annotate(err, "could not unshare model")
-				result.Results[i].Error = common.ServerError(err)
-			}
-		default:
-			result.Results[i].Error = common.ServerError(errors.Errorf("unknown action %q", arg.Action))
-		}
-	}
-	return result, nil
-}
-
 // ModelUserInfo returns information on all users in the model.
 func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
 	var results params.ModelUserInfoResults
@@ -432,7 +398,7 @@ func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
 
 // AgentVersion returns the current version that the API server is running.
 func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
-	return params.AgentVersionResult{Version: version.Current}, nil
+	return params.AgentVersionResult{Version: jujuversion.Current}, nil
 }
 
 // ModelGet implements the server-side part of the

@@ -21,6 +21,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
@@ -30,9 +31,9 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/juju"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var live = flag.Bool("live", false, "Include live simplestreams tests")
@@ -1022,6 +1023,7 @@ type signedSuite struct {
 }
 
 func (s *signedSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
 	var imageData = map[string]string{
 		"/unsigned/streams/v1/index.json":          unsignedIndex,
 		"/unsigned/streams/v1/tools_metadata.json": unsignedProduct,
@@ -1047,11 +1049,12 @@ func (s *signedSuite) SetUpSuite(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	imageData["/signed/streams/v1/tools_metadata.sjson"] = string(signedData)
 	sstesting.SetRoundTripperFiles(imageData, map[string]int{"signedtest://unauth": http.StatusUnauthorized})
-	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *signedSuite) TearDownSuite(c *gc.C) {
 	sstesting.SetRoundTripperFiles(nil, nil)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {

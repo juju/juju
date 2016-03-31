@@ -25,11 +25,10 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
@@ -39,12 +38,14 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ProviderSuite struct {
@@ -54,13 +55,9 @@ type ProviderSuite struct {
 var _ = gc.Suite(&ProviderSuite{})
 
 var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
-	"name":           "sample",
-	"type":           "ec2",
-	"region":         "test",
-	"control-bucket": "test-bucket",
-	"access-key":     "x",
-	"secret-key":     "x",
-	"agent-version":  coretesting.FakeVersionNumber.String(),
+	"name":          "sample",
+	"type":          "ec2",
+	"agent-version": coretesting.FakeVersionNumber.String(),
 })
 
 func registerLocalTests() {
@@ -85,12 +82,22 @@ type localLiveSuite struct {
 
 func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 	t.LiveTests.SetUpSuite(c)
+	t.Credential = cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "x",
+		},
+	)
+	t.CloudRegion = "test"
+
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting(c)
 	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
+	t.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 }
@@ -183,25 +190,42 @@ type localServerSuite struct {
 
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.SetUpSuite(c)
-	t.Tests.SetUpSuite(c)
+	t.Credential = cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "x",
+		},
+	)
+	t.CloudRegion = "test"
+
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting(c)
+	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
+	t.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	t.BaseSuite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
 	t.srv.createRootDisks = true
+	t.srv.startServer(c)
+	// TODO(jam) I don't understand why we shouldn't do this.
+	// t.Tests embeds the sstesting.TestDataSuite, but if we call this
+	// SetUpSuite, then all of the tests fail because they go to access
+	// "test:/streams/..." and it isn't found
+	// t.Tests.SetUpSuite(c)
 }
 
 func (t *localServerSuite) TearDownSuite(c *gc.C) {
+	t.restoreEC2Patching()
 	t.Tests.TearDownSuite(c)
 	t.BaseSuite.TearDownSuite(c)
-	t.restoreEC2Patching()
 }
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {
-	t.BaseSuite.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
 	t.BaseSuite.SetUpTest(c)
 	t.SetFeatureFlags(feature.AddressAllocation)
 	t.srv.startServer(c)
@@ -321,7 +345,7 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inst.Status(), gc.Equals, "terminated")
+	c.Assert(inst.Status().Message, gc.Equals, "terminated")
 }
 
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
@@ -745,10 +769,10 @@ func (t *localServerSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	env := t.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 tags=foo")
+	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, gc.DeepEquals, []string{"tags"})
+	c.Assert(unsupported, jc.SameContents, []string{"tags", "virt-type"})
 }
 
 func (t *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
@@ -1224,7 +1248,7 @@ func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
 	t.TestDataSuite.SetUpSuite(c)
 
 	t.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
-	t.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+	t.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 
 	t.restoreEC2Patching = patchEC2ForTesting(c)
 }
@@ -1242,9 +1266,23 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	}
 	t.srv.startServer(c)
 
-	cfg, err := config.New(config.NoDefaults, localConfigAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	env, err := environs.Prepare(
+		envtesting.BootstrapContext(c),
+		jujuclienttesting.NewMemStore(),
+		environs.PrepareParams{
+			BaseConfig: localConfigAttrs,
+			Credential: cloud.NewCredential(
+				cloud.AccessKeyAuthType,
+				map[string]string{
+					"access-key": "x",
+					"secret-key": "x",
+				},
+			),
+			ControllerName: localConfigAttrs["name"].(string),
+			CloudName:      "ec2",
+			CloudRegion:    "test",
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	t.env = env
 }
@@ -1258,7 +1296,7 @@ func patchEC2ForTesting(c *gc.C) func() {
 	ec2.UseTestImageData(c, ec2.TestImagesData)
 	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
 	ec2.UseTestRegionData(ec2.TestRegions)
-	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
+	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt, ec2.LongAttempt)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	return func() {
 		restoreFinishBootstrap()

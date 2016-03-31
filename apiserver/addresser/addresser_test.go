@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -273,9 +273,15 @@ func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {
 // testingEnvConfig prepares an environment configuration using
 // the dummy provider.
 func testingEnvConfig(c *gc.C) *config.Config {
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, modelcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
+	env, err := environs.Prepare(
+		modelcmd.BootstrapContext(coretesting.Context(c)),
+		jujuclienttesting.NewMemStore(),
+		environs.PrepareParams{
+			ControllerName: "dummycontroller",
+			BaseConfig:     dummy.SampleConfig(),
+			CloudName:      "dummy",
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()
 }
@@ -294,9 +300,15 @@ func nonexTestingEnvConfig(c *gc.C) *config.Config {
 // mockTestingEnvConfig prepares an environment configuration using
 // the mock provider which does not support networking.
 func mockTestingEnvConfig(c *gc.C) *config.Config {
-	cfg, err := config.New(config.NoDefaults, mockConfig())
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, modelcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
+	env, err := environs.Prepare(
+		modelcmd.BootstrapContext(coretesting.Context(c)),
+		jujuclienttesting.NewMemStore(),
+		environs.PrepareParams{
+			ControllerName: "dummycontroller",
+			BaseConfig:     mockConfig(),
+			CloudName:      "dummy",
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()
 }

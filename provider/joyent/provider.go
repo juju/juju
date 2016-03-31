@@ -4,16 +4,14 @@
 package joyent
 
 import (
-	"fmt"
-
 	"github.com/joyent/gocommon/client"
 	joyenterrors "github.com/joyent/gocommon/errors"
 	"github.com/joyent/gosdc/cloudapi"
 	"github.com/joyent/gosign/auth"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -21,40 +19,50 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.joyent")
 
-type joyentProvider struct{}
+type joyentProvider struct {
+	environProviderCredentials
+}
 
 var providerInstance = joyentProvider{}
 var _ environs.EnvironProvider = providerInstance
 
 var _ simplestreams.HasRegion = (*joyentEnviron)(nil)
 
-var errNotImplemented = errors.New("not implemented in Joyent provider")
-
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (joyentProvider) RestrictedConfigAttributes() []string {
-	return nil
+	return []string{sdcUrl}
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (joyentProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	// Turn an incomplete config into a valid one, if possible.
-	attrs := cfg.UnknownAttrs()
-
-	if _, ok := attrs["control-dir"]; !ok {
-		uuid, err := utils.NewUUID()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		attrs["control-dir"] = fmt.Sprintf("%x", uuid.Raw())
-	}
-	return cfg.Apply(attrs)
+	return cfg, nil
 }
 
-func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
+// BootstrapConfig is specified in the EnvironProvider interface.
+func (p joyentProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+	attrs := map[string]interface{}{}
+	// Add the credential attributes to config.
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.UserPassAuthType:
+		credentialAttrs := args.Credentials.Attributes()
+		for k, v := range credentialAttrs {
+			attrs[k] = v
+		}
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+	if args.CloudEndpoint != "" {
+		attrs[sdcUrl] = args.CloudEndpoint
+	}
+	cfg, err := args.Config.Apply(attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return p.PrepareForCreateEnvironment(cfg)
+}
+
+// PrepareForBootstrap is specified in the EnvironProvider interface.
+func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	e, err := p.Open(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -68,9 +76,9 @@ func (p joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *
 }
 
 const unauthorisedMessage = `
-Please ensure the Manta username and SSH access key you have
-specified are correct. You can create or import an SSH key via
-the "Account Summary" page in the Joyent console.`
+Please ensure the SSH access key you have specified is correct.
+You can create or import an SSH key via the "Account Summary"
+page in the Joyent console.`
 
 // verifyCredentials issues a cheap, non-modifying request to Joyent to
 // verify the configured credentials. If verification fails, a user-friendly
@@ -95,14 +103,12 @@ var verifyCredentials = func(e *joyentEnviron) error {
 }
 
 func credentials(cfg *environConfig) (*auth.Credentials, error) {
-	authentication, err := auth.NewAuth(cfg.mantaUser(), cfg.privateKey(), cfg.algorithm())
+	authentication, err := auth.NewAuth(cfg.sdcUser(), cfg.privateKey(), cfg.algorithm())
 	if err != nil {
 		return nil, errors.Errorf("cannot create credentials: %v", err)
 	}
 	return &auth.Credentials{
 		UserAuthentication: authentication,
-		MantaKeyId:         cfg.mantaKeyId(),
-		MantaEndpoint:      auth.Endpoint{URL: cfg.mantaUrl()},
 		SdcKeyId:           cfg.sdcKeyId(),
 		SdcEndpoint:        auth.Endpoint{URL: cfg.sdcUrl()},
 	}, nil
@@ -147,11 +153,6 @@ func (joyentProvider) SecretAttrs(cfg *config.Config) (map[string]string, error)
 		}
 	}
 	return secretAttrs, nil
-}
-
-func (joyentProvider) BoilerplateConfig() string {
-	return boilerplateConfig
-
 }
 
 func GetProviderInstance() environs.EnvironProvider {

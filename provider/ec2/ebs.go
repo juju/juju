@@ -53,9 +53,7 @@ const (
 // AWS error codes
 const (
 	deviceInUse        = "InvalidDevice.InUse"
-	volumeInUse        = "VolumeInUse"
 	attachmentNotFound = "InvalidAttachment.NotFound"
-	incorrectState     = "IncorrectState"
 )
 
 const (
@@ -65,8 +63,6 @@ const (
 
 	attachmentStatusAttaching = "attaching"
 	attachmentStatusAttached  = "attached"
-	attachmentStatusDetaching = "detaching"
-	attachmentStatusDetached  = "detached"
 
 	instanceStateShuttingDown = "shutting-down"
 	instanceStateTerminated   = "terminated"
@@ -216,14 +212,10 @@ func (e *ebsProvider) VolumeSource(environConfig *config.Config, cfg *storage.Co
 	if err != nil {
 		return nil, errors.Annotate(err, "creating AWS clients")
 	}
-	uuid, ok := environConfig.UUID()
-	if !ok {
-		return nil, errors.NotFoundf("model UUID")
-	}
 	source := &ebsVolumeSource{
 		ec2:       ec2,
 		envName:   environConfig.Name(),
-		modelUUID: uuid,
+		modelUUID: environConfig.UUID(),
 	}
 	return source, nil
 }

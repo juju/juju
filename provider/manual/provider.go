@@ -8,12 +8,15 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 )
 
-type manualProvider struct{}
+type manualProvider struct {
+	environProviderCredentials
+}
 
 // Verify that we conform to the interface.
 var _ environs.EnvironProvider = (*manualProvider)(nil)
@@ -37,25 +40,55 @@ func (p manualProvider) RestrictedConfigAttributes() []string {
 	return []string{"bootstrap-host", "bootstrap-user"}
 }
 
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p manualProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	// Not even sure if this will ever make sense.
-	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
+// DetectRegions is specified in the environs.CloudRegionDetector interface.
+func (p manualProvider) DetectRegions() ([]cloud.Region, error) {
+	return nil, errors.NotFoundf("regions")
 }
 
-func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	if use, ok := cfg.UnknownAttrs()["use-sshstorage"].(bool); ok && !use {
-		return nil, fmt.Errorf("use-sshstorage must not be specified")
+// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
+func (p manualProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	return cfg, nil
+}
+
+// BootstrapConfig is specified in the EnvironProvider interface.
+func (p manualProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+	var bootstrapHost string
+	switch {
+	case args.CloudEndpoint != "":
+		// If an endpoint is specified, then we expect that the user
+		// has specified in their clouds.yaml a region with the
+		// bootstrap host as the endpoint.
+		bootstrapHost = args.CloudEndpoint
+	case args.CloudRegion != "":
+		// If only a region is specified, then we expect that the user
+		// has run "juju bootstrap manual/<host>", and treat the region
+		// name as the name of the bootstrap machine.
+		bootstrapHost = args.CloudRegion
+	default:
+		return nil, errors.Errorf(
+			"missing address of host to bootstrap: " +
+				`please specify "juju bootstrap manual/<host>"`,
+		)
+	}
+	cfg, err := args.Config.Apply(map[string]interface{}{
+		"bootstrap-host": bootstrapHost,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	envConfig, err := p.validate(cfg, nil)
 	if err != nil {
 		return nil, err
 	}
-	cfg, err = cfg.Apply(envConfig.attrs)
-	if err != nil {
+	return cfg.Apply(envConfig.attrs)
+}
+
+// PrepareForBootstrap is specified in the EnvironProvider interface.
+func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+	if _, err := p.validate(cfg, nil); err != nil {
 		return nil, err
 	}
-	envConfig = newModelConfig(cfg, envConfig.attrs)
+	envConfig := newModelConfig(cfg, cfg.UnknownAttrs())
 	if err := ensureBootstrapUbuntuUser(ctx, envConfig); err != nil {
 		return nil, err
 	}
@@ -117,10 +150,6 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 				return nil, err
 			}
 		}
-		oldUseSSHStorage, newUseSSHStorage := oldEnvConfig.useSSHStorage(), envConfig.useSSHStorage()
-		if oldUseSSHStorage != newUseSSHStorage && newUseSSHStorage == true {
-			return nil, fmt.Errorf("cannot change use-sshstorage from %v to %v", oldUseSSHStorage, newUseSSHStorage)
-		}
 	}
 
 	// If the user hasn't already specified a value, set it to the
@@ -146,35 +175,6 @@ func (p manualProvider) Validate(cfg, old *config.Config) (valid *config.Config,
 		return nil, err
 	}
 	return cfg.Apply(envConfig.attrs)
-}
-
-func (_ manualProvider) BoilerplateConfig() string {
-	return `
-manual:
-    type: manual
-    # bootstrap-host holds the host name of the machine where the
-    # bootstrap machine agent will be started.
-    bootstrap-host: somehost.example.com
-
-    # bootstrap-user specifies the user to authenticate as when
-    # connecting to the bootstrap machine. It defaults to
-    # the current user.
-    # bootstrap-user: joebloggs
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of false is set so that Juju
-    # does not subsume any other way the system might be
-    # maintained.
-    #
-    # enable-os-upgrade: false
-
-`[1:]
 }
 
 func (p manualProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/charmstore"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -109,7 +110,11 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 	svc, err := s.State.Service("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	ch := s.AddCharmWithRevision(c, "mysql", 23)
-	err = svc.SetCharm(ch, false, true)
+	cfg := state.SetCharmConfig{
+		Charm:      ch,
+		ForceUnits: true,
+	}
+	err = svc.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = s.charmrevisionupdater.UpdateLatestRevisions()
@@ -160,9 +165,10 @@ func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
 	defer srv.Close()
 
 	// Point the charm repo initializer to the testing server.
-	s.PatchValue(&charmrevisionupdater.NewCharmStore, func(p charmrepo.NewCharmStoreParams) *charmrepo.CharmStore {
-		p.URL = srv.URL
-		return charmrepo.NewCharmStore(p)
+	s.PatchValue(&charmrevisionupdater.NewCharmStoreClientConfig, func() charmstore.ClientConfig {
+		var config charmstore.ClientConfig
+		config.URL = srv.URL
+		return config
 	})
 
 	result, err := s.charmrevisionupdater.UpdateLatestRevisions()

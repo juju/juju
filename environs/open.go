@@ -4,140 +4,24 @@
 package environs
 
 import (
+	"crypto/rand"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient"
 )
 
-var (
-	InvalidEnvironmentError = fmt.Errorf(
-		"model is not a juju-core model")
-)
+// ControllerModelName is the name of the admin model in each controller.
+const ControllerModelName = "admin"
 
-// ConfigSource represents where some configuration data
-// has come from.
-// TODO(rog) remove this when we don't have to support
-// old environments with no configstore info. See lp#1235217
-type ConfigSource int
-
-const (
-	ConfigFromNowhere ConfigSource = iota
-	ConfigFromInfo
-	ConfigFromEnvirons
-)
-
-// EmptyConfig indicates the .jenv file is empty.
-type EmptyConfig struct {
-	error
-}
-
-// IsEmptyConfig reports whether err is a EmptyConfig.
-func IsEmptyConfig(err error) bool {
-	_, ok := err.(EmptyConfig)
-	return ok
-}
-
-// ConfigForName returns the configuration for the environment with
-// the given name from the default environments file. If the name is
-// blank, the default environment will be used. If the configuration
-// is not found, an errors.NotFoundError is returned. If the given
-// store contains an entry for the environment and it has associated
-// bootstrap config, that configuration will be returned.
-// ConfigForName also returns where the configuration was sourced from
-// (this is also valid even when there is an error.
-func ConfigForName(name string, store configstore.Storage) (*config.Config, ConfigSource, error) {
-	envs, err := ReadEnvirons("")
-	if err != nil {
-		return nil, ConfigFromNowhere, err
-	}
-	if name == "" {
-		name = envs.Default
-	}
-
-	info, err := store.ReadInfo(name)
-	if err == nil {
-		if len(info.BootstrapConfig()) == 0 {
-			return nil, ConfigFromNowhere, EmptyConfig{fmt.Errorf("model has no bootstrap configuration data")}
-		}
-		logger.Debugf("ConfigForName found bootstrap config %#v", info.BootstrapConfig())
-		cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
-		return cfg, ConfigFromInfo, err
-	} else if !errors.IsNotFound(err) {
-		return nil, ConfigFromInfo, fmt.Errorf("cannot read model info for %q: %v", name, err)
-	}
-
-	cfg, err := envs.Config(name)
-	return cfg, ConfigFromEnvirons, err
-}
-
-// maybeNotBootstrapped takes an error and source, returned by
-// ConfigForName and returns ErrNotBootstrapped if it looks like the
-// environment is not bootstrapped, or err as-is otherwise.
-func maybeNotBootstrapped(err error, source ConfigSource) error {
-	if err != nil && source == ConfigFromEnvirons {
-		return ErrNotBootstrapped
-	}
-	return err
-}
-
-// NewFromName opens the environment with the given
-// name from the default environments file. If the
-// name is blank, the default environment will be used.
-// If the given store contains an entry for the environment
-// and it has associated bootstrap config, that configuration
-// will be returned.
-func NewFromName(name string, store configstore.Storage) (Environ, error) {
-	// If we get an error when reading from a legacy
-	// environments.yaml entry, we pretend it didn't exist
-	// because the error is likely to be because
-	// configuration attributes don't exist which
-	// will be filled in by Prepare.
-	cfg, source, err := ConfigForName(name, store)
-	if err := maybeNotBootstrapped(err, source); err != nil {
-		return nil, err
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	env, err := New(cfg)
-	if err := maybeNotBootstrapped(err, source); err != nil {
-		return nil, err
-	}
-	return env, err
-}
-
-// PrepareFromName is the same as NewFromName except
-// that the environment is is prepared as well as opened,
-// and environment information is created using the
-// given store. If the environment is already prepared,
-// it behaves like NewFromName.
-var PrepareFromName = prepareFromNameProductionFunc
-
-func prepareFromNameProductionFunc(name string, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
-	cfg, _, err := ConfigForName(name, store)
-	if err != nil {
-		return nil, err
-	}
-	return Prepare(cfg, ctx, store)
-}
-
-// NewFromAttrs returns a new environment based on the provided configuration
-// attributes.
-// TODO(rog) remove this function - it's almost always wrong to use it.
-func NewFromAttrs(attrs map[string]interface{}) (Environ, error) {
-	cfg, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return New(cfg)
-}
+// adminUser is the initial admin user created for all controllers.
+const AdminUser = "admin@local"
 
 // New returns a new environment based on the provided configuration.
 func New(config *config.Config) (Environ, error) {
@@ -148,165 +32,236 @@ func New(config *config.Config) (Environ, error) {
 	return p.Open(config)
 }
 
-// Prepare prepares a new environment based on the provided configuration.
-// If the environment is already prepared, it behaves like New.
-func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
+// PrepareParams contains the parameters for preparing a controller Environ
+// for bootstrapping.
+type PrepareParams struct {
+	// BaseConfig contains the base configuration for the controller.
+	//
+	// This includes the model name, cloud type, and any user-supplied
+	// configuration. It does not include any default attributes.
+	BaseConfig map[string]interface{}
 
-	if p, err := Provider(cfg.Type()); err != nil {
-		return nil, errors.Trace(err)
-	} else if info, err := store.ReadInfo(cfg.Name()); errors.IsNotFound(errors.Cause(err)) {
-		info = store.CreateInfo(cfg.Name())
-		if env, err := prepare(ctx, cfg, info, p); err == nil {
-			return env, decorateAndWriteInfo(info, env.Config())
-		} else {
-			if err := info.Destroy(); err != nil {
-				logger.Warningf("cannot destroy newly created model info: %v", err)
-			}
-			return nil, errors.Trace(err)
-		}
-	} else if err != nil {
-		return nil, errors.Annotatef(err, "error reading model info %q", cfg.Name())
-	} else if !info.Initialized() {
-		return nil,
-			errors.Errorf(
-				"found uninitialized model info for %q; model preparation probably in progress or interrupted",
-				cfg.Name(),
-			)
-	} else if len(info.BootstrapConfig()) == 0 {
-		return nil, errors.New("found model info but no bootstrap config")
-	} else {
-		cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot parse bootstrap config")
-		}
-		return New(cfg)
+	// ControllerName is the name of the controller being prepared.
+	ControllerName string
+
+	// CloudName is the name of the cloud that the controller is being
+	// prepared for.
+	CloudName string
+
+	// CloudRegion is the name of the region of the cloud to create
+	// the Juju controller in. This will be empty for clouds without
+	// regions.
+	CloudRegion string
+
+	// CloudEndpoint is the location of the primary API endpoint to
+	// use when communicating with the cloud.
+	CloudEndpoint string
+
+	// CloudStorageEndpoint is the location of the API endpoint to use
+	// when communicating with the cloud's storage service. This will
+	// be empty for clouds that have no cloud-specific API endpoint.
+	CloudStorageEndpoint string
+
+	// Credential is the credential to use to bootstrap.
+	Credential cloud.Credential
+
+	// CredentialName is the name of the credential to use to bootstrap.
+	// This will be empty for auto-detected credentials.
+	CredentialName string
+}
+
+// Prepare prepares a new controller based on the provided configuration.
+// It is an error to prepare a controller if there already exists an
+// entry in the client store with the same name.
+//
+// Upon success, Prepare will update the ClientStore with the details of
+// the controller, admin account, and admin model.
+func Prepare(
+	ctx BootstrapContext,
+	store jujuclient.ClientStore,
+	args PrepareParams,
+) (_ Environ, resultErr error) {
+
+	_, err := store.ControllerByName(args.ControllerName)
+	if err == nil {
+		return nil, errors.AlreadyExistsf("controller %q", args.ControllerName)
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Annotatef(err, "error reading controller %q info", args.ControllerName)
 	}
+
+	cloudType, ok := args.BaseConfig["type"].(string)
+	if !ok {
+		return nil, errors.NotFoundf("cloud type in base configuration")
+	}
+
+	p, err := Provider(cloudType)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	env, details, err := prepare(ctx, p, args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	details.Cloud = args.CloudName
+	details.Credential = args.CredentialName
+
+	if err := decorateAndWriteInfo(
+		store, details, args.ControllerName, env.Config().Name(),
+	); err != nil {
+		return nil, errors.Annotatef(err, "cannot create controller %q info", args.ControllerName)
+	}
+	return env, nil
 }
 
 // decorateAndWriteInfo decorates the info struct with information
 // from the given cfg, and the writes that out to the filesystem.
-func decorateAndWriteInfo(info configstore.EnvironInfo, cfg *config.Config) error {
-
-	// Sanity check our config.
-	var endpoint configstore.APIEndpoint
-	if cert, ok := cfg.CACert(); !ok {
-		return errors.Errorf("CACert is not set")
-	} else if uuid, ok := cfg.UUID(); !ok {
-		return errors.Errorf("UUID is not set")
-	} else if adminSecret := cfg.AdminSecret(); adminSecret == "" {
-		return errors.Errorf("admin-secret is not set")
-	} else {
-		endpoint = configstore.APIEndpoint{
-			CACert:    cert,
-			ModelUUID: uuid,
-		}
+func decorateAndWriteInfo(
+	store jujuclient.ClientStore,
+	details prepareDetails,
+	controllerName, modelName string,
+) error {
+	accountName := details.User
+	if err := store.UpdateController(controllerName, details.ControllerDetails); err != nil {
+		return errors.Trace(err)
 	}
-
-	creds := configstore.APICredentials{
-		User:     configstore.DefaultAdminUsername,
-		Password: cfg.AdminSecret(),
+	if err := store.UpdateBootstrapConfig(controllerName, details.BootstrapConfig); err != nil {
+		return errors.Trace(err)
 	}
-	endpoint.ServerUUID = endpoint.ModelUUID
-	info.SetAPICredentials(creds)
-	info.SetAPIEndpoint(endpoint)
-	info.SetBootstrapConfig(cfg.AllAttrs())
-
-	if err := info.Write(); err != nil {
-		return errors.Annotatef(err, "cannot create model info %q", cfg.Name())
+	if err := store.UpdateAccount(controllerName, accountName, details.AccountDetails); err != nil {
+		return errors.Trace(err)
 	}
-
+	if err := store.SetCurrentAccount(controllerName, accountName); err != nil {
+		return errors.Trace(err)
+	}
+	if err := store.UpdateModel(controllerName, accountName, modelName, details.ModelDetails); err != nil {
+		return errors.Trace(err)
+	}
+	if err := store.SetCurrentModel(controllerName, accountName, modelName); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
-func prepare(ctx BootstrapContext, cfg *config.Config, info configstore.EnvironInfo, p EnvironProvider) (Environ, error) {
-	cfg, err := ensureAdminSecret(cfg)
+func prepare(
+	ctx BootstrapContext,
+	p EnvironProvider,
+	args PrepareParams,
+) (Environ, prepareDetails, error) {
+	var details prepareDetails
+
+	cfg, err := config.New(config.UseDefaults, args.BaseConfig)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot generate admin-secret")
+		return nil, details, errors.Trace(err)
 	}
-	cfg, err = ensureCertificate(cfg)
+	cfg, adminSecret, err := ensureAdminSecret(cfg)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot ensure CA certificate")
+		return nil, details, errors.Annotate(err, "cannot generate admin-secret")
 	}
-	cfg, err = ensureUUID(cfg)
+	cfg, caCert, err := ensureCertificate(cfg)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot ensure uuid")
+		return nil, details, errors.Annotate(err, "cannot ensure CA certificate")
 	}
 
-	return p.PrepareForBootstrap(ctx, cfg)
+	cfg, err = p.BootstrapConfig(BootstrapConfigParams{
+		cfg, args.Credential, args.CloudRegion,
+		args.CloudEndpoint, args.CloudStorageEndpoint,
+	})
+	if err != nil {
+		return nil, details, errors.Trace(err)
+	}
+	env, err := p.PrepareForBootstrap(ctx, cfg)
+	if err != nil {
+		return nil, details, errors.Trace(err)
+	}
+
+	// We store the base configuration only; we don't want the
+	// default attributes, generated secrets/certificates, or
+	// UUIDs stored in the bootstrap config. Make a copy, so
+	// we don't disturb the caller's config map.
+	details.Config = make(map[string]interface{})
+	for k, v := range args.BaseConfig {
+		details.Config[k] = v
+	}
+	delete(details.Config, config.ControllerUUIDKey)
+	delete(details.Config, config.UUIDKey)
+
+	details.CACert = caCert
+	details.ControllerUUID = cfg.ControllerUUID()
+	details.User = AdminUser
+	details.Password = adminSecret
+	details.ModelUUID = cfg.UUID()
+	details.CloudRegion = args.CloudRegion
+	details.CloudEndpoint = args.CloudEndpoint
+	details.CloudStorageEndpoint = args.CloudStorageEndpoint
+
+	return env, details, nil
+}
+
+type prepareDetails struct {
+	jujuclient.ControllerDetails
+	jujuclient.BootstrapConfig
+	jujuclient.AccountDetails
+	jujuclient.ModelDetails
 }
 
 // ensureAdminSecret returns a config with a non-empty admin-secret.
-func ensureAdminSecret(cfg *config.Config) (*config.Config, error) {
-	if cfg.AdminSecret() != "" {
-		return cfg, nil
+func ensureAdminSecret(cfg *config.Config) (*config.Config, string, error) {
+	if secret := cfg.AdminSecret(); secret != "" {
+		return cfg, secret, nil
 	}
-	return cfg.Apply(map[string]interface{}{
-		"admin-secret": randomKey(),
-	})
+
+	// Generate a random string.
+	buf := make([]byte, 16)
+	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
+		return nil, "", errors.Annotate(err, "generating random secret")
+	}
+	secret := fmt.Sprintf("%x", buf)
+
+	cfg, err := cfg.Apply(map[string]interface{}{"admin-secret": secret})
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	return cfg, secret, nil
 }
 
 // ensureCertificate generates a new CA certificate and
-// attaches it to the given environment configuration,
+// attaches it to the given controller configuration,
 // unless the configuration already has one.
-func ensureCertificate(cfg *config.Config) (*config.Config, error) {
-	_, hasCACert := cfg.CACert()
+func ensureCertificate(cfg *config.Config) (*config.Config, string, error) {
+	caCert, hasCACert := cfg.CACert()
 	_, hasCAKey := cfg.CAPrivateKey()
 	if hasCACert && hasCAKey {
-		return cfg, nil
+		return cfg, caCert, nil
 	}
 	if hasCACert && !hasCAKey {
-		return nil, fmt.Errorf("model configuration with a certificate but no CA private key")
+		return nil, "", errors.Errorf("controller configuration with a certificate but no CA private key")
 	}
 
 	caCert, caKey, err := cert.NewCA(cfg.Name(), time.Now().UTC().AddDate(10, 0, 0))
 	if err != nil {
-		return nil, err
+		return nil, "", errors.Trace(err)
 	}
-	return cfg.Apply(map[string]interface{}{
-		"ca-cert":        string(caCert),
+	cfg, err = cfg.Apply(map[string]interface{}{
+		config.CACertKey: string(caCert),
 		"ca-private-key": string(caKey),
 	})
-}
-
-// ensureUUID generates a new uuid and attaches it to
-// the given environment configuration, unless the
-// configuration already has one.
-func ensureUUID(cfg *config.Config) (*config.Config, error) {
-	_, hasUUID := cfg.UUID()
-	if hasUUID {
-		return cfg, nil
-	}
-	uuid, err := utils.NewUUID()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, "", errors.Trace(err)
 	}
-	return cfg.Apply(map[string]interface{}{
-		"uuid": uuid.String(),
-	})
+	return cfg, string(caCert), nil
 }
 
-// Destroy destroys the environment and, if successful,
+// Destroy destroys the controller and, if successful,
 // its associated configuration data from the given store.
-func Destroy(env Environ, store configstore.Storage) error {
-	name := env.Config().Name()
-	if err := env.Destroy(); err != nil {
-		return err
+func Destroy(
+	controllerName string,
+	env Environ,
+	store jujuclient.ControllerRemover,
+) error {
+	err := store.RemoveController(controllerName)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
 	}
-	return DestroyInfo(name, store)
-}
-
-// DestroyInfo destroys the configuration data for the named
-// environment from the given store.
-func DestroyInfo(envName string, store configstore.Storage) error {
-	info, err := store.ReadInfo(envName)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-	if err := info.Destroy(); err != nil {
-		return errors.Annotate(err, "cannot destroy model configuration information")
-	}
-	return nil
+	return errors.Trace(env.Destroy())
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
@@ -104,10 +105,7 @@ func mongodbLogin(session *mgo.Session, mongoInfo *mongo.MongoInfo) error {
 // This needs to be performed only once for the initial controller model.
 // It returns unauthorizedError if access is unauthorized.
 func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (_ *State, err error) {
-	uuid, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.Errorf("model uuid was not supplied")
-	}
+	uuid := cfg.UUID()
 	modelTag := names.NewModelTag(uuid)
 	st, err := open(modelTag, info, opts, policy)
 	if err != nil {
@@ -137,8 +135,12 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	salt, err := utils.RandomSalt()
+	if err != nil {
+		return nil, err
+	}
 	ops = append(ops,
-		createInitialUserOp(st, owner, info.Password),
+		createInitialUserOp(st, owner, info.Password, salt),
 		txn.Op{
 			C:      controllersC,
 			Id:     modelGlobalKey,
@@ -186,7 +188,7 @@ func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, o
 	if serverUUID == "" {
 		serverUUID = modelUUID
 	}
-	modelUserOp := createModelUserOp(modelUUID, owner, owner, owner.Name(), false)
+	modelUserOp := createModelUserOp(modelUUID, owner, owner, owner.Name(), nowToTheSecond(), ModelAdminAccess)
 	ops := []txn.Op{
 		createConstraintsOp(st, modelGlobalKey, constraints.Value{}),
 		createSettingsOp(modelGlobalKey, cfg.AllAttrs()),

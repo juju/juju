@@ -556,6 +556,56 @@ func (u *UniterAPIV3) HasSubordinates(args params.Entities) (params.BoolResults,
 	return result, nil
 }
 
+// CharmModifiedVersion returns the most CharmModifiedVersion for all given
+// units or services.
+func (u *UniterAPIV3) CharmModifiedVersion(args params.Entities) (params.IntResults, error) {
+	results := params.IntResults{
+		Results: make([]params.IntResult, len(args.Entities)),
+	}
+
+	accessUnitOrService := common.AuthEither(u.accessUnit, u.accessService)
+	canAccess, err := accessUnitOrService()
+	if err != nil {
+		return results, err
+	}
+	for i, entity := range args.Entities {
+		ver, err := u.charmModifiedVersion(entity.Tag, canAccess)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = ver
+	}
+	return results, nil
+}
+
+func (u *UniterAPIV3) charmModifiedVersion(tagStr string, canAccess func(names.Tag) bool) (int, error) {
+	tag, err := names.ParseTag(tagStr)
+	if err != nil {
+		return -1, common.ErrPerm
+	}
+	if !canAccess(tag) {
+		return -1, common.ErrPerm
+	}
+	unitOrService, err := u.st.FindEntity(tag)
+	if err != nil {
+		return -1, err
+	}
+	var service *state.Service
+	switch entity := unitOrService.(type) {
+	case *state.Service:
+		service = entity
+	case *state.Unit:
+		service, err = entity.Service()
+		if err != nil {
+			return -1, err
+		}
+	default:
+		return -1, errors.BadRequestf("type %t does not have a CharmModifiedVersion", entity)
+	}
+	return service.CharmModifiedVersion(), nil
+}
+
 // CharmURL returns the charm URL for all given units or services.
 func (u *UniterAPIV3) CharmURL(args params.Entities) (params.StringBoolResults, error) {
 	result := params.StringBoolResults{
@@ -1655,9 +1705,9 @@ func (u *UniterAPIV3) AddMetricBatches(args params.MetricBatchParams) (params.Er
 
 // NetworkConfig returns information about all given relation/unit pairs,
 // including their id, key and the local endpoint.
-func (u *UniterAPIV3) NetworkConfig(args params.RelationUnits) (params.UnitNetworkConfigResults, error) {
+func (u *UniterAPIV3) NetworkConfig(args params.UnitsNetworkConfig) (params.UnitNetworkConfigResults, error) {
 	result := params.UnitNetworkConfigResults{
-		Results: make([]params.UnitNetworkConfigResult, len(args.RelationUnits)),
+		Results: make([]params.UnitNetworkConfigResult, len(args.Args)),
 	}
 
 	canAccess, err := u.accessUnit()
@@ -1665,10 +1715,9 @@ func (u *UniterAPIV3) NetworkConfig(args params.RelationUnits) (params.UnitNetwo
 		return params.UnitNetworkConfigResults{}, err
 	}
 
-	for i, rel := range args.RelationUnits {
-		netConfig, err := u.getOneNetworkConfig(canAccess, rel.Relation, rel.Unit)
+	for i, arg := range args.Args {
+		netConfig, err := u.getOneNetworkConfig(canAccess, arg.UnitTag, arg.BindingName)
 		if err == nil {
-			result.Results[i].Error = nil
 			result.Results[i].Config = netConfig
 		} else {
 			result.Results[i].Error = common.ServerError(err)
@@ -1677,19 +1726,18 @@ func (u *UniterAPIV3) NetworkConfig(args params.RelationUnits) (params.UnitNetwo
 	return result, nil
 }
 
-func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tagUnit string) ([]params.NetworkConfig, error) {
-	unitTag, err := names.ParseUnitTag(tagUnit)
+func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg, bindingName string) ([]params.NetworkConfig, error) {
+	unitTag, err := names.ParseUnitTag(unitTagArg)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	if bindingName == "" {
+		return nil, errors.Errorf("binding name cannot be empty")
 	}
 
 	if !canAccess(unitTag) {
 		return nil, common.ErrPerm
-	}
-
-	relTag, err := names.ParseRelationTag(tagRel)
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	unit, err := u.getUnit(unitTag)
@@ -1706,15 +1754,9 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	rel, err := u.st.KeyRelation(relTag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	endpoint, err := rel.Endpoint(service.Name())
-	if err != nil {
-		return nil, errors.Trace(err)
+	boundSpace, known := bindings[bindingName]
+	if !known {
+		return nil, errors.Errorf("binding name %q not defined by the unit's charm", bindingName)
 	}
 
 	machineID, err := unit.AssignedMachineId()
@@ -1728,11 +1770,11 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 	}
 
 	var results []params.NetworkConfig
-
-	boundSpace, isBound := bindings[endpoint.Name]
-	if !isBound || boundSpace == "" {
-		name := endpoint.Name
-		logger.Debugf("endpoint %q not explicitly bound to a space, using preferred private address for machine %q", name, machineID)
+	if boundSpace == "" {
+		logger.Debugf(
+			"endpoint %q not explicitly bound to a space, using preferred private address for machine %q",
+			bindingName, machineID,
+		)
 
 		privateAddress, err := machine.PrivateAddress()
 		if err != nil && !network.IsNoAddress(err) {
@@ -1743,31 +1785,42 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 			Address: privateAddress.Value,
 		})
 		return results, nil
+	} else {
+		logger.Debugf("endpoint %q is explicitly bound to space %q", bindingName, boundSpace)
 	}
-	logger.Debugf("endpoint %q is explicitly bound to space %q", endpoint.Name, boundSpace)
 
 	// TODO(dimitern): Use NetworkInterfaces() instead later, this is just for
 	// the PoC to enable minimal network-get implementation returning just the
 	// primary address.
 	//
 	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
-	addresses := machine.ProviderAddresses()
+	addresses, err := machine.AllAddresses()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get devices addresses")
+	}
 	logger.Infof(
 		"geting network config for machine %q with addresses %+v, hosting unit %q of service %q, with bindings %+v",
 		machineID, addresses, unit.Name(), service.Name(), bindings,
 	)
 
 	for _, addr := range addresses {
-		space := string(addr.SpaceName)
-		if space != boundSpace {
-			logger.Debugf("skipping address %q: want bound to space %q, got space %q", addr.Value, boundSpace, space)
+		subnet, err := addr.Subnet()
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot get subnet for address %q", addr)
+		}
+		if subnet == nil {
+			logger.Debugf("skipping %s: not linked to a known subnet", addr)
 			continue
 		}
-		logger.Debugf("endpoint %q bound to space %q has address %q", endpoint.Name, boundSpace, addr.Value)
+		if space := subnet.SpaceName(); space != boundSpace {
+			logger.Debugf("skipping %s: want bound to space %q, got space %q", addr, boundSpace, space)
+			continue
+		}
+		logger.Debugf("endpoint %q bound to space %q has address %q", bindingName, boundSpace, addr)
 
 		// TODO(dimitern): Fill in the rest later (see linked LKK card above).
 		results = append(results, params.NetworkConfig{
-			Address: addr.Value,
+			Address: addr.Value(),
 		})
 	}
 

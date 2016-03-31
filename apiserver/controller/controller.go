@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
 )
 
@@ -33,6 +34,7 @@ type Controller interface {
 	RemoveBlocks(args params.RemoveBlocksArgs) error
 	WatchAllModels() (params.AllWatcherId, error)
 	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
+	InitiateModelMigration(params.InitiateModelMigrationArgs) (params.InitiateModelMigrationResults, error)
 }
 
 // ControllerAPI implements the environment manager interface and is
@@ -255,6 +257,74 @@ func (c *ControllerAPI) ModelStatus(req params.Entities) (params.ModelStatusResu
 	}
 	results.Results = status
 	return results, nil
+}
+
+// InitiateModelMigration attempts to begin the migration of one or
+// more models to other controllers.
+func (c *ControllerAPI) InitiateModelMigration(reqArgs params.InitiateModelMigrationArgs) (
+	params.InitiateModelMigrationResults, error,
+) {
+	out := params.InitiateModelMigrationResults{
+		Results: make([]params.InitiateModelMigrationResult, len(reqArgs.Specs)),
+	}
+	for i, spec := range reqArgs.Specs {
+		result := &out.Results[i]
+		result.ModelTag = spec.ModelTag
+		id, err := c.initiateOneModelMigration(spec)
+		if err != nil {
+			result.Error = common.ServerError(err)
+		} else {
+			result.Id = id
+		}
+	}
+	return out, nil
+}
+
+func (c *ControllerAPI) initiateOneModelMigration(spec params.ModelMigrationSpec) (string, error) {
+	modelTag, err := names.ParseModelTag(spec.ModelTag)
+	if err != nil {
+		return "", errors.Annotate(err, "model tag")
+	}
+
+	// Ensure the model exists.
+	if _, err := c.state.GetModel(modelTag); err != nil {
+		return "", errors.Annotate(err, "unable to read model")
+	}
+
+	// Get State for model.
+	hostedState, err := c.state.ForModel(modelTag)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer hostedState.Close()
+
+	// Start the migration.
+	targetInfo := spec.TargetInfo
+
+	controllerTag, err := names.ParseModelTag(targetInfo.ControllerTag)
+	if err != nil {
+		return "", errors.Annotate(err, "controller tag")
+	}
+	authTag, err := names.ParseUserTag(targetInfo.AuthTag)
+	if err != nil {
+		return "", errors.Annotate(err, "auth tag")
+	}
+
+	args := state.ModelMigrationSpec{
+		InitiatedBy: c.apiUser,
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: controllerTag,
+			Addrs:         targetInfo.Addrs,
+			CACert:        targetInfo.CACert,
+			AuthTag:       authTag,
+			Password:      targetInfo.Password,
+		},
+	}
+	mig, err := hostedState.CreateModelMigration(args)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return mig.Id(), nil
 }
 
 func (c *ControllerAPI) environStatus(tag string) (params.ModelStatus, error) {

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
 )
@@ -23,8 +22,8 @@ func (s *relationSuite) newHookContext(relid int, remote string) (jujuc.Context,
 	settings := jujuctesting.Settings{
 		"private-address": "u-0.testing.invalid",
 	}
-	rInfo.setNextRelation("", s.Unit, settings, nil) // peer0
-	rInfo.setNextRelation("", s.Unit, settings, nil) // peer1
+	rInfo.setNextRelation("", s.Unit, settings) // peer0
+	rInfo.setNextRelation("", s.Unit, settings) // peer1
 	if relid >= 0 {
 		rInfo.SetAsRelationHook(relid, remote)
 	}
@@ -45,11 +44,7 @@ func (ri *relationInfo) reset() {
 	ri.rels = nil
 }
 
-func (ri *relationInfo) setNextRelation(
-	name, unit string,
-	settings jujuctesting.Settings,
-	netConfig []params.NetworkConfig,
-) int {
+func (ri *relationInfo) setNextRelation(name, unit string, settings jujuctesting.Settings) int {
 	if ri.rels == nil {
 		ri.rels = make(map[int]*jujuctesting.Relation)
 	}
@@ -60,25 +55,25 @@ func (ri *relationInfo) setNextRelation(
 	relation := ri.SetNewRelation(id, name, ri.stub)
 	if unit != "" {
 		relation.UnitName = unit
-		relation.SetRelated(unit, settings, netConfig)
+		relation.SetRelated(unit, settings)
 	}
 	ri.rels[id] = relation
 	return id
 }
 
-func (ri *relationInfo) addRelatedServices(relname string, count int, netConfig []params.NetworkConfig) {
+func (ri *relationInfo) addRelatedServices(relname string, count int) {
 	if ri.rels == nil {
 		ri.rels = make(map[int]*jujuctesting.Relation)
 	}
 	for i := 0; i < count; i++ {
-		ri.setNextRelation(relname, "", nil, netConfig)
+		ri.setNextRelation(relname, "", nil)
 	}
 }
 
-func (ri *relationInfo) setRelations(id int, members []string, netConfig []params.NetworkConfig) {
+func (ri *relationInfo) setRelations(id int, members []string) {
 	relation := ri.rels[id]
 	relation.Reset()
 	for _, name := range members {
-		relation.SetRelated(name, nil, netConfig)
+		relation.SetRelated(name, nil)
 	}
 }

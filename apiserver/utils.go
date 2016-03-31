@@ -26,15 +26,6 @@ func isMachineWithJob(e state.Entity, j state.MachineJob) bool {
 	return false
 }
 
-func setPassword(e state.Authenticator, password string) error {
-	// Catch expected common case of misspelled
-	// or missing Password parameter.
-	if password == "" {
-		return errors.New("password is empty")
-	}
-	return e.SetPassword(password)
-}
-
 type validateArgs struct {
 	statePool *state.StatePool
 	modelUUID string

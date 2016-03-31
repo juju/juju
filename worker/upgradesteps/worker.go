@@ -15,16 +15,17 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/upgrades"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/wrench"
+	"github.com/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.worker.upgradesteps")
@@ -68,12 +69,12 @@ func NewLock(a agent.Agent) (gate.Lock, error) {
 	err := a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		if !upgrades.AreUpgradesDefined(agentConfig.UpgradedToVersion()) {
 			logger.Infof("no upgrade steps required or upgrade steps for %v "+
-				"have already been run.", version.Current)
+				"have already been run.", jujuversion.Current)
 			lock.Unlock()
 
 			// Even if no upgrade is required the version number in
 			// the agent's config still needs to be bumped.
-			agentConfig.SetUpgradedToVersion(version.Current)
+			agentConfig.SetUpgradedToVersion(jujuversion.Current)
 		}
 		return nil
 	})
@@ -86,7 +87,7 @@ func NewLock(a agent.Agent) (gate.Lock, error) {
 // StatusSetter defines the single method required to set an agent's
 // status.
 type StatusSetter interface {
-	SetStatus(status params.Status, info string, data map[string]interface{}) error
+	SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error
 }
 
 // NewWorker returns a new instance of the upgradesteps worker. It
@@ -97,7 +98,7 @@ func NewWorker(
 	agent agent.Agent,
 	apiConn api.Connection,
 	jobs []multiwatcher.MachineJob,
-	openState func() (*state.State, func(), error),
+	openState func() (*state.State, error),
 	preUpgradeSteps func(st *state.State, agentConf agent.Config, isController, isMasterServer bool) error,
 	machine StatusSetter,
 ) (worker.Worker, error) {
@@ -128,7 +129,7 @@ type upgradesteps struct {
 	agent           agent.Agent
 	apiConn         api.Connection
 	jobs            []multiwatcher.MachineJob
-	openState       func() (*state.State, func(), error)
+	openState       func() (*state.State, error)
 	preUpgradeSteps func(st *state.State, agentConf agent.Config, isController, isMaster bool) error
 	machine         StatusSetter
 
@@ -175,7 +176,7 @@ func (w *upgradesteps) run() error {
 	}
 
 	w.fromVersion = w.agent.CurrentConfig().UpgradedToVersion()
-	w.toVersion = version.Current
+	w.toVersion = jujuversion.Current
 	if w.fromVersion == w.toVersion {
 		logger.Infof("upgrade to %v already completed.", w.toVersion)
 		w.upgradeComplete.Unlock()
@@ -194,12 +195,11 @@ func (w *upgradesteps) run() error {
 	// of StateWorker, because we have no guarantees about when
 	// and how often StateWorker might run.
 	if w.isController {
-		var closer func()
 		var err error
-		if w.st, closer, err = w.openState(); err != nil {
+		if w.st, err = w.openState(); err != nil {
 			return err
 		}
-		defer closer()
+		defer w.st.Close()
 
 		if w.isMaster, err = IsMachineMaster(w.st, w.tag.Id()); err != nil {
 			return errors.Trace(err)
@@ -223,7 +223,7 @@ func (w *upgradesteps) run() error {
 	} else {
 		// Upgrade succeeded - signal that the upgrade is complete.
 		logger.Infof("upgrade to %v completed successfully.", w.toVersion)
-		w.machine.SetStatus(params.StatusStarted, "", nil)
+		w.machine.SetStatus(status.StatusStarted, "", nil)
 		w.upgradeComplete.Unlock()
 	}
 	return nil
@@ -343,7 +343,7 @@ func (w *upgradesteps) waitForOtherControllers(info *state.UpgradeInfo) error {
 // designed to be called via a machine agent's ChangeConfig method.
 func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	var upgradeErr error
-	w.machine.SetStatus(params.StatusStarted, fmt.Sprintf("upgrading to %v", w.toVersion), nil)
+	w.machine.SetStatus(status.StatusStarted, fmt.Sprintf("upgrading to %v", w.toVersion), nil)
 
 	context := upgrades.NewContext(agentConfig, w.apiConn, w.st)
 	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
@@ -377,7 +377,7 @@ func (w *upgradesteps) reportUpgradeFailure(err error, willRetry bool) {
 	}
 	logger.Errorf("upgrade from %v to %v for %q failed (%s): %v",
 		w.fromVersion, w.toVersion, w.tag, retryText, err)
-	w.machine.SetStatus(params.StatusError,
+	w.machine.SetStatus(status.StatusError,
 		fmt.Sprintf("upgrade to %v failed (%s): %v", w.toVersion, retryText, err), nil)
 }
 

@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -121,11 +121,16 @@ func testConfig(c *gc.C) *config.Config {
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"type":       "mock",
 		"controller": true,
-		"state-id":   "1",
 	})
-	cfg, err := config.New(config.NoDefaults, attrs)
+	env, err := environs.Prepare(
+		envtesting.BootstrapContext(c),
+		jujuclienttesting.NewMemStore(),
+		environs.PrepareParams{
+			ControllerName: "dummycontroller",
+			BaseConfig:     attrs,
+			CloudName:      "dummy",
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
-	c.Assert(err, jc.ErrorIsNil)
-	return cfg
+	return env.Config()
 }

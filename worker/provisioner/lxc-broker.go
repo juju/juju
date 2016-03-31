@@ -17,7 +17,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/exec"
-	"github.com/juju/utils/set"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
@@ -28,9 +28,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")
@@ -49,8 +47,7 @@ var _ APICalls = (*apiprovisioner.State)(nil)
 // Override for testing.
 var NewLxcBroker = newLxcBroker
 
-func newLxcBroker(
-	api APICalls,
+func newLxcBroker(api APICalls,
 	agentConfig agent.Config,
 	managerConfig container.ManagerConfig,
 	imageURLGetter container.ImageURLGetter,
@@ -58,11 +55,9 @@ func newLxcBroker(
 	defaultMTU int,
 ) (environs.InstanceBroker, error) {
 	namespace := maybeGetManagerConfigNamespaces(managerConfig)
-	manager, err := lxc.NewContainerManager(
-		managerConfig, imageURLGetter, looputil.NewLoopDeviceManager(),
-	)
+	manager, err := lxc.NewContainerManager(managerConfig, imageURLGetter)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return &lxcBroker{
 		manager:     manager,
@@ -162,7 +157,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
-	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storageConfig)
+	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storageConfig, args.StatusCallback)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, err
@@ -488,13 +483,55 @@ var setupRoutesAndIPTables = func(
 }
 
 var (
-	netInterfaces  = net.Interfaces
-	interfaceAddrs = (*net.Interface).Addrs
+	netInterfaceByName = net.InterfaceByName
+	netInterfaces      = net.Interfaces
+	interfaceAddrs     = (*net.Interface).Addrs
 )
 
-// discoverPrimaryNIC returns the name of the first network interface
-// on the machine which is up and has address, along with the first
-// address it has.
+// discoverIPv4InterfaceAddress returns the address for ifaceName
+// (e.g., br-eth1). This method is a stop-gap measure to unblock
+// master CI failures and will be removed once multi-NIC container
+// support is landed from the maas-spaces2 feature branch.
+func discoverIPv4InterfaceAddress(ifaceName string) (*network.Address, error) {
+	iface, err := netInterfaceByName(ifaceName)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get interface %q", ifaceName)
+	}
+
+	addrs, err := interfaceAddrs(iface)
+
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get network addresses for interface %q", ifaceName)
+	}
+
+	for _, addr := range addrs {
+		// Check if it's an IP or a CIDR.
+
+		ip := net.ParseIP(addr.String())
+
+		if ip != nil && ip.To4() == nil {
+			logger.Debugf("skipping IPv6 address: %q", ip)
+			continue
+		}
+
+		if ip == nil {
+			// Try a CIDR.
+			ip, _, err = net.ParseCIDR(addr.String())
+			if ip != nil && ip.To4() == nil {
+				logger.Debugf("skipping IPv6 address: %q", ip)
+				continue
+			}
+			if err != nil {
+				return nil, errors.Annotatef(err, "cannot parse address %q", addr)
+			}
+		}
+		logger.Tracef("network interface %q has address %q", ifaceName, ip)
+		addr := network.NewAddress(ip.String())
+		return &addr, nil
+	}
+	return nil, errors.Errorf("no addresses found for %q", ifaceName)
+}
+
 func discoverPrimaryNIC() (string, network.Address, error) {
 	interfaces, err := netInterfaces()
 	if err != nil {
@@ -600,7 +637,7 @@ func configureContainerNetwork(
 		finalIfaceInfo[i].InterfaceName = fmt.Sprintf("eth%d", i)
 		finalIfaceInfo[i].ConfigType = network.ConfigStatic
 		finalIfaceInfo[i].DNSServers = dnsServers
-		finalIfaceInfo[i].DNSSearch = searchDomain
+		finalIfaceInfo[i].DNSSearchDomains = []string{searchDomain}
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
 		if finalIfaceInfo[i].NetworkName == "" {
 			finalIfaceInfo[i].NetworkName = network.DefaultPrivate
@@ -669,7 +706,7 @@ func prepareOrGetContainerInterfaceInfo(
 		return nil, nil
 	}
 
-	log.Debugf("address allocation feature flag not enabled; using DHCP for container %q", machineID)
+	log.Debugf("address allocation feature flag not enabled; using multi-bridge networking for container %q", machineID)
 
 	// In case we're running on MAAS 1.8+ with devices support, we'll still
 	// call PrepareContainerInterfaceInfo(), but we'll ignore a NotSupported
@@ -682,29 +719,31 @@ func prepareOrGetContainerInterfaceInfo(
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
+	log.Tracef("PrepareContainerInterfaceInfo returned %+v", preparedInfo)
 
-	dnsServers, searchDomain, dnsErr := localDNSServers()
+	dnsServersFound := false
+	for _, info := range preparedInfo {
+		if len(info.DNSServers) > 0 {
+			dnsServersFound = true
+			break
+		}
+	}
+	if !dnsServersFound {
+		logger.Warningf("no DNS settings found, discovering the host settings")
+		dnsServers, searchDomain, err := localDNSServers()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
-	if dnsErr != nil {
-		return nil, errors.Trace(dnsErr)
+		// Since the result is sorted, the first entry is the primary NIC.
+		preparedInfo[0].DNSServers = dnsServers
+		preparedInfo[0].DNSSearchDomains = []string{searchDomain}
+		logger.Debugf(
+			"setting DNS servers %+v and domains %+v on container interface %q",
+			preparedInfo[0].DNSServers, preparedInfo[0].DNSSearchDomains, preparedInfo[0].InterfaceName,
+		)
 	}
 
-	for i, _ := range preparedInfo {
-		preparedInfo[i].DNSServers = dnsServers
-		preparedInfo[i].DNSSearch = searchDomain
-	}
-
-	log.Tracef("PrepareContainerInterfaceInfo returned %#v", preparedInfo)
-	// Most likely there will be only one item in the list, but check
-	// all of them for forward compatibility.
-	macAddresses := set.NewStrings()
-	for _, prepInfo := range preparedInfo {
-		macAddresses.Add(prepInfo.MACAddress)
-	}
-	log.Infof(
-		"new container %q registered as a MAAS device with MAC address(es) %v",
-		machineID, macAddresses.SortedValues(),
-	)
 	return preparedInfo, nil
 }
 

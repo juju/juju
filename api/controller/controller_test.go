@@ -7,16 +7,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -36,10 +36,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *controllerSuite) OpenAPI(c *gc.C) *controller.Client {
-	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { conn.Close() })
-	return controller.NewClient(conn)
+	return controller.NewClient(s.APIState)
 }
 
 func (s *controllerSuite) TestAllModels(c *gc.C) {
@@ -59,7 +56,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner, env.Name))
 	}
 	expected := []string{
-		"dummy-admin@local/dummymodel",
+		"admin@local/admin",
 		"user@remote/first",
 		"user@remote/second",
 	}
@@ -70,7 +67,7 @@ func (s *controllerSuite) TestModelConfig(c *gc.C) {
 	sysManager := s.OpenAPI(c)
 	env, err := sysManager.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env["name"], gc.Equals, "dummymodel")
+	c.Assert(env["name"], gc.Equals, "admin")
 }
 
 func (s *controllerSuite) TestDestroyController(c *gc.C) {
@@ -91,7 +88,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []params.ModelBlockInfo{
 		params.ModelBlockInfo{
-			Name:     "dummymodel",
+			Name:     "admin",
 			UUID:     s.State.ModelUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
 			Blocks: []string{
@@ -161,7 +158,55 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 		UUID:               modelTag.Id(),
 		HostedMachineCount: 0,
 		ServiceCount:       0,
-		Owner:              "dummy-admin@local",
+		Owner:              "admin@local",
 		Life:               params.Alive,
 	}})
+}
+
+func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	_, err := st.GetModelMigration()
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+
+	spec := controller.ModelMigrationSpec{
+		ModelUUID:            st.ModelUUID(),
+		TargetControllerUUID: randomUUID(),
+		TargetAddrs:          []string{"1.2.3.4:5"},
+		TargetCACert:         "cert",
+		TargetUser:           "someone",
+		TargetPassword:       "secret",
+	}
+
+	controller := s.OpenAPI(c)
+	id, err := controller.InitiateModelMigration(spec)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedId := st.ModelUUID() + ":0"
+	c.Check(id, gc.Equals, expectedId)
+
+	// Check database.
+	mig, err := st.GetModelMigration()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mig.Id(), gc.Equals, expectedId)
+}
+
+func (s *controllerSuite) TestInitiateModelMigrationError(c *gc.C) {
+	spec := controller.ModelMigrationSpec{
+		ModelUUID:            randomUUID(), // Model doesn't exist.
+		TargetControllerUUID: randomUUID(),
+		TargetAddrs:          []string{"1.2.3.4:5"},
+		TargetCACert:         "cert",
+		TargetUser:           "someone",
+		TargetPassword:       "secret",
+	}
+
+	controller := s.OpenAPI(c)
+	id, err := controller.InitiateModelMigration(spec)
+	c.Check(id, gc.Equals, "")
+	c.Check(err, gc.ErrorMatches, "unable to read model: .+")
+}
+
+func randomUUID() string {
+	return utils.MustNewUUID().String()
 }

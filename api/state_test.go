@@ -9,8 +9,10 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/usermanager"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
@@ -47,6 +49,8 @@ func (s *stateSuite) OpenAPIWithoutLogin(c *gc.C) (api.Connection, names.Tag, st
 	password := info.Password
 	info.Tag = nil
 	info.Password = ""
+	info.Macaroons = nil
+	info.SkipLogin = true
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	return apistate, tag, password
@@ -82,7 +86,7 @@ func (s *stateSuite) TestLoginSetsModelTag(c *gc.C) {
 	modelTag, err := apistate.ModelTag()
 	c.Check(err, gc.ErrorMatches, `"" is not a valid tag`)
 	c.Check(modelTag, gc.Equals, names.ModelTag{})
-	err = apistate.Login(tag, password, "")
+	err = apistate.Login(tag, password, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Now that we've logged in, ModelTag should be updated correctly.
 	modelTag, err = apistate.ModelTag()
@@ -95,12 +99,41 @@ func (s *stateSuite) TestLoginSetsModelTag(c *gc.C) {
 	c.Check(controllerTag, gc.Equals, env.ModelTag())
 }
 
+func (s *stateSuite) TestLoginMacaroon(c *gc.C) {
+	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
+	defer apistate.Close()
+	// Use s.APIState, because we can't get at UserManager without logging in.
+	mac, err := usermanager.NewClient(s.APIState).CreateLocalLoginMacaroon(tag.(names.UserTag))
+	c.Assert(err, jc.ErrorIsNil)
+	err = apistate.Login(tag, "", "", []macaroon.Slice{{mac}})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
+	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
+	defer apistate.Close()
+	mac, err := macaroon.New([]byte("root-key"), "id", "juju")
+	c.Assert(err, jc.ErrorIsNil)
+	err = apistate.Login(tag, "", "", []macaroon.Slice{{mac}})
+	c.Assert(err, gc.ErrorMatches, "verification failed: macaroon not found in storage")
+}
+
+func (s *stateSuite) TestLoginMacaroonInvalidUser(c *gc.C) {
+	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
+	defer apistate.Close()
+	// Use s.APIState, because we can't get at UserManager without logging in.
+	mac, err := usermanager.NewClient(s.APIState).CreateLocalLoginMacaroon(tag.(names.UserTag))
+	c.Assert(err, jc.ErrorIsNil)
+	err = apistate.Login(names.NewUserTag("bob@local"), "", "", []macaroon.Slice{{mac}})
+	c.Assert(err, gc.ErrorMatches, `verification failed: caveat "declared username admin@local" not satisfied: got username="bob@local", expected "admin@local"`)
+}
+
 func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {
 	apistate, tag, password := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
 	// We haven't called Login yet, so the Facade Versions should be empty
 	c.Check(apistate.AllFacadeVersions(), gc.HasLen, 0)
-	err := apistate.Login(tag, password, "")
+	err := apistate.Login(tag, password, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Now that we've logged in, AllFacadeVersions should be updated.
 	allVersions := apistate.AllFacadeVersions()

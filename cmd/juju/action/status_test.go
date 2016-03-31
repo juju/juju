@@ -25,7 +25,7 @@ var _ = gc.Suite(&StatusSuite{})
 
 func (s *StatusSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
-	s.subcommand = action.NewStatusCommand()
+	s.subcommand, _ = action.NewStatusCommand(s.store)
 }
 
 func (s *StatusSuite) TestHelp(c *gc.C) {
@@ -83,8 +83,8 @@ func (s *StatusSuite) runTestCase(c *gc.C, tc statusTestCase) {
 		restore := s.patchAPIClient(fakeClient)
 		defer restore()
 
-		s.subcommand = action.NewStatusCommand()
-		args := append([]string{modelFlag, "dummymodel"}, tc.args...)
+		s.subcommand, _ = action.NewStatusCommand(s.store)
+		args := append([]string{modelFlag, "admin"}, tc.args...)
 		ctx, err := testing.RunCommand(c, s.subcommand, args...)
 		if tc.expectError == "" {
 			c.Assert(err, jc.ErrorIsNil)

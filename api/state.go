@@ -9,7 +9,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/version"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/agent"
@@ -18,7 +20,6 @@ import (
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/discoverspaces"
-	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
@@ -26,43 +27,46 @@ import (
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
-	"github.com/juju/juju/api/resumer"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/version"
 )
 
-// Login authenticates as the entity with the given name and password.
-// Subsequent requests on the state will act as that entity.  This
-// method is usually called automatically by Open. The machine nonce
+// Login authenticates as the entity with the given name and password
+// or macaroons. Subsequent requests on the state will act as that entity.
+// This method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
-func (st *state) Login(tag names.Tag, password, nonce string) error {
-	err := st.loginV3(tag, password, nonce)
+func (st *state) Login(tag names.Tag, password, nonce string, ms []macaroon.Slice) error {
+	// TODO(axw) accept and pass on macaroons
+	err := st.loginV3(tag, password, nonce, ms)
 	return errors.Trace(err)
 }
 
 // loginV2 is retained for testing logins from older clients.
-func (st *state) loginV2(tag names.Tag, password, nonce string) error {
-	return st.loginForVersion(tag, password, nonce, 2)
+func (st *state) loginV2(tag names.Tag, password, nonce string, ms []macaroon.Slice) error {
+	return st.loginForVersion(tag, password, nonce, ms, 2)
 }
 
-func (st *state) loginV3(tag names.Tag, password, nonce string) error {
-	return st.loginForVersion(tag, password, nonce, 3)
+func (st *state) loginV3(tag names.Tag, password, nonce string, ms []macaroon.Slice) error {
+	return st.loginForVersion(tag, password, nonce, ms, 3)
 }
 
-func (st *state) loginForVersion(tag names.Tag, password, nonce string, vers int) error {
+func (st *state) loginForVersion(tag names.Tag, password, nonce string, macaroons []macaroon.Slice, vers int) error {
 	var result params.LoginResultV1
 	request := &params.LoginRequest{
 		AuthTag:     tagToString(tag),
 		Credentials: password,
 		Nonce:       nonce,
+		Macaroons:   macaroons,
 	}
 	if tag == nil {
-		// Add any macaroons that might work for authenticating the login request.
-		request.Macaroons = httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)
+		// Add any macaroons from the cookie jar that might work for
+		// authenticating the login request.
+		request.Macaroons = append(request.Macaroons,
+			httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)...,
+		)
 	}
 	err := st.APICall("Admin", vers, "", "Login", request, &result)
 	if err != nil {
@@ -194,12 +198,6 @@ func (st *state) UnitAssigner() unitassigner.API {
 	return unitassigner.New(st)
 }
 
-// Resumer returns a version of the state that provides functionality
-// required by the resumer worker.
-func (st *state) Resumer() *resumer.API {
-	return resumer.NewAPI(st)
-}
-
 // Provisioner returns a version of the state that provides functionality
 // required by the provisioner worker.
 func (st *state) Provisioner() *provisioner.State {
@@ -214,16 +212,6 @@ func (st *state) Uniter() (*uniter.State, error) {
 		return nil, errors.Errorf("expected UnitTag, got %T %v", st.authTag, st.authTag)
 	}
 	return uniter.NewState(st, unitTag), nil
-}
-
-// DiskManager returns a version of the state that provides functionality
-// required by the diskmanager worker.
-func (st *state) DiskManager() (*diskmanager.State, error) {
-	machineTag, ok := st.authTag.(names.MachineTag)
-	if !ok {
-		return nil, errors.Errorf("expected MachineTag, got %#v", st.authTag)
-	}
-	return diskmanager.NewState(st, machineTag), nil
 }
 
 // Firewaller returns a version of the state that provides functionality

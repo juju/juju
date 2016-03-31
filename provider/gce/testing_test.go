@@ -10,6 +10,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -26,7 +27,6 @@ import (
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // These values are fake GCE auth credentials for use in tests.
@@ -64,15 +64,15 @@ var (
 }`, strings.Replace(PrivateKey, "\n", "\\n", -1), ClientEmail, ClientID)
 
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
-		"type":           "gce",
-		"auth-file":      "",
-		"private-key":    PrivateKey,
-		"client-id":      ClientID,
-		"client-email":   ClientEmail,
-		"region":         "home",
-		"project-id":     "my-juju",
-		"image-endpoint": "https://www.googleapis.com",
-		"uuid":           "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
+		"type":            "gce",
+		"private-key":     PrivateKey,
+		"client-id":       ClientID,
+		"client-email":    ClientEmail,
+		"region":          "home",
+		"project-id":      "my-juju",
+		"image-endpoint":  "https://www.googleapis.com",
+		"uuid":            "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
+		"controller-uuid": "bfef02f1-932a-425a-a102-62175dcabd1d",
 	})
 )
 
@@ -167,8 +167,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	s.InstanceType = allInstanceTypes[0]
 
 	// Storage
-	eUUID, ok := s.Env.Config().UUID()
-	c.Check(ok, jc.IsTrue)
+	eUUID := s.Env.Config().UUID()
 	s.BaseDisk = &google.Disk{
 		Id:          1234567,
 		Name:        "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
@@ -192,7 +191,7 @@ func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 	ecfg, err := newValidConfig(cfg, configDefaults)
 	c.Assert(err, jc.ErrorIsNil)
 	s.EnvConfig = ecfg
-	uuid, _ := cfg.UUID()
+	uuid := cfg.UUID()
 	s.Env.uuid = uuid
 	s.Env.ecfg = s.EnvConfig
 	s.Prefix = "juju-" + uuid + "-"

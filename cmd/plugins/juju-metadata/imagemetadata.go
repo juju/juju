@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -27,16 +26,21 @@ type imageMetadataCommandBase struct {
 	modelcmd.ModelCommandBase
 }
 
-func (c *imageMetadataCommandBase) prepare(context *cmd.Context, store configstore.Storage) (environs.Environ, error) {
-	cfg, err := c.Config(store, nil)
+func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Environ, error) {
+	// NOTE(axw) this is a work-around for the TODO below. This
+	// means that the command will only work if you've bootstrapped
+	// the specified environment.
+	cfg, err := modelcmd.NewGetBootstrapConfigFunc(c.ClientStore())(c.ControllerName())
 	if err != nil {
-		return nil, errors.Annotate(err, "could not get config from store")
+		return nil, errors.Trace(err)
 	}
-	// We are preparing an environment to access parameters needed to access
-	// image metadata. We don't need, nor want, credential verification.
-	// In most cases, credentials will not be available.
-	ctx := modelcmd.BootstrapContextNoVerify(context)
-	return environs.Prepare(cfg, ctx, store)
+	// TODO(axw) we'll need to revise the metadata commands to work
+	// without preparing an environment. They should take the same
+	// format as bootstrap, i.e. cloud/region, and we'll use that to
+	// identify region and endpoint info that we need. Not sure what
+	// we'll do about simplestreams.MetadataValidator yet. Probably
+	// move it to the EnvironProvider interface.
+	return environs.New(cfg)
 }
 
 func newImageMetadataCommand() cmd.Command {
@@ -62,7 +66,7 @@ var imageMetadataDoc = `
 generate-image creates simplestreams image metadata for the specified cloud.
 
 The cloud specification comes from the current Juju model, as specified in
-the usual way from either ~/.local/share/juju/environments.yaml, the -m option, or JUJU_MODEL.
+the usual way from either the -m option, or JUJU_MODEL.
 
 Using command arguments, it is possible to override cloud attributes region, endpoint, and series.
 By default, "amd64" is used for the architecture but this may also be changed.
@@ -93,40 +97,35 @@ func (c *imageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 	c.privateStorage = "<private storage name>"
 	var environ environs.Environ
-	if store, err := configstore.Default(); err == nil {
-		if environ, err = c.prepare(context, store); err == nil {
-			logger.Infof("creating image metadata for model %q", environ.Config().Name())
-			// If the user has not specified region and endpoint, try and get it from the environment.
-			if c.Region == "" || c.Endpoint == "" {
-				var cloudSpec simplestreams.CloudSpec
-				if inst, ok := environ.(simplestreams.HasRegion); ok {
-					if cloudSpec, err = inst.Region(); err != nil {
-						return err
-					}
-				} else {
-					return errors.Errorf("model %q cannot provide region and endpoint", environ.Config().Name())
+	if environ, err := c.prepare(context); err == nil {
+		logger.Infof("creating image metadata for model %q", environ.Config().Name())
+		// If the user has not specified region and endpoint, try and get it from the environment.
+		if c.Region == "" || c.Endpoint == "" {
+			var cloudSpec simplestreams.CloudSpec
+			if inst, ok := environ.(simplestreams.HasRegion); ok {
+				if cloudSpec, err = inst.Region(); err != nil {
+					return err
 				}
-				// If only one of region or endpoint is provided, that is a problem.
-				if cloudSpec.Region != cloudSpec.Endpoint && (cloudSpec.Region == "" || cloudSpec.Endpoint == "") {
-					return errors.Errorf("cannot generate metadata without a complete cloud configuration")
-				}
-				if c.Region == "" {
-					c.Region = cloudSpec.Region
-				}
-				if c.Endpoint == "" {
-					c.Endpoint = cloudSpec.Endpoint
-				}
+			} else {
+				return errors.Errorf("model %q cannot provide region and endpoint", environ.Config().Name())
 			}
-			cfg := environ.Config()
-			if c.Series == "" {
-				c.Series = config.PreferredSeries(cfg)
+			// If only one of region or endpoint is provided, that is a problem.
+			if cloudSpec.Region != cloudSpec.Endpoint && (cloudSpec.Region == "" || cloudSpec.Endpoint == "") {
+				return errors.Errorf("cannot generate metadata without a complete cloud configuration")
 			}
-			if v, ok := cfg.AllAttrs()["control-bucket"]; ok {
-				c.privateStorage = v.(string)
+			if c.Region == "" {
+				c.Region = cloudSpec.Region
 			}
-		} else {
-			logger.Warningf("model could not be opened: %v", err)
+			if c.Endpoint == "" {
+				c.Endpoint = cloudSpec.Endpoint
+			}
 		}
+		cfg := environ.Config()
+		if c.Series == "" {
+			c.Series = config.PreferredSeries(cfg)
+		}
+	} else {
+		logger.Warningf("model could not be opened: %v", err)
 	}
 	if environ == nil {
 		logger.Infof("no model found, creating image metadata using user supplied data")

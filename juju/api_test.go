@@ -6,7 +6,6 @@ package juju_test
 import (
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -18,91 +17,23 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
-
-type NewAPIStateSuite struct {
-	coretesting.FakeJujuXDGDataHomeSuite
-	testing.MgoSuite
-	envtesting.ToolsFixture
-}
-
-var _ = gc.Suite(&NewAPIStateSuite{})
-
-func (cs *NewAPIStateSuite) SetUpSuite(c *gc.C) {
-	cs.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
-	cs.MgoSuite.SetUpSuite(c)
-	cs.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
-}
-
-func (cs *NewAPIStateSuite) TearDownSuite(c *gc.C) {
-	cs.MgoSuite.TearDownSuite(c)
-	cs.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
-}
-
-func (cs *NewAPIStateSuite) SetUpTest(c *gc.C) {
-	cs.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	cs.MgoSuite.SetUpTest(c)
-	cs.ToolsFixture.SetUpTest(c)
-	cs.PatchValue(&dummy.LogDir, c.MkDir())
-}
-
-func (cs *NewAPIStateSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
-	cs.ToolsFixture.TearDownTest(c)
-	cs.MgoSuite.TearDownTest(c)
-	cs.FakeJujuXDGDataHomeSuite.TearDownTest(c)
-}
-
-func (cs *NewAPIStateSuite) TestNewAPIState(c *gc.C) {
-	cs.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := envtesting.BootstrapContext(c)
-	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
-	c.Assert(err, jc.ErrorIsNil)
-
-	storageDir := c.MkDir()
-	cs.PatchValue(&envtools.DefaultBaseURL, storageDir)
-	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, stor, "released", "released")
-
-	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg = env.Config()
-	cfg, err = cfg.Apply(map[string]interface{}{
-		"secret": "fnord",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = env.SetConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	st, err := juju.NewAPIState(dummy.AdminUserTag(), env, api.DialOpts{})
-	c.Assert(st, gc.NotNil)
-
-	// the secrets will not be updated, as they already exist
-	attrs, err := st.Client().ModelGet()
-	c.Assert(attrs["secret"], gc.Equals, "pork")
-
-	c.Assert(st.Close(), gc.IsNil)
-}
 
 type NewAPIClientSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
@@ -115,7 +46,7 @@ var _ = gc.Suite(&NewAPIClientSuite{})
 func (cs *NewAPIClientSuite) SetUpSuite(c *gc.C) {
 	cs.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	cs.MgoSuite.SetUpSuite(c)
-	cs.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+	cs.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	// Since most tests use invalid testing API server addresses, we
 	// need to mock this to avoid errors.
 	cs.PatchValue(juju.ServerAddress, func(addr string) (network.HostPort, error) {
@@ -151,13 +82,18 @@ func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {
 	cs.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
-func (s *NewAPIClientSuite) bootstrapEnv(c *gc.C, envName string, store configstore.Storage) {
-	if store == nil {
-		store = configstore.NewMem()
-	}
+func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclient.ClientStore) {
+	const controllerName = "local.my-controller"
+
+	store := jujuclienttesting.NewMemStore()
+
 	ctx := envtesting.BootstrapContext(c)
-	c.Logf("env name: %s", envName)
-	env, err := environs.PrepareFromName(envName, ctx, store)
+
+	env, err := environs.Prepare(ctx, store, environs.PrepareParams{
+		ControllerName: controllerName,
+		BaseConfig:     dummy.SampleConfig(),
+		CloudName:      "dummy",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	storageDir := c.MkDir()
@@ -168,55 +104,12 @@ func (s *NewAPIClientSuite) bootstrapEnv(c *gc.C, envName string, store configst
 
 	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	info, err := store.ReadInfo(envName)
-	c.Assert(err, jc.ErrorIsNil)
-	creds := info.APICredentials()
-	creds.User = dummy.AdminUserTag().Name()
-	c.Logf("set creds: %#v", creds)
-	info.SetAPICredentials(creds)
-	err = info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("creds: %#v", info.APICredentials())
-	info, err = store.ReadInfo(envName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("read creds: %#v", info.APICredentials())
-	c.Logf("store: %#v", store)
+
+	return env, store
 }
 
-func (s *NewAPIClientSuite) TestNameDefault(c *gc.C) {
-	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
-	// The connection logic should not delay the config connection
-	// at all when there is no environment info available.
-	// Make sure of that by providing a suitably long delay
-	// and checking that the connection happens within that
-	// time.
-	s.PatchValue(juju.ProviderConnectDelay, coretesting.LongWait)
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	s.bootstrapEnv(c, coretesting.SampleModelName, defaultConfigStore(c))
-
-	startTime := time.Now()
-	apiclient, err := juju.NewAPIClientFromName("", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	defer apiclient.Close()
-	c.Assert(time.Since(startTime), jc.LessThan, coretesting.LongWait)
-
-	// We should get the default sample environment if we ask for ""
-	assertEnvironmentName(c, apiclient, coretesting.SampleModelName)
-}
-
-func (s *NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
-	envName := coretesting.SampleCertName + "-2"
-	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig, envName)
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	s.bootstrapEnv(c, envName, defaultConfigStore(c))
-	apiclient, err := juju.NewAPIClientFromName(envName, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	defer apiclient.Close()
-	assertEnvironmentName(c, apiclient, envName)
-}
-
-func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
-	store := newConfigStore("noconfig", dummyStoreInfo)
+func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
+	store := newClientStore(c, "noconfig")
 
 	called := 0
 	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
@@ -227,127 +120,75 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 		return expectState, nil
 	}
 
-	// Give NewAPIFromStore a store interface that can report when the
-	// config was written to, to check if the cache is updated.
-	mockStore := &storageWithWriteNotify{store: store}
-	st, err := juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
+	st, err := newAPIConnectionFromNames(c, "noconfig", "admin@local", "admin", store, apiOpen, noBootstrapConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
-	c.Assert(mockStore.written, jc.IsTrue)
-	info, err := store.ReadInfo("noconfig")
+	// The addresses should have been updated.
+	c.Assert(
+		store.Controllers["noconfig"].APIEndpoints,
+		jc.DeepEquals,
+		[]string{"0.1.2.3:1234", "[2001:db8::1]:1234"},
+	)
+
+	controllerBefore, err := store.ControllerByName("noconfig")
 	c.Assert(err, jc.ErrorIsNil)
-	ep := info.APIEndpoint()
-	c.Check(ep.Addresses, jc.DeepEquals, []string{
-		"0.1.2.3:1234", "[2001:db8::1]:1234",
-	})
-	c.Check(ep.ModelUUID, gc.Equals, fakeUUID)
-	mockStore.written = false
 
 	// If APIHostPorts haven't changed, then the store won't be updated.
-	st, err = juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
+	stubStore := jujuclienttesting.WrapClientStore(store)
+	st, err = newAPIConnectionFromNames(c, "noconfig", "admin@local", "admin", stubStore, apiOpen, noBootstrapConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 2)
-	c.Assert(mockStore.written, jc.IsFalse)
-}
+	stubStore.CheckCallNames(c, "AccountByName", "ModelByName", "ControllerByName")
 
-func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
-	c.Skip("not really possible now that there is no defined admin user")
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	coretesting.MakeSampleJujuHome(c)
-
-	store := newConfigStore(coretesting.SampleModelName, &environInfo{
-		bootstrapConfig: map[string]interface{}{
-			"type":                      "dummy",
-			"name":                      "myenv",
-			"controller":                true,
-			"authorized-keys":           "i-am-a-key",
-			"default-series":            config.LatestLtsSeries(),
-			"firewall-mode":             config.FwInstance,
-			"development":               false,
-			"ssl-hostname-verification": true,
-			"admin-secret":              "adminpass",
-		},
-	})
-	s.bootstrapEnv(c, coretesting.SampleModelName, store)
-
-	info, err := store.ReadInfo("myenv")
+	controllerAfter, err := store.ControllerByName("noconfig")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.NotNil)
-	c.Logf("%#v", info.APICredentials())
-
-	called := 0
-	expectState := mockedAPIState(0)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
-		c.Check(apiInfo.Tag, gc.Equals, dummy.AdminUserTag())
-		c.Check(string(apiInfo.CACert), gc.Not(gc.Equals), "")
-		c.Check(apiInfo.Password, gc.Equals, "adminpass")
-		// ModelTag wasn't in regular Config
-		c.Check(apiInfo.ModelTag.Id(), gc.Equals, "")
-		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
-		called++
-		return expectState, nil
-	}
-	st, err := juju.NewAPIFromStore("myenv", store, apiOpen)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.Equals, expectState)
-	c.Assert(called, gc.Equals, 1)
-
-	// Make sure the cache is updated.
-	info, err = store.ReadInfo("myenv")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.NotNil)
-	ep := info.APIEndpoint()
-	c.Assert(ep.Addresses, gc.HasLen, 1)
-	c.Check(ep.Addresses[0], gc.Matches, `localhost:\d+`)
-	c.Check(ep.CACert, gc.Not(gc.Equals), "")
+	c.Assert(controllerBefore, gc.DeepEquals, controllerAfter)
 }
 
 func (s *NewAPIClientSuite) TestWithInfoError(c *gc.C) {
+	store := newClientStore(c, "noconfig")
+	err := store.UpdateController("noconfig", jujuclient.ControllerDetails{
+		ControllerUUID: fakeUUID,
+		CACert:         "certificate",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	expectErr := fmt.Errorf("an error")
-	store := newConfigStoreWithError(expectErr)
-	client, err := juju.NewAPIFromStore("noconfig", store, panicAPIOpen)
-	c.Assert(err, gc.Equals, expectErr)
+	getBootstrapConfig := func(string) (*config.Config, error) {
+		return nil, expectErr
+	}
+
+	client, err := newAPIConnectionFromNames(c, "noconfig", "", "", store, panicAPIOpen, getBootstrapConfig)
+	c.Assert(errors.Cause(err), gc.Equals, expectErr)
 	c.Assert(client, gc.IsNil)
 }
 
 func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
-	store := newConfigStore("noconfig", &environInfo{
-		endpoint: configstore.APIEndpoint{
-			Addresses: []string{},
-			CACert:    "certificated",
-		},
+	store := newClientStore(c, "noconfig")
+	err := store.UpdateController("noconfig", jujuclient.ControllerDetails{
+		ControllerUUID: fakeUUID,
+		CACert:         "certificate",
 	})
-	st, err := juju.NewAPIFromStore("noconfig", store, panicAPIOpen)
-	c.Assert(err, gc.ErrorMatches, `model "noconfig" not found`)
-	c.Assert(st, gc.IsNil)
-}
+	c.Assert(err, jc.ErrorIsNil)
 
-var noTagStoreInfo = &environInfo{
-	creds: configstore.APICredentials{
-		User:     "foo",
-		Password: "foopass",
-	},
-	endpoint: configstore.APIEndpoint{
-		Addresses: []string{"foo.invalid"},
-		CACert:    "certificated",
-	},
+	st, err := newAPIConnectionFromNames(c, "noconfig", "admin@local", "", store, panicAPIOpen, noBootstrapConfig)
+	c.Assert(err, gc.ErrorMatches, "bootstrap config for controller noconfig not found")
+	c.Assert(st, gc.IsNil)
 }
 
 type mockedStateFlags int
 
 const (
-	noFlags          mockedStateFlags = 0x0000
-	mockedHostPort   mockedStateFlags = 0x0001
-	mockedModelTag   mockedStateFlags = 0x0002
-	mockedPreferIPv6 mockedStateFlags = 0x0004
+	noFlags        mockedStateFlags = 0x0000
+	mockedHostPort mockedStateFlags = 0x0001
+	mockedModelTag mockedStateFlags = 0x0002
 )
 
 func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 	hasHostPort := flags&mockedHostPort == mockedHostPort
 	hasModelTag := flags&mockedModelTag == mockedModelTag
-	preferIPv6 := flags&mockedPreferIPv6 == mockedPreferIPv6
 	addr := ""
 
 	apiHostPorts := [][]network.HostPort{}
@@ -355,13 +196,8 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 		var apiAddrs []network.Address
 		ipv4Address := network.NewAddress("0.1.2.3")
 		ipv6Address := network.NewAddress("2001:db8::1")
-		if preferIPv6 {
-			addr = net.JoinHostPort(ipv6Address.Value, "1234")
-			apiAddrs = append(apiAddrs, ipv6Address, ipv4Address)
-		} else {
-			addr = net.JoinHostPort(ipv4Address.Value, "1234")
-			apiAddrs = append(apiAddrs, ipv4Address, ipv6Address)
-		}
+		addr = net.JoinHostPort(ipv4Address.Value, "1234")
+		apiAddrs = append(apiAddrs, ipv4Address, ipv6Address)
 		apiHostPorts = [][]network.HostPort{
 			network.AddressesWithPort(apiAddrs, 1234),
 		}
@@ -371,166 +207,38 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 		modelTag = "model-df136476-12e9-11e4-8a70-b2227cce2b54"
 	}
 	return &mockAPIState{
-		apiHostPorts: apiHostPorts,
-		modelTag:     modelTag,
-		addr:         addr,
+		apiHostPorts:  apiHostPorts,
+		modelTag:      modelTag,
+		controllerTag: modelTag,
+		addr:          addr,
 	}
 }
 
 func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
-	c.Check(apiInfo.Tag, gc.Equals, names.NewUserTag("foo"))
-	c.Check(string(apiInfo.CACert), gc.Equals, "certificated")
-	c.Check(apiInfo.Password, gc.Equals, "foopass")
+	c.Check(apiInfo.Tag, gc.Equals, names.NewUserTag("admin@local"))
+	c.Check(string(apiInfo.CACert), gc.Equals, "certificate")
+	c.Check(apiInfo.Password, gc.Equals, "hunter2")
 	c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 }
 
-func (s *NewAPIClientSuite) TestWithInfoNoModelTag(c *gc.C) {
-	store := newConfigStore("noconfig", noTagStoreInfo)
-
-	called := 0
-	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
-		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.ModelTag.Id(), gc.Equals, "")
-		called++
-		return expectState, nil
-	}
-
-	// Give NewAPIFromStore a store interface that can report when the
-	// config was written to, to check if the cache is updated.
-	mockStore := &storageWithWriteNotify{store: store}
-	st, err := juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.Equals, expectState)
-	c.Assert(called, gc.Equals, 1)
-	c.Assert(mockStore.written, jc.IsTrue)
-	info, err := store.ReadInfo("noconfig")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(info.APIEndpoint().Addresses, jc.DeepEquals, []string{
-		"0.1.2.3:1234", "[2001:db8::1]:1234",
-	})
-	c.Check(info.APIEndpoint().ModelUUID, gc.Equals, fakeUUID)
-
-	// Now simulate prefer-ipv6: true
-	store = newConfigStore("noconfig", noTagStoreInfo)
-	mockStore = &storageWithWriteNotify{store: store}
-	s.PatchValue(juju.MaybePreferIPv6, func(_ configstore.EnvironInfo) bool {
-		return true
-	})
-	expectState = mockedAPIState(mockedHostPort | mockedModelTag | mockedPreferIPv6)
-	st, err = juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.Equals, expectState)
-	c.Assert(called, gc.Equals, 2)
-	c.Assert(mockStore.written, jc.IsTrue)
-	info, err = store.ReadInfo("noconfig")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(info.APIEndpoint().Addresses, jc.DeepEquals, []string{
-		"[2001:db8::1]:1234", "0.1.2.3:1234",
-	})
-	c.Check(info.APIEndpoint().ModelUUID, gc.Equals, fakeUUID)
-}
-
-func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
-	// The local cache doesn't have an ModelTag, which the API does
-	// return. However, the API doesn't have apiHostPorts, we don't want to
-	// override the local cache with bad endpoints.
-	store := newConfigStore("noconfig", noTagStoreInfo)
-
-	called := 0
-	expectState := mockedAPIState(mockedModelTag | mockedPreferIPv6)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
-		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.ModelTag.Id(), gc.Equals, "")
-		called++
-		return expectState, nil
-	}
-
-	mockStore := &storageWithWriteNotify{store: store}
-	st, err := juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.Equals, expectState)
-	c.Assert(called, gc.Equals, 1)
-	c.Assert(mockStore.written, jc.IsTrue)
-	info, err := store.ReadInfo("noconfig")
-	c.Assert(err, jc.ErrorIsNil)
-	ep := info.APIEndpoint()
-	// We should have cached the model tag, but not disturbed the
-	// Addresses
-	c.Check(ep.Addresses, gc.HasLen, 1)
-	c.Check(ep.Addresses[0], gc.Matches, `foo\.invalid`)
-	c.Check(ep.ModelUUID, gc.Equals, fakeUUID)
-}
-
-func (s *NewAPIClientSuite) TestNoModelTagDoesntOverwriteCached(c *gc.C) {
-	store := newConfigStore("noconfig", dummyStoreInfo)
-	called := 0
-	// State returns a new set of APIHostPorts but not a new ModelTag. We
-	// shouldn't override the cached value with model tag of "".
-	expectState := mockedAPIState(mockedHostPort)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
-		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.ModelTag, gc.Equals, names.NewModelTag(fakeUUID))
-		called++
-		return expectState, nil
-	}
-
-	mockStore := &storageWithWriteNotify{store: store}
-	st, err := juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.Equals, expectState)
-	c.Assert(called, gc.Equals, 1)
-	c.Assert(mockStore.written, jc.IsTrue)
-	info, err := store.ReadInfo("noconfig")
-	c.Assert(err, jc.ErrorIsNil)
-	ep := info.APIEndpoint()
-	c.Check(ep.Addresses, gc.DeepEquals, []string{
-		"0.1.2.3:1234", "[2001:db8::1]:1234",
-	})
-	c.Check(ep.ModelUUID, gc.Equals, fakeUUID)
-
-	// Now simulate prefer-ipv6: true
-	s.PatchValue(juju.MaybePreferIPv6, func(_ configstore.EnvironInfo) bool {
-		return true
-	})
-	expectState = mockedAPIState(mockedHostPort | mockedPreferIPv6)
-	st, err = juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.Equals, expectState)
-	c.Assert(called, gc.Equals, 2)
-	c.Assert(mockStore.written, jc.IsTrue)
-	info, err = store.ReadInfo("noconfig")
-	c.Assert(err, jc.ErrorIsNil)
-	ep = info.APIEndpoint()
-	c.Check(ep.Addresses, gc.DeepEquals, []string{
-		"[2001:db8::1]:1234", "0.1.2.3:1234",
-	})
-	c.Check(ep.ModelUUID, gc.Equals, fakeUUID)
-}
-
 func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
-	store := newConfigStore("noconfig", &environInfo{
-		endpoint: configstore.APIEndpoint{
-			Addresses: []string{"foo.invalid"},
-		},
-	})
+	jujuClient := newClientStore(c, "noconfig")
 
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return nil, errors.Errorf("an error")
 	}
-	st, err := juju.NewAPIFromStore("noconfig", store, apiOpen)
-	// We expect to  get the isNotFound error as it is more important than the
-	// infoConnectError "an error"
-	c.Assert(err, gc.ErrorMatches, "model \"noconfig\" not found")
+	st, err := newAPIConnectionFromNames(c, "noconfig", "", "", jujuClient, apiOpen, noBootstrapConfig)
+	// We expect to get the error from apiOpen, because it is not
+	// fatal to have no bootstrap config.
+	c.Assert(err, gc.ErrorMatches, "connecting with cached addresses: an error")
 	c.Assert(st, gc.IsNil)
 }
 
 func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	coretesting.MakeSampleJujuHome(c)
-	store := configstore.NewMem()
-	s.bootstrapEnv(c, coretesting.SampleModelName, store)
-	setEndpointAddressAndHostname(c, store, coretesting.SampleModelName, "0.1.2.3", "infoapi.invalid")
+	c.Skip("wallyworld - this is a dumb test relying on an arbitary 50ms delay to pass")
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	_, store := s.bootstrapModel(c)
+	setEndpointAddressAndHostname(c, store, "0.1.2.3", "infoapi.invalid")
 
 	infoOpenedState := mockedAPIState(noFlags)
 	infoEndpointOpened := make(chan struct{})
@@ -555,7 +263,10 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	cfgOpenedState.close = infoOpenedState.close
 
 	startTime := time.Now()
-	st, err := juju.NewAPIFromStore(coretesting.SampleModelName, store, apiOpen)
+	st, err := newAPIConnectionFromNames(c,
+		"local.my-controller", "admin@local", "only", store, apiOpen,
+		modelcmd.NewGetBootstrapConfigFunc(store),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	// The connection logic should wait for some time before opening
 	// the API from the configuration.
@@ -577,47 +288,21 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	}
 }
 
-type badBootstrapInfo struct {
-	configstore.EnvironInfo
-}
-
-// BootstrapConfig is returned as a map with real content, but the content
-// isn't actually valid configuration, causing config.New to fail
-func (m *badBootstrapInfo) BootstrapConfig() map[string]interface{} {
-	return map[string]interface{}{"something": "else"}
-}
-
-func (s *NewAPIClientSuite) TestBadConfigDoesntPanic(c *gc.C) {
-	badInfo := &badBootstrapInfo{}
-	cfg, err := juju.GetConfig(badInfo, nil, "test")
-	// The specific error we get depends on what key is invalid, which is a
-	// bit spurious, but what we care about is that we didn't get a panic,
-	// but instead got an error
-	c.Assert(err, gc.ErrorMatches, ".*expected.*got nothing")
-	c.Assert(cfg, gc.IsNil)
-}
-
-func setEndpointAddressAndHostname(c *gc.C, store configstore.Storage, envName string, addr, host string) {
-	// Populate the environment's info with an endpoint
-	// with a known address and hostname.
-	info, err := store.ReadInfo(coretesting.SampleModelName)
+func setEndpointAddressAndHostname(c *gc.C, store jujuclient.ControllerStore, addr, host string) {
+	// Populate the controller details with known address and hostname.
+	details, err := store.ControllerByName("local.my-controller")
 	c.Assert(err, jc.ErrorIsNil)
-	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses: []string{addr},
-		Hostnames: []string{host},
-		CACert:    "certificated",
-	})
-	err = info.Write()
+	details.APIEndpoints = []string{addr}
+	details.UnresolvedAPIEndpoints = []string{host}
+	err = store.UpdateController("local.my-controller", *details)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	coretesting.MakeSampleJujuHome(c)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 
-	store := configstore.NewMem()
-	s.bootstrapEnv(c, coretesting.SampleModelName, store)
-	setEndpointAddressAndHostname(c, store, coretesting.SampleModelName, "0.1.2.3", "infoapi.invalid")
+	_, store := s.bootstrapModel(c)
+	setEndpointAddressAndHostname(c, store, "0.1.2.3", "infoapi.invalid")
 
 	infoOpenedState := mockedAPIState(noFlags)
 	infoEndpointOpened := make(chan struct{})
@@ -645,7 +330,10 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 
 	done := make(chan struct{})
 	go func() {
-		st, err := juju.NewAPIFromStore(coretesting.SampleModelName, store, apiOpen)
+		st, err := newAPIConnectionFromNames(c,
+			"local.my-controller", "admin@local", "only", store, apiOpen,
+			modelcmd.NewGetBootstrapConfigFunc(store),
+		)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(st, gc.Equals, infoOpenedState)
 		close(done)
@@ -683,11 +371,13 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	coretesting.MakeSampleJujuHome(c)
-	store := configstore.NewMem()
-	s.bootstrapEnv(c, coretesting.SampleModelName, store)
-	setEndpointAddressAndHostname(c, store, coretesting.SampleModelName, "0.1.2.3", "infoapi.invalid")
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	env, store := s.bootstrapModel(c)
+	setEndpointAddressAndHostname(c, store, "0.1.2.3", "infoapi.invalid")
+
+	getBootstrapConfig := func(string) (*config.Config, error) {
+		return env.Config(), nil
+	}
 
 	s.PatchValue(juju.ProviderConnectDelay, 0*time.Second)
 	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
@@ -696,150 +386,38 @@ func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
 		}
 		return nil, fmt.Errorf("config connect failed")
 	}
-	st, err := juju.NewAPIFromStore(coretesting.SampleModelName, store, apiOpen)
-	c.Check(err, gc.ErrorMatches, "config connect failed")
+	st, err := newAPIConnectionFromNames(c, "local.my-controller", "admin@local", "only", store, apiOpen, getBootstrapConfig)
+	c.Check(err, gc.ErrorMatches, "connecting with bootstrap config: config connect failed")
 	c.Check(st, gc.IsNil)
 }
 
-func defaultConfigStore(c *gc.C) configstore.Storage {
-	store, err := configstore.Default()
+// newClientStore returns a client store that contains information
+// based on the given controller namd and info.
+func newClientStore(c *gc.C, controllerName string) *jujuclienttesting.MemStore {
+	store := jujuclienttesting.NewMemStore()
+	err := store.UpdateController(controllerName, jujuclient.ControllerDetails{
+		ControllerUUID: fakeUUID,
+		CACert:         "certificate",
+		APIEndpoints:   []string{"foo.invalid"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = store.UpdateModel(controllerName, "admin@local", "admin", jujuclient.ModelDetails{
+		fakeUUID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Models belong to accounts, so we must have an account even
+	// if "creds" is not initialised. If it is, it may overwrite
+	// this one.
+	err = store.UpdateAccount(controllerName, "admin@local", jujuclient.AccountDetails{
+		User:     "admin@local",
+		Password: "hunter2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = store.SetCurrentAccount(controllerName, "admin@local")
 	c.Assert(err, jc.ErrorIsNil)
 	return store
-}
-
-func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	coretesting.MakeSampleJujuHome(c)
-	store := configstore.NewMem()
-	s.bootstrapEnv(c, coretesting.SampleModelName, store)
-	info, err := store.ReadInfo(coretesting.SampleModelName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.BootstrapConfig(), gc.NotNil)
-	c.Assert(info.APIEndpoint().Addresses, gc.HasLen, 0)
-
-	err = os.Remove(osenv.JujuXDGDataHomePath("environments.yaml"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
-		return mockedAPIState(noFlags), nil
-	}
-	st, err := juju.NewAPIFromStore(coretesting.SampleModelName, store, apiOpen)
-	c.Check(err, jc.ErrorIsNil)
-	st.Close()
-}
-
-func (s *NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	// We want to make sure that the code is using the bootstrap
-	// config rather than information from environments.yaml,
-	// even when there is an entry in environments.yaml
-	// We can do that by changing the info bootstrap config
-	// so it has a different environment name.
-	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
-
-	store := configstore.NewMem()
-	s.bootstrapEnv(c, coretesting.SampleModelName, store)
-	info, err := store.ReadInfo(coretesting.SampleModelName)
-	c.Assert(err, jc.ErrorIsNil)
-
-	envName2 := coretesting.SampleCertName + "-2"
-	info2 := store.CreateInfo(envName2)
-	info2.SetBootstrapConfig(info.BootstrapConfig())
-	err = info2.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Now we have info for envName2 which will actually
-	// cause a connection to the originally bootstrapped
-	// state.
-	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
-		return mockedAPIState(noFlags), nil
-	}
-	st, err := juju.NewAPIFromStore(envName2, store, apiOpen)
-	c.Check(err, jc.ErrorIsNil)
-	st.Close()
-}
-
-func assertEnvironmentName(c *gc.C, client *api.Client, expectName string) {
-	envInfo, err := client.ModelInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envInfo.Name, gc.Equals, expectName)
-}
-
-// newConfigStoreWithError that will return the given
-// error from ReadInfo.
-func newConfigStoreWithError(err error) configstore.Storage {
-	return &errorConfigStorage{
-		Storage: configstore.NewMem(),
-		err:     err,
-	}
-}
-
-type errorConfigStorage struct {
-	configstore.Storage
-	err error
-}
-
-func (store *errorConfigStorage) ReadInfo(envName string) (configstore.EnvironInfo, error) {
-	return nil, store.err
-}
-
-type environInfo struct {
-	creds           configstore.APICredentials
-	endpoint        configstore.APIEndpoint
-	bootstrapConfig map[string]interface{}
-}
-
-// newConfigStore returns a storage that contains information
-// for the environment name.
-func newConfigStore(envName string, info *environInfo) configstore.Storage {
-	store := configstore.NewMem()
-	newInfo := store.CreateInfo(envName)
-	newInfo.SetAPICredentials(info.creds)
-	newInfo.SetAPIEndpoint(info.endpoint)
-	newInfo.SetBootstrapConfig(info.bootstrapConfig)
-	err := newInfo.Write()
-	if err != nil {
-		panic(err)
-	}
-	return store
-}
-
-type storageWithWriteNotify struct {
-	written bool
-	store   configstore.Storage
-}
-
-func (*storageWithWriteNotify) CreateInfo(envName string) configstore.EnvironInfo {
-	panic("CreateInfo not implemented")
-}
-
-func (*storageWithWriteNotify) List() ([]string, error) {
-	panic("List not implemented")
-}
-
-func (*storageWithWriteNotify) ListSystems() ([]string, error) {
-	panic("ListSystems not implemented")
-}
-
-func (s *storageWithWriteNotify) ReadInfo(envName string) (configstore.EnvironInfo, error) {
-	info, err := s.store.ReadInfo(envName)
-	if err != nil {
-		return nil, err
-	}
-	return &infoWithWriteNotify{
-		written:     &s.written,
-		EnvironInfo: info,
-	}, nil
-}
-
-type infoWithWriteNotify struct {
-	configstore.EnvironInfo
-	written *bool
-}
-
-func (info *infoWithWriteNotify) Write() error {
-	*info.written = true
-	return info.EnvironInfo.Write()
 }
 
 type CacheAPIEndpointsSuite struct {
@@ -848,7 +426,6 @@ type CacheAPIEndpointsSuite struct {
 	hostPorts   [][]network.HostPort
 	modelTag    names.ModelTag
 	apiHostPort network.HostPort
-	store       configstore.Storage
 
 	resolveSeq      int
 	resolveNumCalls int
@@ -859,8 +436,6 @@ type CacheAPIEndpointsSuite struct {
 var _ = gc.Suite(&CacheAPIEndpointsSuite{})
 
 func (s *CacheAPIEndpointsSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(juju.ResolveOrDropHostnames, s.mockResolveOrDropHostnames)
-
 	s.hostPorts = [][]network.HostPort{
 		network.NewHostPorts(1234,
 			"1.0.0.1",
@@ -893,81 +468,70 @@ func (s *CacheAPIEndpointsSuite) SetUpTest(c *gc.C) {
 	s.resolveNumCalls = 0
 	s.numResolved = 0
 	s.modelTag = names.NewModelTag(fakeUUID)
-	s.store = configstore.NewMem()
 
 	s.JujuConnSuite.SetUpTest(c)
+	s.PatchValue(juju.ResolveOrDropHostnames, s.mockResolveOrDropHostnames)
 
 	apiHostPort, err := network.ParseHostPorts(s.APIState.Addr())
 	c.Assert(err, jc.ErrorIsNil)
 	s.apiHostPort = apiHostPort[0]
 }
 
-func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6True(c *gc.C) {
-	info := s.store.CreateInfo("env-name1")
-	s.PatchValue(juju.MaybePreferIPv6, func(_ configstore.EnvironInfo) bool {
-		return true
-	})
-	// First test cacheChangedAPIInfo behaves as expected.
-	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.modelTag.Id(), "")
+func (s *CacheAPIEndpointsSuite) assertCreateController(c *gc.C, name string) jujuclient.ControllerDetails {
+	// write controller
+	controllerDetails := jujuclient.ControllerDetails{
+		ControllerUUID: fakeUUID,
+		CACert:         "certificate",
+	}
+	err := s.ControllerStore.UpdateController(name, controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertEndpointsPreferIPv6True(c, info)
-
-	// Now test cacheAPIInfo behaves the same way.
-	s.resolveSeq = 1
-	s.resolveNumCalls = 0
-	s.numResolved = 0
-	info = s.store.CreateInfo("env-name2")
-	mockAPIInfo := s.APIInfo(c)
-	mockAPIInfo.ModelTag = s.modelTag
-	hps := network.CollapseHostPorts(s.hostPorts)
-	mockAPIInfo.Addrs = network.HostPortsToStrings(hps)
-	err = juju.CacheAPIInfo(s.APIState, info, mockAPIInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertEndpointsPreferIPv6True(c, info)
+	return controllerDetails
 }
 
-func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCachingPreferIPv6False(c *gc.C) {
-	info := s.store.CreateInfo("env-name1")
-	s.PatchValue(juju.MaybePreferIPv6, func(_ configstore.EnvironInfo) bool {
-		return false
-	})
-	// First test cacheChangedAPIInfo behaves as expected.
-	err := juju.CacheChangedAPIInfo(info, s.hostPorts, s.apiHostPort, s.modelTag.Id(), "")
+func (s *CacheAPIEndpointsSuite) assertControllerDetailsUpdated(c *gc.C, name string, check gc.Checker) {
+	found, err := s.ControllerStore.ControllerByName(name)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertEndpointsPreferIPv6False(c, info)
+	c.Assert(found.UnresolvedAPIEndpoints, check, 0)
+	c.Assert(found.APIEndpoints, check, 0)
+}
 
-	// Now test cacheAPIInfo behaves the same way.
-	s.resolveSeq = 1
-	s.resolveNumCalls = 0
-	s.numResolved = 0
-	info = s.store.CreateInfo("env-name2")
-	mockAPIInfo := s.APIInfo(c)
-	mockAPIInfo.ModelTag = s.modelTag
-	hps := network.CollapseHostPorts(s.hostPorts)
-	mockAPIInfo.Addrs = network.HostPortsToStrings(hps)
-	err = juju.CacheAPIInfo(s.APIState, info, mockAPIInfo)
+func (s *CacheAPIEndpointsSuite) assertControllerUpdated(c *gc.C, name string) {
+	s.assertControllerDetailsUpdated(c, name, gc.Not(gc.HasLen))
+}
+
+func (s *CacheAPIEndpointsSuite) assertControllerNotUpdated(c *gc.C, name string) {
+	s.assertControllerDetailsUpdated(c, name, gc.HasLen)
+}
+
+func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCaching(c *gc.C) {
+	s.assertCreateController(c, "controller-name1")
+	err := juju.UpdateControllerAddresses(s.ControllerStore, "controller-name1", s.hostPorts, s.apiHostPort)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertEndpointsPreferIPv6False(c, info)
+	controllerDetails, err := s.ControllerStore.ControllerByName("controller-name1")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertEndpoints(c, controllerDetails)
+	s.assertControllerUpdated(c, "controller-name1")
 }
 
 func (s *CacheAPIEndpointsSuite) TestResolveSkippedWhenHostnamesUnchanged(c *gc.C) {
 	// Test that if new endpoints hostnames are the same as the
 	// cached, no DNS resolution happens (i.e. we don't resolve on
 	// every connection, but as needed).
-	info := s.store.CreateInfo("env-name")
 	hps := network.NewHostPorts(1234,
 		"8.8.8.8",
 		"example.com",
 		"10.0.0.1",
 	)
-	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Hostnames: network.HostPortsToStrings(hps),
-	})
-	err := info.Write()
+	controllerDetails := jujuclient.ControllerDetails{
+		ControllerUUID:         fakeUUID,
+		CACert:                 "certificate",
+		UnresolvedAPIEndpoints: network.HostPortsToStrings(hps),
+	}
+	err := s.ControllerStore.UpdateController("controller-name", controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
-		info, [][]network.HostPort{hps}, network.HostPort{},
+		controllerDetails, [][]network.HostPort{hps},
 	)
 	c.Assert(addrs, gc.IsNil)
 	c.Assert(hosts, gc.IsNil)
@@ -976,7 +540,7 @@ func (s *CacheAPIEndpointsSuite) TestResolveSkippedWhenHostnamesUnchanged(c *gc.
 	c.Assert(
 		c.GetTestLog(),
 		jc.Contains,
-		"DEBUG juju.api API hostnames unchanged - not resolving",
+		"DEBUG juju.juju API hostnames unchanged - not resolving",
 	)
 }
 
@@ -984,7 +548,6 @@ func (s *CacheAPIEndpointsSuite) TestResolveCalledWithChangedHostnames(c *gc.C) 
 	// Test that if new endpoints hostnames are different than the
 	// cached hostnames DNS resolution happens and we compare resolved
 	// addresses.
-	info := s.store.CreateInfo("env-name")
 	// Because Hostnames are sorted before caching, reordering them
 	// will simulate they have changed.
 	unsortedHPs := network.NewHostPorts(1234,
@@ -1008,23 +571,25 @@ func (s *CacheAPIEndpointsSuite) TestResolveCalledWithChangedHostnames(c *gc.C) 
 		"fc00::2", // from ipv6.example.com
 	)
 	strResolved := network.HostPortsToStrings(resolvedHPs)
-	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Hostnames: strUnsorted,
-	})
-	err := info.Write()
+	controllerDetails := jujuclient.ControllerDetails{
+		ControllerUUID:         fakeUUID,
+		CACert:                 "certificate",
+		UnresolvedAPIEndpoints: strUnsorted,
+	}
+	err := s.ControllerStore.UpdateController("controller-name", controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
-		info, [][]network.HostPort{unsortedHPs}, network.HostPort{},
+		controllerDetails, [][]network.HostPort{unsortedHPs},
 	)
 	c.Assert(addrs, jc.DeepEquals, strResolved)
 	c.Assert(hosts, jc.DeepEquals, strSorted)
 	c.Assert(changed, jc.IsTrue)
 	c.Assert(s.resolveNumCalls, gc.Equals, 1)
 	c.Assert(s.numResolved, gc.Equals, 2)
-	expectLog := fmt.Sprintf("DEBUG juju.api API hostnames changed from %v to %v - resolving hostnames", unsortedHPs, sortedHPs)
+	expectLog := fmt.Sprintf("DEBUG juju.juju API hostnames changed from %v to %v - resolving hostnames", unsortedHPs, sortedHPs)
 	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
-	expectLog = fmt.Sprintf("INFO juju.api new API addresses to cache %v", resolvedHPs)
+	expectLog = fmt.Sprintf("INFO juju.juju new API addresses to cache %v", resolvedHPs)
 	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
 }
 
@@ -1032,7 +597,7 @@ func (s *CacheAPIEndpointsSuite) TestAfterResolvingUnchangedAddressesNotCached(c
 	// Test that if new endpoints hostnames are different than the
 	// cached hostnames, but after resolving the addresses match the
 	// cached addresses, the cache is not changed.
-	info := s.store.CreateInfo("env-name")
+
 	// Because Hostnames are sorted before caching, reordering them
 	// will simulate they have changed.
 	unsortedHPs := network.NewHostPorts(1234,
@@ -1055,31 +620,33 @@ func (s *CacheAPIEndpointsSuite) TestAfterResolvingUnchangedAddressesNotCached(c
 		"fc00::2", // from ipv6.example.com
 	)
 	strResolved := network.HostPortsToStrings(resolvedHPs)
-	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Hostnames: strUnsorted,
-		Addresses: strResolved,
-	})
-	err := info.Write()
+	controllerDetails := jujuclient.ControllerDetails{
+		ControllerUUID:         fakeUUID,
+		CACert:                 "certificate",
+		UnresolvedAPIEndpoints: strUnsorted,
+		APIEndpoints:           strResolved,
+	}
+	err := s.ControllerStore.UpdateController("controller-name", controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
-		info, [][]network.HostPort{unsortedHPs}, network.HostPort{},
+		controllerDetails, [][]network.HostPort{unsortedHPs},
 	)
 	c.Assert(addrs, gc.IsNil)
 	c.Assert(hosts, gc.IsNil)
 	c.Assert(changed, jc.IsFalse)
 	c.Assert(s.resolveNumCalls, gc.Equals, 1)
 	c.Assert(s.numResolved, gc.Equals, 2)
-	expectLog := fmt.Sprintf("DEBUG juju.api API hostnames changed from %v to %v - resolving hostnames", unsortedHPs, sortedHPs)
+	expectLog := fmt.Sprintf("DEBUG juju.juju API hostnames changed from %v to %v - resolving hostnames", unsortedHPs, sortedHPs)
 	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
-	expectLog = "DEBUG juju.api API addresses unchanged"
+	expectLog = "DEBUG juju.juju API addresses unchanged"
 	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
 }
 
 func (s *CacheAPIEndpointsSuite) TestResolveCalledWithInitialEndpoints(c *gc.C) {
 	// Test that if no hostnames exist cached we call resolve (i.e.
 	// simulate the behavior right after bootstrap)
-	info := s.store.CreateInfo("env-name")
+
 	// Because Hostnames are sorted before caching, reordering them
 	// will simulate they have changed.
 	unsortedHPs := network.NewHostPorts(1234,
@@ -1102,30 +669,33 @@ func (s *CacheAPIEndpointsSuite) TestResolveCalledWithInitialEndpoints(c *gc.C) 
 		"fc00::2", // from ipv6.example.com
 	)
 	strResolved := network.HostPortsToStrings(resolvedHPs)
-	info.SetAPIEndpoint(configstore.APIEndpoint{})
-	err := info.Write()
+
+	controllerDetails := jujuclient.ControllerDetails{
+		ControllerUUID: fakeUUID,
+		CACert:         "certificate",
+	}
+	err := s.ControllerStore.UpdateController("controller-name", controllerDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, hosts, changed := juju.PrepareEndpointsForCaching(
-		info, [][]network.HostPort{unsortedHPs}, network.HostPort{},
+		controllerDetails, [][]network.HostPort{unsortedHPs},
 	)
 	c.Assert(addrs, jc.DeepEquals, strResolved)
 	c.Assert(hosts, jc.DeepEquals, strSorted)
 	c.Assert(changed, jc.IsTrue)
 	c.Assert(s.resolveNumCalls, gc.Equals, 1)
 	c.Assert(s.numResolved, gc.Equals, 2)
-	expectLog := fmt.Sprintf("DEBUG juju.api API hostnames %v - resolving hostnames", sortedHPs)
+	expectLog := fmt.Sprintf("DEBUG juju.juju API hostnames %v - resolving hostnames", sortedHPs)
 	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
-	expectLog = fmt.Sprintf("INFO juju.api new API addresses to cache %v", resolvedHPs)
+	expectLog = fmt.Sprintf("INFO juju.juju new API addresses to cache %v", resolvedHPs)
 	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
 }
 
-func (s *CacheAPIEndpointsSuite) assertEndpointsPreferIPv6False(c *gc.C, info configstore.EnvironInfo) {
+func (s *CacheAPIEndpointsSuite) assertEndpoints(c *gc.C, controllerDetails *jujuclient.ControllerDetails) {
 	c.Assert(s.resolveNumCalls, gc.Equals, 1)
 	c.Assert(s.numResolved, gc.Equals, 10)
-	endpoint := info.APIEndpoint()
 	// Check Addresses after resolving.
-	c.Check(endpoint.Addresses, jc.DeepEquals, []string{
+	c.Check(controllerDetails.APIEndpoints, jc.DeepEquals, []string{
 		s.apiHostPort.NetAddr(), // Last endpoint successfully connected to is always on top.
 		"0.1.2.1:1234",          // From ipv4+4.example.com
 		"0.1.2.2:1234",          // From ipv4+4.example.com
@@ -1147,60 +717,13 @@ func (s *CacheAPIEndpointsSuite) assertEndpointsPreferIPv6False(c *gc.C, info co
 		"[fc00::9]:1234", // From ipv6+6.example.com
 	})
 	// Check Hostnames before resolving
-	c.Check(endpoint.Hostnames, jc.DeepEquals, []string{
+	c.Check(controllerDetails.UnresolvedAPIEndpoints, jc.DeepEquals, []string{
 		s.apiHostPort.NetAddr(), // Last endpoint successfully connected to is always on top.
 		"1.0.0.1:1234",
 		"1.0.0.2:1235",
 		"192.0.0.1:1234",
 		"[2001:db8::1]:1234",
 		"[2001:db8::2]:1235",
-		"invalid host:1234",
-		"ipv4+4.example.com:1234",
-		"ipv4+6.example.com:1234",
-		"ipv4.example.com:1234",
-		"ipv6+4.example.com:1235",
-		"ipv6+6.example.com:1234",
-		"ipv6.example.com:1234",
-		"localhost:1234",
-		"localhost:1235",
-		"[fc00::111]:1234",
-	})
-}
-
-func (s *CacheAPIEndpointsSuite) assertEndpointsPreferIPv6True(c *gc.C, info configstore.EnvironInfo) {
-	c.Assert(s.resolveNumCalls, gc.Equals, 1)
-	c.Assert(s.numResolved, gc.Equals, 10)
-	endpoint := info.APIEndpoint()
-	// Check Addresses after resolving.
-	c.Check(endpoint.Addresses, jc.DeepEquals, []string{
-		s.apiHostPort.NetAddr(), // Last endpoint successfully connected to is always on top.
-		"[2001:db8::1]:1234",
-		"[2001:db8::2]:1235",
-		"0.1.2.1:1234", // From ipv4+4.example.com
-		"0.1.2.2:1234", // From ipv4+4.example.com
-		"0.1.2.3:1234", // From ipv4+6.example.com
-		"0.1.2.5:1234", // From ipv4.example.com
-		"0.1.2.6:1234", // From ipv6+4.example.com
-		"1.0.0.1:1234",
-		"1.0.0.2:1235",
-		"192.0.0.1:1234",
-		"localhost:1234",  // Left intact on purpose.
-		"localhost:1235",  // Left intact on purpose.
-		"[fc00::10]:1234", // From ipv6.example.com
-		"[fc00::111]:1234",
-		"[fc00::3]:1234", // From ipv4+6.example.com
-		"[fc00::6]:1234", // From ipv6+4.example.com
-		"[fc00::8]:1234", // From ipv6+6.example.com
-		"[fc00::9]:1234", // From ipv6+6.example.com
-	})
-	// Check Hostnames before resolving
-	c.Check(endpoint.Hostnames, jc.DeepEquals, []string{
-		s.apiHostPort.NetAddr(), // Last endpoint successfully connected to is always on top.
-		"[2001:db8::1]:1234",
-		"[2001:db8::2]:1235",
-		"1.0.0.1:1234",
-		"1.0.0.2:1235",
-		"192.0.0.1:1234",
 		"invalid host:1234",
 		"ipv4+4.example.com:1234",
 		"ipv4+6.example.com:1234",
@@ -1275,34 +798,32 @@ func (s *CacheAPIEndpointsSuite) mockResolveOrDropHostnames(hps []network.HostPo
 
 var fakeUUID = "df136476-12e9-11e4-8a70-b2227cce2b54"
 
-var dummyStoreInfo = &environInfo{
-	creds: configstore.APICredentials{
-		User:     "foo",
-		Password: "foopass",
-	},
-	endpoint: configstore.APIEndpoint{
-		Addresses: []string{"foo.invalid"},
-		CACert:    "certificated",
-		ModelUUID: fakeUUID,
-	},
+func noBootstrapConfig(controllerName string) (*config.Config, error) {
+	return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)
 }
 
-type EnvironInfoTest struct {
-	coretesting.BaseSuite
-}
-
-var _ = gc.Suite(&EnvironInfoTest{})
-
-type fakeEnvironInfo struct {
-	configstore.EnvironInfo
-	user string
-}
-
-func (fake *fakeEnvironInfo) APICredentials() configstore.APICredentials {
-	return configstore.APICredentials{User: fake.user}
-}
-
-func (*EnvironInfoTest) TestRealUser(c *gc.C) {
-	info := &fakeEnvironInfo{user: "eric"}
-	c.Assert(juju.EnvironInfoUserTag(info), gc.Equals, names.NewUserTag("eric"))
+func newAPIConnectionFromNames(
+	c *gc.C,
+	controller, account, model string,
+	store jujuclient.ClientStore,
+	apiOpen api.OpenFunc,
+	getBootstrapConfig func(string) (*config.Config, error),
+) (api.Connection, error) {
+	params := juju.NewAPIConnectionParams{
+		Store:           store,
+		ControllerName:  controller,
+		BootstrapConfig: getBootstrapConfig,
+		DialOpts:        api.DefaultDialOpts(),
+	}
+	if account != "" {
+		accountDetails, err := store.AccountByName(controller, account)
+		c.Assert(err, jc.ErrorIsNil)
+		params.AccountDetails = accountDetails
+	}
+	if model != "" {
+		modelDetails, err := store.ModelByName(controller, account, model)
+		c.Assert(err, jc.ErrorIsNil)
+		params.ModelUUID = modelDetails.ModelUUID
+	}
+	return juju.NewAPIFromStore(params, apiOpen)
 }

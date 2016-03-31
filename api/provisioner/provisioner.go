@@ -6,6 +6,7 @@ package provisioner
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
 )
 
@@ -210,23 +210,28 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 		return nil, err
 	}
 	ifaceInfo := make([]network.InterfaceInfo, len(result.Results[0].Config))
-	for i, netInfo := range result.Results[0].Config {
+	for i, cfg := range result.Results[0].Config {
 		ifaceInfo[i] = network.InterfaceInfo{
-			DeviceIndex:      netInfo.DeviceIndex,
-			MACAddress:       netInfo.MACAddress,
-			CIDR:             netInfo.CIDR,
-			NetworkName:      netInfo.NetworkName,
-			ProviderId:       network.Id(netInfo.ProviderId),
-			ProviderSubnetId: network.Id(netInfo.ProviderSubnetId),
-			VLANTag:          netInfo.VLANTag,
-			InterfaceName:    netInfo.InterfaceName,
-			Disabled:         netInfo.Disabled,
-			NoAutoStart:      netInfo.NoAutoStart,
-			ConfigType:       network.InterfaceConfigType(netInfo.ConfigType),
-			Address:          network.NewAddress(netInfo.Address),
-			DNSServers:       network.NewAddresses(netInfo.DNSServers...),
-			GatewayAddress:   network.NewAddress(netInfo.GatewayAddress),
-			ExtraConfig:      netInfo.ExtraConfig,
+			DeviceIndex:         cfg.DeviceIndex,
+			MACAddress:          cfg.MACAddress,
+			CIDR:                cfg.CIDR,
+			MTU:                 cfg.MTU,
+			ProviderId:          network.Id(cfg.ProviderId),
+			ProviderSubnetId:    network.Id(cfg.ProviderSubnetId),
+			ProviderSpaceId:     network.Id(cfg.ProviderSpaceId),
+			ProviderVLANId:      network.Id(cfg.ProviderVLANId),
+			ProviderAddressId:   network.Id(cfg.ProviderAddressId),
+			VLANTag:             cfg.VLANTag,
+			InterfaceName:       cfg.InterfaceName,
+			ParentInterfaceName: cfg.ParentInterfaceName,
+			InterfaceType:       network.InterfaceType(cfg.InterfaceType),
+			Disabled:            cfg.Disabled,
+			NoAutoStart:         cfg.NoAutoStart,
+			ConfigType:          network.InterfaceConfigType(cfg.ConfigType),
+			Address:             network.NewAddress(cfg.Address),
+			DNSServers:          network.NewAddresses(cfg.DNSServers...),
+			DNSSearchDomains:    cfg.DNSSearchDomains,
+			GatewayAddress:      network.NewAddress(cfg.GatewayAddress),
 		}
 	}
 	return ifaceInfo, nil

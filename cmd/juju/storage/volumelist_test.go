@@ -15,43 +15,31 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
-type volumeListSuite struct {
-	SubStorageSuite
-	mockAPI *mockVolumeListAPI
-}
-
-var _ = gc.Suite(&volumeListSuite{})
-
-func (s *volumeListSuite) SetUpTest(c *gc.C) {
-	s.SubStorageSuite.SetUpTest(c)
-
-	s.mockAPI = &mockVolumeListAPI{}
-}
-
-func (s *volumeListSuite) TestVolumeListEmpty(c *gc.C) {
+func (s *ListSuite) TestVolumeListEmpty(c *gc.C) {
 	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsListResult, error) {
 		return nil, nil
 	}
-	s.assertValidList(
+	s.assertValidVolumeList(
 		c,
 		[]string{"--format", "yaml"},
 		"",
 	)
 }
 
-func (s *volumeListSuite) TestVolumeListError(c *gc.C) {
+func (s *ListSuite) TestVolumeListError(c *gc.C) {
 	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsListResult, error) {
 		return nil, errors.New("just my luck")
 	}
 	context, err := s.runVolumeList(c, "--format", "yaml")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "just my luck")
-	s.assertUserFacingOutput(c, context, "", "")
+	s.assertUserFacingVolumeOutput(c, context, "", "")
 }
 
-func (s *volumeListSuite) TestVolumeListArgs(c *gc.C) {
+func (s *ListSuite) TestVolumeListArgs(c *gc.C) {
 	var called bool
 	expectedArgs := []string{"a", "b", "c"}
 	s.mockAPI.listVolumes = func(arg []string) ([]params.VolumeDetailsListResult, error) {
@@ -59,7 +47,7 @@ func (s *volumeListSuite) TestVolumeListArgs(c *gc.C) {
 		called = true
 		return nil, nil
 	}
-	s.assertValidList(
+	s.assertValidVolumeList(
 		c,
 		append([]string{"--format", "yaml"}, expectedArgs...),
 		"",
@@ -67,25 +55,25 @@ func (s *volumeListSuite) TestVolumeListArgs(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *volumeListSuite) TestVolumeListYaml(c *gc.C) {
-	s.assertUnmarshalledOutput(
+func (s *ListSuite) TestVolumeListYaml(c *gc.C) {
+	s.assertUnmarshalledVolumeOutput(
 		c,
 		goyaml.Unmarshal,
 		"", // no error
 		"--format", "yaml")
 }
 
-func (s *volumeListSuite) TestVolumeListJSON(c *gc.C) {
-	s.assertUnmarshalledOutput(
+func (s *ListSuite) TestVolumeListJSON(c *gc.C) {
+	s.assertUnmarshalledVolumeOutput(
 		c,
 		json.Unmarshal,
 		"", // no error
 		"--format", "json")
 }
 
-func (s *volumeListSuite) TestVolumeListWithErrorResults(c *gc.C) {
+func (s *ListSuite) TestVolumeListWithErrorResults(c *gc.C) {
 	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsListResult, error) {
-		results, _ := mockVolumeListAPI{}.ListVolumes(nil)
+		results, _ := mockListAPI{}.ListVolumes(nil)
 		results = append(results, params.VolumeDetailsListResult{
 			Error: &params.Error{Message: "bad"},
 		})
@@ -96,8 +84,8 @@ func (s *volumeListSuite) TestVolumeListWithErrorResults(c *gc.C) {
 	}
 	// we should see the error in stderr, but it should not
 	// otherwise affect the rendering of valid results.
-	s.assertUnmarshalledOutput(c, json.Unmarshal, "bad\nness\n", "--format", "json")
-	s.assertUnmarshalledOutput(c, goyaml.Unmarshal, "bad\nness\n", "--format", "yaml")
+	s.assertUnmarshalledVolumeOutput(c, json.Unmarshal, "bad\nness\n", "--format", "json")
+	s.assertUnmarshalledVolumeOutput(c, goyaml.Unmarshal, "bad\nness\n", "--format", "yaml")
 }
 
 var expectedVolumeListTabular = `
@@ -111,23 +99,23 @@ MACHINE  UNIT         STORAGE      ID   PROVIDER-ID                   DEVICE  SI
 
 `[1:]
 
-func (s *volumeListSuite) TestVolumeListTabular(c *gc.C) {
-	s.assertValidList(c, []string{}, expectedVolumeListTabular)
+func (s *ListSuite) TestVolumeListTabular(c *gc.C) {
+	s.assertValidVolumeList(c, []string{}, expectedVolumeListTabular)
 
 	// Do it again, reversing the results returned by the API.
 	// We should get everything sorted in the appropriate order.
 	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsListResult, error) {
-		results, _ := mockVolumeListAPI{}.ListVolumes(nil)
+		results, _ := mockListAPI{}.ListVolumes(nil)
 		n := len(results)
 		for i := 0; i < n/2; i++ {
 			results[i], results[n-i-1] = results[n-i-1], results[i]
 		}
 		return results, nil
 	}
-	s.assertValidList(c, []string{}, expectedVolumeListTabular)
+	s.assertValidVolumeList(c, []string{}, expectedVolumeListTabular)
 }
 
-func (s *volumeListSuite) assertUnmarshalledOutput(c *gc.C, unmarshal unmarshaller, expectedErr string, args ...string) {
+func (s *ListSuite) assertUnmarshalledVolumeOutput(c *gc.C, unmarshal unmarshaller, expectedErr string, args ...string) {
 	context, err := s.runVolumeList(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -137,7 +125,7 @@ func (s *volumeListSuite) assertUnmarshalledOutput(c *gc.C, unmarshal unmarshall
 	err = unmarshal([]byte(testing.Stdout(context)), &result)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := s.expect(c, nil)
+	expected := s.expectVolume(c, nil)
 	c.Assert(result.Volumes, jc.DeepEquals, expected)
 
 	obtainedErr := testing.Stderr(context)
@@ -146,7 +134,7 @@ func (s *volumeListSuite) assertUnmarshalledOutput(c *gc.C, unmarshal unmarshall
 
 // expect returns the VolumeInfo mapping we should expect to unmarshal
 // from rendered YAML or JSON.
-func (s *volumeListSuite) expect(c *gc.C, machines []string) map[string]storage.VolumeInfo {
+func (s *ListSuite) expectVolume(c *gc.C, machines []string) map[string]storage.VolumeInfo {
 	all, err := s.mockAPI.ListVolumes(machines)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -161,19 +149,18 @@ func (s *volumeListSuite) expect(c *gc.C, machines []string) map[string]storage.
 	return result
 }
 
-func (s *volumeListSuite) assertValidList(c *gc.C, args []string, expectedOut string) {
+func (s *ListSuite) assertValidVolumeList(c *gc.C, args []string, expectedOut string) {
 	context, err := s.runVolumeList(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertUserFacingOutput(c, context, expectedOut, "")
+	s.assertUserFacingVolumeOutput(c, context, expectedOut, "")
 }
 
-func (s *volumeListSuite) runVolumeList(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *ListSuite) runVolumeList(c *gc.C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c,
-		storage.NewVolumeListCommand(s.mockAPI),
-		args...)
+		storage.NewListCommandForTest(s.mockAPI, s.store), append(args, "--volume")...)
 }
 
-func (s *volumeListSuite) assertUserFacingOutput(c *gc.C, context *cmd.Context, expectedOut, expectedErr string) {
+func (s *ListSuite) assertUserFacingVolumeOutput(c *gc.C, context *cmd.Context, expectedOut, expectedErr string) {
 	obtainedOut := testing.Stdout(context)
 	c.Assert(obtainedOut, gc.Equals, expectedOut)
 
@@ -181,15 +168,7 @@ func (s *volumeListSuite) assertUserFacingOutput(c *gc.C, context *cmd.Context, 
 	c.Assert(obtainedErr, gc.Equals, expectedErr)
 }
 
-type mockVolumeListAPI struct {
-	listVolumes func([]string) ([]params.VolumeDetailsListResult, error)
-}
-
-func (s mockVolumeListAPI) Close() error {
-	return nil
-}
-
-func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListResult, error) {
+func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListResult, error) {
 	if s.listVolumes != nil {
 		return s.listVolumes(machines)
 	}
@@ -203,7 +182,7 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeDetail
 				VolumeId: "provider-supplied-volume-0-0",
 				Size:     512,
 			},
-			Status: createTestStatus(params.StatusAttached, ""),
+			Status: createTestStatus(status.StatusAttached, ""),
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				"machine-0": params.VolumeAttachmentInfo{
 					DeviceName: "loop0",
@@ -213,7 +192,7 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeDetail
 				StorageTag: "storage-db-dir-1001",
 				OwnerTag:   "unit-abc-0",
 				Kind:       params.StorageKindBlock,
-				Status:     createTestStatus(params.StatusAttached, ""),
+				Status:     createTestStatus(status.StatusAttached, ""),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-abc-0": params.StorageAttachmentDetails{
 						StorageTag: "storage-db-dir-1001",
@@ -234,7 +213,7 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeDetail
 				Persistent: true,
 				Size:       2048,
 			},
-			Status: createTestStatus(params.StatusAttaching, "failed to attach, will retry"),
+			Status: createTestStatus(status.StatusAttaching, "failed to attach, will retry"),
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				"machine-0": params.VolumeAttachmentInfo{},
 			},
@@ -246,7 +225,7 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeDetail
 			Info: params.VolumeInfo{
 				Size: 42,
 			},
-			Status: createTestStatus(params.StatusPending, ""),
+			Status: createTestStatus(status.StatusPending, ""),
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				"machine-1": params.VolumeAttachmentInfo{},
 			},
@@ -259,7 +238,7 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeDetail
 				VolumeId: "provider-supplied-volume-2",
 				Size:     3,
 			},
-			Status: createTestStatus(params.StatusAttached, ""),
+			Status: createTestStatus(status.StatusAttached, ""),
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				"machine-1": params.VolumeAttachmentInfo{
 					DeviceName: "xvdf1",
@@ -275,7 +254,7 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeDetail
 				Persistent: true,
 				Size:       1024,
 			},
-			Status: createTestStatus(params.StatusAttached, ""),
+			Status: createTestStatus(status.StatusAttached, ""),
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				"machine-0": params.VolumeAttachmentInfo{
 					DeviceName: "xvdf2",
@@ -290,7 +269,7 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeDetail
 				StorageTag: "storage-shared-fs-0",
 				OwnerTag:   "service-transcode",
 				Kind:       params.StorageKindBlock,
-				Status:     createTestStatus(params.StatusAttached, ""),
+				Status:     createTestStatus(status.StatusAttached, ""),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-transcode-0": params.StorageAttachmentDetails{
 						StorageTag: "storage-shared-fs-0",
@@ -311,9 +290,9 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeDetail
 	return results, nil
 }
 
-func createTestStatus(status params.Status, message string) params.EntityStatus {
+func createTestStatus(testStatus status.Status, message string) params.EntityStatus {
 	return params.EntityStatus{
-		Status: status,
+		Status: testStatus,
 		Info:   message,
 		Since:  &time.Time{},
 	}

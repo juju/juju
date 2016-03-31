@@ -4,7 +4,6 @@
 package testing
 
 import (
-	"io/ioutil"
 	"os"
 
 	"github.com/juju/names"
@@ -12,11 +11,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/version"
 )
 
 // FakeAuthKeys holds the authorized key used for testing
@@ -46,6 +45,7 @@ func FakeConfig() Attrs {
 		"type":                      "someprovider",
 		"name":                      "testenv",
 		"uuid":                      ModelTag.Id(),
+		"controller-uuid":           ModelTag.Id(),
 		"authorized-keys":           FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "fish",
@@ -87,40 +87,9 @@ func CustomModelConfig(c *gc.C, extra Attrs) *config.Config {
 
 const (
 	SampleModelName = "erewhemos"
-	EnvDefault      = "default:\n  " + SampleModelName + "\n"
 )
 
 const DefaultMongoPassword = "conn-from-name-secret"
-
-// Environment names below are explicit as it makes them more readable.
-const SingleEnvConfigNoDefault = `
-environments:
-    erewhemos:
-        type: dummy
-        controller: true
-        authorized-keys: i-am-a-key
-        admin-secret: ` + DefaultMongoPassword + `
-`
-
-const SingleEnvConfig = EnvDefault + SingleEnvConfigNoDefault
-
-const MultipleEnvConfigNoDefault = `
-environments:
-    erewhemos:
-        type: dummy
-        controller: true
-        authorized-keys: i-am-a-key
-        admin-secret: ` + DefaultMongoPassword + `
-    erewhemos-2:
-        type: dummy
-        controller: true
-        authorized-keys: i-am-a-key
-        admin-secret: ` + DefaultMongoPassword + `
-`
-
-const MultipleEnvConfig = EnvDefault + MultipleEnvConfigNoDefault
-
-const SampleCertName = "erewhemos"
 
 // FakeJujuXDGDataHomeSuite isolates the user's home directory and
 // sets up a Juju home with a sample environment and certificate.
@@ -130,16 +99,6 @@ type FakeJujuXDGDataHomeSuite struct {
 	oldJujuXDGDataHome string
 }
 
-func (s *FakeJujuXDGDataHomeSuite) SetUpSuite(c *gc.C) {
-	s.JujuOSEnvSuite.SetUpTest(c)
-	s.FakeHomeSuite.SetUpTest(c)
-}
-
-func (s *FakeJujuXDGDataHomeSuite) TearDownSuite(c *gc.C) {
-	s.FakeHomeSuite.SetUpTest(c)
-	s.JujuOSEnvSuite.SetUpTest(c)
-}
-
 func (s *FakeJujuXDGDataHomeSuite) SetUpTest(c *gc.C) {
 	s.JujuOSEnvSuite.SetUpTest(c)
 	s.FakeHomeSuite.SetUpTest(c)
@@ -147,7 +106,6 @@ func (s *FakeJujuXDGDataHomeSuite) SetUpTest(c *gc.C) {
 	err := os.MkdirAll(jujuXDGDataHome, 0700)
 	c.Assert(err, jc.ErrorIsNil)
 	s.oldJujuXDGDataHome = osenv.SetJujuXDGDataHome(jujuXDGDataHome)
-	WriteEnvironments(c, SingleEnvConfig, SampleCertName)
 }
 
 func (s *FakeJujuXDGDataHomeSuite) TearDownTest(c *gc.C) {
@@ -160,23 +118,4 @@ func (s *FakeJujuXDGDataHomeSuite) TearDownTest(c *gc.C) {
 // asserts that no errors were encountered.
 func (s *FakeJujuXDGDataHomeSuite) AssertConfigParameterUpdated(c *gc.C, key, value string) {
 	s.PatchEnvironment(key, value)
-}
-
-// MakeSampleJujuHome sets up a sample Juju environment.
-func MakeSampleJujuHome(c *gc.C) {
-	WriteEnvironments(c, SingleEnvConfig, SampleCertName)
-}
-
-// WriteEnvironments creates an environments file with envConfig and certs
-// from certNames.
-func WriteEnvironments(c *gc.C, envConfig string, certNames ...string) {
-	envs := osenv.JujuXDGDataHomePath("environments.yaml")
-	err := ioutil.WriteFile(envs, []byte(envConfig), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	for _, name := range certNames {
-		err := ioutil.WriteFile(osenv.JujuXDGDataHomePath(name+"-cert.pem"), []byte(CACert), 0600)
-		c.Assert(err, jc.ErrorIsNil)
-		err = ioutil.WriteFile(osenv.JujuXDGDataHomePath(name+"-private-key.pem"), []byte(CAKey), 0600)
-		c.Assert(err, jc.ErrorIsNil)
-	}
 }

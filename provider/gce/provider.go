@@ -6,11 +6,14 @@ package gce
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
 
-type environProvider struct{}
+type environProvider struct {
+	environProviderCredentials
+}
 
 var providerInstance environProvider
 
@@ -20,17 +23,43 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, errors.Trace(err)
 }
 
+// BootstrapConfig implements environs.EnvironProvider.
+func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+	// Add credentials to the configuration.
+	cfg := args.Config
+	switch authType := args.Credentials.AuthType(); authType {
+	case cloud.JSONFileAuthType:
+		var err error
+		filename := args.Credentials.Attributes()["file"]
+		args.Credentials, err = parseJSONAuthFile(filename)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		fallthrough
+	case cloud.OAuth2AuthType:
+		credentialAttrs := args.Credentials.Attributes()
+		var err error
+		cfg, err = args.Config.Apply(map[string]interface{}{
+			"project-id":   credentialAttrs["project-id"],
+			"client-id":    credentialAttrs["client-id"],
+			"client-email": credentialAttrs["client-email"],
+			"private-key":  credentialAttrs["private-key"],
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	default:
+		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+	return p.PrepareForCreateEnvironment(cfg)
+}
+
 // PrepareForBootstrap implements environs.EnvironProvider.
 func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	env, err := newEnviron(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	if ctx.ShouldVerifyCredentials() {
 		if err := env.gce.VerifyCredentials(); err != nil {
 			return nil, errors.Trace(err)
@@ -104,11 +133,4 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 		return nil, errors.Trace(err)
 	}
 	return ecfg.secret(), nil
-}
-
-// BoilerplateConfig implements environs.EnvironProvider.
-func (environProvider) BoilerplateConfig() string {
-	// boilerplateConfig is kept in config.go, in the hope that people editing
-	// config will keep it up to date.
-	return boilerplateConfig
 }

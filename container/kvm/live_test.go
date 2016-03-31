@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -20,9 +21,10 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type LiveSuite struct {
@@ -97,8 +99,8 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 	environConfig := dummyConfig(c)
 	err = instancecfg.FinishInstanceConfig(instanceConfig, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
-
-	inst, hardware, err := manager.CreateContainer(instanceConfig, "precise", network, nil)
+	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
+	inst, hardware, err := manager.CreateContainer(instanceConfig, "precise", network, nil, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	expected := fmt.Sprintf("arch=%s cpu-cores=1 mem=512M root-disk=8192M", arch.HostArch())
@@ -138,7 +140,7 @@ func dummyConfig(c *gc.C) *config.Config {
 	testConfig, err = testConfig.Apply(map[string]interface{}{
 		"type":          "dummy",
 		"controller":    false,
-		"agent-version": version.Current.String(),
+		"agent-version": jujuversion.Current.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return testConfig

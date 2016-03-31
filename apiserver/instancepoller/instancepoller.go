@@ -6,19 +6,17 @@ package instancepoller
 import (
 	"fmt"
 
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 func init() {
 	common.RegisterStandardFacade("InstancePoller", 2, NewInstancePollerAPI)
 }
-
-var logger = loggo.GetLogger("juju.apiserver.instancepoller")
 
 // InstancePollerAPI provides access to the InstancePoller API facade.
 type InstancePollerAPI struct {
@@ -156,9 +154,9 @@ func (a *InstancePollerAPI) SetProviderAddresses(args params.SetMachinesAddresse
 
 // InstanceStatus returns the instance status for each given entity.
 // Only machine tags are accepted.
-func (a *InstancePollerAPI) InstanceStatus(args params.Entities) (params.StringResults, error) {
-	result := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
+func (a *InstancePollerAPI) InstanceStatus(args params.Entities) (params.StatusResults, error) {
+	result := params.StatusResults{
+		Results: make([]params.StatusResult, len(args.Entities)),
 	}
 	canAccess, err := a.accessMachine()
 	if err != nil {
@@ -167,7 +165,12 @@ func (a *InstancePollerAPI) InstanceStatus(args params.Entities) (params.StringR
 	for i, arg := range args.Entities {
 		machine, err := a.getOneMachine(arg.Tag, canAccess)
 		if err == nil {
-			result.Results[i].Result, err = machine.InstanceStatus()
+			var statusInfo status.StatusInfo
+			statusInfo, err = machine.InstanceStatus()
+			result.Results[i].Status = statusInfo.Status
+			result.Results[i].Info = statusInfo.Message
+			result.Results[i].Data = statusInfo.Data
+			result.Results[i].Since = statusInfo.Since
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -176,7 +179,7 @@ func (a *InstancePollerAPI) InstanceStatus(args params.Entities) (params.StringR
 
 // SetInstanceStatus updates the instance status for each given
 // entity. Only machine tags are accepted.
-func (a *InstancePollerAPI) SetInstanceStatus(args params.SetInstancesStatus) (params.ErrorResults, error) {
+func (a *InstancePollerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -187,7 +190,7 @@ func (a *InstancePollerAPI) SetInstanceStatus(args params.SetInstancesStatus) (p
 	for i, arg := range args.Entities {
 		machine, err := a.getOneMachine(arg.Tag, canAccess)
 		if err == nil {
-			err = machine.SetInstanceStatus(arg.Status)
+			err = machine.SetInstanceStatus(arg.Status, arg.Info, arg.Data)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}

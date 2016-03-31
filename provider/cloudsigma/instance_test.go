@@ -71,7 +71,7 @@ func (s *instanceSuite) TestInstanceId(c *gc.C) {
 }
 
 func (s *instanceSuite) TestInstanceStatus(c *gc.C) {
-	c.Check(s.inst.Status(), gc.Equals, "running")
+	c.Check(s.inst.Status().Message, gc.Equals, "running")
 }
 
 func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {

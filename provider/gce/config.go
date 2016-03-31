@@ -4,8 +4,6 @@
 package gce
 
 import (
-	"os"
-
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
@@ -25,7 +23,6 @@ import (
 
 // The GCE-specific config keys.
 const (
-	cfgAuthFile      = "auth-file"
 	cfgPrivateKey    = "private-key"
 	cfgClientID      = "client-id"
 	cfgClientEmail   = "client-email"
@@ -34,49 +31,8 @@ const (
 	cfgImageEndpoint = "image-endpoint"
 )
 
-// boilerplateConfig will be shown in help output, so please keep it up to
-// date when you change environment configuration below.
-var boilerplateConfig = `
-gce:
-  type: gce
-
-  # Google Auth Info
-  # The GCE provider uses OAuth to authenticate. This requires that
-  # you set it up and get the relevant credentials. For more information
-  # see https://cloud.google.com/compute/docs/api/how-tos/authorization.
-  # The key information can be downloaded as a JSON file, or copied, from:
-  #   https://console.developers.google.com/project/<projet>/apiui/credential
-  # Either set the path to the downloaded JSON file here:
-  auth-file:
-
-  # ...or set the individual fields for the credentials. Either way, all
-  # three of these are required and have specific meaning to GCE.
-  # private-key:
-  # client-email:
-  # client-id:
-
-  # Google instance info
-  # To provision instances and perform related operations, the provider
-  # will need to know which GCE project to use and into which region to
-  # provision. While the region has a default, the project ID is
-  # required. For information on the project ID, see
-  # https://cloud.google.com/compute/docs/projects and regarding regions
-  # see https://cloud.google.com/compute/docs/zones.
-  project-id:
-  # region: us-central1
-
-  # The GCE provider uses pre-built images when provisioning instances.
-  # You can customize the location in which to find them with the
-  # image-endpoint setting. The default value is the a location within
-  # GCE, so it will give you the best speed when bootstrapping or adding
-  # machines. For more information on the image cache see
-  # https://cloud-images.ubuntu.com/.
-  # image-endpoint: https://www.googleapis.com
-`[1:]
-
 // configFields is the spec for each GCE config value's type.
 var configFields = schema.Fields{
-	cfgAuthFile:      schema.String(),
 	cfgPrivateKey:    schema.String(),
 	cfgClientID:      schema.String(),
 	cfgClientEmail:   schema.String(),
@@ -90,7 +46,6 @@ var configFields = schema.Fields{
 // cloud-images).
 
 var configDefaults = schema.Defaults{
-	cfgAuthFile: "",
 	// See http://cloud-images.ubuntu.com/releases/streams/v1/com.ubuntu.cloud:released:gce.json
 	cfgImageEndpoint: "https://www.googleapis.com",
 	cfgRegion:        "us-central1",
@@ -101,7 +56,6 @@ var configSecretFields = []string{
 }
 
 var configImmutableFields = []string{
-	cfgAuthFile,
 	cfgPrivateKey,
 	cfgClientID,
 	cfgClientEmail,
@@ -112,6 +66,7 @@ var configImmutableFields = []string{
 
 var configAuthFields = []string{
 	cfgPrivateKey,
+	cfgProjectID,
 	cfgClientID,
 	cfgClientEmail,
 }
@@ -192,13 +147,6 @@ func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*envir
 	}
 
 	return ecfg, nil
-}
-
-func (c *environConfig) authFile() string {
-	if c.attrs[cfgAuthFile] == nil {
-		return ""
-	}
-	return c.attrs[cfgAuthFile].(string)
 }
 
 func (c *environConfig) privateKey() string {
@@ -311,8 +259,6 @@ func (c *environConfig) update(cfg *config.Config) error {
 // individual fields (falling back on the JSON file).
 func parseCredentials(cfg *config.Config) (*google.Credentials, error) {
 	attrs := cfg.UnknownAttrs()
-
-	// Try the auth fields first.
 	values := make(map[string]string)
 	for _, field := range configAuthFields {
 		if existing, ok := attrs[field].(string); ok && existing != "" {
@@ -324,30 +270,7 @@ func parseCredentials(cfg *config.Config) (*google.Credentials, error) {
 			}
 		}
 	}
-	if len(values) > 0 {
-		creds, err := google.NewCredentials(values)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return creds, nil
-	}
-
-	// Fall back to the auth file.
-	filename, ok := attrs[cfgAuthFile].(string)
-	if !ok || filename == "" {
-		// The missing credentials will be caught later.
-		return nil, nil
-	}
-	authFile, err := os.Open(filename)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer authFile.Close()
-	creds, err := google.ParseJSONKey(authFile)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return creds, nil
+	return google.NewCredentials(values)
 }
 
 func applyCredentials(cfg *config.Config, creds *google.Credentials) (*config.Config, error) {

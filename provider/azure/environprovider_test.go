@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/storage"
@@ -39,31 +39,49 @@ func (s *environProviderSuite) SetUpTest(c *gc.C) {
 	s.sender = nil
 }
 
-func (s *environProviderSuite) TestPrepareForBootstrapWithInternalConfig(c *gc.C) {
-	s.testPrepareForBootstrapWithInternalConfig(c, "controller-resource-group")
-	s.testPrepareForBootstrapWithInternalConfig(c, "storage-account")
+func (s *environProviderSuite) TestBootstrapConfigWithInternalConfig(c *gc.C) {
+	s.testBootstrapConfigWithInternalConfig(c, "controller-resource-group")
+	s.testBootstrapConfigWithInternalConfig(c, "storage-account")
 }
 
-func (s *environProviderSuite) testPrepareForBootstrapWithInternalConfig(c *gc.C, key string) {
-	ctx := envtesting.BootstrapContext(c)
+func (s *environProviderSuite) testBootstrapConfigWithInternalConfig(c *gc.C, key string) {
 	cfg := makeTestModelConfig(c, testing.Attrs{key: "whatever"})
 	s.sender = azuretesting.Senders{tokenRefreshSender()}
-	_, err := s.provider.PrepareForBootstrap(ctx, cfg)
+	_, err := s.provider.BootstrapConfig(environs.BootstrapConfigParams{
+		Config:      cfg,
+		Credentials: fakeUserPassCredential(),
+	})
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf(`internal config "%s" must not be specified`, key))
 }
 
-func (s *environProviderSuite) TestPrepareForBootstrap(c *gc.C) {
-	ctx := envtesting.BootstrapContext(c)
+func fakeUserPassCredential() cloud.Credential {
+	return cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"application-id":       "application-id",
+			"subscription-id":      "subscription-id",
+			"tenant-id":            "tenant-id",
+			"application-password": "application-password",
+		},
+	)
+}
+
+func (s *environProviderSuite) TestBootstrapConfig(c *gc.C) {
 	cfg := makeTestModelConfig(c)
 	cfg, err := cfg.Remove([]string{"controller-resource-group"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.sender = azuretesting.Senders{tokenRefreshSender()}
-	env, err := s.provider.PrepareForBootstrap(ctx, cfg)
+	cfg, err = s.provider.BootstrapConfig(environs.BootstrapConfigParams{
+		Config:               cfg,
+		CloudRegion:          "westus",
+		CloudEndpoint:        "https://api.azurestack.local",
+		CloudStorageEndpoint: "https://storage.azurestack.local",
+		Credentials:          fakeUserPassCredential(),
+	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(env, gc.NotNil)
+	c.Check(cfg, gc.NotNil)
 
-	cfg = env.Config()
 	c.Assert(
 		cfg.UnknownAttrs()["controller-resource-group"],
 		gc.Equals,

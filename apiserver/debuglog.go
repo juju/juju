@@ -27,7 +27,6 @@ import (
 // requests.
 type debugLogHandler struct {
 	ctxt   httpContext
-	stop   <-chan struct{}
 	handle debugLogHandlerFunc
 }
 
@@ -40,12 +39,10 @@ type debugLogHandlerFunc func(
 
 func newDebugLogHandler(
 	ctxt httpContext,
-	stop <-chan struct{},
 	handle debugLogHandlerFunc,
 ) *debugLogHandler {
 	return &debugLogHandler{
 		ctxt:   ctxt,
-		stop:   stop,
 		handle: handle,
 	}
 }
@@ -91,7 +88,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 
-			if err := h.handle(st, params, socket, h.stop); err != nil {
+			if err := h.handle(st, params, socket, h.ctxt.stop()); err != nil {
 				if isBrokenPipe(err) {
 					logger.Tracef("debug-log handler stopped (client disconnected)")
 				} else {

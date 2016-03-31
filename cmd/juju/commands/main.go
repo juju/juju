@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
+	"github.com/juju/loggo"
 	rcmd "github.com/juju/romulus/cmd/commands"
 	"github.com/juju/utils/featureflag"
 
@@ -17,7 +18,9 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/cachedimages"
 	"github.com/juju/juju/cmd/juju/charmcmd"
+	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/cmd/juju/gui"
 	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
@@ -30,12 +33,14 @@ import (
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
-	"github.com/juju/juju/version"
 )
+
+var logger = loggo.GetLogger("juju.cmd.juju.commands")
 
 func init() {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
@@ -134,8 +139,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Reporting commands.
 	r.Register(status.NewStatusCommand())
 	r.Register(newSwitchCommand())
-	r.Register(newEndpointCommand())
-	r.Register(newAPIInfoCommand())
 	r.Register(status.NewStatusHistoryCommand())
 
 	// Error resolution and debugging commands.
@@ -147,7 +150,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newDebugHooksCommand())
 
 	// Configuration commands.
-	r.Register(newInitCommand())
 	r.Register(model.NewModelGetConstraintsCommand())
 	r.Register(model.NewModelSetConstraintsCommand())
 	r.Register(newSyncToolsCommand())
@@ -175,11 +177,12 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage users and access
 	r.Register(user.NewAddCommand())
 	r.Register(user.NewChangePasswordCommand())
-	r.Register(user.NewCredentialsCommand())
 	r.Register(user.NewShowUserCommand())
 	r.Register(user.NewListCommand())
 	r.Register(user.NewEnableCommand())
 	r.Register(user.NewDisableCommand())
+	r.Register(user.NewSwitchUserCommand())
+	r.Register(user.NewLoginCommand())
 
 	// Manage cached images
 	r.Register(cachedimages.NewSuperCommand())
@@ -196,10 +199,13 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewUnsetCommand())
 	r.Register(model.NewRetryProvisioningCommand())
 	r.Register(model.NewDestroyCommand())
-
-	r.Register(model.NewShareCommand())
-	r.Register(model.NewUnshareCommand())
 	r.Register(model.NewUsersCommand())
+	r.Register(model.NewGrantCommand())
+	r.Register(model.NewRevokeCommand())
+
+	if featureflag.Enabled(feature.Migration) {
+		r.Register(newMigrateCommand())
+	}
 
 	// Manage and control actions
 	r.Register(action.NewSuperCommand())
@@ -226,10 +232,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(block.NewUnblockCommand())
 
 	// Manage storage
-	r.Register(storage.NewSuperCommand())
-	r.RegisterSuperAlias("list-storage", "storage", "list", nil)
-	r.RegisterSuperAlias("show-storage", "storage", "show", nil)
-	r.RegisterSuperAlias("add-storage", "storage", "add", nil)
+	r.Register(storage.NewAddCommand())
+	r.Register(storage.NewListCommand())
+	r.Register(storage.NewPoolCreateCommand())
+	r.Register(storage.NewPoolListCommand())
+	r.Register(storage.NewShowCommand())
 
 	// Manage spaces
 	r.Register(space.NewSuperCommand())
@@ -243,18 +250,34 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage controllers
 	r.Register(controller.NewCreateModelCommand())
 	r.Register(controller.NewDestroyCommand())
-	r.Register(controller.NewModelsCommand())
+	r.Register(controller.NewListModelsCommand())
 	r.Register(controller.NewKillCommand())
-	r.Register(controller.NewListCommand())
+	r.Register(controller.NewListControllersCommand())
 	r.Register(controller.NewListBlocksCommand())
-	r.Register(controller.NewLoginCommand())
+	r.Register(controller.NewRegisterCommand())
 	r.Register(controller.NewRemoveBlocksCommand())
-	r.Register(controller.NewUseModelCommand())
+	r.Register(controller.NewShowControllerCommand())
 
 	// Debug Metrics
 	r.Register(metricsdebug.New())
 	r.Register(metricsdebug.NewCollectMetricsCommand())
 	r.Register(setmeterstatus.New())
+
+	// Manage clouds and credentials
+	r.Register(cloud.NewUpdateCloudsCommand())
+	r.Register(cloud.NewListCloudsCommand())
+	r.Register(cloud.NewShowCloudCommand())
+	r.Register(cloud.NewAddCloudCommand())
+	r.Register(cloud.NewListCredentialsCommand())
+	r.Register(cloud.NewDetectCredentialsCommand())
+	r.Register(cloud.NewSetDefaultRegionCommand())
+	r.Register(cloud.NewSetDefaultCredentialCommand())
+	r.Register(cloud.NewAddCredentialCommand())
+	r.Register(cloud.NewRemoveCredentialCommand())
+
+	// Juju GUI commands.
+	r.Register(gui.NewGUICommand())
+	r.Register(gui.NewUpgradeGUICommand())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {
@@ -266,39 +289,4 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(modelcmd.Wrap(command))
 	}
 	rcmd.RegisterAll(r)
-}
-
-func main() {
-	Main(os.Args)
-}
-
-type versionDeprecation struct {
-	replacement string
-	deprecate   version.Number
-	obsolete    version.Number
-}
-
-// Deprecated implements cmd.DeprecationCheck.
-// If the current version is after the deprecate version number,
-// the command is deprecated and the replacement should be used.
-func (v *versionDeprecation) Deprecated() (bool, string) {
-	if version.Current.Compare(v.deprecate) > 0 {
-		return true, v.replacement
-	}
-	return false, ""
-}
-
-// Obsolete implements cmd.DeprecationCheck.
-// If the current version is after the obsolete version number,
-// the command is obsolete and shouldn't be registered.
-func (v *versionDeprecation) Obsolete() bool {
-	return version.Current.Compare(v.obsolete) > 0
-}
-
-func twoDotOhDeprecation(replacement string) cmd.DeprecationCheck {
-	return &versionDeprecation{
-		replacement: replacement,
-		deprecate:   version.MustParse("2.0-00"),
-		obsolete:    version.MustParse("3.0-00"),
-	}
 }

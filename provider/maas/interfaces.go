@@ -30,7 +30,6 @@ type maasLinkMode string
 
 const (
 	modeUnknown maasLinkMode = ""
-	modeAuto    maasLinkMode = "auto"
 	modeStatic  maasLinkMode = "static"
 	modeDHCP    maasLinkMode = "dhcp"
 	modeLinkUp  maasLinkMode = "link_up"
@@ -103,7 +102,7 @@ func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
 // maasObject to extract all the relevant InterfaceInfo fields. It returns an
 // error satisfying errors.IsNotSupported() if it cannot find the required
 // "interface_set" node details field.
-func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject) ([]network.InterfaceInfo, error) {
+func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap map[string]network.Id) ([]network.InterfaceInfo, error) {
 
 	interfaceSet, ok := maasObject.GetMap()["interface_set"]
 	if !ok || interfaceSet.IsNil() {
@@ -129,14 +128,37 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject) ([]network.In
 
 	infos := make([]network.InterfaceInfo, 0, len(interfaces))
 	for i, iface := range interfaces {
+
+		// The below works for all types except bonds and their members.
+		parentName := strings.Join(iface.Parents, "")
+		var nicType network.InterfaceType
+		switch iface.Type {
+		case typePhysical:
+			nicType = network.EthernetInterface
+			children := strings.Join(iface.Children, "")
+			if parentName == "" && len(iface.Children) == 1 && strings.HasPrefix(children, "bond") {
+				// FIXME: Verify the bond exists, regardless of its name.
+				// This is a bond member, set the parent correctly (from
+				// Juju's perspective) - to the bond itself.
+				parentName = children
+			}
+		case typeBond:
+			parentName = ""
+			nicType = network.BondInterface
+		case typeVLAN:
+			nicType = network.VLAN_8021QInterface
+		}
+
 		nicInfo := network.InterfaceInfo{
-			DeviceIndex:   i,
-			MACAddress:    iface.MACAddress,
-			ProviderId:    network.Id(fmt.Sprintf("%v", iface.ID)),
-			VLANTag:       iface.VLAN.VID,
-			InterfaceName: iface.Name,
-			Disabled:      !iface.Enabled,
-			NoAutoStart:   !iface.Enabled,
+			DeviceIndex:         i,
+			MACAddress:          iface.MACAddress,
+			ProviderId:          network.Id(fmt.Sprintf("%v", iface.ID)),
+			VLANTag:             iface.VLAN.VID,
+			InterfaceName:       iface.Name,
+			InterfaceType:       nicType,
+			ParentInterfaceName: parentName,
+			Disabled:            !iface.Enabled,
+			NoAutoStart:         !iface.Enabled,
 			// This is not needed anymore, but the provisioner still validates it's set.
 			NetworkName: network.DefaultPrivate,
 		}
@@ -154,15 +176,16 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject) ([]network.In
 			}
 
 			if link.IPAddress == "" {
-				logger.Warningf("interface %q has no address", iface.Name)
+				logger.Debugf("interface %q has no address", iface.Name)
 			} else {
 				// We set it here initially without a space, just so we don't
 				// lose it when we have no linked subnet below.
 				nicInfo.Address = network.NewAddress(link.IPAddress)
+				nicInfo.ProviderAddressId = network.Id(fmt.Sprintf("%v", link.ID))
 			}
 
 			if link.Subnet == nil {
-				logger.Warningf("interface %q link %d missing subnet", iface.Name, link.ID)
+				logger.Debugf("interface %q link %d missing subnet", iface.Name, link.ID)
 				infos = append(infos, nicInfo)
 				continue
 			}
@@ -170,15 +193,30 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject) ([]network.In
 			sub := link.Subnet
 			nicInfo.CIDR = sub.CIDR
 			nicInfo.ProviderSubnetId = network.Id(fmt.Sprintf("%v", sub.ID))
+			nicInfo.ProviderVLANId = network.Id(fmt.Sprintf("%v", sub.VLAN.ID))
 
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
 			nicInfo.Address = network.NewAddressOnSpace(sub.Space, link.IPAddress)
+			spaceId, ok := subnetsMap[string(sub.CIDR)]
+			if !ok {
+				// The space we found is not recognised, no
+				// provider id available.
+				logger.Warningf("interface %q link %d has unrecognised space %q", iface.Name, link.ID, sub.Space)
+			} else {
+				nicInfo.Address.SpaceProviderId = spaceId
+				nicInfo.ProviderSpaceId = spaceId
+			}
 
 			gwAddr := network.NewAddressOnSpace(sub.Space, sub.GatewayIP)
-			nicInfo.GatewayAddress = gwAddr
-
 			nicInfo.DNSServers = network.NewAddressesOnSpace(sub.Space, sub.DNSServers...)
+			if ok {
+				gwAddr.SpaceProviderId = spaceId
+				for i := range nicInfo.DNSServers {
+					nicInfo.DNSServers[i].SpaceProviderId = spaceId
+				}
+			}
+			nicInfo.GatewayAddress = gwAddr
 			nicInfo.MTU = sub.VLAN.MTU
 
 			// Each link we represent as a separate InterfaceInfo, but with the
@@ -201,8 +239,12 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	subnetsMap, err := environ.subnetToSpaceIds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	mi := inst.(*maasInstance)
-	return maasObjectNetworkInterfaces(mi.maasObject)
+	return maasObjectNetworkInterfaces(mi.maasObject, subnetsMap)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

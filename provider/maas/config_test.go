@@ -34,7 +34,11 @@ func newConfig(values map[string]interface{}) (*maasModelConfig, error) {
 		"name": "testenv",
 		"type": "maas",
 	}).Merge(values)
-	env, err := environs.NewFromAttrs(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return nil, err
+	}
+	env, err := environs.New(cfg)
 	if err != nil {
 		return nil, err
 	}

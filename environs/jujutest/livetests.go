@@ -13,18 +13,18 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
@@ -34,6 +34,8 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -41,7 +43,7 @@ import (
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // LiveTests contains tests that are designed to run against a live server
@@ -55,6 +57,16 @@ type LiveTests struct {
 
 	// TestConfig contains the configuration attributes for opening an environment.
 	TestConfig coretesting.Attrs
+
+	// Credential contains the credential for preparing an environment for
+	// bootstrapping. If this is unset, empty credentials will be used.
+	Credential cloud.Credential
+
+	// CloudRegion contains the cloud region name to create resources in.
+	CloudRegion string
+
+	// CloudEndpoint contains the cloud API endpoint to communicate with.
+	CloudEndpoint string
 
 	// Attempt holds a strategy for waiting until the environment
 	// becomes logically consistent.
@@ -72,10 +84,10 @@ type LiveTests struct {
 	// This is set by PrepareOnce and BootstrapOnce.
 	Env environs.Environ
 
-	// ConfigStore holds the configuration storage
-	// used when preparing the environment.
-	// This is initialized by SetUpSuite.
-	ConfigStore configstore.Storage
+	// ControllerStore holds the controller related informtion
+	// such as controllers, accounts, etc., used when preparing
+	// the environment. This is initialized by SetUpSuite.
+	ControllerStore jujuclient.ClientStore
 
 	prepared     bool
 	bootstrapped bool
@@ -85,13 +97,13 @@ type LiveTests struct {
 func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.CleanupSuite.SetUpSuite(c)
 	t.TestDataSuite.SetUpSuite(c)
-	t.ConfigStore = configstore.NewMem()
-	t.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+	t.ControllerStore = jujuclienttesting.NewMemStore()
+	t.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.CleanupSuite.SetUpTest(c)
-	t.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	t.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	storageDir := c.MkDir()
 	t.DefaultBaseURL = "file://" + storageDir + "/tools"
 	t.ToolsFixture.SetUpTest(c)
@@ -100,19 +112,6 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
 	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c))
-}
-
-func publicAttrs(e environs.Environ) map[string]interface{} {
-	cfg := e.Config()
-	secrets, err := e.Provider().SecretAttrs(cfg)
-	if err != nil {
-		panic(err)
-	}
-	attrs := cfg.AllAttrs()
-	for attr := range secrets {
-		delete(attrs, attr)
-	}
-	return attrs
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -132,13 +131,27 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 	if t.prepared {
 		return
 	}
-	cfg, err := config.New(config.NoDefaults, t.TestConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), t.ConfigStore)
+	args := t.prepareForBootstrapParams(c)
+	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e
 	t.prepared = true
+}
+
+func (t *LiveTests) prepareForBootstrapParams(c *gc.C) environs.PrepareParams {
+	credential := t.Credential
+	if credential.AuthType() == "" {
+		credential = cloud.NewEmptyCredential()
+	}
+	return environs.PrepareParams{
+		BaseConfig:     t.TestConfig,
+		Credential:     credential,
+		CloudEndpoint:  t.CloudEndpoint,
+		CloudRegion:    t.CloudRegion,
+		ControllerName: t.TestConfig["name"].(string),
+		CloudName:      t.TestConfig["type"].(string),
+	}
 }
 
 func (t *LiveTests) BootstrapOnce(c *gc.C) {
@@ -153,11 +166,9 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 		_, err := sync.Upload(t.toolsStorage, "released", nil, coretesting.FakeDefaultSeries)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	err := bootstrap.EnsureNotBootstrapped(t.Env)
-	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{
 		BootstrapConstraints: cons,
-		EnvironConstraints:   cons,
+		ModelConstraints:     cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = true
@@ -167,7 +178,7 @@ func (t *LiveTests) Destroy(c *gc.C) {
 	if t.Env == nil {
 		return
 	}
-	err := environs.Destroy(t.Env, t.ConfigStore)
+	err := environs.Destroy(t.Env.Config().Name(), t.Env, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = false
 	t.prepared = false
@@ -400,13 +411,10 @@ func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
 	// already up, this has been moved into the bootstrap command.
 	t.BootstrapOnce(c)
 
-	err := bootstrap.EnsureNotBootstrapped(t.Env)
-	c.Assert(err, gc.ErrorMatches, "model is already bootstrapped")
-
 	c.Logf("destroy env")
 	env := t.Env
 	t.Destroy(c)
-	err = env.Destroy() // Again, should work fine and do nothing.
+	err := env.Destroy() // Again, should work fine and do nothing.
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check that we can bootstrap after destroy
@@ -429,7 +437,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	owner := env.Owner()
 
 	c.Logf("opening API connection")
-	apiState, err := juju.NewAPIState(owner, t.Env, api.DefaultDialOpts())
+	apiInfo, err := environs.APIInfo(t.Env)
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo.Tag = owner
+	apiInfo.Password = t.Env.Config().AdminSecret()
+	apiState, err := api.Open(apiInfo, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
 
@@ -439,7 +451,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := cfg.AgentVersion()
 	c.Check(ok, jc.IsTrue)
-	c.Check(agentVersion, gc.Equals, version.Current)
+	c.Check(agentVersion, gc.Equals, jujuversion.Current)
 
 	// Check that the constraints have been set in the environment.
 	cons, err := st.ModelConstraints()
@@ -464,7 +476,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 
 	// If the series has not been specified, we expect the most recent Ubuntu LTS release to be used.
 	expectedVersion := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: config.LatestLtsSeries(),
 	}
@@ -678,23 +690,6 @@ var waitAgent = utils.AttemptStrategy{
 	Delay: 1 * time.Second,
 }
 
-func (t *LiveTests) assertStartInstance(c *gc.C, m *state.Machine) {
-	// Wait for machine to get an instance id.
-	for a := waitAgent.Start(); a.Next(); {
-		err := m.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		instId, err := m.InstanceId()
-		if err != nil {
-			c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
-			continue
-		}
-		_, err = t.Env.Instances([]instance.Id{instId})
-		c.Assert(err, jc.ErrorIsNil)
-		return
-	}
-	c.Fatalf("provisioner failed to start machine after %v", waitAgent.Total)
-}
-
 func (t *LiveTests) assertStopInstance(c *gc.C, env environs.Environ, instId instance.Id) {
 	var err error
 	for a := waitAgent.Start(); a.Next(); {
@@ -708,32 +703,6 @@ func (t *LiveTests) assertStopInstance(c *gc.C, env environs.Environ, instId ins
 		c.Logf("error from Instances: %v", err)
 	}
 	c.Fatalf("provisioner failed to stop machine after %v", waitAgent.Total)
-}
-
-// assertInstanceId asserts that the machine has an instance id
-// that matches that of the given instance. If the instance is nil,
-// It asserts that the instance id is unset.
-func assertInstanceId(c *gc.C, m *state.Machine, inst instance.Instance) {
-	var wantId, gotId instance.Id
-	var err error
-	if inst != nil {
-		wantId = inst.Id()
-	}
-	for a := waitAgent.Start(); a.Next(); {
-		err := m.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		gotId, err = m.InstanceId()
-		if err != nil {
-			c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
-			if inst == nil {
-				return
-			}
-			continue
-		}
-		break
-	}
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotId, gc.Equals, wantId)
 }
 
 // Check that we get a consistent error when asking for an instance without
@@ -775,7 +744,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	}
 
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -785,22 +754,31 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		other.Series = "precise"
 	}
 
-	dummyCfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
+	dummyCfg := dummy.SampleConfig().Merge(coretesting.Attrs{
 		"controller": false,
 		"name":       "dummy storage",
-	}))
-	dummyenv, err := environs.Prepare(dummyCfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	})
+	args := t.prepareForBootstrapParams(c)
+	args.BaseConfig = dummyCfg
+	dummyenv, err := environs.Prepare(envtesting.BootstrapContext(c),
+		jujuclienttesting.NewMemStore(),
+		args,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	defer dummyenv.Destroy()
 
 	t.Destroy(c)
 
-	attrs := t.TestConfig.Merge(coretesting.Attrs{"default-series": other.Series})
-	cfg, err := config.New(config.NoDefaults, attrs)
+	attrs := t.TestConfig.Merge(coretesting.Attrs{
+		"name":           "livetests",
+		"default-series": other.Series,
+	})
+	args.BaseConfig = attrs
+	env, err := environs.Prepare(envtesting.BootstrapContext(c),
+		t.ControllerStore,
+		args)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), t.ConfigStore)
-	c.Assert(err, jc.ErrorIsNil)
-	defer environs.Destroy(env, t.ConfigStore)
+	defer environs.Destroy("livetests", env, t.ControllerStore)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)

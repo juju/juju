@@ -18,6 +18,9 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -37,16 +40,25 @@ func TestPackage(t *testing.T) {
 }
 
 type BaseActionSuite struct {
-	jujutesting.IsolationSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	command cmd.Command
 
 	modelFlags []string
+	store      *jujuclienttesting.MemStore
 }
 
 func (s *BaseActionSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.command = action.NewSuperCommand()
 
 	s.modelFlags = []string{"-m", "--model"}
+
+	err := modelcmd.WriteCurrentController("ctrl")
+	c.Assert(err, jc.ErrorIsNil)
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.Accounts["ctrl"] = &jujuclient.ControllerAccounts{
+		CurrentAccount: "admin@local",
+	}
 }
 
 func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
@@ -61,15 +73,15 @@ func (s *BaseActionSuite) checkHelp(c *gc.C, subcmd cmd.Command) {
 	ctx, err := coretesting.RunCommand(c, s.command, subcmd.Info().Name, "--help")
 	c.Assert(err, gc.IsNil)
 
-	expected := "(?sm).*^usage: juju action " +
+	expected := "(?sm).*^Usage: juju action " +
 		regexp.QuoteMeta(subcmd.Info().Name) +
 		` \[options\] ` + regexp.QuoteMeta(subcmd.Info().Args) + ".+"
 	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
 
-	expected = "(?sm).*^purpose: " + regexp.QuoteMeta(subcmd.Info().Purpose) + "$.*"
+	expected = "(?sm).*^Summary:\n" + regexp.QuoteMeta(subcmd.Info().Purpose) + "$.*"
 	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
 
-	expected = "(?sm).*^" + regexp.QuoteMeta(subcmd.Info().Doc) + "$.*"
+	expected = "(?sm).*^Details:" + regexp.QuoteMeta(subcmd.Info().Doc) + "$.*"
 	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
 }
 

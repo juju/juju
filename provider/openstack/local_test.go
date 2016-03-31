@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	jujuerrors "github.com/juju/errors"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/client"
 	"gopkg.in/goose.v1/identity"
@@ -30,12 +32,12 @@ import (
 	"gopkg.in/goose.v1/testservices/novaservice"
 	"gopkg.in/goose.v1/testservices/openstackservice"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
@@ -46,13 +48,16 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ProviderSuite struct {
@@ -170,8 +175,16 @@ func overrideCinderProvider(c *gc.C, s *gitjujutesting.CleanupSuite) {
 
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
+
 	c.Logf("Running live tests using openstack service test double")
 	s.srv.start(c, s.cred, newFullOpenstackService)
+
+	// Set credentials to use when bootstrapping. Must be done after
+	// starting server to get the auth URL.
+	s.Credential = makeCredential(s.cred)
+	s.CloudEndpoint = s.cred.URL
+	s.CloudRegion = s.cred.Region
+
 	s.LiveTests.SetUpSuite(c)
 	openstack.UseTestImageData(openstack.ImageMetadataStorage(s.Env), s.cred)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
@@ -222,6 +235,13 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.srv.start(c, s.cred, newFullOpenstackService)
+
+	// Set credentials to use when bootstrapping. Must be done after
+	// starting server to get the auth URL.
+	s.Credential = makeCredential(s.cred)
+	s.CloudEndpoint = s.cred.URL
+	s.CloudRegion = s.cred.Region
+
 	cl := client.NewClient(s.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -232,7 +252,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 		"image-metadata-url": containerURL + "/juju-dist-test",
 		"auth-url":           s.cred.URL,
 	})
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.Tests.SetUpTest(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	s.env = s.Prepare(c)
@@ -257,6 +277,20 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
+func (s *localServerSuite) TestBootstrap(c *gc.C) {
+	// Tests uses Prepare, so destroy first.
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
+	c.Assert(err, jc.ErrorIsNil)
+	s.Tests.TestBootstrap(c)
+}
+
+func (s *localServerSuite) TestStartStop(c *gc.C) {
+	// Tests uses Prepare, so destroy first.
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
+	c.Assert(err, jc.ErrorIsNil)
+	s.Tests.TestStartStop(c)
+}
+
 // If the bootstrap node is configured to require a public IP address,
 // bootstrapping fails if an address cannot be allocated.
 func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
@@ -269,6 +303,9 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 		},
 	)
 	defer cleanup()
+
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a config that matches s.TestConfig but with use-floating-ip set to true
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
@@ -367,11 +404,15 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	)
 	defer cleanup()
 
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"use-floating-ip": false,
-	}))
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), s.ConfigStore)
+
+	attrs := s.TestConfig.Merge(coretesting.Attrs{"use-floating-ip": false})
+	env, err := environs.Prepare(
+		envtesting.BootstrapContext(c),
+		s.ControllerStore,
+		prepareParams(attrs, s.cred),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -383,7 +424,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	// Ensure amd64 tools are available, to ensure an amd64 image.
 	amd64Version := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.AMD64,
 	}
 	for _, series := range series.SupportedSeries() {
@@ -392,8 +433,11 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 			c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)
 	}
 
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
+	c.Assert(err, jc.ErrorIsNil)
+
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -485,7 +529,7 @@ func (s *localServerSuite) TestStopInstance(c *gc.C) {
 	// Openstack now has three security groups for the server, the default
 	// group, one group for the entire environment, and another for the
 	// new instance.
-	eUUID, _ := env.Config().UUID()
+	eUUID := env.Config().UUID()
 	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-%v", eUUID, instanceName)})
 	err = env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -515,7 +559,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
 	inst, _ := testing.AssertStartInstance(c, env, instanceName)
-	eUUID, _ := env.Config().UUID()
+	eUUID := env.Config().UUID()
 	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-%v", eUUID, instanceName)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.StopInstances(inst.Id())
@@ -531,7 +575,7 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInst
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
 	testing.AssertStartInstance(c, env, instanceName)
-	eUUID, _ := env.Config().UUID()
+	eUUID := env.Config().UUID()
 	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-%v", eUUID, instanceName)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.Destroy()
@@ -547,7 +591,7 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlob
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
 	testing.AssertStartInstance(c, env, instanceName)
-	eUUID, _ := env.Config().UUID()
+	eUUID := env.Config().UUID()
 	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-global", eUUID)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.Destroy()
@@ -603,11 +647,10 @@ var instanceGathering = []struct {
 }
 
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
-	env := s.Prepare(c)
 	// goose's test service always returns ACTIVE state.
-	inst, _ := testing.AssertStartInstance(c, env, "100")
-	c.Assert(inst.Status(), gc.Equals, nova.StatusActive)
-	err := env.StopInstances(inst.Id())
+	inst, _ := testing.AssertStartInstance(c, s.env, "100")
+	c.Assert(inst.Status().Status, gc.Equals, status.StatusRunning)
+	err := s.env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -696,7 +739,6 @@ func (s *localServerSuite) TestInstancesGatheringWithFloatingIP(c *gc.C) {
 func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
-	env := s.Prepare(c)
 	// HP servers are available once they are BUILD(spawning).
 	cleanup := s.srv.Nova.RegisterControlPoint(
 		"addServer",
@@ -707,23 +749,22 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	stateInst, _ := testing.AssertStartInstance(c, env, "100")
+	stateInst, _ := testing.AssertStartInstance(c, s.env, "100")
 	defer func() {
-		err := env.StopInstances(stateInst.Id())
+		err := s.env.StopInstances(stateInst.Id())
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	instances, err := env.Instances([]instance.Id{stateInst.Id()})
+	instances, err := s.env.Instances([]instance.Id{stateInst.Id()})
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
-	c.Assert(instances[0].Status(), gc.Equals, nova.StatusBuildSpawning)
+	c.Assert(instances[0].Status().Message, gc.Equals, nova.StatusBuildSpawning)
 }
 
 func (s *localServerSuite) TestInstancesShutoffSuspended(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
-	env := s.Prepare(c)
 	cleanup := s.srv.Nova.RegisterControlPoint(
 		"addServer",
 		func(sc hook.ServiceControl, args ...interface{}) error {
@@ -740,25 +781,24 @@ func (s *localServerSuite) TestInstancesShutoffSuspended(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	stateInst1, _ := testing.AssertStartInstance(c, env, "100")
-	stateInst2, _ := testing.AssertStartInstance(c, env, "101")
+	stateInst1, _ := testing.AssertStartInstance(c, s.env, "100")
+	stateInst2, _ := testing.AssertStartInstance(c, s.env, "101")
 	defer func() {
-		err := env.StopInstances(stateInst1.Id(), stateInst2.Id())
+		err := s.env.StopInstances(stateInst1.Id(), stateInst2.Id())
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	instances, err := env.Instances([]instance.Id{stateInst1.Id(), stateInst2.Id()})
+	instances, err := s.env.Instances([]instance.Id{stateInst1.Id(), stateInst2.Id()})
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 2)
-	c.Assert(instances[0].Status(), gc.Equals, nova.StatusShutoff)
-	c.Assert(instances[1].Status(), gc.Equals, nova.StatusSuspended)
+	c.Assert(instances[0].Status().Message, gc.Equals, nova.StatusShutoff)
+	c.Assert(instances[1].Status().Message, gc.Equals, nova.StatusSuspended)
 }
 
 func (s *localServerSuite) TestInstancesErrorResponse(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
-	env := s.Prepare(c)
 	cleanup := s.srv.Nova.RegisterControlPoint(
 		"server",
 		func(sc hook.ServiceControl, args ...interface{}) error {
@@ -767,7 +807,7 @@ func (s *localServerSuite) TestInstancesErrorResponse(c *gc.C) {
 	)
 	defer cleanup()
 
-	instances, err := env.Instances([]instance.Id{"1"})
+	instances, err := s.env.Instances([]instance.Id{"1"})
 	c.Check(instances, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "(?s).*strange error not instance.*")
 }
@@ -775,7 +815,6 @@ func (s *localServerSuite) TestInstancesErrorResponse(c *gc.C) {
 func (s *localServerSuite) TestInstancesMultiErrorResponse(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
-	env := s.Prepare(c)
 	cleanup := s.srv.Nova.RegisterControlPoint(
 		"matchServers",
 		func(sc hook.ServiceControl, args ...interface{}) error {
@@ -784,7 +823,7 @@ func (s *localServerSuite) TestInstancesMultiErrorResponse(c *gc.C) {
 	)
 	defer cleanup()
 
-	instances, err := env.Instances([]instance.Id{"1", "2"})
+	instances, err := s.env.Instances([]instance.Id{"1", "2"})
 	c.Check(instances, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "(?s).*strange error no instances.*")
 }
@@ -792,16 +831,15 @@ func (s *localServerSuite) TestInstancesMultiErrorResponse(c *gc.C) {
 // TODO (wallyworld) - this test was copied from the ec2 provider.
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
-	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that ControllerInstances returns the ID of the bootstrap machine.
-	ids, err := env.ControllerInstances()
+	ids, err := s.env.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.HasLen, 1)
 
-	insts, err := env.AllInstances()
+	insts, err := s.env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, ids[0])
@@ -854,7 +892,7 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 	s.PatchValue(openstack.MakeServiceURL, func(client.AuthenticatingClient, string, []string) (string, error) {
 		return "", errors.New("cannae do it captain")
 	})
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 3)
@@ -868,7 +906,7 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	s.PatchValue(&tools.DefaultBaseURL, "")
 
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 2)
@@ -886,21 +924,21 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 }
 
 func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(a, jc.SameContents, []string{"amd64", "i386", "ppc64el"})
 }
 
 func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	_, ok := environs.SupportsNetworking(env)
 	c.Assert(ok, jc.IsFalse)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 
 	// An error occurs if no suitable image is found.
 	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G", nil)
@@ -908,17 +946,17 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 }
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 cpu-power=10")
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 virt-type=lxd")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power"})
 }
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=arm64")
@@ -927,10 +965,14 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
+
+	cons = constraints.MustParse("virt-type=foo")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=foo\nvalid values are: [kvm lxd]"))
 }
 
 func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 	consA := constraints.MustParse("arch=amd64 mem=1G root-disk=10G")
@@ -941,7 +983,7 @@ func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 }
 
 func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	imageMetadata := []*imagemetadata.ImageMetadata{{
 		Id:   "image-id",
 		Arch: "amd64",
@@ -955,8 +997,62 @@ func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.tiny")
 }
 
+func (s *localServerSuite) TestFindInstanceImageConstraintHypervisor(c *gc.C) {
+	testVirtType := "qemu"
+	env := s.Open(c, s.env.Config())
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:       "image-id",
+		Arch:     "amd64",
+		VirtType: testVirtType,
+	}}
+
+	spec, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "virt-type="+testVirtType,
+		imageMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec.InstanceType.VirtType, gc.NotNil)
+	c.Assert(*spec.InstanceType.VirtType, gc.Equals, testVirtType)
+	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.small")
+}
+
+func (s *localServerSuite) TestFindInstanceImageWithHypervisorNoConstraint(c *gc.C) {
+	testVirtType := "qemu"
+	env := s.Open(c, s.env.Config())
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:       "image-id",
+		Arch:     "amd64",
+		VirtType: testVirtType,
+	}}
+
+	spec, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "",
+		imageMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec.InstanceType.VirtType, gc.NotNil)
+	c.Assert(*spec.InstanceType.VirtType, gc.Equals, testVirtType)
+	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.small")
+}
+
+func (s *localServerSuite) TestFindInstanceNoConstraint(c *gc.C) {
+	env := s.Open(c, s.env.Config())
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:   "image-id",
+		Arch: "amd64",
+	}}
+
+	spec, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "",
+		imageMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec.InstanceType.VirtType, gc.IsNil)
+	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.small")
+}
+
 func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	imageMetadata := []*imagemetadata.ImageMetadata{{
 		Id:   "image-id",
 		Arch: "amd64",
@@ -969,7 +1065,7 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 }
 
 func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small")
 	placement := ""
 	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
@@ -977,7 +1073,7 @@ func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 }
 
 func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.large")
 	placement := ""
 	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
@@ -985,36 +1081,32 @@ func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
-	env := t.Prepare(c)
 	placement := "zone=test-available"
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := t.env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
-	env := t.Prepare(c)
 	placement := "zone=test-unavailable"
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := t.env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
-	env := t.Prepare(c)
 	placement := "zone=test-unknown"
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := t.env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 	t.srv.Nova.SetAvailabilityZones() // no availability zone support
-	env := t.Prepare(c)
 	placement := "zone=test-unknown"
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := t.env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
 	c.Assert(err, jc.Satisfies, jujuerrors.IsNotImplemented)
 }
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
 	c.Assert(err, jc.ErrorIsNil)
 	params.Sources, err = environs.ImageMetadataSources(env)
@@ -1030,7 +1122,7 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 		return simplestreams.NewURLDataSource("my datasource", "bar", false, simplestreams.CUSTOM_CLOUD_DATA, false), nil
 	}
 	environs.RegisterUserImageDataSourceFunc("my func", src)
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	var sourceIds []string
@@ -1044,7 +1136,6 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 // TestEnsureGroup checks that when creating a duplicate security group, the existing group is
 // returned and the existing rules have been left as is.
 func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
-	env := s.Prepare(c)
 	rule := []nova.RuleInfo{
 		{
 			IPProtocol: "tcp",
@@ -1060,7 +1151,7 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 		c.Check(*group.Rules[0].ToPort, gc.Equals, 22)
 	}
 
-	group, err := openstack.EnsureGroup(env, "test group", rule)
+	group, err := openstack.EnsureGroup(s.env, "test group", rule)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group.Name, gc.Equals, "test group")
 	assertRule(group)
@@ -1073,7 +1164,7 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 			ToPort:     65535,
 		},
 	}
-	group, err = openstack.EnsureGroup(env, "test group", anotherRule)
+	group, err = openstack.EnsureGroup(s.env, "test group", anotherRule)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(group.Id, gc.Equals, id)
 	c.Assert(group.Name, gc.Equals, "test group")
@@ -1122,7 +1213,7 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 
 func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.srv.UseTLS = true
 	cred := &identity.Credentials{
 		User:       "fred",
@@ -1135,9 +1226,12 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	s.cred = cred
 	attrs := s.createConfigAttrs(c)
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	s.env, err = environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	var err error
+	s.env, err = environs.Prepare(
+		envtesting.BootstrapContext(c),
+		jujuclienttesting.NewMemStore(),
+		prepareParams(attrs, s.cred),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.attrs = s.env.Config().AllAttrs()
 }
@@ -1163,7 +1257,9 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 		newattrs[k] = v
 	}
 	newattrs["ssl-hostname-verification"] = true
-	env, err := environs.NewFromAttrs(newattrs)
+	cfg, err := config.New(config.NoDefaults, newattrs)
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.New(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = env.AllInstances()
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
@@ -1310,12 +1406,11 @@ func (s *localServerSuite) TestRemoveBlankContainer(c *gc.C) {
 }
 
 func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
-	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we see 1 instance in the environment
-	insts, err := env.AllInstances()
+	insts, err := s.env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(insts, gc.HasLen, 1)
 
@@ -1328,7 +1423,7 @@ func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 
 	// We grab the Nova client directly from the env, just to save time
 	// looking all the stuff up
-	novaClient := openstack.GetNovaClient(env)
+	novaClient := openstack.GetNovaClient(s.env)
 	entity, err := novaClient.RunServer(nova.RunServerOpts{
 		Name:     newMachineName,
 		FlavorId: "1", // test service has 1,2,3 for flavor ids
@@ -1342,33 +1437,30 @@ func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(servers, gc.HasLen, 2)
 
-	insts, err = env.AllInstances()
+	insts, err = s.env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(insts, gc.HasLen, 1)
 }
 
 func (s *localServerSuite) TestResolveNetworkUUID(c *gc.C) {
-	env := s.Prepare(c)
 	var sampleUUID = "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
-	networkId, err := openstack.ResolveNetwork(env, sampleUUID)
+	networkId, err := openstack.ResolveNetwork(s.env, sampleUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networkId, gc.Equals, sampleUUID)
 }
 
 func (s *localServerSuite) TestResolveNetworkLabel(c *gc.C) {
-	env := s.Prepare(c)
 	// For now this test has to cheat and use knowledge of goose internals
 	var networkLabel = "net"
 	var expectNetworkId = "1"
-	networkId, err := openstack.ResolveNetwork(env, networkLabel)
+	networkId, err := openstack.ResolveNetwork(s.env, networkLabel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networkId, gc.Equals, expectNetworkId)
 }
 
 func (s *localServerSuite) TestResolveNetworkNotPresent(c *gc.C) {
-	env := s.Prepare(c)
 	var notPresentNetwork = "no-network-with-this-label"
-	networkId, err := openstack.ResolveNetwork(env, notPresentNetwork)
+	networkId, err := openstack.ResolveNetwork(s.env, notPresentNetwork)
 	c.Check(networkId, gc.Equals, "")
 	c.Assert(err, gc.ErrorMatches, `No networks exist with label "no-network-with-this-label"`)
 }
@@ -1392,12 +1484,11 @@ func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 }
 
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
-	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	result, err := testing.StartInstanceWithParams(t.env, "1", params, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1410,7 +1501,7 @@ func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
 	t.PatchValue(openstack.NovaListAvailabilityZones, func(c *nova.Client) ([]nova.AvailabilityZone, error) {
 		return append([]nova.AvailabilityZone{}, resultZones...), resultErr
 	})
-	env := t.Prepare(c).(common.ZonedEnviron)
+	env := t.env.(common.ZonedEnviron)
 
 	resultErr = fmt.Errorf("failed to get availability zones")
 	zones, err := env.AvailabilityZones()
@@ -1441,7 +1532,7 @@ func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
 	t.PatchValue(openstack.NovaListAvailabilityZones, func(c *nova.Client) ([]nova.AvailabilityZone, error) {
 		return append([]nova.AvailabilityZone{}, resultZones...), nil
 	})
-	env := t.Prepare(c).(common.ZonedEnviron)
+	env := t.env.(common.ZonedEnviron)
 	resultZones = make([]nova.AvailabilityZone, 2)
 	resultZones[0].Name = "az1"
 	resultZones[1].Name = "az2"
@@ -1470,15 +1561,14 @@ func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 }
 
 func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var mock mockAvailabilityZoneAllocations
 	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	// no distribution group specified
-	testing.AssertStartInstance(c, env, "1")
+	testing.AssertStartInstance(c, t.env, "1")
 	c.Assert(mock.group, gc.HasLen, 0)
 
 	// distribution group specified: ensure it's passed through to AvailabilityZone.
@@ -1488,21 +1578,20 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 			return expectedInstances, nil
 		},
 	}
-	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(t.env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
 }
 
 func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	mock := mockAvailabilityZoneAllocations{
 		err: fmt.Errorf("AvailabilityZoneAllocations failed"),
 	}
 	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-	_, _, _, err = testing.StartInstance(env, "1")
+	_, _, _, err = testing.StartInstance(t.env, "1")
 	c.Assert(jujuerrors.Cause(err), gc.Equals, mock.err)
 
 	mock.err = nil
@@ -1512,18 +1601,17 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 			return nil, dgErr
 		},
 	}
-	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(t.env, "1", params, nil)
 	c.Assert(jujuerrors.Cause(err), gc.Equals, dgErr)
 }
 
 func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// test-available is the only available AZ, so AvailabilityZoneAllocations
 	// is guaranteed to return that.
-	inst, _ := testing.AssertStartInstance(c, env, "1")
+	inst, _ := testing.AssertStartInstance(c, t.env, "1")
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "test-available")
 }
 
@@ -1554,8 +1642,7 @@ func (t *localServerSuite) TestStartInstancePicksValidZoneForHost(c *gc.C) {
 		},
 	)
 
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cleanup := t.srv.Nova.RegisterControlPoint(
@@ -1569,7 +1656,7 @@ func (t *localServerSuite) TestStartInstancePicksValidZoneForHost(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	inst, _ := testing.AssertStartInstance(c, env, "1")
+	inst, _ := testing.AssertStartInstance(c, t.env, "1")
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "az3")
 }
 
@@ -1593,8 +1680,7 @@ func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 		},
 	)
 
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cleanup := t.srv.Nova.RegisterControlPoint(
@@ -1608,13 +1694,12 @@ func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	_, _, _, err = testing.StartInstance(env, "1")
+	_, _, _, err = testing.StartInstance(t.env, "1")
 	c.Assert(err, gc.ErrorMatches, "(?s).*Some unknown error.*")
 }
 
 func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	mock := mockAvailabilityZoneAllocations{
@@ -1623,16 +1708,15 @@ func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C
 	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	// Instance will be created without an availability zone specified.
-	inst, _ := testing.AssertStartInstance(c, env, "1")
+	inst, _ := testing.AssertStartInstance(c, t.env, "1")
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "")
 }
 
 func (t *localServerSuite) TestInstanceTags(c *gc.C) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	instances, err := env.AllInstances()
+	instances, err := t.env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 
@@ -1647,13 +1731,12 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 }
 
 func (t *localServerSuite) TestTagInstance(c *gc.C) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertMetadata := func(extraKey, extraValue string) {
 		// Refresh instance
-		instances, err := env.AllInstances()
+		instances, err := t.env.AllInstances()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(instances, gc.HasLen, 1)
 		c.Assert(
@@ -1667,13 +1750,13 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 		)
 	}
 
-	instances, err := env.AllInstances()
+	instances, err := t.env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 
 	extraKey := "extra-k"
 	extraValue := "extra-v"
-	err = env.(environs.InstanceTagger).TagInstance(
+	err = t.env.(environs.InstanceTagger).TagInstance(
 		instances[0].Id(), map[string]string{extraKey: extraValue},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1681,11 +1764,33 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 
 	// Ensure that a second call updates existing tags.
 	extraValue = "extra-v2"
-	err = env.(environs.InstanceTagger).TagInstance(
+	err = t.env.(environs.InstanceTagger).TagInstance(
 		instances[0].Id(), map[string]string{extraKey: extraValue},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	assertMetadata(extraKey, extraValue)
+}
+
+func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) environs.PrepareParams {
+	return environs.PrepareParams{
+		BaseConfig:     attrs,
+		ControllerName: attrs["name"].(string),
+		Credential:     makeCredential(cred),
+		CloudName:      "openstack",
+		CloudEndpoint:  cred.URL,
+		CloudRegion:    cred.Region,
+	}
+}
+
+func makeCredential(cred *identity.Credentials) cloud.Credential {
+	return cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"username":    cred.User,
+			"password":    cred.Secrets,
+			"tenant-name": cred.TenantName,
+		},
+	)
 }
 
 // noSwiftSuite contains tests that run against an OpenStack service double
@@ -1703,7 +1808,7 @@ func (s *noSwiftSuite) SetUpSuite(c *gc.C) {
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
-	s.PatchValue(&simplestreams.SimplestreamsJujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *noSwiftSuite) SetUpTest(c *gc.C) {
@@ -1720,15 +1825,10 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 		"name":            "sample-no-swift",
 		"type":            "openstack",
 		"auth-mode":       "userpass",
-		"username":        s.cred.User,
-		"password":        s.cred.Secrets,
-		"region":          s.cred.Region,
-		"auth-url":        s.cred.URL,
-		"tenant-name":     s.cred.TenantName,
 		"agent-version":   coretesting.FakeVersionNumber.String(),
 		"authorized-keys": "fakekey",
 	})
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	// Serve fake tools and image metadata using "filestorage",
 	// rather than Swift as the rest of the tests do.
 	storageDir := c.MkDir()
@@ -1746,10 +1846,11 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 	openstack.UseTestImageData(imageStorage, s.cred)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, storageDir)
 
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	configStore := configstore.NewMem()
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configStore)
+	env, err := environs.Prepare(
+		envtesting.BootstrapContext(c),
+		jujuclienttesting.NewMemStore(),
+		prepareParams(attrs, s.cred),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 }
@@ -1771,17 +1872,18 @@ func newFullOpenstackService(mux *http.ServeMux, cred *identity.Credentials, aut
 }
 
 func newNovaOnlyOpenstackService(mux *http.ServeMux, cred *identity.Credentials, auth identity.AuthMode) *novaservice.Nova {
-	var identityService identityservice.IdentityService
+	var identityService, fallbackService identityservice.IdentityService
 	if auth == identity.AuthKeyPair {
 		identityService = identityservice.NewKeyPair()
 	} else {
 		identityService = identityservice.NewUserPass()
+		fallbackService = identityservice.NewV3UserPass()
 	}
 	userInfo := identityService.AddUser(cred.User, cred.Secrets, cred.TenantName)
 	if cred.TenantName == "" {
 		panic("Openstack service double requires a tenant to be specified.")
 	}
-	novaService := novaservice.New(cred.URL, "v2", userInfo.TenantId, cred.Region, identityService)
+	novaService := novaservice.New(cred.URL, "v2", userInfo.TenantId, cred.Region, identityService, fallbackService)
 	identityService.SetupHTTP(mux)
 	novaService.SetupHTTP(mux)
 	return novaService

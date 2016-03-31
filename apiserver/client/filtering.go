@@ -11,9 +11,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 var InvalidFormatErr = errors.Errorf("the given filter did not match any known patterns.")
@@ -125,6 +127,22 @@ type Predicate func(interface{}) (matches bool, _ error)
 // matches some criteria.
 type closurePredicate func() (matches bool, formatOK bool, _ error)
 
+func matchMachineId(m *state.Machine, patterns []string) (bool, bool, error) {
+	var anyValid bool
+	for _, p := range patterns {
+		if !names.IsValidMachine(p) {
+			continue
+		}
+		anyValid = true
+		if m.Id() == p || strings.HasPrefix(m.Id(), p+"/") {
+			// Pattern matches the machine, or container's
+			// host machine.
+			return true, true, nil
+		}
+	}
+	return false, anyValid, nil
+}
+
 func unitMatchUnitName(u *state.Unit, patterns []string) (bool, bool, error) {
 	um, err := NewUnitMatcher(patterns)
 	if err != nil {
@@ -163,21 +181,6 @@ func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
 		return false, false, err
 	}
 	return matchExposure(patterns, s)
-}
-
-func unitMatchSubnet(u *state.Unit, patterns []string) (bool, bool, error) {
-	pub, pubErr := u.PublicAddress()
-	if pubErr != nil && !network.IsNoAddress(pubErr) {
-		return true, false, errors.Trace(pubErr)
-	}
-	priv, privErr := u.PrivateAddress()
-	if privErr != nil && !network.IsNoAddress(privErr) {
-		return true, false, errors.Trace(privErr)
-	}
-	if pubErr != nil && privErr != nil {
-		return true, false, nil
-	}
-	return matchSubnet(patterns, pub.Value, priv.Value)
 }
 
 func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
@@ -238,6 +241,9 @@ func buildShimsForUnit(unitsFn func() ([]*state.Unit, error), patterns ...string
 }
 
 func buildMachineMatcherShims(m *state.Machine, patterns []string) (shims []closurePredicate, _ error) {
+	// Look at machine ID.
+	shims = append(shims, func() (bool, bool, error) { return matchMachineId(m, patterns) })
+
 	// Look at machine status.
 	statusInfo, err := m.Status()
 	if err != nil {
@@ -255,19 +261,9 @@ func buildMachineMatcherShims(m *state.Machine, patterns []string) (shims []clos
 	}
 	shims = append(shims, func() (bool, bool, error) { return matchSubnet(patterns, addrs...) })
 
-	// If the machine hosts a unit that matches any of the given
-	// criteria, consider the machine a match as well.
-	unitShims, err := buildShimsForUnit(m.Units, patterns...)
-	if err != nil {
-		return nil, err
-	}
-	shims = append(shims, unitShims...)
-
 	// Units may be able to match the pattern. Ultimately defer to
 	// that logic, and guard against breaking the predicate-chain.
-	if len(unitShims) <= 0 {
-		shims = append(shims, func() (bool, bool, error) { return false, true, nil })
-	}
+	shims = append(shims, func() (bool, bool, error) { return false, true, nil })
 
 	return
 }
@@ -281,7 +277,6 @@ func buildUnitMatcherShims(u *state.Unit, patterns []string) []closurePredicate 
 		closeOver(unitMatchAgentStatus),
 		closeOver(unitMatchWorkloadStatus),
 		closeOver(unitMatchExposure),
-		closeOver(unitMatchSubnet),
 		closeOver(unitMatchPort),
 	}
 }
@@ -301,24 +296,17 @@ func matchSubnet(patterns []string, addresses ...string) (bool, bool, error) {
 	oneValidPattern := false
 	for _, p := range patterns {
 		for _, a := range addresses {
-			ip, err := net.ResolveIPAddr("ip", a)
-			if err != nil {
-				errors.Trace(errors.Annotate(err, "could not parse machine's address"))
-				continue
-			} else if pip, err := net.ResolveIPAddr("ip", p); err == nil {
-				oneValidPattern = true
-				if ip.IP.Equal(pip.IP) {
-					return true, true, nil
-				}
-			} else if pip := net.ParseIP(p); pip != nil {
-				oneValidPattern = true
-				if ip.IP.Equal(pip) {
-					return true, true, nil
-				}
-			} else if _, ipNet, err := net.ParseCIDR(p); err == nil {
-				oneValidPattern = true
-				if ipNet.Contains(ip.IP) {
-					return true, true, nil
+			if p == a {
+				return true, true, nil
+			}
+		}
+		if _, ipNet, err := net.ParseCIDR(p); err == nil {
+			oneValidPattern = true
+			for _, a := range addresses {
+				if ip := net.ParseIP(a); ip != nil {
+					if ipNet.Contains(ip) {
+						return true, true, nil
+					}
 				}
 			}
 		}
@@ -335,11 +323,11 @@ func matchExposure(patterns []string, s *state.Service) (bool, bool, error) {
 	return false, false, nil
 }
 
-func matchWorkloadStatus(patterns []string, workloadStatus state.Status, agentStatus state.Status) (bool, bool, error) {
+func matchWorkloadStatus(patterns []string, workloadStatus status.Status, agentStatus status.Status) (bool, bool, error) {
 	oneValidStatus := false
 	for _, p := range patterns {
 		// If the pattern isn't a known status, ignore it.
-		ps := state.Status(p)
+		ps := status.Status(p)
 		if !ps.KnownWorkloadStatus() {
 			continue
 		}
@@ -347,24 +335,24 @@ func matchWorkloadStatus(patterns []string, workloadStatus state.Status, agentSt
 		oneValidStatus = true
 		// To preserve current expected behaviour, we only report on workload status
 		// if the agent itself is not in error.
-		if agentStatus != state.StatusError && workloadStatus.WorkloadMatches(ps) {
+		if agentStatus != status.StatusError && workloadStatus.WorkloadMatches(ps) {
 			return true, true, nil
 		}
 	}
 	return false, oneValidStatus, nil
 }
 
-func matchAgentStatus(patterns []string, status state.Status) (bool, bool, error) {
+func matchAgentStatus(patterns []string, agentStatus status.Status) (bool, bool, error) {
 	oneValidStatus := false
 	for _, p := range patterns {
 		// If the pattern isn't a known status, ignore it.
-		ps := state.Status(p)
+		ps := status.Status(p)
 		if !ps.KnownAgentStatus() {
 			continue
 		}
 
 		oneValidStatus = true
-		if status.Matches(ps) {
+		if agentStatus.Matches(ps) {
 			return true, true, nil
 		}
 	}

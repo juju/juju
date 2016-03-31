@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -68,40 +68,40 @@ func (s *statusGetterSuite) TestGetMachineStatus(c *gc.C) {
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
-	status := result.Results[0]
-	c.Assert(status.Error, gc.IsNil)
-	c.Assert(status.Status, gc.Equals, params.Status(state.StatusPending))
+	machineStatus := result.Results[0]
+	c.Assert(machineStatus.Error, gc.IsNil)
+	c.Assert(machineStatus.Status, gc.Equals, status.StatusPending)
 }
 
 func (s *statusGetterSuite) TestGetUnitStatus(c *gc.C) {
 	// The status has to be a valid workload status, because get status
 	// on the unit returns the workload status not the agent status as it
 	// does on a machine.
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &state.StatusInfo{
-		Status: state.StatusMaintenance,
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
+		Status: status.StatusMaintenance,
 	}})
 	result, err := s.getter.Status(params.Entities{[]params.Entity{{
 		unit.Tag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
-	status := result.Results[0]
-	c.Assert(status.Error, gc.IsNil)
-	c.Assert(status.Status, gc.Equals, params.Status(state.StatusMaintenance))
+	unitStatus := result.Results[0]
+	c.Assert(unitStatus.Error, gc.IsNil)
+	c.Assert(unitStatus.Status, gc.Equals, status.StatusMaintenance)
 }
 
 func (s *statusGetterSuite) TestGetServiceStatus(c *gc.C) {
-	service := s.Factory.MakeService(c, &factory.ServiceParams{Status: &state.StatusInfo{
-		Status: state.StatusMaintenance,
+	service := s.Factory.MakeService(c, &factory.ServiceParams{Status: &status.StatusInfo{
+		Status: status.StatusMaintenance,
 	}})
 	result, err := s.getter.Status(params.Entities{[]params.Entity{{
 		service.Tag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
-	status := result.Results[0]
-	c.Assert(status.Error, gc.IsNil)
-	c.Assert(status.Status, gc.Equals, params.Status(state.StatusMaintenance))
+	serviceStatus := result.Results[0]
+	c.Assert(serviceStatus.Error, gc.IsNil)
+	c.Assert(serviceStatus.Status, gc.Equals, status.StatusMaintenance)
 }
 
 func (s *statusGetterSuite) TestBulk(c *gc.C) {
@@ -118,7 +118,7 @@ func (s *statusGetterSuite) TestBulk(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, 3)
 	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(result.Results[1].Error, gc.IsNil)
-	c.Assert(result.Results[1].Status, gc.Equals, params.Status(state.StatusPending))
+	c.Assert(result.Results[1].Status, gc.Equals, status.StatusPending)
 	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
 }
 
@@ -179,8 +179,8 @@ func (s *serviceStatusGetterSuite) TestGetMachineStatus(c *gc.C) {
 }
 
 func (s *serviceStatusGetterSuite) TestGetServiceStatus(c *gc.C) {
-	service := s.Factory.MakeService(c, &factory.ServiceParams{Status: &state.StatusInfo{
-		Status: state.StatusMaintenance,
+	service := s.Factory.MakeService(c, &factory.ServiceParams{Status: &status.StatusInfo{
+		Status: status.StatusMaintenance,
 	}})
 	result, err := s.getter.Status(params.Entities{[]params.Entity{{
 		service.Tag().String(),
@@ -193,8 +193,8 @@ func (s *serviceStatusGetterSuite) TestGetServiceStatus(c *gc.C) {
 
 func (s *serviceStatusGetterSuite) TestGetUnitStatusNotLeader(c *gc.C) {
 	// If the unit isn't the leader, it can't get it.
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &state.StatusInfo{
-		Status: state.StatusMaintenance,
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
+		Status: status.StatusMaintenance,
 	}})
 	result, err := s.getter.Status(params.Entities{[]params.Entity{{
 		unit.Tag().String(),
@@ -207,8 +207,8 @@ func (s *serviceStatusGetterSuite) TestGetUnitStatusNotLeader(c *gc.C) {
 
 func (s *serviceStatusGetterSuite) TestGetUnitStatusIsLeader(c *gc.C) {
 	// If the unit isn't the leader, it can't get it.
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &state.StatusInfo{
-		Status: state.StatusMaintenance,
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
+		Status: status.StatusMaintenance,
 	}})
 	service, err := unit.Service()
 	c.Assert(err, jc.ErrorIsNil)
@@ -224,13 +224,13 @@ func (s *serviceStatusGetterSuite) TestGetUnitStatusIsLeader(c *gc.C) {
 	r := result.Results[0]
 	c.Assert(r.Error, gc.IsNil)
 	c.Assert(r.Service.Error, gc.IsNil)
-	c.Assert(r.Service.Status, gc.Equals, params.Status(state.StatusMaintenance))
+	c.Assert(r.Service.Status, gc.Equals, status.StatusMaintenance)
 	units := r.Units
 	c.Assert(units, gc.HasLen, 1)
-	status, ok := units[unit.Name()]
+	unitStatus, ok := units[unit.Name()]
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(status.Error, gc.IsNil)
-	c.Assert(status.Status, gc.Equals, params.Status(state.StatusMaintenance))
+	c.Assert(unitStatus.Error, gc.IsNil)
+	c.Assert(unitStatus.Status, gc.Equals, status.StatusMaintenance)
 }
 
 func (s *serviceStatusGetterSuite) TestBulk(c *gc.C) {

@@ -8,11 +8,14 @@ package lxd
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
 
-type environProvider struct{}
+type environProvider struct {
+	environProviderCredentials
+}
 
 var providerInstance environProvider
 
@@ -26,13 +29,13 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, errors.Trace(err)
 }
 
+// BootstrapConfig implements environs.EnvironProvider.
+func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+	return p.PrepareForCreateEnvironment(args.Config)
+}
+
 // PrepareForBootstrap implements environs.EnvironProvider.
 func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// TODO(ericsnow) Do some of what happens in local provider's
 	// PrepareForBootstrap()? Only if "remote" is local host?
 
@@ -60,6 +63,7 @@ func (environProvider) RestrictedConfigAttributes() []string {
 		"remote-url",
 		"client-cert",
 		"client-key",
+		"server-cert",
 	}
 }
 
@@ -96,9 +100,10 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 	return ecfg.secret(), nil
 }
 
-// BoilerplateConfig implements environs.EnvironProvider.
-func (environProvider) BoilerplateConfig() string {
-	// boilerplateConfig is kept in config.go, in the hope that people editing
-	// config will keep it up to date.
-	return boilerplateConfig
+// DetectRegions implements environs.CloudRegionDetector.
+func (environProvider) DetectRegions() ([]cloud.Region, error) {
+	// For now we just return a hard-coded "localhost" region,
+	// i.e. the local LXD daemon. We may later want to detect
+	// locally-configured remotes.
+	return []cloud.Region{{Name: "localhost"}}, nil
 }

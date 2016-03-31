@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 type UnitStatusSuite struct {
@@ -35,14 +36,14 @@ func (s *UnitStatusSuite) checkInitialStatus(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) TestSetUnknownStatus(c *gc.C) {
-	err := s.unit.SetStatus(state.Status("vliegkat"), "orville", nil)
+	err := s.unit.SetStatus(status.Status("vliegkat"), "orville", nil)
 	c.Check(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
 }
 
 func (s *UnitStatusSuite) TestSetOverwritesData(c *gc.C) {
-	err := s.unit.SetStatus(state.StatusActive, "healthy", map[string]interface{}{
+	err := s.unit.SetStatus(status.StatusActive, "healthy", map[string]interface{}{
 		"pew.pew": "zap",
 	})
 	c.Check(err, jc.ErrorIsNil)
@@ -55,7 +56,7 @@ func (s *UnitStatusSuite) TestGetSetStatusAlive(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) checkGetSetStatus(c *gc.C) {
-	err := s.unit.SetStatus(state.StatusActive, "healthy", map[string]interface{}{
+	err := s.unit.SetStatus(status.StatusActive, "healthy", map[string]interface{}{
 		"$ping": map[string]interface{}{
 			"foo.bar": 123,
 		},
@@ -67,7 +68,7 @@ func (s *UnitStatusSuite) checkGetSetStatus(c *gc.C) {
 
 	statusInfo, err := unit.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, state.StatusActive)
+	c.Check(statusInfo.Status, gc.Equals, status.StatusActive)
 	c.Check(statusInfo.Message, gc.Equals, "healthy")
 	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
 		"$ping": map[string]interface{}{
@@ -102,17 +103,17 @@ func (s *UnitStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	err := s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
+	err = s.unit.SetStatus(status.StatusActive, "not really", nil)
 	c.Check(err, gc.ErrorMatches, `cannot set status: unit not found`)
 
 	statusInfo, err := s.unit.Status()
 	c.Check(err, gc.ErrorMatches, `cannot get status: unit not found`)
-	c.Check(statusInfo, gc.DeepEquals, state.StatusInfo{})
+	c.Check(statusInfo, gc.DeepEquals, status.StatusInfo{})
 }
 
 func (s *UnitStatusSuite) TestSetUnitStatusSince(c *gc.C) {
 	now := time.Now()
-	err := s.unit.SetStatus(state.StatusMaintenance, "", nil)
+	err := s.unit.SetStatus(status.StatusMaintenance, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,7 +122,7 @@ func (s *UnitStatusSuite) TestSetUnitStatusSince(c *gc.C) {
 	c.Assert(timeBeforeOrEqual(now, *firstTime), jc.IsTrue)
 
 	// Setting the same status a second time also updates the timestamp.
-	err = s.unit.SetStatus(state.StatusMaintenance, "", nil)
+	err = s.unit.SetStatus(status.StatusMaintenance, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)

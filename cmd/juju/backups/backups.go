@@ -16,7 +16,6 @@ import (
 	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/juju/osenv"
 	statebackups "github.com/juju/juju/state/backups"
 )
 
@@ -32,16 +31,11 @@ const backupsPurpose = "create, manage, and restore backups of juju's state"
 
 // NewSuperCommand returns a new backups super-command.
 func NewSuperCommand() cmd.Command {
-	log := &cmd.Log{
-		DefaultConfig: os.Getenv(osenv.JujuLoggingConfigEnvKey),
-	}
-
 	backupsCmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:        "backups",
 		Doc:         backupsDoc,
 		UsagePrefix: "juju",
 		Purpose:     backupsPurpose,
-		Log:         log,
 	})
 	backupsCmd.Register(newCreateCommand())
 	backupsCmd.Register(newInfoCommand())
@@ -120,12 +114,13 @@ func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetad
 	fmt.Fprintf(ctx.Stdout, "juju version:    %v\n", result.Version)
 }
 
-type readSeekCloser interface {
+// ArchiveReader can read a backup archive.
+type ArchiveReader interface {
 	io.ReadSeeker
 	io.Closer
 }
 
-func getArchive(filename string) (rc readSeekCloser, metaResult *params.BackupsMetadataResult, err error) {
+func getArchive(filename string) (rc ArchiveReader, metaResult *params.BackupsMetadataResult, err error) {
 	defer func() {
 		if err != nil && rc != nil {
 			rc.Close()

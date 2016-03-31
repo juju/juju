@@ -23,3 +23,10 @@ func (o Opened) Content() Content {
 		Fingerprint: o.Fingerprint,
 	}
 }
+
+// Opener exposes the functionality for opening a resource.
+type Opener interface {
+	// OpenResource returns an opened resource with a reader that will
+	// stream the resource content.
+	OpenResource(name string) (Opened, error)
+}

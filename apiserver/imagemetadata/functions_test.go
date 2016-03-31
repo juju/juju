@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testing"
 )
@@ -31,11 +31,18 @@ var _ = gc.Suite(&funcSuite{})
 func (s *funcSuite) SetUpTest(c *gc.C) {
 	s.baseImageMetadataSuite.SetUpTest(c)
 
-	cfg, err := config.New(config.NoDefaults, mockConfig())
+	var err error
+	s.env, err = environs.Prepare(
+		envtesting.BootstrapContext(c),
+		jujuclienttesting.NewMemStore(),
+		environs.PrepareParams{
+			ControllerName: "dummycontroller",
+			BaseConfig:     mockConfig(),
+			CloudName:      "dummy",
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.env, err = environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
-	c.Assert(err, jc.ErrorIsNil)
-	s.state = s.constructState(cfg)
+	s.state = s.constructState(s.env.Config())
 
 	s.expected = cloudimagemetadata.Metadata{
 		cloudimagemetadata.MetadataAttributes{

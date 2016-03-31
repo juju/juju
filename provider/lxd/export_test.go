@@ -7,7 +7,7 @@ package lxd
 
 import (
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/lxd/lxdclient"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 var (
@@ -34,4 +34,8 @@ func ExposeEnvConfig(env *environ) *environConfig {
 
 func ExposeEnvClient(env *environ) lxdInstances {
 	return env.raw.lxdInstances
+}
+
+func GetImageSources(env *environ) ([]lxdclient.Remote, error) {
+	return env.getImageSources()
 }

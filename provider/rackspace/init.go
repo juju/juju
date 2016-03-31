@@ -14,7 +14,11 @@ const (
 )
 
 func init() {
-	osProvider := openstack.EnvironProvider{&rackspaceConfigurator{}, &firewallerFactory{}}
+	osProvider := openstack.EnvironProvider{
+		openstack.OpenstackCredentials{},
+		&rackspaceConfigurator{},
+		&firewallerFactory{},
+	}
 	providerInstance = &environProvider{
 		osProvider,
 	}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/goose.v1/identity"
 	"gopkg.in/juju/environschema.v1"
@@ -109,6 +110,14 @@ func (c *environConfig) tenantName() string {
 	return c.attrs["tenant-name"].(string)
 }
 
+func (c *environConfig) domainName() string {
+	dname, ok := c.attrs["domain-name"]
+	if ok {
+		return dname.(string)
+	}
+	return ""
+}
+
 func (c *environConfig) authURL() string {
 	return c.attrs["auth-url"].(string)
 }
@@ -164,77 +173,40 @@ func (p EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	if err != nil {
 		return nil, err
 	}
-
-	// Add Openstack specific defaults.
-	providerDefaults := map[string]interface{}{}
-
-	// Storage.
-	if _, ok := cfg.StorageDefaultBlockSource(); !ok {
-		providerDefaults[config.StorageDefaultBlockSourceKey] = CinderProviderType
-	}
-	if len(providerDefaults) > 0 {
-		if cfg, err = cfg.Apply(providerDefaults); err != nil {
-			return nil, err
-		}
-	}
-
 	ecfg := &environConfig{cfg, validated}
 
-	if ecfg.authURL() != "" {
-		parts, err := url.Parse(ecfg.authURL())
-		if err != nil || parts.Host == "" || parts.Scheme == "" {
-			return nil, fmt.Errorf("invalid auth-url value %q", ecfg.authURL())
-		}
-	}
-	cred := identity.CredentialsFromEnv()
-	format := "required model variable not set for credentials attribute: %s"
 	switch ecfg.authMode() {
 	case AuthUserPass, AuthLegacy:
 		if ecfg.username() == "" {
-			if cred.User == "" {
-				return nil, fmt.Errorf(format, "User")
-			}
-			ecfg.attrs["username"] = cred.User
+			return nil, errors.NotValidf("missing username")
 		}
 		if ecfg.password() == "" {
-			if cred.Secrets == "" {
-				return nil, fmt.Errorf(format, "Secrets")
-			}
-			ecfg.attrs["password"] = cred.Secrets
+			return nil, errors.NotValidf("missing password")
 		}
 	case AuthKeyPair:
 		if ecfg.accessKey() == "" {
-			if cred.User == "" {
-				return nil, fmt.Errorf(format, "User")
-			}
-			ecfg.attrs["access-key"] = cred.User
+			return nil, errors.NotValidf("missing access-key")
 		}
 		if ecfg.secretKey() == "" {
-			if cred.Secrets == "" {
-				return nil, fmt.Errorf(format, "Secrets")
-			}
-			ecfg.attrs["secret-key"] = cred.Secrets
+			return nil, errors.NotValidf("missing secret-key")
 		}
 	default:
 		return nil, fmt.Errorf("unexpected authentication mode %q", ecfg.authMode())
 	}
+
 	if ecfg.authURL() == "" {
-		if cred.URL == "" {
-			return nil, fmt.Errorf(format, "URL")
-		}
-		ecfg.attrs["auth-url"] = cred.URL
+		return nil, errors.NotValidf("missing auth-url")
 	}
 	if ecfg.tenantName() == "" {
-		if cred.TenantName == "" {
-			return nil, fmt.Errorf(format, "TenantName")
-		}
-		ecfg.attrs["tenant-name"] = cred.TenantName
+		return nil, errors.NotValidf("missing tenant-name")
 	}
 	if ecfg.region() == "" {
-		if cred.Region == "" {
-			return nil, fmt.Errorf(format, "Region")
-		}
-		ecfg.attrs["region"] = cred.Region
+		return nil, errors.NotValidf("missing region")
+	}
+
+	parts, err := url.Parse(ecfg.authURL())
+	if err != nil || parts.Host == "" || parts.Scheme == "" {
+		return nil, fmt.Errorf("invalid auth-url value %q", ecfg.authURL())
 	}
 
 	if old != nil {

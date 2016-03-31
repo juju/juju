@@ -3,8 +3,6 @@
 package service
 
 import (
-	"net/http"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/romulus/wireformat/budget"
@@ -23,7 +21,7 @@ var _ = gc.Suite(&allocationSuite{})
 type allocationSuite struct {
 	testing.CleanupSuite
 	stub      *testing.Stub
-	apiClient *mockAPIClient
+	apiClient *mockBudgetAPIClient
 	allocate  DeployStep
 	ctx       *cmd.Context
 }
@@ -31,14 +29,14 @@ type allocationSuite struct {
 func (s *allocationSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.stub = &testing.Stub{}
-	s.apiClient = &mockAPIClient{Stub: s.stub}
+	s.apiClient = &mockBudgetAPIClient{Stub: s.stub}
 	s.allocate = &AllocateBudget{AllocationSpec: "personal:100"}
-	s.PatchValue(&getApiClient, func(*http.Client) (apiClient, error) { return s.apiClient, nil })
+	s.PatchValue(&getApiClient, func(*httpbakery.Client) (apiClient, error) { return s.apiClient, nil })
 	s.ctx = coretesting.Context(c)
 }
 
 func (s *allocationSuite) TestMeteredCharm(c *gc.C) {
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
@@ -57,7 +55,7 @@ func (s *allocationSuite) TestMeteredCharm(c *gc.C) {
 }
 
 func (s *allocationSuite) TestLocalCharm(c *gc.C) {
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
 		ServiceName: "service name",
@@ -72,7 +70,7 @@ func (s *allocationSuite) TestLocalCharm(c *gc.C) {
 }
 
 func (s *allocationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
@@ -80,7 +78,7 @@ func (s *allocationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 	}
 	s.allocate = &AllocateBudget{AllocationSpec: ""}
 	err := s.allocate.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
-	c.Assert(err, gc.ErrorMatches, `invalid budget specification, expecting <budget>:<limit>`)
+	c.Assert(err, gc.ErrorMatches, `invalid allocation, expecting <budget>:<limit>`)
 
 	err = s.allocate.RunPost(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,7 +89,7 @@ func (s *allocationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 }
 
 func (s *allocationSuite) TestMeteredCharmServiceUnavail(c *gc.C) {
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
@@ -105,11 +103,11 @@ func (s *allocationSuite) TestMeteredCharmServiceUnavail(c *gc.C) {
 	}, {
 		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
 	}})
-	c.Assert(coretesting.Stdout(s.ctx), gc.Equals, "WARNING: Allocation not created - service unreachable.\n")
+	c.Assert(coretesting.Stdout(s.ctx), gc.Equals, "WARNING: Budget allocation not created - service unreachable.\n")
 }
 
 func (s *allocationSuite) TestMeteredCharmRemoveAllocation(c *gc.C) {
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
 		ServiceName: "service name",
@@ -129,7 +127,7 @@ func (s *allocationSuite) TestMeteredCharmRemoveAllocation(c *gc.C) {
 }
 
 func (s *allocationSuite) TestUnmeteredCharm(c *gc.C) {
-	client := httpbakery.NewClient().Client
+	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/unmetered-1"),
 		ServiceName: "service name",
@@ -144,18 +142,18 @@ func (s *allocationSuite) TestUnmeteredCharm(c *gc.C) {
 	}})
 }
 
-type mockAPIClient struct {
+type mockBudgetAPIClient struct {
 	*testing.Stub
 }
 
 // CreateAllocation implements apiClient.
-func (c *mockAPIClient) CreateAllocation(budget, limit, model string, services []string) (string, error) {
+func (c *mockBudgetAPIClient) CreateAllocation(budget, limit, model string, services []string) (string, error) {
 	c.MethodCall(c, "CreateAllocation", budget, limit, model, services)
 	return "Allocation created.", c.NextErr()
 }
 
 // DeleteAllocation implements apiClient.
-func (c *mockAPIClient) DeleteAllocation(model, service string) (string, error) {
+func (c *mockBudgetAPIClient) DeleteAllocation(model, service string) (string, error) {
 	c.MethodCall(c, "DeleteAllocation", model, service)
 	return "Allocation removed.", c.NextErr()
 }

@@ -11,11 +11,16 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/model"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type UsersCommandSuite struct {
-	fake *fakeModelUsersClient
+	testing.FakeJujuXDGDataHomeSuite
+	fake  *fakeModelUsersClient
+	store *jujuclienttesting.MemStore
 }
 
 var _ = gc.Suite(&UsersCommandSuite{})
@@ -33,6 +38,7 @@ func (f *fakeModelUsersClient) ModelUserInfo() ([]params.ModelUserInfo, error) {
 }
 
 func (s *UsersCommandSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
 	last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
 
@@ -58,10 +64,18 @@ func (s *UsersCommandSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.fake = &fakeModelUsersClient{users: userlist}
+
+	err := modelcmd.WriteCurrentController("testing")
+	c.Assert(err, jc.ErrorIsNil)
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
+	s.store.Accounts["testing"] = &jujuclient.ControllerAccounts{
+		CurrentAccount: "admin@local",
+	}
 }
 
 func (s *UsersCommandSuite) TestModelUsers(c *gc.C) {
-	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake), "-m", "dummymodel")
+	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake, s.store), "-m", "admin")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME                DATE CREATED  LAST CONNECTION\n"+
@@ -72,7 +86,7 @@ func (s *UsersCommandSuite) TestModelUsers(c *gc.C) {
 }
 
 func (s *UsersCommandSuite) TestModelUsersFormatJson(c *gc.C) {
-	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake), "-m", "dummymodel", "--format", "json")
+	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake, s.store), "-m", "admin", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "["+
 		`{"user-name":"admin@local","date-created":"2014-07-20","last-connection":"2015-03-20"},`+
@@ -82,7 +96,7 @@ func (s *UsersCommandSuite) TestModelUsersFormatJson(c *gc.C) {
 }
 
 func (s *UsersCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
-	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake), "-m", "dummymodel", "--format", "yaml")
+	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake, s.store), "-m", "admin", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"- user-name: admin@local\n"+
@@ -97,6 +111,6 @@ func (s *UsersCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
 }
 
 func (s *UsersCommandSuite) TestUnrecognizedArg(c *gc.C) {
-	_, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake), "-m", "dummymodel", "whoops")
+	_, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake, s.store), "-m", "admin", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }

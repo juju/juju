@@ -102,6 +102,7 @@ func (s *MainSuite) TestParseErrors(c *gc.C) {
 	checkMessage(c, msga,
 		"bootstrap-state",
 		"--model-config", b64yaml{"blah": "blah"}.encode(),
+		"--hosted-model-config", b64yaml{"blah": "blah"}.encode(),
 		"--instance-id", "inst",
 		"toastie")
 	checkMessage(c, msga, "unit",
@@ -131,13 +132,16 @@ type RemoteCommand struct {
 	msg string
 }
 
-var expectUsage = `usage: remote [options]
-purpose: test jujuc
+var expectUsage = `Usage: remote [options]
 
-options:
+Summary:
+test jujuc
+
+Options:
 --error (= "")
     if set, fail
 
+Details:
 here is some documentation
 `
 

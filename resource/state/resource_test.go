@@ -7,9 +7,11 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -66,6 +68,8 @@ func (s *ResourceSuite) newPendingID() (string, error) {
 func (s *ResourceSuite) TestListResourcesOkay(c *gc.C) {
 	expected := newUploadResources(c, "spam", "eggs")
 	s.persist.ReturnListResources = resource.ServiceResources{Resources: expected}
+	tag := names.NewUnitTag("a-service/0")
+	s.raw.ReturnUnits = []names.UnitTag{tag}
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
@@ -73,11 +77,32 @@ func (s *ResourceSuite) TestListResourcesOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(resources.Resources, jc.DeepEquals, expected)
-	s.stub.CheckCallNames(c, "ListResources")
+	c.Check(resources.UnitResources, jc.DeepEquals, []resource.UnitResources{{
+		Tag: tag,
+	}})
+	s.stub.CheckCallNames(c, "ListResources", "Units")
+	s.stub.CheckCall(c, 0, "ListResources", "a-service")
+}
+
+func (s *ResourceSuite) TestListResourcesNoUnits(c *gc.C) {
+	expected := newUploadResources(c, "spam", "eggs")
+	s.persist.ReturnListResources = resource.ServiceResources{Resources: expected}
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	resources, err := st.ListResources("a-service")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(resources.Resources, jc.DeepEquals, expected)
+	c.Check(resources.UnitResources, gc.HasLen, 0)
+	s.stub.CheckCallNames(c, "ListResources", "Units")
 	s.stub.CheckCall(c, 0, "ListResources", "a-service")
 }
 
 func (s *ResourceSuite) TestListResourcesEmpty(c *gc.C) {
+	s.raw.ReturnUnits = []names.UnitTag{
+		names.NewUnitTag("a-service/0"),
+	}
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
@@ -85,7 +110,8 @@ func (s *ResourceSuite) TestListResourcesEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(resources.Resources, gc.HasLen, 0)
-	s.stub.CheckCallNames(c, "ListResources")
+	c.Check(resources.UnitResources, gc.HasLen, 1)
+	s.stub.CheckCallNames(c, "ListResources", "Units")
 }
 
 func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
@@ -99,7 +125,7 @@ func (s *ResourceSuite) TestListResourcesError(c *gc.C) {
 	_, err := st.ListResources("a-service")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.stub.CheckCallNames(c, "ListResources")
+	s.stub.CheckCallNames(c, "ListResources", "VerifyService")
 }
 
 func (s *ResourceSuite) TestGetPendingResource(c *gc.C) {
@@ -174,7 +200,7 @@ func (s *ResourceSuite) TestSetResourceInfoOnly(c *gc.C) {
 
 func (s *ResourceSuite) TestSetResourceBadResource(c *gc.C) {
 	res := newUploadResource(c, "spam", "spamspamspam")
-	res.Revision = -1
+	res.Fingerprint = charmresource.Fingerprint{}
 	file := &stubReader{stub: s.stub}
 	st := NewState(s.raw)
 	st.currentTimestamp = s.now
@@ -197,7 +223,7 @@ func (s *ResourceSuite) TestSetResourceStagingFailure(c *gc.C) {
 	s.stub.ResetCalls()
 	failure := errors.New("<failure>")
 	ignoredErr := errors.New("<never reached>")
-	s.stub.SetErrors(nil, failure, nil, nil, ignoredErr)
+	s.stub.SetErrors(nil, failure, ignoredErr)
 
 	_, err := st.SetResource("a-service", "a-user", expected.Resource, file)
 
@@ -387,30 +413,27 @@ func (s *ResourceSuite) TestOpenResourceOkay(c *gc.C) {
 	s.persist.ReturnGetResource = opened.Resource
 	s.persist.ReturnGetResourcePath = "service-a-service/resources/spam"
 	s.storage.ReturnGet = opened.Content()
-	unit := &fakeUnit{"foo/0", "a-service"}
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	info, reader, err := st.OpenResource(unit, "spam")
+	info, reader, err := st.OpenResource("a-service", "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "GetResource", "Get")
 	s.stub.CheckCall(c, 1, "Get", "service-a-service/resources/spam")
 	c.Check(info, jc.DeepEquals, opened.Resource)
-
-	b, err := ioutil.ReadAll(reader)
-	// note ioutil.ReadAll converts EOF to nil
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(b, gc.DeepEquals, []byte(data))
+	c.Check(reader, gc.Equals, opened.ReadCloser)
 }
 
 func (s *ResourceSuite) TestOpenResourceNotFound(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
+	errNotFound := errors.NotFoundf("resource")
+	s.stub.SetErrors(errNotFound)
 
-	_, _, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
+	_, _, err := st.OpenResource("a-service", "spam")
 
-	s.stub.CheckCallNames(c, "GetResource")
+	s.stub.CheckCallNames(c, "GetResource", "VerifyService")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -421,7 +444,7 @@ func (s *ResourceSuite) TestOpenResourcePlaceholder(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	_, _, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
+	_, _, err := st.OpenResource("a-service", "spam")
 
 	s.stub.CheckCallNames(c, "GetResource")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
@@ -437,10 +460,99 @@ func (s *ResourceSuite) TestOpenResourceSizeMismatch(c *gc.C) {
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 
-	_, _, err := st.OpenResource(fakeUnit{"foo/0", "a-service"}, "spam")
+	_, _, err := st.OpenResource("a-service", "spam")
 
 	s.stub.CheckCallNames(c, "GetResource", "Get")
 	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)
+}
+
+func (s *ResourceSuite) TestOpenResourceForUniterOkay(c *gc.C) {
+	data := "some data"
+	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", data)
+	s.persist.ReturnGetResource = opened.Resource
+	s.persist.ReturnGetResourcePath = "service-a-service/resources/spam"
+	s.storage.ReturnGet = opened.Content()
+	unit := newUnit(s.stub, "a-service/0")
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	info, reader, err := st.OpenResourceForUniter(unit, "spam")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "ServiceName", "GetResource", "Get", "Name", "SetUnitResourceProgress")
+	s.stub.CheckCall(c, 2, "Get", "service-a-service/resources/spam")
+	c.Check(info, jc.DeepEquals, opened.Resource)
+
+	b, err := ioutil.ReadAll(reader)
+	// note ioutil.ReadAll converts EOF to nil
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(b, gc.DeepEquals, []byte(data))
+}
+
+func (s *ResourceSuite) TestOpenResourceForUniterNotFound(c *gc.C) {
+	unit := newUnit(s.stub, "a-service/0")
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+	errNotFound := errors.NotFoundf("resource")
+	s.stub.SetErrors(nil, errNotFound)
+
+	_, _, err := st.OpenResourceForUniter(unit, "spam")
+
+	s.stub.CheckCallNames(c, "ServiceName", "GetResource", "VerifyService")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ResourceSuite) TestOpenResourceForUniterPlaceholder(c *gc.C) {
+	res := resourcetesting.NewPlaceholderResource(c, "spam", "a-service")
+	s.persist.ReturnGetResource = res
+	s.persist.ReturnGetResourcePath = "service-a-service/resources/spam"
+	unit := newUnit(s.stub, "a-service/0")
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	_, _, err := st.OpenResourceForUniter(unit, "spam")
+
+	s.stub.CheckCallNames(c, "ServiceName", "GetResource")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ResourceSuite) TestOpenResourceForUniterSizeMismatch(c *gc.C) {
+	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", "some data")
+	s.persist.ReturnGetResource = opened.Resource
+	s.persist.ReturnGetResourcePath = "service-a-service/resources/spam"
+	content := opened.Content()
+	content.Size += 1
+	s.storage.ReturnGet = content
+	unit := newUnit(s.stub, "a-service/0")
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	_, _, err := st.OpenResourceForUniter(unit, "spam")
+
+	s.stub.CheckCallNames(c, "ServiceName", "GetResource", "Get")
+	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)
+}
+
+func (s *ResourceSuite) TestSetCharmStoreResources(c *gc.C) {
+	lastPolled := time.Now().UTC()
+	resources := newStoreResources(c, "spam", "eggs")
+	var info []charmresource.Resource
+	for _, res := range resources {
+		chRes := res.Resource
+		info = append(info, chRes)
+	}
+	st := NewState(s.raw)
+	s.stub.ResetCalls()
+
+	err := st.SetCharmStoreResources("a-service", info, lastPolled)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"SetCharmStoreResource",
+		"SetCharmStoreResource",
+	)
+	s.stub.CheckCall(c, 0, "SetCharmStoreResource", "a-service/spam", "a-service", info[0], lastPolled)
+	s.stub.CheckCall(c, 1, "SetCharmStoreResource", "a-service/eggs", "a-service", info[1], lastPolled)
 }
 
 func (s *ResourceSuite) TestNewResourcePendingResourcesOps(c *gc.C) {
@@ -497,7 +609,7 @@ func (s *ResourceSuite) TestUnitSetterEOF(c *gc.C) {
 	r := unitSetter{
 		ReadCloser: ioutil.NopCloser(&bytes.Buffer{}),
 		persist:    &stubPersistence{stub: s.stub},
-		unit:       fakeUnit{"unit/0", "some-service"},
+		unit:       newUnit(s.stub, "some-service/0"),
 		resource:   newUploadResource(c, "res", "res"),
 	}
 	// have to try to read non-zero data, or bytes.buffer will happily return
@@ -507,14 +619,15 @@ func (s *ResourceSuite) TestUnitSetterEOF(c *gc.C) {
 	c.Assert(n, gc.Equals, 0)
 	c.Assert(err, gc.Equals, io.EOF)
 
-	s.stub.CheckCall(c, 0, "SetUnitResource", "unit/0", r.resource)
+	s.stub.CheckCallNames(c, "Name", "SetUnitResource")
+	s.stub.CheckCall(c, 1, "SetUnitResource", "some-service/0", r.resource)
 }
 
 func (s *ResourceSuite) TestUnitSetterNoEOF(c *gc.C) {
 	r := unitSetter{
 		ReadCloser: ioutil.NopCloser(bytes.NewBufferString("foobar")),
 		persist:    &stubPersistence{stub: s.stub},
-		unit:       fakeUnit{"unit/0", "some-service"},
+		unit:       newUnit(s.stub, "some-service/0"),
 		resource:   newUploadResource(c, "res", "res"),
 	}
 	// read less than the full buffer
@@ -525,14 +638,14 @@ func (s *ResourceSuite) TestUnitSetterNoEOF(c *gc.C) {
 
 	// Assert that we don't call SetUnitResource if we read but don't reach the
 	// end of the buffer.
-	s.stub.CheckNoCalls(c)
+	s.stub.CheckCallNames(c, "Name", "SetUnitResourceProgress")
 }
 
 func (s *ResourceSuite) TestUnitSetterSetUnitErr(c *gc.C) {
 	r := unitSetter{
 		ReadCloser: ioutil.NopCloser(&bytes.Buffer{}),
 		persist:    &stubPersistence{stub: s.stub},
-		unit:       fakeUnit{"some-service/0", "some-service"},
+		unit:       newUnit(s.stub, "some-service/0"),
 		resource:   newUploadResource(c, "res", "res"),
 	}
 
@@ -546,14 +659,15 @@ func (s *ResourceSuite) TestUnitSetterSetUnitErr(c *gc.C) {
 	// ensure that we return the EOF from bytes.buffer and not the error from SetUnitResource.
 	c.Assert(err, gc.Equals, io.EOF)
 
-	s.stub.CheckCall(c, 0, "SetUnitResource", "some-service/0", r.resource)
+	s.stub.CheckCallNames(c, "Name", "SetUnitResource")
+	s.stub.CheckCall(c, 1, "SetUnitResource", "some-service/0", r.resource)
 }
 
 func (s *ResourceSuite) TestUnitSetterErr(c *gc.C) {
 	r := unitSetter{
 		ReadCloser: ioutil.NopCloser(&stubReader{stub: s.stub}),
 		persist:    &stubPersistence{stub: s.stub},
-		unit:       fakeUnit{"foo/0", "some-service"},
+		unit:       newUnit(s.stub, "some-service/0"),
 		resource:   newUploadResource(c, "res", "res"),
 	}
 	expected := errors.Errorf("some-err")
@@ -582,6 +696,25 @@ func newUploadResource(c *gc.C, name, data string) resource.Resource {
 	return opened.Resource
 }
 
+func newStoreResources(c *gc.C, names ...string) []resource.Resource {
+	var resources []resource.Resource
+	for _, name := range names {
+		res := newStoreResource(c, name, name)
+		resources = append(resources, res)
+	}
+	return resources
+}
+
+func newStoreResource(c *gc.C, name, data string) resource.Resource {
+	opened := resourcetesting.NewResource(c, nil, name, "a-service", data)
+	res := opened.Resource
+	res.Origin = charmresource.OriginStore
+	res.Revision = 1
+	res.Username = ""
+	res.Timestamp = time.Time{}
+	return res
+}
+
 func newCharmResource(c *gc.C, name, data string, rev int) charmresource.Resource {
 	opened := resourcetesting.NewResource(c, nil, name, "a-service", data)
 	chRes := opened.Resource.Resource
@@ -590,15 +723,10 @@ func newCharmResource(c *gc.C, name, data string, rev int) charmresource.Resourc
 	return chRes
 }
 
-type fakeUnit struct {
-	unit    string
-	service string
-}
-
-func (f fakeUnit) Name() string {
-	return f.unit
-}
-
-func (f fakeUnit) ServiceName() string {
-	return f.service
+func newUnit(stub *testing.Stub, name string) *resourcetesting.StubUnit {
+	return &resourcetesting.StubUnit{
+		Stub:              stub,
+		ReturnName:        name,
+		ReturnServiceName: strings.Split(name, "/")[0],
+	}
 }

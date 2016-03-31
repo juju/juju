@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/mgo.v2/txn"
@@ -41,8 +42,16 @@ type resourcePersistence interface {
 	// SetResource stores the info for the resource.
 	SetResource(args resource.Resource) error
 
+	// SetCharmStoreResource stores the resource info that was retrieved
+	// from the charm store.
+	SetCharmStoreResource(id, serviceID string, res charmresource.Resource, lastPolled time.Time) error
+
 	// SetUnitResource stores the resource info for a unit.
 	SetUnitResource(unitID string, args resource.Resource) error
+
+	// SetUnitResourceProgress stores the resource info and download
+	// progressfor a unit.
+	SetUnitResourceProgress(unitID string, args resource.Resource, progress int64) error
 
 	// NewResolvePendingResourceOps generates mongo transaction operations
 	// to set the identified resource as active.
@@ -66,6 +75,14 @@ type StagedResource interface {
 	Activate() error
 }
 
+type rawState interface {
+	// VerifyService ensures that the service is in state.
+	VerifyService(id string) error
+
+	// Units returns the tags for all units in the service.
+	Units(serviceID string) ([]names.UnitTag, error)
+}
+
 type resourceStorage interface {
 	// PutAndCheckHash stores the content of the reader into the storage.
 	PutAndCheckHash(path string, r io.Reader, length int64, hash string) error
@@ -80,6 +97,7 @@ type resourceStorage interface {
 
 type resourceState struct {
 	persist resourcePersistence
+	raw     rawState
 	storage resourceStorage
 
 	newPendingID     func() (string, error)
@@ -90,7 +108,30 @@ type resourceState struct {
 func (st resourceState) ListResources(serviceID string) (resource.ServiceResources, error) {
 	resources, err := st.persist.ListResources(serviceID)
 	if err != nil {
+		if err := st.raw.VerifyService(serviceID); err != nil {
+			return resource.ServiceResources{}, errors.Trace(err)
+		}
 		return resource.ServiceResources{}, errors.Trace(err)
+	}
+
+	unitIDs, err := st.raw.Units(serviceID)
+	if err != nil {
+		return resource.ServiceResources{}, errors.Trace(err)
+	}
+	for _, unitID := range unitIDs {
+		found := false
+		for _, unitRes := range resources.UnitResources {
+			if unitID.String() == unitRes.Tag.String() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			unitRes := resource.UnitResources{
+				Tag: unitID,
+			}
+			resources.UnitResources = append(resources.UnitResources, unitRes)
+		}
 	}
 
 	return resources, nil
@@ -101,6 +142,9 @@ func (st resourceState) GetResource(serviceID, name string) (resource.Resource, 
 	id := newResourceID(serviceID, name)
 	res, _, err := st.persist.GetResource(id)
 	if err != nil {
+		if err := st.raw.VerifyService(serviceID); err != nil {
+			return resource.Resource{}, errors.Trace(err)
+		}
 		return res, errors.Trace(err)
 	}
 	return res, nil
@@ -112,6 +156,8 @@ func (st resourceState) GetPendingResource(serviceID, name, pendingID string) (r
 
 	resources, err := st.persist.ListPendingResources(serviceID)
 	if err != nil {
+		// We do not call VerifyService() here because pending resources
+		// do not have to have an existing service.
 		return res, errors.Trace(err)
 	}
 
@@ -142,7 +188,7 @@ func (st resourceState) AddPendingResource(serviceID, userID string, chRes charm
 	if err != nil {
 		return "", errors.Annotate(err, "could not generate resource ID")
 	}
-	logger.Tracef("adding pending resource %q for service %q (ID: %s)", chRes.Name, serviceID, pendingID)
+	logger.Debugf("adding pending resource %q for service %q (ID: %s)", chRes.Name, serviceID, pendingID)
 
 	if _, err := st.setResource(pendingID, serviceID, userID, chRes, r); err != nil {
 		return "", errors.Trace(err)
@@ -230,12 +276,13 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 
 // OpenResource returns metadata about the resource, and a reader for
 // the resource.
-func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
-	serviceID := unit.ServiceName()
-
+func (st resourceState) OpenResource(serviceID, name string) (resource.Resource, io.ReadCloser, error) {
 	id := newResourceID(serviceID, name)
 	resourceInfo, storagePath, err := st.persist.GetResource(id)
 	if err != nil {
+		if err := st.raw.VerifyService(serviceID); err != nil {
+			return resource.Resource{}, nil, errors.Trace(err)
+		}
 		return resource.Resource{}, nil, errors.Annotate(err, "while getting resource info")
 	}
 	if resourceInfo.IsPlaceholder() {
@@ -252,14 +299,56 @@ func (st resourceState) OpenResource(unit resource.Unit, name string) (resource.
 		return resource.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)
 	}
 
-	resourceReader = unitSetter{
+	return resourceInfo, resourceReader, nil
+}
+
+// OpenResourceForUniter returns metadata about the resource and
+// a reader for the resource. The resource is associated with
+// the unit once the reader is completely exhausted.
+func (st resourceState) OpenResourceForUniter(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
+	serviceID := unit.ServiceName()
+
+	pendingID, err := newPendingID()
+	if err != nil {
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
+
+	resourceInfo, resourceReader, err := st.OpenResource(serviceID, name)
+	if err != nil {
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
+
+	pending := resourceInfo // a copy
+	pending.PendingID = pendingID
+
+	if err := st.persist.SetUnitResourceProgress(unit.Name(), pending, 0); err != nil {
+		resourceReader.Close()
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
+
+	resourceReader = &unitSetter{
 		ReadCloser: resourceReader,
 		persist:    st.persist,
 		unit:       unit,
+		pending:    pending,
 		resource:   resourceInfo,
 	}
 
 	return resourceInfo, resourceReader, nil
+}
+
+// SetCharmStoreResources sets the "polled" resources for the
+// service to the provided values.
+func (st resourceState) SetCharmStoreResources(serviceID string, info []charmresource.Resource, lastPolled time.Time) error {
+	for _, chRes := range info {
+		id := newResourceID(serviceID, chRes.Name)
+		if err := st.persist.SetCharmStoreResource(id, serviceID, chRes, lastPolled); err != nil {
+			return errors.Trace(err)
+		}
+		// TODO(ericsnow) Worry about extras? missing?
+	}
+
+	return nil
 }
 
 // TODO(ericsnow) Rename NewResolvePendingResourcesOps to reflect that
@@ -333,17 +422,25 @@ type unitSetter struct {
 	io.ReadCloser
 	persist  resourcePersistence
 	unit     resource.Unit
+	pending  resource.Resource
 	resource resource.Resource
+	progress int64
 }
 
 // Read implements io.Reader.
-func (u unitSetter) Read(p []byte) (n int, err error) {
+func (u *unitSetter) Read(p []byte) (n int, err error) {
 	n, err = u.ReadCloser.Read(p)
 	if err == io.EOF {
 		// record that the unit is now using this version of the resource
 		if err := u.persist.SetUnitResource(u.unit.Name(), u.resource); err != nil {
 			msg := "Failed to record that unit %q is using resource %q revision %v"
 			logger.Errorf(msg, u.unit.Name(), u.resource.Name, u.resource.RevisionString())
+		}
+	} else {
+		u.progress += int64(n)
+		// TODO(ericsnow) Don't do this every time?
+		if err := u.persist.SetUnitResourceProgress(u.unit.Name(), u.pending, u.progress); err != nil {
+			logger.Errorf("failed to track progress: %v", err)
 		}
 	}
 	return n, err

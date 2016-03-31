@@ -14,7 +14,6 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	lxdlib "github.com/lxc/lxd"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -24,10 +23,10 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/lxd/lxdclient"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/tools/lxdclient"
+	"github.com/juju/version"
 )
 
 // These values are stub LXD client credentials for use in tests.
@@ -71,12 +70,14 @@ const (
 // These are stub config values for use in tests.
 var (
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
-		"type":        "lxd",
-		"namespace":   "",
-		"remote-url":  "",
-		"client-cert": "",
-		"client-key":  "",
-		"uuid":        "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
+		"type":            "lxd",
+		"namespace":       "",
+		"remote-url":      "",
+		"client-cert":     "",
+		"client-key":      "",
+		"server-cert":     "",
+		"uuid":            "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
+		"controller-uuid": "bfef02f1-932a-425a-a102-62175dcabd1d",
 	})
 )
 
@@ -119,13 +120,11 @@ func (s *BaseSuiteUnpatched) SetUpSuite(c *gc.C) {
 		s.osPathOrig =
 			"/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 	}
-	s.IsolationSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpSuite(c)
 }
 
 func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-
-	s.PatchValue(&lxdlib.ConfigDir, c.MkDir())
 
 	s.initEnv(c)
 	s.initInst(c)
@@ -206,7 +205,7 @@ func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 	ecfg, err := newValidConfig(cfg, configDefaults)
 	c.Assert(err, jc.ErrorIsNil)
 	s.EnvConfig = ecfg
-	uuid, _ := cfg.UUID()
+	uuid := cfg.UUID()
 	s.Env.uuid = uuid
 	s.Env.ecfg = s.EnvConfig
 	s.Prefix = "juju-" + uuid + "-"
@@ -236,11 +235,10 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{})
 
 func (s *BaseSuiteUnpatched) NewRawInstance(c *gc.C, name string) *lxdclient.Instance {
 	summary := lxdclient.InstanceSummary{
-		Name:      name,
-		Status:    lxdclient.StatusRunning,
-		Hardware:  *s.Hardware,
-		Metadata:  s.Metadata,
-		Addresses: s.Addresses,
+		Name:     name,
+		Status:   lxdclient.StatusRunning,
+		Hardware: *s.Hardware,
+		Metadata: s.Metadata,
 	}
 	instanceSpec := lxdclient.InstanceSpec{
 		Name:      name,
@@ -269,20 +267,23 @@ type BaseSuite struct {
 	BaseSuiteUnpatched
 
 	Stub       *gitjujutesting.Stub
-	Client     *stubClient
+	Client     *StubClient
 	Firewaller *stubFirewaller
 	Common     *stubCommon
 	Policy     *stubPolicy
 }
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
-	// Do this *before* s.initEnv() gets called.
+func (s *BaseSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuiteUnpatched.SetUpSuite(c)
+	// Do this *before* s.initEnv() gets called in BaseSuiteUnpatched.SetUpTest
 	s.PatchValue(&asNonLocal, s.asNonLocal)
+}
 
+func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuiteUnpatched.SetUpTest(c)
 
 	s.Stub = &gitjujutesting.Stub{}
-	s.Client = &stubClient{stub: s.Stub}
+	s.Client = &StubClient{Stub: s.Stub}
 	s.Firewaller = &stubFirewaller{stub: s.Stub}
 	s.Common = &stubCommon{stub: s.Stub}
 	s.Policy = &stubPolicy{stub: s.Stub}
@@ -290,6 +291,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	// Patch out all expensive external deps.
 	s.Env.raw = &rawProvider{
 		lxdInstances:   s.Client,
+		lxdImages:      s.Client,
 		Firewaller:     s.Firewaller,
 		policyProvider: s.Policy,
 	}
@@ -346,6 +348,7 @@ type ConfigValues struct {
 	RemoteURL  string
 	ClientCert string
 	ClientKey  string
+	ServerCert string
 }
 
 func (cv ConfigValues) CheckCert(c *gc.C) {
@@ -362,6 +365,12 @@ func (cv ConfigValues) CheckCert(c *gc.C) {
 	block, remainder = pem.Decode(keyPEM)
 	c.Check(block.Type, gc.Equals, "RSA PRIVATE KEY")
 	c.Check(remainder, gc.HasLen, 0)
+
+	if cv.ServerCert != "" {
+		block, remainder = pem.Decode([]byte(cv.ServerCert))
+		c.Check(block.Type, gc.Equals, "CERTIFICATE")
+		c.Check(remainder, gc.HasLen, 1)
+	}
 }
 
 type Config struct {
@@ -398,6 +407,8 @@ func (ecfg *Config) Values(c *gc.C) (ConfigValues, map[string]interface{}) {
 			values.ClientCert = v.(string)
 		case cfgClientKey:
 			values.ClientKey = v.(string)
+		case cfgServerPEMCert:
+			values.ServerCert = v.(string)
 		default:
 			extras[k] = v
 		}
@@ -463,38 +474,60 @@ func (s *stubPolicy) SupportedArchitectures() ([]string, error) {
 	return s.Arches, nil
 }
 
-type stubClient struct {
-	stub *gitjujutesting.Stub
+type StubClient struct {
+	*gitjujutesting.Stub
 
 	Insts []lxdclient.Instance
 	Inst  *lxdclient.Instance
 }
 
-func (conn *stubClient) Instances(prefix string, statuses ...string) ([]lxdclient.Instance, error) {
-	conn.stub.AddCall("Instances", prefix, statuses)
-	if err := conn.stub.NextErr(); err != nil {
+func (conn *StubClient) Instances(prefix string, statuses ...string) ([]lxdclient.Instance, error) {
+	conn.AddCall("Instances", prefix, statuses)
+	if err := conn.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return conn.Insts, nil
 }
 
-func (conn *stubClient) AddInstance(spec lxdclient.InstanceSpec) (*lxdclient.Instance, error) {
-	conn.stub.AddCall("AddInstance", spec)
-	if err := conn.stub.NextErr(); err != nil {
+func (conn *StubClient) AddInstance(spec lxdclient.InstanceSpec) (*lxdclient.Instance, error) {
+	conn.AddCall("AddInstance", spec)
+	if err := conn.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return conn.Inst, nil
 }
 
-func (conn *stubClient) RemoveInstances(prefix string, ids ...string) error {
-	conn.stub.AddCall("RemoveInstances", prefix, ids)
-	if err := conn.stub.NextErr(); err != nil {
+func (conn *StubClient) RemoveInstances(prefix string, ids ...string) error {
+	conn.AddCall("RemoveInstances", prefix, ids)
+	if err := conn.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
 	return nil
+}
+
+func (conn *StubClient) EnsureImageExists(series string, _ []lxdclient.Remote, _ func(string)) error {
+	conn.AddCall("EnsureImageExists", series)
+	if err := conn.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (conn *StubClient) Addresses(name string) ([]network.Address, error) {
+	conn.AddCall("Addresses", name)
+	if err := conn.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return []network.Address{network.Address{
+		Value: "10.0.0.1",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
+	}}, nil
 }
 
 // TODO(ericsnow) Move stubFirewaller to environs/testing or provider/common/testing.

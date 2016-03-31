@@ -15,6 +15,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -23,7 +24,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number) cmd.Command {
@@ -152,10 +153,10 @@ var (
 // environments running 1.* since it must be able to upgrade
 // environments from 1.25.4 -> 2.0.*.
 func canUpgradeRunningVersion(runningAgentVer version.Number) bool {
-	if runningAgentVer.Major == version.Current.Major {
+	if runningAgentVer.Major == jujuversion.Current.Major {
 		return true
 	}
-	if version.Current.Minor == 0 && runningAgentVer.Major == (version.Current.Major-1) {
+	if jujuversion.Current.Minor == 0 && runningAgentVer.Major == (jujuversion.Current.Major-1) {
 		return true
 	}
 	return false
@@ -214,9 +215,9 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 
 	if c.UploadTools && c.Version == version.Zero {
 		// Currently, uploading tools assumes the version to be
-		// the same as version.Current if not specified with
+		// the same as jujuversion.Current if not specified with
 		// --version.
-		c.Version = version.Current
+		c.Version = jujuversion.Current
 	}
 	warnCompat := false
 	switch {
@@ -224,12 +225,12 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		// This version of upgrade-juju cannot upgrade the running
 		// environment version (can't guarantee API compatibility).
 		return fmt.Errorf("cannot upgrade a %s model with a %s client",
-			agentVersion, version.Current)
+			agentVersion, jujuversion.Current)
 	case c.Version != version.Zero && c.Version.Major < agentVersion.Major:
 		// The specified version would downgrade the environment.
 		// Don't upgrade and return an error.
 		return fmt.Errorf(downgradeErrMsg, agentVersion, c.Version)
-	case agentVersion.Major != version.Current.Major:
+	case agentVersion.Major != jujuversion.Current.Major:
 		// Running environment is the previous major version (a higher major
 		// version wouldn't have passed the check in canUpgradeRunningVersion).
 		if c.Version == version.Zero || c.Version.Major == agentVersion.Major {
@@ -287,7 +288,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	ctx.Infof("available tools:\n%s", formatTools(context.tools))
 	ctx.Infof("best version:\n    %s", context.chosen)
 	if warnCompat {
-		logger.Warningf("version %s incompatible with this client (%s)", context.chosen, version.Current)
+		logger.Warningf("version %s incompatible with this client (%s)", context.chosen, jujuversion.Current)
 	}
 	if c.DryRun {
 		ctx.Infof("upgrade to this version by running\n    juju upgrade-juju --version=\"%s\"\n", context.chosen)
@@ -350,7 +351,7 @@ func (c *upgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Con
 	if c.Version == agentVersion {
 		return nil, errUpToDate
 	}
-	filterVersion := version.Current
+	filterVersion := jujuversion.Current
 	if c.Version != version.Zero {
 		filterVersion = c.Version
 	} else if filterOnPrior {
@@ -380,7 +381,7 @@ func (c *upgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Con
 	}
 	return &upgradeContext{
 		agent:     agentVersion,
-		client:    version.Current,
+		client:    jujuversion.Current,
 		chosen:    c.Version,
 		tools:     findResult.List,
 		apiClient: client,
@@ -407,7 +408,7 @@ type upgradeContext struct {
 // with the ones just uploaded.
 func (context *upgradeContext) uploadTools() (err error) {
 	// TODO(fwereade): this is kinda crack: we should not assume that
-	// version.Current matches whatever source happens to be built. The
+	// jujuversion.Current matches whatever source happens to be built. The
 	// ideal would be:
 	//  1) compile jujud from $GOPATH into some build dir
 	//  2) get actual version with `jujud version`
