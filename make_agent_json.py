@@ -41,7 +41,8 @@ def parse_args():
     return parser.parse_args()
 
 
-class StanzaWriterBase:
+class FileStanzaWriter:
+    """Base class to write stanzas about files."""
 
     def __init__(self, filename, stream, version, ftype, tarfile,
                  path):
@@ -54,6 +55,13 @@ class StanzaWriterBase:
         self.ftype = ftype
 
     def make_path_stanza(self, product_name, item_name, hashes, size):
+        """Make a path stanza.
+
+        :param product_name: The simplestreams product name.
+        :param item_name: The simplestream item name.
+        :param hahes: A dict mapping hash name to the hash of the file with
+            that hash.  hashlib names (e.g. "sha256") should be used.
+        """
         stanza = {
             'content_id': self.content_id,
             'product_name': product_name,
@@ -69,6 +77,10 @@ class StanzaWriterBase:
         return stanza
 
     def write_stanzas(self):
+        """Write stanzas about the file to the filename.
+
+        This calculates the hashes as part of the procedure.
+        """
         with open(self.tarfile) as tarfile_fp:
             content = tarfile_fp.read()
         hashes = {}
@@ -80,7 +92,7 @@ class StanzaWriterBase:
         json_dump(stanzas, self.filename)
 
 
-class StanzaWriter(StanzaWriterBase):
+class StanzaWriter(FileStanzaWriter):
 
     def __init__(self, releases, arch, version, tarfile, filename,
                  revision_build=None, agent_stream=None):
@@ -98,7 +110,7 @@ class StanzaWriter(StanzaWriterBase):
         self.arch = arch
         self.filename = filename
 
-    hash_algorithms=frozenset(['sha256', 'md5'])
+    hash_algorithms = frozenset(['sha256', 'md5'])
 
     @property
     def content_id(self):
@@ -168,9 +180,9 @@ class StanzaWriter(StanzaWriterBase):
             yield stanza
 
 
-class GUIStanzaWriter(StanzaWriterBase):
+class GUIStanzaWriter(FileStanzaWriter):
 
-    hash_algorithms=frozenset(['sha256', 'sha1', 'md5'])
+    hash_algorithms = frozenset(['sha256', 'sha1', 'md5'])
 
     @property
     def content_id(self):
@@ -178,6 +190,7 @@ class GUIStanzaWriter(StanzaWriterBase):
 
     @classmethod
     def from_tarfile(cls, tarfile, stream):
+        """Use a tarfile and stream to instantiate this class."""
         tar_base = os.path.basename(tarfile)
         version = re.match('(.*)\.tar\.gz', tar_base).group(1)
         filename = 'juju-gui-{}-{}.json'.format(stream, version)
@@ -186,9 +199,12 @@ class GUIStanzaWriter(StanzaWriterBase):
                    path)
 
     def make_stanzas(self, hashes, size):
-        stanza = self.make_path_stanza(
-            'com.canonical.streams:gui', self.version, hashes, size)
-        return [stanza]
+        """Return a single stanza for the gui.
+
+        The GUI is arch/os independent, so only one stanza is needed.
+        """
+        return [self.make_path_stanza(
+            'com.canonical.streams:gui', self.version, hashes, size)]
 
 
 def main():
