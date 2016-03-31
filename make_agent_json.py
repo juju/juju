@@ -37,19 +37,19 @@ def parse_args():
     ubuntu.add_argument('series')
     gui = parsers.add_parser('gui')
     gui.add_argument('tarfile')
-    gui.add_argument('agent_stream')
+    gui.add_argument('stream')
     return parser.parse_args()
 
 
 class StanzaWriterBase:
 
-    def __init__(self, filename, agent_stream, version, ftype, tarfile,
-                 agent_path):
+    def __init__(self, filename, stream, version, ftype, tarfile,
+                 path):
         self.filename = filename
-        self.agent_stream = agent_stream
+        self.stream = stream
         self.version = version
         self.tarfile = tarfile
-        self.agent_path = agent_path
+        self.path = path
         self.version_name = datetime.utcnow().strftime('%Y%m%d')
         self.ftype = ftype
 
@@ -59,7 +59,7 @@ class StanzaWriterBase:
             'product_name': product_name,
             'item_name': item_name,
             'version_name': self.version_name,
-            'path': self.agent_path,
+            'path': self.path,
             'size': size,
             'version': self.version,
             'format': 'products:1.0',
@@ -87,13 +87,13 @@ class StanzaWriter(StanzaWriterBase):
         if agent_stream is None:
             agent_stream = 'revision-build-{}'.format(revision_build)
         if revision_build is None:
-            agent_path = 'agent/{}/{}'.format(
+            path = 'agent/{}/{}'.format(
                 version, os.path.basename(tarfile))
         else:
-            agent_path = 'agent/revision-build-{}/{}'.format(
+            path = 'agent/revision-build-{}/{}'.format(
                 revision_build, os.path.basename(tarfile))
         super(StanzaWriter, self).__init__(filename, agent_stream, version,
-                                           'tar.gz', tarfile, agent_path)
+                                           'tar.gz', tarfile, path)
         self.releases = releases
         self.arch = arch
         self.filename = filename
@@ -102,7 +102,7 @@ class StanzaWriter(StanzaWriterBase):
 
     @property
     def content_id(self):
-        return 'com.ubuntu.juju:{}:tools'.format(self.agent_stream)
+        return 'com.ubuntu.juju:{}:tools'.format(self.stream)
 
     @classmethod
     def for_ubuntu(cls, release, series, arch, version, tarfile,
@@ -174,16 +174,16 @@ class GUIStanzaWriter(StanzaWriterBase):
 
     @property
     def content_id(self):
-        return 'com.canonical.streams:{}:gui'.format(self.agent_stream)
+        return 'com.canonical.streams:{}:gui'.format(self.stream)
 
     @classmethod
-    def from_tarfile(cls, tarfile, agent_stream):
+    def from_tarfile(cls, tarfile, stream):
         tar_base = os.path.basename(tarfile)
         version = re.match('(.*)\.tar\.gz', tar_base).group(1)
-        filename = 'juju-gui-{}-{}.json'.format(agent_stream, version)
-        agent_path = '/'.join(['gui', version, tar_base])
-        return cls(filename, agent_stream, version, 'tar.gz', tarfile,
-                   agent_path)
+        filename = 'juju-gui-{}-{}.json'.format(stream, version)
+        path = '/'.join(['gui', version, tar_base])
+        return cls(filename, stream, version, 'tar.gz', tarfile,
+                   path)
 
     def make_stanzas(self, hashes, size):
         stanza = self.make_path_stanza(
