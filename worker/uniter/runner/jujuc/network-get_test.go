@@ -119,9 +119,9 @@ get network config
 
 Options:
 --format  (= smart)
-    specify output format (json|smart|yaml)
+    Specify output format (json|smart|yaml)
 -o, --output (= "")
-    specify an output file
+    Specify an output file
 --primary-address  (= false)
     get the primary address for the binding
 
