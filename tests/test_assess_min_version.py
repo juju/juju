@@ -1,4 +1,4 @@
-"""Tests for assess_NAMEHERE module."""
+"""Tests for assess_min_version module."""
 
 import logging
 from mock import (
@@ -13,10 +13,12 @@ import subprocess
 import yaml
 
 from assess_min_version import (
+    assess_deploy,
     assert_fail,
     assess_min_version,
     assert_pass,
     get_current_version,
+    JujuAssertionError,
     make_charm,
     main,
     parse_args,
@@ -73,25 +75,25 @@ class TestMain(TestCase):
 class TestAssess(TestCase):
 
     def test_assert_fail(self):
-        mock_client = Mock(spec=["juju"])
-        mock_client.juju.side_effect = subprocess.CalledProcessError('', '')
+        mock_client = Mock(spec=["deploy"])
+        mock_client.deploy.side_effect = subprocess.CalledProcessError('', '')
         assert_fail(mock_client, "dummpy", "2.0", "2.0", "name")
 
     def test_assert_fail_exception(self):
-        mock_client = Mock(spec=["juju"])
+        mock_client = Mock(spec=["deploy"])
         with self.assertRaisesRegexp(
-                AssertionError, 'assert_fail failed min: 2.0 cur: 2.0'):
+                JujuAssertionError, 'assert_fail failed min: 2.0 cur: 2.0'):
             assert_fail(mock_client, "dummpy", "2.0", "2.0", "name")
 
     def test_assert_pass(self):
-        mock_client = Mock(spec=["juju", "wait_for_started"])
+        mock_client = Mock(spec=["deploy", "wait_for_started"])
         assert_pass(mock_client, "dummpy", "2.0", "2.0", "name")
 
     def test_assert_pass_exception(self):
-        mock_client = Mock(spec=["juju", "wait_for_started"])
-        mock_client.juju.side_effect = subprocess.CalledProcessError('', '')
+        mock_client = Mock(spec=["deploy", "wait_for_started"])
+        mock_client.deploy.side_effect = subprocess.CalledProcessError('', '')
         with self.assertRaisesRegexp(
-                AssertionError, 'assert_pass failed min: 2.0 cur: 2.0'):
+                JujuAssertionError, 'assert_pass failed min: 2.0 cur: 2.0'):
             assert_pass(mock_client, "dummpy", "2.0", "2.0", "name")
 
     def test_make_charm(self):
@@ -114,34 +116,38 @@ class TestAssess(TestCase):
         ver = get_current_version(mock_client, '/tmp/bin')
         self.assertEqual(ver, '1.25.4')
 
+    def test_assess_deploy(self):
+        mock_client = Mock(spec=["deploy", "wait_for_started"])
+        mock_assertion = Mock(spec=[])
+        with patch("assess_min_version.temp_dir", autospec=True) as mock_td:
+            with patch("assess_min_version.make_charm",
+                       autospec=True) as mock_mc:
+                assess_deploy(
+                    mock_client, mock_assertion, "2.1", "2.0", "dummy")
+        temp_dir = mock_td.return_value.__enter__.return_value
+        mock_assertion.assert_called_once_with(
+            mock_client, temp_dir, "2.1", "2.0", "dummy")
+        mock_mc.assert_called_once_with(temp_dir, "2.1")
+
     def test_assess_min_version(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
         args = parse_args(argv)
         mock_client = Mock(spec=["juju", "wait_for_started"])
         with patch("assess_min_version.get_current_version",
                    autospec=True, return_value="2.0.0") as mock_gcv:
-            with patch("assess_min_version.assert_pass",
-                       autospec=True) as mock_ap:
-                with patch("assess_min_version.assert_fail",
-                           autospec=True) as mock_af:
-                    with patch("assess_min_version.temp_dir",
-                               autospec=True) as mock_td:
-                        with patch("assess_min_version.make_charm",
-                                   autospec=True) as mock_mc:
-                            assess_min_version(mock_client, args)
+            with patch("assess_min_version.assess_deploy",
+                       autospec=True) as mock_ad:
+                assess_min_version(mock_client, args)
         mock_gcv.assert_called_once_with(mock_client, '/bin/juju')
-        temp_dir = mock_td.return_value.__enter__.return_value
-        td_calls = [
-            call(mock_client, temp_dir, '99.9.9', '2.0.0', 'name9999'),
-            call(mock_client, temp_dir, '99.9-alpha1', '2.0.0',
-                 'name999alpha1')]
-        self.assertEqual(mock_af.mock_calls, td_calls)
-        ap_calls = [
-            call(mock_client, temp_dir, '1.25.0', '2.0.0', 'name1250'),
-            call(mock_client, temp_dir, '1.2-beta1', '2.0.0', 'name12beta1'),
-            call(mock_client, temp_dir, '1.25.5.1', '2.0.0', 'name12551'),
-            call(mock_client, temp_dir, '2.0-alpha1', '2.0.0', 'name20alpha1'),
-            call(mock_client, temp_dir, '2.0.0', '2.0.0', 'current')]
-        self.assertEqual(mock_ap.mock_calls, ap_calls)
-        self.assertEqual(mock_td.call_count, 7)
-        self.assertEqual(mock_mc.call_count, 7)
+        ad_calls = [
+            call(mock_client, assert_pass, '1.25.0', '2.0.0', 'name1250'),
+            call(mock_client, assert_fail, '99.9.9', '2.0.0', 'name9999'),
+            call(mock_client, assert_fail, '99.9-alpha1', '2.0.0',
+                 'name999alpha1'),
+            call(mock_client, assert_pass, '1.2-beta1', '2.0.0',
+                 'name12beta1'),
+            call(mock_client, assert_pass, '1.25.5.1', '2.0.0', 'name12551'),
+            call(mock_client, assert_pass, '2.0-alpha1', '2.0.0',
+                 'name20alpha1'),
+            call(mock_client, assert_pass, '2.0.0', '2.0.0', 'current')]
+        self.assertEqual(mock_ad.mock_calls, ad_calls)

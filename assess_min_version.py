@@ -23,21 +23,25 @@ __metaclass__ = type
 log = logging.getLogger("assess_version")
 
 
+class JujuAssertionError(AssertionError):
+    """Exception for juju assertion failures."""
+
+
 def assert_fail(client, charm, ver, cur, name):
     try:
-        client.juju("deploy", (charm, name))
+        client.deploy(charm, service=name)
     except subprocess.CalledProcessError:
         return
-    raise AssertionError(
+    raise JujuAssertionError(
         'assert_fail failed min: {} cur: {}'.format(ver, cur))
 
 
 def assert_pass(client, charm, ver, cur, name):
     try:
-        client.juju("deploy", (charm, name))
+        client.deploy(charm, service=name)
         client.wait_for_started()
     except subprocess.CalledProcessError:
-        raise AssertionError(
+        raise JujuAssertionError(
             'assert_pass failed min: {} cur: {}'.format(ver, cur))
 
 
@@ -58,6 +62,13 @@ def get_current_version(client, juju_path):
     return '-'.join(current)
 
 
+def assess_deploy(client, assertion, ver, current, name):
+    with temp_dir() as charm_dir:
+        log.info("Testing min version {}".format(ver))
+        make_charm(charm_dir, ver)
+        assertion(client, charm_dir, ver, current, name)
+
+
 def assess_min_version(client, args):
     current = get_current_version(client, args.juju_bin)
     tests = [['1.25.0', 'name1250', assert_pass],
@@ -67,12 +78,8 @@ def assess_min_version(client, args):
              ['1.25.5.1', 'name12551', assert_pass],
              ['2.0-alpha1', 'name20alpha1', assert_pass],
              [current, 'current', assert_pass]]
-    for test in tests:
-        ver, name, assertion = test[0], test[1], test[2]
-        with temp_dir() as charm_dir:
-            log.info("Testing min version {}".format(ver))
-            make_charm(charm_dir, ver)
-            assertion(client, charm_dir, ver, current, name)
+    for ver, name, assertion in tests:
+        assess_deploy(client, assertion, ver, current, name)
 
 
 def parse_args(argv):
