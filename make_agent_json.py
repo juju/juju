@@ -53,9 +53,11 @@ class StanzaWriterBase:
         self.version_name = datetime.utcnow().strftime('%Y%m%d')
         self.ftype = ftype
 
-    def make_path_stanza(self, hashes, size):
+    def make_path_stanza(self, product_name, item_name, hashes, size):
         stanza = {
             'content_id': self.content_id,
+            'product_name': product_name,
+            'item_name': item_name,
             'version_name': self.version_name,
             'path': self.agent_path,
             'size': size,
@@ -155,12 +157,11 @@ class StanzaWriter(StanzaWriterBase):
 
     def make_stanzas(self, hashes, size):
         for release, series in self.releases:
-            stanza = self.make_path_stanza(hashes, size)
+            item_name = '{}-{}-{}'.format(self.version, series, self.arch)
+            product_name = 'com.ubuntu.juju:{}:{}'.format(release, self.arch)
+            stanza = self.make_path_stanza(product_name, item_name, hashes,
+                                           size)
             stanza.update({
-                'item_name': '{}-{}-{}'.format(self.version, series,
-                                               self.arch),
-                'product_name': 'com.ubuntu.juju:{}:{}'.format(release,
-                                                               self.arch),
                 'arch': self.arch,
                 'release': series,
                 })
@@ -185,11 +186,8 @@ class GUIStanzaWriter(StanzaWriterBase):
                    agent_path)
 
     def make_stanzas(self, hashes, size):
-        stanza = self.make_path_stanza(hashes, size)
-        stanza.update({
-            'product_name': 'com.canonical.streams:gui',
-            'item_name': self.version,
-            })
+        stanza = self.make_path_stanza(
+            'com.canonical.streams:gui', self.version, hashes, size)
         return [stanza]
 
 
