@@ -4,6 +4,8 @@
 package maas
 
 import (
+	"net/http"
+
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -53,6 +55,10 @@ func (s *configSuite) SetUpTest(c *gc.C) {
 		return set.NewStrings("network-deployment-ubuntu"), nil
 	}
 	s.PatchValue(&GetCapabilities, mockCapabilities)
+	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+		return nil, gomaasapi.ServerError{StatusCode: http.StatusNotFound}
+	}
+	s.PatchValue(&GetMAAS2Controller, mockGetController)
 }
 
 func (*configSuite) TestParsesMAASSettings(c *gc.C) {

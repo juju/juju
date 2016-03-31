@@ -123,7 +123,11 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	mockCapabilities := func(client *gomaasapi.MAASObject) (set.Strings, error) {
 		return set.NewStrings("network-deployment-ubuntu"), nil
 	}
+	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+		return nil, gomaasapi.ServerError{StatusCode: http.StatusNotFound}
+	}
 	s.PatchValue(&GetCapabilities, mockCapabilities)
+	s.PatchValue(&GetMAAS2Controller, mockGetController)
 	// Creating a space ensures that the spaces endpoint won't 404.
 	s.testMAASObject.TestServer.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-0"}))
 }

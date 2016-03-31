@@ -61,7 +61,12 @@ var (
 	ReleaseIPAddress         = releaseIPAddress
 	DeploymentStatusCall     = deploymentStatusCall
 	GetCapabilities          = getCapabilities
+	GetMAAS2Controller       = getMAAS2Controller
 )
+
+func getMAAS2Controller(maasServer, apiKey string) (gomaasapi.Controller, error) {
+	return gomaasapi.NewController(gomaasapi.ControllerArgs{maasServer, apiKey})
+}
 
 func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error) {
 	spacesJson, err := spaces.CallGet("", nil)
@@ -304,11 +309,9 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	// and 2.0. MAAS 1.9 uses the 1.0 api version and 2.0 uses the 2.0 api
 	// version.
 	apiVersion := "2.0"
-	controller, err := gomaasapi.NewController(gomaasapi.ControllerArgs{
-		ecfg.maasServer(), ecfg.maasOAuth()})
-	// TODO (mfoord): we should probably be checking specifically for a 404
-	// error here.
-	if err != nil {
+	controller, err := GetMAAS2Controller(ecfg.maasServer(), ecfg.maasOAuth())
+	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
+	if ok && maasErr.StatusCode == http.StatusNotFound {
 		apiVersion = "1.0"
 		authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), "1.0")
 		if err != nil {
@@ -322,6 +325,8 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 		if !caps.Contains(capNetworkDeploymentUbuntu) {
 			return errors.NotSupportedf("MAAS 1.9 or more recent is required")
 		}
+	} else if err != nil {
+		return errors.Trace(err)
 	} else {
 		env.maasController = controller
 	}

@@ -4,6 +4,7 @@
 package maas_test
 
 import (
+	"net/http"
 	stdtesting "testing"
 
 	"github.com/juju/gomaasapi"
@@ -49,7 +50,11 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	mockCapabilities := func(client *gomaasapi.MAASObject) (set.Strings, error) {
 		return set.NewStrings("network-deployment-ubuntu"), nil
 	}
+	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+		return nil, gomaasapi.ServerError{StatusCode: http.StatusNotFound}
+	}
 	s.PatchValue(&maas.GetCapabilities, mockCapabilities)
+	s.PatchValue(&maas.GetMAAS2Controller, mockGetController)
 }
 
 func (s *environSuite) TearDownTest(c *gc.C) {
