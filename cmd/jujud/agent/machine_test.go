@@ -17,8 +17,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	apimachiner "github.com/juju/juju/api/machiner"
-	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -38,8 +36,11 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/imagemetadata"
+	apimachiner "github.com/juju/juju/api/machiner"
+	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
@@ -1106,23 +1107,31 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 
 func (s *MachineSuite) TestProxyUpdaterWithSystemFileUpdate(c *gc.C) {
 	// Make sure there are some proxy settings to write.
-	expectSettings := proxy.Settings{
-		Http:  "http proxy",
-		Https: "https proxy",
-		Ftp:   "ftp proxy",
+	updateAttrs := config.ProxyConfigMap(proxy.Settings{
+		Http:    "http proxy",
+		Https:   "https proxy",
+		Ftp:     "ftp proxy",
+		NoProxy: "",
+	})
+
+	expected := params.ProxyConfigResult{
+		ProxySettings: proxy.Settings{
+			Http: "http proxy", Https: "https proxy", Ftp: "ftp proxy", NoProxy: "localhost"},
+		APTProxySettings: proxy.Settings{
+			Http: "http://http proxy", Https: "https://https proxy", Ftp: "ftp://ftp proxy", NoProxy: ""},
 	}
-	updateAttrs := config.ProxyConfigMap(expectSettings)
+
 	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Patch out the actual worker func.
 	started := newSignal()
-	mockNew := func(api *apiproxyupdater.Facade) (worker.Worker, error) {
+	mockNew := func(api base.APICaller) (worker.Worker, error) {
 		// Indirect check that we get a functional API.
-		conf, err := api.ModelConfig()
+		proxyAPI := apiproxyupdater.NewAPI(api)
+		conf, err := proxyAPI.ProxyConfig()
 		if c.Check(err, jc.ErrorIsNil) {
-			actualSettings := conf.ProxySettings()
-			c.Check(actualSettings, jc.DeepEquals, expectSettings)
+			c.Check(conf, jc.DeepEquals, expected)
 		}
 		return worker.NewSimpleWorker(func(_ <-chan struct{}) error {
 			started.trigger()

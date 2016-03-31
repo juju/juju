@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/util"
@@ -33,8 +32,5 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 		return nil, errors.Errorf("unknown agent type: %T", tag)
 	}
 
-	// TODO(fwereade): This shouldn't be an "environment" facade, it
-	// should be specific to the proxyupdater, and be watching for
-	// *proxy settings* changes, not just watching the "environment".
-	return NewWorker(proxyupdater.NewFacade(apiCaller))
+	return NewWorker(apiCaller)
 }

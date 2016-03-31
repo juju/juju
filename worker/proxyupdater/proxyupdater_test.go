@@ -32,7 +32,7 @@ type ProxyUpdaterSuite struct {
 	jujutesting.JujuConnSuite
 
 	apiRoot         api.Connection
-	proxyUpdaterAPI *apiproxyupdater.Facade
+	proxyUpdaterAPI *apiproxyupdater.API
 	machine         *state.Machine
 
 	proxyFile string
@@ -52,9 +52,6 @@ func (s *ProxyUpdaterSuite) setStarted() {
 func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.apiRoot, s.machine = s.OpenAPIAsNewMachine(c)
-	// Create the environment API facade.
-	s.proxyUpdaterAPI = apiproxyupdater.NewFacade(s.apiRoot)
-	c.Assert(s.proxyUpdaterAPI, gc.NotNil)
 
 	proxyDir := c.MkDir()
 	s.PatchValue(&proxyupdater.ProxyDirectory, proxyDir)
@@ -80,7 +77,7 @@ func (s *ProxyUpdaterSuite) waitProxySettings(c *gc.C, expected proxy.Settings) 
 		case <-time.After(10 * time.Millisecond):
 			obtained := proxy.DetectProxies()
 			if obtained != expected {
-				c.Logf("proxy settings are %#v, still waiting", obtained)
+				c.Logf("proxy settings are \n%#v, should be \n%#v, still waiting", obtained, expected)
 				continue
 			}
 			return
@@ -113,7 +110,7 @@ func (s *ProxyUpdaterSuite) waitForFile(c *gc.C, filename, expected string) {
 }
 
 func (s *ProxyUpdaterSuite) TestRunStop(c *gc.C) {
-	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI)
+	updater, err := proxyupdater.NewWorker(s.apiRoot)
 	c.Assert(err, jc.ErrorIsNil)
 	err = worker.Stop(updater)
 	c.Assert(err, jc.ErrorIsNil)
@@ -125,7 +122,7 @@ func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Setting
 		Http:    "http proxy",
 		Https:   "https proxy",
 		Ftp:     "ftp proxy",
-		NoProxy: "no proxy",
+		NoProxy: "localhost,no proxy",
 	}
 	attrs := map[string]interface{}{}
 	for k, v := range config.ProxyConfigMap(proxySettings) {
@@ -154,7 +151,7 @@ func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Setting
 func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI)
+	updater, err := proxyupdater.NewWorker(s.apiRoot)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 
@@ -169,7 +166,7 @@ func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 func (s *ProxyUpdaterSuite) TestWriteSystemFiles(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI)
+	updater, err := proxyupdater.NewWorker(s.apiRoot)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 	s.waitForPostSetup(c)
@@ -194,7 +191,7 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
 
 	proxySettings, _ := s.updateConfig(c)
 
-	updater, err := proxyupdater.NewWorker(s.proxyUpdaterAPI)
+	updater, err := proxyupdater.NewWorker(s.apiRoot)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 	s.waitForPostSetup(c)
