@@ -173,6 +173,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		Agent:               agent.APIHostPortsSetter{a},
 		LogSource:           a.bufferedLogs,
 		LeadershipGuarantee: 30 * time.Second,
+		AgentConfigChanged:  a.configChangedVal,
 	})
 
 	config := dependency.EngineConfig{

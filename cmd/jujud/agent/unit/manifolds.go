@@ -6,11 +6,14 @@ package unit
 import (
 	"time"
 
+	"github.com/juju/utils/voyeur"
+
 	coreagent "github.com/juju/juju/agent"
 	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
@@ -21,6 +24,7 @@ import (
 	"github.com/juju/juju/worker/metrics/collect"
 	"github.com/juju/juju/worker/metrics/sender"
 	"github.com/juju/juju/worker/metrics/spool"
+	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
@@ -39,6 +43,10 @@ type ManifoldsConfig struct {
 
 	// LeadershipGuarantee controls the behaviour of the leadership tracker.
 	LeadershipGuarantee time.Duration
+
+	// AgentConfigChanged is set whenever the unit agent's config
+	// is updated.
+	AgentConfigChanged *voyeur.Value
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -62,13 +70,22 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName: AgentName,
 		}),
 
+		// The api-config-watcher manifold monitors the API server
+		// addresses in the agent config and bounces when they
+		// change. It's required as part of model migrations.
+		APIConfigWatcherName: apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
+			AgentName:          AgentName,
+			AgentConfigChanged: config.AgentConfigChanged,
+		}),
+
 		// The api caller is a thin concurrent wrapper around a connection
 		// to some API server. It's used by many other manifolds, which all
 		// select their own desired facades. It will be interesting to see
 		// how this works when we consolidate the agents; might be best to
 		// handle the auth changes server-side..?
 		APICallerName: apicaller.Manifold(apicaller.ManifoldConfig{
-			AgentName: AgentName,
+			AgentName:            AgentName,
+			APIConfigWatcherName: APIConfigWatcherName,
 		}),
 
 		// The log sender is a leaf worker that sends log messages to some
@@ -122,6 +139,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		UpgraderName: upgrader.Manifold(upgrader.ManifoldConfig{
 			AgentName:     AgentName,
 			APICallerName: APICallerName,
+		}),
+
+		// The migration minion handles the agent side aspects of model migrations.
+		MigrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
+			AgentName:         AgentName,
+			APICallerName:     APICallerName,
+			UpgradeWaiterName: util.UpgradeWaitNotRequired,
 		}),
 
 		// The leadership tracker attempts to secure and retain leadership of
@@ -202,4 +226,6 @@ const (
 	MeterStatusName          = "meter-status"
 	MetricCollectName        = "metric-collect"
 	MetricSenderName         = "metric-sender"
+	APIConfigWatcherName     = "api-config-watcher"
+	MigrationMinionName      = "migration-minion"
 )
