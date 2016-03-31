@@ -4,6 +4,8 @@
 package state
 
 import (
+	"time"
+
 	"gopkg.in/mgo.v2"
 )
 
@@ -157,6 +159,19 @@ func allCollections() collectionSchema {
 		// This collection was deprecated before multi-model support
 		// was implemented.
 		actionresultsC: {global: true},
+
+		// This collection holds storage items for a macaroon bakery.
+		bakeryStorageItemsC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"expire-at"},
+				// We expire records when the clock time is one
+				// second older than the record's expire-at field
+				// value. It has to be at least one second, because
+				// mgo uses "omitempty" for this field.
+				ExpireAfter: time.Second,
+			}},
+		},
 
 		// -----------------
 
@@ -404,6 +419,7 @@ const (
 	actionsC                 = "actions"
 	annotationsC             = "annotations"
 	assignUnitC              = "assignUnits"
+	bakeryStorageItemsC      = "bakeryStorageItems"
 	blockDevicesC            = "blockdevices"
 	blocksC                  = "blocks"
 	charmsC                  = "charms"

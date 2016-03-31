@@ -6,6 +6,7 @@ package apiserver
 import (
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -35,11 +36,7 @@ type authContext struct {
 // newAuthContext creates a new authentication context for st.
 func newAuthContext(st *state.State) (*authContext, error) {
 	ctxt := &authContext{st: st}
-
-	// TODO(axw) consider storing macaroons in Mongo. We're currently
-	// storing them in-memory, which means that if a client logs into
-	// one API server, they cannot use the macaroon in another one.
-	bakeryService, err := newBakeryService(st, nil)
+	bakeryService, err := newBakeryService(st, authentication.LocalLoginExpiryTime, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -118,7 +115,7 @@ func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonA
 			return nil, errors.Annotate(err, "cannot get identity public key")
 		}
 	}
-	svc, err := newBakeryService(st, bakery.PublicKeyLocatorMap{
+	svc, err := newBakeryService(st, authentication.ExternalLoginExpiryTime, bakery.PublicKeyLocatorMap{
 		idURL: idPK,
 	})
 	if err != nil {
@@ -135,9 +132,14 @@ func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonA
 }
 
 // newBakeryService creates a new bakery.Service.
-func newBakeryService(st *state.State, locator bakery.PublicKeyLocator) (*bakery.Service, error) {
+func newBakeryService(st *state.State, expiry time.Duration, locator bakery.PublicKeyLocator) (*bakery.Service, error) {
+	storage, err := st.NewBakeryStorage(expiry)
+	if err != nil {
+		return nil, errors.Annotate(err, "creating bakery storage")
+	}
 	return bakery.NewService(bakery.NewServiceParams{
 		Location: "juju model " + st.ModelUUID(),
 		Locator:  locator,
+		Store:    storage,
 	})
 }

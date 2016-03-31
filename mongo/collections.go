@@ -3,7 +3,11 @@
 
 package mongo
 
-import "gopkg.in/mgo.v2"
+import (
+	"time"
+
+	"gopkg.in/mgo.v2"
+)
 
 // CollectionFromName returns a named collection on the specified database,
 // initialised with a new session. Also returned is a close function which
@@ -27,8 +31,8 @@ type Collection interface {
 
 	// Count, Find, and FindId methods act as documented for *mgo.Collection.
 	Count() (int, error)
-	Find(query interface{}) *mgo.Query
-	FindId(id interface{}) *mgo.Query
+	Find(query interface{}) Query
+	FindId(id interface{}) Query
 
 	// Writeable gives access to methods that enable direct DB access. It
 	// should be used with judicious care, and for only the best of reasons.
@@ -53,6 +57,32 @@ type WriteCollection interface {
 	RemoveAll(sel interface{}) (*mgo.ChangeInfo, error)
 }
 
+// Query allows access to a portion of a MongoDB collection.
+type Query interface {
+	All(result interface{}) error
+	Apply(change mgo.Change, result interface{}) (info *mgo.ChangeInfo, err error)
+	Batch(n int) Query
+	Comment(comment string) Query
+	Count() (n int, err error)
+	Distinct(key string, result interface{}) error
+	Explain(result interface{}) error
+	For(result interface{}, f func() error) error
+	Hint(indexKey ...string) Query
+	Iter() *mgo.Iter
+	Limit(n int) Query
+	LogReplay() Query
+	MapReduce(job *mgo.MapReduce, result interface{}) (info *mgo.MapReduceInfo, err error)
+	One(result interface{}) (err error)
+	Prefetch(p float64) Query
+	Select(selector interface{}) Query
+	SetMaxScan(n int) Query
+	SetMaxTime(d time.Duration) Query
+	Skip(n int) Query
+	Snapshot() Query
+	Sort(fields ...string) Query
+	Tail(timeout time.Duration) *mgo.Iter
+}
+
 // WrapCollection returns a Collection that wraps the supplied *mgo.Collection.
 func WrapCollection(coll *mgo.Collection) Collection {
 	return collectionWrapper{coll}
@@ -69,6 +99,16 @@ func (cw collectionWrapper) Name() string {
 	return cw.Collection.Name
 }
 
+// Find is part of the Collection interface.
+func (cw collectionWrapper) Find(query interface{}) Query {
+	return queryWrapper{cw.Collection.Find(query)}
+}
+
+// FindId is part of the Collection interface.
+func (cw collectionWrapper) FindId(id interface{}) Query {
+	return queryWrapper{cw.Collection.FindId(id)}
+}
+
 // Writeable is part of the Collection interface.
 func (cw collectionWrapper) Writeable() WriteCollection {
 	return cw
@@ -77,4 +117,56 @@ func (cw collectionWrapper) Writeable() WriteCollection {
 // Underlying is part of the WriteCollection interface.
 func (cw collectionWrapper) Underlying() *mgo.Collection {
 	return cw.Collection
+}
+
+type queryWrapper struct {
+	*mgo.Query
+}
+
+func (qw queryWrapper) Batch(n int) Query {
+	return queryWrapper{qw.Query.Batch(n)}
+}
+
+func (qw queryWrapper) Comment(comment string) Query {
+	return queryWrapper{qw.Query.Comment(comment)}
+}
+
+func (qw queryWrapper) Hint(indexKey ...string) Query {
+	return queryWrapper{qw.Query.Hint(indexKey...)}
+}
+
+func (qw queryWrapper) Limit(n int) Query {
+	return queryWrapper{qw.Query.Limit(n)}
+}
+
+func (qw queryWrapper) LogReplay() Query {
+	return queryWrapper{qw.Query.LogReplay()}
+}
+
+func (qw queryWrapper) Prefetch(p float64) Query {
+	return queryWrapper{qw.Query.Prefetch(p)}
+}
+
+func (qw queryWrapper) Select(selector interface{}) Query {
+	return queryWrapper{qw.Query.Select(selector)}
+}
+
+func (qw queryWrapper) SetMaxScan(n int) Query {
+	return queryWrapper{qw.Query.SetMaxScan(n)}
+}
+
+func (qw queryWrapper) SetMaxTime(d time.Duration) Query {
+	return queryWrapper{qw.Query.SetMaxTime(d)}
+}
+
+func (qw queryWrapper) Skip(n int) Query {
+	return queryWrapper{qw.Query.Skip(n)}
+}
+
+func (qw queryWrapper) Snapshot() Query {
+	return queryWrapper{qw.Query.Snapshot()}
+}
+
+func (qw queryWrapper) Sort(fields ...string) Query {
+	return queryWrapper{qw.Query.Sort(fields...)}
 }

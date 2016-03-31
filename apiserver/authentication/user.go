@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
@@ -16,6 +17,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.authentication")
 
 // UserAuthenticator performs authentication for local users. If a password
 type UserAuthenticator struct {
@@ -29,13 +32,13 @@ const (
 	usernameKey = "username"
 
 	// TODO(axw) make this configurable via model config.
-	localLoginExpiryTime = 24 * time.Hour
+	LocalLoginExpiryTime = 24 * time.Hour
 
 	// TODO(axw) check with cmars about this time limit. Seems a bit
 	// too low. Are we prompting the user every hour, or just refreshing
 	// the token every hour until the external IdM requires prompting
 	// the user?
-	externalLoginExpiryTime = 1 * time.Hour
+	ExternalLoginExpiryTime = 1 * time.Hour
 )
 
 var _ EntityAuthenticator = (*UserAuthenticator)(nil)
@@ -83,7 +86,7 @@ func (u *UserAuthenticator) CreateLocalLoginMacaroon(tag names.UserTag) (*macaro
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create macaroon")
 	}
-	if err := addMacaroonTimeBeforeCaveat(u.Service, m, localLoginExpiryTime); err != nil {
+	if err := addMacaroonTimeBeforeCaveat(u.Service, m, LocalLoginExpiryTime); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return m, nil
@@ -96,7 +99,8 @@ func (u *UserAuthenticator) authenticateMacaroons(
 	assert := map[string]string{usernameKey: tag.Canonical()}
 	_, err := u.Service.CheckAny(req.Macaroons, assert, checkers.New(checkers.TimeBefore))
 	if err != nil {
-		return nil, errors.Trace(err)
+		logger.Debugf("local-login macaroon authentication failed: %v", err)
+		return nil, errors.Trace(common.ErrBadCreds)
 	}
 	entity, err := entityFinder.FindEntity(tag)
 	if errors.IsNotFound(err) {
@@ -135,7 +139,7 @@ func (m *ExternalMacaroonAuthenticator) newDischargeRequiredError(cause error) e
 	}
 	mac := m.Macaroon.Clone()
 	// TODO(fwereade): 2016-03-17 lp:1558657
-	if err := addMacaroonTimeBeforeCaveat(m.Service, mac, externalLoginExpiryTime); err != nil {
+	if err := addMacaroonTimeBeforeCaveat(m.Service, mac, ExternalLoginExpiryTime); err != nil {
 		return errors.Annotatef(err, "cannot create macaroon")
 	}
 	err := m.Service.AddCaveat(mac, checkers.NeedDeclaredCaveat(
