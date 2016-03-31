@@ -16,6 +16,7 @@ const (
 	ARM     = "armhf"
 	ARM64   = "arm64"
 	PPC64EL = "ppc64el"
+	S390X   = "s390x"
 
 	// Older versions of Juju used "ppc64" instead of ppc64el
 	LEGACY_PPC64 = "ppc64"
@@ -28,6 +29,7 @@ var AllSupportedArches = []string{
 	ARM,
 	ARM64,
 	PPC64EL,
+	S390X,
 }
 
 // Info records the information regarding each architecture recognised by Juju.
@@ -37,6 +39,7 @@ var Info = map[string]ArchInfo{
 	ARM:     {32},
 	ARM64:   {64},
 	PPC64EL: {64},
+	S390X:   {64},
 }
 
 // ArchInfo is a struct containing information about a supported architecture.
@@ -56,6 +59,7 @@ var archREs = []struct {
 	{regexp.MustCompile("(arm$)|(armv.*)"), ARM},
 	{regexp.MustCompile("aarch64"), ARM64},
 	{regexp.MustCompile("ppc64|ppc64el|ppc64le"), PPC64EL},
+	{regexp.MustCompile("s390x"), S390X},
 }
 
 // Override for testing.
