@@ -135,6 +135,52 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
 }
 
+func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&series.HostSeries, func() string { return "precise" })
+	stor := newStorage(s, c)
+	checkInstanceId := "i-success"
+	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
+
+	startInstance := func(_ string, _ constraints.Value, _ []string, _ tools.List, icfg *instancecfg.InstanceConfig) (instance.Instance,
+		*instance.HardwareCharacteristics, []network.InterfaceInfo, error) {
+		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
+	}
+	var mocksConfig = minimalConfig(c)
+	var numGetConfigCalled int
+	getConfig := func() *config.Config {
+		numGetConfigCalled++
+		return mocksConfig
+	}
+	setConfig := func(c *config.Config) error {
+		mocksConfig = c
+		return nil
+	}
+
+	env := &mockEnviron{
+		storage:       stor,
+		startInstance: startInstance,
+		config:        getConfig,
+		setConfig:     setConfig,
+	}
+	ctx := envtesting.BootstrapContext(c)
+	bootstrapSeries := "utopic"
+	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		BootstrapSeries: bootstrapSeries,
+		AvailableTools: tools.List{
+			&tools.Tools{
+				Version: version.Binary{
+					Number: jujuversion.Current,
+					Arch:   arch.HostArch(),
+					Series: bootstrapSeries,
+				},
+			},
+		}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
+	c.Check(result.Series, gc.Equals, bootstrapSeries)
+}
+
 func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	stor := newStorage(s, c)

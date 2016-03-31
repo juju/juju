@@ -34,11 +34,6 @@ func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	// Please note that in order to fulfil the demands made of Instances and
-	// AllInstances, it is imperative that some environment feature be used to
-	// keep track of which instances were actually started by juju.
-	env = env.getSnapshot()
-
 	// Start a new instance.
 
 	if args.InstanceConfig.HasNetworks() {
@@ -270,8 +265,6 @@ func (env *environ) AllInstances() ([]instance.Instance, error) {
 
 // StopInstances implements environs.InstanceBroker.
 func (env *environ) StopInstances(instances ...instance.Id) error {
-	env = env.getSnapshot()
-
 	var ids []string
 	for _, id := range instances {
 		ids = append(ids, string(id))

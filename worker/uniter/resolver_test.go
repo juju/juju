@@ -31,6 +31,7 @@ type resolverSuite struct {
 	remoteState          remotestate.Snapshot
 	opFactory            operation.Factory
 	resolver             resolver.Resolver
+	resolverConfig       uniter.ResolverConfig
 
 	clearResolved   func() error
 	reportHookError func(hook.Info) error
@@ -58,18 +59,21 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 		return errors.New("unexpected report hook error")
 	}
 
-	s.resolver = uniter.NewUniterResolver(uniter.ResolverConfig{
+	s.resolverConfig = uniter.ResolverConfig{
 		ClearResolved:       func() error { return s.clearResolved() },
 		ReportHookError:     func(info hook.Info) error { return s.reportHookError(info) },
 		FixDeployer:         func() error { return nil },
 		StartRetryHookTimer: func() { s.stub.AddCall("StartRetryHookTimer") },
 		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
+		ShouldRetryHooks:    true,
 		Leadership:          leadership.NewResolver(),
 		Actions:             uniteractions.NewResolver(),
 		Relations:           relation.NewRelationsResolver(&dummyRelations{}),
 		Storage:             storage.NewResolver(attachments),
 		Commands:            nopResolver{},
-	})
+	}
+
+	s.resolver = uniter.NewUniterResolver(s.resolverConfig)
 }
 
 // TestStartedNotInstalled tests whether the Started flag overrides the
@@ -104,6 +108,28 @@ func (s *resolverSuite) TestNotStartedNotInstalled(c *gc.C) {
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run install hook")
+}
+
+func (s *resolverSuite) TestHookErrorDoesNotStartRetryTimerIfShouldRetryFalse(c *gc.C) {
+	s.resolverConfig.ShouldRetryHooks = false
+	s.resolver = uniter.NewUniterResolver(s.resolverConfig)
+	s.reportHookError = func(hook.Info) error { return nil }
+	localState := resolver.LocalState{
+		CharmURL: s.charmURL,
+		State: operation.State{
+			Kind:      operation.RunHook,
+			Step:      operation.Pending,
+			Installed: true,
+			Started:   true,
+			Hook: &hook.Info{
+				Kind: hooks.ConfigChanged,
+			},
+		},
+	}
+	// Run the resolver; we should not attempt a hook retry
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	s.stub.CheckNoCalls(c)
 }
 
 func (s *resolverSuite) TestHookErrorStartRetryTimer(c *gc.C) {

@@ -64,9 +64,9 @@ print public-address or private-address
 
 Options:
 --format  (= smart)
-    specify output format (json|smart|yaml)
+    Specify output format (json|smart|yaml)
 -o, --output (= "")
-    specify an output file
+    Specify an output file
 `)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
