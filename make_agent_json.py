@@ -4,11 +4,14 @@ from copy import deepcopy
 from datetime import datetime
 import hashlib
 import os
+import re
 import sys
 
 from simplestreams.generate_simplestreams import json_dump
 
 from build_package import juju_series
+
+__metaclass__ = type
 
 
 supported_windows_releases = (
@@ -32,29 +35,72 @@ def parse_args():
         subparser.add_argument('arch')
     ubuntu.add_argument('release')
     ubuntu.add_argument('series')
+    gui = parsers.add_parser('gui')
+    gui.add_argument('tarfile')
+    gui.add_argument('agent_stream')
     return parser.parse_args()
 
 
-class StanzaWriter:
+class StanzaWriterBase:
+
+    def __init__(self, filename, agent_stream, version, ftype, tarfile,
+                 agent_path):
+        self.filename = filename
+        self.agent_stream = agent_stream
+        self.version = version
+        self.tarfile = tarfile
+        self.agent_path = agent_path
+        self.version_name = datetime.utcnow().strftime('%Y%m%d')
+        self.ftype = ftype
+
+    def make_path_stanza(self, hashes, size):
+        stanza = {
+            'content_id': self.content_id,
+            'version_name': self.version_name,
+            'path': self.agent_path,
+            'size': size,
+            'version': self.version,
+            'format': 'products:1.0',
+            'ftype': self.ftype,
+            }
+        stanza.update(deepcopy(hashes))
+        return stanza
+
+    def write_stanzas(self):
+        with open(self.tarfile) as tarfile_fp:
+            content = tarfile_fp.read()
+        hashes = {}
+        for hash_algorithm in self.hash_algorithms:
+            hash_obj = hashlib.new(hash_algorithm)
+            hash_obj.update(content)
+            hashes[hash_algorithm] = hash_obj.hexdigest()
+        stanzas = list(self.make_stanzas(hashes, len(content)))
+        json_dump(stanzas, self.filename)
+
+
+class StanzaWriter(StanzaWriterBase):
 
     def __init__(self, releases, arch, version, tarfile, filename,
                  revision_build=None, agent_stream=None):
-        self.releases = releases
-        self.arch = arch
-        self.version = version
         if agent_stream is None:
-            self.agent_stream = 'revision-build-{}'.format(revision_build)
-        else:
-            self.agent_stream = agent_stream
+            agent_stream = 'revision-build-{}'.format(revision_build)
         if revision_build is None:
-            self.agent_path = 'agent/{}/{}'.format(
+            agent_path = 'agent/{}/{}'.format(
                 version, os.path.basename(tarfile))
         else:
-            self.agent_path = 'agent/revision-build-{}/{}'.format(
+            agent_path = 'agent/revision-build-{}/{}'.format(
                 revision_build, os.path.basename(tarfile))
-        self.tarfile = tarfile
-        self.version_name = datetime.utcnow().strftime('%Y%m%d')
+        super(StanzaWriter, self).__init__(filename, agent_stream, version,
+                                           'tar.gz', tarfile, agent_path)
+        self.releases = releases
+        self.arch = arch
         self.filename = filename
+
+    hash_algorithms=frozenset(['sha256', 'md5'])
+
+    @property
+    def content_id(self):
+        return 'com.ubuntu.juju:{}:tools'.format(self.agent_stream)
 
     @classmethod
     def for_ubuntu(cls, release, series, arch, version, tarfile,
@@ -107,37 +153,44 @@ class StanzaWriter:
         return cls([('centos7', 'centos7')], 'amd64', version, tarfile,
                    filename, revision_build, agent_stream)
 
-    def write_stanzas(self):
-        with open(self.tarfile) as tarfile_fp:
-            content = tarfile_fp.read()
-        hashes = {}
-        for hash_algorithm in ['sha256', 'md5']:
-            hash_obj = hashlib.new(hash_algorithm)
-            hash_obj.update(content)
-            hashes[hash_algorithm] = hash_obj.hexdigest()
-        stanzas = list(self.make_stanzas(hashes, len(content)))
-        json_dump(stanzas, self.filename)
-
     def make_stanzas(self, hashes, size):
         for release, series in self.releases:
-            stanza = {
-                'content_id': 'com.ubuntu.juju:{}:tools'.format(
-                    self.agent_stream),
-                'version_name': self.version_name,
+            stanza = self.make_path_stanza(hashes, size)
+            stanza.update({
                 'item_name': '{}-{}-{}'.format(self.version, series,
                                                self.arch),
                 'product_name': 'com.ubuntu.juju:{}:{}'.format(release,
                                                                self.arch),
-                'path': self.agent_path,
                 'arch': self.arch,
-                'version': self.version,
-                'format': 'products:1.0',
                 'release': series,
-                'ftype': 'tar.gz',
-                'size': size,
-                }
-            stanza.update(deepcopy(hashes))
+                })
             yield stanza
+
+
+class GUIStanzaWriter(StanzaWriterBase):
+
+    hash_algorithms=frozenset(['sha256', 'sha1', 'md5'])
+
+    @property
+    def content_id(self):
+        return 'com.canonical.streams:{}:gui'.format(self.agent_stream)
+
+    @classmethod
+    def from_tarfile(cls, tarfile, agent_stream):
+        tar_base = os.path.basename(tarfile)
+        version = re.match('(.*)\.tar\.gz', tar_base).group(1)
+        filename = 'juju-gui-{}-{}.json'.format(agent_stream, version)
+        agent_path = '/'.join(['gui', tar_base])
+        return cls(filename, agent_stream, version, 'tar.gz', tarfile,
+                   agent_path)
+
+    def make_stanzas(self, hashes, size):
+        stanza = self.make_path_stanza(hashes, size)
+        stanza.update({
+            'product_name': 'com.canonical.streams:gui',
+            'item_name': self.version,
+            })
+        return [stanza]
 
 
 def main():
@@ -152,6 +205,8 @@ def main():
         writer = StanzaWriter.for_windows(**kwargs)
     elif args.command == 'centos':
         writer = StanzaWriter.for_centos(**kwargs)
+    elif args.command == 'gui':
+        writer = GUIStanzaWriter.from_tarfile(**kwargs)
     writer.write_stanzas()
 
 if __name__ == '__main__':
