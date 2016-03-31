@@ -6,6 +6,8 @@ package google
 import (
 	"github.com/juju/errors"
 	"google.golang.org/api/compute/v1"
+
+	"github.com/juju/juju/version"
 )
 
 // The different types of disk persistence supported by GCE.
@@ -46,11 +48,24 @@ const (
 // GCE disks.
 //
 // Note: GCE does not currently have an official minimum disk size.
-// However, in testing we found the minimum size to be 10 GB due to
-// the image size. See gceapi messsage.
+// However, in testing we found the minimum size to be 10 GB for ubuntu
+// and 50 GB for windows due to the image size. See gceapi message.
 //
 // gceapi: Requested disk size cannot be smaller than the image size (10 GB)
-const MinDiskSizeGB uint64 = 10
+func MinDiskSizeGB(ser string) uint64 {
+	// See comment below that explains why we're ignoring the error
+	os, _ := version.GetOSFromSeries(ser)
+	switch os {
+	case version.Ubuntu:
+		return 10
+	case version.Windows:
+		return 50
+	// On default we just return a "sane" default since the error
+	// will be propagated through the api and appear in juju status anyway
+	default:
+		return 10
+	}
+}
 
 // gibToMib converts gibibytes to mebibytes.
 func gibToMib(g int64) uint64 {
@@ -61,6 +76,8 @@ func gibToMib(g int64) uint64 {
 // Some fields are used only for attached disks (i.e. in association
 // with instances).
 type DiskSpec struct {
+	// Series is the OS series on which the disk size depends
+	Series string
 	// SizeHintGB is the requested disk size in Gigabytes. It must be
 	// greater than 0.
 	SizeHintGB uint64
@@ -89,12 +106,20 @@ type DiskSpec struct {
 	// characters must be a dash, lowercase letter, or digit, except the
 	// last character, which cannot be a dash.
 	Name string
+	// Description holds a description of the disk, it currently holds
+	// modelUUID.
+	// This field is used instead of a tag or metadata because
+	// compute (v1) API does not support any way to add extra data
+	// to disks.
+	// Description was picked because it is not mutable (actually no field is) for disks.
+	// There is a metadata API but it is not supported for disks for the moment.
+	Description string
 }
 
 // TooSmall checks the spec's size hint and indicates whether or not
 // it is smaller than the minimum disk size.
 func (ds *DiskSpec) TooSmall() bool {
-	return ds.SizeHintGB < MinDiskSizeGB
+	return ds.SizeHintGB < MinDiskSizeGB(ds.Series)
 }
 
 // SizeGB returns the disk size to use for a new disk. The size hint
@@ -103,7 +128,7 @@ func (ds *DiskSpec) TooSmall() bool {
 func (ds *DiskSpec) SizeGB() uint64 {
 	size := ds.SizeHintGB
 	if ds.TooSmall() {
-		size = MinDiskSizeGB
+		size = MinDiskSizeGB(ds.Series)
 	}
 	return size
 }
@@ -155,6 +180,7 @@ func (ds *DiskSpec) newDetached() (*compute.Disk, error) {
 		SizeGb:      int64(ds.SizeGB()),
 		SourceImage: ds.ImageURL,
 		Type:        string(ds.PersistentDiskType),
+		Description: ds.Description,
 	}, nil
 }
 
@@ -177,6 +203,8 @@ type Disk struct {
 	Id uint64
 	// Name is a unique identifier string for each disk.
 	Name string
+	// Description holds the description field for a disk, we store env UUID here.
+	Description string
 	// Size is the size in mbit.
 	Size uint64
 	// Type is one of the available disk types supported by
@@ -190,12 +218,13 @@ type Disk struct {
 
 func NewDisk(cd *compute.Disk) *Disk {
 	d := &Disk{
-		Id:     cd.Id,
-		Name:   cd.Name,
-		Size:   gibToMib(cd.SizeGb),
-		Type:   DiskType(cd.Type),
-		Zone:   cd.Zone,
-		Status: DiskStatus(cd.Status),
+		Id:          cd.Id,
+		Name:        cd.Name,
+		Description: cd.Description,
+		Size:        gibToMib(cd.SizeGb),
+		Type:        DiskType(cd.Type),
+		Zone:        cd.Zone,
+		Status:      DiskStatus(cd.Status),
 	}
 	return d
 }

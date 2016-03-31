@@ -199,6 +199,7 @@ func (v *volumeSource) createOneVolume(p storage.VolumeParams, instances instanc
 		SizeHintGB:         mibToGib(p.Size),
 		Name:               volumeName,
 		PersistentDiskType: persistentType,
+		Description:        v.envUUID,
 	}
 
 	gceDisks, err := v.gce.CreateDisks(zone, []google.DiskSpec{disk})
@@ -263,6 +264,12 @@ func parseVolumeId(volName string) (string, string, error) {
 	return zone, volumeUUID, nil
 
 }
+
+func isValidVolume(volumeName string) bool {
+	_, _, err := parseVolumeId(volumeName)
+	return err == nil
+}
+
 func (v *volumeSource) destroyOneVolume(volName string) error {
 	zone, _, err := parseVolumeId(volName)
 	if err != nil {
@@ -272,7 +279,6 @@ func (v *volumeSource) destroyOneVolume(volName string) error {
 		return errors.Annotatef(err, "cannot destroy volume %q", volName)
 	}
 	return nil
-
 }
 
 func (v *volumeSource) ListVolumes() ([]string, error) {
@@ -289,7 +295,15 @@ func (v *volumeSource) ListVolumes() ([]string, error) {
 			continue
 		}
 		for _, disk := range disks {
-			volumes = append(volumes, disk.Name)
+			// Blank disk description means an older disk or a disk
+			// not created by storage, we should not touch it.
+			if disk.Description != v.envUUID && disk.Description != "" {
+				continue
+			}
+			// We don't want to lay hands on disks we did not create.
+			if isValidVolume(disk.Name) {
+				volumes = append(volumes, disk.Name)
+			}
 		}
 	}
 	return volumes, nil
