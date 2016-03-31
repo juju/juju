@@ -35,7 +35,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Stub = testing.Stub{}
 	s.manifold = apicaller.Manifold(apicaller.ManifoldConfig{
-		AgentName: "agent-name",
+		AgentName:            "agent-name",
+		APIConfigWatcherName: "api-config-watcher-name",
 	})
 
 	s.agent = &mockAgent{
@@ -43,7 +44,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		env:  coretesting.ModelTag,
 	}
 	s.getResource = dt.StubGetResource(dt.StubResources{
-		"agent-name": dt.StubResource{Output: s.agent},
+		"agent-name":              dt.StubResource{Output: s.agent},
+		"api-config-watcher-name": dt.StubResource{},
 	})
 
 	// Watch out for this: it uses its own Stub because Close calls are made from
@@ -64,7 +66,10 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{"agent-name"})
+	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{
+		"agent-name",
+		"api-config-watcher-name",
+	})
 }
 
 func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
