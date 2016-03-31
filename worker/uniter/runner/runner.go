@@ -4,11 +4,13 @@
 package runner
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
+	"unicode/utf8"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -139,17 +141,50 @@ func (runner *runner) runJujuRunAction() (err error) {
 		return runner.context.Flush("juju-run", err)
 	}
 
-	if err := runner.context.UpdateActionResults([]string{"Code"}, fmt.Sprintf("%d", results.Code)); err != nil {
-		return runner.context.Flush("juju-run", err)
-	}
-	if err := runner.context.UpdateActionResults([]string{"Stdout"}, fmt.Sprintf("%s", results.Stdout)); err != nil {
-		return runner.context.Flush("juju-run", err)
-	}
-	if err := runner.context.UpdateActionResults([]string{"Stderr"}, fmt.Sprintf("%s", results.Stderr)); err != nil {
+	if err := runner.updateActionResults(results); err != nil {
 		return runner.context.Flush("juju-run", err)
 	}
 
 	return runner.context.Flush("juju-run", nil)
+}
+
+func encodeBytes(input []byte) (value string, encoding string) {
+	if utf8.Valid(input) {
+		value = string(input)
+		encoding = "utf8"
+	} else {
+		value = base64.StdEncoding.EncodeToString(input)
+		encoding = "base64"
+	}
+	return value, encoding
+}
+
+func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error {
+	if err := runner.context.UpdateActionResults([]string{"Code"}, fmt.Sprintf("%d", results.Code)); err != nil {
+		return errors.Trace(err)
+	}
+
+	stdout, encoding := encodeBytes(results.Stdout)
+	if err := runner.context.UpdateActionResults([]string{"Stdout"}, stdout); err != nil {
+		return errors.Trace(err)
+	}
+	if encoding != "utf8" {
+		if err := runner.context.UpdateActionResults([]string{"Stdout.encoding"}, encoding); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	stderr, encoding := encodeBytes(results.Stderr)
+	if err := runner.context.UpdateActionResults([]string{"Stderr"}, stderr); err != nil {
+		return errors.Trace(err)
+	}
+	if encoding != "utf8" {
+		if err := runner.context.UpdateActionResults([]string{"Stderr.encoding"}, encoding); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	return nil
 }
 
 // RunAction exists to satisfy the Runner interface.
