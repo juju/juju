@@ -127,7 +127,7 @@ func (s *certPoolSuite) TestCreateCertPoolLogsBadCerts(c *gc.C) {
 
 func (s *certPoolSuite) addCert(c *gc.C, filename string) {
 	expiry := time.Now().UTC().AddDate(10, 0, 0)
-	pem, _, err := cert.NewCA("random env name", expiry)
+	pem, _, err := cert.NewCA("random env name", "1", expiry)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filename, []byte(pem), 0644)
 	c.Assert(err, jc.ErrorIsNil)
