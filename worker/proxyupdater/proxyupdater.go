@@ -18,7 +18,9 @@ import (
 	proxyutils "github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 
+	"github.com/juju/juju/api/base"
 	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
@@ -41,13 +43,20 @@ var (
 	Started = func() {}
 )
 
+// API is an interface that is provided to New
+// which can be used to fetch the API host ports
+type API interface {
+	ProxyConfig() (params.ProxyConfigResult, error)
+	WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error)
+}
+
 // proxyWorker is responsible for monitoring the juju environment
 // configuration and making changes on the physical (or virtual) machine as
 // necessary to match the environment changes.  Examples of these types of
 // changes are apt proxy configuration and the juju proxies stored in the juju
 // proxy file.
 type proxyWorker struct {
-	api      *apiproxyupdater.Facade
+	api      API
 	aptProxy proxyutils.Settings
 	proxy    proxyutils.Settings
 
@@ -64,9 +73,10 @@ type proxyWorker struct {
 
 // NewWorker returns a worker.Worker that updates proxy environment variables for the
 // process and for the whole machine.
-var NewWorker = func(api *apiproxyupdater.Facade) (worker.Worker, error) {
+var NewWorker = func(api base.APICaller) (worker.Worker, error) {
+	proxyAPI := apiproxyupdater.NewAPI(api)
 	envWorker := &proxyWorker{
-		api:   api,
+		api:   proxyAPI,
 		first: true,
 	}
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
@@ -181,16 +191,13 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) erro
 }
 
 func (w *proxyWorker) onChange() error {
-	env, err := w.api.ModelConfig()
+	cfg, err := w.api.ProxyConfig()
 	if err != nil {
 		return err
 	}
-	w.handleProxyValues(env.ProxySettings())
-	err = w.handleAptProxyValues(env.AptProxySettings())
-	if err != nil {
-		return err
-	}
-	return nil
+
+	w.handleProxyValues(cfg.ProxySettings)
+	return w.handleAptProxyValues(cfg.APTProxySettings)
 }
 
 // SetUp is defined on the worker.NotifyWatchHandler interface.
@@ -203,7 +210,7 @@ func (w *proxyWorker) SetUp() (watcher.NotifyWatcher, error) {
 	}
 	w.first = false
 	Started()
-	return w.api.WatchForModelConfigChanges()
+	return w.api.WatchForProxyConfigAndAPIHostPortChanges()
 }
 
 // Handle is defined on the worker.NotifyWatchHandler interface.

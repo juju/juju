@@ -1,14 +1,14 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package proxyupdater_test
+package proxyupdater
 
 import (
-	stdtesting "testing"
+	"testing"
 
-	"github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
-func TestAll(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+func TestPackage(t *testing.T) {
+	gc.TestingT(t)
 }
