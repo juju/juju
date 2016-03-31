@@ -181,7 +181,7 @@ class GUIStanzaWriter(StanzaWriterBase):
         tar_base = os.path.basename(tarfile)
         version = re.match('(.*)\.tar\.gz', tar_base).group(1)
         filename = 'juju-gui-{}-{}.json'.format(agent_stream, version)
-        agent_path = '/'.join(['gui', tar_base])
+        agent_path = '/'.join(['gui', version, tar_base])
         return cls(filename, agent_stream, version, 'tar.gz', tarfile,
                    agent_path)
 

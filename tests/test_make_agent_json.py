@@ -7,6 +7,7 @@ from mock import patch
 
 from build_package import juju_series
 from make_agent_json import (
+    GUIStanzaWriter,
     StanzaWriter,
     supported_windows_releases,
     )
@@ -149,3 +150,37 @@ class TestStanzaWriter(TestCase):
                       'b7852b855',
           }
         self.assertEqual([expected], output)
+
+
+class TestGUIStanzaWriter(TestCase):
+
+    def test_content_id(self):
+        writer = GUIStanzaWriter('a', 'testing', 'c', 'd', 'e', 'f')
+        self.assertEqual('com.canonical.streams:testing:gui',
+                         writer.content_id)
+
+    def test_from_tarfile(self):
+        writer = GUIStanzaWriter.from_tarfile('3.14.tar.gz', 'escape')
+        self.assertEqual('juju-gui-escape-3.14.json', writer.filename)
+        self.assertEqual('escape', writer.agent_stream)
+        self.assertEqual('3.14', writer.version)
+        self.assertEqual('tar.gz', writer.ftype)
+        self.assertEqual('3.14.tar.gz', writer.tarfile)
+        self.assertEqual('gui/3.14/3.14.tar.gz', writer.agent_path)
+
+    def test_make_stanzas(self):
+        writer = GUIStanzaWriter('a', 'b', 'c', 'd', 'e', 'f')
+        writer.version_name = 'g'
+        result, = writer.make_stanzas({'h': 'i'}, 314)
+        self.assertEqual({
+            'content_id': 'com.canonical.streams:b:gui',
+            'item_name': 'c',
+            'version': 'c',
+            'ftype': 'd',
+            'path': 'f',
+            'version_name': 'g',
+            'h': 'i',
+            'size': 314,
+            'format': 'products:1.0',
+            'product_name': 'com.canonical.streams:gui',
+            }, result)
