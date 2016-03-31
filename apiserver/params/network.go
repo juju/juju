@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/utils/proxy"
 )
 
 // -----
@@ -652,4 +653,10 @@ type ProviderSpace struct {
 	ProviderId string   `json:"ProviderId"`
 	Subnets    []Subnet `json:"Subnets"`
 	Error      *Error   `json:"Error,omitempty"`
+}
+
+// ProxyConfigResult contains information needed to configure a clients proxy settings
+type ProxyConfigResult struct {
+	ProxySettings    proxy.Settings
+	APTProxySettings proxy.Settings
 }
