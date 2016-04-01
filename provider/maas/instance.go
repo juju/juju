@@ -46,11 +46,8 @@ func maasObjectId(maasObject *gomaasapi.MAASObject) instance.Id {
 	return instance.Id(maasObject.URI().String())
 }
 
-// Status returns a juju status based on the maas instance returned
-// status message.
-func (mi *maasInstance) Status() instance.InstanceStatus {
+func instanceStatusConverter(statusMsg, substatus string) instance.InstanceStatus {
 	maasInstanceStatus := status.StatusEmpty
-	statusMsg, substatus := mi.statusGetter(mi.Id())
 	switch statusMsg {
 	case "":
 		logger.Debugf("unable to obtain status of instance %s", mi.Id())
@@ -71,11 +68,17 @@ func (mi *maasInstance) Status() instance.InstanceStatus {
 		maasInstanceStatus = status.StatusEmpty
 		statusMsg = fmt.Sprintf("%s: %s", statusMsg, substatus)
 	}
-
 	return instance.InstanceStatus{
 		Status:  maasInstanceStatus,
 		Message: statusMsg,
 	}
+}
+
+// Status returns a juju status based on the maas instance returned
+// status message.
+func (mi *maasInstance) Status() instance.InstanceStatus {
+	statusMsg, substatus := mi.statusGetter(mi.Id())
+	return instanceStatusConverter(statusMsg, substatus)
 }
 
 func (mi *maasInstance) Addresses() ([]network.Address, error) {
