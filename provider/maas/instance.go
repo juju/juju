@@ -15,13 +15,18 @@ import (
 	"github.com/juju/juju/status"
 )
 
+type maasInstanceInterface interface {
+	instance.Instance
+	zone() string
+}
+
 type maasInstance struct {
 	maasObject   *gomaasapi.MAASObject
 	environ      *maasEnviron
 	statusGetter func(instance.Id) (string, string)
 }
 
-var _ instance.Instance = (*maasInstance)(nil)
+var _ maasInstanceInterface = (*maasInstance)(nil)
 
 // Override for testing.
 var resolveHostnames = func(addrs []network.Address) []network.Address {

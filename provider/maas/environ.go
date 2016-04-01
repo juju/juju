@@ -570,16 +570,28 @@ func (e *maasEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
 // InstanceAvailabilityZoneNames returns the availability zone names for each
 // of the specified instances.
 func (e *maasEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
-	instances, err := e.Instances(ids)
-	if err != nil && err != environs.ErrPartialInstances {
-		return nil, err
+	var instances []instance.Instance
+	if e.usingMAAS2() {
+		// XXX this is wrong we need to filter on id so we need Instances
+		// implemented for MAAS 2
+		var err error
+		instances, err = e.AllInstances()
+		if err != nil && err != environs.ErrPartialInstances {
+			return nil, err
+		}
+	} else {
+		var err error
+		instances, err = e.Instances(ids)
+		if err != nil && err != environs.ErrPartialInstances {
+			return nil, err
+		}
 	}
 	zones := make([]string, len(instances))
 	for i, inst := range instances {
 		if inst == nil {
 			continue
 		}
-		zones[i] = inst.(*maasInstance).zone()
+		zones[i] = inst.(maasInstanceInterface).zone()
 	}
 	return zones, nil
 }
@@ -2093,7 +2105,22 @@ func checkNotFound(subnetIdSet map[string]bool) error {
 
 // AllInstances returns all the instance.Instance in this provider.
 func (environ *maasEnviron) AllInstances() ([]instance.Instance, error) {
+	if environ.usingMAAS2() {
+		return environ.allInstances2()
+	}
 	return environ.acquiredInstances(nil)
+}
+
+func (environ *maasEnviron) allInstances2() ([]instance.Instance, error) {
+	machines, err := environ.maasController.Machines(gomaasapi.MachinesArgs{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	instances := make([]instance.Instance, len(machines))
+	for i, machine := range machines {
+		instances[i] = &maas2Instance{machine, environ.maasController}
+	}
+	return instances, nil
 }
 
 // Storage is defined by the Environ interface.
