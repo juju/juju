@@ -116,19 +116,19 @@ func (c *statusHealthCommand) Run(ctx *cmd.Context) error {
 func (m *machineStatus) Health() (int, []string) {
 	var exitCode int
 	var notOkay []string
+
+	switch m.JujuStatus.Current {
+	case status.StatusError:
+		exitCode = 2
+	case status.StatusStarted:
+		exitCode = 0
+	default:
+		exitCode = 1
+	}
 	if m.Err != nil {
-		if 2 > exitCode {
-			exitCode = 2
-		}
+		exitCode = 2
 		notOkay = append(notOkay, m.Err.Error())
-	} else if m.JujuStatus.Current != status.StatusStarted {
-		errLvl := 1
-		if m.JujuStatus.Current == status.StatusError {
-			errLvl = 2
-		}
-		if errLvl > exitCode {
-			exitCode = errLvl
-		}
+	} else if exitCode > 0 {
 		notOkay = append(notOkay, fmt.Sprintf("Status: %s", m.JujuStatus.Current))
 	}
 
@@ -149,19 +149,18 @@ func (s *serviceStatus) Health() (int, []string) {
 	var exitCode int
 	var notOkay []string
 
+	switch s.StatusInfo.Current {
+	case status.StatusError:
+		exitCode = 2
+	case status.StatusStarted, status.StatusIdle, status.StatusActive, status.StatusEmpty:
+		exitCode = 0
+	default:
+		exitCode = 1
+	}
 	if s.Err != nil {
-		if 2 > exitCode {
-			exitCode = 2
-		}
+		exitCode = 2
 		notOkay = append(notOkay, s.Err.Error())
-	} else if s.StatusInfo.Current != status.StatusStarted && s.StatusInfo.Current != status.StatusIdle && s.StatusInfo.Current != status.StatusActive && s.StatusInfo.Current != status.StatusEmpty {
-		errLvl := 1
-		if s.StatusInfo.Current == status.StatusError {
-			errLvl = 2
-		}
-		if errLvl > exitCode {
-			exitCode = errLvl
-		}
+	} else if exitCode > 0 {
 		notOkay = append(notOkay, fmt.Sprintf("Status: %s, Error: %v", s.StatusInfo.Current, s.StatusInfo.Err))
 	}
 
@@ -184,24 +183,34 @@ func (u *unitStatus) Health() (int, []string) {
 	var exitCode int
 	var notOkay []string
 
+	switch u.JujuStatusInfo.Current {
+	case status.StatusError:
+		exitCode = 2
+	case status.StatusActive, status.StatusIdle:
+		exitCode = 0
+	default:
+		exitCode = 1
+	}
 	if u.JujuStatusInfo.Err != nil {
-		if 2 > exitCode {
-			exitCode = 2
-		}
+		exitCode = 2
 		notOkay = append(notOkay, u.JujuStatusInfo.Err.Error())
-	} else if u.JujuStatusInfo.Current != status.StatusActive && u.JujuStatusInfo.Current != status.StatusIdle {
-		if 1 > exitCode {
-			exitCode = 1
-		}
+	} else if exitCode > 0 {
 		notOkay = append(notOkay, fmt.Sprintf("AgentStatus: %s", u.JujuStatusInfo.Current))
-		// AgentStatus Info is reliably implemented, WorkloadStatusInfo isn't so skip err and allow unknown
-	} else if u.WorkloadStatusInfo.Current != status.StatusActive && u.WorkloadStatusInfo.Current != status.StatusUnknown {
-		errLvl := 1
-		if u.WorkloadStatusInfo.Current == status.StatusBlocked {
-			errLvl = 2
-		}
-		if errLvl > exitCode {
-			exitCode = errLvl
+	}
+
+	var wklCode int
+	switch u.WorkloadStatusInfo.Current {
+	case status.StatusBlocked, status.StatusError:
+		wklCode = 2
+	case status.StatusActive, status.StatusUnknown:
+		// AgentStatus Info is reliably implemented, WorkloadStatusInfo isn't so allow unknown
+		wklCode = 0
+	default:
+		wklCode = 1
+	}
+	if wklCode > 0 {
+		if wklCode > exitCode {
+			exitCode = wklCode
 		}
 		notOkay = append(notOkay, fmt.Sprintf("WorkloadStatus: %s", u.WorkloadStatusInfo.Current))
 	}
@@ -229,9 +238,7 @@ func (f *formattedStatus) Health() (int, []string) {
 	for mname, mstatus := range f.Machines {
 		mcode, missues := mstatus.Health()
 
-		if mcode > exitCode {
-			exitCode = mcode
-		}
+		exitCode = mcode
 		for _, issue := range missues {
 			notOkay = append(notOkay, fmt.Sprintf("Machine: %s\t %s", mname, issue))
 		}
