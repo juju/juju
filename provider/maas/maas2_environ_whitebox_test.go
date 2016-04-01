@@ -12,7 +12,7 @@ import (
 )
 
 type maas2EnvironSuite struct {
-	baseProviderSuite
+	controllerSuite
 }
 
 var _ = gc.Suite(&maas2EnvironSuite{})
