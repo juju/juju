@@ -79,23 +79,6 @@ func (s *baseProviderSuite) TearDownSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
 
-type controllerSuite struct {
-	baseProviderSuite
-	testServer *gomaasapi.SimpleTestServer
-}
-
-func (s *controllerSuite) SetUpTest(c *gc.C) {
-	s.baseProviderSuite.SetUpTest(c)
-	s.testServer = gomaasapi.NewSimpleServer()
-	s.testServer.AddResponse("/api/2.0/version/", http.StatusOK, maas2VersionResponse)
-	s.testServer.Start()
-}
-
-func (s *controllerSuite) TearDownTest(c *gc.C) {
-	s.baseProviderSuite.TearDownTest(c)
-	s.testServer.Close()
-}
-
 type providerSuite struct {
 	baseProviderSuite
 	testMAASObject *gomaasapi.TestMAASObject
@@ -114,8 +97,7 @@ const exampleAgentName = "dfb69555-0bc4-4d1f-85f2-4ee390974984"
 
 func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.baseProviderSuite.SetUpSuite(c)
-	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
-	s.testMAASObject = TestMAASObject
+	s.testMAASObject = gomaasapi.NewTestMAAS("1.0")
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
