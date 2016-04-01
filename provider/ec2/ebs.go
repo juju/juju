@@ -5,7 +5,6 @@ package ec2
 
 import (
 	"regexp"
-	"strings"
 	"sync"
 	"time"
 
@@ -432,8 +431,7 @@ var destroyVolumeAttempt = utils.AttemptStrategy{
 func (v *ebsVolumeSource) destroyVolume(volumeId string) (err error) {
 	defer func() {
 		if err != nil {
-			errMessage := errors.Cause(err).Error()
-			if strings.Contains(errMessage, volumeNotFound) {
+			if ec2ErrCode(err) == volumeNotFound || errors.IsNotFound(err) {
 				// Either the volume isn't found, or we queried the
 				// instance corresponding to a DeleteOnTermination
 				// attachment; in either case, the volume is or will

@@ -336,6 +336,14 @@ func (s *ebsVolumeSuite) TestVolumeTypeAliases(c *gc.C) {
 	}
 }
 
+func (s *ebsVolumeSuite) TestDestroyVolumesNotFoundReturnsNil(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	results, err := vs.DestroyVolumes([]string{"vol-42"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0], jc.ErrorIsNil)
+}
+
 func (s *ebsVolumeSuite) TestDestroyVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
