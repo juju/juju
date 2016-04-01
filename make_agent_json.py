@@ -192,10 +192,10 @@ class GUIStanzaWriter(FileStanzaWriter):
     def from_tarfile(cls, tarfile, stream):
         """Use a tarfile and stream to instantiate this class."""
         tar_base = os.path.basename(tarfile)
-        version = re.match('(.*)\.tar\.gz', tar_base).group(1)
+        version = re.match('jujugui-(.*).tar.bz2', tar_base).group(1)
         filename = 'juju-gui-{}-{}.json'.format(stream, version)
         path = '/'.join(['gui', version, tar_base])
-        return cls(filename, stream, version, 'tar.gz', tarfile,
+        return cls(filename, stream, version, 'tar.bz2', tarfile,
                    path)
 
     def make_stanzas(self, hashes, size):
