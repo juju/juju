@@ -47,6 +47,10 @@ var ErrStopped = stderrors.New("watcher was stopped")
 
 // Next retrieves all changes that have happened since the last
 // time it was called, blocking until there are some changes available.
+//
+// The initial call to Next() will always return without waiting for new
+// changes in the model. That first call returns the deltas that
+// represent the model's current state, even when the model is empty.
 func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 	req := &request{
 		w:     w,
