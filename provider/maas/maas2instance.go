@@ -4,15 +4,11 @@
 package maas
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/status"
 )
 
 type maas2Instance struct {
@@ -29,7 +25,11 @@ func (mi *maas2Instance) String() string {
 func (mi *maas2Instance) Id() instance.Id {
 	// TODO (mfoord): this should be machine.URI() but that isn't implemented
 	// yet.
-	return mi.machine.SystemId()
+	return instance.Id(mi.machine.SystemId())
+}
+
+func (mi *maas2Instance) Addresses() ([]network.Address, error) {
+	return nil, errors.New("write me or bite me")
 }
 
 // Status returns a juju status based on the maas instance returned
@@ -47,7 +47,7 @@ func (mi *maas2Instance) Status() instance.InstanceStatus {
 		statusName = mi.machine.StatusName()
 		statusMsg = mi.machine.StatusMessage()
 	}
-	return instanceStatusConverter(statusMsg, statusName)
+	return convertInstanceStatus(statusMsg, statusName, mi.Id())
 }
 
 func (mi *maas2Instance) refresh() error {

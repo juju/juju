@@ -46,11 +46,11 @@ func maasObjectId(maasObject *gomaasapi.MAASObject) instance.Id {
 	return instance.Id(maasObject.URI().String())
 }
 
-func instanceStatusConverter(statusMsg, substatus string) instance.InstanceStatus {
+func convertInstanceStatus(statusMsg, substatus string, id instance.Id) instance.InstanceStatus {
 	maasInstanceStatus := status.StatusEmpty
 	switch statusMsg {
 	case "":
-		logger.Debugf("unable to obtain status of instance %s", mi.Id())
+		logger.Debugf("unable to obtain status of instance %s", id)
 		statusMsg = "error in getting status"
 	case "Deployed":
 		maasInstanceStatus = status.StatusRunning
@@ -78,7 +78,7 @@ func instanceStatusConverter(statusMsg, substatus string) instance.InstanceStatu
 // status message.
 func (mi *maasInstance) Status() instance.InstanceStatus {
 	statusMsg, substatus := mi.statusGetter(mi.Id())
-	return instanceStatusConverter(statusMsg, substatus)
+	return convertInstanceStatus(statusMsg, substatus, mi.Id())
 }
 
 func (mi *maasInstance) Addresses() ([]network.Address, error) {
