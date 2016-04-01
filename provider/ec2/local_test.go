@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -55,6 +56,10 @@ var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
 	"type":          "ec2",
 	"agent-version": coretesting.FakeVersionNumber.String(),
 })
+
+func fakeCallback(_ status.Status, _ string, _ map[string]interface{}) error {
+	return nil
+}
 
 func registerLocalTests() {
 	// N.B. Make sure the region we use here
@@ -758,8 +763,8 @@ func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := t.prepareAndBootstrap(c)
 
-	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID, Placement: "zone=" + zone}
-	result, err := testing.StartInstanceWithParams(env, "1", params)
+	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID, Placement: "zone=" + zone, StatusCallback: fakeCallback}
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -856,6 +861,7 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 		DistributionGroup: func() ([]instance.Id, error) {
 			return expectedInstances, nil
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -879,6 +885,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 		DistributionGroup: func() ([]instance.Id, error) {
 			return nil, dgErr
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err = testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(errors.Cause(err), gc.Equals, dgErr)
@@ -944,7 +951,8 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	var azArgs []string
-	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances) (*amzec2.RunInstancesResp, error) {
+
+	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances, c environs.StatusCallbackFunc) (*amzec2.RunInstancesResp, error) {
 		azArgs = append(azArgs, ri.AvailZone)
 		return nil, runInstancesError
 	})
@@ -1018,6 +1026,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) 
 			subIDs[1]: []string{"zone3"},
 			subIDs[2]: []string{"zone4"},
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
@@ -1036,6 +1045,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 			subIDs[0]: []string{"test-available"},
 			subIDs[1]: []string{"zone3"},
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1053,6 +1063,7 @@ func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
 			subIDs[0]: []string{"test-available"},
 			subIDs[1]: []string{"zone3"},
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1072,6 +1083,7 @@ func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 		SubnetsToZones: map[network.Id][]string{
 			subIDs[0]: []string{""},
 		},
+		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
@@ -1103,12 +1115,13 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 	// is constrained. The second attempt succeeds, and so allocates to az2.
 	var azArgs []string
 	realRunInstances := *ec2.RunInstances
-	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances) (*amzec2.RunInstancesResp, error) {
+
+	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances, c environs.StatusCallbackFunc) (*amzec2.RunInstancesResp, error) {
 		azArgs = append(azArgs, ri.AvailZone)
 		if len(azArgs) == 1 {
 			return nil, runInstancesError
 		}
-		return realRunInstances(e, ri)
+		return realRunInstances(e, ri, fakeCallback)
 	})
 	inst, hwc := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
 	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})

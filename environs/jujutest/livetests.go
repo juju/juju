@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -888,10 +889,14 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	possibleTools := coretools.List(envtesting.AssertUploadFakeToolsVersions(
 		c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-trusty-amd64"),
 	))
+	fakeCallback := func(_ status.Status, _ string, _ map[string]interface{}) error {
+		return nil
+	}
 	params := environs.StartInstanceParams{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
+		StatusCallback: fakeCallback,
 	}
 	err = jujutesting.SetImageMetadata(
 		t.Env,
