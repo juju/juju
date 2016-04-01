@@ -131,19 +131,24 @@ func (c *runCommand) Init(args []string) error {
 
 // ConvertActionResults takes the results from the api and creates a map
 // suitable for format converstion to YAML or JSON.
-func ConvertActionResults(result params.ActionResult) map[string]interface{} {
+func ConvertActionResults(result params.ActionResult, query actionQuery) map[string]interface{} {
 	values := make(map[string]interface{})
+	values[query.receiver.receiverType] = query.receiver.tag.Id()
 	if result.Error != nil {
-		// Convert the error string back into an error object.
 		values["Error"] = result.Error.Error()
+		values["Action"] = query.actionTag.Id()
 		return values
 	}
-	tag, err := names.ParseTag(result.Action.Receiver)
-	if err != nil {
-		values["Error"] = err.Error()
+	if result.Action.Tag != query.actionTag.String() {
+		values["Error"] = fmt.Sprintf("expected action tag %q, got %q", query.actionTag.String(), result.Action.Tag)
+		values["Action"] = query.actionTag.Id()
 		return values
 	}
-	values["Receiver"] = tag.Id()
+	if result.Action.Receiver != query.receiver.tag.String() {
+		values["Error"] = fmt.Sprintf("expected action receiver %q, got %q", query.receiver.tag.String(), result.Action.Receiver)
+		values["Action"] = query.actionTag.Id()
+		return values
+	}
 	if result.Message != "" {
 		values["Message"] = result.Message
 	}
@@ -199,7 +204,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 
 	// In case the command fails we dump *all* the enqueued id's to stderr.
 	// Normally, there is enough info dumped to stdout to show which action failed.
-	actionsToQuery := []actionReceiverID{}
+	actionsToQuery := []actionQuery{}
 	for _, result := range runResults {
 		if result.Error != nil {
 			fmt.Fprintf(ctx.GetStderr(), "couldn't queue one action: %v", result.Error)
@@ -210,15 +215,31 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 			fmt.Fprintf(ctx.GetStderr(), "got invalid action tag %v for receiver %v", result.Action.Tag, result.Action.Receiver)
 			continue
 		}
-		receiverTag, err := names.ParseTag(result.Action.Receiver)
+
+		receiverTag, err := names.ActionReceiverFromTag(result.Action.Receiver)
 		if err != nil {
-			fmt.Fprintf(ctx.GetStderr(), "got invalid action tag %v for receiver %v", result.Action.Tag, result.Action.Receiver)
+			fmt.Fprintf(ctx.GetStderr(), "got invalid action receiver tag %v for action %v", result.Action.Receiver, result.Action.Tag)
 			continue
 		}
-		actionsToQuery = append(actionsToQuery, actionReceiverID{
-			actionTag:  actionTag,
-			receiverID: receiverTag.Id(),
-		})
+		var receiverType string
+		switch receiverTag.(type) {
+		case names.UnitTag:
+			receiverType = "UnitId"
+		case names.MachineTag:
+			receiverType = "MachineId"
+		default:
+			receiverType = "ReceiverId"
+		}
+		actionsToQuery = append(actionsToQuery, actionQuery{
+			actionTag: actionTag,
+			receiver: actionReceiver{
+				receiverType: receiverType,
+				tag:          receiverTag,
+			}})
+	}
+
+	if len(actionsToQuery) == 0 {
+		return errors.New("no actions were successfully enqueued, aborting")
 	}
 
 	values := []interface{}{}
@@ -228,23 +249,17 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 
-		newActionsToQuery := []actionReceiverID{}
+		newActionsToQuery := []actionQuery{}
 		for i, result := range actionResults.Results {
-			if result.Error != nil {
-				values = append(values, map[string]interface{}{
-					"actionId": actionsToQuery[i].actionTag.Id(),
-					"Receiver": actionsToQuery[i].receiverID,
-					"Error":    result.Error,
-				})
-				continue
+			if result.Error == nil {
+				switch result.Status {
+				case params.ActionRunning, params.ActionPending:
+					newActionsToQuery = append(newActionsToQuery, actionsToQuery[i])
+					continue
+				}
 			}
 
-			switch result.Status {
-			case params.ActionRunning, params.ActionPending:
-				newActionsToQuery = append(newActionsToQuery, actionsToQuery[i])
-			default:
-				values = append(values, ConvertActionResults(result))
-			}
+			values = append(values, ConvertActionResults(result, actionsToQuery[i]))
 		}
 
 		actionsToQuery = newActionsToQuery
@@ -252,12 +267,6 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		// TODO: use a watcher instead of sleeping
 		// this should be easier once we implement action grouping
 		<-afterFunc(1 * time.Second)
-	}
-
-	if len(values) == 0 {
-		return c.out.Write(ctx, map[string]interface{}{
-			"Error": "something went wrong, check stderr for details",
-		})
 	}
 
 	// If we are just dealing with one result, AND we are using the smart
@@ -291,9 +300,14 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, values)
 }
 
-type actionReceiverID struct {
-	actionTag  names.ActionTag
-	receiverID string
+type actionReceiver struct {
+	receiverType string
+	tag          names.Tag
+}
+
+type actionQuery struct {
+	receiver  actionReceiver
+	actionTag names.ActionTag
 }
 
 // RunClient exposes the capabilities required by the CLI
@@ -323,7 +337,7 @@ var afterFunc = func(d time.Duration) <-chan time.Time {
 }
 
 // entities is a convenience constructor for params.Entities.
-func entities(actions []actionReceiverID) params.Entities {
+func entities(actions []actionQuery) params.Entities {
 	entities := params.Entities{
 		Entities: make([]params.Entity, len(actions)),
 	}

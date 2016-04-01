@@ -162,29 +162,46 @@ func (s *RunSuite) TestConvertRunResults(c *gc.C) {
 	for i, test := range []struct {
 		message  string
 		results  params.ActionResult
+		query    actionQuery
 		expected map[string]interface{}
 	}{{
-		message: "error gets passed through alone",
+		message: "in case of error we print receiver and failed action id",
 		results: makeActionResult(mockResponse{
 			error: &params.Error{
 				Message: "whoops",
 			},
 		}, ""),
+		query: makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
 		expected: map[string]interface{}{
-			"Error": "whoops",
+			"Error":     "whoops",
+			"MachineId": "1",
+			"Action":    validUUID,
 		},
 	}, {
-		message: "invalid id is an error",
-		results: makeActionResult(mockResponse{machineTag: "not-a-tag"}, ""),
+		message: "different action tag from query tag",
+		results: makeActionResult(mockResponse{machineTag: "not-a-tag"}, "invalid"),
+		query:   makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
 		expected: map[string]interface{}{
-			"Error": `"not-a-tag" is not a valid tag`,
+			"Error":     `expected action tag "action-` + validUUID + `", got "invalid"`,
+			"MachineId": "1",
+			"Action":    validUUID,
+		},
+	}, {
+		message: "different response tag from query tag",
+		results: makeActionResult(mockResponse{machineTag: "not-a-tag"}, "action-"+validUUID),
+		query:   makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
+		expected: map[string]interface{}{
+			"Error":     `expected action receiver "machine-1", got "not-a-tag"`,
+			"MachineId": "1",
+			"Action":    validUUID,
 		},
 	}, {
 		message: "minimum is machine id",
-		results: makeActionResult(mockResponse{machineTag: "machine-1"}, ""),
+		results: makeActionResult(mockResponse{machineTag: "machine-1"}, "action-"+validUUID),
+		query:   makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
 		expected: map[string]interface{}{
-			"Receiver": "1",
-			"Stdout":   "",
+			"MachineId": "1",
+			"Stdout":    "",
 		},
 	}, {
 		message: "other fields are copied if there",
@@ -194,9 +211,10 @@ func (s *RunSuite) TestConvertRunResults(c *gc.C) {
 			stderr:  "stderr",
 			message: "msg",
 			code:    "42",
-		}, ""),
+		}, "action-"+validUUID),
+		query: makeActionQuery(validUUID, "UnitId", names.NewUnitTag("unit/0")),
 		expected: map[string]interface{}{
-			"Receiver":   "unit/0",
+			"UnitId":     "unit/0",
 			"Stdout":     "stdout",
 			"Stderr":     "stderr",
 			"Message":    "msg",
@@ -204,7 +222,7 @@ func (s *RunSuite) TestConvertRunResults(c *gc.C) {
 		},
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
-		result := ConvertActionResults(test.results)
+		result := ConvertActionResults(test.results, test.query)
 		c.Check(result, jc.DeepEquals, test.expected)
 	}
 }
@@ -229,9 +247,11 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 		mock.receiverIdMap["unit/0"]: unitResult,
 	}
 
+	machineQuery := makeActionQuery(mock.receiverIdMap["0"], "MachineId", names.NewMachineTag("0"))
+	unitQuery := makeActionQuery(mock.receiverIdMap["unit/0"], "UnitId", names.NewUnitTag("unit/0"))
 	unformatted := []interface{}{
-		ConvertActionResults(machineResult),
-		ConvertActionResults(unitResult),
+		ConvertActionResults(machineResult, machineQuery),
+		ConvertActionResults(unitResult, unitQuery),
 	}
 
 	jsonFormatted, err := cmd.FormatJson(unformatted)
@@ -284,24 +304,17 @@ func (s *RunSuite) TestAllMachines(c *gc.C) {
 		mock.receiverIdMap["1"]: machine1Result,
 	}
 
+	machine0Query := makeActionQuery(mock.receiverIdMap["0"], "MachineId", names.NewMachineTag("0"))
+	machine1Query := makeActionQuery(mock.receiverIdMap["1"], "MachineId", names.NewMachineTag("1"))
 	unformatted := []interface{}{
-		ConvertActionResults(machine0Result),
-		ConvertActionResults(machine1Result),
+		ConvertActionResults(machine0Result, machine0Query),
+		ConvertActionResults(machine1Result, machine1Query),
 		map[string]interface{}{
-			"actionId": mock.receiverIdMap["2"],
-			"Receiver": "2",
-			"Error": &params.Error{
-				Message: "action not found",
-			},
+			"Action":    mock.receiverIdMap["2"],
+			"MachineId": "2",
+			"Error":     "action not found",
 		},
 	}
-
-	// Since we missed one action we will output all id's to stderr
-	expectedStderr := strings.Join([]string{
-		fmt.Sprintf("Receiver %s: action ID %s\n", "0", mock.receiverIdMap["0"]),
-		fmt.Sprintf("Receiver %s: action ID %s\n", "1", mock.receiverIdMap["1"]),
-		fmt.Sprintf("Receiver %s: action ID %s\n", "2", mock.receiverIdMap["2"]),
-	}, "")
 
 	jsonFormatted, err := cmd.FormatJson(unformatted)
 	c.Assert(err, jc.ErrorIsNil)
@@ -310,7 +323,7 @@ func (s *RunSuite) TestAllMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(testing.Stdout(context), gc.Equals, string(jsonFormatted)+"\n")
-	c.Check(testing.Stderr(context), gc.Equals, expectedStderr)
+	c.Check(testing.Stderr(context), gc.Equals, "")
 }
 
 func (s *RunSuite) TestBlockAllMachines(c *gc.C) {
@@ -340,8 +353,9 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 		mock.receiverIdMap["0"]: machineResult,
 	}
 
+	query := makeActionQuery(mock.receiverIdMap["0"], "MachineId", names.NewMachineTag("0"))
 	unformatted := []interface{}{
-		ConvertActionResults(machineResult),
+		ConvertActionResults(machineResult, query),
 	}
 
 	jsonFormatted, err := cmd.FormatJson(unformatted)
@@ -426,6 +440,16 @@ func (m *mockRunAPI) setMachinesAlive(ids ...string) {
 	}
 	for _, id := range ids {
 		m.machines[id] = true
+	}
+}
+
+func makeActionQuery(actionID string, receiverType string, receiverTag names.Tag) actionQuery {
+	return actionQuery{
+		actionTag: names.NewActionTag(actionID),
+		receiver: actionReceiver{
+			receiverType: receiverType,
+			tag:          receiverTag,
+		},
 	}
 }
 
@@ -541,3 +565,6 @@ func (m *mockRunAPI) Actions(actionTags params.Entities) (params.ActionResults, 
 
 	return results, nil
 }
+
+// validUUID is a UUID used in tests
+var validUUID = "01234567-89ab-cdef-0123-456789abcdef"
