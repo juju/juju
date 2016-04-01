@@ -1432,6 +1432,14 @@ class TestEnvJujuClient(ClientTest):
         mock_juju.assert_called_with(
             'deploy', ('local:mondogb', 'my-mondogb',))
 
+    def test_deploy_series(self):
+        env = EnvJujuClient(
+            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.deploy('local:blah', series='xenial')
+        mock_juju.assert_called_with(
+            'deploy', ('local:blah', '--series', 'xenial'))
+
     def test_deploy_bundle_2x(self):
         client = EnvJujuClient(JujuData('an_env', None),
                                '1.23-series-arch', None)
