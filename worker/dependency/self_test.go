@@ -27,14 +27,14 @@ func (s *SelfSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *SelfSuite) TestInputs(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 		manifold := dependency.SelfManifold(engine)
 		c.Check(manifold.Inputs, gc.HasLen, 0)
 	})
 }
 
 func (s *SelfSuite) TestStart(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 		manifold := dependency.SelfManifold(engine)
 		actual, err := manifold.Start(nil)
 		c.Check(err, jc.ErrorIsNil)
@@ -43,16 +43,16 @@ func (s *SelfSuite) TestStart(c *gc.C) {
 }
 
 func (s *SelfSuite) TestOutputBadInput(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 		manifold := dependency.SelfManifold(engine)
 		var input dependency.Engine
-		err := manifold.Output(input, nil)
+		err := manifold.Output(&input, nil)
 		c.Check(err, gc.ErrorMatches, "unexpected input worker")
 	})
 }
 
 func (s *SelfSuite) TestOutputBadOutput(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 		manifold := dependency.SelfManifold(engine)
 		var unknown interface{}
 		err := manifold.Output(engine, &unknown)
@@ -62,7 +62,7 @@ func (s *SelfSuite) TestOutputBadOutput(c *gc.C) {
 }
 
 func (s *SelfSuite) TestOutputReporter(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 		manifold := dependency.SelfManifold(engine)
 		var reporter dependency.Reporter
 		err := manifold.Output(engine, &reporter)
@@ -72,7 +72,7 @@ func (s *SelfSuite) TestOutputReporter(c *gc.C) {
 }
 
 func (s *SelfSuite) TestOutputInstaller(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 		manifold := dependency.SelfManifold(engine)
 		var installer dependency.Installer
 		err := manifold.Output(engine, &installer)
@@ -82,7 +82,7 @@ func (s *SelfSuite) TestOutputInstaller(c *gc.C) {
 }
 
 func (s *SelfSuite) TestActuallyWorks(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Create and install a manifold with an unsatisfied dependency.
 		mh1 := newManifoldHarness("self")
@@ -105,7 +105,7 @@ func (s *SelfSuite) TestActuallyWorks(c *gc.C) {
 }
 
 func (s *SelfSuite) TestStress(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Repeatedly install a manifold inside itself.
 		manifold := dependency.SelfManifold(engine)

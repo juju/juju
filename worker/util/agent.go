@@ -24,9 +24,9 @@ func AgentManifold(config AgentManifoldConfig, start AgentStartFunc) dependency.
 		Inputs: []string{
 			config.AgentName,
 		},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(context dependency.Context) (worker.Worker, error) {
 			var agent agent.Agent
-			if err := getResource(config.AgentName, &agent); err != nil {
+			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 			return start(agent)

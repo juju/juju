@@ -40,30 +40,30 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.MachineLockName,
 			config.CharmDirName,
 		},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(context dependency.Context) (worker.Worker, error) {
 
 			// Collect all required resources.
 			var agent agent.Agent
-			if err := getResource(config.AgentName, &agent); err != nil {
+			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 			var apiCaller base.APICaller
-			if err := getResource(config.APICallerName, &apiCaller); err != nil {
+			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				// TODO(fwereade): absence of an APICaller shouldn't be the end of
 				// the world -- we ought to return a type that can at least run the
 				// leader-deposed hook -- but that's not done yet.
 				return nil, err
 			}
 			var machineLock *fslock.Lock
-			if err := getResource(config.MachineLockName, &machineLock); err != nil {
+			if err := context.Get(config.MachineLockName, &machineLock); err != nil {
 				return nil, err
 			}
 			var leadershipTracker leadership.Tracker
-			if err := getResource(config.LeadershipTrackerName, &leadershipTracker); err != nil {
+			if err := context.Get(config.LeadershipTrackerName, &leadershipTracker); err != nil {
 				return nil, err
 			}
 			var charmDirGuard fortress.Guard
-			if err := getResource(config.CharmDirName, &charmDirGuard); err != nil {
+			if err := context.Get(config.CharmDirName, &charmDirGuard); err != nil {
 				return nil, err
 			}
 

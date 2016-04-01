@@ -27,14 +27,14 @@ type ModelManifoldConfig struct {
 func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.APICallerName, config.ClockName},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(context dependency.Context) (worker.Worker, error) {
 
 			var clock clock.Clock
-			if err := getResource(config.ClockName, &clock); err != nil {
+			if err := context.Get(config.ClockName, &clock); err != nil {
 				return nil, errors.Trace(err)
 			}
 			var apiCaller base.APICaller
-			if err := getResource(config.APICallerName, &apiCaller); err != nil {
+			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
 
