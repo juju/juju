@@ -41,6 +41,9 @@ import (
 const (
 	// The string from the api indicating the dynamic range of a subnet.
 	dynamicRange = "dynamic-range"
+	// The version strings indicating the MAAS API version.
+	apiVersion1 = "1.0"
+	apiVersion2 = "2.0"
 )
 
 // A request may fail to due "eventual consistency" semantics, which
@@ -61,7 +64,12 @@ var (
 	ReleaseIPAddress         = releaseIPAddress
 	DeploymentStatusCall     = deploymentStatusCall
 	GetCapabilities          = getCapabilities
+	GetMAAS2Controller       = getMAAS2Controller
 )
+
+func getMAAS2Controller(maasServer, apiKey string) (gomaasapi.Controller, error) {
+	return gomaasapi.NewController(gomaasapi.ControllerArgs{maasServer, apiKey})
+}
 
 func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error) {
 	spacesJson, err := spaces.CallGet("", nil)
@@ -186,6 +194,9 @@ type maasEnviron struct {
 	maasClientUnlocked *gomaasapi.MAASObject
 	storageUnlocked    storage.Storage
 
+	// maasController provides access to the MAAS 2.0 API.
+	maasController gomaasapi.Controller
+
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
 
@@ -205,6 +216,10 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	env.storageUnlocked = NewStorage(env)
 
 	return env, nil
+}
+
+func (env *maasEnviron) usingMAAS2() bool {
+	return env.apiVersion == apiVersion2
 }
 
 // Bootstrap is specified in the Environ interface.
@@ -296,20 +311,29 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	// We need to know the version of the server we're on. We support 1.9
 	// and 2.0. MAAS 1.9 uses the 1.0 api version and 2.0 uses the 2.0 api
 	// version.
-	// TODO (mfoord): support for 2.0 will be in a follow up.
-	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), "1.0")
-	if err != nil {
+	apiVersion := apiVersion2
+	controller, err := GetMAAS2Controller(ecfg.maasServer(), ecfg.maasOAuth())
+	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
+	if ok && maasErr.StatusCode == http.StatusNotFound {
+		apiVersion = apiVersion1
+		authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion1)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
+		caps, err := GetCapabilities(env.maasClientUnlocked)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !caps.Contains(capNetworkDeploymentUbuntu) {
+			return errors.NotSupportedf("MAAS 1.9 or more recent is required")
+		}
+	} else if err != nil {
 		return errors.Trace(err)
+	} else {
+		env.maasController = controller
 	}
-	env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
-	caps, err := GetCapabilities(env.maasClientUnlocked)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !caps.Contains(capNetworkDeploymentUbuntu) {
-		return errors.NotSupportedf("MAAS 1.9 or more recent is required")
-	}
-	env.apiVersion = "1.0"
+	env.apiVersion = apiVersion
 	return nil
 }
 

@@ -37,7 +37,10 @@ var _ storage.Storage = (*maasStorage)(nil)
 func NewStorage(env *maasEnviron) storage.Storage {
 	stor := new(maasStorage)
 	stor.environUnlocked = env
-	stor.maasClientUnlocked = env.getMAASClient().GetSubObject("files")
+	// TODO (babbageclunk): needs MAAS 2.0 support
+	if !env.usingMAAS2() {
+		stor.maasClientUnlocked = env.getMAASClient().GetSubObject("files")
+	}
 	return stor
 }
 
