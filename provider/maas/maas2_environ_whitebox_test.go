@@ -43,7 +43,7 @@ func (r *fakeBootResource) Architecture() string {
 }
 
 type maas2EnvironSuite struct {
-	controllerSuite
+	baseProviderSuite
 }
 
 var _ = gc.Suite(&maas2EnvironSuite{})
