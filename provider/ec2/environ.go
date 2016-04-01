@@ -1695,7 +1695,7 @@ func isSubnetConstrainedError(err error) bool {
 // If the err is of type *ec2.Error, ec2ErrCode returns
 // its code, otherwise it returns the empty string.
 func ec2ErrCode(err error) string {
-	ec2err, _ := err.(*ec2.Error)
+	ec2err, _ := errors.Cause(err).(*ec2.Error)
 	if ec2err == nil {
 		return ""
 	}
