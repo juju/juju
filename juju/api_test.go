@@ -540,7 +540,7 @@ func (s *CacheAPIEndpointsSuite) TestResolveSkippedWhenHostnamesUnchanged(c *gc.
 	c.Assert(
 		c.GetTestLog(),
 		jc.Contains,
-		"DEBUG juju.api API hostnames unchanged - not resolving",
+		"DEBUG juju.juju API hostnames unchanged - not resolving",
 	)
 }
 
@@ -587,9 +587,9 @@ func (s *CacheAPIEndpointsSuite) TestResolveCalledWithChangedHostnames(c *gc.C) 
 	c.Assert(changed, jc.IsTrue)
 	c.Assert(s.resolveNumCalls, gc.Equals, 1)
 	c.Assert(s.numResolved, gc.Equals, 2)
-	expectLog := fmt.Sprintf("DEBUG juju.api API hostnames changed from %v to %v - resolving hostnames", unsortedHPs, sortedHPs)
+	expectLog := fmt.Sprintf("DEBUG juju.juju API hostnames changed from %v to %v - resolving hostnames", unsortedHPs, sortedHPs)
 	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
-	expectLog = fmt.Sprintf("INFO juju.api new API addresses to cache %v", resolvedHPs)
+	expectLog = fmt.Sprintf("INFO juju.juju new API addresses to cache %v", resolvedHPs)
 	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
 }
 
@@ -637,9 +637,9 @@ func (s *CacheAPIEndpointsSuite) TestAfterResolvingUnchangedAddressesNotCached(c
 	c.Assert(changed, jc.IsFalse)
 	c.Assert(s.resolveNumCalls, gc.Equals, 1)
 	c.Assert(s.numResolved, gc.Equals, 2)
-	expectLog := fmt.Sprintf("DEBUG juju.api API hostnames changed from %v to %v - resolving hostnames", unsortedHPs, sortedHPs)
+	expectLog := fmt.Sprintf("DEBUG juju.juju API hostnames changed from %v to %v - resolving hostnames", unsortedHPs, sortedHPs)
 	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
-	expectLog = "DEBUG juju.api API addresses unchanged"
+	expectLog = "DEBUG juju.juju API addresses unchanged"
 	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
 }
 
@@ -685,9 +685,9 @@ func (s *CacheAPIEndpointsSuite) TestResolveCalledWithInitialEndpoints(c *gc.C) 
 	c.Assert(changed, jc.IsTrue)
 	c.Assert(s.resolveNumCalls, gc.Equals, 1)
 	c.Assert(s.numResolved, gc.Equals, 2)
-	expectLog := fmt.Sprintf("DEBUG juju.api API hostnames %v - resolving hostnames", sortedHPs)
+	expectLog := fmt.Sprintf("DEBUG juju.juju API hostnames %v - resolving hostnames", sortedHPs)
 	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
-	expectLog = fmt.Sprintf("INFO juju.api new API addresses to cache %v", resolvedHPs)
+	expectLog = fmt.Sprintf("INFO juju.juju new API addresses to cache %v", resolvedHPs)
 	c.Assert(c.GetTestLog(), jc.Contains, expectLog)
 }
 

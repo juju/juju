@@ -36,8 +36,6 @@ func APIWorkersManifold(config APIWorkersConfig) dependency.Manifold {
 			}
 
 			// Get API connection.
-			// XXX(fwereade): what is this Connection actually
-			// needed for? should generally be base.APICaller...
 			var apiConn api.Connection
 			if err := context.Get(config.APICallerName, &apiConn); err != nil {
 				return nil, err

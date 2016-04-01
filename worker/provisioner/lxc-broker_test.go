@@ -388,17 +388,17 @@ func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfoWithAddressAllocat
 	iface := result.NetworkInfo[0]
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(iface, jc.DeepEquals, network.InterfaceInfo{
-		DeviceIndex:    0,
-		CIDR:           "0.1.2.0/24",
-		ConfigType:     network.ConfigStatic,
-		InterfaceName:  "eth0", // generated from the device index.
-		MACAddress:     "aa:bb:cc:dd:ee:ff",
-		DNSServers:     network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		DNSSearch:      "dummy",
-		Address:        network.NewAddress("0.1.2.3"),
-		GatewayAddress: network.NewAddress("0.1.2.1"),
-		NetworkName:    network.DefaultPrivate,
-		ProviderId:     network.DefaultProviderId,
+		DeviceIndex:      0,
+		CIDR:             "0.1.2.0/24",
+		ConfigType:       network.ConfigStatic,
+		InterfaceName:    "eth0", // generated from the device index.
+		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		DNSSearchDomains: []string{"dummy"},
+		MACAddress:       "aa:bb:cc:dd:ee:ff",
+		Address:          network.NewAddress("0.1.2.3"),
+		GatewayAddress:   network.NewAddress("0.1.2.1"),
+		NetworkName:      network.DefaultPrivate,
+		ProviderId:       network.DefaultProviderId,
 	})
 }
 
@@ -410,14 +410,14 @@ func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfoWithoutAddressAllo
 	iface := result.NetworkInfo[0]
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(iface, jc.DeepEquals, network.InterfaceInfo{
-		DeviceIndex:    0,
-		CIDR:           "0.1.2.0/24",
-		InterfaceName:  "dummy0", // generated from the device index.
-		MACAddress:     "aa:bb:cc:dd:ee:ff",
-		DNSServers:     network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		DNSSearch:      "dummy",
-		Address:        network.NewAddress("0.1.2.3"),
-		GatewayAddress: network.NewAddress("0.1.2.1"),
+		DeviceIndex:      0,
+		CIDR:             "0.1.2.0/24",
+		InterfaceName:    "dummy0", // generated from the device index.
+		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		DNSSearchDomains: []string{"dummy"},
+		MACAddress:       "aa:bb:cc:dd:ee:ff",
+		Address:          network.NewAddress("0.1.2.3"),
+		GatewayAddress:   network.NewAddress("0.1.2.1"),
 	})
 }
 
@@ -1050,16 +1050,17 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 	c.Assert(result, gc.HasLen, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
-		DeviceIndex:    0,
-		CIDR:           "0.1.2.0/24",
-		ConfigType:     network.ConfigStatic,
-		InterfaceName:  "eth0", // generated from the device index.
-		MACAddress:     "aa:bb:cc:dd:ee:ff",
-		DNSServers:     network.NewAddresses("ns1.dummy"),
-		Address:        network.NewAddress("0.1.2.3"),
-		GatewayAddress: network.NewAddress("0.1.2.1"),
-		NetworkName:    network.DefaultPrivate,
-		ProviderId:     network.DefaultProviderId,
+		DeviceIndex:      0,
+		CIDR:             "0.1.2.0/24",
+		ConfigType:       network.ConfigStatic,
+		InterfaceName:    "eth0", // generated from the device index.
+		MACAddress:       "aa:bb:cc:dd:ee:ff",
+		DNSServers:       network.NewAddresses("ns1.dummy"),
+		DNSSearchDomains: []string{""},
+		Address:          network.NewAddress("0.1.2.3"),
+		GatewayAddress:   network.NewAddress("0.1.2.1"),
+		NetworkName:      network.DefaultPrivate,
+		ProviderId:       network.DefaultProviderId,
 	}})
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "GetContainerInterfaceInfo",
@@ -1071,16 +1072,17 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 	c.Assert(result, gc.HasLen, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []network.InterfaceInfo{{
-		DeviceIndex:    0,
-		CIDR:           "0.1.2.0/24",
-		ConfigType:     network.ConfigStatic,
-		InterfaceName:  "eth0", // generated from the device index.
-		MACAddress:     "aa:bb:cc:dd:ee:ff",
-		DNSServers:     network.NewAddresses("ns1.dummy"),
-		Address:        network.NewAddress("0.1.2.3"),
-		GatewayAddress: network.NewAddress("0.1.2.1"),
-		NetworkName:    network.DefaultPrivate,
-		ProviderId:     network.DefaultProviderId,
+		DeviceIndex:      0,
+		CIDR:             "0.1.2.0/24",
+		ConfigType:       network.ConfigStatic,
+		InterfaceName:    "eth0", // generated from the device index.
+		MACAddress:       "aa:bb:cc:dd:ee:ff",
+		DNSServers:       network.NewAddresses("ns1.dummy"),
+		DNSSearchDomains: []string{""},
+		Address:          network.NewAddress("0.1.2.3"),
+		GatewayAddress:   network.NewAddress("0.1.2.1"),
+		NetworkName:      network.DefaultPrivate,
+		ProviderId:       network.DefaultProviderId,
 	}})
 
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{

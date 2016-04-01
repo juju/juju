@@ -676,6 +676,13 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 				return newMetadataUpdater(apiConn.MetadataUpdater()), nil
 			})
 		}
+
+		// We don't have instance info set and the network config for the
+		// bootstrap machine only, so update it now. All the other machines will
+		// have instance info including network config set at provisioning time.
+		if err := a.setControllerNetworkConfig(apiConn); err != nil {
+			return nil, errors.Annotate(err, "setting controller network config")
+		}
 	} else {
 		runner.StartWorker("stateconverter", func() (worker.Worker, error) {
 			// TODO(fwereade): this worker needs its own facade.
@@ -691,6 +698,25 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		})
 	}
 	return runner, nil
+}
+
+func (a *MachineAgent) setControllerNetworkConfig(apiConn api.Connection) error {
+	machinerAPI := apimachiner.NewState(apiConn)
+	agentConfig := a.CurrentConfig()
+
+	tag := agentConfig.Tag().(names.MachineTag)
+	machine, err := machinerAPI.Machine(tag)
+	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
+		return worker.ErrTerminateAgent
+	}
+	if err != nil {
+		return errors.Annotatef(err, "cannot load machine %s from state", tag)
+	}
+
+	if err := machine.SetProviderNetworkConfig(); err != nil {
+		return errors.Annotate(err, "cannot set controller provider network config")
+	}
+	return nil
 }
 
 // Restart restarts the agent's service.

@@ -44,6 +44,9 @@ type MachineTemplate struct {
 
 	// Addresses holds the addresses to be associated with the
 	// new machine.
+	//
+	// TODO(dimitern): This should be removed once all addresses
+	// come from link-layer device addresses.
 	Addresses []network.Address
 
 	// InstanceId holds the instance id to associate with the machine.
@@ -61,6 +64,10 @@ type MachineTemplate struct {
 	//
 	// TODO(dimitern): Drop this in favor of constraints in a follow-up.
 	RequestedNetworks []string
+
+	// LinkLayerDevices holds a list of arguments for setting link-layer devices
+	// on the machine.
+	LinkLayerDevices []LinkLayerDeviceArgs
 
 	// Volumes holds the parameters for volumes that are to be created
 	// and attached to the machine.
@@ -363,6 +370,7 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	if !parent.supportsContainerType(containerType) {
 		return nil, nil, errors.Errorf("machine %s cannot host %s containers", parentId, containerType)
 	}
+
 	newId, err := st.newContainerId(parentId, containerType)
 	if err != nil {
 		return nil, nil, err

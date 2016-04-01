@@ -18,18 +18,17 @@ var binarystorageNew = binarystorage.New
 //
 // TODO(axw) remove this, add a constructor function in binarystorage.
 func (st *State) ToolsStorage() (binarystorage.StorageCloser, error) {
-	return newStorage(st, toolsmetadataC), nil
+	return newStorage(st, st.ModelUUID(), toolsmetadataC), nil
 }
 
 // GUIStorage returns a new binarystorage.StorageCloser that stores GUI archive
 // metadata in the "juju" database "guimetadata" collection.
 func (st *State) GUIStorage() (binarystorage.StorageCloser, error) {
-	return newStorage(st, guimetadataC), nil
+	return newStorage(st, st.controllerTag.Id(), guimetadataC), nil
 }
 
-func newStorage(st *State, metadataCollection string) binarystorage.StorageCloser {
-	uuid := st.ModelUUID()
-	session := st.session.Copy()
+func newStorage(st *State, uuid, metadataCollection string) binarystorage.StorageCloser {
+	session := st.session.Clone()
 	rs := blobstore.NewGridFS(blobstoreDB, uuid, session)
 	db := session.DB(jujuDB)
 	c := db.C(metadataCollection)

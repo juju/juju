@@ -98,6 +98,7 @@ var (
 	ShortAttempt         = &shortAttempt
 	StorageAttempt       = &storageAttempt
 	DestroyVolumeAttempt = &destroyVolumeAttempt
+	LongAttempt          = &longAttempt
 )
 
 func EC2ErrCode(err error) string {

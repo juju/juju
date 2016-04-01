@@ -82,6 +82,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	// like this because sometimes we pick up the initial harvest config (destroyed)
 	// rather than the one we change to (all).
 	received := []string{}
+	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
 		case newCfg := <-cfgObserver:
@@ -89,7 +90,9 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 				return
 			}
 			received = append(received, newCfg.ProvisionerHarvestMode().String())
-		case <-time.After(coretesting.LongWait):
+		case <-time.After(coretesting.ShortWait):
+			s.BackingState.StartSync()
+		case <-timeout:
 			if len(received) == 0 {
 				c.Fatalf("PA did not action config change")
 			} else {
@@ -105,11 +108,6 @@ type ProvisionerSuite struct {
 }
 
 var _ = gc.Suite(&ProvisionerSuite{})
-
-var veryShortAttempt = utils.AttemptStrategy{
-	Total: 1 * time.Second,
-	Delay: 80 * time.Millisecond,
-}
 
 func (s *CommonProvisionerSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)

@@ -324,6 +324,7 @@ var commandNames = []string{
 	"unset-model-config",
 	"update-clouds",
 	"upgrade-charm",
+	"upgrade-gui",
 	"upgrade-juju",
 	"version",
 }
