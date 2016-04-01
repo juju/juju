@@ -52,7 +52,7 @@ func NewFlagWorker(gate Waiter) (*FlagWorker, error) {
 	}
 	go func() {
 		defer w.tomb.Done()
-		w.tomb.Kill(w.loop())
+		w.tomb.Kill(w.run())
 	}()
 	return w, nil
 }
@@ -79,7 +79,7 @@ func (w *FlagWorker) Check() bool {
 	return w.unlocked
 }
 
-func (w *FlagWorker) loop() error {
+func (w *FlagWorker) run() error {
 	var bounce <-chan struct{}
 	if !w.unlocked {
 		bounce = w.gate.Unlocked()
