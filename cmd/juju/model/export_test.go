@@ -49,6 +49,13 @@ func NewUsersCommandForTest(api UsersAPI, store jujuclient.ClientStore) cmd.Comm
 	return modelcmd.Wrap(cmd)
 }
 
+// NewShowCommandForTest returns a ShowCommand with the api provided as specified.
+func NewShowCommandForTest(api ShowModelAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &showModelCommand{api: api}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}
+
 // NewDestroyCommandForTest returns a DestroyCommand with the api provided as specified.
 func NewDestroyCommandForTest(api DestroyEnvironmentAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &destroyCommand{

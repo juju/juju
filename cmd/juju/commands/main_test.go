@@ -306,6 +306,7 @@ var commandNames = []string{
 	"show-controllers",
 	"show-machine",
 	"show-machines",
+	"show-model",
 	"show-status",
 	"show-storage",
 	"show-user",
