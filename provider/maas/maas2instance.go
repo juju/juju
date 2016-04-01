@@ -4,7 +4,6 @@
 package maas
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 
 	"github.com/juju/juju/instance"
@@ -29,7 +28,12 @@ func (mi *maas2Instance) Id() instance.Id {
 }
 
 func (mi *maas2Instance) Addresses() ([]network.Address, error) {
-	return nil, errors.New("write me or bite me")
+	machineAddresses := mi.machine.IPAddresses()
+	addresses := make([]network.Address, len(machineAddresses))
+	for i, address := range machineAddresses {
+		addresses[i] = network.NewAddress(address)
+	}
+	return addresses, nil
 }
 
 // Status returns a juju status based on the maas instance returned
