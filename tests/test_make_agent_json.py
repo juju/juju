@@ -160,13 +160,13 @@ class TestGUIStanzaWriter(TestCase):
                          writer.content_id)
 
     def test_from_tarfile(self):
-        writer = GUIStanzaWriter.from_tarfile('3.14.tar.gz', 'escape')
+        writer = GUIStanzaWriter.from_tarfile('jujugui-3.14.tar.bz2', 'escape')
         self.assertEqual('juju-gui-escape-3.14.json', writer.filename)
         self.assertEqual('escape', writer.stream)
         self.assertEqual('3.14', writer.version)
-        self.assertEqual('tar.gz', writer.ftype)
-        self.assertEqual('3.14.tar.gz', writer.tarfile)
-        self.assertEqual('gui/3.14/3.14.tar.gz', writer.path)
+        self.assertEqual('tar.bz2', writer.ftype)
+        self.assertEqual('jujugui-3.14.tar.bz2', writer.tarfile)
+        self.assertEqual('gui/3.14/jujugui-3.14.tar.bz2', writer.path)
 
     def test_make_stanzas(self):
         writer = GUIStanzaWriter('a', 'b', 'c', 'd', 'e', 'f')
