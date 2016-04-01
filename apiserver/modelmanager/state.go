@@ -47,7 +47,7 @@ type modelShim struct {
 }
 
 func (m modelShim) Users() ([]common.ModelUser, error) {
-	stateUsers, err := m.Users()
+	stateUsers, err := m.Model.Users()
 	if err != nil {
 		return nil, err
 	}
