@@ -2118,7 +2118,7 @@ func (environ *maasEnviron) allInstances2() ([]instance.Instance, error) {
 	}
 	instances := make([]instance.Instance, len(machines))
 	for i, machine := range machines {
-		instances[i] = &maas2Instance{machine, environ.maasController}
+		instances[i] = &maas2Instance{machine}
 	}
 	return instances, nil
 }
