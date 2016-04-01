@@ -341,25 +341,36 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 	if env.supportedArchitectures != nil {
 		return env.supportedArchitectures, nil
 	}
-	bootImages, err := env.allBootImages()
-	if err != nil && env.usingMAAS2() {
-		return nil, errors.Trace(err)
-	} else if err != nil || len(bootImages) == 0 {
-		logger.Debugf("error querying boot-images: %v", err)
-		logger.Debugf("falling back to listing nodes")
-		supportedArchitectures, err := env.nodeArchitectures()
+
+	if env.usingMAAS2() {
+		bootImages, err := env.allBootImages2()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		env.supportedArchitectures = supportedArchitectures
+		env.supportedArchitectures = architecturesFromBootImages(bootImages)
 	} else {
-		architectures := make(set.Strings)
-		for _, image := range bootImages {
-			architectures.Add(image.architecture)
+		bootImages, err := env.allBootImages()
+		if err != nil || len(bootImages) == 0 {
+			logger.Debugf("error querying boot-images: %v", err)
+			logger.Debugf("falling back to listing nodes")
+			supportedArchitectures, err := env.nodeArchitectures()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			env.supportedArchitectures = supportedArchitectures
+		} else {
+			env.supportedArchitectures = architecturesFromBootImages(bootImages)
 		}
-		env.supportedArchitectures = architectures.SortedValues()
 	}
 	return env.supportedArchitectures, nil
+}
+
+func architecturesFromBootImages(bootImages []bootImage) []string {
+	architectures := make(set.Strings)
+	for _, image := range bootImages {
+		architectures.Add(image.architecture)
+	}
+	return architectures.SortedValues()
 }
 
 // SupportsSpaces is specified on environs.Networking.
@@ -400,9 +411,6 @@ func (env *maasEnviron) allBootImages2() ([]bootImage, error) {
 // allBootImages queries MAAS for all of the boot-images across
 // all registered nodegroups.
 func (env *maasEnviron) allBootImages() ([]bootImage, error) {
-	if env.usingMAAS2() {
-		return env.allBootImages2()
-	}
 	nodegroups, err := env.getNodegroups()
 	if err != nil {
 		return nil, err
