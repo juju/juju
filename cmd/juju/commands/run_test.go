@@ -4,7 +4,6 @@
 package commands
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -337,9 +336,6 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 	mock.setResponse("0", mockResponse)
 
 	machineResult := mock.runResponses["0"]
-	s.setUpGetActionResult(map[string]params.ActionResult{
-		mock.receiverIdMap["0"]: machineResult,
-	})
 	mock.actionResponses = map[string]params.ActionResult{
 		mock.receiverIdMap["0"]: machineResult,
 	}
@@ -389,15 +385,6 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 		c.Check(testing.Stdout(context), gc.Equals, test.stdout)
 		c.Check(testing.Stderr(context), gc.Equals, test.stderr)
 	}
-}
-
-func (s *RunSuite) setUpGetActionResult(actions map[string]params.ActionResult) {
-	s.PatchValue(&getActionResult, func(_ RunClient, id string, _ *time.Timer) (params.ActionResult, error) {
-		if res, ok := actions[id]; ok {
-			return res, nil
-		}
-		return params.ActionResult{}, errors.New("not found")
-	})
 }
 
 func (s *RunSuite) setupMockAPI() *mockRunAPI {

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/juju/cmd"
@@ -198,48 +197,6 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	// We want to wait for the action results indefinitely.  Discard the tick.
-	wait := time.NewTimer(0 * time.Second)
-	_ = <-wait.C
-
-	// If we are just dealing with one result, AND we are using the smart
-	// format, then pretend we were running it locally.
-	if len(runResults) == 1 && c.out.Name() == "smart" {
-		result := runResults[0]
-
-		if result.Error != nil {
-			return errors.Trace(result.Error)
-		}
-
-		tag, err := names.ParseActionTag(result.Action.Tag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		result, err = getActionResult(client, tag.Id(), wait)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if result.Error != nil {
-			return result.Error
-		}
-		if result.Message != "" {
-			return fmt.Errorf("%s", result.Message)
-		}
-		if res, ok := result.Output["Stdout"].(string); ok {
-			ctx.Stdout.Write([]byte(res))
-		}
-		if res, ok := result.Output["Stderr"].(string); ok && res != "" {
-			ctx.Stderr.Write([]byte(res))
-		}
-		if res, ok := result.Output["Code"].(string); ok {
-			code, err := strconv.Atoi(res)
-			if err == nil && code != 0 {
-				return cmd.NewRcPassthroughError(code)
-			}
-		}
-		return nil
-	}
-
 	// In case the command fails we dump *all* the enqueued id's to stderr.
 	// Normally, there is enough info dumped to stdout to show which action failed.
 	actionsToQuery := []actionReceiverID{}
@@ -264,26 +221,16 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		})
 	}
 
-	printIDsToStderr := func() {
-		for _, el := range actionsToQuery {
-			fmt.Fprintf(ctx.GetStderr(), "Receiver %s: action ID %s\n", el.receiverID, el.actionTag.Id())
-		}
-	}
-
-	var once sync.Once
 	values := []interface{}{}
 	for len(actionsToQuery) > 0 {
 		actionResults, err := client.Actions(entities(actionsToQuery))
 		if err != nil {
-			once.Do(printIDsToStderr)
-			fmt.Fprintf(ctx.GetStderr(), "failed to retrieve actions: %v", err)
-			continue
+			return errors.Trace(err)
 		}
 
 		newActionsToQuery := []actionReceiverID{}
 		for i, result := range actionResults.Results {
 			if result.Error != nil {
-				once.Do(printIDsToStderr)
 				values = append(values, map[string]interface{}{
 					"actionId": actionsToQuery[i].actionTag.Id(),
 					"Receiver": actionsToQuery[i].receiverID,
@@ -302,12 +249,46 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 
 		actionsToQuery = newActionsToQuery
 
-		<-afterFunc(3 * time.Second)
+		// TODO: use a watcher instead of sleeping
+		// this should be easier once we implement action grouping
+		<-afterFunc(1 * time.Second)
 	}
 
-	c.out.Write(ctx, values)
+	if len(values) == 0 {
+		return c.out.Write(ctx, map[string]interface{}{
+			"Error": "something went wrong, check stderr for details",
+		})
+	}
 
-	return nil
+	// If we are just dealing with one result, AND we are using the smart
+	// format, then pretend we were running it locally.
+	if len(values) == 1 && c.out.Name() == "smart" {
+		result, ok := values[0].(map[string]interface{})
+		if !ok {
+			return errors.New("couldn't read action output")
+		}
+		if res, ok := result["Error"].(string); ok {
+			return errors.New(res)
+		}
+		if res, ok := result["Stdout"].(string); ok {
+			ctx.Stdout.Write([]byte(res))
+			if res, ok := result["Stdout.encoding"].(string); ok && res != "" {
+				ctx.Stdout.Write([]byte("encoding: " + res))
+			}
+		}
+		if res, ok := result["Stderr"].(string); ok && res != "" {
+			ctx.Stderr.Write([]byte(res))
+			if res, ok := result["Stderr.encoding"].(string); ok && res != "" {
+				ctx.Stdout.Write([]byte("encoding: " + res))
+			}
+		}
+		if code, ok := result["ReturnCode"].(int); ok && code != 0 {
+			return cmd.NewRcPassthroughError(code)
+		}
+
+	}
+
+	return c.out.Write(ctx, values)
 }
 
 type actionReceiverID struct {
