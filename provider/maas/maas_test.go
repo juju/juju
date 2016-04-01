@@ -114,8 +114,7 @@ const exampleAgentName = "dfb69555-0bc4-4d1f-85f2-4ee390974984"
 
 func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.baseProviderSuite.SetUpSuite(c)
-	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
-	s.testMAASObject = TestMAASObject
+	s.testMAASObject = gomaasapi.NewTestMAAS("1.0")
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
