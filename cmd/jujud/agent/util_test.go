@@ -116,10 +116,10 @@ func (tracker *modelTracker) Manifolds(config model.ManifoldsConfig) dependency.
 func (tracker *modelTracker) manifold(uuid string, names []string) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: names,
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(context dependency.Context) (worker.Worker, error) {
 			seen := set.NewStrings()
 			for _, name := range names {
-				err := getResource(name, nil)
+				err := context.Get(name, nil)
 				if errors.Cause(err) == dependency.ErrMissing {
 					continue
 				}
@@ -127,10 +127,14 @@ func (tracker *modelTracker) manifold(uuid string, names []string) dependency.Ma
 					seen.Add(name)
 				}
 			}
-			tracker.mu.Lock()
-			defer tracker.mu.Unlock()
-			tracker.current[uuid] = seen
-
+			select {
+			case <-context.Abort():
+				// don't bother to report if it's about to change
+			default:
+				tracker.mu.Lock()
+				defer tracker.mu.Unlock()
+				tracker.current[uuid] = seen
+			}
 			return nil, dependency.ErrMissing
 		},
 	}

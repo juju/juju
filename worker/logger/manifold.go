@@ -14,15 +14,16 @@ import (
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
-type ManifoldConfig util.PostUpgradeManifoldConfig
+type ManifoldConfig util.AgentApiManifoldConfig
 
 // Manifold returns a dependency manifold that runs a logger
 // worker, using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	return util.PostUpgradeManifold(util.PostUpgradeManifoldConfig(config), newWorker)
+	typedConfig := util.AgentApiManifoldConfig(config)
+	return util.AgentApiManifold(typedConfig, newWorker)
 }
 
-// newWorker trivially wraps NewLogger to specialise a PostUpgradeManifold.
+// newWorker trivially wraps NewLogger to specialise a util.AgentApiManifold.
 var newWorker = func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	currentConfig := a.CurrentConfig()
 	loggerFacade := logger.NewState(apiCaller)

@@ -39,9 +39,9 @@ func (s *ManifoldSuite) TestMissingAgent(c *gc.C) {
 		AgentName:     "agent",
 		APICallerName: "api-caller",
 	})
-	w, err := manifold.Start(dt.StubGetResource(dt.StubResources{
-		"agent":      dt.StubResource{Error: dependency.ErrMissing},
-		"api-caller": dt.StubResource{Output: struct{ base.APICaller }{}},
+	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+		"agent":      dependency.ErrMissing,
+		"api-caller": struct{ base.APICaller }{},
 	}))
 	c.Check(w, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
@@ -52,9 +52,9 @@ func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 		AgentName:     "agent",
 		APICallerName: "api-caller",
 	})
-	w, err := manifold.Start(dt.StubGetResource(dt.StubResources{
-		"agent":      dt.StubResource{Output: struct{ agent.Agent }{}},
-		"api-caller": dt.StubResource{Error: dependency.ErrMissing},
+	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+		"agent":      struct{ agent.Agent }{},
+		"api-caller": dependency.ErrMissing,
 	}))
 	c.Check(w, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)

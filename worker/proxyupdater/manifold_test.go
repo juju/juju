@@ -34,8 +34,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMachineShouldWrite(c *gc.C) {
-	config := proxyup.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
-	_, err := workertesting.RunPostUpgradeManifold(
+	config := proxyup.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
+	_, err := workertesting.RunAgentApiManifold(
 		proxyup.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		nil)
@@ -44,8 +44,8 @@ func (s *ManifoldSuite) TestMachineShouldWrite(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMachineShouldntWrite(c *gc.C) {
-	config := proxyup.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
-	_, err := workertesting.RunPostUpgradeManifold(
+	config := proxyup.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
+	_, err := workertesting.RunAgentApiManifold(
 		proxyup.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		nil)
@@ -54,8 +54,8 @@ func (s *ManifoldSuite) TestMachineShouldntWrite(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestUnit(c *gc.C) {
-	config := proxyup.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
-	_, err := workertesting.RunPostUpgradeManifold(
+	config := proxyup.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
+	_, err := workertesting.RunAgentApiManifold(
 		proxyup.Manifold(config),
 		&fakeAgent{tag: names.NewUnitTag("foo/0")},
 		nil)
@@ -64,8 +64,8 @@ func (s *ManifoldSuite) TestUnit(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestNonAgent(c *gc.C) {
-	config := proxyup.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
-	_, err := workertesting.RunPostUpgradeManifold(
+	config := proxyup.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
+	_, err := workertesting.RunAgentApiManifold(
 		proxyup.Manifold(config),
 		&fakeAgent{tag: names.NewUserTag("foo")},
 		nil)

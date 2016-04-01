@@ -85,7 +85,7 @@ func (s *ManifoldSuite) TestStateConfigWatcherMissing(c *gc.C) {
 func (s *ManifoldSuite) TestStartOpenStateNil(c *gc.C) {
 	s.config.OpenState = nil
 	manifold := workerstate.Manifold(s.config)
-	w, err := manifold.Start(dt.StubGetResource(s.resources))
+	w, err := manifold.Start(s.resources.Context())
 	c.Check(w, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "OpenState is nil in config")
 }
@@ -180,7 +180,7 @@ func (s *ManifoldSuite) mustStartManifold(c *gc.C) worker.Worker {
 }
 
 func (s *ManifoldSuite) startManifold(c *gc.C) (worker.Worker, error) {
-	w, err := s.manifold.Start(dt.StubGetResource(s.resources))
+	w, err := s.manifold.Start(s.resources.Context())
 	if w != nil {
 		s.AddCleanup(func(*gc.C) { worker.Stop(w) })
 	}

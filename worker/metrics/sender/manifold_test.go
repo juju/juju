@@ -26,10 +26,10 @@ import (
 
 type ManifoldSuite struct {
 	testing.IsolationSuite
-	factory     spool.MetricFactory
-	client      metricsadder.MetricsAdderClient
-	manifold    dependency.Manifold
-	getResource dependency.GetResourceFunc
+	factory   spool.MetricFactory
+	client    metricsadder.MetricsAdderClient
+	manifold  dependency.Manifold
+	resources dt.StubResources
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -58,11 +58,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	err := os.MkdirAll(filepath.Join(dataDir, "agents", "unit-u-0"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.getResource = dt.StubGetResource(dt.StubResources{
+	s.resources = dt.StubResources{
 		"agent":        dt.StubResource{Output: &dummyAgent{dataDir: dataDir}},
 		"api-caller":   dt.StubResource{Output: &stubAPICaller{&testing.Stub{}}},
 		"metric-spool": dt.StubResource{Output: s.factory},
-	})
+	}
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -70,22 +70,22 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStartMissingAPICaller(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"api-caller":   dt.StubResource{Error: dependency.ErrMissing},
-		"metric-spool": dt.StubResource{Output: s.factory},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"api-caller":   dependency.ErrMissing,
+		"metric-spool": s.factory,
 	})
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, dependency.ErrMissing.Error())
 }
 
 func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent":        dt.StubResource{Error: dependency.ErrMissing},
-		"api-caller":   dt.StubResource{Output: &stubAPICaller{&testing.Stub{}}},
-		"metric-spool": dt.StubResource{Output: s.factory},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent":        dependency.ErrMissing,
+		"api-caller":   &stubAPICaller{&testing.Stub{}},
+		"metric-spool": s.factory,
 	})
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, dependency.ErrMissing.Error())
 }
@@ -95,7 +95,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 }
 
 func (s *ManifoldSuite) setupWorkerTest(c *gc.C) worker.Worker {
-	worker, err := s.manifold.Start(s.getResource)
+	worker, err := s.manifold.Start(s.resources.Context())
 	c.Check(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
 		worker.Kill()

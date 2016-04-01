@@ -240,7 +240,7 @@ func ifNotDead(manifold dependency.Manifold) dependency.Manifold {
 // clockManifold expresses a Clock as a ValueWorker manifold.
 func clockManifold(clock clock.Clock) dependency.Manifold {
 	return dependency.Manifold{
-		Start: func(_ dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(_ dependency.Context) (worker.Worker, error) {
 			return util.NewValueWorker(clock)
 		},
 		Output: util.ValueWorkerOutput,

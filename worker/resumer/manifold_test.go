@@ -38,8 +38,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMachine(c *gc.C) {
-	config := resumer.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
-	_, err := workertesting.RunPostUpgradeManifold(
+	config := resumer.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
+	_, err := workertesting.RunAgentApiManifold(
 		resumer.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{machineJob: multiwatcher.JobManageModel})
@@ -48,8 +48,8 @@ func (s *ManifoldSuite) TestMachine(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMachineNonManagerErrors(c *gc.C) {
-	config := resumer.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
-	_, err := workertesting.RunPostUpgradeManifold(
+	config := resumer.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
+	_, err := workertesting.RunAgentApiManifold(
 		resumer.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{machineJob: multiwatcher.JobHostUnits})
@@ -58,8 +58,8 @@ func (s *ManifoldSuite) TestMachineNonManagerErrors(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestUnitErrors(c *gc.C) {
-	config := resumer.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
-	_, err := workertesting.RunPostUpgradeManifold(
+	config := resumer.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
+	_, err := workertesting.RunAgentApiManifold(
 		resumer.Manifold(config),
 		&fakeAgent{tag: names.NewUnitTag("foo/0")},
 		&fakeAPIConn{})
@@ -68,8 +68,8 @@ func (s *ManifoldSuite) TestUnitErrors(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestNonAgentErrors(c *gc.C) {
-	config := resumer.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
-	_, err := workertesting.RunPostUpgradeManifold(
+	config := resumer.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
+	_, err := workertesting.RunAgentApiManifold(
 		resumer.Manifold(config),
 		&fakeAgent{tag: names.NewUserTag("foo")},
 		&fakeAPIConn{})
