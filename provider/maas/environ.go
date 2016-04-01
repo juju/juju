@@ -41,6 +41,9 @@ import (
 const (
 	// The string from the api indicating the dynamic range of a subnet.
 	dynamicRange = "dynamic-range"
+	// The version strings indicating the MAAS API version.
+	apiVersion1 = "1.0"
+	apiVersion2 = "2.0"
 )
 
 // A request may fail to due "eventual consistency" semantics, which
@@ -216,7 +219,7 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 }
 
 func (env *maasEnviron) usingMAAS2() bool {
-	return env.apiVersion == "2.0"
+	return env.apiVersion == apiVersion2
 }
 
 // Bootstrap is specified in the Environ interface.
@@ -308,12 +311,12 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	// We need to know the version of the server we're on. We support 1.9
 	// and 2.0. MAAS 1.9 uses the 1.0 api version and 2.0 uses the 2.0 api
 	// version.
-	apiVersion := "2.0"
+	apiVersion := apiVersion2
 	controller, err := GetMAAS2Controller(ecfg.maasServer(), ecfg.maasOAuth())
 	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
 	if ok && maasErr.StatusCode == http.StatusNotFound {
-		apiVersion = "1.0"
-		authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), "1.0")
+		apiVersion = apiVersion1
+		authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion1)
 		if err != nil {
 			return errors.Trace(err)
 		}
