@@ -15,33 +15,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type fakeController struct {
-	gomaasapi.Controller
-	bootResources      []gomaasapi.BootResource
-	bootResourcesError error
-}
-
-func (c *fakeController) BootResources() ([]gomaasapi.BootResource, error) {
-	if c.bootResourcesError != nil {
-		return nil, c.bootResourcesError
-	}
-	return c.bootResources, nil
-}
-
-type fakeBootResource struct {
-	gomaasapi.BootResource
-	name         string
-	architecture string
-}
-
-func (r *fakeBootResource) Name() string {
-	return r.name
-}
-
-func (r *fakeBootResource) Architecture() string {
-	return r.architecture
-}
-
 type maas2EnvironSuite struct {
 	baseProviderSuite
 }

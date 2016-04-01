@@ -11,8 +11,7 @@ import (
 )
 
 type maas2Instance struct {
-	machine    gomaasapi.Machine
-	controller gomaasapi.Controller
+	machine gomaasapi.Machine
 }
 
 var _ maasInstanceInterface = (*maas2Instance)(nil)
