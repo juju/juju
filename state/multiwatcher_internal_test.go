@@ -647,6 +647,16 @@ func (*storeManagerSuite) TestRun(c *gc.C) {
 	}, "")
 }
 
+func (*storeManagerSuite) TestEmptyModel(c *gc.C) {
+	b := newTestBacking(nil)
+	sm := newStoreManager(b)
+	defer func() {
+		c.Check(sm.Stop(), gc.IsNil)
+	}()
+	w := &Multiwatcher{all: sm}
+	checkNext(c, w, nil, "")
+}
+
 func (*storeManagerSuite) TestMultipleEnvironments(c *gc.C) {
 	b := newTestBacking([]multiwatcher.EntityInfo{
 		&multiwatcher.MachineInfo{ModelUUID: "uuid0", Id: "0"},

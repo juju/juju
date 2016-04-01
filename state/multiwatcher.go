@@ -19,6 +19,9 @@ import (
 type Multiwatcher struct {
 	all *storeManager
 
+	// used indicates that the watcher was used (e.g. Next() called).
+	used bool
+
 	// The following fields are maintained by the storeManager
 	// goroutine.
 	revno   int64
@@ -29,7 +32,8 @@ type Multiwatcher struct {
 // changes to an underlying store manager.
 func NewMultiwatcher(all *storeManager) *Multiwatcher {
 	return &Multiwatcher{
-		all: all,
+		all:  all,
+		used: false,
 	}
 }
 
@@ -56,6 +60,11 @@ func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 		w:     w,
 		reply: make(chan bool),
 	}
+	if !w.used {
+		req.noChanges = make(chan struct{})
+		w.used = true
+	}
+
 	select {
 	case w.all.request <- req:
 	case <-w.all.tomb.Dead():
@@ -65,8 +74,13 @@ func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 		}
 		return nil, err
 	}
-	if ok := <-req.reply; !ok {
-		return nil, errors.Trace(ErrStopped)
+
+	select {
+	case ok := <-req.reply:
+		if !ok {
+			return nil, errors.Trace(ErrStopped)
+		}
+	case <-req.noChanges:
 	}
 	return req.changes, nil
 }
@@ -128,6 +142,10 @@ type request struct {
 	// the request has been processed; if false, the Multiwatcher
 	// has been stopped,
 	reply chan bool
+
+	// noChanges receives a message when the manager checks for changes
+	// and there are none.
+	noChanges chan struct{}
 
 	// On reply, changes will hold changes that have occurred since
 	// the last replied-to Next request.
@@ -239,18 +257,27 @@ func (sm *storeManager) respond() {
 		revno := w.revno
 		changes := sm.all.ChangesSince(revno)
 		if len(changes) == 0 {
+			if req.noChanges != nil {
+				req.noChanges <- struct{}{}
+				sm.removeWaitingReq(w, req)
+			}
 			continue
 		}
+
 		req.changes = changes
 		w.revno = sm.all.latestRevno
 		req.reply <- true
-		if req := req.next; req == nil {
-			// Last request for this watcher.
-			delete(sm.waiting, w)
-		} else {
-			sm.waiting[w] = req
-		}
+		sm.removeWaitingReq(w, req)
 		sm.seen(revno)
+	}
+}
+
+func (sm *storeManager) removeWaitingReq(w *Multiwatcher, req *request) {
+	if req := req.next; req == nil {
+		// Last request for this watcher.
+		delete(sm.waiting, w)
+	} else {
+		sm.waiting[w] = req
 	}
 }
 
