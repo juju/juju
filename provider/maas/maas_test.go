@@ -31,7 +31,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-var maas2VersionResponse = `{"version": "unknown", "subversion": "", "capabilities": ["networks-management", "static-ipaddresses", "ipv6-deployment-ubuntu", "devices-management", "storage-deployment-ubuntu", "network-deployment-ubuntu"]}`
+const maas2VersionResponse = `{"version": "unknown", "subversion": "", "capabilities": ["networks-management", "static-ipaddresses", "ipv6-deployment-ubuntu", "devices-management", "storage-deployment-ubuntu", "network-deployment-ubuntu"]}`
 
 type baseProviderSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
