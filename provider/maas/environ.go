@@ -345,19 +345,15 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 		return env.supportedArchitectures, nil
 	}
 
+	fetchArchitectures := env.allArchitecturesWithFallback
 	if env.usingMAAS2() {
-		architectures, err := env.allArchitectures2()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		env.supportedArchitectures = architectures
-	} else {
-		architectures, err := env.allArchitecturesWithFallback()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		env.supportedArchitectures = architectures
+		fetchArchitectures = env.allArchitectures2
 	}
+	architectures, err := fetchArchitectures()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	env.supportedArchitectures = architectures
 	return env.supportedArchitectures, nil
 }
 
@@ -376,6 +372,8 @@ func (env *maasEnviron) SupportsAddressAllocation(_ network.Id) (bool, error) {
 	return true, nil
 }
 
+// allArchitectures2 uses the MAAS2 controller to get architectures from boot
+// resources.
 func (env *maasEnviron) allArchitectures2() ([]string, error) {
 	resources, err := env.maasController.BootResources()
 	if err != nil {
@@ -388,8 +386,8 @@ func (env *maasEnviron) allArchitectures2() ([]string, error) {
 	return architectures.SortedValues(), nil
 }
 
-// allArchitectures queries MAAS for all of the boot-images across all
-// registered nodegroups and collapses them down to unique
+// allArchitectureWithFallback queries MAAS for all of the boot-images
+// across all registered nodegroups and collapses them down to unique
 // architectures.
 func (env *maasEnviron) allArchitecturesWithFallback() ([]string, error) {
 	architectures, err := env.allArchitectures()
