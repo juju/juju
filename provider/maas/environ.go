@@ -570,21 +570,9 @@ func (e *maasEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
 // InstanceAvailabilityZoneNames returns the availability zone names for each
 // of the specified instances.
 func (e *maasEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
-	var instances []instance.Instance
-	if e.usingMAAS2() {
-		// XXX this is wrong we need to filter on id so we need Instances
-		// implemented for MAAS 2
-		var err error
-		instances, err = e.AllInstances()
-		if err != nil && err != environs.ErrPartialInstances {
-			return nil, err
-		}
-	} else {
-		var err error
-		instances, err = e.Instances(ids)
-		if err != nil && err != environs.ErrPartialInstances {
-			return nil, err
-		}
+	instances, err := e.Instances(ids)
+	if err != nil && err != environs.ErrPartialInstances {
+		return nil, err
 	}
 	zones := make([]string, len(instances))
 	for i, inst := range instances {
@@ -1377,9 +1365,21 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 		// if no instances were found.
 		return nil, environs.ErrNoInstances
 	}
-	instances, err := environ.acquiredInstances(ids)
-	if err != nil {
-		return nil, err
+	var instances []instance.Instance
+	if environ.usingMAAS2() {
+		// XXX we need to be able to filter by id in
+		// Controller.Machines.
+		var err error
+		instances, err = environ.AllInstances()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		var err error
+		instances, err = environ.acquiredInstances(ids)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	if len(instances) == 0 {
 		return nil, environs.ErrNoInstances
