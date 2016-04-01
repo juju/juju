@@ -6,6 +6,7 @@ import sys
 from time import sleep
 import urllib2
 
+from assess_min_version import JujuAssertionError
 from deploy_stack import (
     assess_upgrade,
     boot_context,
@@ -100,49 +101,64 @@ def apply_condition(client, condition):
             raise ErrUnitCondition("%s: Unknown condition type." % action)
 
 
-def assert_mediawiki_bundle(args, client):
-    status = client.get_status()
-    expected_services = (
-        ['haproxy', 'mediawiki', 'mysql', 'memcached', 'mysql-slave'])
-    if sorted(status.status['services']) != sorted(expected_services):
-        raise AssertionError('Unexpected service configuration: {}'.format(
-            status.status['services']))
-    if status.status['services']['haproxy']['exposed']:
-        raise AssertionError('haproxy is exposed.')
-    client.juju('expose', ('haproxy',))
-    for _ in until_timeout(30):
-        status = client.get_status()
-        if status.status['services']['haproxy']['exposed']:
-            break
+def wait_for_http(url, timeout=60):
+    for _ in until_timeout(timeout):
+        try:
+            req = urllib2.urlopen(url)
+            if 200 == req.getcode():
+                break
+        except (urllib2.URLError, urllib2.HTTPError):
+            pass
         sleep(.1)
     else:
-        raise AssertionError('haproxy is not exposed.')
+        raise JujuAssertionError('{} is not reachable'.format(url))
+    return req
 
+
+def verify_services(client, expected_services, scheme='http', text=None):
+    status = client.get_status()
+    if sorted(status.status['services']) != sorted(expected_services):
+        raise JujuAssertionError('Unexpected service configuration: {}'.format(
+            status.status['services']))
+    if status.status['services']['haproxy']['exposed']:
+        raise JujuAssertionError('haproxy is exposed.')
+    client.juju('expose', ('haproxy',))
+    status = client.get_status()
+    if not status.status['services']['haproxy']['exposed']:
+        raise JujuAssertionError('haproxy is not exposed.')
     machine_num = (
         status.status['services']['haproxy']['units']['haproxy/0']['machine'])
     haproxy_dns_name = status.status['machines'][machine_num]['dns-name']
-    for _ in until_timeout(60):
-        try:
-            req = urllib2.urlopen('http://{}'.format(haproxy_dns_name))
-        except (urllib2.URLError, urllib2.HTTPError):
-            sleep(.1)
-            continue
-        if 200 == req.getcode():
-            break
-        sleep(.1)
-    else:
-        raise AssertionError('{} is not reachable'.format(haproxy_dns_name))
+    url = '{}://{}'.format(scheme, haproxy_dns_name)
+    req = wait_for_http(url)
+    if text and text not in req.read():
+        raise JujuAssertionError(
+            '{} is not found in {}'.format(text, haproxy_dns_name))
+
+
+def assert_landscape_bundle(args, client):
+    expected_services = ['haproxy', 'landscape-server', 'postgresql',
+                         'rabbitmq-server']
+    verify_services(client, expected_services, scheme='https',
+                    text='Landscape')
+
+
+def assert_mediawiki_bundle(args, client):
+    status = client.get_status()
+    expected_services = ['haproxy', 'mediawiki', 'mysql', 'memcached',
+                         'mysql-slave']
+    verify_services(client, expected_services)
     client.juju('add-unit', ('mediawiki',))
     client.juju('add-unit', ('mysql-slave',))
     client.wait_for_started()
     status = client.get_status()
     mediawiki_units = status.status['services']['mediawiki']['units'].values()
     if len(mediawiki_units) != 2:
-        raise AssertionError(
+        raise JujuAssertionError(
             'Unexpected mediawiki units: {}'.format(mediawiki_units))
     mysql_units = status.status['services']['mysql-slave']['units'].values()
     if len(mysql_units) != 2:
-        raise AssertionError(
+        raise JujuAssertionError(
             'Unexpected mysql-slave units: {}'.format(mysql_units))
 
 
@@ -184,6 +200,9 @@ def main(argv=None):
         if (args.allow_native_deploy and
                 args.bundle_path.endswith('mediawiki-scalable.yaml')):
             assert_mediawiki_bundle(args, client)
+        if (args.allow_native_deploy and
+                'landscape-scalable' in args.bundle_path):
+            assert_landscape_bundle(args, client)
 
     return 0
 
