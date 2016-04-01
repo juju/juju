@@ -38,7 +38,7 @@ type proxyUpdaterAPI struct {
 
 // newAPIWithBacking creates a new server-side API facade with the given Backing.
 func newAPIWithBacking(st Backend, resources *common.Resources, authorizer common.Authorizer) (API, error) {
-	if !authorizer.AuthMachineAgent() {
+	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent()) {
 		return nil, common.ErrPerm
 	}
 	return &proxyUpdaterAPI{
