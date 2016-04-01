@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker"
 	proxyup "github.com/juju/juju/worker/proxyupdater"
 	workertesting "github.com/juju/juju/worker/testing"
@@ -26,7 +26,7 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.newCalled = false
 	s.PatchValue(&proxyup.NewWorker,
-		func(_ *apiproxyupdater.Facade) (worker.Worker, error) {
+		func(base.APICaller) (worker.Worker, error) {
 			s.newCalled = true
 			return nil, nil
 		},

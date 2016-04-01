@@ -5,24 +5,42 @@ package proxyupdater
 
 import (
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
-const apiName = "ProxyUpdater"
+const proxyUpdaterFacade = "ProxyUpdater"
 
-// Facade provides access to a machine model worker's view of the world.
-type Facade struct {
-	*common.ModelWatcher
+// API provides access to the ProxyUpdater API facade.
+type API struct {
+	facade base.FacadeCaller
 }
 
-// NewFacade returns a new api client facade instance.
-func NewFacade(caller base.APICaller) *Facade {
-	facadeCaller := base.NewFacadeCaller(caller, apiName)
-	return &Facade{
-		ModelWatcher: common.NewModelWatcher(facadeCaller),
+// NewAPI returns a new api client facade instance.
+func NewAPI(caller base.APICaller) *API {
+	if caller == nil {
+		panic("caller is nil")
+	}
+	return &API{
+		facade: base.NewFacadeCaller(caller, proxyUpdaterFacade),
 	}
 }
 
-// TODO(wallyworld) - add methods for getting proxy settings specifically,
-// rather than the entire model config.
-// Also WatchProxySettings instead of WatchForModelConfigChanges.
+// WatchForProxyConfigAndAPIHostPortChanges returns a NotifyWatcher waiting for
+// changes in the proxy configuration or API host ports
+func (api *API) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error) {
+	var result params.NotifyWatchResult
+	err := api.facade.FacadeCall("WatchForProxyConfigAndAPIHostPortChanges", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	return apiwatcher.NewNotifyWatcher(api.facade.RawAPICaller(), result), nil
+}
+
+// ProxyConfig returns the current environment configuration.
+func (api *API) ProxyConfig() (params.ProxyConfigResult, error) {
+	var result params.ProxyConfigResult
+	err := api.facade.FacadeCall("ProxyConfig", nil, &result)
+	return result, err
+}
