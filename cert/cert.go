@@ -82,7 +82,7 @@ func Verify(srvCertPEM, caCertPEM string, when time.Time) error {
 
 // NewCA generates a CA certificate/key pair suitable for signing server
 // keys for an environment with the given name.
-func NewCA(envName string, expiry time.Time) (certPEM, keyPEM string, err error) {
+func NewCA(envName, UUID string, expiry time.Time) (certPEM, keyPEM string, err error) {
 	key, err := rsa.GenerateKey(rand.Reader, KeyBits)
 	if err != nil {
 		return "", "", err
@@ -93,6 +93,7 @@ func NewCA(envName string, expiry time.Time) (certPEM, keyPEM string, err error)
 		Subject: pkix.Name{
 			CommonName:   fmt.Sprintf("juju-generated CA for model %q", envName),
 			Organization: []string{"juju"},
+			SerialNumber: UUID,
 		},
 		NotBefore:             now.UTC().AddDate(0, 0, -7),
 		NotAfter:              expiry.UTC(),
