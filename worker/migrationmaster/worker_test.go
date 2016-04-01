@@ -18,14 +18,15 @@ import (
 	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/migrationmaster"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type Suite struct {
 	coretesting.BaseSuite
-	stub       *jujutesting.Stub
-	connection stubConnection
+	stub          *jujutesting.Stub
+	connection    *stubConnection
+	connectionErr error
 }
 
 var _ = gc.Suite(&Suite{})
@@ -36,20 +37,21 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.stub = new(jujutesting.Stub)
-	s.connection.stub = s.stub
+	s.connection = &stubConnection{stub: s.stub}
+	s.connectionErr = nil
 	s.PatchValue(migrationmaster.ApiOpen, s.apiOpen)
+	s.PatchValue(migrationmaster.TempSuccessSleep, time.Millisecond)
 }
 
 func (s *Suite) apiOpen(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
 	s.stub.AddCall("apiOpen", info, dialOpts)
-	return &s.connection, nil
+	if s.connectionErr != nil {
+		return nil, s.connectionErr
+	}
+	return s.connection, nil
 }
 
-func (s *Suite) TestMigration(c *gc.C) {
-	masterClient := newStubMasterClient(s.stub)
-	w := migrationmaster.New(masterClient)
-
-	// Trigger migration.
+func (s *Suite) triggerMigration(masterClient *stubMasterClient) {
 	masterClient.watcher.changes <- migration.TargetInfo{
 		ControllerTag: names.NewModelTag("uuid"),
 		Addrs:         []string{"1.2.3.4:5"},
@@ -57,26 +59,40 @@ func (s *Suite) TestMigration(c *gc.C) {
 		AuthTag:       names.NewUserTag("admin"),
 		Password:      "secret",
 	}
+}
+
+func (s *Suite) TestSuccessfulMigration(c *gc.C) {
+	masterClient := newStubMasterClient(s.stub)
+	w := migrationmaster.New(masterClient)
+	s.triggerMigration(masterClient)
 
 	// This error is temporary while migrationmaster is a WIP.
-	runWorkerAndWait(c, w, "migration seen and aborted")
+	err := workertest.CheckKilled(c, w)
+	c.Assert(err, gc.Equals, migrationmaster.ErrDone)
 
 	// Observe that the migration was seen, the model exported, an API
 	// connection to the target controller was made, the model was
-	// imported and then the migration aborted.
+	// imported and then the migration completed.
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterClient.Watch", nil},
+		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
+		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
 		{"masterClient.Export", nil},
 		{"apiOpen", []interface{}{&api.Info{
 			Addrs:    []string{"1.2.3.4:5"},
 			CACert:   "cert",
 			Tag:      names.NewUserTag("admin"),
 			Password: "secret",
-		}, api.DefaultDialOpts()}},
+		}, api.DialOpts{}}},
 		{"APICall:MigrationTarget.Import",
 			[]interface{}{params.SerializedModel{Bytes: fakeSerializedModel}}},
-		{"masterClient.SetPhase", []interface{}{migration.ABORT}},
+
 		{"Connection.Close", nil},
+		{"masterClient.SetPhase", []interface{}{migration.VALIDATION}},
+		{"masterClient.SetPhase", []interface{}{migration.SUCCESS}},
+		{"masterClient.SetPhase", []interface{}{migration.LOGTRANSFER}},
+		{"masterClient.SetPhase", []interface{}{migration.REAP}},
+		{"masterClient.SetPhase", []interface{}{migration.DONE}},
 	})
 }
 
@@ -84,20 +100,78 @@ func (s *Suite) TestWatchFailure(c *gc.C) {
 	client := newStubMasterClient(s.stub)
 	client.watchErr = errors.New("boom")
 	w := migrationmaster.New(client)
-	runWorkerAndWait(c, w, "watching for migration: boom")
+	err := workertest.CheckKilled(c, w)
+	c.Assert(err, gc.ErrorMatches, "watching for migration: boom")
 }
 
-func runWorkerAndWait(c *gc.C, w worker.Worker, expectedErr string) {
-	doneC := make(chan error)
-	go func() {
-		doneC <- w.Wait()
-	}()
-	select {
-	case err := <-doneC:
-		c.Assert(err, gc.ErrorMatches, expectedErr)
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for worker to stop")
-	}
+func (s *Suite) TestExportFailure(c *gc.C) {
+	masterClient := newStubMasterClient(s.stub)
+	masterClient.exportErr = errors.New("boom")
+	w := migrationmaster.New(masterClient)
+	s.triggerMigration(masterClient)
+
+	err := workertest.CheckKilled(c, w)
+	c.Assert(err, gc.Equals, migrationmaster.ErrDone)
+
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"masterClient.Watch", nil},
+		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
+		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
+		{"masterClient.Export", nil},
+		{"masterClient.SetPhase", []interface{}{migration.ABORT}},
+	})
+}
+
+func (s *Suite) TestAPIOpenFailure(c *gc.C) {
+	masterClient := newStubMasterClient(s.stub)
+	w := migrationmaster.New(masterClient)
+	s.connectionErr = errors.New("boom")
+	s.triggerMigration(masterClient)
+
+	err := workertest.CheckKilled(c, w)
+	c.Assert(err, gc.Equals, migrationmaster.ErrDone)
+
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"masterClient.Watch", nil},
+		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
+		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
+		{"masterClient.Export", nil},
+		{"apiOpen", []interface{}{&api.Info{
+			Addrs:    []string{"1.2.3.4:5"},
+			CACert:   "cert",
+			Tag:      names.NewUserTag("admin"),
+			Password: "secret",
+		}, api.DialOpts{}}},
+		{"masterClient.SetPhase", []interface{}{migration.ABORT}},
+	})
+}
+
+func (s *Suite) TestImportFailure(c *gc.C) {
+	masterClient := newStubMasterClient(s.stub)
+	w := migrationmaster.New(masterClient)
+	s.connection.importErr = errors.New("boom")
+	s.triggerMigration(masterClient)
+
+	err := workertest.CheckKilled(c, w)
+	c.Assert(err, gc.Equals, migrationmaster.ErrDone)
+
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"masterClient.Watch", nil},
+		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
+		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
+		{"masterClient.Export", nil},
+		{"apiOpen", []interface{}{&api.Info{
+			Addrs:    []string{"1.2.3.4:5"},
+			CACert:   "cert",
+			Tag:      names.NewUserTag("admin"),
+			Password: "secret",
+		}, api.DialOpts{}}},
+		{"APICall:MigrationTarget.Import",
+			[]interface{}{params.SerializedModel{Bytes: fakeSerializedModel}}},
+
+		{"Connection.Close", nil},
+		{"masterClient.SetPhase", []interface{}{migration.ABORT}},
+	})
 }
 
 func newStubMasterClient(stub *jujutesting.Stub) *stubMasterClient {
@@ -109,9 +183,10 @@ func newStubMasterClient(stub *jujutesting.Stub) *stubMasterClient {
 
 type stubMasterClient struct {
 	masterapi.Client
-	stub     *jujutesting.Stub
-	watcher  *mockWatcher
-	watchErr error
+	stub      *jujutesting.Stub
+	watcher   *mockWatcher
+	watchErr  error
+	exportErr error
 }
 
 func (c *stubMasterClient) Watch() (watcher.MigrationMasterWatcher, error) {
@@ -124,6 +199,9 @@ func (c *stubMasterClient) Watch() (watcher.MigrationMasterWatcher, error) {
 
 func (c *stubMasterClient) Export() ([]byte, error) {
 	c.stub.AddCall("masterClient.Export")
+	if c.exportErr != nil {
+		return nil, c.exportErr
+	}
 	return fakeSerializedModel, nil
 }
 
@@ -158,7 +236,8 @@ func (w *mockWatcher) Changes() <-chan migration.TargetInfo {
 
 type stubConnection struct {
 	api.Connection
-	stub *jujutesting.Stub
+	stub      *jujutesting.Stub
+	importErr error
 }
 
 func (c *stubConnection) BestFacadeVersion(string) int {
@@ -171,7 +250,7 @@ func (c *stubConnection) APICall(objType string, version int, id, request string
 	if objType == "MigrationTarget" {
 		switch request {
 		case "Import":
-			return nil
+			return c.importErr
 		}
 	}
 	return errors.New("unexpected API call")
