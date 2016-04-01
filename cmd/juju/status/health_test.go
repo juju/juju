@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/version"
 )
 
 type expectHealth struct {
@@ -49,28 +48,133 @@ var healthTests = []testCase{
 	test( // 0
 		"bootstrap and starting a single instance",
 
+		// machine tests
 		addMachine{machineId: "0", job: state.JobManageModel},
-		expectHealth{
-			"simulate juju bootstrap by adding machine/0 to the state",
-			"Juju Health Warning\nMachine: 0\t Status: pending\n",
-			1},
 		startAliveMachine{"0"},
 		setAddresses{"0", []network.Address{
 			network.NewAddress("10.0.0.1"),
 			network.NewScopedAddress("admin-0.dns", network.ScopePublic),
 		}},
 		expectHealth{
-			"simulate the PA starting an instance in response to the state change",
-			"Juju Health Warning\nMachine: 0\t Status: pending\n",
+			"simulate juju bootstrap by adding machine/0 to the state",
+			"Juju Health Warning\n" +
+				"Machine: 0\t Status: pending\n",
 			1},
+		setMachineStatus{"0", status.StatusError, "broken"},
+		expectHealth{
+			"simulate machine error",
+			"Juju Health Critical\n" +
+				"Machine: 0\t Status: error\n",
+			2},
 		setMachineStatus{"0", status.StatusStarted, ""},
 		expectHealth{
 			"simulate the MA started and set the machine status",
 			"Juju Health Okay\n",
 			0},
-		setTools{"0", version.MustParseBinary("1.2.3-trusty-ppc")},
+
+		// container tests
+		addContainer{"0", "0/lxc/0", state.JobHostUnits},
 		expectHealth{
-			"simulate the MA setting the version",
+			"container pending",
+			"Juju Health Warning\n" +
+				"Machine: 0\t Container: 0/lxc/0\t Status: pending\n",
+			1},
+		setMachineStatus{"0/lxc/0", status.StatusError, "broken"},
+		expectHealth{
+			"simulate container error",
+			"Juju Health Critical\n" +
+				"Machine: 0\t Container: 0/lxc/0\t Status: error\n",
+			2},
+		setMachineStatus{"0/lxc/0", status.StatusStarted, ""},
+		expectHealth{
+			"simulate container fixed",
+			"Juju Health Okay\n",
+			0},
+		addContainer{"0/lxc/0", "0/lxc/0/lxc/0", state.JobHostUnits},
+		expectHealth{
+			"nested container pending",
+			"Juju Health Warning\n" +
+				"Machine: 0\t Container: 0/lxc/0\t Container: 0/lxc/0/lxc/0\t Status: pending\n",
+			1},
+		setMachineStatus{"0/lxc/0/lxc/0", status.StatusError, "broken"},
+		expectHealth{
+			"nested container error",
+			"Juju Health Critical\n" +
+				"Machine: 0\t Container: 0/lxc/0\t Container: 0/lxc/0/lxc/0\t Status: error\n",
+			2},
+		setMachineStatus{"0/lxc/0/lxc/0", status.StatusStarted, ""},
+		expectHealth{
+			"nested container fixed",
+			"Juju Health Okay\n",
+			0},
+
+		// unit/service tests
+		addCharm{"wordpress"},
+		addService{name: "wordpress", charm: "wordpress"},
+		setServiceExposed{"wordpress", true},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		startAliveMachine{"1"},
+		expectHealth{
+			"Machine 1 coming up",
+			"Juju Health Warning\n" +
+				"Machine: 1\t Status: pending\n" +
+				"Service: wordpress\t Status: unknown, Error: <nil>\n",
+			1},
+		setMachineStatus{"1", status.StatusStarted, ""},
+		expectHealth{
+			"Machine ready, service not",
+			"Juju Health Warning\n" +
+				"Service: wordpress\t Status: unknown, Error: <nil>\n",
+			1},
+		addAliveUnit{"wordpress", "1"},
+		setAgentStatus{"wordpress/0", status.StatusIdle, "", nil},
+		setUnitStatus{"wordpress/0", status.StatusActive, "", nil},
+		expectHealth{
+			"Agent and Unit Ready",
+			"Juju Health Okay\n",
+			0},
+		setAgentStatus{"wordpress/0", status.StatusError, "Press more", nil},
+		expectHealth{
+			"Simulate failed agent error",
+			"Juju Health Critical\n" +
+				"Service: wordpress\t Status: error, Error: <nil>\n" +
+				"Service: wordpress\t Unit: wordpress/0\t WorkloadStatus: error\n",
+			2},
+		setAgentStatus{"wordpress/0", status.StatusIdle, "running", nil},
+		expectHealth{
+			"Fixed agent status",
+			"Juju Health Okay\n",
+			0},
+		setUnitStatus{"wordpress/0", status.StatusBlocked, "", nil},
+		expectHealth{
+			"Simulate Blocked unit status",
+			"Juju Health Critical\n" +
+				"Service: wordpress\t Status: blocked, Error: <nil>\n" +
+				"Service: wordpress\t Unit: wordpress/0\t WorkloadStatus: blocked\n",
+			2},
+		setUnitStatus{"wordpress/0", status.StatusActive, "", nil},
+		expectHealth{
+			"Fixed agent status",
+			"Juju Health Okay\n",
+			0},
+
+		// subordinate tests
+		addCharm{"logging"},
+		addService{name: "logging", charm: "logging"},
+		setServiceExposed{"logging", true},
+		relateServices{"wordpress", "logging"},
+		addSubordinate{"wordpress/0", "logging"},
+		setUnitsAlive{"logging"},
+		setAgentStatus{"logging/0", status.StatusIdle, "", nil},
+		setUnitStatus{"logging/0", status.StatusTerminated, "", nil},
+		expectHealth{
+			"Simulate Terminated unit status",
+			"Juju Health Warning\n" +
+				"Service: wordpress\t Unit: wordpress/0\t Subordinate: logging/0\t WorkloadStatus: terminated\n",
+			1},
+		setUnitStatus{"logging/0", status.StatusActive, "", nil},
+		expectHealth{
+			"Fixed unit status",
 			"Juju Health Okay\n",
 			0},
 	),

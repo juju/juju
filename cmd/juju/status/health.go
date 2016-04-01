@@ -122,8 +122,12 @@ func (m *machineStatus) Health() (int, []string) {
 		}
 		notOkay = append(notOkay, m.Err.Error())
 	} else if m.JujuStatus.Current != status.StatusStarted {
-		if 1 > exitCode {
-			exitCode = 1
+		errLvl := 1
+		if m.JujuStatus.Current == status.StatusError {
+			errLvl = 2
+		}
+		if errLvl > exitCode {
+			exitCode = errLvl
 		}
 		notOkay = append(notOkay, fmt.Sprintf("Status: %s", m.JujuStatus.Current))
 	}
@@ -150,11 +154,15 @@ func (s *serviceStatus) Health() (int, []string) {
 			exitCode = 2
 		}
 		notOkay = append(notOkay, s.Err.Error())
-	} else if s.StatusInfo.Current != status.StatusStarted && s.StatusInfo.Current != status.StatusIdle {
-		if 1 > exitCode {
-			exitCode = 1
+	} else if s.StatusInfo.Current != status.StatusStarted && s.StatusInfo.Current != status.StatusIdle && s.StatusInfo.Current != status.StatusActive && s.StatusInfo.Current != status.StatusEmpty {
+		errLvl := 1
+		if s.StatusInfo.Current == status.StatusError {
+			errLvl = 2
 		}
-		notOkay = append(notOkay, fmt.Sprintf("Status: %s, Error:%s", s.StatusInfo.Current, s.StatusInfo.Err))
+		if errLvl > exitCode {
+			exitCode = errLvl
+		}
+		notOkay = append(notOkay, fmt.Sprintf("Status: %s, Error: %v", s.StatusInfo.Current, s.StatusInfo.Err))
 	}
 
 	//parse all units
@@ -181,15 +189,19 @@ func (u *unitStatus) Health() (int, []string) {
 			exitCode = 2
 		}
 		notOkay = append(notOkay, u.JujuStatusInfo.Err.Error())
-	} else if u.JujuStatusInfo.Current != status.StatusActive {
+	} else if u.JujuStatusInfo.Current != status.StatusActive && u.JujuStatusInfo.Current != status.StatusIdle {
 		if 1 > exitCode {
 			exitCode = 1
 		}
 		notOkay = append(notOkay, fmt.Sprintf("AgentStatus: %s", u.JujuStatusInfo.Current))
 		// AgentStatus Info is reliably implemented, WorkloadStatusInfo isn't so skip err and allow unknown
 	} else if u.WorkloadStatusInfo.Current != status.StatusActive && u.WorkloadStatusInfo.Current != status.StatusUnknown {
-		if 1 > exitCode {
-			exitCode = 1
+		errLvl := 1
+		if u.WorkloadStatusInfo.Current == status.StatusBlocked {
+			errLvl = 2
+		}
+		if errLvl > exitCode {
+			exitCode = errLvl
 		}
 		notOkay = append(notOkay, fmt.Sprintf("WorkloadStatus: %s", u.WorkloadStatusInfo.Current))
 	}
@@ -243,7 +255,7 @@ func (f *formattedStatus) Health() (int, []string) {
 			if 2 > exitCode {
 				exitCode = 2
 			}
-			notOkay = append(notOkay, fmt.Sprintf("Network: %s\tError: %s", nname, nstatus.Err))
+			notOkay = append(notOkay, fmt.Sprintf("Network: %s\tError: %v", nname, nstatus.Err))
 		}
 	}
 
