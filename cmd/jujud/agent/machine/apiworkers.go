@@ -14,15 +14,12 @@ import (
 // APIWorkersConfig provides the dependencies for the
 // apiworkers manifold.
 type APIWorkersConfig struct {
-	APICallerName     string
-	UpgradeWaiterName string
-	StartAPIWorkers   func(api.Connection) (worker.Worker, error)
+	APICallerName   string
+	StartAPIWorkers func(api.Connection) (worker.Worker, error)
 }
 
 // APIWorkersManifold starts workers that rely on an API connection
-// using a function provided to it. It waits until the machine agent's
-// initial upgrade operations have completed (using the upgradewaiter
-// manifold).
+// using a function provided to it.
 //
 // This manifold exists to start API workers which have not yet been
 // ported to work directly with the dependency engine. Once all API
@@ -32,20 +29,10 @@ func APIWorkersManifold(config APIWorkersConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.APICallerName,
-			config.UpgradeWaiterName,
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 			if config.StartAPIWorkers == nil {
 				return nil, errors.New("StartAPIWorkers not specified")
-			}
-
-			// Check if upgrades have completed.
-			var upgradesDone bool
-			if err := getResource(config.UpgradeWaiterName, &upgradesDone); err != nil {
-				return nil, err
-			}
-			if !upgradesDone {
-				return nil, dependency.ErrMissing
 			}
 
 			// Get API connection.
@@ -53,7 +40,6 @@ func APIWorkersManifold(config APIWorkersConfig) dependency.Manifold {
 			if err := getResource(config.APICallerName, &apiConn); err != nil {
 				return nil, err
 			}
-
 			return config.StartAPIWorkers(apiConn)
 		},
 	}

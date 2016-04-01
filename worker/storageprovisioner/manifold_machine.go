@@ -20,45 +20,50 @@ import (
 
 // MachineManifoldConfig defines a storage provisioner's configuration and dependencies.
 type MachineManifoldConfig struct {
-	util.PostUpgradeManifoldConfig
-	Clock clock.Clock
+	AgentName     string
+	APICallerName string
+	Clock         clock.Clock
 }
 
 // MachineManifold returns a dependency.Manifold that runs a storage provisioner.
 func MachineManifold(config MachineManifoldConfig) dependency.Manifold {
-	newWorker := func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
-		if config.Clock == nil {
-			return nil, dependency.ErrMissing
-		}
+	typedConfig := util.AgentApiManifoldConfig{
+		AgentName:     config.AgentName,
+		APICallerName: config.APICallerName,
+	}
+	return util.AgentApiManifold(typedConfig, config.newWorker)
+}
 
-		cfg := a.CurrentConfig()
-		api, err := storageprovisioner.NewState(apiCaller, cfg.Tag())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		tag, ok := cfg.Tag().(names.MachineTag)
-		if !ok {
-			return nil, errors.Errorf("this manifold may only be used inside a machine agent")
-		}
-
-		storageDir := filepath.Join(cfg.DataDir(), "storage")
-		w, err := NewStorageProvisioner(Config{
-			Scope:       tag,
-			StorageDir:  storageDir,
-			Volumes:     api,
-			Filesystems: api,
-			Life:        api,
-			Environ:     api,
-			Machines:    api,
-			Status:      api,
-			Clock:       config.Clock,
-		})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return w, nil
+func (config MachineManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+	if config.Clock == nil {
+		return nil, dependency.ErrMissing
 	}
 
-	return util.PostUpgradeManifold(config.PostUpgradeManifoldConfig, newWorker)
+	cfg := a.CurrentConfig()
+	api, err := storageprovisioner.NewState(apiCaller, cfg.Tag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	tag, ok := cfg.Tag().(names.MachineTag)
+	if !ok {
+		return nil, errors.Errorf("this manifold may only be used inside a machine agent")
+	}
+
+	storageDir := filepath.Join(cfg.DataDir(), "storage")
+	w, err := NewStorageProvisioner(Config{
+		Scope:       tag,
+		StorageDir:  storageDir,
+		Volumes:     api,
+		Filesystems: api,
+		Life:        api,
+		Environ:     api,
+		Machines:    api,
+		Status:      api,
+		Clock:       config.Clock,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }

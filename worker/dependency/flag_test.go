@@ -20,12 +20,12 @@ type FlagSuite struct {
 
 var _ = gc.Suite(&FlagSuite{})
 
-func (s *FlagSuite) TestEmptyInputs(c *gc.C) {
+func (*FlagSuite) TestEmptyInputs(c *gc.C) {
 	wrapped := dependency.WithFlag(dependency.Manifold{}, "blob")
 	c.Check(wrapped.Inputs, jc.DeepEquals, []string{"blob"})
 }
 
-func (s *FlagSuite) TestNonEmptyInputs(c *gc.C) {
+func (*FlagSuite) TestNonEmptyInputs(c *gc.C) {
 	base := dependency.Manifold{
 		Inputs: []string{"foo", "bar"},
 	}
@@ -34,12 +34,12 @@ func (s *FlagSuite) TestNonEmptyInputs(c *gc.C) {
 	c.Check(wrapped.Inputs, jc.DeepEquals, expect)
 }
 
-func (s *FlagSuite) TestEmptyOutput(c *gc.C) {
+func (*FlagSuite) TestEmptyOutput(c *gc.C) {
 	wrapped := dependency.WithFlag(dependency.Manifold{}, "blob")
 	c.Check(wrapped.Output, gc.IsNil)
 }
 
-func (s *FlagSuite) TestNonEmptyOutput(c *gc.C) {
+func (*FlagSuite) TestNonEmptyOutput(c *gc.C) {
 	output := func(_ worker.Worker, _ interface{}) error {
 		panic("splat")
 	}
@@ -53,7 +53,26 @@ func (s *FlagSuite) TestNonEmptyOutput(c *gc.C) {
 	c.Check(tryOutput, gc.PanicMatches, "splat")
 }
 
-func (s *FlagSuite) TestStartMissingFlag(c *gc.C) {
+func (*FlagSuite) TestEmptyFilter(c *gc.C) {
+	wrapped := dependency.WithFlag(dependency.Manifold{}, "blob")
+	c.Check(wrapped.Filter, gc.IsNil)
+}
+
+func (*FlagSuite) TestNonEmptyFilter(c *gc.C) {
+	filter := func(err error) error {
+		panic(err)
+	}
+	base := dependency.Manifold{
+		Filter: filter,
+	}
+	wrapped := dependency.WithFlag(base, "blah")
+	tryFilter := func() {
+		wrapped.Filter(errors.New("splat"))
+	}
+	c.Check(tryFilter, gc.PanicMatches, "splat")
+}
+
+func (*FlagSuite) TestStartMissingFlag(c *gc.C) {
 	wrapped := dependency.WithFlag(dependency.Manifold{}, "foo")
 	getResource := dt.StubGetResource(dt.StubResources{
 		"foo": dt.StubResource{Error: dependency.ErrMissing},
@@ -63,7 +82,7 @@ func (s *FlagSuite) TestStartMissingFlag(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
-func (s *FlagSuite) TestStartNotFlag(c *gc.C) {
+func (*FlagSuite) TestStartNotFlag(c *gc.C) {
 	wrapped := dependency.WithFlag(dependency.Manifold{}, "foo")
 	getResource := dt.StubGetResource(dt.StubResources{
 		"foo": dt.StubResource{Output: true},
@@ -73,7 +92,7 @@ func (s *FlagSuite) TestStartNotFlag(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `cannot set true into \*dependency.Flag`)
 }
 
-func (s *FlagSuite) TestStartFalseFlag(c *gc.C) {
+func (*FlagSuite) TestStartFalseFlag(c *gc.C) {
 	wrapped := dependency.WithFlag(dependency.Manifold{}, "foo")
 	getResource := dt.StubGetResource(dt.StubResources{
 		"foo": dt.StubResource{Output: stubFlag(false)},
@@ -83,7 +102,7 @@ func (s *FlagSuite) TestStartFalseFlag(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
-func (s *FlagSuite) TestStartTrueFlag(c *gc.C) {
+func (*FlagSuite) TestStartTrueFlag(c *gc.C) {
 	expectWorker := &stubWorker{}
 	base := dependency.Manifold{
 		Start: func(_ dependency.GetResourceFunc) (worker.Worker, error) {
@@ -99,6 +118,30 @@ func (s *FlagSuite) TestStartTrueFlag(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
+func (*FlagSuite) TestFlagOutputBadWorker(c *gc.C) {
+	in := &stubWorker{}
+	var out dependency.Flag
+	err := dependency.FlagOutput(in, &out)
+	c.Check(err, gc.ErrorMatches, `expected in to implement Flag; got a .*`)
+	c.Check(out, gc.IsNil)
+}
+
+func (*FlagSuite) TestFlagOutputBadTarget(c *gc.C) {
+	in := &stubFlagWorker{}
+	var out interface{}
+	err := dependency.FlagOutput(in, &out)
+	c.Check(err, gc.ErrorMatches, `expected out to be a \*Flag; got a .*`)
+	c.Check(out, gc.IsNil)
+}
+
+func (*FlagSuite) TestFlagOutputSuccess(c *gc.C) {
+	in := &stubFlagWorker{}
+	var out dependency.Flag
+	err := dependency.FlagOutput(in, &out)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(out, gc.Equals, in)
+}
+
 type stubFlag bool
 
 func (flag stubFlag) Check() bool {
@@ -106,5 +149,10 @@ func (flag stubFlag) Check() bool {
 }
 
 type stubWorker struct {
+	worker.Worker
+}
+
+type stubFlagWorker struct {
+	dependency.Flag
 	worker.Worker
 }
