@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
+	migrationmasterapi "github.com/juju/juju/api/migrationmaster"
 	"github.com/juju/juju/api/statushistory"
 	apistorageprovisioner "github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/apiserver"
@@ -83,6 +84,7 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/metricworker"
+	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/mongoupgrader"
@@ -1176,6 +1178,12 @@ func (a *MachineAgent) startEnvWorkers(
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot start status history pruner worker")
 		}
+		return w, nil
+	})
+
+	singularRunner.StartWorker("migrationmaster", func() (worker.Worker, error) {
+		client := migrationmasterapi.NewClient(apiSt)
+		w := migrationmaster.New(client)
 		return w, nil
 	})
 
