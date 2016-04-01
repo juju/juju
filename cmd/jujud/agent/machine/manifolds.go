@@ -164,7 +164,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The stateworkers manifold starts workers which rely on a
 		// *state.State but which haven't been converted to run
 		// directly under the dependency engine yet. This manifold
-		// will be removed once all such workers have been converted.
+		// will be removed once all such workers have been converted;
+		// until then, the workers are expected to handle their own
+		// checks for upgrades etc, rather than blocking this whole
+		// worker on upgrade completion.
 		stateWorkersName: StateWorkersManifold(StateWorkersConfig{
 			StateName:         stateName,
 			StartStateWorkers: config.StartStateWorkers,
@@ -233,12 +236,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The serving-info-setter manifold sets grabs the state
 		// serving info from the API connection and writes it to the
 		// agent config.
-		// XXX(fwereade): is this safe to write outside upgrade? It's
-		// conceivable that we might change config format as this runs
-		servingInfoSetterName: ServingInfoSetterManifold(ServingInfoSetterConfig{
+		servingInfoSetterName: ifFullyUpgraded(ServingInfoSetterManifold(ServingInfoSetterConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-		}),
+		})),
 
 		// The apiworkers manifold starts workers which rely on the
 		// machine agent's API connection but have not been converted
@@ -300,10 +301,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The log sender is a leaf worker that sends log messages to some
 		// API server, when configured so to do. We should only need one of
 		// these in a consolidated agent.
-		// XXX(fwereade): shoudn't we be trying to send logs while upgrading?
-		// If we're on a controller and not accepting logs that part
-		// wouldn't work, but usually it would; and when it didn't it
-		// should be otherwise harmless.
+		//
+		// NOTE: the LogSource will buffer a large number of messages as an upgrade
+		// runs; it currently seems better to fill the buffer and send when stable,
+		// optimising for stable controller upgrades rather than up-to-the-moment
+		// observable normal-machine upgrades.
 		logSenderName: ifFullyUpgraded(logsender.Manifold(logsender.ManifoldConfig{
 			APICallerName: apiCallerName,
 			LogSource:     config.LogSource,
