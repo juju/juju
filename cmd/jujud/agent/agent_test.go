@@ -71,7 +71,6 @@ type AgentSuite struct {
 
 func (s *AgentSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-
 	s.oldRestartDelay = worker.RestartDelay
 	// We could use testing.ShortWait, but this thrashes quite
 	// a bit when some tests are restarting every 50ms for 10 seconds,
@@ -89,6 +88,7 @@ func (s *AgentSuite) TearDownSuite(c *gc.C) {
 
 func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	// Set API host ports so FindTools/Tools API calls succeed.
 	hostPorts := [][]network.HostPort{
 		network.NewHostPorts(1234, "0.1.2.3"),

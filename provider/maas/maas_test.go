@@ -48,8 +48,8 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.ToolsFixture.SetUpTest(c)
 	s.SetFeatureFlags(feature.AddressAllocation)
 }

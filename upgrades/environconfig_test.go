@@ -28,10 +28,6 @@ type upgradeEnvironConfigSuite struct {
 
 var _ = gc.Suite(&upgradeEnvironConfigSuite{})
 
-func (s *upgradeEnvironConfigSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-}
-
 func (s *upgradeEnvironConfigSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 

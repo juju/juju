@@ -40,12 +40,6 @@ type JujuOSEnvSuite struct {
 	oldRegEntryValue    string
 }
 
-func (s *JujuOSEnvSuite) SetUpSuite(c *gc.C) {
-}
-
-func (s *JujuOSEnvSuite) TearDownSuite(c *gc.C) {
-}
-
 func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	s.oldEnvironment = make(map[string]string)
 	for _, name := range []string{
@@ -131,12 +125,10 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	wrench.SetEnabled(false)
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
-	s.JujuOSEnvSuite.SetUpSuite(c)
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
 }
 
 func (s *BaseSuite) TearDownSuite(c *gc.C) {
-	s.JujuOSEnvSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 	s.CleanupSuite.TearDownSuite(c)
 }

@@ -102,7 +102,6 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.mSrv = &localMantaServer{}
 	s.cSrv.setupServer(c)
 	s.mSrv.setupServer(c)
-	s.AddSuiteCleanup(func(*gc.C) { envtesting.PatchAttemptStrategies(&joyent.ShortAttempt) })
 
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
@@ -110,6 +109,7 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	})
 	s.LiveTests.UploadArches = []string{arch.AMD64}
 	s.LiveTests.SetUpSuite(c)
+	s.AddSuiteCleanup(func(*gc.C) { envtesting.PatchAttemptStrategies(&joyent.ShortAttempt) })
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -121,14 +121,14 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.providerSuite.SetUpTest(c)
+	s.LiveTests.SetUpTest(c)
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	creds := joyent.MakeCredentials(c, s.TestConfig)
 	joyent.UseExternalTestImageMetadata(creds)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
-	s.LiveTests.SetUpTest(c)
 }
 
 func (s *localLiveSuite) TearDownTest(c *gc.C) {

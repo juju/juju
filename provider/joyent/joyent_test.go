@@ -58,8 +58,8 @@ type providerSuite struct {
 var _ = gc.Suite(&providerSuite{})
 
 func (s *providerSuite) SetUpSuite(c *gc.C) {
-	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
 	s.FakeJujuHomeSuite.SetUpSuite(c)
+	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
 }
 
 func (s *providerSuite) TearDownSuite(c *gc.C) {

@@ -125,19 +125,9 @@ const SampleCertName = "erewhemos"
 // FakeJujuHomeSuite isolates the user's home directory and
 // sets up a Juju home with a sample environment and certificate.
 type FakeJujuHomeSuite struct {
-	JujuOSEnvSuite
 	gitjujutesting.FakeHomeSuite
+	JujuOSEnvSuite
 	oldJujuHome string
-}
-
-func (s *FakeJujuHomeSuite) SetUpSuite(c *gc.C) {
-	s.JujuOSEnvSuite.SetUpTest(c)
-	s.FakeHomeSuite.SetUpTest(c)
-}
-
-func (s *FakeJujuHomeSuite) TearDownSuite(c *gc.C) {
-	s.FakeHomeSuite.SetUpTest(c)
-	s.JujuOSEnvSuite.SetUpTest(c)
 }
 
 func (s *FakeJujuHomeSuite) SetUpTest(c *gc.C) {

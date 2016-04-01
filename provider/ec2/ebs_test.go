@@ -55,33 +55,33 @@ var _ = gc.Suite(&ebsVolumeSuite{})
 type ebsVolumeSuite struct {
 	testing.BaseSuite
 	jujutest.Tests
-	srv                localServer
-	restoreEC2Patching func()
-
+	srv        localServer
 	instanceId string
 }
 
 func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	s.UploadArches = []string{arch.AMD64, arch.I386}
 	s.TestConfig = localConfigAttrs
-	s.restoreEC2Patching = patchEC2ForTesting()
-	s.BaseSuite.SetUpSuite(c)
+	restoreEC2Patching := patchEC2ForTesting()
+	s.AddSuiteCleanup(func(*gc.C) {
+		restoreEC2Patching()
+	})
 }
 
 func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
 	s.BaseSuite.TearDownSuite(c)
-	s.restoreEC2Patching()
 }
 
 func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&version.Current, version.Binary{
 		Number: testing.FakeVersionNumber,
 		Series: testing.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
-	s.BaseSuite.SetUpTest(c)
 	s.srv.startServer(c)
 	s.Tests.SetUpTest(c)
 	s.PatchValue(&ec2.DestroyVolumeAttempt.Delay, time.Duration(0))
