@@ -1,0 +1,177 @@
+// Copyright 2016 Canonical Ltd.
+// Copyright 2016 Cloudbase Solutions
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package machineactions_test
+
+import (
+	"github.com/juju/errors"
+	"github.com/juju/names"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/dependency"
+	dt "github.com/juju/juju/worker/dependency/testing"
+	"github.com/juju/juju/worker/machineactions"
+	"github.com/juju/juju/worker/util"
+)
+
+type ManifoldSuite struct {
+	testing.IsolationSuite
+	stubAgentApiManifoldConfig util.AgentApiManifoldConfig
+	getResource                dependency.GetResourceFunc
+	fakeAgent                  agent.Agent
+	fakeCaller                 base.APICaller
+	fakeFacade                 machineactions.Facade
+	fakeWorker                 worker.Worker
+	newFacade                  func(machineactions.Facade) func(base.APICaller) machineactions.Facade
+	newWorker                  func(worker.Worker, error) func(machineactions.WorkerConfig) (worker.Worker, error)
+}
+
+var _ = gc.Suite(&ManifoldSuite{})
+
+func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
+	s.IsolationSuite.SetUpSuite(c)
+	s.stubAgentApiManifoldConfig = util.AgentApiManifoldConfig{
+		AgentName:     "wut",
+		APICallerName: "exactly",
+	}
+	s.fakeAgent = &fakeAgent{tag: fakeTag}
+	s.fakeCaller = &fakeCaller{}
+	s.getResource = dt.StubGetResource(dt.StubResources{
+		"wut":     dt.StubResource{Output: s.fakeAgent},
+		"exactly": dt.StubResource{Output: s.fakeCaller},
+	})
+	s.newFacade = func(facade machineactions.Facade) func(base.APICaller) machineactions.Facade {
+		s.fakeFacade = facade
+		return func(apiCaller base.APICaller) machineactions.Facade {
+			c.Assert(apiCaller, gc.Equals, s.fakeCaller)
+			return facade
+		}
+	}
+	s.newWorker = func(w worker.Worker, err error) func(machineactions.WorkerConfig) (worker.Worker, error) {
+		s.fakeWorker = w
+		return func(wc machineactions.WorkerConfig) (worker.Worker, error) {
+			c.Assert(wc.Facade, gc.Equals, s.fakeFacade)
+			c.Assert(wc.MachineTag, gc.Equals, fakeTag)
+			c.Assert(wc.HandleAction, gc.Equals, fakeHandleAction)
+			return w, err
+		}
+	}
+}
+
+func (s *ManifoldSuite) TestInputs(c *gc.C) {
+	manifold := machineactions.Manifold(machineactions.ManifoldConfig{
+		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
+	})
+	c.Check(manifold.Inputs, jc.DeepEquals, []string{"wut", "exactly"})
+}
+
+func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
+	manifold := machineactions.Manifold(machineactions.ManifoldConfig{
+		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
+	})
+	getResource := dt.StubGetResource(dt.StubResources{
+		"wut": dt.StubResource{Error: dependency.ErrMissing},
+	})
+
+	w, err := manifold.Start(getResource)
+	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Assert(w, gc.IsNil)
+}
+
+func (s *ManifoldSuite) TestStartMissingAPI(c *gc.C) {
+	manifold := machineactions.Manifold(machineactions.ManifoldConfig{
+		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
+	})
+	getResource := dt.StubGetResource(dt.StubResources{
+		"wut":     dt.StubResource{Output: &fakeAgent{}},
+		"exactly": dt.StubResource{Error: dependency.ErrMissing},
+	})
+
+	w, err := manifold.Start(getResource)
+	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Assert(w, gc.IsNil)
+}
+
+func (s *ManifoldSuite) TestStartWorkerError(c *gc.C) {
+	manifold := machineactions.Manifold(machineactions.ManifoldConfig{
+		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
+		NewFacade:              s.newFacade(&fakeFacade{}),
+		NewWorker:              s.newWorker(nil, errors.New("blam")),
+	})
+
+	w, err := manifold.Start(s.getResource)
+	c.Assert(err, gc.ErrorMatches, "blam")
+	c.Assert(w, gc.IsNil)
+}
+
+func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
+	fakeWorker := &fakeWorker{}
+	manifold := machineactions.Manifold(machineactions.ManifoldConfig{
+		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
+		NewFacade:              s.newFacade(&fakeFacade{}),
+		NewWorker:              s.newWorker(fakeWorker, nil),
+	})
+
+	w, err := manifold.Start(s.getResource)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, gc.Equals, fakeWorker)
+}
+
+func (s *ManifoldSuite) TestInvalidTag(c *gc.C) {
+	fakeWorker := &fakeWorker{}
+	manifold := machineactions.Manifold(machineactions.ManifoldConfig{
+		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
+		NewFacade:              s.newFacade(&fakeFacade{}),
+		NewWorker:              s.newWorker(fakeWorker, nil),
+	})
+
+	w, err := manifold.Start(dt.StubGetResource(dt.StubResources{
+		"wut":     dt.StubResource{Output: &fakeAgent{tag: fakeTagErr}},
+		"exactly": dt.StubResource{Output: s.fakeCaller},
+	}))
+	c.Assert(err, gc.ErrorMatches, "this manifold can only be used inside a machine")
+	c.Assert(w, gc.IsNil)
+}
+
+var fakeTag = names.NewMachineTag("4")
+var fakeTagErr = names.NewUnitTag("whatatag/0")
+
+type fakeAgent struct {
+	agent.Agent
+	tag names.Tag
+}
+
+func (mock *fakeAgent) CurrentConfig() agent.Config {
+	return &fakeConfig{tag: mock.tag}
+}
+
+type fakeConfig struct {
+	agent.Config
+	tag names.Tag
+}
+
+func (mock *fakeConfig) Tag() names.Tag {
+	return mock.tag
+}
+
+type fakeCaller struct {
+	base.APICaller
+}
+
+type fakeFacade struct {
+	machineactions.Facade
+}
+
+type fakeWorker struct {
+	worker.Worker
+}
+
+var fakeHandleAction = func(name string, params map[string]interface{}) (results map[string]interface{}, err error) {
+	return nil, nil
+}
