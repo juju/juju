@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"strings"
@@ -156,7 +157,7 @@ func ConvertActionResults(result params.ActionResult, query actionQuery) map[str
 	// code and error if they are there.
 	if res, ok := result.Output["Stdout"].(string); ok {
 		values["Stdout"] = res
-		if res, ok := result.Output["Stdout.encoding"].(string); ok && res != "" {
+		if res, ok := result.Output["StdoutEncoding"].(string); ok && res != "" {
 			values["Stdout.encoding"] = res
 		}
 	} else {
@@ -164,7 +165,7 @@ func ConvertActionResults(result params.ActionResult, query actionQuery) map[str
 	}
 	if res, ok := result.Output["Stderr"].(string); ok && res != "" {
 		values["Stderr"] = res
-		if res, ok := result.Output["Stderr.encoding"].(string); ok && res != "" {
+		if res, ok := result.Output["StderrEncoding"].(string); ok && res != "" {
 			values["Stderr.encoding"] = res
 		}
 	}
@@ -279,22 +280,13 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		if res, ok := result["Error"].(string); ok {
 			return errors.New(res)
 		}
-		if res, ok := result["Stdout"].(string); ok {
-			ctx.Stdout.Write([]byte(res))
-			if res, ok := result["Stdout.encoding"].(string); ok && res != "" {
-				ctx.Stdout.Write([]byte("encoding: " + res))
-			}
-		}
-		if res, ok := result["Stderr"].(string); ok && res != "" {
-			ctx.Stderr.Write([]byte(res))
-			if res, ok := result["Stderr.encoding"].(string); ok && res != "" {
-				ctx.Stdout.Write([]byte("encoding: " + res))
-			}
-		}
+		ctx.Stdout.Write(formatOutput(result, "Stdout"))
+		ctx.Stderr.Write(formatOutput(result, "Stderr"))
 		if code, ok := result["ReturnCode"].(int); ok && code != 0 {
 			return cmd.NewRcPassthroughError(code)
 		}
 
+		return nil
 	}
 
 	return c.out.Write(ctx, values)
@@ -345,4 +337,24 @@ func entities(actions []actionQuery) params.Entities {
 		entities.Entities[i].Tag = action.actionTag.String()
 	}
 	return entities
+}
+
+func formatOutput(results map[string]interface{}, key string) []byte {
+	res, ok := results[key].(string)
+	if !ok {
+		return []byte("")
+	}
+	if enc, ok := results[key+".encoding"].(string); ok && enc != "" {
+		switch enc {
+		case "base64":
+			decoded, err := base64.StdEncoding.DecodeString(res)
+			if err != nil {
+				return []byte("expected b64 encoded string, got " + res)
+			}
+			return decoded
+		default:
+			return []byte(res)
+		}
+	}
+	return []byte(res)
 }

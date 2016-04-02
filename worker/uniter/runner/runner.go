@@ -169,7 +169,7 @@ func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error 
 		return errors.Trace(err)
 	}
 	if encoding != "utf8" {
-		if err := runner.context.UpdateActionResults([]string{"Stdout.encoding"}, encoding); err != nil {
+		if err := runner.context.UpdateActionResults([]string{"StdoutEncoding"}, encoding); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -179,7 +179,7 @@ func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error 
 		return errors.Trace(err)
 	}
 	if encoding != "utf8" {
-		if err := runner.context.UpdateActionResults([]string{"Stderr.encoding"}, encoding); err != nil {
+		if err := runner.context.UpdateActionResults([]string{"StderrEncoding"}, encoding); err != nil {
 			return errors.Trace(err)
 		}
 	}

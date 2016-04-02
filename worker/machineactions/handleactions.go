@@ -96,6 +96,6 @@ func storeOutput(values map[string]interface{}, key string, input []byte) {
 	value, encoding := encodeBytes(input)
 	values[key] = value
 	if encoding != "utf8" {
-		values[key+".encoding"] = encoding
+		values[key+"Encoding"] = encoding
 	}
 }
