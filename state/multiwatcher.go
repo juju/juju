@@ -81,6 +81,7 @@ func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 			return nil, errors.Trace(ErrStopped)
 		}
 	case <-req.noChanges:
+		return []multiwatcher.Delta{}, nil
 	}
 	return req.changes, nil
 }
