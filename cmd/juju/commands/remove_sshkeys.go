@@ -19,9 +19,21 @@ func NewRemoveKeysCommand() cmd.Command {
 }
 
 var removeKeysDoc = `
-Remove existing authorized ssh keys to remove ssh access for the holder of those keys.
-The keys to delete are found by specifying either the "comment" portion of the ssh key,
-typically something like "user@host", or the key fingerprint.
+Juju maintains a per-model cache of public SSH keys which it copies to
+each unit. This command will remove a specified key (or space separated
+list of keys) from the model cache and all current units deployed in that
+model. The keys to be removed may be specified by the key's fingerprint,
+or by the text label associated with them.
+
+Examples:
+
+    juju remove-ssh-key ubuntu@ubuntu
+    juju remove-ssh-key 45:7f:33:2c:10:4e:6c:14:e3:a1:a4:c8:b2:e1:34:b4
+    juju remove-ssh-key bob@ubuntu carol@ubuntu
+
+See also: list-ssh-key
+          add-ssh-key
+          import-ssh-key
 `
 
 // removeKeysCommand is used to delete authorised ssh keys for a user.
@@ -35,9 +47,9 @@ type removeKeysCommand struct {
 func (c *removeKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-ssh-key",
-		Args:    "<ssh key id> ...",
+		Args:    "<ssh-key-id> ...",
 		Doc:     removeKeysDoc,
-		Purpose: "remove authorized ssh keys from a Juju model",
+		Purpose: "Removes a public SSH key (or keys) from a model.",
 		Aliases: []string{"remove-ssh-keys"},
 	}
 }

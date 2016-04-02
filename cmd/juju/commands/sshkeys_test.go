@@ -40,15 +40,15 @@ func (s *SSHKeysSuite) TestHelpList(c *gc.C) {
 }
 
 func (s *SSHKeysSuite) TestHelpAdd(c *gc.C) {
-	s.assertHelpOutput(c, "add-ssh-key", "<ssh key> ...")
+	s.assertHelpOutput(c, "add-ssh-key", "<ssh-key> ...")
 }
 
 func (s *SSHKeysSuite) TestHelpRemove(c *gc.C) {
-	s.assertHelpOutput(c, "remove-ssh-key", "<ssh key id> ...")
+	s.assertHelpOutput(c, "remove-ssh-key", "<ssh-key-id> ...")
 }
 
 func (s *SSHKeysSuite) TestHelpImport(c *gc.C) {
-	s.assertHelpOutput(c, "import-ssh-key", "<ssh key id> ...")
+	s.assertHelpOutput(c, "import-ssh-key", "<user identity> ...")
 }
 
 type keySuiteBase struct {
