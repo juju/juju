@@ -7,6 +7,7 @@ package machineactions_test
 import (
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/worker/machineactions"
 	"github.com/juju/testing"
@@ -40,12 +41,8 @@ func (s *HandleSuite) TestTimeoutRun(c *gc.C) {
 	}
 
 	results, err := machineactions.HandleAction(actions.JujuRunActionName, params)
-	c.Assert(err, gc.Equals, exec.ErrCancelled)
-	c.Assert(results, jc.DeepEquals, map[string]interface{}{
-		"Stdout": "",
-		"Stderr": "",
-		"Code":   "0",
-	})
+	c.Assert(errors.Cause(err), gc.Equals, exec.ErrCancelled)
+	c.Assert(results, gc.IsNil)
 }
 
 func (s *HandleSuite) TestSuccessfulRun(c *gc.C) {
