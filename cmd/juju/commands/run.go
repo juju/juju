@@ -285,6 +285,10 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		if code, ok := result["ReturnCode"].(int); ok && code != 0 {
 			return cmd.NewRcPassthroughError(code)
 		}
+		// Message should always contain only errors.
+		if res, ok := result["Message"].(string); ok && res != "" {
+			ctx.Stderr.Write([]byte(res))
+		}
 
 		return nil
 	}
