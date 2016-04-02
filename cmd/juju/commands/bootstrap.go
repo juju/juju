@@ -596,6 +596,17 @@ func getBlockAPI(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
 	return apiblock.NewClient(root), nil
 }
 
+// tryAPI attempts to open the API and makes a trivial call
+// to check if the API is available yet.
+func (c *bootstrapCommand) tryAPI() error {
+	client, err := blockAPI(&c.ModelCommandBase)
+	if err == nil {
+		_, err = client.List()
+		client.Close()
+	}
+	return err
+}
+
 // waitForAgentInitialisation polls the bootstrapped controller with a read-only
 // command which will fail until the controller is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
@@ -605,23 +616,13 @@ func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) error {
 		Delay: bootstrapReadyPollDelay,
 	}
 	var (
-		retries int
-		client  block.BlockListAPI
-		err     error
+		apiAttempts int
+		err         error
 	)
 
-	for attempt := attempts.Start(); attempt.Next(); retries++ {
-		client, err = blockAPI(&c.ModelCommandBase)
-		if err != nil {
-			// Logins are prevented whilst space discovery is ongoing.
-			errorMessage := errors.Cause(err).Error()
-			if strings.Contains(errorMessage, "spaces are still being discovered") {
-				continue
-			}
-			break
-		}
-		_, err = client.List()
-		client.Close()
+	apiAttempts = 1
+	for attempt := attempts.Start(); attempt.Next(); apiAttempts++ {
+		err = c.tryAPI()
 		if err == nil {
 			ctx.Infof("Bootstrap complete, %s now available.", c.controllerName)
 			break
@@ -629,14 +630,17 @@ func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) error {
 		// As the API server is coming up, it goes through a number of steps.
 		// Initially the upgrade steps run, but the api server allows some
 		// calls to be processed during the upgrade, but not the list blocks.
+		// Logins are also blocked during space discovery.
 		// It is also possible that the underlying database causes connections
 		// to be dropped as it is initialising, or reconfiguring. These can
 		// lead to EOF or "connection is shut down" error messages. We skip
 		// these too, hoping that things come back up before the end of the
 		// retry poll count.
+		errorMessage := errors.Cause(err).Error()
 		switch {
 		case errors.Cause(err) == io.EOF,
-			strings.HasSuffix(errors.Cause(err).Error(), "connection is shut down"):
+			strings.HasSuffix(errorMessage, "connection is shut down"),
+			strings.Contains(errorMessage, "spaces are still being discovered"):
 			ctx.Infof("Waiting for API to become available")
 			continue
 		case params.ErrCode(err) == params.CodeUpgradeInProgress:
@@ -645,7 +649,7 @@ func (c *bootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) error {
 		}
 		break
 	}
-	return errors.Annotatef(err, "unable to contact api server after %d attempts", retries)
+	return errors.Annotatef(err, "unable to contact api server after %d attempts", apiAttempts)
 }
 
 // checkProviderType ensures the provider type is okay.
