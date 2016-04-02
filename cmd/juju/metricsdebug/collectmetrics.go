@@ -203,7 +203,6 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
 				return
 			}
-			fmt.Println("hi" + tag.Id())
 			actionResult, err := getActionResult(runnerClient, tag.Id(), wait)
 			if err != nil {
 				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
