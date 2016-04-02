@@ -46,15 +46,16 @@ func handleJujuRunAction(params map[string]interface{}) (results map[string]inte
 	timeout, _ := params["timeout"].(float64)
 
 	res, err := runCommandWithTimeout(command, time.Duration(timeout), clock.WallClock)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	actionResults := map[string]interface{}{}
+	actionResults["Code"] = fmt.Sprintf("%d", res.Code)
+	storeOutput(actionResults, "Stdout", res.Stdout)
+	storeOutput(actionResults, "Stderr", res.Stderr)
 
-	if res != nil {
-		actionResults["Code"] = fmt.Sprintf("%d", res.Code)
-		storeOutput(actionResults, "Stdout", res.Stdout)
-		storeOutput(actionResults, "Stderr", res.Stderr)
-	}
-	return actionResults, err
+	return actionResults, nil
 }
 
 func runCommandWithTimeout(command string, timeout time.Duration, clock clock.Clock) (*exec.ExecResponse, error) {
