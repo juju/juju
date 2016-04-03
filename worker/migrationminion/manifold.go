@@ -23,7 +23,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // newWorker is a shim to allow New to work with PostUpgradeManifold.
-func newWorker(_ agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	client := minionapi.NewClient(apiCaller)
-	return New(client)
+	return New(client, a)
 }
