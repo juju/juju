@@ -234,8 +234,9 @@ func (a *CallbackMethods) Factorial(x int64val) (int64val, error) {
 	if x.I <= 1 {
 		return int64val{1}, nil
 	}
+	client := a.root.conn.(rpc.ClientConn)
 	var r int64val
-	err := a.root.conn.(rpc.ClientConn).Call(rpc.Request{"CallbackMethods", 0, "", "Factorial"}, int64val{x.I - 1}, &r)
+	err := client.Call(rpc.Request{"CallbackMethods", 0, "", "Factorial"}, int64val{x.I - 1}, &r)
 	if err != nil {
 		return int64val{}, err
 	}
