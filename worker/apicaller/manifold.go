@@ -15,7 +15,8 @@ import (
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
-	AgentName string
+	AgentName            string
+	APIConfigWatcherName string
 }
 
 // Manifold returns a manifold whose worker wraps an API connection made on behalf of
@@ -24,6 +25,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
+			config.APIConfigWatcherName,
 		},
 		Output: outputFunc,
 		Start:  startFunc(config),

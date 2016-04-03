@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
+	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/resumer"
@@ -151,13 +153,22 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			StartStateWorkers: config.StartStateWorkers,
 		}),
 
+		// The api-config-watcher manifold monitors the API server
+		// addresses in the agent config and bounces when they
+		// change. It's required as part of model migrations.
+		apiConfigWatcherName: apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
+			AgentName:          agentName,
+			AgentConfigChanged: config.AgentConfigChanged,
+		}),
+
 		// The api caller is a thin concurrent wrapper around a connection
 		// to some API server. It's used by many other manifolds, which all
 		// select their own desired facades. It will be interesting to see
 		// how this works when we consolidate the agents; might be best to
 		// handle the auth changes server-side..?
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
-			AgentName: agentName,
+			AgentName:            agentName,
+			APIConfigWatcherName: apiConfigWatcherName,
 		}),
 
 		// The upgrade steps gate is used to coordinate workers which
@@ -196,6 +207,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			OpenStateForUpgrade:  config.OpenStateForUpgrade,
 			PreUpgradeSteps:      config.PreUpgradeSteps,
+		}),
+
+		// The migration minion handles the agent side aspects of model migrations.
+		migrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			UpgradeWaiterName: upgradeWaiterName,
 		}),
 
 		// The uninstaller manifold checks if the machine is dead. If
@@ -382,4 +400,6 @@ const (
 	resumerName              = "resumer"
 	identityFileWriterName   = "identity-file-writer"
 	toolsversioncheckerName  = "tools-version-checker"
+	apiConfigWatcherName     = "api-config-watcher"
+	migrationMinionName      = "migration-minion"
 )

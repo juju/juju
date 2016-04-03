@@ -38,21 +38,23 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 
 	manifolds := unit.Manifolds(config)
 	expectedKeys := []string{
-		unit.AgentName,
 		unit.APIAddressUpdaterName,
 		unit.APICallerName,
+		unit.APIConfigWatcherName,
+		unit.AgentName,
+		unit.CharmDirName,
 		unit.LeadershipTrackerName,
-		unit.LoggingConfigUpdaterName,
 		unit.LogSenderName,
+		unit.LoggingConfigUpdaterName,
 		unit.MachineLockName,
+		unit.MeterStatusName,
+		unit.MetricCollectName,
+		unit.MetricSenderName,
+		unit.MetricSpoolName,
+		unit.MigrationMinionName,
 		unit.ProxyConfigUpdaterName,
 		unit.UniterName,
 		unit.UpgraderName,
-		unit.MetricSpoolName,
-		unit.MetricCollectName,
-		unit.MeterStatusName,
-		unit.MetricSenderName,
-		unit.CharmDirName,
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {

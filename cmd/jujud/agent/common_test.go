@@ -51,7 +51,7 @@ func newDummyWorker() worker.Worker {
 }
 
 type FakeConfig struct {
-	agent.Config
+	agent.ConfigSetter
 }
 
 func (FakeConfig) LogDir() string {
@@ -70,6 +70,10 @@ func (FakeAgentConfig) ReadConfig(string) error { return nil }
 
 func (FakeAgentConfig) CurrentConfig() agent.Config {
 	return FakeConfig{}
+}
+
+func (FakeAgentConfig) ChangeConfig(mutate agent.ConfigMutator) error {
+	return mutate(FakeConfig{})
 }
 
 func (FakeAgentConfig) CheckArgs([]string) error { return nil }
