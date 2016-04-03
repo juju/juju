@@ -163,7 +163,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	}
 
 	disks, err := getDisks(
-		spec, args.Constraints, args.InstanceConfig.Series, env.Config().UUID(),
+		spec, args.Constraints, args.InstanceConfig.Series, env.Config().UUID(), env.Config().ImageStream() == "daily",
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -243,7 +243,7 @@ func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[strin
 // the new instances and returns it. This will always include a root
 // disk with characteristics determined by the provides args and
 // constraints.
-func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser, eUUID string) ([]google.DiskSpec, error) {
+func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser, eUUID string, daily bool) ([]google.DiskSpec, error) {
 	size := common.MinRootDiskSizeGiB(ser)
 	if cons.RootDisk != nil && *cons.RootDisk > size {
 		size = common.MiBToGiB(*cons.RootDisk)
@@ -255,7 +255,11 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser, eUUID s
 	}
 	switch os {
 	case jujuos.Ubuntu:
-		imageURL = ubuntuImageBasePath
+		if daily {
+			imageURL = ubuntuDailyImageBasePath
+		} else {
+			imageURL = ubuntuImageBasePath
+		}
 	case jujuos.Windows:
 		imageURL = windowsImageBasePath
 	default:
