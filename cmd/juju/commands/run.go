@@ -203,8 +203,6 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	// In case the command fails we dump *all* the enqueued id's to stderr.
-	// Normally, there is enough info dumped to stdout to show which action failed.
 	actionsToQuery := []actionQuery{}
 	for _, result := range runResults {
 		if result.Error != nil {
