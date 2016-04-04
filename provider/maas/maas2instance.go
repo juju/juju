@@ -42,25 +42,10 @@ func (mi *maas2Instance) Addresses() ([]network.Address, error) {
 // Status returns a juju status based on the maas instance returned
 // status message.
 func (mi *maas2Instance) Status() instance.InstanceStatus {
-	var statusMsg, statusName string
-	err := mi.refresh()
-	if err != nil {
-		// The instanceStatusConverter will turn these into an appropriate
-		// error status.
-		statusMsg = ""
-		statusName = ""
-
-	} else {
-		statusName = mi.machine.StatusName()
-		statusMsg = mi.machine.StatusMessage()
-	}
+	// TODO (babbageclunk): this should rerequest to get live status.
+	statusName := mi.machine.StatusName()
+	statusMsg := mi.machine.StatusMessage()
 	return convertInstanceStatus(statusMsg, statusName, mi.Id())
-}
-
-func (mi *maas2Instance) refresh() error {
-	// XXXX refresh the machine, that requires being able to fetch a machine by
-	// id from the controller which isn't yet implemented.
-	return nil
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
