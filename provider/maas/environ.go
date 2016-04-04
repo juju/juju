@@ -344,22 +344,16 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 	if env.supportedArchitectures != nil {
 		return env.supportedArchitectures, nil
 	}
-	bootImages, err := env.allBootImages()
-	if err != nil || len(bootImages) == 0 {
-		logger.Debugf("error querying boot-images: %v", err)
-		logger.Debugf("falling back to listing nodes")
-		supportedArchitectures, err := env.nodeArchitectures()
-		if err != nil {
-			return nil, err
-		}
-		env.supportedArchitectures = supportedArchitectures
-	} else {
-		architectures := make(set.Strings)
-		for _, image := range bootImages {
-			architectures.Add(image.architecture)
-		}
-		env.supportedArchitectures = architectures.SortedValues()
+
+	fetchArchitectures := env.allArchitecturesWithFallback
+	if env.usingMAAS2() {
+		fetchArchitectures = env.allArchitectures2
 	}
+	architectures, err := fetchArchitectures()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	env.supportedArchitectures = architectures
 	return env.supportedArchitectures, nil
 }
 
@@ -378,30 +372,54 @@ func (env *maasEnviron) SupportsAddressAllocation(_ network.Id) (bool, error) {
 	return true, nil
 }
 
-// allBootImages queries MAAS for all of the boot-images across
-// all registered nodegroups.
-func (env *maasEnviron) allBootImages() ([]bootImage, error) {
+// allArchitectures2 uses the MAAS2 controller to get architectures from boot
+// resources.
+func (env *maasEnviron) allArchitectures2() ([]string, error) {
+	resources, err := env.maasController.BootResources()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	architectures := set.NewStrings()
+	for _, resource := range resources {
+		architectures.Add(strings.Split(resource.Architecture(), "/")[0])
+	}
+	return architectures.SortedValues(), nil
+}
+
+// allArchitectureWithFallback queries MAAS for all of the boot-images
+// across all registered nodegroups and collapses them down to unique
+// architectures.
+func (env *maasEnviron) allArchitecturesWithFallback() ([]string, error) {
+	architectures, err := env.allArchitectures()
+	if err != nil || len(architectures) == 0 {
+		logger.Debugf("error querying boot-images: %v", err)
+		logger.Debugf("falling back to listing nodes")
+		architectures, err := env.nodeArchitectures()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return architectures, nil
+	} else {
+		return architectures, nil
+	}
+}
+
+func (env *maasEnviron) allArchitectures() ([]string, error) {
 	nodegroups, err := env.getNodegroups()
 	if err != nil {
 		return nil, err
 	}
-	var allBootImages []bootImage
-	seen := make(set.Strings)
+	architectures := set.NewStrings()
 	for _, nodegroup := range nodegroups {
 		bootImages, err := env.nodegroupBootImages(nodegroup)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot get boot images for nodegroup %v", nodegroup)
 		}
 		for _, image := range bootImages {
-			str := fmt.Sprint(image)
-			if seen.Contains(str) {
-				continue
-			}
-			seen.Add(str)
-			allBootImages = append(allBootImages, image)
+			architectures.Add(image.architecture)
 		}
 	}
-	return allBootImages, nil
+	return architectures.SortedValues(), nil
 }
 
 // getNodegroups returns the UUID corresponding to each nodegroup
