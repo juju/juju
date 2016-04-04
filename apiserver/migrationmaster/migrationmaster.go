@@ -5,6 +5,7 @@ package migrationmaster
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -52,6 +53,47 @@ func (api *API) Watch() (params.NotifyWatchResult, error) {
 	}
 	return params.NotifyWatchResult{
 		NotifyWatcherId: api.resources.Register(w),
+	}, nil
+}
+
+// GetMigrationStatus returns the details and progress of the latest
+// model migration.
+func (api *API) GetMigrationStatus() (params.FullMigrationStatus, error) {
+	empty := params.FullMigrationStatus{}
+
+	mig, err := api.backend.GetModelMigration()
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving model migration")
+	}
+
+	target, err := mig.TargetInfo()
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving target info")
+	}
+
+	attempt, err := mig.Attempt()
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving attempt")
+	}
+
+	phase, err := mig.Phase()
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving phase")
+	}
+
+	return params.FullMigrationStatus{
+		Spec: params.ModelMigrationSpec{
+			ModelTag: names.NewModelTag(mig.ModelUUID()).String(),
+			TargetInfo: params.ModelMigrationTargetInfo{
+				ControllerTag: target.ControllerTag.String(),
+				Addrs:         target.Addrs,
+				CACert:        target.CACert,
+				AuthTag:       target.AuthTag.String(),
+				Password:      target.Password,
+			},
+		},
+		Attempt: attempt,
+		Phase:   phase.String(),
 	}, nil
 }
 
