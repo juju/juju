@@ -188,6 +188,16 @@ func (s *StateSuite) TestWatch(c *gc.C) {
 	w := s.State.Watch()
 	defer w.Stop()
 	deltasC := makeMultiwatcherOutput(w)
+	s.State.StartSync()
+
+	select {
+	case deltas := <-deltasC:
+		// The Watch() call results in an empty "change" reflecting
+		// the initially empty model.
+		c.Assert(deltas, gc.HasLen, 0)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out")
+	}
 
 	m := s.Factory.MakeMachine(c, nil) // Generate event
 	s.State.StartSync()
