@@ -183,4 +183,5 @@ class TestGUIStanzaWriter(TestCase):
             'size': 314,
             'format': 'products:1.0',
             'product_name': 'com.canonical.streams:gui',
+            'juju-version': 2,
             }, result)
