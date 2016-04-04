@@ -76,31 +76,27 @@ func registerLocalTests() {
 // localLiveSuite runs tests from LiveTests using a fake
 // EC2 server that runs within the test process itself.
 type localLiveSuite struct {
-	coretesting.BaseSuite
 	LiveTests
-	srv localServer
+	srv                localServer
+	restoreEC2Patching func()
 }
 
 func (t *localLiveSuite) SetUpSuite(c *gc.C) {
-	t.BaseSuite.SetUpSuite(c)
+	t.LiveTests.SetUpSuite(c)
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
-	restoreEC2Patching := patchEC2ForTesting()
+	t.restoreEC2Patching = patchEC2ForTesting()
 	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
-	t.LiveTests.SetUpSuite(c)
-	t.AddSuiteCleanup(func(*gc.C) {
-		restoreEC2Patching()
-	})
 }
 
 func (t *localLiveSuite) TearDownSuite(c *gc.C) {
 	t.LiveTests.TearDownSuite(c)
 	t.srv.stopServer(c)
-	t.BaseSuite.TearDownSuite(c)
+	t.restoreEC2Patching()
 }
 
 // localServer represents a fake EC2 server running within
@@ -179,7 +175,8 @@ func (srv *localServer) stopServer(c *gc.C) {
 type localServerSuite struct {
 	coretesting.BaseSuite
 	jujutest.Tests
-	srv localServer
+	srv                localServer
+	restoreEC2Patching func()
 }
 
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
@@ -188,12 +185,14 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
-	restoreEC2Patching := patchEC2ForTesting()
+	t.restoreEC2Patching = patchEC2ForTesting()
 	t.srv.createRootDisks = true
-	t.AddSuiteCleanup(func(*gc.C) {
-		restoreEC2Patching()
-	})
 
+}
+
+func (t *localServerSuite) TearDownSuite(c *gc.C) {
+	t.restoreEC2Patching()
+	t.BaseSuite.TearDownSuite(c)
 }
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {

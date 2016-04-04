@@ -66,7 +66,7 @@ func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
 	s.UploadArches = []string{arch.AMD64, arch.I386}
 	s.TestConfig = localConfigAttrs
 	restoreEC2Patching := patchEC2ForTesting()
-	s.AddSuiteCleanup(func(*gc.C) {
+	s.AddCleanup(func(*gc.C) {
 		restoreEC2Patching()
 	})
 }
