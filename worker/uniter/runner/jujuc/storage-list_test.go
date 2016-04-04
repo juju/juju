@@ -112,9 +112,9 @@ list storage attached to the unit
 
 Options:
 --format  (= smart)
-    specify output format (json|smart|yaml)
+    Specify output format (json|smart|yaml)
 -o, --output (= "")
-    specify an output file
+    Specify an output file
 
 Details:
 storage-list will list the names of all storage instances

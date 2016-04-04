@@ -240,6 +240,7 @@ func apiConfigConnect(
 ) (api.Connection, error) {
 	select {
 	case <-time.After(delay):
+		// TODO(fwereade): 2016-03-17 lp:1558657
 	case <-stop:
 		return nil, errAborted
 	}

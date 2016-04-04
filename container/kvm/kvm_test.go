@@ -107,7 +107,10 @@ func (s *KVMSuite) TestWriteTemplate(c *gc.C) {
 		Hostname:      "foo-bar",
 		NetworkBridge: "br0",
 		Interfaces: []network.InterfaceInfo{
-			{MACAddress: "00:16:3e:20:b0:11"},
+			{
+				MACAddress:          "00:16:3e:20:b0:11",
+				ParentInterfaceName: "br-eth0.10",
+			},
 		},
 	}
 	tempDir := c.MkDir()
@@ -122,7 +125,7 @@ func (s *KVMSuite) TestWriteTemplate(c *gc.C) {
 
 	c.Assert(template, jc.Contains, "<name>foo-bar</name>")
 	c.Assert(template, jc.Contains, "<mac address='00:16:3e:20:b0:11'/>")
-	c.Assert(template, jc.Contains, "<source bridge='br0'/>")
+	c.Assert(template, jc.Contains, "<source bridge='br-eth0.10'/>")
 	c.Assert(strings.Count(string(template), "<interface type='bridge'>"), gc.Equals, 1)
 }
 

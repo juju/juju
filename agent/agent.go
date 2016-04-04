@@ -33,11 +33,6 @@ import (
 var logger = loggo.GetLogger("juju.agent")
 
 const (
-	// UninstallAgentFile is the name of the file inside the data
-	// dir that, if it exists, will cause a machine agent to uninstall
-	// when it receives the termination signal.
-	UninstallAgentFile = "uninstall-agent"
-
 	// BootstrapNonce is used as a nonce for the initial controller machine.
 	BootstrapNonce = "user-admin:bootstrap"
 

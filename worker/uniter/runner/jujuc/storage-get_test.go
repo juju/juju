@@ -75,9 +75,9 @@ print information for storage instance with specified id
 
 Options:
 --format  (= smart)
-    specify output format (json|smart|yaml)
+    Specify output format (json|smart|yaml)
 -o, --output (= "")
-    specify an output file
+    Specify an output file
 -s  (= data/0)
     specify a storage instance by id
 

@@ -27,12 +27,12 @@ type LoginCommand struct {
 	*loginCommand
 }
 
-type DisenableUserBase struct {
-	*disenableUserBase
+type LogoutCommand struct {
+	*logoutCommand
 }
 
-type SwitchUserCommand struct {
-	*switchUserCommand
+type DisenableUserBase struct {
+	*disenableUserBase
 }
 
 func NewAddCommandForTest(api AddUserAPI, store jujuclient.ClientStore, modelApi modelcmd.ModelAPI) (cmd.Command, *AddCommand) {
@@ -67,12 +67,12 @@ func NewLoginCommandForTest(
 	return modelcmd.WrapController(c), &LoginCommand{c}
 }
 
-// NewSwitchUserCommand returns a SwitchUserCommand using the
-// specified client store.
-func NewSwitchUserCommandForTest(store jujuclient.ClientStore) (cmd.Command, *SwitchUserCommand) {
-	cmd := &switchUserCommand{}
-	cmd.SetClientStore(store)
-	return modelcmd.WrapController(cmd), &SwitchUserCommand{cmd}
+// NewLogoutCommand returns a LogoutCommand with the api
+// and writer provided as specified.
+func NewLogoutCommandForTest(store jujuclient.ClientStore) (cmd.Command, *LogoutCommand) {
+	c := &logoutCommand{}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c), &LogoutCommand{c}
 }
 
 // NewDisableCommand returns a DisableCommand with the api provided as

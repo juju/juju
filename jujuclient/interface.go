@@ -164,6 +164,10 @@ type AccountUpdater interface {
 	//
 	// If the account does not already exist, it will be added.
 	// Otherwise, it will be overwritten with the new details.
+	//
+	// It is currently not permitted to create multiple account entries
+	// for a controller; doing so will result in an error satisfying
+	// errors.IsAlreadyExists.
 	UpdateAccount(controllerName, accountName string, details AccountDetails) error
 
 	// SetCurrentAccount sets the name of the current account for

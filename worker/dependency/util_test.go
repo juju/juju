@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
@@ -15,44 +14,50 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type engineFixture struct {
-	testing.IsolationSuite
-	engine dependency.Engine
+	isFatal    dependency.IsFatalFunc
+	worstError dependency.WorstErrorFunc
+	filter     dependency.FilterFunc
+	dirty      bool
 }
 
-func (s *engineFixture) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	s.startEngine(c, nothingFatal)
-}
-
-func (s *engineFixture) TearDownTest(c *gc.C) {
-	s.stopEngine(c)
-	s.IsolationSuite.TearDownTest(c)
-}
-
-func (s *engineFixture) startEngine(c *gc.C, isFatal dependency.IsFatalFunc) {
-	if s.engine != nil {
-		c.Fatalf("original engine not stopped")
+func (fix *engineFixture) isFatalFunc() dependency.IsFatalFunc {
+	if fix.isFatal != nil {
+		return fix.isFatal
 	}
+	return neverFatal
+}
+
+func (fix *engineFixture) worstErrorFunc() dependency.WorstErrorFunc {
+	if fix.worstError != nil {
+		return fix.worstError
+	}
+	return firstError
+}
+
+func (fix *engineFixture) run(c *gc.C, test func(dependency.Engine)) {
 	config := dependency.EngineConfig{
-		IsFatal:     isFatal,
-		WorstError:  func(err0, err1 error) error { return err0 },
+		IsFatal:     fix.isFatalFunc(),
+		WorstError:  fix.worstErrorFunc(),
+		Filter:      fix.filter, // can be nil anyway
 		ErrorDelay:  coretesting.ShortWait / 2,
 		BounceDelay: coretesting.ShortWait / 10,
 	}
 
-	e, err := dependency.NewEngine(config)
+	engine, err := dependency.NewEngine(config)
 	c.Assert(err, jc.ErrorIsNil)
-	s.engine = e
+	defer fix.kill(c, engine)
+	test(engine)
 }
 
-func (s *engineFixture) stopEngine(c *gc.C) {
-	if s.engine != nil {
-		err := worker.Stop(s.engine)
-		s.engine = nil
-		c.Check(err, jc.ErrorIsNil)
+func (fix *engineFixture) kill(c *gc.C, engine dependency.Engine) {
+	if fix.dirty {
+		workertest.DirtyKill(c, engine)
+	} else {
+		workertest.CleanKill(c, engine)
 	}
 }
 
@@ -222,6 +227,20 @@ func startMinimalWorker(_ dependency.GetResourceFunc) (worker.Worker, error) {
 	return w, nil
 }
 
-func nothingFatal(_ error) bool {
+func isFatalIf(expect error) func(error) bool {
+	return func(actual error) bool {
+		return actual == expect
+	}
+}
+
+func neverFatal(_ error) bool {
 	return false
+}
+
+func alwaysFatal(_ error) bool {
+	return true
+}
+
+func firstError(err, _ error) error {
+	return err
 }

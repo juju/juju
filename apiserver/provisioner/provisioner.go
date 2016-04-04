@@ -306,6 +306,7 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.SSLHostnameVerification = config.SSLHostnameVerification()
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
+	result.AptMirror = config.AptMirror()
 	result.PreferIPv6 = config.PreferIPv6()
 	result.AllowLXCLoopMounts, _ = config.AllowLXCLoopMounts()
 

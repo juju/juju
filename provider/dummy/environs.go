@@ -582,6 +582,17 @@ func (p *environProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p *environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	// NOTE: this check might appear redundant, but it's not: some tests
+	// (apiserver/modelmanager) inject a string value and determine that
+	// the config is validated later; validating here would render that
+	// test meaningless.
+	if cfg.AllAttrs()["controller"] == true {
+		// NOTE: cfg.Apply *does* validate, but we're only adding a
+		// valid value so it doesn't matter.
+		return cfg.Apply(map[string]interface{}{
+			"controller": false,
+		})
+	}
 	return cfg, nil
 }
 
@@ -848,6 +859,9 @@ func (e *environ) Destroy() (res error) {
 	defer func() { estate.ops <- OpDestroy{Env: estate.name, Error: res} }()
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
+	}
+	if !e.ecfg().controller() {
+		return nil
 	}
 	p := &providerInstance
 	p.mu.Lock()

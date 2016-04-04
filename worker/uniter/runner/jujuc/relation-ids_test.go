@@ -132,9 +132,9 @@ list all relation ids with the given relation name
 
 Options:
 --format  (= smart)
-    specify output format (json|smart|yaml)
+    Specify output format (json|smart|yaml)
 -o, --output (= "")
-    specify an output file
+    Specify an output file
 %s`[1:]
 
 	for relid, t := range map[int]struct {

@@ -28,6 +28,7 @@ import (
 // retryAfter returns a channel that receives a value
 // when a failed download should be retried.
 var retryAfter = func() <-chan time.Time {
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	return time.After(5 * time.Second)
 }
 
@@ -136,6 +137,7 @@ func (u *Upgrader) loop() error {
 		return errors.Trace(err)
 	}
 	logger.Infof("abort check blocked until version event received")
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	mustProceed := time.After(time.Minute)
 	var dying <-chan struct{}
 	allowDying := func() {
