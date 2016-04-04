@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -81,6 +83,45 @@ func (s *ClientSuite) TestWatchErr(c *gc.C) {
 	client := migrationmaster.NewClient(apiCaller)
 	_, err := client.Watch()
 	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
+	modelUUID := utils.MustNewUUID().String()
+	controllerUUID := utils.MustNewUUID().String()
+	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _, _ string, _, result interface{}) error {
+		out := result.(*params.FullMigrationStatus)
+		*out = params.FullMigrationStatus{
+			Spec: params.ModelMigrationSpec{
+				ModelTag: names.NewModelTag(modelUUID).String(),
+				TargetInfo: params.ModelMigrationTargetInfo{
+					ControllerTag: names.NewModelTag(controllerUUID).String(),
+					Addrs:         []string{"2.2.2.2:2"},
+					CACert:        "cert",
+					AuthTag:       names.NewUserTag("admin").String(),
+					Password:      "secret",
+				},
+			},
+			Attempt: 3,
+			Phase:   "READONLY",
+		}
+		return nil
+	})
+	client := migrationmaster.NewClient(apiCaller)
+
+	status, err := client.GetMigrationStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.DeepEquals, migrationmaster.MigrationStatus{
+		ModelUUID: modelUUID,
+		Attempt:   3,
+		Phase:     migration.READONLY,
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: names.NewModelTag(controllerUUID),
+			Addrs:         []string{"2.2.2.2:2"},
+			CACert:        "cert",
+			AuthTag:       names.NewUserTag("admin"),
+			Password:      "secret",
+		},
+	})
 }
 
 func (s *ClientSuite) TestSetPhase(c *gc.C) {

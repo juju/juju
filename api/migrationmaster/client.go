@@ -5,6 +5,7 @@ package migrationmaster
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -20,6 +21,10 @@ type Client interface {
 	// active for the model associated with the API connection.
 	Watch() (watcher.MigrationMasterWatcher, error)
 
+	// GetMigrationStatus returns the details and progress of the
+	// latest model migration.
+	GetMigrationStatus() (MigrationStatus, error)
+
 	// SetPhase updates the phase of the currently active model
 	// migration.
 	SetPhase(migration.Phase) error
@@ -27,6 +32,15 @@ type Client interface {
 	// Export returns a serialized representation of the model
 	// associated with the API connection.
 	Export() ([]byte, error)
+}
+
+// MigrationStatus returns the details for a migration as needed by
+// the migration master worker.
+type MigrationStatus struct {
+	ModelUUID  string
+	Attempt    int
+	Phase      migration.Phase
+	TargetInfo migration.TargetInfo
 }
 
 // NewClient returns a new Client based on an existing API connection.
@@ -51,6 +65,50 @@ func (c *client) Watch() (watcher.MigrationMasterWatcher, error) {
 	}
 	w := apiwatcher.NewMigrationMasterWatcher(c.caller.RawAPICaller(), result.NotifyWatcherId)
 	return w, nil
+}
+
+// GetMigrationStatus implements Client.
+func (c *client) GetMigrationStatus() (MigrationStatus, error) {
+	var empty MigrationStatus
+	var status params.FullMigrationStatus
+	err := c.caller.FacadeCall("GetMigrationStatus", nil, &status)
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+
+	modelTag, err := names.ParseModelTag(status.Spec.ModelTag)
+	if err != nil {
+		return empty, errors.Annotatef(err, "parsing model tag")
+	}
+
+	phase, ok := migration.ParsePhase(status.Phase)
+	if !ok {
+		return empty, errors.New("unable to parse phase")
+	}
+
+	target := status.Spec.TargetInfo
+	controllerTag, err := names.ParseModelTag(target.ControllerTag)
+	if err != nil {
+		return empty, errors.Annotatef(err, "parsing controller tag")
+	}
+
+	authTag, err := names.ParseUserTag(target.AuthTag)
+	if err != nil {
+		return empty, errors.Annotatef(err, "unable to parse auth tag")
+	}
+
+	return MigrationStatus{
+		ModelUUID: modelTag.Id(),
+		Attempt:   status.Attempt,
+		Phase:     phase,
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: controllerTag,
+			Addrs:         target.Addrs,
+			CACert:        target.CACert,
+			AuthTag:       authTag,
+			Password:      target.Password,
+		},
+	}, nil
 }
 
 // SetPhase implements Client.
