@@ -202,6 +202,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewUsersCommand())
 	r.Register(model.NewGrantCommand())
 	r.Register(model.NewRevokeCommand())
+	r.Register(model.NewShowCommand())
 
 	if featureflag.Enabled(feature.Migration) {
 		r.Register(newMigrateCommand())
