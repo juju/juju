@@ -275,7 +275,7 @@ func (s *MachinerStateSuite) SetUpTest(c *gc.C) {
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 
 	// Create the machiner API facade.
-	s.machinerState = s.st.Machiner()
+	s.machinerState = apimachiner.NewState(s.st)
 	c.Assert(s.machinerState, gc.NotNil)
 
 	// Get the machine through the facade.

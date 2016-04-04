@@ -29,8 +29,7 @@ func init() {
 	common.RegisterStandardFacade("ModelManager", 2, NewModelManagerAPI)
 }
 
-// ModelManager defines the methods on the modelmanager API end
-// point.
+// ModelManager defines the methods on the modelmanager API endpoint.
 type ModelManager interface {
 	ConfigSkeleton(args params.ModelSkeletonConfigArgs) (params.ModelConfigResult, error)
 	CreateModel(args params.ModelCreateArgs) (params.Model, error)
@@ -268,6 +267,78 @@ func (mm *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList,
 	}
 
 	return result, nil
+}
+
+// ModelInfo returns information about the specified models.
+func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResults, error) {
+	results := params.ModelInfoResults{
+		Results: make([]params.ModelInfoResult, len(args.Entities)),
+	}
+
+	getModelInfo := func(arg params.Entity) (params.ModelInfo, error) {
+		tag, err := names.ParseModelTag(arg.Tag)
+		if err != nil {
+			return params.ModelInfo{}, err
+		}
+		model, err := m.state.GetModel(tag)
+		if errors.IsNotFound(err) {
+			return params.ModelInfo{}, common.ErrPerm
+		} else if err != nil {
+			return params.ModelInfo{}, err
+		}
+
+		cfg, err := model.Config()
+		if err != nil {
+			return params.ModelInfo{}, err
+		}
+		users, err := model.Users()
+		if err != nil {
+			return params.ModelInfo{}, err
+		}
+
+		owner := model.Owner()
+		info := params.ModelInfo{
+			Name:           cfg.Name(),
+			UUID:           cfg.UUID(),
+			ControllerUUID: cfg.ControllerUUID(),
+			OwnerTag:       owner.String(),
+			ProviderType:   cfg.Type(),
+			DefaultSeries:  config.PreferredSeries(cfg),
+		}
+
+		authorizedOwner := m.authCheck(owner) == nil
+		for _, user := range users {
+			if !authorizedOwner && m.authCheck(user.UserTag()) != nil {
+				// The authenticated user is neither the owner
+				// nor administrator, nor the model user, so
+				// has no business knowing about the model user.
+				continue
+			}
+			userInfo, err := common.ModelUserInfo(user)
+			if err != nil {
+				return params.ModelInfo{}, errors.Trace(err)
+			}
+			info.Users = append(info.Users, userInfo)
+		}
+
+		if len(info.Users) == 0 {
+			// No users, which means the authenticated user doesn't
+			// have access to the model.
+			return params.ModelInfo{}, common.ErrPerm
+		}
+
+		return info, nil
+	}
+
+	for i, arg := range args.Entities {
+		modelInfo, err := getModelInfo(arg)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = &modelInfo
+	}
+	return results, nil
 }
 
 // ModifyModelAccess changes the model access granted to users.

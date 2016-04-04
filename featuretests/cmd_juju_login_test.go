@@ -36,11 +36,20 @@ func (s *cmdLoginSuite) run(c *gc.C, stdin io.Reader, args ...string) *cmd.Conte
 
 func (s *cmdLoginSuite) createTestUser(c *gc.C) {
 	s.run(c, nil, "add-user", "test", "--models", "admin")
-	s.run(c, strings.NewReader("hunter2\nhunter2\n"), "change-user-password", "test")
+	s.changeUserPassword(c, "test", "hunter2")
+}
+
+func (s *cmdLoginSuite) changeUserPassword(c *gc.C, user, password string) {
+	s.run(c, strings.NewReader(password+"\n"+password+"\n"), "change-user-password", user)
 }
 
 func (s *cmdLoginSuite) TestLoginCommand(c *gc.C) {
 	s.createTestUser(c)
+
+	// logout "admin" first; we'll need to give it
+	// a non-random password before we can do so.
+	s.changeUserPassword(c, "admin", "hunter2")
+	s.run(c, nil, "logout")
 
 	context := s.run(c, strings.NewReader("hunter2\nhunter2\n"), "login", "test")
 	c.Assert(testing.Stdout(context), gc.Equals, "")

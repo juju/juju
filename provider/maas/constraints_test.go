@@ -388,10 +388,10 @@ func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
 		expected: "volume-1:1234(tag1,tag2),volume-2:4567(tag1,tag3)",
 	}} {
 		c.Logf("test #%d: volumes=%v", i, test.volumes)
-		server.SetVersionJSON(`{"capabilities": []}`)
 		env := suite.makeEnviron()
-		// Make sure spaces are not supported.
+		server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-1"}))
 		server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+		suite.addSubnet(c, 1, 1, "node0")
 		_, err := env.acquireNode("", "", constraints.Value{}, nil, test.volumes)
 		c.Check(err, jc.ErrorIsNil)
 		requestValues := server.NodeOperationRequestValues()
@@ -562,22 +562,4 @@ func (suite *environSuite) TestAcquireNodeUnrecognisedSpace(c *gc.C) {
 	server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 	_, err := env.acquireNode("", "", cons, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `unrecognised space in constraint "baz"`)
-}
-
-func (suite *environSuite) TestAcquireNodeSpacesIgnoredWhenNotSupported(c *gc.C) {
-	server := suite.testMAASObject.TestServer
-	suite.createFooBarSpaces(c)
-	server.SetVersionJSON(`{"capabilities": []}`)
-	cons := constraints.Value{
-		Spaces: stringslicep("baz"),
-	}
-	env := suite.makeEnviron()
-	server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
-	_, err := env.acquireNode("", "", cons, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	requestValues := server.NodeOperationRequestValues()
-	nodeRequestValues, found := requestValues["node0"]
-	c.Assert(found, jc.IsTrue)
-	c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, "")
-	c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, "")
 }

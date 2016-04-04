@@ -187,9 +187,38 @@ func (mi *maasInstance) architecture() (arch, subarch string, err error) {
 	return arch, subarch, nil
 }
 
-func (mi *maasInstance) zone() string {
-	zone, _ := mi.maasObject.GetField("zone")
-	return zone
+func (mi *maasInstance) zone() (string, error) {
+	// TODO (anastasiamac 2016-03-31)
+	// This code is needed until gomaasapi testing code is
+	// updated to align with MAAS.
+	// Currently, "zone" property is still treated as field
+	// by gomaasi infrastructure and is searched for
+	// using matchField(node, "zone", zoneName) instead of
+	// getMap.
+	// @see gomaasapi/testservice.go#findFreeNode
+	// bug https://bugs.launchpad.net/gomaasapi/+bug/1563631
+	zone, fieldErr := mi.maasObject.GetField("zone")
+	if fieldErr == nil && zone != "" {
+		return zone, nil
+	}
+
+	obj := mi.maasObject.GetMap()["zone"]
+	if obj.IsNil() {
+		return "", errors.New("zone property not set on maas")
+	}
+	zoneMap, err := obj.GetMap()
+	if err != nil {
+		return "", errors.New("zone property is not an expected type")
+	}
+	nameObj, ok := zoneMap["name"]
+	if !ok {
+		return "", errors.New("zone property is not set correctly: name is missing")
+	}
+	str, err := nameObj.GetString()
+	if err != nil {
+		return "", err
+	}
+	return str, nil
 }
 
 func (mi *maasInstance) cpuCount() (uint64, error) {
@@ -241,7 +270,10 @@ func (mi *maasInstance) hardwareCharacteristics() (*instance.HardwareCharacteris
 	if err != nil {
 		return nil, errors.Annotate(err, "error determining available memory")
 	}
-	zone := mi.zone()
+	zone, err := mi.zone()
+	if err != nil {
+		return nil, errors.Annotate(err, "error determining availability zone")
+	}
 	hc := &instance.HardwareCharacteristics{
 		Arch:             &nodeArch,
 		CpuCores:         &nodeCpuCount,

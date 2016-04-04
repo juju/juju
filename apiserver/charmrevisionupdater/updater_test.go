@@ -6,6 +6,7 @@ package charmrevisionupdater_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -167,7 +168,9 @@ func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
 	// Point the charm repo initializer to the testing server.
 	s.PatchValue(&charmrevisionupdater.NewCharmStoreClientConfig, func() charmstore.ClientConfig {
 		var config charmstore.ClientConfig
-		config.URL = srv.URL
+		csURL, err := url.Parse(srv.URL)
+		c.Assert(err, jc.ErrorIsNil)
+		config.URL = csURL
 		return config
 	})
 

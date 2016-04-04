@@ -15,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
@@ -50,7 +51,7 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
 	s.testMAASObject = TestMAASObject
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddSuiteCleanup(func(*gc.C) {
+	s.AddCleanup(func(*gc.C) {
 		restoreFinishBootstrap()
 		restoreTimeouts()
 	})
@@ -64,12 +65,15 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
-	s.ToolsFixture.SetUpTest(c)
+	mockCapabilities := func(client *gomaasapi.MAASObject) (set.Strings, error) {
+		return set.NewStrings("network-deployment-ubuntu"), nil
+	}
+	s.PatchValue(&GetCapabilities, mockCapabilities)
 	s.SetFeatureFlags(feature.AddressAllocation)
-	s.testMAASObject.TestServer.SetVersionJSON(`{"capabilities": ["networks-management","static-ipaddresses"]}`)
 	// Creating a space ensures that the spaces endpoint won't 404.
 	s.testMAASObject.TestServer.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-0"}))
 }

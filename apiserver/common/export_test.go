@@ -11,6 +11,7 @@ var (
 	EnvtoolsFindTools       = &envtoolsFindTools
 	SendMetrics             = &sendMetrics
 	MockableDestroyMachines = destroyMachines
+	IsUnknownModelError     = isUnknownModelError
 )
 
 type Patcher interface {

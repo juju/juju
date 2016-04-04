@@ -281,9 +281,9 @@ get action parameters
 
 Options:
 --format  (= smart)
-    specify output format (json|smart|yaml)
+    Specify output format (json|smart|yaml)
 -o, --output (= "")
-    specify an output file
+    Specify an output file
 
 Details:
 action-get will print the value of the parameter at the given key, serialized

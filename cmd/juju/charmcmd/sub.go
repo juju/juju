@@ -6,6 +6,7 @@ package charmcmd
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/charmstore"
 )
 
@@ -42,6 +43,5 @@ func (c *CommandBase) Connect(ctx *cmd.Context) (*charmstore.Client, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	return client, nil
 }

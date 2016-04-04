@@ -95,9 +95,9 @@ func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	context = s.run(c, "list-shares")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME           DATE CREATED  LAST CONNECTION\n"+
-		"admin@local    just now      just now\n"+
-		"bar@ubuntuone  just now      never connected\n"+
+		"NAME                 ACCESS  LAST CONNECTION\n"+
+		"admin@local (admin)  write   just now\n"+
+		"bar@ubuntuone        read    never connected\n"+
 		"\n")
 
 }

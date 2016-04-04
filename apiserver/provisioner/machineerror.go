@@ -70,6 +70,7 @@ func (w *machineErrorRetry) loop() error {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
+		// TODO(fwereade): 2016-03-17 lp:1558657
 		case <-time.After(ErrorRetryWaitDelay):
 			out = w.out
 		case out <- struct{}{}:

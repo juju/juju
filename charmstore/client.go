@@ -6,6 +6,7 @@ package charmstore
 import (
 	"io"
 	"io/ioutil"
+	"net/url"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -97,7 +98,7 @@ func newBaseClient(raw *csclient.Client, config ClientConfig, meta JujuMetadata)
 	}
 	base.asRepo = func() *charmrepo.CharmStore {
 		// TODO(ericsnow) Use charmrepo.NewCharmStoreFromClient(), when available?
-		repo := charmrepo.NewCharmStore(config.NewCharmStoreParams)
+		repo := config.newCSRepo()
 		return repo.WithJujuAttrs(meta.asAttrs())
 	}
 	return base
@@ -115,18 +116,31 @@ func (base baseClient) LatestRevisions(cURLs []*charm.URL) ([]charmrepo.CharmRev
 // ClientConfig holds the configuration of a charm store client.
 type ClientConfig struct {
 	charmrepo.NewCharmStoreParams
+
+	// URL is the URL to the charm store. nil means use the default.
+	URL *url.URL
+}
+
+func (config ClientConfig) urlString() string {
+	if config.URL == nil {
+		return ""
+	} else {
+		return config.URL.String()
+	}
 }
 
 func (config ClientConfig) newCSClient() *csclient.Client {
 	return csclient.New(csclient.Params{
-		URL:          config.URL,
+		URL:          config.urlString(),
 		HTTPClient:   config.HTTPClient,
 		VisitWebPage: config.VisitWebPage,
 	})
 }
 
 func (config ClientConfig) newCSRepo() *charmrepo.CharmStore {
-	return charmrepo.NewCharmStore(config.NewCharmStoreParams)
+	args := config.NewCharmStoreParams
+	args.URL = config.urlString()
+	return charmrepo.NewCharmStore(args)
 }
 
 // TODO(ericsnow) Factor out a metadataClient type that embeds "client",

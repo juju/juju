@@ -134,6 +134,7 @@ func (m *ExternalMacaroonAuthenticator) newDischargeRequiredError(cause error) e
 		return errors.Trace(cause)
 	}
 	mac := m.Macaroon.Clone()
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	if err := addMacaroonTimeBeforeCaveat(m.Service, mac, externalLoginExpiryTime); err != nil {
 		return errors.Annotatef(err, "cannot create macaroon")
 	}
