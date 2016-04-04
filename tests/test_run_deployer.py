@@ -1,13 +1,12 @@
 from argparse import Namespace
 import logging
 import os
+import pickle
 import stat
 import subprocess
 from tempfile import NamedTemporaryFile
 import unittest
-import urllib2
 
-from assess_min_version import JujuAssertionError
 from mock import (
     call,
     Mock,
@@ -21,15 +20,11 @@ from jujupy import (
 from run_deployer import (
     apply_condition,
     assess_deployer,
-    assert_landscape_bundle,
-    assert_mediawiki_bundle,
     check_health,
     CLOCK_SKEW_SCRIPT,
     ErrUnitCondition,
     main,
     parse_args,
-    verify_services,
-    wait_for_http,
     )
 import tests
 from tests.test_jujupy import FakeJujuClient
@@ -98,7 +93,9 @@ class TestMain(tests.FakeHomeTestCase):
 
     def test_basic_args_native_deploy(self):
         args = ['mediawiki-scalable.yaml', 'an-env', '/bin/juju', 'logs',
-                'deployer-env', '--allow-native-deploy']
+                'deployer-env', '--allow-native-deploy',
+                '--bundle-verification-script',
+                'verify_mediawiki_bundle.py']
         env = JujuData('an-env')
         client = EnvJujuClient(env, '1.234-76', None)
         with patch('jujupy.SimpleEnvironment.from_config',
@@ -107,18 +104,21 @@ class TestMain(tests.FakeHomeTestCase):
                        return_value=client) as c_mock:
                 with patch('run_deployer.boot_context'):
                     with patch('run_deployer.assess_deployer') as ad_mock:
-                        with patch('run_deployer.'
-                                   'assert_mediawiki_bundle') as mb_mock:
+                        with patch('run_deployer.run_command') as mb_mock:
                             main(args)
         e_mock.assert_called_once_with('an-env')
         c_mock.assert_called_once_with(env, '/bin/juju', debug=False)
         ad_mock.assert_called_once_with(parse_args(args), client, 1200, 1800)
-        mb_mock.assert_called_once_with(parse_args(args), client)
+        client_ser = pickle.dumps(client)
+        mb_mock.assert_called_once_with(['verify_mediawiki_bundle.py',
+                                         client_ser], verbose=True)
 
     def test_basic_args_native_deploy_landscape(self):
         args = ['cs:~landscape/bundle/landscape-scalable', 'an-env',
                 '/bin/juju', 'logs', 'deployer-env',
-                '--allow-native-deploy']
+                '--allow-native-deploy',
+                '--bundle-verification-script',
+                'verify_landscape_bundle.py']
         env = JujuData('an-env')
         client = EnvJujuClient(env, '1.234-76', None)
         with patch('jujupy.SimpleEnvironment.from_config',
@@ -127,16 +127,14 @@ class TestMain(tests.FakeHomeTestCase):
                        return_value=client) as c_mock:
                 with patch('run_deployer.boot_context'):
                     with patch('run_deployer.assess_deployer') as ad_mock:
-                        with patch('run_deployer.'
-                                   'assert_mediawiki_bundle') as mb_mock:
-                            with patch('run_deployer.'
-                                       'assert_landscape_bundle') as lb:
+                            with patch('run_deployer.run_command') as rc:
                                 main(args)
         e_mock.assert_called_once_with('an-env')
         c_mock.assert_called_once_with(env, '/bin/juju', debug=False)
         ad_mock.assert_called_once_with(parse_args(args), client, 1200, 1800)
-        self.assertEquals(mb_mock.call_count, 0)
-        lb.assert_called_once_with(parse_args(args), client)
+        client_ser = pickle.dumps(client)
+        rc.assert_called_once_with(['verify_landscape_bundle.py',
+                                   client_ser], verbose=True)
 
 
 class TestAssessDeployer(tests.TestCase):
@@ -222,130 +220,6 @@ class TestAssessDeployer(tests.TestCase):
         client_mock.deploy_bundle.assert_called_once_with('bundle.yaml')
         client_mock.wait_for_started.assert_called_once_with(timeout=600)
         client_mock.wait_for_workloads.assert_called_once_with(timeout=1800)
-
-    def test_wait_for_http(self):
-        fake_res = FakeResponse()
-        with patch('urllib2.urlopen', autospec=True,
-                   return_value=fake_res) as uo_mock:
-                wait_for_http("example.com")
-        uo_mock.assert_called_once_with('example.com')
-
-    def test_wait_for_http_timeout(self):
-        fake_res = FakeResponse()
-        with patch('urllib2.urlopen', autospec=True,
-                   return_value=fake_res):
-            with self.assertRaisesRegexp(
-                    JujuAssertionError, 'example.com is not reachable'):
-                wait_for_http("example.com", timeout=0)
-
-    def test_wait_for_http_httperror(self):
-        with patch('urllib2.urlopen', autospec=True,
-                   return_value=urllib2.HTTPError(
-                       None, None, None, None, None)) as uo_mock:
-            with patch('run_deployer.until_timeout',
-                       autospec=True, return_value=[1]) as ut_mock:
-                with self.assertRaisesRegexp(
-                        JujuAssertionError, 'example.com is not reachable'):
-                    wait_for_http("example.com")
-        uo_mock.assert_called_once_with('example.com')
-        self.assertEqual(ut_mock.mock_calls, [call(60)])
-
-    def test_verify_services(self):
-        client = self.deploy_mediawiki()
-        fake_res = FakeResponse()
-        services = ['haproxy', 'mediawiki', 'mysql', 'memcached',
-                    'mysql-slave']
-        with patch('urllib2.urlopen', autospec=True,
-                   return_value=fake_res) as url_mock:
-            verify_services(client, services, text='foo')
-        url_mock.assert_called_once_with('http://1.example.com')
-
-    def test_verify_service_misconfigured(self):
-        client = FakeJujuClient()
-        client.bootstrap()
-        client.deploy('haproxy')
-        client.deploy('mysql')
-        services = ['haproxy', 'mediawiki', 'mysql', 'memcached',
-                    'mysql-slave']
-        with self.assertRaisesRegexp(
-                JujuAssertionError, 'Unexpected service configuration'):
-            verify_services(client, services)
-
-    def test_verfiy_services_haproxy_exposed(self):
-        client = self.deploy_mediawiki()
-        services = ['haproxy', 'mediawiki', 'mysql', 'memcached',
-                    'mysql-slave']
-        client.juju('expose', ('haproxy',))
-        with self.assertRaisesRegexp(
-                JujuAssertionError, 'haproxy is exposed.'):
-            verify_services(client, services)
-
-    def test_verfiy_services_haproxy_not_exposed(self):
-        client = self.deploy_mediawiki()
-        services = ['haproxy', 'mediawiki', 'mysql', 'memcached',
-                    'mysql-slave']
-        client.juju = Mock(spec=[])
-        with self.assertRaisesRegexp(
-                JujuAssertionError, 'haproxy is not exposed.'):
-            verify_services(client, services)
-
-    def test_verfiy_services_text_not_found(self):
-        client = self.deploy_mediawiki()
-        services = ['haproxy', 'mediawiki', 'mysql', 'memcached',
-                    'mysql-slave']
-        fake_res = FakeResponse()
-        with patch('urllib2.urlopen', autospec=True,
-                   return_value=fake_res) as url_mock:
-            with self.assertRaisesRegexp(
-                JujuAssertionError,
-                    "landscape is not found in 1.example.com"):
-                verify_services(client, services, text="landscape")
-        url_mock.assert_called_once_with("http://1.example.com")
-
-    def test_assert_mediawiki_bundle(self):
-        args = self.make_args(allow_native_deploy=True)
-        client = self.deploy_mediawiki()
-        fake_res = FakeResponse()
-        services = ['haproxy', 'mediawiki', 'mysql', 'memcached',
-                    'mysql-slave']
-        with patch('run_deployer.verify_services', autospec=True,
-                   return_value=fake_res) as vs_mock:
-            assert_mediawiki_bundle(args, client)
-        vs_mock.assert_called_once_with(client, services)
-
-    def test_assert_landscape_bundle(self):
-        args = self.make_args(allow_native_deploy=True)
-        client = self.deploy_mediawiki()
-        fake_res = FakeResponse()
-        services = ['haproxy', 'landscape-server', 'postgresql',
-                    'rabbitmq-server']
-        with patch('run_deployer.verify_services', autospec=True,
-                   return_value=fake_res) as vs_mock:
-            assert_landscape_bundle(args, client)
-        vs_mock.assert_called_once_with(client, services, scheme='https',
-                                        text='Landscape')
-
-    def deploy_mediawiki(self):
-        client = FakeJujuClient()
-        client.bootstrap()
-        client.deploy('haproxy')
-        client.deploy('mediawiki')
-        client.deploy('mysql')
-        client.deploy('memcached')
-        client.deploy('mysql-slave')
-        return client
-
-
-class FakeResponse:
-
-    def __init__(self, code=200):
-        self.return_code = code
-
-    def getcode(self):
-        return self.return_code
-
-    def read(self):
-        return "foo"
 
 
 class FakeRemote():
