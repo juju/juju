@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/worker/retrystrategy"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
-	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -112,12 +111,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// API server, when configured so to do. We should only need one of
 		// these in a consolidated agent.
 		LogSenderName: logsender.Manifold(logsender.ManifoldConfig{
-			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
-				AgentName:         AgentName,
-				APICallerName:     APICallerName,
-				UpgradeWaiterName: util.UpgradeWaitNotRequired,
-			},
-			LogSource: config.LogSource,
+			APICallerName: APICallerName,
+			LogSource:     config.LogSource,
 		}),
 
 		// The logging config updater is a leaf worker that indirectly
@@ -125,18 +120,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// according to changes in environment config. We should only need
 		// one of these in a consolidated agent.
 		LoggingConfigUpdaterName: logger.Manifold(logger.ManifoldConfig{
-			AgentName:         AgentName,
-			APICallerName:     APICallerName,
-			UpgradeWaiterName: util.UpgradeWaitNotRequired,
+			AgentName:     AgentName,
+			APICallerName: APICallerName,
 		}),
 
 		// The api address updater is a leaf worker that rewrites agent config
 		// as the controller addresses change. We should only need one of
 		// these in a consolidated agent.
 		APIAddressUpdaterName: apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
-			AgentName:         AgentName,
-			APICallerName:     APICallerName,
-			UpgradeWaiterName: util.UpgradeWaitNotRequired,
+			AgentName:     AgentName,
+			APICallerName: APICallerName,
 		}),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
@@ -146,8 +139,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// coincidence. Probably we ought to be making components that might
 		// need proxy config into explicit dependencies of the proxy updater...
 		ProxyConfigUpdaterName: proxyupdater.Manifold(proxyupdater.ManifoldConfig{
-			APICallerName:     APICallerName,
-			UpgradeWaiterName: util.UpgradeWaitNotRequired,
+			APICallerName: APICallerName,
 		}),
 
 		// The upgrader is a leaf worker that returns a specific error type
@@ -163,9 +155,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The migration minion handles the agent side aspects of model migrations.
 		MigrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
-			AgentName:         AgentName,
-			APICallerName:     APICallerName,
-			UpgradeWaiterName: util.UpgradeWaitNotRequired,
+			AgentName:     AgentName,
+			APICallerName: APICallerName,
 		}),
 
 		// The leadership tracker attempts to secure and retain leadership of
@@ -181,12 +172,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// HookRetryStrategy uses a retrystrategy worker to get a
 		// retry strategy that will be used by the uniter to run its hooks.
 		HookRetryStrategyName: retrystrategy.Manifold(retrystrategy.ManifoldConfig{
-			AgentApiManifoldConfig: util.AgentApiManifoldConfig{
-				AgentName:     AgentName,
-				APICallerName: APICallerName,
-			},
-			NewFacade: retrystrategy.NewFacade,
-			NewWorker: retrystrategy.NewRetryStrategyWorker,
+			AgentName:     AgentName,
+			APICallerName: APICallerName,
+			NewFacade:     retrystrategy.NewFacade,
+			NewWorker:     retrystrategy.NewRetryStrategyWorker,
 		}),
 
 		// The uniter installs charms; manages the unit's presence in its

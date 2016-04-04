@@ -31,10 +31,10 @@ func ServingInfoSetterManifold(config ServingInfoSetterConfig) dependency.Manifo
 			config.AgentName,
 			config.APICallerName,
 		},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(context dependency.Context) (worker.Worker, error) {
 			// Get the agent.
 			var agent coreagent.Agent
-			if err := getResource(config.AgentName, &agent); err != nil {
+			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 
@@ -46,7 +46,7 @@ func ServingInfoSetterManifold(config ServingInfoSetterConfig) dependency.Manifo
 
 			// Get API connection.
 			var apiCaller base.APICaller
-			if err := getResource(config.APICallerName, &apiCaller); err != nil {
+			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
 			apiState := apiagent.NewState(apiCaller)

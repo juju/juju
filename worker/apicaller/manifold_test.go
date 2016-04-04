@@ -22,10 +22,10 @@ import (
 type ManifoldSuite struct {
 	testing.IsolationSuite
 	testing.Stub
-	manifold    dependency.Manifold
-	agent       *mockAgent
-	conn        *mockConn
-	getResource dependency.GetResourceFunc
+	manifold dependency.Manifold
+	agent    *mockAgent
+	conn     *mockConn
+	context  dependency.Context
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -60,9 +60,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		stub:  &s.Stub,
 		model: coretesting.ModelTag,
 	}
-	s.getResource = dt.StubGetResource(dt.StubResources{
-		"agent-name":              dt.StubResource{Output: s.agent},
-		"api-config-watcher-name": dt.StubResource{},
+	s.context = dt.StubContext(nil, map[string]interface{}{
+		"agent-name": s.agent,
 	})
 
 	// Watch out for this: it uses its own Stub because Close calls
@@ -82,11 +81,11 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 	s.CheckCalls(c, nil)
@@ -95,7 +94,7 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
 func (s *ManifoldSuite) TestStartCannotOpenAPI(c *gc.C) {
 	s.SetErrors(errors.New("no api for you"))
 
-	worker, err := s.manifold.Start(s.getResource)
+	worker, err := s.manifold.Start(s.context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot open api: no api for you")
 	s.CheckCalls(c, []testing.StubCall{{
@@ -105,7 +104,7 @@ func (s *ManifoldSuite) TestStartCannotOpenAPI(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
-	worker, err := s.manifold.Start(s.getResource)
+	worker, err := s.manifold.Start(s.context)
 	c.Check(err, jc.ErrorIsNil)
 	defer assertStop(c, worker)
 	s.CheckCalls(c, []testing.StubCall{{
@@ -115,7 +114,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 }
 
 func (s *ManifoldSuite) setupWorkerTest(c *gc.C) worker.Worker {
-	w, err := s.manifold.Start(s.getResource)
+	w, err := s.manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { w.Kill() })
 	return w

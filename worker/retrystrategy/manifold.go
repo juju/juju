@@ -17,15 +17,20 @@ import (
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
-	AgentApiManifoldConfig util.AgentApiManifoldConfig
-	NewFacade              func(base.APICaller) Facade
-	NewWorker              func(WorkerConfig) (worker.Worker, error)
+	AgentName     string
+	APICallerName string
+	NewFacade     func(base.APICaller) Facade
+	NewWorker     func(WorkerConfig) (worker.Worker, error)
 }
 
 // Manifold returns a dependency manifold that runs a hook retry strategy worker,
 // using the agent name and the api connection resources named in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	manifold := util.AgentApiManifold(util.AgentApiManifoldConfig(config.AgentApiManifoldConfig), config.start)
+	typedConfig := util.AgentApiManifoldConfig{
+		AgentName:     config.AgentName,
+		APICallerName: config.APICallerName,
+	}
+	manifold := util.AgentApiManifold(typedConfig, config.start)
 	manifold.Output = config.output
 	return manifold
 }

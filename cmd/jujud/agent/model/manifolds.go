@@ -95,7 +95,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
 		}),
-
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
 			AgentName:     agentName,
 			APIOpen:       apicaller.APIOpen,
@@ -256,7 +255,7 @@ func ifNotDead(manifold dependency.Manifold) dependency.Manifold {
 // clockManifold expresses a Clock as a ValueWorker manifold.
 func clockManifold(clock clock.Clock) dependency.Manifold {
 	return dependency.Manifold{
-		Start: func(_ dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(_ dependency.Context) (worker.Worker, error) {
 			return util.NewValueWorker(clock)
 		},
 		Output: util.ValueWorkerOutput,

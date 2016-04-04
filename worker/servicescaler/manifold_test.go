@@ -38,11 +38,11 @@ func (s *ManifoldSuite) TestStartMissingAPICaller(c *gc.C) {
 	manifold := servicescaler.Manifold(servicescaler.ManifoldConfig{
 		APICallerName: "api-caller",
 	})
-	getResource := dt.StubGetResource(dt.StubResources{
-		"api-caller": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"api-caller": dependency.ErrMissing,
 	})
 
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(context)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	c.Check(worker, gc.IsNil)
 }
@@ -56,11 +56,11 @@ func (s *ManifoldSuite) TestStartFacadeError(c *gc.C) {
 			return nil, errors.New("blort")
 		},
 	})
-	getResource := dt.StubGetResource(dt.StubResources{
-		"api-caller": dt.StubResource{Output: expectCaller},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"api-caller": expectCaller,
 	})
 
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(context)
 	c.Check(err, gc.ErrorMatches, "blort")
 	c.Check(worker, gc.IsNil)
 }
@@ -78,11 +78,11 @@ func (s *ManifoldSuite) TestStartWorkerError(c *gc.C) {
 			return nil, errors.New("splot")
 		},
 	})
-	getResource := dt.StubGetResource(dt.StubResources{
-		"api-caller": dt.StubResource{Output: &fakeCaller{}},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"api-caller": &fakeCaller{},
 	})
 
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(context)
 	c.Check(err, gc.ErrorMatches, "splot")
 	c.Check(worker, gc.IsNil)
 }
@@ -98,11 +98,11 @@ func (s *ManifoldSuite) TestSuccess(c *gc.C) {
 			return expectWorker, nil
 		},
 	})
-	getResource := dt.StubGetResource(dt.StubResources{
-		"api-caller": dt.StubResource{Output: &fakeCaller{}},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"api-caller": &fakeCaller{},
 	})
 
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(context)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, expectWorker)
 }
