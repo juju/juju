@@ -53,7 +53,6 @@ func (s *apiEnvironmentSuite) TestGrantModel(c *gc.C) {
 	modelUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName(), gc.Equals, user.Canonical())
-	c.Assert(modelUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Canonical())
 	lastConn, err := modelUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
@@ -92,14 +91,12 @@ func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
 		{
 			UserName:       owner.UserName(),
 			DisplayName:    owner.DisplayName(),
-			CreatedBy:      owner.UserName(),
-			DateCreated:    owner.DateCreated(),
+			Access:         "write",
 			LastConnection: lastConnPointer(c, owner),
 		}, {
 			UserName:       "bobjohns@ubuntuone",
 			DisplayName:    "Bob Johns",
-			CreatedBy:      owner.UserName(),
-			DateCreated:    modelUser.DateCreated(),
+			Access:         "write",
 			LastConnection: lastConnPointer(c, modelUser),
 		},
 	})
