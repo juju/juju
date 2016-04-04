@@ -227,9 +227,6 @@ func (s *baseStorageSuite) constructState() *mockState {
 			val, found := s.blocks[t]
 			return val, found, nil
 		},
-		isControllerAdministrator: func(user names.UserTag) (bool, error) {
-			return true, nil
-		},
 	}
 }
 
