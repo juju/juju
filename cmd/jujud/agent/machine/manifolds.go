@@ -210,7 +210,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The upgrade check gate is used to coordinate workers which
 		// shouldn't do anything until the upgrader worker has
 		// completed its first check for a new tools version to
-		// upgrade to. The flag of similar name
+		// upgrade to. The flag of similar name is used to implement
+		// the isFullyUpgraded func that keeps upgrade concerns out of
+		// unrelated manifolds.
 		upgradeCheckGateName: gate.ManifoldEx(config.UpgradeCheckLock),
 		upgradeCheckFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
 			GateName:  upgradeCheckGateName,
