@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -47,9 +46,7 @@ type Killer interface {
 
 type serverSuite struct {
 	baseSuite
-	resources *common.Resources
-	auth      common.Authorizer
-	client    *client.Client
+	client *client.Client
 }
 
 var _ = gc.Suite(&serverSuite{})
@@ -57,13 +54,12 @@ var _ = gc.Suite(&serverSuite{})
 func (s *serverSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
 
-	s.resources = common.NewResources()
-	s.auth = testing.FakeAuthorizer{
+	var err error
+	auth := testing.FakeAuthorizer{
 		Tag:            s.AdminUserTag(c),
 		EnvironManager: true,
 	}
-	var err error
-	s.client, err = client.NewClient(s.State, s.resources, s.auth)
+	s.client, err = client.NewClient(s.State, common.NewResources(), auth)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -76,36 +72,6 @@ func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Ping
 	err = m.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
 	return pinger
-}
-
-func (s *serverSuite) TestWatchAllNewModel(c *gc.C) {
-	idRes, err := s.client.WatchAll()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// At this point the watcher has been registered in state and the
-	// initial "change" should be waiting. The first call to Next() will
-	// get that one, which should come back empty since the model is
-	// empty. Subsequent changes will be provided through subsequent
-	// calls to Next(). We use these conditions to verify that the
-	// initial "change" was empty.
-	m, err := s.State.AddMachine("quantal", state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetProvisioned("i-0", agent.BootstrapNonce, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	raw, err := apiserver.NewAllWatcher(s.State, s.resources, s.auth, idRes.AllWatcherId)
-	c.Assert(err, jc.ErrorIsNil)
-	watcher := raw.(*apiserver.SrvAllWatcher)
-	defer func() {
-		err := watcher.Stop()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-	deltasRes, err := watcher.Next()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// This verifies that the initial "change" does not include the
-	// machine we added.
-	c.Check(deltasRes.Deltas, gc.HasLen, 0)
 }
 
 func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
@@ -648,7 +614,7 @@ func (s *clientRepoSuite) TearDownTest(c *gc.C) {
 	s.baseSuite.TearDownTest(c)
 }
 
-func (s *clientSuite) TestClientWatchAllNotEmpty(c *gc.C) {
+func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine("quantal", state.JobManageModel)
