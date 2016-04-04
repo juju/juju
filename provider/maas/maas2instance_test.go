@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 type maas2InstanceSuite struct {
@@ -46,4 +47,16 @@ func (s *maas2InstanceSuite) TestAddresses(c *gc.C) {
 func (s *maas2InstanceSuite) TestZone(c *gc.C) {
 	instance := &maas2Instance{&fakeMachine{zoneName: "inflatable"}}
 	c.Assert(instance.zone(), gc.Equals, "inflatable")
+}
+
+func (s *maas2InstanceSuite) TestStatusSuccess(c *gc.C) {
+	thing := &maas2Instance{&fakeMachine{statusMessage: "Deploying", statusName: "Wexler"}}
+	result := thing.Status()
+	c.Assert(result, jc.DeepEquals, instance.InstanceStatus{status.StatusAllocating, "Deploying: Wexler"})
+}
+
+func (s *maas2InstanceSuite) TestStatusError(c *gc.C) {
+	thing := &maas2Instance{&fakeMachine{statusMessage: "", statusName: ""}}
+	result := thing.Status()
+	c.Assert(result, jc.DeepEquals, instance.InstanceStatus{"", "error in getting status"})
 }

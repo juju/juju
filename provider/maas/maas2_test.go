@@ -56,6 +56,14 @@ func (m *fakeMachine) IPAddresses() []string {
 	return m.ipAddresses
 }
 
+func (m *fakeMachine) StatusName() string {
+	return m.statusName
+}
+
+func (m *fakeMachine) StatusMessage() string {
+	return m.statusMessage
+}
+
 func (m *fakeMachine) Zone() gomaasapi.Zone {
 	return fakeZone{name: m.zoneName}
 }
