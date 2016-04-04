@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
@@ -80,5 +81,37 @@ func (suite *maas2EnvironSuite) TestSupportedArchitecturesError(c *gc.C) {
 	suite.PatchValue(&GetMAAS2Controller, mockGetController)
 	env := makeEnviron(c)
 	_, err := env.SupportedArchitectures()
+	c.Assert(err, gc.ErrorMatches, "Something terrible!")
+}
+
+func (suite *maas2EnvironSuite) TestAllInstances(c *gc.C) {
+	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+		return &fakeController{
+			machines: []gomaasapi.Machine{
+				&fakeMachine{systemID: "tuco"},
+				&fakeMachine{systemID: "tio"},
+				&fakeMachine{systemID: "gus"},
+			},
+		}, nil
+	}
+	suite.PatchValue(&GetMAAS2Controller, mockGetController)
+	env := makeEnviron(c)
+	result, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedMachines := set.NewStrings("tuco", "tio", "gus")
+	actualMachines := set.NewStrings()
+	for _, instance := range result {
+		actualMachines.Add(string(instance.Id()))
+	}
+	c.Assert(actualMachines, jc.DeepEquals, expectedMachines)
+}
+
+func (suite *maas2EnvironSuite) TestAllInstancesError(c *gc.C) {
+	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+		return &fakeController{machinesError: errors.New("Something terrible!")}, nil
+	}
+	suite.PatchValue(&GetMAAS2Controller, mockGetController)
+	env := makeEnviron(c)
+	_, err := env.AllInstances()
 	c.Assert(err, gc.ErrorMatches, "Something terrible!")
 }

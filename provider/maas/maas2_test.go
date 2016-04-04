@@ -11,6 +11,15 @@ type fakeController struct {
 	gomaasapi.Controller
 	bootResources      []gomaasapi.BootResource
 	bootResourcesError error
+	machines           []gomaasapi.Machine
+	machinesError      error
+}
+
+func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
+	if c.machinesError != nil {
+		return nil, c.machinesError
+	}
+	return c.machines, nil
 }
 
 func (c *fakeController) BootResources() ([]gomaasapi.BootResource, error) {
