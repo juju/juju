@@ -30,6 +30,7 @@ type API struct {
 	storage     storageAccess
 	poolManager poolmanager.PoolManager
 	authorizer  common.Authorizer
+	isAdminUser bool
 }
 
 // createAPI returns a new storage API facade.
@@ -43,10 +44,19 @@ func createAPI(
 		return nil, common.ErrPerm
 	}
 
+	// Since we know this is a user tag (because AuthClient is true),
+	// we just do the type assertion to the UserTag.
+	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
+	isAdmin, err := st.IsControllerAdministrator(apiUser)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &API{
 		storage:     st,
 		poolManager: pm,
 		authorizer:  authorizer,
+		isAdminUser: isAdmin,
 	}, nil
 }
 
@@ -672,6 +682,20 @@ func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, err
 		return params.ErrorResult{Error: common.ServerError(err)}
 	}
 
+	chooseErr := func(err error) error {
+		// NotFound error will only happen if:
+		// the unit with given name does not exist;
+		// or its charm's metadata does not have a storage with specified name.
+		if errors.IsNotFound(err) {
+			// Admin users need to see the real error,
+			// however, everyone else does not.
+			if !a.isAdminUser {
+				return common.ErrPerm
+			}
+		}
+		return err
+	}
+
 	paramsToState := func(p params.StorageConstraints) state.StorageConstraints {
 		s := state.StorageConstraints{Pool: p.Pool}
 		if p.Size != nil {
@@ -693,13 +717,7 @@ func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, err
 
 		err = a.storage.AddStorageForUnit(u, one.StorageName, paramsToState(one.Constraints))
 		if err != nil {
-			if errors.IsNotFound(err) {
-				// This will only happen if:
-				// the unit with given name does not exist;
-				// or its charm's metadata does not have a storage with specified name.
-				err = common.ErrPerm
-			}
-			result[i] = wrapServerErr(errors.Annotatef(err, "adding storage %v for %v", one.StorageName, one.UnitTag))
+			result[i] = wrapServerErr(errors.Annotatef(chooseErr(err), "adding storage %v for %v", one.StorageName, one.UnitTag))
 		}
 	}
 	return params.ErrorResults{Results: result}, nil

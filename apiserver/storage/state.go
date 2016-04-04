@@ -82,6 +82,9 @@ type storageAccess interface {
 
 	// GetBlockForType is required to block operations.
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
+
+	// IsControllerAdministrator returns whether currently logged in user is an admin.
+	IsControllerAdministrator(user names.UserTag) (bool, error)
 }
 
 var getState = func(st *state.State) storageAccess {

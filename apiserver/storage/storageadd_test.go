@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/storage"
 	"github.com/juju/juju/state"
 )
 
@@ -106,25 +107,6 @@ func (s *storageAddSuite) TestStorageAddUnitStateError(c *gc.C) {
 	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall})
 }
 
-func (s *storageAddSuite) TestStorageAddUnitPermError(c *gc.C) {
-	msg := "add test directive error"
-	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) error {
-		s.calls = append(s.calls, addStorageForUnitCall)
-		return errors.NotFoundf(msg)
-	}
-
-	args := params.StorageAddParams{
-		UnitTag:     s.unitTag.String(),
-		StorageName: "data",
-	}
-	failures, err := s.api.AddToUnit(params.StoragesAddParams{[]params.StorageAddParams{args}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(failures.Results, gc.HasLen, 1)
-	c.Assert(failures.Results[0].Error.Error(), gc.Matches, ".*permission denied.*")
-
-	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall})
-}
-
 func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *gc.C) {
 	wrong0 := params.StorageAddParams{
 		StorageName: "data",
@@ -156,4 +138,50 @@ func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *gc.C) {
 	c.Assert(failures.Results[2].Error.Error(), gc.Matches, fmt.Sprintf(".*%v.*", msg))
 
 	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall, addStorageForUnitCall})
+}
+
+func (s *storageAddSuite) TestStorageAddUnitIsAdminError(c *gc.C) {
+	msg := "cannot determine isControllerAdministrator error"
+	s.state.isControllerAdministrator = func(user names.UserTag) (bool, error) {
+		s.calls = append(s.calls, "isControllerAdministrator")
+		return false, errors.New(msg)
+	}
+
+	_, err := storage.CreateAPI(s.state, s.poolManager, s.resources, s.authorizer)
+	c.Assert(err, gc.ErrorMatches, msg)
+	s.assertCalls(c, []string{"isControllerAdministrator"})
+}
+
+func (s *storageAddSuite) TestStorageAddUnitAdminCanSeeNotFoundErr(c *gc.C) {
+	s.assertAddUnitReturnedError(c, "adding storage data for unit-mysql-0: add test directive error not found")
+}
+
+func (s *storageAddSuite) TestStorageAddUnitNonAdminCannotSeeNotFoundErr(c *gc.C) {
+	s.state.isControllerAdministrator = func(user names.UserTag) (bool, error) {
+		return false, nil
+	}
+
+	var err error
+	s.api, err = storage.CreateAPI(s.state, s.poolManager, s.resources, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertAddUnitReturnedError(c, ".*permission denied.*")
+}
+
+func (s *storageAddSuite) assertAddUnitReturnedError(c *gc.C, expectedErr string) {
+	msg := "add test directive error"
+	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) error {
+		s.calls = append(s.calls, addStorageForUnitCall)
+		return errors.NotFoundf(msg)
+	}
+
+	args := params.StorageAddParams{
+		UnitTag:     s.unitTag.String(),
+		StorageName: "data",
+	}
+	failures, err := s.api.AddToUnit(params.StoragesAddParams{[]params.StorageAddParams{args}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(failures.Results, gc.HasLen, 1)
+	c.Assert(failures.Results[0].Error.Error(), gc.Matches, expectedErr)
+
+	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall})
 }

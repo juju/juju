@@ -61,6 +61,7 @@ type mockState struct {
 	addStorageForUnit                   func(u names.UnitTag, name string, cons state.StorageConstraints) error
 	getBlockForType                     func(t state.BlockType) (state.Block, bool, error)
 	blockDevices                        func(names.MachineTag) ([]state.BlockDeviceInfo, error)
+	isControllerAdministrator           func(user names.UserTag) (bool, error)
 }
 
 func (st *mockState) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
@@ -160,6 +161,10 @@ func (st *mockState) BlockDevices(m names.MachineTag) ([]state.BlockDeviceInfo, 
 		return st.blockDevices(m)
 	}
 	return []state.BlockDeviceInfo{}, nil
+}
+
+func (st *mockState) IsControllerAdministrator(user names.UserTag) (bool, error) {
+	return st.isControllerAdministrator(user)
 }
 
 type mockNotifyWatcher struct {

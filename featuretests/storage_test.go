@@ -495,7 +495,7 @@ func (s *cmdStorageSuite) assertStorageExist(c *gc.C,
 func (s *cmdStorageSuite) TestStorageAddToUnitUnitDoesntExist(c *gc.C) {
 	context := runAddToUnit(c, "fluffyunit/0", "allecto=1")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
-	c.Assert(testing.Stderr(context), gc.Equals, "fail: storage \"allecto\": adding storage allecto for unit-fluffyunit-0: permission denied\n")
+	c.Assert(testing.Stderr(context), gc.Equals, "fail: storage \"allecto\": adding storage allecto for unit-fluffyunit-0: unit \"fluffyunit/0\" not found\n")
 }
 
 func (s *cmdStorageSuite) TestStorageAddToUnitInvalidUnitName(c *gc.C) {
@@ -516,7 +516,7 @@ func (s *cmdStorageSuite) TestStorageAddToUnitStorageDoesntExist(c *gc.C) {
 
 	context := runAddToUnit(c, u, "nonstorage=1")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
-	c.Assert(testing.Stderr(context), gc.Equals, "fail: storage \"nonstorage\": adding storage nonstorage for unit-storage-block-0: permission denied\n")
+	c.Assert(testing.Stderr(context), gc.Equals, "fail: storage \"nonstorage\": adding storage nonstorage for unit-storage-block-0: charm storage \"nonstorage\" not found\n")
 
 	instancesAfter, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
