@@ -602,7 +602,10 @@ func (c *bootstrapCommand) tryAPI() error {
 	client, err := blockAPI(&c.ModelCommandBase)
 	if err == nil {
 		_, err = client.List()
-		client.Close()
+		closeErr := client.Close()
+		if closeErr != nil {
+			logger.Debugf("Error closing client: %v", closeErr)
+		}
 	}
 	return err
 }
