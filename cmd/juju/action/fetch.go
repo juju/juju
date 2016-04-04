@@ -116,6 +116,7 @@ func (c *fetchCommand) Run(ctx *cmd.Context) error {
 func GetActionResult(api APIClient, requestedId string, wait *time.Timer) (params.ActionResult, error) {
 
 	// tick every two seconds, to delay the loop timer.
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	tick := time.NewTimer(2 * time.Second)
 
 	return timerLoop(api, requestedId, wait, tick)

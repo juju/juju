@@ -24,13 +24,13 @@ type environ struct {
 	common.SupportsUnitPlacementPolicy
 
 	name   string
-	ecfg   *environConfig
 	client *client
 
-	lock     sync.Mutex
-	archLock sync.Mutex
-
+	archLock               sync.Mutex // archLock protects access to the following fields.
 	supportedArchitectures []string
+
+	lock sync.Mutex // lock protects access the following fields.
+	ecfg *environConfig
 }
 
 func newEnviron(cfg *config.Config) (*environ, error) {
@@ -77,17 +77,12 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// getSnapshot returns a copy of the environment. This is useful for
-// ensuring the env you are using does not get changed by other code
-// while you are using it.
-func (env *environ) getSnapshot() *environ {
-	e := *env
-	return &e
-}
-
 // Config returns the configuration data with which the env was created.
 func (env *environ) Config() *config.Config {
-	return env.getSnapshot().ecfg.Config
+	env.lock.Lock()
+	cfg := env.ecfg.Config
+	env.lock.Unlock()
+	return cfg
 }
 
 //this variable is exported, because it has to be rewritten in external unit tests

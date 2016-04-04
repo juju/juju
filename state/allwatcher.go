@@ -427,6 +427,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 			// Not sure how status can even return NotFound as it is created
 			// with the service initially. For now, we'll log the error as per
 			// the above and return Unknown.
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			now := time.Now()
 			info.Status = multiwatcher.StatusInfo{
 				Current: status.StatusUnknown,

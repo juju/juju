@@ -89,7 +89,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.toolsStorage = stor
 
 	s.BaseSuite.SetUpSuite(c)
-	s.AddSuiteCleanup(func(*gc.C) {
+	s.AddCleanup(func(*gc.C) {
 		restorer()
 	})
 	s.MgoSuite.SetUpSuite(c)

@@ -12,11 +12,25 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
-	"github.com/juju/juju/worker/environ"
 )
 
+type Config struct {
+	Facade  *instancepoller.API
+	Environ environs.Environ
+}
+
+func (config Config) Validate() error {
+	if config.Facade == nil {
+		return errors.NotValidf("nil Facade")
+	}
+	if config.Environ == nil {
+		return errors.NotValidf("nil Environ")
+	}
+	return nil
+}
+
 type updaterWorker struct {
-	st         *instancepoller.API
+	config     Config
 	aggregator *aggregator
 	catacomb   catacomb.Catacomb
 }
@@ -24,9 +38,12 @@ type updaterWorker struct {
 // NewWorker returns a worker that keeps track of
 // the machines in the state and polls their instance
 // addresses and status periodically to keep them up to date.
-func NewWorker(st *instancepoller.API) (worker.Worker, error) {
+func NewWorker(config Config) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	u := &updaterWorker{
-		st: st,
+		config: config,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -49,25 +66,11 @@ func (u *updaterWorker) Wait() error {
 }
 
 func (u *updaterWorker) loop() (err error) {
-
-	// TODO(fwereade): get this as a resource from a dependency.Engine.
-	tracker, err := environ.NewTracker(environ.Config{
-		Observer:       u.st,
-		NewEnvironFunc: environs.New,
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := u.catacomb.Add(tracker); err != nil {
-		return errors.Trace(err)
-	}
-	u.aggregator = newAggregator(tracker.Environ())
+	u.aggregator = newAggregator(u.config.Environ)
 	if err := u.catacomb.Add(u.aggregator); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("instance poller received inital environment configuration")
-
-	watcher, err := u.st.WatchModelMachines()
+	watcher, err := u.config.Facade.WatchModelMachines()
 	if err != nil {
 		return err
 	}
@@ -84,7 +87,7 @@ func (u *updaterWorker) newMachineContext() machineContext {
 
 // getMachine is part of the machineContext interface.
 func (u *updaterWorker) getMachine(tag names.MachineTag) (machine, error) {
-	return u.st.Machine(tag)
+	return u.config.Facade.Machine(tag)
 }
 
 // instanceInfo is part of the machineContext interface.

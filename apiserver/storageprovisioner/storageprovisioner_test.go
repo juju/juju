@@ -51,7 +51,7 @@ func (s *provisionerSuite) SetUpSuite(c *gc.C) {
 	registry.RegisterEnvironStorageProviders(
 		"dummy", "environscoped", "machinescoped",
 	)
-	s.AddSuiteCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *gc.C) {
 		registry.RegisterProvider("environscoped", nil)
 		registry.RegisterProvider("machinescoped", nil)
 	})

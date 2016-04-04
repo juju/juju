@@ -102,6 +102,24 @@ func (c *Client) ListModels(user string) ([]base.UserModel, error) {
 	return result, nil
 }
 
+func (c *Client) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, error) {
+	entities := params.Entities{
+		Entities: make([]params.Entity, len(tags)),
+	}
+	for i, tag := range tags {
+		entities.Entities[i].Tag = tag.String()
+	}
+	var results params.ModelInfoResults
+	err := c.facade.FacadeCall("ModelInfo", entities, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != len(tags) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
+	}
+	return results.Results, nil
+}
+
 // ParseModelAccess parses an access permission argument into
 // a type suitable for making an API facade call.
 func ParseModelAccess(access string) (params.ModelAccessPermission, error) {
