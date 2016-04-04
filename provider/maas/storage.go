@@ -83,7 +83,7 @@ func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, 
 	obj, err := stor.addressFileObject(name).Get()
 	if err != nil {
 		noObj := gomaasapi.MAASObject{}
-		serverErr, ok := err.(gomaasapi.ServerError)
+		serverErr, ok := errors.Cause(err).(gomaasapi.ServerError)
 		if ok && serverErr.StatusCode == 404 {
 			return noObj, errors.NotFoundf("file '%s' not found", name)
 		}
