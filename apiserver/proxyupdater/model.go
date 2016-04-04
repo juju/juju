@@ -14,5 +14,5 @@ func init() {
 
 // NewAPI creates a new API server-side facade with a state.State backing.
 func NewAPI(st *state.State, res *common.Resources, auth common.Authorizer) (API, error) {
-	return newAPIWithBacking(&stateShim{st: st}, res, auth)
+	return NewAPIWithBacking(&stateShim{st: st}, res, auth)
 }

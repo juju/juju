@@ -18,9 +18,7 @@ import (
 	proxyutils "github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/juju/api/base"
 	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
@@ -46,7 +44,7 @@ var (
 // API is an interface that is provided to New
 // which can be used to fetch the API host ports
 type API interface {
-	ProxyConfig() (params.ProxyConfigResult, error)
+	ProxyConfig() (proxyutils.Settings, proxyutils.Settings, error)
 	WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error)
 }
 
@@ -73,8 +71,7 @@ type proxyWorker struct {
 
 // NewWorker returns a worker.Worker that updates proxy environment variables for the
 // process and for the whole machine.
-var NewWorker = func(api base.APICaller) (worker.Worker, error) {
-	proxyAPI := apiproxyupdater.NewAPI(api)
+var NewWorker = func(proxyAPI *apiproxyupdater.API) (worker.Worker, error) {
 	envWorker := &proxyWorker{
 		api:   proxyAPI,
 		first: true,
@@ -191,13 +188,13 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) erro
 }
 
 func (w *proxyWorker) onChange() error {
-	cfg, err := w.api.ProxyConfig()
+	proxySettings, APTProxySettings, err := w.api.ProxyConfig()
 	if err != nil {
 		return err
 	}
 
-	w.handleProxyValues(cfg.ProxySettings)
-	return w.handleAptProxyValues(cfg.APTProxySettings)
+	w.handleProxyValues(proxySettings)
+	return w.handleAptProxyValues(APTProxySettings)
 }
 
 // SetUp is defined on the worker.NotifyWatchHandler interface.

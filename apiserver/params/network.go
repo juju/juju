@@ -7,7 +7,6 @@ import (
 	"net"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/utils/proxy"
 )
 
 // -----
@@ -655,8 +654,16 @@ type ProviderSpace struct {
 	Error      *Error   `json:"Error,omitempty"`
 }
 
+type ProxyConfig struct {
+	HTTP    string `json:"HTTP"`
+	HTTPS   string `json:"HTTPS"`
+	FTP     string `json:"FTP"`
+	NoProxy string `json:"NoProxy"`
+}
+
 // ProxyConfigResult contains information needed to configure a clients proxy settings
 type ProxyConfigResult struct {
-	ProxySettings    proxy.Settings
-	APTProxySettings proxy.Settings
+	ProxySettings    ProxyConfig
+	APTProxySettings ProxyConfig
+	Error            *Error `json:"Error,omitempty"`
 }
