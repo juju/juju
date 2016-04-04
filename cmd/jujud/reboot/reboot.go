@@ -127,6 +127,7 @@ func (r *Reboot) waitForContainersOrTimeout() error {
 
 	select {
 	case <-time.After(timeout):
+		// TODO(fwereade): 2016-03-17 lp:1558657
 		// Containers are still up after timeout. C'est la vie
 		quit <- true
 		return errors.New("Timeout reached waiting for containers to shutdown")

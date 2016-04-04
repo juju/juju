@@ -6,6 +6,7 @@ package testing
 import (
 	"fmt"
 	"net/http/httptest"
+	"net/url"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -69,7 +70,9 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 	// store repo pointing to the testing server.
 	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClientConfig, func() jujucharmstore.ClientConfig {
 		var config jujucharmstore.ClientConfig
-		config.URL = s.Server.URL
+		csURL, err := url.Parse(s.Server.URL)
+		c.Assert(err, jc.ErrorIsNil)
+		config.URL = csURL
 		return config
 	})
 	s.charms = make(map[string]*state.Charm)

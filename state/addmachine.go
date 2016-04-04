@@ -490,7 +490,8 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	machineStatusDoc := statusDoc{
 		Status:    status.StatusPending,
 		ModelUUID: st.ModelUUID(),
-		Updated:   time.Now().UnixNano(),
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		Updated: time.Now().UnixNano(),
 	}
 	instanceStatusDoc := statusDoc{
 		Status:    status.StatusPending,

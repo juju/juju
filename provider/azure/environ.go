@@ -82,7 +82,8 @@ func newEnviron(provider *azureEnvironProvider, cfg *config.Config) (*azureEnvir
 	if err != nil {
 		return nil, err
 	}
-	env.resourceGroup = resourceGroupName(cfg)
+	modelTag := names.NewModelTag(cfg.UUID())
+	env.resourceGroup = resourceGroupName(modelTag, cfg.Name())
 	env.controllerResourceGroup = env.config.controllerResourceGroup
 	env.envName = cfg.Name()
 	return &env, nil
@@ -1097,12 +1098,8 @@ func (env *azureEnviron) Provider() environs.EnvironProvider {
 }
 
 // resourceGroupName returns the name of the environment's resource group.
-func resourceGroupName(cfg *config.Config) string {
-	modelTag := names.NewModelTag(cfg.UUID())
-	return fmt.Sprintf(
-		"juju-%s-%s", cfg.Name(),
-		resourceName(modelTag),
-	)
+func resourceGroupName(modelTag names.ModelTag, modelName string) string {
+	return fmt.Sprintf("juju-%s-%s", modelName, resourceName(modelTag))
 }
 
 // resourceName returns the string to use for a resource's Name tag,

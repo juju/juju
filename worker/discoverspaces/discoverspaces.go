@@ -8,107 +8,159 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
-	"launchpad.net/tomb"
 
-	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/gate"
 )
+
+// Facade exposes the relevant capabilities of a *discoverspaces.API; it's
+// a bit raw but at least it's easily mockable.
+type Facade interface {
+	CreateSpaces(params.CreateSpacesParams) (params.ErrorResults, error)
+	AddSubnets(params.AddSubnetsParams) (params.ErrorResults, error)
+	ListSpaces() (params.DiscoverSpacesResults, error)
+	ListSubnets(params.SubnetsFilters) (params.ListSubnetsResults, error)
+}
+
+// NameFunc returns a string derived from base that is not contained in used.
+type NameFunc func(base string, used set.Strings) string
+
+// Config defines the operation of a space discovery worker.
+type Config struct {
+
+	// Facade exposes the capabilities of a controller.
+	Facade Facade
+
+	// Environ exposes the capabilities of a compute substrate.
+	Environ environs.Environ
+
+	// NewName is used to sanitise, and make unique, space names as
+	// reported by an Environ (for use in juju, via the Facade). You
+	// should probably set it to ConvertSpaceName.
+	NewName NameFunc
+
+	// Unlocker, if not nil, will be unlocked when the first discovery
+	// attempt completes successfully.
+	Unlocker gate.Unlocker
+}
+
+// Validate returns an error if the config cannot be expected to
+// drive a functional worker.
+func (config Config) Validate() error {
+	if config.Facade == nil {
+		return errors.NotValidf("nil Facade")
+	}
+	if config.Environ == nil {
+		return errors.NotValidf("nil Environ")
+	}
+	if config.NewName == nil {
+		return errors.NotValidf("nil NewName")
+	}
+	// missing Unlocker gate just means "don't bother notifying"
+	return nil
+}
 
 var logger = loggo.GetLogger("juju.discoverspaces")
 
 type discoverspacesWorker struct {
-	api               *discoverspaces.API
-	tomb              tomb.Tomb
-	discoveringSpaces chan struct{}
+	catacomb catacomb.Catacomb
+	config   Config
 }
 
-// NewWorker returns a worker
-func NewWorker(api *discoverspaces.API) (worker.Worker, chan struct{}) {
-	dw := &discoverspacesWorker{
-		api:               api,
-		discoveringSpaces: make(chan struct{}),
+// NewWorker returns a worker that will attempt to discover the
+// configured Environ's spaces, and update the controller via the
+// configured Facade. Names are sanitised with NewName, and any
+// supplied Unlocker will be Unlock()ed when the first complete
+// discovery and update succeeds.
+//
+// Once that update completes, the worker just waits to be Kill()ed.
+// We should probably poll for changes, really, but I'm making an
+// effort to preserve existing behaviour where possible.
+func NewWorker(config Config) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
 	}
-	go func() {
-		defer dw.tomb.Done()
-		dw.tomb.Kill(dw.loop())
-	}()
-	return dw, dw.discoveringSpaces
+	dw := &discoverspacesWorker{
+		config: config,
+	}
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &dw.catacomb,
+		Work: dw.loop,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return dw, nil
 }
 
+// Kill is part of the worker.Worker interface.
 func (dw *discoverspacesWorker) Kill() {
-	dw.tomb.Kill(nil)
+	dw.catacomb.Kill(nil)
 }
 
+// Wait is part of the worker.Worker interface.
 func (dw *discoverspacesWorker) Wait() error {
-	return dw.tomb.Wait()
+	return dw.catacomb.Wait()
 }
 
 func (dw *discoverspacesWorker) loop() (err error) {
-	ensureClosed := func() {
-		select {
-		case <-dw.discoveringSpaces:
-			// Already closed.
-			return
-		default:
-			close(dw.discoveringSpaces)
-		}
-	}
-	defer ensureClosed()
-	modelCfg, err := dw.api.ModelConfig()
-	if err != nil {
-		return err
-	}
-	model, err := environs.New(modelCfg)
-	if err != nil {
-		return err
-	}
-	networkingModel, ok := environs.SupportsNetworking(model)
-
-	if ok {
-		err = dw.handleSubnets(networkingModel)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	close(dw.discoveringSpaces)
 
 	// TODO(mfoord): we'll have a watcher here checking if we need to
 	// update the spaces/subnets definition.
-	dying := dw.tomb.Dying()
+	// TODO(fwereade): for now, use a changes channel that apes the
+	// standard initial event behaviour, so we can make the loop
+	// follow the standard structure.
+	changes := make(chan struct{}, 1)
+	changes <- struct{}{}
+
+	gate := dw.config.Unlocker
 	for {
 		select {
-		case <-dying:
-			return nil
+		case <-dw.catacomb.Dying():
+			return dw.catacomb.ErrDying()
+		case <-changes:
+			if err := dw.handleSubnets(); err != nil {
+				return errors.Trace(err)
+			}
+			logger.Debugf("space discovery complete")
+			if gate != nil {
+				gate.Unlock()
+				gate = nil
+			}
 		}
 	}
-	return nil
 }
 
-func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) error {
-	ok, err := env.SupportsSpaceDiscovery()
-	if err != nil {
-		return errors.Trace(err)
-	}
+func (dw *discoverspacesWorker) handleSubnets() error {
+	environ, ok := environs.SupportsNetworking(dw.config.Environ)
 	if !ok {
-		// Nothing to do.
+		logger.Debugf("not a networking environ")
 		return nil
 	}
-	providerSpaces, err := env.Spaces()
-	if err != nil {
+	if supported, err := environ.SupportsSpaceDiscovery(); err != nil {
 		return errors.Trace(err)
+	} else if !supported {
+		logger.Debugf("environ does not support space discovery")
+		return nil
 	}
-	listSpacesResult, err := dw.api.ListSpaces()
+	providerSpaces, err := environ.Spaces()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	stateSubnets, err := dw.api.ListSubnets(params.SubnetsFilters{})
+	facade := dw.config.Facade
+	listSpacesResult, err := facade.ListSpaces()
 	if err != nil {
 		return errors.Trace(err)
 	}
+	stateSubnets, err := facade.ListSubnets(params.SubnetsFilters{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	stateSubnetIds := make(set.Strings)
 	for _, subnet := range stateSubnets.Results {
 		stateSubnetIds.Add(subnet.ProviderId)
@@ -144,7 +196,7 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 			spaceName := string(space.Name)
 			// Convert the name into a valid name that isn't already in
 			// use.
-			spaceName = network.ConvertSpaceName(spaceName, spaceNames)
+			spaceName = dw.config.NewName(spaceName, spaceNames)
 			spaceNames.Add(spaceName)
 			spaceTag = names.NewSpaceTag(spaceName)
 			// We need to create the space.
@@ -154,7 +206,7 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 					SpaceTag:   spaceTag.String(),
 					ProviderId: string(space.ProviderId),
 				}}}
-			result, err := dw.api.CreateSpaces(args)
+			result, err := facade.CreateSpaces(args)
 			if err != nil {
 				logger.Errorf("error creating space %v", err)
 				return errors.Trace(err)
@@ -185,7 +237,7 @@ func (dw *discoverspacesWorker) handleSubnets(env environs.NetworkingEnviron) er
 					Zones:            zones,
 				}}}
 			logger.Tracef("Adding subnet %v", subnet.CIDR)
-			result, err := dw.api.AddSubnets(args)
+			result, err := facade.AddSubnets(args)
 			if err != nil {
 				logger.Errorf("invalid creating subnet %v", err)
 				return errors.Trace(err)

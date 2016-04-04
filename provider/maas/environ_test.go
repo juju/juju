@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
@@ -44,6 +45,11 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.SetFeatureFlags(feature.AddressAllocation)
+
+	mockCapabilities := func(client *gomaasapi.MAASObject) (set.Strings, error) {
+		return set.NewStrings("network-deployment-ubuntu"), nil
+	}
+	s.PatchValue(&maas.GetCapabilities, mockCapabilities)
 }
 
 func (s *environSuite) TearDownTest(c *gc.C) {
@@ -191,7 +197,7 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	errSetConfig := env.SetConfig(cfg2)
 	c.Check(errSetConfig, gc.IsNil)
 	c.Check(env.Config().Name(), gc.Equals, "testenv")
-	authClient, _ := gomaasapi.NewAuthenticatedClient(anotherServer, anotherOauth, maas.APIVersion)
+	authClient, _ := gomaasapi.NewAuthenticatedClient(anotherServer, anotherOauth, "1.0")
 	maasClient := gomaasapi.NewMAAS(*authClient)
 	MAASServer := maas.GetMAASClient(env)
 	c.Check(MAASServer, gc.DeepEquals, maasClient)

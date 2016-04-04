@@ -35,8 +35,9 @@ const (
 	// See https://cloud.google.com/compute/docs/operating-systems/linux-os#ubuntu
 	// TODO(ericsnow) Should this be handled in cloud-images (i.e.
 	// simplestreams)?
-	ubuntuImageBasePath  = "projects/ubuntu-os-cloud/global/images/"
-	windowsImageBasePath = "projects/windows-cloud/global/images/"
+	ubuntuImageBasePath      = "projects/ubuntu-os-cloud/global/images/"
+	ubuntuDailyImageBasePath = "projects/ubuntu-os-cloud-devel/global/images/"
+	windowsImageBasePath     = "projects/windows-cloud/global/images/"
 )
 
 var (

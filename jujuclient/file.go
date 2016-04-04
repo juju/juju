@@ -530,6 +530,18 @@ func (s *store) UpdateAccount(controllerName, accountName string, details Accoun
 		return nil
 	}
 
+	// NOTE(axw) it is currently not valid for a client to have multiple
+	// logins for a controller. We may relax this in the future, but for
+	// now we are strict.
+	if len(accounts.Accounts) > 0 {
+		if _, ok := accounts.Accounts[accountName]; !ok {
+			return errors.AlreadyExistsf(
+				"alternative account for controller %s",
+				controllerName,
+			)
+		}
+	}
+
 	accounts.Accounts[accountName] = details
 	return errors.Trace(WriteAccountsFile(controllerAccounts))
 }

@@ -20,7 +20,8 @@ type ManifoldConfig struct {
 	APICallerName    string
 	MaxLogsPerEntity uint
 	PruneInterval    time.Duration
-	NewTimer         worker.NewTimerFunc
+	// TODO(fwereade): 2016-03-17 lp:1558657
+	NewTimer worker.NewTimerFunc
 }
 
 // Manifold returns a Manifold that encapsulates the statushistorypruner worker.

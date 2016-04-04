@@ -4,6 +4,8 @@
 package charmstore_test
 
 import (
+	"net/url"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -31,10 +33,10 @@ func (s *ClientSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.client = &stubClient{Stub: s.stub}
+	csURL, err := url.Parse("<something>")
+	c.Assert(err, jc.ErrorIsNil)
 	s.config = charmstore.ClientConfig{
-		charmrepo.NewCharmStoreParams{
-			URL: "<something>",
-		},
+		URL: csURL,
 	}
 }
 
@@ -98,7 +100,6 @@ func (s *ClientSuite) TestFakeGetResource(c *gc.C) {
 	client := charmstore.NewClient(s.config)
 
 	_, _, err := client.GetResource(cURL, "spam", 3)
-
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 

@@ -283,7 +283,7 @@ func (c *mockConnection) Close() error {
 	return nil
 }
 
-func (c mockConnection) eof() bool {
+func (c *mockConnection) eof() bool {
 	return len(c.data) == 0
 }
 

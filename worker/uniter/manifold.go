@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -27,6 +28,7 @@ type ManifoldConfig struct {
 	MachineLockName       string
 	LeadershipTrackerName string
 	CharmDirName          string
+	HookRetryStrategyName string
 }
 
 // Manifold returns a dependency manifold that runs a uniter worker,
@@ -39,6 +41,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LeadershipTrackerName,
 			config.MachineLockName,
 			config.CharmDirName,
+			config.HookRetryStrategyName,
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 
@@ -67,6 +70,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
+			var hookRetryStrategy params.RetryStrategy
+			if err := getResource(config.HookRetryStrategyName, &hookRetryStrategy); err != nil {
+				return nil, err
+			}
+
 			// Configure and start the uniter.
 			config := agent.CurrentConfig()
 			tag := config.Tag()
@@ -83,6 +91,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				MachineLock:          machineLock,
 				CharmDirGuard:        charmDirGuard,
 				UpdateStatusSignal:   NewUpdateStatusTimer(),
+				HookRetryStrategy:    hookRetryStrategy,
 				NewOperationExecutor: operation.NewExecutor,
 				Clock:                clock.WallClock,
 			})
