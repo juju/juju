@@ -77,13 +77,9 @@ func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 	}
 
 	select {
-	case w.all.request <- req:
 	case <-w.all.tomb.Dying():
-		err := w.all.tomb.Err()
-		if err == nil {
-			err = errors.Errorf("shared state watcher was stopped")
-		}
-		return nil, err
+		return nil, errors.Errorf("shared state watcher was stopped")
+	case w.all.request <- req:
 	}
 
 	// TODO(ericsnow) Clean up Multiwatcher/storeManager interaction.
@@ -91,18 +87,14 @@ func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 	// solution. It reflects the level of coupling we have between
 	// the Multiwatcher, request, and storeManager types.
 	select {
+	case <-w.all.tomb.Dying():
+		return nil, errors.Errorf("shared state watcher was stopped")
 	case ok := <-req.reply:
 		if !ok {
 			return nil, errors.Trace(ErrStopped)
 		}
 	case <-req.noChanges:
 		return []multiwatcher.Delta{}, nil
-	case <-w.all.tomb.Dying():
-		err := w.all.tomb.Err()
-		if err == nil {
-			err = errors.Errorf("shared state watcher was stopped")
-		}
-		return nil, err
 	}
 	return req.changes, nil
 }
@@ -254,14 +246,20 @@ func (sm *storeManager) handle(req *request) {
 	if req.w.stopped {
 		// The watcher has previously been stopped.
 		if req.reply != nil {
-			req.reply <- false
+			select {
+			case req.reply <- false:
+			case <-sm.tomb.Dying():
+			}
 		}
 		return
 	}
 	if req.reply == nil {
 		// This is a request to stop the watcher.
 		for req := sm.waiting[req.w]; req != nil; req = req.next {
-			req.reply <- false
+			select {
+			case req.reply <- false:
+			case <-sm.tomb.Dying():
+			}
 		}
 		delete(sm.waiting, req.w)
 		req.w.stopped = true
