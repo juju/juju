@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"net/http"
 	"strconv"
 	"time"
 
@@ -106,7 +105,7 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 		return set.NewStrings("network-deployment-ubuntu"), nil
 	}
 	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
-		return nil, gomaasapi.ServerError{StatusCode: http.StatusNotFound}
+		return nil, gomaasapi.NewUnsupportedVersionError("oops")
 	}
 	s.PatchValue(&GetCapabilities, mockCapabilities)
 	s.PatchValue(&GetMAAS2Controller, mockGetController)

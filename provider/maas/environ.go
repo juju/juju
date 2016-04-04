@@ -313,8 +313,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	// version.
 	apiVersion := apiVersion2
 	controller, err := GetMAAS2Controller(ecfg.maasServer(), ecfg.maasOAuth())
-	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
-	if ok && maasErr.StatusCode == http.StatusNotFound {
+	if err != nil && gomaasapi.IsUnsupportedVersionError(err) {
 		apiVersion = apiVersion1
 		authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion1)
 		if err != nil {
