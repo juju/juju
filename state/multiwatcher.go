@@ -93,6 +93,12 @@ func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 		}
 	case <-req.noChanges:
 		return []multiwatcher.Delta{}, nil
+	case <-w.all.tomb.Dying():
+		err := w.all.tomb.Err()
+		if err == nil {
+			err = errors.Errorf("shared state watcher was stopped")
+		}
+		return nil, err
 	}
 	return req.changes, nil
 }
