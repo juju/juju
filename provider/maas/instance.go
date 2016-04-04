@@ -28,11 +28,6 @@ type maas1Instance struct {
 
 var _ maasInstance = (*maas1Instance)(nil)
 
-// Override for testing.
-var resolveHostnames = func(addrs []network.Address) []network.Address {
-	return network.ResolvableHostnames(addrs)
-}
-
 func (mi *maas1Instance) String() string {
 	hostname, err := mi.hostname()
 	if err != nil {
@@ -88,57 +83,12 @@ func (mi *maas1Instance) Status() instance.InstanceStatus {
 
 func (mi *maas1Instance) Addresses() ([]network.Address, error) {
 	interfaceAddresses, err := mi.interfaceAddresses()
-	if errors.IsNotSupported(err) {
-		logger.Warningf(
-			"using legacy approach to get instance addresses as %q API capability is not supported: %v",
-			capNetworkDeploymentUbuntu, err,
-		)
-		return mi.legacyAddresses()
-	} else if err != nil {
+	if err != nil {
 		return nil, errors.Annotate(err, "getting node interfaces")
 	}
 
 	logger.Debugf("instance %q has interface addresses: %+v", mi.Id(), interfaceAddresses)
 	return interfaceAddresses, nil
-}
-
-// legacyAddresses is used to extract all IP addresses of the node when not
-// using MAAS 1.9+ API.
-func (mi *maas1Instance) legacyAddresses() ([]network.Address, error) {
-	name, err := mi.hostname()
-	if err != nil {
-		return nil, err
-	}
-	// MAAS prefers to use the dns name for intra-node communication.
-	// When Juju looks up the address to use for communicating between
-	// nodes, it looks up the address by scope. So we add a cloud
-	// local address for that purpose.
-	addrs := network.NewAddresses(name, name)
-	addrs[0].Scope = network.ScopePublic
-	addrs[1].Scope = network.ScopeCloudLocal
-
-	// Append any remaining IP addresses after the preferred ones. We have to do
-	// this the hard way, since maasObject doesn't have this built-in yet
-	addressArray := mi.maasObject.GetMap()["ip_addresses"]
-	if !addressArray.IsNil() {
-		// Older MAAS versions do not return ip_addresses.
-		objs, err := addressArray.GetArray()
-		if err != nil {
-			return nil, err
-		}
-		for _, obj := range objs {
-			s, err := obj.GetString()
-			if err != nil {
-				return nil, err
-			}
-			addrs = append(addrs, network.NewAddress(s))
-		}
-	}
-
-	// Although we would prefer a DNS name there's no point
-	// returning unresolvable names because activities like 'juju
-	// ssh 0' will instantly fail.
-	return resolveHostnames(addrs), nil
 }
 
 var refreshMAASObject = func(maasObject *gomaasapi.MAASObject) (gomaasapi.MAASObject, error) {
