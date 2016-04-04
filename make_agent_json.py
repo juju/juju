@@ -203,8 +203,10 @@ class GUIStanzaWriter(FileStanzaWriter):
 
         The GUI is arch/os independent, so only one stanza is needed.
         """
-        return [self.make_path_stanza(
-            'com.canonical.streams:gui', self.version, hashes, size)]
+        stanza = self.make_path_stanza(
+            'com.canonical.streams:gui', self.version, hashes, size)
+        stanza['juju-version'] = 2
+        return [stanza]
 
 
 def main():
