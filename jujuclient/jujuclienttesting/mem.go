@@ -257,6 +257,14 @@ func (c *MemStore) UpdateAccount(controllerName, accountName string, details juj
 		}
 		c.Accounts[controllerName] = accounts
 	}
+	if len(accounts.Accounts) > 0 {
+		if _, ok := accounts.Accounts[accountName]; !ok {
+			return errors.AlreadyExistsf(
+				"alternative account for controller %s",
+				controllerName,
+			)
+		}
+	}
 	accounts.Accounts[accountName] = details
 	return nil
 
@@ -343,6 +351,9 @@ func (c *MemStore) RemoveAccount(controllerName, accountName string) error {
 		return errors.NotFoundf("account %s:%s", controllerName, accountName)
 	}
 	delete(accounts.Accounts, accountName)
+	if accounts.CurrentAccount == accountName {
+		accounts.CurrentAccount = ""
+	}
 	return nil
 }
 
