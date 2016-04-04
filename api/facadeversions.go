@@ -51,7 +51,6 @@ var facadeVersions = map[string]int{
 	"MetricsManager":               1,
 	"MigrationFlag":                1,
 	"MigrationMaster":              1,
-	"MigrationMasterWatcher":       1,
 	"MigrationMinion":              1,
 	"MigrationStatusWatcher":       1,
 	"MigrationTarget":              1,
