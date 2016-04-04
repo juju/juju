@@ -313,8 +313,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	// version.
 	apiVersion := apiVersion2
 	controller, err := GetMAAS2Controller(ecfg.maasServer(), ecfg.maasOAuth())
-	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
-	if ok && maasErr.StatusCode == http.StatusNotFound {
+	if err != nil && gomaasapi.IsUnsupportedVersionError(err) {
 		apiVersion = apiVersion1
 		authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion1)
 		if err != nil {
@@ -539,7 +538,7 @@ func (e *maasEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	if e.availabilityZones == nil {
 		zonesObject := e.getMAASClient().GetSubObject("zones")
 		result, err := zonesObject.CallGet("", nil)
-		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusNotFound {
+		if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusNotFound {
 			return nil, errors.NewNotImplemented(nil, "the MAAS server does not support zones")
 		}
 		if err != nil {
@@ -635,7 +634,7 @@ func getCapabilities(client *gomaasapi.MAASObject) (set.Strings, error) {
 		version := client.GetSubObject("version/")
 		result, err = version.CallGet("", nil)
 		if err != nil {
-			if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == 404 {
+			if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == 404 {
 				return caps, errors.NotSupportedf("MAAS version 1.9 or more recent is required")
 			}
 		} else {
@@ -1091,7 +1090,7 @@ func (environ *maasEnviron) deploymentStatus(ids ...instance.Id) (map[string]str
 	nodesAPI := environ.getMAASClient().GetSubObject("nodes")
 	result, err := DeploymentStatusCall(nodesAPI, ids...)
 	if err != nil {
-		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusBadRequest {
+		if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusBadRequest {
 			return nil, errors.NewNotImplemented(err, "deployment status")
 		}
 		return nil, errors.Trace(err)
@@ -1137,7 +1136,7 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 			args.Volumes,
 		)
 
-		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusConflict {
+		if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusConflict {
 			if i+1 < len(args.AvailabilityZones) {
 				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
 				continue
@@ -1259,7 +1258,7 @@ func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Val
 	if err == nil {
 		return nil
 	}
-	maasErr, ok := err.(gomaasapi.ServerError)
+	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
 	if !ok {
 		return errors.Annotate(err, "cannot release nodes")
 	}
@@ -1596,7 +1595,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 		return nil
 	}
 
-	maasErr, ok := err.(gomaasapi.ServerError)
+	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
 	if !ok {
 		return errors.Trace(err)
 	}
@@ -1705,7 +1704,7 @@ func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]gomaasapi.JSONObje
 	client := environ.getMAASClient().GetSubObject("nodes").GetSubObject(nodeId)
 	json, err := client.CallGet("", nil)
 	if err != nil {
-		if maasErr, ok := err.(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
+		if maasErr, ok := errors.Cause(err).(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
 			return nil, errors.NotFoundf("intance %q", nodeId)
 		}
 		return nil, errors.Trace(err)
@@ -1981,7 +1980,7 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, error) {
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
 	if err != nil {
-		if maasErr, ok := err.(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
+		if maasErr, ok := errors.Cause(err).(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
 			return nil, errors.NotFoundf("instance %q", instId)
 		}
 		return nil, errors.Annotatef(err, "getting instance %q", instId)

@@ -65,7 +65,8 @@ func makeEnviron(c *gc.C) *maasEnviron {
 
 func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
 	testServer := gomaasapi.NewSimpleServer()
-	testServer.AddResponse("/api/2.0/version/", http.StatusOK, maas2VersionResponse)
+	testServer.AddGetResponse("/api/2.0/version/", http.StatusOK, maas2VersionResponse)
+	testServer.AddGetResponse("/api/2.0/users/?op=whoami", http.StatusOK, "{}")
 	testServer.Start()
 	defer testServer.Close()
 	testAttrs := coretesting.Attrs{}
