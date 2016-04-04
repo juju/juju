@@ -6,11 +6,13 @@ package watcher
 import (
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/watcher"
 )
 
@@ -447,7 +449,7 @@ func NewMigrationStatusWatcher(caller base.APICaller, watcherId string) watcher.
 	w := &migrationStatusWatcher{
 		caller: caller,
 		id:     watcherId,
-		out:    make(chan params.MigrationStatus),
+		out:    make(chan watcher.MigrationStatus),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -460,7 +462,7 @@ type migrationStatusWatcher struct {
 	commonWatcher
 	caller base.APICaller
 	id     string
-	out    chan params.MigrationStatus
+	out    chan watcher.MigrationStatus
 }
 
 func (w *migrationStatusWatcher) loop() error {
@@ -484,8 +486,21 @@ func (w *migrationStatusWatcher) loop() error {
 			return nil
 		}
 
+		inStatus := *data.(*params.MigrationStatus)
+		phase, ok := migration.ParsePhase(inStatus.Phase)
+		if !ok {
+			return errors.Errorf("invalid phase %q", inStatus.Phase)
+		}
+		outStatus := watcher.MigrationStatus{
+			Attempt:        inStatus.Attempt,
+			Phase:          phase,
+			SourceAPIAddrs: inStatus.SourceAPIAddrs,
+			SourceCACert:   inStatus.SourceCACert,
+			TargetAPIAddrs: inStatus.TargetAPIAddrs,
+			TargetCACert:   inStatus.TargetCACert,
+		}
 		select {
-		case w.out <- *data.(*params.MigrationStatus):
+		case w.out <- outStatus:
 		case <-w.tomb.Dying():
 			return nil
 		}
@@ -494,6 +509,6 @@ func (w *migrationStatusWatcher) loop() error {
 
 // Changes returns a channel that reports the latest status of the
 // migration of a model.
-func (w *migrationStatusWatcher) Changes() <-chan params.MigrationStatus {
+func (w *migrationStatusWatcher) Changes() <-chan watcher.MigrationStatus {
 	return w.out
 }

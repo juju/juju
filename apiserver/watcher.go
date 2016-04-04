@@ -435,7 +435,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 	mig, err := w.st.GetModelMigration()
 	if errors.IsNotFound(err) {
 		return params.MigrationStatus{
-			Phase: migration.NONE,
+			Phase: migration.NONE.String(),
 		}, nil
 	} else if err != nil {
 		return empty, errors.Annotate(err, "migration lookup")
@@ -468,7 +468,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 
 	return params.MigrationStatus{
 		Attempt:        attempt,
-		Phase:          phase,
+		Phase:          phase.String(),
 		SourceAPIAddrs: sourceAddrs,
 		SourceCACert:   sourceCACert,
 		TargetAPIAddrs: target.Addrs,

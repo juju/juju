@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
@@ -64,7 +63,7 @@ func (s *Suite) TestClosedWatcherChannel(c *gc.C) {
 
 func (s *Suite) TestSUCCESS(c *gc.C) {
 	addrs := []string{"1.1.1.1:1", "9.9.9.9:9"}
-	s.client.watcher.changes <- params.MigrationStatus{
+	s.client.watcher.changes <- watcher.MigrationStatus{
 		Phase:          migration.SUCCESS,
 		TargetAPIAddrs: addrs,
 		TargetCACert:   "top secret",
@@ -106,16 +105,16 @@ func (c *stubMinionClient) Watch() (watcher.MigrationStatusWatcher, error) {
 func newStubWatcher() *stubWatcher {
 	return &stubWatcher{
 		Worker:  workertest.NewErrorWorker(nil),
-		changes: make(chan params.MigrationStatus, 1),
+		changes: make(chan watcher.MigrationStatus, 1),
 	}
 }
 
 type stubWatcher struct {
 	worker.Worker
-	changes chan params.MigrationStatus
+	changes chan watcher.MigrationStatus
 }
 
-func (w *stubWatcher) Changes() <-chan params.MigrationStatus {
+func (w *stubWatcher) Changes() <-chan watcher.MigrationStatus {
 	return w.changes
 }
 
