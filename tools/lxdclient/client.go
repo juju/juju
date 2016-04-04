@@ -8,6 +8,9 @@ package lxdclient
 import (
 	"fmt"
 	"net"
+	"net/url"
+	"os"
+	"syscall"
 
 	"github.com/lxc/lxd"
 	lxdshared "github.com/lxc/lxd/shared"
@@ -105,9 +108,58 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 	})
 	if err != nil {
 		if remote.ID() == remoteIDForLocal {
+			err = hoistLocalConnectErr(err)
 			return nil, errors.Annotate(err, "can't connect to the local LXD server")
 		}
 		return nil, errors.Trace(err)
 	}
 	return client, nil
+}
+
+func hoistLocalConnectErr(err error) error {
+	var installed bool
+
+	msg := err.Error()
+	switch t := err.(type) {
+	case *url.Error:
+		switch u := t.Err.(type) {
+		case *net.OpError:
+			if u.Op == "dial" && u.Net == "unix" {
+				switch errno := u.Err.(type) {
+				case *os.SyscallError:
+					switch errno.Err {
+					case syscall.ENOENT:
+						msg = "LXD socket not found; is LXD installed & running?"
+					case syscall.ECONNREFUSED:
+						installed = true
+						msg = "LXD refused connections; is LXD running?"
+					case syscall.EACCES:
+						installed = true
+						msg = "Permisson denied, are you in the lxd group?"
+					}
+				}
+			}
+		}
+	}
+
+	configureText := `
+Please configure LXD by running:
+	$ newgrp lxd
+	$ lxd init
+`
+
+	installText := `
+Please install LXD by running:
+	$ sudo apt-get install lxd
+and then configure it with:
+	$ newgrp lxd
+	$ lxd init
+`
+
+	hint := installText
+	if installed {
+		hint = configureText
+	}
+
+	return errors.Trace(fmt.Errorf("%s\n%s", msg, hint))
 }

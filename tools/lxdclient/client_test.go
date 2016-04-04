@@ -30,7 +30,14 @@ func (cs *ConnectSuite) TestLocalConnectError(c *gc.C) {
 
 	// Yes, the error message actually matters here... this is being displayed
 	// to the user.
-	c.Assert(err, gc.ErrorMatches, "can't connect to the local LXD server.*")
+	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: boo!
+
+Please install LXD by running:
+	$ sudo apt-get install lxd
+and then configure it with:
+	$ newgrp lxd
+	$ lxd init
+`)
 }
 
 func (cs *ConnectSuite) TestRemoteConnectError(c *gc.C) {
