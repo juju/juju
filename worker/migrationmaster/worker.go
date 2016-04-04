@@ -4,6 +4,8 @@
 package migrationmaster
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
@@ -15,9 +17,13 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-var logger = loggo.GetLogger("juju.worker.migrationmaster")
+var (
+	logger           = loggo.GetLogger("juju.worker.migrationmaster")
+	apiOpen          = api.Open
+	tempSuccessSleep = 10 * time.Second
 
-var apiOpen = api.Open
+	ErrDone = errors.New("done processing migration")
+)
 
 // New starts a migration master worker using the supplied migration
 // master API facade.
@@ -48,26 +54,101 @@ func (w *migrationMaster) Wait() error {
 }
 
 func (w *migrationMaster) run() error {
-	// TODO(mjs) - run the migration phase changes and abort the
-	// migration when things go wrong.
-
-	// TODO(mjs) - more logging when things go wrong.
+	// TODO(mjs) - log messages should indicate the model name and
+	// UUID. Independent logger per migration master instance?
 
 	targetInfo, err := w.waitForMigration()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	// TODO(mjs) - rather than assuming, the current phase needs to
+	// come from the API.
+	phase := migration.QUIESCE
+
+	for {
+		var err error
+		switch phase {
+		case migration.QUIESCE:
+			phase, err = w.doQUIESCE()
+		case migration.READONLY:
+			phase, err = w.doREADONLY()
+		case migration.IMPORT:
+			phase, err = w.doIMPORT(targetInfo)
+		case migration.VALIDATION:
+			phase, err = w.doVALIDATION()
+		case migration.SUCCESS:
+			phase, err = w.doSUCCESS()
+		case migration.LOGTRANSFER:
+			phase, err = w.doLOGTRANSFER()
+		case migration.REAP:
+			phase, err = w.doREAP()
+		case migration.DONE:
+			phase, err = w.doDONE()
+		case migration.REAPFAILED:
+			phase, err = w.doREAPFAILED()
+		case migration.ABORT:
+			phase, err = w.doABORT(targetInfo)
+		default:
+			return errors.Errorf("unknown phase: %v [%d]", phase.String(), phase)
+		}
+
+		if err != nil {
+			// A phase handler should only return an error if the
+			// migration master should exit. In the face of other
+			// errors the handler should log the problem and then
+			// return the appropriate error phases to transition to -
+			// i.e. ABORT or REAPFAILED)
+			return errors.Trace(err)
+		}
+
+		if phase == migration.NONE {
+			return ErrDone
+		}
+
+		if w.killed() {
+			return tomb.ErrDying
+		}
+
+		logger.Infof("setting migration phase to %s", phase)
+		if err := w.client.SetPhase(phase); err != nil {
+			return errors.Annotate(err, "failed to set phase")
+		}
+	}
+}
+
+func (w *migrationMaster) killed() bool {
+	select {
+	case <-w.tomb.Dying():
+		return true
+	default:
+		return false
+	}
+}
+
+func (w *migrationMaster) doQUIESCE() (migration.Phase, error) {
+	// TODO(mjs) - Wait for all agents to report back.
+	return migration.READONLY, nil
+}
+
+func (w *migrationMaster) doREADONLY() (migration.Phase, error) {
+	// TODO(mjs) - To be implemented.
+	return migration.IMPORT, nil
+}
+
+func (w *migrationMaster) doIMPORT(targetInfo *migration.TargetInfo) (migration.Phase, error) {
 	logger.Infof("exporting model")
 	bytes, err := w.client.Export()
 	if err != nil {
-		return errors.Annotate(err, "model export")
+		logger.Errorf("model export failed: %v", err)
+		return migration.ABORT, nil
 	}
 
 	logger.Infof("opening API connection to target controller")
 	conn, err := openAPIConn(targetInfo)
 	if err != nil {
-		return errors.Trace(err)
+		logger.Errorf("failed to connect to target controller: %v", err)
+		return migration.ABORT, nil
 	}
 	defer conn.Close()
 
@@ -75,15 +156,72 @@ func (w *migrationMaster) run() error {
 	targetClient := migrationtarget.NewClient(conn)
 	err = targetClient.Import(bytes)
 	if err != nil {
-		return errors.Annotate(err, "model import")
+		logger.Errorf("failed to import model into target controller: %v", err)
+		return migration.ABORT, nil
 	}
 
-	// For now just abort the migration (this is a work in progress)
-	err = w.client.SetPhase(migration.ABORT)
-	if err != nil {
-		return errors.Trace(err)
+	return migration.VALIDATION, nil
+}
+
+func (w *migrationMaster) doVALIDATION() (migration.Phase, error) {
+	// TODO(mjs) - Wait for all agents to report back.
+	return migration.SUCCESS, nil
+}
+
+func (w *migrationMaster) doSUCCESS() (migration.Phase, error) {
+	// XXX(mjs) - this is a horrible hack, which helps to ensure that
+	// minions will see the SUCCESS state (due to watcher event
+	// coalescing). It will go away soon.
+	time.Sleep(tempSuccessSleep)
+	return migration.LOGTRANSFER, nil
+}
+
+func (w *migrationMaster) doLOGTRANSFER() (migration.Phase, error) {
+	// TODO(mjs) - To be implemented.
+	return migration.REAP, nil
+}
+
+func (w *migrationMaster) doREAP() (migration.Phase, error) {
+	// TODO(mjs) - To be implemented.
+	return migration.DONE, nil
+}
+
+func (w *migrationMaster) doDONE() (migration.Phase, error) {
+	return migration.NONE, nil
+}
+
+func (w *migrationMaster) doREAPFAILED() (migration.Phase, error) {
+	return migration.NONE, nil
+}
+
+func (w *migrationMaster) doABORT(targetInfo *migration.TargetInfo) (migration.Phase, error) {
+	if err := removeImportedModel(targetInfo); err != nil {
+		// This is not a fatal error. Removing the imported model is a
+		// best efforts attempt.
+		logger.Errorf("failed to reverse model import: %v", err)
 	}
-	return errors.New("migration seen and aborted")
+
+	// TODO(mjs) - turn off the "migrating" status on the model
+	return migration.NONE, nil
+}
+
+func removeImportedModel(targetInfo *migration.TargetInfo) error {
+	/* TODO(mjs) - Can't call Abort API without the model UUID!
+	   migrationmaster facade needs work.
+	conn, err := openAPIConn(targetInfo)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+
+	targetClient := migrationtarget.NewClient(conn)
+	err = targetClient.Abort(uuid)
+	if err != nil {
+		logger.Errorf("failed to reverse model import: %v", err)
+		return migration.ABORT, nil
+	}
+	*/
+	return nil
 }
 
 func (w *migrationMaster) waitForMigration() (*migration.TargetInfo, error) {
@@ -108,5 +246,8 @@ func openAPIConn(targetInfo *migration.TargetInfo) (api.Connection, error) {
 		Tag:      targetInfo.AuthTag,
 		Password: targetInfo.Password,
 	}
-	return apiOpen(apiInfo, api.DefaultDialOpts())
+	// Use zero DialOpts (no retries) because the worker must stay
+	// responsive to Kill requests. We don't want it to be blocked by
+	// a long set of retry attempts.
+	return apiOpen(apiInfo, api.DialOpts{})
 }
