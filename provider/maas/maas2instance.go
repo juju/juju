@@ -14,7 +14,7 @@ type maas2Instance struct {
 	machine gomaasapi.Machine
 }
 
-var _ maasInstanceInterface = (*maas2Instance)(nil)
+var _ maasInstance = (*maas2Instance)(nil)
 
 func (mi *maas2Instance) zone() string {
 	return mi.machine.Zone().Name()

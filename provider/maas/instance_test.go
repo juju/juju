@@ -68,7 +68,7 @@ func (s *instanceTest) TestId(c *gc.C) {
 	statusGetter := func(instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
-	instance := maasInstance{&obj, nil, statusGetter}
+	instance := maas1Instance{&obj, nil, statusGetter}
 
 	c.Check(string(instance.Id()), gc.Equals, resourceURI)
 }
@@ -80,7 +80,7 @@ func (s *instanceTest) TestString(c *gc.C) {
 		return "unknown", "FAKE"
 	}
 
-	instance := &maasInstance{&obj, nil, statusGetter}
+	instance := &maas1Instance{&obj, nil, statusGetter}
 	hostname, err := instance.hostname()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := hostname + ":" + string(instance.Id())
@@ -95,7 +95,7 @@ func (s *instanceTest) TestStringWithoutHostname(c *gc.C) {
 		return "unknown", "FAKE"
 	}
 
-	instance := &maasInstance{&obj, nil, statusGetter}
+	instance := &maas1Instance{&obj, nil, statusGetter}
 	_, err := instance.hostname()
 	c.Assert(err, gc.NotNil)
 	expected := fmt.Sprintf("<DNSName failed: %q>", err) + ":" + string(instance.Id())
@@ -116,7 +116,7 @@ func (s *instanceTest) TestAddressesLegacy(c *gc.C) {
 		return "unknown", "FAKE"
 	}
 
-	inst := maasInstance{&obj, s.makeEnviron(), statusGetter}
+	inst := maas1Instance{&obj, s.makeEnviron(), statusGetter}
 
 	expected := []network.Address{
 		network.NewScopedAddress("testing.invalid", network.ScopePublic),
@@ -169,7 +169,7 @@ func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
 	server.NewSubnet(s.newSubnet("8.7.6.0/24", "bar", 2))
 	server.NewSubnet(s.newSubnet("10.0.1.1/24", "storage", 3))
 	server.NewSubnet(s.newSubnet("fc00::/64", "db", 4))
-	inst := maasInstance{&obj, s.makeEnviron(), statusGetter}
+	inst := maas1Instance{&obj, s.makeEnviron(), statusGetter}
 
 	// Since gomaasapi treats "interface_set" specially and the only way to
 	// change it is via SetNodeNetworkLink(), which in turn does not allow you
@@ -207,7 +207,7 @@ func (s *instanceTest) TestAddressesMissing(c *gc.C) {
 		return "unknown", "FAKE"
 	}
 
-	inst := maasInstance{&obj, s.makeEnviron(), statusGetter}
+	inst := maas1Instance{&obj, s.makeEnviron(), statusGetter}
 
 	addr, err := inst.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
@@ -228,7 +228,7 @@ func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
 		return "unknown", "FAKE"
 	}
 
-	inst := maasInstance{&obj, s.makeEnviron(), statusGetter}
+	inst := maas1Instance{&obj, s.makeEnviron(), statusGetter}
 
 	_, err := inst.Addresses()
 	c.Assert(err, gc.NotNil)
@@ -245,7 +245,7 @@ func (s *instanceTest) TestAddressesInvalidContents(c *gc.C) {
 		return "unknown", "FAKE"
 	}
 
-	inst := maasInstance{&obj, s.makeEnviron(), statusGetter}
+	inst := maas1Instance{&obj, s.makeEnviron(), statusGetter}
 
 	_, err := inst.Addresses()
 	c.Assert(err, gc.NotNil)
@@ -263,7 +263,7 @@ func (s *instanceTest) TestHardwareCharacteristics(c *gc.C) {
 		return "unknown", "FAKE"
 	}
 
-	inst := maasInstance{&obj, nil, statusGetter}
+	inst := maas1Instance{&obj, nil, statusGetter}
 	hc, err := inst.hardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc, gc.NotNil)
@@ -283,7 +283,7 @@ func (s *instanceTest) TestHardwareCharacteristicsWithTags(c *gc.C) {
 		return "unknown", "FAKE"
 	}
 
-	inst := maasInstance{&obj, nil, statusGetter}
+	inst := maas1Instance{&obj, nil, statusGetter}
 	hc, err := inst.hardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc, gc.NotNil)
@@ -307,7 +307,7 @@ func (s *instanceTest) testHardwareCharacteristicsMissing(c *gc.C, json, expect 
 		return "unknown", "FAKE"
 	}
 
-	inst := maasInstance{&obj, nil, statusGetter}
+	inst := maas1Instance{&obj, nil, statusGetter}
 	_, err := inst.hardwareCharacteristics()
 	c.Assert(err, gc.ErrorMatches, expect)
 }

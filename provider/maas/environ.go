@@ -506,7 +506,7 @@ func (env *maasEnviron) nodeArchitectures() ([]string, error) {
 	}
 	architectures := make(set.Strings)
 	for _, inst := range allInstances {
-		inst := inst.(*maasInstance)
+		inst := inst.(*maas1Instance)
 		arch, _, err := inst.architecture()
 		if err != nil {
 			return nil, err
@@ -579,7 +579,7 @@ func (e *maasEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string
 		if inst == nil {
 			continue
 		}
-		zones[i] = inst.(maasInstanceInterface).zone()
+		zones[i] = inst.(maasInstance).zone()
 	}
 	return zones, nil
 }
@@ -903,7 +903,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, errors.Errorf("cannot run instances: %v", err)
 	}
 
-	inst := &maasInstance{
+	inst := &maas1Instance{
 		maasObject:   selectedNode,
 		environ:      environ,
 		statusGetter: environ.deploymentStatusOne,
@@ -1345,7 +1345,7 @@ func (environ *maasEnviron) instances(filter url.Values) ([]instance.Instance, e
 		if err != nil {
 			return nil, err
 		}
-		instances[index] = &maasInstance{
+		instances[index] = &maas1Instance{
 			maasObject:   &node,
 			environ:      environ,
 			statusGetter: environ.deploymentStatusOne,
@@ -2165,7 +2165,7 @@ func (*maasEnviron) Provider() environs.EnvironProvider {
 }
 
 func (environ *maasEnviron) nodeIdFromInstance(inst instance.Instance) (string, error) {
-	maasInst := inst.(*maasInstance)
+	maasInst := inst.(*maas1Instance)
 	maasObj := maasInst.maasObject
 	nodeId, err := maasObj.GetField("system_id")
 	if err != nil {
