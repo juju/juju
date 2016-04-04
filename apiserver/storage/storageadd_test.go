@@ -73,14 +73,15 @@ func (s *storageAddSuite) TestStorageAddUnitDestroyIgnored(c *gc.C) {
 	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall})
 }
 
-func (s *storageAddSuite) TestStorageAddUnitError(c *gc.C) {
+func (s *storageAddSuite) TestStorageAddUnitInvalidName(c *gc.C) {
 	args := params.StorageAddParams{
+		UnitTag:     "invalid-unit-name",
 		StorageName: "data",
 	}
 	failures, err := s.api.AddToUnit(params.StoragesAddParams{[]params.StorageAddParams{args}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(failures.Results, gc.HasLen, 1)
-	c.Assert(failures.Results[0].Error.Error(), gc.Matches, ".*is not a valid tag.*")
+	c.Assert(failures.Results[0].Error.Error(), gc.Matches, "parsing unit tag invalid-unit-name: \"invalid-unit-name\" is not a valid tag")
 
 	expectedCalls := []string{getBlockForTypeCall}
 	s.assertCalls(c, expectedCalls)

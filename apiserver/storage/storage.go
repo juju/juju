@@ -668,10 +668,7 @@ func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, err
 		return params.ErrorResults{}, nil
 	}
 
-	serverErr := func(err error) params.ErrorResult {
-		if errors.IsNotFound(err) {
-			err = common.ErrPerm
-		}
+	wrapServerErr := func(err error) params.ErrorResult {
 		return params.ErrorResult{Error: common.ServerError(err)}
 	}
 
@@ -690,17 +687,19 @@ func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, err
 	for i, one := range args.Storages {
 		u, err := names.ParseUnitTag(one.UnitTag)
 		if err != nil {
-			result[i] = serverErr(
-				errors.Annotatef(err, "parsing unit tag %v", one.UnitTag))
+			result[i] = wrapServerErr(errors.Annotatef(err, "parsing unit tag %v", one.UnitTag))
 			continue
 		}
 
-		err = a.storage.AddStorageForUnit(u,
-			one.StorageName,
-			paramsToState(one.Constraints))
+		err = a.storage.AddStorageForUnit(u, one.StorageName, paramsToState(one.Constraints))
 		if err != nil {
-			result[i] = serverErr(
-				errors.Annotatef(err, "adding storage %v for %v", one.StorageName, one.UnitTag))
+			if errors.IsNotFound(err) {
+				// This will only happen if:
+				// the unit with given name does not exist;
+				// or its charm's metadata does not have a storage with specified name.
+				err = common.ErrPerm
+			}
+			result[i] = wrapServerErr(errors.Annotatef(err, "adding storage %v for %v", one.StorageName, one.UnitTag))
 		}
 	}
 	return params.ErrorResults{Results: result}, nil
