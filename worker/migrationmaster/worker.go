@@ -89,7 +89,7 @@ func (w *migrationMaster) run() error {
 		case migration.REAPFAILED:
 			phase, err = w.doREAPFAILED()
 		case migration.ABORT:
-			phase, err = w.doABORT(status.TargetInfo)
+			phase, err = w.doABORT(status.TargetInfo, status.ModelUUID)
 		default:
 			return errors.Errorf("unknown phase: %v [%d]", phase.String(), phase)
 		}
@@ -195,34 +195,25 @@ func (w *migrationMaster) doREAPFAILED() (migration.Phase, error) {
 	return migration.NONE, nil
 }
 
-func (w *migrationMaster) doABORT(targetInfo migration.TargetInfo) (migration.Phase, error) {
-	if err := removeImportedModel(targetInfo); err != nil {
-		// This is fatal. Removing the imported model is a best
+func (w *migrationMaster) doABORT(targetInfo migration.TargetInfo, modelUUID string) (migration.Phase, error) {
+	if err := removeImportedModel(targetInfo, modelUUID); err != nil {
+		// This isn't fatal. Removing the imported model is a best
 		// efforts attempt.
 		logger.Errorf("failed to reverse model import: %v", err)
 	}
-
-	// TODO(mjs) - turn off the "migrating" status on the model
 	return migration.NONE, nil
 }
 
-func removeImportedModel(targetInfo migration.TargetInfo) error {
-	/* TODO(mjs) - Can't call Abort API without the model UUID!
-	   migrationmaster facade needs work.
+func removeImportedModel(targetInfo migration.TargetInfo, modelUUID string) error {
 	conn, err := openAPIConn(targetInfo)
 	if err != nil {
-		return
+		return errors.Trace(err)
 	}
 	defer conn.Close()
 
 	targetClient := migrationtarget.NewClient(conn)
-	err = targetClient.Abort(uuid)
-	if err != nil {
-		logger.Errorf("failed to reverse model import: %v", err)
-		return migration.ABORT, nil
-	}
-	*/
-	return nil
+	err = targetClient.Abort(modelUUID)
+	return errors.Trace(err)
 }
 
 func (w *migrationMaster) waitForActiveMigration() error {

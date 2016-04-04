@@ -31,7 +31,36 @@ type Suite struct {
 
 var _ = gc.Suite(&Suite{})
 
-var fakeSerializedModel = []byte("model")
+var (
+	fakeSerializedModel = []byte("model")
+
+	// Define stub calls that commonly appear in tests here to allow reuse.
+	apiOpenCall = jujutesting.StubCall{
+		"apiOpen",
+		[]interface{}{
+			&api.Info{
+				Addrs:    []string{"1.2.3.4:5"},
+				CACert:   "cert",
+				Tag:      names.NewUserTag("admin"),
+				Password: "secret",
+			},
+			api.DialOpts{},
+		},
+	}
+	importCall = jujutesting.StubCall{
+		"APICall:MigrationTarget.Import",
+		[]interface{}{
+			params.SerializedModel{Bytes: fakeSerializedModel},
+		},
+	}
+	connCloseCall = jujutesting.StubCall{"Connection.Close", nil}
+	abortCall     = jujutesting.StubCall{
+		"APICall:MigrationTarget.Abort",
+		[]interface{}{
+			params.ModelArgs{ModelTag: names.NewModelTag("model-uuid").String()},
+		},
+	}
+)
 
 func (s *Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
@@ -72,16 +101,9 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
 		{"masterClient.Export", nil},
-		{"apiOpen", []interface{}{&api.Info{
-			Addrs:    []string{"1.2.3.4:5"},
-			CACert:   "cert",
-			Tag:      names.NewUserTag("admin"),
-			Password: "secret",
-		}, api.DialOpts{}}},
-		{"APICall:MigrationTarget.Import",
-			[]interface{}{params.SerializedModel{Bytes: fakeSerializedModel}}},
-
-		{"Connection.Close", nil},
+		apiOpenCall,
+		importCall,
+		connCloseCall,
 		{"masterClient.SetPhase", []interface{}{migration.VALIDATION}},
 		{"masterClient.SetPhase", []interface{}{migration.SUCCESS}},
 		{"masterClient.SetPhase", []interface{}{migration.LOGTRANSFER}},
@@ -135,6 +157,9 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
 		{"masterClient.Export", nil},
 		{"masterClient.SetPhase", []interface{}{migration.ABORT}},
+		apiOpenCall,
+		abortCall,
+		connCloseCall,
 	})
 }
 
@@ -153,13 +178,9 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
 		{"masterClient.Export", nil},
-		{"apiOpen", []interface{}{&api.Info{
-			Addrs:    []string{"1.2.3.4:5"},
-			CACert:   "cert",
-			Tag:      names.NewUserTag("admin"),
-			Password: "secret",
-		}, api.DialOpts{}}},
+		apiOpenCall,
 		{"masterClient.SetPhase", []interface{}{migration.ABORT}},
+		apiOpenCall,
 	})
 }
 
@@ -178,17 +199,13 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
 		{"masterClient.Export", nil},
-		{"apiOpen", []interface{}{&api.Info{
-			Addrs:    []string{"1.2.3.4:5"},
-			CACert:   "cert",
-			Tag:      names.NewUserTag("admin"),
-			Password: "secret",
-		}, api.DialOpts{}}},
-		{"APICall:MigrationTarget.Import",
-			[]interface{}{params.SerializedModel{Bytes: fakeSerializedModel}}},
-
-		{"Connection.Close", nil},
+		apiOpenCall,
+		importCall,
+		connCloseCall,
 		{"masterClient.SetPhase", []interface{}{migration.ABORT}},
+		apiOpenCall,
+		abortCall,
+		connCloseCall,
 	})
 }
 
