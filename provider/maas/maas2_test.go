@@ -51,3 +51,20 @@ func (m *fakeMachine) SystemID() string {
 func (m *fakeMachine) Hostname() string {
 	return m.hostname
 }
+
+func (m *fakeMachine) IPAddresses() []string {
+	return m.ipAddresses
+}
+
+func (m *fakeMachine) Zone() gomaasapi.Zone {
+	return fakeZone{name: m.zoneName}
+}
+
+type fakeZone struct {
+	gomaasapi.Zone
+	name string
+}
+
+func (z fakeZone) Name() string {
+	return z.name
+}
