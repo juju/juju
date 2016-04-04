@@ -379,7 +379,7 @@ func (env *maasEnviron) allArchitectures2() ([]string, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	architectures := make(set.Strings)
+	architectures := set.NewStrings()
 	for _, resource := range resources {
 		architectures.Add(strings.Split(resource.Architecture(), "/")[0])
 	}
@@ -409,7 +409,7 @@ func (env *maasEnviron) allArchitectures() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	architectures := make(set.Strings)
+	architectures := set.NewStrings()
 	for _, nodegroup := range nodegroups {
 		bootImages, err := env.nodegroupBootImages(nodegroup)
 		if err != nil {
