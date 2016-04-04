@@ -725,7 +725,7 @@ func (*storeManagerSuite) TestMultiwatcherStopBecauseStoreManagerError(c *gc.C) 
 	b.setFetchError(errors.New("some error"))
 	c.Logf("updating entity")
 	b.updateEntity(&multiwatcher.MachineInfo{Id: "1"})
-	checkNext(c, w, nil, "some error")
+	checkNext(c, w, nil, `shared state watcher was stopped`)
 }
 
 func StoreIncRef(a *multiwatcherStore, id interface{}) {
