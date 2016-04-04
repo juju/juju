@@ -86,6 +86,10 @@ func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 		return nil, err
 	}
 
+	// TODO(ericsnow) Clean up Multiwatcher/storeManager interaction.
+	// Relying on req.reply and req.noChanges here is not an ideal
+	// solution. It reflects the level of coupling we have between
+	// the Multiwatcher, request, and storeManager types.
 	select {
 	case ok := <-req.reply:
 		if !ok {
