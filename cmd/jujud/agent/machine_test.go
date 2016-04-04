@@ -36,7 +36,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/imagemetadata"
 	apimachiner "github.com/juju/juju/api/machiner"
@@ -1114,30 +1113,30 @@ func (s *MachineSuite) TestProxyUpdaterWithSystemFileUpdate(c *gc.C) {
 		NoProxy: "",
 	})
 
-	expected := params.ProxyConfigResult{
-		ProxySettings: proxy.Settings{
-			Http: "http proxy", Https: "https proxy", Ftp: "ftp proxy", NoProxy: "localhost"},
-		APTProxySettings: proxy.Settings{
-			Http: "http://http proxy", Https: "https://https proxy", Ftp: "ftp://ftp proxy", NoProxy: ""},
-	}
+	expectedProxy := proxy.Settings{
+		Http: "http proxy", Https: "https proxy", Ftp: "ftp proxy", NoProxy: "localhost"}
+	expectedAPTProxy := proxy.Settings{
+		Http: "http://http proxy", Https: "https://https proxy", Ftp: "ftp://ftp proxy", NoProxy: ""}
 
 	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Patch out the actual worker func.
 	started := newSignal()
-	mockNew := func(api base.APICaller) (worker.Worker, error) {
+	mockNew := func(proxyAPI *apiproxyupdater.API) (worker.Worker, error) {
 		// Indirect check that we get a functional API.
-		proxyAPI := apiproxyupdater.NewAPI(api)
-		conf, err := proxyAPI.ProxyConfig()
+		//proxyAPI := apiproxyupdater.NewAPI(api)
+		proxyConf, APTProxyConf, err := proxyAPI.ProxyConfig()
 		if c.Check(err, jc.ErrorIsNil) {
-			c.Check(conf, jc.DeepEquals, expected)
+			c.Check(proxyConf, jc.DeepEquals, expectedProxy)
+			c.Check(APTProxyConf, jc.DeepEquals, expectedAPTProxy)
 		}
 		return worker.NewSimpleWorker(func(_ <-chan struct{}) error {
 			started.trigger()
 			return nil
 		}), nil
 	}
+	_ = mockNew
 	s.AgentSuite.PatchValue(&proxyupdater.NewWorker, mockNew)
 
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
