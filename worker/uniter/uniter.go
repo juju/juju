@@ -44,13 +44,6 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter")
 
-const (
-	retryTimeMin    = 5 * time.Second
-	retryTimeMax    = 5 * time.Minute
-	retryTimeJitter = true
-	retryTimeFactor = 2
-)
-
 // A UniterExecutionObserver gets the appropriate methods called when a hook
 // is executed and either succeeds or fails.  Missing hooks don't get reported
 // in this way.
@@ -102,6 +95,9 @@ type Uniter struct {
 	// updateStatusAt defines a function that will be used to generate signals for
 	// the update-status hook
 	updateStatusAt func() <-chan time.Time
+
+	// hookRetryStrategy represents configuration for hook retries
+	hookRetryStrategy params.RetryStrategy
 }
 
 // UniterParams hold all the necessary parameters for a new Uniter.
@@ -113,6 +109,7 @@ type UniterParams struct {
 	MachineLock          *fslock.Lock
 	CharmDirGuard        fortress.Guard
 	UpdateStatusSignal   func() <-chan time.Time
+	HookRetryStrategy    params.RetryStrategy
 	NewOperationExecutor NewExecutorFunc
 	Clock                clock.Clock
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
@@ -134,6 +131,7 @@ func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 		leadershipTracker:    uniterParams.LeadershipTracker,
 		charmDirGuard:        uniterParams.CharmDirGuard,
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
+		hookRetryStrategy:    uniterParams.HookRetryStrategy,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
 		observer:             uniterParams.Observer,
 		clock:                uniterParams.Clock,
@@ -196,12 +194,13 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		watcherMu sync.Mutex
 	)
 
+	logger.Infof("hooks are retried %v", u.hookRetryStrategy.ShouldRetry)
 	retryHookChan := make(chan struct{}, 1)
 	retryHookTimer := utils.NewBackoffTimer(utils.BackoffTimerConfig{
-		Min:    retryTimeMin,
-		Max:    retryTimeMax,
-		Jitter: retryTimeJitter,
-		Factor: retryTimeFactor,
+		Min:    u.hookRetryStrategy.MinRetryTime,
+		Max:    u.hookRetryStrategy.MaxRetryTime,
+		Jitter: u.hookRetryStrategy.JitterRetryTime,
+		Factor: u.hookRetryStrategy.RetryTimeFactor,
 		Func: func() {
 			// Don't try to send on the channel if it's already full
 			// This can happen if the timer fires off before the event is consumed
@@ -277,6 +276,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			ClearResolved:       clearResolved,
 			ReportHookError:     u.reportHookError,
 			FixDeployer:         u.deployer.Fix,
+			ShouldRetryHooks:    u.hookRetryStrategy.ShouldRetry,
 			StartRetryHookTimer: retryHookTimer.Start,
 			StopRetryHookTimer:  retryHookTimer.Reset,
 			Actions:             actions.NewResolver(),

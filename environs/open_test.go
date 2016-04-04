@@ -260,8 +260,7 @@ func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
 func (*OpenSuite) TestDestroy(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"controller": false,
-			"name":       "erewhemos",
+			"name": "erewhemos",
 		},
 	))
 	c.Assert(err, jc.ErrorIsNil)

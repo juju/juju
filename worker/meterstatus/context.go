@@ -26,6 +26,7 @@ type limitedContext struct {
 // NewLimitedContext creates a new context that implements just the bare minimum
 // of the jujuc.Context interface.
 func NewLimitedContext(unitName string) *limitedContext {
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	id := fmt.Sprintf("%s-%s-%d", unitName, "meter-status", rand.New(rand.NewSource(time.Now().Unix())).Int63())
 	return &limitedContext{unitName: unitName, id: id}
 }

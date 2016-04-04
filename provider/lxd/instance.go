@@ -76,8 +76,7 @@ func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
 func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRange) error {
 	// TODO(ericsnow) Make sure machineId matches inst.Id()?
 	name := common.MachineFullName(inst.env.Config().UUID(), machineID)
-	env := inst.env.getSnapshot()
-	err := env.raw.OpenPorts(name, ports...)
+	err := inst.env.raw.OpenPorts(name, ports...)
 	if errors.IsNotImplemented(err) {
 		// TODO(ericsnow) for now...
 		return nil
@@ -89,8 +88,7 @@ func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRan
 // should have been started with the given machine id.
 func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRange) error {
 	name := common.MachineFullName(inst.env.Config().UUID(), machineID)
-	env := inst.env.getSnapshot()
-	err := env.raw.ClosePorts(name, ports...)
+	err := inst.env.raw.ClosePorts(name, ports...)
 	if errors.IsNotImplemented(err) {
 		// TODO(ericsnow) for now...
 		return nil
@@ -103,8 +101,7 @@ func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRa
 // The ports are returned as sorted by SortPorts.
 func (inst *environInstance) Ports(machineID string) ([]network.PortRange, error) {
 	name := common.MachineFullName(inst.env.Config().UUID(), machineID)
-	env := inst.env.getSnapshot()
-	ports, err := env.raw.Ports(name)
+	ports, err := inst.env.raw.Ports(name)
 	if errors.IsNotImplemented(err) {
 		// TODO(ericsnow) for now...
 		return nil, nil

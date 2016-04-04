@@ -79,6 +79,7 @@ func (pt *pingTimeout) Stop() error {
 // loop waits for a reset signal, otherwise it performs
 // the initially passed action.
 func (pt *pingTimeout) loop() error {
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	timer := time.NewTimer(pt.timeout)
 	defer timer.Stop()
 	for {

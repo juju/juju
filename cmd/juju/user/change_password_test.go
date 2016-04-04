@@ -89,24 +89,19 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *ChangePasswordCommandSuite) assertSetPassword(c *gc.C, user, pass string) {
-	s.assertSetPasswordN(c, 0, user, pass)
-}
-
-func (s *ChangePasswordCommandSuite) assertSetPasswordN(c *gc.C, n int, user, pass string) {
-	s.mockAPI.CheckCall(c, n+1, "SetPassword", user, pass)
-}
-
-func (s *ChangePasswordCommandSuite) assertStorePassword(c *gc.C, user, pass string) {
-	details, err := s.store.AccountByName("testing", user)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.Password, gc.Equals, pass)
+func (s *ChangePasswordCommandSuite) assertAPICalls(c *gc.C, user, pass string) {
+	var offset int
+	if user == "current-user@local" {
+		s.mockAPI.CheckCall(c, 0, "CreateLocalLoginMacaroon", names.NewUserTag(user))
+		offset += 1
+	}
+	s.mockAPI.CheckCall(c, offset, "SetPassword", user, pass)
 }
 
 func (s *ChangePasswordCommandSuite) TestChangePassword(c *gc.C) {
 	context, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertSetPassword(c, "current-user@local", "sekrit")
+	s.assertAPICalls(c, "current-user@local", "sekrit")
 	c.Assert(coretesting.Stdout(context), gc.Equals, "")
 	c.Assert(coretesting.Stderr(context), gc.Equals, `
 password: 
@@ -118,7 +113,7 @@ Your password has been updated.
 func (s *ChangePasswordCommandSuite) TestChangePasswordGenerate(c *gc.C) {
 	context, err := s.run(c, "--generate")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertSetPassword(c, "current-user@local", s.randomPassword)
+	s.assertAPICalls(c, "current-user@local", s.randomPassword)
 	c.Assert(coretesting.Stderr(context), gc.Equals, "Your password has been updated.\n")
 }
 
@@ -126,7 +121,7 @@ func (s *ChangePasswordCommandSuite) TestChangePasswordFail(c *gc.C) {
 	s.mockAPI.SetErrors(nil, errors.New("failed to do something"))
 	_, err := s.run(c, "--generate")
 	c.Assert(err, gc.ErrorMatches, "failed to do something")
-	s.assertSetPassword(c, "current-user@local", s.randomPassword)
+	s.assertAPICalls(c, "current-user@local", s.randomPassword)
 }
 
 // We create a macaroon, but fail to write it to accounts.yaml.
@@ -155,7 +150,7 @@ func (s *ChangePasswordCommandSuite) TestChangeOthersPassword(c *gc.C) {
 	// at the apiserver level.
 	_, err := s.run(c, "other", "--generate")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertSetPassword(c, "other@local", s.randomPassword)
+	s.assertAPICalls(c, "other@local", s.randomPassword)
 }
 
 type mockChangePasswordAPI struct {

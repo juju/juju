@@ -230,6 +230,7 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	now := time.Now()
 	metrics, closer := st.getCollection(metricsC)
 	defer closer()
@@ -369,6 +370,7 @@ func setSentOps(batchUUIDs []string, deleteTime time.Time) []txn.Op {
 
 // SetMetricBatchesSent sets sent on each MetricBatch corresponding to the uuids provided.
 func (st *State) SetMetricBatchesSent(batchUUIDs []string) error {
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	deleteTime := time.Now().UTC().Add(CleanupAge)
 	ops := setSentOps(batchUUIDs, deleteTime)
 	if err := st.runTransaction(ops); err != nil {

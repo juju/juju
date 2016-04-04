@@ -62,6 +62,14 @@ func (s *configSuite) TestValidateLocation(c *gc.C) {
 	s.assertConfigValid(c, testing.Attrs{"location": "eurasia"})
 }
 
+func (s *configSuite) TestValidateModelNameLength(c *gc.C) {
+	s.assertConfigInvalid(
+		c, testing.Attrs{"name": "someextremelyoverlylongishmodelname"},
+		`resource group name "juju-someextremelyoverlylongishmodelname-model-deadbeef-0bad-400d-8000-4b1d0d06f00d" is too long
+
+Please choose a model name of no more than 32 characters.`)
+}
+
 func (s *configSuite) TestValidateInvalidCredentials(c *gc.C) {
 	s.assertConfigInvalid(c, testing.Attrs{"application-id": ""}, `"application-id" config not specified`)
 	s.assertConfigInvalid(c, testing.Attrs{"application-password": ""}, `"application-password" config not specified`)
