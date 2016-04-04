@@ -11,7 +11,6 @@ import (
 
 // stateShim forwards and adapts state.State methods to Backend
 type stateShim struct {
-	Backend
 	st *state.State
 }
 

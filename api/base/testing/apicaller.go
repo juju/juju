@@ -142,7 +142,7 @@ func CheckingAPICallerMultiArgs(c *gc.C, args []CheckArgs, numCalls *int, err er
 	}
 	return APICallerFunc(
 		func(facade string, version int, id, method string, inArgs, outResults interface{}) error {
-			if len(args) < *numCalls {
+			if len(args) > *numCalls {
 				checkArgs(c, &args[*numCalls], facade, version, id, method, inArgs, outResults)
 			}
 			*numCalls++

@@ -8,6 +8,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
+	"github.com/juju/utils/proxy"
 )
 
 const proxyUpdaterFacade = "ProxyUpdater"
@@ -38,9 +39,23 @@ func (api *API) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatche
 	return apiwatcher.NewNotifyWatcher(api.facade.RawAPICaller(), result), nil
 }
 
-// ProxyConfig returns the current environment configuration.
-func (api *API) ProxyConfig() (params.ProxyConfigResult, error) {
+func proxySettingsParamToProxySettings(cfg params.ProxyConfig) proxy.Settings {
+	return proxy.Settings{
+		Http:    cfg.HTTP,
+		Https:   cfg.HTTPS,
+		Ftp:     cfg.FTP,
+		NoProxy: cfg.NoProxy,
+	}
+}
+
+// ProxyConfig returns the proxy settings for the current environment
+func (api *API) ProxyConfig() (proxySettings, APTProxySettings proxy.Settings, err error) {
 	var result params.ProxyConfigResult
-	err := api.facade.FacadeCall("ProxyConfig", nil, &result)
-	return result, err
+	err = api.facade.FacadeCall("ProxyConfig", nil, &result)
+	if err != nil {
+		return proxySettings, APTProxySettings, err
+	}
+	proxySettings = proxySettingsParamToProxySettings(result.ProxySettings)
+	APTProxySettings = proxySettingsParamToProxySettings(result.APTProxySettings)
+	return proxySettings, APTProxySettings, nil
 }
