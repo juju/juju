@@ -17,9 +17,13 @@ type Client interface {
 	// Import takes a serialized model and imports it into the target
 	// controller.
 	Import([]byte) error
-	// XXX these should take UUIDs not tags
-	Abort(names.ModelTag) error
-	Activate(names.ModelTag) error
+
+	// Abort removes all data relating to a previously imported
+	// model.
+	Abort(string) error
+
+	// Activate marks a migrated model as being ready to use.
+	Activate(string) error
 }
 
 // NewClient returns a new Client based on an existing API connection.
@@ -39,13 +43,13 @@ func (c *client) Import(bytes []byte) error {
 }
 
 // Abort implements Client.
-func (c *client) Abort(tag names.ModelTag) error {
-	args := params.ModelArgs{ModelTag: tag.String()}
+func (c *client) Abort(modelUUID string) error {
+	args := params.ModelArgs{ModelTag: names.NewModelTag(modelUUID).String()}
 	return c.caller.FacadeCall("Abort", args, nil)
 }
 
 // Activate implements Client.
-func (c *client) Activate(tag names.ModelTag) error {
-	args := params.ModelArgs{ModelTag: tag.String()}
+func (c *client) Activate(modelUUID string) error {
+	args := params.ModelArgs{ModelTag: names.NewModelTag(modelUUID).String()}
 	return c.caller.FacadeCall("Activate", args, nil)
 }

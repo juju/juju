@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api"
@@ -213,7 +212,7 @@ func removeImportedModel(targetInfo migration.TargetInfo, modelUUID string) erro
 	defer conn.Close()
 
 	targetClient := migrationtarget.NewClient(conn)
-	err = targetClient.Abort(names.NewModelTag(modelUUID))
+	err = targetClient.Abort(modelUUID)
 	return errors.Trace(err)
 }
 

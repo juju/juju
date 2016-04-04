@@ -45,17 +45,17 @@ func (s *ClientSuite) TestImport(c *gc.C) {
 func (s *ClientSuite) TestAbort(c *gc.C) {
 	client, stub := s.getClientAndStub(c)
 
-	tag := names.NewModelTag("fake-uuid")
-	err := client.Abort(tag)
-	s.AssertModelCall(c, stub, tag, "Abort", err)
+	uuid := "fake"
+	err := client.Abort(uuid)
+	s.AssertModelCall(c, stub, names.NewModelTag(uuid), "Abort", err)
 }
 
 func (s *ClientSuite) TestActivate(c *gc.C) {
 	client, stub := s.getClientAndStub(c)
 
-	tag := names.NewModelTag("fake-uuid")
-	err := client.Activate(tag)
-	s.AssertModelCall(c, stub, tag, "Activate", err)
+	uuid := "fake"
+	err := client.Activate(uuid)
+	s.AssertModelCall(c, stub, names.NewModelTag(uuid), "Activate", err)
 }
 
 func (s *ClientSuite) AssertModelCall(c *gc.C, stub *jujutesting.Stub, tag names.ModelTag, call string, err error) {
