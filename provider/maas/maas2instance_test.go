@@ -4,12 +4,7 @@
 package maas
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/gomaasapi"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	coretesting "github.com/juju/juju/testing"
 )
 
 type maas2InstanceSuite struct {
@@ -19,5 +14,6 @@ type maas2InstanceSuite struct {
 var _ = gc.Suite(&maas2InstanceSuite{})
 
 func (s *maas2InstanceSuite) TestString(c *gc.C) {
-	instance := maas2Instance{fakeMachine{}}
+	instance := &maas2Instance{&fakeMachine{hostname: "peewee", systemID: "herman"}}
+	c.Assert(instance.String(), gc.Equals, "peewee:herman")
 }

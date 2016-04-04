@@ -5,7 +5,6 @@ package maas
 
 import (
 	"github.com/juju/gomaasapi"
-	"github.com/juju/juju/network"
 )
 
 type fakeController struct {
@@ -39,8 +38,16 @@ type fakeMachine struct {
 	gomaasapi.Machine
 	zoneName      string
 	hostname      string
-	systemId      string
+	systemID      string
 	ipAddresses   []string
 	statusName    string
 	statusMessage string
+}
+
+func (m *fakeMachine) SystemID() string {
+	return m.systemID
+}
+
+func (m *fakeMachine) Hostname() string {
+	return m.hostname
 }

@@ -4,6 +4,8 @@
 package maas
 
 import (
+	"fmt"
+
 	"github.com/juju/gomaasapi"
 
 	"github.com/juju/juju/instance"
@@ -21,13 +23,11 @@ func (mi *maas2Instance) zone() string {
 }
 
 func (mi *maas2Instance) String() string {
-	return mi.machine.Hostname()
+	return fmt.Sprintf("%s:%s", mi.machine.Hostname(), mi.machine.SystemID())
 }
 
 func (mi *maas2Instance) Id() instance.Id {
-	// TODO (mfoord): this should be machine.URI() but that isn't implemented
-	// yet.
-	return instance.Id(mi.machine.SystemId())
+	return instance.Id(mi.machine.SystemID())
 }
 
 func (mi *maas2Instance) Addresses() ([]network.Address, error) {
