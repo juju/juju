@@ -41,7 +41,7 @@ export JOB_NAME
 export PATH="$SCRIPTS:$PATH"
 source $JUJU_HOME/ec2rc
 mkdir -p bash
-$SCRIPTS/jujuci.py get -a build-revision -b $REVISION_BUILD buildvars.bash bash
+$SCRIPTS/jujuci.py get -a -b $REVISION_BUILD build-revision buildvars.bash bash
 source bash/buildvars.bash
 ec2-terminate-job-instances
 set -x
@@ -60,7 +60,7 @@ if [ -e debs ]; then
   rm -R debs
 fi
 mkdir -p debs
-$SCRIPTS/jujuci.py get -b lastSuccessfulBuild \
+$SCRIPTS/jujuci.py get -b $REVISION_BUILD \
     build-binary-trusty-$ARCH juju*.deb debs
 
 scp -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
