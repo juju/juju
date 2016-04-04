@@ -78,7 +78,7 @@ func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 
 	select {
 	case w.all.request <- req:
-	case <-w.all.tomb.Dead():
+	case <-w.all.tomb.Dying():
 		err := w.all.tomb.Err()
 		if err == nil {
 			err = errors.Errorf("shared state watcher was stopped")
