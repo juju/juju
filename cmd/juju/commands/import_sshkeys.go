@@ -60,7 +60,7 @@ type importKeysCommand struct {
 func (c *importKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "import-ssh-key",
-		Args:    "<user identity> ...",
+		Args:    "<user-identity> ...",
 		Doc:     importKeysDoc,
 		Purpose: "Imports an SSH key from a trusted identity source (Launchpad, Github).",
 		Aliases: []string{"import-ssh-keys"},

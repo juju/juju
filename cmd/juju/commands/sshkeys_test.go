@@ -48,7 +48,7 @@ func (s *SSHKeysSuite) TestHelpRemove(c *gc.C) {
 }
 
 func (s *SSHKeysSuite) TestHelpImport(c *gc.C) {
-	s.assertHelpOutput(c, "import-ssh-key", "<user identity> ...")
+	s.assertHelpOutput(c, "import-ssh-key", "<user-identity> ...")
 }
 
 type keySuiteBase struct {

@@ -37,10 +37,10 @@ Examples:
     VCAfjjHObWHwNQ/ZU2KrX1/lv/+lBChx2tJliqQpyYMiA3nrtS
     jfqQgZfjVF5vz8LESQbGc6+vLcXZ9KQpuYDt joe@ubuntu"
 
-For ease of use, on Ubuntu/CentOS/MacOSX it is possible to use shell
-substitution to pass the key to the command:
+For ease of use, on it is possible to use shell substitution to pass
+the key to the command:
 
-    juju add-ssh-key $(cat ~/mykey.pub)
+    juju add-ssh-key $(cat mykey.pub)
 
 See also: list-ssh-key
           remove-ssh-key
