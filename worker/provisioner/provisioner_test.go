@@ -427,15 +427,15 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent":      dt.StubResource{Output: mockAgent{config: agentConfig}},
-		"api-caller": dt.StubResource{Output: s.st},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent":      mockAgent{config: agentConfig},
+		"api-caller": s.st,
 	})
 	manifold := provisioner.Manifold(provisioner.ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
 	})
-	untyped, err := manifold.Start(getResource)
+	untyped, err := manifold.Start(context)
 	c.Assert(err, jc.ErrorIsNil)
 	typed, ok := untyped.(provisioner.Provisioner)
 	c.Assert(ok, jc.IsTrue)

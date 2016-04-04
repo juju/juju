@@ -22,7 +22,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return util.ApiManifold(typedConfig, newWorker)
 }
 
-// newWorker is a shim to allow New to work with PostUpgradeManifold.
+// newWorker is a shim to allow New to work with util.ApiManifold.
 func newWorker(apiCaller base.APICaller) (worker.Worker, error) {
 	client := masterapi.NewClient(apiCaller)
 	return New(client), nil

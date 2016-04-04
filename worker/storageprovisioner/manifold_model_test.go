@@ -31,8 +31,6 @@ func (s *ManifoldSuite) TestManifold(c *gc.C) {
 	c.Check(manifold.Output, gc.IsNil)
 	c.Check(manifold.Start, gc.NotNil)
 	// ...Start is *not* well-tested, in common with many manifold configs.
-	// Am starting to think that tasdomas nailed it with the metrics manifolds
-	// that take constructors as config... reviewers, thoughts please?
 }
 
 func (s *ManifoldSuite) TestMissingClock(c *gc.C) {
@@ -40,9 +38,9 @@ func (s *ManifoldSuite) TestMissingClock(c *gc.C) {
 		APICallerName: "api-caller",
 		ClockName:     "clock",
 	})
-	_, err := manifold.Start(dt.StubGetResource(dt.StubResources{
-		"api-caller": dt.StubResource{Output: struct{ base.APICaller }{}},
-		"clock":      dt.StubResource{Error: dependency.ErrMissing},
+	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+		"api-caller": struct{ base.APICaller }{},
+		"clock":      dependency.ErrMissing,
 	}))
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
@@ -52,9 +50,9 @@ func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 		APICallerName: "api-caller",
 		ClockName:     "clock",
 	})
-	_, err := manifold.Start(dt.StubGetResource(dt.StubResources{
-		"api-caller": dt.StubResource{Error: dependency.ErrMissing},
-		"clock":      dt.StubResource{Output: struct{ clock.Clock }{}},
+	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+		"api-caller": dependency.ErrMissing,
+		"clock":      struct{ clock.Clock }{},
 	}))
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }

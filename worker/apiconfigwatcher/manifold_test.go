@@ -23,7 +23,7 @@ type ManifoldSuite struct {
 	testing.IsolationSuite
 
 	manifold           dependency.Manifold
-	getResource        dependency.GetResourceFunc
+	context            dependency.Context
 	agent              *mockAgent
 	agentConfigChanged *voyeur.Value
 }
@@ -34,8 +34,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = new(mockAgent)
-	s.getResource = dt.StubGetResource(dt.StubResources{
-		"agent": dt.StubResource{Output: s.agent},
+	s.context = dt.StubContext(nil, map[string]interface{}{
+		"agent": s.agent,
 	})
 	s.agentConfigChanged = voyeur.NewValue(0)
 	s.manifold = apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
@@ -52,15 +52,15 @@ func (s *ManifoldSuite) TestNilAgentConfigChanged(c *gc.C) {
 	manifold := apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
 		AgentName: "agent",
 	})
-	_, err := manifold.Start(s.getResource)
+	_, err := manifold.Start(s.context)
 	c.Assert(err, gc.ErrorMatches, "nil AgentConfigChanged .+")
 }
 
 func (s *ManifoldSuite) TestNoAgent(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent": dependency.ErrMissing,
 	})
-	_, err := s.manifold.Start(getResource)
+	_, err := s.manifold.Start(context)
 	c.Assert(err, gc.Equals, dependency.ErrMissing)
 }
 
@@ -117,7 +117,7 @@ func (s *ManifoldSuite) TestClosedVoyeur(c *gc.C) {
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
-	w, err := s.manifold.Start(s.getResource)
+	w, err := s.manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w

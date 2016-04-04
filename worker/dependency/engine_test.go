@@ -30,7 +30,7 @@ func (s *EngineSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *EngineSuite) TestInstallConvenienceWrapper(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 		mh1 := newManifoldHarness()
 		mh2 := newManifoldHarness()
 		mh3 := newManifoldHarness()
@@ -49,7 +49,7 @@ func (s *EngineSuite) TestInstallConvenienceWrapper(c *gc.C) {
 }
 
 func (s *EngineSuite) TestInstallNoInputs(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Install a worker, check it starts.
 		mh1 := newManifoldHarness()
@@ -67,7 +67,7 @@ func (s *EngineSuite) TestInstallNoInputs(c *gc.C) {
 }
 
 func (s *EngineSuite) TestInstallUnknownInputs(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Install a worker with an unmet dependency, check it doesn't start
 		// (because the implementation returns ErrMissing).
@@ -86,7 +86,7 @@ func (s *EngineSuite) TestInstallUnknownInputs(c *gc.C) {
 }
 
 func (s *EngineSuite) TestDoubleInstall(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Install a worker.
 		mh := newManifoldHarness()
@@ -102,7 +102,7 @@ func (s *EngineSuite) TestDoubleInstall(c *gc.C) {
 }
 
 func (s *EngineSuite) TestInstallCycle(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Install a worker with an unmet dependency.
 		mh1 := newManifoldHarness("robin-hood")
@@ -119,7 +119,7 @@ func (s *EngineSuite) TestInstallCycle(c *gc.C) {
 }
 
 func (s *EngineSuite) TestInstallAlreadyStopped(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Shut down the engine.
 		err := worker.Stop(engine)
@@ -133,8 +133,8 @@ func (s *EngineSuite) TestInstallAlreadyStopped(c *gc.C) {
 	})
 }
 
-func (s *EngineSuite) TestStartGetResourceExistenceOnly(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+func (s *EngineSuite) TestStartGetExistenceOnly(c *gc.C) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Start a task with a dependency.
 		mh1 := newManifoldHarness()
@@ -143,7 +143,7 @@ func (s *EngineSuite) TestStartGetResourceExistenceOnly(c *gc.C) {
 		mh1.AssertOneStart(c)
 
 		// Start another task that depends on it, ourselves depending on the
-		// implementation of manifoldHarness, which calls getResource(foo, nil).
+		// implementation of manifoldHarness, which calls Get(foo, nil).
 		mh2 := newManifoldHarness("some-task")
 		err = engine.Install("other-task", mh2.Manifold())
 		c.Assert(err, jc.ErrorIsNil)
@@ -151,8 +151,8 @@ func (s *EngineSuite) TestStartGetResourceExistenceOnly(c *gc.C) {
 	})
 }
 
-func (s *EngineSuite) TestStartGetResourceUndeclaredName(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+func (s *EngineSuite) TestStartGetUndeclaredName(c *gc.C) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Install a task and make sure it's started.
 		mh1 := newManifoldHarness()
@@ -163,12 +163,12 @@ func (s *EngineSuite) TestStartGetResourceUndeclaredName(c *gc.C) {
 		// Install another task with an undeclared dependency on the started task.
 		done := make(chan struct{})
 		err = engine.Install("other-task", dependency.Manifold{
-			Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-				err := getResource("some-task", nil)
+			Start: func(context dependency.Context) (worker.Worker, error) {
+				err := context.Get("some-task", nil)
 				c.Check(err, gc.Equals, dependency.ErrMissing)
 				close(done)
 				// Return a real worker so we don't keep restarting and potentially double-closing.
-				return startMinimalWorker(getResource)
+				return startMinimalWorker(context)
 			},
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -182,8 +182,8 @@ func (s *EngineSuite) TestStartGetResourceUndeclaredName(c *gc.C) {
 	})
 }
 
-func (s *EngineSuite) testStartGetResource(c *gc.C, outErr error) {
-	s.fix.run(c, func(engine dependency.Engine) {
+func (s *EngineSuite) testStartGet(c *gc.C, outErr error) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Start a task with an Output func that checks what it's passed, and wait for it to start.
 		var target interface{}
@@ -204,13 +204,13 @@ func (s *EngineSuite) testStartGetResource(c *gc.C, outErr error) {
 		done := make(chan struct{})
 		err = engine.Install("other-task", dependency.Manifold{
 			Inputs: []string{"some-task"},
-			Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-				err := getResource("some-task", &target)
+			Start: func(context dependency.Context) (worker.Worker, error) {
+				err := context.Get("some-task", &target)
 				// Check the result from some-task's Output func matches what we expect.
 				c.Check(err, gc.Equals, outErr)
 				close(done)
 				// Return a real worker so we don't keep restarting and potentially double-closing.
-				return startMinimalWorker(getResource)
+				return startMinimalWorker(context)
 			},
 		})
 		c.Check(err, jc.ErrorIsNil)
@@ -224,16 +224,92 @@ func (s *EngineSuite) testStartGetResource(c *gc.C, outErr error) {
 	})
 }
 
-func (s *EngineSuite) TestStartGetResourceAccept(c *gc.C) {
-	s.testStartGetResource(c, nil)
+func (s *EngineSuite) TestStartGetAccept(c *gc.C) {
+	s.testStartGet(c, nil)
 }
 
-func (s *EngineSuite) TestStartGetResourceReject(c *gc.C) {
-	s.testStartGetResource(c, errors.New("not good enough"))
+func (s *EngineSuite) TestStartGetReject(c *gc.C) {
+	s.testStartGet(c, errors.New("not good enough"))
+}
+
+func (s *EngineSuite) TestStartAbortOnEngineKill(c *gc.C) {
+	s.fix.run(c, func(engine *dependency.Engine) {
+		starts := make(chan struct{}, 1000)
+		manifold := dependency.Manifold{
+			Start: func(context dependency.Context) (worker.Worker, error) {
+				starts <- struct{}{}
+				select {
+				case <-context.Abort():
+				case <-time.After(coretesting.LongWait):
+					c.Errorf("timed out")
+				}
+				return nil, errors.New("whatever")
+			},
+		}
+		err := engine.Install("task", manifold)
+		c.Assert(err, jc.ErrorIsNil)
+
+		select {
+		case <-starts:
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out")
+		}
+		workertest.CleanKill(c, engine)
+
+		select {
+		case <-starts:
+			c.Fatalf("unexpected start")
+		default:
+		}
+	})
+}
+
+func (s *EngineSuite) TestStartAbortOnDependencyChange(c *gc.C) {
+	s.fix.run(c, func(engine *dependency.Engine) {
+		starts := make(chan struct{}, 1000)
+		manifold := dependency.Manifold{
+			Inputs: []string{"parent"},
+			Start: func(context dependency.Context) (worker.Worker, error) {
+				starts <- struct{}{}
+				select {
+				case <-context.Abort():
+				case <-time.After(coretesting.LongWait):
+					c.Errorf("timed out")
+				}
+				return nil, errors.New("whatever")
+			},
+		}
+		err := engine.Install("child", manifold)
+		c.Assert(err, jc.ErrorIsNil)
+
+		select {
+		case <-starts:
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out")
+		}
+
+		mh := newManifoldHarness()
+		err = engine.Install("parent", mh.Manifold())
+		c.Assert(err, jc.ErrorIsNil)
+		mh.AssertOneStart(c)
+
+		select {
+		case <-starts:
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out")
+		}
+		workertest.CleanKill(c, engine)
+
+		select {
+		case <-starts:
+			c.Fatalf("unexpected start")
+		default:
+		}
+	})
 }
 
 func (s *EngineSuite) TestErrorRestartsDependents(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Start two tasks, one dependent on the other.
 		mh1 := newManifoldHarness()
@@ -256,7 +332,7 @@ func (s *EngineSuite) TestErrorRestartsDependents(c *gc.C) {
 }
 
 func (s *EngineSuite) TestErrorPreservesDependencies(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Start two tasks, one dependent on the other.
 		mh1 := newManifoldHarness()
@@ -278,7 +354,7 @@ func (s *EngineSuite) TestErrorPreservesDependencies(c *gc.C) {
 }
 
 func (s *EngineSuite) TestCompletedWorkerNotRestartedOnExit(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Start a task.
 		mh1 := newManifoldHarness()
@@ -293,7 +369,7 @@ func (s *EngineSuite) TestCompletedWorkerNotRestartedOnExit(c *gc.C) {
 }
 
 func (s *EngineSuite) TestCompletedWorkerRestartedByDependencyChange(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Start a task with a dependency.
 		mh1 := newManifoldHarness()
@@ -317,7 +393,7 @@ func (s *EngineSuite) TestCompletedWorkerRestartedByDependencyChange(c *gc.C) {
 }
 
 func (s *EngineSuite) TestRestartRestartsDependents(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Start a dependency chain of 3 workers.
 		mh1 := newManifoldHarness()
@@ -348,7 +424,7 @@ func (s *EngineSuite) TestIsFatal(c *gc.C) {
 	fatalErr := errors.New("KABOOM")
 	s.fix.isFatal = isFatalIf(fatalErr)
 	s.fix.dirty = true
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Start two independent workers.
 		mh1 := newManifoldHarness()
@@ -384,7 +460,7 @@ func (s *EngineSuite) TestConfigFilter(c *gc.C) {
 		return reportErr
 	}
 	s.fix.dirty = true
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Start a task.
 		mh1 := newManifoldHarness()
@@ -400,7 +476,7 @@ func (s *EngineSuite) TestConfigFilter(c *gc.C) {
 }
 
 func (s *EngineSuite) TestErrMissing(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// ErrMissing is implicitly and indirectly tested by the default
 		// manifoldHarness.start method throughout this suite, but this
@@ -415,7 +491,7 @@ func (s *EngineSuite) TestErrMissing(c *gc.C) {
 		// Start a dependent that always complains ErrMissing.
 		mh2 := newManifoldHarness("some-task")
 		manifold := mh2.Manifold()
-		manifold.Start = func(_ dependency.GetResourceFunc) (worker.Worker, error) {
+		manifold.Start = func(_ dependency.Context) (worker.Worker, error) {
 			mh2.starts <- struct{}{}
 			return nil, errors.Trace(dependency.ErrMissing)
 		}
@@ -450,7 +526,7 @@ func (s *EngineSuite) TestErrMissing(c *gc.C) {
 }
 
 func (s *EngineSuite) TestErrBounce(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Start a simple dependency.
 		mh1 := newManifoldHarness()
@@ -476,7 +552,7 @@ func (s *EngineSuite) TestErrBounce(c *gc.C) {
 }
 
 func (s *EngineSuite) TestErrUninstall(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		// Start a simple dependency.
 		mh1 := newManifoldHarness()
@@ -508,13 +584,13 @@ func (s *EngineSuite) TestErrUninstall(c *gc.C) {
 func (s *EngineSuite) TestFilterStartError(c *gc.C) {
 	s.fix.isFatal = alwaysFatal
 	s.fix.dirty = true
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		startErr := errors.New("grr crunch")
 		filterErr := errors.New("mew hiss")
 
 		err := engine.Install("task", dependency.Manifold{
-			Start: func(_ dependency.GetResourceFunc) (worker.Worker, error) {
+			Start: func(_ dependency.Context) (worker.Worker, error) {
 				return nil, startErr
 			},
 			Filter: func(in error) error {
@@ -532,7 +608,7 @@ func (s *EngineSuite) TestFilterStartError(c *gc.C) {
 func (s *EngineSuite) TestFilterWorkerError(c *gc.C) {
 	s.fix.isFatal = alwaysFatal
 	s.fix.dirty = true
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		injectErr := errors.New("arg squish")
 		filterErr := errors.New("blam dink")
@@ -569,7 +645,7 @@ func (s *EngineSuite) TestWorstError(c *gc.C) {
 	}
 	s.fix.isFatal = alwaysFatal
 	s.fix.dirty = true
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 
 		mh1 := newErrorIgnoringManifoldHarness()
 		err := engine.Install("task", mh1.Manifold())

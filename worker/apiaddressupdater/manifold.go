@@ -17,12 +17,13 @@ import (
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
-type ManifoldConfig util.PostUpgradeManifoldConfig
+type ManifoldConfig util.AgentApiManifoldConfig
 
 // Manifold returns a dependency manifold that runs an API address updater worker,
 // using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	return util.PostUpgradeManifold(util.PostUpgradeManifoldConfig(config), newWorker)
+	typedConfig := util.AgentApiManifoldConfig(config)
+	return util.AgentApiManifold(typedConfig, newWorker)
 }
 
 // newWorker trivially wraps NewAPIAddressUpdater for use in a util.AgentApiManifold.

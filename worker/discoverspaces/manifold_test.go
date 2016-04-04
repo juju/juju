@@ -48,7 +48,7 @@ func (*ManifoldSuite) TestAPICallerMissing(c *gc.C) {
 	resources := resourcesMissing("api-caller")
 	manifold := discoverspaces.Manifold(namesConfig())
 
-	worker, err := manifold.Start(dt.StubGetResource(resources))
+	worker, err := manifold.Start(resources.Context())
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	c.Check(worker, gc.IsNil)
 }
@@ -57,7 +57,7 @@ func (*ManifoldSuite) TestEnvironMissing(c *gc.C) {
 	resources := resourcesMissing("environ")
 	manifold := discoverspaces.Manifold(namesConfig())
 
-	worker, err := manifold.Start(dt.StubGetResource(resources))
+	worker, err := manifold.Start(resources.Context())
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	c.Check(worker, gc.IsNil)
 }
@@ -66,7 +66,7 @@ func (*ManifoldSuite) TestUnlockerMissing(c *gc.C) {
 	resources := resourcesMissing("unlocker")
 	manifold := discoverspaces.Manifold(namesConfig())
 
-	worker, err := manifold.Start(dt.StubGetResource(resources))
+	worker, err := manifold.Start(resources.Context())
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	c.Check(worker, gc.IsNil)
 }
@@ -80,7 +80,7 @@ func (*ManifoldSuite) TestNewFacadeError(c *gc.C) {
 	}
 	manifold := discoverspaces.Manifold(config)
 
-	worker, err := manifold.Start(dt.StubGetResource(resources))
+	worker, err := manifold.Start(resources.Context())
 	c.Check(err, gc.ErrorMatches, "blort")
 	c.Check(worker, gc.IsNil)
 }
@@ -101,7 +101,7 @@ func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
 	}
 	manifold := discoverspaces.Manifold(config)
 
-	worker, err := manifold.Start(dt.StubGetResource(resources))
+	worker, err := manifold.Start(resources.Context())
 	c.Check(err, gc.ErrorMatches, "lhiis")
 	c.Check(worker, gc.IsNil)
 }
@@ -119,7 +119,7 @@ func (*ManifoldSuite) TestNewWorkerNoUnlocker(c *gc.C) {
 	}
 	manifold := discoverspaces.Manifold(config)
 
-	worker, err := manifold.Start(dt.StubGetResource(resources))
+	worker, err := manifold.Start(resources.Context())
 	c.Check(err, gc.ErrorMatches, "mrrg")
 	c.Check(worker, gc.IsNil)
 }
@@ -136,7 +136,7 @@ func (*ManifoldSuite) TestNewWorkerSuccess(c *gc.C) {
 	manifold := discoverspaces.Manifold(config)
 	resources := resourcesMissing()
 
-	worker, err := manifold.Start(dt.StubGetResource(resources))
+	worker, err := manifold.Start(resources.Context())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, expectWorker)
 }

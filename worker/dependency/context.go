@@ -11,14 +11,16 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-// resourceGetter encapsulates a snapshot of workers and output funcs and exposes
-// a getResource method that can be used as a GetResourceFunc.
-type resourceGetter struct {
+// context encapsulates a snapshot of workers and output funcs and implements Context.
+type context struct {
 
 	// clientName is the name of the manifold for whose convenience this exists.
 	clientName string
 
-	// expired is closed when the resourceGetter should no longer be used.
+	// abort is closed when the worker being started is no longer required.
+	abort <-chan struct{}
+
+	// expired is closed when the context should no longer be used.
 	expired chan struct{}
 
 	// workers holds the snapshot of manifold workers.
@@ -32,21 +34,20 @@ type resourceGetter struct {
 	accessLog []resourceAccess
 }
 
-// expire closes the expired channel. Calling it more than once will panic.
-func (rg *resourceGetter) expire() {
-	close(rg.expired)
+// Abort is part of the Context interface.
+func (ctx *context) Abort() <-chan struct{} {
+	return ctx.abort
 }
 
-// getResource is intended for use as the GetResourceFunc passed into the Start
-// func of the client manifold.
-func (rg *resourceGetter) getResource(resourceName string, out interface{}) error {
-	logger.Tracef("%q manifold requested %q resource", rg.clientName, resourceName)
+// Get is part of the Context interface.
+func (ctx *context) Get(resourceName string, out interface{}) error {
+	logger.Tracef("%q manifold requested %q resource", ctx.clientName, resourceName)
 	select {
-	case <-rg.expired:
-		return errors.New("expired resourceGetter: cannot be used outside Start func")
+	case <-ctx.expired:
+		return errors.New("expired context: cannot be used outside Start func")
 	default:
-		err := rg.rawAccess(resourceName, out)
-		rg.accessLog = append(rg.accessLog, resourceAccess{
+		err := ctx.rawAccess(resourceName, out)
+		ctx.accessLog = append(ctx.accessLog, resourceAccess{
 			name: resourceName,
 			as:   fmt.Sprintf("%T", out),
 			err:  err,
@@ -55,9 +56,14 @@ func (rg *resourceGetter) getResource(resourceName string, out interface{}) erro
 	}
 }
 
+// expire closes the expired channel. Calling it more than once will panic.
+func (ctx *context) expire() {
+	close(ctx.expired)
+}
+
 // rawAccess is a GetResourceFunc that neither checks enpiry nor records access.
-func (rg *resourceGetter) rawAccess(resourceName string, out interface{}) error {
-	input := rg.workers[resourceName]
+func (ctx *context) rawAccess(resourceName string, out interface{}) error {
+	input := ctx.workers[resourceName]
 	if input == nil {
 		// No worker running (or not declared).
 		return ErrMissing
@@ -66,7 +72,7 @@ func (rg *resourceGetter) rawAccess(resourceName string, out interface{}) error 
 		// No conversion necessary.
 		return nil
 	}
-	convert := rg.outputs[resourceName]
+	convert := ctx.outputs[resourceName]
 	if convert == nil {
 		// Conversion required, no func available.
 		return ErrMissing
@@ -74,7 +80,7 @@ func (rg *resourceGetter) rawAccess(resourceName string, out interface{}) error 
 	return convert(input, out)
 }
 
-// resourceAccess describes a call made to (*resourceGetter).getResource.
+// resourceAccess describes a call made to (*context).Get.
 type resourceAccess struct {
 
 	// name is the name of the resource requested.

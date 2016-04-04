@@ -69,9 +69,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // startFunc returns a StartFunc that creates a connection based on the
 // supplied manifold config and wraps it in a worker.
 func (config ManifoldConfig) startFunc() dependency.StartFunc {
-	return func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+	return func(context dependency.Context) (worker.Worker, error) {
 		var agent agent.Agent
-		if err := getResource(config.AgentName, &agent); err != nil {
+		if err := context.Get(config.AgentName, &agent); err != nil {
 			return nil, err
 		}
 

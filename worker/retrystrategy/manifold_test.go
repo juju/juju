@@ -21,34 +21,28 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/retrystrategy"
-	"github.com/juju/juju/worker/util"
 )
 
 type ManifoldSuite struct {
 	testing.IsolationSuite
-	stubAgentApiManifoldConfig util.AgentApiManifoldConfig
-	getResource                dependency.GetResourceFunc
-	fakeAgent                  agent.Agent
-	fakeCaller                 base.APICaller
-	fakeFacade                 retrystrategy.Facade
-	fakeWorker                 worker.Worker
-	newFacade                  func(retrystrategy.Facade) func(base.APICaller) retrystrategy.Facade
-	newWorker                  func(worker.Worker, error) func(retrystrategy.WorkerConfig) (worker.Worker, error)
+	context    dependency.Context
+	fakeAgent  agent.Agent
+	fakeCaller base.APICaller
+	fakeFacade retrystrategy.Facade
+	fakeWorker worker.Worker
+	newFacade  func(retrystrategy.Facade) func(base.APICaller) retrystrategy.Facade
+	newWorker  func(worker.Worker, error) func(retrystrategy.WorkerConfig) (worker.Worker, error)
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
-	s.stubAgentApiManifoldConfig = util.AgentApiManifoldConfig{
-		AgentName:     "wut",
-		APICallerName: "exactly",
-	}
 	s.fakeAgent = &fakeAgent{}
 	s.fakeCaller = &fakeCaller{}
-	s.getResource = dt.StubGetResource(dt.StubResources{
-		"wut":     dt.StubResource{Output: s.fakeAgent},
-		"exactly": dt.StubResource{Output: s.fakeCaller},
+	s.context = dt.StubContext(nil, map[string]interface{}{
+		"agent":      s.fakeAgent,
+		"api-caller": s.fakeCaller,
 	})
 	s.newFacade = func(facade retrystrategy.Facade) func(base.APICaller) retrystrategy.Facade {
 		s.fakeFacade = facade
@@ -70,57 +64,63 @@ func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
-		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
+		AgentName:     "wut",
+		APICallerName: "exactly",
 	})
 	c.Check(manifold.Inputs, jc.DeepEquals, []string{"wut", "exactly"})
 }
 
 func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
-		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
+		AgentName:     "agent",
+		APICallerName: "api-caller",
 	})
-	getResource := dt.StubGetResource(dt.StubResources{
-		"wut": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent":      dependency.ErrMissing,
+		"api-caller": s.fakeCaller,
 	})
 
-	w, err := manifold.Start(getResource)
+	w, err := manifold.Start(context)
 	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	c.Assert(w, gc.IsNil)
 }
 
 func (s *ManifoldSuite) TestStartMissingAPI(c *gc.C) {
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
-		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
+		AgentName:     "agent",
+		APICallerName: "api-caller",
 	})
-	getResource := dt.StubGetResource(dt.StubResources{
-		"wut":     dt.StubResource{Output: &fakeAgent{}},
-		"exactly": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent":      s.fakeAgent,
+		"api-caller": dependency.ErrMissing,
 	})
 
-	w, err := manifold.Start(getResource)
+	w, err := manifold.Start(context)
 	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	c.Assert(w, gc.IsNil)
 }
 
 func (s *ManifoldSuite) TestStartFacadeValueError(c *gc.C) {
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
-		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
-		NewFacade:              s.newFacade(&fakeFacadeErr{err: errors.New("blop")}),
+		AgentName:     "agent",
+		APICallerName: "api-caller",
+		NewFacade:     s.newFacade(&fakeFacadeErr{err: errors.New("blop")}),
 	})
 
-	w, err := manifold.Start(s.getResource)
+	w, err := manifold.Start(s.context)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "blop")
 	c.Assert(w, gc.IsNil)
 }
 
 func (s *ManifoldSuite) TestStartWorkerError(c *gc.C) {
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
-		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
-		NewFacade:              s.newFacade(&fakeFacade{}),
-		NewWorker:              s.newWorker(nil, errors.New("blam")),
+		AgentName:     "agent",
+		APICallerName: "api-caller",
+		NewFacade:     s.newFacade(&fakeFacade{}),
+		NewWorker:     s.newWorker(nil, errors.New("blam")),
 	})
 
-	w, err := manifold.Start(s.getResource)
+	w, err := manifold.Start(s.context)
 	c.Assert(err, gc.ErrorMatches, "blam")
 	c.Assert(w, gc.IsNil)
 }
@@ -128,24 +128,26 @@ func (s *ManifoldSuite) TestStartWorkerError(c *gc.C) {
 func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	fakeWorker := &fakeWorker{}
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
-		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
-		NewFacade:              s.newFacade(&fakeFacade{}),
-		NewWorker:              s.newWorker(fakeWorker, nil),
+		AgentName:     "agent",
+		APICallerName: "api-caller",
+		NewFacade:     s.newFacade(&fakeFacade{}),
+		NewWorker:     s.newWorker(fakeWorker, nil),
 	})
 
-	w, err := manifold.Start(s.getResource)
+	w, err := manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.Equals, fakeWorker)
 }
 
 func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
-		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
-		NewFacade:              s.newFacade(&fakeFacade{}),
-		NewWorker:              retrystrategy.NewRetryStrategyWorker,
+		AgentName:     "agent",
+		APICallerName: "api-caller",
+		NewFacade:     s.newFacade(&fakeFacade{}),
+		NewWorker:     retrystrategy.NewRetryStrategyWorker,
 	})
 
-	w, err := manifold.Start(s.getResource)
+	w, err := manifold.Start(s.context)
 	s.AddCleanup(func(c *gc.C) { w.Kill() })
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -157,12 +159,13 @@ func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 
 func (s *ManifoldSuite) TestOutputBadInput(c *gc.C) {
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
-		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
-		NewFacade:              s.newFacade(&fakeFacade{}),
-		NewWorker:              s.newWorker(&fakeWorker{}, nil),
+		AgentName:     "agent",
+		APICallerName: "api-caller",
+		NewFacade:     s.newFacade(&fakeFacade{}),
+		NewWorker:     s.newWorker(&fakeWorker{}, nil),
 	})
 
-	w, err := manifold.Start(s.getResource)
+	w, err := manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var out params.RetryStrategy
@@ -173,12 +176,13 @@ func (s *ManifoldSuite) TestOutputBadInput(c *gc.C) {
 
 func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 	manifold := retrystrategy.Manifold(retrystrategy.ManifoldConfig{
-		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
-		NewFacade:              s.newFacade(&fakeFacade{}),
-		NewWorker:              retrystrategy.NewRetryStrategyWorker,
+		AgentName:     "agent",
+		APICallerName: "api-caller",
+		NewFacade:     s.newFacade(&fakeFacade{}),
+		NewWorker:     retrystrategy.NewRetryStrategyWorker,
 	})
 
-	w, err := manifold.Start(s.getResource)
+	w, err := manifold.Start(s.context)
 	s.AddCleanup(func(c *gc.C) { w.Kill() })
 	c.Assert(err, jc.ErrorIsNil)
 

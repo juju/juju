@@ -34,8 +34,7 @@ type ManifoldSuite struct {
 
 	manifoldConfig meterstatus.ManifoldConfig
 	manifold       dependency.Manifold
-	dummyResources dt.StubResources
-	getResource    dependency.GetResourceFunc
+	resources      dt.StubResources
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -61,12 +60,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	lock, err := fslock.NewLock(locksDir, "machine-lock", fslock.Defaults())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.dummyResources = dt.StubResources{
+	s.resources = dt.StubResources{
 		"agent-name":        dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
 		"apicaller-name":    dt.StubResource{Output: &dummyAPICaller{}},
 		"machine-lock-name": dt.StubResource{Output: lock},
 	}
-	s.getResource = dt.StubGetResource(s.dummyResources)
 }
 
 // TestInputs ensures the collect manifold has the expected defined inputs.
@@ -83,15 +81,14 @@ func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 		"agent-name", "machine-lock-name",
 	} {
 		testResources := dt.StubResources{}
-		for k, v := range s.dummyResources {
+		for k, v := range s.resources {
 			if k == missingDep {
 				testResources[k] = dt.StubResource{Error: dependency.ErrMissing}
 			} else {
 				testResources[k] = v
 			}
 		}
-		getResource := dt.StubGetResource(testResources)
-		worker, err := s.manifold.Start(getResource)
+		worker, err := s.manifold.Start(testResources.Context())
 		c.Check(worker, gc.IsNil)
 		c.Check(err, gc.Equals, dependency.ErrMissing)
 	}
@@ -102,7 +99,7 @@ type PatchedManifoldSuite struct {
 	msClient       *stubMeterStatusClient
 	manifoldConfig meterstatus.ManifoldConfig
 	stub           *testing.Stub
-	dummyResources dt.StubResources
+	resources      dt.StubResources
 }
 
 func (s *PatchedManifoldSuite) SetUpTest(c *gc.C) {
@@ -134,8 +131,7 @@ func (s *PatchedManifoldSuite) TestStatusWorkerStarts(c *gc.C) {
 		return meterstatus.NewConnectedStatusWorker(cfg)
 	}
 	manifold := meterstatus.Manifold(s.manifoldConfig)
-	getResource := dt.StubGetResource(s.dummyResources)
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(s.resources.Context())
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
@@ -147,15 +143,14 @@ func (s *PatchedManifoldSuite) TestStatusWorkerStarts(c *gc.C) {
 
 // TestInactiveWorker ensures that the manifold correctly sets up the isolated worker.
 func (s *PatchedManifoldSuite) TestIsolatedWorker(c *gc.C) {
-	delete(s.dummyResources, "apicaller-name")
+	delete(s.resources, "apicaller-name")
 	var called bool
 	s.manifoldConfig.NewIsolatedStatusWorker = func(cfg meterstatus.IsolatedConfig) (worker.Worker, error) {
 		called = true
 		return meterstatus.NewIsolatedStatusWorker(cfg)
 	}
 	manifold := meterstatus.Manifold(s.manifoldConfig)
-	getResource := dt.StubGetResource(s.dummyResources)
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(s.resources.Context())
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)

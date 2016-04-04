@@ -46,20 +46,20 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.APICallerName,
 			config.MachineLockName,
 		},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-			return newStatusWorker(config, getResource)
+		Start: func(context dependency.Context) (worker.Worker, error) {
+			return newStatusWorker(config, context)
 		},
 	}
 }
 
-func newStatusWorker(config ManifoldConfig, getResource dependency.GetResourceFunc) (worker.Worker, error) {
+func newStatusWorker(config ManifoldConfig, context dependency.Context) (worker.Worker, error) {
 	var agent agent.Agent
-	if err := getResource(config.AgentName, &agent); err != nil {
+	if err := context.Get(config.AgentName, &agent); err != nil {
 		return nil, err
 	}
 
 	var machineLock *fslock.Lock
-	if err := getResource(config.MachineLockName, &machineLock); err != nil {
+	if err := context.Get(config.MachineLockName, &machineLock); err != nil {
 		return nil, err
 	}
 
@@ -76,7 +76,7 @@ func newStatusWorker(config ManifoldConfig, getResource dependency.GetResourceFu
 	// If we don't have a valid APICaller, start a meter status
 	// worker that works without an API connection.
 	var apiCaller base.APICaller
-	err := getResource(config.APICallerName, &apiCaller)
+	err := context.Get(config.APICallerName, &apiCaller)
 	if errors.Cause(err) == dependency.ErrMissing {
 		logger.Tracef("API caller dependency not available, starting isolated meter status worker.")
 		cfg := IsolatedConfig{
