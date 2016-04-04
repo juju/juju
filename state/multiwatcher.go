@@ -19,7 +19,7 @@ import (
 type Multiwatcher struct {
 	all *storeManager
 
-	// used indicates that the watcher was used (e.g. Next() called).
+	// used indicates that the watcher was used (i.e. Next() called).
 	used bool
 
 	// The following fields are maintained by the storeManager
@@ -65,7 +65,8 @@ var ErrStopped = stderrors.New("watcher was stopped")
 // subsequent calls. The latter will reflect changes that have happened
 // since the last Next() call. In contrast, the initial Next() call will
 // return the deltas that represent the model's complete state at that
-// moment, even when the model is empty.
+// moment, even when the model is empty. In that empty model case an
+// empty set of deltas is returned.
 func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 	req := &request{
 		w:     w,
