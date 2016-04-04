@@ -79,37 +79,6 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
 	})
 }
 
-func (s *watcherSuite) TestMigrationMasterWatcher(c *gc.C) {
-	w := apiservertesting.NewFakeNotifyWatcher()
-	id := s.resources.Register(w)
-	s.authorizer.EnvironManager = true
-	apiserver.PatchGetMigrationBackend(s, new(fakeMigrationBackend))
-
-	w.C <- struct{}{}
-	facade := s.getFacade(c, "MigrationMasterWatcher", 1, id).(migrationMasterWatcher)
-	defer c.Check(facade.Stop(), jc.ErrorIsNil)
-	result, err := facade.Next()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(result, jc.DeepEquals, params.ModelMigrationTargetInfo{
-		ControllerTag: "model-uuid",
-		Addrs:         []string{"1.2.3.4:5555"},
-		CACert:        "trust me",
-		AuthTag:       "user-admin",
-		Password:      "sekret",
-	})
-}
-
-func (s *watcherSuite) TestMigrationMasterNotModelManager(c *gc.C) {
-	id := s.resources.Register(apiservertesting.NewFakeNotifyWatcher())
-	s.authorizer.EnvironManager = false
-
-	factory, err := common.Facades.GetFactory("MigrationMasterWatcher", 1)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = factory(s.st, s.resources, s.authorizer, id)
-	c.Assert(err, gc.Equals, common.ErrPerm)
-}
-
 func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 	w := apiservertesting.NewFakeNotifyWatcher()
 	id := s.resources.Register(w)
@@ -221,11 +190,6 @@ func (m *fakeModelMigration) TargetInfo() (*migration.TargetInfo, error) {
 		AuthTag:       names.NewUserTag("admin"),
 		Password:      "sekret",
 	}, nil
-}
-
-type migrationMasterWatcher interface {
-	Next() (params.ModelMigrationTargetInfo, error)
-	Stop() error
 }
 
 type migrationStatusWatcher interface {

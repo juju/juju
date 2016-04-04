@@ -59,8 +59,8 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 		c.Assert(err, gc.ErrorMatches, "boom")
 		expectedCalls := []jujutesting.StubCall{
 			{"MigrationMaster.Watch", []interface{}{"", nil}},
-			{"MigrationMasterWatcher.Next", []interface{}{"abc", nil}},
-			{"MigrationMasterWatcher.Stop", []interface{}{"abc", nil}},
+			{"NotifyWatcher.Next", []interface{}{"abc", nil}},
+			{"NotifyWatcher.Stop", []interface{}{"abc", nil}},
 		}
 		// The Stop API call happens in a separate goroutine which
 		// might execute after the worker has exited so wait for the

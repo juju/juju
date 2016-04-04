@@ -54,10 +54,6 @@ func init() {
 		reflect.TypeOf((*srvEntitiesWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"MigrationMasterWatcher", 1, newMigrationMasterWatcher,
-		reflect.TypeOf((*srvMigrationMasterWatcher)(nil)),
-	)
-	common.RegisterFacade(
 		"MigrationStatusWatcher", 1, newMigrationStatusWatcher,
 		reflect.TypeOf((*srvMigrationStatusWatcher)(nil)),
 	)
@@ -382,34 +378,6 @@ func (w *srvEntitiesWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
 
-func newMigrationMasterWatcher(
-	st *state.State,
-	resources *common.Resources,
-	auth common.Authorizer,
-	id string,
-) (interface{}, error) {
-	if !auth.AuthModelManager() {
-		return nil, common.ErrPerm
-	}
-	w, ok := resources.Get(id).(state.NotifyWatcher)
-	if !ok {
-		return nil, common.ErrUnknownWatcher
-	}
-	return &srvMigrationMasterWatcher{
-		watcher:   w,
-		id:        id,
-		resources: resources,
-		st:        getMigrationBackend(st),
-	}, nil
-}
-
-type srvMigrationMasterWatcher struct {
-	watcher   state.NotifyWatcher
-	id        string
-	resources *common.Resources
-	st        migrationBackend
-}
-
 var getMigrationBackend = func(st *state.State) migrationBackend {
 	return st
 }
@@ -420,42 +388,6 @@ type migrationBackend interface {
 	GetModelMigration() (state.ModelMigration, error)
 	APIHostPorts() ([][]network.HostPort, error)
 	ControllerModel() (*state.Model, error)
-}
-
-// Next returns when a model migration is active for the associated
-// model. The details for the migration's target controller are
-// returned.
-func (w *srvMigrationMasterWatcher) Next() (params.ModelMigrationTargetInfo, error) {
-	empty := params.ModelMigrationTargetInfo{}
-
-	if _, ok := <-w.watcher.Changes(); !ok {
-		err := w.watcher.Err()
-		if err == nil {
-			err = common.ErrStoppedWatcher
-		}
-		return empty, err
-	}
-
-	mig, err := w.st.GetModelMigration()
-	if err != nil {
-		return empty, errors.Annotate(err, "migration lookup")
-	}
-	info, err := mig.TargetInfo()
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-	return params.ModelMigrationTargetInfo{
-		ControllerTag: info.ControllerTag.String(),
-		Addrs:         info.Addrs,
-		CACert:        info.CACert,
-		AuthTag:       info.AuthTag.String(),
-		Password:      info.Password,
-	}, nil
-}
-
-// Stop stops the watcher.
-func (w *srvMigrationMasterWatcher) Stop() error {
-	return w.resources.Stop(w.id)
 }
 
 func newMigrationStatusWatcher(

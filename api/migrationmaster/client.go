@@ -19,7 +19,7 @@ import (
 type Client interface {
 	// Watch returns a watcher which reports when a migration is
 	// active for the model associated with the API connection.
-	Watch() (watcher.MigrationMasterWatcher, error)
+	Watch() (watcher.NotifyWatcher, error)
 
 	// GetMigrationStatus returns the details and progress of the
 	// latest model migration.
@@ -54,7 +54,7 @@ type client struct {
 }
 
 // Watch implements Client.
-func (c *client) Watch() (watcher.MigrationMasterWatcher, error) {
+func (c *client) Watch() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
 	err := c.caller.FacadeCall("Watch", nil, &result)
 	if err != nil {
@@ -63,7 +63,7 @@ func (c *client) Watch() (watcher.MigrationMasterWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := apiwatcher.NewMigrationMasterWatcher(c.caller.RawAPICaller(), result.NotifyWatcherId)
+	w := apiwatcher.NewNotifyWatcher(c.caller.RawAPICaller(), result)
 	return w, nil
 }
 

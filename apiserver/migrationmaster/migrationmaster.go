@@ -45,7 +45,7 @@ func NewAPI(
 
 // Watch starts watching for an active migration for the model
 // associated with the API connection. The returned id should be used
-// with Next on the MigrationMasterWatcher endpoint to receive deltas.
+// with the NotifyWatcher facade to receive events.
 func (api *API) Watch() (params.NotifyWatchResult, error) {
 	w, err := api.backend.WatchForModelMigration()
 	if err != nil {
