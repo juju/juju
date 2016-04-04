@@ -57,15 +57,16 @@ func (w *migrationMaster) run() error {
 	// TODO(mjs) - log messages should indicate the model name and
 	// UUID. Independent logger per migration master instance?
 
-	targetInfo, err := w.waitForMigration()
-	if err != nil {
+	if err := w.waitForActiveMigration(); err != nil {
 		return errors.Trace(err)
 	}
 
-	// TODO(mjs) - rather than assuming, the current phase needs to
-	// come from the API.
-	phase := migration.QUIESCE
+	status, err := w.client.GetMigrationStatus()
+	if err != nil {
+		return errors.Annotate(err, "retrieving migration status")
+	}
 
+	phase := status.Phase
 	for {
 		var err error
 		switch phase {
@@ -74,7 +75,7 @@ func (w *migrationMaster) run() error {
 		case migration.READONLY:
 			phase, err = w.doREADONLY()
 		case migration.IMPORT:
-			phase, err = w.doIMPORT(targetInfo)
+			phase, err = w.doIMPORT(status.TargetInfo)
 		case migration.VALIDATION:
 			phase, err = w.doVALIDATION()
 		case migration.SUCCESS:
@@ -88,7 +89,7 @@ func (w *migrationMaster) run() error {
 		case migration.REAPFAILED:
 			phase, err = w.doREAPFAILED()
 		case migration.ABORT:
-			phase, err = w.doABORT(targetInfo)
+			phase, err = w.doABORT(status.TargetInfo)
 		default:
 			return errors.Errorf("unknown phase: %v [%d]", phase.String(), phase)
 		}
@@ -136,7 +137,7 @@ func (w *migrationMaster) doREADONLY() (migration.Phase, error) {
 	return migration.IMPORT, nil
 }
 
-func (w *migrationMaster) doIMPORT(targetInfo *migration.TargetInfo) (migration.Phase, error) {
+func (w *migrationMaster) doIMPORT(targetInfo migration.TargetInfo) (migration.Phase, error) {
 	logger.Infof("exporting model")
 	bytes, err := w.client.Export()
 	if err != nil {
@@ -194,10 +195,10 @@ func (w *migrationMaster) doREAPFAILED() (migration.Phase, error) {
 	return migration.NONE, nil
 }
 
-func (w *migrationMaster) doABORT(targetInfo *migration.TargetInfo) (migration.Phase, error) {
+func (w *migrationMaster) doABORT(targetInfo migration.TargetInfo) (migration.Phase, error) {
 	if err := removeImportedModel(targetInfo); err != nil {
-		// This is not a fatal error. Removing the imported model is a
-		// best efforts attempt.
+		// This is fatal. Removing the imported model is a best
+		// efforts attempt.
 		logger.Errorf("failed to reverse model import: %v", err)
 	}
 
@@ -205,7 +206,7 @@ func (w *migrationMaster) doABORT(targetInfo *migration.TargetInfo) (migration.P
 	return migration.NONE, nil
 }
 
-func removeImportedModel(targetInfo *migration.TargetInfo) error {
+func removeImportedModel(targetInfo migration.TargetInfo) error {
 	/* TODO(mjs) - Can't call Abort API without the model UUID!
 	   migrationmaster facade needs work.
 	conn, err := openAPIConn(targetInfo)
@@ -224,22 +225,22 @@ func removeImportedModel(targetInfo *migration.TargetInfo) error {
 	return nil
 }
 
-func (w *migrationMaster) waitForMigration() (*migration.TargetInfo, error) {
+func (w *migrationMaster) waitForActiveMigration() error {
 	watcher, err := w.client.Watch()
 	if err != nil {
-		return nil, errors.Annotate(err, "watching for migration")
+		return errors.Annotate(err, "watching for migration")
 	}
 	defer worker.Stop(watcher)
 
 	select {
 	case <-w.tomb.Dying():
-		return nil, tomb.ErrDying
-	case info := <-watcher.Changes():
-		return &info, nil
+		return tomb.ErrDying
+	case <-watcher.Changes():
+		return nil
 	}
 }
 
-func openAPIConn(targetInfo *migration.TargetInfo) (api.Connection, error) {
+func openAPIConn(targetInfo migration.TargetInfo) (api.Connection, error) {
 	apiInfo := &api.Info{
 		Addrs:    targetInfo.Addrs,
 		CACert:   targetInfo.CACert,

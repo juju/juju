@@ -52,13 +52,7 @@ func (s *Suite) apiOpen(info *api.Info, dialOpts api.DialOpts) (api.Connection, 
 }
 
 func (s *Suite) triggerMigration(masterClient *stubMasterClient) {
-	masterClient.watcher.changes <- migration.TargetInfo{
-		ControllerTag: names.NewModelTag("uuid"),
-		Addrs:         []string{"1.2.3.4:5"},
-		CACert:        "cert",
-		AuthTag:       names.NewUserTag("admin"),
-		Password:      "secret",
-	}
+	masterClient.watcher.changes <- struct{}{}
 }
 
 func (s *Suite) TestSuccessfulMigration(c *gc.C) {
@@ -66,7 +60,6 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 	w := migrationmaster.New(masterClient)
 	s.triggerMigration(masterClient)
 
-	// This error is temporary while migrationmaster is a WIP.
 	err := workertest.CheckKilled(c, w)
 	c.Assert(err, gc.Equals, migrationmaster.ErrDone)
 
@@ -75,6 +68,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 	// imported and then the migration completed.
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterClient.Watch", nil},
+		{"masterClient.GetMigrationStatus", nil},
 		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
 		{"masterClient.Export", nil},
@@ -89,6 +83,27 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 
 		{"Connection.Close", nil},
 		{"masterClient.SetPhase", []interface{}{migration.VALIDATION}},
+		{"masterClient.SetPhase", []interface{}{migration.SUCCESS}},
+		{"masterClient.SetPhase", []interface{}{migration.LOGTRANSFER}},
+		{"masterClient.SetPhase", []interface{}{migration.REAP}},
+		{"masterClient.SetPhase", []interface{}{migration.DONE}},
+	})
+}
+
+func (s *Suite) TestMigrationResume(c *gc.C) {
+	// Test that a partially complete migration can be resumed.
+
+	masterClient := newStubMasterClient(s.stub)
+	w := migrationmaster.New(masterClient)
+	masterClient.status.Phase = migration.VALIDATION
+	s.triggerMigration(masterClient)
+
+	err := workertest.CheckKilled(c, w)
+	c.Assert(err, gc.Equals, migrationmaster.ErrDone)
+
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"masterClient.Watch", nil},
+		{"masterClient.GetMigrationStatus", nil},
 		{"masterClient.SetPhase", []interface{}{migration.SUCCESS}},
 		{"masterClient.SetPhase", []interface{}{migration.LOGTRANSFER}},
 		{"masterClient.SetPhase", []interface{}{migration.REAP}},
@@ -115,6 +130,7 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterClient.Watch", nil},
+		{"masterClient.GetMigrationStatus", nil},
 		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
 		{"masterClient.Export", nil},
@@ -133,6 +149,7 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterClient.Watch", nil},
+		{"masterClient.GetMigrationStatus", nil},
 		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
 		{"masterClient.Export", nil},
@@ -157,6 +174,7 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterClient.Watch", nil},
+		{"masterClient.GetMigrationStatus", nil},
 		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
 		{"masterClient.Export", nil},
@@ -178,6 +196,18 @@ func newStubMasterClient(stub *jujutesting.Stub) *stubMasterClient {
 	return &stubMasterClient{
 		stub:    stub,
 		watcher: newMockWatcher(),
+		status: masterapi.MigrationStatus{
+			ModelUUID: "model-uuid",
+			Attempt:   2,
+			Phase:     migration.QUIESCE,
+			TargetInfo: migration.TargetInfo{
+				ControllerTag: names.NewModelTag("controller-uuid"),
+				Addrs:         []string{"1.2.3.4:5"},
+				CACert:        "cert",
+				AuthTag:       names.NewUserTag("admin"),
+				Password:      "secret",
+			},
+		},
 	}
 }
 
@@ -186,15 +216,21 @@ type stubMasterClient struct {
 	stub      *jujutesting.Stub
 	watcher   *mockWatcher
 	watchErr  error
+	status    masterapi.MigrationStatus
 	exportErr error
 }
 
-func (c *stubMasterClient) Watch() (watcher.MigrationMasterWatcher, error) {
+func (c *stubMasterClient) Watch() (watcher.NotifyWatcher, error) {
 	c.stub.AddCall("masterClient.Watch")
 	if c.watchErr != nil {
 		return nil, c.watchErr
 	}
 	return c.watcher, nil
+}
+
+func (c *stubMasterClient) GetMigrationStatus() (masterapi.MigrationStatus, error) {
+	c.stub.AddCall("masterClient.GetMigrationStatus")
+	return c.status, nil
 }
 
 func (c *stubMasterClient) Export() ([]byte, error) {
@@ -212,13 +248,13 @@ func (c *stubMasterClient) SetPhase(phase migration.Phase) error {
 
 func newMockWatcher() *mockWatcher {
 	return &mockWatcher{
-		changes: make(chan migration.TargetInfo, 1),
+		changes: make(chan struct{}, 1),
 	}
 }
 
 type mockWatcher struct {
 	tomb    tomb.Tomb
-	changes chan migration.TargetInfo
+	changes chan struct{}
 }
 
 func (w *mockWatcher) Kill() {
@@ -230,7 +266,7 @@ func (w *mockWatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
-func (w *mockWatcher) Changes() <-chan migration.TargetInfo {
+func (w *mockWatcher) Changes() watcher.NotifyChannel {
 	return w.changes
 }
 
