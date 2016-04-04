@@ -1339,7 +1339,8 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		// behaviour.
 		Status:     status.StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
-		Updated:    time.Now().UnixNano(),
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		Updated: time.Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour
 		// while we work out how to switch to an implementation that makes
 		// sense. It is also set in AddMissingServiceStatuses.

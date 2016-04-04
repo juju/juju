@@ -6,10 +6,12 @@ package unit
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
 	msapi "github.com/juju/juju/api/meterstatus"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
@@ -26,6 +28,7 @@ import (
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/proxyupdater"
+	"github.com/juju/juju/worker/retrystrategy"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/util"
@@ -56,6 +59,20 @@ type ManifoldsConfig struct {
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
 func Manifolds(config ManifoldsConfig) dependency.Manifolds {
+
+	// connectFilter exists to let us retry api connections immediately
+	// on password change, rather than causing the dependency engine to
+	// wait for a while.
+	connectFilter := func(err error) error {
+		cause := errors.Cause(err)
+		if cause == apicaller.ErrChangedPassword {
+			return dependency.ErrBounce
+		} else if cause == apicaller.ErrConnectImpossible {
+			return worker.ErrTerminateAgent
+		}
+		return err
+	}
+
 	return dependency.Manifolds{
 
 		// The agent manifold references the enclosing agent, and is the
@@ -86,6 +103,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		APICallerName: apicaller.Manifold(apicaller.ManifoldConfig{
 			AgentName:            AgentName,
 			APIConfigWatcherName: APIConfigWatcherName,
+			APIOpen:              apicaller.APIOpen,
+			NewConnection:        apicaller.ScaryConnect,
+			Filter:               connectFilter,
 		}),
 
 		// The log sender is a leaf worker that sends log messages to some
@@ -158,6 +178,17 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeadershipGuarantee: config.LeadershipGuarantee,
 		}),
 
+		// HookRetryStrategy uses a retrystrategy worker to get a
+		// retry strategy that will be used by the uniter to run its hooks.
+		HookRetryStrategyName: retrystrategy.Manifold(retrystrategy.ManifoldConfig{
+			AgentApiManifoldConfig: util.AgentApiManifoldConfig{
+				AgentName:     AgentName,
+				APICallerName: APICallerName,
+			},
+			NewFacade: retrystrategy.NewFacade,
+			NewWorker: retrystrategy.NewRetryStrategyWorker,
+		}),
+
 		// The uniter installs charms; manages the unit's presence in its
 		// relations; creates suboordinate units; runs all the hooks; sends
 		// metrics; etc etc etc. We expect to break it up further in the
@@ -169,6 +200,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeadershipTrackerName: LeadershipTrackerName,
 			MachineLockName:       MachineLockName,
 			CharmDirName:          CharmDirName,
+			HookRetryStrategyName: HookRetryStrategyName,
 		}),
 
 		// TODO (mattyw) should be added to machine agent.
@@ -228,4 +260,5 @@ const (
 	MetricSenderName         = "metric-sender"
 	APIConfigWatcherName     = "api-config-watcher"
 	MigrationMinionName      = "migration-minion"
+	HookRetryStrategyName    = "hook-retry-strategy"
 )

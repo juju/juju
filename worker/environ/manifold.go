@@ -15,8 +15,8 @@ import (
 
 // ManifoldConfig describes the resources used by a Tracker.
 type ManifoldConfig struct {
-	APICallerName      string
-	NewEnvironFuncName string
+	APICallerName  string
+	NewEnvironFunc NewEnvironFunc
 }
 
 // Manifold returns a Manifold that encapsulates a *Tracker and exposes it as
@@ -25,7 +25,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	manifold := dependency.Manifold{
 		Inputs: []string{
 			config.APICallerName,
-			config.NewEnvironFuncName,
 		},
 		Output: manifoldOutput,
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
@@ -33,13 +32,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := getResource(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
-			var newEnvironFunc NewEnvironFunc
-			if err := getResource(config.NewEnvironFuncName, &newEnvironFunc); err != nil {
-				return nil, errors.Trace(err)
-			}
 			w, err := NewTracker(Config{
 				Observer:       agent.NewState(apiCaller),
-				NewEnvironFunc: newEnvironFunc,
+				NewEnvironFunc: config.NewEnvironFunc,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

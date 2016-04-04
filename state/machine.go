@@ -966,6 +966,7 @@ func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 				return nil
 			}
 		case <-time.After(timeout):
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			return fmt.Errorf("still not alive after timeout")
 		case <-m.st.pwatcher.Dead():
 			return m.st.pwatcher.Err()

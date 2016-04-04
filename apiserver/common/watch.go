@@ -136,6 +136,7 @@ func (w *MultiNotifyWatcher) loop(in <-chan struct{}) {
 			return
 		case <-in:
 			if timer == nil {
+				// TODO(fwereade): 2016-03-17 lp:1558657
 				timer = time.After(10 * time.Millisecond)
 			}
 		case <-timer:

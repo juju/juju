@@ -228,5 +228,6 @@ func collectGitOrphans(dataPath string) {
 // assumes that the deployer will not need to create more than 10
 // directories in any given second.
 func (d *gitDeployer) newDir(prefix string) (string, error) {
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	return ioutil.TempDir(d.dataPath, prefix+time.Now().Format("20060102-150405"))
 }

@@ -4,6 +4,7 @@
 package machine
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
@@ -80,10 +81,6 @@ type ManifoldsConfig struct {
 	// been converted.
 	StartStateWorkers func(*state.State) (worker.Worker, error)
 
-	// WriteUninstallFile is a function the uninstaller manifold uses
-	// to write the agent uninstall file.
-	WriteUninstallFile func() error
-
 	// StartAPIWorkers is passed to the apiworkers manifold. It starts
 	// workers which rely on an API connection (which have not yet
 	// been converted to work directly with the dependency engine).
@@ -114,6 +111,27 @@ type ManifoldsConfig struct {
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
 func Manifolds(config ManifoldsConfig) dependency.Manifolds {
+
+	// connectFilter exists:
+	//  1) to let us retry api connections immeduately on password change,
+	//     rather than causing the dependency engine to wait for a while;
+	//  2) to ensure that certain connection failures correctly trigger
+	//     complete agent removal. (It's not safe to let any agent other
+	//     than the machine mess around with SetCanUninstall).
+	connectFilter := func(err error) error {
+		cause := errors.Cause(err)
+		if cause == apicaller.ErrConnectImpossible {
+			err2 := coreagent.SetCanUninstall(config.Agent)
+			if err2 != nil {
+				return errors.Trace(err2)
+			}
+			return worker.ErrTerminateAgent
+		} else if cause == apicaller.ErrChangedPassword {
+			return dependency.ErrBounce
+		}
+		return err
+	}
+
 	return dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
@@ -122,7 +140,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The termination worker returns ErrTerminateAgent if a
 		// termination signal is received by the process it's running
 		// in. It has no inputs and its only output is the error it
-		// returns.
+		// returns. It depends on the uninstall file having been
+		// written *by the manual provider* at install time; it would
+		// be Very Wrong Indeed to use SetCanUninstall in conjunction
+		// with this code.
 		terminationName: terminationworker.Manifold(),
 
 		// The stateconfigwatcher manifold watches the machine agent's
@@ -169,6 +190,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
 			AgentName:            agentName,
 			APIConfigWatcherName: apiConfigWatcherName,
+			APIOpen:              apicaller.APIOpen,
+			NewConnection:        apicaller.ScaryConnect,
+			Filter:               connectFilter,
 		}),
 
 		// The upgrade steps gate is used to coordinate workers which
@@ -214,15 +238,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:         agentName,
 			APICallerName:     apiCallerName,
 			UpgradeWaiterName: upgradeWaiterName,
-		}),
-
-		// The uninstaller manifold checks if the machine is dead. If
-		// it is it writes the agent uninstall file and returns
-		// ErrTerminateAgent which causes the agent to remove itself.
-		uninstallerName: uninstallerManifold(uninstallerManifoldConfig{
-			AgentName:          agentName,
-			APICallerName:      apiCallerName,
-			WriteUninstallFile: config.WriteUninstallFile,
 		}),
 
 		// The serving-info-setter manifold sets grabs the state
@@ -307,7 +322,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				APICallerName:     apiCallerName,
 				UpgradeWaiterName: upgradeWaiterName,
 			},
-			WriteUninstallFile: config.WriteUninstallFile,
 		}),
 
 		// The log sender is a leaf worker that sends log messages to some
@@ -344,7 +358,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The storageProvisioner worker manages provisioning
 		// (deprovisioning), and attachment (detachment) of first-class
 		// volumes and filesystems.
-		storageprovisionerName: storageprovisioner.Manifold(storageprovisioner.ManifoldConfig{
+		storageprovisionerName: storageprovisioner.MachineManifold(storageprovisioner.MachineManifoldConfig{
 			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
 				AgentName:         agentName,
 				APICallerName:     apiCallerName,
@@ -384,7 +398,6 @@ const (
 	upgraderName             = "upgrader"
 	upgradeStepsName         = "upgradesteps"
 	upgradeWaiterName        = "upgradewaiter"
-	uninstallerName          = "uninstaller"
 	servingInfoSetterName    = "serving-info-setter"
 	apiWorkersName           = "apiworkers"
 	rebootName               = "reboot"

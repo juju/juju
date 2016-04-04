@@ -647,6 +647,7 @@ func (h *bundleHandler) updateUnitStatus() error {
 			}
 		}
 	case <-time.After(updateUnitStatusPeriod):
+		// TODO(fwereade): 2016-03-17 lp:1558657
 		return errors.New("timeout while trying to get new changes from the watcher")
 	}
 	return nil

@@ -125,6 +125,7 @@ func collect(one watcher.Change, more <-chan watcher.Change, stop <-chan struct{
 		result[ch.Id] = ch.Revno != -1
 	}
 	handle(one)
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	timeout := time.After(10 * time.Millisecond)
 	for done := false; !done; {
 		select {

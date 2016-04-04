@@ -20,11 +20,12 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
@@ -67,25 +68,35 @@ type guiRouter struct {
 	pattern string
 }
 
-// handleGUI adds the Juju GUI routes to the given serve mux.
-// The given pattern is used as base URL path, and is assumed to include
-// ":modeluuid" and a trailing slash.
-func handleGUI(mux *pat.PatternServeMux, pattern string, dataDir string, ctxt httpContext) {
+func guiEndpoints(pattern, dataDir string, ctxt httpContext) []apihttp.Endpoint {
 	gr := &guiRouter{
 		dataDir: dataDir,
 		ctxt:    ctxt,
 		pattern: pattern,
 	}
-	guiHandleAll := func(pattern string, h func(*guiHandler, http.ResponseWriter, *http.Request)) {
-		handleAll(mux, pattern, gr.ensureFileHandler(h))
+	var endpoints []apihttp.Endpoint
+	add := func(pattern string, h func(*guiHandler, http.ResponseWriter, *http.Request)) {
+		handler := gr.ensureFileHandler(h)
+		// TODO: We can switch from all methods to specific ones for entries
+		// where we only want to support specific request methods. However, our
+		// tests currently assert that errors come back as application/json and
+		// pat only does "text/plain" responses.
+		for _, method := range common.DefaultHTTPMethods {
+			endpoints = append(endpoints, apihttp.Endpoint{
+				Pattern: pattern,
+				Method:  method,
+				Handler: handler,
+			})
+		}
 	}
 	hashedPattern := pattern + ":hash"
-	guiHandleAll(hashedPattern+"/config.js", (*guiHandler).serveConfig)
-	guiHandleAll(hashedPattern+"/combo", (*guiHandler).serveCombo)
-	guiHandleAll(hashedPattern+"/static/", (*guiHandler).serveStatic)
+	add(hashedPattern+"/config.js", (*guiHandler).serveConfig)
+	add(hashedPattern+"/combo", (*guiHandler).serveCombo)
+	add(hashedPattern+"/static/", (*guiHandler).serveStatic)
 	// The index is served when all remaining URLs are requested, so that
 	// the single page JavaScript application can properly handles its routes.
-	guiHandleAll(pattern, (*guiHandler).serveIndex)
+	add(pattern, (*guiHandler).serveIndex)
+	return endpoints
 }
 
 // ensureFileHandler decorates the given function to ensure the Juju GUI files
