@@ -1364,21 +1364,9 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 		// if no instances were found.
 		return nil, environs.ErrNoInstances
 	}
-	var instances []instance.Instance
-	if environ.usingMAAS2() {
-		// XXX we need to be able to filter by id in
-		// Controller.Machines.
-		var err error
-		instances, err = environ.AllInstances()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	} else {
-		var err error
-		instances, err = environ.acquiredInstances(ids)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	instances, err := environ.acquiredInstances(ids)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	if len(instances) == 0 {
 		return nil, environs.ErrNoInstances
