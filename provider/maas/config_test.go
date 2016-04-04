@@ -4,8 +4,6 @@
 package maas
 
 import (
-	"net/http"
-
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -56,7 +54,7 @@ func (s *configSuite) SetUpTest(c *gc.C) {
 	}
 	s.PatchValue(&GetCapabilities, mockCapabilities)
 	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
-		return nil, gomaasapi.ServerError{StatusCode: http.StatusNotFound}
+		return nil, gomaasapi.NewUnsupportedVersionError("oops")
 	}
 	s.PatchValue(&GetMAAS2Controller, mockGetController)
 }
