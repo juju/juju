@@ -169,7 +169,7 @@ func (suite *environSuite) TestSelectNodeInvalidZone(c *gc.C) {
 
 	_, err := env.selectNode(snArgs)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, "cannot run instances: ServerError: 409 Conflict \\(\\)")
+	c.Assert(err, gc.ErrorMatches, `cannot run instances: ServerError: 409 Conflict \(\)`)
 }
 
 func (suite *environSuite) TestAcquireNode(c *gc.C) {
