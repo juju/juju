@@ -17,6 +17,7 @@ type Client interface {
 	// Import takes a serialized model and imports it into the target
 	// controller.
 	Import([]byte) error
+	// XXX these should take UUIDs not tags
 	Abort(names.ModelTag) error
 	Activate(names.ModelTag) error
 }

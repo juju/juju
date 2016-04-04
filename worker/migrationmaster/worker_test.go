@@ -135,6 +135,15 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
 		{"masterClient.Export", nil},
 		{"masterClient.SetPhase", []interface{}{migration.ABORT}},
+		{"apiOpen", []interface{}{&api.Info{
+			Addrs:    []string{"1.2.3.4:5"},
+			CACert:   "cert",
+			Tag:      names.NewUserTag("admin"),
+			Password: "secret",
+		}, api.DialOpts{}}},
+		{"APICall:MigrationTarget.Abort",
+			[]interface{}{params.ModelArgs{ModelTag: "model-model-uuid"}}},
+		{"Connection.Close", nil},
 	})
 }
 
@@ -160,6 +169,12 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 			Password: "secret",
 		}, api.DialOpts{}}},
 		{"masterClient.SetPhase", []interface{}{migration.ABORT}},
+		{"apiOpen", []interface{}{&api.Info{
+			Addrs:    []string{"1.2.3.4:5"},
+			CACert:   "cert",
+			Tag:      names.NewUserTag("admin"),
+			Password: "secret",
+		}, api.DialOpts{}}},
 	})
 }
 
@@ -189,6 +204,15 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 
 		{"Connection.Close", nil},
 		{"masterClient.SetPhase", []interface{}{migration.ABORT}},
+		{"apiOpen", []interface{}{&api.Info{
+			Addrs:    []string{"1.2.3.4:5"},
+			CACert:   "cert",
+			Tag:      names.NewUserTag("admin"),
+			Password: "secret",
+		}, api.DialOpts{}}},
+		{"APICall:MigrationTarget.Abort",
+			[]interface{}{params.ModelArgs{ModelTag: "model-model-uuid"}}},
+		{"Connection.Close", nil},
 	})
 }
 
