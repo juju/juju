@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// ModelUser defines a subset of the state.ModelUser type
+// ModelUser defines the subset of the state.ModelUser type
 // that we require to convert to a params.ModelUserInfo.
 type ModelUser interface {
 	Access() state.ModelAccess

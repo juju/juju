@@ -4,6 +4,7 @@
 package modelmanager_test
 
 import (
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
-	"github.com/juju/names"
 )
 
 type modelInfoSuite struct {
@@ -19,21 +19,6 @@ type modelInfoSuite struct {
 }
 
 var _ = gc.Suite(&modelInfoSuite{})
-
-/*
-const (
-	someModelUUID = "63f5e78f-2d21-4d0c-a5c1-73463f3443bf"
-	someModelTag  = "model-" + someModelUUID
-)
-
-func (s *modelInfoSuite) TestGrantModelReadOnlyUser(c *gc.C) {
-	s.readOnlyUser(c, params.GrantModelAccess)
-}
-
-func (s *modelInfoSuite) TestRevokeModelReadOnlyUser(c *gc.C) {
-	s.readOnlyUser(c, params.RevokeModelAccess)
-}
-*/
 
 func (s *modelInfoSuite) checkCall(c *gc.C, objType string, id, request string) {
 	c.Check(objType, gc.Equals, "ModelManager")

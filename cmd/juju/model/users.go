@@ -108,7 +108,7 @@ func formatTabularUserInfo(users map[string]UserInfo, out *bytes.Buffer) error {
 		padchar  = ' '
 		flags    = 0
 	)
-	names := make(set.Strings)
+	names := set.NewStrings()
 	for name := range users {
 		names.Add(name)
 	}
