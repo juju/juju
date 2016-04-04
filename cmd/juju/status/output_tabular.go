@@ -104,6 +104,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	}
 
 	units := make(map[string]unitStatus)
+	metering := false
 	relations := newRelationFormatter()
 	p("[Services]")
 	p("NAME\tSTATUS\tEXPOSED\tCHARM")
@@ -111,6 +112,9 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		svc := fs.Services[svcName]
 		for un, u := range svc.Units {
 			units[un] = u
+			if u.MeterStatus != nil {
+				metering = true
+			}
 		}
 
 		subs := set.NewStrings(svc.SubordinateTo...)
@@ -164,6 +168,17 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		recurseUnits(u, indentationLevel, pUnit)
 	}
 	tw.Flush()
+
+	if metering {
+		p("\n[Metering]")
+		p("ID\tSTATUS\tMESSAGE")
+		for _, name := range common.SortStringsNaturally(stringKeysFromMap(units)) {
+			u := units[name]
+			if u.MeterStatus != nil {
+				p(name, u.MeterStatus.Color, u.MeterStatus.Message)
+			}
+		}
+	}
 
 	p("\n[Machines]")
 	p("ID\tSTATE\tDNS\tINS-ID\tSERIES\tAZ")

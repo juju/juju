@@ -3282,6 +3282,49 @@ func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
 	c.Check(string(stderr), gc.Equals, "error: unable to obtain the current status\n")
 }
 
+func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
+	status := formattedStatus{
+		Services: map[string]serviceStatus{
+			"foo": serviceStatus{
+				Units: map[string]unitStatus{
+					"foo/0": unitStatus{
+						MeterStatus: &meterStatus{
+							Color:   "strange",
+							Message: "warning: stable strangelets",
+						},
+					},
+					"foo/1": unitStatus{
+						MeterStatus: &meterStatus{
+							Color:   "up",
+							Message: "things are looking up",
+						},
+					},
+				},
+			},
+		},
+	}
+	out, err := FormatTabular(status)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(out), gc.Equals, `
+[Services] 
+NAME       STATUS EXPOSED CHARM 
+foo               false         
+
+[Units] 
+ID      WORKLOAD-STATUS JUJU-STATUS VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE 
+foo/0                                                                            
+foo/1                                                                            
+
+[Metering] 
+ID         STATUS  MESSAGE                     
+foo/0      strange warning: stable strangelets 
+foo/1      up      things are looking up       
+
+[Machines] 
+ID         STATE DNS INS-ID SERIES AZ 
+`[1:])
+}
+
 //
 // Filtering Feature
 //
