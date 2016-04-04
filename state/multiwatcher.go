@@ -31,9 +31,18 @@ type Multiwatcher struct {
 // NewMultiwatcher creates a new watcher that can observe
 // changes to an underlying store manager.
 func NewMultiwatcher(all *storeManager) *Multiwatcher {
+	// Note that we want to be clear about the defaults. So we set zero
+	// values explicitly.
+	//  used:    false means that the watcher has not been used yet
+	//  revno:   0 means that *all* transactions prior to the first
+	//           Next() call will be reflected in the deltas.
+	//  stopped: false means that the watcher immediately starts off
+	//           handling changes.
 	return &Multiwatcher{
-		all:  all,
-		used: false,
+		all:     all,
+		used:    false,
+		revno:   0,
+		stopped: false,
 	}
 }
 
