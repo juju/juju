@@ -99,6 +99,7 @@ func (s *ModelMigrationSuite) TestIdSequencesIncrement(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		checkIdAndAttempt(c, mig, attempt)
 		c.Check(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+		c.Check(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
 	}
 }
 
@@ -118,6 +119,7 @@ func (s *ModelMigrationSuite) TestIdSequencesIncrementOnlyWhenNecessary(c *gc.C)
 	// Now abort the migration and create another. The Id sequence
 	// should have only incremented by 1.
 	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
 
 	mig, err = s.State2.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -239,6 +241,7 @@ func (s *ModelMigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 		c.Check(mig.Id(), gc.Equals, fmt.Sprintf("%s:%d", modelUUID, i))
 
 		c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+		c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
 	}
 }
 
@@ -323,6 +326,8 @@ func (s *ModelMigrationSuite) TestABORTCleanup(c *gc.C) {
 
 	s.clock.Advance(time.Millisecond)
 	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	s.clock.Advance(time.Millisecond)
+	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
 
 	s.assertMigrationCleanedUp(c, mig)
 }
@@ -476,6 +481,8 @@ func (s *ModelMigrationSuite) TestWatchMigrationStatus(c *gc.C) {
 
 	// End it.
 	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	wc.AssertOneChange()
+	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Start another.

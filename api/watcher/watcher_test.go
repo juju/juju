@@ -348,6 +348,8 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	// Now abort the migration, this should be reported too.
 	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
 	assertChange(migration.ABORT)
+	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
+	assertChange(migration.ABORTDONE)
 
 	// Start a new migration, this should also trigger.
 	_, err = hostedState.CreateModelMigration(spec)
