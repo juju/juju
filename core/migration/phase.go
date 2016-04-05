@@ -21,6 +21,7 @@ const (
 	REAPFAILED
 	DONE
 	ABORT
+	ABORTDONE
 )
 
 var phaseNames = []string{
@@ -37,6 +38,7 @@ var phaseNames = []string{
 	"REAPFAILED",
 	"DONE",
 	"ABORT",
+	"ABORTDONE",
 }
 
 // String returns the name of an model migration phase constant.
@@ -87,6 +89,7 @@ var validTransitions = map[Phase][]Phase{
 	SUCCESS:     {LOGTRANSFER},
 	LOGTRANSFER: {REAP},
 	REAP:        {DONE, REAPFAILED},
+	ABORT:       {ABORTDONE},
 }
 
 var terminalPhases []Phase
