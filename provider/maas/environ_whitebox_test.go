@@ -261,14 +261,14 @@ var testNetworkValues = []struct {
 	},
 }
 
-func (suite *environSuite) getInstance(systemId string) *maasInstance {
+func (suite *environSuite) getInstance(systemId string) *maas1Instance {
 	input := fmt.Sprintf(`{"system_id": %q}`, systemId)
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	statusGetter := func(instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
 
-	return &maasInstance{&node, nil, statusGetter}
+	return &maas1Instance{&node, nil, statusGetter}
 }
 
 func (suite *environSuite) newNetwork(name string, id int, vlanTag int, defaultGateway string) *gomaasapi.MAASObject {
@@ -1122,7 +1122,7 @@ func (s *environSuite) TestStartInstanceAvailZone(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("test-available", "description")
 	inst, err := s.testStartInstanceAvailZone(c, "test-available")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inst.(*maasInstance).zone(), gc.Equals, "test-available")
+	c.Assert(inst.(*maas1Instance).zone(), gc.Equals, "test-available")
 }
 
 func (s *environSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
@@ -1388,7 +1388,7 @@ func (s *environSuite) TestStartInstanceDistribution(c *gc.C) {
 	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "test-available"})
 	s.addSubnet(c, 1, 1, "node1")
 	inst, _ := testing.AssertStartInstance(c, env, "1")
-	c.Assert(inst.(*maasInstance).zone(), gc.Equals, "test-available")
+	c.Assert(inst.(*maas1Instance).zone(), gc.Equals, "test-available")
 }
 
 func (s *environSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
@@ -1401,7 +1401,7 @@ func (s *environSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
 	s.newNode(c, "node1", "host1", nil)
 	s.addSubnet(c, 1, 1, "node1")
 	inst, _ := testing.AssertStartInstance(c, env, "1")
-	c.Assert(inst.(*maasInstance).zone(), gc.Equals, "")
+	c.Assert(inst.(*maas1Instance).zone(), gc.Equals, "")
 }
 
 func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
@@ -1422,7 +1422,7 @@ func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
 
 	env := s.bootstrap(c)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
-	c.Assert(inst.(*maasInstance).zone(), gc.Equals, "zone2")
+	c.Assert(inst.(*maas1Instance).zone(), gc.Equals, "zone2")
 	c.Assert(s.testMAASObject.TestServer.NodesOperations(), gc.DeepEquals, []string{
 		// one acquire for the bootstrap, three for StartInstance (with zone failover)
 		"acquire", "acquire", "acquire", "acquire",

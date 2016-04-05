@@ -55,9 +55,6 @@ func (s *baseProviderSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&nodeDeploymentTimeout, func(*maasEnviron) time.Duration {
 		return coretesting.ShortWait
 	})
-	s.PatchValue(&resolveHostnames, func(addrs []network.Address) []network.Address {
-		return addrs
-	})
 }
 
 func (s *baseProviderSuite) SetUpTest(c *gc.C) {
@@ -155,13 +152,13 @@ func (suite *providerSuite) addNode(jsonText string) instance.Id {
 	return instance.Id(resourceURI)
 }
 
-func (suite *providerSuite) getInstance(systemId string) *maasInstance {
+func (suite *providerSuite) getInstance(systemId string) *maas1Instance {
 	input := fmt.Sprintf(`{"system_id": %q}`, systemId)
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	statusGetter := func(instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
-	return &maasInstance{&node, nil, statusGetter}
+	return &maas1Instance{&node, nil, statusGetter}
 }
 
 func (suite *providerSuite) getNetwork(name string, id int, vlanTag int) *gomaasapi.MAASObject {
