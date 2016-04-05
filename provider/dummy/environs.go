@@ -65,7 +65,7 @@ var transientErrorInjection chan error
 const BootstrapInstanceId = "localhost"
 
 var (
-	ErrNotPrepared = errors.New("environment is not prepared")
+	errNotPrepared = errors.New("environment is not prepared")
 	ErrDestroyed   = errors.New("environment has been destroyed")
 )
 
@@ -552,7 +552,7 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 func (e *environ) state() (*environState, error) {
 	stateId := e.ecfg().stateId()
 	if stateId == noStateId {
-		return nil, ErrNotPrepared
+		return nil, errNotPrepared
 	}
 	dummy.mu.Lock()
 	defer dummy.mu.Unlock()
@@ -570,7 +570,7 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, err
 	}
 	if ecfg.stateId() == noStateId {
-		return nil, ErrNotPrepared
+		return nil, errNotPrepared
 	}
 	env := &environ{
 		name:         ecfg.Name(),
