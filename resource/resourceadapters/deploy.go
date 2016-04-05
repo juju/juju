@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
@@ -19,7 +20,7 @@ import (
 // DeployResources uploads the bytes for the given files to the server and
 // creates pending resource metadata for the all resource mentioned in the
 // metadata. It returns a map of resource name to pending resource IDs.
-func DeployResources(serviceID string, cURL *charm.URL, csMac *macaroon.Macaroon, filesAndRevisions map[string]string, resources map[string]charmresource.Meta, conn api.Connection) (ids map[string]string, err error) {
+func DeployResources(serviceID string, cURL *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon, filesAndRevisions map[string]string, resources map[string]charmresource.Meta, conn api.Connection) (ids map[string]string, err error) {
 	client, err := newAPIClient(conn)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -36,6 +37,7 @@ func DeployResources(serviceID string, cURL *charm.URL, csMac *macaroon.Macaroon
 		}
 	}
 
+	// TODO(ericsnow) Pass the channel here.
 	ids, err = cmd.DeployResources(cmd.DeployResourcesArgs{
 		ServiceID:          serviceID,
 		CharmURL:           cURL,

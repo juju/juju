@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
@@ -129,42 +130,45 @@ func (r *charmURLResolver) resolve(urlStr string) (*charm.URL, []string, charmre
 //
 // The repo holds the charm repository associated with with the URL
 // by resolveCharmStoreEntityURL.
-func addCharmFromURL(client *api.Client, curl *charm.URL, repo charmrepo.Interface) (*charm.URL, *macaroon.Macaroon, error) {
+func addCharmFromURL(client *api.Client, curl *charm.URL, channel csparams.Channel, repo charmrepo.Interface) (*charm.URL, csparams.Channel, *macaroon.Macaroon, error) {
 	var csMac *macaroon.Macaroon
 	switch curl.Schema {
 	case "local":
 		ch, err := repo.Get(curl)
 		if err != nil {
-			return nil, nil, err
+			return nil, channel, nil, err
 		}
 		stateCurl, err := client.AddLocalCharm(curl, ch)
 		if err != nil {
-			return nil, nil, err
+			return nil, channel, nil, err
 		}
 		curl = stateCurl
 	case "cs":
 		repo, ok := repo.(*charmrepo.CharmStore)
 		if !ok {
-			return nil, nil, errors.Errorf("(cannot happen) cs-schema URL with unexpected repo type %T", repo)
+			return nil, channel, nil, errors.Errorf("(cannot happen) cs-schema URL with unexpected repo type %T", repo)
 		}
 		csClient := repo.Client()
-		if err := client.AddCharm(curl); err != nil {
+		var err error
+		channel, err = client.AddCharm(curl, channel)
+		if err != nil {
 			if !params.IsCodeUnauthorized(err) {
-				return nil, nil, errors.Trace(err)
+				return nil, channel, nil, errors.Trace(err)
 			}
 			m, err := authorizeCharmStoreEntity(csClient, curl)
 			if err != nil {
-				return nil, nil, maybeTermsAgreementError(err)
+				return nil, channel, nil, maybeTermsAgreementError(err)
 			}
-			if err := client.AddCharmWithAuthorization(curl, m); err != nil {
-				return nil, nil, errors.Trace(err)
+			channel, err = client.AddCharmWithAuthorization(curl, channel, m)
+			if err != nil {
+				return nil, channel, nil, errors.Trace(err)
 			}
 			csMac = m
 		}
 	default:
-		return nil, nil, fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
+		return nil, channel, nil, fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
 	}
-	return curl, csMac, nil
+	return curl, channel, csMac, nil
 }
 
 // newCharmStoreClient is called to obtain a charm store client.
