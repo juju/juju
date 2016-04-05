@@ -693,7 +693,6 @@ func (i *importer) makeUnitDoc(s description.Service, u description.Unit) (*unit
 		Service:      s.Name(),
 		Series:       s.Series(),
 		CharmURL:     charmUrl,
-		Channel:      s.Channel(),
 		Principal:    u.Principal().Id(),
 		Subordinates: subordinates,
 		// StorageAttachmentCount int `bson:"storageattachmentcount"`

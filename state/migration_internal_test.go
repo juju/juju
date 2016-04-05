@@ -331,7 +331,6 @@ func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
 		// Series, CharmURL, and Channel also come from the service.
 		"Series",
 		"CharmURL",
-		"Channel",
 		"Principal",
 		"Subordinates",
 		"MachineId",
