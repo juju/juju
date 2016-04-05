@@ -3,8 +3,6 @@
 
 package params
 
-import "github.com/juju/juju/core/migration"
-
 // InitiateModelMigrationArgs holds the details required to start one
 // or more model migrations.
 type InitiateModelMigrationArgs struct {
@@ -60,9 +58,8 @@ type ModelArgs struct {
 
 // MigrationStatus reports the current status of a model migration.
 type MigrationStatus struct {
-	Attempt int `json:"attempt"`
-	// TODO(fwereade): shouldn't Phase be a string?
-	Phase migration.Phase `json:"phase"`
+	Attempt int    `json:"attempt"`
+	Phase   string `json:"phase"`
 
 	// TODO(mjs): I'm not convinced these Source fields will get used.
 	SourceAPIAddrs []string `json:"source-api-addrs"`

@@ -93,7 +93,7 @@ func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
 		Attempt:        2,
-		Phase:          migration.READONLY,
+		Phase:          "READONLY",
 		SourceAPIAddrs: []string{"1.2.3.4:5", "2.3.4.5:6", "3.4.5.6:7"},
 		SourceCACert:   "no worries",
 		TargetAPIAddrs: []string{"1.2.3.4:5555"},
@@ -113,7 +113,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *gc.C) {
 	result, err := facade.Next()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
-		Phase: migration.NONE,
+		Phase: "NONE",
 	})
 }
 
