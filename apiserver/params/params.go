@@ -119,9 +119,16 @@ type DestroyRelation struct {
 	Endpoints []string
 }
 
+// AddCharm holds the arguments for making an AddCharm API call.
+type AddCharm struct {
+	URL     string
+	Channel string
+}
+
 // AddCharmWithAuthorization holds the arguments for making an AddCharmWithAuthorization API call.
 type AddCharmWithAuthorization struct {
 	URL                string
+	Channel            string
 	CharmStoreMacaroon *macaroon.Macaroon
 }
 
