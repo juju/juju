@@ -32,9 +32,7 @@ var (
 		"storage-provisioner", "firewaller", "unit-assigner",
 		"service-scaler", "instance-poller", "charm-revision-updater",
 		"metric-worker", "state-cleaner", "status-history-pruner",
-		// Note absence of migration-master worker, which currently
-		// errors out repeatedly (when not migrating) and so never
-		// shows up.
+		"migration-master",
 	}
 	deadModelWorkers = []string{
 		"environ-tracker", "undertaker",
