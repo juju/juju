@@ -310,6 +310,8 @@ func (s *Service) setExposed(exposed bool) (err error) {
 // Charm returns the service's charm and whether units should upgrade to that
 // charm even if they are in an error state.
 func (s *Service) Charm() (ch *Charm, force bool, err error) {
+	// We don't worry about the channel since we aren't interacting
+	// with the charm store here.
 	ch, err = s.st.Charm(s.doc.CharmURL)
 	if err != nil {
 		return nil, false, err
@@ -336,7 +338,8 @@ func (s *Service) CharmURL() (curl *charm.URL, force bool) {
 }
 
 // Channel identifies the charm store channel from which the service's
-// charm was deployed.
+// charm was deployed. It is only needed when interacting with the charm
+// store.
 func (s *Service) Channel() csparams.Channel {
 	return csparams.Channel(s.doc.Channel)
 }

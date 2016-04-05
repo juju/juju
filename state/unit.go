@@ -933,7 +933,8 @@ func (u *Unit) CharmURL() (*charm.URL, bool) {
 }
 
 // Channel identifies the charm store channel from which the service's
-// charm was deployed.
+// charm was deployed. It is only needed when interacting with the charm
+// store.
 func (u *Unit) Channel() csparams.Channel {
 	return csparams.Channel(u.doc.Channel)
 }
