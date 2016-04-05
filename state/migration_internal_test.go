@@ -297,6 +297,7 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 		"Series",
 		"Subordinate",
 		"CharmURL",
+		"Channel",
 		"CharmModifiedVersion",
 		"ForceCharm",
 		"Exposed",

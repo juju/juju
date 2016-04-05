@@ -40,6 +40,7 @@ type serviceDoc struct {
 	Series               string     `bson:"series"`
 	Subordinate          bool       `bson:"subordinate"`
 	CharmURL             *charm.URL `bson:"charmurl"`
+	Channel              string     `bson:"cs-channel"`
 	CharmModifiedVersion int        `bson:"charmmodifiedversion"`
 	ForceCharm           bool       `bson:"forcecharm"`
 	Life                 Life       `bson:"life"`
