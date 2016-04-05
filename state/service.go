@@ -16,6 +16,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/charm.v6-unstable"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -332,6 +333,12 @@ func (s *Service) CharmModifiedVersion() int {
 // to the charm with that URL even if they are in an error state.
 func (s *Service) CharmURL() (curl *charm.URL, force bool) {
 	return s.doc.CharmURL, s.doc.ForceCharm
+}
+
+// Channel identifies the charm store channel from which the service's
+// charm was deployed.
+func (s *Service) Channel() csparams.Channel {
+	return csparams.Channel(s.doc.Channel)
 }
 
 // Endpoints returns the service's currently available relation endpoints.

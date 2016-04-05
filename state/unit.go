@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -929,6 +930,12 @@ func (u *Unit) CharmURL() (*charm.URL, bool) {
 		return nil, false
 	}
 	return u.doc.CharmURL, true
+}
+
+// Channel identifies the charm store channel from which the service's
+// charm was deployed.
+func (u *Unit) Channel() csparams.Channel {
+	return csparams.Channel(u.doc.Channel)
 }
 
 // SetCharmURL marks the unit as currently using the supplied charm URL.
