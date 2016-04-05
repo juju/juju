@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon.v1"
 )
 
@@ -18,7 +19,7 @@ import (
 // for deploy.
 type DeployClient interface {
 	// AddPendingResources adds pending metadata for store-based resources.
-	AddPendingResources(serviceID string, cURL *charm.URL, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error)
+	AddPendingResources(serviceID string, cURL *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error)
 
 	// AddPendingResource uploads data and metadata for a pending resource for the given service.
 	AddPendingResource(serviceID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error)
@@ -31,6 +32,9 @@ type DeployResourcesArgs struct {
 
 	// CharmURL identifies the service's charm.
 	CharmURL *charm.URL
+
+	// Channel identifies the channel from which the charm will come.
+	Channel csparams.Channel
 
 	// CharmStoreMacaroon is the macaroon to use for the charm when
 	// interacting with the charm store.
@@ -59,6 +63,7 @@ func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error
 	d := deployUploader{
 		serviceID: args.ServiceID,
 		cURL:      args.CharmURL,
+		channel:   args.Channel,
 		csMac:     args.CharmStoreMacaroon,
 		client:    args.Client,
 		resources: args.ResourcesMeta,
@@ -76,6 +81,7 @@ func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error
 type deployUploader struct {
 	serviceID string
 	cURL      *charm.URL
+	channel   csparams.Channel
 	csMac     *macaroon.Macaroon
 	resources map[string]charmresource.Meta
 	client    DeployClient
@@ -99,7 +105,7 @@ func (d deployUploader) upload(files map[string]string, revisions map[string]int
 	storeResources := d.storeResources(files, revisions)
 	pending := map[string]string{}
 	if len(storeResources) > 0 {
-		ids, err := d.client.AddPendingResources(d.serviceID, d.cURL, d.csMac, storeResources)
+		ids, err := d.client.AddPendingResources(d.serviceID, d.cURL, d.channel, d.csMac, storeResources)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -37,10 +37,10 @@ func DeployResources(serviceID string, cURL *charm.URL, channel csparams.Channel
 		}
 	}
 
-	// TODO(ericsnow) Pass the channel here.
 	ids, err = cmd.DeployResources(cmd.DeployResourcesArgs{
 		ServiceID:          serviceID,
 		CharmURL:           cURL,
+		Channel:            channel,
 		CharmStoreMacaroon: csMac,
 		Filenames:          filenames,
 		Revisions:          revisions,
@@ -58,10 +58,11 @@ type deployClient struct {
 }
 
 // AddPendingResources adds pending metadata for store-based resources.
-func (cl *deployClient) AddPendingResources(serviceID string, cURL *charm.URL, csMac *macaroon.Macaroon, resources []charmresource.Resource) ([]string, error) {
+func (cl *deployClient) AddPendingResources(serviceID string, cURL *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon, resources []charmresource.Resource) ([]string, error) {
 	return cl.Client.AddPendingResources(client.AddPendingResourcesArgs{
 		ServiceID:          serviceID,
 		CharmURL:           cURL,
+		Channel:            channel,
 		CharmStoreMacaroon: csMac,
 		Resources:          resources,
 	})

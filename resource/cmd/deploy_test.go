@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon.v1"
 )
 
@@ -313,7 +314,7 @@ type uploadDeps struct {
 	ReadSeekCloser ReadSeekCloser
 }
 
-func (s uploadDeps) AddPendingResources(serviceID string, cURL *charm.URL, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error) {
+func (s uploadDeps) AddPendingResources(serviceID string, cURL *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error) {
 	charmresource.Sort(resources)
 	s.stub.AddCall("AddPendingResources", serviceID, cURL, csMac, resources)
 	if err := s.stub.NextErr(); err != nil {
