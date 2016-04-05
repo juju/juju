@@ -11,28 +11,47 @@ import (
 	"gopkg.in/mgo.v2"
 )
 
+var expiryTimeIndex = mgo.Index{
+	Key:    []string{"expire-at"},
+	Sparse: true,
+
+	// We expire records when the clock time is one
+	// second older than the record's expire-at field
+	// value. It has to be at least one second, because
+	// mgo uses "omitempty" for this field.
+	ExpireAfter: time.Second,
+}
+
 type storage struct {
-	config Config
+	config   Config
+	expireAt time.Time
 }
 
 type storageDoc struct {
 	Location string    `bson:"_id"`
 	Item     string    `bson:"item"`
-	ExpireAt time.Time `bson:"expire-at"`
+	ExpireAt time.Time `bson:"expire-at,omitempty"`
+}
+
+// ExpireAt implements ExpirableStorage.ExpireAt.
+func (s *storage) ExpireAt(expireAt time.Time) ExpirableStorage {
+	return &storage{s.config, expireAt}
 }
 
 // Put implements bakery.Storage.Put.
 func (s *storage) Put(location, item string) error {
-	coll, closer := s.config.GetCollection(s.config.Collection)
+	coll, closer := s.config.GetCollection()
 	defer closer()
 
 	doc := storageDoc{
 		Location: location,
 		Item:     item,
-		// NOTE(axw) we subtract one second to the expiry time, because
+	}
+	if !s.expireAt.IsZero() {
+		// NOTE(axw) we subtract one second from the expiry time, because
 		// the expireAfterSeconds index we create is 1 and not 0 due to
 		// a limitation in the mgo EnsureIndex API.
-		ExpireAt: s.config.Clock.Now().Add(s.config.ExpireAfter - time.Second),
+		doc.ExpireAt = s.expireAt.Add(-1 * time.Second)
 	}
 	_, err := coll.Writeable().UpsertId(location, doc)
 	if err != nil {
@@ -43,7 +62,7 @@ func (s *storage) Put(location, item string) error {
 
 // Get implements bakery.Storage.Get.
 func (s *storage) Get(location string) (string, error) {
-	coll, closer := s.config.GetCollection(s.config.Collection)
+	coll, closer := s.config.GetCollection()
 	defer closer()
 
 	var i storageDoc
@@ -59,7 +78,7 @@ func (s *storage) Get(location string) (string, error) {
 
 // Del implements bakery.Storage.Del.
 func (s *storage) Del(location string) error {
-	coll, closer := s.config.GetCollection(s.config.Collection)
+	coll, closer := s.config.GetCollection()
 	defer closer()
 
 	err := coll.Writeable().RemoveId(location)

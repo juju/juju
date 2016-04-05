@@ -22,9 +22,7 @@ type StorageSuite struct {
 	gitjujutesting.Stub
 	collection      mockCollection
 	closeCollection func()
-	clock           *testing.Clock
 	config          Config
-	store           bakery.Storage
 }
 
 var _ = gc.Suite(&StorageSuite{})
@@ -37,16 +35,12 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 		s.AddCall("Close")
 		s.PopNoErr()
 	}
-	s.clock = testing.NewClock(time.Time{})
 	s.config = Config{
-		GetCollection: func(name string) (mongo.Collection, func()) {
-			s.AddCall("GetCollection", name)
+		GetCollection: func() (mongo.Collection, func()) {
+			s.AddCall("GetCollection")
 			s.PopNoErr()
 			return &s.collection, s.closeCollection
 		},
-		Collection:  "bakery-storage",
-		Clock:       s.clock,
-		ExpireAfter: time.Minute * 42,
 	}
 }
 
@@ -56,24 +50,6 @@ func (s *StorageSuite) TestValidateConfigGetCollection(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "validating config: nil GetCollection not valid")
 }
 
-func (s *StorageSuite) TestValidateConfigCollection(c *gc.C) {
-	s.config.Collection = ""
-	_, err := New(s.config)
-	c.Assert(err, gc.ErrorMatches, "validating config: empty Collection not valid")
-}
-
-func (s *StorageSuite) TestValidateConfigClock(c *gc.C) {
-	s.config.Clock = nil
-	_, err := New(s.config)
-	c.Assert(err, gc.ErrorMatches, "validating config: nil Clock not valid")
-}
-
-func (s *StorageSuite) TestValidateConfigExpireAfter(c *gc.C) {
-	s.config.ExpireAfter = 0
-	_, err := New(s.config)
-	c.Assert(err, gc.ErrorMatches, "validating config: unspecified ExpireAfter not valid")
-}
-
 func (s *StorageSuite) TestPut(c *gc.C) {
 	store, err := New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,12 +57,32 @@ func (s *StorageSuite) TestPut(c *gc.C) {
 	err = store.Put("foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	s.CheckCalls(c, []gitjujutesting.StubCall{
-		{"GetCollection", []interface{}{s.config.Collection}},
+		{"GetCollection", nil},
 		{"Writeable", nil},
 		{"UpsertId", []interface{}{"foo", storageDoc{
 			Location: "foo",
 			Item:     "bar",
-			ExpireAt: s.clock.Now().Add(s.config.ExpireAfter - time.Second),
+		}}},
+		{"Close", nil},
+	})
+}
+
+func (s *StorageSuite) TestExpireAt(c *gc.C) {
+	store, err := New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expiryTime := time.Now().Add(24 * time.Hour)
+	store = store.ExpireAt(expiryTime)
+
+	err = store.Put("foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	s.CheckCalls(c, []gitjujutesting.StubCall{
+		{"GetCollection", nil},
+		{"Writeable", nil},
+		{"UpsertId", []interface{}{"foo", storageDoc{
+			Location: "foo",
+			Item:     "bar",
+			ExpireAt: expiryTime.Add(-1 * time.Second),
 		}}},
 		{"Close", nil},
 	})
@@ -107,7 +103,7 @@ func (s *StorageSuite) TestGet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(item, gc.Equals, "item-value")
 	s.CheckCalls(c, []gitjujutesting.StubCall{
-		{"GetCollection", []interface{}{s.config.Collection}},
+		{"GetCollection", nil},
 		{"FindId", []interface{}{"foo"}},
 		{"One", []interface{}{&storageDoc{
 			// Set by mock, not in input. Unimportant anyway.
@@ -141,7 +137,7 @@ func (s *StorageSuite) TestDel(c *gc.C) {
 	err = store.Del("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	s.CheckCalls(c, []gitjujutesting.StubCall{
-		{"GetCollection", []interface{}{s.config.Collection}},
+		{"GetCollection", nil},
 		{"Writeable", nil},
 		{"RemoveId", []interface{}{"foo"}},
 		{"Close", nil},

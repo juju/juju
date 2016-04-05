@@ -4,9 +4,9 @@
 package state
 
 import (
-	"time"
-
 	"gopkg.in/mgo.v2"
+
+	"github.com/juju/juju/state/bakerystorage"
 )
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -162,15 +162,8 @@ func allCollections() collectionSchema {
 
 		// This collection holds storage items for a macaroon bakery.
 		bakeryStorageItemsC: {
-			global: true,
-			indexes: []mgo.Index{{
-				Key: []string{"expire-at"},
-				// We expire records when the clock time is one
-				// second older than the record's expire-at field
-				// value. It has to be at least one second, because
-				// mgo uses "omitempty" for this field.
-				ExpireAfter: time.Second,
-			}},
+			global:  true,
+			indexes: bakerystorage.MongoIndexes(),
 		},
 
 		// -----------------

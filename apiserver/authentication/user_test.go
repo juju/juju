@@ -5,10 +5,12 @@ package authentication_test
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -23,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -138,6 +141,79 @@ func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, "invalid request")
 
+}
+
+func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "bobbrown",
+	})
+	macaroons := []macaroon.Slice{{&macaroon.Macaroon{}}}
+	service := mockBakeryService{}
+
+	// User login
+	authenticator := &authentication.UserAuthenticator{Service: &service}
+	_, err := authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
+		Credentials: "",
+		Nonce:       "",
+		Macaroons:   macaroons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	service.CheckCallNames(c, "CheckAny")
+	call := service.Calls()[0]
+	c.Assert(call.Args, gc.HasLen, 3)
+	c.Assert(call.Args[0], jc.DeepEquals, macaroons)
+	c.Assert(call.Args[1], jc.DeepEquals, map[string]string{"username": "bobbrown@local"})
+	// no check for checker function, can't compare functions
+}
+
+func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {
+	service := mockBakeryService{}
+	clock := coretesting.NewClock(time.Time{})
+	authenticator := &authentication.UserAuthenticator{
+		Service: &service,
+		Clock:   clock,
+	}
+
+	_, err := authenticator.CreateLocalLoginMacaroon(names.NewUserTag("bobbrown"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	service.CheckCallNames(c, "ExpireStorageAt", "NewMacaroon", "AddCaveat")
+	calls := service.Calls()
+	c.Assert(calls[0].Args, jc.DeepEquals, []interface{}{clock.Now().Add(24 * time.Hour)})
+	c.Assert(calls[1].Args, jc.DeepEquals, []interface{}{
+		"", []byte(nil), []checkers.Caveat{
+			checkers.DeclaredCaveat("username", "bobbrown@local"),
+		},
+	})
+	c.Assert(calls[2].Args, jc.DeepEquals, []interface{}{
+		&macaroon.Macaroon{},
+		checkers.TimeBeforeCaveat(clock.Now().Add(24 * time.Hour)),
+	})
+}
+
+type mockBakeryService struct {
+	testing.Stub
+}
+
+func (s *mockBakeryService) AddCaveat(m *macaroon.Macaroon, caveat checkers.Caveat) error {
+	s.MethodCall(s, "AddCaveat", m, caveat)
+	return s.NextErr()
+}
+
+func (s *mockBakeryService) CheckAny(ms []macaroon.Slice, assert map[string]string, checker checkers.Checker) (map[string]string, error) {
+	s.MethodCall(s, "CheckAny", ms, assert, checker)
+	return nil, s.NextErr()
+}
+
+func (s *mockBakeryService) NewMacaroon(id string, key []byte, caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
+	s.MethodCall(s, "NewMacaroon", id, key, caveats)
+	return &macaroon.Macaroon{}, s.NextErr()
+}
+
+func (s *mockBakeryService) ExpireStorageAt(t time.Time) (authentication.ExpirableStorageBakeryService, error) {
+	s.MethodCall(s, "ExpireStorageAt", t)
+	return s, s.NextErr()
 }
 
 type macaroonAuthenticatorSuite struct {

@@ -4,21 +4,18 @@
 package state
 
 import (
-	"time"
-
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/bakerystorage"
-
-	"gopkg.in/macaroon-bakery.v1/bakery"
 )
 
-// NewBakeryStorage returns a new bakery.Storage that will remove any
-// entries after the "expiry" duration starting from when they are
-// added to storage.
-func (st *State) NewBakeryStorage(expiry time.Duration) (bakery.Storage, error) {
+// NewBakeryStorage returns a new bakery.Storage. By default, items
+// added to the store are retained until deleted explicitly. The
+// store's ExpireAt method can be called to derive a new store that
+// will expire items at the specified time.
+func (st *State) NewBakeryStorage() (bakerystorage.ExpirableStorage, error) {
 	return bakerystorage.New(bakerystorage.Config{
-		GetCollection: st.getCollection,
-		Collection:    bakeryStorageItemsC,
-		Clock:         GetClock(),
-		ExpireAfter:   expiry,
+		GetCollection: func() (mongo.Collection, func()) {
+			return st.getCollection(bakeryStorageItemsC)
+		},
 	})
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/state/bakerystorage"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon.v1"
@@ -22,7 +21,7 @@ import (
 type BakeryStorageSuite struct {
 	gitjujutesting.MgoSuite
 
-	store   bakery.Storage
+	store   bakerystorage.ExpirableStorage
 	service *bakery.Service
 	db      *mgo.Database
 	coll    *mgo.Collection
@@ -30,23 +29,22 @@ type BakeryStorageSuite struct {
 
 func (s *BakeryStorageSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
-
 	s.db = s.Session.DB("bakerydb")
 	s.coll = s.db.C("bakedgoods")
-
-	s.initService(c, time.Minute)
+	s.ensureIndexes(c)
+	s.initService(c, false)
 }
 
-func (s *BakeryStorageSuite) initService(c *gc.C, expiryTime time.Duration) {
+func (s *BakeryStorageSuite) initService(c *gc.C, enableExpiry bool) {
 	store, err := bakerystorage.New(bakerystorage.Config{
-		GetCollection: func(name string) (mongo.Collection, func()) {
-			return mongo.CollectionFromName(s.db, name)
+		GetCollection: func() (mongo.Collection, func()) {
+			return mongo.CollectionFromName(s.db, s.coll.Name)
 		},
-		Collection:  "bakedgoods",
-		Clock:       clock.WallClock,
-		ExpireAfter: expiryTime,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	if enableExpiry {
+		store = store.ExpireAt(time.Now())
+	}
 	s.store = store
 
 	service, err := bakery.NewService(bakery.NewServiceParams{
@@ -57,12 +55,11 @@ func (s *BakeryStorageSuite) initService(c *gc.C, expiryTime time.Duration) {
 	s.service = service
 }
 
-func (s *BakeryStorageSuite) ensureIndex(c *gc.C) {
-	err := s.coll.EnsureIndex(mgo.Index{
-		Key:         []string{"expire-at"},
-		ExpireAfter: time.Second,
-	})
-	c.Assert(err, jc.ErrorIsNil)
+func (s *BakeryStorageSuite) ensureIndexes(c *gc.C) {
+	for _, index := range bakerystorage.MongoIndexes() {
+		err := s.coll.EnsureIndex(index)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 func (s *BakeryStorageSuite) TestCheckNewMacaroon(c *gc.C) {
@@ -74,9 +71,8 @@ func (s *BakeryStorageSuite) TestCheckNewMacaroon(c *gc.C) {
 
 func (s *BakeryStorageSuite) TestExpiryTime(c *gc.C) {
 	// Reinitialise bakery service with storage that will expire
-	// items after 1 second.
-	s.initService(c, time.Second)
-	s.ensureIndex(c)
+	// items immediately.
+	s.initService(c, true)
 
 	mac, err := s.service.NewMacaroon("", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)

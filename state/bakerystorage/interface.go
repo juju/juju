@@ -12,29 +12,17 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
 )
 
 // Config contains configuration for creating bakery storage with New.
 type Config struct {
-	// GetCollection returns a mongo.Collection, and a function that will close
-	// any associated resources, given a collection name.
-	GetCollection func(name string) (collection mongo.Collection, closer func())
-
-	// Collection is the name of the storage collection.
-	Collection string
-
-	// Clock is used to calculate the expiry time for storage items.
-	Clock clock.Clock
-
-	// ExpireAfter is the amount of time a storage item will remain in
-	// the collection. It is expected that there is an "expireAfterSeconds"
-	// index on the collection on the "expireAt" field, with a value of 1
-	// (not 0, which is impossible with mgo's EnsureIndex interface).
-	ExpireAfter time.Duration
+	// GetCollection returns a mongo.Collection and a function that
+	// will close any associated resources.
+	GetCollection func() (collection mongo.Collection, closer func())
 }
 
 // Validate validates the configuration.
@@ -42,24 +30,30 @@ func (c Config) Validate() error {
 	if c.GetCollection == nil {
 		return errors.NotValidf("nil GetCollection")
 	}
-	if c.Collection == "" {
-		return errors.NotValidf("empty Collection")
-	}
-	if c.Clock == nil {
-		return errors.NotValidf("nil Clock")
-	}
-	if c.ExpireAfter == 0 {
-		return errors.NotValidf("unspecified ExpireAfter")
-	}
 	return nil
+}
+
+// ExpirableStorage extends bakery.Storage with the ExpireAt method,
+// to expire data added at the specified time.
+type ExpirableStorage interface {
+	bakery.Storage
+
+	// ExpireAt returns a new ExpirableStorage that will expire
+	// added items at the specified time.
+	ExpireAt(time.Time) ExpirableStorage
 }
 
 // New returns an implementation of bakery.Storage
 // that stores all items in MongoDB with an expiry
 // time.
-func New(config Config) (bakery.Storage, error) {
+func New(config Config) (ExpirableStorage, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating config")
 	}
-	return &storage{config}, nil
+	return &storage{config, time.Time{}}, nil
+}
+
+// MongoIndexes returns the indexes to apply to the MongoDB collection.
+func MongoIndexes() []mgo.Index {
+	return []mgo.Index{expiryTimeIndex}
 }
