@@ -6,6 +6,9 @@
 package lxdclient
 
 import (
+	"io/ioutil"
+	"os"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -20,16 +23,55 @@ type ConnectSuite struct {
 var _ = gc.Suite(&ConnectSuite{})
 
 func (cs *ConnectSuite) TestLocalConnectError(c *gc.C) {
-	cs.PatchValue(&lxdNewClientFromInfo, fakeNewClientFromInfo)
+	f, err := ioutil.TempFile("", "juju-lxd-remote-test")
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.RemoveAll(f.Name())
 
 	cfg, err := Config{
-		Remote: Local,
+		Remote: Remote{
+			Name: "local",
+			Host: "unix://" + f.Name(),
+		},
 	}.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
+
+	/* ECONNREFUSED because it's not a socket (mimics behavior of a socket
+	 * with nobody listening)
+	 */
 	_, err = Connect(cfg)
+	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: LXD refused connections; is LXD running?
+
+Please configure LXD by running:
+	$ newgrp lxd
+	$ lxd init
+`)
+
+	/* EACCESS because we can't read/write */
+	c.Assert(f.Chmod(0400), jc.ErrorIsNil)
+	_, err = Connect(cfg)
+	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: Permisson denied, are you in the lxd group?
+
+Please configure LXD by running:
+	$ newgrp lxd
+	$ lxd init
+`)
+
+	/* ENOENT because it doesn't exist */
+	c.Assert(os.RemoveAll(f.Name()), jc.ErrorIsNil)
+	_, err = Connect(cfg)
+	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: LXD socket not found; is LXD installed & running?
+
+Please install LXD by running:
+	$ sudo apt-get install lxd
+and then configure it with:
+	$ newgrp lxd
+	$ lxd init
+`)
 
 	// Yes, the error message actually matters here... this is being displayed
 	// to the user.
+	cs.PatchValue(&lxdNewClientFromInfo, fakeNewClientFromInfo)
+	_, err = Connect(cfg)
 	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: boo!
 
 Please install LXD by running:
