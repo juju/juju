@@ -308,13 +308,11 @@ func init() {
 // operation listener.  All opened environments after Reset will share
 // the same underlying state.
 func Reset() {
-	logger.Infof("reset environment")
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	logger.Infof("reset model")
+	providerInstance.mu.Lock()
+	defer providerInstance.mu.Unlock()
 	providerInstance.ops = discardOperations
-	for _, s := range p.state {
-		s.httpListener.Close()
+	for _, s := range providerInstance.state {
 		if s.apiListener != nil {
 			s.apiListener.Close()
 		}
@@ -411,19 +409,17 @@ func (s *environState) listenAPI() int {
 // SetStatePolicy sets the state.Policy to use when a
 // state server is initialised by dummy.
 func SetStatePolicy(policy state.Policy) {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.statePolicy = policy
+	providerInstance.mu.Lock()
+	providerInstance.statePolicy = policy
+	providerInstance.mu.Unlock()
 }
 
 // SetSupportsSpaces allows to enable and disable SupportsSpaces for tests.
 func SetSupportsSpaces(supports bool) bool {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	current := p.supportsSpaces
-	p.supportsSpaces = supports
+	providerInstance.mu.Lock()
+	defer providerInstance.mu.Unlock()
+	current := providerInstance.supportsSpaces
+	providerInstance.supportsSpaces = supports
 	return current
 }
 
@@ -431,17 +427,16 @@ func SetSupportsSpaces(supports bool) bool {
 // Subsequent operations on any dummy environment can be received on c
 // (if not nil).
 func Listen(c chan<- Operation) {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	providerInstance.mu.Lock()
+	defer providerInstance.mu.Unlock()
 	if c == nil {
 		c = discardOperations
 	}
-	if p.ops != discardOperations {
-		close(p.ops)
+	if providerInstance.ops != discardOperations {
+		close(providerInstance.ops)
 	}
-	p.ops = c
-	for _, st := range p.state {
+	providerInstance.ops = c
+	for _, st := range providerInstance.state {
 		st.mu.Lock()
 		st.ops = c
 		st.mu.Unlock()
@@ -563,10 +558,9 @@ func (e *environ) state() (*environState, error) {
 	if stateId == noStateId {
 		return nil, ErrNotPrepared
 	}
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if state := p.state[stateId]; state != nil {
+	providerInstance.mu.Lock()
+	defer providerInstance.mu.Unlock()
+	if state := providerInstance.state[stateId]; state != nil {
 		return state, nil
 	}
 	return nil, ErrDestroyed
@@ -860,10 +854,9 @@ func (e *environ) Destroy() (res error) {
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}
-	p := &providerInstance
-	p.mu.Lock()
-	delete(p.state, estate.id)
-	p.mu.Unlock()
+	providerInstance.mu.Lock()
+	delete(providerInstance.state, estate.id)
+	providerInstance.mu.Unlock()
 
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
@@ -1073,10 +1066,9 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 
 // SupportsSpaces is specified on environs.Networking.
 func (env *environ) SupportsSpaces() (bool, error) {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if !p.supportsSpaces {
+	providerInstance.mu.Lock()
+	defer providerInstance.mu.Unlock()
+	if !providerInstance.supportsSpaces {
 		return false, errors.NotSupportedf("spaces")
 	}
 	return true, nil
