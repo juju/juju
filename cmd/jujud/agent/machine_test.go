@@ -121,7 +121,6 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
-	s.AgentSuite.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.AgentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
@@ -134,8 +133,8 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	testpath := c.MkDir()
 	s.AgentSuite.PatchEnvPathPrepend(testpath)
 	// mock out the start method so we can fake install services without sudo
-	fakeCmd(filepath.Join(testpath, "start"))
-	fakeCmd(filepath.Join(testpath, "stop"))
+	fakeCmd(c, filepath.Join(testpath, "start"))
+	fakeCmd(c, filepath.Join(testpath, "stop"))
 
 	s.AgentSuite.PatchValue(&upstart.InitDir, c.MkDir())
 
@@ -149,11 +148,9 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
 }
 
-func fakeCmd(path string) {
+func fakeCmd(c *gc.C, path string) {
 	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 0"), 0755)
-	if err != nil {
-		panic(err)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *commonMachineSuite) TearDownTest(c *gc.C) {

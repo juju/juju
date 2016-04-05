@@ -53,16 +53,16 @@ var _ = gc.Suite(&ConfigSuite{})
 func (s *ConfigSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpSuite(c)
 	restoreSdcAccount := testing.PatchEnvironment(jp.SdcAccount, "tester")
-	s.AddSuiteCleanup(func(*gc.C) { restoreSdcAccount() })
+	s.AddCleanup(func(*gc.C) { restoreSdcAccount() })
 	restoreSdcKeyId := testing.PatchEnvironment(jp.SdcKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
-	s.AddSuiteCleanup(func(*gc.C) { restoreSdcKeyId() })
+	s.AddCleanup(func(*gc.C) { restoreSdcKeyId() })
 	restoreMantaUser := testing.PatchEnvironment(jp.MantaUser, "tester")
-	s.AddSuiteCleanup(func(*gc.C) { restoreMantaUser() })
+	s.AddCleanup(func(*gc.C) { restoreMantaUser() })
 	restoreMantaKeyId := testing.PatchEnvironment(jp.MantaKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
-	s.AddSuiteCleanup(func(*gc.C) { restoreMantaKeyId() })
+	s.AddCleanup(func(*gc.C) { restoreMantaKeyId() })
 	s.privateKeyData = generatePrivateKey(c)
 	jp.RegisterMachinesEndpoint()
-	s.AddSuiteCleanup(func(*gc.C) { jp.UnregisterMachinesEndpoint() })
+	s.AddCleanup(func(*gc.C) { jp.UnregisterMachinesEndpoint() })
 }
 
 func generatePrivateKey(c *gc.C) string {

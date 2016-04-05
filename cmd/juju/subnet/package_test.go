@@ -38,6 +38,16 @@ type BaseSubnetSuite struct {
 
 var _ = gc.Suite(&BaseSubnetSuite{})
 
+func (s *BaseSubnetSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	s.FakeJujuHomeSuite.SetUpSuite(c)
+}
+
+func (s *BaseSubnetSuite) TearDownSuite(c *gc.C) {
+	s.FakeJujuHomeSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
+}
+
 func (s *BaseSubnetSuite) SetUpTest(c *gc.C) {
 	// If any post-MVP command suite enabled the flag, keep it.
 	hasFeatureFlag := featureflag.Enabled(feature.PostNetCLIMVP)
@@ -57,6 +67,11 @@ func (s *BaseSubnetSuite) SetUpTest(c *gc.C) {
 
 	// All subcommand suites embedding this one should initialize
 	// s.command immediately after calling this method!
+}
+
+func (s *BaseSubnetSuite) TearDownTest(c *gc.C) {
+	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 // RunSuperCommand executes the super command passing any args and

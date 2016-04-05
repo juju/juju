@@ -75,19 +75,19 @@ type BootstrapSuite struct {
 var _ = gc.Suite(&BootstrapSuite{})
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
 	storageDir := c.MkDir()
 	restorer := gitjujutesting.PatchValue(&envtools.DefaultBaseURL, storageDir)
-	s.AddSuiteCleanup(func(*gc.C) {
-		restorer()
-	})
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	s.toolsStorage = stor
 
-	s.BaseSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
 	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
 	s.makeTestEnv(c)
+	s.AddCleanup(func(*gc.C) {
+		restorer()
+	})
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {

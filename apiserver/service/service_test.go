@@ -49,8 +49,8 @@ var _ = gc.Suite(&serviceSuite{})
 var _ service.Service = (*service.API)(nil)
 
 func (s *serviceSuite) SetUpSuite(c *gc.C) {
-	s.CharmStoreSuite.SetUpSuite(c)
 	s.JujuConnSuite.SetUpSuite(c)
+	s.CharmStoreSuite.SetUpSuite(c)
 }
 
 func (s *serviceSuite) TearDownSuite(c *gc.C) {
@@ -61,7 +61,6 @@ func (s *serviceSuite) TearDownSuite(c *gc.C) {
 func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
 	s.CharmStoreSuite.Session = s.JujuConnSuite.Session
 	s.CharmStoreSuite.SetUpTest(c)
@@ -74,6 +73,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.serviceApi, err = service.NewAPI(s.State, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
 func (s *serviceSuite) TearDownTest(c *gc.C) {

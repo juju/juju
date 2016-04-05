@@ -40,12 +40,6 @@ type JujuOSEnvSuite struct {
 	oldRegEntryValue    string
 }
 
-func (s *JujuOSEnvSuite) SetUpSuite(c *gc.C) {
-}
-
-func (s *JujuOSEnvSuite) TearDownSuite(c *gc.C) {
-}
-
 func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	s.oldEnvironment = make(map[string]string)
 	for _, name := range []string{
@@ -131,12 +125,10 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	wrench.SetEnabled(false)
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
-	s.JujuOSEnvSuite.SetUpSuite(c)
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
 }
 
 func (s *BaseSuite) TearDownSuite(c *gc.C) {
-	s.JujuOSEnvSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 	s.CleanupSuite.TearDownSuite(c)
 }
@@ -199,7 +191,7 @@ func diffStrings(c *gc.C, value, expected string) {
 // TestCleanup is used to allow DumpTestLogsAfter to take any test suite
 // that supports the standard cleanup function.
 type TestCleanup interface {
-	AddCleanup(testing.CleanupFunc)
+	AddCleanup(func(*gc.C))
 }
 
 // DumpTestLogsAfter will write the test logs to stdout if the timeout
@@ -213,7 +205,7 @@ func DumpTestLogsAfter(timeout time.Duration, c *gc.C, cleaner TestCleanup) {
 		case <-done:
 		}
 	}()
-	cleaner.AddCleanup(func(_ *gc.C) {
+	cleaner.AddCleanup(func(*gc.C) {
 		close(done)
 	})
 }

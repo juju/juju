@@ -82,6 +82,7 @@ type localLiveSuite struct {
 }
 
 func (t *localLiveSuite) SetUpSuite(c *gc.C) {
+	t.LiveTests.SetUpSuite(c)
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
@@ -90,7 +91,6 @@ func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
-	t.LiveTests.SetUpSuite(c)
 }
 
 func (t *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -180,27 +180,29 @@ type localServerSuite struct {
 }
 
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
+	t.BaseSuite.SetUpSuite(c)
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
-	t.BaseSuite.SetUpSuite(c)
+	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
 	t.srv.createRootDisks = true
+
 }
 
 func (t *localServerSuite) TearDownSuite(c *gc.C) {
-	t.BaseSuite.TearDownSuite(c)
 	t.restoreEC2Patching()
+	t.BaseSuite.TearDownSuite(c)
 }
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {
+	t.BaseSuite.SetUpTest(c)
 	t.PatchValue(&version.Current, version.Binary{
 		Number: coretesting.FakeVersionNumber,
 		Series: coretesting.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
-	t.BaseSuite.SetUpTest(c)
 	t.SetFeatureFlags(feature.AddressAllocation)
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)

@@ -186,7 +186,7 @@ func (s *mongoPingerSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	// We need to set the ping interval before the server is started in test setup.
 	restore := gitjujutesting.PatchValue(apiserver.MongoPingInterval, coretesting.ShortWait)
-	s.AddSuiteCleanup(func(*gc.C) { restore() })
+	s.AddCleanup(func(*gc.C) { restore() })
 }
 
 func (s *mongoPingerSuite) TestAgentConnectionsShutDownWhenStateDies(c *gc.C) {

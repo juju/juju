@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	awsec2 "gopkg.in/amz.v3/ec2"
@@ -55,33 +56,34 @@ var _ = gc.Suite(&ebsVolumeSuite{})
 type ebsVolumeSuite struct {
 	testing.BaseSuite
 	jujutest.Tests
-	srv                localServer
-	restoreEC2Patching func()
-
+	srv        localServer
 	instanceId string
 }
 
 func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	s.UploadArches = []string{arch.AMD64, arch.I386}
 	s.TestConfig = localConfigAttrs
-	s.restoreEC2Patching = patchEC2ForTesting()
-	s.BaseSuite.SetUpSuite(c)
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
+	restoreEC2Patching := patchEC2ForTesting()
+	s.AddCleanup(func(*gc.C) {
+		restoreEC2Patching()
+	})
 }
 
 func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
 	s.BaseSuite.TearDownSuite(c)
-	s.restoreEC2Patching()
 }
 
 func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&version.Current, version.Binary{
 		Number: testing.FakeVersionNumber,
 		Series: testing.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
-	s.BaseSuite.SetUpTest(c)
 	s.srv.startServer(c)
 	s.Tests.SetUpTest(c)
 	s.PatchValue(&ec2.DestroyVolumeAttempt.Delay, time.Duration(0))
