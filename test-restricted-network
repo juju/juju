@@ -60,8 +60,8 @@ if [ -e debs ]; then
   rm -R debs
 fi
 mkdir -p debs
-$SCRIPTS/jujuci.py get -b $REVISION_BUILD \
-    build-binary-trusty-$ARCH juju*.deb debs
+$SCRIPTS/s3ci.py get \
+    $revision_build build-binary-trusty-$ARCH 'juju.*\.deb' debs
 
 scp -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
   debs/*.deb ubuntu@$instance_name:
