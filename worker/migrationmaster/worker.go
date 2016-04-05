@@ -13,8 +13,10 @@ import (
 	"github.com/juju/juju/api"
 	masterapi "github.com/juju/juju/api/migrationmaster"
 	"github.com/juju/juju/api/migrationtarget"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/dependency"
 )
 
 var (
@@ -22,7 +24,9 @@ var (
 	apiOpen          = api.Open
 	tempSuccessSleep = 10 * time.Second
 
-	ErrDone = errors.New("done processing migration")
+	// ErrDoneForNow indicates a temporary issue was encountered and
+	// that the worker should restart and retry.
+	ErrDoneForNow = errors.New("done for now")
 )
 
 // New starts a migration master worker using the supplied migration
@@ -54,17 +58,17 @@ func (w *migrationMaster) Wait() error {
 }
 
 func (w *migrationMaster) run() error {
-	// TODO(mjs) - log messages should indicate the model name and
-	// UUID. Independent logger per migration master instance?
-
-	if err := w.waitForActiveMigration(); err != nil {
+	status, err := w.waitForActiveMigration()
+	if err != nil {
+		// Tomb can't handle wrapped errors.
+		if err == tomb.ErrDying {
+			return err
+		}
 		return errors.Trace(err)
 	}
 
-	status, err := w.client.GetMigrationStatus()
-	if err != nil {
-		return errors.Annotate(err, "retrieving migration status")
-	}
+	// TODO(mjs) - log messages should indicate the model name and
+	// UUID. Independent logger per migration master instance?
 
 	phase := status.Phase
 	for {
@@ -74,6 +78,8 @@ func (w *migrationMaster) run() error {
 			phase, err = w.doQUIESCE()
 		case migration.READONLY:
 			phase, err = w.doREADONLY()
+		case migration.PRECHECK:
+			phase, err = w.doPRECHECK()
 		case migration.IMPORT:
 			phase, err = w.doIMPORT(status.TargetInfo)
 		case migration.VALIDATION:
@@ -84,10 +90,6 @@ func (w *migrationMaster) run() error {
 			phase, err = w.doLOGTRANSFER()
 		case migration.REAP:
 			phase, err = w.doREAP()
-		case migration.DONE:
-			phase, err = w.doDONE()
-		case migration.REAPFAILED:
-			phase, err = w.doREAPFAILED()
 		case migration.ABORT:
 			phase, err = w.doABORT(status.TargetInfo, status.ModelUUID)
 		default:
@@ -103,10 +105,6 @@ func (w *migrationMaster) run() error {
 			return errors.Trace(err)
 		}
 
-		if phase == migration.NONE {
-			return ErrDone
-		}
-
 		if w.killed() {
 			return tomb.ErrDying
 		}
@@ -114,6 +112,15 @@ func (w *migrationMaster) run() error {
 		logger.Infof("setting migration phase to %s", phase)
 		if err := w.client.SetPhase(phase); err != nil {
 			return errors.Annotate(err, "failed to set phase")
+		}
+
+		if modelHasMigrated(phase) {
+			// TODO(mjs) - use manifold Filter so that the dep engine
+			// error types aren't required here.
+			return dependency.ErrUninstall
+		} else if phase.IsTerminal() {
+			// Some other terminal phase, exit and try again.
+			return ErrDoneForNow
 		}
 	}
 }
@@ -133,6 +140,11 @@ func (w *migrationMaster) doQUIESCE() (migration.Phase, error) {
 }
 
 func (w *migrationMaster) doREADONLY() (migration.Phase, error) {
+	// TODO(mjs) - To be implemented.
+	return migration.PRECHECK, nil
+}
+
+func (w *migrationMaster) doPRECHECK() (migration.Phase, error) {
 	// TODO(mjs) - To be implemented.
 	return migration.IMPORT, nil
 }
@@ -187,21 +199,13 @@ func (w *migrationMaster) doREAP() (migration.Phase, error) {
 	return migration.DONE, nil
 }
 
-func (w *migrationMaster) doDONE() (migration.Phase, error) {
-	return migration.NONE, nil
-}
-
-func (w *migrationMaster) doREAPFAILED() (migration.Phase, error) {
-	return migration.NONE, nil
-}
-
 func (w *migrationMaster) doABORT(targetInfo migration.TargetInfo, modelUUID string) (migration.Phase, error) {
 	if err := removeImportedModel(targetInfo, modelUUID); err != nil {
 		// This isn't fatal. Removing the imported model is a best
 		// efforts attempt.
 		logger.Errorf("failed to reverse model import: %v", err)
 	}
-	return migration.NONE, nil
+	return migration.ABORTDONE, nil
 }
 
 func removeImportedModel(targetInfo migration.TargetInfo, modelUUID string) error {
@@ -216,18 +220,34 @@ func removeImportedModel(targetInfo migration.TargetInfo, modelUUID string) erro
 	return errors.Trace(err)
 }
 
-func (w *migrationMaster) waitForActiveMigration() error {
+func (w *migrationMaster) waitForActiveMigration() (masterapi.MigrationStatus, error) {
+	var empty masterapi.MigrationStatus
+
 	watcher, err := w.client.Watch()
 	if err != nil {
-		return errors.Annotate(err, "watching for migration")
+		return empty, errors.Annotate(err, "watching for migration")
 	}
 	defer worker.Stop(watcher)
 
-	select {
-	case <-w.tomb.Dying():
-		return tomb.ErrDying
-	case <-watcher.Changes():
-		return nil
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return empty, tomb.ErrDying
+		case <-watcher.Changes():
+			status, err := w.client.GetMigrationStatus()
+			switch {
+			case params.IsCodeNotFound(err):
+			case err != nil:
+				return empty, errors.Annotate(err, "retrieving migration status")
+			default:
+				if modelHasMigrated(status.Phase) {
+					return empty, dependency.ErrUninstall
+				}
+				if !status.Phase.IsTerminal() {
+					return status, nil
+				}
+			}
+		}
 	}
 }
 
@@ -242,4 +262,8 @@ func openAPIConn(targetInfo migration.TargetInfo) (api.Connection, error) {
 	// responsive to Kill requests. We don't want it to be blocked by
 	// a long set of retry attempts.
 	return apiOpen(apiInfo, api.DialOpts{})
+}
+
+func modelHasMigrated(phase migration.Phase) bool {
+	return phase == migration.DONE || phase == migration.REAPFAILED
 }

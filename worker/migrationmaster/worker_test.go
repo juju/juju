@@ -4,9 +4,9 @@
 package migrationmaster_test
 
 import (
-	"errors"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/workertest"
 )
@@ -90,7 +91,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 	s.triggerMigration(masterClient)
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, gc.Equals, migrationmaster.ErrDone)
+	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrUninstall)
 
 	// Observe that the migration was seen, the model exported, an API
 	// connection to the target controller was made, the model was
@@ -99,6 +100,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 		{"masterClient.Watch", nil},
 		{"masterClient.GetMigrationStatus", nil},
 		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
+		{"masterClient.SetPhase", []interface{}{migration.PRECHECK}},
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
 		{"masterClient.Export", nil},
 		apiOpenCall,
@@ -121,7 +123,7 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 	s.triggerMigration(masterClient)
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, gc.Equals, migrationmaster.ErrDone)
+	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrUninstall)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterClient.Watch", nil},
@@ -130,6 +132,32 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 		{"masterClient.SetPhase", []interface{}{migration.LOGTRANSFER}},
 		{"masterClient.SetPhase", []interface{}{migration.REAP}},
 		{"masterClient.SetPhase", []interface{}{migration.DONE}},
+	})
+}
+
+func (s *Suite) TestPreviouslyAbortedMigration(c *gc.C) {
+	masterClient := newStubMasterClient(s.stub)
+	masterClient.status.Phase = migration.ABORTDONE
+	s.triggerMigration(masterClient)
+	w := migrationmaster.New(masterClient)
+	workertest.CheckAlive(c, w)
+	workertest.CleanKill(c, w)
+
+	// No reliable way to test stub calls in this case unfortunately.
+}
+
+func (s *Suite) TestPreviouslyCompletedMigration(c *gc.C) {
+	masterClient := newStubMasterClient(s.stub)
+	masterClient.status.Phase = migration.DONE
+	s.triggerMigration(masterClient)
+	w := migrationmaster.New(masterClient)
+
+	err := workertest.CheckKilled(c, w)
+	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrUninstall)
+
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"masterClient.Watch", nil},
+		{"masterClient.GetMigrationStatus", nil},
 	})
 }
 
@@ -148,18 +176,20 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 	s.triggerMigration(masterClient)
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, gc.Equals, migrationmaster.ErrDone)
+	c.Assert(err, gc.Equals, migrationmaster.ErrDoneForNow)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterClient.Watch", nil},
 		{"masterClient.GetMigrationStatus", nil},
 		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
+		{"masterClient.SetPhase", []interface{}{migration.PRECHECK}},
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
 		{"masterClient.Export", nil},
 		{"masterClient.SetPhase", []interface{}{migration.ABORT}},
 		apiOpenCall,
 		abortCall,
 		connCloseCall,
+		{"masterClient.SetPhase", []interface{}{migration.ABORTDONE}},
 	})
 }
 
@@ -170,17 +200,19 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 	s.triggerMigration(masterClient)
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, gc.Equals, migrationmaster.ErrDone)
+	c.Assert(err, gc.Equals, migrationmaster.ErrDoneForNow)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterClient.Watch", nil},
 		{"masterClient.GetMigrationStatus", nil},
 		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
+		{"masterClient.SetPhase", []interface{}{migration.PRECHECK}},
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
 		{"masterClient.Export", nil},
 		apiOpenCall,
 		{"masterClient.SetPhase", []interface{}{migration.ABORT}},
 		apiOpenCall,
+		{"masterClient.SetPhase", []interface{}{migration.ABORTDONE}},
 	})
 }
 
@@ -191,12 +223,13 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 	s.triggerMigration(masterClient)
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, gc.Equals, migrationmaster.ErrDone)
+	c.Assert(err, gc.Equals, migrationmaster.ErrDoneForNow)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterClient.Watch", nil},
 		{"masterClient.GetMigrationStatus", nil},
 		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
+		{"masterClient.SetPhase", []interface{}{migration.PRECHECK}},
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
 		{"masterClient.Export", nil},
 		apiOpenCall,
@@ -206,6 +239,7 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 		apiOpenCall,
 		abortCall,
 		connCloseCall,
+		{"masterClient.SetPhase", []interface{}{migration.ABORTDONE}},
 	})
 }
 
