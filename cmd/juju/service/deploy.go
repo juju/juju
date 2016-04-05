@@ -569,6 +569,7 @@ func (c *DeployCommand) deployCharm(
 
 	params := serviceDeployParams{
 		charmURL:      curl.String(),
+		channel:       c.Channel,
 		serviceName:   serviceName,
 		series:        series,
 		numUnits:      numUnits,
@@ -652,6 +653,7 @@ func (c *DeployCommand) parseBind() error {
 
 type serviceDeployParams struct {
 	charmURL      string
+	channel       csclientparams.Channel
 	serviceName   string
 	series        string
 	numUnits      int
@@ -705,17 +707,18 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 	}
 
 	clientArgs := apiservice.DeployArgs{
-		args.charmURL,
-		args.serviceName,
-		args.series,
-		args.numUnits,
-		args.configYAML,
-		args.constraints,
-		args.placement,
-		[]string{},
-		args.storage,
-		args.spaceBindings,
-		args.resources,
+		CharmURL:         args.charmURL,
+		Channel:          args.channel,
+		ServiceName:      args.serviceName,
+		Series:           args.series,
+		NumUnits:         args.numUnits,
+		ConfigYAML:       args.configYAML,
+		Cons:             args.constraints,
+		Placement:        args.placement,
+		Networks:         []string{},
+		Storage:          args.storage,
+		EndpointBindings: args.spaceBindings,
+		Resources:        args.resources,
 	}
 
 	return serviceClient.Deploy(clientArgs)

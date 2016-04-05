@@ -199,6 +199,7 @@ type ServiceDeploy struct {
 	ServiceName      string
 	Series           string
 	CharmUrl         string
+	Channel          string
 	NumUnits         int
 	Config           map[string]string
 	ConfigYAML       string // Takes precedence over config if both are present.

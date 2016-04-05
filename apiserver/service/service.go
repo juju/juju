@@ -162,8 +162,7 @@ func deployService(st *state.State, owner string, args params.ServiceDeploy) err
 		return errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Use args.Channel once params.ServiceDeploy has the field.
-	channel := csparams.StableChannel
+	channel := csparams.Channel(args.Channel)
 
 	_, err = jjj.DeployService(st,
 		jjj.DeployServiceParams{
