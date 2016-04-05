@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"strings"
 	"syscall"
 
 	"github.com/lxc/lxd"
@@ -67,9 +68,9 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 	host := remote.Host
 	logger.Debugf("connecting to LXD remote %q: %q", remote.ID(), host)
 
-	if remote.ID() == remoteIDForLocal || host == "" {
+	if remote.ID() == remoteIDForLocal && host == "" {
 		host = "unix://" + lxdshared.VarPath("unix.socket")
-	} else {
+	} else if !strings.HasPrefix(host, "unix://") {
 		_, _, err := net.SplitHostPort(host)
 		if err != nil {
 			// There is no port here
