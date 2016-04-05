@@ -229,6 +229,8 @@ type ServiceSetCharm struct {
 	ServiceName string `json:"servicename"`
 	// CharmUrl is the new url for the charm.
 	CharmUrl string `json:"charmurl"`
+	// Channel is the charm store channel from which the charm came.
+	Channel string `json:"cs-channel"`
 	// ForceUnits forces the upgrade on units in an error state.
 	ForceUnits bool `json:"forceunits"`
 	// ForceSeries forces the use of the charm even if it doesn't match the

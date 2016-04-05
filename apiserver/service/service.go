@@ -301,8 +301,7 @@ func (api *API) SetCharm(args params.ServiceSetCharm) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(ericsnow) Use args.Channel once params.ServiceSetCharm has the field.
-	channel := csparams.StableChannel
+	channel := csparams.Channel(args.Channel)
 	return api.serviceSetCharm(service, args.CharmUrl, channel, args.ForceSeries, args.ForceUnits, args.ResourceIDs)
 }
 

@@ -220,6 +220,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	cfg := apiservice.SetCharmConfig{
 		ServiceName: c.ServiceName,
 		CharmUrl:    addedURL.String(),
+		Channel:     c.Channel,
 		ForceSeries: c.ForceSeries,
 		ForceUnits:  c.ForceUnits,
 		ResourceIDs: ids,

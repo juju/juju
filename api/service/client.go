@@ -146,6 +146,8 @@ type SetCharmConfig struct {
 	ServiceName string
 	// CharmUrl is the url for the charm.
 	CharmUrl string
+	// Channel is the charm store channel from which the charm came.
+	Channel csparams.Channel
 	// ForceSeries forces the use of the charm even if it doesn't match the
 	// series of the unit.
 	ForceSeries bool
@@ -161,6 +163,7 @@ func (c *Client) SetCharm(cfg SetCharmConfig) error {
 	args := params.ServiceSetCharm{
 		ServiceName: cfg.ServiceName,
 		CharmUrl:    cfg.CharmUrl,
+		Channel:     string(cfg.Channel),
 		ForceSeries: cfg.ForceSeries,
 		ForceUnits:  cfg.ForceUnits,
 		ResourceIDs: cfg.ResourceIDs,
