@@ -48,13 +48,13 @@ const (
 	// JujuMongoPackage is the mongo package Juju uses when
 	// installing mongo.
 	JujuMongoPackage = "juju-mongodb3.2"
-	
+
 	// MMAPV2 is the default storage engine in mongo db up to 3.x
 	MMAPV1 StorageEngine = "mmapv1"
-	
+
 	// WiredTiger is a storage type introduced in 3
 	WiredTiger StorageEngine = "wiredTiger"
-	
+
 	// Upgrading is a special case where mongo is being upgraded.
 	Upgrading StorageEngine = "Upgrading"
 )
