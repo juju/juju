@@ -62,9 +62,7 @@ var logger = loggo.GetLogger("juju.provider.dummy")
 
 var transientErrorInjection chan error
 
-const (
-	BootstrapInstanceId = instance.Id("localhost")
-)
+const BootstrapInstanceId = "localhost"
 
 var (
 	ErrNotPrepared = errors.New("environment is not prepared")
