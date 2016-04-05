@@ -108,18 +108,11 @@ func (s *helpersStub) ChangeJujudServicesPassword(newPassword string, mgr window
 
 type EnsurePasswordSuite struct {
 	coretesting.BaseSuite
-	username    string
-	newPassword string
-}
-
-func (s *EnsurePasswordSuite) SetUpSuite(c *gc.C) {
-	s.username = "jujud"
-	s.newPassword = "pass"
 }
 
 func (s *EnsurePasswordSuite) TestBothCalledAndSucceed(c *gc.C) {
 	stub := helpersStub{}
-	err := windows.EnsureJujudPasswordHelper(s.username, s.newPassword, nil, &stub)
+	err := windows.EnsureJujudPasswordHelper("jujud", "pass", nil, &stub)
 	c.Assert(stub.localhostCalled, jc.IsTrue)
 	c.Assert(stub.serviceCalled, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
@@ -127,7 +120,7 @@ func (s *EnsurePasswordSuite) TestBothCalledAndSucceed(c *gc.C) {
 
 func (s *EnsurePasswordSuite) TestChangePasswordFails(c *gc.C) {
 	stub := helpersStub{failLocalhost: true}
-	err := windows.EnsureJujudPasswordHelper(s.username, s.newPassword, nil, &stub)
+	err := windows.EnsureJujudPasswordHelper("jujud", "pass", nil, &stub)
 	c.Assert(err, gc.ErrorMatches, "could not change user password: zzz")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "zzz")
 	c.Assert(stub.localhostCalled, jc.IsTrue)
@@ -136,7 +129,7 @@ func (s *EnsurePasswordSuite) TestChangePasswordFails(c *gc.C) {
 
 func (s *EnsurePasswordSuite) TestChangeServicesFails(c *gc.C) {
 	stub := helpersStub{failServices: true}
-	err := windows.EnsureJujudPasswordHelper(s.username, s.newPassword, nil, &stub)
+	err := windows.EnsureJujudPasswordHelper("jujud", "pass", nil, &stub)
 	c.Assert(err, gc.ErrorMatches, "could not change password for all jujud services: splat")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "splat")
 	c.Assert(stub.localhostCalled, jc.IsTrue)
