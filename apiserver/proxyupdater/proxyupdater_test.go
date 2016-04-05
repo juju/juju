@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/workertest"
@@ -65,20 +66,22 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 	// WatchForProxyConfigAndAPIHostPortChanges combines WatchForModelConfigChanges
 	// and WatchAPIHostPorts. Check that they are both called and we get the
 	// expected result.
-	_, err := s.facade.WatchForProxyConfigAndAPIHostPortChanges()
-	c.Assert(err, jc.ErrorIsNil)
+	s.facade.WatchForProxyConfigAndAPIHostPortChanges(params.Entities{})
+
+	// Verify the watcher resource was registered.
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
 
 	s.state.Stub.CheckCallNames(c,
 		"WatchForModelConfigChanges",
 		"WatchAPIHostPorts",
 	)
-
 }
 
 func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 	// Check that the ProxyConfig combines data from EnvironConfig and APIHostPorts
-	cfg, err := s.facade.ProxyConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	cfg := s.facade.ProxyConfig(params.Entities{})
 	s.state.Stub.CheckCallNames(c,
 		"EnvironConfig",
 		"APIHostPorts",
@@ -101,8 +104,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
 		"https-proxy": "https proxy",
 		"no-proxy":    "9.9.9.9",
 	})
-	cfg, err := s.facade.ProxyConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	cfg := s.facade.ProxyConfig(params.Entities{})
 	s.state.Stub.CheckCallNames(c,
 		"EnvironConfig",
 		"APIHostPorts",
@@ -125,8 +127,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
 		"https-proxy": "https proxy",
 		"no-proxy":    "0.1.2.3",
 	})
-	cfg, err := s.facade.ProxyConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	cfg := s.facade.ProxyConfig(params.Entities{})
 	s.state.Stub.CheckCallNames(c,
 		"EnvironConfig",
 		"APIHostPorts",

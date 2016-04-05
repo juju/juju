@@ -8,6 +8,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
+	"github.com/juju/names"
 	"github.com/juju/utils/proxy"
 )
 
@@ -15,16 +16,18 @@ const proxyUpdaterFacade = "ProxyUpdater"
 
 // API provides access to the ProxyUpdater API facade.
 type API struct {
+	tag    names.Tag
 	facade base.FacadeCaller
 }
 
 // NewAPI returns a new api client facade instance.
-func NewAPI(caller base.APICaller) *API {
+func NewAPI(caller base.APICaller, tag names.Tag) *API {
 	if caller == nil {
 		panic("caller is nil")
 	}
 	return &API{
 		facade: base.NewFacadeCaller(caller, proxyUpdaterFacade),
+		tag:    tag,
 	}
 }
 
@@ -32,10 +35,17 @@ func NewAPI(caller base.APICaller) *API {
 // changes in the proxy configuration or API host ports
 func (api *API) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := api.facade.FacadeCall("WatchForProxyConfigAndAPIHostPortChanges", nil, &result)
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: api.tag.String()}},
+	}
+	err := api.facade.FacadeCall("WatchForProxyConfigAndAPIHostPortChanges", args, &result)
 	if err != nil {
 		return nil, err
 	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
 	return apiwatcher.NewNotifyWatcher(api.facade.RawAPICaller(), result), nil
 }
 
@@ -51,11 +61,14 @@ func proxySettingsParamToProxySettings(cfg params.ProxyConfig) proxy.Settings {
 // ProxyConfig returns the proxy settings for the current environment
 func (api *API) ProxyConfig() (proxySettings, APTProxySettings proxy.Settings, err error) {
 	var result params.ProxyConfigResult
-	err = api.facade.FacadeCall("ProxyConfig", nil, &result)
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: api.tag.String()}},
+	}
+	err = api.facade.FacadeCall("ProxyConfig", args, &result)
 	if err != nil {
 		return proxySettings, APTProxySettings, err
 	}
 	proxySettings = proxySettingsParamToProxySettings(result.ProxySettings)
 	APTProxySettings = proxySettingsParamToProxySettings(result.APTProxySettings)
-	return proxySettings, APTProxySettings, nil
+	return proxySettings, APTProxySettings, err
 }

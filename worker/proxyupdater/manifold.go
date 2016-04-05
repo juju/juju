@@ -35,6 +35,6 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 		return nil, errors.Errorf("unknown agent type: %T", tag)
 	}
 
-	proxyAPI := apiproxyupdater.NewAPI(apiCaller)
+	proxyAPI := apiproxyupdater.NewAPI(apiCaller, agentConfig.Tag())
 	return NewWorker(proxyAPI)
 }

@@ -12,14 +12,15 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/names"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
 )
 
 // API defines the methods the ProxyUpdater API facade implements.
 type API interface {
-	WatchForProxyConfigAndAPIHostPortChanges() (params.NotifyWatchResult, error)
-	ProxyConfig() (params.ProxyConfigResult, error)
+	WatchForProxyConfigAndAPIHostPortChanges(_ params.Entities) params.NotifyWatchResult
+	ProxyConfig(_ params.Entities) params.ProxyConfigResult
 }
 
 // Backend defines the state methods this facade needs, so they can be
@@ -50,18 +51,18 @@ func NewAPIWithBacking(st Backend, resources *common.Resources, authorizer commo
 }
 
 // WatchChanges watches for cleanups to be perfomed in state
-func (api *proxyUpdaterAPI) WatchForProxyConfigAndAPIHostPortChanges() (params.NotifyWatchResult, error) {
+func (api *proxyUpdaterAPI) WatchForProxyConfigAndAPIHostPortChanges(_ params.Entities) params.NotifyWatchResult {
 	watch := common.NewMultiNotifyWatcher(
 		api.backend.WatchForModelConfigChanges(),
 		api.backend.WatchAPIHostPorts())
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{
 			NotifyWatcherId: api.resources.Register(watch),
-		}, nil
+		}
 	}
 	return params.NotifyWatchResult{
 		Error: common.ServerError(watcher.EnsureErr(watch)),
-	}, watcher.EnsureErr(watch)
+	}
 }
 
 func proxyUtilsSettingsToProxySettingsParam(settings proxy.Settings) params.ProxyConfig {
@@ -73,25 +74,48 @@ func proxyUtilsSettingsToProxySettingsParam(settings proxy.Settings) params.Prox
 	}
 }
 
-func (api *proxyUpdaterAPI) ProxyConfig() (params.ProxyConfigResult, error) {
-	var cfg params.ProxyConfigResult
+func (api *proxyUpdaterAPI) authEntities(args params.Entities) params.ErrorResults {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+
+	for i, entity := range args.Entities {
+		_ = i
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = common.ErrPerm
+		if !api.authorizer.AuthOwner(tag) {
+			result.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return result
+}
+
+func (api *proxyUpdaterAPI) ProxyConfig(args params.Entities) params.ProxyConfigResult {
+	var result params.ProxyConfigResult
+	errors := api.authEntities(args)
+	_ = errors
+
 	env, err := api.backend.EnvironConfig()
 	if err != nil {
-		cfg.Error = common.ServerError(err)
-		return cfg, err
+		result.Error = common.ServerError(err)
+		return result
 	}
 
 	apiHostPorts, err := api.backend.APIHostPorts()
 	if err != nil {
-		cfg.Error = common.ServerError(err)
-		return cfg, err
+		result.Error = common.ServerError(err)
+		return result
 	}
 
-	cfg.ProxySettings = proxyUtilsSettingsToProxySettingsParam(env.ProxySettings())
-	cfg.APTProxySettings = proxyUtilsSettingsToProxySettingsParam(env.AptProxySettings())
+	result.ProxySettings = proxyUtilsSettingsToProxySettingsParam(env.ProxySettings())
+	result.APTProxySettings = proxyUtilsSettingsToProxySettingsParam(env.AptProxySettings())
 	var noProxy []string
-	if cfg.ProxySettings.NoProxy != "" {
-		noProxy = strings.Split(cfg.ProxySettings.NoProxy, ",")
+	if result.ProxySettings.NoProxy != "" {
+		noProxy = strings.Split(result.ProxySettings.NoProxy, ",")
 	}
 
 	noProxySet := set.NewStrings(noProxy...)
@@ -102,6 +126,6 @@ func (api *proxyUpdaterAPI) ProxyConfig() (params.ProxyConfigResult, error) {
 		}
 	}
 
-	cfg.ProxySettings.NoProxy = strings.Join(noProxySet.SortedValues(), ",")
-	return cfg, nil
+	result.ProxySettings.NoProxy = strings.Join(noProxySet.SortedValues(), ",")
+	return result
 }

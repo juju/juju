@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/names"
 )
 
 type ProxyUpdaterSuite struct {
@@ -23,7 +24,7 @@ var _ = gc.Suite(&ProxyUpdaterSuite{})
 func newAPI(c *gc.C, args []apitesting.CheckArgs) (*int, *proxyupdater.API) {
 	var called int
 	apiCaller := apitesting.CheckingAPICallerMultiArgs(c, args, &called, nil)
-	api := proxyupdater.NewAPI(apiCaller)
+	api := proxyupdater.NewAPI(apiCaller, names.NewUnitTag("u/0"))
 	c.Assert(api, gc.NotNil)
 	c.Assert(called, gc.Equals, 0)
 
@@ -35,7 +36,7 @@ func (s *ProxyUpdaterSuite) TestNewAPISuccess(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestNewAPIWithNilCaller(c *gc.C) {
-	panicFunc := func() { proxyupdater.NewAPI(nil) }
+	panicFunc := func() { proxyupdater.NewAPI(nil, names.NewUnitTag("u/0")) }
 	c.Assert(panicFunc, gc.PanicMatches, "caller is nil")
 }
 
