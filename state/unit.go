@@ -81,6 +81,7 @@ type unitDoc struct {
 	Service                string
 	Series                 string
 	CharmURL               *charm.URL
+	Channel                string `bson:"cs-channel"`
 	Principal              string
 	Subordinates           []string
 	StorageAttachmentCount int `bson:"storageattachmentcount"`
