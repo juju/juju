@@ -111,7 +111,7 @@ class TestMain(tests.FakeHomeTestCase):
         ad_mock.assert_called_once_with(parse_args(args), client, 1200, 1800)
         client_ser = pickle.dumps(client)
         mb_mock.assert_called_once_with(['verify_mediawiki_bundle.py',
-                                         client_ser], verbose=True)
+                                         client_ser])
 
     def test_basic_args_native_deploy_landscape(self):
         args = ['cs:~landscape/bundle/landscape-scalable', 'an-env',
@@ -134,7 +134,7 @@ class TestMain(tests.FakeHomeTestCase):
         ad_mock.assert_called_once_with(parse_args(args), client, 1200, 1800)
         client_ser = pickle.dumps(client)
         rc.assert_called_once_with(['verify_landscape_bundle.py',
-                                   client_ser], verbose=True)
+                                   client_ser])
 
 
 class TestAssessDeployer(tests.TestCase):
