@@ -85,17 +85,23 @@ func (suite *maas2EnvironSuite) TestSupportedArchitecturesError(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestAllInstances(c *gc.C) {
+	var env *maasEnviron
 	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+		checkArgs := func(args gomaasapi.MachinesArgs) {
+			c.Check(args.SystemIDs, jc.DeepEquals, []string{})
+			c.Check(args.AgentName, gc.Equals, env.ecfg().maasAgentName())
+		}
 		return &fakeController{
 			machines: []gomaasapi.Machine{
 				&fakeMachine{systemID: "tuco"},
 				&fakeMachine{systemID: "tio"},
 				&fakeMachine{systemID: "gus"},
 			},
+			machinesArgsCheck: checkArgs,
 		}, nil
 	}
 	suite.PatchValue(&GetMAAS2Controller, mockGetController)
-	env := makeEnviron(c)
+	env = makeEnviron(c)
 	result, err := env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedMachines := set.NewStrings("tuco", "tio", "gus")
