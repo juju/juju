@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -161,6 +162,9 @@ func deployService(st *state.State, owner string, args params.ServiceDeploy) err
 		return errors.Trace(err)
 	}
 
+	// TODO(ericsnow) Use args.Channel once params.ServiceDeploy has the field.
+	channel := csparams.StableChannel
+
 	_, err = jjj.DeployService(st,
 		jjj.DeployServiceParams{
 			ServiceName: args.ServiceName,
@@ -168,6 +172,7 @@ func deployService(st *state.State, owner string, args params.ServiceDeploy) err
 			// TODO(dfc) ServiceOwner should be a tag
 			ServiceOwner:     owner,
 			Charm:            ch,
+			Channel:          channel,
 			NumUnits:         args.NumUnits,
 			ConfigSettings:   settings,
 			Constraints:      args.Constraints,
