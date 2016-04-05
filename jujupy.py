@@ -53,6 +53,10 @@ CONTROLLER = 'controller'
 KILL_CONTROLLER = 'kill-controller'
 SYSTEM = 'system'
 
+KVM_MACHINE = 'kvm'
+LXC_MACHINE = 'lxc'
+LXD_MACHINE = 'lxd'
+
 _DEFAULT_BUNDLE_TIMEOUT = 3600
 
 _jes_cmds = {KILL_CONTROLLER: {
@@ -214,6 +218,9 @@ class EnvJujuClient:
 
     # What feature flags are used by this version of the juju client.
     used_feature_flags = frozenset(['address-allocation'])
+
+    supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE,
+                                           LXD_MACHINE])
 
     _show_status = 'show-status'
 
@@ -1379,6 +1386,8 @@ class EnvJujuClient1X(EnvJujuClient2A1):
     # The environments.yaml options that are replaced by bootstrap options.
     # For Juju 1.x, no bootstrap options are used.
     bootstrap_replaces = frozenset()
+
+    supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE])
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""

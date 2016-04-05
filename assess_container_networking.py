@@ -20,6 +20,11 @@ from deploy_stack import (
     get_random_string,
     update_env,
 )
+from jujupy import (
+    KVM_MACHINE,
+    LXC_MACHINE,
+    LXD_MACHINE,
+    )
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -27,9 +32,6 @@ from utility import (
 )
 
 
-KVM_MACHINE = 'kvm'
-LXC_MACHINE = 'lxc'
-LXD_MACHINE = 'lxd'
 
 __metaclass__ = type
 
@@ -408,7 +410,7 @@ def cleaned_bootstrap_context(bs_manager, args):
             ctx.return_code = 1
 
 
-def _get_container_types(version, machine_type):
+def _get_container_types(client, machine_type):
     """
     Give list of container types to run testing against.
 
@@ -416,15 +418,15 @@ def _get_container_types(version, machine_type):
     of containers. Otherwise, test all possible containers for the given
     juju version.
     """
-    use_lxd = version > "2.0"
     if machine_type:
-        if not use_lxd and machine_type == LXD_MACHINE:
-            raise Exception("no lxd support on juju {}".format(version))
+        if machine_type not in client.supported_container_types:
+            raise Exception(
+                "no {} support on juju {}".format(machine_type,
+                                                  client.version))
         return [machine_type]
     # TODO(gz): Only include LXC for 1.X clients
-    types = [KVM_MACHINE, LXC_MACHINE]
-    if use_lxd:
-        types.append(LXD_MACHINE)
+    types = list(client.supported_container_types)
+    types.sort()
     return types
 
 
@@ -434,7 +436,8 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
     client.enable_feature('address-allocation')
-    machine_types = _get_container_types(client.version, args.machine_type)
+    machine_types = _get_container_types(client, args.machine_type)
+    import pdb; pdb.set_trace()
     with cleaned_bootstrap_context(bs_manager, args) as ctx:
         assess_container_networking(bs_manager.client, machine_types)
     return ctx.return_code
