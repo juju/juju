@@ -499,6 +499,7 @@ func (env *maasEnviron) nodeArchitectures() ([]string, error) {
 	filter.Add("status", gomaasapi.NodeStatusReady)
 	filter.Add("status", gomaasapi.NodeStatusReserved)
 	filter.Add("status", gomaasapi.NodeStatusAllocated)
+	// This is fine - nodeArchitectures is only used in MAAS 1 cases.
 	allInstances, err := env.instances1(filter)
 	if err != nil {
 		return nil, err
@@ -1401,12 +1402,18 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 		idMap[instance.Id()] = instance
 	}
 
+	missing := false
 	result := make([]instance.Instance, len(ids))
 	for index, id := range ids {
-		result[index] = idMap[id]
+		val, ok := idMap[id]
+		if !ok {
+			missing = true
+			continue
+		}
+		result[index] = val
 	}
 
-	if len(instances) < len(ids) {
+	if missing {
 		return result, environs.ErrPartialInstances
 	}
 	return result, nil
