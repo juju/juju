@@ -1353,21 +1353,20 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 // Due to how this works in the HTTP API, an empty "ids"
 // matches all instances (not none as you might expect).
 func (environ *maasEnviron) acquiredInstances(ids []instance.Id) ([]instance.Instance, error) {
-	if environ.usingMAAS2() {
-		systemIDs := make([]string, len(ids))
-		for index, id := range ids {
-			systemIDs[index] = string(id)
-		}
-		args := gomaasapi.MachinesArgs{
-			AgentName: environ.ecfg().maasAgentName(),
-			SystemIDs: systemIDs,
-		}
-		return environ.instances2(args)
-	} else {
+	if !environ.usingMAAS2() {
 		filter := getSystemIdValues("id", ids)
 		filter.Add("agent_name", environ.ecfg().maasAgentName())
 		return environ.instances1(filter)
 	}
+	systemIDs := make([]string, len(ids))
+	for index, id := range ids {
+		systemIDs[index] = string(id)
+	}
+	args := gomaasapi.MachinesArgs{
+		AgentName: environ.ecfg().maasAgentName(),
+		SystemIDs: systemIDs,
+	}
+	return environ.instances2(args)
 }
 
 // instances calls the MAAS API to list nodes matching the given filter.
