@@ -2151,15 +2151,15 @@ func (environ *maasEnviron) spaces2() ([]network.SpaceInfo, error) {
 		}
 		outSpace := network.SpaceInfo{
 			Name:       space.Name(),
-			ProviderId: network.Id(string(space.ID())),
+			ProviderId: network.Id(strconv.Itoa(space.ID())),
 			Subnets:    make([]network.SubnetInfo, len(space.Subnets())),
 		}
 		for i, subnet := range space.Subnets() {
 			subnetInfo := network.SubnetInfo{
-				ProviderId:      network.Id(subnet.ID()),
+				ProviderId:      network.Id(strconv.Itoa(subnet.ID())),
 				VLANTag:         subnet.VLAN().VID(),
 				CIDR:            subnet.CIDR(),
-				SpaceProviderId: network.Id(string(space.ID())),
+				SpaceProviderId: network.Id(strconv.Itoa(space.ID())),
 				// TODO (babbageclunk): not setting
 				// AllocatableIPLow/High - these aren't needed until
 				// we need to support container networking
