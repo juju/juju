@@ -26,6 +26,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -1166,6 +1167,7 @@ type AddServiceArgs struct {
 	Series           string
 	Owner            string
 	Charm            *Charm
+	Channel          csparams.Channel
 	Networks         []string
 	Storage          map[string]StorageConstraints
 	EndpointBindings map[string]string
@@ -1310,6 +1312,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		Series:        args.Series,
 		Subordinate:   args.Charm.Meta().Subordinate,
 		CharmURL:      args.Charm.URL(),
+		Channel:       string(args.Channel),
 		RelationCount: len(peers),
 		Life:          Alive,
 		OwnerTag:      args.Owner,
