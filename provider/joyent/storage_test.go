@@ -37,7 +37,7 @@ func (s *storageSuite) SetUpSuite(c *gc.C) {
 	s.providerSuite.SetUpSuite(c)
 	s.localMantaServer.setupServer(c)
 	jp.RegisterMachinesEndpoint()
-	s.AddSuiteCleanup(func(*gc.C) { jp.UnregisterMachinesEndpoint() })
+	s.AddCleanup(func(*gc.C) { jp.UnregisterMachinesEndpoint() })
 }
 
 func (s *storageSuite) TearDownSuite(c *gc.C) {

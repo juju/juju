@@ -78,7 +78,7 @@ func (s *storageSuite) SetUpSuite(c *gc.C) {
 	restoreSshCommand := testing.PatchValue(&sshCommand, func(host string, command ...string) *ssh.Cmd {
 		return s.sshCommand(c, host, command...)
 	})
-	s.AddSuiteCleanup(func(*gc.C) { restoreSshCommand() })
+	s.AddCleanup(func(*gc.C) { restoreSshCommand() })
 
 	// Create a new "flock" which calls the original, but in non-blocking mode.
 	data := []byte(fmt.Sprintf("#!/bin/sh\nexec %s --nonblock \"$@\"", flockBin))

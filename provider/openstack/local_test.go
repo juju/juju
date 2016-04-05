@@ -160,7 +160,7 @@ func overrideCinderProvider(c *gc.C, s *gitjujutesting.CleanupSuite) {
 		openstack.CinderProviderType,
 		openstack.NewCinderProvider(&mockAdapter{}),
 	)
-	s.AddSuiteCleanup(func(*gc.C) {
+	s.AddCleanup(func(*gc.C) {
 		registry.RegisterProvider(openstack.CinderProviderType, nil)
 		registry.RegisterProvider(openstack.CinderProviderType, old)
 	})
@@ -173,7 +173,7 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.LiveTests.SetUpSuite(c)
 	openstack.UseTestImageData(openstack.ImageMetadataStorage(s.Env), s.cred)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	overrideCinderProvider(c, &s.CleanupSuite)
 }
 
@@ -212,7 +212,7 @@ type localServerSuite struct {
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	overrideCinderProvider(c, &s.CleanupSuite)
 	c.Logf("Running local tests")
 }
@@ -1731,7 +1731,7 @@ type noSwiftSuite struct {
 func (s *noSwiftSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
 func (s *noSwiftSuite) SetUpTest(c *gc.C) {

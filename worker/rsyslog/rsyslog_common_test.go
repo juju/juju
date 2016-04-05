@@ -62,7 +62,7 @@ func (s *RsyslogSuite) SetUpSuite(c *gc.C) {
 		// worker will not attempt to chown files if uid/gid is 0
 		return 0, 0, nil
 	})
-	s.AddSuiteCleanup(func(*gc.C) { restore() })
+	s.AddCleanup(func(*gc.C) { restore() })
 }
 
 func (s *RsyslogSuite) SetUpTest(c *gc.C) {

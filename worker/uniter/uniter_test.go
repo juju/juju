@@ -78,7 +78,7 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 	state.GetClock = func() clock.Clock {
 		return leaseClock
 	}
-	s.AddSuiteCleanup(func(*gc.C) { state.GetClock = oldGetClock })
+	s.AddCleanup(func(*gc.C) { state.GetClock = oldGetClock })
 }
 
 func (s *UniterSuite) TearDownSuite(c *gc.C) {

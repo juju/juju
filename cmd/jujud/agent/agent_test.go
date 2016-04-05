@@ -66,29 +66,22 @@ func ParseAgentCommand(ac cmd.Command, args []string) error {
 // AgentSuite is a fixture to be used by agent test suites.
 type AgentSuite struct {
 	agenttesting.AgentSuite
-	oldRestartDelay time.Duration
 }
 
 func (s *AgentSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
-	s.oldRestartDelay = worker.RestartDelay
+	s.AgentSuite.SetUpSuite(c)
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	// We could use testing.ShortWait, but this thrashes quite
 	// a bit when some tests are restarting every 50ms for 10 seconds,
 	// so use a slightly more friendly delay.
-	worker.RestartDelay = 250 * time.Millisecond
+	s.PatchValue(&worker.RestartDelay, 250*time.Millisecond)
 	s.PatchValue(&cmdutil.EnsureMongoServer, func(mongo.EnsureServerParams) error {
 		return nil
 	})
 }
 
-func (s *AgentSuite) TearDownSuite(c *gc.C) {
-	s.JujuConnSuite.TearDownSuite(c)
-	worker.RestartDelay = s.oldRestartDelay
-}
-
 func (s *AgentSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	s.AgentSuite.SetUpTest(c)
 	// Set API host ports so FindTools/Tools API calls succeed.
 	hostPorts := [][]network.HostPort{
 		network.NewHostPorts(1234, "0.1.2.3"),

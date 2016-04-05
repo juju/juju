@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	awsec2 "gopkg.in/amz.v3/ec2"
@@ -65,6 +66,7 @@ func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
 	// as ec2 coverage expands.
 	s.UploadArches = []string{arch.AMD64, arch.I386}
 	s.TestConfig = localConfigAttrs
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
 	restoreEC2Patching := patchEC2ForTesting()
 	s.AddCleanup(func(*gc.C) {
 		restoreEC2Patching()

@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -36,7 +35,7 @@ type BootstrapSuite struct {
 var _ = gc.Suite(&BootstrapSuite{})
 
 type cleaner interface {
-	AddCleanup(testing.CleanupFunc)
+	AddCleanup(func(*gc.C))
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
