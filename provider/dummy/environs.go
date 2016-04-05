@@ -298,11 +298,10 @@ func init() {
 // the same underlying state.
 func Reset() error {
 	logger.Infof("reset model")
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	providerInstance.mu.Lock()
+	defer providerInstance.mu.Unlock()
 	providerInstance.ops = discardOperations
-	for _, s := range p.state {
+	for _, s := range providerInstance.state {
 		if s.apiListener != nil {
 			s.apiListener.Close()
 		}
@@ -385,30 +384,27 @@ func (s *environState) listenAPI() int {
 // SetStatePolicy sets the state.Policy to use when a
 // controller is initialised by dummy.
 func SetStatePolicy(policy state.Policy) {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.statePolicy = policy
+	providerInstance.mu.Lock()
+	providerInstance.statePolicy = policy
+	providerInstance.mu.Unlock()
 }
 
 // SetSupportsSpaces allows to enable and disable SupportsSpaces for tests.
 func SetSupportsSpaces(supports bool) bool {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	current := p.supportsSpaces
-	p.supportsSpaces = supports
+	providerInstance.mu.Lock()
+	defer providerInstance.mu.Unlock()
+	current := providerInstance.supportsSpaces
+	providerInstance.supportsSpaces = supports
 	return current
 }
 
 // SetSupportsSpaceDiscovery allows to enable and disable
 // SupportsSpaceDiscovery for tests.
 func SetSupportsSpaceDiscovery(supports bool) bool {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	current := p.supportsSpaceDiscovery
-	p.supportsSpaceDiscovery = supports
+	providerInstance.mu.Lock()
+	defer providerInstance.mu.Unlock()
+	current := providerInstance.supportsSpaceDiscovery
+	providerInstance.supportsSpaceDiscovery = supports
 	return current
 }
 
@@ -416,17 +412,16 @@ func SetSupportsSpaceDiscovery(supports bool) bool {
 // Subsequent operations on any dummy environment can be received on c
 // (if not nil).
 func Listen(c chan<- Operation) {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	providerInstance.mu.Lock()
+	defer providerInstance.mu.Unlock()
 	if c == nil {
 		c = discardOperations
 	}
-	if p.ops != discardOperations {
-		close(p.ops)
+	if providerInstance.ops != discardOperations {
+		close(providerInstance.ops)
 	}
-	p.ops = c
-	for _, st := range p.state {
+	providerInstance.ops = c
+	for _, st := range providerInstance.state {
 		st.mu.Lock()
 		st.ops = c
 		st.mu.Unlock()
@@ -521,10 +516,9 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 }
 
 func (e *environ) state() (*environState, error) {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	state, ok := p.state[e.Config().ControllerUUID()]
+	providerInstance.mu.Lock()
+	defer providerInstance.mu.Unlock()
+	state, ok := providerInstance.state[e.Config().ControllerUUID()]
 	if !ok {
 		return nil, ErrNotPrepared
 	}
@@ -836,10 +830,9 @@ func (e *environ) Destroy() (res error) {
 	if !e.ecfg().controller() {
 		return nil
 	}
-	p := &providerInstance
-	p.mu.Lock()
-	delete(p.state, estate.bootstrapConfig.ControllerUUID())
-	p.mu.Unlock()
+	providerInstance.mu.Lock()
+	delete(providerInstance.state, estate.bootstrapConfig.ControllerUUID())
+	providerInstance.mu.Unlock()
 
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
@@ -1049,10 +1042,9 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 
 // SupportsSpaces is specified on environs.Networking.
 func (env *environ) SupportsSpaces() (bool, error) {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if !p.supportsSpaces {
+	providerInstance.mu.Lock()
+	defer providerInstance.mu.Unlock()
+	if !providerInstance.supportsSpaces {
 		return false, errors.NotSupportedf("spaces")
 	}
 	return true, nil
@@ -1063,10 +1055,9 @@ func (env *environ) SupportsSpaceDiscovery() (bool, error) {
 	if err := env.checkBroken("SupportsSpaceDiscovery"); err != nil {
 		return false, err
 	}
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if !p.supportsSpaceDiscovery {
+	providerInstance.mu.Lock()
+	defer providerInstance.mu.Unlock()
+	if !providerInstance.supportsSpaceDiscovery {
 		return false, nil
 	}
 	return true, nil
@@ -1309,8 +1300,7 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 
-	p := &providerInstance
-	if p.supportsSpaceDiscovery {
+	if ok, _ := env.SupportsSpaceDiscovery(); ok {
 		// Space discovery needs more subnets to work with.
 		return env.subnetsForSpaceDiscovery(estate)
 	}
