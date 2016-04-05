@@ -260,7 +260,10 @@ func (api *API) Update(args params.ServiceUpdate) error {
 	}
 	// Set the charm for the given service.
 	if args.CharmUrl != "" {
-		if err = api.serviceSetCharm(svc, args.CharmUrl, args.ForceSeries, args.ForceCharmUrl, nil); err != nil {
+		// For now we do not support changing the channel through Update().
+		// TODO(ericsnow) Support it?
+		channel := svc.Channel()
+		if err = api.serviceSetCharm(svc, args.CharmUrl, channel, args.ForceSeries, args.ForceCharmUrl, nil); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -299,11 +302,13 @@ func (api *API) SetCharm(args params.ServiceSetCharm) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return api.serviceSetCharm(service, args.CharmUrl, args.ForceSeries, args.ForceUnits, args.ResourceIDs)
+	// TODO(ericsnow) Use args.Channel once params.ServiceSetCharm has the field.
+	channel := csparams.StableChannel
+	return api.serviceSetCharm(service, args.CharmUrl, channel, args.ForceSeries, args.ForceUnits, args.ResourceIDs)
 }
 
 // serviceSetCharm sets the charm for the given service.
-func (api *API) serviceSetCharm(service *state.Service, url string, forceSeries, forceUnits bool, resourceIDs map[string]string) error {
+func (api *API) serviceSetCharm(service *state.Service, url string, channel csparams.Channel, forceSeries, forceUnits bool, resourceIDs map[string]string) error {
 	curl, err := charm.ParseURL(url)
 	if err != nil {
 		return errors.Trace(err)
@@ -314,6 +319,7 @@ func (api *API) serviceSetCharm(service *state.Service, url string, forceSeries,
 	}
 	cfg := state.SetCharmConfig{
 		Charm:       sch,
+		Channel:     channel,
 		ForceSeries: forceSeries,
 		ForceUnits:  forceUnits,
 		ResourceIDs: resourceIDs,
