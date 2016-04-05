@@ -537,34 +537,64 @@ func (e *maasEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	e.availabilityZonesMutex.Lock()
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
-		zonesObject := e.getMAASClient().GetSubObject("zones")
-		result, err := zonesObject.CallGet("", nil)
-		if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusNotFound {
-			return nil, errors.NewNotImplemented(nil, "the MAAS server does not support zones")
-		}
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot query ")
-		}
-		list, err := result.GetArray()
-		if err != nil {
-			return nil, err
-		}
-		logger.Debugf("availability zones: %+v", list)
-		availabilityZones := make([]common.AvailabilityZone, len(list))
-		for i, obj := range list {
-			zone, err := obj.GetMap()
+		var availabilityZones []common.AvailabilityZone
+		var err error
+		if e.usingMAAS2() {
+			availabilityZones, err = e.availabilityZones2()
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
-			name, err := zone["name"].GetString()
+		} else {
+			availabilityZones, err = e.availabilityZones1()
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
-			availabilityZones[i] = maasAvailabilityZone{name}
 		}
 		e.availabilityZones = availabilityZones
 	}
 	return e.availabilityZones, nil
+}
+
+func (e *maasEnviron) availabilityZones1() ([]common.AvailabilityZone, error) {
+	zonesObject := e.getMAASClient().GetSubObject("zones")
+	result, err := zonesObject.CallGet("", nil)
+	if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusNotFound {
+		return nil, errors.NewNotImplemented(nil, "the MAAS server does not support zones")
+	}
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot query ")
+	}
+	list, err := result.GetArray()
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("availability zones: %+v", list)
+	availabilityZones := make([]common.AvailabilityZone, len(list))
+	for i, obj := range list {
+		zone, err := obj.GetMap()
+		if err != nil {
+			return nil, err
+		}
+		name, err := zone["name"].GetString()
+		if err != nil {
+			return nil, err
+		}
+		availabilityZones[i] = maasAvailabilityZone{name}
+	}
+	return availabilityZones, nil
+}
+
+func (e *maasEnviron) availabilityZones2() ([]common.AvailabilityZone, error) {
+	zones, err := e.maasController.Zones()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	availabilityZones := make([]common.AvailabilityZone, len(zones))
+	for i, zone := range zones {
+		availabilityZones[i] = maasAvailabilityZone{zone.Name()}
+	}
+	return availabilityZones, nil
+
 }
 
 // InstanceAvailabilityZoneNames returns the availability zone names for each

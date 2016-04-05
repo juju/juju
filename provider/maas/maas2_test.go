@@ -14,6 +14,8 @@ type fakeController struct {
 	machines           []gomaasapi.Machine
 	machinesError      error
 	machinesArgsCheck  func(gomaasapi.MachinesArgs)
+	zones              []gomaasapi.Zone
+	zonesError         error
 }
 
 func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
@@ -31,6 +33,13 @@ func (c *fakeController) BootResources() ([]gomaasapi.BootResource, error) {
 		return nil, c.bootResourcesError
 	}
 	return c.bootResources, nil
+}
+
+func (c *fakeController) Zones() ([]gomaasapi.Zone, error) {
+	if c.zonesError != nil {
+		return nil, c.zonesError
+	}
+	return c.zones, nil
 }
 
 type fakeBootResource struct {

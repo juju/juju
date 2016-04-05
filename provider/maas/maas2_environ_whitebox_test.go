@@ -150,3 +150,30 @@ func (suite *maas2EnvironSuite) TestInstancesPartialResult(c *gc.C) {
 	c.Assert(result[0], gc.IsNil)
 	c.Assert(result[1].Id(), gc.Equals, instance.Id("bonnibel"))
 }
+
+func (suite *maas2EnvironSuite) TestAvailabilityZones(c *gc.C) {
+	suite.injectController(&fakeController{
+		zones: []gomaasapi.Zone{
+			&fakeZone{name: "mossack"},
+			&fakeZone{name: "fonseca"},
+		},
+	})
+	env := makeEnviron(c)
+	result, err := env.AvailabilityZones()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedZones := set.NewStrings("mossack", "fonseca")
+	actualZones := set.NewStrings()
+	for _, zone := range result {
+		actualZones.Add(zone.Name())
+	}
+	c.Assert(actualZones, jc.DeepEquals, expectedZones)
+}
+
+func (suite *maas2EnvironSuite) TestAvailabilityZonesError(c *gc.C) {
+	suite.injectController(&fakeController{
+		zonesError: errors.New("a bad thing"),
+	})
+	env := makeEnviron(c)
+	_, err := env.AvailabilityZones()
+	c.Assert(err, gc.ErrorMatches, "a bad thing")
+}
