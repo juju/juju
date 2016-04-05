@@ -55,9 +55,6 @@ func (s *baseProviderSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&nodeDeploymentTimeout, func(*maasEnviron) time.Duration {
 		return coretesting.ShortWait
 	})
-	s.PatchValue(&resolveHostnames, func(addrs []network.Address) []network.Address {
-		return addrs
-	})
 }
 
 func (s *baseProviderSuite) SetUpTest(c *gc.C) {

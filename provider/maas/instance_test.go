@@ -102,35 +102,6 @@ func (s *instanceTest) TestStringWithoutHostname(c *gc.C) {
 	c.Assert(fmt.Sprint(instance), gc.Equals, expected)
 }
 
-func (s *instanceTest) TestAddressesLegacy(c *gc.C) {
-	// We simulate an older MAAS (1.8-) which returns ip_addresses, but no
-	// interface_set for a node. We also verify we don't get the space of an
-	// address.
-	jsonValue := `{
-			"hostname": "testing.invalid",
-			"system_id": "system_id",
-			"ip_addresses": [ "1.2.3.4", "fe80::d806:dbff:fe23:1199" ]
-		}`
-	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	statusGetter := func(instance.Id) (string, string) {
-		return "unknown", "FAKE"
-	}
-
-	inst := maas1Instance{&obj, s.makeEnviron(), statusGetter}
-
-	expected := []network.Address{
-		network.NewScopedAddress("testing.invalid", network.ScopePublic),
-		network.NewScopedAddress("testing.invalid", network.ScopeCloudLocal),
-		network.NewAddress("1.2.3.4"),
-		network.NewAddress("fe80::d806:dbff:fe23:1199"),
-	}
-
-	addr, err := inst.Addresses()
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(addr, gc.DeepEquals, expected)
-}
-
 func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
 	server := s.testMAASObject.TestServer
 	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
@@ -193,28 +164,6 @@ func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
 	addr, err := inst.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(addr, jc.DeepEquals, expected)
-}
-
-func (s *instanceTest) TestAddressesMissing(c *gc.C) {
-	// Older MAAS versions do not have ip_addresses returned, for these
-	// just the DNS name should be returned without error.
-	jsonValue := `{
-		"hostname": "testing.invalid",
-		"system_id": "system_id"
-		}`
-	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	statusGetter := func(instance.Id) (string, string) {
-		return "unknown", "FAKE"
-	}
-
-	inst := maas1Instance{&obj, s.makeEnviron(), statusGetter}
-
-	addr, err := inst.Addresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(addr, gc.DeepEquals, []network.Address{
-		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopePublic},
-		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopeCloudLocal},
-	})
 }
 
 func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
