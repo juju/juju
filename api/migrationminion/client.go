@@ -12,27 +12,18 @@ import (
 	"github.com/juju/juju/watcher"
 )
 
-// Client describes the client side API for the MigrationMinion facade
-// (used by the migration minion worker).
-type Client interface {
-	// Watch returns a watcher which reports when the status changes
-	// for the migration for the model associated with the API
-	// connection.
-	Watch() (watcher.MigrationStatusWatcher, error)
-}
-
 // NewClient returns a new Client based on an existing API connection.
-func NewClient(caller base.APICaller) Client {
-	return &client{base.NewFacadeCaller(caller, "MigrationMinion")}
+func NewClient(caller base.APICaller) *Client {
+	return &Client{base.NewFacadeCaller(caller, "MigrationMinion")}
 }
 
-// client implements Client.
-type client struct {
+// Client exposes migration status for an API connection's model.
+type Client struct {
 	caller base.FacadeCaller
 }
 
-// Watch implements Client.
-func (c *client) Watch() (watcher.MigrationStatusWatcher, error) {
+// Watch returns a watcher that sends migration status updates.
+func (c *Client) Watch() (watcher.MigrationStatusWatcher, error) {
 	var result params.NotifyWatchResult
 	err := c.caller.FacadeCall("Watch", nil, &result)
 	if err != nil {

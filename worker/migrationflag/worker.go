@@ -12,6 +12,19 @@ import (
 	"github.com/juju/juju/worker/catacomb"
 )
 
+// Predicate defines a predicate.
+type Predicate func(migration.Phase) bool
+
+// IsNone is a predicate.
+func IsNone(phase migration.Phase) bool {
+	return phase == migration.NONE
+}
+
+// IsNotNone is a predicate.
+func IsNotNone(phase migration.Phase) bool {
+	return phase != migration.NONE
+}
+
 // ErrChanged indicates that a Worker has stopped because its
 // Check result is no longer valid.
 var ErrChanged = errors.New("migration flag value changed")
@@ -26,7 +39,7 @@ type Facade interface {
 type Config struct {
 	Facade Facade
 	Model  string
-	Check  func(migration.Phase) bool
+	Check  Predicate
 }
 
 // Validate returns an error if the config cannot be expected to
