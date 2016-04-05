@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 var lxdLogger = loggo.GetLogger("juju.provisioner.lxd")
@@ -56,7 +57,7 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
 	if bridgeDevice == "" {
 		var err error
-		bridgeDevice, err = lxd.GetDefaultBridgeName()
+		bridgeDevice, err = lxdclient.GetDefaultBridgeName()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -150,7 +151,7 @@ func (broker *lxdBroker) MaintainInstance(args environs.StartInstanceParams) err
 	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
 	if bridgeDevice == "" {
 		var err error
-		bridgeDevice, err = lxd.GetDefaultBridgeName()
+		bridgeDevice, err = lxdclient.GetDefaultBridgeName()
 		if err != nil {
 			return err
 		}
