@@ -512,7 +512,7 @@ func (s *Service) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
 
 // changeCharmOps returns the operations necessary to set a service's
 // charm URL to a new value.
-func (s *Service) changeCharmOps(ch *Charm, forceUnits bool, resourceIDs map[string]string) ([]txn.Op, error) {
+func (s *Service) changeCharmOps(ch *Charm, channel string, forceUnits bool, resourceIDs map[string]string) ([]txn.Op, error) {
 	// Build the new service config from what can be used of the old one.
 	var newSettings charm.Settings
 	oldSettings, err := readSettings(s.st, s.settingsKey())
@@ -573,7 +573,11 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool, resourceIDs map[str
 			C:      servicesC,
 			Id:     s.doc.DocID,
 			Assert: append(notDeadDoc, differentCharm...),
-			Update: bson.D{{"$set", bson.D{{"charmurl", ch.URL()}, {"forcecharm", forceUnits}}}},
+			Update: bson.D{{"$set", bson.D{
+				{"charmurl", ch.URL()},
+				{"cs-channel", channel},
+				{"forcecharm", forceUnits},
+			}}},
 		},
 	}...)
 
@@ -666,6 +670,8 @@ func (s *Service) resolveResourceOps(resourceIDs map[string]string) ([]txn.Op, e
 type SetCharmConfig struct {
 	// Charm is the new charm to use for the service.
 	Charm *Charm
+	// Channel is the charm store channel from which charm was pulled.
+	Channel csparams.Channel
 	// ForceUnits forces the upgrade on units in an error state.
 	ForceUnits bool `json:"forceunits"`
 	// ForceSeries forces the use of the charm even if it doesn't match the
@@ -740,6 +746,7 @@ func (s *Service) SetCharm(cfg SetCharmConfig) error {
 	// this value holds the *previous* charm modified version, before this
 	// transaction commits.
 	var charmModifiedVersion int
+	channel := string(cfg.Channel)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// NOTE: We're explicitly allowing SetCharm to succeed
@@ -788,17 +795,20 @@ func (s *Service) SetCharm(cfg SetCharmConfig) error {
 			return nil, errors.Trace(err)
 		}
 		if count > 0 {
-			// Charm URL already set; just update the force flag.
+			// Charm URL already set; just update the force flag and channel.
 			sameCharm := bson.D{{"charmurl", cfg.Charm.URL()}}
 			ops = append(ops, []txn.Op{{
 				C:      servicesC,
 				Id:     s.doc.DocID,
 				Assert: append(notDeadDoc, sameCharm...),
-				Update: bson.D{{"$set", bson.D{{"forcecharm", cfg.ForceUnits}}}},
+				Update: bson.D{{"$set", bson.D{
+					{"cs-channel", channel},
+					{"forcecharm", cfg.ForceUnits},
+				}}},
 			}}...)
 		} else {
 			// Change the charm URL.
-			chng, err := s.changeCharmOps(cfg.Charm, cfg.ForceUnits, cfg.ResourceIDs)
+			chng, err := s.changeCharmOps(cfg.Charm, channel, cfg.ForceUnits, cfg.ResourceIDs)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -810,6 +820,7 @@ func (s *Service) SetCharm(cfg SetCharmConfig) error {
 	err := s.st.run(buildTxn)
 	if err == nil {
 		s.doc.CharmURL = cfg.Charm.URL()
+		s.doc.Channel = channel
 		s.doc.ForceCharm = cfg.ForceUnits
 		s.doc.CharmModifiedVersion = charmModifiedVersion + 1
 	}
