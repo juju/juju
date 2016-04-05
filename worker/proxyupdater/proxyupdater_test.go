@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/packaging/commands"
 	pacconfig "github.com/juju/utils/packaging/config"
@@ -43,7 +44,7 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	apiCaller, machine := s.OpenAPIAsNewMachine(c)
 	s.machine = machine
-	s.apiRoot = apiproxyupdater.NewAPI(apiCaller)
+	s.apiRoot = apiproxyupdater.NewAPI(apiCaller, names.NewUnitTag("u/0"))
 
 	proxyDir := c.MkDir()
 	s.PatchValue(&proxyupdater.ProxyDirectory, proxyDir)
