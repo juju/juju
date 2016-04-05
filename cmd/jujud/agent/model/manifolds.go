@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/cmd/jujud/agent/common"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker"
@@ -24,9 +25,11 @@ import (
 	"github.com/juju/juju/worker/discoverspaces"
 	"github.com/juju/juju/worker/environ"
 	"github.com/juju/juju/worker/firewaller"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/lifeflag"
 	"github.com/juju/juju/worker/metricworker"
+	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/servicescaler"
@@ -133,7 +136,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		// Everything else should be wrapped in ifResponsible,
-		// ifNotAlive, or ifNotDead, to ensure that only a single
+		// ifNotAlive, or ifNotMigrating, to ensure that only a single
 		// controller is administering this model at a time.
 		//
 		// NOTE: not perfectly reliable at this stage? i.e. a worker
@@ -158,6 +161,29 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewEnvironFunc: environs.New,
 		})),
 
+		// The migration fortress synchronises the migration
+		// minion worker (as a Guard) with all workers that
+		// might interfere with migration (basically, all other
+		// workers).
+		migrationFortressName: ifResponsible(fortress.Manifold()),
+
+		migrationMasterName: ifResponsible(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
+			APICallerName: apiCallerName,
+			FortressName:  migrationFortressName,
+			NewFacade:     migrationmaster.NewFacade,
+			NewWorker:     migrationmaster.NewWorker,
+		})),
+
+		// The migration-inactive flag is used to signal to the
+		// bulk of manifolds that they are allowed to run and
+		// should attempt to do so.
+		migrationInactiveFlagName: migrationflag.Manifold(migrationflag.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Check:         migrationflag.IsNone,
+			NewFacade:     migrationflag.NewFacade,
+			NewWorker:     migrationflag.NewWorker,
+		}),
+
 		// The undertaker is currently the only ifNotAlive worker.
 		undertakerName: ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -169,11 +195,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: undertaker.NewWorker,
 		})),
 
-		// All the rest depend on ifNotDead.
-		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
-			APICallerName: apiCallerName,
-		})),
-		spaceImporterName: ifNotDead(discoverspaces.Manifold(discoverspaces.ManifoldConfig{
+		// All the rest depend on ifNotMigrating.
+
+		spaceImporterName: ifNotMigrating(discoverspaces.Manifold(discoverspaces.ManifoldConfig{
 			EnvironName:   environTrackerName,
 			APICallerName: apiCallerName,
 			// No UnlockerName for now; might never be necessary
@@ -183,31 +207,31 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade: discoverspaces.NewFacade,
 			NewWorker: discoverspaces.NewWorker,
 		})),
-		computeProvisionerName: ifNotDead(provisioner.Manifold(provisioner.ManifoldConfig{
+		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
-		storageProvisionerName: ifNotDead(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
+		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName: apiCallerName,
 			ClockName:     clockName,
 			Scope:         modelTag,
 		})),
-		firewallerName: ifNotDead(firewaller.Manifold(firewaller.ManifoldConfig{
+		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		unitAssignerName: ifNotDead(unitassigner.Manifold(unitassigner.ManifoldConfig{
+		unitAssignerName: ifNotMigrating(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		serviceScalerName: ifNotDead(servicescaler.Manifold(servicescaler.ManifoldConfig{
+		serviceScalerName: ifNotMigrating(servicescaler.Manifold(servicescaler.ManifoldConfig{
 			APICallerName: apiCallerName,
 			NewFacade:     servicescaler.NewFacade,
 			NewWorker:     servicescaler.New,
 		})),
-		instancePollerName: ifNotDead(instancepoller.Manifold(instancepoller.ManifoldConfig{
+		instancePollerName: ifNotMigrating(instancepoller.Manifold(instancepoller.ManifoldConfig{
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
 		})),
-		charmRevisionUpdaterName: ifNotDead(charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
+		charmRevisionUpdaterName: ifNotMigrating(charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 			APICallerName: apiCallerName,
 			ClockName:     clockName,
 			Period:        config.CharmRevisionUpdateInterval,
@@ -215,16 +239,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade: charmrevisionmanifold.NewAPIFacade,
 			NewWorker: charmrevision.NewWorker,
 		})),
-		metricWorkerName: ifNotDead(metricworker.Manifold(metricworker.ManifoldConfig{
+		metricWorkerName: ifNotMigrating(metricworker.Manifold(metricworker.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		stateCleanerName: ifNotDead(cleaner.Manifold(cleaner.ManifoldConfig{
+		stateCleanerName: ifNotMigrating(cleaner.Manifold(cleaner.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		addressCleanerName: ifNotDead(addresser.Manifold(addresser.ManifoldConfig{
+		addressCleanerName: ifNotMigrating(addresser.Manifold(addresser.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		statusHistoryPrunerName: ifNotDead(statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
+		statusHistoryPrunerName: ifNotMigrating(statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
 			APICallerName:    apiCallerName,
 			MaxLogsPerEntity: config.EntityStatusHistoryCount,
 			PruneInterval:    config.EntityStatusHistoryInterval,
@@ -234,23 +258,29 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 }
 
-// ifResponsible wraps a manifold such that it only runs if the
-// responsibility flag is set.
-func ifResponsible(manifold dependency.Manifold) dependency.Manifold {
-	return dependency.WithFlag(manifold, isResponsibleFlagName)
-}
+var (
+	ifResponsible = common.Spec{
+		Flags: []string{
+			isResponsibleFlagName,
+		},
+	}.Decorate
 
-// ifNotAlive wraps a manifold such that it only runs if the
-// responsibility flag is set and the model is Dying or Dead.
-func ifNotAlive(manifold dependency.Manifold) dependency.Manifold {
-	return ifResponsible(dependency.WithFlag(manifold, notAliveFlagName))
-}
+	ifNotAlive = common.Spec{
+		Flags: []string{
+			notAliveFlagName,
+			isResponsibleFlagName,
+		},
+	}.Decorate
 
-// ifNotDead wraps a manifold such that it only runs if the responsibility
-// flag is set and the model is Alive or Dying.
-func ifNotDead(manifold dependency.Manifold) dependency.Manifold {
-	return ifResponsible(dependency.WithFlag(manifold, notDeadFlagName))
-}
+	ifNotMigrating = common.Spec{
+		Flags: []string{
+			notDeadFlagName,
+			isResponsibleFlagName,
+			migrationInactiveFlagName,
+		},
+		Occupy: migrationFortressName,
+	}.Decorate
+)
 
 // clockManifold expresses a Clock as a ValueWorker manifold.
 func clockManifold(clock clock.Clock) dependency.Manifold {
@@ -272,6 +302,10 @@ const (
 	notDeadFlagName       = "not-dead-flag"
 	notAliveFlagName      = "not-alive-flag"
 
+	migrationInactiveFlagName = "migration-inactive-flag"
+	migrationMasterName       = "migration-master"
+	migrationFortressName     = "migration-fortress"
+
 	environTrackerName       = "environ-tracker"
 	undertakerName           = "undertaker"
 	spaceImporterName        = "space-importer"
@@ -286,5 +320,4 @@ const (
 	stateCleanerName         = "state-cleaner"
 	addressCleanerName       = "address-cleaner"
 	statusHistoryPrunerName  = "status-history-pruner"
-	migrationMasterName      = "migration-master"
 )

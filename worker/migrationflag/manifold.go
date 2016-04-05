@@ -1,21 +1,19 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package migrationmaster
+package migrationflag
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/fortress"
 )
 
-// ManifoldConfig defines the names of the manifolds on which a
-// Manifold will depend.
 type ManifoldConfig struct {
 	APICallerName string
-	FortressName  string
+	Check         Predicate
 
 	NewFacade func(base.APICaller) (Facade, error)
 	NewWorker func(Config) (worker.Worker, error)
@@ -26,17 +24,18 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
-	var guard fortress.Guard
-	if err := context.Get(config.FortressName, &guard); err != nil {
+	facade, err := config.NewFacade(apiCaller)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	facade, err := config.NewFacade(apiCaller)
+	modelTag, err := apiCaller.ModelTag()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	worker, err := config.NewWorker(Config{
 		Facade: facade,
-		Guard:  guard,
+		Model:  modelTag.Id(),
+		Check:  config.Check,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -44,11 +43,16 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	return worker, nil
 }
 
-// Manifold returns a dependency manifold that runs the migration
-// worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.APICallerName, config.FortressName},
+		Inputs: []string{config.APICallerName},
 		Start:  config.start,
+		Output: dependency.FlagOutput,
+		Filter: func(err error) error {
+			if errors.Cause(err) == ErrChanged {
+				return dependency.ErrBounce
+			}
+			return err
+		},
 	}
 }
