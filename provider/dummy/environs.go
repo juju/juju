@@ -65,9 +65,7 @@ var transientErrorInjection chan error
 
 const BootstrapInstanceId = "localhost"
 
-var (
-	ErrNotPrepared = errors.New("model is not prepared")
-)
+var errNotPrepared = errors.New("model is not prepared")
 
 // SampleConfig() returns an environment configuration with all required
 // attributes set.
@@ -517,7 +515,7 @@ func (e *environ) state() (*environState, error) {
 	defer dummy.mu.Unlock()
 	state, ok := dummy.state[e.Config().ControllerUUID()]
 	if !ok {
-		return nil, ErrNotPrepared
+		return nil, errNotPrepared
 	}
 	return state, nil
 }
@@ -530,7 +528,7 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, err
 	}
 	if _, ok := p.state[cfg.ControllerUUID()]; !ok {
-		return nil, ErrNotPrepared
+		return nil, errNotPrepared
 	}
 	env := &environ{
 		name:         ecfg.Name(),
@@ -815,7 +813,7 @@ func (e *environ) Destroy() (res error) {
 	defer delay()
 	estate, err := e.state()
 	if err != nil {
-		if err == ErrNotPrepared {
+		if err == errNotPrepared {
 			return nil
 		}
 		return err
