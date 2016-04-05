@@ -29,6 +29,7 @@ from utility import (
 
 KVM_MACHINE = 'kvm'
 LXC_MACHINE = 'lxc'
+LXD_MACHINE = 'lxd'
 
 __metaclass__ = type
 
@@ -53,7 +54,7 @@ def parse_args(argv=None):
     parser.add_argument(
         '--machine-type',
         help='Which virtual machine/container type to test. Defaults to all.',
-        choices=[KVM_MACHINE, LXC_MACHINE])
+        choices=[KVM_MACHINE, LXC_MACHINE, LXD_MACHINE])
     parser.add_argument(
         '--clean-environment', action='store_true', help=dedent("""\
         Attempts to re-use an existing environment rather than destroying it
@@ -342,18 +343,12 @@ def _assess_container_networking(client, types, hosts, containers):
         _assessment_iteration(client, test_containers)
 
 
-def assess_container_networking(client, machine_type):
+def assess_container_networking(client, types):
     """Runs _assess_address_allocation, reboots hosts, repeat.
     :param client: Juju client
-    :param machine_type: Container types to test
+    :param types: Container types to test
     :return: None
     """
-    # Only test the containers we were asked to test
-    if machine_type:
-        types = [machine_type]
-    else:
-        types = [KVM_MACHINE, LXC_MACHINE]
-
     hosts, containers = make_machines(client, types)
     status = client.wait_for_started().status
 
@@ -413,13 +408,35 @@ def cleaned_bootstrap_context(bs_manager, args):
             ctx.return_code = 1
 
 
+def _get_container_types(version, machine_type):
+    """
+    Give list of container types to run testing against.
+
+    If a machine_type was explictly specified, only test against those kind
+    of containers. Otherwise, test all possible containers for the given
+    juju version.
+    """
+    use_lxd = version > "2.0"
+    if machine_type:
+        if not use_lxd and machine_type == LXD_MACHINE:
+            raise Exception("no lxd support on juju {}".format(version))
+        return [machine_type]
+    # TODO(gz): Only include LXC for 1.X clients
+    types = [KVM_MACHINE, LXC_MACHINE]
+    if use_lxd:
+        types.append(LXD_MACHINE)
+    return types
+
+
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
-    bs_manager.client.enable_feature('address-allocation')
+    client = bs_manager.client
+    client.enable_feature('address-allocation')
+    machine_types = _get_container_types(client.version, args.machine_type)
     with cleaned_bootstrap_context(bs_manager, args) as ctx:
-        assess_container_networking(bs_manager.client, args.machine_type)
+        assess_container_networking(bs_manager.client, machine_types)
     return ctx.return_code
 
 

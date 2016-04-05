@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 from argparse import ArgumentParser
 import logging
+import pickle
 import subprocess
 import sys
-from time import sleep
-import urllib2
 
 from deploy_stack import (
     assess_upgrade,
@@ -20,8 +19,8 @@ from remote import (
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    run_command,
     scoped_environ,
-    until_timeout,
 )
 
 
@@ -38,6 +37,8 @@ def parse_args(argv=None):
     add_basic_testing_arguments(parser)
     parser.add_argument('--allow-native-deploy', action='store_true',
                         help='Let juju 2 use native bundle deploying.')
+    parser.add_argument('--bundle-verification-script',
+                        help='Script to verify the bundle.')
     parser.add_argument('--bundle-name', default=None,
                         help='Name of the bundle to deploy.')
     parser.add_argument('--health-cmd', default=None,
@@ -100,52 +101,6 @@ def apply_condition(client, condition):
             raise ErrUnitCondition("%s: Unknown condition type." % action)
 
 
-def assert_mediawiki_bundle(args, client):
-    status = client.get_status()
-    expected_services = (
-        ['haproxy', 'mediawiki', 'mysql', 'memcached', 'mysql-slave'])
-    if sorted(status.status['services']) != sorted(expected_services):
-        raise AssertionError('Unexpected service configuration: {}'.format(
-            status.status['services']))
-    if status.status['services']['haproxy']['exposed']:
-        raise AssertionError('haproxy is exposed.')
-    client.juju('expose', ('haproxy',))
-    for _ in until_timeout(30):
-        status = client.get_status()
-        if status.status['services']['haproxy']['exposed']:
-            break
-        sleep(.1)
-    else:
-        raise AssertionError('haproxy is not exposed.')
-
-    machine_num = (
-        status.status['services']['haproxy']['units']['haproxy/0']['machine'])
-    haproxy_dns_name = status.status['machines'][machine_num]['dns-name']
-    for _ in until_timeout(60):
-        try:
-            req = urllib2.urlopen('http://{}'.format(haproxy_dns_name))
-        except (urllib2.URLError, urllib2.HTTPError):
-            sleep(.1)
-            continue
-        if 200 == req.getcode():
-            break
-        sleep(.1)
-    else:
-        raise AssertionError('{} is not reachable'.format(haproxy_dns_name))
-    client.juju('add-unit', ('mediawiki',))
-    client.juju('add-unit', ('mysql-slave',))
-    client.wait_for_started()
-    status = client.get_status()
-    mediawiki_units = status.status['services']['mediawiki']['units'].values()
-    if len(mediawiki_units) != 2:
-        raise AssertionError(
-            'Unexpected mediawiki units: {}'.format(mediawiki_units))
-    mysql_units = status.status['services']['mysql-slave']['units'].values()
-    if len(mysql_units) != 2:
-        raise AssertionError(
-            'Unexpected mysql-slave units: {}'.format(mysql_units))
-
-
 def assess_deployer(args, client, agent_timeout, workload_timeout):
     """Run juju-deployer, based on command line configuration values."""
     if args.allow_native_deploy:
@@ -181,10 +136,11 @@ def main(argv=None):
                       region=args.region):
         assess_deployer(
             args, client, args.agent_timeout, args.workload_timeout)
-        if (args.allow_native_deploy and
-                args.bundle_path.endswith('mediawiki-scalable.yaml')):
-            assert_mediawiki_bundle(args, client)
-
+        if args.bundle_verification_script:
+            client_ser = pickle.dumps(client)
+            logging.info('Calling bundle verification script {}'.format(
+                args.bundle_verification_script))
+            run_command([args.bundle_verification_script, client_ser])
     return 0
 
 
