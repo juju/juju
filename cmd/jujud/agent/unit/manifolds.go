@@ -105,9 +105,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		// The logging config updater is a leaf worker that indirectly
-		// controls the messages sent via the log sender or rsyslog,
-		// according to changes in environment config. We should only need
-		// one of these in a consolidated agent.
+		// controls the messages sent via the log sender according to
+		// changes in environment config. We should only need one of
+		// these in a consolidated agent.
 		LoggingConfigUpdaterName: logger.Manifold(logger.ManifoldConfig{
 			AgentName:         AgentName,
 			APICallerName:     APICallerName,
