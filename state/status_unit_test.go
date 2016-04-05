@@ -130,7 +130,7 @@ func (s *UnitStatusSuite) TestSetUnitStatusSince(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) TestStatusHistoryInitial(c *gc.C) {
-	history, err := s.unit.StatusHistory(1)
+	history, err := s.unit.StatusHistory(status.StatusHistoryFilter{Size: 1})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 1)
 
@@ -140,7 +140,7 @@ func (s *UnitStatusSuite) TestStatusHistoryInitial(c *gc.C) {
 func (s *UnitStatusSuite) TestStatusHistoryShort(c *gc.C) {
 	primeUnitStatusHistory(c, s.unit, 5)
 
-	history, err := s.unit.StatusHistory(10)
+	history, err := s.unit.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 6)
 
@@ -154,7 +154,7 @@ func (s *UnitStatusSuite) TestStatusHistoryShort(c *gc.C) {
 func (s *UnitStatusSuite) TestStatusHistoryLong(c *gc.C) {
 	primeUnitStatusHistory(c, s.unit, 25)
 
-	history, err := s.unit.StatusHistory(15)
+	history, err := s.unit.StatusHistory(status.StatusHistoryFilter{Size: 15})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(history, gc.HasLen, 15)
 	for i, statusInfo := range history {

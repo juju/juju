@@ -339,12 +339,12 @@ type EntityStatus struct {
 	Since  *time.Time
 }
 
-// EntityStatus holds parameters for setting the status of a single entity.
+// EntityStatusArgs holds parameters for setting the status of a single entity.
 type EntityStatusArgs struct {
-	Tag    string
-	Status status.Status
-	Info   string
-	Data   map[string]interface{}
+	Tag    string                 `json:"tag"`
+	Status status.Status          `json:"status"`
+	Info   string                 `json:"info"`
+	Data   map[string]interface{} `json:"data"`
 }
 
 // SetStatus holds the parameters for making a SetStatus/UpdateStatus call.

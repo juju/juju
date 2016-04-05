@@ -100,7 +100,8 @@ func (m *Machine) InstanceStatus() (status.Status, string, error) {
 	if result.Error != nil {
 		return "", "", result.Error
 	}
-	return result.Status, result.Info, nil
+	// TODO(perrito666) add status validation.
+	return status.Status(result.Status), result.Info, nil
 }
 
 // SetStatus sets the status of the machine.
@@ -135,7 +136,8 @@ func (m *Machine) Status() (status.Status, string, error) {
 	if result.Error != nil {
 		return "", "", result.Error
 	}
-	return result.Status, result.Info, nil
+	// TODO(perrito666) add status validation.
+	return status.Status(result.Status), result.Info, nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or

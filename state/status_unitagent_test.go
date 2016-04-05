@@ -171,7 +171,7 @@ func (s *StatusUnitAgentSuite) TestSetAgentStatusSince(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) TestStatusHistoryInitial(c *gc.C) {
-	history, err := s.agent.StatusHistory(1)
+	history, err := s.agent.StatusHistory(status.StatusHistoryFilter{Size: 1})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 1)
 
@@ -181,7 +181,7 @@ func (s *StatusUnitAgentSuite) TestStatusHistoryInitial(c *gc.C) {
 func (s *StatusUnitAgentSuite) TestStatusHistoryShort(c *gc.C) {
 	primeUnitAgentStatusHistory(c, s.agent, 5)
 
-	history, err := s.agent.StatusHistory(10)
+	history, err := s.agent.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 6)
 
@@ -195,7 +195,7 @@ func (s *StatusUnitAgentSuite) TestStatusHistoryShort(c *gc.C) {
 func (s *StatusUnitAgentSuite) TestStatusHistoryLong(c *gc.C) {
 	primeUnitAgentStatusHistory(c, s.agent, 25)
 
-	history, err := s.agent.StatusHistory(15)
+	history, err := s.agent.StatusHistory(status.StatusHistoryFilter{Size: 15})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(history, gc.HasLen, 15)
 	for i, statusInfo := range history {

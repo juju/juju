@@ -167,7 +167,7 @@ func (a *InstancePollerAPI) InstanceStatus(args params.Entities) (params.StatusR
 		if err == nil {
 			var statusInfo status.StatusInfo
 			statusInfo, err = machine.InstanceStatus()
-			result.Results[i].Status = statusInfo.Status
+			result.Results[i].Status = statusInfo.Status.String()
 			result.Results[i].Info = statusInfo.Message
 			result.Results[i].Data = statusInfo.Data
 			result.Results[i].Since = statusInfo.Since

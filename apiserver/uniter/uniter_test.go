@@ -2076,7 +2076,7 @@ func (s *uniterSuite) TestUnitStatus(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Status: status.StatusMaintenance, Info: "blah", Data: map[string]interface{}{}},
+			{Status: status.StatusMaintenance.String(), Info: "blah", Data: map[string]interface{}{}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ServerError(`"invalid" is not a valid tag`)},

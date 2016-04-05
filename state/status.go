@@ -219,13 +219,40 @@ func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
 	}
 }
 
-func statusHistory(st *State, globalKey string, size int) ([]status.StatusInfo, error) {
-	statusHistory, closer := st.getCollection(statusesHistoryC)
+// statusHistoryArgs hold the arguments to call statusHistory.
+type statusHistoryArgs struct {
+	st        *State
+	globalKey string
+	filter    status.StatusHistoryFilter
+}
+
+func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
+	filter := args.filter
+	if err := args.filter.Validate(); err != nil {
+		return nil, errors.Annotate(err, "validating arguments")
+	}
+	statusHistory, closer := args.st.getCollection(statusesHistoryC)
 	defer closer()
 
-	var docs []historicalStatusDoc
-	query := statusHistory.Find(bson.D{{"globalkey", globalKey}})
-	err := query.Sort("-updated").Limit(size).All(&docs)
+	var (
+		docs  []historicalStatusDoc
+		query mongo.Query
+	)
+	baseQuery := bson.M{"globalkey": args.globalKey}
+	if filter.Delta != nil {
+		delta := *filter.Delta
+		updated := time.Now().Add(-delta)
+		baseQuery = bson.M{"updated": bson.M{"$gt": updated.UnixNano()}, "globalkey": args.globalKey}
+	}
+	if filter.Date != nil {
+		baseQuery = bson.M{"updated": bson.M{"$gt": filter.Date.UnixNano()}, "globalkey": args.globalKey}
+	}
+	query = statusHistory.Find(baseQuery).Sort("-updated")
+	if filter.Size > 0 {
+		query = query.Limit(filter.Size)
+	}
+	err := query.All(&docs)
+
 	if err == mgo.ErrNotFound {
 		return []status.StatusInfo{}, errors.NotFoundf("status history")
 	} else if err != nil {

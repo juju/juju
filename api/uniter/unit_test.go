@@ -131,7 +131,7 @@ func (s *unitSuite) TestUnitStatus(c *gc.C) {
 	c.Assert(result.Since, gc.NotNil)
 	result.Since = nil
 	c.Assert(result, gc.DeepEquals, params.StatusResult{
-		Status: status.StatusMaintenance,
+		Status: status.StatusMaintenance.String(),
 		Info:   "blah",
 		Data:   map[string]interface{}{},
 	})

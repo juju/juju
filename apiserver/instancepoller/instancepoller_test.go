@@ -356,7 +356,7 @@ func (s *InstancePollerSuite) TestStatusSuccess(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{
-				Status: status.StatusError,
+				Status: status.StatusError.String(),
 				Info:   s1.Message,
 				Data:   s1.Data,
 				Since:  s1.Since,
@@ -536,8 +536,8 @@ func (s *InstancePollerSuite) TestInstanceStatusSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
-			{Status: status.Status("foo")},
-			{Status: status.Status("")},
+			{Status: "foo"},
+			{Status: ""},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ServerError(`"service-unknown" is not a valid machine tag`)},
 			{Error: apiservertesting.ServerError(`"invalid-tag" is not a valid tag`)},

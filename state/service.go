@@ -1566,10 +1566,16 @@ func (s *Service) SetStatus(serviceStatus status.Status, info string, data map[s
 	})
 }
 
-// StatusHistory returns a slice of at most <size> StatusInfo items
+// StatusHistory returns a slice of at most filter.Size StatusInfo items
+// or items as old as filter.Date or items newer than now - filter.Delta time
 // representing past statuses for this service.
-func (s *Service) StatusHistory(size int) ([]status.StatusInfo, error) {
-	return statusHistory(s.st, s.globalKey(), size)
+func (s *Service) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        s.st,
+		globalKey: s.globalKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
 }
 
 // ServiceAndUnitsStatus returns the status for this service and all its units.

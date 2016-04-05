@@ -164,7 +164,7 @@ var scenarioStatus = &params.FullStatus{
 				Data:   make(map[string]interface{}),
 			},
 			InstanceStatus: params.DetailedStatus{
-				Status: status.StatusPending,
+				Status: status.StatusPending.String(),
 				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",
@@ -181,7 +181,7 @@ var scenarioStatus = &params.FullStatus{
 				Data:   make(map[string]interface{}),
 			},
 			InstanceStatus: params.DetailedStatus{
-				Status: status.StatusPending,
+				Status: status.StatusPending.String(),
 				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",
@@ -198,7 +198,7 @@ var scenarioStatus = &params.FullStatus{
 				Data:   make(map[string]interface{}),
 			},
 			InstanceStatus: params.DetailedStatus{
-				Status: status.StatusPending,
+				Status: status.StatusPending.String(),
 				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",

@@ -76,10 +76,16 @@ func (u *UnitAgent) SetStatus(unitAgentStatus status.Status, info string, data m
 	})
 }
 
-// StatusHistory returns a slice of at most <size> StatusInfo items
+// StatusHistory returns a slice of at most filter.Size StatusInfo items
+// or items as old as filter.Date or items newer than now - filter.Delta time
 // representing past statuses for this agent.
-func (u *UnitAgent) StatusHistory(size int) ([]status.StatusInfo, error) {
-	return statusHistory(u.st, u.globalKey(), size)
+func (u *UnitAgent) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        u.st,
+		globalKey: u.globalKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
 }
 
 // unitAgentGlobalKey returns the global database key for the named unit.

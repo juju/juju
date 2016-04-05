@@ -170,7 +170,7 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
 	result, err = s.apiService.Status(s.wordpressUnit.Name())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(result.Service.Status, gc.Equals, status.StatusActive)
+	c.Check(result.Service.Status, gc.Equals, status.StatusActive.String())
 }
 
 func (s *serviceSuite) claimLeadership(c *gc.C, unit *state.Unit, service *state.Service) {

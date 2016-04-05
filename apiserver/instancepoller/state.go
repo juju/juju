@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/status"
 )
 
+// StateMachine represents a machine from state package.
 type StateMachine interface {
 	state.Entity
 

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -498,4 +499,17 @@ func AssertEndpointBindingsNotFoundForService(c *gc.C, service *Service) {
 
 func LeadershipLeases(st *State) map[string]lease.Info {
 	return st.leadershipClient.Leases()
+}
+
+// ProbablyUpdateUnitStatusHistory will try to add a status history entry using a date
+// padded back by <delta> time.
+func ProbablyUpdateUnitStatusHistory(st *State, u *Unit, histStatus status.Status, message string, delta time.Duration) {
+	now := time.Now().Add(-delta)
+	doc := statusDoc{
+		Status:     histStatus,
+		StatusInfo: message,
+		StatusData: map[string]interface{}{},
+		Updated:    now.UnixNano(),
+	}
+	probablyUpdateStatusHistory(st, u.globalKey(), doc)
 }

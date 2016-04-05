@@ -1001,12 +1001,18 @@ func (m *Machine) SetInstanceStatus(instanceStatus status.Status, info string, d
 
 }
 
-// InstanceStatusHistory returns a slice of at most <size> StatusInfo items
+// InstanceStatusHistory returns a slice of at most filter.Size StatusInfo items
+// or items as old as filter.Date or items newer than now - filter.Delta time
 // representing past statuses for this machine instance.
 // Instance represents the provider underlying [v]hardware or container where
 // this juju machine is deployed.
-func (u *Machine) InstanceStatusHistory(size int) ([]status.StatusInfo, error) {
-	return statusHistory(u.st, u.globalInstanceKey(), size)
+func (m *Machine) InstanceStatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        m.st,
+		globalKey: m.globalInstanceKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
 }
 
 // AvailabilityZone returns the provier-specific instance availability
@@ -1540,10 +1546,16 @@ func (m *Machine) SetStatus(machineStatus status.Status, info string, data map[s
 	})
 }
 
-// StatusHistory returns a slice of at most <size> StatusInfo items
+// StatusHistory returns a slice of at most filter.Size StatusInfo items
+// or items as old as filter.Date or items newer than now - filter.Delta time
 // representing past statuses for this machine.
-func (m *Machine) StatusHistory(size int) ([]status.StatusInfo, error) {
-	return statusHistory(m.st, m.globalKey(), size)
+func (m *Machine) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        m.st,
+		globalKey: m.globalKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
 }
 
 // Clean returns true if the machine does not have any deployed units or containers.

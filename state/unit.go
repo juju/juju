@@ -786,9 +786,15 @@ func (u *Unit) AgentStatus() (status.StatusInfo, error) {
 }
 
 // StatusHistory returns a slice of at most <size> StatusInfo items
+// or items as old as <date> or items newer than now - <delta> time
 // representing past statuses for this unit.
-func (u *Unit) StatusHistory(size int) ([]status.StatusInfo, error) {
-	return statusHistory(u.st, u.globalKey(), size)
+func (u *Unit) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        u.st,
+		globalKey: u.globalKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
 }
 
 // Status returns the status of the unit.

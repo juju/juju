@@ -67,18 +67,20 @@ func checkStatusInfo(c *gc.C, obtained []params.DetailedStatus, expected []statu
 		c.Assert(thisTimeStamp >= lastTimestamp, jc.IsTrue)
 		lastTimestamp = thisTimeStamp
 		obtainedInfo.Since = nil
-		c.Assert(obtainedInfo.Status, gc.Equals, status.Status(expected[i].Status))
+		c.Assert(obtainedInfo.Status, gc.Equals, expected[i].Status.String())
 		c.Assert(obtainedInfo.Info, gc.Equals, expected[i].Message)
 	}
 }
 
 func (s *statusHistoryTestSuite) TestSizeRequired(c *gc.C) {
-	_, err := s.api.StatusHistory(params.StatusHistoryArgs{
-		Name: "unit",
-		Kind: params.KindUnit,
-		Size: 0,
-	})
-	c.Assert(err, gc.ErrorMatches, "invalid history size: 0")
+	r := s.api.StatusHistory(params.StatusHistoryRequests{
+		Requests: []params.StatusHistoryRequest{{
+			Name:   "unit",
+			Kind:   status.KindUnit.String(),
+			Filter: params.StatusHistoryFilter{Size: 0},
+		}}})
+	c.Assert(r.Results, gc.HasLen, 1)
+	c.Assert(r.Results[0].Error.Message, gc.Equals, "validating status history request filtering options: no criteria provided: not valid")
 }
 
 func (s *statusHistoryTestSuite) TestStatusHistoryUnitOnly(c *gc.C) {
@@ -97,13 +99,15 @@ func (s *statusHistoryTestSuite) TestStatusHistoryUnitOnly(c *gc.C) {
 			Status: status.StatusIdle,
 		},
 	})
-	h, err := s.api.StatusHistory(params.StatusHistoryArgs{
-		Name: "unit/0",
-		Kind: params.KindWorkload,
-		Size: 10,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	checkStatusInfo(c, h.Statuses, reverseStatusInfo(s.st.unitHistory))
+	h := s.api.StatusHistory(params.StatusHistoryRequests{
+		Requests: []params.StatusHistoryRequest{{
+			Name:   "unit/0",
+			Kind:   status.KindWorkload.String(),
+			Filter: params.StatusHistoryFilter{Size: 10},
+		}}})
+	c.Assert(h.Results, gc.HasLen, 1)
+	c.Assert(h.Results[0].Error, gc.IsNil)
+	checkStatusInfo(c, h.Results[0].History.Statuses, reverseStatusInfo(s.st.unitHistory))
 }
 
 func (s *statusHistoryTestSuite) TestStatusHistoryAgentOnly(c *gc.C) {
@@ -125,13 +129,15 @@ func (s *statusHistoryTestSuite) TestStatusHistoryAgentOnly(c *gc.C) {
 			Status: status.StatusIdle,
 		},
 	})
-	h, err := s.api.StatusHistory(params.StatusHistoryArgs{
-		Name: "unit/0",
-		Kind: params.KindUnitAgent,
-		Size: 10,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	checkStatusInfo(c, h.Statuses, reverseStatusInfo(s.st.agentHistory))
+	h := s.api.StatusHistory(params.StatusHistoryRequests{
+		Requests: []params.StatusHistoryRequest{{
+			Name:   "unit/0",
+			Kind:   status.KindUnitAgent.String(),
+			Filter: params.StatusHistoryFilter{Size: 10},
+		}}})
+	c.Assert(h.Results, gc.HasLen, 1)
+	c.Assert(h.Results[0].Error, gc.IsNil)
+	checkStatusInfo(c, h.Results[0].History.Statuses, reverseStatusInfo(s.st.agentHistory))
 }
 
 func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *gc.C) {
@@ -157,18 +163,20 @@ func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *gc.C) {
 			Status: status.StatusIdle,
 		},
 	})
-	h, err := s.api.StatusHistory(params.StatusHistoryArgs{
-		Name: "unit/0",
-		Kind: params.KindUnit,
-		Size: 3,
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	h := s.api.StatusHistory(params.StatusHistoryRequests{
+		Requests: []params.StatusHistoryRequest{{
+			Name:   "unit/0",
+			Kind:   status.KindUnit.String(),
+			Filter: params.StatusHistoryFilter{Size: 3},
+		}}})
+	c.Assert(h.Results, gc.HasLen, 1)
+	c.Assert(h.Results[0].Error, gc.IsNil)
 	expected := []status.StatusInfo{
 		s.st.agentHistory[1],
 		s.st.unitHistory[0],
 		s.st.agentHistory[0],
 	}
-	checkStatusInfo(c, h.Statuses, expected)
+	checkStatusInfo(c, h.Results[0].History.Statuses, expected)
 }
 
 type mockState struct {
@@ -197,8 +205,8 @@ type mockUnit struct {
 	client.Unit
 }
 
-func (m *mockUnit) StatusHistory(size int) ([]status.StatusInfo, error) {
-	return m.status.StatusHistory(size)
+func (m *mockUnit) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	return m.status.StatusHistory(filter)
 }
 
 func (m *mockUnit) AgentHistory() status.StatusHistoryGetter {
@@ -211,9 +219,9 @@ type mockUnitAgent struct {
 
 type statuses []status.StatusInfo
 
-func (s statuses) StatusHistory(size int) ([]status.StatusInfo, error) {
-	if size > len(s) {
-		size = len(s)
+func (s statuses) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	if filter.Size > len(s) {
+		filter.Size = len(s)
 	}
-	return s[:size], nil
+	return s[:filter.Size], nil
 }

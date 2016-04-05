@@ -583,9 +583,9 @@ func (s *withoutControllerSuite) TestStatus(c *gc.C) {
 	}
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
-			{Status: status.StatusStarted, Info: "blah", Data: map[string]interface{}{}},
-			{Status: status.StatusStopped, Info: "foo", Data: map[string]interface{}{}},
-			{Status: status.StatusError, Info: "not really", Data: map[string]interface{}{"foo": "bar"}},
+			{Status: status.StatusStarted.String(), Info: "blah", Data: map[string]interface{}{}},
+			{Status: status.StatusStopped.String(), Info: "foo", Data: map[string]interface{}{}},
+			{Status: status.StatusError.String(), Info: "not really", Data: map[string]interface{}{"foo": "bar"}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

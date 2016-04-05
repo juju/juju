@@ -997,7 +997,7 @@ func (a *MachineAgent) startModelWorkers(uuid string) (worker.Worker, error) {
 		Clock:                       clock.WallClock,
 		RunFlagDuration:             time.Minute,
 		CharmRevisionUpdateInterval: 24 * time.Hour,
-		EntityStatusHistoryCount:    100,
+		EntityStatusHistoryCount:    5000,
 		EntityStatusHistoryInterval: 5 * time.Minute,
 		SpacesImportedGate:          a.discoverSpacesComplete,
 	})
