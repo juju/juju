@@ -58,6 +58,7 @@ def verify_services(client, expected_services, scheme='http', text=None):
 
 
 def assess_mediawiki_bundle(client):
+    logging.info('Assessing mediawiki bundle.')
     status = client.get_status()
     expected_services = ['haproxy', 'mediawiki', 'mysql', 'memcached',
                          'mysql-slave']
@@ -91,7 +92,7 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    assess_mediawiki_bundle(args.client, args)
+    assess_mediawiki_bundle(args.client)
 
 
 if __name__ == '__main__':

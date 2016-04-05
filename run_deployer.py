@@ -138,8 +138,9 @@ def main(argv=None):
             args, client, args.agent_timeout, args.workload_timeout)
         if args.bundle_verification_script:
             client_ser = pickle.dumps(client)
-            run_command([args.bundle_verification_script, client_ser],
-                        verbose=True)
+            logging.info('Calling bundle verification script {}'.format(
+                args.bundle_verification_script))
+            run_command([args.bundle_verification_script, client_ser])
     return 0
 
 
