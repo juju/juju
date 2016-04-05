@@ -78,14 +78,13 @@ func (s *allocationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 	}
 	s.allocate = &AllocateBudget{AllocationSpec: ""}
 	err := s.allocate.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
-	c.Assert(err, gc.ErrorMatches, `invalid allocation, expecting <budget>:<limit>`)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.allocate.RunPost(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, `invalid allocation, expecting <budget>:<limit>`)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}})
-
 }
 
 func (s *allocationSuite) TestMeteredCharmServiceUnavail(c *gc.C) {
@@ -98,15 +97,17 @@ func (s *allocationSuite) TestMeteredCharmServiceUnavail(c *gc.C) {
 	s.stub.SetErrors(nil, budget.NotAvailError{})
 	err := s.allocate.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.allocate.RunPost(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d, nil)
+	c.Assert(err, gc.ErrorMatches, "failed to allocate budget: service unreachable")
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
 	}})
-	c.Assert(coretesting.Stdout(s.ctx), gc.Equals, "WARNING: Budget allocation not created - service unreachable.\n")
+	c.Assert(coretesting.Stderr(s.ctx), gc.Equals, `failed to allocate budget: service unreachable\nTry running "juju allocate <budget>:<limit> service name".\n`)
 }
 
-func (s *allocationSuite) TestMeteredCharmRemoveAllocation(c *gc.C) {
+func (s *allocationSuite) TestMeteredCharmDeployFailed(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
@@ -117,13 +118,7 @@ func (s *allocationSuite) TestMeteredCharmRemoveAllocation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.allocate.RunPost(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d, errors.New("deployment failed"))
 	c.Assert(err, jc.ErrorIsNil)
-	s.stub.CheckCalls(c, []testing.StubCall{{
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
-	}, {
-		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}}}, {
-		"DeleteAllocation", []interface{}{"model uuid", "service name"}},
-	})
-	c.Assert(coretesting.Stdout(s.ctx), gc.Equals, "Allocation created.\nAllocation removed.\n")
+	s.stub.CheckCalls(c, nil)
 }
 
 func (s *allocationSuite) TestUnmeteredCharm(c *gc.C) {
