@@ -231,7 +231,7 @@ type OpPutFile struct {
 }
 
 // environProvider represents the dummy provider.  There is only ever one
-// instance of this type (providerInstance)
+// instance of this type (dummy)
 type environProvider struct {
 	mu             sync.Mutex
 	ops            chan<- Operation
@@ -241,8 +241,6 @@ type environProvider struct {
 	state      map[int]*environState
 	maxStateId int
 }
-
-var providerInstance environProvider
 
 const noStateId = 0
 
@@ -280,13 +278,11 @@ type environ struct {
 	spacesMutex  sync.RWMutex
 }
 
-var _ environs.Environ = (*environ)(nil)
-
 // discardOperations discards all Operations written to it.
 var discardOperations chan<- Operation
 
 func init() {
-	environs.RegisterProvider("dummy", &providerInstance)
+	environs.RegisterProvider("dummy", &dummy)
 
 	// Prime the first ops channel, so that naive clients can use
 	// the testing environment by simply importing it.
@@ -302,26 +298,29 @@ func init() {
 	providerDelay, _ = time.ParseDuration(os.Getenv("JUJU_DUMMY_DELAY"))
 }
 
+// dummy is the dummy environmentProvider singleton.
+var dummy environProvider
+
 // Reset resets the entire dummy environment and forgets any registered
 // operation listener.  All opened environments after Reset will share
 // the same underlying state.
 func Reset() {
 	logger.Infof("reset model")
-	providerInstance.mu.Lock()
-	defer providerInstance.mu.Unlock()
-	providerInstance.ops = discardOperations
-	for _, s := range providerInstance.state {
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	dummy.ops = discardOperations
+	for _, s := range dummy.state {
 		if s.apiListener != nil {
 			s.apiListener.Close()
 		}
 		s.destroy()
 	}
-	providerInstance.state = make(map[int]*environState)
+	dummy.state = make(map[int]*environState)
 	if mongoAlive() {
 		gitjujutesting.MgoServer.Reset()
 	}
-	providerInstance.statePolicy = environs.NewStatePolicy()
-	providerInstance.supportsSpaces = true
+	dummy.statePolicy = environs.NewStatePolicy()
+	dummy.supportsSpaces = true
 }
 
 func (state *environState) destroy() {
@@ -407,17 +406,17 @@ func (s *environState) listenAPI() int {
 // SetStatePolicy sets the state.Policy to use when a
 // state server is initialised by dummy.
 func SetStatePolicy(policy state.Policy) {
-	providerInstance.mu.Lock()
-	providerInstance.statePolicy = policy
-	providerInstance.mu.Unlock()
+	dummy.mu.Lock()
+	dummy.statePolicy = policy
+	dummy.mu.Unlock()
 }
 
 // SetSupportsSpaces allows to enable and disable SupportsSpaces for tests.
 func SetSupportsSpaces(supports bool) bool {
-	providerInstance.mu.Lock()
-	defer providerInstance.mu.Unlock()
-	current := providerInstance.supportsSpaces
-	providerInstance.supportsSpaces = supports
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	current := dummy.supportsSpaces
+	dummy.supportsSpaces = supports
 	return current
 }
 
@@ -425,16 +424,16 @@ func SetSupportsSpaces(supports bool) bool {
 // Subsequent operations on any dummy environment can be received on c
 // (if not nil).
 func Listen(c chan<- Operation) {
-	providerInstance.mu.Lock()
-	defer providerInstance.mu.Unlock()
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
 	if c == nil {
 		c = discardOperations
 	}
-	if providerInstance.ops != discardOperations {
-		close(providerInstance.ops)
+	if dummy.ops != discardOperations {
+		close(dummy.ops)
 	}
-	providerInstance.ops = c
-	for _, st := range providerInstance.state {
+	dummy.ops = c
+	for _, st := range dummy.state {
 		st.mu.Lock()
 		st.ops = c
 		st.mu.Unlock()
@@ -444,10 +443,9 @@ func Listen(c chan<- Operation) {
 // SetStorageDelay causes any storage download operation in any current
 // environment to be delayed for the given duration.
 func SetStorageDelay(d time.Duration) {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	for _, st := range p.state {
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	for _, st := range dummy.state {
 		st.mu.Lock()
 		st.storageDelay = d
 		st.mu.Unlock()
@@ -556,9 +554,9 @@ func (e *environ) state() (*environState, error) {
 	if stateId == noStateId {
 		return nil, ErrNotPrepared
 	}
-	providerInstance.mu.Lock()
-	defer providerInstance.mu.Unlock()
-	if state := providerInstance.state[stateId]; state != nil {
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	if state := dummy.state[stateId]; state != nil {
 		return state, nil
 	}
 	return nil, ErrDestroyed
@@ -635,7 +633,7 @@ func (p *environProvider) prepare(cfg *config.Config) (*config.Config, error) {
 }
 
 func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	ecfg, err := providerInstance.newConfig(cfg)
+	ecfg, err := dummy.newConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -829,7 +827,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	if err := e.checkBroken("SetConfig"); err != nil {
 		return err
 	}
-	ecfg, err := providerInstance.newConfig(cfg)
+	ecfg, err := dummy.newConfig(cfg)
 	if err != nil {
 		return err
 	}
@@ -852,9 +850,9 @@ func (e *environ) Destroy() (res error) {
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}
-	providerInstance.mu.Lock()
-	delete(providerInstance.state, estate.id)
-	providerInstance.mu.Unlock()
+	dummy.mu.Lock()
+	delete(dummy.state, estate.id)
+	dummy.mu.Unlock()
 
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
@@ -1064,9 +1062,9 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 
 // SupportsSpaces is specified on environs.Networking.
 func (env *environ) SupportsSpaces() (bool, error) {
-	providerInstance.mu.Lock()
-	defer providerInstance.mu.Unlock()
-	if !providerInstance.supportsSpaces {
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	if !dummy.supportsSpaces {
 		return false, errors.NotSupportedf("spaces")
 	}
 	return true, nil
@@ -1411,7 +1409,7 @@ func (e *environ) Ports() (ports []network.PortRange, err error) {
 }
 
 func (*environ) Provider() environs.EnvironProvider {
-	return &providerInstance
+	return &dummy
 }
 
 type dummyInstance struct {
