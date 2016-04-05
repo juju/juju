@@ -3,6 +3,7 @@ set -eu
 JUJU_HOME="$HOME/.juju"
 AMI_IMAGE=""
 SERIES=""
+REVISION_BUILD="lastSuccessfulBuild"
 while [[ "${1-}" != "" && $1 =~ ^-.*  ]]; do
     case $1 in
         --juju-home)
@@ -16,6 +17,10 @@ while [[ "${1-}" != "" && $1 =~ ^-.*  ]]; do
         --series)
             shift
             SERIES=$1
+            ;;
+        --revision-build)
+            shift
+            REVISION_BUILD=$1
             ;;
     esac
     shift
@@ -36,7 +41,7 @@ export JOB_NAME
 export PATH="$SCRIPTS:$PATH"
 source $JUJU_HOME/ec2rc
 mkdir -p bash
-$SCRIPTS/jujuci.py get -a build-revision buildvars.bash bash
+$SCRIPTS/jujuci.py get -a -b $REVISION_BUILD build-revision buildvars.bash bash
 source bash/buildvars.bash
 ec2-terminate-job-instances
 set -x
@@ -55,8 +60,8 @@ if [ -e debs ]; then
   rm -R debs
 fi
 mkdir -p debs
-$SCRIPTS/jujuci.py get -b lastSuccessfulBuild \
-    build-binary-trusty-$ARCH juju*.deb debs
+$SCRIPTS/s3ci.py get \
+    $revision_build build-binary-trusty-$ARCH 'juju.*\.deb' debs
 
 scp -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
   debs/*.deb ubuntu@$instance_name:
