@@ -40,6 +40,8 @@ func (s *InitialiserSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.calledCmds = []string{}
 	s.PatchValue(&manager.RunCommandWithRetry, getMockRunCommandWithRetry(&s.calledCmds))
+	s.PatchValue(&configureZFS, func() {})
+	s.PatchValue(&configureLXDBridge, func() error { return nil })
 }
 
 func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {

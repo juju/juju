@@ -76,7 +76,7 @@ func getPackagingConfigurer(series string) (config.PackagingConfigurer, error) {
 	return config.NewPackagingConfigurer(series)
 }
 
-func configureZFS() {
+var configureZFS = func() {
 	/* create a 100 GB pool by default (sparse, so it won't actually fill
 	 * that immediately)
 	 */
@@ -94,7 +94,7 @@ func configureZFS() {
 	}
 }
 
-func configureLXDBridge() error {
+var configureLXDBridge = func() error {
 	f, err := os.OpenFile(lxdBridgeFile, os.O_RDWR, 0777)
 	if err != nil {
 		/* We're using an old version of LXD which doesn't have
