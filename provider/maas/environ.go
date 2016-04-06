@@ -1284,7 +1284,7 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string) (clou
 	return cloudcfg, nil
 }
 
-func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Values, recurse bool) error {
+func (environ *maasEnviron) releaseNodes1(nodes gomaasapi.MAASObject, ids url.Values, recurse bool) error {
 	err := ReleaseNodes(nodes, ids)
 	if err == nil {
 		return nil
@@ -1321,7 +1321,7 @@ func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Val
 	for _, id := range ids["nodes"] {
 		idFilter := url.Values{}
 		idFilter.Add("nodes", id)
-		err := environ.releaseNodes(nodes, idFilter, false)
+		err := environ.releaseNodes1(nodes, idFilter, false)
 		if err != nil {
 			lastErr = err
 			logger.Errorf("error while releasing node %v (%v)", id, err)
@@ -1329,6 +1329,51 @@ func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Val
 	}
 	return errors.Trace(lastErr)
 
+}
+
+func (environ *maasEnviron) releaseNodes2(ids []instance.Id, recurse bool) error {
+	args := gomaasapi.ReleaseMachinesArgs{
+		SystemIDs: instanceIdsToSystemIDs(ids),
+		Comment:   "Released by Juju MAAS provider",
+	}
+	err := environ.maasController.ReleaseMachines(args)
+	if err == nil {
+		return nil
+	}
+
+	if gomaasapi.IsCannotCompleteError(err) {
+		// CannotCompleteError means a node couldn't be released due to
+		// a state conflict. Likely it's already released or disk
+		// erasing. We're assuming this error *only* means it's
+		// safe to assume the instance is already released.
+		// MaaS also releases (or attempts) all nodes, and raises
+		// a single error on failure. So even with an error 409, all
+		// nodes have been released.
+		logger.Infof("ignoring error while releasing nodes (%v); all nodes released OK", err)
+		return nil
+	} else if !gomaasapi.IsBadRequestError(err) &&
+		!gomaasapi.IsPermissionError(err) &&
+		!gomaasapi.IsNoMatchError(err) {
+		return errors.Annotatef(err, "cannot release nodes")
+	}
+	// a status code of 400, 403 or 404 means one of the nodes
+	// couldn't be found and none have been released. We have to
+	// release all the ones we can individually.
+
+	if !recurse {
+		// this node has already been released and we're golden
+		return nil
+	}
+
+	var lastErr error
+	for _, id := range ids {
+		err := environ.releaseNodes2([]instance.Id{id}, false)
+		if err != nil {
+			lastErr = err
+			logger.Errorf("error while releasing node %v (%v)", id, err)
+		}
+	}
+	return errors.Trace(lastErr)
 }
 
 func instanceIdsToSystemIDs(ids []instance.Id) []string {
@@ -1347,14 +1392,14 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	}
 
 	if environ.usingMAAS2() {
-		args := gomaasapi.ReleaseMachinesArgs{
-			SystemIDs: instanceIdsToSystemIDs(ids),
-			Comment:   "Released by Juju MAAS provider",
+		err := environ.releaseNodes2(ids, true)
+		if err != nil {
+			// Will already have been wrapped.
+			return err
 		}
-		return environ.maasController.ReleaseMachines(args)
 	} else {
 		nodes := environ.getMAASClient().GetSubObject("nodes")
-		err := environ.releaseNodes(nodes, getSystemIdValues("nodes", ids), true)
+		err := environ.releaseNodes1(nodes, getSystemIdValues("nodes", ids), true)
 		if err != nil {
 			// error will already have been wrapped
 			return err
