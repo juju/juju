@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -243,14 +244,9 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	instanceConfig.CustomImageMetadata = customImageMetadata
 	instanceConfig.HostedModelConfig = args.HostedModelConfig
 
-	gui, err := guiArchive()
-	if err != nil {
-		return errors.Annotate(err, "cannot set up Juju GUI")
-	}
-	if gui != nil {
-		instanceConfig.GUI = gui
-		ctx.Infof("Using Juju GUI %s from %s", gui.Version, gui.URL)
-	}
+	instanceConfig.GUI = guiArchive(func(msg string) {
+		ctx.Infof(msg)
+	})
 
 	if err := result.Finalize(ctx, instanceConfig); err != nil {
 		return err
@@ -464,31 +460,54 @@ func validateConstraints(env environs.Environ, cons constraints.Value) error {
 	return err
 }
 
-func guiArchive() (*coretools.GUIArchive, error) {
-	// TODO frankban: by default the GUI archive must be retrieved from
-	// simplestreams. The environment variable is only used temporarily for
-	// development purposes. This will be fixed before landing to master.
+// guiArchive returns information on the GUI archive that will be uploaded
+// to the controller. Possible errors in retrieving the GUI archive information
+// do not prevent the model to be bootstrapped. The given logProgress function
+// is used to inform users about errors or progress in setting up the Juju GUI.
+func guiArchive(logProgress func(string)) *coretools.GUIArchive {
+	// The environment variable is only used for development purposes.
 	path := os.Getenv("JUJU_GUI")
-	if path == "" {
-		// TODO frankban: implement the simplestreams case.
-		// This will be fixed before landing to master.
-		return nil, nil
+	if path != "" {
+		vers, err := guiVersion(path)
+		if err != nil {
+			logProgress(fmt.Sprintf("Cannot use Juju GUI at %q: %s", path, err))
+			return nil
+		}
+		hash, size, err := hashAndSize(path)
+		if err != nil {
+			logProgress(fmt.Sprintf("Cannot use Juju GUI at %q: %s", path, err))
+			return nil
+		}
+		logProgress(fmt.Sprintf("Preparing for Juju GUI %s installation from local archive", vers))
+		return &coretools.GUIArchive{
+			Version: vers,
+			URL:     "file://" + filepath.ToSlash(path),
+			SHA256:  hash,
+			Size:    size,
+		}
 	}
-	number, err := guiVersion(path)
+	// Fetch GUI archives info from simplestreams.
+	allMeta, err := guiFetchMetadata(gui.ReleasedStream, gui.NewDataSource(gui.DefaultBaseURL))
 	if err != nil {
-		return nil, errors.Mask(err)
+		logProgress(fmt.Sprintf("Unable to fetch Juju GUI info: %s", err))
+		return nil
 	}
-	hash, size, err := hashAndSize(path)
-	if err != nil {
-		return nil, errors.Mask(err)
+	if len(allMeta) == 0 {
+		logProgress("No available Juju GUI archives found")
+		return nil
 	}
+	// Metadata info are returned in descending version order.
+	logProgress(fmt.Sprintf("Preparing for Juju GUI %s release installation", allMeta[0].Version))
 	return &coretools.GUIArchive{
-		Version: number,
-		URL:     "file://" + filepath.ToSlash(path),
-		SHA256:  hash,
-		Size:    size,
-	}, nil
+		Version: allMeta[0].Version,
+		URL:     allMeta[0].FullPath,
+		SHA256:  allMeta[0].SHA256,
+		Size:    allMeta[0].Size,
+	}
 }
+
+// guiFetchMetadata is defined for testing purposes.
+var guiFetchMetadata = gui.FetchMetadata
 
 // guiVersion retrieves the GUI version from the juju-gui-* directory included
 // in the bz2 archive at the given path.
