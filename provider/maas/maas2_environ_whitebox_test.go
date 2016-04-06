@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -176,4 +177,48 @@ func (suite *maas2EnvironSuite) TestAvailabilityZonesError(c *gc.C) {
 	env := makeEnviron(c)
 	_, err := env.AvailabilityZones()
 	c.Assert(err, gc.ErrorMatches, "a bad thing")
+}
+
+func (suite *maas2EnvironSuite) TestSpaces(c *gc.C) {
+	suite.injectController(&fakeController{
+		spaces: []gomaasapi.Space{
+			fakeSpace{
+				name: "pepper",
+				id:   1234,
+			},
+			fakeSpace{
+				name: "freckles",
+				id:   4567,
+				subnets: []gomaasapi.Subnet{
+					fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"},
+					fakeSubnet{id: 98, vlanVid: 67, cidr: "192.168.11.0/24"},
+				},
+			},
+		},
+	})
+	env := makeEnviron(c)
+	result, err := env.Spaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Assert(result[0].Name, gc.Equals, "freckles")
+	c.Assert(result[0].ProviderId, gc.Equals, network.Id("4567"))
+	subnets := result[0].Subnets
+	c.Assert(subnets, gc.HasLen, 2)
+	c.Assert(subnets[0].ProviderId, gc.Equals, network.Id("99"))
+	c.Assert(subnets[0].VLANTag, gc.Equals, 66)
+	c.Assert(subnets[0].CIDR, gc.Equals, "192.168.10.0/24")
+	c.Assert(subnets[0].SpaceProviderId, gc.Equals, network.Id("4567"))
+	c.Assert(subnets[1].ProviderId, gc.Equals, network.Id("98"))
+	c.Assert(subnets[1].VLANTag, gc.Equals, 67)
+	c.Assert(subnets[1].CIDR, gc.Equals, "192.168.11.0/24")
+	c.Assert(subnets[1].SpaceProviderId, gc.Equals, network.Id("4567"))
+}
+
+func (suite *maas2EnvironSuite) TestSpacesError(c *gc.C) {
+	suite.injectController(&fakeController{
+		spacesError: errors.New("Joe Manginiello"),
+	})
+	env := makeEnviron(c)
+	_, err := env.Spaces()
+	c.Assert(err, gc.ErrorMatches, "Joe Manginiello")
 }

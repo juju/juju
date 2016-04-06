@@ -2085,6 +2085,14 @@ func (environ *maasEnviron) subnetToSpaceIds() (map[string]network.Id, error) {
 // Space name is not filled in as the provider doesn't know the juju name for
 // the space.
 func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
+	if environ.usingMAAS2() {
+		return environ.spaces2()
+	} else {
+		return environ.spaces1()
+	}
+}
+
+func (environ *maasEnviron) spaces1() ([]network.SpaceInfo, error) {
 	spacesClient := environ.getMAASClient().GetSubObject("spaces")
 	spacesJson, err := spacesClient.CallGet("", nil)
 	if err != nil {
@@ -2128,6 +2136,38 @@ func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
 		}
 	}
 	return spaces, nil
+}
+
+func (environ *maasEnviron) spaces2() ([]network.SpaceInfo, error) {
+	spaces, err := environ.maasController.Spaces()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var result []network.SpaceInfo
+	for _, space := range spaces {
+		if len(space.Subnets()) == 0 {
+			continue
+		}
+		outSpace := network.SpaceInfo{
+			Name:       space.Name(),
+			ProviderId: network.Id(strconv.Itoa(space.ID())),
+			Subnets:    make([]network.SubnetInfo, len(space.Subnets())),
+		}
+		for i, subnet := range space.Subnets() {
+			subnetInfo := network.SubnetInfo{
+				ProviderId:      network.Id(strconv.Itoa(subnet.ID())),
+				VLANTag:         subnet.VLAN().VID(),
+				CIDR:            subnet.CIDR(),
+				SpaceProviderId: network.Id(strconv.Itoa(space.ID())),
+				// TODO (babbageclunk): not setting
+				// AllocatableIPLow/High - these aren't exposed in
+				// gomaasapi just yet.
+			}
+			outSpace.Subnets[i] = subnetInfo
+		}
+		result = append(result, outSpace)
+	}
+	return result, nil
 }
 
 // Subnets returns basic information about the specified subnets known
