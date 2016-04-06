@@ -75,8 +75,13 @@ func FetchGUIArchives(stream string, sources ...simplestreams.DataSource) ([]*to
 // byVersion is used to sort GUI archives by version, most recent first.
 type byVersion []*tools.GUIArchive
 
-func (b byVersion) Len() int           { return len(b) }
-func (b byVersion) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+// Len implements sort.Interface.
+func (b byVersion) Len() int { return len(b) }
+
+// Swap implements sort.Interface.
+func (b byVersion) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
+
+// Less implements sort.Interface.
 func (b byVersion) Less(i, j int) bool { return b[i].Version.Compare(b[j].Version) > 0 }
 
 // fetch fetches Juju GUI metadata from simplestreams.

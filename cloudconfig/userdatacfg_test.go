@@ -403,7 +403,7 @@ printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 
 	// non controller with GUI (the GUI is not installed)
 	{
-		cfg: makeNormalConfig("quantal").setGUI("file://" + filepath.ToSlash("/path/to/gui.tar.bz2")),
+		cfg: makeNormalConfig("quantal").setGUI("file:///path/to/gui.tar.bz2"),
 		expectScripts: `
 set -xe
 install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown\.conf'

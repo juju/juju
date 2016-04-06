@@ -397,7 +397,7 @@ func (w *unixConfigure) setUpGUI() (func(), error) {
 		}
 		w.conf.AddRunBinaryFile(path.Join(guiDir, "gui.tar.bz2"), guiData, 0644)
 	} else {
-		// Upload the GUI from simplestreams.
+		// Download the GUI from simplestreams.
 		command := "curl -sSf -o $gui/gui.tar.bz2 --retry 10"
 		if w.icfg.DisableSSLHostnameVerification {
 			command += " --insecure"
