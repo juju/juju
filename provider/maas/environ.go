@@ -847,6 +847,22 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 	return nil, err
 }
 
+func (environ *maasEnviron) startNode2(node maas2Instance, series string, userdata []byte) (*maas2Instance, error) {
+	var err error
+	for a := shortAttempt.Start(); a.Next(); {
+		err = node.machine.Start(gomaasapi.StartArgs{DistroSeries: series, UserData: userdata})
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	// Machine.Start updates the machine in-place when it succeeds.
+	return &maas2Instance{node.machine}, nil
+
+}
+
 // DistributeInstances implements the state.InstanceDistributor policy.
 func (e *maasEnviron) DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
 	return common.DistributeInstances(e, candidates, distributionGroup)
