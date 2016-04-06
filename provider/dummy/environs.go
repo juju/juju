@@ -264,29 +264,31 @@ type environ struct {
 }
 
 // discardOperations discards all Operations written to it.
-var discardOperations chan<- Operation
+var discardOperations = make(chan Operation)
 
 func init() {
 	environs.RegisterProvider("dummy", &dummy)
 
 	// Prime the first ops channel, so that naive clients can use
 	// the testing environment by simply importing it.
-	c := make(chan Operation)
+	c := discardOperations
 	go func() {
 		for _ = range c {
 		}
 	}()
-	discardOperations = c
-	if err := Reset(); err != nil {
-		panic(err)
-	}
 
 	// parse errors are ignored
 	providerDelay, _ = time.ParseDuration(os.Getenv("JUJU_DUMMY_DELAY"))
 }
 
 // dummy is the dummy environmentProvider singleton.
-var dummy environProvider
+var dummy = environProvider{
+	ops:                    discardOperations,
+	state:                  make(map[string]*environState),
+	statePolicy:            environs.NewStatePolicy(),
+	supportsSpaces:         true,
+	supportsSpaceDiscovery: false,
+}
 
 // Reset resets the entire dummy environment and forgets any registered
 // operation listener.  All opened environments after Reset will share
