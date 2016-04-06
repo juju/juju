@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 
@@ -454,11 +455,11 @@ func (s *serviceSuite) TestAddCharm(c *gc.C) {
 
 	client := s.APIState.Client()
 	// First test the sanity checks.
-	err := client.AddCharm(&charm.URL{Name: "nonsense"})
+	err := client.AddCharm(&charm.URL{Name: "nonsense"}, csparams.StableChannel)
 	c.Assert(err, gc.ErrorMatches, `cannot parse charm or bundle URL: ":nonsense-0"`)
-	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"))
+	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"), csparams.StableChannel)
 	c.Assert(err, gc.ErrorMatches, "only charm store charm URLs are supported, with cs: schema")
-	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"))
+	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"), csparams.StableChannel)
 	c.Assert(err, gc.ErrorMatches, "charm URL must include revision")
 
 	// Add a charm, without uploading it to storage, to
@@ -476,14 +477,14 @@ func (s *serviceSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// AddCharm should see the charm in state and not upload it.
-	err = client.AddCharm(sch.URL())
+	err = client.AddCharm(sch.URL(), csparams.StableChannel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(blobs.m, gc.HasLen, 0)
 
 	// Now try adding another charm completely.
 	curl, _ = s.UploadCharm(c, "precise/wordpress-3", "wordpress")
-	err = client.AddCharm(curl)
+	err = client.AddCharm(curl, csparams.StableChannel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify it's in state and it got uploaded.
@@ -505,7 +506,7 @@ func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
 
 	// Try to add a charm to the environment without authorization.
 	s.DischargeUser = ""
-	err = s.APIState.Client().AddCharm(curl)
+	err = s.APIState.Client().AddCharm(curl, csparams.StableChannel)
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: discharge denied \(unauthorized access\)`)
 
 	tryAs := func(user string) error {
@@ -517,7 +518,10 @@ func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
 		err = client.Get("/delegatable-macaroon", &m)
 		c.Assert(err, gc.IsNil)
 
-		return service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
+		return service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
+			URL:     curl.String(),
+			Channel: string(csparams.StableChannel),
+		})
 	}
 	// Try again with authorization for the wrong user.
 	err = tryAs("joe")
@@ -557,7 +561,7 @@ func (s *serviceSuite) TestAddCharmConcurrently(c *gc.C) {
 		go func(index int) {
 			defer wg.Done()
 
-			c.Assert(client.AddCharm(curl), gc.IsNil, gc.Commentf("goroutine %d", index))
+			c.Assert(client.AddCharm(curl, csparams.StableChannel), gc.IsNil, gc.Commentf("goroutine %d", index))
 			sch, err := s.State.Charm(curl)
 			c.Assert(err, gc.IsNil, gc.Commentf("goroutine %d", index))
 			c.Assert(sch.URL(), jc.DeepEquals, curl, gc.Commentf("goroutine %d", index))
@@ -606,7 +610,7 @@ func (s *serviceSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 
 	// Now try to add the charm, which will convert the placeholder to
 	// a pending charm.
-	err = client.AddCharm(curl)
+	err = client.AddCharm(curl, csparams.StableChannel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the document's flags were reset as expected.
@@ -948,7 +952,7 @@ func (s *serviceSuite) TestSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *
 
 	// Check that the store's test mode is enabled when calling AddCharm.
 	curl, _ = s.UploadCharm(c, "utopic/riak-42", "riak")
-	err = s.APIState.Client().AddCharm(curl)
+	err = s.APIState.Client().AddCharm(curl, csparams.StableChannel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(repo.testMode, jc.IsTrue)
 }

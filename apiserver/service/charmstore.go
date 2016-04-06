@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
@@ -62,7 +63,7 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 		return nil
 	}
 
-	// Get the charm and its information from the store.
+	// Open a charm store client.
 	envConfig, err := st.ModelConfig()
 	if err != nil {
 		return err
@@ -71,7 +72,7 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 	if err != nil {
 		return err
 	}
-	csParams := charmrepo.NewCharmStoreParams{
+	csParams := csclient.Params{
 		URL:        csURL.String(),
 		HTTPClient: httpbakery.NewHTTPClient(),
 	}
@@ -83,10 +84,15 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 		ms := []*macaroon.Macaroon{args.CharmStoreMacaroon}
 		httpbakery.SetCookie(csParams.HTTPClient.Jar, csURL, ms)
 	}
-	repo := config.SpecializeCharmRepo(
-		NewCharmStore(csParams),
-		envConfig,
-	)
+	csClient := csclient.New(csParams)
+	channel := csparams.Channel(args.Channel)
+	if channel != csparams.NoChannel {
+		csClient = csClient.WithChannel(channel)
+	}
+	repo := charmrepo.NewCharmStoreFromClient(csClient)
+	repo = config.SpecializeCharmRepo(repo, envConfig).(*charmrepo.CharmStore)
+
+	// Get the charm and its information from the store.
 	downloadedCharm, err := repo.Get(charmURL)
 	if err != nil {
 		cause := errors.Cause(err)
