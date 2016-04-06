@@ -273,14 +273,10 @@ func init() {
 
 	// Prime the first ops channel, so that naive clients can use
 	// the testing environment by simply importing it.
-	c := discardOperations
 	go func() {
-		for _ = range c {
+		for _ = range discardOperations {
 		}
 	}()
-
-	// parse errors are ignored
-	providerDelay, _ = time.ParseDuration(os.Getenv("JUJU_DUMMY_DELAY"))
 }
 
 // dummy is the dummy environmentProvider singleton.
@@ -1652,7 +1648,7 @@ func (inst *dummyInstance) Ports(machineId string) (ports []network.PortRange, e
 // providerDelay controls the delay before dummy responds.
 // non empty values in JUJU_DUMMY_DELAY will be parsed as
 // time.Durations into this value.
-var providerDelay time.Duration
+var providerDelay, _ = time.ParseDuration(os.Getenv("JUJU_DUMMY_DELAY")) // parse errors are ignored
 
 // pause execution to simulate the latency of a real provider
 func delay() {
