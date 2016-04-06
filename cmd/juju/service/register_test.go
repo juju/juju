@@ -69,10 +69,6 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
-		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
-	}, {
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
-	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:   "model uuid",
 			CharmURL:    "cs:quantal/metered-1",
@@ -88,6 +84,10 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 				MetricCredentials: authorization,
 			}},
 		}},
+	}, {
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
+	}, {
+		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
 	}})
 }
 
@@ -109,10 +109,6 @@ func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
-		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
-	}, {
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
-	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:   "model uuid",
 			CharmURL:    "cs:quantal/metered-1",
@@ -121,8 +117,6 @@ func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 			Budget:      "personal",
 			Limit:       "100",
 		}},
-	}, {
-		"DeleteAllocation", []interface{}{"model uuid", "service name"},
 	}})
 }
 
@@ -147,6 +141,8 @@ func (s *registrationSuite) TestMeteredLocalCharmWithPlan(c *gc.C) {
 			CharmURL:    "local:quantal/metered-1",
 			ServiceName: "service name",
 			PlanURL:     "someplan",
+			Budget:      "personal",
+			Limit:       "100",
 		}},
 	}, {
 		"APICall", []interface{}{"Service", "SetMetricCredentials", params.ServiceMetricCredentials{
@@ -211,10 +207,6 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
-		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
-	}, {
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
-	}, {
 		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
@@ -232,11 +224,15 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 				MetricCredentials: authorization,
 			}},
 		}},
+	}, {
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
+	}, {
+		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
 	}})
 }
 
 func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
-	s.stub.SetErrors(nil, nil, nil, errors.NotFoundf("default plan"))
+	s.stub.SetErrors(nil, errors.NotFoundf("default plan"))
 	s.register = &RegisterMeteredCharm{
 		AllocateBudget: AllocateBudget{AllocationSpec: "personal:100"},
 		RegisterURL:    s.server.URL, QueryURL: s.server.URL}
@@ -251,10 +247,6 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
-		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
-	}, {
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
-	}, {
 		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
 	}, {
 		"ListPlans", []interface{}{"cs:quantal/metered-1"},
@@ -262,7 +254,7 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 }
 
 func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
-	s.stub.SetErrors(nil, nil, nil, errors.New("something failed"))
+	s.stub.SetErrors(nil, errors.New("something failed"))
 	s.register = &RegisterMeteredCharm{
 		AllocateBudget: AllocateBudget{AllocationSpec: "personal:100"},
 		RegisterURL:    s.server.URL, QueryURL: s.server.URL}
@@ -275,10 +267,6 @@ func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, gc.ErrorMatches, `failed to query default plan:.*`)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
-	}, {
-		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
-	}, {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
@@ -296,8 +284,6 @@ func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/unmetered-1"}},
-	}, {
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/unmetered-1"}},
 	}})
 	s.stub.ResetCalls()
 	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d, nil)
@@ -306,7 +292,7 @@ func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 }
 
 func (s *registrationSuite) TestFailedAuth(c *gc.C) {
-	s.stub.SetErrors(nil, nil, nil, fmt.Errorf("could not authorize"))
+	s.stub.SetErrors(nil, fmt.Errorf("could not authorize"))
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
 		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
@@ -319,10 +305,6 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 	authorization = append(authorization, byte(0xa))
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
-	}, {
-		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
-	}, {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
