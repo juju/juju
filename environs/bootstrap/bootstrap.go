@@ -358,7 +358,7 @@ func bootstrapImageMetadata(
 	for _, source := range sources {
 		sourceMetadata, _, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, imageConstraint)
 		if err != nil {
-			logger.Debugf("ignoring image metadata in %s because %v", source.Description(), err)
+			logger.Debugf("ignoring image metadata in %s: %v", source.Description(), err)
 			// Just keep looking...
 			continue
 		}
@@ -366,7 +366,7 @@ func bootstrapImageMetadata(
 		publicImageMetadata = append(publicImageMetadata, sourceMetadata...)
 	}
 
-	logger.Debugf("found %d image metadata from all obtined image data sources", len(publicImageMetadata))
+	logger.Debugf("found %d image metadata from all image data sources", len(publicImageMetadata))
 	if len(publicImageMetadata) == 0 {
 		return nil, errors.New("no image metadata found")
 	}
