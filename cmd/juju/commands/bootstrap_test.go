@@ -121,7 +121,7 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
-	dummy.Reset()
+	dummy.Reset(c)
 }
 
 func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
@@ -178,7 +178,7 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 		{-1, errOther}, // another error is returned
 	} {
 		resetJujuXDGDataHome(c)
-		dummy.Reset()
+		dummy.Reset(c)
 		s.store = jujuclienttesting.NewMemStore()
 
 		s.mockBlockClient.numRetries = t.numRetries
@@ -259,7 +259,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	// Create home with dummy provider and remove all
 	// of its envtools.
 	resetJujuXDGDataHome(c)
-	dummy.Reset()
+	dummy.Reset(c)
 
 	var restore testing.Restorer = func() {
 		s.store = jujuclienttesting.NewMemStore()

@@ -21,7 +21,7 @@ type suite struct {
 var _ = gc.Suite(&suite{})
 
 func (s *suite) TearDownTest(c *gc.C) {
-	dummy.Reset()
+	dummy.Reset(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 

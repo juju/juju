@@ -36,7 +36,9 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/agent"
@@ -291,9 +293,9 @@ var dummy = environProvider{
 }
 
 // Reset resets the entire dummy environment and forgets any registered
-// operation listener.  All opened environments after Reset will share
+// operation listener. All opened environments after Reset will share
 // the same underlying state.
-func Reset() error {
+func Reset(c *gc.C) {
 	logger.Infof("reset model")
 	dummy.mu.Lock()
 	defer dummy.mu.Unlock()
@@ -306,14 +308,12 @@ func Reset() error {
 	}
 	dummy.state = make(map[string]*environState)
 	if mongoAlive() {
-		if err := gitjujutesting.MgoServer.Reset(); err != nil {
-			return errors.Trace(err)
-		}
+		err := gitjujutesting.MgoServer.Reset()
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	dummy.statePolicy = environs.NewStatePolicy()
 	dummy.supportsSpaces = true
 	dummy.supportsSpaceDiscovery = false
-	return nil
 }
 
 func (state *environState) destroy() {
