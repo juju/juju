@@ -9,15 +9,17 @@ import (
 
 type fakeController struct {
 	gomaasapi.Controller
-	bootResources      []gomaasapi.BootResource
-	bootResourcesError error
-	machines           []gomaasapi.Machine
-	machinesError      error
-	machinesArgsCheck  func(gomaasapi.MachinesArgs)
-	zones              []gomaasapi.Zone
-	zonesError         error
-	spaces             []gomaasapi.Space
-	spacesError        error
+	bootResources         []gomaasapi.BootResource
+	bootResourcesError    error
+	machines              []gomaasapi.Machine
+	machinesError         error
+	machinesArgsCheck     func(gomaasapi.MachinesArgs)
+	zones                 []gomaasapi.Zone
+	zonesError            error
+	spaces                []gomaasapi.Space
+	spacesError           error
+	releaseMachinesErrors []error
+	releaseMachinesArgs   []gomaasapi.ReleaseMachinesArgs
 }
 
 func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
@@ -49,6 +51,16 @@ func (c *fakeController) Spaces() ([]gomaasapi.Space, error) {
 		return nil, c.spacesError
 	}
 	return c.spaces, nil
+}
+
+func (c *fakeController) ReleaseMachines(args gomaasapi.ReleaseMachinesArgs) error {
+	if c.releaseMachinesErrors == nil {
+		return nil
+	}
+	c.releaseMachinesArgs = append(c.releaseMachinesArgs, args)
+	err := c.releaseMachinesErrors[0]
+	c.releaseMachinesErrors = c.releaseMachinesErrors[1:]
+	return err
 }
 
 type fakeBootResource struct {
