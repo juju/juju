@@ -1301,6 +1301,7 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	c.Assert(ec2Inst.Tags, jc.SameContents, []amzec2.Tag{
 		{"Name", "juju-sample-machine-0"},
 		{"juju-model-uuid", coretesting.ModelTag.Id()},
+		{"juju-controller-uuid", coretesting.ModelTag.Id()},
 		{"juju-is-controller", "true"},
 	})
 }
@@ -1330,6 +1331,7 @@ func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
 	c.Assert(found.Tags, jc.SameContents, []amzec2.Tag{
 		{"Name", "juju-sample-machine-0-root"},
 		{"juju-model-uuid", coretesting.ModelTag.Id()},
+		{"juju-controller-uuid", coretesting.ModelTag.Id()},
 	})
 }
 

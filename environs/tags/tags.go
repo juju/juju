@@ -13,9 +13,13 @@ const (
 	// Juju model a resource is part of.
 	JujuModel = JujuTagPrefix + "model-uuid"
 
-	// JujuController is the tag name used for determining
+	// JujuModel is the tag name used for identifying the
+	// Juju controller that manages a resource.
+	JujuController = JujuTagPrefix + "controller-uuid"
+
+	// JujuIsController is the tag name used for determining
 	// whether a machine instance is a controller or not.
-	JujuController = JujuTagPrefix + "is-controller"
+	JujuIsController = JujuTagPrefix + "is-controller"
 
 	// JujuUnitsDeployed is the tag name used for identifying
 	// the units deployed to a machine instance. The value is
@@ -43,7 +47,7 @@ type ResourceTagger interface {
 
 // ResourceTags returns tags to set on an infrastructure resource
 // for the specified Juju environment.
-func ResourceTags(e names.ModelTag, taggers ...ResourceTagger) map[string]string {
+func ResourceTags(modelTag, controllerTag names.ModelTag, taggers ...ResourceTagger) map[string]string {
 	allTags := make(map[string]string)
 	for _, tagger := range taggers {
 		tags, ok := tagger.ResourceTags()
@@ -54,6 +58,7 @@ func ResourceTags(e names.ModelTag, taggers ...ResourceTagger) map[string]string
 			allTags[k] = v
 		}
 	}
-	allTags[JujuModel] = e.Id()
+	allTags[JujuModel] = modelTag.Id()
+	allTags[JujuController] = controllerTag.Id()
 	return allTags
 }
