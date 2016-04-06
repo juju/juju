@@ -10,6 +10,7 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
@@ -111,7 +112,7 @@ type ManifoldsConfig struct {
 func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 	// connectFilter exists:
-	//  1) to let us retry api connections immeduately on password change,
+	//  1) to let us retry api connections immediately on password change,
 	//     rather than causing the dependency engine to wait for a while;
 	//  2) to ensure that certain connection failures correctly trigger
 	//     complete agent removal. (It's not safe to let any agent other
@@ -371,10 +372,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 }
 
-func ifFullyUpgraded(manifold dependency.Manifold) dependency.Manifold {
-	manifold = dependency.WithFlag(manifold, upgradeStepsFlagName)
-	return dependency.WithFlag(manifold, upgradeCheckFlagName)
-}
+var ifFullyUpgraded = util.Housing{
+	Flags: []string{
+		upgradeStepsFlagName,
+		upgradeCheckFlagName,
+	},
+}.Decorate
 
 const (
 	agentName                = "agent"

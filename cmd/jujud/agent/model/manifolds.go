@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker"
@@ -35,7 +36,6 @@ import (
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/undertaker"
 	"github.com/juju/juju/worker/unitassigner"
-	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldsConfig holds the dependencies and configuration options for a
@@ -234,24 +234,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 }
 
-// ifResponsible wraps a manifold such that it only runs if the
-// responsibility flag is set.
-func ifResponsible(manifold dependency.Manifold) dependency.Manifold {
-	return dependency.WithFlag(manifold, isResponsibleFlagName)
-}
-
-// ifNotAlive wraps a manifold such that it only runs if the
-// responsibility flag is set and the model is Dying or Dead.
-func ifNotAlive(manifold dependency.Manifold) dependency.Manifold {
-	return ifResponsible(dependency.WithFlag(manifold, notAliveFlagName))
-}
-
-// ifNotDead wraps a manifold such that it only runs if the responsibility
-// flag is set and the model is Alive or Dying.
-func ifNotDead(manifold dependency.Manifold) dependency.Manifold {
-	return ifResponsible(dependency.WithFlag(manifold, notDeadFlagName))
-}
-
 // clockManifold expresses a Clock as a ValueWorker manifold.
 func clockManifold(clock clock.Clock) dependency.Manifold {
 	return dependency.Manifold{
@@ -261,6 +243,34 @@ func clockManifold(clock clock.Clock) dependency.Manifold {
 		Output: util.ValueWorkerOutput,
 	}
 }
+
+var (
+	// ifResponsible wraps a manifold such that it only runs if the
+	// responsibility flag is set.
+	ifResponsible = util.Housing{
+		Flags: []string{
+			isResponsibleFlagName,
+		},
+	}.Decorate
+
+	// ifNotAlive wraps a manifold such that it only runs if the
+	// responsibility flag is set and the model is Dying or Dead.
+	ifNotAlive = util.Housing{
+		Flags: []string{
+			isResponsibleFlagName,
+			notAliveFlagName,
+		},
+	}.Decorate
+
+	// ifNotDead wraps a manifold such that it only runs if the
+	// responsibility flag is set and the model is Alive or Dying.
+	ifNotDead = util.Housing{
+		Flags: []string{
+			isResponsibleFlagName,
+			notDeadFlagName,
+		},
+	}.Decorate
+)
 
 const (
 	agentName            = "agent"

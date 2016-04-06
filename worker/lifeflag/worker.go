@@ -113,7 +113,7 @@ func (w *Worker) Wait() error {
 	return filter(w.catacomb.Wait())
 }
 
-// Check is part of the dependency.Flag interface.
+// Check is part of the util.Flag interface.
 func (w *Worker) Check() bool {
 	return w.config.Result(w.life)
 }
