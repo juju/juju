@@ -5,6 +5,7 @@ package maas
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/gomaasapi"
 
@@ -27,8 +28,7 @@ func (mi *maas2Instance) hostname() (string, error) {
 }
 
 func (mi *maas2Instance) hardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
-	// XXX strip off kernel version from architecture
-	nodeArch := mi.machine.Architecture()
+	nodeArch := strings.Split(mi.machine.Architecture(), "/")[0]
 	nodeCpuCount := uint64(mi.machine.CPUCount())
 	nodeMemoryMB := uint64(mi.machine.Memory())
 	zone := mi.zone()
@@ -38,7 +38,7 @@ func (mi *maas2Instance) hardwareCharacteristics() (*instance.HardwareCharacteri
 		Mem:              &nodeMemoryMB,
 		AvailabilityZone: &zone,
 	}
-	// TODO: also need hardware tags
+	// TODO (mfoord): also need machine tags
 	return hc, nil
 }
 

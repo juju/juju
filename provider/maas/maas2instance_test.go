@@ -60,3 +60,28 @@ func (s *maas2InstanceSuite) TestStatusError(c *gc.C) {
 	result := thing.Status()
 	c.Assert(result, jc.DeepEquals, instance.InstanceStatus{"", "error in getting status"})
 }
+
+func (s *maas2InstanceSuite) TestHostname(c *gc.C) {
+	thing := &maas2Instance{&fakeMachine{hostname: "saul-goodman"}}
+	result, err := thing.hostname()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, "saul-goodman")
+}
+
+func (s *maas2InstanceSuite) TestHardwareCharacteristics(c *gc.C) {
+	machine := &fakeMachine{cpuCount: 3, memory: 4, architecture: "foo/bam", zoneName: "bar"}
+	thing := &maas2Instance{machine}
+	arch := "foo"
+	cpu := uint64(3)
+	mem := uint64(4)
+	zone := "bar"
+	expected := &instance.HardwareCharacteristics{
+		Arch:             &arch,
+		CpuCores:         &cpu,
+		Mem:              &mem,
+		AvailabilityZone: &zone,
+	}
+	result, err := thing.hardwareCharacteristics()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, expected)
+}
