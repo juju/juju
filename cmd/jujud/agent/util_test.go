@@ -32,7 +32,7 @@ var (
 		"storage-provisioner", "firewaller", "unit-assigner",
 		"service-scaler", "instance-poller", "charm-revision-updater",
 		"metric-worker", "state-cleaner", "status-history-pruner",
-		"migration-master",
+		"migration-master", "migration-fortress",
 	}
 	deadModelWorkers = []string{
 		"environ-tracker", "undertaker",

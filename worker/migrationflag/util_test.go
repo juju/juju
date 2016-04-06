@@ -5,13 +5,16 @@ package migrationflag_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
+	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/workertest"
 )
@@ -102,11 +105,21 @@ func panicCheck(migration.Phase) bool { panic("unexpected") }
 // neverCheck is a Config.Check value that always returns false.
 func neverCheck(migration.Phase) bool { return false }
 
+// panicFacade is a NewFacade that should not be called.
+func panicFacade(base.APICaller) (migrationflag.Facade, error) {
+	panic("panicFacade")
+}
+
+// panicWorker is a NewWorker that should not be called.
+func panicWorker(migrationflag.Config) (worker.Worker, error) {
+	panic("panicWorker")
+}
+
 // isQuiesce is a Config.Check value that returns whether the phase is QUIESCE.
 func isQuiesce(p migration.Phase) bool { return p == migration.QUIESCE }
 
 // validConfig returns a minimal config stuffed with dummy objects that
-// will expose when used.
+// will explode when used.
 func validConfig() migrationflag.Config {
 	return migrationflag.Config{
 		Facade: struct{ migrationflag.Facade }{},
@@ -129,4 +142,35 @@ func checkNotValid(c *gc.C, config migrationflag.Config, expect string) {
 	worker, err := migrationflag.New(config)
 	c.Check(worker, gc.IsNil)
 	check(err)
+}
+
+// validManifoldConfig returns a minimal config stuffed with dummy objects
+// that will explode when used.
+func validManifoldConfig() migrationflag.ManifoldConfig {
+	return migrationflag.ManifoldConfig{
+		APICallerName: "api-caller",
+		Check:         panicCheck,
+		NewFacade:     panicFacade,
+		NewWorker:     panicWorker,
+	}
+}
+
+// checkManifoldNotValid checks that the supplied ManifoldConfig creates
+// a manifold that cannot be started.
+func checkManifoldNotValid(c *gc.C, config migrationflag.ManifoldConfig, expect string) {
+	manifold := migrationflag.Manifold(config)
+	worker, err := manifold.Start(dt.StubContext(nil, nil))
+	c.Check(worker, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, expect)
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}
+
+// stubCaller is a base.APICaller that only implements ModelTag.
+type stubCaller struct {
+	base.APICaller
+}
+
+// ModelTag is part of the base.APICaller interface.
+func (*stubCaller) ModelTag() (names.ModelTag, error) {
+	return names.NewModelTag(validUUID), nil
 }

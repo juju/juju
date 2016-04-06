@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api"
 	masterapi "github.com/juju/juju/api/migrationmaster"
@@ -18,7 +18,9 @@ import (
 	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/workertest"
 )
@@ -87,10 +89,14 @@ func (s *Suite) triggerMigration(masterClient *stubMasterClient) {
 
 func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 	masterClient := newStubMasterClient(s.stub)
-	w := migrationmaster.New(masterClient)
+	worker, err := migrationmaster.New(migrationmaster.Config{
+		Facade: masterClient,
+		Guard:  newStubGuard(s.stub),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterClient)
 
-	err := workertest.CheckKilled(c, w)
+	err = workertest.CheckKilled(c, worker)
 	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrUninstall)
 
 	// Observe that the migration was seen, the model exported, an API
@@ -99,6 +105,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterClient.Watch", nil},
 		{"masterClient.GetMigrationStatus", nil},
+		{"guard.Lockdown", nil},
 		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
 		{"masterClient.SetPhase", []interface{}{migration.PRECHECK}},
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
@@ -118,16 +125,21 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 	// Test that a partially complete migration can be resumed.
 
 	masterClient := newStubMasterClient(s.stub)
-	w := migrationmaster.New(masterClient)
+	worker, err := migrationmaster.New(migrationmaster.Config{
+		Facade: masterClient,
+		Guard:  newStubGuard(s.stub),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	masterClient.status.Phase = migration.VALIDATION
 	s.triggerMigration(masterClient)
 
-	err := workertest.CheckKilled(c, w)
+	err = workertest.CheckKilled(c, worker)
 	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrUninstall)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterClient.Watch", nil},
 		{"masterClient.GetMigrationStatus", nil},
+		{"guard.Lockdown", nil},
 		{"masterClient.SetPhase", []interface{}{migration.SUCCESS}},
 		{"masterClient.SetPhase", []interface{}{migration.LOGTRANSFER}},
 		{"masterClient.SetPhase", []interface{}{migration.REAP}},
@@ -139,9 +151,13 @@ func (s *Suite) TestPreviouslyAbortedMigration(c *gc.C) {
 	masterClient := newStubMasterClient(s.stub)
 	masterClient.status.Phase = migration.ABORTDONE
 	s.triggerMigration(masterClient)
-	w := migrationmaster.New(masterClient)
-	workertest.CheckAlive(c, w)
-	workertest.CleanKill(c, w)
+	worker, err := migrationmaster.New(migrationmaster.Config{
+		Facade: masterClient,
+		Guard:  newStubGuard(s.stub),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	workertest.CheckAlive(c, worker)
+	workertest.CleanKill(c, worker)
 
 	// No reliable way to test stub calls in this case unfortunately.
 }
@@ -150,9 +166,13 @@ func (s *Suite) TestPreviouslyCompletedMigration(c *gc.C) {
 	masterClient := newStubMasterClient(s.stub)
 	masterClient.status.Phase = migration.DONE
 	s.triggerMigration(masterClient)
-	w := migrationmaster.New(masterClient)
+	worker, err := migrationmaster.New(migrationmaster.Config{
+		Facade: masterClient,
+		Guard:  newStubGuard(s.stub),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
-	err := workertest.CheckKilled(c, w)
+	err = workertest.CheckKilled(c, worker)
 	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrUninstall)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
@@ -162,25 +182,115 @@ func (s *Suite) TestPreviouslyCompletedMigration(c *gc.C) {
 }
 
 func (s *Suite) TestWatchFailure(c *gc.C) {
-	client := newStubMasterClient(s.stub)
-	client.watchErr = errors.New("boom")
-	w := migrationmaster.New(client)
-	err := workertest.CheckKilled(c, w)
+	masterClient := newStubMasterClient(s.stub)
+	masterClient.watchErr = errors.New("boom")
+	worker, err := migrationmaster.New(migrationmaster.Config{
+		Facade: masterClient,
+		Guard:  newStubGuard(s.stub),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = workertest.CheckKilled(c, worker)
 	c.Assert(err, gc.ErrorMatches, "watching for migration: boom")
+}
+
+func (s *Suite) TestStatusError(c *gc.C) {
+	masterClient := newStubMasterClient(s.stub)
+	masterClient.statusErr = errors.New("splat")
+	worker, err := migrationmaster.New(migrationmaster.Config{
+		Facade: masterClient,
+		Guard:  newStubGuard(s.stub),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.triggerMigration(masterClient)
+
+	err = workertest.CheckKilled(c, worker)
+
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"masterClient.Watch", nil},
+		{"masterClient.GetMigrationStatus", nil},
+	})
+}
+
+func (s *Suite) TestStatusNotFound(c *gc.C) {
+	masterClient := newStubMasterClient(s.stub)
+	masterClient.statusErr = &params.Error{Code: params.CodeNotFound}
+	worker, err := migrationmaster.New(migrationmaster.Config{
+		Facade: masterClient,
+		Guard:  newStubGuard(s.stub),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.triggerMigration(masterClient)
+
+	workertest.CheckAlive(c, worker)
+	workertest.CleanKill(c, worker)
+
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"masterClient.Watch", nil},
+		{"masterClient.GetMigrationStatus", nil},
+		{"guard.Unlock", nil},
+	})
+}
+
+func (s *Suite) TestUnlockError(c *gc.C) {
+	masterClient := newStubMasterClient(s.stub)
+	masterClient.statusErr = &params.Error{Code: params.CodeNotFound}
+	guard := newStubGuard(s.stub)
+	guard.unlockErr = errors.New("pow")
+	worker, err := migrationmaster.New(migrationmaster.Config{
+		Facade: masterClient,
+		Guard:  guard,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.triggerMigration(masterClient)
+
+	err = workertest.CheckKilled(c, worker)
+	c.Check(err, gc.ErrorMatches, "pow")
+
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"masterClient.Watch", nil},
+		{"masterClient.GetMigrationStatus", nil},
+		{"guard.Unlock", nil},
+	})
+}
+
+func (s *Suite) TestLockdownError(c *gc.C) {
+	masterClient := newStubMasterClient(s.stub)
+	guard := newStubGuard(s.stub)
+	guard.lockdownErr = errors.New("biff")
+	worker, err := migrationmaster.New(migrationmaster.Config{
+		Facade: masterClient,
+		Guard:  guard,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.triggerMigration(masterClient)
+
+	err = workertest.CheckKilled(c, worker)
+	c.Check(err, gc.ErrorMatches, "biff")
+
+	s.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"masterClient.Watch", nil},
+		{"masterClient.GetMigrationStatus", nil},
+		{"guard.Lockdown", nil},
+	})
 }
 
 func (s *Suite) TestExportFailure(c *gc.C) {
 	masterClient := newStubMasterClient(s.stub)
 	masterClient.exportErr = errors.New("boom")
-	w := migrationmaster.New(masterClient)
+	worker, err := migrationmaster.New(migrationmaster.Config{
+		Facade: masterClient,
+		Guard:  newStubGuard(s.stub),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterClient)
 
-	err := workertest.CheckKilled(c, w)
+	err = workertest.CheckKilled(c, worker)
 	c.Assert(err, gc.Equals, migrationmaster.ErrDoneForNow)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterClient.Watch", nil},
 		{"masterClient.GetMigrationStatus", nil},
+		{"guard.Lockdown", nil},
 		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
 		{"masterClient.SetPhase", []interface{}{migration.PRECHECK}},
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
@@ -195,16 +305,21 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 
 func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 	masterClient := newStubMasterClient(s.stub)
-	w := migrationmaster.New(masterClient)
+	worker, err := migrationmaster.New(migrationmaster.Config{
+		Facade: masterClient,
+		Guard:  newStubGuard(s.stub),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.connectionErr = errors.New("boom")
 	s.triggerMigration(masterClient)
 
-	err := workertest.CheckKilled(c, w)
+	err = workertest.CheckKilled(c, worker)
 	c.Assert(err, gc.Equals, migrationmaster.ErrDoneForNow)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterClient.Watch", nil},
 		{"masterClient.GetMigrationStatus", nil},
+		{"guard.Lockdown", nil},
 		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
 		{"masterClient.SetPhase", []interface{}{migration.PRECHECK}},
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
@@ -218,16 +333,21 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 
 func (s *Suite) TestImportFailure(c *gc.C) {
 	masterClient := newStubMasterClient(s.stub)
-	w := migrationmaster.New(masterClient)
+	worker, err := migrationmaster.New(migrationmaster.Config{
+		Facade: masterClient,
+		Guard:  newStubGuard(s.stub),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.connection.importErr = errors.New("boom")
 	s.triggerMigration(masterClient)
 
-	err := workertest.CheckKilled(c, w)
+	err = workertest.CheckKilled(c, worker)
 	c.Assert(err, gc.Equals, migrationmaster.ErrDoneForNow)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterClient.Watch", nil},
 		{"masterClient.GetMigrationStatus", nil},
+		{"guard.Lockdown", nil},
 		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
 		{"masterClient.SetPhase", []interface{}{migration.PRECHECK}},
 		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
@@ -241,6 +361,26 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 		connCloseCall,
 		{"masterClient.SetPhase", []interface{}{migration.ABORTDONE}},
 	})
+}
+
+func newStubGuard(stub *jujutesting.Stub) *stubGuard {
+	return &stubGuard{stub: stub}
+}
+
+type stubGuard struct {
+	stub        *jujutesting.Stub
+	unlockErr   error
+	lockdownErr error
+}
+
+func (g *stubGuard) Lockdown(fortress.Abort) error {
+	g.stub.AddCall("guard.Lockdown")
+	return g.lockdownErr
+}
+
+func (g *stubGuard) Unlock() error {
+	g.stub.AddCall("guard.Unlock")
+	return g.unlockErr
 }
 
 func newStubMasterClient(stub *jujutesting.Stub) *stubMasterClient {
@@ -268,6 +408,7 @@ type stubMasterClient struct {
 	watcher   *mockWatcher
 	watchErr  error
 	status    masterapi.MigrationStatus
+	statusErr error
 	exportErr error
 }
 
@@ -281,6 +422,9 @@ func (c *stubMasterClient) Watch() (watcher.NotifyWatcher, error) {
 
 func (c *stubMasterClient) GetMigrationStatus() (masterapi.MigrationStatus, error) {
 	c.stub.AddCall("masterClient.GetMigrationStatus")
+	if c.statusErr != nil {
+		return masterapi.MigrationStatus{}, c.statusErr
+	}
 	return c.status, nil
 }
 
@@ -299,22 +443,14 @@ func (c *stubMasterClient) SetPhase(phase migration.Phase) error {
 
 func newMockWatcher() *mockWatcher {
 	return &mockWatcher{
+		Worker:  workertest.NewErrorWorker(nil),
 		changes: make(chan struct{}, 1),
 	}
 }
 
 type mockWatcher struct {
-	tomb    tomb.Tomb
+	worker.Worker
 	changes chan struct{}
-}
-
-func (w *mockWatcher) Kill() {
-	w.tomb.Kill(nil)
-	w.tomb.Done()
-}
-
-func (w *mockWatcher) Wait() error {
-	return w.tomb.Wait()
 }
 
 func (w *mockWatcher) Changes() watcher.NotifyChannel {

@@ -54,6 +54,7 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"log-sender",
 		"logging-config-updater",
 		"machiner",
+		"migration-fortress",
 		"migration-minion",
 		"proxy-config-updater",
 		"reboot",

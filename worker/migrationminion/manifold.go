@@ -4,27 +4,87 @@
 package migrationminion
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	minionapi "github.com/juju/juju/api/migrationminion"
-	"github.com/juju/juju/cmd/jujud/agent/util"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/fortress"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a
-// Manifold will depend.
-type ManifoldConfig util.AgentApiManifoldConfig
+// Worker manifold will depend.
+type ManifoldConfig struct {
+	AgentName     string
+	APICallerName string
+	FortressName  string
+
+	NewFacade func(base.APICaller) (Facade, error)
+	NewWorker func(Config) (worker.Worker, error)
+}
+
+// validate is called by start to check for bad configuration.
+func (config ManifoldConfig) validate() error {
+	if config.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
+	if config.APICallerName == "" {
+		return errors.NotValidf("empty APICallerName")
+	}
+	if config.FortressName == "" {
+		return errors.NotValidf("empty FortressName")
+	}
+	if config.NewFacade == nil {
+		return errors.NotValidf("nil NewFacade")
+	}
+	if config.NewWorker == nil {
+		return errors.NotValidf("nil NewWorker")
+	}
+	return nil
+}
+
+// start is a StartFunc for a Worker manifold.
+func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
+	if err := config.validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	var agent agent.Agent
+	if err := context.Get(config.AgentName, &agent); err != nil {
+		return nil, errors.Trace(err)
+	}
+	var apiCaller base.APICaller
+	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+		return nil, errors.Trace(err)
+	}
+	var guard fortress.Guard
+	if err := context.Get(config.FortressName, &guard); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	facade, err := config.NewFacade(apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	worker, err := config.NewWorker(Config{
+		Agent:  agent,
+		Facade: facade,
+		Guard:  guard,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return worker, nil
+}
 
 // Manifold returns a dependency manifold that runs the migration
 // worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := util.AgentApiManifoldConfig(config)
-	return util.AgentApiManifold(typedConfig, newWorker)
-}
-
-// newWorker is a shim to allow New to work with AgentApiManifold.
-func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
-	client := minionapi.NewClient(apiCaller)
-	return New(client, a)
+	return dependency.Manifold{
+		Inputs: []string{
+			config.AgentName,
+			config.APICallerName,
+			config.FortressName,
+		},
+		Start: config.start,
+	}
 }

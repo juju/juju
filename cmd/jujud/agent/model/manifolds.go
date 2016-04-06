@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/worker/discoverspaces"
 	"github.com/juju/juju/worker/environ"
 	"github.com/juju/juju/worker/firewaller"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/lifeflag"
 	"github.com/juju/juju/worker/metricworker"
@@ -132,6 +133,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: singular.NewWorker,
 		}),
 
+		migrationFortressName: ifNotDead(fortress.Manifold()),
+		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
+			APICallerName: apiCallerName,
+			FortressName:  migrationFortressName,
+
+			NewFacade: migrationmaster.NewFacade,
+			NewWorker: migrationmaster.NewWorker,
+		})),
+
 		// Everything else should be wrapped in ifResponsible,
 		// ifNotAlive, or ifNotDead, to ensure that only a single
 		// controller is administering this model at a time.
@@ -170,9 +180,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		// All the rest depend on ifNotDead.
-		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
-			APICallerName: apiCallerName,
-		})),
 		spaceImporterName: ifNotDead(discoverspaces.Manifold(discoverspaces.ManifoldConfig{
 			EnvironName:   environTrackerName,
 			APICallerName: apiCallerName,
@@ -282,6 +289,9 @@ const (
 	notDeadFlagName       = "not-dead-flag"
 	notAliveFlagName      = "not-alive-flag"
 
+	migrationFortressName = "migration-fortress"
+	migrationMasterName   = "migration-master"
+
 	environTrackerName       = "environ-tracker"
 	undertakerName           = "undertaker"
 	spaceImporterName        = "space-importer"
@@ -296,5 +306,4 @@ const (
 	stateCleanerName         = "state-cleaner"
 	addressCleanerName       = "address-cleaner"
 	statusHistoryPrunerName  = "status-history-pruner"
-	migrationMasterName      = "migration-master"
 )
