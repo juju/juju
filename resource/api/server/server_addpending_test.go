@@ -144,7 +144,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 		Fingerprint: res1.Fingerprint,
 		Size:        res1.Size,
 	}
-	s.csClient.ReturnGetResource = &expected
+	s.csClient.ReturnResourceInfo = &expected
 	facade, err := server.NewFacade(s.data, s.newCSClient)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -161,7 +161,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "GetResource", "AddPendingResource")
+	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "ResourceInfo", "AddPendingResource")
 	s.stub.CheckCall(c, 3, "AddPendingResource", "a-service", "", expected, nil)
 	c.Check(result, jc.DeepEquals, api.AddPendingResourcesResult{
 		PendingIDs: []string{
