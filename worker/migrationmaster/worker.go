@@ -83,7 +83,7 @@ func (w *migrationMaster) run() error {
 		case migration.IMPORT:
 			phase, err = w.doIMPORT(status.TargetInfo)
 		case migration.VALIDATION:
-			phase, err = w.doVALIDATION()
+			phase, err = w.doVALIDATION(status.TargetInfo, status.ModelUUID)
 		case migration.SUCCESS:
 			phase, err = w.doSUCCESS()
 		case migration.LOGTRANSFER:
@@ -176,9 +176,27 @@ func (w *migrationMaster) doIMPORT(targetInfo migration.TargetInfo) (migration.P
 	return migration.VALIDATION, nil
 }
 
-func (w *migrationMaster) doVALIDATION() (migration.Phase, error) {
+func (w *migrationMaster) doVALIDATION(targetInfo migration.TargetInfo, modelUUID string) (migration.Phase, error) {
 	// TODO(mjs) - Wait for all agents to report back.
+
+	// Once all agents have validated, activate the model.
+	err := activateModel(targetInfo, modelUUID)
+	if err != nil {
+		return migration.ABORT, nil
+	}
 	return migration.SUCCESS, nil
+}
+
+func activateModel(targetInfo migration.TargetInfo, modelUUID string) error {
+	conn, err := openAPIConn(targetInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer conn.Close()
+
+	targetClient := migrationtarget.NewClient(conn)
+	err = targetClient.Activate(modelUUID)
+	return errors.Trace(err)
 }
 
 func (w *migrationMaster) doSUCCESS() (migration.Phase, error) {
