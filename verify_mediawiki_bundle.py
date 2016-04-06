@@ -5,6 +5,7 @@ import argparse
 import logging
 import pickle
 import sys
+import ssl
 from time import sleep
 import urllib2
 
@@ -21,10 +22,24 @@ __metaclass__ = type
 log = logging.getLogger("mediawiki_bundle")
 
 
-def wait_for_http(url, timeout=60):
+def _get_ssl_ctx():
+    try:
+        ctx = ssl.create_default_context()
+    except AttributeError:
+        return None
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
+def wait_for_http(url, timeout=600):
+    ctx = _get_ssl_ctx()
     for _ in until_timeout(timeout):
         try:
-            req = urllib2.urlopen(url)
+            if ctx is None:
+                req = urllib2.urlopen(url)
+            else:
+                req = urllib2.urlopen(url, context=ctx)
             if 200 == req.getcode():
                 break
         except (urllib2.URLError, urllib2.HTTPError):
