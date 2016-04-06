@@ -1331,17 +1331,34 @@ func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Val
 
 }
 
+func instanceIdsToSystemIDs(ids []instance.Id) []string {
+	systemIDs := make([]string, len(ids))
+	for index, id := range ids {
+		systemIDs[index] = string(id)
+	}
+	return systemIDs
+}
+
 // StopInstances is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
 	if len(ids) == 0 {
 		return nil
 	}
-	nodes := environ.getMAASClient().GetSubObject("nodes")
-	err := environ.releaseNodes(nodes, getSystemIdValues("nodes", ids), true)
-	if err != nil {
-		// error will already have been wrapped
-		return err
+
+	if environ.usingMAAS2() {
+		args := gomaasapi.ReleaseMachinesArgs{
+			SystemIDs: instanceIdsToSystemIDs(ids),
+			Comment:   "Released by Juju MAAS provider",
+		}
+		return environ.maasController.ReleaseMachines(args)
+	} else {
+		nodes := environ.getMAASClient().GetSubObject("nodes")
+		err := environ.releaseNodes(nodes, getSystemIdValues("nodes", ids), true)
+		if err != nil {
+			// error will already have been wrapped
+			return err
+		}
 	}
 	return common.RemoveStateInstances(environ.Storage(), ids...)
 
@@ -1358,13 +1375,9 @@ func (environ *maasEnviron) acquiredInstances(ids []instance.Id) ([]instance.Ins
 		filter.Add("agent_name", environ.ecfg().maasAgentName())
 		return environ.instances1(filter)
 	}
-	systemIDs := make([]string, len(ids))
-	for index, id := range ids {
-		systemIDs[index] = string(id)
-	}
 	args := gomaasapi.MachinesArgs{
 		AgentName: environ.ecfg().maasAgentName(),
-		SystemIDs: systemIDs,
+		SystemIDs: instanceIdsToSystemIDs(ids),
 	}
 	return environ.instances2(args)
 }
