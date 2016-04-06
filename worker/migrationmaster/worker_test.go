@@ -34,6 +34,7 @@ var _ = gc.Suite(&Suite{})
 
 var (
 	fakeSerializedModel = []byte("model")
+	modelTagString      = names.NewModelTag("model-uuid").String()
 
 	// Define stub calls that commonly appear in tests here to allow reuse.
 	apiOpenCall = jujutesting.StubCall{
@@ -54,11 +55,17 @@ var (
 			params.SerializedModel{Bytes: fakeSerializedModel},
 		},
 	}
+	activateCall = jujutesting.StubCall{
+		"APICall:MigrationTarget.Activate",
+		[]interface{}{
+			params.ModelArgs{ModelTag: modelTagString},
+		},
+	}
 	connCloseCall = jujutesting.StubCall{"Connection.Close", nil}
 	abortCall     = jujutesting.StubCall{
 		"APICall:MigrationTarget.Abort",
 		[]interface{}{
-			params.ModelArgs{ModelTag: names.NewModelTag("model-uuid").String()},
+			params.ModelArgs{ModelTag: modelTagString},
 		},
 	}
 )
@@ -107,6 +114,9 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 		importCall,
 		connCloseCall,
 		{"masterClient.SetPhase", []interface{}{migration.VALIDATION}},
+		apiOpenCall,
+		activateCall,
+		connCloseCall,
 		{"masterClient.SetPhase", []interface{}{migration.SUCCESS}},
 		{"masterClient.SetPhase", []interface{}{migration.LOGTRANSFER}},
 		{"masterClient.SetPhase", []interface{}{migration.REAP}},
@@ -119,7 +129,7 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 
 	masterClient := newStubMasterClient(s.stub)
 	w := migrationmaster.New(masterClient)
-	masterClient.status.Phase = migration.VALIDATION
+	masterClient.status.Phase = migration.SUCCESS
 	s.triggerMigration(masterClient)
 
 	err := workertest.CheckKilled(c, w)
@@ -128,7 +138,6 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
 		{"masterClient.Watch", nil},
 		{"masterClient.GetMigrationStatus", nil},
-		{"masterClient.SetPhase", []interface{}{migration.SUCCESS}},
 		{"masterClient.SetPhase", []interface{}{migration.LOGTRANSFER}},
 		{"masterClient.SetPhase", []interface{}{migration.REAP}},
 		{"masterClient.SetPhase", []interface{}{migration.DONE}},
@@ -338,6 +347,8 @@ func (c *stubConnection) APICall(objType string, version int, id, request string
 		switch request {
 		case "Import":
 			return c.importErr
+		case "Activate":
+			return nil
 		}
 	}
 	return errors.New("unexpected API call")
