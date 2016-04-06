@@ -280,9 +280,9 @@ func userPublicSigningKey() (string, error) {
 // the given environment. If the environment provider does not make use of
 // simplestreams, no metadata will be returned.
 //
-// If a bootstrap image ID is specified, image metadat will be synthesised
+// If a bootstrap image ID is specified, image metadata will be synthesised
 // using that image ID, and the architecture and series specified by the
-// initiator. In addition, the custom image metadat that is saved into the
+// initiator. In addition, the custom image metadata that is saved into the
 // state database will have the synthesised image metadata added to it.
 func bootstrapImageMetadata(
 	environ environs.Environ,
@@ -350,9 +350,25 @@ func bootstrapImageMetadata(
 		Arches:    availableTools.Arches(),
 		Stream:    environ.Config().ImageStream(),
 	})
-	publicImageMetadata, _, err := imagemetadata.Fetch(sources, imageConstraint)
-	if err != nil {
-		return nil, errors.Annotate(err, "searching image metadata")
+	logger.Debugf("constraints for image metadata lookup %v", imageConstraint)
+
+	// Get image metadata from all data sources.
+	// Since order of data source matters, order of image metadata matters too. Append is important here.
+	var publicImageMetadata []*imagemetadata.ImageMetadata
+	for _, source := range sources {
+		sourceMetadata, _, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, imageConstraint)
+		if err != nil {
+			logger.Debugf("ignoring image metadata in %s because %v", source.Description(), err)
+			// Just keep looking...
+			continue
+		}
+		logger.Debugf("found %d image metadata in %s", len(sourceMetadata), source.Description())
+		publicImageMetadata = append(publicImageMetadata, sourceMetadata...)
+	}
+
+	logger.Debugf("found %d image metadata from all obtined image data sources", len(publicImageMetadata))
+	if len(publicImageMetadata) == 0 {
+		return nil, errors.New("no image metadata found")
 	}
 	return publicImageMetadata, nil
 }
