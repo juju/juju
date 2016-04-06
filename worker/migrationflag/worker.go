@@ -69,7 +69,7 @@ func New(config Config) (*Worker, error) {
 	return w, nil
 }
 
-// Worker implements worker.Worker and dependency.Flag, and exits
+// Worker implements worker.Worker and util.Flag, and exits
 // with ErrChanged whenever the result of its configured Check of
 // the Model's migration phase changes.
 type Worker struct {
@@ -88,7 +88,7 @@ func (w *Worker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// Check is part of the dependency.Flag interface.
+// Check is part of the util.Flag interface.
 func (w *Worker) Check() bool {
 	return w.config.Check(w.phase)
 }

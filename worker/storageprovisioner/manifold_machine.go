@@ -13,9 +13,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/storageprovisioner"
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/util"
 )
 
 // MachineManifoldConfig defines a storage provisioner's configuration and dependencies.

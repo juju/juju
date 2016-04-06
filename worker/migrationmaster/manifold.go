@@ -6,9 +6,9 @@ package migrationmaster
 import (
 	"github.com/juju/juju/api/base"
 	masterapi "github.com/juju/juju/api/migrationmaster"
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a
