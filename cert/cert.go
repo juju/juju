@@ -88,8 +88,16 @@ func NewCA(envName, UUID string, expiry time.Time) (certPEM, keyPEM string, err 
 		return "", "", err
 	}
 	now := time.Now()
+
+	// A serial number can be up to 20 octets in size.
+	// https://tools.ietf.org/html/rfc5280#section-4.1.2.2
+	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 8*20))
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate serial number: %s", err)
+	}
+
 	template := &x509.Certificate{
-		SerialNumber: new(big.Int),
+		SerialNumber: serialNumber,
 		Subject: pkix.Name{
 			CommonName:   fmt.Sprintf("juju-generated CA for model %q", envName),
 			Organization: []string{"juju"},
