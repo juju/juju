@@ -81,7 +81,7 @@ func (a *AllocateBudget) RunPost(state api.Connection, bakeryClient *httpbakery.
 	resp, err := a.APIClient.CreateAllocation(allocBudget, allocLimit, deployInfo.ModelUUID, []string{deployInfo.ServiceName})
 	if err != nil {
 		err = errors.Annotatef(err, "failed to allocate budget")
-		fmt.Fprintf(ctx.Stderr, `%s\nTry running "juju allocate <budget>:<limit> %s".\n`, err.Error(), deployInfo.ServiceName)
+		fmt.Fprintf(ctx.Stderr, "%s\nTry running \"juju allocate <budget>:<limit> %s\".\n", err.Error(), deployInfo.ServiceName)
 		return err
 	}
 	a.allocated = true
