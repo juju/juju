@@ -104,7 +104,9 @@ func (s *allocationSuite) TestMeteredCharmServiceUnavail(c *gc.C) {
 	}, {
 		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
 	}})
-	c.Assert(coretesting.Stderr(s.ctx), gc.Equals, `failed to allocate budget: service unreachable\nTry running "juju allocate <budget>:<limit> service name".\n`)
+	c.Assert(coretesting.Stderr(s.ctx), gc.Equals, `failed to allocate budget: service unreachable
+Try running "juju allocate <budget>:<limit> service name".
+`)
 }
 
 func (s *allocationSuite) TestMeteredCharmDeployFailed(c *gc.C) {
