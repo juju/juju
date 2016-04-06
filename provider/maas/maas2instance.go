@@ -5,6 +5,7 @@ package maas
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/gomaasapi"
 
@@ -20,6 +21,25 @@ var _ maasInstance = (*maas2Instance)(nil)
 
 func (mi *maas2Instance) zone() string {
 	return mi.machine.Zone().Name()
+}
+
+func (mi *maas2Instance) hostname() (string, error) {
+	return mi.machine.Hostname(), nil
+}
+
+func (mi *maas2Instance) hardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
+	nodeArch := strings.Split(mi.machine.Architecture(), "/")[0]
+	nodeCpuCount := uint64(mi.machine.CPUCount())
+	nodeMemoryMB := uint64(mi.machine.Memory())
+	zone := mi.zone()
+	hc := &instance.HardwareCharacteristics{
+		Arch:             &nodeArch,
+		CpuCores:         &nodeCpuCount,
+		Mem:              &nodeMemoryMB,
+		AvailabilityZone: &zone,
+	}
+	// TODO (mfoord): also need machine tags
+	return hc, nil
 }
 
 func (mi *maas2Instance) String() string {

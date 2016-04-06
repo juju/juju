@@ -73,6 +73,21 @@ type fakeMachine struct {
 	ipAddresses   []string
 	statusName    string
 	statusMessage string
+	cpuCount      int
+	memory        int
+	architecture  string
+}
+
+func (m *fakeMachine) CPUCount() int {
+	return m.cpuCount
+}
+
+func (m *fakeMachine) Memory() int {
+	return m.memory
+}
+
+func (m *fakeMachine) Architecture() string {
+	return m.architecture
 }
 
 func (m *fakeMachine) SystemID() string {
