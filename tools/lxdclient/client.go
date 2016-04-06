@@ -228,7 +228,6 @@ func hoistLocalConnectErr(err error) error {
 
 	configureText := `
 Please configure LXD by running:
-	$ sudo dpkg-reconfigure -p medium lxd
 	$ newgrp lxd
 	$ lxd init
 `
@@ -236,7 +235,6 @@ Please configure LXD by running:
 	installText := `
 Please install LXD by running:
 	$ sudo apt-get install lxd
-	$ sudo dpkg-reconfigure -p medium lxd
 and then configure it with:
 	$ newgrp lxd
 	$ lxd init

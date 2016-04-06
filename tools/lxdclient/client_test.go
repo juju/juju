@@ -42,7 +42,6 @@ func (cs *ConnectSuite) TestLocalConnectError(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: LXD refused connections; is LXD running?
 
 Please configure LXD by running:
-	$ sudo dpkg-reconfigure -p medium lxd
 	$ newgrp lxd
 	$ lxd init
 `)
@@ -53,7 +52,6 @@ Please configure LXD by running:
 	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: Permisson denied, are you in the lxd group?
 
 Please configure LXD by running:
-	$ sudo dpkg-reconfigure -p medium lxd
 	$ newgrp lxd
 	$ lxd init
 `)
@@ -65,7 +63,6 @@ Please configure LXD by running:
 
 Please install LXD by running:
 	$ sudo apt-get install lxd
-	$ sudo dpkg-reconfigure -p medium lxd
 and then configure it with:
 	$ newgrp lxd
 	$ lxd init
@@ -79,7 +76,6 @@ and then configure it with:
 
 Please install LXD by running:
 	$ sudo apt-get install lxd
-	$ sudo dpkg-reconfigure -p medium lxd
 and then configure it with:
 	$ newgrp lxd
 	$ lxd init
