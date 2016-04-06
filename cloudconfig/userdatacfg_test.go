@@ -679,7 +679,7 @@ rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt
 }
 
 func (*cloudinitSuite) TestCloudInitWithGUIReadError(c *gc.C) {
-	cfg := makeBootstrapConfig("precise").setGUI("file://" + filepath.ToSlash("/no/such/gui.tar.bz2"))
+	cfg := makeBootstrapConfig("precise").setGUI("file:///no/such/gui.tar.bz2")
 	expectedError := "cannot set up Juju GUI: cannot read Juju GUI archive: .*"
 	checkCloudInitWithGUI(c, cfg, "", expectedError)
 }
