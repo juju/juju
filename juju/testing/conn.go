@@ -558,8 +558,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		s.State = nil
 	}
 
-	err := dummy.Reset()
-	c.Assert(err, jc.ErrorIsNil)
+	dummy.Reset(c)
 	utils.SetHome(s.oldHome)
 	osenv.SetJujuXDGDataHome(s.oldJujuXDGDataHome)
 	s.oldHome = ""

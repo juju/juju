@@ -36,7 +36,9 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/agent"
@@ -264,34 +266,32 @@ type environ struct {
 }
 
 // discardOperations discards all Operations written to it.
-var discardOperations chan<- Operation
+var discardOperations = make(chan Operation)
 
 func init() {
 	environs.RegisterProvider("dummy", &dummy)
 
 	// Prime the first ops channel, so that naive clients can use
 	// the testing environment by simply importing it.
-	c := make(chan Operation)
 	go func() {
-		for _ = range c {
+		for _ = range discardOperations {
 		}
 	}()
-	discardOperations = c
-	if err := Reset(); err != nil {
-		panic(err)
-	}
-
-	// parse errors are ignored
-	providerDelay, _ = time.ParseDuration(os.Getenv("JUJU_DUMMY_DELAY"))
 }
 
 // dummy is the dummy environmentProvider singleton.
-var dummy environProvider
+var dummy = environProvider{
+	ops:                    discardOperations,
+	state:                  make(map[string]*environState),
+	statePolicy:            environs.NewStatePolicy(),
+	supportsSpaces:         true,
+	supportsSpaceDiscovery: false,
+}
 
 // Reset resets the entire dummy environment and forgets any registered
-// operation listener.  All opened environments after Reset will share
+// operation listener. All opened environments after Reset will share
 // the same underlying state.
-func Reset() error {
+func Reset(c *gc.C) {
 	logger.Infof("reset model")
 	dummy.mu.Lock()
 	defer dummy.mu.Unlock()
@@ -304,14 +304,12 @@ func Reset() error {
 	}
 	dummy.state = make(map[string]*environState)
 	if mongoAlive() {
-		if err := gitjujutesting.MgoServer.Reset(); err != nil {
-			return errors.Trace(err)
-		}
+		err := gitjujutesting.MgoServer.Reset()
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	dummy.statePolicy = environs.NewStatePolicy()
 	dummy.supportsSpaces = true
 	dummy.supportsSpaceDiscovery = false
-	return nil
 }
 
 func (state *environState) destroy() {
@@ -1650,7 +1648,7 @@ func (inst *dummyInstance) Ports(machineId string) (ports []network.PortRange, e
 // providerDelay controls the delay before dummy responds.
 // non empty values in JUJU_DUMMY_DELAY will be parsed as
 // time.Durations into this value.
-var providerDelay time.Duration
+var providerDelay, _ = time.ParseDuration(os.Getenv("JUJU_DUMMY_DELAY")) // parse errors are ignored
 
 // pause execution to simulate the latency of a real provider
 func delay() {

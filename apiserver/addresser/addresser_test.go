@@ -61,7 +61,7 @@ func (s *AddresserSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *AddresserSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
+	dummy.Reset(c)
 	s.BaseSuite.TearDownTest(c)
 }
 

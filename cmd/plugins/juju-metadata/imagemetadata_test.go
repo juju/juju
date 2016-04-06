@@ -248,6 +248,6 @@ func (s *ImageMetadataSuite) TestImageMetadataBadArgs(c *gc.C) {
 		c.Logf("test: %d", i)
 		_, err := runImageMetadata(c, s.store, t.args...)
 		c.Check(err, gc.NotNil, gc.Commentf("test %d: %s", i, t.args))
-		dummy.Reset()
+		dummy.Reset(c)
 	}
 }
