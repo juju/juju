@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage"
 )
 
 type maas2Instance struct {
@@ -19,6 +22,13 @@ type maas2Instance struct {
 
 var _ maasInstance = (*maas2Instance)(nil)
 
+func (mi *maas2Instance) volumes(
+	mTag names.MachineTag, requestedVolumes []names.VolumeTag,
+) (
+	[]storage.Volume, []storage.VolumeAttachment, error,
+) {
+	return nil, nil, errors.New("boom")
+}
 func (mi *maas2Instance) zone() string {
 	return mi.machine.Zone().Name()
 }

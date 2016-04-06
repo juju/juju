@@ -751,6 +751,68 @@ func (environ *maasEnviron) spaceNamesToSpaceInfo(positiveSpaces, negativeSpaces
 	return positiveSpaceIds, negativeSpaceIds, nil
 }
 
+// acquireNode2 allocates a machine from MAAS2.
+func (environ *maasEnviron) acquireNode2(
+	nodeName, zoneName string,
+	cons constraints.Value,
+	interfaces []interfaceBinding,
+	volumes []volumeInfo,
+) (maasInstance, error) {
+	var inst maasInstance
+
+	acquireParams := convertConstraints(cons)
+	positiveSpaceNames, negativeSpaceNames := convertSpacesFromConstraints(cons.Spaces)
+	positiveSpaces, negativeSpaces, err := environ.spaceNamesToSpaceInfo(positiveSpaceNames, negativeSpaceNames)
+	// If spaces aren't supported the constraints should be empty anyway.
+	if err != nil && !errors.IsNotSupported(err) {
+		return nil, errors.Trace(err)
+	}
+	// TODO: (mfoord) for better error reporting (names rather than ids) it
+	// would be better to pass network.SpaceInfo rather than just space ids.
+	// The same is true of interfaceBinding.
+	err = addInterfaces(acquireParams, interfaces, positiveSpaces, negativeSpaces)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	addStorage(acquireParams, volumes)
+	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
+	if zoneName != "" {
+		acquireParams.Add("zone", zoneName)
+	}
+	if nodeName != "" {
+		acquireParams.Add("name", nodeName)
+	} else if cons.Arch == nil {
+		// TODO(axw) 2014-08-18 #1358219
+		// We should be requesting preferred
+		// architectures if unspecified, like
+		// in the other providers.
+		//
+		// This is slightly complicated in MAAS
+		// as there are a finite number of each
+		// architecture; preference may also
+		// conflict with other constraints, such
+		// as tags. Thus, a preference becomes a
+		// demand (which may fail) if not handled
+		// properly.
+		logger.Warningf(
+			"no architecture was specified, acquiring an arbitrary node",
+		)
+	}
+
+	for a := shortAttempt.Start(); a.Next(); {
+		client := environ.getMAASClient().GetSubObject("nodes/")
+		logger.Tracef("calling acquire with params: %+v", acquireParams)
+		_, err = client.CallPost("acquire", acquireParams)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	return inst, nil
+}
+
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(
 	nodeName, zoneName string,
@@ -944,15 +1006,23 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		Interfaces:        interfaceBindings,
 		Volumes:           volumes,
 	}
-	selectedNode, err := environ.selectNode(snArgs)
-	if err != nil {
-		return nil, errors.Errorf("cannot run instances: %v", err)
-	}
+	var inst maasInstance
+	if !environ.usingMAAS2() {
+		selectedNode, err := environ.selectNode(snArgs)
+		if err != nil {
+			return nil, errors.Errorf("cannot run instances: %v", err)
+		}
 
-	inst := &maas1Instance{
-		maasObject:   selectedNode,
-		environ:      environ,
-		statusGetter: environ.deploymentStatusOne,
+		inst = &maas1Instance{
+			maasObject:   selectedNode,
+			environ:      environ,
+			statusGetter: environ.deploymentStatusOne,
+		}
+	} else {
+		inst, err = environ.selectNode2(snArgs)
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot run instances")
+		}
 	}
 	defer func() {
 		if err != nil {
@@ -1006,9 +1076,11 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 
 	var startedNode *gomaasapi.MAASObject
 	var interfaces []network.InterfaceInfo
-	if startedNode, err = environ.startNode(*inst.maasObject, series, userdata); err != nil {
-		return nil, err
-	} else {
+	if !environ.usingMAAS2() {
+		inst1 := inst.(*maas1Instance)
+		if startedNode, err = environ.startNode(*inst1.maasObject, series, userdata); err != nil {
+			return nil, err
+		}
 		// Once the instance has started the response should contain the
 		// assigned IP addresses, even when NICs are set to "auto" instead of
 		// "static". So instead of selectedNode, which only contains the
@@ -1197,6 +1269,35 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 		break
 	}
 	return &node, nil
+}
+
+func (environ *maasEnviron) selectNode2(args selectNodeArgs) (maasInstance, error) {
+	var err error
+	var inst maasInstance
+
+	for i, zoneName := range args.AvailabilityZones {
+		inst, err = environ.acquireNode2(
+			args.NodeName,
+			zoneName,
+			args.Constraints,
+			args.Interfaces,
+			args.Volumes,
+		)
+
+		if gomaasapi.IsCannotCompleteError(err) {
+			if i+1 < len(args.AvailabilityZones) {
+				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
+				continue
+			}
+		}
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot run instance")
+		}
+		// Since a return at the end of the function is required
+		// just break here.
+		break
+	}
+	return inst, nil
 }
 
 // setupJujuNetworking returns a string representing the script to run
