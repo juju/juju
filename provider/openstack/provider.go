@@ -953,17 +953,14 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		attempts utils.AttemptStrategy,
 		client *nova.Client,
 		instanceOpts nova.RunServerOpts,
-	) (*nova.Entity, error) {
+	) (server *nova.Entity, err error) {
 		for a := attempts.Start(); a.Next(); {
-			server, err := client.RunServer(instanceOpts)
-			if err == nil {
-				return server, nil
-			} else if gooseerrors.IsNotFound(err) {
-				continue
+			server, err = client.RunServer(instanceOpts)
+			if err == nil || gooseerrors.IsNotFound(err) == false {
+				break
 			}
-			return nil, err
 		}
-		return nil, errors.Errorf("cannot start instance")
+		return server, err
 	}
 
 	tryStartNovaInstanceAcrossAvailZones := func(
@@ -971,20 +968,23 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		client *nova.Client,
 		instanceOpts nova.RunServerOpts,
 		availabilityZones []string,
-	) (*nova.Entity, error) {
+	) (server *nova.Entity, err error) {
 		for _, zone := range availabilityZones {
 			instanceOpts.AvailabilityZone = zone
 			e.configurator.ModifyRunServerOptions(&instanceOpts)
-			server, err := tryStartNovaInstance(attempts, client, instanceOpts)
-			if err == nil {
-				return server, nil
-			} else if isNoValidHostsError(err) == false {
-				return nil, err
+			server, err = tryStartNovaInstance(attempts, client, instanceOpts)
+			if err == nil || isNoValidHostsError(err) == false {
+				break
 			}
 
 			logger.Infof("no valid hosts available in zone %q, trying another availability zone", zone)
 		}
-		return nil, errors.Errorf("cannot run instance")
+
+		if err != nil {
+			err = errors.Annotate(err, "cannot run instance")
+		}
+
+		return server, err
 	}
 
 	var opts = nova.RunServerOpts{
@@ -1031,8 +1031,12 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 }
 
 func isNoValidHostsError(err error) bool {
-	gooseErr, ok := err.(gooseerrors.Error)
-	return ok && strings.Contains(gooseErr.Cause().Error(), "No valid host was found")
+	if gooseErr, ok := err.(gooseerrors.Error); ok {
+		if cause := gooseErr.Cause(); cause != nil {
+			return strings.Contains(cause.Error(), "No valid host was found")
+		}
+	}
+	return false
 }
 
 func (e *Environ) StopInstances(ids ...instance.Id) error {
