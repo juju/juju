@@ -89,7 +89,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 
 	noProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
 
-	c.Assert(cfg, jc.DeepEquals, params.ProxyConfigResult{
+	c.Assert(cfg.Results[0], jc.DeepEquals, params.ProxyConfigResult{
 		ProxySettings: params.ProxyConfig{
 			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: noProxy},
 		APTProxySettings: params.ProxyConfig{
@@ -112,7 +112,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
 
 	expectedNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5,9.9.9.9"
 
-	c.Assert(cfg, jc.DeepEquals, params.ProxyConfigResult{
+	c.Assert(cfg.Results[0], jc.DeepEquals, params.ProxyConfigResult{
 		ProxySettings: params.ProxyConfig{
 			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: expectedNoProxy},
 		APTProxySettings: params.ProxyConfig{
@@ -135,7 +135,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
 
 	expectedNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
 
-	c.Assert(cfg, jc.DeepEquals, params.ProxyConfigResult{
+	c.Assert(cfg.Results[0], jc.DeepEquals, params.ProxyConfigResult{
 		ProxySettings: params.ProxyConfig{
 			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: expectedNoProxy},
 		APTProxySettings: params.ProxyConfig{

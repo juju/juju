@@ -20,7 +20,7 @@ import (
 // API defines the methods the ProxyUpdater API facade implements.
 type API interface {
 	WatchForProxyConfigAndAPIHostPortChanges(_ params.Entities) params.NotifyWatchResult
-	ProxyConfig(_ params.Entities) params.ProxyConfigResult
+	ProxyConfig(_ params.Entities) params.ProxyConfigResults
 }
 
 // Backend defines the state methods this facade needs, so they can be
@@ -94,7 +94,8 @@ func (api *proxyUpdaterAPI) authEntities(args params.Entities) params.ErrorResul
 	return result
 }
 
-func (api *proxyUpdaterAPI) ProxyConfig(args params.Entities) params.ProxyConfigResult {
+// ProxyConfig returns the proxy settings for the current environment
+func (api *proxyUpdaterAPI) ProxyConfig(args params.Entities) params.ProxyConfigResults {
 	var result params.ProxyConfigResult
 	errors := api.authEntities(args)
 	_ = errors
@@ -102,13 +103,13 @@ func (api *proxyUpdaterAPI) ProxyConfig(args params.Entities) params.ProxyConfig
 	env, err := api.backend.EnvironConfig()
 	if err != nil {
 		result.Error = common.ServerError(err)
-		return result
+		return params.ProxyConfigResults{}
 	}
 
 	apiHostPorts, err := api.backend.APIHostPorts()
 	if err != nil {
 		result.Error = common.ServerError(err)
-		return result
+		return params.ProxyConfigResults{}
 	}
 
 	result.ProxySettings = proxyUtilsSettingsToProxySettingsParam(env.ProxySettings())
@@ -127,5 +128,8 @@ func (api *proxyUpdaterAPI) ProxyConfig(args params.Entities) params.ProxyConfig
 	}
 
 	result.ProxySettings.NoProxy = strings.Join(noProxySet.SortedValues(), ",")
-	return result
+
+	return params.ProxyConfigResults{
+		Results: []params.ProxyConfigResult{result},
+	}
 }
