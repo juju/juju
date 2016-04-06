@@ -40,7 +40,7 @@ func (s *InternalClientSuite) TestCollate(c *gc.C) {
 		{URL: bat, Channel: "stable"},
 	}
 	output := collate(input)
-	c.Assert(output, gc.DeepEquals, map[charm.Channel]charmRequest{
+	c.Assert(output, gc.DeepEquals, map[params.Channel]charmRequest{
 		"stable": charmRequest{
 			ids:     []*charm.URL{foo, bat},
 			indices: []int{0, 3},
@@ -75,8 +75,8 @@ func (s *InternalClientSuite) TestLatestRevisions(c *gc.C) {
 	}}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ret, gc.DeepEquals, append(s.lowLevel.ReturnLatestStable, s.lowLevel.ReturnLatestDev...))
-	s.lowLevel.stableStub.CheckCall(c, 0, "Latest", charm.Channel("stable"), []*charm.URL{foo}, map[string]string(nil))
-	s.lowLevel.devStub.CheckCall(c, 0, "Latest", charm.Channel("development"), []*charm.URL{bar}, map[string]string(nil))
+	s.lowLevel.stableStub.CheckCall(c, 0, "Latest", params.StableChannel, []*charm.URL{foo}, map[string]string(nil))
+	s.lowLevel.devStub.CheckCall(c, 0, "Latest", params.DevelopmentChannel, []*charm.URL{bar}, map[string]string(nil))
 }
 
 func (s *InternalClientSuite) TestListResources(c *gc.C) {
@@ -133,6 +133,6 @@ func (s *InternalClientSuite) TestListResources(c *gc.C) {
 		{stableOut},
 		{devOut},
 	})
-	s.lowLevel.stableStub.CheckCall(c, 0, "ListResources", charm.Channel("stable"), []*charm.URL{foo})
-	s.lowLevel.devStub.CheckCall(c, 0, "ListResources", charm.Channel("development"), []*charm.URL{bar})
+	s.lowLevel.stableStub.CheckCall(c, 0, "ListResources", params.StableChannel, []*charm.URL{foo})
+	s.lowLevel.devStub.CheckCall(c, 0, "ListResources", params.DevelopmentChannel, []*charm.URL{bar})
 }

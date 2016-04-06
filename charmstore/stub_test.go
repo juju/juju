@@ -34,7 +34,7 @@ type fakeWrapper struct {
 	ReturnResourceInfo params.Resource
 }
 
-func (f *fakeWrapper) Latest(channel charm.Channel, ids []*charm.URL, headers map[string]string) ([]charmrepo.CharmRevision, error) {
+func (f *fakeWrapper) Latest(channel params.Channel, ids []*charm.URL, headers map[string]string) ([]charmrepo.CharmRevision, error) {
 	if channel == "stable" {
 		f.stableStub.AddCall("Latest", channel, ids, headers)
 		return f.ReturnLatestStable, nil
@@ -43,7 +43,7 @@ func (f *fakeWrapper) Latest(channel charm.Channel, ids []*charm.URL, headers ma
 	return f.ReturnLatestDev, nil
 }
 
-func (f *fakeWrapper) ListResources(channel charm.Channel, ids []*charm.URL) (map[string][]params.Resource, error) {
+func (f *fakeWrapper) ListResources(channel params.Channel, ids []*charm.URL) (map[string][]params.Resource, error) {
 	if channel == "stable" {
 		f.stableStub.AddCall("ListResources", channel, ids)
 		return f.ReturnListResourcesStable, nil
