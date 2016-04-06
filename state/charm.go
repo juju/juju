@@ -46,6 +46,14 @@ type charmDoc struct {
 	Placeholder   bool   `bson:"placeholder"`
 }
 
+// CharmInfo contains all the data necessary to store a charm's metadata.
+type CharmInfo struct {
+	Charm       charm.Charm
+	ID          *charm.URL
+	StoragePath string
+	SHA256      string
+}
+
 // insertCharmOps returns the txn operations necessary to insert the supplied
 // charm data. If curl is nil, an error will be returned.
 func insertCharmOps(st *State, info CharmInfo) ([]txn.Op, error) {

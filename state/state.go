@@ -1101,14 +1101,6 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 	return errors.Trace(st.run(buildTxn))
 }
 
-// CharmInfo contains all the data necessary to store a charm's metadata.
-type CharmInfo struct {
-	Charm       charm.Charm
-	ID          *charm.URL
-	StoragePath string
-	SHA256      string
-}
-
 // UpdateUploadedCharm marks the given charm URL as uploaded and
 // updates the rest of its data, returning it as *state.Charm.
 func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {

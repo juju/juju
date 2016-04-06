@@ -121,7 +121,7 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 	// Store the charm archive in environment storage.
 	return StoreCharmArchive(
 		st,
-		CharmArchiveData{
+		CharmArchive{
 			ID:     charmURL,
 			Charm:  downloadedCharm,
 			Data:   archive,
@@ -150,32 +150,41 @@ func minVersionError(minver, jujuver version.Number) error {
 	return minJujuVersionErr{&err}
 }
 
-// CharmArchiveData is the data that needs to be stored for a charm archive in
+// CharmArchive is the data that needs to be stored for a charm archive in
 // state.
-type CharmArchiveData struct {
-	ID     *charm.URL
-	Charm  charm.Charm
-	Data   io.Reader
-	Size   int64
+type CharmArchive struct {
+	// ID is the charm URL for which we're storing the archive.
+	ID *charm.URL
+
+	// Charm is the metadata about the charm for the archive.
+	Charm charm.Charm
+
+	// Data contains the bytes of the archive.
+	Data io.Reader
+
+	// Size is the number of bytes in Data.
+	Size int64
+
+	// SHA256 is the hash of the bytes in Data.
 	SHA256 string
 }
 
 // StoreCharmArchive stores a charm archive in environment storage.
-func StoreCharmArchive(st *state.State, data CharmArchiveData) error {
+func StoreCharmArchive(st *state.State, archive CharmArchive) error {
 	storage := newStateStorage(st.ModelUUID(), st.MongoSession())
-	storagePath, err := charmArchiveStoragePath(data.ID)
+	storagePath, err := charmArchiveStoragePath(archive.ID)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate charm archive name")
 	}
-	if err := storage.Put(storagePath, data.Data, data.Size); err != nil {
+	if err := storage.Put(storagePath, archive.Data, archive.Size); err != nil {
 		return errors.Annotate(err, "cannot add charm to storage")
 	}
 
 	info := state.CharmInfo{
-		Charm:       data.Charm,
-		ID:          data.ID,
+		Charm:       archive.Charm,
+		ID:          archive.ID,
 		StoragePath: storagePath,
-		SHA256:      data.SHA256,
+		SHA256:      archive.SHA256,
 	}
 
 	// Now update the charm data in state and mark it as no longer pending.

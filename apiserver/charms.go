@@ -376,7 +376,7 @@ func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.
 	}
 	bundleSHA256 := hex.EncodeToString(hash.Sum(nil))
 
-	info := service.CharmArchiveData{
+	info := service.CharmArchive{
 		ID:     curl,
 		Charm:  archive,
 		Data:   &repackagedArchive,
