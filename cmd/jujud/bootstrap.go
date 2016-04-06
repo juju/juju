@@ -305,7 +305,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Populate the GUI archive catalogue.
 	if err := c.populateGUIArchive(st, env); err != nil {
-		return err
+		// Do not stop the bootstrapping process for Juju GUI archive errors.
+		logger.Warningf("cannot set up Juju GUI: %s", err)
+	} else {
+		logger.Debugf("Juju GUI successfully set up")
 	}
 
 	// Add custom image metadata to environment storage.
@@ -457,11 +460,6 @@ func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Envi
 	defer guistorage.Close()
 	gui, err := agenttools.ReadGUIArchive(dataDir)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// Do not fail just because there were errors while downloading
-			// the GUI archive from simplestreams.
-			return nil
-		}
 		return errors.Annotate(err, "cannot fetch GUI info")
 	}
 	f, err := os.Open(filepath.Join(agenttools.SharedGUIDir(dataDir), "gui.tar.bz2"))
