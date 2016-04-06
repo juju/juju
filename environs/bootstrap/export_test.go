@@ -9,5 +9,5 @@ var (
 	FindTools             = &findTools
 	FindBootstrapTools    = findBootstrapTools
 	FindAvailableTools    = findAvailableTools
-	FetchGUIArchives      = &fetchGUIArchives
+	GUIFetchMetadata      = &guiFetchMetadata
 )

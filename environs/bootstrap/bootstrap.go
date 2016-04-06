@@ -485,22 +485,27 @@ func guiArchive(output func(string, ...interface{})) *coretools.GUIArchive {
 		}
 	}
 	// Fetch GUI archives info from simplestreams.
-	archives, err := fetchGUIArchives(gui.ReleasedStream, gui.NewDataSource(gui.DefaultBaseURL))
+	allMeta, err := guiFetchMetadata(gui.ReleasedStream, gui.NewDataSource(gui.DefaultBaseURL))
 	if err != nil {
 		output("Unable to fetch Juju GUI info: %s", err)
 		return nil
 	}
-	if len(archives) == 0 {
+	if len(allMeta) == 0 {
 		output("No available Juju GUI archives found")
 		return nil
 	}
-	output("Preparing for Juju GUI %s release installation", archives[0].Version)
-	// Archives are returned in descending version order.
-	return archives[0]
+	// Metadata info are returned in descending version order.
+	output("Preparing for Juju GUI %s release installation", allMeta[0].Version)
+	return &coretools.GUIArchive{
+		Version: allMeta[0].Version,
+		URL:     allMeta[0].FullPath,
+		SHA256:  allMeta[0].SHA256,
+		Size:    allMeta[0].Size,
+	}
 }
 
-// fetchGUIArchives is defined for testing purposes.
-var fetchGUIArchives = gui.FetchGUIArchives
+// guiFetchMetadata is defined for testing purposes.
+var guiFetchMetadata = gui.FetchMetadata
 
 // guiVersion retrieves the GUI version from the juju-gui-* directory included
 // in the bz2 archive at the given path.

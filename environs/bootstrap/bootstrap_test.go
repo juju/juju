@@ -67,7 +67,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 
 	// Patch the function used to retrieve GUI archive info from simplestreams.
-	s.PatchValue(bootstrap.FetchGUIArchives, func(string, ...simplestreams.DataSource) ([]*tools.GUIArchive, error) {
+	s.PatchValue(bootstrap.GUIFetchMetadata, func(string, ...simplestreams.DataSource) ([]*gui.Metadata, error) {
 		return nil, nil
 	})
 }
@@ -291,20 +291,20 @@ func (s *bootstrapSuite) TestSetBootstrapTools(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapGUISuccessRemote(c *gc.C) {
-	s.PatchValue(bootstrap.FetchGUIArchives, func(stream string, sources ...simplestreams.DataSource) ([]*tools.GUIArchive, error) {
+	s.PatchValue(bootstrap.GUIFetchMetadata, func(stream string, sources ...simplestreams.DataSource) ([]*gui.Metadata, error) {
 		c.Assert(stream, gc.Equals, gui.ReleasedStream)
 		c.Assert(sources[0].Description(), gc.Equals, "gui simplestreams")
 		c.Assert(sources[0].RequireSigned(), jc.IsTrue)
-		return []*tools.GUIArchive{{
-			Version: version.MustParse("2.0.42"),
-			URL:     "https://1.2.3.4/juju-gui-2.0.42.tar.bz2",
-			SHA256:  "hash-2.0.42",
-			Size:    42,
+		return []*gui.Metadata{{
+			Version:  version.MustParse("2.0.42"),
+			FullPath: "https://1.2.3.4/juju-gui-2.0.42.tar.bz2",
+			SHA256:   "hash-2.0.42",
+			Size:     42,
 		}, {
-			Version: version.MustParse("2.0.47"),
-			URL:     "https://1.2.3.4/juju-gui-2.0.47.tar.bz2",
-			SHA256:  "hash-2.0.47",
-			Size:    47,
+			Version:  version.MustParse("2.0.47"),
+			FullPath: "https://1.2.3.4/juju-gui-2.0.47.tar.bz2",
+			SHA256:   "hash-2.0.47",
+			Size:     47,
 		}}, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -349,7 +349,7 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapGUINoStreams(c *gc.C) {
-	s.PatchValue(bootstrap.FetchGUIArchives, func(string, ...simplestreams.DataSource) ([]*tools.GUIArchive, error) {
+	s.PatchValue(bootstrap.GUIFetchMetadata, func(string, ...simplestreams.DataSource) ([]*gui.Metadata, error) {
 		return nil, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -361,7 +361,7 @@ func (s *bootstrapSuite) TestBootstrapGUINoStreams(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapGUIStreamsFailure(c *gc.C) {
-	s.PatchValue(bootstrap.FetchGUIArchives, func(string, ...simplestreams.DataSource) ([]*tools.GUIArchive, error) {
+	s.PatchValue(bootstrap.GUIFetchMetadata, func(string, ...simplestreams.DataSource) ([]*gui.Metadata, error) {
 		return nil, errors.New("bad wolf")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)

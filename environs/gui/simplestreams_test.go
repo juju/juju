@@ -16,7 +16,6 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/juju"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -57,24 +56,32 @@ func (s *simplestreamsSuite) TestNewDataSource(c *gc.C) {
 	c.Assert(source.PublicSigningKey(), gc.Equals, juju.JujuPublicKey)
 }
 
-var fetchGUIArchiveTests = []struct {
-	about            string
-	stream           string
-	jujuVersion      string
-	expectedArchives []*tools.GUIArchive
-	expectedError    string
+var fetchMetadataTests = []struct {
+	// about describes the test.
+	about string
+	// stream holds the stream name to use for the test.
+	stream string
+	// jujuVersion holds the current Juju version to be used during the test.
+	jujuVersion string
+	// expectedMetadata holds the list of metadata information returned.
+	// The following fields are automatically pre-populated by the test:
+	// "FullPath", "Source", "StringVersion" and "JujuMajorVersion"
+	expectedMetadata []*gui.Metadata
+	// expectedError optionally holds the expected error returned while trying
+	// to retrieve GUI metadata information.
+	expectedError string
 }{{
 	about:       "released version 2",
 	stream:      gui.ReleasedStream,
 	jujuVersion: "2.0.0",
-	expectedArchives: []*tools.GUIArchive{{
+	expectedMetadata: []*gui.Metadata{{
 		Version: version.MustParse("2.1.1"),
-		URL:     "test:/gui/2.1.1/jujugui-2.1.1.tar.bz2",
+		Path:    "gui/2.1.1/jujugui-2.1.1.tar.bz2",
 		Size:    6140774,
 		SHA256:  "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
 	}, {
 		Version: version.MustParse("2.1.0"),
-		URL:     "test:/gui/2.1.0/jujugui-2.1.0.tar.bz2",
+		Path:    "gui/2.1.0/jujugui-2.1.0.tar.bz2",
 		Size:    6098111,
 		SHA256:  "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
 	}},
@@ -82,14 +89,14 @@ var fetchGUIArchiveTests = []struct {
 	about:       "released version 2 beta",
 	stream:      gui.ReleasedStream,
 	jujuVersion: "2.0-beta1",
-	expectedArchives: []*tools.GUIArchive{{
+	expectedMetadata: []*gui.Metadata{{
 		Version: version.MustParse("2.1.1"),
-		URL:     "test:/gui/2.1.1/jujugui-2.1.1.tar.bz2",
+		Path:    "gui/2.1.1/jujugui-2.1.1.tar.bz2",
 		Size:    6140774,
 		SHA256:  "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
 	}, {
 		Version: version.MustParse("2.1.0"),
-		URL:     "test:/gui/2.1.0/jujugui-2.1.0.tar.bz2",
+		Path:    "gui/2.1.0/jujugui-2.1.0.tar.bz2",
 		Size:    6098111,
 		SHA256:  "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
 	}},
@@ -97,14 +104,14 @@ var fetchGUIArchiveTests = []struct {
 	about:       "released version 2.42",
 	stream:      gui.ReleasedStream,
 	jujuVersion: "2.42.0",
-	expectedArchives: []*tools.GUIArchive{{
+	expectedMetadata: []*gui.Metadata{{
 		Version: version.MustParse("2.1.1"),
-		URL:     "test:/gui/2.1.1/jujugui-2.1.1.tar.bz2",
+		Path:    "gui/2.1.1/jujugui-2.1.1.tar.bz2",
 		Size:    6140774,
 		SHA256:  "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
 	}, {
 		Version: version.MustParse("2.1.0"),
-		URL:     "test:/gui/2.1.0/jujugui-2.1.0.tar.bz2",
+		Path:    "gui/2.1.0/jujugui-2.1.0.tar.bz2",
 		Size:    6098111,
 		SHA256:  "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
 	}},
@@ -112,9 +119,9 @@ var fetchGUIArchiveTests = []struct {
 	about:       "released version 3",
 	stream:      gui.ReleasedStream,
 	jujuVersion: "3.0.0",
-	expectedArchives: []*tools.GUIArchive{{
+	expectedMetadata: []*gui.Metadata{{
 		Version: version.MustParse("3.0.0"),
-		URL:     "test:/gui/3.0.0/jujugui-3.0.0.tar.bz2",
+		Path:    "gui/3.0.0/jujugui-3.0.0.tar.bz2",
 		Size:    42424242,
 		SHA256:  "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
 	}},
@@ -126,14 +133,14 @@ var fetchGUIArchiveTests = []struct {
 	about:       "devel version 2",
 	stream:      gui.DevelStream,
 	jujuVersion: "2.0.0",
-	expectedArchives: []*tools.GUIArchive{{
+	expectedMetadata: []*gui.Metadata{{
 		Version: version.MustParse("2.4.0"),
-		URL:     "test:/gui/2.4.0/jujugui-2.4.0.tar.bz2",
+		Path:    "gui/2.4.0/jujugui-2.4.0.tar.bz2",
 		Size:    6098111,
 		SHA256:  "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
 	}, {
 		Version: version.MustParse("2.1.1"),
-		URL:     "test:/gui/2.1.1/jujugui-2.1.1.tar.bz2",
+		Path:    "gui/2.1.1/jujugui-2.1.1.tar.bz2",
 		Size:    474747,
 		SHA256:  "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
 	}},
@@ -158,29 +165,38 @@ var fetchGUIArchiveTests = []struct {
 	expectedError: `error fetching simplestreams metadata: cannot read product data, invalid URL "test:/streams/v1/com.canonical.streams-no-such-gui.json" not found`,
 }}
 
-func (s *simplestreamsSuite) TestFetchGUIArchives(c *gc.C) {
-	for i, test := range fetchGUIArchiveTests {
+func (s *simplestreamsSuite) TestFetchMetadata(c *gc.C) {
+	for i, test := range fetchMetadataTests {
 		c.Logf("\ntest %d: %s", i, test.about)
 
 		// Patch the current Juju version.
-		s.PatchValue(&jujuversion.Current, version.MustParse(test.jujuVersion))
+		jujuVersion := version.MustParse(test.jujuVersion)
+		s.PatchValue(&jujuversion.Current, jujuVersion)
 
 		// Add invalid datasource and check later that resolveInfo is correct.
 		invalidSource := simplestreams.NewURLDataSource(
 			"invalid", "file://invalid", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, s.RequireSigned)
 
 		// Fetch the Juju GUI archives.
-		archives, err := gui.FetchGUIArchives(test.stream, invalidSource, s.Source)
-		for i, archive := range archives {
-			c.Logf("archive %d:\n%#v", i, archive)
+		allMeta, err := gui.FetchMetadata(test.stream, invalidSource, s.Source)
+		for i, meta := range allMeta {
+			c.Logf("metadata %d:\n%#v", i, meta)
 		}
 		if test.expectedError != "" {
 			c.Assert(err, gc.ErrorMatches, test.expectedError)
-			c.Assert(archives, gc.IsNil)
+			c.Assert(allMeta, gc.IsNil)
 			continue
 		}
+
+		// Populate the expected metadata with missing fields.
+		for _, meta := range test.expectedMetadata {
+			meta.JujuMajorVersion = jujuVersion.Major
+			meta.FullPath = "test:/" + meta.Path
+			meta.Source = s.Source
+			meta.StringVersion = meta.Version.String()
+		}
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(archives, jc.DeepEquals, test.expectedArchives)
+		c.Assert(allMeta, jc.DeepEquals, test.expectedMetadata)
 	}
 }
 

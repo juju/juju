@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -32,7 +31,7 @@ const (
 )
 
 func init() {
-	simplestreams.RegisterStructTags(metadata{})
+	simplestreams.RegisterStructTags(Metadata{})
 }
 
 // DataSource creates and returns a new simplestreams signed data source for
@@ -48,44 +47,9 @@ func NewDataSource(baseURL string) simplestreams.DataSource {
 		requireSigned)
 }
 
-// FetchGUIArchives fetches all Juju GUI metadata from simplestreams and
-// returns a list of corresponding GUI archives, sorted by version descending.
-func FetchGUIArchives(stream string, sources ...simplestreams.DataSource) ([]*tools.GUIArchive, error) {
-	allMeta, err := fetch(sources, stream)
-	if err != nil {
-		return nil, errors.Annotate(err, "error fetching simplestreams metadata")
-	}
-	guiArchives := make([]*tools.GUIArchive, len(allMeta))
-	for i, meta := range allMeta {
-		vers, err := version.Parse(meta.Version)
-		if err != nil {
-			return nil, errors.Annotatef(err, "error parsing version %q", meta.Version)
-		}
-		guiArchives[i] = &tools.GUIArchive{
-			Version: vers,
-			URL:     meta.FullPath,
-			Size:    meta.Size,
-			SHA256:  meta.SHA256,
-		}
-	}
-	sort.Sort(byVersion(guiArchives))
-	return guiArchives, nil
-}
-
-// byVersion is used to sort GUI archives by version, most recent first.
-type byVersion []*tools.GUIArchive
-
-// Len implements sort.Interface.
-func (b byVersion) Len() int { return len(b) }
-
-// Swap implements sort.Interface.
-func (b byVersion) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
-
-// Less implements sort.Interface.
-func (b byVersion) Less(i, j int) bool { return b[i].Version.Compare(b[j].Version) > 0 }
-
-// fetch fetches Juju GUI metadata from simplestreams.
-func fetch(sources []simplestreams.DataSource, stream string) ([]*metadata, error) {
+// FetchMetadata fetches and returns Juju GUI metadata from simplestreams,
+// sorted by version descending.
+func FetchMetadata(stream string, sources ...simplestreams.DataSource) ([]*Metadata, error) {
 	params := simplestreams.GetMetadataParams{
 		StreamsVersion: streamsVersion,
 		LookupConstraint: &constraint{
@@ -96,19 +60,47 @@ func fetch(sources []simplestreams.DataSource, stream string) ([]*metadata, erro
 			DataType:        downloadType,
 			MirrorContentId: contentId(stream),
 			FilterFunc:      appendArchives,
-			ValueTemplate:   metadata{},
+			ValueTemplate:   Metadata{},
 		},
 	}
 	items, _, err := simplestreams.GetMetadata(sources, params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "error fetching simplestreams metadata")
 	}
-	allMeta := make([]*metadata, len(items))
+	allMeta := make([]*Metadata, len(items))
 	for i, item := range items {
-		allMeta[i] = item.(*metadata)
+		allMeta[i] = item.(*Metadata)
 	}
+	sort.Sort(byVersion(allMeta))
 	return allMeta, nil
 }
+
+// Metadata is the type used to retrieve GUI archive metadata information from
+// simplestream. Tags for this structure are registered in init().
+type Metadata struct {
+	Size   int64  `json:"size"`
+	SHA256 string `json:"sha256"`
+	Path   string `json:"path"`
+
+	JujuMajorVersion int    `json:"juju-version"`
+	StringVersion    string `json:"version"`
+
+	Version  version.Number           `json:"-"`
+	FullPath string                   `json:"-"`
+	Source   simplestreams.DataSource `json:"-"`
+}
+
+// byVersion is used to sort GUI metadata by version, most recent first.
+type byVersion []*Metadata
+
+// Len implements sort.Interface.
+func (b byVersion) Len() int { return len(b) }
+
+// Swap implements sort.Interface.
+func (b byVersion) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
+
+// Less implements sort.Interface.
+func (b byVersion) Less(i, j int) bool { return b[i].Version.Compare(b[j].Version) > 0 }
 
 // constraint is used as simplestreams.LookupConstraint when retrieving Juju
 // GUI metadata information.
@@ -146,28 +138,22 @@ func appendArchives(
 		majorVersion = guiConstraint.majorVersion
 	}
 	for _, item := range items {
-		meta := item.(*metadata)
-		if majorVersion != 0 && majorVersion != meta.JujuVersion {
+		meta := item.(*Metadata)
+		if majorVersion != 0 && majorVersion != meta.JujuMajorVersion {
 			continue
 		}
 		fullPath, err := source.URL(meta.Path)
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotate(err, "cannot retrieve metadata full path")
 		}
 		meta.FullPath = fullPath
+		vers, err := version.Parse(meta.StringVersion)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot parse metadata version")
+		}
+		meta.Version = vers
+		meta.Source = source
 		matchingItems = append(matchingItems, meta)
 	}
 	return matchingItems, nil
-}
-
-// metadata is the type used to retrieve GUI archive metadata information from
-// simplestream. Tags for this structure are registered in init().
-type metadata struct {
-	JujuVersion int    `json:"juju-version"`
-	Version     string `json:"version"`
-	Size        int64  `json:"size"`
-	SHA256      string `json:"sha256"`
-	Path        string `json:"path"`
-
-	FullPath string `json:"-"`
 }
