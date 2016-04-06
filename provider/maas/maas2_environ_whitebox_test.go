@@ -223,3 +223,45 @@ func (suite *maas2EnvironSuite) TestSpacesError(c *gc.C) {
 	_, err := env.Spaces()
 	c.Assert(err, gc.ErrorMatches, "Joe Manginiello")
 }
+
+func (suite *maas2EnvironSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
+	err := suite.makeEnviron(c, &fakeController{}).StopInstances()
+	c.Check(err, jc.ErrorIsNil)
+	c.Fail()
+}
+
+func (suite *maas2EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
+	// mark test1 and test2 as being allocated, but not test3.
+	// The release operation will ignore test3.
+	err := suite.makeEnviron(c, &fakeController{}).StopInstances("test1", "test2", "test3")
+	c.Check(err, jc.ErrorIsNil)
+	c.Fail()
+}
+
+func (suite *maas2EnvironSuite) TestStopInstancesIgnoresConflict(c *gc.C) {
+	env := suite.makeEnviron(c, &fakeController{})
+	err := env.StopInstances("test1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Fail()
+}
+
+func (suite *maas2EnvironSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c *gc.C) {
+	env := suite.makeEnviron(c, &fakeController{})
+	err := env.StopInstances("test1", "test2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Fail()
+}
+
+func (suite *maas2EnvironSuite) TestStopInstancesReturnsUnexpectedMAASError(c *gc.C) {
+	env := suite.makeEnviron(c, &fakeController{})
+	err := env.StopInstances("test1")
+	c.Assert(err, gc.NotNil)
+	c.Fail()
+}
+
+func (suite *maas2EnvironSuite) TestStopInstancesReturnsUnexpectedError(c *gc.C) {
+	env := suite.makeEnviron(c, &fakeController{})
+	err := env.StopInstances("test1")
+	c.Assert(err, gc.NotNil)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
+}
