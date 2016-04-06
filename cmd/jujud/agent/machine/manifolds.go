@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/logger"
@@ -248,9 +249,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		// The migration minion handles the agent side aspects of model migrations.
+		migrationFortressName: ifFullyUpgraded(fortress.Manifold()),
 		migrationMinionName: ifFullyUpgraded(migrationminion.Manifold(migrationminion.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+			FortressName:  migrationFortressName,
+
+			NewFacade: migrationminion.NewFacade,
+			NewWorker: migrationminion.NewWorker,
 		})),
 
 		// The serving-info-setter manifold sets grabs the state
@@ -380,18 +386,23 @@ var ifFullyUpgraded = util.Housing{
 }.Decorate
 
 const (
-	agentName                = "agent"
-	terminationName          = "termination"
-	stateConfigWatcherName   = "state-config-watcher"
-	stateName                = "state"
-	stateWorkersName         = "stateworkers"
-	apiCallerName            = "api-caller"
-	upgradeStepsGateName     = "upgrade-steps-gate"
-	upgradeStepsFlagName     = "upgrade-steps-flag"
-	upgradeCheckGateName     = "upgrade-check-gate"
-	upgradeCheckFlagName     = "upgrade-check-flag"
-	upgraderName             = "upgrader"
-	upgradeStepsName         = "upgradesteps"
+	agentName              = "agent"
+	terminationName        = "termination"
+	stateConfigWatcherName = "state-config-watcher"
+	stateName              = "state"
+	stateWorkersName       = "stateworkers"
+	apiCallerName          = "api-caller"
+
+	upgradeStepsGateName = "upgrade-steps-gate"
+	upgradeStepsFlagName = "upgrade-steps-flag"
+	upgradeCheckGateName = "upgrade-check-gate"
+	upgradeCheckFlagName = "upgrade-check-flag"
+	upgraderName         = "upgrader"
+	upgradeStepsName     = "upgradesteps"
+
+	migrationFortressName = "migration-fortress"
+	migrationMinionName   = "migration-minion"
+
 	servingInfoSetterName    = "serving-info-setter"
 	apiWorkersName           = "apiworkers"
 	rebootName               = "reboot"
@@ -408,5 +419,4 @@ const (
 	identityFileWriterName   = "identity-file-writer"
 	toolsversioncheckerName  = "tools-version-checker"
 	apiConfigWatcherName     = "api-config-watcher"
-	migrationMinionName      = "migration-minion"
 )

@@ -40,6 +40,7 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 		"instance-poller", "charm-revision-updater",
 		"metric-worker", "state-cleaner", "address-cleaner",
 		"status-history-pruner", "migration-master",
+		"migration-fortress",
 	})
 }
 

@@ -46,7 +46,7 @@ func (*ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 	worker := struct{ worker.Worker }{}
 	var flag util.Flag
 	err := manifold.Output(worker, &flag)
-	c.Check(err, gc.ErrorMatches, "expected in to be a \\*Worker, got a .*")
+	c.Check(err, gc.ErrorMatches, "expected in to implement Flag; got a .*")
 }
 
 func (*ManifoldSuite) TestOutputBadTarget(c *gc.C) {
@@ -54,7 +54,7 @@ func (*ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 	worker := &lifeflag.Worker{}
 	var flag interface{}
 	err := manifold.Output(worker, &flag)
-	c.Check(err, gc.ErrorMatches, "expected out to be a \\*util\\.Flag, got a .*")
+	c.Check(err, gc.ErrorMatches, "expected out to be a \\*Flag; got a .*")
 }
 
 func (*ManifoldSuite) TestOutputSuccess(c *gc.C) {
