@@ -445,7 +445,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	return nil
 }
 
-// populateGUIArchive stores uploaded Juju GUI archive in provider storage,
+// populateGUIArchive stores the uploaded Juju GUI archive in provider storage,
 // updates the GUI metadata and set the current Juju GUI version.
 func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Environ) error {
 	agentConfig := c.CurrentConfig()
@@ -457,10 +457,12 @@ func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Envi
 	defer guistorage.Close()
 	gui, err := agenttools.ReadGUIArchive(dataDir)
 	if err != nil {
-		// TODO frankban: ignore the error for now, as the GUI could not be
-		// there at all. This needs to be changed before merging into master,
-		// return errors.Annotate(err, "cannot fetch GUI info")
-		return nil
+		if errors.IsNotFound(err) {
+			// Do not fail just because there were errors while downloading
+			// the GUI archive from simplestreams.
+			return nil
+		}
+		return errors.Annotate(err, "cannot fetch GUI info")
 	}
 	f, err := os.Open(filepath.Join(agenttools.SharedGUIDir(dataDir), "gui.tar.bz2"))
 	if err != nil {

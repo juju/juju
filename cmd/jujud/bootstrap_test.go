@@ -165,7 +165,7 @@ func (s *BootstrapSuite) writeDownloadedGUI(c *gc.C, gui *tools.GUIArchive) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
+func (s *BootstrapSuite) TestGUIArchiveInfoNotFound(c *gc.C) {
 	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
 	info := filepath.Join(dir, "downloaded-gui.txt")
 	err := os.Remove(info)
@@ -175,10 +175,23 @@ func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
 		"--hosted-model-config", s.b64yamlHostedModelConfig,
 		"--instance-id", string(s.instanceId))
 	c.Assert(err, jc.ErrorIsNil)
-	// TODO frankban: this must return an error before the feature branch is
-	// merged into master.
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
+	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
+	info := filepath.Join(dir, "downloaded-gui.txt")
+	err := os.Chmod(info, 0000)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Chmod(info, 0600)
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil, "--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId))
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.ErrorMatches, "cannot fetch GUI info: cannot read GUI metadata in tools directory: .*")
 }
 
 func (s *BootstrapSuite) TestGUIArchiveError(c *gc.C) {

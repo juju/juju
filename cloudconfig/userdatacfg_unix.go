@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
-	coretools "github.com/juju/juju/tools"
 )
 
 const (
@@ -307,31 +306,12 @@ func (w *unixConfigure) ConfigureJuju() error {
 
 	if w.icfg.Bootstrap {
 		// Add the Juju GUI to the bootstrap node.
-		guiData, err := w.fetchGUI(w.icfg.GUI)
+		cleanup, err := w.setUpGUI()
 		if err != nil {
-			return errors.Annotate(err, "cannot fetch Juju GUI")
+			return errors.Annotate(err, "cannot set up Juju GUI")
 		}
-		// TODO frankban: guiData will never be nil at this point when using
-		// simplestreams. This will be fixed before landing to master.
-		if guiData != nil {
-			guiJson, err := json.Marshal(w.icfg.GUI)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			guiDir := w.icfg.GUITools()
-			w.conf.AddScripts(
-				"gui="+shquote(guiDir),
-				"mkdir -p $gui",
-			)
-			w.conf.AddRunBinaryFile(path.Join(guiDir, "gui.tar.bz2"), []byte(guiData), 0644)
-			w.conf.AddScripts(
-				"sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256",
-				fmt.Sprintf(`grep '%s' $gui/jujugui.sha256 || (echo Juju GUI checksum mismatch; exit 1)`, w.icfg.GUI.SHA256),
-				fmt.Sprintf("printf %%s %s > $gui/downloaded-gui.txt", shquote(string(guiJson))),
-			)
-			// Don't remove the GUI archive until after bootstrap agent runs,
-			// so it has a chance to add it to its catalogue.
-			defer w.conf.AddRunCmd("rm $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt")
+		if cleanup != nil {
+			defer cleanup()
 		}
 
 		var metadataDir string
@@ -387,27 +367,59 @@ func (w *unixConfigure) ConfigureJuju() error {
 	return w.addMachineAgentToBoot()
 }
 
-// fetchGUI fetches the Juju GUI.
-func (w *unixConfigure) fetchGUI(gui *coretools.GUIArchive) ([]byte, error) {
-	if gui == nil {
-		// TODO frankban: return an error in this case.
-		// This will be fixed before landing to master.
+// setUpGUI fetches the Juju GUI archive and save it to the controller.
+// The returned clean up function must be called when the bootstrapping
+// process is completed.
+func (w *unixConfigure) setUpGUI() (func(), error) {
+	if w.icfg.GUI == nil {
+		// No GUI archives were found on simplestreams, and no development
+		// GUI path has been passed with the JUJU_GUI environment variable.
 		return nil, nil
 	}
-	u, err := url.Parse(gui.URL)
+	u, err := url.Parse(w.icfg.GUI.URL)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot parse Juju GUI URL")
 	}
-	if u.Scheme != "file" {
-		// TODO frankban: support retrieving the GUI archive from the web.
-		// This will be fixed before landing to master.
-		return nil, nil
-	}
-	guiData, err := ioutil.ReadFile(filepath.FromSlash(u.Path))
+	guiJson, err := json.Marshal(w.icfg.GUI)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot read Juju GUI archive")
+		return nil, errors.Trace(err)
 	}
-	return guiData, nil
+	guiDir := w.icfg.GUITools()
+	w.conf.AddScripts(
+		"gui="+shquote(guiDir),
+		"mkdir -p $gui",
+	)
+	if u.Scheme == "file" {
+		// Upload the GUI from a local archive file.
+		guiData, err := ioutil.ReadFile(filepath.FromSlash(u.Path))
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot read Juju GUI archive")
+		}
+		w.conf.AddRunBinaryFile(path.Join(guiDir, "gui.tar.bz2"), guiData, 0644)
+	} else {
+		// Upload the GUI from simplestreams.
+		command := "curl -sSf -o $gui/gui.tar.bz2 --retry 10"
+		if w.icfg.DisableSSLHostnameVerification {
+			command += " --insecure"
+		}
+		command += " " + shquote(u.String())
+		// A failure in fetching the Juju GUI archive should not prevent the
+		// model to be bootstrapped. Better no GUI than no Juju at all.
+		command += " || echo Unable to retrieve Juju GUI"
+		w.conf.AddRunCmd(command)
+	}
+	w.conf.AddScripts(
+		"[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256",
+		fmt.Sprintf(
+			`[ -f $gui/jujugui.sha256 ] && (grep '%s' $gui/jujugui.sha256 && printf %%s %s > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)`,
+			w.icfg.GUI.SHA256, shquote(string(guiJson))),
+	)
+	return func() {
+		// Don't remove the GUI archive until after bootstrap agent runs,
+		// so it has a chance to add it to its catalogue.
+		w.conf.AddRunCmd("rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt")
+	}, nil
+
 }
 
 // toolsDownloadCommand takes a curl command minus the source URL,

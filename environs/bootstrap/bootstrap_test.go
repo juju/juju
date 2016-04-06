@@ -22,11 +22,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -63,6 +65,11 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	envtesting.UploadFakeTools(c, stor, "released", "released")
+
+	// Patch the function used to retrieve GUI archive info from simplestreams.
+	s.PatchValue(bootstrap.FetchGUIArchives, func(string, ...simplestreams.DataSource) ([]*tools.GUIArchive, error) {
+		return nil, nil
+	})
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
@@ -283,16 +290,48 @@ func (s *bootstrapSuite) TestSetBootstrapTools(c *gc.C) {
 	}
 }
 
-func (s *bootstrapSuite) TestBootstrapGUISuccess(c *gc.C) {
-	path := makeGUIArchive(c, "jujugui-2.0.42")
+func (s *bootstrapSuite) TestBootstrapGUISuccessRemote(c *gc.C) {
+	s.PatchValue(bootstrap.FetchGUIArchives, func(stream string, sources ...simplestreams.DataSource) ([]*tools.GUIArchive, error) {
+		c.Assert(stream, gc.Equals, gui.ReleasedStream)
+		c.Assert(sources[0].Description(), gc.Equals, "gui simplestreams")
+		c.Assert(sources[0].RequireSigned(), jc.IsTrue)
+		return []*tools.GUIArchive{{
+			Version: version.MustParse("2.0.42"),
+			URL:     "https://1.2.3.4/juju-gui-2.0.42.tar.bz2",
+			SHA256:  "hash-2.0.42",
+			Size:    42,
+		}, {
+			Version: version.MustParse("2.0.47"),
+			URL:     "https://1.2.3.4/juju-gui-2.0.47.tar.bz2",
+			SHA256:  "hash-2.0.47",
+			Size:    47,
+		}}, nil
+	})
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := coretesting.Context(c)
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Preparing for Juju GUI 2.0.42 release installation\n")
+
+	// The most recent GUI release info has been stored.
+	c.Assert(env.instanceConfig.GUI.URL, gc.Equals, "https://1.2.3.4/juju-gui-2.0.42.tar.bz2")
+	c.Assert(env.instanceConfig.GUI.Version.String(), gc.Equals, "2.0.42")
+	c.Assert(env.instanceConfig.GUI.Size, gc.Equals, int64(42))
+	c.Assert(env.instanceConfig.GUI.SHA256, gc.Equals, "hash-2.0.42")
+}
+
+func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
+	path := makeGUIArchive(c, "jujugui-2.2.0")
 	s.PatchEnvironment("JUJU_GUI", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	ctx := coretesting.Context(c)
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Preparing for Juju GUI 2.2.0 installation from local archive\n")
 
 	// Check GUI URL and version.
 	c.Assert(env.instanceConfig.GUI.URL, gc.Equals, "file://"+path)
-	c.Assert(env.instanceConfig.GUI.Version.String(), gc.Equals, "2.0.42")
+	c.Assert(env.instanceConfig.GUI.Version.String(), gc.Equals, "2.2.0")
 
 	// Check GUI size.
 	f, err := os.Open(path)
@@ -309,11 +348,37 @@ func (s *bootstrapSuite) TestBootstrapGUISuccess(c *gc.C) {
 	c.Assert(env.instanceConfig.GUI.SHA256, gc.Equals, fmt.Sprintf("%x", h.Sum(nil)))
 }
 
+func (s *bootstrapSuite) TestBootstrapGUINoStreams(c *gc.C) {
+	s.PatchValue(bootstrap.FetchGUIArchives, func(string, ...simplestreams.DataSource) ([]*tools.GUIArchive, error) {
+		return nil, nil
+	})
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := coretesting.Context(c)
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(ctx), jc.Contains, "No available Juju GUI archives found\n")
+	c.Assert(env.instanceConfig.GUI, gc.IsNil)
+}
+
+func (s *bootstrapSuite) TestBootstrapGUIStreamsFailure(c *gc.C) {
+	s.PatchValue(bootstrap.FetchGUIArchives, func(string, ...simplestreams.DataSource) ([]*tools.GUIArchive, error) {
+		return nil, errors.New("bad wolf")
+	})
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := coretesting.Context(c)
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Unable to fetch Juju GUI info: bad wolf\n")
+	c.Assert(env.instanceConfig.GUI, gc.IsNil)
+}
+
 func (s *bootstrapSuite) TestBootstrapGUIErrorNotFound(c *gc.C) {
 	s.PatchEnvironment("JUJU_GUI", "/no/such/file")
 	env := newEnviron("foo", useDefaultKeys, nil)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.ErrorMatches, "cannot set up Juju GUI: cannot open Juju GUI archive: .*")
+	ctx := coretesting.Context(c)
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(ctx), jc.Contains, `Cannot use Juju GUI at "/no/such/file": cannot open Juju GUI archive:`)
 }
 
 func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidArchive(c *gc.C) {
@@ -322,22 +387,30 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidArchive(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchEnvironment("JUJU_GUI", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.ErrorMatches, "cannot set up Juju GUI: cannot read Juju GUI archive")
+	ctx := coretesting.Context(c)
+	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(ctx), jc.Contains, fmt.Sprintf("Cannot use Juju GUI at %q: cannot read Juju GUI archive", path))
 }
 
 func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidVersion(c *gc.C) {
-	s.PatchEnvironment("JUJU_GUI", makeGUIArchive(c, "jujugui-invalid"))
+	path := makeGUIArchive(c, "jujugui-invalid")
+	s.PatchEnvironment("JUJU_GUI", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.ErrorMatches, `cannot set up Juju GUI: cannot parse version "invalid"`)
+	ctx := coretesting.Context(c)
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(ctx), jc.Contains, fmt.Sprintf(`Cannot use Juju GUI at %q: cannot parse version "invalid"`, path))
 }
 
 func (s *bootstrapSuite) TestBootstrapGUIErrorUnexpectedArchive(c *gc.C) {
-	s.PatchEnvironment("JUJU_GUI", makeGUIArchive(c, "not-a-gui"))
+	path := makeGUIArchive(c, "not-a-gui")
+	s.PatchEnvironment("JUJU_GUI", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.ErrorMatches, "cannot set up Juju GUI: cannot find Juju GUI version")
+	ctx := coretesting.Context(c)
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(ctx), jc.Contains, fmt.Sprintf("Cannot use Juju GUI at %q: cannot find Juju GUI version", path))
 }
 
 func makeGUIArchive(c *gc.C, dir string) string {
