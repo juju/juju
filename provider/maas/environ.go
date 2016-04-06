@@ -2143,7 +2143,7 @@ func (environ *maasEnviron) spaces2() ([]network.SpaceInfo, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := []network.SpaceInfo{}
+	var result []network.SpaceInfo
 	for _, space := range spaces {
 		if len(space.Subnets()) == 0 {
 			continue
@@ -2160,8 +2160,8 @@ func (environ *maasEnviron) spaces2() ([]network.SpaceInfo, error) {
 				CIDR:            subnet.CIDR(),
 				SpaceProviderId: network.Id(strconv.Itoa(space.ID())),
 				// TODO (babbageclunk): not setting
-				// AllocatableIPLow/High - these aren't needed until
-				// we need to support container networking
+				// AllocatableIPLow/High - these aren't exposed in
+				// gomaasapi just yet.
 			}
 			outSpace.Subnets[i] = subnetInfo
 		}
