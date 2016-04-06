@@ -154,6 +154,11 @@ var fetchMetadataTests = []struct {
 	jujuVersion:   "2.0.0",
 	expectedError: `error fetching simplestreams metadata: cannot unmarshal JSON metadata at URL "test:/streams/v1/com.canonical.streams-invalid-gui.json": .*`,
 }, {
+	about:         "error: invalid metadata",
+	stream:        "errors",
+	jujuVersion:   "2.0.0",
+	expectedError: `error fetching simplestreams metadata: cannot parse metadata version: invalid version "bad-wolf"`,
+}, {
 	about:         "error: stream not found",
 	stream:        "no-stream",
 	jujuVersion:   "2.0.0",
@@ -242,6 +247,15 @@ var guiData = map[string]string{
                 "datatype": "content-download",
                 "format": "products:1.0",
                 "path": "streams/v1/com.canonical.streams-invalid-gui.json",
+                "products": [
+                    "com.canonical.streams:gui"
+                ],
+                "updated": "Fri, 01 Apr 2016 15:47:41 +0000"
+            },
+            "com.canonical.streams:errors:gui": {
+                "datatype": "content-download",
+                "format": "products:1.0",
+                "path": "streams/v1/com.canonical.streams-errors-gui.json",
                 "products": [
                     "com.canonical.streams:gui"
                 ],
@@ -343,4 +357,31 @@ var guiData = map[string]string{
 	"/streams/v1/com.canonical.streams-invalid-gui.json": `
         bad: wolf
     `,
+	"/streams/v1/com.canonical.streams-errors-gui.json": `{
+        "content_id": "com.canonical.streams:devel:gui",
+        "datatype": "content-download",
+        "format": "products:1.0",
+        "products": {
+            "com.canonical.streams:gui": {
+                "format": "products:1.0",
+                "ftype": "tar.bz2",
+                "versions": {
+                    "20160404": {
+                        "items": {
+                            "2.0.0": {
+                                "juju-version": 2,
+                                "md5": "5af3cb9f2625afbaff904cbd5c65772f",
+                                "path": "gui/2.0.0/jujugui-2.0.0.tar.bz2",
+                                "sha1": "b364a4236a132c75241a75d6ab1c96788c6f38b0",
+                                "sha256": "6cec58b36969590d3ff56279a2c63b4f5faf277b0dbeefe1106f666582575894",
+                                "size": 6098111,
+                                "version": "bad-wolf"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "updated": "Mon, 04 Apr 2016 17:14:58 +0000"
+    }`,
 }
