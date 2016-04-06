@@ -166,7 +166,7 @@ func (p EnvironProvider) PrepareForBootstrap(
 // find matching image information.
 func (p EnvironProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
-		return nil, fmt.Errorf("region must be specified")
+		return nil, errors.Errorf("region must be specified")
 	}
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
@@ -517,7 +517,7 @@ type openstackPlacement struct {
 func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) {
 	pos := strings.IndexRune(placement, '=')
 	if pos == -1 {
-		return nil, fmt.Errorf("unknown placement directive: %v", placement)
+		return nil, errors.Errorf("unknown placement directive: %v", placement)
 	}
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
@@ -533,9 +533,9 @@ func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) 
 				}, nil
 			}
 		}
-		return nil, fmt.Errorf("invalid availability zone %q", availabilityZone)
+		return nil, errors.Errorf("invalid availability zone %q", availabilityZone)
 	}
-	return nil, fmt.Errorf("unknown placement directive: %v", placement)
+	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
 
 // PrecheckInstance is defined on the state.Prechecker interface.
@@ -559,7 +559,7 @@ func (e *Environ) PrecheckInstance(series string, cons constraints.Value, placem
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid Openstack flavour %q specified", *cons.InstanceType)
+	return errors.Errorf("invalid Openstack flavour %q specified", *cons.InstanceType)
 }
 
 func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
@@ -597,8 +597,12 @@ func (e *Environ) Config() *config.Config {
 
 type newClientFunc func(*identity.Credentials, identity.AuthMode, *log.Logger) client.AuthenticatingClient
 
-func determineBestClient(options identity.AuthOptions, client client.AuthenticatingClient,
-	cred *identity.Credentials, newClient newClientFunc) client.AuthenticatingClient {
+func determineBestClient(
+	options identity.AuthOptions,
+	client client.AuthenticatingClient,
+	cred *identity.Credentials,
+	newClient newClientFunc,
+) client.AuthenticatingClient {
 	for _, option := range options {
 		if option.Mode != identity.AuthUserPassV3 {
 			continue
@@ -761,9 +765,9 @@ func (e *Environ) resolveNetwork(networkName string) (string, error) {
 	case 1:
 		return networkIds[0], nil
 	case 0:
-		return "", fmt.Errorf("No networks exist with label %q", networkName)
+		return "", errors.Errorf("No networks exist with label %q", networkName)
 	}
-	return "", fmt.Errorf("Multiple networks with label %q: %v", networkName, networkIds)
+	return "", errors.Errorf("Multiple networks with label %q: %v", networkName, networkIds)
 }
 
 // allocatePublicIP tries to find an available floating IP address, or
@@ -801,7 +805,7 @@ func (e *Environ) allocatePublicIP() (*nova.FloatingIP, error) {
 // specified server, or returns an error.
 func (e *Environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err error) {
 	if fip == nil {
-		return fmt.Errorf("cannot assign a nil public IP to %q", serverId)
+		return errors.Errorf("cannot assign a nil public IP to %q", serverId)
 	}
 	if fip.InstanceId != nil && *fip.InstanceId == serverId {
 		// IP already assigned, nothing to do
@@ -839,7 +843,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			return nil, err
 		}
 		if !placement.availabilityZone.State.Available {
-			return nil, fmt.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
+			return nil, errors.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
 		}
 		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
 	}
@@ -874,7 +878,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 
 	if args.InstanceConfig.HasNetworks() {
-		return nil, fmt.Errorf("starting instances with networks is not supported yet.")
+		return nil, errors.Errorf("starting instances with networks is not supported yet.")
 	}
 
 	series := args.Tools.OneSeries()
@@ -890,7 +894,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
 	args.InstanceConfig.Tools = tools[0]
@@ -904,7 +908,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, OpenstackRenderer{})
 	if err != nil {
-		return nil, fmt.Errorf("cannot make user data: %v", err)
+		return nil, errors.Annotate(err, "cannot make user data")
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 
@@ -923,7 +927,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if withPublicIP {
 		logger.Debugf("allocating public IP address for openstack node")
 		if fip, err := e.allocatePublicIP(); err != nil {
-			return nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
+			return nil, errors.Annotate(err, "cannot allocate a public IP as needed")
 		} else {
 			publicIP = fip
 			logger.Infof("allocated public IP %s", publicIP.IP)
@@ -934,7 +938,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	var groupNames = make([]nova.SecurityGroupName, 0)
 	groups, err := e.firewaller.SetUpGroups(args.InstanceConfig.MachineId, cfg.APIPort())
 	if err != nil {
-		return nil, fmt.Errorf("cannot set up groups: %v", err)
+		return nil, errors.Annotate(err, "cannot set up groups")
 	}
 
 	for _, g := range groups {
@@ -945,38 +949,63 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		e.Config().UUID(),
 	)
 
-	var server *nova.Entity
-	for _, availZone := range availabilityZones {
-		var opts = nova.RunServerOpts{
-			Name:               machineName,
-			FlavorId:           spec.InstanceType.Id,
-			ImageId:            spec.Image.Id,
-			UserData:           userData,
-			SecurityGroupNames: groupNames,
-			Networks:           networks,
-			AvailabilityZone:   availZone,
-			Metadata:           args.InstanceConfig.Tags,
-		}
-		e.configurator.ModifyRunServerOptions(&opts)
-		for a := shortAttempt.Start(); a.Next(); {
-			server, err = e.nova().RunServer(opts)
-			if err == nil || !gooseerrors.IsNotFound(err) {
-				break
+	tryStartNovaInstance := func(
+		attempts utils.AttemptStrategy,
+		client *nova.Client,
+		instanceOpts nova.RunServerOpts,
+	) (*nova.Entity, error) {
+		for a := attempts.Start(); a.Next(); {
+			server, err := client.RunServer(instanceOpts)
+			if err == nil {
+				return server, nil
+			} else if gooseerrors.IsNotFound(err) {
+				continue
 			}
+			return nil, err
 		}
-		if isNoValidHostsError(err) {
-			logger.Infof("no valid hosts available in zone %q, trying another availability zone", availZone)
-		} else {
-			break
-		}
+		return nil, errors.Errorf("cannot start instance")
 	}
+
+	tryStartNovaInstanceAcrossAvailZones := func(
+		attempts utils.AttemptStrategy,
+		client *nova.Client,
+		instanceOpts nova.RunServerOpts,
+		availabilityZones []string,
+	) (*nova.Entity, error) {
+		for _, zone := range availabilityZones {
+			instanceOpts.AvailabilityZone = zone
+			e.configurator.ModifyRunServerOptions(&instanceOpts)
+			server, err := tryStartNovaInstance(attempts, client, instanceOpts)
+			if err == nil {
+				return server, nil
+			} else if isNoValidHostsError(err) == false {
+				return nil, err
+			}
+
+			logger.Infof("no valid hosts available in zone %q, trying another availability zone", zone)
+		}
+		return nil, errors.Errorf("cannot run instance")
+	}
+
+	var opts = nova.RunServerOpts{
+		Name:               machineName,
+		FlavorId:           spec.InstanceType.Id,
+		ImageId:            spec.Image.Id,
+		UserData:           userData,
+		SecurityGroupNames: groupNames,
+		Networks:           networks,
+		Metadata:           args.InstanceConfig.Tags,
+	}
+	server, err := tryStartNovaInstanceAcrossAvailZones(shortAttempt, e.nova(), opts, availabilityZones)
 	if err != nil {
-		return nil, fmt.Errorf("cannot run instance: %v", err)
+		return nil, errors.Trace(err)
 	}
+
 	detail, err := e.nova().GetServer(server.Id)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get started instance: %v", err)
+		return nil, errors.Annotate(err, "cannot get started instance")
 	}
+
 	inst := &openstackInstance{
 		e:            e,
 		serverDetail: detail,
@@ -990,7 +1019,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 				// ignore the failure at this stage, just log it
 				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
-			return nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
+			return nil, errors.Annotatef(err, "cannot assign public address %s to instance %q", publicIP.IP, inst.Id())
 		}
 		inst.floatingIP = publicIP
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
