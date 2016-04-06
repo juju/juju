@@ -26,7 +26,17 @@ type maas2EnvironSuite struct {
 
 var _ = gc.Suite(&maas2EnvironSuite{})
 
-func makeEnviron(c *gc.C) *maasEnviron {
+func (suite *maas2EnvironSuite) injectController(controller gomaasapi.Controller) {
+	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+		return controller, nil
+	}
+	suite.PatchValue(&GetMAAS2Controller, mockGetController)
+}
+
+func (suite *maas2EnvironSuite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *maasEnviron {
+	if controller != nil {
+		suite.injectController(controller)
+	}
 	testAttrs := coretesting.Attrs{}
 	for k, v := range maasEnvAttrs {
 		testAttrs[k] = v
@@ -76,32 +86,23 @@ func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestSupportedArchitectures(c *gc.C) {
-	controller := fakeController{
+	controller := &fakeController{
 		bootResources: []gomaasapi.BootResource{
 			&fakeBootResource{name: "wily", architecture: "amd64/blah"},
 			&fakeBootResource{name: "wily", architecture: "amd64/something"},
 			&fakeBootResource{name: "xenial", architecture: "arm/somethingelse"},
 		},
 	}
-	suite.injectController(&controller)
-	env := makeEnviron(c)
+	env := suite.makeEnviron(c, controller)
 	result, err := env.SupportedArchitectures()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []string{"amd64", "arm"})
 }
 
 func (suite *maas2EnvironSuite) TestSupportedArchitecturesError(c *gc.C) {
-	suite.injectController(&fakeController{bootResourcesError: errors.New("Something terrible!")})
-	env := makeEnviron(c)
+	env := suite.makeEnviron(c, &fakeController{bootResourcesError: errors.New("Something terrible!")})
 	_, err := env.SupportedArchitectures()
 	c.Assert(err, gc.ErrorMatches, "Something terrible!")
-}
-
-func (suite *maas2EnvironSuite) injectController(controller gomaasapi.Controller) {
-	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
-		return controller, nil
-	}
-	suite.PatchValue(&GetMAAS2Controller, mockGetController)
 }
 
 func (suite *maas2EnvironSuite) makeEnvironWithMachines(c *gc.C, expectedSystemIDs []string, returnSystemIDs []string) *maasEnviron {
@@ -114,11 +115,11 @@ func (suite *maas2EnvironSuite) makeEnvironWithMachines(c *gc.C, expectedSystemI
 	for index, id := range returnSystemIDs {
 		machines[index] = &fakeMachine{systemID: id}
 	}
-	suite.injectController(&fakeController{
+	controller := &fakeController{
 		machines:          machines,
 		machinesArgsCheck: checkArgs,
-	})
-	env = makeEnviron(c)
+	}
+	env = suite.makeEnviron(c, controller)
 	return env
 }
 
@@ -137,8 +138,8 @@ func (suite *maas2EnvironSuite) TestAllInstances(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestAllInstancesError(c *gc.C) {
-	suite.injectController(&fakeController{machinesError: errors.New("Something terrible!")})
-	env := makeEnviron(c)
+	controller := &fakeController{machinesError: errors.New("Something terrible!")}
+	env := suite.makeEnviron(c, controller)
 	_, err := env.AllInstances()
 	c.Assert(err, gc.ErrorMatches, "Something terrible!")
 }
@@ -169,13 +170,13 @@ func (suite *maas2EnvironSuite) TestInstancesPartialResult(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestAvailabilityZones(c *gc.C) {
-	suite.injectController(&fakeController{
+	controller := &fakeController{
 		zones: []gomaasapi.Zone{
 			&fakeZone{name: "mossack"},
 			&fakeZone{name: "fonseca"},
 		},
-	})
-	env := makeEnviron(c)
+	}
+	env := suite.makeEnviron(c, controller)
 	result, err := env.AvailabilityZones()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedZones := set.NewStrings("mossack", "fonseca")
@@ -187,16 +188,16 @@ func (suite *maas2EnvironSuite) TestAvailabilityZones(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestAvailabilityZonesError(c *gc.C) {
-	suite.injectController(&fakeController{
+	controller := &fakeController{
 		zonesError: errors.New("a bad thing"),
-	})
-	env := makeEnviron(c)
+	}
+	env := suite.makeEnviron(c, controller)
 	_, err := env.AvailabilityZones()
 	c.Assert(err, gc.ErrorMatches, "a bad thing")
 }
 
 func (suite *maas2EnvironSuite) TestSpaces(c *gc.C) {
-	suite.injectController(&fakeController{
+	controller := &fakeController{
 		spaces: []gomaasapi.Space{
 			fakeSpace{
 				name: "pepper",
@@ -211,8 +212,8 @@ func (suite *maas2EnvironSuite) TestSpaces(c *gc.C) {
 				},
 			},
 		},
-	})
-	env := makeEnviron(c)
+	}
+	env := suite.makeEnviron(c, controller)
 	result, err := env.Spaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
@@ -231,10 +232,10 @@ func (suite *maas2EnvironSuite) TestSpaces(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestSpacesError(c *gc.C) {
-	suite.injectController(&fakeController{
+	controller := &fakeController{
 		spacesError: errors.New("Joe Manginiello"),
-	})
-	env := makeEnviron(c)
+	}
+	env := suite.makeEnviron(c, controller)
 	_, err := env.Spaces()
 	c.Assert(err, gc.ErrorMatches, "Joe Manginiello")
 }
