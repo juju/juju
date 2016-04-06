@@ -46,7 +46,7 @@ func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
 	// do anything nasty. Also mock out the Signal method.
 	gitjujutesting.PatchExecutableAsEchoArgs(c, s, "mongod")
 	mongodDir := filepath.SplitList(os.Getenv("PATH"))[0]
-	s.PatchValue(&mongo.JujuMongod24Path, filepath.Join(mongodDir, "mongod"))
+	s.PatchValue(&mongo.JujuMongodPath, filepath.Join(mongodDir, "mongod"))
 	s.PatchValue(mongo.ProcessSignal, func(*os.Process, os.Signal) error {
 		return nil
 	})

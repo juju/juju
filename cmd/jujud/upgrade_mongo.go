@@ -8,42 +8,33 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"path/filepath"
+	"path"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
-	"github.com/juju/replicaset"
-	"github.com/juju/retry"
-	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
-	"github.com/juju/utils/fs"
-	"github.com/juju/utils/packaging/manager"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
-	"launchpad.net/gnuflag"
-
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/worker/peergrouper"
+	"github.com/juju/names"
+	"github.com/juju/replicaset"
+	"github.com/juju/utils"
+	"github.com/juju/utils/fs"
+	"github.com/juju/utils/packaging/manager"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"launchpad.net/gnuflag"
 )
 
 const KeyUpgradeBackup = "mongo-upgrade-backup"
 
 func createTempDir() (string, error) {
 	return ioutil.TempDir("", "")
-}
-
-var defaultCallArgs = retry.CallArgs{
-	Attempts: 60,
-	Delay:    time.Second,
-	Clock:    clock.WallClock,
 }
 
 // NewUpgradeMongoCommand returns a new UpgradeMongo command initialized with
@@ -61,7 +52,6 @@ func NewUpgradeMongoCommand() *UpgradeMongoCommand {
 		fsCopy:               fs.Copy,
 		osGetenv:             os.Getenv,
 
-		callArgs:                    defaultCallArgs,
 		mongoStart:                  mongo.StartService,
 		mongoStop:                   mongo.StopService,
 		mongoRestart:                mongo.ReStartService,
@@ -91,7 +81,7 @@ type mgoDb interface {
 	Run(interface{}, interface{}) error
 }
 
-type dialAndLogger func(*mongo.MongoInfo, retry.CallArgs) (mgoSession, mgoDb, error)
+type dialAndLogger func(*mongo.MongoInfo) (mgoSession, mgoDb, error)
 
 type requisitesSatisfier func(string) error
 
@@ -115,10 +105,10 @@ type UpgradeMongoCommand struct {
 	backupPath     string
 	rollback       bool
 	slave          bool
+	wiredTiger     bool
 	members        string
 
 	// utils used by this struct.
-	callArgs             retry.CallArgs
 	stat                 statFunc
 	remove               removeFunc
 	mkdir                mkdirFunc
@@ -157,6 +147,7 @@ func (u *UpgradeMongoCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&u.members, "members", "", "a comma separated list of replicaset member ips")
 	f.BoolVar(&u.rollback, "rollback", false, "rollback a previous attempt at upgrading that was cut in the process")
 	f.BoolVar(&u.slave, "slave", false, "this is a slave machine in a replicaset")
+	f.BoolVar(&u.wiredTiger, "wiredTiger", false, "use wired tiger storage, requires a mongo 3 with js enabled")
 }
 
 // Init initializes the command for running.
@@ -251,8 +242,8 @@ func (u *UpgradeMongoCommand) run() (err error) {
 		}
 		current = mongo.Mongo26
 	}
-	if current == mongo.Mongo26 || current.StorageEngine != mongo.WiredTiger {
-		if err := u.maybeUpgrade26to3x(dataDir); err != nil {
+	if current == mongo.Mongo26 || current == mongo.Mongo30 {
+		if err := u.maybeUpgrade26to31(dataDir); err != nil {
 			defer func() {
 				if u.backupPath == "" {
 					return
@@ -285,7 +276,16 @@ func (u *UpgradeMongoCommand) replicaRemove() error {
 		return errors.New("cannot get mongo info from agent config to resume HA")
 	}
 
-	session, _, err := u.dialAndLogin(info, u.callArgs)
+	var session mgoSession
+	var err error
+	for attempt := connectAfterRestartRetryAttempts.Start(); attempt.Next(); {
+		// Try to connect, retry a few times until the db comes up.
+		session, _, err = u.dialAndLogin(info)
+		if err == nil {
+			break
+		}
+		logger.Errorf("cannot open mongo connection to resume HA auth schema: %v", err)
+	}
 	if err != nil {
 		return errors.Annotate(err, "error dialing mongo to resume HA")
 	}
@@ -315,7 +315,16 @@ func (u *UpgradeMongoCommand) replicaAdd() error {
 		return errors.New("cannot get mongo info from agent config to resume HA")
 	}
 
-	session, _, err := u.dialAndLogin(info, u.callArgs)
+	var session mgoSession
+	var err error
+	for attempt := connectAfterRestartRetryAttempts.Start(); attempt.Next(); {
+		// Try to connect, retry a few times until the db comes up.
+		session, _, err = u.dialAndLogin(info)
+		if err == nil {
+			break
+		}
+		logger.Errorf("cannot open mongo connection to resume HA auth schema: %v", err)
+	}
 	if err != nil {
 		return errors.Annotate(err, "error dialing mongo to resume HA")
 	}
@@ -397,7 +406,16 @@ func (u *UpgradeMongoCommand) maybeUpgrade24to26(dataDir string) error {
 		return errors.New("cannot get mongo info from agent config")
 	}
 
-	session, db, err := u.dialAndLogin(info, u.callArgs)
+	var session mgoSession
+	var db mgoDb
+	for attempt := connectAfterRestartRetryAttempts.Start(); attempt.Next(); {
+		// Try to connect, retry a few times until the db comes up.
+		session, db, err = u.dialAndLogin(info)
+		if err == nil {
+			break
+		}
+		logger.Errorf("cannot open mongo connection to upgrade auth schema: %v", err)
+	}
 	if err != nil {
 		return errors.Annotate(err, "error dialing mongo to upgrade auth schema")
 	}
@@ -420,8 +438,8 @@ func (u *UpgradeMongoCommand) maybeUpgrade24to26(dataDir string) error {
 	return nil
 }
 
-func (u *UpgradeMongoCommand) maybeUpgrade26to3x(dataDir string) error {
-	jujuMongoPath := filepath.Dir(mongo.JujuMongodPath(mongo.Mongo26))
+func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
+	jujuMongoPath := path.Dir(mongo.JujuMongod26Path)
 	password := u.agentConfig.OldPassword()
 	ssi, _ := u.agentConfig.StateServingInfo()
 	port := ssi.StatePort
@@ -440,14 +458,12 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to3x(dataDir string) error {
 		}
 		logger.Infof("mongo stopped")
 
-		// Initially, mongo 3, no wired tiger so we can do a pre-migration dump.
-		mongoNoWiredTiger := mongo.Mongo32wt
-		mongoNoWiredTiger.StorageEngine = mongo.MMAPV1
-		u.agentConfig.SetMongoVersion(mongoNoWiredTiger)
+		// Mongo 3, no wired tiger
+		u.agentConfig.SetMongoVersion(mongo.Mongo30)
 		if err := u.agentConfig.Write(); err != nil {
 			return errors.Annotate(err, "could not update mongo version in agent.config")
 		}
-		logger.Infof(fmt.Sprintf("new mongo version set-up to %q", mongoNoWiredTiger.String()))
+		logger.Infof(fmt.Sprintf("new mongo version set-up to %q", mongo.Mongo30.String()))
 
 		if err := u.UpdateService(true); err != nil {
 			return errors.Annotate(err, "cannot update service script")
@@ -458,11 +474,11 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to3x(dataDir string) error {
 			return errors.Annotate(err, "cannot start mongo 3 to do a pre-tiger migration dump")
 		}
 		logger.Infof("started mongo")
-		current = mongo.Mongo32wt
+		current = mongo.Mongo30
 	}
 
-	if current.Major > 2 {
-		jujuMongoPath = filepath.Dir(mongo.JujuMongodPath(current))
+	if current == mongo.Mongo30 && u.wiredTiger {
+		jujuMongoPath = path.Dir(mongo.JujuMongod30Path)
 		_, err := u.mongoDump(jujuMongoPath, password, "Tiger", port)
 		if err != nil {
 			return errors.Annotate(err, "could not do the tiger migration export")
@@ -478,8 +494,8 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to3x(dataDir string) error {
 		}
 		logger.Infof("old db files removed")
 
-		// Mongo, with wired tiger
-		u.agentConfig.SetMongoVersion(mongo.Mongo32wt)
+		// Mongo 3, with wired tiger
+		u.agentConfig.SetMongoVersion(mongo.Mongo30wt)
 		if err := u.agentConfig.Write(); err != nil {
 			return errors.Annotate(err, "could not update mongo version in agent.config")
 		}
@@ -542,23 +558,29 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to3x(dataDir string) error {
 	return nil
 }
 
+// connectAfterRestartRetryAttempts defines how many retries
+// will there be when trying to connect to mongo after starting it.
+var connectAfterRestartRetryAttempts = utils.AttemptStrategy{
+	Total: 1 * time.Minute,
+	Delay: 1 * time.Second,
+}
+
 // dialAndLogin returns a mongo session logged in as a user with administrative
 // privileges
-func dialAndLogin(mongoInfo *mongo.MongoInfo, callArgs retry.CallArgs) (mgoSession, mgoDb, error) {
+func dialAndLogin(mongoInfo *mongo.MongoInfo) (mgoSession, mgoDb, error) {
 	var session *mgo.Session
+	var err error
 	opts := mongo.DefaultDialOpts()
-	callArgs.Func = func() error {
+	for attempt := connectAfterRestartRetryAttempts.Start(); attempt.Next(); {
 		// Try to connect, retry a few times until the db comes up.
-		var err error
 		session, err = mongo.DialWithInfo(mongoInfo.Info, opts)
 		if err == nil {
-			return nil
+			break
 		}
-		logger.Errorf("cannot open mongo connection to resume HA auth schema: %v", err)
-		return err
+		logger.Errorf("cannot open mongo connection to upgrade auth schema: %v", err)
 	}
-	if err := retry.Call(callArgs); err != nil {
-		return nil, nil, errors.Annotate(err, "error dialing mongo to resume HA")
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "timed out trying to dial mongo")
 	}
 	admin := session.DB("admin")
 	if mongoInfo.Tag != nil {
@@ -575,7 +597,7 @@ func dialAndLogin(mongoInfo *mongo.MongoInfo, callArgs retry.CallArgs) (mgoSessi
 
 func mongo26UpgradeStepCall(runCommand utilsRun, dataDir string) error {
 	updateArgs := []string{"--dbpath", mongo.DbDir(dataDir), "--replSet", "juju", "--upgrade"}
-	out, err := runCommand(mongo.JujuMongod24Path, updateArgs...)
+	out, err := runCommand(mongo.JujuMongodPath, updateArgs...)
 	logger.Infof(out)
 	if err != nil {
 		return errors.Annotate(err, "cannot upgrade mongo 2.4 data")
@@ -588,7 +610,7 @@ func (u *UpgradeMongoCommand) mongo26UpgradeStep(dataDir string) error {
 }
 
 func removeOldDbCall(dataDir string, stat statFunc, remove removeFunc, mkdir mkdirFunc) error {
-	dbPath := filepath.Join(dataDir, "db")
+	dbPath := path.Join(dataDir, "db")
 
 	fi, err := stat(dbPath)
 	if err != nil {
@@ -626,36 +648,32 @@ func satisfyPrerequisites(operatingsystem string) error {
 	if err := pacman.Install("juju-mongodb2.6"); err != nil {
 		return errors.Annotate(err, "cannot install juju-mongodb2.6")
 	}
-	if err := pacman.Install(mongo.JujuMongoPackage); err != nil {
-		return errors.Annotatef(err, "cannot install %v", mongo.JujuMongoPackage)
+	if err := pacman.Install("juju-mongodb3"); err != nil {
+		return errors.Annotate(err, "cannot install juju-mongodb3")
 	}
 	return nil
 }
 
-func mongoDumpCall(
-	runCommand utilsRun, tmpDir, mongoPath, adminPassword, migrationName string,
-	statePort int, callArgs retry.CallArgs,
-) (string, error) {
-	mongodump := filepath.Join(mongoPath, "mongodump")
+func mongoDumpCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, migrationName string, statePort int) (string, error) {
+	mongodump := path.Join(mongoPath, "mongodump")
 	dumpParams := []string{
 		"--ssl",
 		"-u", "admin",
 		"-p", adminPassword,
 		"--port", strconv.Itoa(statePort),
 		"--host", "localhost",
-		"--out", filepath.Join(tmpDir, fmt.Sprintf("migrateTo%sdump", migrationName)),
+		"--out", path.Join(tmpDir, fmt.Sprintf("migrateTo%sdump", migrationName)),
 	}
 	var out string
-	callArgs.Func = func() error {
-		var err error
+	var err error
+	for attempt := connectAfterRestartRetryAttempts.Start(); attempt.Next(); {
 		out, err = runCommand(mongodump, dumpParams...)
 		if err == nil {
-			return nil
+			break
 		}
-		logger.Errorf("cannot dump db %v: %s", err, out)
-		return err
+		logger.Errorf(out)
 	}
-	if err := retry.Call(callArgs); err != nil {
+	if err != nil {
 		logger.Errorf(out)
 		return out, errors.Annotate(err, "cannot dump mongo db")
 	}
@@ -663,12 +681,12 @@ func mongoDumpCall(
 }
 
 func (u *UpgradeMongoCommand) mongoDump(mongoPath, adminPassword, migrationName string, statePort int) (string, error) {
-	return mongoDumpCall(u.runCommand, u.tmpDir, mongoPath, adminPassword, migrationName, statePort, u.callArgs)
+	return mongoDumpCall(u.runCommand, u.tmpDir, mongoPath, adminPassword, migrationName, statePort)
 }
 
 func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, migrationName string,
-	dbs []string, statePort int, invalidSSL bool, batchSize int, callArgs retry.CallArgs) error {
-	mongorestore := filepath.Join(mongoPath, "mongorestore")
+	dbs []string, statePort int, invalidSSL bool, batchSize int) error {
+	mongorestore := path.Join(mongoPath, "mongorestore")
 	restoreParams := []string{
 		"--ssl",
 		"--port", strconv.Itoa(statePort),
@@ -685,38 +703,31 @@ func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, mig
 		restoreParams = append(restoreParams, "-u", "admin", "-p", adminPassword)
 	}
 	var out string
+	var err error
 	if len(dbs) == 0 || dbs == nil {
-		restoreParams = append(restoreParams, filepath.Join(tmpDir, fmt.Sprintf("migrateTo%sdump", migrationName)))
-		restoreCallArgs := callArgs
-		restoreCallArgs.Func = func() error {
-			var err error
+		restoreParams = append(restoreParams, path.Join(tmpDir, fmt.Sprintf("migrateTo%sdump", migrationName)))
+		for attempt := connectAfterRestartRetryAttempts.Start(); attempt.Next(); {
 			out, err = runCommand(mongorestore, restoreParams...)
 			if err == nil {
-				return nil
+				break
 			}
 			logger.Errorf("cannot restore %v: %s", err, out)
-			return err
 		}
-		if err := retry.Call(restoreCallArgs); err != nil {
-			logger.Errorf(out)
-			return errors.Annotatef(err, "cannot restore dbs got: %s", out)
-		}
+		// if err is nil, Annotate returns nil
+		return errors.Annotatef(err, "cannot restore dbs got: %s", out)
 	}
 	for i := range dbs {
 		restoreDbParams := append(restoreParams,
 			fmt.Sprintf("--db=%s", dbs[i]),
-			filepath.Join(tmpDir, fmt.Sprintf("migrateTo%sdump/%s", migrationName, dbs[i])))
-		restoreCallArgs := callArgs
-		restoreCallArgs.Func = func() error {
-			var err error
+			path.Join(tmpDir, fmt.Sprintf("migrateTo%sdump/%s", migrationName, dbs[i])))
+		for attempt := connectAfterRestartRetryAttempts.Start(); attempt.Next(); {
 			out, err = runCommand(mongorestore, restoreDbParams...)
 			if err == nil {
-				return nil
+				break
 			}
 			logger.Errorf("cannot restore db %q: %v: got %s", dbs[i], err, out)
-			return err
 		}
-		if err := retry.Call(restoreCallArgs); err != nil {
+		if err != nil {
 			return errors.Annotatef(err, "cannot restore db %q got: %s", dbs[i], out)
 		}
 		logger.Infof("Succesfully restored db %q", dbs[i])
@@ -725,10 +736,7 @@ func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, mig
 }
 
 func (u *UpgradeMongoCommand) mongoRestore(mongoPath, adminPassword, migrationName string, dbs []string, statePort int, invalidSSL bool, batchSize int) error {
-	return mongoRestoreCall(
-		u.runCommand, u.tmpDir, mongoPath, adminPassword, migrationName, dbs,
-		statePort, invalidSSL, batchSize, u.callArgs,
-	)
+	return mongoRestoreCall(u.runCommand, u.tmpDir, mongoPath, adminPassword, migrationName, dbs, statePort, invalidSSL, batchSize)
 }
 
 // copyBackupMongo will make a copy of mongo db by copying the db
@@ -743,14 +751,14 @@ func (u *UpgradeMongoCommand) copyBackupMongo(targetVersion, dataDir string) (st
 	}
 	defer u.mongoStart()
 
-	dbPath := filepath.Join(dataDir, "db")
+	dbPath := path.Join(dataDir, "db")
 	fi, err := u.stat(dbPath)
 
-	target := filepath.Join(tmpDir, targetVersion)
+	target := path.Join(tmpDir, targetVersion)
 	if err := u.mkdir(target, fi.Mode()); err != nil {
 		return "", errors.Annotate(err, "cannot create target folder for backup")
 	}
-	targetDb := filepath.Join(target, "db")
+	targetDb := path.Join(target, "db")
 
 	u.agentConfig.SetValue(KeyUpgradeBackup, targetDb)
 	if err := u.agentConfig.Write(); err != nil {
@@ -770,7 +778,7 @@ func (u *UpgradeMongoCommand) rollbackCopyBackup(dataDir, origin string) error {
 	}
 	defer u.mongoStart()
 
-	dbDir := filepath.Join(dataDir, "db")
+	dbDir := path.Join(dataDir, "db")
 	if err := u.remove(dbDir); err != nil {
 		return errors.Annotate(err, "could not remove the existing folder to rollback")
 	}
@@ -803,7 +811,7 @@ func (u *UpgradeMongoCommand) upgradeSlave(dataDir string) error {
 		return errors.Annotate(err, "cannot remove existing slave db")
 	}
 	// Mongo 3, with wired tiger
-	u.agentConfig.SetMongoVersion(mongo.Mongo32wt)
+	u.agentConfig.SetMongoVersion(mongo.Mongo30wt)
 	if err := u.agentConfig.Write(); err != nil {
 		return errors.Annotate(err, "could not update mongo version in agent.config")
 	}

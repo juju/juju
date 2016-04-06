@@ -118,7 +118,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	jujuMongodPath, err := exec.LookPath("mongod")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.PatchValue(&mongo.JujuMongod24Path, jujuMongodPath)
+	s.PatchValue(&mongo.JujuMongodPath, jujuMongodPath)
 	s.mongodPath = jujuMongodPath
 
 	// Patch "df" such that it always reports there's 1MB free.
@@ -154,7 +154,7 @@ func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
 }
 
 func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
-	s.PatchValue(&mongo.JujuMongod24Path, "/not/going/to/exist/mongod")
+	s.PatchValue(&mongo.JujuMongodPath, "/not/going/to/exist/mongod")
 	s.PatchEnvPathPrepend(filepath.Dir(s.mongodPath))
 
 	c.Logf("mongo version is %q", s.mongodVersion)
@@ -335,7 +335,7 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 		{"raring", [][]string{{"--target-release", "mongodb-server"}}},
 		{"saucy", [][]string{{"--target-release", "mongodb-server"}}},
 		{"trusty", [][]string{{"juju-mongodb"}}},
-		{"xenial", [][]string{{"juju-mongodb3.2"}}},
+		{"u-series", [][]string{{"juju-mongodb"}}},
 	}
 
 	testing.PatchExecutableAsEchoArgs(c, s, "add-apt-repository")
@@ -520,28 +520,28 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 func (s *MongoSuite) TestNewServiceWithReplSet(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, false, s.mongodVersion, true)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion, true)
 	c.Assert(strings.Contains(conf.ExecStart, "--replSet"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNewServiceWithNumCtl(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, true, s.mongodVersion, true)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, true, s.mongodVersion, true)
 	c.Assert(conf.ExtraScript, gc.Not(gc.Matches), "")
 }
 
 func (s *MongoSuite) TestNewServiceIPv6(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, false, s.mongodVersion, true)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion, true)
 	c.Assert(strings.Contains(conf.ExecStart, "--ipv6"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNewServiceWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, false, s.mongodVersion, true)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion, true)
 	c.Assert(conf.ExecStart, gc.Matches, `.* --journal.*`)
 }
 
