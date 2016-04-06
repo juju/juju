@@ -499,7 +499,8 @@ func (env *maasEnviron) nodeArchitectures() ([]string, error) {
 	filter.Add("status", gomaasapi.NodeStatusReady)
 	filter.Add("status", gomaasapi.NodeStatusReserved)
 	filter.Add("status", gomaasapi.NodeStatusAllocated)
-	allInstances, err := env.instances(filter)
+	// This is fine - nodeArchitectures is only used in MAAS 1 cases.
+	allInstances, err := env.instances1(filter)
 	if err != nil {
 		return nil, err
 	}
@@ -1322,13 +1323,24 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 // Due to how this works in the HTTP API, an empty "ids"
 // matches all instances (not none as you might expect).
 func (environ *maasEnviron) acquiredInstances(ids []instance.Id) ([]instance.Instance, error) {
-	filter := getSystemIdValues("id", ids)
-	filter.Add("agent_name", environ.ecfg().maasAgentName())
-	return environ.instances(filter)
+	if !environ.usingMAAS2() {
+		filter := getSystemIdValues("id", ids)
+		filter.Add("agent_name", environ.ecfg().maasAgentName())
+		return environ.instances1(filter)
+	}
+	systemIDs := make([]string, len(ids))
+	for index, id := range ids {
+		systemIDs[index] = string(id)
+	}
+	args := gomaasapi.MachinesArgs{
+		AgentName: environ.ecfg().maasAgentName(),
+		SystemIDs: systemIDs,
+	}
+	return environ.instances2(args)
 }
 
 // instances calls the MAAS API to list nodes matching the given filter.
-func (environ *maasEnviron) instances(filter url.Values) ([]instance.Instance, error) {
+func (environ *maasEnviron) instances1(filter url.Values) ([]instance.Instance, error) {
 	nodeListing := environ.getMAASClient().GetSubObject("nodes")
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
 	if err != nil {
@@ -1349,6 +1361,18 @@ func (environ *maasEnviron) instances(filter url.Values) ([]instance.Instance, e
 			environ:      environ,
 			statusGetter: environ.deploymentStatusOne,
 		}
+	}
+	return instances, nil
+}
+
+func (environ *maasEnviron) instances2(args gomaasapi.MachinesArgs) ([]instance.Instance, error) {
+	machines, err := environ.maasController.Machines(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	instances := make([]instance.Instance, len(machines))
+	for index, machine := range machines {
+		instances[index] = &maas2Instance{machine}
 	}
 	return instances, nil
 }
@@ -1377,12 +1401,18 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 		idMap[instance.Id()] = instance
 	}
 
+	missing := false
 	result := make([]instance.Instance, len(ids))
 	for index, id := range ids {
-		result[index] = idMap[id]
+		val, ok := idMap[id]
+		if !ok {
+			missing = true
+			continue
+		}
+		result[index] = val
 	}
 
-	if len(instances) < len(ids) {
+	if missing {
 		return result, environs.ErrPartialInstances
 	}
 	return result, nil
@@ -2092,22 +2122,7 @@ func checkNotFound(subnetIdSet map[string]bool) error {
 
 // AllInstances returns all the instance.Instance in this provider.
 func (environ *maasEnviron) AllInstances() ([]instance.Instance, error) {
-	if environ.usingMAAS2() {
-		return environ.allInstances2()
-	}
 	return environ.acquiredInstances(nil)
-}
-
-func (environ *maasEnviron) allInstances2() ([]instance.Instance, error) {
-	machines, err := environ.maasController.Machines(gomaasapi.MachinesArgs{})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	instances := make([]instance.Instance, len(machines))
-	for i, machine := range machines {
-		instances[i] = &maas2Instance{machine}
-	}
-	return instances, nil
 }
 
 // Storage is defined by the Environ interface.

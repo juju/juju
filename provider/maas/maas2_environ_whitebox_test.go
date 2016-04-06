@@ -12,7 +12,9 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -84,18 +86,31 @@ func (suite *maas2EnvironSuite) TestSupportedArchitecturesError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "Something terrible!")
 }
 
-func (suite *maas2EnvironSuite) TestAllInstances(c *gc.C) {
+func (suite *maas2EnvironSuite) makeControllerWithMachines(c *gc.C, expectedSystemIDs []string, returnSystemIDs []string) *maasEnviron {
+	var env *maasEnviron
 	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+		checkArgs := func(args gomaasapi.MachinesArgs) {
+			c.Check(args.SystemIDs, jc.DeepEquals, expectedSystemIDs)
+			c.Check(args.AgentName, gc.Equals, env.ecfg().maasAgentName())
+		}
+		machines := make([]gomaasapi.Machine, len(returnSystemIDs))
+		for index, id := range returnSystemIDs {
+			machines[index] = &fakeMachine{systemID: id}
+		}
 		return &fakeController{
-			machines: []gomaasapi.Machine{
-				&fakeMachine{systemID: "tuco"},
-				&fakeMachine{systemID: "tio"},
-				&fakeMachine{systemID: "gus"},
-			},
+			machines:          machines,
+			machinesArgsCheck: checkArgs,
 		}, nil
 	}
 	suite.PatchValue(&GetMAAS2Controller, mockGetController)
-	env := makeEnviron(c)
+	env = makeEnviron(c)
+	return env
+}
+
+func (suite *maas2EnvironSuite) TestAllInstances(c *gc.C) {
+	env := suite.makeControllerWithMachines(
+		c, []string{}, []string{"tuco", "tio", "gus"},
+	)
 	result, err := env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedMachines := set.NewStrings("tuco", "tio", "gus")
@@ -114,4 +129,29 @@ func (suite *maas2EnvironSuite) TestAllInstancesError(c *gc.C) {
 	env := makeEnviron(c)
 	_, err := env.AllInstances()
 	c.Assert(err, gc.ErrorMatches, "Something terrible!")
+}
+
+func (suite *maas2EnvironSuite) TestInstances(c *gc.C) {
+	env := suite.makeControllerWithMachines(
+		c, []string{"jake", "bonnibel"}, []string{"jake", "bonnibel"},
+	)
+	result, err := env.Instances([]instance.Id{"jake", "bonnibel"})
+	c.Assert(err, jc.ErrorIsNil)
+	expectedMachines := set.NewStrings("jake", "bonnibel")
+	actualMachines := set.NewStrings()
+	for _, machine := range result {
+		actualMachines.Add(string(machine.Id()))
+	}
+	c.Assert(actualMachines, jc.DeepEquals, expectedMachines)
+}
+
+func (suite *maas2EnvironSuite) TestInstancesPartialResult(c *gc.C) {
+	env := suite.makeControllerWithMachines(
+		c, []string{"jake", "bonnibel"}, []string{"tuco", "bonnibel"},
+	)
+	result, err := env.Instances([]instance.Id{"jake", "bonnibel"})
+	c.Check(err, gc.Equals, environs.ErrPartialInstances)
+	c.Assert(result, gc.HasLen, 2)
+	c.Assert(result[0], gc.IsNil)
+	c.Assert(result[1].Id(), gc.Equals, instance.Id("bonnibel"))
 }
