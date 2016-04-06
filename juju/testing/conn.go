@@ -489,7 +489,13 @@ func addCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, e
 	if err := stor.Put(storagePath, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
 	}
-	sch, err := st.AddCharm(ch, curl, storagePath, digest)
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: storagePath,
+		SHA256:      digest,
+	}
+	sch, err := st.AddCharm(info)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add charm: %v", err)
 	}
