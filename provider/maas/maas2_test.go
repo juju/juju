@@ -16,6 +16,8 @@ type fakeController struct {
 	machinesArgsCheck  func(gomaasapi.MachinesArgs)
 	zones              []gomaasapi.Zone
 	zonesError         error
+	spaces             []gomaasapi.Space
+	spacesError        error
 }
 
 func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
@@ -40,6 +42,13 @@ func (c *fakeController) Zones() ([]gomaasapi.Zone, error) {
 		return nil, c.zonesError
 	}
 	return c.zones, nil
+}
+
+func (c *fakeController) Spaces() ([]gomaasapi.Space, error) {
+	if c.spacesError != nil {
+		return nil, c.spacesError
+	}
+	return c.spaces, nil
 }
 
 type fakeBootResource struct {
@@ -97,4 +106,51 @@ type fakeZone struct {
 
 func (z fakeZone) Name() string {
 	return z.name
+}
+
+type fakeSpace struct {
+	gomaasapi.Space
+	name    string
+	id      int
+	subnets []gomaasapi.Subnet
+}
+
+func (s fakeSpace) Name() string {
+	return s.name
+}
+
+func (s fakeSpace) ID() int {
+	return s.id
+}
+
+func (s fakeSpace) Subnets() []gomaasapi.Subnet {
+	return s.subnets
+}
+
+type fakeSubnet struct {
+	gomaasapi.Subnet
+	id      int
+	vlanVid int
+	cidr    string
+}
+
+func (s fakeSubnet) ID() int {
+	return s.id
+}
+
+func (s fakeSubnet) CIDR() string {
+	return s.cidr
+}
+
+func (s fakeSubnet) VLAN() gomaasapi.VLAN {
+	return fakeVLAN{vid: s.vlanVid}
+}
+
+type fakeVLAN struct {
+	gomaasapi.VLAN
+	vid int
+}
+
+func (v fakeVLAN) VID() int {
+	return v.vid
 }
