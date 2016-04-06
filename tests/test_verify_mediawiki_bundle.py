@@ -72,7 +72,7 @@ class TestVerifyMediaWikiBundle(tests.TestCase):
                             'example.com is not reachable'):
                         wait_for_http("example.com")
         uo_mock.assert_called_once_with('example.com')
-        self.assertEqual(ut_mock.mock_calls, [call(180)])
+        self.assertEqual(ut_mock.mock_calls, [call(600)])
         ssl_mock.assert_called_once_with()
 
     def test_verify_services(self):

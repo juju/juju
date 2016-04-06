@@ -32,7 +32,7 @@ def _get_ssl_ctx():
     return ctx
 
 
-def wait_for_http(url, timeout=180):
+def wait_for_http(url, timeout=600):
     ctx = _get_ssl_ctx()
     for _ in until_timeout(timeout):
         try:
