@@ -22,6 +22,8 @@ from jujupy import (
     AgentsNotStarted,
     EnvJujuClient,
     get_machine_dns_name,
+    LXC_MACHINE,
+    LXD_MACHINE,
     SimpleEnvironment,
     uniquify_local,
     )
@@ -663,13 +665,13 @@ class DeployManyAttempt(SteppedStageAttempt):
             ('ensure-machines', {
                 'title': 'Ensure sufficient machines', 'report_on': False}),
             ('deploy-many', {'title': 'deploy many'}),
-            ('remove-machine-many-lxc', {
-                'title': 'remove many machines (lxc)'}),
+            ('remove-machine-many-container', {
+                'title': 'remove many machines (container)'}),
             ('remove-machine-many-instance', {
                 'title': 'remove many machines (instance)'}),
             ])
 
-    def __init__(self, host_count=5, container_count=8):
+    def __init__(self, host_count=1, container_count=1):
         super(DeployManyAttempt, self).__init__()
         self.host_count = host_count
         self.container_count = container_count
@@ -718,8 +720,11 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         service_names = []
         machine_names = sorted(new_machines, key=int)
+        machine_type = LXD_MACHINE
+        if LXD_MACHINE not in client.supported_container_types:
+            machine_type = LXC_MACHINE
         for machine_name in machine_names:
-            target = 'lxc:{}'.format(machine_name)
+            target = '{}:{}'.format(machine_type, machine_name)
             for container in range(self.container_count):
                 service = 'ubuntu{}x{}'.format(machine_name, container)
                 client.juju('deploy', ('--to', target, 'ubuntu', service))
@@ -729,15 +734,15 @@ class DeployManyAttempt(SteppedStageAttempt):
         status = client.wait_for_started(start=timeout_start)
         results['result'] = True
         yield results
-        results = {'test_id': 'remove-machine-many-lxc'}
+        results = {'test_id': 'remove-machine-many-container'}
         yield results
         services = [status.status['services'][key] for key in service_names]
-        lxc_machines = set()
+        container_machines = set()
         for service in services:
             for unit in service['units'].values():
-                lxc_machines.add(unit['machine'])
+                container_machines.add(unit['machine'])
                 client.juju('remove-machine', ('--force', unit['machine']))
-        with wait_until_removed(client, lxc_machines):
+        with wait_until_removed(client, container_machines):
             yield results
         results['result'] = True
         yield results

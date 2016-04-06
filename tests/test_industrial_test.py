@@ -51,6 +51,9 @@ from jujupy import (
     EnvJujuClient1X,
     get_timeout_prefix,
     JujuData,
+    KVM_MACHINE,
+    LXC_MACHINE,
+    LXD_MACHINE,
     SimpleEnvironment,
     Status,
     _temp_env,
@@ -1468,10 +1471,10 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
 
 class TestDeployManyAttempt(JujuPyTestCase):
 
-    def predict_add_machine_calls(self, deploy_many):
+    def predict_add_machine_calls(self, deploy_many, machine_type):
         for host in range(1, deploy_many.host_count + 1):
             for container in range(deploy_many.container_count):
-                target = 'lxc:{}'.format(host)
+                target = '{}:{}'.format(machine_type, host)
                 service = 'ubuntu{}x{}'.format(host, container)
                 yield ('juju', '--show-log', 'deploy', '-m', 'steve', '--to',
                        target, 'ubuntu', service)
@@ -1482,8 +1485,17 @@ class TestDeployManyAttempt(JujuPyTestCase):
             yield ('juju', '--show-log', 'remove-machine', '-m', 'steve',
                    '--force', str(guest))
 
-    def test_iter_steps(self):
+    def test_iter_steps_lxd(self):
         client = FakeEnvJujuClient()
+        self.do_iter_steps(client, LXD_MACHINE)
+
+    def test_iter_steps_lxc(self):
+        client = FakeEnvJujuClient()
+        client.supported_container_types = frozenset([KVM_MACHINE,
+                                                      LXC_MACHINE])
+        self.do_iter_steps(client, LXC_MACHINE)
+
+    def do_iter_steps(self, client, machine_type):
         deploy_many = DeployManyAttempt(9, 11)
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
@@ -1521,7 +1533,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
             self.assertEqual(deploy_iter.next(),
                              {'test_id': 'deploy-many'})
 
-        calls = self.predict_add_machine_calls(deploy_many)
+        calls = self.predict_add_machine_calls(deploy_many, machine_type)
         for num, args in enumerate(calls):
             assert_juju_call(self, mock_cc, client, args, num)
         service_names = []
@@ -1542,12 +1554,12 @@ class TestDeployManyAttempt(JujuPyTestCase):
                              {'test_id': 'deploy-many', 'result': True})
 
         self.assertEqual(deploy_iter.next(),
-                         {'test_id': 'remove-machine-many-lxc'})
+                         {'test_id': 'remove-machine-many-container'})
         with patch_status(client, status):
             with patch('subprocess.check_call') as mock_cc:
                 self.assertEqual(
                     deploy_iter.next(),
-                    {'test_id': 'remove-machine-many-lxc'})
+                    {'test_id': 'remove-machine-many-container'})
         calls = self.predict_remove_machine_calls(deploy_many)
         for num, args in enumerate(calls):
             assert_juju_call(self, mock_cc, client, args, num)
@@ -1558,7 +1570,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
         with patch_status(client, *statuses) as status_mock:
             self.assertEqual(
                 deploy_iter.next(),
-                {'test_id': 'remove-machine-many-lxc', 'result': True})
+                {'test_id': 'remove-machine-many-container', 'result': True})
         self.assertEqual(2, status_mock.call_count)
         self.assertEqual(deploy_iter.next(), {
             'test_id': 'remove-machine-many-instance'})
@@ -1680,7 +1692,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
         self.assertEqual({'test_id': 'deploy-many'}, deploy_iter.next())
         with patch('subprocess.check_call') as mock_cc:
             self.assertEqual({'test_id': 'deploy-many'}, deploy_iter.next())
-        calls = self.predict_add_machine_calls(deploy_many)
+        calls = self.predict_add_machine_calls(deploy_many, LXD_MACHINE)
         for num, args in enumerate(calls):
             assert_juju_call(self, mock_cc, client, args, num)
 
