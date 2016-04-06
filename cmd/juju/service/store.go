@@ -93,10 +93,15 @@ func (r *charmURLResolver) resolve(urlStr string) (*charm.URL, csparams.Channel,
 	if err != nil {
 		return nil, noChannel, nil, nil, errors.Trace(err)
 	}
-	var repo charmrepo.Interface
 	switch url.Schema {
 	case "cs":
-		repo = r.csRepo
+		repo := config.SpecializeCharmRepo(r.csRepo, r.conf).(*charmrepo.CharmStore)
+
+		resultUrl, channel, supportedSeries, err := repo.ResolveWithChannel(url)
+		if err != nil {
+			return nil, noChannel, nil, nil, errors.Trace(err)
+		}
+		return resultUrl, channel, supportedSeries, repo, nil
 	case "local":
 		if url.Series == "" {
 			if defaultSeries, ok := r.conf.DefaultSeries(); ok {
@@ -109,21 +114,20 @@ func (r *charmURLResolver) resolve(urlStr string) (*charm.URL, csparams.Channel,
 			logger.Errorf("The series is not specified in the model (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
 			return nil, noChannel, nil, nil, errors.Errorf("cannot resolve series for charm: %q", url)
 		}
-		repo, err = charmrepo.NewLocalRepository(r.repoPath)
+		repo, err := charmrepo.NewLocalRepository(r.repoPath)
 		if err != nil {
 			return nil, noChannel, nil, nil, errors.Mask(err)
 		}
+		repo = config.SpecializeCharmRepo(repo, r.conf)
+
+		resultUrl, supportedSeries, err := repo.Resolve(url)
+		if err != nil {
+			return nil, noChannel, nil, nil, errors.Trace(err)
+		}
+		return resultUrl, noChannel, supportedSeries, repo, nil
 	default:
 		return nil, noChannel, nil, nil, errors.Errorf("unknown schema for charm reference %q", urlStr)
 	}
-	repo = config.SpecializeCharmRepo(repo, r.conf)
-	// TODO(ericsnow) repo.Resolve should give us the actual channel.
-	channel := noChannel
-	resultUrl, supportedSeries, err := repo.Resolve(url)
-	if err != nil {
-		return nil, noChannel, nil, nil, errors.Trace(err)
-	}
-	return resultUrl, channel, supportedSeries, repo, nil
 }
 
 // addCharmFromURL calls the appropriate client API calls to add the
