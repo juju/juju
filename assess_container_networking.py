@@ -437,7 +437,6 @@ def main(argv=None):
     client = bs_manager.client
     client.enable_feature('address-allocation')
     machine_types = _get_container_types(client, args.machine_type)
-    import pdb; pdb.set_trace()
     with cleaned_bootstrap_context(bs_manager, args) as ctx:
         assess_container_networking(bs_manager.client, machine_types)
     return ctx.return_code
