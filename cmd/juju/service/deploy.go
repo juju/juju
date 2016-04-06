@@ -376,7 +376,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	// If we don't already have a bundle loaded, we try the charm store for a charm or bundle.
 	if bundleData == nil {
 		// Charm or bundle has been supplied as a URL so we resolve and deploy using the store.
-		charmOrBundleURL, supportedSeries, repo, err = resolver.resolve(c.CharmOrBundle)
+		charmOrBundleURL, c.Channel, supportedSeries, repo, err = resolver.resolve(c.CharmOrBundle)
 		if charm.IsUnsupportedSeriesError(err) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 		}
@@ -417,7 +417,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	}
 	// Store the charm in state.
-	curl, channel, csMac, err := addCharmFromURL(client, charmOrBundleURL, c.Channel, repo)
+	curl, csMac, err := addCharmFromURL(client, charmOrBundleURL, c.Channel, repo)
 	if err != nil {
 		if err1, ok := errors.Cause(err).(*termsRequiredError); ok {
 			terms := strings.Join(err1.Terms, " ")
@@ -427,7 +427,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	}
 	ctx.Infof("Added charm %q to the model.", curl)
 	ctx.Infof("Deploying charm %q %v.", curl, fmt.Sprintf(message, series))
-	return c.deployCharm(curl, channel, csMac, series, ctx, client, &deployer)
+	return c.deployCharm(curl, c.Channel, csMac, series, ctx, client, &deployer)
 }
 
 const (

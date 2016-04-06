@@ -373,16 +373,15 @@ func (c *Client) validateCharmVersion(ch charm.Charm) error {
 // If the AddCharm API call fails because of an authorization error
 // when retrieving the charm from the charm store, an error
 // satisfying params.IsCodeUnauthorized will be returned.
-func (c *Client) AddCharm(curl *charm.URL, channel csparams.Channel) (csparams.Channel, error) {
+func (c *Client) AddCharm(curl *charm.URL, channel csparams.Channel) error {
 	args := params.AddCharm{
 		URL:     curl.String(),
 		Channel: string(channel),
 	}
 	if err := c.facade.FacadeCall("AddCharm", args, nil); err != nil {
-		return channel, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	// TODO(ericsnow) Get the actual channel used.
-	return channel, nil
+	return nil
 }
 
 // AddCharmWithAuthorization is like AddCharm except it also provides
@@ -394,17 +393,16 @@ func (c *Client) AddCharm(curl *charm.URL, channel csparams.Channel) (csparams.C
 // If the AddCharmWithAuthorization API call fails because of an
 // authorization error when retrieving the charm from the charm store,
 // an error satisfying params.IsCodeUnauthorized will be returned.
-func (c *Client) AddCharmWithAuthorization(curl *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon) (csparams.Channel, error) {
+func (c *Client) AddCharmWithAuthorization(curl *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon) error {
 	args := params.AddCharmWithAuthorization{
 		URL:                curl.String(),
 		Channel:            string(channel),
 		CharmStoreMacaroon: csMac,
 	}
 	if err := c.facade.FacadeCall("AddCharmWithAuthorization", args, nil); err != nil {
-		return channel, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	// TODO(ericsnow) Get the actual channel used.
-	return channel, nil
+	return nil
 }
 
 // ResolveCharm resolves the best available charm URLs with series, for charm

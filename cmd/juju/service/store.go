@@ -87,10 +87,11 @@ func newCharmURLResolver(conf *config.Config, csClient *csclient.Client, repoPat
 //
 // It returns the fully resolved URL, any series supported by the entity,
 // and the repository that holds it.
-func (r *charmURLResolver) resolve(urlStr string) (*charm.URL, []string, charmrepo.Interface, error) {
+func (r *charmURLResolver) resolve(urlStr string) (*charm.URL, csparams.Channel, []string, charmrepo.Interface, error) {
+	var noChannel csparams.Channel
 	url, err := charm.ParseURL(urlStr)
 	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
+		return nil, noChannel, nil, nil, errors.Trace(err)
 	}
 	var repo charmrepo.Interface
 	switch url.Schema {
@@ -106,21 +107,23 @@ func (r *charmURLResolver) resolve(urlStr string) (*charm.URL, []string, charmre
 			possibleURL := *url
 			possibleURL.Series = config.LatestLtsSeries()
 			logger.Errorf("The series is not specified in the model (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
-			return nil, nil, nil, errors.Errorf("cannot resolve series for charm: %q", url)
+			return nil, noChannel, nil, nil, errors.Errorf("cannot resolve series for charm: %q", url)
 		}
 		repo, err = charmrepo.NewLocalRepository(r.repoPath)
 		if err != nil {
-			return nil, nil, nil, errors.Mask(err)
+			return nil, noChannel, nil, nil, errors.Mask(err)
 		}
 	default:
-		return nil, nil, nil, errors.Errorf("unknown schema for charm reference %q", urlStr)
+		return nil, noChannel, nil, nil, errors.Errorf("unknown schema for charm reference %q", urlStr)
 	}
 	repo = config.SpecializeCharmRepo(repo, r.conf)
+	// TODO(ericsnow) repo.Resolve should give us the actual channel.
+	channel := noChannel
 	resultUrl, supportedSeries, err := repo.Resolve(url)
 	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
+		return nil, noChannel, nil, nil, errors.Trace(err)
 	}
-	return resultUrl, supportedSeries, repo, nil
+	return resultUrl, channel, supportedSeries, repo, nil
 }
 
 // addCharmFromURL calls the appropriate client API calls to add the
@@ -130,45 +133,42 @@ func (r *charmURLResolver) resolve(urlStr string) (*charm.URL, []string, charmre
 //
 // The repo holds the charm repository associated with with the URL
 // by resolveCharmStoreEntityURL.
-func addCharmFromURL(client *api.Client, curl *charm.URL, channel csparams.Channel, repo charmrepo.Interface) (*charm.URL, csparams.Channel, *macaroon.Macaroon, error) {
+func addCharmFromURL(client *api.Client, curl *charm.URL, channel csparams.Channel, repo charmrepo.Interface) (*charm.URL, *macaroon.Macaroon, error) {
 	var csMac *macaroon.Macaroon
 	switch curl.Schema {
 	case "local":
 		ch, err := repo.Get(curl)
 		if err != nil {
-			return nil, channel, nil, err
+			return nil, nil, err
 		}
 		stateCurl, err := client.AddLocalCharm(curl, ch)
 		if err != nil {
-			return nil, channel, nil, err
+			return nil, nil, err
 		}
 		curl = stateCurl
 	case "cs":
 		repo, ok := repo.(*charmrepo.CharmStore)
 		if !ok {
-			return nil, channel, nil, errors.Errorf("(cannot happen) cs-schema URL with unexpected repo type %T", repo)
+			return nil, nil, errors.Errorf("(cannot happen) cs-schema URL with unexpected repo type %T", repo)
 		}
 		csClient := repo.Client()
-		var err error
-		channel, err = client.AddCharm(curl, channel)
-		if err != nil {
+		if err := client.AddCharm(curl, channel); err != nil {
 			if !params.IsCodeUnauthorized(err) {
-				return nil, channel, nil, errors.Trace(err)
+				return nil, nil, errors.Trace(err)
 			}
 			m, err := authorizeCharmStoreEntity(csClient, curl)
 			if err != nil {
-				return nil, channel, nil, maybeTermsAgreementError(err)
+				return nil, nil, maybeTermsAgreementError(err)
 			}
-			channel, err = client.AddCharmWithAuthorization(curl, channel, m)
-			if err != nil {
-				return nil, channel, nil, errors.Trace(err)
+			if err := client.AddCharmWithAuthorization(curl, channel, m); err != nil {
+				return nil, nil, errors.Trace(err)
 			}
 			csMac = m
 		}
 	default:
-		return nil, channel, nil, fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
+		return nil, nil, fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
 	}
-	return curl, channel, csMac, nil
+	return curl, csMac, nil
 }
 
 // newCharmStoreClient is called to obtain a charm store client.

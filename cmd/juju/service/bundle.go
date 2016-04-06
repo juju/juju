@@ -234,8 +234,7 @@ type bundleHandler struct {
 
 // addCharm adds a charm to the environment.
 func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*charm.URL, csparams.Channel, *macaroon.Macaroon, error) {
-	var channel csparams.Channel
-	url, _, repo, err := h.resolver.resolve(p.Charm)
+	url, channel, _, repo, err := h.resolver.resolve(p.Charm)
 	if err != nil {
 		return nil, channel, nil, errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
@@ -243,7 +242,7 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*ch
 		return nil, channel, nil, errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
 	var csMac *macaroon.Macaroon
-	url, channel, csMac, err = addCharmFromURL(h.client, url, h.channel, repo)
+	url, csMac, err = addCharmFromURL(h.client, url, channel, repo)
 	if err != nil {
 		return nil, channel, nil, errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
