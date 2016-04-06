@@ -380,6 +380,14 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	importedMachineId, err := imported.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedMachineId, gc.Equals, exportedMachineId)
+
+	// Confirm machine Principals are set.
+	exportedMachine, err := s.State.Machine(exportedMachineId)
+	c.Assert(err, jc.ErrorIsNil)
+	importedMachine, err := newSt.Machine(importedMachineId)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertMachineEqual(c, importedMachine, exportedMachine)
+
 	meterStatus, err := imported.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meterStatus, gc.Equals, state.MeterStatus{state.MeterGreen, "some info"})
