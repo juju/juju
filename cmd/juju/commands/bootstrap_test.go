@@ -5,6 +5,7 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -101,6 +102,11 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	s.mockBlockClient = &mockBlockClient{}
 	s.PatchValue(&blockAPI, func(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
+		err := s.mockBlockClient.loginError
+		if err != nil {
+			s.mockBlockClient.loginError = nil
+			return nil, err
+		}
 		if s.mockBlockClient.discoveringSpacesError > 0 {
 			s.mockBlockClient.discoveringSpacesError -= 1
 			return nil, errors.New("spaces are still being discovered")
@@ -134,6 +140,7 @@ type mockBlockClient struct {
 	retryCount             int
 	numRetries             int
 	discoveringSpacesError int
+	loginError             error
 }
 
 var errOther = errors.New("other error")
@@ -201,6 +208,8 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapAPIReadyWaitsForSpaceDiscovery(c *gc.C) {
+	s.PatchValue(&bootstrapReadyPollDelay, 1*time.Millisecond)
+	s.PatchValue(&bootstrapReadyPollCount, 5)
 	defaultSeriesVersion := jujuversion.Current
 	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
@@ -213,6 +222,47 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyWaitsForSpaceDiscovery(c *gc.C) {
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockBlockClient.discoveringSpacesError, gc.Equals, 0)
+}
+
+func (s *BootstrapSuite) TestBootstrapAPIReadyRetriesWithOpenEOFErr(c *gc.C) {
+	s.PatchValue(&bootstrapReadyPollDelay, 1*time.Millisecond)
+	s.PatchValue(&bootstrapReadyPollCount, 5)
+	defaultSeriesVersion := jujuversion.Current
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	defaultSeriesVersion.Build = 1234
+	s.PatchValue(&jujuversion.Current, defaultSeriesVersion)
+	resetJujuXDGDataHome(c)
+
+	s.mockBlockClient.numRetries = 0
+	s.mockBlockClient.retryCount = 0
+	s.mockBlockClient.loginError = io.EOF
+	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(s.mockBlockClient.retryCount, gc.Equals, 1)
+}
+
+func (s *BootstrapSuite) TestBootstrapAPIReadyStopsRetriesWithOpenErr(c *gc.C) {
+	s.PatchValue(&bootstrapReadyPollDelay, 1*time.Millisecond)
+	s.PatchValue(&bootstrapReadyPollCount, 5)
+	defaultSeriesVersion := jujuversion.Current
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	defaultSeriesVersion.Build = 1234
+	s.PatchValue(&jujuversion.Current, defaultSeriesVersion)
+
+	resetJujuXDGDataHome(c)
+
+	s.mockBlockClient.numRetries = 0
+	s.mockBlockClient.retryCount = 0
+	s.mockBlockClient.loginError = errors.NewUnauthorized(nil, "")
+	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
+	c.Check(err, jc.Satisfies, errors.IsUnauthorized)
+
+	c.Check(s.mockBlockClient.retryCount, gc.Equals, 0)
 }
 
 func (s *BootstrapSuite) TestRunTests(c *gc.C) {
