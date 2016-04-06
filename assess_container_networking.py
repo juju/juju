@@ -32,7 +32,6 @@ from utility import (
 )
 
 
-
 __metaclass__ = type
 
 

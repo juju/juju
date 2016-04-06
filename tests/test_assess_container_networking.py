@@ -563,4 +563,3 @@ class TestMain(FakeHomeTestCase):
         mock_assess.assert_called_once_with(client, [
             KVM_MACHINE, LXC_MACHINE, LXD_MACHINE])
         self.assertEqual(ret, 0)
-
