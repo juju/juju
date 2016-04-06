@@ -238,7 +238,7 @@ func ensureCertificate(cfg *config.Config) (*config.Config, string, error) {
 		return nil, "", errors.Errorf("controller configuration with a certificate but no CA private key")
 	}
 
-	caCert, caKey, err := cert.NewCA(cfg.Name(), time.Now().UTC().AddDate(10, 0, 0))
+	caCert, caKey, err := cert.NewCA(cfg.Name(), cfg.UUID(), time.Now().UTC().AddDate(10, 0, 0))
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
