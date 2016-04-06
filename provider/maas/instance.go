@@ -18,6 +18,8 @@ import (
 type maasInstance interface {
 	instance.Instance
 	zone() string
+	hostname() (string, error)
+	hardwareCharacteristics() (*instance.HardwareCharacteristics, error)
 }
 
 type maas1Instance struct {

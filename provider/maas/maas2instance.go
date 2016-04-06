@@ -22,6 +22,26 @@ func (mi *maas2Instance) zone() string {
 	return mi.machine.Zone().Name()
 }
 
+func (mi *maas2Instance) hostname() (string, error) {
+	return mi.machine.Hostname(), nil
+}
+
+func (mi *maas2Instance) hardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
+	// XXX strip off kernel version from architecture
+	nodeArch := mi.machine.Architecture()
+	nodeCpuCount := uint64(mi.machine.CPUCount())
+	nodeMemoryMB := uint64(mi.machine.Memory())
+	zone := mi.zone()
+	hc := &instance.HardwareCharacteristics{
+		Arch:             &nodeArch,
+		CpuCores:         &nodeCpuCount,
+		Mem:              &nodeMemoryMB,
+		AvailabilityZone: &zone,
+	}
+	// TODO: also need hardware tags
+	return hc, nil
+}
+
 func (mi *maas2Instance) String() string {
 	return fmt.Sprintf("%s:%s", mi.machine.Hostname(), mi.machine.SystemID())
 }
