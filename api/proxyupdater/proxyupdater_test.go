@@ -67,11 +67,14 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 			NoProxy: "NoProxy-apt",
 		},
 	}
+	expected := params.ProxyConfigResults{
+		Results: []params.ProxyConfigResult{conf},
+	}
 
 	args := []apitesting.CheckArgs{{
 		Facade:  "ProxyUpdater",
 		Method:  "ProxyConfig",
-		Results: conf,
+		Results: expected,
 	}}
 	called, api := newAPI(c, args)
 

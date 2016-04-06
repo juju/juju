@@ -667,3 +667,8 @@ type ProxyConfigResult struct {
 	APTProxySettings ProxyConfig
 	Error            *Error `json:"Error,omitempty"`
 }
+
+// ProxyConfigResults contains information needed to configure multiple clients proxy settings
+type ProxyConfigResults struct {
+	Results []ProxyConfigResult `json:"Results"`
+}

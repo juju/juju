@@ -4,6 +4,7 @@
 package proxyupdater
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -60,14 +61,18 @@ func proxySettingsParamToProxySettings(cfg params.ProxyConfig) proxy.Settings {
 
 // ProxyConfig returns the proxy settings for the current environment
 func (api *API) ProxyConfig() (proxySettings, APTProxySettings proxy.Settings, err error) {
-	var result params.ProxyConfigResult
+	var results params.ProxyConfigResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: api.tag.String()}},
 	}
-	err = api.facade.FacadeCall("ProxyConfig", args, &result)
+	err = api.facade.FacadeCall("ProxyConfig", args, &results)
 	if err != nil {
 		return proxySettings, APTProxySettings, err
 	}
+	if len(results.Results) != 1 {
+		return proxySettings, APTProxySettings, errors.NotFoundf("ProxyConfig for %q not found", api.tag)
+	}
+	result := results.Results[0]
 	proxySettings = proxySettingsParamToProxySettings(result.ProxySettings)
 	APTProxySettings = proxySettingsParamToProxySettings(result.APTProxySettings)
 	return proxySettings, APTProxySettings, err
