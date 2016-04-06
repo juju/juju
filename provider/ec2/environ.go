@@ -12,8 +12,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
@@ -47,12 +49,6 @@ const (
 // Use shortAttempt to poll for short-term events or for retrying API calls.
 var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
-	Delay: 200 * time.Millisecond,
-}
-
-// Use longAttempt to poll for short-term events or for retrying API calls.
-var longAttempt = utils.AttemptStrategy{
-	Total: 60 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
 
@@ -1373,13 +1369,47 @@ func (e *environ) cleanEnvironmentSecurityGroup() error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot retrieve default security group: %q", jujuGroup)
 	}
-	for a := longAttempt.Start(); a.Next(); {
-		_, err = ec2inst.DeleteSecurityGroup(g)
-		if err == nil {
-			return nil
-		}
+
+	if err := deleteSecurityGroupInsistently(ec2inst, g); err != nil {
+		return errors.Annotate(err, "cannot delete default security group")
 	}
-	return errors.Annotate(err, "cannot delete default security group")
+	return nil
+}
+
+// SecurityGroupCleaner defines provider instance methods needed to delete
+// a security group.
+type SecurityGroupCleaner interface {
+
+	// DeleteSecurityGroup deletes security group on the provider.
+	DeleteSecurityGroup(group ec2.SecurityGroup) (resp *ec2.SimpleResp, err error)
+}
+
+var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, group ec2.SecurityGroup) error {
+	var lastErr error
+	err := retry.Call(retry.CallArgs{
+		Attempts:    30,
+		Delay:       time.Second,
+		BackoffFunc: retry.DoubleDelay,
+		Clock:       clock.WallClock,
+		Func: func() error {
+			_, deleteErr := inst.DeleteSecurityGroup(group)
+			return errors.Trace(deleteErr)
+		},
+		IsFatalError: func(fatal error) bool {
+			// Should not happen since we are retrying with exponential delay,
+			// but just in case...
+			return ec2ErrCode(fatal) == "RequestLimitExceeded"
+		},
+		NotifyFunc: func(err error, attempt int) {
+			lastErr = err
+			logger.Infof(fmt.Sprintf("deleting security group %q, attempt %d", group.Name, attempt))
+		},
+	})
+	if err != nil {
+		logger.Warningf("cannot delete security group %q: consider deleting it manually", group.Name)
+		return lastErr
+	}
+	return nil
 }
 
 func (e *environ) terminateInstances(ids []instance.Id) error {
@@ -1401,13 +1431,8 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 		legacyJujuGroup := e.legacyJujuGroupName()
 		for _, deletable := range securityGroups {
 			if deletable.Name != jujuGroup && deletable.Name != legacyJujuGroup {
-				for a := longAttempt.Start(); a.Next(); {
-					_, err := ec2inst.DeleteSecurityGroup(deletable)
-					if err != nil {
-						logger.Warningf("could not delete security group %q: %v", deletable.Name, err)
-					} else {
-						break
-					}
+				if err := deleteSecurityGroupInsistently(ec2inst, deletable); err != nil {
+					logger.Errorf("provider failure: %v", err)
 				}
 			}
 		}

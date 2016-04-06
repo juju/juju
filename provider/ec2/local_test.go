@@ -97,6 +97,13 @@ func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting(c)
 	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
+
+	// with an exponential retry for deleting security groups,
+	// we never return from local live tests.
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(inst ec2.SecurityGroupCleaner, group amzec2.SecurityGroup) error {
+		return nil
+	})
+
 	t.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
@@ -1296,7 +1303,7 @@ func patchEC2ForTesting(c *gc.C) func() {
 	ec2.UseTestImageData(c, ec2.TestImagesData)
 	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
 	ec2.UseTestRegionData(ec2.TestRegions)
-	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt, ec2.LongAttempt)
+	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	return func() {
 		restoreFinishBootstrap()
