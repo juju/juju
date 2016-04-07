@@ -40,11 +40,11 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 		"instance-poller", "charm-revision-updater",
 		"metric-worker", "state-cleaner", "address-cleaner",
 		"status-history-pruner", "migration-master",
-		"migration-fortress",
+		"migration-fortress", "migration-inactive-flag",
 	})
 }
 
-func (s *ManifoldsSuite) TestResponsibleFlagDependencies(c *gc.C) {
+func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 	exclusions := set.NewStrings(
 		"agent", "clock", "api-config-watcher", "api-caller",
 		"is-responsible-flag", "not-dead-flag", "not-alive-flag",
@@ -58,7 +58,11 @@ func (s *ManifoldsSuite) TestResponsibleFlagDependencies(c *gc.C) {
 			continue
 		}
 		inputs := set.NewStrings(manifold.Inputs...)
-		c.Check(inputs.Contains("is-responsible-flag"), jc.IsTrue)
+		if inputs.Contains("is-responsible-flag") {
+			continue
+		}
+		c.Check(inputs.Contains("migration-fortress"), jc.IsTrue)
+		c.Check(inputs.Contains("migration-inactive-flag"), jc.IsTrue)
 	}
 }
 

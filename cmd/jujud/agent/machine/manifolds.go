@@ -426,8 +426,8 @@ const (
 	upgradeStepsName     = "upgradesteps"
 
 	migrationFortressName     = "migration-fortress"
-	migrationMinionName       = "migration-minion"
 	migrationInactiveFlagName = "migration-inactive-flag"
+	migrationMinionName       = "migration-minion"
 
 	servingInfoSetterName    = "serving-info-setter"
 	apiWorkersName           = "apiworkers"

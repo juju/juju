@@ -267,8 +267,8 @@ const (
 	upgraderName         = "upgrader"
 
 	migrationFortressName     = "migration-fortress"
-	migrationMinionName       = "migration-minion"
 	migrationInactiveFlagName = "migration-inactive-flag"
+	migrationMinionName       = "migration-minion"
 
 	loggingConfigUpdaterName = "logging-config-updater"
 	proxyConfigUpdaterName   = "proxy-config-updater"

@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/lifeflag"
 	"github.com/juju/juju/worker/metricworker"
+	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/servicescaler"
@@ -133,33 +134,55 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: singular.NewWorker,
 		}),
 
+		// The migration workers collaborate to run migrations;
+		// and to create a mechanism for running other workers
+		// so they can't accidentally interfere with a migration
+		// in progress. Such a manifold should (1) depend on the
+		// migration-inactive flag, to know when to start or die;
+		// and (2) occupy the migration-fortress, so as to avoid
+		// possible interference with the minion (which will not
+		// take action until it's gained sole control of the
+		// fortress).
+		//
+		// Note that the fortress and flag will only exist while
+		// the model is not dead; this frees their dependencies
+		// from model-lifetime concerns.
 		migrationFortressName: ifNotDead(fortress.Manifold()),
+		migrationInactiveFlagName: ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Check:         migrationflag.IsNone,
+			NewFacade:     migrationflag.NewFacade,
+			NewWorker:     migrationflag.NewWorker,
+		})),
 		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
 			APICallerName: apiCallerName,
 			FortressName:  migrationFortressName,
-
-			NewFacade: migrationmaster.NewFacade,
-			NewWorker: migrationmaster.NewWorker,
+			NewFacade:     migrationmaster.NewFacade,
+			NewWorker:     migrationmaster.NewWorker,
 		})),
 
 		// Everything else should be wrapped in ifResponsible,
-		// ifNotAlive, or ifNotDead, to ensure that only a single
-		// controller is administering this model at a time.
+		// ifNotAlive, ifNotDead, or ifNotMigrating (which also
+		// implies NotDead), to ensure that only a single
+		// controller is attempting to administer this model at
+		// any one time.
 		//
-		// NOTE: not perfectly reliable at this stage? i.e. a worker
-		// that ignores its stop signal for "too long" might continue
-		// to take admin actions after the window of responsibility
-		// closes. This *is* a pre-existing problem, but demands some
-		// thought/care: e.g. should we make sure the apiserver also
-		// closes any connections that lose responsibility..? can we
-		// make sure all possible environ operations are either time-
+		// NOTE: not perfectly reliable at this stage? i.e. a
+		// worker that ignores its stop signal for "too long"
+		// might continue to take admin actions after the window
+		// of responsibility closes. This *is* a pre-existing
+		// problem, but demands some thought/care: e.g. should
+		// we make sure the apiserver also closes any
+		// connections that lose responsibility..? can we make
+		// sure all possible environ operations are either time-
 		// bounded or interruptible? etc
 		//
-		// On the other hand, all workers *should* be written in the
-		// expectation of dealing with a sucky infrastructure running
-		// things in parallel unexpectedly, just because the universe
-		// hates us and will engineer matters such that it happens
-		// sometimes, even when we try to avoid it.
+		// On the other hand, all workers *should* be written in
+		// the expectation of dealing with sucky infrastructure
+		// running things in parallel unexpectedly, just because
+		// the universe hates us and will engineer matters such
+		// that it happens sometimes, even when we try to avoid
+		// it.
 
 		// The environ tracker could/should be used by several other
 		// workers (firewaller, provisioners, address-cleaner?).
@@ -179,8 +202,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: undertaker.NewWorker,
 		})),
 
-		// All the rest depend on ifNotDead.
-		spaceImporterName: ifNotDead(discoverspaces.Manifold(discoverspaces.ManifoldConfig{
+		// All the rest depend on ifNotMigrating.
+		spaceImporterName: ifNotMigrating(discoverspaces.Manifold(discoverspaces.ManifoldConfig{
 			EnvironName:   environTrackerName,
 			APICallerName: apiCallerName,
 			// No UnlockerName for now; might never be necessary
@@ -190,31 +213,31 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade: discoverspaces.NewFacade,
 			NewWorker: discoverspaces.NewWorker,
 		})),
-		computeProvisionerName: ifNotDead(provisioner.Manifold(provisioner.ManifoldConfig{
+		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
-		storageProvisionerName: ifNotDead(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
+		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName: apiCallerName,
 			ClockName:     clockName,
 			Scope:         modelTag,
 		})),
-		firewallerName: ifNotDead(firewaller.Manifold(firewaller.ManifoldConfig{
+		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		unitAssignerName: ifNotDead(unitassigner.Manifold(unitassigner.ManifoldConfig{
+		unitAssignerName: ifNotMigrating(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		serviceScalerName: ifNotDead(servicescaler.Manifold(servicescaler.ManifoldConfig{
+		serviceScalerName: ifNotMigrating(servicescaler.Manifold(servicescaler.ManifoldConfig{
 			APICallerName: apiCallerName,
 			NewFacade:     servicescaler.NewFacade,
 			NewWorker:     servicescaler.New,
 		})),
-		instancePollerName: ifNotDead(instancepoller.Manifold(instancepoller.ManifoldConfig{
+		instancePollerName: ifNotMigrating(instancepoller.Manifold(instancepoller.ManifoldConfig{
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
 		})),
-		charmRevisionUpdaterName: ifNotDead(charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
+		charmRevisionUpdaterName: ifNotMigrating(charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 			APICallerName: apiCallerName,
 			ClockName:     clockName,
 			Period:        config.CharmRevisionUpdateInterval,
@@ -222,16 +245,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade: charmrevisionmanifold.NewAPIFacade,
 			NewWorker: charmrevision.NewWorker,
 		})),
-		metricWorkerName: ifNotDead(metricworker.Manifold(metricworker.ManifoldConfig{
+		metricWorkerName: ifNotMigrating(metricworker.Manifold(metricworker.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		stateCleanerName: ifNotDead(cleaner.Manifold(cleaner.ManifoldConfig{
+		stateCleanerName: ifNotMigrating(cleaner.Manifold(cleaner.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		addressCleanerName: ifNotDead(addresser.Manifold(addresser.ManifoldConfig{
+		addressCleanerName: ifNotMigrating(addresser.Manifold(addresser.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		statusHistoryPrunerName: ifNotDead(statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
+		statusHistoryPrunerName: ifNotMigrating(statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
 			APICallerName:    apiCallerName,
 			MaxLogsPerEntity: config.EntityStatusHistoryCount,
 			PruneInterval:    config.EntityStatusHistoryInterval,
@@ -277,6 +300,19 @@ var (
 			notDeadFlagName,
 		},
 	}.Decorate
+
+	// ifNotMigrating wraps a manifold such that it only runs if the
+	// migration-inactive flag is set; and then runs workers only
+	// within Visits to the migration fortress. To avoid redundancy,
+	// it takes advantage of the fact that those migration manifolds
+	// themselves depend on ifNotDead, and eschews repeating those
+	// dependencies.
+	ifNotMigrating = util.Housing{
+		Flags: []string{
+			migrationInactiveFlagName,
+		},
+		Occupy: migrationFortressName,
+	}.Decorate
 )
 
 const (
@@ -289,8 +325,9 @@ const (
 	notDeadFlagName       = "not-dead-flag"
 	notAliveFlagName      = "not-alive-flag"
 
-	migrationFortressName = "migration-fortress"
-	migrationMasterName   = "migration-master"
+	migrationFortressName     = "migration-fortress"
+	migrationInactiveFlagName = "migration-inactive-flag"
+	migrationMasterName       = "migration-master"
 
 	environTrackerName       = "environ-tracker"
 	undertakerName           = "undertaker"
