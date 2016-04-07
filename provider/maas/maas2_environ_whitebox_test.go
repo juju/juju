@@ -238,3 +238,6 @@ func (suite *maas2EnvironSuite) TestSpacesError(c *gc.C) {
 	_, err := env.Spaces()
 	c.Assert(err, gc.ErrorMatches, "Joe Manginiello")
 }
+
+func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
+}
