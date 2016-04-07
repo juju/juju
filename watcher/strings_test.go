@@ -48,11 +48,7 @@ func newStringsHandlerWorker(c *gc.C, setupError, handlerError, teardownError er
 func (s *stringsWorkerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.actor, s.worker = newStringsHandlerWorker(c, nil, nil, nil)
-}
-
-func (s *stringsWorkerSuite) TearDownTest(c *gc.C) {
-	s.stopWorker(c)
-	s.BaseSuite.TearDownTest(c)
+	s.AddCleanup(s.stopWorker)
 }
 
 type stringsHandler struct {

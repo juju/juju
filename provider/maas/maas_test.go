@@ -51,7 +51,7 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
 	s.testMAASObject = TestMAASObject
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddSuiteCleanup(func(*gc.C) {
+	s.AddCleanup(func(*gc.C) {
 		restoreFinishBootstrap()
 		restoreTimeouts()
 	})

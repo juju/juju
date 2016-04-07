@@ -6,7 +6,6 @@ package catacomb_test
 import (
 	"time"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
@@ -17,7 +16,7 @@ import (
 )
 
 type cleaner interface {
-	AddCleanup(testing.CleanupFunc)
+	AddCleanup(func(*gc.C))
 }
 
 type fixture struct {

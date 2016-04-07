@@ -106,7 +106,13 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
-	dummy, err := s.State.AddCharm(ch, curl, "dummy-path", "dummy-1-sha256")
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "dummy-path",
+		SHA256:      "dummy-1-sha256",
+	}
+	dummy, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	srv := s.AddTestingService(c, "mysql", dummy)
 	s.addUnit(srv, m[0], c)

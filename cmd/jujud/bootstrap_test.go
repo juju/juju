@@ -89,7 +89,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.toolsStorage = stor
 
 	s.BaseSuite.SetUpSuite(c)
-	s.AddSuiteCleanup(func(*gc.C) {
+	s.AddCleanup(func(*gc.C) {
 		restorer()
 	})
 	s.MgoSuite.SetUpSuite(c)
@@ -100,7 +100,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
-	dummy.Reset()
+	dummy.Reset(c)
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {

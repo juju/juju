@@ -2654,7 +2654,7 @@ type migrationActiveWatcher struct {
 func newMigrationActiveWatcher(st *State) NotifyWatcher {
 	w := &migrationActiveWatcher{
 		commonWatcher: commonWatcher{st: st},
-		collName:      modelMigrationsActiveC,
+		collName:      migrationsActiveC,
 		sink:          make(chan struct{}),
 	}
 	go func() {
@@ -2734,7 +2734,7 @@ type migrationStatusWatcher struct {
 func newMigrationStatusWatcher(st *State) NotifyWatcher {
 	w := &migrationStatusWatcher{
 		commonWatcher: commonWatcher{st: st},
-		collName:      modelMigrationStatusC,
+		collName:      migrationsStatusC,
 		sink:          make(chan struct{}),
 	}
 	go func() {
@@ -2753,7 +2753,7 @@ func (w *migrationStatusWatcher) Changes() <-chan struct{} {
 func (w *migrationStatusWatcher) loop() error {
 	in := make(chan watcher.Change)
 
-	// Watch the entire modelMigrationStatusC collection for migration
+	// Watch the entire migrationsStatusC collection for migration
 	// status updates related to the State's model. This is more
 	// efficient and simpler than tracking the current active
 	// migration (and changing watchers when one migration finishes
