@@ -1202,7 +1202,7 @@ func (e *environ) Destroy() error {
 	}
 
 	if err := e.cleanEnvironmentSecurityGroup(); err != nil {
-		return errors.Annotate(err, "cannot delete default security group")
+		logger.Warningf("cannot delete default security group: %v", err)
 	}
 
 	return nil
@@ -1405,7 +1405,7 @@ var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, group ec2.S
 		},
 	})
 	if err != nil {
-		logger.Errorf("cannot delete security group %q: consider deleting it manually", group.Name)
+		logger.Warningf("cannot delete security group %q: consider deleting it manually", group.Name)
 		return lastErr
 	}
 	return nil
@@ -1415,39 +1415,37 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	securityGroups, err := e.instanceSecurityGroups(ids)
-	if err != nil {
-		// We should not stop termination because of this.
-		logger.Warningf("cannot determine security groups to delete: %v", err)
-	}
 	ec2inst := e.ec2()
-	defer func() error {
+
+	// Hold the IDs of successfully terminated instances.
+	terminatedInstances := []instance.Id{}
+
+	defer func() {
+		securityGroups, err := e.instanceSecurityGroups(terminatedInstances)
+		if err != nil {
+			logger.Warningf("cannot determine security groups to delete: %v", err)
+		}
 		// TODO(perrito666) we need to tag global security groups to be able
-		// to tell them appart from future groups that are neither machine
+		// to tell them apart from future groups that are neither machine
 		// nor environment group.
 		// https://bugs.launchpad.net/juju-core/+bug/1534289
 		jujuGroup := e.jujuGroupName()
 		legacyJujuGroup := e.legacyJujuGroupName()
 
-		// In an attempt to delete as many security groups as we can in one go,
-		// let's accumulate errors.
-		// If any errors occur, propagate them up.
-		errs := []error{}
 		for _, deletable := range securityGroups {
 			if deletable.Name != jujuGroup && deletable.Name != legacyJujuGroup {
 				if err := deleteSecurityGroupInsistently(ec2inst, deletable); err != nil {
-					errs = append(errs, err)
+					// In ideal world, we would err out here.
+					// However:
+					// 1. We do not know if all instances have been terminated.
+					// If some instances erred out, they may still be using this security group.
+					// In this case, our failure to delete security group is reasonable: it's still in use.
+					// 2. Some security groups may be shared by multiple instances,
+					// for example, global firewalling. We should not delete these.
+					logger.Warningf("provider failure: %v", err)
 				}
 			}
 		}
-		if len(errs) > 0 {
-			msgs := make([]string, len(errs))
-			for i, err := range errs {
-				msgs[i] = err.Error()
-			}
-			return errors.New(strings.Join(msgs, "\n"))
-		}
-		return nil
 	}()
 
 	strs := make([]string, len(ids))
@@ -1455,6 +1453,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 		strs[i] = string(id)
 	}
 
+	var err error
 	// TODO (anastasiamac 2016-04-7) instance termination would benefit
 	// from retry with exponential delay just like security groups
 	// in defer. Bug#1567179.
@@ -1475,6 +1474,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 		_, err = ec2inst.TerminateInstances([]string{string(id)})
 		if ec2ErrCode(err) == "InvalidInstanceID.NotFound" {
 			err = nil
+			terminatedInstances = append(terminatedInstances, id)
 		}
 		if err != nil && firstErr == nil {
 			firstErr = err

@@ -97,14 +97,8 @@ func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting(c)
 	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
-
-	// with an exponential retry for deleting security groups,
-	// we never return from local live tests.
-	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(inst ec2.SecurityGroupCleaner, group amzec2.SecurityGroup) error {
-		return nil
-	})
-
 	t.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 }
@@ -217,6 +211,7 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 	// TODO(jam) I don't understand why we shouldn't do this.
@@ -329,6 +324,24 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 
 	_, err = env.ControllerInstances()
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
+}
+
+func (t *localServerSuite) TestDestroySecurityGroupInsistentlyError(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	called := false
+	msg := "destroy security group error"
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(inst ec2.SecurityGroupCleaner, group amzec2.SecurityGroup) error {
+		called = true
+		return errors.New(msg)
+	})
+
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(c.GetTestLog(), jc.Contains, "WARNING juju.provider.ec2 provider failure: destroy security group error")
 }
 
 // splitAuthKeys splits the given authorized keys
@@ -1258,6 +1271,7 @@ func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
 	t.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 
 	t.restoreEC2Patching = patchEC2ForTesting(c)
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 }
 
 func (t *localNonUSEastSuite) TearDownSuite(c *gc.C) {
