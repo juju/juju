@@ -222,6 +222,12 @@ class EnvJujuClient:
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE,
                                            LXD_MACHINE])
 
+    @classmethod
+    def preferred_container(cls):
+        for container_type in [LXD_MACHINE, LXC_MACHINE]:
+            if container_type in cls.supported_container_types:
+                return container_type
+
     _show_status = 'show-status'
 
     @classmethod
@@ -666,12 +672,19 @@ class EnvJujuClient:
     def remove_service(self, service):
         self.juju('remove-service', (service,))
 
-    def deploy_bundle(self, bundle, timeout=_DEFAULT_BUNDLE_TIMEOUT):
+    @classmethod
+    def format_bundle(cls, bundle_template):
+        return bundle_template.format(container=cls.preferred_container())
+
+    def deploy_bundle(self, bundle_template, timeout=_DEFAULT_BUNDLE_TIMEOUT):
         """Deploy bundle using native juju 2.0 deploy command."""
+        bundle = self.format_bundle(bundle_template)
         self.juju('deploy', bundle, timeout=timeout)
 
-    def deployer(self, bundle, name=None, deploy_delay=10, timeout=3600):
+    def deployer(self, bundle_template, name=None, deploy_delay=10,
+                 timeout=3600):
         """deployer, using sudo if necessary."""
+        bundle = self.format_bundle(bundle_template)
         args = (
             '--debug',
             '--deploy-delay', str(deploy_delay),
@@ -691,8 +704,9 @@ class EnvJujuClient:
         else:
             return 'mem=2G'
 
-    def quickstart(self, bundle, upload_tools=False):
+    def quickstart(self, bundle_template, upload_tools=False):
         """quickstart, using sudo if necessary."""
+        bundle = self.format_bundle(bundle_template)
         if self.env.maas:
             constraints = 'mem=2G arch=amd64'
         else:
