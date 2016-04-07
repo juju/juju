@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
+	"github.com/juju/juju/testing/factory"
 )
 
 type CleanupSuite struct {
@@ -74,9 +75,10 @@ func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
 func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
-	// Create an model.
+	// Create a non-empty hosted model.
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
+	factory.NewFactory(otherSt).MakeService(c, nil)
 	otherEnv, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 

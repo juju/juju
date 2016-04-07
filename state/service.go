@@ -266,8 +266,9 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 		removeStorageConstraintsOp(s.globalKey()),
 		removeConstraintsOp(s.st, s.globalKey()),
 		annotationRemoveOp(s.st, s.globalKey()),
-		removeLeadershipSettingsOp(s.Tag().Id()),
+		removeLeadershipSettingsOp(s.Name()),
 		removeStatusOp(s.st, s.globalKey()),
+		removeModelServiceRefOp(s.st, s.Name()),
 	}
 	return ops
 }
@@ -1648,6 +1649,7 @@ func addServiceOps(st *State, args addServiceOpsArgs) []txn.Op {
 		createSettingsOp(settingsKey, args.settings),
 		createSettingsOp(leadershipKey, args.leadershipSettings),
 		createStatusOp(st, globalKey, args.statusDoc),
+		addModelServiceRefOp(st, svc.Name()),
 		{
 			C:      settingsrefsC,
 			Id:     settingsKey,

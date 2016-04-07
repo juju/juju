@@ -549,6 +549,7 @@ func (st *State) baseNewMachineOps(mdoc *machineDoc, machineStatusDoc, instanceS
 		// follow-up.
 		createRequestedNetworksOp(st, globalKey, networks),
 		createMachineBlockDevicesOp(mdoc.Id),
+		addModelMachineRefOp(st, mdoc.Id),
 	}
 	return prereqOps, machineOp
 }

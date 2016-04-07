@@ -136,6 +136,10 @@ func (st *State) RemoveAllModelDocs() error {
 		Id:     id,
 		Remove: true,
 	}, {
+		C:      modelEntityRefsC,
+		Id:     st.ModelUUID(),
+		Remove: true,
+	}, {
 		C:      modelsC,
 		Id:     st.ModelUUID(),
 		Assert: bson.D{{"life", Dead}},

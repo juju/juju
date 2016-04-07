@@ -2423,10 +2423,15 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	// Dying model...
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
+	// Add a service so Destroy doesn't advance to Dead.
+	svc := factory.NewFactory(st1).MakeService(c, nil)
 	dying, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	dying.Destroy()
+	err = dying.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
 
+	// Add an empty model, destroy and remove it; we should
+	// never see it reported.
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 	env2, err := st2.Model()
@@ -2435,14 +2440,16 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	err = state.RemoveModel(s.State, st2.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	// All except the dead env are reported in initial event.
+	// All except the removed env are reported in initial event.
 	w := s.State.WatchModels()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 
-	// Remove alive and dying and see changes reported.
-	err = state.RemoveModel(s.State, dying.UUID())
+	// Progress dying to dead, alive to dying; and see changes reported.
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st1.ProcessDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 	err = alive.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2457,9 +2464,10 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	wc.AssertChange(s.State.ModelUUID())
 	wc.AssertNoChange()
 
-	// Add an model: reported.
+	// Add a non-empty model: reported.
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
+	factory.NewFactory(st1).MakeService(c, nil)
 	env, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(env.UUID())
