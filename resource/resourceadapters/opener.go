@@ -19,7 +19,7 @@ type resourceOpener struct {
 	st     corestate.Resources
 	csMac  *macaroon.Macaroon
 	userID names.Tag
-	unit   resource.Unit
+	unit   *corestate.Unit
 }
 
 // OpenResource implements server.ResourceOpener.
@@ -27,10 +27,14 @@ func (ro *resourceOpener) OpenResource(name string) (resource.Opened, error) {
 	if ro.unit == nil {
 		return resource.Opened{}, errors.Errorf("missing unit")
 	}
+	svc, err := ro.unit.Service()
+	if err != nil {
+		return resource.Opened{}, errors.Trace(err)
+	}
 	cURL, _ := ro.unit.CharmURL()
 	id := csclient.CharmID{
 		URL:     cURL,
-		Channel: "stable",
+		Channel: svc.Channel(),
 	}
 
 	csOpener := newCharmstoreOpener(cURL, ro.csMac)
