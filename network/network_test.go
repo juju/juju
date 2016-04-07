@@ -112,8 +112,33 @@ func (s *NetworkSuite) TestConvertSpaceName(c *gc.C) {
 	}
 }
 
-func (s *NetworkSuite) TestFilterLXCAddresses(c *gc.C) {
+func (*NetworkSuite) TestInitializeFromConfig(c *gc.C) {
+	c.Check(network.PreferIPv6(), jc.IsFalse)
+
+	envConfig := testing.CustomModelConfig(c, testing.Attrs{
+		"prefer-ipv6": true,
+	})
+	network.SetPreferIPv6(envConfig.PreferIPv6())
+	c.Check(network.PreferIPv6(), jc.IsTrue)
+
+	envConfig = testing.CustomModelConfig(c, testing.Attrs{
+		"prefer-ipv6": false,
+	})
+	network.SetPreferIPv6(envConfig.PreferIPv6())
+	c.Check(network.PreferIPv6(), jc.IsFalse)
+}
+
+func (s *NetworkSuite) TestFilterBridgeAddresses(c *gc.C) {
+	lxdBridgeName, err := network.GetDefaultLXDBridgeName()
+	if err != nil {
+		lxdBridgeName = ""
+		c.Logf("could not get LXD bridge name: %v", err)
+	}
 	lxcFakeNetConfig := filepath.Join(c.MkDir(), "lxc-net")
+	// We create an LXC bridge named "foobar", and then put 10.0.3.1,
+	// 10.0.3.4 and 10.0.3.5/24 on that bridge.
+	// We also put 10.0.4.1 and 10.0.5.1/24 onto whatever bridge LXD is
+	// configured to use.
 	netConf := []byte(`
   # comments ignored
 LXC_BR= ignored
@@ -124,13 +149,22 @@ LXC_BRIDGE="ignored"`[1:])
 	err := ioutil.WriteFile(lxcFakeNetConfig, netConf, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&network.InterfaceByNameAddrs, func(name string) ([]net.Addr, error) {
-		c.Assert(name, gc.Equals, "foobar")
-		return []net.Addr{
-			&net.IPAddr{IP: net.IPv4(10, 0, 3, 1)},
-			&net.IPAddr{IP: net.IPv4(10, 0, 3, 4)},
-			// Try a CIDR 10.0.3.5/24 as well.
-			&net.IPNet{IP: net.IPv4(10, 0, 3, 5), Mask: net.IPv4Mask(255, 255, 255, 0)},
-		}, nil
+		if name == "foobar" {
+			return []net.Addr{
+				&net.IPAddr{IP: net.IPv4(10, 0, 3, 1)},
+				&net.IPAddr{IP: net.IPv4(10, 0, 3, 4)},
+				// Try a CIDR 10.0.3.5/24 as well.
+				&net.IPNet{IP: net.IPv4(10, 0, 3, 5), Mask: net.IPv4Mask(255, 255, 255, 0)},
+			}, nil
+		} else if lxdBridgeName != "" && name == lxdBridgeName {
+			return []net.Addr{
+				&net.IPAddr{IP: net.IPv4(10, 0, 4, 1)},
+				// Try a CIDR 10.0.5.1/24 as well.
+				&net.IPNet{IP: net.IPv4(10, 0, 5, 1), Mask: net.IPv4Mask(255, 255, 255, 0)},
+			}, nil
+		}
+		c.Fatalf("unknown bridge name: %q", name)
+		return nil, nil
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 
@@ -138,19 +172,35 @@ LXC_BRIDGE="ignored"`[1:])
 		"127.0.0.1",
 		"2001:db8::1",
 		"10.0.0.1",
-		"10.0.3.1", // filtered (directly as IP)
-		"10.0.3.3", // filtered (by the 10.0.3.5/24 CIDR)
-		"10.0.3.5", // filtered (directly)
-		"10.0.3.4", // filtered (directly)
+		"10.0.3.1",  // filtered (directly as IP)
+		"10.0.3.3",  // filtered (by the 10.0.3.5/24 CIDR)
+		"10.0.3.5",  // filtered (directly)
+		"10.0.3.4",  // filtered (directly)
+		"10.0.4.1",  // filtered (directly from LXD bridge)
+		"10.0.5.10", // filtered (from LXD bridge, 10.0.5.1/24)
+		"10.0.6.10", // unfiltered
 		"192.168.123.42",
 	)
 	filteredAddresses := network.NewAddresses(
 		"127.0.0.1",
 		"2001:db8::1",
 		"10.0.0.1",
+		"10.0.6.10",
 		"192.168.123.42",
 	)
-	c.Assert(network.FilterLXCAddresses(inputAddresses), jc.DeepEquals, filteredAddresses)
+	if lxdBridgeName == "" {
+		// We won't have filtered LXD addresses
+		filteredAddresses = network.NewAddresses(
+			"127.0.0.1",
+			"2001:db8::1",
+			"10.0.0.1",
+			"10.0.4.1",
+			"10.0.5.10",
+			"10.0.6.10",
+			"192.168.123.42",
+		)
+	}
+	c.Assert(network.FilterBridgeAddresses(inputAddresses), jc.DeepEquals, filteredAddresses)
 }
 
 func (s *NetworkSuite) TestNoAddressError(c *gc.C) {

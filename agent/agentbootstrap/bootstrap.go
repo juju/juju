@@ -116,8 +116,8 @@ func InitializeState(
 	servingInfo.SharedSecret = args.SharedSecret
 	c.SetStateServingInfo(servingInfo)
 
-	// Filter out any LXC bridge addresses from the machine addresses.
-	args.BootstrapMachineAddresses = network.FilterLXCAddresses(args.BootstrapMachineAddresses)
+	// Filter out any LXC or LXD bridge addresses from the machine addresses.
+	args.BootstrapMachineAddresses = network.FilterBridgeAddresses(args.BootstrapMachineAddresses)
 
 	if err = initAPIHostPorts(c, st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err

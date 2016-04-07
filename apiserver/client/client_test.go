@@ -1121,7 +1121,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	// Create a machine to host the requested containers.
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	// The host only supports ldc containers.
+	// The host only supports lxd containers.
 	err = host.SetSupportedContainers([]instance.ContainerType{instance.LXD})
 	c.Assert(err, jc.ErrorIsNil)
 
