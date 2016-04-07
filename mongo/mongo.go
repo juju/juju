@@ -33,14 +33,9 @@ var (
 	logger          = loggo.GetLogger("juju.mongo")
 	mongoConfigPath = "/etc/default/mongodb"
 
-	// JujuMongodPath holds the default path to the juju-specific
+	// JujuMongod24Path holds the default path to the legacy Juju
 	// mongod.
-	JujuMongodPath = "/usr/lib/juju/bin/mongod"
-	// JujuMongod26Path holds the default path for the transitional
-	// mongo 2.6 to be installed to upgrade to 3.
-	JujuMongod26Path = "/usr/lib/juju/mongo2.6/bin/mongod"
-	// JujuMongod30Path holds the default path for mongo 3.
-	JujuMongod30Path = "/usr/lib/juju/mongo3/bin/mongod"
+	JujuMongod24Path = "/usr/lib/juju/bin/mongod"
 
 	// This is NUMACTL package name for apt-get
 	numaCtlPkg = "numactl"
@@ -50,10 +45,16 @@ var (
 type StorageEngine string
 
 const (
+	// JujuMongoPackage is the mongo package Juju uses when
+	// installing mongo.
+	JujuMongoPackage = "juju-mongodb3.2"
+
 	// MMAPV2 is the default storage engine in mongo db up to 3.x
 	MMAPV1 StorageEngine = "mmapv1"
+
 	// WiredTiger is a storage type introduced in 3
 	WiredTiger StorageEngine = "wiredTiger"
+
 	// Upgrading is a special case where mongo is being upgraded.
 	Upgrading StorageEngine = "Upgrading"
 )
@@ -104,10 +105,12 @@ func NewVersion(v string) (Version, error) {
 	}
 
 	parts := strings.SplitN(v, "/", 2)
-	if len(parts) == 0 {
+	switch len(parts) {
+	case 0:
 		return Version{}, errors.New("invalid version string")
-	}
-	if len(parts) == 2 {
+	case 1:
+		version.StorageEngine = MMAPV1
+	case 2:
 		switch StorageEngine(parts[1]) {
 		case MMAPV1:
 			version.StorageEngine = MMAPV1
@@ -151,6 +154,12 @@ func (v Version) String() string {
 	return s
 }
 
+// JujuMongodPath returns the path for the mongod binary
+// with the specified version.
+func JujuMongodPath(v Version) string {
+	return fmt.Sprintf("/usr/lib/juju/mongo%d.%d/bin/mongod", v.Major, v.Minor)
+}
+
 var (
 	// Mongo24 represents juju-mongodb 2.4.x
 	Mongo24 = Version{Major: 2,
@@ -164,15 +173,9 @@ var (
 		Patch:         "",
 		StorageEngine: MMAPV1,
 	}
-	// Mongo30 represents juju-mongodb3 3.x.x
-	Mongo30 = Version{Major: 3,
-		Minor:         0,
-		Patch:         "",
-		StorageEngine: MMAPV1,
-	}
-	// Mongo30wt represents juju-mongodb3 3.x.x with wiredTiger storage.
-	Mongo30wt = Version{Major: 3,
-		Minor:         0,
+	// Mongo32wt represents juju-mongodb3 3.2.x with wiredTiger storage.
+	Mongo32wt = Version{Major: 3,
+		Minor:         2,
 		Patch:         "",
 		StorageEngine: WiredTiger,
 	}
@@ -191,14 +194,10 @@ func BinariesAvailable(v Version) bool {
 	var path string
 	switch v {
 	case Mongo24:
-		path = JujuMongodPath
-
-	case Mongo26:
-		path = JujuMongod26Path
-	case Mongo30, Mongo30wt:
-		path = JujuMongod30Path
+		// 2.4 has a fixed path.
+		path = JujuMongod24Path
 	default:
-		return false
+		path = JujuMongodPath(v)
 	}
 	if _, err := os.Stat(path); err == nil {
 		return true
@@ -294,32 +293,23 @@ func Path(version Version) (string, error) {
 	noVersion := Version{}
 	switch version {
 	case Mongo24, noVersion:
-		if _, err := os.Stat(JujuMongodPath); err == nil {
-			return JujuMongodPath, nil
+		if _, err := os.Stat(JujuMongod24Path); err == nil {
+			return JujuMongod24Path, nil
 		}
 
 		path, err := exec.LookPath("mongod")
 		if err != nil {
-			logger.Infof("could not find %v or mongod in $PATH", JujuMongodPath)
+			logger.Infof("could not find %v or mongod in $PATH", JujuMongod24Path)
 			return "", err
 		}
 		return path, nil
 
-	case Mongo26:
+	default:
+		path := JujuMongodPath(version)
 		var err error
-		if _, err = os.Stat(JujuMongod26Path); err == nil {
-			return JujuMongod26Path, nil
+		if _, err = os.Stat(path); err == nil {
+			return path, nil
 		}
-		logger.Infof("could not find %q ", JujuMongod26Path)
-		return "", err
-
-	case Mongo30, Mongo30wt:
-		var err error
-		if _, err = os.Stat(JujuMongod30Path); err == nil {
-			return JujuMongod30Path, nil
-		}
-		logger.Infof("could not find %q", JujuMongod30Path)
-		return "", err
 	}
 
 	logger.Infof("could not find a suitable binary for %q", version)
@@ -558,17 +548,6 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 			return err
 		}
 	}
-	optionals := optionalPackagesForSeries(operatingsystem)
-	for i := range optionals {
-		// apply release targeting if needed.
-		if pacconfer.IsCloudArchivePackage(optionals[i]) {
-			optionals[i] = strings.Join(pacconfer.ApplyCloudArchiveTarget(optionals[i]), " ")
-		}
-
-		if err := pacman.Install(optionals[i]); err != nil {
-			logger.Errorf("could not install package %q: %v", optionals[i], err)
-		}
-	}
 
 	// Work around SELinux on centos7
 	if operatingsystem == "centos7" {
@@ -600,20 +579,12 @@ func packagesForSeries(series string) []string {
 	switch series {
 	case "precise", "quantal", "raring", "saucy", "centos7":
 		return []string{"mongodb-server"}
-	default:
-		// trusty and onwards
+	// TODO(wallyworld) - remove this fallback when mongo3.2 is in trusty
+	case "trusty":
 		return []string{"juju-mongodb"}
-	}
-}
-
-func optionalPackagesForSeries(series string) []string {
-	switch series {
-	case "precise", "quantal", "raring", "saucy", "centos7":
-		return []string{}
 	default:
-		// TODO(perrito666) when the packages are ready, this should be
-		// "juju-mongodb2.6", "juju-mongodb3"
-		return []string{}
+		// xenial and onwards
+		return []string{JujuMongoPackage}
 	}
 }
 
@@ -645,31 +616,16 @@ func noauthCommand(dataDir string, port int, version Version) (*exec.Cmd, error)
 		"--journal",
 		"--quiet",
 	}
-	if version == Mongo30wt {
+	if version.StorageEngine == WiredTiger {
 		args = append(args, "--storageEngine", "wiredTiger")
 
 	} else {
 		args = append(args, "--noprealloc", "--smallfiles")
-	}
-	if version == Mongo30 {
-		args = append(args, "--storageEngine", "mmapv1")
+		if version.Major > 2 {
+			args = append(args, "--storageEngine", "mmapv1")
+		}
 	}
 
 	cmd := exec.Command(mongoPath, args...)
-
 	return cmd, nil
-}
-
-// ReplicaSetInformation holds information about replicaset
-// components.
-type ReplicaSetInformation struct {
-	Master  replicaset.Member
-	Members []replicaset.Member
-	Config  replicaset.Config
-}
-
-// ReplicaSetInfo returns information describing the replicaset members
-// and configuration
-func ReplicaSetInfo(session *mgo.Session) (ReplicaSetInformation, error) {
-	return ReplicaSetInformation{}, nil
 }
