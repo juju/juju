@@ -55,6 +55,7 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"mgo-txn-resumer",
 		"migration-fortress",
 		"migration-minion",
+		"migration-inactive-flag",
 		"proxy-config-updater",
 		"reboot-executor",
 		"serving-info-setter",
@@ -78,7 +79,16 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }
 
-func (*ManifoldsSuite) TestUpgradeGuardsUsed(c *gc.C) {
+func (*ManifoldsSuite) TestUpgradesBlockMigration(c *gc.C) {
+	manifolds := machine.Manifolds(machine.ManifoldsConfig{})
+	manifold, ok := manifolds["migration-fortress"]
+	c.Assert(ok, jc.IsTrue)
+
+	checkContains(c, manifold.Inputs, "upgrade-check-flag")
+	checkContains(c, manifold.Inputs, "upgrade-steps-flag")
+}
+
+func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 	exempt := set.NewStrings(
 		"agent",
 		"api-caller",
@@ -87,6 +97,9 @@ func (*ManifoldsSuite) TestUpgradeGuardsUsed(c *gc.C) {
 		"state-config-watcher",
 		"termination-signal-handler",
 		"unconverted-state-workers",
+		"migration-fortress",
+		"migration-minion",
+		"migration-inactive-flag",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
@@ -95,26 +108,22 @@ func (*ManifoldsSuite) TestUpgradeGuardsUsed(c *gc.C) {
 		"upgrader",
 	)
 	manifolds := machine.Manifolds(machine.ManifoldsConfig{})
-	keys := make([]string, 0, len(manifolds))
-	for key := range manifolds {
-		if !exempt.Contains(key) {
-			keys = append(keys, key)
+	for name, manifold := range manifolds {
+		c.Logf(name)
+		if !exempt.Contains(name) {
+			checkContains(c, manifold.Inputs, "migration-fortress")
+			checkContains(c, manifold.Inputs, "migration-inactive-flag")
 		}
 	}
-	for _, key := range keys {
-		c.Logf("checking %s...", key)
-		var sawCheck, sawSteps bool
-		for _, name := range manifolds[key].Inputs {
-			if name == "upgrade-check-flag" {
-				sawCheck = true
-			}
-			if name == "upgrade-steps-flag" {
-				sawSteps = true
-			}
+}
+
+func checkContains(c *gc.C, names []string, seek string) {
+	for _, name := range names {
+		if name == seek {
+			return
 		}
-		c.Check(sawSteps, jc.IsTrue)
-		c.Check(sawCheck, jc.IsTrue)
 	}
+	c.Errorf("%q not found in %v", seek, names)
 }
 
 func (*ManifoldsSuite) TestUpgradeGates(c *gc.C) {
