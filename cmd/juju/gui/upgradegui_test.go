@@ -134,9 +134,17 @@ func (s *upgradeGUISuite) TestUpgradeGUIListSuccess(c *gc.C) {
 	}, {
 		Version: version.MustParse("2.1.0"),
 	}}, nil)
+	uploadCalled := s.patchClientUploadGUIArchive(c, "", 0, "", false, nil)
+	selectCalled := s.patchClientSelectGUIVersion(c, "", nil)
+
+	// Run the command to list available Juju GUI archive versions.
 	out, err := s.run(c, "--list")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, "2.2.0\n2.1.1\n2.1.0")
+
+	// No uploads or switches are preformed.
+	c.Assert(uploadCalled(), jc.IsFalse)
+	c.Assert(selectCalled(), jc.IsFalse)
 }
 
 func (s *upgradeGUISuite) TestUpgradeGUIListNoReleases(c *gc.C) {
