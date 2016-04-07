@@ -492,7 +492,7 @@ func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []p
 	if err != nil {
 		logger.Warningf("cannot serialize provider config %#v as JSON: %v", sortedProviderConfigs, err)
 	} else {
-		logger.Infof("provider network config of machine:\n%s", jsonProviderConfig)
+		logger.Debugf("provider network config of machine:\n%s", jsonProviderConfig)
 	}
 
 	sortedObservedConfigs := SortNetworkConfigsByParents(observedConfigs)
@@ -501,7 +501,7 @@ func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []p
 	if err != nil {
 		logger.Warningf("cannot serialize observed config %#v as JSON: %v", sortedObservedConfigs, err)
 	} else {
-		logger.Infof("observed network config of machine:\n%s", jsonObservedConfig)
+		logger.Debugf("observed network config of machine:\n%s", jsonObservedConfig)
 	}
 
 	var mergedConfigs []params.NetworkConfig
@@ -587,13 +587,13 @@ func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []p
 		}
 	}
 
-	// No need to re-sort the result as both inputs were sorted and processed in
-	// order.
-	jsonMergedConfig, err := NetworkConfigsToIndentedJSON(mergedConfigs)
+	sortedMergedConfigs := SortNetworkConfigsByParents(mergedConfigs)
+
+	jsonMergedConfig, err := NetworkConfigsToIndentedJSON(sortedMergedConfigs)
 	if err != nil {
-		logger.Warningf("cannot serialize merged config %#v as JSON: %v", mergedConfigs, err)
+		logger.Warningf("cannot serialize merged config %#v as JSON: %v", sortedMergedConfigs, err)
 	} else {
-		logger.Infof("combined machine network config:\n%s", jsonMergedConfig)
+		logger.Debugf("combined machine network config:\n%s", jsonMergedConfig)
 	}
 
 	return mergedConfigs
