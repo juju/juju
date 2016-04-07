@@ -321,7 +321,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	if featureflag.Enabled(feature.MAAS2) {
 		controller, err = GetMAAS2Controller(ecfg.maasServer(), ecfg.maasOAuth())
 	}
-	if controller == nil || err != nil && gomaasapi.IsUnsupportedVersionError(err) {
+	if !featureflag.Enabled(feature.MAAS2) || err != nil && gomaasapi.IsUnsupportedVersionError(err) {
 		apiVersion = apiVersion1
 		authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion1)
 		if err != nil {
