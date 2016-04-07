@@ -236,7 +236,7 @@ type sysCommandWrapper struct {
 // SetFlags implements Command.SetFlags, then calls the wrapped command's SetFlags.
 func (w *sysCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	if w.setFlags {
-		f.StringVar(&w.controllerName, "c", "", "juju controller to operate in")
+		f.StringVar(&w.controllerName, "c", "", "Controller to operate in")
 		f.StringVar(&w.controllerName, "controller", "", "")
 	}
 	w.ControllerCommand.SetFlags(f)

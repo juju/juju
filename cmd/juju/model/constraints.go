@@ -12,45 +12,51 @@ import (
 	"github.com/juju/juju/constraints"
 )
 
-const getConstraintsDoc = `
-Shows a list of constraints that have been set on the model
-using juju set-model-constraints.  You can also view constraints
-set for a specific service by using juju get-constraints <service>.
+// getConstraintsDoc is multi-line since we need to use ` to denote
+// commands for ease in markdown.
+const getConstraintsDoc = "" +
+	"Shows machine constraints that have been set on the model with\n" +
+	"`juju set-model-constraints.`\n" +
+	"By default, the model is the current model.\n" +
+	"Model constraints are combined with constraints set on a service\n" +
+	"with `juju set-constraints` for commands (such as 'deploy') that provision\n" +
+	"machines for services. Where model and service constraints overlap, the\n" +
+	"service constraints take precedence.\n" +
+	"Constraints for a specific service can be viewed with `juju get-constraints`.\n" + getConstraintsDocExamples
 
-Constraints set on a service are combined with model constraints for
-commands (such as juju deploy) that provision machines for services.  Where
-model and service constraints overlap, the service constraints take
-precedence.
+const getConstraintsDocExamples = `
+Examples:
 
-See Also:
-   juju help constraints
-   juju help set-model-constraints
-   juju help deploy
-   juju help machine add
-   juju help add-unit
+    juju get-model-constraints
+    juju get-model-constraints -m mymodel
+
+See also: list-models
+          set-model-constraints
+          set-constraints
+          get-constraints
 `
 
-const setConstraintsDoc = `
-Sets machine constraints on the model, which are used as the default
-constraints for all new machines provisioned in the model (unless
-overridden).  You can also set constraints on a specific service by using
-juju set-constraints.
+// setConstraintsDoc is multi-line since we need to use ` to denote
+// commands for ease in markdown.
+const setConstraintsDoc = "" +
+	"Sets machine constraints on the model that can be viewed with\n" +
+	"`juju get-model-constraints`.  By default, the model is the current model.\n" +
+	"Model constraints are combined with constraints set for a service with\n" +
+	"`juju set-constraints` for commands (such as 'deploy') that provision\n" +
+	"machines for services. Where model and service constraints overlap, the\n" +
+	"service constraints take precedence.\n" +
+	"Constraints for a specific service can be viewed with `juju get-constraints`.\n" + setConstraintsDocExamples
 
-Constraints set on a service are combined with model constraints for
-commands (such as juju deploy) that provision machines for services.  Where
-model and service constraints overlap, the service constraints take
-precedence.
+const setConstraintsDocExamples = `
+Examples:
 
-Example:
+    juju set-model-constraints cpu-cores=8 mem=16G
+    juju set-model-constraints -m mymodel root-disk=64G
 
-   juju model set-constraints mem=8G                         (all new machines in the model must have at least 8GB of RAM)
-
-See Also:
-   juju help constraints
-   juju help get-model-constraints
-   juju help deploy
-   juju help machine add
-   juju help add-unit
+See also: list-models
+          get-model-constraints
+          set-constraints
+          get-constraints
 `
 
 // ConstraintsAPI defines methods on the client API that
@@ -76,7 +82,7 @@ type modelGetConstraintsCommand struct {
 func (c *modelGetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get-model-constraints",
-		Purpose: "view constraints on the model",
+		Purpose: "Displays machine constraints for a model.",
 		Doc:     getConstraintsDoc,
 	}
 }
@@ -133,8 +139,8 @@ type modelSetConstraintsCommand struct {
 func (c *modelSetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set-model-constraints",
-		Args:    "[key=[value] ...]",
-		Purpose: "set constraints on the model",
+		Args:    "<constraint>=<value> ...",
+		Purpose: "Sets machine constraints on a model.",
 		Doc:     setConstraintsDoc,
 	}
 }
