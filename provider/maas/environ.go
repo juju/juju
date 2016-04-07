@@ -951,6 +951,8 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 			}
 		}
 		zoneInstances, err := availabilityZoneAllocations(environ, group)
+		// TODO (mfoord): this branch is for old versions of MAAS and
+		// can be removed, but this means fixing tests.
 		if errors.IsNotImplemented(err) {
 			// Availability zones are an extension, so we may get a
 			// not implemented error; ignore these.
