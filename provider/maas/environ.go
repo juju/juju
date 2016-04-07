@@ -1056,12 +1056,12 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
-	var startedNode *gomaasapi.MAASObject
 	var interfaces []network.InterfaceInfo
 	if !environ.usingMAAS2() {
 		inst1 := inst.(*maas1Instance)
-		if startedNode, err = environ.startNode(*inst1.maasObject, series, userdata); err != nil {
-			return nil, err
+		startedNode, err := environ.startNode(*inst1.maasObject, series, userdata)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 		// Once the instance has started the response should contain the
 		// assigned IP addresses, even when NICs are set to "auto" instead of
@@ -1074,6 +1074,12 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 			return nil, errors.Trace(err)
 		}
 		interfaces, err = maasObjectNetworkInterfaces(startedNode, subnetsMap)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		// XXX handle interfaces
+		_, err := environ.startNode2(*inst.(*maas2Instance), series, userdata)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
