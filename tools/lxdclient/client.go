@@ -51,7 +51,7 @@ func Connect(cfg Config) (*Client, error) {
 		certClient:         &certClient{raw},
 		profileClient:      &profileClient{raw},
 		instanceClient:     &instanceClient{raw, remote},
-		imageClient:        &imageClient{raw},
+		imageClient:        &imageClient{raw, connectToRaw},
 		baseURL:            raw.BaseURL,
 	}
 	return conn, nil
