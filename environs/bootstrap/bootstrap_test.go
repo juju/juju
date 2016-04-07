@@ -309,7 +309,9 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessRemote(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := coretesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
+		GUIDataSourceBaseURL: "https://1.2.3.4/gui/sources",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Preparing for Juju GUI 2.0.42 release installation\n")
 
@@ -348,13 +350,24 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
 	c.Assert(env.instanceConfig.GUI.SHA256, gc.Equals, fmt.Sprintf("%x", h.Sum(nil)))
 }
 
+func (s *bootstrapSuite) TestBootstrapGUISuccessNoGUI(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := coretesting.Context(c)
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Juju GUI installation has been disabled\n")
+	c.Assert(env.instanceConfig.GUI, gc.IsNil)
+}
+
 func (s *bootstrapSuite) TestBootstrapGUINoStreams(c *gc.C) {
 	s.PatchValue(bootstrap.GUIFetchMetadata, func(string, ...simplestreams.DataSource) ([]*gui.Metadata, error) {
 		return nil, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := coretesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
+		GUIDataSourceBaseURL: "https://1.2.3.4/gui/sources",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, "No available Juju GUI archives found\n")
 	c.Assert(env.instanceConfig.GUI, gc.IsNil)
@@ -366,7 +379,9 @@ func (s *bootstrapSuite) TestBootstrapGUIStreamsFailure(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := coretesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
+		GUIDataSourceBaseURL: "https://1.2.3.4/gui/sources",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Unable to fetch Juju GUI info: bad wolf\n")
 	c.Assert(env.instanceConfig.GUI, gc.IsNil)
