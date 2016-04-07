@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/charmstore"
@@ -52,7 +53,7 @@ type charmstoreOpener struct {
 }
 
 func newCharmstoreOpener(cURL *charm.URL, csMac *macaroon.Macaroon) *charmstoreOpener {
-	// TODO(ericsnow) Extract the charm store URL from the charm URL.
+	// TODO(ericsnow) Extract the charm store URL from the charm URL?
 	return &charmstoreOpener{
 		csMac: csMac,
 	}
@@ -60,23 +61,35 @@ func newCharmstoreOpener(cURL *charm.URL, csMac *macaroon.Macaroon) *charmstoreO
 
 // NewClient opens a new charm store client.
 func (cs *charmstoreOpener) NewClient() (*CSRetryClient, error) {
-	// TODO(ericsnow) Use a valid charm store client.
-	var config charmstore.ClientConfig
-	config.URL = "<not valid>"
-	client := charmstore.NewClient(config)
-	// TODO(ericsnow) client.Closer will be meaningful once we factor
-	// out the Juju HTTP context (a la cmd/juju/charmcmd/store.go).
+	client := cs.newClient()
 	return newCSRetryClient(client), nil
+}
+
+func (cs *charmstoreOpener) newClient() charmstore.Client {
+	var config charmstore.ClientConfig
+
+	httpClient := httpbakery.NewClient()
+	if cs.csMac != nil {
+		// Set the provided charmstore authorizing macaroon
+		// as a cookie in the HTTP client.
+		// TODO discharge any third party caveats in the macaroon.
+		ms := []*macaroon.Macaroon{cs.csMac}
+		httpbakery.SetCookie(httpClient.Jar, config.URL, ms)
+	}
+	config.BakeryClient = httpClient
+
+	client := charmstore.NewClient(config)
+	return client
 }
 
 // CSRetryClient is a wrapper around a Juju charm store client that
 // retries GetResource() calls.
 type CSRetryClient struct {
-	*charmstore.Client
+	charmstore.Client
 	retryArgs retry.CallArgs
 }
 
-func newCSRetryClient(client *charmstore.Client) *CSRetryClient {
+func newCSRetryClient(client charmstore.Client) *CSRetryClient {
 	retryArgs := retry.CallArgs{
 		// The only error that stops the retry loop should be "not found".
 		IsFatalError: errors.IsNotFound,

@@ -430,7 +430,7 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 		}
 		return nil, resolveInfo, err
 	}
-	logger.Debugf("read metadata index at %q", indexURL)
+	logger.Tracef("read metadata index at %q", indexURL)
 	items, err := indexRef.getLatestMetadataWithFormat(cons, ProductFormat, signed)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -969,7 +969,7 @@ func (indexRef *IndexReference) getLatestMetadataWithFormat(cons LookupConstrain
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("metadata: %v", metadata)
+	logger.Tracef("metadata: %v", metadata)
 	matches, err := GetLatestMetadata(metadata, cons, indexRef.Source, indexRef.valueParams.FilterFunc)
 	if err != nil {
 		return nil, err

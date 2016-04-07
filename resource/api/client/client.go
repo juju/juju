@@ -13,6 +13,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 )
@@ -131,7 +132,7 @@ func (c Client) AddPendingResources(args AddPendingResourcesArgs) (pendingIDs []
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
-		err := api.RestoreError(result.Error)
+		err := common.RestoreError(result.Error)
 		return nil, errors.Trace(err)
 	}
 

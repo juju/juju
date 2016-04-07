@@ -24,6 +24,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/firewaller"
+	"github.com/juju/juju/worker/workertest"
 )
 
 // firewallerBaseSuite implements common functionality for embedding
@@ -827,26 +828,9 @@ func (s *NoneModeSuite) SetUpTest(c *gc.C) {
 	s.firewallerBaseSuite.setUpTest(c, config.FwNone)
 }
 
-func (s *NoneModeSuite) TearDownTest(c *gc.C) {
-	s.firewallerBaseSuite.JujuConnSuite.TearDownTest(c)
-}
-
-func (s *NoneModeSuite) TestStopImmediatelyWhenModeNone(c *gc.C) {
+func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
 	fw, err := firewaller.NewFirewaller(s.firewaller)
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		fw.Kill()
-		fw.Wait()
-	}()
-
-	wait := make(chan error)
-	go func() {
-		wait <- fw.Wait()
-	}()
-	select {
-	case err := <-wait:
-		c.Assert(err, gc.ErrorMatches, `firewaller is disabled when firewall-mode is "none"`)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out")
-	}
+	err = workertest.CheckKilled(c, fw)
+	c.Check(err, jc.ErrorIsNil)
 }

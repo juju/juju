@@ -144,9 +144,9 @@ list relation units
 
 Options:
 --format  (= smart)
-    specify output format (json|smart|yaml)
+    Specify output format (json|smart|yaml)
 -o, --output (= "")
-    specify an output file
+    Specify an output file
 -r, --relation  (= %s)
     specify a relation by id
 %s`[1:]

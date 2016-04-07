@@ -28,13 +28,11 @@ func (ro *resourceOpener) OpenResource(name string) (resource.Opened, error) {
 	}
 	cURL, _ := ro.unit.CharmURL()
 
-	// TODO(ericsnow) We will need an actual macaroon here.
 	csOpener := newCharmstoreOpener(cURL, ro.csMac)
 	client, err := csOpener.NewClient()
 	if err != nil {
 		return resource.Opened{}, errors.Trace(err)
 	}
-	defer client.Close()
 
 	cache := &charmstoreEntityCache{
 		st:        ro.st,

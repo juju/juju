@@ -19,6 +19,7 @@ import (
 	"github.com/juju/gomaasapi"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -219,6 +221,9 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 }
 
 func (env *maasEnviron) usingMAAS2() bool {
+	if !featureflag.Enabled(feature.MAAS2) {
+		return false
+	}
 	return env.apiVersion == apiVersion2
 }
 
@@ -276,8 +281,9 @@ func (env *maasEnviron) ControllerInstances() ([]instance.Id, error) {
 // mutex.
 func (env *maasEnviron) ecfg() *maasModelConfig {
 	env.ecfgMutex.Lock()
-	defer env.ecfgMutex.Unlock()
-	return env.ecfgUnlocked
+	cfg := *env.ecfgUnlocked
+	env.ecfgMutex.Unlock()
+	return &cfg
 }
 
 // Config is specified in the Environ interface.
@@ -312,8 +318,11 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	// and 2.0. MAAS 1.9 uses the 1.0 api version and 2.0 uses the 2.0 api
 	// version.
 	apiVersion := apiVersion2
-	controller, err := GetMAAS2Controller(ecfg.maasServer(), ecfg.maasOAuth())
-	if err != nil && gomaasapi.IsUnsupportedVersionError(err) {
+	var controller gomaasapi.Controller
+	if featureflag.Enabled(feature.MAAS2) {
+		controller, err = GetMAAS2Controller(ecfg.maasServer(), ecfg.maasOAuth())
+	}
+	if controller == nil || err != nil && gomaasapi.IsUnsupportedVersionError(err) {
 		apiVersion = apiVersion1
 		authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion1)
 		if err != nil {
@@ -609,7 +618,12 @@ func (e *maasEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string
 		if inst == nil {
 			continue
 		}
-		zones[i] = inst.(maasInstance).zone()
+		z, err := inst.(maasInstance).zone()
+		if err != nil {
+			logger.Errorf("could not get availability zone %v", err)
+			continue
+		}
+		zones[i] = z
 	}
 	return zones, nil
 }

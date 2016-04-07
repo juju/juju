@@ -66,6 +66,7 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 			ic.Series, ic.Region, ic.Arches)
 	}
 
+	logger.Debugf("matching constraints %v against possible image metadata %+v", ic, possibleImages)
 	matchingTypes, err := MatchingInstanceTypes(allInstanceTypes, ic.Region, ic.Constraints)
 	if err != nil {
 		return nil, err
