@@ -466,7 +466,13 @@ func (s *serviceSuite) TestAddCharm(c *gc.C) {
 	charmDir := testcharms.Repo.CharmDir("dummy")
 	ident := fmt.Sprintf("%s-%d", charmDir.Meta().Name, charmDir.Revision())
 	curl := charm.MustParseURL("cs:quantal/" + ident)
-	sch, err := s.State.AddCharm(charmDir, curl, "", ident+"-sha256")
+	info := state.CharmInfo{
+		Charm:       charmDir,
+		ID:          curl,
+		StoragePath: "",
+		SHA256:      ident + "-sha256",
+	}
+	sch, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// AddCharm should see the charm in state and not upload it.

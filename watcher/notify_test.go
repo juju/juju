@@ -48,11 +48,7 @@ func newNotifyHandlerWorker(c *gc.C, setupError, handlerError, teardownError err
 func (s *notifyWorkerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.actor, s.worker = newNotifyHandlerWorker(c, nil, nil, nil)
-}
-
-func (s *notifyWorkerSuite) TearDownTest(c *gc.C) {
-	s.stopWorker(c)
-	s.BaseSuite.TearDownTest(c)
+	s.AddCleanup(s.stopWorker)
 }
 
 type notifyHandler struct {

@@ -220,7 +220,6 @@ touch %s
 pkill -%d jujud && exit
 stop %s
 rm -f /etc/init/juju*
-rm -f /etc/rsyslog.d/*juju*
 rm -fr %s %s
 exit 0
 `

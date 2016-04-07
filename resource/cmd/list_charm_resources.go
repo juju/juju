@@ -10,6 +10,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -25,7 +26,7 @@ type CharmCommandBase interface {
 // CharmResourceLister has the charm store API methods needed by ListCharmResourcesCommand.
 type CharmResourceLister interface {
 	// ListResources lists the resources for each of the identified charms.
-	ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error)
+	ListResources([]charmstore.CharmID) ([][]charmresource.Resource, error)
 
 	// Close closes the client.
 	Close() error
@@ -85,7 +86,7 @@ func (c *ListCharmResourcesCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 	})
-	f.StringVar(&c.channel, "channel", "", "the charmstore channel of the charm")
+	f.StringVar(&c.channel, "channel", "stable", "the charmstore channel of the charm")
 }
 
 // Init implements cmd.Command.
@@ -118,7 +119,12 @@ func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	resources, err := apiclient.ListResources(charmURLs)
+	charms := make([]charmstore.CharmID, len(charmURLs))
+	for i, id := range charmURLs {
+		charms[i] = charmstore.CharmID{URL: id, Channel: charm.Channel(c.channel)}
+	}
+
+	resources, err := apiclient.ListResources(charms)
 	if err != nil {
 		return errors.Trace(err)
 	}

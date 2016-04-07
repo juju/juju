@@ -159,19 +159,24 @@ func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
 
 	// Set up a charm store server that stores the request header.
 	var header http.Header
+	received := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		header = r.Header
+		// the first request is the one with the UUID.
+		if !received {
+			header = r.Header
+			received = true
+		}
 		s.Handler.ServeHTTP(w, r)
 	}))
 	defer srv.Close()
 
 	// Point the charm repo initializer to the testing server.
-	s.PatchValue(&charmrevisionupdater.NewCharmStoreClientConfig, func() charmstore.ClientConfig {
+	s.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func() charmstore.Client {
 		var config charmstore.ClientConfig
 		csURL, err := url.Parse(srv.URL)
 		c.Assert(err, jc.ErrorIsNil)
 		config.URL = csURL
-		return config
+		return charmstore.NewClient(config)
 	})
 
 	result, err := s.charmrevisionupdater.UpdateLatestRevisions()

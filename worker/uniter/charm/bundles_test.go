@@ -84,7 +84,13 @@ func (s *BundlesDirSuite) AddCharm(c *gc.C) (charm.BundleInfo, *state.Charm, []b
 	bun, err := corecharm.ReadCharmArchive(bunpath)
 	c.Assert(err, jc.ErrorIsNil)
 	bundata, hash := readHash(c, bunpath)
-	sch, err := s.State.AddCharm(bun, curl, storagePath, hash)
+	info := state.CharmInfo{
+		Charm:       bun,
+		ID:          curl,
+		StoragePath: storagePath,
+		SHA256:      hash,
+	}
+	sch, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	apiCharm, err := s.uniter.Charm(sch.URL())
 	c.Assert(err, jc.ErrorIsNil)
