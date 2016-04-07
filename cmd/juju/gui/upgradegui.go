@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/gui"
 )
@@ -208,7 +209,7 @@ func openArchive(versOrPath string) (r io.ReadCloser, hash string, size int64, v
 
 // remoteArchiveMetadata returns Juju GUI archive metadata from simplestreams.
 func remoteArchiveMetadata() ([]*gui.Metadata, error) {
-	source := gui.NewDataSource(gui.DefaultBaseURL)
+	source := gui.NewDataSource(common.GUIDataSourceBaseURL())
 	allMeta, err := guiFetchMetadata(gui.ReleasedStream, source)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot retrieve Juju GUI archive info")

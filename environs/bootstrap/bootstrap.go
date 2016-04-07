@@ -82,6 +82,11 @@ type BootstrapParams struct {
 	// AgentVersion, if set, determines the exact tools version that
 	// will be used to start the Juju agents.
 	AgentVersion *version.Number
+
+	// GUIDataSourceBaseURL holds the simplestreams data source base URL
+	// used to retrieve the Juju GUI archive installed in the controller.
+	// If not set, the Juju GUI is not installed.
+	GUIDataSourceBaseURL string
 }
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
@@ -244,7 +249,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	instanceConfig.CustomImageMetadata = customImageMetadata
 	instanceConfig.HostedModelConfig = args.HostedModelConfig
 
-	instanceConfig.GUI = guiArchive(func(msg string) {
+	instanceConfig.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
 		ctx.Infof(msg)
 	})
 
@@ -462,9 +467,11 @@ func validateConstraints(env environs.Environ, cons constraints.Value) error {
 
 // guiArchive returns information on the GUI archive that will be uploaded
 // to the controller. Possible errors in retrieving the GUI archive information
-// do not prevent the model to be bootstrapped. The given logProgress function
-// is used to inform users about errors or progress in setting up the Juju GUI.
-func guiArchive(logProgress func(string)) *coretools.GUIArchive {
+// do not prevent the model to be bootstrapped. The given data source URL is
+// used to retrieve remote GUI archive info from simplestreams. The given
+// logProgress function is used to inform users about errors or progress in
+// setting up the Juju GUI.
+func guiArchive(dataSourceBaseURL string, logProgress func(string)) *coretools.GUIArchive {
 	// The environment variable is only used for development purposes.
 	path := os.Getenv("JUJU_GUI")
 	if path != "" {
@@ -486,8 +493,14 @@ func guiArchive(logProgress func(string)) *coretools.GUIArchive {
 			Size:    size,
 		}
 	}
+	// Check if the user requested to bootstrap with no GUI.
+	if dataSourceBaseURL == "" {
+		logProgress("Juju GUI will not be installed")
+		return nil
+	}
 	// Fetch GUI archives info from simplestreams.
-	allMeta, err := guiFetchMetadata(gui.ReleasedStream, gui.NewDataSource(gui.DefaultBaseURL))
+	source := gui.NewDataSource(dataSourceBaseURL)
+	allMeta, err := guiFetchMetadata(gui.ReleasedStream, source)
 	if err != nil {
 		logProgress(fmt.Sprintf("Unable to fetch Juju GUI info: %s", err))
 		return nil
