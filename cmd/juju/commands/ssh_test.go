@@ -55,12 +55,12 @@ func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 }
 
 const (
-	noProxy           = `-o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 `
-	args              = `-o StrictHostKeyChecking no -o ProxyCommand juju ssh --proxy=false --pty=false localhost nc %h %p -o PasswordAuthentication no -o ServerAliveInterval 30 `
-	commonArgsNoProxy = noProxy + `-o UserKnownHostsFile /dev/null `
-	commonArgs        = args + `-o UserKnownHostsFile /dev/null `
-	sshArgs           = args + `-t -t -o UserKnownHostsFile /dev/null `
-	sshArgsNoProxy    = noProxy + `-t -t -o UserKnownHostsFile /dev/null `
+	args                = `-o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 `
+	withProxy           = `-o StrictHostKeyChecking no -o ProxyCommand juju ssh --proxy=true --pty=false localhost nc %h %p -o PasswordAuthentication no -o ServerAliveInterval 30 `
+	commonArgsWithProxy = withProxy + `-o UserKnownHostsFile /dev/null `
+	commonArgs          = args + `-o UserKnownHostsFile /dev/null `
+	sshArgs             = args + `-t -t -o UserKnownHostsFile /dev/null `
+	sshArgsWithProxy    = withProxy + `-t -t -o UserKnownHostsFile /dev/null `
 )
 
 var sshTests = []struct {
@@ -71,32 +71,32 @@ var sshTests = []struct {
 	{
 		"connect to machine 0",
 		[]string{"ssh", "0"},
-		sshArgs + "ubuntu@admin-0.internal",
+		sshArgs + "ubuntu@admin-0.dns",
 	},
 	{
 		"connect to machine 0 and pass extra arguments",
 		[]string{"ssh", "0", "uname", "-a"},
-		sshArgs + "ubuntu@admin-0.internal uname -a",
+		sshArgs + "ubuntu@admin-0.dns uname -a",
 	},
 	{
 		"connect to unit mysql/0",
 		[]string{"ssh", "mysql/0"},
-		sshArgs + "ubuntu@admin-0.internal",
+		sshArgs + "ubuntu@admin-0.dns",
 	},
 	{
 		"connect to unit mongodb/1 as the mongo user",
 		[]string{"ssh", "mongo@mongodb/1"},
-		sshArgs + "mongo@admin-2.internal",
+		sshArgs + "mongo@admin-2.dns",
 	},
 	{
 		"connect to unit mongodb/1 and pass extra arguments",
 		[]string{"ssh", "mongodb/1", "ls", "/"},
-		sshArgs + "ubuntu@admin-2.internal ls /",
+		sshArgs + "ubuntu@admin-2.dns ls /",
 	},
 	{
-		"connect to unit mysql/0 without proxy",
-		[]string{"ssh", "--proxy=false", "mysql/0"},
-		sshArgsNoProxy + "ubuntu@admin-0.dns",
+		"connect to unit mysql/0 with proxy",
+		[]string{"ssh", "--proxy=true", "mysql/0"},
+		sshArgsWithProxy + "ubuntu@admin-0.internal",
 	},
 }
 
@@ -136,8 +136,8 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 
 func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
 	s.makeMachines(1, c, true)
-	// Setting proxy-ssh=false in the environment overrides --proxy.
-	err := s.State.UpdateModelConfig(map[string]interface{}{"proxy-ssh": false}, nil, nil)
+	// Setting proxy-ssh=true in the environment overrides --proxy.
+	err := s.State.UpdateModelConfig(map[string]interface{}{"proxy-ssh": true}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := coretesting.Context(c)
 	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
@@ -145,7 +145,7 @@ func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
 	code := cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
 	c.Check(code, gc.Equals, 0)
 	c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
-	c.Check(strings.TrimRight(ctx.Stdout.(*bytes.Buffer).String(), "\r\n"), gc.Equals, sshArgsNoProxy+"ubuntu@admin-0.dns")
+	c.Check(strings.TrimRight(ctx.Stdout.(*bytes.Buffer).String(), "\r\n"), gc.Equals, sshArgsWithProxy+"ubuntu@admin-0.internal")
 }
 
 func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *gc.C) {
