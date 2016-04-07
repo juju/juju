@@ -57,7 +57,7 @@ func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
+	dummy.Reset(c)
 	jujuversion.Current = s.origCurrentVersion
 	s.ToolsFixture.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
@@ -95,7 +95,7 @@ func (s *SimpleStreamsToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary
 
 func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
 	jujuversion.Current = s.origCurrentVersion
-	dummy.Reset()
+	dummy.Reset(c)
 	attrs = dummy.SampleConfig().Merge(attrs)
 	env, err := environs.Prepare(envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),

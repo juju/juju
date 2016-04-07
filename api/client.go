@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -268,23 +267,6 @@ func (c *Client) FindTools(majorVersion, minorVersion int, series, arch string) 
 	}
 	err = c.facade.FacadeCall("FindTools", args, &result)
 	return result, err
-}
-
-// RunOnAllMachines runs the command on all the machines with the specified
-// timeout.
-func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]params.RunResult, error) {
-	var results params.RunResults
-	args := params.RunParams{Commands: commands, Timeout: timeout}
-	err := c.facade.FacadeCall("RunOnAllMachines", args, &results)
-	return results.Results, err
-}
-
-// Run the Commands specified on the machines identified through the ids
-// provided in the machines, services and units slices.
-func (c *Client) Run(run params.RunParams) ([]params.RunResult, error) {
-	var results params.RunResults
-	err := c.facade.FacadeCall("Run", run, &results)
-	return results.Results, err
 }
 
 // DestroyModel puts the model into a "dying" state,

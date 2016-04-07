@@ -4,9 +4,10 @@
 package charmcmd
 
 import (
+	"io"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charmrepo.v2-unstable"
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -23,7 +24,7 @@ import (
 // store client.
 type CharmstoreSpec interface {
 	// Connect connects to the specified charm store.
-	Connect(ctx *cmd.Context) (*charmstore.Client, error)
+	Connect(ctx *cmd.Context) (charmstore.Client, io.Closer, error)
 }
 
 type charmstoreSpec struct{}
@@ -31,28 +32,23 @@ type charmstoreSpec struct{}
 // newCharmstoreSpec creates a new charm store spec with default
 // settings.
 func newCharmstoreSpec() CharmstoreSpec {
-	return &charmstoreSpec{}
+	return charmstoreSpec{}
 }
 
 // Connect implements CharmstoreSpec.
-func (cs charmstoreSpec) Connect(ctx *cmd.Context) (*charmstore.Client, error) {
+func (cs charmstoreSpec) Connect(ctx *cmd.Context) (charmstore.Client, io.Closer, error) {
 	// Note that creating the API context in Connect is technically
 	// wrong, as it means we'll be creating the bakery context
 	// (and reading/writing the cookies) each time it's called.
 	// TODO(ericsnow) Move apiContext to a field on charmstoreSpec.
 	apiContext, err := modelcmd.NewAPIContext(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return charmstore.Client{}, nil, errors.Trace(err)
 	}
+	// We use the default for URL.
+	client := charmstore.NewClient(charmstore.ClientConfig{
+		BakeryClient: apiContext.BakeryClient,
+	})
 
-	// We use the default for URL. We do not bother with VisitWebPage
-	// since that is addressed via BakeryClient.
-	config := charmstore.ClientConfig{
-		NewCharmStoreParams: charmrepo.NewCharmStoreParams{
-			BakeryClient: apiContext.BakeryClient,
-		},
-	}
-	client := charmstore.NewClient(config)
-	client.Closer = apiContext
-	return client, nil
+	return client, apiContext, nil
 }

@@ -31,7 +31,7 @@ type URLsSuite struct {
 var _ = gc.Suite(&URLsSuite{})
 
 func (s *URLsSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
+	dummy.Reset(c)
 
 	s.BaseSuite.TearDownTest(c)
 }

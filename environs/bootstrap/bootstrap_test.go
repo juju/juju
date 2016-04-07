@@ -199,6 +199,48 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 	c.Assert(env.instanceConfig.Constraints, jc.DeepEquals, bootstrapCons)
 }
 
+// TestBootstrapImageMetadataFromAllSources tests that we are looking for
+// image metadata in all data sources available to environment.
+// Abandoning look up too soon led to misleading bootstrap failures:
+// Juju reported no images available for a particular configuration,
+// despite image metadata in other data sources compatible with the same configuration as well.
+// Related to bug#1560625.
+func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
+	s.PatchValue(&series.HostSeries, func() string { return "raring" })
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+
+	// Ensure that we can find at least one image metadata
+	// early on in the image metadata lookup.
+	// We should continue looking despite it.
+	metadataDir, _ := createImageMetadata(c)
+	stor, err := filestorage.NewFileStorageWriter(metadataDir)
+	c.Assert(err, jc.ErrorIsNil)
+	envtesting.UploadFakeTools(c, stor, "released", "released")
+
+	env := bootstrapEnvironWithRegion{
+		newEnviron("foo", useDefaultKeys, nil),
+		simplestreams.CloudSpec{
+			Region:   "region",
+			Endpoint: "endpoint",
+		},
+	}
+	s.setDummyStorage(c, env.bootstrapEnviron)
+
+	bootstrapCons := constraints.MustParse("arch=amd64")
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		BootstrapConstraints: bootstrapCons,
+		MetadataDir:          metadataDir,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	datasources, err := environs.ImageMetadataSources(env)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, source := range datasources {
+		// make sure we looked in each and all...
+		c.Assert(c.GetTestLog(), jc.Contains, fmt.Sprintf("image metadata in %s", source.Description()))
+	}
+}
+
 func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: Currently does not work because of jujud problems")
