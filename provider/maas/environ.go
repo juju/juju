@@ -899,15 +899,9 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 }
 
 func (environ *maasEnviron) startNode2(node maas2Instance, series string, userdata []byte) (*maas2Instance, error) {
-	var err error
-	for a := shortAttempt.Start(); a.Next(); {
-		err = node.machine.Start(gomaasapi.StartArgs{DistroSeries: series, UserData: userdata})
-		if err == nil {
-			break
-		}
-	}
+	err := node.machine.Start(gomaasapi.StartArgs{DistroSeries: series, UserData: userdata})
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	// Machine.Start updates the machine in-place when it succeeds.
 	return &maas2Instance{node.machine}, nil
