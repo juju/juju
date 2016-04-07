@@ -45,21 +45,17 @@ func (s *UsersCommandSuite) SetUpTest(c *gc.C) {
 	userlist := []params.ModelUserInfo{
 		{
 			UserName:       "admin@local",
-			DisplayName:    "admin",
-			CreatedBy:      "admin@local",
-			DateCreated:    time.Date(2014, 7, 20, 9, 0, 0, 0, time.UTC),
 			LastConnection: &last1,
+			Access:         "write",
 		}, {
 			UserName:       "bob@local",
 			DisplayName:    "Bob",
-			CreatedBy:      "admin@local",
-			DateCreated:    time.Date(2015, 2, 15, 9, 0, 0, 0, time.UTC),
 			LastConnection: &last2,
+			Access:         "read",
 		}, {
 			UserName:    "charlie@ubuntu.com",
 			DisplayName: "Charlie",
-			CreatedBy:   "admin@local",
-			DateCreated: time.Date(2015, 2, 15, 9, 0, 0, 0, time.UTC),
+			Access:      "read",
 		},
 	}
 
@@ -78,35 +74,37 @@ func (s *UsersCommandSuite) TestModelUsers(c *gc.C) {
 	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake, s.store), "-m", "admin")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME                DATE CREATED  LAST CONNECTION\n"+
-		"admin@local         2014-07-20    2015-03-20\n"+
-		"bob@local           2015-02-15    2015-03-01\n"+
-		"charlie@ubuntu.com  2015-02-15    never connected\n"+
+		"NAME                          ACCESS  LAST CONNECTION\n"+
+		"admin@local                   write   2015-03-20\n"+
+		"bob@local (Bob)               read    2015-03-01\n"+
+		"charlie@ubuntu.com (Charlie)  read    never connected\n"+
 		"\n")
 }
 
 func (s *UsersCommandSuite) TestModelUsersFormatJson(c *gc.C) {
 	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake, s.store), "-m", "admin", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "["+
-		`{"user-name":"admin@local","date-created":"2014-07-20","last-connection":"2015-03-20"},`+
-		`{"user-name":"bob@local","date-created":"2015-02-15","last-connection":"2015-03-01"},`+
-		`{"user-name":"charlie@ubuntu.com","date-created":"2015-02-15","last-connection":"never connected"}`+
-		"]\n")
+	c.Assert(testing.Stdout(context), gc.Equals, "{"+
+		`"admin@local":{"access":"write","last-connection":"2015-03-20"},`+
+		`"bob@local":{"display-name":"Bob","access":"read","last-connection":"2015-03-01"},`+
+		`"charlie@ubuntu.com":{"display-name":"Charlie","access":"read","last-connection":"never connected"}`+
+		"}\n")
 }
 
 func (s *UsersCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
 	context, err := testing.RunCommand(c, model.NewUsersCommandForTest(s.fake, s.store), "-m", "admin", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"- user-name: admin@local\n"+
-		"  date-created: 2014-07-20\n"+
+		"admin@local:\n"+
+		"  access: write\n"+
 		"  last-connection: 2015-03-20\n"+
-		"- user-name: bob@local\n"+
-		"  date-created: 2015-02-15\n"+
+		"bob@local:\n"+
+		"  display-name: Bob\n"+
+		"  access: read\n"+
 		"  last-connection: 2015-03-01\n"+
-		"- user-name: charlie@ubuntu.com\n"+
-		"  date-created: 2015-02-15\n"+
+		"charlie@ubuntu.com:\n"+
+		"  display-name: Charlie\n"+
+		"  access: read\n"+
 		"  last-connection: never connected\n")
 }
 

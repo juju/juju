@@ -925,6 +925,7 @@ func (s *Service) addUnitOpsWithCons(args serviceAddUnitOpsArgs) (string, []txn.
 		Principal:              args.principalName,
 		StorageAttachmentCount: numStorageAttachments,
 	}
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	now := time.Now()
 	agentStatusDoc := statusDoc{
 		Status:  status.StatusAllocating,

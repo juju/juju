@@ -105,7 +105,8 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 		SHA256:    metadata.SHA256,
 		SourceURL: metadata.SourceURL,
 		Path:      path,
-		Created:   time.Now(),
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		Created: time.Now(),
 	}
 
 	// Add or replace metadata. If replacing, record the

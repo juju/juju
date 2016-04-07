@@ -137,9 +137,10 @@ func NewJSONMetricRecorder(config MetricRecorderConfig) (rec *JSONMetricRecorder
 	}
 
 	recorder := &JSONMetricRecorder{
-		spoolDir:     config.SpoolDir,
-		uuid:         mbUUID,
-		charmURL:     config.CharmURL,
+		spoolDir: config.SpoolDir,
+		uuid:     mbUUID,
+		charmURL: config.CharmURL,
+		// TODO(fwereade): 2016-03-17 lp:1558657
 		created:      time.Now().UTC(),
 		validMetrics: config.Metrics,
 		unitTag:      config.UnitTag,

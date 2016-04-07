@@ -76,7 +76,7 @@ func (cs *NewAPIClientSuite) SetUpTest(c *gc.C) {
 }
 
 func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
+	dummy.Reset(c)
 	cs.ToolsFixture.TearDownTest(c)
 	cs.MgoSuite.TearDownTest(c)
 	cs.FakeJujuXDGDataHomeSuite.TearDownTest(c)

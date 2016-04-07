@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 )
 
 // This file contains the core of the Joyent Environ implementation.
@@ -29,23 +28,16 @@ type joyentEnviron struct {
 
 	name string
 
+	compute *joyentCompute
+
 	// supportedArchitectures caches the architectures
 	// for which images can be instantiated.
 	archLock               sync.Mutex
 	supportedArchitectures []string
 
-	// All mutating operations should lock the mutex. Non-mutating operations
-	// should read all fields (other than name, which is immutable) from a
-	// shallow copy taken with getSnapshot().
-	// This advice is predicated on the goroutine-safety of the values of the
-	// affected fields.
-	lock    sync.Mutex
-	ecfg    *environConfig
-	compute *joyentCompute
+	lock sync.Mutex // protects ecfg
+	ecfg *environConfig
 }
-
-var _ environs.Environ = (*joyentEnviron)(nil)
-var _ state.Prechecker = (*joyentEnviron)(nil)
 
 // newEnviron create a new Joyent environ instance from config.
 func newEnviron(cfg *config.Config) (*joyentEnviron, error) {
@@ -124,16 +116,8 @@ func (env *joyentEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (env *joyentEnviron) getSnapshot() *joyentEnviron {
-	env.lock.Lock()
-	clone := *env
-	env.lock.Unlock()
-	clone.lock = sync.Mutex{}
-	return &clone
-}
-
 func (env *joyentEnviron) Config() *config.Config {
-	return env.getSnapshot().ecfg.Config
+	return env.Ecfg().Config
 }
 
 func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
@@ -170,7 +154,9 @@ func (env *joyentEnviron) Destroy() error {
 }
 
 func (env *joyentEnviron) Ecfg() *environConfig {
-	return env.getSnapshot().ecfg
+	env.lock.Lock()
+	defer env.lock.Unlock()
+	return env.ecfg
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.

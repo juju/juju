@@ -122,6 +122,24 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	c.Assert(env.args.ModelConstraints, gc.DeepEquals, modelCons)
 }
 
+func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapSeries(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	cfg, err := env.Config().Apply(map[string]interface{}{
+		"default-series": "wily",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	env.cfg = cfg
+
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		BootstrapSeries: "trusty",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(env.bootstrapCount, gc.Equals, 1)
+	c.Check(env.args.BootstrapSeries, gc.Equals, "trusty")
+	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"trusty"})
+}
+
 func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
@@ -172,6 +190,48 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 	c.Assert(env.instanceConfig.CustomImageMetadata[0], jc.DeepEquals, metadata[0])
 	c.Assert(env.instanceConfig.CustomImageMetadata[1], jc.DeepEquals, env.args.ImageMetadata[0])
 	c.Assert(env.instanceConfig.Constraints, jc.DeepEquals, bootstrapCons)
+}
+
+// TestBootstrapImageMetadataFromAllSources tests that we are looking for
+// image metadata in all data sources available to environment.
+// Abandoning look up too soon led to misleading bootstrap failures:
+// Juju reported no images available for a particular configuration,
+// despite image metadata in other data sources compatible with the same configuration as well.
+// Related to bug#1560625.
+func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
+	s.PatchValue(&series.HostSeries, func() string { return "raring" })
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+
+	// Ensure that we can find at least one image metadata
+	// early on in the image metadata lookup.
+	// We should continue looking despite it.
+	metadataDir, _ := createImageMetadata(c)
+	stor, err := filestorage.NewFileStorageWriter(metadataDir)
+	c.Assert(err, jc.ErrorIsNil)
+	envtesting.UploadFakeTools(c, stor, "released", "released")
+
+	env := bootstrapEnvironWithRegion{
+		newEnviron("foo", useDefaultKeys, nil),
+		simplestreams.CloudSpec{
+			Region:   "region",
+			Endpoint: "endpoint",
+		},
+	}
+	s.setDummyStorage(c, env.bootstrapEnviron)
+
+	bootstrapCons := constraints.MustParse("arch=amd64")
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		BootstrapConstraints: bootstrapCons,
+		MetadataDir:          metadataDir,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	datasources, err := environs.ImageMetadataSources(env)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, source := range datasources {
+		// make sure we looked in each and all...
+		c.Assert(c.GetTestLog(), jc.Contains, fmt.Sprintf("image metadata in %s", source.Description()))
+	}
 }
 
 func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
@@ -565,7 +625,11 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environ
 		e.instanceConfig = icfg
 		return nil
 	}
-	return &environs.BootstrapResult{Arch: arch.HostArch(), Series: series.HostSeries(), Finalize: finalizer}, nil
+	series := series.HostSeries()
+	if args.BootstrapSeries != "" {
+		series = args.BootstrapSeries
+	}
+	return &environs.BootstrapResult{Arch: arch.HostArch(), Series: series, Finalize: finalizer}, nil
 }
 
 func (e *bootstrapEnviron) Config() *config.Config {

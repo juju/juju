@@ -1094,6 +1094,7 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	attrs := map[string]interface{}{
 		"http-proxy":            "http://proxy.example.com:9000",
 		"allow-lxc-loop-mounts": true,
+		"apt-mirror":            "http://example.mirror.com",
 	}
 	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1109,6 +1110,7 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
+	c.Check(results.AptMirror, gc.DeepEquals, "http://example.mirror.com")
 	c.Check(results.PreferIPv6, jc.IsFalse)
 	c.Check(results.AllowLXCLoopMounts, jc.IsTrue)
 }

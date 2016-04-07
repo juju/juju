@@ -57,7 +57,7 @@ func init() {
 	)
 }
 
-// NewAllModelWatcher returns a new API server endpoint for interacting
+// NewAllWatcher returns a new API server endpoint for interacting
 // with a watcher created by the WatchAll and WatchAllModels API calls.
 func NewAllWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
 	if !auth.AuthClient() {

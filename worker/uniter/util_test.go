@@ -370,7 +370,14 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 
 	storagePath := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
 	ctx.charms[storagePath] = body
-	ctx.sch, err = ctx.st.AddCharm(s.dir, s.curl, storagePath, hash)
+	info := state.CharmInfo{
+		Charm:       s.dir,
+		ID:          s.curl,
+		StoragePath: storagePath,
+		SHA256:      hash,
+	}
+
+	ctx.sch, err = ctx.st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
