@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api"
 	apiannotations "github.com/juju/juju/api/annotations"
 	apiservice "github.com/juju/juju/api/service"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
@@ -221,7 +222,7 @@ type DeployStep interface {
 // DeploymentInfo is used to maintain all deployment information for
 // deployment steps.
 type DeploymentInfo struct {
-	CharmURL    *charm.URL
+	CharmID     charmstore.CharmID
 	ServiceName string
 	ModelUUID   string
 }
@@ -327,9 +328,12 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 			if curl, charmErr = client.AddLocalCharm(curl, ch); charmErr != nil {
 				return charmErr
 			}
-			var channel csclientparams.Channel // local charms don't need one.
-			var csMac *macaroon.Macaroon       // local charms don't need one.
-			return c.deployCharm(curl, channel, csMac, curl.Series, ctx, client, &deployer)
+			id := charmstore.CharmID{
+				URL: curl,
+				// Local charms don't need a channel.
+			}
+			var csMac *macaroon.Macaroon // local charms don't need one.
+			return c.deployCharm(id, csMac, curl.Series, ctx, client, &deployer)
 		}
 		// We check for several types of known error which indicate
 		// that the supplied reference was indeed a path but there was
@@ -427,7 +431,11 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	}
 	ctx.Infof("Added charm %q to the model.", curl)
 	ctx.Infof("Deploying charm %q %v.", curl, fmt.Sprintf(message, series))
-	return c.deployCharm(curl, c.Channel, csMac, series, ctx, client, &deployer)
+	id := charmstore.CharmID{
+		URL:     curl,
+		Channel: c.Channel,
+	}
+	return c.deployCharm(id, csMac, series, ctx, client, &deployer)
 }
 
 const (
@@ -491,14 +499,14 @@ func charmSeries(
 }
 
 func (c *DeployCommand) deployCharm(
-	curl *charm.URL, channel csclientparams.Channel, csMac *macaroon.Macaroon, series string, ctx *cmd.Context,
+	id charmstore.CharmID, csMac *macaroon.Macaroon, series string, ctx *cmd.Context,
 	client *api.Client, deployer *serviceDeployer,
 ) (rErr error) {
 	if c.BumpRevision {
 		ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 	}
 
-	charmInfo, err := client.CharmInfo(curl.String())
+	charmInfo, err := client.CharmInfo(id.URL.String())
 	if err != nil {
 		return err
 	}
@@ -537,7 +545,7 @@ func (c *DeployCommand) deployCharm(
 	}
 
 	deployInfo := DeploymentInfo{
-		CharmURL:    curl,
+		CharmID:     id,
 		ServiceName: serviceName,
 		ModelUUID:   client.ModelUUID(),
 	}
@@ -563,14 +571,13 @@ func (c *DeployCommand) deployCharm(
 			strings.Join(charmInfo.Meta.Terms, " "))
 	}
 
-	ids, err := handleResources(c, c.Resources, serviceName, curl, c.Channel, csMac, charmInfo.Meta.Resources)
+	ids, err := handleResources(c, c.Resources, serviceName, id, csMac, charmInfo.Meta.Resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	params := serviceDeployParams{
-		charmURL:      curl.String(),
-		channel:       channel,
+		charmID:       id,
 		serviceName:   serviceName,
 		series:        series,
 		numUnits:      numUnits,
@@ -589,7 +596,7 @@ type APICmd interface {
 	NewAPIRoot() (api.Connection, error)
 }
 
-func handleResources(c APICmd, resources map[string]string, serviceName string, cURL *charm.URL, channel csclientparams.Channel, csMac *macaroon.Macaroon, metaResources map[string]charmresource.Meta) (map[string]string, error) {
+func handleResources(c APICmd, resources map[string]string, serviceName string, chID charmstore.CharmID, csMac *macaroon.Macaroon, metaResources map[string]charmresource.Meta) (map[string]string, error) {
 	if len(resources) == 0 && len(metaResources) == 0 {
 		return nil, nil
 	}
@@ -599,7 +606,7 @@ func handleResources(c APICmd, resources map[string]string, serviceName string, 
 		return nil, errors.Trace(err)
 	}
 
-	ids, err := resourceadapters.DeployResources(serviceName, cURL, channel, csMac, resources, metaResources, api)
+	ids, err := resourceadapters.DeployResources(serviceName, chID, csMac, resources, metaResources, api)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -653,8 +660,7 @@ func (c *DeployCommand) parseBind() error {
 }
 
 type serviceDeployParams struct {
-	charmURL      string
-	channel       csclientparams.Channel
+	charmID       charmstore.CharmID
 	serviceName   string
 	series        string
 	numUnits      int
@@ -708,8 +714,7 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 	}
 
 	clientArgs := apiservice.DeployArgs{
-		CharmURL:         args.charmURL,
-		Channel:          args.channel,
+		CharmID:          args.charmID,
 		ServiceName:      args.serviceName,
 		Series:           args.series,
 		NumUnits:         args.numUnits,

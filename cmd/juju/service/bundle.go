@@ -21,6 +21,7 @@ import (
 	apiannotations "github.com/juju/juju/api/annotations"
 	apiservice "github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
@@ -147,9 +148,12 @@ func deployBundle(
 			var cURL *charm.URL
 			cURL, err = charm.ParseURL(resolve(change.Params.Charm, h.results))
 			if err == nil {
+				chID := charmstore.CharmID{
+					URL:     cURL,
+					Channel: channels[cURL],
+				}
 				csMac := csMacs[cURL]
-				channel := channels[cURL]
-				err = h.addService(change.Id(), change.Params, cURL, channel, csMac)
+				err = h.addService(change.Id(), change.Params, chID, csMac)
 			}
 		case *bundlechanges.AddUnitChange:
 			err = h.addUnit(change.Id(), change.Params)
@@ -253,9 +257,9 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*ch
 
 // addService deploys or update a service with no units. Service options are
 // also set or updated.
-func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams, cURL *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon) error {
+func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams, chID charmstore.CharmID, csMac *macaroon.Macaroon) error {
 	h.results[id] = p.Service
-	ch := cURL.String()
+	ch := chID.URL.String()
 	// Handle service configuration.
 	configYAML := ""
 	if len(p.Options) > 0 {
@@ -297,14 +301,13 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams, 
 	if err != nil {
 		return err
 	}
-	resNames2IDs, err := handleResources(h.serviceDeployer.api, resources, p.Service, cURL, channel, csMac, charmInfo.Meta.Resources)
+	resNames2IDs, err := handleResources(h.serviceDeployer.api, resources, p.Service, chID, csMac, charmInfo.Meta.Resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	// Deploy the service.
 	if err := h.serviceDeployer.serviceDeploy(serviceDeployParams{
-		charmURL:      ch,
-		channel:       channel,
+		charmID:       chID,
 		serviceName:   p.Service,
 		configYAML:    configYAML,
 		constraints:   cons,
@@ -324,7 +327,7 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams, 
 	// charm is compatible with the one declared in the bundle. If it is,
 	// reuse the existing service or upgrade to a specified revision.
 	// Exit with an error otherwise.
-	if err := h.upgradeCharm(p.Service, cURL, channel, csMac, resources); err != nil {
+	if err := h.upgradeCharm(p.Service, chID, csMac, resources); err != nil {
 		return errors.Annotatef(err, "cannot upgrade service %q", p.Service)
 	}
 	// Update service configuration.
@@ -724,8 +727,8 @@ func resolve(placeholder string, results map[string]string) string {
 // If the service is already deployed using the given charm id, do nothing.
 // This function returns an error if the existing charm and the target one are
 // incompatible, meaning an upgrade from one to the other is not allowed.
-func (h *bundleHandler) upgradeCharm(service string, cURL *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon, resources map[string]string) error {
-	id := cURL.String()
+func (h *bundleHandler) upgradeCharm(service string, chID charmstore.CharmID, csMac *macaroon.Macaroon, resources map[string]string) error {
+	id := chID.URL.String()
 	existing, err := h.serviceClient.GetCharmURL(service)
 	if err != nil {
 		return errors.Annotatef(err, "cannot retrieve info for service %q", service)
@@ -738,6 +741,7 @@ func (h *bundleHandler) upgradeCharm(service string, cURL *charm.URL, channel cs
 	if err != nil {
 		return errors.Annotatef(err, "cannot parse charm URL %q", id)
 	}
+	chID.URL = url
 	if url.WithRevision(-1).Path() != existing.WithRevision(-1).Path() {
 		return errors.Errorf("bundle charm %q is incompatible with existing charm %q", id, existing)
 	}
@@ -747,14 +751,14 @@ func (h *bundleHandler) upgradeCharm(service string, cURL *charm.URL, channel cs
 	}
 	var resNames2IDs map[string]string
 	if len(filtered) != 0 {
-		resNames2IDs, err = handleResources(h.serviceDeployer.api, resources, service, url, channel, csMac, filtered)
+		resNames2IDs, err = handleResources(h.serviceDeployer.api, resources, service, chID, csMac, filtered)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	}
 	cfg := apiservice.SetCharmConfig{
 		ServiceName: service,
-		CharmUrl:    id,
+		CharmID:     chID,
 		ResourceIDs: resNames2IDs,
 	}
 	if err := h.serviceClient.SetCharm(cfg); err != nil {

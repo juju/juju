@@ -77,6 +77,8 @@ func newCharmURLResolver(conf *config.Config, csClient *csclient.Client, repoPat
 	return r
 }
 
+// TODO(ericsnow) Return charmstore.CharmID from resolve()?
+
 // resolve resolves the given given charm or bundle URL
 // string by looking it up in the appropriate charm repository. If it is
 // a charm store URL, the given csParams will be used to access the
@@ -129,6 +131,8 @@ func (r *charmURLResolver) resolve(urlStr string) (*charm.URL, csparams.Channel,
 		return nil, noChannel, nil, nil, errors.Errorf("unknown schema for charm reference %q", urlStr)
 	}
 }
+
+// TODO(ericsnow) Return charmstore.CharmID from addCharmFromURL()?
 
 // addCharmFromURL calls the appropriate client API calls to add the
 // given charm URL to state. For non-public charm URLs, this function also

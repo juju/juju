@@ -154,8 +154,8 @@ func (s *stubCSClient) ListResources(charms []charmstore.CharmID) ([][]charmreso
 	return s.ReturnListResources, nil
 }
 
-func (s *stubCSClient) ResourceInfo(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, error) {
-	s.AddCall("ResourceInfo", cURL, resourceName, revision)
+func (s *stubCSClient) ResourceInfo(id charmstore.CharmID, resourceName string, revision int) (charmresource.Resource, error) {
+	s.AddCall("ResourceInfo", id, resourceName, revision)
 	if err := s.NextErr(); err != nil {
 		return charmresource.Resource{}, errors.Trace(err)
 	}
