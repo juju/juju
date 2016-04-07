@@ -200,31 +200,40 @@ func checkLXDBridgeConfiguration(conf string) error {
 	return nil
 }
 
-func hoistLocalConnectErr(err error) error {
-	var installed bool
-
+func getMessageFromErr(err error) (bool, string) {
 	msg := err.Error()
-	switch t := err.(type) {
-	case *url.Error:
-		switch u := t.Err.(type) {
-		case *net.OpError:
-			if u.Op == "dial" && u.Net == "unix" {
-				switch errno := u.Err.(type) {
-				case *os.SyscallError:
-					switch errno.Err {
-					case syscall.ENOENT:
-						msg = "LXD socket not found; is LXD installed & running?"
-					case syscall.ECONNREFUSED:
-						installed = true
-						msg = "LXD refused connections; is LXD running?"
-					case syscall.EACCES:
-						installed = true
-						msg = "Permisson denied, are you in the lxd group?"
-					}
-				}
-			}
+	t, ok := err.(*url.Error)
+	if !ok {
+		return false, msg
+	}
+
+	u, ok := t.Err.(*net.OpError)
+	if !ok {
+		return false, msg
+	}
+
+	if u.Op == "dial" && u.Net == "unix" {
+		errno, ok := u.Err.(*os.SyscallError)
+		if !ok {
+			return false, msg
+		}
+
+		switch errno.Err {
+		case syscall.ENOENT:
+			return false, "LXD socket not found; is LXD installed & running?"
+		case syscall.ECONNREFUSED:
+			return true, "LXD refused connections; is LXD running?"
+		case syscall.EACCES:
+			return true, "Permisson denied, are you in the lxd group?"
 		}
 	}
+
+	return false, msg
+}
+
+func hoistLocalConnectErr(err error) error {
+
+	installed, msg := getMessageFromErr(err)
 
 	configureText := `
 Please configure LXD by running:
