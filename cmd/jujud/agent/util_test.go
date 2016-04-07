@@ -26,23 +26,32 @@ var (
 	alwaysModelWorkers = []string{
 		"agent", "clock", "api-config-watcher", "api-caller",
 		"is-responsible-flag", "not-alive-flag", "not-dead-flag",
+		// Note that environ-tracker is not in here: it depends
+		// on model responsibility, so it's excluded here and
+		// included individually in the other *ModelWorkers
+		// lists (which themselves assume model responsibility).
 	}
 	aliveModelWorkers = []string{
 		"environ-tracker", "space-importer", "compute-provisioner",
 		"storage-provisioner", "firewaller", "unit-assigner",
 		"service-scaler", "instance-poller", "charm-revision-updater",
 		"metric-worker", "state-cleaner", "status-history-pruner",
-		"migration-master",
+		"migration-master", "migration-fortress",
+		"migration-inactive-flag",
+	}
+	migratingModelWorkers = []string{
+		"environ-tracker", "migration-master", "migration-fortress",
+		"migration-inactive-flag",
 	}
 	deadModelWorkers = []string{
 		"environ-tracker", "undertaker",
 	}
 
-	// ReallyLongTimeout should be long enough for the model-tracker
+	// ReallyLongWait should be long enough for the model-tracker
 	// tests that depend on a hosted model; its backing state is not
-	// accessible for StartSyncs, so we generally have to wait for at
-	// least two 5s ticks to pass, and should expect rare circumstances
-	// to take even longer.
+	// accessible for StartSyncs, so we generally have to wait for
+	// at least two 5s ticks to pass, and should expect rare
+	// circumstances to take even longer.
 	ReallyLongWait = coretesting.LongWait * 3
 )
 

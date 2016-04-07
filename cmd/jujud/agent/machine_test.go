@@ -19,6 +19,7 @@ import (
 	"github.com/juju/errors"
 	apimachiner "github.com/juju/juju/api/machiner"
 	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -1663,6 +1664,46 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 	})
 }
 
+func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
+	tracker := newModelTracker(c)
+	check := modelMatchFunc(c, tracker, append(
+		alwaysModelWorkers, migratingModelWorkers...,
+	))
+	s.PatchValue(&modelManifolds, tracker.Manifolds)
+
+	st, closer := s.setUpNewModel(c)
+	defer closer()
+	uuid := st.ModelUUID()
+	timeout := time.After(ReallyLongWait)
+
+	targetControllerTag := names.NewModelTag(utils.MustNewUUID().String())
+	_, err := st.CreateModelMigration(state.ModelMigrationSpec{
+		InitiatedBy: names.NewUserTag("admin"),
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: targetControllerTag,
+			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
+			CACert:        "cert",
+			AuthTag:       names.NewUserTag("user"),
+			Password:      "password",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
+		for {
+			if check(uuid) {
+				break
+			}
+			select {
+			case <-time.After(coretesting.ShortWait):
+				s.BackingState.StartSync()
+			case <-timeout:
+				c.Fatalf("timed out waiting for workers")
+			}
+		}
+	})
+}
+
 func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 	tracker := newModelTracker(c)
 	check := modelMatchFunc(c, tracker, append(
@@ -2014,54 +2055,6 @@ func (r *fakeSingularRunner) waitForWorkers(c *gc.C, targets []string) []string 
 			c.Fatalf("timed out waiting for %v", targets)
 		}
 	}
-}
-
-type mockMetricAPI struct {
-	stop          chan struct{}
-	cleanUpCalled chan struct{}
-	sendCalled    chan struct{}
-}
-
-func newMockMetricAPI() *mockMetricAPI {
-	return &mockMetricAPI{
-		stop:          make(chan struct{}),
-		cleanUpCalled: make(chan struct{}),
-		sendCalled:    make(chan struct{}),
-	}
-}
-
-func (m *mockMetricAPI) CleanupOldMetrics() error {
-	go func() {
-		select {
-		case m.cleanUpCalled <- struct{}{}:
-		case <-m.stop:
-			break
-		}
-	}()
-	return nil
-}
-
-func (m *mockMetricAPI) SendMetrics() error {
-	go func() {
-		select {
-		case m.sendCalled <- struct{}{}:
-		case <-m.stop:
-			break
-		}
-	}()
-	return nil
-}
-
-func (m *mockMetricAPI) SendCalled() <-chan struct{} {
-	return m.sendCalled
-}
-
-func (m *mockMetricAPI) CleanupCalled() <-chan struct{} {
-	return m.cleanUpCalled
-}
-
-func (m *mockMetricAPI) Stop() {
-	close(m.stop)
 }
 
 type mockLoopDeviceManager struct {

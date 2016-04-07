@@ -11,10 +11,10 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	apiresumer "github.com/juju/juju/api/resumer"
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.

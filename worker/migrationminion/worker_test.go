@@ -4,10 +4,10 @@
 package migrationminion_test
 
 import (
-	"errors"
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -18,6 +18,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/workertest"
 )
@@ -26,6 +27,7 @@ type Suite struct {
 	coretesting.BaseSuite
 	stub   *jujutesting.Stub
 	client *stubMinionClient
+	guard  *stubGuard
 	agent  *stubAgent
 }
 
@@ -35,11 +37,16 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.stub = new(jujutesting.Stub)
 	s.client = newStubMinionClient(s.stub)
+	s.guard = newStubGuard(s.stub)
 	s.agent = newStubAgent()
 }
 
 func (s *Suite) TestStartAndStop(c *gc.C) {
-	w, err := migrationminion.New(s.client, s.agent)
+	w, err := migrationminion.New(migrationminion.Config{
+		Facade: s.client,
+		Guard:  s.guard,
+		Agent:  s.agent,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 	s.stub.CheckCallNames(c, "Watch")
@@ -47,7 +54,11 @@ func (s *Suite) TestStartAndStop(c *gc.C) {
 
 func (s *Suite) TestWatchFailure(c *gc.C) {
 	s.client.watchErr = errors.New("boom")
-	w, err := migrationminion.New(s.client, s.agent)
+	w, err := migrationminion.New(migrationminion.Config{
+		Facade: s.client,
+		Guard:  s.guard,
+		Agent:  s.agent,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, gc.ErrorMatches, "setting up watcher: boom")
@@ -55,10 +66,64 @@ func (s *Suite) TestWatchFailure(c *gc.C) {
 
 func (s *Suite) TestClosedWatcherChannel(c *gc.C) {
 	close(s.client.watcher.changes)
-	w, err := migrationminion.New(s.client, s.agent)
+	w, err := migrationminion.New(migrationminion.Config{
+		Facade: s.client,
+		Guard:  s.guard,
+		Agent:  s.agent,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, gc.ErrorMatches, "watcher channel closed")
+}
+
+func (s *Suite) TestUnlockError(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		Phase: migration.NONE,
+	}
+	s.guard.unlockErr = errors.New("squish")
+	w, err := migrationminion.New(migrationminion.Config{
+		Facade: s.client,
+		Guard:  s.guard,
+		Agent:  s.agent,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, "squish")
+	s.stub.CheckCallNames(c, "Watch", "Unlock")
+}
+
+func (s *Suite) TestLockdownError(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		Phase: migration.QUIESCE,
+	}
+	s.guard.lockdownErr = errors.New("squash")
+	w, err := migrationminion.New(migrationminion.Config{
+		Facade: s.client,
+		Guard:  s.guard,
+		Agent:  s.agent,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, "squash")
+	s.stub.CheckCallNames(c, "Watch", "Lockdown")
+}
+
+func (s *Suite) TestNONE(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		Phase: migration.NONE,
+	}
+	w, err := migrationminion.New(migrationminion.Config{
+		Facade: s.client,
+		Guard:  s.guard,
+		Agent:  s.agent,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	workertest.CheckAlive(c, w)
+	workertest.CleanKill(c, w)
+	s.stub.CheckCallNames(c, "Watch", "Unlock")
 }
 
 func (s *Suite) TestSUCCESS(c *gc.C) {
@@ -68,7 +133,11 @@ func (s *Suite) TestSUCCESS(c *gc.C) {
 		TargetAPIAddrs: addrs,
 		TargetCACert:   "top secret",
 	}
-	w, err := migrationminion.New(s.client, s.agent)
+	w, err := migrationminion.New(migrationminion.Config{
+		Facade: s.client,
+		Guard:  s.guard,
+		Agent:  s.agent,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
@@ -79,6 +148,27 @@ func (s *Suite) TestSUCCESS(c *gc.C) {
 	workertest.CleanKill(c, w)
 	c.Assert(s.agent.conf.addrs, gc.DeepEquals, addrs)
 	c.Assert(s.agent.conf.caCert, gc.DeepEquals, "top secret")
+	s.stub.CheckCallNames(c, "Watch", "Lockdown")
+}
+
+func newStubGuard(stub *jujutesting.Stub) *stubGuard {
+	return &stubGuard{stub: stub}
+}
+
+type stubGuard struct {
+	stub        *jujutesting.Stub
+	unlockErr   error
+	lockdownErr error
+}
+
+func (g *stubGuard) Lockdown(fortress.Abort) error {
+	g.stub.AddCall("Lockdown")
+	return g.lockdownErr
+}
+
+func (g *stubGuard) Unlock() error {
+	g.stub.AddCall("Unlock")
+	return g.unlockErr
 }
 
 func newStubMinionClient(stub *jujutesting.Stub) *stubMinionClient {

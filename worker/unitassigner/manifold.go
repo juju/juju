@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/unitassigner"
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldConfig describes the resources used by a unitassigner worker.

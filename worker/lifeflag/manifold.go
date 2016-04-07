@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -53,20 +54,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.APICallerName},
 		Start:  config.start,
-		Output: manifoldOutput,
+		Output: util.FlagOutput,
 		Filter: config.Filter,
 	}
-}
-
-func manifoldOutput(in worker.Worker, out interface{}) error {
-	inWorker, ok := in.(*Worker)
-	if !ok {
-		return errors.Errorf("expected in to be a *Worker, got a %T", in)
-	}
-	outFlag, ok := out.(*dependency.Flag)
-	if !ok {
-		return errors.Errorf("expected out to be a *dependency.Flag, got a %T", out)
-	}
-	*outFlag = inWorker
-	return nil
 }

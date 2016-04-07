@@ -8,15 +8,16 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api"
-	masterapi "github.com/juju/juju/api/migrationmaster"
+	"github.com/juju/juju/api/migrationmaster"
 	"github.com/juju/juju/api/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/worker"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/fortress"
 )
 
 var (
@@ -29,41 +30,88 @@ var (
 	ErrDoneForNow = errors.New("done for now")
 )
 
-// New starts a migration master worker using the supplied migration
-// master API facade.
-func New(client masterapi.Client) worker.Worker {
-	w := &migrationMaster{
-		client: client,
-	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.run())
-	}()
-	return w
+// Facade exposes controller functionality to a Worker.
+type Facade interface {
+
+	// Watch returns a watcher which reports when a migration is
+	// active for the model associated with the API connection.
+	Watch() (watcher.NotifyWatcher, error)
+
+	// GetMigrationStatus returns the details and progress of the
+	// latest model migration.
+	GetMigrationStatus() (migrationmaster.MigrationStatus, error)
+
+	// SetPhase updates the phase of the currently active model
+	// migration.
+	SetPhase(migration.Phase) error
+
+	// Export returns a serialized representation of the model
+	// associated with the API connection.
+	Export() ([]byte, error)
 }
 
-type migrationMaster struct {
-	tomb   tomb.Tomb
-	client masterapi.Client
+// Config defines the operation of a Worker.
+type Config struct {
+	Facade Facade
+	Guard  fortress.Guard
+}
+
+// Validate returns an error if config cannot drive a Worker.
+func (config Config) Validate() error {
+	if config.Facade == nil {
+		return errors.NotValidf("nil Facade")
+	}
+	if config.Guard == nil {
+		return errors.NotValidf("nil Guard")
+	}
+	return nil
+}
+
+// New returns a Worker backed by config, or an error.
+func New(config Config) (*Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	w := &Worker{
+		config: config,
+	}
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.run,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
+}
+
+// Worker waits until a migration is active and its configured
+// Fortress is locked down, and then orchestrates a model migration.
+type Worker struct {
+	catacomb catacomb.Catacomb
+	config   Config
 }
 
 // Kill implements worker.Worker.
-func (w *migrationMaster) Kill() {
-	w.tomb.Kill(nil)
+func (w *Worker) Kill() {
+	w.catacomb.Kill(nil)
 }
 
 // Wait implements worker.Worker.
-func (w *migrationMaster) Wait() error {
-	return w.tomb.Wait()
+func (w *Worker) Wait() error {
+	return w.catacomb.Wait()
 }
 
-func (w *migrationMaster) run() error {
+func (w *Worker) run() error {
 	status, err := w.waitForActiveMigration()
 	if err != nil {
-		// Tomb can't handle wrapped errors.
-		if err == tomb.ErrDying {
-			return err
-		}
+		return errors.Trace(err)
+	}
+
+	err = w.config.Guard.Lockdown(w.catacomb.Dying())
+	if errors.Cause(err) == fortress.ErrAborted {
+		return w.catacomb.ErrDying()
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -106,11 +154,11 @@ func (w *migrationMaster) run() error {
 		}
 
 		if w.killed() {
-			return tomb.ErrDying
+			return w.catacomb.ErrDying()
 		}
 
 		logger.Infof("setting migration phase to %s", phase)
-		if err := w.client.SetPhase(phase); err != nil {
+		if err := w.config.Facade.SetPhase(phase); err != nil {
 			return errors.Annotate(err, "failed to set phase")
 		}
 
@@ -125,33 +173,33 @@ func (w *migrationMaster) run() error {
 	}
 }
 
-func (w *migrationMaster) killed() bool {
+func (w *Worker) killed() bool {
 	select {
-	case <-w.tomb.Dying():
+	case <-w.catacomb.Dying():
 		return true
 	default:
 		return false
 	}
 }
 
-func (w *migrationMaster) doQUIESCE() (migration.Phase, error) {
+func (w *Worker) doQUIESCE() (migration.Phase, error) {
 	// TODO(mjs) - Wait for all agents to report back.
 	return migration.READONLY, nil
 }
 
-func (w *migrationMaster) doREADONLY() (migration.Phase, error) {
+func (w *Worker) doREADONLY() (migration.Phase, error) {
 	// TODO(mjs) - To be implemented.
 	return migration.PRECHECK, nil
 }
 
-func (w *migrationMaster) doPRECHECK() (migration.Phase, error) {
+func (w *Worker) doPRECHECK() (migration.Phase, error) {
 	// TODO(mjs) - To be implemented.
 	return migration.IMPORT, nil
 }
 
-func (w *migrationMaster) doIMPORT(targetInfo migration.TargetInfo) (migration.Phase, error) {
+func (w *Worker) doIMPORT(targetInfo migration.TargetInfo) (migration.Phase, error) {
 	logger.Infof("exporting model")
-	bytes, err := w.client.Export()
+	bytes, err := w.config.Facade.Export()
 	if err != nil {
 		logger.Errorf("model export failed: %v", err)
 		return migration.ABORT, nil
@@ -176,7 +224,7 @@ func (w *migrationMaster) doIMPORT(targetInfo migration.TargetInfo) (migration.P
 	return migration.VALIDATION, nil
 }
 
-func (w *migrationMaster) doVALIDATION(targetInfo migration.TargetInfo, modelUUID string) (migration.Phase, error) {
+func (w *Worker) doVALIDATION(targetInfo migration.TargetInfo, modelUUID string) (migration.Phase, error) {
 	// TODO(mjs) - Wait for all agents to report back.
 
 	// Once all agents have validated, activate the model.
@@ -199,7 +247,7 @@ func activateModel(targetInfo migration.TargetInfo, modelUUID string) error {
 	return errors.Trace(err)
 }
 
-func (w *migrationMaster) doSUCCESS() (migration.Phase, error) {
+func (w *Worker) doSUCCESS() (migration.Phase, error) {
 	// XXX(mjs) - this is a horrible hack, which helps to ensure that
 	// minions will see the SUCCESS state (due to watcher event
 	// coalescing). It will go away soon.
@@ -207,17 +255,17 @@ func (w *migrationMaster) doSUCCESS() (migration.Phase, error) {
 	return migration.LOGTRANSFER, nil
 }
 
-func (w *migrationMaster) doLOGTRANSFER() (migration.Phase, error) {
+func (w *Worker) doLOGTRANSFER() (migration.Phase, error) {
 	// TODO(mjs) - To be implemented.
 	return migration.REAP, nil
 }
 
-func (w *migrationMaster) doREAP() (migration.Phase, error) {
+func (w *Worker) doREAP() (migration.Phase, error) {
 	// TODO(mjs) - To be implemented.
 	return migration.DONE, nil
 }
 
-func (w *migrationMaster) doABORT(targetInfo migration.TargetInfo, modelUUID string) (migration.Phase, error) {
+func (w *Worker) doABORT(targetInfo migration.TargetInfo, modelUUID string) (migration.Phase, error) {
 	if err := removeImportedModel(targetInfo, modelUUID); err != nil {
 		// This isn't fatal. Removing the imported model is a best
 		// efforts attempt.
@@ -238,33 +286,39 @@ func removeImportedModel(targetInfo migration.TargetInfo, modelUUID string) erro
 	return errors.Trace(err)
 }
 
-func (w *migrationMaster) waitForActiveMigration() (masterapi.MigrationStatus, error) {
-	var empty masterapi.MigrationStatus
+func (w *Worker) waitForActiveMigration() (migrationmaster.MigrationStatus, error) {
+	var empty migrationmaster.MigrationStatus
 
-	watcher, err := w.client.Watch()
+	watcher, err := w.config.Facade.Watch()
 	if err != nil {
 		return empty, errors.Annotate(err, "watching for migration")
 	}
-	defer worker.Stop(watcher)
+	if err := w.catacomb.Add(watcher); err != nil {
+		return empty, errors.Trace(err)
+	}
+	defer watcher.Kill()
 
 	for {
 		select {
-		case <-w.tomb.Dying():
-			return empty, tomb.ErrDying
+		case <-w.catacomb.Dying():
+			return empty, w.catacomb.ErrDying()
 		case <-watcher.Changes():
-			status, err := w.client.GetMigrationStatus()
-			switch {
-			case params.IsCodeNotFound(err):
-			case err != nil:
-				return empty, errors.Annotate(err, "retrieving migration status")
-			default:
-				if modelHasMigrated(status.Phase) {
-					return empty, dependency.ErrUninstall
-				}
-				if !status.Phase.IsTerminal() {
-					return status, nil
-				}
+		}
+		status, err := w.config.Facade.GetMigrationStatus()
+		switch {
+		case params.IsCodeNotFound(err):
+			if err := w.config.Guard.Unlock(); err != nil {
+				return empty, errors.Trace(err)
 			}
+			continue
+		case err != nil:
+			return empty, errors.Annotate(err, "retrieving migration status")
+		}
+		if modelHasMigrated(status.Phase) {
+			return empty, dependency.ErrUninstall
+		}
+		if !status.Phase.IsTerminal() {
+			return status, nil
 		}
 	}
 }
