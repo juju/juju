@@ -758,56 +758,37 @@ func (environ *maasEnviron) acquireNode2(
 	interfaces []interfaceBinding,
 	volumes []volumeInfo,
 ) (maasInstance, error) {
-	var inst maasInstance
-
-	acquireParams := convertConstraints(cons)
+	acquireParams := convertConstraints2(cons)
 	positiveSpaceNames, negativeSpaceNames := convertSpacesFromConstraints(cons.Spaces)
 	positiveSpaces, negativeSpaces, err := environ.spaceNamesToSpaceInfo(positiveSpaceNames, negativeSpaceNames)
 	// If spaces aren't supported the constraints should be empty anyway.
 	if err != nil && !errors.IsNotSupported(err) {
 		return nil, errors.Trace(err)
 	}
-	err = addInterfaces(acquireParams, interfaces, positiveSpaces, negativeSpaces)
+	// XXX needs converting
+	err = addInterfaces(url.Values{}, interfaces, positiveSpaces, negativeSpaces)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	addStorage(acquireParams, volumes)
-	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
+	// TODO (mfoord): support storage for MAAS2.
+	// addStorage(acquireParams, volumes)
+	acquireParams.AgentName = environ.ecfg().maasAgentName()
 	if zoneName != "" {
-		acquireParams.Add("zone", zoneName)
+		acquireParams.Zone = zoneName
 	}
 	if nodeName != "" {
-		acquireParams.Add("name", nodeName)
+		acquireParams.Hostname = nodeName
 	} else if cons.Arch == nil {
-		// TODO(axw) 2014-08-18 #1358219
-		// We should be requesting preferred
-		// architectures if unspecified, like
-		// in the other providers.
-		//
-		// This is slightly complicated in MAAS
-		// as there are a finite number of each
-		// architecture; preference may also
-		// conflict with other constraints, such
-		// as tags. Thus, a preference becomes a
-		// demand (which may fail) if not handled
-		// properly.
 		logger.Warningf(
 			"no architecture was specified, acquiring an arbitrary node",
 		)
 	}
+	machine, err := environ.maasController.AllocateMachine(acquireParams)
 
-	for a := shortAttempt.Start(); a.Next(); {
-		client := environ.getMAASClient().GetSubObject("nodes/")
-		logger.Tracef("calling acquire with params: %+v", acquireParams)
-		_, err = client.CallPost("acquire", acquireParams)
-		if err == nil {
-			break
-		}
-	}
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return inst, nil
+	return &maas2Instance{machine}, nil
 }
 
 // acquireNode allocates a node from the MAAS.
@@ -1278,7 +1259,7 @@ func (environ *maasEnviron) selectNode2(args selectNodeArgs) (maasInstance, erro
 			args.Volumes,
 		)
 
-		if gomaasapi.IsCannotCompleteError(err) {
+		if gomaasapi.IsNoMatchError(err) {
 			if i+1 < len(args.AvailabilityZones) {
 				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
 				continue

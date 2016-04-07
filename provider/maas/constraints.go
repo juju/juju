@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/gomaasapi"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/constraints"
@@ -51,6 +52,36 @@ func convertConstraints(cons constraints.Value) url.Values {
 		params.Add("mem", fmt.Sprintf("%d", *cons.Mem))
 	}
 	convertTagsToParams(params, cons.Tags)
+	if cons.CpuPower != nil {
+		logger.Warningf("ignoring unsupported constraint 'cpu-power'")
+	}
+	return params
+}
+
+// convertConstraints2 converts the given constraints into a
+// gomaasapi.AllocateMachineArgs for paasing to MAAS 2.
+func convertConstraints2(cons constraints.Value) gomaasapi.AllocateMachineArgs {
+	params := gomaasapi.AllocateMachineArgs{}
+	if cons.Arch != nil {
+		// XXX check if we need to add a kernel type. If we do we're
+		// screwed a bit.
+		params.Architecture = *cons.Arch
+	}
+	if cons.CpuCores != nil {
+		params.MinCPUCount = int(*cons.CpuCores)
+	}
+	if cons.Mem != nil {
+		params.MinMemory = int(*cons.Mem)
+	}
+	if cons.Tags != nil {
+		positives, negatives := parseDelimitedValues(*cons.Tags)
+		if len(positives) > 0 {
+			params.Tags = positives
+		}
+		if len(negatives) > 0 {
+			params.NotTags = negatives
+		}
+	}
 	if cons.CpuPower != nil {
 		logger.Warningf("ignoring unsupported constraint 'cpu-power'")
 	}
