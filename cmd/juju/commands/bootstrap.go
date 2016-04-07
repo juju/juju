@@ -509,6 +509,7 @@ to clean up the model.`[1:])
 	delete(hostedModelConfig, config.AgentVersionKey)
 
 	// Check whether the Juju GUI must be installed in the controller.
+	// Leaving this value empty means no GUI will be installed.
 	var guiDataSourceBaseURL string
 	if !c.noGUI {
 		guiDataSourceBaseURL = common.GUIDataSourceBaseURL()
