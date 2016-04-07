@@ -55,23 +55,17 @@ func (s *SecurityGroupSuite) TestDeleteSecurityGroupSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *SecurityGroupSuite) TestDeleteSecurityGroupRequestExceedsRate(c *gc.C) {
-	callCount := 0
-	errMsg := "my message"
+func (s *SecurityGroupSuite) TestDeleteSecurityGroupInvalidGroupNotFound(c *gc.C) {
 	s.instanceStub.deleteSecurityGroup = func(group amzec2.SecurityGroup) (resp *amzec2.SimpleResp, err error) {
-		if callCount == 0 {
-			callCount++
-			return nil, &amzec2.Error{Code: errMsg}
-		}
-		return nil, &amzec2.Error{Code: "RequestLimitExceeded"}
+		return nil, &amzec2.Error{Code: "InvalidGroup.NotFound"}
 	}
 	err := s.deleteFunc(s.instanceStub, amzec2.SecurityGroup{})
-	c.Assert(err, gc.ErrorMatches, ec2LikeErrorString(errMsg))
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *SecurityGroupSuite) TestDeleteSecurityGroupExponentialRetry(c *gc.C) {
 	callCount := 0
-	maxCalls := 5
+	maxCalls := 3
 	differencesCount := maxCalls - 1
 	errMsg := "my message"
 

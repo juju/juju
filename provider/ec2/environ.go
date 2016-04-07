@@ -1202,7 +1202,7 @@ func (e *environ) Destroy() error {
 	}
 
 	if err := e.cleanEnvironmentSecurityGroup(); err != nil {
-		logger.Warningf("cannot delete default security group: %v", err)
+		return errors.Annotate(err, "cannot delete default security group")
 	}
 
 	return nil
@@ -1389,16 +1389,15 @@ var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, group ec2.S
 	err := retry.Call(retry.CallArgs{
 		Attempts:    30,
 		Delay:       time.Second,
+		MaxDelay:    time.Minute, // because 2**29 seconds is beyond reasonable
 		BackoffFunc: retry.DoubleDelay,
 		Clock:       clock.WallClock,
 		Func: func() error {
 			_, deleteErr := inst.DeleteSecurityGroup(group)
-			return errors.Trace(deleteErr)
-		},
-		IsFatalError: func(fatal error) bool {
-			// Should not happen since we are retrying with exponential delay,
-			// but just in case...
-			return ec2ErrCode(fatal) == "RequestLimitExceeded"
+			if ec2ErrCode(deleteErr) != "InvalidGroup.NotFound" {
+				return errors.Trace(deleteErr)
+			}
+			return nil
 		},
 		NotifyFunc: func(err error, attempt int) {
 			lastErr = err
@@ -1406,7 +1405,7 @@ var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, group ec2.S
 		},
 	})
 	if err != nil {
-		logger.Warningf("cannot delete security group %q: consider deleting it manually", group.Name)
+		logger.Errorf("cannot delete security group %q: consider deleting it manually", group.Name)
 		return lastErr
 	}
 	return nil
@@ -1422,26 +1421,43 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 		logger.Warningf("cannot determine security groups to delete: %v", err)
 	}
 	ec2inst := e.ec2()
-	defer func() {
+	defer func() error {
 		// TODO(perrito666) we need to tag global security groups to be able
 		// to tell them appart from future groups that are neither machine
 		// nor environment group.
 		// https://bugs.launchpad.net/juju-core/+bug/1534289
 		jujuGroup := e.jujuGroupName()
 		legacyJujuGroup := e.legacyJujuGroupName()
+
+		// In an attempt to delete as many security groups as we can in one go,
+		// let's accumulate errors.
+		// If any errors occur, propagate them up.
+		errs := []error{}
 		for _, deletable := range securityGroups {
 			if deletable.Name != jujuGroup && deletable.Name != legacyJujuGroup {
 				if err := deleteSecurityGroupInsistently(ec2inst, deletable); err != nil {
-					logger.Errorf("provider failure: %v", err)
+					errs = append(errs, err)
 				}
 			}
 		}
+		if len(errs) > 0 {
+			msgs := make([]string, len(errs))
+			for i, err := range errs {
+				msgs[i] = err.Error()
+			}
+			return errors.New(strings.Join(msgs, "\n"))
+		}
+		return nil
 	}()
 
 	strs := make([]string, len(ids))
 	for i, id := range ids {
 		strs[i] = string(id)
 	}
+
+	// TODO (anastasiamac 2016-04-7) instance termination would benefit
+	// from retry with exponential delay just like security groups
+	// in defer. Bug#1567179.
 	for a := shortAttempt.Start(); a.Next(); {
 		_, err = ec2inst.TerminateInstances(strs)
 		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
