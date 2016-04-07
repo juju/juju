@@ -448,8 +448,8 @@ const (
 	upgradeCheckFlagName = "upgrade-check-flag"
 
 	migrationFortressName     = "migration-fortress"
-	migrationMinionName       = "migration-minion"
 	migrationInactiveFlagName = "migration-inactive-flag"
+	migrationMinionName       = "migration-minion"
 
 	servingInfoSetterName    = "serving-info-setter"
 	apiWorkersName           = "unconverted-api-workers"

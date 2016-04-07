@@ -11,7 +11,7 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	msapi "github.com/juju/juju/api/meterstatus"
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -251,7 +251,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 }
 
-var ifNotMigrating = util.Housing{
+var ifNotMigrating = engine.Housing{
 	Flags: []string{
 		migrationInactiveFlagName,
 	},
@@ -267,8 +267,8 @@ const (
 	upgraderName         = "upgrader"
 
 	migrationFortressName     = "migration-fortress"
-	migrationMinionName       = "migration-minion"
 	migrationInactiveFlagName = "migration-inactive-flag"
+	migrationMinionName       = "migration-minion"
 
 	loggingConfigUpdaterName = "logging-config-updater"
 	proxyConfigUpdaterName   = "proxy-config-updater"

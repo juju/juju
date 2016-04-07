@@ -36,6 +36,7 @@ import (
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/core/migration"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
@@ -1315,6 +1316,46 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 	defer closer()
 	uuid := st.ModelUUID()
 	timeout := time.After(ReallyLongWait)
+
+	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
+		for {
+			if check(uuid) {
+				break
+			}
+			select {
+			case <-time.After(coretesting.ShortWait):
+				s.BackingState.StartSync()
+			case <-timeout:
+				c.Fatalf("timed out waiting for workers")
+			}
+		}
+	})
+}
+
+func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
+	tracker := newModelTracker(c)
+	check := modelMatchFunc(c, tracker, append(
+		alwaysModelWorkers, migratingModelWorkers...,
+	))
+	s.PatchValue(&modelManifolds, tracker.Manifolds)
+
+	st, closer := s.setUpNewModel(c)
+	defer closer()
+	uuid := st.ModelUUID()
+	timeout := time.After(ReallyLongWait)
+
+	targetControllerTag := names.NewModelTag(utils.MustNewUUID().String())
+	_, err := st.CreateModelMigration(state.ModelMigrationSpec{
+		InitiatedBy: names.NewUserTag("admin"),
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: targetControllerTag,
+			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
+			CACert:        "cert",
+			AuthTag:       names.NewUserTag("user"),
+			Password:      "password",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
 		for {

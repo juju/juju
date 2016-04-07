@@ -31,11 +31,12 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 	}
 	// NOTE: if this test failed, the cmd/jujud/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
-	c.Check(actual.Values(), jc.SameContents, []string{
+	c.Check(actual.SortedValues(), jc.DeepEquals, []string{
 		"address-cleaner",
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"application-scaler",
 		"charm-revision-updater",
 		"clock",
 		"compute-provisioner",
@@ -45,10 +46,10 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 		"is-responsible-flag",
 		"metric-worker",
 		"migration-fortress",
+		"migration-inactive-flag",
 		"migration-master",
 		"not-alive-flag",
 		"not-dead-flag",
-		"application-scaler",
 		"space-importer",
 		"spaces-imported-gate",
 		"state-cleaner",
@@ -59,7 +60,7 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 	})
 }
 
-func (s *ManifoldsSuite) TestResponsibleFlagDependencies(c *gc.C) {
+func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 	exclusions := set.NewStrings(
 		"agent",
 		"api-caller",
@@ -79,7 +80,11 @@ func (s *ManifoldsSuite) TestResponsibleFlagDependencies(c *gc.C) {
 			continue
 		}
 		inputs := set.NewStrings(manifold.Inputs...)
-		c.Check(inputs.Contains("is-responsible-flag"), jc.IsTrue)
+		if inputs.Contains("is-responsible-flag") {
+			continue
+		}
+		c.Check(inputs.Contains("migration-fortress"), jc.IsTrue)
+		c.Check(inputs.Contains("migration-inactive-flag"), jc.IsTrue)
 	}
 }
 
