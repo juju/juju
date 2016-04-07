@@ -720,9 +720,7 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         service_names = []
         machine_names = sorted(new_machines, key=int)
-        machine_type = LXD_MACHINE
-        if LXD_MACHINE not in client.supported_container_types:
-            machine_type = LXC_MACHINE
+        machine_type = client.preferred_container()
         for machine_name in machine_names:
             target = '{}:{}'.format(machine_type, machine_name)
             for container in range(self.container_count):

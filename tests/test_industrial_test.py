@@ -1491,9 +1491,9 @@ class TestDeployManyAttempt(JujuPyTestCase):
 
     def test_iter_steps_lxc(self):
         client = FakeEnvJujuClient()
-        client.supported_container_types = frozenset([KVM_MACHINE,
-                                                      LXC_MACHINE])
-        self.do_iter_steps(client, LXC_MACHINE)
+        with patch.object(FakeEnvJujuClient, 'supported_container_types',
+                          frozenset([KVM_MACHINE, LXC_MACHINE])):
+            self.do_iter_steps(client, LXC_MACHINE)
 
     def do_iter_steps(self, client, machine_type):
         deploy_many = DeployManyAttempt(9, 11)
