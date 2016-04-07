@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 )
 
-type maasStorage struct {
+type maas1Storage struct {
 	// Mutex protects the "*Unlocked" fields.
 	sync.Mutex
 
@@ -32,19 +32,23 @@ type maasStorage struct {
 	maasClientUnlocked gomaasapi.MAASObject
 }
 
-var _ storage.Storage = (*maasStorage)(nil)
+var _ storage.Storage = (*maas1Storage)(nil)
 
 func NewStorage(env *maasEnviron) storage.Storage {
-	stor := new(maasStorage)
-	stor.environUnlocked = env
-	// TODO (babbageclunk): needs MAAS 2.0 support
-	if !env.usingMAAS2() {
-		stor.maasClientUnlocked = env.getMAASClient().GetSubObject("files")
+	if env.usingMAAS2() {
+		return &maas2Storage{
+			environ:        env,
+			maasController: env.maasController,
+		}
+	} else {
+		return &maas1Storage{
+			environUnlocked:    env,
+			maasClientUnlocked: env.getMAASClient().GetSubObject("files"),
+		}
 	}
-	return stor
 }
 
-// getSnapshot returns a consistent copy of a maasStorage.  Use this if you
+// getSnapshot returns a consistent copy of a maas1Storage.  Use this if you
 // need a consistent view of the object's entire state, without having to
 // lock the object the whole time.
 //
@@ -53,11 +57,11 @@ func NewStorage(env *maasEnviron) storage.Storage {
 // things that don't actually require the lock.  In most cases you can just
 // create a snapshot first (releasing the lock immediately) and then do the
 // rest of the work with the snapshot.
-func (stor *maasStorage) getSnapshot() *maasStorage {
+func (stor *maas1Storage) getSnapshot() *maas1Storage {
 	stor.Lock()
 	defer stor.Unlock()
 
-	return &maasStorage{
+	return &maas1Storage{
 		environUnlocked:    stor.environUnlocked,
 		maasClientUnlocked: stor.maasClientUnlocked,
 	}
@@ -65,10 +69,25 @@ func (stor *maasStorage) getSnapshot() *maasStorage {
 
 // addressFileObject creates a MAASObject pointing to a given file.
 // Takes out a lock on the storage object to get a consistent view.
-func (stor *maasStorage) addressFileObject(name string) gomaasapi.MAASObject {
+func (stor *maas1Storage) addressFileObject(name string) gomaasapi.MAASObject {
 	stor.Lock()
 	defer stor.Unlock()
 	return stor.maasClientUnlocked.GetSubObject(name)
+}
+
+// All filenames need to be namespaced so they are private to this environment.
+// This prevents different environments from interfering with each other.
+// We're using the agent name UUID here.
+func prefixWithPrivateNamespace(env *maasEnviron, name string) string {
+	prefix := env.ecfg().maasAgentName()
+	if prefix != "" {
+		return prefix + "-" + name
+	}
+	return name
+}
+
+func (stor *maas1Storage) prefixWithPrivateNamespace(name string) string {
+	return prefixWithPrivateNamespace(stor.getSnapshot().environUnlocked, name)
 }
 
 // retrieveFileObject retrieves the information of the named file,
@@ -79,7 +98,7 @@ func (stor *maasStorage) addressFileObject(name string) gomaasapi.MAASObject {
 // exist.
 //
 // The function takes out a lock on the storage object.
-func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, error) {
+func (stor *maas1Storage) retrieveFileObject(name string) (gomaasapi.MAASObject, error) {
 	obj, err := stor.addressFileObject(name).Get()
 	if err != nil {
 		noObj := gomaasapi.MAASObject{}
@@ -93,20 +112,8 @@ func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, 
 	return obj, nil
 }
 
-// All filenames need to be namespaced so they are private to this environment.
-// This prevents different environments from interfering with each other.
-// We're using the agent name UUID here.
-func (stor *maasStorage) prefixWithPrivateNamespace(name string) string {
-	env := stor.getSnapshot().environUnlocked
-	prefix := env.ecfg().maasAgentName()
-	if prefix != "" {
-		return prefix + "-" + name
-	}
-	return name
-}
-
 // Get is specified in the StorageReader interface.
-func (stor *maasStorage) Get(name string) (io.ReadCloser, error) {
+func (stor *maas1Storage) Get(name string) (io.ReadCloser, error) {
 	name = stor.prefixWithPrivateNamespace(name)
 	fileObj, err := stor.retrieveFileObject(name)
 	if err != nil {
@@ -125,7 +132,7 @@ func (stor *maasStorage) Get(name string) (io.ReadCloser, error) {
 
 // extractFilenames returns the filenames from a "list" operation on the
 // MAAS API, sorted by name.
-func (stor *maasStorage) extractFilenames(listResult gomaasapi.JSONObject) ([]string, error) {
+func (stor *maas1Storage) extractFilenames(listResult gomaasapi.JSONObject) ([]string, error) {
 	privatePrefix := stor.prefixWithPrivateNamespace("")
 	list, err := listResult.GetArray()
 	if err != nil {
@@ -149,7 +156,7 @@ func (stor *maasStorage) extractFilenames(listResult gomaasapi.JSONObject) ([]st
 }
 
 // List is specified in the StorageReader interface.
-func (stor *maasStorage) List(prefix string) ([]string, error) {
+func (stor *maas1Storage) List(prefix string) ([]string, error) {
 	prefix = stor.prefixWithPrivateNamespace(prefix)
 	params := make(url.Values)
 	params.Add("prefix", prefix)
@@ -162,7 +169,7 @@ func (stor *maasStorage) List(prefix string) ([]string, error) {
 }
 
 // URL is specified in the StorageReader interface.
-func (stor *maasStorage) URL(name string) (string, error) {
+func (stor *maas1Storage) URL(name string) (string, error) {
 	name = stor.prefixWithPrivateNamespace(name)
 	fileObj, err := stor.retrieveFileObject(name)
 	if err != nil {
@@ -183,19 +190,19 @@ func (stor *maasStorage) URL(name string) (string, error) {
 }
 
 // DefaultConsistencyStrategy is specified in the StorageReader interface.
-func (stor *maasStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
+func (stor *maas1Storage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	// This storage backend has immediate consistency, so there's no
 	// need to wait.  One attempt should do.
 	return utils.AttemptStrategy{}
 }
 
 // ShouldRetry is specified in the StorageReader interface.
-func (stor *maasStorage) ShouldRetry(err error) bool {
+func (stor *maas1Storage) ShouldRetry(err error) bool {
 	return false
 }
 
 // Put is specified in the StorageWriter interface.
-func (stor *maasStorage) Put(name string, r io.Reader, length int64) error {
+func (stor *maas1Storage) Put(name string, r io.Reader, length int64) error {
 	name = stor.prefixWithPrivateNamespace(name)
 	data, err := ioutil.ReadAll(io.LimitReader(r, length))
 	if err != nil {
@@ -209,7 +216,7 @@ func (stor *maasStorage) Put(name string, r io.Reader, length int64) error {
 }
 
 // Remove is specified in the StorageWriter interface.
-func (stor *maasStorage) Remove(name string) error {
+func (stor *maas1Storage) Remove(name string) error {
 	name = stor.prefixWithPrivateNamespace(name)
 	// The only thing that can go wrong here, really, is that the file
 	// does not exist.  But deletion is idempotent: deleting a file that
@@ -219,7 +226,11 @@ func (stor *maasStorage) Remove(name string) error {
 }
 
 // RemoveAll is specified in the StorageWriter interface.
-func (stor *maasStorage) RemoveAll() error {
+func (stor *maas1Storage) RemoveAll() error {
+	return removeAll(stor)
+}
+
+func removeAll(stor storage.Storage) error {
 	names, err := storage.List(stor, "")
 	if err != nil {
 		return err

@@ -142,7 +142,7 @@ func (suite *environSuite) TestStorageReturnsStorage(c *gc.C) {
 	stor := env.Storage()
 	c.Check(stor, gc.NotNil)
 	// The Storage object is really a maasStorage.
-	specificStorage := stor.(*maasStorage)
+	specificStorage := stor.(*maas1Storage)
 	// Its environment pointer refers back to its environment.
 	c.Check(specificStorage.environUnlocked, gc.Equals, env)
 }
