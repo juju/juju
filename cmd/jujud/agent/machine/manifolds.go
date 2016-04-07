@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
+	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/reboot"
@@ -248,21 +249,38 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			PreUpgradeSteps:      config.PreUpgradeSteps,
 		}),
 
-		// The migration minion handles the agent side aspects of model migrations.
+		// The migration workers collaborate to run migrations;
+		// and to create a mechanism for running other workers
+		// so they can't accidentally interfere with a migration
+		// in progress. Such a manifold should (1) depend on the
+		// migration-inactive flag, to know when to start or die;
+		// and (2) occupy the migration-fortress, so as to avoid
+		// possible interference with the minion (which will not
+		// take action until it's gained sole control of the
+		// fortress).
+		//
+		// Note that the fortress itself will not be created
+		// until the upgrade process is complete; this frees all
+		// its dependencies from upgrade concerns.
 		migrationFortressName: ifFullyUpgraded(fortress.Manifold()),
-		migrationMinionName: ifFullyUpgraded(migrationminion.Manifold(migrationminion.ManifoldConfig{
+		migrationInactiveFlagName: migrationflag.Manifold(migrationflag.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Check:         migrationflag.IsNone,
+			NewFacade:     migrationflag.NewFacade,
+			NewWorker:     migrationflag.NewWorker,
+		}),
+		migrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			FortressName:  migrationFortressName,
-
-			NewFacade: migrationminion.NewFacade,
-			NewWorker: migrationminion.NewWorker,
-		})),
+			NewFacade:     migrationminion.NewFacade,
+			NewWorker:     migrationminion.NewWorker,
+		}),
 
 		// The serving-info-setter manifold sets grabs the state
 		// serving info from the API connection and writes it to the
 		// agent config.
-		servingInfoSetterName: ifFullyUpgraded(ServingInfoSetterManifold(ServingInfoSetterConfig{
+		servingInfoSetterName: ifNotMigrating(ServingInfoSetterManifold(ServingInfoSetterConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
@@ -271,7 +289,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// machine agent's API connection but have not been converted
 		// to work directly under the dependency engine. It waits for
 		// upgrades to be finished before starting these workers.
-		apiWorkersName: ifFullyUpgraded(APIWorkersManifold(APIWorkersConfig{
+		apiWorkersName: ifNotMigrating(APIWorkersManifold(APIWorkersConfig{
 			APICallerName:   apiCallerName,
 			StartAPIWorkers: config.StartAPIWorkers,
 		})),
@@ -279,7 +297,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The reboot manifold manages a worker which will reboot the
 		// machine when requested. It needs an API connection and
 		// waits for upgrades to be complete.
-		rebootName: ifFullyUpgraded(reboot.Manifold(reboot.ManifoldConfig{
+		rebootName: ifNotMigrating(reboot.Manifold(reboot.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
@@ -288,7 +306,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// controls the messages sent via the log sender or rsyslog,
 		// according to changes in environment config. We should only need
 		// one of these in a consolidated agent.
-		loggingConfigUpdaterName: ifFullyUpgraded(logger.Manifold(logger.ManifoldConfig{
+		loggingConfigUpdaterName: ifNotMigrating(logger.Manifold(logger.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
@@ -296,14 +314,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The diskmanager worker periodically lists block devices on the
 		// machine it runs on. This worker will be run on all Juju-managed
 		// machines (one per machine agent).
-		diskmanagerName: ifFullyUpgraded(diskmanager.Manifold(diskmanager.ManifoldConfig{
+		diskmanagerName: ifNotMigrating(diskmanager.Manifold(diskmanager.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
 		// proxy settings.
-		proxyConfigUpdater: ifFullyUpgraded(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
+		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
@@ -311,7 +329,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The api address updater is a leaf worker that rewrites agent config
 		// as the state server addresses change. We should only need one of
 		// these in a consolidated agent.
-		apiAddressUpdaterName: ifFullyUpgraded(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
+		apiAddressUpdaterName: ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
@@ -319,7 +337,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The machiner Worker will wait for the identified machine to become
 		// Dying and make it Dead; or until the machine becomes Dead by other
 		// means.
-		machinerName: ifFullyUpgraded(machiner.Manifold(machiner.ManifoldConfig{
+		machinerName: ifNotMigrating(machiner.Manifold(machiner.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
@@ -332,7 +350,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// runs; it currently seems better to fill the buffer and send when stable,
 		// optimising for stable controller upgrades rather than up-to-the-moment
 		// observable normal-machine upgrades.
-		logSenderName: ifFullyUpgraded(logsender.Manifold(logsender.ManifoldConfig{
+		logSenderName: ifNotMigrating(logsender.Manifold(logsender.ManifoldConfig{
 			APICallerName: apiCallerName,
 			LogSource:     config.LogSource,
 		})),
@@ -341,13 +359,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// agents, according to changes in a set of state units; and for the
 		// final removal of its agents' units from state when they are no
 		// longer needed.
-		deployerName: ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
+		deployerName: ifNotMigrating(deployer.Manifold(deployer.ManifoldConfig{
 			NewDeployContext: config.NewDeployContext,
 			AgentName:        agentName,
 			APICallerName:    apiCallerName,
 		})),
 
-		authenticationworkerName: ifFullyUpgraded(authenticationworker.Manifold(authenticationworker.ManifoldConfig{
+		authenticationworkerName: ifNotMigrating(authenticationworker.Manifold(authenticationworker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
@@ -355,23 +373,23 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The storageProvisioner worker manages provisioning
 		// (deprovisioning), and attachment (detachment) of first-class
 		// volumes and filesystems.
-		storageprovisionerName: ifFullyUpgraded(storageprovisioner.MachineManifold(storageprovisioner.MachineManifoldConfig{
+		storageprovisionerName: ifNotMigrating(storageprovisioner.MachineManifold(storageprovisioner.MachineManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
 		})),
 
-		resumerName: ifFullyUpgraded(resumer.Manifold(resumer.ManifoldConfig{
+		resumerName: ifNotMigrating(resumer.Manifold(resumer.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
 
-		identityFileWriterName: ifFullyUpgraded(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
+		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
 
-		toolsversioncheckerName: ifFullyUpgraded(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
+		toolsversioncheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
@@ -383,6 +401,13 @@ var ifFullyUpgraded = util.Housing{
 		upgradeStepsFlagName,
 		upgradeCheckFlagName,
 	},
+}.Decorate
+
+var ifNotMigrating = util.Housing{
+	Flags: []string{
+		migrationInactiveFlagName,
+	},
+	Occupy: migrationFortressName,
 }.Decorate
 
 const (
@@ -400,8 +425,9 @@ const (
 	upgraderName         = "upgrader"
 	upgradeStepsName     = "upgradesteps"
 
-	migrationFortressName = "migration-fortress"
-	migrationMinionName   = "migration-minion"
+	migrationFortressName     = "migration-fortress"
+	migrationMinionName       = "migration-minion"
+	migrationInactiveFlagName = "migration-inactive-flag"
 
 	servingInfoSetterName    = "serving-info-setter"
 	apiWorkersName           = "apiworkers"
