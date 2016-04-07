@@ -63,14 +63,9 @@ func newEnviron(cfg *config.Config, newRawProvider newRawProviderFunc) (*environ
 }
 
 func newEnvironRaw(ecfg *environConfig, raw *rawProvider) (*environ, error) {
-	uuid, ok := ecfg.UUID()
-	if !ok {
-		return nil, errors.New("UUID not set")
-	}
-
 	env := &environ{
 		name: ecfg.Name(),
-		uuid: uuid,
+		uuid: ecfg.UUID(),
 		ecfg: ecfg,
 		raw:  raw,
 	}
@@ -125,17 +120,12 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// getSnapshot returns a copy of the environment. This is useful for
-// ensuring the env you are using does not get changed by other code
-// while you are using it.
-func (env *environ) getSnapshot() *environ {
-	e := *env
-	return &e
-}
-
 // Config returns the configuration data with which the env was created.
 func (env *environ) Config() *config.Config {
-	return env.getSnapshot().ecfg.Config
+	env.lock.Lock()
+	cfg := env.ecfg.Config
+	env.lock.Unlock()
+	return cfg
 }
 
 // Bootstrap creates a new instance, chosing the series and arch out of

@@ -38,13 +38,9 @@ func (s *wrenchSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) {
 		s.logWriter.Clear()
 		loggo.RemoveWriter("wrench-tests")
+		// Ensure the wrench is turned off when these tests are done.
+		wrench.SetEnabled(false)
 	})
-}
-
-func (s *wrenchSuite) TearDownSuite(c *gc.C) {
-	s.BaseSuite.TearDownSuite(c)
-	// Ensure the wrench is turned off when these tests are done.
-	wrench.SetEnabled(false)
 }
 
 func (s *wrenchSuite) createWrenchDir(c *gc.C) {

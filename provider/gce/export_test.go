@@ -13,14 +13,15 @@ import (
 )
 
 var (
-	Provider             environs.EnvironProvider = providerInstance
-	NewInstance                                   = newInstance
-	CheckInstanceType                             = checkInstanceType
-	GetMetadata                                   = getMetadata
-	GetDisks                                      = getDisks
-	ConfigImmutable                               = configImmutableFields
-	UbuntuImageBasePath                           = ubuntuImageBasePath
-	WindowsImageBasePath                          = windowsImageBasePath
+	Provider                 environs.EnvironProvider = providerInstance
+	NewInstance                                       = newInstance
+	CheckInstanceType                                 = checkInstanceType
+	GetMetadata                                       = getMetadata
+	GetDisks                                          = getDisks
+	ConfigImmutable                                   = configImmutableFields
+	UbuntuImageBasePath                               = ubuntuImageBasePath
+	UbuntuDailyImageBasePath                          = ubuntuDailyImageBasePath
+	WindowsImageBasePath                              = windowsImageBasePath
 )
 
 func ExposeInstBase(inst *environInstance) *google.Instance {

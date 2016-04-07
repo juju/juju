@@ -80,27 +80,15 @@ func (st *State) RestoreInfoSetter() (*RestoreInfo, error) {
 	restoreInfo, closer := st.getCollection(restoreInfoC)
 	defer closer()
 	err := restoreInfo.Find(bson.M{"_id": currentRestoreId}).One(&doc)
-	if err == nil {
-		return &RestoreInfo{st: st, doc: doc}, nil
-	}
-
-	if err != mgo.ErrNotFound {
+	switch errors.Cause(err) {
+	case nil:
+	case mgo.ErrNotFound:
+		doc = restoreInfoDoc{
+			Id:     currentRestoreId,
+			Status: UnknownRestoreStatus,
+		}
+	default:
 		return nil, errors.Annotate(err, "cannot read restore info")
 	}
-	doc = restoreInfoDoc{
-		Id:     currentRestoreId,
-		Status: UnknownRestoreStatus,
-	}
-	ops := []txn.Op{{
-		C:      restoreInfoC,
-		Id:     currentRestoreId,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}}
-
-	if err := st.runTransaction(ops); err != nil {
-		return nil, errors.Annotate(err, "cannot create restore info")
-	}
-
 	return &RestoreInfo{st: st, doc: doc}, nil
 }

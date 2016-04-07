@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -111,18 +110,20 @@ func (s *suite) SetUpTest(c *gc.C) {
 func (s *suite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
-	dummy.Reset()
+	dummy.Reset(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.NetworkingEnviron {
 	s.TestConfig["prefer-ipv6"] = preferIPv6
-	cfg, err := config.New(config.NoDefaults, s.TestConfig)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
-		envtesting.BootstrapContext(c), s.ConfigStore,
-		s.ControllerStore, cfg.Name(),
-		environs.PrepareForBootstrapParams{Config: cfg},
+		envtesting.BootstrapContext(c),
+		s.ControllerStore,
+		environs.PrepareParams{
+			BaseConfig:     s.TestConfig,
+			ControllerName: s.TestConfig["name"].(string),
+			CloudName:      "dummy",
+		},
 	)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))
 	c.Assert(env, gc.NotNil)
@@ -340,6 +341,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		CIDR:             "0.10.0.0/24",
 		DeviceIndex:      0,
 		InterfaceName:    "eth0",
+		InterfaceType:    "ethernet",
 		VLANTag:          0,
 		MACAddress:       "aa:bb:cc:dd:ee:f0",
 		Disabled:         false,
@@ -356,6 +358,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		CIDR:             "0.20.0.0/24",
 		DeviceIndex:      1,
 		InterfaceName:    "eth1",
+		InterfaceType:    "ethernet",
 		VLANTag:          1,
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
 		Disabled:         false,
@@ -372,6 +375,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		CIDR:             "0.30.0.0/24",
 		DeviceIndex:      2,
 		InterfaceName:    "eth2",
+		InterfaceType:    "ethernet",
 		VLANTag:          2,
 		MACAddress:       "aa:bb:cc:dd:ee:f2",
 		Disabled:         true,
@@ -420,6 +424,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		CIDR:             "0.30.0.0/24",
 		DeviceIndex:      2,
 		InterfaceName:    "eth2",
+		InterfaceType:    "ethernet",
 		VLANTag:          2,
 		MACAddress:       "aa:bb:cc:dd:ee:f2",
 		Disabled:         true,

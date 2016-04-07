@@ -16,8 +16,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -59,7 +57,7 @@ func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
+	dummy.Reset(c)
 	jujuversion.Current = s.origCurrentVersion
 	s.ToolsFixture.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
@@ -97,12 +95,16 @@ func (s *SimpleStreamsToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary
 
 func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
 	jujuversion.Current = s.origCurrentVersion
-	dummy.Reset()
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(attrs))
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(envtesting.BootstrapContext(c), configstore.NewMem(),
+	dummy.Reset(c)
+	attrs = dummy.SampleConfig().Merge(attrs)
+	env, err := environs.Prepare(envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg})
+		environs.PrepareParams{
+			ControllerName: attrs["name"].(string),
+			BaseConfig:     attrs,
+			CloudName:      "dummy",
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 	s.removeTools(c)

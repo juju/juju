@@ -54,6 +54,7 @@ const (
 const (
 	deviceInUse        = "InvalidDevice.InUse"
 	attachmentNotFound = "InvalidAttachment.NotFound"
+	volumeNotFound     = "InvalidVolume.NotFound"
 )
 
 const (
@@ -212,14 +213,10 @@ func (e *ebsProvider) VolumeSource(environConfig *config.Config, cfg *storage.Co
 	if err != nil {
 		return nil, errors.Annotate(err, "creating AWS clients")
 	}
-	uuid, ok := environConfig.UUID()
-	if !ok {
-		return nil, errors.NotFoundf("model UUID")
-	}
 	source := &ebsVolumeSource{
 		ec2:       ec2,
 		envName:   environConfig.Name(),
-		modelUUID: uuid,
+		modelUUID: environConfig.UUID(),
 	}
 	return source, nil
 }
@@ -431,7 +428,20 @@ var destroyVolumeAttempt = utils.AttemptStrategy{
 	Delay: 5 * time.Second,
 }
 
-func (v *ebsVolumeSource) destroyVolume(volumeId string) error {
+func (v *ebsVolumeSource) destroyVolume(volumeId string) (err error) {
+	defer func() {
+		if err != nil {
+			if ec2ErrCode(err) == volumeNotFound || errors.IsNotFound(err) {
+				// Either the volume isn't found, or we queried the
+				// instance corresponding to a DeleteOnTermination
+				// attachment; in either case, the volume is or will
+				// be destroyed.
+				logger.Tracef("Ignoring error destroying volume %q: %v", volumeId, err)
+				err = nil
+			}
+		}
+	}()
+
 	logger.Debugf("destroying %q", volumeId)
 	// Volumes must not be in-use when destroying. A volume may
 	// still be in-use when the instance it is attached to is
@@ -509,13 +519,7 @@ func (v *ebsVolumeSource) destroyVolume(volumeId string) error {
 		return false, nil
 	})
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// Either the volume isn't found, or we queried the
-			// instance corresponding to a DeleteOnTermination
-			// attachment; in either case, the volume is or will
-			// be destroyed.
-			return nil
-		} else if err == errWaitVolumeTimeout {
+		if err == errWaitVolumeTimeout {
 			return errors.Errorf("timed out waiting for volume %v to not be in-use", volumeId)
 		}
 		return errors.Trace(err)

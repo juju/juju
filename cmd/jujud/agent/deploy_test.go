@@ -57,11 +57,11 @@ func (ctx *fakeContext) DeployedUnits() ([]string, error) {
 
 func (ctx *fakeContext) waitDeployed(c *gc.C, want ...string) {
 	sort.Strings(want)
-	timeout := time.After(testing.LongWait)
 	select {
-	case <-timeout:
+	case <-time.After(testing.LongWait):
 		c.Fatalf("manager never initialized")
 	case <-ctx.inited.triggered():
+		timeout := time.After(testing.LongWait)
 		for {
 			ctx.st.StartSync()
 			select {

@@ -20,8 +20,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -367,7 +365,13 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 
 	curl := charm.MustParseURL(params.URL)
 	bundleSHA256 := uniqueString("bundlesha")
-	charm, err := factory.st.AddCharm(ch, curl, "fake-storage-path", bundleSHA256)
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "fake-storage-path",
+		SHA256:      bundleSHA256,
+	}
+	charm, err := factory.st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	return charm
 }
@@ -573,25 +577,5 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewModel(cfg, params.Owner.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
-	if params.Prepare {
-		if params.Credential == nil {
-			emptyCredential := cloud.NewEmptyCredential()
-			params.Credential = &emptyCredential
-		}
-		args := environs.PrepareForBootstrapParams{
-			Config:        cfg,
-			Credentials:   *params.Credential,
-			CloudEndpoint: params.CloudEndpoint,
-			CloudRegion:   params.CloudRegion,
-		}
-		// Prepare the environment.
-		provider, err := environs.Provider(cfg.Type())
-		c.Assert(err, jc.ErrorIsNil)
-		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), args)
-		c.Assert(err, jc.ErrorIsNil)
-		// Now save the config back.
-		err = st.UpdateModelConfig(env.Config().AllAttrs(), nil, nil)
-		c.Assert(err, jc.ErrorIsNil)
-	}
 	return st
 }

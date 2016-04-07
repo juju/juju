@@ -14,6 +14,9 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 )
@@ -78,10 +81,27 @@ func (c *JujuCommandBase) NewAPIRoot(
 	store jujuclient.ClientStore,
 	controllerName, accountName, modelName string,
 ) (api.Connection, error) {
-	if err := c.initAPIContext(); err != nil {
+	params, err := c.NewAPIConnectionParams(
+		store, controllerName, accountName, modelName,
+	)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.newAPIRoot(store, controllerName, accountName, modelName)
+	return juju.NewAPIConnection(params)
+}
+
+// NewAPIConnectionParams returns a juju.NewAPIConnectionParams with the
+// given arguments such that a call to juju.NewAPIConnection with the
+// result behaves the same as a call to JujuCommandBase.NewAPIRoot with
+// the same arguments.
+func (c *JujuCommandBase) NewAPIConnectionParams(
+	store jujuclient.ClientStore,
+	controllerName, accountName, modelName string,
+) (juju.NewAPIConnectionParams, error) {
+	if err := c.initAPIContext(); err != nil {
+		return juju.NewAPIConnectionParams{}, errors.Trace(err)
+	}
+	return newAPIConnectionParams(store, controllerName, accountName, modelName, c.apiContext.BakeryClient)
 }
 
 // HTTPClient returns an http.Client that contains the loaded
@@ -166,15 +186,6 @@ func (c *JujuCommandBase) apiOpen(info *api.Info, opts api.DialOpts) (api.Connec
 	return api.Open(info, opts)
 }
 
-// newAPIRoot establishes a connection to the API server for
-// the named system or model.
-func (c *JujuCommandBase) newAPIRoot(store jujuclient.ClientStore, controllerName, accountName, modelName string) (api.Connection, error) {
-	if controllerName == "" {
-		return nil, errors.Trace(errNoNameSpecified)
-	}
-	return juju.NewAPIConnection(store, controllerName, accountName, modelName, c.apiContext.BakeryClient)
-}
-
 // WrapBase wraps the specified CommandBase, returning a Command
 // that proxies to each of the CommandBase methods.
 func WrapBase(c CommandBase) cmd.Command {
@@ -190,6 +201,7 @@ type baseCommandWrapper struct {
 // Run implements Command.Run.
 func (w *baseCommandWrapper) Run(ctx *cmd.Context) error {
 	defer w.closeContext()
+	w.setCmdContext(ctx)
 	return w.CommandBase.Run(ctx)
 }
 
@@ -201,4 +213,118 @@ func (w *baseCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 // Init implements Command.Init.
 func (w *baseCommandWrapper) Init(args []string) error {
 	return w.CommandBase.Init(args)
+}
+
+func newAPIConnectionParams(
+	store jujuclient.ClientStore,
+	controllerName,
+	accountName,
+	modelName string,
+	bakery *httpbakery.Client,
+) (juju.NewAPIConnectionParams, error) {
+	if controllerName == "" {
+		return juju.NewAPIConnectionParams{}, errors.Trace(errNoNameSpecified)
+	}
+	var accountDetails *jujuclient.AccountDetails
+	if accountName != "" {
+		var err error
+		accountDetails, err = store.AccountByName(controllerName, accountName)
+		if err != nil {
+			return juju.NewAPIConnectionParams{}, errors.Trace(err)
+		}
+	}
+	var modelUUID string
+	if modelName != "" {
+		modelDetails, err := store.ModelByName(controllerName, accountName, modelName)
+		if err != nil {
+			return juju.NewAPIConnectionParams{}, errors.Trace(err)
+		}
+		modelUUID = modelDetails.ModelUUID
+	}
+	dialOpts := api.DefaultDialOpts()
+	dialOpts.BakeryClient = bakery
+	return juju.NewAPIConnectionParams{
+		Store:           store,
+		ControllerName:  controllerName,
+		BootstrapConfig: NewGetBootstrapConfigFunc(store),
+		AccountDetails:  accountDetails,
+		ModelUUID:       modelUUID,
+		DialOpts:        dialOpts,
+	}, nil
+}
+
+// NewGetBootstrapConfigFunc returns a function that, given a controller name,
+// returns the bootstrap config for that controller in the given client store.
+func NewGetBootstrapConfigFunc(store jujuclient.ClientStore) func(string) (*config.Config, error) {
+	return bootstrapConfigGetter{store}.getBootstrapConfig
+}
+
+type bootstrapConfigGetter struct {
+	jujuclient.ClientStore
+}
+
+func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*config.Config, error) {
+	controllerName, err := ResolveControllerName(g.ClientStore, controllerName)
+	if err != nil {
+		return nil, errors.Annotate(err, "resolving controller name")
+	}
+	bootstrapConfig, err := g.BootstrapConfigForController(controllerName)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting bootstrap config")
+	}
+	cloudType, ok := bootstrapConfig.Config["type"].(string)
+	if !ok {
+		return nil, errors.NotFoundf("cloud type in bootstrap config")
+	}
+
+	var credential *cloud.Credential
+	if bootstrapConfig.Credential != "" {
+		credential, _, _, err = GetCredentials(
+			g.ClientStore,
+			bootstrapConfig.CloudRegion,
+			bootstrapConfig.Credential,
+			bootstrapConfig.Cloud,
+			cloudType,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		// The credential was auto-detected; run auto-detection again.
+		cloudCredential, err := DetectCredential(
+			bootstrapConfig.Cloud, cloudType,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// DetectCredential ensures that there is only one credential
+		// to choose from. It's still in a map, though, hence for..range.
+		for _, one := range cloudCredential.AuthCredentials {
+			credential = &one
+		}
+	}
+
+	// Add attributes from the controller details.
+	controllerDetails, err := g.ControllerByName(controllerName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	bootstrapConfig.Config[config.CACertKey] = controllerDetails.CACert
+	bootstrapConfig.Config[config.UUIDKey] = controllerDetails.ControllerUUID
+	bootstrapConfig.Config[config.ControllerUUIDKey] = controllerDetails.ControllerUUID
+
+	cfg, err := config.New(config.UseDefaults, bootstrapConfig.Config)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	provider, err := environs.Provider(cfg.Type())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return provider.BootstrapConfig(environs.BootstrapConfigParams{
+		cfg, *credential,
+		bootstrapConfig.CloudRegion,
+		bootstrapConfig.CloudEndpoint,
+		bootstrapConfig.CloudStorageEndpoint,
+	})
 }

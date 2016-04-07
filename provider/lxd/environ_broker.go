@@ -34,11 +34,6 @@ func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	// Please note that in order to fulfil the demands made of Instances and
-	// AllInstances, it is imperative that some environment feature be used to
-	// keep track of which instances were actually started by juju.
-	env = env.getSnapshot()
-
 	// Start a new instance.
 
 	if args.InstanceConfig.HasNetworks() {
@@ -134,7 +129,7 @@ func (env *environ) getImageSources() ([]lxdclient.Remote, error) {
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclient.Instance, error) {
-	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
+	machineID := common.MachineFullName(env.Config().UUID(), args.InstanceConfig.MachineId)
 
 	// Note: other providers have the ImageMetadata already read for them
 	// and passed in as args.ImageMetadata. However, lxd provider doesn't
@@ -270,14 +265,12 @@ func (env *environ) AllInstances() ([]instance.Instance, error) {
 
 // StopInstances implements environs.InstanceBroker.
 func (env *environ) StopInstances(instances ...instance.Id) error {
-	env = env.getSnapshot()
-
 	var ids []string
 	for _, id := range instances {
 		ids = append(ids, string(id))
 	}
 
-	prefix := common.MachineFullName(env, "")
+	prefix := common.MachineFullName(env.Config().UUID(), "")
 	err := env.raw.RemoveInstances(prefix, ids...)
 	return errors.Trace(err)
 }

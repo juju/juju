@@ -810,18 +810,6 @@ type ResumeReplicationParams struct {
 	Members []replicaset.Member
 }
 
-// ModelInfo holds information about the Juju model.
-type ModelInfo struct {
-	DefaultSeries string `json:"DefaultSeries"`
-	ProviderType  string `json:"ProviderType"`
-	Name          string `json:"Name"`
-	UUID          string `json:"UUID"`
-	// The json name here is as per the older field name and is required
-	// for backward compatability. The other fields also have explicit
-	// matching serialization directives for the benefit of being explicit.
-	ControllerUUID string `json:"ServerUUID"`
-}
-
 // MeterStatusParam holds meter status information to be set for the specified tag.
 type MeterStatusParam struct {
 	Tag  string `json:"tag"`
@@ -832,4 +820,15 @@ type MeterStatusParam struct {
 // MeterStatusParams holds parameters for making SetMeterStatus calls.
 type MeterStatusParams struct {
 	Statuses []MeterStatusParam `json:"statues"`
+}
+
+// MacaroonResults contains a set of MacaroonResults.
+type MacaroonResults struct {
+	Results []MacaroonResult `json:"results"`
+}
+
+// MacaroonResult contains a macaroon or an error.
+type MacaroonResult struct {
+	Result *macaroon.Macaroon `json:"result,omitempty"`
+	Error  *Error             `json:"error,omitempty"`
 }

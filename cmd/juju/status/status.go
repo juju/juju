@@ -114,13 +114,6 @@ func (c *statusCommand) Init(args []string) error {
 	return nil
 }
 
-var connectionError = `Unable to connect to model %q.
-Please check your credentials or use 'juju bootstrap' to create a new model.
-
-Error details:
-%v
-`
-
 var newApiClientForStatus = func(c *statusCommand) (statusAPI, error) {
 	return c.NewAPIClient()
 }
@@ -128,7 +121,7 @@ var newApiClientForStatus = func(c *statusCommand) (statusAPI, error) {
 func (c *statusCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := newApiClientForStatus(c)
 	if err != nil {
-		return errors.Errorf(connectionError, c.ConnectionName(), err)
+		return errors.Trace(err)
 	}
 	defer apiclient.Close()
 

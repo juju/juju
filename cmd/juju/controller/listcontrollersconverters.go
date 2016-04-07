@@ -23,7 +23,6 @@ type ControllerItem struct {
 	ModelName      string   `yaml:"current-model,omitempty" json:"current-model,omitempty"`
 	User           string   `yaml:"user,omitempty" json:"user,omitempty"`
 	Server         string   `yaml:"recent-server,omitempty" json:"recent-server,omitempty"`
-	Servers        []string `yaml:"servers,flow" json:"servers"`
 	ControllerUUID string   `yaml:"uuid" json:"uuid"`
 	APIEndpoints   []string `yaml:"api-endpoints,flow" json:"api-endpoints"`
 	CACert         string   `yaml:"ca-cert" json:"ca-cert"`
@@ -46,10 +45,10 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 	controllers := map[string]ControllerItem{}
 	for controllerName, details := range storeControllers {
 		serverName := ""
-		// The most recently connected-to host name
+		// The most recently connected-to address
 		// is the first in the list.
-		if len(details.Servers) > 0 {
-			serverName = details.Servers[0]
+		if len(details.APIEndpoints) > 0 {
+			serverName = details.APIEndpoints[0]
 		}
 
 		var userName, modelName string
@@ -81,7 +80,6 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 			ModelName:      modelName,
 			User:           userName,
 			Server:         serverName,
-			Servers:        details.Servers,
 			APIEndpoints:   details.APIEndpoints,
 			ControllerUUID: details.ControllerUUID,
 			CACert:         details.CACert,

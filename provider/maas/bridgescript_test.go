@@ -217,7 +217,9 @@ iface test-br-eth0 inet static
     address 1.2.3.4
     netmask 255.255.255.0
     gateway 4.3.2.1
-    bridge_ports eth0`
+    bridge_ports eth0
+    bridge_stp off
+    bridge_maxwait 0`
 
 const networkDHCPInitial = `auto lo
 iface lo inet loopback
@@ -232,7 +234,9 @@ iface eth0 inet manual
 
 auto test-br-eth0
 iface test-br-eth0 inet dhcp
-    bridge_ports eth0`
+    bridge_ports eth0
+    bridge_stp off
+    bridge_maxwait 0`
 
 const networkDualNICInitial = `auto lo
 iface lo inet loopback
@@ -260,6 +264,8 @@ iface test-br-eth0 inet static
     netmask 255.255.255.0
     gateway 4.3.2.1
     bridge_ports eth0
+    bridge_stp off
+    bridge_maxwait 0
 
 iface eth1 inet manual
 
@@ -268,7 +274,9 @@ iface test-br-eth1 inet static
     address 1.2.3.5
     netmask 255.255.255.0
     gateway 4.3.2.1
-    bridge_ports eth1`
+    bridge_ports eth1
+    bridge_stp off
+    bridge_maxwait 0`
 
 const networkWithAliasInitial = `auto lo
 iface lo inet loopback
@@ -294,6 +302,8 @@ iface test-br-eth0 inet static
     netmask 255.255.255.0
     gateway 4.3.2.1
     bridge_ports eth0
+    bridge_stp off
+    bridge_maxwait 0
 
 auto eth0:1
 iface eth0:1 inet static
@@ -327,6 +337,8 @@ iface test-br-eth0 inet static
     gateway 10.14.0.1
     address 10.14.0.102/24
     bridge_ports eth0
+    bridge_stp off
+    bridge_maxwait 0
 
 auto eth0:1
 iface eth0:1 inet static
@@ -364,6 +376,8 @@ iface test-br-eth0 inet static
     address 10.17.20.201/24
     mtu 1500
     bridge_ports eth0
+    bridge_stp off
+    bridge_maxwait 0
 
 auto eth0:1
 iface eth0:1 inet static
@@ -442,6 +456,8 @@ iface test-br-bond0 inet dhcp
     mtu 1500
     hwaddress 52:54:00:1c:f1:5b
     bridge_ports bond0
+    bridge_stp off
+    bridge_maxwait 0
     dns-nameservers 10.17.20.200
     dns-search maas19`
 
@@ -475,12 +491,16 @@ const networkMultipleAliasesExpected = `iface eth0 inet manual
 auto test-br-eth0
 iface test-br-eth0 inet dhcp
     bridge_ports eth0
+    bridge_stp off
+    bridge_maxwait 0
 
 iface eth1 inet manual
 
 auto test-br-eth1
 iface test-br-eth1 inet dhcp
     bridge_ports eth1
+    bridge_stp off
+    bridge_maxwait 0
 
 iface eth10 inet manual
 
@@ -490,6 +510,8 @@ iface test-br-eth10 inet static
     address 10.17.20.201/24
     mtu 1500
     bridge_ports eth10
+    bridge_stp off
+    bridge_maxwait 0
 
 auto eth10:1
 iface eth10:1 inet static
@@ -641,6 +663,8 @@ iface juju-br-eth4 inet static
     address 10.17.20.202/24
     mtu 1500
     bridge_ports eth4
+    bridge_stp off
+    bridge_maxwait 0
 
 iface eth5 inet manual
 
@@ -648,6 +672,8 @@ auto juju-br-eth5
 iface juju-br-eth5 inet dhcp
     mtu 1500
     bridge_ports eth5
+    bridge_stp off
+    bridge_maxwait 0
 
 iface eth6 inet manual
 
@@ -656,6 +682,8 @@ iface juju-br-eth6 inet static
     address 10.17.20.203/24
     mtu 1500
     bridge_ports eth6
+    bridge_stp off
+    bridge_maxwait 0
 
 auto eth6:1
 iface eth6:1 inet static
@@ -696,6 +724,8 @@ iface juju-br-bond0 inet static
     mtu 1500
     hwaddress 52:54:00:6a:4f:fd
     bridge_ports bond0
+    bridge_stp off
+    bridge_maxwait 0
 
 auto bond1
 iface bond1 inet manual
@@ -714,6 +744,8 @@ iface juju-br-bond1 inet dhcp
     mtu 1500
     hwaddress 52:54:00:8e:6e:b0
     bridge_ports bond1
+    bridge_stp off
+    bridge_maxwait 0
     dns-nameservers 10.17.20.200
     dns-search maas19`
 
@@ -752,6 +784,8 @@ iface vlan-br-eth0 inet static
     address 10.17.20.212/24
     mtu 1500
     bridge_ports eth0
+    bridge_stp off
+    bridge_maxwait 0
 
 auto eth1
 iface eth1 inet manual
@@ -768,6 +802,8 @@ iface vlan-br-eth0.2 inet static
     address 192.168.2.3/24
     mtu 1500
     bridge_ports eth0.2
+    bridge_stp off
+    bridge_maxwait 0
 
 iface eth1.3 inet manual
     address 192.168.3.3/24
@@ -782,6 +818,8 @@ iface vlan-br-eth1.3 inet static
     address 192.168.3.3/24
     mtu 1500
     bridge_ports eth1.3
+    bridge_stp off
+    bridge_maxwait 0
     dns-nameservers 10.17.20.200
     dns-search maas19`
 
@@ -847,6 +885,8 @@ iface br-eth0 inet static
     address 10.245.168.11/21
     mtu 1500
     bridge_ports eth0
+    bridge_stp off
+    bridge_maxwait 0
     dns-nameservers 10.245.168.2
 
 auto eth1
@@ -873,6 +913,8 @@ iface br-eth1.2667 inet static
     address 10.245.184.2/24
     mtu 1500
     bridge_ports eth1.2667
+    bridge_stp off
+    bridge_maxwait 0
     dns-nameservers 10.245.168.2
 
 iface eth1.2668 inet manual
@@ -887,6 +929,8 @@ iface br-eth1.2668 inet static
     address 10.245.185.1/24
     mtu 1500
     bridge_ports eth1.2668
+    bridge_stp off
+    bridge_maxwait 0
     dns-nameservers 10.245.168.2
 
 iface eth1.2669 inet manual
@@ -901,6 +945,8 @@ iface br-eth1.2669 inet static
     address 10.245.186.1/24
     mtu 1500
     bridge_ports eth1.2669
+    bridge_stp off
+    bridge_maxwait 0
     dns-nameservers 10.245.168.2
 
 iface eth1.2670 inet manual
@@ -916,6 +962,8 @@ iface br-eth1.2670 inet static
     address 10.245.187.2/24
     mtu 1500
     bridge_ports eth1.2670
+    bridge_stp off
+    bridge_maxwait 0
     dns-nameservers 10.245.168.2
     dns-search dellstack`
 
@@ -1011,6 +1059,8 @@ iface br-bond0 inet static
     mtu 1500
     hwaddress 52:54:00:1c:f1:5b
     bridge_ports bond0
+    bridge_stp off
+    bridge_maxwait 0
     dns-nameservers 10.17.20.200
 
 iface bond0.2 inet manual
@@ -1024,6 +1074,8 @@ iface br-bond0.2 inet static
     address 192.168.2.102/24
     mtu 1500
     bridge_ports bond0.2
+    bridge_stp off
+    bridge_maxwait 0
 
 iface bond0.3 inet manual
     address 192.168.3.101/24
@@ -1038,6 +1090,8 @@ iface br-bond0.3 inet static
     address 192.168.3.101/24
     mtu 1500
     bridge_ports bond0.3
+    bridge_stp off
+    bridge_maxwait 0
     dns-nameservers 10.17.20.200
     dns-search maas19`
 
@@ -1070,6 +1124,8 @@ iface br-eth0 inet static
     address 10.17.20.211/24
     mtu 1500
     bridge_ports eth0
+    bridge_stp off
+    bridge_maxwait 0
     dns-nameservers 10.17.20.200
 
 auto eth1
@@ -1087,6 +1143,8 @@ auto br-eth1.2
 iface br-eth1.2 inet dhcp
     mtu 1500
     bridge_ports eth1.2
+    bridge_stp off
+    bridge_maxwait 0
     dns-nameservers 10.17.20.200
     dns-search maas19`
 
@@ -1119,6 +1177,8 @@ iface br-eth0 inet static
     address 10.17.20.211/24
     mtu 1500
     bridge_ports eth0
+    bridge_stp off
+    bridge_maxwait 0
     dns-nameservers 10.17.20.200
 
 iface eth1 inet manual
@@ -1127,6 +1187,8 @@ auto br-eth1
 iface br-eth1 inet dhcp
     mtu 1500
     bridge_ports eth1
+    bridge_stp off
+    bridge_maxwait 0
 
 iface eth1.2 inet manual
     vlan-raw-device eth1
@@ -1139,6 +1201,8 @@ auto br-eth1.2
 iface br-eth1.2 inet dhcp
     mtu 1500
     bridge_ports eth1.2
+    bridge_stp off
+    bridge_maxwait 0
     dns-nameservers 10.17.20.200
     dns-search maas19`
 
@@ -1190,6 +1254,8 @@ iface br-eth0 inet static
     address 10.245.168.11/21
     mtu 1500
     bridge_ports eth0
+    bridge_stp off
+    bridge_maxwait 0
     dns-nameservers 10.245.168.2 192.168.1.1
 
 iface eth1 inet manual
@@ -1200,6 +1266,8 @@ iface br-eth1 inet static
     address 10.245.168.12/21
     mtu 1500
     bridge_ports eth1
+    bridge_stp off
+    bridge_maxwait 0
     dns-sortlist 192.168.1.0/24 10.245.168.0/21
 
 iface eth2 inet manual
@@ -1210,6 +1278,8 @@ iface br-eth2 inet static
     address 10.245.168.13/21
     mtu 1500
     bridge_ports eth2
+    bridge_stp off
+    bridge_maxwait 0
     dns-search juju ubuntu dellstack
 
 iface eth3 inet manual
@@ -1220,6 +1290,8 @@ iface br-eth3 inet static
     address 10.245.168.14/21
     mtu 1500
     bridge_ports eth3
+    bridge_stp off
+    bridge_maxwait 0
     dns-nameservers 192.168.1.1 10.245.168.2
     dns-search juju ubuntu dellstack
     dns-sortlist 192.168.1.0/24 10.245.168.0/21`
@@ -1254,6 +1326,8 @@ iface br-eth0 inet static
     address 10.245.168.11/21
     mtu 1500
     bridge_ports eth0
+    bridge_stp off
+    bridge_maxwait 0
 
 iface eth1 inet manual
 
@@ -1262,7 +1336,9 @@ iface br-eth1 inet static
     gateway 10.245.168.1
     address 10.245.168.12/21
     mtu 1500
-    bridge_ports eth1`
+    bridge_ports eth1
+    bridge_stp off
+    bridge_maxwait 0`
 
 const networkLP1532167Initial = `auto eth0
 iface eth0 inet manual
@@ -1429,6 +1505,8 @@ iface juju-br0 inet static
     mtu 1500
     hwaddress 44:a8:42:41:ab:37
     bridge_ports bond0
+    bridge_stp off
+    bridge_maxwait 0
 
 auto bond1
 iface bond1 inet manual
@@ -1520,7 +1598,9 @@ iface juju-br0 inet static
     address 1.2.3.4
     netmask 255.255.255.0
     gateway 4.3.2.1
-    bridge_ports eth1`
+    bridge_ports eth1
+    bridge_stp off
+    bridge_maxwait 0`
 
 const networkPartiallyBridgedInitial = `auto lo
 iface lo inet loopback
@@ -1533,6 +1613,8 @@ iface br-eth0 inet static
     netmask 255.255.255.0
     gateway 4.3.2.1
     bridge_ports eth0
+    bridge_stp off
+    bridge_maxwait 0
 
 auto eth1
 iface eth1 inet static
@@ -1551,6 +1633,8 @@ iface br-eth0 inet static
     netmask 255.255.255.0
     gateway 4.3.2.1
     bridge_ports eth0
+    bridge_stp off
+    bridge_maxwait 0
 
 iface eth1 inet manual
 
@@ -1559,4 +1643,6 @@ iface br-eth1 inet static
     address 1.2.3.5
     netmask 255.255.255.0
     gateway 4.3.2.1
-    bridge_ports eth1`
+    bridge_ports eth1
+    bridge_stp off
+    bridge_maxwait 0`

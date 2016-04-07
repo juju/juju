@@ -9,8 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	lxdshared "github.com/lxc/lxd/shared"
-
-	"github.com/juju/juju/container/lxc"
 )
 
 const (
@@ -193,7 +191,10 @@ func (r Remote) UsingTCP() (Remote, error) {
 	// TODO: jam 2016-02-25 This should be updated for systems that are
 	// 	 space aware, as we may not be just using the default LXC
 	// 	 bridge.
-	netIF := lxc.DefaultLxcBridge
+	netIF, err := GetDefaultBridgeName()
+	if err != nil {
+		return r, errors.Trace(err)
+	}
 	addr, err := utils.GetAddressForInterface(netIF)
 	if err != nil {
 		return r, errors.Trace(err)

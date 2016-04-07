@@ -5,7 +5,6 @@ package modelcmd
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -16,7 +15,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 )
@@ -26,7 +24,13 @@ var logger = loggo.GetLogger("juju.cmd.modelcmd")
 // ErrNoModelSpecified is returned by commands that operate on
 // an environment if there is no current model, no model
 // has been explicitly specified, and there is no default model.
-var ErrNoModelSpecified = errors.New("no model specified")
+var ErrNoModelSpecified = errors.New(`no model specified
+
+There is no current model specified for the current controller,
+and none specified on the command line. Please use "juju switch"
+to set the current model, or specify a model on the command line
+using the "-m" flag.
+`)
 
 // GetCurrentModel returns the name of the current Juju model.
 //
@@ -191,6 +195,9 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 	// This is work in progress as we remove the ModelName from downstream code.
 	// We want to be able to specify the environment in a number of ways, one of
 	// which is the connection name on the client machine.
+	if c.controllerName == "" {
+		return nil, errors.Trace(ErrNoControllerSpecified)
+	}
 	if c.modelName == "" {
 		return nil, errors.Trace(ErrNoModelSpecified)
 	}
@@ -198,64 +205,18 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 	if opener == nil {
 		opener = OpenFunc(c.JujuCommandBase.NewAPIRoot)
 	}
-	// TODO(axw) stop checking c.store != nil once we've updated all the
-	// tests, and have excised configstore.
-	if c.modelName != "" && c.controllerName != "" && c.store != nil {
-		_, err := c.store.ModelByName(c.controllerName, c.accountName, c.modelName)
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				return nil, errors.Trace(err)
-			}
-			// The model isn't known locally, so query the models
-			// available in the controller, and cache them locally.
-			if err := c.RefreshModels(c.store, c.controllerName, c.accountName); err != nil {
-				return nil, errors.Annotate(err, "refreshing models")
-			}
+	_, err := c.store.ModelByName(c.controllerName, c.accountName, c.modelName)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		// The model isn't known locally, so query the models
+		// available in the controller, and cache them locally.
+		if err := c.RefreshModels(c.store, c.controllerName, c.accountName); err != nil {
+			return nil, errors.Annotate(err, "refreshing models")
 		}
 	}
 	return opener.Open(c.store, c.controllerName, c.accountName, c.modelName)
-}
-
-// ConnectionCredentials returns the credentials used to connect to the API for
-// the specified environment.
-func (c *ModelCommandBase) ConnectionCredentials() (configstore.APICredentials, error) {
-	// TODO: the user may soon be specified through the command line
-	// or through an environment setting, so return these when they are ready.
-	var emptyCreds configstore.APICredentials
-	if c.modelName == "" {
-		return emptyCreds, errors.Trace(ErrNoModelSpecified)
-	}
-	info, err := connectionInfoForName(c.controllerName, c.modelName)
-	if err != nil {
-		return emptyCreds, errors.Trace(err)
-	}
-	return info.APICredentials(), nil
-}
-
-var endpointRefresher = func(c *ModelCommandBase) (io.Closer, error) {
-	return c.NewAPIRoot()
-}
-
-var getConfigStore = func() (configstore.Storage, error) {
-	store, err := configstore.Default()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return store, nil
-}
-
-// connectionInfoForName reads the environment information for the named
-// environment (modelName) and returns it.
-func connectionInfoForName(controllerName, modelName string) (configstore.EnvironInfo, error) {
-	store, err := getConfigStore()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	info, err := store.ReadInfo(configstore.EnvironInfoName(controllerName, modelName))
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return info, nil
 }
 
 // ConnectionName returns the name of the connection if there is one.
@@ -309,7 +270,6 @@ type modelCommandWrapper struct {
 }
 
 func (w *modelCommandWrapper) Run(ctx *cmd.Context) error {
-	w.ModelCommand.setCmdContext(ctx)
 	return w.ModelCommand.Run(ctx)
 }
 

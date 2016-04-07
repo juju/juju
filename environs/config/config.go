@@ -103,6 +103,24 @@ const (
 	// Settings Attributes
 	//
 
+	// NameKey is the key for the model's name.
+	NameKey = "name"
+
+	// TypeKey is the key for the model's cloud type.
+	TypeKey = "type"
+
+	// AgentVersionKey is the key for the model's Juju agent version.
+	AgentVersionKey = "agent-version"
+
+	// CACertKey is the key for the controller's CA certificate attribute.
+	CACertKey = "ca-cert"
+
+	// UUIDKey is the key for the model UUID attribute.
+	UUIDKey = "uuid"
+
+	// ControllerUUIDKey is the key for the controller UUID attribute.
+	ControllerUUIDKey = "controller-uuid"
+
 	// ProvisionerHarvestModeKey stores the key for this setting.
 	ProvisionerHarvestModeKey = "provisioner-harvest-mode"
 
@@ -445,11 +463,11 @@ func (c *Config) fillInDefaults() error {
 
 	// Don't use c.Name() because the name hasn't
 	// been verified yet.
-	name := c.asString("name")
+	name := c.asString(NameKey)
 	if name == "" {
 		return fmt.Errorf("empty name in model configuration")
 	}
-	err := maybeReadAttrFromFile(c.defined, "ca-cert", name+"-cert.pem")
+	err := maybeReadAttrFromFile(c.defined, CACertKey, name+"-cert.pem")
 	if err != nil {
 		return err
 	}
@@ -497,8 +515,8 @@ func ProcessDeprecatedAttributes(attrs map[string]interface{}) map[string]interf
 	}
 
 	// Update the provider type from null to manual.
-	if attrs["type"] == "null" {
-		processedAttrs["type"] = "manual"
+	if attrs[TypeKey] == "null" {
+		processedAttrs[TypeKey] = "manual"
 	}
 
 	if _, ok := attrs[ProvisionerHarvestModeKey]; !ok {
@@ -584,13 +602,13 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if strings.ContainsAny(cfg.mustString("name"), "/\\") {
+	if strings.ContainsAny(cfg.mustString(NameKey), "/\\") {
 		return fmt.Errorf("model name contains unsafe characters")
 	}
 
 	// Check that the agent version parses ok if set explicitly; otherwise leave
 	// it alone.
-	if v, ok := cfg.defined["agent-version"].(string); ok {
+	if v, ok := cfg.defined[AgentVersionKey].(string); ok {
 		if _, err := version.Parse(v); err != nil {
 			return fmt.Errorf("invalid agent version in model configuration: %q", v)
 		}
@@ -629,8 +647,12 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if uuid, ok := cfg.defined["uuid"]; ok && !utils.IsValidUUIDString(uuid.(string)) {
-		return errors.Errorf("uuid: expected uuid, got string(%q)", uuid)
+	if uuid := cfg.UUID(); !utils.IsValidUUIDString(uuid) {
+		return errors.Errorf("uuid: expected UUID, got string(%q)", uuid)
+	}
+
+	if uuid := cfg.ControllerUUID(); !utils.IsValidUUIDString(uuid) {
+		return errors.Errorf("controller-uuid: expected UUID, got string(%q)", uuid)
 	}
 
 	// Ensure the resource tags have the expected k=v format.
@@ -641,23 +663,8 @@ func Validate(cfg, old *Config) error {
 	// Check the immutable config values.  These can't change
 	if old != nil {
 		for _, attr := range immutableAttributes {
-			switch attr {
-			case "uuid":
-				// uuid is special cased because currently (24/July/2014) there exist no juju
-				// environments whose environment configuration's contain a uuid key so we must
-				// treat uuid as field that can be updated from non existant to a valid uuid.
-				// We do not need to deal with the case of the uuid key being blank as the schema
-				// only permits valid uuids in that field.
-				oldv, oldexists := old.defined[attr]
-				newv := cfg.defined[attr]
-				if oldexists && oldv != newv {
-					newv := cfg.defined[attr]
-					return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
-				}
-			default:
-				if newv, oldv := cfg.defined[attr], old.defined[attr]; newv != oldv {
-					return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
-				}
+			if newv, oldv := cfg.defined[attr], old.defined[attr]; newv != oldv {
+				return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
 			}
 		}
 		if _, oldFound := old.AgentVersion(); oldFound {
@@ -773,24 +780,24 @@ func (c *Config) mustInt(name string) int {
 	return value
 }
 
-// Type returns the environment type.
+// Type returns the model's cloud provider type.
 func (c *Config) Type() string {
-	return c.mustString("type")
+	return c.mustString(TypeKey)
 }
 
-// Name returns the environment name.
+// Name returns the model name.
 func (c *Config) Name() string {
-	return c.mustString("name")
+	return c.mustString(NameKey)
 }
 
-// UUID returns the uuid for the environment.
-// For backwards compatability with 1.20 and earlier the value may be blank if
-// no uuid is present in this configuration. Once all enviroment configurations
-// have been upgraded, this relaxation will be dropped. The absence of a uuid
-// is indicated by a result of "", false.
-func (c *Config) UUID() (string, bool) {
-	value, exists := c.defined["uuid"].(string)
-	return value, exists
+// UUID returns the uuid for the model.
+func (c *Config) UUID() string {
+	return c.mustString(UUIDKey)
+}
+
+// ControllerUUID returns the uuid for the model's controller.
+func (c *Config) ControllerUUID() string {
+	return c.mustString(ControllerUUIDKey)
 }
 
 // DefaultSeries returns the configured default Ubuntu series for the environment,
@@ -968,7 +975,7 @@ func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
 // CACert returns the certificate of the CA that signed the controller
 // certificate, in PEM format, and whether the setting is available.
 func (c *Config) CACert() (string, bool) {
-	if s, ok := c.defined["ca-cert"]; ok {
+	if s, ok := c.defined[CACertKey]; ok {
 		return s.(string), true
 	}
 	return "", false
@@ -1003,7 +1010,7 @@ func (c *Config) FirewallMode() string {
 // and whether it has been set. Once an environment is bootstrapped, this
 // must always be valid.
 func (c *Config) AgentVersion() (version.Number, bool) {
-	if v, ok := c.defined["agent-version"].(string); ok {
+	if v, ok := c.defined[AgentVersionKey].(string); ok {
 		n, err := version.Parse(v)
 		if err != nil {
 			panic(err) // We should have checked it earlier.
@@ -1291,8 +1298,8 @@ var fields = func() schema.Fields {
 // but some fields listed as optional here are actually mandatory
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
-	"agent-version":              schema.Omit,
-	"ca-cert":                    schema.Omit,
+	AgentVersionKey:              schema.Omit,
+	CACertKey:                    schema.Omit,
 	"authorized-keys":            schema.Omit,
 	"authorized-keys-path":       schema.Omit,
 	"ca-cert-path":               schema.Omit,
@@ -1303,7 +1310,6 @@ var alwaysOptional = schema.Defaults{
 	"bootstrap-retry-delay":      schema.Omit,
 	"bootstrap-addresses-delay":  schema.Omit,
 	"rsyslog-ca-cert":            schema.Omit,
-	"rsyslog-ca-key":             schema.Omit,
 	HttpProxyKey:                 schema.Omit,
 	HttpsProxyKey:                schema.Omit,
 	FtpProxyKey:                  schema.Omit,
@@ -1364,9 +1370,6 @@ var alwaysOptional = schema.Defaults{
 	"prefer-ipv6":              false,
 	"enable-os-refresh-update": schema.Omit,
 	"enable-os-upgrade":        schema.Omit,
-
-	// uuid may be missing for backwards compatability.
-	"uuid": schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1422,9 +1425,10 @@ var mandatoryWithoutDefaults = []string{
 // which are not allowed to change in the lifetime
 // of an environment.
 var immutableAttributes = []string{
-	"name",
-	"type",
-	"uuid",
+	NameKey,
+	TypeKey,
+	UUIDKey,
+	ControllerUUIDKey,
 	"firewall-mode",
 	"state-port",
 	"api-port",
@@ -1585,7 +1589,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"agent-version": {
+	AgentVersionKey: {
 		Description: "The desired Juju agent version to use",
 		Type:        environschema.Tstring,
 		Group:       environschema.JujuGroup,
@@ -1669,7 +1673,7 @@ var configSchema = environschema.Fields{
 		Immutable:   true,
 		Group:       environschema.EnvironGroup,
 	},
-	"ca-cert": {
+	CACertKey: {
 		Description: `The certificate of the CA that signed the controller certificate, in PEM format`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
@@ -1794,7 +1798,7 @@ global or per instance security groups.`,
 		Description: `Whether the LXC provisioner should create a template and use cloning to speed up container provisioning. (deprecated by lxc-clone)`,
 		Type:        environschema.Tbool,
 	},
-	"name": {
+	NameKey: {
 		Description: "The name of the current model",
 		Type:        environschema.Tstring,
 		Mandatory:   true,
@@ -1840,11 +1844,6 @@ global or per instance security groups.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"rsyslog-ca-key": {
-		Description: `The private key of the CA that signed the rsyslog certificate, in PEM format`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
 	SetNumaControlPolicyKey: {
 		Description: "Tune Juju controller to work with NUMA if present (default false)",
 		Type:        environschema.Tbool,
@@ -1883,15 +1882,21 @@ data of the store. (default false)`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"type": {
+	TypeKey: {
 		Description: "Type of model, e.g. local, ec2",
 		Type:        environschema.Tstring,
 		Mandatory:   true,
 		Immutable:   true,
 		Group:       environschema.EnvironGroup,
 	},
-	"uuid": {
+	UUIDKey: {
 		Description: "The UUID of the model",
+		Type:        environschema.Tstring,
+		Group:       environschema.JujuGroup,
+		Immutable:   true,
+	},
+	ControllerUUIDKey: {
+		Description: "The UUID of the model's controller",
 		Type:        environschema.Tstring,
 		Group:       environschema.JujuGroup,
 		Immutable:   true,

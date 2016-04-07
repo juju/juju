@@ -17,29 +17,101 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// UserAuthenticator performs password based authentication for users.
+// UserAuthenticator performs authentication for local users. If a password
 type UserAuthenticator struct {
 	AgentAuthenticator
+
+	// Service holds the service that is used to mint and verify macaroons.
+	Service *bakery.Service
 }
 
-const usernameKey = "username"
+const (
+	usernameKey = "username"
+
+	// TODO(axw) make this configurable via model config.
+	localLoginExpiryTime = 24 * time.Hour
+
+	// TODO(axw) check with cmars about this time limit. Seems a bit
+	// too low. Are we prompting the user every hour, or just refreshing
+	// the token every hour until the external IdM requires prompting
+	// the user?
+	externalLoginExpiryTime = 1 * time.Hour
+)
 
 var _ EntityAuthenticator = (*UserAuthenticator)(nil)
 
-// Authenticate authenticates the provided entity and returns an error on authentication failure.
-func (u *UserAuthenticator) Authenticate(entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error) {
-	if tag.Kind() != names.UserTagKind {
+// Authenticate authenticates the entity with the specified tag, and returns an
+// error on authentication failure.
+//
+// If and only if no password is supplied, then Authenticate will check for any
+// valid macaroons. Otherwise, password authentication will be performed.
+func (u *UserAuthenticator) Authenticate(
+	entityFinder EntityFinder, tag names.Tag, req params.LoginRequest,
+) (state.Entity, error) {
+	userTag, ok := tag.(names.UserTag)
+	if !ok {
 		return nil, errors.Errorf("invalid request")
+	}
+	if req.Credentials == "" && userTag.IsLocal() {
+		return u.authenticateMacaroons(entityFinder, userTag, req)
 	}
 	return u.AgentAuthenticator.Authenticate(entityFinder, tag, req)
 }
 
-// MacaroonAuthenticator performs authentication for users using macaroons.
-// If the authentication fails because provided macaroons are invalid,
-// and macaroon authentiction is enabled, it will return a
-// *common.DischargeRequiredError holding a macaroon to be
-// discharged.
-type MacaroonAuthenticator struct {
+// CreateLocalLoginMacaroon creates a time-limited macaroon for a local user
+// to log into the controller with. The macaroon will be valid for use with
+// UserAuthenticator.Authenticate until the time limit expires, or the Juju
+// controller agent restarts.
+//
+// NOTE(axw) this method will generate a key for a previously unseen user,
+// and store it in the bakery.Service's storage, which is currently in-memory.
+// Callers should first ensure the user is valid before calling this, to avoid
+// filling memory with keys for invalid users.
+func (u *UserAuthenticator) CreateLocalLoginMacaroon(tag names.UserTag) (*macaroon.Macaroon, error) {
+	// We create the macaroon with a random ID and random root key, which
+	// enables multiple clients to login as the same user and obtain separate
+	// macaroons without having them use the same root key.
+	//
+	// TODO(axw) check with rogpeppe about this. bakery.Service doesn't
+	// currently garbage collect, so this will grow until the controller
+	// agent restarts.
+	m, err := u.Service.NewMacaroon("", nil, []checkers.Caveat{
+		// The macaroon may only be used to log in as the user
+		// specified by the tag passed to CreateLocalUserMacaroon.
+		checkers.DeclaredCaveat(usernameKey, tag.Canonical()),
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create macaroon")
+	}
+	if err := addMacaroonTimeBeforeCaveat(u.Service, m, localLoginExpiryTime); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return m, nil
+}
+
+func (u *UserAuthenticator) authenticateMacaroons(
+	entityFinder EntityFinder, tag names.UserTag, req params.LoginRequest,
+) (state.Entity, error) {
+	// Check for a valid request macaroon.
+	assert := map[string]string{usernameKey: tag.Canonical()}
+	_, err := u.Service.CheckAny(req.Macaroons, assert, checkers.New(checkers.TimeBefore))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	entity, err := entityFinder.FindEntity(tag)
+	if errors.IsNotFound(err) {
+		return nil, errors.Trace(common.ErrBadCreds)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return entity, nil
+}
+
+// ExternalMacaroonAuthenticator performs authentication for external users using
+// macaroons. If the authentication fails because provided macaroons are invalid,
+// and macaroon authentiction is enabled, it will return a *common.DischargeRequiredError
+// holding a macaroon to be discharged.
+type ExternalMacaroonAuthenticator struct {
 	// Service holds the service that is
 	// used to verify macaroon authorization.
 	Service *bakery.Service
@@ -55,18 +127,18 @@ type MacaroonAuthenticator struct {
 	IdentityLocation string
 }
 
-var _ EntityAuthenticator = (*MacaroonAuthenticator)(nil)
+var _ EntityAuthenticator = (*ExternalMacaroonAuthenticator)(nil)
 
-func (m *MacaroonAuthenticator) newDischargeRequiredError(cause error) error {
+func (m *ExternalMacaroonAuthenticator) newDischargeRequiredError(cause error) error {
 	if m.Service == nil || m.Macaroon == nil {
 		return errors.Trace(cause)
 	}
 	mac := m.Macaroon.Clone()
-	err := m.Service.AddCaveat(mac, checkers.TimeBeforeCaveat(time.Now().Add(time.Hour)))
-	if err != nil {
+	// TODO(fwereade): 2016-03-17 lp:1558657
+	if err := addMacaroonTimeBeforeCaveat(m.Service, mac, externalLoginExpiryTime); err != nil {
 		return errors.Annotatef(err, "cannot create macaroon")
 	}
-	err = m.Service.AddCaveat(mac, checkers.NeedDeclaredCaveat(
+	err := m.Service.AddCaveat(mac, checkers.NeedDeclaredCaveat(
 		checkers.Caveat{
 			Location:  m.IdentityLocation,
 			Condition: "is-authenticated-user",
@@ -84,7 +156,7 @@ func (m *MacaroonAuthenticator) newDischargeRequiredError(cause error) error {
 
 // Authenticate authenticates the provided entity. If there is no macaroon provided, it will
 // return a *DischargeRequiredError containing a macaroon that can be used to grant access.
-func (m *MacaroonAuthenticator) Authenticate(entityFinder EntityFinder, _ names.Tag, req params.LoginRequest) (state.Entity, error) {
+func (m *ExternalMacaroonAuthenticator) Authenticate(entityFinder EntityFinder, _ names.Tag, req params.LoginRequest) (state.Entity, error) {
 	declared, err := m.Service.CheckAny(req.Macaroons, nil, checkers.New(checkers.TimeBefore))
 	if _, ok := errors.Cause(err).(*bakery.VerificationError); ok {
 		return nil, m.newDischargeRequiredError(err)
@@ -120,4 +192,8 @@ func (m *MacaroonAuthenticator) Authenticate(entityFinder EntityFinder, _ names.
 		return nil, errors.Trace(err)
 	}
 	return entity, nil
+}
+
+func addMacaroonTimeBeforeCaveat(svc *bakery.Service, m *macaroon.Macaroon, d time.Duration) error {
+	return svc.AddCaveat(m, checkers.TimeBeforeCaveat(time.Now().Add(d)))
 }

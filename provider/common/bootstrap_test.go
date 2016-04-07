@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
@@ -38,7 +37,7 @@ type BootstrapSuite struct {
 var _ = gc.Suite(&BootstrapSuite{})
 
 type cleaner interface {
-	AddCleanup(testing.CleanupFunc)
+	AddCleanup(func(*gc.C))
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
@@ -66,6 +65,7 @@ func minimalConfig(c *gc.C) *config.Config {
 		"name":            "whatever",
 		"type":            "anything, really",
 		"uuid":            coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ModelTag.Id(),
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
 		"authorized-keys": coretesting.FakeAuthKeys,
@@ -120,7 +120,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	_, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
 		BootstrapConstraints: checkCons,
-		EnvironConstraints:   checkCons,
+		ModelConstraints:     checkCons,
 		Placement:            checkPlacement,
 		AvailableTools: tools.List{
 			&tools.Tools{
@@ -132,6 +132,52 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 			},
 		}})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
+}
+
+func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&series.HostSeries, func() string { return "precise" })
+	stor := newStorage(s, c)
+	checkInstanceId := "i-success"
+	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
+
+	startInstance := func(_ string, _ constraints.Value, _ []string, _ tools.List, icfg *instancecfg.InstanceConfig) (instance.Instance,
+		*instance.HardwareCharacteristics, []network.InterfaceInfo, error) {
+		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
+	}
+	var mocksConfig = minimalConfig(c)
+	var numGetConfigCalled int
+	getConfig := func() *config.Config {
+		numGetConfigCalled++
+		return mocksConfig
+	}
+	setConfig := func(c *config.Config) error {
+		mocksConfig = c
+		return nil
+	}
+
+	env := &mockEnviron{
+		storage:       stor,
+		startInstance: startInstance,
+		config:        getConfig,
+		setConfig:     setConfig,
+	}
+	ctx := envtesting.BootstrapContext(c)
+	bootstrapSeries := "utopic"
+	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		BootstrapSeries: bootstrapSeries,
+		AvailableTools: tools.List{
+			&tools.Tools{
+				Version: version.Binary{
+					Number: jujuversion.Current,
+					Arch:   arch.HostArch(),
+					Series: bootstrapSeries,
+				},
+			},
+		}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
+	c.Check(result.Series, gc.Equals, bootstrapSeries)
 }
 
 func (s *BootstrapSuite) TestSuccess(c *gc.C) {

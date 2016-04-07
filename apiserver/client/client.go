@@ -5,7 +5,6 @@ package client
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -277,7 +276,9 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	var result params.ProvisioningScriptResult
 	icfg, err := InstanceConfig(c.api.state(), args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
-		return result, err
+		return result, common.ServerError(errors.Annotate(
+			err, "getting instance config",
+		))
 	}
 
 	// Until DisablePackageCommands is retired, for backwards
@@ -290,14 +291,21 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 		icfg.EnableOSRefreshUpdate = false
 		icfg.EnableOSUpgrade = false
 	} else if cfg, err := c.api.stateAccessor.ModelConfig(); err != nil {
-		return result, err
+		return result, common.ServerError(errors.Annotate(
+			err, "getting model config",
+		))
 	} else {
 		icfg.EnableOSUpgrade = cfg.EnableOSUpgrade()
 		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
 	}
 
 	result.Script, err = manual.ProvisioningScript(icfg)
-	return result, err
+	if err != nil {
+		return result, common.ServerError(errors.Annotate(
+			err, "getting provisioning script",
+		))
+	}
+	return result, nil
 }
 
 // DestroyMachines removes a given set of machines.
@@ -365,24 +373,14 @@ func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
 	}
 
 	for _, user := range users {
-		var lastConn *time.Time
-		userLastConn, err := user.LastConnection()
+		var result params.ModelUserInfoResult
+		userInfo, err := common.ModelUserInfo(user)
 		if err != nil {
-			if !state.IsNeverConnectedError(err) {
-				return results, errors.Trace(err)
-			}
+			result.Error = common.ServerError(err)
 		} else {
-			lastConn = &userLastConn
+			result.Result = &userInfo
 		}
-		results.Results = append(results.Results, params.ModelUserInfoResult{
-			Result: &params.ModelUserInfo{
-				UserName:       user.UserName(),
-				DisplayName:    user.DisplayName(),
-				CreatedBy:      user.CreatedBy(),
-				DateCreated:    user.DateCreated(),
-				LastConnection: lastConn,
-			},
-		})
+		results.Results = append(results.Results, result)
 	}
 	return results, nil
 }

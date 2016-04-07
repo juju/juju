@@ -109,11 +109,8 @@ func (p EnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 	return cfg, nil
 }
 
-func (p EnvironProvider) PrepareForBootstrap(
-	ctx environs.BootstrapContext,
-	args environs.PrepareForBootstrapParams,
-) (environs.Environ, error) {
-
+// BootstrapConfig is specified in the EnvironProvider interface.
+func (p EnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	// Add credentials to the configuration.
 	attrs := map[string]interface{}{
 		"region":   args.CloudRegion,
@@ -136,15 +133,24 @@ func (p EnvironProvider) PrepareForBootstrap(
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
 	}
+
+	// Set the default block-storage source.
+	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
+		attrs[config.StorageDefaultBlockSourceKey] = CinderProviderType
+	}
+
 	cfg, err := args.Config.Apply(attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return p.PrepareForCreateEnvironment(cfg)
+}
 
-	cfg, err = p.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, err
-	}
+// PrepareForBootstrap is specified in the EnvironProvider interface.
+func (p EnvironProvider) PrepareForBootstrap(
+	ctx environs.BootstrapContext,
+	cfg *config.Config,
+) (environs.Environ, error) {
 	e, err := p.Open(cfg)
 	if err != nil {
 		return nil, err
@@ -160,7 +166,7 @@ func (p EnvironProvider) PrepareForBootstrap(
 // find matching image information.
 func (p EnvironProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
-		return nil, fmt.Errorf("region must be specified")
+		return nil, errors.Errorf("region must be specified")
 	}
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
@@ -449,7 +455,7 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 		instTypeNames[i] = flavor.Name
 	}
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
-	validator.RegisterVocabulary(constraints.VirtType, []string{"lxd", "qemu"})
+	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
 	return validator, nil
 }
 
@@ -511,7 +517,7 @@ type openstackPlacement struct {
 func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) {
 	pos := strings.IndexRune(placement, '=')
 	if pos == -1 {
-		return nil, fmt.Errorf("unknown placement directive: %v", placement)
+		return nil, errors.Errorf("unknown placement directive: %v", placement)
 	}
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
@@ -527,9 +533,9 @@ func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) 
 				}, nil
 			}
 		}
-		return nil, fmt.Errorf("invalid availability zone %q", availabilityZone)
+		return nil, errors.Errorf("invalid availability zone %q", availabilityZone)
 	}
-	return nil, fmt.Errorf("unknown placement directive: %v", placement)
+	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
 
 // PrecheckInstance is defined on the state.Prechecker interface.
@@ -553,7 +559,7 @@ func (e *Environ) PrecheckInstance(series string, cons constraints.Value, placem
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid Openstack flavour %q specified", *cons.InstanceType)
+	return errors.Errorf("invalid Openstack flavour %q specified", *cons.InstanceType)
 }
 
 func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
@@ -591,8 +597,12 @@ func (e *Environ) Config() *config.Config {
 
 type newClientFunc func(*identity.Credentials, identity.AuthMode, *log.Logger) client.AuthenticatingClient
 
-func determineBestClient(options identity.AuthOptions, client client.AuthenticatingClient,
-	cred *identity.Credentials, newClient newClientFunc) client.AuthenticatingClient {
+func determineBestClient(
+	options identity.AuthOptions,
+	client client.AuthenticatingClient,
+	cred *identity.Credentials,
+	newClient newClientFunc,
+) client.AuthenticatingClient {
 	for _, option := range options {
 		if option.Mode != identity.AuthUserPassV3 {
 			continue
@@ -755,9 +765,9 @@ func (e *Environ) resolveNetwork(networkName string) (string, error) {
 	case 1:
 		return networkIds[0], nil
 	case 0:
-		return "", fmt.Errorf("No networks exist with label %q", networkName)
+		return "", errors.Errorf("No networks exist with label %q", networkName)
 	}
-	return "", fmt.Errorf("Multiple networks with label %q: %v", networkName, networkIds)
+	return "", errors.Errorf("Multiple networks with label %q: %v", networkName, networkIds)
 }
 
 // allocatePublicIP tries to find an available floating IP address, or
@@ -795,7 +805,7 @@ func (e *Environ) allocatePublicIP() (*nova.FloatingIP, error) {
 // specified server, or returns an error.
 func (e *Environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err error) {
 	if fip == nil {
-		return fmt.Errorf("cannot assign a nil public IP to %q", serverId)
+		return errors.Errorf("cannot assign a nil public IP to %q", serverId)
 	}
 	if fip.InstanceId != nil && *fip.InstanceId == serverId {
 		// IP already assigned, nothing to do
@@ -833,7 +843,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			return nil, err
 		}
 		if !placement.availabilityZone.State.Available {
-			return nil, fmt.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
+			return nil, errors.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
 		}
 		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
 	}
@@ -868,7 +878,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 
 	if args.InstanceConfig.HasNetworks() {
-		return nil, fmt.Errorf("starting instances with networks is not supported yet.")
+		return nil, errors.Errorf("starting instances with networks is not supported yet.")
 	}
 
 	series := args.Tools.OneSeries()
@@ -884,7 +894,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
 	args.InstanceConfig.Tools = tools[0]
@@ -898,7 +908,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, OpenstackRenderer{})
 	if err != nil {
-		return nil, fmt.Errorf("cannot make user data: %v", err)
+		return nil, errors.Annotate(err, "cannot make user data")
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 
@@ -917,7 +927,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if withPublicIP {
 		logger.Debugf("allocating public IP address for openstack node")
 		if fip, err := e.allocatePublicIP(); err != nil {
-			return nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
+			return nil, errors.Annotate(err, "cannot allocate a public IP as needed")
 		} else {
 			publicIP = fip
 			logger.Infof("allocated public IP %s", publicIP.IP)
@@ -928,53 +938,74 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	var groupNames = make([]nova.SecurityGroupName, 0)
 	groups, err := e.firewaller.SetUpGroups(args.InstanceConfig.MachineId, cfg.APIPort())
 	if err != nil {
-		return nil, fmt.Errorf("cannot set up groups: %v", err)
+		return nil, errors.Annotate(err, "cannot set up groups")
 	}
 
 	for _, g := range groups {
 		groupNames = append(groupNames, nova.SecurityGroupName{g.Name})
 	}
-	eUUID, ok := e.Config().UUID()
-	if !ok {
-		return nil, errors.NotFoundf("UUID in environ config")
-	}
 	machineName := resourceName(
 		names.NewMachineTag(args.InstanceConfig.MachineId),
-		eUUID,
+		e.Config().UUID(),
 	)
 
-	var server *nova.Entity
-	for _, availZone := range availabilityZones {
-		var opts = nova.RunServerOpts{
-			Name:               machineName,
-			FlavorId:           spec.InstanceType.Id,
-			ImageId:            spec.Image.Id,
-			UserData:           userData,
-			SecurityGroupNames: groupNames,
-			Networks:           networks,
-			AvailabilityZone:   availZone,
-			Metadata:           args.InstanceConfig.Tags,
-		}
-		e.configurator.ModifyRunServerOptions(&opts)
-		for a := shortAttempt.Start(); a.Next(); {
-			server, err = e.nova().RunServer(opts)
-			if err == nil || !gooseerrors.IsNotFound(err) {
+	tryStartNovaInstance := func(
+		attempts utils.AttemptStrategy,
+		client *nova.Client,
+		instanceOpts nova.RunServerOpts,
+	) (server *nova.Entity, err error) {
+		for a := attempts.Start(); a.Next(); {
+			server, err = client.RunServer(instanceOpts)
+			if err == nil || gooseerrors.IsNotFound(err) == false {
 				break
 			}
 		}
-		if isNoValidHostsError(err) {
-			logger.Infof("no valid hosts available in zone %q, trying another availability zone", availZone)
-		} else {
-			break
+		return server, err
+	}
+
+	tryStartNovaInstanceAcrossAvailZones := func(
+		attempts utils.AttemptStrategy,
+		client *nova.Client,
+		instanceOpts nova.RunServerOpts,
+		availabilityZones []string,
+	) (server *nova.Entity, err error) {
+		for _, zone := range availabilityZones {
+			instanceOpts.AvailabilityZone = zone
+			e.configurator.ModifyRunServerOptions(&instanceOpts)
+			server, err = tryStartNovaInstance(attempts, client, instanceOpts)
+			if err == nil || isNoValidHostsError(err) == false {
+				break
+			}
+
+			logger.Infof("no valid hosts available in zone %q, trying another availability zone", zone)
 		}
+
+		if err != nil {
+			err = errors.Annotate(err, "cannot run instance")
+		}
+
+		return server, err
 	}
+
+	var opts = nova.RunServerOpts{
+		Name:               machineName,
+		FlavorId:           spec.InstanceType.Id,
+		ImageId:            spec.Image.Id,
+		UserData:           userData,
+		SecurityGroupNames: groupNames,
+		Networks:           networks,
+		Metadata:           args.InstanceConfig.Tags,
+	}
+	server, err := tryStartNovaInstanceAcrossAvailZones(shortAttempt, e.nova(), opts, availabilityZones)
 	if err != nil {
-		return nil, fmt.Errorf("cannot run instance: %v", err)
+		return nil, errors.Trace(err)
 	}
+
 	detail, err := e.nova().GetServer(server.Id)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get started instance: %v", err)
+		return nil, errors.Annotate(err, "cannot get started instance")
 	}
+
 	inst := &openstackInstance{
 		e:            e,
 		serverDetail: detail,
@@ -988,7 +1019,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 				// ignore the failure at this stage, just log it
 				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
-			return nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
+			return nil, errors.Annotatef(err, "cannot assign public address %s to instance %q", publicIP.IP, inst.Id())
 		}
 		inst.floatingIP = publicIP
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
@@ -1000,8 +1031,12 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 }
 
 func isNoValidHostsError(err error) bool {
-	gooseErr, ok := err.(gooseerrors.Error)
-	return ok && strings.Contains(gooseErr.Cause().Error(), "No valid host was found")
+	if gooseErr, ok := err.(gooseerrors.Error); ok {
+		if cause := gooseErr.Cause(); cause != nil {
+			return strings.Contains(cause.Error(), "No valid host was found")
+		}
+	}
+	return false
 }
 
 func (e *Environ) StopInstances(ids ...instance.Id) error {
@@ -1148,10 +1183,7 @@ func (e *Environ) AllInstances() (insts []instance.Instance, err error) {
 	}
 	instsById := make(map[string]instance.Instance)
 	cfg := e.Config()
-	eUUID, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.NotFoundf("model UUID")
-	}
+	eUUID := cfg.UUID()
 	for _, server := range servers {
 		modelUUID, ok := server.Metadata[tags.JujuModel]
 		if !ok || modelUUID != eUUID {
@@ -1191,7 +1223,7 @@ func resourceName(tag names.Tag, envName string) string {
 // machinesFilter returns a nova.Filter matching all machines in the environment.
 func (e *Environ) machinesFilter() *nova.Filter {
 	filter := nova.NewFilter()
-	eUUID, _ := e.Config().UUID()
+	eUUID := e.Config().UUID()
 	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", eUUID))
 	return filter
 }
