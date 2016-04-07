@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
@@ -40,12 +41,17 @@ func makeEnviron(c *gc.C) *maasEnviron {
 	return env
 }
 
-func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
+func (suite *maas2EnvironSuite) SetUpTest(c *gc.C) {
+	suite.baseProviderSuite.SetUpTest(c)
+	suite.SetFeatureFlags(feature.MAAS2)
+}
+
+func (suite *maas2EnvironSuite) getEnvWithServer(c *gc.C) (*maasEnviron, error) {
 	testServer := gomaasapi.NewSimpleServer()
 	testServer.AddGetResponse("/api/2.0/version/", http.StatusOK, maas2VersionResponse)
 	testServer.AddGetResponse("/api/2.0/users/?op=whoami", http.StatusOK, "{}")
 	testServer.Start()
-	defer testServer.Close()
+	suite.AddCleanup(func(*gc.C) { testServer.Close() })
 	testAttrs := coretesting.Attrs{}
 	for k, v := range maasEnvAttrs {
 		testAttrs[k] = v
@@ -54,7 +60,17 @@ func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
 	attrs := coretesting.FakeConfig().Merge(testAttrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := NewEnviron(cfg)
+	return NewEnviron(cfg)
+}
+
+func (suite *maas2EnvironSuite) TestNewEnvironWithoutFeatureFlag(c *gc.C) {
+	suite.SetFeatureFlags()
+	_, err := suite.getEnvWithServer(c)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
+	env, err := suite.getEnvWithServer(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 }
