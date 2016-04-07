@@ -4,13 +4,18 @@
 package charmcmd
 
 import (
+	"io"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charmrepo.v2-unstable"
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 )
+
+// TODO(ericsnow) Factor out code from cmd/juju/commands/common.go and                                                                                                                                                                                                          │
+// cmd/envcmd/base.go into cmd/charmstore.go and cmd/apicontext.go. Then                                                                                                                                                                                                        │
+// use those here instead of copy-and-pasting here.
 
 ///////////////////
 // The charmstoreSpec code is based loosely on code in cmd/juju/commands/deploy.go.
@@ -19,7 +24,7 @@ import (
 // store client.
 type CharmstoreSpec interface {
 	// Connect connects to the specified charm store.
-	Connect(ctx *cmd.Context) (*charmstore.Client, error)
+	Connect(ctx *cmd.Context) (charmstore.Client, io.Closer, error)
 }
 
 type charmstoreSpec struct{}
@@ -27,25 +32,23 @@ type charmstoreSpec struct{}
 // newCharmstoreSpec creates a new charm store spec with default
 // settings.
 func newCharmstoreSpec() CharmstoreSpec {
-	return &charmstoreSpec{}
+	return charmstoreSpec{}
 }
 
 // Connect implements CharmstoreSpec.
-func (cs charmstoreSpec) Connect(ctx *cmd.Context) (*charmstore.Client, error) {
+func (cs charmstoreSpec) Connect(ctx *cmd.Context) (charmstore.Client, io.Closer, error) {
 	// Note that creating the API context in Connect is technically
 	// wrong, as it means we'll be creating the bakery context
 	// (and reading/writing the cookies) each time it's called.
-	// TODO(ericsnow) Use modelcmd.ModelCommandBase instead.
+	// TODO(ericsnow) Move apiContext to a field on charmstoreSpec.
 	apiContext, err := modelcmd.NewAPIContext(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return charmstore.Client{}, nil, errors.Trace(err)
 	}
+	// We use the default for URL.
 	client := charmstore.NewClient(charmstore.ClientConfig{
-		charmrepo.NewCharmStoreParams{
-			BakeryClient: apiContext.BakeryClient,
-		},
+		BakeryClient: apiContext.BakeryClient,
 	})
-	client.Closer = apiContext
 
-	return client, nil
+	return client, apiContext, nil
 }

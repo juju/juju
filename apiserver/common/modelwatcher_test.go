@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -51,7 +50,7 @@ func (f *fakeModelAccessor) ModelConfig() (*config.Config, error) {
 }
 
 func (s *environWatcherSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
+	dummy.Reset(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
@@ -124,12 +123,14 @@ func (*environWatcherSuite) TestModelConfigMaskedSecrets(c *gc.C) {
 }
 
 func testingEnvConfig(c *gc.C) *config.Config {
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
-		modelcmd.BootstrapContext(testing.Context(c)), configstore.NewMem(),
+		modelcmd.BootstrapContext(testing.Context(c)),
 		jujuclienttesting.NewMemStore(),
-		"dummycontroller", environs.PrepareForBootstrapParams{Config: cfg},
+		environs.PrepareParams{
+			ControllerName: "dummycontroller",
+			BaseConfig:     dummy.SampleConfig(),
+			CloudName:      "dummy",
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()

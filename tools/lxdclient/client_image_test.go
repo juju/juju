@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // +build go1.3
@@ -10,9 +10,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	// lxdshared "github.com/lxc/lxd/shared"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
@@ -53,7 +52,6 @@ var _ remoteClient = (*stubRemoteClient)(nil)
 func (s *stubRemoteClient) URL() string {
 	// Note we don't log calls to URL because they are not interesting, and
 	// are generally just used for logging, etc.
-	// s.stub.AddCall("URL")
 	return s.url
 }
 

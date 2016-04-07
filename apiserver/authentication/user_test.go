@@ -142,21 +142,12 @@ func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 
 type macaroonAuthenticatorSuite struct {
 	jujutesting.JujuConnSuite
-	discharger *bakerytest.Discharger
 	// username holds the username that will be
 	// declared in the discharger's caveats.
 	username string
 }
 
 var _ = gc.Suite(&macaroonAuthenticatorSuite{})
-
-func (s *macaroonAuthenticatorSuite) SetUpTest(c *gc.C) {
-	s.discharger = bakerytest.NewDischarger(nil, s.Checker)
-}
-
-func (s *macaroonAuthenticatorSuite) TearDownTest(c *gc.C) {
-	s.discharger.Close()
-}
 
 func (s *macaroonAuthenticatorSuite) Checker(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
 	return []checkers.Caveat{checkers.DeclaredCaveat("username", s.username)}, nil
@@ -207,19 +198,21 @@ var authenticateSuccessTests = []struct {
 }}
 
 func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
+	discharger := bakerytest.NewDischarger(nil, s.Checker)
+	defer discharger.Close()
 	for i, test := range authenticateSuccessTests {
 		c.Logf("\ntest %d; %s", i, test.about)
 		s.username = test.dischargedUsername
 
 		svc, err := bakery.NewService(bakery.NewServiceParams{
-			Locator: s.discharger,
+			Locator: discharger,
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		mac, err := svc.NewMacaroon("", nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
-		authenticator := &authentication.MacaroonAuthenticator{
+		authenticator := &authentication.ExternalMacaroonAuthenticator{
 			Service:          svc,
-			IdentityLocation: s.discharger.Location(),
+			IdentityLocation: discharger.Location(),
 			Macaroon:         mac,
 		}
 

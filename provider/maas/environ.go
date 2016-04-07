@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -38,8 +39,6 @@ import (
 )
 
 const (
-	// We're using v1.0 of the MAAS API.
-	apiVersion = "1.0"
 	// The string from the api indicating the dynamic range of a subnet.
 	dynamicRange = "dynamic-range"
 )
@@ -56,12 +55,12 @@ var shortAttempt = utils.AttemptStrategy{
 
 var (
 	ReleaseNodes             = releaseNodes
-	ReserveIPAddress         = reserveIPAddress
 	ReserveIPAddressOnDevice = reserveIPAddressOnDevice
 	NewDeviceParams          = newDeviceParams
 	UpdateDeviceHostname     = updateDeviceHostname
 	ReleaseIPAddress         = releaseIPAddress
 	DeploymentStatusCall     = deploymentStatusCall
+	GetCapabilities          = getCapabilities
 )
 
 func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error) {
@@ -105,14 +104,6 @@ func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 	_, err := nodes.CallPost("release", ids)
-	return err
-}
-
-func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
-	params := url.Values{}
-	params.Add("network", cidr)
-	params.Add("requested_address", addr.Value)
-	_, err := ipaddresses.CallPost("reserve", params)
 	return err
 }
 
@@ -198,10 +189,8 @@ type maasEnviron struct {
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
 
-	// The following are initialized from the discovered MAAS API capabilities.
-	supportsDevices                 bool
-	supportsStaticIPs               bool
-	supportsNetworkDeploymentUbuntu bool
+	// apiVersion tells us if we are using the MAAS 1.0 or 2.0 api.
+	apiVersion string
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -215,28 +204,8 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	env.name = cfg.Name()
 	env.storageUnlocked = NewStorage(env)
 
-	// Since we need to switch behavior based on the available API capabilities,
-	// get them as soon as possible and cache them.
-	capabilities, err := env.getCapabilities()
-	if err != nil {
-		logger.Warningf("cannot get MAAS API capabilities: %v", err)
-	}
-	logger.Tracef("MAAS API capabilities: %v", capabilities.SortedValues())
-	env.supportsDevices = capabilities.Contains(capDevices)
-	env.supportsStaticIPs = capabilities.Contains(capStaticIPAddresses)
-	env.supportsNetworkDeploymentUbuntu = capabilities.Contains(capNetworkDeploymentUbuntu)
 	return env, nil
 }
-
-var noDevicesWarning = `
-Using MAAS version older than 1.8.2: devices API support not detected!
-
-Juju cannot guarantee resources allocated to containers, like DHCP
-leases or static IP addresses will be properly cleaned up when the
-container, its host, or the model is destroyed.
-
-Juju recommends upgrading MAAS to version 1.8.2 or later.
-`[1:]
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
@@ -250,11 +219,6 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 			instancecfg.DefaultBridgeName,
 		)
 		args.ContainerBridgeName = instancecfg.DefaultBridgeName
-
-		if !env.supportsDevices {
-			// Inform the user container resources might leak.
-			ctx.Infof("WARNING: %s", noDevicesWarning)
-		}
 	} else {
 		logger.Debugf(
 			"address allocation feature enabled; using static IPs for containers: %q",
@@ -297,8 +261,9 @@ func (env *maasEnviron) ControllerInstances() ([]instance.Id, error) {
 // mutex.
 func (env *maasEnviron) ecfg() *maasModelConfig {
 	env.ecfgMutex.Lock()
-	defer env.ecfgMutex.Unlock()
-	return env.ecfgUnlocked
+	cfg := *env.ecfgUnlocked
+	env.ecfgMutex.Unlock()
+	return &cfg
 }
 
 // Config is specified in the Environ interface.
@@ -319,22 +284,33 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	}
 	cfg, err := env.Provider().Validate(cfg, oldCfg)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	env.ecfgUnlocked = ecfg
 
-	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion)
+	// We need to know the version of the server we're on. We support 1.9
+	// and 2.0. MAAS 1.9 uses the 1.0 api version and 2.0 uses the 2.0 api
+	// version.
+	// TODO (mfoord): support for 2.0 will be in a follow up.
+	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), "1.0")
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
-
+	caps, err := GetCapabilities(env.maasClientUnlocked)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !caps.Contains(capNetworkDeploymentUbuntu) {
+		return errors.NotSupportedf("MAAS 1.9 or more recent is required")
+	}
+	env.apiVersion = "1.0"
 	return nil
 }
 
@@ -366,25 +342,17 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 
 // SupportsSpaces is specified on environs.Networking.
 func (env *maasEnviron) SupportsSpaces() (bool, error) {
-	return env.supportsNetworkDeploymentUbuntu, nil
+	return true, nil
 }
 
 // SupportsSpaceDiscovery is specified on environs.Networking.
 func (env *maasEnviron) SupportsSpaceDiscovery() (bool, error) {
-	return env.supportsNetworkDeploymentUbuntu, nil
+	return true, nil
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *maasEnviron) SupportsAddressAllocation(_ network.Id) (bool, error) {
-	if !environs.AddressAllocationEnabled() {
-		if !env.supportsDevices {
-			return false, errors.NotSupportedf("address allocation")
-		}
-		// We can use devices for DHCP-allocated container IPs.
-		return true, nil
-	}
-
-	return env.supportsStaticIPs, nil
+	return true, nil
 }
 
 // allBootImages queries MAAS for all of the boot-images across
@@ -570,7 +538,12 @@ func (e *maasEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string
 		if inst == nil {
 			continue
 		}
-		zones[i] = inst.(*maasInstance).zone()
+		z, err := inst.(*maasInstance).zone()
+		if err != nil {
+			logger.Errorf("could not get availability zone %v", err)
+			continue
+		}
+		zones[i] = z
 	}
 	return zones, nil
 }
@@ -612,24 +585,22 @@ func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, 
 }
 
 const (
-	capStaticIPAddresses       = "static-ipaddresses"
-	capDevices                 = "devices-management"
 	capNetworkDeploymentUbuntu = "network-deployment-ubuntu"
 )
 
 // getCapabilities asks the MAAS server for its capabilities, if
 // supported by the server.
-func (env *maasEnviron) getCapabilities() (set.Strings, error) {
+func getCapabilities(client *gomaasapi.MAASObject) (set.Strings, error) {
 	caps := make(set.Strings)
 	var result gomaasapi.JSONObject
 	var err error
 
 	for a := shortAttempt.Start(); a.Next(); {
-		client := env.getMAASClient().GetSubObject("version/")
-		result, err = client.CallGet("", nil)
+		version := client.GetSubObject("version/")
+		result, err = version.CallGet("", nil)
 		if err != nil {
 			if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == 404 {
-				return caps, fmt.Errorf("MAAS does not support version info")
+				return caps, errors.NotSupportedf("MAAS version 1.9 or more recent is required")
 			}
 		} else {
 			break
@@ -962,18 +933,11 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		// acquire-time details (no IP addresses for NICs set to "auto" vs
 		// "static"), we use the up-to-date statedNode response to get the
 		// interfaces.
-
-		if environ.supportsNetworkDeploymentUbuntu {
-			subnetsMap, err := environ.subnetToSpaceIds()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			// Use the new 1.9 API when available.
-			interfaces, err = maasObjectNetworkInterfaces(startedNode, subnetsMap)
-		} else {
-			// Use the legacy approach.
-			interfaces, err = environ.setupNetworks(inst)
+		subnetsMap, err := environ.subnetToSpaceIds()
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+		interfaces, err = maasObjectNetworkInterfaces(startedNode, subnetsMap)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -998,7 +962,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, err
 	}
 	if len(resultVolumes) != len(requestedVolumes) {
-		err = errors.New("the version of MAAS being used does not support Juju storage")
+		err = errors.Errorf("requested %v storage volumes. %v returned.", len(requestedVolumes), len(resultVolumes))
 		return nil, err
 	}
 
@@ -1188,7 +1152,7 @@ if [ ! -z "${juju_networking_preferred_python_binary:-}" ]; then
 # For the moment we want master and 1.25 to not bridge all interfaces.
 # This setting allows us to easily switch the behaviour when merging
 # the code between those various branches.
-        juju_bridge_all_interfaces=0
+        juju_bridge_all_interfaces=1
         if [ $juju_bridge_all_interfaces -eq 1 ]; then
             $juju_networking_preferred_python_binary %[1]q --bridge-prefix=%[2]q --one-time-backup --activate %[4]q
         else
@@ -1439,7 +1403,8 @@ func newDeviceParams(macAddress string, instId instance.Id, _ string) url.Values
 func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id, hostnameSuffix string) (string, error) {
 	client := environ.getMAASClient()
 	devices := client.GetSubObject("devices")
-	// Work around the limitation of gomaasapi's testservice expecting all 3
+	// Make the params in a separate function to make it easier to work
+	// around the limitation of gomaasapi's testservice expecting all 3
 	// arguments (parent, mac_addresses, and hostname) to be filled in.
 	params := NewDeviceParams(macAddress, instId, hostnameSuffix)
 	logger.Tracef(
@@ -1552,13 +1517,6 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 	}
 
 	if !environs.AddressAllocationEnabled() {
-		if !environ.supportsDevices {
-			logger.Warningf(
-				"resources used by container %q with MAC address %q can leak: devices API not supported",
-				hostname, macAddress,
-			)
-			return errors.NotSupportedf("address allocation")
-		}
 		logger.Tracef("creating device for container %q with MAC %q", hostname, macAddress)
 		deviceID, err := environ.createOrFetchDevice(macAddress, instId, hostname)
 		if err != nil {
@@ -1587,56 +1545,24 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
 
 	client := environ.getMAASClient()
-	var maasErr gomaasapi.ServerError
-	if environ.supportsDevices {
-		deviceID, err := environ.createOrFetchDevice(macAddress, instId, hostname)
-		if err != nil {
-			return err
-		}
+	deviceID, err := environ.createOrFetchDevice(macAddress, instId, hostname)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-		devices := client.GetSubObject("devices")
-		newAddr, err := ReserveIPAddressOnDevice(devices, deviceID, macAddress, *addr)
-		if err == nil {
-			logger.Infof(
-				"allocated address %q for instance %q on device %q (asked for address %q)",
-				addr, instId, deviceID, newAddr,
-			)
-			return nil
-		}
+	devices := client.GetSubObject("devices")
+	newAddr, err := ReserveIPAddressOnDevice(devices, deviceID, macAddress, *addr)
+	if err == nil {
+		logger.Infof(
+			"allocated address %q for instance %q on device %q (asked for address %q)",
+			addr, instId, deviceID, newAddr,
+		)
+		return nil
+	}
 
-		var ok bool
-		maasErr, ok = err.(gomaasapi.ServerError)
-		if !ok {
-			return errors.Trace(err)
-		}
-	} else {
-
-		var subnets []network.SubnetInfo
-
-		subnets, err = environ.Subnets(instId, []network.Id{subnetId})
-		logger.Tracef("Subnets(%q, %q, %q) returned: %v (%v)", instId, subnetId, *addr, subnets, err)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if len(subnets) != 1 {
-			return errors.Errorf("could not find subnet matching %q", subnetId)
-		}
-		foundSub := subnets[0]
-		logger.Tracef("found subnet %#v", foundSub)
-
-		cidr := foundSub.CIDR
-		ipaddresses := client.GetSubObject("ipaddresses")
-		err = ReserveIPAddress(ipaddresses, cidr, *addr)
-		if err == nil {
-			logger.Infof("allocated address %q for instance %q on subnet %q", *addr, instId, cidr)
-			return nil
-		}
-
-		var ok bool
-		maasErr, ok = err.(gomaasapi.ServerError)
-		if !ok {
-			return errors.Trace(err)
-		}
+	maasErr, ok := err.(gomaasapi.ServerError)
+	if !ok {
+		return errors.Trace(err)
 	}
 	// For an "out of range" IP address, maas raises
 	// StaticIPAddressOutOfRange - an error 403
@@ -1660,13 +1586,6 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 // AllocateAddress.
 func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, macAddress, hostname string) (err error) {
 	if !environs.AddressAllocationEnabled() {
-		if !environ.supportsDevices {
-			logger.Warningf(
-				"resources used by container %q with MAC address %q can leak: devices API not supported",
-				hostname, macAddress,
-			)
-			return errors.NotSupportedf("address allocation")
-		}
 		logger.Tracef("getting device ID for container %q with MAC %q", macAddress, hostname)
 		deviceID, err := environ.fetchDevice(macAddress)
 		if err != nil {
@@ -1692,12 +1611,12 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 	defer errors.DeferredAnnotatef(&err, "failed to release IP address %q from instance %q", addr, instId)
 
 	logger.Infof(
-		"releasing address: %q, MAC address: %q, hostname: %q, supports devices: %v",
-		addr, macAddress, hostname, environ.supportsDevices,
+		"releasing address: %q, MAC address: %q, hostname: %q",
+		addr, macAddress, hostname,
 	)
 	// Addresses originally allocated without a device will have macAddress
 	// set to "". We shouldn't look for a device for these addresses.
-	if environ.supportsDevices && macAddress != "" {
+	if macAddress != "" {
 		device, err := environ.fetchFullDevice(macAddress)
 		if err == nil {
 			addresses, err := device["ip_addresses"].GetArray()
@@ -2071,9 +1990,6 @@ func (environ *maasEnviron) subnetToSpaceIds() (map[string]network.Id, error) {
 // Space name is not filled in as the provider doesn't know the juju name for
 // the space.
 func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
-	if !environ.supportsNetworkDeploymentUbuntu {
-		return nil, errors.NotSupportedf("Spaces")
-	}
 	spacesClient := environ.getMAASClient().GetSubObject("spaces")
 	spacesJson, err := spacesClient.CallGet("", nil)
 	if err != nil {
@@ -2123,87 +2039,7 @@ func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
 // by the provider for the specified instance. subnetIds must not be
 // empty. Implements NetworkingEnviron.Subnets.
 func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	if environ.supportsNetworkDeploymentUbuntu {
-		return environ.subnetsWithSpaces(instId, subnetIds)
-	}
-	// When not using MAAS API with spaces support, we require both instance ID
-	// and list of subnet IDs, that's due to the limitations of the old API.
-	if instId == instance.UnknownId {
-		return nil, errors.Errorf("instance ID is required")
-	}
-	inst, err := environ.getInstance(instId)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(subnetIds) == 0 {
-		return nil, errors.Errorf("subnet IDs must not be empty")
-	}
-	// The MAAS API get networks call returns named subnets, not physical networks,
-	// so we save the data from this call into a variable called subnets.
-	// http://maas.ubuntu.com/docs/api.html#networks
-	subnets, err := environ.getInstanceNetworks(inst)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get instance %q subnets", instId)
-	}
-	logger.Debugf("instance %q has subnets %v", instId, subnets)
-
-	nodegroups, err := environ.getNodegroups()
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get instance %q node groups", instId)
-	}
-	nodegroupInterfaces := environ.getNodegroupInterfaces(nodegroups)
-
-	subnetIdSet := make(map[string]bool)
-	for _, netId := range subnetIds {
-		subnetIdSet[string(netId)] = false
-	}
-
-	var networkInfo []network.SubnetInfo
-	for _, subnet := range subnets {
-		found, ok := subnetIdSet[subnet.Name]
-		if !ok {
-			// This id is not what we're looking for.
-			continue
-		}
-		if found {
-			// Don't add the same subnet twice.
-			continue
-		}
-		// mark that we've found this subnet
-		subnetIdSet[subnet.Name] = true
-		netCIDR := &net.IPNet{
-			IP:   net.ParseIP(subnet.IP),
-			Mask: net.IPMask(net.ParseIP(subnet.Mask)),
-		}
-		var allocatableHigh, allocatableLow net.IP
-		for ip, bounds := range nodegroupInterfaces {
-			contained := netCIDR.Contains(net.ParseIP(ip))
-			if contained {
-				allocatableLow = bounds[0]
-				allocatableHigh = bounds[1]
-				break
-			}
-		}
-		subnetInfo := network.SubnetInfo{
-			CIDR:              netCIDR.String(),
-			VLANTag:           subnet.VLANTag,
-			ProviderId:        network.Id(subnet.Name),
-			AllocatableIPLow:  allocatableLow,
-			AllocatableIPHigh: allocatableHigh,
-		}
-
-		// Verify we filled-in everything for all networks
-		// and drop incomplete records.
-		if subnetInfo.ProviderId == "" || subnetInfo.CIDR == "" {
-			logger.Infof("ignoring subnet  %q: missing information (%#v)", subnet.Name, subnetInfo)
-			continue
-		}
-
-		logger.Tracef("found subnet with info %#v", subnetInfo)
-		networkInfo = append(networkInfo, subnetInfo)
-	}
-	logger.Debugf("available subnets for instance %v: %#v", inst.Id(), networkInfo)
-	return networkInfo, checkNotFound(subnetIdSet)
+	return environ.subnetsWithSpaces(instId, subnetIds)
 }
 
 func checkNotFound(subnetIdSet map[string]bool) error {
@@ -2239,11 +2075,6 @@ func (environ *maasEnviron) Destroy() error {
 			"If the environment is still running, please manually decomission the MAAS machines.")
 		return errors.New("unsafe destruction")
 	}
-	if !environ.supportsDevices {
-		// Warn the user that container resources can leak.
-		logger.Warningf(noDevicesWarning)
-	}
-
 	if err := common.Destroy(environ); err != nil {
 		return errors.Trace(err)
 	}
@@ -2278,4 +2109,99 @@ func (environ *maasEnviron) nodeIdFromInstance(inst instance.Instance) (string, 
 		return "", err
 	}
 	return nodeId, err
+}
+
+func (env *maasEnviron) AllocateContainerAddresses(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	if len(preparedInfo) == 0 {
+		return nil, errors.Errorf("no prepared info to allocate")
+	}
+	logger.Debugf("using prepared container info: %+v", preparedInfo)
+
+	subnetCIDRToVLANID := make(map[string]string)
+	subnetsAPI := env.getMAASClient().GetSubObject("subnets")
+	result, err := subnetsAPI.CallGet("", nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get subnets")
+	}
+	subnetsJSON, err := getJSONBytes(result)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get subnets JSON")
+	}
+	var subnets []maasSubnet
+	if err := json.Unmarshal(subnetsJSON, &subnets); err != nil {
+		return nil, errors.Annotate(err, "cannot parse subnets JSON")
+	}
+	for _, subnet := range subnets {
+		subnetCIDRToVLANID[subnet.CIDR] = strconv.Itoa(subnet.VLAN.ID)
+	}
+
+	var primaryNICInfo network.InterfaceInfo
+	for _, nic := range preparedInfo {
+		if nic.InterfaceName == "eth0" {
+			primaryNICInfo = nic
+			break
+		}
+	}
+	if primaryNICInfo.InterfaceName == "" {
+		return nil, errors.Errorf("cannot find primary interface for container")
+	}
+	logger.Debugf("primary device NIC prepared info: %+v", primaryNICInfo)
+
+	primaryMACAddress := primaryNICInfo.MACAddress
+	containerDevice, err := env.createDevice(hostInstanceID, primaryMACAddress)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create device for container")
+	}
+	deviceID := instance.Id(containerDevice.ResourceURI)
+	logger.Debugf("created device %q with primary MAC address %q", deviceID, primaryMACAddress)
+
+	interfaces, err := env.deviceInterfaces(deviceID)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get device interfaces")
+	}
+	if len(interfaces) != 1 {
+		return nil, errors.Errorf("expected 1 device interface, got %d", len(interfaces))
+	}
+
+	primaryNICName := interfaces[0].Name
+	primaryNICID := strconv.Itoa(interfaces[0].ID)
+	primaryNICSubnetCIDR := primaryNICInfo.CIDR
+	primaryNICVLANID := subnetCIDRToVLANID[primaryNICSubnetCIDR]
+	updatedPrimaryNIC, err := env.updateDeviceInterface(deviceID, primaryNICID, primaryNICName, primaryMACAddress, primaryNICVLANID)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot update device interface %q", interfaces[0].Name)
+	}
+	logger.Debugf("device %q primary interface %q updated: %+v", containerDevice.SystemID, primaryNICName, updatedPrimaryNIC)
+
+	deviceNICIDs := make([]string, len(preparedInfo))
+	nameToParentName := make(map[string]string)
+	for i, nic := range preparedInfo {
+		maasNICID := ""
+		nameToParentName[nic.InterfaceName] = nic.ParentInterfaceName
+		if nic.InterfaceName != primaryNICName {
+			nicVLANID := subnetCIDRToVLANID[nic.CIDR]
+			createdNIC, err := env.createDeviceInterface(deviceID, nic.InterfaceName, nic.MACAddress, nicVLANID)
+			if err != nil {
+				return nil, errors.Annotate(err, "creating device interface")
+			}
+			maasNICID = strconv.Itoa(createdNIC.ID)
+			logger.Debugf("created device interface: %+v", createdNIC)
+		} else {
+			maasNICID = primaryNICID
+		}
+		deviceNICIDs[i] = maasNICID
+		subnetID := string(nic.ProviderSubnetId)
+
+		linkedInterface, err := env.linkDeviceInterfaceToSubnet(deviceID, maasNICID, subnetID, modeStatic)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot link device interface to subnet")
+		}
+		logger.Debugf("linked device interface to subnet: %+v", linkedInterface)
+	}
+	finalInterfaces, err := env.deviceInterfaceInfo(deviceID, nameToParentName)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get device interfaces")
+	}
+	logger.Debugf("allocated device interfaces: %+v", finalInterfaces)
+	return finalInterfaces, nil
 }

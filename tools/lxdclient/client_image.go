@@ -133,7 +133,7 @@ func (i *imageClient) EnsureImageExists(series string, sources []Remote, copyPro
 		}
 		logger.Infof("found image from %s for %s = %s",
 			source.URL(), series, target)
-		forwarder := stringforwarder.NewStringForwarder(copyProgressHandler)
+		forwarder := stringforwarder.New(copyProgressHandler)
 		defer func() {
 			dropCount := forwarder.Stop()
 			logger.Debugf("dropped %d progress messages", dropCount)
@@ -142,7 +142,7 @@ func (i *imageClient) EnsureImageExists(series string, sources []Remote, copyPro
 			logger:  logger,
 			level:   loggo.INFO,
 			context: fmt.Sprintf("copying image for %s from %s: %%s", name, source.URL()),
-			forward: forwarder.Receive,
+			forward: forwarder.Forward,
 		}
 		err = source.CopyImage(target, i.raw, []string{name}, adapter.copyProgress)
 		if err != nil {

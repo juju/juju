@@ -7,12 +7,12 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 )
 
 var (
 	RandomPasswordNotify = &randomPasswordNotify
-	ReadPassword         = &readPassword
 )
 
 type AddCommand struct {
@@ -23,12 +23,16 @@ type ChangePasswordCommand struct {
 	*changePasswordCommand
 }
 
-type DisenableUserBase struct {
-	*disenableUserBase
+type LoginCommand struct {
+	*loginCommand
 }
 
-type SwitchUserCommand struct {
-	*switchUserCommand
+type LogoutCommand struct {
+	*logoutCommand
+}
+
+type DisenableUserBase struct {
+	*disenableUserBase
 }
 
 func NewAddCommandForTest(api AddUserAPI, store jujuclient.ClientStore, modelApi modelcmd.ModelAPI) (cmd.Command, *AddCommand) {
@@ -52,12 +56,23 @@ func NewChangePasswordCommandForTest(api ChangePasswordAPI, store jujuclient.Cli
 	return modelcmd.WrapController(c), &ChangePasswordCommand{c}
 }
 
-// NewSwitchUserCommand returns a SwitchUserCommand using the
-// specified client store.
-func NewSwitchUserCommandForTest(store jujuclient.ClientStore) (cmd.Command, *SwitchUserCommand) {
-	cmd := &switchUserCommand{}
-	cmd.SetClientStore(store)
-	return modelcmd.WrapController(cmd), &SwitchUserCommand{cmd}
+// NewLoginCommand returns a LoginCommand with the api
+// and writer provided as specified.
+func NewLoginCommandForTest(
+	newLoginAPI func(juju.NewAPIConnectionParams) (LoginAPI, error),
+	store jujuclient.ClientStore,
+) (cmd.Command, *LoginCommand) {
+	c := &loginCommand{newLoginAPI: newLoginAPI}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c), &LoginCommand{c}
+}
+
+// NewLogoutCommand returns a LogoutCommand with the api
+// and writer provided as specified.
+func NewLogoutCommandForTest(store jujuclient.ClientStore) (cmd.Command, *LogoutCommand) {
+	c := &logoutCommand{}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c), &LogoutCommand{c}
 }
 
 // NewDisableCommand returns a DisableCommand with the api provided as

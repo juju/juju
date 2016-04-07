@@ -12,7 +12,6 @@ import (
 
 var (
 	ShortAttempt            = &shortAttempt
-	APIVersion              = apiVersion
 	MaasStorageProviderType = maasStorageProviderType
 )
 

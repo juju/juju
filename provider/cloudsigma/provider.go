@@ -58,11 +58,6 @@ func init() {
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening model %q", cfg.Name())
 
-	cfg, err := prepareConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
 	env := &environ{name: cfg.Name()}
 	if err := env.SetConfig(cfg); err != nil {
 		return nil, err
@@ -87,11 +82,8 @@ func (environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.
 	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
 }
 
-// Prepare prepares an environment for use. Any additional
-// configuration attributes in the returned environment should
-// be saved to be used later. If the environment is already
-// prepared, this call is equivalent to Open.
-func (environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+// BootstrapConfig is defined by EnvironProvider.
+func (environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	cfg := args.Config
 	switch authType := args.Credentials.AuthType(); authType {
 	case cloud.UserPassAuthType:
@@ -109,7 +101,11 @@ func (environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args e
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
 	}
+	return cfg, nil
+}
 
+// PrepareForBootstrap is defined by EnvironProvider.
+func (environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("preparing model %q", cfg.Name())
 	return providerInstance.Open(cfg)
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/state/multiwatcher"
@@ -39,14 +39,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return nil, errors.New("agent's tag is not a machine tag")
 		}
 
-		// Get API connection.
-		apiConn, ok := apiCaller.(api.Connection)
-		if !ok {
-			return nil, errors.New("unable to obtain api.Connection")
-		}
-
 		// Get the machine agent's jobs.
-		entity, err := apiConn.Agent().Entity(tag)
+		// TODO(fwereade): this functionality should be on the
+		// deployer facade instead.
+		agentFacade := apiagent.NewState(apiCaller)
+		entity, err := agentFacade.Entity(tag)
 		if err != nil {
 			return nil, err
 		}
@@ -63,9 +60,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return nil, dependency.ErrUninstall
 		}
 
-		apiDeployer := apiConn.Deployer()
-		context := config.NewDeployContext(apiDeployer, cfg)
-		w, err := NewDeployer(apiDeployer, context)
+		deployerFacade := apideployer.NewState(apiCaller)
+		context := config.NewDeployContext(deployerFacade, cfg)
+		w, err := NewDeployer(deployerFacade, context)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot start unit agent deployer worker")
 		}

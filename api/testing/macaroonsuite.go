@@ -100,7 +100,6 @@ func (s *MacaroonSuite) APIInfo(c *gc.C) *api.Info {
 	info := s.JujuConnSuite.APIInfo(c)
 	info.Tag = nil
 	info.Password = ""
-	info.UseMacaroons = true
 	return info
 }
 

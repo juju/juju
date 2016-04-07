@@ -96,35 +96,38 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 			&params.ModelUserInfo{
 				UserName:    owner.UserName(),
 				DisplayName: owner.DisplayName(),
+				Access:      "write",
 			},
 		}, {
 			localUser1,
 			&params.ModelUserInfo{
 				UserName:    "ralphdoe@local",
 				DisplayName: "Ralph Doe",
+				Access:      "write",
 			},
 		}, {
 			localUser2,
 			&params.ModelUserInfo{
 				UserName:    "samsmith@local",
 				DisplayName: "Sam Smith",
+				Access:      "write",
 			},
 		}, {
 			remoteUser1,
 			&params.ModelUserInfo{
 				UserName:    "bobjohns@ubuntuone",
 				DisplayName: "Bob Johns",
+				Access:      "write",
 			},
 		}, {
 			remoteUser2,
 			&params.ModelUserInfo{
 				UserName:    "nicshaw@idprovider",
 				DisplayName: "Nic Shaw",
+				Access:      "write",
 			},
 		},
 	} {
-		r.info.CreatedBy = owner.UserName()
-		r.info.DateCreated = r.user.DateCreated()
 		r.info.LastConnection = lastConnPointer(c, r.user)
 		expected.Results = append(expected.Results, params.ModelUserInfoResult{Result: r.info})
 	}
@@ -1090,8 +1093,8 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	apiParams[0].Placement = instance.MustParsePlacement("lxc")
 	apiParams[1].Placement = instance.MustParsePlacement("lxc:0")
 	apiParams[1].ContainerType = instance.LXC
-	apiParams[2].Placement = instance.MustParsePlacement("dummymodel:invalid")
-	apiParams[3].Placement = instance.MustParsePlacement("dummymodel:valid")
+	apiParams[2].Placement = instance.MustParsePlacement("admin:invalid")
+	apiParams[3].Placement = instance.MustParsePlacement("admin:valid")
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 4)

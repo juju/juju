@@ -19,6 +19,7 @@ type ResolverConfig struct {
 	ClearResolved       func() error
 	ReportHookError     func(hook.Info) error
 	FixDeployer         func() error
+	ShouldRetryHooks    bool
 	StartRetryHookTimer func()
 	StopRetryHookTimer  func()
 	Leadership          resolver.Resolver
@@ -180,7 +181,7 @@ func (s *uniterResolver) nextOpHookError(
 			s.retryHookTimerStarted = false
 			return opFactory.NewRunHook(*localState.Hook)
 		}
-		if !s.retryHookTimerStarted {
+		if !s.retryHookTimerStarted && s.config.ShouldRetryHooks {
 			// We haven't yet started a retry timer, so start one
 			// now. If we retry and fail, retryHookTimerStarted is
 			// cleared so that we'll still start it again.

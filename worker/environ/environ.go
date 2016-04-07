@@ -29,13 +29,21 @@ type ConfigObserver interface {
 // It's arguable that it should be called TrackerConfig, because of the heavy
 // use of model config in this package.
 type Config struct {
-	Observer ConfigObserver
+	Observer       ConfigObserver
+	NewEnvironFunc NewEnvironFunc
 }
+
+// NewEnvironFunc is the type of a function that, given a model config,
+// returns an Environ. This will typically be environs.New.
+type NewEnvironFunc func(*config.Config) (environs.Environ, error)
 
 // Validate returns an error if the config cannot be used to start a Tracker.
 func (config Config) Validate() error {
 	if config.Observer == nil {
 		return errors.NotValidf("nil Observer")
+	}
+	if config.NewEnvironFunc == nil {
+		return errors.NotValidf("nil NewEnvironFunc")
 	}
 	return nil
 }
@@ -62,7 +70,7 @@ func NewTracker(config Config) (*Tracker, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot read environ config")
 	}
-	environ, err := environs.New(modelConfig)
+	environ, err := config.NewEnvironFunc(modelConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create environ")
 	}

@@ -72,18 +72,16 @@ func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
 // should have been started with the given machine id.
 func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRange) error {
 	// TODO(ericsnow) Make sure machineId matches inst.Id()?
-	name := common.MachineFullName(inst.env, machineID)
-	env := inst.env.getSnapshot()
-	err := env.gce.OpenPorts(name, ports...)
+	name := common.MachineFullName(inst.env.Config().UUID(), machineID)
+	err := inst.env.gce.OpenPorts(name, ports...)
 	return errors.Trace(err)
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRange) error {
-	name := common.MachineFullName(inst.env, machineID)
-	env := inst.env.getSnapshot()
-	err := env.gce.ClosePorts(name, ports...)
+	name := common.MachineFullName(inst.env.Config().UUID(), machineID)
+	err := inst.env.gce.ClosePorts(name, ports...)
 	return errors.Trace(err)
 }
 
@@ -91,8 +89,7 @@ func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRa
 // should have been started with the given machine id.
 // The ports are returned as sorted by SortPorts.
 func (inst *environInstance) Ports(machineID string) ([]network.PortRange, error) {
-	name := common.MachineFullName(inst.env, machineID)
-	env := inst.env.getSnapshot()
-	ports, err := env.gce.Ports(name)
+	name := common.MachineFullName(inst.env.Config().UUID(), machineID)
+	ports, err := inst.env.gce.Ports(name)
 	return ports, errors.Trace(err)
 }

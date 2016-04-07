@@ -10,6 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/environ"
 	"github.com/juju/juju/worker/workertest"
@@ -28,7 +30,7 @@ func (s *WaitSuite) TestWaitAborted(c *gc.C) {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			env, err := environ.WaitForEnviron(context.watcher, nil, abort)
+			env, err := environ.WaitForEnviron(context.watcher, nil, nil, abort)
 			c.Check(env, gc.IsNil)
 			c.Check(err, gc.Equals, environ.ErrWaitAborted)
 		}()
@@ -52,7 +54,7 @@ func (s *WaitSuite) TestWatchClosed(c *gc.C) {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			env, err := environ.WaitForEnviron(context.watcher, nil, abort)
+			env, err := environ.WaitForEnviron(context.watcher, nil, nil, abort)
 			c.Check(env, gc.IsNil)
 			c.Check(err, gc.ErrorMatches, "environ config watch closed")
 		}()
@@ -80,7 +82,7 @@ func (s *WaitSuite) TestConfigError(c *gc.C) {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			env, err := environ.WaitForEnviron(context.watcher, context, abort)
+			env, err := environ.WaitForEnviron(context.watcher, context, nil, abort)
 			c.Check(env, gc.IsNil)
 			c.Check(err, gc.ErrorMatches, "cannot read environ config: biff zonk")
 		}()
@@ -101,6 +103,12 @@ func (s *WaitSuite) TestIgnoresBadConfig(c *gc.C) {
 			"type": "unknown",
 		},
 	}
+	newEnvironFunc := func(cfg *config.Config) (environs.Environ, error) {
+		if cfg.Type() == "unknown" {
+			return nil, errors.NotValidf("config")
+		}
+		return &mockEnviron{cfg: cfg}, nil
+	}
 	fix.Run(c, func(context *runContext) {
 		abort := make(chan struct{})
 		defer close(abort)
@@ -108,7 +116,7 @@ func (s *WaitSuite) TestIgnoresBadConfig(c *gc.C) {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			env, err := environ.WaitForEnviron(context.watcher, context, abort)
+			env, err := environ.WaitForEnviron(context.watcher, context, newEnvironFunc, abort)
 			if c.Check(err, jc.ErrorIsNil) {
 				c.Check(env.Config().Name(), gc.Equals, "expected-name")
 			}

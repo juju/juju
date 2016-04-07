@@ -226,8 +226,7 @@ func (s *destroyTwoModelsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.otherEnvOwner = names.NewUserTag("jess")
 	s.otherState = factory.NewFactory(s.State).MakeModel(c, &factory.ModelParams{
-		Owner:   s.otherEnvOwner,
-		Prepare: true,
+		Owner: s.otherEnvOwner,
 		ConfigAttrs: jujutesting.Attrs{
 			"controller": false,
 		},

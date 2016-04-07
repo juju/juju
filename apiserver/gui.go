@@ -5,7 +5,9 @@ package apiserver
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/bzip2"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,12 +20,20 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
+	"github.com/juju/version"
 
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/apihttp"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
+)
+
+const (
+	bzMimeType = "application/x-tar-bzip2"
 )
 
 var (
@@ -58,25 +68,35 @@ type guiRouter struct {
 	pattern string
 }
 
-// handleGUI adds the Juju GUI routes to the given serve mux.
-// The given pattern is used as base URL path, and is assumed to include
-// ":modeluuid" and a trailing slash.
-func handleGUI(mux *pat.PatternServeMux, pattern string, dataDir string, ctxt httpContext) {
+func guiEndpoints(pattern, dataDir string, ctxt httpContext) []apihttp.Endpoint {
 	gr := &guiRouter{
 		dataDir: dataDir,
 		ctxt:    ctxt,
 		pattern: pattern,
 	}
-	guiHandleAll := func(pattern string, h func(*guiHandler, http.ResponseWriter, *http.Request)) {
-		handleAll(mux, pattern, gr.ensureFileHandler(h))
+	var endpoints []apihttp.Endpoint
+	add := func(pattern string, h func(*guiHandler, http.ResponseWriter, *http.Request)) {
+		handler := gr.ensureFileHandler(h)
+		// TODO: We can switch from all methods to specific ones for entries
+		// where we only want to support specific request methods. However, our
+		// tests currently assert that errors come back as application/json and
+		// pat only does "text/plain" responses.
+		for _, method := range common.DefaultHTTPMethods {
+			endpoints = append(endpoints, apihttp.Endpoint{
+				Pattern: pattern,
+				Method:  method,
+				Handler: handler,
+			})
+		}
 	}
 	hashedPattern := pattern + ":hash"
-	guiHandleAll(hashedPattern+"/config.js", (*guiHandler).serveConfig)
-	guiHandleAll(hashedPattern+"/combo", (*guiHandler).serveCombo)
-	guiHandleAll(hashedPattern+"/static/", (*guiHandler).serveStatic)
+	add(hashedPattern+"/config.js", (*guiHandler).serveConfig)
+	add(hashedPattern+"/combo", (*guiHandler).serveCombo)
+	add(hashedPattern+"/static/", (*guiHandler).serveStatic)
 	// The index is served when all remaining URLs are requested, so that
 	// the single page JavaScript application can properly handles its routes.
-	guiHandleAll(pattern, (*guiHandler).serveIndex)
+	add(pattern, (*guiHandler).serveIndex)
+	return endpoints
 }
 
 // ensureFileHandler decorates the given function to ensure the Juju GUI files
@@ -121,7 +141,7 @@ func (gr *guiRouter) ensureFiles(req *http.Request) (rootDir string, hash string
 		return "", "", errors.Annotate(err, "cannot open GUI storage")
 	}
 	defer storage.Close()
-	vers, hash, err := guiVersionAndHash(storage)
+	vers, hash, err := guiVersionAndHash(st, storage)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -162,17 +182,19 @@ func (gr *guiRouter) ensureFiles(req *http.Request) (rootDir string, hash string
 
 // guiVersionAndHash returns the version and the SHA256 hash of the current
 // Juju GUI archive.
-func guiVersionAndHash(storage binarystorage.Storage) (vers, hash string, err error) {
-	// TODO frankban: retrieve current GUI version from somewhere.
-	// For now, just return an arbitrary version from the storage.
-	allMeta, err := storage.AllMetadata()
+func guiVersionAndHash(st *state.State, storage binarystorage.Storage) (vers, hash string, err error) {
+	currentVers, err := st.GUIVersion()
+	if errors.IsNotFound(err) {
+		return "", "", errors.NotFoundf("Juju GUI")
+	}
+	if err != nil {
+		return "", "", errors.Annotate(err, "cannot retrieve current GUI version")
+	}
+	metadata, err := storage.Metadata(currentVers.String())
 	if err != nil {
 		return "", "", errors.Annotate(err, "cannot retrieve GUI metadata")
 	}
-	if len(allMeta) == 0 {
-		return "", "", errors.NotFoundf("Juju GUI")
-	}
-	return allMeta[0].Version, allMeta[0].SHA256, nil
+	return metadata.Version, metadata.SHA256, nil
 }
 
 // uncompressGUI uncompresses the tar.bz2 Juju GUI archive provided in r.
@@ -320,7 +342,7 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 		"host":    req.Host,
 		"socket":  "/model/$uuid/api",
 		"uuid":    h.uuid,
-		"version": version.Current.String(),
+		"version": jujuversion.Current.String(),
 	})
 }
 
@@ -340,4 +362,187 @@ func renderGUITemplate(w http.ResponseWriter, tmpl string, ctx map[string]interf
 	if err := t.Execute(w, ctx); err != nil {
 		sendError(w, errors.Annotate(err, "cannot render template"))
 	}
+}
+
+// guiArchiveHandler serves the Juju GUI archive endpoints, used for uploading
+// and retrieving information about GUI archives.
+type guiArchiveHandler struct {
+	ctxt httpContext
+}
+
+// ServeHTTP implements http.Handler.
+func (h *guiArchiveHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	var handler func(http.ResponseWriter, *http.Request) error
+	switch req.Method {
+	case "GET":
+		handler = h.handleGet
+	case "POST":
+		handler = h.handlePost
+	default:
+		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
+		return
+	}
+	if err := handler(w, req); err != nil {
+		sendError(w, errors.Trace(err))
+	}
+}
+
+// handleGet returns information on Juju GUI archives in the controller.
+func (h *guiArchiveHandler) handleGet(w http.ResponseWriter, req *http.Request) error {
+	// Open the GUI archive storage.
+	st, err := h.ctxt.stateForRequestUnauthenticated(req)
+	if err != nil {
+		return errors.Annotate(err, "cannot open state")
+	}
+	storage, err := st.GUIStorage()
+	if err != nil {
+		return errors.Annotate(err, "cannot open GUI storage")
+	}
+	defer storage.Close()
+
+	// Retrieve metadata information.
+	allMeta, err := storage.AllMetadata()
+	if err != nil {
+		return errors.Annotate(err, "cannot retrieve GUI metadata")
+	}
+
+	// Prepare and send the response.
+	var currentVersion string
+	vers, err := st.GUIVersion()
+	if err == nil {
+		currentVersion = vers.String()
+	} else if !errors.IsNotFound(err) {
+		return errors.Annotate(err, "cannot retrieve current GUI version")
+	}
+	versions := make([]params.GUIArchiveVersion, len(allMeta))
+	for i, m := range allMeta {
+		vers, err := version.Parse(m.Version)
+		if err != nil {
+			return errors.Annotate(err, "cannot parse GUI version")
+		}
+		versions[i] = params.GUIArchiveVersion{
+			Version: vers,
+			SHA256:  m.SHA256,
+			Current: m.Version == currentVersion,
+		}
+	}
+	sendStatusAndJSON(w, http.StatusOK, params.GUIArchiveResponse{
+		Versions: versions,
+	})
+	return nil
+}
+
+// handlePost is used to upload new Juju GUI archives to the controller.
+func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request) error {
+	// Validate the request.
+	if ctype := req.Header.Get("Content-Type"); ctype != bzMimeType {
+		return errors.BadRequestf("invalid content type %q: expected %q", ctype, bzMimeType)
+	}
+	if err := req.ParseForm(); err != nil {
+		return errors.Annotate(err, "cannot parse form")
+	}
+	versParam := req.Form.Get("version")
+	if versParam == "" {
+		return errors.BadRequestf("version parameter not provided")
+	}
+	vers, err := version.Parse(versParam)
+	if err != nil {
+		return errors.BadRequestf("invalid version parameter %q", versParam)
+	}
+	hashParam := req.Form.Get("hash")
+	if hashParam == "" {
+		return errors.BadRequestf("hash parameter not provided")
+	}
+	if req.ContentLength == -1 {
+		return errors.BadRequestf("content length not provided")
+	}
+
+	// Open the GUI archive storage.
+	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+	if err != nil {
+		return errors.Annotate(err, "cannot open state")
+	}
+	storage, err := st.GUIStorage()
+	if err != nil {
+		return errors.Annotate(err, "cannot open GUI storage")
+	}
+	defer storage.Close()
+
+	// Read and validate the archive data.
+	data, hash, err := readAndHash(req.Body)
+	size := int64(len(data))
+	if size != req.ContentLength {
+		return errors.BadRequestf("archive does not match provided content length")
+	}
+	if hash != hashParam {
+		return errors.BadRequestf("archive does not match provided hash")
+	}
+
+	// Add the archive to the GUI storage.
+	metadata := binarystorage.Metadata{
+		Version: vers.String(),
+		Size:    size,
+		SHA256:  hash,
+	}
+	if err := storage.Add(bytes.NewReader(data), metadata); err != nil {
+		return errors.Annotate(err, "cannot add GUI archive to storage")
+	}
+
+	// Prepare and return the response.
+	resp := params.GUIArchiveVersion{
+		Version: vers,
+		SHA256:  hash,
+	}
+	if currentVers, err := st.GUIVersion(); err == nil {
+		if currentVers == vers {
+			resp.Current = true
+		}
+	} else if !errors.IsNotFound(err) {
+		return errors.Annotate(err, "cannot retrieve current GUI version")
+	}
+	sendStatusAndJSON(w, http.StatusOK, resp)
+	return nil
+}
+
+// guiVersionHandler is used to select the Juju GUI version served by the
+// controller. The specified version must be available in the controller.
+type guiVersionHandler struct {
+	ctxt httpContext
+}
+
+// ServeHTTP implements http.Handler.
+func (h *guiVersionHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if req.Method != "PUT" {
+		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
+		return
+	}
+	if err := h.handlePut(w, req); err != nil {
+		sendError(w, errors.Trace(err))
+	}
+}
+
+// handlePut is used to switch to a specific Juju GUI version.
+func (h *guiVersionHandler) handlePut(w http.ResponseWriter, req *http.Request) error {
+	// Validate the request.
+	if ctype := req.Header.Get("Content-Type"); ctype != params.ContentTypeJSON {
+		return errors.BadRequestf("invalid content type %q: expected %q", ctype, params.ContentTypeJSON)
+	}
+
+	// Authenticate the request and retrieve the Juju state.
+	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+	if err != nil {
+		return errors.Annotate(err, "cannot open state")
+	}
+
+	var selected params.GUIVersionRequest
+	decoder := json.NewDecoder(req.Body)
+	if err := decoder.Decode(&selected); err != nil {
+		return errors.NewBadRequest(err, "invalid request body")
+	}
+
+	// Switch to the provided GUI version.
+	if err = st.GUISetVersion(selected.Version); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

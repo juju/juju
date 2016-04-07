@@ -37,18 +37,19 @@ func (s *statusRelation) relationType() string {
 }
 
 type relationFormatter struct {
-	relationIndex []string
+	relationIndex set.Strings
 	relations     map[string]*statusRelation
 }
 
 func newRelationFormatter() *relationFormatter {
 	return &relationFormatter{
-		relations: make(map[string]*statusRelation),
+		relationIndex: set.NewStrings(),
+		relations:     make(map[string]*statusRelation),
 	}
 }
 
 func (r *relationFormatter) len() int {
-	return len(r.relationIndex)
+	return r.relationIndex.Size()
 }
 
 func (r *relationFormatter) add(rel1, rel2, relation string, is2SubOf1 bool) {
@@ -63,12 +64,11 @@ func (r *relationFormatter) add(rel1, rel2, relation string, is2SubOf1 bool) {
 		relation:    relation,
 		subordinate: is2SubOf1,
 	}
-	r.relationIndex = append(r.relationIndex, k)
+	r.relationIndex.Add(k)
 }
 
 func (r *relationFormatter) sorted() []string {
-	sort.Sort(sort.StringSlice(r.relationIndex))
-	return r.relationIndex
+	return r.relationIndex.SortedValues()
 }
 
 func (r *relationFormatter) get(k string) *statusRelation {
@@ -104,6 +104,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	}
 
 	units := make(map[string]unitStatus)
+	metering := false
 	relations := newRelationFormatter()
 	p("[Services]")
 	p("NAME\tSTATUS\tEXPOSED\tCHARM")
@@ -111,6 +112,9 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		svc := fs.Services[svcName]
 		for un, u := range svc.Units {
 			units[un] = u
+			if u.MeterStatus != nil {
+				metering = true
+			}
 		}
 
 		subs := set.NewStrings(svc.SubordinateTo...)
@@ -164,6 +168,17 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		recurseUnits(u, indentationLevel, pUnit)
 	}
 	tw.Flush()
+
+	if metering {
+		p("\n[Metering]")
+		p("ID\tSTATUS\tMESSAGE")
+		for _, name := range common.SortStringsNaturally(stringKeysFromMap(units)) {
+			u := units[name]
+			if u.MeterStatus != nil {
+				p(name, u.MeterStatus.Color, u.MeterStatus.Message)
+			}
+		}
+	}
 
 	p("\n[Machines]")
 	p("ID\tSTATE\tDNS\tINS-ID\tSERIES\tAZ")

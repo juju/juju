@@ -44,14 +44,13 @@ var (
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
-	// EnvironConstraints are merged with the bootstrap constraints
-	// to choose the initial instance, and will be stored in the new
-	// environment's state.
-	EnvironConstraints constraints.Value
+	// ModelConstraints are merged with the bootstrap constraints
+	// to choose the initial instance, and will be stored in the
+	// initial models' states.
+	ModelConstraints constraints.Value
 
 	// BootstrapConstraints are used to choose the initial instance.
-	// BootstrapConstraints does not affect the environment-level
-	// constraints.
+	// BootstrapConstraints does not affect the model constraints.
 	BootstrapConstraints constraints.Value
 
 	// BootstrapSeries, if specified, is the series to use for the
@@ -61,6 +60,11 @@ type BootstrapParams struct {
 	// BootstrapImage, if specified, is the image ID to use for the
 	// initial bootstrap machine.
 	BootstrapImage string
+
+	// HostedModelConfig is the set of config attributes to be overlaid
+	// on the controller config to construct the initial hosted model
+	// config.
+	HostedModelConfig map[string]interface{}
 
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
@@ -114,7 +118,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			return err
 		}
 	}
-	if err := validateConstraints(environ, args.EnvironConstraints); err != nil {
+	if err := validateConstraints(environ, args.ModelConstraints); err != nil {
 		return err
 	}
 	if err := validateConstraints(environ, args.BootstrapConstraints); err != nil {
@@ -126,7 +130,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 	bootstrapConstraints, err := constraintsValidator.Merge(
-		args.EnvironConstraints, args.BootstrapConstraints,
+		args.ModelConstraints, args.BootstrapConstraints,
 	)
 	if err != nil {
 		return err
@@ -152,6 +156,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	} else if err != nil {
 		return err
 	}
+
 	if lxcMTU, ok := cfg.LXCDefaultMTU(); ok {
 		logger.Debugf("using MTU %v for all created LXC containers' network interfaces", lxcMTU)
 	}
@@ -185,8 +190,9 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 
 	ctx.Infof("Starting new instance for initial controller")
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
-		EnvironConstraints:   args.EnvironConstraints,
+		ModelConstraints:     args.ModelConstraints,
 		BootstrapConstraints: args.BootstrapConstraints,
+		BootstrapSeries:      args.BootstrapSeries,
 		Placement:            args.Placement,
 		AvailableTools:       availableTools,
 		ImageMetadata:        imageMetadata,
@@ -228,13 +234,14 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		args.BootstrapConstraints, args.EnvironConstraints, result.Series, publicKey,
+		args.BootstrapConstraints, args.ModelConstraints, result.Series, publicKey,
 	)
 	if err != nil {
 		return err
 	}
 	instanceConfig.Tools = selectedTools
 	instanceConfig.CustomImageMetadata = customImageMetadata
+	instanceConfig.HostedModelConfig = args.HostedModelConfig
 
 	gui, err := guiArchive()
 	if err != nil {
@@ -273,9 +280,9 @@ func userPublicSigningKey() (string, error) {
 // the given environment. If the environment provider does not make use of
 // simplestreams, no metadata will be returned.
 //
-// If a bootstrap image ID is specified, image metadat will be synthesised
+// If a bootstrap image ID is specified, image metadata will be synthesised
 // using that image ID, and the architecture and series specified by the
-// initiator. In addition, the custom image metadat that is saved into the
+// initiator. In addition, the custom image metadata that is saved into the
 // state database will have the synthesised image metadata added to it.
 func bootstrapImageMetadata(
 	environ environs.Environ,
@@ -343,9 +350,25 @@ func bootstrapImageMetadata(
 		Arches:    availableTools.Arches(),
 		Stream:    environ.Config().ImageStream(),
 	})
-	publicImageMetadata, _, err := imagemetadata.Fetch(sources, imageConstraint)
-	if err != nil {
-		return nil, errors.Annotate(err, "searching image metadata")
+	logger.Debugf("constraints for image metadata lookup %v", imageConstraint)
+
+	// Get image metadata from all data sources.
+	// Since order of data source matters, order of image metadata matters too. Append is important here.
+	var publicImageMetadata []*imagemetadata.ImageMetadata
+	for _, source := range sources {
+		sourceMetadata, _, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, imageConstraint)
+		if err != nil {
+			logger.Debugf("ignoring image metadata in %s: %v", source.Description(), err)
+			// Just keep looking...
+			continue
+		}
+		logger.Debugf("found %d image metadata in %s", len(sourceMetadata), source.Description())
+		publicImageMetadata = append(publicImageMetadata, sourceMetadata...)
+	}
+
+	logger.Debugf("found %d image metadata from all image data sources", len(publicImageMetadata))
+	if len(publicImageMetadata) == 0 {
+		return nil, errors.New("no image metadata found")
 	}
 	return publicImageMetadata, nil
 }

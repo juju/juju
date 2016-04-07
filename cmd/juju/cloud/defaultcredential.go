@@ -61,12 +61,10 @@ func hasCredential(credential string, credentials map[string]jujucloud.Credentia
 }
 
 func (c *setDefaultCredentialCommand) Run(ctxt *cmd.Context) error {
-	_, err := jujucloud.CloudByName(c.cloud)
-	if err != nil {
+	if _, err := cloudOrProvider(c.cloud, jujucloud.CloudByName); err != nil {
 		return err
 	}
-	var cred *jujucloud.CloudCredential
-	cred, err = c.store.CredentialForCloud(c.cloud)
+	cred, err := c.store.CredentialForCloud(c.cloud)
 	if errors.IsNotFound(err) {
 		cred = &jujucloud.CloudCredential{}
 	} else if err != nil {

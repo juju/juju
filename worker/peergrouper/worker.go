@@ -187,6 +187,7 @@ func (w *pgWorker) loop() error {
 				break
 			}
 			// Try to update the replica set immediately.
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			updateChan = time.After(0)
 
 		case <-updateChan:
@@ -210,9 +211,11 @@ func (w *pgWorker) loop() error {
 				// Update the replica set members occasionally
 				// to keep them up to date with the current
 				// replica set member statuses.
+				// TODO(fwereade): 2016-03-17 lp:1558657
 				updateChan = time.After(pollInterval)
 				retryInterval = initialRetryInterval
 			} else {
+				// TODO(fwereade): 2016-03-17 lp:1558657
 				updateChan = time.After(retryInterval)
 				retryInterval *= 2
 				if retryInterval > maxRetryInterval {
@@ -306,7 +309,8 @@ func (w *pgWorker) getMongoSpace(info *peerGroupInfo) error {
 				return errors.Annotate(err, "cannot set Mongo space state")
 			}
 
-			return fmt.Errorf("couldn't find a space containing all peer group machines")
+			logger.Warningf("couldn't find a space containing all peer group machines")
+			return nil
 		} else {
 			info.mongoSpace, err = w.st.SetOrGetMongoSpaceName(spaceStats.LargestSpace)
 			if err != nil {

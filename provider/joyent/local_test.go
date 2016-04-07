@@ -104,12 +104,12 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.cSrv.setupServer(c)
 	s.mSrv.setupServer(c)
 
-	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
+	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL)
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
 		"image-metadata-url": "test://host",
 	})
 	s.LiveTests.UploadArches = []string{arch.AMD64}
-	s.AddSuiteCleanup(func(*gc.C) { envtesting.PatchAttemptStrategies(&joyent.ShortAttempt) })
+	s.AddCleanup(func(*gc.C) { envtesting.PatchAttemptStrategies(&joyent.ShortAttempt) })
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -158,7 +158,7 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
 func (s *localServerSuite) SetUpTest(c *gc.C) {
@@ -172,7 +172,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 
 	s.Tests.ToolsFixture.UploadArches = []string{arch.AMD64}
 	s.Tests.SetUpTest(c)
-	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
+	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL)
 	credentialsAttrs := joyent.CredentialsAttributes(s.TestConfig)
 	s.Credential = cloud.NewCredential(
 		cloud.UserPassAuthType,
