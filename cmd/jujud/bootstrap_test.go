@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/juju/cmd"
@@ -190,6 +191,12 @@ func (s *BootstrapSuite) TestGUIArchiveInfoNotFound(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		// TODO frankban: skipping for now due to chmod problems with mode 0000
+		// on Windows. We will re-enable this test after further investigation:
+		// "jujud bootstrap" is never run on Windows anyway.
+		c.Skip("needs chmod investigation")
+	}
 	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
 	info := filepath.Join(dir, "downloaded-gui.txt")
 	err := os.Chmod(info, 0000)
