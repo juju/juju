@@ -239,5 +239,11 @@ func (suite *maas2EnvironSuite) TestSpacesError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "Joe Manginiello")
 }
 
-func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
+func (suite *maas2EnvironSuite) TestStartInstanceError(c *gc.C) {
+	suite.injectController(&fakeController{
+		allocateMachineError: errors.New("Charles Babbage"),
+	})
+	env := makeEnviron(c)
+	_, err := env.StartInstance(environs.StartInstanceParams{})
+	c.Assert(err, gc.ErrorMatches, ".* cannot run instance: Charles Babbage")
 }

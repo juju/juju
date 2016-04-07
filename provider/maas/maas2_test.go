@@ -9,15 +9,18 @@ import (
 
 type fakeController struct {
 	gomaasapi.Controller
-	bootResources      []gomaasapi.BootResource
-	bootResourcesError error
-	machines           []gomaasapi.Machine
-	machinesError      error
-	machinesArgsCheck  func(gomaasapi.MachinesArgs)
-	zones              []gomaasapi.Zone
-	zonesError         error
-	spaces             []gomaasapi.Space
-	spacesError        error
+	bootResources            []gomaasapi.BootResource
+	bootResourcesError       error
+	machines                 []gomaasapi.Machine
+	machinesError            error
+	machinesArgsCheck        func(gomaasapi.MachinesArgs)
+	zones                    []gomaasapi.Zone
+	zonesError               error
+	spaces                   []gomaasapi.Space
+	spacesError              error
+	allocateMachine          gomaasapi.Machine
+	allocateMachineError     error
+	allocateMachineArgsCheck func(gomaasapi.AllocateMachineArgs)
 }
 
 func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
@@ -28,6 +31,16 @@ func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Mach
 		return nil, c.machinesError
 	}
 	return c.machines, nil
+}
+
+func (c *fakeController) AllocateMachine(args gomaasapi.AllocateMachineArgs) (gomaasapi.Machine, error) {
+	if c.allocateMachineArgsCheck != nil {
+		c.allocateMachineArgsCheck(args)
+	}
+	if c.allocateMachineError != nil {
+		return nil, c.allocateMachineError
+	}
+	return c.allocateMachine, nil
 }
 
 func (c *fakeController) BootResources() ([]gomaasapi.BootResource, error) {
