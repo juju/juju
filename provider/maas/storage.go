@@ -47,7 +47,7 @@ func NewStorage(env *maasEnviron) storage.Storage {
 
 // addressFileObject creates a MAASObject pointing to a given file.
 // Takes out a lock on the storage object to get a consistent view.
-func (stor *maasStorage) addressFileObject(name string) gomaasapi.MAASObject {
+func (stor *maas1Storage) addressFileObject(name string) gomaasapi.MAASObject {
 	return stor.maasClient.GetSubObject(name)
 }
 
@@ -63,7 +63,7 @@ func prefixWithPrivateNamespace(env *maasEnviron, name string) string {
 }
 
 func (stor *maas1Storage) prefixWithPrivateNamespace(name string) string {
-	return prefixWithPrivateNamespace(stor.getSnapshot().environUnlocked, name)
+	return prefixWithPrivateNamespace(stor.environ, name)
 }
 
 // retrieveFileObject retrieves the information of the named file,
@@ -86,17 +86,6 @@ func (stor *maas1Storage) retrieveFileObject(name string) (gomaasapi.MAASObject,
 		return noObj, msg
 	}
 	return obj, nil
-}
-
-// All filenames need to be namespaced so they are private to this environment.
-// This prevents different environments from interfering with each other.
-// We're using the agent name UUID here.
-func (stor *maasStorage) prefixWithPrivateNamespace(name string) string {
-	prefix := stor.environ.ecfg().maasAgentName()
-	if prefix != "" {
-		return prefix + "-" + name
-	}
-	return name
 }
 
 // Get is specified in the StorageReader interface.

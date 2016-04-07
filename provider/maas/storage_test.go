@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 )
 
-var _ storage.Storage = (*maasStorage)(nil)
+var _ storage.Storage = (*maas1Storage)(nil)
 
 type storageSuite struct {
 	providerSuite
