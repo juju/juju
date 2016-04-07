@@ -132,7 +132,7 @@ def deb_to_agent(deb_path, dest_dir, agent_stream):
             base_version, agent_filename, agent_stream=agent_stream)
         writer.write_stanzas()
         shutil.move(writer.filename, dest_dir)
-        final_agent_path = os.path.join(dest_dir, writer.agent_path)
+        final_agent_path = os.path.join(dest_dir, writer.path)
         move_create_parent(agent_filename, final_agent_path)
 
 
@@ -159,7 +159,7 @@ def make_windows_agent(dest_debs, agent_stream, release):
     writer = StanzaWriter.for_windows(
         release, target, agent_stream=agent_stream)
     writer.write_stanzas()
-    agent_path = os.path.join(dest_debs, writer.agent_path)
+    agent_path = os.path.join(dest_debs, writer.path)
     move_create_parent(target, agent_path)
     os.rename(writer.filename, os.path.join(dest_debs, writer.filename))
 
@@ -170,7 +170,7 @@ def make_centos_agent(dest_debs, agent_stream, release):
     writer = StanzaWriter.for_centos(release, tarfile,
                                      agent_stream=agent_stream)
     writer.write_stanzas()
-    agent_path = os.path.join(dest_debs, writer.agent_path)
+    agent_path = os.path.join(dest_debs, writer.path)
     shutil.copy2(tarfile, agent_path)
     os.rename(writer.filename, os.path.join(dest_debs, writer.filename))
 
