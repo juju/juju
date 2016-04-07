@@ -247,3 +247,18 @@ func (suite *maas2EnvironSuite) TestStartInstanceError(c *gc.C) {
 	_, err := env.StartInstance(environs.StartInstanceParams{})
 	c.Assert(err, gc.ErrorMatches, ".* cannot run instance: Charles Babbage")
 }
+
+func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
+	var env *maasEnviron
+	suite.injectController(&fakeController{
+		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
+			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
+				AgentName: env.ecfg().maasAgentName()})
+		},
+		allocateMachine: &fakeMachine{systemID: "Bruce sterling"},
+	})
+	env = makeEnviron(c)
+	result, err := env.StartInstance(environs.StartInstanceParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
+}
