@@ -95,12 +95,10 @@ func (s *LxcSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&lxc.TemplateLockDir, c.MkDir())
 	s.PatchValue(&lxc.TemplateStopTimeout, 500*time.Millisecond)
 	s.loopDeviceManager = mockLoopDeviceManager{}
-}
-
-func (s *LxcSuite) TearDownTest(c *gc.C) {
-	s.TestSuite.ContainerFactory.RemoveListener(s.events)
-	close(s.events)
-	s.TestSuite.TearDownTest(c)
+	s.AddCleanup(func(*gc.C) {
+		s.TestSuite.ContainerFactory.RemoveListener(s.events)
+		close(s.events)
+	})
 }
 
 func (t *LxcSuite) TestPreferFastLXC(c *gc.C) {

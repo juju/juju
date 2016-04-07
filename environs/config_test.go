@@ -20,9 +20,9 @@ type suite struct {
 
 var _ = gc.Suite(&suite{})
 
-func (s *suite) TearDownTest(c *gc.C) {
-	dummy.Reset(c)
-	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
+func (s *suite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.AddCleanup(dummy.Reset)
 }
 
 // dummySampleConfig returns the dummy sample config without
