@@ -41,10 +41,13 @@ def move_debs(dest_debs):
     juju_core_dir = os.path.join(dest_debs, 'juju2')
     if not os.path.isdir(juju_core_dir):
         # The juju2 package was not found, try the juju-core package.
+        print('{} not found'.format(juju_core_dir))
         juju_core_dir = os.path.join(dest_debs, 'juju-core')
     if os.path.isdir(juju_core_dir):
+        print('Looking for debs in {}'.format(juju_core_dir))
         debs = glob.glob(os.path.join(juju_core_dir, '*deb'))
     else:
+        print('{} not found'.format(juju_core_dir))
         debs = []
     if len(debs) == 0:
         raise NoDebsFound('No deb files found.')
