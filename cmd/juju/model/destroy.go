@@ -67,7 +67,7 @@ type DestroyEnvironmentAPI interface {
 func (c *destroyCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "destroy-model",
-		Args:    "<model name>",
+		Args:    "[<controller name>:]<model name>",
 		Purpose: "Terminate all machines and resources for a non-controller model.",
 		Doc:     destroyDoc,
 	}

@@ -26,9 +26,10 @@ type unsetCommand struct {
 // unsetEnvHelpDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
 const unsetEnvHelpDoc = "" +
-	"Unsets specified model configuration to default values and removes\n" +
-	"specified keys that have no default values.  Attempting to remove a\n" +
-	"required key with no default value will result in an error.\n" +
+	"A model key is reset to its default value. If it does not have such a\n" +
+	"value defined then it is removed.\n" +
+	"Attempting to remove a required key with no default value will result\n" +
+	"in an error.\n" +
 	"By default, the model is the current model.\n" +
 	"Model configuration key values can be viewed with `juju get-model-config`.\n" + unsetEnvHelpDocExamples
 
@@ -45,7 +46,7 @@ func (c *unsetCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unset-model-config",
 		Args:    "<model key> ...",
-		Purpose: "Unsets specified model configuration.",
+		Purpose: "Unsets model configuration.",
 		Doc:     strings.TrimSpace(unsetEnvHelpDoc),
 	}
 }
