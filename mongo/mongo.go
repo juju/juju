@@ -49,7 +49,7 @@ const (
 	// installing mongo.
 	JujuMongoPackage = "juju-mongodb3.2"
 
-	// MMAPV2 is the default storage engine in mongo db up to 3.x
+	// MMAPV1 is the default storage engine in mongo db up to 3.x
 	MMAPV1 StorageEngine = "mmapv1"
 
 	// WiredTiger is a storage type introduced in 3
@@ -497,6 +497,15 @@ func logVersion(mongoPath string) {
 	logger.Debugf("using mongod: %s --version: %q", mongoPath, output)
 }
 
+func installPackage(pkg string, pacconfer config.PackagingConfigurer, pacman manager.PackageManager) error {
+	// apply release targeting if needed.
+	if pacconfer.IsCloudArchivePackage(pkg) {
+		pkg = strings.Join(pacconfer.ApplyCloudArchiveTarget(pkg), " ")
+	}
+
+	return pacman.Install(pkg)
+}
+
 func installMongod(operatingsystem string, numaCtl bool) error {
 	// fetch the packaging configuration manager for the current operating system.
 	pacconfer, err := config.NewPackagingConfigurer(operatingsystem)
@@ -528,24 +537,32 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 		}
 	}
 
-	mongoPkgs := packagesForSeries(operatingsystem)
+	mongoPkgs, fallbackPkgs := packagesForSeries(operatingsystem)
 
-	pkgs := mongoPkgs
 	if numaCtl {
-		pkgs = append(mongoPkgs, numaCtlPkg)
 		logger.Infof("installing %v and %s", mongoPkgs, numaCtlPkg)
+		if err = installPackage(numaCtlPkg, pacconfer, pacman); err != nil {
+			return errors.Trace(err)
+		}
 	} else {
 		logger.Infof("installing %v", mongoPkgs)
 	}
 
-	for i := range pkgs {
-		// apply release targeting if needed.
-		if pacconfer.IsCloudArchivePackage(pkgs[i]) {
-			pkgs[i] = strings.Join(pacconfer.ApplyCloudArchiveTarget(pkgs[i]), " ")
+	for i := range mongoPkgs {
+		if err = installPackage(mongoPkgs[i], pacconfer, pacman); err != nil {
+			break
 		}
-
-		if err := pacman.Install(pkgs[i]); err != nil {
-			return err
+	}
+	if err != nil && len(fallbackPkgs) == 0 {
+		return errors.Trace(err)
+	}
+	if err != nil {
+		logger.Errorf("installing mongo failed: %v", err)
+		logger.Infof("will try fallback packages %v", fallbackPkgs)
+		for i := range fallbackPkgs {
+			if err = installPackage(fallbackPkgs[i], pacconfer, pacman); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
@@ -573,18 +590,21 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 	return nil
 }
 
-// packageForSeries returns the name of the mongo package for the series
-// of the machine that it is going to be running on.
-func packagesForSeries(series string) []string {
+// packagesForSeries returns the name of the mongo package for the series
+// of the machine that it is going to be running on plus a fallback for
+// options where the package is going to be ready eventually but might not
+// yet be.
+func packagesForSeries(series string) ([]string, []string) {
 	switch series {
 	case "precise", "quantal", "raring", "saucy", "centos7":
-		return []string{"mongodb-server"}
-	// TODO(wallyworld) - remove this fallback when mongo3.2 is in trusty
+		return []string{"mongodb-server"}, []string{}
 	case "trusty":
-		return []string{"juju-mongodb"}
+		return []string{JujuMongoPackage}, []string{"juju-mongodb"}
+	case "xenial":
+		return []string{JujuMongoPackage}, []string{"juju-mongodb"}
 	default:
-		// xenial and onwards
-		return []string{JujuMongoPackage}
+		// y and onwards
+		return []string{JujuMongoPackage}, []string{}
 	}
 }
 

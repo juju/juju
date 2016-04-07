@@ -334,7 +334,7 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 		{"quantal", [][]string{{"python-software-properties"}, {"--target-release", "mongodb-server"}}},
 		{"raring", [][]string{{"--target-release", "mongodb-server"}}},
 		{"saucy", [][]string{{"--target-release", "mongodb-server"}}},
-		{"trusty", [][]string{{"juju-mongodb"}}},
+		{"trusty", [][]string{{"juju-mongodb3.2"}}},
 		{"xenial", [][]string{{"juju-mongodb3.2"}}},
 	}
 
