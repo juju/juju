@@ -85,7 +85,7 @@ type BootstrapParams struct {
 
 	// GUIDataSourceBaseURL holds the simplestreams data source base URL
 	// used to retrieve the Juju GUI archive installed in the controller.
-	// If not set, the Juju GUI is not installed.
+	// If not set, the Juju GUI is not installed from simplestreams.
 	GUIDataSourceBaseURL string
 }
 
@@ -467,10 +467,10 @@ func validateConstraints(env environs.Environ, cons constraints.Value) error {
 
 // guiArchive returns information on the GUI archive that will be uploaded
 // to the controller. Possible errors in retrieving the GUI archive information
-// do not prevent the model to be bootstrapped. The given data source URL is
-// used to retrieve remote GUI archive info from simplestreams. The given
-// logProgress function is used to inform users about errors or progress in
-// setting up the Juju GUI.
+// do not prevent the model to be bootstrapped. If dataSourceBaseURL is
+// non-empty, remote GUI archive info is retrieved from simplestreams using it
+// as the base URL. The given logProgress function is used to inform users
+// about errors or progress in setting up the Juju GUI.
 func guiArchive(dataSourceBaseURL string, logProgress func(string)) *coretools.GUIArchive {
 	// The environment variable is only used for development purposes.
 	path := os.Getenv("JUJU_GUI")
@@ -495,7 +495,7 @@ func guiArchive(dataSourceBaseURL string, logProgress func(string)) *coretools.G
 	}
 	// Check if the user requested to bootstrap with no GUI.
 	if dataSourceBaseURL == "" {
-		logProgress("Juju GUI will not be installed")
+		logProgress("Juju GUI installation has been disabled")
 		return nil
 	}
 	// Fetch GUI archives info from simplestreams.

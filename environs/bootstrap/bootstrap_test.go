@@ -355,7 +355,7 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessNoGUI(c *gc.C) {
 	ctx := coretesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Juju GUI will not be installed\n")
+	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Juju GUI installation has been disabled\n")
 	c.Assert(env.instanceConfig.GUI, gc.IsNil)
 }
 
