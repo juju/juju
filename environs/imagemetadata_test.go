@@ -27,7 +27,7 @@ type ImageMetadataSuite struct {
 var _ = gc.Suite(&ImageMetadataSuite{})
 
 func (s *ImageMetadataSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
+	dummy.Reset(c)
 	s.BaseSuite.TearDownTest(c)
 }
 

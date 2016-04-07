@@ -13,58 +13,67 @@ import (
 	"github.com/juju/juju/worker/dependency"
 )
 
-// ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
+// ConnectFunc is responsible for making and validating an API connection
+// on behalf of an agent.
+type ConnectFunc func(agent.Agent, api.OpenFunc) (api.Connection, error)
+
+// ManifoldConfig defines a Manifold's dependencies.
 type ManifoldConfig struct {
+
+	// AgentName is the name of the Agent resource that supplies
+	// connection information.
 	AgentName string
+
+	// APIOpen is passed into NewConnection, and should be used to
+	// create an API connection. You should probably just set it to
+	// the local APIOpen func.
+	APIOpen api.OpenFunc
+
+	// NewConnection is responsible for getting a connection from an
+	// agent, and may be responsible for other things that need to be
+	// done before anyone else gets to see the connection.
+	//
+	// You should probably set it to ScaryConnect when running a
+	// machine agent, and to OnlyConnect when running a model agent
+	// (which doesn't have its own process). Unit agents should use
+	// ScaryConnect at the moment; and probably switch to OnlyConnect
+	// when they move into machine agent processes.
+	NewConnection ConnectFunc
+
+	// Filter is used to specialize responses to connection errors
+	// made on behalf of different kinds of agent.
+	Filter dependency.FilterFunc
 }
 
-// Manifold returns a manifold whose worker wraps an API connection made on behalf of
-// the dependency identified by AgentName.
+// Manifold returns a manifold whose worker wraps an API connection
+// made as configured.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
 		},
 		Output: outputFunc,
-		Start:  startFunc(config),
+		Start:  config.startFunc(),
+		Filter: config.Filter,
 	}
 }
 
-// startFunc returns a StartFunc that creates a worker based on the manifolds
-// named in the supplied config.
-func startFunc(config ManifoldConfig) dependency.StartFunc {
+// startFunc returns a StartFunc that creates a connection based on the
+// supplied manifold config and wraps it in a worker.
+func (config ManifoldConfig) startFunc() dependency.StartFunc {
 	return func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-
-		// Get dependencies and open a connection.
-		var a agent.Agent
-		if err := getResource(config.AgentName, &a); err != nil {
+		var agent agent.Agent
+		if err := getResource(config.AgentName, &agent); err != nil {
 			return nil, err
 		}
-		conn, err := openConnection(a)
-		if err != nil {
+
+		conn, err := config.NewConnection(agent, config.APIOpen)
+		if errors.Cause(err) == ErrChangedPassword {
+			return nil, dependency.ErrBounce
+		} else if err != nil {
 			return nil, errors.Annotate(err, "cannot open api")
 		}
-
-		// Add the environment uuid to agent config if not present.
-		currentConfig := a.CurrentConfig()
-		if currentConfig.Model().Id() == "" {
-			err := a.ChangeConfig(func(setter agent.ConfigSetter) error {
-				modelTag, err := conn.ModelTag()
-				if err != nil {
-					return errors.Annotate(err, "no model uuid set on api")
-				}
-				return setter.Migrate(agent.MigrateParams{
-					Model: modelTag,
-				})
-			})
-			if err != nil {
-				logger.Warningf("unable to save model uuid: %v", err)
-				// Not really fatal, just annoying.
-			}
-		}
-
-		// Return the worker.
-		return newApiConnWorker(conn)
+		return newApiConnWorker(conn), nil
 	}
 }
 

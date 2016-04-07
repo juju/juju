@@ -206,7 +206,6 @@ func (cfg *centOSCloudConfig) addRequiredPackages() {
 	packages := []string{
 		"curl",
 		"bridge-utils",
-		"rsyslog-gnutls",
 		"cloud-utils",
 		"nmap-ncat",
 		"tmux",

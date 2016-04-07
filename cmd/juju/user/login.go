@@ -4,6 +4,8 @@
 package user
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -81,23 +83,41 @@ type LoginAPI interface {
 
 // Run implements Command.Run.
 func (c *loginCommand) Run(ctx *cmd.Context) error {
-	var accountName string
-	var userTag names.UserTag
 	controllerName := c.ControllerName()
 	store := c.ClientStore()
-	if c.User != "" {
-		if !names.IsValidUserName(c.User) {
-			return errors.NotValidf("user name %q", c.User)
-		}
-		userTag = names.NewUserTag(c.User)
-		accountName = userTag.Canonical()
-	} else {
+
+	user := c.User
+	if user == "" {
+		// The username has not been specified, so prompt for it.
+		fmt.Fprint(ctx.Stderr, "username: ")
 		var err error
-		accountName, err = store.CurrentAccount(controllerName)
+		user, err = readLine(ctx.Stdin)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		userTag = names.NewUserTag(accountName)
+		if user == "" {
+			return errors.Errorf("you must specify a username")
+		}
+	}
+	if !names.IsValidUserName(user) {
+		return errors.NotValidf("user name %q", user)
+	}
+	userTag := names.NewUserTag(user)
+	accountName := userTag.Canonical()
+
+	// Make sure that the client is not already logged in,
+	// or if it is, that it is logged in as the specified
+	// user.
+	currentAccountName, err := store.CurrentAccount(controllerName)
+	if err == nil {
+		if currentAccountName != accountName {
+			return errors.New(`already logged in
+
+Run "juju logout" first before attempting to log in as a different user.
+`)
+		}
+	} else if !errors.IsNotFound(err) {
+		return errors.Trace(err)
 	}
 	accountDetails, err := store.AccountByName(controllerName, accountName)
 	if err != nil && !errors.IsNotFound(err) {
@@ -143,6 +163,9 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 	accountDetails.Macaroon = string(macaroonJSON)
 	if err := store.UpdateAccount(controllerName, accountName, *accountDetails); err != nil {
 		return errors.Annotate(err, "failed to record temporary credential")
+	}
+	if err := store.SetCurrentAccount(controllerName, accountName); err != nil {
+		return errors.Annotate(err, "failed to set current account")
 	}
 	ctx.Infof("You are now logged in to %q as %q.", controllerName, accountName)
 	return nil

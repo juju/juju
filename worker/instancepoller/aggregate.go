@@ -64,6 +64,7 @@ func (a *aggregator) instanceInfo(id instance.Id) (instanceInfo, error) {
 var gatherTime = 3 * time.Second
 
 func (a *aggregator) loop() error {
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	timer := time.NewTimer(0)
 	timer.Stop()
 	var reqs []instanceInfoReq

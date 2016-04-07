@@ -144,7 +144,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 		Fingerprint: res1.Fingerprint,
 		Size:        res1.Size,
 	}
-	s.csClient.ReturnGetResource = &expected
+	s.csClient.ReturnResourceInfo = &expected
 	facade, err := server.NewFacade(s.data, s.newCSClient)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -161,7 +161,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "GetResource", "AddPendingResource")
+	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "ResourceInfo", "AddPendingResource")
 	s.stub.CheckCall(c, 3, "AddPendingResource", "a-service", "", expected, nil)
 	c.Check(result, jc.DeepEquals, api.AddPendingResourcesResult{
 		PendingIDs: []string{
@@ -206,6 +206,42 @@ func (s *AddPendingResourcesSuite) TestWithURLNoRevision(c *gc.C) {
 
 	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
 	s.stub.CheckCall(c, 2, "AddPendingResource", "a-service", "", res1.Resource, nil)
+	c.Check(result, jc.DeepEquals, api.AddPendingResourcesResult{
+		PendingIDs: []string{
+			id1,
+		},
+	})
+}
+
+func (s *AddPendingResourcesSuite) TestLocalCharm(c *gc.C) {
+	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
+	expected := charmresource.Resource{
+		Meta:   res1.Meta,
+		Origin: charmresource.OriginUpload,
+	}
+	apiRes1.Origin = charmresource.OriginStore.String()
+	apiRes1.Revision = 3
+	id1 := "some-unique-ID"
+	s.data.ReturnAddPendingResource = id1
+	facade, err := server.NewFacade(s.data, s.newCSClient)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
+		Entity: params.Entity{
+			Tag: "service-a-service",
+		},
+		AddCharmWithAuthorization: params.AddCharmWithAuthorization{
+			URL: "local:trusty/spam",
+		},
+		Resources: []api.CharmResource{
+			apiRes1.CharmResource,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+
+	s.stub.CheckCallNames(c, "AddPendingResource")
+	s.stub.CheckCall(c, 0, "AddPendingResource", "a-service", "", expected, nil)
 	c.Check(result, jc.DeepEquals, api.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,

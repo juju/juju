@@ -25,6 +25,10 @@ type BootstrapParams struct {
 	// will not be stored in state for the environment.
 	BootstrapConstraints constraints.Value
 
+	// BootstrapSeries, if specified, is the series to use for the
+	// initial bootstrap machine.
+	BootstrapSeries string
+
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
 	Placement string

@@ -22,14 +22,11 @@ import (
 )
 
 type maas1Storage struct {
-	// Mutex protects the "*Unlocked" fields.
-	sync.Mutex
-
 	// The Environ that this Storage is for.
-	environUnlocked *maasEnviron
+	environ *maasEnviron
 
 	// Reference to the URL on the API where files are stored.
-	maasClientUnlocked gomaasapi.MAASObject
+	maasClient gomaasapi.MAASObject
 }
 
 var _ storage.Storage = (*maas1Storage)(nil)
@@ -42,37 +39,16 @@ func NewStorage(env *maasEnviron) storage.Storage {
 		}
 	} else {
 		return &maas1Storage{
-			environUnlocked:    env,
-			maasClientUnlocked: env.getMAASClient().GetSubObject("files"),
+			environ:    env,
+			maasClient: env.getMAASClient().GetSubObject("files"),
 		}
-	}
-}
-
-// getSnapshot returns a consistent copy of a maas1Storage.  Use this if you
-// need a consistent view of the object's entire state, without having to
-// lock the object the whole time.
-//
-// An easy mistake to make with "defer" is to keep holding a lock without
-// realizing it, while you go on to block on http requests or other slow
-// things that don't actually require the lock.  In most cases you can just
-// create a snapshot first (releasing the lock immediately) and then do the
-// rest of the work with the snapshot.
-func (stor *maas1Storage) getSnapshot() *maas1Storage {
-	stor.Lock()
-	defer stor.Unlock()
-
-	return &maas1Storage{
-		environUnlocked:    stor.environUnlocked,
-		maasClientUnlocked: stor.maasClientUnlocked,
 	}
 }
 
 // addressFileObject creates a MAASObject pointing to a given file.
 // Takes out a lock on the storage object to get a consistent view.
-func (stor *maas1Storage) addressFileObject(name string) gomaasapi.MAASObject {
-	stor.Lock()
-	defer stor.Unlock()
-	return stor.maasClientUnlocked.GetSubObject(name)
+func (stor *maasStorage) addressFileObject(name string) gomaasapi.MAASObject {
+	return stor.maasClient.GetSubObject(name)
 }
 
 // All filenames need to be namespaced so they are private to this environment.
@@ -110,6 +86,17 @@ func (stor *maas1Storage) retrieveFileObject(name string) (gomaasapi.MAASObject,
 		return noObj, msg
 	}
 	return obj, nil
+}
+
+// All filenames need to be namespaced so they are private to this environment.
+// This prevents different environments from interfering with each other.
+// We're using the agent name UUID here.
+func (stor *maasStorage) prefixWithPrivateNamespace(name string) string {
+	prefix := stor.environ.ecfg().maasAgentName()
+	if prefix != "" {
+		return prefix + "-" + name
+	}
+	return name
 }
 
 // Get is specified in the StorageReader interface.
@@ -160,12 +147,11 @@ func (stor *maas1Storage) List(prefix string) ([]string, error) {
 	prefix = stor.prefixWithPrivateNamespace(prefix)
 	params := make(url.Values)
 	params.Add("prefix", prefix)
-	snapshot := stor.getSnapshot()
-	obj, err := snapshot.maasClientUnlocked.CallGet("list", params)
+	obj, err := stor.maasClient.CallGet("list", params)
 	if err != nil {
 		return nil, err
 	}
-	return snapshot.extractFilenames(obj)
+	return stor.extractFilenames(obj)
 }
 
 // URL is specified in the StorageReader interface.
@@ -210,8 +196,7 @@ func (stor *maas1Storage) Put(name string, r io.Reader, length int64) error {
 	}
 	params := url.Values{"filename": {name}}
 	files := map[string][]byte{"file": data}
-	snapshot := stor.getSnapshot()
-	_, err = snapshot.maasClientUnlocked.CallPostFiles("add", params, files)
+	_, err = stor.maasClient.CallPostFiles("add", params, files)
 	return err
 }
 
@@ -221,7 +206,7 @@ func (stor *maas1Storage) Remove(name string) error {
 	// The only thing that can go wrong here, really, is that the file
 	// does not exist.  But deletion is idempotent: deleting a file that
 	// is no longer there anyway is success, not failure.
-	stor.getSnapshot().maasClientUnlocked.GetSubObject(name).Delete()
+	stor.maasClient.GetSubObject(name).Delete()
 	return nil
 }
 

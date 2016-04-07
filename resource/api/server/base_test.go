@@ -5,7 +5,6 @@ package server_test
 
 import (
 	"io"
-	"io/ioutil"
 	"time"
 
 	"github.com/juju/errors"
@@ -15,6 +14,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/server"
@@ -142,11 +142,11 @@ type stubCSClient struct {
 	*testing.Stub
 
 	ReturnListResources [][]charmresource.Resource
-	ReturnGetResource   *charmresource.Resource
+	ReturnResourceInfo  *charmresource.Resource
 }
 
-func (s *stubCSClient) ListResources(cURLs []*charm.URL) ([][]charmresource.Resource, error) {
-	s.AddCall("ListResources", cURLs)
+func (s *stubCSClient) ListResources(charms []charmstore.CharmID) ([][]charmresource.Resource, error) {
+	s.AddCall("ListResources", charms)
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -154,14 +154,14 @@ func (s *stubCSClient) ListResources(cURLs []*charm.URL) ([][]charmresource.Reso
 	return s.ReturnListResources, nil
 }
 
-func (s *stubCSClient) GetResource(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, io.ReadCloser, error) {
-	s.AddCall("GetResource", cURL, resourceName, revision)
+func (s *stubCSClient) ResourceInfo(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, error) {
+	s.AddCall("ResourceInfo", cURL, resourceName, revision)
 	if err := s.NextErr(); err != nil {
-		return charmresource.Resource{}, nil, errors.Trace(err)
+		return charmresource.Resource{}, errors.Trace(err)
 	}
 
-	if s.ReturnGetResource == nil {
-		return charmresource.Resource{}, nil, errors.NotFoundf("resource %q", resourceName)
+	if s.ReturnResourceInfo == nil {
+		return charmresource.Resource{}, errors.NotFoundf("resource %q", resourceName)
 	}
-	return *s.ReturnGetResource, ioutil.NopCloser(nil), nil
+	return *s.ReturnResourceInfo, nil
 }

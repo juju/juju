@@ -10,7 +10,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
-	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
@@ -19,6 +18,8 @@ import (
 
 	"github.com/juju/juju/environs/storage"
 )
+
+var _ storage.Storage = (*maasStorage)(nil)
 
 type storageSuite struct {
 	providerSuite
@@ -56,18 +57,6 @@ func (s *storageSuite) fakeStoredFile(stor storage.Storage, name string) gomaasa
 	// bypassing the Put() method that would normally do that.
 	prefixFilename := stor.(*maas1Storage).prefixWithPrivateNamespace("") + name
 	return s.testMAASObject.TestServer.NewFile(prefixFilename, data)
-}
-
-func (s *storageSuite) TestGetSnapshotCreatesClone(c *gc.C) {
-	original := s.makeStorage("storage-name")
-	snapshot := original.getSnapshot()
-	c.Check(snapshot.environUnlocked, gc.Equals, original.environUnlocked)
-	c.Check(snapshot.maasClientUnlocked.URL().String(), gc.Equals, original.maasClientUnlocked.URL().String())
-	// Snapshotting locks the original internally, but does not leave
-	// either the original or the snapshot locked.
-	unlockedMutexValue := sync.Mutex{}
-	c.Check(original.Mutex, gc.Equals, unlockedMutexValue)
-	c.Check(snapshot.Mutex, gc.Equals, unlockedMutexValue)
 }
 
 func (s *storageSuite) TestGetRetrievesFile(c *gc.C) {
@@ -249,7 +238,7 @@ func (s *storageSuite) TestURLReturnsURLCorrespondingToFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	parsedURI, err := url.Parse(anonURI)
 	c.Assert(err, jc.ErrorIsNil)
-	anonURL := stor.maasClientUnlocked.URL().ResolveReference(parsedURI)
+	anonURL := stor.maasClient.URL().ResolveReference(parsedURI)
 	c.Assert(err, jc.ErrorIsNil)
 
 	fileURL, err := stor.URL(filename)
@@ -401,7 +390,7 @@ func (s *storageSuite) TestRemoveAllDeletesAllFiles(c *gc.C) {
 func (s *storageSuite) TestprefixWithPrivateNamespacePrefixesWithAgentName(c *gc.C) {
 	sstor := NewStorage(s.makeEnviron())
 	stor := sstor.(*maas1Storage)
-	agentName := stor.environUnlocked.ecfg().maasAgentName()
+	agentName := stor.environ.ecfg().maasAgentName()
 	c.Assert(agentName, gc.Not(gc.Equals), "")
 	expectedPrefix := agentName + "-"
 	const name = "myname"
@@ -412,7 +401,7 @@ func (s *storageSuite) TestprefixWithPrivateNamespacePrefixesWithAgentName(c *gc
 func (s *storageSuite) TesttprefixWithPrivateNamespaceIgnoresAgentName(c *gc.C) {
 	sstor := NewStorage(s.makeEnviron())
 	stor := sstor.(*maas1Storage)
-	ecfg := stor.environUnlocked.ecfg()
+	ecfg := stor.environ.ecfg()
 	ecfg.attrs["maas-agent-name"] = ""
 
 	const name = "myname"

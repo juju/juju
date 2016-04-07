@@ -110,7 +110,7 @@ func (s *suite) SetUpTest(c *gc.C) {
 func (s *suite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
-	dummy.Reset()
+	dummy.Reset(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
