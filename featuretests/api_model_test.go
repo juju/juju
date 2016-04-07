@@ -30,15 +30,11 @@ type apiEnvironmentSuite struct {
 
 func (s *apiEnvironmentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	var err error
 	s.client = s.APIState.Client()
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.client, gc.NotNil)
-}
-
-func (s *apiEnvironmentSuite) TearDownTest(c *gc.C) {
-	s.client.ClientFacade.Close()
-	s.JujuConnSuite.TearDownTest(c)
+	s.AddCleanup(func(*gc.C) {
+		s.client.ClientFacade.Close()
+	})
 }
 
 func (s *apiEnvironmentSuite) TestGrantModel(c *gc.C) {

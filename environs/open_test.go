@@ -39,7 +39,7 @@ func (s *OpenSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *OpenSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
+	dummy.Reset(c)
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }

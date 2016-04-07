@@ -43,12 +43,7 @@ var _ = gc.Suite(&DeployLocalSuite{})
 func (s *DeployLocalSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	s.repo = &charmrepo.LocalRepository{Path: testcharms.Repo.Path()}
-	s.oldCacheDir, charmrepo.CacheDir = charmrepo.CacheDir, c.MkDir()
-}
-
-func (s *DeployLocalSuite) TearDownSuite(c *gc.C) {
-	charmrepo.CacheDir = s.oldCacheDir
-	s.JujuConnSuite.TearDownSuite(c)
+	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 }
 
 func (s *DeployLocalSuite) SetUpTest(c *gc.C) {

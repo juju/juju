@@ -65,7 +65,7 @@ func (cs *charmstoreOpener) NewClient() (*CSRetryClient, error) {
 	return newCSRetryClient(client), nil
 }
 
-func (cs *charmstoreOpener) newClient() *charmstore.Client {
+func (cs *charmstoreOpener) newClient() charmstore.Client {
 	var config charmstore.ClientConfig
 
 	httpClient := httpbakery.NewClient()
@@ -85,11 +85,11 @@ func (cs *charmstoreOpener) newClient() *charmstore.Client {
 // CSRetryClient is a wrapper around a Juju charm store client that
 // retries GetResource() calls.
 type CSRetryClient struct {
-	*charmstore.Client
+	charmstore.Client
 	retryArgs retry.CallArgs
 }
 
-func newCSRetryClient(client *charmstore.Client) *CSRetryClient {
+func newCSRetryClient(client charmstore.Client) *CSRetryClient {
 	retryArgs := retry.CallArgs{
 		// The only error that stops the retry loop should be "not found".
 		IsFatalError: errors.IsNotFound,

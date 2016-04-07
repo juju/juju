@@ -4,6 +4,10 @@
 package metricsdebug
 
 import (
+	"errors"
+	"time"
+
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -19,4 +23,13 @@ func NewRunClientFnc(client runClient) func(modelcmd.ModelCommandBase) (runClien
 	return func(_ modelcmd.ModelCommandBase) (runClient, error) {
 		return client, nil
 	}
+}
+
+func PatchGetActionResult(patchValue func(interface{}, interface{}), actions map[string]params.ActionResult) {
+	patchValue(&getActionResult, func(_ runClient, id string, _ *time.Timer) (params.ActionResult, error) {
+		if res, ok := actions[id]; ok {
+			return res, nil
+		}
+		return params.ActionResult{}, errors.New("plm")
+	})
 }
