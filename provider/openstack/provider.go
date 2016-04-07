@@ -19,6 +19,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
+	"gopkg.in/goose.v1/cinder"
 	"gopkg.in/goose.v1/client"
 	gooseerrors "gopkg.in/goose.v1/errors"
 	"gopkg.in/goose.v1/identity"
@@ -1204,17 +1205,35 @@ func (e *Environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return insts, err
 }
 
-func (e *Environ) AllInstances() (insts []instance.Instance, err error) {
-	servers, err := e.nova().ListServersDetail(e.machinesFilter())
+// AllInstances returns all instances in this environment.
+func (e *Environ) AllInstances() ([]instance.Instance, error) {
+	filter := e.machinesFilter()
+	allInstances, err := e.allControllerManagedInstances(filter, e.ecfg().useFloatingIP())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelUUID := e.Config().UUID()
+	matching := make([]instance.Instance, 0, len(allInstances))
+	for _, inst := range allInstances {
+		if inst.(*openstackInstance).serverDetail.Metadata[tags.JujuModel] != modelUUID {
+			continue
+		}
+		matching = append(matching, inst)
+	}
+	return matching, nil
+}
+
+// allControllerManagedInstances returns all instances managed by this
+// environment's controller, matching the optionally specified filter.
+func (e *Environ) allControllerManagedInstances(filter *nova.Filter, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
+	servers, err := e.nova().ListServersDetail(filter)
 	if err != nil {
 		return nil, err
 	}
 	instsById := make(map[string]instance.Instance)
-	cfg := e.Config()
-	eUUID := cfg.UUID()
+	controllerUUID := e.Config().ControllerUUID()
 	for _, server := range servers {
-		modelUUID, ok := server.Metadata[tags.JujuModel]
-		if !ok || modelUUID != eUUID {
+		if server.Metadata[tags.JujuController] != controllerUUID {
 			continue
 		}
 		if e.isAliveServer(server) {
@@ -1223,17 +1242,16 @@ func (e *Environ) AllInstances() (insts []instance.Instance, err error) {
 			instsById[s.Id] = &openstackInstance{e: e, serverDetail: &s}
 		}
 	}
-
-	if e.ecfg().useFloatingIP() {
+	if updateFloatingIPAddresses {
 		if err := e.updateFloatingIPAddresses(instsById); err != nil {
 			return nil, err
 		}
 	}
-
+	insts := make([]instance.Instance, 0, len(instsById))
 	for _, inst := range instsById {
 		insts = append(insts, inst)
 	}
-	return insts, err
+	return insts, nil
 }
 
 func (e *Environ) Destroy() error {
@@ -1241,7 +1259,71 @@ func (e *Environ) Destroy() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return e.firewaller.DeleteGlobalGroups()
+	cfg := e.Config()
+	if cfg.UUID() == cfg.ControllerUUID() {
+		// In case any hosted environment hasn't been cleaned up yet,
+		// we also attempt to delete their resources when the controller
+		// environment is destroyed.
+		if err := e.destroyControllerManagedEnvirons(); err != nil {
+			return errors.Annotate(err, "destroying managed environs")
+		}
+	}
+	// Delete all security groups remaining in the model.
+	return e.firewaller.DeleteAllGroups()
+}
+
+// destroyControllerManagedEnvirons destroys all environments managed by this
+// environment's controller.
+func (e *Environ) destroyControllerManagedEnvirons() error {
+	// Terminate all instances managed by the controller.
+	insts, err := e.allControllerManagedInstances(nil, false)
+	if err != nil {
+		return errors.Annotate(err, "listing instances")
+	}
+	instIds := make([]instance.Id, len(insts))
+	for i, inst := range insts {
+		instIds[i] = inst.Id()
+	}
+	if err := e.terminateInstances(instIds); err != nil {
+		return errors.Annotate(err, "terminating instances")
+	}
+
+	// Delete all volumes managed by the controller.
+	cfg := e.Config()
+	storageAdapter, err := newOpenstackStorageAdapter(cfg)
+	if err == nil {
+		volIds, err := allControllerManagedVolumes(storageAdapter, cfg.ControllerUUID())
+		if err != nil {
+			return errors.Annotate(err, "listing volumes")
+		}
+		errs := destroyVolumes(storageAdapter, volIds)
+		for i, err := range errs {
+			if err == nil {
+				continue
+			}
+			return errors.Annotatef(err, "destroying volume %q", volIds[i], err)
+		}
+	} else if !errors.IsNotSupported(err) {
+		return errors.Trace(err)
+	}
+
+	// Security groups for hosted models are destroyed by the
+	// DeleteAllGroups method call from Destroy().
+	return nil
+}
+
+func allControllerManagedVolumes(storageAdapter openstackStorage, controllerUUID string) ([]string, error) {
+	volumes, err := listVolumes(storageAdapter, func(v *cinder.Volume) bool {
+		return v.Metadata[tags.JujuController] == controllerUUID
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	volIds := make([]string, len(volumes))
+	for i, v := range volumes {
+		volIds[i] = v.VolumeId
+	}
+	return volIds, nil
 }
 
 func resourceName(tag names.Tag, envName string) string {
