@@ -1396,21 +1396,6 @@ func (s *environSuite) TestStartInstanceDistribution(c *gc.C) {
 	c.Assert(zone, gc.Equals, "test-available")
 }
 
-func (s *environSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
-	env := s.bootstrap(c)
-
-	mock := mockAvailabilityZoneAllocations{err: errors.NotImplementedf("availability zones")}
-	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-
-	// Instance will be created without an availability zone specified.
-	s.newNode(c, "node1", "host1", nil)
-	s.addSubnet(c, 1, 1, "node1")
-	inst, _ := testing.AssertStartInstance(c, env, "1")
-	zone, err := inst.(*maas1Instance).zone()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zone, gc.Equals, "test-available")
-}
-
 func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
 	mock := mockAvailabilityZoneAllocations{
 		result: []common.AvailabilityZoneInstances{{
@@ -1429,7 +1414,7 @@ func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
 
 	env := s.bootstrap(c)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
-	zone, err := inst.(*maas2Instance).zone()
+	zone, err := inst.(maasInstance).zone()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zone, gc.Equals, "zone2")
 	c.Assert(s.testMAASObject.TestServer.NodesOperations(), gc.DeepEquals, []string{
