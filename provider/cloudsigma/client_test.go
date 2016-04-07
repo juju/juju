@@ -34,11 +34,9 @@ var _ = gc.Suite(&clientSuite{})
 func (s *clientSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	mock.Start()
-}
-
-func (s *clientSuite) TearDownSuite(c *gc.C) {
-	mock.Stop()
-	s.BaseSuite.TearDownSuite(c)
+	s.AddCleanup(func(*gc.C) {
+		mock.Stop()
+	})
 }
 
 func (s *clientSuite) SetUpTest(c *gc.C) {

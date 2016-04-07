@@ -2566,7 +2566,13 @@ func (ac addCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
 	ch := testcharms.Repo.CharmDir(ac.name)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("%s:quantal/%s-%d", scheme, name, rev))
-	dummy, err := ctx.st.AddCharm(ch, curl, "dummy-path", fmt.Sprintf("%s-%d-sha256", name, rev))
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "dummy-path",
+		SHA256:      fmt.Sprintf("%s-%d-sha256", name, rev),
+	}
+	dummy, err := ctx.st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.charms[ac.name] = dummy
 }
@@ -3280,6 +3286,49 @@ func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
 	code, _, stderr := runStatus(c, "--format", "tabular")
 	c.Check(code, gc.Equals, 1)
 	c.Check(string(stderr), gc.Equals, "error: unable to obtain the current status\n")
+}
+
+func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
+	status := formattedStatus{
+		Services: map[string]serviceStatus{
+			"foo": serviceStatus{
+				Units: map[string]unitStatus{
+					"foo/0": unitStatus{
+						MeterStatus: &meterStatus{
+							Color:   "strange",
+							Message: "warning: stable strangelets",
+						},
+					},
+					"foo/1": unitStatus{
+						MeterStatus: &meterStatus{
+							Color:   "up",
+							Message: "things are looking up",
+						},
+					},
+				},
+			},
+		},
+	}
+	out, err := FormatTabular(status)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(out), gc.Equals, `
+[Services] 
+NAME       STATUS EXPOSED CHARM 
+foo               false         
+
+[Units] 
+ID      WORKLOAD-STATUS JUJU-STATUS VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE 
+foo/0                                                                            
+foo/1                                                                            
+
+[Metering] 
+ID         STATUS  MESSAGE                     
+foo/0      strange warning: stable strangelets 
+foo/1      up      things are looking up       
+
+[Machines] 
+ID         STATE DNS INS-ID SERIES AZ 
+`[1:])
 }
 
 //

@@ -205,6 +205,7 @@ func (s *instanceTest) TestHardwareCharacteristics(c *gc.C) {
 		"system_id": "system_id",
         "architecture": "amd64/generic",
         "cpu_count": 6,
+        "zone": {"name": "tst"},
         "memory": 16384
 	}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
@@ -216,7 +217,7 @@ func (s *instanceTest) TestHardwareCharacteristics(c *gc.C) {
 	hc, err := inst.hardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc, gc.NotNil)
-	c.Assert(hc.String(), gc.Equals, `arch=amd64 cpu-cores=6 mem=16384M`)
+	c.Assert(hc.String(), gc.Equals, `arch=amd64 cpu-cores=6 mem=16384M availability-zone=tst`)
 }
 
 func (s *instanceTest) TestHardwareCharacteristicsWithTags(c *gc.C) {
@@ -225,6 +226,7 @@ func (s *instanceTest) TestHardwareCharacteristicsWithTags(c *gc.C) {
         "architecture": "amd64/generic",
         "cpu_count": 6,
         "memory": 16384,
+        "zone": {"name": "tst"},
         "tag_names": ["a", "b"]
 	}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
@@ -236,7 +238,7 @@ func (s *instanceTest) TestHardwareCharacteristicsWithTags(c *gc.C) {
 	hc, err := inst.hardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc, gc.NotNil)
-	c.Assert(hc.String(), gc.Equals, `arch=amd64 cpu-cores=6 mem=16384M tags=a,b`)
+	c.Assert(hc.String(), gc.Equals, `arch=amd64 cpu-cores=6 mem=16384M tags=a,b availability-zone=tst`)
 }
 
 func (s *instanceTest) TestHardwareCharacteristicsMissing(c *gc.C) {
@@ -246,7 +248,13 @@ func (s *instanceTest) TestHardwareCharacteristicsMissing(c *gc.C) {
 		`error determining cpu count: Requested float64, got <nil>.`)
 	s.testHardwareCharacteristicsMissing(c, `{"system_id": "id", "architecture": "armhf", "cpu_count": 6}`,
 		`error determining available memory: Requested float64, got <nil>.`)
-	s.testHardwareCharacteristicsMissing(c, `{"system_id": "id", "architecture": "armhf", "cpu_count": 6, "memory": 1, "tag_names": "wot"}`,
+	s.testHardwareCharacteristicsMissing(c, `{"system_id": "id", "architecture": "armhf", "cpu_count": 6, "memory": 1}`,
+		`error determining availability zone: zone property not set on maas`)
+	s.testHardwareCharacteristicsMissing(c, `{"system_id": "id", "architecture": "armhf", "cpu_count": 6, "memory": 1, "zone": ""}`,
+		`error determining availability zone: zone property is not an expected type`)
+	s.testHardwareCharacteristicsMissing(c, `{"system_id": "id", "architecture": "armhf", "cpu_count": 6, "memory": 1, "zone": {}}`,
+		`error determining availability zone: zone property is not set correctly: name is missing`)
+	s.testHardwareCharacteristicsMissing(c, `{"system_id": "id", "architecture": "armhf", "cpu_count": 6, "memory": 1, "zone": {"name": "tst"}, "tag_names": "wot"}`,
 		`error determining tag names: Requested array, got string.`)
 }
 

@@ -19,8 +19,8 @@ type maas2Instance struct {
 
 var _ maasInstance = (*maas2Instance)(nil)
 
-func (mi *maas2Instance) zone() string {
-	return mi.machine.Zone().Name()
+func (mi *maas2Instance) zone() (string, error) {
+	return mi.machine.Zone().Name(), nil
 }
 
 func (mi *maas2Instance) hostname() (string, error) {
@@ -31,7 +31,8 @@ func (mi *maas2Instance) hardwareCharacteristics() (*instance.HardwareCharacteri
 	nodeArch := strings.Split(mi.machine.Architecture(), "/")[0]
 	nodeCpuCount := uint64(mi.machine.CPUCount())
 	nodeMemoryMB := uint64(mi.machine.Memory())
-	zone := mi.zone()
+	// zone can't error on the maas2Instance implementaation.
+	zone, _ := mi.zone()
 	hc := &instance.HardwareCharacteristics{
 		Arch:             &nodeArch,
 		CpuCores:         &nodeCpuCount,

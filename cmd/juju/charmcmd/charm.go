@@ -14,7 +14,7 @@ by charm authors, though only applicable functionality is mirrored.
 
 const charmPurpose = "interact with charms"
 
-// Command is the top-level command wrapping all backups functionality.
+// Command is the top-level command wrapping all charm functionality.
 type Command struct {
 	cmd.SuperCommand
 }

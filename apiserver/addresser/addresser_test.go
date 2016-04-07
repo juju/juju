@@ -58,11 +58,7 @@ func (s *AddresserSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.api, err = addresser.NewAddresserAPI(nil, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *AddresserSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
-	s.BaseSuite.TearDownTest(c)
+	s.AddCleanup(dummy.Reset)
 }
 
 func (s *AddresserSuite) TestCanDeallocateAddressesEnabled(c *gc.C) {

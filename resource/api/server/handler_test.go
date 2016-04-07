@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/resource/api/server"
 )
 
-type ResourceHandlerSuite struct {
+type LegacyHTTPHandlerSuite struct {
 	BaseSuite
 
 	username string
@@ -31,9 +31,9 @@ type ResourceHandlerSuite struct {
 	result   *api.UploadResult
 }
 
-var _ = gc.Suite(&ResourceHandlerSuite{})
+var _ = gc.Suite(&LegacyHTTPHandlerSuite{})
 
-func (s *ResourceHandlerSuite) SetUpTest(c *gc.C) {
+func (s *LegacyHTTPHandlerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	method := "..."
@@ -51,7 +51,7 @@ func (s *ResourceHandlerSuite) SetUpTest(c *gc.C) {
 	s.result = &api.UploadResult{}
 }
 
-func (s *ResourceHandlerSuite) connect(req *http.Request) (server.DataStore, names.Tag, error) {
+func (s *LegacyHTTPHandlerSuite) connect(req *http.Request) (server.DataStore, names.Tag, error) {
 	s.stub.AddCall("Connect", req)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, nil, errors.Trace(err)
@@ -61,7 +61,7 @@ func (s *ResourceHandlerSuite) connect(req *http.Request) (server.DataStore, nam
 	return s.data, tag, nil
 }
 
-func (s *ResourceHandlerSuite) handleUpload(username string, st server.DataStore, req *http.Request) (*api.UploadResult, error) {
+func (s *LegacyHTTPHandlerSuite) handleUpload(username string, st server.DataStore, req *http.Request) (*api.UploadResult, error) {
 	s.stub.AddCall("HandleUpload", username, st, req)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -70,9 +70,9 @@ func (s *ResourceHandlerSuite) handleUpload(username string, st server.DataStore
 	return s.result, nil
 }
 
-func (s *ResourceHandlerSuite) TestServeHTTPConnectFailure(c *gc.C) {
+func (s *LegacyHTTPHandlerSuite) TestServeHTTPConnectFailure(c *gc.C) {
 	s.username = "youknowwho"
-	handler := server.ResourceHandler{
+	handler := server.LegacyHTTPHandler{
 		Connect:      s.connect,
 		HandleUpload: s.handleUpload,
 	}
@@ -100,9 +100,9 @@ func (s *ResourceHandlerSuite) TestServeHTTPConnectFailure(c *gc.C) {
 	})
 }
 
-func (s *ResourceHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
+func (s *LegacyHTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
 	s.username = "youknowwho"
-	handler := server.ResourceHandler{
+	handler := server.LegacyHTTPHandler{
 		Connect:      s.connect,
 		HandleUpload: s.handleUpload,
 	}
@@ -130,12 +130,12 @@ func (s *ResourceHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
 	})
 }
 
-func (s *ResourceHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
+func (s *LegacyHTTPHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
 	s.result.Resource.Name = "spam"
 	expected, err := json.Marshal(s.result)
 	c.Assert(err, jc.ErrorIsNil)
 	s.username = "youknowwho"
-	handler := server.ResourceHandler{
+	handler := server.LegacyHTTPHandler{
 		Connect:      s.connect,
 		HandleUpload: s.handleUpload,
 	}
@@ -164,9 +164,9 @@ func (s *ResourceHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
 	})
 }
 
-func (s *ResourceHandlerSuite) TestServeHTTPPutHandleUploadFailure(c *gc.C) {
+func (s *LegacyHTTPHandlerSuite) TestServeHTTPPutHandleUploadFailure(c *gc.C) {
 	s.username = "youknowwho"
-	handler := server.ResourceHandler{
+	handler := server.LegacyHTTPHandler{
 		Connect:      s.connect,
 		HandleUpload: s.handleUpload,
 	}

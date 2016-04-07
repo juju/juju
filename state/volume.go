@@ -748,7 +748,8 @@ func (st *State) addVolumeOps(params VolumeParams, machineId string) ([]txn.Op, 
 	}
 	ops := []txn.Op{
 		createStatusOp(st, volumeGlobalKey(name), statusDoc{
-			Status:  status.StatusPending,
+			Status: status.StatusPending,
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			Updated: time.Now().UnixNano(),
 		}),
 		{

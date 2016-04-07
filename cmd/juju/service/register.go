@@ -93,10 +93,6 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, bakeryClient *httpba
 
 // RunPost sends credentials obtained during the call to RunPre to the controller.
 func (r *RegisterMeteredCharm) RunPost(state api.Connection, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
-	err := r.AllocateBudget.RunPost(state, bakeryClient, ctx, deployInfo, prevErr)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	if prevErr != nil {
 		return nil
 	}
@@ -110,10 +106,16 @@ func (r *RegisterMeteredCharm) RunPost(state api.Connection, bakeryClient *httpb
 	}
 	defer api.Close()
 
-	err = api.SetMetricCredentials(deployInfo.ServiceName, r.credentials)
+	err := api.SetMetricCredentials(deployInfo.ServiceName, r.credentials)
 	if err != nil {
-		logger.Infof("failed to set metric credentials: %v", err)
-		return err
+		logger.Warningf("failed to set metric credentials: %v", err)
+		return errors.Trace(err)
+	}
+
+	err = r.AllocateBudget.RunPost(state, bakeryClient, ctx, deployInfo, prevErr)
+	if err != nil {
+		logger.Warningf("failed to allocate budget: %v", err)
+		return errors.Trace(err)
 	}
 
 	return nil
