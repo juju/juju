@@ -765,8 +765,7 @@ func (environ *maasEnviron) acquireNode2(
 	if err != nil && !errors.IsNotSupported(err) {
 		return nil, errors.Trace(err)
 	}
-	// XXX needs converting
-	err = addInterfaces(url.Values{}, interfaces, positiveSpaces, negativeSpaces)
+	err = addInterfaces2(acquireParams, interfaces, positiveSpaces, negativeSpaces)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
