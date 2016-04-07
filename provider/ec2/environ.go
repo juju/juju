@@ -1460,6 +1460,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 	for a := shortAttempt.Start(); a.Next(); {
 		_, err = ec2inst.TerminateInstances(strs)
 		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
+			terminatedInstances = ids
 			return err
 		}
 	}
