@@ -33,7 +33,6 @@ func (ro *resourceOpener) OpenResource(name string) (resource.Opened, error) {
 	if err != nil {
 		return resource.Opened{}, errors.Trace(err)
 	}
-	defer client.Close()
 
 	cache := &charmstoreEntityCache{
 		st:        ro.st,

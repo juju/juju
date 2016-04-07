@@ -23,7 +23,7 @@ type ConfigSuite struct {
 
 func (s *ConfigSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
-	dummy.Reset()
+	dummy.Reset(c)
 }
 
 func (*ConfigSuite) TestSecretAttrs(c *gc.C) {

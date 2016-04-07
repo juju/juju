@@ -1059,6 +1059,9 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 			w2 := newTestAllWatcher(otherState, c)
 			defer w2.Stop()
 
+			// The first set of deltas is empty, reflecting an empty model.
+			w1.AssertNoChange()
+			w2.AssertNoChange()
 			checkIsolationForEnv(s.state, w1, w2)
 			checkIsolationForEnv(otherState, w2, w1)
 		}()
@@ -3011,11 +3014,11 @@ func (tw *testWatcher) NumDeltas() int {
 		// TODO(mjs) - this is somewhat fragile. There are no
 		// guarentees that the watcher will be able to return deltas
 		// in ShortWait time.
-		deltas := len(tw.Next(testing.ShortWait))
-		if deltas == 0 {
+		deltas := tw.Next(testing.ShortWait)
+		if len(deltas) == 0 {
 			break
 		}
-		count += deltas
+		count += len(deltas)
 	}
 	return count
 }

@@ -41,8 +41,8 @@ var _ = gc.Suite(&ToolsMetadataSuite{})
 
 func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.AddCleanup(dummy.Reset)
 	s.AddCleanup(func(*gc.C) {
-		dummy.Reset()
 		loggo.ResetLoggers()
 	})
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
