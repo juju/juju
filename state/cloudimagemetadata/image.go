@@ -242,9 +242,10 @@ func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 		VirtType:        m.VirtType,
 		RootStorageType: m.RootStorageType,
 		ImageId:         m.ImageId,
-		DateCreated:     time.Now().UnixNano(),
-		Source:          m.Source,
-		Priority:        m.Priority,
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		DateCreated: time.Now().UnixNano(),
+		Source:      m.Source,
+		Priority:    m.Priority,
 	}
 	if m.RootStorageSize != nil {
 		r.RootStorageSize = *m.RootStorageSize

@@ -50,7 +50,7 @@ func (f *fakeModelAccessor) ModelConfig() (*config.Config, error) {
 }
 
 func (s *environWatcherSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
+	dummy.Reset(c)
 	s.BaseSuite.TearDownTest(c)
 }
 

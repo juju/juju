@@ -48,7 +48,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 	// Create the machiner API facade.
-	s.machiner = s.st.Machiner()
+	s.machiner = machiner.NewState(s.st)
 	c.Assert(s.machiner, gc.NotNil)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.machiner, s.BackingState)
 }

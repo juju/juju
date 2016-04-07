@@ -93,6 +93,7 @@ func SendMetrics(st *state.State, sender MetricSender, batchSize int) error {
 		if response != nil {
 			// TODO (mattyw) We are currently ignoring errors during response handling.
 			handleResponse(metricsManager, st, *response)
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			if err := metricsManager.SetLastSuccessfulSend(time.Now()); err != nil {
 				err = errors.Annotate(err, "failed to set successful send time")
 				logger.Warningf("%v", err)

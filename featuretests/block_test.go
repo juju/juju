@@ -22,11 +22,9 @@ func (s *blockSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.blockClient = block.NewClient(s.APIState)
 	c.Assert(s.blockClient, gc.NotNil)
-}
-
-func (s *blockSuite) TearDownTest(c *gc.C) {
-	s.blockClient.ClientFacade.Close()
-	s.JujuConnSuite.TearDownTest(c)
+	s.AddCleanup(func(*gc.C) {
+		s.blockClient.ClientFacade.Close()
+	})
 }
 
 func (s *blockSuite) TestBlockFacadeCall(c *gc.C) {

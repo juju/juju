@@ -25,10 +25,6 @@ var (
 	logger = loggo.GetLogger("juju.container.lxd")
 )
 
-const (
-	DefaultLxdBridge = "lxcbr0"
-)
-
 // XXX: should we allow managing containers on other hosts? this is
 // functionality LXD gives us and from discussion juju would use eventually for
 // the local provider, so the APIs probably need to be changed to pass extra

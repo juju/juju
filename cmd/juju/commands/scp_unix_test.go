@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -113,7 +114,13 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
-	dummyCharm, err := s.State.AddCharm(ch, curl, "dummy-path", "dummy-1-sha256")
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "dummy-path",
+		SHA256:      "dummy-1-sha256",
+	}
+	dummyCharm, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	srv := s.AddTestingService(c, "mysql", dummyCharm)
 	s.addUnit(srv, m[0], c)

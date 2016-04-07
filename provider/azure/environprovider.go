@@ -7,6 +7,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -113,7 +114,10 @@ func (prov *azureEnvironProvider) BootstrapConfig(args environs.BootstrapConfigP
 
 		// Record the UUID that will be used for the controller
 		// model, which contains shared resources.
-		configAttrControllerResourceGroup: resourceGroupName(args.Config),
+		configAttrControllerResourceGroup: resourceGroupName(
+			names.NewModelTag(args.Config.UUID()),
+			args.Config.Name(),
+		),
 	}
 	switch authType := args.Credentials.AuthType(); authType {
 	case cloud.UserPassAuthType:

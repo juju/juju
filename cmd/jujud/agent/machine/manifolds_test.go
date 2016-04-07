@@ -4,6 +4,8 @@
 package machine_test
 
 import (
+	"sort"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -37,6 +39,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	for k := range manifolds {
 		keys = append(keys, k)
 	}
+	sort.Strings(keys)
 	expectedKeys := []string{
 		"agent",
 		"api-address-updater",
@@ -59,7 +62,6 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"storage-provisioner-machine",
 		"termination",
 		"tools-version-checker",
-		"uninstaller",
 		"upgrade-check-gate",
 		"upgrade-steps-gate",
 		"upgrader",

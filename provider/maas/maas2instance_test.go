@@ -46,7 +46,9 @@ func (s *maas2InstanceSuite) TestAddresses(c *gc.C) {
 
 func (s *maas2InstanceSuite) TestZone(c *gc.C) {
 	instance := &maas2Instance{&fakeMachine{zoneName: "inflatable"}}
-	c.Assert(instance.zone(), gc.Equals, "inflatable")
+	zone, err := instance.zone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zone, gc.Equals, "inflatable")
 }
 
 func (s *maas2InstanceSuite) TestStatusSuccess(c *gc.C) {

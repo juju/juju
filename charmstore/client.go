@@ -3,9 +3,13 @@
 
 package charmstore
 
+// TODO(natefinch): Ideally, this whole package would live in the
+// charmstore-client repo, so as to keep it near the API it wraps (and make it
+// more available to tools outside juju-core).
+
 import (
 	"io"
-	"io/ioutil"
+	"net/url"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -13,195 +17,196 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 )
 
 var logger = loggo.GetLogger("juju.charmstore")
 
-// TODO(ericsnow) Build around charmrepo.CharmStore instead of csclient.Client.
-
-// BaseClient exposes the functionality of the charm store, as provided
-// by github.com/juju/charmrepo/csclient.Client.
-//
-// Note that the following csclient.Client methods are used as well,
-// but only in tests:
-//  - Put(path string, val interface{}) error
-//  - UploadCharm(id *charm.URL, ch charm.Charm) (*charm.URL, error)
-//  - UploadCharmWithRevision(id *charm.URL, ch charm.Charm, promulgatedRevision int) error
-//  - UploadBundleWithRevision()
-type BaseClient interface {
-	ResourcesClient
-
-	// TODO(ericsnow) This should really be returning a type from
-	// charmrepo/csclient/params, but we don't have one yet.
-
-	// LatestRevisions returns the latest revision for each of the
-	// identified charms. The revisions in the provided URLs are ignored.
-	LatestRevisions([]*charm.URL) ([]charmrepo.CharmRevision, error)
-
-	// TODO(ericsnow) Replace use of Get with use of more specific API
-	// methods? We only use Get() for authorization on the Juju client
-	// side.
-
-	// Get makes a GET request to the given path in the charm store. The
-	// path must have a leading slash, but must not include the host
-	// name or version prefix. The result is parsed as JSON into the
-	// given result value, which should be a pointer to the expected
-	// data, but may be nil if no result is desired.
-	Get(path string, result interface{}) error
-}
-
-// ResourcesClient exposes the charm store client functionality for
-// dealing with resources.
-type ResourcesClient interface {
-	// TODO(ericsnow) Just embed resource/charmstore.BaseClient (or vice-versa)?
-
-	// ListResources composes, for each of the identified charms, the
-	// list of details for each of the charm's resources. Those details
-	// are those associated with the specific charm revision. They
-	// include the resource's metadata and revision.
-	ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error)
-
-	// GetResource returns a reader for the resource's data. That data
-	// is streamed from the charm store. The charm's revision, if any,
-	// is ignored. If the identified resource is not in the charm store
-	// then errors.NotFound is returned.
-	GetResource(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, io.ReadCloser, error)
-}
-
-type baseClient struct {
-	*csclient.Client
-
-	asRepo func() *charmrepo.CharmStore
-}
-
-// TODO(ericsnow) Remove the fake methods once the charm store adds support.
-
-// ListResources implements ResourcesClient.ListResources as a noop.
-func (baseClient) ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error) {
-	res := make([][]charmresource.Resource, len(charmURLs))
-	return res, nil
-}
-
-// GetResource implements ResourcesClient.GetResource as a noop.
-func (baseClient) GetResource(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, io.ReadCloser, error) {
-	return charmresource.Resource{}, nil, errors.NotFoundf("resource %q", resourceName)
-}
-
-// TODO(ericsnow) We must make the Juju metadata available here since
-// we must use charmrepo.NewCharmStore(), which doesn't give us an
-// alternative.
-
-func newBaseClient(raw *csclient.Client, config ClientConfig, meta JujuMetadata) *baseClient {
-	base := &baseClient{
-		Client: raw,
-	}
-	base.asRepo = func() *charmrepo.CharmStore {
-		// TODO(ericsnow) Use charmrepo.NewCharmStoreFromClient(), when available?
-		repo := charmrepo.NewCharmStore(config.NewCharmStoreParams)
-		return repo.WithJujuAttrs(meta.asAttrs())
-	}
-	return base
-}
-
-// LatestRevisions implements BaseClient.
-func (base baseClient) LatestRevisions(cURLs []*charm.URL) ([]charmrepo.CharmRevision, error) {
-	// TODO(ericsnow) Fix this:
-	// We must use charmrepo.CharmStore since csclient.Client does not
-	// have the "Latest" method.
-	repo := base.asRepo()
-	return repo.Latest(cURLs...)
-}
-
 // ClientConfig holds the configuration of a charm store client.
 type ClientConfig struct {
-	charmrepo.NewCharmStoreParams
-}
-
-func (config ClientConfig) newCSClient() *csclient.Client {
-	return csclient.New(csclient.Params{
-		URL:          config.URL,
-		HTTPClient:   config.HTTPClient,
-		VisitWebPage: config.VisitWebPage,
-	})
-}
-
-func (config ClientConfig) newCSRepo() *charmrepo.CharmStore {
-	return charmrepo.NewCharmStore(config.NewCharmStoreParams)
-}
-
-// TODO(ericsnow) Factor out a metadataClient type that embeds "client",
-// and move the "meta" field there?
-
-// Client adapts csclient.Client to the needs of Juju.
-type Client struct {
-	BaseClient
-	io.Closer
-
-	newCopy func() *Client
-	meta    JujuMetadata
+	URL          *url.URL
+	BakeryClient *httpbakery.Client
 }
 
 // NewClient returns a Juju charm store client for the given client
 // config.
-func NewClient(config ClientConfig) *Client {
-	base := config.newCSClient()
-	closer := ioutil.NopCloser(nil)
-	var meta JujuMetadata
-	return newClient(base, config, meta, closer)
-}
-
-func newClient(base *csclient.Client, config ClientConfig, meta JujuMetadata, closer io.Closer) *Client {
-	c := &Client{
-		BaseClient: newBaseClient(base, config, meta),
-		Closer:     closer,
-		meta:       meta,
+func NewClient(config ClientConfig) Client {
+	var url string
+	if config.URL != nil {
+		url = config.URL.String()
 	}
-	c.newCopy = func() *Client {
-		newBase := *base // a copy
-		copied := newClient(&newBase, config, c.meta, closer)
-		return copied
-	}
-	return c
+	cs := csclient.New(csclient.Params{
+		URL:          url,
+		BakeryClient: config.BakeryClient,
+	})
+	return Client{lowLevel: csclientImpl{cs}}
 }
 
-// NewDefaultClient returns a Juju charm store client using a default
-// client config.
-func NewDefaultClient() *Client {
-	return NewClient(ClientConfig{})
+// Client wraps charmrepo/csclient (the charm store's API client
+// library) in a higher level API.
+type Client struct {
+	lowLevel csWrapper
 }
 
-// WithMetadata returns a copy of the the client that will use the
-// provided metadata during client requests.
-func (c Client) WithMetadata(meta JujuMetadata) (*Client, error) {
-	newClient := c.newCopy()
-	newClient.meta = meta
-	// Note that we don't call meta.setOnClient() at this point.
-	// That is because not all charm store requests should include
-	// the metadata. The following do so:
-	//  - LatestRevisions()
-	//
-	// If that changed then we would call meta.setOnClient() here.
-	// TODO(ericsnow) Use the metadata for *all* requests?
-	return newClient, nil
-}
+// LatestRevisions returns the latest revisions of the given charms, using the given metadata.
+func (c Client) LatestRevisions(charms []CharmID, metadata map[string]string) ([]charmrepo.CharmRevision, error) {
+	// The csclient.Client has channel as an unexported field that only gets set
+	// by WithChannel on the client (returning a new client), so we have to
+	// make one bulk request per channel.
 
-// Metadata returns a copy of the Juju metadata set on the client.
-func (c Client) Metadata() JujuMetadata {
-	// Note the value receiver, meaning that the returned metadata
-	// is a copy.
-	return c.meta
-}
+	// collate charms into map[channel]charmRequest
+	requests := collate(charms)
 
-// LatestRevisions returns the latest revision for each of the
-// identified charms. The revisions in the provided URLs are ignored.
-// Note that this differs from BaseClient.LatestRevisions() exclusively
-// due to taking into account Juju metadata (if any).
-func (c *Client) LatestRevisions(cURLs []*charm.URL) ([]charmrepo.CharmRevision, error) {
-	if !c.meta.IsZero() {
-		c = c.newCopy()
-		if err := c.meta.setOnClient(c.BaseClient); err != nil {
+	results := make([]charmrepo.CharmRevision, len(charms))
+
+	for channel, request := range requests {
+		revisions, err := c.lowLevel.Latest(channel, request.ids, metadata)
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		for i, rev := range revisions {
+			idx := request.indices[i]
+			results[idx] = rev
+		}
 	}
-	return c.BaseClient.LatestRevisions(cURLs)
+	return results, nil
+}
+
+// GetResource returns the data (bytes) and metadata for a resource from the charmstore.
+func (c Client) GetResource(cURL *charm.URL, resourceName string, revision int) (res charmresource.Resource, rc io.ReadCloser, err error) {
+	defer func() {
+		if err != nil && rc != nil {
+			rc.Close()
+		}
+	}()
+	meta, err := c.lowLevel.ResourceInfo(cURL, resourceName, revision)
+	if err != nil {
+		return charmresource.Resource{}, nil, errors.Trace(err)
+	}
+	res, err = params.API2Resource(meta)
+	if err != nil {
+		return charmresource.Resource{}, nil, errors.Trace(err)
+	}
+
+	data, err := c.lowLevel.GetResource(cURL, resourceName, revision)
+	if err != nil {
+		return charmresource.Resource{}, nil, errors.Trace(err)
+	}
+	fpHash := res.Fingerprint.String()
+	if data.Hash != fpHash {
+		return charmresource.Resource{}, nil,
+			errors.Errorf("fingerprint for data (%s) does not match fingerprint in metadata (%s)", data.Hash, fpHash)
+	}
+	if data.Size != res.Size {
+		return charmresource.Resource{}, nil,
+			errors.Errorf("size for data (%d) does not match size in metadata (%d)", data.Size, res.Size)
+	}
+
+	return res, data.ReadCloser, nil
+}
+
+// ResourceInfo returns the metadata info for the given resource from the charmstore.
+func (c Client) ResourceInfo(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, error) {
+	meta, err := c.lowLevel.ResourceInfo(cURL, resourceName, revision)
+	if err != nil {
+		return charmresource.Resource{}, errors.Trace(err)
+	}
+	res, err := params.API2Resource(meta)
+	if err != nil {
+		return charmresource.Resource{}, errors.Trace(err)
+	}
+	return res, nil
+}
+
+// ListResources implements BaseClient by calling csclient.Client's ListResources function.
+func (c Client) ListResources(charms []CharmID) ([][]charmresource.Resource, error) {
+	requests := collate(charms)
+	result := make([][]charmresource.Resource, len(charms))
+	for channel, request := range requests {
+		// we have to make one bulk call per channel, unfortunately
+		resmap, err := c.lowLevel.ListResources(channel, request.ids)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		for i, id := range request.ids {
+			resources, ok := resmap[id.String()]
+			if !ok {
+				continue
+			}
+			list := make([]charmresource.Resource, len(resources))
+			for j, res := range resources {
+				resource, err := params.API2Resource(res)
+				if err != nil {
+					return nil, errors.Annotatef(err, "got bad data from server for resource %q", res.Name)
+				}
+				list[j] = resource
+			}
+			idx := request.indices[i]
+			result[idx] = list
+		}
+	}
+	return result, nil
+}
+
+// csWrapper is a type that abstracts away the low-level implementation details
+// of the charmstore client.
+type csWrapper interface {
+	Latest(channel charm.Channel, ids []*charm.URL, headers map[string]string) ([]charmrepo.CharmRevision, error)
+	ListResources(channel charm.Channel, ids []*charm.URL) (map[string][]params.Resource, error)
+	GetResource(id *charm.URL, name string, revision int) (csclient.ResourceData, error)
+	ResourceInfo(id *charm.URL, name string, revision int) (params.Resource, error)
+}
+
+// csclientImpl is an implementation of csWrapper that uses the charmstore client.
+// It exists for testing purposes to hide away the hard-to-mock parts of
+// csclient.Client.
+type csclientImpl struct {
+	client *csclient.Client
+}
+
+// Latest gets the latest CharmRevisions for the charm URLs on the channel.
+func (c csclientImpl) Latest(channel charm.Channel, ids []*charm.URL, metadata map[string]string) ([]charmrepo.CharmRevision, error) {
+	repo := charmrepo.NewCharmStoreFromClient(c.client.WithChannel(params.Channel(channel)))
+	repo = repo.WithJujuAttrs(metadata)
+	return repo.Latest(ids...)
+}
+
+// Latest gets the latest resources for the charm URLs on the channel.
+func (c csclientImpl) ListResources(channel charm.Channel, ids []*charm.URL) (map[string][]params.Resource, error) {
+	client := c.client.WithChannel(params.Channel(channel))
+	return client.ListResources(ids)
+}
+
+// Getresource downloads the bytes and some metadata about the bytes for the revisioned resource.
+func (c csclientImpl) GetResource(id *charm.URL, name string, revision int) (csclient.ResourceData, error) {
+	return c.client.GetResource(id, name, revision)
+}
+
+// ResourceInfo gets the full metadata for the revisioned resource.
+func (c csclientImpl) ResourceInfo(id *charm.URL, name string, revision int) (params.Resource, error) {
+	return c.client.ResourceMeta(id, name, revision)
+}
+
+// charmRequest correlates charm URLs with an index in a separate slice.  The two
+// slices have a 1:1 correlation via their index.
+type charmRequest struct {
+	ids     []*charm.URL
+	indices []int
+}
+
+// collate returns a collection of requests grouped by channel.  The request holds a
+// slice of charms for that channel, and a corresponding slice of the index of
+// each charm in the orignal slice from which they were collated, so the results
+// can be sorted into the original order.
+func collate(charms []CharmID) map[charm.Channel]charmRequest {
+	results := map[charm.Channel]charmRequest{}
+	for i, c := range charms {
+		request := results[c.Channel]
+		request.ids = append(request.ids, c.URL)
+		request.indices = append(request.indices, i)
+		results[c.Channel] = request
+	}
+	return results
 }
