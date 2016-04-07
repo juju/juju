@@ -20,6 +20,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -1818,4 +1819,53 @@ func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
 // VolumeAttachments returns the machine's volume attachments.
 func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
 	return m.st.MachineVolumeAttachments(m.MachineTag())
+}
+
+// AddAction is part of the ActionReceiver interface.
+func (m *Machine) AddAction(name string, payload map[string]interface{}) (Action, error) {
+	spec, ok := actions.PredefinedActionsSpec[name]
+	if !ok {
+		return nil, errors.Errorf("cannot add action %q to a machine; only predefined actions allowed", name)
+	}
+
+	// Reject bad payloads before attempting to insert defaults.
+	err := spec.ValidateParams(payload)
+	if err != nil {
+		return nil, err
+	}
+	payloadWithDefaults, err := spec.InsertDefaults(payload)
+	if err != nil {
+		return nil, err
+	}
+	return m.st.EnqueueAction(m.Tag(), name, payloadWithDefaults)
+}
+
+// CancelAction is part of the ActionReceiver interface.
+func (m *Machine) CancelAction(action Action) (Action, error) {
+	return action.Finish(ActionResults{Status: ActionCancelled})
+}
+
+// WatchActionNotifications is part of the ActionReceiver interface.
+func (m *Machine) WatchActionNotifications() StringsWatcher {
+	return m.st.watchEnqueuedActionsFilteredBy(m)
+}
+
+// Actions is part of the ActionReceiver interface.
+func (m *Machine) Actions() ([]Action, error) {
+	return m.st.matchingActions(m)
+}
+
+// CompletedActions is part of the ActionReceiver interface.
+func (m *Machine) CompletedActions() ([]Action, error) {
+	return m.st.matchingActionsCompleted(m)
+}
+
+// PendingActions is part of the ActionReceiver interface.
+func (m *Machine) PendingActions() ([]Action, error) {
+	return m.st.matchingActionsPending(m)
+}
+
+// RunningActions is part of the ActionReceiver interface.
+func (m *Machine) RunningActions() ([]Action, error) {
+	return m.st.matchingActionsRunning(m)
 }

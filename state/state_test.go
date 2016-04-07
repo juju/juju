@@ -3302,7 +3302,7 @@ var entityTypes = map[string]interface{}{
 	names.MachineTagKind:  (*state.Machine)(nil),
 	names.RelationTagKind: (*state.Relation)(nil),
 	names.NetworkTagKind:  (*state.Network)(nil),
-	names.ActionTagKind:   (*state.Action)(nil),
+	names.ActionTagKind:   (state.Action)(nil),
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {

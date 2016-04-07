@@ -3102,7 +3102,7 @@ func deltaMap(deltas []multiwatcher.Delta) map[interface{}]multiwatcher.EntityIn
 	return m
 }
 
-func makeActionInfo(a *Action, st *State) multiwatcher.ActionInfo {
+func makeActionInfo(a Action, st *State) multiwatcher.ActionInfo {
 	results, message := a.Results()
 	return multiwatcher.ActionInfo{
 		ModelUUID:  st.ModelUUID(),
