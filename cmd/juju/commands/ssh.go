@@ -162,7 +162,7 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 	return cmd.Run()
 }
 
-// proxySSH returns true iff both c.proxy and
+// proxySSH returns true if both c.proxy and
 // the proxy-ssh environment configuration
 // are true.
 func (c *SSHCommon) proxySSH() (bool, error) {
