@@ -1352,11 +1352,10 @@ func (environ *maasEnviron) releaseNodes2(ids []instance.Id, recurse bool) error
 		logger.Infof("ignoring error while releasing nodes (%v); all nodes released OK", err)
 		return nil
 	} else if !gomaasapi.IsBadRequestError(err) &&
-		!gomaasapi.IsPermissionError(err) &&
-		!gomaasapi.IsNoMatchError(err) {
+		!gomaasapi.IsPermissionError(err) {
 		return errors.Annotatef(err, "cannot release nodes")
 	}
-	// a status code of 400, 403 or 404 means one of the nodes
+	// a status code of 400 or 403 means one of the nodes
 	// couldn't be found and none have been released. We have to
 	// release all the ones we can individually.
 
