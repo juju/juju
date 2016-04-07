@@ -21,9 +21,9 @@ type ConfigSuite struct {
 	testing.BaseSuite
 }
 
-func (s *ConfigSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
-	dummy.Reset(c)
+func (s *ConfigSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.AddCleanup(dummy.Reset)
 }
 
 func (*ConfigSuite) TestSecretAttrs(c *gc.C) {

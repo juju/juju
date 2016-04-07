@@ -58,10 +58,7 @@ func (s *datasourceHTTPSSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *datasourceHTTPSSuite) TearDownTest(c *gc.C) {
-	if s.Server != nil {
-		s.Server.Close()
-		s.Server = nil
-	}
+	s.Server.Close()
 }
 
 func (s *datasourceHTTPSSuite) TestNormalClientFails(c *gc.C) {

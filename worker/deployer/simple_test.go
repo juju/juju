@@ -50,10 +50,6 @@ func (s *SimpleContextSuite) SetUpTest(c *gc.C) {
 	s.SimpleToolsFixture.SetUp(c, c.MkDir())
 }
 
-func (s *SimpleContextSuite) TearDownTest(c *gc.C) {
-	s.SimpleToolsFixture.TearDown(c)
-}
-
 func (s *SimpleContextSuite) TestDeployRecall(c *gc.C) {
 	mgr0 := s.getContext(c)
 	units, err := mgr0.DeployedUnits()

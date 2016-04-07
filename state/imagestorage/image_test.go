@@ -48,17 +48,16 @@ func (s *ImageSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.session, err = s.mongo.Dial()
 	c.Assert(err, gc.IsNil)
+	s.AddCleanup(func(*gc.C) {
+		s.session.Close()
+		s.mongo.DestroyWithLog()
+	})
 	s.storage = imagestorage.NewStorage(s.session, "my-uuid")
 	s.metadataCollection = imagestorage.MetadataCollection(s.storage)
 	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: s.metadataCollection.Database})
 	s.patchTransactionRunner()
 }
 
-func (s *ImageSuite) TearDownTest(c *gc.C) {
-	s.session.Close()
-	s.mongo.DestroyWithLog()
-	s.BaseSuite.TearDownTest(c)
-}
 func (s *ImageSuite) patchTransactionRunner() {
 	s.PatchValue(imagestorage.TxnRunner, func(db *mgo.Database) txn.Runner {
 		return s.txnRunner

@@ -38,8 +38,6 @@ func (s *CharmSuite) SetUpSuite(c *gc.C, jcSuite *jujutesting.JujuConnSuite) {
 	s.jcSuite = jcSuite
 }
 
-func (s *CharmSuite) TearDownSuite(c *gc.C) {}
-
 func (s *CharmSuite) SetUpTest(c *gc.C) {
 	db := s.jcSuite.Session.DB("juju-testing")
 	params := charmstore.ServerParams{

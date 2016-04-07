@@ -49,13 +49,13 @@ func (s *InitializeSuite) openState(c *gc.C, modelTag names.ModelTag) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
+	s.AddCleanup(func(*gc.C) {
+		err := s.State.Close()
+		c.Check(err, jc.ErrorIsNil)
+	})
 }
 
 func (s *InitializeSuite) TearDownTest(c *gc.C) {
-	if s.State != nil {
-		err := s.State.Close()
-		c.Check(err, jc.ErrorIsNil)
-	}
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }

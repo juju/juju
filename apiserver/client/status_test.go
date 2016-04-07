@@ -169,11 +169,6 @@ func (s *statusUpgradeUnitSuite) SetUpSuite(c *gc.C) {
 	s.CharmSuite.SetUpSuite(c, &s.JujuConnSuite)
 }
 
-func (s *statusUpgradeUnitSuite) TearDownSuite(c *gc.C) {
-	s.CharmSuite.TearDownSuite(c)
-	s.JujuConnSuite.TearDownSuite(c)
-}
-
 func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)

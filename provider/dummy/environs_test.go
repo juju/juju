@@ -105,12 +105,12 @@ func (s *suite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.Tests.SetUpTest(c)
 	s.PatchValue(&dummy.LogDir, c.MkDir())
+	s.AddCleanup(dummy.Reset)
 }
 
 func (s *suite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
-	dummy.Reset(c)
 	s.BaseSuite.TearDownTest(c)
 }
 

@@ -30,10 +30,6 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TearDownTest(c *gc.C) {
-	s.firewallerSuite.TearDownTest(c)
-}
-
 func (s *serviceSuite) TestName(c *gc.C) {
 	c.Assert(s.apiService.Name(), gc.Equals, s.service.Name())
 }

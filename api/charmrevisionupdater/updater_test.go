@@ -29,11 +29,6 @@ func (s *versionUpdaterSuite) SetUpSuite(c *gc.C) {
 	s.CharmSuite.SetUpSuite(c, &s.JujuConnSuite)
 }
 
-func (s *versionUpdaterSuite) TearDownSuite(c *gc.C) {
-	s.CharmSuite.TearDownSuite(c)
-	s.JujuConnSuite.TearDownSuite(c)
-}
-
 func (s *versionUpdaterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)

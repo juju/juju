@@ -43,7 +43,8 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 
 func (s *storageSuite) TearDownTest(c *gc.C) {
 	if s.State != nil {
-		// If setup fails, we don't have a State yet
+		// must execute before MgoSuite.TearDownTest as the latter
+		// expects there to be no remaining state connections.
 		s.State.Close()
 	}
 	s.MgoSuite.TearDownTest(c)
