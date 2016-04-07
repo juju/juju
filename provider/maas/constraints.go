@@ -63,8 +63,6 @@ func convertConstraints(cons constraints.Value) url.Values {
 func convertConstraints2(cons constraints.Value) gomaasapi.AllocateMachineArgs {
 	params := gomaasapi.AllocateMachineArgs{}
 	if cons.Arch != nil {
-		// XXX check if we need to add a kernel type. If we do we're
-		// screwed a bit.
 		params.Architecture = *cons.Arch
 	}
 	if cons.CpuCores != nil {
