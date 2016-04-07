@@ -1056,6 +1056,10 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
+	subnetsMap, err := environ.subnetToSpaceIds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	var interfaces []network.InterfaceInfo
 	if !environ.usingMAAS2() {
 		inst1 := inst.(*maas1Instance)
@@ -1069,10 +1073,6 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		// acquire-time details (no IP addresses for NICs set to "auto" vs
 		// "static"), we use the up-to-date statedNode response to get the
 		// interfaces.
-		subnetsMap, err := environ.subnetToSpaceIds()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		interfaces, err = maasObjectNetworkInterfaces(startedNode, subnetsMap)
 		if err != nil {
 			return nil, errors.Trace(err)
