@@ -47,7 +47,23 @@ type destroyCommand struct {
 	destroyModels bool
 }
 
-var destroyDoc = `Destroys the specified controller`
+// usageDetails has backticks which we want to keep for markdown processing.
+// TODO(cheryl): Do we want the usage, options, examples, and see also text in
+// backticks for markdown?
+var usageDetails = `
+All models (initial model plus all workload/hosted) associated with the
+controller will first need to be destroyed, either in advance, or by
+specifying `[1:] + "`--destroy-all-models`." + `
+
+Examples:
+juju destroy-controller --destroy-all-models mycontroller
+
+See also: 
+kill-controller`
+
+var usageSummary = `
+Destroys a controller.`[1:]
+
 var destroySysMsg = `
 WARNING! This command will destroy the %q controller.
 This includes all machines, services, data and other resources.
@@ -78,14 +94,14 @@ func (c *destroyCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "destroy-controller",
 		Args:    "<controller name>",
-		Purpose: "terminate all machines and other associated resources for the juju controller",
-		Doc:     destroyDoc,
+		Purpose: usageSummary,
+		Doc:     usageDetails,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "destroy all hosted models in the controller")
+	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "Destroy all hosted models in the controller")
 	c.destroyCommandBase.SetFlags(f)
 }
 
