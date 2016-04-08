@@ -160,9 +160,7 @@ func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCt
 		mongoCmd = mongoCmd +
 			" --noauth"
 	}
-	// TODO(perrito666) implement a proper version comparision with <>
-	// also make sure storageEngine is explicit every time it is possible.
-	if version != Mongo30wt {
+	if version.StorageEngine != WiredTiger {
 		mongoCmd = mongoCmd +
 			" --noprealloc" +
 			" --smallfiles"
