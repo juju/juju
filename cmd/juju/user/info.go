@@ -20,7 +20,7 @@ var helpSummary = `
 Show information about a user.`[1:]
 
 var helpDetails = `
-Display infomation (user-name, display-name, date-created, and
+Output information (user-name, display-name, date-created, and
 last-connection) about a user. By default it provides information about 
 the current user.
 
