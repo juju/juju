@@ -299,3 +299,329 @@ func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
 }
+
+func (suite *maas2EnvironSuite) TestAcquireNodePassedAgentName(c *gc.C) {
+	var env *maasEnviron
+	suite.injectController(&fakeController{
+		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
+			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
+				AgentName: env.ecfg().maasAgentName()})
+		},
+		allocateMachine: &fakeMachine{
+			systemID:     "Bruce Sterling",
+			architecture: arch.HostArch(),
+		},
+	})
+	suite.setupFakeTools(c)
+	env = makeEnviron(c)
+
+	_, err := env.acquireNode2("", "", constraints.Value{}, nil, nil)
+
+	c.Check(err, jc.ErrorIsNil)
+	//	nodeRequestValues, found := requestValues["node0"]
+	//	c.Assert(found, jc.IsTrue)
+	//	c.Assert(nodeRequestValues[0].Get("agent_name"), gc.Equals, exampleAgentName)
+}
+
+func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *gc.C) {
+	var env *maasEnviron
+	suite.injectController(&fakeController{
+		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
+			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
+				AgentName: env.ecfg().maasAgentName()})
+		},
+		allocateMachine: &fakeMachine{
+			systemID:     "Bruce Sterling",
+			architecture: arch.HostArch(),
+		},
+	})
+	suite.setupFakeTools(c)
+	env = makeEnviron(c)
+
+	_, err := env.acquireNode2(
+		"", "",
+		constraints.Value{Tags: stringslicep("tag1", "^tag2", "tag3", "^tag4")},
+		nil, nil,
+	)
+
+	c.Check(err, jc.ErrorIsNil)
+	//	nodeValues, found := requestValues["node0"]
+	//	c.Assert(found, jc.IsTrue)
+	//	c.Assert(nodeValues[0].Get("tags"), gc.Equals, "tag1,tag3")
+	//	c.Assert(nodeValues[0].Get("not_tags"), gc.Equals, "tag2,tag4")
+}
+
+func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.C) {
+	var env *maasEnviron
+	suite.injectController(&fakeController{
+		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
+			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
+				AgentName: env.ecfg().maasAgentName()})
+		},
+		allocateMachine: &fakeMachine{
+			systemID:     "Bruce Sterling",
+			architecture: arch.HostArch(),
+		},
+	})
+	suite.setupFakeTools(c)
+	env = makeEnviron(c)
+
+	_, err := env.acquireNode2(
+		"", "",
+		constraints.Value{Spaces: stringslicep("space-1", "^space-2", "space-3", "^space-4")},
+		nil, nil,
+	)
+	c.Check(err, jc.ErrorIsNil)
+	//nodeValues, found := requestValues["node0"]
+	//c.Assert(found, jc.IsTrue)
+	//c.Check(nodeValues[0].Get("interfaces"), gc.Equals, "0:space=2;1:space=4")
+	//c.Check(nodeValues[0].Get("not_networks"), gc.Equals, "space:3,space:5")
+}
+
+func (suite *maas2EnvironSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndexedUpToALimit(c *gc.C) {
+	var env *maasEnviron
+	suite.injectController(&fakeController{
+		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
+			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
+				AgentName: env.ecfg().maasAgentName()})
+		},
+		allocateMachine: &fakeMachine{
+			systemID:     "Bruce Sterling",
+			architecture: arch.HostArch(),
+		},
+	})
+	suite.setupFakeTools(c)
+	env = makeEnviron(c)
+	var shortLimit uint = 0
+	suite.PatchValue(&numericLabelLimit, shortLimit)
+
+	_, err := env.acquireNode2(
+		"", "",
+		constraints.Value{Spaces: stringslicep("space-1", "^space-2", "space-3", "^space-4")},
+		[]interfaceBinding{{"0", "first-clash"}, {"1", "final-clash"}},
+		nil,
+	)
+	c.Assert(err, gc.ErrorMatches, `too many conflicting numeric labels, giving up.`)
+}
+
+func (suite *maas2EnvironSuite) TestAcquireNodeStorage(c *gc.C) {
+	var env *maasEnviron
+	suite.injectController(&fakeController{
+		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
+			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
+				AgentName: env.ecfg().maasAgentName()})
+		},
+		allocateMachine: &fakeMachine{
+			systemID:     "Bruce Sterling",
+			architecture: arch.HostArch(),
+		},
+	})
+	suite.setupFakeTools(c)
+	for i, test := range []struct {
+		volumes  []volumeInfo
+		expected string
+	}{{
+		volumes:  nil,
+		expected: "",
+	}, {
+		volumes:  []volumeInfo{{"volume-1", 1234, nil}},
+		expected: "volume-1:1234",
+	}, {
+		volumes:  []volumeInfo{{"", 1234, []string{"tag1", "tag2"}}},
+		expected: "1234(tag1,tag2)",
+	}, {
+		volumes:  []volumeInfo{{"volume-1", 1234, []string{"tag1", "tag2"}}},
+		expected: "volume-1:1234(tag1,tag2)",
+	}, {
+		volumes: []volumeInfo{
+			{"volume-1", 1234, []string{"tag1", "tag2"}},
+			{"volume-2", 4567, []string{"tag1", "tag3"}},
+		},
+		expected: "volume-1:1234(tag1,tag2),volume-2:4567(tag1,tag3)",
+	}} {
+		c.Logf("test #%d: volumes=%v", i, test.volumes)
+		env = makeEnviron(c)
+		_, err := env.acquireNode2("", "", constraints.Value{}, nil, test.volumes)
+		c.Check(err, jc.ErrorIsNil)
+		//nodeRequestValues, found := requestValues["node0"]
+		//if c.Check(found, jc.IsTrue) {
+		//	c.Check(nodeRequestValues[0].Get("storage"), gc.Equals, test.expected)
+		//}
+	}
+}
+
+func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
+	var env *maasEnviron
+	suite.injectController(&fakeController{
+		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
+			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
+				AgentName: env.ecfg().maasAgentName()})
+		},
+		allocateMachine: &fakeMachine{
+			systemID:     "Bruce Sterling",
+			architecture: arch.HostArch(),
+		},
+	})
+	suite.setupFakeTools(c)
+	// Add some constraints, including spaces to verify specified bindings
+	// always override any spaces constraints.
+	cons := constraints.Value{
+		Spaces: stringslicep("foo", "^bar"),
+	}
+	// In the tests below "space:5" means foo, "space:6" means bar.
+	for i, test := range []struct {
+		interfaces        []interfaceBinding
+		expectedPositives string
+		expectedNegatives string
+		expectedError     string
+	}{{ // without specified bindings, spaces constraints are used instead.
+		interfaces:        nil,
+		expectedPositives: "0:space=5",
+		expectedNegatives: "space:6",
+		expectedError:     "",
+	}, {
+		interfaces:        []interfaceBinding{{"name-1", "space-1"}},
+		expectedPositives: "name-1:space=space-1;0:space=5",
+		expectedNegatives: "space:6",
+	}, {
+		interfaces: []interfaceBinding{
+			{"name-1", "1"},
+			{"name-2", "2"},
+			{"name-3", "3"},
+		},
+		expectedPositives: "name-1:space=1;name-2:space=2;name-3:space=3;0:space=5",
+		expectedNegatives: "space:6",
+	}, {
+		interfaces:    []interfaceBinding{{"", "anything"}},
+		expectedError: "interface bindings cannot have empty names",
+	}, {
+		interfaces:    []interfaceBinding{{"shared-db", "6"}},
+		expectedError: `negative space "bar" from constraints clashes with interface bindings`,
+	}, {
+		interfaces: []interfaceBinding{
+			{"shared-db", "1"},
+			{"db", "1"},
+		},
+		expectedPositives: "shared-db:space=1;db:space=1;0:space=5",
+		expectedNegatives: "space:6",
+	}, {
+		interfaces:    []interfaceBinding{{"", ""}},
+		expectedError: "interface bindings cannot have empty names",
+	}, {
+		interfaces: []interfaceBinding{
+			{"valid", "ok"},
+			{"", "valid-but-ignored-space"},
+			{"valid-name-empty-space", ""},
+			{"", ""},
+		},
+		expectedError: "interface bindings cannot have empty names",
+	}, {
+		interfaces:    []interfaceBinding{{"foo", ""}},
+		expectedError: `invalid interface binding "foo": space provider ID is required`,
+	}, {
+		interfaces: []interfaceBinding{
+			{"bar", ""},
+			{"valid", "ok"},
+			{"", "valid-but-ignored-space"},
+			{"", ""},
+		},
+		expectedError: `invalid interface binding "bar": space provider ID is required`,
+	}, {
+		interfaces: []interfaceBinding{
+			{"dup-name", "1"},
+			{"dup-name", "2"},
+		},
+		expectedError: `duplicated interface binding "dup-name"`,
+	}, {
+		interfaces: []interfaceBinding{
+			{"valid-1", "0"},
+			{"dup-name", "1"},
+			{"dup-name", "2"},
+			{"valid-2", "3"},
+		},
+		expectedError: `duplicated interface binding "dup-name"`,
+	}} {
+		c.Logf("test #%d: interfaces=%v", i, test.interfaces)
+		env = makeEnviron(c)
+		_, err := env.acquireNode2("", "", cons, test.interfaces, nil)
+		if test.expectedError != "" {
+			c.Check(err, gc.ErrorMatches, test.expectedError)
+			c.Check(err, jc.Satisfies, errors.IsNotValid)
+			continue
+		}
+		c.Check(err, jc.ErrorIsNil)
+		//		nodeRequestValues, found := requestValues["node0"]
+		//		if c.Check(found, jc.IsTrue) {
+		//			c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, test.expectedPositives)
+		//			c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, test.expectedNegatives)
+		//		}
+	}
+}
+
+func (suite *maas2EnvironSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
+	var env *maasEnviron
+	suite.injectController(&fakeController{
+		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
+			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
+				AgentName: env.ecfg().maasAgentName()})
+		},
+		allocateMachine: &fakeMachine{
+			systemID:     "Bruce Sterling",
+			architecture: arch.HostArch(),
+		},
+	})
+	env = makeEnviron(c)
+	cons := constraints.Value{
+		Spaces: stringslicep("foo", "^bar"),
+	}
+	_, err := env.acquireNode2("", "", cons, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	//	nodeRequestValues, found := requestValues["node0"]
+	//	c.Assert(found, jc.IsTrue)
+	//	c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, "0:space=2")
+	//	c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, "space:3")
+}
+
+func (suite *maas2EnvironSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
+	var env *maasEnviron
+	suite.injectController(&fakeController{
+		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
+			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
+				AgentName: env.ecfg().maasAgentName()})
+		},
+		allocateMachine: &fakeMachine{
+			systemID:     "Bruce Sterling",
+			architecture: arch.HostArch(),
+		},
+	})
+	env = makeEnviron(c)
+	cons := constraints.Value{
+		Spaces: stringslicep("foo-1", "^bar-3"),
+	}
+	_, err := env.acquireNode2("", "", cons, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	//	nodeRequestValues, found := requestValues["node0"]
+	//	c.Assert(found, jc.IsTrue)
+	//	c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, "0:space=2")
+	//	c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, "space:3")
+}
+
+func (suite *maas2EnvironSuite) TestAcquireNodeUnrecognisedSpace(c *gc.C) {
+	var env *maasEnviron
+	suite.injectController(&fakeController{
+		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
+			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
+				AgentName: env.ecfg().maasAgentName()})
+		},
+		allocateMachine: &fakeMachine{
+			systemID:     "Bruce Sterling",
+			architecture: arch.HostArch(),
+		},
+	})
+	env = makeEnviron(c)
+	cons := constraints.Value{
+		Spaces: stringslicep("baz"),
+	}
+	_, err := env.acquireNode2("", "", cons, nil, nil)
+	c.Assert(err, gc.ErrorMatches, `unrecognised space in constraint "baz"`)
+}
