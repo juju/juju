@@ -20,9 +20,7 @@ var helpSummary = `
 Show information about a user.`[1:]
 
 var helpDetails = `
-Output information (user-name, display-name, date-created, and
-last-connection) about a user. By default it provides information about 
-the current user.
+By default, the YAML format is used and the user name is the current user.
 
 
 Examples:
