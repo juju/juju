@@ -297,6 +297,7 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 		"Series",
 		"Subordinate",
 		"CharmURL",
+		"Channel",
 		"CharmModifiedVersion",
 		"ForceCharm",
 		"Exposed",
@@ -327,7 +328,7 @@ func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
 		"ModelUUID",
 		// Service is implicit in the migration structure through containment.
 		"Service",
-		// Series and CharmURL also come from the service.
+		// Series, CharmURL, and Channel also come from the service.
 		"Series",
 		"CharmURL",
 		"Principal",

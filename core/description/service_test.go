@@ -40,6 +40,7 @@ func minimalServiceMap() map[interface{}]interface{} {
 		"name":              "ubuntu",
 		"series":            "trusty",
 		"charm-url":         "cs:trusty/ubuntu",
+		"cs-channel":        "stable",
 		"charm-mod-version": 1,
 		"status":            minimalStatusMap(),
 		"status-history":    emptyStatusHistoryMap(),
@@ -85,6 +86,7 @@ func minimalServiceArgs() ServiceArgs {
 		Tag:                  names.NewServiceTag("ubuntu"),
 		Series:               "trusty",
 		CharmURL:             "cs:trusty/ubuntu",
+		Channel:              "stable",
 		CharmModifiedVersion: 1,
 		Settings: map[string]interface{}{
 			"key": "value",
@@ -104,6 +106,7 @@ func (s *ServiceSerializationSuite) TestNewService(c *gc.C) {
 		Series:               "zesty",
 		Subordinate:          true,
 		CharmURL:             "cs:zesty/magic",
+		Channel:              "stable",
 		CharmModifiedVersion: 1,
 		ForceCharm:           true,
 		Exposed:              true,
@@ -125,6 +128,7 @@ func (s *ServiceSerializationSuite) TestNewService(c *gc.C) {
 	c.Assert(service.Series(), gc.Equals, "zesty")
 	c.Assert(service.Subordinate(), jc.IsTrue)
 	c.Assert(service.CharmURL(), gc.Equals, "cs:zesty/magic")
+	c.Assert(service.Channel(), gc.Equals, "stable")
 	c.Assert(service.CharmModifiedVersion(), gc.Equals, 1)
 	c.Assert(service.ForceCharm(), jc.IsTrue)
 	c.Assert(service.Exposed(), jc.IsTrue)

@@ -644,6 +644,7 @@ func (i *importer) makeServiceDoc(s description.Service) (*serviceDoc, error) {
 		Series:               s.Series(),
 		Subordinate:          s.Subordinate(),
 		CharmURL:             charmUrl,
+		Channel:              s.Channel(),
 		CharmModifiedVersion: s.CharmModifiedVersion(),
 		ForceCharm:           s.ForceCharm(),
 		Life:                 Alive,
