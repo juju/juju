@@ -146,6 +146,10 @@ func openCSClient(args params.AddCharmWithAuthorization) (*csclient.Client, erro
 		httpbakery.SetCookie(csParams.HTTPClient.Jar, csURL, ms)
 	}
 	csClient := csclient.New(csParams)
+	channel := csparams.Channel(args.Channel)
+	if channel != csparams.NoChannel {
+		csClient = csClient.WithChannel(channel)
+	}
 	return csClient, nil
 }
 
