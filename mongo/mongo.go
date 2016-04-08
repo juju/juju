@@ -139,6 +139,11 @@ func NewVersion(v string) (Version, error) {
 	if len(vParts) == 3 {
 		version.Patch = vParts[2]
 	}
+
+	if version.Major == 2 && version.StorageEngine == WiredTiger {
+		return Version{}, errors.Errorf("Version 2.x does not support Wired Tiger storage engine")
+	}
+
 	return version, nil
 }
 
@@ -157,7 +162,7 @@ func (v Version) String() string {
 // JujuMongodPath returns the path for the mongod binary
 // with the specified version.
 func JujuMongodPath(v Version) string {
-	return fmt.Sprintf("/usr/lib/juju/mongo%d.%d/bin/mongod", v.Major, v.Minor)
+	return fmt.Sprintf("/usr/lib/juju/mongo%d%d/bin/mongod", v.Major, v.Minor)
 }
 
 var (

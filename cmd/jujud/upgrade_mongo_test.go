@@ -54,9 +54,9 @@ func (mock *mockClock) After(wait time.Duration) <-chan time.Time {
 	return time.After(time.Microsecond)
 }
 
-func (c *mockClock) AfterFunc(d time.Duration, f func()) clock.Timer {
+func (mock *mockClock) AfterFunc(d time.Duration, f func()) clock.Timer {
 	if d > 0 {
-		c.now = c.now.Add(d)
+		mock.now = mock.now.Add(d)
 	}
 	return time.AfterFunc(0, f)
 }
@@ -462,11 +462,11 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 		[]string{"mongo.StartService"},
 		[]string{"DialAndlogin"},
 		[]string{"mongo.ReStartService"},
-		[]string{"/usr/lib/juju/mongo2.6/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo30dump"},
+		[]string{"/usr/lib/juju/mongo26/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo30dump"},
 		[]string{"mongo.StopService"},
 		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/mmapv1", "true"},
 		[]string{"mongo.StartService"},
-		[]string{"/usr/lib/juju/mongo3.2/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateToTigerdump"},
+		[]string{"/usr/lib/juju/mongo32/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateToTigerdump"},
 		[]string{"mongo.StopService"},
 		[]string{"stat", dbDir},
 		[]string{"remove", dbDir},
@@ -475,7 +475,7 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 		[]string{"mongo.DialInfo"},
 		[]string{"mongo.StartService"},
 		[]string{"peergrouper.InitiateMongoServer"},
-		[]string{"/usr/lib/juju/mongo3.2/bin/mongorestore", "--ssl", "--port", "69", "--host", "localhost", "--sslAllowInvalidCertificates", "--batchSize", "100", "/fake/temp/dir/migrateToTigerdump"},
+		[]string{"/usr/lib/juju/mongo32/bin/mongorestore", "--ssl", "--port", "69", "--host", "localhost", "--sslAllowInvalidCertificates", "--batchSize", "100", "/fake/temp/dir/migrateToTigerdump"},
 		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/wiredTiger", "true"},
 		[]string{"mongo.ReStartService"},
 	}
@@ -612,11 +612,11 @@ func (s *UpgradeMongoCommandSuite) TestRunContinuesWhereLeft(c *gc.C) {
 		[]string{"service.DiscoverService", "bogus_daemon"},
 		[]string{"CreateTempDir"},
 		[]string{"SatisfyPrerequisites"},
-		[]string{"/usr/lib/juju/mongo2.6/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo30dump"},
+		[]string{"/usr/lib/juju/mongo26/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo30dump"},
 		[]string{"mongo.StopService"},
 		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/mmapv1", "true"},
 		[]string{"mongo.StartService"},
-		[]string{"/usr/lib/juju/mongo3.2/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateToTigerdump"},
+		[]string{"/usr/lib/juju/mongo32/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateToTigerdump"},
 		[]string{"mongo.StopService"},
 		[]string{"stat", dbDir},
 		[]string{"remove", dbDir},
@@ -625,7 +625,7 @@ func (s *UpgradeMongoCommandSuite) TestRunContinuesWhereLeft(c *gc.C) {
 		[]string{"mongo.DialInfo"},
 		[]string{"mongo.StartService"},
 		[]string{"peergrouper.InitiateMongoServer"},
-		[]string{"/usr/lib/juju/mongo3.2/bin/mongorestore", "--ssl", "--port", "69", "--host", "localhost", "--sslAllowInvalidCertificates", "--batchSize", "100", "/fake/temp/dir/migrateToTigerdump"},
+		[]string{"/usr/lib/juju/mongo32/bin/mongorestore", "--ssl", "--port", "69", "--host", "localhost", "--sslAllowInvalidCertificates", "--batchSize", "100", "/fake/temp/dir/migrateToTigerdump"},
 		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/wiredTiger", "true"},
 		[]string{"mongo.ReStartService"},
 	}

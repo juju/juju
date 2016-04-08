@@ -34,6 +34,8 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 )
 
+// KeyUpgradeBackup is the config key used to store information about
+// the backup made when upgrading mongo.
 const KeyUpgradeBackup = "mongo-upgrade-backup"
 
 func createTempDir() (string, error) {
@@ -447,7 +449,7 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to3x(dataDir string) error {
 		if err := u.agentConfig.Write(); err != nil {
 			return errors.Annotate(err, "could not update mongo version in agent.config")
 		}
-		logger.Infof(fmt.Sprintf("new mongo version set-up to %q", mongoNoWiredTiger.String()))
+		logger.Infof("new mongo version set-up to %q", mongoNoWiredTiger.String())
 
 		if err := u.UpdateService(true); err != nil {
 			return errors.Annotate(err, "cannot update service script")
@@ -554,7 +556,7 @@ func dialAndLogin(mongoInfo *mongo.MongoInfo, callArgs retry.CallArgs) (mgoSessi
 		if err == nil {
 			return nil
 		}
-		logger.Errorf("cannot open mongo connection to resume HA auth schema: %v", err)
+		logger.Errorf("cannot open mongo connection: %v", err)
 		return err
 	}
 	if err := retry.Call(callArgs); err != nil {
@@ -626,6 +628,7 @@ func satisfyPrerequisites(operatingsystem string) error {
 	if err := pacman.Install("juju-mongodb2.6"); err != nil {
 		return errors.Annotate(err, "cannot install juju-mongodb2.6")
 	}
+	// JujuMongoPackage represents a version of mongo > 3.1 .
 	if err := pacman.Install(mongo.JujuMongoPackage); err != nil {
 		return errors.Annotatef(err, "cannot install %v", mongo.JujuMongoPackage)
 	}
@@ -698,14 +701,15 @@ func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, mig
 			return err
 		}
 		if err := retry.Call(restoreCallArgs); err != nil {
-			logger.Errorf(out)
-			return errors.Annotatef(err, "cannot restore dbs got: %s", out)
+			err := errors.Annotatef(err, "cannot restore dbs got: %s", out)
+			logger.Errorf("%#v", err)
+			return err
 		}
 	}
 	for i := range dbs {
 		restoreDbParams := append(restoreParams,
 			fmt.Sprintf("--db=%s", dbs[i]),
-			filepath.Join(tmpDir, fmt.Sprintf("migrateTo%sdump/%s", migrationName, dbs[i])))
+			filepath.Join(tmpDir, fmt.Sprintf("migrateTo%sdump", migrationName), dbs[i]))
 		restoreCallArgs := callArgs
 		restoreCallArgs.Func = func() error {
 			var err error
