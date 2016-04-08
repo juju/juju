@@ -1026,7 +1026,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		Arch: *hc.Arch,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	args.InstanceConfig.Tools = selectedTools[0]
 
@@ -1044,18 +1044,17 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		args.InstanceConfig.AgentEnvironment[agent.LxcBridge] = instancecfg.DefaultBridgeName
 	}
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, environ.Config()); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	series := args.InstanceConfig.Tools.Version.Series
 
 	cloudcfg, err := environ.newCloudinitConfig(hostname, series)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, MAASRenderer{})
 	if err != nil {
-		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
-		return nil, msg
+		return nil, errors.Annotatef(err, "could not compose userdata for bootstrap node")
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
@@ -1441,6 +1440,10 @@ func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Val
 
 // StopInstances is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
+	// Temporary fix to make debugging possible.
+	if environ.usingMAAS2() {
+		return nil
+	}
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
 	if len(ids) == 0 {
 		return nil

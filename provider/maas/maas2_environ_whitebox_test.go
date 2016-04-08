@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -255,10 +257,14 @@ func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
 			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
 				AgentName: env.ecfg().maasAgentName()})
 		},
-		allocateMachine: &fakeMachine{systemID: "Bruce sterling"},
+		allocateMachine: &fakeMachine{
+			systemID:     "Bruce sterling",
+			architecture: arch.HostArch(),
+		},
 	})
 	env = makeEnviron(c)
-	result, err := env.StartInstance(environs.StartInstanceParams{})
+	params := environs.StartInstanceParams{}
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
 }
