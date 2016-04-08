@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/worker/discoverspaces"
 	"github.com/juju/juju/worker/environ"
 	"github.com/juju/juju/worker/firewaller"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/lifeflag"
 	"github.com/juju/juju/worker/metricworker"
@@ -70,6 +71,11 @@ type ManifoldsConfig struct {
 	// ModelRemoveDelay controls how long the model documents will be left
 	// lying around once the model has become dead.
 	ModelRemoveDelay time.Duration
+
+	// DiscoverSpacesCheckLock is passed to the discover spaces check gate to
+	// coordinate workers that shouldn't do anything until the discoverspaces
+	// worker completes its first discovery attempt.
+	DiscoverSpacesCheckLock gate.Lock
 }
 
 // Manifolds returns a set of interdependent dependency manifolds that will
@@ -88,6 +94,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APIOpen:       apicaller.APIOpen,
 			NewConnection: apicaller.OnlyConnect,
 		}),
+
+		// The discover spaces gate is used to coordinate workers which
+		// shouldn't do anything until the discoverspaces worker has completed
+		// its first discovery attempt.
+		discovertSpacesCheckGateName: gate.ManifoldEx(config.DiscoverSpacesCheckLock),
 
 		// All other manifolds should depend on at least one of these
 		// three, which handle all the tasks that are safe and sane
@@ -158,12 +169,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		// All the rest depend on ifNotDead.
-		spaceImporterName: ifNotDead(discoverspaces.Manifold(discoverspaces.ManifoldConfig{
+		discoverSpacesName: ifNotDead(discoverspaces.Manifold(discoverspaces.ManifoldConfig{
 			EnvironName:   environTrackerName,
 			APICallerName: apiCallerName,
-			// No UnlockerName for now; might never be necessary
-			// in exactly this form (because we should probably
-			// just have a persistent flag set/read via the api).
+			UnlockerName:  discovertSpacesCheckGateName,
 
 			NewFacade: discoverspaces.NewFacade,
 			NewWorker: discoverspaces.NewWorker,
@@ -258,7 +267,6 @@ const (
 
 	environTrackerName       = "environ-tracker"
 	undertakerName           = "undertaker"
-	spaceImporterName        = "space-importer"
 	computeProvisionerName   = "compute-provisioner"
 	storageProvisionerName   = "storage-provisioner"
 	firewallerName           = "firewaller"
@@ -270,4 +278,7 @@ const (
 	stateCleanerName         = "state-cleaner"
 	addressCleanerName       = "address-cleaner"
 	statusHistoryPrunerName  = "status-history-pruner"
+
+	discovertSpacesCheckGateName = "discover-spaces-check-gate"
+	discoverSpacesName           = "discover-spaces"
 )

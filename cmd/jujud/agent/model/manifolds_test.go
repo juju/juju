@@ -32,9 +32,9 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 	// NOTE: if this test failed, the cmd/jujud/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
 	c.Check(actual.Values(), jc.SameContents, []string{
-		"agent", "clock", "api-caller",
+		"agent", "clock", "api-caller", "discover-spaces-check-gate",
 		"is-responsible-flag", "not-dead-flag", "not-alive-flag",
-		"environ-tracker", "undertaker", "space-importer",
+		"environ-tracker", "undertaker", "discover-spaces",
 		"storage-provisioner", "compute-provisioner",
 		"firewaller", "unit-assigner", "service-scaler",
 		"instance-poller", "charm-revision-updater",
@@ -45,7 +45,7 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 
 func (s *ManifoldsSuite) TestResponsibleFlagDependencies(c *gc.C) {
 	exclusions := set.NewStrings(
-		"agent", "api-caller", "clock",
+		"agent", "api-caller", "clock", "discover-spaces-check-gate",
 		"is-responsible-flag", "not-dead-flag", "not-alive-flag",
 	)
 	manifolds := model.Manifolds(model.ManifoldsConfig{
