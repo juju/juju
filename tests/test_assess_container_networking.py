@@ -552,4 +552,3 @@ class TestMain(FakeHomeTestCase):
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client, ["kvm", "lxc", "lxd"])
         self.assertEqual(ret, 0)
-
