@@ -56,7 +56,7 @@ func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 
 const (
 	args                = `-o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 `
-	withProxy           = `-o StrictHostKeyChecking no -o ProxyCommand juju ssh --proxy=true --pty=false localhost nc %h %p -o PasswordAuthentication no -o ServerAliveInterval 30 `
+	withProxy           = `-o StrictHostKeyChecking no -o ProxyCommand juju ssh --proxy=false --pty=false localhost nc %h %p -o PasswordAuthentication no -o ServerAliveInterval 30 `
 	commonArgsWithProxy = withProxy + `-o UserKnownHostsFile /dev/null `
 	commonArgs          = args + `-o UserKnownHostsFile /dev/null `
 	sshArgs             = args + `-t -t -o UserKnownHostsFile /dev/null `
