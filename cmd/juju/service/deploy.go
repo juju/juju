@@ -333,7 +333,14 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 				// Local charms don't need a channel.
 			}
 			var csMac *macaroon.Macaroon // local charms don't need one.
-			return c.deployCharm(id, csMac, curl.Series, ctx, client, &deployer)
+			return c.deployCharm(deployCharmArgs{
+				id:       id,
+				csMac:    csMac,
+				series:   curl.Series,
+				ctx:      ctx,
+				client:   client,
+				deployer: &deployer,
+			})
 		}
 		// We check for several types of known error which indicate
 		// that the supplied reference was indeed a path but there was
@@ -435,7 +442,14 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		URL:     curl,
 		Channel: c.Channel,
 	}
-	return c.deployCharm(id, csMac, series, ctx, client, &deployer)
+	return c.deployCharm(deployCharmArgs{
+		id:       id,
+		csMac:    csMac,
+		series:   series,
+		ctx:      ctx,
+		client:   client,
+		deployer: &deployer,
+	})
 }
 
 const (
@@ -498,15 +512,21 @@ func charmSeries(
 	return latestLtsSeries, msgLatestLTSSeries, nil
 }
 
-func (c *DeployCommand) deployCharm(
-	id charmstore.CharmID, csMac *macaroon.Macaroon, series string, ctx *cmd.Context,
-	client *api.Client, deployer *serviceDeployer,
-) (rErr error) {
+type deployCharmArgs struct {
+	id       charmstore.CharmID
+	csMac    *macaroon.Macaroon
+	series   string
+	ctx      *cmd.Context
+	client   *api.Client
+	deployer *serviceDeployer
+}
+
+func (c *DeployCommand) deployCharm(args deployCharmArgs) (rErr error) {
 	if c.BumpRevision {
-		ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
+		args.ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 	}
 
-	charmInfo, err := client.CharmInfo(id.URL.String())
+	charmInfo, err := args.client.CharmInfo(args.id.URL.String())
 	if err != nil {
 		return err
 	}
@@ -529,7 +549,7 @@ func (c *DeployCommand) deployCharm(
 
 	var configYAML []byte
 	if c.Config.Path != "" {
-		configYAML, err = c.Config.Read(ctx)
+		configYAML, err = c.Config.Read(args.ctx)
 		if err != nil {
 			return err
 		}
@@ -545,13 +565,13 @@ func (c *DeployCommand) deployCharm(
 	}
 
 	deployInfo := DeploymentInfo{
-		CharmID:     id,
+		CharmID:     args.id,
 		ServiceName: serviceName,
-		ModelUUID:   client.ModelUUID(),
+		ModelUUID:   args.client.ModelUUID(),
 	}
 
 	for _, step := range c.Steps {
-		err = step.RunPre(state, bakeryClient, ctx, deployInfo)
+		err = step.RunPre(state, bakeryClient, args.ctx, deployInfo)
 		if err != nil {
 			return err
 		}
@@ -559,7 +579,7 @@ func (c *DeployCommand) deployCharm(
 
 	defer func() {
 		for _, step := range c.Steps {
-			err = step.RunPost(state, bakeryClient, ctx, deployInfo, rErr)
+			err = step.RunPost(state, bakeryClient, args.ctx, deployInfo, rErr)
 			if err != nil {
 				rErr = err
 			}
@@ -567,19 +587,19 @@ func (c *DeployCommand) deployCharm(
 	}()
 
 	if len(charmInfo.Meta.Terms) > 0 {
-		ctx.Infof("Deployment under prior agreement to terms: %s",
+		args.ctx.Infof("Deployment under prior agreement to terms: %s",
 			strings.Join(charmInfo.Meta.Terms, " "))
 	}
 
-	ids, err := handleResources(c, c.Resources, serviceName, id, csMac, charmInfo.Meta.Resources)
+	ids, err := handleResources(c, c.Resources, serviceName, args.id, args.csMac, charmInfo.Meta.Resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	params := serviceDeployParams{
-		charmID:       id,
+		charmID:       args.id,
 		serviceName:   serviceName,
-		series:        series,
+		series:        args.series,
 		numUnits:      numUnits,
 		configYAML:    string(configYAML),
 		constraints:   c.Constraints,
@@ -589,7 +609,7 @@ func (c *DeployCommand) deployCharm(
 		spaceBindings: c.Bindings,
 		resources:     ids,
 	}
-	return deployer.serviceDeploy(params)
+	return args.deployer.serviceDeploy(params)
 }
 
 type APICmd interface {
