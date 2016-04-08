@@ -1417,11 +1417,8 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 	}
 	ec2inst := e.ec2()
 
-	// Hold the IDs of successfully terminated instances.
-	terminatedInstances := []instance.Id{}
-
 	defer func() {
-		securityGroups, err := e.instanceSecurityGroups(terminatedInstances)
+		securityGroups, err := e.instanceSecurityGroups(ids)
 		if err != nil {
 			logger.Warningf("cannot determine security groups to delete: %v", err)
 		}
@@ -1474,7 +1471,6 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 		_, err = ec2inst.TerminateInstances([]string{string(id)})
 		if ec2ErrCode(err) == "InvalidInstanceID.NotFound" {
 			err = nil
-			terminatedInstances = append(terminatedInstances, id)
 		}
 		if err != nil && firstErr == nil {
 			firstErr = err
