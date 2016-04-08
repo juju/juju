@@ -589,9 +589,17 @@ func (suite *maas2EnvironSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
 			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
 				AgentName: env.ecfg().maasAgentName()})
 		},
-		allocateMachine: &fakeMachine{
-			systemID:     "Bruce Sterling",
-			architecture: arch.HostArch(),
+		spaces: []gomaasapi.Space{
+			fakeSpace{
+				name:    "foo",
+				subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"}},
+				id:      2,
+			},
+			fakeSpace{
+				name:    "bar",
+				subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.11.0/24"}},
+				id:      3,
+			},
 		},
 	})
 	env = makeEnviron(c)
@@ -607,18 +615,8 @@ func (suite *maas2EnvironSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodeUnrecognisedSpace(c *gc.C) {
-	var env *maasEnviron
-	suite.injectController(&fakeController{
-		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
-			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.ecfg().maasAgentName()})
-		},
-		allocateMachine: &fakeMachine{
-			systemID:     "Bruce Sterling",
-			architecture: arch.HostArch(),
-		},
-	})
-	env = makeEnviron(c)
+	suite.injectController(&fakeController{})
+	env := makeEnviron(c)
 	cons := constraints.Value{
 		Spaces: stringslicep("baz"),
 	}
