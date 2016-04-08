@@ -18,6 +18,7 @@ import (
 	"github.com/juju/version"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/charm.v6-unstable"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
@@ -372,11 +373,15 @@ func (c *Client) validateCharmVersion(ch charm.Charm) error {
 // If the AddCharm API call fails because of an authorization error
 // when retrieving the charm from the charm store, an error
 // satisfying params.IsCodeUnauthorized will be returned.
-func (c *Client) AddCharm(curl *charm.URL) error {
-	args := params.CharmURL{
-		URL: curl.String(),
+func (c *Client) AddCharm(curl *charm.URL, channel csparams.Channel) error {
+	args := params.AddCharm{
+		URL:     curl.String(),
+		Channel: string(channel),
 	}
-	return c.facade.FacadeCall("AddCharm", args, nil)
+	if err := c.facade.FacadeCall("AddCharm", args, nil); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // AddCharmWithAuthorization is like AddCharm except it also provides
@@ -388,12 +393,16 @@ func (c *Client) AddCharm(curl *charm.URL) error {
 // If the AddCharmWithAuthorization API call fails because of an
 // authorization error when retrieving the charm from the charm store,
 // an error satisfying params.IsCodeUnauthorized will be returned.
-func (c *Client) AddCharmWithAuthorization(curl *charm.URL, csMac *macaroon.Macaroon) error {
+func (c *Client) AddCharmWithAuthorization(curl *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon) error {
 	args := params.AddCharmWithAuthorization{
 		URL:                curl.String(),
+		Channel:            string(channel),
 		CharmStoreMacaroon: csMac,
 	}
-	return c.facade.FacadeCall("AddCharmWithAuthorization", args, nil)
+	if err := c.facade.FacadeCall("AddCharmWithAuthorization", args, nil); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // ResolveCharm resolves the best available charm URLs with series, for charm

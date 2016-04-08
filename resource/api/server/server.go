@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -127,8 +128,8 @@ func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPe
 	}
 	serviceID := tag.Id()
 
-	// TODO(natefinch): use a real channel once we support that.
-	ids, err := f.addPendingResources(serviceID, args.URL, "stable", args.CharmStoreMacaroon, args.Resources)
+	channel := csparams.Channel(args.Channel)
+	ids, err := f.addPendingResources(serviceID, args.URL, channel, args.CharmStoreMacaroon, args.Resources)
 	if err != nil {
 		result.Error = common.ServerError(err)
 		return result, nil
@@ -137,7 +138,7 @@ func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPe
 	return result, nil
 }
 
-func (f Facade) addPendingResources(serviceID, chRef string, channel charm.Channel, csMac *macaroon.Macaroon, apiResources []api.CharmResource) ([]string, error) {
+func (f Facade) addPendingResources(serviceID, chRef string, channel csparams.Channel, csMac *macaroon.Macaroon, apiResources []api.CharmResource) ([]string, error) {
 	var resources []charmresource.Resource
 	for _, apiRes := range apiResources {
 		res, err := api.API2CharmResource(apiRes)
@@ -182,7 +183,7 @@ func (f Facade) addPendingResources(serviceID, chRef string, channel charm.Chann
 	return ids, nil
 }
 
-func (f Facade) resolveCharmstoreResources(cURL *charm.URL, channel charm.Channel, csMac *macaroon.Macaroon, resources []charmresource.Resource) ([]charmresource.Resource, error) {
+func (f Facade) resolveCharmstoreResources(cURL *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon, resources []charmresource.Resource) ([]charmresource.Resource, error) {
 	client, err := f.newCharmstoreClient(cURL, csMac)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -192,7 +193,7 @@ func (f Facade) resolveCharmstoreResources(cURL *charm.URL, channel charm.Channe
 	if err != nil {
 		return nil, err
 	}
-	resolved, err := resolveResources(resources, storeResources, cURL, client)
+	resolved, err := resolveResources(resources, storeResources, cURL, channel, client)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +218,6 @@ func (f Facade) resolveLocalResources(resources []charmresource.Resource) ([]cha
 // resources are returned. Otherwise the latest info for each of the
 // resources is returned.
 func (f Facade) resourcesFromCharmstore(charms []charmstore.CharmID, client CharmStore) (map[string]charmresource.Resource, error) {
-	// TODO(natefinch): get the real channel when that comes available.
 	results, err := client.ListResources(charms)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -234,7 +234,7 @@ func (f Facade) resourcesFromCharmstore(charms []charmstore.CharmID, client Char
 // resolveResources determines the resource info that should actually
 // be stored on the controller. That decision is based on the provided
 // resources along with those in the charm store (if any).
-func resolveResources(resources []charmresource.Resource, storeResources map[string]charmresource.Resource, cURL *charm.URL, client CharmStore) ([]charmresource.Resource, error) {
+func resolveResources(resources []charmresource.Resource, storeResources map[string]charmresource.Resource, cURL *charm.URL, channel csparams.Channel, client CharmStore) ([]charmresource.Resource, error) {
 	allResolved := make([]charmresource.Resource, len(resources))
 	copy(allResolved, resources)
 	for i, res := range resources {
@@ -245,7 +245,7 @@ func resolveResources(resources []charmresource.Resource, storeResources map[str
 			continue
 		}
 
-		resolved, err := resolveStoreResource(res, storeResources, cURL, client)
+		resolved, err := resolveStoreResource(res, storeResources, cURL, channel, client)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -256,7 +256,7 @@ func resolveResources(resources []charmresource.Resource, storeResources map[str
 
 // resolveStoreResource selects the resource info to use. It decides
 // between the provided and latest info based on the revision.
-func resolveStoreResource(res charmresource.Resource, storeResources map[string]charmresource.Resource, cURL *charm.URL, client CharmStore) (charmresource.Resource, error) {
+func resolveStoreResource(res charmresource.Resource, storeResources map[string]charmresource.Resource, cURL *charm.URL, channel csparams.Channel, client CharmStore) (charmresource.Resource, error) {
 	storeRes, ok := storeResources[res.Name]
 	if !ok {
 		// This indicates that AddPendingResources() was called for
@@ -282,6 +282,7 @@ func resolveStoreResource(res charmresource.Resource, storeResources map[string]
 		// The caller wants resource info from the charm store, but with
 		// a different resource revision than the one associated with
 		// the charm in the store.
+		// TODO(ericsnow) Pass channel to GetResource().
 		storeRes, err := client.ResourceInfo(cURL, res.Name, res.Revision)
 		if err != nil {
 			return storeRes, errors.Trace(err)

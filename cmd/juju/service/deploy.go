@@ -327,8 +327,9 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 			if curl, charmErr = client.AddLocalCharm(curl, ch); charmErr != nil {
 				return charmErr
 			}
-			var csMac *macaroon.Macaroon // local charms don't need one.
-			return c.deployCharm(curl, csMac, curl.Series, ctx, client, &deployer)
+			var channel csclientparams.Channel // local charms don't need one.
+			var csMac *macaroon.Macaroon       // local charms don't need one.
+			return c.deployCharm(curl, channel, csMac, curl.Series, ctx, client, &deployer)
 		}
 		// We check for several types of known error which indicate
 		// that the supplied reference was indeed a path but there was
@@ -375,7 +376,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	// If we don't already have a bundle loaded, we try the charm store for a charm or bundle.
 	if bundleData == nil {
 		// Charm or bundle has been supplied as a URL so we resolve and deploy using the store.
-		charmOrBundleURL, supportedSeries, repo, err = resolver.resolve(c.CharmOrBundle)
+		charmOrBundleURL, c.Channel, supportedSeries, repo, err = resolver.resolve(c.CharmOrBundle)
 		if charm.IsUnsupportedSeriesError(err) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 		}
@@ -399,7 +400,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		}
 		// TODO(ericsnow) Do something with the CS macaroons that were returned?
 		if _, err := deployBundle(
-			bundleData, client, &deployer, resolver, ctx, c.BundleStorage,
+			bundleData, c.Channel, client, &deployer, resolver, ctx, c.BundleStorage,
 		); err != nil {
 			return errors.Trace(err)
 		}
@@ -416,7 +417,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	}
 	// Store the charm in state.
-	curl, csMac, err := addCharmFromURL(client, charmOrBundleURL, repo)
+	curl, csMac, err := addCharmFromURL(client, charmOrBundleURL, c.Channel, repo)
 	if err != nil {
 		if err1, ok := errors.Cause(err).(*termsRequiredError); ok {
 			terms := strings.Join(err1.Terms, " ")
@@ -426,7 +427,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	}
 	ctx.Infof("Added charm %q to the model.", curl)
 	ctx.Infof("Deploying charm %q %v.", curl, fmt.Sprintf(message, series))
-	return c.deployCharm(curl, csMac, series, ctx, client, &deployer)
+	return c.deployCharm(curl, c.Channel, csMac, series, ctx, client, &deployer)
 }
 
 const (
@@ -490,7 +491,7 @@ func charmSeries(
 }
 
 func (c *DeployCommand) deployCharm(
-	curl *charm.URL, csMac *macaroon.Macaroon, series string, ctx *cmd.Context,
+	curl *charm.URL, channel csclientparams.Channel, csMac *macaroon.Macaroon, series string, ctx *cmd.Context,
 	client *api.Client, deployer *serviceDeployer,
 ) (rErr error) {
 	if c.BumpRevision {
@@ -562,13 +563,14 @@ func (c *DeployCommand) deployCharm(
 			strings.Join(charmInfo.Meta.Terms, " "))
 	}
 
-	ids, err := handleResources(c, c.Resources, serviceName, curl, csMac, charmInfo.Meta.Resources)
+	ids, err := handleResources(c, c.Resources, serviceName, curl, c.Channel, csMac, charmInfo.Meta.Resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	params := serviceDeployParams{
 		charmURL:      curl.String(),
+		channel:       channel,
 		serviceName:   serviceName,
 		series:        series,
 		numUnits:      numUnits,
@@ -587,7 +589,7 @@ type APICmd interface {
 	NewAPIRoot() (api.Connection, error)
 }
 
-func handleResources(c APICmd, resources map[string]string, serviceName string, cURL *charm.URL, csMac *macaroon.Macaroon, metaResources map[string]charmresource.Meta) (map[string]string, error) {
+func handleResources(c APICmd, resources map[string]string, serviceName string, cURL *charm.URL, channel csclientparams.Channel, csMac *macaroon.Macaroon, metaResources map[string]charmresource.Meta) (map[string]string, error) {
 	if len(resources) == 0 && len(metaResources) == 0 {
 		return nil, nil
 	}
@@ -597,7 +599,7 @@ func handleResources(c APICmd, resources map[string]string, serviceName string, 
 		return nil, errors.Trace(err)
 	}
 
-	ids, err := resourceadapters.DeployResources(serviceName, cURL, csMac, resources, metaResources, api)
+	ids, err := resourceadapters.DeployResources(serviceName, cURL, channel, csMac, resources, metaResources, api)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -652,6 +654,7 @@ func (c *DeployCommand) parseBind() error {
 
 type serviceDeployParams struct {
 	charmURL      string
+	channel       csclientparams.Channel
 	serviceName   string
 	series        string
 	numUnits      int
@@ -705,17 +708,18 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 	}
 
 	clientArgs := apiservice.DeployArgs{
-		args.charmURL,
-		args.serviceName,
-		args.series,
-		args.numUnits,
-		args.configYAML,
-		args.constraints,
-		args.placement,
-		[]string{},
-		args.storage,
-		args.spaceBindings,
-		args.resources,
+		CharmURL:         args.charmURL,
+		Channel:          args.channel,
+		ServiceName:      args.serviceName,
+		Series:           args.series,
+		NumUnits:         args.numUnits,
+		ConfigYAML:       args.configYAML,
+		Cons:             args.constraints,
+		Placement:        args.placement,
+		Networks:         []string{},
+		Storage:          args.storage,
+		EndpointBindings: args.spaceBindings,
+		Resources:        args.resources,
 	}
 
 	return serviceClient.Deploy(clientArgs)

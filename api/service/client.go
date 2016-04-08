@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -63,6 +64,8 @@ func (c *Client) ModelUUID() string {
 type DeployArgs struct {
 	// CharmURL is the URL of the charm to deploy.
 	CharmURL string
+	// Channel is the charm store channel from which the charm came.
+	Channel csparams.Channel
 	// ServiceName is the name to give the service.
 	ServiceName string
 	// Series to be used for the machine.
@@ -101,6 +104,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 			ServiceName:      args.ServiceName,
 			Series:           args.Series,
 			CharmUrl:         args.CharmURL,
+			Channel:          string(args.Channel),
 			NumUnits:         args.NumUnits,
 			ConfigYAML:       args.ConfigYAML,
 			Constraints:      args.Cons,
@@ -142,6 +146,8 @@ type SetCharmConfig struct {
 	ServiceName string
 	// CharmUrl is the url for the charm.
 	CharmUrl string
+	// Channel is the charm store channel from which the charm came.
+	Channel csparams.Channel
 	// ForceSeries forces the use of the charm even if it doesn't match the
 	// series of the unit.
 	ForceSeries bool
@@ -157,6 +163,7 @@ func (c *Client) SetCharm(cfg SetCharmConfig) error {
 	args := params.ServiceSetCharm{
 		ServiceName: cfg.ServiceName,
 		CharmUrl:    cfg.CharmUrl,
+		Channel:     string(cfg.Channel),
 		ForceSeries: cfg.ForceSeries,
 		ForceUnits:  cfg.ForceUnits,
 		ResourceIDs: cfg.ResourceIDs,

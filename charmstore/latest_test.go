@@ -63,8 +63,8 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 	expectedIds := []*charm.URL{spam, eggs, ham}
 
 	s.lowLevel.stableStub.CheckCallNames(c, "Latest", "ListResources")
-	s.lowLevel.stableStub.CheckCall(c, 0, "Latest", charm.Channel("stable"), expectedIds, map[string]string{"environment_uuid": uuid})
-	s.lowLevel.stableStub.CheckCall(c, 1, "ListResources", charm.Channel("stable"), expectedIds)
+	s.lowLevel.stableStub.CheckCall(c, 0, "Latest", params.StableChannel, expectedIds, map[string]string{"environment_uuid": uuid})
+	s.lowLevel.stableStub.CheckCall(c, 1, "ListResources", params.StableChannel, expectedIds)
 
 	expectedRes, err := params.API2Resource(fakeRes)
 	c.Assert(err, jc.ErrorIsNil)

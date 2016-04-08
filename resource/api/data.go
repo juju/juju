@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -53,7 +54,7 @@ type AddPendingResourcesArgs struct {
 
 // NewAddPendingResourcesArgs returns the arguments for the
 // AddPendingResources API endpoint.
-func NewAddPendingResourcesArgs(serviceID string, cURL *charm.URL, csMac *macaroon.Macaroon, resources []charmresource.Resource) (AddPendingResourcesArgs, error) {
+func NewAddPendingResourcesArgs(serviceID string, cURL *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon, resources []charmresource.Resource) (AddPendingResourcesArgs, error) {
 	var args AddPendingResourcesArgs
 
 	if !names.IsValidService(serviceID) {
@@ -73,6 +74,7 @@ func NewAddPendingResourcesArgs(serviceID string, cURL *charm.URL, csMac *macaro
 	args.Resources = apiResources
 	if cURL != nil {
 		args.URL = cURL.String()
+		args.Channel = string(channel)
 		args.CharmStoreMacaroon = csMac
 	}
 	return args, nil
