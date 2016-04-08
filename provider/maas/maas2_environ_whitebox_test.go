@@ -587,7 +587,11 @@ func (suite *maas2EnvironSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.ecfg().maasAgentName()})
+				AgentName: env.ecfg().maasAgentName(),
+				// Should have Interfaces set
+				// Interfaces: 0:space=2,
+				NotNetworks: []string{"space:3"},
+			})
 		},
 		spaces: []gomaasapi.Space{
 			fakeSpace{
@@ -608,10 +612,6 @@ func (suite *maas2EnvironSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
 	}
 	_, err := env.acquireNode2("", "", cons, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	//	nodeRequestValues, found := requestValues["node0"]
-	//	c.Assert(found, jc.IsTrue)
-	//	c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, "0:space=2")
-	//	c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, "space:3")
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodeUnrecognisedSpace(c *gc.C) {

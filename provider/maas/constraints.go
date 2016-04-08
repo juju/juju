@@ -248,7 +248,7 @@ func getBindings(
 }
 
 func addInterfaces2(
-	params gomaasapi.AllocateMachineArgs,
+	params *gomaasapi.AllocateMachineArgs,
 	bindings []interfaceBinding,
 	positiveSpaces, negativeSpaces []network.SpaceInfo,
 ) error {
