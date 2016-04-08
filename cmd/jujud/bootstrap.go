@@ -305,7 +305,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Populate the GUI archive catalogue.
 	if err := c.populateGUIArchive(st, env); err != nil {
-		return err
+		// Do not stop the bootstrapping process for Juju GUI archive errors.
+		logger.Warningf("cannot set up Juju GUI: %s", err)
+	} else {
+		logger.Debugf("Juju GUI successfully set up")
 	}
 
 	// Add custom image metadata to environment storage.
@@ -445,7 +448,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	return nil
 }
 
-// populateGUIArchive stores uploaded Juju GUI archive in provider storage,
+// populateGUIArchive stores the uploaded Juju GUI archive in provider storage,
 // updates the GUI metadata and set the current Juju GUI version.
 func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Environ) error {
 	agentConfig := c.CurrentConfig()
@@ -457,10 +460,7 @@ func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Envi
 	defer guistorage.Close()
 	gui, err := agenttools.ReadGUIArchive(dataDir)
 	if err != nil {
-		// TODO frankban: ignore the error for now, as the GUI could not be
-		// there at all. This needs to be changed before merging into master,
-		// return errors.Annotate(err, "cannot fetch GUI info")
-		return nil
+		return errors.Annotate(err, "cannot fetch GUI info")
 	}
 	f, err := os.Open(filepath.Join(agenttools.SharedGUIDir(dataDir), "gui.tar.bz2"))
 	if err != nil {
