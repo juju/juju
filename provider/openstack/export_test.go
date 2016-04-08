@@ -38,13 +38,17 @@ var (
 func MetadataStorage(e environs.Environ) envstorage.Storage {
 	ecfg := e.(*Environ).ecfg()
 	container := "juju-dist-test"
+	client, err := authClient(ecfg)
+	if err != nil {
+		panic(fmt.Errorf("cannot create %s container: %v", container, err))
+	}
 	metadataStorage := &openstackstorage{
 		containerName: container,
-		swift:         swift.New(authClient(ecfg)),
+		swift:         swift.New(client),
 	}
 
 	// Ensure the container exists.
-	err := metadataStorage.makeContainer(container, swift.PublicRead)
+	err = metadataStorage.makeContainer(container, swift.PublicRead)
 	if err != nil {
 		panic(fmt.Errorf("cannot create %s container: %v", container, err))
 	}
