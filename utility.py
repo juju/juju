@@ -440,3 +440,25 @@ def run_command(command, dry_run=False, verbose=False):
         output = subprocess.check_output(command)
         if verbose:
             print_now(output)
+
+
+def make_local_charm(charm, juju_ver, series=None, repository=None,
+                     platform='ubuntu'):
+    """Create either Juju 1.x or 2.x local charm path."""
+    if juju_ver.startswith('1.'):
+        if series:
+            series = '{}/'.format(series)
+        else:
+            series = ''
+        local_path = 'local:{}{}'.format(series, charm)
+        return local_path
+    else:
+        charm_dir = {
+            'ubuntu': 'charms',
+            'win': 'charms-win',
+            'centos': 'charms-centos'}
+        if repository is None:
+            repository = os.path.join(
+                os.environ['JUJU_REPOSITORY'], charm_dir[platform])
+        abs_path = os.path.join(repository, charm)
+        return abs_path
