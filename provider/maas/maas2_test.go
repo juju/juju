@@ -127,6 +127,10 @@ func (m *fakeMachine) Zone() gomaasapi.Zone {
 	return fakeZone{name: m.zoneName}
 }
 
+func (m *fakeMachine) Start(args gomaasapi.StartArgs) error {
+	return nil
+}
+
 type fakeZone struct {
 	gomaasapi.Zone
 	name string

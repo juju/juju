@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type maas2EnvironSuite struct {
@@ -34,6 +35,7 @@ func makeEnviron(c *gc.C) *maasEnviron {
 		testAttrs[k] = v
 	}
 	testAttrs["maas-server"] = "http://any-old-junk.invalid/"
+	testAttrs["agent-version"] = version.Current.String()
 	attrs := coretesting.FakeConfig().Merge(testAttrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -258,10 +260,11 @@ func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
 				AgentName: env.ecfg().maasAgentName()})
 		},
 		allocateMachine: &fakeMachine{
-			systemID:     "Bruce sterling",
+			systemID:     "Bruce Sterling",
 			architecture: arch.HostArch(),
 		},
 	})
+	suite.setupFakeTools(c)
 	env = makeEnviron(c)
 	params := environs.StartInstanceParams{}
 	result, err := testing.StartInstanceWithParams(env, "1", params, nil)

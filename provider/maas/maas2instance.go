@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	"github.com/juju/names"
 
@@ -27,7 +26,7 @@ func (mi *maas2Instance) volumes(
 ) (
 	[]storage.Volume, []storage.VolumeAttachment, error,
 ) {
-	return nil, nil, errors.New("boom")
+	return nil, nil, nil
 }
 
 func (mi *maas2Instance) zone() (string, error) {
