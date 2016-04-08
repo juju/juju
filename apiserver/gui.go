@@ -54,14 +54,14 @@ var (
 //   required to render the Juju GUI index file;
 // - the "jujugui" directory includes a "templates/index.html.go" file which is
 //   used to render the Juju GUI index. The template receives at least the
-//   following variables in its context: "comboURL", "configURL", "debug"
-//   and "spriteContent". It might receive more variables but cannot assume
-//   them to be always provided;
+//   following variables in its context: "staticURL", comboURL", "configURL",
+//   "debug" and "spriteContent". It might receive more variables but cannot
+//   assume them to be always provided;
 // - the "jujugui" directory includes a "templates/config.js.go" file which is
 //   used to render the Juju GUI configuration file. The template receives at
 //   least the following variables in its context: "base", "host", "socket",
-//   "uuid" and "version". It might receive more variables but cannot assume
-//   them to be always provided.
+//   "staticURL", "uuid" and "version". It might receive more variables but
+//   cannot assume them to be always provided.
 type guiRouter struct {
 	dataDir string
 	ctxt    httpContext
@@ -325,6 +325,7 @@ func (h *guiHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
 	}
 	tmpl := filepath.Join(h.rootDir, "templates", "index.html.go")
 	renderGUITemplate(w, tmpl, map[string]interface{}{
+		"staticURL": h.hashedPath(""),
 		"comboURL":  h.hashedPath("combo"),
 		"configURL": h.hashedPath("config.js"),
 		// TODO frankban: make it possible to enable debug.
@@ -338,11 +339,12 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", jsMimeType)
 	tmpl := filepath.Join(h.rootDir, "templates", "config.js.go")
 	renderGUITemplate(w, tmpl, map[string]interface{}{
-		"base":    h.baseURLPath,
-		"host":    req.Host,
-		"socket":  "/model/$uuid/api",
-		"uuid":    h.uuid,
-		"version": jujuversion.Current.String(),
+		"base":      h.baseURLPath,
+		"host":      req.Host,
+		"socket":    "/model/$uuid/api",
+		"staticURL": h.hashedPath(""),
+		"uuid":      h.uuid,
+		"version":   jujuversion.Current.String(),
 	})
 }
 

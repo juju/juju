@@ -405,6 +405,7 @@ func (s *guiSuite) TestGUIIndex(c *gc.C) {
 <!DOCTYPE html>
 <html>
 <body>
+    staticURL: {{.staticURL}}
     comboURL: {{.comboURL}}
     configURL: {{.configURL}}
     debug: {{.debug}}
@@ -423,6 +424,7 @@ func (s *guiSuite) TestGUIIndex(c *gc.C) {
 <!DOCTYPE html>
 <html>
 <body>
+    staticURL: /gui/%[1]s/%[2]s
     comboURL: /gui/%[1]s/%[2]s/combo
     configURL: /gui/%[1]s/%[2]s/config.js
     debug: false
@@ -495,6 +497,7 @@ var config = {
     base: '{{.base}}',
     host: '{{.host}}',
     socket: '{{.socket}}',
+    staticURL: '{{.staticURL}}',
     uuid: '{{.uuid}}',
     version: '{{.version}}'
 };`
@@ -508,12 +511,13 @@ var config = {
 	expectedConfigContent := fmt.Sprintf(`
 var config = {
     // This is just an example and does not reflect the real Juju GUI config.
-    base: '/gui/%s/',
-    host: '%s',
+    base: '/gui/%[1]s/',
+    host: '%[2]s',
     socket: '/model/$uuid/api',
-    uuid: '%s',
-    version: '%s'
-};`, s.modelUUID, s.baseURL(c).Host, s.modelUUID, jujuversion.Current)
+    staticURL: '/gui/%[1]s/%[3]s',
+    uuid: '%[1]s',
+    version: '%[4]s'
+};`, s.modelUUID, s.baseURL(c).Host, hash, jujuversion.Current)
 
 	// Make a request for the Juju GUI config.
 	resp := s.sendRequest(c, httpRequestParams{
