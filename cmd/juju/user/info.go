@@ -16,38 +16,25 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-const ShowUserCommandDoc = `
-Display infomation on a user.
+var helpSummary = `
+Show information about a user.`[1:]
+
+var helpDetails = `
+Display infomation (user-name, display-name, date-created, and
+last-connection) about a user. By default it provides information about 
+the current user.
+
 
 Examples:
-  	# Show information on the current user
-	$ juju show-user
-  	user-name: foobar
-  	display-name: Foo Bar
-  	date-created : 1981-02-27 16:10:05 +0000 UTC
-	last-connection: 2014-01-01 00:00:00 +0000 UTC
+juju show-user
+juju show-user jsmith
+juju show-user --format json
+juju show-user --format yaml
 
-  	# Show information on a user with the given username
-	$ juju show-user jsmith
-  	user-name: jsmith
-  	display-name: John Smith
-  	date-created : 1981-02-27 16:10:05 +0000 UTC
-	last-connection: 2014-01-01 00:00:00 +0000 UTC
-
-  	# Show information on the current user in JSON format
- 	$ juju show-user --format json
-  	{"user-name":"foobar",
-  	"display-name":"Foo Bar",
-	"date-created": "1981-02-27 16:10:05 +0000 UTC",
-	"last-connection": "2014-01-01 00:00:00 +0000 UTC"}
-
-  	# Show information on the current user in YAML format
- 	$ juju show-user --format yaml
- 	user-name: foobar
- 	display-name: Foo Bar
- 	date-created : 1981-02-27 16:10:05 +0000 UTC
-	last-connection: 2014-01-01 00:00:00 +0000 UTC
-`
+See also: 
+add-user
+register
+list-users`[1:]
 
 // UserInfoAPI defines the API methods that the info command uses.
 type UserInfoAPI interface {
@@ -91,8 +78,8 @@ func (c *infoCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-user",
 		Args:    "<username>",
-		Purpose: "shows information on a user",
-		Doc:     ShowUserCommandDoc,
+		Purpose: helpSummary,
+		Doc:     helpDetails,
 	}
 }
 
