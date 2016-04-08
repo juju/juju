@@ -5,6 +5,7 @@ package maas
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
@@ -452,14 +453,30 @@ func (suite *maas2EnvironSuite) TestAcquireNodeStorage(c *gc.C) {
 
 func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	var env *maasEnviron
+	var getNegatives func() []string
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.ecfg().maasAgentName()})
+				AgentName: env.ecfg().maasAgentName(),
+				// Should have Interfaces too
+				NotNetworks: getNegatives(),
+			})
 		},
 		allocateMachine: &fakeMachine{
 			systemID:     "Bruce Sterling",
 			architecture: arch.HostArch(),
+		},
+		spaces: []gomaasapi.Space{
+			fakeSpace{
+				name:    "foo",
+				subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"}},
+				id:      5,
+			},
+			fakeSpace{
+				name:    "bar",
+				subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.11.0/24"}},
+				id:      6,
+			},
 		},
 	})
 	suite.setupFakeTools(c)
@@ -543,6 +560,10 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	}} {
 		c.Logf("test #%d: interfaces=%v", i, test.interfaces)
 		env = makeEnviron(c)
+		// TODO (mfoord): need getPositives as well.
+		getNegatives = func() []string {
+			return strings.Split(test.expectedNegatives, ";")
+		}
 		_, err := env.acquireNode2("", "", cons, test.interfaces, nil)
 		if test.expectedError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectedError)
