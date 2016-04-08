@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
@@ -267,6 +268,33 @@ func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
 	suite.setupFakeTools(c)
 	env = makeEnviron(c)
 	params := environs.StartInstanceParams{}
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
+}
+
+func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
+	var env *maasEnviron
+	suite.injectController(&fakeController{
+		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
+			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
+				AgentName: env.ecfg().maasAgentName(),
+				Zone:      "foo",
+				MinMemory: 8192,
+			})
+		},
+		allocateMachine: &fakeMachine{
+			systemID:     "Bruce Sterling",
+			architecture: arch.HostArch(),
+		},
+		zones: []gomaasapi.Zone{&fakeZone{name: "foo"}},
+	})
+	suite.setupFakeTools(c)
+	env = makeEnviron(c)
+	params := environs.StartInstanceParams{
+		Placement:   "zone=foo",
+		Constraints: constraints.MustParse("mem=8G"),
+	}
 	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))

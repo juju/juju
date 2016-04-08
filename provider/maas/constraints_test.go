@@ -68,6 +68,62 @@ func (*environSuite) TestConvertConstraints(c *gc.C) {
 	}
 }
 
+func (*environSuite) TestConvertConstraints2(c *gc.C) {
+	for i, test := range []struct {
+		cons     constraints.Value
+		expected gomaasapi.AllocateMachineArgs
+	}{{
+		cons:     constraints.Value{Arch: stringp("arm")},
+		expected: gomaasapi.AllocateMachineArgs{Architecture: "arm"},
+	}, {
+		cons:     constraints.Value{CpuCores: uint64p(4)},
+		expected: gomaasapi.AllocateMachineArgs{MinCPUCount: 4},
+	}, {
+		cons:     constraints.Value{Mem: uint64p(1024)},
+		expected: gomaasapi.AllocateMachineArgs{MinMemory: 1024},
+	}, { // Spaces are converted to bindings and not_networks, but only in acquireNode
+		cons:     constraints.Value{Spaces: stringslicep("foo", "bar", "^baz", "^oof")},
+		expected: gomaasapi.AllocateMachineArgs{},
+	}, {
+		cons: constraints.Value{Tags: stringslicep("tag1", "tag2", "^tag3", "^tag4")},
+		expected: gomaasapi.AllocateMachineArgs{
+			Tags:    []string{"tag1", "tag2"},
+			NotTags: []string{"tag3", "tag4"},
+		},
+	}, { // CpuPower is ignored.
+		cons:     constraints.Value{CpuPower: uint64p(1024)},
+		expected: gomaasapi.AllocateMachineArgs{},
+	}, { // RootDisk is ignored.
+		cons:     constraints.Value{RootDisk: uint64p(8192)},
+		expected: gomaasapi.AllocateMachineArgs{},
+	}, {
+		cons: constraints.Value{Tags: stringslicep("foo", "bar")},
+		expected: gomaasapi.AllocateMachineArgs{
+			Tags: []string{"foo", "bar"},
+		},
+	}, {
+		cons: constraints.Value{
+			Arch:     stringp("arm"),
+			CpuCores: uint64p(4),
+			Mem:      uint64p(1024),
+			CpuPower: uint64p(1024),
+			RootDisk: uint64p(8192),
+			Spaces:   stringslicep("foo", "^bar"),
+			Tags:     stringslicep("^tag1", "tag2"),
+		},
+		expected: gomaasapi.AllocateMachineArgs{
+			Architecture: "arm",
+			MinCPUCount:  4,
+			MinMemory:    1024,
+			Tags:         []string{"tag2"},
+			NotTags:      []string{"tag1"},
+		},
+	}} {
+		c.Logf("test #%d: cons2=%s", i, test.cons.String())
+		c.Check(convertConstraints2(test.cons), jc.DeepEquals, test.expected)
+	}
+}
+
 var nilStringSlice []string
 
 func (*environSuite) TestConvertTagsToParams(c *gc.C) {
