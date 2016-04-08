@@ -646,12 +646,8 @@ class EnvJujuClient:
         if retcode != 0:
             raise subprocess.CalledProcessError(retcode, full_args)
 
-    def deploy(self, charm,
-		repository=None,
-		to=None,
-                series=None,
-		service=None,
-                force=False):
+    def deploy(self, charm, repository=None, to=None, series=None, service=None,
+               force=False):
         args = [charm]
         if repository is not None:
             args.extend(['--repository', repository])
@@ -661,8 +657,8 @@ class EnvJujuClient:
             args.extend(['--series', series])
         if service is not None:
             args.extend([service])
-	if force is True:
-	    args.extend(['--force'])
+        if force is True:
+            args.extend(['--force'])
         return self.juju('deploy', tuple(args))
 
     def remove_service(self, service):
