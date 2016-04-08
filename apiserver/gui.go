@@ -325,6 +325,8 @@ func (h *guiHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
 	}
 	tmpl := filepath.Join(h.rootDir, "templates", "index.html.go")
 	renderGUITemplate(w, tmpl, map[string]interface{}{
+		// staticURL holds the root of the static hierarchy, hence why the
+		// empty string is used here.
 		"staticURL": h.hashedPath(""),
 		"comboURL":  h.hashedPath("combo"),
 		"configURL": h.hashedPath("config.js"),
@@ -339,9 +341,11 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", jsMimeType)
 	tmpl := filepath.Join(h.rootDir, "templates", "config.js.go")
 	renderGUITemplate(w, tmpl, map[string]interface{}{
-		"base":      h.baseURLPath,
-		"host":      req.Host,
-		"socket":    "/model/$uuid/api",
+		"base":   h.baseURLPath,
+		"host":   req.Host,
+		"socket": "/model/$uuid/api",
+		// staticURL holds the root of the static hierarchy, hence why the
+		// empty string is used here.
 		"staticURL": h.hashedPath(""),
 		"uuid":      h.uuid,
 		"version":   jujuversion.Current.String(),
