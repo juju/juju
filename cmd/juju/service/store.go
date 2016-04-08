@@ -187,6 +187,9 @@ var newCharmStoreClient = func(client *httpbakery.Client) *csclient.Client {
 	})
 }
 
+// TODO(natefinch): change the code in this file to use the
+// github.com/juju/juju/charmstore package to interact with the charmstore.
+
 // authorizeCharmStoreEntity acquires and return the charm store delegatable macaroon to be
 // used to add the charm corresponding to the given URL.
 // The macaroon is properly attenuated so that it can only be used to deploy

@@ -11,10 +11,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/retry"
 	"github.com/juju/utils/clock"
-	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
@@ -48,38 +45,26 @@ func (cache *charmstoreEntityCache) OpenResource(name string) (resource.Resource
 }
 
 type charmstoreOpener struct {
-	csMac *macaroon.Macaroon
+	st *state.State
 	// TODO(ericsnow) What else do we need?
 }
 
-func newCharmstoreOpener(cURL *charm.URL, csMac *macaroon.Macaroon) *charmstoreOpener {
-	// TODO(ericsnow) Extract the charm store URL from the charm URL?
-	return &charmstoreOpener{
-		csMac: csMac,
-	}
+func newCharmstoreOpener(st *state.State) *charmstoreOpener {
+	return &charmstoreOpener{st}
+}
+
+func newCharmStoreClient(st *state.State) (charmstore.Client, error) {
+	return charmstore.NewCachingClient(state.MacaroonCache{st}, nil)
 }
 
 // NewClient opens a new charm store client.
 func (cs *charmstoreOpener) NewClient() (*CSRetryClient, error) {
-	client := cs.newClient()
-	return newCSRetryClient(client), nil
-}
-
-func (cs *charmstoreOpener) newClient() charmstore.Client {
-	var config charmstore.ClientConfig
-
-	httpClient := httpbakery.NewClient()
-	if cs.csMac != nil {
-		// Set the provided charmstore authorizing macaroon
-		// as a cookie in the HTTP client.
-		// TODO discharge any third party caveats in the macaroon.
-		ms := []*macaroon.Macaroon{cs.csMac}
-		httpbakery.SetCookie(httpClient.Jar, config.URL, ms)
+	// TODO(ericsnow) Use a valid charm store client.
+	client, err := newCharmStoreClient(cs.st)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	config.BakeryClient = httpClient
-
-	client := charmstore.NewClient(config)
-	return client
+	return newCSRetryClient(client), nil
 }
 
 // CSRetryClient is a wrapper around a Juju charm store client that
@@ -110,18 +95,16 @@ func newCSRetryClient(client charmstore.Client) *CSRetryClient {
 }
 
 // GetResource returns a reader for the resource's data.
-func (client CSRetryClient) GetResource(id charmstore.CharmID, resourceName string, revision int) (charmresource.Resource, io.ReadCloser, error) {
+func (client CSRetryClient) GetResource(req charmstore.ResourceRequest) (charmstore.ResourceData, error) {
 	args := client.retryArgs // a copy
 
-	var chRes charmresource.Resource
-	var reader io.ReadCloser
+	var data charmstore.ResourceData
 	args.Func = func() error {
-		csRes, csReader, err := client.Client.GetResource(id, resourceName, revision)
+		var err error
+		data, err = client.Client.GetResource(req)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		chRes = csRes
-		reader = csReader
 		return nil
 	}
 
@@ -134,11 +117,11 @@ func (client CSRetryClient) GetResource(id charmstore.CharmID, resourceName stri
 
 	err := retry.Call(args)
 	if retry.IsAttemptsExceeded(err) {
-		return chRes, nil, errors.Annotate(lastErr, "failed after retrying")
+		return data, errors.Annotate(lastErr, "failed after retrying")
 	}
 	if err != nil {
-		return chRes, nil, errors.Trace(err)
+		return data, errors.Trace(err)
 	}
 
-	return chRes, reader, nil
+	return data, nil
 }

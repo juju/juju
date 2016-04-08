@@ -43,7 +43,7 @@ type CharmStore interface {
 	ListResources([]charmstore.CharmID) ([][]charmresource.Resource, error)
 
 	// ResourceInfo returns the metadata for the given resource.
-	ResourceInfo(id charmstore.CharmID, resourceName string, revision int) (charmresource.Resource, error)
+	ResourceInfo(charmstore.ResourceRequest) (charmresource.Resource, error)
 }
 
 // Facade is the public API facade for resources.
@@ -51,11 +51,11 @@ type Facade struct {
 	// store is the data source for the facade.
 	store resourceInfoStore
 
-	newCharmstoreClient func(*charm.URL, *macaroon.Macaroon) (CharmStore, error)
+	newCharmstoreClient func() (CharmStore, error)
 }
 
 // NewFacade returns a new resoures facade for the given Juju state.
-func NewFacade(store DataStore, newClient func(*charm.URL, *macaroon.Macaroon) (CharmStore, error)) (*Facade, error) {
+func NewFacade(store DataStore, newClient func() (CharmStore, error)) (*Facade, error) {
 	if store == nil {
 		return nil, errors.Errorf("missing data store")
 	}
@@ -153,6 +153,7 @@ func (f Facade) addPendingResources(serviceID, chRef string, channel csparams.Ch
 		if err != nil {
 			return nil, err
 		}
+
 		switch cURL.Schema {
 		case "cs":
 			id := charmstore.CharmID{
@@ -188,7 +189,7 @@ func (f Facade) addPendingResources(serviceID, chRef string, channel csparams.Ch
 }
 
 func (f Facade) resolveCharmstoreResources(id charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) ([]charmresource.Resource, error) {
-	client, err := f.newCharmstoreClient(id.URL, csMac)
+	client, err := f.newCharmstoreClient()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -286,7 +287,13 @@ func resolveStoreResource(res charmresource.Resource, storeResources map[string]
 		// The caller wants resource info from the charm store, but with
 		// a different resource revision than the one associated with
 		// the charm in the store.
-		storeRes, err := client.ResourceInfo(id, res.Name, res.Revision)
+		req := charmstore.ResourceRequest{
+			Charm:    id.URL,
+			Channel:  id.Channel,
+			Name:     res.Name,
+			Revision: res.Revision,
+		}
+		storeRes, err := client.ResourceInfo(req)
 		if err != nil {
 			return storeRes, errors.Trace(err)
 		}
