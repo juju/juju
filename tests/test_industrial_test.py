@@ -1861,8 +1861,9 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
         temp_repository = mkdtemp()
         with patch('utility.mkdtemp', return_value=temp_repository):
             with patch('subprocess.check_call') as cc_mock:
-                self.assertEqual(uc_iterator.next(),
-                                 {'test_id': 'prepare-upgrade-charm'})
+                with patch.object(client, 'version', return_value='2.0.0'):
+                    self.assertEqual(uc_iterator.next(),
+                                     {'test_id': 'prepare-upgrade-charm'})
         metadata_path = os.path.join(
             temp_repository, 'trusty', 'mycharm', 'metadata.yaml')
         with open(metadata_path) as metadata_file:
@@ -1872,7 +1873,7 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
         self.assertIn('description', metadata)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'deploy', '-m', 'steve',
-            'local:trusty/mycharm', '--repository', temp_repository))
+            os.path.join(temp_repository, 'trusty', 'mycharm')))
         status = {
             'machines': {'0': {'agent-state': 'started'}},
             'services': {},

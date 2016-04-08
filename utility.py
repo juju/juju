@@ -442,7 +442,7 @@ def run_command(command, dry_run=False, verbose=False):
             print_now(output)
 
 
-def make_local_charm(charm, juju_ver, series=None, repository=None,
+def local_charm_path(charm, juju_ver, series=None, repository=None,
                      platform='ubuntu'):
     """Create either Juju 1.x or 2.x local charm path."""
     if juju_ver.startswith('1.'):

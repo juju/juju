@@ -32,6 +32,7 @@ from substrate import (
 from utility import (
     configure_logging,
     LoggedException,
+    local_charm_path,
     temp_dir,
     until_timeout,
     )
@@ -212,7 +213,7 @@ class IndustrialTest:
     def __init__(self, old_client, new_client, stage_attempts):
         """Constructor.
 
-        :param old_client: An EnvJujuClient for the old juju.
+        :param old_client: An EnvJ/maujuClient for the old juju.
         :param new_client: An EnvJujuClient for the new juju.
         :param stage_attemps: List of stages to attempt.
         """
@@ -494,8 +495,14 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
                     'name': 'mycharm',
                     'description': 'foo-description',
                     'summary': 'foo-summary',
+                    'series': ['trusty']
                     }))
-            client.deploy('local:trusty/mycharm', temp_repository)
+            version = client.version()
+            charm_path = local_charm_path(
+                charm='mycharm', juju_ver=version, series='trusty',
+                repository=os.path.dirname(charm_root))
+            #client.deploy('local:trusty/mycharm', temp_repository)
+            client.deploy(charm_path, temp_repository)
             yield self.prepare.as_result()
             client.wait_for_started()
             yield self.prepare.as_result()

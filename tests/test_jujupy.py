@@ -1412,9 +1412,9 @@ class TestEnvJujuClient(ClientTest):
         env = EnvJujuClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         with patch.object(env, 'juju') as mock_juju:
-            env.deploy('mondogb', '/home/jrandom/repo')
+            env.deploy('/home/jrandom/repo/mongodb')
         mock_juju.assert_called_with(
-            'deploy', ('mondogb', '--repository', '/home/jrandom/repo'))
+            'deploy', ('/home/jrandom/repo/mongodb',))
 
     def test_deploy_to(self):
         env = EnvJujuClient(
