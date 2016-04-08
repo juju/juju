@@ -963,9 +963,9 @@ func (s *testModeCharmRepo) WithTestMode() charmrepo.Interface {
 func (s *serviceSuite) TestSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
 	repo := &testModeCharmRepo{}
 	s.PatchValue(&csclient.ServerURL, s.Srv.URL)
-	newCharmStore := service.NewCharmStore
-	s.PatchValue(&service.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
-		repo.CharmStore = newCharmStore(p)
+	newCharmStoreRepo := service.NewCharmStoreRepo
+	s.PatchValue(&service.NewCharmStoreRepo, func(c *csclient.Client) charmrepo.Interface {
+		repo.CharmStore = newCharmStoreRepo(c).(*charmrepo.CharmStore)
 		return repo
 	})
 	attrs := map[string]interface{}{"test-mode": true}

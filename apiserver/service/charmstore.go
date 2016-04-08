@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
@@ -26,12 +27,12 @@ import (
 
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this
 // to use interfaces.
-// NewCharmStore instantiates a new charm store repository.
+// NewCharmStoreRepo instantiates a new charm store repository.
 // It is exported for testing purposes.
-var NewCharmStore = newCharmStore
+var NewCharmStoreRepo = newCharmStoreFromClient
 
-func newCharmStore(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
-	return charmrepo.NewCharmStore(p)
+func newCharmStoreFromClient(csClient *csclient.Client) charmrepo.Interface {
+	return charmrepo.NewCharmStoreFromClient(csClient)
 }
 
 // AddCharmWithAuthorization adds the given charm URL (which must include revision) to
@@ -119,11 +120,20 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 }
 
 func openCSRepo(args params.AddCharmWithAuthorization) (charmrepo.Interface, error) {
+	csClient, err := openCSClient(args)
+	if err != nil {
+		return nil, err
+	}
+	repo := NewCharmStoreRepo(csClient)
+	return repo, nil
+}
+
+func openCSClient(args params.AddCharmWithAuthorization) (*csclient.Client, error) {
 	csURL, err := url.Parse(csclient.ServerURL)
 	if err != nil {
 		return nil, err
 	}
-	csParams := charmrepo.NewCharmStoreParams{
+	csParams := csclient.Params{
 		URL:        csURL.String(),
 		HTTPClient: httpbakery.NewHTTPClient(),
 	}
@@ -135,9 +145,8 @@ func openCSRepo(args params.AddCharmWithAuthorization) (charmrepo.Interface, err
 		ms := []*macaroon.Macaroon{args.CharmStoreMacaroon}
 		httpbakery.SetCookie(csParams.HTTPClient.Jar, csURL, ms)
 	}
-
-	repo := NewCharmStore(csParams)
-	return repo, nil
+	csClient := csclient.New(csParams)
+	return csClient, nil
 }
 
 func checkMinVersion(ch charm.Charm) error {
@@ -239,7 +248,7 @@ func ResolveCharms(st *state.State, args params.ResolveCharms) (params.ResolveCh
 		return params.ResolveCharmResults{}, err
 	}
 	repo := config.SpecializeCharmRepo(
-		NewCharmStore(charmrepo.NewCharmStoreParams{}),
+		NewCharmStoreRepo(csclient.New(csclient.Params{})),
 		envConfig)
 
 	for _, ref := range args.References {
