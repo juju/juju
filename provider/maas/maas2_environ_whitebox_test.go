@@ -563,11 +563,23 @@ func (suite *maas2EnvironSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.ecfg().maasAgentName()})
+				AgentName: env.ecfg().maasAgentName(),
+				// Should have Interfaces set
+				// Interfaces: 0:space=2,
+				NotNetworks: []string{"space:3"},
+			})
 		},
-		allocateMachine: &fakeMachine{
-			systemID:     "Bruce Sterling",
-			architecture: arch.HostArch(),
+		spaces: []gomaasapi.Space{
+			fakeSpace{
+				name:    "foo",
+				subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"}},
+				id:      2,
+			},
+			fakeSpace{
+				name:    "bar",
+				subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.11.0/24"}},
+				id:      3,
+			},
 		},
 	})
 	env = makeEnviron(c)
@@ -576,10 +588,6 @@ func (suite *maas2EnvironSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
 	}
 	_, err := env.acquireNode2("", "", cons, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	//	nodeRequestValues, found := requestValues["node0"]
-	//	c.Assert(found, jc.IsTrue)
-	//	c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, "0:space=2")
-	//	c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, "space:3")
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
