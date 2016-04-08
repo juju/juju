@@ -35,6 +35,7 @@ import (
 	_ "github.com/juju/juju/apiserver/lifeflag"
 	_ "github.com/juju/juju/apiserver/logger"
 	_ "github.com/juju/juju/apiserver/machine"
+	_ "github.com/juju/juju/apiserver/machineactions"
 	_ "github.com/juju/juju/apiserver/machinemanager"
 	_ "github.com/juju/juju/apiserver/meterstatus"
 	_ "github.com/juju/juju/apiserver/metricsadder"

@@ -37,16 +37,19 @@ type modelsCommand struct {
 }
 
 var listModelsDoc = `
-List all the models the user can access on the current controller.
+The models listed here are either models you have created yourself, or
+models which have been shared with you. Default values for user and
+controller are, respectively, the current user and the current controller.
+The active model is denoted by an asterisk.
 
-The models listed here are either models you have created
-yourself, or models which have been shared with you.
+Examples:
 
-See Also:
-    juju help controllers
-    juju help model users
-    juju help model share
-    juju help model unshare
+    juju list-models
+    juju list-models --user bob
+
+See also: create-model
+          share-model
+          unshare-model
 `
 
 // ModelManagerAPI defines the methods on the model manager API that
@@ -67,7 +70,7 @@ type ModelsSysAPI interface {
 func (c *modelsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-models",
-		Purpose: "list all models the user can access on the current controller",
+		Purpose: "Lists models a user can access on a controller.",
 		Doc:     listModelsDoc,
 	}
 }
@@ -88,10 +91,10 @@ func (c *modelsCommand) getSysAPI() (ModelsSysAPI, error) {
 
 // SetFlags implements Command.SetFlags.
 func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.user, "user", "", "the user to list models for (administrative users only)")
-	f.BoolVar(&c.all, "all", false, "show all models  (administrative users only)")
-	f.BoolVar(&c.listUUID, "uuid", false, "display UUID for models")
-	f.BoolVar(&c.exactTime, "exact-time", false, "use full timestamp precision")
+	f.StringVar(&c.user, "user", "", "The user to list models for (administrative users only)")
+	f.BoolVar(&c.all, "all", false, "Lists all models, regardless of user accessibility (administrative users only)")
+	f.BoolVar(&c.listUUID, "uuid", false, "Display UUID for models")
+	f.BoolVar(&c.exactTime, "exact-time", false, "Use full timestamp for connection times")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,

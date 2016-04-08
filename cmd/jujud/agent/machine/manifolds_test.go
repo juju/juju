@@ -51,6 +51,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"identity-file-writer",
 		"log-sender",
 		"logging-config-updater",
+		"machine-actions",
 		"machiner",
 		"proxy-config-updater",
 		"reboot",

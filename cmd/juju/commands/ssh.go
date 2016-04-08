@@ -42,7 +42,7 @@ type SSHCommon struct {
 }
 
 func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.proxy, "proxy", true, "proxy through the API server")
+	f.BoolVar(&c.proxy, "proxy", false, "proxy through the API server")
 	f.BoolVar(&c.pty, "pty", true, "enable pseudo-tty allocation")
 }
 
@@ -162,13 +162,10 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 	return cmd.Run()
 }
 
-// proxySSH returns true iff both c.proxy and
+// proxySSH returns false if both c.proxy and
 // the proxy-ssh environment configuration
-// are true.
+// are false -- otherwise it returns true.
 func (c *SSHCommon) proxySSH() (bool, error) {
-	if !c.proxy {
-		return false, nil
-	}
 	if _, err := c.ensureAPIClient(); err != nil {
 		return false, err
 	}
@@ -181,7 +178,8 @@ func (c *SSHCommon) proxySSH() (bool, error) {
 		return false, err
 	}
 	logger.Debugf("proxy-ssh is %v", cfg.ProxySSH())
-	return cfg.ProxySSH(), nil
+
+	return cfg.ProxySSH() || c.proxy, nil
 }
 
 func (c *SSHCommon) ensureAPIClient() (sshAPIClient, error) {

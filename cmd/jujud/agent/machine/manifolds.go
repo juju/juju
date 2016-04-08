@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/machineactions"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/reboot"
@@ -365,6 +366,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:     apiCallerName,
 			UpgradeWaiterName: upgradeWaiterName,
 		}),
+
+		machineActionName: machineactions.Manifold(machineactions.ManifoldConfig{
+			AgentApiManifoldConfig: util.AgentApiManifoldConfig{
+				AgentName:     agentName,
+				APICallerName: apiCallerName,
+			},
+			NewFacade: machineactions.NewFacade,
+			NewWorker: machineactions.NewMachineActionsWorker,
+		}),
 	}
 }
 
@@ -396,4 +406,5 @@ const (
 	resumerName              = "resumer"
 	identityFileWriterName   = "identity-file-writer"
 	toolsversioncheckerName  = "tools-version-checker"
+	machineActionName        = "machine-actions"
 )
