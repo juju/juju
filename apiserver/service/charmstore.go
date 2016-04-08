@@ -15,7 +15,6 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
@@ -28,7 +27,7 @@ import (
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this
 // to use interfaces.
 // NewCharmStore instantiates a new charm store repository.
-// It is defined at top level for testing purposes.
+// It is exported for testing purposes.
 var NewCharmStore = newCharmStore
 
 func newCharmStore(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
@@ -64,32 +63,14 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 	}
 
 	// Open a charm store client.
+	repo, err := openCSRepo(args)
+	if err != nil {
+		return err
+	}
 	envConfig, err := st.ModelConfig()
 	if err != nil {
 		return err
 	}
-	csURL, err := url.Parse(csclient.ServerURL)
-	if err != nil {
-		return err
-	}
-	csParams := csclient.Params{
-		URL:        csURL.String(),
-		HTTPClient: httpbakery.NewHTTPClient(),
-	}
-
-	if args.CharmStoreMacaroon != nil {
-		// Set the provided charmstore authorizing macaroon
-		// as a cookie in the HTTP client.
-		// TODO(cmars) discharge any third party caveats in the macaroon.
-		ms := []*macaroon.Macaroon{args.CharmStoreMacaroon}
-		httpbakery.SetCookie(csParams.HTTPClient.Jar, csURL, ms)
-	}
-	csClient := csclient.New(csParams)
-	channel := csparams.Channel(args.Channel)
-	if channel != csparams.NoChannel {
-		csClient = csClient.WithChannel(channel)
-	}
-	repo := charmrepo.NewCharmStoreFromClient(csClient)
 	repo = config.SpecializeCharmRepo(repo, envConfig).(*charmrepo.CharmStore)
 
 	// Get the charm and its information from the store.
@@ -135,6 +116,28 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 			SHA256: bundleSHA256,
 		},
 	)
+}
+
+func openCSRepo(args params.AddCharmWithAuthorization) (charmrepo.Interface, error) {
+	csURL, err := url.Parse(csclient.ServerURL)
+	if err != nil {
+		return nil, err
+	}
+	csParams := charmrepo.NewCharmStoreParams{
+		URL:        csURL.String(),
+		HTTPClient: httpbakery.NewHTTPClient(),
+	}
+
+	if args.CharmStoreMacaroon != nil {
+		// Set the provided charmstore authorizing macaroon
+		// as a cookie in the HTTP client.
+		// TODO(cmars) discharge any third party caveats in the macaroon.
+		ms := []*macaroon.Macaroon{args.CharmStoreMacaroon}
+		httpbakery.SetCookie(csParams.HTTPClient.Jar, csURL, ms)
+	}
+
+	repo := NewCharmStore(csParams)
+	return repo, nil
 }
 
 func checkMinVersion(ch charm.Charm) error {
