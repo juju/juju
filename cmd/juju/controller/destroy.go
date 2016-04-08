@@ -47,16 +47,19 @@ type destroyCommand struct {
 	destroyModels bool
 }
 
+// usageDetails has backticks which we want to keep for markdown processing.
+// TODO(cheryl): Do we want the usage, options, examples, and see also text in
+// backticks for markdown?
 var usageDetails = `
-All models (initial model plus all workload/hosted) associated with the 
-controller will first need to be destroyed, either in advance, or by 
-specifying '--destroy-all-models'.
+All models (initial model plus all workload/hosted) associated with the
+controller will first need to be destroyed, either in advance, or by
+specifying `[1:] + "`--destroy-all-models`." + `
 
 Examples:
 juju destroy-controller --destroy-all-models mycontroller
 
 See also: 
-kill-controller`[1:]
+kill-controller`
 
 var usageSummary = `
 Destroys a controller.`[1:]
