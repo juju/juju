@@ -18,6 +18,11 @@ type fakeController struct {
 	zonesError         error
 	spaces             []gomaasapi.Space
 	spacesError        error
+	files              []gomaasapi.File
+	filesPrefix        string
+	filesError         error
+	getFileFilename    string
+	addFileArgs        gomaasapi.AddFileArgs
 }
 
 func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
@@ -49,6 +54,27 @@ func (c *fakeController) Spaces() ([]gomaasapi.Space, error) {
 		return nil, c.spacesError
 	}
 	return c.spaces, nil
+}
+
+func (c *fakeController) Files(prefix string) ([]gomaasapi.File, error) {
+	c.filesPrefix = prefix
+	if c.filesError != nil {
+		return nil, c.filesError
+	}
+	return c.files, nil
+}
+
+func (c *fakeController) GetFile(filename string) (gomaasapi.File, error) {
+	c.getFileFilename = filename
+	if c.filesError != nil {
+		return nil, c.filesError
+	}
+	return c.files[0], nil
+}
+
+func (c *fakeController) AddFile(args gomaasapi.AddFileArgs) error {
+	c.addFileArgs = args
+	return c.filesError
 }
 
 type fakeBootResource struct {
@@ -168,4 +194,31 @@ type fakeVLAN struct {
 
 func (v fakeVLAN) VID() int {
 	return v.vid
+}
+
+type fakeFile struct {
+	gomaasapi.File
+	name     string
+	url      string
+	contents []byte
+	error    error
+}
+
+func (f *fakeFile) Filename() string {
+	return f.name
+}
+
+func (f *fakeFile) AnonymousURL() string {
+	return f.url
+}
+
+func (f *fakeFile) Delete() error {
+	return f.error
+}
+
+func (f *fakeFile) ReadAll() ([]byte, error) {
+	if f.error != nil {
+		return nil, f.error
+	}
+	return f.contents, nil
 }
