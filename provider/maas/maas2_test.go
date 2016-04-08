@@ -5,7 +5,47 @@ package maas
 
 import (
 	"github.com/juju/gomaasapi"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
+	coretesting "github.com/juju/juju/testing"
 )
+
+type maas2Suite struct {
+	baseProviderSuite
+}
+
+func (suite *maas2Suite) SetUpTest(c *gc.C) {
+	suite.baseProviderSuite.SetUpTest(c)
+	suite.SetFeatureFlags(feature.MAAS2)
+}
+
+func (suite *maas2Suite) injectController(controller gomaasapi.Controller) {
+	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+		return controller, nil
+	}
+	suite.PatchValue(&GetMAAS2Controller, mockGetController)
+}
+
+func (suite *maas2Suite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *maasEnviron {
+	if controller != nil {
+		suite.injectController(controller)
+	}
+	testAttrs := coretesting.Attrs{}
+	for k, v := range maasEnvAttrs {
+		testAttrs[k] = v
+	}
+	testAttrs["maas-server"] = "http://any-old-junk.invalid/"
+	attrs := coretesting.FakeConfig().Merge(testAttrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := NewEnviron(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env, gc.NotNil)
+	return env
+}
 
 type fakeController struct {
 	gomaasapi.Controller
