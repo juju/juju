@@ -326,6 +326,64 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
+func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
+	insts, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	ids := make([]instance.Id, len(insts)+1)
+	for i, one := range insts {
+		ids[i] = one.Id()
+	}
+	ids[len(insts)] = instance.Id("i-am-not-found")
+
+	err = env.StopInstances(ids...)
+	// NotFound should be ignored
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestDestroyErr(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	msg := "terminate instances error"
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
+		return nil, errors.New(msg)
+	})
+
+	err = env.Destroy()
+	c.Assert(errors.Cause(err).Error(), jc.Contains, msg)
+}
+
+func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// create another instance to terminate
+	inst1, _ := testing.AssertStartInstance(c, env, "1")
+	inst := t.srv.ec2srv.Instance(string(inst1.Id()))
+	c.Assert(inst, gc.NotNil)
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
+		// Terminate the one destined for termination and
+		// err out to ensure that one instance will be terminated, the other - not.
+		_, err = ec2inst.TerminateInstances([]string{string(inst1.Id())})
+		c.Assert(err, jc.ErrorIsNil)
+		return nil, errors.New("terminate instances error")
+	})
+	err = env.Destroy()
+	c.Assert(err, gc.NotNil)
+
+	terminated, err := ec2.TerminatedInstances(env)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(terminated, gc.HasLen, 1)
+	c.Assert(terminated[0].Id(), jc.DeepEquals, inst1.Id())
+}
+
 func (t *localServerSuite) TestDestroySecurityGroupInsistentlyError(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
