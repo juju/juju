@@ -161,7 +161,7 @@ fi
 export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update
 sudo apt-get upgrade \
-    -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"-y
+    -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -y
 sudo apt-get install -y make software-properties-common distro-info-data
 if [[ "$USE_PPA" != "" ]]; then
     sudo apt-add-repository -y $USE_PPA;
