@@ -213,12 +213,21 @@ func getMessageFromErr(err error) (bool, string) {
 	}
 
 	if u.Op == "dial" && u.Net == "unix" {
-		errno, ok := u.Err.(*os.SyscallError)
-		if !ok {
-			return false, msg
+		var lxdErr error
+
+		sysErr, ok := u.Err.(*os.SyscallError)
+		if ok {
+			lxdErr = sysErr.Err
+		} else {
+			// Try a syscall.Errno as that is what's returned for CentOS
+			errno, ok := u.Err.(syscall.Errno)
+			if !ok {
+				return false, msg
+			}
+			lxdErr = errno
 		}
 
-		switch errno.Err {
+		switch lxdErr {
 		case syscall.ENOENT:
 			return false, "LXD socket not found; is LXD installed & running?"
 		case syscall.ECONNREFUSED:
