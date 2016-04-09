@@ -4,9 +4,7 @@
 package action_test
 
 import (
-
 	gc "gopkg.in/check.v1"
-
 )
 
 type ActionCommandSuite struct {
@@ -18,4 +16,3 @@ var _ = gc.Suite(&ActionCommandSuite{})
 func (s *ActionCommandSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 }
-
