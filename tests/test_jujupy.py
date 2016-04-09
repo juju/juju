@@ -254,7 +254,7 @@ class FakeJujuClient:
     manipulate the same state.
     """
     def __init__(self, env=None, full_path=None, debug=False,
-                 jes_enabled=False):
+                 jes_enabled=False, version='2.0.0'):
         self._backing_state = FakeEnvironmentState()
         if env is None:
             env = SimpleEnvironment('name', {
@@ -267,6 +267,7 @@ class FakeJujuClient:
         self.bootstrap_replaces = {}
         self._jes_enabled = jes_enabled
         self._separate_admin = jes_enabled
+        self.version = version
 
     def clone(self, env, full_path=None, debug=None):
         if full_path is None:

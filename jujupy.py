@@ -223,19 +223,6 @@ class EnvJujuClient:
             juju_path = 'juju'
         return subprocess.check_output((juju_path, '--version')).strip()
 
-    def version(self):
-        return self.juju('--version', '--debug', include_e=False)
-
-    def is_juju_1x(self, ver=None):
-        if not ver:
-            ver = self.version()
-        return ver.startswith('1.')
-
-    def is_juju_2x(self, ver=None):
-        if not ver:
-            ver = self.version()
-        return ver.startswith('2.')
-
     def enable_feature(self, flag):
         """Enable juju feature by setting the given flag.
 
@@ -659,8 +646,8 @@ class EnvJujuClient:
         if retcode != 0:
             raise subprocess.CalledProcessError(retcode, full_args)
 
-    def deploy(self, charm, repository=None, to=None, series=None, service=None,
-               force=False):
+    def deploy(self, charm, repository=None, to=None, series=None,
+               service=None, force=False):
         args = [charm]
         if to is not None:
             args.extend(['--to', to])
@@ -1210,8 +1197,8 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
             args = args + ('--bootstrap-series', bootstrap_series)
         return args
 
-    def deploy(self, charm, repository=None, to=None, series=None, service=None,
-               force=False):
+    def deploy(self, charm, repository=None, to=None, series=None,
+               service=None, force=False):
         args = [charm]
         if repository is not None:
             args.extend(['--repository', repository])
@@ -1220,6 +1207,7 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
         if service is not None:
             args.extend([service])
         return self.juju('deploy', tuple(args))
+
 
 class EnvJujuClient2A1(EnvJujuClient2A2):
     """Drives Juju 2.0-alpha1 clients."""

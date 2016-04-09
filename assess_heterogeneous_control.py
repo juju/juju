@@ -18,13 +18,19 @@ from deploy_stack import (
     get_random_string,
     )
 from jujuci import add_credential_args
-from utility import configure_logging
+from utility import (
+    configure_logging,
+    local_charm_path,
+)
 
 
 def prepare_dummy_env(client):
     """Use a client to prepare a dummy environment."""
-    client.deploy('local:dummy-source')
-    client.deploy('local:dummy-sink')
+    charm_source = local_charm_path(
+        charm='dummy-source', juju_ver=client.version)
+    client.deploy(charm_source)
+    charm_sink = local_charm_path(charm='dummy-sink', juju_ver=client.version)
+    client.deploy(charm_sink)
     token = get_random_string()
     client.set_config('dummy-source', {'token': token})
     client.juju('add-relation', ('dummy-source', 'dummy-sink'))
@@ -105,8 +111,10 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
         if status.status['services']['dummy-sink']['exposed']:
             raise AssertionError('dummy-sink is still exposed')
         status = other.get_status()
+        charm_path = local_charm_path(
+            charm='dummy-sink', juju_ver=other.version)
         juju_with_fallback(other, released, 'deploy',
-                           ('local:dummy-sink', 'sink2'))
+                           (charm_path, 'sink2'))
         other.wait_for_started()
         other.juju('add-relation', ('dummy-source', 'sink2'))
         status = other.get_status()

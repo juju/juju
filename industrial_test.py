@@ -497,11 +497,9 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
                     'summary': 'foo-summary',
                     'series': ['trusty']
                     }))
-            version = client.version()
             charm_path = local_charm_path(
-                charm='mycharm', juju_ver=version, series='trusty',
+                charm='mycharm', juju_ver=client.version, series='trusty',
                 repository=os.path.dirname(charm_root))
-            #client.deploy('local:trusty/mycharm', temp_repository)
             client.deploy(charm_path, temp_repository)
             yield self.prepare.as_result()
             client.wait_for_started()

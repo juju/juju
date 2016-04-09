@@ -1853,6 +1853,7 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
 
     def test_iter_steps(self):
         client = FakeEnvJujuClient()
+        client.version = '2.0.0'
         client.full_path = '/future/juju'
         uc_attempt = UpgradeCharmAttempt()
         uc_iterator = iter_steps_validate_info(self, uc_attempt, client)
@@ -1861,9 +1862,8 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
         temp_repository = mkdtemp()
         with patch('utility.mkdtemp', return_value=temp_repository):
             with patch('subprocess.check_call') as cc_mock:
-                with patch.object(client, 'version', return_value='2.0.0'):
-                    self.assertEqual(uc_iterator.next(),
-                                     {'test_id': 'prepare-upgrade-charm'})
+                self.assertEqual(uc_iterator.next(),
+                                 {'test_id': 'prepare-upgrade-charm'})
         metadata_path = os.path.join(
             temp_repository, 'trusty', 'mycharm', 'metadata.yaml')
         with open(metadata_path) as metadata_file:
