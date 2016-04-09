@@ -158,8 +158,10 @@ if [[ "$INSTANCE_TYPE" != "lxc" && "$INSTANCE_TYPE" != "host" ]]; then
     done
     $FIXUP_SOURCES
 fi
+export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update
-sudo apt-get upgrade -y
+sudo apt-get upgrade \
+    -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"-y
 sudo apt-get install -y make software-properties-common distro-info-data
 if [[ "$USE_PPA" != "" ]]; then
     sudo apt-add-repository -y $USE_PPA;
