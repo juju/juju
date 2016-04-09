@@ -14,7 +14,7 @@ from tempfile import mkdtemp
 import traceback
 
 
-GOLANG_VERSION = '1.2.1'
+GOLANG_VERSION = '1.6'
 CROSSCOMPILE_SOURCE = (
     'https://raw.githubusercontent.com'
     '/davecheney/golang-crosscompile/master/crosscompile.bash')
