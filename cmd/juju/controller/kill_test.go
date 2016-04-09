@@ -79,7 +79,7 @@ func (s *KillSuite) TestKillWithAPIConnection(c *gc.C) {
 
 func (s *KillSuite) TestKillEnvironmentGetFailsWithoutAPIConnection(c *gc.C) {
 	s.apierror = errors.New("connection refused")
-	s.api.err = errors.NotFoundf(`controller "test3"`)
+	s.api.SetErrors(errors.NotFoundf(`controller "test3"`))
 	_, err := s.runKillCommand(c, "test3", "-y")
 	c.Assert(err, gc.ErrorMatches,
 		"getting controller environ: unable to get bootstrap information from client store or API",
@@ -88,7 +88,7 @@ func (s *KillSuite) TestKillEnvironmentGetFailsWithoutAPIConnection(c *gc.C) {
 }
 
 func (s *KillSuite) TestKillEnvironmentGetFailsWithAPIConnection(c *gc.C) {
-	s.api.err = errors.NotFoundf(`controller "test3"`)
+	s.api.SetErrors(errors.NotFoundf(`controller "test3"`))
 	_, err := s.runKillCommand(c, "test3", "-y")
 	c.Assert(err, gc.ErrorMatches,
 		"getting controller environ: getting bootstrap config from API: controller \"test3\" not found",
@@ -97,7 +97,7 @@ func (s *KillSuite) TestKillEnvironmentGetFailsWithAPIConnection(c *gc.C) {
 }
 
 func (s *KillSuite) TestKillDestroysControllerWithAPIError(c *gc.C) {
-	s.api.err = errors.New("some destroy error")
+	s.api.SetErrors(errors.New("some destroy error"))
 	ctx, err := s.runKillCommand(c, "local.test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to destroy controller through the API: some destroy error.  Destroying through provider.")
@@ -237,6 +237,8 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 
 func (s *KillSuite) TestFmtControllerStatus(c *gc.C) {
 	data := controller.CtrData{
+		"uuid",
+		params.Alive,
 		3,
 		20,
 		8,
@@ -247,6 +249,7 @@ func (s *KillSuite) TestFmtControllerStatus(c *gc.C) {
 
 func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {
 	data := controller.ModelData{
+		"uuid",
 		"owner@local",
 		"envname",
 		params.Dying,
@@ -255,5 +258,5 @@ func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {
 	}
 
 	out := controller.FmtModelStatus(data)
-	c.Assert(out, gc.Equals, "owner@local/envname (dying), 8 machines, 1 service")
+	c.Assert(out, gc.Equals, "\towner@local/envname (dying), 8 machines, 1 service")
 }

@@ -96,6 +96,11 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// to machines.
 		assignUnitC,
 
+		// The model entity references collection will be repopulated
+		// after importing the model. It does not need to be migrated
+		// separately.
+		modelEntityRefsC,
+
 		// This has been deprecated in 2.0, and should not contain any data
 		// we actually care about migrating.
 		legacyipaddressesC,
@@ -161,7 +166,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 	fields := set.NewStrings(
-		// UUID and Mame are constructed from the model config.
+		// UUID and Name are constructed from the model config.
 		"UUID",
 		"Name",
 		// Life will always be alive, or we won't be migrating.

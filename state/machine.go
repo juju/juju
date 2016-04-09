@@ -887,6 +887,7 @@ func (m *Machine) Remove() (err error) {
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
 		removeMachineBlockDevicesOp(m.Id()),
+		removeModelMachineRefOp(m.st, m.Id()),
 	}
 	ifacesOps, err := m.removeNetworkInterfacesOps()
 	if err != nil {

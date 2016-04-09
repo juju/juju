@@ -455,6 +455,34 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	})
 }
 
+func (s *MigrationImportSuite) TestDestroyEmptyModel(c *gc.C) {
+	newModel, newSt := s.importModel(c)
+	defer newSt.Close()
+	s.assertDestroyModelAdvancesLife(c, newModel, state.Dead)
+}
+
+func (s *MigrationImportSuite) TestDestroyModelWithMachine(c *gc.C) {
+	s.Factory.MakeMachine(c, nil)
+	newModel, newSt := s.importModel(c)
+	defer newSt.Close()
+	s.assertDestroyModelAdvancesLife(c, newModel, state.Dying)
+}
+
+func (s *MigrationImportSuite) TestDestroyModelWithService(c *gc.C) {
+	s.Factory.MakeService(c, nil)
+	newModel, newSt := s.importModel(c)
+	defer newSt.Close()
+	s.assertDestroyModelAdvancesLife(c, newModel, state.Dying)
+}
+
+func (s *MigrationImportSuite) assertDestroyModelAdvancesLife(c *gc.C, m *state.Model, life state.Life) {
+	err := m.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.Life(), gc.Equals, life)
+}
+
 // newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // model are unique together in a controller.

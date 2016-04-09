@@ -48,6 +48,18 @@ type modelDoc struct {
 	LatestAvailableTools string `bson:"available-tools,omitempty"`
 }
 
+// modelEntityRefsDoc records references to the top-level entities
+// in the model.
+type modelEntityRefsDoc struct {
+	UUID string `bson:"_id"`
+
+	// Machines contains the names of the top-level machines in the model.
+	Machines []string `bson:"machines"`
+
+	// Services contains the names of the services in the model.
+	Services []string `bson:"services"`
+}
+
 // ControllerModel returns the model that was bootstrapped.
 // This is the only model that can have controller machines.
 // The owner of this model is also considered "special", in that
@@ -339,43 +351,31 @@ func (m *Model) Users() ([]*ModelUser, error) {
 }
 
 // Destroy sets the models's lifecycle to Dying, preventing
-// addition of services or machines to state.
+// addition of services or machines to state. If called on
+// an empty hosted model, the lifecycle will be advanced
+// straight to Dead.
+//
+// If called on a controller model, and that controller is
+// hosting any non-Dead models, this method will return an
+// error satisfying IsHasHostedsError.
 func (m *Model) Destroy() (err error) {
-	return m.destroy(false)
-}
-
-// DestroyIncludingHosted sets the model's lifecycle to Dying, preventing addition of
-// services or machines to state. If this model is a controller hosting
-// other model, they will also be destroyed.
-func (m *Model) DestroyIncludingHosted() error {
-	return m.destroy(true)
-}
-
-func (m *Model) destroy(destroyHostedModels bool) (err error) {
-	defer errors.DeferredAnnotatef(&err, "failed to destroy model")
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-
-		// On the first attempt, we assume memory state is recent
-		// enough to try using...
-		if attempt != 0 {
-			// ...but on subsequent attempts, we read fresh environ
-			// state from the DB. Note that we do *not* refresh `e`
-			// itself, as detailed in doc/hacking-state.txt
-			if m, err = m.st.GetModel(m.ModelTag()); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-
-		ops, err := m.destroyOps(destroyHostedModels)
-		if err == errModelNotAlive {
-			return nil, jujutxn.ErrNoOperations
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		return ops, nil
+	ensureNoHostedModels := false
+	if m.doc.UUID == m.doc.ServerUUID {
+		ensureNoHostedModels = true
 	}
+	return m.destroy(ensureNoHostedModels)
+}
+
+// DestroyIncludingHosted sets the model's lifecycle to Dying, preventing
+// addition of services or machines to state. If this model is a controller
+// hosting other models, they will also be destroyed.
+func (m *Model) DestroyIncludingHosted() error {
+	ensureNoHostedModels := false
+	return m.destroy(ensureNoHostedModels)
+}
+
+func (m *Model) destroy(ensureNoHostedModels bool) (err error) {
+	defer errors.DeferredAnnotatef(&err, "failed to destroy model")
 
 	st := m.st
 	if m.UUID() != m.st.ModelUUID() {
@@ -385,6 +385,29 @@ func (m *Model) destroy(destroyHostedModels bool) (err error) {
 			return errors.Trace(err)
 		}
 	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// On the first attempt, we assume memory state is recent
+		// enough to try using...
+		if attempt != 0 {
+			// ...but on subsequent attempts, we read fresh environ
+			// state from the DB. Note that we do *not* refresh `e`
+			// itself, as detailed in doc/hacking-state.txt
+			if m, err = st.Model(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		ops, err := m.destroyOps(ensureNoHostedModels, false)
+		if err == errModelNotAlive {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return ops, nil
+	}
+
 	return st.run(buildTxn)
 }
 
@@ -405,7 +428,14 @@ func IsHasHostedModelsError(err error) bool {
 
 // destroyOps returns the txn operations necessary to begin model
 // destruction, or an error indicating why it can't.
-func (m *Model) destroyOps(destroyHostedModels bool) ([]txn.Op, error) {
+//
+// If ensureNoHostedModels is true, then destroyOps will
+// fail if there are any non-Dead hosted models
+func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, error) {
+	if m.Life() != Alive {
+		return nil, errModelNotAlive
+	}
+
 	// Ensure we're using the model's state.
 	st := m.st
 	var err error
@@ -417,36 +447,104 @@ func (m *Model) destroyOps(destroyHostedModels bool) ([]txn.Op, error) {
 		}
 	}
 
-	if m.Life() != Alive {
-		return nil, errModelNotAlive
-	}
-
-	err = m.ensureDestroyable()
-	if err != nil {
+	if err := m.ensureDestroyable(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	// Check if the model is empty. If it is, we can advance the model's
+	// lifecycle state directly to Dead.
+	var prereqOps []txn.Op
+	checkEmptyErr := m.checkEmpty()
+	isEmpty := checkEmptyErr == nil
 	uuid := m.UUID()
+	if ensureEmpty && !isEmpty {
+		return nil, errors.Trace(checkEmptyErr)
+	}
+	if isEmpty {
+		prereqOps = append(prereqOps, txn.Op{
+			C:  modelEntityRefsC,
+			Id: uuid,
+			Assert: bson.D{
+				{"machines", bson.D{{"$size", 0}}},
+				{"services", bson.D{{"$size", 0}}},
+			},
+		})
+	}
+
+	if ensureNoHostedModels {
+		// Check for any Dying or alive but non-empty models. If there
+		// are any, we return an error indicating that there are hosted
+		// models.
+		models, err := st.AllModels()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		var aliveEmpty, aliveNonEmpty, dying int
+		for _, model := range models {
+			if model.UUID() == m.UUID() {
+				// Ignore the controller model.
+				continue
+			}
+			if model.Life() == Dead {
+				// Dead hosted models don't affect
+				// whether the controller can be
+				// destroyed or not.
+				continue
+			}
+			// See if the model is empty, and if it is,
+			// get the ops required to destroy it.
+			ops, err := model.destroyOps(false, true)
+			switch err {
+			case errModelNotAlive:
+				dying++
+			case nil:
+				prereqOps = append(prereqOps, ops...)
+				aliveEmpty++
+			default:
+				aliveNonEmpty++
+			}
+		}
+		if dying > 0 || aliveNonEmpty > 0 {
+			// There are Dying, or Alive but non-empty models.
+			// We cannot destroy the controller without first
+			// destroying the models and waiting for them to
+			// become Dead.
+			return nil, errors.Trace(hasHostedModelsError(dying + aliveNonEmpty + aliveEmpty))
+		}
+		// Ensure that the number of active models has not changed
+		// between the query and when the transaction is applied.
+		//
+		// Note that we assert that each empty model that we intend
+		// move to Dead is still Alive, so we're protected from an
+		// ABA style problem where an empty model is concurrently
+		// removed, and replaced with a non-empty model.
+		prereqOps = append(prereqOps, assertHostedModelsOp(aliveEmpty))
+	}
+
+	life := Dying
+	if isEmpty && uuid != m.doc.ServerUUID {
+		// The model is empty, and is not the admin
+		// model, so we can move it straight to Dead.
+		life = Dead
+	}
+	timeOfDying := nowToTheSecond()
+	modelUpdateValues := bson.D{
+		{"life", life},
+		{"time-of-dying", timeOfDying},
+	}
+	if life == Dead {
+		modelUpdateValues = append(modelUpdateValues, bson.DocElem{
+			"time-of-death", timeOfDying,
+		})
+	}
+
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     uuid,
 		Assert: isModelAliveDoc,
-		Update: bson.D{{"$set", bson.D{
-			{"life", Dying},
-			{"time-of-dying", nowToTheSecond()},
-		}}},
+		Update: bson.D{{"$set", modelUpdateValues}},
 	}}
-	if uuid == m.doc.ServerUUID && !destroyHostedModels {
-		if count, err := hostedModelCount(st); err != nil {
-			return nil, errors.Trace(err)
-		} else if count != 0 {
-			return nil, errors.Trace(hasHostedModelsError(count))
-		}
-		ops = append(ops, assertNoHostedModelsOp())
-	} else {
-		// If this model isn't hosting any models, no further
-		// checks are necessary -- we just need to make sure we update the
-		// refcount.
+	if life == Dead {
 		ops = append(ops, decHostedModelCountOp())
 	}
 
@@ -458,11 +556,76 @@ func (m *Model) destroyOps(destroyHostedModels bool) ([]txn.Op, error) {
 		cleanupOp := st.newCleanupOp(cleanupModelsForDyingController, uuid)
 		ops = append(ops, cleanupOp)
 	}
-	cleanupMachinesOp := st.newCleanupOp(cleanupMachinesForDyingModel, uuid)
-	ops = append(ops, cleanupMachinesOp)
-	cleanupServicesOp := st.newCleanupOp(cleanupServicesForDyingModel, uuid)
-	ops = append(ops, cleanupServicesOp)
-	return ops, nil
+	if !isEmpty {
+		// We only need to destroy machines and models if the model is
+		// non-empty. It wouldn't normally be harmful to enqueue the
+		// cleanups otherwise, except for when we're destroying an empty
+		// hosted model in the course of destroying the controller. In
+		// that case we'll get errors if we try to enqueue hosted-model
+		// cleanups, because the cleanups collection is non-global.
+		cleanupMachinesOp := st.newCleanupOp(cleanupMachinesForDyingModel, uuid)
+		ops = append(ops, cleanupMachinesOp)
+		cleanupServicesOp := st.newCleanupOp(cleanupServicesForDyingModel, uuid)
+		ops = append(ops, cleanupServicesOp)
+	}
+	return append(prereqOps, ops...), nil
+}
+
+// checkEmpty checks that the machine is empty of any entities that may
+// require external resource cleanup. If the machine is not empty, then
+// an error will be returned.
+func (m *Model) checkEmpty() error {
+	modelEntityRefs, closer := m.st.getCollection(modelEntityRefsC)
+	defer closer()
+
+	var doc modelEntityRefsDoc
+	if err := modelEntityRefs.FindId(m.UUID()).One(&doc); err != nil {
+		if err == mgo.ErrNotFound {
+			return errors.NotFoundf("entity references doc for model %s", m.UUID())
+		}
+		return errors.Annotatef(err, "getting entity references for model %s", m.UUID())
+	}
+	if n := len(doc.Machines); n > 0 {
+		return errors.Errorf("model not empty, found %d machine(s)", n)
+	}
+	if n := len(doc.Services); n > 0 {
+		return errors.Errorf("model not empty, found %d services(s)", n)
+	}
+	return nil
+}
+
+func addModelMachineRefOp(st *State, machineId string) txn.Op {
+	return txn.Op{
+		C:      modelEntityRefsC,
+		Id:     st.ModelUUID(),
+		Assert: txn.DocExists,
+		Update: bson.D{{"$addToSet", bson.D{{"machines", machineId}}}},
+	}
+}
+
+func removeModelMachineRefOp(st *State, machineId string) txn.Op {
+	return txn.Op{
+		C:      modelEntityRefsC,
+		Id:     st.ModelUUID(),
+		Update: bson.D{{"$pull", bson.D{{"machines", machineId}}}},
+	}
+}
+
+func addModelServiceRefOp(st *State, serviceName string) txn.Op {
+	return txn.Op{
+		C:      modelEntityRefsC,
+		Id:     st.ModelUUID(),
+		Assert: txn.DocExists,
+		Update: bson.D{{"$addToSet", bson.D{{"services", serviceName}}}},
+	}
+}
+
+func removeModelServiceRefOp(st *State, serviceName string) txn.Op {
+	return txn.Op{
+		C:      modelEntityRefsC,
+		Id:     st.ModelUUID(),
+		Update: bson.D{{"$pull", bson.D{{"services", serviceName}}}},
+	}
 }
 
 // checkManualMachines checks if any of the machines in the slice were
@@ -530,6 +693,15 @@ func createModelOp(st *State, owner names.UserTag, name, uuid, server string) tx
 	}
 }
 
+func createModelEntityRefsOp(st *State, uuid string) txn.Op {
+	return txn.Op{
+		C:      modelEntityRefsC,
+		Id:     uuid,
+		Assert: txn.DocMissing,
+		Insert: &modelEntityRefsDoc{UUID: uuid},
+	}
+}
+
 const hostedModelCountKey = "hostedModelCount"
 
 type hostedModelCountDoc struct {
@@ -540,10 +712,14 @@ type hostedModelCountDoc struct {
 }
 
 func assertNoHostedModelsOp() txn.Op {
+	return assertHostedModelsOp(0)
+}
+
+func assertHostedModelsOp(n int) txn.Op {
 	return txn.Op{
 		C:      controllersC,
 		Id:     hostedModelCountKey,
-		Assert: bson.D{{"refcount", 0}},
+		Assert: bson.D{{"refcount", n}},
 	}
 }
 

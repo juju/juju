@@ -14,6 +14,12 @@ import (
 // DestroyController will attempt to destroy the controller. If the args
 // specify the removal of blocks or the destruction of the models, this
 // method will attempt to do so.
+//
+// If the controller has any non-Dead hosted models, then an error with
+// the code params.CodeHasHostedModels will be transmitted, regardless of
+// the value of the DestroyModels parameter. This is to inform the client
+// that it should wait for hosted models to be completely cleaned up
+// before proceeding.
 func (s *ControllerAPI) DestroyController(args params.DestroyControllerArgs) error {
 	controllerEnv, err := s.state.ControllerModel()
 	if err != nil {

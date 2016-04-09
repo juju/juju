@@ -14,12 +14,15 @@ import (
 )
 
 type ctrData struct {
+	UUID               string
+	Life               params.Life
 	HostedModelCount   int
 	HostedMachineCount int
 	ServiceCount       int
 }
 
 type modelData struct {
+	UUID  string
 	Owner string
 	Name  string
 	Life  params.Life
@@ -89,6 +92,7 @@ func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []modelData, er
 			continue
 		}
 		modelsData = append(modelsData, modelData{
+			model.UUID,
 			model.Owner,
 			modelName[model.UUID],
 			model.Life,
@@ -102,6 +106,8 @@ func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []modelData, er
 	}
 
 	ctrFinalStatus := ctrData{
+		ctrUUID,
+		ctrStatus.Life,
 		aliveModelCount,
 		hostedMachinesCount,
 		servicesCount,
@@ -113,6 +119,15 @@ func newData(api destroyControllerAPI, ctrUUID string) (ctrData, []modelData, er
 func hasUnDeadModels(models []modelData) bool {
 	for _, model := range models {
 		if model.Life != params.Dead {
+			return true
+		}
+	}
+	return false
+}
+
+func hasAliveModels(models []modelData) bool {
+	for _, model := range models {
+		if model.Life == params.Alive {
 			return true
 		}
 	}
@@ -142,7 +157,7 @@ func fmtCtrStatus(data ctrData) string {
 }
 
 func fmtModelStatus(data modelData) string {
-	out := fmt.Sprintf("%s/%s (%s)", data.Owner, data.Name, data.Life)
+	out := fmt.Sprintf("\t%s/%s (%s)", data.Owner, data.Name, data.Life)
 
 	if machineNo := data.HostedMachineCount; machineNo > 0 {
 		out += fmt.Sprintf(", %d machine%s", machineNo, s(machineNo))

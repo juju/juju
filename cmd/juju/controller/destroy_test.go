@@ -10,6 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -47,43 +48,50 @@ type baseDestroySuite struct {
 
 // fakeDestroyAPI mocks out the controller API
 type fakeDestroyAPI struct {
-	err        error
+	gitjujutesting.Stub
 	env        map[string]interface{}
 	destroyAll bool
 	blocks     []params.ModelBlockInfo
-	blocksErr  error
 	envStatus  map[string]base.ModelStatus
 	allEnvs    []base.UserModel
 }
 
-func (f *fakeDestroyAPI) Close() error { return nil }
+func (f *fakeDestroyAPI) Close() error {
+	f.MethodCall(f, "Close")
+	return f.NextErr()
+}
 
 func (f *fakeDestroyAPI) ModelConfig() (map[string]interface{}, error) {
-	if f.err != nil {
-		return nil, f.err
+	f.MethodCall(f, "ModelConfig")
+	if err := f.NextErr(); err != nil {
+		return nil, err
 	}
 	return f.env, nil
 }
 
 func (f *fakeDestroyAPI) DestroyController(destroyAll bool) error {
+	f.MethodCall(f, "DestroyController", destroyAll)
 	f.destroyAll = destroyAll
-	return f.err
+	return f.NextErr()
 }
 
 func (f *fakeDestroyAPI) ListBlockedModels() ([]params.ModelBlockInfo, error) {
-	return f.blocks, f.blocksErr
+	f.MethodCall(f, "ListBlockedModels")
+	return f.blocks, f.NextErr()
 }
 
 func (f *fakeDestroyAPI) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error) {
+	f.MethodCall(f, "ModelStatus", tags)
 	status := make([]base.ModelStatus, len(tags))
 	for i, tag := range tags {
 		status[i] = f.envStatus[tag.Id()]
 	}
-	return status, f.err
+	return status, f.NextErr()
 }
 
 func (f *fakeDestroyAPI) AllModels() ([]base.UserModel, error) {
-	return f.allEnvs, f.err
+	f.MethodCall(f, "AllModels")
+	return f.allEnvs, f.NextErr()
 }
 
 // fakeDestroyAPIClient mocks out the client API
@@ -275,8 +283,8 @@ func (s *DestroySuite) TestDestroyWithDestroyAllEnvsFlag(c *gc.C) {
 	checkControllerRemovedFromStore(c, "local.test1", s.store)
 }
 
-func (s *DestroySuite) TestDestroyEnvironmentGetFails(c *gc.C) {
-	s.api.err = errors.NotFoundf(`controller "test3"`)
+func (s *DestroySuite) TestDestroyControllerGetFails(c *gc.C) {
+	s.api.SetErrors(errors.NotFoundf(`controller "test3"`))
 	_, err := s.runDestroyCommand(c, "test3", "-y")
 	c.Assert(err, gc.ErrorMatches,
 		"getting controller environ: getting bootstrap config from API: controller \"test3\" not found",
@@ -284,12 +292,55 @@ func (s *DestroySuite) TestDestroyEnvironmentGetFails(c *gc.C) {
 	checkControllerExistsInStore(c, "test3", s.store)
 }
 
-func (s *DestroySuite) TestFailedDestroyEnvironment(c *gc.C) {
-	s.api.err = errors.New("permission denied")
+func (s *DestroySuite) TestFailedDestroyController(c *gc.C) {
+	s.api.SetErrors(errors.New("permission denied"))
 	_, err := s.runDestroyCommand(c, "local.test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
 	c.Assert(s.api.destroyAll, jc.IsFalse)
 	checkControllerExistsInStore(c, "local.test1", s.store)
+}
+
+func (s *DestroySuite) TestDestroyControllerAliveModels(c *gc.C) {
+	for uuid, status := range s.api.envStatus {
+		status.Life = params.Alive
+		s.api.envStatus[uuid] = status
+	}
+	s.api.SetErrors(&params.Error{Code: params.CodeHasHostedModels})
+	_, err := s.runDestroyCommand(c, "local.test1", "-y")
+	c.Assert(err.Error(), gc.Equals, `cannot destroy controller "local.test1"
+
+The controller has live hosted models. If you want
+to destroy all hosted models in the controller,
+run this command again with the --destroy-all-models
+flag.
+
+Models:
+	owner@local/test2:test2 (alive)
+	owner@local/test3:admin (alive)
+`)
+
+}
+
+func (s *DestroySuite) TestDestroyControllerReattempt(c *gc.C) {
+	// The first attempt to destroy should yield an error
+	// saying that the controller has hosted models. After
+	// checking, we find there are only dead hosted models,
+	// and reattempt the destroy the controller; this time
+	// it succeeds.
+	s.api.SetErrors(&params.Error{Code: params.CodeHasHostedModels})
+	_, err := s.runDestroyCommand(c, "local.test1", "-y")
+	c.Assert(err, jc.ErrorIsNil)
+	s.api.CheckCallNames(c,
+		"DestroyController",
+		"AllModels",
+		"ModelStatus",
+		"ModelStatus",
+		"DestroyController",
+		"AllModels",
+		"ModelStatus",
+		"ModelStatus",
+		"Close",
+	)
 }
 
 func (s *DestroySuite) resetController(c *gc.C) {
@@ -356,7 +407,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 }
 
 func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
-	s.api.err = &params.Error{Code: params.CodeOperationBlocked}
+	s.api.SetErrors(&params.Error{Code: params.CodeOperationBlocked})
 	s.runDestroyCommand(c, "local.test1", "-y")
 	testLog := c.GetTestLog()
 	c.Check(testLog, jc.Contains, "To remove all blocks in the controller, please run:")
@@ -364,8 +415,10 @@ func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
-	s.api.err = &params.Error{Code: params.CodeOperationBlocked}
-	s.api.blocksErr = errors.New("unexpected api error")
+	s.api.SetErrors(
+		&params.Error{Code: params.CodeOperationBlocked},
+		errors.New("unexpected api error"),
+	)
 	s.runDestroyCommand(c, "local.test1", "-y")
 	testLog := c.GetTestLog()
 	c.Check(testLog, jc.Contains, "To remove all blocks in the controller, please run:")
@@ -374,7 +427,7 @@ func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
-	s.api.err = &params.Error{Code: params.CodeOperationBlocked}
+	s.api.SetErrors(&params.Error{Code: params.CodeOperationBlocked})
 	s.api.blocks = []params.ModelBlockInfo{
 		params.ModelBlockInfo{
 			Name:     "test1",
@@ -395,7 +448,7 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 		},
 	}
 	ctx, _ := s.runDestroyCommand(c, "local.test1", "-y", "--destroy-all-models")
-	c.Assert(testing.Stderr(ctx), gc.Equals, ""+
+	c.Assert(testing.Stderr(ctx), gc.Equals, "Destroying controller\n"+
 		"NAME   MODEL UUID                            OWNER         BLOCKS\n"+
 		"test1  1871299e-1370-4f3e-83ab-1849ed7b1076  cheryl@local  destroy-model\n"+
 		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob@local     destroy-model,all-changes\n")
