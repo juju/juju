@@ -20,7 +20,6 @@ func (st *State) ProcessDyingModel() (err error) {
 		}
 
 		if model.Life() != Dying {
-			logger.Debugf("%v", model.Life())
 			return nil, errors.Trace(ErrModelNotDying)
 		}
 
