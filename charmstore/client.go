@@ -17,7 +17,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 )
 
@@ -74,22 +74,22 @@ func (c Client) LatestRevisions(charms []CharmID, metadata map[string]string) ([
 }
 
 // GetResource returns the data (bytes) and metadata for a resource from the charmstore.
-func (c Client) GetResource(cURL *charm.URL, resourceName string, revision int) (res charmresource.Resource, rc io.ReadCloser, err error) {
+func (c Client) GetResource(id CharmID, resourceName string, revision int) (res charmresource.Resource, rc io.ReadCloser, err error) {
 	defer func() {
 		if err != nil && rc != nil {
 			rc.Close()
 		}
 	}()
-	meta, err := c.lowLevel.ResourceInfo(cURL, resourceName, revision)
+	meta, err := c.lowLevel.ResourceInfo(id.Channel, id.URL, resourceName, revision)
 	if err != nil {
 		return charmresource.Resource{}, nil, errors.Trace(err)
 	}
-	res, err = params.API2Resource(meta)
+	res, err = csparams.API2Resource(meta)
 	if err != nil {
 		return charmresource.Resource{}, nil, errors.Trace(err)
 	}
 
-	data, err := c.lowLevel.GetResource(cURL, resourceName, revision)
+	data, err := c.lowLevel.GetResource(id.Channel, id.URL, resourceName, revision)
 	if err != nil {
 		return charmresource.Resource{}, nil, errors.Trace(err)
 	}
@@ -107,12 +107,12 @@ func (c Client) GetResource(cURL *charm.URL, resourceName string, revision int) 
 }
 
 // ResourceInfo returns the metadata info for the given resource from the charmstore.
-func (c Client) ResourceInfo(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, error) {
-	meta, err := c.lowLevel.ResourceInfo(cURL, resourceName, revision)
+func (c Client) ResourceInfo(id CharmID, resourceName string, revision int) (charmresource.Resource, error) {
+	meta, err := c.lowLevel.ResourceInfo(id.Channel, id.URL, resourceName, revision)
 	if err != nil {
 		return charmresource.Resource{}, errors.Trace(err)
 	}
-	res, err := params.API2Resource(meta)
+	res, err := csparams.API2Resource(meta)
 	if err != nil {
 		return charmresource.Resource{}, errors.Trace(err)
 	}
@@ -137,7 +137,7 @@ func (c Client) ListResources(charms []CharmID) ([][]charmresource.Resource, err
 			}
 			list := make([]charmresource.Resource, len(resources))
 			for j, res := range resources {
-				resource, err := params.API2Resource(res)
+				resource, err := csparams.API2Resource(res)
 				if err != nil {
 					return nil, errors.Annotatef(err, "got bad data from server for resource %q", res.Name)
 				}
@@ -153,10 +153,10 @@ func (c Client) ListResources(charms []CharmID) ([][]charmresource.Resource, err
 // csWrapper is a type that abstracts away the low-level implementation details
 // of the charmstore client.
 type csWrapper interface {
-	Latest(channel charm.Channel, ids []*charm.URL, headers map[string]string) ([]charmrepo.CharmRevision, error)
-	ListResources(channel charm.Channel, ids []*charm.URL) (map[string][]params.Resource, error)
-	GetResource(id *charm.URL, name string, revision int) (csclient.ResourceData, error)
-	ResourceInfo(id *charm.URL, name string, revision int) (params.Resource, error)
+	Latest(channel csparams.Channel, ids []*charm.URL, headers map[string]string) ([]charmrepo.CharmRevision, error)
+	ListResources(channel csparams.Channel, ids []*charm.URL) (map[string][]csparams.Resource, error)
+	GetResource(channel csparams.Channel, id *charm.URL, name string, revision int) (csclient.ResourceData, error)
+	ResourceInfo(channel csparams.Channel, id *charm.URL, name string, revision int) (csparams.Resource, error)
 }
 
 // csclientImpl is an implementation of csWrapper that uses the charmstore client.
@@ -167,26 +167,28 @@ type csclientImpl struct {
 }
 
 // Latest gets the latest CharmRevisions for the charm URLs on the channel.
-func (c csclientImpl) Latest(channel charm.Channel, ids []*charm.URL, metadata map[string]string) ([]charmrepo.CharmRevision, error) {
-	repo := charmrepo.NewCharmStoreFromClient(c.client.WithChannel(params.Channel(channel)))
+func (c csclientImpl) Latest(channel csparams.Channel, ids []*charm.URL, metadata map[string]string) ([]charmrepo.CharmRevision, error) {
+	repo := charmrepo.NewCharmStoreFromClient(c.client.WithChannel(channel))
 	repo = repo.WithJujuAttrs(metadata)
 	return repo.Latest(ids...)
 }
 
 // Latest gets the latest resources for the charm URLs on the channel.
-func (c csclientImpl) ListResources(channel charm.Channel, ids []*charm.URL) (map[string][]params.Resource, error) {
-	client := c.client.WithChannel(params.Channel(channel))
+func (c csclientImpl) ListResources(channel csparams.Channel, ids []*charm.URL) (map[string][]csparams.Resource, error) {
+	client := c.client.WithChannel(channel)
 	return client.ListResources(ids)
 }
 
 // Getresource downloads the bytes and some metadata about the bytes for the revisioned resource.
-func (c csclientImpl) GetResource(id *charm.URL, name string, revision int) (csclient.ResourceData, error) {
-	return c.client.GetResource(id, name, revision)
+func (c csclientImpl) GetResource(channel csparams.Channel, id *charm.URL, name string, revision int) (csclient.ResourceData, error) {
+	client := c.client.WithChannel(channel)
+	return client.GetResource(id, name, revision)
 }
 
 // ResourceInfo gets the full metadata for the revisioned resource.
-func (c csclientImpl) ResourceInfo(id *charm.URL, name string, revision int) (params.Resource, error) {
-	return c.client.ResourceMeta(id, name, revision)
+func (c csclientImpl) ResourceInfo(channel csparams.Channel, id *charm.URL, name string, revision int) (csparams.Resource, error) {
+	client := c.client.WithChannel(channel)
+	return client.ResourceMeta(id, name, revision)
 }
 
 // charmRequest correlates charm URLs with an index in a separate slice.  The two
@@ -200,8 +202,8 @@ type charmRequest struct {
 // slice of charms for that channel, and a corresponding slice of the index of
 // each charm in the orignal slice from which they were collated, so the results
 // can be sorted into the original order.
-func collate(charms []CharmID) map[charm.Channel]charmRequest {
-	results := map[charm.Channel]charmRequest{}
+func collate(charms []CharmID) map[csparams.Channel]charmRequest {
+	results := map[csparams.Channel]charmRequest{}
 	for i, c := range charms {
 		request := results[c.Channel]
 		request.ids = append(request.ids, c.URL)

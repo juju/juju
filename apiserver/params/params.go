@@ -119,9 +119,16 @@ type DestroyRelation struct {
 	Endpoints []string
 }
 
+// AddCharm holds the arguments for making an AddCharm API call.
+type AddCharm struct {
+	URL     string
+	Channel string
+}
+
 // AddCharmWithAuthorization holds the arguments for making an AddCharmWithAuthorization API call.
 type AddCharmWithAuthorization struct {
 	URL                string
+	Channel            string
 	CharmStoreMacaroon *macaroon.Macaroon
 }
 
@@ -199,6 +206,7 @@ type ServiceDeploy struct {
 	ServiceName      string
 	Series           string
 	CharmUrl         string
+	Channel          string
 	NumUnits         int
 	Config           map[string]string
 	ConfigYAML       string // Takes precedence over config if both are present.
@@ -228,6 +236,8 @@ type ServiceSetCharm struct {
 	ServiceName string `json:"servicename"`
 	// CharmUrl is the new url for the charm.
 	CharmUrl string `json:"charmurl"`
+	// Channel is the charm store channel from which the charm came.
+	Channel string `json:"cs-channel"`
 	// ForceUnits forces the upgrade on units in an error state.
 	ForceUnits bool `json:"forceunits"`
 	// ForceSeries forces the use of the charm even if it doesn't match the

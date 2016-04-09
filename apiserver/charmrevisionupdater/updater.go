@@ -123,7 +123,10 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 			// a path to the local repo. This may change if the need arises.
 			continue
 		}
-		charms = append(charms, charmstore.CharmID{URL: curl, Channel: "stable"})
+		charms = append(charms, charmstore.CharmID{
+			URL:     curl,
+			Channel: service.Channel(),
+		})
 		resultsIndexedServices = append(resultsIndexedServices, service)
 	}
 

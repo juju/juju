@@ -637,13 +637,13 @@ Deploying charm "cs:~bob/trusty/wordpress4-10" with the charm series "trusty".`,
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
 	deployURL:    "cs:~bob/trusty/wordpress5",
 	readPermUser: "bob",
-	expectError:  `cannot resolve (charm )?URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve (charm )?URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
 }, {
 	about:        "non-public charm, fully resolved, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress6-47",
 	deployURL:    "cs:~bob/trusty/wordpress6-47",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
 }, {
 	about:     "public bundle, success",
 	uploadURL: "cs:~bob/bundle/wordpress-simple1-42",
@@ -676,7 +676,7 @@ deployment of bundle "cs:~bob/bundle/wordpress-simple2-0" completed`,
 	uploadURL:    "cs:~bob/bundle/wordpress-simple3-47",
 	deployURL:    "cs:~bob/bundle/wordpress-simple3",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/bundle/wordpress-simple3": cannot get "/~bob/bundle/wordpress-simple3/meta/any\?include=id&include=supported-series": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/bundle/wordpress-simple3": cannot get "/~bob/bundle/wordpress-simple3/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
 }}
 
 func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {

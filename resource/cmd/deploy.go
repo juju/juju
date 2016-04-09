@@ -9,16 +9,17 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/macaroon.v1"
+
+	"github.com/juju/juju/charmstore"
 )
 
 // DeployClient exposes the functionality of the resources API needed
 // for deploy.
 type DeployClient interface {
 	// AddPendingResources adds pending metadata for store-based resources.
-	AddPendingResources(serviceID string, cURL *charm.URL, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error)
+	AddPendingResources(serviceID string, chID charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error)
 
 	// AddPendingResource uploads data and metadata for a pending resource for the given service.
 	AddPendingResource(serviceID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error)
@@ -29,8 +30,8 @@ type DeployResourcesArgs struct {
 	// ServiceID identifies the service being deployed.
 	ServiceID string
 
-	// CharmURL identifies the service's charm.
-	CharmURL *charm.URL
+	// CharmID identifies the service's charm.
+	CharmID charmstore.CharmID
 
 	// CharmStoreMacaroon is the macaroon to use for the charm when
 	// interacting with the charm store.
@@ -58,7 +59,7 @@ type DeployResourcesArgs struct {
 func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error) {
 	d := deployUploader{
 		serviceID: args.ServiceID,
-		cURL:      args.CharmURL,
+		chID:      args.CharmID,
 		csMac:     args.CharmStoreMacaroon,
 		client:    args.Client,
 		resources: args.ResourcesMeta,
@@ -75,7 +76,7 @@ func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error
 
 type deployUploader struct {
 	serviceID string
-	cURL      *charm.URL
+	chID      charmstore.CharmID
 	csMac     *macaroon.Macaroon
 	resources map[string]charmresource.Meta
 	client    DeployClient
@@ -99,7 +100,7 @@ func (d deployUploader) upload(files map[string]string, revisions map[string]int
 	storeResources := d.storeResources(files, revisions)
 	pending := map[string]string{}
 	if len(storeResources) > 0 {
-		ids, err := d.client.AddPendingResources(d.serviceID, d.cURL, d.csMac, storeResources)
+		ids, err := d.client.AddPendingResources(d.serviceID, d.chID, d.csMac, storeResources)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

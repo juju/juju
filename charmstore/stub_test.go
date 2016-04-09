@@ -34,7 +34,7 @@ type fakeWrapper struct {
 	ReturnResourceInfo params.Resource
 }
 
-func (f *fakeWrapper) Latest(channel charm.Channel, ids []*charm.URL, headers map[string]string) ([]charmrepo.CharmRevision, error) {
+func (f *fakeWrapper) Latest(channel params.Channel, ids []*charm.URL, headers map[string]string) ([]charmrepo.CharmRevision, error) {
 	if channel == "stable" {
 		f.stableStub.AddCall("Latest", channel, ids, headers)
 		return f.ReturnLatestStable, nil
@@ -43,7 +43,7 @@ func (f *fakeWrapper) Latest(channel charm.Channel, ids []*charm.URL, headers ma
 	return f.ReturnLatestDev, nil
 }
 
-func (f *fakeWrapper) ListResources(channel charm.Channel, ids []*charm.URL) (map[string][]params.Resource, error) {
+func (f *fakeWrapper) ListResources(channel params.Channel, ids []*charm.URL) (map[string][]params.Resource, error) {
 	if channel == "stable" {
 		f.stableStub.AddCall("ListResources", channel, ids)
 		return f.ReturnListResourcesStable, nil
@@ -52,13 +52,13 @@ func (f *fakeWrapper) ListResources(channel charm.Channel, ids []*charm.URL) (ma
 	return f.ReturnListResourcesDev, nil
 }
 
-func (f *fakeWrapper) GetResource(id *charm.URL, name string, revision int) (csclient.ResourceData, error) {
-	f.stableStub.AddCall("GetResource", id, name, revision)
+func (f *fakeWrapper) GetResource(channel params.Channel, id *charm.URL, name string, revision int) (csclient.ResourceData, error) {
+	f.stableStub.AddCall("GetResource", channel, id, name, revision)
 	return f.ReturnGetResource, nil
 }
 
-func (f *fakeWrapper) ResourceInfo(id *charm.URL, name string, revision int) (params.Resource, error) {
-	f.stableStub.AddCall("ResourceInfo", id, name, revision)
+func (f *fakeWrapper) ResourceInfo(channel params.Channel, id *charm.URL, name string, revision int) (params.Resource, error) {
+	f.stableStub.AddCall("ResourceInfo", channel, id, name, revision)
 	return f.ReturnResourceInfo, nil
 }
 
