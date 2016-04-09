@@ -252,7 +252,7 @@ If the controller is unusable, then you may run
     juju kill-controller
 
 to forcibly destroy the controller. Upon doing so, review
-your model provider console for any resources that need
+your cloud provider console for any resources that need
 to be cleaned up.
 
 `
