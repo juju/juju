@@ -35,6 +35,9 @@ type StubStore struct {
 	CredentialForCloudFunc func(string) (*cloud.CloudCredential, error)
 	AllCredentialsFunc     func() (map[string]cloud.CloudCredential, error)
 	UpdateCredentialFunc   func(cloudName string, details cloud.CloudCredential) error
+
+	BootstrapConfigForControllerFunc func(controllerName string) (*jujuclient.BootstrapConfig, error)
+	UpdateBootstrapConfigFunc        func(controllerName string, cfg jujuclient.BootstrapConfig) error
 }
 
 func NewStubStore() *StubStore {
@@ -101,7 +104,40 @@ func NewStubStore() *StubStore {
 	result.UpdateCredentialFunc = func(cloudName string, details cloud.CloudCredential) error {
 		return result.Stub.NextErr()
 	}
+
+	result.BootstrapConfigForControllerFunc = func(controllerName string) (*jujuclient.BootstrapConfig, error) {
+		return nil, result.Stub.NextErr()
+	}
+	result.UpdateBootstrapConfigFunc = func(controllerName string, cfg jujuclient.BootstrapConfig) error {
+		return result.Stub.NextErr()
+	}
 	return result
+}
+
+// WrapClientStore wraps a ClientStore with a StubStore, where each method calls
+// through to the wrapped store. This can be used to override specific
+// methods, or just to check which calls have been made.
+func WrapClientStore(underlying jujuclient.ClientStore) *StubStore {
+	stub := NewStubStore()
+	stub.AllControllersFunc = underlying.AllControllers
+	stub.ControllerByNameFunc = underlying.ControllerByName
+	stub.UpdateControllerFunc = underlying.UpdateController
+	stub.RemoveControllerFunc = underlying.RemoveController
+	stub.UpdateModelFunc = underlying.UpdateModel
+	stub.SetCurrentModelFunc = underlying.SetCurrentModel
+	stub.RemoveModelFunc = underlying.RemoveModel
+	stub.AllModelsFunc = underlying.AllModels
+	stub.CurrentModelFunc = underlying.CurrentModel
+	stub.ModelByNameFunc = underlying.ModelByName
+	stub.UpdateAccountFunc = underlying.UpdateAccount
+	stub.SetCurrentAccountFunc = underlying.SetCurrentAccount
+	stub.AllAccountsFunc = underlying.AllAccounts
+	stub.CurrentAccountFunc = underlying.CurrentAccount
+	stub.AccountByNameFunc = underlying.AccountByName
+	stub.RemoveAccountFunc = underlying.RemoveAccount
+	stub.BootstrapConfigForControllerFunc = underlying.BootstrapConfigForController
+	stub.UpdateBootstrapConfigFunc = underlying.UpdateBootstrapConfig
+	return stub
 }
 
 // AllControllers implements ControllersGetter.AllControllers
@@ -216,4 +252,16 @@ func (c *StubStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
 func (c *StubStore) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
 	c.MethodCall(c, "UpdateCredential", cloudName, details)
 	return c.UpdateCredentialFunc(cloudName, details)
+}
+
+// BootstrapConfigForController implements BootstrapConfigGetter.
+func (c *StubStore) BootstrapConfigForController(controllerName string) (*jujuclient.BootstrapConfig, error) {
+	c.MethodCall(c, "BootstrapConfigForController", controllerName)
+	return c.BootstrapConfigForControllerFunc(controllerName)
+}
+
+// UpdateBootstrapConfig implements BootstrapConfigUpdater.
+func (c *StubStore) UpdateBootstrapConfig(controllerName string, cfg jujuclient.BootstrapConfig) error {
+	c.MethodCall(c, "UpdateBootstrapConfig", controllerName, cfg)
+	return c.UpdateBootstrapConfigFunc(controllerName, cfg)
 }

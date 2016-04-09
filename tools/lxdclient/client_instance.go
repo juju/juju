@@ -6,12 +6,8 @@
 package lxdclient
 
 import (
-	"fmt"
-	"io"
-	"os"
 	"strings"
 
-	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
@@ -27,7 +23,6 @@ type rawInstanceClient interface {
 	ContainerInfo(name string) (*shared.ContainerInfo, error)
 	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, ephem bool) (*lxd.Response, error)
 	Action(name string, action shared.ContainerAction, timeout int, force bool, stateful bool) (*lxd.Response, error)
-	Exec(name string, cmd []string, env map[string]string, stdin io.ReadCloser, stdout io.WriteCloser, stderr io.WriteCloser, controlHandler func(*lxd.Client, *websocket.Conn)) (int, error)
 	Delete(name string) (*lxd.Response, error)
 
 	WaitForSuccess(waitURL string) error
@@ -69,57 +64,6 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 		return errors.Trace(err)
 	}
 
-	return nil
-}
-
-type execFailure struct {
-	cmd    string
-	code   int
-	stderr string
-}
-
-// Error returns the string representation of the error.
-func (err execFailure) Error() string {
-	return fmt.Sprintf("got non-zero code from %q: (%d) %s", err.cmd, err.code, err.stderr)
-}
-
-func (client *instanceClient) exec(spec InstanceSpec, cmd []string) error {
-	var env map[string]string
-
-	cmdStr := strings.Join(cmd, " ")
-	fmt.Println("running", cmdStr)
-
-	var input, output closingBuffer
-	stdin, stdout, stderr := &input, &output, &output
-	rc, err := client.raw.Exec(spec.Name, cmd, env, stdin, stdout, stderr, nil)
-	if err != nil {
-		return errors.Trace(err)
-	} else if rc != 0 {
-		msg := output.String()
-		if msg == "" {
-			msg = "<reason unknown>"
-		}
-		err := &execFailure{
-			cmd:    cmdStr,
-			code:   rc,
-			stderr: msg,
-		}
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-func (client *instanceClient) chmod(spec InstanceSpec, filename string, mode os.FileMode) error {
-	cmd := []string{
-		"/bin/chmod",
-		fmt.Sprintf("%s", mode),
-		filename,
-	}
-
-	if err := client.exec(spec, cmd); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }
 

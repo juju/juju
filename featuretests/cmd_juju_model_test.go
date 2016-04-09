@@ -20,15 +20,15 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type cmdEnvironmentSuite struct {
+type cmdModelSuite struct {
 	jujutesting.RepoSuite
 }
 
-func (s *cmdEnvironmentSuite) SetUpTest(c *gc.C) {
+func (s *cmdModelSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 }
 
-func (s *cmdEnvironmentSuite) run(c *gc.C, args ...string) *cmd.Context {
+func (s *cmdModelSuite) run(c *gc.C, args ...string) *cmd.Context {
 	context := testing.Context(c)
 	jujuCmd := commands.NewJujuCommand(context)
 	err := testing.InitCommand(jujuCmd, args)
@@ -38,9 +38,9 @@ func (s *cmdEnvironmentSuite) run(c *gc.C, args ...string) *cmd.Context {
 	return context
 }
 
-func (s *cmdEnvironmentSuite) TestEnvironmentShareCmdStack(c *gc.C) {
+func (s *cmdModelSuite) TestGrantModelCmdStack(c *gc.C) {
 	username := "bar@ubuntuone"
-	context := s.run(c, "share-model", username)
+	context := s.run(c, "grant", username, "admin")
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
@@ -55,14 +55,11 @@ func (s *cmdEnvironmentSuite) TestEnvironmentShareCmdStack(c *gc.C) {
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
 
-func (s *cmdEnvironmentSuite) TestEnvironmentUnshareCmdStack(c *gc.C) {
-	// Firstly share an environment with a user
+func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
+	// Firstly share a model with a user
 	username := "bar@ubuntuone"
-	context := s.run(c, "share-model", username)
-	user := names.NewUserTag(username)
-	modelUser, err := s.State.ModelUser(user)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser, gc.NotNil)
+	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
+		User: username, Access: state.ModelReadAccess})
 
 	// Because we are calling into juju through the main command,
 	// and the main command adds a warning logging writer, we need
@@ -70,20 +67,21 @@ func (s *cmdEnvironmentSuite) TestEnvironmentUnshareCmdStack(c *gc.C) {
 	loggo.RemoveWriter("warning")
 
 	// Then test that the unshare command stack is hooked up
-	context = s.run(c, "unshare-model", username)
+	context := s.run(c, "revoke", username, "admin")
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
 
-	modelUser, err = s.State.ModelUser(user)
+	user := names.NewUserTag(username)
+	modelUser, err := s.State.ModelUser(user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 	c.Assert(modelUser, gc.IsNil)
 }
 
-func (s *cmdEnvironmentSuite) TestEnvironmentUsersCmd(c *gc.C) {
-	// Firstly share an environment with a user
+func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
+	// Firstly share an model with a user
 	username := "bar@ubuntuone"
-	context := s.run(c, "share-model", username)
+	context := s.run(c, "grant", username, "admin")
 	user := names.NewUserTag(username)
 	modelUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
@@ -97,14 +95,14 @@ func (s *cmdEnvironmentSuite) TestEnvironmentUsersCmd(c *gc.C) {
 	context = s.run(c, "list-shares")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME           DATE CREATED  LAST CONNECTION\n"+
-		"admin@local    just now      just now\n"+
-		"bar@ubuntuone  just now      never connected\n"+
+		"NAME                 ACCESS  LAST CONNECTION\n"+
+		"admin@local (admin)  write   just now\n"+
+		"bar@ubuntuone        read    never connected\n"+
 		"\n")
 
 }
 
-func (s *cmdEnvironmentSuite) TestGet(c *gc.C) {
+func (s *cmdModelSuite) TestGet(c *gc.C) {
 	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -112,12 +110,12 @@ func (s *cmdEnvironmentSuite) TestGet(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, "known\n")
 }
 
-func (s *cmdEnvironmentSuite) TestSet(c *gc.C) {
+func (s *cmdModelSuite) TestSet(c *gc.C) {
 	s.run(c, "set-model-config", "special=known")
 	s.assertEnvValue(c, "special", "known")
 }
 
-func (s *cmdEnvironmentSuite) TestUnset(c *gc.C) {
+func (s *cmdModelSuite) TestUnset(c *gc.C) {
 	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -125,7 +123,7 @@ func (s *cmdEnvironmentSuite) TestUnset(c *gc.C) {
 	s.assertEnvValueMissing(c, "special")
 }
 
-func (s *cmdEnvironmentSuite) TestRetryProvisioning(c *gc.C) {
+func (s *cmdModelSuite) TestRetryProvisioning(c *gc.C) {
 	s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
@@ -135,7 +133,7 @@ func (s *cmdEnvironmentSuite) TestRetryProvisioning(c *gc.C) {
 	c.Check(stripped, gc.Equals, `machine 0 is not in an error state`)
 }
 
-func (s *cmdEnvironmentSuite) assertEnvValue(c *gc.C, key string, expected interface{}) {
+func (s *cmdModelSuite) assertEnvValue(c *gc.C, key string, expected interface{}) {
 	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	value, found := envConfig.AllAttrs()[key]
@@ -143,7 +141,7 @@ func (s *cmdEnvironmentSuite) assertEnvValue(c *gc.C, key string, expected inter
 	c.Assert(value, gc.Equals, expected)
 }
 
-func (s *cmdEnvironmentSuite) assertEnvValueMissing(c *gc.C, key string) {
+func (s *cmdModelSuite) assertEnvValueMissing(c *gc.C, key string) {
 	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := envConfig.AllAttrs()[key]

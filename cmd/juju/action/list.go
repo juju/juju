@@ -26,7 +26,7 @@ type listCommand struct {
 }
 
 const listDoc = `
-list the actions available to run on the target service, with a short
+List the actions available to run on the target service, with a short
 description.  To show the full schema for the actions, use --schema.
 
 For more information, see also the 'run-ation' command, which executes actions.

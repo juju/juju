@@ -5,13 +5,12 @@ package backups
 
 import (
 	"io"
-	"strings"
+	"reflect"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 )
@@ -33,21 +32,20 @@ var (
 // the error type returned from a facade call is rpc.RequestError
 // and we cannot use params.IsCodeUpgradeInProgress
 func isUpgradeInProgressErr(err error) bool {
-	errorMessage := err.Error()
-	return strings.Contains(errorMessage, apiserver.UpgradeInProgressError.Error())
+	return reflect.DeepEqual(errors.Cause(err), &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress})
 }
 
 // ClientConnection type represents a function capable of spawning a new Client connection
 // it is used to pass around connection factories when necessary.
 // TODO(perrito666) This is a workaround for lp:1399722 .
-type ClientConnection func() (*Client, func() error, error)
+type ClientConnection func() (*Client, error)
 
 // closerfunc is a function that allows you to close a client connection.
 type closerFunc func() error
 
-func prepareAttempt(client *Client, closer closerFunc) (error, error) {
+func prepareAttempt(client *Client) (error, error) {
 	var remoteError error
-	defer closer()
+	defer client.Close()
 	err := client.facade.FacadeCall("PrepareRestore", nil, &remoteError)
 	return err, remoteError
 }
@@ -61,11 +59,11 @@ func prepareRestore(newClient ClientConnection) error {
 	// by restore.
 	for a := restoreStrategy.Start(); a.Next(); {
 		logger.Debugf("Will attempt to call 'PrepareRestore'")
-		client, clientCloser, clientErr := newClient()
+		client, clientErr := newClient()
 		if clientErr != nil {
 			return errors.Trace(clientErr)
 		}
-		err, remoteError = prepareAttempt(client, clientCloser)
+		err, remoteError = prepareAttempt(client)
 		if err == nil && remoteError == nil {
 			return nil
 		}
@@ -102,9 +100,9 @@ func (c *Client) Restore(backupId string, newClient ClientConnection) error {
 	return c.restore(backupId, newClient)
 }
 
-func restoreAttempt(client *Client, closer closerFunc, restoreArgs params.RestoreArgs) (error, error) {
+func restoreAttempt(client *Client, restoreArgs params.RestoreArgs) (error, error) {
 	var remoteError error
-	defer closer()
+	defer client.Close()
 	err := client.facade.FacadeCall("Restore", restoreArgs, &remoteError)
 	return err, remoteError
 }
@@ -127,13 +125,12 @@ func (c *Client) restore(backupId string, newClient ClientConnection) error {
 	for a := restoreStrategy.Start(); a.Next(); {
 		logger.Debugf("Attempting Restore of %q", backupId)
 		var restoreClient *Client
-		var restoreClientCloser func() error
-		restoreClient, restoreClientCloser, err = newClient()
+		restoreClient, err = newClient()
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		err, remoteError = restoreAttempt(restoreClient, restoreClientCloser, restoreArgs)
+		err, remoteError = restoreAttempt(restoreClient, restoreArgs)
 
 		// A ShutdownErr signals that Restore almost certainly finished and
 		// triggered Exit.
@@ -162,9 +159,9 @@ func (c *Client) restore(backupId string, newClient ClientConnection) error {
 	return nil
 }
 
-func finishAttempt(client *Client, closer closerFunc) (error, error) {
+func finishAttempt(client *Client) (error, error) {
 	var remoteError error
-	defer closer()
+	defer client.Close()
 	err := client.facade.FacadeCall("FinishRestore", nil, &remoteError)
 	return err, remoteError
 }
@@ -178,13 +175,12 @@ func finishRestore(newClient ClientConnection) error {
 	for a := restoreStrategy.Start(); a.Next(); {
 		logger.Debugf("Attempting finishRestore")
 		var finishClient *Client
-		var finishClientCloser func() error
-		finishClient, finishClientCloser, err = newClient()
+		finishClient, err = newClient()
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		err, remoteError = finishAttempt(finishClient, finishClientCloser)
+		err, remoteError = finishAttempt(finishClient)
 		if err == nil && remoteError == nil {
 			return nil
 		}

@@ -27,10 +27,6 @@ func StorageEC2(vs jujustorage.VolumeSource) *ec2.EC2 {
 	return vs.(*ebsVolumeSource).ec2
 }
 
-func ControlBucketName(e environs.Environ) string {
-	return e.(*environ).ecfg().controlBucket()
-}
-
 func JujuGroupName(e environs.Environ) string {
 	return e.(*environ).jujuGroupName()
 }
@@ -41,10 +37,6 @@ func MachineGroupName(e environs.Environ, machineId string) string {
 
 func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2()
-}
-
-func EnvironS3(e environs.Environ) *s3.S3 {
-	return e.(*environ).s3()
 }
 
 func InstanceEC2(inst instance.Instance) *ec2.Instance {
@@ -103,9 +95,10 @@ func UseTestInstanceTypeData(content instanceTypeCost) {
 }
 
 var (
-	ShortAttempt         = &shortAttempt
-	StorageAttempt       = &storageAttempt
-	DestroyVolumeAttempt = &destroyVolumeAttempt
+	ShortAttempt                   = &shortAttempt
+	StorageAttempt                 = &storageAttempt
+	DestroyVolumeAttempt           = &destroyVolumeAttempt
+	DeleteSecurityGroupInsistently = &deleteSecurityGroupInsistently
 )
 
 func EC2ErrCode(err error) string {

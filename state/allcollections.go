@@ -87,6 +87,13 @@ func allCollections() collectionSchema {
 		// the simplestreams data source pointing to binaries required by juju.
 		toolsmetadataC: {global: true},
 
+		// This collection holds a convenient representation of the content of
+		// the simplestreams data source pointing to Juju GUI archives.
+		guimetadataC: {global: true},
+
+		// This collection holds Juju GUI current version and other settings.
+		guisettingsC: {global: true},
+
 		// This collection holds model information; in particular its
 		// Life and its UUID.
 		modelsC: {global: true},
@@ -263,7 +270,8 @@ func allCollections() collectionSchema {
 		// -----
 
 		// These collections hold information associated with networking.
-		ipaddressesC: {
+		// TODO(dimitern): Remove the obsolete collections below once possible.
+		legacyipaddressesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"uuid"},
 			}, {
@@ -293,12 +301,9 @@ func allCollections() collectionSchema {
 		},
 		openedPortsC:       {},
 		requestedNetworksC: {},
+		// TODO(dimitern): End of obsolete networking collections.
 		spacesC: {
 			indexes: []mgo.Index{{
-				// NOTE: Like the DocID field, ProviderId also has the model
-				// UUID as prefix to ensure uniqueness per model. However since
-				// not all providers support spaces, it can be empty, hence both
-				// unique and sparse.
 				Key:    []string{"providerid"},
 				Unique: true,
 				Sparse: true,
@@ -306,10 +311,21 @@ func allCollections() collectionSchema {
 		},
 		subnetsC: {
 			indexes: []mgo.Index{{
-				// NOTE: Like the DocID field, ProviderId also has the model
-				// UUID as prefix to ensure uniqueness per model. However since
-				// not all providers support subnets, it can be empty, hence both
-				// unique and sparse.
+				Key:    []string{"providerid"},
+				Unique: true,
+				Sparse: true,
+			}},
+		},
+		linkLayerDevicesC: {
+			indexes: []mgo.Index{{
+				Key:    []string{"providerid"},
+				Unique: true,
+				Sparse: true,
+			}},
+		},
+		linkLayerDevicesRefsC: {},
+		ipAddressesC: {
+			indexes: []mgo.Index{{
 				Key:    []string{"providerid"},
 				Unique: true,
 				Sparse: true,
@@ -393,8 +409,10 @@ const (
 	controllersC             = "controllers"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
+	guimetadataC             = "guimetadata"
+	guisettingsC             = "guisettings"
 	instanceDataC            = "instanceData"
-	ipaddressesC             = "ipaddresses"
+	legacyipaddressesC       = "ipaddresses"
 	leaseC                   = "lease"
 	leasesC                  = "leases"
 	machinesC                = "machines"
@@ -428,6 +446,9 @@ const (
 	storageConstraintsC      = "storageconstraints"
 	storageInstancesC        = "storageinstances"
 	subnetsC                 = "subnets"
+	linkLayerDevicesC        = "linklayerdevices"
+	linkLayerDevicesRefsC    = "linklayerdevicesrefs"
+	ipAddressesC             = "ip.addresses"
 	toolsmetadataC           = "toolsmetadata"
 	txnLogC                  = "txns.log"
 	txnsC                    = "txns"

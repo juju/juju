@@ -5,20 +5,19 @@ package service
 
 import (
 	"fmt"
-	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/romulus/api/budget"
-	wireformat "github.com/juju/romulus/wireformat/budget"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/jujuclient"
 )
 
 var budgetWithLimitRe = regexp.MustCompile(`^[a-zA-Z0-9\-]+:[0-9]+$`)
@@ -38,10 +37,25 @@ func (a *AllocateBudget) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // RunPre is part of the DeployStep interface.
-func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
-	if deployInfo.CharmURL.Schema == "local" {
+func (a *AllocateBudget) RunPre(_ api.Connection, _ *httpbakery.Client, _ *cmd.Context, _ DeploymentInfo) error {
+	if allocBudget, allocLimit, err := parseBudgetWithLimit(a.AllocationSpec); err == nil {
+		// Make these available to registration if valid.
+		a.Budget, a.Limit = allocBudget, allocLimit
+	}
+	return nil
+}
+
+// RunPost is part of the DeployStep interface.
+func (a *AllocateBudget) RunPost(state api.Connection, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo, priorErr error) error {
+	if priorErr != nil {
+		logger.Tracef("skipping budget allocation due to prior deployment error: %v", priorErr)
 		return nil
 	}
+	if deployInfo.CharmURL.Schema == "local" {
+		logger.Tracef("skipping budget allocation for local charm %q", deployInfo.CharmURL)
+		return nil
+	}
+
 	charmsClient := charms.NewClient(state)
 	metered, err := charmsClient.IsMetered(deployInfo.CharmURL.String())
 	if params.IsCodeNotImplemented(err) {
@@ -60,39 +74,17 @@ func (a *AllocateBudget) RunPre(state api.Connection, client *http.Client, ctx *
 	if err != nil {
 		return errors.Trace(err)
 	}
-	a.Budget, a.Limit = allocBudget, allocLimit
-	a.APIClient, err = getApiClient(client)
+	a.APIClient, err = getApiClient(bakeryClient)
 	if err != nil {
 		return errors.Annotate(err, "could not create API client")
 	}
 	resp, err := a.APIClient.CreateAllocation(allocBudget, allocLimit, deployInfo.ModelUUID, []string{deployInfo.ServiceName})
 	if err != nil {
-		if wireformat.IsNotAvail(err) {
-			fmt.Fprintf(ctx.Stdout, "WARNING: Budget allocation not created - %s.\n", err.Error())
-			return nil
-		}
-		return errors.Annotate(err, "could not create budget allocation")
+		err = errors.Annotatef(err, "failed to allocate budget")
+		fmt.Fprintf(ctx.Stderr, "%s\nTry running \"juju allocate <budget>:<limit> %s\".\n", err.Error(), deployInfo.ServiceName)
+		return err
 	}
 	a.allocated = true
-	fmt.Fprintf(ctx.Stdout, "%s\n", resp)
-	return nil
-}
-
-func (a *AllocateBudget) RunPost(_ api.Connection, client *http.Client, ctx *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
-	if prevErr == nil || !a.allocated {
-		return nil
-	}
-	var err error
-	if a.APIClient == nil {
-		a.APIClient, err = getApiClient(client)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	resp, err := a.APIClient.DeleteAllocation(deployInfo.ModelUUID, deployInfo.ServiceName)
-	if err != nil {
-		return errors.Annotate(err, "failed to remove allocation")
-	}
 	fmt.Fprintf(ctx.Stdout, "%s\n", resp)
 	return nil
 }
@@ -107,13 +99,12 @@ func parseBudgetWithLimit(bl string) (string, string, error) {
 
 var getApiClient = getApiClientImpl
 
-func getApiClientImpl(client *http.Client) (apiClient, error) {
-	bakeryClient := &httpbakery.Client{Client: client, VisitWebPage: httpbakery.OpenWebBrowser}
-	c := budget.NewClient(bakeryClient)
-	return c, nil
+var tokenStore = jujuclient.NewTokenStore
+
+func getApiClientImpl(bclient *httpbakery.Client) (apiClient, error) {
+	return budget.NewClient(bclient), nil
 }
 
 type apiClient interface {
 	CreateAllocation(string, string, string, []string) (string, error)
-	DeleteAllocation(string, string) (string, error)
 }

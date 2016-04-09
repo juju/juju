@@ -28,12 +28,15 @@ type updateCloudsCommand struct {
 }
 
 var updateCloudsDoc = `
-The update-clouds command updates the public cloud information available to Juju.
-If any new regions or updated endpoints are available, this command will ensure Juju
-knows about that information when bootstrapping a new controller.
+If any new information for public clouds (such as regions and connection
+endpoints) are available this command will update Juju accordingly. It is
+suggested to run this command periodically.
 
-Example:
-   juju update-clouds
+Examples:
+
+    juju update-clouds
+
+See also: list-clouds
 `
 
 // NewUpdateCloudsCommand returns a command to update cloud information.
@@ -47,7 +50,7 @@ func NewUpdateCloudsCommand() cmd.Command {
 func (c *updateCloudsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "update-clouds",
-		Purpose: "update public cloud regions and endpoints",
+		Purpose: "Updates public cloud information available to Juju.",
 		Doc:     updateCloudsDoc,
 	}
 }

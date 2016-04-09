@@ -78,7 +78,7 @@ func (fw *Firewaller) setUp() error {
 	// We won't "wait" actually, because the environ is already
 	// available and has a guaranteed valid config, but until
 	// WaitForEnviron goes away, this code needs to stay.
-	fw.environ, err = environ.WaitForEnviron(fw.modelWatcher, fw.st, fw.catacomb.Dying())
+	fw.environ, err = environ.WaitForEnviron(fw.modelWatcher, fw.st, environs.New, fw.catacomb.Dying())
 	if err != nil {
 		if err == environ.ErrWaitAborted {
 			return fw.catacomb.ErrDying()
@@ -86,14 +86,16 @@ func (fw *Firewaller) setUp() error {
 		return errors.Trace(err)
 	}
 	switch fw.environ.Config().FirewallMode() {
+	case config.FwInstance:
 	case config.FwGlobal:
 		fw.globalMode = true
 		fw.globalPortRef = make(map[network.PortRange]int)
 	case config.FwNone:
-		logger.Warningf("stopping firewaller - firewall-mode is %q", config.FwNone)
-		// XXX(fwereade): shouldn't this be nil? Nothing wrong, nothing to do,
-		// now that we've logged there's no further reason to complain or retry.
-		return errors.Errorf("firewaller is disabled when firewall-mode is %q", config.FwNone)
+		logger.Infof("stopping firewaller (not required)")
+		fw.Kill()
+		return fw.catacomb.ErrDying()
+	default:
+		return errors.Errorf("unknown firewall-mode %q", config.FwNone)
 	}
 
 	fw.machinesWatcher, err = fw.st.WatchModelMachines()

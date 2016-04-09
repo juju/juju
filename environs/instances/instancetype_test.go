@@ -217,6 +217,11 @@ var getInstanceTypesTest = []struct {
 		},
 		expectedItypes: []string{"it-2"},
 	}, {
+		about:          "virt-type filtered by constraint",
+		cons:           "virt-type=hvm",
+		expectedItypes: []string{"cc1.4xlarge", "cc2.8xlarge"},
+		itypesToUse:    nil,
+	}, {
 		about:          "deprecated image type requested by name",
 		cons:           "instance-type=dep.small",
 		expectedItypes: []string{"dep.small"},

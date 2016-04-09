@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
 )
 
 // NewListModelsCommand returns a command to list models.
@@ -35,20 +34,22 @@ type modelsCommand struct {
 	exactTime bool
 	modelAPI  ModelManagerAPI
 	sysAPI    ModelsSysAPI
-	userCreds *configstore.APICredentials
 }
 
 var listModelsDoc = `
-List all the models the user can access on the current controller.
+The models listed here are either models you have created yourself, or
+models which have been shared with you. Default values for user and
+controller are, respectively, the current user and the current controller.
+The active model is denoted by an asterisk.
 
-The models listed here are either models you have created
-yourself, or models which have been shared with you.
+Examples:
 
-See Also:
-    juju help controllers
-    juju help model users
-    juju help model share
-    juju help model unshare
+    juju list-models
+    juju list-models --user bob
+
+See also: create-model
+          share-model
+          unshare-model
 `
 
 // ModelManagerAPI defines the methods on the model manager API that
@@ -69,7 +70,7 @@ type ModelsSysAPI interface {
 func (c *modelsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-models",
-		Purpose: "list all models the user can access on the current controller",
+		Purpose: "Lists models a user can access on a controller.",
 		Doc:     listModelsDoc,
 	}
 }
@@ -88,19 +89,12 @@ func (c *modelsCommand) getSysAPI() (ModelsSysAPI, error) {
 	return c.NewControllerAPIClient()
 }
 
-func (c *modelsCommand) getConnectionCredentials() (configstore.APICredentials, error) {
-	if c.userCreds != nil {
-		return *c.userCreds, nil
-	}
-	return c.ConnectionCredentials()
-}
-
 // SetFlags implements Command.SetFlags.
 func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.user, "user", "", "the user to list models for (administrative users only)")
-	f.BoolVar(&c.all, "all", false, "show all models  (administrative users only)")
-	f.BoolVar(&c.listUUID, "uuid", false, "display UUID for models")
-	f.BoolVar(&c.exactTime, "exact-time", false, "use full timestamp precision")
+	f.StringVar(&c.user, "user", "", "The user to list models for (administrative users only)")
+	f.BoolVar(&c.all, "all", false, "Lists all models, regardless of user accessibility (administrative users only)")
+	f.BoolVar(&c.listUUID, "uuid", false, "Display UUID for models")
+	f.BoolVar(&c.exactTime, "exact-time", false, "Use full timestamp for connection times")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -126,11 +120,13 @@ type UserModel struct {
 // Run implements Command.Run
 func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	if c.user == "" {
-		creds, err := c.getConnectionCredentials()
+		accountDetails, err := c.ClientStore().AccountByName(
+			c.ControllerName(), c.AccountName(),
+		)
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
-		c.user = creds.User
+		c.user = accountDetails.User
 	}
 
 	var models []base.UserModel
@@ -162,7 +158,17 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	modelSet.CurrentModel = current
-	return c.out.Write(ctx, modelSet)
+	if err := c.out.Write(ctx, modelSet); err != nil {
+		return err
+	}
+
+	if len(models) == 0 && c.out.Name() == "tabular" {
+		// When the output is tabular, we inform the user when there
+		// are no models available, and tell them how to go about
+		// creating or granting access to them.
+		fmt.Fprintf(ctx.Stderr, "\n%s\n\n", errNoModels.Error())
+	}
+	return nil
 }
 
 func (c *modelsCommand) getAllModels() ([]base.UserModel, error) {

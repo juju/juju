@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package openstack_test
+package openstack
 
 import (
 	gitjujutesting "github.com/juju/testing"
@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/openstack"
 )
 
 // localTests contains tests which do not require a live service or test double to run.
@@ -209,7 +208,7 @@ func (t *localTests) TestGetServerAddresses(c *gc.C) {
 				addresses[t.networks[1]] = t.public
 			}
 		}
-		addr := openstack.InstanceAddress(t.floatingIP, addresses)
+		addr := InstanceAddress(t.floatingIP, addresses)
 		c.Assert(addr, gc.Equals, t.expected)
 	}
 }
@@ -276,7 +275,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		rules := openstack.PortsToRuleInfo(groupId, t.ports)
+		rules := PortsToRuleInfo(groupId, t.ports)
 		c.Check(len(rules), gc.Equals, len(t.expected))
 		c.Check(rules, gc.DeepEquals, t.expected)
 	}
@@ -348,7 +347,7 @@ func (*localTests) TestRuleMatchesPortRange(c *gc.C) {
 	}}
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		c.Check(openstack.RuleMatchesPortRange(t.rule, t.ports), gc.Equals, t.expected)
+		c.Check(RuleMatchesPortRange(t.rule, t.ports), gc.Equals, t.expected)
 	}
 }
 
@@ -378,4 +377,27 @@ func (s *localTests) detectRegions(c *gc.C) ([]cloud.Region, error) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider, gc.Implements, new(environs.CloudRegionDetector))
 	return provider.(environs.CloudRegionDetector).DetectRegions()
+}
+
+type providerUnitTests struct{}
+
+var _ = gc.Suite(&providerUnitTests{})
+
+func (s *providerUnitTests) TestIdentityClientVersion_BadURLErrors(c *gc.C) {
+	_, err := identityClientVersion("abc123")
+	c.Check(err, gc.Not(jc.ErrorIsNil))
+}
+
+func (s *providerUnitTests) TestIdentityClientVersion_ParsesGoodURL(c *gc.C) {
+	version, err := identityClientVersion("https://keystone.internal/v2.0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, 2)
+
+	version, err = identityClientVersion("https://keystone.internal/v3.0/")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, 3)
+
+	version, err = identityClientVersion("https://keystone.internal/v2/")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, 2)
 }

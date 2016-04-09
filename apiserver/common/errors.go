@@ -53,7 +53,7 @@ func UnknownModelError(uuid string) error {
 	return &unknownModelError{uuid: uuid}
 }
 
-func IsUnknownModelError(err error) bool {
+func isUnknownModelError(err error) bool {
 	_, ok := err.(*unknownModelError)
 	return ok
 }
@@ -75,6 +75,15 @@ func (e *DischargeRequiredError) Error() string {
 func IsDischargeRequiredError(err error) bool {
 	_, ok := errors.Cause(err).(*DischargeRequiredError)
 	return ok
+}
+
+// IsUpgradeInProgress returns true if this error is caused
+// by an upgrade in progress.
+func IsUpgradeInProgressError(err error) bool {
+	if state.IsUpgradeInProgressError(err) {
+		return true
+	}
+	return errors.Cause(err) == params.UpgradeInProgressError
 }
 
 var (
@@ -103,35 +112,43 @@ func OperationBlockedError(msg string) error {
 	}
 }
 
+var singletonErrorCodes = map[error]string{
+	state.ErrCannotEnterScopeYet: params.CodeCannotEnterScopeYet,
+	state.ErrCannotEnterScope:    params.CodeCannotEnterScope,
+	state.ErrUnitHasSubordinates: params.CodeUnitHasSubordinates,
+	state.ErrDead:                params.CodeDead,
+	txn.ErrExcessiveContention:   params.CodeExcessiveContention,
+	leadership.ErrClaimDenied:    params.CodeLeadershipClaimDenied,
+	lease.ErrClaimDenied:         params.CodeLeaseClaimDenied,
+	ErrBadId:                     params.CodeNotFound,
+	ErrBadCreds:                  params.CodeUnauthorized,
+	ErrPerm:                      params.CodeUnauthorized,
+	ErrNotLoggedIn:               params.CodeUnauthorized,
+	ErrUnknownWatcher:            params.CodeNotFound,
+	ErrStoppedWatcher:            params.CodeStopped,
+	ErrTryAgain:                  params.CodeTryAgain,
+	ErrActionNotAvailable:        params.CodeActionNotAvailable,
+}
+
 func singletonCode(err error) (string, bool) {
-	switch err {
-	case state.ErrCannotEnterScopeYet:
-		return params.CodeCannotEnterScopeYet, true
-	case state.ErrCannotEnterScope:
-		return params.CodeCannotEnterScope, true
-	case state.ErrUnitHasSubordinates:
-		return params.CodeUnitHasSubordinates, true
-	case state.ErrDead:
-		return params.CodeDead, true
-	case txn.ErrExcessiveContention:
-		return params.CodeExcessiveContention, true
-	case leadership.ErrClaimDenied:
-		return params.CodeLeadershipClaimDenied, true
-	case lease.ErrClaimDenied:
-		return params.CodeLeaseClaimDenied, true
-	case ErrBadId, ErrUnknownWatcher:
-		return params.CodeNotFound, true
-	case ErrBadCreds, ErrPerm, ErrNotLoggedIn:
-		return params.CodeUnauthorized, true
-	case ErrStoppedWatcher:
-		return params.CodeStopped, true
-	case ErrTryAgain:
-		return params.CodeTryAgain, true
-	case ErrActionNotAvailable:
-		return params.CodeActionNotAvailable, true
-	default:
-		return "", false
+	// All error types may not be hashable; deal with
+	// that by catching the panic if we try to look up
+	// a non-hashable type.
+	defer func() {
+		recover()
+	}()
+	code, ok := singletonErrorCodes[err]
+	return code, ok
+}
+
+func singletonError(err error) (error, bool) {
+	errCode := params.ErrCode(err)
+	for singleton, code := range singletonErrorCodes {
+		if errCode == code && singleton.Error() == err.Error() {
+			return singleton, true
+		}
 	}
+	return nil, false
 }
 
 // ServerErrorAndStatus is like ServerError but also
@@ -192,11 +209,11 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNoAddressSet
 	case errors.IsNotProvisioned(err):
 		code = params.CodeNotProvisioned
-	case state.IsUpgradeInProgressError(err):
+	case IsUpgradeInProgressError(err):
 		code = params.CodeUpgradeInProgress
 	case state.IsHasAttachmentsError(err):
 		code = params.CodeMachineHasAttachedStorage
-	case IsUnknownModelError(err):
+	case isUnknownModelError(err):
 		code = params.CodeNotFound
 	case errors.IsNotSupported(err):
 		code = params.CodeNotSupported
@@ -234,4 +251,67 @@ func DestroyErr(desc string, ids, errs []string) error {
 	}
 	msg = fmt.Sprintf(msg, desc)
 	return errors.Errorf("%s: %s", msg, strings.Join(errs, "; "))
+}
+
+// RestoreError makes a best effort at converting the given error
+// back into an error originally converted by ServerError().
+func RestoreError(err error) error {
+	err = errors.Cause(err)
+
+	if apiErr, ok := err.(*params.Error); !ok {
+		return err
+	} else if apiErr == nil {
+		return nil
+	}
+	if params.ErrCode(err) == "" {
+		return err
+	}
+	msg := err.Error()
+
+	if singleton, ok := singletonError(err); ok {
+		return singleton
+	}
+
+	// TODO(ericsnow) Support the other error types handled by ServerError().
+	switch {
+	case params.IsCodeUnauthorized(err):
+		return errors.NewUnauthorized(nil, msg)
+	case params.IsCodeNotFound(err):
+		// TODO(ericsnow) UnknownModelError should be handled here too.
+		// ...by parsing msg?
+		return errors.NewNotFound(nil, msg)
+	case params.IsCodeAlreadyExists(err):
+		return errors.NewAlreadyExists(nil, msg)
+	case params.IsCodeNotAssigned(err):
+		return errors.NewNotAssigned(nil, msg)
+	case params.IsCodeHasAssignedUnits(err):
+		// TODO(ericsnow) Handle state.HasAssignedUnitsError here.
+		// ...by parsing msg?
+		return err
+	case params.IsCodeNoAddressSet(err):
+		// TODO(ericsnow) Handle isNoAddressSetError here.
+		// ...by parsing msg?
+		return err
+	case params.IsCodeNotProvisioned(err):
+		return errors.NewNotProvisioned(nil, msg)
+	case params.IsCodeUpgradeInProgress(err):
+		// TODO(ericsnow) Handle state.UpgradeInProgressError here.
+		// ...by parsing msg?
+		return err
+	case params.IsCodeMachineHasAttachedStorage(err):
+		// TODO(ericsnow) Handle state.HasAttachmentsError here.
+		// ...by parsing msg?
+		return err
+	case params.IsCodeNotSupported(err):
+		return errors.NewNotSupported(nil, msg)
+	case params.IsBadRequest(err):
+		return errors.NewBadRequest(nil, msg)
+	case params.IsMethodNotAllowed(err):
+		return errors.NewMethodNotAllowed(nil, msg)
+	case params.ErrCode(err) == params.CodeDischargeRequired:
+		// TODO(ericsnow) Handle DischargeRequiredError here.
+		return err
+	default:
+		return err
+	}
 }

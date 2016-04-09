@@ -4,6 +4,7 @@
 package ec2_test
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
-	"io/ioutil"
 )
 
 type credentialsSuite struct {

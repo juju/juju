@@ -8,6 +8,7 @@ import (
 
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -92,14 +93,19 @@ music    1
 		"ListResources",
 		"Close",
 	)
-	s.stub.CheckCall(c, 1, "ListResources", []*charm.URL{{
-		Schema:   "cs",
-		User:     "",
-		Name:     "a-charm",
-		Revision: -1,
-		Series:   "",
-		Channel:  "",
-	}})
+	s.stub.CheckCall(c, 1, "ListResources", []charmstore.CharmID{
+		{
+			URL: &charm.URL{
+				Schema:   "cs",
+				User:     "",
+				Name:     "a-charm",
+				Revision: -1,
+				Series:   "",
+				Channel:  "",
+			},
+			Channel: "stable",
+		},
+	})
 }
 
 func (s *ListCharmSuite) TestNoResources(c *gc.C) {
@@ -190,4 +196,26 @@ music    1
 		c.Check(stdout, gc.Equals, expected)
 		c.Check(stderr, gc.Equals, "")
 	}
+}
+
+func (s *ListCharmSuite) TestChannelFlag(c *gc.C) {
+	fp1, err := charmresource.GenerateFingerprint(strings.NewReader("abc"))
+	c.Assert(err, jc.ErrorIsNil)
+	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("xyz"))
+	c.Assert(err, jc.ErrorIsNil)
+	resources := []charmresource.Resource{
+		charmRes(c, "website", ".tgz", ".tgz of your website", string(fp1.Bytes())),
+		charmRes(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
+	}
+	s.client.ReturnListResources = [][]charmresource.Resource{resources}
+	command := NewListCharmResourcesCommand(s.client)
+
+	code, _, stderr := runCmd(c, command,
+		"--channel", "development",
+		"cs:a-charm",
+	)
+
+	c.Check(code, gc.Equals, 0)
+	c.Check(stderr, gc.Equals, "")
+	c.Check(command.channel, gc.Equals, "development")
 }

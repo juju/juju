@@ -72,15 +72,15 @@ func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
 	ctx, err := coretesting.RunCommand(c, s.command, subcmd.Info().Name, "--help")
 	c.Assert(err, gc.IsNil)
 
-	expected := "(?sm).*^usage: juju action " +
+	expected := "(?sm).*^Usage: juju action " +
 		regexp.QuoteMeta(subcmd.Info().Name) +
 		` \[options\] ` + regexp.QuoteMeta(subcmd.Info().Args) + ".+"
 	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
 
-	expected = "(?sm).*^purpose: " + regexp.QuoteMeta(subcmd.Info().Purpose) + "$.*"
+	expected = "(?sm).*^Summary:\n" + regexp.QuoteMeta(subcmd.Info().Purpose) + "$.*"
 	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
 
-	expected = "(?sm).*^" + regexp.QuoteMeta(subcmd.Info().Doc) + "$.*"
+	expected = "(?sm).*^Details:" + regexp.QuoteMeta(subcmd.Info().Doc) + "$.*"
 	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
 }*/
 

@@ -53,14 +53,10 @@ func (p *cinderProvider) VolumeSource(environConfig *config.Config, providerConf
 	if err != nil {
 		return nil, err
 	}
-	uuid, ok := environConfig.UUID()
-	if !ok {
-		return nil, errors.NotFoundf("model UUID")
-	}
 	source := &cinderVolumeSource{
 		storageAdapter: storageAdapter,
 		envName:        environConfig.Name(),
-		modelUUID:      uuid,
+		modelUUID:      environConfig.UUID(),
 	}
 	return source, nil
 }
@@ -420,8 +416,10 @@ func newOpenstackStorageAdapter(environConfig *config.Config) (openstackStorage,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	client := authClient(ecfg)
-	if err := client.Authenticate(); err != nil {
+	client, err := authClient(ecfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	} else if err := client.Authenticate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 

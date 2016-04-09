@@ -40,6 +40,7 @@ type PeriodicTimer interface {
 
 // NewTimerFunc is a constructor used to obtain the instance
 // of PeriodicTimer periodicWorker uses on its loop.
+// TODO(fwereade): 2016-03-17 lp:1558657
 type NewTimerFunc func(time.Duration) PeriodicTimer
 
 // Timer implements PeriodicTimer.

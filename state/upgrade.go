@@ -41,11 +41,10 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/version"
 )
 
 // UpgradeStatus describes the states an upgrade operation may be in.
@@ -263,10 +262,11 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 	}
 
 	doc := upgradeInfoDoc{
-		Id:               currentUpgradeId,
-		PreviousVersion:  previousVersion,
-		TargetVersion:    targetVersion,
-		Status:           UpgradePending,
+		Id:              currentUpgradeId,
+		PreviousVersion: previousVersion,
+		TargetVersion:   targetVersion,
+		Status:          UpgradePending,
+		// TODO(fwereade): 2016-03-17 lp:1558657
 		Started:          time.Now().UTC(),
 		ControllersReady: []string{machineId},
 	}

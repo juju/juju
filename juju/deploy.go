@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -22,6 +23,7 @@ type DeployServiceParams struct {
 	Series         string
 	ServiceOwner   string
 	Charm          *state.Charm
+	Channel        csparams.Channel
 	ConfigSettings charm.Settings
 	Constraints    constraints.Value
 	NumUnits       int
@@ -70,16 +72,14 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 		return nil, fmt.Errorf("use of --networks is deprecated. Please use spaces")
 	}
 
-	effectiveBindings, err := getEffectiveBindingsForCharmMeta(args.Charm.Meta(), args.EndpointBindings)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot determine effective service endpoint bindings")
-	}
+	effectiveBindings := getEffectiveBindingsForCharmMeta(args.Charm.Meta(), args.EndpointBindings)
 
 	asa := state.AddServiceArgs{
 		Name:             args.ServiceName,
 		Series:           args.Series,
 		Owner:            args.ServiceOwner,
 		Charm:            args.Charm,
+		Channel:          args.Channel,
 		Networks:         args.Networks,
 		Storage:          stateStorageConstraints(args.Storage),
 		Settings:         settings,
@@ -98,28 +98,27 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 	return st.AddService(asa)
 }
 
-func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[string]string) (map[string]string, error) {
-	combinedEndpoints, err := state.CombinedCharmRelations(charmMeta)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[string]string) map[string]string {
+	// defaultBindings contains all bindable endpoints for charmMeta as keys and
+	// empty space names as values, so we use defaultBindings as fallback.
+	defaultBindings := state.DefaultEndpointBindingsForCharm(charmMeta)
 	if givenBindings == nil {
-		givenBindings = make(map[string]string, len(combinedEndpoints))
+		givenBindings = make(map[string]string, len(defaultBindings))
 	}
 
 	// Get the service-level default binding for all unspecified endpoint, if
 	// set, otherwise use the empty default.
 	serviceDefaultSpace, _ := givenBindings[""]
 
-	effectiveBindings := make(map[string]string, len(combinedEndpoints))
-	for endpoint, _ := range combinedEndpoints {
+	effectiveBindings := make(map[string]string, len(defaultBindings))
+	for endpoint, _ := range defaultBindings {
 		if givenSpace, isGiven := givenBindings[endpoint]; isGiven {
 			effectiveBindings[endpoint] = givenSpace
 		} else {
 			effectiveBindings[endpoint] = serviceDefaultSpace
 		}
 	}
-	return effectiveBindings, nil
+	return effectiveBindings
 }
 
 // AddUnits starts n units of the given service using the specified placement

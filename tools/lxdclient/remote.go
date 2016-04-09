@@ -9,8 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	lxdshared "github.com/lxc/lxd/shared"
-
-	"github.com/juju/juju/container/lxc"
 )
 
 const (
@@ -27,9 +25,28 @@ var Local = Remote{
 	Name: remoteLocalName,
 	Host: "", // If Host is empty we will translate it into the local Unix socket
 	// No certificates are used when connecting to the Unix socket
+	Protocol:      LXDProtocol,
 	Cert:          nil,
 	ServerPEMCert: "",
 }
+
+type Protocol string
+
+const (
+	LXDProtocol           Protocol = "lxd"
+	SimplestreamsProtocol Protocol = "simplestreams"
+)
+
+var CloudImagesRemote = Remote{
+	Name:          "cloud-images.ubuntu.com",
+	Host:          "https://cloud-images.ubuntu.com/releases",
+	Protocol:      SimplestreamsProtocol,
+	Cert:          nil,
+	ServerPEMCert: "",
+}
+
+var generateCertificate = lxdshared.GenerateMemCert
+var DefaultImageSources = []Remote{CloudImagesRemote}
 
 // Remote describes a LXD "remote" server for a client. In
 // particular it holds the information needed for the client
@@ -42,6 +59,11 @@ type Remote struct {
 	// An empty string is interpreted as:
 	//   "localhost over a unix socket (unencrypted)".
 	Host string
+
+	// Protocol indicates whether this Remote is accessed via the normal
+	// "LXD" protocol, or whether it is a Simplestreams source. The value
+	// is only useful for Remotes that are image sources
+	Protocol Protocol
 
 	// Cert holds the TLS certificate data for the client to use.
 	Cert *Cert
@@ -76,8 +98,12 @@ func (r Remote) WithDefaults() (Remote, error) {
 		return r.withLocalDefaults(), nil
 	}
 
+	if r.Protocol == "" {
+		r.Protocol = LXDProtocol
+	}
+
 	if r.Cert == nil {
-		certPEM, keyPEM, err := lxdshared.GenerateMemCert()
+		certPEM, keyPEM, err := generateCertificate()
 		if err != nil {
 			return r, errors.Trace(err)
 		}
@@ -98,6 +124,9 @@ func (r Remote) withLocalDefaults() Remote {
 	if r.Name == "" {
 		r.Name = remoteLocalName
 	}
+	if r.Protocol == "" {
+		r.Protocol = LXDProtocol
+	}
 
 	// TODO(ericsnow) Set r.Cert to nil?
 
@@ -117,12 +146,18 @@ func (r Remote) Validate() error {
 		return nil
 	}
 
-	// TODO(ericsnow) Ensure the host is a valid hostname or address?
+	if r.Protocol == "" {
+		return errors.NotValidf("missing Protocol")
+	}
+	if r.Protocol != LXDProtocol && r.Protocol != SimplestreamsProtocol {
+		return errors.NotValidf("unknown Protocol %q", r.Protocol)
+	}
 
-	if r.Cert == nil {
-		return errors.NotValidf("remote without cert")
-	} else if err := r.Cert.Validate(); err != nil {
-		return errors.Trace(err)
+	// r.Cert is allowed to be nil for Public remotes
+	if r.Cert != nil {
+		if err := r.Cert.Validate(); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	return nil
@@ -131,6 +166,9 @@ func (r Remote) Validate() error {
 func (r Remote) validateLocal() error {
 	if r.Cert != nil {
 		return errors.NotValidf("hostless remote with cert")
+	}
+	if r.Protocol != LXDProtocol {
+		return errors.NotValidf("localhost always talks LXD protocol not: %s", r.Protocol)
 	}
 
 	return nil
@@ -153,7 +191,10 @@ func (r Remote) UsingTCP() (Remote, error) {
 	// TODO: jam 2016-02-25 This should be updated for systems that are
 	// 	 space aware, as we may not be just using the default LXC
 	// 	 bridge.
-	netIF := lxc.DefaultLxcBridge
+	netIF, err := GetDefaultBridgeName()
+	if err != nil {
+		return r, errors.Trace(err)
+	}
 	addr, err := utils.GetAddressForInterface(netIF)
 	if err != nil {
 		return r, errors.Trace(err)

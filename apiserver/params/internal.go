@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/juju/utils/exec"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // MachineContainersParams holds the arguments for making a SetSupportedContainers
@@ -317,12 +317,16 @@ type InstanceInfo struct {
 	InstanceId      instance.Id
 	Nonce           string
 	Characteristics *instance.HardwareCharacteristics
-	Networks        []Network
-	Interfaces      []NetworkInterface
 	Volumes         []Volume
 	// VolumeAttachments is a mapping from volume tag to
 	// volume attachment info.
 	VolumeAttachments map[string]VolumeAttachmentInfo
+
+	NetworkConfig []NetworkConfig
+
+	// TODO(dimitern): No longer used, drop at the end of this PoC.
+	Networks   []Network
+	Interfaces []NetworkInterface
 }
 
 // InstancesInfo holds the parameters for making a SetInstanceInfo
@@ -644,4 +648,26 @@ type SingularClaim struct {
 // SingularClaims holds any number of SingularClaim~s.
 type SingularClaims struct {
 	Claims []SingularClaim `json:"Claims"`
+}
+
+// GUIArchiveVersion holds information on a specific GUI archive version.
+type GUIArchiveVersion struct {
+	// Version holds the Juju GUI version number.
+	Version version.Number `json:"version"`
+	// SHA256 holds the SHA256 hash of the GUI tar.bz2 archive.
+	SHA256 string `json:"sha256"`
+	// Current holds whether this specific version is the current one served
+	// by the controller.
+	Current bool `json:"current"`
+}
+
+// GUIArchiveResponse holds the response to /gui-archive GET requests.
+type GUIArchiveResponse struct {
+	Versions []GUIArchiveVersion `json:"versions"`
+}
+
+// GUIVersionRequest holds the body for /gui-version PUT requests.
+type GUIVersionRequest struct {
+	// Version holds the Juju GUI version number.
+	Version version.Number `json:"version"`
 }

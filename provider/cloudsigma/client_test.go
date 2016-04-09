@@ -13,6 +13,7 @@ import (
 	"github.com/altoros/gosigma/mock"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 type clientSuite struct {
@@ -34,11 +34,9 @@ var _ = gc.Suite(&clientSuite{})
 func (s *clientSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	mock.Start()
-}
-
-func (s *clientSuite) TearDownSuite(c *gc.C) {
-	mock.Stop()
-	s.BaseSuite.TearDownSuite(c)
+	s.AddCleanup(func(*gc.C) {
+		mock.Stop()
+	})
 }
 
 func (s *clientSuite) SetUpTest(c *gc.C) {

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type MachineSuite struct {
@@ -704,12 +704,6 @@ func (s *MachineSuite) TestSetPasswordPreModelUUID(c *gc.C) {
 	c.Assert(m.PasswordValid(goodPassword), jc.IsTrue)
 }
 
-func (s *MachineSuite) TestSetAgentCompatPassword(c *gc.C) {
-	e, err := s.State.Machine(s.machine.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	testSetAgentCompatPassword(c, e)
-}
-
 func (s *MachineSuite) TestMachineWaitAgentPresence(c *gc.C) {
 	alive, err := s.machine.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1082,20 +1076,11 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 	}
 
 	assertNotProvisioned()
-	invalidNetworks := []state.NetworkInfo{{Name: ""}}
-	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, invalidNetworks, nil, nil, nil)
-	c.Assert(err, gc.ErrorMatches, `cannot add network "": name must be not empty`)
-	assertNotProvisioned()
-
-	invalidInterfaces := []state.NetworkInterfaceInfo{{MACAddress: ""}}
-	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, invalidInterfaces, nil, nil)
-	c.Assert(err, gc.ErrorMatches, `cannot add network interface "" to machine "1": MAC address must be not empty`)
-	assertNotProvisioned()
 
 	invalidVolumes := map[names.VolumeTag]state.VolumeInfo{
 		names.NewVolumeTag("1065"): state.VolumeInfo{VolumeId: "vol-ume"},
 	}
-	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil)
+	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidVolumes, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set info for volume \"1065\": volume \"1065\" not found`)
 	assertNotProvisioned()
 
@@ -1128,34 +1113,14 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Assert(volumeTag, gc.Equals, names.NewVolumeTag("123/0"))
 
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
-	networks := []state.NetworkInfo{
-		{Name: "net1", ProviderId: "net1", CIDR: "0.1.2.0/24", VLANTag: 0},
-	}
-	interfaces := []state.NetworkInterfaceInfo{
-		{MACAddress: "aa:bb:cc:dd:ee:ff", NetworkName: "net1", InterfaceName: "eth0", IsVirtual: false},
-	}
 	volumeInfo := state.VolumeInfo{
 		VolumeId: "storage-123",
 		Size:     1234,
 	}
 	volumes := map[names.VolumeTag]state.VolumeInfo{volumeTag: volumeInfo}
-	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces, volumes, nil)
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, volumes, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
-	network, err := s.State.Network(networks[0].Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(network.Name(), gc.Equals, networks[0].Name)
-	c.Check(network.ProviderId(), gc.Equals, networks[0].ProviderId)
-	c.Check(network.VLANTag(), gc.Equals, networks[0].VLANTag)
-	c.Check(network.CIDR(), gc.Equals, networks[0].CIDR)
-	ifaces, err := s.machine.NetworkInterfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifaces, gc.HasLen, 1)
-	c.Check(ifaces[0].InterfaceName(), gc.Equals, interfaces[0].InterfaceName)
-	c.Check(ifaces[0].NetworkName(), gc.Equals, interfaces[0].NetworkName)
-	c.Check(ifaces[0].MACAddress(), gc.Equals, interfaces[0].MACAddress)
-	c.Check(ifaces[0].MachineTag(), gc.Equals, s.machine.Tag())
-	c.Check(ifaces[0].IsVirtual(), gc.Equals, interfaces[0].IsVirtual)
 
 	volume, err := s.State.Volume(volumeTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2533,4 +2498,50 @@ func (s *MachineSuite) TestMachineAgentTools(c *gc.C) {
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	testAgentTools(c, m, "machine "+m.Id())
+}
+
+func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
+	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var tests = []struct {
+		actionName      string
+		errString       string
+		givenPayload    map[string]interface{}
+		expectedPayload map[string]interface{}
+	}{
+		{
+			actionName: "juju-run",
+			errString:  `validation failed: (root) : "command" property is missing and required, given {}; (root) : "timeout" property is missing and required, given {}`,
+		},
+		{
+			actionName:      "juju-run",
+			givenPayload:    map[string]interface{}{"command": "allyourbasearebelongtous", "timeout": 5.0},
+			expectedPayload: map[string]interface{}{"command": "allyourbasearebelongtous", "timeout": 5.0},
+		},
+		{
+			actionName: "baiku",
+			errString:  `cannot add action "baiku" to a machine; only predefined actions allowed`,
+		},
+	}
+
+	for i, t := range tests {
+		c.Logf("running test %d", i)
+		action, err := m.AddAction(t.actionName, t.givenPayload)
+		if t.errString != "" {
+			c.Assert(err.Error(), gc.Equals, t.errString)
+			continue
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(action.Parameters(), jc.DeepEquals, t.expectedPayload)
+		}
+	}
+}
+
+func (s *MachineSuite) TestMachineAddDifferentAction(c *gc.C) {
+	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = m.AddAction("benchmark", nil)
+	c.Assert(err, gc.ErrorMatches, `cannot add action "benchmark" to a machine; only predefined actions allowed`)
 }

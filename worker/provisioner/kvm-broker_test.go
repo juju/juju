@@ -16,6 +16,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -34,7 +35,7 @@ import (
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -85,7 +86,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 		agent.AgentConfigParams{
 			Paths:             agent.NewPathsWithDefaults(agent.Paths{DataDir: "/not/used/here"}),
 			Tag:               names.NewUnitTag("ubuntu/1"),
-			UpgradedToVersion: version.Current,
+			UpgradedToVersion: jujuversion.Current,
 			Password:          "dummy-secret",
 			Nonce:             "nonce",
 			APIAddresses:      []string{"10.0.0.1:1234"},
@@ -276,16 +277,17 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 	iface := result.NetworkInfo[0]
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(iface, jc.DeepEquals, network.InterfaceInfo{
-		DeviceIndex:    0,
-		CIDR:           "0.1.2.0/24",
-		ConfigType:     network.ConfigStatic,
-		InterfaceName:  "eth0", // generated from the device index.
-		MACAddress:     "aa:bb:cc:dd:ee:ff",
-		DNSServers:     network.NewAddresses("ns1.dummy"),
-		Address:        network.NewAddress("0.1.2.3"),
-		GatewayAddress: network.NewAddress("0.1.2.1"),
-		NetworkName:    network.DefaultPrivate,
-		ProviderId:     network.DefaultProviderId,
+		DeviceIndex:      0,
+		CIDR:             "0.1.2.0/24",
+		ConfigType:       network.ConfigStatic,
+		InterfaceName:    "eth0", // generated from the device index.
+		DNSServers:       network.NewAddresses("ns1.dummy"),
+		DNSSearchDomains: []string{""},
+		MACAddress:       "aa:bb:cc:dd:ee:ff",
+		Address:          network.NewAddress("0.1.2.3"),
+		GatewayAddress:   network.NewAddress("0.1.2.1"),
+		NetworkName:      network.DefaultPrivate,
+		ProviderId:       network.DefaultProviderId,
 	})
 }
 

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -27,16 +28,16 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.agent")
 
 const (
-	// UninstallAgentFile is the name of the file inside the data
-	// dir that, if it exists, will cause a machine agent to uninstall
-	// when it receives the termination signal.
-	UninstallAgentFile = "uninstall-agent"
+	// BootstrapNonce is used as a nonce for the initial controller machine.
+	BootstrapNonce = "user-admin:bootstrap"
+
+	// BootstrapMachineId is the ID of the initial controller machine.
+	BootstrapMachineId = "0"
 )
 
 // These are base values used for the corresponding defaults.
@@ -154,6 +155,7 @@ const SystemIdentity = "system-identity"
 
 const (
 	LxcBridge              = "LXC_BRIDGE"
+	LxdBridge              = "LXD_BRIDGE"
 	ProviderType           = "PROVIDER_TYPE"
 	ContainerType          = "CONTAINER_TYPE"
 	Namespace              = "NAMESPACE"
@@ -570,15 +572,8 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 	}
 	var addrs []string
 	for _, serverHostPorts := range servers {
-		// Try the preferred approach first.
-		serverHP, ok := network.SelectHostPortBySpace(serverHostPorts, network.DefaultSpace)
-		if ok {
-			addrs = append(addrs, serverHP.NetAddr())
-		} else {
-			// Fallback to the legacy approach.
-			hps := network.SelectInternalHostPorts(serverHostPorts, false)
-			addrs = append(addrs, hps...)
-		}
+		hps := network.SelectInternalHostPorts(serverHostPorts, false)
+		addrs = append(addrs, hps...)
 	}
 	c.apiDetails.addresses = addrs
 	logger.Infof("API server address details %q written to agent config as %q", servers, addrs)

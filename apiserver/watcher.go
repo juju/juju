@@ -51,9 +51,13 @@ func init() {
 		"EntityWatcher", 2, newEntitiesWatcher,
 		reflect.TypeOf((*srvEntitiesWatcher)(nil)),
 	)
+	common.RegisterFacade(
+		"MigrationMasterWatcher", 1, newMigrationMasterWatcher,
+		reflect.TypeOf((*srvMigrationMasterWatcher)(nil)),
+	)
 }
 
-// NewAllModelWatcher returns a new API server endpoint for interacting
+// NewAllWatcher returns a new API server endpoint for interacting
 // with a watcher created by the WatchAll and WatchAllModels API calls.
 func NewAllWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
 	if !auth.AuthClient() {
@@ -369,5 +373,77 @@ func (w *srvEntitiesWatcher) Next() (params.EntitiesWatchResult, error) {
 
 // Stop stops the watcher.
 func (w *srvEntitiesWatcher) Stop() error {
+	return w.resources.Stop(w.id)
+}
+
+func newMigrationMasterWatcher(
+	st *state.State,
+	resources *common.Resources,
+	auth common.Authorizer,
+	id string,
+) (interface{}, error) {
+	if !auth.AuthModelManager() {
+		return nil, common.ErrPerm
+	}
+	w, ok := resources.Get(id).(state.NotifyWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvMigrationMasterWatcher{
+		watcher:   w,
+		id:        id,
+		resources: resources,
+		st:        migrationGetter(st),
+	}, nil
+}
+
+type srvMigrationMasterWatcher struct {
+	watcher   state.NotifyWatcher
+	id        string
+	resources *common.Resources
+	st        modelMigrationGetter
+}
+
+var migrationGetter = func(st *state.State) modelMigrationGetter {
+	return st
+}
+
+type modelMigrationGetter interface {
+	GetModelMigration() (state.ModelMigration, error)
+}
+
+// Next returns when a model migration is active for the associated
+// model. The details for the migration's target controller are
+// returned.
+func (w *srvMigrationMasterWatcher) Next() (params.ModelMigrationTargetInfo, error) {
+	empty := params.ModelMigrationTargetInfo{}
+
+	if _, ok := <-w.watcher.Changes(); !ok {
+		err := w.watcher.Err()
+		if err == nil {
+			err = common.ErrStoppedWatcher
+		}
+		return empty, err
+	}
+
+	mig, err := w.st.GetModelMigration()
+	if err != nil {
+		return empty, errors.Annotate(err, "migration lookup")
+	}
+	info, err := mig.TargetInfo()
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+	return params.ModelMigrationTargetInfo{
+		ControllerTag: info.ControllerTag.String(),
+		Addrs:         info.Addrs,
+		CACert:        info.CACert,
+		AuthTag:       info.AuthTag.String(),
+		Password:      info.Password,
+	}, nil
+}
+
+// Stop stops the watcher.
+func (w *srvMigrationMasterWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }

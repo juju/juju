@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/configstore"
 )
 
 const killDoc = `
@@ -83,27 +82,15 @@ func (c *killCommand) Init(args []string) error {
 
 // Run implements Command.Run
 func (c *killCommand) Run(ctx *cmd.Context) error {
-	store, err := configstore.Default()
-	if err != nil {
-		return errors.Annotate(err, "cannot open controller info storage")
-	}
-
 	controllerName := c.ControllerName()
-	cfgInfo, err := store.ReadInfo(configstore.EnvironInfoName(
-		controllerName, configstore.AdminModelName(controllerName),
-	))
+	store := c.ClientStore()
+	controllerDetails, err := store.ControllerByName(controllerName)
 	if err != nil {
 		return errors.Annotate(err, "cannot read controller info")
 	}
 
-	// Verify that we're destroying a controller
-	apiEndpoint := cfgInfo.APIEndpoint()
-	if apiEndpoint.ServerUUID != "" && apiEndpoint.ModelUUID != apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is not a controller; use juju destroy-model to destroy it", c.ControllerName())
-	}
-
 	if !c.assumeYes {
-		if err = confirmDestruction(ctx, c.ControllerName()); err != nil {
+		if err = confirmDestruction(ctx, controllerName); err != nil {
 			return err
 		}
 	}
@@ -123,37 +110,37 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		api = nil
 	}
 
-	// Obtain bootstrap / controller environ information
-	controllerEnviron, err := c.getControllerModel(cfgInfo, api)
+	// Obtain controller environ so we can clean up afterwards.
+	controllerEnviron, err := c.getControllerEnviron(store, controllerName, api)
 	if err != nil {
-		return errors.Annotate(err, "cannot obtain bootstrap information")
+		return errors.Annotate(err, "getting controller environ")
 	}
 
 	// If we were unable to connect to the API, just destroy the controller through
 	// the environs interface.
 	if api == nil {
 		ctx.Infof("Unable to connect to the API server. Destroying through provider.")
-		return environs.Destroy(c.ControllerName(), controllerEnviron, store, c.ClientStore())
+		return environs.Destroy(controllerName, controllerEnviron, store)
 	}
 
 	// Attempt to destroy the controller and all environments.
 	err = api.DestroyController(true)
 	if err != nil {
 		ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
-		return environs.Destroy(c.ControllerName(), controllerEnviron, store, c.ClientStore())
+		return environs.Destroy(controllerName, controllerEnviron, store)
 	}
 
-	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", c.ControllerName())
+	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", controllerName)
 
-	updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.ModelUUID)
-	for ctrStatus, modelsStatus := updateStatus(0); hasUnDeadModels(modelsStatus); ctrStatus, modelsStatus = updateStatus(2 * time.Second) {
+	updateStatus := newTimedStatusUpdater(ctx, api, controllerDetails.ControllerUUID)
+	for ctrStatus, envsStatus := updateStatus(0); hasUnDeadModels(envsStatus); ctrStatus, envsStatus = updateStatus(2 * time.Second) {
 		ctx.Infof(fmtCtrStatus(ctrStatus))
-		for _, modelStatus := range modelsStatus {
-			ctx.Verbosef(fmtModelStatus(modelStatus))
+		for _, envStatus := range envsStatus {
+			ctx.Verbosef(fmtModelStatus(envStatus))
 		}
 	}
 
 	ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
 
-	return environs.Destroy(c.ControllerName(), controllerEnviron, store, c.ClientStore())
+	return environs.Destroy(controllerName, controllerEnviron, store)
 }

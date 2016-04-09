@@ -129,15 +129,6 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRe
 	return logCh
 }
 
-func (h *logSinkHandler) running() bool {
-	select {
-	case <-h.ctxt.stop():
-		return false
-	default:
-		return true
-	}
-}
-
 // sendError sends a JSON-encoded error response.
 func (h *logSinkHandler) sendError(w io.Writer, req *http.Request, err error) {
 	if err != nil {

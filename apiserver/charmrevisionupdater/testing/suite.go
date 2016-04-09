@@ -6,6 +6,7 @@ package testing
 import (
 	"fmt"
 	"net/http/httptest"
+	"net/url"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,6 +16,7 @@ import (
 	"gopkg.in/juju/charmstore.v5-unstable"
 
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
+	jujucharmstore "github.com/juju/juju/charmstore"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -44,7 +46,7 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 		AuthUsername: "test-user",
 		AuthPassword: "test-password",
 	}
-	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
+	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Handler = handler
 	s.Server = httptest.NewServer(handler)
@@ -66,9 +68,12 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 	s.jcSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	// Patch the charm repo initializer function: it is replaced with a charm
 	// store repo pointing to the testing server.
-	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStore, func(p charmrepo.NewCharmStoreParams) *charmrepo.CharmStore {
-		p.URL = s.Server.URL
-		return charmrepo.NewCharmStore(p)
+	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func() jujucharmstore.Client {
+		var config jujucharmstore.ClientConfig
+		csURL, err := url.Parse(s.Server.URL)
+		c.Assert(err, jc.ErrorIsNil)
+		config.URL = csURL
+		return jujucharmstore.NewClient(config)
 	})
 	s.charms = make(map[string]*state.Charm)
 }
@@ -98,7 +103,13 @@ func (s *CharmSuite) AddCharmWithRevision(c *gc.C, charmName string, rev int) *s
 	ch := testcharms.Repo.CharmDir(charmName)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, rev))
-	dummy, err := s.jcSuite.State.AddCharm(ch, curl, "dummy-path", fmt.Sprintf("%s-%d-sha256", name, rev))
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "dummy-path",
+		SHA256:      fmt.Sprintf("%s-%d-sha256", name, rev),
+	}
+	dummy, err := s.jcSuite.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	s.charms[name] = dummy
 	return dummy

@@ -7,7 +7,6 @@ package lxdclient
 
 import (
 	"crypto/x509"
-	"os"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -43,6 +42,7 @@ type stubClient struct {
 	Instances  []shared.ContainerInfo
 	ReturnCode int
 	Response   *lxd.Response
+	Aliases    map[string]string
 }
 
 func (s *stubClient) WaitForSuccess(waitURL string) error {
@@ -90,6 +90,14 @@ func (s *stubClient) ListContainers() ([]shared.ContainerInfo, error) {
 	return s.Instances, nil
 }
 
+func (s *stubClient) GetAlias(alias string) string {
+	s.stub.AddCall("GetAlias", alias)
+	if err := s.stub.NextErr(); err != nil {
+		return ""
+	}
+	return s.Aliases[alias]
+}
+
 func (s *stubClient) Init(name, remote, image string, profiles *[]string, ephem bool) (*lxd.Response, error) {
 	s.stub.AddCall("AddInstance", name, remote, image, profiles, ephem)
 	if err := s.stub.NextErr(); err != nil {
@@ -115,15 +123,6 @@ func (s *stubClient) Action(name string, action shared.ContainerAction, timeout 
 	}
 
 	return s.Response, nil
-}
-
-func (s *stubClient) Exec(name string, cmd []string, env map[string]string, stdin *os.File, stdout *os.File, stderr *os.File) (int, error) {
-	s.stub.AddCall("Exec", name, cmd, env, stdin, stdout, stderr)
-	if err := s.stub.NextErr(); err != nil {
-		return -1, errors.Trace(err)
-	}
-
-	return s.ReturnCode, nil
 }
 
 func (s *stubClient) SetContainerConfig(name, key, value string) error {

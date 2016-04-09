@@ -11,11 +11,11 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/version"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon.v1"
@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // Client represents the client-accessible part of the state.
@@ -185,33 +184,6 @@ func (c *Client) ModelUUID() string {
 	return tag.Id()
 }
 
-// ShareModel allows the given users access to the model.
-func (c *Client) ShareModel(users ...names.UserTag) error {
-	var args params.ModifyModelUsers
-	for _, user := range users {
-		if &user != nil {
-			args.Changes = append(args.Changes, params.ModifyModelUser{
-				UserTag: user.String(),
-				Action:  params.AddModelUser,
-			})
-		}
-	}
-
-	var result params.ErrorResults
-	err := c.facade.FacadeCall("ShareModel", args, &result)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for i, r := range result.Results {
-		if r.Error != nil && r.Error.Code == params.CodeAlreadyExists {
-			logger.Warningf("model is already shared with %s", users[i].Canonical())
-			result.Results[i].Error = nil
-		}
-	}
-	return result.Combine()
-}
-
 // ModelUserInfo returns information on all users in the model.
 func (c *Client) ModelUserInfo() ([]params.ModelUserInfo, error) {
 	var results params.ModelUserInfoResults
@@ -228,33 +200,6 @@ func (c *Client) ModelUserInfo() ([]params.ModelUserInfo, error) {
 		info = append(info, *result.Result)
 	}
 	return info, nil
-}
-
-// UnshareModel removes access to the model for the given users.
-func (c *Client) UnshareModel(users ...names.UserTag) error {
-	var args params.ModifyModelUsers
-	for _, user := range users {
-		if &user != nil {
-			args.Changes = append(args.Changes, params.ModifyModelUser{
-				UserTag: user.String(),
-				Action:  params.RemoveModelUser,
-			})
-		}
-	}
-
-	var result params.ErrorResults
-	err := c.facade.FacadeCall("ShareModel", args, &result)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for i, r := range result.Results {
-		if r.Error != nil && r.Error.Code == params.CodeNotFound {
-			logger.Warningf("model was not previously shared with user %s", users[i].Canonical())
-			result.Results[i].Error = nil
-		}
-	}
-	return result.Combine()
 }
 
 // WatchAll holds the id of the newly-created AllWatcher/AllModelWatcher.
@@ -324,23 +269,6 @@ func (c *Client) FindTools(majorVersion, minorVersion int, series, arch string) 
 	return result, err
 }
 
-// RunOnAllMachines runs the command on all the machines with the specified
-// timeout.
-func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]params.RunResult, error) {
-	var results params.RunResults
-	args := params.RunParams{Commands: commands, Timeout: timeout}
-	err := c.facade.FacadeCall("RunOnAllMachines", args, &results)
-	return results.Results, err
-}
-
-// Run the Commands specified on the machines identified through the ids
-// provided in the machines, services and units slices.
-func (c *Client) Run(run params.RunParams) ([]params.RunResult, error) {
-	var results params.RunResults
-	err := c.facade.FacadeCall("Run", run, &results)
-	return results.Results, err
-}
-
 // DestroyModel puts the model into a "dying" state,
 // and removes all non-manager machine instances. DestroyModel
 // will fail if there are any manually-provisioned non-manager machines
@@ -356,10 +284,11 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	if curl.Schema != "local" {
 		return nil, errors.Errorf("expected charm URL with local: schema, got %q", curl.String())
 	}
-	httpClient, err := c.st.HTTPClient()
-	if err != nil {
+
+	if err := c.validateCharmVersion(ch); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	// Package the charm for uploading.
 	var archive *os.File
 	switch ch := ch.(type) {
@@ -386,21 +315,53 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 		return nil, errors.Errorf("unknown charm type %T", ch)
 	}
 
-	req, err := http.NewRequest("POST", "/charms?series="+curl.Series, nil)
+	curl, err := c.UploadCharm(curl, archive)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot create upload request")
-	}
-	req.Header.Set("Content-Type", "application/zip")
-
-	var resp params.CharmsResponse
-	if err := httpClient.Do(req, archive, &resp); err != nil {
 		return nil, errors.Trace(err)
 	}
-	curl, err = charm.ParseURL(resp.CharmURL)
+	return curl, nil
+}
+
+// UploadCharm sends the content to the API server using an HTTP post.
+func (c *Client) UploadCharm(curl *charm.URL, content io.ReadSeeker) (*charm.URL, error) {
+	endpoint := "/charms?series=" + curl.Series
+	contentType := "application/zip"
+	var resp params.CharmsResponse
+	if err := c.httpPost(content, endpoint, contentType, &resp); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	curl, err := charm.ParseURL(resp.CharmURL)
 	if err != nil {
 		return nil, errors.Annotatef(err, "bad charm URL in response")
 	}
 	return curl, nil
+}
+
+type minJujuVersionErr struct {
+	*errors.Err
+}
+
+func minVersionError(minver, jujuver version.Number) error {
+	err := errors.NewErr("charm's min version (%s) is higher than this juju environment's version (%s)",
+		minver, jujuver)
+	err.SetLocation(1)
+	return minJujuVersionErr{&err}
+}
+
+func (c *Client) validateCharmVersion(ch charm.Charm) error {
+	minver := ch.Meta().MinJujuVersion
+	if minver != version.Zero {
+		agentver, err := c.AgentVersion()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if minver.Compare(agentver) > 0 {
+			return minVersionError(minver, agentver)
+		}
+	}
+	return nil
 }
 
 // AddCharm adds the given charm URL (which must include revision) to
@@ -456,33 +417,31 @@ func (c *Client) ResolveCharm(ref *charm.URL) (*charm.URL, error) {
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
 func (c *Client) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (*tools.Tools, error) {
 	endpoint := fmt.Sprintf("/tools?binaryVersion=%s&series=%s", vers, strings.Join(additionalSeries, ","))
-
-	req, err := http.NewRequest("POST", endpoint, nil)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot create upload request")
-	}
-	req.Header.Set("Content-Type", "application/x-tar-gz")
-
-	httpClient, err := c.st.HTTPClient()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	contentType := "application/x-tar-gz"
 	var resp params.ToolsResult
-	err = httpClient.Do(req, r, &resp)
-	if err != nil {
-		msg := err.Error()
-		if params.ErrCode(err) == "" && strings.Contains(msg, params.CodeOperationBlocked) {
-			// We're probably talking to an old version of the API server
-			// that doesn't provide error codes.
-			// See https://bugs.launchpad.net/juju-core/+bug/1499277
-			err = &params.Error{
-				Code:    params.CodeOperationBlocked,
-				Message: msg,
-			}
-		}
+	if err := c.httpPost(r, endpoint, contentType, &resp); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return resp.Tools, nil
+}
+
+func (c *Client) httpPost(content io.ReadSeeker, endpoint, contentType string, response interface{}) error {
+	req, err := http.NewRequest("POST", endpoint, nil)
+	if err != nil {
+		return errors.Annotate(err, "cannot create upload request")
+	}
+	req.Header.Set("Content-Type", contentType)
+
+	// The returned httpClient sets the base url to /model/<uuid> if it can.
+	httpClient, err := c.st.HTTPClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := httpClient.Do(req, content, response); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // APIHostPorts returns a slice of network.HostPort for each API server.

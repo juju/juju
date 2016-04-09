@@ -6,15 +6,18 @@ package commands
 import (
 	"encoding/base64"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -127,53 +130,52 @@ func (c *runCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func encodeBytes(input []byte) (value string, encoding string) {
-	if utf8.Valid(input) {
-		value = string(input)
-		encoding = "utf8"
-	} else {
-		value = base64.StdEncoding.EncodeToString(input)
-		encoding = "base64"
-	}
-	return value, encoding
-}
-
-func storeOutput(values map[string]interface{}, key string, input []byte) {
-	value, encoding := encodeBytes(input)
-	values[key] = value
-	if encoding != "utf8" {
-		values[key+".encoding"] = encoding
-	}
-}
-
-// ConvertRunResults takes the results from the api and creates a map
+// ConvertActionResults takes the results from the api and creates a map
 // suitable for format converstion to YAML or JSON.
-func ConvertRunResults(runResults []params.RunResult) interface{} {
-	var results = make([]interface{}, len(runResults))
-
-	for i, result := range runResults {
-		// We always want to have a string for stdout, but only show stderr,
-		// code and error if they are there.
-		values := make(map[string]interface{})
-		values["MachineId"] = result.MachineId
-		if result.UnitId != "" {
-			values["UnitId"] = result.UnitId
-
-		}
-		storeOutput(values, "Stdout", result.Stdout)
-		if len(result.Stderr) > 0 {
-			storeOutput(values, "Stderr", result.Stderr)
-		}
-		if result.Code != 0 {
-			values["ReturnCode"] = result.Code
-		}
-		if result.Error != "" {
-			values["Error"] = result.Error
-		}
-		results[i] = values
+func ConvertActionResults(result params.ActionResult, query actionQuery) map[string]interface{} {
+	values := make(map[string]interface{})
+	values[query.receiver.receiverType] = query.receiver.tag.Id()
+	if result.Error != nil {
+		values["Error"] = result.Error.Error()
+		values["Action"] = query.actionTag.Id()
+		return values
 	}
-
-	return results
+	if result.Action.Tag != query.actionTag.String() {
+		values["Error"] = fmt.Sprintf("expected action tag %q, got %q", query.actionTag.String(), result.Action.Tag)
+		values["Action"] = query.actionTag.Id()
+		return values
+	}
+	if result.Action.Receiver != query.receiver.tag.String() {
+		values["Error"] = fmt.Sprintf("expected action receiver %q, got %q", query.receiver.tag.String(), result.Action.Receiver)
+		values["Action"] = query.actionTag.Id()
+		return values
+	}
+	if result.Message != "" {
+		values["Message"] = result.Message
+	}
+	// We always want to have a string for stdout, but only show stderr,
+	// code and error if they are there.
+	if res, ok := result.Output["Stdout"].(string); ok {
+		values["Stdout"] = res
+		if res, ok := result.Output["StdoutEncoding"].(string); ok && res != "" {
+			values["Stdout.encoding"] = res
+		}
+	} else {
+		values["Stdout"] = ""
+	}
+	if res, ok := result.Output["Stderr"].(string); ok && res != "" {
+		values["Stderr"] = res
+		if res, ok := result.Output["StderrEncoding"].(string); ok && res != "" {
+			values["Stderr.encoding"] = res
+		}
+	}
+	if res, ok := result.Output["Code"].(string); ok {
+		code, err := strconv.Atoi(res)
+		if err == nil && code != 0 {
+			values["ReturnCode"] = code
+		}
+	}
+	return values
 }
 
 func (c *runCommand) Run(ctx *cmd.Context) error {
@@ -183,7 +185,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	var runResults []params.RunResult
+	var runResults []params.ActionResult
 	if c.all {
 		runResults, err = client.RunOnAllMachines(c.commands, c.timeout)
 	} else {
@@ -201,36 +203,160 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
+	actionsToQuery := []actionQuery{}
+	for _, result := range runResults {
+		if result.Error != nil {
+			fmt.Fprintf(ctx.GetStderr(), "couldn't queue one action: %v", result.Error)
+			continue
+		}
+		actionTag, err := names.ParseActionTag(result.Action.Tag)
+		if err != nil {
+			fmt.Fprintf(ctx.GetStderr(), "got invalid action tag %v for receiver %v", result.Action.Tag, result.Action.Receiver)
+			continue
+		}
+
+		receiverTag, err := names.ActionReceiverFromTag(result.Action.Receiver)
+		if err != nil {
+			fmt.Fprintf(ctx.GetStderr(), "got invalid action receiver tag %v for action %v", result.Action.Receiver, result.Action.Tag)
+			continue
+		}
+		var receiverType string
+		switch receiverTag.(type) {
+		case names.UnitTag:
+			receiverType = "UnitId"
+		case names.MachineTag:
+			receiverType = "MachineId"
+		default:
+			receiverType = "ReceiverId"
+		}
+		actionsToQuery = append(actionsToQuery, actionQuery{
+			actionTag: actionTag,
+			receiver: actionReceiver{
+				receiverType: receiverType,
+				tag:          receiverTag,
+			}})
+	}
+
+	if len(actionsToQuery) == 0 {
+		return errors.New("no actions were successfully enqueued, aborting")
+	}
+
+	values := []interface{}{}
+	for len(actionsToQuery) > 0 {
+		actionResults, err := client.Actions(entities(actionsToQuery))
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		newActionsToQuery := []actionQuery{}
+		for i, result := range actionResults.Results {
+			if result.Error == nil {
+				switch result.Status {
+				case params.ActionRunning, params.ActionPending:
+					newActionsToQuery = append(newActionsToQuery, actionsToQuery[i])
+					continue
+				}
+			}
+
+			values = append(values, ConvertActionResults(result, actionsToQuery[i]))
+		}
+
+		actionsToQuery = newActionsToQuery
+
+		// TODO: use a watcher instead of sleeping
+		// this should be easier once we implement action grouping
+		<-afterFunc(1 * time.Second)
+	}
+
 	// If we are just dealing with one result, AND we are using the smart
 	// format, then pretend we were running it locally.
-	if len(runResults) == 1 && c.out.Name() == "smart" {
-		result := runResults[0]
-		ctx.Stdout.Write(result.Stdout)
-		ctx.Stderr.Write(result.Stderr)
-		if result.Error != "" {
-			// Convert the error string back into an error object.
-			return fmt.Errorf("%s", result.Error)
+	if len(values) == 1 && c.out.Name() == "smart" {
+		result, ok := values[0].(map[string]interface{})
+		if !ok {
+			return errors.New("couldn't read action output")
 		}
-		if result.Code != 0 {
-			return cmd.NewRcPassthroughError(result.Code)
+		if res, ok := result["Error"].(string); ok {
+			return errors.New(res)
 		}
+		ctx.Stdout.Write(formatOutput(result, "Stdout"))
+		ctx.Stderr.Write(formatOutput(result, "Stderr"))
+		if code, ok := result["ReturnCode"].(int); ok && code != 0 {
+			return cmd.NewRcPassthroughError(code)
+		}
+		// Message should always contain only errors.
+		if res, ok := result["Message"].(string); ok && res != "" {
+			ctx.Stderr.Write([]byte(res))
+		}
+
 		return nil
 	}
 
-	c.out.Write(ctx, ConvertRunResults(runResults))
-	return nil
+	return c.out.Write(ctx, values)
+}
+
+type actionReceiver struct {
+	receiverType string
+	tag          names.Tag
+}
+
+type actionQuery struct {
+	receiver  actionReceiver
+	actionTag names.ActionTag
+}
+
+// RunClient exposes the capabilities required by the CLI
+type RunClient interface {
+	action.APIClient
+	RunOnAllMachines(commands string, timeout time.Duration) ([]params.ActionResult, error)
+	Run(params.RunParams) ([]params.ActionResult, error)
 }
 
 // In order to be able to easily mock out the API side for testing,
-// the API client is got using a function.
-
-type RunClient interface {
-	Close() error
-	RunOnAllMachines(commands string, timeout time.Duration) ([]params.RunResult, error)
-	Run(run params.RunParams) ([]params.RunResult, error)
+// the API client is retrieved using a function.
+var getRunAPIClient = func(c *runCommand) (RunClient, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return actionapi.NewClient(root), errors.Trace(err)
 }
 
-// Here we need the signature to be correct for the interface.
-var getRunAPIClient = func(c *runCommand) (RunClient, error) {
-	return c.NewAPIClient()
+// getActionResult abstracts over the action CLI function that we use here to fetch results
+var getActionResult = func(c RunClient, actionId string, wait *time.Timer) (params.ActionResult, error) {
+	return action.GetActionResult(c, actionId, wait)
+}
+
+var afterFunc = func(d time.Duration) <-chan time.Time {
+	return time.After(d)
+}
+
+// entities is a convenience constructor for params.Entities.
+func entities(actions []actionQuery) params.Entities {
+	entities := params.Entities{
+		Entities: make([]params.Entity, len(actions)),
+	}
+	for i, action := range actions {
+		entities.Entities[i].Tag = action.actionTag.String()
+	}
+	return entities
+}
+
+func formatOutput(results map[string]interface{}, key string) []byte {
+	res, ok := results[key].(string)
+	if !ok {
+		return []byte("")
+	}
+	if enc, ok := results[key+".encoding"].(string); ok && enc != "" {
+		switch enc {
+		case "base64":
+			decoded, err := base64.StdEncoding.DecodeString(res)
+			if err != nil {
+				return []byte("expected b64 encoded string, got " + res)
+			}
+			return decoded
+		default:
+			return []byte(res)
+		}
+	}
+	return []byte(res)
 }

@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 )
 
 type environSuite struct {
@@ -60,6 +60,8 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 	config, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "some-name",
 		"type":            "some-type",
+		"uuid":            testing.ModelTag.Id(),
+		"controller-uuid": testing.ModelTag.Id(),
 		"authorized-keys": "key",
 	})
 	c.Assert(err, gc.IsNil)

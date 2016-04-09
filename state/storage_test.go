@@ -58,7 +58,7 @@ func (s *StorageStateSuiteBase) SetUpSuite(c *gc.C) {
 		"someprovider", "environscoped", "machinescoped",
 		"environscoped-block", "static",
 	)
-	s.AddSuiteCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *gc.C) {
 		registry.RegisterProvider("environscoped", nil)
 		registry.RegisterProvider("machinescoped", nil)
 		registry.RegisterProvider("environscoped-block", nil)

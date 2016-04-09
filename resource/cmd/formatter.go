@@ -120,7 +120,7 @@ func FormatServiceDetails(sr resource.ServiceResources) (FormattedServiceDetails
 }
 
 // FormatDetailResource converts the arguments into a FormattedServiceResource.
-func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource) (FormattedDetailResource, error) {
+func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource, progress int64) (FormattedDetailResource, error) {
 	// note that the unit resource can be a zero value here, to indicate that
 	// the unit has not downloaded that resource yet.
 
@@ -128,11 +128,27 @@ func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource) (Forma
 	if err != nil {
 		return FormattedDetailResource{}, errors.Trace(err)
 	}
+	progressStr := ""
+	fUnit := FormatSvcResource(unit)
+	expected := FormatSvcResource(svc)
+	revProgress := expected.combinedRevision
+	if progress >= 0 {
+		progressStr = "100%"
+		if expected.Size > 0 {
+			progressStr = fmt.Sprintf("%.f%%", float64(progress)*100.0/float64(expected.Size))
+		}
+		if fUnit.combinedRevision != expected.combinedRevision {
+			revProgress = fmt.Sprintf("%s (fetching: %s)", expected.combinedRevision, progressStr)
+		}
+	}
 	return FormattedDetailResource{
-		UnitID:     tag.Id(),
-		unitNumber: unitNum,
-		Unit:       FormatSvcResource(unit),
-		Expected:   FormatSvcResource(svc),
+		UnitID:      tag.Id(),
+		unitNumber:  unitNum,
+		Unit:        fUnit,
+		Expected:    expected,
+		Progress:    progress,
+		progress:    progressStr,
+		revProgress: revProgress,
 	}, nil
 }
 
@@ -186,7 +202,11 @@ func detailedResources(unit string, sr resource.ServiceResources) ([]FormattedDe
 		if unit == "" || unit == ur.Tag.Id() {
 			units := resourceMap(ur.Resources)
 			for _, svc := range sr.Resources {
-				f, err := FormatDetailResource(ur.Tag, svc, units[svc.Name])
+				progress, ok := ur.DownloadProgress[svc.Name]
+				if !ok {
+					progress = -1
+				}
+				f, err := FormatDetailResource(ur.Tag, svc, units[svc.Name], progress)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}

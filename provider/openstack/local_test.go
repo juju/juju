@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	jujuerrors "github.com/juju/errors"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/client"
 	"gopkg.in/goose.v1/identity"
@@ -36,7 +38,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
@@ -56,7 +57,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ProviderSuite struct {
@@ -166,7 +167,7 @@ func overrideCinderProvider(c *gc.C, s *gitjujutesting.CleanupSuite) {
 		openstack.CinderProviderType,
 		openstack.NewCinderProvider(&mockAdapter{}),
 	)
-	s.AddSuiteCleanup(func(*gc.C) {
+	s.AddCleanup(func(*gc.C) {
 		registry.RegisterProvider(openstack.CinderProviderType, nil)
 		registry.RegisterProvider(openstack.CinderProviderType, old)
 	})
@@ -180,15 +181,14 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 
 	// Set credentials to use when bootstrapping. Must be done after
 	// starting server to get the auth URL.
-	args := prepareForBootstrapParams(nil, s.cred)
-	s.CloudRegion = args.CloudRegion
-	s.CloudEndpoint = args.CloudEndpoint
-	s.Credential = args.Credentials
+	s.Credential = makeCredential(s.cred)
+	s.CloudEndpoint = s.cred.URL
+	s.CloudRegion = s.cred.Region
 
 	s.LiveTests.SetUpSuite(c)
 	openstack.UseTestImageData(openstack.ImageMetadataStorage(s.Env), s.cred)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	overrideCinderProvider(c, &s.CleanupSuite)
 }
 
@@ -227,7 +227,7 @@ type localServerSuite struct {
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	overrideCinderProvider(c, &s.CleanupSuite)
 	c.Logf("Running local tests")
 }
@@ -238,10 +238,9 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 
 	// Set credentials to use when bootstrapping. Must be done after
 	// starting server to get the auth URL.
-	args := prepareForBootstrapParams(nil, s.cred)
-	s.CloudRegion = args.CloudRegion
-	s.CloudEndpoint = args.CloudEndpoint
-	s.Credential = args.Credentials
+	s.Credential = makeCredential(s.cred)
+	s.CloudEndpoint = s.cred.URL
+	s.CloudRegion = s.cred.Region
 
 	cl := client.NewClient(s.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
@@ -253,7 +252,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 		"image-metadata-url": containerURL + "/juju-dist-test",
 		"auth-url":           s.cred.URL,
 	})
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.Tests.SetUpTest(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	s.env = s.Prepare(c)
@@ -280,14 +279,14 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 
 func (s *localServerSuite) TestBootstrap(c *gc.C) {
 	// Tests uses Prepare, so destroy first.
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.ConfigStore, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Tests.TestBootstrap(c)
 }
 
 func (s *localServerSuite) TestStartStop(c *gc.C) {
 	// Tests uses Prepare, so destroy first.
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.ConfigStore, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Tests.TestStartStop(c)
 }
@@ -305,7 +304,7 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.ConfigStore, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a config that matches s.TestConfig but with use-floating-ip set to true
@@ -405,17 +404,14 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.ConfigStore, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"use-floating-ip": false,
-	}))
-	c.Assert(err, jc.ErrorIsNil)
+	attrs := s.TestConfig.Merge(coretesting.Attrs{"use-floating-ip": false})
 	env, err := environs.Prepare(
-		envtesting.BootstrapContext(c), s.ConfigStore,
+		envtesting.BootstrapContext(c),
 		s.ControllerStore,
-		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
+		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
@@ -428,7 +424,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	// Ensure amd64 tools are available, to ensure an amd64 image.
 	amd64Version := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.AMD64,
 	}
 	for _, series := range series.SupportedSeries() {
@@ -437,7 +433,7 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 			c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)
 	}
 
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.ConfigStore, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	env := s.Prepare(c)
@@ -533,7 +529,7 @@ func (s *localServerSuite) TestStopInstance(c *gc.C) {
 	// Openstack now has three security groups for the server, the default
 	// group, one group for the entire environment, and another for the
 	// new instance.
-	eUUID, _ := env.Config().UUID()
+	eUUID := env.Config().UUID()
 	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-%v", eUUID, instanceName)})
 	err = env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -563,7 +559,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
 	inst, _ := testing.AssertStartInstance(c, env, instanceName)
-	eUUID, _ := env.Config().UUID()
+	eUUID := env.Config().UUID()
 	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-%v", eUUID, instanceName)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.StopInstances(inst.Id())
@@ -579,7 +575,7 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInst
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
 	testing.AssertStartInstance(c, env, instanceName)
-	eUUID, _ := env.Config().UUID()
+	eUUID := env.Config().UUID()
 	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-%v", eUUID, instanceName)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.Destroy()
@@ -595,7 +591,7 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlob
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
 	testing.AssertStartInstance(c, env, instanceName)
-	eUUID, _ := env.Config().UUID()
+	eUUID := env.Config().UUID()
 	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-global", eUUID)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.Destroy()
@@ -896,7 +892,7 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 	s.PatchValue(openstack.MakeServiceURL, func(client.AuthenticatingClient, string, []string) (string, error) {
 		return "", errors.New("cannae do it captain")
 	})
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 3)
@@ -910,7 +906,7 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	s.PatchValue(&tools.DefaultBaseURL, "")
 
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 2)
@@ -928,21 +924,21 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 }
 
 func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(a, jc.SameContents, []string{"amd64", "i386", "ppc64el"})
 }
 
 func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	_, ok := environs.SupportsNetworking(env)
 	c.Assert(ok, jc.IsFalse)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 
 	// An error occurs if no suitable image is found.
 	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G", nil)
@@ -950,17 +946,17 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 }
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 cpu-power=10")
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 virt-type=lxd")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power"})
 }
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=arm64")
@@ -969,10 +965,14 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
+
+	cons = constraints.MustParse("virt-type=foo")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=foo\nvalid values are: [kvm lxd]"))
 }
 
 func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 	consA := constraints.MustParse("arch=amd64 mem=1G root-disk=10G")
@@ -983,7 +983,7 @@ func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 }
 
 func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	imageMetadata := []*imagemetadata.ImageMetadata{{
 		Id:   "image-id",
 		Arch: "amd64",
@@ -997,8 +997,62 @@ func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.tiny")
 }
 
+func (s *localServerSuite) TestFindInstanceImageConstraintHypervisor(c *gc.C) {
+	testVirtType := "qemu"
+	env := s.Open(c, s.env.Config())
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:       "image-id",
+		Arch:     "amd64",
+		VirtType: testVirtType,
+	}}
+
+	spec, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "virt-type="+testVirtType,
+		imageMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec.InstanceType.VirtType, gc.NotNil)
+	c.Assert(*spec.InstanceType.VirtType, gc.Equals, testVirtType)
+	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.small")
+}
+
+func (s *localServerSuite) TestFindInstanceImageWithHypervisorNoConstraint(c *gc.C) {
+	testVirtType := "qemu"
+	env := s.Open(c, s.env.Config())
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:       "image-id",
+		Arch:     "amd64",
+		VirtType: testVirtType,
+	}}
+
+	spec, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "",
+		imageMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec.InstanceType.VirtType, gc.NotNil)
+	c.Assert(*spec.InstanceType.VirtType, gc.Equals, testVirtType)
+	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.small")
+}
+
+func (s *localServerSuite) TestFindInstanceNoConstraint(c *gc.C) {
+	env := s.Open(c, s.env.Config())
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:   "image-id",
+		Arch: "amd64",
+	}}
+
+	spec, err := openstack.FindInstanceSpec(
+		env, coretesting.FakeDefaultSeries, "amd64", "",
+		imageMetadata,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec.InstanceType.VirtType, gc.IsNil)
+	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.small")
+}
+
 func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	imageMetadata := []*imagemetadata.ImageMetadata{{
 		Id:   "image-id",
 		Arch: "amd64",
@@ -1011,7 +1065,7 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 }
 
 func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small")
 	placement := ""
 	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
@@ -1019,7 +1073,7 @@ func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 }
 
 func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.large")
 	placement := ""
 	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
@@ -1052,7 +1106,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 }
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
 	c.Assert(err, jc.ErrorIsNil)
 	params.Sources, err = environs.ImageMetadataSources(env)
@@ -1068,7 +1122,7 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 		return simplestreams.NewURLDataSource("my datasource", "bar", false, simplestreams.CUSTOM_CLOUD_DATA, false), nil
 	}
 	environs.RegisterUserImageDataSourceFunc("my func", src)
-	env := s.Open(c)
+	env := s.Open(c, s.env.Config())
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	var sourceIds []string
@@ -1159,7 +1213,7 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 
 func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.srv.UseTLS = true
 	cred := &identity.Credentials{
 		User:       "fred",
@@ -1172,12 +1226,11 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	s.cred = cred
 	attrs := s.createConfigAttrs(c)
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	var err error
 	s.env, err = environs.Prepare(
-		envtesting.BootstrapContext(c), configstore.NewMem(),
+		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
+		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.attrs = s.env.Config().AllAttrs()
@@ -1718,20 +1771,26 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 	assertMetadata(extraKey, extraValue)
 }
 
-func prepareForBootstrapParams(cfg *config.Config, cred *identity.Credentials) environs.PrepareForBootstrapParams {
-	return environs.PrepareForBootstrapParams{
-		Config: cfg,
-		Credentials: cloud.NewCredential(
-			cloud.UserPassAuthType,
-			map[string]string{
-				"username":    cred.User,
-				"password":    cred.Secrets,
-				"tenant-name": cred.TenantName,
-			},
-		),
-		CloudEndpoint: cred.URL,
-		CloudRegion:   cred.Region,
+func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) environs.PrepareParams {
+	return environs.PrepareParams{
+		BaseConfig:     attrs,
+		ControllerName: attrs["name"].(string),
+		Credential:     makeCredential(cred),
+		CloudName:      "openstack",
+		CloudEndpoint:  cred.URL,
+		CloudRegion:    cred.Region,
 	}
+}
+
+func makeCredential(cred *identity.Credentials) cloud.Credential {
+	return cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"username":    cred.User,
+			"password":    cred.Secrets,
+			"tenant-name": cred.TenantName,
+		},
+	)
 }
 
 // noSwiftSuite contains tests that run against an OpenStack service double
@@ -1746,7 +1805,7 @@ type noSwiftSuite struct {
 func (s *noSwiftSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
@@ -1769,7 +1828,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 		"agent-version":   coretesting.FakeVersionNumber.String(),
 		"authorized-keys": "fakekey",
 	})
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	// Serve fake tools and image metadata using "filestorage",
 	// rather than Swift as the rest of the tests do.
 	storageDir := c.MkDir()
@@ -1787,13 +1846,10 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 	openstack.UseTestImageData(imageStorage, s.cred)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, storageDir)
 
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	configStore := configstore.NewMem()
 	env, err := environs.Prepare(
-		envtesting.BootstrapContext(c), configStore,
+		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		cfg.Name(), prepareForBootstrapParams(cfg, s.cred),
+		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
@@ -1816,17 +1872,18 @@ func newFullOpenstackService(mux *http.ServeMux, cred *identity.Credentials, aut
 }
 
 func newNovaOnlyOpenstackService(mux *http.ServeMux, cred *identity.Credentials, auth identity.AuthMode) *novaservice.Nova {
-	var identityService identityservice.IdentityService
+	var identityService, fallbackService identityservice.IdentityService
 	if auth == identity.AuthKeyPair {
 		identityService = identityservice.NewKeyPair()
 	} else {
 		identityService = identityservice.NewUserPass()
+		fallbackService = identityservice.NewV3UserPass()
 	}
 	userInfo := identityService.AddUser(cred.User, cred.Secrets, cred.TenantName)
 	if cred.TenantName == "" {
 		panic("Openstack service double requires a tenant to be specified.")
 	}
-	novaService := novaservice.New(cred.URL, "v2", userInfo.TenantId, cred.Region, identityService)
+	novaService := novaservice.New(cred.URL, "v2", userInfo.TenantId, cred.Region, identityService, fallbackService)
 	identityService.SetupHTTP(mux)
 	novaService.SetupHTTP(mux)
 	return novaService

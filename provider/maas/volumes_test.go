@@ -79,7 +79,7 @@ func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
 		return "unknown", "FAKE"
 	}
 
-	instance := maasInstance{&obj, statusGetter}
+	instance := maas1Instance{&obj, nil, statusGetter}
 	mTag := names.NewMachineTag("1")
 	volumes, attachments, err := instance.volumes(mTag, []names.VolumeTag{
 		names.NewVolumeTag("1"),
@@ -138,7 +138,7 @@ func (s *volumeSuite) TestInstanceVolumesOldMass(c *gc.C) {
 		return "provisioning", "substatus"
 	}
 
-	instance := maasInstance{&obj, statusGetter}
+	instance := maas1Instance{&obj, nil, statusGetter}
 	volumes, attachments, err := instance.volumes(names.NewMachineTag("1"), []names.VolumeTag{
 		names.NewVolumeTag("1"),
 		names.NewVolumeTag("2"),
@@ -153,82 +153,82 @@ var validVolumeJson = `
     "system_id": "node0",
     "physicalblockdevice_set": [
         {
-            "name": "sda", 
+            "name": "sda",
             "tags": [
-                "ssd", 
+                "ssd",
                 "sata"
             ],
-            "id": 1, 
-            "id_path": "/dev/disk/by-id/id_for_sda", 
-            "path": "/dev/sda", 
-            "model": "Samsung_SSD_850_EVO_250GB", 
-            "block_size": 4096, 
-            "serial": "S21NNSAFC38075L", 
+            "id": 1,
+            "id_path": "/dev/disk/by-id/id_for_sda",
+            "path": "/dev/sda",
+            "model": "Samsung_SSD_850_EVO_250GB",
+            "block_size": 4096,
+            "serial": "S21NNSAFC38075L",
             "size": 250059350016
-        }, 
+        },
         {
-            "name": "sdb", 
+            "name": "sdb",
             "tags": [
-                "ssd", 
+                "ssd",
                 "sata"
-            ], 
-            "id": 2, 
-            "path": "/dev/sdb", 
-            "model": "Samsung_SSD_850_EVO_500GB", 
-            "block_size": 4096, 
-            "serial": "S21NNSAFC38076L", 
+            ],
+            "id": 2,
+            "path": "/dev/sdb",
+            "model": "Samsung_SSD_850_EVO_500GB",
+            "block_size": 4096,
+            "serial": "S21NNSAFC38076L",
             "size": 500059350016
         },
         {
-            "name": "sdb", 
+            "name": "sdb",
             "tags": [
-                "ssd", 
+                "ssd",
                 "sata"
-            ], 
-            "id": 3, 
+            ],
+            "id": 3,
             "id_path": "/dev/disk/by-id/id_for_sdc",
-            "path": "/dev/sdc", 
-            "model": "Samsung_SSD_850_EVO_250GB", 
-            "block_size": 4096, 
-            "serial": "S21NNSAFC38999L", 
+            "path": "/dev/sdc",
+            "model": "Samsung_SSD_850_EVO_250GB",
+            "block_size": 4096,
+            "serial": "S21NNSAFC38999L",
             "size": 250362438230
         },
         {
-            "name": "sdd", 
+            "name": "sdd",
             "tags": [
-                "ssd", 
+                "ssd",
                 "sata"
-            ], 
-            "id": 4, 
+            ],
+            "id": 4,
             "id_path": "/dev/disk/by-id/id_for_sdd",
-            "path": "/dev/sdd", 
-            "model": "Samsung_SSD_850_EVO_250GB", 
-            "block_size": 4096, 
-            "serial": "S21NNSAFC386666L", 
+            "path": "/dev/sdd",
+            "model": "Samsung_SSD_850_EVO_250GB",
+            "block_size": 4096,
+            "serial": "S21NNSAFC386666L",
             "size": 250362438230
         },
         {
-            "name": "sde", 
+            "name": "sde",
             "tags": [
-                "ssd", 
+                "ssd",
                 "sata"
-            ], 
-            "id": 666, 
+            ],
+            "id": 666,
             "id_path": "/dev/disk/by-id/id_for_sde",
-            "path": "/dev/sde", 
-            "model": "Samsung_SSD_850_EVO_250GB", 
-            "block_size": 4096, 
-            "serial": "S21NNSAFC388888L", 
+            "path": "/dev/sde",
+            "model": "Samsung_SSD_850_EVO_250GB",
+            "block_size": 4096,
+            "serial": "S21NNSAFC388888L",
             "size": 250362438230
         }
-    ], 
+    ],
     "constraint_map": {
         "1": "root",
         "2": "1",
         "3": "2",
         "4": "3"
     }
-} 
+}
 `[1:]
 
 type storageProviderSuite struct {

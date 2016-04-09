@@ -146,6 +146,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
+	c.Assert(utils.OutgoingAccessAllowed, gc.Equals, false)
 
 	// We do this to isolate invocations of bash from pulling in the
 	// ambient user environment, and potentially affecting the tests.
@@ -200,7 +201,7 @@ func diffStrings(c *gc.C, value, expected string) {
 // TestCleanup is used to allow DumpTestLogsAfter to take any test suite
 // that supports the standard cleanup function.
 type TestCleanup interface {
-	AddCleanup(testing.CleanupFunc)
+	AddCleanup(func(*gc.C))
 }
 
 // DumpTestLogsAfter will write the test logs to stdout if the timeout

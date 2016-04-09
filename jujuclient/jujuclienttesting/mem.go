@@ -5,6 +5,7 @@ package jujuclienttesting
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/jujuclient"
@@ -13,10 +14,11 @@ import (
 // MemStore is an in-memory implementation of jujuclient.ClientStore,
 // intended for testing.
 type MemStore struct {
-	Controllers map[string]jujuclient.ControllerDetails
-	Models      map[string]jujuclient.ControllerAccountModels
-	Accounts    map[string]*jujuclient.ControllerAccounts
-	Credentials map[string]cloud.CloudCredential
+	Controllers     map[string]jujuclient.ControllerDetails
+	Models          map[string]jujuclient.ControllerAccountModels
+	Accounts        map[string]*jujuclient.ControllerAccounts
+	Credentials     map[string]cloud.CloudCredential
+	BootstrapConfig map[string]jujuclient.BootstrapConfig
 }
 
 func NewMemStore() *MemStore {
@@ -25,6 +27,7 @@ func NewMemStore() *MemStore {
 		make(map[string]jujuclient.ControllerAccountModels),
 		make(map[string]*jujuclient.ControllerAccounts),
 		make(map[string]cloud.CloudCredential),
+		make(map[string]jujuclient.BootstrapConfig),
 	}
 }
 
@@ -61,7 +64,20 @@ func (c *MemStore) RemoveController(name string) error {
 	if err := jujuclient.ValidateControllerName(name); err != nil {
 		return err
 	}
-	delete(c.Controllers, name)
+	names := set.NewStrings(name)
+	if namedControllerDetails, ok := c.Controllers[name]; ok {
+		for name, details := range c.Controllers {
+			if details.ControllerUUID == namedControllerDetails.ControllerUUID {
+				names.Add(name)
+			}
+		}
+	}
+	for _, name := range names.Values() {
+		delete(c.Models, name)
+		delete(c.Accounts, name)
+		delete(c.BootstrapConfig, name)
+		delete(c.Controllers, name)
+	}
 	return nil
 }
 
@@ -241,6 +257,14 @@ func (c *MemStore) UpdateAccount(controllerName, accountName string, details juj
 		}
 		c.Accounts[controllerName] = accounts
 	}
+	if len(accounts.Accounts) > 0 {
+		if _, ok := accounts.Accounts[accountName]; !ok {
+			return errors.AlreadyExistsf(
+				"alternative account for controller %s",
+				controllerName,
+			)
+		}
+	}
 	accounts.Accounts[accountName] = details
 	return nil
 
@@ -327,6 +351,9 @@ func (c *MemStore) RemoveAccount(controllerName, accountName string) error {
 		return errors.NotFoundf("account %s:%s", controllerName, accountName)
 	}
 	delete(accounts.Accounts, accountName)
+	if accounts.CurrentAccount == accountName {
+		accounts.CurrentAccount = ""
+	}
 	return nil
 }
 
@@ -351,4 +378,26 @@ func (c *MemStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
 		result[k] = v
 	}
 	return result, nil
+}
+
+// UpdateBootstrapConfig implements BootstrapConfigUpdater.
+func (c *MemStore) UpdateBootstrapConfig(controllerName string, cfg jujuclient.BootstrapConfig) error {
+	if err := jujuclient.ValidateControllerName(controllerName); err != nil {
+		return err
+	}
+	if err := jujuclient.ValidateBootstrapConfig(cfg); err != nil {
+		return err
+	}
+	c.BootstrapConfig[controllerName] = cfg
+	return nil
+
+}
+
+// BootstrapConfigForController implements BootstrapConfigGetter.
+func (c *MemStore) BootstrapConfigForController(controllerName string) (*jujuclient.BootstrapConfig, error) {
+	if cfg, ok := c.BootstrapConfig[controllerName]; ok {
+		return &cfg, nil
+	}
+	return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)
+
 }

@@ -4,15 +4,13 @@
 package action
 
 import (
-	"github.com/juju/loggo"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.action")
 
 func init() {
 	common.RegisterStandardFacade("Action", 1, NewActionAPI)
@@ -23,6 +21,7 @@ type ActionAPI struct {
 	state      *state.State
 	resources  *common.Resources
 	authorizer common.Authorizer
+	check      *common.BlockChecker
 }
 
 // NewActionAPI returns an initialized ActionAPI
@@ -35,6 +34,7 @@ func NewActionAPI(st *state.State, resources *common.Resources, authorizer commo
 		state:      st,
 		resources:  resources,
 		authorizer: authorizer,
+		check:      common.NewBlockChecker(st),
 	}, nil
 }
 
@@ -64,7 +64,7 @@ func (a *ActionAPI) Actions(arg params.Entities) (params.ActionResults, error) {
 			currentResult.Error = common.ServerError(err)
 			continue
 		}
-		response.Results[i] = makeActionResult(receiverTag, action)
+		response.Results[i] = common.MakeActionResult(receiverTag, action)
 	}
 	return response, nil
 }
@@ -89,10 +89,15 @@ func (a *ActionAPI) FindActionTagsByPrefix(arg params.FindTags) (params.FindTags
 // enqueued Action, or an error if there was a problem enqueueing the
 // Action.
 func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
+	if err := a.check.ChangeAllowed(); err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
+	tagToActionReceiver := common.TagToActionReceiverFn(a.state.FindEntity)
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
 	for i, action := range arg.Actions {
 		currentResult := &response.Results[i]
-		receiver, err := tagToActionReceiver(a.state, action.Receiver)
+		receiver, err := tagToActionReceiver(action.Receiver)
 		if err != nil {
 			currentResult.Error = common.ServerError(err)
 			continue
@@ -103,7 +108,7 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 			continue
 		}
 
-		response.Results[i] = makeActionResult(receiver.Tag(), enqueued)
+		response.Results[i] = common.MakeActionResult(receiver.Tag(), enqueued)
 	}
 	return response, nil
 }
@@ -138,6 +143,10 @@ func (a *ActionAPI) ListCompleted(arg params.Entities) (params.ActionsByReceiver
 
 // Cancel attempts to cancel enqueued Actions from running.
 func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
+	if err := a.check.ChangeAllowed(); err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
 	for i, entity := range arg.Entities {
 		currentResult := &response.Results[i]
@@ -167,7 +176,7 @@ func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
 			continue
 		}
 
-		response.Results[i] = makeActionResult(receiverTag, result)
+		response.Results[i] = common.MakeActionResult(receiverTag, result)
 	}
 	return response, nil
 }
@@ -203,10 +212,11 @@ func (a *ActionAPI) ServicesCharmActions(args params.Entities) (params.ServicesC
 // and returns all of the Actions the extractorFn can get out of the
 // ActionReceiver.
 func (a *ActionAPI) internalList(arg params.Entities, fn extractorFn) (params.ActionsByReceivers, error) {
+	tagToActionReceiver := common.TagToActionReceiverFn(a.state.FindEntity)
 	response := params.ActionsByReceivers{Actions: make([]params.ActionsByReceiver, len(arg.Entities))}
 	for i, entity := range arg.Entities {
 		currentResult := &response.Actions[i]
-		receiver, err := tagToActionReceiver(a.state, entity.Tag)
+		receiver, err := tagToActionReceiver(entity.Tag)
 		if err != nil {
 			currentResult.Error = common.ServerError(common.ErrBadId)
 			continue
@@ -221,24 +231,6 @@ func (a *ActionAPI) internalList(arg params.Entities, fn extractorFn) (params.Ac
 		currentResult.Actions = results
 	}
 	return response, nil
-}
-
-// tagToActionReceiver takes a tag string and tries to convert it to an
-// ActionReceiver.
-func tagToActionReceiver(st *state.State, tag string) (state.ActionReceiver, error) {
-	receiverTag, err := names.ParseTag(tag)
-	if err != nil {
-		return nil, common.ErrBadId
-	}
-	entity, err := st.FindEntity(receiverTag)
-	if err != nil {
-		return nil, common.ErrBadId
-	}
-	receiver, ok := entity.(state.ActionReceiver)
-	if !ok {
-		return nil, common.ErrBadId
-	}
-	return receiver, nil
 }
 
 // extractorFn is the generic signature for functions that extract
@@ -265,60 +257,18 @@ func combine(funcs ...extractorFn) extractorFn {
 // pendingActions iterates through the Actions() enqueued for an
 // ActionReceiver, and converts them to a slice of params.ActionResult.
 func pendingActions(ar state.ActionReceiver) ([]params.ActionResult, error) {
-	return convertActions(ar, ar.PendingActions)
+	return common.ConvertActions(ar, ar.PendingActions)
 }
 
 // runningActions iterates through the Actions() running on an
 // ActionReceiver, and converts them to a slice of params.ActionResult.
 func runningActions(ar state.ActionReceiver) ([]params.ActionResult, error) {
-	return convertActions(ar, ar.RunningActions)
+	return common.ConvertActions(ar, ar.RunningActions)
 }
 
 // completedActions iterates through the Actions() that have run to
 // completion for an ActionReceiver, and converts them to a slice of
 // params.ActionResult.
 func completedActions(ar state.ActionReceiver) ([]params.ActionResult, error) {
-	return convertActions(ar, ar.CompletedActions)
-}
-
-// getActionsFn declares the function type that returns a slice of
-// *state.Action and error, used to curry specific list functions.
-type getActionsFn func() ([]*state.Action, error)
-
-// convertActions takes a generic getActionsFn to obtain a slice
-// of *state.Action and then converts them to the API slice of
-// params.ActionResult.
-func convertActions(ar state.ActionReceiver, fn getActionsFn) ([]params.ActionResult, error) {
-	items := []params.ActionResult{}
-	actions, err := fn()
-	if err != nil {
-		return items, err
-	}
-	for _, action := range actions {
-		if action == nil {
-			continue
-		}
-		items = append(items, makeActionResult(ar.Tag(), action))
-	}
-	return items, nil
-}
-
-// makeActionResult does the actual type conversion from *state.Action
-// to params.ActionResult.
-func makeActionResult(actionReceiverTag names.Tag, action *state.Action) params.ActionResult {
-	output, message := action.Results()
-	return params.ActionResult{
-		Action: &params.Action{
-			Receiver:   actionReceiverTag.String(),
-			Tag:        action.ActionTag().String(),
-			Name:       action.Name(),
-			Parameters: action.Parameters(),
-		},
-		Status:    string(action.Status()),
-		Message:   message,
-		Output:    output,
-		Enqueued:  action.Enqueued(),
-		Started:   action.Started(),
-		Completed: action.Completed(),
-	}
+	return common.ConvertActions(ar, ar.CompletedActions)
 }

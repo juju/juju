@@ -4,6 +4,8 @@
 package manual
 
 import (
+	"os"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -12,7 +14,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -89,7 +90,6 @@ touch '/var/lib/juju/uninstall-agent'
 pkill -6 jujud && exit
 stop juju-db
 rm -f /etc/init/juju*
-rm -f /etc/rsyslog.d/*juju*
 rm -fr '/var/lib/juju' '/var/log/juju'
 exit 0
 `)
@@ -132,10 +132,10 @@ func (s *environSuite) TestSupportsNetworking(c *gc.C) {
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	validator, err := s.env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar cpu-power=10 cpu-cores=2 mem=1G")
+	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar cpu-power=10 cpu-cores=2 mem=1G virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "tags"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "tags", "virt-type"})
 }
 
 type bootstrapSuite struct {
@@ -147,40 +147,9 @@ var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-
-	// ensure use-sshstorage=true to mimic what happens
-	// in the real client: the environment is Prepared,
-	// at which point use-sshstorage=true.
-	cfg := MinimalConfig(c)
-	cfg, err := cfg.Apply(map[string]interface{}{
-		"use-sshstorage": true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	env, err := manualProvider{}.Open(cfg)
+	env, err := manualProvider{}.Open(MinimalConfig(c))
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(*manualEnviron)
-}
-
-func (s *bootstrapSuite) TestBootstrapClearsUseSSHStorage(c *gc.C) {
-	s.PatchValue(&manualDetectSeriesAndHardwareCharacteristics, func(string) (instance.HardwareCharacteristics, string, error) {
-		arch := arch.HostArch()
-		return instance.HardwareCharacteristics{Arch: &arch}, "precise", nil
-	})
-	s.PatchValue(&manualCheckProvisioned, func(string) (bool, error) {
-		return false, nil
-	})
-
-	// use-sshstorage is initially true.
-	cfg := s.env.Config()
-	c.Assert(cfg.UnknownAttrs()["use-sshstorage"], jc.IsTrue)
-
-	_, err := s.env.Bootstrap(envtesting.BootstrapContext(c), environs.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Bootstrap must set use-sshstorage to false within the environment.
-	cfg = s.env.Config()
-	c.Assert(cfg.UnknownAttrs()["use-sshstorage"], jc.IsFalse)
 }
 
 type controllerInstancesSuite struct {
@@ -192,15 +161,7 @@ var _ = gc.Suite(&controllerInstancesSuite{})
 
 func (s *controllerInstancesSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	// ensure use-sshstorage=true, or bootstrap-host
-	// verification won't happen in ControllerInstances.
-	cfg := MinimalConfig(c)
-	cfg, err := cfg.Apply(map[string]interface{}{
-		"use-sshstorage": true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	env, err := manualProvider{}.Open(cfg)
+	env, err := manualProvider{}.Open(MinimalConfig(c))
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(*manualEnviron)
 }
@@ -261,13 +222,12 @@ func (s *controllerInstancesSuite) TestControllerInstancesError(c *gc.C) {
 }
 
 func (s *controllerInstancesSuite) TestControllerInstancesInternal(c *gc.C) {
-	// If use-sshstorage=false, then we're on the bootstrap host;
-	// verification is elided.
-	env, err := manualProvider{}.Open(MinimalConfig(c))
-	c.Assert(err, jc.ErrorIsNil)
-
+	// Patch os.Args so it appears that we're running in "jujud".
+	s.PatchValue(&os.Args, []string{"/some/where/containing/jujud", "whatever"})
+	// Patch the ssh executable so that it would cause an error if we
+	// were to call it.
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
-	instances, err := env.ControllerInstances()
+	instances, err := s.env.ControllerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.DeepEquals, []instance.Id{BootstrapInstanceId})
 }

@@ -4,19 +4,21 @@
 package user
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/readpass"
+	"golang.org/x/crypto/ssh/terminal"
+	"gopkg.in/macaroon.v1"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/jujuclient"
 )
 
 // randomPasswordNotify is called when a random password is generated.
@@ -72,16 +74,13 @@ func (c *changePasswordCommand) Init(args []string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if c.User != "" {
-		// TODO(axw) too magical. drop, or error if Generate is not specified
-		c.Generate = true
-	}
 	return nil
 }
 
 // ChangePasswordAPI defines the usermanager API methods that the change
 // password command uses.
 type ChangePasswordAPI interface {
+	CreateLocalLoginMacaroon(names.UserTag) (*macaroon.Macaroon, error)
 	SetPassword(username, password string) error
 	Close() error
 }
@@ -97,13 +96,12 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		defer c.api.Close()
 	}
 
-	newPassword, err := c.generateOrReadPassword(ctx, c.Generate)
+	newPassword, err := generateOrReadPassword(ctx, c.Generate)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	var accountName string
-	var info configstore.EnvironInfo
 	controllerName := c.ControllerName()
 	store := c.ClientStore()
 	if c.User != "" {
@@ -116,68 +114,48 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		info, err = c.ConnectionInfo()
-		if err != nil {
-			return errors.Trace(err)
-		}
 	}
 	accountDetails, err := store.AccountByName(controllerName, accountName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 
-	var oldPassword string
-	if accountDetails != nil {
-		oldPassword = accountDetails.Password
-		accountDetails.Password = newPassword
-	} else {
-		accountDetails = &jujuclient.AccountDetails{
-			User:     accountName,
-			Password: newPassword,
+	if accountDetails != nil && accountDetails.Macaroon == "" {
+		// Generate a macaroon first to guard against I/O failures
+		// occurring after the password has been changed, preventing
+		// future logins.
+		userTag := names.NewUserTag(accountName)
+		macaroon, err := c.api.CreateLocalLoginMacaroon(userTag)
+		if err != nil {
+			return errors.Trace(err)
 		}
-	}
-	if err := c.api.SetPassword(accountDetails.User, newPassword); err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange)
+		accountDetails.Password = ""
+
+		// TODO(axw) update jujuclient with code for marshalling
+		// and unmarshalling macaroons as YAML.
+		macaroonJSON, err := macaroon.MarshalJSON()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		accountDetails.Macaroon = string(macaroonJSON)
+
+		if err := store.UpdateAccount(controllerName, accountName, *accountDetails); err != nil {
+			return errors.Annotate(err, "failed to update client credentials")
+		}
 	}
 
-	if err := c.recordPassword(store, info, controllerName, accountName, *accountDetails); err != nil {
-		if oldPassword != "" {
-			logger.Errorf("updating the cached credentials failed, reverting to original password: %v", err)
-			if setErr := c.api.SetPassword(accountDetails.User, oldPassword); setErr != nil {
-				logger.Errorf(
-					"failed to reset to the old password, you will need to edit your " +
-						"accounts file by hand to specify the new password",
-				)
-				return errors.Annotate(setErr, "failed to set password back")
-			}
-		}
-		return errors.Annotate(err, "failed to record password change for client")
+	if err := c.api.SetPassword(accountName, newPassword); err != nil {
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
-	ctx.Infof("Your password has been updated.")
+	if accountDetails == nil {
+		ctx.Infof("Password for %q has been updated.", c.User)
+	} else {
+		ctx.Infof("Your password has been updated.")
+	}
 	return nil
 }
 
-func (c *changePasswordCommand) recordPassword(
-	store jujuclient.AccountUpdater,
-	info configstore.EnvironInfo,
-	controllerName, accountName string,
-	accountDetails jujuclient.AccountDetails,
-) error {
-	if err := store.UpdateAccount(controllerName, accountName, accountDetails); err != nil {
-		return errors.Trace(err)
-	}
-	if info == nil {
-		return nil
-	}
-	creds := info.APICredentials()
-	creds.Password = accountDetails.Password
-	info.SetAPICredentials(creds)
-	return errors.Trace(info.Write())
-}
-
-var readPassword = readpass.ReadPassword
-
-func (*changePasswordCommand) generateOrReadPassword(ctx *cmd.Context, generate bool) (string, error) {
+func generateOrReadPassword(ctx *cmd.Context, generate bool) (string, error) {
 	if generate {
 		password, err := utils.RandomPassword()
 		if err != nil {
@@ -186,19 +164,28 @@ func (*changePasswordCommand) generateOrReadPassword(ctx *cmd.Context, generate 
 		randomPasswordNotify(password)
 		return password, nil
 	}
+	return readAndConfirmPassword(ctx)
+}
 
+func readAndConfirmPassword(ctx *cmd.Context) (string, error) {
 	// Don't add the carriage returns before readPassword, but add
 	// them directly after the readPassword so any errors are output
 	// on their own lines.
-	fmt.Fprint(ctx.Stdout, "password: ")
-	password, err := readPassword()
-	fmt.Fprint(ctx.Stdout, "\n")
+	//
+	// TODO(axw) retry/loop on failure
+	fmt.Fprint(ctx.Stderr, "password: ")
+	password, err := readPassword(ctx.Stdin)
+	fmt.Fprint(ctx.Stderr, "\n")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	fmt.Fprint(ctx.Stdout, "type password again: ")
-	verify, err := readPassword()
-	fmt.Fprint(ctx.Stdout, "\n")
+	if password == "" {
+		return "", errors.Errorf("you must enter a password")
+	}
+
+	fmt.Fprint(ctx.Stderr, "type password again: ")
+	verify, err := readPassword(ctx.Stdin)
+	fmt.Fprint(ctx.Stderr, "\n")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -206,4 +193,32 @@ func (*changePasswordCommand) generateOrReadPassword(ctx *cmd.Context, generate 
 		return "", errors.New("Passwords do not match")
 	}
 	return password, nil
+}
+
+func readPassword(stdin io.Reader) (string, error) {
+	if f, ok := stdin.(*os.File); ok && terminal.IsTerminal(int(f.Fd())) {
+		password, err := terminal.ReadPassword(int(f.Fd()))
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		return string(password), nil
+	}
+	return readLine(stdin)
+}
+
+func readLine(stdin io.Reader) (string, error) {
+	// Read one byte at a time to avoid reading beyond the delimiter.
+	line, err := bufio.NewReader(byteAtATimeReader{stdin}).ReadString('\n')
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return line[:len(line)-1], nil
+}
+
+type byteAtATimeReader struct {
+	io.Reader
+}
+
+func (r byteAtATimeReader) Read(out []byte) (int, error) {
+	return r.Reader.Read(out[:1])
 }

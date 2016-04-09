@@ -78,16 +78,6 @@ var (
 		return fields, defaults
 	}()
 
-	configImmutableFields = func() []string {
-		var names []string
-		for name, attr := range configSchema {
-			if attr.Immutable {
-				names = append(names, name)
-			}
-		}
-		return names
-	}()
-
 	configSecretFields = []string{
 		cfgClientKey, // only privileged agents should get to talk to LXD
 	}
@@ -246,9 +236,8 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	}
 
 	cfg := lxdclient.Config{
-		Namespace:   c.namespace(),
-		Remote:      remote,
-		ImageStream: lxdclient.ImageStream(c.ImageStream()),
+		Namespace: c.namespace(),
+		Remote:    remote,
 	}
 	cfg, err := cfg.WithDefaults()
 	if err != nil {

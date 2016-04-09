@@ -766,27 +766,13 @@ func (u *UniterAPIV3) WatchConfigSettings(args params.Entities) (params.NotifyWa
 // Unit.WatchActionNotifications(). This method is called from
 // api/uniter/uniter.go WatchActionNotifications().
 func (u *UniterAPIV3) WatchActionNotifications(args params.Entities) (params.StringsWatchResults, error) {
-	nothing := params.StringsWatchResults{}
-
-	result := params.StringsWatchResults{
-		Results: make([]params.StringsWatchResult, len(args.Entities)),
-	}
+	tagToActionReceiver := common.TagToActionReceiverFn(u.st.FindEntity)
+	watchOne := common.WatchOneActionReceiverNotifications(tagToActionReceiver, u.resources.Register)
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return nothing, err
+		return params.StringsWatchResults{}, err
 	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			return nothing, err
-		}
-		err = common.ErrPerm
-		if canAccess(tag) {
-			result.Results[i], err = u.watchOneUnitActionNotifications(tag)
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
+	return common.WatchActionNotifications(args, canAccess, watchOne), nil
 }
 
 // ConfigSettings returns the complete set of service charm config
@@ -934,119 +920,36 @@ func (u *UniterAPIV3) Relation(args params.RelationUnits) (params.RelationResult
 
 // Actions returns the Actions by Tags passed and ensures that the Unit asking
 // for them is the same Unit that has the Actions.
-func (u *UniterAPIV3) Actions(args params.Entities) (params.ActionsQueryResults, error) {
-	nothing := params.ActionsQueryResults{}
-
-	actionFn, err := u.authAndActionFromTagFn()
+func (u *UniterAPIV3) Actions(args params.Entities) (params.ActionResults, error) {
+	canAccess, err := u.accessUnit()
 	if err != nil {
-		return nothing, err
+		return params.ActionResults{}, err
 	}
 
-	results := params.ActionsQueryResults{
-		Results: make([]params.ActionsQueryResult, len(args.Entities)),
-	}
-
-	for i, arg := range args.Entities {
-		action, err := actionFn(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		if action.Status() != state.ActionPending {
-			results.Results[i].Error = common.ServerError(common.ErrActionNotAvailable)
-			continue
-		}
-		results.Results[i].Action.Action = &params.Action{
-			Name:       action.Name(),
-			Parameters: action.Parameters(),
-		}
-	}
-
-	return results, nil
+	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
+	return common.Actions(args, actionFn), nil
 }
 
 // BeginActions marks the actions represented by the passed in Tags as running.
 func (u *UniterAPIV3) BeginActions(args params.Entities) (params.ErrorResults, error) {
-	nothing := params.ErrorResults{}
-
-	actionFn, err := u.authAndActionFromTagFn()
+	canAccess, err := u.accessUnit()
 	if err != nil {
-		return nothing, err
+		return params.ErrorResults{}, err
 	}
 
-	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Entities))}
-
-	for i, arg := range args.Entities {
-		action, err := actionFn(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-
-		_, err = action.Begin()
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-	}
-
-	return results, nil
+	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
+	return common.BeginActions(args, actionFn), nil
 }
 
 // FinishActions saves the result of a completed Action
 func (u *UniterAPIV3) FinishActions(args params.ActionExecutionResults) (params.ErrorResults, error) {
-	nothing := params.ErrorResults{}
-
-	actionFn, err := u.authAndActionFromTagFn()
+	canAccess, err := u.accessUnit()
 	if err != nil {
-		return nothing, err
+		return params.ErrorResults{}, err
 	}
 
-	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Results))}
-
-	for i, arg := range args.Results {
-		action, err := actionFn(arg.ActionTag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		actionResults, err := paramsActionExecutionResultsToStateActionResults(arg)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-
-		_, err = action.Finish(actionResults)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-	}
-
-	return results, nil
-}
-
-// paramsActionExecutionResultsToStateActionResults does exactly what
-// the name implies.
-func paramsActionExecutionResultsToStateActionResults(arg params.ActionExecutionResult) (state.ActionResults, error) {
-	var status state.ActionStatus
-	switch arg.Status {
-	case params.ActionCancelled:
-		status = state.ActionCancelled
-	case params.ActionCompleted:
-		status = state.ActionCompleted
-	case params.ActionFailed:
-		status = state.ActionFailed
-	case params.ActionPending:
-		status = state.ActionPending
-	default:
-		return state.ActionResults{}, errors.Errorf("unrecognized action status '%s'", arg.Status)
-	}
-	return state.ActionResults{
-		Status:  status,
-		Results: arg.Results,
-		Message: arg.Message,
-	}, nil
+	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
+	return common.FinishActions(args, actionFn), nil
 }
 
 // RelationById returns information about all given relations,
@@ -1483,23 +1386,6 @@ func (u *UniterAPIV3) watchOneUnitConfigSettings(tag names.UnitTag) (string, err
 	return "", watcher.EnsureErr(watch)
 }
 
-func (u *UniterAPIV3) watchOneUnitActionNotifications(tag names.UnitTag) (params.StringsWatchResult, error) {
-	nothing := params.StringsWatchResult{}
-	unit, err := u.getUnit(tag)
-	if err != nil {
-		return nothing, err
-	}
-	watch := unit.WatchActionNotifications()
-
-	if changes, ok := <-watch.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: u.resources.Register(watch),
-			Changes:          changes,
-		}, nil
-	}
-	return nothing, watcher.EnsureErr(watch)
-}
-
 func (u *UniterAPIV3) watchOneUnitAddresses(tag names.UnitTag) (string, error) {
 	unit, err := u.getUnit(tag)
 	if err != nil {
@@ -1560,43 +1446,6 @@ func (u *UniterAPIV3) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag
 		return "", common.ErrPerm
 	}
 	return remoteUnitName, nil
-}
-
-// authAndActionFromTagFn first authenticates the request, and then returns
-// a function with which to authenticate and retrieve each action in the
-// request.
-func (u *UniterAPIV3) authAndActionFromTagFn() (func(string) (*state.Action, error), error) {
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return nil, err
-	}
-	unit, ok := u.auth.GetAuthTag().(names.UnitTag)
-	if !ok {
-		return nil, fmt.Errorf("calling entity is not a unit")
-	}
-
-	return func(tag string) (*state.Action, error) {
-		actionTag, err := names.ParseActionTag(tag)
-		if err != nil {
-			return nil, err
-		}
-		action, err := u.st.ActionByTag(actionTag)
-		if err != nil {
-			return nil, err
-		}
-		receiverTag, err := names.ActionReceiverTag(action.Receiver())
-		if err != nil {
-			return nil, err
-		}
-		if unit != receiverTag {
-			return nil, common.ErrPerm
-		}
-
-		if !canAccess(receiverTag) {
-			return nil, common.ErrPerm
-		}
-		return action, nil
-	}, nil
 }
 
 func convertRelationSettings(settings map[string]interface{}) (params.Settings, error) {
@@ -1705,9 +1554,9 @@ func (u *UniterAPIV3) AddMetricBatches(args params.MetricBatchParams) (params.Er
 
 // NetworkConfig returns information about all given relation/unit pairs,
 // including their id, key and the local endpoint.
-func (u *UniterAPIV3) NetworkConfig(args params.RelationUnits) (params.UnitNetworkConfigResults, error) {
+func (u *UniterAPIV3) NetworkConfig(args params.UnitsNetworkConfig) (params.UnitNetworkConfigResults, error) {
 	result := params.UnitNetworkConfigResults{
-		Results: make([]params.UnitNetworkConfigResult, len(args.RelationUnits)),
+		Results: make([]params.UnitNetworkConfigResult, len(args.Args)),
 	}
 
 	canAccess, err := u.accessUnit()
@@ -1715,10 +1564,9 @@ func (u *UniterAPIV3) NetworkConfig(args params.RelationUnits) (params.UnitNetwo
 		return params.UnitNetworkConfigResults{}, err
 	}
 
-	for i, rel := range args.RelationUnits {
-		netConfig, err := u.getOneNetworkConfig(canAccess, rel.Relation, rel.Unit)
+	for i, arg := range args.Args {
+		netConfig, err := u.getOneNetworkConfig(canAccess, arg.UnitTag, arg.BindingName)
 		if err == nil {
-			result.Results[i].Error = nil
 			result.Results[i].Config = netConfig
 		} else {
 			result.Results[i].Error = common.ServerError(err)
@@ -1727,19 +1575,18 @@ func (u *UniterAPIV3) NetworkConfig(args params.RelationUnits) (params.UnitNetwo
 	return result, nil
 }
 
-func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tagUnit string) ([]params.NetworkConfig, error) {
-	unitTag, err := names.ParseUnitTag(tagUnit)
+func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg, bindingName string) ([]params.NetworkConfig, error) {
+	unitTag, err := names.ParseUnitTag(unitTagArg)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	if bindingName == "" {
+		return nil, errors.Errorf("binding name cannot be empty")
 	}
 
 	if !canAccess(unitTag) {
 		return nil, common.ErrPerm
-	}
-
-	relTag, err := names.ParseRelationTag(tagRel)
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	unit, err := u.getUnit(unitTag)
@@ -1756,15 +1603,9 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	rel, err := u.st.KeyRelation(relTag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	endpoint, err := rel.Endpoint(service.Name())
-	if err != nil {
-		return nil, errors.Trace(err)
+	boundSpace, known := bindings[bindingName]
+	if !known {
+		return nil, errors.Errorf("binding name %q not defined by the unit's charm", bindingName)
 	}
 
 	machineID, err := unit.AssignedMachineId()
@@ -1778,11 +1619,11 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 	}
 
 	var results []params.NetworkConfig
-
-	boundSpace, isBound := bindings[endpoint.Name]
-	if !isBound || boundSpace == "" {
-		name := endpoint.Name
-		logger.Debugf("endpoint %q not explicitly bound to a space, using preferred private address for machine %q", name, machineID)
+	if boundSpace == "" {
+		logger.Debugf(
+			"endpoint %q not explicitly bound to a space, using preferred private address for machine %q",
+			bindingName, machineID,
+		)
 
 		privateAddress, err := machine.PrivateAddress()
 		if err != nil && !network.IsNoAddress(err) {
@@ -1793,31 +1634,42 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, tagRel, tag
 			Address: privateAddress.Value,
 		})
 		return results, nil
+	} else {
+		logger.Debugf("endpoint %q is explicitly bound to space %q", bindingName, boundSpace)
 	}
-	logger.Debugf("endpoint %q is explicitly bound to space %q", endpoint.Name, boundSpace)
 
 	// TODO(dimitern): Use NetworkInterfaces() instead later, this is just for
 	// the PoC to enable minimal network-get implementation returning just the
 	// primary address.
 	//
 	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
-	addresses := machine.ProviderAddresses()
+	addresses, err := machine.AllAddresses()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get devices addresses")
+	}
 	logger.Infof(
 		"geting network config for machine %q with addresses %+v, hosting unit %q of service %q, with bindings %+v",
 		machineID, addresses, unit.Name(), service.Name(), bindings,
 	)
 
 	for _, addr := range addresses {
-		space := string(addr.SpaceName)
-		if space != boundSpace {
-			logger.Debugf("skipping address %q: want bound to space %q, got space %q", addr.Value, boundSpace, space)
+		subnet, err := addr.Subnet()
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot get subnet for address %q", addr)
+		}
+		if subnet == nil {
+			logger.Debugf("skipping %s: not linked to a known subnet", addr)
 			continue
 		}
-		logger.Debugf("endpoint %q bound to space %q has address %q", endpoint.Name, boundSpace, addr.Value)
+		if space := subnet.SpaceName(); space != boundSpace {
+			logger.Debugf("skipping %s: want bound to space %q, got space %q", addr, boundSpace, space)
+			continue
+		}
+		logger.Debugf("endpoint %q bound to space %q has address %q", bindingName, boundSpace, addr)
 
 		// TODO(dimitern): Fill in the rest later (see linked LKK card above).
 		results = append(results, params.NetworkConfig{
-			Address: addr.Value,
+			Address: addr.Value(),
 		})
 	}
 

@@ -115,8 +115,8 @@ func (st *State) relation(relationTag, unitTag names.Tag) (params.RelationResult
 }
 
 // getOneAction retrieves a single Action from the controller.
-func (st *State) getOneAction(tag *names.ActionTag) (params.ActionsQueryResult, error) {
-	nothing := params.ActionsQueryResult{}
+func (st *State) getOneAction(tag *names.ActionTag) (params.ActionResult, error) {
+	nothing := params.ActionResult{}
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -124,7 +124,7 @@ func (st *State) getOneAction(tag *names.ActionTag) (params.ActionsQueryResult, 
 		},
 	}
 
-	var results params.ActionsQueryResults
+	var results params.ActionResults
 	err := st.facade.FacadeCall("Actions", args, &results)
 	if err != nil {
 		return nothing, err
@@ -217,8 +217,8 @@ func (st *State) Action(tag names.ActionTag) (*Action, error) {
 		return nil, err
 	}
 	return &Action{
-		name:   result.Action.Action.Name,
-		params: result.Action.Action.Parameters,
+		name:   result.Action.Name,
+		params: result.Action.Parameters,
 	}, nil
 }
 

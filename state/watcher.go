@@ -125,6 +125,7 @@ func collect(one watcher.Change, more <-chan watcher.Change, stop <-chan struct{
 		result[ch.Id] = ch.Revno != -1
 	}
 	handle(one)
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	timeout := time.After(10 * time.Millisecond)
 	for done := false; !done; {
 		select {
@@ -191,7 +192,7 @@ func (st *State) WatchModels() StringsWatcher {
 // WatchIPAddresses returns a StringsWatcher that notifies of changes to the
 // lifecycles of IP addresses.
 func (st *State) WatchIPAddresses() StringsWatcher {
-	return newLifecycleWatcher(st, ipaddressesC, nil, nil, nil)
+	return newLifecycleWatcher(st, legacyipaddressesC, nil, nil, nil)
 }
 
 // WatchModelVolumes returns a StringsWatcher that notifies of changes to
@@ -1502,7 +1503,7 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 			u.st.docID(u.globalMeterStatusKey()),
 		}, {
 			metricsManagerC,
-			u.st.docID(metricsManagerKey),
+			metricsManagerKey,
 		},
 	})
 }
@@ -2297,16 +2298,6 @@ func ensureSuffixFn(marker string) func(string) string {
 	}
 }
 
-// watchEnqueuedActions starts and returns a StringsWatcher that
-// notifies on new Actions being enqueued.
-func (st *State) watchEnqueuedActions() StringsWatcher {
-	return newcollectionWatcher(st, colWCfg{
-		col:    actionNotificationsC,
-		filter: makeIdFilter(st, actionMarker),
-		idconv: actionNotificationIdToActionId,
-	})
-}
-
 // watchEnqueuedActionsFilteredBy starts and returns a StringsWatcher
 // that notifies on new Actions being enqueued on the ActionRecevers
 // being watched.
@@ -2641,6 +2632,170 @@ func (w *blockDevicesWatcher) loop() error {
 				blockDevices = newBlockDevices
 				out = w.out
 			}
+		case out <- struct{}{}:
+			out = nil
+		}
+	}
+}
+
+// WatchForModelMigration returns a notify watcher which reports when
+// a migration is in progress for the model associated with the
+// State. Only in-progress and newly created migrations are reported.
+func (st *State) WatchForModelMigration() (NotifyWatcher, error) {
+	return newMigrationActiveWatcher(st), nil
+}
+
+type migrationActiveWatcher struct {
+	commonWatcher
+	collName string
+	sink     chan struct{}
+}
+
+func newMigrationActiveWatcher(st *State) NotifyWatcher {
+	w := &migrationActiveWatcher{
+		commonWatcher: commonWatcher{st: st},
+		collName:      modelMigrationsActiveC,
+		sink:          make(chan struct{}),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.sink)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for this watcher.
+func (w *migrationActiveWatcher) Changes() <-chan struct{} {
+	return w.sink
+}
+
+func (w *migrationActiveWatcher) loop() error {
+	in := make(chan watcher.Change)
+	filter := func(id interface{}) bool {
+		// Only report migrations for the requested model.
+		if id, ok := id.(string); ok {
+			return id == w.st.ModelUUID()
+		}
+		return false
+	}
+	w.st.watcher.WatchCollectionWithFilter(w.collName, in, filter)
+	defer w.st.watcher.UnwatchCollection(w.collName, in)
+
+	var out chan<- struct{}
+
+	// Check if a migration is already in progress and if so, report it immediately.
+	if active, err := w.st.IsModelMigrationActive(); err != nil {
+		return errors.Trace(err)
+	} else if active {
+		out = w.sink
+	}
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case change := <-in:
+			// Ignore removals from the collection.
+			if change.Revno == -1 {
+				continue
+			}
+
+			if _, ok := collect(change, in, w.tomb.Dying()); !ok {
+				return tomb.ErrDying
+			}
+			out = w.sink
+		case out <- struct{}{}:
+			out = nil
+		}
+	}
+}
+
+// WatchMigrationStatus returns a NotifyWatcher which triggers
+// whenever the status of latest migration for the State's model
+// changes. One instance can be used across migrations. The watcher
+// will report changes when one migration finishes and another one
+// begins.
+//
+// Note that this watcher does not produce an initial event if there's
+// never been a migration attempt for the model.
+func (st *State) WatchMigrationStatus() (NotifyWatcher, error) {
+	return newMigrationStatusWatcher(st), nil
+}
+
+type migrationStatusWatcher struct {
+	commonWatcher
+	collName string
+	sink     chan struct{}
+}
+
+func newMigrationStatusWatcher(st *State) NotifyWatcher {
+	w := &migrationStatusWatcher{
+		commonWatcher: commonWatcher{st: st},
+		collName:      modelMigrationStatusC,
+		sink:          make(chan struct{}),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.sink)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for this watcher.
+func (w *migrationStatusWatcher) Changes() <-chan struct{} {
+	return w.sink
+}
+
+func (w *migrationStatusWatcher) loop() error {
+	in := make(chan watcher.Change)
+
+	// Watch the entire modelMigrationStatusC collection for migration
+	// status updates related to the State's model. This is more
+	// efficient and simpler than tracking the current active
+	// migration (and changing watchers when one migration finishes
+	// and another starts.
+	//
+	// This approach is safe because there are strong guarantees that
+	// there will only be one active migration per model. The watcher
+	// will only see changes for one migration status document at a
+	// time for the model.
+	filter := func(id interface{}) bool {
+		_, err := w.st.strictLocalID(id.(string))
+		return err == nil
+	}
+	w.st.watcher.WatchCollectionWithFilter(w.collName, in, filter)
+	defer w.st.watcher.UnwatchCollection(w.collName, in)
+
+	var out chan<- struct{}
+
+	// If there is a migration record for the model - active or not -
+	// send an initial event.
+	if _, err := w.st.GetModelMigration(); errors.IsNotFound(err) {
+		// Nothing to report.
+	} else if err != nil {
+		return errors.Trace(err)
+	} else {
+		out = w.sink
+	}
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case change := <-in:
+			if change.Revno == -1 {
+				return errors.New("model migration status disappeared (shouldn't happen)")
+			}
+			if _, ok := collect(change, in, w.tomb.Dying()); !ok {
+				return tomb.ErrDying
+			}
+			out = w.sink
 		case out <- struct{}{}:
 			out = nil
 		}

@@ -16,12 +16,13 @@ var _ = gc.Suite(&internalUserSuite{})
 
 func (s *internalUserSuite) TestCreateInitialUserOp(c *gc.C) {
 	tag := names.NewUserTag("AdMiN")
-	op := createInitialUserOp(nil, tag, "abc")
+	op := createInitialUserOp(nil, tag, "abc", "salt")
 	c.Assert(op.Id, gc.Equals, "admin")
 
 	doc := op.Insert.(*userDoc)
 	c.Assert(doc.DocID, gc.Equals, "admin")
 	c.Assert(doc.Name, gc.Equals, "AdMiN")
+	c.Assert(doc.PasswordSalt, gc.Equals, "salt")
 }
 
 func (s *internalUserSuite) TestCaseNameVsId(c *gc.C) {

@@ -43,12 +43,7 @@ var _ = gc.Suite(&DeployLocalSuite{})
 func (s *DeployLocalSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	s.repo = &charmrepo.LocalRepository{Path: testcharms.Repo.Path()}
-	s.oldCacheDir, charmrepo.CacheDir = charmrepo.CacheDir, c.MkDir()
-}
-
-func (s *DeployLocalSuite) TearDownSuite(c *gc.C) {
-	charmrepo.CacheDir = s.oldCacheDir
-	s.JujuConnSuite.TearDownSuite(c)
+	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 }
 
 func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
@@ -102,7 +97,7 @@ func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
-	wordpressCharm := s.addWordpressCharm(c)
+	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 
 	service, err := juju.DeployService(s.State,
 		juju.DeployServiceParams{
@@ -113,17 +108,32 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertBindings(c, service, map[string]string{
+		// relation names
 		"url":             "",
 		"logging-dir":     "",
 		"monitoring-port": "",
 		"db":              "",
 		"cache":           "",
+		"cluster":         "",
+		// extra-bindings names
+		"db-client": "",
+		"admin-api": "",
+		"foo-bar":   "",
 	})
 }
 
 func (s *DeployLocalSuite) addWordpressCharm(c *gc.C) *state.Charm {
 	wordpressCharmURL := charm.MustParseURL("local:quantal/wordpress")
-	wordpressCharm, err := testing.PutCharm(s.State, wordpressCharmURL, s.repo, false)
+	return s.addWordpressCharmFromURL(c, wordpressCharmURL)
+}
+
+func (s *DeployLocalSuite) addWordpressCharmWithExtraBindings(c *gc.C) *state.Charm {
+	wordpressCharmURL := charm.MustParseURL("local:quantal/wordpress-extra-bindings")
+	return s.addWordpressCharmFromURL(c, wordpressCharmURL)
+}
+
+func (s *DeployLocalSuite) addWordpressCharmFromURL(c *gc.C, charmURL *charm.URL) *state.Charm {
+	wordpressCharm, err := testing.PutCharm(s.State, charmURL, s.repo, false)
 	c.Assert(err, jc.ErrorIsNil)
 	return wordpressCharm
 }
@@ -153,11 +163,51 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertBindings(c, service, map[string]string{
+		// relation names
 		"url":             "public",
 		"logging-dir":     "public",
 		"monitoring-port": "public",
 		"db":              "db",
 		"cache":           "public",
+		// extra-bindings names
+		"db-client": "public",
+		"admin-api": "public",
+		"foo-bar":   "public",
+	})
+}
+
+func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames(c *gc.C) {
+	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
+	_, err := s.State.AddSpace("db", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("public", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("internal", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	service, err := juju.DeployService(s.State,
+		juju.DeployServiceParams{
+			ServiceName: "bob",
+			Charm:       wordpressCharm,
+			EndpointBindings: map[string]string{
+				"":          "public",
+				"db":        "db",
+				"db-client": "db",
+				"admin-api": "internal",
+			},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertBindings(c, service, map[string]string{
+		"url":             "public",
+		"logging-dir":     "public",
+		"monitoring-port": "public",
+		"db":              "db",
+		"cache":           "public",
+		"db-client":       "db",
+		"admin-api":       "internal",
+		"cluster":         "public",
+		"foo-bar":         "public", // like for relations, uses the service-default.
 	})
 }
 

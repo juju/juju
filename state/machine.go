@@ -14,11 +14,13 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -26,7 +28,6 @@ import (
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // Machine represents the state of a machine.
@@ -461,21 +462,7 @@ func (m *Machine) getPasswordHash() string {
 // for the given machine.
 func (m *Machine) PasswordValid(password string) bool {
 	agentHash := utils.AgentPasswordHash(password)
-	if agentHash == m.doc.PasswordHash {
-		return true
-	}
-	// In Juju 1.16 and older we used the slower password hash for unit
-	// agents. So check to see if the supplied password matches the old
-	// path, and if so, update it to the new mechanism.
-	// We ignore any error in setting the password, as we'll just try again
-	// next time
-	if utils.UserPasswordHash(password, utils.CompatSalt) == m.doc.PasswordHash {
-		logger.Debugf("%s logged in with old password hash, changing to AgentPasswordHash",
-			m.Tag())
-		m.setPasswordHash(agentHash)
-		return true
-	}
-	return false
+	return agentHash == m.doc.PasswordHash
 }
 
 // Destroy sets the machine lifecycle to Dying if it is Alive. It does
@@ -905,6 +892,14 @@ func (m *Machine) Remove() (err error) {
 	if err != nil {
 		return err
 	}
+	linkLayerDevicesOps, err := m.removeAllLinkLayerDevicesOps()
+	if err != nil {
+		return err
+	}
+	devicesAddressesOps, err := m.removeAllAddressesOps()
+	if err != nil {
+		return err
+	}
 	portsOps, err := m.removePortsOps()
 	if err != nil {
 		return err
@@ -918,6 +913,8 @@ func (m *Machine) Remove() (err error) {
 		return err
 	}
 	ops = append(ops, ifacesOps...)
+	ops = append(ops, linkLayerDevicesOps...)
+	ops = append(ops, devicesAddressesOps...)
 	ops = append(ops, portsOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	ops = append(ops, filesystemOps...)
@@ -970,6 +967,7 @@ func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 				return nil
 			}
 		case <-time.After(timeout):
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			return fmt.Errorf("still not alive after timeout")
 		case <-m.st.pwatcher.Dead():
 			return m.st.pwatcher.Err()
@@ -1042,14 +1040,6 @@ func (m *Machine) SetInstanceStatus(instanceStatus status.Status, info string, d
 // this juju machine is deployed.
 func (u *Machine) InstanceStatusHistory(size int) ([]status.StatusInfo, error) {
 	return statusHistory(u.st, u.globalInstanceKey(), size)
-}
-
-// StatusHistory returns a slice of at most <size> StatusInfo items
-// representing past statuses for this machine.
-// Machine refers to what juju calls Machine which is an entity representing
-// the underlying [v]hardware and its characteristics.
-func (u *Machine) StatusHistory(size int) ([]status.StatusInfo, error) {
-	return statusHistory(u.st, u.globalKey(), size)
 }
 
 // AvailabilityZone returns the provier-specific instance availability
@@ -1153,40 +1143,21 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	return fmt.Errorf("already set")
 }
 
-// SetInstanceInfo is used to provision a machine and in one steps set
-// it's instance id, nonce, hardware characteristics, add networks and
-// network interfaces as needed.
-//
-// TODO(dimitern) Do all the operations described in a single
-// transaction, rather than using separate calls. Alternatively,
-// we can add all the things to create/set in a document in some
-// collection and have a worker that takes care of the actual work.
-// Merge SetProvisioned() in here or drop it at that point.
+// SetInstanceInfo is used to provision a machine and in one steps set it's
+// instance id, nonce, hardware characteristics, add link-layer devices and set
+// their addresses as needed.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
-	networks []NetworkInfo, interfaces []NetworkInterfaceInfo,
+	devicesArgs []LinkLayerDeviceArgs, devicesAddrs []LinkLayerDeviceAddress,
 	volumes map[names.VolumeTag]VolumeInfo,
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 ) error {
 
-	// Add the networks and interfaces first.
-	for _, network := range networks {
-		_, err := m.st.AddNetwork(network)
-		if err != nil && errors.IsAlreadyExists(err) {
-			// Ignore already existing networks.
-			continue
-		} else if err != nil {
-			return errors.Trace(err)
-		}
+	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
+		return errors.Trace(err)
 	}
-	for _, iface := range interfaces {
-		_, err := m.AddNetworkInterface(iface)
-		if err != nil && errors.IsAlreadyExists(err) {
-			// Ignore already existing network interfaces.
-			continue
-		} else if err != nil {
-			return errors.Trace(err)
-		}
+	if err := m.SetDevicesAddressesIdempotently(devicesAddrs); err != nil {
+		return errors.Trace(err)
 	}
 	if err := setProvisionedVolumeInfo(m.st, volumes); err != nil {
 		return errors.Trace(err)
@@ -1398,7 +1369,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 	if !m.IsContainer() {
 		// Check addresses first. We'll only add those addresses
 		// which are not in the IP address collection.
-		ipAddresses, closer := m.st.getCollection(ipaddressesC)
+		ipAddresses, closer := m.st.getCollection(legacyipaddressesC)
 		defer closer()
 
 		addressValues := make([]string, len(addresses))
@@ -1733,6 +1704,12 @@ func (m *Machine) SetStatus(machineStatus status.Status, info string, data map[s
 	})
 }
 
+// StatusHistory returns a slice of at most <size> StatusInfo items
+// representing past statuses for this machine.
+func (m *Machine) StatusHistory(size int) ([]status.StatusInfo, error) {
+	return statusHistory(m.st, m.globalKey(), size)
+}
+
 // Clean returns true if the machine does not have any deployed units or containers.
 func (m *Machine) Clean() bool {
 	return m.doc.Clean
@@ -1842,4 +1819,53 @@ func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
 // VolumeAttachments returns the machine's volume attachments.
 func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
 	return m.st.MachineVolumeAttachments(m.MachineTag())
+}
+
+// AddAction is part of the ActionReceiver interface.
+func (m *Machine) AddAction(name string, payload map[string]interface{}) (Action, error) {
+	spec, ok := actions.PredefinedActionsSpec[name]
+	if !ok {
+		return nil, errors.Errorf("cannot add action %q to a machine; only predefined actions allowed", name)
+	}
+
+	// Reject bad payloads before attempting to insert defaults.
+	err := spec.ValidateParams(payload)
+	if err != nil {
+		return nil, err
+	}
+	payloadWithDefaults, err := spec.InsertDefaults(payload)
+	if err != nil {
+		return nil, err
+	}
+	return m.st.EnqueueAction(m.Tag(), name, payloadWithDefaults)
+}
+
+// CancelAction is part of the ActionReceiver interface.
+func (m *Machine) CancelAction(action Action) (Action, error) {
+	return action.Finish(ActionResults{Status: ActionCancelled})
+}
+
+// WatchActionNotifications is part of the ActionReceiver interface.
+func (m *Machine) WatchActionNotifications() StringsWatcher {
+	return m.st.watchEnqueuedActionsFilteredBy(m)
+}
+
+// Actions is part of the ActionReceiver interface.
+func (m *Machine) Actions() ([]Action, error) {
+	return m.st.matchingActions(m)
+}
+
+// CompletedActions is part of the ActionReceiver interface.
+func (m *Machine) CompletedActions() ([]Action, error) {
+	return m.st.matchingActionsCompleted(m)
+}
+
+// PendingActions is part of the ActionReceiver interface.
+func (m *Machine) PendingActions() ([]Action, error) {
+	return m.st.matchingActionsPending(m)
+}
+
+// RunningActions is part of the ActionReceiver interface.
+func (m *Machine) RunningActions() ([]Action, error) {
+	return m.st.matchingActionsRunning(m)
 }

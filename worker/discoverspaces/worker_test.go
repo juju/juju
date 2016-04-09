@@ -4,9 +4,10 @@
 package discoverspaces_test
 
 import (
+	"time"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -15,27 +16,27 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/discoverspaces"
+	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/workertest"
 )
 
-type workerSuite struct {
+type WorkerSuite struct {
+	// TODO(fwereade): we *really* should not be using
+	// JujuConnSuite in new code.
 	testing.JujuConnSuite
 
-	Worker  worker.Worker
-	OpsChan chan dummy.Operation
-
-	APIConnection    api.Connection
-	API              *apidiscoverspaces.API
-	spacesDiscovered chan struct{}
+	APIConnection api.Connection
+	API           *apidiscoverspaces.API
 }
 
-var _ = gc.Suite(&workerSuite{})
+var _ = gc.Suite(&WorkerSuite{})
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
+func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	// Unbreak dummy provider methods.
@@ -43,133 +44,150 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 
 	s.APIConnection, _ = s.OpenAPIAsNewMachine(c, state.JobManageModel)
 	s.API = s.APIConnection.DiscoverSpaces()
-
-	s.OpsChan = make(chan dummy.Operation, 10)
-	dummy.Listen(s.OpsChan)
-	s.spacesDiscovered = nil
 }
 
-func (s *workerSuite) startWorker() {
-	s.Worker, s.spacesDiscovered = discoverspaces.NewWorker(s.API)
-}
-
-func (s *workerSuite) TearDownTest(c *gc.C) {
-	if s.Worker != nil {
-		c.Assert(worker.Stop(s.Worker), jc.ErrorIsNil)
+func (s *WorkerSuite) TearDownTest(c *gc.C) {
+	if s.APIConnection != nil {
+		c.Check(s.APIConnection.Close(), jc.ErrorIsNil)
 	}
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *workerSuite) TestConvertSpaceName(c *gc.C) {
-	empty := set.Strings{}
-	nameTests := []struct {
-		name     string
-		existing set.Strings
-		expected string
-	}{
-		{"foo", empty, "foo"},
-		{"foo1", empty, "foo1"},
-		{"Foo Thing", empty, "foo-thing"},
-		{"foo^9*//++!!!!", empty, "foo9"},
-		{"--Foo", empty, "foo"},
-		{"---^^&*()!", empty, "empty"},
-		{" ", empty, "empty"},
-		{"", empty, "empty"},
-		{"foo\u2318", empty, "foo"},
-		{"foo--", empty, "foo"},
-		{"-foo--foo----bar-", empty, "foo-foo-bar"},
-		{"foo-", set.NewStrings("foo", "bar", "baz"), "foo-2"},
-		{"foo", set.NewStrings("foo", "foo-2"), "foo-3"},
-		{"---", set.NewStrings("empty"), "empty-2"},
-	}
-	for _, test := range nameTests {
-		result := discoverspaces.ConvertSpaceName(test.name, test.existing)
-		c.Check(result, gc.Equals, test.expected)
-	}
-}
+func (s *WorkerSuite) TestSupportsSpaceDiscoveryBroken(c *gc.C) {
+	s.AssertConfigParameterUpdated(c, "broken", "SupportsSpaceDiscovery")
 
-func (s *workerSuite) TestWorkerIsStringsWorker(c *gc.C) {
-	s.startWorker()
-	c.Assert(s.Worker, gc.Not(gc.FitsTypeOf), worker.FinishedWorker{})
-}
+	worker, lock := s.startWorker(c)
+	err := workertest.CheckKilled(c, worker)
+	c.Assert(err, gc.ErrorMatches, "dummy.SupportsSpaceDiscovery is broken")
 
-func (s *workerSuite) assertSpaceDiscoveryCompleted(c *gc.C) {
-	c.Assert(s.spacesDiscovered, gc.NotNil)
 	select {
-	case <-s.spacesDiscovered:
-		// The channel was closed as it should be
-		return
-	default:
-		c.Fatalf("Space discovery channel not closed")
+	case <-time.After(coretesting.ShortWait):
+	case <-lock.Unlocked():
+		c.Fatalf("gate unlocked despite worker failure")
 	}
 }
 
-func (s *workerSuite) TestWorkerSupportsNetworkingFalse(c *gc.C) {
+func (s *WorkerSuite) TestSpacesBroken(c *gc.C) {
+	dummy.SetSupportsSpaceDiscovery(true)
+	s.AssertConfigParameterUpdated(c, "broken", "Spaces")
+
+	worker, lock := s.startWorker(c)
+	err := workertest.CheckKilled(c, worker)
+	c.Assert(err, gc.ErrorMatches, "dummy.Spaces is broken")
+
+	select {
+	case <-time.After(coretesting.ShortWait):
+	case <-lock.Unlocked():
+		c.Fatalf("gate unlocked despite worker failure")
+	}
+}
+
+func (s *WorkerSuite) TestWorkerSupportsNetworkingFalse(c *gc.C) {
 	// We set SupportsSpaceDiscovery to true so that spaces *would* be
 	// discovered if networking was supported. So we know that if they're
 	// discovered it must be because networking is not supported.
 	dummy.SetSupportsSpaceDiscovery(true)
+
+	// TODO(fwereade): monkey-patching remote packages is even worse
+	// than monkey-patching local packages, please don't do it.
 	noNetworking := func(environs.Environ) (environs.NetworkingEnviron, bool) {
 		return nil, false
 	}
 	s.PatchValue(&environs.SupportsNetworking, noNetworking)
-	s.startWorker()
 
-	// No spaces will have been created, worker does nothing.
-	for a := common.ShortAttempt.Start(); a.Next(); {
-		spaces, err := s.State.AllSpaces()
-		c.Assert(err, jc.ErrorIsNil)
-		if len(spaces) != 0 {
-			c.Fatalf("spaces should not be created, we have %v", len(spaces))
-		}
-		if !a.HasNext() {
-			break
-		}
-	}
-	s.assertSpaceDiscoveryCompleted(c)
+	s.unlockCheck(c, s.assertDiscoveredNoSpaces)
 }
 
-func (s *workerSuite) TestWorkerSupportsSpaceDiscoveryFalse(c *gc.C) {
-	s.startWorker()
-
-	// No spaces will have been created, worker does nothing.
-	for a := common.ShortAttempt.Start(); a.Next(); {
-		spaces, err := s.State.AllSpaces()
-		c.Assert(err, jc.ErrorIsNil)
-		if len(spaces) != 0 {
-			c.Fatalf("spaces should not be created, we have %v", len(spaces))
-		}
-		if !a.HasNext() {
-			break
-		}
-	}
-	s.assertSpaceDiscoveryCompleted(c)
+func (s *WorkerSuite) TestWorkerSupportsSpaceDiscoveryFalse(c *gc.C) {
+	s.unlockCheck(c, s.assertDiscoveredNoSpaces)
 }
 
-func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
+func (s *WorkerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 	dummy.SetSupportsSpaceDiscovery(true)
-	s.startWorker()
-	for a := common.ShortAttempt.Start(); a.Next(); {
-		var found bool
-		select {
-		case <-s.spacesDiscovered:
-			// The channel was closed so discovery has completed.
-			found = true
-		}
-		if found {
-			break
-		}
-		if !a.HasNext() {
-			c.Fatalf("discovery not completed")
-		}
-	}
+	s.unlockCheck(c, s.assertDiscoveredSpaces)
+}
 
+func (s *WorkerSuite) TestWorkerIdempotent(c *gc.C) {
+	dummy.SetSupportsSpaceDiscovery(true)
+	s.unlockCheck(c, s.assertDiscoveredSpaces)
+	s.unlockCheck(c, s.assertDiscoveredSpaces)
+}
+
+func (s *WorkerSuite) TestWorkerIgnoresExistingSpacesAndSubnets(c *gc.C) {
+	dummy.SetSupportsSpaceDiscovery(true)
+	spaceTag := names.NewSpaceTag("foo")
+	args := params.CreateSpacesParams{
+		Spaces: []params.CreateSpaceParams{{
+			Public:     false,
+			SpaceTag:   spaceTag.String(),
+			ProviderId: "foo",
+		}}}
+	result, err := s.API.CreateSpaces(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	subnetArgs := params.AddSubnetsParams{
+		Subnets: []params.AddSubnetParams{{
+			SubnetProviderId: "1",
+			SpaceTag:         spaceTag.String(),
+			Zones:            []string{"zone1"},
+		}}}
+	subnetResult, err := s.API.AddSubnets(subnetArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnetResult.Results, gc.HasLen, 1)
+	c.Assert(subnetResult.Results[0].Error, gc.IsNil)
+
+	s.unlockCheck(c, func(c *gc.C) {
+		spaces, err := s.State.AllSpaces()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(spaces, gc.HasLen, 5)
+	})
+}
+
+func (s *WorkerSuite) startWorker(c *gc.C) (worker.Worker, gate.Lock) {
+	// create fresh environ to see any injected broken-ness
+	config, err := s.State.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	environ, err := environs.New(config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	lock := gate.NewLock()
+	worker, err := discoverspaces.NewWorker(discoverspaces.Config{
+		Facade:   s.API,
+		Environ:  environ,
+		NewName:  discoverspaces.ConvertSpaceName,
+		Unlocker: lock,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return worker, lock
+}
+
+func (s *WorkerSuite) unlockCheck(c *gc.C, check func(c *gc.C)) {
+	worker, lock := s.startWorker(c)
+	defer workertest.CleanKill(c, worker)
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("discovery never completed")
+	case <-lock.Unlocked():
+		check(c)
+	}
+	workertest.CheckAlive(c, worker)
+}
+
+func (s *WorkerSuite) assertDiscoveredNoSpaces(c *gc.C) {
+	spaces, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spaces, gc.HasLen, 0)
+}
+
+func (s *WorkerSuite) assertDiscoveredSpaces(c *gc.C) {
 	spaces, err := s.State.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spaces, gc.HasLen, 4)
 	expectedSpaces := []network.SpaceInfo{{
 		Name:       "foo",
-		ProviderId: network.Id("foo"),
+		ProviderId: network.Id("0"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("1"),
 			CIDR:              "192.168.1.0/24",
@@ -180,21 +198,21 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
 		Name:       "another-foo-99",
-		ProviderId: network.Id("Another Foo 99!"),
+		ProviderId: network.Id("1"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("3"),
 			CIDR:              "192.168.3.0/24",
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
 		Name:       "foo-2",
-		ProviderId: network.Id("foo-"),
+		ProviderId: network.Id("2"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("4"),
 			CIDR:              "192.168.4.0/24",
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
 		Name:       "empty",
-		ProviderId: network.Id("---"),
+		ProviderId: network.Id("3"),
 		Subnets: []network.SubnetInfo{{
 			ProviderId:        network.Id("5"),
 			CIDR:              "192.168.5.0/24",
@@ -224,109 +242,4 @@ func (s *workerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 			c.Check(subnet.CIDR(), gc.Equals, expectedSubnet.CIDR)
 		}
 	}
-	s.assertSpaceDiscoveryCompleted(c)
-}
-
-func (s *workerSuite) TestWorkerIdempotent(c *gc.C) {
-	dummy.SetSupportsSpaceDiscovery(true)
-	s.startWorker()
-	var err error
-	var spaces []*state.Space
-	for a := common.ShortAttempt.Start(); a.Next(); {
-		spaces, err = s.State.AllSpaces()
-		if err != nil {
-			break
-		}
-		if len(spaces) == 4 {
-			// All spaces have been created.
-			break
-		}
-		if !a.HasNext() {
-			c.Fatalf("spaces not imported")
-		}
-	}
-	c.Assert(err, jc.ErrorIsNil)
-	newWorker, _ := discoverspaces.NewWorker(s.API)
-
-	// This ensures that the worker can handle re-importing without error.
-	defer func() {
-		c.Assert(worker.Stop(newWorker), jc.ErrorIsNil)
-	}()
-
-	// Check that no extra spaces are imported.
-	for a := common.ShortAttempt.Start(); a.Next(); {
-		spaces, err = s.State.AllSpaces()
-		if err != nil {
-			break
-		}
-		if len(spaces) != 4 {
-			c.Fatalf("unexpected number of spaces: %v", len(spaces))
-		}
-		if !a.HasNext() {
-			break
-		}
-	}
-}
-
-func (s *workerSuite) TestSupportsSpaceDiscoveryBroken(c *gc.C) {
-	s.AssertConfigParameterUpdated(c, "broken", "SupportsSpaceDiscovery")
-
-	newWorker, spacesDiscovered := discoverspaces.NewWorker(s.API)
-	s.spacesDiscovered = spacesDiscovered
-	err := worker.Stop(newWorker)
-	c.Assert(err, gc.ErrorMatches, "dummy.SupportsSpaceDiscovery is broken")
-	s.assertSpaceDiscoveryCompleted(c)
-}
-
-func (s *workerSuite) TestSpacesBroken(c *gc.C) {
-	dummy.SetSupportsSpaceDiscovery(true)
-	s.AssertConfigParameterUpdated(c, "broken", "Spaces")
-
-	newWorker, spacesDiscovered := discoverspaces.NewWorker(s.API)
-	s.spacesDiscovered = spacesDiscovered
-	err := worker.Stop(newWorker)
-	c.Assert(err, gc.ErrorMatches, "dummy.Spaces is broken")
-	s.assertSpaceDiscoveryCompleted(c)
-}
-
-func (s *workerSuite) TestWorkerIgnoresExistingSpacesAndSubnets(c *gc.C) {
-	dummy.SetSupportsSpaceDiscovery(true)
-	spaceTag := names.NewSpaceTag("foo")
-	args := params.CreateSpacesParams{
-		Spaces: []params.CreateSpaceParams{{
-			Public:     false,
-			SpaceTag:   spaceTag.String(),
-			ProviderId: "foo",
-		}}}
-	result, err := s.API.CreateSpaces(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	subnetArgs := params.AddSubnetsParams{
-		Subnets: []params.AddSubnetParams{{
-			SubnetProviderId: "1",
-			SpaceTag:         spaceTag.String(),
-			Zones:            []string{"zone1"},
-		}}}
-	subnetResult, err := s.API.AddSubnets(subnetArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnetResult.Results, gc.HasLen, 1)
-	c.Assert(subnetResult.Results[0].Error, gc.IsNil)
-
-	s.startWorker()
-	for a := common.ShortAttempt.Start(); a.Next(); {
-		spaces, err := s.State.AllSpaces()
-		if err != nil {
-			break
-		}
-		if len(spaces) == 4 {
-			// All spaces have been created.
-			break
-		}
-		if !a.HasNext() {
-			c.Fatalf("spaces not imported")
-		}
-	}
-	c.Assert(err, jc.ErrorIsNil)
 }

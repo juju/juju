@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/exec"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
@@ -146,11 +147,14 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 
 type MockContext struct {
 	runner.Context
-	actionData   *context.ActionData
-	expectPid    int
-	flushBadge   string
-	flushFailure error
-	flushResult  error
+	actionData      *context.ActionData
+	actionParams    map[string]interface{}
+	actionParamsErr error
+	actionResults   map[string]interface{}
+	expectPid       int
+	flushBadge      string
+	flushFailure    error
+	flushResult     error
 }
 
 func (ctx *MockContext) UnitName() string {
@@ -180,6 +184,17 @@ func (ctx *MockContext) Flush(badge string, failure error) error {
 	ctx.flushBadge = badge
 	ctx.flushFailure = failure
 	return ctx.flushResult
+}
+
+func (ctx *MockContext) ActionParams() (map[string]interface{}, error) {
+	return ctx.actionParams, ctx.actionParamsErr
+}
+
+func (ctx *MockContext) UpdateActionResults(keys []string, value string) error {
+	for _, key := range keys {
+		ctx.actionResults[key] = value
+	}
+	return nil
 }
 
 type RunMockContextSuite struct {
@@ -272,6 +287,53 @@ func (s *RunMockContextSuite) TestRunActionFlushFailure(c *gc.C) {
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
 	c.Assert(ctx.flushFailure, gc.ErrorMatches, "exit status 123")
 	s.assertRecordedPid(c, ctx.expectPid)
+}
+
+func (s *RunMockContextSuite) TestRunActionParamsFailure(c *gc.C) {
+	expectErr := errors.New("stork")
+	ctx := &MockContext{
+		actionData:      &context.ActionData{},
+		actionParamsErr: expectErr,
+	}
+	actualErr := runner.NewRunner(ctx, s.paths).RunAction("juju-run")
+	c.Assert(errors.Cause(actualErr), gc.Equals, expectErr)
+}
+
+func (s *RunMockContextSuite) TestRunActionSuccessful(c *gc.C) {
+	ctx := &MockContext{
+		actionData: &context.ActionData{},
+		actionParams: map[string]interface{}{
+			"command": "echo 1",
+			"timeout": 0,
+		},
+		actionResults: map[string]interface{}{},
+	}
+	err := runner.NewRunner(ctx, s.paths).RunAction("juju-run")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
+	c.Assert(ctx.flushFailure, gc.IsNil)
+	c.Assert(ctx.actionResults["Code"], gc.Equals, "0")
+	c.Assert(strings.TrimRight(ctx.actionResults["Stdout"].(string), "\r\n"), gc.Equals, "1")
+	c.Assert(ctx.actionResults["Stderr"], gc.Equals, "")
+}
+
+func (s *RunMockContextSuite) TestRunActionCancelled(c *gc.C) {
+	timeout := 1 * time.Nanosecond
+	ctx := &MockContext{
+		actionData: &context.ActionData{},
+		actionParams: map[string]interface{}{
+			"command": "sleep 10",
+			"timeout": float64(timeout.Nanoseconds()),
+		},
+		actionResults: map[string]interface{}{},
+	}
+	err := runner.NewRunner(ctx, s.paths).RunAction("juju-run")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
+	c.Assert(ctx.flushFailure, gc.Equals, exec.ErrCancelled)
+	c.Assert(ctx.actionResults["Code"], gc.Equals, nil)
+	c.Assert(ctx.actionResults["Stdout"], gc.Equals, nil)
+	c.Assert(ctx.actionResults["Stderr"], gc.Equals, nil)
 }
 
 func (s *RunMockContextSuite) TestRunCommandsFlushSuccess(c *gc.C) {

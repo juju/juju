@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju"
@@ -29,7 +28,7 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ToolsMetadataSuite struct {
@@ -42,20 +41,26 @@ var _ = gc.Suite(&ToolsMetadataSuite{})
 
 func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.AddCleanup(dummy.Reset)
 	s.AddCleanup(func(*gc.C) {
-		dummy.Reset()
 		loggo.ResetLoggers()
 	})
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":      "erewhemos",
-		"type":      "dummy",
-		"conroller": true,
+		"name":            "erewhemos",
+		"type":            "dummy",
+		"uuid":            coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ModelTag.Id(),
+		"conroller":       true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
 		modelcmd.BootstrapContextNoVerify(coretesting.Context(c)),
-		configstore.NewMem(), jujuclienttesting.NewMemStore(), cfg.Name(),
-		environs.PrepareForBootstrapParams{Config: cfg},
+		jujuclienttesting.NewMemStore(),
+		environs.PrepareParams{
+			ControllerName: cfg.Name(),
+			BaseConfig:     cfg.AllAttrs(),
+			CloudName:      "dummy",
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
@@ -68,17 +73,17 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 
 var currentVersionStrings = []string{
 	// only these ones will make it into the JSON files.
-	version.Current.String() + "-quantal-amd64",
-	version.Current.String() + "-quantal-armhf",
-	version.Current.String() + "-quantal-i386",
+	jujuversion.Current.String() + "-quantal-amd64",
+	jujuversion.Current.String() + "-quantal-armhf",
+	jujuversion.Current.String() + "-quantal-i386",
 }
 
 var versionStrings = append([]string{
-	fmt.Sprintf("%d.12.0-precise-amd64", version.Current.Major),
-	fmt.Sprintf("%d.12.0-precise-i386", version.Current.Major),
-	fmt.Sprintf("%d.12.0-raring-amd64", version.Current.Major),
-	fmt.Sprintf("%d.12.0-raring-i386", version.Current.Major),
-	fmt.Sprintf("%d.13.0-precise-amd64", version.Current.Major+1),
+	fmt.Sprintf("%d.12.0-precise-amd64", jujuversion.Current.Major),
+	fmt.Sprintf("%d.12.0-precise-i386", jujuversion.Current.Major),
+	fmt.Sprintf("%d.12.0-raring-amd64", jujuversion.Current.Major),
+	fmt.Sprintf("%d.12.0-raring-i386", jujuversion.Current.Major),
+	fmt.Sprintf("%d.13.0-precise-amd64", jujuversion.Current.Major+1),
 }, currentVersionStrings...)
 
 var expectedOutputCommon = makeExpectedOutputCommon()
@@ -312,7 +317,7 @@ func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
 }
 
 func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
-	currentVersion := version.Current
+	currentVersion := jujuversion.Current
 	currentVersion.Build = 0
 	versionStrings := []string{
 		currentVersion.String() + "-precise-amd64",

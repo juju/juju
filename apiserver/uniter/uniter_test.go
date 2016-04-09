@@ -936,18 +936,26 @@ func (s *uniterSuite) TestWatchActionNotificationsMalformedTag(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "ewenit-mysql-0"},
 	}}
-	_, err := s.uniter.WatchActionNotifications(args)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `"ewenit-mysql-0" is not a valid tag`)
+	results, err := s.uniter.WatchActionNotifications(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.NotNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.NotNil)
+	c.Assert(result.Error.Message, gc.Equals, `invalid actionreceiver tag "ewenit-mysql-0"`)
 }
 
 func (s *uniterSuite) TestWatchActionNotificationsMalformedUnitName(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-01"},
 	}}
-	_, err := s.uniter.WatchActionNotifications(args)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `"unit-mysql-01" is not a valid unit tag`)
+	results, err := s.uniter.WatchActionNotifications(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.NotNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.NotNil)
+	c.Assert(result.Error.Message, gc.Equals, `invalid actionreceiver tag "unit-mysql-01"`)
 }
 
 func (s *uniterSuite) TestWatchActionNotificationsNotUnit(c *gc.C) {
@@ -956,9 +964,13 @@ func (s *uniterSuite) TestWatchActionNotificationsNotUnit(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: action.Tag().String()},
 	}}
-	_, err = s.uniter.WatchActionNotifications(args)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `"action-`+action.Id()+`" is not a valid unit tag`)
+	results, err := s.uniter.WatchActionNotifications(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.NotNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.NotNil)
+	c.Assert(result.Error.Message, gc.Equals, `invalid actionreceiver tag "action-`+action.Id()+`"`)
 }
 
 func (s *uniterSuite) TestWatchActionNotificationsPermissionDenied(c *gc.C) {
@@ -1132,8 +1144,7 @@ func (s *uniterSuite) TestActions(c *gc.C) {
 
 		actionsQueryResult := results.Results[0]
 
-		c.Assert(actionsQueryResult.Error, gc.IsNil)
-		c.Assert(actionsQueryResult.Action, jc.DeepEquals, actionTest.action)
+		c.Assert(actionsQueryResult, jc.DeepEquals, actionTest.action)
 	}
 }
 
@@ -1195,7 +1206,7 @@ func (s *uniterSuite) TestFinishActionsSuccess(c *gc.C) {
 
 	results, err := s.wordpressUnit.CompletedActions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, ([]*state.Action)(nil))
+	c.Assert(results, gc.DeepEquals, ([]state.Action)(nil))
 
 	action, err := s.wordpressUnit.AddAction(testName, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1227,7 +1238,7 @@ func (s *uniterSuite) TestFinishActionsFailure(c *gc.C) {
 
 	results, err := s.wordpressUnit.CompletedActions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, ([]*state.Action)(nil))
+	c.Assert(results, gc.DeepEquals, ([]state.Action)(nil))
 
 	action, err := s.wordpressUnit.AddAction(testName, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2367,43 +2378,47 @@ type uniterNetworkConfigSuite struct {
 
 var _ = gc.Suite(&uniterNetworkConfigSuite{})
 
+func (s *uniterNetworkConfigSuite) SetUpSuite(c *gc.C) {
+	s.base.SetUpSuite(c)
+}
+
+func (s *uniterNetworkConfigSuite) TearDownSuite(c *gc.C) {
+	s.base.TearDownSuite(c)
+}
+
 func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	s.base.JujuConnSuite.SetUpTest(c)
 
-	var err error
-	s.base.machine0, err = s.base.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.base.State.AddSpace("internal", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.base.State.AddSpace("public", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	providerAddresses := []network.Address{
-		network.NewAddressOnSpace("public", "8.8.8.8"),
-		network.NewAddressOnSpace("", "8.8.4.4"),
-		network.NewAddressOnSpace("internal", "10.0.0.1"),
-		network.NewAddressOnSpace("internal", "10.0.0.2"),
-		network.NewAddressOnSpace("", "fc00::1"),
+	// Add the spaces and subnets used by the test.
+	subnetInfos := []state.SubnetInfo{{
+		CIDR:      "8.8.0.0/16",
+		SpaceName: "public",
+	}, {
+		CIDR:      "10.0.0.0/24",
+		SpaceName: "internal",
+	}}
+	for _, info := range subnetInfos {
+		_, err := s.base.State.AddSpace(info.SpaceName, "", nil, false)
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = s.base.State.AddSubnet(info)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	err = s.base.machine0.SetProviderAddresses(providerAddresses...)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.base.machine0.SetInstanceInfo("i-am", "fake_nonce", nil, nil, nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	s.base.machine0 = s.addProvisionedMachineWithDevicesAndAddresses(c, 10)
 
 	factory := jujuFactory.NewFactory(s.base.State)
 	s.base.wpCharm = factory.MakeCharm(c, &jujuFactory.CharmParams{
-		Name: "wordpress",
-		URL:  "cs:quantal/wordpress-3",
+		Name: "wordpress-extra-bindings",
+		URL:  "cs:quantal/wordpress-extra-bindings-4",
 	})
+	var err error
 	s.base.wordpress, err = s.base.State.AddService(state.AddServiceArgs{
 		Name:  "wordpress",
 		Charm: s.base.wpCharm,
 		Owner: s.base.AdminUserTag(c).String(),
 		EndpointBindings: map[string]string{
-			"db": "internal",
+			"db":        "internal", // relation name
+			"admin-api": "public",   // extra-binding name
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2412,13 +2427,7 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 		Machine: s.base.machine0,
 	})
 
-	s.base.machine1 = factory.MakeMachine(c, &jujuFactory.MachineParams{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
-	})
-
-	err = s.base.machine1.SetProviderAddresses(providerAddresses...)
-	c.Assert(err, jc.ErrorIsNil)
+	s.base.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20)
 
 	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",
@@ -2445,6 +2454,61 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	s.setupUniterAPIForUnit(c, s.base.wordpressUnit)
 }
 
+func (s *uniterNetworkConfigSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int) *state.Machine {
+	machine, err := s.base.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	devicesArgs, devicesAddrs := s.makeMachineDevicesAndAddressesArgs(addrSuffix)
+	err = machine.SetInstanceInfo("i-am", "fake_nonce", nil, devicesArgs, devicesAddrs, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineAddrs, err := machine.AllAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+
+	netAddrs := make([]network.Address, len(machineAddrs))
+	for i, addr := range machineAddrs {
+		netAddrs[i] = network.NewAddress(addr.Value())
+	}
+	err = machine.SetProviderAddresses(netAddrs...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return machine
+}
+
+func (s *uniterNetworkConfigSuite) makeMachineDevicesAndAddressesArgs(addrSuffix int) ([]state.LinkLayerDeviceArgs, []state.LinkLayerDeviceAddress) {
+	return []state.LinkLayerDeviceArgs{{
+			Name: "eth0",
+			Type: state.EthernetDevice,
+		}, {
+			Name:       "eth0.100",
+			Type:       state.VLAN_8021QDevice,
+			ParentName: "eth0",
+		}, {
+			Name: "eth1",
+			Type: state.EthernetDevice,
+		}, {
+			Name:       "eth1.100",
+			Type:       state.VLAN_8021QDevice,
+			ParentName: "eth1",
+		}},
+		[]state.LinkLayerDeviceAddress{{
+			DeviceName:   "eth0",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  fmt.Sprintf("8.8.8.%d/16", addrSuffix),
+		}, {
+			DeviceName:   "eth0.100",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  fmt.Sprintf("10.0.0.%d/24", addrSuffix),
+		}, {
+			DeviceName:   "eth1",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  fmt.Sprintf("8.8.4.%d/16", addrSuffix),
+		}, {
+			DeviceName:   "eth1.100",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  fmt.Sprintf("10.0.0.%d/24", addrSuffix+1),
+		}}
+}
+
 func (s *uniterNetworkConfigSuite) TearDownTest(c *gc.C) {
 	s.base.JujuConnSuite.TearDownTest(c)
 }
@@ -2466,13 +2530,14 @@ func (s *uniterNetworkConfigSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *sta
 }
 
 func (s *uniterNetworkConfigSuite) TestNetworkConfigPermissions(c *gc.C) {
-	rel := s.addRelationAndAssertInScope(c)
+	s.addRelationAndAssertInScope(c)
 
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: "relation-42", Unit: "unit-foo-0"},
-		{Relation: rel.Tag().String(), Unit: "invalid"},
-		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
-		{Relation: "relation-42", Unit: s.base.wordpressUnit.Tag().String()},
+	args := params.UnitsNetworkConfig{Args: []params.UnitNetworkConfig{
+		{BindingName: "foo", UnitTag: "unit-foo-0"},
+		{BindingName: "db-client", UnitTag: "invalid"},
+		{BindingName: "juju-info", UnitTag: "unit-mysql-0"},
+		{BindingName: "", UnitTag: s.base.wordpressUnit.Tag().String()},
+		{BindingName: "unknown", UnitTag: s.base.wordpressUnit.Tag().String()},
 	}}
 
 	result, err := s.base.uniter.NetworkConfig(args)
@@ -2482,12 +2547,13 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfigPermissions(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ServerError(`"invalid" is not a valid tag`)},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ServerError(`"relation-42" is not a valid relation tag`)},
+			{Error: apiservertesting.ServerError(`binding name cannot be empty`)},
+			{Error: apiservertesting.ServerError(`binding name "unknown" not defined by the unit's charm`)},
 		},
 	})
 }
 
-func (s *uniterNetworkConfigSuite) addRelationAndAssertInScope(c *gc.C) *state.Relation {
+func (s *uniterNetworkConfigSuite) addRelationAndAssertInScope(c *gc.C) {
 	// Add a relation between wordpress and mysql and enter scope with
 	// mysqlUnit.
 	rel := s.base.addRelation(c, "wordpress", "mysql")
@@ -2496,36 +2562,42 @@ func (s *uniterNetworkConfigSuite) addRelationAndAssertInScope(c *gc.C) *state.R
 	err = wpRelUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.base.assertInScope(c, wpRelUnit, true)
-	return rel
 }
 
 func (s *uniterNetworkConfigSuite) TestNetworkConfigForExplicitlyBoundEndpoint(c *gc.C) {
-	rel := s.addRelationAndAssertInScope(c)
+	s.addRelationAndAssertInScope(c)
 
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: rel.Tag().String(), Unit: s.base.wordpressUnit.Tag().String()},
+	args := params.UnitsNetworkConfig{Args: []params.UnitNetworkConfig{
+		{BindingName: "db", UnitTag: s.base.wordpressUnit.Tag().String()},
+		{BindingName: "admin-api", UnitTag: s.base.wordpressUnit.Tag().String()},
 	}}
 
 	// For the relation "wordpress:db mysql:server" we expect to see only
 	// addresses bound to the "internal" space, where the "db" endpoint itself
 	// is bound to.
-	expectedConfig := []params.NetworkConfig{{
-		Address: "10.0.0.1",
-	}, {
-		Address: "10.0.0.2",
-	}}
+	expectedConfigWithRelationName := []params.NetworkConfig{
+		{Address: "10.0.0.10"},
+		{Address: "10.0.0.11"},
+	}
+	// For the "admin-api" extra-binding we expect to see only addresses from
+	// the "public" space.
+	expectedConfigWithExtraBindingName := []params.NetworkConfig{
+		{Address: "8.8.8.10"},
+		{Address: "8.8.4.10"},
+	}
 
 	result, err := s.base.uniter.NetworkConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.UnitNetworkConfigResults{
 		Results: []params.UnitNetworkConfigResult{
-			{Config: expectedConfig},
+			{Config: expectedConfigWithRelationName},
+			{Config: expectedConfigWithExtraBindingName},
 		},
 	})
 }
 
 func (s *uniterNetworkConfigSuite) TestNetworkConfigForImplicitlyBoundEndpoint(c *gc.C) {
-	// Since wordpressUnit as explicit binding for "db", switch the API to
+	// Since wordpressUnit has explicit binding for "db", switch the API to
 	// mysqlUnit and check "mysql:server" uses the machine preferred private
 	// address.
 	s.setupUniterAPIForUnit(c, s.base.mysqlUnit)
@@ -2536,8 +2608,8 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfigForImplicitlyBoundEndpoint(c
 	c.Assert(err, jc.ErrorIsNil)
 	s.base.assertInScope(c, mysqlRelUnit, true)
 
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: rel.Tag().String(), Unit: s.base.mysqlUnit.Tag().String()},
+	args := params.UnitsNetworkConfig{Args: []params.UnitNetworkConfig{
+		{BindingName: "server", UnitTag: s.base.mysqlUnit.Tag().String()},
 	}}
 
 	privateAddress, err := s.base.machine1.PrivateAddress()

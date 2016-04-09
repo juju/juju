@@ -19,15 +19,15 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 const (
@@ -52,6 +52,7 @@ type UserParams struct {
 	Creator     names.Tag
 	NoModelUser bool
 	Disabled    bool
+	Access      state.ModelAccess
 }
 
 // ModelUserParams defines the parameters for creating an environment user.
@@ -59,7 +60,7 @@ type ModelUserParams struct {
 	User        string
 	DisplayName string
 	CreatedBy   names.Tag
-	ReadOnly    bool
+	Access      state.ModelAccess
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -76,6 +77,7 @@ type MachineParams struct {
 	Jobs            []state.MachineJob
 	Password        string
 	Nonce           string
+	Constraints     constraints.Value
 	InstanceId      instance.Id
 	Characteristics *instance.HardwareCharacteristics
 	Addresses       []network.Address
@@ -85,11 +87,12 @@ type MachineParams struct {
 
 // ServiceParams is used when specifying parameters for a new service.
 type ServiceParams struct {
-	Name     string
-	Charm    *state.Charm
-	Creator  names.Tag
-	Status   *status.StatusInfo
-	Settings map[string]interface{}
+	Name        string
+	Charm       *state.Charm
+	Creator     names.Tag
+	Status      *status.StatusInfo
+	Settings    map[string]interface{}
+	Constraints constraints.Value
 }
 
 // UnitParams are used to create units.
@@ -99,6 +102,7 @@ type UnitParams struct {
 	Password    string
 	SetCharmURL bool
 	Status      *status.StatusInfo
+	Constraints constraints.Value
 }
 
 // RelationParams are used to create relations.
@@ -170,6 +174,9 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		c.Assert(err, jc.ErrorIsNil)
 		params.Creator = env.Owner()
 	}
+	if params.Access == state.ModelUndefinedAccess {
+		params.Access = state.ModelAdminAccess
+	}
 	creatorUserTag := params.Creator.(names.UserTag)
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
@@ -179,6 +186,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 			User:        user.UserTag(),
 			CreatedBy:   names.NewUserTag(user.CreatedBy()),
 			DisplayName: params.DisplayName,
+			Access:      params.Access,
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -204,6 +212,9 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.M
 	if params.DisplayName == "" {
 		params.DisplayName = uniqueString("display name")
 	}
+	if params.Access == state.ModelUndefinedAccess {
+		params.Access = state.ModelAdminAccess
+	}
 	if params.CreatedBy == nil {
 		env, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
@@ -214,7 +225,7 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) *state.M
 		User:        names.NewUserTag(params.User),
 		CreatedBy:   createdByUserTag,
 		DisplayName: params.DisplayName,
-		ReadOnly:    params.ReadOnly,
+		Access:      params.Access,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return modelUser
@@ -262,6 +273,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 		Jobs:        params.Jobs,
 		Volumes:     params.Volumes,
 		Filesystems: params.Filesystems,
+		Constraints: params.Constraints,
 	}
 
 	m, err := factory.st.AddMachineInsideMachine(
@@ -273,7 +285,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 	err = m.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
 	c.Assert(err, jc.ErrorIsNil)
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -302,6 +314,7 @@ func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachinePar
 		Jobs:        params.Jobs,
 		Volumes:     params.Volumes,
 		Filesystems: params.Filesystems,
+		Constraints: params.Constraints,
 	}
 	machine, err := factory.st.AddOneMachine(machineTemplate)
 	c.Assert(err, jc.ErrorIsNil)
@@ -314,7 +327,7 @@ func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachinePar
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -352,7 +365,13 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 
 	curl := charm.MustParseURL(params.URL)
 	bundleSHA256 := uniqueString("bundlesha")
-	charm, err := factory.st.AddCharm(ch, curl, "fake-storage-path", bundleSHA256)
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "fake-storage-path",
+		SHA256:      bundleSHA256,
+	}
+	charm, err := factory.st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	return charm
 }
@@ -376,10 +395,11 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 	}
 	_ = params.Creator.(names.UserTag)
 	service, err := factory.st.AddService(state.AddServiceArgs{
-		Name:     params.Name,
-		Owner:    params.Creator.String(),
-		Charm:    params.Charm,
-		Settings: charm.Settings(params.Settings),
+		Name:        params.Name,
+		Owner:       params.Creator.String(),
+		Charm:       params.Charm,
+		Settings:    charm.Settings(params.Settings),
+		Constraints: params.Constraints,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -410,7 +430,9 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		params.Machine = factory.MakeMachine(c, nil)
 	}
 	if params.Service == nil {
-		params.Service = factory.MakeService(c, nil)
+		params.Service = factory.MakeService(c, &ServiceParams{
+			Constraints: params.Constraints,
+		})
 	}
 	if params.Password == "" {
 		var err error
@@ -423,7 +445,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	c.Assert(err, jc.ErrorIsNil)
 
 	agentTools := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: params.Service.Series(),
 	}
@@ -555,25 +577,5 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewModel(cfg, params.Owner.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
-	if params.Prepare {
-		if params.Credential == nil {
-			emptyCredential := cloud.NewEmptyCredential()
-			params.Credential = &emptyCredential
-		}
-		args := environs.PrepareForBootstrapParams{
-			Config:        cfg,
-			Credentials:   *params.Credential,
-			CloudEndpoint: params.CloudEndpoint,
-			CloudRegion:   params.CloudRegion,
-		}
-		// Prepare the environment.
-		provider, err := environs.Provider(cfg.Type())
-		c.Assert(err, jc.ErrorIsNil)
-		env, err := provider.PrepareForBootstrap(envtesting.BootstrapContext(c), args)
-		c.Assert(err, jc.ErrorIsNil)
-		// Now save the config back.
-		err = st.UpdateModelConfig(env.Config().AllAttrs(), nil, nil)
-		c.Assert(err, jc.ErrorIsNil)
-	}
 	return st
 }

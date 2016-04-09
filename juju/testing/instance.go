@@ -205,8 +205,7 @@ func StartInstanceWithParams(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	eUUID, _ := env.Config().UUID()
-	instanceConfig.Tags[tags.JujuModel] = eUUID
+	instanceConfig.Tags[tags.JujuModel] = env.Config().UUID()
 	params.Tools = possibleTools
 	params.InstanceConfig = instanceConfig
 	return env.StartInstance(params)

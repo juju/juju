@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -41,65 +42,65 @@ var scpTests = []struct {
 	{
 		about:  "scp from machine 0 to current dir",
 		args:   []string{"0:foo", "."},
-		result: commonArgsNoProxy + "ubuntu@dummymodel-0.dns:foo .\n",
+		result: commonArgs + "ubuntu@admin-0.dns:foo .\n",
 	}, {
 		about:  "scp from machine 0 to current dir with extra args",
 		args:   []string{"0:foo", ".", "-rv", "-o", "SomeOption"},
-		result: commonArgsNoProxy + "ubuntu@dummymodel-0.dns:foo . -rv -o SomeOption\n",
+		result: commonArgs + "ubuntu@admin-0.dns:foo . -rv -o SomeOption\n",
 	}, {
 		about:  "scp from current dir to machine 0",
 		args:   []string{"foo", "0:"},
-		result: commonArgsNoProxy + "foo ubuntu@dummymodel-0.dns:\n",
+		result: commonArgs + "foo ubuntu@admin-0.dns:\n",
 	}, {
 		about:  "scp from current dir to machine 0 with extra args",
 		args:   []string{"foo", "0:", "-r", "-v"},
-		result: commonArgsNoProxy + "foo ubuntu@dummymodel-0.dns: -r -v\n",
+		result: commonArgs + "foo ubuntu@admin-0.dns: -r -v\n",
 	}, {
 		about:  "scp from machine 0 to unit mysql/0",
 		args:   []string{"0:foo", "mysql/0:/foo"},
-		result: commonArgsNoProxy + "ubuntu@dummymodel-0.dns:foo ubuntu@dummymodel-0.dns:/foo\n",
+		result: commonArgs + "ubuntu@admin-0.dns:foo ubuntu@admin-0.dns:/foo\n",
 	}, {
 		about:  "scp from machine 0 to unit mysql/0 and extra args",
 		args:   []string{"0:foo", "mysql/0:/foo", "-q"},
-		result: commonArgsNoProxy + "ubuntu@dummymodel-0.dns:foo ubuntu@dummymodel-0.dns:/foo -q\n",
+		result: commonArgs + "ubuntu@admin-0.dns:foo ubuntu@admin-0.dns:/foo -q\n",
 	}, {
 		about:  "scp from machine 0 to unit mysql/0 and extra args before",
 		args:   []string{"-q", "-r", "0:foo", "mysql/0:/foo"},
-		result: commonArgsNoProxy + "-q -r ubuntu@dummymodel-0.dns:foo ubuntu@dummymodel-0.dns:/foo\n",
+		result: commonArgs + "-q -r ubuntu@admin-0.dns:foo ubuntu@admin-0.dns:/foo\n",
 	}, {
 		about:  "scp two local files to unit mysql/0",
 		args:   []string{"file1", "file2", "mysql/0:/foo/"},
-		result: commonArgsNoProxy + "file1 file2 ubuntu@dummymodel-0.dns:/foo/\n",
+		result: commonArgs + "file1 file2 ubuntu@admin-0.dns:/foo/\n",
 	}, {
 		about:  "scp from unit mongodb/1 to unit mongodb/0 and multiple extra args",
 		args:   []string{"mongodb/1:foo", "mongodb/0:", "-r", "-v", "-q", "-l5"},
-		result: commonArgsNoProxy + "ubuntu@dummymodel-2.dns:foo ubuntu@dummymodel-1.dns: -r -v -q -l5\n",
+		result: commonArgs + "ubuntu@admin-2.dns:foo ubuntu@admin-1.dns: -r -v -q -l5\n",
 	}, {
 		about:  "scp works with IPv6 addresses",
 		args:   []string{"ipv6-svc/0:foo", "bar"},
-		result: commonArgsNoProxy + `ubuntu@[2001:db8::1]:foo bar` + "\n",
+		result: commonArgs + `ubuntu@[2001:db8::1]:foo bar` + "\n",
 	}, {
 		about:  "scp from machine 0 to unit mysql/0 with proxy",
 		args:   []string{"0:foo", "mysql/0:/foo"},
-		result: commonArgs + "ubuntu@dummymodel-0.internal:foo ubuntu@dummymodel-0.internal:/foo\n",
+		result: commonArgsWithProxy + "ubuntu@admin-0.internal:foo ubuntu@admin-0.internal:/foo\n",
 		proxy:  true,
 	}, {
 		args:   []string{"0:foo", ".", "-rv", "-o", "SomeOption"},
-		result: commonArgsNoProxy + "ubuntu@dummymodel-0.dns:foo . -rv -o SomeOption\n",
+		result: commonArgs + "ubuntu@admin-0.dns:foo . -rv -o SomeOption\n",
 	}, {
 		args:   []string{"foo", "0:", "-r", "-v"},
-		result: commonArgsNoProxy + "foo ubuntu@dummymodel-0.dns: -r -v\n",
+		result: commonArgs + "foo ubuntu@admin-0.dns: -r -v\n",
 	}, {
 		args:   []string{"mongodb/1:foo", "mongodb/0:", "-r", "-v", "-q", "-l5"},
-		result: commonArgsNoProxy + "ubuntu@dummymodel-2.dns:foo ubuntu@dummymodel-1.dns: -r -v -q -l5\n",
+		result: commonArgs + "ubuntu@admin-2.dns:foo ubuntu@admin-1.dns: -r -v -q -l5\n",
 	}, {
 		about:  "scp from unit mongodb/1 to unit mongodb/0 with a --",
 		args:   []string{"--", "-r", "-v", "mongodb/1:foo", "mongodb/0:", "-q", "-l5"},
-		result: commonArgsNoProxy + "-- -r -v ubuntu@dummymodel-2.dns:foo ubuntu@dummymodel-1.dns: -q -l5\n",
+		result: commonArgs + "-- -r -v ubuntu@admin-2.dns:foo ubuntu@admin-1.dns: -q -l5\n",
 	}, {
 		about:  "scp from unit mongodb/1 to current dir as 'mongo' user",
 		args:   []string{"mongo@mongodb/1:foo", "."},
-		result: commonArgsNoProxy + "mongo@dummymodel-2.dns:foo .\n",
+		result: commonArgs + "mongo@admin-2.dns:foo .\n",
 	}, {
 		about: "scp with no such machine",
 		args:  []string{"5:foo", "bar"},
@@ -113,7 +114,13 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
-	dummyCharm, err := s.State.AddCharm(ch, curl, "dummy-path", "dummy-1-sha256")
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "dummy-path",
+		SHA256:      "dummy-1-sha256",
+	}
+	dummyCharm, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	srv := s.AddTestingService(c, "mysql", dummyCharm)
 	s.addUnit(srv, m[0], c)
@@ -162,11 +169,11 @@ type userHost struct {
 }
 
 var userHostsFromTargets = map[string]userHost{
-	"0":               {"ubuntu", "dummymodel-0.dns"},
-	"mysql/0":         {"ubuntu", "dummymodel-0.dns"},
-	"mongodb/0":       {"ubuntu", "dummymodel-1.dns"},
-	"mongodb/1":       {"ubuntu", "dummymodel-2.dns"},
-	"mongo@mongodb/1": {"mongo", "dummymodel-2.dns"},
+	"0":               {"ubuntu", "admin-0.dns"},
+	"mysql/0":         {"ubuntu", "admin-0.dns"},
+	"mongodb/0":       {"ubuntu", "admin-1.dns"},
+	"mongodb/1":       {"ubuntu", "admin-2.dns"},
+	"mongo@mongodb/1": {"mongo", "admin-2.dns"},
 	"ipv6-svc/0":      {"ubuntu", "2001:db8::1"},
 }
 
@@ -190,11 +197,11 @@ func (s *expandArgsSuite) TestSCPExpandArgs(c *gc.C) {
 		// off, along with the trailing '\n'
 		var argString string
 		if t.proxy {
+			c.Check(strings.HasPrefix(t.result, commonArgsWithProxy), jc.IsTrue)
+			argString = t.result[len(commonArgsWithProxy):]
+		} else {
 			c.Check(strings.HasPrefix(t.result, commonArgs), jc.IsTrue)
 			argString = t.result[len(commonArgs):]
-		} else {
-			c.Check(strings.HasPrefix(t.result, commonArgsNoProxy), jc.IsTrue)
-			argString = t.result[len(commonArgsNoProxy):]
 		}
 		c.Check(strings.HasSuffix(argString, "\n"), jc.IsTrue)
 		argString = argString[:len(argString)-1]
@@ -221,7 +228,7 @@ var expandTests = []struct {
 	{
 		"don't expand params that start with '-'",
 		[]string{"-0:stuff", "0:foo", "."},
-		[]string{"-0:stuff", "ubuntu@dummymodel-0.dns:foo", "."},
+		[]string{"-0:stuff", "ubuntu@admin-0.dns:foo", "."},
 	},
 }
 

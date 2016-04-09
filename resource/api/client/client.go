@@ -9,14 +9,14 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 )
-
-var logger = loggo.GetLogger("juju.resource.api.client")
 
 // TODO(ericsnow) Move FacadeCaller to a component-central package.
 
@@ -84,8 +84,8 @@ func (c Client) ListResources(services []string) ([]resource.ServiceResources, e
 }
 
 // Upload sends the provided resource blob up to Juju.
-func (c Client) Upload(service, name string, reader io.ReadSeeker) error {
-	uReq, err := api.NewUploadRequest(service, name, reader)
+func (c Client) Upload(service, name, filename string, reader io.ReadSeeker) error {
+	uReq, err := api.NewUploadRequest(service, name, filename, reader)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -102,29 +102,46 @@ func (c Client) Upload(service, name string, reader io.ReadSeeker) error {
 	return nil
 }
 
+// AddPendingResourcesArgs holds the arguments to AddPendingResources().
+type AddPendingResourcesArgs struct {
+	// ServiceID identifies the service being deployed.
+	ServiceID string
+
+	// CharmURL identifies the service's charm.
+	CharmURL *charm.URL
+
+	// CharmStoreMacaroon is the macaroon to use for the charm when
+	// interacting with the charm store.
+	CharmStoreMacaroon *macaroon.Macaroon
+
+	// Resources holds the charm store info for each of the resources
+	// that should be added/updated on the controller.
+	Resources []charmresource.Resource
+}
+
 // AddPendingResources sends the provided resource info up to Juju
 // without making it available yet.
-func (c Client) AddPendingResources(serviceID string, resources []charmresource.Resource) (pendingIDs []string, err error) {
-	args, err := api.NewAddPendingResourcesArgs(serviceID, resources)
+func (c Client) AddPendingResources(args AddPendingResourcesArgs) (pendingIDs []string, err error) {
+	apiArgs, err := api.NewAddPendingResourcesArgs(args.ServiceID, args.CharmURL, args.CharmStoreMacaroon, args.Resources)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var result api.AddPendingResourcesResult
-	if err := c.FacadeCall("AddPendingResources", &args, &result); err != nil {
+	if err := c.FacadeCall("AddPendingResources", &apiArgs, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
-		err := api.RestoreError(result.Error)
+		err := common.RestoreError(result.Error)
 		return nil, errors.Trace(err)
 	}
 
-	if len(result.PendingIDs) != len(resources) {
-		return nil, errors.Errorf("bad data from server: expected %d IDs, got %d", len(resources), len(result.PendingIDs))
+	if len(result.PendingIDs) != len(args.Resources) {
+		return nil, errors.Errorf("bad data from server: expected %d IDs, got %d", len(args.Resources), len(result.PendingIDs))
 	}
 	for i, id := range result.PendingIDs {
 		if id == "" {
-			return nil, errors.Errorf("bad data from server: got an empty ID for resource %q", resources[i].Name)
+			return nil, errors.Errorf("bad data from server: got an empty ID for resource %q", args.Resources[i].Name)
 		}
 		// TODO(ericsnow) Do other validation?
 	}
@@ -135,15 +152,19 @@ func (c Client) AddPendingResources(serviceID string, resources []charmresource.
 // AddPendingResource sends the provided resource blob up to Juju
 // without making it available yet. For example, AddPendingResource()
 // is used before the service is deployed.
-func (c Client) AddPendingResource(serviceID string, res charmresource.Resource, reader io.ReadSeeker) (pendingID string, err error) {
-	ids, err := c.AddPendingResources(serviceID, []charmresource.Resource{res})
+func (c Client) AddPendingResource(serviceID string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
+	ids, err := c.AddPendingResources(AddPendingResourcesArgs{
+		ServiceID: serviceID,
+		CharmURL:  nil,
+		Resources: []charmresource.Resource{res},
+	})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	pendingID = ids[0]
 
 	if reader != nil {
-		uReq, err := api.NewUploadRequest(serviceID, res.Name, reader)
+		uReq, err := api.NewUploadRequest(serviceID, res.Name, filename, reader)
 		if err != nil {
 			return "", errors.Trace(err)
 		}

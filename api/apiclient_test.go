@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type apiclientSuite struct {
@@ -27,14 +27,6 @@ type apiclientSuite struct {
 }
 
 var _ = gc.Suite(&apiclientSuite{})
-
-func (s *apiclientSuite) TestOpenFailsIfUsernameAndUseMacaroon(c *gc.C) {
-	info := s.APIInfo(c)
-	info.Tag = names.NewUserTag("foobar")
-	info.UseMacaroons = true
-	_, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.ErrorMatches, "open should specifiy UseMacaroons or a username & password. Not both")
-}
 
 func (s *apiclientSuite) TestConnectWebsocketToEnv(c *gc.C) {
 	info := s.APIInfo(c)
@@ -114,7 +106,7 @@ func (s *apiclientSuite) TestOpen(c *gc.C) {
 
 	remoteVersion, versionSet := st.ServerVersion()
 	c.Assert(versionSet, jc.IsTrue)
-	c.Assert(remoteVersion, gc.Equals, version.Current)
+	c.Assert(remoteVersion, gc.Equals, jujuversion.Current)
 }
 
 func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {

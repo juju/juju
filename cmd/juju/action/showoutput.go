@@ -88,8 +88,6 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	// tick every two seconds, to delay the loop timer.
-	tick := time.NewTimer(2 * time.Second)
 	wait := time.NewTimer(0 * time.Second)
 
 	switch {
@@ -104,12 +102,24 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 		wait = time.NewTimer(waitDur)
 	}
 
-	result, err := timerLoop(api, c.requestedId, wait, tick)
+	result, err := GetActionResult(api, c.requestedId, wait)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
-	return c.out.Write(ctx, formatActionResult(result))
+	return c.out.Write(ctx, FormatActionResult(result))
+}
+
+// GetActionResult tries to repeatedly fetch an action until it is
+// in a completed state and then it returns it.
+// It waits for a maximum of "wait" before returning with the latest action status.
+func GetActionResult(api APIClient, requestedId string, wait *time.Timer) (params.ActionResult, error) {
+
+	// tick every two seconds, to delay the loop timer.
+	// TODO(fwereade): 2016-03-17 lp:1558657
+	tick := time.NewTimer(2 * time.Second)
+
+	return timerLoop(api, requestedId, wait, tick)
 }
 
 // timerLoop loops indefinitely to query the given API, until "wait" times
@@ -181,10 +191,10 @@ func fetchResult(api APIClient, requestedId string) (params.ActionResult, error)
 	return result, nil
 }
 
-// formatActionResult removes empty values from the given ActionResult and
+// FormatActionResult removes empty values from the given ActionResult and
 // inserts the remaining ones in a map[string]interface{} for cmd.Output to
 // write in an easy-to-read format.
-func formatActionResult(result params.ActionResult) map[string]interface{} {
+func FormatActionResult(result params.ActionResult) map[string]interface{} {
 	response := map[string]interface{}{"status": result.Status}
 	if result.Message != "" {
 		response["message"] = result.Message

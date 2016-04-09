@@ -17,7 +17,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/exec"
-	"github.com/juju/utils/set"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
@@ -28,9 +28,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")
@@ -49,8 +47,7 @@ var _ APICalls = (*apiprovisioner.State)(nil)
 // Override for testing.
 var NewLxcBroker = newLxcBroker
 
-func newLxcBroker(
-	api APICalls,
+func newLxcBroker(api APICalls,
 	agentConfig agent.Config,
 	managerConfig container.ManagerConfig,
 	imageURLGetter container.ImageURLGetter,
@@ -58,11 +55,9 @@ func newLxcBroker(
 	defaultMTU int,
 ) (environs.InstanceBroker, error) {
 	namespace := maybeGetManagerConfigNamespaces(managerConfig)
-	manager, err := lxc.NewContainerManager(
-		managerConfig, imageURLGetter, looputil.NewLoopDeviceManager(),
-	)
+	manager, err := lxc.NewContainerManager(managerConfig, imageURLGetter)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return &lxcBroker{
 		manager:     manager,
@@ -642,7 +637,7 @@ func configureContainerNetwork(
 		finalIfaceInfo[i].InterfaceName = fmt.Sprintf("eth%d", i)
 		finalIfaceInfo[i].ConfigType = network.ConfigStatic
 		finalIfaceInfo[i].DNSServers = dnsServers
-		finalIfaceInfo[i].DNSSearch = searchDomain
+		finalIfaceInfo[i].DNSSearchDomains = []string{searchDomain}
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
 		if finalIfaceInfo[i].NetworkName == "" {
 			finalIfaceInfo[i].NetworkName = network.DefaultPrivate
@@ -711,7 +706,7 @@ func prepareOrGetContainerInterfaceInfo(
 		return nil, nil
 	}
 
-	log.Debugf("address allocation feature flag not enabled; using DHCP for container %q", machineID)
+	log.Debugf("address allocation feature flag not enabled; using multi-bridge networking for container %q", machineID)
 
 	// In case we're running on MAAS 1.8+ with devices support, we'll still
 	// call PrepareContainerInterfaceInfo(), but we'll ignore a NotSupported
@@ -724,38 +719,31 @@ func prepareOrGetContainerInterfaceInfo(
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
+	log.Tracef("PrepareContainerInterfaceInfo returned %+v", preparedInfo)
 
-	dnsServers, searchDomain, dnsErr := localDNSServers()
-
-	if dnsErr != nil {
-		return nil, errors.Trace(dnsErr)
-	}
-
-	bridgeDeviceAddress, err := discoverIPv4InterfaceAddress(bridgeDevice)
-
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	for i, _ := range preparedInfo {
-		preparedInfo[i].DNSServers = dnsServers
-		preparedInfo[i].DNSSearch = searchDomain
-		if preparedInfo[i].GatewayAddress.Value == "" {
-			preparedInfo[i].GatewayAddress = *bridgeDeviceAddress
+	dnsServersFound := false
+	for _, info := range preparedInfo {
+		if len(info.DNSServers) > 0 {
+			dnsServersFound = true
+			break
 		}
 	}
+	if !dnsServersFound {
+		logger.Warningf("no DNS settings found, discovering the host settings")
+		dnsServers, searchDomain, err := localDNSServers()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
-	log.Tracef("PrepareContainerInterfaceInfo returned %#v", preparedInfo)
-	// Most likely there will be only one item in the list, but check
-	// all of them for forward compatibility.
-	macAddresses := set.NewStrings()
-	for _, prepInfo := range preparedInfo {
-		macAddresses.Add(prepInfo.MACAddress)
+		// Since the result is sorted, the first entry is the primary NIC.
+		preparedInfo[0].DNSServers = dnsServers
+		preparedInfo[0].DNSSearchDomains = []string{searchDomain}
+		logger.Debugf(
+			"setting DNS servers %+v and domains %+v on container interface %q",
+			preparedInfo[0].DNSServers, preparedInfo[0].DNSSearchDomains, preparedInfo[0].InterfaceName,
+		)
 	}
-	log.Infof(
-		"new container %q registered as a MAAS device with MAC address(es) %v",
-		machineID, macAddresses.SortedValues(),
-	)
+
 	return preparedInfo, nil
 }
 

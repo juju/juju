@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
 )
 
 var logger = loggo.GetLogger("juju.network")
@@ -30,10 +31,6 @@ const (
 	// Provider Id for the default network
 	DefaultProviderId = "juju-unknown"
 )
-
-// DefaultSpace is the name used for the default space for an environment.
-// TODO(dimitern): Make this configurable per environment.
-const DefaultSpace = "default"
 
 // SpaceInvalidChars is a regexp for validating that space names contain no
 // invalid characters.
@@ -65,6 +62,45 @@ type Id string
 // providers as "the subnet id does not matter". It's up to the
 // provider how to handle this case - it might return an error.
 const AnySubnet Id = ""
+
+// UnknownId can be used whenever an Id is needed but not known.
+const UnknownId = ""
+
+var dashPrefix = regexp.MustCompile("^-*")
+var dashSuffix = regexp.MustCompile("-*$")
+var multipleDashes = regexp.MustCompile("--+")
+
+// ConvertSpaceName converts names between provider space names and valid juju
+// space names.
+// TODO(mfoord): once MAAS space name rules are in sync with juju space name
+// rules this can go away.
+func ConvertSpaceName(name string, existing set.Strings) string {
+	// First lower case and replace spaces with dashes.
+	name = strings.Replace(name, " ", "-", -1)
+	name = strings.ToLower(name)
+	// Replace any character that isn't in the set "-", "a-z", "0-9".
+	name = SpaceInvalidChars.ReplaceAllString(name, "")
+	// Get rid of any dashes at the start as that isn't valid.
+	name = dashPrefix.ReplaceAllString(name, "")
+	// And any at the end.
+	name = dashSuffix.ReplaceAllString(name, "")
+	// Repleace multiple dashes with a single dash.
+	name = multipleDashes.ReplaceAllString(name, "-")
+	// Special case of when the space name was only dashes or invalid
+	// characters!
+	if name == "" {
+		name = "empty"
+	}
+	// If this name is in use add a numerical suffix.
+	if existing.Contains(name) {
+		counter := 2
+		for existing.Contains(name + fmt.Sprintf("-%d", counter)) {
+			counter += 1
+		}
+		name = name + fmt.Sprintf("-%d", counter)
+	}
+	return name
+}
 
 // SubnetInfo describes the bare minimum information for a subnet,
 // which the provider knows about but juju might not yet.
@@ -118,11 +154,23 @@ func (s BySpaceName) Less(i, j int) bool {
 type InterfaceConfigType string
 
 const (
-	ConfigUnknown InterfaceConfigType = ""
-	ConfigDHCP    InterfaceConfigType = "dhcp"
-	ConfigStatic  InterfaceConfigType = "static"
-	ConfigManual  InterfaceConfigType = "manual"
-	// add others when needed
+	ConfigUnknown  InterfaceConfigType = ""
+	ConfigDHCP     InterfaceConfigType = "dhcp"
+	ConfigStatic   InterfaceConfigType = "static"
+	ConfigManual   InterfaceConfigType = "manual"
+	ConfigLoopback InterfaceConfigType = "loopback"
+)
+
+// InterfaceType defines valid network interface types.
+type InterfaceType string
+
+const (
+	UnknownInterface    InterfaceType = ""
+	LoopbackInterface   InterfaceType = "loopback"
+	EthernetInterface   InterfaceType = "ethernet"
+	VLAN_8021QInterface InterfaceType = "802.1q"
+	BondInterface       InterfaceType = "bond"
+	BridgeInterface     InterfaceType = "bridge"
 )
 
 // InterfaceInfo describes a single network interface available on an
@@ -142,6 +190,8 @@ type InterfaceInfo struct {
 	CIDR string
 
 	// NetworkName is juju-internal name of the network.
+	//
+	// TODO(dimitern): No longer used, drop at the end of this PoC.
 	NetworkName string
 
 	// ProviderId is a provider-specific NIC id.
@@ -150,6 +200,17 @@ type InterfaceInfo struct {
 	// ProviderSubnetId is the provider-specific id for the associated
 	// subnet.
 	ProviderSubnetId Id
+
+	// ProviderSpaceId is the provider-specific id for the associated space, if
+	// known and supported.
+	ProviderSpaceId Id
+
+	// ProviderVLANId is the provider-specific id of the VLAN for this
+	// interface.
+	ProviderVLANId Id
+
+	// ProviderAddressId is the provider-specific id of the assigned address.
+	ProviderAddressId Id
 
 	// AvailabilityZones describes the availability zones the associated
 	// subnet is in.
@@ -162,6 +223,12 @@ type InterfaceInfo struct {
 	// InterfaceName is the raw OS-specific network device name (e.g.
 	// "eth1", even for a VLAN eth1.42 virtual interface).
 	InterfaceName string
+
+	// ParentInterfaceName is the name of the parent interface to use, if known.
+	ParentInterfaceName string
+
+	// InterfaceType is the type of the interface.
+	InterfaceType InterfaceType
 
 	// Disabled is true when the interface needs to be disabled on the
 	// machine, e.g. not to configure it.
@@ -193,9 +260,9 @@ type InterfaceInfo struct {
 	// when > 0.
 	MTU int
 
-	// DNSSearch contains the default DNS domain to use for
-	// non-FQDN lookups.
-	DNSSearch string
+	// DNSSearchDomains contains the default DNS domain to use for non-FQDN
+	// lookups.
+	DNSSearchDomains []string
 
 	// Gateway address, if set, defines the default gateway to
 	// configure for this network interface. For containers this
@@ -205,6 +272,8 @@ type InterfaceInfo struct {
 	// ExtraConfig can contain any valid setting and its value allowed
 	// inside an "iface" section of a interfaces(5) config file, e.g.
 	// "up", "down", "mtu", etc.
+	//
+	// TODO(dimitern): Never used, drop at the end of this PoC.
 	ExtraConfig map[string]string
 }
 
@@ -244,6 +313,23 @@ func (i *InterfaceInfo) IsVLAN() bool {
 	return i.VLANTag > 0
 }
 
+// CIDRAddress returns Address.Value combined with CIDR mask.
+func (i *InterfaceInfo) CIDRAddress() string {
+	if i.CIDR == "" || i.Address.Value == "" {
+		return ""
+	}
+	_, ipNet, err := net.ParseCIDR(i.CIDR)
+	if err != nil {
+		return errors.Trace(err).Error()
+	}
+	ip := net.ParseIP(i.Address.Value)
+	if ip == nil {
+		return errors.Errorf("cannot parse IP address %q", i.Address.Value).Error()
+	}
+	ipNet.IP = ip
+	return ipNet.String()
+}
+
 var preferIPv6 uint32
 
 // PreferIPV6 returns true if this process prefers IPv6.
@@ -260,6 +346,8 @@ func SetPreferIPv6(prefer bool) {
 		b = 1
 	}
 	atomic.StoreUint32(&preferIPv6, b)
+	// TODO(dimitern): Drop prefer-ipv6 entirely.
+	prefer = false
 	logger.Infof("setting prefer-ipv6 to %v", prefer)
 }
 

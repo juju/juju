@@ -21,6 +21,12 @@ import (
 var logger = loggo.GetLogger("juju.resource.api")
 
 const (
+	// HTTPEndpointPattern is the URL path pattern registered with
+	// the API server. This includes wildcards (starting with ":") that
+	// are converted into URL query values by the pattern mux. Also see
+	// apiserver/apiserver.go.
+	HTTPEndpointPattern = "/services/:service/resources/:resource"
+
 	// HTTPEndpointPath is the URL path, with substitutions, for
 	// a resource request.
 	HTTPEndpointPath = "/services/%s/resources/%s"
@@ -32,6 +38,34 @@ const (
 
 	// ContentTypeJSON is the HTTP content-type value used for JSON content.
 	ContentTypeJSON = "application/json"
+)
+
+const (
+	// HeaderContentType is the header name for the type of a file upload.
+	HeaderContentType = "Content-Type"
+	// HeaderContentSha384 is the header name for the sha hash of a file upload.
+	HeaderContentSha384 = "Content-Sha384"
+	// HeaderContentLength is the header name for the length of a file upload.
+	HeaderContentLength = "Content-Length"
+	// HeaderContentDisposition is the header name for value that holds the filename.
+	// The params are formatted according to  RFC 2045 and RFC 2616 (see
+	// mime.ParseMediaType and mime.FormatMediaType).
+	HeaderContentDisposition = "Content-Disposition"
+)
+
+const (
+	// MediaTypeFormData is the media type for file uploads (see
+	// mime.FormatMediaType).
+	MediaTypeFormData = "form-data"
+	// QueryParamPendingID is the query parameter we use to send up the pending id.
+	QueryParamPendingID = "pendingid"
+)
+
+const (
+	// TODO(natefinch): remove this and use http.MethodPut when we upgrade to go1.5+.
+
+	// MethodPut is the common HTTP PUT method.
+	MethodPut = "PUT"
 )
 
 // NewEndpointPath returns the API URL path for the identified resource.

@@ -36,13 +36,7 @@ func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	// Please note that in order to fulfil the demands made of Instances and
-	// AllInstances, it is imperative that some environment feature be used to
-	// keep track of which instances were actually started by juju.
-	env = env.getSnapshot()
-
 	// Start a new instance.
-
 	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
@@ -152,7 +146,7 @@ func (env *environ) findInstanceSpec(
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
-	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
+	machineID := common.MachineFullName(env.Config().UUID(), args.InstanceConfig.MachineId)
 
 	os, err := series.GetOSFromSeries(args.InstanceConfig.Series)
 	if err != nil {
@@ -168,13 +162,9 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		machineID,
 	}
 
-	cfg := env.Config()
-	eUUID, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.NotFoundf("UUID necessary to create the instance disk")
-	}
-
-	disks, err := getDisks(spec, args.Constraints, args.InstanceConfig.Series, eUUID)
+	disks, err := getDisks(
+		spec, args.Constraints, args.InstanceConfig.Series, env.Config().UUID(), env.Config().ImageStream() == "daily",
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -253,7 +243,7 @@ func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[strin
 // the new instances and returns it. This will always include a root
 // disk with characteristics determined by the provides args and
 // constraints.
-func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser, eUUID string) ([]google.DiskSpec, error) {
+func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser, eUUID string, daily bool) ([]google.DiskSpec, error) {
 	size := common.MinRootDiskSizeGiB(ser)
 	if cons.RootDisk != nil && *cons.RootDisk > size {
 		size = common.MiBToGiB(*cons.RootDisk)
@@ -265,7 +255,11 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser, eUUID s
 	}
 	switch os {
 	case jujuos.Ubuntu:
-		imageURL = ubuntuImageBasePath
+		if daily {
+			imageURL = ubuntuDailyImageBasePath
+		} else {
+			imageURL = ubuntuImageBasePath
+		}
 	case jujuos.Windows:
 		imageURL = windowsImageBasePath
 	default:
@@ -310,14 +304,12 @@ func (env *environ) AllInstances() ([]instance.Instance, error) {
 
 // StopInstances implements environs.InstanceBroker.
 func (env *environ) StopInstances(instances ...instance.Id) error {
-	env = env.getSnapshot()
-
 	var ids []string
 	for _, id := range instances {
 		ids = append(ids, string(id))
 	}
 
-	prefix := common.MachineFullName(env, "")
+	prefix := common.MachineFullName(env.Config().UUID(), "")
 	err := env.gce.RemoveInstances(prefix, ids...)
 	return errors.Trace(err)
 }

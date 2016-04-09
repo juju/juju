@@ -6,6 +6,7 @@ package charmrevisionupdater_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/charmstore"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -157,16 +159,24 @@ func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
 
 	// Set up a charm store server that stores the request header.
 	var header http.Header
+	received := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		header = r.Header
+		// the first request is the one with the UUID.
+		if !received {
+			header = r.Header
+			received = true
+		}
 		s.Handler.ServeHTTP(w, r)
 	}))
 	defer srv.Close()
 
 	// Point the charm repo initializer to the testing server.
-	s.PatchValue(&charmrevisionupdater.NewCharmStore, func(p charmrepo.NewCharmStoreParams) *charmrepo.CharmStore {
-		p.URL = srv.URL
-		return charmrepo.NewCharmStore(p)
+	s.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func() charmstore.Client {
+		var config charmstore.ClientConfig
+		csURL, err := url.Parse(srv.URL)
+		c.Assert(err, jc.ErrorIsNil)
+		config.URL = csURL
+		return charmstore.NewClient(config)
 	})
 
 	result, err := s.charmrevisionupdater.UpdateLatestRevisions()

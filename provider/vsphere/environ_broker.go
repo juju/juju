@@ -36,8 +36,6 @@ func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	env = env.getSnapshot()
-
 	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
@@ -84,7 +82,7 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFileMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
-	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
+	machineID := common.MachineFullName(env.Config().UUID(), args.InstanceConfig.MachineId)
 
 	cloudcfg, err := cloudinit.New(args.Tools.OneSeries())
 	if err != nil {
@@ -169,8 +167,6 @@ func (env *environ) AllInstances() ([]instance.Instance, error) {
 
 // StopInstances implements environs.InstanceBroker.
 func (env *environ) StopInstances(instances ...instance.Id) error {
-	env = env.getSnapshot()
-
 	var ids []string
 	for _, id := range instances {
 		ids = append(ids, string(id))

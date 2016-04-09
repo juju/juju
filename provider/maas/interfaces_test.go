@@ -23,6 +23,12 @@ type interfacesSuite struct {
 
 var _ = gc.Suite(&interfacesSuite{})
 
+func newAddressOnSpaceWithId(space string, id network.Id, address string) network.Address {
+	newAddress := network.NewAddressOnSpace(space, address)
+	newAddress.SpaceProviderId = id
+	return newAddress
+}
+
 const exampleInterfaceSetJSON = `
 [
 	{
@@ -438,6 +444,9 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
         "interface_set": %s
     }`, exampleInterfaceSetJSON)
 	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
+	subnetsMap := make(map[string]network.Id)
+	subnetsMap["10.250.19.0/24"] = network.Id("3")
+	subnetsMap["192.168.1.0/24"] = network.Id("0")
 
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -448,13 +457,16 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		ProviderSubnetId:  "3",
 		AvailabilityZones: nil,
 		VLANTag:           0,
+		ProviderVLANId:    "5001",
+		ProviderAddressId: "436",
 		InterfaceName:     "eth0",
+		InterfaceType:     "ethernet",
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
 		Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
 		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
-		DNSSearch:         "",
+		DNSSearchDomains:  nil,
 		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
 		ExtraConfig:       nil,
@@ -467,76 +479,92 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		ProviderSubnetId:  "3",
 		AvailabilityZones: nil,
 		VLANTag:           0,
+		ProviderVLANId:    "5001",
+		ProviderAddressId: "437",
 		InterfaceName:     "eth0",
+		InterfaceType:     "ethernet",
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
 		Address:           network.NewAddressOnSpace("default", "10.20.19.104"),
 		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
-		DNSSearch:         "",
+		DNSSearchDomains:  nil,
 		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
 		ExtraConfig:       nil,
 	}, {
-		DeviceIndex:       1,
-		MACAddress:        "52:54:00:70:9b:fe",
-		CIDR:              "10.50.19.0/24",
-		NetworkName:       "juju-private",
-		ProviderId:        "150",
-		ProviderSubnetId:  "5",
-		AvailabilityZones: nil,
-		VLANTag:           50,
-		InterfaceName:     "eth0.50",
-		Disabled:          false,
-		NoAutoStart:       false,
-		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("admin", "10.50.19.103"),
-		DNSServers:        nil,
-		DNSSearch:         "",
-		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("admin", "10.50.19.2"),
-		ExtraConfig:       nil,
+		DeviceIndex:         1,
+		MACAddress:          "52:54:00:70:9b:fe",
+		CIDR:                "10.50.19.0/24",
+		NetworkName:         "juju-private",
+		ProviderId:          "150",
+		ProviderSubnetId:    "5",
+		AvailabilityZones:   nil,
+		VLANTag:             50,
+		ProviderVLANId:      "5004",
+		ProviderAddressId:   "517",
+		InterfaceName:       "eth0.50",
+		ParentInterfaceName: "eth0",
+		InterfaceType:       "802.1q",
+		Disabled:            false,
+		NoAutoStart:         false,
+		ConfigType:          "static",
+		Address:             network.NewAddressOnSpace("admin", "10.50.19.103"),
+		DNSServers:          nil,
+		DNSSearchDomains:    nil,
+		MTU:                 1500,
+		GatewayAddress:      network.NewAddressOnSpace("admin", "10.50.19.2"),
+		ExtraConfig:         nil,
 	}, {
-		DeviceIndex:       2,
-		MACAddress:        "52:54:00:70:9b:fe",
-		CIDR:              "10.100.19.0/24",
-		NetworkName:       "juju-private",
-		ProviderId:        "151",
-		ProviderSubnetId:  "6",
-		AvailabilityZones: nil,
-		VLANTag:           100,
-		InterfaceName:     "eth0.100",
-		Disabled:          false,
-		NoAutoStart:       false,
-		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("public", "10.100.19.103"),
-		DNSServers:        nil,
-		DNSSearch:         "",
-		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("public", "10.100.19.2"),
-		ExtraConfig:       nil,
+		DeviceIndex:         2,
+		MACAddress:          "52:54:00:70:9b:fe",
+		CIDR:                "10.100.19.0/24",
+		NetworkName:         "juju-private",
+		ProviderId:          "151",
+		ProviderSubnetId:    "6",
+		AvailabilityZones:   nil,
+		VLANTag:             100,
+		ProviderVLANId:      "5005",
+		ProviderAddressId:   "519",
+		InterfaceName:       "eth0.100",
+		ParentInterfaceName: "eth0",
+		InterfaceType:       "802.1q",
+		Disabled:            false,
+		NoAutoStart:         false,
+		ConfigType:          "static",
+		Address:             network.NewAddressOnSpace("public", "10.100.19.103"),
+		DNSServers:          nil,
+		DNSSearchDomains:    nil,
+		MTU:                 1500,
+		GatewayAddress:      network.NewAddressOnSpace("public", "10.100.19.2"),
+		ExtraConfig:         nil,
 	}, {
-		DeviceIndex:       3,
-		MACAddress:        "52:54:00:70:9b:fe",
-		CIDR:              "10.250.19.0/24",
-		NetworkName:       "juju-private",
-		ProviderId:        "152",
-		ProviderSubnetId:  "8",
-		AvailabilityZones: nil,
-		VLANTag:           250,
-		InterfaceName:     "eth0.250",
-		Disabled:          false,
-		NoAutoStart:       false,
-		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("storage", "10.250.19.103"),
-		DNSServers:        nil,
-		DNSSearch:         "",
-		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("storage", "10.250.19.2"),
-		ExtraConfig:       nil,
+		DeviceIndex:         3,
+		MACAddress:          "52:54:00:70:9b:fe",
+		CIDR:                "10.250.19.0/24",
+		NetworkName:         "juju-private",
+		ProviderId:          "152",
+		ProviderSubnetId:    "8",
+		AvailabilityZones:   nil,
+		VLANTag:             250,
+		ProviderVLANId:      "5008",
+		ProviderAddressId:   "523",
+		ProviderSpaceId:     "3",
+		InterfaceName:       "eth0.250",
+		ParentInterfaceName: "eth0",
+		InterfaceType:       "802.1q",
+		Disabled:            false,
+		NoAutoStart:         false,
+		ConfigType:          "static",
+		Address:             newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.103"),
+		DNSServers:          nil,
+		DNSSearchDomains:    nil,
+		MTU:                 1500,
+		GatewayAddress:      newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.2"),
+		ExtraConfig:         nil,
 	}}
 
-	infos, err := maasObjectNetworkInterfaces(&obj)
+	infos, err := maasObjectNetworkInterfaces(&obj, subnetsMap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, expected)
 }
@@ -579,321 +607,4 @@ func (suite *environSuite) generateHWTemplate(netMacs map[string]ifaceInfo) (str
 		return "", err
 	}
 	return string(buf.Bytes()), nil
-}
-
-func (suite *environSuite) TestGetNetworkMACs(c *gc.C) {
-	env := suite.makeEnviron()
-
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node_1"}`)
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node_2"}`)
-	suite.testMAASObject.TestServer.NewNetwork(
-		`{"name": "net_1","ip":"0.1.2.0","netmask":"255.255.255.0"}`,
-	)
-	suite.testMAASObject.TestServer.NewNetwork(
-		`{"name": "net_2","ip":"0.2.2.0","netmask":"255.255.255.0"}`,
-	)
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_2", "net_2", "aa:bb:cc:dd:ee:22")
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_1", "net_1", "aa:bb:cc:dd:ee:11")
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_2", "net_1", "aa:bb:cc:dd:ee:21")
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_1", "net_2", "aa:bb:cc:dd:ee:12")
-
-	networks, err := env.getNetworkMACs("net_1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(networks, jc.SameContents, []string{"aa:bb:cc:dd:ee:11", "aa:bb:cc:dd:ee:21"})
-
-	networks, err = env.getNetworkMACs("net_2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(networks, jc.SameContents, []string{"aa:bb:cc:dd:ee:12", "aa:bb:cc:dd:ee:22"})
-
-	networks, err = env.getNetworkMACs("net_3")
-	c.Check(networks, gc.HasLen, 0)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (suite *environSuite) TestGetInstanceNetworks(c *gc.C) {
-	suite.newNetwork("test_network", 123, 321, "null")
-	testInstance := suite.getInstance("instance_for_network")
-	suite.testMAASObject.TestServer.ConnectNodeToNetwork("instance_for_network", "test_network")
-	networks, err := suite.makeEnviron().getInstanceNetworks(testInstance)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(networks, gc.DeepEquals, []networkDetails{{
-		Name:           "test_network",
-		IP:             "192.168.123.2",
-		Mask:           "255.255.255.0",
-		VLANTag:        321,
-		Description:    "test_network_123_321",
-		DefaultGateway: "", // "null" and "" are treated as N/A.
-	},
-	})
-}
-
-// A typical lshw XML dump with lots of things left out.
-const lshwXMLTestExtractInterfaces = `
-<?xml version="1.0" standalone="yes" ?>
-<!-- generated by lshw-B.02.16 -->
-<list>
-<node id="machine" claimed="true" class="system" handle="DMI:0001">
- <description>Notebook</description>
- <product>MyMachine</product>
- <version>1.0</version>
- <width units="bits">64</width>
-  <node id="core" claimed="true" class="bus" handle="DMI:0002">
-   <description>Motherboard</description>
-    <node id="cpu" claimed="true" class="processor" handle="DMI:0004">
-     <description>CPU</description>
-      <node id="pci:2" claimed="true" class="bridge" handle="PCIBUS:0000:03">
-        <node id="network:0" claimed="true" disabled="true" class="network" handle="PCI:0000:03:00.0">
-         <logicalname>wlan0</logicalname>
-         <serial>aa:bb:cc:dd:ee:ff</serial>
-        </node>
-        <node id="network:1" claimed="true" class="network" handle="PCI:0000:04:00.0">
-         <logicalname>eth0</logicalname>
-         <serial>aa:bb:cc:dd:ee:f1</serial>
-        </node>
-      </node>
-    </node>
-  </node>
-  <node id="network:2" claimed="true" class="network" handle="">
-   <logicalname>vnet1</logicalname>
-   <serial>aa:bb:cc:dd:ee:f2</serial>
-  </node>
-</node>
-</list>
-`
-
-// An lshw XML dump with implicit network interface indexes.
-const lshwXMLTestExtractInterfacesImplicitIndexes = `
-<?xml version="1.0" standalone="yes" ?>
-<!-- generated by lshw-B.02.16 -->
-<list>
-<node id="machine" claimed="true" class="system" handle="DMI:0001">
- <description>Notebook</description>
- <product>MyMachine</product>
- <version>1.0</version>
- <width units="bits">64</width>
-  <node id="core" claimed="true" class="bus" handle="DMI:0002">
-   <description>Motherboard</description>
-    <node id="cpu" claimed="true" class="processor" handle="DMI:0004">
-     <description>CPU</description>
-      <node id="pci:2" claimed="true" class="bridge" handle="PCIBUS:0000:03">
-        <node id="network" claimed="true" disabled="true" class="network" handle="PCI:0000:03:00.0">
-         <logicalname>wlan0</logicalname>
-         <serial>aa:bb:cc:dd:ee:ff</serial>
-        </node>
-        <node id="network" claimed="true" class="network" handle="PCI:0000:04:00.0">
-         <logicalname>eth0</logicalname>
-         <serial>aa:bb:cc:dd:ee:f1</serial>
-        </node>
-      </node>
-    </node>
-  </node>
-  <node id="network" claimed="true" class="network" handle="">
-   <logicalname>vnet1</logicalname>
-   <serial>aa:bb:cc:dd:ee:f2</serial>
-  </node>
-</node>
-</list>
-`
-
-func (suite *environSuite) TestExtractInterfaces(c *gc.C) {
-	rawData := []string{
-		lshwXMLTestExtractInterfaces,
-		lshwXMLTestExtractInterfacesImplicitIndexes,
-	}
-	for _, data := range rawData {
-		inst := suite.getInstance("testInstance")
-		interfaces, err := extractInterfaces(inst, []byte(data))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(interfaces, jc.DeepEquals, map[string]ifaceInfo{
-			"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
-			"aa:bb:cc:dd:ee:f1": {1, "eth0", false},
-			"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
-		})
-	}
-}
-
-func (suite *environSuite) TestGetInstanceNetworkInterfaces(c *gc.C) {
-	inst := suite.getInstance("testInstance")
-	templateInterfaces := map[string]ifaceInfo{
-		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
-		"aa:bb:cc:dd:ee:f1": {1, "eth0", true},
-		"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
-	}
-	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
-	c.Assert(err, jc.ErrorIsNil)
-
-	suite.testMAASObject.TestServer.AddNodeDetails("testInstance", lshwXML)
-	env := suite.makeEnviron()
-	interfaces, err := env.getInstanceNetworkInterfaces(inst)
-	c.Assert(err, jc.ErrorIsNil)
-	// Both wlan0 and eth0 are disabled in lshw output.
-	c.Check(interfaces, jc.DeepEquals, templateInterfaces)
-}
-
-func (suite *environSuite) TestSetupNetworks(c *gc.C) {
-	testInstance := suite.getInstance("node1")
-	templateInterfaces := map[string]ifaceInfo{
-		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
-		"aa:bb:cc:dd:ee:f1": {1, "eth0", true},
-		"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
-	}
-	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
-	c.Assert(err, jc.ErrorIsNil)
-
-	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
-	suite.newNetwork("LAN", 2, 42, "null")
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
-	suite.newNetwork("Virt", 3, 0, "0.1.2.3") // primary + gateway
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
-	suite.newNetwork("WLAN", 1, 0, "") // "" same as "null" for gateway
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
-	networkInfo, err := suite.makeEnviron().setupNetworks(testInstance)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Note: order of networks is based on lshwXML
-	// Unfortunately, because network.InterfaceInfo is unhashable
-	// (contains a map) we can't use jc.SameContents here.
-	c.Check(networkInfo, gc.HasLen, 3)
-	for _, info := range networkInfo {
-		switch info.DeviceIndex {
-		case 0:
-			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
-				MACAddress:    "aa:bb:cc:dd:ee:ff",
-				CIDR:          "192.168.1.2/24",
-				NetworkName:   "WLAN",
-				ProviderId:    "WLAN",
-				VLANTag:       0,
-				DeviceIndex:   0,
-				InterfaceName: "wlan0",
-				Disabled:      true, // from networksToDisable("WLAN")
-			})
-		case 1:
-			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
-				DeviceIndex:   1,
-				MACAddress:    "aa:bb:cc:dd:ee:f1",
-				CIDR:          "192.168.2.2/24",
-				NetworkName:   "LAN",
-				ProviderId:    "LAN",
-				VLANTag:       42,
-				InterfaceName: "eth0",
-				Disabled:      true, // from networksToDisable("WLAN")
-			})
-		case 2:
-			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
-				MACAddress:     "aa:bb:cc:dd:ee:f2",
-				CIDR:           "192.168.3.2/24",
-				NetworkName:    "Virt",
-				ProviderId:     "Virt",
-				VLANTag:        0,
-				DeviceIndex:    2,
-				InterfaceName:  "vnet1",
-				Disabled:       false,
-				GatewayAddress: network.NewAddress("0.1.2.3"), // from newNetwork("Virt", 3, 0, "0.1.2.3")
-			})
-		}
-	}
-}
-
-// The same test, but now "Virt" network does not have matched MAC address
-func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
-	testInstance := suite.getInstance("node1")
-	templateInterfaces := map[string]ifaceInfo{
-		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
-		"aa:bb:cc:dd:ee:f1": {1, "eth0", false},
-		"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
-	}
-	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
-	c.Assert(err, jc.ErrorIsNil)
-
-	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
-	suite.newNetwork("LAN", 2, 42, "192.168.2.1")
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
-	suite.newNetwork("Virt", 3, 0, "")
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f3")
-	networkInfo, err := suite.makeEnviron().setupNetworks(testInstance)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Note: order of networks is based on lshwXML
-	c.Check(networkInfo, jc.DeepEquals, []network.InterfaceInfo{{
-		MACAddress:     "aa:bb:cc:dd:ee:f1",
-		CIDR:           "192.168.2.2/24",
-		NetworkName:    "LAN",
-		ProviderId:     "LAN",
-		VLANTag:        42,
-		DeviceIndex:    1,
-		InterfaceName:  "eth0",
-		Disabled:       false,
-		GatewayAddress: network.NewAddress("192.168.2.1"),
-	}})
-}
-
-// The same test, but now no networks have matched MAC
-func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
-	testInstance := suite.getInstance("node1")
-	templateInterfaces := map[string]ifaceInfo{
-		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
-		"aa:bb:cc:dd:ee:f1": {1, "eth0", false},
-		"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
-	}
-	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
-	c.Assert(err, jc.ErrorIsNil)
-
-	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
-	suite.newNetwork("Virt", 3, 0, "")
-	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f3")
-	networkInfo, err := suite.makeEnviron().setupNetworks(testInstance)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Note: order of networks is based on lshwXML
-	c.Check(networkInfo, gc.HasLen, 0)
-}
-
-func (suite *environSuite) TestNetworkInterfacesLegacy(c *gc.C) {
-	testInstance := suite.createSubnets(c, false)
-
-	netInfo, err := suite.makeEnviron().NetworkInterfaces(testInstance.Id())
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedInfo := []network.InterfaceInfo{{
-		DeviceIndex:      0,
-		MACAddress:       "aa:bb:cc:dd:ee:ff",
-		CIDR:             "192.168.1.2/24",
-		ProviderSubnetId: "WLAN",
-		VLANTag:          0,
-		InterfaceName:    "wlan0",
-		Disabled:         true,
-		NoAutoStart:      true,
-		ConfigType:       network.ConfigDHCP,
-		ExtraConfig:      nil,
-		GatewayAddress:   network.Address{},
-		Address:          network.NewScopedAddress("192.168.1.2", network.ScopeCloudLocal),
-	}, {
-		DeviceIndex:      1,
-		MACAddress:       "aa:bb:cc:dd:ee:f1",
-		CIDR:             "192.168.2.2/24",
-		ProviderSubnetId: "LAN",
-		VLANTag:          42,
-		InterfaceName:    "eth0",
-		Disabled:         false,
-		NoAutoStart:      false,
-		ConfigType:       network.ConfigDHCP,
-		ExtraConfig:      nil,
-		GatewayAddress:   network.NewScopedAddress("192.168.2.1", network.ScopeCloudLocal),
-		Address:          network.NewScopedAddress("192.168.2.2", network.ScopeCloudLocal),
-	}, {
-		DeviceIndex:      2,
-		MACAddress:       "aa:bb:cc:dd:ee:f2",
-		CIDR:             "192.168.3.2/24",
-		ProviderSubnetId: "Virt",
-		VLANTag:          0,
-		InterfaceName:    "vnet1",
-		Disabled:         false,
-		NoAutoStart:      false,
-		ConfigType:       network.ConfigDHCP,
-		ExtraConfig:      nil,
-		GatewayAddress:   network.Address{},
-		Address:          network.NewScopedAddress("192.168.3.2", network.ScopeCloudLocal),
-	}}
-	network.SortInterfaceInfo(netInfo)
-	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
 }

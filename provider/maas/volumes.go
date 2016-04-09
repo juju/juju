@@ -37,12 +37,6 @@ const (
 // maasStorageProvider allows volumes to be specified when a node is acquired.
 type maasStorageProvider struct{}
 
-var _ storage.Provider = (*maasStorageProvider)(nil)
-
-var validConfigOptions = set.NewStrings(
-	tagsAttribute,
-)
-
 var storageConfigFields = schema.Fields{
 	tagsAttribute: schema.OneOf(
 		schema.List(schema.String()),
@@ -160,7 +154,7 @@ func buildMAASVolumeParameters(args []storage.VolumeParams, cons constraints.Val
 
 // volumes creates the storage volumes and attachments
 // corresponding to the volume info associated with a MAAS node.
-func (mi *maasInstance) volumes(
+func (mi *maas1Instance) volumes(
 	mTag names.MachineTag, requestedVolumes []names.VolumeTag,
 ) (
 	[]storage.Volume, []storage.VolumeAttachment, error,

@@ -14,9 +14,11 @@ type environProviderCredentials struct{}
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.OAuth1AuthType: {
-			"maas-oauth": {
-				Description: "OAuth/API-key credentials for MAAS",
-				Hidden:      true,
+			{
+				"maas-oauth", cloud.CredentialAttr{
+					Description: "OAuth/API-key credentials for MAAS",
+					Hidden:      true,
+				},
 			},
 		},
 	}

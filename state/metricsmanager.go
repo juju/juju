@@ -7,13 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
-
-var metricsManagerLogger = loggo.GetLogger("juju.state.metricsmanager")
 
 const (
 	defaultGracePeriod                      = 7 * 24 * time.Hour // 1 week in hours
@@ -28,21 +25,9 @@ type MetricsManager struct {
 }
 
 type metricsManagerDoc struct {
-	DocID              string        `bson:"_id"`
-	ModelUUID          string        `bson:"model-uuid"`
 	LastSuccessfulSend time.Time     `bson:"lastsuccessfulsend"`
 	ConsecutiveErrors  int           `bson:"consecutiveerrors"`
 	GracePeriod        time.Duration `bson:"graceperiod"`
-}
-
-// DocID returns the Document id of the MetricsManager.
-func (m *MetricsManager) DocID() string {
-	return m.doc.DocID
-}
-
-// ModelUUID returns the model UUID of the Metrics Manager.
-func (m *MetricsManager) ModelUUID() string {
-	return m.doc.ModelUUID
 }
 
 // LastSuccessfulSend returns the time of the last successful send.
@@ -75,24 +60,17 @@ func (st *State) newMetricsManager() (*MetricsManager, error) {
 	mm := &MetricsManager{
 		st: st,
 		doc: metricsManagerDoc{
-			DocID:              st.docID(metricsManagerKey),
-			ModelUUID:          st.ModelUUID(),
 			LastSuccessfulSend: time.Time{},
 			ConsecutiveErrors:  0,
 			GracePeriod:        defaultGracePeriod,
 		}}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			return nil, errors.NotFoundf("metrics manager")
-		}
-		return []txn.Op{{
-			C:      metricsManagerC,
-			Id:     st.docID(metricsManagerKey),
-			Assert: txn.DocMissing,
-			Insert: mm.doc,
-		}}, nil
-	}
-	err := st.run(buildTxn)
+	ops := []txn.Op{{
+		C:      metricsManagerC,
+		Id:     metricsManagerKey,
+		Assert: txn.DocMissing,
+		Insert: mm.doc,
+	}}
+	err := st.runTransaction(ops)
 	if err != nil {
 		return nil, onAbort(err, errors.NotFoundf("metrics manager"))
 	}
@@ -103,7 +81,7 @@ func (st *State) getMetricsManager() (*MetricsManager, error) {
 	coll, closer := st.getCollection(metricsManagerC)
 	defer closer()
 	var doc metricsManagerDoc
-	err := coll.FindId(st.docID(metricsManagerKey)).One(&doc)
+	err := coll.FindId(metricsManagerKey).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("metrics manager")
 	} else if err != nil {
@@ -113,15 +91,13 @@ func (st *State) getMetricsManager() (*MetricsManager, error) {
 }
 
 func (m *MetricsManager) updateMetricsManager(update bson.M) error {
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		return []txn.Op{{
-			C:      metricsManagerC,
-			Id:     m.st.docID(metricsManagerKey),
-			Assert: txn.DocExists,
-			Update: update,
-		}}, nil
-	}
-	err := m.st.run(buildTxn)
+	ops := []txn.Op{{
+		C:      metricsManagerC,
+		Id:     metricsManagerKey,
+		Assert: txn.DocExists,
+		Update: update,
+	}}
+	err := m.st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.NotFoundf("metrics manager")
 	}
@@ -176,6 +152,7 @@ func (m *MetricsManager) IncrementConsecutiveErrors() error {
 }
 
 func (m *MetricsManager) gracePeriodExceeded() bool {
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	now := time.Now()
 	t := m.LastSuccessfulSend().Add(m.GracePeriod())
 	return t.Before(now) || t.Equal(now)

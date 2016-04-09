@@ -10,8 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -29,7 +27,7 @@ type ImageMetadataSuite struct {
 var _ = gc.Suite(&ImageMetadataSuite{})
 
 func (s *ImageMetadataSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
+	dummy.Reset(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
@@ -45,12 +43,14 @@ func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) envir
 			"image-metadata-url": imageMetadataURL,
 		})
 	}
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
-		envtesting.BootstrapContext(c), configstore.NewMem(),
+		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		cfg.Name(), environs.PrepareForBootstrapParams{Config: cfg},
+		environs.PrepareParams{
+			ControllerName: attrs["name"].(string),
+			BaseConfig:     attrs,
+			CloudName:      "dummy",
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env

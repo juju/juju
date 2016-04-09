@@ -73,7 +73,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 			c.Logf("test %d should %s: juju actions defined %s", i,
 				t.should, strings.Join(t.args, " "))
 			s.wrappedCommand, s.command = action.NewListCommandForTest(s.store)
-			args := append([]string{modelFlag, "dummymodel"}, t.args...)
+			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := testing.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
 				c.Check(s.command.ServiceTag(), gc.Equals, t.expectedSvc)
@@ -129,7 +129,7 @@ func (s *ListSuite) TestRun(c *gc.C) {
 				restore := s.patchAPIClient(fakeClient)
 				defer restore()
 
-				args := append([]string{modelFlag, "dummymodel"}, t.withArgs...)
+				args := append([]string{modelFlag, "admin"}, t.withArgs...)
 				s.wrappedCommand, s.command = action.NewListCommandForTest(s.store)
 				ctx, err := testing.RunCommand(c, s.wrappedCommand, args...)
 

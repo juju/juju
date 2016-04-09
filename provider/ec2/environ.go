@@ -12,8 +12,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
@@ -26,13 +28,11 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
-	envstorage "github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -52,12 +52,6 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
-// Use longAttempt to poll for short-term events or for retrying API calls.
-var longAttempt = utils.AttemptStrategy{
-	Total: 60 * time.Second,
-	Delay: 200 * time.Millisecond,
-}
-
 type environ struct {
 	common.SupportsUnitPlacementPolicy
 
@@ -70,11 +64,10 @@ type environ struct {
 	supportedArchitectures []string
 
 	// ecfgMutex protects the *Unlocked fields below.
-	ecfgMutex       sync.Mutex
-	ecfgUnlocked    *environConfig
-	ec2Unlocked     *ec2.EC2
-	s3Unlocked      *s3.S3
-	storageUnlocked envstorage.Storage
+	ecfgMutex    sync.Mutex
+	ecfgUnlocked *environConfig
+	ec2Unlocked  *ec2.EC2
+	s3Unlocked   *s3.S3
 
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
@@ -131,14 +124,6 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	e.ec2Unlocked = ec2Client
 	e.s3Unlocked = s3Client
 
-	bucket, err := e.s3Unlocked.Bucket(ecfg.controlBucket())
-	if err != nil {
-		return err
-	}
-
-	// create new storage instances, existing instances continue
-	// to reference their existing configuration.
-	e.storageUnlocked = &ec2storage{bucket: bucket}
 	return nil
 }
 
@@ -188,22 +173,8 @@ func (e *environ) ec2() *ec2.EC2 {
 	return ec2
 }
 
-func (e *environ) s3() *s3.S3 {
-	e.ecfgMutex.Lock()
-	s3 := e.s3Unlocked
-	e.ecfgMutex.Unlock()
-	return s3
-}
-
 func (e *environ) Name() string {
 	return e.name
-}
-
-func (e *environ) Storage() envstorage.Storage {
-	e.ecfgMutex.Lock()
-	stor := e.storageUnlocked
-	e.ecfgMutex.Unlock()
-	return stor
 }
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
@@ -211,7 +182,33 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 }
 
 func (e *environ) ControllerInstances() ([]instance.Id, error) {
-	return common.ProviderStateInstances(e, e.Storage())
+	filter := ec2.NewFilter()
+	filter.Add("instance-state-name", "pending", "running")
+	filter.Add(fmt.Sprintf("tag:%s", tags.JujuModel), e.Config().UUID())
+	filter.Add(fmt.Sprintf("tag:%s", tags.JujuController), "true")
+	err := e.addGroupFilter(filter)
+	if err != nil {
+		if ec2ErrCode(err) == "InvalidGroup.NotFound" {
+			return nil, environs.ErrNotBootstrapped
+		}
+		return nil, errors.Annotate(err, "adding a group filter for instances")
+	}
+	resp, err := e.ec2().Instances(nil, filter)
+	if err != nil {
+		return nil, errors.Annotate(err, "listing instances")
+	}
+	var insts []instance.Id
+	for _, r := range resp.Reservations {
+		for i := range r.Instances {
+			inst := &ec2Instance{
+				e:        e,
+				Instance: &r.Instances[i],
+			}
+			insts = append(insts, inst.Id())
+		}
+	}
+	return insts, nil
+
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
@@ -258,6 +255,9 @@ func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
 
 var unsupportedConstraints = []string{
 	constraints.Tags,
+	// TODO(anastasiamac 2016-03-16) LP#1557874
+	// use virt-type in StartInstances
+	constraints.VirtType,
 }
 
 // ConstraintsValidator is defined on the Environs interface.
@@ -646,17 +646,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 
 	// Tag the machine's root EBS volume, if it has one.
 	if inst.Instance.RootDeviceType == "ebs" {
-		uuid, _ := cfg.UUID()
-		tags := tags.ResourceTags(names.NewModelTag(uuid), cfg)
+		tags := tags.ResourceTags(names.NewModelTag(cfg.UUID()), cfg)
 		tags[tagName] = instanceName + "-root"
 		if err := tagRootDisk(e.ec2(), tags, inst.Instance); err != nil {
 			return nil, errors.Annotate(err, "tagging root disk")
-		}
-	}
-
-	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
-		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
-			return nil, errors.Annotate(err, "recording instance in provider-state")
 		}
 	}
 
@@ -748,10 +741,7 @@ func _runInstances(e *ec2.EC2, ri *ec2.RunInstances) (resp *ec2.RunInstancesResp
 }
 
 func (e *environ) StopInstances(ids ...instance.Id) error {
-	if err := e.terminateInstances(ids); err != nil {
-		return errors.Trace(err)
-	}
-	return common.RemoveStateInstances(e.Storage(), ids...)
+	return errors.Trace(e.terminateInstances(ids))
 }
 
 // groupInfoByName returns information on the security group
@@ -1185,10 +1175,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	eUUID, ok := e.Config().UUID()
-	if !ok {
-		return nil, errors.NotFoundf("enviroment UUID in configuration")
-	}
+	eUUID := e.Config().UUID()
 	var insts []instance.Instance
 	for _, r := range resp.Reservations {
 		for i := range r.Instances {
@@ -1213,10 +1200,12 @@ func (e *environ) Destroy() error {
 	if err := common.Destroy(e); err != nil {
 		return errors.Trace(err)
 	}
+
 	if err := e.cleanEnvironmentSecurityGroup(); err != nil {
 		logger.Warningf("cannot delete default security group: %v", err)
 	}
-	return e.Storage().RemoveAll()
+
+	return nil
 }
 
 func portsToIPPerms(ports []network.PortRange) []ec2.IPPerm {
@@ -1380,41 +1369,77 @@ func (e *environ) cleanEnvironmentSecurityGroup() error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot retrieve default security group: %q", jujuGroup)
 	}
-	for a := longAttempt.Start(); a.Next(); {
-		_, err = ec2inst.DeleteSecurityGroup(g)
-		if err == nil {
-			return nil
-		}
+
+	if err := deleteSecurityGroupInsistently(ec2inst, g); err != nil {
+		return errors.Annotate(err, "cannot delete default security group")
 	}
-	return errors.Annotate(err, "cannot delete default security group")
+	return nil
+}
+
+// SecurityGroupCleaner defines provider instance methods needed to delete
+// a security group.
+type SecurityGroupCleaner interface {
+
+	// DeleteSecurityGroup deletes security group on the provider.
+	DeleteSecurityGroup(group ec2.SecurityGroup) (resp *ec2.SimpleResp, err error)
+}
+
+var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, group ec2.SecurityGroup) error {
+	var lastErr error
+	err := retry.Call(retry.CallArgs{
+		Attempts:    30,
+		Delay:       time.Second,
+		MaxDelay:    time.Minute, // because 2**29 seconds is beyond reasonable
+		BackoffFunc: retry.DoubleDelay,
+		Clock:       clock.WallClock,
+		Func: func() error {
+			_, deleteErr := inst.DeleteSecurityGroup(group)
+			if ec2ErrCode(deleteErr) != "InvalidGroup.NotFound" {
+				return errors.Trace(deleteErr)
+			}
+			return nil
+		},
+		NotifyFunc: func(err error, attempt int) {
+			lastErr = err
+			logger.Infof(fmt.Sprintf("deleting security group %q, attempt %d", group.Name, attempt))
+		},
+	})
+	if err != nil {
+		logger.Warningf("cannot delete security group %q: consider deleting it manually", group.Name)
+		return lastErr
+	}
+	return nil
 }
 
 func (e *environ) terminateInstances(ids []instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	securityGroups, err := e.instanceSecurityGroups(ids)
-	if err != nil {
-		// We should not stop termination because of this.
-		logger.Warningf("cannot determine security groups to delete: %v", err)
-	}
 	ec2inst := e.ec2()
+
 	defer func() {
+		securityGroups, err := e.instanceSecurityGroups(ids)
+		if err != nil {
+			logger.Warningf("cannot determine security groups to delete: %v", err)
+		}
 		// TODO(perrito666) we need to tag global security groups to be able
-		// to tell them appart from future groups that are neither machine
+		// to tell them apart from future groups that are neither machine
 		// nor environment group.
 		// https://bugs.launchpad.net/juju-core/+bug/1534289
 		jujuGroup := e.jujuGroupName()
 		legacyJujuGroup := e.legacyJujuGroupName()
+
 		for _, deletable := range securityGroups {
 			if deletable.Name != jujuGroup && deletable.Name != legacyJujuGroup {
-				for a := longAttempt.Start(); a.Next(); {
-					_, err := ec2inst.DeleteSecurityGroup(deletable)
-					if err != nil {
-						logger.Warningf("could not delete security group %q: %v", deletable.Name, err)
-					} else {
-						break
-					}
+				if err := deleteSecurityGroupInsistently(ec2inst, deletable); err != nil {
+					// In ideal world, we would err out here.
+					// However:
+					// 1. We do not know if all instances have been terminated.
+					// If some instances erred out, they may still be using this security group.
+					// In this case, our failure to delete security group is reasonable: it's still in use.
+					// 2. Some security groups may be shared by multiple instances,
+					// for example, global firewalling. We should not delete these.
+					logger.Warningf("provider failure: %v", err)
 				}
 			}
 		}
@@ -1424,6 +1449,11 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 	for i, id := range ids {
 		strs[i] = string(id)
 	}
+
+	var err error
+	// TODO (anastasiamac 2016-04-7) instance termination would benefit
+	// from retry with exponential delay just like security groups
+	// in defer. Bug#1567179.
 	for a := shortAttempt.Start(); a.Next(); {
 		_, err = ec2inst.TerminateInstances(strs)
 		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
@@ -1450,10 +1480,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 }
 
 func (e *environ) uuid() string {
-	// the bool component of uuid is for legacy compatibility
-	// and does not apply in this context.
-	eUUID, _ := e.Config().UUID()
-	return eUUID
+	return e.Config().UUID()
 }
 
 func (e *environ) globalGroupName() string {
@@ -1705,9 +1732,13 @@ func isSubnetConstrainedError(err error) bool {
 // If the err is of type *ec2.Error, ec2ErrCode returns
 // its code, otherwise it returns the empty string.
 func ec2ErrCode(err error) string {
-	ec2err, _ := err.(*ec2.Error)
+	ec2err, _ := errors.Cause(err).(*ec2.Error)
 	if ec2err == nil {
 		return ""
 	}
 	return ec2err.Code
+}
+
+func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotSupportedf("container address allocation")
 }

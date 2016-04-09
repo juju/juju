@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -46,7 +47,7 @@ import (
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/provisioner"
@@ -81,6 +82,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	// like this because sometimes we pick up the initial harvest config (destroyed)
 	// rather than the one we change to (all).
 	received := []string{}
+	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
 		case newCfg := <-cfgObserver:
@@ -88,7 +90,9 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 				return
 			}
 			received = append(received, newCfg.ProvisionerHarvestMode().String())
-		case <-time.After(coretesting.LongWait):
+		case <-time.After(coretesting.ShortWait):
+			s.BackingState.StartSync()
+		case <-timeout:
 			if len(received) == 0 {
 				c.Fatalf("PA did not action config change")
 			} else {
@@ -104,11 +108,6 @@ type ProvisionerSuite struct {
 }
 
 var _ = gc.Suite(&ProvisionerSuite{})
-
-var veryShortAttempt = utils.AttemptStrategy{
-	Total: 1 * time.Second,
-	Delay: 80 * time.Millisecond,
-}
 
 func (s *CommonProvisionerSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
@@ -168,7 +167,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(machine.Id(), gc.Equals, "0")
 
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -513,7 +512,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	currentVersion := version.MustParseBinary("1.2.3-quantal-arm64")
 	s.PatchValue(&arch.HostArch, func() string { return currentVersion.Arch })
 	s.PatchValue(&series.HostSeries, func() string { return currentVersion.Series })
-	s.PatchValue(&version.Current, currentVersion.Number)
+	s.PatchValue(&jujuversion.Current, currentVersion.Number)
 
 	// Upload some plausible matches, and some that should be filtered out.
 	compatibleVersion := version.MustParseBinary("1.2.3-quantal-amd64")

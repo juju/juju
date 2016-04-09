@@ -4,6 +4,8 @@
 package machine_test
 
 import (
+	"sort"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -37,30 +39,35 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	for k := range manifolds {
 		keys = append(keys, k)
 	}
+	sort.Strings(keys)
 	expectedKeys := []string{
 		"agent",
-		"termination",
+		"api-address-updater",
 		"api-caller",
-		"upgrade-steps-gate",
+		"apiworkers",
+		"authenticationworker",
+		"deployer",
+		"disk-manager",
+		"identity-file-writer",
+		"log-sender",
+		"logging-config-updater",
+		"machine-actions",
+		"machiner",
+		"proxy-config-updater",
+		"reboot",
+		"resumer",
+		"serving-info-setter",
+		"state",
+		"state-config-watcher",
+		"stateworkers",
+		"storage-provisioner-machine",
+		"termination",
+		"tools-version-checker",
 		"upgrade-check-gate",
+		"upgrade-steps-gate",
 		"upgrader",
 		"upgradesteps",
 		"upgradewaiter",
-		"uninstaller",
-		"serving-info-setter",
-		"apiworkers",
-		"reboot",
-		"logging-config-updater",
-		"disk-manager",
-		"proxy-config-updater",
-		"log-sender",
-		"api-address-updater",
-		"machiner",
-		"deployer",
-		"authenticationworker",
-		"storage-provisioner-machine",
-		"resumer",
-		"identity-file-writer",
 	}
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }

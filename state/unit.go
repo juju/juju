@@ -4,7 +4,6 @@
 package state
 
 import (
-	stderrors "errors"
 	"fmt"
 	"time"
 
@@ -14,18 +13,19 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var unitLogger = loggo.GetLogger("juju.state.unit")
@@ -70,16 +70,6 @@ const (
 type port struct {
 	Protocol string `bson:"protocol"`
 	Number   int    `bson:"number"`
-}
-
-// networkPorts is a convenience helper to return the state type
-// as network type, here for a slice of Port.
-func networkPorts(ports []port) []network.Port {
-	netPorts := make([]network.Port, len(ports))
-	for i, port := range ports {
-		netPorts[i] = network.Port{port.Protocol, port.Number}
-	}
-	return netPorts
 }
 
 // unitDoc represents the internal state of a unit in MongoDB.
@@ -267,17 +257,6 @@ func (u *Unit) getPasswordHash() string {
 func (u *Unit) PasswordValid(password string) bool {
 	agentHash := utils.AgentPasswordHash(password)
 	if agentHash == u.doc.PasswordHash {
-		return true
-	}
-	// In Juju 1.16 and older we used the slower password hash for unit
-	// agents. So check to see if the supplied password matches the old
-	// path, and if so, update it to the new mechanism.
-	// We ignore any error in setting the password hash, as we'll just try
-	// again next time
-	if utils.UserPasswordHash(password, utils.CompatSalt) == u.doc.PasswordHash {
-		logger.Debugf("%s logged in with old password hash, changing to AgentPasswordHash",
-			u.Tag())
-		u.setPasswordHash(agentHash)
 		return true
 	}
 	return false
@@ -511,7 +490,7 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	return ops, nil
 }
 
-var errAlreadyRemoved = stderrors.New("entity has already been removed")
+var errAlreadyRemoved = errors.New("entity has already been removed")
 
 // removeOps returns the operations necessary to remove the unit, assuming
 // the supplied asserts apply to the unit document.
@@ -529,7 +508,7 @@ func (u *Unit) removeOps(asserts bson.D) ([]txn.Op, error) {
 // ErrUnitHasSubordinates is a standard error to indicate that a Unit
 // cannot complete an operation to end its life because it still has
 // subordinate services
-var ErrUnitHasSubordinates = stderrors.New("unit has subordinates")
+var ErrUnitHasSubordinates = errors.New("unit has subordinates")
 
 var unitHasNoSubordinates = bson.D{{
 	"$or", []bson.D{
@@ -541,7 +520,7 @@ var unitHasNoSubordinates = bson.D{{
 // ErrUnitHasStorageAttachments is a standard error to indicate that
 // a Unit cannot complete an operation to end its life because it still
 // has storage attachments.
-var ErrUnitHasStorageAttachments = stderrors.New("unit has storage attachments")
+var ErrUnitHasStorageAttachments = errors.New("unit has storage attachments")
 
 var unitHasNoStorageAttachments = bson.D{{
 	"$or", []bson.D{
@@ -600,7 +579,7 @@ func (u *Unit) EnsureDead() (err error) {
 func (u *Unit) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove unit %q", u)
 	if u.doc.Life != Dead {
-		return stderrors.New("unit is not dead")
+		return errors.New("unit is not dead")
 	}
 
 	// Now the unit is Dead, we can be sure that it's impossible for it to
@@ -1024,26 +1003,6 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	return err
 }
 
-func (u *Unit) charm() (*Charm, error) {
-	if u.doc.CharmURL == nil {
-		s, err := u.Service()
-		if err != nil {
-			return nil, errors.Annotatef(err, "getting service for unit %v", u.Tag().Id())
-		}
-		ch, _, err := s.Charm()
-		if err != nil {
-			return nil, errors.Annotatef(err, "getting charm for unit %q", u.Tag().Id())
-		}
-		return ch, nil
-	}
-
-	ch, err := u.st.Charm(u.doc.CharmURL)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return ch, nil
-}
-
 // AgentPresence returns whether the respective remote agent is alive.
 func (u *Unit) AgentPresence() (bool, error) {
 	return u.st.pwatcher.Alive(u.globalAgentKey())
@@ -1075,6 +1034,7 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 				return nil
 			}
 		case <-time.After(timeout):
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			return fmt.Errorf("still not alive after timeout")
 		case <-u.st.pwatcher.Dead():
 			return u.st.pwatcher.Err()
@@ -1126,11 +1086,11 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 }
 
 var (
-	machineNotAliveErr = stderrors.New("machine is not alive")
-	machineNotCleanErr = stderrors.New("machine is dirty")
-	unitNotAliveErr    = stderrors.New("unit is not alive")
-	alreadyAssignedErr = stderrors.New("unit is already assigned to a machine")
-	inUseErr           = stderrors.New("machine is not unused")
+	machineNotAliveErr = errors.New("machine is not alive")
+	machineNotCleanErr = errors.New("machine is dirty")
+	unitNotAliveErr    = errors.New("unit is not alive")
+	alreadyAssignedErr = errors.New("unit is already assigned to a machine")
+	inUseErr           = errors.New("machine is not unused")
 )
 
 // assignToMachine is the internal version of AssignToMachine,
@@ -1759,7 +1719,7 @@ func machineStorageParamsForStorageInstance(
 	return result, nil
 }
 
-var noCleanMachines = stderrors.New("all eligible machines in use")
+var noCleanMachines = errors.New("all eligible machines in use")
 
 // AssignToCleanMachine assigns u to a machine which is marked as clean. A machine
 // is clean if it has never had any principal units assigned to it.
@@ -2038,20 +1998,25 @@ type ActionSpecsByName map[string]charm.ActionSpec
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID.  Note that the use of spec.InsertDefaults
 // mutates payload.
-func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
+func (u *Unit) AddAction(name string, payload map[string]interface{}) (Action, error) {
 	if len(name) == 0 {
 		return nil, errors.New("no action name given")
 	}
-	specs, err := u.ActionSpecs()
-	if err != nil {
-		return nil, err
-	}
-	spec, ok := specs[name]
+
+	// If the action is predefined inside juju, get spec from map
+	spec, ok := actions.PredefinedActionsSpec[name]
 	if !ok {
-		return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
+		specs, err := u.ActionSpecs()
+		if err != nil {
+			return nil, err
+		}
+		spec, ok = specs[name]
+		if !ok {
+			return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
+		}
 	}
 	// Reject bad payloads before attempting to insert defaults.
-	err = spec.ValidateParams(payload)
+	err := spec.ValidateParams(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -2090,7 +2055,7 @@ func (u *Unit) ActionSpecs() (ActionSpecsByName, error) {
 
 // CancelAction removes a pending Action from the queue for this
 // ActionReceiver and marks it as cancelled.
-func (u *Unit) CancelAction(action *Action) (*Action, error) {
+func (u *Unit) CancelAction(action Action) (Action, error) {
 	return action.Finish(ActionResults{Status: ActionCancelled})
 }
 
@@ -2101,23 +2066,23 @@ func (u *Unit) WatchActionNotifications() StringsWatcher {
 }
 
 // Actions returns a list of actions pending or completed for this unit.
-func (u *Unit) Actions() ([]*Action, error) {
+func (u *Unit) Actions() ([]Action, error) {
 	return u.st.matchingActions(u)
 }
 
 // CompletedActions returns a list of actions that have finished for
 // this unit.
-func (u *Unit) CompletedActions() ([]*Action, error) {
+func (u *Unit) CompletedActions() ([]Action, error) {
 	return u.st.matchingActionsCompleted(u)
 }
 
 // PendingActions returns a list of actions pending for this unit.
-func (u *Unit) PendingActions() ([]*Action, error) {
+func (u *Unit) PendingActions() ([]Action, error) {
 	return u.st.matchingActionsPending(u)
 }
 
 // RunningActions returns a list of actions running on this unit.
-func (u *Unit) RunningActions() ([]*Action, error) {
+func (u *Unit) RunningActions() ([]Action, error) {
 	return u.st.matchingActionsRunning(u)
 }
 

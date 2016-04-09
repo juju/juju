@@ -9,6 +9,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
@@ -72,6 +73,8 @@ var NewMachiner = func(cfg Config) (worker.Worker, error) {
 	}
 	return w, nil
 }
+
+var getObservedNetworkConfig = networkingcommon.GetObservedNetworkConfig
 
 func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
@@ -151,8 +154,22 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 	} else if err != nil {
 		return err
 	}
+
 	life := mr.machine.Life()
 	if life == params.Alive {
+		observedConfig, err := getObservedNetworkConfig()
+		if err != nil {
+			return errors.Annotate(err, "cannot discover observed network config")
+		} else if len(observedConfig) == 0 {
+			logger.Warningf("not updating network config: no observed config found to update")
+		}
+		if len(observedConfig) > 0 {
+			if err := mr.machine.SetObservedNetworkConfig(observedConfig); err != nil {
+				return errors.Annotate(err, "cannot update observed network config")
+			}
+		}
+		logger.Debugf("observed network config updated")
+
 		return nil
 	}
 	logger.Debugf("%q is now %s", mr.config.Tag, life)

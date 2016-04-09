@@ -8,6 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/packaging"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 type configureSuite struct {
@@ -63,6 +63,9 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 		)
 		c.Assert(err, jc.ErrorIsNil)
 		icfg.InstanceId = "instance-id"
+		icfg.HostedModelConfig = map[string]interface{}{
+			"name": "hosted-model",
+		}
 		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageModel, multiwatcher.JobHostUnits}
 	} else {
 		icfg, err = instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, "", true, nil, nil, nil)

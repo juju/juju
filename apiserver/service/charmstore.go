@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this
@@ -73,10 +75,11 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 		URL:        csURL.String(),
 		HTTPClient: httpbakery.NewHTTPClient(),
 	}
+
 	if args.CharmStoreMacaroon != nil {
 		// Set the provided charmstore authorizing macaroon
 		// as a cookie in the HTTP client.
-		// TODO discharge any third party caveats in the macaroon.
+		// TODO(cmars) discharge any third party caveats in the macaroon.
 		ms := []*macaroon.Macaroon{args.CharmStoreMacaroon}
 		httpbakery.SetCookie(csParams.HTTPClient.Jar, csURL, ms)
 	}
@@ -90,6 +93,10 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 		if httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
 			return errors.NewUnauthorized(err, "")
 		}
+		return errors.Trace(err)
+	}
+
+	if err := checkMinVersion(downloadedCharm); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -114,27 +121,74 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 	// Store the charm archive in environment storage.
 	return StoreCharmArchive(
 		st,
-		charmURL,
-		downloadedCharm,
-		archive,
-		size,
-		bundleSHA256,
+		CharmArchive{
+			ID:     charmURL,
+			Charm:  downloadedCharm,
+			Data:   archive,
+			Size:   size,
+			SHA256: bundleSHA256,
+		},
 	)
 }
 
+func checkMinVersion(ch charm.Charm) error {
+	minver := ch.Meta().MinJujuVersion
+	if minver != version.Zero && minver.Compare(jujuversion.Current) > 0 {
+		return minVersionError(minver, jujuversion.Current)
+	}
+	return nil
+}
+
+type minJujuVersionErr struct {
+	*errors.Err
+}
+
+func minVersionError(minver, jujuver version.Number) error {
+	err := errors.NewErr("charm's min version (%s) is higher than this juju environment's version (%s)",
+		minver, jujuver)
+	err.SetLocation(1)
+	return minJujuVersionErr{&err}
+}
+
+// CharmArchive is the data that needs to be stored for a charm archive in
+// state.
+type CharmArchive struct {
+	// ID is the charm URL for which we're storing the archive.
+	ID *charm.URL
+
+	// Charm is the metadata about the charm for the archive.
+	Charm charm.Charm
+
+	// Data contains the bytes of the archive.
+	Data io.Reader
+
+	// Size is the number of bytes in Data.
+	Size int64
+
+	// SHA256 is the hash of the bytes in Data.
+	SHA256 string
+}
+
 // StoreCharmArchive stores a charm archive in environment storage.
-func StoreCharmArchive(st *state.State, curl *charm.URL, ch charm.Charm, r io.Reader, size int64, sha256 string) error {
+func StoreCharmArchive(st *state.State, archive CharmArchive) error {
 	storage := newStateStorage(st.ModelUUID(), st.MongoSession())
-	storagePath, err := charmArchiveStoragePath(curl)
+	storagePath, err := charmArchiveStoragePath(archive.ID)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate charm archive name")
 	}
-	if err := storage.Put(storagePath, r, size); err != nil {
+	if err := storage.Put(storagePath, archive.Data, archive.Size); err != nil {
 		return errors.Annotate(err, "cannot add charm to storage")
 	}
 
+	info := state.CharmInfo{
+		Charm:       archive.Charm,
+		ID:          archive.ID,
+		StoragePath: storagePath,
+		SHA256:      archive.SHA256,
+	}
+
 	// Now update the charm data in state and mark it as no longer pending.
-	_, err = st.UpdateUploadedCharm(ch, curl, storagePath, sha256)
+	_, err = st.UpdateUploadedCharm(info)
 	if err != nil {
 		alreadyUploaded := err == state.ErrCharmRevisionAlreadyModified ||
 			errors.Cause(err) == state.ErrCharmRevisionAlreadyModified ||

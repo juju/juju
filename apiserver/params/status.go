@@ -138,16 +138,6 @@ type DetailedStatus struct {
 	Err     error
 }
 
-// LegacyStatus holds minimal information on the status of a juju model.
-type LegacyStatus struct {
-	Machines map[string]LegacyMachineStatus
-}
-
-// LegacyMachineStatus holds just the instance-id of a machine.
-type LegacyMachineStatus struct {
-	InstanceId string // Not type instance.Id just to match original api.
-}
-
 // StatusHistoryArgs holds the parameters to filter a status history query.
 type StatusHistoryArgs struct {
 	Kind HistoryKind
@@ -159,16 +149,6 @@ type StatusHistoryArgs struct {
 type StatusHistoryResults struct {
 	Statuses []DetailedStatus
 }
-
-const (
-	// DefaultMaxLogsPerEntity is the default value for logs for each entity
-	// that should be kept at any given time.
-	DefaultMaxLogsPerEntity = 100
-
-	// DefaultPruneInterval is the default interval that should be waited
-	// between prune calls.
-	DefaultPruneInterval = 5 * time.Minute
-)
 
 // StatusHistoryPruneArgs holds arguments for status history
 // prunning process.

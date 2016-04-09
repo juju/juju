@@ -9,20 +9,19 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/version"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/addresser"
-	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
-	"github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
-	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/unitassigner"
@@ -30,37 +29,41 @@ import (
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/version"
 )
 
-// Login authenticates as the entity with the given name and password.
-// Subsequent requests on the state will act as that entity.  This
-// method is usually called automatically by Open. The machine nonce
+// Login authenticates as the entity with the given name and password
+// or macaroons. Subsequent requests on the state will act as that entity.
+// This method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
-func (st *state) Login(tag names.Tag, password, nonce string) error {
-	err := st.loginV3(tag, password, nonce)
+func (st *state) Login(tag names.Tag, password, nonce string, ms []macaroon.Slice) error {
+	// TODO(axw) accept and pass on macaroons
+	err := st.loginV3(tag, password, nonce, ms)
 	return errors.Trace(err)
 }
 
 // loginV2 is retained for testing logins from older clients.
-func (st *state) loginV2(tag names.Tag, password, nonce string) error {
-	return st.loginForVersion(tag, password, nonce, 2)
+func (st *state) loginV2(tag names.Tag, password, nonce string, ms []macaroon.Slice) error {
+	return st.loginForVersion(tag, password, nonce, ms, 2)
 }
 
-func (st *state) loginV3(tag names.Tag, password, nonce string) error {
-	return st.loginForVersion(tag, password, nonce, 3)
+func (st *state) loginV3(tag names.Tag, password, nonce string, ms []macaroon.Slice) error {
+	return st.loginForVersion(tag, password, nonce, ms, 3)
 }
 
-func (st *state) loginForVersion(tag names.Tag, password, nonce string, vers int) error {
+func (st *state) loginForVersion(tag names.Tag, password, nonce string, macaroons []macaroon.Slice, vers int) error {
 	var result params.LoginResultV1
 	request := &params.LoginRequest{
 		AuthTag:     tagToString(tag),
 		Credentials: password,
 		Nonce:       nonce,
+		Macaroons:   macaroons,
 	}
 	if tag == nil {
-		// Add any macaroons that might work for authenticating the login request.
-		request.Macaroons = httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)
+		// Add any macaroons from the cookie jar that might work for
+		// authenticating the login request.
+		request.Macaroons = append(request.Macaroons,
+			httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)...,
+		)
 	}
 	err := st.APICall("Admin", vers, "", "Login", request, &result)
 	if err != nil {
@@ -180,12 +183,6 @@ func (st *state) Client() *Client {
 	return &Client{ClientFacade: frontend, facade: backend, st: st}
 }
 
-// Machiner returns a version of the state that provides functionality
-// required by the machiner worker.
-func (st *state) Machiner() *machiner.State {
-	return machiner.NewState(st)
-}
-
 // UnitAssigner returns a version of the state that provides functionality
 // required by the unitassigner worker.
 func (st *state) UnitAssigner() unitassigner.API {
@@ -214,12 +211,6 @@ func (st *state) Firewaller() *firewaller.State {
 	return firewaller.NewState(st)
 }
 
-// Agent returns a version of the state that provides
-// functionality required by the agent code.
-func (st *state) Agent() *agent.State {
-	return agent.NewState(st)
-}
-
 // Upgrader returns access to the Upgrader API
 func (st *state) Upgrader() *upgrader.State {
 	return upgrader.NewState(st)
@@ -233,11 +224,6 @@ func (st *state) Reboot() (reboot.State, error) {
 	default:
 		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
-}
-
-// Deployer returns access to the Deployer API
-func (st *state) Deployer() *deployer.State {
-	return deployer.NewState(st)
 }
 
 // Addresser returns access to the Addresser API.

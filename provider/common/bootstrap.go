@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	coretools "github.com/juju/juju/tools"
 )
 
@@ -68,7 +69,11 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	// no way to make sure that only one succeeds.
 
 	// First thing, ensure we have tools otherwise there's no point.
-	selectedSeries = config.PreferredSeries(env.Config())
+	if args.BootstrapSeries != "" {
+		selectedSeries = args.BootstrapSeries
+	} else {
+		selectedSeries = config.PreferredSeries(env.Config())
+	}
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{
 		Series: selectedSeries,
 	})
@@ -103,7 +108,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		return nil, "", nil, err
 	}
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		args.BootstrapConstraints, args.EnvironConstraints, selectedSeries, publicKey,
+		args.BootstrapConstraints, args.ModelConstraints, selectedSeries, publicKey,
 	)
 	if err != nil {
 		return nil, "", nil, err
@@ -126,12 +131,17 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	maybeSetBridge(instanceConfig)
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
+	instanceStatus := func(settableStatus status.Status, info string, data map[string]interface{}) error {
+		fmt.Fprintf(ctx.GetStderr(), "%s      \r", info)
+		return nil
+	}
 	result, err := env.StartInstance(environs.StartInstanceParams{
 		Constraints:    args.BootstrapConstraints,
 		Tools:          availableTools,
 		InstanceConfig: instanceConfig,
 		Placement:      args.Placement,
 		ImageMetadata:  imageMetadata,
+		StatusCallback: instanceStatus,
 	})
 	if err != nil {
 		return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")

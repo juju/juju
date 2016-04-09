@@ -7,9 +7,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/charmrevisionupdater"
+	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/instance"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
@@ -34,7 +39,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	client := s.APIState.Client()
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(status.ModelName, gc.Equals, "dummymodel")
+	c.Check(status.ModelName, gc.Equals, "admin")
 	c.Check(status.Services, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
 	c.Check(status.Networks, gc.HasLen, 0)
@@ -147,4 +152,65 @@ func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
 			c.Assert(ok, gc.Equals, false)
 		}
 	}
+}
+
+type statusUpgradeUnitSuite struct {
+	testing.CharmSuite
+	jujutesting.JujuConnSuite
+
+	charmrevisionupdater *charmrevisionupdater.CharmRevisionUpdaterAPI
+	resources            *common.Resources
+	authoriser           apiservertesting.FakeAuthorizer
+}
+
+var _ = gc.Suite(&statusUpgradeUnitSuite{})
+
+func (s *statusUpgradeUnitSuite) SetUpSuite(c *gc.C) {
+	s.JujuConnSuite.SetUpSuite(c)
+	s.CharmSuite.SetUpSuite(c, &s.JujuConnSuite)
+}
+
+func (s *statusUpgradeUnitSuite) TearDownSuite(c *gc.C) {
+	s.CharmSuite.TearDownSuite(c)
+	s.JujuConnSuite.TearDownSuite(c)
+}
+
+func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.CharmSuite.SetUpTest(c)
+	s.resources = common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.authoriser = apiservertesting.FakeAuthorizer{
+		EnvironManager: true,
+	}
+	var err error
+	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, s.authoriser)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *statusUpgradeUnitSuite) TearDownTest(c *gc.C) {
+	s.CharmSuite.TearDownTest(c)
+	s.JujuConnSuite.TearDownTest(c)
+}
+
+func (s *statusUpgradeUnitSuite) TestUpdateRevisions(c *gc.C) {
+	s.AddMachine(c, "0", state.JobManageModel)
+	s.SetupScenario(c)
+	client := s.APIState.Client()
+	status, _ := client.Status(nil)
+
+	serviceStatus, ok := status.Services["mysql"]
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(serviceStatus.CanUpgradeTo, gc.Equals, "")
+
+	// Update to the latest available charm revision.
+	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+
+	// Check if CanUpgradeTo suggest the latest revision.
+	status, _ = client.Status(nil)
+	serviceStatus, ok = status.Services["mysql"]
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(serviceStatus.CanUpgradeTo, gc.Equals, "cs:quantal/mysql-23")
 }
