@@ -52,13 +52,13 @@ func (f *fakeWrapper) ListResources(channel params.Channel, ids []*charm.URL) (m
 	return f.ReturnListResourcesDev, nil
 }
 
-func (f *fakeWrapper) GetResource(id *charm.URL, name string, revision int) (csclient.ResourceData, error) {
-	f.stableStub.AddCall("GetResource", id, name, revision)
+func (f *fakeWrapper) GetResource(channel params.Channel, id *charm.URL, name string, revision int) (csclient.ResourceData, error) {
+	f.stableStub.AddCall("GetResource", channel, id, name, revision)
 	return f.ReturnGetResource, nil
 }
 
-func (f *fakeWrapper) ResourceInfo(id *charm.URL, name string, revision int) (params.Resource, error) {
-	f.stableStub.AddCall("ResourceInfo", id, name, revision)
+func (f *fakeWrapper) ResourceInfo(channel params.Channel, id *charm.URL, name string, revision int) (params.Resource, error) {
+	f.stableStub.AddCall("ResourceInfo", channel, id, name, revision)
 	return f.ReturnResourceInfo, nil
 }
 

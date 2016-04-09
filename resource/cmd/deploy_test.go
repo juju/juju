@@ -14,8 +14,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon.v1"
+
+	"github.com/juju/juju/charmstore"
 )
 
 type DeploySuite struct {
@@ -35,6 +36,9 @@ func (s *DeploySuite) SetUpTest(c *gc.C) {
 func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
+	chID := charmstore.CharmID{
+		URL: cURL,
+	}
 	csMac := &macaroon.Macaroon{}
 	resources := map[string]charmresource.Meta{
 		"store-tarball": {
@@ -51,7 +55,7 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 
 	ids, err := DeployResources(DeployResourcesArgs{
 		ServiceID:          "mysql",
-		CharmURL:           cURL,
+		CharmID:            chID,
 		CharmStoreMacaroon: csMac,
 		Filenames:          nil,
 		Client:             deps,
@@ -65,7 +69,7 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 	})
 
 	s.stub.CheckCallNames(c, "AddPendingResources")
-	s.stub.CheckCall(c, 0, "AddPendingResources", "mysql", cURL, csMac, []charmresource.Resource{{
+	s.stub.CheckCall(c, 0, "AddPendingResources", "mysql", chID, csMac, []charmresource.Resource{{
 		Meta:     resources["store-tarball"],
 		Origin:   charmresource.OriginStore,
 		Revision: -1,
@@ -79,10 +83,13 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
+	chID := charmstore.CharmID{
+		URL: cURL,
+	}
 	csMac := &macaroon.Macaroon{}
 	du := deployUploader{
 		serviceID: "mysql",
-		cURL:      cURL,
+		chID:      chID,
 		csMac:     csMac,
 		client:    deps,
 		resources: map[string]charmresource.Meta{
@@ -120,7 +127,7 @@ func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 			Revision: -1,
 		},
 	}
-	s.stub.CheckCall(c, 1, "AddPendingResources", "mysql", cURL, csMac, expectedStore)
+	s.stub.CheckCall(c, 1, "AddPendingResources", "mysql", chID, csMac, expectedStore)
 	s.stub.CheckCall(c, 2, "Open", "foobar.txt")
 
 	expectedUpload := charmresource.Resource{
@@ -133,10 +140,13 @@ func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
 	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
+	chID := charmstore.CharmID{
+		URL: cURL,
+	}
 	csMac := &macaroon.Macaroon{}
 	du := deployUploader{
 		serviceID: "mysql",
-		cURL:      cURL,
+		chID:      chID,
 		csMac:     csMac,
 		client:    deps,
 		resources: map[string]charmresource.Meta{
@@ -176,16 +186,19 @@ func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
 		Origin:   charmresource.OriginStore,
 		Revision: -1,
 	}}
-	s.stub.CheckCall(c, 0, "AddPendingResources", "mysql", cURL, csMac, expectedStore)
+	s.stub.CheckCall(c, 0, "AddPendingResources", "mysql", chID, csMac, expectedStore)
 }
 
 func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
 	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
+	chID := charmstore.CharmID{
+		URL: cURL,
+	}
 	csMac := &macaroon.Macaroon{}
 	du := deployUploader{
 		serviceID: "mysql",
-		cURL:      cURL,
+		chID:      chID,
 		csMac:     csMac,
 		client:    deps,
 		resources: map[string]charmresource.Meta{
@@ -225,7 +238,7 @@ func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
 			Revision: 3,
 		},
 	}
-	s.stub.CheckCall(c, 1, "AddPendingResources", "mysql", cURL, csMac, expectedStore)
+	s.stub.CheckCall(c, 1, "AddPendingResources", "mysql", chID, csMac, expectedStore)
 	s.stub.CheckCall(c, 2, "Open", "foobar.txt")
 
 	expectedUpload := charmresource.Resource{
@@ -314,9 +327,9 @@ type uploadDeps struct {
 	ReadSeekCloser ReadSeekCloser
 }
 
-func (s uploadDeps) AddPendingResources(serviceID string, cURL *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error) {
+func (s uploadDeps) AddPendingResources(serviceID string, charmID charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error) {
 	charmresource.Sort(resources)
-	s.stub.AddCall("AddPendingResources", serviceID, cURL, csMac, resources)
+	s.stub.AddCall("AddPendingResources", serviceID, charmID, csMac, resources)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}

@@ -74,13 +74,13 @@ func (c Client) LatestRevisions(charms []CharmID, metadata map[string]string) ([
 }
 
 // GetResource returns the data (bytes) and metadata for a resource from the charmstore.
-func (c Client) GetResource(cURL *charm.URL, resourceName string, revision int) (res charmresource.Resource, rc io.ReadCloser, err error) {
+func (c Client) GetResource(id CharmID, resourceName string, revision int) (res charmresource.Resource, rc io.ReadCloser, err error) {
 	defer func() {
 		if err != nil && rc != nil {
 			rc.Close()
 		}
 	}()
-	meta, err := c.lowLevel.ResourceInfo(cURL, resourceName, revision)
+	meta, err := c.lowLevel.ResourceInfo(id.Channel, id.URL, resourceName, revision)
 	if err != nil {
 		return charmresource.Resource{}, nil, errors.Trace(err)
 	}
@@ -89,7 +89,7 @@ func (c Client) GetResource(cURL *charm.URL, resourceName string, revision int) 
 		return charmresource.Resource{}, nil, errors.Trace(err)
 	}
 
-	data, err := c.lowLevel.GetResource(cURL, resourceName, revision)
+	data, err := c.lowLevel.GetResource(id.Channel, id.URL, resourceName, revision)
 	if err != nil {
 		return charmresource.Resource{}, nil, errors.Trace(err)
 	}
@@ -107,8 +107,8 @@ func (c Client) GetResource(cURL *charm.URL, resourceName string, revision int) 
 }
 
 // ResourceInfo returns the metadata info for the given resource from the charmstore.
-func (c Client) ResourceInfo(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, error) {
-	meta, err := c.lowLevel.ResourceInfo(cURL, resourceName, revision)
+func (c Client) ResourceInfo(id CharmID, resourceName string, revision int) (charmresource.Resource, error) {
+	meta, err := c.lowLevel.ResourceInfo(id.Channel, id.URL, resourceName, revision)
 	if err != nil {
 		return charmresource.Resource{}, errors.Trace(err)
 	}
@@ -155,8 +155,8 @@ func (c Client) ListResources(charms []CharmID) ([][]charmresource.Resource, err
 type csWrapper interface {
 	Latest(channel csparams.Channel, ids []*charm.URL, headers map[string]string) ([]charmrepo.CharmRevision, error)
 	ListResources(channel csparams.Channel, ids []*charm.URL) (map[string][]csparams.Resource, error)
-	GetResource(id *charm.URL, name string, revision int) (csclient.ResourceData, error)
-	ResourceInfo(id *charm.URL, name string, revision int) (csparams.Resource, error)
+	GetResource(channel csparams.Channel, id *charm.URL, name string, revision int) (csclient.ResourceData, error)
+	ResourceInfo(channel csparams.Channel, id *charm.URL, name string, revision int) (csparams.Resource, error)
 }
 
 // csclientImpl is an implementation of csWrapper that uses the charmstore client.
@@ -168,25 +168,27 @@ type csclientImpl struct {
 
 // Latest gets the latest CharmRevisions for the charm URLs on the channel.
 func (c csclientImpl) Latest(channel csparams.Channel, ids []*charm.URL, metadata map[string]string) ([]charmrepo.CharmRevision, error) {
-	repo := charmrepo.NewCharmStoreFromClient(c.client.WithChannel(csparams.Channel(channel)))
+	repo := charmrepo.NewCharmStoreFromClient(c.client.WithChannel(channel))
 	repo = repo.WithJujuAttrs(metadata)
 	return repo.Latest(ids...)
 }
 
 // Latest gets the latest resources for the charm URLs on the channel.
 func (c csclientImpl) ListResources(channel csparams.Channel, ids []*charm.URL) (map[string][]csparams.Resource, error) {
-	client := c.client.WithChannel(csparams.Channel(channel))
+	client := c.client.WithChannel(channel)
 	return client.ListResources(ids)
 }
 
 // Getresource downloads the bytes and some metadata about the bytes for the revisioned resource.
-func (c csclientImpl) GetResource(id *charm.URL, name string, revision int) (csclient.ResourceData, error) {
-	return c.client.GetResource(id, name, revision)
+func (c csclientImpl) GetResource(channel csparams.Channel, id *charm.URL, name string, revision int) (csclient.ResourceData, error) {
+	client := c.client.WithChannel(channel)
+	return client.GetResource(id, name, revision)
 }
 
 // ResourceInfo gets the full metadata for the revisioned resource.
-func (c csclientImpl) ResourceInfo(id *charm.URL, name string, revision int) (csparams.Resource, error) {
-	return c.client.ResourceMeta(id, name, revision)
+func (c csclientImpl) ResourceInfo(channel csparams.Channel, id *charm.URL, name string, revision int) (csparams.Resource, error) {
+	client := c.client.WithChannel(channel)
+	return client.ResourceMeta(id, name, revision)
 }
 
 // charmRequest correlates charm URLs with an index in a separate slice.  The two

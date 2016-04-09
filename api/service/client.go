@@ -11,11 +11,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6-unstable"
-	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
@@ -62,10 +62,8 @@ func (c *Client) ModelUUID() string {
 
 // DeployArgs holds the arguments to be sent to Client.ServiceDeploy.
 type DeployArgs struct {
-	// CharmURL is the URL of the charm to deploy.
-	CharmURL string
-	// Channel is the charm store channel from which the charm came.
-	Channel csparams.Channel
+	// CharmID identifies the charm to deploy.
+	CharmID charmstore.CharmID
 	// ServiceName is the name to give the service.
 	ServiceName string
 	// Series to be used for the machine.
@@ -103,8 +101,8 @@ func (c *Client) Deploy(args DeployArgs) error {
 		Services: []params.ServiceDeploy{{
 			ServiceName:      args.ServiceName,
 			Series:           args.Series,
-			CharmUrl:         args.CharmURL,
-			Channel:          string(args.Channel),
+			CharmUrl:         args.CharmID.URL.String(),
+			Channel:          string(args.CharmID.Channel),
 			NumUnits:         args.NumUnits,
 			ConfigYAML:       args.ConfigYAML,
 			Constraints:      args.Cons,
@@ -144,10 +142,8 @@ func (c *Client) GetCharmURL(serviceName string) (*charm.URL, error) {
 type SetCharmConfig struct {
 	// ServiceName is the name of the service to set the charm on.
 	ServiceName string
-	// CharmUrl is the url for the charm.
-	CharmUrl string
-	// Channel is the charm store channel from which the charm came.
-	Channel csparams.Channel
+	// CharmID identifies the charm.
+	CharmID charmstore.CharmID
 	// ForceSeries forces the use of the charm even if it doesn't match the
 	// series of the unit.
 	ForceSeries bool
@@ -162,8 +158,8 @@ type SetCharmConfig struct {
 func (c *Client) SetCharm(cfg SetCharmConfig) error {
 	args := params.ServiceSetCharm{
 		ServiceName: cfg.ServiceName,
-		CharmUrl:    cfg.CharmUrl,
-		Channel:     string(cfg.Channel),
+		CharmUrl:    cfg.CharmID.URL.String(),
+		Channel:     string(cfg.CharmID.Channel),
 		ForceSeries: cfg.ForceSeries,
 		ForceUnits:  cfg.ForceUnits,
 		ResourceIDs: cfg.ResourceIDs,

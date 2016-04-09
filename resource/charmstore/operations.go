@@ -7,9 +7,9 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
 )
 
@@ -24,7 +24,7 @@ type StoreResourceGetter interface {
 	// But if you write any code that assumes a NotFound error returned
 	// from this methid means that the resource was not found, you fail
 	// basic logic.
-	GetResource(cURL *charm.URL, resourceName string, resourceRevision int) (charmresource.Resource, io.ReadCloser, error)
+	GetResource(id charmstore.CharmID, resourceName string, resourceRevision int) (charmresource.Resource, io.ReadCloser, error)
 }
 
 // GetResourceArgs holds the arguments to GetResource().
@@ -35,9 +35,9 @@ type GetResourceArgs struct {
 	// EntityCache is the charm store cache to use. It is optional.
 	Cache EntityCache
 
-	// CharmURL and Name together identify the resource to get.
-	CharmURL *charm.URL
-	Name     string
+	// CharmID and Name together identify the resource to get.
+	CharmID charmstore.CharmID
+	Name    string
 }
 
 func (args GetResourceArgs) validate() error {
@@ -45,7 +45,7 @@ func (args GetResourceArgs) validate() error {
 		return errors.Errorf("missing charm store client")
 	}
 	// FYI, args.Cache may be nil.
-	if args.CharmURL == nil {
+	if args.CharmID.URL == nil {
 		return errors.Errorf("missing charm URL")
 	}
 	if args.Name == "" {
@@ -88,7 +88,7 @@ func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error)
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", res.Name)
 	}
 
-	_, reader, err = args.Client.GetResource(args.CharmURL, res.Name, res.Revision)
+	_, reader, err = args.Client.GetResource(args.CharmID, res.Name, res.Revision)
 	if errors.IsNotFound(err) {
 		msg := "while getting resource from the charm store"
 		return resource.Resource{}, nil, errors.Annotate(err, msg)
