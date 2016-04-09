@@ -892,7 +892,8 @@ func (st *State) AllCharms() ([]*Charm, error) {
 	var charms []*Charm
 	iter := charmsCollection.Find(nil).Iter()
 	for iter.Next(&cdoc) {
-		charms = append(charms, newCharm(st, &cdoc))
+		ch := newCharm(st, &cdoc)
+		charms = append(charms, ch)
 	}
 	return charms, errors.Trace(iter.Close())
 }

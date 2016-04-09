@@ -24,7 +24,7 @@ type StoreResourceGetter interface {
 	// But if you write any code that assumes a NotFound error returned
 	// from this methid means that the resource was not found, you fail
 	// basic logic.
-	GetResource(id charmstore.CharmID, resourceName string, resourceRevision int) (charmresource.Resource, io.ReadCloser, error)
+	GetResource(charmstore.ResourceRequest) (charmstore.ResourceData, error)
 }
 
 // GetResourceArgs holds the arguments to GetResource().
@@ -35,9 +35,11 @@ type GetResourceArgs struct {
 	// EntityCache is the charm store cache to use. It is optional.
 	Cache EntityCache
 
-	// CharmID and Name together identify the resource to get.
+	// CharmID indicates the charm for which to get the resource.
 	CharmID charmstore.CharmID
-	Name    string
+
+	// Name is the name of the resource.
+	Name string
 }
 
 func (args GetResourceArgs) validate() error {
@@ -88,7 +90,13 @@ func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error)
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", res.Name)
 	}
 
-	_, reader, err = args.Client.GetResource(args.CharmID, res.Name, res.Revision)
+	req := charmstore.ResourceRequest{
+		Charm:    args.CharmID.URL,
+		Channel:  args.CharmID.Channel,
+		Name:     res.Name,
+		Revision: res.Revision,
+	}
+	data, err := args.Client.GetResource(req)
 	if errors.IsNotFound(err) {
 		msg := "while getting resource from the charm store"
 		return resource.Resource{}, nil, errors.Annotate(err, msg)
@@ -97,7 +105,7 @@ func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error)
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
-	res, reader, err = cache.set(res.Resource, reader)
+	res, reader, err = cache.set(data.Resource, data)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}

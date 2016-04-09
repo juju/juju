@@ -106,17 +106,19 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 		return errors.Annotate(err, "cannot rewind charm archive")
 	}
 
+	ca := CharmArchive{
+		ID:     charmURL,
+		Charm:  downloadedCharm,
+		Data:   archive,
+		Size:   size,
+		SHA256: bundleSHA256,
+	}
+	if args.CharmStoreMacaroon != nil {
+		ca.Macaroon = macaroon.Slice{args.CharmStoreMacaroon}
+	}
+
 	// Store the charm archive in environment storage.
-	return StoreCharmArchive(
-		st,
-		CharmArchive{
-			ID:     charmURL,
-			Charm:  downloadedCharm,
-			Data:   archive,
-			Size:   size,
-			SHA256: bundleSHA256,
-		},
-	)
+	return StoreCharmArchive(st, ca)
 }
 
 func openCSRepo(args params.AddCharmWithAuthorization) (charmrepo.Interface, error) {
@@ -189,6 +191,9 @@ type CharmArchive struct {
 
 	// SHA256 is the hash of the bytes in Data.
 	SHA256 string
+
+	// Macaroon is the authorization macaroon for accessing the charmstore.
+	Macaroon macaroon.Slice
 }
 
 // StoreCharmArchive stores a charm archive in environment storage.
@@ -207,6 +212,7 @@ func StoreCharmArchive(st *state.State, archive CharmArchive) error {
 		ID:          archive.ID,
 		StoragePath: storagePath,
 		SHA256:      archive.SHA256,
+		Macaroon:    archive.Macaroon,
 	}
 
 	// Now update the charm data in state and mark it as no longer pending.
