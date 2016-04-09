@@ -228,10 +228,6 @@ def main():
                       region=args.region):
         charm_path = local_charm_path(
             charm='fill-logs', juju_ver=client.version, series='trusty')
-
-
-        import pdb
-        pdb.set_trace()
         client.deploy(charm_path)
         if args.agent == "unit":
             test_unit_rotation(client)
