@@ -262,7 +262,10 @@ func (client *instanceClient) Addresses(name string) ([]network.Address, error) 
 
 	addrs := []network.Address{}
 
-	for _, net := range networks {
+	for name, net := range networks {
+		if name == "lxcbr0" || name == "lxdbr0" {
+			continue
+		}
 		for _, addr := range net.Addresses {
 			if err != nil {
 				return nil, err
