@@ -27,15 +27,25 @@ type setCommand struct {
 }
 
 const setModelHelpDoc = `
-Updates the model of a running Juju instance.  Multiple key/value pairs
-can be passed on as command line arguments.
+Model configuration consists of a collection of keys and their respective values.
+By default, the model is the current model.
+Consult the online documentation for a list of keys and possible values.
+
+Examples:
+
+    juju set-model-config logging-config='<root>=WARNING;unit=INFO'
+    juju set-model-config -m mymodel api-port=17071 default-series=xenial
+
+See also: list-models
+          get-model-config
+          unset-model-config
 `
 
 func (c *setCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set-model-config",
-		Args:    "key=[value] ...",
-		Purpose: "replace model values",
+		Args:    "<model key>=<value> ...",
+		Purpose: "Sets configuration keys on a model.",
 		Doc:     strings.TrimSpace(setModelHelpDoc),
 	}
 }

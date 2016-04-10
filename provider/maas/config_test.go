@@ -53,6 +53,10 @@ func (s *configSuite) SetUpTest(c *gc.C) {
 		return set.NewStrings("network-deployment-ubuntu"), nil
 	}
 	s.PatchValue(&GetCapabilities, mockCapabilities)
+	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+		return nil, gomaasapi.NewUnsupportedVersionError("oops")
+	}
+	s.PatchValue(&GetMAAS2Controller, mockGetController)
 }
 
 func (*configSuite) TestParsesMAASSettings(c *gc.C) {

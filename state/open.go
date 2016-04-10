@@ -193,6 +193,7 @@ func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, o
 		createConstraintsOp(st, modelGlobalKey, constraints.Value{}),
 		createSettingsOp(modelGlobalKey, cfg.AllAttrs()),
 		incHostedModelCountOp(),
+		createModelEntityRefsOp(st, modelUUID),
 		createModelOp(st, owner, cfg.Name(), modelUUID, serverUUID, mode),
 		createUniqueOwnerModelNameOp(owner, cfg.Name()),
 		modelUserOp,

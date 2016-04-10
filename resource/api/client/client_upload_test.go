@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource/api/client"
 )
 
@@ -98,7 +99,9 @@ func (s *UploadSuite) TestPendingResources(c *gc.C) {
 
 	pendingIDs, err := cl.AddPendingResources(client.AddPendingResourcesArgs{
 		ServiceID: "a-service",
-		CharmURL:  cURL,
+		CharmID: charmstore.CharmID{
+			URL: cURL,
+		},
 		Resources: resources,
 	})
 	c.Assert(err, jc.ErrorIsNil)

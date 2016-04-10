@@ -213,6 +213,11 @@ func (s *InitialiserSuite) TestDetectSubnet(c *gc.C) {
 }
 
 func (s *InitialiserSuite) TestDetectSubnetLocal(c *gc.C) {
+	_, err := exec.LookPath("ip")
+	if err != nil {
+		c.Skip("skipping local detect subnet test, ip tool not found")
+	}
+
 	output, err := exec.Command("ip", "addr", "show").CombinedOutput()
 	c.Assert(err, jc.ErrorIsNil)
 

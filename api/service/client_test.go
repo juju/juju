@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -83,7 +84,7 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 		args, ok := a.(params.ServicesDeploy)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.Services, gc.HasLen, 1)
-		c.Assert(args.Services[0].CharmUrl, gc.Equals, "charmURL")
+		c.Assert(args.Services[0].CharmUrl, gc.Equals, "cs:trusty/a-charm-1")
 		c.Assert(args.Services[0].ServiceName, gc.Equals, "serviceA")
 		c.Assert(args.Services[0].Series, gc.Equals, "series")
 		c.Assert(args.Services[0].NumUnits, gc.Equals, 2)
@@ -100,7 +101,9 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 	})
 
 	args := service.DeployArgs{
-		CharmURL:         "charmURL",
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("trusty/a-charm-1"),
+		},
 		ServiceName:      "serviceA",
 		Series:           "series",
 		NumUnits:         2,
@@ -144,14 +147,16 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 		args, ok := a.(params.ServiceSetCharm)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.ServiceName, gc.Equals, "service")
-		c.Assert(args.CharmUrl, gc.Equals, "charmURL")
+		c.Assert(args.CharmUrl, gc.Equals, "cs:trusty/service-1")
 		c.Assert(args.ForceSeries, gc.Equals, true)
 		c.Assert(args.ForceUnits, gc.Equals, true)
 		return nil
 	})
 	cfg := service.SetCharmConfig{
 		ServiceName: "service",
-		CharmUrl:    "charmURL",
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("trusty/service-1"),
+		},
 		ForceSeries: true,
 		ForceUnits:  true,
 	}
