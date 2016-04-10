@@ -168,7 +168,7 @@ sudo apt-get upgrade -y --force-yes \
     -o Dpkg::Options::="--force-confdef" \
     -o Dpkg::Options::="--force-confold" \
     -o Dpkg::Options::="--force-confnew"
-sudo apt-get install -y make software-properties-common distro-info-data
+sudo apt-get install -y make gcc software-properties-common distro-info-data
 if [[ "$USE_PPA" != "" ]]; then
     sudo apt-add-repository -y $USE_PPA;
     sudo apt-get update
