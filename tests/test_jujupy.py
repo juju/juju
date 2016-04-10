@@ -387,7 +387,7 @@ class FakeJujuClient:
     def add_ssh_machines(self, machines):
         self._backing_state.add_ssh_machines(machines)
 
-    def deploy(self, charm_name, service_name=None):
+    def deploy(self, charm_name, service_name=None, series=None):
         if service_name is None:
             service_name = charm_name.split(':')[-1].split('/')[-1]
         self._backing_state.deploy(charm_name, service_name)
