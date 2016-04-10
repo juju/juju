@@ -6,6 +6,9 @@ export INSTANCE_TYPE=$1
 export AMI_IMAGE=$2
 shift; shift
 
+JOB_NAME=${JOB_NAME:-$USER-run-unit-tests}
+export JOB_NAME
+
 FIXUP_SOURCES=""
 IS_LOCAL="false"
 RETRY="false"
@@ -158,6 +161,7 @@ if [[ "$INSTANCE_TYPE" != "lxc" && "$INSTANCE_TYPE" != "host" ]]; then
     done
     $FIXUP_SOURCES
 fi
+export PATH=/usr/lib/go-1.6/bin:$PATH
 export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update
 sudo apt-get upgrade -y --force-yes \
