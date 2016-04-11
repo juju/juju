@@ -56,14 +56,19 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	utils.SetHome("")
 
 	// Update the feature flag set to be the requested initial set.
-	s.setUpFeatureFlags(c)
+	// This works for both windows and unix, even though normally
+	// the feature flags on windows are determined using the registry,
+	// for tests, setting with the environment variable isolates us
+	// from a single resource that was hitting contention during parallel
+	// test runs.
+	os.Setenv(osenv.JujuFeatureFlagEnvKey, s.initialFeatureFlags)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 	for name, value := range s.oldEnvironment {
 		os.Setenv(name, value)
 	}
-	s.tearDownFeatureFlags(c)
 	utils.SetHome(s.oldHomeEnv)
 	osenv.SetJujuHome(s.oldJujuHome)
 }
