@@ -14,7 +14,6 @@ var (
 	_ Entity = (*Service)(nil)
 	_ Entity = (*Model)(nil)
 	_ Entity = (*User)(nil)
-	_ Entity = (*Action)(nil)
 	_ Entity = (*IPAddress)(nil)
 
 	_ EntityWithService = (*Unit)(nil)

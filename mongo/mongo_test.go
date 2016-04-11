@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -118,7 +119,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	jujuMongodPath, err := exec.LookPath("mongod")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.PatchValue(&mongo.JujuMongodPath, jujuMongodPath)
+	s.PatchValue(&mongo.JujuMongod24Path, jujuMongodPath)
 	s.mongodPath = jujuMongodPath
 
 	// Patch "df" such that it always reports there's 1MB free.
@@ -154,7 +155,7 @@ func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
 }
 
 func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
-	s.PatchValue(&mongo.JujuMongodPath, "/not/going/to/exist/mongod")
+	s.PatchValue(&mongo.JujuMongod24Path, "/not/going/to/exist/mongod")
 	s.PatchEnvPathPrepend(filepath.Dir(s.mongodPath))
 
 	c.Logf("mongo version is %q", s.mongodVersion)
@@ -334,8 +335,9 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 		{"quantal", [][]string{{"python-software-properties"}, {"--target-release", "mongodb-server"}}},
 		{"raring", [][]string{{"--target-release", "mongodb-server"}}},
 		{"saucy", [][]string{{"--target-release", "mongodb-server"}}},
-		{"trusty", [][]string{{"juju-mongodb"}}},
-		{"u-series", [][]string{{"juju-mongodb"}}},
+		{"trusty", [][]string{{"juju-mongodb3.2"}}},
+		{"wily", [][]string{{"juju-mongodb3.2"}}},
+		{"xenial", [][]string{{"juju-mongodb3.2"}}},
 	}
 
 	testing.PatchExecutableAsEchoArgs(c, s, "add-apt-repository")
@@ -350,6 +352,68 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 			match := append(expectedArgs.AptGetBase, cmd...)
 			testing.AssertEchoArgs(c, "apt-get", match...)
 		}
+	}
+}
+
+var fakeInstallScript = `#!/bin/bash
+if [ $# -lt 1 ]
+then
+        echo "Install fail - not enough arguments"
+        exit 1
+fi
+
+# The package name is the last argument
+package=${@: -1}
+echo $package >> %s
+
+if [ $package == "juju-mongodb" ]
+then
+        echo "Installed successfully!"
+        exit 0
+fi
+
+if [ $package == "mongodb-server" ]
+then
+        echo "Installed successfully!"
+        exit 0
+fi
+
+echo "Unable to locate package $package"
+exit 100
+`
+
+func (s *MongoSuite) TestInstallMongodFallsBack(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping TestInstallMongodFallsBack as mongo is not installed on windows")
+	}
+
+	type installs struct {
+		series string
+		cmd    string
+	}
+
+	tests := []installs{
+		{"precise", "mongodb-server"},
+		{"trusty", "juju-mongodb3.2\njuju-mongodb"},
+		{"wily", "juju-mongodb3.2\njuju-mongodb"},
+		{"xenial", "juju-mongodb3.2\njuju-mongodb"},
+	}
+
+	dataDir := c.MkDir()
+	outputFile := filepath.Join(dataDir, "apt-get-args")
+	testing.PatchExecutable(c, s, "apt-get", fmt.Sprintf(fakeInstallScript, outputFile))
+	for _, test := range tests {
+		c.Logf("Testing mongo install for series: %s", test.series)
+		s.patchSeries(test.series)
+		err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
+		c.Assert(err, jc.ErrorIsNil)
+
+		args, err := ioutil.ReadFile(outputFile)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(strings.TrimSpace(string(args)), gc.Equals, test.cmd)
+
+		err = os.Remove(outputFile)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -520,28 +584,28 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 func (s *MongoSuite) TestNewServiceWithReplSet(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion, true)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, false, s.mongodVersion, true)
 	c.Assert(strings.Contains(conf.ExecStart, "--replSet"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNewServiceWithNumCtl(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, true, s.mongodVersion, true)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, true, s.mongodVersion, true)
 	c.Assert(conf.ExtraScript, gc.Not(gc.Matches), "")
 }
 
 func (s *MongoSuite) TestNewServiceIPv6(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion, true)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, false, s.mongodVersion, true)
 	c.Assert(strings.Contains(conf.ExecStart, "--ipv6"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNewServiceWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion, true)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, false, s.mongodVersion, true)
 	c.Assert(conf.ExecStart, gc.Matches, `.* --journal.*`)
 }
 
@@ -576,7 +640,7 @@ func (s *MongoSuite) TestRemoveService(c *gc.C) {
 func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	dir := c.MkDir()
 	// patch manager.RunCommandWithRetry for repository addition:
-	s.PatchValue(&manager.RunCommandWithRetry, func(string) (string, int, error) {
+	s.PatchValue(&manager.RunCommandWithRetry, func(string, func(string) error) (string, int, error) {
 		return "", 1, fmt.Errorf("packaging command failed: exit status 1")
 	})
 	s.PatchEnvPathPrepend(dir)
@@ -600,7 +664,7 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 		{loggo.ERROR, `cannot install/upgrade mongod \(will proceed anyway\): packaging command failed`},
 	})
 
-	s.PatchValue(&manager.RunCommandWithRetry, func(string) (string, int, error) {
+	s.PatchValue(&manager.RunCommandWithRetry, func(string, func(string) error) (string, int, error) {
 		return "", 0, nil
 	})
 	s.patchSeries("trusty")

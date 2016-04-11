@@ -46,8 +46,6 @@ var (
 )
 
 const (
-	// DefaultLxcBridge is the package created container bridge
-	DefaultLxcBridge = "lxcbr0"
 	// Btrfs is special as we treat it differently for create and clone.
 	Btrfs = "btrfs"
 
@@ -59,7 +57,7 @@ const (
 // DefaultNetworkConfig returns a valid NetworkConfig to use the
 // defaultLxcBridge that is created by the lxc package.
 func DefaultNetworkConfig() *container.NetworkConfig {
-	return container.BridgeNetworkConfig(DefaultLxcBridge, 0, nil)
+	return container.BridgeNetworkConfig(container.DefaultLxcBridge, 0, nil)
 }
 
 // FsCommandOutput calls cmd.Output, this is used as an overloading point so

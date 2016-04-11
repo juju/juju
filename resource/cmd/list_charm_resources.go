@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/charmstore"
@@ -121,7 +122,7 @@ func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 
 	charms := make([]charmstore.CharmID, len(charmURLs))
 	for i, id := range charmURLs {
-		charms[i] = charmstore.CharmID{URL: id, Channel: charm.Channel(c.channel)}
+		charms[i] = charmstore.CharmID{URL: id, Channel: csparams.Channel(c.channel)}
 	}
 
 	resources, err := apiclient.ListResources(charms)

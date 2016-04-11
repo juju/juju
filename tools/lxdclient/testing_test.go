@@ -42,6 +42,7 @@ type stubClient struct {
 	Instances  []shared.ContainerInfo
 	ReturnCode int
 	Response   *lxd.Response
+	Aliases    map[string]string
 }
 
 func (s *stubClient) WaitForSuccess(waitURL string) error {
@@ -87,6 +88,14 @@ func (s *stubClient) ListContainers() ([]shared.ContainerInfo, error) {
 	}
 
 	return s.Instances, nil
+}
+
+func (s *stubClient) GetAlias(alias string) string {
+	s.stub.AddCall("GetAlias", alias)
+	if err := s.stub.NextErr(); err != nil {
+		return ""
+	}
+	return s.Aliases[alias]
 }
 
 func (s *stubClient) Init(name, remote, image string, profiles *[]string, ephem bool) (*lxd.Response, error) {

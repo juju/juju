@@ -37,9 +37,9 @@ type ManifoldConfig struct {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.AgentName},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(context dependency.Context) (worker.Worker, error) {
 			var a agent.Agent
-			if err := getResource(config.AgentName, &a); err != nil {
+			if err := context.Get(config.AgentName, &a); err != nil {
 				return nil, err
 			}
 

@@ -51,7 +51,7 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, bakeryClient *httpba
 		return errors.Annotate(err, "failed to register metrics")
 	}
 	charmsClient := charms.NewClient(state)
-	metered, err := charmsClient.IsMetered(deployInfo.CharmURL.String())
+	metered, err := charmsClient.IsMetered(deployInfo.CharmID.URL.String())
 	if err != nil {
 		return err
 	}
@@ -59,15 +59,15 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, bakeryClient *httpba
 		return nil
 	}
 
-	if r.Plan == "" && deployInfo.CharmURL.Schema == "cs" {
-		r.Plan, err = r.getDefaultPlan(bakeryClient, deployInfo.CharmURL.String())
+	if r.Plan == "" && deployInfo.CharmID.URL.Schema == "cs" {
+		r.Plan, err = r.getDefaultPlan(bakeryClient, deployInfo.CharmID.URL.String())
 		if err != nil {
 			if isNoDefaultPlanError(err) {
-				options, err1 := r.getCharmPlans(bakeryClient, deployInfo.CharmURL.String())
+				options, err1 := r.getCharmPlans(bakeryClient, deployInfo.CharmID.URL.String())
 				if err1 != nil {
 					return err1
 				}
-				charmUrl := deployInfo.CharmURL.String()
+				charmUrl := deployInfo.CharmID.URL.String()
 				return errors.Errorf(`%v has no default plan. Try "juju deploy --plan <plan-name> with one of %v"`, charmUrl, strings.Join(options, ", "))
 			}
 			return err
@@ -76,13 +76,13 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, bakeryClient *httpba
 
 	r.credentials, err = r.registerMetrics(
 		deployInfo.ModelUUID,
-		deployInfo.CharmURL.String(),
+		deployInfo.CharmID.URL.String(),
 		deployInfo.ServiceName,
 		r.AllocateBudget.Budget,
 		r.AllocateBudget.Limit,
 		bakeryClient)
 	if err != nil {
-		if deployInfo.CharmURL.Schema == "cs" {
+		if deployInfo.CharmID.URL.Schema == "cs" {
 			logger.Infof("failed to obtain plan authorization: %v", err)
 			return err
 		}

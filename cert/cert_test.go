@@ -68,7 +68,7 @@ func (certSuite) TestParseCertAndKey(c *gc.C) {
 func (certSuite) TestNewCA(c *gc.C) {
 	now := time.Now()
 	expiry := roundTime(now.AddDate(0, 0, 1))
-	caCertPEM, caKeyPEM, err := cert.NewCA("foo", expiry)
+	caCertPEM, caKeyPEM, err := cert.NewCA("foo", "1", expiry)
 	c.Assert(err, jc.ErrorIsNil)
 
 	caCert, caKey, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
@@ -86,7 +86,7 @@ func (certSuite) TestNewCA(c *gc.C) {
 func (certSuite) TestNewServer(c *gc.C) {
 	now := time.Now()
 	expiry := roundTime(now.AddDate(1, 0, 0))
-	caCertPEM, caKeyPEM, err := cert.NewCA("foo", expiry)
+	caCertPEM, caKeyPEM, err := cert.NewCA("foo", "1", expiry)
 	c.Assert(err, jc.ErrorIsNil)
 
 	caCert, _, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
@@ -100,7 +100,7 @@ func (certSuite) TestNewServer(c *gc.C) {
 func (certSuite) TestNewDefaultServer(c *gc.C) {
 	now := time.Now()
 	expiry := roundTime(now.AddDate(1, 0, 0))
-	caCertPEM, caKeyPEM, err := cert.NewCA("foo", expiry)
+	caCertPEM, caKeyPEM, err := cert.NewCA("foo", "1", expiry)
 	c.Assert(err, jc.ErrorIsNil)
 
 	caCert, _, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
@@ -163,7 +163,7 @@ func (certSuite) TestNewServerHostnames(c *gc.C) {
 func (certSuite) TestWithNonUTCExpiry(c *gc.C) {
 	expiry, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2012-11-28 15:53:57 +0100 CET")
 	c.Assert(err, jc.ErrorIsNil)
-	certPEM, keyPEM, err := cert.NewCA("foo", expiry)
+	certPEM, keyPEM, err := cert.NewCA("foo", "1", expiry)
 	xcert, err := cert.ParseCert(certPEM)
 	c.Assert(err, jc.ErrorIsNil)
 	checkNotAfter(c, xcert, expiry)
@@ -185,7 +185,7 @@ func (certSuite) TestNewServerWithInvalidCert(c *gc.C) {
 
 func (certSuite) TestVerify(c *gc.C) {
 	now := time.Now()
-	caCert, caKey, err := cert.NewCA("foo", now.Add(1*time.Minute))
+	caCert, caKey, err := cert.NewCA("foo", "1", now.Add(1*time.Minute))
 	c.Assert(err, jc.ErrorIsNil)
 
 	var noHostnames []string
@@ -204,7 +204,7 @@ func (certSuite) TestVerify(c *gc.C) {
 	err = cert.Verify(srvCert, caCert, now.Add(2*time.Minute))
 	c.Check(err, gc.ErrorMatches, "x509: certificate has expired or is not yet valid")
 
-	caCert2, caKey2, err := cert.NewCA("bar", now.Add(1*time.Minute))
+	caCert2, caKey2, err := cert.NewCA("bar", "1", now.Add(1*time.Minute))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check original server certificate against wrong CA.

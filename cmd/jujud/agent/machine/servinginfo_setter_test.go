@@ -40,20 +40,20 @@ func (s *ServingInfoSetterSuite) TestInputs(c *gc.C) {
 }
 
 func (s *ServingInfoSetterSuite) TestStartAgentMissing(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent": dependency.ErrMissing,
 	})
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
 
 func (s *ServingInfoSetterSuite) TestStartApiCallerMissing(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent":      dt.StubResource{Output: &mockAgent{}},
-		"api-caller": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent":      &mockAgent{},
+		"api-caller": dependency.ErrMissing,
 	})
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
@@ -62,10 +62,10 @@ func (s *ServingInfoSetterSuite) TestNotMachine(c *gc.C) {
 	a := &mockAgent{
 		conf: mockConfig{tag: names.NewUnitTag("foo/0")},
 	}
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent": dt.StubResource{Output: a},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent": a,
 	})
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "agent's tag is not a machine tag")
 }
@@ -91,10 +91,11 @@ func (s *ServingInfoSetterSuite) TestEntityLookupFailure(c *gc.C) {
 	)
 	// Call the manifold's start func with a fake resource getter that
 	// returns the fake Agent and APICaller
-	w, err := s.manifold.Start(dt.StubGetResource(dt.StubResources{
-		"agent":      dt.StubResource{Output: a},
-		"api-caller": dt.StubResource{Output: apiCaller},
-	}))
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent":      a,
+		"api-caller": apiCaller,
+	})
+	w, err := s.manifold.Start(context)
 	c.Assert(w, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
@@ -125,10 +126,11 @@ func (s *ServingInfoSetterSuite) TestJobManageEnviron(c *gc.C) {
 			return nil
 		},
 	)
-	w, err := s.manifold.Start(dt.StubGetResource(dt.StubResources{
-		"agent":      dt.StubResource{Output: a},
-		"api-caller": dt.StubResource{Output: apiCaller},
-	}))
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent":      a,
+		"api-caller": apiCaller,
+	})
+	w, err := s.manifold.Start(context)
 	c.Assert(w, gc.IsNil)
 	c.Assert(err, gc.Equals, dependency.ErrUninstall)
 
@@ -165,9 +167,9 @@ func (s *ServingInfoSetterSuite) checkNotController(c *gc.C, job multiwatcher.Ma
 			return nil
 		},
 	)
-	w, err := s.manifold.Start(dt.StubGetResource(dt.StubResources{
-		"agent":      dt.StubResource{Output: a},
-		"api-caller": dt.StubResource{Output: apiCaller},
+	w, err := s.manifold.Start(dt.StubContext(nil, map[string]interface{}{
+		"agent":      a,
+		"api-caller": apiCaller,
 	}))
 	c.Assert(w, gc.IsNil)
 	c.Assert(err, gc.Equals, dependency.ErrUninstall)

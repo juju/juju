@@ -98,6 +98,7 @@ func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 	t.restoreEC2Patching = patchEC2ForTesting(c)
 	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
 	t.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 }
@@ -210,6 +211,7 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 	// TODO(jam) I don't understand why we shouldn't do this.
@@ -322,6 +324,105 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 
 	_, err = env.ControllerInstances()
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
+}
+
+func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
+	insts, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	idsToStop := make([]instance.Id, len(insts)+1)
+	for i, one := range insts {
+		idsToStop[i] = one.Id()
+	}
+	idsToStop[len(insts)] = instance.Id("i-am-not-found")
+
+	err = env.StopInstances(idsToStop...)
+	// NotFound should be ignored
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestDestroyErr(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	msg := "terminate instances error"
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
+		return nil, errors.New(msg)
+	})
+
+	err = env.Destroy()
+	c.Assert(errors.Cause(err).Error(), jc.Contains, msg)
+}
+
+func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// create another instance to terminate
+	inst1, _ := testing.AssertStartInstance(c, env, "1")
+	inst := t.srv.ec2srv.Instance(string(inst1.Id()))
+	c.Assert(inst, gc.NotNil)
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
+		// Terminate the one destined for termination and
+		// err out to ensure that one instance will be terminated, the other - not.
+		_, err = ec2inst.TerminateInstances([]string{string(inst1.Id())})
+		c.Assert(err, jc.ErrorIsNil)
+		return nil, errors.New("terminate instances error")
+	})
+	err = env.Destroy()
+	c.Assert(err, gc.NotNil)
+
+	terminated, err := ec2.TerminatedInstances(env)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(terminated, gc.HasLen, 1)
+	c.Assert(terminated[0].Id(), jc.DeepEquals, inst1.Id())
+}
+
+func (t *localServerSuite) TestInstanceSecurityGroupsWitheInstanceStatusFilter(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	insts, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	ids := make([]instance.Id, len(insts))
+	for i, one := range insts {
+		ids[i] = one.Id()
+	}
+
+	groupsNoInstanceFilter, err := ec2.InstanceSecurityGroups(env, ids)
+	c.Assert(err, jc.ErrorIsNil)
+	// get all security groups for test instances
+	c.Assert(groupsNoInstanceFilter, gc.HasLen, 2)
+
+	groupsFilteredForTerminatedInstances, err := ec2.InstanceSecurityGroups(env, ids, "shutting-down", "terminated")
+	c.Assert(err, jc.ErrorIsNil)
+	// get all security groups for terminated test instances
+	c.Assert(groupsFilteredForTerminatedInstances, gc.HasLen, 0)
+}
+
+func (t *localServerSuite) TestDestroySecurityGroupInsistentlyError(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	called := false
+	msg := "destroy security group error"
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(inst ec2.SecurityGroupCleaner, group amzec2.SecurityGroup) error {
+		called = true
+		return errors.New(msg)
+	})
+
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(c.GetTestLog(), jc.Contains, "WARNING juju.provider.ec2 provider failure: destroy security group error")
 }
 
 // splitAuthKeys splits the given authorized keys
@@ -1251,6 +1352,7 @@ func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
 	t.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 
 	t.restoreEC2Patching = patchEC2ForTesting(c)
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 }
 
 func (t *localNonUSEastSuite) TearDownSuite(c *gc.C) {
@@ -1296,7 +1398,7 @@ func patchEC2ForTesting(c *gc.C) func() {
 	ec2.UseTestImageData(c, ec2.TestImagesData)
 	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
 	ec2.UseTestRegionData(ec2.TestRegions)
-	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt, ec2.LongAttempt)
+	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	return func() {
 		restoreFinishBootstrap()

@@ -12,7 +12,7 @@ import (
 // if a termination signal is received by the process it's running in.
 func Manifold() dependency.Manifold {
 	return dependency.Manifold{
-		Start: func(dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(_ dependency.Context) (worker.Worker, error) {
 			return NewWorker(), nil
 		},
 	}

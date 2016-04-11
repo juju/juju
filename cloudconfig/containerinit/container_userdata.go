@@ -101,7 +101,7 @@ iface {{.InterfaceName}} inet manual{{if .DNSServers}}
   down ip route del default via {{.GatewayAddress.Value}} || true{{end}}
 {{end}}`
 
-var networkInterfacesFile = "/etc/network/interfaces"
+var networkInterfacesFile = "/etc/network/interfaces.d/00-juju.cfg"
 
 // GenerateNetworkConfig renders a network config for one or more
 // network interfaces, using the given non-nil networkConfig

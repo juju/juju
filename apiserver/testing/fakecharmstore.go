@@ -19,7 +19,6 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/apiserver/service"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -67,10 +66,7 @@ func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
-	s.PatchValue(&service.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
-		p.URL = s.Srv.URL
-		return charmrepo.NewCharmStore(p)
-	})
+	s.PatchValue(&csclient.ServerURL, s.Srv.URL)
 }
 
 func (s *CharmStoreSuite) TearDownTest(c *gc.C) {

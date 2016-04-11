@@ -13,6 +13,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -38,7 +39,9 @@ func (s *allocationSuite) SetUpTest(c *gc.C) {
 func (s *allocationSuite) TestMeteredCharm(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
@@ -57,7 +60,9 @@ func (s *allocationSuite) TestMeteredCharm(c *gc.C) {
 func (s *allocationSuite) TestLocalCharm(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("local:quantal/metered-1"),
+		},
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
@@ -72,7 +77,9 @@ func (s *allocationSuite) TestLocalCharm(c *gc.C) {
 func (s *allocationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
@@ -90,7 +97,9 @@ func (s *allocationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 func (s *allocationSuite) TestMeteredCharmServiceUnavail(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
@@ -112,7 +121,9 @@ Try running "juju allocate <budget>:<limit> service name".
 func (s *allocationSuite) TestMeteredCharmDeployFailed(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
@@ -126,7 +137,9 @@ func (s *allocationSuite) TestMeteredCharmDeployFailed(c *gc.C) {
 func (s *allocationSuite) TestUnmeteredCharm(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("cs:quantal/unmetered-1"),
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/unmetered-1"),
+		},
 		ServiceName: "service name",
 		ModelUUID:   "environment uuid",
 	}

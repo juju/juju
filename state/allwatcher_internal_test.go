@@ -55,7 +55,7 @@ func (s *allWatcherBaseSuite) newState(c *gc.C) *State {
 		"name": fmt.Sprintf("testenv%d", s.envCount),
 		"uuid": utils.MustNewUUID().String(),
 	})
-	_, st, err := s.state.NewModel(cfg, s.owner)
+	_, st, err := s.state.NewModel(ModelArgs{Config: cfg, Owner: s.owner})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { st.Close() })
 	return st
@@ -3102,7 +3102,7 @@ func deltaMap(deltas []multiwatcher.Delta) map[interface{}]multiwatcher.EntityIn
 	return m
 }
 
-func makeActionInfo(a *Action, st *State) multiwatcher.ActionInfo {
+func makeActionInfo(a Action, st *State) multiwatcher.ActionInfo {
 	results, message := a.Results()
 	return multiwatcher.ActionInfo{
 		ModelUUID:  st.ModelUUID(),

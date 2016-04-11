@@ -38,7 +38,7 @@ func (fix *engineFixture) worstErrorFunc() dependency.WorstErrorFunc {
 	return firstError
 }
 
-func (fix *engineFixture) run(c *gc.C, test func(dependency.Engine)) {
+func (fix *engineFixture) run(c *gc.C, test func(*dependency.Engine)) {
 	config := dependency.EngineConfig{
 		IsFatal:     fix.isFatalFunc(),
 		WorstError:  fix.worstErrorFunc(),
@@ -53,7 +53,7 @@ func (fix *engineFixture) run(c *gc.C, test func(dependency.Engine)) {
 	test(engine)
 }
 
-func (fix *engineFixture) kill(c *gc.C, engine dependency.Engine) {
+func (fix *engineFixture) kill(c *gc.C, engine *dependency.Engine) {
 	if fix.dirty {
 		workertest.DirtyKill(c, engine)
 	} else {
@@ -101,9 +101,9 @@ func (mh *manifoldHarness) Manifold() dependency.Manifold {
 	}
 }
 
-func (mh *manifoldHarness) start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+func (mh *manifoldHarness) start(context dependency.Context) (worker.Worker, error) {
 	for _, resourceName := range mh.inputs {
-		if err := getResource(resourceName, nil); err != nil {
+		if err := context.Get(resourceName, nil); err != nil {
 			if mh.requireResources {
 				return nil, err
 			}
@@ -173,9 +173,9 @@ func (mh *tracedManifoldHarness) Manifold() dependency.Manifold {
 	}
 }
 
-func (mh *tracedManifoldHarness) start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+func (mh *tracedManifoldHarness) start(context dependency.Context) (worker.Worker, error) {
 	for _, resourceName := range mh.inputs {
-		if err := getResource(resourceName, nil); err != nil {
+		if err := context.Get(resourceName, nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -218,7 +218,7 @@ func (w *minimalWorker) Report() map[string]interface{} {
 	}
 }
 
-func startMinimalWorker(_ dependency.GetResourceFunc) (worker.Worker, error) {
+func startMinimalWorker(_ dependency.Context) (worker.Worker, error) {
 	w := &minimalWorker{}
 	go func() {
 		<-w.tomb.Dying()

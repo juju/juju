@@ -176,8 +176,8 @@ func (st *mockState) IsControllerAdministrator(user names.UserTag) (bool, error)
 	return user.Canonical() == "admin@local", st.NextErr()
 }
 
-func (st *mockState) NewModel(cfg *config.Config, owner names.UserTag) (*state.Model, *state.State, error) {
-	st.MethodCall(st, "NewModel", cfg, owner)
+func (st *mockState) NewModel(args state.ModelArgs) (*state.Model, *state.State, error) {
+	st.MethodCall(st, "NewModel", args)
 	return nil, nil, st.NextErr()
 }
 

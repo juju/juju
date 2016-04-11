@@ -26,18 +26,18 @@ type ManifoldConfig struct {
 	NewWorker func(Config) (worker.Worker, error)
 }
 
-func (config ManifoldConfig) start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
 
 	var apiCaller base.APICaller
-	if err := getResource(config.APICallerName, &apiCaller); err != nil {
+	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
 	var environ environs.Environ
-	if err := getResource(config.EnvironName, &environ); err != nil {
+	if err := context.Get(config.EnvironName, &environ); err != nil {
 		return nil, errors.Trace(err)
 	}
 	var clock clock.Clock
-	if err := getResource(config.ClockName, &clock); err != nil {
+	if err := context.Get(config.ClockName, &clock); err != nil {
 		return nil, errors.Trace(err)
 	}
 

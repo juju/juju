@@ -115,7 +115,7 @@ func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
 	mac, err := macaroon.New([]byte("root-key"), "id", "juju")
 	c.Assert(err, jc.ErrorIsNil)
 	err = apistate.Login(tag, "", "", []macaroon.Slice{{mac}})
-	c.Assert(err, gc.ErrorMatches, "verification failed: macaroon not found in storage")
+	c.Assert(err, gc.ErrorMatches, "invalid entity name or password \\(unauthorized access\\)")
 }
 
 func (s *stateSuite) TestLoginMacaroonInvalidUser(c *gc.C) {
@@ -125,7 +125,7 @@ func (s *stateSuite) TestLoginMacaroonInvalidUser(c *gc.C) {
 	mac, err := usermanager.NewClient(s.APIState).CreateLocalLoginMacaroon(tag.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
 	err = apistate.Login(names.NewUserTag("bob@local"), "", "", []macaroon.Slice{{mac}})
-	c.Assert(err, gc.ErrorMatches, `verification failed: caveat "declared username admin@local" not satisfied: got username="bob@local", expected "admin@local"`)
+	c.Assert(err, gc.ErrorMatches, "invalid entity name or password \\(unauthorized access\\)")
 }
 
 func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {

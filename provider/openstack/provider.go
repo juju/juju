@@ -8,6 +8,7 @@ package openstack
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	"gopkg.in/goose.v1/client"
 	gooseerrors "gopkg.in/goose.v1/errors"
 	"gopkg.in/goose.v1/identity"
@@ -595,33 +597,8 @@ func (e *Environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-type newClientFunc func(*identity.Credentials, identity.AuthMode, *log.Logger) client.AuthenticatingClient
-
-func determineBestClient(
-	options identity.AuthOptions,
-	client client.AuthenticatingClient,
-	cred *identity.Credentials,
-	newClient newClientFunc,
-) client.AuthenticatingClient {
-	for _, option := range options {
-		if option.Mode != identity.AuthUserPassV3 {
-			continue
-		}
-		cred.URL = option.Endpoint
-		v3client := newClient(cred, identity.AuthUserPassV3, nil)
-		// V3 being advertised is not necessaritly a guarantee that it will
-		// work.
-		err := v3client.Authenticate()
-		if err == nil {
-			return v3client
-		}
-	}
-	return client
-
-}
-
-func authClient(ecfg *environConfig) client.AuthenticatingClient {
-	cred := &identity.Credentials{
+func newCredentials(ecfg *environConfig) (identity.Credentials, identity.AuthMode) {
+	cred := identity.Credentials{
 		User:       ecfg.username(),
 		Secrets:    ecfg.password(),
 		Region:     ecfg.region(),
@@ -644,27 +621,61 @@ func authClient(ecfg *environConfig) client.AuthenticatingClient {
 		cred.User = ecfg.accessKey()
 		cred.Secrets = ecfg.secretKey()
 	}
+
+	return cred, authMode
+}
+
+func determineBestClient(
+	options identity.AuthOptions,
+	client client.AuthenticatingClient,
+	cred identity.Credentials,
+	newClient func(*identity.Credentials, identity.AuthMode, *log.Logger) client.AuthenticatingClient,
+) client.AuthenticatingClient {
+	for _, option := range options {
+		if option.Mode != identity.AuthUserPassV3 {
+			continue
+		}
+		cred.URL = option.Endpoint
+		v3client := newClient(&cred, identity.AuthUserPassV3, nil)
+		// V3 being advertised is not necessaritly a guarantee that it will
+		// work.
+		err := v3client.Authenticate()
+		if err == nil {
+			return v3client
+		}
+	}
+	return client
+}
+
+func authClient(ecfg *environConfig) (client.AuthenticatingClient, error) {
+
+	identityClientVersion, err := identityClientVersion(ecfg.authURL())
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create a client")
+	}
+	cred, authMode := newCredentials(ecfg)
+
 	newClient := client.NewClient
-	if !ecfg.SSLHostnameVerification() {
+	if ecfg.SSLHostnameVerification() == false {
 		newClient = client.NewNonValidatingClient
 	}
-	client := newClient(cred, authMode, nil)
+	client := newClient(&cred, authMode, nil)
 
 	// before returning, lets make sure that we want to have AuthMode
 	// AuthUserPass instead of its V3 counterpart.
-	if authMode == identity.AuthUserPass {
+	if authMode == identity.AuthUserPass && (identityClientVersion == -1 || identityClientVersion == 3) {
 		options, err := client.IdentityAuthOptions()
 		if err != nil {
 			logger.Errorf("cannot determine available auth versions %v", err)
 		} else {
 			client = determineBestClient(options, client, cred, newClient)
 		}
-
 	}
+
 	// By default, the client requires "compute" and
 	// "object-store". Juju only requires "compute".
 	client.SetRequiredServiceTypes([]string{"compute"})
-	return client
+	return client, nil
 }
 
 var authenticateClient = func(e *Environ) error {
@@ -694,10 +705,31 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	defer e.ecfgMutex.Unlock()
 	e.ecfgUnlocked = ecfg
 
-	e.client = authClient(ecfg)
-
+	client, err := authClient(ecfg)
+	if err != nil {
+		return errors.Annotate(err, "cannot set config")
+	}
+	e.client = client
 	e.novaUnlocked = nova.New(e.client)
 	return nil
+}
+
+func identityClientVersion(authURL string) (int, error) {
+	url, err := url.Parse(authURL)
+	if err != nil {
+		return -1, err
+	} else if url.Path == "" {
+		return -1, err
+	}
+	// The last part of the path should be the version #.
+	// Example: https://keystone.foo:443/v3/
+	logger.Debugf("authURL: %s", authURL)
+	versionNumStr := url.Path[2:]
+	if versionNumStr[len(versionNumStr)-1] == '/' {
+		versionNumStr = versionNumStr[:len(versionNumStr)-1]
+	}
+	major, _, err := version.ParseMajorMinor(versionNumStr)
+	return major, err
 }
 
 // getKeystoneImageSource is an imagemetadata.ImageDataSourceFunc that

@@ -205,6 +205,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotAssigned
 	case state.IsHasAssignedUnitsError(err):
 		code = params.CodeHasAssignedUnits
+	case state.IsHasHostedModelsError(err):
+		code = params.CodeHasHostedModels
 	case isNoAddressSetError(err):
 		code = params.CodeNoAddressSet
 	case errors.IsNotProvisioned(err):
@@ -287,6 +289,8 @@ func RestoreError(err error) error {
 	case params.IsCodeHasAssignedUnits(err):
 		// TODO(ericsnow) Handle state.HasAssignedUnitsError here.
 		// ...by parsing msg?
+		return err
+	case params.IsCodeHasHostedModels(err):
 		return err
 	case params.IsCodeNoAddressSet(err):
 		// TODO(ericsnow) Handle isNoAddressSetError here.
