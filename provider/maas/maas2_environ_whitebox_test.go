@@ -319,9 +319,6 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	_, err := env.acquireNode2("", "", constraints.Value{}, nil, nil)
 
 	c.Check(err, jc.ErrorIsNil)
-	//	nodeRequestValues, found := requestValues["node0"]
-	//	c.Assert(found, jc.IsTrue)
-	//	c.Assert(nodeRequestValues[0].Get("agent_name"), gc.Equals, exampleAgentName)
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *gc.C) {
@@ -329,7 +326,10 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.ecfg().maasAgentName()})
+				AgentName: env.ecfg().maasAgentName(),
+				Tags:      []string{"tag1", "tag3"},
+				NotTags:   []string{"tag2", "tag4"},
+			})
 		},
 		allocateMachine: &fakeMachine{
 			systemID:     "Bruce Sterling",
@@ -346,10 +346,6 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *
 	)
 
 	c.Check(err, jc.ErrorIsNil)
-	//	nodeValues, found := requestValues["node0"]
-	//	c.Assert(found, jc.IsTrue)
-	//	c.Assert(nodeValues[0].Get("tags"), gc.Equals, "tag1,tag3")
-	//	c.Assert(nodeValues[0].Get("not_tags"), gc.Equals, "tag2,tag4")
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.C) {
