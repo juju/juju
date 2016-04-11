@@ -127,10 +127,10 @@ func (c *fakeController) AddFile(args gomaasapi.AddFileArgs) error {
 }
 
 func (c *fakeController) ReleaseMachines(args gomaasapi.ReleaseMachinesArgs) error {
+	c.releaseMachinesArgs = append(c.releaseMachinesArgs, args)
 	if c.releaseMachinesErrors == nil {
 		return nil
 	}
-	c.releaseMachinesArgs = append(c.releaseMachinesArgs, args)
 	err := c.releaseMachinesErrors[0]
 	c.releaseMachinesErrors = c.releaseMachinesErrors[1:]
 	return err
