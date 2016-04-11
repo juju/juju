@@ -44,8 +44,8 @@ other charms or a Juju controller will not result in the removal of the
 machine.
 
 Examples:
-juju remove-service hadoop
-juju remove-service -m test-model mariadb`[1:]
+    juju remove-service hadoop
+    juju remove-service -m test-model mariadb`[1:]
 
 func (c *removeServiceCommand) Info() *cmd.Info {
 	return &cmd.Info{
