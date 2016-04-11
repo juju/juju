@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/container/lxc"
+	"github.com/juju/juju/container"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -430,7 +430,7 @@ type remoteFunctionalSuite struct {
 }
 
 func (s *remoteFunctionalSuite) TestUsingTCP(c *gc.C) {
-	if _, err := net.InterfaceByName(lxc.DefaultLxcBridge); err != nil {
+	if _, err := net.InterfaceByName(container.DefaultLxcBridge); err != nil {
 		c.Skip("network bridge interface not found")
 	}
 	lxdclient.PatchGenerateCertificate(&s.CleanupSuite, testingCert, testingKey)
