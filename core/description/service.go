@@ -23,6 +23,7 @@ type service struct {
 	Series_               string `yaml:"series"`
 	Subordinate_          bool   `yaml:"subordinate,omitempty"`
 	CharmURL_             string `yaml:"charm-url"`
+	Channel_              string `yaml:"cs-channel"`
 	CharmModifiedVersion_ int    `yaml:"charm-mod-version"`
 
 	// ForceCharm is true if an upgrade charm is forced.
@@ -59,6 +60,7 @@ type ServiceArgs struct {
 	Series               string
 	Subordinate          bool
 	CharmURL             string
+	Channel              string
 	CharmModifiedVersion int
 	ForceCharm           bool
 	Exposed              bool
@@ -77,6 +79,7 @@ func newService(args ServiceArgs) *service {
 		Series_:               args.Series,
 		Subordinate_:          args.Subordinate,
 		CharmURL_:             args.CharmURL,
+		Channel_:              args.Channel,
 		CharmModifiedVersion_: args.CharmModifiedVersion,
 		ForceCharm_:           args.ForceCharm,
 		Exposed_:              args.Exposed,
@@ -115,6 +118,11 @@ func (s *service) Subordinate() bool {
 // CharmURL implements Service.
 func (s *service) CharmURL() string {
 	return s.CharmURL_
+}
+
+// Channel implements Service.
+func (s *service) Channel() string {
+	return s.Channel_
 }
 
 // CharmModifiedVersion implements Service.
@@ -296,6 +304,7 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		"series":              schema.String(),
 		"subordinate":         schema.Bool(),
 		"charm-url":           schema.String(),
+		"cs-channel":          schema.String(),
 		"charm-mod-version":   schema.Int(),
 		"force-charm":         schema.Bool(),
 		"exposed":             schema.Bool(),
@@ -334,6 +343,7 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 		Series_:               valid["series"].(string),
 		Subordinate_:          valid["subordinate"].(bool),
 		CharmURL_:             valid["charm-url"].(string),
+		Channel_:              valid["cs-channel"].(string),
 		CharmModifiedVersion_: int(valid["charm-mod-version"].(int64)),
 		ForceCharm_:           valid["force-charm"].(bool),
 		Exposed_:              valid["exposed"].(bool),

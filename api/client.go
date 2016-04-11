@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/version"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/charm.v6-unstable"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
@@ -270,23 +270,6 @@ func (c *Client) FindTools(majorVersion, minorVersion int, series, arch string) 
 	return result, err
 }
 
-// RunOnAllMachines runs the command on all the machines with the specified
-// timeout.
-func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]params.RunResult, error) {
-	var results params.RunResults
-	args := params.RunParams{Commands: commands, Timeout: timeout}
-	err := c.facade.FacadeCall("RunOnAllMachines", args, &results)
-	return results.Results, err
-}
-
-// Run the Commands specified on the machines identified through the ids
-// provided in the machines, services and units slices.
-func (c *Client) Run(run params.RunParams) ([]params.RunResult, error) {
-	var results params.RunResults
-	err := c.facade.FacadeCall("Run", run, &results)
-	return results.Results, err
-}
-
 // DestroyModel puts the model into a "dying" state,
 // and removes all non-manager machine instances. DestroyModel
 // will fail if there are any manually-provisioned non-manager machines
@@ -382,6 +365,8 @@ func (c *Client) validateCharmVersion(ch charm.Charm) error {
 	return nil
 }
 
+// TODO(ericsnow) Use charmstore.CharmID for AddCharm() & AddCharmWithAuth().
+
 // AddCharm adds the given charm URL (which must include revision) to
 // the model, if it does not exist yet. Local charms are not
 // supported, only charm store URLs. See also AddLocalCharm() in the
@@ -390,11 +375,15 @@ func (c *Client) validateCharmVersion(ch charm.Charm) error {
 // If the AddCharm API call fails because of an authorization error
 // when retrieving the charm from the charm store, an error
 // satisfying params.IsCodeUnauthorized will be returned.
-func (c *Client) AddCharm(curl *charm.URL) error {
-	args := params.CharmURL{
-		URL: curl.String(),
+func (c *Client) AddCharm(curl *charm.URL, channel csparams.Channel) error {
+	args := params.AddCharm{
+		URL:     curl.String(),
+		Channel: string(channel),
 	}
-	return c.facade.FacadeCall("AddCharm", args, nil)
+	if err := c.facade.FacadeCall("AddCharm", args, nil); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // AddCharmWithAuthorization is like AddCharm except it also provides
@@ -406,12 +395,16 @@ func (c *Client) AddCharm(curl *charm.URL) error {
 // If the AddCharmWithAuthorization API call fails because of an
 // authorization error when retrieving the charm from the charm store,
 // an error satisfying params.IsCodeUnauthorized will be returned.
-func (c *Client) AddCharmWithAuthorization(curl *charm.URL, csMac *macaroon.Macaroon) error {
+func (c *Client) AddCharmWithAuthorization(curl *charm.URL, channel csparams.Channel, csMac *macaroon.Macaroon) error {
 	args := params.AddCharmWithAuthorization{
 		URL:                curl.String(),
+		Channel:            string(channel),
 		CharmStoreMacaroon: csMac,
 	}
-	return c.facade.FacadeCall("AddCharmWithAuthorization", args, nil)
+	if err := c.facade.FacadeCall("AddCharmWithAuthorization", args, nil); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // ResolveCharm resolves the best available charm URLs with series, for charm

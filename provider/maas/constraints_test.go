@@ -4,7 +4,6 @@
 package maas
 
 import (
-	"fmt"
 	"net/url"
 
 	"github.com/juju/errors"
@@ -170,7 +169,7 @@ func (suite *environSuite) TestSelectNodeInvalidZone(c *gc.C) {
 
 	_, err := env.selectNode(snArgs)
 	c.Assert(err, gc.NotNil)
-	c.Assert(fmt.Sprintf("%s", err), gc.Equals, "cannot run instances: gomaasapi: got error back from server: 409 Conflict ()")
+	c.Assert(err, gc.ErrorMatches, `cannot run instances: ServerError: 409 Conflict \(\)`)
 }
 
 func (suite *environSuite) TestAcquireNode(c *gc.C) {

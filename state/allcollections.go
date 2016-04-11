@@ -98,6 +98,11 @@ func allCollections() collectionSchema {
 		// Life and its UUID.
 		modelsC: {global: true},
 
+		// This collection holds references to entities owned by a
+		// model. We use this to determine whether or not we can safely
+		// destroy empty models.
+		modelEntityRefsC: {global: true},
+
 		// This collection is holds the parameters for model migrations.
 		migrationsC: {
 			global: true,
@@ -426,6 +431,7 @@ const (
 	modelUserLastConnectionC = "modelUserLastConnection"
 	modelUsersC              = "modelusers"
 	modelsC                  = "models"
+	modelEntityRefsC         = "modelEntityRefs"
 	networkInterfacesC       = "networkinterfaces"
 	networksC                = "networks"
 	openedPortsC             = "openedPorts"

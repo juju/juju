@@ -10,9 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
@@ -37,8 +35,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.csClient = &stubCSClient{Stub: s.stub}
 }
 
-func (s *BaseSuite) newCSClient(cURL *charm.URL, csMac *macaroon.Macaroon) (server.CharmStore, error) {
-	s.stub.AddCall("newCSClient", cURL, csMac)
+func (s *BaseSuite) newCSClient() (server.CharmStore, error) {
+	s.stub.AddCall("newCSClient")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
@@ -154,14 +152,14 @@ func (s *stubCSClient) ListResources(charms []charmstore.CharmID) ([][]charmreso
 	return s.ReturnListResources, nil
 }
 
-func (s *stubCSClient) ResourceInfo(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, error) {
-	s.AddCall("ResourceInfo", cURL, resourceName, revision)
+func (s *stubCSClient) ResourceInfo(req charmstore.ResourceRequest) (charmresource.Resource, error) {
+	s.AddCall("ResourceInfo", req)
 	if err := s.NextErr(); err != nil {
 		return charmresource.Resource{}, errors.Trace(err)
 	}
 
 	if s.ReturnResourceInfo == nil {
-		return charmresource.Resource{}, errors.NotFoundf("resource %q", resourceName)
+		return charmresource.Resource{}, errors.NotFoundf("resource %q", req.Name)
 	}
 	return *s.ReturnResourceInfo, nil
 }

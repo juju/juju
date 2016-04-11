@@ -24,6 +24,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	mgotxn "gopkg.in/mgo.v2/txn"
@@ -749,6 +750,19 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 	c.Assert(doc.URL, gc.DeepEquals, info.ID)
 }
 
+func (s *StateSuite) TestAddCharmWithAuth(c *gc.C) {
+	// Check that adding charms from scratch works correctly.
+	info := s.dummyCharm(c, "")
+	m, err := macaroon.New([]byte("rootkey"), "id", "loc")
+	c.Assert(err, jc.ErrorIsNil)
+	info.Macaroon = macaroon.Slice{m}
+	dummy, err := s.State.AddCharm(info)
+	c.Assert(err, jc.ErrorIsNil)
+	ms, err := dummy.Macaroon()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms, gc.DeepEquals, info.Macaroon)
+}
+
 func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	// Check that adding charms updates any existing placeholder charm
 	// with the same URL.
@@ -917,6 +931,11 @@ func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
 	// Test with with an uploaded local charm.
 	_, err = s.State.PrepareLocalCharmUpload(info.ID)
 	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := macaroon.New([]byte("rootkey"), "id", "loc")
+	c.Assert(err, jc.ErrorIsNil)
+	info.Macaroon = macaroon.Slice{m}
+	c.Assert(err, jc.ErrorIsNil)
 	sch, err = s.State.UpdateUploadedCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, info.ID)
@@ -927,6 +946,9 @@ func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
 	c.Assert(sch.Config(), gc.DeepEquals, info.Charm.Config())
 	c.Assert(sch.StoragePath(), gc.DeepEquals, info.StoragePath)
 	c.Assert(sch.BundleSha256(), gc.Equals, "missing")
+	ms, err := sch.Macaroon()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms, gc.DeepEquals, info.Macaroon)
 }
 
 func (s *StateSuite) TestUpdateUploadedCharmEscapesSpecialCharsInConfig(c *gc.C) {
@@ -2439,10 +2461,15 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	// Dying model...
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
+	// Add a service so Destroy doesn't advance to Dead.
+	svc := factory.NewFactory(st1).MakeService(c, nil)
 	dying, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	dying.Destroy()
+	err = dying.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
 
+	// Add an empty model, destroy and remove it; we should
+	// never see it reported.
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 	env2, err := st2.Model()
@@ -2451,14 +2478,16 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	err = state.RemoveModel(s.State, st2.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	// All except the dead env are reported in initial event.
+	// All except the removed env are reported in initial event.
 	w := s.State.WatchModels()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 
-	// Remove alive and dying and see changes reported.
-	err = state.RemoveModel(s.State, dying.UUID())
+	// Progress dying to dead, alive to dying; and see changes reported.
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st1.ProcessDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 	err = alive.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2473,9 +2502,10 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	wc.AssertChange(s.State.ModelUUID())
 	wc.AssertNoChange()
 
-	// Add an model: reported.
+	// Add a non-empty model: reported.
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
+	factory.NewFactory(st1).MakeService(c, nil)
 	env, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(env.UUID())
@@ -3378,7 +3408,7 @@ var entityTypes = map[string]interface{}{
 	names.MachineTagKind:  (*state.Machine)(nil),
 	names.RelationTagKind: (*state.Relation)(nil),
 	names.NetworkTagKind:  (*state.Network)(nil),
-	names.ActionTagKind:   (*state.Action)(nil),
+	names.ActionTagKind:   (state.Action)(nil),
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {

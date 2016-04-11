@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -63,6 +64,7 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 		CACert:            coretesting.CACert,
 		Password:          "fake",
 		Model:             s.State.ModelTag(),
+		MongoVersion:      mongo.Mongo24,
 	}
 	s.st, _ = s.OpenAPIAsNewMachine(c)
 

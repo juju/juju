@@ -444,7 +444,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 		}
 		manifolds := machine.Manifolds(machine.ManifoldsConfig{
 			PreviousAgentVersion: previousAgentVersion,
-			Agent:                agent.APIHostPortsSetter{a},
+			Agent:                agent.APIHostPortsSetter{Agent: a},
 			AgentConfigChanged:   a.configChangedVal,
 			UpgradeStepsLock:     a.upgradeComplete,
 			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
@@ -999,6 +999,7 @@ func (a *MachineAgent) startModelWorkers(uuid string) (worker.Worker, error) {
 		EntityStatusHistoryCount:    100,
 		EntityStatusHistoryInterval: 5 * time.Minute,
 		ModelRemoveDelay:            24 * time.Hour,
+		DiscoverSpacesCheckLock:     a.discoverSpacesComplete,
 	})
 	if err := dependency.Install(engine, manifolds); err != nil {
 		if err := worker.Stop(engine); err != nil {

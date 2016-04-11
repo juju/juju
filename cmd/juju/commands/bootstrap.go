@@ -134,6 +134,7 @@ type bootstrapCommand struct {
 	CredentialName  string
 	Cloud           string
 	Region          string
+	noGUI           bool
 }
 
 func (c *bootstrapCommand) Info() *cmd.Info {
@@ -162,6 +163,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.config, "config", "specify a controller config file, or one or more controller configuration options (--config config.yaml [--config k=v ...])")
 	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "the name of the default hosted model for the controller")
 	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "the name of the default hosted model for the controller")
+	f.BoolVar(&c.noGUI, "no-gui", false, "do not install the Juju GUI in the controller when bootstrapping")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -506,6 +508,13 @@ to clean up the model.`[1:])
 	delete(hostedModelConfig, config.AuthKeysConfig)
 	delete(hostedModelConfig, config.AgentVersionKey)
 
+	// Check whether the Juju GUI must be installed in the controller.
+	// Leaving this value empty means no GUI will be installed.
+	var guiDataSourceBaseURL string
+	if !c.noGUI {
+		guiDataSourceBaseURL = common.GUIDataSourceBaseURL()
+	}
+
 	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ModelConstraints:     c.Constraints,
 		BootstrapConstraints: bootstrapConstraints,
@@ -516,6 +525,7 @@ to clean up the model.`[1:])
 		AgentVersion:         c.AgentVersion,
 		MetadataDir:          metadataDir,
 		HostedModelConfig:    hostedModelConfig,
+		GUIDataSourceBaseURL: guiDataSourceBaseURL,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap model")

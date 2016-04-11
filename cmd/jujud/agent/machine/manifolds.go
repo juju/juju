@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/machineactions"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
+	"github.com/juju/juju/worker/util"
 	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 )
@@ -368,6 +370,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
+
+		machineActionName: ifFullyUpgraded(machineactions.Manifold(machineactions.ManifoldConfig{
+			AgentApiManifoldConfig: util.AgentApiManifoldConfig{
+				AgentName:     agentName,
+				APICallerName: apiCallerName,
+			},
+			NewFacade: machineactions.NewFacade,
+			NewWorker: machineactions.NewMachineActionsWorker,
+		})),
 	}
 }
 
@@ -406,4 +417,5 @@ const (
 	toolsversioncheckerName  = "tools-version-checker"
 	apiConfigWatcherName     = "api-config-watcher"
 	migrationMinionName      = "migration-minion"
+	machineActionName        = "machine-actions"
 )

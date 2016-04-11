@@ -92,6 +92,7 @@ func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	s.BaseSuite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	imagetesting.PatchOfficialDataSources(&s.BaseSuite.CleanupSuite, "test:")
+	s.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 }
 
 func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
@@ -212,6 +213,14 @@ func (s *ebsVolumeSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, i
 	c.Assert(ec2Vols.Volumes[0].Size, gc.Equals, 10)
 	c.Assert(ec2Vols.Volumes[1].Size, gc.Equals, 20)
 	c.Assert(ec2Vols.Volumes[2].Size, gc.Equals, 30)
+}
+
+var deleteSecurityGroupForTestFunc = func(inst ec2.SecurityGroupCleaner, group awsec2.SecurityGroup) error {
+	// With an exponential retry for deleting security groups,
+	// we never return from local live tests.
+	// No need to re-try in tests anyway - just call delete.
+	_, err := inst.DeleteSecurityGroup(group)
+	return err
 }
 
 type volumeSorter struct {

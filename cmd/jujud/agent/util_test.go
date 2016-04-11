@@ -24,15 +24,29 @@ var (
 	// the model Dead via the undertaker, so it can't be waited for
 	// reliably.
 	alwaysModelWorkers = []string{
-		"agent", "clock", "api-config-watcher", "api-caller",
-		"is-responsible-flag", "not-alive-flag", "not-dead-flag",
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"clock",
+		"discover-spaces-check-gate",
+		"is-responsible-flag",
+		"not-alive-flag",
+		"not-dead-flag",
 	}
 	aliveModelWorkers = []string{
-		"environ-tracker", "space-importer", "compute-provisioner",
-		"storage-provisioner", "firewaller", "unit-assigner",
-		"service-scaler", "instance-poller", "charm-revision-updater",
-		"metric-worker", "state-cleaner", "status-history-pruner",
+		"charm-revision-updater",
+		"compute-provisioner",
+		"discover-spaces",
+		"environ-tracker",
+		"firewaller",
+		"instance-poller",
+		"metric-worker",
 		"migration-master",
+		"service-scaler",
+		"state-cleaner",
+		"status-history-pruner",
+		"storage-provisioner",
+		"unit-assigner",
 	}
 	deadModelWorkers = []string{
 		"environ-tracker", "undertaker",

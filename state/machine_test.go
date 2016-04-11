@@ -2523,3 +2523,49 @@ func (s *MachineSuite) TestMachineAgentTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	testAgentTools(c, m, "machine "+m.Id())
 }
+
+func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
+	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var tests = []struct {
+		actionName      string
+		errString       string
+		givenPayload    map[string]interface{}
+		expectedPayload map[string]interface{}
+	}{
+		{
+			actionName: "juju-run",
+			errString:  `validation failed: (root) : "command" property is missing and required, given {}; (root) : "timeout" property is missing and required, given {}`,
+		},
+		{
+			actionName:      "juju-run",
+			givenPayload:    map[string]interface{}{"command": "allyourbasearebelongtous", "timeout": 5.0},
+			expectedPayload: map[string]interface{}{"command": "allyourbasearebelongtous", "timeout": 5.0},
+		},
+		{
+			actionName: "baiku",
+			errString:  `cannot add action "baiku" to a machine; only predefined actions allowed`,
+		},
+	}
+
+	for i, t := range tests {
+		c.Logf("running test %d", i)
+		action, err := m.AddAction(t.actionName, t.givenPayload)
+		if t.errString != "" {
+			c.Assert(err.Error(), gc.Equals, t.errString)
+			continue
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(action.Parameters(), jc.DeepEquals, t.expectedPayload)
+		}
+	}
+}
+
+func (s *MachineSuite) TestMachineAddDifferentAction(c *gc.C) {
+	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = m.AddAction("benchmark", nil)
+	c.Assert(err, gc.ErrorMatches, `cannot add action "benchmark" to a machine; only predefined actions allowed`)
+}
