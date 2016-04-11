@@ -357,11 +357,35 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.ecfg().maasAgentName()})
+				AgentName:   env.ecfg().maasAgentName(),
+				NotNetworks: []string{"space:6", "space:8"},
+			})
 		},
 		allocateMachine: &fakeMachine{
 			systemID:     "Bruce Sterling",
 			architecture: arch.HostArch(),
+		},
+		spaces: []gomaasapi.Space{
+			fakeSpace{
+				name:    "space-1",
+				subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"}},
+				id:      5,
+			},
+			fakeSpace{
+				name:    "space-2",
+				subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.11.0/24"}},
+				id:      6,
+			},
+			fakeSpace{
+				name:    "space-3",
+				subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.12.0/24"}},
+				id:      7,
+			},
+			fakeSpace{
+				name:    "space-4",
+				subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.13.0/24"}},
+				id:      8,
+			},
 		},
 	})
 	suite.setupFakeTools(c)
@@ -373,10 +397,6 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c
 		nil, nil,
 	)
 	c.Check(err, jc.ErrorIsNil)
-	//nodeValues, found := requestValues["node0"]
-	//c.Assert(found, jc.IsTrue)
-	//c.Check(nodeValues[0].Get("interfaces"), gc.Equals, "0:space=2;1:space=4")
-	//c.Check(nodeValues[0].Get("not_networks"), gc.Equals, "space:3,space:5")
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndexedUpToALimit(c *gc.C) {
