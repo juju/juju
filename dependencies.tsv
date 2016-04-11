@@ -6,7 +6,7 @@ github.com/dustin/go-humanize	git	145fabdb1ab757076a70a886d092a3af27f66f4c	2014-
 github.com/gabriel-samfira/sys	git	9ddc60d56b511544223adecea68da1e4f2153beb	2015-06-08T13:21:19Z
 github.com/godbus/dbus	git	88765d85c0fdadcd98a54e30694fa4e4f5b51133	2015-01-22T18:02:51Z
 github.com/joyent/gocommon	git	40c7818502f7c1ebbb13dab185a26e77b746ff40	2014-05-24T00:08:47Z
-github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	2014-05-24T00:09:46Z
+github.com/joyent/gomanta	git	b7f8007afb65647543e768d5a71b4dcb26bcfe1f	2016-04-11T00:09:46Z
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T00:08:15Z
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/blobstore	git	337aa7d5d712728d181dbda2547a6556d4189626	2015-05-08T07:43:36Z
