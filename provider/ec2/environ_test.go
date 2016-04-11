@@ -8,7 +8,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -153,14 +152,4 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 		ipperms := portsToIPPerms(t.ports)
 		c.Assert(ipperms, gc.DeepEquals, t.expected)
 	}
-}
-
-func (t *Suite) TestDeleteIDsNothingToRemove(c *gc.C) {
-	all := []instance.Id{instance.Id("just-this-one")}
-
-	nilItemsRemoved := deleteIDs(all, nil)
-	c.Assert(nilItemsRemoved, gc.DeepEquals, all)
-
-	emptyItemsRemoved := deleteIDs(all, []instance.Id{})
-	c.Assert(emptyItemsRemoved, gc.DeepEquals, all)
 }

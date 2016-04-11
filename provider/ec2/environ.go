@@ -16,7 +16,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
@@ -1393,11 +1392,10 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 	}
 	ec2inst := e.ec2()
 
-	notFoundIds := []instance.Id{}
 	// TODO (anastasiamac 2016-04-11) Err if instances still have resources hanging around.
 	// LP#1568654
 	defer func() {
-		e.deleteSecurityGroupsForInstances(deleteIDs(ids, notFoundIds))
+		e.deleteSecurityGroupsForInstances(ids)
 	}()
 
 	// TODO (anastasiamac 2016-04-7) instance termination would benefit
@@ -1412,41 +1410,31 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 			return err
 		}
 	}
+
+	if len(ids) == 1 {
+		if err != nil && ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
+			return err
+		}
+		return nil
+	}
 	// If we get a NotFound error, it means that no instances have been
 	// terminated even if some exist, so try them one by one, ignoring
 	// NotFound errors.
+	deletedIDs := []instance.Id{}
 	for _, id := range ids {
 		_, err = terminateInstancesById(ec2inst, id)
-		if err != nil {
-			if ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
-				return err
-			}
-			notFoundIds = append(notFoundIds, id)
+		if err == nil {
+			deletedIDs = append(deletedIDs, id)
+		}
+		if err != nil && ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
+			ids = deletedIDs
+			return err
 		}
 	}
+	ids = deletedIDs
 	// We will get here if we all of the instances are deleted successfully,
 	// or are not found, which implies they were previously deleted.
 	return nil
-}
-
-var deleteIDs = func(all, unwanted []instance.Id) []instance.Id {
-	if len(unwanted) == 0 {
-		return all
-	}
-
-	removeSet := set.NewStrings()
-	for _, item := range unwanted {
-		removeSet.Add(string(item))
-	}
-
-	result := []instance.Id{}
-	for _, id := range all {
-		if !removeSet.Contains(string(id)) {
-			result = append(result, id)
-		}
-	}
-
-	return result
 }
 
 var terminateInstancesById = func(ec2inst *ec2.EC2, ids ...instance.Id) (*ec2.TerminateInstancesResp, error) {
@@ -1525,74 +1513,6 @@ var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, group ec2.S
 		return lastErr
 	}
 	return nil
-}
-
-func (e *environ) terminateInstances(ids []instance.Id) error {
-	if len(ids) == 0 {
-		return nil
-	}
-	ec2inst := e.ec2()
-
-	defer func() {
-		securityGroups, err := e.instanceSecurityGroups(ids)
-		if err != nil {
-			logger.Warningf("cannot determine security groups to delete: %v", err)
-		}
-		// TODO(perrito666) we need to tag global security groups to be able
-		// to tell them apart from future groups that are neither machine
-		// nor environment group.
-		// https://bugs.launchpad.net/juju-core/+bug/1534289
-		jujuGroup := e.jujuGroupName()
-		legacyJujuGroup := e.legacyJujuGroupName()
-
-		for _, deletable := range securityGroups {
-			if deletable.Name != jujuGroup && deletable.Name != legacyJujuGroup {
-				if err := deleteSecurityGroupInsistently(ec2inst, deletable); err != nil {
-					// In ideal world, we would err out here.
-					// However:
-					// 1. We do not know if all instances have been terminated.
-					// If some instances erred out, they may still be using this security group.
-					// In this case, our failure to delete security group is reasonable: it's still in use.
-					// 2. Some security groups may be shared by multiple instances,
-					// for example, global firewalling. We should not delete these.
-					logger.Warningf("provider failure: %v", err)
-				}
-			}
-		}
-	}()
-
-	strs := make([]string, len(ids))
-	for i, id := range ids {
-		strs[i] = string(id)
-	}
-
-	var err error
-	// TODO (anastasiamac 2016-04-7) instance termination would benefit
-	// from retry with exponential delay just like security groups
-	// in defer. Bug#1567179.
-	for a := shortAttempt.Start(); a.Next(); {
-		_, err = ec2inst.TerminateInstances(strs)
-		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
-			return err
-		}
-	}
-	if len(ids) == 1 {
-		return err
-	}
-	// If we get a NotFound error, it means that no instances have been
-	// terminated even if some exist, so try them one by one, ignoring
-	// NotFound errors.
-	var firstErr error
-	for _, id := range ids {
-		_, err = ec2inst.TerminateInstances([]string{string(id)})
-		if ec2ErrCode(err) == "InvalidInstanceID.NotFound" {
-			err = nil
-		}
-		if err != nil && firstErr == nil {
-			firstErr = err
-		}
-	}
-	return firstErr
 }
 
 func (e *environ) uuid() string {

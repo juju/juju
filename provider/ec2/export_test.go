@@ -108,7 +108,6 @@ var (
 	DestroyVolumeAttempt           = &destroyVolumeAttempt
 	DeleteSecurityGroupInsistently = &deleteSecurityGroupInsistently
 	TerminateInstancesById         = &terminateInstancesById
-	DeleteIDs                      = &deleteIDs
 )
 
 func EC2ErrCode(err error) string {

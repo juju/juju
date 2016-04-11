@@ -335,19 +335,10 @@ func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
 	insts, err := env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	idsToStop := make([]instance.Id, len(insts)+1)
-	expectedWithoutNotFound := make([]instance.Id, len(insts))
 	for i, one := range insts {
 		idsToStop[i] = one.Id()
-		expectedWithoutNotFound[i] = one.Id()
 	}
-
-	notFoundID := instance.Id("i-am-not-found")
-	idsToStop[len(insts)] = notFoundID
-	expectedNotFound := []instance.Id{instance.Id(notFoundID)}
-	t.BaseSuite.PatchValue(ec2.DeleteIDs, func(all, items []instance.Id) []instance.Id {
-		c.Assert(items, jc.SameContents, expectedNotFound)
-		return expectedWithoutNotFound
-	})
+	idsToStop[len(insts)] = instance.Id("i-am-not-found")
 
 	err = env.StopInstances(idsToStop...)
 	// NotFound should be ignored
