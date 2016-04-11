@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -335,6 +336,7 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 		{"raring", [][]string{{"--target-release", "mongodb-server"}}},
 		{"saucy", [][]string{{"--target-release", "mongodb-server"}}},
 		{"trusty", [][]string{{"juju-mongodb3.2"}}},
+		{"wily", [][]string{{"juju-mongodb3.2"}}},
 		{"xenial", [][]string{{"juju-mongodb3.2"}}},
 	}
 
@@ -350,6 +352,68 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 			match := append(expectedArgs.AptGetBase, cmd...)
 			testing.AssertEchoArgs(c, "apt-get", match...)
 		}
+	}
+}
+
+var fakeInstallScript = `#!/bin/bash
+if [ $# -lt 1 ]
+then
+        echo "Install fail - not enough arguments"
+        exit 1
+fi
+
+# The package name is the last argument
+package=${@: -1}
+echo $package >> %s
+
+if [ $package == "juju-mongodb" ]
+then
+        echo "Installed successfully!"
+        exit 0
+fi
+
+if [ $package == "mongodb-server" ]
+then
+        echo "Installed successfully!"
+        exit 0
+fi
+
+echo "Unable to locate package $package"
+exit 100
+`
+
+func (s *MongoSuite) TestInstallMongodFallsBack(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping TestInstallMongodFallsBack as mongo is not installed on windows")
+	}
+
+	type installs struct {
+		series string
+		cmd    string
+	}
+
+	tests := []installs{
+		{"precise", "mongodb-server"},
+		{"trusty", "juju-mongodb3.2\njuju-mongodb"},
+		{"wily", "juju-mongodb3.2\njuju-mongodb"},
+		{"xenial", "juju-mongodb3.2\njuju-mongodb"},
+	}
+
+	dataDir := c.MkDir()
+	outputFile := filepath.Join(dataDir, "apt-get-args")
+	testing.PatchExecutable(c, s, "apt-get", fmt.Sprintf(fakeInstallScript, outputFile))
+	for _, test := range tests {
+		c.Logf("Testing mongo install for series: %s", test.series)
+		s.patchSeries(test.series)
+		err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
+		c.Assert(err, jc.ErrorIsNil)
+
+		args, err := ioutil.ReadFile(outputFile)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(strings.TrimSpace(string(args)), gc.Equals, test.cmd)
+
+		err = os.Remove(outputFile)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
