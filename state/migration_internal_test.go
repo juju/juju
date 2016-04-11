@@ -74,6 +74,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Not exported, but the tools will possibly need to be either bundled
 		// with the representation or sent separately.
 		toolsmetadataC,
+		// Bakery storage items are non-critical. We store root keys for
+		// temporary credentials in there; after migration you'll just have
+		// to log back in.
+		bakeryStorageItemsC,
 		// Transaction stuff.
 		"txns",
 		"txns.log",

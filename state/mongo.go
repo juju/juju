@@ -14,7 +14,7 @@ import (
 )
 
 // environMongo implements state/lease.Mongo to expose environ-filtered mongo
-// capabilities to the lease package.
+// capabilities to the sub-packages (e.g. lease, macaroonstorage).
 type environMongo struct {
 	state *State
 }

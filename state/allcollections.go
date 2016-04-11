@@ -5,6 +5,8 @@ package state
 
 import (
 	"gopkg.in/mgo.v2"
+
+	"github.com/juju/juju/state/bakerystorage"
 )
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -157,6 +159,12 @@ func allCollections() collectionSchema {
 		// This collection was deprecated before multi-model support
 		// was implemented.
 		actionresultsC: {global: true},
+
+		// This collection holds storage items for a macaroon bakery.
+		bakeryStorageItemsC: {
+			global:  true,
+			indexes: bakerystorage.MongoIndexes(),
+		},
 
 		// -----------------
 
@@ -404,6 +412,7 @@ const (
 	actionsC                 = "actions"
 	annotationsC             = "annotations"
 	assignUnitC              = "assignUnits"
+	bakeryStorageItemsC      = "bakeryStorageItems"
 	blockDevicesC            = "blockdevices"
 	blocksC                  = "blocks"
 	charmsC                  = "charms"
