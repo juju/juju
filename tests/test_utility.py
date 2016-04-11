@@ -12,6 +12,7 @@ import logging
 import os
 import socket
 from time import time
+import warnings
 
 from mock import (
     call,
@@ -382,14 +383,28 @@ class TestAddBasicTestingArguments(TestCase):
             parser.parse_args(cmd_line)
 
     def test_warns_on_dirty_logs(self):
-        with temp_dir() as log_dir:
-            open(os.path.join(log_dir, "existing.log"), "w").close()
-            cmd_line = ['local', '/a/juju', log_dir, 'testtest']
-            parser = add_basic_testing_arguments(ArgumentParser())
-            parser.parse_args(cmd_line)
-        self.assertRegexpMatches(
-            self.log_stream.getvalue(),
-            r"^WARNING Directory '.*' has existing contents.$")
+        with warnings.catch_warnings(record=True) as warned:
+            with temp_dir() as log_dir:
+                open(os.path.join(log_dir, "existing.log"), "w").close()
+                cmd_line = ['local', '/a/juju', log_dir, 'testtest']
+                parser = add_basic_testing_arguments(ArgumentParser())
+                parser.parse_args(cmd_line)
+            self.assertEqual(len(warned), 1)
+            self.assertRegexpMatches(
+                str(warned[0].message),
+                r"^Directory '.*' has existing contents.$")
+        self.assertEqual("", self.log_stream.getvalue())
+
+    def test_no_warn_on_empty_logs(self):
+        """Special case a file named 'empty' doesn't make log dir dirty"""
+        with warnings.catch_warnings(record=True) as warned:
+            with temp_dir() as log_dir:
+                open(os.path.join(log_dir, "empty"), "w").close()
+                cmd_line = ['local', '/a/juju', log_dir, 'testtest']
+                parser = add_basic_testing_arguments(ArgumentParser())
+                parser.parse_args(cmd_line)
+            self.assertEqual(warned, [])
+        self.assertEqual("", self.log_stream.getvalue())
 
     def test_debug(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--debug']
