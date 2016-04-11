@@ -1080,7 +1080,8 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 			return nil, errors.Trace(err)
 		}
 	} else {
-		// XXX handle interfaces
+		// TODO (mfoord): handling of interfaces to be added in a
+		// follow-up.
 		_, err := environ.startNode2(*inst.(*maas2Instance), series, userdata)
 		if err != nil {
 			return nil, errors.Trace(err)
