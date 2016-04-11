@@ -54,32 +54,35 @@ type registerCommand struct {
 	EncodedData   string
 }
 
-var registerDoc = `
-register connects to a Juju controller and completes the user registration
-process started with "juju add-user". The user must supply the string that
-was printed out by "juju add-user", which embeds the username to register,
-a secret key, and the addresses of the Juju controller.
+var usageRegisterSummary = `
+Registers a Juju user to a controller.`[1:]
 
-Executing "juju register" will prompt for a password, and set this as the
-initial password for the user. After setting this password, the registration
-string will be void and standard login and user management commands will
-become usable.
+var usageRegisterDetails = `
+Connects to a controller and completes the user registration process that
+began with the ` + "`juju add-user`" + ` command. The latter prints out the 'string'
+that is referred to in Usage.
+The user will be prompted for a password, which, once set, causes the 
+registration string to be voided. In order to start using Juju the user 
+can now either create a model or wait for a model to be shared with them.
+Some machine providers will require the user to be in possession of 
+certain credentials in order to create a model.
 
-See Also:
-    juju help add-user
-    juju help list-models
-    juju help use-models
-    juju help create-model
-    juju help switch
-`
+Examples:
+
+    juju register MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcw
+    BCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
+
+See also: 
+    add-user
+    change-user-password`[1:]
 
 // Info implements Command.Info
 func (c *registerCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "register",
-		Args:    "<name>",
-		Purpose: "register with a Juju Controller",
-		Doc:     registerDoc,
+		Args:    "<string>",
+		Purpose: usageRegisterSummary,
+		Doc:     usageRegisterDetails,
 	}
 }
 
