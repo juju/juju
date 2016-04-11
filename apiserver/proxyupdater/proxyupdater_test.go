@@ -31,7 +31,8 @@ type ProxyUpdaterSuite struct {
 	state      *stubBackend
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
-	facade     proxyupdater.API
+	facade     *proxyupdater.ProxyUpdaterAPI
+	tag        names.MachineTag
 }
 
 var _ = gc.Suite(&ProxyUpdaterSuite{})
@@ -49,6 +50,7 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 		Tag:            names.NewMachineTag("1"),
 		EnvironManager: false,
 	}
+	s.tag = names.NewMachineTag("1")
 	s.state = &stubBackend{}
 	s.state.SetUp(c)
 	s.AddCleanup(func(_ *gc.C) { s.state.Kill() })
@@ -65,7 +67,6 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C) {
 	// WatchForProxyConfigAndAPIHostPortChanges combines WatchForModelConfigChanges
 	// and WatchAPIHostPorts. Check that they are both called and we get the
-	// expected result.
 	s.facade.WatchForProxyConfigAndAPIHostPortChanges(params.Entities{})
 
 	// Verify the watcher resource was registered.
@@ -79,9 +80,18 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 	)
 }
 
+func (s *ProxyUpdaterSuite) oneEntity() params.Entities {
+	entities := params.Entities{
+		make([]params.Entity, 1),
+	}
+	entities.Entities[0].Tag = s.tag.String()
+	return entities
+}
+
 func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 	// Check that the ProxyConfig combines data from EnvironConfig and APIHostPorts
-	cfg := s.facade.ProxyConfig(params.Entities{})
+	cfg := s.facade.ProxyConfig(s.oneEntity())
+
 	s.state.Stub.CheckCallNames(c,
 		"EnvironConfig",
 		"APIHostPorts",
@@ -89,12 +99,13 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 
 	noProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
 
-	c.Assert(cfg.Results[0], jc.DeepEquals, params.ProxyConfigResult{
+	r := params.ProxyConfigResult{
 		ProxySettings: params.ProxyConfig{
 			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: noProxy},
 		APTProxySettings: params.ProxyConfig{
 			HTTP: "http://http proxy", HTTPS: "https://https proxy", FTP: "", NoProxy: ""},
-	})
+	}
+	c.Assert(cfg.Results[0], jc.DeepEquals, r)
 }
 
 func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
@@ -104,7 +115,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
 		"https-proxy": "https proxy",
 		"no-proxy":    "9.9.9.9",
 	})
-	cfg := s.facade.ProxyConfig(params.Entities{})
+	cfg := s.facade.ProxyConfig(s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
 		"EnvironConfig",
 		"APIHostPorts",
@@ -127,7 +138,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
 		"https-proxy": "https proxy",
 		"no-proxy":    "0.1.2.3",
 	})
-	cfg := s.facade.ProxyConfig(params.Entities{})
+	cfg := s.facade.ProxyConfig(s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
 		"EnvironConfig",
 		"APIHostPorts",

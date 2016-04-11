@@ -18,7 +18,6 @@ import (
 	proxyutils "github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 
-	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
@@ -36,9 +35,6 @@ var (
 
 	// ProxyFile is the name of the file to be stored in the ProxyDirectory.
 	ProxyFile = ".juju-proxy"
-
-	// Started is a function that is called when the worker has started.
-	Started = func() {}
 )
 
 // API is an interface that is provided to New
@@ -71,7 +67,7 @@ type proxyWorker struct {
 
 // NewWorker returns a worker.Worker that updates proxy environment variables for the
 // process and for the whole machine.
-var NewWorker = func(proxyAPI *apiproxyupdater.API) (worker.Worker, error) {
+var NewWorker = func(proxyAPI API) (worker.Worker, error) {
 	envWorker := &proxyWorker{
 		api:   proxyAPI,
 		first: true,
@@ -206,7 +202,6 @@ func (w *proxyWorker) SetUp() (watcher.NotifyWatcher, error) {
 		return nil, err
 	}
 	w.first = false
-	Started()
 	return w.api.WatchForProxyConfigAndAPIHostPortChanges()
 }
 
