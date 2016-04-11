@@ -72,21 +72,21 @@ def destroy_environment(client, instance_tag):
         destroy_job_instances(instance_tag)
 
 
-def deploy_dummy_stack(client, charm_seires):
+def deploy_dummy_stack(client, charm_series):
     """"Deploy a dummy stack in the specified environment."""
     # Centos requires specific machine configuration (i.e. network device
     # order).
-    if charm_seires == "centos" and client.env.maas:
+    if charm_series == "centos" and client.env.maas:
         client.set_model_constraints({'tags': 'MAAS_NIC_1'})
     platform = 'ubuntu'
-    if charm_seires == 'win' or charm_seires == 'centos':
-        platform = charm_seires
+    if charm_series == 'win' or charm_series == 'centos':
+        platform = charm_series
     charm = local_charm_path(charm='dummy-source', juju_ver=client.version,
-                             series=charm_seires, platform=platform)
-    client.deploy(charm, series=charm_seires)
+                             series=charm_series, platform=platform)
+    client.deploy(charm, series=charm_series)
     charm = local_charm_path(charm='dummy-sink', juju_ver=client.version,
-                             series=charm_seires, platform=platform)
-    client.deploy(charm, series=charm_seires)
+                             series=charm_series, platform=platform)
+    client.deploy(charm, series=charm_series)
     client.juju('add-relation', ('dummy-source', 'dummy-sink'))
     client.juju('expose', ('dummy-sink',))
     if client.env.kvm or client.env.maas:
