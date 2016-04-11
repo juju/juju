@@ -346,8 +346,8 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.C) {
-	spaces := []gomaasapi.Space{
+func getFourSpaces() []gomaasapi.Space {
+	return []gomaasapi.Space{
 		fakeSpace{
 			name:    "space-1",
 			subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"}},
@@ -369,10 +369,14 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c
 			id:      8,
 		},
 	}
+
+}
+
+func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.C) {
 	expected := gomaasapi.AllocateMachineArgs{
 		NotNetworks: []string{"space:6", "space:8"},
 	}
-	env := suite.injectControllerWithSpacesAndCheck(c, spaces, expected)
+	env := suite.injectControllerWithSpacesAndCheck(c, getFourSpaces(), expected)
 
 	_, err := env.acquireNode2(
 		"", "",
@@ -383,33 +387,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndexedUpToALimit(c *gc.C) {
-	var env *maasEnviron
-	suite.injectController(&fakeController{
-		spaces: []gomaasapi.Space{
-			fakeSpace{
-				name:    "space-1",
-				subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"}},
-				id:      5,
-			},
-			fakeSpace{
-				name:    "space-2",
-				subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.11.0/24"}},
-				id:      6,
-			},
-			fakeSpace{
-				name:    "space-3",
-				subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.12.0/24"}},
-				id:      7,
-			},
-			fakeSpace{
-				name:    "space-4",
-				subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.13.0/24"}},
-				id:      8,
-			},
-		},
-	})
-	suite.setupFakeTools(c)
-	env = makeEnviron(c)
+	env := suite.injectControllerWithSpacesAndCheck(c, getFourSpaces(), gomaasapi.AllocateMachineArgs{})
 	var shortLimit uint = 0
 	suite.PatchValue(&numericLabelLimit, shortLimit)
 
@@ -485,18 +463,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 			systemID:     "Bruce Sterling",
 			architecture: arch.HostArch(),
 		},
-		spaces: []gomaasapi.Space{
-			fakeSpace{
-				name:    "foo",
-				subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"}},
-				id:      5,
-			},
-			fakeSpace{
-				name:    "bar",
-				subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.11.0/24"}},
-				id:      6,
-			},
-		},
+		spaces: getTwoSpaces(),
 	})
 	suite.setupFakeTools(c)
 	// Add some constraints, including spaces to verify specified bindings
@@ -513,25 +480,25 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	}{{ // without specified bindings, spaces constraints are used instead.
 		interfaces:        nil,
 		expectedPositives: "0:space=5",
-		expectedNegatives: "space:6",
+		expectedNegatives: "space:3",
 		expectedError:     "",
 	}, {
 		interfaces:        []interfaceBinding{{"name-1", "space-1"}},
 		expectedPositives: "name-1:space=space-1;0:space=5",
-		expectedNegatives: "space:6",
+		expectedNegatives: "space:3",
 	}, {
 		interfaces: []interfaceBinding{
-			{"name-1", "1"},
-			{"name-2", "2"},
-			{"name-3", "3"},
+			{"name-1", "7"},
+			{"name-2", "8"},
+			{"name-3", "9"},
 		},
 		expectedPositives: "name-1:space=1;name-2:space=2;name-3:space=3;0:space=5",
-		expectedNegatives: "space:6",
+		expectedNegatives: "space:3",
 	}, {
 		interfaces:    []interfaceBinding{{"", "anything"}},
 		expectedError: "interface bindings cannot have empty names",
 	}, {
-		interfaces:    []interfaceBinding{{"shared-db", "6"}},
+		interfaces:    []interfaceBinding{{"shared-db", "3"}},
 		expectedError: `negative space "bar" from constraints clashes with interface bindings`,
 	}, {
 		interfaces: []interfaceBinding{
@@ -539,7 +506,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 			{"db", "1"},
 		},
 		expectedPositives: "shared-db:space=1;db:space=1;0:space=5",
-		expectedNegatives: "space:6",
+		expectedNegatives: "space:3",
 	}, {
 		interfaces:    []interfaceBinding{{"", ""}},
 		expectedError: "interface bindings cannot have empty names",
@@ -593,31 +560,25 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	}
 }
 
+func getTwoSpaces() []gomaasapi.Space {
+	return []gomaasapi.Space{
+		fakeSpace{
+			name:    "foo",
+			subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"}},
+			id:      2,
+		},
+		fakeSpace{
+			name:    "bar",
+			subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.11.0/24"}},
+			id:      3,
+		},
+	}
+}
+
 func (suite *maas2EnvironSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
-	var env *maasEnviron
-	suite.injectController(&fakeController{
-		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
-			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.ecfg().maasAgentName(),
-				// Should have Interfaces set
-				// Interfaces: 0:space=2,
-				NotNetworks: []string{"space:3"},
-			})
-		},
-		spaces: []gomaasapi.Space{
-			fakeSpace{
-				name:    "foo",
-				subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"}},
-				id:      2,
-			},
-			fakeSpace{
-				name:    "bar",
-				subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.11.0/24"}},
-				id:      3,
-			},
-		},
-	})
-	env = makeEnviron(c)
+	// Expected args should have Interfaces set
+	// Interfaces: 0:space=2,
+	env := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), gomaasapi.AllocateMachineArgs{NotNetworks: []string{"space:3"}})
 	cons := constraints.Value{
 		Spaces: stringslicep("foo", "^bar"),
 	}
@@ -626,30 +587,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
-	var env *maasEnviron
-	suite.injectController(&fakeController{
-		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
-			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.ecfg().maasAgentName(),
-				// Should have Interfaces set
-				// Interfaces: 0:space=2,
-				NotNetworks: []string{"space:3"},
-			})
-		},
-		spaces: []gomaasapi.Space{
-			fakeSpace{
-				name:    "foo",
-				subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"}},
-				id:      2,
-			},
-			fakeSpace{
-				name:    "bar",
-				subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.11.0/24"}},
-				id:      3,
-			},
-		},
-	})
-	env = makeEnviron(c)
+	env := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), gomaasapi.AllocateMachineArgs{NotNetworks: []string{"space:3"}})
 	cons := constraints.Value{
 		Spaces: stringslicep("foo-1", "^bar-3"),
 	}
