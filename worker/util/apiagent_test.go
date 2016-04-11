@@ -53,22 +53,22 @@ func (s *AgentApiManifoldSuite) TestOutput(c *gc.C) {
 }
 
 func (s *AgentApiManifoldSuite) TestStartAgentMissing(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
 
 func (s *AgentApiManifoldSuite) TestStartApiConnMissing(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name":      dt.StubResource{Output: &dummyAgent{}},
-		"api-caller-name": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name":      &dummyAgent{},
+		"api-caller-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
@@ -76,13 +76,13 @@ func (s *AgentApiManifoldSuite) TestStartApiConnMissing(c *gc.C) {
 func (s *AgentApiManifoldSuite) TestStartFailure(c *gc.C) {
 	expectAgent := &dummyAgent{}
 	expectApiCaller := &dummyApiCaller{}
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name":      dt.StubResource{Output: expectAgent},
-		"api-caller-name": dt.StubResource{Output: expectApiCaller},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name":      expectAgent,
+		"api-caller-name": expectApiCaller,
 	})
 	s.SetErrors(errors.New("some error"))
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "some error")
 	s.CheckCalls(c, []testing.StubCall{{
@@ -94,12 +94,12 @@ func (s *AgentApiManifoldSuite) TestStartFailure(c *gc.C) {
 func (s *AgentApiManifoldSuite) TestStartSuccess(c *gc.C) {
 	expectAgent := &dummyAgent{}
 	expectApiCaller := &dummyApiCaller{}
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name":      dt.StubResource{Output: expectAgent},
-		"api-caller-name": dt.StubResource{Output: expectApiCaller},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name":      expectAgent,
+		"api-caller-name": expectApiCaller,
 	})
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, s.worker)
 	s.CheckCalls(c, []testing.StubCall{{

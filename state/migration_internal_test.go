@@ -79,9 +79,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		"txns.log",
 
 		// We don't import any of the migration collections.
-		modelMigrationsC,
-		modelMigrationStatusC,
-		modelMigrationsActiveC,
+		migrationsC,
+		migrationsStatusC,
+		migrationsActiveC,
 
 		// The container ref document is primarily there to keep track
 		// of a particular machine's containers. The migration format
@@ -171,8 +171,6 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		"Name",
 		// Life will always be alive, or we won't be migrating.
 		"Life",
-		"Owner",
-		"LatestAvailableTools",
 		// ServerUUID is recreated when the new model is created in the
 		// new controller (yay name changes).
 		"ServerUUID",
@@ -180,6 +178,10 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		// is alive.
 		"TimeOfDying",
 		"TimeOfDeath",
+
+		"MigrationMode",
+		"Owner",
+		"LatestAvailableTools",
 	)
 	s.AssertExportedFields(c, modelDoc{}, fields)
 }
@@ -236,6 +238,7 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"Placement",
 		"PreferredPrivateAddress",
 		"PreferredPublicAddress",
+		"Principals",
 		"Series",
 		"SupportedContainers",
 		"SupportedContainersKnown",
@@ -246,7 +249,6 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"StopMongoUntilVersion",
 	)
 	todo := set.NewStrings(
-		"Principals",
 		"Volumes",
 		"NoVote",
 		"Clean",

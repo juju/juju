@@ -166,12 +166,6 @@ func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
 func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add a new machine")
 	var ms []*Machine
-	env, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	} else if env.Life() != Alive {
-		return nil, errors.New("model is no longer alive")
-	}
 	var ops []txn.Op
 	var mdocs []*machineDoc
 	for _, template := range templates {
@@ -195,29 +189,27 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, ssOps...)
-	ops = append(ops, env.assertAliveOp())
+	ops = append(ops, assertModelActiveOp(st.ModelUUID()))
 	if err := st.runTransaction(ops); err != nil {
-		return nil, onAbort(err, errors.New("model is no longer alive"))
+		if errors.Cause(err) == txn.ErrAborted {
+			if err := checkModelActive(st); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		return nil, errors.Trace(err)
 	}
 	return ms, nil
 }
 
 func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
-	env, err := st.Model()
-	if err != nil {
-		return nil, err
-	} else if env.Life() != Alive {
-		return nil, errors.New("model is no longer alive")
-	}
-	ops = append([]txn.Op{env.assertAliveOp()}, ops...)
+	ops = append([]txn.Op{assertModelActiveOp(st.ModelUUID())}, ops...)
 	if err := st.runTransaction(ops); err != nil {
-		enverr := env.Refresh()
-		if (enverr == nil && env.Life() != Alive) || errors.IsNotFound(enverr) {
-			return nil, errors.New("model is no longer alive")
-		} else if enverr != nil {
-			err = enverr
+		if errors.Cause(err) == txn.ErrAborted {
+			if err := checkModelActive(st); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return newMachine(st, mdoc), nil
 }
@@ -298,7 +290,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	prereqOps = append(prereqOps, assertModelAliveOp(st.ModelUUID()))
+	prereqOps = append(prereqOps, assertModelActiveOp(st.ModelUUID()))
 	prereqOps = append(prereqOps, st.insertNewContainerRefOp(mdoc.Id))
 	if template.InstanceId != "" {
 		prereqOps = append(prereqOps, txn.Op{

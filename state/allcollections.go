@@ -104,7 +104,7 @@ func allCollections() collectionSchema {
 		modelEntityRefsC: {global: true},
 
 		// This collection is holds the parameters for model migrations.
-		modelMigrationsC: {
+		migrationsC: {
 			global: true,
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid"},
@@ -112,12 +112,12 @@ func allCollections() collectionSchema {
 		},
 
 		// This collection tracks the progress of model migrations.
-		modelMigrationStatusC: {global: true},
+		migrationsStatusC: {global: true},
 
 		// This collection records the model migrations which
 		// are currently in progress. It is used to ensure that only
 		// one model migration document exists per environment.
-		modelMigrationsActiveC: {global: true},
+		migrationsActiveC: {global: true},
 
 		// This collection holds user information that's not specific to any
 		// one model.
@@ -425,9 +425,9 @@ const (
 	metricsC                 = "metrics"
 	metricsManagerC          = "metricsmanager"
 	minUnitsC                = "minunits"
-	modelMigrationStatusC    = "modelmigrations.status"
-	modelMigrationsActiveC   = "modelmigrations.active"
-	modelMigrationsC         = "modelmigrations"
+	migrationsStatusC        = "migrations.status"
+	migrationsActiveC        = "migrations.active"
+	migrationsC              = "migrations"
 	modelUserLastConnectionC = "modelUserLastConnection"
 	modelUsersC              = "modelusers"
 	modelsC                  = "models"

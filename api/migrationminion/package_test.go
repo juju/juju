@@ -1,7 +1,7 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package upgradewaiter_test
+package migrationminion_test
 
 import (
 	"testing"

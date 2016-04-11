@@ -41,13 +41,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // startFunc returns a StartFunc that creates a worker based on the manifolds
 // named in the supplied config.
 func startFunc(config ManifoldConfig) dependency.StartFunc {
-	return func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+	return func(context dependency.Context) (worker.Worker, error) {
 		var agent agent.Agent
-		if err := getResource(config.AgentName, &agent); err != nil {
+		if err := context.Get(config.AgentName, &agent); err != nil {
 			return nil, err
 		}
 		var apiCaller base.APICaller
-		if err := getResource(config.APICallerName, &apiCaller); err != nil {
+		if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 			return nil, err
 		}
 		return NewManifoldWorker(agent, apiCaller, config.LeadershipGuarantee)

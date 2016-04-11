@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/base"
@@ -442,14 +441,15 @@ func (w *entitiesWatcher) Changes() watcher.StringsChannel {
 	return w.out
 }
 
-// NewMigrationMasterWatcher takes the NotifyWatcherId returns by the
-// MigrationMaster.Watch API and returns a watcher which will report
-// details about a model migration (if and when it exists).
-func NewMigrationMasterWatcher(caller base.APICaller, watcherId string) watcher.MigrationMasterWatcher {
-	w := &migrationMasterWatcher{
+// NewMigrationStatusWatcher takes the NotifyWatcherId returns by the
+// MigrationSlave.Watch API and returns a watcher which will report
+// status changes for any migration of the model associated with the
+// API connection.
+func NewMigrationStatusWatcher(caller base.APICaller, watcherId string) watcher.MigrationStatusWatcher {
+	w := &migrationStatusWatcher{
 		caller: caller,
 		id:     watcherId,
-		out:    make(chan migration.TargetInfo),
+		out:    make(chan watcher.MigrationStatus),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -458,16 +458,16 @@ func NewMigrationMasterWatcher(caller base.APICaller, watcherId string) watcher.
 	return w
 }
 
-type migrationMasterWatcher struct {
+type migrationStatusWatcher struct {
 	commonWatcher
 	caller base.APICaller
 	id     string
-	out    chan migration.TargetInfo
+	out    chan watcher.MigrationStatus
 }
 
-func (w *migrationMasterWatcher) loop() error {
-	w.newResult = func() interface{} { return new(params.ModelMigrationTargetInfo) }
-	w.call = makeWatcherAPICaller(w.caller, "MigrationMasterWatcher", w.id)
+func (w *migrationStatusWatcher) loop() error {
+	w.newResult = func() interface{} { return new(params.MigrationStatus) }
+	w.call = makeWatcherAPICaller(w.caller, "MigrationStatusWatcher", w.id)
 	w.commonWatcher.init()
 	go w.commonLoop()
 
@@ -486,32 +486,29 @@ func (w *migrationMasterWatcher) loop() error {
 			return nil
 		}
 
-		info := data.(*params.ModelMigrationTargetInfo)
-		controllerTag, err := names.ParseModelTag(info.ControllerTag)
-		if err != nil {
-			return errors.Annotatef(err, "unable to parse %q", info.ControllerTag)
+		inStatus := *data.(*params.MigrationStatus)
+		phase, ok := migration.ParsePhase(inStatus.Phase)
+		if !ok {
+			return errors.Errorf("invalid phase %q", inStatus.Phase)
 		}
-		authTag, err := names.ParseUserTag(info.AuthTag)
-		if err != nil {
-			return errors.Annotatef(err, "unable to parse %q", info.AuthTag)
-		}
-		outInfo := migration.TargetInfo{
-			ControllerTag: controllerTag,
-			Addrs:         info.Addrs,
-			CACert:        info.CACert,
-			AuthTag:       authTag,
-			Password:      info.Password,
+		outStatus := watcher.MigrationStatus{
+			Attempt:        inStatus.Attempt,
+			Phase:          phase,
+			SourceAPIAddrs: inStatus.SourceAPIAddrs,
+			SourceCACert:   inStatus.SourceCACert,
+			TargetAPIAddrs: inStatus.TargetAPIAddrs,
+			TargetCACert:   inStatus.TargetCACert,
 		}
 		select {
-		case w.out <- outInfo:
+		case w.out <- outStatus:
 		case <-w.tomb.Dying():
 			return nil
 		}
 	}
 }
 
-// Changes returns a channel that reports the details of an active
-// migration for the model associated with the API connection.
-func (w *migrationMasterWatcher) Changes() <-chan migration.TargetInfo {
+// Changes returns a channel that reports the latest status of the
+// migration of a model.
+func (w *migrationStatusWatcher) Changes() <-chan watcher.MigrationStatus {
 	return w.out
 }

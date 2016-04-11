@@ -1239,20 +1239,16 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: model is no longer alive")
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is no longer alive`)
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially
@@ -1262,7 +1258,17 @@ func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: model is no longer alive")
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is no longer alive`)
+}
+
+func (s *StateSuite) TestAddMachinesEnvironmentMigrating(c *gc.C) {
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+	// Check that machines cannot be added if the model is initially Dying.
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is being migrated`)
 }
 
 func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
@@ -1901,14 +1907,24 @@ func (s *StateSuite) TestAddService(c *gc.C) {
 
 func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	s.AddTestingService(c, "s0", charm)
 	// Check that services cannot be added if the model is initially Dying.
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model "testenv" is no longer alive`)
+}
+
+func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	// Check that services cannot be added if the model is initially Dying.
+	env, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model "testenv" is being migrated`)
 }
 
 func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
@@ -2941,10 +2957,7 @@ func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
+func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 	// insert one doc for each multiEnvCollection
 	var ops []mgotxn.Op
 	for _, collName := range state.MultiEnvCollections() {
@@ -2981,26 +2994,33 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 		c.Assert(n, gc.Not(gc.Equals), 0)
 	}
 
-	// test that we can find the user:envName unique index
-	env, err := st.Model()
+	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	indexColl, closer := state.GetCollection(st, "usermodelname")
+	return state.UserModelNameIndex(model.Owner().Canonical(), model.Name())
+}
+
+type checkUserModelNameArgs struct {
+	st     *state.State
+	id     string
+	exists bool
+}
+
+func (s *StateSuite) checkUserModelNameExists(c *gc.C, args checkUserModelNameArgs) {
+	indexColl, closer := state.GetCollection(args.st, "usermodelname")
 	defer closer()
-	id := state.UserModelNameIndex(env.Owner().Canonical(), env.Name())
-	n, err := indexColl.FindId(id).Count()
+	n, err := indexColl.FindId(args.id).Count()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(n, gc.Equals, 1)
+	if args.exists {
+		c.Assert(n, gc.Equals, 1)
+	} else {
+		c.Assert(n, gc.Equals, 0)
+	}
+}
 
-	err = state.SetModelLifeDead(st, st.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.RemoveAllModelDocs()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// test that we can not find the user:envName unique index
-	n, err = indexColl.FindId(id).Count()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(n, gc.Equals, 0)
+func (s *StateSuite) AssertModelDeleted(c *gc.C, st *state.State) {
+	// check to see if the model itself is gone
+	_, err := st.Model()
+	c.Assert(err, gc.ErrorMatches, `model not found`)
 
 	// ensure all docs for all multiEnvCollections are removed
 	for _, collName := range state.MultiEnvCollections() {
@@ -3012,12 +3032,68 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestRemoveAllEnvironDocsAliveEnvFails(c *gc.C) {
+func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	userModelKey := s.insertFakeModelDocs(c, st)
+	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: true})
+
+	err := state.SetModelLifeDead(st, st.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveAllModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can not find the user:envName unique index
+	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
+	s.AssertModelDeleted(c, st)
+}
+
+func (s *StateSuite) TestRemoveAllModelDocsAliveEnvFails(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
 	err := st.RemoveAllModelDocs()
 	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+}
+
+func (s *StateSuite) TestRemoveImportingModelDocsFailsActive(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	err := st.RemoveImportingModelDocs()
+	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+}
+
+func (s *StateSuite) TestRemoveImportingModelDocsFailsExporting(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveImportingModelDocs()
+	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+}
+
+func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	userModelKey := s.insertFakeModelDocs(c, st)
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveImportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can not find the user:envName unique index
+	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
+	s.AssertModelDeleted(c, st)
 }
 
 type attrs map[string]interface{}

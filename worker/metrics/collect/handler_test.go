@@ -30,8 +30,7 @@ type handlerSuite struct {
 	manifoldConfig collect.ManifoldConfig
 	manifold       dependency.Manifold
 	dataDir        string
-	dummyResources dt.StubResources
-	getResource    dependency.GetResourceFunc
+	resources      dt.StubResources
 	recorder       *dummyRecorder
 	listener       *mockListener
 }
@@ -64,12 +63,11 @@ func (s *handlerSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.dummyResources = dt.StubResources{
+	s.resources = dt.StubResources{
 		"agent-name":        dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
 		"metric-spool-name": dt.StubResource{Output: &mockMetricFactory{recorder: s.recorder}},
 		"charmdir-name":     dt.StubResource{Output: &dummyCharmdir{aborted: false}},
 	}
-	s.getResource = dt.StubGetResource(s.dummyResources)
 
 	s.PatchValue(collect.NewRecorder,
 		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
@@ -104,8 +102,7 @@ func (s *handlerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *handlerSuite) TestListenerStart(c *gc.C) {
-	getResource := dt.StubGetResource(s.dummyResources)
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
 	c.Assert(s.listener.Calls(), gc.HasLen, 0)
@@ -116,8 +113,7 @@ func (s *handlerSuite) TestListenerStart(c *gc.C) {
 }
 
 func (s *handlerSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
-	getResource := dt.StubGetResource(s.dummyResources)
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
 	c.Assert(s.listener.Calls(), gc.HasLen, 0)
@@ -138,8 +134,7 @@ func (s *handlerSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 }
 
 func (s *handlerSuite) TestHandlerError(c *gc.C) {
-	getResource := dt.StubGetResource(s.dummyResources)
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
 	c.Assert(s.listener.Calls(), gc.HasLen, 0)
