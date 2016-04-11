@@ -39,11 +39,19 @@ type statusCommand struct {
 	api      statusAPI
 }
 
-var statusDoc = `
-This command will report on the runtime state of various system entities.
+var usageSummary = `
+Displays the current status of Juju, services, and units.`[1:]
 
-There are a number of ways to format the status output:
-
+var usageDetails = `
+By default (without argument), the status of Juju and all services and all
+units will be displayed. 
+Service or unit names may be used as output filters (the '*' can be used
+as a wildcard character).  
+In addition to matched services and units, related machines, services, and
+units will also be displayed. If a subordinate unit is matched, then its
+principal unit will be displayed. If a principal unit is matched, then all
+of its subordinates will be displayed. 
+Explanation of the different formats:
 - {short|line|oneline}: List units and their subordinates. For each
            unit, the IP address and agent status are listed.
 - summary: Displays the subnet(s) and port(s) the model utilises.
@@ -51,39 +59,32 @@ There are a number of ways to format the status output:
            - MACHINES: total #, and # in each state.
            - UNITS: total #, and # in each state.
            - SERVICES: total #, and # exposed of each service.
-- tabular (DEFAULT): Displays information in a tabular format in these sections:
+- tabular (default): Displays information in a tabular format in these sections:
            - Machines: ID, STATE, DNS, INS-ID, SERIES, AZ
            - Services: NAME, EXPOSED, CHARM
            - Units: ID, STATE, VERSION, MACHINE, PORTS, PUBLIC-ADDRESS
              - Also displays subordinate units.
-- yaml: Displays information on machines, services, and units
-                  in the yaml format.
-
+- yaml: Displays information on machines, services, and units in yaml format.
 Note: AZ above is the cloud region's availability zone.
 
-Service or unit names may be specified to filter the status to only those
-services and units that match, along with the related machines, services
-and units. If a subordinate unit is matched, then its principal unit will
-be displayed. If a principal unit is matched, then all of its subordinates
-will be displayed.
-
-Wildcards ('*') may be specified in service/unit names to match any sequence
-of characters. For example, 'nova-*' will match any service whose name begins
-with 'nova-': 'nova-compute', 'nova-volume', etc.
+Examples:
+    juju status
+    juju status mysql
+    juju status nova-*
 `
 
 func (c *statusCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status",
-		Args:    "[pattern ...]",
-		Purpose: "output status information about a model",
-		Doc:     statusDoc,
+		Args:    "[filter pattern ...]",
+		Purpose: usageSummary,
+		Doc:     usageDetails,
 		Aliases: []string{"show-status"},
 	}
 }
 
 func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
+	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
 
 	defaultFormat := "tabular"
 
