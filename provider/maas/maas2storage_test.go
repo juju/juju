@@ -45,6 +45,7 @@ func (s *maas2StorageSuite) TestGetReadFails(c *gc.C) {
 	storage := s.makeStorage(c, &fakeController{
 		files: []gomaasapi.File{
 			&fakeFile{
+				name:  "prefix-grasshopper.avi",
 				error: errors.New("read error"),
 			},
 		},
@@ -57,6 +58,7 @@ func (s *maas2StorageSuite) TestGetSuccess(c *gc.C) {
 	controller := &fakeController{
 		files: []gomaasapi.File{
 			&fakeFile{
+				name:     "prefix-grasshopper.avi",
 				contents: []byte("The man in the high castle"),
 			},
 		},
@@ -104,7 +106,7 @@ func (s *maas2StorageSuite) TestURLError(c *gc.C) {
 func (s *maas2StorageSuite) TestURLSuccess(c *gc.C) {
 	controller := &fakeController{
 		files: []gomaasapi.File{
-			&fakeFile{url: "heavy lies"},
+			&fakeFile{name: "prefix-grasshopper.avi", url: "heavy lies"},
 		},
 	}
 	storage := s.makeStorage(c, controller)
@@ -141,7 +143,7 @@ func (s *maas2StorageSuite) TestRemoveNoSuchFile(c *gc.C) {
 func (s *maas2StorageSuite) TestRemoveErrorFromDelete(c *gc.C) {
 	controller := &fakeController{
 		files: []gomaasapi.File{
-			&fakeFile{error: errors.New("protected")},
+			&fakeFile{name: "prefix-FIOS", error: errors.New("protected")},
 		},
 	}
 	storage := s.makeStorage(c, controller)

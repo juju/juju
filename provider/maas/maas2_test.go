@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -130,8 +131,8 @@ func (c *fakeController) GetFile(filename string) (gomaasapi.File, error) {
 			return file, nil
 		}
 	}
-	// Otherwise just use the first one.
-	return c.files[0], nil
+	// The test forgot to set up matching files!
+	return nil, errors.Errorf("no file named %v found - did you set up your test correctly?", filename)
 }
 
 func (c *fakeController) AddFile(args gomaasapi.AddFileArgs) error {
