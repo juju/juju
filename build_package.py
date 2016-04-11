@@ -60,8 +60,8 @@ sudo lxc-attach -n {container} -- bash <<"EOT"
         sleep 5
     done
     set +e
-    # The cloud-init breaks arm64 and ppc64el /etc/apt/sources.list.
-    if [[ $(dpkg --print-architecture) =~ ^(arm64|ppc64el)$ ]]; then
+    # The cloud-init breaks arm64, ppc64el. s390x /etc/apt/sources.list.
+    if [[ $(dpkg --print-architecture) =~ ^(arm64|ppc64el|s390x)$ ]]; then
         sed -i \
             -e 's,archive.ubuntu.com/ubuntu,ports.ubuntu.com/ubuntu-ports,' \
             /etc/apt/sources.list
