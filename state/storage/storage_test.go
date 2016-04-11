@@ -42,7 +42,7 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 
-	rs := blobstore.NewGridFS("blobstore", testUUID, s.Session)
+	rs := blobstore.NewGridFS("blobstore", "blobstore", s.Session)
 	db := s.Session.DB("juju")
 	s.managedStorage = blobstore.NewManagedStorage(db, rs)
 	s.storage = storage.NewStorage(testUUID, s.Session)

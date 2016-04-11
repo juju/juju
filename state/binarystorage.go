@@ -29,7 +29,7 @@ func (st *State) GUIStorage() (binarystorage.StorageCloser, error) {
 
 func newStorage(st *State, uuid, metadataCollection string) binarystorage.StorageCloser {
 	session := st.session.Clone()
-	rs := blobstore.NewGridFS(blobstoreDB, uuid, session)
+	rs := blobstore.NewGridFS(blobstoreDB, blobstoreDB, session)
 	db := session.DB(jujuDB)
 	c := db.C(metadataCollection)
 	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
