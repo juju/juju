@@ -334,13 +334,22 @@ func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	insts, err := env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	ids := make([]instance.Id, len(insts)+1)
+	idsToStop := make([]instance.Id, len(insts)+1)
+	expectedWithoutNotFound := make([]instance.Id, len(insts))
 	for i, one := range insts {
-		ids[i] = one.Id()
+		idsToStop[i] = one.Id()
+		expectedWithoutNotFound[i] = one.Id()
 	}
-	ids[len(insts)] = instance.Id("i-am-not-found")
 
-	err = env.StopInstances(ids...)
+	notFoundID := instance.Id("i-am-not-found")
+	idsToStop[len(insts)] = notFoundID
+	expectedNotFound := []instance.Id{instance.Id(notFoundID)}
+	t.BaseSuite.PatchValue(ec2.DeleteIDs, func(all, items []instance.Id) []instance.Id {
+		c.Assert(items, jc.SameContents, expectedNotFound)
+		return expectedWithoutNotFound
+	})
+
+	err = env.StopInstances(idsToStop...)
 	// NotFound should be ignored
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -382,6 +391,29 @@ func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(terminated, gc.HasLen, 1)
 	c.Assert(terminated[0].Id(), jc.DeepEquals, inst1.Id())
+}
+
+func (t *localServerSuite) TestInstanceSecurityGroupsWitheInstanceStatusFilter(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	insts, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	ids := make([]instance.Id, len(insts))
+	for i, one := range insts {
+		ids[i] = one.Id()
+	}
+
+	groupsNoInstanceFilter, err := ec2.InstanceSecurityGroups(env, ids)
+	c.Assert(err, jc.ErrorIsNil)
+	// get all security groups for test instances
+	c.Assert(groupsNoInstanceFilter, gc.HasLen, 2)
+
+	groupsFilteredForTerminatedInstances, err := ec2.InstanceSecurityGroups(env, ids, "shutting-down", "terminated")
+	c.Assert(err, jc.ErrorIsNil)
+	// get all security groups for terminated test instances
+	c.Assert(groupsFilteredForTerminatedInstances, gc.HasLen, 0)
 }
 
 func (t *localServerSuite) TestDestroySecurityGroupInsistentlyError(c *gc.C) {

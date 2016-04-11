@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
+	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
@@ -1341,13 +1342,19 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (e *environ) instanceSecurityGroups(instIDs []instance.Id) ([]ec2.SecurityGroup, error) {
+func (e *environ) instanceSecurityGroups(instIDs []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {
 	ec2inst := e.ec2()
 	strInstID := make([]string, len(instIDs))
 	for i := range instIDs {
 		strInstID[i] = string(instIDs[i])
 	}
-	resp, err := ec2inst.Instances(strInstID, nil)
+
+	filter := ec2.NewFilter()
+	if len(states) > 0 {
+		filter.Add("instance-state-name", states...)
+	}
+
+	resp, err := ec2inst.Instances(strInstID, filter)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot retrieve instance information from aws to delete security groups")
 	}
@@ -1380,47 +1387,66 @@ func (e *environ) cleanEnvironmentSecurityGroup() error {
 	return nil
 }
 
-func (e *environ) terminateInstances(ids []instance.Id) (returnErr error) {
+func (e *environ) terminateInstances(ids []instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
 	ec2inst := e.ec2()
 
+	notFoundIds := []instance.Id{}
+	// TODO (anastasiamac 2016-04-11) Err if instances still have resources hanging around.
+	// LP#1568654
 	defer func() {
-		e.deleteSecurityGroups(ids, returnErr)
+		e.deleteSecurityGroupsForInstances(deleteIDs(ids, notFoundIds))
 	}()
 
 	// TODO (anastasiamac 2016-04-7) instance termination would benefit
 	// from retry with exponential delay just like security groups
 	// in defer. Bug#1567179.
+	var err error
 	for a := shortAttempt.Start(); a.Next(); {
-		_, returnErr = terminateInstancesById(ec2inst, ids...)
-		if returnErr == nil || ec2ErrCode(returnErr) != "InvalidInstanceID.NotFound" {
+		_, err = terminateInstancesById(ec2inst, ids...)
+		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
 			// This will return either success at terminating all instances (1st condition) or
 			// encountered error as long as it's not NotFound (2nd condition).
-			return
+			return err
 		}
-	}
-	if len(ids) == 1 {
-		// This will return the outcome for terminating one instance: error or not.
-		return
 	}
 	// If we get a NotFound error, it means that no instances have been
 	// terminated even if some exist, so try them one by one, ignoring
 	// NotFound errors.
 	for _, id := range ids {
-		_, returnErr = terminateInstancesById(ec2inst, id)
-		if returnErr != nil {
-			if ec2ErrCode(returnErr) != "InvalidInstanceID.NotFound" {
-				// This will return the first termination error which is not a NotFound.
-				return
+		_, err = terminateInstancesById(ec2inst, id)
+		if err != nil {
+			if ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
+				return err
 			}
+			notFoundIds = append(notFoundIds, id)
 		}
 	}
-	// We'd only come here if we got a NotFound errors
-	// for all instances. This effectively means that desired instances
-	// are not found = terminated...
+	// We will get here if we all of the instances are deleted successfully,
+	// or are not found, which implies they were previously deleted.
 	return nil
+}
+
+var deleteIDs = func(all, unwanted []instance.Id) []instance.Id {
+	if len(unwanted) == 0 {
+		return all
+	}
+
+	removeSet := set.NewStrings()
+	for _, item := range unwanted {
+		removeSet.Add(string(item))
+	}
+
+	result := []instance.Id{}
+	for _, id := range all {
+		if !removeSet.Contains(string(id)) {
+			result = append(result, id)
+		}
+	}
+
+	return result
 }
 
 var terminateInstancesById = func(ec2inst *ec2.EC2, ids ...instance.Id) (*ec2.TerminateInstancesResp, error) {
@@ -1431,31 +1457,14 @@ var terminateInstancesById = func(ec2inst *ec2.EC2, ids ...instance.Id) (*ec2.Te
 	return ec2inst.TerminateInstances(strs)
 }
 
-func (e *environ) deleteSecurityGroups(ids []instance.Id, instancesTerminationErr error) {
-	if instancesTerminationErr == nil {
-		e.deleteSecurityGroupsForInstances(ids)
-		return
-	}
-
-	// some instances with given ids may have been terminated:
-	// lets try to find out which ones to improve security group deletion.
-	insts, err := e.AllInstancesByState("shutting-down", "terminated")
-	if err != nil {
-		// Could not determine what instances were terminated,
-		// try using all supplied IDs.
-		logger.Warningf("could not determine terminated instances: %v", err)
-		e.deleteSecurityGroupsForInstances(ids)
-		return
-	}
-	terminatedIDs := make([]instance.Id, len(insts))
-	for i, inst := range insts {
-		terminatedIDs[i] = inst.Id()
-	}
-	e.deleteSecurityGroupsForInstances(terminatedIDs)
-}
-
 func (e *environ) deleteSecurityGroupsForInstances(ids []instance.Id) {
-	securityGroups, err := e.instanceSecurityGroups(ids)
+	if len(ids) == 0 {
+		logger.Debugf("no need to delete security groups: no intances were terminated successfully")
+		return
+	}
+	// We only want to attempt deleting security groups for the
+	// instances that have been successfully terminated.
+	securityGroups, err := e.instanceSecurityGroups(ids, "shutting-down", "terminated")
 	if err != nil {
 		logger.Warningf("cannot determine security groups to delete: %v", err)
 	}
