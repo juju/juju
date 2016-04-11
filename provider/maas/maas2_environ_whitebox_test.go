@@ -234,17 +234,24 @@ func (suite *maas2EnvironSuite) TestSpacesError(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
-	err := suite.makeEnviron(c, &fakeController{}).StopInstances()
+	controller := &fakeController{}
+	err := suite.makeEnviron(c, controller).StopInstances()
 	c.Check(err, jc.ErrorIsNil)
-	c.Fail()
+	c.Assert(controller.releaseMachinesArgs, jc.DeepEquals, []gomaasapi.ReleaseMachinesArgs{})
 }
 
 func (suite *maas2EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
-	// mark test1 and test2 as being allocated, but not test3.
-	// The release operation will ignore test3.
-	err := suite.makeEnviron(c, &fakeController{}).StopInstances("test1", "test2", "test3")
+	// Return a cannot complete indicating that test1 is in the wrong state.
+	// The release operation will still release the others and succeed.
+	controller := &fakeController{
+		releaseMachinesErrors: []error{gomaasapi.NewCannotCompleteError("test1 not allocated")},
+		files: []gomaasapi.File{&fakeFile{name: "agent-prefix-provider-state"}},
+	}
+	err := suite.makeEnviron(c, controller).StopInstances("test1", "test2", "test3")
 	c.Check(err, jc.ErrorIsNil)
-	c.Fail()
+	args := controller.releaseMachinesArgs
+	c.Assert(args, gc.HasLen, 1)
+	c.Assert(args[0].SystemIDs, jc.DeepEquals, []string{"test1", "test2", "test3"})
 }
 
 func (suite *maas2EnvironSuite) TestStopInstancesIgnoresConflict(c *gc.C) {

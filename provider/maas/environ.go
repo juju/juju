@@ -1493,10 +1493,6 @@ func instanceIdsToSystemIDs(ids []instance.Id) []string {
 
 // StopInstances is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
-	// Temporary fix to make debugging possible.
-	if environ.usingMAAS2() {
-		return nil
-	}
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
 	if len(ids) == 0 {
 		return nil

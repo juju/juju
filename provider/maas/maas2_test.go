@@ -41,6 +41,8 @@ func (suite *maas2Suite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *
 	}
 	testAttrs["maas-server"] = "http://any-old-junk.invalid/"
 	testAttrs["agent-version"] = version.Current.String()
+	testAttrs["maas-agent-name"] = "agent-prefix"
+
 	attrs := coretesting.FakeConfig().Merge(testAttrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
