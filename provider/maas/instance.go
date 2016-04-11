@@ -9,10 +9,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 )
 
 type maasInstance interface {
@@ -20,6 +22,7 @@ type maasInstance interface {
 	zone() (string, error)
 	hostname() (string, error)
 	hardwareCharacteristics() (*instance.HardwareCharacteristics, error)
+	volumes(names.MachineTag, []names.VolumeTag) ([]storage.Volume, []storage.VolumeAttachment, error)
 }
 
 type maas1Instance struct {
