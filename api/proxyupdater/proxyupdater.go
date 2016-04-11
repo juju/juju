@@ -4,6 +4,8 @@
 package proxyupdater
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -35,14 +37,18 @@ func NewAPI(caller base.APICaller, tag names.Tag) *API {
 // WatchForProxyConfigAndAPIHostPortChanges returns a NotifyWatcher waiting for
 // changes in the proxy configuration or API host ports
 func (api *API) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error) {
-	var result params.NotifyWatchResult
+	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: api.tag.String()}},
 	}
-	err := api.facade.FacadeCall("WatchForProxyConfigAndAPIHostPortChanges", args, &result)
+	err := api.facade.FacadeCall("WatchForProxyConfigAndAPIHostPortChanges", args, &results)
 	if err != nil {
 		return nil, err
 	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -75,5 +81,5 @@ func (api *API) ProxyConfig() (proxySettings, APTProxySettings proxy.Settings, e
 	result := results.Results[0]
 	proxySettings = proxySettingsParamToProxySettings(result.ProxySettings)
 	APTProxySettings = proxySettingsParamToProxySettings(result.APTProxySettings)
-	return proxySettings, APTProxySettings, err
+	return proxySettings, APTProxySettings, nil
 }

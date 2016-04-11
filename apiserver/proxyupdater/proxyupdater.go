@@ -32,18 +32,18 @@ type Backend interface {
 	WatchForModelConfigChanges() state.NotifyWatcher
 }
 
-type proxyUpdaterAPI struct {
+type ProxyUpdaterAPI struct {
 	backend    Backend
 	resources  *common.Resources
 	authorizer common.Authorizer
 }
 
 // NewAPIWithBacking creates a new server-side API facade with the given Backing.
-func NewAPIWithBacking(st Backend, resources *common.Resources, authorizer common.Authorizer) (API, error) {
+func NewAPIWithBacking(st Backend, resources *common.Resources, authorizer common.Authorizer) (*ProxyUpdaterAPI, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent()) {
-		return nil, common.ErrPerm
+		return &ProxyUpdaterAPI{}, common.ErrPerm
 	}
-	return &proxyUpdaterAPI{
+	return &ProxyUpdaterAPI{
 		backend:    st,
 		resources:  resources,
 		authorizer: authorizer,
@@ -51,18 +51,34 @@ func NewAPIWithBacking(st Backend, resources *common.Resources, authorizer commo
 }
 
 // WatchChanges watches for cleanups to be perfomed in state
-func (api *proxyUpdaterAPI) WatchForProxyConfigAndAPIHostPortChanges(_ params.Entities) params.NotifyWatchResult {
+func (api *ProxyUpdaterAPI) WatchForProxyConfigAndAPIHostPortChanges(args params.Entities) params.NotifyWatchResults {
 	watch := common.NewMultiNotifyWatcher(
 		api.backend.WatchForModelConfigChanges(),
 		api.backend.WatchAPIHostPorts())
-	if _, ok := <-watch.Changes(); ok {
-		return params.NotifyWatchResult{
-			NotifyWatcherId: api.resources.Register(watch),
+
+	results := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	errors, ok := api.authEntities(args)
+	var result params.NotifyWatchResult
+
+	if ok {
+		if _, ok := <-watch.Changes(); ok {
+			result = params.NotifyWatchResult{
+				NotifyWatcherId: api.resources.Register(watch),
+			}
+		}
+		result = params.NotifyWatchResult{
+			Error: common.ServerError(watcher.EnsureErr(watch)),
 		}
 	}
-	return params.NotifyWatchResult{
-		Error: common.ServerError(watcher.EnsureErr(watch)),
+
+	for i := range args.Entities {
+		results.Results[i] = result
+		results.Results[i].Error = errors.Results[i].Error
 	}
+
+	return results
 }
 
 func proxyUtilsSettingsToProxySettingsParam(settings proxy.Settings) params.ProxyConfig {
@@ -74,62 +90,78 @@ func proxyUtilsSettingsToProxySettingsParam(settings proxy.Settings) params.Prox
 	}
 }
 
-func (api *proxyUpdaterAPI) authEntities(args params.Entities) params.ErrorResults {
+func (api *ProxyUpdaterAPI) authEntities(args params.Entities) (params.ErrorResults, bool) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
 
+	ok := true
+
 	for i, entity := range args.Entities {
-		_ = i
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			ok = false
 			continue
 		}
 		err = common.ErrPerm
 		if !api.authorizer.AuthOwner(tag) {
 			result.Results[i].Error = common.ServerError(err)
+			ok = false
 		}
 	}
-	return result
+	return result, ok
 }
 
-// ProxyConfig returns the proxy settings for the current environment
-func (api *proxyUpdaterAPI) ProxyConfig(args params.Entities) params.ProxyConfigResults {
+func (api *ProxyUpdaterAPI) proxyConfig() params.ProxyConfigResult {
 	var result params.ProxyConfigResult
-	errors := api.authEntities(args)
-	_ = errors
-
 	env, err := api.backend.EnvironConfig()
 	if err != nil {
 		result.Error = common.ServerError(err)
-		return params.ProxyConfigResults{}
+		return result
 	}
 
 	apiHostPorts, err := api.backend.APIHostPorts()
 	if err != nil {
 		result.Error = common.ServerError(err)
-		return params.ProxyConfigResults{}
+		return result
 	}
 
 	result.ProxySettings = proxyUtilsSettingsToProxySettingsParam(env.ProxySettings())
 	result.APTProxySettings = proxyUtilsSettingsToProxySettingsParam(env.AptProxySettings())
+
 	var noProxy []string
 	if result.ProxySettings.NoProxy != "" {
 		noProxy = strings.Split(result.ProxySettings.NoProxy, ",")
 	}
 
 	noProxySet := set.NewStrings(noProxy...)
-
 	for _, host := range apiHostPorts {
 		for _, hp := range host {
 			noProxySet.Add(hp.Address.Value)
 		}
 	}
-
 	result.ProxySettings.NoProxy = strings.Join(noProxySet.SortedValues(), ",")
 
-	return params.ProxyConfigResults{
-		Results: []params.ProxyConfigResult{result},
+	return result
+}
+
+// ProxyConfig returns the proxy settings for the current environment
+func (api *ProxyUpdaterAPI) ProxyConfig(args params.Entities) params.ProxyConfigResults {
+	var result params.ProxyConfigResult
+	errors, ok := api.authEntities(args)
+
+	if ok {
+		result = api.proxyConfig()
 	}
+
+	results := params.ProxyConfigResults{
+		Results: make([]params.ProxyConfigResult, len(args.Entities)),
+	}
+	for i := range args.Entities {
+		results.Results[i] = result
+		results.Results[i].Error = errors.Results[i].Error
+	}
+
+	return results
 }

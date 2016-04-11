@@ -8,11 +8,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("ProxyUpdater", 1, NewAPI)
-}
-
 // NewAPI creates a new API server-side facade with a state.State backing.
-func NewAPI(st *state.State, res *common.Resources, auth common.Authorizer) (API, error) {
+func NewAPI(st *state.State, res *common.Resources, auth common.Authorizer) (*ProxyUpdaterAPI, error) {
 	return NewAPIWithBacking(&stateShim{st: st}, res, auth)
 }

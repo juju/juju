@@ -35,15 +35,14 @@ func (s *ProxyUpdaterSuite) TestNewAPISuccess(c *gc.C) {
 	newAPI(c, nil)
 }
 
-func (s *ProxyUpdaterSuite) TestNewAPIWithNilCaller(c *gc.C) {
-	panicFunc := func() { proxyupdater.NewAPI(nil, names.NewUnitTag("u/0")) }
-	c.Assert(panicFunc, gc.PanicMatches, "caller is nil")
-}
-
 func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C) {
+	res := params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{params.NotifyWatchResult{}},
+	}
 	args := []apitesting.CheckArgs{{
-		Facade: "ProxyUpdater",
-		Method: "WatchForProxyConfigAndAPIHostPortChanges",
+		Facade:  "ProxyUpdater",
+		Method:  "WatchForProxyConfigAndAPIHostPortChanges",
+		Results: res,
 	}}
 	called, api := newAPI(c, args)
 

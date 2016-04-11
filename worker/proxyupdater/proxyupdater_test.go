@@ -4,6 +4,7 @@
 package proxyupdater_test
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"path"
@@ -16,35 +17,106 @@ import (
 	"github.com/juju/utils/packaging/commands"
 	pacconfig "github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/proxy"
+	proxyutils "github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
-	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
-	"github.com/juju/juju/environs/config"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
+	"net/url"
+
+	"github.com/juju/httprequest"
+	"github.com/juju/juju/api/base"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/workertest"
 )
 
 type ProxyUpdaterSuite struct {
-	jujutesting.JujuConnSuite
+	coretesting.BaseSuite
 
-	apiRoot *apiproxyupdater.API
-	machine *state.Machine
-
-	proxyFile string
+	api              *fakeAPI
+	proxyFile        string
+	detectedSettings proxy.Settings
 }
 
 var _ = gc.Suite(&ProxyUpdaterSuite{})
 
+type wkr struct {
+	Channel chan struct{}
+}
+
+func newWkr() wkr {
+	return wkr{
+		Channel: make(chan struct{}, 2),
+	}
+}
+
+func (wkr) Kill() {
+}
+
+func (wkr) Wait() error {
+	return nil
+}
+
+func (w wkr) Changes() watcher.NotifyChannel {
+	return w.Channel
+}
+
+func (w *wkr) Ping() {
+	w.Channel <- struct{}{}
+}
+
+type fakeAPI struct {
+	Proxy    proxyutils.Settings
+	APTProxy proxyutils.Settings
+	Err      error
+	Watcher  wkr
+}
+
+func NewFakeAPI() *fakeAPI {
+	f := &fakeAPI{
+		Watcher: newWkr(),
+	}
+	return f
+}
+
+func (api fakeAPI) ProxyConfig() (proxyutils.Settings, proxyutils.Settings, error) {
+	return api.Proxy, api.APTProxy, api.Err
+
+}
+
+func (api fakeAPI) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error) {
+	return api.Watcher, nil
+}
+
+func (fakeAPI) APICall(objType string, version int, id, request string, params, response interface{}) error {
+	return nil
+}
+
+func (fakeAPI) BestFacadeVersion(facade string) int {
+	return 32
+}
+
+func (fakeAPI) ModelTag() (names.ModelTag, error) {
+	return coretesting.ModelTag, nil
+}
+
+func (fakeAPI) Close() error {
+	return nil
+}
+
+func (fakeAPI) HTTPClient() (*httprequest.Client, error) {
+	return nil, errors.New("no HTTP client available in this test")
+}
+
+func (fakeAPI) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
+	return nil, errors.New("stream connection unimplemented")
+}
+
 func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	apiCaller, machine := s.OpenAPIAsNewMachine(c)
-	s.machine = machine
-	s.apiRoot = apiproxyupdater.NewAPI(apiCaller, names.NewUnitTag("u/0"))
+	s.BaseSuite.SetUpTest(c)
+	s.api = NewFakeAPI()
 
 	proxyDir := c.MkDir()
 	s.PatchValue(&proxyupdater.ProxyDirectory, proxyDir)
@@ -55,12 +127,16 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 func (s *ProxyUpdaterSuite) waitProxySettings(c *gc.C, expected proxy.Settings) {
 	for {
 		select {
-		case <-time.After(testing.LongWait):
+		case <-time.After(time.Second):
 			c.Fatalf("timeout while waiting for proxy settings to change")
+			return
 		case <-time.After(10 * time.Millisecond):
 			obtained := proxy.DetectProxies()
 			if obtained != expected {
-				c.Logf("proxy settings are \n%#v, should be \n%#v, still waiting", obtained, expected)
+				if obtained != s.detectedSettings {
+					c.Logf("proxy settings are \n%#v, should be \n%#v, still waiting", obtained, expected)
+				}
+				s.detectedSettings = obtained
 				continue
 			}
 			return
@@ -75,8 +151,9 @@ func (s *ProxyUpdaterSuite) waitForFile(c *gc.C, filename, expected string) {
 	}
 	for {
 		select {
-		case <-time.After(testing.LongWait):
+		case <-time.After(time.Second):
 			c.Fatalf("timeout while waiting for proxy settings to change")
+			return
 		case <-time.After(10 * time.Millisecond):
 			fileContent, err := ioutil.ReadFile(filename)
 			if os.IsNotExist(err) {
@@ -93,47 +170,34 @@ func (s *ProxyUpdaterSuite) waitForFile(c *gc.C, filename, expected string) {
 }
 
 func (s *ProxyUpdaterSuite) TestRunStop(c *gc.C) {
-	updater, err := proxyupdater.NewWorker(s.apiRoot)
+	updater, err := proxyupdater.NewWorker(s.api)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, updater)
 }
 
 func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Settings) {
-
-	proxySettings := proxy.Settings{
+	s.api.Proxy = proxy.Settings{
 		Http:    "http proxy",
 		Https:   "https proxy",
 		Ftp:     "ftp proxy",
 		NoProxy: "localhost,no proxy",
 	}
-	attrs := map[string]interface{}{}
-	for k, v := range config.ProxyConfigMap(proxySettings) {
-		attrs[k] = v
-	}
 
-	// We explicitly set apt proxy settings as well to show that it is the apt
-	// settings that are used for the apt config, and not just the normal
-	// proxy settings which is what we would get if we don't explicitly set
-	// apt values.
-	aptProxySettings := proxy.Settings{
+	s.api.APTProxy = proxy.Settings{
 		Http:  "http://apt.http.proxy",
 		Https: "https://apt.https.proxy",
 		Ftp:   "ftp://apt.ftp.proxy",
 	}
-	for k, v := range config.AptProxyConfigMap(aptProxySettings) {
-		attrs[k] = v
-	}
 
-	err := s.State.UpdateModelConfig(attrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	s.api.Watcher.Ping()
 
-	return proxySettings, aptProxySettings
+	return s.api.Proxy, s.api.APTProxy
 }
 
 func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	updater, err := proxyupdater.NewWorker(s.apiRoot)
+	updater, err := proxyupdater.NewWorker(s.api)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 
@@ -148,7 +212,7 @@ func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 func (s *ProxyUpdaterSuite) TestWriteSystemFiles(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	updater, err := proxyupdater.NewWorker(s.apiRoot)
+	updater, err := proxyupdater.NewWorker(s.api)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 
@@ -171,8 +235,7 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
 	setenv("no_proxy", "foo")
 
 	proxySettings, _ := s.updateConfig(c)
-
-	updater, err := proxyupdater.NewWorker(s.apiRoot)
+	updater, err := proxyupdater.NewWorker(s.api)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 	s.waitProxySettings(c, proxySettings)
