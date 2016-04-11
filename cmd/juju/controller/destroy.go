@@ -56,10 +56,10 @@ controller will first need to be destroyed, either in advance, or by
 specifying `[1:] + "`--destroy-all-models`." + `
 
 Examples:
-juju destroy-controller --destroy-all-models mycontroller
+    juju destroy-controller --destroy-all-models mycontroller
 
 See also: 
-kill-controller`
+    kill-controller`
 
 var usageSummary = `
 Destroys a controller.`[1:]
