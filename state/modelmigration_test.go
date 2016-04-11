@@ -60,7 +60,7 @@ func (s *ModelMigrationSuite) TestCreate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(mig.ModelUUID(), gc.Equals, s.State2.ModelUUID())
-	c.Check(mig.Id(), gc.Equals, mig.ModelUUID()+":0")
+	checkIdAndAttempt(c, mig, 0)
 
 	c.Check(mig.StartTime(), gc.Equals, s.clock.Now())
 
@@ -86,35 +86,30 @@ func (s *ModelMigrationSuite) TestIdSequencesAreIndependent(c *gc.C) {
 
 	mig2, err := st2.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mig2.Id(), gc.Equals, st2.ModelUUID()+":0")
+	checkIdAndAttempt(c, mig2, 0)
 
 	mig3, err := st3.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mig3.Id(), gc.Equals, st3.ModelUUID()+":0")
+	checkIdAndAttempt(c, mig3, 0)
 }
 
 func (s *ModelMigrationSuite) TestIdSequencesIncrement(c *gc.C) {
-	createAndAbort := func() string {
+	for attempt := 0; attempt < 3; attempt++ {
 		mig, err := s.State2.CreateModelMigration(s.stdSpec)
 		c.Assert(err, jc.ErrorIsNil)
+		checkIdAndAttempt(c, mig, attempt)
 		c.Check(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
-		return mig.Id()
+		c.Check(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
 	}
-
-	modelUUID := s.State2.ModelUUID()
-	c.Check(createAndAbort(), gc.Equals, modelUUID+":0")
-	c.Check(createAndAbort(), gc.Equals, modelUUID+":1")
-	c.Check(createAndAbort(), gc.Equals, modelUUID+":2")
 }
 
 func (s *ModelMigrationSuite) TestIdSequencesIncrementOnlyWhenNecessary(c *gc.C) {
 	// Ensure that sequence numbers aren't "used up" unnecessarily
 	// when the create txn is going to fail.
-	modelUUID := s.State2.ModelUUID()
 
 	mig, err := s.State2.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mig.Id(), gc.Equals, modelUUID+":0")
+	checkIdAndAttempt(c, mig, 0)
 
 	// This attempt will fail because a migration is already in
 	// progress.
@@ -124,10 +119,11 @@ func (s *ModelMigrationSuite) TestIdSequencesIncrementOnlyWhenNecessary(c *gc.C)
 	// Now abort the migration and create another. The Id sequence
 	// should have only incremented by 1.
 	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
 
 	mig, err = s.State2.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mig.Id(), gc.Equals, modelUUID+":1")
+	checkIdAndAttempt(c, mig, 1)
 }
 
 func (s *ModelMigrationSuite) TestSpecValidation(c *gc.C) {
@@ -245,6 +241,7 @@ func (s *ModelMigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 		c.Check(mig.Id(), gc.Equals, fmt.Sprintf("%s:%d", modelUUID, i))
 
 		c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+		c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
 	}
 }
 
@@ -268,8 +265,8 @@ func (s *ModelMigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 	st := s.State2
 
 	mig, err := st.CreateModelMigration(s.stdSpec)
-	c.Assert(mig, gc.Not(gc.IsNil))
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mig, gc.NotNil)
 
 	mig2, err := st.GetModelMigration()
 	c.Assert(err, jc.ErrorIsNil)
@@ -329,6 +326,8 @@ func (s *ModelMigrationSuite) TestABORTCleanup(c *gc.C) {
 
 	s.clock.Advance(time.Millisecond)
 	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	s.clock.Advance(time.Millisecond)
+	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
 
 	s.assertMigrationCleanedUp(c, mig)
 }
@@ -473,7 +472,7 @@ func (s *ModelMigrationSuite) createWatcher(c *gc.C, st *state.State) (
 
 func (s *ModelMigrationSuite) TestWatchMigrationStatus(c *gc.C) {
 	w, wc := s.createStatusWatcher(c, s.State2)
-	wc.AssertNoChange()
+	wc.AssertOneChange() // Initial event.
 
 	// Create a migration.
 	mig, err := s.State2.CreateModelMigration(s.stdSpec)
@@ -482,6 +481,8 @@ func (s *ModelMigrationSuite) TestWatchMigrationStatus(c *gc.C) {
 
 	// End it.
 	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	wc.AssertOneChange()
+	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Start another.
@@ -513,14 +514,14 @@ func (s *ModelMigrationSuite) TestWatchMigrationStatusPreexisting(c *gc.C) {
 
 func (s *ModelMigrationSuite) TestWatchMigrationStatusMultiModel(c *gc.C) {
 	_, wc2 := s.createStatusWatcher(c, s.State2)
-	wc2.AssertNoChange()
+	wc2.AssertOneChange()
 
 	// Create another hosted model to migrate and watch for
 	// migrations.
 	State3 := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { State3.Close() })
 	_, wc3 := s.createStatusWatcher(c, State3)
-	wc3.AssertNoChange()
+	wc3.AssertOneChange()
 
 	// Create a migration for 2.
 	mig, err := s.State2.CreateModelMigration(s.stdSpec)
@@ -568,4 +569,11 @@ func isMigrationActive(c *gc.C, st *state.State) bool {
 	isActive, err := st.IsModelMigrationActive()
 	c.Assert(err, jc.ErrorIsNil)
 	return isActive
+}
+
+func checkIdAndAttempt(c *gc.C, mig state.ModelMigration, expected int) {
+	c.Check(mig.Id(), gc.Equals, fmt.Sprintf("%s:%d", mig.ModelUUID(), expected))
+	attempt, err := mig.Attempt()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(attempt, gc.Equals, expected)
 }

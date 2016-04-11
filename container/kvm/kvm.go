@@ -28,7 +28,6 @@ var (
 	logger = loggo.GetLogger("juju.container.kvm")
 
 	KvmObjectFactory ContainerFactory = &containerFactory{}
-	DefaultKvmBridge                  = "virbr0"
 
 	// In order for Juju to be able to create the hardware characteristics of
 	// the kvm machines it creates, we need to be explicit in our definition

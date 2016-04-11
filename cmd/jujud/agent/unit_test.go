@@ -15,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -370,4 +371,37 @@ func (s *UnitSuite) TestDontUseLumberjack(c *gc.C) {
 
 	_, ok := ctx.Stderr.(*lumberjack.Logger)
 	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *UnitSuite) TestChangeConfig(c *gc.C) {
+	config := FakeAgentConfig{}
+	configChanged := voyeur.NewValue(true)
+	a := UnitAgent{
+		AgentConf:        config,
+		configChangedVal: configChanged,
+	}
+
+	var mutateCalled bool
+	mutate := func(config agent.ConfigSetter) error {
+		mutateCalled = true
+		return nil
+	}
+
+	configChangedCh := make(chan bool)
+	watcher := configChanged.Watch()
+	watcher.Next() // consume initial event
+	go func() {
+		configChangedCh <- watcher.Next()
+	}()
+
+	err := a.ChangeConfig(mutate)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(mutateCalled, jc.IsTrue)
+	select {
+	case result := <-configChangedCh:
+		c.Check(result, jc.IsTrue)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for config changed signal")
+	}
 }

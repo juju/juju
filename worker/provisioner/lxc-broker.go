@@ -90,7 +90,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	// Default to using the host network until we can configure.
 	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
 	if bridgeDevice == "" {
-		bridgeDevice = lxc.DefaultLxcBridge
+		bridgeDevice = container.DefaultLxcBridge
 	}
 
 	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
@@ -181,7 +181,7 @@ func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) err
 	// Default to using the host network until we can configure.
 	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
 	if bridgeDevice == "" {
-		bridgeDevice = lxc.DefaultLxcBridge
+		bridgeDevice = container.DefaultLxcBridge
 	}
 
 	// There's no InterfaceInfo we expect to get below.

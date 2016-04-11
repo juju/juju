@@ -31,13 +31,13 @@ func StateWorkersManifold(config StateWorkersConfig) dependency.Manifold {
 		Inputs: []string{
 			config.StateName,
 		},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(context dependency.Context) (worker.Worker, error) {
 			if config.StartStateWorkers == nil {
 				return nil, errors.New("StartStateWorkers not specified")
 			}
 
 			var stTracker workerstate.StateTracker
-			if err := getResource(config.StateName, &stTracker); err != nil {
+			if err := context.Get(config.StateName, &stTracker); err != nil {
 				return nil, err
 			}
 

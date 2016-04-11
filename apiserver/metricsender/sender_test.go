@@ -32,7 +32,7 @@ type SenderSuite struct {
 var _ = gc.Suite(&SenderSuite{})
 
 func createCerts(c *gc.C, serverName string) (*x509.CertPool, tls.Certificate) {
-	certCaPem, keyCaPem, err := cert.NewCA("sender-test", time.Now().Add(time.Minute))
+	certCaPem, keyCaPem, err := cert.NewCA("sender-test", "1", time.Now().Add(time.Minute))
 	c.Assert(err, jc.ErrorIsNil)
 	certPem, keyPem, err := cert.NewServer(certCaPem, keyCaPem, time.Now().Add(time.Minute), []string{serverName})
 	c.Assert(err, jc.ErrorIsNil)

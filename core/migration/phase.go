@@ -9,6 +9,7 @@ type Phase int
 // Enumerate all possible migration phases.
 const (
 	UNKNOWN Phase = iota
+	NONE
 	QUIESCE
 	READONLY
 	PRECHECK
@@ -20,10 +21,12 @@ const (
 	REAPFAILED
 	DONE
 	ABORT
+	ABORTDONE
 )
 
 var phaseNames = []string{
-	"UNKNOWN",
+	"UNKNOWN", // To catch uninitialised fields.
+	"NONE",    // For watchers to indicate there's never been a migration attempt.
 	"QUIESCE",
 	"READONLY",
 	"PRECHECK",
@@ -35,6 +38,7 @@ var phaseNames = []string{
 	"REAPFAILED",
 	"DONE",
 	"ABORT",
+	"ABORTDONE",
 }
 
 // String returns the name of an model migration phase constant.
@@ -85,6 +89,7 @@ var validTransitions = map[Phase][]Phase{
 	SUCCESS:     {LOGTRANSFER},
 	LOGTRANSFER: {REAP},
 	REAP:        {DONE, REAPFAILED},
+	ABORT:       {ABORTDONE},
 }
 
 var terminalPhases []Phase

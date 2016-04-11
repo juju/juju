@@ -936,18 +936,26 @@ func (s *uniterSuite) TestWatchActionNotificationsMalformedTag(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "ewenit-mysql-0"},
 	}}
-	_, err := s.uniter.WatchActionNotifications(args)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `"ewenit-mysql-0" is not a valid tag`)
+	results, err := s.uniter.WatchActionNotifications(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.NotNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.NotNil)
+	c.Assert(result.Error.Message, gc.Equals, `invalid actionreceiver tag "ewenit-mysql-0"`)
 }
 
 func (s *uniterSuite) TestWatchActionNotificationsMalformedUnitName(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-01"},
 	}}
-	_, err := s.uniter.WatchActionNotifications(args)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `"unit-mysql-01" is not a valid unit tag`)
+	results, err := s.uniter.WatchActionNotifications(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.NotNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.NotNil)
+	c.Assert(result.Error.Message, gc.Equals, `invalid actionreceiver tag "unit-mysql-01"`)
 }
 
 func (s *uniterSuite) TestWatchActionNotificationsNotUnit(c *gc.C) {
@@ -956,9 +964,13 @@ func (s *uniterSuite) TestWatchActionNotificationsNotUnit(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: action.Tag().String()},
 	}}
-	_, err = s.uniter.WatchActionNotifications(args)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `"action-`+action.Id()+`" is not a valid unit tag`)
+	results, err := s.uniter.WatchActionNotifications(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.NotNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.NotNil)
+	c.Assert(result.Error.Message, gc.Equals, `invalid actionreceiver tag "action-`+action.Id()+`"`)
 }
 
 func (s *uniterSuite) TestWatchActionNotificationsPermissionDenied(c *gc.C) {
@@ -1132,8 +1144,7 @@ func (s *uniterSuite) TestActions(c *gc.C) {
 
 		actionsQueryResult := results.Results[0]
 
-		c.Assert(actionsQueryResult.Error, gc.IsNil)
-		c.Assert(actionsQueryResult.Action, jc.DeepEquals, actionTest.action)
+		c.Assert(actionsQueryResult, jc.DeepEquals, actionTest.action)
 	}
 }
 
@@ -1195,7 +1206,7 @@ func (s *uniterSuite) TestFinishActionsSuccess(c *gc.C) {
 
 	results, err := s.wordpressUnit.CompletedActions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, ([]*state.Action)(nil))
+	c.Assert(results, gc.DeepEquals, ([]state.Action)(nil))
 
 	action, err := s.wordpressUnit.AddAction(testName, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1227,7 +1238,7 @@ func (s *uniterSuite) TestFinishActionsFailure(c *gc.C) {
 
 	results, err := s.wordpressUnit.CompletedActions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, ([]*state.Action)(nil))
+	c.Assert(results, gc.DeepEquals, ([]state.Action)(nil))
 
 	action, err := s.wordpressUnit.AddAction(testName, nil)
 	c.Assert(err, jc.ErrorIsNil)

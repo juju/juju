@@ -36,7 +36,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.APICallerName,
 			config.UpgradeStepsGateName,
 		},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(context dependency.Context) (worker.Worker, error) {
 			// Sanity checks
 			if config.OpenStateForUpgrade == nil {
 				return nil, errors.New("missing OpenStateForUpgrade in config")
@@ -47,7 +47,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			// Get machine agent.
 			var agent agent.Agent
-			if err := getResource(config.AgentName, &agent); err != nil {
+			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 
@@ -62,7 +62,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// APICaller instead? should be able to depend on
 			// the Engine to abort us when conn is closed...
 			var apiConn api.Connection
-			if err := getResource(config.APICallerName, &apiConn); err != nil {
+			if err := context.Get(config.APICallerName, &apiConn); err != nil {
 				return nil, err
 			}
 
@@ -85,7 +85,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			// Get upgradesteps completed lock.
 			var upgradeStepsLock gate.Lock
-			if err := getResource(config.UpgradeStepsGateName, &upgradeStepsLock); err != nil {
+			if err := context.Get(config.UpgradeStepsGateName, &upgradeStepsLock); err != nil {
 				return nil, err
 			}
 

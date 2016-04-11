@@ -378,7 +378,7 @@ func (s *macaroonServerSuite) TestServerBakery(c *gc.C) {
 	ms, err := client.DischargeAll(m)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bsvc.Check(ms, checkers.New())
+	err = bsvc.(*bakery.Service).Check(ms, checkers.New())
 	c.Assert(err, gc.IsNil)
 }
 

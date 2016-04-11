@@ -30,10 +30,13 @@ type maasStorage struct {
 }
 
 func NewStorage(env *maasEnviron) storage.Storage {
-	return &maasStorage{
-		environ:    env,
-		maasClient: env.getMAASClient().GetSubObject("files"),
+	stor := new(maasStorage)
+	stor.environ = env
+	// TODO (babbageclunk): needs MAAS 2.0 support
+	if !env.usingMAAS2() {
+		stor.maasClient = env.getMAASClient().GetSubObject("files")
 	}
+	return stor
 }
 
 // addressFileObject creates a MAASObject pointing to a given file.
@@ -54,7 +57,7 @@ func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, 
 	obj, err := stor.addressFileObject(name).Get()
 	if err != nil {
 		noObj := gomaasapi.MAASObject{}
-		serverErr, ok := err.(gomaasapi.ServerError)
+		serverErr, ok := errors.Cause(err).(gomaasapi.ServerError)
 		if ok && serverErr.StatusCode == 404 {
 			return noObj, errors.NotFoundf("file '%s' not found", name)
 		}

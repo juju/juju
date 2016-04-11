@@ -229,6 +229,6 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	mi := inst.(*maasInstance)
+	mi := inst.(*maas1Instance)
 	return maasObjectNetworkInterfaces(mi.maasObject, subnetsMap)
 }

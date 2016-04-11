@@ -51,23 +51,23 @@ func (s *AgentManifoldSuite) TestOutput(c *gc.C) {
 }
 
 func (s *AgentManifoldSuite) TestStartAgentMissing(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
 
 func (s *AgentManifoldSuite) TestStartFailure(c *gc.C) {
 	expectAgent := &dummyAgent{}
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name": dt.StubResource{Output: expectAgent},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name": expectAgent,
 	})
 	s.SetErrors(errors.New("some error"))
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "some error")
 	s.CheckCalls(c, []testing.StubCall{{
@@ -78,11 +78,11 @@ func (s *AgentManifoldSuite) TestStartFailure(c *gc.C) {
 
 func (s *AgentManifoldSuite) TestStartSuccess(c *gc.C) {
 	expectAgent := &dummyAgent{}
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name": dt.StubResource{Output: expectAgent},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name": expectAgent,
 	})
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, s.worker)
 	s.CheckCalls(c, []testing.StubCall{{

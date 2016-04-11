@@ -51,13 +51,13 @@ func (a *AllocateBudget) RunPost(state api.Connection, bakeryClient *httpbakery.
 		logger.Tracef("skipping budget allocation due to prior deployment error: %v", priorErr)
 		return nil
 	}
-	if deployInfo.CharmURL.Schema == "local" {
-		logger.Tracef("skipping budget allocation for local charm %q", deployInfo.CharmURL)
+	if deployInfo.CharmID.URL.Schema == "local" {
+		logger.Tracef("skipping budget allocation for local charm %q", deployInfo.CharmID.URL)
 		return nil
 	}
 
 	charmsClient := charms.NewClient(state)
-	metered, err := charmsClient.IsMetered(deployInfo.CharmURL.String())
+	metered, err := charmsClient.IsMetered(deployInfo.CharmID.URL.String())
 	if params.IsCodeNotImplemented(err) {
 		// The state server is too old to support metering.  Warn
 		// the user, but don't return an error.

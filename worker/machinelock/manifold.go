@@ -26,7 +26,7 @@ type ManifoldConfig util.AgentManifoldConfig
 // not limited to): hook executions, package installation, synchronisation
 // of reboots.
 // Clients can access the lock by passing a **fslock.Lock into the out param
-// of their GetResourceFunc.
+// of their dependency.Context's Get method.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	manifold := util.AgentManifold(util.AgentManifoldConfig(config), newWorker)
 	manifold.Output = util.ValueWorkerOutput
