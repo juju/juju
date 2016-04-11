@@ -576,7 +576,7 @@ func (s *MongoSuite) TestRemoveService(c *gc.C) {
 func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	dir := c.MkDir()
 	// patch manager.RunCommandWithRetry for repository addition:
-	s.PatchValue(&manager.RunCommandWithRetry, func(string) (string, int, error) {
+	s.PatchValue(&manager.RunCommandWithRetry, func(string, func(string) error) (string, int, error) {
 		return "", 1, fmt.Errorf("packaging command failed: exit status 1")
 	})
 	s.PatchEnvPathPrepend(dir)
@@ -600,7 +600,7 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 		{loggo.ERROR, `cannot install/upgrade mongod \(will proceed anyway\): packaging command failed`},
 	})
 
-	s.PatchValue(&manager.RunCommandWithRetry, func(string) (string, int, error) {
+	s.PatchValue(&manager.RunCommandWithRetry, func(string, func(string) error) (string, int, error) {
 		return "", 0, nil
 	})
 	s.patchSeries("trusty")
