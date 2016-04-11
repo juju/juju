@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type maas2Suite struct {
@@ -38,6 +39,7 @@ func (suite *maas2Suite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *
 		testAttrs[k] = v
 	}
 	testAttrs["maas-server"] = "http://any-old-junk.invalid/"
+	testAttrs["agent-version"] = version.Current.String()
 	attrs := coretesting.FakeConfig().Merge(testAttrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -49,20 +51,23 @@ func (suite *maas2Suite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *
 
 type fakeController struct {
 	gomaasapi.Controller
-	bootResources      []gomaasapi.BootResource
-	bootResourcesError error
-	machines           []gomaasapi.Machine
-	machinesError      error
-	machinesArgsCheck  func(gomaasapi.MachinesArgs)
-	zones              []gomaasapi.Zone
-	zonesError         error
-	spaces             []gomaasapi.Space
-	spacesError        error
-	files              []gomaasapi.File
-	filesPrefix        string
-	filesError         error
-	getFileFilename    string
-	addFileArgs        gomaasapi.AddFileArgs
+	bootResources            []gomaasapi.BootResource
+	bootResourcesError       error
+	machines                 []gomaasapi.Machine
+	machinesError            error
+	machinesArgsCheck        func(gomaasapi.MachinesArgs)
+	zones                    []gomaasapi.Zone
+	zonesError               error
+	spaces                   []gomaasapi.Space
+	spacesError              error
+	allocateMachine          gomaasapi.Machine
+	allocateMachineError     error
+	allocateMachineArgsCheck func(gomaasapi.AllocateMachineArgs)
+	files                    []gomaasapi.File
+	filesPrefix              string
+	filesError               error
+	getFileFilename          string
+	addFileArgs              gomaasapi.AddFileArgs
 }
 
 func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
@@ -73,6 +78,16 @@ func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Mach
 		return nil, c.machinesError
 	}
 	return c.machines, nil
+}
+
+func (c *fakeController) AllocateMachine(args gomaasapi.AllocateMachineArgs) (gomaasapi.Machine, error) {
+	if c.allocateMachineArgsCheck != nil {
+		c.allocateMachineArgsCheck(args)
+	}
+	if c.allocateMachineError != nil {
+		return nil, c.allocateMachineError
+	}
+	return c.allocateMachine, nil
 }
 
 func (c *fakeController) BootResources() ([]gomaasapi.BootResource, error) {
@@ -185,6 +200,10 @@ func (m *fakeMachine) StatusMessage() string {
 
 func (m *fakeMachine) Zone() gomaasapi.Zone {
 	return fakeZone{name: m.zoneName}
+}
+
+func (m *fakeMachine) Start(args gomaasapi.StartArgs) error {
+	return nil
 }
 
 type fakeZone struct {
