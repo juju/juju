@@ -59,7 +59,7 @@ Registers a Juju user to a controller.`[1:]
 
 var usageRegisterDetails = `
 Connects to a controller and completes the user registration process that
-began with the ` + "`juju add-user`" + ` command. The latter prints out the 'string'
+began with the `[1:] + "`juju add-user`" + ` command. The latter prints out the 'string'
 that is referred to in Usage.
 The user will be prompted for a password, which, once set, causes the 
 registration string to be voided. In order to start using Juju the user 
@@ -74,7 +74,7 @@ Examples:
 
 See also: 
     add-user
-    change-user-password`[1:]
+    change-user-password`
 
 // Info implements Command.Info
 func (c *registerCommand) Info() *cmd.Info {
