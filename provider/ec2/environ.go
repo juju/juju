@@ -1411,15 +1411,15 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 		}
 	}
 
+	// We will get here only if we got a NotFound error.
+	// 1. If we attempted to terminate only one instance was, return now.
 	if len(ids) == 1 {
-		if err != nil && ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
-			return err
-		}
+		ids = nil
 		return nil
 	}
-	// If we get a NotFound error, it means that no instances have been
-	// terminated even if some exist, so try them one by one, ignoring
-	// NotFound errors.
+	// 2. If we attempted to terminate several instances and got a NotFound error,
+	// it means that no instances were terminated.
+	// So try each instance individually, ignoring a NotFound error this time.
 	deletedIDs := []instance.Id{}
 	for _, id := range ids {
 		_, err = terminateInstancesById(ec2inst, id)
@@ -1431,9 +1431,9 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 			return err
 		}
 	}
-	ids = deletedIDs
-	// We will get here if we all of the instances are deleted successfully,
+	// We will get here if all of the instances are deleted successfully,
 	// or are not found, which implies they were previously deleted.
+	ids = deletedIDs
 	return nil
 }
 
