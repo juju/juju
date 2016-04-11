@@ -13,6 +13,7 @@ from crossbuild import (
     build_win_client,
     go_build,
     go_tarball,
+    GOLANG_VERSION,
     ISCC_CMD,
     ISS_DIR,
     make_installer,
@@ -94,13 +95,13 @@ class CrossBuildTestCase(TestCase):
         self.assertEqual('windows', env['GOOS'])
 
     def test_run_command(self):
-        with patch('subprocess.check_output') as mock:
+        with patch('subprocess.call', autospec=True, return_value=0) as mock:
             run_command(
                 ['ls'], env={'CB_MARK': 'foo'}, dry_run=False, verbose=True)
         args, kwargs = mock.call_args
         self.assertEqual((['ls'], ), args)
         self.assertEqual(
-            {'env': {'CB_MARK': 'foo'}, 'stderr': subprocess.STDOUT},
+            {'env': {'CB_MARK': 'foo'}},
             kwargs)
         with patch('subprocess.check_output') as mock:
             run_command(['ls'], dry_run=True)
@@ -143,7 +144,8 @@ class CrossBuildTestCase(TestCase):
         args, kwargs = gb_mock.call_args
         self.assertEqual(
             ('github.com/juju/juju/cmd/juju',
-             '/foo/golang-1.2.1', 'baz/bar_1.2.3', '386', 'windows'),
+             '/foo/golang-%s' % GOLANG_VERSION, 'baz/bar_1.2.3',
+             '386', 'windows'),
             args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
         self.assertEqual(
@@ -203,7 +205,8 @@ class CrossBuildTestCase(TestCase):
         args, kwargs = gb_mock.call_args
         self.assertEqual(
             ('github.com/juju/juju/cmd/jujud',
-             '/foo/golang-1.2.1', 'baz/bar_1.2.3', 'amd64', 'windows'),
+             '/foo/golang-%s' % GOLANG_VERSION, 'baz/bar_1.2.3',
+             'amd64', 'windows'),
             args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
         self.assertEqual(
@@ -243,7 +246,8 @@ class CrossBuildTestCase(TestCase):
         args, kwargs = gb_mock.call_args
         self.assertEqual(
             ('github.com/juju/juju/cmd/...',
-             '/foo/golang-1.2.1', 'baz/bar_1.2.3', 'amd64', 'darwin'),
+             '/foo/golang-%s' % GOLANG_VERSION, 'baz/bar_1.2.3',
+             'amd64', 'darwin'),
             args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
         if sys.platform == 'darwin':
@@ -296,8 +300,8 @@ class CrossBuildTestCase(TestCase):
         gt_mock.assert_called_once_with('baz/bar_1.2.3.tar.gz')
         gb_mock.assert_called_once_with(
             'github.com/juju/juju/cmd/...',
-            '/foo/golang-1.2.1', 'baz/bar_1.2.3', 'amd64', 'linux',
-            dry_run=False, verbose=False)
+            '/foo/golang-%s' % GOLANG_VERSION, 'baz/bar_1.2.3',
+            'amd64', 'linux', dry_run=False, verbose=False)
         bin_paths = [
             'baz/bar_1.2.3/bin/juju',
             'baz/bar_1.2.3/bin/jujud',

@@ -61,10 +61,13 @@ def run_command(command, env=None, dry_run=False, verbose=False):
     if verbose:
         print('Executing: %s' % command)
     if not dry_run:
-        output = subprocess.check_output(
-            command, env=env, stderr=subprocess.STDOUT)
-        if verbose:
-            print(output)
+        code = subprocess.call(command, env=env)
+        if code != 0:
+            raise Exception('Build failed with exit {}'.format(code))
+        # output = subprocess.check_output(
+        #     command, env=env, stderr=subprocess.STDOUT)
+        # if verbose:
+        #     print(output)
 
 
 def go_build(package, goroot, gopath, goarch, goos,
