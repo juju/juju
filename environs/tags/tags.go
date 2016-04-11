@@ -13,7 +13,7 @@ const (
 	// Juju model a resource is part of.
 	JujuModel = JujuTagPrefix + "model-uuid"
 
-	// JujuModel is the tag name used for identifying the
+	// JujuController is the tag name used for identifying the
 	// Juju controller that manages a resource.
 	JujuController = JujuTagPrefix + "controller-uuid"
 

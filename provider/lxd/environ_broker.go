@@ -240,6 +240,9 @@ func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 			// we cannot allow arbitrary tags to be passed
 			// in by the user. We currently only pass through
 			// Juju-defined tags.
+			//
+			// TODO(axw) 2016-04-11 #1568666
+			// We should reject non-juju tags in config validation.
 			logger.Debugf("ignoring non-juju tag: %s=%s", k, v)
 			continue
 		}
