@@ -24,15 +24,15 @@ By default, the YAML format is used and the user name is the current user.
 
 
 Examples:
-juju show-user
-juju show-user jsmith
-juju show-user --format json
-juju show-user --format yaml
-
+    juju show-user
+    juju show-user jsmith
+    juju show-user --format json
+    juju show-user --format yaml
+    
 See also: 
-add-user
-register
-list-users`[1:]
+    add-user
+    register
+    list-users`[1:]
 
 // UserInfoAPI defines the API methods that the info command uses.
 type UserInfoAPI interface {
@@ -75,7 +75,7 @@ type UserInfo struct {
 func (c *infoCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-user",
-		Args:    "<username>",
+		Args:    "[<user name>]",
 		Purpose: helpSummary,
 		Doc:     helpDetails,
 	}
