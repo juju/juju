@@ -18,6 +18,7 @@ from time import (
     time,
     )
 from tempfile import mkdtemp
+import warnings
 import xml.etree.ElementTree as ET
 
 # Export shell quoting function which has moved in newer python versions
@@ -115,8 +116,8 @@ def _clean_dir(maybe_dir):
         # GZ 2016-03-01: We may want to raise or just create the dir here, but
         # that confuses expectations of all existing parse_args tests.
     else:
-        if contents:
-            logging.warning("Directory %r has existing contents.", maybe_dir)
+        if contents and contents != ["empty"]:
+            warnings.warn("Directory %r has existing contents." % (maybe_dir,))
     return maybe_dir
 
 
