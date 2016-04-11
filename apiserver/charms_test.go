@@ -111,9 +111,9 @@ func (s *charmsSuite) TestPOSTRequiresAuth(c *gc.C) {
 	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "no credentials provided")
 }
 
-func (s *charmsSuite) TestGETDoesNotRequireAuth(c *gc.C) {
+func (s *charmsSuite) TestGETRequiresAuth(c *gc.C) {
 	resp := s.sendRequest(c, httpRequestParams{method: "GET", url: s.charmsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected url=CharmURL query argument")
+	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "no credentials provided")
 }
 
 func (s *charmsSuite) TestRequiresPOSTorGET(c *gc.C) {
