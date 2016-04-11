@@ -4,6 +4,7 @@
 package rackspace_test
 
 import (
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/errors"
@@ -12,7 +13,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/rackspace"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/testing"
 )
 
 type providerSuite struct {
