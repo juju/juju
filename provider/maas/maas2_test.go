@@ -109,6 +109,13 @@ func (c *fakeController) GetFile(filename string) (gomaasapi.File, error) {
 	if c.filesError != nil {
 		return nil, c.filesError
 	}
+	// Try to find the file by name (needed for testing RemoveAll)
+	for _, file := range c.files {
+		if file.Filename() == filename {
+			return file, nil
+		}
+	}
+	// Otherwise just use the first one.
 	return c.files[0], nil
 }
 
@@ -241,6 +248,7 @@ type fakeFile struct {
 	name     string
 	url      string
 	contents []byte
+	deleted  bool
 	error    error
 }
 
@@ -253,6 +261,7 @@ func (f *fakeFile) AnonymousURL() string {
 }
 
 func (f *fakeFile) Delete() error {
+	f.deleted = true
 	return f.error
 }
 

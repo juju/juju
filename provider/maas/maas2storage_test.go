@@ -128,3 +128,45 @@ func (s *maas2StorageSuite) TestPut(c *gc.C) {
 		Length:   10,
 	})
 }
+
+func (s *maas2StorageSuite) TestRemoveNoSuchFile(c *gc.C) {
+	controller := &fakeController{
+		filesError: errors.New("oh no!"),
+	}
+	storage := s.makeStorage(c, controller)
+	err := storage.Remove("FIOS")
+	c.Assert(err, gc.ErrorMatches, "oh no!")
+}
+
+func (s *maas2StorageSuite) TestRemoveErrorFromDelete(c *gc.C) {
+	controller := &fakeController{
+		files: []gomaasapi.File{
+			&fakeFile{error: errors.New("protected")},
+		},
+	}
+	storage := s.makeStorage(c, controller)
+	err := storage.Remove("FIOS")
+	c.Assert(err, gc.ErrorMatches, "protected")
+	c.Assert(controller.getFileFilename, gc.Equals, "prefix-FIOS")
+}
+
+func (s *maas2StorageSuite) TestRemoveAll(c *gc.C) {
+	controller := &fakeController{
+		files: []gomaasapi.File{
+			&fakeFile{name: "prefix-zack"},
+			&fakeFile{name: "prefix-kevin", error: errors.New("oops")},
+			&fakeFile{name: "prefix-jim"},
+			&fakeFile{name: "prefix-riff"},
+		},
+	}
+	storage := s.makeStorage(c, controller)
+	err := storage.RemoveAll()
+	c.Assert(err, gc.ErrorMatches, "cannot delete all provider state: oops")
+	c.Assert(controller.filesPrefix, gc.Equals, "prefix-")
+
+	deleteds := make([]bool, 4)
+	for i, file := range controller.files {
+		deleteds[i] = file.(*fakeFile).deleted
+	}
+	c.Assert(deleteds, jc.DeepEquals, []bool{true, true, true, true})
+}
