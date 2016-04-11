@@ -20,7 +20,8 @@ var helpSummary = `
 Show information about a user.`[1:]
 
 var helpDetails = `
-By default, the YAML format is used and the user name is the current user.
+By default, the YAML format is used and the user name is the current
+user.
 
 
 Examples:
