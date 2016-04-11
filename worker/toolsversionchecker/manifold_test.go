@@ -37,8 +37,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMachine(c *gc.C) {
-	config := toolsversionchecker.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
-	_, err := workertesting.RunPostUpgradeManifold(
+	config := toolsversionchecker.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
+	_, err := workertesting.RunAgentApiManifold(
 		toolsversionchecker.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		mockAPICaller(multiwatcher.JobManageModel))
@@ -47,8 +47,8 @@ func (s *ManifoldSuite) TestMachine(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMachineNotModelManagerErrors(c *gc.C) {
-	config := toolsversionchecker.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
-	_, err := workertesting.RunPostUpgradeManifold(
+	config := toolsversionchecker.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
+	_, err := workertesting.RunAgentApiManifold(
 		toolsversionchecker.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		mockAPICaller(multiwatcher.JobHostUnits))
@@ -57,8 +57,8 @@ func (s *ManifoldSuite) TestMachineNotModelManagerErrors(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestNonMachineAgent(c *gc.C) {
-	config := toolsversionchecker.ManifoldConfig(workertesting.PostUpgradeManifoldTestConfig())
-	_, err := workertesting.RunPostUpgradeManifold(
+	config := toolsversionchecker.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
+	_, err := workertesting.RunAgentApiManifold(
 		toolsversionchecker.Manifold(config),
 		&fakeAgent{tag: names.NewUnitTag("foo/0")},
 		mockAPICaller(""))

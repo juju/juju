@@ -51,7 +51,7 @@ var containerStateSample = lxdshared.ContainerState{
 			Addresses: []lxdshared.ContainerStateNetworkAddress{
 				lxdshared.ContainerStateNetworkAddress{
 					Family:  "inet",
-					Address: "10.0.3.173",
+					Address: "10.0.8.173",
 					Netmask: "24",
 					Scope:   "global",
 				},
@@ -101,6 +101,60 @@ var containerStateSample = lxdshared.ContainerState{
 			State:    "up",
 			Type:     "loopback",
 		},
+		"lxcbr0": lxdshared.ContainerStateNetwork{
+			Addresses: []lxdshared.ContainerStateNetworkAddress{
+				lxdshared.ContainerStateNetworkAddress{
+					Family:  "inet",
+					Address: "10.0.5.12",
+					Netmask: "24",
+					Scope:   "global",
+				},
+				lxdshared.ContainerStateNetworkAddress{
+					Family:  "inet6",
+					Address: "fe80::216:3eff:fe3b:e432",
+					Netmask: "64",
+					Scope:   "link",
+				},
+			},
+			Counters: lxdshared.ContainerStateNetworkCounters{
+				BytesReceived:   0,
+				BytesSent:       500,
+				PacketsReceived: 0,
+				PacketsSent:     6,
+			},
+			Hwaddr:   "5e:9b:b2:af:4c:f2",
+			HostName: "",
+			Mtu:      1500,
+			State:    "up",
+			Type:     "broadcast",
+		},
+		"lxdbr0": lxdshared.ContainerStateNetwork{
+			Addresses: []lxdshared.ContainerStateNetworkAddress{
+				lxdshared.ContainerStateNetworkAddress{
+					Family:  "inet",
+					Address: "10.0.6.17",
+					Netmask: "24",
+					Scope:   "global",
+				},
+				lxdshared.ContainerStateNetworkAddress{
+					Family:  "inet6",
+					Address: "fe80::5c9b:b2ff:feaf:4cf2",
+					Netmask: "64",
+					Scope:   "link",
+				},
+			},
+			Counters: lxdshared.ContainerStateNetworkCounters{
+				BytesReceived:   0,
+				BytesSent:       500,
+				PacketsReceived: 0,
+				PacketsSent:     6,
+			},
+			Hwaddr:   "52:54:00:5c:54:8f",
+			HostName: "",
+			Mtu:      1500,
+			State:    "up",
+			Type:     "broadcast",
+		},
 	},
 	Pid:       46072,
 	Processes: 19,
@@ -117,7 +171,7 @@ func (s *addressesSuite) TestAddresses(c *gc.C) {
 	// and filter out the LinkLocal address [fe80::216:3eff:fe3b:e582]
 	c.Check(addrs, jc.DeepEquals, []network.Address{
 		{
-			Value: "10.0.3.173",
+			Value: "10.0.8.173",
 			Type:  network.IPv4Address,
 			Scope: network.ScopeCloudLocal,
 		},

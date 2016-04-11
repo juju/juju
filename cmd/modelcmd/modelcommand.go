@@ -275,7 +275,7 @@ func (w *modelCommandWrapper) Run(ctx *cmd.Context) error {
 
 func (w *modelCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	if !w.skipFlags {
-		f.StringVar(&w.modelName, "m", "", "juju model to operate in")
+		f.StringVar(&w.modelName, "m", "", "Model to operate in")
 		f.StringVar(&w.modelName, "model", "", "")
 	}
 	w.ModelCommand.SetFlags(f)

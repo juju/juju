@@ -5,7 +5,9 @@ package migrationmaster_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -70,6 +72,27 @@ func (s *Suite) TestWatchError(c *gc.C) {
 	w, err := api.Watch()
 	c.Assert(w, gc.Equals, params.NotifyWatchResult{})
 	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *Suite) TestGetMigrationStatus(c *gc.C) {
+	api := s.mustMakeAPI(c)
+
+	status, err := api.GetMigrationStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.DeepEquals, params.FullMigrationStatus{
+		Spec: params.ModelMigrationSpec{
+			ModelTag: names.NewModelTag(modelUUID).String(),
+			TargetInfo: params.ModelMigrationTargetInfo{
+				ControllerTag: names.NewModelTag(controllerUUID).String(),
+				Addrs:         []string{"1.1.1.1:1", "2.2.2.2:2"},
+				CACert:        "trust me",
+				AuthTag:       names.NewUserTag("admin").String(),
+				Password:      "secret",
+			},
+		},
+		Attempt: 1,
+		Phase:   "READONLY",
+	})
 }
 
 func (s *Suite) TestSetPhase(c *gc.C) {
@@ -157,10 +180,40 @@ type stubMigration struct {
 	phaseSet    coremigration.Phase
 }
 
+func (m *stubMigration) Phase() (coremigration.Phase, error) {
+	return coremigration.READONLY, nil
+}
+
+func (m *stubMigration) Attempt() (int, error) {
+	return 1, nil
+}
+
+func (m *stubMigration) ModelUUID() string {
+	return modelUUID
+}
+
+func (m *stubMigration) TargetInfo() (*coremigration.TargetInfo, error) {
+	return &coremigration.TargetInfo{
+		ControllerTag: names.NewModelTag(controllerUUID),
+		Addrs:         []string{"1.1.1.1:1", "2.2.2.2:2"},
+		CACert:        "trust me",
+		AuthTag:       names.NewUserTag("admin"),
+		Password:      "secret",
+	}, nil
+}
+
 func (m *stubMigration) SetPhase(phase coremigration.Phase) error {
 	if m.setPhaseErr != nil {
 		return m.setPhaseErr
 	}
 	m.phaseSet = phase
 	return nil
+}
+
+var modelUUID string
+var controllerUUID string
+
+func init() {
+	modelUUID = utils.MustNewUUID().String()
+	controllerUUID = utils.MustNewUUID().String()
 }

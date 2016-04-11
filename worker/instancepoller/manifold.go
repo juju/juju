@@ -19,14 +19,14 @@ type ManifoldConfig struct {
 	EnvironName   string
 }
 
-func (config ManifoldConfig) start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
 	var environ environs.Environ
-	if err := getResource(config.EnvironName, &environ); err != nil {
+	if err := context.Get(config.EnvironName, &environ); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var apiCaller base.APICaller
-	if err := getResource(config.APICallerName, &apiCaller); err != nil {
+	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
 	facade := instancepoller.NewAPI(apiCaller)

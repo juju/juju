@@ -132,7 +132,10 @@ func InitializeState(
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model config")
 	}
-	_, hostedModelState, err := st.NewModel(hostedModelConfig, adminUser)
+	_, hostedModelState, err := st.NewModel(state.ModelArgs{
+		Config: hostedModelConfig,
+		Owner:  adminUser,
+	})
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model")
 	}

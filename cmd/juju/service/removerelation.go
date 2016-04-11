@@ -14,6 +14,31 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
+var helpSummary = `
+Removes an existing relation between two services.`[1:]
+
+var helpDetails = `
+An existing relation between the two specified services will be removed. 
+This should not result in either of the services entering an error state,
+but may result in either or both of the services being unable to continue
+normal operation. In the case that there is more than one relation between
+two services it is necessary to specify which is to be removed (see
+examples). Relations will automatically be removed when using the`[1:] + "\n`juju remove-service`" + ` command.
+
+Examples:
+juju remove-relation mysql wordpress
+
+In the case of multiple relations, the relation name should be specified
+at least once - the following examples will all have the same effect:
+
+juju remove-relation mediawiki:db mariadb:db
+juju remove-relation mediawiki mariadb:db
+juju remove-relation mediawiki:db mariadb
+
+See also: 
+add-relation
+remove-service`
+
 // NewRemoveRelationCommand returns a command to remove a relation between 2 services.
 func NewRemoveRelationCommand() cmd.Command {
 	return modelcmd.Wrap(&removeRelationCommand{})
@@ -29,7 +54,8 @@ func (c *removeRelationCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-relation",
 		Args:    "<service1>[:<relation name1>] <service2>[:<relation name2>]",
-		Purpose: "remove a relation between two services",
+		Purpose: helpSummary,
+		Doc:     helpDetails,
 		Aliases: []string{"destroy-relation"},
 	}
 }

@@ -31,22 +31,28 @@ type removeServiceCommand struct {
 	ServiceName string
 }
 
-const removeServiceDoc = `
-Removing a service will remove all its units and relations.
+var helpSummaryRmSvc = `
+Remove a service from the model.`[1:]
 
-If this is the only service running, the machine on which
-the service is hosted will also be destroyed, if possible.
-The machine will be destroyed if:
-- it is not a controller
-- it is not hosting any Juju managed containers
-`
+var helpDetailsRmSvc = `
+Removing a service will terminate any relations that service has, remove
+all units of the service, and in the case that this leaves machines with
+no running services, Juju will also remove the machine. For this reason,
+you should retrieve any logs or data required from services and units 
+before removing them. Removing units which are co-located with units of
+other charms or a Juju controller will not result in the removal of the
+machine.
+
+Examples:
+juju remove-service hadoop
+juju remove-service -m test-model mariadb`[1:]
 
 func (c *removeServiceCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-service",
 		Args:    "<service>",
-		Purpose: "remove a service from the model",
-		Doc:     removeServiceDoc,
+		Purpose: helpSummaryRmSvc,
+		Doc:     helpDetailsRmSvc,
 		Aliases: []string{"destroy-service"},
 	}
 }

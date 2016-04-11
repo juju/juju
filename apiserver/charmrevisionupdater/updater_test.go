@@ -171,12 +171,10 @@ func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
 	defer srv.Close()
 
 	// Point the charm repo initializer to the testing server.
-	s.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func() charmstore.Client {
-		var config charmstore.ClientConfig
+	s.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func(st *state.State) (charmstore.Client, error) {
 		csURL, err := url.Parse(srv.URL)
 		c.Assert(err, jc.ErrorIsNil)
-		config.URL = csURL
-		return charmstore.NewClient(config)
+		return charmstore.NewCachingClient(state.MacaroonCache{st}, csURL)
 	})
 
 	result, err := s.charmrevisionupdater.UpdateLatestRevisions()

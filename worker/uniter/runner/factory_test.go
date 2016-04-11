@@ -207,31 +207,49 @@ func (s *FactorySuite) TestNewHookRunnerWithBadRelation(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	action, err := s.State.EnqueueAction(s.unit.Tag(), "snapshot", map[string]interface{}{
-		"outfile": "/some/file.bz2",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	rnr, err := s.factory.NewActionRunner(action.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	s.AssertPaths(c, rnr)
-	ctx := rnr.Context()
-	data, err := ctx.ActionData()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, jc.DeepEquals, &context.ActionData{
-		Name: "snapshot",
-		Tag:  action.ActionTag(),
-		Params: map[string]interface{}{
-			"outfile": "/some/file.bz2",
+	for i, test := range []struct {
+		actionName string
+		payload    map[string]interface{}
+	}{
+		{
+			actionName: "snapshot",
+			payload: map[string]interface{}{
+				"outfile": "/some/file.bz2",
+			},
 		},
-		ResultsMap: map[string]interface{}{},
-	})
-	vars, err := ctx.HookVars(s.paths)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(vars) > 0, jc.IsTrue, gc.Commentf("expected HookVars but found none"))
-	combined := strings.Join(vars, "|")
-	c.Assert(combined, gc.Matches, `(^|.*\|)JUJU_ACTION_NAME=snapshot(\|.*|$)`)
-	c.Assert(combined, gc.Matches, `(^|.*\|)JUJU_ACTION_UUID=`+action.Id()+`(\|.*|$)`)
-	c.Assert(combined, gc.Matches, `(^|.*\|)JUJU_ACTION_TAG=`+action.Tag().String()+`(\|.*|$)`)
+		{
+			// juju-run should work as a predefined action even if
+			// it's not part of the charm
+			actionName: "juju-run",
+			payload: map[string]interface{}{
+				"command": "foo",
+				"timeout": 0.0,
+			},
+		},
+	} {
+		c.Logf("test %d", i)
+		action, err := s.State.EnqueueAction(s.unit.Tag(), test.actionName, test.payload)
+		c.Assert(err, jc.ErrorIsNil)
+		rnr, err := s.factory.NewActionRunner(action.Id())
+		c.Assert(err, jc.ErrorIsNil)
+		s.AssertPaths(c, rnr)
+		ctx := rnr.Context()
+		data, err := ctx.ActionData()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(data, jc.DeepEquals, &context.ActionData{
+			Name:       test.actionName,
+			Tag:        action.ActionTag(),
+			Params:     test.payload,
+			ResultsMap: map[string]interface{}{},
+		})
+		vars, err := ctx.HookVars(s.paths)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(len(vars) > 0, jc.IsTrue, gc.Commentf("expected HookVars but found none"))
+		combined := strings.Join(vars, "|")
+		c.Assert(combined, gc.Matches, `(^|.*\|)JUJU_ACTION_NAME=`+test.actionName+`(\|.*|$)`)
+		c.Assert(combined, gc.Matches, `(^|.*\|)JUJU_ACTION_UUID=`+action.Id()+`(\|.*|$)`)
+		c.Assert(combined, gc.Matches, `(^|.*\|)JUJU_ACTION_TAG=`+action.Tag().String()+`(\|.*|$)`)
+	}
 }
 
 func (s *FactorySuite) TestNewActionRunnerBadCharm(c *gc.C) {

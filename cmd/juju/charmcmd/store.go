@@ -46,9 +46,10 @@ func (cs charmstoreSpec) Connect(ctx *cmd.Context) (charmstore.Client, io.Closer
 		return charmstore.Client{}, nil, errors.Trace(err)
 	}
 	// We use the default for URL.
-	client := charmstore.NewClient(charmstore.ClientConfig{
-		BakeryClient: apiContext.BakeryClient,
-	})
-
+	client, err := charmstore.NewCustomClient(apiContext.BakeryClient, nil)
+	if err != nil {
+		apiContext.Close()
+		return charmstore.Client{}, nil, errors.Trace(err)
+	}
 	return client, apiContext, nil
 }

@@ -25,6 +25,7 @@ import (
 
 type MachineManifoldSuite struct {
 	testing.IsolationSuite
+	config    storageprovisioner.MachineManifoldConfig
 	newCalled bool
 }
 
@@ -41,15 +42,17 @@ func (s *MachineManifoldSuite) SetUpTest(c *gc.C) {
 			return nil, nil
 		},
 	)
+	config := workertesting.AgentApiManifoldTestConfig()
+	s.config = storageprovisioner.MachineManifoldConfig{
+		AgentName:     config.AgentName,
+		APICallerName: config.APICallerName,
+		Clock:         coretesting.NewClock(defaultClockStart),
+	}
 }
 
 func (s *MachineManifoldSuite) TestMachine(c *gc.C) {
-	config := storageprovisioner.MachineManifoldConfig{
-		PostUpgradeManifoldConfig: workertesting.PostUpgradeManifoldTestConfig(),
-		Clock: coretesting.NewClock(defaultClockStart),
-	}
-	_, err := workertesting.RunPostUpgradeManifold(
-		storageprovisioner.MachineManifold(config),
+	_, err := workertesting.RunAgentApiManifold(
+		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -57,12 +60,9 @@ func (s *MachineManifoldSuite) TestMachine(c *gc.C) {
 }
 
 func (s *MachineManifoldSuite) TestMissingClock(c *gc.C) {
-	config := storageprovisioner.MachineManifoldConfig{
-		PostUpgradeManifoldConfig: workertesting.PostUpgradeManifoldTestConfig(),
-		// Clock: coretesting.NewClock(defaultClockStart),
-	}
-	_, err := workertesting.RunPostUpgradeManifold(
-		storageprovisioner.MachineManifold(config),
+	s.config.Clock = nil
+	_, err := workertesting.RunAgentApiManifold(
+		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{})
 	c.Assert(err, gc.Equals, dependency.ErrMissing)
@@ -70,12 +70,8 @@ func (s *MachineManifoldSuite) TestMissingClock(c *gc.C) {
 }
 
 func (s *MachineManifoldSuite) TestUnit(c *gc.C) {
-	config := storageprovisioner.MachineManifoldConfig{
-		PostUpgradeManifoldConfig: workertesting.PostUpgradeManifoldTestConfig(),
-		Clock: coretesting.NewClock(defaultClockStart),
-	}
-	_, err := workertesting.RunPostUpgradeManifold(
-		storageprovisioner.MachineManifold(config),
+	_, err := workertesting.RunAgentApiManifold(
+		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewUnitTag("foo/0")},
 		&fakeAPIConn{})
 	c.Assert(err, gc.ErrorMatches, "expected ModelTag or MachineTag, got names.UnitTag")
@@ -83,12 +79,8 @@ func (s *MachineManifoldSuite) TestUnit(c *gc.C) {
 }
 
 func (s *MachineManifoldSuite) TestNonAgent(c *gc.C) {
-	config := storageprovisioner.MachineManifoldConfig{
-		PostUpgradeManifoldConfig: workertesting.PostUpgradeManifoldTestConfig(),
-		Clock: coretesting.NewClock(defaultClockStart),
-	}
-	_, err := workertesting.RunPostUpgradeManifold(
-		storageprovisioner.MachineManifold(config),
+	_, err := workertesting.RunAgentApiManifold(
+		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewUserTag("foo")},
 		&fakeAPIConn{})
 	c.Assert(err, gc.ErrorMatches, "expected ModelTag or MachineTag, got names.UserTag")

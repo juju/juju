@@ -416,8 +416,10 @@ func newOpenstackStorageAdapter(environConfig *config.Config) (openstackStorage,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	client := authClient(ecfg)
-	if err := client.Authenticate(); err != nil {
+	client, err := authClient(ecfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	} else if err := client.Authenticate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 

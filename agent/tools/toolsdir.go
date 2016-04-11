@@ -187,6 +187,9 @@ func ReadGUIArchive(dataDir string) (*coretools.GUIArchive, error) {
 	dir := SharedGUIDir(dataDir)
 	toolsData, err := ioutil.ReadFile(path.Join(dir, guiArchiveFile))
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, errors.NotFoundf("GUI metadata")
+		}
 		return nil, fmt.Errorf("cannot read GUI metadata in tools directory: %v", err)
 	}
 	var gui coretools.GUIArchive

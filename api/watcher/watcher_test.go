@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/migrationmaster"
+	"github.com/juju/juju/api/migrationminion"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
@@ -262,66 +262,97 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 	}
 }
 
-type migrationWatcherSuite struct {
+type migrationSuite struct {
 	testing.JujuConnSuite
 }
 
-func (s *migrationWatcherSuite) TestWatch(c *gc.C) {
-	// Create a state server
-	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Jobs:  []state.MachineJob{state.JobManageModel},
-		Nonce: "noncey",
-	})
+var _ = gc.Suite(&migrationSuite{})
+
+func (s *migrationSuite) startSync(c *gc.C, st *state.State) {
+	backingSt, err := s.BackingStatePool.Get(st.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	backingSt.StartSync()
+}
+
+func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
+	const nonce = "noncey"
 
 	// Create a model to migrate.
-	hostedState := s.Factory.MakeModel(c, nil)
+	hostedState := s.Factory.MakeModel(c, &factory.ModelParams{Prepare: true})
+	defer hostedState.Close()
+	hostedFactory := factory.NewFactory(hostedState)
 
-	// Connect as a state server to the hosted environment.
+	// Create a machine in the hosted model to connect as.
+	m, password := hostedFactory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Nonce: nonce,
+	})
+
+	// Connect as the machine to watch for migration status.
 	apiInfo := s.APIInfo(c)
 	apiInfo.Tag = m.Tag()
 	apiInfo.Password = password
 	apiInfo.ModelTag = hostedState.ModelTag()
-	apiInfo.Nonce = "noncey"
+	apiInfo.Nonce = nonce
 
 	apiConn, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiConn.Close()
 
 	// Start watching for a migration.
-	client := migrationmaster.NewClient(apiConn)
+	client := migrationminion.NewClient(apiConn)
 	w, err := client.Watch()
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		c.Assert(worker.Stop(w), jc.ErrorIsNil)
 	}()
 
-	// Should be no initial events.
-	select {
-	case _, ok := <-w.Changes():
-		c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
-	case <-time.After(coretesting.ShortWait):
+	assertNoChange := func() {
+		s.startSync(c, hostedState)
+		select {
+		case _, ok := <-w.Changes():
+			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
+		case <-time.After(coretesting.ShortWait):
+		}
 	}
 
-	// Now create a migration.
-	targetInfo := migration.TargetInfo{
-		ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),
-		Addrs:         []string{"1.2.3.4:5"},
-		CACert:        "trust me I'm an authority",
-		AuthTag:       names.NewUserTag("dog"),
-		Password:      "sekret",
+	assertChange := func(phase migration.Phase) {
+		s.startSync(c, hostedState)
+		select {
+		case status, ok := <-w.Changes():
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(status.Phase, gc.Equals, phase)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("watcher didn't emit an event")
+		}
+		assertNoChange()
 	}
-	_, err = hostedState.CreateModelMigration(state.ModelMigrationSpec{
+
+	// Initial event with no migration in progress.
+	assertChange(migration.NONE)
+
+	// Now create a migration, should trigger watcher.
+	spec := state.ModelMigrationSpec{
 		InitiatedBy: names.NewUserTag("someone"),
-		TargetInfo:  targetInfo,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Event with correct target details should be emitted.
-	select {
-	case reportedTargetInfo, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(reportedTargetInfo, jc.DeepEquals, targetInfo)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("watcher didn't emit an event")
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),
+			Addrs:         []string{"1.2.3.4:5"},
+			CACert:        "cert",
+			AuthTag:       names.NewUserTag("dog"),
+			Password:      "sekret",
+		},
 	}
+	mig, err := hostedState.CreateModelMigration(spec)
+	c.Assert(err, jc.ErrorIsNil)
+	assertChange(migration.QUIESCE)
+
+	// Now abort the migration, this should be reported too.
+	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	assertChange(migration.ABORT)
+	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
+	assertChange(migration.ABORTDONE)
+
+	// Start a new migration, this should also trigger.
+	_, err = hostedState.CreateModelMigration(spec)
+	c.Assert(err, jc.ErrorIsNil)
+	assertChange(migration.QUIESCE)
 }

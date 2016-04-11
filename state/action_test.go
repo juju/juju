@@ -772,8 +772,8 @@ func (s *ActionSuite) TestActionStatusWatcher(c *gc.C) {
 	watchCancelledOrCompleted.AssertChange()
 	watchCancelledOrCompleted.AssertNoChange()
 
-	expect := map[state.ActionStatus][]*state.Action{}
-	all := []*state.Action{}
+	expect := map[state.ActionStatus][]state.Action{}
+	all := []state.Action{}
 	for _, tcase := range testCase {
 		a, err := tcase.receiver.AddAction(tcase.name, nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -801,7 +801,7 @@ func (s *ActionSuite) TestActionStatusWatcher(c *gc.C) {
 	watchCancelledOrCompleted.AssertNoChange()
 }
 
-func expectActionIds(actions ...*state.Action) []string {
+func expectActionIds(actions ...state.Action) []string {
 	ids := make([]string, len(actions))
 	for i, action := range actions {
 		ids[i] = action.Id()
@@ -849,16 +849,16 @@ type mockAR struct {
 
 var _ state.ActionReceiver = (*mockAR)(nil)
 
-func (r mockAR) AddAction(name string, payload map[string]interface{}) (*state.Action, error) {
+func (r mockAR) AddAction(name string, payload map[string]interface{}) (state.Action, error) {
 	return nil, nil
 }
-func (r mockAR) CancelAction(*state.Action) (*state.Action, error) { return nil, nil }
-func (r mockAR) WatchActionNotifications() state.StringsWatcher    { return nil }
-func (r mockAR) Actions() ([]*state.Action, error)                 { return nil, nil }
-func (r mockAR) CompletedActions() ([]*state.Action, error)        { return nil, nil }
-func (r mockAR) PendingActions() ([]*state.Action, error)          { return nil, nil }
-func (r mockAR) RunningActions() ([]*state.Action, error)          { return nil, nil }
-func (r mockAR) Tag() names.Tag                                    { return names.NewUnitTag(r.id) }
+func (r mockAR) CancelAction(state.Action) (state.Action, error) { return nil, nil }
+func (r mockAR) WatchActionNotifications() state.StringsWatcher  { return nil }
+func (r mockAR) Actions() ([]state.Action, error)                { return nil, nil }
+func (r mockAR) CompletedActions() ([]state.Action, error)       { return nil, nil }
+func (r mockAR) PendingActions() ([]state.Action, error)         { return nil, nil }
+func (r mockAR) RunningActions() ([]state.Action, error)         { return nil, nil }
+func (r mockAR) Tag() names.Tag                                  { return names.NewUnitTag(r.id) }
 
 // TestMock verifies the mock UUID generator works as expected.
 func (s *ActionSuite) TestMock(c *gc.C) {

@@ -27,9 +27,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.APICallerName,
 		},
 		Output: manifoldOutput,
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(context dependency.Context) (worker.Worker, error) {
 			var apiCaller base.APICaller
-			if err := getResource(config.APICallerName, &apiCaller); err != nil {
+			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
 			w, err := NewTracker(Config{

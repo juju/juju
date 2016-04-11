@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2015-2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package dependency
@@ -8,30 +8,6 @@ import (
 
 	"github.com/juju/juju/worker"
 )
-
-// Engine is a mechanism for persistently running named workers, managing the
-// dependencies between them, and reporting on their status.
-type Engine interface {
-
-	// Engine's primary purpose is to implement Installer responsibilities.
-	Installer
-
-	// Engine also exposes human-comprehensible status data to its clients.
-	Reporter
-
-	// Engine is itself a Worker.
-	worker.Worker
-}
-
-// Installer takes responsibility for persistently running named workers and
-// managing the dependencies between them.
-type Installer interface {
-
-	// Install causes the implementor to accept responsibility for maintaining a
-	// worker corresponding to the supplied manifold, restarting it when it
-	// fails and when its inputs' workers change, until the Engine shuts down.
-	Install(name string, manifold Manifold) error
-}
 
 // Manifold defines the behaviour of a node in an Engine's dependency graph. It's
 // named for the "device that connects multiple inputs or outputs" sense of the
@@ -105,22 +81,35 @@ type Manifold struct {
 // Manifolds conveniently represents several Manifolds.
 type Manifolds map[string]Manifold
 
+// Context represents the situation in which a StartFunc is running. A Context should
+// not be used outside its StartFunc; attempts to do so will have undefined results.
+type Context interface {
+
+	// Abort will be closed if the containing engine no longer wants to
+	// start the manifold's worker. You can ignore Abort if your worker
+	// will start quickly -- it'll just be shut down immediately, nbd --
+	// but if you need to mess with channels or long-running operations
+	// in your StartFunc, Abort lets you do so safely.
+	Abort() <-chan struct{}
+
+	// Get returns an indication of whether a named dependency can be
+	// satisfied. In particular:
+	//
+	//  * if the named resource does not exist, it returns ErrMissing;
+	//  * else if out is nil, it returns nil;
+	//  * else if the named resource has no OutputFunc, it returns ErrMissing;
+	//  * else it passes out into the OutputFunc and returns whatever error
+	//    transpires (hopefully nil).
+	//
+	// Appropriate types for the out pointer depend upon the resource in question.
+	Get(name string, out interface{}) error
+}
+
 // StartFunc returns a worker or an error. All the worker's dependencies should
 // be taken from the supplied GetResourceFunc; if no worker can be started due
 // to unmet dependencies, it should return ErrMissing, in which case it will
 // not be called again until its declared inputs change.
-type StartFunc func(getResource GetResourceFunc) (worker.Worker, error)
-
-// GetResourceFunc returns an indication of whether a named dependency can be
-// satisfied. In particular:
-//
-//  * if the named resource does not exist, it returns ErrMissing
-//  * if the named resource exists, and out is nil, it returns nil
-//  * if the named resource exists, and out is non-nil, it returns the error
-//    from the named resource manifold's output func (hopefully nil)
-//
-// Appropriate types for the out pointer depend upon the resource in question.
-type GetResourceFunc func(name string, out interface{}) error
+type StartFunc func(context Context) (worker.Worker, error)
 
 // ErrMissing can be returned by a StartFunc or a worker to indicate to
 // the engine that it can't be usefully restarted until at least one of its
@@ -156,65 +145,3 @@ type IsFatalFunc func(err error) bool
 // WorstErrorFunc is used to rank fatal errors, to allow an Engine to return the
 // single most important error it's encountered.
 type WorstErrorFunc func(err0, err1 error) error
-
-// Reporter defines an interface for extracting human-relevant information
-// from a worker.
-type Reporter interface {
-
-	// Report returns a map describing the state of the receiver. It is expected
-	// to be goroutine-safe.
-	//
-	// It is polite and helpful to use the Key* constants and conventions defined
-	// and described in this package, where appropriate, but that's for the
-	// convenience of the humans that read the reports; we don't and shouldn't
-	// have any code that depends on particular Report formats.
-	Report() map[string]interface{}
-}
-
-// The Key constants describe the constant features of an Engine's Report.
-const (
-
-	// KeyState applies to a worker; possible values are "starting", "started",
-	// "stopping", or "stopped". Or it might be something else, in distant
-	// Reporter implementations; don't make assumptions.
-	KeyState = "state"
-
-	// KeyError holds some relevant error. In the case of an Engine, this will be:
-	//  * any internal error indicating incorrect operation; or
-	//  * the most important fatal error encountered by any worker; or
-	//  * nil, if none of the above apply;
-	// ...and the value should not be presumed to be stable until the engine
-	// state is "stopped".
-	//
-	// In the case of a manifold, it will always hold the most recent error
-	// returned by the associated worker (or its start func); and will be
-	// rewritten whenever a worker state is set to "started" or "stopped".
-	//
-	// In the case of a resource access, it holds any error encountered when
-	// trying to find or convert the resource.
-	KeyError = "error"
-
-	// KeyManifolds holds a map of manifold name to further data (including
-	// dependency inputs; current worker state; and any relevant report/error
-	// for the associated current/recent worker.)
-	KeyManifolds = "manifolds"
-
-	// KeyReport holds an arbitrary map of information returned by a manifold
-	// Worker that is also a Reporter.
-	KeyReport = "report"
-
-	// KeyInputs holds the names of the manifolds on which this one depends.
-	KeyInputs = "inputs"
-
-	// KeyResourceLog holds a slice representing the calls the current worker
-	// made to its getResource func; the type of the output param; and any
-	// error encountered.
-	KeyResourceLog = "resource-log"
-
-	// KeyName holds the name of some resource.
-	KeyName = "name"
-
-	// KeyType holds a string representation of the type by which a resource
-	// was accessed.
-	KeyType = "type"
-)

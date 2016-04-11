@@ -1,0 +1,236 @@
+package charmstore
+
+import (
+	"io/ioutil"
+	"strings"
+
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+)
+
+var _ = gc.Suite(&ClientSuite{})
+
+type ClientSuite struct {
+	testing.IsolationSuite
+	wrapper *fakeWrapper
+	cache   *fakeMacCache
+}
+
+func (s *ClientSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
+	s.wrapper = &fakeWrapper{
+		stub:       &testing.Stub{},
+		stableStub: &testing.Stub{},
+		devStub:    &testing.Stub{},
+	}
+
+	s.cache = &fakeMacCache{
+		stub: &testing.Stub{},
+	}
+}
+
+func (s *ClientSuite) TestLatestRevisions(c *gc.C) {
+	s.wrapper.ReturnLatestStable = [][]params.CharmRevision{{{
+		Revision: 1,
+		Sha256:   "abc",
+	}}}
+	s.wrapper.ReturnLatestDev = [][]params.CharmRevision{{{
+		Revision: 2,
+		Sha256:   "cde",
+	}}, {{
+		Revision: 3,
+		Sha256:   "fgh",
+	}}}
+
+	client, err := newCachingClient(s.cache, nil, s.wrapper.makeWrapper)
+	c.Assert(err, jc.ErrorIsNil)
+
+	foo := charm.MustParseURL("cs:quantal/foo-1")
+	bar := charm.MustParseURL("cs:quantal/bar-1")
+	baz := charm.MustParseURL("cs:quantal/baz-1")
+
+	ret, err := client.LatestRevisions([]CharmID{{
+		URL:     foo,
+		Channel: params.StableChannel,
+	}, {
+		URL:     bar,
+		Channel: params.DevelopmentChannel,
+	}, {
+		URL:     baz,
+		Channel: params.DevelopmentChannel,
+	}}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []CharmRevision{{
+		Revision: 1,
+	}, {
+		Revision: 2,
+	}, {
+		Revision: 3,
+	}}
+	c.Check(ret, jc.SameContents, expected)
+	s.wrapper.stableStub.CheckCall(c, 0, "Latest", params.StableChannel, []*charm.URL{foo}, map[string][]string(nil))
+	s.wrapper.devStub.CheckCall(c, 0, "Latest", params.DevelopmentChannel, []*charm.URL{bar}, map[string][]string(nil))
+	s.wrapper.devStub.CheckCall(c, 1, "Latest", params.DevelopmentChannel, []*charm.URL{baz}, map[string][]string(nil))
+}
+
+func (s *ClientSuite) TestListResources(c *gc.C) {
+	fp, err := resource.GenerateFingerprint(strings.NewReader("data"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	stable := params.Resource{
+		Name:        "name",
+		Type:        "file",
+		Path:        "foo.zip",
+		Description: "something",
+		Origin:      "store",
+		Revision:    5,
+		Fingerprint: fp.Bytes(),
+		Size:        4,
+	}
+	dev := params.Resource{
+		Name:        "name2",
+		Type:        "file",
+		Path:        "bar.zip",
+		Description: "something",
+		Origin:      "store",
+		Revision:    7,
+		Fingerprint: fp.Bytes(),
+		Size:        4,
+	}
+	dev2 := params.Resource{
+		Name:        "name3",
+		Type:        "file",
+		Path:        "bar.zip",
+		Description: "something",
+		Origin:      "store",
+		Revision:    8,
+		Fingerprint: fp.Bytes(),
+		Size:        4,
+	}
+
+	s.wrapper.ReturnListResourcesStable = []map[string][]params.Resource{{
+		"cs:quantal/foo-1": []params.Resource{stable},
+	}}
+	s.wrapper.ReturnListResourcesDev = []map[string][]params.Resource{{
+		"cs:quantal/bar-1": []params.Resource{dev},
+	}, {
+		"cs:quantal/baz-1": []params.Resource{dev2},
+	}}
+
+	client, err := newCachingClient(s.cache, nil, s.wrapper.makeWrapper)
+	c.Assert(err, jc.ErrorIsNil)
+
+	foo := charm.MustParseURL("cs:quantal/foo-1")
+	bar := charm.MustParseURL("cs:quantal/bar-1")
+	baz := charm.MustParseURL("cs:quantal/baz-1")
+
+	ret, err := client.ListResources([]CharmID{{
+		URL:     foo,
+		Channel: params.StableChannel,
+	}, {
+		URL:     bar,
+		Channel: params.DevelopmentChannel,
+	}, {
+		URL:     baz,
+		Channel: params.DevelopmentChannel,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	stableOut, err := params.API2Resource(stable)
+	c.Assert(err, jc.ErrorIsNil)
+
+	devOut, err := params.API2Resource(dev)
+	c.Assert(err, jc.ErrorIsNil)
+
+	dev2Out, err := params.API2Resource(dev2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(ret, gc.DeepEquals, [][]resource.Resource{
+		{stableOut},
+		{devOut},
+		{dev2Out},
+	})
+	s.wrapper.stableStub.CheckCall(c, 0, "ListResources", params.StableChannel, []*charm.URL{foo})
+	s.wrapper.devStub.CheckCall(c, 0, "ListResources", params.DevelopmentChannel, []*charm.URL{bar})
+	s.wrapper.devStub.CheckCall(c, 1, "ListResources", params.DevelopmentChannel, []*charm.URL{baz})
+}
+
+func (s *ClientSuite) TestGetResource(c *gc.C) {
+	fp, err := resource.GenerateFingerprint(strings.NewReader("data"))
+	c.Assert(err, jc.ErrorIsNil)
+	rc := ioutil.NopCloser(strings.NewReader("data"))
+	s.wrapper.ReturnGetResource = csclient.ResourceData{
+		ReadCloser: rc,
+		Hash:       fp.String(),
+		Size:       4,
+	}
+	apiRes := params.Resource{
+		Name:        "name",
+		Type:        "file",
+		Path:        "foo.zip",
+		Description: "something",
+		Origin:      "store",
+		Revision:    5,
+		Fingerprint: fp.Bytes(),
+		Size:        4,
+	}
+	s.wrapper.ReturnResourceMeta = apiRes
+
+	client, err := newCachingClient(s.cache, nil, s.wrapper.makeWrapper)
+	c.Assert(err, jc.ErrorIsNil)
+
+	req := ResourceRequest{
+		Charm:    charm.MustParseURL("cs:mysql"),
+		Channel:  params.DevelopmentChannel,
+		Name:     "name",
+		Revision: 5,
+	}
+	data, err := client.GetResource(req)
+	c.Assert(err, jc.ErrorIsNil)
+	expected, err := params.API2Resource(apiRes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(data.Resource, gc.DeepEquals, expected)
+	c.Check(data.ReadCloser, gc.DeepEquals, rc)
+	// call #0 is a call to makeWrapper
+	s.wrapper.stub.CheckCall(c, 1, "ResourceMeta", params.DevelopmentChannel, req.Charm, req.Name, req.Revision)
+	s.wrapper.stub.CheckCall(c, 2, "GetResource", params.DevelopmentChannel, req.Charm, req.Name, req.Revision)
+}
+
+func (s *ClientSuite) TestResourceInfo(c *gc.C) {
+	fp, err := resource.GenerateFingerprint(strings.NewReader("data"))
+	c.Assert(err, jc.ErrorIsNil)
+	apiRes := params.Resource{
+		Name:        "name",
+		Type:        "file",
+		Path:        "foo.zip",
+		Description: "something",
+		Origin:      "store",
+		Revision:    5,
+		Fingerprint: fp.Bytes(),
+		Size:        4,
+	}
+	s.wrapper.ReturnResourceMeta = apiRes
+
+	client, err := newCachingClient(s.cache, nil, s.wrapper.makeWrapper)
+	c.Assert(err, jc.ErrorIsNil)
+
+	req := ResourceRequest{
+		Charm:    charm.MustParseURL("cs:mysql"),
+		Channel:  params.StableChannel,
+		Name:     "name",
+		Revision: 5,
+	}
+	res, err := client.ResourceInfo(req)
+	c.Assert(err, jc.ErrorIsNil)
+	expected, err := params.API2Resource(apiRes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.DeepEquals, expected)
+	// call #0 is a call to makeWrapper
+	s.wrapper.stub.CheckCall(c, 1, "ResourceMeta", params.StableChannel, req.Charm, req.Name, req.Revision)
+}

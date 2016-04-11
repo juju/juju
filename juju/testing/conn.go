@@ -83,8 +83,9 @@ type JujuConnSuite struct {
 	APIState           api.Connection
 	apiStates          []api.Connection // additional api.Connections to close on teardown
 	ControllerStore    jujuclient.ClientStore
-	BackingState       *state.State // The State being used by the API server
-	RootDir            string       // The faked-up root directory.
+	BackingState       *state.State     // The State being used by the API server
+	BackingStatePool   *state.StatePool // The StatePool being used by the API server
+	RootDir            string           // The faked-up root directory.
 	LogDir             string
 	oldHome            string
 	oldJujuXDGDataHome string
@@ -277,7 +278,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.BackingState = environ.(GetStater).GetStateInAPIServer()
+	getStater := environ.(GetStater)
+	s.BackingState = getStater.GetStateInAPIServer()
+	s.BackingStatePool = getStater.GetStatePoolInAPIServer()
 
 	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, jc.ErrorIsNil)
@@ -522,6 +525,7 @@ func (s *JujuConnSuite) sampleConfig() testing.Attrs {
 
 type GetStater interface {
 	GetStateInAPIServer() *state.State
+	GetStatePoolInAPIServer() *state.StatePool
 }
 
 func (s *JujuConnSuite) tearDownConn(c *gc.C) {

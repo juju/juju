@@ -95,11 +95,12 @@ type state struct {
 	// access it safely.
 	loggedIn int32
 
-	// tag and password and nonce hold the cached login credentials.
-	// These are only valid if loggedIn is 1.
-	tag      string
-	password string
-	nonce    string
+	// tag, password, macaroons and nonce hold the cached login
+	// credentials. These are only valid if loggedIn is 1.
+	tag       string
+	password  string
+	macaroons []macaroon.Slice
+	nonce     string
 
 	// serverRootAddress holds the cached API server address and port used
 	// to login.
@@ -183,6 +184,7 @@ func open(
 		// state structure BEFORE login ?!?
 		tag:          tagToString(info.Tag),
 		password:     info.Password,
+		macaroons:    info.Macaroons,
 		nonce:        info.Nonce,
 		tlsConfig:    tlsConfig,
 		bakeryClient: bakeryClient,

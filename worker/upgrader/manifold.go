@@ -42,18 +42,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 	return dependency.Manifold{
 		Inputs: inputs,
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-			// This wraps NewUpgrader for the convenience of the manifold. It should
-			// eventually replace NewUpgrader.
+		Start: func(context dependency.Context) (worker.Worker, error) {
 
 			var agent agent.Agent
-			if err := getResource(config.AgentName, &agent); err != nil {
+			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 			currentConfig := agent.CurrentConfig()
 
 			var apiCaller base.APICaller
-			if err := getResource(config.APICallerName, &apiCaller); err != nil {
+			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
 			upgraderFacade := upgrader.NewState(apiCaller)
@@ -65,7 +63,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				if config.PreviousAgentVersion == version.Zero {
 					return nil, errors.New("previous agent version not specified")
 				}
-				if err := getResource(config.UpgradeStepsGateName, &upgradeStepsWaiter); err != nil {
+				if err := context.Get(config.UpgradeStepsGateName, &upgradeStepsWaiter); err != nil {
 					return nil, err
 				}
 			}
@@ -74,7 +72,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if config.UpgradeCheckGateName == "" {
 				initialCheckUnlocker = gate.NewLock()
 			} else {
-				if err := getResource(config.UpgradeCheckGateName, &initialCheckUnlocker); err != nil {
+				if err := context.Get(config.UpgradeCheckGateName, &initialCheckUnlocker); err != nil {
 					return nil, err
 				}
 			}

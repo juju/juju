@@ -29,8 +29,8 @@ var _ = gc.Suite(&InitialiserSuite{})
 // with an identical signature to manager.RunCommandWithRetry which saves each
 // command it recieves in a slice and always returns no output, error code 0
 // and a nil error.
-func getMockRunCommandWithRetry(calledCmds *[]string) func(string) (string, int, error) {
-	return func(cmd string) (string, int, error) {
+func getMockRunCommandWithRetry(calledCmds *[]string) func(string, func(string) error) (string, int, error) {
+	return func(cmd string, fatalError func(string) error) (string, int, error) {
 		*calledCmds = append(*calledCmds, cmd)
 		return "", 0, nil
 	}
@@ -213,6 +213,11 @@ func (s *InitialiserSuite) TestDetectSubnet(c *gc.C) {
 }
 
 func (s *InitialiserSuite) TestDetectSubnetLocal(c *gc.C) {
+	_, err := exec.LookPath("ip")
+	if err != nil {
+		c.Skip("skipping local detect subnet test, ip tool not found")
+	}
+
 	output, err := exec.Command("ip", "addr", "show").CombinedOutput()
 	c.Assert(err, jc.ErrorIsNil)
 

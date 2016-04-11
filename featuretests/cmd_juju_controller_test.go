@@ -122,6 +122,7 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 		ConfigAttrs: testing.Attrs{"controller": true},
 	})
 	defer st.Close()
+	factory.NewFactory(st).MakeService(c, nil)
 
 	stop := make(chan struct{})
 	done := make(chan struct{})
@@ -134,6 +135,8 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 		a := testing.LongAttempt.Start()
 		for a.Next() {
 			err := s.State.Cleanup()
+			c.Check(err, jc.ErrorIsNil)
+			err = st.Cleanup()
 			c.Check(err, jc.ErrorIsNil)
 			err = st.ProcessDyingModel()
 			if errors.Cause(err) != state.ErrModelNotDying {

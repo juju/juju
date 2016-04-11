@@ -24,6 +24,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	mgotxn "gopkg.in/mgo.v2/txn"
@@ -749,6 +750,19 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 	c.Assert(doc.URL, gc.DeepEquals, info.ID)
 }
 
+func (s *StateSuite) TestAddCharmWithAuth(c *gc.C) {
+	// Check that adding charms from scratch works correctly.
+	info := s.dummyCharm(c, "")
+	m, err := macaroon.New([]byte("rootkey"), "id", "loc")
+	c.Assert(err, jc.ErrorIsNil)
+	info.Macaroon = macaroon.Slice{m}
+	dummy, err := s.State.AddCharm(info)
+	c.Assert(err, jc.ErrorIsNil)
+	ms, err := dummy.Macaroon()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms, gc.DeepEquals, info.Macaroon)
+}
+
 func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	// Check that adding charms updates any existing placeholder charm
 	// with the same URL.
@@ -917,6 +931,11 @@ func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
 	// Test with with an uploaded local charm.
 	_, err = s.State.PrepareLocalCharmUpload(info.ID)
 	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := macaroon.New([]byte("rootkey"), "id", "loc")
+	c.Assert(err, jc.ErrorIsNil)
+	info.Macaroon = macaroon.Slice{m}
+	c.Assert(err, jc.ErrorIsNil)
 	sch, err = s.State.UpdateUploadedCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, info.ID)
@@ -927,6 +946,9 @@ func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
 	c.Assert(sch.Config(), gc.DeepEquals, info.Charm.Config())
 	c.Assert(sch.StoragePath(), gc.DeepEquals, info.StoragePath)
 	c.Assert(sch.BundleSha256(), gc.Equals, "missing")
+	ms, err := sch.Macaroon()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms, gc.DeepEquals, info.Macaroon)
 }
 
 func (s *StateSuite) TestUpdateUploadedCharmEscapesSpecialCharsInConfig(c *gc.C) {
@@ -1217,20 +1239,16 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: model is no longer alive")
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is no longer alive`)
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially
@@ -1240,7 +1258,17 @@ func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: model is no longer alive")
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is no longer alive`)
+}
+
+func (s *StateSuite) TestAddMachinesEnvironmentMigrating(c *gc.C) {
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+	// Check that machines cannot be added if the model is initially Dying.
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is being migrated`)
 }
 
 func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
@@ -1879,14 +1907,24 @@ func (s *StateSuite) TestAddService(c *gc.C) {
 
 func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	s.AddTestingService(c, "s0", charm)
 	// Check that services cannot be added if the model is initially Dying.
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model "testenv" is no longer alive`)
+}
+
+func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	// Check that services cannot be added if the model is initially Dying.
+	env, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model "testenv" is being migrated`)
 }
 
 func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
@@ -2423,10 +2461,15 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	// Dying model...
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
+	// Add a service so Destroy doesn't advance to Dead.
+	svc := factory.NewFactory(st1).MakeService(c, nil)
 	dying, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	dying.Destroy()
+	err = dying.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
 
+	// Add an empty model, destroy and remove it; we should
+	// never see it reported.
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 	env2, err := st2.Model()
@@ -2435,14 +2478,16 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	err = state.RemoveModel(s.State, st2.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	// All except the dead env are reported in initial event.
+	// All except the removed env are reported in initial event.
 	w := s.State.WatchModels()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 
-	// Remove alive and dying and see changes reported.
-	err = state.RemoveModel(s.State, dying.UUID())
+	// Progress dying to dead, alive to dying; and see changes reported.
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st1.ProcessDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 	err = alive.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2457,9 +2502,10 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	wc.AssertChange(s.State.ModelUUID())
 	wc.AssertNoChange()
 
-	// Add an model: reported.
+	// Add a non-empty model: reported.
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
+	factory.NewFactory(st1).MakeService(c, nil)
 	env, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(env.UUID())
@@ -2911,10 +2957,7 @@ func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
+func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 	// insert one doc for each multiEnvCollection
 	var ops []mgotxn.Op
 	for _, collName := range state.MultiEnvCollections() {
@@ -2951,26 +2994,33 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 		c.Assert(n, gc.Not(gc.Equals), 0)
 	}
 
-	// test that we can find the user:envName unique index
-	env, err := st.Model()
+	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	indexColl, closer := state.GetCollection(st, "usermodelname")
+	return state.UserModelNameIndex(model.Owner().Canonical(), model.Name())
+}
+
+type checkUserModelNameArgs struct {
+	st     *state.State
+	id     string
+	exists bool
+}
+
+func (s *StateSuite) checkUserModelNameExists(c *gc.C, args checkUserModelNameArgs) {
+	indexColl, closer := state.GetCollection(args.st, "usermodelname")
 	defer closer()
-	id := state.UserModelNameIndex(env.Owner().Canonical(), env.Name())
-	n, err := indexColl.FindId(id).Count()
+	n, err := indexColl.FindId(args.id).Count()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(n, gc.Equals, 1)
+	if args.exists {
+		c.Assert(n, gc.Equals, 1)
+	} else {
+		c.Assert(n, gc.Equals, 0)
+	}
+}
 
-	err = state.SetModelLifeDead(st, st.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.RemoveAllModelDocs()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// test that we can not find the user:envName unique index
-	n, err = indexColl.FindId(id).Count()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(n, gc.Equals, 0)
+func (s *StateSuite) AssertModelDeleted(c *gc.C, st *state.State) {
+	// check to see if the model itself is gone
+	_, err := st.Model()
+	c.Assert(err, gc.ErrorMatches, `model not found`)
 
 	// ensure all docs for all multiEnvCollections are removed
 	for _, collName := range state.MultiEnvCollections() {
@@ -2982,12 +3032,68 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestRemoveAllEnvironDocsAliveEnvFails(c *gc.C) {
+func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	userModelKey := s.insertFakeModelDocs(c, st)
+	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: true})
+
+	err := state.SetModelLifeDead(st, st.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveAllModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can not find the user:envName unique index
+	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
+	s.AssertModelDeleted(c, st)
+}
+
+func (s *StateSuite) TestRemoveAllModelDocsAliveEnvFails(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
 	err := st.RemoveAllModelDocs()
 	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+}
+
+func (s *StateSuite) TestRemoveImportingModelDocsFailsActive(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	err := st.RemoveImportingModelDocs()
+	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+}
+
+func (s *StateSuite) TestRemoveImportingModelDocsFailsExporting(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveImportingModelDocs()
+	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+}
+
+func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	userModelKey := s.insertFakeModelDocs(c, st)
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveImportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can not find the user:envName unique index
+	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
+	s.AssertModelDeleted(c, st)
 }
 
 type attrs map[string]interface{}
@@ -3302,7 +3408,7 @@ var entityTypes = map[string]interface{}{
 	names.MachineTagKind:  (*state.Machine)(nil),
 	names.RelationTagKind: (*state.Relation)(nil),
 	names.NetworkTagKind:  (*state.Network)(nil),
-	names.ActionTagKind:   (*state.Action)(nil),
+	names.ActionTagKind:   (state.Action)(nil),
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {

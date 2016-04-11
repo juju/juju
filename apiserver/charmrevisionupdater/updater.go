@@ -4,6 +4,7 @@
 package charmrevisionupdater
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
@@ -90,8 +91,8 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 
 // NewCharmStoreClient instantiates a new charm store repository.  Exported so
 // we can change it during testing.
-var NewCharmStoreClient = func() charmstore.Client {
-	return charmstore.NewClient(charmstore.ClientConfig{})
+var NewCharmStoreClient = func(st *state.State) (charmstore.Client, error) {
+	return charmstore.NewCachingClient(state.MacaroonCache{st}, nil)
 }
 
 type latestCharmInfo struct {
@@ -113,6 +114,11 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		return nil, err
 	}
 
+	client, err := NewCharmStoreClient(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var charms []charmstore.CharmID
 	var resultsIndexedServices []*state.Service
 	for _, service := range services {
@@ -123,11 +129,14 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 			// a path to the local repo. This may change if the need arises.
 			continue
 		}
-		charms = append(charms, charmstore.CharmID{URL: curl, Channel: "stable"})
+
+		cid := charmstore.CharmID{
+			URL:     curl,
+			Channel: service.Channel(),
+		}
+		charms = append(charms, cid)
 		resultsIndexedServices = append(resultsIndexedServices, service)
 	}
-
-	client := NewCharmStoreClient()
 
 	results, err := charmstore.LatestCharmInfo(client, charms, env.UUID())
 	if err != nil {
