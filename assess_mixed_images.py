@@ -15,6 +15,7 @@ from deploy_stack import (
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    local_charm_path,
 )
 
 
@@ -27,8 +28,12 @@ IMG_URL = 'https://s3.amazonaws.com/temp-streams/aws-image-streams/'
 
 
 def assess_mixed_images(client):
-    client.deploy('local:centos7/dummy-sink')
-    client.deploy('local:trusty/dummy-source')
+    charm_path = local_charm_path(charm='dummy-sink', juju_ver=client.version,
+                                  series='centos7', platform='centos')
+    client.deploy(charm_path)
+    charm_path = local_charm_path(charm='dummy-source',
+                                  juju_ver=client.version, series='trusty')
+    client.deploy(charm_path)
     client.juju('add-relation', ('dummy-source', 'dummy-sink'))
     # Wait for the deployment to finish.
     client.wait_for_started()

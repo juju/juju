@@ -53,6 +53,7 @@ from utility import (
     configure_logging,
     ensure_deleted,
     ensure_dir,
+    local_charm_path,
     LoggedException,
     PortTimeoutError,
     print_now,
@@ -71,14 +72,21 @@ def destroy_environment(client, instance_tag):
         destroy_job_instances(instance_tag)
 
 
-def deploy_dummy_stack(client, charm_prefix):
+def deploy_dummy_stack(client, charm_series):
     """"Deploy a dummy stack in the specified environment."""
     # Centos requires specific machine configuration (i.e. network device
     # order).
-    if charm_prefix.startswith("local:centos") and client.env.maas:
+    if charm_series == "centos" and client.env.maas:
         client.set_model_constraints({'tags': 'MAAS_NIC_1'})
-    client.deploy(charm_prefix + 'dummy-source')
-    client.deploy(charm_prefix + 'dummy-sink')
+    platform = 'ubuntu'
+    if charm_series == 'win' or charm_series == 'centos':
+        platform = charm_series
+    charm = local_charm_path(charm='dummy-source', juju_ver=client.version,
+                             series=charm_series, platform=platform)
+    client.deploy(charm, series=charm_series)
+    charm = local_charm_path(charm='dummy-sink', juju_ver=client.version,
+                             series=charm_series, platform=platform)
+    client.deploy(charm, series=charm_series)
     client.juju('add-relation', ('dummy-source', 'dummy-sink'))
     client.juju('expose', ('dummy-sink',))
     if client.env.kvm or client.env.maas:
@@ -372,12 +380,12 @@ def deploy_job():
     series = args.series
     if series is None:
         series = 'precise'
-    charm_prefix = 'local:{}/'.format(series)
+    charm_series = series
     # Don't need windows or centos state servers.
     if series.startswith("win") or series.startswith("centos"):
         logging.info('Setting default series to trusty for win and centos.')
         series = 'trusty'
-    return _deploy_job(args, charm_prefix, series)
+    return _deploy_job(args, charm_series, series)
 
 
 def update_env(env, new_env_name, series=None, bootstrap_host=None,
@@ -756,7 +764,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
         yield
 
 
-def _deploy_job(args, charm_prefix, series):
+def _deploy_job(args, charm_series, series):
     start_juju_path = None if args.upgrade else args.juju_bin
     if sys.platform == 'win32':
         # Ensure OpenSSH is never in the path for win tests.
@@ -786,9 +794,9 @@ def _deploy_job(args, charm_prefix, series):
             # deploy_dummy_stack(), as was the case prior to this revision.
             manager = nested()
         with manager:
-            deploy_dummy_stack(client, charm_prefix)
+            deploy_dummy_stack(client, charm_series)
         assess_juju_relations(client)
-        skip_juju_run = charm_prefix.startswith(("local:centos", "local:win"))
+        skip_juju_run = charm_series.startswith(("centos", "win"))
         if not skip_juju_run:
             assess_juju_run(client)
         if args.upgrade:

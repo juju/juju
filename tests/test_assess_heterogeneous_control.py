@@ -141,7 +141,7 @@ class TestTestControlHeterogeneous(TestCase):
         self.assertEqual(client.env.juju_home, 'foo')
 
     def test_same_home(self):
-        initial_client = FakeJujuClient()
+        initial_client = FakeJujuClient(version='1.25')
         other_client = FakeJujuClient(env=initial_client.env)
         other_client._backing_state = initial_client._backing_state
         bs_manager = FakeBootstrapManager(initial_client)

@@ -12,6 +12,7 @@ import sys
 
 from remote import remote_from_unit
 from utility import (
+    local_charm_path,
     until_timeout,
 )
 
@@ -77,9 +78,13 @@ class MonkeyRunner:
         if self.machine:
             logging.debug(
                 'Deploying ubuntu to machine {}.'.format(self.machine))
-            self.client.deploy('ubuntu', to=self.machine)
+            charm = local_charm_path(
+                charm='ubuntu', juju_ver=self.client.version)
+            self.client.deploy(charm, to=self.machine)
         logging.debug('Deploying local:chaos-monkey.')
-        self.client.deploy('local:chaos-monkey')
+        charm = local_charm_path(
+            charm='chaos-monkey', juju_ver=self.client.version)
+        self.client.deploy(charm)
         logging.debug('Relating chaos-monkey to {}.'.format(self.service))
         self.client.juju('add-relation', (self.service, 'chaos-monkey'))
         logging.debug('Waiting for services to start.')

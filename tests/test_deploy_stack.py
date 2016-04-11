@@ -65,6 +65,7 @@ from remote import (
 )
 from tests import (
     FakeHomeTestCase,
+    temp_os_env,
     use_context,
 )
 from test_jujupy import (
@@ -604,11 +605,12 @@ class TestDeployDummyStack(FakeHomeTestCase):
     def test_deploy_dummy_stack_sets_centos_constraints(self):
         env = JujuData('foo', {'type': 'maas'})
         client = EnvJujuClient(env, None, '/foo/juju')
+        client.version = '2.0.0'
         with patch('subprocess.check_call', autospec=True) as cc_mock:
             with patch.object(EnvJujuClient, 'wait_for_started'):
                 with patch('deploy_stack.get_random_string',
                            return_value='fake-token', autospec=True):
-                    deploy_dummy_stack(client, 'local:centos/foo')
+                    deploy_dummy_stack(client, 'centos')
         assert_juju_call(self, cc_mock, client,
                          ('juju', '--show-log', 'set-model-constraints', '-m',
                           'foo', 'tags=MAAS_NIC_1'), 0)
@@ -648,18 +650,21 @@ class TestDeployDummyStack(FakeHomeTestCase):
             }
             return output[args]
 
+        client.version = '2.0.0'
         with patch.object(client, 'get_juju_output', side_effect=output,
                           autospec=True) as gjo_mock:
             with patch('subprocess.check_call', autospec=True) as cc_mock:
                 with patch('deploy_stack.get_random_string',
                            return_value='fake-token', autospec=True):
                     with patch('sys.stdout', autospec=True):
-                        deploy_dummy_stack(client, 'bar-')
+                        with temp_os_env('JUJU_REPOSITORY', '/tmp/repo'):
+                            deploy_dummy_stack(client, 'bar-')
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'deploy', '-m', 'foo', 'bar-dummy-source'),
-            0)
+            'juju', '--show-log', 'deploy', '-m', 'foo',
+            '/tmp/repo/charms/dummy-source', '--series', 'bar-'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'deploy', '-m', 'foo', 'bar-dummy-sink'), 1)
+            'juju', '--show-log', 'deploy', '-m', 'foo',
+            '/tmp/repo/charms/dummy-sink', '--series', 'bar-'), 1)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'add-relation', '-m', 'foo',
             'dummy-source', 'dummy-sink'), 2)
@@ -671,6 +676,22 @@ class TestDeployDummyStack(FakeHomeTestCase):
                 call('show-status', '--format', 'yaml', admin=False)
             ],
             gjo_mock.call_args_list)
+
+        client.version = '1.25.0'
+        with patch.object(client, 'get_juju_output', side_effect=output,
+                          autospec=True) as gjo_mock:
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
+                with patch('deploy_stack.get_random_string',
+                           return_value='fake-token', autospec=True):
+                    with patch('sys.stdout', autospec=True):
+                        with temp_os_env('JUJU_REPOSITORY', '/tmp/repo'):
+                            deploy_dummy_stack(client, 'bar-')
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'deploy', '-m', 'foo',
+            'local:bar-/dummy-source', '--series', 'bar-'), 0)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'deploy', '-m', 'foo',
+            'local:bar-/dummy-sink', '--series', 'bar-'), 1)
 
 
 def fake_SimpleEnvironment(name):
@@ -831,7 +852,7 @@ class TestDeployJob(FakeHomeTestCase):
                    autospec=True):
             with patch('deploy_stack._deploy_job', autospec=True) as ds_mock:
                 deploy_job()
-        ds_mock.assert_called_once_with(args, 'local:windows/', 'trusty')
+        ds_mock.assert_called_once_with(args, 'windows', 'trusty')
 
     def test_deploy_job_changes_series_with_centos(self):
         args = Namespace(
@@ -844,7 +865,7 @@ class TestDeployJob(FakeHomeTestCase):
                    autospec=True):
             with patch('deploy_stack._deploy_job', autospec=True) as ds_mock:
                 deploy_job()
-        ds_mock.assert_called_once_with(args, 'local:centos/', 'trusty')
+        ds_mock.assert_called_once_with(args, 'centos', 'trusty')
 
 
 class TestTestUpgrade(FakeHomeTestCase):

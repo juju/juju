@@ -34,7 +34,7 @@ from utility import (
     get_deb_arch,
     get_winrm_certs,
     is_ipv6_address,
-    make_local_charm,
+    local_charm_path,
     quote,
     run_command,
     scoped_environ,
@@ -560,33 +560,33 @@ class TestLocalCharm(TestCase):
 
     def test_make_local_charm_1x(self):
         charm = 'mysql'
-        path = make_local_charm(charm, '1.25.0')
+        path = local_charm_path(charm, '1.25.0')
         self.assertEqual(path, 'local:mysql')
 
     def test_make_local_charm_1x_series(self):
         charm = 'mysql'
-        path = make_local_charm(charm, '1.25.0', series='trusty')
+        path = local_charm_path(charm, '1.25.0', series='trusty')
         self.assertEqual(path, 'local:trusty/mysql')
 
     def test_make_local_charm_2x(self):
         charm = 'mysql'
-        path = make_local_charm(charm, '2.0.0', repository='/tmp/charms')
+        path = local_charm_path(charm, '2.0.0', repository='/tmp/charms')
         self.assertEqual(path, '/tmp/charms/mysql')
 
     def test_make_local_charm_2x_os_env(self):
         charm = 'mysql'
         with temp_os_env('JUJU_REPOSITORY', '/home/foo/repository'):
-            path = make_local_charm(charm, '2.0.0')
+            path = local_charm_path(charm, '2.0.0')
         self.assertEqual(path, '/home/foo/repository/charms/mysql')
 
     def test_make_local_charm_2x_win(self):
         charm = 'mysql'
         with temp_os_env('JUJU_REPOSITORY', '/home/foo/repository'):
-            path = make_local_charm(charm, '2.0.0', platform='win')
+            path = local_charm_path(charm, '2.0.0', platform='win')
         self.assertEqual(path, '/home/foo/repository/charms-win/mysql')
 
     def test_make_local_charm_2x_centos(self):
         charm = 'mysql'
         with temp_os_env('JUJU_REPOSITORY', '/home/foo/repository'):
-            path = make_local_charm(charm, '2.0.0', platform='centos')
+            path = local_charm_path(charm, '2.0.0', platform='centos')
         self.assertEqual(path, '/home/foo/repository/charms-centos/mysql')

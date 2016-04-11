@@ -254,7 +254,7 @@ class FakeJujuClient:
     manipulate the same state.
     """
     def __init__(self, env=None, full_path=None, debug=False,
-                 jes_enabled=False):
+                 jes_enabled=False, version='2.0.0'):
         self._backing_state = FakeEnvironmentState()
         if env is None:
             env = SimpleEnvironment('name', {
@@ -267,6 +267,7 @@ class FakeJujuClient:
         self.bootstrap_replaces = {}
         self._jes_enabled = jes_enabled
         self._separate_admin = jes_enabled
+        self.version = version
 
     def clone(self, env, full_path=None, debug=None):
         if full_path is None:
@@ -386,7 +387,7 @@ class FakeJujuClient:
     def add_ssh_machines(self, machines):
         self._backing_state.add_ssh_machines(machines)
 
-    def deploy(self, charm_name, service_name=None):
+    def deploy(self, charm_name, service_name=None, series=None):
         if service_name is None:
             service_name = charm_name.split(':')[-1].split('/')[-1]
         self._backing_state.deploy(charm_name, service_name)
@@ -1412,9 +1413,9 @@ class TestEnvJujuClient(ClientTest):
         env = EnvJujuClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         with patch.object(env, 'juju') as mock_juju:
-            env.deploy('mondogb', '/home/jrandom/repo')
+            env.deploy('/home/jrandom/repo/mongodb')
         mock_juju.assert_called_with(
-            'deploy', ('mondogb', '--repository', '/home/jrandom/repo'))
+            'deploy', ('/home/jrandom/repo/mongodb',))
 
     def test_deploy_to(self):
         env = EnvJujuClient(

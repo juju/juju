@@ -22,6 +22,7 @@ from substrate import (
     terminate_instances,
 )
 from utility import (
+    local_charm_path,
     LoggedException,
     print_now,
 )
@@ -33,11 +34,11 @@ __metaclass__ = type
 running_instance_pattern = re.compile('\["([^"]+)"\]')
 
 
-def deploy_stack(client, charm_prefix):
+def deploy_stack(client, charm_series):
     """"Deploy a simple stack, state-server and ubuntu."""
-    if charm_prefix and not charm_prefix.endswith('/'):
-        charm_prefix = charm_prefix + '/'
-    client.juju('deploy', (charm_prefix + 'ubuntu',))
+    charm = local_charm_path(
+        charm='ubuntu', juju_ver=client.version, series=charm_series)
+    client.deploy(charm, series=charm_series)
     client.wait_for_started().status
     print_now("%s is ready to testing" % client.env.environment)
 
@@ -110,7 +111,7 @@ def restore_missing_state_server(client, admin_client, backup_file):
 def parse_args(argv=None):
     parser = ArgumentParser('Test recovery strategies.')
     parser.add_argument(
-        '--charm-prefix', help='A prefix for charm urls.', default='')
+        '--charm-series', help='Charm series.', default='')
     parser.add_argument(
         '--debug', action='store_true', default=False,
         help='Use --debug juju logging.')
@@ -151,9 +152,9 @@ def detect_bootstrap_machine(bs_manager):
         raise
 
 
-def assess_recovery(bs_manager, strategy, charm_prefix):
+def assess_recovery(bs_manager, strategy, charm_series):
     client = bs_manager.client
-    deploy_stack(client, charm_prefix)
+    deploy_stack(client, charm_series)
     admin_client = client.get_admin_client()
     if strategy in ('ha', 'ha-backup'):
         admin_client.enable_ha()
@@ -187,7 +188,7 @@ def main(argv):
         jes_enabled=jes_enabled)
     with bs_manager.booted_context(upload_tools=False):
         with detect_bootstrap_machine(bs_manager):
-            assess_recovery(bs_manager, args.strategy, args.charm_prefix)
+            assess_recovery(bs_manager, args.strategy, args.charm_series)
 
 
 if __name__ == '__main__':

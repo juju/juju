@@ -1853,6 +1853,7 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
 
     def test_iter_steps(self):
         client = FakeEnvJujuClient()
+        client.version = '2.0.0'
         client.full_path = '/future/juju'
         uc_attempt = UpgradeCharmAttempt()
         uc_iterator = iter_steps_validate_info(self, uc_attempt, client)
@@ -1872,7 +1873,7 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
         self.assertIn('description', metadata)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'deploy', '-m', 'steve',
-            'local:trusty/mycharm', '--repository', temp_repository))
+            os.path.join(temp_repository, 'trusty', 'mycharm')))
         status = {
             'machines': {'0': {'agent-state': 'started'}},
             'services': {},
