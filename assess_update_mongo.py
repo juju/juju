@@ -14,6 +14,7 @@ from remote import remote_from_address
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    local_charm_path,
 )
 
 
@@ -38,9 +39,10 @@ ps ax | grep 'mongo3/bin/mongod --dbpath /var/lib/juju/db' | grep -v grep
 def assess_update_mongo(client, series, bootstrap_host):
     log.info('series={}, bootstrap_host={}'.format(series, bootstrap_host))
     return_code = 1
-    charm = 'local:{}/ubuntu'.format(series)
+    charm = local_charm_path(
+        charm='ubuntu', juju_ver=client.version, series=series)
     log.info("Setting up test.")
-    client.deploy(charm)
+    client.deploy(charm, series=series)
     client.wait_for_started()
     log.info("Setup complete.")
     log.info("Test started.")

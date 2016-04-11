@@ -646,11 +646,9 @@ class EnvJujuClient:
         if retcode != 0:
             raise subprocess.CalledProcessError(retcode, full_args)
 
-    def deploy(self, charm, repository=None, to=None, series=None, service=None,
-               force=False):
+    def deploy(self, charm, repository=None, to=None, series=None,
+               service=None, force=False):
         args = [charm]
-        if repository is not None:
-            args.extend(['--repository', repository])
         if to is not None:
             args.extend(['--to', to])
         if series is not None:
@@ -1198,6 +1196,17 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
         if bootstrap_series is not None:
             args = args + ('--bootstrap-series', bootstrap_series)
         return args
+
+    def deploy(self, charm, repository=None, to=None, series=None,
+               service=None, force=False):
+        args = [charm]
+        if repository is not None:
+            args.extend(['--repository', repository])
+        if to is not None:
+            args.extend(['--to', to])
+        if service is not None:
+            args.extend([service])
+        return self.juju('deploy', tuple(args))
 
 
 class EnvJujuClient2A1(EnvJujuClient2A2):

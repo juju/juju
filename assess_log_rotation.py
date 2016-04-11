@@ -15,7 +15,10 @@ from jujupy import (
     make_client,
     yaml_loads,
 )
-from utility import add_basic_testing_arguments
+from utility import (
+    add_basic_testing_arguments,
+    local_charm_path,
+)
 
 
 __metaclass__ = type
@@ -223,7 +226,9 @@ def main():
                       log_dir=args.logs, keep_env=args.keep_env,
                       upload_tools=args.upload_tools,
                       region=args.region):
-        client.juju("deploy", ('local:trusty/fill-logs',))
+        charm_path = local_charm_path(
+            charm='fill-logs', juju_ver=client.version, series='trusty')
+        client.deploy(charm_path)
         if args.agent == "unit":
             test_unit_rotation(client)
         if args.agent == "machine":

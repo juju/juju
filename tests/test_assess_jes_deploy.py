@@ -101,13 +101,13 @@ class TestJES(tests.FakeHomeTestCase):
         with patch.object(expected_client, 'enable_jes'):
             with patch.object(expected_client, 'is_jes_enabled',
                               return_value=True):
-                with jes_setup(setup_args) as (client, charm_previx, base_env):
+                with jes_setup(setup_args) as (client, charm_series, base_env):
                     self.assertEqual(1, client.is_jes_enabled.call_count)
                     self.assertEqual(0, client.enable_jes.call_count)
 
         # assert that jes_setup provides expected values
         self.assertIs(client, expected_client)
-        self.assertEqual(charm_previx, 'local:trusty/')
+        self.assertEqual(charm_series, 'trusty')
         self.assertEqual(base_env, 'baz')
 
         # assert that helper funcs were called with expected args.
