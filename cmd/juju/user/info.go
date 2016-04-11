@@ -50,7 +50,7 @@ type infoCommandBase struct {
 }
 
 func (c *infoCommandBase) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.exactTime, "exact-time", false, "use full timestamp precision")
+	f.BoolVar(&c.exactTime, "exact-time", false, "Use full timestamp for connection times")
 }
 
 func NewShowUserCommand() cmd.Command {
