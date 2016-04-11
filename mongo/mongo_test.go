@@ -413,6 +413,7 @@ func (s *MongoSuite) TestInstallMongodFallsBack(c *gc.C) {
 		c.Check(strings.TrimSpace(string(args)), gc.Equals, test.cmd)
 
 		err = os.Remove(outputFile)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
