@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"bytes"
 	"io/ioutil"
 
 	"github.com/juju/errors"
@@ -112,4 +113,18 @@ func (s *maas2StorageSuite) TestURLSuccess(c *gc.C) {
 	c.Assert(result, gc.Equals, "heavy lies")
 	c.Assert(controller.getFileFilename, gc.Equals, "prefix-grasshopper.avi")
 }
+
+func (s *maas2StorageSuite) TestPut(c *gc.C) {
+	controller := &fakeController{
+		filesError: errors.New("oh no!"),
+	}
+	storage := s.makeStorage(c, controller)
+	reader := bytes.NewReader([]byte{})
+	err := storage.Put("riff", reader, 10)
+	c.Assert(err, gc.ErrorMatches, "oh no!")
+	c.Assert(controller.addFileArgs, jc.DeepEquals, gomaasapi.AddFileArgs{
+		Filename: "prefix-riff",
+		Reader:   reader,
+		Length:   10,
+	})
 }
