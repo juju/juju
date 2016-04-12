@@ -24,14 +24,21 @@ type API struct {
 }
 
 // NewAPI returns a new api client facade instance.
-func NewAPI(caller base.APICaller, tag names.Tag) *API {
+func NewAPI(caller base.APICaller, tag names.Tag) (*API, error) {
 	if caller == nil {
-		panic("caller is nil")
+		return nil, fmt.Errorf("caller is nil")
 	}
+
+	_, isUnit := tag.(names.UnitTag)
+	_, isMachine := tag.(names.MachineTag)
+	if !(isMachine || isUnit) {
+		return nil, fmt.Errorf("incorrect tag type %#v", tag)
+	}
+
 	return &API{
 		facade: base.NewFacadeCaller(caller, proxyUpdaterFacade),
 		tag:    tag,
-	}
+	}, nil
 }
 
 // WatchForProxyConfigAndAPIHostPortChanges returns a NotifyWatcher waiting for

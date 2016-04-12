@@ -22,7 +22,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
@@ -39,14 +38,12 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/imagemetadata"
 	apimachiner "github.com/juju/juju/api/machiner"
-	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
-	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
@@ -73,7 +70,6 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
-	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -1102,53 +1098,6 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	}
 
 	s.waitStopped(c, state.JobManageModel, a, done)
-}
-
-func (s *MachineSuite) TestProxyUpdaterWithSystemFileUpdate(c *gc.C) {
-	// Make sure there are some proxy settings to write.
-	updateAttrs := config.ProxyConfigMap(proxy.Settings{
-		Http:    "http proxy",
-		Https:   "https proxy",
-		Ftp:     "ftp proxy",
-		NoProxy: "",
-	})
-
-	expectedProxy := proxy.Settings{
-		Http: "http proxy", Https: "https proxy", Ftp: "ftp proxy", NoProxy: "localhost"}
-	expectedAPTProxy := proxy.Settings{
-		Http: "http://http proxy", Https: "https://https proxy", Ftp: "ftp://ftp proxy", NoProxy: ""}
-
-	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Patch out the actual worker func.
-	started := newSignal()
-	mockNew := func(proxyAPI *apiproxyupdater.API) (worker.Worker, error) {
-		// Indirect check that we get a functional API.
-		//proxyAPI := apiproxyupdater.NewAPI(api)
-		proxyConf, APTProxyConf, err := proxyAPI.ProxyConfig()
-		if c.Check(err, jc.ErrorIsNil) {
-			c.Check(proxyConf, jc.DeepEquals, expectedProxy)
-			c.Check(APTProxyConf, jc.DeepEquals, expectedAPTProxy)
-		}
-		return worker.NewSimpleWorker(func(_ <-chan struct{}) error {
-			started.trigger()
-			return nil
-		}), nil
-	}
-	_ = mockNew
-	s.AgentSuite.PatchValue(&proxyupdater.NewWorker, mockNew)
-
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for proxy updater to start")
-	case <-started.triggered():
-	}
 }
 
 func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {

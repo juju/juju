@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/workertest"
 	"github.com/juju/names"
 )
 
@@ -24,7 +25,8 @@ var _ = gc.Suite(&ProxyUpdaterSuite{})
 func newAPI(c *gc.C, args []apitesting.CheckArgs) (*int, *proxyupdater.API) {
 	var called int
 	apiCaller := apitesting.CheckingAPICallerMultiArgs(c, args, &called, nil)
-	api := proxyupdater.NewAPI(apiCaller, names.NewUnitTag("u/0"))
+	api, err := proxyupdater.NewAPI(apiCaller, names.NewUnitTag("u/0"))
+	c.Assert(err, gc.IsNil)
 	c.Assert(api, gc.NotNil)
 	c.Assert(called, gc.Equals, 0)
 
@@ -46,9 +48,10 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 	}}
 	called, api := newAPI(c, args)
 
-	_, err := api.WatchForProxyConfigAndAPIHostPortChanges()
-	c.Assert(*called, gc.Equals, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	watcher, err := api.WatchForProxyConfigAndAPIHostPortChanges()
+	workertest.CleanKill(c, watcher)
+	c.Check(*called, jc.GreaterThan, 0)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
@@ -80,13 +83,13 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 	proxySettings, APTProxySettings, err := api.ProxyConfig()
 	c.Assert(*called, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(proxySettings, jc.DeepEquals, proxy.Settings{
+	c.Check(proxySettings, jc.DeepEquals, proxy.Settings{
 		Http:    "http",
 		Https:   "https",
 		Ftp:     "ftp",
 		NoProxy: "NoProxy",
 	})
-	c.Assert(APTProxySettings, jc.DeepEquals, proxy.Settings{
+	c.Check(APTProxySettings, jc.DeepEquals, proxy.Settings{
 		Http:    "http-apt",
 		Https:   "https-apt",
 		Ftp:     "ftp-apt",

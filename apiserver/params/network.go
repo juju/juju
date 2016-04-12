@@ -663,9 +663,9 @@ type ProxyConfig struct {
 
 // ProxyConfigResult contains information needed to configure a clients proxy settings
 type ProxyConfigResult struct {
-	ProxySettings    ProxyConfig
-	APTProxySettings ProxyConfig
-	Error            *Error `json:"Error,omitempty"`
+	ProxySettings    ProxyConfig `json:"ProxySettings"`
+	APTProxySettings ProxyConfig `json:"APTProxySettings"`
+	Error            *Error      `json:"Error,omitempty"`
 }
 
 // ProxyConfigResults contains information needed to configure multiple clients proxy settings

@@ -50,31 +50,35 @@ func NewAPIWithBacking(st Backend, resources *common.Resources, authorizer commo
 	}, nil
 }
 
-// WatchChanges watches for cleanups to be perfomed in state
-func (api *ProxyUpdaterAPI) WatchForProxyConfigAndAPIHostPortChanges(args params.Entities) params.NotifyWatchResults {
+func (api *ProxyUpdaterAPI) oneWatch() params.NotifyWatchResult {
+	var result params.NotifyWatchResult
+
 	watch := common.NewMultiNotifyWatcher(
 		api.backend.WatchForModelConfigChanges(),
 		api.backend.WatchAPIHostPorts())
 
+	if _, ok := <-watch.Changes(); ok {
+		result = params.NotifyWatchResult{
+			NotifyWatcherId: api.resources.Register(watch),
+		}
+	}
+	result = params.NotifyWatchResult{
+		Error: common.ServerError(watcher.EnsureErr(watch)),
+	}
+	return result
+}
+
+// WatchChanges watches for cleanups to be perfomed in state
+func (api *ProxyUpdaterAPI) WatchForProxyConfigAndAPIHostPortChanges(args params.Entities) params.NotifyWatchResults {
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
-	errors, ok := api.authEntities(args)
-	var result params.NotifyWatchResult
-
-	if ok {
-		if _, ok := <-watch.Changes(); ok {
-			result = params.NotifyWatchResult{
-				NotifyWatcherId: api.resources.Register(watch),
-			}
-		}
-		result = params.NotifyWatchResult{
-			Error: common.ServerError(watcher.EnsureErr(watch)),
-		}
-	}
+	errors, _ := api.authEntities(args)
 
 	for i := range args.Entities {
-		results.Results[i] = result
+		if errors.Results[i].Error == nil {
+			results.Results[i] = api.oneWatch()
+		}
 		results.Results[i].Error = errors.Results[i].Error
 	}
 
@@ -95,20 +99,20 @@ func (api *ProxyUpdaterAPI) authEntities(args params.Entities) (params.ErrorResu
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
 
-	ok := true
+	var ok bool
 
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			ok = false
 			continue
 		}
 		err = common.ErrPerm
 		if !api.authorizer.AuthOwner(tag) {
 			result.Results[i].Error = common.ServerError(err)
-			ok = false
+			continue
 		}
+		ok = true
 	}
 	return result, ok
 }
