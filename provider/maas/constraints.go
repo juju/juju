@@ -236,7 +236,6 @@ func getBindings(
 			index++
 		}
 		namesSet.Add(label)
-		item := fmt.Sprintf("%s:space=%s", label, space.ProviderId)
 		combinedBindings = append(combinedBindings, interfaceBinding{label, string(space.ProviderId)})
 		index++
 	}
@@ -278,12 +277,18 @@ func addInterfaces2(
 	}
 
 	if len(combinedBindings) > 0 {
-		// TODO (mfoord): uncomment once gomaasapi supports the Interfaces
-		// parameter
-		//params.Interfaces = combinedBindings
+		interfaceSpecs := make([]gomaasapi.InterfaceSpec, len(combinedBindings))
+		for i, space := range combinedBindings {
+			interfaceSpecs[i] = gomaasapi.InterfaceSpec{space.Name, space.SpaceProviderId}
+		}
+		params.Interfaces = interfaceSpecs
 	}
 	if len(negatives) > 0 {
-		params.NotNetworks = negatives
+		negativeStrings := make([]string, len(negatives))
+		for i, space := range negatives {
+			negativeStrings[i] = space.SpaceProviderId
+		}
+		params.NotSpace = negativeStrings
 	}
 	return nil
 }
