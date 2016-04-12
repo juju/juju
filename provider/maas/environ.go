@@ -783,7 +783,9 @@ func (environ *maasEnviron) acquireNode2(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	addStorage2(&acquireParams, volumes)
+	// TODO (mfoord): add this back once gomaasapi has support for the
+	// Storage parameter on gomaasapi.AllocateMachineArgs.
+	//addStorage(acquireParams, volumes)
 	acquireParams.AgentName = environ.ecfg().maasAgentName()
 	if zoneName != "" {
 		acquireParams.Zone = zoneName
