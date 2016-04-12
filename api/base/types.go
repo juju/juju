@@ -16,6 +16,8 @@ type UserModel struct {
 	Name           string
 	UUID           string
 	Owner          string
+	Life           params.Life
+	Status         params.EntityStatus
 	LastConnection *time.Time
 }
 

@@ -11,12 +11,14 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
@@ -37,16 +39,18 @@ func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
 	command := commands.NewJujuCommand(context)
 	c.Assert(testing.InitCommand(command, args), jc.ErrorIsNil)
 	c.Assert(command.Run(context), jc.ErrorIsNil)
+	loggo.RemoveWriter("warning")
 	return context
 }
 
-func (s *cmdControllerSuite) createModelAdminUser(c *gc.C, modelname string, isServer bool) {
+func (s *cmdControllerSuite) createModelAdminUser(c *gc.C, modelname string, isServer bool) params.Model {
 	modelManager := modelmanager.NewClient(s.APIState)
-	_, err := modelManager.CreateModel(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
+	model, err := modelManager.CreateModel(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
 		"name":       modelname,
 		"controller": isServer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	return model
 }
 
 func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, isServer bool) {
@@ -74,19 +78,59 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 	s.createModelAdminUser(c, "new-model", false)
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME       OWNER        LAST CONNECTION\n"+
-		"admin*     admin@local  just now\n"+
-		"new-model  admin@local  never connected\n"+
+		"NAME       OWNER        STATUS  LAST CONNECTION\n"+
+		"admin*     admin@local  active  just now\n"+
+		"new-model  admin@local  active  never connected\n"+
 		"\n")
 }
 
 func (s *cmdControllerSuite) TestCreateModelNormalUser(c *gc.C) {
-	s.createModelAdminUser(c, "new-model", false)
+	s.createModelNormalUser(c, "new-model", false)
+	context := s.run(c, "list-models", "--all")
+	c.Assert(testing.Stdout(context), gc.Equals, ""+
+		"NAME       OWNER        STATUS  LAST CONNECTION\n"+
+		"admin*     admin@local  active  just now\n"+
+		"new-model  test@local   active  never connected\n"+
+		"\n")
+}
+
+func (s *cmdControllerSuite) TestListModelsYAML(c *gc.C) {
+	context := s.run(c, "list-models", "--format=yaml")
+	c.Assert(testing.Stdout(context), gc.Matches, `
+models:
+- name: admin
+  model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  owner: admin@local
+  life: alive
+  status:
+    current: active
+    since: .*
+  last-connection: just now
+current-model: admin
+`[1:])
+}
+
+func (s *cmdControllerSuite) TestListArchivedModels(c *gc.C) {
+	modelInfo := s.createModelAdminUser(c, "new-model", false)
+	st, err := s.State.ForModel(names.NewModelTag(modelInfo.UUID))
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME       OWNER        LAST CONNECTION\n"+
-		"admin*     admin@local  just now\n"+
-		"new-model  admin@local  never connected\n"+
+		"NAME    OWNER        STATUS  LAST CONNECTION\n"+
+		"admin*  admin@local  active  just now\n"+
+		"\n")
+
+	context = s.run(c, "list-models", "--archived")
+	c.Assert(testing.Stdout(context), gc.Equals, ""+
+		"NAME       OWNER        STATUS    LAST CONNECTION\n"+
+		"admin*     admin@local  active    just now\n"+
+		"new-model  admin@local  archived  never connected\n"+
 		"\n")
 }
 

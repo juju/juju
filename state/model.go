@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/status"
 	"github.com/juju/version"
 )
 
@@ -264,14 +265,19 @@ func (m *Model) MigrationMode() MigrationMode {
 
 // SetMigrationMode updates the migration mode of the model.
 func (m *Model) SetMigrationMode(mode MigrationMode) error {
+	st, closeState, err := m.getState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer closeState()
+
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     m.doc.UUID,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"migration-mode", mode}}}},
 	}}
-	err := m.st.runTransaction(ops)
-	if err != nil {
+	if err := st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 	return m.Refresh()
@@ -298,23 +304,47 @@ func (m *Model) Owner() names.UserTag {
 	return names.NewUserTag(m.doc.Owner)
 }
 
+// Status returns the status of the model.
+func (m *Model) Status() (status.StatusInfo, error) {
+	st, closeState, err := m.getState()
+	if err != nil {
+		return status.StatusInfo{}, errors.Trace(err)
+	}
+	defer closeState()
+	status, err := getStatus(st, m.globalKey(), "model")
+	if err != nil {
+		return status, err
+	}
+	return status, nil
+}
+
+// SetStatus sets the status of the model.
+func (m *Model) SetStatus(modelStatus status.Status, info string, data map[string]interface{}) error {
+	st, closeState, err := m.getState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer closeState()
+	if !status.ValidModelStatus(modelStatus) {
+		return errors.Errorf("cannot set invalid status %q", modelStatus)
+	}
+	return setStatus(st, setStatusParams{
+		badge:     "model",
+		globalKey: m.globalKey(),
+		status:    modelStatus,
+		message:   info,
+		rawData:   data,
+	})
+}
+
 // Config returns the config for the model.
 func (m *Model) Config() (*config.Config, error) {
-	if m.st.modelTag.Id() == m.UUID() {
-		return m.st.ModelConfig()
+	st, closeState, err := m.getState()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	envState := m.st
-	if envState.modelTag != m.ModelTag() {
-		// The active model isn't the same as the model
-		// we are querying.
-		var err error
-		envState, err = m.st.ForModel(m.ModelTag())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer envState.Close()
-	}
-	return envState.ModelConfig()
+	defer closeState()
+	return st.ModelConfig()
 }
 
 // UpdateLatestToolsVersion looks up for the latest available version of
@@ -425,14 +455,11 @@ func (m *Model) DestroyIncludingHosted() error {
 func (m *Model) destroy(ensureNoHostedModels bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to destroy model")
 
-	st := m.st
-	if m.UUID() != m.st.ModelUUID() {
-		st, err = m.st.ForModel(m.ModelTag())
-		defer st.Close()
-		if err != nil {
-			return errors.Trace(err)
-		}
+	st, closeState, err := m.getState()
+	if err != nil {
+		return errors.Trace(err)
 	}
+	defer closeState()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// On the first attempt, we assume memory state is recent
@@ -485,17 +512,13 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 	}
 
 	// Ensure we're using the model's state.
-	st := m.st
-	var err error
-	if m.UUID() != m.st.ModelUUID() {
-		st, err = m.st.ForModel(m.ModelTag())
-		defer st.Close()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	st, closeState, err := m.getState()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	defer closeState()
 
-	if err := m.ensureDestroyable(); err != nil {
+	if err := ensureDestroyable(st); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -586,6 +609,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		})
 	}
 
+	modelStatus := status.StatusDestroying
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     uuid,
@@ -593,8 +617,17 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		Update: bson.D{{"$set", modelUpdateValues}},
 	}}
 	if life == Dead {
+		modelStatus = status.StatusArchived
 		ops = append(ops, decHostedModelCountOp())
 	}
+
+	statusDoc := setStatusDoc(setStatusParams{
+		badge:     "model",
+		globalKey: m.globalKey(),
+		status:    modelStatus,
+	})
+	probablyUpdateStatusHistory(st, m.globalKey(), statusDoc)
+	ops = append(ops, updateStatusOp(m.globalKey(), statusDoc, txn.DocExists))
 
 	// Because txn operations execute in order, and may encounter
 	// arbitrarily long delays, we need to make sure every op
@@ -623,7 +656,13 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 // require external resource cleanup. If the machine is not empty, then
 // an error will be returned.
 func (m *Model) checkEmpty() error {
-	modelEntityRefs, closer := m.st.getCollection(modelEntityRefsC)
+	st, closeState, err := m.getState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer closeState()
+
+	modelEntityRefs, closer := st.getCollection(modelEntityRefsC)
 	defer closer()
 
 	var doc modelEntityRefsDoc
@@ -702,7 +741,7 @@ func checkManualMachines(machines []*Machine) error {
 
 // ensureDestroyable an error if any manual machines or persistent volumes are
 // found.
-func (m *Model) ensureDestroyable() error {
+func ensureDestroyable(st *State) error {
 
 	// TODO(waigani) bug #1475212: Model destroy can miss manual
 	// machines. We need to be able to assert the absence of these as
@@ -711,7 +750,7 @@ func (m *Model) ensureDestroyable() error {
 
 	// Check for manual machines. We bail out if there are any,
 	// to stop the user from prematurely hobbling the model.
-	machines, err := m.st.AllMachines()
+	machines, err := st.AllMachines()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -815,6 +854,24 @@ func createUniqueOwnerModelNameOp(owner names.UserTag, envName string) txn.Op {
 // assertAliveOp returns a txn.Op that asserts the model is alive.
 func (m *Model) assertActiveOp() txn.Op {
 	return assertModelActiveOp(m.UUID())
+}
+
+// getState returns the State for the model, and a function to close
+// it when done. If m.st is the model-specific state, then it will
+// be returned and the close function will be a no-op.
+//
+// TODO(axw) find a way to guarantee that every Model is associated
+// with the appropriate State. The current work-around is too easy
+// to get wrong.
+func (m *Model) getState() (*State, func() error, error) {
+	if m.st.modelTag == m.ModelTag() {
+		return m.st, func() error { return nil }, nil
+	}
+	st, err := m.st.ForModel(m.ModelTag())
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return st, st.Close, nil
 }
 
 // assertModelActiveOp returns a txn.Op that asserts the given

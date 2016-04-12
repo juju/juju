@@ -18,6 +18,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -39,6 +40,11 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	s.st.model = &mockModel{
 		owner: names.NewUserTag("bob@local"),
 		cfg:   coretesting.ModelConfig(c),
+		life:  state.Dying,
+		status: status.StatusInfo{
+			Status: status.StatusDestroying,
+			Since:  &time.Time{},
+		},
 		users: []*mockModelUser{{
 			userName: "admin",
 			access:   state.ModelAdminAccess,
@@ -67,6 +73,11 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		OwnerTag:       "user-bob@local",
 		ProviderType:   "someprovider",
 		DefaultSeries:  coretesting.FakeDefaultSeries,
+		Life:           params.Dying,
+		Status: params.EntityStatus{
+			Status: status.StatusDestroying,
+			Since:  &time.Time{},
+		},
 		Users: []params.ModelUserInfo{{
 			UserName:       "admin",
 			LastConnection: &time.Time{},
@@ -90,7 +101,9 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Config", nil},
 		{"Users", nil},
+		{"Status", nil},
 		{"Owner", nil},
+		{"Life", nil},
 	})
 }
 
@@ -198,9 +211,11 @@ func (st *mockState) GetModel(tag names.ModelTag) (modelmanager.Model, error) {
 
 type mockModel struct {
 	gitjujutesting.Stub
-	owner names.UserTag
-	cfg   *config.Config
-	users []*mockModelUser
+	owner  names.UserTag
+	life   state.Life
+	status status.StatusInfo
+	cfg    *config.Config
+	users  []*mockModelUser
 }
 
 func (m *mockModel) Config() (*config.Config, error) {
@@ -212,6 +227,17 @@ func (m *mockModel) Owner() names.UserTag {
 	m.MethodCall(m, "Owner")
 	m.PopNoErr()
 	return m.owner
+}
+
+func (m *mockModel) Life() state.Life {
+	m.MethodCall(m, "Life")
+	m.PopNoErr()
+	return m.life
+}
+
+func (m *mockModel) Status() (status.StatusInfo, error) {
+	m.MethodCall(m, "Status")
+	return m.status, m.NextErr()
 }
 
 func (m *mockModel) Users() ([]common.ModelUser, error) {

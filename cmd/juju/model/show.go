@@ -4,6 +4,8 @@
 package model
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -11,7 +13,9 @@ import (
 
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/status"
 )
 
 const showModelCommandDoc = `Show information about the current or specified model`
@@ -33,7 +37,16 @@ type ModelInfo struct {
 	ControllerUUID string              `json:"controller-uuid" yaml:"controller-uuid"`
 	Owner          string              `json:"owner" yaml:"owner"`
 	ProviderType   string              `json:"type" yaml:"type"`
+	Life           string              `json:"life" yaml:"life"`
+	Status         ModelStatus         `json:"status" yaml:"status"`
 	Users          map[string]UserInfo `json:"users" yaml:"users"`
+}
+
+// ModelStatus contains the current status of a model.
+type ModelStatus struct {
+	Current status.Status `json:"current" yaml:"current"`
+	Message string        `json:"message,omitempty" yaml:"message,omitempty"`
+	Since   string        `json:"since,omitempty" yaml:"since,omitempty"`
 }
 
 // ShowModelAPI defines the methods on the client API that the
@@ -111,10 +124,19 @@ func (c *showModelCommand) apiModelInfoToModelInfoMap(modelInfo []params.ModelIn
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		status := ModelStatus{
+			Current: info.Status.Status,
+			Message: info.Status.Info,
+		}
+		if info.Status.Since != nil {
+			status.Since = user.UserFriendlyDuration(*info.Status.Since, time.Now())
+		}
 		output[info.Name] = ModelInfo{
 			UUID:           info.UUID,
 			ControllerUUID: info.ControllerUUID,
 			Owner:          tag.Id(),
+			Life:           string(info.Life),
+			Status:         status,
 			ProviderType:   info.ProviderType,
 			Users:          apiUsersToUserInfoMap(info.Users),
 		}

@@ -10,7 +10,7 @@ import "time"
 // very clear reason.
 //
 // Status values currently apply to machine (agents), unit (agents), unit
-// (workloads), service (workloads), and volumes.
+// (workloads), service (workloads), volumes, filesystems, and models.
 type Status string
 
 // StatusInfo holds a Status and associated information.
@@ -145,11 +145,6 @@ const (
 	// StatusBlocked is set when:
 	// The unit needs manual intervention to get back to the Running state.
 	StatusBlocked Status = "blocked"
-
-	// StatusActive is set when:
-	// The unit believes it is correctly offering all the services it has
-	// been asked to offer.
-	StatusActive Status = "active"
 )
 
 const (
@@ -170,8 +165,43 @@ const (
 	// StatusDetached indicates that the storage is not attached to
 	// any machine.
 	StatusDetached Status = "detached"
+)
 
-	// StatusDestroying indicates that the storage is being destroyed.
+const (
+	// Status values specific to models.
+
+	// StatusAvailable indicates that the model is available for use.
+	StatusAvailable Status = "available"
+
+	// StatusArchived indicates that the model is archived, and no
+	// longer available for use. We archive models for some time so
+	// that administrators can perform database post-mortems.
+	StatusArchived Status = "archived"
+
+	// StatusExporting indicates that the model is being exported
+	// to another controller.
+	StatusExporting Status = "exporting"
+
+	// StatusImporting indicates that the model is being imported
+	// from another controller.
+	StatusImporting Status = "importing"
+)
+
+const (
+	// Status values that are common to several entities.
+
+	// StatusActive indicates that the entity is active and ready.
+	// for use.
+	//
+	// This is valid for units and models:
+	//  - StatusActive is set on a model when it is available for use.
+	//  - StatusActive is set on a unit when it believes it is correctly
+	//    offering all the services it has been asked to offer.
+	StatusActive Status = "active"
+
+	// StatusDestroying indicates that the entity is being destroyed.
+	//
+	// This is valid for volumes, filesystems, and models.
 	StatusDestroying Status = "destroying"
 )
 
@@ -262,6 +292,22 @@ func ValidWorkloadStatus(status Status) bool {
 // status value which has been deprecated.
 func (status Status) WorkloadMatches(candidate Status) bool {
 	return status == candidate
+}
+
+// ValidModelStatus returns true if status has a valid value (that is to say,
+// a value that it's OK to set) for models.
+func ValidModelStatus(status Status) bool {
+	switch status {
+	case
+		StatusActive,
+		StatusArchived,
+		StatusDestroying,
+		StatusExporting,
+		StatusImporting:
+		return true
+	default:
+		return false
+	}
 }
 
 // Matches returns true if the candidate matches status,

@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -137,6 +138,10 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	env, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	assertEnvMatches(env)
+
+	modelStatus, err := env.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelStatus.Status, gc.Equals, status.StatusActive)
 
 	_, err = s.State.FindEntity(modelTag)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -283,6 +288,31 @@ func (s *ModelSuite) TestDestroyOtherModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ModelSuite) TestDestroyNonEmptyModelUpdatesStatus(c *gc.C) {
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelStatus, err := model.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelStatus.Status, gc.Equals, status.StatusDestroying)
+}
+
+func (s *ModelSuite) TestDestroyEmptyModelUpdatesStatus(c *gc.C) {
+	st2 := s.Factory.MakeModel(c, nil)
+	defer st2.Close()
+	model, err := st2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = model.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelStatus, err := model.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelStatus.Status, gc.Equals, status.StatusArchived)
+}
+
 func (s *ModelSuite) TestDestroyControllerNonEmptyModelFails(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
@@ -291,6 +321,11 @@ func (s *ModelSuite) TestDestroyControllerNonEmptyModelFails(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
+
+	// status should not have changed
+	modelStatus, err := env.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelStatus.Status, gc.Equals, status.StatusActive)
 }
 
 func (s *ModelSuite) TestDestroyControllerEmptyModel(c *gc.C) {

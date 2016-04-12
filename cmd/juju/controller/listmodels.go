@@ -14,8 +14,11 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/status"
 )
 
 // NewListModelsCommand returns a command to list models.
@@ -27,13 +30,14 @@ func NewListModelsCommand() cmd.Command {
 // current user can access on the current controller.
 type modelsCommand struct {
 	modelcmd.ControllerCommandBase
-	out       cmd.Output
-	all       bool
-	user      string
-	listUUID  bool
-	exactTime bool
-	modelAPI  ModelManagerAPI
-	sysAPI    ModelsSysAPI
+	out          cmd.Output
+	showArchived bool
+	all          bool
+	user         string
+	listUUID     bool
+	exactTime    bool
+	modelAPI     ModelManagerAPI
+	sysAPI       ModelsSysAPI
 }
 
 var listModelsDoc = `
@@ -94,7 +98,8 @@ func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.user, "user", "", "The user to list models for (administrative users only)")
 	f.BoolVar(&c.all, "all", false, "Lists all models, regardless of user accessibility (administrative users only)")
 	f.BoolVar(&c.listUUID, "uuid", false, "Display UUID for models")
-	f.BoolVar(&c.exactTime, "exact-time", false, "Use full timestamp for connection times")
+	f.BoolVar(&c.exactTime, "exact-time", false, "Use full timestamps")
+	f.BoolVar(&c.showArchived, "archived", false, "Show archived as well as active models")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -111,10 +116,19 @@ type ModelSet struct {
 
 // Local structure that controls the output structure.
 type UserModel struct {
-	Name           string `json:"name"`
-	UUID           string `json:"model-uuid" yaml:"model-uuid"`
-	Owner          string `json:"owner"`
-	LastConnection string `json:"last-connection" yaml:"last-connection"`
+	Name           string      `json:"name" yaml:"name"`
+	UUID           string      `json:"model-uuid" yaml:"model-uuid"`
+	Owner          string      `json:"owner" yaml:"owner"`
+	Life           string      `json:"life" yaml:"life"`
+	Status         ModelStatus `json:"status" yaml:"status"`
+	LastConnection string      `json:"last-connection" yaml:"last-connection"`
+}
+
+// ModelStatus contains the current status of a model.
+type ModelStatus struct {
+	Current status.Status `json:"current" yaml:"current"`
+	Message string        `json:"message,omitempty" yaml:"message,omitempty"`
+	Since   string        `json:"since,omitempty" yaml:"since,omitempty"`
 }
 
 // Run implements Command.Run
@@ -140,15 +154,32 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot list models")
 	}
 
-	modelDetails := make([]UserModel, len(models))
+	modelDetails := make([]UserModel, 0, len(models))
 	now := time.Now()
-	for i, model := range models {
-		modelDetails[i] = UserModel{
+	for _, model := range models {
+		if !c.showArchived && model.Life == params.Dead {
+			continue
+		}
+		status := ModelStatus{
+			Current: model.Status.Status,
+			Message: model.Status.Info,
+		}
+		if model.Status.Since != nil {
+			if c.exactTime {
+				const isoTime = false
+				status.Since = common.FormatTime(model.Status.Since, isoTime)
+			} else {
+				status.Since = user.UserFriendlyDuration(*model.Status.Since, time.Now())
+			}
+		}
+		modelDetails = append(modelDetails, UserModel{
 			Name:           model.Name,
 			UUID:           model.UUID,
 			Owner:          model.Owner,
+			Life:           string(model.Life),
+			Status:         status,
 			LastConnection: user.LastConnection(model.LastConnection, now, c.exactTime),
-		}
+		})
 	}
 	modelSet := ModelSet{
 		Models: modelDetails,
@@ -209,7 +240,7 @@ func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
 	if c.listUUID {
 		fmt.Fprintf(tw, "\tMODEL UUID")
 	}
-	fmt.Fprintf(tw, "\tOWNER\tLAST CONNECTION\n")
+	fmt.Fprintf(tw, "\tOWNER\tSTATUS\tLAST CONNECTION\n")
 	for _, model := range modelSet.Models {
 		name := model.Name
 		if name == modelSet.CurrentModel {
@@ -219,7 +250,7 @@ func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
 		if c.listUUID {
 			fmt.Fprintf(tw, "\t%s", model.UUID)
 		}
-		fmt.Fprintf(tw, "\t%s\t%s\n", model.Owner, model.LastConnection)
+		fmt.Fprintf(tw, "\t%s\t%s\t%s\n", model.Owner, model.Status.Current, model.LastConnection)
 	}
 	tw.Flush()
 	return out.Bytes(), nil

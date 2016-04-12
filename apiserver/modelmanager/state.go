@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 var getState = func(st *state.State) stateInterface {
@@ -26,7 +27,9 @@ type stateInterface interface {
 
 type Model interface {
 	Config() (*config.Config, error)
+	Life() state.Life
 	Owner() names.UserTag
+	Status() (status.StatusInfo, error)
 	Users() ([]common.ModelUser, error)
 }
 

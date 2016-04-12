@@ -219,6 +219,13 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	result.Name = model.Name()
 	result.UUID = model.UUID()
 	result.OwnerTag = model.Owner().String()
+	result.Life = params.Life(model.Life().String())
+
+	status, err := model.Status()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	result.Status = common.EntityStatusFromState(status)
 
 	return result, nil
 }
@@ -255,15 +262,20 @@ func (mm *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList,
 		} else {
 			lastConn = &userLastConn
 		}
+		status, err := model.Status()
+		if err != nil {
+			return result, errors.Trace(err)
+		}
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
 				Name:     model.Name(),
 				UUID:     model.UUID(),
 				OwnerTag: model.Owner().String(),
+				Life:     params.Life(model.Life().String()),
+				Status:   common.EntityStatusFromState(status),
 			},
 			LastConnection: lastConn,
 		})
-		logger.Debugf("list models: %s, %s, %s", model.Name(), model.UUID(), model.Owner())
 	}
 
 	return result, nil
@@ -295,6 +307,10 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 		if err != nil {
 			return params.ModelInfo{}, err
 		}
+		status, err := model.Status()
+		if err != nil {
+			return params.ModelInfo{}, err
+		}
 
 		owner := model.Owner()
 		info := params.ModelInfo{
@@ -302,6 +318,8 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 			UUID:           cfg.UUID(),
 			ControllerUUID: cfg.ControllerUUID(),
 			OwnerTag:       owner.String(),
+			Life:           params.Life(model.Life().String()),
+			Status:         common.EntityStatusFromState(status),
 			ProviderType:   cfg.Type(),
 			DefaultSeries:  config.PreferredSeries(cfg),
 		}

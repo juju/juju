@@ -46,6 +46,12 @@ type ModelInfo struct {
 	// OwnerTag is the tag of the user that owns the model.
 	OwnerTag string `json:"owner-tag"`
 
+	// Life is the current lifecycle state of the model.
+	Life Life `json:"life"`
+
+	// Status is the current status of the model.
+	Status EntityStatus `json:"status"`
+
 	// Users contains information about the users that have access
 	// to the model. Owners and administrators can see all users
 	// that have access; other users can only see their own details.

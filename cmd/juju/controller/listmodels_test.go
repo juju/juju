@@ -12,10 +12,12 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
@@ -70,15 +72,24 @@ func (s *ModelsSuite) SetUpTest(c *gc.C) {
 			Owner:          "user-admin@local",
 			UUID:           "test-model1-UUID",
 			LastConnection: &last1,
+			Status: params.EntityStatus{
+				Status: status.StatusActive,
+			},
 		}, {
 			Name:           "test-model2",
 			Owner:          "user-admin@local",
 			UUID:           "test-model2-UUID",
 			LastConnection: &last2,
+			Status: params.EntityStatus{
+				Status: status.StatusActive,
+			},
 		}, {
 			Name:  "test-model3",
 			Owner: "user-admin@local",
 			UUID:  "test-model3-UUID",
+			Status: params.EntityStatus{
+				Status: status.StatusDestroying,
+			},
 		},
 	}
 	s.api = &fakeModelMgrAPIClient{models: models}
@@ -111,10 +122,10 @@ func (s *ModelsSuite) checkSuccess(c *gc.C, user string, args ...string) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, user)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME          OWNER             LAST CONNECTION\n"+
-		"test-model1*  user-admin@local  2015-03-20\n"+
-		"test-model2   user-admin@local  2015-03-01\n"+
-		"test-model3   user-admin@local  never connected\n"+
+		"NAME          OWNER             STATUS      LAST CONNECTION\n"+
+		"test-model1*  user-admin@local  active      2015-03-20\n"+
+		"test-model2   user-admin@local  active      2015-03-01\n"+
+		"test-model3   user-admin@local  destroying  never connected\n"+
 		"\n")
 }
 
@@ -128,10 +139,10 @@ func (s *ModelsSuite) TestAllModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.all, jc.IsTrue)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME          OWNER             LAST CONNECTION\n"+
-		"test-model1*  user-admin@local  2015-03-20\n"+
-		"test-model2   user-admin@local  2015-03-01\n"+
-		"test-model3   user-admin@local  never connected\n"+
+		"NAME          OWNER             STATUS      LAST CONNECTION\n"+
+		"test-model1*  user-admin@local  active      2015-03-20\n"+
+		"test-model2   user-admin@local  active      2015-03-01\n"+
+		"test-model3   user-admin@local  destroying  never connected\n"+
 		"\n")
 }
 
@@ -140,10 +151,10 @@ func (s *ModelsSuite) TestAllModelsNoneCurrent(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME         OWNER             LAST CONNECTION\n"+
-		"test-model1  user-admin@local  2015-03-20\n"+
-		"test-model2  user-admin@local  2015-03-01\n"+
-		"test-model3  user-admin@local  never connected\n"+
+		"NAME         OWNER             STATUS      LAST CONNECTION\n"+
+		"test-model1  user-admin@local  active      2015-03-20\n"+
+		"test-model2  user-admin@local  active      2015-03-01\n"+
+		"test-model3  user-admin@local  destroying  never connected\n"+
 		"\n")
 }
 
@@ -152,10 +163,10 @@ func (s *ModelsSuite) TestModelsUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "admin@local")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME          MODEL UUID        OWNER             LAST CONNECTION\n"+
-		"test-model1*  test-model1-UUID  user-admin@local  2015-03-20\n"+
-		"test-model2   test-model2-UUID  user-admin@local  2015-03-01\n"+
-		"test-model3   test-model3-UUID  user-admin@local  never connected\n"+
+		"NAME          MODEL UUID        OWNER             STATUS      LAST CONNECTION\n"+
+		"test-model1*  test-model1-UUID  user-admin@local  active      2015-03-20\n"+
+		"test-model2   test-model2-UUID  user-admin@local  active      2015-03-01\n"+
+		"test-model3   test-model3-UUID  user-admin@local  destroying  never connected\n"+
 		"\n")
 }
 

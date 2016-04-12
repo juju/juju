@@ -20,6 +20,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -46,6 +47,11 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "second", Owner: owner}).Close()
 
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetStatus(status.StatusExporting, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	sysManager := s.OpenAPI(c)
 	envs, err := sysManager.AllModels()
 	c.Assert(err, jc.ErrorIsNil)
@@ -53,12 +59,14 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 
 	var obtained []string
 	for _, env := range envs {
-		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner, env.Name))
+		obtained = append(obtained, fmt.Sprintf(
+			"%s/%s/%s", env.Owner, env.Name, env.Status.Status,
+		))
 	}
 	expected := []string{
-		"admin@local/admin",
-		"user@remote/first",
-		"user@remote/second",
+		"admin@local/admin/exporting",
+		"user@remote/first/active",
+		"user@remote/second/active",
 	}
 	c.Assert(obtained, jc.SameContents, expected)
 }

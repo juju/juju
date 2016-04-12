@@ -26,7 +26,6 @@ type Client struct {
 // connection.
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Controller")
-	logger.Tracef("%#v", frontend)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
@@ -48,6 +47,8 @@ func (c *Client) AllModels() ([]base.UserModel, error) {
 			Name:           model.Name,
 			UUID:           model.UUID,
 			Owner:          owner.Canonical(),
+			Life:           model.Life,
+			Status:         model.Status,
 			LastConnection: model.LastConnection,
 		}
 	}

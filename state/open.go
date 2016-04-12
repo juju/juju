@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
 )
 
 // Open connects to the server described by the given
@@ -183,6 +185,22 @@ func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, o
 		return nil, errors.Trace(err)
 	}
 
+	modelStatusDoc := statusDoc{
+		ModelUUID: modelUUID,
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		Updated: time.Now().UnixNano(),
+	}
+	switch mode {
+	case MigrationModeActive:
+		modelStatusDoc.Status = status.StatusActive
+	case MigrationModeExporting:
+		modelStatusDoc.Status = status.StatusExporting
+	case MigrationModeImporting:
+		modelStatusDoc.Status = status.StatusImporting
+	default:
+		return nil, errors.NotValidf("migration mode %v", mode)
+	}
+
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
 	if serverUUID == "" {
@@ -190,6 +208,7 @@ func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, o
 	}
 	modelUserOp := createModelUserOp(modelUUID, owner, owner, owner.Name(), nowToTheSecond(), ModelAdminAccess)
 	ops := []txn.Op{
+		createStatusOp(st, modelGlobalKey, modelStatusDoc),
 		createConstraintsOp(st, modelGlobalKey, constraints.Value{}),
 		createSettingsOp(modelGlobalKey, cfg.AllAttrs()),
 		incHostedModelCountOp(),

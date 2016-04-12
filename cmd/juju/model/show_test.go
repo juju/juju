@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
@@ -52,11 +53,12 @@ func (f *fakeModelShowClient) ModelInfo(tags []names.ModelTag) ([]params.ModelIn
 
 func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
+	lastConnection := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
+	statusSince := time.Date(2016, 4, 5, 0, 0, 0, 0, time.UTC)
 
 	users := []params.ModelUserInfo{{
 		UserName:       "admin@local",
-		LastConnection: &last1,
+		LastConnection: &lastConnection,
 		Access:         "write",
 	}, {
 		UserName:    "bob@local",
@@ -72,7 +74,12 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 		ControllerUUID: "1ca2293b-fdb9-4299-97d6-55583bb39364",
 		OwnerTag:       "user-admin@local",
 		ProviderType:   "openstack",
-		Users:          users,
+		Life:           params.Alive,
+		Status: params.EntityStatus{
+			Status: status.StatusActive,
+			Since:  &statusSince,
+		},
+		Users: users,
 	}
 
 	err := modelcmd.WriteCurrentController("testing")
@@ -107,6 +114,10 @@ mymodel:
   controller-uuid: 1ca2293b-fdb9-4299-97d6-55583bb39364
   owner: admin@local
   type: openstack
+  life: alive
+  status:
+    current: active
+    since: 2016-04-05
   users:
     admin@local:
       access: write
@@ -125,6 +136,7 @@ func (s *ShowCommandSuite) TestShowFormatJson(c *gc.C) {
 		`{"mymodel":{"model-uuid":"deadbeef-0bad-400d-8000-4b1d0d06f00d",`+
 		`"controller-uuid":"1ca2293b-fdb9-4299-97d6-55583bb39364",`+
 		`"owner":"admin@local","type":"openstack",`+
+		`"life":"alive","status":{"current":"active","since":"2016-04-05"},`+
 		`"users":{"admin@local":{"access":"write","last-connection":"2015-03-20"},`+
 		`"bob@local":{"display-name":"Bob","access":"read","last-connection":"never connected"}}}}
 `)

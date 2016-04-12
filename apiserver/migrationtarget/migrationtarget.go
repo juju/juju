@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 func init() {
@@ -109,5 +110,8 @@ func (api *API) Activate(args params.ModelArgs) error {
 		return errors.Trace(err)
 	}
 
+	if err := model.SetStatus(status.StatusActive, "", nil); err != nil {
+		return errors.Trace(err)
+	}
 	return model.SetMigrationMode(state.MigrationModeActive)
 }
