@@ -17,27 +17,26 @@ import (
 	"github.com/juju/juju/constraints"
 )
 
-const getConstraintsDoc = `
-Shows the list of constraints that have been set on the specified service
-using juju service set-constraints.  You can also view constraints
-set for a model by using juju model get-constraints.
+var usageGetConstraintsSummary = `
+Displays machine constraints for a service.`[1:]
 
-Constraints set on a service are combined with model constraints for
-commands (such as juju deploy) that provision machines for services.  Where
-model and service constraints overlap, the service constraints take
-precedence.
+var usageGetConstraintsDetails = `
+Shows machine constraints that have been set for a service with ` + "`juju set-\nconstraints`" + `.
+By default, the model is the current model.
+Service constraints are combined with model constraints, set with ` +
+	"`juju \nset-model-constraints`" + `, for commands (such as 'deploy') that provision
+machines for services. Where model and service constraints overlap, the
+service constraints take precedence.
+Constraints for a specific model can be viewed with ` + "`juju get-model-\nconstraints`" + `.
 
-Example:
+Examples:
+    juju get-constraints mysql
+    juju get-constraints -m mymodel apache2
 
-    get-constraints wordpress
-
-See Also:
-   juju help constraints
-   juju help set-constraints
-   juju help deploy
-   juju help machine add
-   juju help add-unit
-`
+See also: 
+    set-constraints
+    get-model-constraints
+    set-model-constraints`
 
 var usageSetConstraintsSummary = `
 Sets machine constraints for a service.`[1:]
@@ -104,8 +103,8 @@ func (c *serviceGetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get-constraints",
 		Args:    "<service>",
-		Purpose: "view constraints on a service",
-		Doc:     getConstraintsDoc,
+		Purpose: usageGetConstraintsSummary,
+		Doc:     usageGetConstraintsDetails,
 	}
 }
 
