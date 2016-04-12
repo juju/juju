@@ -4,12 +4,16 @@
 package commands
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"sort"
 	"strings"
+	stdtesting "testing"
 
 	"github.com/juju/cmd"
 	gitjujutesting "github.com/juju/testing"
@@ -170,6 +174,153 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 		err = os.Remove(logpath)
 		c.Assert(err, jc.ErrorIsNil)
 	}
+}
+
+func (s *MainSuite) TestFirstRun2xFrom1x(c *gc.C) {
+	// patch out lookpath to always return a nil error (and thus indicates success).
+	s.PatchValue(&execLookPath, func(s string) (string, error) {
+		c.Assert(s, gc.Equals, "juju-1")
+		return "we ignore this anyway", nil
+	})
+
+	// patch out the exec.Command used to run juju-1 so that it runs our test helper instead.
+	s.PatchValue(&execCommand, func(command string, args ...string) *exec.Cmd {
+		cs := []string{"-test.run=TestFirstRun2xFrom1xHelper", "--", command}
+		cs = append(cs, args...)
+		cmd := exec.Command(os.Args[0], cs...)
+		cmd.Env = []string{"JUJU_WANT_HELPER_PROCESS=1"}
+		return cmd
+	})
+
+	// remove the new juju-home and create a fake old juju home.
+	err := os.Remove(osenv.JujuXDGDataHome())
+	c.Assert(err, jc.ErrorIsNil)
+	oldhome := osenv.OldJujuHomeDir()
+	err = os.MkdirAll(oldhome, 0700)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(oldhome, "environments.yaml"), []byte("boo!"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// dump stderr to a file so we can examine it without any wacky re-running
+	// of the executable (since we need to mock things out.)
+	stderr, err := os.OpenFile(filepath.Join(oldhome, "stderr"), os.O_RDWR|os.O_CREATE, 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	defer stderr.Close()
+
+	// dump stdout to a file so it doesn't spam the test output.
+	stdout, err := os.OpenFile(filepath.Join(oldhome, "stdout"), os.O_RDWR|os.O_CREATE, 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	runMain(stderr, stdout, []string{"juju", "version"})
+
+	_, err = stderr.Seek(0, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	output, err := ioutil.ReadAll(stderr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(string(output), gc.Equals, `
+    Welcome to Juju 2.0. If you meant to use Juju 1.25.0 you can continue using it
+    with the command juju-1 e.g. 'juju-1 switch'
+`[1:])
+}
+
+func (s *MainSuite) TestNoWarn1xWith2xData(c *gc.C) {
+	// patch out lookpath to always return a nil error (and thus indicates success).
+	s.PatchValue(&execLookPath, func(s string) (string, error) {
+		c.Assert(s, gc.Equals, "juju-1")
+		return "we ignore this anyway", nil
+	})
+
+	// there should be a 2x home directory already created by the test setup.
+
+	// create a fake old juju home.
+	oldhome := osenv.OldJujuHomeDir()
+	err := os.MkdirAll(oldhome, 0700)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(oldhome, "environments.yaml"), []byte("boo!"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// dump stderr to a file so we can examine it without any wacky re-running
+	// of the executable (since we need to mock things out.)
+	stderr, err := os.OpenFile(filepath.Join(oldhome, "stderr"), os.O_RDWR|os.O_CREATE, 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	defer stderr.Close()
+
+	// dump stdout to a file so it doesn't spam the test output.
+	stdout, err := os.OpenFile(filepath.Join(oldhome, "stdout"), os.O_RDWR|os.O_CREATE, 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	runMain(stderr, stdout, []string{"juju", "version"})
+
+	_, err = stderr.Seek(0, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	output, err := ioutil.ReadAll(stderr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(output), gc.Equals, "")
+}
+
+func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
+	// patch out lookpath to always return a nil error (and thus indicates success).
+	s.PatchValue(&execLookPath, func(s string) (string, error) {
+		c.Assert(s, gc.Equals, "juju-1")
+		return "we ignore this anyway", nil
+	})
+
+	// remove the new juju-home.
+	err := os.Remove(osenv.JujuXDGDataHome())
+
+	// create fake (empty) old juju home.
+	path := c.MkDir()
+	s.PatchEnvironment("JUJU_HOME", path)
+
+	outdir := c.MkDir()
+	// dump stderr to a file so we can examine it without any wacky re-running
+	// of the executable (since we need to mock things out.)
+	stderr, err := os.OpenFile(filepath.Join(outdir, "stderr"), os.O_RDWR|os.O_CREATE, 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	defer stderr.Close()
+
+	// dump stdout to a file so it doesn't spam the test output.
+	stdout, err := os.OpenFile(filepath.Join(outdir, "stdout"), os.O_RDWR|os.O_CREATE, 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	runMain(stderr, stdout, []string{"juju", "version"})
+
+	_, err = stderr.Seek(0, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	output, err := ioutil.ReadAll(stderr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(output), gc.Equals, "")
+}
+
+func runMain(stderr, stdout *os.File, args []string) {
+	// we don't use patchvalue here because we need these reset as soon as we
+	// leave this function, so we don't interfere with test output later.
+	origErr := os.Stderr
+	defer func() { os.Stderr = origErr }()
+	origOut := os.Stdout
+	defer func() { os.Stdout = origOut }()
+	os.Stderr = stderr
+	os.Stdout = stdout
+
+	Main(args)
+}
+
+// This is a test helper that only runs after getting executed by
+// MainSuite.TestFirstRun2xFrom1x.  It simulates running juju-1 version.
+func TestFirstRun2xFrom1xHelper(t *stdtesting.T) {
+	if os.Getenv("JUJU_WANT_HELPER_PROCESS") != "1" {
+		return
+	}
+
+	if !reflect.DeepEqual(os.Args[3:], []string{"juju-1", "version"}) {
+		fmt.Fprintf(os.Stderr, "unexpected command run: %q", os.Args[3:])
+		os.Exit(1)
+	}
+
+	fmt.Fprintf(os.Stdout, "1.25.0-trusty-amd64")
+	os.Exit(0)
 }
 
 var commandNames = []string{
