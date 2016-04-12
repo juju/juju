@@ -20,7 +20,7 @@ def assess_landscape_bundle(client):
     expected_services = ['haproxy', 'landscape-server', 'postgresql',
                          'rabbitmq-server']
     verify_services(client, expected_services, scheme='https',
-                    text='Landscape')
+                    text='Landscape', haproxy_exposed=True)
 
 
 def main(argv=None):

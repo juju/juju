@@ -19,4 +19,4 @@ class TestVerifyLandscapeBundle(tests.TestCase):
                    autospec=True) as vs_mock:
             assess_landscape_bundle(client)
         vs_mock.assert_called_once_with(client, services, scheme='https',
-                                        text='Landscape')
+                                        text='Landscape', haproxy_exposed=True)
