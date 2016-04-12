@@ -76,11 +76,13 @@ def deploy_dummy_stack(client, charm_series):
     """"Deploy a dummy stack in the specified environment."""
     # Centos requires specific machine configuration (i.e. network device
     # order).
-    if charm_series == "centos" and client.env.maas:
+    if charm_series.startswith("centos") and client.env.maas:
         client.set_model_constraints({'tags': 'MAAS_NIC_1'})
     platform = 'ubuntu'
-    if charm_series == 'win' or charm_series == 'centos':
-        platform = charm_series
+    if charm_series.startswith('win'):
+        platform = 'win'
+    elif charm_series.startswith('centos'):
+        platform = 'centos'
     charm = local_charm_path(charm='dummy-source', juju_ver=client.version,
                              series=charm_series, platform=platform)
     client.deploy(charm, series=charm_series)
