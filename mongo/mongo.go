@@ -144,6 +144,10 @@ func NewVersion(v string) (Version, error) {
 		return Version{}, errors.Errorf("Version 2.x does not support Wired Tiger storage engine")
 	}
 
+	if version.Major == 0 && version.Minor == 0 {
+		return Version{}, nil
+	}
+
 	return version, nil
 }
 
@@ -162,7 +166,7 @@ func (v Version) String() string {
 // JujuMongodPath returns the path for the mongod binary
 // with the specified version.
 func JujuMongodPath(v Version) string {
-	return fmt.Sprintf("/usr/lib/juju/mongo%d%d/bin/mongod", v.Major, v.Minor)
+	return fmt.Sprintf("/usr/lib/juju/mongo%d.%d/bin/mongod", v.Major, v.Minor)
 }
 
 var (
@@ -198,7 +202,7 @@ var (
 // and fall back to the original mongo 2.4.
 func InstalledVersion() Version {
 	mgoVersion := Mongo24
-	if binariesAvailable(Mongo32wt) {
+	if binariesAvailable(Mongo32wt, os.Stat) {
 		mgoVersion = Mongo32wt
 	}
 	return mgoVersion
@@ -206,7 +210,7 @@ func InstalledVersion() Version {
 
 // binariesAvailable returns true if the binaries for the
 // given Version of mongo are available.
-func binariesAvailable(v Version) bool {
+func binariesAvailable(v Version, statFunc func(string) (os.FileInfo, error)) bool {
 	var path string
 	switch v {
 	case Mongo24:
@@ -215,7 +219,7 @@ func binariesAvailable(v Version) bool {
 	default:
 		path = JujuMongodPath(v)
 	}
-	if _, err := os.Stat(path); err == nil {
+	if _, err := statFunc(path); err == nil {
 		return true
 	}
 	return false
@@ -306,24 +310,26 @@ func GenerateSharedSecret() (string, error) {
 // machine. If the juju-bundled version of mongo exists, it will return that
 // path, otherwise it will return the command to run mongod from the path.
 func Path(version Version) (string, error) {
-	noVersion := Version{}
+	return mongoPath(version, os.Stat, exec.LookPath)
+}
+
+func mongoPath(version Version, statFunc func(string) (os.FileInfo, error), lookFunc func(string) (string, error)) (string, error) {
 	switch version {
-	case Mongo24, noVersion:
-		if _, err := os.Stat(JujuMongod24Path); err == nil {
+	case Mongo24:
+		if _, err := statFunc(JujuMongod24Path); err == nil {
 			return JujuMongod24Path, nil
 		}
 
-		path, err := exec.LookPath("mongod")
+		path, err := lookFunc("mongod")
 		if err != nil {
 			logger.Infof("could not find %v or mongod in $PATH", JujuMongod24Path)
 			return "", err
 		}
 		return path, nil
-
 	default:
 		path := JujuMongodPath(version)
 		var err error
-		if _, err = os.Stat(path); err == nil {
+		if _, err = statFunc(path); err == nil {
 			return path, nil
 		}
 	}

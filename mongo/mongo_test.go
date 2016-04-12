@@ -219,7 +219,7 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 	any := `(.|\n)*`
 	start := "^" + any
 	tail := any + "$"
-	c.Assert(tlog, gc.Matches, start+`using mongod: .*/mongod --version: "db version v2\.4\.9`+tail)
+	c.Assert(tlog, gc.Matches, start+`using mongod: .*/mongod --version: "db version v\d\.\d\.\d`+tail)
 }
 
 func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
@@ -315,7 +315,7 @@ func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string
 		} else {
 			c.Assert(service.Conf().ExtraScript, gc.Equals, "")
 		}
-		c.Assert(service.Conf().ExecStart, gc.Matches, `.*/check-.*/mongod.*`)
+		c.Assert(service.Conf().ExecStart, gc.Matches, `.*/mongod.*`)
 		c.Assert(service.Conf().Logfile, gc.Equals, "")
 	}
 	assertInstalled()
