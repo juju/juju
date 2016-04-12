@@ -69,9 +69,10 @@ func (s *toolsSuite) TestTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 3)
 	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Tools, gc.NotNil)
-	c.Assert(result.Results[0].Tools.Version, gc.DeepEquals, current)
-	c.Assert(result.Results[0].Tools.URL, gc.Equals, "tools:"+current.String())
+	c.Assert(result.Results[0].ToolsList, gc.HasLen, 1)
+	tools := result.Results[0].ToolsList[0]
+	c.Assert(tools.Version, gc.DeepEquals, current)
+	c.Assert(tools.URL, gc.Equals, "tools:"+current.String())
 	c.Assert(result.Results[0].DisableSSLHostnameVerification, jc.IsTrue)
 	c.Assert(result.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.NotFoundError("machine 42"))

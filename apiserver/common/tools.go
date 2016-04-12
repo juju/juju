@@ -87,9 +87,9 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 			result.Results[i].Error = ServerError(ErrPerm)
 			continue
 		}
-		agentTools, err := t.oneAgentTools(canRead, tag, agentVersion, toolsStorage)
+		agentToolsList, err := t.oneAgentTools(canRead, tag, agentVersion, toolsStorage)
 		if err == nil {
-			result.Results[i].Tools = agentTools
+			result.Results[i].ToolsList = agentToolsList
 			// TODO(axw) Get rid of this in 1.22, when all upgraders
 			// are known to ignore the flag.
 			result.Results[i].DisableSSLHostnameVerification = true
@@ -113,7 +113,7 @@ func (t *ToolsGetter) getGlobalAgentVersion() (version.Number, error) {
 	return agentVersion, nil
 }
 
-func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersion version.Number, storage binarystorage.Storage) (*coretools.Tools, error) {
+func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersion version.Number, storage binarystorage.Storage) (coretools.List, error) {
 	if !canRead(tag) {
 		return nil, ErrPerm
 	}
@@ -140,7 +140,7 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 	if err != nil {
 		return nil, err
 	}
-	return list[0], nil
+	return list, nil
 }
 
 // ToolsSetter implements a common Tools method for use by various

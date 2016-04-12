@@ -433,7 +433,8 @@ func (c *Client) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSer
 	if err := c.httpPost(r, endpoint, contentType, &resp); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return resp.Tools, nil
+	// TODO(ericsnow) Match up the URL with the client's connection.
+	return resp.ToolsList[0], nil
 }
 
 func (c *Client) httpPost(content io.ReadSeeker, endpoint, contentType string, response interface{}) error {

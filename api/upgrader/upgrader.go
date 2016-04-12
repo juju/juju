@@ -82,19 +82,15 @@ func (st *State) Tools(tag string) (tools.List, error) {
 		// TODO: Not directly tested
 		return nil, err
 	}
-	// TODO(ericsnow) Remove this restriction.
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
 		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
-	var list tools.List
-	for _, result := range results.Results {
-		if err := result.Error; err != nil {
-			return nil, err
-		}
-		list = append(list, result.Tools)
+	result := results.Results[0]
+	if err := result.Error; err != nil {
+		return nil, err
 	}
-	return list, nil
+	return result.ToolsList, nil
 }
 
 func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error) {
