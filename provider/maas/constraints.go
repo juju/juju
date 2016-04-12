@@ -326,7 +326,7 @@ func addStorage(params url.Values, volumes []volumeInfo) {
 
 // addStorage2 adds volume information onto a gomaasapi.AllocateMachineArgs
 // object suitable to pass to MAAS 2 when acquiring a node.
-func addStorage(params *gomaasapi.AllocateMachineArgs, volumes []volumeInfo) {
+func addStorage2(params *gomaasapi.AllocateMachineArgs, volumes []volumeInfo) {
 	if len(volumes) == 0 {
 		return
 	}
@@ -336,21 +336,16 @@ func addStorage(params *gomaasapi.AllocateMachineArgs, volumes []volumeInfo) {
 	// See http://maas.ubuntu.com/docs/api.html#nodes
 
 	// eg storage=root:0(ssd),data:20(magnetic,5400rpm),45
-	makeVolumeParams := func(v volumeInfo) string {
-		var params string
-		if v.name != "" {
-			params = v.name + ":"
-		}
-		params += fmt.Sprintf("%d", v.sizeInGB)
-		if len(v.tags) > 0 {
-			params += fmt.Sprintf("(%s)", strings.Join(v.tags, ","))
-		}
+	makeVolumeParams := func(v volumeInfo) (params gomaasapi.StorageSpec) {
+		params.Label = v.name
+		params.Size = int(v.sizeInGB)
+		params.Tags = v.tags
 		return params
 	}
-	var volParms []string
+	var volParams []gomaasapi.StorageSpec
 	for _, v := range volumes {
 		params := makeVolumeParams(v)
-		volParms = append(volParms, params)
+		volParams = append(volParams, params)
 	}
-	params.Add("storage", strings.Join(volParms, ","))
+	params.Storage = volParams
 }
