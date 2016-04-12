@@ -93,6 +93,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 
 	series := args.Tools.OneSeries()
 	args.InstanceConfig.MachineContainerType = instance.KVM
+	// TODO(ericsnow) There may be more than one.
 	args.InstanceConfig.Tools = args.Tools[0]
 
 	if err := instancecfg.PopulateInstanceConfig(
