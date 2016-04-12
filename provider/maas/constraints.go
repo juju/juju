@@ -330,22 +330,14 @@ func addStorage2(params *gomaasapi.AllocateMachineArgs, volumes []volumeInfo) {
 	if len(volumes) == 0 {
 		return
 	}
-	// Requests for specific values are passed to the acquire URL
-	// as a storage URL parameter of the form:
-	// [volume-name:]sizeinGB[tag,...]
-	// See http://maas.ubuntu.com/docs/api.html#nodes
-
-	// eg storage=root:0(ssd),data:20(magnetic,5400rpm),45
-	makeVolumeParams := func(v volumeInfo) (params gomaasapi.StorageSpec) {
-		params.Label = v.name
-		params.Size = int(v.sizeInGB)
-		params.Tags = v.tags
-		return params
-	}
 	var volParams []gomaasapi.StorageSpec
 	for _, v := range volumes {
-		params := makeVolumeParams(v)
-		volParams = append(volParams, params)
+		volSpec := gomaasapi.StorageSpec{
+			Label: v.name,
+			Size:  int(v.sizeInGB),
+			Tags:  v.tags,
+		}
+		volParams = append(volParams, volSpec)
 	}
 	params.Storage = volParams
 }
