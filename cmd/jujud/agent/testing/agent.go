@@ -92,6 +92,12 @@ func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) error {
 	return f.Err
 }
 
+func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams) error {
+	f.InitiateCount++
+	f.InitiateParams = p
+	return nil
+}
+
 // agentSuite is a fixture to be used by agent test suites.
 type AgentSuite struct {
 	oldRestartDelay time.Duration

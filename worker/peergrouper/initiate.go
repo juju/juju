@@ -37,7 +37,6 @@ type InitiateMongoParams struct {
 
 // InitiateMongoServer checks for an existing mongo configuration.
 // If no existing configuration is found one is created using Initiate.
-// If force flag is true, the configuration will be started anyway.
 func InitiateMongoServer(p InitiateMongoParams) error {
 	logger.Debugf("Initiating mongo replicaset; dialInfo %#v; memberHostport %q; user %q; password %q", p.DialInfo, p.MemberHostPort, p.User, p.Password)
 	defer logger.Infof("finished InitiateMongoServer")
