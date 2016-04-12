@@ -60,9 +60,19 @@ func (api *APIAddresser) WatchAPIHostPorts() (params.NotifyWatchResult, error) {
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (api *APIAddresser) APIAddresses() (params.StringsResult, error) {
-	apiHostPorts, err := api.getter.APIHostPorts()
+	addrs, err := apiAddresses(api.getter)
 	if err != nil {
 		return params.StringsResult{}, err
+	}
+	return params.StringsResult{
+		Result: addrs,
+	}, nil
+}
+
+func apiAddresses(getter APIHostPortsGetter) ([]string, error) {
+	apiHostPorts, err := getter.APIHostPorts()
+	if err != nil {
+		return nil, err
 	}
 	var addrs = make([]string, 0, len(apiHostPorts))
 	for _, hostPorts := range apiHostPorts {
@@ -73,9 +83,7 @@ func (api *APIAddresser) APIAddresses() (params.StringsResult, error) {
 			}
 		}
 	}
-	return params.StringsResult{
-		Result: addrs,
-	}, nil
+	return addrs, nil
 }
 
 // CACert returns the certificate used to validate the state connection.
