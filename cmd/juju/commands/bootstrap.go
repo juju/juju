@@ -91,7 +91,6 @@ is accepted (eg 1.24.4-trusty-amd64) but only the numeric version (eg 1.24.4) is
 By default, Juju will bootstrap using the exact same version as the client.
 
 See Also:
-   juju help glossary
    juju list-controllers
    juju list-models
    juju help switch
