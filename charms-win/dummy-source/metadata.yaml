@@ -9,5 +9,13 @@ requires:
 categories:
   - misc
 series:
-  - windows2012
-
+  - win2012hvr2
+  - win2012hv
+  - win2012r2
+  - win2012
+  - win2016
+  - win2016nano
+  - win10
+  - win8
+  - win81
+  - win7
