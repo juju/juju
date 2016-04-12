@@ -374,7 +374,11 @@ func getFourSpaces() []gomaasapi.Space {
 
 func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.C) {
 	expected := gomaasapi.AllocateMachineArgs{
-		NotSpace: []string{"space:6", "space:8"},
+		NotSpace: []string{"6", "8"},
+		Interfaces: []gomaasapi.InterfaceSpec{
+			{Label: "0", Space: "5"},
+			{Label: "1", Space: "7"},
+		},
 	}
 	env := suite.injectControllerWithSpacesAndCheck(c, getFourSpaces(), expected)
 
