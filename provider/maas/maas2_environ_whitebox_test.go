@@ -576,9 +576,11 @@ func getTwoSpaces() []gomaasapi.Space {
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
-	// Expected args should have Interfaces set
-	// Interfaces: 0:space=2,
-	env := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), gomaasapi.AllocateMachineArgs{NotSpace: []string{"space:3"}})
+	expected := gomaasapi.AllocateMachineArgs{
+		NotSpace:   []string{"3"},
+		Interfaces: []gomaasapi.InterfaceSpec{{Label: "0", Space: "2"}},
+	}
+	env := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), expected)
 	cons := constraints.Value{
 		Spaces: stringslicep("foo", "^bar"),
 	}
@@ -587,7 +589,11 @@ func (suite *maas2EnvironSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
-	env := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), gomaasapi.AllocateMachineArgs{NotSpace: []string{"space:3"}})
+	expected := gomaasapi.AllocateMachineArgs{
+		NotSpace:   []string{"3"},
+		Interfaces: []gomaasapi.InterfaceSpec{{Label: "0", Space: "2"}},
+	}
+	env := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), expected)
 	cons := constraints.Value{
 		Spaces: stringslicep("foo-1", "^bar-3"),
 	}
