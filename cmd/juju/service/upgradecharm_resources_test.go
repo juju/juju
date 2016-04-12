@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"path"
 	"sort"
+	"strings"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -186,12 +187,10 @@ func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/starsay-1", "starsay")
 
 	// let's make a fake resource file to upload
-	data := []byte("some-data")
-	fp, err := charmresource.GenerateFingerprint(bytes.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
+	resourceContent := "some-data"
 
 	resourceFile := path.Join(c.MkDir(), "data.xml")
-	err = ioutil.WriteFile(resourceFile, data, 0644)
+	err := ioutil.WriteFile(resourceFile, []byte(resourceContent), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx, err := testing.RunCommand(c, service.NewDeployCommand(), "trusty/starsay", "--resource", "upload-resource="+resourceFile)
@@ -220,54 +219,56 @@ Deploying charm "cs:trusty/starsay-1" with the charm series "trusty".
 	c.Check(svcres.Resources[2].Timestamp, gc.Not(gc.Equals), time.Time{})
 	svcres.Resources[2].Timestamp = time.Time{}
 
-	expectedResources := []resource.Resource{
-		{
-			Resource: charmresource.Resource{
-				Meta: charmresource.Meta{
-					Name:        "install-resource",
-					Type:        charmresource.TypeFile,
-					Path:        "gotta-have-it.txt",
-					Description: "get things started",
-				},
-				Origin:   charmresource.OriginStore,
-				Revision: -1,
+	// Note that all charm resources were uploaded by testcharms.UploadCharm
+	// so that the charm could be published.
+	expectedResources := []resource.Resource{{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:        "install-resource",
+				Type:        charmresource.TypeFile,
+				Path:        "gotta-have-it.txt",
+				Description: "get things started",
 			},
-			ID:        "starsay/install-resource",
-			ServiceID: "starsay",
+			Origin:      charmresource.OriginStore,
+			Revision:    0,
+			Fingerprint: resourceHash("install-resource content"),
+			Size:        int64(len("install-resource content")),
 		},
-		{
-			Resource: charmresource.Resource{
-				Meta: charmresource.Meta{
-					Name:        "store-resource",
-					Type:        charmresource.TypeFile,
-					Path:        "filename.tgz",
-					Description: "One line that is useful when operators need to push it.",
-				},
-				Origin:   charmresource.OriginStore,
-				Revision: -1,
+		ID:        "starsay/install-resource",
+		ServiceID: "starsay",
+	}, {
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:        "store-resource",
+				Type:        charmresource.TypeFile,
+				Path:        "filename.tgz",
+				Description: "One line that is useful when operators need to push it.",
 			},
-			ID:        "starsay/store-resource",
-			ServiceID: "starsay",
+			Origin:      charmresource.OriginStore,
+			Revision:    0,
+			Fingerprint: resourceHash("store-resource content"),
+			Size:        int64(len("store-resource content")),
 		},
-		{
-			Resource: charmresource.Resource{
-				Meta: charmresource.Meta{
-					Name:        "upload-resource",
-					Type:        charmresource.TypeFile,
-					Path:        "somename.xml",
-					Description: "Who uses xml anymore?",
-				},
-				Origin:      charmresource.OriginUpload,
-				Revision:    0,
-				Fingerprint: fp,
-				Size:        int64(len(data)),
+		ID:        "starsay/store-resource",
+		ServiceID: "starsay",
+	}, {
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:        "upload-resource",
+				Type:        charmresource.TypeFile,
+				Path:        "somename.xml",
+				Description: "Who uses xml anymore?",
 			},
-			ID:        "starsay/upload-resource",
-			ServiceID: "starsay",
-			Username:  "admin@local",
-			// Timestamp is checked above
+			Origin:      charmresource.OriginUpload,
+			Revision:    0,
+			Fingerprint: resourceHash(resourceContent),
+			Size:        int64(len(resourceContent)),
 		},
-	}
+		ID:        "starsay/upload-resource",
+		ServiceID: "starsay",
+		Username:  "admin@local",
+		// Timestamp is checked above
+	}}
 
 	c.Check(svcres.Resources, jc.DeepEquals, expectedResources)
 
@@ -301,6 +302,14 @@ Deploying charm "cs:trusty/starsay-1" with the charm series "trusty".
 
 	sort.Sort(csbyname(svcres.CharmStoreResources))
 	c.Check(oldCharmStoreResources, gc.DeepEquals, svcres.CharmStoreResources)
+}
+
+func resourceHash(content string) charmresource.Fingerprint {
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
+	if err != nil {
+		panic(err)
+	}
+	return fp
 }
 
 type byname []resource.Resource
