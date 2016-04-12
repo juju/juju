@@ -631,6 +631,26 @@ class TestDeployDummyStack(FakeHomeTestCase):
             'token=fake-token'), 0)
         ct_mock.assert_called_once_with(client, 'fake-token')
 
+    def test_deploy_dummy_stack_centos(self):
+        client = FakeJujuClient()
+        with patch.object(client, 'deploy', autospec=True) as dp_mock:
+            with temp_os_env('JUJU_REPOSITORY', '/tmp/repo'):
+                deploy_dummy_stack(client, 'centos7')
+        calls = [
+            call('/tmp/repo/charms-centos/dummy-source', series='centos7'),
+            call('/tmp/repo/charms-centos/dummy-sink', series='centos7')]
+        self.assertEqual(dp_mock.mock_calls, calls)
+
+    def test_deploy_dummy_stack_win(self):
+        client = FakeJujuClient()
+        with patch.object(client, 'deploy', autospec=True) as dp_mock:
+            with temp_os_env('JUJU_REPOSITORY', '/tmp/repo'):
+                deploy_dummy_stack(client, 'win2012hvr2')
+        calls = [
+            call('/tmp/repo/charms-win/dummy-source', series='win2012hvr2'),
+            call('/tmp/repo/charms-win/dummy-sink', series='win2012hvr2')]
+        self.assertEqual(dp_mock.mock_calls, calls)
+
     def test_deploy_dummy_stack(self):
         env = JujuData('foo', {'type': 'nonlocal'})
         client = EnvJujuClient(env, None, '/foo/juju')
