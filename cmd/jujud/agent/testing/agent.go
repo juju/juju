@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
@@ -45,8 +44,7 @@ type patchingSuite interface {
 // out replicaset.CurrentConfig and cmdutil.EnsureMongoServer.
 func InstallFakeEnsureMongo(suite patchingSuite) *FakeEnsureMongo {
 	f := &FakeEnsureMongo{
-		ServiceInstalled:    true,
-		ReplicasetInitiated: true,
+		ServiceInstalled: true,
 	}
 	suite.PatchValue(&mongo.IsServiceInstalled, f.IsServiceInstalled)
 	suite.PatchValue(&replicaset.CurrentConfig, f.CurrentConfig)
@@ -57,15 +55,14 @@ func InstallFakeEnsureMongo(suite patchingSuite) *FakeEnsureMongo {
 // FakeEnsureMongo provides test fakes for the functions used to
 // initialise MongoDB.
 type FakeEnsureMongo struct {
-	EnsureCount         int
-	InitiateCount       int
-	DataDir             string
-	OplogSize           int
-	Info                state.StateServingInfo
-	InitiateParams      peergrouper.InitiateMongoParams
-	Err                 error
-	ServiceInstalled    bool
-	ReplicasetInitiated bool
+	EnsureCount      int
+	InitiateCount    int
+	DataDir          string
+	OplogSize        int
+	Info             state.StateServingInfo
+	InitiateParams   peergrouper.InitiateMongoParams
+	Err              error
+	ServiceInstalled bool
 }
 
 func (f *FakeEnsureMongo) IsServiceInstalled() (bool, error) {
@@ -73,14 +70,11 @@ func (f *FakeEnsureMongo) IsServiceInstalled() (bool, error) {
 }
 
 func (f *FakeEnsureMongo) CurrentConfig(*mgo.Session) (*replicaset.Config, error) {
-	if f.ReplicasetInitiated {
-		// Return a dummy replicaset config that's good enough to
-		// indicate that the replicaset is initiated.
-		return &replicaset.Config{
-			Members: []replicaset.Member{{}},
-		}, nil
-	}
-	return nil, errors.NotFoundf("replicaset")
+	// Return a dummy replicaset config that's good enough to
+	// indicate that the replicaset is initiated.
+	return &replicaset.Config{
+		Members: []replicaset.Member{{}},
+	}, nil
 }
 
 func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) error {
@@ -96,16 +90,6 @@ func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) error {
 		SystemIdentity: args.SystemIdentity,
 	}
 	return f.Err
-}
-
-func (f *FakeEnsureMongo) MaybeInitiateMongo(p peergrouper.InitiateMongoParams) error {
-	return f.InitiateMongo(p, false)
-}
-
-func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams, force bool) error {
-	f.InitiateCount++
-	f.InitiateParams = p
-	return nil
 }
 
 // agentSuite is a fixture to be used by agent test suites.
