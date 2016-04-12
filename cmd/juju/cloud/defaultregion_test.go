@@ -83,3 +83,13 @@ func (s *defaultRegionSuite) TestOverwriteDefaultRegion(c *gc.C) {
 	cmd := cloud.NewSetDefaultRegionCommandForTest(store)
 	s.assertSetDefaultRegion(c, cmd, store, "aws", "")
 }
+
+func (s *defaultRegionSuite) TestCaseInsensitiveRegionSpecification(c *gc.C) {
+	store := jujuclienttesting.NewMemStore()
+	store.Credentials["aws"] = jujucloud.CloudCredential{DefaultRegion: "us-east-1"}
+
+	cmd := cloud.NewSetDefaultRegionCommandForTest(store)
+	_, err := testing.RunCommand(c, cmd, "aws", "us-WEST-1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(store.Credentials["aws"].DefaultRegion, gc.Equals, "us-west-1")
+}
