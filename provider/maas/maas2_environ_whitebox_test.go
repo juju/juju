@@ -374,7 +374,7 @@ func getFourSpaces() []gomaasapi.Space {
 
 func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.C) {
 	expected := gomaasapi.AllocateMachineArgs{
-		NotNetworks: []string{"space:6", "space:8"},
+		NotSpace: []string{"space:6", "space:8"},
 	}
 	env := suite.injectControllerWithSpacesAndCheck(c, getFourSpaces(), expected)
 
@@ -456,7 +456,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
 				AgentName: env.ecfg().maasAgentName(),
 				// Should have Interfaces too
-				NotNetworks: getNegatives(),
+				NotSpace: getNegatives(),
 			})
 		},
 		allocateMachine: &fakeMachine{
@@ -578,7 +578,7 @@ func getTwoSpaces() []gomaasapi.Space {
 func (suite *maas2EnvironSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
 	// Expected args should have Interfaces set
 	// Interfaces: 0:space=2,
-	env := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), gomaasapi.AllocateMachineArgs{NotNetworks: []string{"space:3"}})
+	env := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), gomaasapi.AllocateMachineArgs{NotSpace: []string{"space:3"}})
 	cons := constraints.Value{
 		Spaces: stringslicep("foo", "^bar"),
 	}
@@ -587,7 +587,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
-	env := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), gomaasapi.AllocateMachineArgs{NotNetworks: []string{"space:3"}})
+	env := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), gomaasapi.AllocateMachineArgs{NotSpace: []string{"space:3"}})
 	cons := constraints.Value{
 		Spaces: stringslicep("foo-1", "^bar-3"),
 	}
