@@ -26,7 +26,7 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.newCalled = false
 	s.PatchValue(&proxyupdater.NewWorker,
-		func(_ proxyupdater.API) (worker.Worker, error) {
+		func(_ proxyupdater.API, _ proxyupdater.Config) (worker.Worker, error) {
 			s.newCalled = true
 			return nil, nil
 		},

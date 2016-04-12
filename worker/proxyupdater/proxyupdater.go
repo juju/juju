@@ -24,18 +24,13 @@ import (
 
 var (
 	logger = loggo.GetLogger("juju.worker.proxyupdater")
-
-	// ProxyDirectory is the directory containing the proxy file that contains
-	// the environment settings for the proxies based on the environment
-	// config values.
-	ProxyDirectory = "/home/ubuntu"
-
-	// proxySettingsRegistryPath is the Windows registry path where the proxy settings are saved
-	proxySettingsRegistryPath = `HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
-
-	// ProxyFile is the name of the file to be stored in the ProxyDirectory.
-	ProxyFile = ".juju-proxy"
 )
+
+type Config struct {
+	Directory    string
+	RegistryPath string
+	Filename     string
+}
 
 // API is an interface that is provided to New
 // which can be used to fetch the API host ports
@@ -62,15 +57,27 @@ type proxyWorker struct {
 	// need to make sure that the disk reflects the environment, so the first
 	// time through, even if the proxies are empty, we write the files to
 	// disk.
-	first bool
+	first  bool
+	config Config
 }
 
 // NewWorker returns a worker.Worker that updates proxy environment variables for the
 // process and for the whole machine.
-var NewWorker = func(proxyAPI API) (worker.Worker, error) {
+var NewWorker = func(proxyAPI API, config Config) (worker.Worker, error) {
+	if config.Directory == "" {
+		config.Directory = "/home/ubuntu"
+	}
+	if config.RegistryPath == "" {
+		config.RegistryPath = `HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
+	}
+	if config.Filename == "" {
+		config.Filename = ".juju-proxy"
+	}
+
 	envWorker := &proxyWorker{
-		api:   proxyAPI,
-		first: true,
+		api:    proxyAPI,
+		first:  true,
+		config: config,
 	}
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: envWorker,
@@ -91,15 +98,16 @@ func (w *proxyWorker) writeEnvironmentFile() error {
 	//
 	// It is easier to shell out to check, and is also the same way that the file
 	// is written in the cloud-init process, so consistency FTW.
-	filePath := path.Join(ProxyDirectory, ProxyFile)
+	filePath := path.Join(w.config.Directory, w.config.Filename)
 	result, err := exec.RunCommands(exec.RunParams{
 		Commands: fmt.Sprintf(
 			`[ -e %s ] && (printf '%%s\n' %s > %s && chown ubuntu:ubuntu %s)`,
-			ProxyDirectory,
+			w.config.Directory,
 			utils.ShQuote(w.proxy.AsScriptEnvironment()),
 			filePath, filePath),
-		WorkingDir: ProxyDirectory,
+		WorkingDir: w.config.Directory,
 	})
+
 	if err != nil {
 		return err
 	}
@@ -119,7 +127,7 @@ func (w *proxyWorker) writeEnvironmentToRegistry() error {
 	result, err := exec.RunCommands(exec.RunParams{
 		Commands: fmt.Sprintf(
 			setProxyScript,
-			proxySettingsRegistryPath,
+			w.config.RegistryPath,
 			w.proxy.Http),
 	})
 	if err != nil {

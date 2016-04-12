@@ -67,7 +67,7 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C) {
 	// WatchForProxyConfigAndAPIHostPortChanges combines WatchForModelConfigChanges
 	// and WatchAPIHostPorts. Check that they are both called and we get the
-	s.facade.WatchForProxyConfigAndAPIHostPortChanges(params.Entities{})
+	s.facade.WatchForProxyConfigAndAPIHostPortChanges(s.oneEntity())
 
 	// Verify the watcher resource was registered.
 	c.Assert(s.resources.Count(), gc.Equals, 1)
@@ -160,8 +160,8 @@ type stubBackend struct {
 	EnvConfig   *config.Config
 	c           *gc.C
 	configAttrs coretesting.Attrs
-	hpWatcher   notAWatcher
-	confWatcher notAWatcher
+	hpWatcher   workertest.NotAWatcher
+	confWatcher workertest.NotAWatcher
 }
 
 func (sb *stubBackend) SetUp(c *gc.C) {
@@ -171,8 +171,8 @@ func (sb *stubBackend) SetUp(c *gc.C) {
 		"http-proxy":  "http proxy",
 		"https-proxy": "https proxy",
 	}
-	sb.hpWatcher = newFakeWatcher()
-	sb.confWatcher = newFakeWatcher()
+	sb.hpWatcher = workertest.NewFakeWatcher(2, 2)
+	sb.confWatcher = workertest.NewFakeWatcher(2, 2)
 }
 
 func (sb *stubBackend) Kill() {
