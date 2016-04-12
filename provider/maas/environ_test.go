@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/provider/maas"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -44,7 +43,7 @@ func (s *environSuite) SetUpSuite(c *gc.C) {
 func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.SetFeatureFlags(feature.AddressAllocation)
+	s.SetFeatureFlags()
 
 	mockCapabilities := func(client *gomaasapi.MAASObject) (set.Strings, error) {
 		return set.NewStrings("network-deployment-ubuntu"), nil
@@ -221,35 +220,17 @@ var expectedCloudinitConfig = []string{
 	"mkdir -p '/var/lib/juju'\ncat > '/var/lib/juju/MAASmachine.txt' << 'EOF'\n'hostname: testing.invalid\n'\nEOF\nchmod 0755 '/var/lib/juju/MAASmachine.txt'",
 }
 
-func (*environSuite) TestNewCloudinitConfigWithFeatureFlag(c *gc.C) {
+func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 	cfg := getSimpleTestConfig(c, nil)
 	env, err := maas.NewEnviron(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "quantal")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
-	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
-}
-
-func (s *environSuite) TestNewCloudinitConfigNoFeatureFlag(c *gc.C) {
-	cfg := getSimpleTestConfig(c, nil)
-	env, err := maas.NewEnviron(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	testCase := func(expectedConfig []string) {
-		cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "quantal")
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
-		c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedConfig)
-	}
-	// First test the default case (address allocation feature flag on).
-	testCase(expectedCloudinitConfig)
-
-	// Now test with the flag off.
-	s.SetFeatureFlags() // clear the flags.
 	modifyNetworkScript := maas.RenderEtcNetworkInterfacesScript()
 	script := expectedCloudinitConfig
 	script = append(script, modifyNetworkScript)
-	testCase(script)
+	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "quantal")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cloudcfg.SystemUpdate(), jc.IsTrue)
+	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, script)
 }
 
 func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C) {
