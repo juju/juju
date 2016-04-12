@@ -39,28 +39,33 @@ See Also:
    juju help add-unit
 `
 
-const setConstraintsDoc = `
-Sets machine constraints on specific service, which are used as the
-default constraints for all new machines provisioned by that service.
-You can also set constraints on a model by using
-juju model set-constraints.
+var usageSetConstraintsSummary = `
+Sets machine constraints for a service.`[1:]
 
-Constraints set on a service are combined with model constraints for
-commands (such as juju deploy) that provision machines for services.  Where
-model and service constraints overlap, the service constraints take
-precedence.
+// setConstraintsDoc is multi-line since we need to use ` to denote
+// commands for ease in markdown.
+var usageSetConstraintsDetails = `
+Sets constraints for a service, which are used for all new machines 
+provisioned for that service. They can be viewed with `[1:] + "`juju get-\nconstraints`" + `.
+By default, the model is the current model.
+Service constraints are combined with model constraints, set with ` +
+	"`juju \nset-model-constraints`" + `, for commands (such as 'juju deploy') that 
+provision machines for services. Where model and service constraints
+overlap, the service constraints take precedence.
+Constraints for a specific model can be viewed with ` + "`juju get-model-\nconstraints`" + `.
+This command requires that the service to have at least one unit. To apply 
+constraints to
+the first unit set them at the model level or pass them as an argument
+when deploying.
 
-Example:
+Examples:
+    juju set-constraints mysql mem=8G cpu-cores=4
+    juju set-constraints -m mymodel apache2 mem=8G arch=amd64
 
-    set-constraints wordpress mem=4G     (all new wordpress machines must have at least 4GB of RAM)
-
-See Also:
-   juju help constraints
-   juju help get-constraints
-   juju help deploy
-   juju help machine add
-   juju help add-unit
-`
+See also: 
+    get-constraints
+    get-model-constraints
+    set-model-constraints`
 
 // NewServiceGetConstraintsCommand returns a command which gets service constraints.
 func NewServiceGetConstraintsCommand() cmd.Command {
@@ -155,9 +160,9 @@ func NewServiceSetConstraintsCommand() cmd.Command {
 func (c *serviceSetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set-constraints",
-		Args:    "<service> [key=[value] ...]",
-		Purpose: "set constraints on a service",
-		Doc:     setConstraintsDoc,
+		Args:    "<service> <constraint>=<value> ...",
+		Purpose: usageSetConstraintsSummary,
+		Doc:     usageSetConstraintsDetails,
 	}
 }
 
