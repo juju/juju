@@ -14,6 +14,7 @@ import (
 	"github.com/gabriel-samfira/sys/windows/svc"
 	"github.com/gabriel-samfira/sys/windows/svc/mgr"
 	"github.com/juju/errors"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/service/common"
 )
@@ -352,16 +353,22 @@ func (s *SvcManager) Delete(name string) error {
 
 // Create creates a service with the given config.
 func (s *SvcManager) Create(name string, conf common.Conf) error {
-	passwd, err := getPassword()
-	if err != nil {
-		return errors.Trace(err)
+	serviceStartName := "LocalSystem"
+	var passwd string
+	if !series.IsWindowsNano(series.HostSeries()) {
+		password, err := getPassword()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		passwd = password
+		serviceStartName = jujudUser
 	}
 	cfg := mgr.Config{
 		Dependencies:     []string{"Winmgmt"},
 		ErrorControl:     mgr.ErrorSevere,
 		StartType:        mgr.StartAutomatic,
 		DisplayName:      conf.Desc,
-		ServiceStartName: jujudUser,
+		ServiceStartName: serviceStartName,
 		Password:         passwd,
 	}
 	// mgr.CreateService actually does correct argument escaping itself. There is no

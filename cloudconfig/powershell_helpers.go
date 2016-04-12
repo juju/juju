@@ -22,32 +22,7 @@
 
 package cloudconfig
 
-var winPowershellHelperFunctions = `
-
-$ErrorActionPreference = "Stop"
-
-function ExecRetry($command, $retryInterval = 15)
-{
-	$currErrorActionPreference = $ErrorActionPreference
-	$ErrorActionPreference = "Continue"
-
-	while ($true)
-	{
-		try
-		{
-			& $command
-			break
-		}
-		catch [System.Exception]
-		{
-			Write-Error $_.Exception
-			Start-Sleep $retryInterval
-		}
-	}
-
-	$ErrorActionPreference = $currErrorActionPreference
-}
-
+const addJujudUser = `
 function create-account ([string]$accountName, [string]$accountDescription, [string]$password) {
 	$hostname = hostname
 	$comp = [adsi]"WinNT://$hostname"
@@ -451,6 +426,51 @@ function SetUserLogonAsServiceRights($UserName)
 	}
 }
 
+$juju_passwd = Get-RandomPassword 20
+$juju_passwd += "^"
+create-account jujud "Juju Admin user" $juju_passwd
+$hostname = hostname
+$juju_user = "$hostname\jujud"
+
+SetUserLogonAsServiceRights $juju_user
+SetAssignPrimaryTokenPrivilege $juju_user
+
+$path = "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList"
+if(!(Test-Path $path)){
+	New-Item -Path $path -force
+}
+New-ItemProperty $path -Name "jujud" -Value 0 -PropertyType "DWord"
+
+$secpasswd = ConvertTo-SecureString $juju_passwd -AsPlainText -Force
+$jujuCreds = New-Object System.Management.Automation.PSCredential ($juju_user, $secpasswd)
+`
+
+const winPowershellHelperFunctions = `
+
+$ErrorActionPreference = "Stop"
+
+function ExecRetry($command, $retryInterval = 15)
+{
+	$currErrorActionPreference = $ErrorActionPreference
+	$ErrorActionPreference = "Continue"
+
+	while ($true)
+	{
+		try
+		{
+			& $command
+			break
+		}
+		catch [System.Exception]
+		{
+			Write-Error $_.Exception
+			Start-Sleep $retryInterval
+		}
+	}
+
+	$ErrorActionPreference = $currErrorActionPreference
+}
+
 Function GUnZip-File{
     Param(
         $infile,
@@ -596,34 +616,50 @@ Function Get-FileSHA256{
 	Param(
 		$FilePath
 	)
-	$hash = [Security.Cryptography.HashAlgorithm]::Create( "SHA256" )
-	$stream = ([IO.StreamReader]$FilePath).BaseStream
-	$res = -join ($hash.ComputeHash($stream) | ForEach { "{0:x2}" -f $_ })
-	$stream.Close()
-	return $res
+	try {
+		$hash = [Security.Cryptography.HashAlgorithm]::Create( "SHA256" )
+		$stream = ([IO.StreamReader]$FilePath).BaseStream
+		$res = -join ($hash.ComputeHash($stream) | ForEach { "{0:x2}" -f $_ })
+		$stream.Close()
+		return $res
+	} catch [System.Management.Automation.RuntimeException] {
+		return (Get-FileHash -Path $FilePath).Hash
+	}
 }
 
-$juju_passwd = Get-RandomPassword 20
-$juju_passwd += "^"
-create-account jujud "Juju Admin user" $juju_passwd
-$hostname = hostname
-$juju_user = "$hostname\jujud"
+Function Invoke-FastWebRequest {
+	Param(
+		$URI,
+		$OutFile
+	)
 
-SetUserLogonAsServiceRights $juju_user
-SetAssignPrimaryTokenPrivilege $juju_user
+	if(!([System.Management.Automation.PSTypeName]'System.Net.Http.HttpClient').Type)
+	{
+		$assembly = [System.Reflection.Assembly]::LoadWithPartialName("System.Net.Http")
+	}
 
-$path = "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList"
-if(!(Test-Path $path)){
-	New-Item -Path $path -force
+	$client = new-object System.Net.Http.HttpClient
+
+	$task = $client.GetStreamAsync($URI)
+	$response = $task.Result
+	$outStream = New-Object IO.FileStream $OutFile, Create, Write, None
+
+	try {
+		$totRead = 0
+		$buffer = New-Object Byte[] 1MB
+		while (($read = $response.Read($buffer, 0, $buffer.Length)) -gt 0) {
+		$totRead += $read
+		$outStream.Write($buffer, 0, $read);
+		}
+	}
+	finally {
+		$outStream.Close()
+	}
 }
-New-ItemProperty $path -Name "jujud" -Value 0 -PropertyType "DWord"
-
-$secpasswd = ConvertTo-SecureString $juju_passwd -AsPlainText -Force
-$jujuCreds = New-Object System.Management.Automation.PSCredential ($juju_user, $secpasswd)
 
 `
 
-var UserdataScript = `#ps1_sysnative
+const UserdataScript = `#ps1_sysnative
 $userdata=@"
 %s
 "@
