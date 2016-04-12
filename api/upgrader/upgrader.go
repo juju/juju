@@ -72,7 +72,7 @@ func (st *State) DesiredVersion(tag string) (version.Number, error) {
 
 // Tools returns the agent tools that should run on the given entity,
 // along with a flag whether to disable SSL hostname verification.
-func (st *State) Tools(tag string) (*tools.Tools, error) {
+func (st *State) Tools(tag string) (tools.List, error) {
 	var results params.ToolsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
@@ -82,15 +82,19 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 		// TODO: Not directly tested
 		return nil, err
 	}
+	// TODO(ericsnow) Remove this restriction.
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
 		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
-	result := results.Results[0]
-	if err := result.Error; err != nil {
-		return nil, err
+	var list tools.List
+	for _, result := range results.Results {
+		if err := result.Error; err != nil {
+			return nil, err
+		}
+		list = append(list, result.Tools)
 	}
-	return result.Tools, nil
+	return list, nil
 }
 
 func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error) {
