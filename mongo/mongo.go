@@ -193,9 +193,20 @@ var (
 	}
 )
 
-// BinariesAvailable returns true if the binaries for the
+// InstalledVersion returns the version of mongo installed.
+// We look for a specific, known version supported by this Juju,
+// and fall back to the original mongo 2.4.
+func InstalledVersion() Version {
+	mgoVersion := Mongo24
+	if binariesAvailable(Mongo32wt) {
+		mgoVersion = Mongo32wt
+	}
+	return mgoVersion
+}
+
+// binariesAvailable returns true if the binaries for the
 // given Version of mongo are available.
-func BinariesAvailable(v Version) bool {
+func binariesAvailable(v Version) bool {
 	var path string
 	switch v {
 	case Mongo24:
@@ -362,9 +373,6 @@ type EnsureServerParams struct {
 	// SetNumaControlPolicy preference - whether the user
 	// wants to set the numa control policy when starting mongo.
 	SetNumaControlPolicy bool
-
-	// Version is the mongod version to be used.
-	Version Version
 }
 
 // EnsureServer ensures that the MongoDB server is installed,
@@ -400,7 +408,8 @@ func EnsureServer(args EnsureServerParams) error {
 		// (LP #1441904)
 		logger.Errorf("cannot install/upgrade mongod (will proceed anyway): %v", err)
 	}
-	mongoPath, err := Path(args.Version)
+	mgoVersion := InstalledVersion()
+	mongoPath, err := Path(mgoVersion)
 	if err != nil {
 		return err
 	}
@@ -429,7 +438,7 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	svcConf := newConf(args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy, args.Version, true)
+	svcConf := newConf(args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy, mgoVersion, true)
 	svc, err := newService(ServiceName, svcConf)
 	if err != nil {
 		return err
@@ -524,16 +533,6 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 		return err
 	}
 
-	// Only Quantal requires the PPA.
-	if operatingsystem == "quantal" {
-		// install python-software-properties:
-		if err := pacman.InstallPrerequisite(); err != nil {
-			return err
-		}
-		if err := pacman.AddRepository("ppa:juju/stable"); err != nil {
-			return err
-		}
-	}
 	// CentOS requires "epel-release" for the epel repo mongodb-server is in.
 	if operatingsystem == "centos7" {
 		// install epel-release

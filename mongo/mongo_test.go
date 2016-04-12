@@ -20,7 +20,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
@@ -106,7 +105,6 @@ func makeEnsureServerParams(dataDir string) mongo.EnsureServerParams {
 		SharedSecret: testInfo.SharedSecret,
 
 		DataDir: dataDir,
-		Version: mongo.Mongo24,
 	}
 }
 
@@ -332,9 +330,6 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 
 	tests := []installs{
 		{"precise", [][]string{{"--target-release", "precise-updates/cloud-tools", "mongodb-server"}}},
-		{"quantal", [][]string{{"python-software-properties"}, {"--target-release", "mongodb-server"}}},
-		{"raring", [][]string{{"--target-release", "mongodb-server"}}},
-		{"saucy", [][]string{{"--target-release", "mongodb-server"}}},
 		{"trusty", [][]string{{"juju-mongodb3.2"}}},
 		{"wily", [][]string{{"juju-mongodb3.2"}}},
 		{"xenial", [][]string{{"juju-mongodb3.2"}}},
@@ -637,42 +632,6 @@ func (s *MongoSuite) TestRemoveService(c *gc.C) {
 	s.data.CheckCallNames(c, "Stop", "Remove")
 }
 
-func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
-	dir := c.MkDir()
-	// patch manager.RunCommandWithRetry for repository addition:
-	s.PatchValue(&manager.RunCommandWithRetry, func(string, func(string) error) (string, int, error) {
-		return "", 1, fmt.Errorf("packaging command failed: exit status 1")
-	})
-	s.PatchEnvPathPrepend(dir)
-
-	pm, err := coretesting.GetPackageManager()
-	c.Assert(err, jc.ErrorIsNil)
-	failCmd(filepath.Join(dir, pm.RepositoryManager))
-	testing.PatchExecutableAsEchoArgs(c, s, pm.PackageManager)
-
-	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("test-writer", &tw, loggo.ERROR), jc.ErrorIsNil)
-	defer loggo.RemoveWriter("test-writer")
-
-	// test that we call add-apt-repository only for quantal
-	// (and that if it fails, we log the error)
-	s.patchSeries("quantal")
-	err = mongo.EnsureServer(makeEnsureServerParams(dir))
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(tw.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.ERROR, `cannot install/upgrade mongod \(will proceed anyway\): packaging command failed`},
-	})
-
-	s.PatchValue(&manager.RunCommandWithRetry, func(string, func(string) error) (string, int, error) {
-		return "", 0, nil
-	})
-	s.patchSeries("trusty")
-	failCmd(filepath.Join(dir, "mongod"))
-	err = mongo.EnsureServer(makeEnsureServerParams(dir))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	// Make a non-existent directory that can nonetheless be
 	// created.
@@ -731,40 +690,6 @@ func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {
 	c.Assert(secret, gc.HasLen, 1024)
 	_, err = base64.StdEncoding.DecodeString(secret)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
-	testing.PatchExecutableAsEchoArgs(c, s, "apt-get")
-
-	testing.PatchExecutableAsEchoArgs(c, s, "add-apt-repository")
-	s.patchSeries("quantal")
-
-	dataDir := c.MkDir()
-	err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
-	c.Assert(err, jc.ErrorIsNil)
-
-	pack := [][]string{
-		{
-			"install",
-			"python-software-properties",
-		}, {
-			"install",
-			"--target-release",
-			"mongodb-server",
-		},
-	}
-	noCommand := len(expectedArgs.AptGetBase) - 1
-	for k := range pack {
-		cmd := append(expectedArgs.AptGetBase[:noCommand], pack[k]...)
-		testing.AssertEchoArgs(c, "apt-get", cmd...)
-	}
-
-	match := []string{
-		"--yes",
-		"\"ppa:juju/stable\"",
-	}
-
-	testing.AssertEchoArgs(c, "add-apt-repository", match...)
 }
 
 func (s *MongoSuite) TestAddEpelInCentOS(c *gc.C) {

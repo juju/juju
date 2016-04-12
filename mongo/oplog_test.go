@@ -232,7 +232,7 @@ func (s *oplogSuite) startMongoWithReplicaset(c *gc.C) (*jujutesting.MgoInstance
 		DialInfo:       info,
 		MemberHostPort: inst.Addr(),
 	}
-	err = peergrouper.MaybeInitiateMongoServer(args)
+	err = peergrouper.InitiateMongoServer(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return inst, s.dialMongo(c, inst)

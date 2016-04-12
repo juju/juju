@@ -128,7 +128,6 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.fakeEnsureMongo = agenttesting.InstallFakeEnsureMongo(s)
-	s.AgentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.MaybeInitiateMongo)
 }
 
 func (s *commonMachineSuite) assertChannelActive(c *gc.C, aChannel chan struct{}, intent string) {
@@ -201,7 +200,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 	inst, md := jujutesting.AssertStartInstance(c, s.Environ, machineId)
 	c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), jc.ErrorIsNil)
 
-	// Add an address for the tests in case the maybeInitiateMongoServer
+	// Add an address for the tests in case the initiateMongoServer
 	// codepath is exercised.
 	s.setFakeMachineAddresses(c, m)
 
@@ -1495,47 +1494,6 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 	s.waitStopped(c, state.JobHostUnits, a, doneCh)
 }
 
-func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
-	m, agentConfig, _ := s.primeAgent(c, state.JobManageModel)
-	agentConfig.SetUpgradedToVersion(version.MustParse("1.18.0"))
-	err := agentConfig.Write()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.MongoSession().DB("admin").RemoveUser(m.Tag().String())
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.fakeEnsureMongo.ServiceInstalled = true
-	s.fakeEnsureMongo.ReplicasetInitiated = false
-
-	s.AgentSuite.PatchValue(&ensureMongoAdminUser, func(p mongo.EnsureAdminUserParams) (bool, error) {
-		err := s.State.MongoSession().DB("admin").AddUser(p.User, p.Password, false)
-		c.Assert(err, jc.ErrorIsNil)
-		return true, nil
-	})
-
-	stateOpened := make(chan interface{}, 1)
-	s.AgentSuite.PatchValue(&reportOpenedState, func(st io.Closer) {
-		select {
-		case stateOpened <- st:
-		default:
-		}
-	})
-
-	// Start the machine agent, and wait for state to be opened.
-	a := s.newAgent(c, m)
-	done := make(chan error)
-	go func() { done <- a.Run(nil) }()
-	defer a.Stop() // in case of failure
-	select {
-	case st := <-stateOpened:
-		c.Assert(st, gc.NotNil)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("state not opened")
-	}
-	s.waitStopped(c, state.JobManageModel, a, done)
-	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 1)
-}
-
 func (s *MachineSuite) TestMachineAgentSetsPrepareRestore(c *gc.C) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
@@ -1741,49 +1699,12 @@ func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()
 	}
 }
 
-func (s *MachineSuite) TestReplicasetInitiation(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("controllers on windows aren't supported")
-	}
-
-	s.fakeEnsureMongo.ReplicasetInitiated = false
-
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	agentConfig := a.CurrentConfig()
-
-	err := a.ensureMongoServer(agentConfig)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 1)
-}
-
-func (s *MachineSuite) TestReplicasetAlreadyInitiated(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("controllers on windows aren't supported")
-	}
-
-	s.fakeEnsureMongo.ReplicasetInitiated = true
-
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	agentConfig := a.CurrentConfig()
-
-	err := a.ensureMongoServer(agentConfig)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
-}
-
 func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("controllers on windows aren't supported")
 	}
 
 	s.fakeEnsureMongo.ServiceInstalled = false
-	s.fakeEnsureMongo.ReplicasetInitiated = true
 
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)
@@ -1881,7 +1802,7 @@ func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureRepl
 			DialInfo:       info,
 			MemberHostPort: inst.Addr(),
 		}
-		err = peergrouper.MaybeInitiateMongoServer(args)
+		err = peergrouper.InitiateMongoServer(args)
 		c.Assert(err, jc.ErrorIsNil)
 		expectedWMode = "majority"
 	} else {
