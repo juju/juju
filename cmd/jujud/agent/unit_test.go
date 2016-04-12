@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -31,8 +31,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -257,70 +255,6 @@ func (s *UnitSuite) TestWithDeadUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
-	_, unit, conf, _ := s.primeAgent(c)
-	configPath := agent.ConfigPath(conf.DataDir(), conf.Tag())
-
-	// Set an invalid password (but the old initial password will still work).
-	// This test is a sort of unsophisticated simulation of what might happen
-	// if a previous cycle had picked, and locally recorded, a new password;
-	// but failed to set it on the controller. Would be better to test that
-	// code path explicitly in future, but this suffices for now.
-	confW, err := agent.ReadConfig(configPath)
-	c.Assert(err, gc.IsNil)
-	confW.SetPassword("nonsense-borken")
-	err = confW.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that it successfully connects (with the conf's old password).
-	assertOpen := func() {
-		agent := NewAgentConf(conf.DataDir())
-		err := agent.ReadConfig(conf.Tag().String())
-		c.Assert(err, jc.ErrorIsNil)
-		st, err := apicaller.OpenAPIState(agent)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(st, gc.NotNil)
-		st.Close()
-	}
-	assertOpen()
-
-	// Check that the old password has been invalidated.
-	assertPassword := func(password string, valid bool) {
-		err := unit.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(unit.PasswordValid(password), gc.Equals, valid)
-	}
-	assertPassword(initialUnitPassword, false)
-
-	// Read the stored password and check it's valid.
-	confR, err := agent.ReadConfig(configPath)
-	c.Assert(err, gc.IsNil)
-	apiInfo, ok := confR.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	newPassword := apiInfo.Password
-	assertPassword(newPassword, true)
-
-	// Double-check that we can open a fresh connection with the stored
-	// conf ... and that the password hasn't been changed again.
-	assertOpen()
-	assertPassword(newPassword, true)
-}
-
-func (s *UnitSuite) TestOpenAPIStateWithBadCredsTerminates(c *gc.C) {
-	conf, _ := s.PrimeAgent(c, names.NewUnitTag("missing/0"), "no-password")
-	_, err := apicaller.OpenAPIState(fakeConfAgent{conf: conf})
-	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
-}
-
-type fakeConfAgent struct {
-	agent.Agent
-	conf agent.Config
-}
-
-func (f fakeConfAgent) CurrentConfig() agent.Config {
-	return f.conf
-}
-
 func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 	// Start a unit agent and make sure it doesn't set a mongo password
 	// we can use to connect to state with.
@@ -437,4 +371,37 @@ func (s *UnitSuite) TestDontUseLumberjack(c *gc.C) {
 
 	_, ok := ctx.Stderr.(*lumberjack.Logger)
 	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *UnitSuite) TestChangeConfig(c *gc.C) {
+	config := FakeAgentConfig{}
+	configChanged := voyeur.NewValue(true)
+	a := UnitAgent{
+		AgentConf:        config,
+		configChangedVal: configChanged,
+	}
+
+	var mutateCalled bool
+	mutate := func(config agent.ConfigSetter) error {
+		mutateCalled = true
+		return nil
+	}
+
+	configChangedCh := make(chan bool)
+	watcher := configChanged.Watch()
+	watcher.Next() // consume initial event
+	go func() {
+		configChangedCh <- watcher.Next()
+	}()
+
+	err := a.ChangeConfig(mutate)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(mutateCalled, jc.IsTrue)
+	select {
+	case result := <-configChangedCh:
+		c.Check(result, jc.IsTrue)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for config changed signal")
+	}
 }

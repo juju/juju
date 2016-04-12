@@ -83,8 +83,9 @@ type JujuConnSuite struct {
 	APIState           api.Connection
 	apiStates          []api.Connection // additional api.Connections to close on teardown
 	ControllerStore    jujuclient.ClientStore
-	BackingState       *state.State // The State being used by the API server
-	RootDir            string       // The faked-up root directory.
+	BackingState       *state.State     // The State being used by the API server
+	BackingStatePool   *state.StatePool // The StatePool being used by the API server
+	RootDir            string           // The faked-up root directory.
 	LogDir             string
 	oldHome            string
 	oldJujuXDGDataHome string
@@ -277,7 +278,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.BackingState = environ.(GetStater).GetStateInAPIServer()
+	getStater := environ.(GetStater)
+	s.BackingState = getStater.GetStateInAPIServer()
+	s.BackingStatePool = getStater.GetStatePoolInAPIServer()
 
 	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, jc.ErrorIsNil)
@@ -489,7 +492,13 @@ func addCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, e
 	if err := stor.Put(storagePath, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
 	}
-	sch, err := st.AddCharm(ch, curl, storagePath, digest)
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: storagePath,
+		SHA256:      digest,
+	}
+	sch, err := st.AddCharm(info)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add charm: %v", err)
 	}
@@ -516,6 +525,7 @@ func (s *JujuConnSuite) sampleConfig() testing.Attrs {
 
 type GetStater interface {
 	GetStateInAPIServer() *state.State
+	GetStatePoolInAPIServer() *state.StatePool
 }
 
 func (s *JujuConnSuite) tearDownConn(c *gc.C) {
@@ -552,8 +562,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		s.State = nil
 	}
 
-	err := dummy.Reset()
-	c.Assert(err, jc.ErrorIsNil)
+	dummy.Reset(c)
 	utils.SetHome(s.oldHome)
 	osenv.SetJujuXDGDataHome(s.oldJujuXDGDataHome)
 	s.oldHome = ""

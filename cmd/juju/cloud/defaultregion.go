@@ -8,9 +8,10 @@ import (
 	"github.com/juju/errors"
 
 	"fmt"
+	"strings"
+
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/jujuclient"
-	"strings"
 )
 
 type setDefaultRegionCommand struct {

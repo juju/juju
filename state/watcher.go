@@ -125,6 +125,7 @@ func collect(one watcher.Change, more <-chan watcher.Change, stop <-chan struct{
 		result[ch.Id] = ch.Revno != -1
 	}
 	handle(one)
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	timeout := time.After(10 * time.Millisecond)
 	for done := false; !done; {
 		select {
@@ -2653,7 +2654,7 @@ type migrationActiveWatcher struct {
 func newMigrationActiveWatcher(st *State) NotifyWatcher {
 	w := &migrationActiveWatcher{
 		commonWatcher: commonWatcher{st: st},
-		collName:      modelMigrationsActiveC,
+		collName:      migrationsActiveC,
 		sink:          make(chan struct{}),
 	}
 	go func() {
@@ -2733,7 +2734,7 @@ type migrationStatusWatcher struct {
 func newMigrationStatusWatcher(st *State) NotifyWatcher {
 	w := &migrationStatusWatcher{
 		commonWatcher: commonWatcher{st: st},
-		collName:      modelMigrationStatusC,
+		collName:      migrationsStatusC,
 		sink:          make(chan struct{}),
 	}
 	go func() {
@@ -2752,7 +2753,7 @@ func (w *migrationStatusWatcher) Changes() <-chan struct{} {
 func (w *migrationStatusWatcher) loop() error {
 	in := make(chan watcher.Change)
 
-	// Watch the entire modelMigrationStatusC collection for migration
+	// Watch the entire migrationsStatusC collection for migration
 	// status updates related to the State's model. This is more
 	// efficient and simpler than tracking the current active
 	// migration (and changing watchers when one migration finishes
@@ -2769,18 +2770,7 @@ func (w *migrationStatusWatcher) loop() error {
 	w.st.watcher.WatchCollectionWithFilter(w.collName, in, filter)
 	defer w.st.watcher.UnwatchCollection(w.collName, in)
 
-	var out chan<- struct{}
-
-	// If there is a migration record for the model - active or not -
-	// send an initial event.
-	if _, err := w.st.GetModelMigration(); errors.IsNotFound(err) {
-		// Nothing to report.
-	} else if err != nil {
-		return errors.Trace(err)
-	} else {
-		out = w.sink
-	}
-
+	out := w.sink // out set so that initial event is sent.
 	for {
 		select {
 		case <-w.tomb.Dying():

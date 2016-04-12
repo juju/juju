@@ -52,17 +52,17 @@ func (s *StateWorkersSuite) TestInputs(c *gc.C) {
 
 func (s *StateWorkersSuite) TestNoStartStateWorkers(c *gc.C) {
 	manifold := machine.StateWorkersManifold(machine.StateWorkersConfig{})
-	worker, err := manifold.Start(dt.StubGetResource(nil))
+	worker, err := manifold.Start(dt.StubContext(nil, nil))
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "StartStateWorkers not specified")
 	c.Check(s.startCalled, jc.IsFalse)
 }
 
 func (s *StateWorkersSuite) TestStateMissing(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"state": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"state": dependency.ErrMissing,
 	})
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 	c.Check(s.startCalled, jc.IsFalse)
@@ -70,12 +70,12 @@ func (s *StateWorkersSuite) TestStateMissing(c *gc.C) {
 
 func (s *StateWorkersSuite) TestStartError(c *gc.C) {
 	tracker := new(mockStateTracker)
-	getResource := dt.StubGetResource(dt.StubResources{
-		"state": dt.StubResource{Output: tracker},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"state": tracker,
 	})
 	s.startError = errors.New("boom")
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "worker startup: boom")
 	c.Check(s.startCalled, jc.IsTrue)
@@ -84,10 +84,10 @@ func (s *StateWorkersSuite) TestStartError(c *gc.C) {
 
 func (s *StateWorkersSuite) TestStartSuccess(c *gc.C) {
 	tracker := new(mockStateTracker)
-	getResource := dt.StubGetResource(dt.StubResources{
-		"state": dt.StubResource{Output: tracker},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"state": tracker,
 	})
-	w, err := s.manifold.Start(getResource)
+	w, err := s.manifold.Start(context)
 	c.Check(w, gc.Not(gc.IsNil))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(s.startCalled, jc.IsTrue)

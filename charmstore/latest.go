@@ -7,18 +7,23 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
 )
+
+const jujuMetadataHTTPHeader = "Juju-Metadata"
 
 // LatestCharmInfo returns the most up-to-date information about each
 // of the identified charms at their latest revision. The revisions in
-// the provided URLs are ignored.
-func LatestCharmInfo(client BaseClient, cURLs []*charm.URL) ([]CharmInfoResult, error) {
+// the provided URLs are ignored.  The returned map indicates charm URLs where
+// the macaroon has been updated. This updated macaroon should be stored for
+// use in any further requests.  Note that this map may be non-empty even if
+// this method returns an error (and the macaroons should be stored).
+func LatestCharmInfo(client Client, charms []CharmID, modelUUID string) ([]CharmInfoResult, error) {
 	now := time.Now().UTC()
-
 	// Do a bulk call to get the revision info for all charms.
-	logger.Infof("retrieving revision information for %d charms", len(cURLs))
-	revResults, err := client.LatestRevisions(cURLs)
+	logger.Infof("retrieving revision information for %d charms", len(charms))
+	revResults, err := client.LatestRevisions(charms, map[string][]string{
+		jujuMetadataHTTPHeader: []string{"environment_uuid=" + modelUUID},
+	})
 	if err != nil {
 		err = errors.Annotate(err, "while getting latest charm revision info")
 		logger.Infof(err.Error())
@@ -27,19 +32,19 @@ func LatestCharmInfo(client BaseClient, cURLs []*charm.URL) ([]CharmInfoResult, 
 
 	// Do a bulk call to get the latest info for each charm's resources.
 	// TODO(ericsnow) Only do this for charms that *have* resources.
-	chResources, err := client.ListResources(cURLs)
+	chResources, err := client.ListResources(charms)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// Extract the results.
 	var results []CharmInfoResult
-	for i, cURL := range cURLs {
+	for i, ch := range charms {
 		revResult := revResults[i]
 		resources := chResources[i]
 
 		var result CharmInfoResult
-		result.OriginalURL = cURL
+		result.OriginalURL = ch.URL
 		result.Timestamp = now
 		if revResult.Err != nil {
 			result.Error = errors.Trace(revResult.Err)

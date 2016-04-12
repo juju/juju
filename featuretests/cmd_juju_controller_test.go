@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
-	undertakerapi "github.com/juju/juju/api/undertaker"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
@@ -27,7 +26,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/worker/undertaker"
 )
 
 type cmdControllerSuite struct {
@@ -124,6 +122,7 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 		ConfigAttrs: testing.Attrs{"controller": true},
 	})
 	defer st.Close()
+	factory.NewFactory(st).MakeService(c, nil)
 
 	stop := make(chan struct{})
 	done := make(chan struct{})
@@ -136,6 +135,8 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 		a := testing.LongAttempt.Start()
 		for a.Next() {
 			err := s.State.Cleanup()
+			c.Check(err, jc.ErrorIsNil)
+			err = st.Cleanup()
 			c.Check(err, jc.ErrorIsNil)
 			err = st.ProcessDyingModel()
 			if errors.Cause(err) != state.ErrModelNotDying {
@@ -213,19 +214,16 @@ func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c 
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 
-	client := undertakerapi.NewClient(s.APIState)
-
-	startTime := time.Date(2015, time.September, 1, 17, 2, 1, 0, time.UTC)
-	mClock := testing.NewClock(startTime)
-	undertaker.NewUndertaker(client, mClock)
-
 	store := jujuclient.NewFileClientStore()
 	_, err := store.ControllerByName("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "kill-controller", "kontroll", "-y")
 
-	// Ensure that Destroy was called on the hosted model ...
+	// Ensure that Destroy was called on the hosted environ ...
+	// TODO(fwereade): how do we know it's the hosted environ?
+	// what actual interactions made it ok to destroy any environ
+	// here? (there used to be an undertaker that didn't work...)
 	opRecvTimeout(c, st, opc, dummy.OpDestroy{})
 
 	// ... and that the details were removed removed from

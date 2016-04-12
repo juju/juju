@@ -16,9 +16,9 @@ var (
 	logger = loggo.GetLogger("juju.container.lxd")
 )
 
-const (
-	DefaultLxdBridge = "INVALIDBRIDGEGO1.2"
-)
+func GetDefaultBridgeName() (string, error) {
+	return "", errors.Errorf("LXD not supported in go 1.2")
+}
 
 func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
 	return nil, errors.Errorf("LXD containers not supported in go 1.2")

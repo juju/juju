@@ -133,7 +133,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	envCfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{Config: envCfg})
 	c.Assert(err, jc.ErrorIsNil)
-	defer dummy.Reset()
+	defer dummy.Reset(c)
 
 	hostedModelUUID := utils.MustNewUUID().String()
 	hostedModelConfigAttrs := map[string]interface{}{

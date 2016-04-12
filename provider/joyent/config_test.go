@@ -48,12 +48,12 @@ var _ = gc.Suite(&ConfigSuite{})
 func (s *ConfigSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	restoreSdcAccount := testing.PatchEnvironment(jp.SdcAccount, "tester")
-	s.AddSuiteCleanup(func(*gc.C) { restoreSdcAccount() })
+	s.AddCleanup(func(*gc.C) { restoreSdcAccount() })
 	restoreSdcKeyId := testing.PatchEnvironment(jp.SdcKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
-	s.AddSuiteCleanup(func(*gc.C) { restoreSdcKeyId() })
+	s.AddCleanup(func(*gc.C) { restoreSdcKeyId() })
 	s.privateKeyData = generatePrivateKey(c)
 	jp.RegisterMachinesEndpoint()
-	s.AddSuiteCleanup(func(*gc.C) { jp.UnregisterMachinesEndpoint() })
+	s.AddCleanup(func(*gc.C) { jp.UnregisterMachinesEndpoint() })
 }
 
 func generatePrivateKey(c *gc.C) string {

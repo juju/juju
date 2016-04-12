@@ -20,6 +20,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -886,6 +887,7 @@ func (m *Machine) Remove() (err error) {
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
 		removeMachineBlockDevicesOp(m.Id()),
+		removeModelMachineRefOp(m.st, m.Id()),
 	}
 	ifacesOps, err := m.removeNetworkInterfacesOps()
 	if err != nil {
@@ -966,6 +968,7 @@ func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 				return nil
 			}
 		case <-time.After(timeout):
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			return fmt.Errorf("still not alive after timeout")
 		case <-m.st.pwatcher.Dead():
 			return m.st.pwatcher.Err()
@@ -1533,7 +1536,7 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 	}
 	doc := newNetworkInterfaceDoc(m.doc.Id, m.st.ModelUUID(), args)
 	ops := []txn.Op{
-		assertModelAliveOp(m.st.ModelUUID()),
+		assertModelActiveOp(m.st.ModelUUID()),
 		{
 			C:      networksC,
 			Id:     m.st.docID(args.NetworkName),
@@ -1817,4 +1820,53 @@ func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
 // VolumeAttachments returns the machine's volume attachments.
 func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
 	return m.st.MachineVolumeAttachments(m.MachineTag())
+}
+
+// AddAction is part of the ActionReceiver interface.
+func (m *Machine) AddAction(name string, payload map[string]interface{}) (Action, error) {
+	spec, ok := actions.PredefinedActionsSpec[name]
+	if !ok {
+		return nil, errors.Errorf("cannot add action %q to a machine; only predefined actions allowed", name)
+	}
+
+	// Reject bad payloads before attempting to insert defaults.
+	err := spec.ValidateParams(payload)
+	if err != nil {
+		return nil, err
+	}
+	payloadWithDefaults, err := spec.InsertDefaults(payload)
+	if err != nil {
+		return nil, err
+	}
+	return m.st.EnqueueAction(m.Tag(), name, payloadWithDefaults)
+}
+
+// CancelAction is part of the ActionReceiver interface.
+func (m *Machine) CancelAction(action Action) (Action, error) {
+	return action.Finish(ActionResults{Status: ActionCancelled})
+}
+
+// WatchActionNotifications is part of the ActionReceiver interface.
+func (m *Machine) WatchActionNotifications() StringsWatcher {
+	return m.st.watchEnqueuedActionsFilteredBy(m)
+}
+
+// Actions is part of the ActionReceiver interface.
+func (m *Machine) Actions() ([]Action, error) {
+	return m.st.matchingActions(m)
+}
+
+// CompletedActions is part of the ActionReceiver interface.
+func (m *Machine) CompletedActions() ([]Action, error) {
+	return m.st.matchingActionsCompleted(m)
+}
+
+// PendingActions is part of the ActionReceiver interface.
+func (m *Machine) PendingActions() ([]Action, error) {
+	return m.st.matchingActionsPending(m)
+}
+
+// RunningActions is part of the ActionReceiver interface.
+func (m *Machine) RunningActions() ([]Action, error) {
+	return m.st.matchingActionsRunning(m)
 }

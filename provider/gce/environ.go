@@ -61,10 +61,10 @@ type environ struct {
 	uuid string
 	gce  gceConnection
 
-	lock sync.Mutex
+	lock sync.Mutex // lock protects access to ecfg
 	ecfg *environConfig
 
-	archLock               sync.Mutex
+	archLock               sync.Mutex // protects supportedArchitectures
 	supportedArchitectures []string
 }
 
@@ -132,17 +132,12 @@ var newConnection = func(ecfg *environConfig) (gceConnection, error) {
 	return google.Connect(connCfg, auth)
 }
 
-// getSnapshot returns a copy of the environment. This is useful for
-// ensuring the env you are using does not get changed by other code
-// while you are using it.
-func (env *environ) getSnapshot() *environ {
-	e := *env
-	return &e
-}
-
 // Config returns the configuration data with which the env was created.
 func (env *environ) Config() *config.Config {
-	return env.getSnapshot().ecfg.Config
+	env.lock.Lock()
+	cfg := env.ecfg.Config
+	env.lock.Unlock()
+	return cfg
 }
 
 var bootstrap = common.Bootstrap

@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/clock"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon.v1"
@@ -17,12 +19,17 @@ import (
 	"github.com/juju/juju/state"
 )
 
+var logger = loggo.GetLogger("juju.apiserver.authentication")
+
 // UserAuthenticator performs authentication for local users. If a password
 type UserAuthenticator struct {
 	AgentAuthenticator
 
 	// Service holds the service that is used to mint and verify macaroons.
-	Service *bakery.Service
+	Service ExpirableStorageBakeryService
+
+	// Clock is used to calculate the expiry time for macaroons.
+	Clock clock.Clock
 }
 
 const (
@@ -64,18 +71,24 @@ func (u *UserAuthenticator) Authenticate(
 // controller agent restarts.
 //
 // NOTE(axw) this method will generate a key for a previously unseen user,
-// and store it in the bakery.Service's storage, which is currently in-memory.
-// Callers should first ensure the user is valid before calling this, to avoid
-// filling memory with keys for invalid users.
+// and store it in the bakery.Service's storage. Callers should first ensure
+// the user is valid before calling this, to avoid filling storage with keys
+// for invalid users.
 func (u *UserAuthenticator) CreateLocalLoginMacaroon(tag names.UserTag) (*macaroon.Macaroon, error) {
+
+	expiryTime := u.Clock.Now().Add(localLoginExpiryTime)
+
+	// Ensure that the private key that we generate and store will be
+	// removed from storage once the expiry time has elapsed.
+	bakeryService, err := u.Service.ExpireStorageAt(expiryTime)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// We create the macaroon with a random ID and random root key, which
 	// enables multiple clients to login as the same user and obtain separate
 	// macaroons without having them use the same root key.
-	//
-	// TODO(axw) check with rogpeppe about this. bakery.Service doesn't
-	// currently garbage collect, so this will grow until the controller
-	// agent restarts.
-	m, err := u.Service.NewMacaroon("", nil, []checkers.Caveat{
+	m, err := bakeryService.NewMacaroon("", nil, []checkers.Caveat{
 		// The macaroon may only be used to log in as the user
 		// specified by the tag passed to CreateLocalUserMacaroon.
 		checkers.DeclaredCaveat(usernameKey, tag.Canonical()),
@@ -83,7 +96,7 @@ func (u *UserAuthenticator) CreateLocalLoginMacaroon(tag names.UserTag) (*macaro
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create macaroon")
 	}
-	if err := addMacaroonTimeBeforeCaveat(u.Service, m, localLoginExpiryTime); err != nil {
+	if err := addMacaroonTimeBeforeCaveat(bakeryService, m, expiryTime); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return m, nil
@@ -96,7 +109,8 @@ func (u *UserAuthenticator) authenticateMacaroons(
 	assert := map[string]string{usernameKey: tag.Canonical()}
 	_, err := u.Service.CheckAny(req.Macaroons, assert, checkers.New(checkers.TimeBefore))
 	if err != nil {
-		return nil, errors.Trace(err)
+		logger.Debugf("local-login macaroon authentication failed: %v", err)
+		return nil, errors.Trace(common.ErrBadCreds)
 	}
 	entity, err := entityFinder.FindEntity(tag)
 	if errors.IsNotFound(err) {
@@ -114,7 +128,7 @@ func (u *UserAuthenticator) authenticateMacaroons(
 type ExternalMacaroonAuthenticator struct {
 	// Service holds the service that is
 	// used to verify macaroon authorization.
-	Service *bakery.Service
+	Service BakeryService
 
 	// Macaroon guards macaroon-authentication-based access
 	// to the APIs. Appropriate caveats will be added before
@@ -134,7 +148,9 @@ func (m *ExternalMacaroonAuthenticator) newDischargeRequiredError(cause error) e
 		return errors.Trace(cause)
 	}
 	mac := m.Macaroon.Clone()
-	if err := addMacaroonTimeBeforeCaveat(m.Service, mac, externalLoginExpiryTime); err != nil {
+	// TODO(fwereade): 2016-03-17 lp:1558657
+	expiryTime := time.Now().Add(externalLoginExpiryTime)
+	if err := addMacaroonTimeBeforeCaveat(m.Service, mac, expiryTime); err != nil {
 		return errors.Annotatef(err, "cannot create macaroon")
 	}
 	err := m.Service.AddCaveat(mac, checkers.NeedDeclaredCaveat(
@@ -193,6 +209,25 @@ func (m *ExternalMacaroonAuthenticator) Authenticate(entityFinder EntityFinder, 
 	return entity, nil
 }
 
-func addMacaroonTimeBeforeCaveat(svc *bakery.Service, m *macaroon.Macaroon, d time.Duration) error {
-	return svc.AddCaveat(m, checkers.TimeBeforeCaveat(time.Now().Add(d)))
+func addMacaroonTimeBeforeCaveat(svc BakeryService, m *macaroon.Macaroon, t time.Time) error {
+	return svc.AddCaveat(m, checkers.TimeBeforeCaveat(t))
+}
+
+// BakeryService defines the subset of bakery.Service
+// that we require for authentication.
+type BakeryService interface {
+	AddCaveat(*macaroon.Macaroon, checkers.Caveat) error
+	CheckAny([]macaroon.Slice, map[string]string, checkers.Checker) (map[string]string, error)
+	NewMacaroon(string, []byte, []checkers.Caveat) (*macaroon.Macaroon, error)
+}
+
+// ExpirableStorageBakeryService extends BakeryService
+// with the ExpireStorageAt method so that root keys are
+// removed from storage at that time.
+type ExpirableStorageBakeryService interface {
+	BakeryService
+
+	// ExpireStorageAt returns a new ExpirableStorageBakeryService with
+	// a store that will expire items added to it at the specified time.
+	ExpireStorageAt(time.Time) (ExpirableStorageBakeryService, error)
 }

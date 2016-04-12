@@ -5,16 +5,14 @@ package server_test
 
 import (
 	"io"
-	"io/ioutil"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/server"
@@ -37,8 +35,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.csClient = &stubCSClient{Stub: s.stub}
 }
 
-func (s *BaseSuite) newCSClient(cURL *charm.URL, csMac *macaroon.Macaroon) (server.CharmStore, error) {
-	s.stub.AddCall("newCSClient", cURL, csMac)
+func (s *BaseSuite) newCSClient() (server.CharmStore, error) {
+	s.stub.AddCall("newCSClient")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
@@ -142,11 +140,11 @@ type stubCSClient struct {
 	*testing.Stub
 
 	ReturnListResources [][]charmresource.Resource
-	ReturnGetResource   *charmresource.Resource
+	ReturnResourceInfo  *charmresource.Resource
 }
 
-func (s *stubCSClient) ListResources(cURLs []*charm.URL) ([][]charmresource.Resource, error) {
-	s.AddCall("ListResources", cURLs)
+func (s *stubCSClient) ListResources(charms []charmstore.CharmID) ([][]charmresource.Resource, error) {
+	s.AddCall("ListResources", charms)
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -154,14 +152,14 @@ func (s *stubCSClient) ListResources(cURLs []*charm.URL) ([][]charmresource.Reso
 	return s.ReturnListResources, nil
 }
 
-func (s *stubCSClient) GetResource(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, io.ReadCloser, error) {
-	s.AddCall("GetResource", cURL, resourceName, revision)
+func (s *stubCSClient) ResourceInfo(req charmstore.ResourceRequest) (charmresource.Resource, error) {
+	s.AddCall("ResourceInfo", req)
 	if err := s.NextErr(); err != nil {
-		return charmresource.Resource{}, nil, errors.Trace(err)
+		return charmresource.Resource{}, errors.Trace(err)
 	}
 
-	if s.ReturnGetResource == nil {
-		return charmresource.Resource{}, nil, errors.NotFoundf("resource %q", resourceName)
+	if s.ReturnResourceInfo == nil {
+		return charmresource.Resource{}, errors.NotFoundf("resource %q", req.Name)
 	}
-	return *s.ReturnGetResource, ioutil.NopCloser(nil), nil
+	return *s.ReturnResourceInfo, nil
 }

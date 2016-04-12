@@ -5,6 +5,7 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -33,6 +34,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -101,6 +103,11 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	s.mockBlockClient = &mockBlockClient{}
 	s.PatchValue(&blockAPI, func(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
+		err := s.mockBlockClient.loginError
+		if err != nil {
+			s.mockBlockClient.loginError = nil
+			return nil, err
+		}
 		if s.mockBlockClient.discoveringSpacesError > 0 {
 			s.mockBlockClient.discoveringSpacesError -= 1
 			return nil, errors.New("spaces are still being discovered")
@@ -121,7 +128,7 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
-	dummy.Reset()
+	dummy.Reset(c)
 }
 
 func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
@@ -134,6 +141,7 @@ type mockBlockClient struct {
 	retryCount             int
 	numRetries             int
 	discoveringSpacesError int
+	loginError             error
 }
 
 var errOther = errors.New("other error")
@@ -178,7 +186,7 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 		{-1, errOther}, // another error is returned
 	} {
 		resetJujuXDGDataHome(c)
-		dummy.Reset()
+		dummy.Reset(c)
 		s.store = jujuclienttesting.NewMemStore()
 
 		s.mockBlockClient.numRetries = t.numRetries
@@ -201,6 +209,8 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapAPIReadyWaitsForSpaceDiscovery(c *gc.C) {
+	s.PatchValue(&bootstrapReadyPollDelay, 1*time.Millisecond)
+	s.PatchValue(&bootstrapReadyPollCount, 5)
 	defaultSeriesVersion := jujuversion.Current
 	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
@@ -213,6 +223,47 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyWaitsForSpaceDiscovery(c *gc.C) {
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockBlockClient.discoveringSpacesError, gc.Equals, 0)
+}
+
+func (s *BootstrapSuite) TestBootstrapAPIReadyRetriesWithOpenEOFErr(c *gc.C) {
+	s.PatchValue(&bootstrapReadyPollDelay, 1*time.Millisecond)
+	s.PatchValue(&bootstrapReadyPollCount, 5)
+	defaultSeriesVersion := jujuversion.Current
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	defaultSeriesVersion.Build = 1234
+	s.PatchValue(&jujuversion.Current, defaultSeriesVersion)
+	resetJujuXDGDataHome(c)
+
+	s.mockBlockClient.numRetries = 0
+	s.mockBlockClient.retryCount = 0
+	s.mockBlockClient.loginError = io.EOF
+	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(s.mockBlockClient.retryCount, gc.Equals, 1)
+}
+
+func (s *BootstrapSuite) TestBootstrapAPIReadyStopsRetriesWithOpenErr(c *gc.C) {
+	s.PatchValue(&bootstrapReadyPollDelay, 1*time.Millisecond)
+	s.PatchValue(&bootstrapReadyPollCount, 5)
+	defaultSeriesVersion := jujuversion.Current
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	defaultSeriesVersion.Build = 1234
+	s.PatchValue(&jujuversion.Current, defaultSeriesVersion)
+
+	resetJujuXDGDataHome(c)
+
+	s.mockBlockClient.numRetries = 0
+	s.mockBlockClient.retryCount = 0
+	s.mockBlockClient.loginError = errors.NewUnauthorized(nil, "")
+	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
+	c.Check(err, jc.Satisfies, errors.IsUnauthorized)
+
+	c.Check(s.mockBlockClient.retryCount, gc.Equals, 0)
 }
 
 func (s *BootstrapSuite) TestRunTests(c *gc.C) {
@@ -259,7 +310,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	// Create home with dummy provider and remove all
 	// of its envtools.
 	resetJujuXDGDataHome(c)
-	dummy.Reset()
+	dummy.Reset(c)
 
 	var restore testing.Restorer = func() {
 		s.store = jujuclienttesting.NewMemStore()
@@ -546,6 +597,41 @@ func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsInheritedAttributes(c *
 	c.Assert(ok, jc.IsFalse)
 	_, ok = bootstrap.args.HostedModelConfig["agent-version"]
 	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *BootstrapSuite) TestBootstrapWithGUI(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	var bootstrap fakeBootstrapFuncs
+
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+	coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy")
+	c.Assert(bootstrap.args.GUIDataSourceBaseURL, gc.Equals, gui.DefaultBaseURL)
+}
+
+func (s *BootstrapSuite) TestBootstrapWithCustomizedGUI(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	s.PatchEnvironment("JUJU_GUI_SIMPLESTREAMS_URL", "https://1.2.3.4/gui/streams")
+
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+
+	coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy")
+	c.Assert(bootstrap.args.GUIDataSourceBaseURL, gc.Equals, "https://1.2.3.4/gui/streams")
+}
+
+func (s *BootstrapSuite) TestBootstrapWithoutGUI(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	var bootstrap fakeBootstrapFuncs
+
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+	coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--no-gui")
+	c.Assert(bootstrap.args.GUIDataSourceBaseURL, gc.Equals, "")
 }
 
 type mockBootstrapInstance struct {

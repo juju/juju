@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
@@ -47,7 +48,11 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	dbModel, newSt, err := st.NewModel(cfg, model.Owner())
+	dbModel, newSt, err := st.NewModel(ModelArgs{
+		Config:        cfg,
+		Owner:         model.Owner(),
+		MigrationMode: MigrationModeImporting,
+	})
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -396,7 +401,7 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		Nonce:                    m.Nonce(),
 		Series:                   m.Series(),
 		ContainerType:            m.ContainerType(),
-		Principals:               nil, // TODO
+		Principals:               nil, // Set during unit import.
 		Life:                     Alive,
 		Tools:                    i.makeTools(m.Tools()),
 		Jobs:                     jobs,
@@ -605,6 +610,17 @@ func (i *importer) unit(s description.Service, u description.Unit) error {
 			Info: u.MeterStatusInfo(),
 		},
 	})
+
+	// If the unit is a principal, add it to its machine.
+	if u.Principal().Id() == "" {
+		ops = append(ops, txn.Op{
+			C:      machinesC,
+			Id:     u.Machine().Id(),
+			Assert: txn.DocExists,
+			Update: bson.M{"$addToSet": bson.M{"principals": u.Name()}},
+		})
+	}
+
 	// We should only have constraints for principal agents.
 	// We don't encode that business logic here, if there are constraints
 	// in the imported model, we put them in the database.
@@ -644,6 +660,7 @@ func (i *importer) makeServiceDoc(s description.Service) (*serviceDoc, error) {
 		Series:               s.Series(),
 		Subordinate:          s.Subordinate(),
 		CharmURL:             charmUrl,
+		Channel:              s.Channel(),
 		CharmModifiedVersion: s.CharmModifiedVersion(),
 		ForceCharm:           s.ForceCharm(),
 		Life:                 Alive,

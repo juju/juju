@@ -27,22 +27,25 @@ type getCommand struct {
 }
 
 const getModelHelpDoc = `
-If no extra args passed on the command line, all configuration keys and values
-for the environment are output using the selected formatter.
+By default, all configuration (keys and values) for the model are
+displayed if a key is not specified.
+By default, the model is the current model.
 
-A single model value can be output by adding the model key name to
-the end of the command line.
+Examples:
 
-Example:
-  
-  juju get-model-config default-series  (returns the default series for the model)
+    juju get-model-config default-series
+    juju get-model-config -m mymodel type
+
+See also: list-models
+          set-model-config
+          unset-model-config
 `
 
 func (c *getCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get-model-config",
 		Args:    "[<model key>]",
-		Purpose: "view model values",
+		Purpose: "Displays configuration settings for a model.",
 		Doc:     strings.TrimSpace(getModelHelpDoc),
 	}
 }

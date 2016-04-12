@@ -306,6 +306,7 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.SSLHostnameVerification = config.SSLHostnameVerification()
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
+	result.AptMirror = config.AptMirror()
 	result.PreferIPv6 = config.PreferIPv6()
 	result.AllowLXCLoopMounts, _ = config.AllowLXCLoopMounts()
 
@@ -812,7 +813,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 				VLANTag:             parentDeviceSubnet.VLANTag(),
 				ParentInterfaceName: parentDevice.Name(),
 			}
-			logger.Debugf("prepared info for container interface %q: %+v", info.InterfaceName, info)
+			logger.Tracef("prepared info for container interface %q: %+v", info.InterfaceName, info)
 			preparedOK = true
 			preparedInfo[j] = info
 		}
@@ -831,7 +832,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 
 		allocatedConfig := networkingcommon.NetworkConfigFromInterfaceInfo(allocatedInfo)
 		sortedAllocatedConfig := networkingcommon.SortNetworkConfigsByInterfaceName(allocatedConfig)
-		logger.Debugf("allocated sorted network config: %+v", sortedAllocatedConfig)
+		logger.Tracef("allocated sorted network config: %+v", sortedAllocatedConfig)
 		result.Results[i].Config = sortedAllocatedConfig
 	}
 	return result, nil

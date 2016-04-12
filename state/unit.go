@@ -20,6 +20,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
@@ -1033,6 +1034,7 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 				return nil
 			}
 		case <-time.After(timeout):
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			return fmt.Errorf("still not alive after timeout")
 		case <-u.st.pwatcher.Dead():
 			return u.st.pwatcher.Err()
@@ -1996,20 +1998,25 @@ type ActionSpecsByName map[string]charm.ActionSpec
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID.  Note that the use of spec.InsertDefaults
 // mutates payload.
-func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
+func (u *Unit) AddAction(name string, payload map[string]interface{}) (Action, error) {
 	if len(name) == 0 {
 		return nil, errors.New("no action name given")
 	}
-	specs, err := u.ActionSpecs()
-	if err != nil {
-		return nil, err
-	}
-	spec, ok := specs[name]
+
+	// If the action is predefined inside juju, get spec from map
+	spec, ok := actions.PredefinedActionsSpec[name]
 	if !ok {
-		return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
+		specs, err := u.ActionSpecs()
+		if err != nil {
+			return nil, err
+		}
+		spec, ok = specs[name]
+		if !ok {
+			return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
+		}
 	}
 	// Reject bad payloads before attempting to insert defaults.
-	err = spec.ValidateParams(payload)
+	err := spec.ValidateParams(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -2048,7 +2055,7 @@ func (u *Unit) ActionSpecs() (ActionSpecsByName, error) {
 
 // CancelAction removes a pending Action from the queue for this
 // ActionReceiver and marks it as cancelled.
-func (u *Unit) CancelAction(action *Action) (*Action, error) {
+func (u *Unit) CancelAction(action Action) (Action, error) {
 	return action.Finish(ActionResults{Status: ActionCancelled})
 }
 
@@ -2059,23 +2066,23 @@ func (u *Unit) WatchActionNotifications() StringsWatcher {
 }
 
 // Actions returns a list of actions pending or completed for this unit.
-func (u *Unit) Actions() ([]*Action, error) {
+func (u *Unit) Actions() ([]Action, error) {
 	return u.st.matchingActions(u)
 }
 
 // CompletedActions returns a list of actions that have finished for
 // this unit.
-func (u *Unit) CompletedActions() ([]*Action, error) {
+func (u *Unit) CompletedActions() ([]Action, error) {
 	return u.st.matchingActionsCompleted(u)
 }
 
 // PendingActions returns a list of actions pending for this unit.
-func (u *Unit) PendingActions() ([]*Action, error) {
+func (u *Unit) PendingActions() ([]Action, error) {
 	return u.st.matchingActionsPending(u)
 }
 
 // RunningActions returns a list of actions running on this unit.
-func (u *Unit) RunningActions() ([]*Action, error) {
+func (u *Unit) RunningActions() ([]Action, error) {
 	return u.st.matchingActionsRunning(u)
 }
 

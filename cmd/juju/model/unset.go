@@ -23,20 +23,30 @@ type unsetCommand struct {
 	keys []string
 }
 
-const unsetEnvHelpDoc = `
-Reset one or more the model configuration attributes to its default
-value in a running Juju instance.  Attributes without defaults are removed,
-and attempting to remove a required attribute with no default will result
-in an error.
+// unsetEnvHelpDoc is multi-line since we need to use ` to denote
+// commands for ease in markdown.
+const unsetEnvHelpDoc = "" +
+	"A model key is reset to its default value. If it does not have such a\n" +
+	"value defined then it is removed.\n" +
+	"Attempting to remove a required key with no default value will result\n" +
+	"in an error.\n" +
+	"By default, the model is the current model.\n" +
+	"Model configuration key values can be viewed with `juju get-model-config`.\n" + unsetEnvHelpDocExamples
 
-Multiple attributes may be removed at once; keys should be space-separated.
+const unsetEnvHelpDocExamples = `
+Examples:
+
+    juju unset-model-config api-port test-mode
+
+See also: set-model-config
+          get-model-config
 `
 
 func (c *unsetCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unset-model-config",
 		Args:    "<model key> ...",
-		Purpose: "unset model values",
+		Purpose: "Unsets model configuration.",
 		Doc:     strings.TrimSpace(unsetEnvHelpDoc),
 	}
 }

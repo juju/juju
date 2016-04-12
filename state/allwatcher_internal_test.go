@@ -55,7 +55,7 @@ func (s *allWatcherBaseSuite) newState(c *gc.C) *State {
 		"name": fmt.Sprintf("testenv%d", s.envCount),
 		"uuid": utils.MustNewUUID().String(),
 	})
-	_, st, err := s.state.NewModel(cfg, s.owner)
+	_, st, err := s.state.NewModel(ModelArgs{Config: cfg, Owner: s.owner})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { st.Close() })
 	return st
@@ -1059,6 +1059,9 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 			w2 := newTestAllWatcher(otherState, c)
 			defer w2.Stop()
 
+			// The first set of deltas is empty, reflecting an empty model.
+			w1.AssertNoChange()
+			w2.AssertNoChange()
 			checkIsolationForEnv(s.state, w1, w2)
 			checkIsolationForEnv(otherState, w2, w1)
 		}()
@@ -3011,11 +3014,11 @@ func (tw *testWatcher) NumDeltas() int {
 		// TODO(mjs) - this is somewhat fragile. There are no
 		// guarentees that the watcher will be able to return deltas
 		// in ShortWait time.
-		deltas := len(tw.Next(testing.ShortWait))
-		if deltas == 0 {
+		deltas := tw.Next(testing.ShortWait)
+		if len(deltas) == 0 {
 			break
 		}
-		count += deltas
+		count += len(deltas)
 	}
 	return count
 }
@@ -3099,7 +3102,7 @@ func deltaMap(deltas []multiwatcher.Delta) map[interface{}]multiwatcher.EntityIn
 	return m
 }
 
-func makeActionInfo(a *Action, st *State) multiwatcher.ActionInfo {
+func makeActionInfo(a Action, st *State) multiwatcher.ActionInfo {
 	results, message := a.Results()
 	return multiwatcher.ActionInfo{
 		ModelUUID:  st.ModelUUID(),

@@ -4,8 +4,8 @@
 package charmrevisionupdater
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -89,21 +89,10 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 	return nil
 }
 
-// NewCharmStoreClientConfig returns the client config to use.
-// It is defined at top level for testing purposes.
-var NewCharmStoreClientConfig = func() charmstore.ClientConfig {
-	var config charmstore.ClientConfig
-	return config
-}
-
-// newCharmStoreClient instantiates a new charm store repository.
-func newCharmStoreClient(modelUUID string) (*charmstore.Client, error) {
-	// TODO(ericsnow) Use the Juju "HTTP context" once we have one.
-	config := NewCharmStoreClientConfig()
-	client := charmstore.NewClient(config)
-	return client.WithMetadata(charmstore.JujuMetadata{
-		ModelUUID: modelUUID,
-	})
+// NewCharmStoreClient instantiates a new charm store repository.  Exported so
+// we can change it during testing.
+var NewCharmStoreClient = func(st *state.State) (charmstore.Client, error) {
+	return charmstore.NewCachingClient(state.MacaroonCache{st}, nil)
 }
 
 type latestCharmInfo struct {
@@ -119,14 +108,18 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	modelUUID := env.UUID()
 
 	services, err := st.AllServices()
 	if err != nil {
 		return nil, err
 	}
 
-	var curls []*charm.URL
+	client, err := NewCharmStoreClient(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var charms []charmstore.CharmID
 	var resultsIndexedServices []*state.Service
 	for _, service := range services {
 		curl, _ := service.CharmURL()
@@ -136,16 +129,16 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 			// a path to the local repo. This may change if the need arises.
 			continue
 		}
-		curls = append(curls, curl)
+
+		cid := charmstore.CharmID{
+			URL:     curl,
+			Channel: service.Channel(),
+		}
+		charms = append(charms, cid)
 		resultsIndexedServices = append(resultsIndexedServices, service)
 	}
 
-	client, err := newCharmStoreClient(modelUUID)
-	if err != nil {
-		return nil, err
-	}
-
-	results, err := charmstore.LatestCharmInfo(client, curls)
+	results, err := charmstore.LatestCharmInfo(client, charms, env.UUID())
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +146,7 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 	var latest []latestCharmInfo
 	for i, result := range results {
 		if result.Error != nil {
-			logger.Errorf("retrieving charm info for %s: %v", curls[i], result.Error)
+			logger.Errorf("retrieving charm info for %s: %v", charms[i].URL, result.Error)
 			continue
 		}
 		service := resultsIndexedServices[i]

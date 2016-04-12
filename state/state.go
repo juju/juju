@@ -26,6 +26,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -125,6 +126,17 @@ func (st *State) IsController() bool {
 // this method. Otherwise, there is a race condition in which collections
 // could be added to during or after the running of this method.
 func (st *State) RemoveAllModelDocs() error {
+	return st.removeAllModelDocs(bson.D{{"life", Dead}})
+}
+
+// RemoveImportingModelDocs removes all documents from multi-model collections
+// for the current model. This method asserts that the model's migration mode
+// is "importing".
+func (st *State) RemoveImportingModelDocs() error {
+	return st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeImporting}})
+}
+
+func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	env, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
@@ -136,9 +148,13 @@ func (st *State) RemoveAllModelDocs() error {
 		Id:     id,
 		Remove: true,
 	}, {
+		C:      modelEntityRefsC,
+		Id:     st.ModelUUID(),
+		Remove: true,
+	}, {
 		C:      modelsC,
 		Id:     st.ModelUUID(),
-		Assert: bson.D{{"life", Dead}},
+		Assert: modelAssertion,
 		Remove: true,
 	}}
 
@@ -839,31 +855,32 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 
 // AddCharm adds the ch charm with curl to the state.
 // On success the newly added charm state is returned.
-func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string) (stch *Charm, err error) {
+func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
-	if err := validateCharmVersion(ch); err != nil {
+	if err := validateCharmVersion(info.Charm); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	query := charms.FindId(curl.String()).Select(bson.D{{"placeholder", 1}})
+	query := charms.FindId(info.ID.String()).Select(bson.D{{"placeholder", 1}})
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var placeholderDoc struct {
 			Placeholder bool `bson:"placeholder"`
 		}
 		if err := query.One(&placeholderDoc); err == mgo.ErrNotFound {
-			return insertCharmOps(st, ch, curl, storagePath, bundleSha256)
+
+			return insertCharmOps(st, info)
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		} else if placeholderDoc.Placeholder {
-			return updateCharmOps(st, ch, curl, storagePath, bundleSha256, stillPlaceholder)
+			return updateCharmOps(st, info, stillPlaceholder)
 		}
-		return nil, errors.AlreadyExistsf("charm %q", curl)
+		return nil, errors.AlreadyExistsf("charm %q", info.ID)
 	}
 	if err = st.run(buildTxn); err == nil {
-		return st.Charm(curl)
+		return st.Charm(info.ID)
 	}
 	return nil, errors.Trace(err)
 }
@@ -890,7 +907,8 @@ func (st *State) AllCharms() ([]*Charm, error) {
 	var charms []*Charm
 	iter := charmsCollection.Find(nil).Iter()
 	for iter.Next(&cdoc) {
-		charms = append(charms, newCharm(st, &cdoc))
+		ch := newCharm(st, &cdoc)
+		charms = append(charms, ch)
 	}
 	return charms, errors.Trace(iter.Close())
 }
@@ -1102,30 +1120,30 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 
 // UpdateUploadedCharm marks the given charm URL as uploaded and
 // updates the rest of its data, returning it as *state.Charm.
-func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string) (*Charm, error) {
+func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
 	doc := &charmDoc{}
-	err := charms.FindId(curl.String()).One(&doc)
+	err := charms.FindId(info.ID.String()).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("charm %q", curl)
+		return nil, errors.NotFoundf("charm %q", info.ID)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if !doc.PendingUpload {
-		return nil, errors.Trace(&ErrCharmAlreadyUploaded{curl})
+		return nil, errors.Trace(&ErrCharmAlreadyUploaded{info.ID})
 	}
 
-	ops, err := updateCharmOps(st, ch, curl, storagePath, bundleSha256, stillPending)
+	ops, err := updateCharmOps(st, info, stillPending)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := st.runTransaction(ops); err != nil {
 		return nil, onAbort(err, ErrCharmRevisionAlreadyModified)
 	}
-	return st.Charm(curl)
+	return st.Charm(info.ID)
 }
 
 // addPeerRelationsOps returns the operations necessary to add the
@@ -1165,6 +1183,7 @@ type AddServiceArgs struct {
 	Series           string
 	Owner            string
 	Charm            *Charm
+	Channel          csparams.Channel
 	Networks         []string
 	Storage          map[string]StorageConstraints
 	EndpointBindings map[string]string
@@ -1201,11 +1220,8 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	} else if exists {
 		return nil, errors.Errorf("service already exists")
 	}
-	env, err := st.Model()
-	if err != nil {
+	if err := checkModelActive(st); err != nil {
 		return nil, errors.Trace(err)
-	} else if env.Life() != Alive {
-		return nil, errors.Errorf("model is no longer alive")
 	}
 	if _, err := st.ModelUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
@@ -1305,10 +1321,11 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	svcDoc := &serviceDoc{
 		DocID:         serviceID,
 		Name:          args.Name,
-		ModelUUID:     env.UUID(),
+		ModelUUID:     st.ModelUUID(),
 		Series:        args.Series,
 		Subordinate:   args.Charm.Meta().Subordinate,
 		CharmURL:      args.Charm.URL(),
+		Channel:       string(args.Channel),
 		RelationCount: len(peers),
 		Life:          Alive,
 		OwnerTag:      args.Owner,
@@ -1331,7 +1348,8 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		// behaviour.
 		Status:     status.StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
-		Updated:    time.Now().UnixNano(),
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		Updated: time.Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour
 		// while we work out how to switch to an implementation that makes
 		// sense. It is also set in AddMissingServiceStatuses.
@@ -1342,7 +1360,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	// so we add it here.
 	ops := append(
 		[]txn.Op{
-			env.assertAliveOp(),
+			assertModelActiveOp(st.ModelUUID()),
 			endpointBindingsOp,
 		},
 		addServiceOps(st, addServiceOpsArgs{
@@ -1394,7 +1412,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	probablyUpdateStatusHistory(st, svc.globalKey(), statusDoc)
 
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
-		if err := checkModeLife(st); err != nil {
+		if err := checkModelActive(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return nil, errors.Errorf("service already exists")
@@ -1661,7 +1679,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 		return nil, err
 	}
 	ops := []txn.Op{
-		assertModelAliveOp(st.ModelUUID()),
+		assertModelActiveOp(st.ModelUUID()),
 		{
 			C:      subnetsC,
 			Id:     subnetID,
@@ -1673,7 +1691,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
-		if err := checkModeLife(st); err != nil {
+		if err := checkModelActive(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		if _, err = st.Subnet(args.CIDR); err == nil {
@@ -1752,7 +1770,7 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	}
 	doc := st.newNetworkDoc(args)
 	ops := []txn.Op{
-		assertModelAliveOp(st.ModelUUID()),
+		assertModelActiveOp(st.ModelUUID()),
 		{
 			C:      networksC,
 			Id:     doc.DocID,
@@ -1763,7 +1781,7 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
-		if err := checkModeLife(st); err != nil {
+		if err := checkModelActive(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		if _, err = st.Network(args.Name); err == nil {

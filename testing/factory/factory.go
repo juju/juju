@@ -365,7 +365,13 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 
 	curl := charm.MustParseURL(params.URL)
 	bundleSHA256 := uniqueString("bundlesha")
-	charm, err := factory.st.AddCharm(ch, curl, "fake-storage-path", bundleSHA256)
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "fake-storage-path",
+		SHA256:      bundleSHA256,
+	}
+	charm, err := factory.st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	return charm
 }
@@ -569,7 +575,10 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		"state-port": currentCfg.StatePort(),
 		"api-port":   currentCfg.APIPort(),
 	}.Merge(params.ConfigAttrs))
-	_, st, err := factory.st.NewModel(cfg, params.Owner.(names.UserTag))
+	_, st, err := factory.st.NewModel(state.ModelArgs{
+		Config: cfg,
+		Owner:  params.Owner.(names.UserTag),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st
 }

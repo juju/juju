@@ -4,7 +4,10 @@
 package machine_test
 
 import (
+	"sort"
+
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -21,7 +24,7 @@ type ManifoldsSuite struct {
 
 var _ = gc.Suite(&ManifoldsSuite{})
 
-func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
+func (*ManifoldsSuite) TestStartFuncs(c *gc.C) {
 	manifolds := machine.Manifolds(machine.ManifoldsConfig{
 		Agent: fakeAgent{},
 	})
@@ -31,16 +34,18 @@ func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
+func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	manifolds := machine.Manifolds(machine.ManifoldsConfig{})
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
 		keys = append(keys, k)
 	}
+	sort.Strings(keys)
 	expectedKeys := []string{
 		"agent",
 		"api-address-updater",
 		"api-caller",
+		"api-config-watcher",
 		"apiworkers",
 		"authenticationworker",
 		"deployer",
@@ -48,7 +53,9 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"identity-file-writer",
 		"log-sender",
 		"logging-config-updater",
+		"machine-actions",
 		"machiner",
+		"migration-minion",
 		"proxy-config-updater",
 		"reboot",
 		"resumer",
@@ -59,17 +66,56 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"storage-provisioner-machine",
 		"termination",
 		"tools-version-checker",
-		"uninstaller",
 		"upgrade-check-gate",
+		"upgrade-check-flag",
 		"upgrade-steps-gate",
+		"upgrade-steps-flag",
 		"upgrader",
 		"upgradesteps",
-		"upgradewaiter",
 	}
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }
 
-func (s *ManifoldsSuite) TestUpgradeGates(c *gc.C) {
+func (*ManifoldsSuite) TestUpgradeGuardsUsed(c *gc.C) {
+	exempt := set.NewStrings(
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"state",
+		"state-config-watcher",
+		"stateworkers",
+		"termination",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrader",
+		"upgradesteps",
+	)
+	manifolds := machine.Manifolds(machine.ManifoldsConfig{})
+	keys := make([]string, 0, len(manifolds))
+	for key := range manifolds {
+		if !exempt.Contains(key) {
+			keys = append(keys, key)
+		}
+	}
+	for _, key := range keys {
+		c.Logf("checking %s...", key)
+		var sawCheck, sawSteps bool
+		for _, name := range manifolds[key].Inputs {
+			if name == "upgrade-check-flag" {
+				sawCheck = true
+			}
+			if name == "upgrade-steps-flag" {
+				sawSteps = true
+			}
+		}
+		c.Check(sawSteps, jc.IsTrue)
+		c.Check(sawCheck, jc.IsTrue)
+	}
+}
+
+func (*ManifoldsSuite) TestUpgradeGates(c *gc.C) {
 	upgradeStepsLock := gate.NewLock()
 	upgradeCheckLock := gate.NewLock()
 	manifolds := machine.Manifolds(machine.ManifoldsConfig{

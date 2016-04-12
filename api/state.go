@@ -14,17 +14,14 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/addresser"
-	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
-	"github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/discoverspaces"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
-	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/unitassigner"
@@ -39,7 +36,6 @@ import (
 // This method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
 func (st *state) Login(tag names.Tag, password, nonce string, ms []macaroon.Slice) error {
-	// TODO(axw) accept and pass on macaroons
 	err := st.loginV3(tag, password, nonce, ms)
 	return errors.Trace(err)
 }
@@ -186,12 +182,6 @@ func (st *state) Client() *Client {
 	return &Client{ClientFacade: frontend, facade: backend, st: st}
 }
 
-// Machiner returns a version of the state that provides functionality
-// required by the machiner worker.
-func (st *state) Machiner() *machiner.State {
-	return machiner.NewState(st)
-}
-
 // UnitAssigner returns a version of the state that provides functionality
 // required by the unitassigner worker.
 func (st *state) UnitAssigner() unitassigner.API {
@@ -220,12 +210,6 @@ func (st *state) Firewaller() *firewaller.State {
 	return firewaller.NewState(st)
 }
 
-// Agent returns a version of the state that provides
-// functionality required by the agent code.
-func (st *state) Agent() *agent.State {
-	return agent.NewState(st)
-}
-
 // Upgrader returns access to the Upgrader API
 func (st *state) Upgrader() *upgrader.State {
 	return upgrader.NewState(st)
@@ -239,11 +223,6 @@ func (st *state) Reboot() (reboot.State, error) {
 	default:
 		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
-}
-
-// Deployer returns access to the Deployer API
-func (st *state) Deployer() *deployer.State {
-	return deployer.NewState(st)
 }
 
 // Addresser returns access to the Addresser API.

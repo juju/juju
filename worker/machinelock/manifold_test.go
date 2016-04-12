@@ -20,9 +20,9 @@ import (
 type ManifoldSuite struct {
 	testing.IsolationSuite
 	testing.Stub
-	manifold    dependency.Manifold
-	getResource dependency.GetResourceFunc
-	lock        *fslock.Lock
+	manifold dependency.Manifold
+	context  dependency.Context
+	lock     *fslock.Lock
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -33,8 +33,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.manifold = machinelock.Manifold(machinelock.ManifoldConfig{
 		AgentName: "agent-name",
 	})
-	s.getResource = dt.StubGetResource(dt.StubResources{
-		"agent-name": dt.StubResource{Output: &dummyAgent{}},
+	s.context = dt.StubContext(nil, map[string]interface{}{
+		"agent-name": &dummyAgent{},
 	})
 
 	lock, err := fslock.NewLock(c.MkDir(), "test-lock", fslock.Defaults())
@@ -54,10 +54,10 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name": dependency.ErrMissing,
 	})
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 	s.CheckCalls(c, nil)
@@ -65,7 +65,7 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
 
 func (s *ManifoldSuite) TestStartError(c *gc.C) {
 	s.SetErrors(errors.New("no lock for you"))
-	worker, err := s.manifold.Start(s.getResource)
+	worker, err := s.manifold.Start(s.context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "no lock for you")
 	s.CheckCalls(c, []testing.StubCall{{
@@ -75,7 +75,7 @@ func (s *ManifoldSuite) TestStartError(c *gc.C) {
 }
 
 func (s *ManifoldSuite) setupWorkerTest(c *gc.C) worker.Worker {
-	worker, err := s.manifold.Start(s.getResource)
+	worker, err := s.manifold.Start(s.context)
 	c.Check(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
 		worker.Kill()

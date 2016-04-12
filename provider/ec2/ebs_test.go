@@ -92,6 +92,7 @@ func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	s.BaseSuite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	imagetesting.PatchOfficialDataSources(&s.BaseSuite.CleanupSuite, "test:")
+	s.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 }
 
 func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
@@ -214,6 +215,14 @@ func (s *ebsVolumeSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, i
 	c.Assert(ec2Vols.Volumes[2].Size, gc.Equals, 30)
 }
 
+var deleteSecurityGroupForTestFunc = func(inst ec2.SecurityGroupCleaner, group awsec2.SecurityGroup) error {
+	// With an exponential retry for deleting security groups,
+	// we never return from local live tests.
+	// No need to re-try in tests anyway - just call delete.
+	_, err := inst.DeleteSecurityGroup(group)
+	return err
+}
+
 type volumeSorter struct {
 	vols []awsec2.Volume
 	less func(i, j awsec2.Volume) bool
@@ -334,6 +343,14 @@ func (s *ebsVolumeSuite) TestVolumeTypeAliases(c *gc.C) {
 	for i, alias := range aliases {
 		c.Assert(ec2Vols.Volumes[i].VolumeType, gc.Equals, alias[1])
 	}
+}
+
+func (s *ebsVolumeSuite) TestDestroyVolumesNotFoundReturnsNil(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	results, err := vs.DestroyVolumes([]string{"vol-42"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0], jc.ErrorIsNil)
 }
 
 func (s *ebsVolumeSuite) TestDestroyVolumes(c *gc.C) {

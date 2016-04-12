@@ -11,10 +11,12 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -89,7 +91,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.toolsStorage = stor
 
 	s.BaseSuite.SetUpSuite(c)
-	s.AddSuiteCleanup(func(*gc.C) {
+	s.AddCleanup(func(*gc.C) {
 		restorer()
 	})
 	s.MgoSuite.SetUpSuite(c)
@@ -100,7 +102,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
-	dummy.Reset()
+	dummy.Reset(c)
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
@@ -165,7 +167,7 @@ func (s *BootstrapSuite) writeDownloadedGUI(c *gc.C, gui *tools.GUIArchive) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
+func (s *BootstrapSuite) TestGUIArchiveInfoNotFound(c *gc.C) {
 	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
 	info := filepath.Join(dir, "downloaded-gui.txt")
 	err := os.Remove(info)
@@ -175,10 +177,48 @@ func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
 		"--hosted-model-config", s.b64yamlHostedModelConfig,
 		"--instance-id", string(s.instanceId))
 	c.Assert(err, jc.ErrorIsNil)
-	// TODO frankban: this must return an error before the feature branch is
-	// merged into master.
+
+	var tw loggo.TestWriter
+	err = loggo.RegisterWriter("bootstrap-test", &tw, loggo.DEBUG)
+	c.Assert(err, jc.ErrorIsNil)
+	defer loggo.RemoveWriter("bootstrap-test")
+
+	err = cmd.Run(nil)
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.WARNING,
+		`cannot set up Juju GUI: cannot fetch GUI info: GUI metadata not found`,
+	}})
+}
+
+func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		// TODO frankban: skipping for now due to chmod problems with mode 0000
+		// on Windows. We will re-enable this test after further investigation:
+		// "jujud bootstrap" is never run on Windows anyway.
+		c.Skip("needs chmod investigation")
+	}
+	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
+	info := filepath.Join(dir, "downloaded-gui.txt")
+	err := os.Chmod(info, 0000)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Chmod(info, 0600)
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil, "--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId))
+	c.Assert(err, jc.ErrorIsNil)
+
+	var tw loggo.TestWriter
+	err = loggo.RegisterWriter("bootstrap-test", &tw, loggo.DEBUG)
+	c.Assert(err, jc.ErrorIsNil)
+	defer loggo.RemoveWriter("bootstrap-test")
+
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.WARNING,
+		`cannot set up Juju GUI: cannot fetch GUI info: cannot read GUI metadata in tools directory: .*`,
+	}})
 }
 
 func (s *BootstrapSuite) TestGUIArchiveError(c *gc.C) {
@@ -191,8 +231,17 @@ func (s *BootstrapSuite) TestGUIArchiveError(c *gc.C) {
 		"--hosted-model-config", s.b64yamlHostedModelConfig,
 		"--instance-id", string(s.instanceId))
 	c.Assert(err, jc.ErrorIsNil)
+
+	var tw loggo.TestWriter
+	err = loggo.RegisterWriter("bootstrap-test", &tw, loggo.DEBUG)
+	c.Assert(err, jc.ErrorIsNil)
+	defer loggo.RemoveWriter("bootstrap-test")
+
 	err = cmd.Run(nil)
-	c.Assert(err, gc.ErrorMatches, "cannot read GUI archive: .*")
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.WARNING,
+		`cannot set up Juju GUI: cannot read GUI archive: .*`,
+	}})
 }
 
 func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
@@ -201,8 +250,18 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 		"--hosted-model-config", s.b64yamlHostedModelConfig,
 		"--instance-id", string(s.instanceId))
 	c.Assert(err, jc.ErrorIsNil)
+
+	var tw loggo.TestWriter
+	err = loggo.RegisterWriter("bootstrap-test", &tw, loggo.DEBUG)
+	c.Assert(err, jc.ErrorIsNil)
+	defer loggo.RemoveWriter("bootstrap-test")
+
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.DEBUG,
+		`Juju GUI successfully set up`,
+	}})
 
 	// Retrieve the state so that it is possible to access the GUI storage.
 	st, err := state.Open(testing.ModelTag, &mongo.MongoInfo{

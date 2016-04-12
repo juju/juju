@@ -755,7 +755,8 @@ func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]
 
 	filesystemOps := []txn.Op{
 		createStatusOp(st, filesystemGlobalKey(filesystemId), statusDoc{
-			Status:  status.StatusPending,
+			Status: status.StatusPending,
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			Updated: time.Now().UnixNano(),
 		}),
 		{

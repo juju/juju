@@ -69,7 +69,11 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	// no way to make sure that only one succeeds.
 
 	// First thing, ensure we have tools otherwise there's no point.
-	selectedSeries = config.PreferredSeries(env.Config())
+	if args.BootstrapSeries != "" {
+		selectedSeries = args.BootstrapSeries
+	} else {
+		selectedSeries = config.PreferredSeries(env.Config())
+	}
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{
 		Series: selectedSeries,
 	})

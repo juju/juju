@@ -6,6 +6,7 @@ package user_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
@@ -35,11 +36,25 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 				User:     "current-user@local",
 				Password: "old-password",
 			},
-			"other@local": {
-				User:     "other@local",
-				Password: "old-password",
-			},
 		},
 		CurrentAccount: "current-user@local",
 	}
+}
+
+func (s *BaseSuite) assertStorePassword(c *gc.C, user, pass string) {
+	details, err := s.store.AccountByName("testing", user)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details.Password, gc.Equals, pass)
+}
+
+func (s *BaseSuite) assertStoreMacaroon(c *gc.C, user string, mac *macaroon.Macaroon) {
+	details, err := s.store.AccountByName("testing", user)
+	c.Assert(err, jc.ErrorIsNil)
+	if mac == nil {
+		c.Assert(details.Macaroon, gc.Equals, "")
+		return
+	}
+	macaroonJSON, err := mac.MarshalJSON()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details.Macaroon, gc.Equals, string(macaroonJSON))
 }

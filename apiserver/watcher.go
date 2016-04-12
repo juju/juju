@@ -11,6 +11,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -52,12 +54,12 @@ func init() {
 		reflect.TypeOf((*srvEntitiesWatcher)(nil)),
 	)
 	common.RegisterFacade(
-		"MigrationMasterWatcher", 1, newMigrationMasterWatcher,
-		reflect.TypeOf((*srvMigrationMasterWatcher)(nil)),
+		"MigrationStatusWatcher", 1, newMigrationStatusWatcher,
+		reflect.TypeOf((*srvMigrationStatusWatcher)(nil)),
 	)
 }
 
-// NewAllModelWatcher returns a new API server endpoint for interacting
+// NewAllWatcher returns a new API server endpoint for interacting
 // with a watcher created by the WatchAll and WatchAllModels API calls.
 func NewAllWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
 	if !auth.AuthClient() {
@@ -376,47 +378,51 @@ func (w *srvEntitiesWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
 
-func newMigrationMasterWatcher(
+var getMigrationBackend = func(st *state.State) migrationBackend {
+	return st
+}
+
+// migrationBackend defines State functionality required by the
+// migration watchers.
+type migrationBackend interface {
+	GetModelMigration() (state.ModelMigration, error)
+	APIHostPorts() ([][]network.HostPort, error)
+	ControllerModel() (*state.Model, error)
+}
+
+func newMigrationStatusWatcher(
 	st *state.State,
 	resources *common.Resources,
 	auth common.Authorizer,
 	id string,
 ) (interface{}, error) {
-	if !auth.AuthModelManager() {
+	if !(auth.AuthMachineAgent() || auth.AuthUnitAgent()) {
 		return nil, common.ErrPerm
 	}
 	w, ok := resources.Get(id).(state.NotifyWatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
-	return &srvMigrationMasterWatcher{
+	return &srvMigrationStatusWatcher{
 		watcher:   w,
 		id:        id,
 		resources: resources,
-		st:        migrationGetter(st),
+		st:        getMigrationBackend(st),
 	}, nil
 }
 
-type srvMigrationMasterWatcher struct {
+type srvMigrationStatusWatcher struct {
 	watcher   state.NotifyWatcher
 	id        string
 	resources *common.Resources
-	st        modelMigrationGetter
+	st        migrationBackend
 }
 
-var migrationGetter = func(st *state.State) modelMigrationGetter {
-	return st
-}
-
-type modelMigrationGetter interface {
-	GetModelMigration() (state.ModelMigration, error)
-}
-
-// Next returns when a model migration is active for the associated
-// model. The details for the migration's target controller are
-// returned.
-func (w *srvMigrationMasterWatcher) Next() (params.ModelMigrationTargetInfo, error) {
-	empty := params.ModelMigrationTargetInfo{}
+// Next returns when the status for a model migration for the
+// associated model changes. The current details for the active
+// migration are returned.
+func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
+	empty := params.MigrationStatus{}
 
 	if _, ok := <-w.watcher.Changes(); !ok {
 		err := w.watcher.Err()
@@ -427,23 +433,84 @@ func (w *srvMigrationMasterWatcher) Next() (params.ModelMigrationTargetInfo, err
 	}
 
 	mig, err := w.st.GetModelMigration()
-	if err != nil {
+	if errors.IsNotFound(err) {
+		return params.MigrationStatus{
+			Phase: migration.NONE.String(),
+		}, nil
+	} else if err != nil {
 		return empty, errors.Annotate(err, "migration lookup")
 	}
-	info, err := mig.TargetInfo()
+
+	attempt, err := mig.Attempt()
 	if err != nil {
-		return empty, errors.Trace(err)
+		return empty, errors.Annotate(err, "retrieving migration attempt")
 	}
-	return params.ModelMigrationTargetInfo{
-		ControllerTag: info.ControllerTag.String(),
-		Addrs:         info.Addrs,
-		CACert:        info.CACert,
-		AuthTag:       info.AuthTag.String(),
-		Password:      info.Password,
+
+	phase, err := mig.Phase()
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving migration phase")
+	}
+
+	sourceAddrs, err := w.getLocalHostPorts()
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving source addresses")
+	}
+
+	sourceCACert, err := getControllerCACert(w.st)
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving source CA cert")
+	}
+
+	target, err := mig.TargetInfo()
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving target info")
+	}
+
+	return params.MigrationStatus{
+		Attempt:        attempt,
+		Phase:          phase.String(),
+		SourceAPIAddrs: sourceAddrs,
+		SourceCACert:   sourceCACert,
+		TargetAPIAddrs: target.Addrs,
+		TargetCACert:   target.CACert,
 	}, nil
 }
 
+func (w *srvMigrationStatusWatcher) getLocalHostPorts() ([]string, error) {
+	hostports, err := w.st.APIHostPorts()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var out []string
+	for _, section := range hostports {
+		for _, hostport := range section {
+			out = append(out, hostport.String())
+		}
+	}
+	return out, nil
+}
+
 // Stop stops the watcher.
-func (w *srvMigrationMasterWatcher) Stop() error {
+func (w *srvMigrationStatusWatcher) Stop() error {
 	return w.resources.Stop(w.id)
+}
+
+// This is a shim to avoid the need to use a working State into the
+// unit tests. It is tested as part of the client side API tests.
+var getControllerCACert = func(st migrationBackend) (string, error) {
+	model, err := st.ControllerModel()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	config, err := model.Config()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	cacert, ok := config.CACert()
+	if !ok {
+		return "", errors.New("missing CA cert for controller model")
+	}
+	return cacert, nil
 }

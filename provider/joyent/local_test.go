@@ -109,7 +109,7 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 		"image-metadata-url": "test://host",
 	})
 	s.LiveTests.UploadArches = []string{arch.AMD64}
-	s.AddSuiteCleanup(func(*gc.C) { envtesting.PatchAttemptStrategies(&joyent.ShortAttempt) })
+	s.AddCleanup(func(*gc.C) { envtesting.PatchAttemptStrategies(&joyent.ShortAttempt) })
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -158,7 +158,7 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
 func (s *localServerSuite) SetUpTest(c *gc.C) {

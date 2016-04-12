@@ -31,7 +31,7 @@ func Manifold() dependency.Manifold {
 // are running inside the dependency engine.
 func ManifoldEx(lock Lock) dependency.Manifold {
 	return dependency.Manifold{
-		Start: func(_ dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(_ dependency.Context) (worker.Worker, error) {
 			w := &gate{lock: lock}
 			go func() {
 				defer w.tomb.Done()

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/undertaker"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
@@ -20,6 +21,9 @@ import (
 	"github.com/juju/juju/watcher/watchertest"
 )
 
+// TODO(fwereade) 2016-03-17 lp:1558668
+// this is not a feature test; much of it is redundant, and other
+// bits should be tested elsewhere.
 type undertakerSuite struct {
 	jujutesting.JujuConnSuite
 }
@@ -30,10 +34,11 @@ func (s *undertakerSuite) TestPermDenied(c *gc.C) {
 		nonManagerMachine,
 		s.APIState,
 	} {
-		undertakerClient := undertaker.NewClient(conn)
+		undertakerClient, err := undertaker.NewClient(conn, apiwatcher.NewNotifyWatcher)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(undertakerClient, gc.NotNil)
 
-		_, err := undertakerClient.ModelInfo()
+		_, err = undertakerClient.ModelInfo()
 		c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 			Message: "permission denied",
 			Code:    "unauthorized access",
@@ -43,7 +48,8 @@ func (s *undertakerSuite) TestPermDenied(c *gc.C) {
 
 func (s *undertakerSuite) TestStateEnvironInfo(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
-	undertakerClient := undertaker.NewClient(st)
+	undertakerClient, err := undertaker.NewClient(st, apiwatcher.NewNotifyWatcher)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient, gc.NotNil)
 
 	result, err := undertakerClient.ModelInfo()
@@ -61,10 +67,11 @@ func (s *undertakerSuite) TestStateEnvironInfo(c *gc.C) {
 
 func (s *undertakerSuite) TestStateProcessDyingEnviron(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
-	undertakerClient := undertaker.NewClient(st)
+	undertakerClient, err := undertaker.NewClient(st, apiwatcher.NewNotifyWatcher)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient, gc.NotNil)
 
-	err := undertakerClient.ProcessDyingModel()
+	err = undertakerClient.ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
 	env, err := s.State.Model()
@@ -79,7 +86,8 @@ func (s *undertakerSuite) TestStateProcessDyingEnviron(c *gc.C) {
 
 func (s *undertakerSuite) TestStateRemoveEnvironFails(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
-	undertakerClient := undertaker.NewClient(st)
+	undertakerClient, err := undertaker.NewClient(st, apiwatcher.NewNotifyWatcher)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient, gc.NotNil)
 	c.Assert(undertakerClient.RemoveModel(), gc.ErrorMatches, "an error occurred, unable to remove model")
 }
@@ -108,12 +116,15 @@ func (s *undertakerSuite) TestHostedProcessDyingEnviron(c *gc.C) {
 	err := undertakerClient.ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
+	factory.NewFactory(otherSt).MakeService(c, nil)
 	env, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 	c.Assert(env.Refresh(), jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 
+	err = otherSt.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient.ProcessDyingModel(), jc.ErrorIsNil)
 
 	c.Assert(env.Refresh(), jc.ErrorIsNil)
@@ -147,6 +158,7 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 	err := undertakerClient.RemoveModel()
 	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
 
+	factory.NewFactory(otherSt).MakeService(c, nil)
 	env, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
@@ -155,19 +167,12 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 	err = undertakerClient.RemoveModel()
 	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
 
+	err = otherSt.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient.ProcessDyingModel(), jc.ErrorIsNil)
 
 	c.Assert(undertakerClient.RemoveModel(), jc.ErrorIsNil)
 	c.Assert(otherSt.EnsureModelRemoved(), jc.ErrorIsNil)
-}
-
-func (s *undertakerSuite) TestHostedModelConfig(c *gc.C) {
-	undertakerClient, otherSt := s.hostedAPI(c)
-	defer otherSt.Close()
-
-	cfg, err := undertakerClient.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.UUID(), gc.Equals, otherSt.ModelUUID())
 }
 
 func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) {
@@ -192,7 +197,8 @@ func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) 
 	otherAPIState, err := api.Open(info, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 
-	undertakerClient := undertaker.NewClient(otherAPIState)
+	undertakerClient, err := undertaker.NewClient(otherAPIState, apiwatcher.NewNotifyWatcher)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient, gc.NotNil)
 
 	return undertakerClient, otherState

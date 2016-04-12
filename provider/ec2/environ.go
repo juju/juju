@@ -12,8 +12,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
@@ -47,12 +49,6 @@ const (
 // Use shortAttempt to poll for short-term events or for retrying API calls.
 var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
-	Delay: 200 * time.Millisecond,
-}
-
-// Use longAttempt to poll for short-term events or for retrying API calls.
-var longAttempt = utils.AttemptStrategy{
-	Total: 60 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
 
@@ -1165,9 +1161,9 @@ func getTagByKey(key string, ec2Tags []ec2.Tag) (string, bool) {
 	return "", false
 }
 
-func (e *environ) AllInstances() ([]instance.Instance, error) {
+func (e *environ) AllInstancesByState(states ...string) ([]instance.Instance, error) {
 	filter := ec2.NewFilter()
-	filter.Add("instance-state-name", "pending", "running")
+	filter.Add("instance-state-name", states...)
 	err := e.addGroupFilter(filter)
 	if err != nil {
 		if ec2ErrCode(err) == "InvalidGroup.NotFound" {
@@ -1198,6 +1194,10 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 		}
 	}
 	return insts, nil
+}
+
+func (e *environ) AllInstances() ([]instance.Instance, error) {
+	return e.AllInstancesByState("pending", "running")
 }
 
 func (e *environ) Destroy() error {
@@ -1341,13 +1341,19 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (e *environ) instanceSecurityGroups(instIDs []instance.Id) ([]ec2.SecurityGroup, error) {
+func (e *environ) instanceSecurityGroups(instIDs []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {
 	ec2inst := e.ec2()
 	strInstID := make([]string, len(instIDs))
 	for i := range instIDs {
 		strInstID[i] = string(instIDs[i])
 	}
-	resp, err := ec2inst.Instances(strInstID, nil)
+
+	filter := ec2.NewFilter()
+	if len(states) > 0 {
+		filter.Add("instance-state-name", states...)
+	}
+
+	resp, err := ec2inst.Instances(strInstID, filter)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot retrieve instance information from aws to delete security groups")
 	}
@@ -1373,73 +1379,140 @@ func (e *environ) cleanEnvironmentSecurityGroup() error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot retrieve default security group: %q", jujuGroup)
 	}
-	for a := longAttempt.Start(); a.Next(); {
-		_, err = ec2inst.DeleteSecurityGroup(g)
-		if err == nil {
-			return nil
-		}
+
+	if err := deleteSecurityGroupInsistently(ec2inst, g); err != nil {
+		return errors.Annotate(err, "cannot delete default security group")
 	}
-	return errors.Annotate(err, "cannot delete default security group")
+	return nil
 }
 
 func (e *environ) terminateInstances(ids []instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	securityGroups, err := e.instanceSecurityGroups(ids)
-	if err != nil {
-		// We should not stop termination because of this.
-		logger.Warningf("cannot determine security groups to delete: %v", err)
-	}
 	ec2inst := e.ec2()
+
+	// TODO (anastasiamac 2016-04-11) Err if instances still have resources hanging around.
+	// LP#1568654
 	defer func() {
-		// TODO(perrito666) we need to tag global security groups to be able
-		// to tell them appart from future groups that are neither machine
-		// nor environment group.
-		// https://bugs.launchpad.net/juju-core/+bug/1534289
-		jujuGroup := e.jujuGroupName()
-		legacyJujuGroup := e.legacyJujuGroupName()
-		for _, deletable := range securityGroups {
-			if deletable.Name != jujuGroup && deletable.Name != legacyJujuGroup {
-				for a := longAttempt.Start(); a.Next(); {
-					_, err := ec2inst.DeleteSecurityGroup(deletable)
-					if err != nil {
-						logger.Warningf("could not delete security group %q: %v", deletable.Name, err)
-					} else {
-						break
-					}
-				}
-			}
-		}
+		e.deleteSecurityGroupsForInstances(ids)
 	}()
 
+	// TODO (anastasiamac 2016-04-7) instance termination would benefit
+	// from retry with exponential delay just like security groups
+	// in defer. Bug#1567179.
+	var err error
+	for a := shortAttempt.Start(); a.Next(); {
+		_, err = terminateInstancesById(ec2inst, ids...)
+		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
+			// This will return either success at terminating all instances (1st condition) or
+			// encountered error as long as it's not NotFound (2nd condition).
+			return err
+		}
+	}
+
+	// We will get here only if we got a NotFound error.
+	// 1. If we attempted to terminate only one instance was, return now.
+	if len(ids) == 1 {
+		ids = nil
+		return nil
+	}
+	// 2. If we attempted to terminate several instances and got a NotFound error,
+	// it means that no instances were terminated.
+	// So try each instance individually, ignoring a NotFound error this time.
+	deletedIDs := []instance.Id{}
+	for _, id := range ids {
+		_, err = terminateInstancesById(ec2inst, id)
+		if err == nil {
+			deletedIDs = append(deletedIDs, id)
+		}
+		if err != nil && ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
+			ids = deletedIDs
+			return err
+		}
+	}
+	// We will get here if all of the instances are deleted successfully,
+	// or are not found, which implies they were previously deleted.
+	ids = deletedIDs
+	return nil
+}
+
+var terminateInstancesById = func(ec2inst *ec2.EC2, ids ...instance.Id) (*ec2.TerminateInstancesResp, error) {
 	strs := make([]string, len(ids))
 	for i, id := range ids {
 		strs[i] = string(id)
 	}
-	for a := shortAttempt.Start(); a.Next(); {
-		_, err = ec2inst.TerminateInstances(strs)
-		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
-			return err
+	return ec2inst.TerminateInstances(strs)
+}
+
+func (e *environ) deleteSecurityGroupsForInstances(ids []instance.Id) {
+	if len(ids) == 0 {
+		logger.Debugf("no need to delete security groups: no intances were terminated successfully")
+		return
+	}
+	// We only want to attempt deleting security groups for the
+	// instances that have been successfully terminated.
+	securityGroups, err := e.instanceSecurityGroups(ids, "shutting-down", "terminated")
+	if err != nil {
+		logger.Warningf("cannot determine security groups to delete: %v", err)
+	}
+	// TODO(perrito666) we need to tag global security groups to be able
+	// to tell them apart from future groups that are neither machine
+	// nor environment group.
+	// https://bugs.launchpad.net/juju-core/+bug/1534289
+	jujuGroup := e.jujuGroupName()
+	legacyJujuGroup := e.legacyJujuGroupName()
+
+	ec2inst := e.ec2()
+	for _, deletable := range securityGroups {
+		if deletable.Name != jujuGroup && deletable.Name != legacyJujuGroup {
+			if err := deleteSecurityGroupInsistently(ec2inst, deletable); err != nil {
+				// In ideal world, we would err out here.
+				// However:
+				// 1. We do not know if all instances have been terminated.
+				// If some instances erred out, they may still be using this security group.
+				// In this case, our failure to delete security group is reasonable: it's still in use.
+				// 2. Some security groups may be shared by multiple instances,
+				// for example, global firewalling. We should not delete these.
+				logger.Warningf("provider failure: %v", err)
+			}
 		}
 	}
-	if len(ids) == 1 {
-		return err
+}
+
+// SecurityGroupCleaner defines provider instance methods needed to delete
+// a security group.
+type SecurityGroupCleaner interface {
+
+	// DeleteSecurityGroup deletes security group on the provider.
+	DeleteSecurityGroup(group ec2.SecurityGroup) (resp *ec2.SimpleResp, err error)
+}
+
+var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, group ec2.SecurityGroup) error {
+	var lastErr error
+	err := retry.Call(retry.CallArgs{
+		Attempts:    30,
+		Delay:       time.Second,
+		MaxDelay:    time.Minute, // because 2**29 seconds is beyond reasonable
+		BackoffFunc: retry.DoubleDelay,
+		Clock:       clock.WallClock,
+		Func: func() error {
+			_, deleteErr := inst.DeleteSecurityGroup(group)
+			if ec2ErrCode(deleteErr) != "InvalidGroup.NotFound" {
+				return errors.Trace(deleteErr)
+			}
+			return nil
+		},
+		NotifyFunc: func(err error, attempt int) {
+			lastErr = err
+			logger.Infof(fmt.Sprintf("deleting security group %q, attempt %d", group.Name, attempt))
+		},
+	})
+	if err != nil {
+		logger.Warningf("cannot delete security group %q: consider deleting it manually", group.Name)
+		return lastErr
 	}
-	// If we get a NotFound error, it means that no instances have been
-	// terminated even if some exist, so try them one by one, ignoring
-	// NotFound errors.
-	var firstErr error
-	for _, id := range ids {
-		_, err = ec2inst.TerminateInstances([]string{string(id)})
-		if ec2ErrCode(err) == "InvalidInstanceID.NotFound" {
-			err = nil
-		}
-		if err != nil && firstErr == nil {
-			firstErr = err
-		}
-	}
-	return firstErr
+	return nil
 }
 
 func (e *environ) uuid() string {
@@ -1695,7 +1768,7 @@ func isSubnetConstrainedError(err error) bool {
 // If the err is of type *ec2.Error, ec2ErrCode returns
 // its code, otherwise it returns the empty string.
 func ec2ErrCode(err error) string {
-	ec2err, _ := err.(*ec2.Error)
+	ec2err, _ := errors.Cause(err).(*ec2.Error)
 	if ec2err == nil {
 		return ""
 	}
