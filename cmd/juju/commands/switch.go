@@ -40,12 +40,13 @@ Selects or identifies the current controller and model.`[1:]
 
 var usageDetails = `
 When used without an argument, the command shows the current controller 
-and its active model. When switching by controller name alone, the model
+and its active model. 
+When switching by controller name alone, the model
 you get is the active model for that controller. If you want a different
 model then you must switch using controller:model notation or switch to 
-the controller and then to the model. The `[1:] + "`juju list-models`" + ` command can 
-be used to determine the active model (of any controller). An asterisk 
-denotes it.
+the controller and then to the model. 
+The `[1:] + "`juju list-models`" + ` command can be used to determine the active model
+(of any controller). An asterisk denotes it.
 
 Examples:
     juju switch
