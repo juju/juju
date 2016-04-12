@@ -25,10 +25,12 @@ Adds a Juju user to a controller.`[1:]
 
 var usageDetails = `
 This allows the user to register with the controller and use the 
-optionally shared model. A ` + "`juju register`" + ` command will be printed, which
+optionally shared model.
+A ` + "`juju register`" + ` command will be printed, which
 must be executed by the user to complete the registration process.  The
 user's details are stored within the shared model, and will be removed
-when the model is destroyed.  Some machine providers will require the user 
+when the model is destroyed.
+Some machine providers will require the user 
 to be in possession of certain credentials in order to create a model.
 
 Examples:
