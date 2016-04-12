@@ -535,7 +535,8 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 		Series: "quantal", // to match the charm created below
 	}
 	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
+	// Prime agent with manage networking in additon to manage model to ensure the former is ignored.
+	m, _, _ := s.primeAgent(c, state.JobManageModel, state.JobManageNetworking)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
 
