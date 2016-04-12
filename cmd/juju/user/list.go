@@ -16,12 +16,21 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-const listCommandDoc = `
-List all the current users in the Juju server.
+var usageListUsersSummary = `
+Lists Juju users allowed to connect to a controller.`[1:]
 
-See Also:
-   juju help show-user
-`
+var usageListUsersDetails = `
+By default, the tabular format is used.
+
+Examples:
+    juju list-users
+
+See also: 
+    add-user
+    register
+    show-user
+    disable-user
+    enable-user`[1:]
 
 func NewListCommand() cmd.Command {
 	return modelcmd.WrapController(&listCommand{})
@@ -37,15 +46,15 @@ type listCommand struct {
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-users",
-		Purpose: "shows all users",
-		Doc:     listCommandDoc,
+		Purpose: usageListUsersSummary,
+		Doc:     usageListUsersDetails,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.infoCommandBase.SetFlags(f)
-	f.BoolVar(&c.All, "all", false, "include disabled users in the listing")
+	f.BoolVar(&c.All, "all", false, "Include disabled users")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
