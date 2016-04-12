@@ -193,8 +193,6 @@ func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		DataDir:              agentConfig.DataDir(),
 		OplogSize:            oplogSize,
 		SetNumaControlPolicy: numaCtlPolicy,
-
-		Version: agentConfig.MongoVersion(),
 	}
 	return params, nil
 }
