@@ -30,6 +30,7 @@ type Config struct {
 	Directory    string
 	RegistryPath string
 	Filename     string
+	API          API
 }
 
 // API is an interface that is provided to New
@@ -45,7 +46,6 @@ type API interface {
 // changes are apt proxy configuration and the juju proxies stored in the juju
 // proxy file.
 type proxyWorker struct {
-	api      API
 	aptProxy proxyutils.Settings
 	proxy    proxyutils.Settings
 
@@ -63,19 +63,8 @@ type proxyWorker struct {
 
 // NewWorker returns a worker.Worker that updates proxy environment variables for the
 // process and for the whole machine.
-var NewWorker = func(proxyAPI API, config Config) (worker.Worker, error) {
-	if config.Directory == "" {
-		config.Directory = "/home/ubuntu"
-	}
-	if config.RegistryPath == "" {
-		config.RegistryPath = `HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
-	}
-	if config.Filename == "" {
-		config.Filename = ".juju-proxy"
-	}
-
+var NewWorker = func(config Config) (worker.Worker, error) {
 	envWorker := &proxyWorker{
-		api:    proxyAPI,
 		first:  true,
 		config: config,
 	}
@@ -124,6 +113,13 @@ func (w *proxyWorker) writeEnvironmentToRegistry() error {
     $proxy_val = Get-ItemProperty -Path $value_path -Name ProxySettings
     if ($? -eq $false){ New-ItemProperty -Path $value_path -Name ProxySettings -PropertyType String -Value $new_proxy }else{ Set-ItemProperty -Path $value_path -Name ProxySettings -Value $new_proxy }
     `
+
+	if w.config.RegistryPath == "" {
+		err := fmt.Errorf("config.RegistryPath is empty")
+		logger.Errorf("writeEnvironmentToRegistry couldn't write proxy settings to registry: %s", err)
+		return err
+	}
+
 	result, err := exec.RunCommands(exec.RunParams{
 		Commands: fmt.Sprintf(
 			setProxyScript,
@@ -192,7 +188,7 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) erro
 }
 
 func (w *proxyWorker) onChange() error {
-	proxySettings, APTProxySettings, err := w.api.ProxyConfig()
+	proxySettings, APTProxySettings, err := w.config.API.ProxyConfig()
 	if err != nil {
 		return err
 	}
@@ -210,7 +206,7 @@ func (w *proxyWorker) SetUp() (watcher.NotifyWatcher, error) {
 		return nil, err
 	}
 	w.first = false
-	return w.api.WatchForProxyConfigAndAPIHostPortChanges()
+	return w.config.API.WatchForProxyConfigAndAPIHostPortChanges()
 }
 
 // Handle is defined on the worker.NotifyWatchHandler interface.

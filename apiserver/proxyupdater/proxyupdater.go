@@ -17,16 +17,10 @@ import (
 	"github.com/juju/utils/set"
 )
 
-// API defines the methods the ProxyUpdater API facade implements.
-type API interface {
-	WatchForProxyConfigAndAPIHostPortChanges(_ params.Entities) params.NotifyWatchResult
-	ProxyConfig(_ params.Entities) params.ProxyConfigResults
-}
-
 // Backend defines the state methods this facade needs, so they can be
 // mocked for testing.
 type Backend interface {
-	EnvironConfig() (*config.Config, error)
+	ModelConfig() (*config.Config, error)
 	APIHostPorts() ([][]network.HostPort, error)
 	WatchAPIHostPorts() state.NotifyWatcher
 	WatchForModelConfigChanges() state.NotifyWatcher
@@ -119,7 +113,7 @@ func (api *ProxyUpdaterAPI) authEntities(args params.Entities) (params.ErrorResu
 
 func (api *ProxyUpdaterAPI) proxyConfig() params.ProxyConfigResult {
 	var result params.ProxyConfigResult
-	env, err := api.backend.EnvironConfig()
+	env, err := api.backend.ModelConfig()
 	if err != nil {
 		result.Error = common.ServerError(err)
 		return result
@@ -163,7 +157,9 @@ func (api *ProxyUpdaterAPI) ProxyConfig(args params.Entities) params.ProxyConfig
 		Results: make([]params.ProxyConfigResult, len(args.Entities)),
 	}
 	for i := range args.Entities {
-		results.Results[i] = result
+		if errors.Results[i].Error == nil {
+			results.Results[i] = result
+		}
 		results.Results[i].Error = errors.Results[i].Error
 	}
 

@@ -39,5 +39,10 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewWorker(proxyAPI, Config{})
+	return NewWorker(Config{
+		Directory:    "/home/ubuntu",
+		RegistryPath: `HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings`,
+		Filename:     ".juju-proxy",
+		API:          proxyAPI,
+	})
 }

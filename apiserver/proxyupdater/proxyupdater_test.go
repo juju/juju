@@ -4,8 +4,6 @@
 package proxyupdater_test
 
 import (
-	"errors"
-
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -19,7 +17,6 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/workertest"
 	"github.com/juju/testing"
 )
@@ -89,11 +86,11 @@ func (s *ProxyUpdaterSuite) oneEntity() params.Entities {
 }
 
 func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
-	// Check that the ProxyConfig combines data from EnvironConfig and APIHostPorts
+	// Check that the ProxyConfig combines data from ModelConfig and APIHostPorts
 	cfg := s.facade.ProxyConfig(s.oneEntity())
 
 	s.state.Stub.CheckCallNames(c,
-		"EnvironConfig",
+		"ModelConfig",
 		"APIHostPorts",
 	)
 
@@ -109,15 +106,15 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
-	// Check that the ProxyConfig combines data from EnvironConfig and APIHostPorts
-	s.state.SetEnvironConfig(coretesting.Attrs{
+	// Check that the ProxyConfig combines data from ModelConfig and APIHostPorts
+	s.state.SetModelConfig(coretesting.Attrs{
 		"http-proxy":  "http proxy",
 		"https-proxy": "https proxy",
 		"no-proxy":    "9.9.9.9",
 	})
 	cfg := s.facade.ProxyConfig(s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
-		"EnvironConfig",
+		"ModelConfig",
 		"APIHostPorts",
 	)
 
@@ -132,15 +129,15 @@ func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
-	// Check that the ProxyConfig combines data from EnvironConfig and APIHostPorts
-	s.state.SetEnvironConfig(coretesting.Attrs{
+	// Check that the ProxyConfig combines data from ModelConfig and APIHostPorts
+	s.state.SetModelConfig(coretesting.Attrs{
 		"http-proxy":  "http proxy",
 		"https-proxy": "https proxy",
 		"no-proxy":    "0.1.2.3",
 	})
 	cfg := s.facade.ProxyConfig(s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
-		"EnvironConfig",
+		"ModelConfig",
 		"APIHostPorts",
 	)
 
@@ -180,12 +177,12 @@ func (sb *stubBackend) Kill() {
 	sb.confWatcher.Kill()
 }
 
-func (sb *stubBackend) SetEnvironConfig(ca coretesting.Attrs) {
+func (sb *stubBackend) SetModelConfig(ca coretesting.Attrs) {
 	sb.configAttrs = ca
 }
 
-func (sb *stubBackend) EnvironConfig() (*config.Config, error) {
-	sb.MethodCall(sb, "EnvironConfig")
+func (sb *stubBackend) ModelConfig() (*config.Config, error) {
+	sb.MethodCall(sb, "ModelConfig")
 	if err := sb.NextErr(); err != nil {
 		return nil, err
 	}
@@ -213,31 +210,4 @@ func (sb *stubBackend) WatchAPIHostPorts() state.NotifyWatcher {
 func (sb *stubBackend) WatchForModelConfigChanges() state.NotifyWatcher {
 	sb.MethodCall(sb, "WatchForModelConfigChanges")
 	return sb.confWatcher
-}
-
-type notAWatcher struct {
-	changes chan struct{}
-	worker.Worker
-}
-
-func newFakeWatcher() notAWatcher {
-	ch := make(chan struct{}, 2)
-	ch <- struct{}{}
-	ch <- struct{}{}
-	return notAWatcher{
-		changes: ch,
-		Worker:  workertest.NewErrorWorker(nil),
-	}
-}
-
-func (w notAWatcher) Changes() <-chan struct{} {
-	return w.changes
-}
-
-func (w notAWatcher) Stop() error {
-	return nil
-}
-
-func (w notAWatcher) Err() error {
-	return errors.New("An error")
 }
