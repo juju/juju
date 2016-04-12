@@ -27,11 +27,11 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number) cmd.Command {
+func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number, options ...modelcmd.WrapEnvOption) cmd.Command {
 	if minUpgradeVers == nil {
 		minUpgradeVers = minMajorUpgradeVersion
 	}
-	return modelcmd.Wrap(&upgradeJujuCommand{minMajorUpgradeVersion: minUpgradeVers})
+	return modelcmd.Wrap(&upgradeJujuCommand{minMajorUpgradeVersion: minUpgradeVers}, options...)
 }
 
 // upgradeJujuCommand upgrades the agents in a juju installation.
@@ -66,11 +66,13 @@ development version may be chosen in two cases:
  - when an explicit --version major.minor is given (e.g. --version 1.17,
    or 1.17.2, but not just 1)
 
-For development use, the --upload-tools flag specifies that the juju tools will
-packaged (or compiled locally, if no jujud binaries exists, for which you will
-need the golang packages installed) and uploaded before the version is set.
-Currently the tools will be uploaded as if they had the version of the current
-juju tool, unless specified otherwise by the --version flag.
+For development use, the --upload-tools flag specifies that the juju
+tools will packaged (or compiled locally, if no jujud binaries exists,
+for which you will need the golang packages installed) and uploaded
+before the version is set.  Currently the tools will be uploaded as if
+they had the version of the current juju tool, unless specified
+otherwise by the --version flag. You cannot use this flag with the
+admin model.
 
 When run without arguments. upgrade-juju will try to upgrade to the
 following versions, in order of preference, depending on the current
@@ -183,8 +185,20 @@ var getUpgradeJujuAPI = func(c *upgradeJujuCommand) (upgradeJujuAPI, error) {
 	return c.NewAPIClient()
 }
 
+var errorIfUploadToolsOnAdmin = func(c *upgradeJujuCommand) error {
+	if c.UploadTools && c.ModelName() == "admin" {
+		return errors.Errorf("cannot upgrade the admin model with --upload-tools")
+	}
+	return nil
+}
+
 // Run changes the version proposed for the juju envtools.
 func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
+
+	if err := errorIfUploadToolsOnAdmin(c); err != nil {
+		return err
+	}
+
 	client, err := getUpgradeJujuAPI(c)
 	if err != nil {
 		return err
