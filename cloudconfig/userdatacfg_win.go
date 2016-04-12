@@ -8,10 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/paths"
@@ -39,8 +41,7 @@ func (w *windowsConfigure) Configure() error {
 
 func (w *windowsConfigure) ConfigureBasic() error {
 
-	series := w.icfg.Series
-	tmpDir, err := paths.TempDir(series)
+	tmpDir, err := paths.TempDir(w.icfg.Series)
 	if err != nil {
 		return err
 	}
@@ -49,9 +50,13 @@ func (w *windowsConfigure) ConfigureBasic() error {
 	baseDir := renderer.FromSlash(filepath.Dir(tmpDir))
 	binDir := renderer.Join(baseDir, "bin")
 
-	w.conf.AddScripts(
-		fmt.Sprintf(`%s`, winPowershellHelperFunctions),
+	w.conf.AddScripts(fmt.Sprintf(`%s`, winPowershellHelperFunctions))
 
+	if !series.IsWindowsNano(w.icfg.Series) {
+		w.conf.AddScripts(fmt.Sprintf(`%s`, addJujudUser))
+	}
+
+	w.conf.AddScripts(
 		// Some providers create a baseDir before this step, but we need to
 		// make sure it exists before applying icacls
 		fmt.Sprintf(`mkdir -Force "%s"`, renderer.FromSlash(baseDir)),
@@ -62,7 +67,7 @@ func (w *windowsConfigure) ConfigureBasic() error {
 
 	// This is necessary for setACLs to work
 	w.conf.AddScripts(`$adminsGroup = (New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")).Translate([System.Security.Principal.NTAccount])`)
-	w.conf.AddScripts(setACLs(renderer.FromSlash(baseDir), fileSystem)...)
+	w.conf.AddScripts(setACLs(renderer.FromSlash(baseDir), fileSystem, w.icfg.Series)...)
 	w.conf.AddScripts(`setx /m PATH "$env:PATH;C:\Juju\bin\"`)
 	noncefile := renderer.Join(dataDir, NonceFile)
 	w.conf.AddScripts(
@@ -84,14 +89,17 @@ func (w *windowsConfigure) ConfigureJuju() error {
 	if err != nil {
 		return errors.Annotate(err, "while serializing the tools")
 	}
+
 	renderer := w.conf.ShellRenderer()
 	w.conf.AddScripts(
 		fmt.Sprintf(`$binDir="%s"`, renderer.FromSlash(w.icfg.JujuTools())),
 		fmt.Sprintf(`mkdir '%s'`, renderer.FromSlash(w.icfg.LogDir)),
 		`mkdir $binDir`,
-		`$WebClient = New-Object System.Net.WebClient`,
-		`[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}`,
-		fmt.Sprintf(`ExecRetry { $WebClient.DownloadFile('%s', "$binDir\tools.tar.gz") }`, w.icfg.Tools.URL),
+	)
+
+	w.conf.AddScripts(w.addDownloadToolsCmds()...)
+
+	w.conf.AddScripts(
 		`$dToolsHash = Get-FileSHA256 -FilePath "$binDir\tools.tar.gz"`,
 		fmt.Sprintf(`$dToolsHash > "$binDir\juju%s.sha256"`,
 			w.icfg.Tools.Version),
@@ -102,7 +110,7 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		fmt.Sprintf(`Set-Content $binDir\downloaded-tools.txt '%s'`, string(toolsJson)),
 	)
 
-	for _, cmd := range CreateJujuRegistryKeyCmds() {
+	for _, cmd := range createJujuRegistryKeyCmds(w.icfg.Series) {
 		w.conf.AddRunCmd(cmd)
 	}
 
@@ -114,11 +122,10 @@ func (w *windowsConfigure) ConfigureJuju() error {
 	return w.addMachineAgentToBoot()
 }
 
-// CreateJujuRegistryKey is going to create a juju registry key and set
+// createJujuRegistryKeyCmds is going to create a juju registry key and set
 // permissions on it such that it's only accessible to administrators
-// It is exported because it is used in an upgrade step
-func CreateJujuRegistryKeyCmds() []string {
-	aclCmds := setACLs(osenv.JujuRegistryKey, registryEntry)
+func createJujuRegistryKeyCmds(series string) []string {
+	aclCmds := setACLs(osenv.JujuRegistryKey, registryEntry, series)
 	regCmds := []string{
 
 		// Create a registry key for storing juju related information
@@ -136,24 +143,62 @@ func CreateJujuRegistryKeyCmds() []string {
 	return append(regCmds[:1], append(aclCmds, regCmds[1:]...)...)
 }
 
-func setACLs(path string, permType aclType) []string {
+func setACLs(path string, permType aclType, ser string) []string {
 	ruleModel := `$rule = New-Object System.Security.AccessControl.%sAccessRule %s`
 	permModel := `%s = "%s", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"`
 	adminPermVar := `$adminPerm`
 	jujudPermVar := `$jujudPerm`
-	return []string{
+
+	rulesToAdd := []string{
+		// $adminsGroup must be defined before calling setACLs
+		fmt.Sprintf(permModel, adminPermVar, `$adminsGroup`),
+		fmt.Sprintf(ruleModel, permType, adminPermVar),
+		`$acl.AddAccessRule($rule)`,
+	}
+
+	jujudACLRules := []string{
+		fmt.Sprintf(permModel, jujudPermVar, `jujud`),
+		fmt.Sprintf(ruleModel, permType, jujudPermVar),
+		`$acl.AddAccessRule($rule)`,
+	}
+
+	if !series.IsWindowsNano(ser) {
+		rulesToAdd = append(rulesToAdd, jujudACLRules...)
+	}
+
+	aclCmds := []string{
 		fmt.Sprintf(`$acl = Get-Acl -Path '%s'`, path),
 
 		// Reset the ACL's on it and add administrator access only.
 		`$acl.SetAccessRuleProtection($true, $false)`,
 
-		// $adminsGroup must be defined before calling setACLs
-		fmt.Sprintf(permModel, adminPermVar, `$adminsGroup`),
-		fmt.Sprintf(permModel, jujudPermVar, `jujud`),
-		fmt.Sprintf(ruleModel, permType, adminPermVar),
-		`$acl.AddAccessRule($rule)`,
-		fmt.Sprintf(ruleModel, permType, jujudPermVar),
-		`$acl.AddAccessRule($rule)`,
 		fmt.Sprintf(`Set-Acl -Path '%s' -AclObject $acl`, path),
+	}
+
+	return append(aclCmds[:2], append(rulesToAdd, aclCmds[2:]...)...)
+}
+
+func (w *windowsConfigure) addDownloadToolsCmds() []string {
+	if series.IsWindowsNano(w.icfg.Series) {
+		// Strip the header and footer of the CA Certificate
+		caContent := strings.Split(w.icfg.MongoInfo.CACert, "\n")
+		caContent = caContent[1:]                // remove header
+		caContent = caContent[:len(caContent)-2] // remove footer and newline
+		caCert := strings.Join(caContent, "\n")
+		return []string{fmt.Sprintf(`$cacert = "%s"`, caCert),
+			`$cert_bytes = $cacert | %{ ,[System.Text.Encoding]::UTF8.GetBytes($_) }`,
+			`$cert = new-object System.Security.Cryptography.X509Certificates.X509Certificate2(,$cert_bytes)`,
+			`$store = Get-Item Cert:\LocalMachine\AuthRoot`,
+			`$store.Open("ReadWrite")`,
+			`$store.Add($cert)`,
+			fmt.Sprintf(`ExecRetry { Invoke-FastWebRequest -URI '%s' -OutFile "$binDir\tools.tar.gz" }`, w.icfg.Tools.URL),
+		}
+	} else {
+		return []string{
+			`$WebClient = New-Object System.Net.WebClient`,
+			`[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}`,
+			fmt.Sprintf(`ExecRetry { $WebClient.DownloadFile('%s', "$binDir\tools.tar.gz") }`,
+				w.icfg.Tools.URL),
+		}
 	}
 }

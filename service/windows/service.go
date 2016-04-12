@@ -229,7 +229,10 @@ func (s *Service) Install() error {
 
 // InstallCommands returns shell commands to install the service.
 func (s *Service) InstallCommands() ([]string, error) {
-	cmd := fmt.Sprintf(serviceInstallCommands[1:],
+	cmd := fmt.Sprintf(serviceCreateCommandTemplate[1:],
+		renderer.Quote(s.Service.Name),
+		renderer.Quote(s.Service.Conf.Desc),
+		renderer.Quote(s.Service.Conf.ExecStart),
 		renderer.Quote(s.Service.Name),
 		renderer.Quote(s.Service.Conf.Desc),
 		renderer.Quote(s.Service.Conf.ExecStart),
@@ -245,7 +248,12 @@ func (s *Service) StartCommands() ([]string, error) {
 	return []string{cmd}, nil
 }
 
-const serviceInstallCommands = `
-New-Service -Credential $jujuCreds -Name %s -DependsOn Winmgmt -DisplayName %s %s
+const serviceCreateCommandTemplate = `
+if ($jujuCreds) {
+  New-Service -Credential $jujuCreds -Name %s -DependsOn Winmgmt -DisplayName %s %s
+} else {
+  New-Service -Name %s -DependsOn Winmgmt -DisplayName %s %s
+}
 sc.exe failure %s reset=5 actions=restart/1000
-sc.exe failureflag %s 1`
+sc.exe failureflag %s 1
+`
