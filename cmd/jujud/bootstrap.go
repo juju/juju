@@ -363,7 +363,7 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	return initiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
-	}, true)
+	})
 }
 
 // populateDefaultStoragePools creates the default storage pools.

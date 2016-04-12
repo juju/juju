@@ -278,7 +278,7 @@ func (f *fakeRunCommand) mongoDialInfo(info mongo.Info, opts mongo.DialOpts) (*m
 	f.ranCommands = append(f.ranCommands, ran)
 	return &mgo.DialInfo{}, nil
 }
-func (f *fakeRunCommand) initiateMongoServer(args peergrouper.InitiateMongoParams, force bool) error {
+func (f *fakeRunCommand) initiateMongoServer(args peergrouper.InitiateMongoParams) error {
 	ran := []string{"peergrouper.InitiateMongoServer"}
 	f.ranCommands = append(f.ranCommands, ran)
 	return nil

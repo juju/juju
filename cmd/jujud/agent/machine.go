@@ -90,16 +90,15 @@ var (
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions.
-	useMultipleCPUs          = utils.UseMultipleCPUs
-	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
-	ensureMongoAdminUser     = mongo.EnsureAdminUser
-	modelManifolds           = model.Manifolds
-	newSingularRunner        = singular.New
-	peergrouperNew           = peergrouper.New
-	newCertificateUpdater    = certupdater.NewCertificateUpdater
-	newMetadataUpdater       = imagemetadataworker.NewWorker
-	newUpgradeMongoWorker    = mongoupgrader.New
-	reportOpenedState        = func(io.Closer) {}
+	useMultipleCPUs       = utils.UseMultipleCPUs
+	ensureMongoAdminUser  = mongo.EnsureAdminUser
+	modelManifolds        = model.Manifolds
+	newSingularRunner     = singular.New
+	peergrouperNew        = peergrouper.New
+	newCertificateUpdater = certupdater.NewCertificateUpdater
+	newMetadataUpdater    = imagemetadataworker.NewWorker
+	newUpgradeMongoWorker = mongoupgrader.New
+	reportOpenedState     = func(io.Closer) {}
 )
 
 // Variable to override in tests, default is true
