@@ -244,7 +244,6 @@ func (suite *maas2EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *gc
 	// Return a cannot complete indicating that test1 is in the wrong state.
 	// The release operation will still release the others and succeed.
 	controller := &fakeController{
-		releaseMachinesErrors: []error{gomaasapi.NewCannotCompleteError("test1 not allocated")},
 		files: []gomaasapi.File{&fakeFile{name: "agent-prefix-provider-state"}},
 	}
 	err := suite.makeEnviron(c, controller).StopInstances("test1", "test2", "test3")
@@ -255,17 +254,35 @@ func (suite *maas2EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *gc
 }
 
 func (suite *maas2EnvironSuite) TestStopInstancesIgnoresConflict(c *gc.C) {
-	env := suite.makeEnviron(c, &fakeController{})
-	err := env.StopInstances("test1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Fail()
+	// Return a cannot complete indicating that test1 is in the wrong state.
+	// The release operation will still release the others and succeed.
+	controller := &fakeController{
+		releaseMachinesErrors: []error{gomaasapi.NewCannotCompleteError("test1 not allocated")},
+		files: []gomaasapi.File{&fakeFile{name: "agent-prefix-provider-state"}},
+	}
+	err := suite.makeEnviron(c, controller).StopInstances("test1", "test2", "test3")
+	c.Check(err, jc.ErrorIsNil)
+	args := controller.releaseMachinesArgs
+	c.Assert(args, gc.HasLen, 1)
+	c.Assert(args[0].SystemIDs, jc.DeepEquals, []string{"test1", "test2", "test3"})
 }
 
 func (suite *maas2EnvironSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c *gc.C) {
-	env := suite.makeEnviron(c, &fakeController{})
-	err := env.StopInstances("test1", "test2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Fail()
+	controller := &fakeController{
+		releaseMachinesErrors: []error{
+			gomaasapi.NewBadRequestError("no such machine: test1"),
+			gomaasapi.NewBadRequestError("no such machine: test1"),
+		},
+		files: []gomaasapi.File{&fakeFile{name: "agent-prefix-provider-state"}},
+	}
+	err := suite.makeEnviron(c, controller).StopInstances("test1", "test2", "test3")
+	c.Check(err, jc.ErrorIsNil)
+	args := controller.releaseMachinesArgs
+	c.Assert(args, gc.HasLen, 4)
+	c.Assert(args[0].SystemIDs, jc.DeepEquals, []string{"test1", "test2", "test3"})
+	c.Assert(args[1].SystemIDs, jc.DeepEquals, []string{"test1"})
+	c.Assert(args[2].SystemIDs, jc.DeepEquals, []string{"test2"})
+	c.Assert(args[3].SystemIDs, jc.DeepEquals, []string{"test3"})
 }
 
 func (suite *maas2EnvironSuite) TestStopInstancesReturnsUnexpectedMAASError(c *gc.C) {

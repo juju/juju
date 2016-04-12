@@ -146,7 +146,7 @@ func (c *fakeController) AddFile(args gomaasapi.AddFileArgs) error {
 
 func (c *fakeController) ReleaseMachines(args gomaasapi.ReleaseMachinesArgs) error {
 	c.releaseMachinesArgs = append(c.releaseMachinesArgs, args)
-	if c.releaseMachinesErrors == nil {
+	if len(c.releaseMachinesErrors) == 0 {
 		return nil
 	}
 	err := c.releaseMachinesErrors[0]
