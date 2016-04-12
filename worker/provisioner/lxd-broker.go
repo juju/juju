@@ -84,6 +84,7 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 
 	series := args.Tools.OneSeries()
 	args.InstanceConfig.MachineContainerType = instance.LXD
+	// TODO(ericsnow) There may be more than one.
 	args.InstanceConfig.Tools = args.Tools[0]
 
 	config, err := broker.api.ContainerConfig()
