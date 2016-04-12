@@ -74,14 +74,18 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Not exported, but the tools will possibly need to be either bundled
 		// with the representation or sent separately.
 		toolsmetadataC,
+		// Bakery storage items are non-critical. We store root keys for
+		// temporary credentials in there; after migration you'll just have
+		// to log back in.
+		bakeryStorageItemsC,
 		// Transaction stuff.
 		"txns",
 		"txns.log",
 
 		// We don't import any of the migration collections.
-		modelMigrationsC,
-		modelMigrationStatusC,
-		modelMigrationsActiveC,
+		migrationsC,
+		migrationsStatusC,
+		migrationsActiveC,
 
 		// The container ref document is primarily there to keep track
 		// of a particular machine's containers. The migration format
@@ -95,6 +99,11 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// This is a transitory collection of units that need to be assigned
 		// to machines.
 		assignUnitC,
+
+		// The model entity references collection will be repopulated
+		// after importing the model. It does not need to be migrated
+		// separately.
+		modelEntityRefsC,
 
 		// This has been deprecated in 2.0, and should not contain any data
 		// we actually care about migrating.
@@ -161,13 +170,11 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 	fields := set.NewStrings(
-		// UUID and Mame are constructed from the model config.
+		// UUID and Name are constructed from the model config.
 		"UUID",
 		"Name",
 		// Life will always be alive, or we won't be migrating.
 		"Life",
-		"Owner",
-		"LatestAvailableTools",
 		// ServerUUID is recreated when the new model is created in the
 		// new controller (yay name changes).
 		"ServerUUID",
@@ -175,6 +182,10 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		// is alive.
 		"TimeOfDying",
 		"TimeOfDeath",
+
+		"MigrationMode",
+		"Owner",
+		"LatestAvailableTools",
 	)
 	s.AssertExportedFields(c, modelDoc{}, fields)
 }
@@ -231,6 +242,7 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"Placement",
 		"PreferredPrivateAddress",
 		"PreferredPublicAddress",
+		"Principals",
 		"Series",
 		"SupportedContainers",
 		"SupportedContainersKnown",
@@ -241,7 +253,6 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"StopMongoUntilVersion",
 	)
 	todo := set.NewStrings(
-		"Principals",
 		"Volumes",
 		"NoVote",
 		"Clean",

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -40,7 +39,7 @@ func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
 	return auth.(*authentication.ExternalMacaroonAuthenticator).Macaroon, nil
 }
 
-func ServerBakeryService(srv *Server) (*bakery.Service, error) {
+func ServerBakeryService(srv *Server) (authentication.BakeryService, error) {
 	auth, err := srv.authCtxt.macaroonAuth()
 	if err != nil {
 		return nil, err
@@ -193,11 +192,19 @@ func (srv *Server) Addr() *net.TCPAddr {
 	return srv.lis.Addr().(*net.TCPAddr) // cannot fail
 }
 
-// PatchMigrationGetter overrides the migrationGetter function to
-// support testing.
-func PatchMigrationGetter(p Patcher, st modelMigrationGetter) {
-	p.PatchValue(&migrationGetter, func(*state.State) modelMigrationGetter {
+// PatchGetMigrationBackend overrides the getMigrationBackend function
+// to support testing.
+func PatchGetMigrationBackend(p Patcher, st migrationBackend) {
+	p.PatchValue(&getMigrationBackend, func(*state.State) migrationBackend {
 		return st
+	})
+}
+
+// PatchGetControllerCACert overrides the getControllerCACert function
+// to support testing.
+func PatchGetControllerCACert(p Patcher, caCert string) {
+	p.PatchValue(&getControllerCACert, func(migrationBackend) (string, error) {
+		return caCert, nil
 	})
 }
 

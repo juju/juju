@@ -18,7 +18,7 @@ var getState = func(st *state.State) stateInterface {
 type stateInterface interface {
 	ModelsForUser(names.UserTag) ([]*state.UserModel, error)
 	IsControllerAdministrator(user names.UserTag) (bool, error)
-	NewModel(*config.Config, names.UserTag) (*state.Model, *state.State, error)
+	NewModel(state.ModelArgs) (*state.Model, *state.State, error)
 	ControllerModel() (*state.Model, error)
 	ForModel(tag names.ModelTag) (*state.State, error)
 	GetModel(names.ModelTag) (Model, error)

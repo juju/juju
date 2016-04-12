@@ -56,10 +56,10 @@ controller will first need to be destroyed, either in advance, or by
 specifying `[1:] + "`--destroy-all-models`." + `
 
 Examples:
-juju destroy-controller --destroy-all-models mycontroller
+    juju destroy-controller --destroy-all-models mycontroller
 
 See also: 
-kill-controller`
+    kill-controller`
 
 var usageSummary = `
 Destroys a controller.`[1:]
@@ -134,27 +134,77 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "getting controller environ")
 	}
 
-	// Attempt to destroy the controller.
-	err = api.DestroyController(c.destroyModels)
-	if err != nil {
-		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy controller"), ctx, api)
-	}
-
-	ctx.Infof("Destroying controller %q", c.ControllerName())
-	if c.destroyModels {
-		ctx.Infof("Waiting for hosted model resources to be reclaimed.")
+	for {
+		// Attempt to destroy the controller.
+		ctx.Infof("Destroying controller")
+		var hasHostedModels bool
+		err = api.DestroyController(c.destroyModels)
+		if err != nil {
+			if params.IsCodeHasHostedModels(err) {
+				hasHostedModels = true
+			} else {
+				return c.ensureUserFriendlyErrorLog(
+					errors.Annotate(err, "cannot destroy controller"),
+					ctx, api,
+				)
+			}
+		}
 
 		updateStatus := newTimedStatusUpdater(ctx, api, controllerDetails.ControllerUUID)
-		for ctrStatus, modelsStatus := updateStatus(0); hasUnDeadModels(modelsStatus); ctrStatus, modelsStatus = updateStatus(2 * time.Second) {
+		ctrStatus, modelsStatus := updateStatus(0)
+		if !c.destroyModels {
+			if err := c.checkNoAliveHostedModels(ctx, modelsStatus); err != nil {
+				return errors.Trace(err)
+			}
+			if hasHostedModels && !hasUnDeadModels(modelsStatus) {
+				// When we called DestroyController before, we were
+				// informed that there were hosted models remaining.
+				// When we checked just now, there were none. We should
+				// try destroying again.
+				continue
+			}
+		}
+
+		// Even if we've not just requested for hosted models to be destroyed,
+		// there may be some being destroyed already. We need to wait for them.
+		ctx.Infof("Waiting for hosted model resources to be reclaimed")
+		for ; hasUnDeadModels(modelsStatus); ctrStatus, modelsStatus = updateStatus(2 * time.Second) {
 			ctx.Infof(fmtCtrStatus(ctrStatus))
 			for _, model := range modelsStatus {
 				ctx.Verbosef(fmtModelStatus(model))
 			}
 		}
-
 		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
+		return environs.Destroy(c.ControllerName(), controllerEnviron, store)
 	}
-	return environs.Destroy(c.ControllerName(), controllerEnviron, store)
+}
+
+// checkNoAliveHostedModels ensures that the given set of hosted models
+// contains none that are Alive. If there are, an message is printed
+// out to
+func (c *destroyCommand) checkNoAliveHostedModels(ctx *cmd.Context, models []modelData) error {
+	if !hasAliveModels(models) {
+		return nil
+	}
+	// The user did not specify --destroy-all-models,
+	// and there are models still alive.
+	var buf bytes.Buffer
+	for _, model := range models {
+		if model.Life != params.Alive {
+			continue
+		}
+		buf.WriteString(fmtModelStatus(model))
+		buf.WriteRune('\n')
+	}
+	return errors.Errorf(`cannot destroy controller %q
+
+The controller has live hosted models. If you want
+to destroy all hosted models in the controller,
+run this command again with the --destroy-all-models
+flag.
+
+Models:
+%s`, c.ControllerName(), buf.String())
 }
 
 // ensureUserFriendlyErrorLog ensures that error will be logged and displayed
@@ -164,19 +214,13 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 		return nil
 	}
 	if params.IsCodeOperationBlocked(destroyErr) {
-		logger.Errorf(`there are blocks preventing controller destruction
-To remove all blocks in the controller, please run:
-
-    juju controller remove-blocks
-
-`)
+		logger.Errorf(destroyControllerBlockedMsg)
 		if api != nil {
 			models, err := api.ListBlockedModels()
 			var bytes []byte
 			if err == nil {
 				bytes, err = formatTabularBlockedModels(models)
 			}
-
 			if err != nil {
 				logger.Errorf("Unable to list blocked models: %s", err)
 				return cmd.ErrSilent
@@ -185,19 +229,32 @@ To remove all blocks in the controller, please run:
 		}
 		return cmd.ErrSilent
 	}
+	if params.IsCodeHasHostedModels(destroyErr) {
+		return destroyErr
+	}
 	logger.Errorf(stdFailureMsg, c.ControllerName())
 	return destroyErr
 }
 
-var stdFailureMsg = `failed to destroy controller %q
+const destroyControllerBlockedMsg = `there are blocks preventing controller destruction
+To remove all blocks in the controller, please run:
+
+    juju controller remove-blocks
+
+`
+
+// TODO(axw) this should only be printed out if we couldn't
+// connect to the controller.
+const stdFailureMsg = `failed to destroy controller %q
 
 If the controller is unusable, then you may run
 
     juju kill-controller
 
 to forcibly destroy the controller. Upon doing so, review
-your model provider console for any resources that need
+your cloud provider console for any resources that need
 to be cleaned up.
+
 `
 
 func formatTabularBlockedModels(value interface{}) ([]byte, error) {

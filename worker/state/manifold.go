@@ -37,7 +37,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.StateConfigWatcherName,
 		},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(context dependency.Context) (worker.Worker, error) {
 			// First, a sanity check.
 			if config.OpenState == nil {
 				return nil, errors.New("OpenState is nil in config")
@@ -45,14 +45,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			// Get the agent.
 			var agent coreagent.Agent
-			if err := getResource(config.AgentName, &agent); err != nil {
+			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 
 			// Confirm we're running in a state server by asking the
 			// stateconfigwatcher manifold.
 			var haveStateConfig bool
-			if err := getResource(config.StateConfigWatcherName, &haveStateConfig); err != nil {
+			if err := context.Get(config.StateConfigWatcherName, &haveStateConfig); err != nil {
 				return nil, err
 			}
 			if !haveStateConfig {

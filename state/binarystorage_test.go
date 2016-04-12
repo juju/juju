@@ -81,7 +81,10 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 		"name": "new-model",
 		"uuid": s.modelUUID,
 	})
-	_, s.st, err = s.State.NewModel(cfg, names.NewLocalUserTag("test-admin"))
+	_, s.st, err = s.State.NewModel(state.ModelArgs{
+		Config: cfg,
+		Owner:  names.NewLocalUserTag("test-admin"),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) {
 		s.st.Close()

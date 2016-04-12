@@ -24,7 +24,7 @@ func Manifold(a agent.Agent) dependency.Manifold {
 // startFunc returns a StartFunc that starts a worker holding a reference to
 // the supplied Agent.
 func startFunc(a agent.Agent) dependency.StartFunc {
-	return func(_ dependency.GetResourceFunc) (worker.Worker, error) {
+	return func(_ dependency.Context) (worker.Worker, error) {
 		w := &agentWorker{agent: a}
 		go func() {
 			defer w.tomb.Done()

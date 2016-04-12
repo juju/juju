@@ -992,6 +992,7 @@ func (a *MachineAgent) startModelWorkers(uuid string) (worker.Worker, error) {
 
 	manifolds := modelManifolds(model.ManifoldsConfig{
 		Agent:                       modelAgent,
+		AgentConfigChanged:          a.configChangedVal,
 		Clock:                       clock.WallClock,
 		RunFlagDuration:             time.Minute,
 		CharmRevisionUpdateInterval: 24 * time.Hour,

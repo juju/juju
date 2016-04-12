@@ -43,9 +43,9 @@ func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 		ClockName:     "clock",
 	})
 
-	_, err := manifold.Start(dt.StubGetResource(dt.StubResources{
-		"api-caller": dt.StubResource{Error: dependency.ErrMissing},
-		"clock":      dt.StubResource{Output: fakeClock{}},
+	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+		"api-caller": dependency.ErrMissing,
+		"clock":      fakeClock{},
 	}))
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
@@ -56,9 +56,9 @@ func (s *ManifoldSuite) TestMissingClock(c *gc.C) {
 		ClockName:     "clock",
 	})
 
-	_, err := manifold.Start(dt.StubGetResource(dt.StubResources{
-		"api-caller": dt.StubResource{Output: fakeAPICaller{}},
-		"clock":      dt.StubResource{Error: dependency.ErrMissing},
+	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+		"api-caller": fakeAPICaller{},
+		"clock":      dependency.ErrMissing,
 	}))
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
@@ -76,9 +76,9 @@ func (s *ManifoldSuite) TestNewFacadeError(c *gc.C) {
 		},
 	})
 
-	_, err := manifold.Start(dt.StubGetResource(dt.StubResources{
-		"api-caller": dt.StubResource{Output: fakeAPICaller},
-		"clock":      dt.StubResource{Output: fakeClock{}},
+	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+		"api-caller": fakeAPICaller,
+		"clock":      fakeClock{},
 	}))
 	c.Check(err, gc.ErrorMatches, "cannot create facade: blefgh")
 	stub.CheckCalls(c, []testing.StubCall{{
@@ -105,9 +105,9 @@ func (s *ManifoldSuite) TestNewWorkerError(c *gc.C) {
 		},
 	})
 
-	_, err := manifold.Start(dt.StubGetResource(dt.StubResources{
-		"api-caller": dt.StubResource{Output: fakeAPICaller},
-		"clock":      dt.StubResource{Output: fakeClock},
+	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+		"api-caller": fakeAPICaller,
+		"clock":      fakeClock,
 	}))
 	c.Check(err, gc.ErrorMatches, "cannot create worker: snrght")
 	stub.CheckCalls(c, []testing.StubCall{{
@@ -141,9 +141,9 @@ func (s *ManifoldSuite) TestSuccess(c *gc.C) {
 		},
 	})
 
-	w, err := manifold.Start(dt.StubGetResource(dt.StubResources{
-		"api-caller": dt.StubResource{Output: fakeAPICaller},
-		"clock":      dt.StubResource{Output: fakeClock},
+	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+		"api-caller": fakeAPICaller,
+		"clock":      fakeClock,
 	}))
 	c.Check(w, gc.Equals, fakeWorker)
 	c.Check(err, jc.ErrorIsNil)

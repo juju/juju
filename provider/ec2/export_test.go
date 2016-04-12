@@ -43,6 +43,14 @@ func InstanceEC2(inst instance.Instance) *ec2.Instance {
 	return inst.(*ec2Instance).Instance
 }
 
+func TerminatedInstances(e environs.Environ) ([]instance.Instance, error) {
+	return e.(*environ).AllInstancesByState("shutting-down", "terminated")
+}
+
+func InstanceSecurityGroups(e environs.Environ, ids []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {
+	return e.(*environ).instanceSecurityGroups(ids, states...)
+}
+
 var (
 	EC2AvailabilityZones        = &ec2AvailabilityZones
 	AvailabilityZoneAllocations = &availabilityZoneAllocations
@@ -99,6 +107,7 @@ var (
 	StorageAttempt                 = &storageAttempt
 	DestroyVolumeAttempt           = &destroyVolumeAttempt
 	DeleteSecurityGroupInsistently = &deleteSecurityGroupInsistently
+	TerminateInstancesById         = &terminateInstancesById
 )
 
 func EC2ErrCode(err error) string {

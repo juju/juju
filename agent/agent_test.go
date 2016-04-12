@@ -778,3 +778,12 @@ func (*suite) TestSetAPIHostPorts(c *gc.C) {
 		"elsewhere.net:4444",
 	})
 }
+
+func (*suite) TestSetCACert(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conf.CACert(), gc.Equals, "ca cert")
+
+	conf.SetCACert("new ca cert")
+	c.Assert(conf.CACert(), gc.Equals, "new ca cert")
+}

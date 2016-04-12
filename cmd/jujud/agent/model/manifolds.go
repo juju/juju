@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/utils/clock"
+	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/life"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
 	"github.com/juju/juju/worker/cleaner"
@@ -26,6 +28,7 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/lifeflag"
 	"github.com/juju/juju/worker/metricworker"
+	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/servicescaler"
 	"github.com/juju/juju/worker/singular"
@@ -48,6 +51,10 @@ type ManifoldsConfig struct {
 	// You should almost certainly set this value to one created by
 	// model.WrapAgent.
 	Agent coreagent.Agent
+
+	// AgentConfigChanged will be set whenever the agent's api config
+	// is updated
+	AgentConfigChanged *voyeur.Value
 
 	// Clock supplies timing services to any manifolds that need them.
 	// Only a few workers have been converted to use them fo far.
@@ -86,9 +93,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The first group are foundational; the agent and clock
 		// which wrap those supplied in config, and the api-caller
-		// through everything else communicates with the apiserver.
+		// through which everything else communicates with the
+		// controller.
 		agentName: agent.Manifold(config.Agent),
 		clockName: clockManifold(config.Clock),
+		apiConfigWatcherName: apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
+			AgentName:          agentName,
+			AgentConfigChanged: config.AgentConfigChanged,
+		}),
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
 			AgentName:     agentName,
 			APIOpen:       apicaller.APIOpen,
@@ -98,7 +110,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The discover spaces gate is used to coordinate workers which
 		// shouldn't do anything until the discoverspaces worker has completed
 		// its first discovery attempt.
-		discovertSpacesCheckGateName: gate.ManifoldEx(config.DiscoverSpacesCheckLock),
+		discoverSpacesCheckGateName: gate.ManifoldEx(config.DiscoverSpacesCheckLock),
 
 		// All other manifolds should depend on at least one of these
 		// three, which handle all the tasks that are safe and sane
@@ -169,14 +181,19 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		// All the rest depend on ifNotDead.
+		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
+			APICallerName: apiCallerName,
+		})),
+
 		discoverSpacesName: ifNotDead(discoverspaces.Manifold(discoverspaces.ManifoldConfig{
 			EnvironName:   environTrackerName,
 			APICallerName: apiCallerName,
-			UnlockerName:  discovertSpacesCheckGateName,
+			UnlockerName:  discoverSpacesCheckGateName,
 
 			NewFacade: discoverspaces.NewFacade,
 			NewWorker: discoverspaces.NewWorker,
 		})),
+
 		computeProvisionerName: ifNotDead(provisioner.Manifold(provisioner.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -249,7 +266,7 @@ func ifNotDead(manifold dependency.Manifold) dependency.Manifold {
 // clockManifold expresses a Clock as a ValueWorker manifold.
 func clockManifold(clock clock.Clock) dependency.Manifold {
 	return dependency.Manifold{
-		Start: func(_ dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(_ dependency.Context) (worker.Worker, error) {
 			return util.NewValueWorker(clock)
 		},
 		Output: util.ValueWorkerOutput,
@@ -257,28 +274,29 @@ func clockManifold(clock clock.Clock) dependency.Manifold {
 }
 
 const (
-	agentName     = "agent"
-	clockName     = "clock"
-	apiCallerName = "api-caller"
+	agentName            = "agent"
+	clockName            = "clock"
+	apiConfigWatcherName = "api-config-watcher"
+	apiCallerName        = "api-caller"
 
 	isResponsibleFlagName = "is-responsible-flag"
 	notDeadFlagName       = "not-dead-flag"
 	notAliveFlagName      = "not-alive-flag"
 
-	environTrackerName       = "environ-tracker"
-	undertakerName           = "undertaker"
-	computeProvisionerName   = "compute-provisioner"
-	storageProvisionerName   = "storage-provisioner"
-	firewallerName           = "firewaller"
-	unitAssignerName         = "unit-assigner"
-	serviceScalerName        = "service-scaler"
-	instancePollerName       = "instance-poller"
-	charmRevisionUpdaterName = "charm-revision-updater"
-	metricWorkerName         = "metric-worker"
-	stateCleanerName         = "state-cleaner"
-	addressCleanerName       = "address-cleaner"
-	statusHistoryPrunerName  = "status-history-pruner"
-
-	discovertSpacesCheckGateName = "discover-spaces-check-gate"
-	discoverSpacesName           = "discover-spaces"
+	environTrackerName          = "environ-tracker"
+	undertakerName              = "undertaker"
+	computeProvisionerName      = "compute-provisioner"
+	storageProvisionerName      = "storage-provisioner"
+	firewallerName              = "firewaller"
+	unitAssignerName            = "unit-assigner"
+	serviceScalerName           = "service-scaler"
+	instancePollerName          = "instance-poller"
+	charmRevisionUpdaterName    = "charm-revision-updater"
+	metricWorkerName            = "metric-worker"
+	stateCleanerName            = "state-cleaner"
+	addressCleanerName          = "address-cleaner"
+	statusHistoryPrunerName     = "status-history-pruner"
+	migrationMasterName         = "migration-master"
+	discoverSpacesCheckGateName = "discover-spaces-check-gate"
+	discoverSpacesName          = "discover-spaces"
 )

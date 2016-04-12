@@ -49,7 +49,8 @@ func (s *PhaseSuite) TestParseInvalid(c *gc.C) {
 func (s *PhaseSuite) TestIsTerminal(c *gc.C) {
 	c.Check(migration.QUIESCE.IsTerminal(), jc.IsFalse)
 	c.Check(migration.SUCCESS.IsTerminal(), jc.IsFalse)
-	c.Check(migration.ABORT.IsTerminal(), jc.IsTrue)
+	c.Check(migration.ABORT.IsTerminal(), jc.IsFalse)
+	c.Check(migration.ABORTDONE.IsTerminal(), jc.IsTrue)
 	c.Check(migration.REAPFAILED.IsTerminal(), jc.IsTrue)
 	c.Check(migration.DONE.IsTerminal(), jc.IsTrue)
 }

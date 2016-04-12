@@ -93,6 +93,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 
 	c.Assert(newModel.Owner(), gc.Equals, original.Owner())
 	c.Assert(newModel.LatestToolsVersion(), gc.Equals, latestTools)
+	c.Assert(newModel.MigrationMode(), gc.Equals, state.MigrationModeImporting)
 	s.assertAnnotations(c, newSt, newModel)
 
 	originalConfig, err := original.Config()
@@ -379,6 +380,14 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	importedMachineId, err := imported.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedMachineId, gc.Equals, exportedMachineId)
+
+	// Confirm machine Principals are set.
+	exportedMachine, err := s.State.Machine(exportedMachineId)
+	c.Assert(err, jc.ErrorIsNil)
+	importedMachine, err := newSt.Machine(importedMachineId)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertMachineEqual(c, importedMachine, exportedMachine)
+
 	meterStatus, err := imported.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meterStatus, gc.Equals, state.MeterStatus{state.MeterGreen, "some info"})
@@ -453,6 +462,34 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 		ToPort:   2345,
 		Protocol: "tcp",
 	})
+}
+
+func (s *MigrationImportSuite) TestDestroyEmptyModel(c *gc.C) {
+	newModel, newSt := s.importModel(c)
+	defer newSt.Close()
+	s.assertDestroyModelAdvancesLife(c, newModel, state.Dead)
+}
+
+func (s *MigrationImportSuite) TestDestroyModelWithMachine(c *gc.C) {
+	s.Factory.MakeMachine(c, nil)
+	newModel, newSt := s.importModel(c)
+	defer newSt.Close()
+	s.assertDestroyModelAdvancesLife(c, newModel, state.Dying)
+}
+
+func (s *MigrationImportSuite) TestDestroyModelWithService(c *gc.C) {
+	s.Factory.MakeService(c, nil)
+	newModel, newSt := s.importModel(c)
+	defer newSt.Close()
+	s.assertDestroyModelAdvancesLife(c, newModel, state.Dying)
+}
+
+func (s *MigrationImportSuite) assertDestroyModelAdvancesLife(c *gc.C, m *state.Model, life state.Life) {
+	err := m.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.Life(), gc.Equals, life)
 }
 
 // newModel replaces the uuid and name of the config attributes so we

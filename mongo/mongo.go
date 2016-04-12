@@ -603,9 +603,7 @@ func packagesForSeries(series string) ([]string, []string) {
 	switch series {
 	case "precise", "quantal", "raring", "saucy", "centos7":
 		return []string{"mongodb-server"}, []string{}
-	case "trusty":
-		return []string{JujuMongoPackage}, []string{"juju-mongodb"}
-	case "xenial":
+	case "trusty", "wily", "xenial":
 		return []string{JujuMongoPackage}, []string{"juju-mongodb"}
 	default:
 		// y and onwards

@@ -25,7 +25,7 @@ import (
 type ManifoldSuite struct {
 	testing.IsolationSuite
 	agent              *mockAgent
-	goodGetResource    dependency.GetResourceFunc
+	goodContext        dependency.Context
 	agentConfigChanged *voyeur.Value
 	manifold           dependency.Manifold
 	worker             worker.Worker
@@ -40,8 +40,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.agent.conf.setStateServingInfo(true)
 	s.agent.conf.tag = names.NewMachineTag("99")
 
-	s.goodGetResource = dt.StubGetResource(dt.StubResources{
-		"agent": dt.StubResource{Output: s.agent},
+	s.goodContext = dt.StubContext(nil, map[string]interface{}{
+		"agent": s.agent,
 	})
 
 	s.agentConfigChanged = voyeur.NewValue(0)
@@ -56,10 +56,10 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestNoAgent(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent": dependency.ErrMissing,
 	})
-	_, err := s.manifold.Start(getResource)
+	_, err := s.manifold.Start(context)
 	c.Assert(err, gc.Equals, dependency.ErrMissing)
 }
 
@@ -67,18 +67,18 @@ func (s *ManifoldSuite) TestNilAgentConfigChanged(c *gc.C) {
 	manifold := stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
 		AgentName: "agent",
 	})
-	_, err := manifold.Start(s.goodGetResource)
+	_, err := manifold.Start(s.goodContext)
 	c.Assert(err, gc.ErrorMatches, "nil AgentConfigChanged .+")
 }
 
 func (s *ManifoldSuite) TestNotMachineAgent(c *gc.C) {
 	s.agent.conf.tag = names.NewUnitTag("foo/0")
-	_, err := s.manifold.Start(s.goodGetResource)
+	_, err := s.manifold.Start(s.goodContext)
 	c.Assert(err, gc.ErrorMatches, "manifold can only be used with a machine agent")
 }
 
 func (s *ManifoldSuite) TestStart(c *gc.C) {
-	w, err := s.manifold.Start(s.goodGetResource)
+	w, err := s.manifold.Start(s.goodContext)
 	c.Assert(err, jc.ErrorIsNil)
 	checkStop(c, w)
 }
@@ -90,7 +90,7 @@ func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestOutputWrongType(c *gc.C) {
-	w, err := s.manifold.Start(s.goodGetResource)
+	w, err := s.manifold.Start(s.goodContext)
 	c.Assert(err, jc.ErrorIsNil)
 	defer checkStop(c, w)
 
@@ -101,7 +101,7 @@ func (s *ManifoldSuite) TestOutputWrongType(c *gc.C) {
 
 func (s *ManifoldSuite) TestOutputSuccessNotStateServer(c *gc.C) {
 	s.agent.conf.setStateServingInfo(false)
-	w, err := s.manifold.Start(s.goodGetResource)
+	w, err := s.manifold.Start(s.goodContext)
 	c.Assert(err, jc.ErrorIsNil)
 	defer checkStop(c, w)
 
@@ -113,7 +113,7 @@ func (s *ManifoldSuite) TestOutputSuccessNotStateServer(c *gc.C) {
 
 func (s *ManifoldSuite) TestOutputSuccessStateServer(c *gc.C) {
 	s.agent.conf.setStateServingInfo(true)
-	w, err := s.manifold.Start(s.goodGetResource)
+	w, err := s.manifold.Start(s.goodContext)
 	c.Assert(err, jc.ErrorIsNil)
 	defer checkStop(c, w)
 
@@ -125,7 +125,7 @@ func (s *ManifoldSuite) TestOutputSuccessStateServer(c *gc.C) {
 
 func (s *ManifoldSuite) TestBounceOnChange(c *gc.C) {
 	s.agent.conf.setStateServingInfo(false)
-	w, err := s.manifold.Start(s.goodGetResource)
+	w, err := s.manifold.Start(s.goodContext)
 	c.Assert(err, jc.ErrorIsNil)
 	checkNotExiting(c, w)
 
@@ -152,7 +152,7 @@ func (s *ManifoldSuite) TestBounceOnChange(c *gc.C) {
 	checkExitsWithError(c, w, dependency.ErrBounce)
 
 	// Restart the worker, the output should now be true.
-	w, err = s.manifold.Start(s.goodGetResource)
+	w, err = s.manifold.Start(s.goodContext)
 	c.Assert(err, jc.ErrorIsNil)
 	checkNotExiting(c, w)
 	checkOutput(true)
@@ -170,7 +170,7 @@ func (s *ManifoldSuite) TestBounceOnChange(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestClosedVoyeur(c *gc.C) {
-	w, err := s.manifold.Start(s.goodGetResource)
+	w, err := s.manifold.Start(s.goodContext)
 	c.Assert(err, jc.ErrorIsNil)
 	checkNotExiting(c, w)
 

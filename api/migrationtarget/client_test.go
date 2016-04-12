@@ -5,6 +5,7 @@ package migrationtarget_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
@@ -19,19 +20,48 @@ type ClientSuite struct {
 
 var _ = gc.Suite(&ClientSuite{})
 
-func (s *ClientSuite) TestImport(c *gc.C) {
+func (s *ClientSuite) getClientAndStub(c *gc.C) (migrationtarget.Client, *jujutesting.Stub) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		return errors.New("boom")
 	})
 	client := migrationtarget.NewClient(apiCaller)
+	return client, &stub
+}
+
+func (s *ClientSuite) TestImport(c *gc.C) {
+	client, stub := s.getClientAndStub(c)
 
 	err := client.Import([]byte("foo"))
 
 	expectedArg := params.SerializedModel{Bytes: []byte("foo")}
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{"MigrationTarget.Import", []interface{}{"", expectedArg}},
+	})
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *ClientSuite) TestAbort(c *gc.C) {
+	client, stub := s.getClientAndStub(c)
+
+	uuid := "fake"
+	err := client.Abort(uuid)
+	s.AssertModelCall(c, stub, names.NewModelTag(uuid), "Abort", err)
+}
+
+func (s *ClientSuite) TestActivate(c *gc.C) {
+	client, stub := s.getClientAndStub(c)
+
+	uuid := "fake"
+	err := client.Activate(uuid)
+	s.AssertModelCall(c, stub, names.NewModelTag(uuid), "Activate", err)
+}
+
+func (s *ClientSuite) AssertModelCall(c *gc.C, stub *jujutesting.Stub, tag names.ModelTag, call string, err error) {
+	expectedArg := params.ModelArgs{ModelTag: tag.String()}
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"MigrationTarget." + call, []interface{}{"", expectedArg}},
 	})
 	c.Assert(err, gc.ErrorMatches, "boom")
 }

@@ -66,14 +66,14 @@ func (c *modelStateCollection) Count() (int, error) {
 // "_id" field (e.g. using the $in operator) will not be modified. In
 // these cases it is up to the caller to add model UUID
 // prefixes when necessary.
-func (c *modelStateCollection) Find(query interface{}) *mgo.Query {
+func (c *modelStateCollection) Find(query interface{}) mongo.Query {
 	return c.WriteCollection.Find(c.mungeQuery(query))
 }
 
 // FindId looks up a single document by _id. If the id is a string the
 // relevant model UUID prefix will be added to it. Otherwise, the
 // query will be handled as per Find().
-func (c *modelStateCollection) FindId(id interface{}) *mgo.Query {
+func (c *modelStateCollection) FindId(id interface{}) mongo.Query {
 	if sid, ok := id.(string); ok {
 		return c.WriteCollection.FindId(ensureModelUUID(c.modelUUID, sid))
 	}

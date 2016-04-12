@@ -25,10 +25,15 @@ func (s *PhaseInternalSuite) TestForUnused(c *gc.C) {
 		}
 	}
 
-	allValidPhases := set.NewStrings(phaseNames...)
-	allValidPhases.Remove(UNKNOWN.String())
-	unused := allValidPhases.Difference(usedPhases)
-	c.Check(unused, gc.HasLen, 0)
+	specialPhases := set.NewStrings(
+		UNKNOWN.String(),
+		NONE.String(),
+	)
+	allValidPhases := set.NewStrings(phaseNames...).Difference(specialPhases)
+	c.Check(allValidPhases.Difference(usedPhases), gc.HasLen, 0)
+
+	// The special phases shouldn't appear in the transition map.
+	c.Check(usedPhases.Intersection(specialPhases), gc.HasLen, 0)
 }
 
 func (s *PhaseInternalSuite) TestForUnreachable(c *gc.C) {

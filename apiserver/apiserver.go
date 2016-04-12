@@ -68,6 +68,9 @@ type ServerConfig struct {
 	LogDir      string
 	Validator   LoginValidator
 	CertChanged chan params.StateServingInfo
+
+	// This field only exists to support testing.
+	StatePool *state.StatePool
 }
 
 // changeCertListener wraps a TLS net.Listener.
@@ -189,9 +192,15 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 		Certificates: []tls.Certificate{tlsCert},
 		MinVersion:   tls.VersionTLS10,
 	}
+
+	stPool := cfg.StatePool
+	if stPool == nil {
+		stPool = state.NewStatePool(s)
+	}
+
 	srv := &Server{
 		state:     s,
-		statePool: state.NewStatePool(s),
+		statePool: stPool,
 		lis:       newChangeCertListener(lis, cfg.CertChanged, tlsConfig),
 		tag:       cfg.Tag,
 		dataDir:   cfg.DataDir,

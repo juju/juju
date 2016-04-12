@@ -25,10 +25,10 @@ type ManifoldConfig struct {
 	NewWorker func(Config) (worker.Worker, error)
 }
 
-func (config ManifoldConfig) start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
 
 	var apiCaller base.APICaller
-	if err := getResource(config.APICallerName, &apiCaller); err != nil {
+	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
 	facade, err := config.NewFacade(apiCaller)
