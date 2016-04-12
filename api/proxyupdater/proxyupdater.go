@@ -29,10 +29,8 @@ func NewAPI(caller base.APICaller, tag names.Tag) (*API, error) {
 		return nil, fmt.Errorf("caller is nil")
 	}
 
-	_, isUnit := tag.(names.UnitTag)
-	_, isMachine := tag.(names.MachineTag)
-	if !(isMachine || isUnit) {
-		return nil, fmt.Errorf("incorrect tag type %#v", tag)
+	if tag == nil {
+		return nil, fmt.Errorf("tag is nil")
 	}
 
 	return &API{

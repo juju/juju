@@ -41,3 +41,7 @@ func (w NotAWatcher) Err() error {
 func (w *NotAWatcher) Ping() {
 	w.changes <- struct{}{}
 }
+
+func (w *NotAWatcher) Close() {
+	close(w.changes)
+}

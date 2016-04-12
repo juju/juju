@@ -19,7 +19,7 @@ type stateShim struct {
 	st *state.State
 }
 
-func (s *stateShim) EnvironConfig() (*config.Config, error) {
+func (s *stateShim) ModelConfig() (*config.Config, error) {
 	return s.st.ModelConfig()
 }
 

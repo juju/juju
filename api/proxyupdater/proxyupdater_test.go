@@ -37,6 +37,21 @@ func (s *ProxyUpdaterSuite) TestNewAPISuccess(c *gc.C) {
 	newAPI(c, nil)
 }
 
+func (s *ProxyUpdaterSuite) TestNilAPICallerFails(c *gc.C) {
+	api, err := proxyupdater.NewAPI(nil, names.NewUnitTag("u/0"))
+	c.Check(api, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "caller is nil")
+}
+
+func (s *ProxyUpdaterSuite) TestNilTagFails(c *gc.C) {
+	var args []apitesting.CheckArgs
+	var calls int
+	apiCaller := apitesting.CheckingAPICallerMultiArgs(c, args, &calls, nil)
+	api, err := proxyupdater.NewAPI(apiCaller, nil)
+	c.Check(api, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "tag is nil")
+}
+
 func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C) {
 	res := params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{params.NotifyWatchResult{}},
