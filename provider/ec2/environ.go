@@ -1031,6 +1031,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 			Disabled:      false,
 			NoAutoStart:   false,
 			ConfigType:    network.ConfigDHCP,
+			InterfaceType: network.EthernetInterface,
 			Address:       network.NewScopedAddress(iface.PrivateIPAddress, network.ScopeCloudLocal),
 		}
 	}
