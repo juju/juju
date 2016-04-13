@@ -53,9 +53,8 @@ provision machines for services. Where model and service constraints
 overlap, the service constraints take precedence.
 Constraints for a specific model can be viewed with ` + "`juju get-model-\nconstraints`" + `.
 This command requires that the service to have at least one unit. To apply 
-constraints to
-the first unit set them at the model level or pass them as an argument
-when deploying.
+constraints to the first unit set them at the model level or pass them as 
+an argument when deploying.
 
 Examples:
     juju set-constraints mysql mem=8G cpu-cores=4
