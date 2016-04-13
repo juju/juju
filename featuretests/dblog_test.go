@@ -129,7 +129,7 @@ func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
 		DialInfo:       info,
 		MemberHostPort: mongod.Addr(),
 	}
-	err := peergrouper.MaybeInitiateMongoServer(args)
+	err := peergrouper.InitiateMongoServer(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.AgentSuite.SetUpSuite(c)
