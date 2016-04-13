@@ -20,30 +20,33 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-const useraddCommandDoc = `
-Add users to a controller to allow them to login to the controller.
-Optionally, share a model hosted by the controller with the user.
+var usageSummary = `
+Adds a Juju user to a controller.`[1:]
 
-The user's details are stored with the model being shared, and will be
-removed when the model is destroyed.  A "juju register" command will be
-printed, which must be executed to complete the user registration process,
-setting the user's initial password.
+var usageDetails = `
+This allows the user to register with the controller and use the 
+optionally shared model.
+A ` + "`juju register`" + ` command will be printed, which
+must be executed by the user to complete the registration process.  The
+user's details are stored within the shared model, and will be removed
+when the model is destroyed.
+Some machine providers will require the user 
+to be in possession of certain credentials in order to create a model.
 
 Examples:
-    # Add user "foobar"
-    juju add-user foobar
+    juju add-user bob
+    juju add-user --share mymodel bob
+    juju add-user --controller mycontroller bob
 
-    # Add user with default (read) access to models "qa" and "prod".
-    juju add-user foobar --models qa,prod
-
-    # Add user with write access to model "devel".
-    juju add-user foobar --models devel --acl write
-
-
-See Also:
-    juju help change-user-password
-    juju help register
-`
+See also: 
+    register
+    grant
+    show-user
+    list-users
+    switch-user
+    disable-user
+    enable-user
+    change-user-password`[1:]
 
 // AddUserAPI defines the usermanager API methods that the add command uses.
 type AddUserAPI interface {
@@ -66,17 +69,17 @@ type addCommand struct {
 }
 
 func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.ModelNames, "models", "", "models the new user is granted access to")
-	f.StringVar(&c.ModelAccess, "acl", "read", "access controls")
+	f.StringVar(&c.ModelNames, "models", "", "Models the new user is granted access to")
+	f.StringVar(&c.ModelAccess, "acl", "read", "Access controls")
 }
 
 // Info implements Command.Info.
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-user",
-		Args:    "<username> [<display name>] [--models <model1> [<m2> .. <mN>] ] [--acl <read|write>]",
-		Purpose: "adds a user to a controller, optionally with access to models",
-		Doc:     useraddCommandDoc,
+		Args:    "<user name> [<display name>]",
+		Purpose: usageSummary,
+		Doc:     usageDetails,
 	}
 }
 

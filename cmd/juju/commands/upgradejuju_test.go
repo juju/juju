@@ -306,6 +306,10 @@ var upgradeJujuTests = []struct {
 }}
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
+
+	// Don't error because we're using upload-tools on the admin model.
+	s.PatchValue(&errorIfUploadToolsOnAdmin, func(*upgradeJujuCommand) error { return nil })
+
 	for i, test := range upgradeJujuTests {
 		c.Logf("\ntest %d: %s", i, test.about)
 		s.Reset(c)
@@ -443,6 +447,8 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.99.99"))
+	// Don't error because we're using upload-tools on the admin model.
+	s.PatchValue(&errorIfUploadToolsOnAdmin, func(*upgradeJujuCommand) error { return nil })
 	cmd := newUpgradeJujuCommand(map[int]version.Number{2: version.MustParse("1.99.99")})
 	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
 	c.Assert(err, jc.ErrorIsNil)
@@ -458,6 +464,8 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 func (s *UpgradeJujuSuite) TestBlockUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.99.99"))
+	// Don't error because we're using upload-tools on the admin model.
+	s.PatchValue(&errorIfUploadToolsOnAdmin, func(*upgradeJujuCommand) error { return nil })
 	cmd := newUpgradeJujuCommand(map[int]version.Number{2: version.MustParse("1.99.99")})
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeJujuWithRealUpload")
@@ -525,6 +533,9 @@ upgrade to this version by running
 `,
 		},
 	}
+
+	// Don't error because we're using upload-tools on the admin model.
+	s.PatchValue(&errorIfUploadToolsOnAdmin, func(*upgradeJujuCommand) error { return nil })
 
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
@@ -754,6 +765,15 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 		"the last upgrade that has been resolved, consider running the\n"+
 		"upgrade-juju command with the --reset-previous-upgrade flag.",
 	)
+}
+
+func (s *UpgradeJujuSuite) TestDisallowUploadToolsForAdmin(c *gc.C) {
+	cmd := &upgradeJujuCommand{}
+	err := coretesting.InitCommand(modelcmd.Wrap(cmd), []string{"--upload-tools"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = modelcmd.Wrap(cmd).Run(coretesting.Context(c))
+	c.Check(err, gc.ErrorMatches, "cannot upgrade the admin model with --upload-tools")
 }
 
 func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
