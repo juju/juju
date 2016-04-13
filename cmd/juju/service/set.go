@@ -37,16 +37,30 @@ type setCommand struct {
 	serviceApi      serviceAPI
 }
 
-const setDoc = `
-Set one or more configuration options for the specified service.
+var usageSetConfigSummary = `
+Sets configuration options for a service.`[1:]
 
-In case a value starts with an at sign (@) the rest of the value is interpreted
-as a filename. The value itself is then read out of the named file. The maximum
-size of this value is 5M.
+var usageSetConfigDetails = `
+Charms may, and frequently do, expose a number of configuration settings
+for a service to the user. These can be set at deploy time, but may be set
+at any time by using the `[1:] + "`juju set-config`" + ` command. The actual options
+vary per charm (you can check the charm documentation, or use ` + "`juju get-\nconfig`" +
+	` to check which options may be set).
+If ‘value’ begins with the ‘@’ character, it is interpreted as a filename
+and the actual value is read from it. The maximum size of the filename is
+5M.
+Values may be any UTF-8 encoded string. UTF-8 is accepted on the command
+line and in referenced files.
+See ` + "`juju status`" + ` for service names.
 
-Option values may be any UTF-8 encoded string. UTF-8 is accepted on the command
-line and in configuration files.
-`
+Examples:
+    juju set-config mysql dataset-size=80% backup_dir=/vol1/mysql/backups
+    juju set-config apache2 --model mymodel --config /home/ubuntu/mysql.yaml
+
+See also: 
+    get-config
+    deploy
+    status`
 
 const maxValueSize = 5242880
 
@@ -54,9 +68,9 @@ const maxValueSize = 5242880
 func (c *setCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set-config",
-		Args:    "<service> name=value ...",
-		Purpose: "set service config options",
-		Doc:     setDoc,
+		Args:    "<service name> <service key>=<value> ...",
+		Purpose: usageSetConfigSummary,
+		Doc:     usageSetConfigDetails,
 		Aliases: []string{"set-configs"},
 	}
 }
