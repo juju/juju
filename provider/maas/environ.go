@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
@@ -1072,7 +1073,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		// assigned IP addresses, even when NICs are set to "auto" instead of
 		// "static". So instead of selectedNode, which only contains the
 		// acquire-time details (no IP addresses for NICs set to "auto" vs
-		// "static"), we use the up-to-date statedNode response to get the
+		// "static"), we use the up-to-date startedNode response to get the
 		// interfaces.
 		interfaces, err = maasObjectNetworkInterfaces(startedNode, subnetsMap)
 		if err != nil {
@@ -1098,6 +1099,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	for i, v := range args.Volumes {
 		requestedVolumes[i] = v.Tag
 	}
+	// TODO (mfoord): inst.volumes not implemented for MAAS 2.
 	resultVolumes, resultAttachments, err := inst.volumes(
 		names.NewMachineTag(args.InstanceConfig.MachineId),
 		requestedVolumes,
@@ -1126,8 +1128,12 @@ var nodeDeploymentTimeout = func(environ *maasEnviron) time.Duration {
 }
 
 func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
+	if environ.usingMAAS2() {
+		return environ.waitForNodeDeployment2(id)
+	}
 	systemId := extractSystemId(id)
-	longAttempt := utils.AttemptStrategy{
+
+	var longAttempt = utils.AttemptStrategy{
 		Delay: 10 * time.Second,
 		Total: nodeDeploymentTimeout(environ),
 	}
@@ -1145,6 +1151,29 @@ func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
 		}
 		if statusValues[systemId] == "Failed deployment" {
 			return errors.Errorf("instance %q failed to deploy", id)
+		}
+	}
+	return errors.Errorf("instance %q is started but not deployed", id)
+}
+
+func (environ *maasEnviron) waitForNodeDeployment2(id instance.Id) error {
+	var longAttempt = utils.AttemptStrategy{
+		Delay: 10 * time.Second,
+		Total: nodeDeploymentTimeout(environ),
+	}
+
+	for a := longAttempt.Start(); a.Next(); {
+		machine, err := environ.getInstance(id)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		stat := machine.Status()
+		if stat.Status == status.StatusRunning {
+			return nil
+		}
+		if stat.Status == status.StatusProvisioningError {
+			return errors.Errorf("instance %q failed to deploy", id)
+
 		}
 	}
 	return errors.Errorf("instance %q is started but not deployed", id)
@@ -2150,6 +2179,8 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 
 func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, error) {
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
+	// TODO (mfoord): the error returned from gomaasapi for MAAS 2 will be
+	// different.
 	if err != nil {
 		if maasErr, ok := errors.Cause(err).(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
 			return nil, errors.NotFoundf("instance %q", instId)
