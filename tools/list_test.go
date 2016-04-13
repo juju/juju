@@ -104,13 +104,13 @@ func (s *ListSuite) TestArches(c *gc.C) {
 
 func (s *ListSuite) TestURLs(c *gc.C) {
 	empty := tools.List{}
-	c.Check(empty.URLs(), gc.DeepEquals, map[version.Binary]string{})
+	c.Check(empty.URLs(), gc.DeepEquals, map[version.Binary][]string{})
 
 	full := tools.List{t100precise, t190quantal, t2001precise}
-	c.Check(full.URLs(), gc.DeepEquals, map[version.Binary]string{
-		t100precise.Version:  t100precise.URL,
-		t190quantal.Version:  t190quantal.URL,
-		t2001precise.Version: t2001precise.URL,
+	c.Check(full.URLs(), gc.DeepEquals, map[version.Binary][]string{
+		t100precise.Version:  []string{t100precise.URL},
+		t190quantal.Version:  []string{t190quantal.URL},
+		t2001precise.Version: []string{t2001precise.URL},
 	})
 }
 

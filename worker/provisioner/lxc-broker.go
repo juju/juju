@@ -130,6 +130,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 
 	series := archTools.OneSeries()
 	args.InstanceConfig.MachineContainerType = instance.LXC
+	// TODO(ericsnow) There may be more than one.
 	args.InstanceConfig.Tools = archTools[0]
 
 	config, err := broker.api.ContainerConfig()

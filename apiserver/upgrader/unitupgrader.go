@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/tools"
 )
 
 // UnitUpgraderAPI provides access to the UnitUpgrader API facade.
@@ -152,7 +153,8 @@ func (u *UnitUpgraderAPI) getMachineTools(tag names.Tag) params.ToolsResult {
 		result.Error = common.ServerError(err)
 		return result
 	}
-	result.Tools = machineTools
+	// TODO(ericsnow) Return one for each API server address?
+	result.ToolsList = tools.List{machineTools}
 	return result
 }
 
