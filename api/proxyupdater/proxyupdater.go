@@ -51,7 +51,7 @@ func (api *API) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatche
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -81,7 +81,7 @@ func (api *API) ProxyConfig() (proxySettings, APTProxySettings proxy.Settings, e
 		return proxySettings, APTProxySettings, err
 	}
 	if len(results.Results) != 1 {
-		return proxySettings, APTProxySettings, errors.NotFoundf("ProxyConfig for %q not found", api.tag)
+		return proxySettings, APTProxySettings, errors.NotFoundf("ProxyConfig for %q", api.tag)
 	}
 	result := results.Results[0]
 	proxySettings = proxySettingsParamToProxySettings(result.ProxySettings)

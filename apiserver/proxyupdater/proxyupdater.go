@@ -56,9 +56,7 @@ func (api *ProxyUpdaterAPI) oneWatch() params.NotifyWatchResult {
 			NotifyWatcherId: api.resources.Register(watch),
 		}
 	}
-	result = params.NotifyWatchResult{
-		Error: common.ServerError(watcher.EnsureErr(watch)),
-	}
+	result.Error = common.ServerError(watcher.EnsureErr(watch))
 	return result
 }
 
