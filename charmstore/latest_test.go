@@ -58,13 +58,11 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 
 	fakeRes := fakeParamsResource("foo", nil)
 
-	s.lowLevel.ReturnListResourcesStable = []map[string][]params.Resource{{
-		"cs:quantal/spam-17": []params.Resource{fakeRes},
-	}, {
-	// empty for not found
-	}, {
-	// empty for not found
-	}}
+	s.lowLevel.ReturnListResourcesStable = []resourceResult{
+		oneResourceResult(fakeRes),
+		resourceResult{err: params.ErrNotFound},
+		resourceResult{err: params.ErrUnauthorized},
+	}
 
 	client, err := newCachingClient(s.cache, nil, s.lowLevel.makeWrapper)
 	c.Assert(err, jc.ErrorIsNil)
@@ -75,9 +73,9 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 	s.lowLevel.stableStub.CheckCall(c, 0, "Latest", params.StableChannel, []*charm.URL{spam}, map[string][]string{"Juju-Metadata": []string{"environment_uuid=foobar"}})
 	s.lowLevel.stableStub.CheckCall(c, 1, "Latest", params.StableChannel, []*charm.URL{eggs}, map[string][]string{"Juju-Metadata": []string{"environment_uuid=foobar"}})
 	s.lowLevel.stableStub.CheckCall(c, 2, "Latest", params.StableChannel, []*charm.URL{ham}, map[string][]string{"Juju-Metadata": []string{"environment_uuid=foobar"}})
-	s.lowLevel.stableStub.CheckCall(c, 3, "ListResources", params.StableChannel, []*charm.URL{spam})
-	s.lowLevel.stableStub.CheckCall(c, 4, "ListResources", params.StableChannel, []*charm.URL{eggs})
-	s.lowLevel.stableStub.CheckCall(c, 5, "ListResources", params.StableChannel, []*charm.URL{ham})
+	s.lowLevel.stableStub.CheckCall(c, 3, "ListResources", params.StableChannel, spam)
+	s.lowLevel.stableStub.CheckCall(c, 4, "ListResources", params.StableChannel, eggs)
+	s.lowLevel.stableStub.CheckCall(c, 5, "ListResources", params.StableChannel, ham)
 
 	expectedRes, err := params.API2Resource(fakeRes)
 	c.Assert(err, jc.ErrorIsNil)
