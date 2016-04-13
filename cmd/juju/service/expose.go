@@ -12,6 +12,19 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
+var usageExposeSummary = `
+Makes a service publicly available over the network.`[1:]
+
+var usageExposeDetails = `
+Adjusts the firewall rules and any relevant security mechanisms of the
+cloud to allow public access to the service.
+
+Examples:
+    juju expose wordpress
+
+See also: 
+    unexpose`[1:]
+
 // NewExposeCommand returns a command to expose services.
 func NewExposeCommand() cmd.Command {
 	return modelcmd.Wrap(&exposeCommand{})
@@ -23,18 +36,12 @@ type exposeCommand struct {
 	ServiceName string
 }
 
-var jujuExposeHelp = `
-Adjusts firewall rules and similar security mechanisms of the provider, to
-allow the service to be accessed on its public address.
-
-`
-
 func (c *exposeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "expose",
-		Args:    "<service>",
-		Purpose: "expose a service",
-		Doc:     jujuExposeHelp,
+		Args:    "<service name>",
+		Purpose: usageExposeSummary,
+		Doc:     usageExposeDetails,
 	}
 }
 
