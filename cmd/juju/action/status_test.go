@@ -28,10 +28,6 @@ func (s *StatusSuite) SetUpTest(c *gc.C) {
 	s.subcommand, _ = action.NewStatusCommandForTest(s.store)
 }
 
-/*func (s *StatusSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, s.subcommand)
-}*/
-
 func (s *StatusSuite) TestRun(c *gc.C) {
 	prefix := "deadbeef"
 	fakeid := prefix + "-0000-4000-8000-feedfacebeef"

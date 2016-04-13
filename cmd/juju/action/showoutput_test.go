@@ -27,11 +27,6 @@ func (s *ShowOutputSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 }
 
-/*func (s *ShowOutputSuite) TestHelp(c *gc.C) {
-	cmd, _ := action.NewShowOutputCommandForTest(s.store)
-	s.checkHelp(c, cmd)
-}*/
-
 func (s *ShowOutputSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should      string

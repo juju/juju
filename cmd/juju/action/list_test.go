@@ -34,10 +34,6 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.wrappedCommand, s.command = action.NewListCommandForTest(s.store)
 }
 
-/*func (s *ListSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, s.wrappedCommand)
-}*/
-
 func (s *ListSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should               string

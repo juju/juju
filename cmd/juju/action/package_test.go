@@ -68,22 +68,6 @@ func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
 	)
 }
 
-/*func (s *BaseActionSuite) checkHelp(c *gc.C, subcmd cmd.Command) {
-	ctx, err := coretesting.RunCommand(c, s.command, subcmd.Info().Name, "--help")
-	c.Assert(err, gc.IsNil)
-
-	expected := "(?sm).*^Usage: juju action " +
-		regexp.QuoteMeta(subcmd.Info().Name) +
-		` \[options\] ` + regexp.QuoteMeta(subcmd.Info().Args) + ".+"
-	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
-
-	expected = "(?sm).*^Summary:\n" + regexp.QuoteMeta(subcmd.Info().Purpose) + "$.*"
-	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
-
-	expected = "(?sm).*^Details:" + regexp.QuoteMeta(subcmd.Info().Doc) + "$.*"
-	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
-}*/
-
 var someCharmActions = &charm.Actions{
 	ActionSpecs: map[string]charm.ActionSpec{
 		"snapshot": {

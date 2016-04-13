@@ -55,11 +55,6 @@ func (s *RunSuite) SetUpTest(c *gc.C) {
 	setupValueFile(c, s.dir, "invalidUTF.yml", invalidUTFYaml)
 }
 
-/*func (s *RunSuite) TestHelp(c *gc.C) {
-	cmd, _ := action.NewRunCommandForTest(s.store)
-	s.checkHelp(c, cmd)
-}*/
-
 func (s *RunSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should               string
