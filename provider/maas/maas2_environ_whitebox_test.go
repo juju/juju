@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -284,26 +285,23 @@ func (suite *maas2EnvironSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c
 	c.Assert(args[3].SystemIDs, gc.DeepEquals, []string{"test3"})
 }
 
-func (suite *maas2EnvironSuite) TestStopInstancesReturnsUnexpectedMAASError(c *gc.C) {
+func (suite *maas2EnvironSuite) checkStopInstancesFails(c *gc.C, withError error) {
 	controller := &fakeController{
-		releaseMachinesErrors: []error{gomaasapi.NewNoMatchError("Something else bad!")},
+		releaseMachinesErrors: []error{withError},
 		files: []gomaasapi.File{&fakeFile{name: "agent-prefix-provider-state"}},
 	}
 	err := suite.makeEnviron(c, controller).StopInstances("test1", "test2", "test3")
-	c.Check(err, gc.ErrorMatches, "cannot release nodes: Something else bad!")
-	// Only tries the once.
+	c.Check(err, gc.ErrorMatches, fmt.Sprintf("cannot release nodes: %s", withError))
+	// Only tries once.
 	c.Assert(controller.releaseMachinesArgs, gc.HasLen, 1)
 }
 
+func (suite *maas2EnvironSuite) TestStopInstancesReturnsUnexpectedMAASError(c *gc.C) {
+	suite.checkStopInstancesFails(c, gomaasapi.NewNoMatchError("Something else bad!"))
+}
+
 func (suite *maas2EnvironSuite) TestStopInstancesReturnsUnexpectedError(c *gc.C) {
-	controller := &fakeController{
-		releaseMachinesErrors: []error{errors.New("Something completely unexpected!")},
-		files: []gomaasapi.File{&fakeFile{name: "agent-prefix-provider-state"}},
-	}
-	err := suite.makeEnviron(c, controller).StopInstances("test1", "test2", "test3")
-	c.Check(err, gc.ErrorMatches, "cannot release nodes: Something completely unexpected!")
-	// Only tries the once.
-	c.Assert(controller.releaseMachinesArgs, gc.HasLen, 1)
+	suite.checkStopInstancesFails(c, errors.New("Something completely unexpected!"))
 }
 
 func (suite *maas2EnvironSuite) TestStartInstanceError(c *gc.C) {
