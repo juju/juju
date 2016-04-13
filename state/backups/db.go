@@ -106,11 +106,11 @@ func getMongoToolPath(toolName string, stat func(name string) (os.FileInfo, erro
 	if err != nil {
 		return "", errors.Annotate(err, "failed to get mongod path")
 	}
-	mongoDumpTool := filepath.Join(filepath.Dir(mongod), toolName)
+	mongoTool := filepath.Join(filepath.Dir(mongod), toolName)
 
-	if _, err := stat(mongoDumpTool); err == nil {
+	if _, err := stat(mongoTool); err == nil {
 		// It already exists so no need to continue.
-		return mongoDumpTool, nil
+		return mongoTool, nil
 	}
 
 	path, err := lookPath(toolName)
