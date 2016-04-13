@@ -225,6 +225,11 @@ func (c Client) ListResources(charms []CharmID) ([][]charmresource.Resource, err
 	for i, ch := range charms {
 		res, err := c.listResources(ch)
 		if err != nil {
+			if csclient.IsAuthorizationError(err) || errors.Cause(err) == csparams.ErrNotFound {
+				// Ignore authorization errors and not-found errors so we get some results
+				// even if others fail.
+				continue
+			}
 			return nil, errors.Trace(err)
 		}
 		results[i] = res
@@ -237,15 +242,9 @@ func (c Client) listResources(ch CharmID) ([]charmresource.Resource, error) {
 		return nil, errors.Trace(err)
 	}
 	defer c.jar.Deactivate()
-	resmap, err := c.csWrapper.ListResources(ch.Channel, []*charm.URL{ch.URL})
+	resources, err := c.csWrapper.ListResources(ch.Channel, ch.URL)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	resources, ok := resmap[ch.URL.String()]
-	if !ok {
-		// no resources for that url, that's ok.
-		return nil, nil
 	}
 	return api2resources(resources)
 }
@@ -254,7 +253,7 @@ func (c Client) listResources(ch CharmID) ([]charmresource.Resource, error) {
 // of the charmstore client.
 type csWrapper interface {
 	Latest(channel csparams.Channel, ids []*charm.URL, headers map[string][]string) ([]csparams.CharmRevision, error)
-	ListResources(channel csparams.Channel, ids []*charm.URL) (map[string][]csparams.Resource, error)
+	ListResources(channel csparams.Channel, id *charm.URL) ([]csparams.Resource, error)
 	GetResource(channel csparams.Channel, id *charm.URL, name string, revision int) (csclient.ResourceData, error)
 	ResourceMeta(channel csparams.Channel, id *charm.URL, name string, revision int) (csparams.Resource, error)
 	ServerURL() string
@@ -275,9 +274,9 @@ func (c csclientImpl) Latest(channel csparams.Channel, ids []*charm.URL, metadat
 }
 
 // ListResources gets the latest resources for the charm URL on the channel.
-func (c csclientImpl) ListResources(channel csparams.Channel, ids []*charm.URL) (map[string][]csparams.Resource, error) {
+func (c csclientImpl) ListResources(channel csparams.Channel, id *charm.URL) ([]csparams.Resource, error) {
 	client := c.WithChannel(channel)
-	return client.ListResources(ids)
+	return client.ListResources(id)
 }
 
 // Getresource downloads the bytes and some metadata about the bytes for the revisioned resource.

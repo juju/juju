@@ -797,7 +797,8 @@ func (environ *maasEnviron) acquireNode2(
 			"no architecture was specified, acquiring an arbitrary node",
 		)
 	}
-	machine, err := environ.maasController.AllocateMachine(acquireParams)
+	// Currently not using the constraints match returned here.
+	machine, _, err := environ.maasController.AllocateMachine(acquireParams)
 
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1392,7 +1393,7 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string) (clou
 	return cloudcfg, nil
 }
 
-func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Values, recurse bool) error {
+func (environ *maasEnviron) releaseNodes1(nodes gomaasapi.MAASObject, ids url.Values, recurse bool) error {
 	err := ReleaseNodes(nodes, ids)
 	if err == nil {
 		return nil
@@ -1429,7 +1430,7 @@ func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Val
 	for _, id := range ids["nodes"] {
 		idFilter := url.Values{}
 		idFilter.Add("nodes", id)
-		err := environ.releaseNodes(nodes, idFilter, false)
+		err := environ.releaseNodes1(nodes, idFilter, false)
 		if err != nil {
 			lastErr = err
 			logger.Errorf("error while releasing node %v (%v)", id, err)
@@ -1439,21 +1440,79 @@ func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Val
 
 }
 
+func (environ *maasEnviron) releaseNodes2(ids []instance.Id, recurse bool) error {
+	args := gomaasapi.ReleaseMachinesArgs{
+		SystemIDs: instanceIdsToSystemIDs(ids),
+		Comment:   "Released by Juju MAAS provider",
+	}
+	err := environ.maasController.ReleaseMachines(args)
+
+	switch {
+	case err == nil:
+		return nil
+	case gomaasapi.IsCannotCompleteError(err):
+		// CannotCompleteError means a node couldn't be released due to
+		// a state conflict. Likely it's already released or disk
+		// erasing. We're assuming this error *only* means it's
+		// safe to assume the instance is already released.
+		// MaaS also releases (or attempts) all nodes, and raises
+		// a single error on failure. So even with an error 409, all
+		// nodes have been released.
+		logger.Infof("ignoring error while releasing nodes (%v); all nodes released OK", err)
+		return nil
+	case gomaasapi.IsBadRequestError(err), gomaasapi.IsPermissionError(err):
+		// a status code of 400 or 403 means one of the nodes
+		// couldn't be found and none have been released. We have to
+		// release all the ones we can individually.
+		if !recurse {
+			// this node has already been released and we're golden
+			return nil
+		}
+		return environ.releaseNodesIndividually(ids)
+
+	default:
+		return errors.Annotatef(err, "cannot release nodes")
+	}
+}
+
+func (environ *maasEnviron) releaseNodesIndividually(ids []instance.Id) error {
+	var lastErr error
+	for _, id := range ids {
+		err := environ.releaseNodes2([]instance.Id{id}, false)
+		if err != nil {
+			lastErr = err
+			logger.Errorf("error while releasing node %v (%v)", id, err)
+		}
+	}
+	return errors.Trace(lastErr)
+}
+
+func instanceIdsToSystemIDs(ids []instance.Id) []string {
+	systemIDs := make([]string, len(ids))
+	for index, id := range ids {
+		systemIDs[index] = string(id)
+	}
+	return systemIDs
+}
+
 // StopInstances is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
-	// Temporary fix to make debugging possible.
-	if environ.usingMAAS2() {
-		return nil
-	}
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
 	if len(ids) == 0 {
 		return nil
 	}
-	nodes := environ.getMAASClient().GetSubObject("nodes")
-	err := environ.releaseNodes(nodes, getSystemIdValues("nodes", ids), true)
-	if err != nil {
-		// error will already have been wrapped
-		return err
+
+	if environ.usingMAAS2() {
+		err := environ.releaseNodes2(ids, true)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		nodes := environ.getMAASClient().GetSubObject("nodes")
+		err := environ.releaseNodes1(nodes, getSystemIdValues("nodes", ids), true)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return common.RemoveStateInstances(environ.Storage(), ids...)
 
@@ -1470,13 +1529,9 @@ func (environ *maasEnviron) acquiredInstances(ids []instance.Id) ([]instance.Ins
 		filter.Add("agent_name", environ.ecfg().maasAgentName())
 		return environ.instances1(filter)
 	}
-	systemIDs := make([]string, len(ids))
-	for index, id := range ids {
-		systemIDs[index] = string(id)
-	}
 	args := gomaasapi.MachinesArgs{
 		AgentName: environ.ecfg().maasAgentName(),
-		SystemIDs: systemIDs,
+		SystemIDs: instanceIdsToSystemIDs(ids),
 	}
 	return environ.instances2(args)
 }

@@ -40,7 +40,7 @@ func resetReplicaSet(dialInfo *mgo.DialInfo, memberHostPort string) error {
 		User:           dialInfo.Username,
 		Password:       dialInfo.Password,
 	}
-	return peergrouper.InitiateMongoServer(params, true)
+	return peergrouper.InitiateMongoServer(params)
 }
 
 var filesystemRoot = getFilesystemRoot

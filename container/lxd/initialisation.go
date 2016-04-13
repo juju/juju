@@ -178,7 +178,7 @@ func detectSubnet(ipAddrOutput string) (string, error) {
 		}
 	}
 
-	return fmt.Sprintf("%d", max), nil
+	return fmt.Sprintf("%d", max+1), nil
 }
 
 func editLXDBridgeFile(input string, subnet string) string {

@@ -19,7 +19,18 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-const userCommandDoc = `List all users with access to the current model`
+var usageListSharesSummary = `
+Shows all users with access to a model for the current controller.`[1:]
+
+var usageListSharesDetails = `
+By default, the model is the current model.
+
+Examples:
+    juju list-shares
+    juju list-shares -m mymodel
+
+See also: 
+    grant`[1:]
 
 func NewUsersCommand() cmd.Command {
 	return modelcmd.Wrap(&usersCommand{})
@@ -57,8 +68,8 @@ func (c *usersCommand) getAPI() (UsersAPI, error) {
 func (c *usersCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-shares",
-		Purpose: "shows all users with access to the current model",
-		Doc:     userCommandDoc,
+		Purpose: usageListSharesSummary,
+		Doc:     usageListSharesDetails,
 	}
 }
 
