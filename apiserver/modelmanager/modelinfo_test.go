@@ -95,8 +95,10 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		}},
 	})
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
-		{"GetModel", []interface{}{names.NewModelTag(s.st.model.cfg.UUID())}},
+		{"ForModel", []interface{}{names.NewModelTag(s.st.model.cfg.UUID())}},
+		{"Model", nil},
 		{"IsControllerAdministrator", []interface{}{names.NewUserTag("admin@local")}},
+		{"Close", nil},
 	})
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Config", nil},
@@ -199,14 +201,34 @@ func (st *mockState) ControllerModel() (*state.Model, error) {
 	return nil, st.NextErr()
 }
 
-func (st *mockState) ForModel(tag names.ModelTag) (*state.State, error) {
+func (st *mockState) ForModel(tag names.ModelTag) (modelmanager.StateInterface, error) {
 	st.MethodCall(st, "ForModel", tag)
+	return st, st.NextErr()
+}
+
+func (st *mockState) Model() (modelmanager.Model, error) {
+	st.MethodCall(st, "Model")
+	return st.model, st.NextErr()
+}
+
+func (st *mockState) Close() error {
+	st.MethodCall(st, "Close")
+	return st.NextErr()
+}
+
+func (st *mockState) AddModelUser(spec state.ModelUserSpec) (*state.ModelUser, error) {
+	st.MethodCall(st, "AddModelUser", spec)
 	return nil, st.NextErr()
 }
 
-func (st *mockState) GetModel(tag names.ModelTag) (modelmanager.Model, error) {
-	st.MethodCall(st, "GetModel", tag)
-	return st.model, st.NextErr()
+func (st *mockState) RemoveModelUser(tag names.UserTag) error {
+	st.MethodCall(st, "RemoveModelUser", tag)
+	return st.NextErr()
+}
+
+func (st *mockState) ModelUser(tag names.UserTag) (*state.ModelUser, error) {
+	st.MethodCall(st, "ModelUser", tag)
+	return nil, st.NextErr()
 }
 
 type mockModel struct {

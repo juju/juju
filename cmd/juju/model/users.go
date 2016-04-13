@@ -15,7 +15,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/user"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -41,13 +41,6 @@ type usersCommand struct {
 	modelcmd.ModelCommandBase
 	out cmd.Output
 	api UsersAPI
-}
-
-// UserInfo defines the serialization behaviour of the user information.
-type UserInfo struct {
-	DisplayName    string `yaml:"display-name,omitempty" json:"display-name,omitempty"`
-	Access         string `yaml:"access" json:"access"`
-	LastConnection string `yaml:"last-connection" json:"last-connection"`
 }
 
 // UsersAPI defines the methods on the client API that the
@@ -94,12 +87,12 @@ func (c *usersCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	return c.out.Write(ctx, apiUsersToUserInfoMap(result))
+	return c.out.Write(ctx, common.ModelUserInfoFromParams(result, time.Now()))
 }
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
 func (c *usersCommand) formatTabular(value interface{}) ([]byte, error) {
-	users, ok := value.(map[string]UserInfo)
+	users, ok := value.(map[string]common.ModelUserInfo)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", users, value)
 	}
@@ -110,7 +103,7 @@ func (c *usersCommand) formatTabular(value interface{}) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-func formatTabularUserInfo(users map[string]UserInfo, out *bytes.Buffer) error {
+func formatTabularUserInfo(users map[string]common.ModelUserInfo, out *bytes.Buffer) error {
 	const (
 		// To format things into columns.
 		minwidth = 0
@@ -135,21 +128,4 @@ func formatTabularUserInfo(users map[string]UserInfo, out *bytes.Buffer) error {
 	}
 	tw.Flush()
 	return nil
-}
-
-func apiUsersToUserInfoMap(users []params.ModelUserInfo) map[string]UserInfo {
-	output := make(map[string]UserInfo)
-	for _, info := range users {
-		outInfo := UserInfo{
-			DisplayName: info.DisplayName,
-			Access:      string(info.Access),
-		}
-		if info.LastConnection != nil {
-			outInfo.LastConnection = user.UserFriendlyDuration(*info.LastConnection, time.Now())
-		} else {
-			outInfo.LastConnection = "never connected"
-		}
-		output[info.UserName] = outInfo
-	}
-	return output
 }

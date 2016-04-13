@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -100,12 +101,18 @@ func (s *cmdControllerSuite) TestListModelsYAML(c *gc.C) {
 models:
 - name: admin
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   owner: admin@local
+  type: dummy
   life: alive
   status:
     current: active
     since: .*
-  last-connection: just now
+  users:
+    admin@local:
+      display-name: admin
+      access: write
+      last-connection: just now
 current-model: admin
 `[1:])
 }
@@ -118,6 +125,8 @@ func (s *cmdControllerSuite) TestListArchivedModels(c *gc.C) {
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetStatus(status.StatusArchived, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	context := s.run(c, "list-models")

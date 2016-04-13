@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -57,42 +58,71 @@ func (f *fakeModelMgrAPIClient) AllModels() ([]base.UserModel, error) {
 	return f.models, nil
 }
 
+func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, error) {
+	results := make([]params.ModelInfoResult, len(tags))
+	for i, tag := range tags {
+		for _, model := range f.models {
+			if model.UUID != tag.Id() {
+				continue
+			}
+			result := &params.ModelInfo{
+				Name:     model.Name,
+				UUID:     model.UUID,
+				OwnerTag: names.NewUserTag(model.Owner).String(),
+			}
+			switch model.Name {
+			case "test-model1":
+				last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
+				result.Status.Status = status.StatusActive
+				if f.user != "" {
+					result.Users = []params.ModelUserInfo{{
+						UserName:       f.user,
+						LastConnection: &last1,
+					}}
+				}
+			case "test-model2":
+				last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
+				result.Status.Status = status.StatusActive
+				if f.user != "" {
+					result.Users = []params.ModelUserInfo{{
+						UserName:       f.user,
+						LastConnection: &last2,
+					}}
+				}
+			case "test-model3":
+				result.Status.Status = status.StatusDestroying
+			}
+			results[i].Result = result
+		}
+	}
+	return results, nil
+}
+
 func (s *ModelsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	err := modelcmd.WriteCurrentController("fake")
 	c.Assert(err, jc.ErrorIsNil)
 
-	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
-	last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
-
 	models := []base.UserModel{
 		{
-			Name:           "test-model1",
-			Owner:          "user-admin@local",
-			UUID:           "test-model1-UUID",
-			LastConnection: &last1,
-			Status: params.EntityStatus{
-				Status: status.StatusActive,
-			},
+			Name:  "test-model1",
+			Owner: "user-admin@local",
+			UUID:  "test-model1-UUID",
 		}, {
-			Name:           "test-model2",
-			Owner:          "user-admin@local",
-			UUID:           "test-model2-UUID",
-			LastConnection: &last2,
-			Status: params.EntityStatus{
-				Status: status.StatusActive,
-			},
+			Name:  "test-model2",
+			Owner: "user-admin@local",
+			UUID:  "test-model2-UUID",
 		}, {
 			Name:  "test-model3",
 			Owner: "user-admin@local",
 			UUID:  "test-model3-UUID",
-			Status: params.EntityStatus{
-				Status: status.StatusDestroying,
-			},
 		},
 	}
-	s.api = &fakeModelMgrAPIClient{models: models}
+	s.api = &fakeModelMgrAPIClient{
+		models: models,
+		user:   "admin@local",
+	}
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.Controllers["fake"] = jujuclient.ControllerDetails{}
 	s.store.Models["fake"] = jujuclient.ControllerAccountModels{

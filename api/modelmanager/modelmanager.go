@@ -94,8 +94,6 @@ func (c *Client) ListModels(user string) ([]base.UserModel, error) {
 			Name:           model.Name,
 			UUID:           model.UUID,
 			Owner:          owner.Canonical(),
-			Life:           model.Life,
-			Status:         model.Status,
 			LastConnection: model.LastConnection,
 		}
 	}

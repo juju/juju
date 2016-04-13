@@ -12,17 +12,19 @@ import (
 	"github.com/juju/juju/status"
 )
 
-var getState = func(st *state.State) stateInterface {
-	return stateShim{st}
-}
+var getState = NewStateShim
 
-type stateInterface interface {
+type StateInterface interface {
 	ModelsForUser(names.UserTag) ([]*state.UserModel, error)
 	IsControllerAdministrator(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (*state.Model, *state.State, error)
 	ControllerModel() (*state.Model, error)
-	ForModel(tag names.ModelTag) (*state.State, error)
-	GetModel(names.ModelTag) (Model, error)
+	ForModel(tag names.ModelTag) (StateInterface, error)
+	Model() (Model, error)
+	AddModelUser(state.ModelUserSpec) (*state.ModelUser, error)
+	RemoveModelUser(names.UserTag) error
+	ModelUser(names.UserTag) (*state.ModelUser, error)
+	Close() error
 }
 
 type Model interface {
@@ -37,8 +39,20 @@ type stateShim struct {
 	*state.State
 }
 
-func (st stateShim) GetModel(tag names.ModelTag) (Model, error) {
-	m, err := st.State.GetModel(tag)
+func NewStateShim(st *state.State) StateInterface {
+	return stateShim{st}
+}
+
+func (st stateShim) ForModel(tag names.ModelTag) (StateInterface, error) {
+	otherState, err := st.State.ForModel(tag)
+	if err != nil {
+		return nil, err
+	}
+	return stateShim{otherState}, nil
+}
+
+func (st stateShim) Model() (Model, error) {
+	m, err := st.State.Model()
 	if err != nil {
 		return nil, err
 	}

@@ -16,7 +16,7 @@ func AuthCheck(c *gc.C, mm *ModelManagerAPI, user names.UserTag) bool {
 }
 
 func NewModelManagerAPIForTest(
-	st stateInterface,
+	st StateInterface,
 	authorizer common.Authorizer,
 	toolsFinder *common.ToolsFinder,
 ) *ModelManagerAPI {

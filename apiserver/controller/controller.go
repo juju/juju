@@ -99,18 +99,12 @@ func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 		if err != nil && !state.IsNeverConnectedError(err) {
 			return result, errors.Trace(err)
 		}
-		status, err := env.Status()
-		if err != nil {
-			return result, errors.Trace(err)
-		}
 		visibleEnvironments.Add(env.UUID())
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
 				Name:     env.Name(),
 				UUID:     env.UUID(),
 				OwnerTag: env.Owner().String(),
-				Life:     params.Life(env.Life().String()),
-				Status:   common.EntityStatusFromState(status),
 			},
 			LastConnection: &lastConn,
 		})
@@ -123,17 +117,11 @@ func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 
 	for _, env := range allEnvs {
 		if !visibleEnvironments.Contains(env.UUID()) {
-			status, err := env.Status()
-			if err != nil {
-				return result, errors.Trace(err)
-			}
 			result.UserModels = append(result.UserModels, params.UserModel{
 				Model: params.Model{
 					Name:     env.Name(),
 					UUID:     env.UUID(),
 					OwnerTag: env.Owner().String(),
-					Life:     params.Life(env.Life().String()),
-					Status:   common.EntityStatusFromState(status),
 				},
 				// No LastConnection as this user hasn't.
 			})

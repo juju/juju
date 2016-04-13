@@ -11,14 +11,13 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/status"
 )
 
 // NewListModelsCommand returns a command to list models.
@@ -61,6 +60,7 @@ See also: create-model
 type ModelManagerAPI interface {
 	Close() error
 	ListModels(user string) ([]base.UserModel, error)
+	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
 }
 
 // ModelsSysAPI defines the methods on the controller manager API that the
@@ -110,25 +110,8 @@ func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
 // ModelSet contains the set of models known to the client,
 // and UUID of the current model.
 type ModelSet struct {
-	Models       []UserModel `yaml:"models" json:"models"`
-	CurrentModel string      `yaml:"current-model,omitempty" json:"current-model,omitempty"`
-}
-
-// Local structure that controls the output structure.
-type UserModel struct {
-	Name           string      `json:"name" yaml:"name"`
-	UUID           string      `json:"model-uuid" yaml:"model-uuid"`
-	Owner          string      `json:"owner" yaml:"owner"`
-	Life           string      `json:"life" yaml:"life"`
-	Status         ModelStatus `json:"status" yaml:"status"`
-	LastConnection string      `json:"last-connection" yaml:"last-connection"`
-}
-
-// ModelStatus contains the current status of a model.
-type ModelStatus struct {
-	Current status.Status `json:"current" yaml:"current"`
-	Message string        `json:"message,omitempty" yaml:"message,omitempty"`
-	Since   string        `json:"since,omitempty" yaml:"since,omitempty"`
+	Models       []common.ModelInfo `yaml:"models" json:"models"`
+	CurrentModel string             `yaml:"current-model,omitempty" json:"current-model,omitempty"`
 }
 
 // Run implements Command.Run
@@ -143,6 +126,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		c.user = accountDetails.User
 	}
 
+	// First get a list of the models.
 	var models []base.UserModel
 	var err error
 	if c.all {
@@ -154,36 +138,26 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot list models")
 	}
 
-	modelDetails := make([]UserModel, 0, len(models))
+	// And now get the full details of the models.
+	paramsModelInfo, err := c.getModelInfo(models)
+	if err != nil {
+		return errors.Annotate(err, "cannot get model details")
+	}
+
 	now := time.Now()
-	for _, model := range models {
-		if !c.showArchived && model.Life == params.Dead {
+	modelInfo := make([]common.ModelInfo, 0, len(models))
+	for _, info := range paramsModelInfo {
+		if !c.showArchived && info.Life == params.Dead {
 			continue
 		}
-		status := ModelStatus{
-			Current: model.Status.Status,
-			Message: model.Status.Info,
+		model, err := common.ModelInfoFromParams(info, now)
+		if err != nil {
+			return errors.Trace(err)
 		}
-		if model.Status.Since != nil {
-			if c.exactTime {
-				const isoTime = false
-				status.Since = common.FormatTime(model.Status.Since, isoTime)
-			} else {
-				status.Since = user.UserFriendlyDuration(*model.Status.Since, time.Now())
-			}
-		}
-		modelDetails = append(modelDetails, UserModel{
-			Name:           model.Name,
-			UUID:           model.UUID,
-			Owner:          model.Owner,
-			Life:           string(model.Life),
-			Status:         status,
-			LastConnection: user.LastConnection(model.LastConnection, now, c.exactTime),
-		})
+		modelInfo = append(modelInfo, model)
 	}
-	modelSet := ModelSet{
-		Models: modelDetails,
-	}
+
+	modelSet := ModelSet{Models: modelInfo}
 	current, err := c.ClientStore().CurrentModel(c.ControllerName(), c.AccountName())
 	if err != nil && !errors.IsNotFound(err) {
 		return err
@@ -200,6 +174,35 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		fmt.Fprintf(ctx.Stderr, "\n%s\n\n", errNoModels.Error())
 	}
 	return nil
+}
+
+func (c *modelsCommand) getModelInfo(userModels []base.UserModel) ([]params.ModelInfo, error) {
+	client, err := c.getModelManagerAPI()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer client.Close()
+
+	tags := make([]names.ModelTag, len(userModels))
+	for i, m := range userModels {
+		tags[i] = names.NewModelTag(m.UUID)
+	}
+	results, err := client.ModelInfo(tags)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	info := make([]params.ModelInfo, len(tags))
+	for i, result := range results {
+		if result.Error != nil {
+			return nil, errors.Annotatef(
+				result.Error, "getting model %s (%q) info",
+				userModels[i].UUID, userModels[i].Name,
+			)
+		}
+		info[i] = *result.Result
+	}
+	return info, nil
 }
 
 func (c *modelsCommand) getAllModels() ([]base.UserModel, error) {
@@ -250,7 +253,12 @@ func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
 		if c.listUUID {
 			fmt.Fprintf(tw, "\t%s", model.UUID)
 		}
-		fmt.Fprintf(tw, "\t%s\t%s\t%s\n", model.Owner, model.Status.Current, model.LastConnection)
+		user := names.NewUserTag(c.user).Canonical()
+		lastConnection := model.Users[user].LastConnection
+		if lastConnection == "" {
+			lastConnection = "never connected"
+		}
+		fmt.Fprintf(tw, "\t%s\t%s\t%s\n", model.Owner, model.Status.Current, lastConnection)
 	}
 	tw.Flush()
 	return out.Bytes(), nil

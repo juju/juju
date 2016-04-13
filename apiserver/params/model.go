@@ -69,6 +69,24 @@ type ModelInfoResults struct {
 	Results []ModelInfoResult `json:"results"`
 }
 
+// ModelInfoList holds a list of ModelInfo structures.
+type ModelInfoList struct {
+	Models []ModelInfo `json:"models,omitempty"`
+}
+
+// ModelInfoListResult holds the result of a call that returns a list
+// of ModelInfo structures.
+type ModelInfoListResult struct {
+	Result *ModelInfoList `json:"result,omitempty"`
+	Error  *Error         `json:"error,omitempty"`
+}
+
+// ModelInfoListResults holds the result of a bulk call that returns
+// multiple lists of ModelInfo structures.
+type ModelInfoListResults struct {
+	Results []ModelInfoListResult `json:"results"`
+}
+
 // ModelUserInfo holds information on a user who has access to a
 // model. Owners of a model can see this information for all users
 // who have access, so it should not include sensitive information.

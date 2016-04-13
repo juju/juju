@@ -110,6 +110,7 @@ func (s *ShowCommandSuite) TestShowFormatYaml(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, `
 mymodel:
+  name: mymodel
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   controller-uuid: 1ca2293b-fdb9-4299-97d6-55583bb39364
   owner: admin@local
@@ -133,7 +134,7 @@ func (s *ShowCommandSuite) TestShowFormatJson(c *gc.C) {
 	ctx, err := testing.RunCommand(c, model.NewShowCommandForTest(&s.fake, s.store), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, ""+
-		`{"mymodel":{"model-uuid":"deadbeef-0bad-400d-8000-4b1d0d06f00d",`+
+		`{"mymodel":{"name":"mymodel","model-uuid":"deadbeef-0bad-400d-8000-4b1d0d06f00d",`+
 		`"controller-uuid":"1ca2293b-fdb9-4299-97d6-55583bb39364",`+
 		`"owner":"admin@local","type":"openstack",`+
 		`"life":"alive","status":{"current":"active","since":"2016-04-05"},`+

@@ -20,7 +20,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -79,34 +78,19 @@ func (s *controllerSuite) checkEnvironmentMatches(c *gc.C, env params.Model, exp
 func (s *controllerSuite) TestAllModels(c *gc.C) {
 	admin := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
-	setStatus := func(st *state.State, s status.Status) {
-		m, err := st.Model()
-		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetStatus(s, "", nil)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	stOwned := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "owned", Owner: admin.UserTag(),
-	})
-	defer stOwned.Close()
-	setStatus(stOwned, status.StatusArchived)
-
+	s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "owned", Owner: admin.UserTag()}).Close()
 	remoteUserTag := names.NewUserTag("user@remote")
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "user", Owner: remoteUserTag,
-	})
+		Name: "user", Owner: remoteUserTag})
 	defer st.Close()
-
 	st.AddModelUser(state.ModelUserSpec{
 		User:        admin.UserTag(),
 		CreatedBy:   remoteUserTag,
-		DisplayName: "Foo Bar",
-	})
+		DisplayName: "Foo Bar"})
 
 	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "no-access", Owner: remoteUserTag,
-	}).Close()
+		Name: "no-access", Owner: remoteUserTag}).Close()
 
 	response, err := s.controller.AllModels()
 	c.Assert(err, jc.ErrorIsNil)
@@ -118,11 +102,6 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 		stateEnv, err := s.State.GetModel(names.NewModelTag(env.UUID))
 		c.Assert(err, jc.ErrorIsNil)
 		s.checkEnvironmentMatches(c, env.Model, stateEnv)
-		if env.Name == "owned" {
-			c.Check(env.Status.Status, gc.Equals, status.StatusArchived)
-		} else {
-			c.Check(env.Status.Status, gc.Equals, status.StatusActive)
-		}
 	}
 	c.Assert(obtained, jc.DeepEquals, expected)
 }

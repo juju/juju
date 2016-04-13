@@ -39,7 +39,7 @@ type ModelManager interface {
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
-	state       stateInterface
+	state       StateInterface
 	authorizer  common.Authorizer
 	toolsFinder *common.ToolsFinder
 	isAdmin     bool
@@ -219,13 +219,6 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	result.Name = model.Name()
 	result.UUID = model.UUID()
 	result.OwnerTag = model.Owner().String()
-	result.Life = params.Life(model.Life().String())
-
-	status, err := model.Status()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	result.Status = common.EntityStatusFromState(status)
 
 	return result, nil
 }
@@ -262,17 +255,11 @@ func (mm *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList,
 		} else {
 			lastConn = &userLastConn
 		}
-		status, err := model.Status()
-		if err != nil {
-			return result, errors.Trace(err)
-		}
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
 				Name:     model.Name(),
 				UUID:     model.UUID(),
 				OwnerTag: model.Owner().String(),
-				Life:     params.Life(model.Life().String()),
-				Status:   common.EntityStatusFromState(status),
 			},
 			LastConnection: lastConn,
 		})
@@ -292,7 +279,16 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 		if err != nil {
 			return params.ModelInfo{}, err
 		}
-		model, err := m.state.GetModel(tag)
+
+		st, err := m.state.ForModel(tag)
+		if errors.IsNotFound(err) {
+			return params.ModelInfo{}, common.ErrPerm
+		} else if err != nil {
+			return params.ModelInfo{}, err
+		}
+		defer st.Close()
+
+		model, err := st.Model()
 		if errors.IsNotFound(err) {
 			return params.ModelInfo{}, common.ErrPerm
 		} else if err != nil {
@@ -405,10 +401,6 @@ func (em *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessReques
 	return result, nil
 }
 
-type stateAccessor interface {
-	ForModel(tag names.ModelTag) (*state.State, error)
-}
-
 // resolveStateAccess returns the state representation of the logical model
 // access type.
 func resolveStateAccess(access permission.ModelAccess) (state.ModelAccess, error) {
@@ -441,7 +433,7 @@ func isGreaterAccess(currentAccess, newAccess state.ModelAccess) bool {
 
 // ChangeModelAccess performs the requested access grant or revoke action for the
 // specified user on the specified model.
-func ChangeModelAccess(accessor stateAccessor, modelTag names.ModelTag, createdBy, accessedBy names.UserTag, action params.ModelAction, access permission.ModelAccess) error {
+func ChangeModelAccess(accessor StateInterface, modelTag names.ModelTag, createdBy, accessedBy names.UserTag, action params.ModelAction, access permission.ModelAccess) error {
 	st, err := accessor.ForModel(modelTag)
 	if err != nil {
 		return errors.Annotate(err, "could not lookup model")
