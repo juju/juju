@@ -33,23 +33,23 @@ func CloudOrProvider(cloudName string, cloudByNameFunc func(string) (*cloud.Clou
 // providers which are built in to Juju.
 func BuiltInProviders() map[string]cloud.Cloud {
 	builtIn := make(map[string]cloud.Cloud)
-	for _, name := range cloud.BuiltInProviderNames {
-		provider, err := environs.Provider(name)
+	for _, builtInProvider := range cloud.BuiltInProviders {
+		provider, err := environs.Provider(builtInProvider.Type)
 		if err != nil {
 			// Should never happen but it will on go 1.2
 			// because lxd provider is not built.
-			logger.Warningf("cloud %q not available on this platform", name)
+			logger.Warningf("cloud %q not available on this platform", builtInProvider.Name)
 			continue
 		}
 		var regions []cloud.Region
 		if detector, ok := provider.(environs.CloudRegionDetector); ok {
 			regions, err = detector.DetectRegions()
 			if err != nil && !errors.IsNotFound(err) {
-				logger.Warningf("could not detect regions for %q: %v", name, err)
+				logger.Warningf("could not detect regions for %q: %v", builtInProvider.Name, err)
 			}
 		}
 		aCloud := cloud.Cloud{
-			Type:    name,
+			Type:    builtInProvider.Type,
 			Regions: regions,
 		}
 		schema := provider.CredentialSchemas()
@@ -59,7 +59,7 @@ func BuiltInProviders() map[string]cloud.Cloud {
 			}
 			aCloud.AuthTypes = append(aCloud.AuthTypes, authType)
 		}
-		builtIn[name] = aCloud
+		builtIn[builtInProvider.Name] = aCloud
 	}
 	return builtIn
 }
