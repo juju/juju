@@ -12,6 +12,20 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
+var usageUnexposeSummary = `
+Removes public availability over the network for a service.`[1:]
+
+var usageUnexposeDetails = `
+Adjusts the firewall rules and any relevant security mechanisms of the
+cloud to deny public access to the service.
+A service is unexposed by default when it gets created.
+
+Examples:
+    juju unexpose wordpress
+
+See also: 
+    expose`[1:]
+
 // NewUnexposeCommand returns a command to unexpose services.
 func NewUnexposeCommand() cmd.Command {
 	return modelcmd.Wrap(&unexposeCommand{})
@@ -26,8 +40,9 @@ type unexposeCommand struct {
 func (c *unexposeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unexpose",
-		Args:    "<service>",
-		Purpose: "unexpose a service",
+		Args:    "<service name>",
+		Purpose: usageUnexposeSummary,
+		Doc:     usageUnexposeDetails,
 	}
 }
 
