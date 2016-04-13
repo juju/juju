@@ -189,16 +189,10 @@ func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, o
 		ModelUUID: modelUUID,
 		// TODO(fwereade): 2016-03-17 lp:1558657
 		Updated: time.Now().UnixNano(),
-	}
-	switch mode {
-	case MigrationModeActive:
-		modelStatusDoc.Status = status.StatusActive
-	case MigrationModeExporting:
-		modelStatusDoc.Status = status.StatusExporting
-	case MigrationModeImporting:
-		modelStatusDoc.Status = status.StatusImporting
-	default:
-		return nil, errors.NotValidf("migration mode %v", mode)
+		// TODO(axw) 2016-04-13 lp:1569632
+		// We need to decide how we will
+		// represent migration in model status.
+		Status: status.StatusActive,
 	}
 
 	// When creating the controller model, the new model

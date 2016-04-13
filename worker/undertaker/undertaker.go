@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -22,6 +23,7 @@ type Facade interface {
 	WatchModelResources() (watcher.NotifyWatcher, error)
 	ProcessDyingModel() error
 	RemoveModel() error
+	SetStatus(status status.Status, message string, data map[string]interface{}) error
 }
 
 // Config holds the resources and configuration necessary to run an
@@ -99,6 +101,9 @@ func (u *Undertaker) run() error {
 	}
 
 	if modelInfo.Life == params.Dying {
+		if err := u.setStatus(status.StatusDestroying); err != nil {
+			return errors.Trace(err)
+		}
 		// Process the dying model. This blocks until the model
 		// is dead or the worker is stopped.
 		if err := u.processDyingModel(); err != nil {
@@ -121,8 +126,7 @@ func (u *Undertaker) run() error {
 
 	// Now the model is known to be hosted and dead, we can tidy up any
 	// provider resources it might have used.
-	err = u.destroyEnviron()
-	if err != nil {
+	if err := u.destroyEnviron(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -133,7 +137,14 @@ func (u *Undertaker) run() error {
 	if modelInfo.TimeOfDeath != nil {
 		deadSince = *modelInfo.TimeOfDeath
 	}
+	if err := u.setStatus(status.StatusArchived); err != nil {
+		return errors.Trace(err)
+	}
 	return u.processDeadModel(deadSince)
+}
+
+func (u *Undertaker) setStatus(modelStatus status.Status) error {
+	return u.config.Facade.SetStatus(modelStatus, "", nil)
 }
 
 func (u *Undertaker) processDyingModel() error {

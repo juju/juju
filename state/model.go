@@ -609,7 +609,6 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		})
 	}
 
-	modelStatus := status.StatusDestroying
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     uuid,
@@ -617,17 +616,8 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		Update: bson.D{{"$set", modelUpdateValues}},
 	}}
 	if life == Dead {
-		modelStatus = status.StatusArchived
 		ops = append(ops, decHostedModelCountOp())
 	}
-
-	statusDoc := setStatusDoc(setStatusParams{
-		badge:     "model",
-		globalKey: m.globalKey(),
-		status:    modelStatus,
-	})
-	probablyUpdateStatusHistory(st, m.globalKey(), statusDoc)
-	ops = append(ops, updateStatusOp(m.globalKey(), statusDoc, txn.DocExists))
 
 	// Because txn operations execute in order, and may encounter
 	// arbitrarily long delays, we need to make sure every op

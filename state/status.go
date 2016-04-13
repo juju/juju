@@ -123,14 +123,25 @@ type setStatusParams struct {
 func setStatus(st *State, params setStatusParams) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set status")
 
-	doc := setStatusDoc(params)
+	// TODO(fwereade): this can/should probably be recording the time the
+	// status was *set*, not the time it happened to arrive in state.
+	// We should almost certainly be accepting StatusInfo in the exposed
+	// SetStatus methods, for symetry with the Status methods.
+	// TODO(fwereade): 2016-03-17 lp:1558657
+	now := time.Now().UnixNano()
+	doc := statusDoc{
+		Status:     params.status,
+		StatusInfo: params.message,
+		StatusData: escapeKeys(params.rawData),
+		Updated:    now,
+	}
 	probablyUpdateStatusHistory(st, params.globalKey, doc)
+
+	// Set the authoritative status document, or fail trying.
 	buildTxn := updateStatusSource(st, params.globalKey, doc)
 	if params.token != nil {
 		buildTxn = buildTxnWithLeadership(buildTxn, params.token)
 	}
-
-	// Set the authoritative status document, or fail trying.
 	err = st.run(buildTxn)
 	if cause := errors.Cause(err); cause == mgo.ErrNotFound {
 		return errors.NotFoundf(params.badge)
@@ -138,33 +149,23 @@ func setStatus(st *State, params setStatusParams) (err error) {
 	return errors.Trace(err)
 }
 
-// setStatusDoc returns a statusDoc based on the given setStatusParams.
-func setStatusDoc(params setStatusParams) statusDoc {
-	// TODO(fwereade): this can/should probably be recording the time the
-	// status was *set*, not the time it happened to arrive in state.
-	// We should almost certainly be accepting StatusInfo in the exposed
-	// SetStatus methods, for symetry with the Status methods.
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	now := time.Now().UnixNano()
-	return statusDoc{
-		Status:     params.status,
-		StatusInfo: params.message,
-		StatusData: escapeKeys(params.rawData),
-		Updated:    now,
-	}
-}
-
 // updateStatusSource returns a transaction source that builds the operations
 // necessary to set the supplied status (and to fail safely if leaked and
 // executed late, so as not to overwrite more recent documents).
 func updateStatusSource(st *State, globalKey string, doc statusDoc) jujutxn.TransactionSource {
+	update := bson.D{{"$set", &doc}}
 	return func(_ int) ([]txn.Op, error) {
 		txnRevno, err := st.readTxnRevno(statusesC, globalKey)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		assert := bson.D{{"txn-revno", txnRevno}}
-		return []txn.Op{updateStatusOp(globalKey, doc, assert)}, nil
+		return []txn.Op{{
+			C:      statusesC,
+			Id:     globalKey,
+			Assert: assert,
+			Update: update,
+		}}, nil
 	}
 }
 
@@ -176,18 +177,6 @@ func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 		Id:     st.docID(globalKey),
 		Assert: txn.DocMissing,
 		Insert: &doc,
-	}
-}
-
-// updateStatusOp returns a txn.Op that updates the status of the entity
-// with the given globalKey to the given status. The op's Assert will be
-// set to the supplied assert argument.
-func updateStatusOp(globalKey string, doc statusDoc, assert interface{}) txn.Op {
-	return txn.Op{
-		C:      statusesC,
-		Id:     globalKey,
-		Assert: assert,
-		Update: bson.D{{"$set", &doc}},
 	}
 }
 

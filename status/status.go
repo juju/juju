@@ -177,14 +177,6 @@ const (
 	// longer available for use. We archive models for some time so
 	// that administrators can perform database post-mortems.
 	StatusArchived Status = "archived"
-
-	// StatusExporting indicates that the model is being exported
-	// to another controller.
-	StatusExporting Status = "exporting"
-
-	// StatusImporting indicates that the model is being imported
-	// from another controller.
-	StatusImporting Status = "importing"
 )
 
 const (
@@ -301,9 +293,7 @@ func ValidModelStatus(status Status) bool {
 	case
 		StatusActive,
 		StatusArchived,
-		StatusDestroying,
-		StatusExporting,
-		StatusImporting:
+		StatusDestroying:
 		return true
 	default:
 		return false

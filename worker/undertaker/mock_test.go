@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
@@ -50,6 +51,11 @@ func (mock *mockFacade) WatchModelResources() (watcher.NotifyWatcher, error) {
 
 func (mock *mockFacade) ProcessDyingModel() error {
 	mock.stub.AddCall("ProcessDyingModel")
+	return mock.stub.NextErr()
+}
+
+func (mock *mockFacade) SetStatus(status status.Status, info string, data map[string]interface{}) error {
+	mock.stub.MethodCall(mock, "SetStatus", status, info, data)
 	return mock.stub.NextErr()
 }
 

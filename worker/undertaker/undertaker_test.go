@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/workertest"
@@ -58,7 +59,7 @@ func (s *UndertakerSuite) TestAlreadyDeadTimeRecordedWaits(c *gc.C) {
 		clock.Advance(halfTime - time.Second)
 		workertest.CheckAlive(c, w)
 	})
-	stub.CheckCallNames(c, "ModelInfo", "Destroy")
+	stub.CheckCallNames(c, "ModelInfo", "Destroy", "SetStatus")
 }
 
 func (s *UndertakerSuite) TestAlreadyDeadTimeRecordedFinishes(c *gc.C) {
@@ -71,7 +72,7 @@ func (s *UndertakerSuite) TestAlreadyDeadTimeRecordedFinishes(c *gc.C) {
 		clock.Advance(halfTime)
 		workertest.CheckKilled(c, w)
 	})
-	stub.CheckCallNames(c, "ModelInfo", "Destroy", "RemoveModel")
+	stub.CheckCallNames(c, "ModelInfo", "Destroy", "SetStatus", "RemoveModel")
 }
 
 func (s *UndertakerSuite) TestAlreadyDeadTimeMissingWaits(c *gc.C) {
@@ -81,7 +82,7 @@ func (s *UndertakerSuite) TestAlreadyDeadTimeMissingWaits(c *gc.C) {
 		clock.Advance(RIPTime - time.Second)
 		workertest.CheckAlive(c, w)
 	})
-	stub.CheckCallNames(c, "ModelInfo", "Destroy")
+	stub.CheckCallNames(c, "ModelInfo", "Destroy", "SetStatus")
 }
 
 func (s *UndertakerSuite) TestAlreadyDeadTimeMissingFinishes(c *gc.C) {
@@ -91,7 +92,7 @@ func (s *UndertakerSuite) TestAlreadyDeadTimeMissingFinishes(c *gc.C) {
 		clock.Advance(RIPTime)
 		workertest.CheckKilled(c, w)
 	})
-	stub.CheckCallNames(c, "ModelInfo", "Destroy", "RemoveModel")
+	stub.CheckCallNames(c, "ModelInfo", "Destroy", "SetStatus", "RemoveModel")
 }
 
 func (s *UndertakerSuite) TestImmediateSuccess(c *gc.C) {
@@ -102,10 +103,31 @@ func (s *UndertakerSuite) TestImmediateSuccess(c *gc.C) {
 	})
 	stub.CheckCallNames(c,
 		"ModelInfo",
+		"SetStatus",
 		"WatchModelResources",
 		"ProcessDyingModel",
 		"Destroy",
+		"SetStatus",
 	)
+}
+
+func (s *UndertakerSuite) TestSetStatusDestroying(c *gc.C) {
+	stub := s.fix.run(c, func(w worker.Worker, clock *coretesting.Clock) {
+		waitAlarm(c, clock)
+		clock.Advance(RIPTime - time.Second)
+		workertest.CheckAlive(c, w)
+	})
+	stub.CheckCall(c, 1, "SetStatus", status.StatusDestroying, "", map[string]interface{}(nil))
+}
+
+func (s *UndertakerSuite) TestSetStatusArchived(c *gc.C) {
+	s.fix.info.Result.Life = "dead"
+	stub := s.fix.run(c, func(w worker.Worker, clock *coretesting.Clock) {
+		waitAlarm(c, clock)
+		clock.Advance(RIPTime - time.Second)
+		workertest.CheckAlive(c, w)
+	})
+	stub.CheckCall(c, 2, "SetStatus", status.StatusArchived, "", map[string]interface{}(nil))
 }
 
 func (s *UndertakerSuite) TestControllerStopsWhenModelDead(c *gc.C) {
@@ -115,6 +137,7 @@ func (s *UndertakerSuite) TestControllerStopsWhenModelDead(c *gc.C) {
 	})
 	stub.CheckCallNames(c,
 		"ModelInfo",
+		"SetStatus",
 		"WatchModelResources",
 		"ProcessDyingModel",
 	)
@@ -128,9 +151,11 @@ func (s *UndertakerSuite) TestFinalRemove(c *gc.C) {
 	})
 	stub.CheckCallNames(c,
 		"ModelInfo",
+		"SetStatus",
 		"WatchModelResources",
 		"ProcessDyingModel",
 		"Destroy",
+		"SetStatus",
 		"RemoveModel",
 	)
 }
@@ -146,23 +171,25 @@ func (s *UndertakerSuite) TestModelInfoErrorFatal(c *gc.C) {
 }
 
 func (s *UndertakerSuite) TestWatchModelResourcesErrorFatal(c *gc.C) {
-	s.fix.errors = []error{nil, errors.New("pow")}
+	s.fix.errors = []error{nil, nil, errors.New("pow")}
 	s.fix.dirty = true
 	stub := s.fix.run(c, func(w worker.Worker, clock *coretesting.Clock) {
 		err := workertest.CheckKilled(c, w)
 		c.Check(err, gc.ErrorMatches, "pow")
 	})
-	stub.CheckCallNames(c, "ModelInfo", "WatchModelResources")
+	stub.CheckCallNames(c, "ModelInfo", "SetStatus", "WatchModelResources")
 }
 
 func (s *UndertakerSuite) TestProcessDyingModelErrorRetried(c *gc.C) {
 	s.fix.errors = []error{
 		nil, // ModelInfo
+		nil, // SetStatus
 		nil, // WatchModelResources,
 		errors.New("meh, will retry"),  // ProcessDyingModel,
 		errors.New("will retry again"), // ProcessDyingModel,
 		nil, // ProcessDyingModel,
 		nil, // Destroy,
+		nil, // SetStatus
 	}
 	stub := s.fix.run(c, func(w worker.Worker, clock *coretesting.Clock) {
 		waitAlarm(c, clock)
@@ -170,11 +197,13 @@ func (s *UndertakerSuite) TestProcessDyingModelErrorRetried(c *gc.C) {
 	})
 	stub.CheckCallNames(c,
 		"ModelInfo",
+		"SetStatus",
 		"WatchModelResources",
 		"ProcessDyingModel",
 		"ProcessDyingModel",
 		"ProcessDyingModel",
 		"Destroy",
+		"SetStatus",
 	)
 }
 
@@ -190,7 +219,7 @@ func (s *UndertakerSuite) TestDestroyErrorFatal(c *gc.C) {
 }
 
 func (s *UndertakerSuite) TestRemoveModelErrorFatal(c *gc.C) {
-	s.fix.errors = []error{nil, nil, errors.New("pow")}
+	s.fix.errors = []error{nil, nil, nil, errors.New("pow")}
 	s.fix.info.Result.Life = "dead"
 	s.fix.dirty = true
 	stub := s.fix.run(c, func(w worker.Worker, clock *coretesting.Clock) {
@@ -199,7 +228,7 @@ func (s *UndertakerSuite) TestRemoveModelErrorFatal(c *gc.C) {
 		err := workertest.CheckKilled(c, w)
 		c.Check(err, gc.ErrorMatches, "cannot remove model: pow")
 	})
-	stub.CheckCallNames(c, "ModelInfo", "Destroy", "RemoveModel")
+	stub.CheckCallNames(c, "ModelInfo", "Destroy", "SetStatus", "RemoveModel")
 }
 
 func waitAlarm(c *gc.C, clock *coretesting.Clock) {

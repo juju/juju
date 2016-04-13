@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/undertaker"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 // mockState implements State interface and allows inspection of called
@@ -41,6 +42,7 @@ func newMockState(envOwner names.UserTag, envName string, isSystem bool) *mockSt
 	env := mockModel{
 		owner: envOwner,
 		name:  envName,
+		uuid:  "9d3d3b19-2b0c-4a3f-acde-0b1645586a72",
 		life:  state.Alive,
 	}
 
@@ -96,6 +98,13 @@ func (m *mockState) ModelConfig() (*config.Config, error) {
 	return &config.Config{}, nil
 }
 
+func (m *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
+	if tag.Kind() == names.ModelTagKind && tag.Id() == m.env.UUID() {
+		return m.env, nil
+	}
+	return nil, errors.NotFoundf("entity with tag %q", tag.String())
+}
+
 // mockModel implements Model interface and allows inspection of called
 // methods.
 type mockModel struct {
@@ -104,6 +113,10 @@ type mockModel struct {
 	life  state.Life
 	name  string
 	uuid  string
+
+	status     status.Status
+	statusInfo string
+	statusData map[string]interface{}
 }
 
 var _ undertaker.Model = (*mockModel)(nil)
@@ -120,6 +133,10 @@ func (m *mockModel) Life() state.Life {
 	return m.life
 }
 
+func (m *mockModel) Tag() names.Tag {
+	return names.NewModelTag(m.uuid)
+}
+
 func (m *mockModel) Name() string {
 	return m.name
 }
@@ -130,6 +147,13 @@ func (m *mockModel) UUID() string {
 
 func (m *mockModel) Destroy() error {
 	m.life = state.Dying
+	return nil
+}
+
+func (m *mockModel) SetStatus(status status.Status, info string, data map[string]interface{}) error {
+	m.status = status
+	m.statusInfo = info
+	m.statusData = data
 	return nil
 }
 
