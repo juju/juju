@@ -217,13 +217,7 @@ func getBindings(
 		combinedBindings = append(combinedBindings, binding)
 	}
 
-	for _, space := range positiveSpaces {
-		if spacesSet.Contains(string(space.ProviderId)) {
-			// Skip duplicates in positiveSpaces.
-			continue
-		}
-		spacesSet.Add(string(space.ProviderId))
-		// Make sure we pick a label that doesn't clash with possible bindings.
+	createLabel := func(index uint, namesSet set.Strings) (string, uint, error) {
 		var label string
 		for {
 			label = fmt.Sprintf("%v", index)
@@ -231,13 +225,28 @@ func getBindings(
 				break
 			}
 			if index > numericLabelLimit { // ...just to make sure we won't loop forever.
-				return nil, nil, errors.Errorf("too many conflicting numeric labels, giving up.")
+				return "", index, errors.Errorf("too many conflicting numeric labels, giving up.")
 			}
 			index++
 		}
 		namesSet.Add(label)
+		return label, index, nil
+	}
+	for _, space := range positiveSpaces {
+		if spacesSet.Contains(string(space.ProviderId)) {
+			// Skip duplicates in positiveSpaces.
+			continue
+		}
+		spacesSet.Add(string(space.ProviderId))
+
+		var label string
+		var err error
+		label, index, err = createLabel(index, namesSet)
+		if err != nil {
+			return nil, nil, errors.Errorf("too many conflicting numeric labels, giving up.")
+		}
+		// Make sure we pick a label that doesn't clash with possible bindings.
 		combinedBindings = append(combinedBindings, interfaceBinding{label, string(space.ProviderId)})
-		index++
 	}
 
 	var negatives []interfaceBinding
@@ -249,17 +258,11 @@ func getBindings(
 			))
 		}
 		var label string
-		for {
-			label = fmt.Sprintf("%v", index)
-			if !namesSet.Contains(label) {
-				break
-			}
-			if index > numericLabelLimit { // ...just to make sure we won't loop forever.
-				return nil, nil, errors.Errorf("too many conflicting numeric labels, giving up.")
-			}
-			index++
+		var err error
+		label, index, err = createLabel(index, namesSet)
+		if err != nil {
+			return nil, nil, errors.Errorf("too many conflicting numeric labels, giving up.")
 		}
-		namesSet.Add(label)
 		negatives = append(negatives, interfaceBinding{label, string(space.ProviderId)})
 		index++
 	}
