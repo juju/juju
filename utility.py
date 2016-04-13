@@ -20,7 +20,7 @@ from time import (
 from tempfile import mkdtemp
 import warnings
 import xml.etree.ElementTree as ET
-
+import yaml
 # Export shell quoting function which has moved in newer python versions
 try:
     from shlex import quote
@@ -466,3 +466,16 @@ def local_charm_path(charm, juju_ver, series=None, repository=None,
                 os.environ['JUJU_REPOSITORY'], charm_dir[platform])
             abs_path = os.path.join(repository, charm)
         return abs_path
+
+
+def make_charm(charm_dir, min_ver='1.25.0', name='dummy',
+               description='description', summary='summary', series='trusty'):
+    metadata = os.path.join(charm_dir, 'metadata.yaml')
+    content = {}
+    content['name'] = name
+    content['min-juju-version'] = min_ver
+    content['summary'] = summary
+    content['description'] = description
+    content['series'] = [series] if isinstance(series, str) else series
+    with open(metadata, 'w') as f:
+        yaml.safe_dump(content, f, default_flow_style=False)
