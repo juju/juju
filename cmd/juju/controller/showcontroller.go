@@ -15,6 +15,20 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
+var usageShowControllerSummary = `
+Shows detailed information of a controller.`[1:]
+
+var usageShowControllerDetails = `
+Shows extended information about a controller(s) as well as related models
+and accounts. The active model and user accounts are also displayed.
+
+Examples:
+    juju show-controller
+    juju show-controller aws google
+    
+See also: 
+    list-controllers`[1:]
+
 // NewShowControllerCommand returns a command to show details of the desired controllers.
 func NewShowControllerCommand() cmd.Command {
 	cmd := &showControllerCommand{
@@ -33,8 +47,9 @@ func (c *showControllerCommand) Init(args []string) (err error) {
 func (c *showControllerCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-controller",
-		Purpose: "show controller details for the given controller names",
-		Doc:     showControllerDoc,
+		Args:    "[<controller name> ...]",
+		Purpose: usageShowControllerSummary,
+		Doc:     usageShowControllerDetails,
 		Aliases: []string{"show-controllers"},
 	}
 }
@@ -42,7 +57,7 @@ func (c *showControllerCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *showControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.JujuCommandBase.SetFlags(f)
-	f.BoolVar(&c.showPasswords, "show-passwords", false, "show passwords for displayed accounts")
+	f.BoolVar(&c.showPasswords, "show-passwords", false, "Show passwords for displayed accounts")
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
@@ -240,14 +255,3 @@ type showControllerCommand struct {
 	controllerNames []string
 	showPasswords   bool
 }
-
-const showControllerDoc = `
-Show extended information about controller(s) as well as related models and accounts.
-The active model and account for each controller are displayed as well.
-
-Controllers to display are specified by controller names. If no controller names
-are supplied, show-controller will print out the active controller.
-
-arguments:
-[space separated controller names]
-`
