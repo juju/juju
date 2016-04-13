@@ -11,23 +11,24 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-var usageEnableUserSummary = `
-Re-enables a previously disabled Juju user.`[1:]
+var usageDisableUserSummary = `
+Disables a Juju user.`[1:]
 
 var usageDisableUserDetails = `
-Disabling a user stops that user from being able to log in. The user still
-exists and can be reenabled using the "juju enable-user" command.  If the user is
-already disabled, this command succeeds silently.
+A disabled Juju user is one that cannot log in to any controller.
+This command has no affect on models that the disabled user may have
+created and/or shared nor any services associated with that user.
 
 Examples:
-  juju disable-user foobar
+    juju disable-user bob
 
-See Also:
-  juju help enable-user
-`
+See also: 
+    enable-user
+    list-users
+    login`[1:]
 
-var usageDisableUserSummary = `
-`[1:]
+var usageEnableUserSummary = `
+Re-enables a previously disabled Juju user.`[1:]
 
 var usageEnableUserDetails = `
 An enabled Juju user is one that can log in to a controller.
@@ -69,8 +70,8 @@ type enableCommand struct {
 func (c *disableCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "disable-user",
-		Args:    "<username>",
-		Purpose: "disable a user to stop the user logging in",
+		Args:    "<user name>",
+		Purpose: usageDisableUserSummary,
 		Doc:     usageDisableUserDetails,
 	}
 }
