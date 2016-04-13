@@ -128,32 +128,37 @@ func decodeCheckSignature(r io.Reader, publicKey string) ([]byte, error) {
 	return b.Plaintext, nil
 }
 
-func diffClouds(new, old map[string]jujucloud.Cloud) string {
-	diff := &changes{make(map[changeType]map[scope][]string)}
+func diffClouds(newClouds, oldClouds map[string]jujucloud.Cloud) string {
+	diff := newChanges()
 	// added and updated clouds
-	for cloudName, cloud := range new {
-		oldCloud, ok := old[cloudName]
+	for cloudName, cloud := range newClouds {
+		oldCloud, ok := oldClouds[cloudName]
 		if !ok {
 			diff.addChange(addChange, cloudScope, cloudName)
 			continue
 		}
 
-		cloudUnchanged, _ := jujucloud.IsSameCloudMetadata(
-			map[string]jujucloud.Cloud{cloudName: cloud},
-			map[string]jujucloud.Cloud{cloudName: oldCloud},
-		)
-		if !cloudUnchanged {
+		if cloudChanged(cloudName, cloud, oldCloud) {
 			diffCloudDetails(cloudName, cloud, oldCloud, diff)
 		}
 	}
 
 	// deleted clouds
-	for cloudName, _ := range old {
-		if _, ok := new[cloudName]; !ok {
+	for cloudName, _ := range oldClouds {
+		if _, ok := newClouds[cloudName]; !ok {
 			diff.addChange(deleteChange, cloudScope, cloudName)
 		}
 	}
 	return diff.summary()
+}
+
+func cloudChanged(cloudName string, new, old jujucloud.Cloud) bool {
+	same, _ := jujucloud.IsSameCloudMetadata(
+		map[string]jujucloud.Cloud{cloudName: new},
+		map[string]jujucloud.Cloud{cloudName: old},
+	)
+	// If both old and new version are the same the cloud is not changed.
+	return !same
 }
 
 func diffCloudDetails(cloudName string, new, old jujucloud.Cloud, diff *changes) {
@@ -207,7 +212,7 @@ func diffCloudDetails(cloudName string, new, old jujucloud.Cloud, diff *changes)
 		}
 	}
 
-	//deleted regions
+	// deleted regions
 	for oldName, _ := range oldRegions {
 		if _, ok := newRegions[oldName]; !ok {
 			diff.addChange(deleteChange, regionScope, formatCloudRegion(oldName))
@@ -233,6 +238,10 @@ const (
 
 type changes struct {
 	all map[changeType]map[scope][]string
+}
+
+func newChanges() *changes {
+	return &changes{make(map[changeType]map[scope][]string)}
 }
 
 func (c *changes) addChange(aType changeType, entity scope, details string) {
@@ -290,6 +299,8 @@ func (c *changes) summary() string {
 	return fmt.Sprintf("%v:\n%v", result, details)
 }
 
+// TODO(anastasiamac 2014-04-13) Move this to
+// juju/utils (eg. Pluralize). Added tech debt card.
 func adjustPlurality(entity string, count int) string {
 	switch count {
 	case 0:
