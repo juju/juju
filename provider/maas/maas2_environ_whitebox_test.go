@@ -5,7 +5,6 @@ package maas
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
@@ -342,7 +341,11 @@ func getFourSpaces() []gomaasapi.Space {
 
 func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.C) {
 	expected := gomaasapi.AllocateMachineArgs{
-		NotNetworks: []string{"space:6", "space:8"},
+		NotSpace: []string{"6", "8"},
+		Interfaces: []gomaasapi.InterfaceSpec{
+			{Label: "0", Space: "5"},
+			{Label: "1", Space: "7"},
+		},
 	}
 	env := suite.injectControllerWithSpacesAndCheck(c, getFourSpaces(), expected)
 
@@ -419,12 +422,13 @@ func (suite *maas2EnvironSuite) DONTTestAcquireNodeStorage(c *gc.C) {
 func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	var env *maasEnviron
 	var getNegatives func() []string
+	var getPositives func() []gomaasapi.InterfaceSpec
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.ecfg().maasAgentName(),
-				// Should have Interfaces too
-				NotNetworks: getNegatives(),
+				AgentName:  env.ecfg().maasAgentName(),
+				Interfaces: getPositives(),
+				NotSpace:   getNegatives(),
 			})
 		},
 		allocateMachine: &fakeMachine{
@@ -442,26 +446,26 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	// In the tests below "space:5" means foo, "space:6" means bar.
 	for i, test := range []struct {
 		interfaces        []interfaceBinding
-		expectedPositives string
-		expectedNegatives string
+		expectedPositives []gomaasapi.InterfaceSpec
+		expectedNegatives []string
 		expectedError     string
 	}{{ // without specified bindings, spaces constraints are used instead.
 		interfaces:        nil,
-		expectedPositives: "0:space=5",
-		expectedNegatives: "space:3",
+		expectedPositives: []gomaasapi.InterfaceSpec{{"0", "2"}},
+		expectedNegatives: []string{"3"},
 		expectedError:     "",
 	}, {
 		interfaces:        []interfaceBinding{{"name-1", "space-1"}},
-		expectedPositives: "name-1:space=space-1;0:space=5",
-		expectedNegatives: "space:3",
+		expectedPositives: []gomaasapi.InterfaceSpec{{"name-1", "space-1"}, {"0", "2"}},
+		expectedNegatives: []string{"3"},
 	}, {
 		interfaces: []interfaceBinding{
 			{"name-1", "7"},
 			{"name-2", "8"},
 			{"name-3", "9"},
 		},
-		expectedPositives: "name-1:space=1;name-2:space=2;name-3:space=3;0:space=5",
-		expectedNegatives: "space:3",
+		expectedPositives: []gomaasapi.InterfaceSpec{{"name-1", "7"}, {"name-2", "8"}, {"name-3", "9"}, {"0", "2"}},
+		expectedNegatives: []string{"3"},
 	}, {
 		interfaces:    []interfaceBinding{{"", "anything"}},
 		expectedError: "interface bindings cannot have empty names",
@@ -473,8 +477,8 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 			{"shared-db", "1"},
 			{"db", "1"},
 		},
-		expectedPositives: "shared-db:space=1;db:space=1;0:space=5",
-		expectedNegatives: "space:3",
+		expectedPositives: []gomaasapi.InterfaceSpec{{"shared-db", "1"}, {"db", "1"}, {"0", "2"}},
+		expectedNegatives: []string{"3"},
 	}, {
 		interfaces:    []interfaceBinding{{"", ""}},
 		expectedError: "interface bindings cannot have empty names",
@@ -514,9 +518,11 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	}} {
 		c.Logf("test #%d: interfaces=%v", i, test.interfaces)
 		env = suite.makeEnviron(c, nil)
-		// TODO (mfoord): need getPositives as well.
 		getNegatives = func() []string {
-			return strings.Split(test.expectedNegatives, ";")
+			return test.expectedNegatives
+		}
+		getPositives = func() []gomaasapi.InterfaceSpec {
+			return test.expectedPositives
 		}
 		_, err := env.acquireNode2("", "", cons, test.interfaces, nil)
 		if test.expectedError != "" {
@@ -544,9 +550,11 @@ func getTwoSpaces() []gomaasapi.Space {
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
-	// Expected args should have Interfaces set
-	// Interfaces: 0:space=2,
-	env := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), gomaasapi.AllocateMachineArgs{NotNetworks: []string{"space:3"}})
+	expected := gomaasapi.AllocateMachineArgs{
+		NotSpace:   []string{"3"},
+		Interfaces: []gomaasapi.InterfaceSpec{{Label: "0", Space: "2"}},
+	}
+	env := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), expected)
 	cons := constraints.Value{
 		Spaces: stringslicep("foo", "^bar"),
 	}
@@ -555,7 +563,11 @@ func (suite *maas2EnvironSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
-	env := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), gomaasapi.AllocateMachineArgs{NotNetworks: []string{"space:3"}})
+	expected := gomaasapi.AllocateMachineArgs{
+		NotSpace:   []string{"3"},
+		Interfaces: []gomaasapi.InterfaceSpec{{Label: "0", Space: "2"}},
+	}
+	env := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), expected)
 	cons := constraints.Value{
 		Spaces: stringslicep("foo-1", "^bar-3"),
 	}
