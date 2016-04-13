@@ -54,7 +54,9 @@ func (s *ProxyUpdaterSuite) TestNilTagFails(c *gc.C) {
 
 func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C) {
 	res := params.NotifyWatchResults{
-		Results: []params.NotifyWatchResult{params.NotifyWatchResult{}},
+		Results: []params.NotifyWatchResult{params.NotifyWatchResult{
+			NotifyWatcherId: "4242",
+		}},
 	}
 	args := []apitesting.CheckArgs{{
 		Facade:  "ProxyUpdater",
@@ -65,7 +67,7 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 
 	watcher, err := api.WatchForProxyConfigAndAPIHostPortChanges()
 	workertest.CleanKill(c, watcher)
-	c.Check(*called, jc.GreaterThan, 0)
+	c.Check(*called, gc.Equals, 2)
 	c.Check(err, jc.ErrorIsNil)
 }
 
