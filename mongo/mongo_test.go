@@ -604,20 +604,6 @@ func (s *MongoSuite) TestNewServiceWithJournal(c *gc.C) {
 	c.Assert(conf.ExecStart, gc.Matches, `.* --journal.*`)
 }
 
-func (s *MongoSuite) TestNoAuthCommandWithJournal(c *gc.C) {
-	dataDir := c.MkDir()
-
-	cmd, err := mongo.NoauthCommand(dataDir, 1234, s.mongodVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	var isJournalPresent bool
-	for _, value := range cmd.Args {
-		if value == "--journal" {
-			isJournalPresent = true
-		}
-	}
-	c.Assert(isJournalPresent, jc.IsTrue)
-}
-
 func (s *MongoSuite) TestRemoveService(c *gc.C) {
 	s.data.SetStatus(mongo.ServiceName, "running")
 
