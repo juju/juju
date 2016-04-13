@@ -19,6 +19,12 @@ type pathsSuite struct {
 	testing.BaseSuite
 }
 
+func (s *pathsSuite) SetUpTest(c *gc.C) {
+	s.PatchValue(&getMongodPath, func() (string, error) {
+		return "path/to/mongod", nil
+	})
+}
+
 func (s *pathsSuite) TestPathDefaultMongoExists(c *gc.C) {
 	calledWithPaths := []string{}
 	osStat := func(aPath string) (os.FileInfo, error) {
@@ -27,8 +33,8 @@ func (s *pathsSuite) TestPathDefaultMongoExists(c *gc.C) {
 	}
 	mongoPath, err := getMongoToolPath("tool", osStat, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mongoPath, gc.Equals, "/usr/lib/juju/mongo3.2/bin/tool")
-	c.Assert(calledWithPaths, gc.DeepEquals, []string{"/usr/lib/juju/mongo3.2/bin/tool"})
+	c.Assert(mongoPath, gc.Equals, "path/to/tool")
+	c.Assert(calledWithPaths, gc.DeepEquals, []string{"path/to/tool"})
 }
 
 func (s *pathsSuite) TestPathNoDefaultMongo(c *gc.C) {
@@ -47,6 +53,6 @@ func (s *pathsSuite) TestPathNoDefaultMongo(c *gc.C) {
 	mongoPath, err := getMongoToolPath("tool", osStat, execLookPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mongoPath, gc.Equals, "/a/fake/mongo/path")
-	c.Assert(calledWithPaths, gc.DeepEquals, []string{"/usr/lib/juju/mongo3.2/bin/tool"})
+	c.Assert(calledWithPaths, gc.DeepEquals, []string{"path/to/tool"})
 	c.Assert(calledWithLookup, gc.DeepEquals, []string{"tool"})
 }

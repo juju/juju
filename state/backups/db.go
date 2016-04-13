@@ -101,8 +101,12 @@ var getMongodumpPath = func() (string, error) {
 	return getMongoToolPath(dumpName, os.Stat, exec.LookPath)
 }
 
+var getMongodPath = func() (string, error) {
+	return mongo.Path(mongo.InstalledVersion())
+}
+
 func getMongoToolPath(toolName string, stat func(name string) (os.FileInfo, error), lookPath func(file string) (string, error)) (string, error) {
-	mongod, err := mongo.Path(mongo.InstalledVersion())
+	mongod, err := getMongodPath()
 	if err != nil {
 		return "", errors.Annotate(err, "failed to get mongod path")
 	}
