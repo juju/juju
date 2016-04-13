@@ -1446,11 +1446,11 @@ func (environ *maasEnviron) releaseNodes2(ids []instance.Id, recurse bool) error
 		Comment:   "Released by Juju MAAS provider",
 	}
 	err := environ.maasController.ReleaseMachines(args)
-	if err == nil {
-		return nil
-	}
 
-	if gomaasapi.IsCannotCompleteError(err) {
+	switch {
+	case err == nil:
+		return nil
+	case gomaasapi.IsCannotCompleteError(err):
 		// CannotCompleteError means a node couldn't be released due to
 		// a state conflict. Likely it's already released or disk
 		// erasing. We're assuming this error *only* means it's
@@ -1460,19 +1460,22 @@ func (environ *maasEnviron) releaseNodes2(ids []instance.Id, recurse bool) error
 		// nodes have been released.
 		logger.Infof("ignoring error while releasing nodes (%v); all nodes released OK", err)
 		return nil
-	} else if !gomaasapi.IsBadRequestError(err) &&
-		!gomaasapi.IsPermissionError(err) {
+	case gomaasapi.IsBadRequestError(err), gomaasapi.IsPermissionError(err):
+		// a status code of 400 or 403 means one of the nodes
+		// couldn't be found and none have been released. We have to
+		// release all the ones we can individually.
+		if !recurse {
+			// this node has already been released and we're golden
+			return nil
+		}
+		return environ.releaseNodesIndividually(ids)
+
+	default:
 		return errors.Annotatef(err, "cannot release nodes")
 	}
-	// a status code of 400 or 403 means one of the nodes
-	// couldn't be found and none have been released. We have to
-	// release all the ones we can individually.
+}
 
-	if !recurse {
-		// this node has already been released and we're golden
-		return nil
-	}
-
+func (environ *maasEnviron) releaseNodesIndividually(ids []instance.Id) error {
 	var lastErr error
 	for _, id := range ids {
 		err := environ.releaseNodes2([]instance.Id{id}, false)
@@ -1502,15 +1505,13 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	if environ.usingMAAS2() {
 		err := environ.releaseNodes2(ids, true)
 		if err != nil {
-			// Will already have been wrapped.
-			return err
+			return errors.Trace(err)
 		}
 	} else {
 		nodes := environ.getMAASClient().GetSubObject("nodes")
 		err := environ.releaseNodes1(nodes, getSystemIdValues("nodes", ids), true)
 		if err != nil {
-			// error will already have been wrapped
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return common.RemoveStateInstances(environ.Storage(), ids...)

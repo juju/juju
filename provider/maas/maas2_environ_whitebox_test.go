@@ -68,7 +68,7 @@ func (suite *maas2EnvironSuite) TestSupportedArchitectures(c *gc.C) {
 	env := suite.makeEnviron(c, controller)
 	result, err := env.SupportedArchitectures()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []string{"amd64", "arm"})
+	c.Assert(result, gc.DeepEquals, []string{"amd64", "arm"})
 }
 
 func (suite *maas2EnvironSuite) TestSupportedArchitecturesError(c *gc.C) {
@@ -81,7 +81,7 @@ func (suite *maas2EnvironSuite) injectControllerWithSpacesAndCheck(c *gc.C, spac
 	var env *maasEnviron
 	check := func(args gomaasapi.AllocateMachineArgs) {
 		expected.AgentName = env.ecfg().maasAgentName()
-		c.Assert(args, jc.DeepEquals, expected)
+		c.Assert(args, gc.DeepEquals, expected)
 	}
 	controller := &fakeController{
 		allocateMachineArgsCheck: check,
@@ -100,7 +100,7 @@ func (suite *maas2EnvironSuite) injectControllerWithSpacesAndCheck(c *gc.C, spac
 func (suite *maas2EnvironSuite) makeEnvironWithMachines(c *gc.C, expectedSystemIDs []string, returnSystemIDs []string) *maasEnviron {
 	var env *maasEnviron
 	checkArgs := func(args gomaasapi.MachinesArgs) {
-		c.Check(args.SystemIDs, jc.DeepEquals, expectedSystemIDs)
+		c.Check(args.SystemIDs, gc.DeepEquals, expectedSystemIDs)
 		c.Check(args.AgentName, gc.Equals, env.ecfg().maasAgentName())
 	}
 	machines := make([]gomaasapi.Machine, len(returnSystemIDs))
@@ -126,7 +126,7 @@ func (suite *maas2EnvironSuite) TestAllInstances(c *gc.C) {
 	for _, instance := range result {
 		actualMachines.Add(string(instance.Id()))
 	}
-	c.Assert(actualMachines, jc.DeepEquals, expectedMachines)
+	c.Assert(actualMachines, gc.DeepEquals, expectedMachines)
 }
 
 func (suite *maas2EnvironSuite) TestAllInstancesError(c *gc.C) {
@@ -147,7 +147,7 @@ func (suite *maas2EnvironSuite) TestInstances(c *gc.C) {
 	for _, machine := range result {
 		actualMachines.Add(string(machine.Id()))
 	}
-	c.Assert(actualMachines, jc.DeepEquals, expectedMachines)
+	c.Assert(actualMachines, gc.DeepEquals, expectedMachines)
 }
 
 func (suite *maas2EnvironSuite) TestInstancesPartialResult(c *gc.C) {
@@ -176,7 +176,7 @@ func (suite *maas2EnvironSuite) TestAvailabilityZones(c *gc.C) {
 	for _, zone := range result {
 		actualZones.Add(zone.Name())
 	}
-	c.Assert(actualZones, jc.DeepEquals, expectedZones)
+	c.Assert(actualZones, gc.DeepEquals, expectedZones)
 }
 
 func (suite *maas2EnvironSuite) TestAvailabilityZonesError(c *gc.C) {
@@ -236,7 +236,7 @@ func (suite *maas2EnvironSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C
 	controller := &fakeController{}
 	err := suite.makeEnviron(c, controller).StopInstances()
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(controller.releaseMachinesArgs, jc.DeepEquals, []gomaasapi.ReleaseMachinesArgs{})
+	c.Assert(controller.releaseMachinesArgs, gc.IsNil)
 }
 
 func (suite *maas2EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
@@ -249,7 +249,7 @@ func (suite *maas2EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *gc
 	c.Check(err, jc.ErrorIsNil)
 	args := controller.releaseMachinesArgs
 	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0].SystemIDs, jc.DeepEquals, []string{"test1", "test2", "test3"})
+	c.Assert(args[0].SystemIDs, gc.DeepEquals, []string{"test1", "test2", "test3"})
 }
 
 func (suite *maas2EnvironSuite) TestStopInstancesIgnoresConflict(c *gc.C) {
@@ -263,7 +263,7 @@ func (suite *maas2EnvironSuite) TestStopInstancesIgnoresConflict(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	args := controller.releaseMachinesArgs
 	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0].SystemIDs, jc.DeepEquals, []string{"test1", "test2", "test3"})
+	c.Assert(args[0].SystemIDs, gc.DeepEquals, []string{"test1", "test2", "test3"})
 }
 
 func (suite *maas2EnvironSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c *gc.C) {
@@ -278,10 +278,10 @@ func (suite *maas2EnvironSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c
 	c.Check(err, jc.ErrorIsNil)
 	args := controller.releaseMachinesArgs
 	c.Assert(args, gc.HasLen, 4)
-	c.Assert(args[0].SystemIDs, jc.DeepEquals, []string{"test1", "test2", "test3"})
-	c.Assert(args[1].SystemIDs, jc.DeepEquals, []string{"test1"})
-	c.Assert(args[2].SystemIDs, jc.DeepEquals, []string{"test2"})
-	c.Assert(args[3].SystemIDs, jc.DeepEquals, []string{"test3"})
+	c.Assert(args[0].SystemIDs, gc.DeepEquals, []string{"test1", "test2", "test3"})
+	c.Assert(args[1].SystemIDs, gc.DeepEquals, []string{"test1"})
+	c.Assert(args[2].SystemIDs, gc.DeepEquals, []string{"test2"})
+	c.Assert(args[3].SystemIDs, gc.DeepEquals, []string{"test3"})
 }
 
 func (suite *maas2EnvironSuite) TestStopInstancesReturnsUnexpectedMAASError(c *gc.C) {
@@ -329,7 +329,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
 	var env *maasEnviron
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
-			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
+			c.Assert(args, gc.DeepEquals, gomaasapi.AllocateMachineArgs{
 				AgentName: env.ecfg().maasAgentName(),
 				Zone:      "foo",
 				MinMemory: 8192,
@@ -356,7 +356,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	var env *maasEnviron
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
-			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
+			c.Assert(args, gc.DeepEquals, gomaasapi.AllocateMachineArgs{
 				AgentName: env.ecfg().maasAgentName()})
 		},
 		allocateMachine: &fakeMachine{
@@ -451,7 +451,7 @@ func (suite *maas2EnvironSuite) DONTTestAcquireNodeStorage(c *gc.C) {
 	var env *maasEnviron
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
-			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
+			c.Assert(args, gc.DeepEquals, gomaasapi.AllocateMachineArgs{
 				AgentName: env.ecfg().maasAgentName()})
 		},
 		allocateMachine: &fakeMachine{
@@ -499,7 +499,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	var getPositives func() []gomaasapi.InterfaceSpec
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
-			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
+			c.Assert(args, gc.DeepEquals, gomaasapi.AllocateMachineArgs{
 				AgentName:  env.ecfg().maasAgentName(),
 				Interfaces: getPositives(),
 				NotSpace:   getNegatives(),
