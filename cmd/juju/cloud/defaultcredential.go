@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -61,7 +62,7 @@ func hasCredential(credential string, credentials map[string]jujucloud.Credentia
 }
 
 func (c *setDefaultCredentialCommand) Run(ctxt *cmd.Context) error {
-	if _, err := cloudOrProvider(c.cloud, jujucloud.CloudByName); err != nil {
+	if _, err := common.CloudOrProvider(c.cloud, jujucloud.CloudByName); err != nil {
 		return err
 	}
 	cred, err := c.store.CredentialForCloud(c.cloud)
