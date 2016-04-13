@@ -54,13 +54,13 @@ func (c *setDefaultRegionCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args[2:])
 }
 
-func hasRegion(region string, regions []jujucloud.Region) bool {
+func getRegion(region string, regions []jujucloud.Region) string {
 	for _, r := range regions {
-		if r.Name == region {
-			return true
+		if strings.EqualFold(r.Name, region) {
+			return r.Name
 		}
 	}
-	return false
+	return ""
 }
 
 func (c *setDefaultRegionCommand) Run(ctxt *cmd.Context) error {
@@ -71,7 +71,7 @@ func (c *setDefaultRegionCommand) Run(ctxt *cmd.Context) error {
 	if len(cloudDetails.Regions) == 0 {
 		return errors.Errorf("cloud %s has no regions", c.cloud)
 	}
-	if !hasRegion(c.region, cloudDetails.Regions) {
+	if region := getRegion(c.region, cloudDetails.Regions); region == "" {
 		var regionNames []string
 		for _, r := range cloudDetails.Regions {
 			regionNames = append(regionNames, r.Name)
@@ -80,6 +80,8 @@ func (c *setDefaultRegionCommand) Run(ctxt *cmd.Context) error {
 			nil,
 			fmt.Sprintf("region %q for cloud %s not valid, valid regions are %s",
 				c.region, c.cloud, strings.Join(regionNames, ", ")))
+	} else {
+		c.region = region
 	}
 	var cred *jujucloud.CloudCredential
 	cred, err = c.store.CredentialForCloud(c.cloud)

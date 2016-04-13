@@ -225,20 +225,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("cannot write agent config: %v", err)
 	}
 
-	err = c.ChangeConfig(func(config agent.ConfigSetter) error {
-		// We'll try for mongo 3.2 first and fallback to
-		// mongo 2.4 if the newer binaries are not available.
-		if mongo.BinariesAvailable(mongo.Mongo32wt) {
-			config.SetMongoVersion(mongo.Mongo32wt)
-		} else {
-			config.SetMongoVersion(mongo.Mongo24)
-		}
-		return nil
-	})
-	if err != nil {
-		return errors.Annotate(err, "cannot set mongo version")
-	}
-
 	agentConfig = c.CurrentConfig()
 
 	// Create system-identity file
@@ -377,7 +363,7 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	return initiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
-	}, true)
+	})
 }
 
 // populateDefaultStoragePools creates the default storage pools.

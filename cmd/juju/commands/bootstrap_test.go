@@ -1090,6 +1090,24 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
 	c.Assert(errMsg, gc.Matches, `region "not-dummy" in cloud "dummy" not found \(expected one of \["dummy"\]\)alternatively, try "juju update-clouds"`)
 }
 
+func (s *BootstrapSuite) TestBootstrapProviderCaseInsensitiveRegionCheck(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	var prepareParams environs.PrepareParams
+	s.PatchValue(&environsPrepare, func(
+		ctx environs.BootstrapContext,
+		stor jujuclient.ClientStore,
+		params environs.PrepareParams,
+	) (environs.Environ, error) {
+		prepareParams = params
+		return nil, fmt.Errorf("mock-prepare")
+	})
+
+	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy/DUMMY")
+	c.Assert(err, gc.ErrorMatches, "mock-prepare")
+	c.Assert(prepareParams.CloudRegion, gc.Equals, "dummy")
+}
+
 func (s *BootstrapSuite) TestBootstrapConfigFile(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")

@@ -573,7 +573,8 @@ func getRegion(cloud *jujucloud.Cloud, cloudName, regionName string) (jujucloud.
 		return cloud.Regions[0], nil
 	}
 	for _, region := range cloud.Regions {
-		if region.Name == regionName {
+		// Do a case-insensitive comparison
+		if strings.EqualFold(region.Name, regionName) {
 			return region, nil
 		}
 	}
