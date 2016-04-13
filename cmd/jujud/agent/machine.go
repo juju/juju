@@ -885,6 +885,8 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 		switch job {
 		case state.JobHostUnits:
 			// Implemented elsewhere with workers that use the API.
+		case state.JobManageNetworking:
+			// Not used by state workers.
 		case state.JobManageModel:
 			useMultipleCPUs()
 			a.startWorkerAfterUpgrade(runner, "model worker manager", func() (worker.Worker, error) {
