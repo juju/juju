@@ -125,11 +125,14 @@ func (manager *containerManager) CreateContainer(
 		"boot.autostart": "true",
 	}
 
-	networkProfile := fmt.Sprintf("%s-network", name)
+	networkProfile := "default"
+	if len(networkConfig.Interfaces) > 0 {
+		networkProfile = fmt.Sprintf("%s-network", name)
 
-	err = manager.createNetworkProfile(networkProfile, networkConfig)
-	if err != nil {
-		return
+		err = manager.createNetworkProfile(networkProfile, networkConfig)
+		if err != nil {
+			return
+		}
 	}
 
 	spec := lxdclient.InstanceSpec{
