@@ -6,7 +6,6 @@ package action_test
 import (
 	"errors"
 	"io/ioutil"
-	//"regexp"
 	"testing"
 	"time"
 
