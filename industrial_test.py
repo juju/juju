@@ -870,7 +870,7 @@ class AttemptSuite(SteppedStageAttempt):
         bs_manager = BootstrapManager(
             client.env.environment, bs_client, bs_client,
             bootstrap_host=None,
-            machines=[], series=None, agent_url=None,
+            machines=[], series='xenial', agent_url=None,
             agent_stream=self.agent_stream, region=None,
             log_dir=make_log_dir(self.log_dir), keep_env=True,
             permanent=jes_enabled, jes_enabled=bs_jes_enabled)
@@ -983,14 +983,17 @@ def run_single(args):
         env, debug=args.debug)
     client = EnvJujuClient.by_version(
         env,  args.new_juju_path, debug=args.debug)
-    for suite in args.suite:
-        factory = suites[suite]
-        upgrade_sequence = [upgrade_client.full_path, client.full_path]
-        suite = factory.factory(upgrade_sequence, args.log_dir,
-                                args.agent_stream)
-        steps_iter = suite.iter_steps(client)
-        for step in steps_iter:
-            print(step)
+    try:
+        for suite in args.suite:
+            factory = suites[suite]
+            upgrade_sequence = [upgrade_client.full_path, client.full_path]
+            suite = factory.factory(upgrade_sequence, args.log_dir,
+                                    args.agent_stream)
+            steps_iter = suite.iter_steps(client)
+            for step in steps_iter:
+                print(step)
+    except LoggedException as e:
+        sys.exit(1)
 
 
 def main():
