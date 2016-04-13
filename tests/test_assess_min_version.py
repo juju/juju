@@ -6,11 +6,8 @@ from mock import (
     patch,
     call,
 )
-import os
 import StringIO
 import subprocess
-
-import yaml
 
 from assess_min_version import (
     assess_deploy,
@@ -19,7 +16,6 @@ from assess_min_version import (
     assert_pass,
     get_current_version,
     JujuAssertionError,
-    make_charm,
     main,
     parse_args,
 )
@@ -27,7 +23,6 @@ from tests import (
     parse_error,
     TestCase,
 )
-from utility import temp_dir
 
 
 class TestParseArgs(TestCase):
@@ -95,16 +90,6 @@ class TestAssess(TestCase):
         with self.assertRaisesRegexp(
                 JujuAssertionError, 'assert_pass failed min: 2.0 cur: 2.0'):
             assert_pass(mock_client, "dummpy", "2.0", "2.0", "name")
-
-    def test_make_charm(self):
-        with temp_dir() as charm_dir:
-            make_charm(charm_dir, "2.0", name="foo")
-            metadata = os.path.join(charm_dir, 'metadata.yaml')
-            with open(metadata, 'r') as f:
-                content = yaml.load(f)
-        self.assertEqual(content['name'], 'foo')
-        self.assertEqual(content['min-juju-version'], '2.0')
-        self.assertEqual(content['summary'], 'summary')
 
     def test_get_current_version(self):
         mock_client = Mock(spec=["get_version"])

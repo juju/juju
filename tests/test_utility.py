@@ -18,6 +18,7 @@ from mock import (
     call,
     patch,
     )
+import yaml
 
 from tests import (
     temp_os_env,
@@ -36,6 +37,7 @@ from utility import (
     get_winrm_certs,
     is_ipv6_address,
     local_charm_path,
+    make_charm,
     quote,
     run_command,
     scoped_environ,
@@ -605,3 +607,31 @@ class TestLocalCharm(TestCase):
         with temp_os_env('JUJU_REPOSITORY', '/home/foo/repository'):
             path = local_charm_path(charm, '2.0.0', platform='centos')
         self.assertEqual(path, '/home/foo/repository/charms-centos/mysql')
+
+
+class TestMakeCharm(TestCase):
+
+    def test_make_charm(self):
+        with temp_dir() as charm_dir:
+            make_charm(charm_dir)
+            metadata = os.path.join(charm_dir, 'metadata.yaml')
+            with open(metadata, 'r') as f:
+                content = yaml.load(f)
+        self.assertEqual(content['name'], 'dummy')
+        self.assertEqual(content['min-juju-version'], '1.25.0')
+        self.assertEqual(content['summary'], 'summary')
+
+    def test_make_charm_non_default(self):
+        with temp_dir() as charm_dir:
+            make_charm(charm_dir, min_ver='2.0.0', name='foo',
+                       description='bar', summary='foobar',
+                       series=['trusty', 'xenial'])
+            metadata = os.path.join(charm_dir, 'metadata.yaml')
+            with open(metadata, 'r') as f:
+                content = yaml.load(f)
+        expected = {'series': ['trusty', 'xenial'],
+                    'name': 'foo',
+                    'description': 'bar',
+                    'min-juju-version': '2.0.0',
+                    'summary': 'foobar'}
+        self.assertEqual(content, expected)

@@ -3,16 +3,14 @@ from __future__ import print_function
 
 import argparse
 import logging
-import os
-import sys
 import subprocess
-
-import yaml
+import sys
 
 from deploy_stack import BootstrapManager
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    make_charm,
     temp_dir,
 )
 
@@ -43,18 +41,6 @@ def assert_pass(client, charm, ver, cur, name):
     except subprocess.CalledProcessError:
         raise JujuAssertionError(
             'assert_pass failed min: {} cur: {}'.format(ver, cur))
-
-
-def make_charm(charm_dir, ver, name='dummy'):
-    metadata = os.path.join(charm_dir, 'metadata.yaml')
-    content = {}
-    content['name'] = name
-    content['min-juju-version'] = ver
-    content['summary'] = 'summary'
-    content['description'] = 'description'
-    content['series'] = ['trusty']
-    with open(metadata, 'w') as f:
-        yaml.dump(content, f, default_flow_style=False)
 
 
 def get_current_version(client, juju_path):
