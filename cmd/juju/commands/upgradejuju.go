@@ -185,18 +185,11 @@ var getUpgradeJujuAPI = func(c *upgradeJujuCommand) (upgradeJujuAPI, error) {
 	return c.NewAPIClient()
 }
 
-var errorIfUploadToolsOnAdmin = func(c *upgradeJujuCommand) error {
-	if c.UploadTools && c.ModelName() == "admin" {
-		return errors.Errorf("cannot upgrade the admin model with --upload-tools")
-	}
-	return nil
-}
-
 // Run changes the version proposed for the juju envtools.
 func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 
-	if err := errorIfUploadToolsOnAdmin(c); err != nil {
-		return err
+	if c.UploadTools && c.ModelName() != "admin" {
+		return errors.Errorf("--upload-tools can only be used with the admin model")
 	}
 
 	client, err := getUpgradeJujuAPI(c)
