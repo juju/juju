@@ -91,7 +91,6 @@ var (
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions.
 	useMultipleCPUs       = utils.UseMultipleCPUs
-	ensureMongoAdminUser  = mongo.EnsureAdminUser
 	modelManifolds        = model.Manifolds
 	newSingularRunner     = singular.New
 	peergrouperNew        = peergrouper.New
@@ -1191,38 +1190,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	if err != nil {
 		return errors.Annotate(err, "cannot set mongo version")
 	}
-	agentConfig = a.CurrentConfig()
-
-	if _, err := a.ensureMongoAdminUser(agentConfig); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
-}
-
-// ensureMongoAdminUser ensures that the machine's mongo user is in
-// the admin DB.
-func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added bool, err error) {
-	mongoInfo, ok1 := agentConfig.MongoInfo()
-	servingInfo, ok2 := agentConfig.StateServingInfo()
-	if !ok1 || !ok2 {
-		return false, stateWorkerServingConfigErr
-	}
-	dialInfo, err := mongo.DialInfo(mongoInfo.Info, mongo.DefaultDialOpts())
-	if err != nil {
-		return false, err
-	}
-	if len(dialInfo.Addrs) > 1 {
-		logger.Infof("more than one controller; admin user must exist")
-		return false, nil
-	}
-	return ensureMongoAdminUser(mongo.EnsureAdminUserParams{
-		DialInfo:     dialInfo,
-		DataDir:      agentConfig.DataDir(),
-		Port:         servingInfo.StatePort,
-		User:         mongoInfo.Tag.String(),
-		Password:     mongoInfo.Password,
-		MongoVersion: agentConfig.MongoVersion(),
-	})
 }
 
 func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.State, _ *state.Machine, err error) {
