@@ -797,7 +797,8 @@ func (environ *maasEnviron) acquireNode2(
 			"no architecture was specified, acquiring an arbitrary node",
 		)
 	}
-	machine, err := environ.maasController.AllocateMachine(acquireParams)
+	// Currently not using the constraints match returned here.
+	machine, _, err := environ.maasController.AllocateMachine(acquireParams)
 
 	if err != nil {
 		return nil, errors.Trace(err)

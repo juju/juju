@@ -209,7 +209,7 @@ func (s *InitialiserSuite) TestDetectSubnet(c *gc.C) {
 
 	result, err := detectSubnet(input)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, "4")
+	c.Assert(result, jc.DeepEquals, "3")
 }
 
 func (s *InitialiserSuite) TestDetectSubnetLocal(c *gc.C) {
