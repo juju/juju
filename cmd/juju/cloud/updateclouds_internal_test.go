@@ -1,13 +1,12 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cloud_test
+package cloud
 
 import (
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/testing"
 )
 
@@ -18,36 +17,36 @@ type cloudChangesSuite struct {
 var _ = gc.Suite(&cloudChangesSuite{})
 
 func (s *cloudChangesSuite) TestPluralityNone(c *gc.C) {
-	c.Assert(cloud.AdjustPlurality("item", 0), gc.Equals, "")
+	c.Assert(adjustPlurality("item", 0), gc.Equals, "")
 }
 
 func (s *cloudChangesSuite) TestPluralitySingular(c *gc.C) {
-	c.Assert(cloud.AdjustPlurality("item", 1), gc.Equals, "1 item")
+	c.Assert(adjustPlurality("item", 1), gc.Equals, "1 item")
 }
 
 func (s *cloudChangesSuite) TestPluralityPlural(c *gc.C) {
-	c.Assert(cloud.AdjustPlurality("item", 2), gc.Equals, "2 items")
+	c.Assert(adjustPlurality("item", 2), gc.Equals, "2 items")
 }
 
 func (s *cloudChangesSuite) TestFormatSliceEmpty(c *gc.C) {
-	c.Assert(cloud.FormatSlice(nil, "", ""), gc.Equals, "")
-	c.Assert(cloud.FormatSlice([]string{}, "", ""), gc.Equals, "")
+	c.Assert(formatSlice(nil, "", ""), gc.Equals, "")
+	c.Assert(formatSlice([]string{}, "", ""), gc.Equals, "")
 }
 
 func (s *cloudChangesSuite) TestFormatSliceOne(c *gc.C) {
-	c.Assert(cloud.FormatSlice([]string{"one"}, "", ""), gc.Equals, "one")
+	c.Assert(formatSlice([]string{"one"}, "", ""), gc.Equals, "one")
 }
 
 func (s *cloudChangesSuite) TestFormatSliceTwo(c *gc.C) {
-	c.Assert(cloud.FormatSlice([]string{"one", "two"}, "", " and "), gc.Equals, "one and two")
+	c.Assert(formatSlice([]string{"one", "two"}, "", " and "), gc.Equals, "one and two")
 }
 
 func (s *cloudChangesSuite) TestFormatSliceMany(c *gc.C) {
-	c.Assert(cloud.FormatSlice([]string{"one", "two", "three"}, ", ", " and "), gc.Equals, "one, two and three")
+	c.Assert(formatSlice([]string{"one", "two", "three"}, ", ", " and "), gc.Equals, "one, two and three")
 }
 
 func (s *cloudChangesSuite) TestFormatSlices(c *gc.C) {
-	c.Assert(cloud.FormatSlice(
+	c.Assert(formatSlice(
 		[]string{"one add", "two and three updates", "four, five and seven deletes"}, "; ", " as well as "),
 		gc.Equals,
 		"one add; two and three updates as well as four, five and seven deletes",
@@ -320,6 +319,6 @@ var diffCloudsTests = []struct {
 func (s *cloudChangesSuite) TestDiffClouds(c *gc.C) {
 	for i, test := range diffCloudsTests {
 		c.Logf("%d: %v", i, test.description)
-		c.Assert(cloud.DiffClouds(test.new, test.old), gc.Equals, test.expected)
+		c.Check(diffClouds(test.new, test.old), gc.Equals, test.expected)
 	}
 }
