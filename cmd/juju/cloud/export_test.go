@@ -9,12 +9,6 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-var (
-	AdjustPlurality = adjustPlurality
-	FormatSlice     = formatSlice
-	DiffClouds      = diffClouds
-)
-
 func NewUpdateCloudsCommandForTest(publicCloudURL string) *updateCloudsCommand {
 	return &updateCloudsCommand{
 		// TODO(wallyworld) - move testing key elsewhere
