@@ -200,8 +200,8 @@ func (suite *maas2EnvironSuite) TestSpaces(c *gc.C) {
 				name: "freckles",
 				id:   4567,
 				subnets: []gomaasapi.Subnet{
-					fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"},
-					fakeSubnet{id: 98, vlanVid: 67, cidr: "192.168.11.0/24"},
+					fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.10.0/24"},
+					fakeSubnet{id: 98, vlan: fakeVLAN{vid: 67}, cidr: "192.168.11.0/24"},
 				},
 			},
 		},
@@ -389,22 +389,22 @@ func getFourSpaces() []gomaasapi.Space {
 	return []gomaasapi.Space{
 		fakeSpace{
 			name:    "space-1",
-			subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"}},
+			subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.10.0/24"}},
 			id:      5,
 		},
 		fakeSpace{
 			name:    "space-2",
-			subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.11.0/24"}},
+			subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlan: fakeVLAN{vid: 66}, cidr: "192.168.11.0/24"}},
 			id:      6,
 		},
 		fakeSpace{
 			name:    "space-3",
-			subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.12.0/24"}},
+			subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.12.0/24"}},
 			id:      7,
 		},
 		fakeSpace{
 			name:    "space-4",
-			subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.13.0/24"}},
+			subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlan: fakeVLAN{vid: 66}, cidr: "192.168.13.0/24"}},
 			id:      8,
 		},
 	}
@@ -610,12 +610,12 @@ func getTwoSpaces() []gomaasapi.Space {
 	return []gomaasapi.Space{
 		fakeSpace{
 			name:    "foo",
-			subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlanVid: 66, cidr: "192.168.10.0/24"}},
+			subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.10.0/24"}},
 			id:      2,
 		},
 		fakeSpace{
 			name:    "bar",
-			subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlanVid: 66, cidr: "192.168.11.0/24"}},
+			subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlan: fakeVLAN{vid: 66}, cidr: "192.168.11.0/24"}},
 			id:      3,
 		},
 	}

@@ -180,6 +180,7 @@ type fakeMachine struct {
 	cpuCount      int
 	memory        int
 	architecture  string
+	interfaceSet  []gomaasapi.Interface
 }
 
 func (m *fakeMachine) CPUCount() int {
@@ -218,6 +219,10 @@ func (m *fakeMachine) Zone() gomaasapi.Zone {
 	return fakeZone{name: m.zoneName}
 }
 
+func (m *fakeMachine) InterfaceSet() []gomaasapi.Interface {
+	return m.interfaceSet
+}
+
 func (m *fakeMachine) Start(args gomaasapi.StartArgs) error {
 	return nil
 }
@@ -252,30 +257,128 @@ func (s fakeSpace) Subnets() []gomaasapi.Subnet {
 
 type fakeSubnet struct {
 	gomaasapi.Subnet
-	id      int
-	vlanVid int
-	cidr    string
+	id         int
+	space      string
+	vlan       gomaasapi.VLAN
+	gateway    string
+	cidr       string
+	dnsServers []string
 }
 
 func (s fakeSubnet) ID() int {
 	return s.id
 }
 
+func (s fakeSubnet) Space() string {
+	return s.space
+}
+
+func (s fakeSubnet) VLAN() gomaasapi.VLAN {
+	return s.vlan
+}
+
+func (s fakeSubnet) Gateway() string {
+	return s.gateway
+}
+
 func (s fakeSubnet) CIDR() string {
 	return s.cidr
 }
 
-func (s fakeSubnet) VLAN() gomaasapi.VLAN {
-	return fakeVLAN{vid: s.vlanVid}
+func (s fakeSubnet) DNSServers() []string {
+	return s.dnsServers
 }
 
 type fakeVLAN struct {
 	gomaasapi.VLAN
+	id  int
 	vid int
+	mtu int
+}
+
+func (v fakeVLAN) ID() int {
+	return v.id
 }
 
 func (v fakeVLAN) VID() int {
 	return v.vid
+}
+
+func (v fakeVLAN) MTU() int {
+	return v.mtu
+}
+
+type fakeInterface struct {
+	gomaasapi.Interface
+	id         int
+	name       string
+	parents    []string
+	children   []string
+	type_      string
+	enabled    bool
+	vlan       gomaasapi.VLAN
+	links      []gomaasapi.Link
+	macAddress string
+}
+
+func (v *fakeInterface) ID() int {
+	return v.id
+}
+
+func (v *fakeInterface) Name() string {
+	return v.name
+}
+
+func (v *fakeInterface) Parents() []string {
+	return v.parents
+}
+
+func (v *fakeInterface) Children() []string {
+	return v.children
+}
+
+func (v *fakeInterface) Type() string {
+	return v.type_
+}
+
+func (v *fakeInterface) Enabled() bool {
+	return v.enabled
+}
+
+func (v *fakeInterface) VLAN() gomaasapi.VLAN {
+	return v.vlan
+}
+
+func (v *fakeInterface) Links() []gomaasapi.Link {
+	return v.links
+}
+
+func (v *fakeInterface) MACAddress() string {
+	return v.macAddress
+}
+
+type fakeLink struct {
+	gomaasapi.Link
+	id        int
+	mode      string
+	subnet    gomaasapi.Subnet
+	ipAddress string
+}
+
+func (l *fakeLink) ID() int {
+	return l.id
+}
+
+func (l *fakeLink) Mode() string {
+	return l.mode
+}
+
+func (l *fakeLink) Subnet() gomaasapi.Subnet {
+	return l.subnet
+}
+
+func (l *fakeLink) IPAddress() string {
+	return l.ipAddress
 }
 
 type fakeFile struct {
