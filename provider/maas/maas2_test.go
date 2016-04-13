@@ -41,6 +41,8 @@ func (suite *maas2Suite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *
 	}
 	testAttrs["maas-server"] = "http://any-old-junk.invalid/"
 	testAttrs["agent-version"] = version.Current.String()
+	testAttrs["maas-agent-name"] = "agent-prefix"
+
 	attrs := coretesting.FakeConfig().Merge(testAttrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -69,6 +71,8 @@ type fakeController struct {
 	filesError               error
 	getFileFilename          string
 	addFileArgs              gomaasapi.AddFileArgs
+	releaseMachinesErrors    []error
+	releaseMachinesArgs      []gomaasapi.ReleaseMachinesArgs
 }
 
 func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
@@ -139,6 +143,16 @@ func (c *fakeController) GetFile(filename string) (gomaasapi.File, error) {
 func (c *fakeController) AddFile(args gomaasapi.AddFileArgs) error {
 	c.addFileArgs = args
 	return c.filesError
+}
+
+func (c *fakeController) ReleaseMachines(args gomaasapi.ReleaseMachinesArgs) error {
+	c.releaseMachinesArgs = append(c.releaseMachinesArgs, args)
+	if len(c.releaseMachinesErrors) == 0 {
+		return nil
+	}
+	err := c.releaseMachinesErrors[0]
+	c.releaseMachinesErrors = c.releaseMachinesErrors[1:]
+	return err
 }
 
 type fakeBootResource struct {
