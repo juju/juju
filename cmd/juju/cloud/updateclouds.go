@@ -186,15 +186,16 @@ func diffCloudDetails(cloudName string, new, old jujucloud.Cloud, diff *changes)
 		diff.addChange(updateChange, attributeScope, cloudName)
 	}
 
-	oldRegions := make(map[string]jujucloud.Region)
-	for _, region := range old.Regions {
-		oldRegions[region.Name] = region
+	createMap := func(regions []jujucloud.Region) map[string]jujucloud.Region {
+		result := make(map[string]jujucloud.Region)
+		for _, region := range regions {
+			result[region.Name] = region
+		}
+		return result
 	}
 
-	newRegions := make(map[string]jujucloud.Region)
-	for _, region := range new.Regions {
-		newRegions[region.Name] = region
-	}
+	oldRegions := createMap(old.Regions)
+	newRegions := createMap(new.Regions)
 
 	formatCloudRegion := func(rName string) string {
 		return fmt.Sprintf("%v/%v", cloudName, rName)
