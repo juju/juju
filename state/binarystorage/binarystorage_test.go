@@ -50,7 +50,7 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.session, err = s.mongo.Dial()
 	c.Assert(err, jc.ErrorIsNil)
-	rs := blobstore.NewGridFS("blobstore", "my-uuid", s.session)
+	rs := blobstore.NewGridFS("blobstore", "blobstore", s.session)
 	catalogue := s.session.DB("catalogue")
 	s.managedStorage = blobstore.NewManagedStorage(catalogue, rs)
 	s.metadataCollection = catalogue.C("binarymetadata")
