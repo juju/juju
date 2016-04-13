@@ -33,14 +33,15 @@ func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Mach
 	return c.machines, nil
 }
 
-func (c *fakeController) AllocateMachine(args gomaasapi.AllocateMachineArgs) (gomaasapi.Machine, error) {
+func (c *fakeController) AllocateMachine(args gomaasapi.AllocateMachineArgs) (gomaasapi.Machine, gomaasapi.ConstraintMatches, error) {
+	matches := gomaasapi.ConstraintMatches{}
 	if c.allocateMachineArgsCheck != nil {
 		c.allocateMachineArgsCheck(args)
 	}
 	if c.allocateMachineError != nil {
-		return nil, c.allocateMachineError
+		return nil, matches, c.allocateMachineError
 	}
-	return c.allocateMachine, nil
+	return c.allocateMachine, matches, nil
 }
 
 func (c *fakeController) BootResources() ([]gomaasapi.BootResource, error) {

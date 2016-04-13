@@ -18,6 +18,41 @@ import (
 	"github.com/juju/juju/instance"
 )
 
+var usageAddUnitSummary = `
+Adds one or more units to a deployed service.`[1:]
+
+var usageAddUnitDetails = `
+Adding units to an existing service is a way to scale out that service. 
+Many charms will seamlessly support horizontal scaling, others may need an
+additional service to facilitate load-balancing (check the individual 
+charm documentation).
+This command is applied to services that have already been deployed.
+By default, services are deployed to newly provisioned machines in
+accordance with any service or model constraints. Alternatively, this 
+command also supports the placement directive ("--to") for targeting
+specific machines or containers, which will bypass any existing
+constraints.
+
+Examples:
+Add five units of wordpress on five new machines:
+
+    juju add-unit wordpress -n 5
+
+Add one unit of mysql to the existing machine 23:
+
+    juju add-unit mysql --to 23
+
+Create a new LXC container on machine 7 and add one unit of mysql:
+
+    juju add-unit mysql --to lxc:7
+
+Add a unit of mariadb to LXC container number 3 on machine 24:
+
+    juju add-unit mariadb --to 24/lxc/3
+
+See also: 
+    remove-unit`[1:]
+
 // UnitCommandBase provides support for commands which deploy units. It handles the parsing
 // and validation of --to and --num-units arguments.
 type UnitCommandBase struct {
@@ -30,7 +65,7 @@ type UnitCommandBase struct {
 
 func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	f.StringVar(&c.PlacementSpec, "to", "", "the machine, container or placement directive to deploy the unit in, bypasses constraints")
+	f.StringVar(&c.PlacementSpec, "to", "", "The machine and/or container to deploy the unit in (bypasses constraints)")
 }
 
 func (c *UnitCommandBase) Init(args []string) error {
@@ -82,35 +117,19 @@ type addUnitCommand struct {
 	api         serviceAddUnitAPI
 }
 
-const addUnitDoc = `
-Adding units to an existing service is a way to scale out a model by
-deploying more instances of a service.  Add-unit must be called on services that
-have already been deployed via juju deploy.
-
-By default, services are deployed to newly provisioned machines.  Alternatively,
-service units can be added to a specific existing machine using the --to
-argument.
-
-Examples:
- juju add-unit mysql -n 5          (Add 5 mysql units on 5 new machines)
- juju add-unit mysql --to 23       (Add a mysql unit to machine 23)
- juju add-unit mysql --to 24/lxc/3 (Add unit to lxc container 3 on host machine 24)
- juju add-unit mysql --to lxc:25   (Add unit to a new lxc container on host machine 25)
-`
-
 func (c *addUnitCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-unit",
 		Args:    "<service name>",
-		Purpose: "add one or more units of an already-deployed service",
-		Doc:     addUnitDoc,
+		Purpose: usageAddUnitSummary,
+		Doc:     usageAddUnitDetails,
 		Aliases: []string{"add-units"},
 	}
 }
 
 func (c *addUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.UnitCommandBase.SetFlags(f)
-	f.IntVar(&c.NumUnits, "n", 1, "number of service units to add")
+	f.IntVar(&c.NumUnits, "n", 1, "Number of units to add")
 }
 
 func (c *addUnitCommand) Init(args []string) error {
