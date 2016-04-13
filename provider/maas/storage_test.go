@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 )
 
-var _ storage.Storage = (*maasStorage)(nil)
+var _ storage.Storage = (*maas1Storage)(nil)
 
 type storageSuite struct {
 	providerSuite
@@ -28,12 +28,12 @@ type storageSuite struct {
 var _ = gc.Suite(&storageSuite{})
 
 // makeStorage creates a MAAS storage object for the running test.
-func (s *storageSuite) makeStorage(name string) *maasStorage {
+func (s *storageSuite) makeStorage(name string) *maas1Storage {
 	maasobj := s.testMAASObject.MAASObject
 	env := s.makeEnviron()
 	env.name = name
 	env.maasClientUnlocked = &maasobj
-	return NewStorage(env).(*maasStorage)
+	return NewStorage(env).(*maas1Storage)
 }
 
 // makeRandomBytes returns an array of arbitrary byte values.
@@ -55,7 +55,7 @@ func (s *storageSuite) fakeStoredFile(stor storage.Storage, name string) gomaasa
 	data := makeRandomBytes(rand.Intn(10))
 	// The filename must be prefixed with the private namespace as we're
 	// bypassing the Put() method that would normally do that.
-	prefixFilename := stor.(*maasStorage).prefixWithPrivateNamespace("") + name
+	prefixFilename := stor.(*maas1Storage).prefixWithPrivateNamespace("") + name
 	return s.testMAASObject.TestServer.NewFile(prefixFilename, data)
 }
 
@@ -229,7 +229,7 @@ func getFileAtURL(fileURL string) ([]byte, error) {
 
 func (s *storageSuite) TestURLReturnsURLCorrespondingToFile(c *gc.C) {
 	const filename = "my-file.txt"
-	stor := NewStorage(s.makeEnviron()).(*maasStorage)
+	stor := NewStorage(s.makeEnviron()).(*maas1Storage)
 	file := s.fakeStoredFile(stor, filename)
 	// The file contains an anon_resource_uri, which lacks a network part
 	// (but will probably contain a query part).  anonURL will be the
@@ -389,7 +389,7 @@ func (s *storageSuite) TestRemoveAllDeletesAllFiles(c *gc.C) {
 
 func (s *storageSuite) TestprefixWithPrivateNamespacePrefixesWithAgentName(c *gc.C) {
 	sstor := NewStorage(s.makeEnviron())
-	stor := sstor.(*maasStorage)
+	stor := sstor.(*maas1Storage)
 	agentName := stor.environ.ecfg().maasAgentName()
 	c.Assert(agentName, gc.Not(gc.Equals), "")
 	expectedPrefix := agentName + "-"
@@ -400,7 +400,7 @@ func (s *storageSuite) TestprefixWithPrivateNamespacePrefixesWithAgentName(c *gc
 
 func (s *storageSuite) TesttprefixWithPrivateNamespaceIgnoresAgentName(c *gc.C) {
 	sstor := NewStorage(s.makeEnviron())
-	stor := sstor.(*maasStorage)
+	stor := sstor.(*maas1Storage)
 	ecfg := stor.environ.ecfg()
 	ecfg.attrs["maas-agent-name"] = ""
 

@@ -412,7 +412,12 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (string, st
 
 	// Prepare the bundle directories.
 	name := charm.Quote(curlString)
-	charmArchivePath := filepath.Join(h.dataDir, "charm-get-cache", name+".zip")
+	charmArchivePath := filepath.Join(
+		h.dataDir,
+		"charm-get-cache",
+		st.ModelUUID(),
+		name+".zip",
+	)
 
 	// Check if the charm archive is already in the cache.
 	if _, err := os.Stat(charmArchivePath); os.IsNotExist(err) {
@@ -447,23 +452,23 @@ func (h *charmsHandler) downloadCharm(st *state.State, curl *charm.URL, charmArc
 	if err != nil {
 		return errors.Annotate(err, "cannot create charm archive temp file")
 	}
-	defer tempCharmArchive.Close()
+	defer cleanupFile(tempCharmArchive)
 
 	// Use the storage to retrieve and save the charm archive.
 	reader, _, err := storage.Get(ch.StoragePath())
 	if err != nil {
-		defer cleanupFile(tempCharmArchive)
 		return errors.Annotate(err, "cannot get charm from model storage")
 	}
 	defer reader.Close()
-
 	if _, err = io.Copy(tempCharmArchive, reader); err != nil {
-		defer cleanupFile(tempCharmArchive)
 		return errors.Annotate(err, "error processing charm archive download")
 	}
 	tempCharmArchive.Close()
+
+	// Note that os.Rename won't fail if the target already exists;
+	// there's no problem if there's concurrent get requests for the
+	// same charm.
 	if err = os.Rename(tempCharmArchive.Name(), charmArchivePath); err != nil {
-		defer cleanupFile(tempCharmArchive)
 		return errors.Annotate(err, "error renaming the charm archive")
 	}
 	return nil
@@ -473,6 +478,8 @@ func (h *charmsHandler) downloadCharm(st *state.State, curl *charm.URL, charmArc
 // If this poses an active problem somewhere else it will be refactored in
 // utils and used everywhere.
 func cleanupFile(file *os.File) {
+	// Errors are ignored because it is ok for this to be called when
+	// the file is already closed or has been moved.
 	file.Close()
 	os.Remove(file.Name())
 }
