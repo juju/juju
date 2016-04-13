@@ -1,10 +1,6 @@
 package paths
 
 import (
-	"os"
-	"os/exec"
-
-	"github.com/juju/errors"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 )
@@ -127,27 +123,4 @@ func MustSucceed(s string, e error) string {
 		panic(e)
 	}
 	return s
-}
-
-var osStat = os.Stat
-var execLookPath = exec.LookPath
-
-// MongorestorePath will look for a mongorestore binary and return it
-// if it exists. It will look first for the juju provided one and if
-// not found make a try at a system installed one.
-func MongorestorePath() (string, error) {
-	// TODO (perrito666) this seems to be a packaging decision we should not
-	// rely on it and we should be aware of /usr/lib/juju if its something
-	// of ours.
-	const mongoRestoreFullPath string = "/usr/lib/juju/bin/mongorestore"
-
-	if _, err := osStat(mongoRestoreFullPath); err == nil {
-		return mongoRestoreFullPath, nil
-	}
-
-	path, err := execLookPath("mongorestore")
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return path, nil
 }

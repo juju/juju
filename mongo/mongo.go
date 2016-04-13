@@ -144,8 +144,9 @@ func NewVersion(v string) (Version, error) {
 		return Version{}, errors.Errorf("Version 2.x does not support Wired Tiger storage engine")
 	}
 
+	// This deserialises the special "Mongo Upgrading" version
 	if version.Major == 0 && version.Minor == 0 {
-		return Version{}, nil
+		return Version{StorageEngine: Upgrading}, nil
 	}
 
 	return version, nil
@@ -313,14 +314,14 @@ func Path(version Version) (string, error) {
 	return mongoPath(version, os.Stat, exec.LookPath)
 }
 
-func mongoPath(version Version, statFunc func(string) (os.FileInfo, error), lookFunc func(string) (string, error)) (string, error) {
+func mongoPath(version Version, stat func(string) (os.FileInfo, error), lookPath func(string) (string, error)) (string, error) {
 	switch version {
 	case Mongo24:
-		if _, err := statFunc(JujuMongod24Path); err == nil {
+		if _, err := stat(JujuMongod24Path); err == nil {
 			return JujuMongod24Path, nil
 		}
 
-		path, err := lookFunc("mongod")
+		path, err := lookPath("mongod")
 		if err != nil {
 			logger.Infof("could not find %v or mongod in $PATH", JujuMongod24Path)
 			return "", err
@@ -329,7 +330,7 @@ func mongoPath(version Version, statFunc func(string) (os.FileInfo, error), look
 	default:
 		path := JujuMongodPath(version)
 		var err error
-		if _, err = statFunc(path); err == nil {
+		if _, err = stat(path); err == nil {
 			return path, nil
 		}
 	}
