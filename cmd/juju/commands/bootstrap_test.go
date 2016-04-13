@@ -491,6 +491,28 @@ func (s *BootstrapSuite) TestRunCloudNameMissing(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "controller name and cloud name are required")
 }
 
+func (s *BootstrapSuite) TestRunCloudNameUnknown(c *gc.C) {
+	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "my-controller", "unknown")
+	c.Check(err, gc.ErrorMatches, `unknown cloud "unknown", please try "juju update-clouds"`)
+}
+
+func (s *BootstrapSuite) TestGetProviderUnknown(c *gc.C) {
+	_, _, _, err := getProvider("unknown")
+	c.Check(err, gc.ErrorMatches, `unknown cloud "unknown", please try "juju update-clouds"`)
+}
+
+func (s *BootstrapSuite) TestGetProviderBuiltInByCloudName(c *gc.C) {
+	_, pType, _, err := getProvider("localhost")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(pType, gc.Equals, "lxd")
+}
+
+func (s *BootstrapSuite) TestGetProviderBuiltInByType(c *gc.C) {
+	_, pType, _, err := getProvider("lxd")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(pType, gc.Equals, "lxd")
+}
+
 func (s *BootstrapSuite) TestCheckProviderProvisional(c *gc.C) {
 	err := checkProviderType("devcontroller")
 	c.Assert(err, jc.ErrorIsNil)

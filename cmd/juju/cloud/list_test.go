@@ -28,13 +28,9 @@ func (s *listSuite) TestListPublic(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := testing.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
-	// Just check a snippet of the output to make sure it looks ok.
+	// Just check couple of snippets of the output to make sure it looks ok.
 	c.Assert(out, gc.Matches, `.*aws-china[ ]*ec2[ ]*cn-north-1.*`)
-	// TODO(wallyworld) - uncomment when we build with go 1.3 or greater
-	// LXD should be there too.
-	//c.Assert(out, gc.Matches, `.*lxd[ ]*lxd[ ]*localhost.*`)
-	// And also manual.
-	c.Assert(out, gc.Matches, `.*manual[ ]*manual[ ].*`)
+	c.Assert(out, gc.Matches, `.*localhost[ ]*lxd[ ]*localhost.*`)
 }
 
 func (s *listSuite) TestListPublicAndPersonal(c *gc.C) {
