@@ -43,7 +43,6 @@ See also:
     grant
     show-user
     list-users
-    switch-user
     disable-user
     enable-user
     change-user-password`[1:]
