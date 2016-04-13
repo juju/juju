@@ -653,3 +653,22 @@ type ProviderSpace struct {
 	Subnets    []Subnet `json:"Subnets"`
 	Error      *Error   `json:"Error,omitempty"`
 }
+
+type ProxyConfig struct {
+	HTTP    string `json:"HTTP"`
+	HTTPS   string `json:"HTTPS"`
+	FTP     string `json:"FTP"`
+	NoProxy string `json:"NoProxy"`
+}
+
+// ProxyConfigResult contains information needed to configure a clients proxy settings
+type ProxyConfigResult struct {
+	ProxySettings    ProxyConfig `json:"ProxySettings"`
+	APTProxySettings ProxyConfig `json:"APTProxySettings"`
+	Error            *Error      `json:"Error,omitempty"`
+}
+
+// ProxyConfigResults contains information needed to configure multiple clients proxy settings
+type ProxyConfigResults struct {
+	Results []ProxyConfigResult `json:"Results"`
+}
