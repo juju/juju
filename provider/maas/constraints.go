@@ -243,7 +243,7 @@ func getBindings(
 		var err error
 		label, index, err = createLabel(index, namesSet)
 		if err != nil {
-			return nil, nil, errors.Errorf("too many conflicting numeric labels, giving up.")
+			return nil, nil, errors.Trace(err)
 		}
 		// Make sure we pick a label that doesn't clash with possible bindings.
 		combinedBindings = append(combinedBindings, interfaceBinding{label, string(space.ProviderId)})
@@ -261,10 +261,9 @@ func getBindings(
 		var err error
 		label, index, err = createLabel(index, namesSet)
 		if err != nil {
-			return nil, nil, errors.Errorf("too many conflicting numeric labels, giving up.")
+			return nil, nil, errors.Trace(err)
 		}
 		negatives = append(negatives, interfaceBinding{label, string(space.ProviderId)})
-		index++
 	}
 	return combinedBindings, negatives, nil
 }
