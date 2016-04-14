@@ -17,29 +17,23 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/machineactions"
-	"github.com/juju/juju/worker/util"
 )
 
 type ManifoldSuite struct {
 	testing.IsolationSuite
-	stubAgentApiManifoldConfig util.AgentApiManifoldConfig
-	context                    dependency.Context
-	fakeAgent                  agent.Agent
-	fakeCaller                 base.APICaller
-	fakeFacade                 machineactions.Facade
-	fakeWorker                 worker.Worker
-	newFacade                  func(machineactions.Facade) func(base.APICaller) machineactions.Facade
-	newWorker                  func(worker.Worker, error) func(machineactions.WorkerConfig) (worker.Worker, error)
+	context    dependency.Context
+	fakeAgent  agent.Agent
+	fakeCaller base.APICaller
+	fakeFacade machineactions.Facade
+	fakeWorker worker.Worker
+	newFacade  func(machineactions.Facade) func(base.APICaller) machineactions.Facade
+	newWorker  func(worker.Worker, error) func(machineactions.WorkerConfig) (worker.Worker, error)
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
-	s.stubAgentApiManifoldConfig = util.AgentApiManifoldConfig{
-		AgentName:     "wut",
-		APICallerName: "exactly",
-	}
 	s.fakeAgent = &fakeAgent{tag: fakeTag}
 	s.fakeCaller = &fakeCaller{}
 
@@ -68,14 +62,16 @@ func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	manifold := machineactions.Manifold(machineactions.ManifoldConfig{
-		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
+		AgentName:     "wut",
+		APICallerName: "exactly",
 	})
 	c.Check(manifold.Inputs, jc.DeepEquals, []string{"wut", "exactly"})
 }
 
 func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
 	manifold := machineactions.Manifold(machineactions.ManifoldConfig{
-		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
+		AgentName:     "wut",
+		APICallerName: "exactly",
 	})
 	context := dt.StubContext(nil, map[string]interface{}{
 		"wut": dependency.ErrMissing,
@@ -88,7 +84,8 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
 
 func (s *ManifoldSuite) TestStartMissingAPI(c *gc.C) {
 	manifold := machineactions.Manifold(machineactions.ManifoldConfig{
-		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
+		AgentName:     "wut",
+		APICallerName: "exactly",
 	})
 	context := dt.StubContext(nil, map[string]interface{}{
 		"wut":     &fakeAgent{},
@@ -102,9 +99,10 @@ func (s *ManifoldSuite) TestStartMissingAPI(c *gc.C) {
 
 func (s *ManifoldSuite) TestStartWorkerError(c *gc.C) {
 	manifold := machineactions.Manifold(machineactions.ManifoldConfig{
-		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
-		NewFacade:              s.newFacade(&fakeFacade{}),
-		NewWorker:              s.newWorker(nil, errors.New("blam")),
+		AgentName:     "wut",
+		APICallerName: "exactly",
+		NewFacade:     s.newFacade(&fakeFacade{}),
+		NewWorker:     s.newWorker(nil, errors.New("blam")),
 	})
 
 	w, err := manifold.Start(s.context)
@@ -115,9 +113,10 @@ func (s *ManifoldSuite) TestStartWorkerError(c *gc.C) {
 func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	fakeWorker := &fakeWorker{}
 	manifold := machineactions.Manifold(machineactions.ManifoldConfig{
-		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
-		NewFacade:              s.newFacade(&fakeFacade{}),
-		NewWorker:              s.newWorker(fakeWorker, nil),
+		AgentName:     "wut",
+		APICallerName: "exactly",
+		NewFacade:     s.newFacade(&fakeFacade{}),
+		NewWorker:     s.newWorker(fakeWorker, nil),
 	})
 
 	w, err := manifold.Start(s.context)
@@ -128,9 +127,10 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 func (s *ManifoldSuite) TestInvalidTag(c *gc.C) {
 	fakeWorker := &fakeWorker{}
 	manifold := machineactions.Manifold(machineactions.ManifoldConfig{
-		AgentApiManifoldConfig: s.stubAgentApiManifoldConfig,
-		NewFacade:              s.newFacade(&fakeFacade{}),
-		NewWorker:              s.newWorker(fakeWorker, nil),
+		AgentName:     "wut",
+		APICallerName: "exactly",
+		NewFacade:     s.newFacade(&fakeFacade{}),
+		NewWorker:     s.newWorker(fakeWorker, nil),
 	})
 	context := dt.StubContext(nil, map[string]interface{}{
 		"wut":     &fakeAgent{tag: fakeTagErr},
