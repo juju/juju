@@ -50,15 +50,16 @@ def wait_for_http(url, timeout=600):
     return req
 
 
-def verify_services(client, expected_services, scheme='http', text=None):
+def verify_services(client, expected_services, scheme='http', text=None,
+                    haproxy_exposed=False):
     status = client.get_status()
-
     if sorted(status.status['services']) != sorted(expected_services):
         raise JujuAssertionError('Unexpected service configuration: {}'.format(
             status.status['services']))
-    if status.status['services']['haproxy']['exposed']:
-        raise JujuAssertionError('haproxy is exposed.')
-    client.juju('expose', ('haproxy',))
+    if not haproxy_exposed:
+        if status.status['services']['haproxy']['exposed']:
+            raise JujuAssertionError('haproxy is exposed.')
+        client.juju('expose', ('haproxy',))
     status = client.get_status()
     if not status.status['services']['haproxy']['exposed']:
         raise JujuAssertionError('haproxy is not exposed.')
