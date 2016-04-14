@@ -70,29 +70,91 @@ func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
 const localPrefix = "local:"
 
 func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
-	details, err := getCloudDetails()
+	details, err := listCloudDetails()
 	if err != nil {
 		return err
 	}
-	return c.out.Write(ctxt, details)
+
+	var output interface{}
+	switch c.out.Name() {
+	case "yaml", "json":
+		output = details.all()
+	default:
+		output = details
+	}
+	err = c.out.Write(ctxt, output)
+	if err != nil {
+		return err
+	}
+
+	// If there is no cloud of type maas, show user message.
+	if !details.hasMAASTypeCloud() {
+		fmt.Fprintln(ctxt.Stderr, "No maas clouds configured.")
+	}
+	fmt.Fprintln(ctxt.Stderr, "Unsupported cloud types can still be used with the manual provider.")
+	return nil
 }
 
-func getCloudDetails() (map[string]*cloudDetails, error) {
+type cloudList struct {
+	public   map[string]*cloudDetails
+	builtin  map[string]*cloudDetails
+	personal map[string]*cloudDetails
+}
+
+func newCloudList() *cloudList {
+	return &cloudList{
+		make(map[string]*cloudDetails),
+		make(map[string]*cloudDetails),
+		make(map[string]*cloudDetails),
+	}
+}
+
+func (c *cloudList) all() map[string]*cloudDetails {
+	if len(c.personal) == 0 && len(c.builtin) == 0 && len(c.personal) == 0 {
+		return nil
+	}
+
+	result := make(map[string]*cloudDetails)
+	addAll := func(someClouds map[string]*cloudDetails) {
+		for name, cloud := range someClouds {
+			result[name] = cloud
+		}
+	}
+
+	addAll(c.public)
+	addAll(c.builtin)
+	addAll(c.personal)
+	return result
+}
+
+func (c *cloudList) hasMAASTypeCloud() bool {
+	findType := func(someClouds map[string]*cloudDetails) bool {
+		for _, aCloud := range someClouds {
+			if strings.EqualFold(aCloud.CloudType, "maas") {
+				return true
+			}
+		}
+		return false
+	}
+	return findType(c.public) || findType(c.builtin) || findType(c.personal)
+}
+
+func listCloudDetails() (*cloudList, error) {
 	clouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
 		return nil, err
 	}
-	details := make(map[string]*cloudDetails)
+	details := newCloudList()
 	for name, cloud := range clouds {
 		cloudDetails := makeCloudDetails(cloud)
-		details[name] = cloudDetails
+		details.public[name] = cloudDetails
 	}
 
 	// Add in built in clouds like localhost (lxd).
 	for name, cloud := range common.BuiltInClouds() {
 		cloudDetails := makeCloudDetails(cloud)
 		cloudDetails.Source = "built-in"
-		details[name] = cloudDetails
+		details.builtin[name] = cloudDetails
 	}
 
 	personalClouds, err := jujucloud.PersonalCloudMetadata()
@@ -103,38 +165,18 @@ func getCloudDetails() (map[string]*cloudDetails, error) {
 		// Add to result with "local:" prefix.
 		cloudDetails := makeCloudDetails(cloud)
 		cloudDetails.Source = "local"
-		details[localPrefix+name] = cloudDetails
+		details.personal[localPrefix+name] = cloudDetails
 	}
+
 	return details, nil
-}
-
-// Public clouds sorted first, then personal ie has a prefix of "local:".
-type cloudSourceOrder []string
-
-func (a cloudSourceOrder) Len() int      { return len(a) }
-func (a cloudSourceOrder) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a cloudSourceOrder) Less(i, j int) bool {
-	isLeftLocal := strings.HasPrefix(a[i], localPrefix)
-	isRightLocal := strings.HasPrefix(a[j], localPrefix)
-	if isLeftLocal == isRightLocal {
-		return a[i] < a[j]
-	}
-	return isRightLocal
 }
 
 // formatCloudsTabular returns a tabular summary of cloud information.
 func formatCloudsTabular(value interface{}) ([]byte, error) {
-	clouds, ok := value.(map[string]*cloudDetails)
+	clouds, ok := value.(*cloudList)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", clouds, value)
 	}
-
-	// For tabular we'll sort alphabetically, user clouds last.
-	var cloudNames []string
-	for name, _ := range clouds {
-		cloudNames = append(cloudNames, name)
-	}
-	sort.Sort(cloudSourceOrder(cloudNames))
 
 	var out bytes.Buffer
 	const (
@@ -151,27 +193,45 @@ func formatCloudsTabular(value interface{}) ([]byte, error) {
 		fmt.Fprintln(tw, text)
 	}
 	p("CLOUD\tTYPE\tREGIONS")
-	for _, name := range cloudNames {
-		info := clouds[name]
-		var regions []string
-		for _, region := range info.Regions {
-			regions = append(regions, fmt.Sprint(region.Key))
-		}
-		// TODO(wallyworld) - we should be smarter about handling
-		// long region text, for now we'll display the first 7 as
-		// that covers all clouds except AWS and Azure and will
-		// prevent wrapping on a reasonable terminal width.
-		regionCount := len(regions)
-		if regionCount > 7 {
-			regionCount = 7
-		}
-		regionText := strings.Join(regions[:regionCount], ", ")
-		if len(regions) > 7 {
-			regionText = regionText + " ..."
-		}
-		p(name, info.CloudType, regionText)
-	}
-	tw.Flush()
 
+	cloudNamesSorted := func(someClouds map[string]*cloudDetails) []string {
+		// For tabular we'll sort alphabetically, user clouds last.
+		var names []string
+		for name, _ := range someClouds {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		return names
+	}
+
+	printClouds := func(someClouds map[string]*cloudDetails) {
+		cloudNames := cloudNamesSorted(someClouds)
+
+		for _, name := range cloudNames {
+			info := someClouds[name]
+			var regions []string
+			for _, region := range info.Regions {
+				regions = append(regions, fmt.Sprint(region.Key))
+			}
+			// TODO(wallyworld) - we should be smarter about handling
+			// long region text, for now we'll display the first 7 as
+			// that covers all clouds except AWS and Azure and will
+			// prevent wrapping on a reasonable terminal width.
+			regionCount := len(regions)
+			if regionCount > 7 {
+				regionCount = 7
+			}
+			regionText := strings.Join(regions[:regionCount], ", ")
+			if len(regions) > 7 {
+				regionText = regionText + " ..."
+			}
+			p(name, info.CloudType, regionText)
+		}
+	}
+	printClouds(clouds.public)
+	printClouds(clouds.builtin)
+	printClouds(clouds.personal)
+
+	tw.Flush()
 	return out.Bytes(), nil
 }

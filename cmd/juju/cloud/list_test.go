@@ -55,7 +55,7 @@ clouds:
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
 	// local: clouds are last.
-	c.Assert(out, gc.Matches, `.*local\:homestack[ ]*openstack[ ]*london$`)
+	c.Assert(out, jc.Contains, `local:homestack  openstack   london`)
 }
 
 func (s *listSuite) TestListYAML(c *gc.C) {
