@@ -75,19 +75,6 @@ type ActionsByReceiver struct {
 	Error    *Error         `json:"error,omitempty"`
 }
 
-// ActionsQueryResults holds a slice of responses from the Actions
-// query.
-type ActionsQueryResults struct {
-	Results []ActionsQueryResult `json:"results,omitempty"`
-}
-
-// ActionsQueryResult holds the name and parameters of an query result.
-type ActionsQueryResult struct {
-	Receiver string       `json:"receiver,omitempty"`
-	Action   ActionResult `json:"action,omitempty"`
-	Error    *Error       `json:"error,omitempty"`
-}
-
 // ActionExecutionResults holds a slice of ActionExecutionResult for a
 // bulk action API call
 type ActionExecutionResults struct {

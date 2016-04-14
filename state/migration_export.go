@@ -439,6 +439,7 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 		Series:               service.doc.Series,
 		Subordinate:          service.doc.Subordinate,
 		CharmURL:             service.doc.CharmURL.String(),
+		Channel:              service.doc.Channel,
 		CharmModifiedVersion: service.doc.CharmModifiedVersion,
 		ForceCharm:           service.doc.ForceCharm,
 		Exposed:              service.doc.Exposed,

@@ -19,22 +19,66 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
-type providerSuite struct {
+const maas2VersionResponse = `{"version": "unknown", "subversion": "", "capabilities": ["networks-management", "static-ipaddresses", "ipv6-deployment-ubuntu", "devices-management", "storage-deployment-ubuntu", "network-deployment-ubuntu"]}`
+
+type baseProviderSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
-	testMAASObject *gomaasapi.TestMAASObject
 }
 
-var _ = gc.Suite(&providerSuite{})
+func (suite *baseProviderSuite) setupFakeTools(c *gc.C) {
+	suite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	storageDir := c.MkDir()
+	suite.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
+	suite.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
+}
+
+func (s *baseProviderSuite) SetUpSuite(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
+	restoreTimeouts := envtesting.PatchAttemptStrategies(&shortAttempt)
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	s.AddCleanup(func(*gc.C) {
+		restoreFinishBootstrap()
+		restoreTimeouts()
+	})
+	s.PatchValue(&nodeDeploymentTimeout, func(*maasEnviron) time.Duration {
+		return coretesting.ShortWait
+	})
+}
+
+func (s *baseProviderSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	s.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
+	s.SetFeatureFlags(feature.AddressAllocation)
+}
+
+func (s *baseProviderSuite) TearDownTest(c *gc.C) {
+	s.ToolsFixture.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
+}
+
+func (s *baseProviderSuite) TearDownSuite(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
+}
+
+type providerSuite struct {
+	baseProviderSuite
+	testMAASObject *gomaasapi.TestMAASObject
+}
 
 func spaceJSON(space gomaasapi.CreateSpace) *bytes.Buffer {
 	var out bytes.Buffer
@@ -45,51 +89,36 @@ func spaceJSON(space gomaasapi.CreateSpace) *bytes.Buffer {
 	return &out
 }
 
+const exampleAgentName = "dfb69555-0bc4-4d1f-85f2-4ee390974984"
+
 func (s *providerSuite) SetUpSuite(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
-	restoreTimeouts := envtesting.PatchAttemptStrategies(&shortAttempt)
-	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
-	s.testMAASObject = TestMAASObject
-	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddCleanup(func(*gc.C) {
-		restoreFinishBootstrap()
-		restoreTimeouts()
-	})
-	s.PatchValue(&nodeDeploymentTimeout, func(*maasEnviron) time.Duration {
-		return coretesting.ShortWait
-	})
-	s.PatchValue(&resolveHostnames, func(addrs []network.Address) []network.Address {
-		return addrs
-	})
+	s.baseProviderSuite.SetUpSuite(c)
+	s.testMAASObject = gomaasapi.NewTestMAAS("1.0")
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.ToolsFixture.SetUpTest(c)
-	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
+	s.baseProviderSuite.SetUpTest(c)
 	mockCapabilities := func(client *gomaasapi.MAASObject) (set.Strings, error) {
 		return set.NewStrings("network-deployment-ubuntu"), nil
 	}
+	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+		return nil, gomaasapi.NewUnsupportedVersionError("oops")
+	}
 	s.PatchValue(&GetCapabilities, mockCapabilities)
-	s.SetFeatureFlags(feature.AddressAllocation)
+	s.PatchValue(&GetMAAS2Controller, mockGetController)
 	// Creating a space ensures that the spaces endpoint won't 404.
 	s.testMAASObject.TestServer.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-0"}))
 }
 
 func (s *providerSuite) TearDownTest(c *gc.C) {
+	s.baseProviderSuite.TearDownTest(c)
 	s.testMAASObject.TestServer.Clear()
-	s.ToolsFixture.TearDownTest(c)
-	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func (s *providerSuite) TearDownSuite(c *gc.C) {
+	s.baseProviderSuite.TearDownSuite(c)
 	s.testMAASObject.Close()
-	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
-
-const exampleAgentName = "dfb69555-0bc4-4d1f-85f2-4ee390974984"
 
 var maasEnvAttrs = coretesting.Attrs{
 	"name":            "test env",
@@ -117,25 +146,19 @@ func (suite *providerSuite) makeEnviron() *maasEnviron {
 	return env
 }
 
-func (suite *providerSuite) setupFakeTools(c *gc.C) {
-	storageDir := c.MkDir()
-	suite.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
-	suite.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
-}
-
 func (suite *providerSuite) addNode(jsonText string) instance.Id {
 	node := suite.testMAASObject.TestServer.NewNode(jsonText)
 	resourceURI, _ := node.GetField("resource_uri")
 	return instance.Id(resourceURI)
 }
 
-func (suite *providerSuite) getInstance(systemId string) *maasInstance {
+func (suite *providerSuite) getInstance(systemId string) *maas1Instance {
 	input := fmt.Sprintf(`{"system_id": %q}`, systemId)
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	statusGetter := func(instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
-	return &maasInstance{&node, nil, statusGetter}
+	return &maas1Instance{&node, nil, statusGetter}
 }
 
 func (suite *providerSuite) getNetwork(name string, id int, vlanTag int) *gomaasapi.MAASObject {

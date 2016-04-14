@@ -756,6 +756,15 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 	)
 }
 
+func (s *UpgradeJujuSuite) TestDisallowUploadToolsForNonAdminModels(c *gc.C) {
+	cmd := &upgradeJujuCommand{}
+	err := coretesting.InitCommand(modelcmd.Wrap(cmd), []string{"--upload-tools", "-m", "default"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = modelcmd.Wrap(cmd).Run(coretesting.Context(c))
+	c.Check(err, gc.ErrorMatches, "--upload-tools can only be used with the admin model")
+}
+
 func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
 	fakeAPI.setVersionErr = common.OperationBlockedError("the operation has been blocked")

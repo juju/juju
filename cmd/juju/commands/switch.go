@@ -35,24 +35,36 @@ type switchCommand struct {
 	Target string
 }
 
-var switchDoc = `
-Switch to the specified model or controller.
+var usageSummary = `
+Selects or identifies the current controller and model.`[1:]
 
-If the name identifies a controller, the client will switch to the
-active model for that controller. Otherwise, the name must specify
-either the name of a model within the active controller, or a
-fully-qualified model with the format "controller:model".
+var usageDetails = `
+When used without an argument, the command shows the current controller 
+and its active model. 
+When switching by controller name alone, the model
+you get is the active model for that controller. If you want a different
+model then you must switch using controller:model notation or switch to 
+the controller and then to the model. 
+The `[1:] + "`juju list-models`" + ` command can be used to determine the active model
+(of any controller). An asterisk denotes it.
 
-To list the available controllers or models, you can use the
-list-controllers and list-models commands respectively.
-`
+Examples:
+    juju switch
+    juju switch mymodel
+    juju switch mycontroller
+    juju switch mycontroller:mymodel
+
+See also: 
+    list-controllers
+    list-models
+    show-controller`
 
 func (c *switchCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "switch",
 		Args:    "[<controller>|<model>|<controller>:<model>]",
-		Purpose: "change the active Juju model",
-		Doc:     switchDoc,
+		Purpose: usageSummary,
+		Doc:     usageDetails,
 	}
 }
 

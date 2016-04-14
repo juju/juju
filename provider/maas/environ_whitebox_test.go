@@ -28,12 +28,10 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -72,13 +70,6 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 		panic(err)
 	}
 	return ecfg.Config
-}
-
-func (suite *environSuite) setupFakeTools(c *gc.C) {
-	suite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-	storageDir := c.MkDir()
-	suite.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
-	suite.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
 }
 
 func (suite *environSuite) addNode(jsonText string) instance.Id {
@@ -151,7 +142,7 @@ func (suite *environSuite) TestStorageReturnsStorage(c *gc.C) {
 	stor := env.Storage()
 	c.Check(stor, gc.NotNil)
 	// The Storage object is really a maasStorage.
-	specificStorage := stor.(*maasStorage)
+	specificStorage := stor.(*maas1Storage)
 	// Its environment pointer refers back to its environment.
 	c.Check(specificStorage.environ, gc.Equals, env)
 }
@@ -270,14 +261,14 @@ var testNetworkValues = []struct {
 	},
 }
 
-func (suite *environSuite) getInstance(systemId string) *maasInstance {
+func (suite *environSuite) getInstance(systemId string) *maas1Instance {
 	input := fmt.Sprintf(`{"system_id": %q}`, systemId)
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	statusGetter := func(instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
 
-	return &maasInstance{&node, nil, statusGetter}
+	return &maas1Instance{&node, nil, statusGetter}
 }
 
 func (suite *environSuite) newNetwork(name string, id int, vlanTag int, defaultGateway string) *gomaasapi.MAASObject {
@@ -1131,7 +1122,7 @@ func (s *environSuite) TestStartInstanceAvailZone(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("test-available", "description")
 	inst, err := s.testStartInstanceAvailZone(c, "test-available")
 	c.Assert(err, jc.ErrorIsNil)
-	zone, err := inst.(*maasInstance).zone()
+	zone, err := inst.(maasInstance).zone()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zone, gc.Equals, "test-available")
 }
@@ -1400,7 +1391,7 @@ func (s *environSuite) TestStartInstanceDistribution(c *gc.C) {
 	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "test-available"})
 	s.addSubnet(c, 1, 1, "node1")
 	inst, _ := testing.AssertStartInstance(c, env, "1")
-	zone, err := inst.(*maasInstance).zone()
+	zone, err := inst.(*maas1Instance).zone()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zone, gc.Equals, "test-available")
 }
@@ -1423,7 +1414,7 @@ func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
 
 	env := s.bootstrap(c)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
-	zone, err := inst.(*maasInstance).zone()
+	zone, err := inst.(maasInstance).zone()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zone, gc.Equals, "zone2")
 	c.Assert(s.testMAASObject.TestServer.NodesOperations(), gc.DeepEquals, []string{

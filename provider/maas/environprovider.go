@@ -105,8 +105,12 @@ func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, 
 
 func verifyCredentials(env *maasEnviron) error {
 	// Verify we can connect to the server and authenticate.
+	if env.usingMAAS2() {
+		// The maas2 controller verifies credentials at creation time.
+		return nil
+	}
 	_, err := env.getMAASClient().GetSubObject("maas").CallGet("get_config", nil)
-	if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusUnauthorized {
+	if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusUnauthorized {
 		logger.Debugf("authentication failed: %v", err)
 		return errors.New(`authentication failed.
 

@@ -8,18 +8,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func init() {
-	common.RegisterStandardFacade("ProxyUpdater", 1, NewProxyUpdaterAPI)
-}
-
-// ProxyUpdaterAPI implements the API used by the proxy updater worker.
-type ProxyUpdaterAPI struct {
-	*common.ModelWatcher
-}
-
-// NewProxyUpdaterAPI creates a new instance of the ProxyUpdater API.
-func NewProxyUpdaterAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ProxyUpdaterAPI, error) {
-	return &ProxyUpdaterAPI{
-		ModelWatcher: common.NewModelWatcher(st, resources, authorizer),
-	}, nil
+// NewAPI creates a new API server-side facade with a state.State backing.
+func NewAPI(st *state.State, res *common.Resources, auth common.Authorizer) (*ProxyUpdaterAPI, error) {
+	return NewAPIWithBacking(&stateShim{st: st}, res, auth)
 }

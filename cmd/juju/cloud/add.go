@@ -11,6 +11,31 @@ import (
 	"github.com/juju/juju/cloud"
 )
 
+var usageAddCloudSummary = `
+Adds a user-defined cloud to Juju from among known cloud types.`[1:]
+
+var usageAddCloudDetails = `
+A cloud definition file has the following YAML format:
+
+clouds:
+  mycloud:
+    type: openstack
+    auth-types: [ userpass ]
+    regions:
+      london:
+        endpoint: https://london.mycloud.com:35574/v3.0/
+
+If the named cloud already exists, the `[1:] + "`--replace`" + ` option is required to 
+overwrite its configuration.
+Known cloud types: azure, cloudsigma, ec2, gce, joyent, lxd, maas, manual,
+openstack, rackspace
+
+Examples:
+    juju add-cloud mycloud ~/mycloud.yaml
+
+See also: 
+    list-clouds`
+
 type addCloudCommand struct {
 	cmd.CommandBase
 
@@ -24,29 +49,6 @@ type addCloudCommand struct {
 	CloudFile string
 }
 
-var addCloudDoc = `
-The add-cloud command adds a new local definition for a cloud on which Juju workloads can be deployed.
-The available clouds will be the publicly available clouds like AWS, Google, Azure,
-as well as any custom clouds make available by this add-cloud command.
-
-The user is required to specify the name of the cloud to add and a YAML file containing clould definitions.
-A sample YAML snippet is:
-
-clouds:
-  homestack:
-    type: openstack
-    auth-types: [ userpass ]
-    regions:
-      london:
-        endpoint: https://london.homestack.com:35574/v3.0/
-
-If the named cloud already exists, the --replace option is required to overwite it. There is no merge option.
-
-Example:
-   juju add-cloud homestack personal-clouds.yaml
-   juju add-cloud homestack personal-clouds.yaml --replace
-`
-
 // NewAddCloudCommand returns a command to add cloud information.
 func NewAddCloudCommand() cmd.Command {
 	return &addCloudCommand{}
@@ -55,19 +57,19 @@ func NewAddCloudCommand() cmd.Command {
 func (c *addCloudCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-cloud",
-		Purpose: "adds a named cloud definition to the list of those which can run Juju workloads",
-		Doc:     addCloudDoc,
-		Args:    "<cloud-name> <cloud.yaml>",
+		Args:    "<cloud name> <cloud definition file>",
+		Purpose: usageAddCloudSummary,
+		Doc:     usageAddCloudDetails,
 	}
 }
 
 func (c *addCloudCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Replace, "replace", false, "overwrite any existing cloud information")
+	f.BoolVar(&c.Replace, "replace", false, "Overwrite any existing cloud information")
 }
 
 func (c *addCloudCommand) Init(args []string) (err error) {
 	if len(args) < 2 {
-		return errors.New("Usage: juju add-cloud <cloud-name> <cloud.yaml>")
+		return errors.New("Usage: juju add-cloud <cloud name> <cloud definition file>")
 	}
 	c.Cloud = args[0]
 	c.CloudFile = args[1]

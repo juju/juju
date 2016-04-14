@@ -10,4 +10,5 @@ var (
 	ClientGUIArchives      = &clientGUIArchives
 	ClientSelectGUIVersion = &clientSelectGUIVersion
 	ClientUploadGUIArchive = &clientUploadGUIArchive
+	GUIFetchMetadata       = &guiFetchMetadata
 )

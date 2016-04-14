@@ -1391,7 +1391,7 @@ func allDefaults() schema.Defaults {
 		"bootstrap-timeout":          DefaultBootstrapSSHTimeout,
 		"bootstrap-retry-delay":      DefaultBootstrapSSHRetryDelay,
 		"bootstrap-addresses-delay":  DefaultBootstrapSSHAddressesDelay,
-		"proxy-ssh":                  true,
+		"proxy-ssh":                  false,
 		"prefer-ipv6":                false,
 		"disable-network-management": false,
 		IgnoreMachineAddresses:       false,

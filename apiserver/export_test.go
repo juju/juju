@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -40,7 +39,7 @@ func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
 	return auth.(*authentication.ExternalMacaroonAuthenticator).Macaroon, nil
 }
 
-func ServerBakeryService(srv *Server) (*bakery.Service, error) {
+func ServerBakeryService(srv *Server) (authentication.BakeryService, error) {
 	auth, err := srv.authCtxt.macaroonAuth()
 	if err != nil {
 		return nil, err

@@ -5,6 +5,8 @@ package state
 
 import (
 	"gopkg.in/mgo.v2"
+
+	"github.com/juju/juju/state/bakerystorage"
 )
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -98,6 +100,11 @@ func allCollections() collectionSchema {
 		// Life and its UUID.
 		modelsC: {global: true},
 
+		// This collection holds references to entities owned by a
+		// model. We use this to determine whether or not we can safely
+		// destroy empty models.
+		modelEntityRefsC: {global: true},
+
 		// This collection is holds the parameters for model migrations.
 		migrationsC: {
 			global: true,
@@ -152,6 +159,12 @@ func allCollections() collectionSchema {
 		// This collection was deprecated before multi-model support
 		// was implemented.
 		actionresultsC: {global: true},
+
+		// This collection holds storage items for a macaroon bakery.
+		bakeryStorageItemsC: {
+			global:  true,
+			indexes: bakerystorage.MongoIndexes(),
+		},
 
 		// -----------------
 
@@ -399,6 +412,7 @@ const (
 	actionsC                 = "actions"
 	annotationsC             = "annotations"
 	assignUnitC              = "assignUnits"
+	bakeryStorageItemsC      = "bakeryStorageItems"
 	blockDevicesC            = "blockdevices"
 	blocksC                  = "blocks"
 	charmsC                  = "charms"
@@ -426,6 +440,7 @@ const (
 	modelUserLastConnectionC = "modelUserLastConnection"
 	modelUsersC              = "modelusers"
 	modelsC                  = "models"
+	modelEntityRefsC         = "modelEntityRefs"
 	networkInterfacesC       = "networkinterfaces"
 	networksC                = "networks"
 	openedPortsC             = "openedPorts"

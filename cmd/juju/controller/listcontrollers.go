@@ -15,6 +15,21 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
+var helpControllersSummary = `
+Lists all controllers.`[1:]
+
+var helpControllersDetails = `
+The output format may be selected with the '--format' option. In the
+default tabular output, the current controller is marked with an asterisk.
+
+Examples:
+    juju list-controllers
+    juju list-controllers --format json --output ~/tmp/controllers.json
+
+See also:
+    list-models
+    show-controller`[1:]
+
 // NewListControllersCommand returns a command to list registered controllers.
 func NewListControllersCommand() cmd.Command {
 	cmd := &listControllersCommand{
@@ -27,8 +42,8 @@ func NewListControllersCommand() cmd.Command {
 func (c *listControllersCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-controllers",
-		Purpose: "list all registered controllers",
-		Doc:     listControllersDoc,
+		Purpose: helpControllersSummary,
+		Doc:     helpControllersDetails,
 	}
 }
 
@@ -75,21 +90,3 @@ type listControllersCommand struct {
 	out   cmd.Output
 	store jujuclient.ClientStore
 }
-
-const listControllersDoc = `
-A controller refers to a Juju Controller that runs and manages the Juju API
-server and the underlying database used by Juju. A controller may host
-multiple models.
-
-options:
--o, --output (= "")
-   specify an output file
---format (= tabular)
-   specify output format (json|tabular|yaml)
-
-See Also:
-    juju help controllers
-    juju help list-models
-    juju help create-model
-    juju help use-model
-`

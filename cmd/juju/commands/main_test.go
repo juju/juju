@@ -22,7 +22,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
@@ -67,26 +66,6 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code    int
 		out     string
 	}{{
-		summary: "no params shows help",
-		args:    []string{},
-		code:    0,
-		out:     strings.TrimLeft(helptopics.Basics, "\n"),
-	}, {
-		summary: "juju help is the same as juju",
-		args:    []string{"help"},
-		code:    0,
-		out:     strings.TrimLeft(helptopics.Basics, "\n"),
-	}, {
-		summary: "juju --help works too",
-		args:    []string{"--help"},
-		code:    0,
-		out:     strings.TrimLeft(helptopics.Basics, "\n"),
-	}, {
-		summary: "juju help basics is the same as juju",
-		args:    []string{"help", "basics"},
-		code:    0,
-		out:     strings.TrimLeft(helptopics.Basics, "\n"),
-	}, {
 		summary: "juju help foo doesn't exist",
 		args:    []string{"help", "foo"},
 		code:    1,
@@ -194,7 +173,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 }
 
 var commandNames = []string{
-	"action",
+	"actions",
 	"add-cloud",
 	"add-credential",
 	"add-machine",
@@ -390,45 +369,6 @@ func setFeatureFlags(flags string) {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
-var topicNames = []string{
-	"azure-provider",
-	"basics",
-	"commands",
-	"constraints",
-	"controllers",
-	"ec2-provider",
-	"global-options",
-	"glossary",
-	"hpcloud-provider",
-	"juju",
-	"logging",
-	"maas-provider",
-	"openstack-provider",
-	"placement",
-	"plugins",
-	"spaces",
-	"topics",
-	"users",
-}
-
-func (s *MainSuite) TestHelpTopics(c *gc.C) {
-	// Check that we have correctly registered all the topics
-	// by checking the help output.
-	defer osenv.SetJujuXDGDataHome(osenv.SetJujuXDGDataHome(c.MkDir()))
-	out := badrun(c, 0, "help", "topics")
-	lines := strings.Split(out, "\n")
-	var names []string
-	for _, line := range lines {
-		f := strings.Fields(line)
-		if len(f) == 0 {
-			continue
-		}
-		names = append(names, f[0])
-	}
-	// The names should be output in alphabetical order, so don't sort.
-	c.Assert(names, gc.DeepEquals, topicNames)
-}
-
 var globalFlags = []string{
 	"--debug .*",
 	"--description .*",
@@ -520,8 +460,7 @@ func (s *MainSuite) TestModelCommands(c *gc.C) {
 
 func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
 	// Verify each command that:
-	// - the Purpose field is not empty and begins with a lowercase
-	// letter, and,
+	// - the Purpose field is not empty
 	// - if set, the Doc field either begins with the name of the
 	// command or and uppercase letter.
 	//
@@ -542,12 +481,9 @@ func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
 		}
 
 		c.Check(purpose, gc.Not(gc.Equals), "", comment("has empty Purpose"))
-		if purpose != "" {
-			prefix := string(purpose[0])
-			c.Check(prefix, gc.Equals, strings.ToLower(prefix),
-				comment("expected lowercase first-letter Purpose"),
-			)
-		}
+		// TODO (cherylj) Add back in the check for capitalization of
+		// purpose, but check for upper case.  This requires all commands
+		// to have been updated first.
 		if doc != "" && !strings.HasPrefix(doc, info.Name) {
 			prefix := string(doc[0])
 			c.Check(prefix, gc.Equals, strings.ToUpper(prefix),

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -22,6 +23,7 @@ type DeployServiceParams struct {
 	Series         string
 	ServiceOwner   string
 	Charm          *state.Charm
+	Channel        csparams.Channel
 	ConfigSettings charm.Settings
 	Constraints    constraints.Value
 	NumUnits       int
@@ -77,6 +79,7 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 		Series:           args.Series,
 		Owner:            args.ServiceOwner,
 		Charm:            args.Charm,
+		Channel:          args.Channel,
 		Networks:         args.Networks,
 		Storage:          stateStorageConstraints(args.Storage),
 		Settings:         settings,
