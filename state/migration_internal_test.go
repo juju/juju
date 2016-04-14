@@ -74,6 +74,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Not exported, but the tools will possibly need to be either bundled
 		// with the representation or sent separately.
 		toolsmetadataC,
+		// Bakery storage items are non-critical. We store root keys for
+		// temporary credentials in there; after migration you'll just have
+		// to log back in.
+		bakeryStorageItemsC,
 		// Transaction stuff.
 		"txns",
 		"txns.log",
@@ -95,6 +99,11 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// This is a transitory collection of units that need to be assigned
 		// to machines.
 		assignUnitC,
+
+		// The model entity references collection will be repopulated
+		// after importing the model. It does not need to be migrated
+		// separately.
+		modelEntityRefsC,
 
 		// This has been deprecated in 2.0, and should not contain any data
 		// we actually care about migrating.
@@ -160,8 +169,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 }
 
 func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
-	ignored := set.NewStrings(
-		// UUID and Mame are constructed from the model config.
+	fields := set.NewStrings(
+		// UUID and Name are constructed from the model config.
 		"UUID",
 		"Name",
 		// Life will always be alive, or we won't be migrating.
@@ -173,13 +182,12 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		// is alive.
 		"TimeOfDying",
 		"TimeOfDeath",
+
 		"MigrationMode",
-	)
-	migrated := set.NewStrings(
 		"Owner",
 		"LatestAvailableTools",
 	)
-	s.AssertExportedFields(c, modelDoc{}, migrated.Union(ignored))
+	s.AssertExportedFields(c, modelDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestEnvUserDocFields(c *gc.C) {
@@ -234,6 +242,7 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"Placement",
 		"PreferredPrivateAddress",
 		"PreferredPublicAddress",
+		"Principals",
 		"Series",
 		"SupportedContainers",
 		"SupportedContainersKnown",
@@ -244,7 +253,6 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"StopMongoUntilVersion",
 	)
 	todo := set.NewStrings(
-		"Principals",
 		"Volumes",
 		"NoVote",
 		"Clean",
@@ -300,6 +308,7 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 		"Series",
 		"Subordinate",
 		"CharmURL",
+		"Channel",
 		"CharmModifiedVersion",
 		"ForceCharm",
 		"Exposed",
@@ -330,7 +339,7 @@ func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
 		"ModelUUID",
 		// Service is implicit in the migration structure through containment.
 		"Service",
-		// Series and CharmURL also come from the service.
+		// Series, CharmURL, and Channel also come from the service.
 		"Series",
 		"CharmURL",
 		"Principal",

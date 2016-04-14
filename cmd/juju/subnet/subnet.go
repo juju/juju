@@ -81,9 +81,7 @@ by the subnet's Classless Inter-Domain Routing (CIDR) range, like
 identified uniquely by their provider-specific identifier
 (ProviderId), if the provider supports that. Subnets have two kinds of
 supported access: "public" (using shadow addresses) or "private"
-(using cloud-local addresses, this is the default). For more
-information about subnets and shadow addresses, please refer to Juju's
-glossary help topics ("juju help glossary"). `
+(using cloud-local addresses, this is the default).`
 
 // NewSuperCommand creates the "subnet" supercommand and registers the
 // subcommands that it supports.

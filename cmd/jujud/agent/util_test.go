@@ -24,27 +24,45 @@ var (
 	// the model Dead via the undertaker, so it can't be waited for
 	// reliably.
 	alwaysModelWorkers = []string{
-		"agent", "clock", "api-config-watcher", "api-caller",
-		"is-responsible-flag", "not-alive-flag", "not-dead-flag",
 		// Note that environ-tracker is not in here: it depends
 		// on model responsibility, so it's excluded here and
 		// included individually in the other *ModelWorkers
 		// lists (which themselves assume model responsibility).
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"clock",
+		"is-responsible-flag",
+		"not-alive-flag",
+		"not-dead-flag",
+		"spaces-imported-gate",
 	}
 	aliveModelWorkers = []string{
-		"environ-tracker", "space-importer", "compute-provisioner",
-		"storage-provisioner", "firewaller", "unit-assigner",
-		"service-scaler", "instance-poller", "charm-revision-updater",
-		"metric-worker", "state-cleaner", "status-history-pruner",
-		"migration-master", "migration-fortress",
+		"charm-revision-updater",
+		"compute-provisioner",
+		"environ-tracker",
+		"firewaller",
+		"instance-poller",
+		"metric-worker",
+		"migration-fortress",
 		"migration-inactive-flag",
+		"migration-master",
+		"service-scaler",
+		"space-importer",
+		"state-cleaner",
+		"status-history-pruner",
+		"storage-provisioner",
+		"unit-assigner",
 	}
 	migratingModelWorkers = []string{
-		"environ-tracker", "migration-master", "migration-fortress",
+		"environ-tracker",
+		"migration-fortress",
 		"migration-inactive-flag",
+		"migration-master",
 	}
 	deadModelWorkers = []string{
-		"environ-tracker", "undertaker",
+		"environ-tracker",
+		"undertaker",
 	}
 
 	// ReallyLongWait should be long enough for the model-tracker

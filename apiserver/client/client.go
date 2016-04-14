@@ -482,9 +482,10 @@ func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult,
 	return c.api.toolsFinder.FindTools(args)
 }
 
-func (c *Client) AddCharm(args params.CharmURL) error {
+func (c *Client) AddCharm(args params.AddCharm) error {
 	return service.AddCharmWithAuthorization(c.api.state(), params.AddCharmWithAuthorization{
-		URL: args.URL,
+		URL:     args.URL,
+		Channel: args.Channel,
 	})
 }
 

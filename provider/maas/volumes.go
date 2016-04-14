@@ -154,7 +154,7 @@ func buildMAASVolumeParameters(args []storage.VolumeParams, cons constraints.Val
 
 // volumes creates the storage volumes and attachments
 // corresponding to the volume info associated with a MAAS node.
-func (mi *maasInstance) volumes(
+func (mi *maas1Instance) volumes(
 	mTag names.MachineTag, requestedVolumes []names.VolumeTag,
 ) (
 	[]storage.Volume, []storage.VolumeAttachment, error,

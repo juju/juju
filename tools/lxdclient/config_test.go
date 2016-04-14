@@ -113,10 +113,6 @@ func (s *configSuite) TestValidateZeroValue(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *configSuite) TestUsingTCPRemoteOkay(c *gc.C) {
-	// TODO(ericsnow) Finish!
-}
-
 func (s *configSuite) TestUsingTCPRemoteNoop(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
@@ -163,6 +159,10 @@ func (s *configFunctionalSuite) TestUsingTCPRemote(c *gc.C) {
 	if s.client == nil {
 		c.Skip("LXD not running locally")
 	}
+	// We can't just pass the testingCert as part of the Local connection,
+	// because Validate() doesn't like Local remotes that have
+	// Certificates.
+	lxdclient.PatchGenerateCertificate(&s.CleanupSuite, testingCert, testingKey)
 
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",

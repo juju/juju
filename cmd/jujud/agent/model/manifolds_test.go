@@ -32,22 +32,44 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 	// NOTE: if this test failed, the cmd/jujud/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
 	c.Check(actual.Values(), jc.SameContents, []string{
-		"agent", "clock", "api-config-watcher", "api-caller",
-		"is-responsible-flag", "not-dead-flag", "not-alive-flag",
-		"environ-tracker", "undertaker", "space-importer",
-		"storage-provisioner", "compute-provisioner",
-		"firewaller", "unit-assigner", "service-scaler",
-		"instance-poller", "charm-revision-updater",
-		"metric-worker", "state-cleaner", "address-cleaner",
-		"status-history-pruner", "migration-master",
-		"migration-fortress", "migration-inactive-flag",
+		"address-cleaner",
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"charm-revision-updater",
+		"clock",
+		"compute-provisioner",
+		"environ-tracker",
+		"firewaller",
+		"instance-poller",
+		"is-responsible-flag",
+		"metric-worker",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"migration-master",
+		"not-alive-flag",
+		"not-dead-flag",
+		"service-scaler",
+		"space-importer",
+		"spaces-imported-gate",
+		"state-cleaner",
+		"status-history-pruner",
+		"storage-provisioner",
+		"undertaker",
+		"unit-assigner",
 	})
 }
 
 func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 	exclusions := set.NewStrings(
-		"agent", "clock", "api-config-watcher", "api-caller",
-		"is-responsible-flag", "not-dead-flag", "not-alive-flag",
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"clock",
+		"spaces-imported-gate",
+		"is-responsible-flag",
+		"not-alive-flag",
+		"not-dead-flag",
 	)
 	manifolds := model.Manifolds(model.ManifoldsConfig{
 		Agent: &mockAgent{},

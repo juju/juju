@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	lm "github.com/joyent/gomanta/localservices/manta"
 	lc "github.com/joyent/gosdc/localservices/cloudapi"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -38,71 +37,36 @@ func registerLocalTests() {
 }
 
 type localCloudAPIServer struct {
-	Server     *httptest.Server
-	Mux        *http.ServeMux
-	oldHandler http.Handler
-	cloudapi   *lc.CloudAPI
+	Server *httptest.Server
 }
 
 func (ca *localCloudAPIServer) setupServer(c *gc.C) {
 	// Set up the HTTP server.
 	ca.Server = httptest.NewServer(nil)
 	c.Assert(ca.Server, gc.NotNil)
-	ca.oldHandler = ca.Server.Config.Handler
-	ca.Mux = http.NewServeMux()
-	ca.Server.Config.Handler = ca.Mux
+	mux := http.NewServeMux()
+	ca.Server.Config.Handler = mux
 
-	ca.cloudapi = lc.New(ca.Server.URL, testUser)
-	ca.cloudapi.SetupHTTP(ca.Mux)
+	cloudapi := lc.New(ca.Server.URL, testUser)
+	cloudapi.SetupHTTP(mux)
 	c.Logf("Started local CloudAPI service at: %v", ca.Server.URL)
 }
 
-func (c *localCloudAPIServer) destroyServer() {
-	c.Mux = nil
-	c.Server.Config.Handler = c.oldHandler
-	c.Server.Close()
-}
-
-type localMantaServer struct {
-	Server     *httptest.Server
-	Mux        *http.ServeMux
-	oldHandler http.Handler
-	manta      *lm.Manta
-}
-
-func (m *localMantaServer) setupServer(c *gc.C) {
-	// Set up the HTTP server.
-	m.Server = httptest.NewServer(nil)
-	c.Assert(m.Server, gc.NotNil)
-	m.oldHandler = m.Server.Config.Handler
-	m.Mux = http.NewServeMux()
-	m.Server.Config.Handler = m.Mux
-
-	m.manta = lm.New(m.Server.URL, testUser)
-	m.manta.SetupHTTP(m.Mux)
-	c.Logf("Started local Manta service at: %v", m.Server.URL)
-}
-
-func (m *localMantaServer) destroyServer() {
-	m.Mux = nil
-	m.Server.Config.Handler = m.oldHandler
-	m.Server.Close()
+func (s *localCloudAPIServer) destroyServer(c *gc.C) {
+	s.Server.Close()
 }
 
 type localLiveSuite struct {
 	providerSuite
 	jujutest.LiveTests
-	cSrv *localCloudAPIServer
-	mSrv *localMantaServer
+	cSrv localCloudAPIServer
 }
 
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.providerSuite.SetUpSuite(c)
 	s.LiveTests.SetUpSuite(c)
-	s.cSrv = &localCloudAPIServer{}
-	s.mSrv = &localMantaServer{}
 	s.cSrv.setupServer(c)
-	s.mSrv.setupServer(c)
+	s.AddCleanup(s.cSrv.destroyServer)
 
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL)
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
@@ -115,8 +79,6 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 	joyent.UnregisterExternalTestImageMetadata()
 	s.LiveTests.TearDownSuite(c)
-	s.cSrv.destroyServer()
-	s.mSrv.destroyServer()
 	s.providerSuite.TearDownSuite(c)
 }
 
@@ -148,8 +110,7 @@ func (s *localLiveSuite) TearDownTest(c *gc.C) {
 type localServerSuite struct {
 	providerSuite
 	jujutest.Tests
-	cSrv *localCloudAPIServer
-	mSrv *localMantaServer
+	cSrv localCloudAPIServer
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
@@ -165,10 +126,8 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.providerSuite.SetUpTest(c)
 
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.cSrv = &localCloudAPIServer{}
-	s.mSrv = &localMantaServer{}
 	s.cSrv.setupServer(c)
-	s.mSrv.setupServer(c)
+	s.AddCleanup(s.cSrv.destroyServer)
 
 	s.Tests.ToolsFixture.UploadArches = []string{arch.AMD64}
 	s.Tests.SetUpTest(c)
@@ -187,8 +146,6 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 func (s *localServerSuite) TearDownTest(c *gc.C) {
 	joyent.UnregisterExternalTestImageMetadata()
 	s.Tests.TearDownTest(c)
-	s.cSrv.destroyServer()
-	s.mSrv.destroyServer()
 	s.providerSuite.TearDownTest(c)
 }
 

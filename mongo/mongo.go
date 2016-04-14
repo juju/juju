@@ -33,14 +33,9 @@ var (
 	logger          = loggo.GetLogger("juju.mongo")
 	mongoConfigPath = "/etc/default/mongodb"
 
-	// JujuMongodPath holds the default path to the juju-specific
+	// JujuMongod24Path holds the default path to the legacy Juju
 	// mongod.
-	JujuMongodPath = "/usr/lib/juju/bin/mongod"
-	// JujuMongod26Path holds the default path for the transitional
-	// mongo 2.6 to be installed to upgrade to 3.
-	JujuMongod26Path = "/usr/lib/juju/mongo2.6/bin/mongod"
-	// JujuMongod30Path holds the default path for mongo 3.
-	JujuMongod30Path = "/usr/lib/juju/mongo3/bin/mongod"
+	JujuMongod24Path = "/usr/lib/juju/bin/mongod"
 
 	// This is NUMACTL package name for apt-get
 	numaCtlPkg = "numactl"
@@ -50,10 +45,16 @@ var (
 type StorageEngine string
 
 const (
-	// MMAPV2 is the default storage engine in mongo db up to 3.x
+	// JujuMongoPackage is the mongo package Juju uses when
+	// installing mongo.
+	JujuMongoPackage = "juju-mongodb3.2"
+
+	// MMAPV1 is the default storage engine in mongo db up to 3.x
 	MMAPV1 StorageEngine = "mmapv1"
+
 	// WiredTiger is a storage type introduced in 3
 	WiredTiger StorageEngine = "wiredTiger"
+
 	// Upgrading is a special case where mongo is being upgraded.
 	Upgrading StorageEngine = "Upgrading"
 )
@@ -104,10 +105,12 @@ func NewVersion(v string) (Version, error) {
 	}
 
 	parts := strings.SplitN(v, "/", 2)
-	if len(parts) == 0 {
+	switch len(parts) {
+	case 0:
 		return Version{}, errors.New("invalid version string")
-	}
-	if len(parts) == 2 {
+	case 1:
+		version.StorageEngine = MMAPV1
+	case 2:
 		switch StorageEngine(parts[1]) {
 		case MMAPV1:
 			version.StorageEngine = MMAPV1
@@ -136,6 +139,15 @@ func NewVersion(v string) (Version, error) {
 	if len(vParts) == 3 {
 		version.Patch = vParts[2]
 	}
+
+	if version.Major == 2 && version.StorageEngine == WiredTiger {
+		return Version{}, errors.Errorf("Version 2.x does not support Wired Tiger storage engine")
+	}
+
+	if version.Major == 0 && version.Minor == 0 {
+		return Version{}, nil
+	}
+
 	return version, nil
 }
 
@@ -151,6 +163,12 @@ func (v Version) String() string {
 	return s
 }
 
+// JujuMongodPath returns the path for the mongod binary
+// with the specified version.
+func JujuMongodPath(v Version) string {
+	return fmt.Sprintf("/usr/lib/juju/mongo%d.%d/bin/mongod", v.Major, v.Minor)
+}
+
 var (
 	// Mongo24 represents juju-mongodb 2.4.x
 	Mongo24 = Version{Major: 2,
@@ -164,15 +182,9 @@ var (
 		Patch:         "",
 		StorageEngine: MMAPV1,
 	}
-	// Mongo30 represents juju-mongodb3 3.x.x
-	Mongo30 = Version{Major: 3,
-		Minor:         0,
-		Patch:         "",
-		StorageEngine: MMAPV1,
-	}
-	// Mongo30wt represents juju-mongodb3 3.x.x with wiredTiger storage.
-	Mongo30wt = Version{Major: 3,
-		Minor:         0,
+	// Mongo32wt represents juju-mongodb3 3.2.x with wiredTiger storage.
+	Mongo32wt = Version{Major: 3,
+		Minor:         2,
 		Patch:         "",
 		StorageEngine: WiredTiger,
 	}
@@ -185,22 +197,29 @@ var (
 	}
 )
 
-// BinariesAvailable returns true if the binaries for the
+// InstalledVersion returns the version of mongo installed.
+// We look for a specific, known version supported by this Juju,
+// and fall back to the original mongo 2.4.
+func InstalledVersion() Version {
+	mgoVersion := Mongo24
+	if binariesAvailable(Mongo32wt, os.Stat) {
+		mgoVersion = Mongo32wt
+	}
+	return mgoVersion
+}
+
+// binariesAvailable returns true if the binaries for the
 // given Version of mongo are available.
-func BinariesAvailable(v Version) bool {
+func binariesAvailable(v Version, statFunc func(string) (os.FileInfo, error)) bool {
 	var path string
 	switch v {
 	case Mongo24:
-		path = JujuMongodPath
-
-	case Mongo26:
-		path = JujuMongod26Path
-	case Mongo30, Mongo30wt:
-		path = JujuMongod30Path
+		// 2.4 has a fixed path.
+		path = JujuMongod24Path
 	default:
-		return false
+		path = JujuMongodPath(v)
 	}
-	if _, err := os.Stat(path); err == nil {
+	if _, err := statFunc(path); err == nil {
 		return true
 	}
 	return false
@@ -291,35 +310,28 @@ func GenerateSharedSecret() (string, error) {
 // machine. If the juju-bundled version of mongo exists, it will return that
 // path, otherwise it will return the command to run mongod from the path.
 func Path(version Version) (string, error) {
-	noVersion := Version{}
+	return mongoPath(version, os.Stat, exec.LookPath)
+}
+
+func mongoPath(version Version, statFunc func(string) (os.FileInfo, error), lookFunc func(string) (string, error)) (string, error) {
 	switch version {
-	case Mongo24, noVersion:
-		if _, err := os.Stat(JujuMongodPath); err == nil {
-			return JujuMongodPath, nil
+	case Mongo24:
+		if _, err := statFunc(JujuMongod24Path); err == nil {
+			return JujuMongod24Path, nil
 		}
 
-		path, err := exec.LookPath("mongod")
+		path, err := lookFunc("mongod")
 		if err != nil {
-			logger.Infof("could not find %v or mongod in $PATH", JujuMongodPath)
+			logger.Infof("could not find %v or mongod in $PATH", JujuMongod24Path)
 			return "", err
 		}
 		return path, nil
-
-	case Mongo26:
+	default:
+		path := JujuMongodPath(version)
 		var err error
-		if _, err = os.Stat(JujuMongod26Path); err == nil {
-			return JujuMongod26Path, nil
+		if _, err = statFunc(path); err == nil {
+			return path, nil
 		}
-		logger.Infof("could not find %q ", JujuMongod26Path)
-		return "", err
-
-	case Mongo30, Mongo30wt:
-		var err error
-		if _, err = os.Stat(JujuMongod30Path); err == nil {
-			return JujuMongod30Path, nil
-		}
-		logger.Infof("could not find %q", JujuMongod30Path)
-		return "", err
 	}
 
 	logger.Infof("could not find a suitable binary for %q", version)
@@ -367,9 +379,6 @@ type EnsureServerParams struct {
 	// SetNumaControlPolicy preference - whether the user
 	// wants to set the numa control policy when starting mongo.
 	SetNumaControlPolicy bool
-
-	// Version is the mongod version to be used.
-	Version Version
 }
 
 // EnsureServer ensures that the MongoDB server is installed,
@@ -405,7 +414,8 @@ func EnsureServer(args EnsureServerParams) error {
 		// (LP #1441904)
 		logger.Errorf("cannot install/upgrade mongod (will proceed anyway): %v", err)
 	}
-	mongoPath, err := Path(args.Version)
+	mgoVersion := InstalledVersion()
+	mongoPath, err := Path(mgoVersion)
 	if err != nil {
 		return err
 	}
@@ -434,7 +444,7 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	svcConf := newConf(args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy, args.Version, true)
+	svcConf := newConf(args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy, mgoVersion, true)
 	svc, err := newService(ServiceName, svcConf)
 	if err != nil {
 		return err
@@ -507,6 +517,15 @@ func logVersion(mongoPath string) {
 	logger.Debugf("using mongod: %s --version: %q", mongoPath, output)
 }
 
+func installPackage(pkg string, pacconfer config.PackagingConfigurer, pacman manager.PackageManager) error {
+	// apply release targeting if needed.
+	if pacconfer.IsCloudArchivePackage(pkg) {
+		pkg = strings.Join(pacconfer.ApplyCloudArchiveTarget(pkg), " ")
+	}
+
+	return pacman.Install(pkg)
+}
+
 func installMongod(operatingsystem string, numaCtl bool) error {
 	// fetch the packaging configuration manager for the current operating system.
 	pacconfer, err := config.NewPackagingConfigurer(operatingsystem)
@@ -520,16 +539,6 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 		return err
 	}
 
-	// Only Quantal requires the PPA.
-	if operatingsystem == "quantal" {
-		// install python-software-properties:
-		if err := pacman.InstallPrerequisite(); err != nil {
-			return err
-		}
-		if err := pacman.AddRepository("ppa:juju/stable"); err != nil {
-			return err
-		}
-	}
 	// CentOS requires "epel-release" for the epel repo mongodb-server is in.
 	if operatingsystem == "centos7" {
 		// install epel-release
@@ -538,35 +547,32 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 		}
 	}
 
-	mongoPkgs := packagesForSeries(operatingsystem)
+	mongoPkgs, fallbackPkgs := packagesForSeries(operatingsystem)
 
-	pkgs := mongoPkgs
 	if numaCtl {
-		pkgs = append(mongoPkgs, numaCtlPkg)
 		logger.Infof("installing %v and %s", mongoPkgs, numaCtlPkg)
+		if err = installPackage(numaCtlPkg, pacconfer, pacman); err != nil {
+			return errors.Trace(err)
+		}
 	} else {
 		logger.Infof("installing %v", mongoPkgs)
 	}
 
-	for i := range pkgs {
-		// apply release targeting if needed.
-		if pacconfer.IsCloudArchivePackage(pkgs[i]) {
-			pkgs[i] = strings.Join(pacconfer.ApplyCloudArchiveTarget(pkgs[i]), " ")
-		}
-
-		if err := pacman.Install(pkgs[i]); err != nil {
-			return err
+	for i := range mongoPkgs {
+		if err = installPackage(mongoPkgs[i], pacconfer, pacman); err != nil {
+			break
 		}
 	}
-	optionals := optionalPackagesForSeries(operatingsystem)
-	for i := range optionals {
-		// apply release targeting if needed.
-		if pacconfer.IsCloudArchivePackage(optionals[i]) {
-			optionals[i] = strings.Join(pacconfer.ApplyCloudArchiveTarget(optionals[i]), " ")
-		}
-
-		if err := pacman.Install(optionals[i]); err != nil {
-			logger.Errorf("could not install package %q: %v", optionals[i], err)
+	if err != nil && len(fallbackPkgs) == 0 {
+		return errors.Trace(err)
+	}
+	if err != nil {
+		logger.Errorf("installing mongo failed: %v", err)
+		logger.Infof("will try fallback packages %v", fallbackPkgs)
+		for i := range fallbackPkgs {
+			if err = installPackage(fallbackPkgs[i], pacconfer, pacman); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
@@ -594,82 +600,23 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 	return nil
 }
 
-// packageForSeries returns the name of the mongo package for the series
-// of the machine that it is going to be running on.
-func packagesForSeries(series string) []string {
+// packagesForSeries returns the name of the mongo package for the series
+// of the machine that it is going to be running on plus a fallback for
+// options where the package is going to be ready eventually but might not
+// yet be.
+func packagesForSeries(series string) ([]string, []string) {
 	switch series {
 	case "precise", "quantal", "raring", "saucy", "centos7":
-		return []string{"mongodb-server"}
+		return []string{"mongodb-server"}, []string{}
+	case "trusty", "wily", "xenial":
+		return []string{JujuMongoPackage}, []string{"juju-mongodb"}
 	default:
-		// trusty and onwards
-		return []string{"juju-mongodb"}
-	}
-}
-
-func optionalPackagesForSeries(series string) []string {
-	switch series {
-	case "precise", "quantal", "raring", "saucy", "centos7":
-		return []string{}
-	default:
-		// TODO(perrito666) when the packages are ready, this should be
-		// "juju-mongodb2.6", "juju-mongodb3"
-		return []string{}
+		// y and onwards
+		return []string{JujuMongoPackage}, []string{}
 	}
 }
 
 // DbDir returns the dir where mongo storage is.
 func DbDir(dataDir string) string {
 	return filepath.Join(dataDir, "db")
-}
-
-// noauthCommand returns an os/exec.Cmd that may be executed to
-// run mongod without security.
-func noauthCommand(dataDir string, port int, version Version) (*exec.Cmd, error) {
-	sslKeyFile := path.Join(dataDir, "server.pem")
-	dbDir := DbDir(dataDir)
-	// Make this smarter, to guess mongo version.
-	mongoPath, err := Path(version)
-	if err != nil {
-		return nil, err
-	}
-
-	args := []string{
-		"--noauth",
-		"--dbpath", dbDir,
-		"--sslOnNormalPorts",
-		"--sslPEMKeyFile", sslKeyFile,
-		"--sslPEMKeyPassword", "ignored",
-		"--bind_ip", "127.0.0.1",
-		"--port", fmt.Sprint(port),
-		"--syslog",
-		"--journal",
-		"--quiet",
-	}
-	if version == Mongo30wt {
-		args = append(args, "--storageEngine", "wiredTiger")
-
-	} else {
-		args = append(args, "--noprealloc", "--smallfiles")
-	}
-	if version == Mongo30 {
-		args = append(args, "--storageEngine", "mmapv1")
-	}
-
-	cmd := exec.Command(mongoPath, args...)
-
-	return cmd, nil
-}
-
-// ReplicaSetInformation holds information about replicaset
-// components.
-type ReplicaSetInformation struct {
-	Master  replicaset.Member
-	Members []replicaset.Member
-	Config  replicaset.Config
-}
-
-// ReplicaSetInfo returns information describing the replicaset members
-// and configuration
-func ReplicaSetInfo(session *mgo.Session) (ReplicaSetInformation, error) {
-	return ReplicaSetInformation{}, nil
 }

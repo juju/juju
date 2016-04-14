@@ -6,6 +6,7 @@ package apiserver
 import (
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/bakerystorage"
 )
 
 // authContext holds authentication context shared
@@ -35,15 +37,20 @@ type authContext struct {
 // newAuthContext creates a new authentication context for st.
 func newAuthContext(st *state.State) (*authContext, error) {
 	ctxt := &authContext{st: st}
-
-	// TODO(axw) consider storing macaroons in Mongo. We're currently
-	// storing them in-memory, which means that if a client logs into
-	// one API server, they cannot use the macaroon in another one.
-	bakeryService, err := newBakeryService(st, nil)
+	store, err := st.NewBakeryStorage()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctxt.userAuth.Service = bakeryService
+	// We use a non-nil, but empty key, because we don't use the
+	// key, and don't want to incur the overhead of generating one
+	// each time we create a service.
+	bakeryService, key, err := newBakeryService(st, store, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ctxt.userAuth.Service = &expirableStorageBakeryService{bakeryService, key, store, nil}
+	// TODO(fwereade): 2016-03-17 lp:1558657
+	ctxt.userAuth.Clock = state.GetClock()
 	return ctxt, nil
 }
 
@@ -118,9 +125,14 @@ func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonA
 			return nil, errors.Annotate(err, "cannot get identity public key")
 		}
 	}
-	svc, err := newBakeryService(st, bakery.PublicKeyLocatorMap{
-		idURL: idPK,
-	})
+	// We pass in nil for the storage, which leads to in-memory storage
+	// being used. We only use in-memory storage for now, since we never
+	// expire the keys, and don't want garbage to accumulate.
+	//
+	// TODO(axw) we should store the key in mongo, so that multiple servers
+	// can authenticate. That will require that we encode the server's ID
+	// in the macaroon ID so that servers don't overwrite each others' keys.
+	svc, _, err := newBakeryService(st, nil, bakery.PublicKeyLocatorMap{idURL: idPK})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make bakery service")
 	}
@@ -135,9 +147,46 @@ func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonA
 }
 
 // newBakeryService creates a new bakery.Service.
-func newBakeryService(st *state.State, locator bakery.PublicKeyLocator) (*bakery.Service, error) {
-	return bakery.NewService(bakery.NewServiceParams{
+func newBakeryService(
+	st *state.State,
+	store bakerystorage.ExpirableStorage,
+	locator bakery.PublicKeyLocator,
+) (*bakery.Service, *bakery.KeyPair, error) {
+	key, err := bakery.GenerateKey()
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "generating key for bakery service")
+	}
+	service, err := bakery.NewService(bakery.NewServiceParams{
 		Location: "juju model " + st.ModelUUID(),
+		Store:    store,
+		Key:      key,
 		Locator:  locator,
 	})
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return service, key, nil
+}
+
+// expirableStorageBakeryService wraps bakery.Service, adding the ExpireStorageAt method.
+type expirableStorageBakeryService struct {
+	*bakery.Service
+	key     *bakery.KeyPair
+	store   bakerystorage.ExpirableStorage
+	locator bakery.PublicKeyLocator
+}
+
+// ExpireStorageAt implements authentication.ExpirableStorageBakeryService.
+func (s *expirableStorageBakeryService) ExpireStorageAt(t time.Time) (authentication.ExpirableStorageBakeryService, error) {
+	store := s.store.ExpireAt(t)
+	service, err := bakery.NewService(bakery.NewServiceParams{
+		Location: s.Location(),
+		Store:    store,
+		Key:      s.key,
+		Locator:  s.locator,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &expirableStorageBakeryService{service, s.key, store, s.locator}, nil
 }

@@ -8,7 +8,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/testing"
-
 	gc "gopkg.in/check.v1"
 )
 

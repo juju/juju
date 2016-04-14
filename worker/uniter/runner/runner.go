@@ -4,16 +4,21 @@
 package runner
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
+	"unicode/utf8"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	utilexec "github.com/juju/utils/exec"
 
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/debug"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -69,6 +74,13 @@ func (runner *runner) Context() Context {
 
 // RunCommands exists to satisfy the Runner interface.
 func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, error) {
+	result, err := runner.runCommandsWithTimeout(commands, 0, clock.WallClock)
+	return result, runner.context.Flush("run commands", err)
+}
+
+// runCommandsWithTimeout is a helper to abstract common code between run commands and
+// juju-run as an action
+func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Duration, clock clock.Clock) (*utilexec.ExecResponse, error) {
 	srv, err := runner.startJujucServer()
 	if err != nil {
 		return nil, err
@@ -83,6 +95,7 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 		Commands:    commands,
 		WorkingDir:  runner.paths.GetCharmDir(),
 		Environment: env,
+		Clock:       clock,
 	}
 
 	err = command.Run()
@@ -91,15 +104,96 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 	}
 	runner.context.SetProcess(hookProcess{command.Process()})
 
+	var cancel chan struct{}
+	if timeout != 0 {
+		cancel = make(chan struct{})
+		go func() {
+			<-clock.After(timeout)
+			close(cancel)
+		}()
+	}
+
 	// Block and wait for process to finish
-	result, err := command.Wait()
-	return result, runner.context.Flush("run commands", err)
+	return command.WaitWithCancel(cancel)
+}
+
+// runJujuRunAction is the function that executes when a juju-run action is ran.
+func (runner *runner) runJujuRunAction() (err error) {
+	params, err := runner.context.ActionParams()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	command, ok := params["command"].(string)
+	if !ok {
+		return errors.New("no command parameter to juju-run action")
+	}
+
+	// The timeout is passed in in nanoseconds(which are represented in go as int64)
+	// But due to serialization it comes out as float64
+	timeout, ok := params["timeout"].(float64)
+	if !ok {
+		logger.Debugf("unable to read juju-run action timeout, will continue running action without one")
+	}
+
+	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock)
+
+	if err != nil {
+		return runner.context.Flush("juju-run", err)
+	}
+
+	if err := runner.updateActionResults(results); err != nil {
+		return runner.context.Flush("juju-run", err)
+	}
+
+	return runner.context.Flush("juju-run", nil)
+}
+
+func encodeBytes(input []byte) (value string, encoding string) {
+	if utf8.Valid(input) {
+		value = string(input)
+		encoding = "utf8"
+	} else {
+		value = base64.StdEncoding.EncodeToString(input)
+		encoding = "base64"
+	}
+	return value, encoding
+}
+
+func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error {
+	if err := runner.context.UpdateActionResults([]string{"Code"}, fmt.Sprintf("%d", results.Code)); err != nil {
+		return errors.Trace(err)
+	}
+
+	stdout, encoding := encodeBytes(results.Stdout)
+	if err := runner.context.UpdateActionResults([]string{"Stdout"}, stdout); err != nil {
+		return errors.Trace(err)
+	}
+	if encoding != "utf8" {
+		if err := runner.context.UpdateActionResults([]string{"StdoutEncoding"}, encoding); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	stderr, encoding := encodeBytes(results.Stderr)
+	if err := runner.context.UpdateActionResults([]string{"Stderr"}, stderr); err != nil {
+		return errors.Trace(err)
+	}
+	if encoding != "utf8" {
+		if err := runner.context.UpdateActionResults([]string{"StderrEncoding"}, encoding); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	return nil
 }
 
 // RunAction exists to satisfy the Runner interface.
 func (runner *runner) RunAction(actionName string) error {
 	if _, err := runner.context.ActionData(); err != nil {
 		return errors.Trace(err)
+	}
+	if actionName == actions.JujuRunActionName {
+		return runner.runJujuRunAction()
 	}
 	return runner.runCharmHookWithLocation(actionName, "actions")
 }

@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -598,6 +599,41 @@ func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsInheritedAttributes(c *
 	c.Assert(ok, jc.IsFalse)
 }
 
+func (s *BootstrapSuite) TestBootstrapWithGUI(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	var bootstrap fakeBootstrapFuncs
+
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+	coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy")
+	c.Assert(bootstrap.args.GUIDataSourceBaseURL, gc.Equals, gui.DefaultBaseURL)
+}
+
+func (s *BootstrapSuite) TestBootstrapWithCustomizedGUI(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	s.PatchEnvironment("JUJU_GUI_SIMPLESTREAMS_URL", "https://1.2.3.4/gui/streams")
+
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+
+	coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy")
+	c.Assert(bootstrap.args.GUIDataSourceBaseURL, gc.Equals, "https://1.2.3.4/gui/streams")
+}
+
+func (s *BootstrapSuite) TestBootstrapWithoutGUI(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	var bootstrap fakeBootstrapFuncs
+
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+	coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--no-gui")
+	c.Assert(bootstrap.args.GUIDataSourceBaseURL, gc.Equals, "")
+}
+
 type mockBootstrapInstance struct {
 	instance.Instance
 }
@@ -1052,6 +1088,24 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	errMsg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(errMsg, gc.Matches, `region "not-dummy" in cloud "dummy" not found \(expected one of \["dummy"\]\)alternatively, try "juju update-clouds"`)
+}
+
+func (s *BootstrapSuite) TestBootstrapProviderCaseInsensitiveRegionCheck(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	var prepareParams environs.PrepareParams
+	s.PatchValue(&environsPrepare, func(
+		ctx environs.BootstrapContext,
+		stor jujuclient.ClientStore,
+		params environs.PrepareParams,
+	) (environs.Environ, error) {
+		prepareParams = params
+		return nil, fmt.Errorf("mock-prepare")
+	})
+
+	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy/DUMMY")
+	c.Assert(err, gc.ErrorMatches, "mock-prepare")
+	c.Assert(prepareParams.CloudRegion, gc.Equals, "dummy")
 }
 
 func (s *BootstrapSuite) TestBootstrapConfigFile(c *gc.C) {

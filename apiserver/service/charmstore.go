@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
@@ -26,12 +27,12 @@ import (
 
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this
 // to use interfaces.
-// NewCharmStore instantiates a new charm store repository.
-// It is defined at top level for testing purposes.
-var NewCharmStore = newCharmStore
+// NewCharmStoreRepo instantiates a new charm store repository.
+// It is exported for testing purposes.
+var NewCharmStoreRepo = newCharmStoreFromClient
 
-func newCharmStore(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
-	return charmrepo.NewCharmStore(p)
+func newCharmStoreFromClient(csClient *csclient.Client) charmrepo.Interface {
+	return charmrepo.NewCharmStoreFromClient(csClient)
 }
 
 // AddCharmWithAuthorization adds the given charm URL (which must include revision) to
@@ -62,31 +63,18 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 		return nil
 	}
 
-	// Get the charm and its information from the store.
+	// Open a charm store client.
+	repo, err := openCSRepo(args)
+	if err != nil {
+		return err
+	}
 	envConfig, err := st.ModelConfig()
 	if err != nil {
 		return err
 	}
-	csURL, err := url.Parse(csclient.ServerURL)
-	if err != nil {
-		return err
-	}
-	csParams := charmrepo.NewCharmStoreParams{
-		URL:        csURL.String(),
-		HTTPClient: httpbakery.NewHTTPClient(),
-	}
+	repo = config.SpecializeCharmRepo(repo, envConfig).(*charmrepo.CharmStore)
 
-	if args.CharmStoreMacaroon != nil {
-		// Set the provided charmstore authorizing macaroon
-		// as a cookie in the HTTP client.
-		// TODO(cmars) discharge any third party caveats in the macaroon.
-		ms := []*macaroon.Macaroon{args.CharmStoreMacaroon}
-		httpbakery.SetCookie(csParams.HTTPClient.Jar, csURL, ms)
-	}
-	repo := config.SpecializeCharmRepo(
-		NewCharmStore(csParams),
-		envConfig,
-	)
+	// Get the charm and its information from the store.
 	downloadedCharm, err := repo.Get(charmURL)
 	if err != nil {
 		cause := errors.Cause(err)
@@ -118,17 +106,53 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 		return errors.Annotate(err, "cannot rewind charm archive")
 	}
 
+	ca := CharmArchive{
+		ID:     charmURL,
+		Charm:  downloadedCharm,
+		Data:   archive,
+		Size:   size,
+		SHA256: bundleSHA256,
+	}
+	if args.CharmStoreMacaroon != nil {
+		ca.Macaroon = macaroon.Slice{args.CharmStoreMacaroon}
+	}
+
 	// Store the charm archive in environment storage.
-	return StoreCharmArchive(
-		st,
-		CharmArchive{
-			ID:     charmURL,
-			Charm:  downloadedCharm,
-			Data:   archive,
-			Size:   size,
-			SHA256: bundleSHA256,
-		},
-	)
+	return StoreCharmArchive(st, ca)
+}
+
+func openCSRepo(args params.AddCharmWithAuthorization) (charmrepo.Interface, error) {
+	csClient, err := openCSClient(args)
+	if err != nil {
+		return nil, err
+	}
+	repo := NewCharmStoreRepo(csClient)
+	return repo, nil
+}
+
+func openCSClient(args params.AddCharmWithAuthorization) (*csclient.Client, error) {
+	csURL, err := url.Parse(csclient.ServerURL)
+	if err != nil {
+		return nil, err
+	}
+	csParams := csclient.Params{
+		URL:        csURL.String(),
+		HTTPClient: httpbakery.NewHTTPClient(),
+	}
+
+	if args.CharmStoreMacaroon != nil {
+		// Set the provided charmstore authorizing macaroon
+		// as a cookie in the HTTP client.
+		// TODO(cmars) discharge any third party caveats in the macaroon.
+		ms := []*macaroon.Macaroon{args.CharmStoreMacaroon}
+		httpbakery.SetCookie(csParams.HTTPClient.Jar, csURL, ms)
+	}
+	csClient := csclient.New(csParams)
+	channel := csparams.Channel(args.Channel)
+	if channel != csparams.NoChannel {
+		csClient = csClient.WithChannel(channel)
+	}
+	return csClient, nil
 }
 
 func checkMinVersion(ch charm.Charm) error {
@@ -167,6 +191,9 @@ type CharmArchive struct {
 
 	// SHA256 is the hash of the bytes in Data.
 	SHA256 string
+
+	// Macaroon is the authorization macaroon for accessing the charmstore.
+	Macaroon macaroon.Slice
 }
 
 // StoreCharmArchive stores a charm archive in environment storage.
@@ -185,6 +212,7 @@ func StoreCharmArchive(st *state.State, archive CharmArchive) error {
 		ID:          archive.ID,
 		StoragePath: storagePath,
 		SHA256:      archive.SHA256,
+		Macaroon:    archive.Macaroon,
 	}
 
 	// Now update the charm data in state and mark it as no longer pending.
@@ -230,7 +258,7 @@ func ResolveCharms(st *state.State, args params.ResolveCharms) (params.ResolveCh
 		return params.ResolveCharmResults{}, err
 	}
 	repo := config.SpecializeCharmRepo(
-		NewCharmStore(charmrepo.NewCharmStoreParams{}),
+		NewCharmStoreRepo(csclient.New(csclient.Params{})),
 		envConfig)
 
 	for _, ref := range args.References {

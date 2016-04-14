@@ -215,6 +215,7 @@ type Service interface {
 	Series() string
 	Subordinate() bool
 	CharmURL() string
+	Channel() string
 	CharmModifiedVersion() int
 	ForceCharm() bool
 	Exposed() bool

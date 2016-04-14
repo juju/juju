@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/machineactions"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
@@ -314,7 +315,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The diskmanager worker periodically lists block devices on the
 		// machine it runs on. This worker will be run on all Juju-managed
 		// machines (one per machine agent).
-		diskmanagerName: ifNotMigrating(diskmanager.Manifold(diskmanager.ManifoldConfig{
+		diskManagerName: ifNotMigrating(diskmanager.Manifold(diskmanager.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
@@ -365,7 +366,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:    apiCallerName,
 		})),
 
-		authenticationworkerName: ifNotMigrating(authenticationworker.Manifold(authenticationworker.ManifoldConfig{
+		authenticationWorkerName: ifNotMigrating(authenticationworker.Manifold(authenticationworker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
@@ -373,7 +374,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The storageProvisioner worker manages provisioning
 		// (deprovisioning), and attachment (detachment) of first-class
 		// volumes and filesystems.
-		storageprovisionerName: ifNotMigrating(storageprovisioner.MachineManifold(storageprovisioner.MachineManifoldConfig{
+		storageProvisionerName: ifNotMigrating(storageprovisioner.MachineManifold(storageprovisioner.MachineManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
@@ -389,9 +390,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 		})),
 
-		toolsversioncheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
+		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+		})),
+
+		machineActionName: ifNotMigrating(machineactions.Manifold(machineactions.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			NewFacade:     machineactions.NewFacade,
+			NewWorker:     machineactions.NewMachineActionsWorker,
 		})),
 	}
 }
@@ -412,37 +420,38 @@ var ifNotMigrating = util.Housing{
 
 const (
 	agentName              = "agent"
-	terminationName        = "termination"
+	terminationName        = "termination-signal-handler"
 	stateConfigWatcherName = "state-config-watcher"
 	stateName              = "state"
-	stateWorkersName       = "stateworkers"
+	stateWorkersName       = "unconverted-state-workers"
 	apiCallerName          = "api-caller"
 
+	upgraderName         = "upgrader"
+	upgradeStepsName     = "upgrade-steps-runner"
 	upgradeStepsGateName = "upgrade-steps-gate"
 	upgradeStepsFlagName = "upgrade-steps-flag"
 	upgradeCheckGateName = "upgrade-check-gate"
 	upgradeCheckFlagName = "upgrade-check-flag"
-	upgraderName         = "upgrader"
-	upgradeStepsName     = "upgradesteps"
 
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
 	servingInfoSetterName    = "serving-info-setter"
-	apiWorkersName           = "apiworkers"
-	rebootName               = "reboot"
+	apiWorkersName           = "unconverted-api-workers"
+	rebootName               = "reboot-executor"
 	loggingConfigUpdaterName = "logging-config-updater"
-	diskmanagerName          = "disk-manager"
+	diskManagerName          = "disk-manager"
 	proxyConfigUpdater       = "proxy-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
 	machinerName             = "machiner"
 	logSenderName            = "log-sender"
-	deployerName             = "deployer"
-	authenticationworkerName = "authenticationworker"
-	storageprovisionerName   = "storage-provisioner-machine"
-	resumerName              = "resumer"
-	identityFileWriterName   = "identity-file-writer"
-	toolsversioncheckerName  = "tools-version-checker"
+	deployerName             = "unit-agent-deployer"
+	authenticationWorkerName = "ssh-authkeys-updater"
+	storageProvisionerName   = "storage-provisioner"
+	resumerName              = "mgo-txn-resumer"
+	identityFileWriterName   = "ssh-identity-writer"
+	toolsVersionCheckerName  = "tools-version-checker"
 	apiConfigWatcherName     = "api-config-watcher"
+	machineActionName        = "machine-action-runner"
 )

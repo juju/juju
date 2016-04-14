@@ -43,62 +43,56 @@ var provisionalProviders = map[string]string{
 	"vsphere": feature.VSphereProvider,
 }
 
-const bootstrapDoc = `
-bootstrap starts a new controller in the specified cloud (it will return
-an error if a controller with the same name has already been bootstrapped).
-Bootstrapping a controller will provision a new machine and run the controller on
-that machine.
+var usageBootstrapSummary = `
+Initializes a cloud environment.`[1:]
 
-The controller will be setup with an intial controller model called "admin" as well
-as a hosted model which can be used to run workloads.
-
-If boostrap-constraints are specified in the bootstrap command,
-they will apply to the machine provisioned for the juju controller,
-and any future controllers provisioned for HA.
-
-If constraints are specified, they will be set as the default constraints
-on the model for all future workload machines,
-exactly as if the constraints were set with juju set-constraints.
-
+var usageBootstrapDetails = `
+Initialization consists of creating an 'admin' model and provisioning a 
+machine to act as controller.
+Credentials are set beforehand and are distinct from any other 
+configuration (see `[1:] + "`juju add-credential`" + `).
+The 'admin' model typically does not run workloads. It should remain
+pristine to run and manage Juju's own infrastructure for the corresponding
+cloud. Additional (hosted) models should be created with ` + "`juju create-\nmodel`" + ` for workload purposes.
+Note that a 'default' model is also created and becomes the current model
+of the environment once the command completes. It can be discarded if
+other models are created.
+If '--bootstrap-constraints' is used, its values will also apply to any
+future controllers provisioned for high availability (HA).
+If '--constraints' is used, its values will be set as the default 
+constraints for all future workload machines in the model, exactly as if 
+the constraints were set with ` + "`juju set-model-constraints`" + `.
 It is possible to override constraints and the automatic machine selection
-algorithm by using the "--to" flag. The value associated with "--to" is a
-"placement directive", which tells Juju how to identify the first machine to use.
-For more information on placement directives, see "juju help placement".
-
-Bootstrap initialises the cloud environment synchronously and displays information
-about the current installation steps.  The time for bootstrap to complete varies
-across cloud providers from a few seconds to several minutes.  Once bootstrap has
-completed, you can run other juju commands against your model. You can change
-the default timeout and retry delays used during the bootstrap by changing the
-following settings in your environments.yaml (all values represent number of seconds):
-
+algorithm by assigning a "placement directive" via the '--to' option. This
+dictates what machine to use for the controller. This would typically be 
+used with the MAAS provider ('--to <host>.maas').
+You can change the default timeout and retry delays used during the 
+bootstrap by changing the following settings in your configuration file
+(all values represent number of seconds):
     # How long to wait for a connection to the controller
     bootstrap-timeout: 600 # default: 10 minutes
-    # How long to wait between connection attempts to a controller address.
+    # How long to wait between connection attempts to a controller 
+address.
     bootstrap-retry-delay: 5 # default: 5 seconds
     # How often to refresh controller addresses from the API server.
     bootstrap-addresses-delay: 10 # default: 10 seconds
+Private clouds may need to specify their own custom image metadata and
+tools/agent. Use '--metadata-source' whose value is a local directory.
+The value of '--agent-version' will become the default tools version to
+use in all models for this controller. The full binary version is accepted
+(e.g.: 2.0.1-xenial-amd64) but only the numeric version (e.g.: 2.0.1) is
+used. Otherwise, by default, the version used is that of the client.
 
-Private clouds may need to specify their own custom image metadata, and
-possibly upload Juju tools to cloud storage if no outgoing Internet access is
-available. In this case, use the --metadata-source parameter to point
-bootstrap to a local directory from which to upload tools and/or image
-metadata.
+Examples:
+    juju bootstrap mycontroller google
+    juju bootstrap --config=~/config-rs.yaml mycontroller rackspace
+    juju bootstrap --config agent-version=1.25.3 mycontroller aws
+    juju bootstrap --config bootstrap-timeout=1200 mycontroller azure
 
-If agent-version is specifed, this is the default tools version to use when running the Juju agents.
-Only the numeric version is relevant. To enable ease of scripting, the full binary version
-is accepted (eg 1.24.4-trusty-amd64) but only the numeric version (eg 1.24.4) is used.
-By default, Juju will bootstrap using the exact same version as the client.
-
-See Also:
-   juju help glossary
-   juju list-controllers
-   juju list-models
-   juju help switch
-   juju help constraints
-   juju help set-constraints
-   juju help placement
-`
+See also: 
+    add-credentials
+    create-model
+    set-constraints`
 
 // defaultHostedModelName is the name of the hosted model created in each
 // controller for deploying workloads to, in addition to the "admin" model.
@@ -134,34 +128,36 @@ type bootstrapCommand struct {
 	CredentialName  string
 	Cloud           string
 	Region          string
+	noGUI           bool
 }
 
 func (c *bootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "bootstrap",
-		Purpose: "start up an environment from scratch",
-		Args:    "<controllername> <cloud>[/<region>]",
-		Doc:     bootstrapDoc,
+		Args:    "<controller name> <cloud name>[/region]",
+		Purpose: usageBootstrapSummary,
+		Doc:     usageBootstrapDetails,
 	}
 }
 
 func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set model constraints")
-	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "specify bootstrap machine constraints")
-	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "specify the series of the bootstrap machine")
+	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "Set model constraints")
+	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "Specify bootstrap machine constraints")
+	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine")
 	if featureflag.Enabled(feature.ImageMetadata) {
-		f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "specify the image of the bootstrap machine")
+		f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
 	}
-	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
-	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
-	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
-	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destroy the model if bootstrap fails")
-	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "upgrade to the latest patch release tools on first bootstrap")
-	f.StringVar(&c.AgentVersionParam, "agent-version", "", "the version of tools to use for Juju agents")
-	f.StringVar(&c.CredentialName, "credential", "", "the credentials to use when bootstrapping")
-	f.Var(&c.config, "config", "specify a controller config file, or one or more controller configuration options (--config config.yaml [--config k=v ...])")
-	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "the name of the default hosted model for the controller")
-	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "the name of the default hosted model for the controller")
+	f.BoolVar(&c.UploadTools, "upload-tools", false, "Upload local version of tools before bootstrapping")
+	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as tools and/or metadata source")
+	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
+	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "Do not destroy the model if bootstrap fails")
+	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "Upgrade to the latest patch release tools on first bootstrap")
+	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of tools to use for Juju agents")
+	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
+	f.Var(&c.config, "config", "Specify a controller configuration file, or one or more configuration\n    options\n    (--config config.yaml [--config key=value ...])")
+	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "Name of the default hosted model for the controller")
+	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "Name of the default hosted model for the controller")
+	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -506,6 +502,13 @@ to clean up the model.`[1:])
 	delete(hostedModelConfig, config.AuthKeysConfig)
 	delete(hostedModelConfig, config.AgentVersionKey)
 
+	// Check whether the Juju GUI must be installed in the controller.
+	// Leaving this value empty means no GUI will be installed.
+	var guiDataSourceBaseURL string
+	if !c.noGUI {
+		guiDataSourceBaseURL = common.GUIDataSourceBaseURL()
+	}
+
 	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ModelConstraints:     c.Constraints,
 		BootstrapConstraints: bootstrapConstraints,
@@ -516,6 +519,7 @@ to clean up the model.`[1:])
 		AgentVersion:         c.AgentVersion,
 		MetadataDir:          metadataDir,
 		HostedModelConfig:    hostedModelConfig,
+		GUIDataSourceBaseURL: guiDataSourceBaseURL,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap model")
@@ -563,7 +567,8 @@ func getRegion(cloud *jujucloud.Cloud, cloudName, regionName string) (jujucloud.
 		return cloud.Regions[0], nil
 	}
 	for _, region := range cloud.Regions {
-		if region.Name == regionName {
+		// Do a case-insensitive comparison
+		if strings.EqualFold(region.Name, regionName) {
 			return region, nil
 		}
 	}

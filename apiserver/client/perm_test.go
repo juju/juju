@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -350,7 +351,9 @@ func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func()
 func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	cfg := service.SetCharmConfig{
 		ServiceName: "nosuch",
-		CharmUrl:    "local:quantal/wordpress",
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("local:quantal/wordpress"),
+		},
 	}
 	err := service.NewClient(st).SetCharm(cfg)
 	if params.IsCodeNotFound(err) {

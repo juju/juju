@@ -476,7 +476,7 @@ func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
 
 func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 	// Add a fake charm archive in the cache directory.
-	cacheDir := filepath.Join(s.DataDir(), "charm-get-cache")
+	cacheDir := filepath.Join(s.DataDir(), "charm-get-cache", s.State.ModelUUID())
 	err := os.MkdirAll(cacheDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 

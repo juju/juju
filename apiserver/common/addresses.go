@@ -66,9 +66,11 @@ func (api *APIAddresser) APIAddresses() (params.StringsResult, error) {
 	}
 	var addrs = make([]string, 0, len(apiHostPorts))
 	for _, hostPorts := range apiHostPorts {
-		addr := network.SelectInternalHostPort(hostPorts, false)
-		if addr != "" {
-			addrs = append(addrs, addr)
+		ordered := network.PrioritizeInternalHostPorts(hostPorts, false)
+		for _, addr := range ordered {
+			if addr != "" {
+				addrs = append(addrs, addr)
+			}
 		}
 	}
 	return params.StringsResult{

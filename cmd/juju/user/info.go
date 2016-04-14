@@ -16,38 +16,24 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-const ShowUserCommandDoc = `
-Display infomation on a user.
+var helpSummary = `
+Show information about a user.`[1:]
+
+var helpDetails = `
+By default, the YAML format is used and the user name is the current
+user.
+
 
 Examples:
-  	# Show information on the current user
-	$ juju show-user
-  	user-name: foobar
-  	display-name: Foo Bar
-  	date-created : 1981-02-27 16:10:05 +0000 UTC
-	last-connection: 2014-01-01 00:00:00 +0000 UTC
-
-  	# Show information on a user with the given username
-	$ juju show-user jsmith
-  	user-name: jsmith
-  	display-name: John Smith
-  	date-created : 1981-02-27 16:10:05 +0000 UTC
-	last-connection: 2014-01-01 00:00:00 +0000 UTC
-
-  	# Show information on the current user in JSON format
- 	$ juju show-user --format json
-  	{"user-name":"foobar",
-  	"display-name":"Foo Bar",
-	"date-created": "1981-02-27 16:10:05 +0000 UTC",
-	"last-connection": "2014-01-01 00:00:00 +0000 UTC"}
-
-  	# Show information on the current user in YAML format
- 	$ juju show-user --format yaml
- 	user-name: foobar
- 	display-name: Foo Bar
- 	date-created : 1981-02-27 16:10:05 +0000 UTC
-	last-connection: 2014-01-01 00:00:00 +0000 UTC
-`
+    juju show-user
+    juju show-user jsmith
+    juju show-user --format json
+    juju show-user --format yaml
+    
+See also: 
+    add-user
+    register
+    list-users`[1:]
 
 // UserInfoAPI defines the API methods that the info command uses.
 type UserInfoAPI interface {
@@ -64,7 +50,7 @@ type infoCommandBase struct {
 }
 
 func (c *infoCommandBase) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.exactTime, "exact-time", false, "use full timestamp precision")
+	f.BoolVar(&c.exactTime, "exact-time", false, "Use full timestamp for connection times")
 }
 
 func NewShowUserCommand() cmd.Command {
@@ -90,9 +76,9 @@ type UserInfo struct {
 func (c *infoCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-user",
-		Args:    "<username>",
-		Purpose: "shows information on a user",
-		Doc:     ShowUserCommandDoc,
+		Args:    "[<user name>]",
+		Purpose: helpSummary,
+		Doc:     helpDetails,
 	}
 }
 

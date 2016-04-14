@@ -45,6 +45,7 @@ var CloudImagesRemote = Remote{
 	ServerPEMCert: "",
 }
 
+var generateCertificate = lxdshared.GenerateMemCert
 var DefaultImageSources = []Remote{CloudImagesRemote}
 
 // Remote describes a LXD "remote" server for a client. In
@@ -102,7 +103,7 @@ func (r Remote) WithDefaults() (Remote, error) {
 	}
 
 	if r.Cert == nil {
-		certPEM, keyPEM, err := lxdshared.GenerateMemCert()
+		certPEM, keyPEM, err := generateCertificate()
 		if err != nil {
 			return r, errors.Trace(err)
 		}

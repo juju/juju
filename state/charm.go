@@ -10,11 +10,35 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/mongo"
 )
+
+// MacaroonCache is a type that wraps State and implements charmstore.MacaroonCache.
+type MacaroonCache struct {
+	*State
+}
+
+// Set stores the macaroon on the charm.
+func (m MacaroonCache) Set(u *charm.URL, ms macaroon.Slice) error {
+	c, err := m.Charm(u)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return c.UpdateMacaroon(ms)
+}
+
+// Get retrieves the macaroon for the charm (if any).
+func (m MacaroonCache) Get(u *charm.URL) (macaroon.Slice, error) {
+	c, err := m.Charm(u)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.Macaroon()
+}
 
 // charmDoc represents the internal state of a charm in MongoDB.
 type charmDoc struct {
@@ -44,6 +68,7 @@ type charmDoc struct {
 	StoragePath   string `bson:"storagepath"`
 	PendingUpload bool   `bson:"pendingupload"`
 	Placeholder   bool   `bson:"placeholder"`
+	Macaroon      []byte `bson:"macaroon"`
 }
 
 // CharmInfo contains all the data necessary to store a charm's metadata.
@@ -52,6 +77,7 @@ type CharmInfo struct {
 	ID          *charm.URL
 	StoragePath string
 	SHA256      string
+	Macaroon    macaroon.Slice
 }
 
 // insertCharmOps returns the txn operations necessary to insert the supplied
@@ -60,7 +86,8 @@ func insertCharmOps(st *State, info CharmInfo) ([]txn.Op, error) {
 	if info.ID == nil {
 		return nil, errors.New("*charm.URL was nil")
 	}
-	return insertAnyCharmOps(&charmDoc{
+
+	doc := charmDoc{
 		DocID:        info.ID.String(),
 		URL:          info.ID,
 		ModelUUID:    st.ModelTag().Id(),
@@ -70,7 +97,15 @@ func insertCharmOps(st *State, info CharmInfo) ([]txn.Op, error) {
 		Actions:      info.Charm.Actions(),
 		BundleSha256: info.SHA256,
 		StoragePath:  info.StoragePath,
-	})
+	}
+	if info.Macaroon != nil {
+		mac, err := info.Macaroon.MarshalBinary()
+		if err != nil {
+			return nil, errors.Annotate(err, "can't convert macaroon to binary for storage")
+		}
+		doc.Macaroon = mac
+	}
+	return insertAnyCharmOps(&doc)
 }
 
 // insertPlaceholderCharmOps returns the txn operations necessary to insert a
@@ -118,10 +153,10 @@ func insertAnyCharmOps(cdoc *charmDoc) ([]txn.Op, error) {
 // document with the supplied data, so long as the supplied assert still holds
 // true.
 func updateCharmOps(
-	st *State, info CharmInfo, assert bson.D,
+	st *State, info CharmInfo, assert interface{},
 ) ([]txn.Op, error) {
 
-	updateFields := bson.D{{"$set", bson.D{
+	data := bson.D{
 		{"meta", info.Charm.Meta()},
 		{"config", safeConfig(info.Charm)},
 		{"actions", info.Charm.Actions()},
@@ -130,7 +165,17 @@ func updateCharmOps(
 		{"bundlesha256", info.SHA256},
 		{"pendingupload", false},
 		{"placeholder", false},
-	}}}
+	}
+
+	if len(info.Macaroon) > 0 {
+		mac, err := info.Macaroon.MarshalBinary()
+		if err != nil {
+			return nil, errors.Annotate(err, "can't convert macaroon to binary for storage")
+		}
+		data = append(data, bson.DocElem{"macaroon", mac})
+	}
+
+	updateFields := bson.D{{"$set", data}}
 	return []txn.Op{{
 		C:      charmsC,
 		Id:     info.ID.String(),
@@ -220,7 +265,8 @@ func newCharm(st *State, cdoc *charmDoc) *Charm {
 		}
 		cdoc.Config = unescapedConfig
 	}
-	return &Charm{st: st, doc: *cdoc}
+	ch := Charm{st: st, doc: *cdoc}
+	return &ch
 }
 
 // Tag returns a tag identifying the charm.
@@ -306,4 +352,37 @@ func (c *Charm) IsUploaded() bool {
 // rather than representing a deployed charm.
 func (c *Charm) IsPlaceholder() bool {
 	return c.doc.Placeholder
+}
+
+// Macaroon return the macaroon that can be used to request data about the charm
+// from the charmstore, or nil if the charm is not private.
+func (c *Charm) Macaroon() (macaroon.Slice, error) {
+	if len(c.doc.Macaroon) == 0 {
+		return nil, nil
+	}
+	var m macaroon.Slice
+	if err := m.UnmarshalBinary(c.doc.Macaroon); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return m, nil
+}
+
+// UpdateMacaroon updates the stored macaroon for this charm.
+func (c *Charm) UpdateMacaroon(m macaroon.Slice) error {
+	info := CharmInfo{
+		Charm:       c,
+		ID:          c.URL(),
+		StoragePath: c.StoragePath(),
+		SHA256:      c.BundleSha256(),
+		Macaroon:    m,
+	}
+	ops, err := updateCharmOps(c.st, info, txn.DocExists)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := c.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
