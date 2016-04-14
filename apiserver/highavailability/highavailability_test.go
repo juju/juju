@@ -206,15 +206,10 @@ func (s *clientSuite) TestEnableHAEmptyConstraints(c *gc.C) {
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
-	expectedCons := []constraints.Value{
-		controllerCons,
-		controllerCons,
-		controllerCons,
-	}
-	for i, m := range machines {
+	for _, m := range machines {
 		cons, err := m.Constraints()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(cons, gc.DeepEquals, expectedCons[i])
+		c.Check(cons, gc.DeepEquals, controllerCons)
 	}
 }
 

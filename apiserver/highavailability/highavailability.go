@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
@@ -15,6 +16,8 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.highavailability")
 
 func init() {
 	common.RegisterStandardFacade("HighAvailability", 2, NewHighAvailabilityAPI)
@@ -129,18 +132,19 @@ func EnableHASingle(st *state.State, spec params.ControllersSpec) (params.Contro
 		if err != nil {
 			return params.ControllersChanges{}, err
 		}
-		if len(controllerInfo.MachineIds) == 0 {
-			errors.Errorf("internal error, failed to find any controllers")
-		}
 		// We'll sort the controller ids to find the smallest.
 		// This will typically give the initial bootstrap machine.
-		controllerIds := make([]int, len(controllerInfo.MachineIds))
-		for i, id := range controllerInfo.MachineIds {
+		var controllerIds []int
+		for _, id := range controllerInfo.MachineIds {
 			idNum, err := strconv.Atoi(id)
 			if err != nil {
-				return params.ControllersChanges{}, errors.Errorf("internal error, controller id %v is not numeric", id)
+				logger.Warningf("ignoring non numeric controller id %v", id)
+				continue
 			}
-			controllerIds[i] = idNum
+			controllerIds = append(controllerIds, idNum)
+		}
+		if len(controllerIds) == 0 {
+			errors.Errorf("internal error, failed to find any controllers")
 		}
 		sort.Ints(controllerIds)
 
