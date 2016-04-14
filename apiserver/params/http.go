@@ -3,7 +3,10 @@
 
 package params
 
-import "encoding/base64"
+import (
+	"encoding/base64"
+	"fmt"
+)
 
 // DigestAlgorithm is one of the values in the IANA registry. See
 // RFC 3230 and 5843.
@@ -28,7 +31,8 @@ const (
 	ContentTypeXJS = "application/x-javascript"
 )
 
-// EncodeChecksum base64 encodes a digest checksum according to RFC 4648.
+// EncodeChecksum base64 encodes a sha256 checksum according to RFC 4648 and
+// returns a value that can be added to the "Digest" http header.
 func EncodeChecksum(checksum string) string {
-	return base64.StdEncoding.EncodeToString([]byte(checksum))
+	return fmt.Sprintf("%s=%s", DigestSHA256, base64.StdEncoding.EncodeToString([]byte(checksum)))
 }
