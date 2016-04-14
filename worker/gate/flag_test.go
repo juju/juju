@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -32,7 +33,7 @@ func (*FlagSuite) TestManifoldInputs(c *gc.C) {
 func (*FlagSuite) TestManifoldOutputBadWorker(c *gc.C) {
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{})
 	in := &dummyWorker{}
-	var out dependency.Flag
+	var out util.Flag
 	err := manifold.Output(in, &out)
 	c.Check(err, gc.ErrorMatches, `expected in to implement Flag; got a .*`)
 	c.Check(out, gc.IsNil)
@@ -50,7 +51,7 @@ func (*FlagSuite) TestManifoldOutputBadTarget(c *gc.C) {
 func (*FlagSuite) TestManifoldOutputSuccess(c *gc.C) {
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{})
 	in := &gate.Flag{}
-	var out dependency.Flag
+	var out util.Flag
 	err := manifold.Output(in, &out)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(out, gc.Equals, in)

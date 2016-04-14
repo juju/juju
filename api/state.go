@@ -36,7 +36,6 @@ import (
 // This method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
 func (st *state) Login(tag names.Tag, password, nonce string, ms []macaroon.Slice) error {
-	// TODO(axw) accept and pass on macaroons
 	err := st.loginV3(tag, password, nonce, ms)
 	return errors.Trace(err)
 }

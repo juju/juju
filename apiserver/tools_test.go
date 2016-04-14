@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -20,7 +21,10 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/api/usermanager"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -29,6 +33,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -497,6 +502,40 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
 	})
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 	c.Assert(checkCount, gc.Equals, 1)
+}
+
+func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
+	// Create a new user, and a local login macaroon for it.
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "hunter2"})
+	conn := s.OpenAPIAs(c, user.Tag(), "hunter2")
+	defer conn.Close()
+	mac, err := usermanager.NewClient(conn).CreateLocalLoginMacaroon(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkCount := 0
+	s.DischargerLogin = func() string {
+		checkCount++
+		return user.UserTag().Id()
+	}
+	do := func(req *http.Request) (*http.Response, error) {
+		data, err := json.Marshal(macaroon.Slice{mac})
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Add(httpbakery.MacaroonsHeader, base64.StdEncoding.EncodeToString(data))
+		return utils.GetNonValidatingHTTPClient().Do(req)
+	}
+	// send without using bakeryDo, so we don't pass any macaroon cookies
+	// along.
+	resp := s.sendRequest(c, httpRequestParams{
+		method:   "POST",
+		url:      s.toolsURI(c, ""),
+		tag:      user.UserTag().String(),
+		password: "", // no password forces macaroon usage
+		do:       do,
+	})
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
+	c.Assert(checkCount, gc.Equals, 0)
 }
 
 // doer returns a Do function that can make a bakery request

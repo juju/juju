@@ -440,6 +440,22 @@ func SelectInternalHostPorts(hps []HostPort, machineLocal bool) []string {
 	return out
 }
 
+// PrioritizeInternalHostPorts orders the provided addresses by best
+// match for use as an endpoint for juju internal communication and
+// returns them in NetAddr form. If there are no suitable addresses
+// then an empty slice is returned.
+func PrioritizeInternalHostPorts(hps []HostPort, machineLocal bool) []string {
+	indexes := prioritizedAddressIndexes(len(hps), PreferIPv6(), func(i int) Address {
+		return hps[i].Address
+	}, internalAddressMatcher(machineLocal))
+
+	out := make([]string, 0, len(indexes))
+	for _, index := range indexes {
+		out = append(out, hps[index].NetAddr())
+	}
+	return out
+}
+
 func publicMatch(addr Address, preferIPv6 bool) scopeMatch {
 	switch addr.Scope {
 	case ScopePublic:
@@ -518,14 +534,7 @@ func bestAddressIndex(numAddr int, preferIPv6 bool, getAddr func(i int) Address,
 // empty slice is returned if there were no suitable addresses.
 func bestAddressIndexes(numAddr int, preferIPv6 bool, getAddr func(i int) Address, match func(addr Address, preferIPv6 bool) scopeMatch) []int {
 	// Categorise addresses by scope and type matching quality.
-	matches := make(map[scopeMatch][]int)
-	for i := 0; i < numAddr; i++ {
-		matchType := match(getAddr(i), preferIPv6)
-		switch matchType {
-		case exactScope, fallbackScope, mismatchedTypeExactScope, mismatchedTypeFallbackScope:
-			matches[matchType] = append(matches[matchType], i)
-		}
-	}
+	matches := filterAndCollateAddressIndexes(numAddr, preferIPv6, getAddr, match)
 
 	// Retrieve the indexes of the addresses with the best scope and type match.
 	allowedMatchTypes := []scopeMatch{exactScope, fallbackScope}
@@ -539,6 +548,38 @@ func bestAddressIndexes(numAddr int, preferIPv6 bool, getAddr func(i int) Addres
 		}
 	}
 	return []int{}
+}
+
+func prioritizedAddressIndexes(numAddr int, preferIPv6 bool, getAddr func(i int) Address, match func(addr Address, preferIPv6 bool) scopeMatch) []int {
+	// Categorise addresses by scope and type matching quality.
+	matches := filterAndCollateAddressIndexes(numAddr, preferIPv6, getAddr, match)
+
+	// Retrieve the indexes of the addresses with the best scope and type match.
+	allowedMatchTypes := []scopeMatch{exactScope, fallbackScope}
+	if preferIPv6 {
+		allowedMatchTypes = append(allowedMatchTypes, mismatchedTypeExactScope, mismatchedTypeFallbackScope)
+	}
+	var prioritized []int
+	for _, matchType := range allowedMatchTypes {
+		indexes, ok := matches[matchType]
+		if ok && len(indexes) > 0 {
+			prioritized = append(prioritized, indexes...)
+		}
+	}
+	return prioritized
+}
+
+func filterAndCollateAddressIndexes(numAddr int, preferIPv6 bool, getAddr func(i int) Address, match func(addr Address, preferIPv6 bool) scopeMatch) map[scopeMatch][]int {
+	// Categorise addresses by scope and type matching quality.
+	matches := make(map[scopeMatch][]int)
+	for i := 0; i < numAddr; i++ {
+		matchType := match(getAddr(i), preferIPv6)
+		switch matchType {
+		case exactScope, fallbackScope, mismatchedTypeExactScope, mismatchedTypeFallbackScope:
+			matches[matchType] = append(matches[matchType], i)
+		}
+	}
+	return matches
 }
 
 // sortOrder calculates the "weight" of the address when sorting,

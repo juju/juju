@@ -17,14 +17,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	apimachiner "github.com/juju/juju/api/machiner"
-	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
@@ -40,13 +37,13 @@ import (
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/imagemetadata"
+	apimachiner "github.com/juju/juju/api/machiner"
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
-	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
@@ -73,7 +70,6 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
-	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -128,7 +124,6 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.fakeEnsureMongo = agenttesting.InstallFakeEnsureMongo(s)
-	s.AgentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.MaybeInitiateMongo)
 }
 
 func (s *commonMachineSuite) assertChannelActive(c *gc.C, aChannel chan struct{}, intent string) {
@@ -201,7 +196,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 	inst, md := jujutesting.AssertStartInstance(c, s.Environ, machineId)
 	c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), jc.ErrorIsNil)
 
-	// Add an address for the tests in case the maybeInitiateMongoServer
+	// Add an address for the tests in case the initiateMongoServer
 	// codepath is exercised.
 	s.setFakeMachineAddresses(c, m)
 
@@ -535,7 +530,8 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 		Series: "quantal", // to match the charm created below
 	}
 	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
+	// Prime agent with manage networking in additon to manage model to ensure the former is ignored.
+	m, _, _ := s.primeAgent(c, state.JobManageModel, state.JobManageNetworking)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
 
@@ -1104,45 +1100,6 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	s.waitStopped(c, state.JobManageModel, a, done)
 }
 
-func (s *MachineSuite) TestProxyUpdaterWithSystemFileUpdate(c *gc.C) {
-	// Make sure there are some proxy settings to write.
-	expectSettings := proxy.Settings{
-		Http:  "http proxy",
-		Https: "https proxy",
-		Ftp:   "ftp proxy",
-	}
-	updateAttrs := config.ProxyConfigMap(expectSettings)
-	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Patch out the actual worker func.
-	started := newSignal()
-	mockNew := func(api *apiproxyupdater.Facade) (worker.Worker, error) {
-		// Indirect check that we get a functional API.
-		conf, err := api.ModelConfig()
-		if c.Check(err, jc.ErrorIsNil) {
-			actualSettings := conf.ProxySettings()
-			c.Check(actualSettings, jc.DeepEquals, expectSettings)
-		}
-		return worker.NewSimpleWorker(func(_ <-chan struct{}) error {
-			started.trigger()
-			return nil
-		}), nil
-	}
-	s.AgentSuite.PatchValue(&proxyupdater.NewWorker, mockNew)
-
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for proxy updater to start")
-	case <-started.triggered():
-	}
-}
-
 func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
 	m, ac, _ := s.primeAgent(c, state.JobHostUnits)
 	err := m.EnsureDead()
@@ -1495,47 +1452,6 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 	s.waitStopped(c, state.JobHostUnits, a, doneCh)
 }
 
-func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
-	m, agentConfig, _ := s.primeAgent(c, state.JobManageModel)
-	agentConfig.SetUpgradedToVersion(version.MustParse("1.18.0"))
-	err := agentConfig.Write()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.MongoSession().DB("admin").RemoveUser(m.Tag().String())
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.fakeEnsureMongo.ServiceInstalled = true
-	s.fakeEnsureMongo.ReplicasetInitiated = false
-
-	s.AgentSuite.PatchValue(&ensureMongoAdminUser, func(p mongo.EnsureAdminUserParams) (bool, error) {
-		err := s.State.MongoSession().DB("admin").AddUser(p.User, p.Password, false)
-		c.Assert(err, jc.ErrorIsNil)
-		return true, nil
-	})
-
-	stateOpened := make(chan interface{}, 1)
-	s.AgentSuite.PatchValue(&reportOpenedState, func(st io.Closer) {
-		select {
-		case stateOpened <- st:
-		default:
-		}
-	})
-
-	// Start the machine agent, and wait for state to be opened.
-	a := s.newAgent(c, m)
-	done := make(chan error)
-	go func() { done <- a.Run(nil) }()
-	defer a.Stop() // in case of failure
-	select {
-	case st := <-stateOpened:
-		c.Assert(st, gc.NotNil)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("state not opened")
-	}
-	s.waitStopped(c, state.JobManageModel, a, done)
-	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 1)
-}
-
 func (s *MachineSuite) TestMachineAgentSetsPrepareRestore(c *gc.C) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
@@ -1741,49 +1657,12 @@ func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()
 	}
 }
 
-func (s *MachineSuite) TestReplicasetInitiation(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("controllers on windows aren't supported")
-	}
-
-	s.fakeEnsureMongo.ReplicasetInitiated = false
-
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	agentConfig := a.CurrentConfig()
-
-	err := a.ensureMongoServer(agentConfig)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 1)
-}
-
-func (s *MachineSuite) TestReplicasetAlreadyInitiated(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("controllers on windows aren't supported")
-	}
-
-	s.fakeEnsureMongo.ReplicasetInitiated = true
-
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	agentConfig := a.CurrentConfig()
-
-	err := a.ensureMongoServer(agentConfig)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
-}
-
 func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("controllers on windows aren't supported")
 	}
 
 	s.fakeEnsureMongo.ServiceInstalled = false
-	s.fakeEnsureMongo.ReplicasetInitiated = true
 
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)
@@ -1881,7 +1760,7 @@ func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureRepl
 			DialInfo:       info,
 			MemberHostPort: inst.Addr(),
 		}
-		err = peergrouper.MaybeInitiateMongoServer(args)
+		err = peergrouper.InitiateMongoServer(args)
 		c.Assert(err, jc.ErrorIsNil)
 		expectedWMode = "majority"
 	} else {

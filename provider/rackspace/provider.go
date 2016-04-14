@@ -4,7 +4,10 @@
 package rackspace
 
 import (
+	"strings"
+
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 )
 
 type environProvider struct {
@@ -12,3 +15,12 @@ type environProvider struct {
 }
 
 var providerInstance *environProvider
+
+// BootstrapConfig is specified in the EnvironProvider interface.
+func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+	// Rackspace regions are expected to be uppercase, but Juju
+	// stores and displays them in lowercase in the CLI. Ensure
+	// they're uppercase when they get to the Rackspace API.
+	args.CloudRegion = strings.ToUpper(args.CloudRegion)
+	return p.EnvironProvider.BootstrapConfig(args)
+}

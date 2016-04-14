@@ -29,7 +29,7 @@ func (s *addSuite) SetUpTest(c *gc.C) {
 func (s *addSuite) TestAddBadArgs(c *gc.C) {
 	addCmd := cloud.NewAddCloudCommand()
 	_, err := testing.RunCommand(c, addCmd)
-	c.Assert(err, gc.ErrorMatches, "Usage: juju add-cloud <cloud-name> <cloud.yaml>")
+	c.Assert(err, gc.ErrorMatches, "Usage: juju add-cloud <cloud name> <cloud definition file>")
 	_, err = testing.RunCommand(c, addCmd, "cloud", "cloud.yaml", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }

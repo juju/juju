@@ -4,20 +4,75 @@
 package maas
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
+
+type maas2Suite struct {
+	baseProviderSuite
+}
+
+func (suite *maas2Suite) SetUpTest(c *gc.C) {
+	suite.baseProviderSuite.SetUpTest(c)
+	suite.SetFeatureFlags(feature.MAAS2)
+}
+
+func (suite *maas2Suite) injectController(controller gomaasapi.Controller) {
+	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+		return controller, nil
+	}
+	suite.PatchValue(&GetMAAS2Controller, mockGetController)
+}
+
+func (suite *maas2Suite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *maasEnviron {
+	if controller != nil {
+		suite.injectController(controller)
+	}
+	testAttrs := coretesting.Attrs{}
+	for k, v := range maasEnvAttrs {
+		testAttrs[k] = v
+	}
+	testAttrs["maas-server"] = "http://any-old-junk.invalid/"
+	testAttrs["agent-version"] = version.Current.String()
+	testAttrs["maas-agent-name"] = "agent-prefix"
+
+	attrs := coretesting.FakeConfig().Merge(testAttrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := NewEnviron(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env, gc.NotNil)
+	return env
+}
 
 type fakeController struct {
 	gomaasapi.Controller
-	bootResources      []gomaasapi.BootResource
-	bootResourcesError error
-	machines           []gomaasapi.Machine
-	machinesError      error
-	machinesArgsCheck  func(gomaasapi.MachinesArgs)
-	zones              []gomaasapi.Zone
-	zonesError         error
-	spaces             []gomaasapi.Space
-	spacesError        error
+	bootResources            []gomaasapi.BootResource
+	bootResourcesError       error
+	machines                 []gomaasapi.Machine
+	machinesError            error
+	machinesArgsCheck        func(gomaasapi.MachinesArgs)
+	zones                    []gomaasapi.Zone
+	zonesError               error
+	spaces                   []gomaasapi.Space
+	spacesError              error
+	allocateMachine          gomaasapi.Machine
+	allocateMachineError     error
+	allocateMachineArgsCheck func(gomaasapi.AllocateMachineArgs)
+	files                    []gomaasapi.File
+	filesPrefix              string
+	filesError               error
+	getFileFilename          string
+	addFileArgs              gomaasapi.AddFileArgs
+	releaseMachinesErrors    []error
+	releaseMachinesArgs      []gomaasapi.ReleaseMachinesArgs
 }
 
 func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
@@ -28,6 +83,17 @@ func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Mach
 		return nil, c.machinesError
 	}
 	return c.machines, nil
+}
+
+func (c *fakeController) AllocateMachine(args gomaasapi.AllocateMachineArgs) (gomaasapi.Machine, gomaasapi.ConstraintMatches, error) {
+	matches := gomaasapi.ConstraintMatches{}
+	if c.allocateMachineArgsCheck != nil {
+		c.allocateMachineArgsCheck(args)
+	}
+	if c.allocateMachineError != nil {
+		return nil, matches, c.allocateMachineError
+	}
+	return c.allocateMachine, matches, nil
 }
 
 func (c *fakeController) BootResources() ([]gomaasapi.BootResource, error) {
@@ -49,6 +115,44 @@ func (c *fakeController) Spaces() ([]gomaasapi.Space, error) {
 		return nil, c.spacesError
 	}
 	return c.spaces, nil
+}
+
+func (c *fakeController) Files(prefix string) ([]gomaasapi.File, error) {
+	c.filesPrefix = prefix
+	if c.filesError != nil {
+		return nil, c.filesError
+	}
+	return c.files, nil
+}
+
+func (c *fakeController) GetFile(filename string) (gomaasapi.File, error) {
+	c.getFileFilename = filename
+	if c.filesError != nil {
+		return nil, c.filesError
+	}
+	// Try to find the file by name (needed for testing RemoveAll)
+	for _, file := range c.files {
+		if file.Filename() == filename {
+			return file, nil
+		}
+	}
+	// The test forgot to set up matching files!
+	return nil, errors.Errorf("no file named %v found - did you set up your test correctly?", filename)
+}
+
+func (c *fakeController) AddFile(args gomaasapi.AddFileArgs) error {
+	c.addFileArgs = args
+	return c.filesError
+}
+
+func (c *fakeController) ReleaseMachines(args gomaasapi.ReleaseMachinesArgs) error {
+	c.releaseMachinesArgs = append(c.releaseMachinesArgs, args)
+	if len(c.releaseMachinesErrors) == 0 {
+		return nil
+	}
+	err := c.releaseMachinesErrors[0]
+	c.releaseMachinesErrors = c.releaseMachinesErrors[1:]
+	return err
 }
 
 type fakeBootResource struct {
@@ -76,6 +180,7 @@ type fakeMachine struct {
 	cpuCount      int
 	memory        int
 	architecture  string
+	interfaceSet  []gomaasapi.Interface
 }
 
 func (m *fakeMachine) CPUCount() int {
@@ -114,6 +219,14 @@ func (m *fakeMachine) Zone() gomaasapi.Zone {
 	return fakeZone{name: m.zoneName}
 }
 
+func (m *fakeMachine) InterfaceSet() []gomaasapi.Interface {
+	return m.interfaceSet
+}
+
+func (m *fakeMachine) Start(args gomaasapi.StartArgs) error {
+	return nil
+}
+
 type fakeZone struct {
 	gomaasapi.Zone
 	name string
@@ -144,28 +257,155 @@ func (s fakeSpace) Subnets() []gomaasapi.Subnet {
 
 type fakeSubnet struct {
 	gomaasapi.Subnet
-	id      int
-	vlanVid int
-	cidr    string
+	id         int
+	space      string
+	vlan       gomaasapi.VLAN
+	gateway    string
+	cidr       string
+	dnsServers []string
 }
 
 func (s fakeSubnet) ID() int {
 	return s.id
 }
 
+func (s fakeSubnet) Space() string {
+	return s.space
+}
+
+func (s fakeSubnet) VLAN() gomaasapi.VLAN {
+	return s.vlan
+}
+
+func (s fakeSubnet) Gateway() string {
+	return s.gateway
+}
+
 func (s fakeSubnet) CIDR() string {
 	return s.cidr
 }
 
-func (s fakeSubnet) VLAN() gomaasapi.VLAN {
-	return fakeVLAN{vid: s.vlanVid}
+func (s fakeSubnet) DNSServers() []string {
+	return s.dnsServers
 }
 
 type fakeVLAN struct {
 	gomaasapi.VLAN
+	id  int
 	vid int
+	mtu int
+}
+
+func (v fakeVLAN) ID() int {
+	return v.id
 }
 
 func (v fakeVLAN) VID() int {
 	return v.vid
+}
+
+func (v fakeVLAN) MTU() int {
+	return v.mtu
+}
+
+type fakeInterface struct {
+	gomaasapi.Interface
+	id         int
+	name       string
+	parents    []string
+	children   []string
+	type_      string
+	enabled    bool
+	vlan       gomaasapi.VLAN
+	links      []gomaasapi.Link
+	macAddress string
+}
+
+func (v *fakeInterface) ID() int {
+	return v.id
+}
+
+func (v *fakeInterface) Name() string {
+	return v.name
+}
+
+func (v *fakeInterface) Parents() []string {
+	return v.parents
+}
+
+func (v *fakeInterface) Children() []string {
+	return v.children
+}
+
+func (v *fakeInterface) Type() string {
+	return v.type_
+}
+
+func (v *fakeInterface) Enabled() bool {
+	return v.enabled
+}
+
+func (v *fakeInterface) VLAN() gomaasapi.VLAN {
+	return v.vlan
+}
+
+func (v *fakeInterface) Links() []gomaasapi.Link {
+	return v.links
+}
+
+func (v *fakeInterface) MACAddress() string {
+	return v.macAddress
+}
+
+type fakeLink struct {
+	gomaasapi.Link
+	id        int
+	mode      string
+	subnet    gomaasapi.Subnet
+	ipAddress string
+}
+
+func (l *fakeLink) ID() int {
+	return l.id
+}
+
+func (l *fakeLink) Mode() string {
+	return l.mode
+}
+
+func (l *fakeLink) Subnet() gomaasapi.Subnet {
+	return l.subnet
+}
+
+func (l *fakeLink) IPAddress() string {
+	return l.ipAddress
+}
+
+type fakeFile struct {
+	gomaasapi.File
+	name     string
+	url      string
+	contents []byte
+	deleted  bool
+	error    error
+}
+
+func (f *fakeFile) Filename() string {
+	return f.name
+}
+
+func (f *fakeFile) AnonymousURL() string {
+	return f.url
+}
+
+func (f *fakeFile) Delete() error {
+	f.deleted = true
+	return f.error
+}
+
+func (f *fakeFile) ReadAll() ([]byte, error) {
+	if f.error != nil {
+		return nil, f.error
+	}
+	return f.contents, nil
 }

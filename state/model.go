@@ -16,6 +16,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/version"
 )
 
@@ -364,7 +365,7 @@ func (m *Model) Refresh() error {
 	return m.refresh(models.FindId(m.UUID()))
 }
 
-func (m *Model) refresh(query *mgo.Query) error {
+func (m *Model) refresh(query mongo.Query) error {
 	err := query.One(&m.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("model")
