@@ -18,13 +18,16 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
-//sys enumServicesStatus(h windows.Handle, dwServiceType uint32, dwServiceState uint32, lpServices uintptr, cbBufSize uint32, pcbBytesNeeded *uint32, lpServicesReturned *uint32, lpResumeHandle *uint32) (err error) [failretval==0] = advapi32.EnumServicesStatusW
+type SC_ENUM_TYPE int
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms681988(v=vs.85).aspx
 const (
-	SERVICE_CONFIG_FAILURE_ACTIONS      = 2
-	SERVICE_CONFIG_FAILURE_ACTIONS_FLAG = 4
+	SC_ENUM_PROCESS_INFO                SC_ENUM_TYPE = 0
+	SERVICE_CONFIG_FAILURE_ACTIONS                   = 2
+	SERVICE_CONFIG_FAILURE_ACTIONS_FLAG              = 4
 )
+
+//sys enumServicesStatus(h windows.Handle, InfoLevel SC_ENUM_TYPE, dwServiceType uint32, dwServiceState uint32, lpServices uintptr, cbBufSize uint32, pcbBytesNeeded *uint32, lpServicesReturned *uint32, lpResumeHandle *uint32, pszGroupName *uint32) (err error) [failretval==0] = advapi32.EnumServicesStatusExW
 
 const (
 	SC_ACTION_NONE = iota
@@ -55,10 +58,24 @@ type serviceFailureActionsFlag struct {
 // This is done so we can mock this function out
 var WinChangeServiceConfig2 = windows.ChangeServiceConfig2
 
+// serviceStatusProcess is used by EnumServicesStatusEx
+// https://msdn.microsoft.com/en-us/library/windows/desktop/ms685992%28v=vs.85%29.aspx
+type serviceStatusProcess struct {
+	ServiceType             uint32
+	CurrentState            uint32
+	ControlsAccepted        uint32
+	Win32ExitCode           uint32
+	ServiceSpecificExitCode uint32
+	CheckPoint              uint32
+	WaitHint                uint32
+	ProcessId               uint32
+	ServiceFlags            uint32
+}
+
 type enumService struct {
 	name        *uint16
 	displayName *uint16
-	Status      windows.SERVICE_STATUS
+	Status      serviceStatusProcess
 }
 
 // Name returns the name of the service stored in enumService.
@@ -174,8 +191,8 @@ var listServices = func() (services []string, err error) {
 
 	for {
 		var buf [512]enumService
-		err := enumServicesStatus(sc, windows.SERVICE_WIN32,
-			windows.SERVICE_STATE_ALL, uintptr(unsafe.Pointer(&buf[0])), uint32(unsafe.Sizeof(buf)), &needed, &returned, &resume)
+		err := enumServicesStatus(sc, SC_ENUM_PROCESS_INFO, windows.SERVICE_WIN32,
+			windows.SERVICE_STATE_ALL, uintptr(unsafe.Pointer(&buf[0])), uint32(unsafe.Sizeof(buf)), &needed, &returned, &resume, nil)
 		if err != nil {
 			if err == windows.ERROR_MORE_DATA {
 				enum = append(enum, buf[:returned]...)
