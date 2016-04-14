@@ -4,13 +4,15 @@
 package highavailability
 
 import (
-	"fmt"
+	"sort"
+	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state"
 )
 
@@ -112,7 +114,7 @@ func EnableHASingle(st *state.State, spec params.ControllersSpec) (params.Contro
 		// the first one, then they'll stay in sync.
 		if len(ssi.VotingMachineIds) == 0 {
 			// Better than a panic()?
-			return params.ControllersChanges{}, fmt.Errorf("internal error, failed to find any voting machines")
+			return params.ControllersChanges{}, errors.Errorf("internal error, failed to find any voting machines")
 		}
 		templateMachine, err := st.Machine(ssi.VotingMachineIds[0])
 		if err != nil {
@@ -120,6 +122,41 @@ func EnableHASingle(st *state.State, spec params.ControllersSpec) (params.Contro
 		}
 		series = templateMachine.Series()
 	}
+	if constraints.IsEmpty(&spec.Constraints) {
+		// No constraints specified, so we'll use the constraints off
+		// a running controller.
+		controllerInfo, err := st.ControllerInfo()
+		if err != nil {
+			return params.ControllersChanges{}, err
+		}
+		if len(controllerInfo.MachineIds) == 0 {
+			errors.Errorf("internal error, failed to find any controllers")
+		}
+		// We'll sort the controller ids to find the smallest.
+		// This will typically give the initial bootstrap machine.
+		controllerIds := make([]int, len(controllerInfo.MachineIds))
+		for i, id := range controllerInfo.MachineIds {
+			idNum, err := strconv.Atoi(id)
+			if err != nil {
+				return params.ControllersChanges{}, errors.Errorf("internal error, controller id %v is not numeric", id)
+			}
+			controllerIds[i] = idNum
+		}
+		sort.Ints(controllerIds)
+
+		// Load the controller machine and get its constraints.
+		controllerId := controllerIds[0]
+		controller, err := st.Machine(strconv.Itoa(controllerId))
+		if err != nil {
+			return params.ControllersChanges{}, errors.Annotatef(err, "reading controller machine id %v", controllerId)
+		}
+		spec.Constraints, err = controller.Constraints()
+		if err != nil {
+			return params.ControllersChanges{}, errors.Annotatef(err, "reading constraints for controller machine id %v", controllerId)
+		}
+		spec.Constraints, err = controller.Constraints()
+	}
+
 	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, series, spec.Placement)
 	if err != nil {
 		return params.ControllersChanges{}, err
