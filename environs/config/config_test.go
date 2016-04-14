@@ -797,8 +797,42 @@ var configTests = []configTest{
 			"resource-tags": []string{"a"},
 		}),
 		err: `resource-tags: expected "key=value", got "a"`,
-	},
-	{
+	}, {
+		about:       "Mismatched rsyslog cert and key",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"rsyslog-client-cert": caCert,
+			"rsyslog-client-key":  caKey2,
+		}),
+		err: "bad rsyslog client certificate/key in configuration: crypto/tls: private key does not match public key",
+	}, {
+		about:       "Invalid rsyslog URL value",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"type":        "my-type",
+			"name":        "my-name",
+			"rsyslog-url": "%",
+		}),
+		err: `invalid rsyslog URL: parse %: invalid URL escape "%"`,
+	}, {
+		about:       "Invalid rsyslog ca cert format",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"rsyslog-ca-cert": "abc",
+		}),
+		err: "invalid rsyslog CA certificate: no certificates found",
+	}, {
+		about:       "Valid rsyslog config values",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"rsyslog-url":     "https://localhost:1234",
+			"rsyslog-ca-cert": caCert,
+		}),
+	}, {
 		about:       "Invalid identity URL value",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -1099,6 +1133,33 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	} else {
 		// Content of all the files that are read by default.
 		c.Assert(cfg.AuthorizedKeys(), gc.Equals, "dsa\nrsa\nidentity\n")
+	}
+
+	rsyslogCACert, rsyslogCACertPresent := cfg.RsyslogCACert()
+	if v, ok := test.attrs["rsyslog-ca-cert"].(string); v != "" {
+		c.Assert(rsyslogCACertPresent, jc.IsTrue)
+		c.Assert(string(rsyslogCACert), gc.Equals, v)
+	} else if ok {
+		c.Check(rsyslogCACert, gc.HasLen, 0)
+		c.Assert(rsyslogCACertPresent, jc.IsFalse)
+	}
+
+	rsyslogClientCert, rsyslogClientCertPresent := cfg.RsyslogClientCert()
+	if v, ok := test.attrs["rsyslog-client-cert"].(string); v != "" {
+		c.Assert(rsyslogClientCertPresent, jc.IsTrue)
+		c.Assert(string(rsyslogClientCert), gc.Equals, v)
+	} else if ok {
+		c.Check(rsyslogClientCert, gc.HasLen, 0)
+		c.Assert(rsyslogClientCertPresent, jc.IsFalse)
+	}
+
+	rsyslogClientKey, rsyslogClientKeyPresent := cfg.RsyslogClientKey()
+	if v, ok := test.attrs["rsyslog-client-key"].(string); v != "" {
+		c.Assert(rsyslogClientKeyPresent, jc.IsTrue)
+		c.Assert(string(rsyslogClientKey), gc.Equals, v)
+	} else if ok {
+		c.Check(rsyslogClientKey, gc.HasLen, 0)
+		c.Assert(rsyslogClientKeyPresent, jc.IsFalse)
 	}
 
 	cert, certPresent := cfg.CACert()

@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -40,7 +41,7 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 	}
 
 	called := false
-	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) state.LogTailer {
+	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
 		called = true
 
 		// Start time will be used once the client is extended to send
@@ -54,7 +55,7 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 		c.Assert(params.ExcludeEntity, jc.DeepEquals, []string{"baz"})
 		c.Assert(params.ExcludeModule, jc.DeepEquals, []string{"qux"})
 
-		return newFakeLogTailer()
+		return newFakeLogTailer(), nil
 	})
 
 	stop := make(chan struct{})
@@ -71,13 +72,13 @@ func (s *debugLogDBIntSuite) TestParamConversionReplay(c *gc.C) {
 	}
 
 	called := false
-	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) state.LogTailer {
+	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
 		called = true
 
 		c.Assert(params.StartTime.IsZero(), jc.IsTrue)
 		c.Assert(params.InitialLines, gc.Equals, 0)
 
-		return newFakeLogTailer()
+		return newFakeLogTailer(), nil
 	})
 
 	stop := make(chan struct{})
@@ -106,8 +107,8 @@ func (s *debugLogDBIntSuite) TestFullRequest(c *gc.C) {
 		Level:    loggo.ERROR,
 		Message:  "whoops",
 	}
-	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) state.LogTailer {
-		return tailer
+	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
+		return tailer, nil
 	})
 
 	stop := make(chan struct{})
@@ -124,11 +125,49 @@ func (s *debugLogDBIntSuite) TestFullRequest(c *gc.C) {
 	s.assertStops(c, done, tailer)
 }
 
+func (s *debugLogDBIntSuite) TestJSONFormat(c *gc.C) {
+	// Set up a fake log tailer with a 2 log records ready to send.
+	tailer := newFakeLogTailer()
+	tailer.logsCh <- &state.LogRecord{
+		Time:     time.Date(2015, 6, 19, 15, 34, 37, 0, time.UTC),
+		Entity:   "machine-99",
+		Module:   "some.where",
+		Location: "code.go:42",
+		Level:    loggo.INFO,
+		Message:  "stuff happened",
+	}
+	tailer.logsCh <- &state.LogRecord{
+		Time:     time.Date(2015, 6, 19, 15, 36, 40, 0, time.UTC),
+		Entity:   "unit-foo-2",
+		Module:   "else.where",
+		Location: "go.go:22",
+		Level:    loggo.ERROR,
+		Message:  "whoops",
+	}
+	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
+		c.Assert(params.AllModels, gc.Equals, true)
+		return tailer, nil
+	})
+
+	stop := make(chan struct{})
+	done := s.runRequest(&debugLogParams{format: "json", allModels: true}, stop)
+
+	s.assertOutput(c, []string{
+		"ok", // sendOk() call needs to happen first.
+		`{"e":"","t":"2015-06-19T15:34:37Z","m":"some.where","l":"code.go:42","v":3,"x":"stuff happened"}`,
+		`{"e":"","t":"2015-06-19T15:36:40Z","m":"else.where","l":"go.go:22","v":5,"x":"whoops"}`,
+	})
+
+	// Check the request stops when requested.
+	close(stop)
+	s.assertStops(c, done, tailer)
+}
+
 func (s *debugLogDBIntSuite) TestRequestStopsWhenTailerStops(c *gc.C) {
 	tailer := newFakeLogTailer()
-	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) state.LogTailer {
+	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
 		close(tailer.logsCh) // make the request stop immediately
-		return tailer
+		return tailer, nil
 	})
 
 	err := handleDebugLogDBRequest(nil, &debugLogParams{}, s.sock, nil)
@@ -149,8 +188,8 @@ func (s *debugLogDBIntSuite) TestMaxLines(c *gc.C) {
 			Message:  "stuff happened",
 		}
 	}
-	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) state.LogTailer {
-		return tailer
+	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
+		return tailer, nil
 	})
 
 	done := s.runRequest(&debugLogParams{maxLines: 3}, nil)
@@ -233,6 +272,15 @@ func newFakeDebugLogSocket() *fakeDebugLogSocket {
 
 type fakeDebugLogSocket struct {
 	writes chan string
+}
+
+func (s *fakeDebugLogSocket) WriteJSON(input interface{}) error {
+	data, err := json.Marshal(input)
+	if err != nil {
+		return err
+	}
+	s.writes <- string(data)
+	return nil
 }
 
 func (s *fakeDebugLogSocket) sendOk() {

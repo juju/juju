@@ -671,3 +671,18 @@ type GUIVersionRequest struct {
 	// Version holds the Juju GUI version number.
 	Version version.Number `json:"version"`
 }
+
+// RsyslogConfigResult holds rsyslog forwarding config values.
+type RsyslogConfigResult struct {
+	Error      *Error
+	URL        string
+	CACert     string
+	ClientCert string
+	ClientKey  string
+}
+
+// RsyslogConfigResults holds the bulk operation result of an API call
+// that returns a rsyslog config or an error.
+type RsyslogConfigResults struct {
+	Results []RsyslogConfigResult
+}
