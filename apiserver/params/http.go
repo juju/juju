@@ -3,19 +3,15 @@
 
 package params
 
+import "encoding/base64"
+
 // DigestAlgorithm is one of the values in the IANA registry. See
 // RFC 3230 and 5843.
-//
-// Note that currently Juju does not conform to the standard.
-// It stores a hexadecimal SHA256 value in the Digest header,
-// but the above RFCs specify SHA-256 and a base64-encoded
-// value for this.
-// TODO fix that. https://bugs.launchpad.net/juju-core/+bug/1503992
 type DigestAlgorithm string
 
 const (
 	// DigestSHA is the HTTP digest algorithm value used in juju's HTTP code.
-	DigestSHA DigestAlgorithm = "SHA"
+	DigestSHA256 DigestAlgorithm = "SHA-256"
 
 	// The values used for content-type in juju's direct HTTP code:
 
@@ -31,3 +27,8 @@ const (
 	// ContentTypeXJS is the outdated HTTP content-type value used for javascript.
 	ContentTypeXJS = "application/x-javascript"
 )
+
+// EncodeChecksum base64 encodes a digest checksum according to RFC 4648.
+func EncodeChecksum(checksum string) string {
+	return base64.StdEncoding.EncodeToString([]byte(checksum))
+}

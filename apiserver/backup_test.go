@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -235,7 +236,8 @@ func (s *backupsDownloadSuite) TestResponse(c *gc.C) {
 	meta := s.fake.Meta
 
 	c.Check(resp.StatusCode, gc.Equals, http.StatusOK)
-	c.Check(resp.Header.Get("Digest"), gc.Equals, string(params.DigestSHA)+"="+meta.Checksum())
+	expectedChecksum := base64.StdEncoding.EncodeToString([]byte(meta.Checksum()))
+	c.Check(resp.Header.Get("Digest"), gc.Equals, string(params.DigestSHA256)+"="+expectedChecksum)
 	c.Check(resp.Header.Get("Content-Type"), gc.Equals, params.ContentTypeRaw)
 }
 

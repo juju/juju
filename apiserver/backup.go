@@ -149,7 +149,7 @@ func (h *backupHandler) parseGETArgs(req *http.Request) (*params.BackupsDownload
 func (h *backupHandler) sendFile(file io.Reader, checksum string, resp http.ResponseWriter) error {
 	// We don't set the Content-Length header, leaving it at -1.
 	resp.Header().Set("Content-Type", params.ContentTypeRaw)
-	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", params.DigestSHA, checksum))
+	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", params.DigestSHA256, params.EncodeChecksum(checksum)))
 	resp.WriteHeader(http.StatusOK)
 	if _, err := io.Copy(resp, file); err != nil {
 		return errors.Annotate(err, "while streaming archive")
