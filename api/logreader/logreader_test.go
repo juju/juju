@@ -44,7 +44,7 @@ func (s *logReaderSuite) TestLoggingConfigError(c *gc.C) {
 			called = true
 			switch request {
 			case "RsyslogConfig":
-				return errors.New("permission denied")
+				return errors.New("an error")
 			default:
 				c.Fatalf("unknown request: %v", request)
 			}
@@ -54,7 +54,7 @@ func (s *logReaderSuite) TestLoggingConfigError(c *gc.C) {
 	c.Assert(api, gc.NotNil)
 
 	config, err := api.RsyslogConfig(tag)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, gc.ErrorMatches, "an error")
 	c.Assert(config, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 	called = false
@@ -96,11 +96,11 @@ func (s *logReaderSuite) TestLoggingConfig(c *gc.C) {
 
 	config, err := api.RsyslogConfig(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(config.URL, gc.Equals, "localhost:1234")
-	c.Assert(config.CACert, gc.Equals, coretesting.CACert)
-	c.Assert(config.ClientCert, gc.Equals, coretesting.OtherCACert)
-	c.Assert(config.ClientKey, gc.Equals, coretesting.OtherCAKey)
-	c.Assert(called, jc.IsTrue)
+	c.Check(config.URL, gc.Equals, "localhost:1234")
+	c.Check(config.CACert, gc.Equals, coretesting.CACert)
+	c.Check(config.ClientCert, gc.Equals, coretesting.OtherCACert)
+	c.Check(config.ClientKey, gc.Equals, coretesting.OtherCAKey)
+	c.Check(called, jc.IsTrue)
 	called = false
 }
 
@@ -204,7 +204,7 @@ func (s *logReaderSuite) TestWatchRsyslogConfig(c *gc.C) {
 	c.Assert(w, gc.IsNil)
 }
 
-func (s *logReaderSuite) TestNewAPI(c *gc.C) {
+func (s *logReaderSuite) TestLogReader(c *gc.C) {
 	conn := &mockConnector{}
 	a := logreader.NewAPI(conn)
 	r, err := a.LogReader()
@@ -220,11 +220,12 @@ func (s *logReaderSuite) TestNewAPI(c *gc.C) {
 		c.Assert(logRecord.Level, gc.Equals, loggo.INFO)
 		c.Assert(logRecord.Module, gc.Equals, "api.logreader.test")
 	case <-time.After(coretesting.LongWait):
-		c.Fail()
+		c.Errorf("timed out waiting for kill")
 	}
 
-	err = r.Close()
-	c.Assert(err, gc.IsNil)
+	r.Kill()
+	c.Assert(r.Wait(), jc.ErrorIsNil)
+
 	c.Assert(conn.closeCount, gc.Equals, 1)
 }
 
@@ -240,7 +241,7 @@ func (s *logReaderSuite) TestNewAPIReadLogError(c *gc.C) {
 
 func (s *logReaderSuite) TestNewAPIWriteError(c *gc.C) {
 	conn := &mockConnector{
-		readError: errors.New("foo"),
+		readError: errors.New("an error"),
 	}
 	a := logreader.NewAPI(conn)
 	r, err := a.LogReader()
@@ -250,8 +251,8 @@ func (s *logReaderSuite) TestNewAPIWriteError(c *gc.C) {
 	c.Assert(channel, gc.NotNil)
 
 	select {
-	case logRecord := <-channel:
-		c.Assert(logRecord.Error, gc.DeepEquals, &params.Error{Message: "failed to read JSON: foo"})
+	case <-channel:
+		c.Assert(r.Wait(), gc.ErrorMatches, "an error")
 	case <-time.After(coretesting.LongWait):
 		c.Fail()
 	}

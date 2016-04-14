@@ -6,8 +6,6 @@
 package logreader
 
 import (
-	"fmt"
-	"io"
 	"net/url"
 
 	"github.com/juju/errors"
@@ -18,6 +16,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker"
 )
 
 // LogReader is the interface that allows reading
@@ -26,8 +25,7 @@ type LogReader interface {
 	// ReadLogs returns a channel that can be used to receive log
 	// messages.
 	ReadLogs() chan params.LogRecordResult
-
-	io.Closer
+	worker.Worker //TODO maybe not?
 }
 
 // API provides access to the LogReader API.
@@ -64,7 +62,7 @@ func (api *API) WatchRsyslogConfig(agentTag names.Tag) (watcher.NotifyWatcher, e
 	return w, nil
 }
 
-// RsyslogConfig holds config values for rsyslog forwarding
+// RsyslogConfig holds config values for rsyslog forwarding.
 type RsyslogConfig struct {
 	URL        string
 	CACert     string
@@ -72,6 +70,8 @@ type RsyslogConfig struct {
 	ClientKey  string
 }
 
+// Configured returns whether or not the config has been
+// configured or not.
 func (c *RsyslogConfig) Configured() bool {
 	return c.URL != "" && c.CACert != "" && c.ClientCert != "" && c.ClientKey != ""
 }
@@ -116,44 +116,59 @@ func (api *API) LogReader() (LogReader, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot connect to /log")
 	}
-	return &reader{conn: conn}, nil
+	return newLogsWatcher(conn), nil
 }
 
 type reader struct {
 	conn base.Stream
 	tomb tomb.Tomb
+	out  chan params.LogRecordResult
+}
+
+func newLogsWatcher(conn base.Stream) *reader {
+	out := make(chan params.LogRecordResult, 1)
+	w := &reader{
+		conn: conn,
+		out:  out,
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		defer w.conn.Close()
+		w.tomb.Kill(w.loop())
+	}()
+	return w
 }
 
 // ReadLogs implements the LogReader interface.
 func (r *reader) ReadLogs() chan params.LogRecordResult {
-	channel := make(chan params.LogRecordResult, 1)
-	go func() {
-		defer r.tomb.Done()
-		r.tomb.Kill(r.loop(channel))
-	}()
-	return channel
+	return r.out
 }
 
-func (r *reader) loop(channel chan params.LogRecordResult) error {
+func (r *reader) loop() error {
 	for {
 		var record params.LogRecordResult
 		var logRecord params.LogRecord
 		err := r.conn.ReadJSON(&logRecord)
 		if err != nil {
-			record.Error = &params.Error{Message: fmt.Sprintf("failed to read JSON: %v", err.Error())}
+			return err
 		} else {
 			record.LogRecord = logRecord
 		}
 		select {
 		case <-r.tomb.Dying():
 			return tomb.ErrDying
-		case channel <- record:
+		case r.out <- record:
 		}
 	}
 }
 
-// Close implements the io.Closer interface.
-func (r *reader) Close() error {
+// Kill implements Worker.Kill()
+func (r *reader) Kill() {
 	r.tomb.Kill(nil)
-	return r.conn.Close()
+}
+
+// Wait implements Worker.Wait()
+func (r *reader) Wait() error {
+	return r.tomb.Wait()
 }

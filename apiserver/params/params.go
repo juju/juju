@@ -755,7 +755,7 @@ type RebootActionResult struct {
 // a channel.
 type LogRecordResult struct {
 	LogRecord
-	Error *Error
+	Error *Error // TODO Remove
 }
 
 // LogRecord is used to transmit log messages to the logsink API

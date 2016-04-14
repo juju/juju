@@ -709,7 +709,7 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	// Check LX	CDefaultMTU is a positive integer, when set.
+	// Check LXCDefaultMTU is a positive integer, when set.
 	if lxcDefaultMTU, ok := cfg.LXCDefaultMTU(); ok && lxcDefaultMTU < 0 {
 		return errors.Errorf("%s: expected positive integer, got %v", LXCDefaultMTU, lxcDefaultMTU)
 	}
