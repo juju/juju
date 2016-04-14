@@ -57,7 +57,7 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *charmsHandler) servePost(w http.ResponseWriter, r *http.Request) error {
-	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(r)
+	st, _, err := h.ctxt.stateForRequestAuthenticated(r)
 	if err != nil {
 		return errors.Trace(err)
 	}
