@@ -21,7 +21,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"encoding/base64"
 	"github.com/juju/juju/apiserver/params"
 	containertesting "github.com/juju/juju/container/testing"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
