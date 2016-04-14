@@ -148,13 +148,12 @@ func EnableHASingle(st *state.State, spec params.ControllersSpec) (params.Contro
 		controllerId := controllerIds[0]
 		controller, err := st.Machine(strconv.Itoa(controllerId))
 		if err != nil {
-			return params.ControllersChanges{}, errors.Annotatef(err, "reading controller machine id %v", controllerId)
+			return params.ControllersChanges{}, errors.Annotatef(err, "reading controller id %v", controllerId)
 		}
 		spec.Constraints, err = controller.Constraints()
 		if err != nil {
-			return params.ControllersChanges{}, errors.Annotatef(err, "reading constraints for controller machine id %v", controllerId)
+			return params.ControllersChanges{}, errors.Annotatef(err, "reading constraints for controller id %v", controllerId)
 		}
-		spec.Constraints, err = controller.Constraints()
 	}
 
 	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, series, spec.Placement)
