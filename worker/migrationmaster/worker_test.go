@@ -91,7 +91,7 @@ func (s *Suite) apiOpen(info *api.Info, dialOpts api.DialOpts) (api.Connection, 
 }
 
 func (s *Suite) triggerMigration(masterClient *stubMasterClient) {
-	masterClient.watcher.changes <- struct{}{}
+	masterClient.watcherChanges <- struct{}{}
 }
 
 func (s *Suite) TestSuccessfulMigration(c *gc.C) {
@@ -394,8 +394,8 @@ func (g *stubGuard) Unlock() error {
 
 func newStubMasterClient(stub *jujutesting.Stub) *stubMasterClient {
 	return &stubMasterClient{
-		stub:    stub,
-		watcher: newMockWatcher(),
+		stub:           stub,
+		watcherChanges: make(chan struct{}, 1),
 		status: masterapi.MigrationStatus{
 			ModelUUID: "model-uuid",
 			Attempt:   2,
@@ -413,12 +413,12 @@ func newStubMasterClient(stub *jujutesting.Stub) *stubMasterClient {
 
 type stubMasterClient struct {
 	masterapi.Client
-	stub      *jujutesting.Stub
-	watcher   *mockWatcher
-	watchErr  error
-	status    masterapi.MigrationStatus
-	statusErr error
-	exportErr error
+	stub           *jujutesting.Stub
+	watcherChanges chan struct{}
+	watchErr       error
+	status         masterapi.MigrationStatus
+	statusErr      error
+	exportErr      error
 }
 
 func (c *stubMasterClient) Watch() (watcher.NotifyWatcher, error) {
@@ -426,7 +426,8 @@ func (c *stubMasterClient) Watch() (watcher.NotifyWatcher, error) {
 	if c.watchErr != nil {
 		return nil, c.watchErr
 	}
-	return c.watcher, nil
+
+	return newMockWatcher(c.watcherChanges), nil
 }
 
 func (c *stubMasterClient) GetMigrationStatus() (masterapi.MigrationStatus, error) {
@@ -450,10 +451,10 @@ func (c *stubMasterClient) SetPhase(phase migration.Phase) error {
 	return nil
 }
 
-func newMockWatcher() *mockWatcher {
+func newMockWatcher(changes chan struct{}) *mockWatcher {
 	return &mockWatcher{
 		Worker:  workertest.NewErrorWorker(nil),
-		changes: make(chan struct{}, 1),
+		changes: changes,
 	}
 }
 
