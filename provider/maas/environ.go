@@ -1133,7 +1133,7 @@ func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
 	}
 	systemId := extractSystemId(id)
 
-	var longAttempt = utils.AttemptStrategy{
+	longAttempt := utils.AttemptStrategy{
 		Delay: 10 * time.Second,
 		Total: nodeDeploymentTimeout(environ),
 	}
@@ -1157,7 +1157,7 @@ func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
 }
 
 func (environ *maasEnviron) waitForNodeDeployment2(id instance.Id) error {
-	var longAttempt = utils.AttemptStrategy{
+	longAttempt := utils.AttemptStrategy{
 		Delay: 10 * time.Second,
 		Total: nodeDeploymentTimeout(environ),
 	}
