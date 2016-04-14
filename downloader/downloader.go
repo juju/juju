@@ -32,16 +32,28 @@ type Download struct {
 	hostnameVerification utils.SSLHostnameVerification
 }
 
-// New returns a new Download instance downloading from the given URL
-// to the given directory. If dir is empty, it defaults to
-// os.TempDir(). If disableSSLHostnameVerification is true then a non-
-// validating http client will be used.
-func New(url, dir string, hostnameVerification utils.SSLHostnameVerification) *Download {
+// NewArgs holds the arguments to New().
+type NewArgs struct {
+	// URL is the location from which the file will be downloaded.
+	URL string
+
+	// TargetDir is the directory into which the file will be downloaded.
+	// It defaults to os.TempDir().
+	TargetDir string
+
+	// HostnameVerification is that which should be used for the client.
+	// If it is disableSSLHostnameVerification then a non-validating
+	// client will be used.
+	HostnameVerification utils.SSLHostnameVerification
+}
+
+// New returns a new Download instance based on the provided args.
+func New(args NewArgs) *Download {
 	d := &Download{
 		done:                 make(chan Status),
-		hostnameVerification: hostnameVerification,
+		hostnameVerification: args.HostnameVerification,
 	}
-	go d.run(url, dir)
+	go d.run(args.URL, args.TargetDir)
 	return d
 }
 

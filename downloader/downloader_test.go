@@ -53,7 +53,11 @@ func Test(t *stdtesting.T) {
 func (s *suite) testDownload(c *gc.C, hostnameVerification utils.SSLHostnameVerification) {
 	tmp := c.MkDir()
 	gitjujutesting.Server.Response(200, nil, []byte("archive"))
-	d := downloader.New(s.URL("/archive.tgz"), tmp, hostnameVerification)
+	d := downloader.New(downloader.NewArgs{
+		URL:                  s.URL("/archive.tgz"),
+		TargetDir:            tmp,
+		HostnameVerification: hostnameVerification,
+	})
 	status := <-d.Done()
 	c.Assert(status.Err, gc.IsNil)
 	c.Assert(status.File, gc.NotNil)
@@ -75,7 +79,11 @@ func (s *suite) TestDownloadWithDisablingSSLHostnameVerification(c *gc.C) {
 
 func (s *suite) TestDownloadError(c *gc.C) {
 	gitjujutesting.Server.Response(404, nil, nil)
-	d := downloader.New(s.URL("/archive.tgz"), c.MkDir(), utils.VerifySSLHostnames)
+	d := downloader.New(downloader.NewArgs{
+		URL:                  s.URL("/archive.tgz"),
+		TargetDir:            c.MkDir(),
+		HostnameVerification: utils.VerifySSLHostnames,
+	})
 	status := <-d.Done()
 	c.Assert(status.File, gc.IsNil)
 	c.Assert(status.Err, gc.ErrorMatches, `cannot download ".*": bad http response: 404 Not Found`)
@@ -83,7 +91,11 @@ func (s *suite) TestDownloadError(c *gc.C) {
 
 func (s *suite) TestStopDownload(c *gc.C) {
 	tmp := c.MkDir()
-	d := downloader.New(s.URL("/x.tgz"), tmp, utils.VerifySSLHostnames)
+	d := downloader.New(downloader.NewArgs{
+		URL:                  s.URL("/x.tgz"),
+		TargetDir:            tmp,
+		HostnameVerification: utils.VerifySSLHostnames,
+	})
 	d.Stop()
 	select {
 	case status := <-d.Done():

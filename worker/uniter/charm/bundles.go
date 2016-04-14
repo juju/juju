@@ -96,7 +96,11 @@ func tryDownload(url, dir string, abort <-chan struct{}) (downloader.Status, err
 	// being inadequate. We always verify the SHA-256 hash,
 	// and the data transferred is not sensitive, so this
 	// does not pose a problem.
-	dl := downloader.New(url, dir, utils.NoVerifySSLHostnames)
+	dl := downloader.New(downloader.NewArgs{
+		URL:                  url,
+		TargetDir:            dir,
+		HostnameVerification: utils.NoVerifySSLHostnames,
+	})
 	defer dl.Stop()
 	select {
 	case <-abort:
