@@ -13,23 +13,19 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type infoSuite struct {
+type showSuite struct {
 	BaseBackupsSuite
 	subcommand cmd.Command
 }
 
-var _ = gc.Suite(&infoSuite{})
+var _ = gc.Suite(&showSuite{})
 
-func (s *infoSuite) SetUpTest(c *gc.C) {
+func (s *showSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
-	s.subcommand = backups.NewInfoCommand()
+	s.subcommand = backups.NewShowCommandForTest()
 }
 
-func (s *infoSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, s.subcommand)
-}
-
-func (s *infoSuite) TestOkay(c *gc.C) {
+func (s *showSuite) TestOkay(c *gc.C) {
 	s.setSuccess()
 	ctx, err := testing.RunCommand(c, s.subcommand, s.metaresult.ID)
 	c.Check(err, jc.ErrorIsNil)
@@ -38,7 +34,7 @@ func (s *infoSuite) TestOkay(c *gc.C) {
 	s.checkStd(c, ctx, out, "")
 }
 
-func (s *infoSuite) TestError(c *gc.C) {
+func (s *showSuite) TestError(c *gc.C) {
 	s.setFailure("failed!")
 	_, err := testing.RunCommand(c, s.subcommand, s.metaresult.ID)
 	c.Check(errors.Cause(err), gc.ErrorMatches, "failed!")

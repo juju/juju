@@ -28,7 +28,7 @@ var _ = gc.Suite(&uploadSuite{})
 func (s *uploadSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
 
-	s.command = backups.NewUploadCommand()
+	s.command = backups.NewUploadCommandForTest()
 	s.filename = "juju-backup-20140912-130755.abcd-spam-deadbeef-eggs.tar.gz"
 }
 
@@ -67,10 +67,6 @@ func (s *uploadSuite) createArchive(c *gc.C) {
 		_, err = tarball.Write([]byte(file.Body))
 		c.Assert(err, jc.ErrorIsNil)
 	}
-}
-
-func (s *uploadSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, s.command)
 }
 
 func (s *uploadSuite) TestOkay(c *gc.C) {

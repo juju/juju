@@ -10,33 +10,34 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-const infoDoc = `
-"info" provides the metadata associated with a backup.
+const showDoc = `
+show-backup provides the metadata associated with a backup.
 `
 
-func newInfoCommand() cmd.Command {
-	return modelcmd.Wrap(&infoCommand{})
+// NewShowCommand returns a command used to show metadata for a backup.
+func NewShowCommand() cmd.Command {
+	return modelcmd.Wrap(&showCommand{})
 }
 
-// infoCommand is the sub-command for creating a new backup.
-type infoCommand struct {
+// showCommand is the sub-command for creating a new backup.
+type showCommand struct {
 	CommandBase
 	// ID is the backup ID to get.
 	ID string
 }
 
 // Info implements Command.Info.
-func (c *infoCommand) Info() *cmd.Info {
+func (c *showCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "info",
+		Name:    "show-backup",
 		Args:    "<ID>",
 		Purpose: "get metadata",
-		Doc:     infoDoc,
+		Doc:     showDoc,
 	}
 }
 
 // Init implements Command.Init.
-func (c *infoCommand) Init(args []string) error {
+func (c *showCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("missing ID")
 	}
@@ -49,7 +50,7 @@ func (c *infoCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *infoCommand) Run(ctx *cmd.Context) error {
+func (c *showCommand) Run(ctx *cmd.Context) error {
 	if c.Log != nil {
 		if err := c.Log.Start(ctx); err != nil {
 			return err
