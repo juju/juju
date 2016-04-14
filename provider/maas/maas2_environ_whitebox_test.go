@@ -662,10 +662,26 @@ func (suite *maas2EnvironSuite) TestAcquireNodeUnrecognisedSpace(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unrecognised space in constraint "baz"`)
 }
 
-func (suite *maas2EnvironSuite) TestWaitForNodeDeployment(c *gc.C) {
+func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
 	machine := &fakeMachine{
 		systemID:     "Bruce Sterling",
 		architecture: arch.HostArch(),
+	}
+	suite.injectController(&fakeController{
+		allocateMachine: machine,
+		machines:        []gomaasapi.Machine{machine},
+	})
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron(c, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
+}
+
+func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentSucceeds(c *gc.C) {
+	machine := &fakeMachine{
+		systemID:     "Bruce Sterling",
+		architecture: arch.HostArch(),
+		statusName:   "Deployed",
 	}
 	suite.injectController(&fakeController{
 		allocateMachine: machine,
