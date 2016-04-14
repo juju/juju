@@ -54,6 +54,14 @@ func (s *maas2StorageSuite) TestGetReadFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "read error")
 }
 
+func (s *maas2StorageSuite) TestGetNotFounc(c *gc.C) {
+	storage := s.makeStorage(c, &fakeController{
+		filesError: gomaasapi.NewNoMatchError("wee"),
+	})
+	_, err := storage.Get("grasshopper.avi")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *maas2StorageSuite) TestGetSuccess(c *gc.C) {
 	controller := &fakeController{
 		files: []gomaasapi.File{
