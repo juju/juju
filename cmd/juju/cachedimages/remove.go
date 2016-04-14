@@ -12,7 +12,7 @@ import (
 )
 
 const removeCommandDoc = `
-Remove os images in the Juju model.
+Remove cached os images in the Juju model.
 
 Images are identified by:
   Kind         eg "lxc"
