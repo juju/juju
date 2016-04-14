@@ -54,7 +54,7 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, errors.New("starting lxd containers with networks is not supported yet")
 	}
 	machineId := args.InstanceConfig.MachineId
-	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
+	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
 	if bridgeDevice == "" {
 		var err error
 		bridgeDevice, err = lxdclient.GetDefaultBridgeName()
