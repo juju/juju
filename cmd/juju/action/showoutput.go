@@ -15,12 +15,12 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newFetchCommand() cmd.Command {
-	return modelcmd.Wrap(&fetchCommand{})
+func NewShowOutputCommand() cmd.Command {
+	return modelcmd.Wrap(&showOutputCommand{})
 }
 
-// fetchCommand fetches the results of an action by ID.
-type fetchCommand struct {
+// showOutputCommand fetches the results of an action by ID.
+type showOutputCommand struct {
 	ActionCommandBase
 	out         cmd.Output
 	requestedId string
@@ -28,7 +28,7 @@ type fetchCommand struct {
 	wait        string
 }
 
-const fetchDoc = `
+const showOutputDoc = `
 Show the results returned by an action with the given ID.  A partial ID may
 also be used.  To block until the result is known completed or failed, use
 the --wait flag with a duration, as in --wait 5s or --wait 1h.  Use --wait 0
@@ -40,22 +40,22 @@ displayed.  This is also the behavior when any negative time is given.
 `
 
 // Set up the output.
-func (c *fetchCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *showOutputCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.StringVar(&c.wait, "wait", "-1s", "wait for results")
 }
 
-func (c *fetchCommand) Info() *cmd.Info {
+func (c *showOutputCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "fetch",
+		Name:    "show-action-output",
 		Args:    "<action ID>",
 		Purpose: "show results of an action by ID",
-		Doc:     fetchDoc,
+		Doc:     showOutputDoc,
 	}
 }
 
 // Init validates the action ID and any other options.
-func (c *fetchCommand) Init(args []string) error {
+func (c *showOutputCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		return errors.New("no action ID specified")
@@ -68,7 +68,7 @@ func (c *fetchCommand) Init(args []string) error {
 }
 
 // Run issues the API call to get Actions by ID.
-func (c *fetchCommand) Run(ctx *cmd.Context) error {
+func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 	// Check whether units were left off our time string.
 	r := regexp.MustCompile("[a-zA-Z]")
 	matches := r.FindStringSubmatch(c.wait[len(c.wait)-1:])

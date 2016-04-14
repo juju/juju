@@ -21,13 +21,13 @@ import (
 
 var keyRule = regexp.MustCompile("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
 
-func newDoCommand() cmd.Command {
-	return modelcmd.Wrap(&doCommand{})
+func NewRunCommand() cmd.Command {
+	return modelcmd.Wrap(&runCommand{})
 }
 
-// doCommand enqueues an Action for running on the given unit with given
+// runCommand enqueues an Action for running on the given unit with given
 // params
-type doCommand struct {
+type runCommand struct {
 	ActionCommandBase
 	unitTag      names.UnitTag
 	actionName   string
@@ -37,7 +37,7 @@ type doCommand struct {
 	args         [][]string
 }
 
-const doDoc = `
+const runDoc = `
 Queue an Action for execution on a given unit, with a given set of params.
 Displays the ID of the Action for use with 'juju kill', 'juju status', etc.
 
@@ -55,10 +55,10 @@ explicit arguments will override the parameter file.
 
 Examples:
 
-$ juju action do mysql/3 backup 
+$ juju run-action mysql/3 backup 
 action: <ID>
 
-$ juju action fetch <ID>
+$ juju show-action-output <ID>
 result:
   status: success
   file:
@@ -66,12 +66,12 @@ result:
     units: GB
     name: foo.sql
 
-$ juju action do mysql/3 backup --params parameters.yml
+$ juju run-action mysql/3 backup --params parameters.yml
 ...
 Params sent will be the contents of parameters.yml.
 ...
 
-$ juju action do mysql/3 backup out=out.tar.bz2 file.kind=xz file.quality=high
+$ juju run-action mysql/3 backup out=out.tar.bz2 file.kind=xz file.quality=high
 ...
 Params sent will be:
 
@@ -81,7 +81,7 @@ file:
   quality: high
 ...
 
-$ juju action do mysql/3 backup --params p.yml file.kind=xz file.quality=high
+$ juju run-action mysql/3 backup --params p.yml file.kind=xz file.quality=high
 ...
 If p.yml contains:
 
@@ -97,10 +97,10 @@ file:
   quality: high
 ...
 
-$ juju action do sleeper/0 pause time=1000
+$ juju run-action sleeper/0 pause time=1000
 ...
 
-$ juju action do sleeper/0 pause --string-args time=1000
+$ juju run-action sleeper/0 pause --string-args time=1000
 ...
 The value for the "time" param will be the string literal "1000".
 `
@@ -109,23 +109,23 @@ The value for the "time" param will be the string literal "1000".
 var ActionNameRule = regexp.MustCompile("^[a-z](?:[a-z-]*[a-z])?$")
 
 // SetFlags offers an option for YAML output.
-func (c *doCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.Var(&c.paramsYAML, "params", "path to yaml-formatted params file")
 	f.BoolVar(&c.parseStrings, "string-args", false, "use raw string values of CLI args")
 }
 
-func (c *doCommand) Info() *cmd.Info {
+func (c *runCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "do",
+		Name:    "run-action",
 		Args:    "<unit> <action name> [key.key.key...=value]",
 		Purpose: "queue an action for execution",
-		Doc:     doDoc,
+		Doc:     runDoc,
 	}
 }
 
 // Init gets the unit tag, and checks for other correct args.
-func (c *doCommand) Init(args []string) error {
+func (c *runCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		return errors.New("no unit specified")
@@ -167,7 +167,7 @@ func (c *doCommand) Init(args []string) error {
 	}
 }
 
-func (c *doCommand) Run(ctx *cmd.Context) error {
+func (c *runCommand) Run(ctx *cmd.Context) error {
 	api, err := c.NewActionAPIClient()
 	if err != nil {
 		return err
