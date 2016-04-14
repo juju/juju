@@ -461,7 +461,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Deployer:       u.deployer,
 		RunnerFactory:  runnerFactory,
 		Callbacks:      &operationCallbacks{u},
-		StorageUpdater: u.storage,
 		Abort:          u.catacomb.Dying(),
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 	})

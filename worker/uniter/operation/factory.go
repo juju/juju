@@ -18,7 +18,6 @@ type FactoryParams struct {
 	Deployer       charm.Deployer
 	RunnerFactory  runner.Factory
 	Callbacks      Callbacks
-	StorageUpdater StorageUpdater
 	Abort          <-chan struct{}
 	MetricSpoolDir string
 }
@@ -125,14 +124,6 @@ func (f *factory) NewCommands(args CommandArgs, sendResponse CommandResponseFunc
 		sendResponse:  sendResponse,
 		callbacks:     f.config.Callbacks,
 		runnerFactory: f.config.RunnerFactory,
-	}, nil
-}
-
-// NewUpdateStorage is part of the Factory interface.
-func (f *factory) NewUpdateStorage(tags []names.StorageTag) (Operation, error) {
-	return &updateStorage{
-		tags:           tags,
-		storageUpdater: f.config.StorageUpdater,
 	}, nil
 }
 
