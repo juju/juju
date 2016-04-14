@@ -23,7 +23,7 @@ If --filename is not used, the archive is downloaded to a temporary
 location and the filename is printed to stdout.
 `
 
-// NewDownloadCommand returns a commant used to download backups
+// NewDownloadCommand returns a commant used to download backups.
 func NewDownloadCommand() cmd.Command {
 	return modelcmd.Wrap(&downloadCommand{})
 }

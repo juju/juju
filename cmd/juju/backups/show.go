@@ -14,7 +14,7 @@ const showDoc = `
 show-backup provides the metadata associated with a backup.
 `
 
-// NewShowCommand returns a command used to show metadata for a backup
+// NewShowCommand returns a command used to show metadata for a backup.
 func NewShowCommand() cmd.Command {
 	return modelcmd.Wrap(&showCommand{})
 }

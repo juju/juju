@@ -46,7 +46,7 @@ This local copy can then be used to restore an model even if that
 model was already destroyed or is otherwise unavailable.
 `
 
-// NewCreateCommand returns a command used to create backups
+// NewCreateCommand returns a command used to create backups.
 func NewCreateCommand() cmd.Command {
 	return modelcmd.Wrap(&createCommand{})
 }

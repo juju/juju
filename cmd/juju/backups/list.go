@@ -16,7 +16,7 @@ const listDoc = `
 list-backups provides the metadata associated with all backups.
 `
 
-// NewListCommand returns a command used to list metadata for backups
+// NewListCommand returns a command used to list metadata for backups.
 func NewListCommand() cmd.Command {
 	return modelcmd.Wrap(&listCommand{})
 }
