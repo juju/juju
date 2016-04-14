@@ -143,9 +143,13 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(charmcmd.NewSuperCommand())
 
 	// Manage backups.
-	r.Register(backups.NewSuperCommand())
-	r.RegisterSuperAlias("create-backup", "backups", "create", nil)
-	r.RegisterSuperAlias("restore-backup", "backups", "restore", nil)
+	r.Register(backups.NewCreateCommand())
+	r.Register(backups.NewDownloadCommand())
+	r.Register(backups.NewShowCommand())
+	r.Register(backups.NewListCommand())
+	r.Register(backups.NewRemoveCommand())
+	r.Register(backups.NewRestoreCommand())
+	r.Register(backups.NewUploadCommand())
 
 	// Manage authorized ssh keys.
 	r.Register(NewAddKeysCommand())

@@ -29,37 +29,37 @@ type DownloadCommand struct {
 	*downloadCommand
 }
 
-func NewCreateCommand() (cmd.Command, *CreateCommand) {
+func NewCreateCommandForTest() (cmd.Command, *CreateCommand) {
 	c := &createCommand{}
 	c.Log = &cmd.Log{}
 	return modelcmd.Wrap(c), &CreateCommand{c}
 }
 
-func NewDownloadCommand() (cmd.Command, *DownloadCommand) {
+func NewDownloadCommandForTest() (cmd.Command, *DownloadCommand) {
 	c := &downloadCommand{}
 	c.Log = &cmd.Log{}
 	return modelcmd.Wrap(c), &DownloadCommand{c}
 }
 
-func NewListCommand() cmd.Command {
+func NewListCommandForTest() cmd.Command {
 	c := &listCommand{}
 	c.Log = &cmd.Log{}
 	return modelcmd.Wrap(c)
 }
 
-func NewInfoCommand() cmd.Command {
-	c := &infoCommand{}
+func NewShowCommandForTest() cmd.Command {
+	c := &showCommand{}
 	c.Log = &cmd.Log{}
 	return modelcmd.Wrap(c)
 }
 
-func NewUploadCommand() cmd.Command {
+func NewUploadCommandForTest() cmd.Command {
 	c := &uploadCommand{}
 	c.Log = &cmd.Log{}
 	return modelcmd.Wrap(c)
 }
 
-func NewRemoveCommand() cmd.Command {
+func NewRemoveCommandForTest() cmd.Command {
 	c := &removeCommand{}
 	c.Log = &cmd.Log{}
 	return modelcmd.Wrap(c)
