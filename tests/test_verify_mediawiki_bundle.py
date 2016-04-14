@@ -88,6 +88,21 @@ class TestVerifyMediaWikiBundle(tests.TestCase):
         url_mock.assert_called_once_with('http://1.example.com')
         ssl_mock.assert_called_once_with()
 
+    def test_verify_services_haproxy_exposed_by_default(self):
+        client = self.deploy_mediawiki()
+        fake_res = FakeResponse()
+        services = ['haproxy', 'mediawiki', 'mysql', 'memcached',
+                    'mysql-slave']
+        client.juju('expose', ('haproxy',))
+        with patch('urllib2.urlopen', autospec=True,
+                   return_value=fake_res) as url_mock:
+            with patch('verify_mediawiki_bundle._get_ssl_ctx', autospec=True,
+                       return_value=None) as ssl_mock:
+                verify_services(client, services, text='foo',
+                                haproxy_exposed=True)
+        url_mock.assert_called_once_with('http://1.example.com')
+        ssl_mock.assert_called_once_with()
+
     def test_verify_service_misconfigured(self):
         client = FakeJujuClient()
         client.bootstrap()
@@ -99,7 +114,7 @@ class TestVerifyMediaWikiBundle(tests.TestCase):
                 JujuAssertionError, 'Unexpected service configuration'):
             verify_services(client, services)
 
-    def test_verfiy_services_haproxy_exposed(self):
+    def test_verify_services_haproxy_exposed(self):
         client = self.deploy_mediawiki()
         services = ['haproxy', 'mediawiki', 'mysql', 'memcached',
                     'mysql-slave']
@@ -108,7 +123,7 @@ class TestVerifyMediaWikiBundle(tests.TestCase):
                 JujuAssertionError, 'haproxy is exposed.'):
             verify_services(client, services)
 
-    def test_verfiy_services_haproxy_not_exposed(self):
+    def test_verify_services_haproxy_not_exposed(self):
         client = self.deploy_mediawiki()
         services = ['haproxy', 'mediawiki', 'mysql', 'memcached',
                     'mysql-slave']
@@ -117,7 +132,7 @@ class TestVerifyMediaWikiBundle(tests.TestCase):
                 JujuAssertionError, 'haproxy is not exposed.'):
             verify_services(client, services)
 
-    def test_verfiy_services_text_not_found(self):
+    def test_verify_services_text_not_found(self):
         client = self.deploy_mediawiki()
         services = ['haproxy', 'mediawiki', 'mysql', 'memcached',
                     'mysql-slave']
