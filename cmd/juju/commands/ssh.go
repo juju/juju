@@ -21,6 +21,37 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
+var usageSSHSummary = `
+Initiates an SSH session or executes a command on a Juju machine.`[1:]
+
+var usageSSHDetails = `
+The machine is identified by the <target> argument which is either a 'unit
+name' or a 'machine id'. Both are obtained in the output to `[1:] + "`juju status`" + `.
+If 'user' is specified then the connection is made to that user account;
+otherwise, the default 'ubuntu' account, created by Juju, is used.
+The optional command is executed on the remote machine. Any output is sent
+back to the user. Screen-based programs require the default of '--pty=true'.
+
+Examples:
+Connect to machine 0:
+
+    juju ssh 0
+
+Connect to machine 1 and run command 'uname -a':
+
+    juju ssh 1 uname -a
+
+Connect to a mysql unit:
+
+    juju ssh mysql/0
+
+Connect to a jenkins unit as user jenkins:
+
+    juju ssh jenkins@jenkins/0
+
+See also: 
+    scp`
+
 func newSSHCommand() cmd.Command {
 	return modelcmd.Wrap(&sshCommand{})
 }
@@ -42,8 +73,8 @@ type SSHCommon struct {
 }
 
 func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.proxy, "proxy", false, "proxy through the API server")
-	f.BoolVar(&c.pty, "pty", true, "enable pseudo-tty allocation")
+	f.BoolVar(&c.proxy, "proxy", false, "Proxy through the API server")
+	f.BoolVar(&c.pty, "pty", true, "Enable pseudo-tty allocation")
 }
 
 // setProxyCommand sets the proxy command option.
@@ -60,41 +91,12 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 	return nil
 }
 
-const sshDoc = `
-Launch an ssh shell on the machine identified by the <target> parameter.
-<target> can be either a machine id  as listed by "juju status" in the
-"machines" section or a unit name as listed in the "services" section.
-Any extra parameters are passed as extra parameters to the ssh command.
-
-Examples:
-
-Connect to machine 0:
-
-    juju ssh 0
-
-Connect to machine 1 and run 'uname -a':
-
-    juju ssh 1 uname -a
-
-Connect to the first mysql unit:
-
-    juju ssh mysql/0
-
-Connect to the first mysql unit and run 'ls -la /var/log/juju':
-
-    juju ssh mysql/0 ls -la /var/log/juju
-
-Connect to the first jenkins unit as the user jenkins:
-
-    juju ssh jenkins@jenkins/0
-`
-
 func (c *sshCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "ssh",
-		Args:    "<target> [<ssh args>...]",
-		Purpose: "launch an ssh shell on a given unit or machine",
-		Doc:     sshDoc,
+		Args:    "<[user@]target> [command]",
+		Purpose: usageSSHSummary,
+		Doc:     usageSSHDetails,
 	}
 }
 
