@@ -27,6 +27,8 @@ const (
 	StatusCancelled        = "Canceled"
 	StatusSuccess          = "Success"
 	StatusFailure          = "Failure"
+
+	DefaultLXDBridge = "lxdbr0"
 )
 
 var allStatuses = map[string]shared.StatusCode{
