@@ -8,8 +8,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/util"
 )
 
 type ValueWorkerSuite struct {

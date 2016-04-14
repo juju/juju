@@ -9,10 +9,10 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.

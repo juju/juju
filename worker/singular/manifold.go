@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/names"
@@ -65,7 +66,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 }
 
 // Manifold returns a dependency.Manifold that will run a FlagWorker and
-// expose it to clients as a dependency.Flag resource.
+// expose it to clients as a util.Flag resource.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
@@ -74,19 +75,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 		},
 		Start:  config.start,
-		Output: manifoldOutput,
+		Output: util.FlagOutput,
 	}
-}
-
-func manifoldOutput(in worker.Worker, out interface{}) error {
-	inWorker, ok := in.(*FlagWorker)
-	if !ok {
-		return errors.Errorf("expected in to be a *FlagWorker, got a %T", in)
-	}
-	outFlag, ok := out.(*dependency.Flag)
-	if !ok {
-		return errors.Errorf("expected out to be a *dependency.Flag, got a %T", out)
-	}
-	*outFlag = inWorker
-	return nil
 }

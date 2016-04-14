@@ -22,11 +22,19 @@ type Facade interface {
 	Phase(uuid string) (migration.Phase, error)
 }
 
+// Predicate defines a predicate.
+type Predicate func(migration.Phase) bool
+
+// IsNone is a predicate.
+func IsNone(phase migration.Phase) bool {
+	return phase == migration.NONE
+}
+
 // Config holds the dependencies and configuration for a Worker.
 type Config struct {
 	Facade Facade
 	Model  string
-	Check  func(migration.Phase) bool
+	Check  Predicate
 }
 
 // Validate returns an error if the config cannot be expected to
@@ -69,7 +77,7 @@ func New(config Config) (*Worker, error) {
 	return w, nil
 }
 
-// Worker implements worker.Worker and dependency.Flag, and exits
+// Worker implements worker.Worker and util.Flag, and exits
 // with ErrChanged whenever the result of its configured Check of
 // the Model's migration phase changes.
 type Worker struct {
@@ -88,7 +96,7 @@ func (w *Worker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// Check is part of the dependency.Flag interface.
+// Check is part of the util.Flag interface.
 func (w *Worker) Check() bool {
 	return w.config.Check(w.phase)
 }
