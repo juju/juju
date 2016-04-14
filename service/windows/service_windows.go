@@ -113,6 +113,9 @@ type manager struct {
 
 // CreateService wraps Mgr.CreateService method.
 func (m *manager) CreateService(name, exepath string, c mgr.Config, args ...string) (windowsService, error) {
+	// The Create function relies on the fact that this calls Connect(which connects to localhost) and not
+	// ConnectRemote. If we get to the point where we need to call ConnectRemote we need to stop using
+	// series.HostSeries inside Create.
 	s, err := mgr.Connect()
 	if err != nil {
 		return nil, err

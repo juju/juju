@@ -5,16 +5,17 @@
 package cloudconfig
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/series"
 
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/paths"
 )
@@ -52,6 +53,7 @@ func (w *windowsConfigure) ConfigureBasic() error {
 
 	w.conf.AddScripts(fmt.Sprintf(`%s`, winPowershellHelperFunctions))
 
+	// The jujud user only gets created on non-nano versions for now.
 	if !series.IsWindowsNano(w.icfg.Series) {
 		w.conf.AddScripts(fmt.Sprintf(`%s`, addJujudUser))
 	}
@@ -69,6 +71,8 @@ func (w *windowsConfigure) ConfigureBasic() error {
 		fmt.Sprintf(`icacls "%s" /inheritance:r /grant "${adminsGroup}:(OI)(CI)(F)" /t`, renderer.FromSlash(baseDir)),
 	)
 
+	// TODO(bogdanteleaga): This, together with the call above, should be using setACLs, once it starts working across all windows versions properly.
+	// Until then, if we change permissions, both this and setACLs should be changed to do the same thing.
 	if !series.IsWindowsNano(w.icfg.Series) {
 		w.conf.AddScripts(fmt.Sprintf(`icacls "%s" /inheritance:r /grant "jujud:(OI)(CI)(F)" /t`, renderer.FromSlash(baseDir)))
 	}
@@ -101,7 +105,11 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		`mkdir $binDir`,
 	)
 
-	w.conf.AddScripts(w.addDownloadToolsCmds()...)
+	toolsDownloadCmds, err := addDownloadToolsCmds(w.icfg.Series, w.icfg.MongoInfo.CACert, w.icfg.Tools.URL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.conf.AddScripts(toolsDownloadCmds...)
 
 	w.conf.AddScripts(
 		`$dToolsHash = Get-FileSHA256 -FilePath "$binDir\tools.tar.gz"`,
@@ -160,14 +168,14 @@ func setACLs(path string, permType aclType, ser string) []string {
 		`$acl.AddAccessRule($rule)`,
 	}
 
-	jujudACLRules := []string{
-		fmt.Sprintf(permModel, jujudPermVar, `jujud`),
-		fmt.Sprintf(ruleModel, permType, jujudPermVar),
-		`$acl.AddAccessRule($rule)`,
-	}
-
 	if !series.IsWindowsNano(ser) {
-		rulesToAdd = append(rulesToAdd, jujudACLRules...)
+		jujudUserACLRules := []string{
+			fmt.Sprintf(permModel, jujudPermVar, `jujud`),
+			fmt.Sprintf(ruleModel, permType, jujudPermVar),
+			`$acl.AddAccessRule($rule)`,
+		}
+
+		rulesToAdd = append(rulesToAdd, jujudUserACLRules...)
 	}
 
 	aclCmds := []string{
@@ -182,27 +190,27 @@ func setACLs(path string, permType aclType, ser string) []string {
 	return append(aclCmds[:2], append(rulesToAdd, aclCmds[2:]...)...)
 }
 
-func (w *windowsConfigure) addDownloadToolsCmds() []string {
-	if series.IsWindowsNano(w.icfg.Series) {
-		// Strip the header and footer of the CA Certificate
-		caContent := strings.Split(w.icfg.MongoInfo.CACert, "\n")
-		caContent = caContent[1:]                // remove header
-		caContent = caContent[:len(caContent)-2] // remove footer and newline
-		caCert := strings.Join(caContent, "\n")
+func addDownloadToolsCmds(ser string, certificate string, toolsURL string) ([]string, error) {
+	if series.IsWindowsNano(ser) {
+		parsedCert, err := cert.ParseCert(certificate)
+		if err != nil {
+			return nil, err
+		}
+		caCert := base64.URLEncoding.EncodeToString(parsedCert.Raw)
 		return []string{fmt.Sprintf(`$cacert = "%s"`, caCert),
 			`$cert_bytes = $cacert | %{ ,[System.Text.Encoding]::UTF8.GetBytes($_) }`,
 			`$cert = new-object System.Security.Cryptography.X509Certificates.X509Certificate2(,$cert_bytes)`,
 			`$store = Get-Item Cert:\LocalMachine\AuthRoot`,
 			`$store.Open("ReadWrite")`,
 			`$store.Add($cert)`,
-			fmt.Sprintf(`ExecRetry { Invoke-FastWebRequest -URI '%s' -OutFile "$binDir\tools.tar.gz" }`, w.icfg.Tools.URL),
-		}
+			fmt.Sprintf(`ExecRetry { Invoke-FastWebRequest -URI '%s' -OutFile "$binDir\tools.tar.gz" }`, toolsURL),
+		}, nil
 	} else {
 		return []string{
 			`$WebClient = New-Object System.Net.WebClient`,
 			`[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}`,
 			fmt.Sprintf(`ExecRetry { $WebClient.DownloadFile('%s', "$binDir\tools.tar.gz") }`,
-				w.icfg.Tools.URL),
-		}
+				toolsURL),
+		}, nil
 	}
 }
