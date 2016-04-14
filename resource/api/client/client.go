@@ -9,10 +9,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 )
@@ -106,8 +107,8 @@ type AddPendingResourcesArgs struct {
 	// ServiceID identifies the service being deployed.
 	ServiceID string
 
-	// CharmURL identifies the service's charm.
-	CharmURL *charm.URL
+	// CharmID identifies the service's charm.
+	CharmID charmstore.CharmID
 
 	// CharmStoreMacaroon is the macaroon to use for the charm when
 	// interacting with the charm store.
@@ -121,7 +122,7 @@ type AddPendingResourcesArgs struct {
 // AddPendingResources sends the provided resource info up to Juju
 // without making it available yet.
 func (c Client) AddPendingResources(args AddPendingResourcesArgs) (pendingIDs []string, err error) {
-	apiArgs, err := api.NewAddPendingResourcesArgs(args.ServiceID, args.CharmURL, args.CharmStoreMacaroon, args.Resources)
+	apiArgs, err := api.NewAddPendingResourcesArgs(args.ServiceID, args.CharmID, args.CharmStoreMacaroon, args.Resources)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -131,7 +132,7 @@ func (c Client) AddPendingResources(args AddPendingResourcesArgs) (pendingIDs []
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
-		err := api.RestoreError(result.Error)
+		err := common.RestoreError(result.Error)
 		return nil, errors.Trace(err)
 	}
 
@@ -154,7 +155,6 @@ func (c Client) AddPendingResources(args AddPendingResourcesArgs) (pendingIDs []
 func (c Client) AddPendingResource(serviceID string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
 	ids, err := c.AddPendingResources(AddPendingResourcesArgs{
 		ServiceID: serviceID,
-		CharmURL:  nil,
 		Resources: []charmresource.Resource{res},
 	})
 	if err != nil {

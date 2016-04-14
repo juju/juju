@@ -24,17 +24,33 @@ var (
 	// the model Dead via the undertaker, so it can't be waited for
 	// reliably.
 	alwaysModelWorkers = []string{
-		"agent", "clock", "api-caller",
-		"is-responsible-flag", "not-alive-flag", "not-dead-flag",
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"clock",
+		"discover-spaces-check-gate",
+		"is-responsible-flag",
+		"not-alive-flag",
+		"not-dead-flag",
 	}
 	aliveModelWorkers = []string{
-		"environ-tracker", "space-importer", "compute-provisioner",
-		"storage-provisioner", "firewaller", "unit-assigner",
-		"service-scaler", "instance-poller", "charm-revision-updater",
-		"metric-worker", "state-cleaner", "status-history-pruner",
+		"charm-revision-updater",
+		"compute-provisioner",
+		"discover-spaces",
+		"environ-tracker",
+		"firewaller",
+		"instance-poller",
+		"metric-worker",
+		"migration-master",
+		"service-scaler",
+		"state-cleaner",
+		"status-history-pruner",
+		"storage-provisioner",
+		"unit-assigner",
+		"rsyslog-forwarder",
 	}
 	deadModelWorkers = []string{
-		"environ-tracker", "undertaker",
+		"environ-tracker", "undertaker", "rsyslog-forwarder",
 	}
 
 	// ReallyLongTimeout should be long enough for the model-tracker
@@ -116,10 +132,10 @@ func (tracker *modelTracker) Manifolds(config model.ManifoldsConfig) dependency.
 func (tracker *modelTracker) manifold(uuid string, names []string) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: names,
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(context dependency.Context) (worker.Worker, error) {
 			seen := set.NewStrings()
 			for _, name := range names {
-				err := getResource(name, nil)
+				err := context.Get(name, nil)
 				if errors.Cause(err) == dependency.ErrMissing {
 					continue
 				}
@@ -127,10 +143,14 @@ func (tracker *modelTracker) manifold(uuid string, names []string) dependency.Ma
 					seen.Add(name)
 				}
 			}
-			tracker.mu.Lock()
-			defer tracker.mu.Unlock()
-			tracker.current[uuid] = seen
-
+			select {
+			case <-context.Abort():
+				// don't bother to report if it's about to change
+			default:
+				tracker.mu.Lock()
+				defer tracker.mu.Unlock()
+				tracker.current[uuid] = seen
+			}
 			return nil, dependency.ErrMissing
 		},
 	}

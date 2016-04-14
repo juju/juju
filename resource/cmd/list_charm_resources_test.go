@@ -8,6 +8,7 @@ import (
 
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -92,14 +93,19 @@ music    1
 		"ListResources",
 		"Close",
 	)
-	s.stub.CheckCall(c, 1, "ListResources", []*charm.URL{{
-		Schema:   "cs",
-		User:     "",
-		Name:     "a-charm",
-		Revision: -1,
-		Series:   "",
-		Channel:  "",
-	}})
+	s.stub.CheckCall(c, 1, "ListResources", []charmstore.CharmID{
+		{
+			URL: &charm.URL{
+				Schema:   "cs",
+				User:     "",
+				Name:     "a-charm",
+				Revision: -1,
+				Series:   "",
+				Channel:  "",
+			},
+			Channel: "stable",
+		},
+	})
 }
 
 func (s *ListCharmSuite) TestNoResources(c *gc.C) {

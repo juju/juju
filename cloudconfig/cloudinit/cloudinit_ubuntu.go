@@ -267,7 +267,6 @@ func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 		// Don't install bridge-utils in cloud-init;
 		// leave it to the networker worker.
 		"bridge-utils",
-		"rsyslog-gnutls",
 		"cloud-utils",
 		"cloud-image-utils",
 		"tmux",

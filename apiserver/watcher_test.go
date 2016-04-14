@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -77,32 +79,49 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
 	})
 }
 
-func (s *watcherSuite) TestMigrationMasterWatcher(c *gc.C) {
+func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 	w := apiservertesting.NewFakeNotifyWatcher()
 	id := s.resources.Register(w)
-	s.authorizer.EnvironManager = true
-	apiserver.PatchMigrationGetter(s, new(fakeModelMigrationGetter))
+	s.authorizer.Tag = names.NewMachineTag("12")
+	apiserver.PatchGetMigrationBackend(s, new(fakeMigrationBackend))
+	apiserver.PatchGetControllerCACert(s, "no worries")
 
 	w.C <- struct{}{}
-	facade := s.getFacade(c, "MigrationMasterWatcher", 1, id).(migrationMasterWatcher)
+	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id).(migrationStatusWatcher)
+	defer c.Check(facade.Stop(), jc.ErrorIsNil)
 	result, err := facade.Next()
 	c.Assert(err, jc.ErrorIsNil)
-	defer c.Check(facade.Stop(), jc.ErrorIsNil)
-
-	c.Assert(result, jc.DeepEquals, params.ModelMigrationTargetInfo{
-		ControllerTag: "model-uuid",
-		Addrs:         []string{"1.2.3.4:5555"},
-		CACert:        "trust me",
-		AuthTag:       "user-admin",
-		Password:      "sekret",
+	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
+		Attempt:        2,
+		Phase:          "READONLY",
+		SourceAPIAddrs: []string{"1.2.3.4:5", "2.3.4.5:6", "3.4.5.6:7"},
+		SourceCACert:   "no worries",
+		TargetAPIAddrs: []string{"1.2.3.4:5555"},
+		TargetCACert:   "trust me",
 	})
 }
 
-func (s *watcherSuite) TestMigrationNotModelManager(c *gc.C) {
-	id := s.resources.Register(apiservertesting.NewFakeNotifyWatcher())
-	s.authorizer.EnvironManager = false
+func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *gc.C) {
+	w := apiservertesting.NewFakeNotifyWatcher()
+	id := s.resources.Register(w)
+	s.authorizer.Tag = names.NewMachineTag("12")
+	apiserver.PatchGetMigrationBackend(s, &fakeMigrationBackend{noMigration: true})
 
-	factory, err := common.Facades.GetFactory("MigrationMasterWatcher", 1)
+	w.C <- struct{}{}
+	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id).(migrationStatusWatcher)
+	defer c.Check(facade.Stop(), jc.ErrorIsNil)
+	result, err := facade.Next()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
+		Phase: "NONE",
+	})
+}
+
+func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
+	id := s.resources.Register(apiservertesting.NewFakeNotifyWatcher())
+	s.authorizer.Tag = names.NewUserTag("frogdog")
+
+	factory, err := common.Facades.GetFactory("MigrationStatusWatcher", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = factory(s.st, s.resources, s.authorizer, id)
 	c.Assert(err, gc.Equals, common.ErrPerm)
@@ -121,14 +140,46 @@ func (w *fakeStringsWatcher) Changes() <-chan []string {
 	return w.ch
 }
 
-type fakeModelMigrationGetter struct{}
+type fakeMigrationBackend struct {
+	noMigration bool
+}
 
-func (g *fakeModelMigrationGetter) GetModelMigration() (state.ModelMigration, error) {
+func (b *fakeMigrationBackend) GetModelMigration() (state.ModelMigration, error) {
+	if b.noMigration {
+		return nil, errors.NotFoundf("migration")
+	}
 	return new(fakeModelMigration), nil
+}
+
+func (b *fakeMigrationBackend) APIHostPorts() ([][]network.HostPort, error) {
+	return [][]network.HostPort{
+		MustParseHostPorts("1.2.3.4:5", "2.3.4.5:6"),
+		MustParseHostPorts("3.4.5.6:7"),
+	}, nil
+}
+
+func (b *fakeMigrationBackend) ControllerModel() (*state.Model, error) {
+	return nil, nil
+}
+
+func MustParseHostPorts(hostports ...string) []network.HostPort {
+	out, err := network.ParseHostPorts(hostports...)
+	if err != nil {
+		panic(err)
+	}
+	return out
 }
 
 type fakeModelMigration struct {
 	state.ModelMigration
+}
+
+func (m *fakeModelMigration) Attempt() (int, error) {
+	return 2, nil
+}
+
+func (m *fakeModelMigration) Phase() (migration.Phase, error) {
+	return migration.READONLY, nil
 }
 
 func (m *fakeModelMigration) TargetInfo() (*migration.TargetInfo, error) {
@@ -141,7 +192,7 @@ func (m *fakeModelMigration) TargetInfo() (*migration.TargetInfo, error) {
 	}, nil
 }
 
-type migrationMasterWatcher interface {
-	Next() (params.ModelMigrationTargetInfo, error)
+type migrationStatusWatcher interface {
+	Next() (params.MigrationStatus, error)
 	Stop() error
 }

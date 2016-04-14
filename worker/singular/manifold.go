@@ -28,17 +28,17 @@ type ManifoldConfig struct {
 }
 
 // start is a method on ManifoldConfig because it's more readable than a closure.
-func (config ManifoldConfig) start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
 	var clock clock.Clock
-	if err := getResource(config.ClockName, &clock); err != nil {
+	if err := context.Get(config.ClockName, &clock); err != nil {
 		return nil, errors.Trace(err)
 	}
 	var apiCaller base.APICaller
-	if err := getResource(config.APICallerName, &apiCaller); err != nil {
+	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
 	var agent agent.Agent
-	if err := getResource(config.AgentName, &agent); err != nil {
+	if err := context.Get(config.AgentName, &agent); err != nil {
 		return nil, errors.Trace(err)
 	}
 	agentTag := agent.CurrentConfig().Tag()

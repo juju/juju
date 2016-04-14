@@ -48,7 +48,7 @@ func NewLoggerAPI(
 }
 
 // WatchLoggingConfig starts a watcher to track changes to the logging config
-// for the agents specified..  Unfortunately the current infrastruture makes
+// for the agents specified..  Unfortunately the current infrastructure makes
 // watching parts of the config non-trivial, so currently any change to the
 // config will cause the watcher to notify the client.
 func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatchResults {

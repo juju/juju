@@ -45,6 +45,7 @@ var readOnlyCalls = set.NewStrings(
 	"Client.WatchAll",
 	// TODO: add controller work.
 	"KeyManager.ListKeys",
+	"ModelManager.ModelInfo",
 	"Service.GetConstraints",
 	"Service.CharmRelations",
 	"Service.Get",

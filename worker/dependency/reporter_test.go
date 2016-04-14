@@ -28,7 +28,7 @@ func (s *ReportSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ReportSuite) TestReportStarted(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 		report := engine.Report()
 		c.Check(report, jc.DeepEquals, map[string]interface{}{
 			"state":     "started",
@@ -39,7 +39,7 @@ func (s *ReportSuite) TestReportStarted(c *gc.C) {
 }
 
 func (s *ReportSuite) TestReportStopped(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 		workertest.CleanKill(c, engine)
 		report := engine.Report()
 		c.Check(report, jc.DeepEquals, map[string]interface{}{
@@ -51,7 +51,7 @@ func (s *ReportSuite) TestReportStopped(c *gc.C) {
 }
 
 func (s *ReportSuite) TestReportStopping(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 		mh1 := newErrorIgnoringManifoldHarness()
 		err := engine.Install("task", mh1.Manifold())
 		c.Assert(err, jc.ErrorIsNil)
@@ -108,7 +108,7 @@ func (s *ReportSuite) TestReportStopping(c *gc.C) {
 }
 
 func (s *ReportSuite) TestReportInputs(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 		mh1 := newManifoldHarness()
 		err := engine.Install("task", mh1.Manifold())
 		c.Assert(err, jc.ErrorIsNil)
@@ -152,7 +152,7 @@ func (s *ReportSuite) TestReportInputs(c *gc.C) {
 }
 
 func (s *ReportSuite) TestReportError(c *gc.C) {
-	s.fix.run(c, func(engine dependency.Engine) {
+	s.fix.run(c, func(engine *dependency.Engine) {
 		mh1 := newManifoldHarness("missing")
 		manifold := mh1.Manifold()
 		err := engine.Install("task", manifold)

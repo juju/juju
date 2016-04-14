@@ -11,10 +11,12 @@ import (
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 )
@@ -38,13 +40,10 @@ type CharmStore interface {
 	// list of details for each of the charm's resources. Those details
 	// are those associated with the specific charm revision. They
 	// include the resource's metadata and revision.
-	ListResources(charmURLs []*charm.URL) ([][]charmresource.Resource, error)
+	ListResources([]charmstore.CharmID) ([][]charmresource.Resource, error)
 
-	// GetResource returns a reader for the resource's data. That data
-	// is streamed from the charm store. The charm's revision, if any,
-	// is ignored. If the identified resource is not in the charm store
-	// then errors.NotFound is returned.
-	GetResource(cURL *charm.URL, resourceName string, revision int) (charmresource.Resource, io.ReadCloser, error)
+	// ResourceInfo returns the metadata for the given resource.
+	ResourceInfo(charmstore.ResourceRequest) (charmresource.Resource, error)
 }
 
 // Facade is the public API facade for resources.
@@ -52,11 +51,11 @@ type Facade struct {
 	// store is the data source for the facade.
 	store resourceInfoStore
 
-	newCharmstoreClient func(*charm.URL, *macaroon.Macaroon) (CharmStore, error)
+	newCharmstoreClient func() (CharmStore, error)
 }
 
 // NewFacade returns a new resoures facade for the given Juju state.
-func NewFacade(store DataStore, newClient func(*charm.URL, *macaroon.Macaroon) (CharmStore, error)) (*Facade, error) {
+func NewFacade(store DataStore, newClient func() (CharmStore, error)) (*Facade, error) {
 	if store == nil {
 		return nil, errors.Errorf("missing data store")
 	}
@@ -129,7 +128,8 @@ func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPe
 	}
 	serviceID := tag.Id()
 
-	ids, err := f.addPendingResources(serviceID, args.URL, args.CharmStoreMacaroon, args.Resources)
+	channel := csparams.Channel(args.Channel)
+	ids, err := f.addPendingResources(serviceID, args.URL, channel, args.CharmStoreMacaroon, args.Resources)
 	if err != nil {
 		result.Error = common.ServerError(err)
 		return result, nil
@@ -138,7 +138,7 @@ func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPe
 	return result, nil
 }
 
-func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Macaroon, apiResources []api.CharmResource) ([]string, error) {
+func (f Facade) addPendingResources(serviceID, chRef string, channel csparams.Channel, csMac *macaroon.Macaroon, apiResources []api.CharmResource) ([]string, error) {
 	var resources []charmresource.Resource
 	for _, apiRes := range apiResources {
 		res, err := api.API2CharmResource(apiRes)
@@ -153,22 +153,25 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 		if err != nil {
 			return nil, err
 		}
-		// TODO(ericsnow) Do something else for local charms.
-		client, err := f.newCharmstoreClient(cURL, csMac)
-		if err != nil {
-			return nil, errors.Trace(err)
+
+		switch cURL.Schema {
+		case "cs":
+			id := charmstore.CharmID{
+				URL:     cURL,
+				Channel: channel,
+			}
+			resources, err = f.resolveCharmstoreResources(id, csMac, resources)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		case "local":
+			resources, err = f.resolveLocalResources(resources)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		default:
+			return nil, errors.Errorf("unrecognized charm schema %q", cURL.Schema)
 		}
-		storeResources, err := f.resourcesFromCharmstore(cURL, client)
-		if err != nil {
-			return nil, err
-		}
-		resolved, err := resolveResources(resources, storeResources, cURL, client)
-		if err != nil {
-			return nil, err
-		}
-		// TODO(ericsnow) Ensure that the non-upload resource revisions
-		// match a previously published revision set?
-		resources = resolved
 	}
 
 	var ids []string
@@ -185,12 +188,42 @@ func (f Facade) addPendingResources(serviceID, chRef string, csMac *macaroon.Mac
 	return ids, nil
 }
 
+func (f Facade) resolveCharmstoreResources(id charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) ([]charmresource.Resource, error) {
+	client, err := f.newCharmstoreClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ids := []charmstore.CharmID{id}
+	storeResources, err := f.resourcesFromCharmstore(ids, client)
+	if err != nil {
+		return nil, err
+	}
+	resolved, err := resolveResources(resources, storeResources, id, client)
+	if err != nil {
+		return nil, err
+	}
+	// TODO(ericsnow) Ensure that the non-upload resource revisions
+	// match a previously published revision set?
+	return resolved, nil
+}
+
+func (f Facade) resolveLocalResources(resources []charmresource.Resource) ([]charmresource.Resource, error) {
+	var resolved []charmresource.Resource
+	for _, res := range resources {
+		resolved = append(resolved, charmresource.Resource{
+			Meta:   res.Meta,
+			Origin: charmresource.OriginUpload,
+		})
+	}
+	return resolved, nil
+}
+
 // resourcesFromCharmstore gets the info for the charm's resources in
 // the charm store. If the charm URL has a revision then that revision's
 // resources are returned. Otherwise the latest info for each of the
 // resources is returned.
-func (f Facade) resourcesFromCharmstore(cURL *charm.URL, client CharmStore) (map[string]charmresource.Resource, error) {
-	results, err := client.ListResources([]*charm.URL{cURL})
+func (f Facade) resourcesFromCharmstore(charms []charmstore.CharmID, client CharmStore) (map[string]charmresource.Resource, error) {
+	results, err := client.ListResources(charms)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -206,7 +239,7 @@ func (f Facade) resourcesFromCharmstore(cURL *charm.URL, client CharmStore) (map
 // resolveResources determines the resource info that should actually
 // be stored on the controller. That decision is based on the provided
 // resources along with those in the charm store (if any).
-func resolveResources(resources []charmresource.Resource, storeResources map[string]charmresource.Resource, cURL *charm.URL, client CharmStore) ([]charmresource.Resource, error) {
+func resolveResources(resources []charmresource.Resource, storeResources map[string]charmresource.Resource, id charmstore.CharmID, client CharmStore) ([]charmresource.Resource, error) {
 	allResolved := make([]charmresource.Resource, len(resources))
 	copy(allResolved, resources)
 	for i, res := range resources {
@@ -217,7 +250,7 @@ func resolveResources(resources []charmresource.Resource, storeResources map[str
 			continue
 		}
 
-		resolved, err := resolveStoreResource(res, storeResources, cURL, client)
+		resolved, err := resolveStoreResource(res, storeResources, id, client)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -228,7 +261,7 @@ func resolveResources(resources []charmresource.Resource, storeResources map[str
 
 // resolveStoreResource selects the resource info to use. It decides
 // between the provided and latest info based on the revision.
-func resolveStoreResource(res charmresource.Resource, storeResources map[string]charmresource.Resource, cURL *charm.URL, client CharmStore) (charmresource.Resource, error) {
+func resolveStoreResource(res charmresource.Resource, storeResources map[string]charmresource.Resource, id charmstore.CharmID, client CharmStore) (charmresource.Resource, error) {
 	storeRes, ok := storeResources[res.Name]
 	if !ok {
 		// This indicates that AddPendingResources() was called for
@@ -254,11 +287,16 @@ func resolveStoreResource(res charmresource.Resource, storeResources map[string]
 		// The caller wants resource info from the charm store, but with
 		// a different resource revision than the one associated with
 		// the charm in the store.
-		storeRes, r, err := client.GetResource(cURL, res.Name, res.Revision)
+		req := charmstore.ResourceRequest{
+			Charm:    id.URL,
+			Channel:  id.Channel,
+			Name:     res.Name,
+			Revision: res.Revision,
+		}
+		storeRes, err := client.ResourceInfo(req)
 		if err != nil {
 			return storeRes, errors.Trace(err)
 		}
-		r.Close() // We don't care about the file.
 		return storeRes, nil
 	}
 	// The caller fully-specified a resource with a different resource

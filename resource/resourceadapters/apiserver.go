@@ -7,48 +7,15 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/macaroon.v1"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/resource"
+	internalserver "github.com/juju/juju/resource/api/private/server"
 	"github.com/juju/juju/resource/api/server"
 	corestate "github.com/juju/juju/state"
 )
-
-// StateConnector exposes ways to connect to Juju's state.
-type StateConnector interface {
-	// ConnectForUnitAgent connects to state for a unit agent.
-	ConnectForUnitAgent(*http.Request) (*corestate.State, *corestate.Unit, error)
-}
-
-// HTTPDownloadRequestExtractor provides the functionality needed to
-// handle a resource download HTTP request.
-type HTTPDownloadRequestExtractor struct {
-	// Connector provides connections to Juju's state.
-	Connector StateConnector
-}
-
-// NewResourceOpener returns a new resource.Opener for the given
-// HTTP request.
-func (ex HTTPDownloadRequestExtractor) NewResourceOpener(req *http.Request) (resource.Opener, error) {
-	st, unit, err := ex.Connector.ConnectForUnitAgent(req)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	resources, err := st.Resources()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	opener := &resourceOpener{
-		st:     resources,
-		userID: unit.Tag(),
-		unit:   unit,
-	}
-	return opener, nil
-}
 
 // NewPublicFacade provides the public API facade for resources. It is
 // passed into common.RegisterStandardFacade.
@@ -61,13 +28,77 @@ func NewPublicFacade(st *corestate.State, _ *common.Resources, authorizer common
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	newClient := func(cURL *charm.URL, csMac *macaroon.Macaroon) (server.CharmStore, error) {
-		opener := newCharmstoreOpener(cURL, csMac)
-		return opener.NewClient()
+	newClient := func() (server.CharmStore, error) {
+		return newCharmStoreClient(st)
 	}
 	facade, err := server.NewFacade(rst, newClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return facade, nil
+}
+
+// NewUploadHandler returns a new HTTP handler for the given args.
+func NewUploadHandler(args apihttp.NewHandlerArgs) http.Handler {
+	return server.NewLegacyHTTPHandler(
+		func(req *http.Request) (server.DataStore, names.Tag, error) {
+			st, entity, err := args.Connect(req)
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+			resources, err := st.Resources()
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+
+			return resources, entity.Tag(), nil
+		},
+	)
+}
+
+// NewDownloadHandler returns a new HTTP handler for the given args.
+func NewDownloadHandler(args apihttp.NewHandlerArgs) http.Handler {
+	extractor := &httpDownloadRequestExtractor{
+		connect: args.Connect,
+	}
+	deps := internalserver.NewLegacyHTTPHandlerDeps(extractor)
+	return internalserver.NewLegacyHTTPHandler(deps)
+}
+
+// stateConnector exposes ways to connect to Juju's state.
+type stateConnector interface {
+	// Connect connects to state for a unit agent.
+}
+
+// httpDownloadRequestExtractor provides the functionality needed to
+// handle a resource download HTTP request.
+type httpDownloadRequestExtractor struct {
+	connect func(*http.Request) (*corestate.State, corestate.Entity, error)
+}
+
+// NewResourceOpener returns a new resource.Opener for the given
+// HTTP request.
+func (ex *httpDownloadRequestExtractor) NewResourceOpener(req *http.Request) (resource.Opener, error) {
+	st, ent, err := ex.connect(req)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unit, ok := ent.(*corestate.Unit)
+	if !ok {
+		logger.Errorf("unexpected type: %T", ent)
+		return nil, errors.Errorf("unexpected type: %T", ent)
+	}
+
+	resources, err := st.Resources()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	opener := &resourceOpener{
+		st:     st,
+		res:    resources,
+		userID: unit.Tag(),
+		unit:   unit,
+	}
+	return opener, nil
 }

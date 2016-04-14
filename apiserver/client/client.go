@@ -5,7 +5,6 @@ package client
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -374,24 +373,14 @@ func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
 	}
 
 	for _, user := range users {
-		var lastConn *time.Time
-		userLastConn, err := user.LastConnection()
+		var result params.ModelUserInfoResult
+		userInfo, err := common.ModelUserInfo(user)
 		if err != nil {
-			if !state.IsNeverConnectedError(err) {
-				return results, errors.Trace(err)
-			}
+			result.Error = common.ServerError(err)
 		} else {
-			lastConn = &userLastConn
+			result.Result = &userInfo
 		}
-		results.Results = append(results.Results, params.ModelUserInfoResult{
-			Result: &params.ModelUserInfo{
-				UserName:       user.UserName(),
-				DisplayName:    user.DisplayName(),
-				CreatedBy:      user.CreatedBy(),
-				DateCreated:    user.DateCreated(),
-				LastConnection: lastConn,
-			},
-		})
+		results.Results = append(results.Results, result)
 	}
 	return results, nil
 }
@@ -493,9 +482,10 @@ func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult,
 	return c.api.toolsFinder.FindTools(args)
 }
 
-func (c *Client) AddCharm(args params.CharmURL) error {
+func (c *Client) AddCharm(args params.AddCharm) error {
 	return service.AddCharmWithAuthorization(c.api.state(), params.AddCharmWithAuthorization{
-		URL: args.URL,
+		URL:     args.URL,
+		Channel: args.Channel,
 	})
 }
 

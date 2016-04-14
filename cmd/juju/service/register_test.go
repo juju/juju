@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -55,7 +56,9 @@ func (s *registrationSuite) TearDownTest(c *gc.C) {
 func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
@@ -67,10 +70,6 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 	authorization = append(authorization, byte(0xa))
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
-	}, {
-		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
-	}, {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
@@ -88,13 +87,19 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 				MetricCredentials: authorization,
 			}},
 		}},
+	}, {
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
+	}, {
+		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
 	}})
 }
 
 func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
@@ -109,10 +114,6 @@ func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
-		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
-	}, {
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
-	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
 			ModelUUID:   "model uuid",
 			CharmURL:    "cs:quantal/metered-1",
@@ -121,15 +122,15 @@ func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 			Budget:      "personal",
 			Limit:       "100",
 		}},
-	}, {
-		"DeleteAllocation", []interface{}{"model uuid", "service name"},
 	}})
 }
 
 func (s *registrationSuite) TestMeteredLocalCharmWithPlan(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("local:quantal/metered-1"),
+		},
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
@@ -147,6 +148,8 @@ func (s *registrationSuite) TestMeteredLocalCharmWithPlan(c *gc.C) {
 			CharmURL:    "local:quantal/metered-1",
 			ServiceName: "service name",
 			PlanURL:     "someplan",
+			Budget:      "personal",
+			Limit:       "100",
 		}},
 	}, {
 		"APICall", []interface{}{"Service", "SetMetricCredentials", params.ServiceMetricCredentials{
@@ -162,7 +165,9 @@ func (s *registrationSuite) TestMeteredLocalCharmNoPlan(c *gc.C) {
 	s.register = &RegisterMeteredCharm{RegisterURL: s.server.URL, QueryURL: s.server.URL}
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("local:quantal/metered-1"),
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("local:quantal/metered-1"),
+		},
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
@@ -197,7 +202,9 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 		RegisterURL:    s.server.URL, QueryURL: s.server.URL}
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
@@ -209,10 +216,6 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 	authorization = append(authorization, byte(0xa))
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
-	}, {
-		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
-	}, {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
@@ -232,27 +235,29 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 				MetricCredentials: authorization,
 			}},
 		}},
+	}, {
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
+	}, {
+		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
 	}})
 }
 
 func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
-	s.stub.SetErrors(nil, nil, nil, errors.NotFoundf("default plan"))
+	s.stub.SetErrors(nil, errors.NotFoundf("default plan"))
 	s.register = &RegisterMeteredCharm{
 		AllocateBudget: AllocateBudget{AllocationSpec: "personal:100"},
 		RegisterURL:    s.server.URL, QueryURL: s.server.URL}
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, gc.ErrorMatches, `cs:quantal/metered-1 has no default plan. Try "juju deploy --plan <plan-name> with one of thisplan, thisotherplan"`)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
-	}, {
-		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
-	}, {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
@@ -262,23 +267,21 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 }
 
 func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
-	s.stub.SetErrors(nil, nil, nil, errors.New("something failed"))
+	s.stub.SetErrors(nil, errors.New("something failed"))
 	s.register = &RegisterMeteredCharm{
 		AllocateBudget: AllocateBudget{AllocationSpec: "personal:100"},
 		RegisterURL:    s.server.URL, QueryURL: s.server.URL}
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, gc.ErrorMatches, `failed to query default plan:.*`)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
-	}, {
-		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
-	}, {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
@@ -288,15 +291,15 @@ func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
 func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("cs:quantal/unmetered-1"),
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/unmetered-1"),
+		},
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/unmetered-1"}},
-	}, {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/unmetered-1"}},
 	}})
 	s.stub.ResetCalls()
@@ -306,10 +309,12 @@ func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 }
 
 func (s *registrationSuite) TestFailedAuth(c *gc.C) {
-	s.stub.SetErrors(nil, nil, nil, fmt.Errorf("could not authorize"))
+	s.stub.SetErrors(nil, fmt.Errorf("could not authorize"))
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmURL:    charm.MustParseURL("cs:quantal/metered-1"),
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
 		ServiceName: "service name",
 		ModelUUID:   "model uuid",
 	}
@@ -319,10 +324,6 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 	authorization = append(authorization, byte(0xa))
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
-		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
-	}, {
-		"CreateAllocation", []interface{}{"personal", "100", "model uuid", []string{"service name"}},
-	}, {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{

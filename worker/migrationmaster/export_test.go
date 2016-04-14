@@ -4,3 +4,4 @@
 package migrationmaster
 
 var ApiOpen = &apiOpen
+var TempSuccessSleep = &tempSuccessSleep

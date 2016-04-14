@@ -11,9 +11,6 @@ import (
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/testing/factory"
 )
 
 // debugLogBaseSuite has tests that should be run for both the file
@@ -49,20 +46,6 @@ func (s *debugLogBaseSuite) TestNoAuth(c *gc.C) {
 	reader := bufio.NewReader(conn)
 
 	assertJSONError(c, reader, "no credentials provided")
-	s.assertWebsocketClosed(c, reader)
-}
-
-func (s *debugLogBaseSuite) TestAgentLoginsRejected(c *gc.C) {
-	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Nonce: "foo-nonce",
-	})
-	header := utils.BasicAuthHeader(m.Tag().String(), password)
-	header.Add(params.MachineNonceHeader, "foo-nonce")
-	conn := s.dialWebsocketInternal(c, nil, header)
-	defer conn.Close()
-	reader := bufio.NewReader(conn)
-
-	assertJSONError(c, reader, "invalid entity name or password")
 	s.assertWebsocketClosed(c, reader)
 }
 

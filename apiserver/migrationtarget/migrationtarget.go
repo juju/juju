@@ -68,3 +68,46 @@ func (api *API) Import(serialized params.SerializedModel) error {
 	// TODO(mjs) - post import checks
 	return err
 }
+
+func (api *API) getModel(args params.ModelArgs) (*state.Model, error) {
+	tag, err := names.ParseModelTag(args.ModelTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	model, err := api.state.GetModel(tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if model.MigrationMode() != state.MigrationModeImporting {
+		return nil, errors.New("migration mode for the model is not importing")
+	}
+	return model, nil
+}
+
+// Abort removes the specified model from the database. It is an error to
+// attempt to Abort a model that has a migration mode other than importing.
+func (api *API) Abort(args params.ModelArgs) error {
+	model, err := api.getModel(args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	st, err := api.state.ForModel(model.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer st.Close()
+
+	return st.RemoveImportingModelDocs()
+}
+
+// Activate sets the migration mode of the model to "active". It is an error to
+// attempt to Abort a model that has a migration mode other than importing.
+func (api *API) Activate(args params.ModelArgs) error {
+	model, err := api.getModel(args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return model.SetMigrationMode(state.MigrationModeActive)
+}

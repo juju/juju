@@ -111,11 +111,11 @@ func (s *statusGetSuite) TestHelp(c *gc.C) {
 		"\n" +
 		"Options:\n" +
 		"--format  (= smart)\n" +
-		"    specify output format (json|smart|yaml)\n" +
+		"    Specify output format (json|smart|yaml)\n" +
 		"--include-data  (= false)\n" +
 		"    print all status data\n" +
 		"-o, --output (= \"\")\n" +
-		"    specify an output file\n" +
+		"    Specify an output file\n" +
 		"--service  (= false)\n" +
 		"    print status for all units of this service if this unit is the leader\n" +
 		"\n" +

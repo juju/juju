@@ -226,10 +226,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	err = c.ChangeConfig(func(config agent.ConfigSetter) error {
-		// We cannot set wired tiger as the storage because mongo
-		// shipped with ubuntu lacks js.
-		if mongo.BinariesAvailable(mongo.Mongo30wt) {
-			config.SetMongoVersion(mongo.Mongo30wt)
+		// We'll try for mongo 3.2 first and fallback to
+		// mongo 2.4 if the newer binaries are not available.
+		if mongo.BinariesAvailable(mongo.Mongo32wt) {
+			config.SetMongoVersion(mongo.Mongo32wt)
 		} else {
 			config.SetMongoVersion(mongo.Mongo24)
 		}
@@ -305,7 +305,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Populate the GUI archive catalogue.
 	if err := c.populateGUIArchive(st, env); err != nil {
-		return err
+		// Do not stop the bootstrapping process for Juju GUI archive errors.
+		logger.Warningf("cannot set up Juju GUI: %s", err)
+	} else {
+		logger.Debugf("Juju GUI successfully set up")
 	}
 
 	// Add custom image metadata to environment storage.
@@ -445,7 +448,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	return nil
 }
 
-// populateGUIArchive stores uploaded Juju GUI archive in provider storage,
+// populateGUIArchive stores the uploaded Juju GUI archive in provider storage,
 // updates the GUI metadata and set the current Juju GUI version.
 func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Environ) error {
 	agentConfig := c.CurrentConfig()
@@ -457,10 +460,7 @@ func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Envi
 	defer guistorage.Close()
 	gui, err := agenttools.ReadGUIArchive(dataDir)
 	if err != nil {
-		// TODO frankban: ignore the error for now, as the GUI could not be
-		// there at all. This needs to be changed before merging into master,
-		// return errors.Annotate(err, "cannot fetch GUI info")
-		return nil
+		return errors.Annotate(err, "cannot fetch GUI info")
 	}
 	f, err := os.Open(filepath.Join(agenttools.SharedGUIDir(dataDir), "gui.tar.bz2"))
 	if err != nil {

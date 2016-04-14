@@ -155,6 +155,7 @@ const SystemIdentity = "system-identity"
 
 const (
 	LxcBridge              = "LXC_BRIDGE"
+	LxdBridge              = "LXD_BRIDGE"
 	ProviderType           = "PROVIDER_TYPE"
 	ContainerType          = "CONTAINER_TYPE"
 	Namespace              = "NAMESPACE"
@@ -278,6 +279,9 @@ type configSetterOnly interface {
 
 	// SetAPIHostPorts sets the API host/port addresses to connect to.
 	SetAPIHostPorts(servers [][]network.HostPort)
+
+	// SetCACert sets the CA cert used for validating API connections.
+	SetCACert(string)
 
 	// Migrate takes an existing agent config and applies the given
 	// parameters to change it.
@@ -576,6 +580,10 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 	}
 	c.apiDetails.addresses = addrs
 	logger.Infof("API server address details %q written to agent config as %q", servers, addrs)
+}
+
+func (c *configInternal) SetCACert(cert string) {
+	c.caCert = cert
 }
 
 func (c *configInternal) SetValue(key, value string) {

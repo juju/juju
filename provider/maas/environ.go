@@ -19,6 +19,7 @@ import (
 	"github.com/juju/gomaasapi"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -39,10 +41,11 @@ import (
 )
 
 const (
-	// We're using v1.0 of the MAAS API.
-	apiVersion = "1.0"
 	// The string from the api indicating the dynamic range of a subnet.
 	dynamicRange = "dynamic-range"
+	// The version strings indicating the MAAS API version.
+	apiVersion1 = "1.0"
+	apiVersion2 = "2.0"
 )
 
 // A request may fail to due "eventual consistency" semantics, which
@@ -57,13 +60,18 @@ var shortAttempt = utils.AttemptStrategy{
 
 var (
 	ReleaseNodes             = releaseNodes
-	ReserveIPAddress         = reserveIPAddress
 	ReserveIPAddressOnDevice = reserveIPAddressOnDevice
 	NewDeviceParams          = newDeviceParams
 	UpdateDeviceHostname     = updateDeviceHostname
 	ReleaseIPAddress         = releaseIPAddress
 	DeploymentStatusCall     = deploymentStatusCall
+	GetCapabilities          = getCapabilities
+	GetMAAS2Controller       = getMAAS2Controller
 )
+
+func getMAAS2Controller(maasServer, apiKey string) (gomaasapi.Controller, error) {
+	return gomaasapi.NewController(gomaasapi.ControllerArgs{maasServer, apiKey})
+}
 
 func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error) {
 	spacesJson, err := spaces.CallGet("", nil)
@@ -106,14 +114,6 @@ func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 	_, err := nodes.CallPost("release", ids)
-	return err
-}
-
-func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
-	params := url.Values{}
-	params.Add("network", cidr)
-	params.Add("requested_address", addr.Value)
-	_, err := ipaddresses.CallPost("reserve", params)
 	return err
 }
 
@@ -196,13 +196,14 @@ type maasEnviron struct {
 	maasClientUnlocked *gomaasapi.MAASObject
 	storageUnlocked    storage.Storage
 
+	// maasController provides access to the MAAS 2.0 API.
+	maasController gomaasapi.Controller
+
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
 
-	// The following are initialized from the discovered MAAS API capabilities.
-	supportsDevices                 bool
-	supportsStaticIPs               bool
-	supportsNetworkDeploymentUbuntu bool
+	// apiVersion tells us if we are using the MAAS 1.0 or 2.0 api.
+	apiVersion string
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -216,28 +217,15 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	env.name = cfg.Name()
 	env.storageUnlocked = NewStorage(env)
 
-	// Since we need to switch behavior based on the available API capabilities,
-	// get them as soon as possible and cache them.
-	capabilities, err := env.getCapabilities()
-	if err != nil {
-		logger.Warningf("cannot get MAAS API capabilities: %v", err)
-	}
-	logger.Tracef("MAAS API capabilities: %v", capabilities.SortedValues())
-	env.supportsDevices = capabilities.Contains(capDevices)
-	env.supportsStaticIPs = capabilities.Contains(capStaticIPAddresses)
-	env.supportsNetworkDeploymentUbuntu = capabilities.Contains(capNetworkDeploymentUbuntu)
 	return env, nil
 }
 
-var noDevicesWarning = `
-Using MAAS version older than 1.8.2: devices API support not detected!
-
-Juju cannot guarantee resources allocated to containers, like DHCP
-leases or static IP addresses will be properly cleaned up when the
-container, its host, or the model is destroyed.
-
-Juju recommends upgrading MAAS to version 1.8.2 or later.
-`[1:]
+func (env *maasEnviron) usingMAAS2() bool {
+	if !featureflag.Enabled(feature.MAAS2) {
+		return false
+	}
+	return env.apiVersion == apiVersion2
+}
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
@@ -251,11 +239,6 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 			instancecfg.DefaultBridgeName,
 		)
 		args.ContainerBridgeName = instancecfg.DefaultBridgeName
-
-		if !env.supportsDevices {
-			// Inform the user container resources might leak.
-			ctx.Infof("WARNING: %s", noDevicesWarning)
-		}
 	} else {
 		logger.Debugf(
 			"address allocation feature enabled; using static IPs for containers: %q",
@@ -298,8 +281,9 @@ func (env *maasEnviron) ControllerInstances() ([]instance.Id, error) {
 // mutex.
 func (env *maasEnviron) ecfg() *maasModelConfig {
 	env.ecfgMutex.Lock()
-	defer env.ecfgMutex.Unlock()
-	return env.ecfgUnlocked
+	cfg := *env.ecfgUnlocked
+	env.ecfgMutex.Unlock()
+	return &cfg
 }
 
 // Config is specified in the Environ interface.
@@ -320,22 +304,44 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	}
 	cfg, err := env.Provider().Validate(cfg, oldCfg)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	env.ecfgUnlocked = ecfg
 
-	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion)
-	if err != nil {
-		return err
+	// We need to know the version of the server we're on. We support 1.9
+	// and 2.0. MAAS 1.9 uses the 1.0 api version and 2.0 uses the 2.0 api
+	// version.
+	apiVersion := apiVersion2
+	var controller gomaasapi.Controller
+	if featureflag.Enabled(feature.MAAS2) {
+		controller, err = GetMAAS2Controller(ecfg.maasServer(), ecfg.maasOAuth())
 	}
-	env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
-
+	if !featureflag.Enabled(feature.MAAS2) || err != nil && gomaasapi.IsUnsupportedVersionError(err) {
+		apiVersion = apiVersion1
+		authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion1)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
+		caps, err := GetCapabilities(env.maasClientUnlocked)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !caps.Contains(capNetworkDeploymentUbuntu) {
+			return errors.NotSupportedf("MAAS 1.9 or more recent is required")
+		}
+	} else if err != nil {
+		return errors.Trace(err)
+	} else {
+		env.maasController = controller
+	}
+	env.apiVersion = apiVersion
 	return nil
 }
 
@@ -346,72 +352,82 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 	if env.supportedArchitectures != nil {
 		return env.supportedArchitectures, nil
 	}
-	bootImages, err := env.allBootImages()
-	if err != nil || len(bootImages) == 0 {
-		logger.Debugf("error querying boot-images: %v", err)
-		logger.Debugf("falling back to listing nodes")
-		supportedArchitectures, err := env.nodeArchitectures()
-		if err != nil {
-			return nil, err
-		}
-		env.supportedArchitectures = supportedArchitectures
-	} else {
-		architectures := make(set.Strings)
-		for _, image := range bootImages {
-			architectures.Add(image.architecture)
-		}
-		env.supportedArchitectures = architectures.SortedValues()
+
+	fetchArchitectures := env.allArchitecturesWithFallback
+	if env.usingMAAS2() {
+		fetchArchitectures = env.allArchitectures2
 	}
+	architectures, err := fetchArchitectures()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	env.supportedArchitectures = architectures
 	return env.supportedArchitectures, nil
 }
 
 // SupportsSpaces is specified on environs.Networking.
 func (env *maasEnviron) SupportsSpaces() (bool, error) {
-	return env.supportsNetworkDeploymentUbuntu, nil
+	return true, nil
 }
 
 // SupportsSpaceDiscovery is specified on environs.Networking.
 func (env *maasEnviron) SupportsSpaceDiscovery() (bool, error) {
-	return env.supportsNetworkDeploymentUbuntu, nil
+	return true, nil
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *maasEnviron) SupportsAddressAllocation(_ network.Id) (bool, error) {
-	if !environs.AddressAllocationEnabled() {
-		if !env.supportsDevices {
-			return false, errors.NotSupportedf("address allocation")
-		}
-		// We can use devices for DHCP-allocated container IPs.
-		return true, nil
-	}
-
-	return env.supportsStaticIPs, nil
+	return true, nil
 }
 
-// allBootImages queries MAAS for all of the boot-images across
-// all registered nodegroups.
-func (env *maasEnviron) allBootImages() ([]bootImage, error) {
+// allArchitectures2 uses the MAAS2 controller to get architectures from boot
+// resources.
+func (env *maasEnviron) allArchitectures2() ([]string, error) {
+	resources, err := env.maasController.BootResources()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	architectures := set.NewStrings()
+	for _, resource := range resources {
+		architectures.Add(strings.Split(resource.Architecture(), "/")[0])
+	}
+	return architectures.SortedValues(), nil
+}
+
+// allArchitectureWithFallback queries MAAS for all of the boot-images
+// across all registered nodegroups and collapses them down to unique
+// architectures.
+func (env *maasEnviron) allArchitecturesWithFallback() ([]string, error) {
+	architectures, err := env.allArchitectures()
+	if err != nil || len(architectures) == 0 {
+		logger.Debugf("error querying boot-images: %v", err)
+		logger.Debugf("falling back to listing nodes")
+		architectures, err := env.nodeArchitectures()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return architectures, nil
+	} else {
+		return architectures, nil
+	}
+}
+
+func (env *maasEnviron) allArchitectures() ([]string, error) {
 	nodegroups, err := env.getNodegroups()
 	if err != nil {
 		return nil, err
 	}
-	var allBootImages []bootImage
-	seen := make(set.Strings)
+	architectures := set.NewStrings()
 	for _, nodegroup := range nodegroups {
 		bootImages, err := env.nodegroupBootImages(nodegroup)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot get boot images for nodegroup %v", nodegroup)
 		}
 		for _, image := range bootImages {
-			str := fmt.Sprint(image)
-			if seen.Contains(str) {
-				continue
-			}
-			seen.Add(str)
-			allBootImages = append(allBootImages, image)
+			architectures.Add(image.architecture)
 		}
 	}
-	return allBootImages, nil
+	return architectures.SortedValues(), nil
 }
 
 // getNodegroups returns the UUID corresponding to each nodegroup
@@ -492,13 +508,14 @@ func (env *maasEnviron) nodeArchitectures() ([]string, error) {
 	filter.Add("status", gomaasapi.NodeStatusReady)
 	filter.Add("status", gomaasapi.NodeStatusReserved)
 	filter.Add("status", gomaasapi.NodeStatusAllocated)
-	allInstances, err := env.instances(filter)
+	// This is fine - nodeArchitectures is only used in MAAS 1 cases.
+	allInstances, err := env.instances1(filter)
 	if err != nil {
 		return nil, err
 	}
 	architectures := make(set.Strings)
 	for _, inst := range allInstances {
-		inst := inst.(*maasInstance)
+		inst := inst.(*maas1Instance)
 		arch, _, err := inst.architecture()
 		if err != nil {
 			return nil, err
@@ -529,34 +546,64 @@ func (e *maasEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	e.availabilityZonesMutex.Lock()
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
-		zonesObject := e.getMAASClient().GetSubObject("zones")
-		result, err := zonesObject.CallGet("", nil)
-		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusNotFound {
-			return nil, errors.NewNotImplemented(nil, "the MAAS server does not support zones")
-		}
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot query ")
-		}
-		list, err := result.GetArray()
-		if err != nil {
-			return nil, err
-		}
-		logger.Debugf("availability zones: %+v", list)
-		availabilityZones := make([]common.AvailabilityZone, len(list))
-		for i, obj := range list {
-			zone, err := obj.GetMap()
+		var availabilityZones []common.AvailabilityZone
+		var err error
+		if e.usingMAAS2() {
+			availabilityZones, err = e.availabilityZones2()
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
-			name, err := zone["name"].GetString()
+		} else {
+			availabilityZones, err = e.availabilityZones1()
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
-			availabilityZones[i] = maasAvailabilityZone{name}
 		}
 		e.availabilityZones = availabilityZones
 	}
 	return e.availabilityZones, nil
+}
+
+func (e *maasEnviron) availabilityZones1() ([]common.AvailabilityZone, error) {
+	zonesObject := e.getMAASClient().GetSubObject("zones")
+	result, err := zonesObject.CallGet("", nil)
+	if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusNotFound {
+		return nil, errors.NewNotImplemented(nil, "the MAAS server does not support zones")
+	}
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot query ")
+	}
+	list, err := result.GetArray()
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("availability zones: %+v", list)
+	availabilityZones := make([]common.AvailabilityZone, len(list))
+	for i, obj := range list {
+		zone, err := obj.GetMap()
+		if err != nil {
+			return nil, err
+		}
+		name, err := zone["name"].GetString()
+		if err != nil {
+			return nil, err
+		}
+		availabilityZones[i] = maasAvailabilityZone{name}
+	}
+	return availabilityZones, nil
+}
+
+func (e *maasEnviron) availabilityZones2() ([]common.AvailabilityZone, error) {
+	zones, err := e.maasController.Zones()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	availabilityZones := make([]common.AvailabilityZone, len(zones))
+	for i, zone := range zones {
+		availabilityZones[i] = maasAvailabilityZone{zone.Name()}
+	}
+	return availabilityZones, nil
+
 }
 
 // InstanceAvailabilityZoneNames returns the availability zone names for each
@@ -571,7 +618,12 @@ func (e *maasEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string
 		if inst == nil {
 			continue
 		}
-		zones[i] = inst.(*maasInstance).zone()
+		z, err := inst.(maasInstance).zone()
+		if err != nil {
+			logger.Errorf("could not get availability zone %v", err)
+			continue
+		}
+		zones[i] = z
 	}
 	return zones, nil
 }
@@ -613,24 +665,22 @@ func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, 
 }
 
 const (
-	capStaticIPAddresses       = "static-ipaddresses"
-	capDevices                 = "devices-management"
 	capNetworkDeploymentUbuntu = "network-deployment-ubuntu"
 )
 
 // getCapabilities asks the MAAS server for its capabilities, if
 // supported by the server.
-func (env *maasEnviron) getCapabilities() (set.Strings, error) {
+func getCapabilities(client *gomaasapi.MAASObject) (set.Strings, error) {
 	caps := make(set.Strings)
 	var result gomaasapi.JSONObject
 	var err error
 
 	for a := shortAttempt.Start(); a.Next(); {
-		client := env.getMAASClient().GetSubObject("version/")
-		result, err = client.CallGet("", nil)
+		version := client.GetSubObject("version/")
+		result, err = version.CallGet("", nil)
 		if err != nil {
-			if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == 404 {
-				return caps, fmt.Errorf("MAAS does not support version info")
+			if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == 404 {
+				return caps, errors.NotSupportedf("MAAS version 1.9 or more recent is required")
 			}
 		} else {
 			break
@@ -715,6 +765,46 @@ func (environ *maasEnviron) spaceNamesToSpaceInfo(positiveSpaces, negativeSpaces
 	return positiveSpaceIds, negativeSpaceIds, nil
 }
 
+// acquireNode2 allocates a machine from MAAS2.
+func (environ *maasEnviron) acquireNode2(
+	nodeName, zoneName string,
+	cons constraints.Value,
+	interfaces []interfaceBinding,
+	volumes []volumeInfo,
+) (maasInstance, error) {
+	acquireParams := convertConstraints2(cons)
+	positiveSpaceNames, negativeSpaceNames := convertSpacesFromConstraints(cons.Spaces)
+	positiveSpaces, negativeSpaces, err := environ.spaceNamesToSpaceInfo(positiveSpaceNames, negativeSpaceNames)
+	// If spaces aren't supported the constraints should be empty anyway.
+	if err != nil && !errors.IsNotSupported(err) {
+		return nil, errors.Trace(err)
+	}
+	err = addInterfaces2(&acquireParams, interfaces, positiveSpaces, negativeSpaces)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// TODO (mfoord): add this back once gomaasapi has support for the
+	// Storage parameter on gomaasapi.AllocateMachineArgs.
+	//addStorage(acquireParams, volumes)
+	acquireParams.AgentName = environ.ecfg().maasAgentName()
+	if zoneName != "" {
+		acquireParams.Zone = zoneName
+	}
+	if nodeName != "" {
+		acquireParams.Hostname = nodeName
+	} else if cons.Arch == nil {
+		logger.Warningf(
+			"no architecture was specified, acquiring an arbitrary node",
+		)
+	}
+	machine, err := environ.maasController.AllocateMachine(acquireParams)
+
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &maas2Instance{machine}, nil
+}
+
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(
 	nodeName, zoneName string,
@@ -730,9 +820,6 @@ func (environ *maasEnviron) acquireNode(
 	if err != nil && !errors.IsNotSupported(err) {
 		return gomaasapi.MAASObject{}, errors.Trace(err)
 	}
-	// TODO: (mfoord) for better error reporting (names rather than ids) it
-	// would be better to pass network.SpaceInfo rather than just space ids.
-	// The same is true of interfaceBinding.
 	err = addInterfaces(acquireParams, interfaces, positiveSpaces, negativeSpaces)
 	if err != nil {
 		return gomaasapi.MAASObject{}, errors.Trace(err)
@@ -811,6 +898,16 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 	return nil, err
 }
 
+func (environ *maasEnviron) startNode2(node maas2Instance, series string, userdata []byte) (*maas2Instance, error) {
+	err := node.machine.Start(gomaasapi.StartArgs{DistroSeries: series, UserData: userdata})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Machine.Start updates the machine in-place when it succeeds.
+	return &maas2Instance{node.machine}, nil
+
+}
+
 // DistributeInstances implements the state.InstanceDistributor policy.
 func (e *maasEnviron) DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
 	return common.DistributeInstances(e, candidates, distributionGroup)
@@ -855,6 +952,8 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 			}
 		}
 		zoneInstances, err := availabilityZoneAllocations(environ, group)
+		// TODO (mfoord): this branch is for old versions of MAAS and
+		// can be removed, but this means fixing tests.
 		if errors.IsNotImplemented(err) {
 			// Availability zones are an extension, so we may get a
 			// not implemented error; ignore these.
@@ -892,15 +991,23 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		Interfaces:        interfaceBindings,
 		Volumes:           volumes,
 	}
-	selectedNode, err := environ.selectNode(snArgs)
-	if err != nil {
-		return nil, errors.Errorf("cannot run instances: %v", err)
-	}
+	var inst maasInstance
+	if !environ.usingMAAS2() {
+		selectedNode, err := environ.selectNode(snArgs)
+		if err != nil {
+			return nil, errors.Errorf("cannot run instances: %v", err)
+		}
 
-	inst := &maasInstance{
-		maasObject:   selectedNode,
-		environ:      environ,
-		statusGetter: environ.deploymentStatusOne,
+		inst = &maas1Instance{
+			maasObject:   selectedNode,
+			environ:      environ,
+			statusGetter: environ.deploymentStatusOne,
+		}
+	} else {
+		inst, err = environ.selectNode2(snArgs)
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot run instances")
+		}
 	}
 	defer func() {
 		if err != nil {
@@ -919,7 +1026,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		Arch: *hc.Arch,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	args.InstanceConfig.Tools = selectedTools[0]
 
@@ -937,44 +1044,45 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		args.InstanceConfig.AgentEnvironment[agent.LxcBridge] = instancecfg.DefaultBridgeName
 	}
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, environ.Config()); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	series := args.InstanceConfig.Tools.Version.Series
 
 	cloudcfg, err := environ.newCloudinitConfig(hostname, series)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, MAASRenderer{})
 	if err != nil {
-		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
-		return nil, msg
+		return nil, errors.Annotatef(err, "could not compose userdata for bootstrap node")
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
-	var startedNode *gomaasapi.MAASObject
+	subnetsMap, err := environ.subnetToSpaceIds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	var interfaces []network.InterfaceInfo
-	if startedNode, err = environ.startNode(*inst.maasObject, series, userdata); err != nil {
-		return nil, err
-	} else {
+	if !environ.usingMAAS2() {
+		inst1 := inst.(*maas1Instance)
+		startedNode, err := environ.startNode(*inst1.maasObject, series, userdata)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		// Once the instance has started the response should contain the
 		// assigned IP addresses, even when NICs are set to "auto" instead of
 		// "static". So instead of selectedNode, which only contains the
 		// acquire-time details (no IP addresses for NICs set to "auto" vs
 		// "static"), we use the up-to-date statedNode response to get the
 		// interfaces.
-
-		if environ.supportsNetworkDeploymentUbuntu {
-			subnetsMap, err := environ.subnetToSpaceIds()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			// Use the new 1.9 API when available.
-			interfaces, err = maasObjectNetworkInterfaces(startedNode, subnetsMap)
-		} else {
-			// Use the legacy approach.
-			interfaces, err = environ.setupNetworks(inst)
+		interfaces, err = maasObjectNetworkInterfaces(startedNode, subnetsMap)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+	} else {
+		// TODO (mfoord): handling of interfaces to be added in a
+		// follow-up.
+		_, err := environ.startNode2(*inst.(*maas2Instance), series, userdata)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -999,7 +1107,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, err
 	}
 	if len(resultVolumes) != len(requestedVolumes) {
-		err = errors.New("the version of MAAS being used does not support Juju storage")
+		err = errors.Errorf("requested %v storage volumes. %v returned.", len(requestedVolumes), len(resultVolumes))
 		return nil, err
 	}
 
@@ -1092,7 +1200,7 @@ func (environ *maasEnviron) deploymentStatus(ids ...instance.Id) (map[string]str
 	nodesAPI := environ.getMAASClient().GetSubObject("nodes")
 	result, err := DeploymentStatusCall(nodesAPI, ids...)
 	if err != nil {
-		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusBadRequest {
+		if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusBadRequest {
 			return nil, errors.NewNotImplemented(err, "deployment status")
 		}
 		return nil, errors.Trace(err)
@@ -1138,7 +1246,7 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 			args.Volumes,
 		)
 
-		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusConflict {
+		if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusConflict {
 			if i+1 < len(args.AvailabilityZones) {
 				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
 				continue
@@ -1152,6 +1260,35 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 		break
 	}
 	return &node, nil
+}
+
+func (environ *maasEnviron) selectNode2(args selectNodeArgs) (maasInstance, error) {
+	var err error
+	var inst maasInstance
+
+	for i, zoneName := range args.AvailabilityZones {
+		inst, err = environ.acquireNode2(
+			args.NodeName,
+			zoneName,
+			args.Constraints,
+			args.Interfaces,
+			args.Volumes,
+		)
+
+		if gomaasapi.IsNoMatchError(err) {
+			if i+1 < len(args.AvailabilityZones) {
+				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
+				continue
+			}
+		}
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot run instance")
+		}
+		// Since a return at the end of the function is required
+		// just break here.
+		break
+	}
+	return inst, nil
 }
 
 // setupJujuNetworking returns a string representing the script to run
@@ -1260,7 +1397,7 @@ func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Val
 	if err == nil {
 		return nil
 	}
-	maasErr, ok := err.(gomaasapi.ServerError)
+	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
 	if !ok {
 		return errors.Annotate(err, "cannot release nodes")
 	}
@@ -1304,6 +1441,10 @@ func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Val
 
 // StopInstances is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
+	// Temporary fix to make debugging possible.
+	if environ.usingMAAS2() {
+		return nil
+	}
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
 	if len(ids) == 0 {
 		return nil
@@ -1324,13 +1465,24 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 // Due to how this works in the HTTP API, an empty "ids"
 // matches all instances (not none as you might expect).
 func (environ *maasEnviron) acquiredInstances(ids []instance.Id) ([]instance.Instance, error) {
-	filter := getSystemIdValues("id", ids)
-	filter.Add("agent_name", environ.ecfg().maasAgentName())
-	return environ.instances(filter)
+	if !environ.usingMAAS2() {
+		filter := getSystemIdValues("id", ids)
+		filter.Add("agent_name", environ.ecfg().maasAgentName())
+		return environ.instances1(filter)
+	}
+	systemIDs := make([]string, len(ids))
+	for index, id := range ids {
+		systemIDs[index] = string(id)
+	}
+	args := gomaasapi.MachinesArgs{
+		AgentName: environ.ecfg().maasAgentName(),
+		SystemIDs: systemIDs,
+	}
+	return environ.instances2(args)
 }
 
 // instances calls the MAAS API to list nodes matching the given filter.
-func (environ *maasEnviron) instances(filter url.Values) ([]instance.Instance, error) {
+func (environ *maasEnviron) instances1(filter url.Values) ([]instance.Instance, error) {
 	nodeListing := environ.getMAASClient().GetSubObject("nodes")
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
 	if err != nil {
@@ -1346,11 +1498,23 @@ func (environ *maasEnviron) instances(filter url.Values) ([]instance.Instance, e
 		if err != nil {
 			return nil, err
 		}
-		instances[index] = &maasInstance{
+		instances[index] = &maas1Instance{
 			maasObject:   &node,
 			environ:      environ,
 			statusGetter: environ.deploymentStatusOne,
 		}
+	}
+	return instances, nil
+}
+
+func (environ *maasEnviron) instances2(args gomaasapi.MachinesArgs) ([]instance.Instance, error) {
+	machines, err := environ.maasController.Machines(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	instances := make([]instance.Instance, len(machines))
+	for index, machine := range machines {
+		instances[index] = &maas2Instance{machine}
 	}
 	return instances, nil
 }
@@ -1368,7 +1532,7 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 	}
 	instances, err := environ.acquiredInstances(ids)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if len(instances) == 0 {
 		return nil, environs.ErrNoInstances
@@ -1379,12 +1543,18 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 		idMap[instance.Id()] = instance
 	}
 
+	missing := false
 	result := make([]instance.Instance, len(ids))
 	for index, id := range ids {
-		result[index] = idMap[id]
+		val, ok := idMap[id]
+		if !ok {
+			missing = true
+			continue
+		}
+		result[index] = val
 	}
 
-	if len(instances) < len(ids) {
+	if missing {
 		return result, environs.ErrPartialInstances
 	}
 	return result, nil
@@ -1440,7 +1610,8 @@ func newDeviceParams(macAddress string, instId instance.Id, _ string) url.Values
 func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id, hostnameSuffix string) (string, error) {
 	client := environ.getMAASClient()
 	devices := client.GetSubObject("devices")
-	// Work around the limitation of gomaasapi's testservice expecting all 3
+	// Make the params in a separate function to make it easier to work
+	// around the limitation of gomaasapi's testservice expecting all 3
 	// arguments (parent, mac_addresses, and hostname) to be filled in.
 	params := NewDeviceParams(macAddress, instId, hostnameSuffix)
 	logger.Tracef(
@@ -1553,13 +1724,6 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 	}
 
 	if !environs.AddressAllocationEnabled() {
-		if !environ.supportsDevices {
-			logger.Warningf(
-				"resources used by container %q with MAC address %q can leak: devices API not supported",
-				hostname, macAddress,
-			)
-			return errors.NotSupportedf("address allocation")
-		}
 		logger.Tracef("creating device for container %q with MAC %q", hostname, macAddress)
 		deviceID, err := environ.createOrFetchDevice(macAddress, instId, hostname)
 		if err != nil {
@@ -1588,56 +1752,24 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
 
 	client := environ.getMAASClient()
-	var maasErr gomaasapi.ServerError
-	if environ.supportsDevices {
-		deviceID, err := environ.createOrFetchDevice(macAddress, instId, hostname)
-		if err != nil {
-			return err
-		}
+	deviceID, err := environ.createOrFetchDevice(macAddress, instId, hostname)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-		devices := client.GetSubObject("devices")
-		newAddr, err := ReserveIPAddressOnDevice(devices, deviceID, macAddress, *addr)
-		if err == nil {
-			logger.Infof(
-				"allocated address %q for instance %q on device %q (asked for address %q)",
-				addr, instId, deviceID, newAddr,
-			)
-			return nil
-		}
+	devices := client.GetSubObject("devices")
+	newAddr, err := ReserveIPAddressOnDevice(devices, deviceID, macAddress, *addr)
+	if err == nil {
+		logger.Infof(
+			"allocated address %q for instance %q on device %q (asked for address %q)",
+			addr, instId, deviceID, newAddr,
+		)
+		return nil
+	}
 
-		var ok bool
-		maasErr, ok = err.(gomaasapi.ServerError)
-		if !ok {
-			return errors.Trace(err)
-		}
-	} else {
-
-		var subnets []network.SubnetInfo
-
-		subnets, err = environ.Subnets(instId, []network.Id{subnetId})
-		logger.Tracef("Subnets(%q, %q, %q) returned: %v (%v)", instId, subnetId, *addr, subnets, err)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if len(subnets) != 1 {
-			return errors.Errorf("could not find subnet matching %q", subnetId)
-		}
-		foundSub := subnets[0]
-		logger.Tracef("found subnet %#v", foundSub)
-
-		cidr := foundSub.CIDR
-		ipaddresses := client.GetSubObject("ipaddresses")
-		err = ReserveIPAddress(ipaddresses, cidr, *addr)
-		if err == nil {
-			logger.Infof("allocated address %q for instance %q on subnet %q", *addr, instId, cidr)
-			return nil
-		}
-
-		var ok bool
-		maasErr, ok = err.(gomaasapi.ServerError)
-		if !ok {
-			return errors.Trace(err)
-		}
+	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
+	if !ok {
+		return errors.Trace(err)
 	}
 	// For an "out of range" IP address, maas raises
 	// StaticIPAddressOutOfRange - an error 403
@@ -1661,13 +1793,6 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 // AllocateAddress.
 func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, macAddress, hostname string) (err error) {
 	if !environs.AddressAllocationEnabled() {
-		if !environ.supportsDevices {
-			logger.Warningf(
-				"resources used by container %q with MAC address %q can leak: devices API not supported",
-				hostname, macAddress,
-			)
-			return errors.NotSupportedf("address allocation")
-		}
 		logger.Tracef("getting device ID for container %q with MAC %q", macAddress, hostname)
 		deviceID, err := environ.fetchDevice(macAddress)
 		if err != nil {
@@ -1693,12 +1818,12 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 	defer errors.DeferredAnnotatef(&err, "failed to release IP address %q from instance %q", addr, instId)
 
 	logger.Infof(
-		"releasing address: %q, MAC address: %q, hostname: %q, supports devices: %v",
-		addr, macAddress, hostname, environ.supportsDevices,
+		"releasing address: %q, MAC address: %q, hostname: %q",
+		addr, macAddress, hostname,
 	)
 	// Addresses originally allocated without a device will have macAddress
 	// set to "". We shouldn't look for a device for these addresses.
-	if environ.supportsDevices && macAddress != "" {
+	if macAddress != "" {
 		device, err := environ.fetchFullDevice(macAddress)
 		if err == nil {
 			addresses, err := device["ip_addresses"].GetArray()
@@ -1751,7 +1876,7 @@ func (environ *maasEnviron) subnetsFromNode(nodeId string) ([]gomaasapi.JSONObje
 	client := environ.getMAASClient().GetSubObject("nodes").GetSubObject(nodeId)
 	json, err := client.CallGet("", nil)
 	if err != nil {
-		if maasErr, ok := err.(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
+		if maasErr, ok := errors.Cause(err).(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
 			return nil, errors.NotFoundf("intance %q", nodeId)
 		}
 		return nil, errors.Trace(err)
@@ -2027,7 +2152,7 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, error) {
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
 	if err != nil {
-		if maasErr, ok := err.(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
+		if maasErr, ok := errors.Cause(err).(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
 			return nil, errors.NotFoundf("instance %q", instId)
 		}
 		return nil, errors.Annotatef(err, "getting instance %q", instId)
@@ -2072,9 +2197,14 @@ func (environ *maasEnviron) subnetToSpaceIds() (map[string]network.Id, error) {
 // Space name is not filled in as the provider doesn't know the juju name for
 // the space.
 func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
-	if !environ.supportsNetworkDeploymentUbuntu {
-		return nil, errors.NotSupportedf("Spaces")
+	if environ.usingMAAS2() {
+		return environ.spaces2()
+	} else {
+		return environ.spaces1()
 	}
+}
+
+func (environ *maasEnviron) spaces1() ([]network.SpaceInfo, error) {
 	spacesClient := environ.getMAASClient().GetSubObject("spaces")
 	spacesJson, err := spacesClient.CallGet("", nil)
 	if err != nil {
@@ -2120,91 +2250,43 @@ func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
 	return spaces, nil
 }
 
+func (environ *maasEnviron) spaces2() ([]network.SpaceInfo, error) {
+	spaces, err := environ.maasController.Spaces()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var result []network.SpaceInfo
+	for _, space := range spaces {
+		if len(space.Subnets()) == 0 {
+			continue
+		}
+		outSpace := network.SpaceInfo{
+			Name:       space.Name(),
+			ProviderId: network.Id(strconv.Itoa(space.ID())),
+			Subnets:    make([]network.SubnetInfo, len(space.Subnets())),
+		}
+		for i, subnet := range space.Subnets() {
+			subnetInfo := network.SubnetInfo{
+				ProviderId:      network.Id(strconv.Itoa(subnet.ID())),
+				VLANTag:         subnet.VLAN().VID(),
+				CIDR:            subnet.CIDR(),
+				SpaceProviderId: network.Id(strconv.Itoa(space.ID())),
+				// TODO (babbageclunk): not setting
+				// AllocatableIPLow/High - these aren't exposed in
+				// gomaasapi just yet.
+			}
+			outSpace.Subnets[i] = subnetInfo
+		}
+		result = append(result, outSpace)
+	}
+	return result, nil
+}
+
 // Subnets returns basic information about the specified subnets known
 // by the provider for the specified instance. subnetIds must not be
 // empty. Implements NetworkingEnviron.Subnets.
 func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	if environ.supportsNetworkDeploymentUbuntu {
-		return environ.subnetsWithSpaces(instId, subnetIds)
-	}
-	// When not using MAAS API with spaces support, we require both instance ID
-	// and list of subnet IDs, that's due to the limitations of the old API.
-	if instId == instance.UnknownId {
-		return nil, errors.Errorf("instance ID is required")
-	}
-	inst, err := environ.getInstance(instId)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(subnetIds) == 0 {
-		return nil, errors.Errorf("subnet IDs must not be empty")
-	}
-	// The MAAS API get networks call returns named subnets, not physical networks,
-	// so we save the data from this call into a variable called subnets.
-	// http://maas.ubuntu.com/docs/api.html#networks
-	subnets, err := environ.getInstanceNetworks(inst)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get instance %q subnets", instId)
-	}
-	logger.Debugf("instance %q has subnets %v", instId, subnets)
-
-	nodegroups, err := environ.getNodegroups()
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get instance %q node groups", instId)
-	}
-	nodegroupInterfaces := environ.getNodegroupInterfaces(nodegroups)
-
-	subnetIdSet := make(map[string]bool)
-	for _, netId := range subnetIds {
-		subnetIdSet[string(netId)] = false
-	}
-
-	var networkInfo []network.SubnetInfo
-	for _, subnet := range subnets {
-		found, ok := subnetIdSet[subnet.Name]
-		if !ok {
-			// This id is not what we're looking for.
-			continue
-		}
-		if found {
-			// Don't add the same subnet twice.
-			continue
-		}
-		// mark that we've found this subnet
-		subnetIdSet[subnet.Name] = true
-		netCIDR := &net.IPNet{
-			IP:   net.ParseIP(subnet.IP),
-			Mask: net.IPMask(net.ParseIP(subnet.Mask)),
-		}
-		var allocatableHigh, allocatableLow net.IP
-		for ip, bounds := range nodegroupInterfaces {
-			contained := netCIDR.Contains(net.ParseIP(ip))
-			if contained {
-				allocatableLow = bounds[0]
-				allocatableHigh = bounds[1]
-				break
-			}
-		}
-		subnetInfo := network.SubnetInfo{
-			CIDR:              netCIDR.String(),
-			VLANTag:           subnet.VLANTag,
-			ProviderId:        network.Id(subnet.Name),
-			AllocatableIPLow:  allocatableLow,
-			AllocatableIPHigh: allocatableHigh,
-		}
-
-		// Verify we filled-in everything for all networks
-		// and drop incomplete records.
-		if subnetInfo.ProviderId == "" || subnetInfo.CIDR == "" {
-			logger.Infof("ignoring subnet  %q: missing information (%#v)", subnet.Name, subnetInfo)
-			continue
-		}
-
-		logger.Tracef("found subnet with info %#v", subnetInfo)
-		networkInfo = append(networkInfo, subnetInfo)
-	}
-	logger.Debugf("available subnets for instance %v: %#v", inst.Id(), networkInfo)
-	return networkInfo, checkNotFound(subnetIdSet)
+	return environ.subnetsWithSpaces(instId, subnetIds)
 }
 
 func checkNotFound(subnetIdSet map[string]bool) error {
@@ -2240,11 +2322,6 @@ func (environ *maasEnviron) Destroy() error {
 			"If the environment is still running, please manually decomission the MAAS machines.")
 		return errors.New("unsafe destruction")
 	}
-	if !environ.supportsDevices {
-		// Warn the user that container resources can leak.
-		logger.Warningf(noDevicesWarning)
-	}
-
 	if err := common.Destroy(environ); err != nil {
 		return errors.Trace(err)
 	}
@@ -2272,7 +2349,7 @@ func (*maasEnviron) Provider() environs.EnvironProvider {
 }
 
 func (environ *maasEnviron) nodeIdFromInstance(inst instance.Instance) (string, error) {
-	maasInst := inst.(*maasInstance)
+	maasInst := inst.(*maas1Instance)
 	maasObj := maasInst.maasObject
 	nodeId, err := maasObj.GetField("system_id")
 	if err != nil {

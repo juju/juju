@@ -119,9 +119,16 @@ type DestroyRelation struct {
 	Endpoints []string
 }
 
+// AddCharm holds the arguments for making an AddCharm API call.
+type AddCharm struct {
+	URL     string
+	Channel string
+}
+
 // AddCharmWithAuthorization holds the arguments for making an AddCharmWithAuthorization API call.
 type AddCharmWithAuthorization struct {
 	URL                string
+	Channel            string
 	CharmStoreMacaroon *macaroon.Macaroon
 }
 
@@ -199,6 +206,7 @@ type ServiceDeploy struct {
 	ServiceName      string
 	Series           string
 	CharmUrl         string
+	Channel          string
 	NumUnits         int
 	Config           map[string]string
 	ConfigYAML       string // Takes precedence over config if both are present.
@@ -228,6 +236,8 @@ type ServiceSetCharm struct {
 	ServiceName string `json:"servicename"`
 	// CharmUrl is the new url for the charm.
 	CharmUrl string `json:"charmurl"`
+	// Channel is the charm store channel from which the charm came.
+	Channel string `json:"cs-channel"`
 	// ForceUnits forces the upgrade on units in an error state.
 	ForceUnits bool `json:"forceunits"`
 	// ForceSeries forces the use of the charm even if it doesn't match the
@@ -741,15 +751,23 @@ type RebootActionResult struct {
 	Error  *Error       `json:"error,omitempty"`
 }
 
+// LogRecordResult struct is used to transmit log messages over
+// a channel.
+type LogRecordResult struct {
+	LogRecord
+	Error *Error // TODO Remove
+}
+
 // LogRecord is used to transmit log messages to the logsink API
 // endpoint.  Single character field names are used for serialisation
 // to keep the size down. These messages are going to be sent a lot.
 type LogRecord struct {
-	Time     time.Time   `json:"t"`
-	Module   string      `json:"m"`
-	Location string      `json:"l"`
-	Level    loggo.Level `json:"v"`
-	Message  string      `json:"x"`
+	ModelUUID string      `json:"e"`
+	Time      time.Time   `json:"t"`
+	Module    string      `json:"m"`
+	Location  string      `json:"l"`
+	Level     loggo.Level `json:"v"`
+	Message   string      `json:"x"`
 }
 
 // GetBundleChangesParams holds parameters for making GetBundleChanges calls.
@@ -808,18 +826,6 @@ type MongoUpgradeResults struct {
 // must be resumed.
 type ResumeReplicationParams struct {
 	Members []replicaset.Member
-}
-
-// ModelInfo holds information about the Juju model.
-type ModelInfo struct {
-	DefaultSeries string `json:"DefaultSeries"`
-	ProviderType  string `json:"ProviderType"`
-	Name          string `json:"Name"`
-	UUID          string `json:"UUID"`
-	// The json name here is as per the older field name and is required
-	// for backward compatability. The other fields also have explicit
-	// matching serialization directives for the benefit of being explicit.
-	ControllerUUID string `json:"ServerUUID"`
 }
 
 // MeterStatusParam holds meter status information to be set for the specified tag.

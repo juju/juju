@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -167,7 +168,8 @@ func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
 
 func (t *ToolsSuite) TestReadGUIArchiveErrorNotFound(c *gc.C) {
 	gui, err := agenttools.ReadGUIArchive(t.dataDir)
-	c.Assert(err, gc.ErrorMatches, "cannot read GUI metadata in tools directory: .*")
+	c.Assert(err, gc.ErrorMatches, "GUI metadata not found")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(gui, gc.IsNil)
 }
 

@@ -6,6 +6,7 @@ package testing
 import (
 	"fmt"
 	"net/http/httptest"
+	"net/url"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -67,10 +68,10 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 	s.jcSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	// Patch the charm repo initializer function: it is replaced with a charm
 	// store repo pointing to the testing server.
-	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClientConfig, func() jujucharmstore.ClientConfig {
-		var config jujucharmstore.ClientConfig
-		config.URL = s.Server.URL
-		return config
+	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func(st *state.State) (jujucharmstore.Client, error) {
+		csURL, err := url.Parse(s.Server.URL)
+		c.Assert(err, jc.ErrorIsNil)
+		return jujucharmstore.NewCachingClient(state.MacaroonCache{st}, csURL)
 	})
 	s.charms = make(map[string]*state.Charm)
 }
@@ -100,7 +101,13 @@ func (s *CharmSuite) AddCharmWithRevision(c *gc.C, charmName string, rev int) *s
 	ch := testcharms.Repo.CharmDir(charmName)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, rev))
-	dummy, err := s.jcSuite.State.AddCharm(ch, curl, "dummy-path", fmt.Sprintf("%s-%d-sha256", name, rev))
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "dummy-path",
+		SHA256:      fmt.Sprintf("%s-%d-sha256", name, rev),
+	}
+	dummy, err := s.jcSuite.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	s.charms[name] = dummy
 	return dummy

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
 	msapi "github.com/juju/juju/api/meterstatus"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
@@ -24,10 +26,11 @@ import (
 	"github.com/juju/juju/worker/metrics/collect"
 	"github.com/juju/juju/worker/metrics/sender"
 	"github.com/juju/juju/worker/metrics/spool"
+	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/proxyupdater"
+	"github.com/juju/juju/worker/retrystrategy"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
-	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -42,6 +45,10 @@ type ManifoldsConfig struct {
 
 	// LeadershipGuarantee controls the behaviour of the leadership tracker.
 	LeadershipGuarantee time.Duration
+
+	// AgentConfigChanged is set whenever the unit agent's config
+	// is updated.
+	AgentConfigChanged *voyeur.Value
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -79,47 +86,50 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName: AgentName,
 		}),
 
+		// The api-config-watcher manifold monitors the API server
+		// addresses in the agent config and bounces when they
+		// change. It's required as part of model migrations.
+		APIConfigWatcherName: apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
+			AgentName:          AgentName,
+			AgentConfigChanged: config.AgentConfigChanged,
+		}),
+
 		// The api caller is a thin concurrent wrapper around a connection
 		// to some API server. It's used by many other manifolds, which all
 		// select their own desired facades. It will be interesting to see
 		// how this works when we consolidate the agents; might be best to
 		// handle the auth changes server-side..?
 		APICallerName: apicaller.Manifold(apicaller.ManifoldConfig{
-			AgentName:     AgentName,
-			APIOpen:       apicaller.APIOpen,
-			NewConnection: apicaller.ScaryConnect,
-			Filter:        connectFilter,
+			AgentName:            AgentName,
+			APIConfigWatcherName: APIConfigWatcherName,
+			APIOpen:              apicaller.APIOpen,
+			NewConnection:        apicaller.ScaryConnect,
+			Filter:               connectFilter,
 		}),
 
 		// The log sender is a leaf worker that sends log messages to some
 		// API server, when configured so to do. We should only need one of
 		// these in a consolidated agent.
 		LogSenderName: logsender.Manifold(logsender.ManifoldConfig{
-			PostUpgradeManifoldConfig: util.PostUpgradeManifoldConfig{
-				AgentName:         AgentName,
-				APICallerName:     APICallerName,
-				UpgradeWaiterName: util.UpgradeWaitNotRequired,
-			},
-			LogSource: config.LogSource,
+			APICallerName: APICallerName,
+			LogSource:     config.LogSource,
 		}),
 
 		// The logging config updater is a leaf worker that indirectly
-		// controls the messages sent via the log sender or rsyslog,
-		// according to changes in environment config. We should only need
-		// one of these in a consolidated agent.
+		// controls the messages sent via the log sender according to
+		// changes in environment config. We should only need one of
+		// these in a consolidated agent.
 		LoggingConfigUpdaterName: logger.Manifold(logger.ManifoldConfig{
-			AgentName:         AgentName,
-			APICallerName:     APICallerName,
-			UpgradeWaiterName: util.UpgradeWaitNotRequired,
+			AgentName:     AgentName,
+			APICallerName: APICallerName,
 		}),
 
 		// The api address updater is a leaf worker that rewrites agent config
 		// as the controller addresses change. We should only need one of
 		// these in a consolidated agent.
 		APIAddressUpdaterName: apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
-			AgentName:         AgentName,
-			APICallerName:     APICallerName,
-			UpgradeWaiterName: util.UpgradeWaitNotRequired,
+			AgentName:     AgentName,
+			APICallerName: APICallerName,
 		}),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
@@ -129,8 +139,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// coincidence. Probably we ought to be making components that might
 		// need proxy config into explicit dependencies of the proxy updater...
 		ProxyConfigUpdaterName: proxyupdater.Manifold(proxyupdater.ManifoldConfig{
-			APICallerName:     APICallerName,
-			UpgradeWaiterName: util.UpgradeWaitNotRequired,
+			APICallerName: APICallerName,
 		}),
 
 		// The upgrader is a leaf worker that returns a specific error type
@@ -140,6 +149,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// careful about behavioural differences, and interactions with the
 		// upgradesteps worker.
 		UpgraderName: upgrader.Manifold(upgrader.ManifoldConfig{
+			AgentName:     AgentName,
+			APICallerName: APICallerName,
+		}),
+
+		// The migration minion handles the agent side aspects of model migrations.
+		MigrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
 			AgentName:     AgentName,
 			APICallerName: APICallerName,
 		}),
@@ -154,6 +169,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeadershipGuarantee: config.LeadershipGuarantee,
 		}),
 
+		// HookRetryStrategy uses a retrystrategy worker to get a
+		// retry strategy that will be used by the uniter to run its hooks.
+		HookRetryStrategyName: retrystrategy.Manifold(retrystrategy.ManifoldConfig{
+			AgentName:     AgentName,
+			APICallerName: APICallerName,
+			NewFacade:     retrystrategy.NewFacade,
+			NewWorker:     retrystrategy.NewRetryStrategyWorker,
+		}),
+
 		// The uniter installs charms; manages the unit's presence in its
 		// relations; creates suboordinate units; runs all the hooks; sends
 		// metrics; etc etc etc. We expect to break it up further in the
@@ -165,6 +189,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeadershipTrackerName: LeadershipTrackerName,
 			MachineLockName:       MachineLockName,
 			CharmDirName:          CharmDirName,
+			HookRetryStrategyName: HookRetryStrategyName,
 		}),
 
 		// TODO (mattyw) should be added to machine agent.
@@ -222,4 +247,7 @@ const (
 	MeterStatusName          = "meter-status"
 	MetricCollectName        = "metric-collect"
 	MetricSenderName         = "metric-sender"
+	APIConfigWatcherName     = "api-config-watcher"
+	MigrationMinionName      = "migration-minion"
+	HookRetryStrategyName    = "hook-retry-strategy"
 )

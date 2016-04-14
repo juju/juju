@@ -30,15 +30,11 @@ type apiEnvironmentSuite struct {
 
 func (s *apiEnvironmentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	var err error
 	s.client = s.APIState.Client()
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.client, gc.NotNil)
-}
-
-func (s *apiEnvironmentSuite) TearDownTest(c *gc.C) {
-	s.client.ClientFacade.Close()
-	s.JujuConnSuite.TearDownTest(c)
+	s.AddCleanup(func(*gc.C) {
+		s.client.ClientFacade.Close()
+	})
 }
 
 func (s *apiEnvironmentSuite) TestGrantModel(c *gc.C) {
@@ -53,7 +49,6 @@ func (s *apiEnvironmentSuite) TestGrantModel(c *gc.C) {
 	modelUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName(), gc.Equals, user.Canonical())
-	c.Assert(modelUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Canonical())
 	lastConn, err := modelUser.LastConnection()
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
@@ -92,14 +87,12 @@ func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
 		{
 			UserName:       owner.UserName(),
 			DisplayName:    owner.DisplayName(),
-			CreatedBy:      owner.UserName(),
-			DateCreated:    owner.DateCreated(),
+			Access:         "write",
 			LastConnection: lastConnPointer(c, owner),
 		}, {
 			UserName:       "bobjohns@ubuntuone",
 			DisplayName:    "Bob Johns",
-			CreatedBy:      owner.UserName(),
-			DateCreated:    modelUser.DateCreated(),
+			Access:         "write",
 			LastConnection: lastConnPointer(c, modelUser),
 		},
 	})

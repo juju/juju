@@ -5,6 +5,8 @@ package state
 
 import (
 	"gopkg.in/mgo.v2"
+
+	"github.com/juju/juju/state/bakerystorage"
 )
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -98,8 +100,13 @@ func allCollections() collectionSchema {
 		// Life and its UUID.
 		modelsC: {global: true},
 
+		// This collection holds references to entities owned by a
+		// model. We use this to determine whether or not we can safely
+		// destroy empty models.
+		modelEntityRefsC: {global: true},
+
 		// This collection is holds the parameters for model migrations.
-		modelMigrationsC: {
+		migrationsC: {
 			global: true,
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid"},
@@ -107,12 +114,12 @@ func allCollections() collectionSchema {
 		},
 
 		// This collection tracks the progress of model migrations.
-		modelMigrationStatusC: {global: true},
+		migrationsStatusC: {global: true},
 
 		// This collection records the model migrations which
 		// are currently in progress. It is used to ensure that only
 		// one model migration document exists per environment.
-		modelMigrationsActiveC: {global: true},
+		migrationsActiveC: {global: true},
 
 		// This collection holds user information that's not specific to any
 		// one model.
@@ -152,6 +159,12 @@ func allCollections() collectionSchema {
 		// This collection was deprecated before multi-model support
 		// was implemented.
 		actionresultsC: {global: true},
+
+		// This collection holds storage items for a macaroon bakery.
+		bakeryStorageItemsC: {
+			global:  true,
+			indexes: bakerystorage.MongoIndexes(),
+		},
 
 		// -----------------
 
@@ -399,6 +412,7 @@ const (
 	actionsC                 = "actions"
 	annotationsC             = "annotations"
 	assignUnitC              = "assignUnits"
+	bakeryStorageItemsC      = "bakeryStorageItems"
 	blockDevicesC            = "blockdevices"
 	blocksC                  = "blocks"
 	charmsC                  = "charms"
@@ -420,12 +434,13 @@ const (
 	metricsC                 = "metrics"
 	metricsManagerC          = "metricsmanager"
 	minUnitsC                = "minunits"
-	modelMigrationStatusC    = "modelmigrations.status"
-	modelMigrationsActiveC   = "modelmigrations.active"
-	modelMigrationsC         = "modelmigrations"
+	migrationsStatusC        = "migrations.status"
+	migrationsActiveC        = "migrations.active"
+	migrationsC              = "migrations"
 	modelUserLastConnectionC = "modelUserLastConnection"
 	modelUsersC              = "modelusers"
 	modelsC                  = "models"
+	modelEntityRefsC         = "modelEntityRefs"
 	networkInterfacesC       = "networkinterfaces"
 	networksC                = "networks"
 	openedPortsC             = "openedPorts"

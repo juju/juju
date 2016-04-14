@@ -68,7 +68,7 @@ func (s *instanceTest) TestId(c *gc.C) {
 	statusGetter := func(instance.Id) (string, string) {
 		return "unknown", "FAKE"
 	}
-	instance := maasInstance{&obj, nil, statusGetter}
+	instance := maas1Instance{&obj, nil, statusGetter}
 
 	c.Check(string(instance.Id()), gc.Equals, resourceURI)
 }
@@ -80,7 +80,7 @@ func (s *instanceTest) TestString(c *gc.C) {
 		return "unknown", "FAKE"
 	}
 
-	instance := &maasInstance{&obj, nil, statusGetter}
+	instance := &maas1Instance{&obj, nil, statusGetter}
 	hostname, err := instance.hostname()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := hostname + ":" + string(instance.Id())
@@ -95,40 +95,11 @@ func (s *instanceTest) TestStringWithoutHostname(c *gc.C) {
 		return "unknown", "FAKE"
 	}
 
-	instance := &maasInstance{&obj, nil, statusGetter}
+	instance := &maas1Instance{&obj, nil, statusGetter}
 	_, err := instance.hostname()
 	c.Assert(err, gc.NotNil)
 	expected := fmt.Sprintf("<DNSName failed: %q>", err) + ":" + string(instance.Id())
 	c.Assert(fmt.Sprint(instance), gc.Equals, expected)
-}
-
-func (s *instanceTest) TestAddressesLegacy(c *gc.C) {
-	// We simulate an older MAAS (1.8-) which returns ip_addresses, but no
-	// interface_set for a node. We also verify we don't get the space of an
-	// address.
-	jsonValue := `{
-			"hostname": "testing.invalid",
-			"system_id": "system_id",
-			"ip_addresses": [ "1.2.3.4", "fe80::d806:dbff:fe23:1199" ]
-		}`
-	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	statusGetter := func(instance.Id) (string, string) {
-		return "unknown", "FAKE"
-	}
-
-	inst := maasInstance{&obj, s.makeEnviron(), statusGetter}
-
-	expected := []network.Address{
-		network.NewScopedAddress("testing.invalid", network.ScopePublic),
-		network.NewScopedAddress("testing.invalid", network.ScopeCloudLocal),
-		network.NewAddress("1.2.3.4"),
-		network.NewAddress("fe80::d806:dbff:fe23:1199"),
-	}
-
-	addr, err := inst.Addresses()
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(addr, gc.DeepEquals, expected)
 }
 
 func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
@@ -169,7 +140,7 @@ func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
 	server.NewSubnet(s.newSubnet("8.7.6.0/24", "bar", 2))
 	server.NewSubnet(s.newSubnet("10.0.1.1/24", "storage", 3))
 	server.NewSubnet(s.newSubnet("fc00::/64", "db", 4))
-	inst := maasInstance{&obj, s.makeEnviron(), statusGetter}
+	inst := maas1Instance{&obj, s.makeEnviron(), statusGetter}
 
 	// Since gomaasapi treats "interface_set" specially and the only way to
 	// change it is via SetNodeNetworkLink(), which in turn does not allow you
@@ -195,28 +166,6 @@ func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
 	c.Check(addr, jc.DeepEquals, expected)
 }
 
-func (s *instanceTest) TestAddressesMissing(c *gc.C) {
-	// Older MAAS versions do not have ip_addresses returned, for these
-	// just the DNS name should be returned without error.
-	jsonValue := `{
-		"hostname": "testing.invalid",
-		"system_id": "system_id"
-		}`
-	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	statusGetter := func(instance.Id) (string, string) {
-		return "unknown", "FAKE"
-	}
-
-	inst := maasInstance{&obj, s.makeEnviron(), statusGetter}
-
-	addr, err := inst.Addresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(addr, gc.DeepEquals, []network.Address{
-		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopePublic},
-		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopeCloudLocal},
-	})
-}
-
 func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
 	jsonValue := `{
 		"hostname": "testing.invalid",
@@ -228,7 +177,7 @@ func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
 		return "unknown", "FAKE"
 	}
 
-	inst := maasInstance{&obj, s.makeEnviron(), statusGetter}
+	inst := maas1Instance{&obj, s.makeEnviron(), statusGetter}
 
 	_, err := inst.Addresses()
 	c.Assert(err, gc.NotNil)
@@ -245,7 +194,7 @@ func (s *instanceTest) TestAddressesInvalidContents(c *gc.C) {
 		return "unknown", "FAKE"
 	}
 
-	inst := maasInstance{&obj, s.makeEnviron(), statusGetter}
+	inst := maas1Instance{&obj, s.makeEnviron(), statusGetter}
 
 	_, err := inst.Addresses()
 	c.Assert(err, gc.NotNil)
@@ -256,6 +205,7 @@ func (s *instanceTest) TestHardwareCharacteristics(c *gc.C) {
 		"system_id": "system_id",
         "architecture": "amd64/generic",
         "cpu_count": 6,
+        "zone": {"name": "tst"},
         "memory": 16384
 	}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
@@ -263,11 +213,11 @@ func (s *instanceTest) TestHardwareCharacteristics(c *gc.C) {
 		return "unknown", "FAKE"
 	}
 
-	inst := maasInstance{&obj, nil, statusGetter}
+	inst := maas1Instance{&obj, nil, statusGetter}
 	hc, err := inst.hardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc, gc.NotNil)
-	c.Assert(hc.String(), gc.Equals, `arch=amd64 cpu-cores=6 mem=16384M`)
+	c.Assert(hc.String(), gc.Equals, `arch=amd64 cpu-cores=6 mem=16384M availability-zone=tst`)
 }
 
 func (s *instanceTest) TestHardwareCharacteristicsWithTags(c *gc.C) {
@@ -276,6 +226,7 @@ func (s *instanceTest) TestHardwareCharacteristicsWithTags(c *gc.C) {
         "architecture": "amd64/generic",
         "cpu_count": 6,
         "memory": 16384,
+        "zone": {"name": "tst"},
         "tag_names": ["a", "b"]
 	}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
@@ -283,11 +234,11 @@ func (s *instanceTest) TestHardwareCharacteristicsWithTags(c *gc.C) {
 		return "unknown", "FAKE"
 	}
 
-	inst := maasInstance{&obj, nil, statusGetter}
+	inst := maas1Instance{&obj, nil, statusGetter}
 	hc, err := inst.hardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc, gc.NotNil)
-	c.Assert(hc.String(), gc.Equals, `arch=amd64 cpu-cores=6 mem=16384M tags=a,b`)
+	c.Assert(hc.String(), gc.Equals, `arch=amd64 cpu-cores=6 mem=16384M tags=a,b availability-zone=tst`)
 }
 
 func (s *instanceTest) TestHardwareCharacteristicsMissing(c *gc.C) {
@@ -297,7 +248,13 @@ func (s *instanceTest) TestHardwareCharacteristicsMissing(c *gc.C) {
 		`error determining cpu count: Requested float64, got <nil>.`)
 	s.testHardwareCharacteristicsMissing(c, `{"system_id": "id", "architecture": "armhf", "cpu_count": 6}`,
 		`error determining available memory: Requested float64, got <nil>.`)
-	s.testHardwareCharacteristicsMissing(c, `{"system_id": "id", "architecture": "armhf", "cpu_count": 6, "memory": 1, "tag_names": "wot"}`,
+	s.testHardwareCharacteristicsMissing(c, `{"system_id": "id", "architecture": "armhf", "cpu_count": 6, "memory": 1}`,
+		`error determining availability zone: zone property not set on maas`)
+	s.testHardwareCharacteristicsMissing(c, `{"system_id": "id", "architecture": "armhf", "cpu_count": 6, "memory": 1, "zone": ""}`,
+		`error determining availability zone: zone property is not an expected type`)
+	s.testHardwareCharacteristicsMissing(c, `{"system_id": "id", "architecture": "armhf", "cpu_count": 6, "memory": 1, "zone": {}}`,
+		`error determining availability zone: zone property is not set correctly: name is missing`)
+	s.testHardwareCharacteristicsMissing(c, `{"system_id": "id", "architecture": "armhf", "cpu_count": 6, "memory": 1, "zone": {"name": "tst"}, "tag_names": "wot"}`,
 		`error determining tag names: Requested array, got string.`)
 }
 
@@ -307,7 +264,7 @@ func (s *instanceTest) testHardwareCharacteristicsMissing(c *gc.C, json, expect 
 		return "unknown", "FAKE"
 	}
 
-	inst := maasInstance{&obj, nil, statusGetter}
+	inst := maas1Instance{&obj, nil, statusGetter}
 	_, err := inst.hardwareCharacteristics()
 	c.Assert(err, gc.ErrorMatches, expect)
 }

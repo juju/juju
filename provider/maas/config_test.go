@@ -4,8 +4,10 @@
 package maas
 
 import (
+	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -43,6 +45,18 @@ func newConfig(values map[string]interface{}) (*maasModelConfig, error) {
 		return nil, err
 	}
 	return env.(*maasEnviron).ecfg(), nil
+}
+
+func (s *configSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	mockCapabilities := func(client *gomaasapi.MAASObject) (set.Strings, error) {
+		return set.NewStrings("network-deployment-ubuntu"), nil
+	}
+	s.PatchValue(&GetCapabilities, mockCapabilities)
+	mockGetController := func(maasServer, apiKey string) (gomaasapi.Controller, error) {
+		return nil, gomaasapi.NewUnsupportedVersionError("oops")
+	}
+	s.PatchValue(&GetMAAS2Controller, mockGetController)
 }
 
 func (*configSuite) TestParsesMAASSettings(c *gc.C) {

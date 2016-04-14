@@ -111,7 +111,7 @@ func (ctxt *httpContext) loginRequest(r *http.Request) (params.LoginRequest, err
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
 		// No authorization header implies an attempt
-		// to login with macaroon authentication.
+		// to login with external user macaroon authentication.
 		return params.LoginRequest{
 			Macaroons: httpbakery.RequestMacaroons(r),
 		}, nil
@@ -139,6 +139,7 @@ func (ctxt *httpContext) loginRequest(r *http.Request) (params.LoginRequest, err
 	return params.LoginRequest{
 		AuthTag:     tagPass[0],
 		Credentials: tagPass[1],
+		Macaroons:   httpbakery.RequestMacaroons(r),
 		Nonce:       r.Header.Get(params.MachineNonceHeader),
 	}, nil
 }

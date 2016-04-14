@@ -51,23 +51,23 @@ func (s *ApiManifoldSuite) TestOutput(c *gc.C) {
 }
 
 func (s *ApiManifoldSuite) TestStartApiMissing(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"api-caller-name": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"api-caller-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
 
 func (s *ApiManifoldSuite) TestStartFailure(c *gc.C) {
 	expectApiCaller := &dummyApiCaller{}
-	getResource := dt.StubGetResource(dt.StubResources{
-		"api-caller-name": dt.StubResource{Output: expectApiCaller},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"api-caller-name": expectApiCaller,
 	})
 	s.SetErrors(errors.New("some error"))
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "some error")
 	s.CheckCalls(c, []testing.StubCall{{
@@ -78,11 +78,11 @@ func (s *ApiManifoldSuite) TestStartFailure(c *gc.C) {
 
 func (s *ApiManifoldSuite) TestStartSuccess(c *gc.C) {
 	expectApiCaller := &dummyApiCaller{}
-	getResource := dt.StubGetResource(dt.StubResources{
-		"api-caller-name": dt.StubResource{Output: expectApiCaller},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"api-caller-name": expectApiCaller,
 	})
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, s.worker)
 	s.CheckCalls(c, []testing.StubCall{{

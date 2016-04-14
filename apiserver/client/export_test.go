@@ -5,11 +5,6 @@ package client
 
 import "github.com/juju/juju/state"
 
-var (
-	RemoteParamsForMachine = remoteParamsForMachine
-	GetAllUnitNames        = getAllUnitNames
-)
-
 // Filtering exports
 var (
 	MatchPortRanges = matchPortRanges
@@ -25,8 +20,7 @@ var (
 type MachineAndContainers machineAndContainers
 
 var (
-	StartSerialWaitParallel = startSerialWaitParallel
-	GetEnvironment          = &getEnvironment
+	GetEnvironment = &getEnvironment
 )
 
 type StateInterface stateInterface
