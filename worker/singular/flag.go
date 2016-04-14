@@ -44,7 +44,7 @@ func (config FlagConfig) Validate() error {
 // and a new FlagWorker must be started to get a valid result.
 var ErrRefresh = errors.New("model responsibility unclear, please retry")
 
-// FlagWorker implements worker.Worker and dependency.Flag, representing
+// FlagWorker implements worker.Worker and util.Flag, representing
 // controller ownership of a model, such that the Flag's validity is tied
 // to the Worker's lifetime.
 type FlagWorker struct {
@@ -85,7 +85,7 @@ func (flag *FlagWorker) Wait() error {
 	return flag.catacomb.Wait()
 }
 
-// Check is part of the dependency.Flag interface.
+// Check is part of the util.Flag interface.
 //
 // Check returns true if the flag indicates that the configured Identity
 // (i.e. this controller) has taken control of the configured Scope (i.e.

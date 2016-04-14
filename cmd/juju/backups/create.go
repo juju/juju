@@ -24,7 +24,7 @@ const (
 )
 
 const createDoc = `
-"create" requests that juju create a backup of its state and print the
+create-backup requests that juju create a backup of its state and print the
 backup's unique ID.  You may provide a note to associate with the backup.
 
 The backup archive and associated metadata are stored remotely by juju.
@@ -37,13 +37,17 @@ WARNING: Remotely stored backups will be lost when the model is
 destroyed.  Furthermore, the remotely backup is not guaranteed to be
 available.
 
-Therefore, you should use the --download or --filename options, or use
-"juju backups download", to get a local copy of the backup archive.
+Therefore, you should use the --download or --filename options, or use:
+
+    juju download-backups
+
+to get a local copy of the backup archive.
 This local copy can then be used to restore an model even if that
 model was already destroyed or is otherwise unavailable.
 `
 
-func newCreateCommand() cmd.Command {
+// NewCreateCommand returns a command used to create backups.
+func NewCreateCommand() cmd.Command {
 	return modelcmd.Wrap(&createCommand{})
 }
 
@@ -61,7 +65,7 @@ type createCommand struct {
 // Info implements Command.Info.
 func (c *createCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "create",
+		Name:    "create-backup",
 		Args:    "[<notes>]",
 		Purpose: "create a backup",
 		Doc:     createDoc,

@@ -999,7 +999,7 @@ func (a *MachineAgent) startModelWorkers(uuid string) (worker.Worker, error) {
 		EntityStatusHistoryCount:    100,
 		EntityStatusHistoryInterval: 5 * time.Minute,
 		ModelRemoveDelay:            24 * time.Hour,
-		DiscoverSpacesCheckLock:     a.discoverSpacesComplete,
+		SpacesImportedGate:          a.discoverSpacesComplete,
 	})
 	if err := dependency.Install(engine, manifolds); err != nil {
 		if err := worker.Stop(engine); err != nil {

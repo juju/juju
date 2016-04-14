@@ -10,13 +10,19 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-const listMachinesCommandDoc = `
-List all the machines in a juju model.
-Default display is in tabular format with the following sections:
-ID, STATE, DNS, INS-ID, SERIES, AZ
+var usageListMachinesSummary = `
+Lists machines in a model.`[1:]
 
+var usageListMachinesDetails = `
+By default, the tabular format is used.
+The following sections are included: ID, STATE, DNS, INS-ID, SERIES, AZ
 Note: AZ above is the cloud region's availability zone.
-`
+
+Examples:
+     juju list-machines
+
+See also: 
+    status`
 
 // NewListMachineCommand returns a command that lists the machines in a model.
 func NewListMachinesCommand() cmd.Command {
@@ -39,8 +45,8 @@ type listMachinesCommand struct {
 func (c *listMachinesCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-machines",
-		Purpose: "list machines in a model",
-		Doc:     listMachinesCommandDoc,
+		Purpose: usageListMachinesSummary,
+		Doc:     usageListMachinesDetails,
 		Aliases: []string{"machines", "machine", "list-machine"},
 	}
 }

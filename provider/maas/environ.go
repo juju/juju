@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
@@ -318,11 +319,12 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	// and 2.0. MAAS 1.9 uses the 1.0 api version and 2.0 uses the 2.0 api
 	// version.
 	apiVersion := apiVersion2
-	var controller gomaasapi.Controller
-	if featureflag.Enabled(feature.MAAS2) {
-		controller, err = GetMAAS2Controller(ecfg.maasServer(), ecfg.maasOAuth())
-	}
-	if !featureflag.Enabled(feature.MAAS2) || err != nil && gomaasapi.IsUnsupportedVersionError(err) {
+	maas2Enabled := featureflag.Enabled(feature.MAAS2)
+	controller, err := GetMAAS2Controller(ecfg.maasServer(), ecfg.maasOAuth())
+	switch {
+	case !maas2Enabled && err == nil:
+		return errors.NewNotSupported(nil, "MAAS 2 is not supported unless the 'maas2' feature flag is set")
+	case !maas2Enabled || gomaasapi.IsUnsupportedVersionError(err):
 		apiVersion = apiVersion1
 		authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion1)
 		if err != nil {
@@ -336,9 +338,9 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 		if !caps.Contains(capNetworkDeploymentUbuntu) {
 			return errors.NotSupportedf("MAAS 1.9 or more recent is required")
 		}
-	} else if err != nil {
+	case err != nil:
 		return errors.Trace(err)
-	} else {
+	default:
 		env.maasController = controller
 	}
 	env.apiVersion = apiVersion
@@ -783,9 +785,7 @@ func (environ *maasEnviron) acquireNode2(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO (mfoord): add this back once gomaasapi has support for the
-	// Storage parameter on gomaasapi.AllocateMachineArgs.
-	//addStorage(acquireParams, volumes)
+	addStorage2(&acquireParams, volumes)
 	acquireParams.AgentName = environ.ecfg().maasAgentName()
 	if zoneName != "" {
 		acquireParams.Zone = zoneName
@@ -797,7 +797,8 @@ func (environ *maasEnviron) acquireNode2(
 			"no architecture was specified, acquiring an arbitrary node",
 		)
 	}
-	machine, err := environ.maasController.AllocateMachine(acquireParams)
+	// Currently not using the constraints match returned here.
+	machine, _, err := environ.maasController.AllocateMachine(acquireParams)
 
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1073,7 +1074,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		// assigned IP addresses, even when NICs are set to "auto" instead of
 		// "static". So instead of selectedNode, which only contains the
 		// acquire-time details (no IP addresses for NICs set to "auto" vs
-		// "static"), we use the up-to-date statedNode response to get the
+		// "static"), we use the up-to-date startedNode response to get the
 		// interfaces.
 		interfaces, err = maasObjectNetworkInterfaces(startedNode, subnetsMap)
 		if err != nil {
@@ -1099,6 +1100,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	for i, v := range args.Volumes {
 		requestedVolumes[i] = v.Tag
 	}
+	// TODO (mfoord): inst.volumes not implemented for MAAS 2.
 	resultVolumes, resultAttachments, err := inst.volumes(
 		names.NewMachineTag(args.InstanceConfig.MachineId),
 		requestedVolumes,
@@ -1127,7 +1129,11 @@ var nodeDeploymentTimeout = func(environ *maasEnviron) time.Duration {
 }
 
 func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
+	if environ.usingMAAS2() {
+		return environ.waitForNodeDeployment2(id)
+	}
 	systemId := extractSystemId(id)
+
 	longAttempt := utils.AttemptStrategy{
 		Delay: 10 * time.Second,
 		Total: nodeDeploymentTimeout(environ),
@@ -1146,6 +1152,29 @@ func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
 		}
 		if statusValues[systemId] == "Failed deployment" {
 			return errors.Errorf("instance %q failed to deploy", id)
+		}
+	}
+	return errors.Errorf("instance %q is started but not deployed", id)
+}
+
+func (environ *maasEnviron) waitForNodeDeployment2(id instance.Id) error {
+	longAttempt := utils.AttemptStrategy{
+		Delay: 10 * time.Second,
+		Total: nodeDeploymentTimeout(environ),
+	}
+
+	for a := longAttempt.Start(); a.Next(); {
+		machine, err := environ.getInstance(id)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		stat := machine.Status()
+		if stat.Status == status.StatusRunning {
+			return nil
+		}
+		if stat.Status == status.StatusProvisioningError {
+			return errors.Errorf("instance %q failed to deploy", id)
+
 		}
 	}
 	return errors.Errorf("instance %q is started but not deployed", id)
@@ -1392,7 +1421,7 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string) (clou
 	return cloudcfg, nil
 }
 
-func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Values, recurse bool) error {
+func (environ *maasEnviron) releaseNodes1(nodes gomaasapi.MAASObject, ids url.Values, recurse bool) error {
 	err := ReleaseNodes(nodes, ids)
 	if err == nil {
 		return nil
@@ -1429,7 +1458,7 @@ func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Val
 	for _, id := range ids["nodes"] {
 		idFilter := url.Values{}
 		idFilter.Add("nodes", id)
-		err := environ.releaseNodes(nodes, idFilter, false)
+		err := environ.releaseNodes1(nodes, idFilter, false)
 		if err != nil {
 			lastErr = err
 			logger.Errorf("error while releasing node %v (%v)", id, err)
@@ -1439,21 +1468,79 @@ func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Val
 
 }
 
+func (environ *maasEnviron) releaseNodes2(ids []instance.Id, recurse bool) error {
+	args := gomaasapi.ReleaseMachinesArgs{
+		SystemIDs: instanceIdsToSystemIDs(ids),
+		Comment:   "Released by Juju MAAS provider",
+	}
+	err := environ.maasController.ReleaseMachines(args)
+
+	switch {
+	case err == nil:
+		return nil
+	case gomaasapi.IsCannotCompleteError(err):
+		// CannotCompleteError means a node couldn't be released due to
+		// a state conflict. Likely it's already released or disk
+		// erasing. We're assuming this error *only* means it's
+		// safe to assume the instance is already released.
+		// MaaS also releases (or attempts) all nodes, and raises
+		// a single error on failure. So even with an error 409, all
+		// nodes have been released.
+		logger.Infof("ignoring error while releasing nodes (%v); all nodes released OK", err)
+		return nil
+	case gomaasapi.IsBadRequestError(err), gomaasapi.IsPermissionError(err):
+		// a status code of 400 or 403 means one of the nodes
+		// couldn't be found and none have been released. We have to
+		// release all the ones we can individually.
+		if !recurse {
+			// this node has already been released and we're golden
+			return nil
+		}
+		return environ.releaseNodesIndividually(ids)
+
+	default:
+		return errors.Annotatef(err, "cannot release nodes")
+	}
+}
+
+func (environ *maasEnviron) releaseNodesIndividually(ids []instance.Id) error {
+	var lastErr error
+	for _, id := range ids {
+		err := environ.releaseNodes2([]instance.Id{id}, false)
+		if err != nil {
+			lastErr = err
+			logger.Errorf("error while releasing node %v (%v)", id, err)
+		}
+	}
+	return errors.Trace(lastErr)
+}
+
+func instanceIdsToSystemIDs(ids []instance.Id) []string {
+	systemIDs := make([]string, len(ids))
+	for index, id := range ids {
+		systemIDs[index] = string(id)
+	}
+	return systemIDs
+}
+
 // StopInstances is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
-	// Temporary fix to make debugging possible.
-	if environ.usingMAAS2() {
-		return nil
-	}
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
 	if len(ids) == 0 {
 		return nil
 	}
-	nodes := environ.getMAASClient().GetSubObject("nodes")
-	err := environ.releaseNodes(nodes, getSystemIdValues("nodes", ids), true)
-	if err != nil {
-		// error will already have been wrapped
-		return err
+
+	if environ.usingMAAS2() {
+		err := environ.releaseNodes2(ids, true)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		nodes := environ.getMAASClient().GetSubObject("nodes")
+		err := environ.releaseNodes1(nodes, getSystemIdValues("nodes", ids), true)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return common.RemoveStateInstances(environ.Storage(), ids...)
 
@@ -1470,13 +1557,9 @@ func (environ *maasEnviron) acquiredInstances(ids []instance.Id) ([]instance.Ins
 		filter.Add("agent_name", environ.ecfg().maasAgentName())
 		return environ.instances1(filter)
 	}
-	systemIDs := make([]string, len(ids))
-	for index, id := range ids {
-		systemIDs[index] = string(id)
-	}
 	args := gomaasapi.MachinesArgs{
 		AgentName: environ.ecfg().maasAgentName(),
-		SystemIDs: systemIDs,
+		SystemIDs: instanceIdsToSystemIDs(ids),
 	}
 	return environ.instances2(args)
 }
@@ -2151,6 +2234,8 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 
 func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, error) {
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
+	// TODO (mfoord): the error returned from gomaasapi for MAAS 2 will be
+	// different.
 	if err != nil {
 		if maasErr, ok := errors.Cause(err).(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
 			return nil, errors.NotFoundf("instance %q", instId)

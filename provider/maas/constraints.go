@@ -170,10 +170,18 @@ func addInterfaces(
 		return errors.Trace(err)
 	}
 	if len(combinedBindings) > 0 {
-		params.Add("interfaces", strings.Join(combinedBindings, ";"))
+		combinedBindingsString := make([]string, len(combinedBindings))
+		for i, binding := range combinedBindings {
+			combinedBindingsString[i] = fmt.Sprintf("%s:space=%s", binding.Name, binding.SpaceProviderId)
+		}
+		params.Add("interfaces", strings.Join(combinedBindingsString, ";"))
 	}
 	if len(negatives) > 0 {
-		params.Add("not_networks", strings.Join(negatives, ","))
+		negativesString := make([]string, len(negatives))
+		for i, binding := range negatives {
+			negativesString[i] = fmt.Sprintf("space:%s", binding.SpaceProviderId)
+		}
+		params.Add("not_networks", strings.Join(negativesString, ","))
 	}
 	return nil
 }
@@ -181,10 +189,10 @@ func addInterfaces(
 func getBindings(
 	bindings []interfaceBinding,
 	positiveSpaces, negativeSpaces []network.SpaceInfo,
-) ([]string, []string, error) {
+) ([]interfaceBinding, []interfaceBinding, error) {
 	var (
 		index            uint
-		combinedBindings []string
+		combinedBindings []interfaceBinding
 	)
 	namesSet := set.NewStrings()
 	spacesSet := set.NewStrings()
@@ -206,17 +214,10 @@ func getBindings(
 		namesSet.Add(binding.Name)
 		spacesSet.Add(binding.SpaceProviderId)
 
-		item := fmt.Sprintf("%s:space=%s", binding.Name, binding.SpaceProviderId)
-		combinedBindings = append(combinedBindings, item)
+		combinedBindings = append(combinedBindings, binding)
 	}
 
-	for _, space := range positiveSpaces {
-		if spacesSet.Contains(string(space.ProviderId)) {
-			// Skip duplicates in positiveSpaces.
-			continue
-		}
-		spacesSet.Add(string(space.ProviderId))
-		// Make sure we pick a label that doesn't clash with possible bindings.
+	createLabel := func(index uint, namesSet set.Strings) (string, uint, error) {
 		var label string
 		for {
 			label = fmt.Sprintf("%v", index)
@@ -224,17 +225,31 @@ func getBindings(
 				break
 			}
 			if index > numericLabelLimit { // ...just to make sure we won't loop forever.
-				return nil, nil, errors.Errorf("too many conflicting numeric labels, giving up.")
+				return "", index, errors.Errorf("too many conflicting numeric labels, giving up.")
 			}
 			index++
 		}
 		namesSet.Add(label)
-		item := fmt.Sprintf("%s:space=%s", label, space.ProviderId)
-		combinedBindings = append(combinedBindings, item)
-		index++
+		return label, index, nil
+	}
+	for _, space := range positiveSpaces {
+		if spacesSet.Contains(string(space.ProviderId)) {
+			// Skip duplicates in positiveSpaces.
+			continue
+		}
+		spacesSet.Add(string(space.ProviderId))
+
+		var label string
+		var err error
+		label, index, err = createLabel(index, namesSet)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		// Make sure we pick a label that doesn't clash with possible bindings.
+		combinedBindings = append(combinedBindings, interfaceBinding{label, string(space.ProviderId)})
 	}
 
-	var negatives []string
+	var negatives []interfaceBinding
 	for _, space := range negativeSpaces {
 		if spacesSet.Contains(string(space.ProviderId)) {
 			return nil, nil, errors.NewNotValid(nil, fmt.Sprintf(
@@ -242,7 +257,13 @@ func getBindings(
 				space.Name,
 			))
 		}
-		negatives = append(negatives, fmt.Sprintf("space:%s", space.ProviderId))
+		var label string
+		var err error
+		label, index, err = createLabel(index, namesSet)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		negatives = append(negatives, interfaceBinding{label, string(space.ProviderId)})
 	}
 	return combinedBindings, negatives, nil
 }
@@ -258,12 +279,18 @@ func addInterfaces2(
 	}
 
 	if len(combinedBindings) > 0 {
-		// TODO (mfoord): uncomment once gomaasapi supports the Interfaces
-		// parameter
-		//params.Interfaces = combinedBindings
+		interfaceSpecs := make([]gomaasapi.InterfaceSpec, len(combinedBindings))
+		for i, space := range combinedBindings {
+			interfaceSpecs[i] = gomaasapi.InterfaceSpec{space.Name, space.SpaceProviderId}
+		}
+		params.Interfaces = interfaceSpecs
 	}
 	if len(negatives) > 0 {
-		params.NotNetworks = negatives
+		negativeStrings := make([]string, len(negatives))
+		for i, space := range negatives {
+			negativeStrings[i] = space.SpaceProviderId
+		}
+		params.NotSpace = negativeStrings
 	}
 	return nil
 }
@@ -297,4 +324,22 @@ func addStorage(params url.Values, volumes []volumeInfo) {
 		volParms = append(volParms, params)
 	}
 	params.Add("storage", strings.Join(volParms, ","))
+}
+
+// addStorage2 adds volume information onto a gomaasapi.AllocateMachineArgs
+// object suitable to pass to MAAS 2 when acquiring a node.
+func addStorage2(params *gomaasapi.AllocateMachineArgs, volumes []volumeInfo) {
+	if len(volumes) == 0 {
+		return
+	}
+	var volParams []gomaasapi.StorageSpec
+	for _, v := range volumes {
+		volSpec := gomaasapi.StorageSpec{
+			Label: v.name,
+			Size:  int(v.sizeInGB),
+			Tags:  v.tags,
+		}
+		volParams = append(volParams, volSpec)
+	}
+	params.Storage = volParams
 }

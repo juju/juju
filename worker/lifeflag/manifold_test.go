@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -43,9 +44,9 @@ func (*ManifoldSuite) TestFilter(c *gc.C) {
 func (*ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{})
 	worker := struct{ worker.Worker }{}
-	var flag dependency.Flag
+	var flag util.Flag
 	err := manifold.Output(worker, &flag)
-	c.Check(err, gc.ErrorMatches, "expected in to be a \\*Worker, got a .*")
+	c.Check(err, gc.ErrorMatches, "expected in to implement Flag; got a .*")
 }
 
 func (*ManifoldSuite) TestOutputBadTarget(c *gc.C) {
@@ -53,13 +54,13 @@ func (*ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 	worker := &lifeflag.Worker{}
 	var flag interface{}
 	err := manifold.Output(worker, &flag)
-	c.Check(err, gc.ErrorMatches, "expected out to be a \\*dependency\\.Flag, got a .*")
+	c.Check(err, gc.ErrorMatches, "expected out to be a \\*Flag; got a .*")
 }
 
 func (*ManifoldSuite) TestOutputSuccess(c *gc.C) {
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{})
 	worker := &lifeflag.Worker{}
-	var flag dependency.Flag
+	var flag util.Flag
 	err := manifold.Output(worker, &flag)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(flag, gc.Equals, worker)

@@ -13,10 +13,12 @@ import (
 )
 
 const removeDoc = `
-"remove" removes a backup from remote storage.
+remove-backup removes a backup from remote storage.
 `
 
-func newRemoveCommand() cmd.Command {
+// NewRemoveCommand returns a command used to remove a
+// backup from remote storage.
+func NewRemoveCommand() cmd.Command {
 	return modelcmd.Wrap(&removeCommand{})
 }
 
@@ -29,7 +31,7 @@ type removeCommand struct {
 // Info implements Command.Info.
 func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "remove",
+		Name:    "remove-backup",
 		Args:    "<ID>",
 		Purpose: "delete a backup",
 		Doc:     removeDoc,

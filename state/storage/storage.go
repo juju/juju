@@ -53,7 +53,7 @@ type stateStorage struct {
 
 func (s stateStorage) blobstore() (*mgo.Session, blobstore.ManagedStorage) {
 	session := s.session.Copy()
-	rs := blobstore.NewGridFS(blobstoreDB, s.modelUUID, session)
+	rs := blobstore.NewGridFS(blobstoreDB, blobstoreDB, session)
 	db := session.DB(metadataDB)
 	return session, blobstore.NewManagedStorage(db, rs)
 }

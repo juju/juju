@@ -40,7 +40,7 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 	}
 
 	called := false
-	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) state.LogTailer {
+	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
 		called = true
 
 		// Start time will be used once the client is extended to send
@@ -54,7 +54,7 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 		c.Assert(params.ExcludeEntity, jc.DeepEquals, []string{"baz"})
 		c.Assert(params.ExcludeModule, jc.DeepEquals, []string{"qux"})
 
-		return newFakeLogTailer()
+		return newFakeLogTailer(), nil
 	})
 
 	stop := make(chan struct{})
@@ -71,13 +71,13 @@ func (s *debugLogDBIntSuite) TestParamConversionReplay(c *gc.C) {
 	}
 
 	called := false
-	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) state.LogTailer {
+	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
 		called = true
 
 		c.Assert(params.StartTime.IsZero(), jc.IsTrue)
 		c.Assert(params.InitialLines, gc.Equals, 0)
 
-		return newFakeLogTailer()
+		return newFakeLogTailer(), nil
 	})
 
 	stop := make(chan struct{})
@@ -106,8 +106,8 @@ func (s *debugLogDBIntSuite) TestFullRequest(c *gc.C) {
 		Level:    loggo.ERROR,
 		Message:  "whoops",
 	}
-	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) state.LogTailer {
-		return tailer
+	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
+		return tailer, nil
 	})
 
 	stop := make(chan struct{})
@@ -126,9 +126,9 @@ func (s *debugLogDBIntSuite) TestFullRequest(c *gc.C) {
 
 func (s *debugLogDBIntSuite) TestRequestStopsWhenTailerStops(c *gc.C) {
 	tailer := newFakeLogTailer()
-	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) state.LogTailer {
+	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
 		close(tailer.logsCh) // make the request stop immediately
-		return tailer
+		return tailer, nil
 	})
 
 	err := handleDebugLogDBRequest(nil, &debugLogParams{}, s.sock, nil)
@@ -149,8 +149,8 @@ func (s *debugLogDBIntSuite) TestMaxLines(c *gc.C) {
 			Message:  "stuff happened",
 		}
 	}
-	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) state.LogTailer {
-		return tailer
+	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
+		return tailer, nil
 	})
 
 	done := s.runRequest(&debugLogParams{maxLines: 3}, nil)

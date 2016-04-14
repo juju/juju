@@ -10,6 +10,7 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/logger"
@@ -37,7 +39,6 @@ import (
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
-	"github.com/juju/juju/worker/util"
 	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 )
@@ -113,7 +114,7 @@ type ManifoldsConfig struct {
 func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 	// connectFilter exists:
-	//  1) to let us retry api connections immeduately on password change,
+	//  1) to let us retry api connections immediately on password change,
 	//     rather than causing the dependency engine to wait for a while;
 	//  2) to ensure that certain connection failures correctly trigger
 	//     complete agent removal. (It's not safe to let any agent other
@@ -249,9 +250,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		// The migration minion handles the agent side aspects of model migrations.
+		migrationFortressName: ifFullyUpgraded(fortress.Manifold()),
 		migrationMinionName: ifFullyUpgraded(migrationminion.Manifold(migrationminion.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+			FortressName:  migrationFortressName,
+
+			NewFacade: migrationminion.NewFacade,
+			NewWorker: migrationminion.NewWorker,
 		})),
 
 		// The serving-info-setter manifold sets grabs the state
@@ -291,7 +297,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The diskmanager worker periodically lists block devices on the
 		// machine it runs on. This worker will be run on all Juju-managed
 		// machines (one per machine agent).
-		diskmanagerName: ifFullyUpgraded(diskmanager.Manifold(diskmanager.ManifoldConfig{
+		diskManagerName: ifFullyUpgraded(diskmanager.Manifold(diskmanager.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
@@ -342,7 +348,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:    apiCallerName,
 		})),
 
-		authenticationworkerName: ifFullyUpgraded(authenticationworker.Manifold(authenticationworker.ManifoldConfig{
+		authenticationWorkerName: ifFullyUpgraded(authenticationworker.Manifold(authenticationworker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
@@ -350,7 +356,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The storageProvisioner worker manages provisioning
 		// (deprovisioning), and attachment (detachment) of first-class
 		// volumes and filesystems.
-		storageprovisionerName: ifFullyUpgraded(storageprovisioner.MachineManifold(storageprovisioner.MachineManifoldConfig{
+		storageProvisionerName: ifFullyUpgraded(storageprovisioner.MachineManifold(storageprovisioner.MachineManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
@@ -366,56 +372,60 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 		})),
 
-		toolsversioncheckerName: ifFullyUpgraded(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
+		toolsVersionCheckerName: ifFullyUpgraded(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
 
 		machineActionName: ifFullyUpgraded(machineactions.Manifold(machineactions.ManifoldConfig{
-			AgentApiManifoldConfig: util.AgentApiManifoldConfig{
-				AgentName:     agentName,
-				APICallerName: apiCallerName,
-			},
-			NewFacade: machineactions.NewFacade,
-			NewWorker: machineactions.NewMachineActionsWorker,
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			NewFacade:     machineactions.NewFacade,
+			NewWorker:     machineactions.NewMachineActionsWorker,
 		})),
 	}
 }
 
-func ifFullyUpgraded(manifold dependency.Manifold) dependency.Manifold {
-	manifold = dependency.WithFlag(manifold, upgradeStepsFlagName)
-	return dependency.WithFlag(manifold, upgradeCheckFlagName)
-}
+var ifFullyUpgraded = util.Housing{
+	Flags: []string{
+		upgradeStepsFlagName,
+		upgradeCheckFlagName,
+	},
+}.Decorate
 
 const (
-	agentName                = "agent"
-	terminationName          = "termination"
-	stateConfigWatcherName   = "state-config-watcher"
-	stateName                = "state"
-	stateWorkersName         = "stateworkers"
-	apiCallerName            = "api-caller"
-	upgradeStepsGateName     = "upgrade-steps-gate"
-	upgradeStepsFlagName     = "upgrade-steps-flag"
-	upgradeCheckGateName     = "upgrade-check-gate"
-	upgradeCheckFlagName     = "upgrade-check-flag"
-	upgraderName             = "upgrader"
-	upgradeStepsName         = "upgradesteps"
+	agentName              = "agent"
+	terminationName        = "termination-signal-handler"
+	stateConfigWatcherName = "state-config-watcher"
+	stateName              = "state"
+	stateWorkersName       = "unconverted-state-workers"
+	apiCallerName          = "api-caller"
+
+	upgraderName         = "upgrader"
+	upgradeStepsName     = "upgrade-steps-runner"
+	upgradeStepsGateName = "upgrade-steps-gate"
+	upgradeStepsFlagName = "upgrade-steps-flag"
+	upgradeCheckGateName = "upgrade-check-gate"
+	upgradeCheckFlagName = "upgrade-check-flag"
+
+	migrationFortressName = "migration-fortress"
+	migrationMinionName   = "migration-minion"
+
 	servingInfoSetterName    = "serving-info-setter"
-	apiWorkersName           = "apiworkers"
-	rebootName               = "reboot"
+	apiWorkersName           = "unconverted-api-workers"
+	rebootName               = "reboot-executor"
 	loggingConfigUpdaterName = "logging-config-updater"
-	diskmanagerName          = "disk-manager"
+	diskManagerName          = "disk-manager"
 	proxyConfigUpdater       = "proxy-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
 	machinerName             = "machiner"
 	logSenderName            = "log-sender"
-	deployerName             = "deployer"
-	authenticationworkerName = "authenticationworker"
-	storageprovisionerName   = "storage-provisioner-machine"
-	resumerName              = "resumer"
-	identityFileWriterName   = "identity-file-writer"
-	toolsversioncheckerName  = "tools-version-checker"
+	deployerName             = "unit-agent-deployer"
+	authenticationWorkerName = "ssh-authkeys-updater"
+	storageProvisionerName   = "storage-provisioner"
+	resumerName              = "mgo-txn-resumer"
+	identityFileWriterName   = "ssh-identity-writer"
+	toolsVersionCheckerName  = "tools-version-checker"
 	apiConfigWatcherName     = "api-config-watcher"
-	migrationMinionName      = "migration-minion"
-	machineActionName        = "machine-actions"
+	machineActionName        = "machine-action-runner"
 )

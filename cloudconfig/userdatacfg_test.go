@@ -728,7 +728,7 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 	}
 }
 
-func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
+func (*cloudinitSuite) bootstrapConfigScripts(c *gc.C) []string {
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
 	envConfig := minimalModelConfig(c)
 	instConfig := makeBootstrapConfig("quantal").maybeSetModelConfig(envConfig)
@@ -752,10 +752,22 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 			c.Logf("scripts[%d]: %q", i, script)
 		}
 	}
+	return scripts
+}
+
+func (s *cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
+	scripts := s.bootstrapConfigScripts(c)
 	expected := "jujud bootstrap-state --data-dir '.*' --model-config '.*'" +
 		" --hosted-model-config '[^']*'" +
 		" --instance-id '.*' --bootstrap-constraints 'mem=4096M'" +
 		" --constraints 'mem=2048M' --show-log"
+	assertScriptMatch(c, scripts, expected, false)
+}
+
+func (s *cloudinitSuite) TestCloudInitConfigureBootstrapFeatureFlags(c *gc.C) {
+	s.SetFeatureFlags("special", "foo")
+	scripts := s.bootstrapConfigScripts(c)
+	expected := "JUJU_DEV_FEATURE_FLAGS=foo,special .*/jujud bootstrap-state .*"
 	assertScriptMatch(c, scripts, expected, false)
 }
 
