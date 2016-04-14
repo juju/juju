@@ -443,14 +443,15 @@ func (suite *maas2EnvironSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndex
 	c.Assert(err, gc.ErrorMatches, `too many conflicting numeric labels, giving up.`)
 }
 
-func (suite *maas2EnvironSuite) DONTTestAcquireNodeStorage(c *gc.C) {
-	// TODO (mfoord): needs more recent version of gomaasapi with storage
-	// param.
+func (suite *maas2EnvironSuite) TestAcquireNodeStorage(c *gc.C) {
 	var env *maasEnviron
+	var getStorage func() []gomaasapi.StorageSpec
 	suite.injectController(&fakeController{
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
-			c.Assert(args, gc.DeepEquals, gomaasapi.AllocateMachineArgs{
-				AgentName: env.ecfg().maasAgentName()})
+			c.Assert(args, jc.DeepEquals, gomaasapi.AllocateMachineArgs{
+				AgentName: env.ecfg().maasAgentName(),
+				Storage:   getStorage(),
+			})
 		},
 		allocateMachine: &fakeMachine{
 			systemID:     "Bruce Sterling",
@@ -460,34 +461,36 @@ func (suite *maas2EnvironSuite) DONTTestAcquireNodeStorage(c *gc.C) {
 	suite.setupFakeTools(c)
 	for i, test := range []struct {
 		volumes  []volumeInfo
-		expected string
+		expected []gomaasapi.StorageSpec
 	}{{
 		volumes:  nil,
-		expected: "",
+		expected: []gomaasapi.StorageSpec{},
 	}, {
 		volumes:  []volumeInfo{{"volume-1", 1234, nil}},
-		expected: "volume-1:1234",
+		expected: []gomaasapi.StorageSpec{{"volume-1", 1234, nil}},
 	}, {
 		volumes:  []volumeInfo{{"", 1234, []string{"tag1", "tag2"}}},
-		expected: "1234(tag1,tag2)",
+		expected: []gomaasapi.StorageSpec{{"", 1234, []string{"tag1", "tag2"}}},
 	}, {
 		volumes:  []volumeInfo{{"volume-1", 1234, []string{"tag1", "tag2"}}},
-		expected: "volume-1:1234(tag1,tag2)",
+		expected: []gomaasapi.StorageSpec{{"volume-1", 1234, []string{"tag1", "tag2"}}},
 	}, {
 		volumes: []volumeInfo{
 			{"volume-1", 1234, []string{"tag1", "tag2"}},
 			{"volume-2", 4567, []string{"tag1", "tag3"}},
 		},
-		expected: "volume-1:1234(tag1,tag2),volume-2:4567(tag1,tag3)",
+		expected: []gomaasapi.StorageSpec{
+			{"volume-1", 1234, []string{"tag1", "tag2"}},
+			{"volume-2", 4567, []string{"tag1", "tag3"}},
+		},
 	}} {
 		c.Logf("test #%d: volumes=%v", i, test.volumes)
+		getStorage = func() []gomaasapi.StorageSpec {
+			return test.expected
+		}
 		env = suite.makeEnviron(c, nil)
 		_, err := env.acquireNode2("", "", constraints.Value{}, nil, test.volumes)
 		c.Check(err, jc.ErrorIsNil)
-		//nodeRequestValues, found := requestValues["node0"]
-		//if c.Check(found, jc.IsTrue) {
-		//	c.Check(nodeRequestValues[0].Get("storage"), gc.Equals, test.expected)
-		//}
 	}
 }
 
