@@ -14,6 +14,7 @@ import (
 	"github.com/gabriel-samfira/sys/windows/svc"
 	"github.com/gabriel-samfira/sys/windows/svc/mgr"
 	"github.com/juju/errors"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/service/common"
 )
@@ -112,6 +113,9 @@ type manager struct {
 
 // CreateService wraps Mgr.CreateService method.
 func (m *manager) CreateService(name, exepath string, c mgr.Config, args ...string) (windowsService, error) {
+	// The Create function relies on the fact that this calls Connect(which connects to localhost) and not
+	// ConnectRemote. If we get to the point where we need to call ConnectRemote we need to stop using
+	// series.HostSeries inside Create.
 	s, err := mgr.Connect()
 	if err != nil {
 		return nil, err
@@ -352,16 +356,22 @@ func (s *SvcManager) Delete(name string) error {
 
 // Create creates a service with the given config.
 func (s *SvcManager) Create(name string, conf common.Conf) error {
-	passwd, err := getPassword()
-	if err != nil {
-		return errors.Trace(err)
+	serviceStartName := "LocalSystem"
+	var passwd string
+	if !series.IsWindowsNano(series.HostSeries()) {
+		password, err := getPassword()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		passwd = password
+		serviceStartName = jujudUser
 	}
 	cfg := mgr.Config{
 		Dependencies:     []string{"Winmgmt"},
 		ErrorControl:     mgr.ErrorSevere,
 		StartType:        mgr.StartAutomatic,
 		DisplayName:      conf.Desc,
-		ServiceStartName: jujudUser,
+		ServiceStartName: serviceStartName,
 		Password:         passwd,
 	}
 	// mgr.CreateService actually does correct argument escaping itself. There is no
