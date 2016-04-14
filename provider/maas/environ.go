@@ -318,11 +318,11 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	// and 2.0. MAAS 1.9 uses the 1.0 api version and 2.0 uses the 2.0 api
 	// version.
 	apiVersion := apiVersion2
-	var controller gomaasapi.Controller
-	if featureflag.Enabled(feature.MAAS2) {
-		controller, err = GetMAAS2Controller(ecfg.maasServer(), ecfg.maasOAuth())
-	}
-	if !featureflag.Enabled(feature.MAAS2) || err != nil && gomaasapi.IsUnsupportedVersionError(err) {
+	controller, err := GetMAAS2Controller(ecfg.maasServer(), ecfg.maasOAuth())
+	switch {
+	case !featureflag.Enabled(feature.MAAS2) && err == nil:
+		return errors.NewNotSupported(nil, "MAAS 2 is not supported unless the 'maas2' feature flag is set")
+	case !featureflag.Enabled(feature.MAAS2) || (err != nil && gomaasapi.IsUnsupportedVersionError(err)):
 		apiVersion = apiVersion1
 		authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion1)
 		if err != nil {
@@ -336,9 +336,9 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 		if !caps.Contains(capNetworkDeploymentUbuntu) {
 			return errors.NotSupportedf("MAAS 1.9 or more recent is required")
 		}
-	} else if err != nil {
+	case err != nil:
 		return errors.Trace(err)
-	} else {
+	default:
 		env.maasController = controller
 	}
 	env.apiVersion = apiVersion
