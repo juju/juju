@@ -6,7 +6,6 @@
 package lxdclient_test
 
 import (
-	"fmt"
 	"net"
 
 	"github.com/juju/errors"
