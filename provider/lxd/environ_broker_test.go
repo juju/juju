@@ -8,10 +8,10 @@ package lxd_test
 import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/utils/arch"
 )
 
 type environBrokerSuite struct {
