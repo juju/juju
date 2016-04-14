@@ -22,12 +22,17 @@ type setDefaultRegionCommand struct {
 	region string
 }
 
-var setDefaultRegionDoc = `
-The set-default-region command sets the default region for the specified cloud.
+var usageSetDefaultRegionSummary = `
+Sets the default region for a cloud.`[1:]
 
-Example:
-   juju set-default-region aws us-west-1
-`
+var usageSetDefaultRegionDetails = `
+The default region is specified directly as an argument.
+
+Examples:
+    juju set-default-region azure-china chinaeast
+
+See also:
+    add-credential`[1:]
 
 // NewSetDefaultRegionCommand returns a command to set the default region for a cloud.
 func NewSetDefaultRegionCommand() cmd.Command {
@@ -39,9 +44,9 @@ func NewSetDefaultRegionCommand() cmd.Command {
 func (c *setDefaultRegionCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set-default-region",
-		Purpose: "sets the default region for a cloud",
-		Doc:     setDefaultRegionDoc,
-		Args:    "<cloud> <region>",
+		Args:    "<cloud name> <region>",
+		Purpose: usageSetDefaultRegionSummary,
+		Doc:     usageSetDefaultRegionDetails,
 	}
 }
 
