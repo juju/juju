@@ -4,13 +4,14 @@
 package cloud
 
 import (
-	"github.com/juju/cmd"
-	"github.com/juju/errors"
-
 	"fmt"
 	"strings"
 
+	"github.com/juju/cmd"
+	"github.com/juju/errors"
+
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -64,7 +65,7 @@ func getRegion(region string, regions []jujucloud.Region) string {
 }
 
 func (c *setDefaultRegionCommand) Run(ctxt *cmd.Context) error {
-	cloudDetails, err := cloudOrProvider(c.cloud, jujucloud.CloudByName)
+	cloudDetails, err := common.CloudOrProvider(c.cloud, jujucloud.CloudByName)
 	if err != nil {
 		return err
 	}

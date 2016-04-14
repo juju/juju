@@ -16,6 +16,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 )
@@ -98,25 +99,10 @@ func (c *addCredentialCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args[1:])
 }
 
-func cloudOrProvider(cloudName string, cloudByNameFunc func(string) (*jujucloud.Cloud, error)) (cloud *jujucloud.Cloud, err error) {
-	if cloud, err = cloudByNameFunc(cloudName); err != nil {
-		if !errors.IsNotFound(err) {
-			return nil, err
-		}
-		builtInProviders := builtInProviders()
-		if builtIn, ok := builtInProviders[cloudName]; !ok {
-			return nil, errors.NotValidf("cloud %v", cloudName)
-		} else {
-			cloud = &builtIn
-		}
-	}
-	return cloud, nil
-}
-
 func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	// Check that the supplied cloud is valid.
 	var err error
-	if c.cloud, err = cloudOrProvider(c.CloudName, c.cloudByNameFunc); err != nil {
+	if c.cloud, err = common.CloudOrProvider(c.CloudName, c.cloudByNameFunc); err != nil {
 		if !errors.IsNotFound(err) {
 			return err
 		}
