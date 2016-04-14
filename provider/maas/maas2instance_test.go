@@ -52,7 +52,7 @@ func (s *maas2InstanceSuite) TestZone(c *gc.C) {
 }
 
 func (s *maas2InstanceSuite) TestStatusSuccess(c *gc.C) {
-	thing := &maas2Instance{&fakeMachine{statusMessage: "Deploying", statusName: "Wexler"}}
+	thing := &maas2Instance{&fakeMachine{statusMessage: "Wexler", statusName: "Deploying"}}
 	result := thing.Status()
 	c.Assert(result, jc.DeepEquals, instance.InstanceStatus{status.StatusAllocating, "Deploying: Wexler"})
 }
