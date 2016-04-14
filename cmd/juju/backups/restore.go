@@ -24,7 +24,8 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-func newRestoreCommand() cmd.Command {
+// NewRestoreCommand returns a command used to restore a backup.
+func NewRestoreCommand() cmd.Command {
 	restoreCmd := &restoreCommand{}
 	restoreCmd.getEnvironFunc = restoreCmd.getEnviron
 	restoreCmd.newAPIClientFunc = func() (RestoreAPI, error) {
@@ -83,7 +84,7 @@ var BootstrapFunc = bootstrap.Bootstrap
 // Info returns the content for --help.
 func (c *restoreCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "restore",
+		Name:    "restore-backup",
 		Purpose: "restore from a backup archive to a new controller",
 		Args:    "",
 		Doc:     strings.TrimSpace(restoreDoc),

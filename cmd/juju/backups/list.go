@@ -13,10 +13,11 @@ import (
 )
 
 const listDoc = `
-"list" provides the metadata associated with all backups.
+list-backups provides the metadata associated with all backups.
 `
 
-func newListCommand() cmd.Command {
+// NewListCommand returns a command used to list metadata for backups
+func NewListCommand() cmd.Command {
 	return modelcmd.Wrap(&listCommand{})
 }
 
@@ -28,10 +29,11 @@ type listCommand struct {
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
+		Name:    "list-backups",
 		Args:    "",
 		Purpose: "get all metadata",
 		Doc:     listDoc,
+		Aliases: []string{"backups"},
 	}
 }
 
