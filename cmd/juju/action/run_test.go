@@ -37,14 +37,14 @@ broken-map:
 	invalidUTFYaml = "out: ok" + string([]byte{0xFF, 0xFF})
 )
 
-type DoSuite struct {
+type RunSuite struct {
 	BaseActionSuite
 	dir string
 }
 
-var _ = gc.Suite(&DoSuite{})
+var _ = gc.Suite(&RunSuite{})
 
-func (s *DoSuite) SetUpTest(c *gc.C) {
+func (s *RunSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.dir = c.MkDir()
 	c.Assert(utf8.ValidString(validParamsYaml), jc.IsTrue)
@@ -55,12 +55,7 @@ func (s *DoSuite) SetUpTest(c *gc.C) {
 	setupValueFile(c, s.dir, "invalidUTF.yml", invalidUTFYaml)
 }
 
-func (s *DoSuite) TestHelp(c *gc.C) {
-	cmd, _ := action.NewDoCommand(s.store)
-	s.checkHelp(c, cmd)
-}
-
-func (s *DoSuite) TestInit(c *gc.C) {
+func (s *RunSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should               string
 		args                 []string
@@ -167,8 +162,8 @@ func (s *DoSuite) TestInit(c *gc.C) {
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
-			wrappedCommand, command := action.NewDoCommand(s.store)
-			c.Logf("test %d: should %s:\n$ juju actions do %s\n", i,
+			wrappedCommand, command := action.NewRunCommandForTest(s.store)
+			c.Logf("test %d: should %s:\n$ juju run-action %s\n", i,
 				t.should, strings.Join(t.args, " "))
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := testing.InitCommand(wrappedCommand, args)
@@ -185,7 +180,7 @@ func (s *DoSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *DoSuite) TestRun(c *gc.C) {
+func (s *RunSuite) TestRun(c *gc.C) {
 	tests := []struct {
 		should                 string
 		withArgs               []string
@@ -370,7 +365,7 @@ func (s *DoSuite) TestRun(c *gc.C) {
 				restore := s.patchAPIClient(fakeClient)
 				defer restore()
 
-				wrappedCommand, _ := action.NewDoCommand(s.store)
+				wrappedCommand, _ := action.NewRunCommandForTest(s.store)
 				args := append([]string{modelFlag, "admin"}, t.withArgs...)
 				ctx, err := testing.RunCommand(c, wrappedCommand, args...)
 

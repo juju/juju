@@ -15,6 +15,17 @@ import (
 
 var _ csWrapper = (*fakeWrapper)(nil)
 
+type resourceResult struct {
+	resources []params.Resource
+	err       error
+}
+
+func oneResourceResult(r params.Resource) resourceResult {
+	return resourceResult{
+		resources: []params.Resource{r},
+	}
+}
+
 // fakeWrapper is an implementation of the csWrapper interface for use with
 // testing the Client.
 // We store the args & returns per channel, since we're running off
@@ -31,8 +42,8 @@ type fakeWrapper struct {
 	ReturnLatestStable [][]params.CharmRevision
 	ReturnLatestDev    [][]params.CharmRevision
 
-	ReturnListResourcesStable []map[string][]params.Resource
-	ReturnListResourcesDev    []map[string][]params.Resource
+	ReturnListResourcesStable []resourceResult
+	ReturnListResourcesDev    []resourceResult
 
 	ReturnGetResource csclient.ResourceData
 
@@ -65,17 +76,17 @@ func (f *fakeWrapper) Latest(channel params.Channel, ids []*charm.URL, headers m
 	return ret, nil
 }
 
-func (f *fakeWrapper) ListResources(channel params.Channel, ids []*charm.URL) (map[string][]params.Resource, error) {
+func (f *fakeWrapper) ListResources(channel params.Channel, id *charm.URL) ([]params.Resource, error) {
 	if channel == "stable" {
-		f.stableStub.AddCall("ListResources", channel, ids)
+		f.stableStub.AddCall("ListResources", channel, id)
 		ret := f.ReturnListResourcesStable[0]
 		f.ReturnListResourcesStable = f.ReturnListResourcesStable[1:]
-		return ret, nil
+		return ret.resources, ret.err
 	}
-	f.devStub.AddCall("ListResources", channel, ids)
+	f.devStub.AddCall("ListResources", channel, id)
 	ret := f.ReturnListResourcesDev[0]
 	f.ReturnListResourcesDev = f.ReturnListResourcesDev[1:]
-	return ret, nil
+	return ret.resources, ret.err
 }
 
 func (f *fakeWrapper) GetResource(channel params.Channel, id *charm.URL, name string, revision int) (csclient.ResourceData, error) {

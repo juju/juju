@@ -17,22 +17,17 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type FetchSuite struct {
+type ShowOutputSuite struct {
 	BaseActionSuite
 }
 
-var _ = gc.Suite(&FetchSuite{})
+var _ = gc.Suite(&ShowOutputSuite{})
 
-func (s *FetchSuite) SetUpTest(c *gc.C) {
+func (s *ShowOutputSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 }
 
-func (s *FetchSuite) TestHelp(c *gc.C) {
-	cmd, _ := action.NewFetchCommand(s.store)
-	s.checkHelp(c, cmd)
-}
-
-func (s *FetchSuite) TestInit(c *gc.C) {
+func (s *ShowOutputSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should      string
 		args        []string
@@ -49,9 +44,9 @@ func (s *FetchSuite) TestInit(c *gc.C) {
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
-			c.Logf("test %d: it should %s: juju actions fetch %s", i,
+			c.Logf("test %d: it should %s: juju show-action-output %s", i,
 				t.should, strings.Join(t.args, " "))
-			cmd, _ := action.NewFetchCommand(s.store)
+			cmd, _ := action.NewShowOutputCommandForTest(s.store)
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := testing.InitCommand(cmd, args)
 			if t.expectError != "" {
@@ -61,7 +56,7 @@ func (s *FetchSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *FetchSuite) TestRun(c *gc.C) {
+func (s *ShowOutputSuite) TestRun(c *gc.C) {
 	tests := []struct {
 		should            string
 		withClientWait    string
@@ -294,14 +289,14 @@ timing:
 	}
 }
 
-func testRunHelper(c *gc.C, s *FetchSuite, client *fakeAPIClient, expectedErr, expectedOutput, wait, query, modelFlag string) {
+func testRunHelper(c *gc.C, s *ShowOutputSuite, client *fakeAPIClient, expectedErr, expectedOutput, wait, query, modelFlag string) {
 	unpatch := s.BaseActionSuite.patchAPIClient(client)
 	defer unpatch()
 	args := append([]string{modelFlag, "admin"}, query)
 	if wait != "" {
 		args = append(args, "--wait", wait)
 	}
-	cmd, _ := action.NewFetchCommand(s.store)
+	cmd, _ := action.NewShowOutputCommandForTest(s.store)
 	ctx, err := testing.RunCommand(c, cmd, args...)
 	if expectedErr != "" {
 		c.Check(err, gc.ErrorMatches, expectedErr)

@@ -101,7 +101,7 @@ type mongoService func() error
 type mongoEnsureService func(string, int, int, bool, mongo.Version, bool) error
 type mongoDialInfo func(mongo.Info, mongo.DialOpts) (*mgo.DialInfo, error)
 
-type initiateMongoServerFunc func(peergrouper.InitiateMongoParams, bool) error
+type initiateMongoServerFunc func(peergrouper.InitiateMongoParams) error
 
 type replicaAddFunc func(mgoSession, ...replicaset.Member) error
 type replicaRemoveFunc func(mgoSession, ...string) error
@@ -516,7 +516,7 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to3x(dataDir string) error {
 		err = u.initiateMongoServer(peergrouper.InitiateMongoParams{
 			DialInfo:       dialInfo,
 			MemberHostPort: peerHostPort,
-		}, true)
+		})
 		if err != nil {
 			return errors.Annotate(err, "cannot initiate replicaset")
 		}
