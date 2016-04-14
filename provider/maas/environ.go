@@ -319,11 +319,12 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	// and 2.0. MAAS 1.9 uses the 1.0 api version and 2.0 uses the 2.0 api
 	// version.
 	apiVersion := apiVersion2
+	maas2Enabled := featureflag.Enabled(feature.MAAS2)
 	controller, err := GetMAAS2Controller(ecfg.maasServer(), ecfg.maasOAuth())
 	switch {
-	case !featureflag.Enabled(feature.MAAS2) && err == nil:
+	case !maas2Enabled && err == nil:
 		return errors.NewNotSupported(nil, "MAAS 2 is not supported unless the 'maas2' feature flag is set")
-	case !featureflag.Enabled(feature.MAAS2) || (err != nil && gomaasapi.IsUnsupportedVersionError(err)):
+	case !maas2Enabled || gomaasapi.IsUnsupportedVersionError(err):
 		apiVersion = apiVersion1
 		authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion1)
 		if err != nil {
