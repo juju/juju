@@ -26,16 +26,17 @@ The filter attributes are optional.
 Examples:
 
   # List all cached images.
-  juju cache-images list
+  juju list-cache-images
 
   # List cached images for trusty.
-  juju cache-images list --series trusty
+  juju list-cache-images --series trusty
 
   # List all cached lxc images for trusty amd64.
-  juju cache-images list --kind lxc --series trusty --arch amd64
+  juju list-cache-images --kind lxc --series trusty --arch amd64
 `
 
-func newListCommand() cmd.Command {
+// NewListCommand returns a command for listing chached images.
+func NewListCommand() cmd.Command {
 	return modelcmd.Wrap(&listCommand{})
 }
 
@@ -49,9 +50,10 @@ type listCommand struct {
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
+		Name:    "list-cached-images",
 		Purpose: "shows cached os images",
 		Doc:     listCommandDoc,
+		Aliases: []string{"cached-images"},
 	}
 }
 

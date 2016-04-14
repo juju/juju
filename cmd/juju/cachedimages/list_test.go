@@ -53,7 +53,7 @@ func (s *listImagesCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func runListCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, cachedimages.NewListCommand(), args...)
+	return testing.RunCommand(c, cachedimages.NewListCommandForTest(), args...)
 }
 
 func (*listImagesCommandSuite) TestListImagesNone(c *gc.C) {
