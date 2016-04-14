@@ -13,42 +13,43 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newDefinedCommand() cmd.Command {
-	return modelcmd.Wrap(&definedCommand{})
+func NewListCommand() cmd.Command {
+	return modelcmd.Wrap(&listCommand{})
 }
 
-// definedCommand lists actions defined by the charm of a given service.
-type definedCommand struct {
+// listCommand lists actions defined by the charm of a given service.
+type listCommand struct {
 	ActionCommandBase
 	serviceTag names.ServiceTag
 	fullSchema bool
 	out        cmd.Output
 }
 
-const definedDoc = `
-Show the actions available to run on the target service, with a short
+const listDoc = `
+List the actions available to run on the target service, with a short
 description.  To show the full schema for the actions, use --schema.
 
-For more information, see also the 'do' subcommand, which executes actions.
+For more information, see also the 'run-ation' command, which executes actions.
 `
 
 // Set up the output.
-func (c *definedCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.BoolVar(&c.fullSchema, "schema", false, "display the full action schema")
 }
 
-func (c *definedCommand) Info() *cmd.Info {
+func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "defined",
+		Name:    "list-actions",
 		Args:    "<service name>",
-		Purpose: "show actions defined for a service",
-		Doc:     definedDoc,
+		Purpose: "list actions defined for a service",
+		Doc:     listDoc,
+		Aliases: []string{"actions"},
 	}
 }
 
 // Init validates the service name and any other options.
-func (c *definedCommand) Init(args []string) error {
+func (c *listCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		return errors.New("no service name specified")
@@ -66,7 +67,7 @@ func (c *definedCommand) Init(args []string) error {
 
 // Run grabs the Actions spec from the api.  It then sets up a sensible
 // output format for the map.
-func (c *definedCommand) Run(ctx *cmd.Context) error {
+func (c *listCommand) Run(ctx *cmd.Context) error {
 	api, err := c.NewActionAPIClient()
 	if err != nil {
 		return err

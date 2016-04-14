@@ -20,25 +20,21 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type DefinedSuite struct {
+type ListSuite struct {
 	BaseActionSuite
 	svc            *state.Service
 	wrappedCommand cmd.Command
-	command        *action.DefinedCommand
+	command        *action.ListCommand
 }
 
-var _ = gc.Suite(&DefinedSuite{})
+var _ = gc.Suite(&ListSuite{})
 
-func (s *DefinedSuite) SetUpTest(c *gc.C) {
+func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
-	s.wrappedCommand, s.command = action.NewDefinedCommand(s.store)
+	s.wrappedCommand, s.command = action.NewListCommandForTest(s.store)
 }
 
-func (s *DefinedSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, s.wrappedCommand)
-}
-
-func (s *DefinedSuite) TestInit(c *gc.C) {
+func (s *ListSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should               string
 		args                 []string
@@ -72,7 +68,7 @@ func (s *DefinedSuite) TestInit(c *gc.C) {
 		for _, modelFlag := range s.modelFlags {
 			c.Logf("test %d should %s: juju actions defined %s", i,
 				t.should, strings.Join(t.args, " "))
-			s.wrappedCommand, s.command = action.NewDefinedCommand(s.store)
+			s.wrappedCommand, s.command = action.NewListCommandForTest(s.store)
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := testing.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
@@ -85,7 +81,7 @@ func (s *DefinedSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *DefinedSuite) TestRun(c *gc.C) {
+func (s *ListSuite) TestRun(c *gc.C) {
 	tests := []struct {
 		should           string
 		expectFullSchema bool
@@ -130,7 +126,7 @@ func (s *DefinedSuite) TestRun(c *gc.C) {
 				defer restore()
 
 				args := append([]string{modelFlag, "admin"}, t.withArgs...)
-				s.wrappedCommand, s.command = action.NewDefinedCommand(s.store)
+				s.wrappedCommand, s.command = action.NewListCommandForTest(s.store)
 				ctx, err := testing.RunCommand(c, s.wrappedCommand, args...)
 
 				if t.expectedErr != "" || t.withAPIErr != "" {
