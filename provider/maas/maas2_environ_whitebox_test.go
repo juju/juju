@@ -663,11 +663,13 @@ func (suite *maas2EnvironSuite) TestAcquireNodeUnrecognisedSpace(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestWaitForNodeDeployment(c *gc.C) {
+	machine := &fakeMachine{
+		systemID:     "Bruce Sterling",
+		architecture: arch.HostArch(),
+	}
 	suite.injectController(&fakeController{
-		allocateMachine: &fakeMachine{
-			systemID:     "Bruce Sterling",
-			architecture: arch.HostArch(),
-		},
+		allocateMachine: machine,
+		machines:        []gomaasapi.Machine{machine},
 	})
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)

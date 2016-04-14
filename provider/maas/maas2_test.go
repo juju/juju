@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
@@ -81,6 +82,16 @@ func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Mach
 	}
 	if c.machinesError != nil {
 		return nil, c.machinesError
+	}
+	if len(args.SystemIDs) > 0 {
+		result := []gomaasapi.Machine{}
+		systemIds := set.NewStrings(args.SystemIDs...)
+		for _, machine := range c.machines {
+			if systemIds.Contains(machine.SystemID()) {
+				result = append(result, machine)
+			}
+		}
+		return result, nil
 	}
 	return c.machines, nil
 }
