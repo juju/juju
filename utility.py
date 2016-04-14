@@ -476,6 +476,7 @@ def make_charm(charm_dir, min_ver='1.25.0', name='dummy',
     content['min-juju-version'] = min_ver
     content['summary'] = summary
     content['description'] = description
-    content['series'] = [series] if isinstance(series, str) else series
+    if series is not None:
+        content['series'] = [series] if isinstance(series, str) else series
     with open(metadata, 'w') as f:
         yaml.safe_dump(content, f, default_flow_style=False)

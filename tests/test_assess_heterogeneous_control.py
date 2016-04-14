@@ -9,6 +9,7 @@ from mock import (
 
 from assess_heterogeneous_control import (
     assess_heterogeneous,
+    check_series,
     get_clients,
     parse_args,
     test_control_heterogeneous,
@@ -149,3 +150,28 @@ class TestTestControlHeterogeneous(TestCase):
         test_control_heterogeneous(bs_manager, other_client, True)
         self.assertEqual(initial_client.env.juju_home,
                          other_client.env.juju_home)
+
+
+class TestCheckSeries(TestCase):
+
+    def test_check_series(self):
+        client = FakeJujuClient()
+        check_series(client)
+
+    def test_check_series_xenial(self):
+        client = MagicMock(spec=["get_juju_output"])
+        client.get_juju_output.return_value = "Codename:	xenial"
+        check_series(client, 1, 'xenial')
+
+    def test_check_series_calls(self):
+        client = MagicMock(spec=["get_juju_output"])
+        with patch.object(client, 'get_juju_output',
+                          return_value="Codename:	xenial") as gjo_mock:
+            check_series(client, 2, 'xenial')
+        gjo_mock.assert_called_once_with('ssh', 2, 'lsb_release', '-c')
+
+    def test_check_series_exceptionl(self):
+        client = FakeJujuClient()
+        with self.assertRaisesRegexp(
+                AssertionError, 'Series is angsty, not xenial'):
+            check_series(client, '0', 'xenial')
