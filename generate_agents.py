@@ -114,6 +114,7 @@ def deb_to_agent(deb_path, dest_dir, agent_stream):
     control = deb822.Deb822(control_str)
     control_version = control['Version']
     base_version = re.sub('-0ubuntu.*$', '', control_version)
+    major_minor = '.'.join(base_version.split('-')[0].split('.')[0:2])
     series = juju_series.get_name_from_package_version(control_version)
     architecture = control['Architecture']
     with temp_dir() as work_dir:
@@ -121,8 +122,12 @@ def deb_to_agent(deb_path, dest_dir, agent_stream):
         os.mkdir(contents)
         subprocess.check_call(['dpkg-deb', '-x', deb_path, contents])
         jujud_path = os.path.join(
-            contents, 'usr', 'lib', 'juju-{}'.format(base_version), 'bin',
+            contents, 'usr', 'lib', 'juju-{}'.format(major_minor), 'bin',
             'jujud')
+        if not os.path.exists(jujud_path):
+            jujud_path = os.path.join(
+                contents, 'usr', 'lib', 'juju-{}'.format(base_version), 'bin',
+                'jujud')
         basename = 'juju-{}-{}-{}.tgz'.format(base_version, series,
                                               architecture)
         agent_filename = os.path.join(work_dir, basename)
