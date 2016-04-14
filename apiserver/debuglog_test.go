@@ -11,9 +11,6 @@ import (
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
-
-	//"github.com/juju/juju/apiserver/params"
-	//"github.com/juju/juju/testing/factory"
 )
 
 // debugLogBaseSuite has tests that should be run for both the file

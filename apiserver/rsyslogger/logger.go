@@ -35,7 +35,7 @@ type RsyslogConfigAPI struct {
 
 var _ RsyslogConfigWatcher = (*RsyslogConfigAPI)(nil)
 
-// NewRsyslogConfigWatcher creates a new server-side rsyslogger API end point.
+// NewRsyslogConfigAPI creates a new server-side rsyslogger API end point.
 func NewRsyslogConfigAPI(
 	st *state.State,
 	resources *common.Resources,
