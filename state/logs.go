@@ -32,6 +32,7 @@ const logsC = "logs"
 type LoggingState interface {
 	ModelUUID() string
 	MongoSession() *mgo.Session
+	IsController() bool
 }
 
 // InitDbLogs sets up the indexes for the logs collection. It should
@@ -126,12 +127,13 @@ type LogTailer interface {
 // LogRecord defines a single Juju log message as returned by
 // LogTailer.
 type LogRecord struct {
-	Time     time.Time
-	Entity   string
-	Module   string
-	Location string
-	Level    loggo.Level
-	Message  string
+	Time      time.Time
+	Entity    string
+	Module    string
+	Location  string
+	Level     loggo.Level
+	Message   string
+	ModelUUID string
 }
 
 // LogTailerParams specifies the filtering a LogTailer should apply to
@@ -146,6 +148,7 @@ type LogTailerParams struct {
 	IncludeModule []string
 	ExcludeModule []string
 	Oplog         *mgo.Collection // For testing only
+	AllModels     bool
 }
 
 // oplogOverlap is used to decide on the initial oplog timestamp to
@@ -167,7 +170,11 @@ var maxRecentLogIds = int(oplogOverlap.Minutes() * 150000)
 
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
-func NewLogTailer(st LoggingState, params *LogTailerParams) LogTailer {
+func NewLogTailer(st LoggingState, params *LogTailerParams) (LogTailer, error) {
+	if !st.IsController() && params.AllModels {
+		return nil, errors.NewNotValid(nil, "not allowed to tail logs from all models: not a controller")
+	}
+
 	session := st.MongoSession().Copy()
 	t := &logTailer{
 		modelUUID: st.ModelUUID(),
@@ -184,7 +191,7 @@ func NewLogTailer(st LoggingState, params *LogTailerParams) LogTailer {
 		session.Close()
 		t.tomb.Done()
 	}()
-	return t
+	return t, nil
 }
 
 type logTailer struct {
@@ -308,7 +315,6 @@ func (t *logTailer) tailOplog() error {
 				}
 				continue
 			}
-
 			select {
 			case <-t.tomb.Dying():
 				return errors.Trace(tomb.ErrDying)
@@ -320,8 +326,10 @@ func (t *logTailer) tailOplog() error {
 
 func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bson.D {
 	sel := bson.D{
-		{"e", t.modelUUID},
 		{"t", bson.M{"$gte": params.StartTime}},
+	}
+	if !params.AllModels {
+		sel = append(sel, bson.DocElem{"e", t.modelUUID})
 	}
 	if params.MinLevel > loggo.UNSPECIFIED {
 		sel = append(sel, bson.DocElem{"v", bson.M{"$gte": params.MinLevel}})
@@ -342,7 +350,6 @@ func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bso
 		sel = append(sel,
 			bson.DocElem{"m", bson.M{"$not": bson.RegEx{Pattern: makeModulePattern(params.ExcludeModule)}}})
 	}
-
 	if prefix != "" {
 		for i, elem := range sel {
 			sel[i].Name = prefix + elem.Name
@@ -419,12 +426,13 @@ func (s *objectIdSet) Length() int {
 
 func logDocToRecord(doc *logDoc) *LogRecord {
 	return &LogRecord{
-		Time:     doc.Time,
-		Entity:   doc.Entity,
-		Module:   doc.Module,
-		Location: doc.Location,
-		Level:    doc.Level,
-		Message:  doc.Message,
+		Time:      doc.Time,
+		Entity:    doc.Entity,
+		Module:    doc.Module,
+		Location:  doc.Location,
+		Level:     doc.Level,
+		Message:   doc.Message,
+		ModelUUID: doc.ModelUUID,
 	}
 }
 

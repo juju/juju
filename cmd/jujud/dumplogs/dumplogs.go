@@ -164,7 +164,10 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, st0 *state.State, tag
 	writer := bufio.NewWriter(file)
 	defer writer.Flush()
 
-	tailer := state.NewLogTailer(st, &state.LogTailerParams{NoTail: true})
+	tailer, err := state.NewLogTailer(st, &state.LogTailerParams{NoTail: true})
+	if err != nil {
+		return errors.Annotate(err, "failed to create a log tailer")
+	}
 	logs := tailer.Logs()
 	for {
 		rec, ok := <-logs
