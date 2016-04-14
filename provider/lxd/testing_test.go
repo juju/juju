@@ -140,10 +140,16 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 }
 
 func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
-	tools := []*tools.Tools{{
-		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
-		URL:     "https://example.org",
-	}}
+	tools := []*tools.Tools{
+		{
+			Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
+			URL:     "https://example.org/amd",
+		},
+		{
+			Version: version.Binary{Arch: arch.ARM64, Series: "trusty"},
+			URL:     "https://example.org/arm",
+		},
+	}
 
 	cons := constraints.Value{
 	// nothing
@@ -159,11 +165,11 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Hardware = &lxdclient.InstanceHardware{
-		Architecture: arch.AMD64,
+		Architecture: arch.ARM64,
 		NumCores:     1,
 		MemoryMB:     3750,
 	}
-	var archName string = arch.AMD64
+	var archName string = arch.ARM64
 	var numCores uint64 = 1
 	var memoryMB uint64 = 3750
 	s.HWC = &instance.HardwareCharacteristics{
