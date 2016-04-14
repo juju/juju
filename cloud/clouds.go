@@ -122,18 +122,13 @@ type region struct {
 	StorageEndpoint string `yaml:"storage-endpoint,omitempty"`
 }
 
-// BuiltInProvider contains details about a provider - name, type, etc.
-type BuiltInProvider struct {
-	// Name of the build-in provider.
-	Name string
-
-	// Type of the build-in provider.
-	Type string
-}
-
-// BuiltInProviders work out of the box.
-var BuiltInProviders = []BuiltInProvider{
-	{"localhost", "lxd"},
+// BuiltInClouds work out of the box.
+var BuiltInClouds = map[string]Cloud{
+	"localhost": {
+		Type:      "lxd",
+		AuthTypes: []AuthType{EmptyAuthType},
+		Regions:   []Region{{Name: "localhost"}},
+	},
 }
 
 // CloudByName returns the cloud with the specified name.
@@ -155,6 +150,9 @@ func CloudByName(name string) (*Cloud, error) {
 		return nil, errors.Trace(err)
 	}
 	if cloud, ok := clouds[name]; ok {
+		return &cloud, nil
+	}
+	if cloud, ok := BuiltInClouds[name]; ok {
 		return &cloud, nil
 	}
 	return nil, errors.NotFoundf("cloud %s", name)

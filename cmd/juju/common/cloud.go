@@ -19,8 +19,8 @@ func CloudOrProvider(cloudName string, cloudByNameFunc func(string) (*cloud.Clou
 		if !errors.IsNotFound(err) {
 			return nil, err
 		}
-		builtInProviders := BuiltInProviders()
-		if builtIn, ok := builtInProviders[cloudName]; !ok {
+		builtInClouds := BuiltInClouds()
+		if builtIn, ok := builtInClouds[cloudName]; !ok {
 			return nil, errors.NotValidf("cloud %v", cloudName)
 		} else {
 			cloud = &builtIn
@@ -29,37 +29,21 @@ func CloudOrProvider(cloudName string, cloudByNameFunc func(string) (*cloud.Clou
 	return cloud, nil
 }
 
-// BuiltInProviders returns cloud information for those
+// BuiltInClouds returns cloud information for those
 // providers which are built in to Juju.
-func BuiltInProviders() map[string]cloud.Cloud {
+func BuiltInClouds() map[string]cloud.Cloud {
+	// TODO (anastasiamac 2016-04-14)
+	// This whole method will be redundant after we move to 1.3+.
 	builtIn := make(map[string]cloud.Cloud)
-	for _, builtInProvider := range cloud.BuiltInProviders {
-		provider, err := environs.Provider(builtInProvider.Type)
+	for name, aCloud := range cloud.BuiltInClouds {
+		_, err := environs.Provider(aCloud.Type)
 		if err != nil {
 			// Should never happen but it will on go 1.2
 			// because lxd provider is not built.
-			logger.Warningf("cloud %q not available on this platform", builtInProvider.Name)
+			logger.Warningf("cloud %q not available on this platform", name)
 			continue
 		}
-		var regions []cloud.Region
-		if detector, ok := provider.(environs.CloudRegionDetector); ok {
-			regions, err = detector.DetectRegions()
-			if err != nil && !errors.IsNotFound(err) {
-				logger.Warningf("could not detect regions for %q: %v", builtInProvider.Name, err)
-			}
-		}
-		aCloud := cloud.Cloud{
-			Type:    builtInProvider.Type,
-			Regions: regions,
-		}
-		schema := provider.CredentialSchemas()
-		for authType := range schema {
-			if authType == cloud.EmptyAuthType {
-				continue
-			}
-			aCloud.AuthTypes = append(aCloud.AuthTypes, authType)
-		}
-		builtIn[builtInProvider.Name] = aCloud
+		builtIn[name] = aCloud
 	}
 	return builtIn
 }

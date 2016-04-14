@@ -88,8 +88,8 @@ func getCloudDetails() (map[string]*cloudDetails, error) {
 		details[name] = cloudDetails
 	}
 
-	// Add in built in providers like "lxd" and "manual".
-	for name, cloud := range common.BuiltInProviders() {
+	// Add in built in clouds like localhost (lxd).
+	for name, cloud := range common.BuiltInClouds() {
 		cloudDetails := makeCloudDetails(cloud)
 		cloudDetails.Source = "built-in"
 		details[name] = cloudDetails

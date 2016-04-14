@@ -249,36 +249,6 @@ more than one credential detected
 run juju autoload-credentials and specify a credential using the --credential argument`[1:],
 )
 
-var getProvider = func(name string) (p environs.EnvironProvider, pType string, msgs []string, err error) {
-	pType = name
-	p, err = environs.Provider(name)
-	if errors.IsNotFound(err) {
-		msgs = append(msgs, fmt.Sprintf("provider %q not found, trying built in providers", name))
-		foundType := ""
-		for _, builtInProvider := range jujucloud.BuiltInProviders {
-			if builtInProvider.Name == name {
-				foundType = builtInProvider.Type
-				break
-			}
-		}
-		if foundType == "" {
-			return nil, "", msgs, errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", name, "juju update-clouds"))
-		}
-		p, err = environs.Provider(foundType)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return nil, "", msgs, errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", name, "juju update-clouds"))
-			}
-			return nil, "", msgs, errors.Trace(err)
-		}
-		pType = foundType
-
-	} else if err != nil {
-		return nil, "", msgs, errors.Trace(err)
-	}
-	return p, pType, msgs, nil
-}
-
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
@@ -293,11 +263,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	cloud, err := jujucloud.CloudByName(c.Cloud)
 	if errors.IsNotFound(err) {
 		ctx.Verbosef("cloud %q not found, trying as a provider name", c.Cloud)
-		provider, providerType, msgs, err := getProvider(c.Cloud)
-		if len(msgs) != 0 {
-			ctx.Verbosef(strings.Join(msgs, "\n"))
-		}
-		if err != nil {
+		provider, err := environs.Provider(c.Cloud)
+		if errors.IsNotFound(err) {
+			return errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds"))
+		} else if err != nil {
 			return errors.Trace(err)
 		}
 		detector, ok := provider.(environs.CloudRegionDetector)
@@ -317,7 +286,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			)
 		}
 		cloud = &jujucloud.Cloud{
-			Type:    providerType,
+			Type:    c.Cloud,
 			Regions: regions,
 		}
 	} else if err != nil {
