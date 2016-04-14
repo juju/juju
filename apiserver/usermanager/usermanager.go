@@ -130,7 +130,7 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 					break
 				}
 				err = modelmanager.ChangeModelAccess(
-					modelmanager.NewStateShim(api.state), modelTag, loggedInUser,
+					modelmanager.NewStateBackend(api.state), modelTag, loggedInUser,
 					userTag, params.GrantModelAccess, modelAccess,
 				)
 				if err != nil {

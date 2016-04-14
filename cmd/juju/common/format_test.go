@@ -6,6 +6,7 @@ package common_test
 import (
 	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -117,7 +118,9 @@ func (s *ConformSuite) TestConformYAML(c *gc.C) {
 	}
 }
 
-type userFriendlyDurationSuite struct{}
+type userFriendlyDurationSuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(&userFriendlyDurationSuite{})
 

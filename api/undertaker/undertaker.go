@@ -39,19 +39,19 @@ func NewClient(caller base.APICaller, newWatcher NewWatcherFunc) (*Client, error
 // ModelInfo returns information on the model needed by the undertaker worker.
 func (c *Client) ModelInfo() (params.UndertakerModelInfoResult, error) {
 	result := params.UndertakerModelInfoResult{}
-	err := c.noArgsFacadeCall("ModelInfo", &result)
+	err := c.entityFacadeCall("ModelInfo", &result)
 	return result, errors.Trace(err)
 }
 
 // ProcessDyingModel checks if a dying model has any machines or services.
 // If there are none, the model's life is changed from dying to dead.
 func (c *Client) ProcessDyingModel() error {
-	return c.noArgsFacadeCall("ProcessDyingModel", nil)
+	return c.entityFacadeCall("ProcessDyingModel", nil)
 }
 
 // RemoveModel removes any records of this model from Juju.
 func (c *Client) RemoveModel() error {
-	return c.noArgsFacadeCall("RemoveModel", nil)
+	return c.entityFacadeCall("RemoveModel", nil)
 }
 
 // SetStatus sets the status of the model.
@@ -74,7 +74,7 @@ func (c *Client) SetStatus(status status.Status, message string, data map[string
 	return nil
 }
 
-func (c *Client) noArgsFacadeCall(name string, results interface{}) error {
+func (c *Client) entityFacadeCall(name string, results interface{}) error {
 	args := params.Entities{
 		Entities: []params.Entity{{c.modelTag.String()}},
 	}
@@ -85,7 +85,7 @@ func (c *Client) noArgsFacadeCall(name string, results interface{}) error {
 // machines and services.
 func (c *Client) WatchModelResources() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
-	err := c.noArgsFacadeCall("WatchModelResources", &results)
+	err := c.entityFacadeCall("WatchModelResources", &results)
 	if err != nil {
 		return nil, err
 	}

@@ -36,7 +36,8 @@ type SetModelAgentVersion struct {
 // ModelInfo holds information about the Juju model.
 type ModelInfo struct {
 	// The json names for the fields below are as per the older
-	// field names for backward compatability.
+	// field names for backward compatability. New fields are
+	// camel-cased for consistency within this type only.
 	Name           string `json:"Name"`
 	UUID           string `json:"UUID"`
 	ControllerUUID string `json:"ServerUUID"`
@@ -44,18 +45,18 @@ type ModelInfo struct {
 	DefaultSeries  string `json:"DefaultSeries"`
 
 	// OwnerTag is the tag of the user that owns the model.
-	OwnerTag string `json:"owner-tag"`
+	OwnerTag string `json:"OwnerTag"`
 
 	// Life is the current lifecycle state of the model.
-	Life Life `json:"life"`
+	Life Life `json:"Life"`
 
 	// Status is the current status of the model.
-	Status EntityStatus `json:"status"`
+	Status EntityStatus `json:"Status"`
 
 	// Users contains information about the users that have access
 	// to the model. Owners and administrators can see all users
 	// that have access; other users can only see their own details.
-	Users []ModelUserInfo
+	Users []ModelUserInfo `json:"Users"`
 }
 
 // ModelInfoResult holds the result of a ModelInfo call.

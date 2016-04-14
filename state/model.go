@@ -850,18 +850,23 @@ func (m *Model) assertActiveOp() txn.Op {
 // it when done. If m.st is the model-specific state, then it will
 // be returned and the close function will be a no-op.
 //
-// TODO(axw) find a way to guarantee that every Model is associated
-// with the appropriate State. The current work-around is too easy
-// to get wrong.
-func (m *Model) getState() (*State, func() error, error) {
+// TODO(axw) 2016-04-14 #1570269
+// find a way to guarantee that every Model is associated with the
+// appropriate State. The current work-around is too easy to get wrong.
+func (m *Model) getState() (*State, func(), error) {
 	if m.st.modelTag == m.ModelTag() {
-		return m.st, func() error { return nil }, nil
+		return m.st, func() {}, nil
 	}
 	st, err := m.st.ForModel(m.ModelTag())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return st, st.Close, nil
+	uuid := st.ModelUUID()
+	return st, func() {
+		if err := st.Close(); err != nil {
+			logger.Errorf("closing temporary state for model %s", uuid)
+		}
+	}, nil
 }
 
 // assertModelActiveOp returns a txn.Op that asserts the given

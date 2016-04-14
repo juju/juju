@@ -13,7 +13,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -36,25 +35,22 @@ type modelManagerBaseSuite struct {
 	jujutesting.JujuConnSuite
 
 	modelmanager *modelmanager.ModelManagerAPI
-	resources    *common.Resources
 	authoriser   apiservertesting.FakeAuthorizer
 }
 
 func (s *modelManagerBaseSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
-
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-
 	loggo.GetLogger("juju.apiserver.modelmanager").SetLogLevel(loggo.TRACE)
 }
 
 func (s *modelManagerBaseSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	modelmanager, err := modelmanager.NewModelManagerAPI(s.State, s.resources, s.authoriser)
+	modelmanager, err := modelmanager.NewModelManagerAPI(
+		modelmanager.NewStateBackend(s.State), s.authoriser,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelmanager = modelmanager
 }
@@ -68,7 +64,9 @@ var _ = gc.Suite(&modelManagerSuite{})
 func (s *modelManagerSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUserTag("external@remote")
-	endPoint, err := modelmanager.NewModelManagerAPI(s.State, s.resources, anAuthoriser)
+	endPoint, err := modelmanager.NewModelManagerAPI(
+		modelmanager.NewStateBackend(s.State), anAuthoriser,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
 }
@@ -76,7 +74,9 @@ func (s *modelManagerSuite) TestNewAPIAcceptsClient(c *gc.C) {
 func (s *modelManagerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
-	endPoint, err := modelmanager.NewModelManagerAPI(s.State, s.resources, anAuthoriser)
+	endPoint, err := modelmanager.NewModelManagerAPI(
+		modelmanager.NewStateBackend(s.State), anAuthoriser,
+	)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

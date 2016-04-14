@@ -26,7 +26,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
 
 func init() {
-	common.RegisterStandardFacade("ModelManager", 2, NewModelManagerAPI)
+	common.RegisterStandardFacade("ModelManager", 2, newFacade)
 }
 
 // ModelManager defines the methods on the modelmanager API endpoint.
@@ -39,7 +39,7 @@ type ModelManager interface {
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
-	state       StateInterface
+	state       Backend
 	authorizer  common.Authorizer
 	toolsFinder *common.ToolsFinder
 	isAdmin     bool
@@ -47,20 +47,19 @@ type ModelManagerAPI struct {
 
 var _ ModelManager = (*ModelManagerAPI)(nil)
 
+func newFacade(st *state.State, resources *common.Resources, auth common.Authorizer) (*ModelManagerAPI, error) {
+	return NewModelManagerAPI(NewStateBackend(st), auth)
+}
+
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
-func NewModelManagerAPI(
-	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
-) (*ModelManagerAPI, error) {
+func NewModelManagerAPI(st Backend, authorizer common.Authorizer) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	return &ModelManagerAPI{
-		state:       getState(st),
+		state:       st,
 		authorizer:  authorizer,
 		toolsFinder: common.NewToolsFinder(st, st, urlGetter),
 	}, nil
@@ -433,7 +432,7 @@ func isGreaterAccess(currentAccess, newAccess state.ModelAccess) bool {
 
 // ChangeModelAccess performs the requested access grant or revoke action for the
 // specified user on the specified model.
-func ChangeModelAccess(accessor StateInterface, modelTag names.ModelTag, createdBy, accessedBy names.UserTag, action params.ModelAction, access permission.ModelAccess) error {
+func ChangeModelAccess(accessor Backend, modelTag names.ModelTag, createdBy, accessedBy names.UserTag, action params.ModelAction, access permission.ModelAccess) error {
 	st, err := accessor.ForModel(modelTag)
 	if err != nil {
 		return errors.Annotate(err, "could not lookup model")

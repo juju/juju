@@ -145,6 +145,11 @@ const (
 	// StatusBlocked is set when:
 	// The unit needs manual intervention to get back to the Running state.
 	StatusBlocked Status = "blocked"
+
+	// StatusActive is set when:
+	// The unit believes it is correctly offering all the services it has
+	// been asked to offer.
+	StatusActive Status = "active"
 )
 
 const (
@@ -181,15 +186,6 @@ const (
 
 const (
 	// Status values that are common to several entities.
-
-	// StatusActive indicates that the entity is active and ready.
-	// for use.
-	//
-	// This is valid for units and models:
-	//  - StatusActive is set on a model when it is available for use.
-	//  - StatusActive is set on a unit when it believes it is correctly
-	//    offering all the services it has been asked to offer.
-	StatusActive Status = "active"
 
 	// StatusDestroying indicates that the entity is being destroyed.
 	//

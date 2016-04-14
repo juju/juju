@@ -101,7 +101,16 @@ func (u *Undertaker) run() error {
 	}
 
 	if modelInfo.Life == params.Dying {
-		if err := u.setStatus(status.StatusDestroying); err != nil {
+		// TODO(axw) 2016-04-14 #1570285
+		// We should update status with information
+		// about the remaining resources here, and
+		// also make the worker responsible for
+		// checking the emptiness criteria before
+		// attempting to remove the model.
+		if err := u.setStatus(
+			status.StatusDestroying,
+			"cleaning up cloud resources",
+		); err != nil {
 			return errors.Trace(err)
 		}
 		// Process the dying model. This blocks until the model
@@ -126,6 +135,11 @@ func (u *Undertaker) run() error {
 
 	// Now the model is known to be hosted and dead, we can tidy up any
 	// provider resources it might have used.
+	if err := u.setStatus(
+		status.StatusDestroying, "tearing down cloud environment",
+	); err != nil {
+		return errors.Trace(err)
+	}
 	if err := u.destroyEnviron(); err != nil {
 		return errors.Trace(err)
 	}
@@ -137,14 +151,14 @@ func (u *Undertaker) run() error {
 	if modelInfo.TimeOfDeath != nil {
 		deadSince = *modelInfo.TimeOfDeath
 	}
-	if err := u.setStatus(status.StatusArchived); err != nil {
+	if err := u.setStatus(status.StatusArchived, ""); err != nil {
 		return errors.Trace(err)
 	}
 	return u.processDeadModel(deadSince)
 }
 
-func (u *Undertaker) setStatus(modelStatus status.Status) error {
-	return u.config.Facade.SetStatus(modelStatus, "", nil)
+func (u *Undertaker) setStatus(modelStatus status.Status, message string) error {
+	return u.config.Facade.SetStatus(modelStatus, message, nil)
 }
 
 func (u *Undertaker) processDyingModel() error {

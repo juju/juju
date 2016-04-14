@@ -36,7 +36,9 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin@local"),
 	}
-	s.st = &mockState{}
+	s.st = &mockState{
+		uuid: coretesting.ModelTag.Id(),
+	}
 	s.st.model = &mockModel{
 		owner: names.NewUserTag("bob@local"),
 		cfg:   coretesting.ModelConfig(c),
@@ -58,7 +60,9 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			access:      state.ModelReadAccess,
 		}},
 	}
-	s.modelmanager = modelmanager.NewModelManagerAPIForTest(s.st, &s.authorizer, nil)
+	var err error
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, &s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
@@ -95,6 +99,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		}},
 	})
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
+		{"ModelUUID", nil},
 		{"ForModel", []interface{}{names.NewModelTag(s.st.model.cfg.UUID())}},
 		{"Model", nil},
 		{"IsControllerAdministrator", []interface{}{names.NewUserTag("admin@local")}},
@@ -176,9 +181,20 @@ func (s *modelInfoSuite) testModelInfoError(c *gc.C, modelTag, expectedErr strin
 
 type mockState struct {
 	gitjujutesting.Stub
+
+	common.APIHostPortsGetter
+	common.ModelConfigGetter
+	common.ToolsStorageGetter
+
+	uuid  string
 	model *mockModel
 	owner names.UserTag
 	users []*state.ModelUser
+}
+
+func (st *mockState) ModelUUID() string {
+	st.MethodCall(st, "ModelUUID")
+	return st.uuid
 }
 
 func (st *mockState) ModelsForUser(user names.UserTag) ([]*state.UserModel, error) {
@@ -201,7 +217,7 @@ func (st *mockState) ControllerModel() (*state.Model, error) {
 	return nil, st.NextErr()
 }
 
-func (st *mockState) ForModel(tag names.ModelTag) (modelmanager.StateInterface, error) {
+func (st *mockState) ForModel(tag names.ModelTag) (modelmanager.Backend, error) {
 	st.MethodCall(st, "ForModel", tag)
 	return st, st.NextErr()
 }
