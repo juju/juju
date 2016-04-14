@@ -18,7 +18,7 @@ DEBS_NOT_FOUND = 3
 
 # This constant defines the location of the base source package branch.
 DEFAULT_SPB = 'lp:~juju-qa/juju-release-tools/packaging-juju-core-default'
-# TODO Change to packaging-juju2-default when juju-ci-tools is ready.
+# TODO Merge packaging-juju2-default when juju-ci-tools is ready.
 DEFAULT_SPB2 = 'lp:~juju-qa/juju-release-tools/packaging-juju-core2-default'
 
 

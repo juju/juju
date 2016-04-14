@@ -100,9 +100,9 @@ class LPCopyPackagesTestCase(TestCase):
         from_archive = Mock(getPublishedSources=Mock())
         from_archive.getPublishedSources.return_value = [
             Mock(source_package_version='1.2.3~0',
-                 source_package_name='juju2'),
+                 source_package_name='juju-2.0'),
             Mock(source_package_version='1.2.1~0',
-                 source_package_name='juju2')]
+                 source_package_name='juju-2.0')]
         to_archive = Mock(copyPackage=Mock())
         with patch('lp_copy_packages.get_archives', autospec=True,
                    return_value=(from_archive, to_archive)) as ga_mock:
@@ -110,9 +110,9 @@ class LPCopyPackagesTestCase(TestCase):
         self.assertEqual(0, return_code)
         ga_mock.assert_called_with(lp, 'proposed')
         from_archive.getPublishedSources.assert_called_with(
-            status='Published', source_name='juju2')
+            status='Published', source_name='juju-2.0')
         self.assertEqual(1, to_archive.copyPackage.call_count)
         to_archive.copyPackage.assert_called_with(
-            from_archive=from_archive, source_name='juju2',
+            from_archive=from_archive, source_name='juju-2.0',
             version='1.2.3~0', to_pocket='Release',
             include_binaries=True, unembargo=True)

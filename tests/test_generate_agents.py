@@ -12,9 +12,9 @@ from utils import temp_dir
 
 class TestMoveDebs(TestCase):
 
-    def test_juju2(self):
+    def test_juju_2(self):
         with temp_dir() as dest_debs:
-            parent = os.path.join(dest_debs, 'juju2')
+            parent = os.path.join(dest_debs, 'juju-2.0')
             os.mkdir(parent)
             open(os.path.join(parent, 'foo.deb'), 'w').close()
             move_debs(dest_debs)

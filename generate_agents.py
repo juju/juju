@@ -38,10 +38,10 @@ PUBLIC_ARCHIVES = [UBUNTU_ARCH, ARM_ARCH]
 
 
 def move_debs(dest_debs):
-    juju_core_dir = os.path.join(dest_debs, 'juju2')
+    juju_core_dir = os.path.join(dest_debs, 'juju-2.0')
     debs = glob.glob(os.path.join(juju_core_dir, '*deb'))
     if len(debs) == 0:
-        # The juju2 package was not found, try the juju-core package.
+        # The juju-2.0 package was not found, try the juju-core package.
         print('No debs in {}'.format(juju_core_dir))
         juju_core_dir = os.path.join(dest_debs, 'juju-core')
         debs = glob.glob(os.path.join(juju_core_dir, '*deb'))
@@ -65,7 +65,8 @@ def retrieve_packages(release, upatch, archives, dest_debs, s3_config):
         print("checking {} for {}".format(safe_archive, release))
         subprocess.call([
             'lftp', '-c', 'mirror', '-i',
-            "(juju2|juju-core).*{}.*\.{}~juj.*\.deb$".format(release, upatch),
+            "(juju-2.0|juju-core).*{}.*\.{}~juj.*\.deb$".format(
+                release, upatch),
             archive], cwd=dest_debs)
     move_debs(dest_debs)
     if os.path.exists(s3_config):
