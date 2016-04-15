@@ -75,7 +75,7 @@ func (d *Download) run(url, dir string) {
 	// TODO(dimitern) 2013-10-03 bug #1234715
 	// Add a testing HTTPS storage to verify the
 	// disableSSLHostnameVerification behavior here.
-	file, err := download(url, dir, d.hostnameVerification)
+	file, err := download(url, dir, d.sendHTTPDownload)
 	if err != nil {
 		err = fmt.Errorf("cannot download %q: %v", url, err)
 	}
@@ -90,7 +90,21 @@ func (d *Download) run(url, dir string) {
 	}
 }
 
-func download(url, dir string, hostnameVerification utils.SSLHostnameVerification) (file *os.File, err error) {
+func (d *Download) sendHTTPDownload(url string) (io.ReadCloser, error) {
+	// TODO(rog) make the download operation interruptible.
+	client := utils.GetHTTPClient(d.hostnameVerification)
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, fmt.Errorf("bad http response: %v", resp.Status)
+	}
+	return resp.Body, nil
+}
+
+func download(url, dir string, httpDownload func(url string) (io.ReadCloser, error)) (file *os.File, err error) {
 	if dir == "" {
 		dir = os.TempDir()
 	}
@@ -103,17 +117,14 @@ func download(url, dir string, hostnameVerification utils.SSLHostnameVerificatio
 			cleanTempFile(tempFile)
 		}
 	}()
-	// TODO(rog) make the download operation interruptible.
-	client := utils.GetHTTPClient(hostnameVerification)
-	resp, err := client.Get(url)
+
+	reader, err := httpDownload(url)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad http response: %v", resp.Status)
-	}
-	_, err = io.Copy(tempFile, resp.Body)
+	defer reader.Close()
+
+	_, err = io.Copy(tempFile, reader)
 	if err != nil {
 		return nil, err
 	}
