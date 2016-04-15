@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
@@ -230,7 +231,7 @@ func (env *maasEnviron) usingMAAS2() bool {
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled(provider.MAAS) {
 		// When address allocation is not enabled, we should use the
 		// default bridge for both LXC and KVM containers. The bridge
 		// is created as part of the userdata for every node during
@@ -1038,7 +1039,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	// Override the network bridge to use for both LXC and KVM
 	// containers on the new instance, if address allocation feature
 	// flag is not enabled.
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled(provider.MAAS) {
 		if args.InstanceConfig.AgentEnvironment == nil {
 			args.InstanceConfig.AgentEnvironment = make(map[string]string)
 		}
@@ -1402,7 +1403,7 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string) (clou
 		cloudcfg.AddScripts("set -xe", runCmd)
 		// Only create the default bridge if we're not using static
 		// address allocation for containers.
-		if !environs.AddressAllocationEnabled() {
+		if !environs.AddressAllocationEnabled(provider.MAAS) {
 			// Address allocated feature flag might be disabled, but
 			// DisableNetworkManagement can still disable the bridge
 			// creation.
@@ -1806,7 +1807,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 		return errors.NewNotValid(nil, "invalid address: cannot be nil")
 	}
 
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled(provider.MAAS) {
 		logger.Tracef("creating device for container %q with MAC %q", hostname, macAddress)
 		deviceID, err := environ.createOrFetchDevice(macAddress, instId, hostname)
 		if err != nil {
@@ -1875,7 +1876,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
 func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, macAddress, hostname string) (err error) {
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled(provider.MAAS) {
 		logger.Tracef("getting device ID for container %q with MAC %q", macAddress, hostname)
 		deviceID, err := environ.fetchDevice(macAddress)
 		if err != nil {

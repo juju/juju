@@ -64,6 +64,12 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		bridgeDevice = container.DefaultKvmBridge
 	}
 
+	config, err := broker.api.ContainerConfig()
+	if err != nil {
+		kvmLogger.Errorf("failed to get container config: %v", err)
+		return nil, err
+	}
+
 	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
 		broker.api,
 		machineId,
@@ -72,6 +78,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		broker.enableNAT,
 		args.NetworkInfo,
 		kvmLogger,
+		config.ProviderType,
 	)
 	if err != nil {
 		// It's not fatal (yet) if we couldn't pre-allocate addresses for the
@@ -87,12 +94,6 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	series := args.Tools.OneSeries()
 	args.InstanceConfig.MachineContainerType = instance.KVM
 	args.InstanceConfig.Tools = args.Tools[0]
-
-	config, err := broker.api.ContainerConfig()
-	if err != nil {
-		kvmLogger.Errorf("failed to get container config: %v", err)
-		return nil, err
-	}
 
 	if err := instancecfg.PopulateInstanceConfig(
 		args.InstanceConfig,
@@ -149,6 +150,7 @@ func (broker *kvmBroker) MaintainInstance(args environs.StartInstanceParams) err
 		broker.enableNAT,
 		args.NetworkInfo,
 		kvmLogger,
+		broker.agentConfig.Value(agent.ProviderType),
 	)
 	return err
 }
@@ -162,7 +164,8 @@ func (broker *kvmBroker) StopInstances(ids ...instance.Id) error {
 			kvmLogger.Errorf("container did not stop: %v", err)
 			return err
 		}
-		maybeReleaseContainerAddresses(broker.api, id, broker.namespace, kvmLogger)
+		providerType := broker.agentConfig.Value(agent.ProviderType)
+		maybeReleaseContainerAddresses(broker.api, id, broker.namespace, kvmLogger, providerType)
 	}
 	return nil
 }
