@@ -57,6 +57,41 @@ Azure, or your local machine.
 https://juju.ubuntu.com/
 `
 
+var usageHelp = `
+Usage: juju [help] <command>
+
+Summary:
+Juju is model & service management software designed to leverage the power
+of existing resource pools, particularly cloud-based ones. It has built-in
+support for cloud providers such as Amazon EC2, Google GCE, Microsoft
+Azure, OpenStack, and Rackspace. It also works very well with MAAS and
+LXD. Juju allows for easy installation and management of workloads on a
+chosen resource pool.
+
+See https://jujucharms.com/docs/stable/help for documentation.
+
+Common commands:
+
+    add-credential Adds or replaces credentials for a cloud.
+    add-relation Adds a relation between two services.
+    add-unit Adds extra units of a deployed service.
+    add-user Adds a Juju user to a controller.
+    bootstrap Initializes a cloud environment.
+    create-model Creates a hosted model.
+    deploy Deploys a new service.
+    expose Makes a service publicly available over the network.
+    list-controllers Lists all controllers.
+    list-models Lists models a user can access on a controller.
+    status Displays the current status of Juju, services, and units.
+    switch Selects or identifies the current controller and model.
+
+Example help commands:
+
+    `[1:] + "`juju help`" + ` This help page
+    ` + "`juju help commands`" + ` Lists all commands
+    ` + "`juju help deploy`" + ` Shows help for command 'deploy'
+`
+
 var x = []byte("\x96\x8c\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91\x98\xf5")
 
 // Main registers subcommands for the juju executable, and hands over control
@@ -91,6 +126,7 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		MissingCallback:     RunPlugin,
 		UserAliasesFilename: osenv.JujuXDGDataHomePath("aliases"),
 	})
+	jcmd.AddHelpTopic("basics", "Basic Help Summary", usageHelp)
 	registerCommands(jcmd, ctx)
 	return jcmd
 }
