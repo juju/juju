@@ -79,9 +79,9 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 	s.createModelAdminUser(c, "new-model", false)
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME       OWNER        STATUS  LAST CONNECTION\n"+
-		"admin*     admin@local  active  just now\n"+
-		"new-model  admin@local  active  never connected\n"+
+		"NAME       OWNER        STATUS     LAST CONNECTION\n"+
+		"admin*     admin@local  available  just now\n"+
+		"new-model  admin@local  available  never connected\n"+
 		"\n")
 }
 
@@ -89,9 +89,9 @@ func (s *cmdControllerSuite) TestCreateModelNormalUser(c *gc.C) {
 	s.createModelNormalUser(c, "new-model", false)
 	context := s.run(c, "list-models", "--all")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME       OWNER        STATUS  LAST CONNECTION\n"+
-		"admin*     admin@local  active  just now\n"+
-		"new-model  test@local   active  never connected\n"+
+		"NAME       OWNER        STATUS     LAST CONNECTION\n"+
+		"admin*     admin@local  available  just now\n"+
+		"new-model  test@local   available  never connected\n"+
 		"\n")
 }
 
@@ -106,7 +106,7 @@ models:
   type: dummy
   life: alive
   status:
-    current: active
+    current: available
     since: .*
   users:
     admin@local:
@@ -131,15 +131,15 @@ func (s *cmdControllerSuite) TestListArchivedModels(c *gc.C) {
 
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME    OWNER        STATUS  LAST CONNECTION\n"+
-		"admin*  admin@local  active  just now\n"+
+		"NAME    OWNER        STATUS     LAST CONNECTION\n"+
+		"admin*  admin@local  available  just now\n"+
 		"\n")
 
 	context = s.run(c, "list-models", "--archived")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME       OWNER        STATUS    LAST CONNECTION\n"+
-		"admin*     admin@local  active    just now\n"+
-		"new-model  admin@local  archived  never connected\n"+
+		"NAME       OWNER        STATUS     LAST CONNECTION\n"+
+		"admin*     admin@local  available  just now\n"+
+		"new-model  admin@local  archived   never connected\n"+
 		"\n")
 }
 

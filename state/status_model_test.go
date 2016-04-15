@@ -44,7 +44,7 @@ func (s *ModelStatusSuite) TestInitialStatus(c *gc.C) {
 func (s *ModelStatusSuite) checkInitialStatus(c *gc.C) {
 	statusInfo, err := s.model.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.StatusActive)
+	c.Check(statusInfo.Status, gc.Equals, status.StatusAvailable)
 	c.Check(statusInfo.Message, gc.Equals, "")
 	c.Check(statusInfo.Data, gc.HasLen, 0)
 	c.Check(statusInfo.Since, gc.NotNil)
@@ -58,7 +58,7 @@ func (s *ModelStatusSuite) TestSetUnknownStatus(c *gc.C) {
 }
 
 func (s *ModelStatusSuite) TestSetOverwritesData(c *gc.C) {
-	err := s.model.SetStatus(status.StatusActive, "blah", map[string]interface{}{
+	err := s.model.SetStatus(status.StatusAvailable, "blah", map[string]interface{}{
 		"pew.pew": "zap",
 	})
 	c.Check(err, jc.ErrorIsNil)
@@ -94,7 +94,7 @@ func (s *ModelStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	err = s.st.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.model.SetStatus(status.StatusActive, "not really", nil)
+	err = s.model.SetStatus(status.StatusAvailable, "not really", nil)
 	c.Check(err, gc.ErrorMatches, `cannot set status: model not found`)
 
 	_, err = s.model.Status()
@@ -102,7 +102,7 @@ func (s *ModelStatusSuite) TestGetSetStatusGone(c *gc.C) {
 }
 
 func (s *ModelStatusSuite) checkGetSetStatus(c *gc.C) {
-	err := s.model.SetStatus(status.StatusActive, "blah", map[string]interface{}{
+	err := s.model.SetStatus(status.StatusAvailable, "blah", map[string]interface{}{
 		"$foo.bar.baz": map[string]interface{}{
 			"pew.pew": "zap",
 		},
@@ -114,7 +114,7 @@ func (s *ModelStatusSuite) checkGetSetStatus(c *gc.C) {
 
 	statusInfo, err := model.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.StatusActive)
+	c.Check(statusInfo.Status, gc.Equals, status.StatusAvailable)
 	c.Check(statusInfo.Message, gc.Equals, "blah")
 	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
 		"$foo.bar.baz": map[string]interface{}{

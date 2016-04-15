@@ -192,7 +192,7 @@ func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, o
 		// TODO(axw) 2016-04-13 lp:1569632
 		// We need to decide how we will
 		// represent migration in model status.
-		Status: status.StatusActive,
+		Status: status.StatusAvailable,
 	}
 
 	// When creating the controller model, the new model

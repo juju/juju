@@ -287,7 +287,7 @@ func (status Status) WorkloadMatches(candidate Status) bool {
 func ValidModelStatus(status Status) bool {
 	switch status {
 	case
-		StatusActive,
+		StatusAvailable,
 		StatusArchived,
 		StatusDestroying:
 		return true
