@@ -550,7 +550,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		var aliveEmpty, aliveNonEmpty, dying int
+		var aliveEmpty, aliveNonEmpty, dying, dead int
 		for _, model := range models {
 			if model.UUID() == m.UUID() {
 				// Ignore the controller model.
@@ -559,7 +559,9 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 			if model.Life() == Dead {
 				// Dead hosted models don't affect
 				// whether the controller can be
-				// destroyed or not.
+				// destroyed or not, but they are
+				// still counted in the hosted models.
+				dead++
 				continue
 			}
 			// See if the model is empty, and if it is,
@@ -580,7 +582,9 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 			// We cannot destroy the controller without first
 			// destroying the models and waiting for them to
 			// become Dead.
-			return nil, errors.Trace(hasHostedModelsError(dying + aliveNonEmpty + aliveEmpty))
+			return nil, errors.Trace(
+				hasHostedModelsError(dying + dead + aliveNonEmpty + aliveEmpty),
+			)
 		}
 		// Ensure that the number of active models has not changed
 		// between the query and when the transaction is applied.
@@ -589,7 +593,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		// move to Dead is still Alive, so we're protected from an
 		// ABA style problem where an empty model is concurrently
 		// removed, and replaced with a non-empty model.
-		prereqOps = append(prereqOps, assertHostedModelsOp(aliveEmpty))
+		prereqOps = append(prereqOps, assertHostedModelsOp(aliveEmpty+dead))
 	}
 
 	life := Dying
@@ -615,9 +619,6 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", modelUpdateValues}},
 	}}
-	if life == Dead {
-		ops = append(ops, decHostedModelCountOp())
-	}
 
 	// Because txn operations execute in order, and may encounter
 	// arbitrarily long delays, we need to make sure every op
@@ -783,9 +784,8 @@ func createModelEntityRefsOp(st *State, uuid string) txn.Op {
 const hostedModelCountKey = "hostedModelCount"
 
 type hostedModelCountDoc struct {
-
-	// RefCount is the number of models in the Juju system. We do not count
-	// the system model.
+	// RefCount is the number of models in the Juju system.
+	// We do not count the system model.
 	RefCount int `bson:"refcount"`
 }
 

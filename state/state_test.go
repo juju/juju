@@ -2475,7 +2475,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	env2, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env2.Destroy(), jc.ErrorIsNil)
-	err = state.RemoveModel(s.State, st2.ModelUUID())
+	err = st2.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// All except the removed env are reported in initial event.
@@ -2505,7 +2505,7 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	// Add a non-empty model: reported.
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
-	factory.NewFactory(st1).MakeService(c, nil)
+	svc := factory.NewFactory(st1).MakeService(c, nil)
 	env, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(env.UUID())
@@ -2518,7 +2518,11 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove the model: reported.
-	err = state.RemoveModel(s.State, env.UUID())
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st1.ProcessDyingModel()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st1.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(env.UUID())
 	wc.AssertNoChange()

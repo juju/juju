@@ -205,12 +205,16 @@ func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, o
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),
 		createConstraintsOp(st, modelGlobalKey, constraints.Value{}),
 		createSettingsOp(modelGlobalKey, cfg.AllAttrs()),
-		incHostedModelCountOp(),
+	}
+	if modelUUID != serverUUID {
+		ops = append(ops, incHostedModelCountOp())
+	}
+	ops = append(ops,
 		createModelEntityRefsOp(st, modelUUID),
 		createModelOp(st, owner, cfg.Name(), modelUUID, serverUUID, mode),
 		createUniqueOwnerModelNameOp(owner, cfg.Name()),
 		modelUserOp,
-	}
+	)
 	return ops, nil
 }
 
