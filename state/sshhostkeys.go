@@ -66,3 +66,13 @@ func (st *State) SetSSHHostKeys(tag names.MachineTag, keys SSHHostKeys) error {
 	})
 	return errors.Annotate(err, "SSH host key update failed")
 }
+
+// removeSSHHostKeyOp returns the operation needed to remove the SSH
+// host key document associated with the given globalKey.
+func removeSSHHostKeyOp(st *State, globalKey string) txn.Op {
+	return txn.Op{
+		C:      sshHostKeysC,
+		Id:     globalKey,
+		Remove: true,
+	}
+}
