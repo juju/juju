@@ -234,6 +234,36 @@ func testMinVer(client *api.Client, t minverTest, c *gc.C) {
 	}
 }
 
+func (s *clientSuite) TestOpenCharmFound(c *gc.C) {
+	client := s.APIState.Client()
+	curl := addLocalCharm(c, client, "dummy")
+
+	reader, err := client.OpenCharm(curl)
+	defer reader.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	data, err := ioutil.ReadAll(reader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(data), gc.Equals, `{"ErrorInfo":null,"Files":["actions.yaml","config.yaml","empty","empty/.gitkeep","hooks","hooks/install","metadata.yaml","revision","src","src/hello.c"]}`)
+}
+
+func (s *clientSuite) TestOpenCharmMissing(c *gc.C) {
+	curl := charm.MustParseURL("cs:quantal/spam-3")
+	client := s.APIState.Client()
+
+	_, err := client.OpenCharm(curl)
+
+	c.Check(err, gc.ErrorMatches, `.*unable to retrieve and save the charm: cannot get charm from state: charm "cs:quantal/spam-3" not found`)
+}
+
+func addLocalCharm(c *gc.C, client *api.Client, name string) *charm.URL {
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), name)
+	curl := charm.MustParseURL(fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()))
+	_, err := client.AddLocalCharm(curl, charmArchive)
+	c.Assert(err, jc.ErrorIsNil)
+	return curl
+}
+
 func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle func(http.ResponseWriter, *http.Request)) net.Listener {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)

@@ -425,6 +425,45 @@ func (c *Client) ResolveCharm(ref *charm.URL) (*charm.URL, error) {
 	return urlInfo.URL, nil
 }
 
+// OpenCharm streams out the identified charm from the controller via
+// the API.
+func (c *Client) OpenCharm(curl *charm.URL) (io.ReadCloser, error) {
+	query := make(url.Values)
+	query.Add("url", curl.String())
+
+	body, err := c.open("/charms", query)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return body, nil
+}
+
+func (c *Client) open(endpoint string, args url.Values) (io.ReadCloser, error) {
+	apiURL, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	apiURL.RawQuery = args.Encode()
+
+	req, err := http.NewRequest("GET", apiURL.String(), nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create HTTP request")
+	}
+	//req.Header.Set("Content-Type", "application/json")
+
+	// The returned httpClient sets the base url to /model/<uuid> if it can.
+	httpClient, err := c.st.HTTPClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var resp *http.Response
+	if err := httpClient.Do(req, nil, &resp); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return resp.Body, nil
+}
+
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
 func (c *Client) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (tools.List, error) {
 	endpoint := fmt.Sprintf("/tools?binaryVersion=%s&series=%s", vers, strings.Join(additionalSeries, ","))
