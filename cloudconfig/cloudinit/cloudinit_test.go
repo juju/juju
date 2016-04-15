@@ -294,6 +294,25 @@ var ctests = []struct {
 		)
 	},
 }, {
+	"SetPowerState",
+	map[string]interface{}{
+		"power_state": map[string]interface{}{
+			"delay":     "+1",
+			"mode":      "reboot",
+			"message":   "bye",
+			"timeout":   30,
+			"condition": "true",
+		}},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.SetPowerState(cloudinit.PowerState{
+			Delay:     "+1",
+			Mode:      "reboot",
+			Message:   "bye",
+			Timeout:   30,
+			Condition: "true",
+		})
+	},
+}, {
 	"AddTextFile",
 	map[string]interface{}{"runcmd": []string{
 		"install -D -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'",

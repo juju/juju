@@ -172,6 +172,20 @@ func (cfg *cloudConfig) AddRunCmd(args ...string) {
 	cfg.attrs["runcmd"] = append(cfg.RunCmds(), strings.Join(args, " "))
 }
 
+// PowerState defines the parameters passed to the power_state instruction
+type PowerState struct {
+	Delay     string `yaml:"delay,omitempty"`
+	Mode      string `yaml:"mode"`
+	Message   string `yaml:"message,omitempty"`
+	Timeout   int    `yaml:"timeout"`
+	Condition string `yaml:"condition"`
+}
+
+// SetPowerState sets the power_state instruction to the provided value
+func (cfg *cloudConfig) SetPowerState(s PowerState) {
+	cfg.attrs["power_state"] = s
+}
+
 // AddScripts is defined on the RunCmdsConfig interface.
 func (cfg *cloudConfig) AddScripts(script ...string) {
 	for _, line := range script {

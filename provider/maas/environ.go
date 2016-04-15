@@ -1215,6 +1215,12 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series st
 			cloudcfg.AddPackage("bridge-utils")
 			cloudcfg.AddBootTextFile(bridgeScriptPath, bridgeScriptPython, 0755)
 			cloudcfg.AddScripts(setupJujuNetworking())
+			cloudcfg.SetPowerState(cloudinit.PowerState{
+				Mode:      "reboot",
+				Message:   "rebooting to activate new network configuration",
+				Timeout:   10 * 60,
+				Condition: "true",
+			})
 		}
 	}
 	return cloudcfg, nil

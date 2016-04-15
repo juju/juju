@@ -53,6 +53,7 @@ type CloudConfig interface {
 	WrittenFilesConfig
 	RenderConfig
 	AdvancedPackagingConfig
+	PowerConfig
 }
 
 // UserConfig is the interface for managing all user-related settings.
@@ -375,6 +376,13 @@ type AdvancedPackagingConfig interface {
 	// AddCloudArchiveCloudTools configures the cloudconfig to set up the cloud
 	// archive if it is required (eg: LTS'es).
 	AddCloudArchiveCloudTools()
+}
+
+// PowerConfig provides the ability to control the power state of the machine
+// being initialised.
+type PowerConfig interface {
+	// SetPowerState adds a power_state instruction with the provided parameters
+	SetPowerState(s PowerState)
 }
 
 // New returns a new Config with no options set.

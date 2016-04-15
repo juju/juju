@@ -350,22 +350,11 @@ def main(args):
     print_shell_cmd("cat {}".format(args.filename))
     print_shell_cmd("ifconfig -a")
 
-    print("**** Activating new configuration")
     with open(args.filename, 'w') as f:
         print_stanzas(stanzas, f)
         f.close()
 
-    # --no-loopback isn't supported on precise so use --exclude=lo instead.
-    print_shell_cmd(
-        "ifdown --exclude=lo --interfaces {} --all".format(backup_file))
-    print_shell_cmd(
-        "ifup --exclude=lo --interfaces {} --all".format(args.filename))
-
     print_shell_cmd("cat {}".format(args.filename))
-    print_shell_cmd("ip link show up")
-    print_shell_cmd("ifconfig -a")
-    print_shell_cmd("ip route show")
-    print_shell_cmd("brctl show")
 
 # This script re-renders an interfaces(5) file to add a bridge to
 # either all active interfaces, or a specific interface.
