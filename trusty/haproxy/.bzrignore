@@ -1,0 +1,10 @@
+_trial_temp
+.coverage
+coverage.xml
+*.crt
+*.key
+lib/*
+*.pyc
+exec.d
+build/charm-helpers
+revision
