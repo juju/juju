@@ -745,10 +745,10 @@ func spaceNamesToSpaceInfo(spaces []string, spaceMap map[string]network.SpaceInf
 	return spaceInfos, nil
 }
 
-func (environ *maasEnviron) spaceNamesToSpaceInfo(positiveSpaces, negativeSpaces []string) ([]network.SpaceInfo, []network.SpaceInfo, error) {
+func (environ *maasEnviron) getSpaceMap() (map[string]network.SpaceInfo, error) {
 	spaces, err := environ.Spaces()
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	spaceMap := make(map[string]network.SpaceInfo)
 	empty := set.Strings{}
@@ -756,6 +756,15 @@ func (environ *maasEnviron) spaceNamesToSpaceInfo(positiveSpaces, negativeSpaces
 		jujuName := network.ConvertSpaceName(space.Name, empty)
 		spaceMap[jujuName] = space
 	}
+	return spaceMap, nil
+}
+
+func (environ *maasEnviron) spaceNamesToSpaceInfo(positiveSpaces, negativeSpaces []string) ([]network.SpaceInfo, []network.SpaceInfo, error) {
+	spaceMap, err := environ.getSpaceMap()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	positiveSpaceIds, err := spaceNamesToSpaceInfo(positiveSpaces, spaceMap)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -2423,15 +2432,26 @@ func (environ *maasEnviron) filteredSubnets2(instId instance.Id) ([]network.Subn
 		return nil, errors.Errorf("unexpected result from requesting machine %v: %v", instId, machines)
 	}
 	machine := machines[0]
+	spaceMap, err := environ.getSpaceMap()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	result := []network.SubnetInfo{}
 	for _, iface := range machine.InterfaceSet() {
 		for _, link := range iface.Links() {
 			subnet := link.Subnet()
+			spaces, err := spaceNamesToSpaceInfo([]string{subnet.Space()}, spaceMap)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			// spaceNamesToSpaceInfo guarantees to return the same
+			// number of results as the input or error.
+			space := spaces[0]
 			subnetInfo := network.SubnetInfo{
 				ProviderId:      network.Id(strconv.Itoa(subnet.ID())),
 				VLANTag:         subnet.VLAN().VID(),
 				CIDR:            subnet.CIDR(),
-				SpaceProviderId: network.Id(3),
+				SpaceProviderId: space.ProviderId,
 				// TODO (mfoord): not setting
 				// AllocatableIPLow/High - these aren't exposed in
 				// gomaasapi just yet.
