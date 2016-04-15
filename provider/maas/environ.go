@@ -2372,14 +2372,68 @@ func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) 
 }
 
 func (environ *maasEnviron) subnets2(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	subnets := []network.SubnetInfo{}
+	if instId == instance.UnknownId {
+		spaces, err := environ.Spaces()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, space := range spaces {
+			subnets = append(subnets, space.Subnets...)
+		}
+	} else {
+		var err error
+		subnets, err = environ.filteredSubnets2(instId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	if len(subnetIds) == 0 {
+		return subnets, nil
+	}
 	result := []network.SubnetInfo{}
-	// Initially ignore instId and subnetIds
-	spaces, err := environ.Spaces()
+	subnetMap := make(map[network.Id]bool)
+	for _, subnetId := range subnetIds {
+		subnetMap[subnetId] = false
+	}
+	for _, subnet := range subnets {
+		_, ok := subnetMap[subnet.ProviderId]
+		if !ok {
+			// This id is not what we're looking for.
+			continue
+		}
+		subnetMap[subnet.ProviderId] = true
+		result = append(result, subnet)
+	}
+
+	return result, checkNotFound(subnetsMap)
+}
+
+func (environ *maasEnviron) filteredSubnets2(instId instance.Id) ([]network.SubnetInfo, error) {
+	args := gomaasapi.MachinesArgs{
+		AgentName: environ.ecfg().maasAgentName(),
+		SystemIDs: []string{string(instId)},
+	}
+	machines, err := environ.maasController.Machines(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for _, space := range spaces {
-		result = append(result, space.Subnets...)
+	if len(machines) != 1 {
+		return nil, errors.Format("unexpected result from requesting machine %v: %v", instId, machines)
+	}
+	machine := machines[0]
+	result := []network.SubnetInfo{}
+	for i, subnet := range space.Subnets() {
+		subnetInfo := network.SubnetInfo{
+			ProviderId:      network.Id(strconv.Itoa(subnet.ID())),
+			VLANTag:         subnet.VLAN().VID(),
+			CIDR:            subnet.CIDR(),
+			SpaceProviderId: network.Id(strconv.Itoa(space.ID())),
+			// TODO (mfoord): not setting
+			// AllocatableIPLow/High - these aren't exposed in
+			// gomaasapi just yet.
+		}
 	}
 	return result, nil
 }
