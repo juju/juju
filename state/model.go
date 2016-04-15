@@ -183,7 +183,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		}
 	}()
 
-	ops, err := newState.envSetupOps(args.Config, uuid, ssEnv.UUID(), owner, args.MigrationMode)
+	ops, err := newState.modelSetupOps(args.Config, uuid, ssEnv.UUID(), owner, args.MigrationMode)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
@@ -570,7 +570,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 			// destroying the models and waiting for them to
 			// become Dead.
 			return nil, errors.Trace(
-				hasHostedModelsError(dying + dead + aliveNonEmpty + aliveEmpty),
+				hasHostedModelsError(dying + aliveNonEmpty + aliveEmpty),
 			)
 		}
 		// Ensure that the number of active models has not changed
@@ -798,8 +798,9 @@ func decHostedModelCountOp() txn.Op {
 
 func HostedModelCountOp(amount int) txn.Op {
 	return txn.Op{
-		C:  controllersC,
-		Id: hostedModelCountKey,
+		C:      controllersC,
+		Id:     hostedModelCountKey,
+		Assert: txn.DocExists,
 		Update: bson.M{
 			"$inc": bson.M{"refcount": amount},
 		},

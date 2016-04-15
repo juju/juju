@@ -3086,6 +3086,7 @@ func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	userModelKey := s.insertFakeModelDocs(c, st)
+	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 1)
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3098,6 +3099,7 @@ func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
 	// test that we can not find the user:envName unique index
 	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
 	s.AssertModelDeleted(c, st)
+	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
 }
 
 type attrs map[string]interface{}

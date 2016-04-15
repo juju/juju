@@ -133,7 +133,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
 	logger.Infof("initializing controller model %s", uuid)
-	ops, err := st.envSetupOps(cfg, uuid, uuid, owner, MigrationModeActive)
+	modelOps, err := st.modelSetupOps(cfg, uuid, uuid, owner, MigrationModeActive)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -141,7 +141,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	if err != nil {
 		return nil, err
 	}
-	ops = append(ops,
+	ops := []txn.Op{
 		createInitialUserOp(st, owner, info.Password, salt),
 		txn.Op{
 			C:      controllersC,
@@ -169,7 +169,8 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			Assert: txn.DocMissing,
 			Insert: &hostedModelCountDoc{},
 		},
-	)
+	}
+	ops = append(ops, modelOps...)
 
 	if err := st.runTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
@@ -180,7 +181,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	return st, nil
 }
 
-func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
+func (st *State) modelSetupOps(cfg *config.Config, modelUUID, serverUUID string, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
 	if err := checkModelConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
