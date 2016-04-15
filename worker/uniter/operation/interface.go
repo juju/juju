@@ -95,10 +95,6 @@ type Factory interface {
 	// func.
 	NewCommands(args CommandArgs, sendResponse CommandResponseFunc) (Operation, error)
 
-	// NewUpdateStorage creates an operation to ensure the supplied storage
-	// tags are known and tracked.
-	NewUpdateStorage(tags []names.StorageTag) (Operation, error)
-
 	// NewAcceptLeadership creates an operation to ensure the uniter acts as
 	// service leader.
 	NewAcceptLeadership() (Operation, error)
