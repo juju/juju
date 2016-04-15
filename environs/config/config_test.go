@@ -797,8 +797,56 @@ var configTests = []configTest{
 			"resource-tags": []string{"a"},
 		}),
 		err: `resource-tags: expected "key=value", got "a"`,
-	},
-	{
+	}, {
+		about:       "Mismatched rsyslog cert and key",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"rsyslog-url":         "https://test.com",
+			"rsyslog-ca-cert":     caCert,
+			"rsyslog-client-cert": caCert,
+			"rsyslog-client-key":  caKey2,
+		}),
+		err: "Cert/Key pair not valid: crypto/tls: private key does not match public key",
+	}, {
+		about:       "Invalid rsyslog URL value",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"rsyslog-url":         "%",
+			"rsyslog-ca-cert":     caCert,
+			"rsyslog-client-cert": caCert,
+			"rsyslog-client-key":  caKey,
+		}),
+		err: `URL not valid: parse %: invalid URL escape \"%\"`,
+	}, {
+		about:       "Invalid rsyslog url schema",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"rsyslog-url":         "http://test.com",
+			"rsyslog-ca-cert":     caCert,
+			"rsyslog-client-cert": caCert,
+			"rsyslog-client-key":  caKey,
+		}),
+		err: "URL not valid; https required",
+	}, {
+		about:       "Invalid rsyslog ca cert format",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"rsyslog-url":         "https://test.com",
+			"rsyslog-ca-cert":     "abc",
+			"rsyslog-client-cert": caCert,
+			"rsyslog-client-key":  caKey,
+		}),
+		err: "CACert not valid: no certificates found",
+	}, {
+		about:       "Valid rsyslog config values",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"rsyslog-url":         "https://test.com",
+			"rsyslog-ca-cert":     caCert,
+			"rsyslog-client-cert": caCert,
+			"rsyslog-client-key":  caKey,
+		}),
+	}, {
 		about:       "Invalid identity URL value",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -1099,6 +1147,20 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	} else {
 		// Content of all the files that are read by default.
 		c.Assert(cfg.AuthorizedKeys(), gc.Equals, "dsa\nrsa\nidentity\n")
+	}
+
+	rsyslogCACert, rsyslogCACertPresent := test.attrs["rsyslog-ca-cert"]
+	rsyslogClientCert, rsyslogClientCertPresent := test.attrs["rsyslog-client-cert"]
+	rsyslogClientKey, rsyslogClientKeyPresent := test.attrs["rsyslog-client-key"]
+	rsyslogURL, rsyslogURLPresent := test.attrs["rsyslog-url"]
+
+	rsyslogCfg, err := cfg.RsyslogConfig()
+	if rsyslogURLPresent && rsyslogCACertPresent && rsyslogClientCertPresent && rsyslogClientKeyPresent {
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(rsyslogURL, gc.Equals, rsyslogCfg.URL)
+		c.Check(rsyslogCACert, gc.Equals, rsyslogCfg.CACert)
+		c.Check(rsyslogClientCert, gc.Equals, rsyslogCfg.Cert)
+		c.Check(rsyslogClientKey, gc.Equals, rsyslogCfg.Key)
 	}
 
 	cert, certPresent := cfg.CACert()
