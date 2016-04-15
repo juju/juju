@@ -241,7 +241,7 @@ func addNetworkDeviceToProfile(client *lxdclient.Client, profile, parentDevice, 
 
 func networkProfileAddSingleInterface(client *lxdclient.Client, profile string, networkConfig *container.NetworkConfig) error {
 	_, err := addNetworkDeviceToProfile(client, profile, networkConfig.Device, "eth0", "", networkConfig.MTU)
-	return err
+	return errors.Trace(err)
 }
 
 func networkProfileAddInterfaces(client *lxdclient.Client, profile string, networkConfig *container.NetworkConfig) error {
@@ -257,7 +257,7 @@ func networkProfileAddInterfaces(client *lxdclient.Client, profile string, netwo
 		_, err := addNetworkDeviceToProfile(client, profile, v.ParentInterfaceName, v.InterfaceName, v.MACAddress, v.MTU)
 
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 
@@ -268,13 +268,13 @@ func createNetworkProfile(client *lxdclient.Client, profile string) error {
 	found, err := client.HasProfile(profile)
 
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	if found {
 		logger.Infof("deleting existing container profile %q", profile)
 		if err := client.ProfileDelete(profile); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 
@@ -284,7 +284,7 @@ func createNetworkProfile(client *lxdclient.Client, profile string) error {
 		logger.Infof("created new network container profile %q", profile)
 	}
 
-	return err
+	return errors.Trace(err)
 }
 
 func (manager *containerManager) deleteNetworkProfile() {
