@@ -473,7 +473,8 @@ def make_charm(charm_dir, min_ver='1.25.0', name='dummy',
     metadata = os.path.join(charm_dir, 'metadata.yaml')
     content = {}
     content['name'] = name
-    content['min-juju-version'] = min_ver
+    if min_ver is not None:
+        content['min-juju-version'] = min_ver
     content['summary'] = summary
     content['description'] = description
     if series is not None:
