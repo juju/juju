@@ -58,7 +58,7 @@ func (s *storageResolver) NextOp(
 		}
 	}
 
-	if err := s.shortCircuitRemoval(remoteState.Storage); err != nil {
+	if err := s.maybeShortCircuitRemoval(remoteState.Storage); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -100,9 +100,9 @@ func (s *storageResolver) NextOp(
 	return nil, resolver.ErrNoOperation
 }
 
-// shortCircuitRemoval removes any storage that is not alive, and has not
-// had a storage-attached hook committed.
-func (s *storageResolver) shortCircuitRemoval(remote map[names.StorageTag]remotestate.StorageSnapshot) error {
+// maybeShortCircuitRemoval removes any storage that is not alive,
+// and has not had a storage-attached hook committed.
+func (s *storageResolver) maybeShortCircuitRemoval(remote map[names.StorageTag]remotestate.StorageSnapshot) error {
 	for tag, snap := range remote {
 		local, ok := s.storage.storageAttachments[tag]
 		if (ok && local.attached) || snap.Life == params.Alive {
