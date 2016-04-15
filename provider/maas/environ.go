@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
@@ -168,7 +167,7 @@ func (env *maasEnviron) usingMAAS2() bool {
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	if environs.AddressAllocationEnabled(provider.MAAS) {
+	if featureflag.Enabled(feature.AddressAllocation) {
 		logger.Warningf("address-allocation feature flag is no longer supported on MAAS and is ignored!")
 	}
 
