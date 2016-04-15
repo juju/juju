@@ -29,8 +29,10 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
 	envtesting "github.com/juju/juju/environs/testing"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/azure"
@@ -752,4 +754,15 @@ func (s *environSuite) constraintsValidator(c *gc.C) constraints.Validator {
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 	return validator
+}
+
+func (s *environSuite) TestAgentMirror(c *gc.C) {
+	env := s.openEnviron(c)
+	c.Assert(env, gc.Implements, new(envtools.HasAgentMirror))
+	cloudSpec, err := env.(envtools.HasAgentMirror).AgentMirror()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cloudSpec, gc.Equals, simplestreams.CloudSpec{
+		Region:   "westus",
+		Endpoint: "https://storage.azurestack.local/",
+	})
 }
