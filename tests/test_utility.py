@@ -635,3 +635,16 @@ class TestMakeCharm(TestCase):
                     'min-juju-version': '2.0.0',
                     'summary': 'foobar'}
         self.assertEqual(content, expected)
+
+    def test_make_charm_none(self):
+        with temp_dir() as charm_dir:
+            make_charm(charm_dir, min_ver=None, name='mycharm',
+                       description='foo-description', summary='foo-summary',
+                       series=None)
+            metadata = os.path.join(charm_dir, 'metadata.yaml')
+            with open(metadata, 'r') as f:
+                content = yaml.safe_load(f)
+        expected = {'name': 'mycharm',
+                    'description': 'foo-description',
+                    'summary': 'foo-summary'}
+        self.assertEqual(content, expected)
