@@ -801,36 +801,50 @@ var configTests = []configTest{
 		about:       "Mismatched rsyslog cert and key",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"rsyslog-url":         "https://test.com",
+			"rsyslog-ca-cert":     caCert,
 			"rsyslog-client-cert": caCert,
 			"rsyslog-client-key":  caKey2,
 		}),
-		err: "bad rsyslog client certificate/key in configuration: crypto/tls: private key does not match public key",
+		err: "Cert/Key pair not valid: crypto/tls: private key does not match public key",
 	}, {
 		about:       "Invalid rsyslog URL value",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"type":        "my-type",
-			"name":        "my-name",
-			"rsyslog-url": "%",
+			"rsyslog-url":         "%",
+			"rsyslog-ca-cert":     caCert,
+			"rsyslog-client-cert": caCert,
+			"rsyslog-client-key":  caKey,
 		}),
-		err: `invalid rsyslog URL: parse %: invalid URL escape "%"`,
+		err: `URL not valid: parse %: invalid URL escape \"%\"`,
+	}, {
+		about:       "Invalid rsyslog url schema",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"rsyslog-url":         "http://test.com",
+			"rsyslog-ca-cert":     caCert,
+			"rsyslog-client-cert": caCert,
+			"rsyslog-client-key":  caKey,
+		}),
+		err: "URL not valid; https required",
 	}, {
 		about:       "Invalid rsyslog ca cert format",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
-			"rsyslog-ca-cert": "abc",
+			"rsyslog-url":         "https://test.com",
+			"rsyslog-ca-cert":     "abc",
+			"rsyslog-client-cert": caCert,
+			"rsyslog-client-key":  caKey,
 		}),
-		err: "invalid rsyslog CA certificate: no certificates found",
+		err: "CACert not valid: no certificates found",
 	}, {
 		about:       "Valid rsyslog config values",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
-			"rsyslog-url":     "https://localhost:1234",
-			"rsyslog-ca-cert": caCert,
+			"rsyslog-url":         "https://test.com",
+			"rsyslog-ca-cert":     caCert,
+			"rsyslog-client-cert": caCert,
+			"rsyslog-client-key":  caKey,
 		}),
 	}, {
 		about:       "Invalid identity URL value",
@@ -1135,31 +1149,18 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.AuthorizedKeys(), gc.Equals, "dsa\nrsa\nidentity\n")
 	}
 
-	rsyslogCACert, rsyslogCACertPresent := cfg.RsyslogCACert()
-	if v, ok := test.attrs["rsyslog-ca-cert"].(string); v != "" {
-		c.Assert(rsyslogCACertPresent, jc.IsTrue)
-		c.Assert(string(rsyslogCACert), gc.Equals, v)
-	} else if ok {
-		c.Check(rsyslogCACert, gc.HasLen, 0)
-		c.Assert(rsyslogCACertPresent, jc.IsFalse)
-	}
+	rsyslogCACert, rsyslogCACertPresent := test.attrs["rsyslog-ca-cert"]
+	rsyslogClientCert, rsyslogClientCertPresent := test.attrs["rsyslog-client-cert"]
+	rsyslogClientKey, rsyslogClientKeyPresent := test.attrs["rsyslog-client-key"]
+	rsyslogURL, rsyslogURLPresent := test.attrs["rsyslog-url"]
 
-	rsyslogClientCert, rsyslogClientCertPresent := cfg.RsyslogClientCert()
-	if v, ok := test.attrs["rsyslog-client-cert"].(string); v != "" {
-		c.Assert(rsyslogClientCertPresent, jc.IsTrue)
-		c.Assert(string(rsyslogClientCert), gc.Equals, v)
-	} else if ok {
-		c.Check(rsyslogClientCert, gc.HasLen, 0)
-		c.Assert(rsyslogClientCertPresent, jc.IsFalse)
-	}
-
-	rsyslogClientKey, rsyslogClientKeyPresent := cfg.RsyslogClientKey()
-	if v, ok := test.attrs["rsyslog-client-key"].(string); v != "" {
-		c.Assert(rsyslogClientKeyPresent, jc.IsTrue)
-		c.Assert(string(rsyslogClientKey), gc.Equals, v)
-	} else if ok {
-		c.Check(rsyslogClientKey, gc.HasLen, 0)
-		c.Assert(rsyslogClientKeyPresent, jc.IsFalse)
+	rsyslogCfg, err := cfg.RsyslogConfig()
+	if rsyslogURLPresent && rsyslogCACertPresent && rsyslogClientCertPresent && rsyslogClientKeyPresent {
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(rsyslogURL, gc.Equals, rsyslogCfg.URL)
+		c.Check(rsyslogCACert, gc.Equals, rsyslogCfg.CACert)
+		c.Check(rsyslogClientCert, gc.Equals, rsyslogCfg.Cert)
+		c.Check(rsyslogClientKey, gc.Equals, rsyslogCfg.Key)
 	}
 
 	cert, certPresent := cfg.CACert()

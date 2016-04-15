@@ -25,6 +25,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery"
 
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/core/rsyslog"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -636,24 +637,9 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if v, ok := cfg.defined[RsyslogURL].(string); ok {
-		_, err := url.Parse(v)
-		if err != nil {
-			return fmt.Errorf("invalid rsyslog URL: %v", err)
-		}
-	}
-	rsyslogCACert, rsyslogCACertOK := cfg.RsyslogCACert()
-	if rsyslogCACertOK {
-		if _, err := cert.ParseCert(rsyslogCACert); err != nil {
-			return errors.Annotate(err, "invalid rsyslog CA certificate")
-		}
-	}
-	rsyslogClientCert, rsyslogClientCertOK := cfg.RsyslogClientCert()
-	rsyslogClientKey, rsyslogClientKeyOK := cfg.RsyslogClientKey()
-	if rsyslogClientCertOK && rsyslogClientKeyOK {
-		if err := verifyKeyPair(rsyslogClientCert, rsyslogClientKey); err != nil {
-			return errors.Annotate(err, "bad rsyslog client certificate/key in configuration")
-		}
+	_, err := cfg.RsyslogConfig()
+	if err != nil && errors.Cause(err) != rsyslog.ErrNotConfigured {
+		return errors.Trace(err)
 	}
 
 	if v, ok := cfg.defined[IdentityURL].(string); ok {
@@ -1025,40 +1011,16 @@ func (c *Config) CAPrivateKey() (key string, ok bool) {
 	return "", false
 }
 
-// RsyslogURL returns the URL of the rsyslog server.
-func (c *Config) RsyslogURL() (string, bool) {
-	if s, ok := c.defined[RsyslogURL]; ok && s != "" {
-		return s.(string), true
+// RsyslogConfig return the rsyslog client config.
+func (c *Config) RsyslogConfig() (rsyslog.ClientConfig, error) {
+	cfg := rsyslog.ClientConfig{
+		URL:    c.asString(RsyslogURL),
+		CACert: c.asString(RsyslogCACert),
+		Cert:   c.asString(RsyslogClientCert),
+		Key:    c.asString(RsyslogClientKey),
 	}
-	return "", false
-}
-
-// RsyslogCACert returns the certificate of the CA that signed the
-// rsyslog server certificate, in PEM format, and whether the
-// config value is available.
-func (c *Config) RsyslogCACert() (string, bool) {
-	if s, ok := c.defined[RsyslogCACert]; ok && s != "" {
-		return s.(string), true
-	}
-	return "", false
-}
-
-// RsyslogClientCert returns the client certificate in
-// PEM format and whether the config value is available.
-func (c *Config) RsyslogClientCert() (string, bool) {
-	if s, ok := c.defined[RsyslogClientCert]; ok && s != "" {
-		return s.(string), true
-	}
-	return "", false
-}
-
-// RsyslogClientKey returns the client key in PEM
-// format and whether the config value is available.
-func (c *Config) RsyslogClientKey() (string, bool) {
-	if s, ok := c.defined[RsyslogClientKey]; ok && s != "" {
-		return s.(string), true
-	}
-	return "", false
+	err := cfg.Validate()
+	return cfg, errors.Trace(err)
 }
 
 // AdminSecret returns the administrator password.
