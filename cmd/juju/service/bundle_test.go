@@ -34,17 +34,12 @@ func runDeployCommand(c *gc.C, id string, args ...string) (string, error) {
 	return strings.Trim(coretesting.Stderr(ctx), "\n"), err
 }
 
-func (s *DeploySuite) TestDeployBundleNotFoundLocal(c *gc.C) {
-	err := runDeploy(c, "local:bundle/no-such")
-	c.Assert(err, gc.ErrorMatches, `entity not found in ".*": local:bundle/no-such-0`)
-}
-
-func (s *DeployCharmStoreSuite) TestDeployBundleNotFoundCharmStore(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleNotFoundCharmStore(c *gc.C) {
 	err := runDeploy(c, "bundle/no-such")
 	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:bundle/no-such": bundle not found`)
 }
 
-func (s *DeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
@@ -56,7 +51,7 @@ func (s *DeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "Flags provided but not supported when deploying a bundle: --force, --series.")
 }
 
-func (s *DeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
@@ -84,7 +79,7 @@ deployment of bundle "cs:bundle/wordpress-simple-1" completed`
 	})
 }
 
-func (s *DeployCharmStoreSuite) TestDeployBundleWithTermsSuccess(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithTermsSuccess(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/terms1-17", "terms1")
 	testcharms.UploadCharm(c, s.client, "trusty/terms2-42", "terms2")
 	testcharms.UploadBundle(c, s.client, "bundle/terms-simple-1", "terms-simple")
@@ -111,7 +106,7 @@ deployment of bundle "cs:bundle/terms-simple-1" completed`
 	c.Assert(s.termsString, gc.Not(gc.Equals), "")
 }
 
-func (s *DeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql-storage")
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-mysql-storage-1", "wordpress-with-mysql-storage")
@@ -148,7 +143,7 @@ deployment of bundle "cs:bundle/wordpress-with-mysql-storage-1" completed`
 	})
 }
 
-func (s *DeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissing(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissing(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-extra-bindings-47", "wordpress-extra-bindings")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings")
@@ -162,7 +157,7 @@ func (s *DeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissing(c *
 	s.assertUnitsCreated(c, map[string]string{})
 }
 
-func (s *DeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c *gc.C) {
 	_, err := s.State.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("public", "", nil, false)
@@ -214,7 +209,7 @@ deployment of bundle "cs:bundle/wordpress-with-endpoint-bindings-1" completed`
 	})
 }
 
-func (s *DeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
@@ -244,7 +239,7 @@ deployment of bundle "cs:bundle/wordpress-simple-1" completed`
 	})
 }
 
-func (s *DeployCharmStoreSuite) TestDeployBundleGatedCharm(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharm(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
 	url, _ := testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
 	s.changeReadPerm(c, url, clientUserName)
@@ -258,13 +253,16 @@ func (s *DeployCharmStoreSuite) TestDeployBundleGatedCharm(c *gc.C) {
 	})
 }
 
-func (s *DeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
-	path := filepath.Join(c.MkDir(), "mybundle")
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
+	dir := c.MkDir()
+	testcharms.Repo.ClonedDir(dir, "dummy")
+	path := filepath.Join(dir, "mybundle")
 	data := `
+        series: trusty
         services:
-            wordpress:
-                charm: wordpress
+            dummy:
+                charm: ./dummy
+                series: xenial
                 num_units: 1
     `
 	err := ioutil.WriteFile(path, []byte(data), 0644)
@@ -272,18 +270,18 @@ func (s *DeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 	output, err := runDeployCommand(c, path)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := fmt.Sprintf(`
-added charm cs:trusty/wordpress-47
-service wordpress deployed (charm: cs:trusty/wordpress-47)
-added wordpress/0 unit to new machine
+added charm local:xenial/dummy-1
+service dummy deployed (charm: local:xenial/dummy-1)
+added dummy/0 unit to new machine
 deployment of bundle %q completed`, path)
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUploaded(c, "cs:trusty/wordpress-47")
+	s.assertCharmsUploaded(c, "local:xenial/dummy-1")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
-		"wordpress": {charm: "cs:trusty/wordpress-47"},
+		"dummy": {charm: "local:xenial/dummy-1"},
 	})
 }
 
-func (s *DeployCharmStoreSuite) TestDeployBundleGatedCharmUnauthorized(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharmUnauthorized(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
 	url, _ := testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
 	s.changeReadPerm(c, url, "who")
@@ -292,57 +290,50 @@ func (s *DeployCharmStoreSuite) TestDeployBundleGatedCharmUnauthorized(c *gc.C) 
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: .*: unauthorized: access denied for user "client-username"`)
 }
 
-type DeployRepoCharmStoreSuite struct {
+type BundleDeployCharmStoreSuite struct {
 	charmStoreSuite
 	testing.BaseRepoSuite
 
 	Client *csclient.Client
 }
 
-var _ = gc.Suite(&DeployRepoCharmStoreSuite{})
+var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
 
-func (s *DeployRepoCharmStoreSuite) SetUpSuite(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
 	s.charmStoreSuite.SetUpSuite(c)
 	s.BaseRepoSuite.SetUpSuite(c)
 	s.PatchValue(&watcher.Period, 10*time.Millisecond)
 }
 
-func (s *DeployRepoCharmStoreSuite) TearDownSuite(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TearDownSuite(c *gc.C) {
 	s.BaseRepoSuite.TearDownSuite(c)
 	s.charmStoreSuite.TearDownSuite(c)
 }
 
-func (s *DeployRepoCharmStoreSuite) SetUpTest(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) SetUpTest(c *gc.C) {
 	s.charmStoreSuite.SetUpTest(c)
 	s.BaseRepoSuite.SetUpTest(c)
 
 	s.Client = s.client
 }
 
-func (s *DeployRepoCharmStoreSuite) TearDownTest(c *gc.C) {
-	s.BaseRepoSuite.TearDownTest(c)
+func (s *BundleDeployCharmStoreSuite) TearDownTest(c *gc.C) {
 	s.charmStoreSuite.TearDownTest(c)
 }
 
 // DeployBundleYAML uses the given bundle content to create a bundle in the
 // local repository and then deploy it. It returns the bundle deployment output
 // and error.
-func (s *DeployRepoCharmStoreSuite) DeployBundleYAML(c *gc.C, content string) (string, error) {
-	bundlePath := filepath.Join(s.BundlesPath, "example")
+func (s *BundleDeployCharmStoreSuite) DeployBundleYAML(c *gc.C, content string) (string, error) {
+	bundlePath := filepath.Join(c.MkDir(), "example")
 	c.Assert(os.Mkdir(bundlePath, 0777), jc.ErrorIsNil)
 	defer os.RemoveAll(bundlePath)
 	err := ioutil.WriteFile(filepath.Join(bundlePath, "bundle.yaml"), []byte(content), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	return runDeployCommand(c, "local:bundle/example")
+	return runDeployCommand(c, bundlePath)
 }
-
-type deployRepoCharmStoreSuite struct {
-	DeployRepoCharmStoreSuite
-}
-
-var _ = gc.Suite(&deployRepoCharmStoreSuite{})
 
 var deployBundleErrorsTests = []struct {
 	about   string
@@ -353,10 +344,11 @@ var deployBundleErrorsTests = []struct {
 	content: `
         services:
             mysql:
-                charm: local:mysql
+                charm: ./mysql
                 num_units: 1
     `,
-	err: `cannot deploy bundle: cannot resolve URL "local:mysql": entity not found .*`,
+	err: `the provided bundle has the following errors:
+charm path in service "mysql" does not exist: mysql`,
 }, {
 	about: "charm store charm not found",
 	content: `
@@ -408,21 +400,21 @@ negative number of units specified on service "mysql"`,
 	content: `
         services:
             example:
-                charm: local:bundle/example
+                charm: local:wordpress
                 num_units: 1
     `,
-	err: `cannot deploy bundle: expected charm URL, got bundle URL "local:bundle/example"`,
+	err: `cannot deploy bundle: cannot resolve URL "local:wordpress": unknown schema for charm URL "local:wordpress"`,
 }}
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleErrors(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleErrors(c *gc.C) {
 	for i, test := range deployBundleErrorsTests {
 		c.Logf("test %d: %s", i, test.about)
 		_, err := s.DeployBundleYAML(c, test.content)
-		c.Assert(err, gc.ErrorMatches, test.err)
+		c.Check(err, gc.ErrorMatches, test.err)
 	}
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidOptions(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidOptions(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
 	_, err := s.DeployBundleYAML(c, `
         services:
@@ -435,7 +427,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidOptions(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot deploy service "wp": option "blog-title" expected string, got 42`)
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidMachineContainerType(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidMachineContainerType(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
 	_, err := s.DeployBundleYAML(c, `
         services:
@@ -449,7 +441,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidMachineContainerType(
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot create machine for holding wp unit: invalid container type "bad"`)
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "vivid/django-0", "dummy")
 	_, err := s.DeployBundleYAML(c, `
         services:
@@ -465,7 +457,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot add unit for service "django": adding new machine to host unit "django/0": cannot assign unit "django/0" to machine 0: series does not match`)
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
 	// Inject an "AllWatcher" that never delivers a result.
 	ch := make(chan struct{})
 	defer close(ch)
@@ -495,20 +487,21 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot retrieve placement for "wordpress" unit: cannot resolve machine: timeout while trying to get new changes from the watcher`)
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
-	testcharms.Repo.ClonedDirPath(s.SeriesPath, "mysql")
-	testcharms.Repo.ClonedDirPath(s.SeriesPath, "wordpress")
-	output, err := s.DeployBundleYAML(c, `
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
+	mysqlPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "mysql")
+	wordpressPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "wordpress")
+	output, err := s.DeployBundleYAML(c, fmt.Sprintf(`
+        series: trusty
         services:
             wordpress:
-                charm: local:wordpress
+                charm: %s
                 num_units: 1
             mysql:
-                charm: local:mysql
+                charm: %s
                 num_units: 2
         relations:
             - ["wordpress:db", "mysql:server"]
-    `)
+    `, wordpressPath, mysqlPath))
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm local:trusty/mysql-1
@@ -534,38 +527,22 @@ deployment of bundle "local:bundle/example-0" completed`
 	})
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleFromBundlePath(c *gc.C) {
-	testcharms.Repo.ClonedDirPath(s.SeriesPath, "wordpress")
-	bundlePath := filepath.Join(c.MkDir(), "example")
-	err := os.Mkdir(bundlePath, 0777)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(bundlePath, "bundle.yaml"), []byte(`
-        services:
-            wordpress:
-                charm: local:wordpress
-                num_units: 1
-    `), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = runDeployCommand(c, bundlePath)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *deployRepoCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
-	testcharms.Repo.ClonedDirPath(s.SeriesPath, "mysql")
-	output, err := s.DeployBundleYAML(c, `
+	mysqlPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "mysql")
+	output, err := s.DeployBundleYAML(c, fmt.Sprintf(`
+        series: trusty
         services:
             wordpress:
                 charm: trusty/wordpress-42
+                series: trusty
                 num_units: 1
             mysql:
-                charm: local:mysql
+                charm: %s
                 num_units: 1
         relations:
             - ["wordpress:db", "mysql:server"]
-    `)
+    `, mysqlPath))
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm local:trusty/mysql-1
@@ -589,7 +566,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	})
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceOptions(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceOptions(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
 	testcharms.UploadCharm(c, s.client, "precise/dummy-0", "dummy")
 	output, err := s.DeployBundleYAML(c, `
@@ -633,7 +610,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	})
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceConstrants(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceConstrants(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
 	testcharms.UploadCharm(c, s.client, "precise/dummy-0", "dummy")
 	output, err := s.DeployBundleYAML(c, `
@@ -671,7 +648,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	})
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgrade(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceUpgrade(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
 	testcharms.UploadCharm(c, s.client, "vivid/upgrade-1", "upgrade1")
 	testcharms.UploadCharm(c, s.client, "vivid/upgrade-2", "upgrade2")
@@ -741,7 +718,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	})
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
 	content := `
         services:
@@ -801,7 +778,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	s.assertServicesDeployed(c, expectedServices)
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	// Try upgrading to a different charm name.
@@ -839,7 +816,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *gc.
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": bundle charm "cs:~who/trusty/wordpress-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-0", "wordpress")
 	testcharms.UploadCharm(c, s.client, "trusty/mysql-1", "mysql")
 	testcharms.UploadCharm(c, s.client, "trusty/postgres-2", "mysql")
@@ -891,7 +868,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	})
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-0", "wordpress")
 	testcharms.UploadCharm(c, s.client, "trusty/mysql-1", "mysql")
 	testcharms.UploadCharm(c, s.client, "trusty/postgres-2", "mysql")
@@ -949,7 +926,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	})
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleMachinesUnitsPlacement(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachinesUnitsPlacement(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-0", "wordpress")
 	testcharms.UploadCharm(c, s.client, "trusty/mysql-2", "mysql")
 	content := `
@@ -1046,7 +1023,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	})
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleMachineAttributes(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachineAttributes(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/django-42", "dummy")
 	output, err := s.DeployBundleYAML(c, `
         services:
@@ -1095,7 +1072,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(ann, jc.DeepEquals, map[string]string{"foo": "bar"})
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleTwiceScaleUp(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwiceScaleUp(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/django-42", "dummy")
 	_, err := s.DeployBundleYAML(c, `
         services:
@@ -1129,7 +1106,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	})
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleUnitPlacedInService(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedInService(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/django-42", "dummy")
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-0", "wordpress")
 	output, err := s.DeployBundleYAML(c, `
@@ -1164,7 +1141,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	})
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleUnitColocationWithUnit(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitColocationWithUnit(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/django-42", "dummy")
 	testcharms.UploadCharm(c, s.client, "trusty/mem-47", "dummy")
 	testcharms.UploadCharm(c, s.client, "trusty/rails-0", "dummy")
@@ -1234,7 +1211,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	})
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleUnitPlacedToMachines(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedToMachines(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/django-42", "dummy")
 	output, err := s.DeployBundleYAML(c, `
         services:
@@ -1284,7 +1261,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	})
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/django-42", "dummy")
 	testcharms.UploadCharm(c, s.client, "trusty/mem-47", "dummy")
 	testcharms.UploadCharm(c, s.client, "trusty/rails-0", "dummy")
@@ -1423,7 +1400,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	})
 }
 
-func (s *deployRepoCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/django-42", "dummy")
 	testcharms.UploadCharm(c, s.client, "trusty/mem-47", "dummy")
 	output, err := s.DeployBundleYAML(c, `
