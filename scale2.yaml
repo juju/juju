@@ -14,6 +14,7 @@ services:
     charm: "cs:~abentley/trusty/apache2-reverseproxy-4"
     num_units: 0
   haproxy:
+    series: trusty
     charm: "./trusty/haproxy"
     constraints: mem=2G
     num_units: 1
