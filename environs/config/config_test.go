@@ -1822,7 +1822,7 @@ func (s *ConfigSuite) TestGenerateControllerCertAndKey(c *gc.C) {
 var specializeCharmRepoTests = []struct {
 	about    string
 	testMode bool
-	repo     *charmrepo.CharmStore
+	repo     charmrepo.Interface
 }{{
 	about: "test mode disabled, charm store",
 	repo:  &specializedCharmRepo{},
@@ -1847,7 +1847,7 @@ type specializedCharmRepo struct {
 	testMode bool
 }
 
-func (s *specializedCharmRepo) WithTestMode() *specializedCharmRepo {
+func (s *specializedCharmRepo) WithTestMode() charmrepo.Interface {
 	s.testMode = true
 	return s
 }
