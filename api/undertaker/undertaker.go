@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
 
@@ -38,22 +39,42 @@ func NewClient(caller base.APICaller, newWatcher NewWatcherFunc) (*Client, error
 // ModelInfo returns information on the model needed by the undertaker worker.
 func (c *Client) ModelInfo() (params.UndertakerModelInfoResult, error) {
 	result := params.UndertakerModelInfoResult{}
-	err := c.facadeCall("ModelInfo", &result)
+	err := c.entityFacadeCall("ModelInfo", &result)
 	return result, errors.Trace(err)
 }
 
 // ProcessDyingModel checks if a dying model has any machines or services.
 // If there are none, the model's life is changed from dying to dead.
 func (c *Client) ProcessDyingModel() error {
-	return c.facadeCall("ProcessDyingModel", nil)
+	return c.entityFacadeCall("ProcessDyingModel", nil)
 }
 
 // RemoveModel removes any records of this model from Juju.
 func (c *Client) RemoveModel() error {
-	return c.facadeCall("RemoveModel", nil)
+	return c.entityFacadeCall("RemoveModel", nil)
 }
 
-func (c *Client) facadeCall(name string, results interface{}) error {
+// SetStatus sets the status of the model.
+func (c *Client) SetStatus(status status.Status, message string, data map[string]interface{}) error {
+	args := params.SetStatus{
+		Entities: []params.EntityStatusArgs{
+			{c.modelTag.String(), status, message, data},
+		},
+	}
+	var results params.ErrorResults
+	if err := c.caller.FacadeCall("SetStatus", args, &results); err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	if results.Results[0].Error != nil {
+		return errors.Trace(results.Results[0].Error)
+	}
+	return nil
+}
+
+func (c *Client) entityFacadeCall(name string, results interface{}) error {
 	args := params.Entities{
 		Entities: []params.Entity{{c.modelTag.String()}},
 	}
@@ -64,7 +85,7 @@ func (c *Client) facadeCall(name string, results interface{}) error {
 // machines and services.
 func (c *Client) WatchModelResources() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
-	err := c.facadeCall("WatchModelResources", &results)
+	err := c.entityFacadeCall("WatchModelResources", &results)
 	if err != nil {
 		return nil, err
 	}

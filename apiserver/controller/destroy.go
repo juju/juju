@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
 )
 
 // DestroyController will attempt to destroy the controller. If the args
@@ -38,10 +37,10 @@ func (s *ControllerAPI) DestroyController(args params.DestroyControllerArgs) err
 	if args.DestroyModels {
 		return errors.Trace(common.DestroyModelIncludingHosted(s.state, systemTag))
 	}
-	if err = common.DestroyModel(s.state, systemTag); state.IsHasHostedModelsError(err) {
-		err = errors.New("controller model cannot be destroyed before all other models are destroyed")
+	if err := common.DestroyModel(s.state, systemTag); err != nil {
+		return errors.Trace(err)
 	}
-	return errors.Trace(err)
+	return nil
 }
 
 func (s *ControllerAPI) ensureNotBlocked(args params.DestroyControllerArgs) error {

@@ -379,19 +379,6 @@ func Sequence(st *State, name string) (int, error) {
 	return st.sequence(name)
 }
 
-// This is a naive model destruction function, used to test model
-// watching after the client calls DestroyModel and the model doc is removed.
-// It is also used to test annotations.
-func RemoveModel(st *State, uuid string) error {
-	ops := []txn.Op{{
-		C:      modelsC,
-		Id:     uuid,
-		Assert: txn.DocExists,
-		Remove: true,
-	}}
-	return st.runTransaction(ops)
-}
-
 func SetModelLifeDead(st *State, modelUUID string) error {
 	ops := []txn.Op{{
 		C:      modelsC,

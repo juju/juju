@@ -157,6 +157,9 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		Assert: modelAssertion,
 		Remove: true,
 	}}
+	if !st.IsController() {
+		ops = append(ops, decHostedModelCountOp())
+	}
 
 	// Add all per-model docs to the txn.
 	for name, info := range st.database.Schema() {
