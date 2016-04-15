@@ -29,8 +29,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
@@ -47,7 +45,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ProviderSuite struct {
@@ -57,10 +55,9 @@ type ProviderSuite struct {
 var _ = gc.Suite(&ProviderSuite{})
 
 var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
-	"name":           "sample",
-	"type":           "ec2",
-	"control-bucket": "test-bucket",
-	"agent-version":  coretesting.FakeVersionNumber.String(),
+	"name":          "sample",
+	"type":          "ec2",
+	"agent-version": coretesting.FakeVersionNumber.String(),
 })
 
 func registerLocalTests() {
@@ -100,6 +97,8 @@ func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting(c)
 	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
+	t.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 }
@@ -192,7 +191,6 @@ type localServerSuite struct {
 
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.SetUpSuite(c)
-	t.Tests.SetUpSuite(c)
 	t.Credential = cloud.NewCredential(
 		cloud.AccessKeyAuthType,
 		map[string]string{
@@ -207,19 +205,29 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting(c)
+	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
+	t.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	t.BaseSuite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.srv.createRootDisks = true
+	t.srv.startServer(c)
+	// TODO(jam) I don't understand why we shouldn't do this.
+	// t.Tests embeds the sstesting.TestDataSuite, but if we call this
+	// SetUpSuite, then all of the tests fail because they go to access
+	// "test:/streams/..." and it isn't found
+	// t.Tests.SetUpSuite(c)
 }
 
 func (t *localServerSuite) TearDownSuite(c *gc.C) {
+	t.restoreEC2Patching()
 	t.Tests.TearDownSuite(c)
 	t.BaseSuite.TearDownSuite(c)
-	t.restoreEC2Patching()
 }
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {
-	t.BaseSuite.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
 	t.BaseSuite.SetUpTest(c)
 	t.SetFeatureFlags(feature.AddressAllocation)
 	t.srv.startServer(c)
@@ -318,6 +326,105 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
+func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
+	insts, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	idsToStop := make([]instance.Id, len(insts)+1)
+	for i, one := range insts {
+		idsToStop[i] = one.Id()
+	}
+	idsToStop[len(insts)] = instance.Id("i-am-not-found")
+
+	err = env.StopInstances(idsToStop...)
+	// NotFound should be ignored
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestDestroyErr(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	msg := "terminate instances error"
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
+		return nil, errors.New(msg)
+	})
+
+	err = env.Destroy()
+	c.Assert(errors.Cause(err).Error(), jc.Contains, msg)
+}
+
+func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// create another instance to terminate
+	inst1, _ := testing.AssertStartInstance(c, env, "1")
+	inst := t.srv.ec2srv.Instance(string(inst1.Id()))
+	c.Assert(inst, gc.NotNil)
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
+		// Terminate the one destined for termination and
+		// err out to ensure that one instance will be terminated, the other - not.
+		_, err = ec2inst.TerminateInstances([]string{string(inst1.Id())})
+		c.Assert(err, jc.ErrorIsNil)
+		return nil, errors.New("terminate instances error")
+	})
+	err = env.Destroy()
+	c.Assert(err, gc.NotNil)
+
+	terminated, err := ec2.TerminatedInstances(env)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(terminated, gc.HasLen, 1)
+	c.Assert(terminated[0].Id(), jc.DeepEquals, inst1.Id())
+}
+
+func (t *localServerSuite) TestInstanceSecurityGroupsWitheInstanceStatusFilter(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	insts, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	ids := make([]instance.Id, len(insts))
+	for i, one := range insts {
+		ids[i] = one.Id()
+	}
+
+	groupsNoInstanceFilter, err := ec2.InstanceSecurityGroups(env, ids)
+	c.Assert(err, jc.ErrorIsNil)
+	// get all security groups for test instances
+	c.Assert(groupsNoInstanceFilter, gc.HasLen, 2)
+
+	groupsFilteredForTerminatedInstances, err := ec2.InstanceSecurityGroups(env, ids, "shutting-down", "terminated")
+	c.Assert(err, jc.ErrorIsNil)
+	// get all security groups for terminated test instances
+	c.Assert(groupsFilteredForTerminatedInstances, gc.HasLen, 0)
+}
+
+func (t *localServerSuite) TestDestroySecurityGroupInsistentlyError(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	called := false
+	msg := "destroy security group error"
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(inst ec2.SecurityGroupCleaner, group amzec2.SecurityGroup) error {
+		called = true
+		return errors.New(msg)
+	})
+
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(c.GetTestLog(), jc.Contains, "WARNING juju.provider.ec2 provider failure: destroy security group error")
+}
+
 // splitAuthKeys splits the given authorized keys
 // into the form expected to be found in the
 // user data.
@@ -339,7 +446,7 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inst.Status(), gc.Equals, "terminated")
+	c.Assert(inst.Status().Message, gc.Equals, "terminated")
 }
 
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
@@ -763,10 +870,10 @@ func (t *localServerSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	env := t.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 tags=foo")
+	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, gc.DeepEquals, []string{"tags"})
+	c.Assert(unsupported, jc.SameContents, []string{"tags", "virt-type"})
 }
 
 func (t *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
@@ -1245,6 +1352,7 @@ func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
 	t.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 
 	t.restoreEC2Patching = patchEC2ForTesting(c)
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 }
 
 func (t *localNonUSEastSuite) TearDownSuite(c *gc.C) {
@@ -1260,21 +1368,21 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	}
 	t.srv.startServer(c)
 
-	cfg, err := config.New(config.NoDefaults, localConfigAttrs)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(
-		envtesting.BootstrapContext(c), configstore.NewMem(),
+		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		cfg.Name(), environs.PrepareForBootstrapParams{
-			Config: cfg,
-			Credentials: cloud.NewCredential(
+		environs.PrepareParams{
+			BaseConfig: localConfigAttrs,
+			Credential: cloud.NewCredential(
 				cloud.AccessKeyAuthType,
 				map[string]string{
 					"access-key": "x",
 					"secret-key": "x",
 				},
 			),
-			CloudRegion: "test",
+			ControllerName: localConfigAttrs["name"].(string),
+			CloudName:      "ec2",
+			CloudRegion:    "test",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

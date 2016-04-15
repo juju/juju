@@ -64,6 +64,7 @@ func (s *configSuite) TestClientConfigLocal(c *gc.C) {
 		Remote: lxdclient.Remote{
 			Name:          "juju-remote",
 			Host:          "",
+			Protocol:      lxdclient.LXDProtocol,
 			Cert:          nil,
 			ServerPEMCert: "",
 		},
@@ -86,8 +87,9 @@ func (s *configSuite) TestClientConfigNonLocal(c *gc.C) {
 	c.Check(clientCfg, jc.DeepEquals, lxdclient.Config{
 		Namespace: cfg.Name(),
 		Remote: lxdclient.Remote{
-			Name: "juju-remote",
-			Host: "10.0.0.1",
+			Name:     "juju-remote",
+			Host:     "10.0.0.1",
+			Protocol: lxdclient.LXDProtocol,
 			Cert: &lxdclient.Cert{
 				Name:    fmt.Sprintf("juju cert for env %q", s.config.Name()),
 				CertPEM: []byte("<a valid x.509 cert>"),

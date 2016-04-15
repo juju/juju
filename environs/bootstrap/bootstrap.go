@@ -4,20 +4,27 @@
 package bootstrap
 
 import (
+	"archive/tar"
+	"compress/bzip2"
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -25,7 +32,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 const noToolsMessage = `Juju cannot bootstrap because no tools are available for your model.
@@ -38,14 +45,13 @@ var (
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
-	// EnvironConstraints are merged with the bootstrap constraints
-	// to choose the initial instance, and will be stored in the new
-	// environment's state.
-	EnvironConstraints constraints.Value
+	// ModelConstraints are merged with the bootstrap constraints
+	// to choose the initial instance, and will be stored in the
+	// initial models' states.
+	ModelConstraints constraints.Value
 
 	// BootstrapConstraints are used to choose the initial instance.
-	// BootstrapConstraints does not affect the environment-level
-	// constraints.
+	// BootstrapConstraints does not affect the model constraints.
 	BootstrapConstraints constraints.Value
 
 	// BootstrapSeries, if specified, is the series to use for the
@@ -55,6 +61,11 @@ type BootstrapParams struct {
 	// BootstrapImage, if specified, is the image ID to use for the
 	// initial bootstrap machine.
 	BootstrapImage string
+
+	// HostedModelConfig is the set of config attributes to be overlaid
+	// on the controller config to construct the initial hosted model
+	// config.
+	HostedModelConfig map[string]interface{}
 
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
@@ -71,6 +82,11 @@ type BootstrapParams struct {
 	// AgentVersion, if set, determines the exact tools version that
 	// will be used to start the Juju agents.
 	AgentVersion *version.Number
+
+	// GUIDataSourceBaseURL holds the simplestreams data source base URL
+	// used to retrieve the Juju GUI archive installed in the controller.
+	// If not set, the Juju GUI is not installed from simplestreams.
+	GUIDataSourceBaseURL string
 }
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
@@ -108,7 +124,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			return err
 		}
 	}
-	if err := validateConstraints(environ, args.EnvironConstraints); err != nil {
+	if err := validateConstraints(environ, args.ModelConstraints); err != nil {
 		return err
 	}
 	if err := validateConstraints(environ, args.BootstrapConstraints); err != nil {
@@ -120,7 +136,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 	bootstrapConstraints, err := constraintsValidator.Merge(
-		args.EnvironConstraints, args.BootstrapConstraints,
+		args.ModelConstraints, args.BootstrapConstraints,
 	)
 	if err != nil {
 		return err
@@ -146,6 +162,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	} else if err != nil {
 		return err
 	}
+
 	if lxcMTU, ok := cfg.LXCDefaultMTU(); ok {
 		logger.Debugf("using MTU %v for all created LXC containers' network interfaces", lxcMTU)
 	}
@@ -164,7 +181,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	// agent-version set anyway, to appease FinishInstanceConfig.
 	// In the latter case, setBootstrapTools will later set
 	// agent-version to the correct thing.
-	agentVersion := version.Current
+	agentVersion := jujuversion.Current
 	if args.AgentVersion != nil {
 		agentVersion = *args.AgentVersion
 	}
@@ -179,8 +196,9 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 
 	ctx.Infof("Starting new instance for initial controller")
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
-		EnvironConstraints:   args.EnvironConstraints,
+		ModelConstraints:     args.ModelConstraints,
 		BootstrapConstraints: args.BootstrapConstraints,
+		BootstrapSeries:      args.BootstrapSeries,
 		Placement:            args.Placement,
 		AvailableTools:       availableTools,
 		ImageMetadata:        imageMetadata,
@@ -222,13 +240,19 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		args.BootstrapConstraints, args.EnvironConstraints, result.Series, publicKey,
+		args.BootstrapConstraints, args.ModelConstraints, result.Series, publicKey,
 	)
 	if err != nil {
 		return err
 	}
 	instanceConfig.Tools = selectedTools
 	instanceConfig.CustomImageMetadata = customImageMetadata
+	instanceConfig.HostedModelConfig = args.HostedModelConfig
+
+	instanceConfig.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
+		ctx.Infof(msg)
+	})
+
 	if err := result.Finalize(ctx, instanceConfig); err != nil {
 		return err
 	}
@@ -257,9 +281,9 @@ func userPublicSigningKey() (string, error) {
 // the given environment. If the environment provider does not make use of
 // simplestreams, no metadata will be returned.
 //
-// If a bootstrap image ID is specified, image metadat will be synthesised
+// If a bootstrap image ID is specified, image metadata will be synthesised
 // using that image ID, and the architecture and series specified by the
-// initiator. In addition, the custom image metadat that is saved into the
+// initiator. In addition, the custom image metadata that is saved into the
 // state database will have the synthesised image metadata added to it.
 func bootstrapImageMetadata(
 	environ environs.Environ,
@@ -327,9 +351,25 @@ func bootstrapImageMetadata(
 		Arches:    availableTools.Arches(),
 		Stream:    environ.Config().ImageStream(),
 	})
-	publicImageMetadata, _, err := imagemetadata.Fetch(sources, imageConstraint)
-	if err != nil {
-		return nil, errors.Annotate(err, "searching image metadata")
+	logger.Debugf("constraints for image metadata lookup %v", imageConstraint)
+
+	// Get image metadata from all data sources.
+	// Since order of data source matters, order of image metadata matters too. Append is important here.
+	var publicImageMetadata []*imagemetadata.ImageMetadata
+	for _, source := range sources {
+		sourceMetadata, _, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, imageConstraint)
+		if err != nil {
+			logger.Debugf("ignoring image metadata in %s: %v", source.Description(), err)
+			// Just keep looking...
+			continue
+		}
+		logger.Debugf("found %d image metadata in %s", len(sourceMetadata), source.Description())
+		publicImageMetadata = append(publicImageMetadata, sourceMetadata...)
+	}
+
+	logger.Debugf("found %d image metadata from all image data sources", len(publicImageMetadata))
+	if len(publicImageMetadata) == 0 {
+		return nil, errors.New("no image metadata found")
 	}
 	return publicImageMetadata, nil
 }
@@ -359,12 +399,12 @@ func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 	// We should only ever bootstrap the exact same version as the client,
 	// or we risk bootstrap incompatibility. We still set agent-version to
 	// the newest version, so the agent will immediately upgrade itself.
-	if !isCompatibleVersion(newVersion, version.Current) {
-		compatibleVersion, compatibleTools := findCompatibleTools(possibleTools, version.Current)
+	if !isCompatibleVersion(newVersion, jujuversion.Current) {
+		compatibleVersion, compatibleTools := findCompatibleTools(possibleTools, jujuversion.Current)
 		if len(compatibleTools) == 0 {
 			logger.Warningf(
 				"failed to find %s tools, will attempt to use %s",
-				version.Current, newVersion,
+				jujuversion.Current, newVersion,
 			)
 		} else {
 			bootstrapVersion, toolsList = compatibleVersion, compatibleTools
@@ -375,7 +415,7 @@ func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 }
 
 // findCompatibleTools finds tools in the list that have the same major, minor
-// and patch level as version.Current.
+// and patch level as jujuversion.Current.
 //
 // Build number is not important to match; uploaded tools will have
 // incremented build number, and we want to match them.
@@ -439,4 +479,110 @@ func validateConstraints(env environs.Environ, cons constraints.Value) error {
 		logger.Warningf("unsupported constraints: %v", unsupported)
 	}
 	return err
+}
+
+// guiArchive returns information on the GUI archive that will be uploaded
+// to the controller. Possible errors in retrieving the GUI archive information
+// do not prevent the model to be bootstrapped. If dataSourceBaseURL is
+// non-empty, remote GUI archive info is retrieved from simplestreams using it
+// as the base URL. The given logProgress function is used to inform users
+// about errors or progress in setting up the Juju GUI.
+func guiArchive(dataSourceBaseURL string, logProgress func(string)) *coretools.GUIArchive {
+	// The environment variable is only used for development purposes.
+	path := os.Getenv("JUJU_GUI")
+	if path != "" {
+		vers, err := guiVersion(path)
+		if err != nil {
+			logProgress(fmt.Sprintf("Cannot use Juju GUI at %q: %s", path, err))
+			return nil
+		}
+		hash, size, err := hashAndSize(path)
+		if err != nil {
+			logProgress(fmt.Sprintf("Cannot use Juju GUI at %q: %s", path, err))
+			return nil
+		}
+		logProgress(fmt.Sprintf("Preparing for Juju GUI %s installation from local archive", vers))
+		return &coretools.GUIArchive{
+			Version: vers,
+			URL:     "file://" + filepath.ToSlash(path),
+			SHA256:  hash,
+			Size:    size,
+		}
+	}
+	// Check if the user requested to bootstrap with no GUI.
+	if dataSourceBaseURL == "" {
+		logProgress("Juju GUI installation has been disabled")
+		return nil
+	}
+	// Fetch GUI archives info from simplestreams.
+	source := gui.NewDataSource(dataSourceBaseURL)
+	allMeta, err := guiFetchMetadata(gui.ReleasedStream, source)
+	if err != nil {
+		logProgress(fmt.Sprintf("Unable to fetch Juju GUI info: %s", err))
+		return nil
+	}
+	if len(allMeta) == 0 {
+		logProgress("No available Juju GUI archives found")
+		return nil
+	}
+	// Metadata info are returned in descending version order.
+	logProgress(fmt.Sprintf("Preparing for Juju GUI %s release installation", allMeta[0].Version))
+	return &coretools.GUIArchive{
+		Version: allMeta[0].Version,
+		URL:     allMeta[0].FullPath,
+		SHA256:  allMeta[0].SHA256,
+		Size:    allMeta[0].Size,
+	}
+}
+
+// guiFetchMetadata is defined for testing purposes.
+var guiFetchMetadata = gui.FetchMetadata
+
+// guiVersion retrieves the GUI version from the juju-gui-* directory included
+// in the bz2 archive at the given path.
+func guiVersion(path string) (version.Number, error) {
+	var number version.Number
+	f, err := os.Open(path)
+	if err != nil {
+		return number, errors.Annotate(err, "cannot open Juju GUI archive")
+	}
+	defer f.Close()
+	prefix := "jujugui-"
+	r := tar.NewReader(bzip2.NewReader(f))
+	for {
+		hdr, err := r.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return number, errors.New("cannot read Juju GUI archive")
+		}
+		info := hdr.FileInfo()
+		if !info.IsDir() || !strings.HasPrefix(hdr.Name, prefix) {
+			continue
+		}
+		n := info.Name()[len(prefix):]
+		number, err = version.Parse(n)
+		if err != nil {
+			return number, errors.Errorf("cannot parse version %q", n)
+		}
+		return number, nil
+	}
+	return number, errors.New("cannot find Juju GUI version")
+}
+
+// hashAndSize calculates and returns the SHA256 hash and the size of the file
+// located at the given path.
+func hashAndSize(path string) (hash string, size int64, err error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", 0, errors.Mask(err)
+	}
+	defer f.Close()
+	h := sha256.New()
+	size, err = io.Copy(h, f)
+	if err != nil {
+		return "", 0, errors.Mask(err)
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), size, nil
 }

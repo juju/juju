@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/set"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 )
@@ -330,7 +331,7 @@ func (c *detectCredentialsCommand) printCredentialOptions(ctxt *cmd.Context, dis
 func (c *detectCredentialsCommand) promptCredentialNumber(out io.Writer, in io.Reader) (string, error) {
 	fmt.Fprint(out, "Save any? Type number, or Q to quit, then enter. ")
 	defer out.Write([]byte{'\n'})
-	input, err := c.readLine(in)
+	input, err := readLine(in)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -341,7 +342,7 @@ func (c *detectCredentialsCommand) promptCloudName(out io.Writer, in io.Reader, 
 	text := fmt.Sprintf(`Enter cloud to which the credential belongs, or Q to quit [%s] `, defaultCloudName)
 	fmt.Fprint(out, text)
 	defer out.Write([]byte{'\n'})
-	input, err := c.readLine(in)
+	input, err := readLine(in)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -352,7 +353,7 @@ func (c *detectCredentialsCommand) promptCloudName(out io.Writer, in io.Reader, 
 	if cloudName == "" {
 		return defaultCloudName, nil
 	}
-	cloud, err := c.cloudByNameFunc(cloudName)
+	cloud, err := common.CloudOrProvider(cloudName, c.cloudByNameFunc)
 	if err != nil {
 		return "", err
 	}
@@ -362,7 +363,7 @@ func (c *detectCredentialsCommand) promptCloudName(out io.Writer, in io.Reader, 
 	return cloudName, nil
 }
 
-func (c *detectCredentialsCommand) readLine(stdin io.Reader) (string, error) {
+func readLine(stdin io.Reader) (string, error) {
 	// Read one byte at a time to avoid reading beyond the delimiter.
 	line, err := bufio.NewReader(byteAtATimeReader{stdin}).ReadString('\n')
 	if err != nil {

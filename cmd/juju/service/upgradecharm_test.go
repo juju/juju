@@ -6,7 +6,6 @@ package service
 import (
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"net/http/httptest"
 	"path"
 	"path/filepath"
@@ -17,7 +16,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	csclientparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -40,17 +42,17 @@ func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 	handler, err := charmstore.NewServer(s.Session.DB("juju-testing"), nil, "", charmstore.ServerParams{
 		AuthUsername: "test-user",
 		AuthPassword: "test-password",
-	}, charmstore.V4)
+	}, charmstore.V5)
 	c.Assert(err, jc.ErrorIsNil)
 	s.handler = handler
 	s.srv = httptest.NewServer(handler)
 
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
-	original := newCharmStoreClient
-	s.PatchValue(&newCharmStoreClient, func(httpClient *http.Client) *csClient {
-		csclient := original(httpClient)
-		csclient.params.URL = s.srv.URL
-		return csclient
+	s.PatchValue(&newCharmStoreClient, func(bakeryClient *httpbakery.Client) *csclient.Client {
+		return csclient.New(csclient.Params{
+			URL:          s.srv.URL,
+			BakeryClient: bakeryClient,
+		})
 	})
 }
 
@@ -339,13 +341,13 @@ var upgradeCharmAuthorizationTests = []struct {
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
 	switchURL:    "cs:~bob/trusty/wordpress5",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
 }, {
 	about:        "non-public charm, fully resolved, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress6-47",
 	switchURL:    "cs:~bob/trusty/wordpress6-47",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series&include=published": unauthorized: access denied for user "client-username"`,
 }}
 
 func (s *UpgradeCharmCharmStoreSuite) TestUpgradeCharmAuthorization(c *gc.C) {
@@ -395,4 +397,28 @@ func (s *UpgradeCharmCharmStoreSuite) TestSwitch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	curl = s.assertUpgraded(c, riak, 42, false)
 	c.Assert(curl.String(), gc.Equals, "cs:~other/trusty/anotherriak-42")
+}
+
+func (s *UpgradeCharmCharmStoreSuite) TestUpgradeCharmWithChannel(c *gc.C) {
+	id, ch := testcharms.UploadCharm(c, s.client, "cs:~client-username/trusty/wordpress-0", "wordpress")
+	err := runDeploy(c, "cs:~client-username/trusty/wordpress-0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Upload a new revision of the charm, but publish it
+	// only to the development channel.
+
+	id.Revision = 1
+	err = s.client.UploadCharmWithRevision(id, ch, -1)
+	c.Assert(err, gc.IsNil)
+
+	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.DevelopmentChannel}, nil)
+	c.Assert(err, gc.IsNil)
+
+	err = runUpgradeCharm(c, "wordpress", "--channel", "development")
+	c.Assert(err, gc.IsNil)
+
+	s.assertCharmsUploaded(c, "cs:~client-username/trusty/wordpress-0", "cs:~client-username/trusty/wordpress-1")
+	s.assertServicesDeployed(c, map[string]serviceInfo{
+		"wordpress": {charm: "cs:~client-username/trusty/wordpress-1"},
+	})
 }

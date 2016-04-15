@@ -5,6 +5,10 @@
 
 package lxdclient
 
+import (
+	"github.com/juju/testing"
+)
+
 var NewInstanceSummary = newInstanceSummary
 
 type RawInstanceClient rawInstanceClient
@@ -14,4 +18,10 @@ func NewInstanceClient(raw RawInstanceClient) *instanceClient {
 		raw:    rawInstanceClient(raw),
 		remote: "",
 	}
+}
+
+func PatchGenerateCertificate(s *testing.CleanupSuite, cert, key string) {
+	s.PatchValue(&generateCertificate, func() ([]byte, []byte, error) {
+		return []byte(cert), []byte(key), nil
+	})
 }

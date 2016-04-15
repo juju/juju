@@ -15,6 +15,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 )
 
@@ -22,8 +23,8 @@ import (
 type Volume interface {
 	GlobalEntity
 	LifeBinder
-	StatusGetter
-	StatusSetter
+	status.StatusGetter
+	status.StatusSetter
 
 	// VolumeTag returns the tag for the volume.
 	VolumeTag() names.VolumeTag
@@ -236,13 +237,13 @@ func (v *volume) Params() (VolumeParams, bool) {
 }
 
 // Status is required to implement StatusGetter.
-func (v *volume) Status() (StatusInfo, error) {
+func (v *volume) Status() (status.StatusInfo, error) {
 	return v.st.VolumeStatus(v.VolumeTag())
 }
 
 // SetStatus is required to implement StatusSetter.
-func (v *volume) SetStatus(status Status, info string, data map[string]interface{}) error {
-	return v.st.SetVolumeStatus(v.VolumeTag(), status, info, data)
+func (v *volume) SetStatus(volumeStatus status.Status, info string, data map[string]interface{}) error {
+	return v.st.SetVolumeStatus(v.VolumeTag(), volumeStatus, info, data)
 }
 
 // Volume is required to implement VolumeAttachment.
@@ -747,7 +748,8 @@ func (st *State) addVolumeOps(params VolumeParams, machineId string) ([]txn.Op, 
 	}
 	ops := []txn.Op{
 		createStatusOp(st, volumeGlobalKey(name), statusDoc{
-			Status:  StatusPending,
+			Status: status.StatusPending,
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			Updated: time.Now().UnixNano(),
 		}),
 		{
@@ -1026,19 +1028,19 @@ func volumeGlobalKey(name string) string {
 }
 
 // VolumeStatus returns the status of the specified volume.
-func (st *State) VolumeStatus(tag names.VolumeTag) (StatusInfo, error) {
+func (st *State) VolumeStatus(tag names.VolumeTag) (status.StatusInfo, error) {
 	return getStatus(st, volumeGlobalKey(tag.Id()), "volume")
 }
 
 // SetVolumeStatus sets the status of the specified volume.
-func (st *State) SetVolumeStatus(tag names.VolumeTag, status Status, info string, data map[string]interface{}) error {
-	switch status {
-	case StatusAttaching, StatusAttached, StatusDetaching, StatusDetached, StatusDestroying:
-	case StatusError:
+func (st *State) SetVolumeStatus(tag names.VolumeTag, volumeStatus status.Status, info string, data map[string]interface{}) error {
+	switch volumeStatus {
+	case status.StatusAttaching, status.StatusAttached, status.StatusDetaching, status.StatusDetached, status.StatusDestroying:
+	case status.StatusError:
 		if info == "" {
-			return errors.Errorf("cannot set status %q without info", status)
+			return errors.Errorf("cannot set status %q without info", volumeStatus)
 		}
-	case StatusPending:
+	case status.StatusPending:
 		// If a volume is not yet provisioned, we allow its status
 		// to be set back to pending (when a retry is to occur).
 		v, err := st.Volume(tag)
@@ -1049,14 +1051,14 @@ func (st *State) SetVolumeStatus(tag names.VolumeTag, status Status, info string
 		if errors.IsNotProvisioned(err) {
 			break
 		}
-		return errors.Errorf("cannot set status %q", status)
+		return errors.Errorf("cannot set status %q", volumeStatus)
 	default:
-		return errors.Errorf("cannot set invalid status %q", status)
+		return errors.Errorf("cannot set invalid status %q", volumeStatus)
 	}
 	return setStatus(st, setStatusParams{
 		badge:     "volume",
 		globalKey: volumeGlobalKey(tag.Id()),
-		status:    status,
+		status:    volumeStatus,
 		message:   info,
 		rawData:   data,
 	})

@@ -5,7 +5,6 @@ package service
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 
@@ -13,6 +12,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
@@ -55,95 +55,95 @@ func isSeriesSupported(requestedSeries string, supportedSeries []string) bool {
 	return false
 }
 
-type resolveCharmStoreEntityParams struct {
-	urlStr          string
-	requestedSeries string
-	forceSeries     bool
-	csParams        charmrepo.NewCharmStoreParams
-	conf            *config.Config
+// charmURLResolver holds the information necessary to
+// resolve charm and bundle URLs.
+type charmURLResolver struct {
+	// store holds the repository to use for charmstore charms.
+	store *charmrepo.CharmStore
+
+	// conf holds the current model configuration.
+	conf *config.Config
 }
 
-// resolveCharmStoreEntityURL resolves the given charm or bundle URL string
-// by looking it up in the charm store, using the given csParams to access
-// the charm store repository.
-func resolveCharmStoreEntityURL(args resolveCharmStoreEntityParams) (*charm.URL, []string, error) {
-	url, err := charm.ParseURL(args.urlStr)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
+func newCharmURLResolver(conf *config.Config, csClient *csclient.Client) *charmURLResolver {
+	r := &charmURLResolver{
+		store: charmrepo.NewCharmStoreFromClient(csClient),
+		conf:  conf,
 	}
+	return r
+}
+
+// TODO(ericsnow) Return charmstore.CharmID from resolve()?
+
+// resolve resolves the given given charm or bundle URL
+// string by looking it up in the charm store.
+// The given csParams will be used to access the charm store.
+//
+// It returns the fully resolved URL, any series supported by the entity,
+// and the store that holds it.
+func (r *charmURLResolver) resolve(urlStr string) (*charm.URL, csparams.Channel, []string, *charmrepo.CharmStore, error) {
+	var noChannel csparams.Channel
+	url, err := charm.ParseURL(urlStr)
+	if err != nil {
+		return nil, noChannel, nil, nil, errors.Trace(err)
+	}
+
 	if url.Schema != "cs" {
-		return nil, nil, errors.Errorf("unknown schema for charm URL %q", url)
+		return nil, noChannel, nil, nil, errors.Errorf("unknown schema for charm URL %q", url)
 	}
-	charmStore := config.SpecializeCharmRepo(charmrepo.NewCharmStore(args.csParams), args.conf)
+	charmStore := config.SpecializeCharmRepo(r.store, r.conf).(*charmrepo.CharmStore)
 
-	resultUrl, supportedSeries, err := charmStore.Resolve(url)
+	resultUrl, channel, supportedSeries, err := charmStore.ResolveWithChannel(url)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, noChannel, nil, nil, errors.Trace(err)
 	}
-	return resultUrl, supportedSeries, nil
+	return resultUrl, channel, supportedSeries, charmStore, nil
 }
+
+// TODO(ericsnow) Return charmstore.CharmID from addCharmFromURL()?
 
 // addCharmFromURL calls the appropriate client API calls to add the
 // given charm URL to state. For non-public charm URLs, this function also
 // handles the macaroon authorization process using the given csClient.
 // The resulting charm URL of the added charm is displayed on stdout.
-func addCharmFromURL(client *api.Client, curl *charm.URL, csclient *csClient) (*charm.URL, error) {
-	if err := client.AddCharm(curl); err != nil {
+func addCharmFromURL(client *api.Client, curl *charm.URL, channel csparams.Channel, csClient *csclient.Client) (*charm.URL, *macaroon.Macaroon, error) {
+	var csMac *macaroon.Macaroon
+	if err := client.AddCharm(curl, channel); err != nil {
 		if !params.IsCodeUnauthorized(err) {
-			return nil, errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
-		m, err := csclient.authorize(curl)
+		m, err := authorizeCharmStoreEntity(csClient, curl)
 		if err != nil {
-			return nil, maybeTermsAgreementError(err)
+			return nil, nil, maybeTermsAgreementError(err)
 		}
-		if err := client.AddCharmWithAuthorization(curl, m); err != nil {
-			return nil, errors.Trace(err)
+		if err := client.AddCharmWithAuthorization(curl, channel, m); err != nil {
+			return nil, nil, errors.Trace(err)
 		}
+		csMac = m
 	}
-	return curl, nil
+	return curl, csMac, nil
 }
 
-// csClient gives access to the charm store server and provides parameters
-// for connecting to the charm store.
-type csClient struct {
-	params charmrepo.NewCharmStoreParams
+// newCharmStoreClient is called to obtain a charm store client.
+// It is defined as a variable so it can be changed for testing purposes.
+var newCharmStoreClient = func(client *httpbakery.Client) *csclient.Client {
+	return csclient.New(csclient.Params{
+		BakeryClient: client,
+	})
 }
 
-// newCharmStoreClient is called to obtain a charm store client
-// including the parameters for connecting to the charm store, and
-// helpers to save the local authorization cookies and to authorize
-// non-public charm deployments. It is defined as a variable so it can
-// be changed for testing purposes.
-var newCharmStoreClient = func(client *http.Client) *csClient {
-	return &csClient{
-		params: charmrepo.NewCharmStoreParams{
-			HTTPClient:   client,
-			VisitWebPage: httpbakery.OpenWebBrowser,
-		},
-	}
-}
+// TODO(natefinch): change the code in this file to use the
+// github.com/juju/juju/charmstore package to interact with the charmstore.
 
-// authorize acquires and return the charm store delegatable macaroon to be
+// authorizeCharmStoreEntity acquires and return the charm store delegatable macaroon to be
 // used to add the charm corresponding to the given URL.
 // The macaroon is properly attenuated so that it can only be used to deploy
 // the given charm URL.
-func (c *csClient) authorize(curl *charm.URL) (*macaroon.Macaroon, error) {
-	if curl == nil {
-		return nil, errors.New("empty charm url not allowed")
-	}
-
-	client := csclient.New(csclient.Params{
-		URL:          c.params.URL,
-		HTTPClient:   c.params.HTTPClient,
-		VisitWebPage: c.params.VisitWebPage,
-	})
-	endpoint := "/delegatable-macaroon"
-	endpoint += "?id=" + url.QueryEscape(curl.String())
-
+func authorizeCharmStoreEntity(csClient *csclient.Client, curl *charm.URL) (*macaroon.Macaroon, error) {
+	endpoint := "/delegatable-macaroon?id=" + url.QueryEscape(curl.String())
 	var m *macaroon.Macaroon
-	if err := client.Get(endpoint, &m); err != nil {
+	if err := csClient.Get(endpoint, &m); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	return m, nil
 }

@@ -93,14 +93,14 @@ func (s *ConnSuite) AddActionsCharm(c *gc.C, name, actionsYaml string, revision 
 
 // AddMetaCharm clones a testing charm, replaces its metadata with the
 // given YAML string and adds it to the state, using the given revision.
-func (s *ConnSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revsion int) *state.Charm {
-	return state.AddCustomCharm(c, s.State, name, "metadata.yaml", metaYaml, "quantal", revsion)
+func (s *ConnSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revision int) *state.Charm {
+	return state.AddCustomCharm(c, s.State, name, "metadata.yaml", metaYaml, "quantal", revision)
 }
 
 // AddMetricsCharm clones a testing charm, replaces its metrics declaration with the
 // given YAML string and adds it to the state, using the given revision.
-func (s *ConnSuite) AddMetricsCharm(c *gc.C, name, metricsYaml string, revsion int) *state.Charm {
-	return state.AddCustomCharm(c, s.State, name, "metrics.yaml", metricsYaml, "quantal", revsion)
+func (s *ConnSuite) AddMetricsCharm(c *gc.C, name, metricsYaml string, revision int) *state.Charm {
+	return state.AddCustomCharm(c, s.State, name, "metrics.yaml", metricsYaml, "quantal", revision)
 }
 
 // NewStateForModelNamed returns an new model with the given modelName, which
@@ -111,7 +111,7 @@ func (s *ConnSuite) NewStateForModelNamed(c *gc.C, modelName string) *state.Stat
 		"uuid": utils.MustNewUUID().String(),
 	})
 	otherOwner := names.NewLocalUserTag("test-admin")
-	_, otherState, err := s.State.NewModel(cfg, otherOwner)
+	_, otherState, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: otherOwner})
 
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { otherState.Close() })

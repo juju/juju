@@ -7,10 +7,10 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/util"
 )
 
 // createLock exists to be patched out in export_test.go
@@ -26,7 +26,7 @@ type ManifoldConfig util.AgentManifoldConfig
 // not limited to): hook executions, package installation, synchronisation
 // of reboots.
 // Clients can access the lock by passing a **fslock.Lock into the out param
-// of their GetResourceFunc.
+// of their dependency.Context's Get method.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	manifold := util.AgentManifold(util.AgentManifoldConfig(config), newWorker)
 	manifold.Output = util.ValueWorkerOutput

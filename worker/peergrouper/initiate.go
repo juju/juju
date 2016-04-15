@@ -35,18 +35,11 @@ type InitiateMongoParams struct {
 	Password string
 }
 
-// MaybeInitiateMongoServer is a convenience function for initiating a mongo
-// replicaset only if it is not already initiated.
-func MaybeInitiateMongoServer(p InitiateMongoParams) error {
-	return InitiateMongoServer(p, false)
-}
-
 // InitiateMongoServer checks for an existing mongo configuration.
 // If no existing configuration is found one is created using Initiate.
-// If force flag is true, the configuration will be started anyway.
-func InitiateMongoServer(p InitiateMongoParams, force bool) error {
+func InitiateMongoServer(p InitiateMongoParams) error {
 	logger.Debugf("Initiating mongo replicaset; dialInfo %#v; memberHostport %q; user %q; password %q", p.DialInfo, p.MemberHostPort, p.User, p.Password)
-	defer logger.Infof("finished MaybeInitiateMongoServer")
+	defer logger.Infof("finished InitiateMongoServer")
 
 	if len(p.DialInfo.Addrs) > 1 {
 		logger.Infof("more than one member; replica set must be already initiated")
@@ -54,19 +47,12 @@ func InitiateMongoServer(p InitiateMongoParams, force bool) error {
 	}
 	p.DialInfo.Direct = true
 
-	// TODO(rog) remove this code when we no longer need to upgrade
-	// from pre-HA-capable environments.
-	if p.User != "" {
-		p.DialInfo.Username = p.User
-		p.DialInfo.Password = p.Password
-	}
-
 	// Initiate may fail while mongo is initialising, so we retry until
 	// we successfully populate the replicaset config.
 	var err error
 	for attempt := initiateAttemptStrategy.Start(); attempt.Next(); {
-		err = attemptInitiateMongoServer(p.DialInfo, p.MemberHostPort, force)
-		if err == nil || err == ErrReplicaSetAlreadyInitiated {
+		err = attemptInitiateMongoServer(p.DialInfo, p.MemberHostPort)
+		if err == nil {
 			logger.Infof("replica set initiated")
 			return err
 		}
@@ -77,43 +63,14 @@ func InitiateMongoServer(p InitiateMongoParams, force bool) error {
 	return errors.Annotatef(err, "cannot initiate replica set")
 }
 
-// ErrReplicaSetAlreadyInitiated is returned with attemptInitiateMongoServer is called
-// on a mongo with an existing relicaset, it helps to assert which of the two valid
-// paths was taking when calling MaybeInitiateMongoServer/InitiateMongoServer which
-// is useful for testing purposes and also when debugging cases of faulty replica sets
-var ErrReplicaSetAlreadyInitiated = errors.New("replicaset is already initiated")
-
-func isNotUnreachableError(err error) bool {
-	return err.Error() != "no reachable servers"
-}
-
 // attemptInitiateMongoServer attempts to initiate the replica set.
-func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string, force bool) error {
+func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string) error {
 	session, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
 		return errors.Annotatef(err, "cannot dial mongo to initiate replicaset")
 	}
 	defer session.Close()
 	session.SetSocketTimeout(mongo.SocketTimeout)
-
-	if !force {
-		bInfo, err := session.BuildInfo()
-		if err != nil && isNotUnreachableError(err) {
-			return errors.Annotate(err, "cannot determine mongo build information")
-		}
-		var cfg *replicaset.Config
-		if err != nil || !bInfo.VersionAtLeast(3) {
-			cfg, err = replicaset.CurrentConfig(session)
-			if err != nil && err != mgo.ErrNotFound {
-				return errors.Errorf("cannot get replica set configuration: %v", err)
-			}
-		}
-
-		if cfg != nil && len(cfg.Members) > 0 {
-			logger.Infof("replica set configuration found: %#v", cfg)
-			return ErrReplicaSetAlreadyInitiated
-		}
-	}
 
 	return replicaset.Initiate(
 		session,

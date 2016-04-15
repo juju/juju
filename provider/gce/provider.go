@@ -23,8 +23,8 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, errors.Trace(err)
 }
 
-// PrepareForBootstrap implements environs.EnvironProvider.
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
+// BootstrapConfig implements environs.EnvironProvider.
+func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
 	// Add credentials to the configuration.
 	cfg := args.Config
 	switch authType := args.Credentials.AuthType(); authType {
@@ -51,16 +51,15 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
 	}
+	return p.PrepareForCreateEnvironment(cfg)
+}
 
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+// PrepareForBootstrap implements environs.EnvironProvider.
+func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	env, err := newEnviron(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	if ctx.ShouldVerifyCredentials() {
 		if err := env.gce.VerifyCredentials(); err != nil {
 			return nil, errors.Trace(err)

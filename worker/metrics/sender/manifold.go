@@ -45,19 +45,19 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.APICallerName,
 			config.MetricSpoolName,
 		},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(context dependency.Context) (worker.Worker, error) {
 			var apicaller base.APICaller
 			var factory spool.MetricFactory
-			err := getResource(config.APICallerName, &apicaller)
+			err := context.Get(config.APICallerName, &apicaller)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			err = getResource(config.MetricSpoolName, &factory)
+			err = context.Get(config.MetricSpoolName, &factory)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			var agent agent.Agent
-			if err := getResource(config.AgentName, &agent); err != nil {
+			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 			agentConfig := agent.CurrentConfig()

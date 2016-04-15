@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/azure-sdk-for-go/arm/storage"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/environs/config"
@@ -43,6 +44,10 @@ const (
 	// to know this because some resources are shared, and live in the
 	// controller environment's resource group.
 	configAttrControllerResourceGroup = "controller-resource-group"
+
+	// resourceNameLengthMax is the maximum length of resource
+	// names in Azure.
+	resourceNameLengthMax = 80
 )
 
 var configFields = schema.Fields{
@@ -108,14 +113,6 @@ var knownStorageAccountTypes = []string{
 	"Standard_LRS", "Standard_GRS", "Standard_RAGRS", "Standard_ZRS", "Premium_LRS",
 }
 
-func (prov *azureEnvironProvider) newConfig(cfg *config.Config) (*azureModelConfig, error) {
-	azureConfig, err := validateConfig(cfg, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return azureConfig, nil
-}
-
 // Validate ensures that the provided configuration is valid for this
 // provider, and that changes between the old (if provided) and new
 // configurations are valid.
@@ -167,6 +164,21 @@ func validateConfig(newCfg, oldCfg *config.Config) (*azureModelConfig, error) {
 		}
 		// TODO(axw) figure out how we intend to handle changing
 		// secrets, such as application key
+	}
+
+	// Resource group names must not exceed 80 characters. Resource group
+	// names are based on the model UUID and model name, the latter of
+	// which the model creator controls.
+	modelTag := names.NewModelTag(newCfg.UUID())
+	resourceGroup := resourceGroupName(modelTag, newCfg.Name())
+	if n := len(resourceGroup); n > resourceNameLengthMax {
+		smallestResourceGroup := resourceGroupName(modelTag, "")
+		return nil, errors.Errorf(`resource group name %q is too long
+
+Please choose a model name of no more than %d characters.`,
+			resourceGroup,
+			resourceNameLengthMax-len(smallestResourceGroup),
+		)
 	}
 
 	location := canonicalLocation(validated[configAttrLocation].(string))

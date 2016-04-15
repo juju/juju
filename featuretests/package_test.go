@@ -27,7 +27,7 @@ func init() {
 	gc.Suite(&annotationsSuite{})
 	gc.Suite(&apiEnvironmentSuite{})
 	gc.Suite(&blockSuite{})
-	gc.Suite(&cmdEnvironmentSuite{})
+	gc.Suite(&cmdModelSuite{})
 	gc.Suite(&cmdStorageSuite{})
 	gc.Suite(&cmdControllerSuite{})
 	gc.Suite(&dblogSuite{})
@@ -38,6 +38,8 @@ func init() {
 	gc.Suite(&dumpLogsCommandSuite{})
 	gc.Suite(&upgradeSuite{})
 	gc.Suite(&cmdRegistrationSuite{})
+	gc.Suite(&cmdLoginSuite{})
+	gc.Suite(&BakeryStorageSuite{})
 }
 
 func TestPackage(t *stdtesting.T) {

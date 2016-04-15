@@ -5,25 +5,42 @@ package api
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"
 )
 
-// HTTPClient implements Connection.APICaller.HTTPClient.
+// HTTPClient implements Connection.APICaller.HTTPClient and returns an HTTP
+// client pointing to the API server "/model/:uuid/" path.
 func (s *state) HTTPClient() (*httprequest.Client, error) {
-	if !s.isLoggedIn() {
-		return nil, errors.New("no HTTP client available without logging in")
-	}
 	baseURL, err := s.apiEndpoint("/", "")
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	return s.httpClient(baseURL)
+}
+
+// HTTPClient implements Connection.APICaller.HTTPClient and returns an HTTP
+// client pointing to the API server root path.
+func (s *state) RootHTTPClient() (*httprequest.Client, error) {
+	return s.httpClient(&url.URL{
+		Scheme: s.serverScheme,
+		Host:   s.Addr(),
+	})
+}
+
+func (s *state) httpClient(baseURL *url.URL) (*httprequest.Client, error) {
+	if !s.isLoggedIn() {
+		return nil, errors.New("no HTTP client available without logging in")
 	}
 	return &httprequest.Client{
 		BaseURL: baseURL.String(),
@@ -55,7 +72,18 @@ func (doer httpRequestDoer) DoWithBody(req *http.Request, body io.ReadSeeker) (*
 	// Add basic auth if appropriate
 	// Call doer.bakeryClient.DoWithBodyAndCustomError
 	if doer.st.tag != "" {
+		// Note that password may be empty here; we still
+		// want to pass the tag along. An empty password
+		// indicates that we're using macaroon authentication.
 		req.SetBasicAuth(doer.st.tag, doer.st.password)
+	}
+	// Add any explicitly-specified macaroons.
+	for _, ms := range doer.st.macaroons {
+		encoded, err := encodeMacaroonSlice(ms)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		req.Header.Add(httpbakery.MacaroonsHeader, encoded)
 	}
 	return doer.st.bakeryClient.DoWithBodyAndCustomError(req, body, func(resp *http.Response) error {
 		// At this point we are only interested in errors that
@@ -67,6 +95,15 @@ func (doer httpRequestDoer) DoWithBody(req *http.Request, body io.ReadSeeker) (*
 		}
 		return bakeryError(unmarshalHTTPErrorResponse(resp))
 	})
+}
+
+// encodeMacaroonSlice base64-JSON-encodes a slice of macaroons.
+func encodeMacaroonSlice(ms macaroon.Slice) (string, error) {
+	data, err := json.Marshal(ms)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return base64.StdEncoding.EncodeToString(data), nil
 }
 
 // unmarshalHTTPErrorResponse unmarshals an error response from

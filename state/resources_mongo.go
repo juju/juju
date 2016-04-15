@@ -148,8 +148,9 @@ func newUpdateCharmStoreResourceOps(res charmStoreResource) []txn.Op {
 	}}, newInsertCharmStoreResourceOps(res)...)
 }
 
-func newInsertUnitResourceOps(unitID string, stored storedResource) []txn.Op {
+func newInsertUnitResourceOps(unitID string, stored storedResource, progress *int64) []txn.Op {
 	doc := newUnitResourceDoc(unitID, stored)
+	doc.DownloadProgress = progress
 
 	return []txn.Op{{
 		C:      resourcesC,
@@ -159,8 +160,9 @@ func newInsertUnitResourceOps(unitID string, stored storedResource) []txn.Op {
 	}}
 }
 
-func newUpdateUnitResourceOps(unitID string, stored storedResource) []txn.Op {
+func newUpdateUnitResourceOps(unitID string, stored storedResource, progress *int64) []txn.Op {
 	doc := newUnitResourceDoc(unitID, stored)
+	doc.DownloadProgress = progress
 
 	// TODO(ericsnow) Using "update" doesn't work right...
 	return append([]txn.Op{{
@@ -168,7 +170,23 @@ func newUpdateUnitResourceOps(unitID string, stored storedResource) []txn.Op {
 		Id:     doc.DocID,
 		Assert: txn.DocExists,
 		Remove: true,
-	}}, newInsertUnitResourceOps(unitID, stored)...)
+	}}, newInsertUnitResourceOps(unitID, stored, progress)...)
+}
+
+func newRemoveResourcesOps(docs []resourceDoc) []txn.Op {
+	// The likelihood of a race is small and the consequences are minor,
+	// so we don't worry about the corner case of missing a doc here.
+	var ops []txn.Op
+	for _, doc := range docs {
+		// We do not bother to assert txn.DocExists since it will be
+		// gone either way, which is the result we're after.
+		ops = append(ops, txn.Op{
+			C:      resourcesC,
+			Id:     doc.DocID,
+			Remove: true,
+		})
+	}
+	return ops
 }
 
 // newResolvePendingResourceOps generates transaction operations that
@@ -189,10 +207,20 @@ func newResolvePendingResourceOps(pending storedResource, exists bool) []txn.Op 
 		Assert: txn.DocExists,
 		Remove: true,
 	}}
+
+	csRes := charmStoreResource{
+		Resource:   newRes.Resource.Resource,
+		id:         newRes.ID,
+		serviceID:  newRes.ServiceID,
+		lastPolled: time.Now().UTC(),
+	}
+
 	if exists {
-		return append(ops, newUpdateResourceOps(newRes)...)
+		ops = append(ops, newUpdateResourceOps(newRes)...)
+		return append(ops, newUpdateCharmStoreResourceOps(csRes)...)
 	} else {
-		return append(ops, newInsertResourceOps(newRes)...)
+		ops = append(ops, newInsertResourceOps(newRes)...)
+		return append(ops, newInsertCharmStoreResourceOps(csRes)...)
 	}
 }
 
@@ -233,6 +261,15 @@ func (p ResourcePersistence) resources(serviceID string) ([]resourceDoc, error) 
 		return nil, errors.Trace(err)
 	}
 	logger.Tracef("found %d resources", len(docs))
+	return docs, nil
+}
+
+func (p ResourcePersistence) unitResources(unitID string) ([]resourceDoc, error) {
+	var docs []resourceDoc
+	query := bson.D{{"unit-id", unitID}}
+	if err := p.base.All(resourcesC, query, &docs); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return docs, nil
 }
 
@@ -282,6 +319,8 @@ type resourceDoc struct {
 	Timestamp time.Time `bson:"timestamp-when-added"`
 
 	StoragePath string `bson:"storage-path"`
+
+	DownloadProgress *int64 `bson:"download-progress,omitempty"`
 
 	LastPolled time.Time `bson:"timestamp-when-last-polled"`
 }

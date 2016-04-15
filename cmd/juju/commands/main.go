@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
-	"github.com/juju/juju/cmd/juju/helptopics"
+	"github.com/juju/juju/cmd/juju/gui"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
 	"github.com/juju/juju/cmd/juju/model"
@@ -32,11 +32,11 @@ import (
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.commands")
@@ -83,6 +83,7 @@ func Main(args []string) {
 	os.Exit(cmd.Main(jcmd, ctx, args[1:]))
 }
 
+// NewJujuCommand ...
 func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 	jcmd := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:                "juju",
@@ -90,27 +91,6 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		MissingCallback:     RunPlugin,
 		UserAliasesFilename: osenv.JujuXDGDataHomePath("aliases"),
 	})
-	jcmd.AddHelpTopic("basics", "Basic commands", helptopics.Basics)
-	jcmd.AddHelpTopic("openstack-provider", "How to configure an OpenStack provider",
-		helptopics.OpenstackProvider, "openstack")
-	jcmd.AddHelpTopic("ec2-provider", "How to configure an Amazon EC2 provider",
-		helptopics.EC2Provider, "ec2", "aws", "amazon")
-	jcmd.AddHelpTopic("hpcloud-provider", "How to configure an HP Cloud provider",
-		helptopics.HPCloud, "hpcloud", "hp-cloud")
-	jcmd.AddHelpTopic("azure-provider", "How to configure a Windows Azure provider",
-		helptopics.AzureProvider, "azure")
-	jcmd.AddHelpTopic("maas-provider", "How to configure a MAAS provider",
-		helptopics.MAASProvider, "maas")
-	jcmd.AddHelpTopic("constraints", "How to use commands with constraints", helptopics.Constraints)
-	jcmd.AddHelpTopic("placement", "How to use placement directives", helptopics.Placement)
-	jcmd.AddHelpTopic("spaces", "How to configure more complex networks using spaces", helptopics.Spaces, "networking")
-	jcmd.AddHelpTopic("glossary", "Glossary of terms", helptopics.Glossary)
-	jcmd.AddHelpTopic("logging", "How Juju handles logging", helptopics.Logging)
-	jcmd.AddHelpTopic("juju", "What is Juju?", helptopics.Juju)
-	jcmd.AddHelpTopic("controllers", "About Juju Controllers", helptopics.JujuControllers)
-	jcmd.AddHelpTopic("users", "About users in Juju", helptopics.Users)
-	jcmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
-
 	registerCommands(jcmd, ctx)
 	return jcmd
 }
@@ -163,9 +143,13 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(charmcmd.NewSuperCommand())
 
 	// Manage backups.
-	r.Register(backups.NewSuperCommand())
-	r.RegisterSuperAlias("create-backup", "backups", "create", nil)
-	r.RegisterSuperAlias("restore-backup", "backups", "restore", nil)
+	r.Register(backups.NewCreateCommand())
+	r.Register(backups.NewDownloadCommand())
+	r.Register(backups.NewShowCommand())
+	r.Register(backups.NewListCommand())
+	r.Register(backups.NewRemoveCommand())
+	r.Register(backups.NewRestoreCommand())
+	r.Register(backups.NewUploadCommand())
 
 	// Manage authorized ssh keys.
 	r.Register(NewAddKeysCommand())
@@ -180,7 +164,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(user.NewListCommand())
 	r.Register(user.NewEnableCommand())
 	r.Register(user.NewDisableCommand())
-	r.Register(user.NewSwitchUserCommand())
+	r.Register(user.NewLoginCommand())
+	r.Register(user.NewLogoutCommand())
 
 	// Manage cached images
 	r.Register(cachedimages.NewSuperCommand())
@@ -197,17 +182,20 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewUnsetCommand())
 	r.Register(model.NewRetryProvisioningCommand())
 	r.Register(model.NewDestroyCommand())
-
-	r.Register(model.NewShareCommand())
-	r.Register(model.NewUnshareCommand())
 	r.Register(model.NewUsersCommand())
+	r.Register(model.NewGrantCommand())
+	r.Register(model.NewRevokeCommand())
+	r.Register(model.NewShowCommand())
+
+	if featureflag.Enabled(feature.Migration) {
+		r.Register(newMigrateCommand())
+	}
 
 	// Manage and control actions
-	r.Register(action.NewSuperCommand())
-	r.RegisterSuperAlias("run-action", "action", "do", nil)
-	r.RegisterSuperAlias("list-actions", "action", "defined", nil)
-	r.RegisterSuperAlias("show-action-output", "action", "fetch", nil)
-	r.RegisterSuperAlias("show-action-status", "action", "status", nil)
+	r.Register(action.NewStatusCommand())
+	r.Register(action.NewRunCommand())
+	r.Register(action.NewShowOutputCommand())
+	r.Register(action.NewListCommand())
 
 	// Manage controller availability
 	r.Register(newEnableHACommand())
@@ -227,10 +215,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(block.NewUnblockCommand())
 
 	// Manage storage
-	r.Register(storage.NewSuperCommand())
-	r.RegisterSuperAlias("list-storage", "storage", "list", nil)
-	r.RegisterSuperAlias("show-storage", "storage", "show", nil)
-	r.RegisterSuperAlias("add-storage", "storage", "add", nil)
+	r.Register(storage.NewAddCommand())
+	r.Register(storage.NewListCommand())
+	r.Register(storage.NewPoolCreateCommand())
+	r.Register(storage.NewPoolListCommand())
+	r.Register(storage.NewShowCommand())
 
 	// Manage spaces
 	r.Register(space.NewSuperCommand())
@@ -267,6 +256,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cloud.NewSetDefaultRegionCommand())
 	r.Register(cloud.NewSetDefaultCredentialCommand())
 	r.Register(cloud.NewAddCredentialCommand())
+	r.Register(cloud.NewRemoveCredentialCommand())
+
+	// Juju GUI commands.
+	r.Register(gui.NewGUICommand())
+	r.Register(gui.NewUpgradeGUICommand())
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {
@@ -278,39 +272,4 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(modelcmd.Wrap(command))
 	}
 	rcmd.RegisterAll(r)
-}
-
-func main() {
-	Main(os.Args)
-}
-
-type versionDeprecation struct {
-	replacement string
-	deprecate   version.Number
-	obsolete    version.Number
-}
-
-// Deprecated implements cmd.DeprecationCheck.
-// If the current version is after the deprecate version number,
-// the command is deprecated and the replacement should be used.
-func (v *versionDeprecation) Deprecated() (bool, string) {
-	if version.Current.Compare(v.deprecate) > 0 {
-		return true, v.replacement
-	}
-	return false, ""
-}
-
-// Obsolete implements cmd.DeprecationCheck.
-// If the current version is after the obsolete version number,
-// the command is obsolete and shouldn't be registered.
-func (v *versionDeprecation) Obsolete() bool {
-	return version.Current.Compare(v.obsolete) > 0
-}
-
-func twoDotOhDeprecation(replacement string) cmd.DeprecationCheck {
-	return &versionDeprecation{
-		replacement: replacement,
-		deprecate:   version.MustParse("2.0-00"),
-		obsolete:    version.MustParse("3.0-00"),
-	}
 }

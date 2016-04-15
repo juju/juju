@@ -11,8 +11,6 @@ import (
 var (
 	MakeJournalDirs = makeJournalDirs
 	MongoConfigPath = &mongoConfigPath
-	NoauthCommand   = noauthCommand
-	ProcessSignal   = &processSignal
 
 	SharedSecretPath = sharedSecretPath
 	SSLKeyPath       = sslKeyPath

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -16,10 +17,11 @@ import (
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type permSuite struct {
@@ -349,7 +351,9 @@ func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func()
 func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	cfg := service.SetCharmConfig{
 		ServiceName: "nosuch",
-		CharmUrl:    "local:quantal/wordpress",
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("local:quantal/wordpress"),
+		},
 	}
 	err := service.NewClient(st).SetCharm(cfg)
 	if params.IsCodeNotFound(err) {
@@ -430,7 +434,7 @@ func opClientSetEnvironAgentVersion(c *gc.C, st api.Connection, mst *state.State
 	if err != nil {
 		return func() {}, err
 	}
-	err = st.Client().SetModelAgentVersion(version.Current)
+	err = st.Client().SetModelAgentVersion(jujuversion.Current)
 	if err != nil {
 		return func() {}, err
 	}

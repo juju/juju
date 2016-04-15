@@ -14,8 +14,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource/api/client"
 )
 
@@ -27,7 +29,15 @@ type UploadSuite struct {
 
 func (s *UploadSuite) TestOkay(c *gc.C) {
 	data := "<data>"
+	reader := &stubFile{stub: s.stub}
+	reader.returnRead = strings.NewReader(data)
+	cl := client.NewClient(s.facade, s, s.facade)
+
 	_, s.response.Resource = newResource(c, "spam", "a-user", data)
+
+	err := cl.Upload("a-service", "spam", "foo.zip", reader)
+	c.Assert(err, jc.ErrorIsNil)
+
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
 	req, err := http.NewRequest("PUT", "/services/a-service/resources/spam", nil)
@@ -35,13 +45,8 @@ func (s *UploadSuite) TestOkay(c *gc.C) {
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-SHA384", fp.String())
 	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
+	req.Header.Set("Content-Disposition", "form-data; filename=foo.zip")
 	req.ContentLength = int64(len(data))
-	reader := &stubFile{stub: s.stub}
-	reader.returnRead = strings.NewReader(data)
-	cl := client.NewClient(s.facade, s, s.facade)
-
-	err = cl.Upload("a-service", "spam", reader)
-	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Read", "Read", "Seek", "Do")
 	s.stub.CheckCall(c, 3, "Do", req, reader, s.response)
@@ -50,7 +55,7 @@ func (s *UploadSuite) TestOkay(c *gc.C) {
 func (s *UploadSuite) TestBadService(c *gc.C) {
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	err := cl.Upload("???", "spam", nil)
+	err := cl.Upload("???", "spam", "file.zip", nil)
 
 	c.Check(err, gc.ErrorMatches, `.*invalid service.*`)
 	s.stub.CheckNoCalls(c)
@@ -62,7 +67,7 @@ func (s *UploadSuite) TestBadRequest(c *gc.C) {
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
 
-	err := cl.Upload("a-service", "spam", reader)
+	err := cl.Upload("a-service", "spam", "file.zip", reader)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.stub.CheckCallNames(c, "Read")
@@ -75,34 +80,50 @@ func (s *UploadSuite) TestRequestFailed(c *gc.C) {
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(nil, nil, nil, failure)
 
-	err := cl.Upload("a-service", "spam", reader)
+	err := cl.Upload("a-service", "spam", "file.zip", reader)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.stub.CheckCallNames(c, "Read", "Read", "Seek", "Do")
 }
 
-func (s *UploadSuite) TestPendingOkay(c *gc.C) {
+func (s *UploadSuite) TestPendingResources(c *gc.C) {
+	res, apiResult := newResourceResult(c, "a-service", "spam")
+	resources := []charmresource.Resource{res[0].Resource}
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []string{uuid.String()}
+	s.response.Resource = apiResult.Resources[0]
+	s.facade.pendingIDs = expected
+	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
+	cl := client.NewClient(s.facade, s, s.facade)
+
+	pendingIDs, err := cl.AddPendingResources(client.AddPendingResourcesArgs{
+		ServiceID: "a-service",
+		CharmID: charmstore.CharmID{
+			URL: cURL,
+		},
+		Resources: resources,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "FacadeCall")
+	//s.stub.CheckCall(c, 0, "FacadeCall", "AddPendingResources", args, result)
+	c.Check(pendingIDs, jc.DeepEquals, expected)
+}
+
+func (s *UploadSuite) TestPendingResourceOkay(c *gc.C) {
 	res, apiResult := newResourceResult(c, "a-service", "spam")
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := uuid.String()
 	s.response.Resource = apiResult.Resources[0]
 	data := "<data>"
-	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
-	req, err := http.NewRequest("PUT", "/services/a-service/resources/spam", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	req.Header.Set("Content-Type", "application/octet-stream")
-	req.Header.Set("Content-SHA384", fp.String())
-	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
-	req.ContentLength = int64(len(data))
-	req.URL.RawQuery = "pendingid=" + expected
 	reader := &stubFile{stub: s.stub}
 	reader.returnRead = strings.NewReader(data)
 	s.facade.pendingIDs = []string{expected}
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	uploadID, err := cl.AddPendingResource("a-service", res[0].Resource, reader)
+	uploadID, err := cl.AddPendingResource("a-service", res[0].Resource, "file.zip", reader)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
@@ -112,11 +133,23 @@ func (s *UploadSuite) TestPendingOkay(c *gc.C) {
 		"Seek",
 		"Do",
 	)
+
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
+	c.Assert(err, jc.ErrorIsNil)
+	req, err := http.NewRequest("PUT", "/services/a-service/resources/spam", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("Content-SHA384", fp.String())
+	req.Header.Set("Content-Length", fmt.Sprint(len(data)))
+	req.ContentLength = int64(len(data))
+	req.URL.RawQuery = "pendingid=" + expected
+	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
+
 	s.stub.CheckCall(c, 4, "Do", req, reader, s.response)
 	c.Check(uploadID, gc.Equals, expected)
 }
 
-func (s *UploadSuite) TestPendingNoFile(c *gc.C) {
+func (s *UploadSuite) TestPendingResourceNoFile(c *gc.C) {
 	res, apiResult := newResourceResult(c, "a-service", "spam")
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -125,7 +158,7 @@ func (s *UploadSuite) TestPendingNoFile(c *gc.C) {
 	s.facade.pendingIDs = []string{expected}
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	uploadID, err := cl.AddPendingResource("a-service", res[0].Resource, nil)
+	uploadID, err := cl.AddPendingResource("a-service", res[0].Resource, "file.zip", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
@@ -134,18 +167,18 @@ func (s *UploadSuite) TestPendingNoFile(c *gc.C) {
 	c.Check(uploadID, gc.Equals, expected)
 }
 
-func (s *UploadSuite) TestPendingBadService(c *gc.C) {
+func (s *UploadSuite) TestPendingResourceBadService(c *gc.C) {
 	res, _ := newResourceResult(c, "a-service", "spam")
 	s.facade.FacadeCallFn = nil
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	_, err := cl.AddPendingResource("???", res[0].Resource, nil)
+	_, err := cl.AddPendingResource("???", res[0].Resource, "file.zip", nil)
 
 	c.Check(err, gc.ErrorMatches, `.*invalid service.*`)
 	s.stub.CheckNoCalls(c)
 }
 
-func (s *UploadSuite) TestPendingBadRequest(c *gc.C) {
+func (s *UploadSuite) TestPendingResourceBadRequest(c *gc.C) {
 	res, _ := newResource(c, "spam", "", "")
 	chRes := res.Resource
 	reader := &stubFile{stub: s.stub}
@@ -154,13 +187,13 @@ func (s *UploadSuite) TestPendingBadRequest(c *gc.C) {
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(nil, failure)
 
-	_, err := cl.AddPendingResource("a-service", chRes, reader)
+	_, err := cl.AddPendingResource("a-service", chRes, "file.zip", reader)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.stub.CheckCallNames(c, "FacadeCall", "Read")
 }
 
-func (s *UploadSuite) TestPendingRequestFailed(c *gc.C) {
+func (s *UploadSuite) TestPendingResourceRequestFailed(c *gc.C) {
 	res, _ := newResourceResult(c, "a-service", "spam")
 	reader := &stubFile{stub: s.stub}
 	reader.returnRead = strings.NewReader("<data>")
@@ -169,7 +202,7 @@ func (s *UploadSuite) TestPendingRequestFailed(c *gc.C) {
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(nil, nil, nil, nil, failure)
 
-	_, err := cl.AddPendingResource("a-service", res[0].Resource, reader)
+	_, err := cl.AddPendingResource("a-service", res[0].Resource, "file.zip", reader)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.stub.CheckCallNames(c,

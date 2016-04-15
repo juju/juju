@@ -5,7 +5,6 @@ package apicaller_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -23,10 +22,10 @@ import (
 type ManifoldSuite struct {
 	testing.IsolationSuite
 	testing.Stub
-	manifold    dependency.Manifold
-	agent       *mockAgent
-	conn        *mockConn
-	getResource dependency.GetResourceFunc
+	manifold dependency.Manifold
+	agent    *mockAgent
+	conn     *mockConn
+	context  dependency.Context
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -35,44 +34,58 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Stub = testing.Stub{}
 	s.manifold = apicaller.Manifold(apicaller.ManifoldConfig{
-		AgentName: "agent-name",
+		AgentName:            "agent-name",
+		APIConfigWatcherName: "api-config-watcher-name",
+		APIOpen: func(*api.Info, api.DialOpts) (api.Connection, error) {
+			panic("just a fake")
+		},
+		NewConnection: func(a agent.Agent, apiOpen api.OpenFunc) (api.Connection, error) {
+			c.Check(apiOpen, gc.NotNil) // uncomparable
+			s.AddCall("NewConnection", a)
+			if err := s.NextErr(); err != nil {
+				return nil, err
+			}
+			return s.conn, nil
+		},
+		Filter: func(err error) error {
+			panic(err)
+		},
 	})
+	checkFilter := func() {
+		s.manifold.Filter(errors.New("arrgh"))
+	}
+	c.Check(checkFilter, gc.PanicMatches, "arrgh")
 
 	s.agent = &mockAgent{
-		stub: &s.Stub,
-		env:  coretesting.ModelTag,
+		stub:  &s.Stub,
+		model: coretesting.ModelTag,
 	}
-	s.getResource = dt.StubGetResource(dt.StubResources{
-		"agent-name": dt.StubResource{Output: s.agent},
+	s.context = dt.StubContext(nil, map[string]interface{}{
+		"agent-name": s.agent,
 	})
 
-	// Watch out for this: it uses its own Stub because Close calls are made from
-	// the worker's loop goroutine. You should make sure to stop the worker before
-	// checking the mock conn's calls (unless you know the connection will outlive
-	// the test -- see setupMutatorTest).
+	// Watch out for this: it uses its own Stub because Close calls
+	// are made from the worker's loop goroutine. You should make
+	// sure to stop the worker before checking the mock conn's calls.
 	s.conn = &mockConn{
 		stub:   &testing.Stub{},
 		broken: make(chan struct{}),
 	}
-	s.PatchValue(apicaller.OpenConnection, func(a agent.Agent) (api.Connection, error) {
-		s.AddCall("openConnection", a)
-		if err := s.NextErr(); err != nil {
-			return nil, err
-		}
-		return s.conn, nil
-	})
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{"agent-name"})
+	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{
+		"agent-name",
+		"api-config-watcher-name",
+	})
 }
 
 func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 	s.CheckCalls(c, nil)
@@ -81,90 +94,27 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
 func (s *ManifoldSuite) TestStartCannotOpenAPI(c *gc.C) {
 	s.SetErrors(errors.New("no api for you"))
 
-	worker, err := s.manifold.Start(s.getResource)
+	worker, err := s.manifold.Start(s.context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot open api: no api for you")
 	s.CheckCalls(c, []testing.StubCall{{
-		FuncName: "openConnection",
+		FuncName: "NewConnection",
 		Args:     []interface{}{s.agent},
 	}})
 }
 
-func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdSet(c *gc.C) {
-	worker, err := s.manifold.Start(s.getResource)
+func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
+	worker, err := s.manifold.Start(s.context)
 	c.Check(err, jc.ErrorIsNil)
 	defer assertStop(c, worker)
 	s.CheckCalls(c, []testing.StubCall{{
-		FuncName: "openConnection",
+		FuncName: "NewConnection",
 		Args:     []interface{}{s.agent},
-	}})
-}
-
-func (s *ManifoldSuite) setupMutatorTest(c *gc.C) agent.ConfigMutator {
-	s.agent.env = names.ModelTag{}
-	s.conn.stub = &s.Stub // will be unsafe if worker stopped before test finished
-	s.SetErrors(
-		nil, //                                               openConnection,
-		errors.New("nonfatal: always logged and ignored"), // ChangeConfig
-	)
-
-	worker, err := s.manifold.Start(s.getResource)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { assertStop(c, worker) })
-
-	s.CheckCallNames(c, "openConnection", "ChangeConfig")
-	changeArgs := s.Calls()[1].Args
-	c.Assert(changeArgs, gc.HasLen, 1)
-	s.ResetCalls()
-	return changeArgs[0].(agent.ConfigMutator)
-}
-
-func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSet(c *gc.C) {
-	mutator := s.setupMutatorTest(c)
-	mockSetter := &mockSetter{stub: &s.Stub}
-
-	err := mutator(mockSetter)
-	c.Check(err, jc.ErrorIsNil)
-	s.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ModelTag",
-	}, {
-		FuncName: "Migrate",
-		Args: []interface{}{agent.MigrateParams{
-			Model: coretesting.ModelTag,
-		}},
-	}})
-}
-
-func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSetBadAPIState(c *gc.C) {
-	mutator := s.setupMutatorTest(c)
-	s.SetErrors(errors.New("no tag for you"))
-
-	err := mutator(nil)
-	c.Check(err, gc.ErrorMatches, "no model uuid set on api: no tag for you")
-	s.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ModelTag",
-	}})
-}
-
-func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSetMigrateFailure(c *gc.C) {
-	mutator := s.setupMutatorTest(c)
-	mockSetter := &mockSetter{stub: &s.Stub}
-	s.SetErrors(nil, errors.New("migrate failure"))
-
-	err := mutator(mockSetter)
-	c.Check(err, gc.ErrorMatches, "migrate failure")
-	s.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ModelTag",
-	}, {
-		FuncName: "Migrate",
-		Args: []interface{}{agent.MigrateParams{
-			Model: coretesting.ModelTag,
-		}},
 	}})
 }
 
 func (s *ManifoldSuite) setupWorkerTest(c *gc.C) worker.Worker {
-	w, err := s.manifold.Start(s.getResource)
+	w, err := s.manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { w.Kill() })
 	return w

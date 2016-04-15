@@ -6,11 +6,13 @@ package watcher
 import (
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/watcher"
 )
 
@@ -436,5 +438,77 @@ func (w *entitiesWatcher) loop(initialChanges []string) error {
 // as tags (converted to strings) of the watched entities
 // with changes.
 func (w *entitiesWatcher) Changes() watcher.StringsChannel {
+	return w.out
+}
+
+// NewMigrationStatusWatcher takes the NotifyWatcherId returns by the
+// MigrationSlave.Watch API and returns a watcher which will report
+// status changes for any migration of the model associated with the
+// API connection.
+func NewMigrationStatusWatcher(caller base.APICaller, watcherId string) watcher.MigrationStatusWatcher {
+	w := &migrationStatusWatcher{
+		caller: caller,
+		id:     watcherId,
+		out:    make(chan watcher.MigrationStatus),
+	}
+	go func() {
+		defer w.tomb.Done()
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+type migrationStatusWatcher struct {
+	commonWatcher
+	caller base.APICaller
+	id     string
+	out    chan watcher.MigrationStatus
+}
+
+func (w *migrationStatusWatcher) loop() error {
+	w.newResult = func() interface{} { return new(params.MigrationStatus) }
+	w.call = makeWatcherAPICaller(w.caller, "MigrationStatusWatcher", w.id)
+	w.commonWatcher.init()
+	go w.commonLoop()
+
+	for {
+		var data interface{}
+		var ok bool
+
+		select {
+		case data, ok = <-w.in:
+			if !ok {
+				// The tomb is already killed with the correct error
+				// at this point, so just return.
+				return nil
+			}
+		case <-w.tomb.Dying():
+			return nil
+		}
+
+		inStatus := *data.(*params.MigrationStatus)
+		phase, ok := migration.ParsePhase(inStatus.Phase)
+		if !ok {
+			return errors.Errorf("invalid phase %q", inStatus.Phase)
+		}
+		outStatus := watcher.MigrationStatus{
+			Attempt:        inStatus.Attempt,
+			Phase:          phase,
+			SourceAPIAddrs: inStatus.SourceAPIAddrs,
+			SourceCACert:   inStatus.SourceCACert,
+			TargetAPIAddrs: inStatus.TargetAPIAddrs,
+			TargetCACert:   inStatus.TargetCACert,
+		}
+		select {
+		case w.out <- outStatus:
+		case <-w.tomb.Dying():
+			return nil
+		}
+	}
+}
+
+// Changes returns a channel that reports the latest status of the
+// migration of a model.
+func (w *migrationStatusWatcher) Changes() <-chan watcher.MigrationStatus {
 	return w.out
 }

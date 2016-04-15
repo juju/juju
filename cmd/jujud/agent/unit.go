@@ -9,9 +9,11 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/voyeur"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
@@ -20,7 +22,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/logsender"
@@ -36,12 +38,13 @@ type UnitAgent struct {
 	cmd.CommandBase
 	tomb tomb.Tomb
 	AgentConf
-	UnitName     string
-	runner       worker.Runner
-	bufferedLogs logsender.LogRecordCh
-	setupLogging func(agent.Config) error
-	logToStdErr  bool
-	ctx          *cmd.Context
+	configChangedVal *voyeur.Value
+	UnitName         string
+	runner           worker.Runner
+	bufferedLogs     logsender.LogRecordCh
+	setupLogging     func(agent.Config) error
+	logToStdErr      bool
+	ctx              *cmd.Context
 
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
@@ -53,8 +56,9 @@ type UnitAgent struct {
 // NewUnitAgent creates a new UnitAgent value properly initialized.
 func NewUnitAgent(ctx *cmd.Context, bufferedLogs logsender.LogRecordCh) *UnitAgent {
 	return &UnitAgent{
-		AgentConf: NewAgentConf(""),
-		ctx:       ctx,
+		AgentConf:        NewAgentConf(""),
+		configChangedVal: voyeur.NewValue(true),
+		ctx:              ctx,
 		initialUpgradeCheckComplete: make(chan struct{}),
 		bufferedLogs:                bufferedLogs,
 	}
@@ -119,7 +123,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	}
 	agentConfig := a.CurrentConfig()
 
-	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), version.Current, runtime.Compiler)
+	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), jujuversion.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
@@ -169,6 +173,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		Agent:               agent.APIHostPortsSetter{a},
 		LogSource:           a.bufferedLogs,
 		LeadershipGuarantee: 30 * time.Second,
+		AgentConfigChanged:  a.configChangedVal,
 	})
 
 	config := dependency.EngineConfig{
@@ -192,4 +197,10 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 
 func (a *UnitAgent) Tag() names.Tag {
 	return names.NewUnitTag(a.UnitName)
+}
+
+func (a *UnitAgent) ChangeConfig(mutate agent.ConfigMutator) error {
+	err := a.AgentConf.ChangeConfig(mutate)
+	a.configChangedVal.Set(true)
+	return errors.Trace(err)
 }

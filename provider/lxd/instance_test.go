@@ -37,9 +37,9 @@ func (s *instanceSuite) TestID(c *gc.C) {
 }
 
 func (s *instanceSuite) TestStatus(c *gc.C) {
-	status := s.Instance.Status()
+	instanceStatus := s.Instance.Status()
 
-	c.Check(status, gc.Equals, lxdclient.StatusRunning)
+	c.Check(instanceStatus.Message, gc.Equals, lxdclient.StatusRunning)
 	s.CheckNoAPI(c)
 }
 

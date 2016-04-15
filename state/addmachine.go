@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 // MachineTemplate holds attributes that are to be associated
@@ -43,6 +44,9 @@ type MachineTemplate struct {
 
 	// Addresses holds the addresses to be associated with the
 	// new machine.
+	//
+	// TODO(dimitern): This should be removed once all addresses
+	// come from link-layer device addresses.
 	Addresses []network.Address
 
 	// InstanceId holds the instance id to associate with the machine.
@@ -60,6 +64,10 @@ type MachineTemplate struct {
 	//
 	// TODO(dimitern): Drop this in favor of constraints in a follow-up.
 	RequestedNetworks []string
+
+	// LinkLayerDevices holds a list of arguments for setting link-layer devices
+	// on the machine.
+	LinkLayerDevices []LinkLayerDeviceArgs
 
 	// Volumes holds the parameters for volumes that are to be created
 	// and attached to the machine.
@@ -158,12 +166,6 @@ func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
 func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add a new machine")
 	var ms []*Machine
-	env, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	} else if env.Life() != Alive {
-		return nil, errors.New("model is no longer alive")
-	}
 	var ops []txn.Op
 	var mdocs []*machineDoc
 	for _, template := range templates {
@@ -187,29 +189,27 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, ssOps...)
-	ops = append(ops, env.assertAliveOp())
+	ops = append(ops, assertModelActiveOp(st.ModelUUID()))
 	if err := st.runTransaction(ops); err != nil {
-		return nil, onAbort(err, errors.New("model is no longer alive"))
+		if errors.Cause(err) == txn.ErrAborted {
+			if err := checkModelActive(st); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		return nil, errors.Trace(err)
 	}
 	return ms, nil
 }
 
 func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
-	env, err := st.Model()
-	if err != nil {
-		return nil, err
-	} else if env.Life() != Alive {
-		return nil, errors.New("model is no longer alive")
-	}
-	ops = append([]txn.Op{env.assertAliveOp()}, ops...)
+	ops = append([]txn.Op{assertModelActiveOp(st.ModelUUID())}, ops...)
 	if err := st.runTransaction(ops); err != nil {
-		enverr := env.Refresh()
-		if (enverr == nil && env.Life() != Alive) || errors.IsNotFound(enverr) {
-			return nil, errors.New("model is no longer alive")
-		} else if enverr != nil {
-			err = enverr
+		if errors.Cause(err) == txn.ErrAborted {
+			if err := checkModelActive(st); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return newMachine(st, mdoc), nil
 }
@@ -290,7 +290,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	prereqOps = append(prereqOps, assertModelAliveOp(st.ModelUUID()))
+	prereqOps = append(prereqOps, assertModelActiveOp(st.ModelUUID()))
 	prereqOps = append(prereqOps, st.insertNewContainerRefOp(mdoc.Id))
 	if template.InstanceId != "" {
 		prereqOps = append(prereqOps, txn.Op{
@@ -362,6 +362,7 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	if !parent.supportsContainerType(containerType) {
 		return nil, nil, errors.Errorf("machine %s cannot host %s containers", parentId, containerType)
 	}
+
 	newId, err := st.newContainerId(parentId, containerType)
 	if err != nil {
 		return nil, nil, err
@@ -478,14 +479,20 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 // document into the database, based on the given template. Only the
 // constraints and networks are used from the template.
 func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate) (prereqOps []txn.Op, machineOp txn.Op, err error) {
-	statusDoc := statusDoc{
-		Status:    StatusPending,
+	machineStatusDoc := statusDoc{
+		Status:    status.StatusPending,
+		ModelUUID: st.ModelUUID(),
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		Updated: time.Now().UnixNano(),
+	}
+	instanceStatusDoc := statusDoc{
+		Status:    status.StatusPending,
 		ModelUUID: st.ModelUUID(),
 		Updated:   time.Now().UnixNano(),
 	}
 
 	prereqOps, machineOp = st.baseNewMachineOps(
-		mdoc, statusDoc, template.Constraints, template.RequestedNetworks)
+		mdoc, machineStatusDoc, instanceStatusDoc, template.Constraints, template.RequestedNetworks)
 
 	storageOps, volumeAttachments, filesystemAttachments, err := st.machineStorageOps(
 		mdoc, &machineStorageParams{
@@ -510,11 +517,12 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	// history entry. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	probablyUpdateStatusHistory(st, machineGlobalKey(mdoc.Id), statusDoc)
+	probablyUpdateStatusHistory(st, machineGlobalKey(mdoc.Id), machineStatusDoc)
+	probablyUpdateStatusHistory(st, machineGlobalInstanceKey(mdoc.Id), instanceStatusDoc)
 	return prereqOps, machineOp, nil
 }
 
-func (st *State) baseNewMachineOps(mdoc *machineDoc, statusDoc statusDoc, cons constraints.Value, networks []string) (prereqOps []txn.Op, machineOp txn.Op) {
+func (st *State) baseNewMachineOps(mdoc *machineDoc, machineStatusDoc, instanceStatusDoc statusDoc, cons constraints.Value, networks []string) (prereqOps []txn.Op, machineOp txn.Op) {
 	machineOp = txn.Op{
 		C:      machinesC,
 		Id:     mdoc.DocID,
@@ -523,13 +531,17 @@ func (st *State) baseNewMachineOps(mdoc *machineDoc, statusDoc statusDoc, cons c
 	}
 
 	globalKey := machineGlobalKey(mdoc.Id)
+	globalInstanceKey := machineGlobalInstanceKey(mdoc.Id)
+
 	prereqOps = []txn.Op{
 		createConstraintsOp(st, globalKey, cons),
-		createStatusOp(st, globalKey, statusDoc),
+		createStatusOp(st, globalKey, machineStatusDoc),
+		createStatusOp(st, globalInstanceKey, instanceStatusDoc),
 		// TODO(dimitern): Drop requested networks across the board in a
 		// follow-up.
 		createRequestedNetworksOp(st, globalKey, networks),
 		createMachineBlockDevicesOp(mdoc.Id),
+		addModelMachineRefOp(st, mdoc.Id),
 	}
 	return prereqOps, machineOp
 }

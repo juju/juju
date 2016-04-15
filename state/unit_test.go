@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -680,7 +682,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.SetAgentStatus(state.StatusIdle, "", nil)
+		err := s.unit.SetAgentStatus(status.StatusIdle, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func() {
 		assertLife(c, s.unit, state.Dying)
@@ -784,16 +786,16 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 	for i, test := range []struct {
-		status state.Status
+		status status.Status
 		info   string
 	}{{
-		state.StatusExecuting, "blah",
+		status.StatusExecuting, "blah",
 	}, {
-		state.StatusIdle, "blah",
+		status.StatusIdle, "blah",
 	}, {
-		state.StatusFailed, "blah",
+		status.StatusFailed, "blah",
 	}, {
-		state.StatusRebooting, "blah",
+		status.StatusRebooting, "blah",
 	}} {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.service.AddUnit()
@@ -853,12 +855,6 @@ func (s *UnitSuite) TestSetPassword(c *gc.C) {
 	})
 }
 
-func (s *UnitSuite) TestSetAgentCompatPassword(c *gc.C) {
-	e, err := s.State.Unit(s.unit.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	testSetAgentCompatPassword(c, e)
-}
-
 func (s *UnitSuite) TestUnitSetAgentPresence(c *gc.C) {
 	alive, err := s.unit.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
@@ -910,7 +906,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not in an error state`)
 
-	err = s.unit.SetAgentStatus(state.StatusError, "gaaah", nil)
+	err = s.unit.SetAgentStatus(status.StatusError, "gaaah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1569,12 +1565,13 @@ func (s *UnitSuite) TestUnitAgentTools(c *gc.C) {
 	testAgentTools(c, s.unit, `unit "wordpress/0"`)
 }
 
-func (s *UnitSuite) TestActionSpecs(c *gc.C) {
+func (s *UnitSuite) TestValidActionsAndSpecs(c *gc.C) {
 	basicActions := `
 snapshot:
   params:
     outfile:
       type: string
+      default: "abcd"
 `[1:]
 
 	wordpress := s.AddTestingService(c, "wordpress-actions", s.AddActionsCharm(c, "wordpress", basicActions, 1))
@@ -1591,12 +1588,60 @@ snapshot:
 				"description": "No description",
 				"properties": map[string]interface{}{
 					"outfile": map[string]interface{}{
-						"type": "string",
+						"type":    "string",
+						"default": "abcd",
 					},
 				},
 			},
 		},
 	})
+
+	var tests = []struct {
+		actionName      string
+		errString       string
+		givenPayload    map[string]interface{}
+		expectedPayload map[string]interface{}
+	}{
+		{
+			actionName:      "snapshot",
+			expectedPayload: map[string]interface{}{"outfile": "abcd"},
+		},
+		{
+			actionName: "juju-run",
+			errString:  `validation failed: (root) : "command" property is missing and required, given {}; (root) : "timeout" property is missing and required, given {}`,
+		},
+		{
+			actionName:   "juju-run",
+			givenPayload: map[string]interface{}{"command": "allyourbasearebelongtous"},
+			errString:    `validation failed: (root) : "timeout" property is missing and required, given {"command":"allyourbasearebelongtous"}`,
+		},
+		{
+			actionName:   "juju-run",
+			givenPayload: map[string]interface{}{"timeout": 5 * time.Second},
+			errString:    `validation failed: (root) : "command" property is missing and required, given {"timeout":5e+09}`,
+		},
+		{
+			actionName:      "juju-run",
+			givenPayload:    map[string]interface{}{"command": "allyourbasearebelongtous", "timeout": 5.0},
+			expectedPayload: map[string]interface{}{"command": "allyourbasearebelongtous", "timeout": 5.0},
+		},
+		{
+			actionName: "baiku",
+			errString:  `action "baiku" not defined on unit "wordpress-actions/0"`,
+		},
+	}
+
+	for i, t := range tests {
+		c.Logf("running test %d", i)
+		action, err := unit1.AddAction(t.actionName, t.givenPayload)
+		if t.errString != "" {
+			c.Assert(err.Error(), gc.Equals, t.errString)
+			continue
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(action.Parameters(), jc.DeepEquals, t.expectedPayload)
+		}
+	}
 }
 
 func (s *UnitSuite) TestUnitActionsFindsRightActions(c *gc.C) {

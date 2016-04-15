@@ -11,12 +11,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/imagestorage"
-	"github.com/juju/juju/version"
 )
 
 // db is a surrogate for the proverbial DB layer abstraction that we
@@ -87,7 +86,10 @@ func getBackupTargetDatabases(session DBSession) (set.Strings, error) {
 	return targets, nil
 }
 
-const dumpName = "mongodump"
+const (
+	dumpName    = "mongodump"
+	restoreName = "mongorestore"
+)
 
 // DBDumper is any type that dumps something to a dump dir.
 type DBDumper interface {
@@ -96,19 +98,26 @@ type DBDumper interface {
 }
 
 var getMongodumpPath = func() (string, error) {
-	// TODO(perrito666) Add automagic determination of version here
-	mongod, err := mongo.Path(mongo.Mongo24)
+	return getMongoToolPath(dumpName, os.Stat, exec.LookPath)
+}
+
+var getMongodPath = func() (string, error) {
+	return mongo.Path(mongo.InstalledVersion())
+}
+
+func getMongoToolPath(toolName string, stat func(name string) (os.FileInfo, error), lookPath func(file string) (string, error)) (string, error) {
+	mongod, err := getMongodPath()
 	if err != nil {
 		return "", errors.Annotate(err, "failed to get mongod path")
 	}
-	mongoDumpPath := filepath.Join(filepath.Dir(mongod), dumpName)
+	mongoTool := filepath.Join(filepath.Dir(mongod), toolName)
 
-	if _, err := os.Stat(mongoDumpPath); err == nil {
+	if _, err := stat(mongoTool); err == nil {
 		// It already exists so no need to continue.
-		return mongoDumpPath, nil
+		return mongoTool, nil
 	}
 
-	path, err := exec.LookPath(dumpName)
+	path, err := lookPath(toolName)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -139,7 +148,6 @@ func NewDBDumper(info *DBInfo) (DBDumper, error) {
 func (md *mongoDumper) options(dumpDir string) []string {
 	options := []string{
 		"--ssl",
-		"--journal",
 		"--authenticationDatabase", "admin",
 		"--host", md.Address,
 		"--username", md.Username,
@@ -235,7 +243,10 @@ func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, 
 	}
 }
 
-var restorePath = paths.MongorestorePath
+var getMongorestorePath = func() (string, error) {
+	return getMongoToolPath(restoreName, os.Stat, exec.LookPath)
+}
+
 var restoreArgsForVersion = mongoRestoreArgsForVersion
 
 // placeNewMongoService wraps placeNewMongo with the proper service stopping
@@ -257,7 +268,7 @@ func placeNewMongoService(newMongoDumpPath string, ver version.Number) error {
 // placeNewMongo tries to use mongorestore to replace an existing
 // mongo with the dump in newMongoDumpPath returns an error if its not possible.
 func placeNewMongo(newMongoDumpPath string, ver version.Number) error {
-	mongoRestore, err := restorePath()
+	mongoRestore, err := getMongorestorePath()
 	if err != nil {
 		return errors.Annotate(err, "mongorestore not available")
 	}

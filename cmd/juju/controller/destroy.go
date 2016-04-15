@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient"
 )
 
 // NewDestroyCommand returns a command to destroy a controller.
@@ -47,7 +47,23 @@ type destroyCommand struct {
 	destroyModels bool
 }
 
-var destroyDoc = `Destroys the specified controller`
+// usageDetails has backticks which we want to keep for markdown processing.
+// TODO(cheryl): Do we want the usage, options, examples, and see also text in
+// backticks for markdown?
+var usageDetails = `
+All models (initial model plus all workload/hosted) associated with the
+controller will first need to be destroyed, either in advance, or by
+specifying `[1:] + "`--destroy-all-models`." + `
+
+Examples:
+    juju destroy-controller --destroy-all-models mycontroller
+
+See also: 
+    kill-controller`
+
+var usageSummary = `
+Destroys a controller.`[1:]
+
 var destroySysMsg = `
 WARNING! This command will destroy the %q controller.
 This includes all machines, services, data and other resources.
@@ -78,36 +94,24 @@ func (c *destroyCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "destroy-controller",
 		Args:    "<controller name>",
-		Purpose: "terminate all machines and other associated resources for the juju controller",
-		Doc:     destroyDoc,
+		Purpose: usageSummary,
+		Doc:     usageDetails,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "destroy all hosted models in the controller")
+	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "Destroy all hosted models in the controller")
 	c.destroyCommandBase.SetFlags(f)
 }
 
 // Run implements Command.Run
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
-	store, err := configstore.Default()
-	if err != nil {
-		return errors.Annotate(err, "cannot open controller info storage")
-	}
-
 	controllerName := c.ControllerName()
-	cfgInfo, err := store.ReadInfo(configstore.EnvironInfoName(
-		controllerName, configstore.AdminModelName(controllerName),
-	))
+	store := c.ClientStore()
+	controllerDetails, err := store.ControllerByName(controllerName)
 	if err != nil {
 		return errors.Annotate(err, "cannot read controller info")
-	}
-
-	// Verify that we're destroying a controller
-	apiEndpoint := cfgInfo.APIEndpoint()
-	if apiEndpoint.ServerUUID != "" && apiEndpoint.ModelUUID != apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is not a controller; use juju destroy-model to destroy it", c.ControllerName())
 	}
 
 	if !c.assumeYes {
@@ -124,33 +128,83 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	// Obtain bootstrap / controller environ information
-	controllerEnviron, err := c.getControllerModel(cfgInfo, api)
+	// Obtain controller environ so we can clean up afterwards.
+	controllerEnviron, err := c.getControllerEnviron(store, controllerName, api)
 	if err != nil {
-		return errors.Annotate(err, "cannot obtain bootstrap information")
+		return errors.Annotate(err, "getting controller environ")
 	}
 
-	// Attempt to destroy the controller.
-	err = api.DestroyController(c.destroyModels)
-	if err != nil {
-		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy controller"), ctx, api)
-	}
+	for {
+		// Attempt to destroy the controller.
+		ctx.Infof("Destroying controller")
+		var hasHostedModels bool
+		err = api.DestroyController(c.destroyModels)
+		if err != nil {
+			if params.IsCodeHasHostedModels(err) {
+				hasHostedModels = true
+			} else {
+				return c.ensureUserFriendlyErrorLog(
+					errors.Annotate(err, "cannot destroy controller"),
+					ctx, api,
+				)
+			}
+		}
 
-	ctx.Infof("Destroying controller %q", c.ControllerName())
-	if c.destroyModels {
-		ctx.Infof("Waiting for hosted model resources to be reclaimed.")
+		updateStatus := newTimedStatusUpdater(ctx, api, controllerDetails.ControllerUUID)
+		ctrStatus, modelsStatus := updateStatus(0)
+		if !c.destroyModels {
+			if err := c.checkNoAliveHostedModels(ctx, modelsStatus); err != nil {
+				return errors.Trace(err)
+			}
+			if hasHostedModels && !hasUnDeadModels(modelsStatus) {
+				// When we called DestroyController before, we were
+				// informed that there were hosted models remaining.
+				// When we checked just now, there were none. We should
+				// try destroying again.
+				continue
+			}
+		}
 
-		updateStatus := newTimedStatusUpdater(ctx, api, apiEndpoint.ModelUUID)
-		for ctrStatus, modelsStatus := updateStatus(0); hasUnDeadModels(modelsStatus); ctrStatus, modelsStatus = updateStatus(2 * time.Second) {
+		// Even if we've not just requested for hosted models to be destroyed,
+		// there may be some being destroyed already. We need to wait for them.
+		ctx.Infof("Waiting for hosted model resources to be reclaimed")
+		for ; hasUnDeadModels(modelsStatus); ctrStatus, modelsStatus = updateStatus(2 * time.Second) {
 			ctx.Infof(fmtCtrStatus(ctrStatus))
 			for _, model := range modelsStatus {
 				ctx.Verbosef(fmtModelStatus(model))
 			}
 		}
-
 		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
+		return environs.Destroy(c.ControllerName(), controllerEnviron, store)
 	}
-	return environs.Destroy(c.ControllerName(), controllerEnviron, store, c.ClientStore())
+}
+
+// checkNoAliveHostedModels ensures that the given set of hosted models
+// contains none that are Alive. If there are, an message is printed
+// out to
+func (c *destroyCommand) checkNoAliveHostedModels(ctx *cmd.Context, models []modelData) error {
+	if !hasAliveModels(models) {
+		return nil
+	}
+	// The user did not specify --destroy-all-models,
+	// and there are models still alive.
+	var buf bytes.Buffer
+	for _, model := range models {
+		if model.Life != params.Alive {
+			continue
+		}
+		buf.WriteString(fmtModelStatus(model))
+		buf.WriteRune('\n')
+	}
+	return errors.Errorf(`cannot destroy controller %q
+
+The controller has live hosted models. If you want
+to destroy all hosted models in the controller,
+run this command again with the --destroy-all-models
+flag.
+
+Models:
+%s`, c.ControllerName(), buf.String())
 }
 
 // ensureUserFriendlyErrorLog ensures that error will be logged and displayed
@@ -160,19 +214,13 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 		return nil
 	}
 	if params.IsCodeOperationBlocked(destroyErr) {
-		logger.Errorf(`there are blocks preventing controller destruction
-To remove all blocks in the controller, please run:
-
-    juju controller remove-blocks
-
-`)
+		logger.Errorf(destroyControllerBlockedMsg)
 		if api != nil {
 			models, err := api.ListBlockedModels()
 			var bytes []byte
 			if err == nil {
 				bytes, err = formatTabularBlockedModels(models)
 			}
-
 			if err != nil {
 				logger.Errorf("Unable to list blocked models: %s", err)
 				return cmd.ErrSilent
@@ -181,19 +229,32 @@ To remove all blocks in the controller, please run:
 		}
 		return cmd.ErrSilent
 	}
+	if params.IsCodeHasHostedModels(destroyErr) {
+		return destroyErr
+	}
 	logger.Errorf(stdFailureMsg, c.ControllerName())
 	return destroyErr
 }
 
-var stdFailureMsg = `failed to destroy controller %q
+const destroyControllerBlockedMsg = `there are blocks preventing controller destruction
+To remove all blocks in the controller, please run:
+
+    juju controller remove-blocks
+
+`
+
+// TODO(axw) this should only be printed out if we couldn't
+// connect to the controller.
+const stdFailureMsg = `failed to destroy controller %q
 
 If the controller is unusable, then you may run
 
     juju kill-controller
 
 to forcibly destroy the controller. Upon doing so, review
-your model provider console for any resources that need
+your cloud provider console for any resources that need
 to be cleaned up.
+
 `
 
 func formatTabularBlockedModels(value interface{}) ([]byte, error) {
@@ -255,17 +316,6 @@ func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
 	return controller.NewClient(root), nil
 }
 
-func (c *destroyCommandBase) getClientAPI() (destroyClientAPI, error) {
-	if c.clientapi != nil {
-		return c.clientapi, nil
-	}
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return root.Client(), nil
-}
-
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
@@ -284,24 +334,31 @@ func (c *destroyCommandBase) Init(args []string) error {
 	}
 }
 
-// getControllerModel gets the bootstrap information required to destroy the
-// model by first checking the config store, then querying the API if
-// the information is not in the store.
-func (c *destroyCommandBase) getControllerModel(info configstore.EnvironInfo, sysAPI destroyControllerAPI) (_ environs.Environ, err error) {
-	bootstrapCfg := info.BootstrapConfig()
-	if bootstrapCfg == nil {
+// getControllerEnviron returns the Environ for the controller model.
+//
+// getControllerEnviron gets the information required to get the
+// Environ by first checking the config store, then querying the
+// API if the information is not in the store.
+func (c *destroyCommandBase) getControllerEnviron(
+	store jujuclient.ClientStore, controllerName string, sysAPI destroyControllerAPI,
+) (_ environs.Environ, err error) {
+	cfg, err := modelcmd.NewGetBootstrapConfigFunc(store)(controllerName)
+	if errors.IsNotFound(err) {
 		if sysAPI == nil {
-			return nil, errors.New("unable to get bootstrap information from API")
+			return nil, errors.New(
+				"unable to get bootstrap information from client store or API",
+			)
 		}
-		bootstrapCfg, err = sysAPI.ModelConfig()
+		bootstrapConfig, err := sysAPI.ModelConfig()
+		if err != nil {
+			return nil, errors.Annotate(err, "getting bootstrap config from API")
+		}
+		cfg, err = config.New(config.NoDefaults, bootstrapConfig)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-	}
-
-	cfg, err := config.New(config.NoDefaults, bootstrapCfg)
-	if err != nil {
-		return nil, errors.Trace(err)
+	} else if err != nil {
+		return nil, errors.Annotate(err, "getting bootstrap config from client store")
 	}
 	return environs.New(cfg)
 }

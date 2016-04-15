@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
@@ -54,7 +56,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner, env.Name))
 	}
 	expected := []string{
-		"admin@local/dummymodel",
+		"admin@local/admin",
 		"user@remote/first",
 		"user@remote/second",
 	}
@@ -65,11 +67,13 @@ func (s *controllerSuite) TestModelConfig(c *gc.C) {
 	sysManager := s.OpenAPI(c)
 	env, err := sysManager.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env["name"], gc.Equals, "dummymodel")
+	c.Assert(env["name"], gc.Equals, "admin")
 }
 
 func (s *controllerSuite) TestDestroyController(c *gc.C) {
-	s.Factory.MakeModel(c, &factory.ModelParams{Name: "foo"}).Close()
+	st := s.Factory.MakeModel(c, &factory.ModelParams{Name: "foo"})
+	factory.NewFactory(st).MakeMachine(c, nil) // make it non-empty
+	st.Close()
 
 	sysManager := s.OpenAPI(c)
 	err := sysManager.DestroyController(false)
@@ -86,7 +90,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []params.ModelBlockInfo{
 		params.ModelBlockInfo{
-			Name:     "dummymodel",
+			Name:     "admin",
 			UUID:     s.State.ModelUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
 			Blocks: []string{
@@ -159,4 +163,52 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 		Owner:              "admin@local",
 		Life:               params.Alive,
 	}})
+}
+
+func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	_, err := st.GetModelMigration()
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+
+	spec := controller.ModelMigrationSpec{
+		ModelUUID:            st.ModelUUID(),
+		TargetControllerUUID: randomUUID(),
+		TargetAddrs:          []string{"1.2.3.4:5"},
+		TargetCACert:         "cert",
+		TargetUser:           "someone",
+		TargetPassword:       "secret",
+	}
+
+	controller := s.OpenAPI(c)
+	id, err := controller.InitiateModelMigration(spec)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedId := st.ModelUUID() + ":0"
+	c.Check(id, gc.Equals, expectedId)
+
+	// Check database.
+	mig, err := st.GetModelMigration()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mig.Id(), gc.Equals, expectedId)
+}
+
+func (s *controllerSuite) TestInitiateModelMigrationError(c *gc.C) {
+	spec := controller.ModelMigrationSpec{
+		ModelUUID:            randomUUID(), // Model doesn't exist.
+		TargetControllerUUID: randomUUID(),
+		TargetAddrs:          []string{"1.2.3.4:5"},
+		TargetCACert:         "cert",
+		TargetUser:           "someone",
+		TargetPassword:       "secret",
+	}
+
+	controller := s.OpenAPI(c)
+	id, err := controller.InitiateModelMigration(spec)
+	c.Check(id, gc.Equals, "")
+	c.Check(err, gc.ErrorMatches, "unable to read model: .+")
+}
+
+func randomUUID() string {
+	return utils.MustNewUUID().String()
 }

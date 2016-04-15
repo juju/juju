@@ -41,10 +41,11 @@ var readOnlyCalls = set.NewStrings(
 	// ResolveCharms, while being technically read only, isn't a useful
 	// command for a read only user to run.
 	// Status is so old it shouldn't be used.
-	"Client.UnitStatusHistory",
+	"Client.StatusHistory",
 	"Client.WatchAll",
 	// TODO: add controller work.
 	"KeyManager.ListKeys",
+	"ModelManager.ModelInfo",
 	"Service.GetConstraints",
 	"Service.CharmRelations",
 	"Service.Get",

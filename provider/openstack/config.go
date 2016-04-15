@@ -110,6 +110,14 @@ func (c *environConfig) tenantName() string {
 	return c.attrs["tenant-name"].(string)
 }
 
+func (c *environConfig) domainName() string {
+	dname, ok := c.attrs["domain-name"]
+	if ok {
+		return dname.(string)
+	}
+	return ""
+}
+
 func (c *environConfig) authURL() string {
 	return c.attrs["auth-url"].(string)
 }
@@ -165,20 +173,6 @@ func (p EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	if err != nil {
 		return nil, err
 	}
-
-	// Add Openstack specific defaults.
-	providerDefaults := map[string]interface{}{}
-
-	// Storage.
-	if _, ok := cfg.StorageDefaultBlockSource(); !ok {
-		providerDefaults[config.StorageDefaultBlockSourceKey] = CinderProviderType
-	}
-	if len(providerDefaults) > 0 {
-		if cfg, err = cfg.Apply(providerDefaults); err != nil {
-			return nil, err
-		}
-	}
-
 	ecfg := &environConfig{cfg, validated}
 
 	switch ecfg.authMode() {

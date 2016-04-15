@@ -15,9 +15,40 @@ import (
 	"launchpad.net/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 )
+
+var usageListCredentialsSummary = `
+Lists credentials for a cloud.`[1:]
+
+var usageListCredentialsDetails = `
+Credentials are used with `[1:] + "`juju bootstrap`" + `  and ` + "`juju create-model`" + `.
+An arbitrary "credential name" is used to represent credentials, which are 
+added either via ` + "`juju add-credential` or `juju autoload-credentials`" + `.
+Note that there can be multiple sets of credentials and thus multiple 
+names.
+Actual authentication material is exposed with the '--show-secrets' 
+option.
+A controller and subsequently created models can be created with a 
+different set of credentials but any action taken within the model (e.g.:
+` + "`juju deploy`; `juju add-unit`" + `) applies the set used to create the model. 
+Recall that when a controller is created a 'default' model is also 
+created.
+Credentials denoted with an asterisk '*' are currently set as the default
+for the given cloud.
+
+Examples:
+    juju list-credentials
+    juju list-credentials aws
+    juju list-credentials --format yaml --show-secrets
+
+See also: 
+    add-credential
+    remove-credential
+    set-default-credential
+    autoload-credentials`
 
 type listCredentialsCommand struct {
 	cmd.CommandBase
@@ -29,21 +60,6 @@ type listCredentialsCommand struct {
 	personalCloudsFunc func() (map[string]jujucloud.Cloud, error)
 	cloudByNameFunc    func(string) (*jujucloud.Cloud, error)
 }
-
-var listCredentialsDoc = `
-The list-credentials command lists the credentials for clouds on which Juju workloads
-can be deployed. The credentials listed are those added with the add-credential command.
-
-Example:
-   # List all credentials.
-   juju list-credentials
-
-   # List credentials for the aws cloud only.
-   juju list-credentials aws
-   
-   # List detailed credential information including passwords.
-   juju list-credentials --format yaml --show-secrets
-`
 
 type credentialsMap struct {
 	Credentials map[string]jujucloud.CloudCredential `yaml:"credentials" json:"credentials"`
@@ -60,14 +76,14 @@ func NewListCredentialsCommand() cmd.Command {
 func (c *listCredentialsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-credentials",
-		Args:    "[<cloudname>]",
-		Purpose: "list credentials available to create a Juju model",
-		Doc:     listCredentialsDoc,
+		Args:    "[<cloud name>]",
+		Purpose: usageListCredentialsSummary,
+		Doc:     usageListCredentialsDetails,
 	}
 }
 
 func (c *listCredentialsCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.showSecrets, "show-secrets", false, "show secrets for displayed credentials")
+	f.BoolVar(&c.showSecrets, "show-secrets", false, "Show secrets")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -139,7 +155,7 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *listCredentialsCommand) removeSecrets(cloudName string, cloudCred *jujucloud.CloudCredential) error {
-	cloud, err := c.cloudByNameFunc(cloudName)
+	cloud, err := common.CloudOrProvider(cloudName, c.cloudByNameFunc)
 	if err != nil {
 		return err
 	}

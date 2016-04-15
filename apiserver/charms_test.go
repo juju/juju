@@ -172,7 +172,13 @@ func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
-	_, err := s.State.AddCharm(ch, curl, "dummy-storage-path", "dummy-1-sha256")
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "dummy-storage-path",
+		SHA256:      "dummy-1-sha256",
+	}
+	_, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now try uploading the same revision and verify it gets bumped,
@@ -470,7 +476,7 @@ func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
 
 func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 	// Add a fake charm archive in the cache directory.
-	cacheDir := filepath.Join(s.DataDir(), "charm-get-cache")
+	cacheDir := filepath.Join(s.DataDir(), "charm-get-cache", s.State.ModelUUID())
 	err := os.MkdirAll(cacheDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 

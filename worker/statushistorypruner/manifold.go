@@ -20,16 +20,17 @@ type ManifoldConfig struct {
 	APICallerName    string
 	MaxLogsPerEntity uint
 	PruneInterval    time.Duration
-	NewTimer         worker.NewTimerFunc
+	// TODO(fwereade): 2016-03-17 lp:1558657
+	NewTimer worker.NewTimerFunc
 }
 
 // Manifold returns a Manifold that encapsulates the statushistorypruner worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.APICallerName},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(context dependency.Context) (worker.Worker, error) {
 			var apiCaller base.APICaller
-			if err := getResource(config.APICallerName, &apiCaller); err != nil {
+			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
 

@@ -10,7 +10,9 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -23,9 +25,11 @@ import (
 type userManagerSuite struct {
 	jujutesting.JujuConnSuite
 
-	usermanager *usermanager.UserManagerAPI
-	authorizer  apiservertesting.FakeAuthorizer
-	adminName   string
+	usermanager              *usermanager.UserManagerAPI
+	authorizer               apiservertesting.FakeAuthorizer
+	adminName                string
+	resources                *common.Resources
+	createLocalLoginMacaroon func(names.UserTag) (*macaroon.Macaroon, error)
 
 	commontesting.BlockHelper
 }
@@ -35,13 +39,23 @@ var _ = gc.Suite(&userManagerSuite{})
 func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
+	s.createLocalLoginMacaroon = func(tag names.UserTag) (*macaroon.Macaroon, error) {
+		return nil, errors.NotSupportedf("CreateLocalLoginMacaroon")
+	}
+	s.resources = common.NewResources()
+	s.resources.RegisterNamed("createLocalLoginMacaroon", common.ValueResource{
+		func(tag names.UserTag) (*macaroon.Macaroon, error) {
+			return s.createLocalLoginMacaroon(tag)
+		},
+	})
+
 	adminTag := s.AdminUserTag(c)
 	s.adminName = adminTag.Name()
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: adminTag,
 	}
 	var err error
-	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
+	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
@@ -51,12 +65,12 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authorizer
 	anAuthoriser.Tag = names.NewMachineTag("1")
-	endPoint, err := usermanager.NewUserManagerAPI(s.State, nil, anAuthoriser)
+	endPoint, err := usermanager.NewUserManagerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *userManagerSuite) assertAddUser(c *gc.C, sharedModelTags []string) {
+func (s *userManagerSuite) assertAddUser(c *gc.C, access params.ModelAccessPermission, sharedModelTags []string) {
 	sharedModelState := s.Factory.MakeModel(c, nil)
 	defer sharedModelState.Close()
 
@@ -66,6 +80,7 @@ func (s *userManagerSuite) assertAddUser(c *gc.C, sharedModelTags []string) {
 			DisplayName:     "Foo Bar",
 			Password:        "password",
 			SharedModelTags: sharedModelTags,
+			ModelAccess:     access,
 		}}}
 
 	result, err := s.usermanager.AddUser(args)
@@ -84,7 +99,7 @@ func (s *userManagerSuite) assertAddUser(c *gc.C, sharedModelTags []string) {
 }
 
 func (s *userManagerSuite) TestAddUser(c *gc.C) {
-	s.assertAddUser(c, nil)
+	s.assertAddUser(c, params.ModelAccessPermission(""), nil)
 }
 
 func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
@@ -118,11 +133,19 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 	})
 }
 
-func (s *userManagerSuite) TestAddUserWithSharedModel(c *gc.C) {
+func (s *userManagerSuite) TestAddReadAccessUser(c *gc.C) {
+	s.addUserWithSharedModel(c, params.ModelReadAccess)
+}
+
+func (s *userManagerSuite) TestAddWriteAccessUser(c *gc.C) {
+	s.addUserWithSharedModel(c, params.ModelWriteAccess)
+}
+
+func (s *userManagerSuite) addUserWithSharedModel(c *gc.C, access params.ModelAccessPermission) {
 	sharedModelState := s.Factory.MakeModel(c, nil)
 	defer sharedModelState.Close()
 
-	s.assertAddUser(c, []string{sharedModelState.ModelTag().String()})
+	s.assertAddUser(c, access, []string{sharedModelState.ModelTag().String()})
 
 	// Check that the model has been shared.
 	sharedModel, err := sharedModelState.Model()
@@ -132,6 +155,11 @@ func (s *userManagerSuite) TestAddUserWithSharedModel(c *gc.C) {
 	var modelUserTags = make([]names.UserTag, len(users))
 	for i, u := range users {
 		modelUserTags[i] = u.UserTag()
+		if u.UserName() == "foobar" {
+			c.Assert(u.ReadOnly(), gc.Equals, access == params.ModelReadAccess)
+		} else if u.UserName() == "admin" {
+			c.Assert(u.ReadOnly(), gc.Equals, false)
+		}
 	}
 	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{
 		names.NewLocalUserTag("foobar"),
@@ -163,7 +191,7 @@ func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
 	usermanager, err := usermanager.NewUserManagerAPI(
-		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.AddUsers{
@@ -315,7 +343,7 @@ func (s *userManagerSuite) TestBlockEnableUser(c *gc.C) {
 func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
 	usermanager, err := usermanager.NewUserManagerAPI(
-		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb"})
@@ -334,7 +362,7 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
 	usermanager, err := usermanager.NewUserManagerAPI(
-		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
@@ -517,7 +545,7 @@ func (s *userManagerSuite) TestBlockSetPassword(c *gc.C) {
 func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
 	usermanager, err := usermanager.NewUserManagerAPI(
-		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.EntityPasswords{
@@ -540,7 +568,7 @@ func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
 	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb"})
 	usermanager, err := usermanager.NewUserManagerAPI(
-		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.EntityPasswords{

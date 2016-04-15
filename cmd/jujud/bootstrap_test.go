@@ -11,10 +11,12 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -22,11 +24,13 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
@@ -55,7 +59,7 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // We don't want to use JujuConnSuite because it gives us
@@ -63,14 +67,16 @@ import (
 type BootstrapSuite struct {
 	testing.BaseSuite
 	gitjujutesting.MgoSuite
-	envcfg          *config.Config
-	b64yamlEnvcfg   string
-	instanceId      instance.Id
-	dataDir         string
-	logDir          string
-	mongoOplogSize  string
-	fakeEnsureMongo *agenttesting.FakeEnsureMongo
-	bootstrapName   string
+	envcfg                       *config.Config
+	b64yamlControllerModelConfig string
+	b64yamlHostedModelConfig     string
+	instanceId                   instance.Id
+	dataDir                      string
+	logDir                       string
+	mongoOplogSize               string
+	fakeEnsureMongo              *agenttesting.FakeEnsureMongo
+	bootstrapName                string
+	hostedModelUUID              string
 
 	toolsStorage storage.Storage
 }
@@ -80,23 +86,23 @@ var _ = gc.Suite(&BootstrapSuite{})
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	storageDir := c.MkDir()
 	restorer := gitjujutesting.PatchValue(&envtools.DefaultBaseURL, storageDir)
-	s.AddSuiteCleanup(func(*gc.C) {
-		restorer()
-	})
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	s.toolsStorage = stor
 
 	s.BaseSuite.SetUpSuite(c)
+	s.AddCleanup(func(*gc.C) {
+		restorer()
+	})
 	s.MgoSuite.SetUpSuite(c)
-	s.PatchValue(&version.Current, testing.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	s.makeTestEnv(c)
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
-	dummy.Reset()
+	dummy.Reset(c)
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
@@ -114,7 +120,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -124,6 +130,16 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	err = ioutil.WriteFile(filepath.Join(toolsDir, "tools.tar.gz"), nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.writeDownloadedTools(c, &tools.Tools{Version: current})
+
+	// Create fake gui.tar.bz2 and downloaded-gui.txt.
+	guiDir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
+	err = os.MkdirAll(guiDir, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(guiDir, "gui.tar.bz2"), nil, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	s.writeDownloadedGUI(c, &tools.GUIArchive{
+		Version: version.MustParse("2.0.42"),
+	})
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
@@ -141,11 +157,139 @@ func (s *BootstrapSuite) writeDownloadedTools(c *gc.C, tools *tools.Tools) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-var testPassword = "my-admin-secret"
-
-func testPasswordHash() string {
-	return utils.UserPasswordHash(testPassword, utils.CompatSalt)
+func (s *BootstrapSuite) writeDownloadedGUI(c *gc.C, gui *tools.GUIArchive) {
+	guiDir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
+	err := os.MkdirAll(guiDir, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := json.Marshal(gui)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(guiDir, "downloaded-gui.txt"), data, 0644)
+	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *BootstrapSuite) TestGUIArchiveInfoNotFound(c *gc.C) {
+	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
+	info := filepath.Join(dir, "downloaded-gui.txt")
+	err := os.Remove(info)
+	c.Assert(err, jc.ErrorIsNil)
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil, "--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId))
+	c.Assert(err, jc.ErrorIsNil)
+
+	var tw loggo.TestWriter
+	err = loggo.RegisterWriter("bootstrap-test", &tw, loggo.DEBUG)
+	c.Assert(err, jc.ErrorIsNil)
+	defer loggo.RemoveWriter("bootstrap-test")
+
+	err = cmd.Run(nil)
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.WARNING,
+		`cannot set up Juju GUI: cannot fetch GUI info: GUI metadata not found`,
+	}})
+}
+
+func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		// TODO frankban: skipping for now due to chmod problems with mode 0000
+		// on Windows. We will re-enable this test after further investigation:
+		// "jujud bootstrap" is never run on Windows anyway.
+		c.Skip("needs chmod investigation")
+	}
+	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
+	info := filepath.Join(dir, "downloaded-gui.txt")
+	err := os.Chmod(info, 0000)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Chmod(info, 0600)
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil, "--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId))
+	c.Assert(err, jc.ErrorIsNil)
+
+	var tw loggo.TestWriter
+	err = loggo.RegisterWriter("bootstrap-test", &tw, loggo.DEBUG)
+	c.Assert(err, jc.ErrorIsNil)
+	defer loggo.RemoveWriter("bootstrap-test")
+
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.WARNING,
+		`cannot set up Juju GUI: cannot fetch GUI info: cannot read GUI metadata in tools directory: .*`,
+	}})
+}
+
+func (s *BootstrapSuite) TestGUIArchiveError(c *gc.C) {
+	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
+	archive := filepath.Join(dir, "gui.tar.bz2")
+	err := os.Remove(archive)
+	c.Assert(err, jc.ErrorIsNil)
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil, "--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId))
+	c.Assert(err, jc.ErrorIsNil)
+
+	var tw loggo.TestWriter
+	err = loggo.RegisterWriter("bootstrap-test", &tw, loggo.DEBUG)
+	c.Assert(err, jc.ErrorIsNil)
+	defer loggo.RemoveWriter("bootstrap-test")
+
+	err = cmd.Run(nil)
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.WARNING,
+		`cannot set up Juju GUI: cannot read GUI archive: .*`,
+	}})
+}
+
+func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil, "--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId))
+	c.Assert(err, jc.ErrorIsNil)
+
+	var tw loggo.TestWriter
+	err = loggo.RegisterWriter("bootstrap-test", &tw, loggo.DEBUG)
+	c.Assert(err, jc.ErrorIsNil)
+	defer loggo.RemoveWriter("bootstrap-test")
+
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.DEBUG,
+		`Juju GUI successfully set up`,
+	}})
+
+	// Retrieve the state so that it is possible to access the GUI storage.
+	st, err := state.Open(testing.ModelTag, &mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
+		Password: testPassword,
+	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	// The GUI archive has been uploaded to the GUI storage.
+	storage, err := st.GUIStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer storage.Close()
+	allMeta, err := storage.AllMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allMeta, gc.HasLen, 1)
+	c.Assert(allMeta[0].Version, gc.Equals, "2.0.42")
+
+	// The current GUI version has been set.
+	vers, err := st.GUIVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vers.String(), gc.Equals, "2.0.42")
+}
+
+var testPassword = "my-admin-secret"
 
 func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.MachineJob, args ...string) (machineConf agent.ConfigSetterWriter, cmd *BootstrapCommand, err error) {
 	if len(jobs) == 0 {
@@ -165,8 +309,8 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 		},
 		Jobs:              jobs,
 		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: version.Current,
-		Password:          testPasswordHash(),
+		UpgradedToVersion: jujuversion.Current,
+		Password:          testPassword,
 		Nonce:             agent.BootstrapNonce,
 		Model:             testing.ModelTag,
 		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
@@ -198,7 +342,11 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 
 func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	machConf, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
+	machConf, cmd, err := s.initBootstrapCommand(
+		c, nil, "--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId), "--hardware", hw.String(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -234,7 +382,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -263,7 +411,11 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
 	s.mongoOplogSize = "NaN"
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil, "--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId), "--hardware", hw.String(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, `invalid oplog size: "NaN"`)
@@ -275,10 +427,14 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 		"agent-version": "1.99.1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	b64yamlEnvcfg := b64yaml(envcfg.AllAttrs()).encode()
+	b64yamlControllerModelConfig := b64yaml(envcfg.AllAttrs()).encode()
 
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", b64yamlEnvcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil, "--model-config", b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId), "--hardware", hw.String(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -288,7 +444,7 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -302,12 +458,13 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	bootstrapCons := constraints.Value{Mem: uint64p(4096), CpuCores: uint64p(4)}
-	environCons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
+	modelCons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
 	_, cmd, err := s.initBootstrapCommand(c, nil,
-		"--model-config", s.b64yamlEnvcfg,
+		"--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
 		"--instance-id", string(s.instanceId),
 		"--bootstrap-constraints", bootstrapCons.String(),
-		"--constraints", environCons.String(),
+		"--constraints", modelCons.String(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
@@ -318,14 +475,14 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
 	cons, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.DeepEquals, environCons)
+	c.Assert(cons, gc.DeepEquals, modelCons)
 
 	machines, err := st.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -345,7 +502,11 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 		state.JobHostUnits,
 		state.JobManageNetworking,
 	}
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil,
+		"--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -355,7 +516,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -366,7 +527,11 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 
 func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	jobs := []multiwatcher.MachineJob{multiwatcher.JobManageModel}
-	_, cmd, err := s.initBootstrapCommand(c, jobs, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, jobs,
+		"--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -376,7 +541,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -398,7 +563,11 @@ func testOpenState(c *gc.C, info *mongo.MongoInfo, expectErrType error) {
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
-	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	machineConf, cmd, err := s.initBootstrapCommand(c, nil,
+		"--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = cmd.Run(nil)
@@ -413,7 +582,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	// Check we can log in to mongo as admin.
 	// TODO(dfc) does passing nil for the admin user name make your skin crawl ? mine too.
-	info.Tag, info.Password = nil, testPasswordHash()
+	info.Tag, info.Password = nil, testPassword
 	st, err := state.Open(testing.ModelTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -469,21 +638,30 @@ var bootstrapArgTests = []struct {
 		input: []string{"--model-config", "name: banana\n"},
 		err:   ".*illegal base64 data at input byte.*",
 	}, {
+		// no value supplied for hosted-model-config
+		input: []string{
+			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
+		},
+		err: "--hosted-model-config option must be set",
+	}, {
 		// no value supplied for instance-id
 		input: []string{
 			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
+			"--hosted-model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
 		},
 		err: "--instance-id option must be set",
 	}, {
 		// empty instance-id
 		input: []string{
 			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
+			"--hosted-model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
 			"--instance-id", "",
 		},
 		err: "--instance-id option must be set",
 	}, {
 		input: []string{
 			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
+			"--hosted-model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
 			"--instance-id", "anything",
 		},
 		expectedInstanceId: "anything",
@@ -491,6 +669,7 @@ var bootstrapArgTests = []struct {
 	}, {
 		input: []string{
 			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
+			"--hosted-model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
 			"--instance-id", "anything",
 			"--hardware", "nonsense",
 		},
@@ -498,6 +677,7 @@ var bootstrapArgTests = []struct {
 	}, {
 		input: []string{
 			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
+			"--hosted-model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
 			"--instance-id", "anything",
 			"--hardware", "arch=amd64 cpu-cores=4 root-disk=2T",
 		},
@@ -516,7 +696,7 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 		if t.err == "" {
 			c.Assert(cmd, gc.NotNil)
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(cmd.EnvConfig, gc.DeepEquals, t.expectedConfig)
+			c.Assert(cmd.ControllerModelConfig, gc.DeepEquals, t.expectedConfig)
 			c.Assert(cmd.InstanceId, gc.Equals, t.expectedInstanceId)
 			c.Assert(cmd.Hardware, gc.DeepEquals, t.expectedHardware)
 		} else {
@@ -527,15 +707,23 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, envCfg *config.Config, machineCfg agent.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, envCfg *config.Config, hostedModelConfig map[string]interface{}, machineCfg agentbootstrap.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 123*time.Second)
+		c.Assert(hostedModelConfig, jc.DeepEquals, map[string]interface{}{
+			"name": "hosted-model",
+			"uuid": s.hostedModelUUID,
+		})
 		return nil, nil, errors.New("failed to initialize state")
 	}
 	s.PatchValue(&agentInitializeState, initializeState)
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil,
+		"--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
@@ -544,7 +732,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, envCfg *config.Config, machineCfg agent.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, envCfg *config.Config, hostedModelConfig map[string]interface{}, machineCfg agentbootstrap.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
@@ -555,10 +743,14 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 		"bootstrap-timeout": "13",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	b64yamlEnvcfg := b64yaml(envcfg.AllAttrs()).encode()
+	b64yamlControllerModelConfig := b64yaml(envcfg.AllAttrs()).encode()
 
 	s.PatchValue(&agentInitializeState, initializeState)
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil,
+		"--model-config", b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
@@ -569,7 +761,11 @@ func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
 	_, err := os.Stat(filepath.Join(s.dataDir, agent.SystemIdentity))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil,
+		"--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -588,7 +784,7 @@ func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 	// Tools uploaded over ssh.
 	s.writeDownloadedTools(c, &tools.Tools{
 		Version: version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		},
@@ -600,7 +796,11 @@ func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	envtesting.RemoveFakeToolsMetadata(c, s.toolsStorage)
 
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil,
+		"--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -618,7 +818,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -644,7 +844,8 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata, gc.HasLen, expectedSeries.Size())
 	for _, m := range metadata {
-		c.Assert(expectedSeries.Contains(m.Version.Series), jc.IsTrue)
+		v := version.MustParseBinary(m.Version)
+		c.Assert(expectedSeries.Contains(v.Series), jc.IsTrue)
 	}
 }
 
@@ -682,8 +883,8 @@ const (
                     "items": {
                         "%v": {
                             "id": "%v",
-                            "root_store": "%v", 
-                            "virt": "%v", 
+                            "root_store": "%v",
+                            "virt": "%v",
                             "region": "%v",
                             "endpoint": "endpoint"
                         }
@@ -743,7 +944,7 @@ func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -760,7 +961,9 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 	dir, m, _ := createImageMetadata(c)
 	_, cmd, err := s.initBootstrapCommand(
 		c, nil,
-		"--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId),
 		"--image-metadata", dir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -778,7 +981,9 @@ func (s *BootstrapSuite) TestCustomDataSourceHasKey(c *gc.C) {
 	dir, _, _ := createImageMetadata(c)
 	_, cmd, err := s.initBootstrapCommand(
 		c, nil,
-		"--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId),
 		"--image-metadata", dir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -810,7 +1015,9 @@ func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
 
 	_, cmd, err := s.initBootstrapCommand(
 		c, nil,
-		"--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId),
 		"--image-metadata", dir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -828,7 +1035,9 @@ func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
 
 	_, cmd, err := s.initBootstrapCommand(
 		c, nil,
-		"--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId),
 		"--image-metadata", metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -852,7 +1061,7 @@ func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
 func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"agent-version":     version.Current.String(),
+			"agent-version":     jujuversion.Current.String(),
 			"bootstrap-timeout": "123",
 		},
 	).Delete("admin-secret", "ca-private-key")
@@ -860,9 +1069,9 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	provider, err := environs.Provider(cfg.Type())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := provider.PrepareForBootstrap(nullContext(), environs.PrepareForBootstrapParams{
-		Config: cfg,
-	})
+	cfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{Config: cfg})
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := provider.PrepareForBootstrap(nullContext(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
@@ -876,7 +1085,14 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	addr, _ := network.SelectPublicAddress(addresses)
 	s.bootstrapName = addr.Value
 	s.envcfg = env.Config()
-	s.b64yamlEnvcfg = b64yaml(s.envcfg.AllAttrs()).encode()
+	s.b64yamlControllerModelConfig = b64yaml(s.envcfg.AllAttrs()).encode()
+
+	s.hostedModelUUID = utils.MustNewUUID().String()
+	hostedModelConfigAttrs := map[string]interface{}{
+		"name": "hosted-model",
+		"uuid": s.hostedModelUUID,
+	}
+	s.b64yamlHostedModelConfig = b64yaml(hostedModelConfigAttrs).encode()
 }
 
 func nullContext() environs.BootstrapContext {
@@ -898,7 +1114,11 @@ func (m b64yaml) encode() string {
 }
 
 func (s *BootstrapSuite) TestDefaultStoragePools(c *gc.C) {
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--model-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil, "--model-config", s.b64yamlControllerModelConfig,
+		"--hosted-model-config", s.b64yamlHostedModelConfig,
+		"--instance-id", string(s.instanceId),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -908,7 +1128,7 @@ func (s *BootstrapSuite) TestDefaultStoragePools(c *gc.C) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Password: testPasswordHash(),
+		Password: testPassword,
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()

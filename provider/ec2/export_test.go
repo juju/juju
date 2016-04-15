@@ -27,10 +27,6 @@ func StorageEC2(vs jujustorage.VolumeSource) *ec2.EC2 {
 	return vs.(*ebsVolumeSource).ec2
 }
 
-func ControlBucketName(e environs.Environ) string {
-	return e.(*environ).ecfg().controlBucket()
-}
-
 func JujuGroupName(e environs.Environ) string {
 	return e.(*environ).jujuGroupName()
 }
@@ -43,12 +39,16 @@ func EnvironEC2(e environs.Environ) *ec2.EC2 {
 	return e.(*environ).ec2()
 }
 
-func EnvironS3(e environs.Environ) *s3.S3 {
-	return e.(*environ).s3()
-}
-
 func InstanceEC2(inst instance.Instance) *ec2.Instance {
 	return inst.(*ec2Instance).Instance
+}
+
+func TerminatedInstances(e environs.Environ) ([]instance.Instance, error) {
+	return e.(*environ).AllInstancesByState("shutting-down", "terminated")
+}
+
+func InstanceSecurityGroups(e environs.Environ, ids []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {
+	return e.(*environ).instanceSecurityGroups(ids, states...)
 }
 
 var (
@@ -103,9 +103,11 @@ func UseTestInstanceTypeData(content instanceTypeCost) {
 }
 
 var (
-	ShortAttempt         = &shortAttempt
-	StorageAttempt       = &storageAttempt
-	DestroyVolumeAttempt = &destroyVolumeAttempt
+	ShortAttempt                   = &shortAttempt
+	StorageAttempt                 = &storageAttempt
+	DestroyVolumeAttempt           = &destroyVolumeAttempt
+	DeleteSecurityGroupInsistently = &deleteSecurityGroupInsistently
+	TerminateInstancesById         = &terminateInstancesById
 )
 
 func EC2ErrCode(err error) string {

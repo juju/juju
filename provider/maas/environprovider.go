@@ -4,12 +4,12 @@
 package maas
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -51,18 +51,26 @@ func (p maasEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*c
 	if found && oldName != "" {
 		return nil, errAgentNameAlreadySet
 	}
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, err
-	}
-	attrs["maas-agent-name"] = uuid.String()
+	attrs["maas-agent-name"] = cfg.UUID()
 	return cfg.Apply(attrs)
 }
 
-func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
-	// For MAAS, the endpoint from the cloud definition defines the MAAS server.
+// BootstrapConfig is specified in the EnvironProvider interface.
+func (p maasEnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+	// For MAAS, either:
+	// 1. the endpoint from the cloud definition defines the MAAS server URL
+	//    (if a full cloud definition had been set up)
+	// 2. the region defines the MAAS server ip/host
+	//    (if the bootstrap shortcut is used)
+	server := args.CloudEndpoint
+	if server == "" && args.CloudRegion != "" {
+		server = fmt.Sprintf("http://%s/MAAS", args.CloudRegion)
+	}
+	if server == "" {
+		return nil, errors.New("MAAS server not specified")
+	}
 	attrs := map[string]interface{}{
-		"maas-server": args.CloudEndpoint,
+		"maas-server": server,
 	}
 	// Add the credentials.
 	switch authType := args.Credentials.AuthType(); authType {
@@ -78,11 +86,11 @@ func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return p.PrepareForCreateEnvironment(cfg)
+}
 
-	cfg, err = p.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, err
-	}
+// PrepareForBootstrap is specified in the EnvironProvider interface.
+func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	env, err := p.Open(cfg)
 	if err != nil {
 		return nil, err
@@ -97,8 +105,12 @@ func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, 
 
 func verifyCredentials(env *maasEnviron) error {
 	// Verify we can connect to the server and authenticate.
+	if env.usingMAAS2() {
+		// The maas2 controller verifies credentials at creation time.
+		return nil
+	}
 	_, err := env.getMAASClient().GetSubObject("maas").CallGet("get_config", nil)
-	if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusUnauthorized {
+	if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusUnauthorized {
 		logger.Debugf("authentication failed: %v", err)
 		return errors.New(`authentication failed.
 
@@ -116,4 +128,9 @@ func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]stri
 	}
 	secretAttrs["maas-oauth"] = maasCfg.maasOAuth()
 	return secretAttrs, nil
+}
+
+// DetectRegions is specified in the environs.CloudRegionDetector interface.
+func (p maasEnvironProvider) DetectRegions() ([]cloud.Region, error) {
+	return nil, errors.NotFoundf("regions")
 }

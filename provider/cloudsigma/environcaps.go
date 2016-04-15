@@ -36,6 +36,7 @@ var unsupportedConstraints = []string{
 	constraints.Container,
 	constraints.InstanceType,
 	constraints.Tags,
+	constraints.VirtType,
 }
 
 // ConstraintsValidator returns a Validator instance which

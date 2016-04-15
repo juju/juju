@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 )
@@ -57,15 +58,19 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	s.PatchValue(&gatherTime, 10*time.Millisecond)
 	machines, insts := s.setupScenario(c)
 	s.State.StartSync()
-	w, err := NewWorker(s.api)
+	w, err := NewWorker(Config{
+		Facade:  s.api,
+		Environ: s.Environ,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		c.Assert(worker.Stop(w), gc.IsNil)
 	}()
 
+	// TODO(perrito666) make this dependent on a juju status
 	checkInstanceInfo := func(index int, m machine, expectedStatus string) bool {
 		isProvisioned := true
-		status, err := m.InstanceStatus()
+		instanceStatus, err := m.InstanceStatus()
 		if params.IsCodeNotProvisioned(err) {
 			isProvisioned = false
 		} else {
@@ -73,7 +78,8 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 		}
 		providerAddresses, err := m.ProviderAddresses()
 		c.Assert(err, jc.ErrorIsNil)
-		return reflect.DeepEqual(providerAddresses, s.addressesForIndex(index)) && (!isProvisioned || status == expectedStatus)
+		// TODO(perrito666) all providers should use juju statuses instead of message.
+		return reflect.DeepEqual(providerAddresses, s.addressesForIndex(index)) && (!isProvisioned || instanceStatus.Info == expectedStatus)
 	}
 
 	// Wait for the odd numbered machines in the
@@ -88,13 +94,9 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 			if i < len(machines)/2 && i%2 == 1 {
 				return checkInstanceInfo(i, m, "running")
 			}
-			status, err := m.InstanceStatus()
-			if i%2 == 0 {
-				// Even machines not provisioned yet.
-				c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
-			} else {
-				c.Assert(status, gc.Equals, "")
-			}
+			instanceStatus, err := m.InstanceStatus()
+			c.Logf("instance message is: %q", instanceStatus.Info)
+			c.Assert(instanceStatus.Status, gc.Equals, status.StatusPending)
 			stm, err := s.State.Machine(m.Id())
 			c.Assert(err, jc.ErrorIsNil)
 			return len(stm.Addresses()) == 0
@@ -120,13 +122,8 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 				return checkInstanceInfo(i, m, "running")
 			}
 			// Machines in second half still have no addresses, nor status.
-			status, err := m.InstanceStatus()
-			if i%2 == 0 {
-				// Even machines not provisioned yet.
-				c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
-			} else {
-				c.Assert(status, gc.Equals, "")
-			}
+			instanceStatus, err := m.InstanceStatus()
+			c.Assert(instanceStatus.Status, gc.Equals, status.StatusPending)
 			stm, err := s.State.Machine(m.Id())
 			c.Assert(err, jc.ErrorIsNil)
 			return len(stm.Addresses()) == 0

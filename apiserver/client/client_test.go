@@ -5,7 +5,6 @@ package client_test
 
 import (
 	"fmt"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -34,9 +34,10 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type Killer interface {
@@ -95,35 +96,38 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 			&params.ModelUserInfo{
 				UserName:    owner.UserName(),
 				DisplayName: owner.DisplayName(),
+				Access:      "write",
 			},
 		}, {
 			localUser1,
 			&params.ModelUserInfo{
 				UserName:    "ralphdoe@local",
 				DisplayName: "Ralph Doe",
+				Access:      "write",
 			},
 		}, {
 			localUser2,
 			&params.ModelUserInfo{
 				UserName:    "samsmith@local",
 				DisplayName: "Sam Smith",
+				Access:      "write",
 			},
 		}, {
 			remoteUser1,
 			&params.ModelUserInfo{
 				UserName:    "bobjohns@ubuntuone",
 				DisplayName: "Bob Johns",
+				Access:      "write",
 			},
 		}, {
 			remoteUser2,
 			&params.ModelUserInfo{
 				UserName:    "nicshaw@idprovider",
 				DisplayName: "Nic Shaw",
+				Access:      "write",
 			},
 		},
 	} {
-		r.info.CreatedBy = owner.UserName()
-		r.info.DateCreated = r.user.DateCreated()
 		r.info.LastConnection = lastConnPointer(c, r.user)
 		expected.Results = append(expected.Results, params.ModelUserInfoResult{Result: r.info})
 	}
@@ -158,229 +162,6 @@ func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) 
 	modelUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	return modelUser
-}
-
-func (s *serverSuite) TestShareModelAddMissingLocalFails(c *gc.C) {
-	args := params.ModifyModelUsers{
-		Changes: []params.ModifyModelUser{{
-			UserTag: names.NewLocalUserTag("foobar").String(),
-			Action:  params.AddModelUser,
-		}}}
-
-	result, err := s.client.ShareModel(args)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := `could not share model: user "foobar" does not exist locally: user "foobar" not found`
-	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
-}
-
-func (s *serverSuite) TestUnshareModel(c *gc.C) {
-	user := s.Factory.MakeModelUser(c, nil)
-	_, err := s.State.ModelUser(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.ModifyModelUsers{
-		Changes: []params.ModifyModelUser{{
-			UserTag: user.UserTag().String(),
-			Action:  params.RemoveModelUser,
-		}}}
-
-	result, err := s.client.ShareModel(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	_, err = s.State.ModelUser(user.UserTag())
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-}
-
-func (s *serverSuite) TestUnshareModelMissingUser(c *gc.C) {
-	user := names.NewUserTag("bob")
-	args := params.ModifyModelUsers{
-		Changes: []params.ModifyModelUser{{
-			UserTag: user.String(),
-			Action:  params.RemoveModelUser,
-		}}}
-
-	result, err := s.client.ShareModel(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.ErrorMatches, `could not unshare model: env user "bob@local" does not exist: transaction aborted`)
-
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.NotNil)
-
-	_, err = s.State.ModelUser(user)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-}
-
-func (s *serverSuite) TestShareModelAddLocalUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoModelUser: true})
-	args := params.ModifyModelUsers{
-		Changes: []params.ModifyModelUser{{
-			UserTag: user.Tag().String(),
-			Action:  params.AddModelUser,
-		}}}
-
-	result, err := s.client.ShareModel(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	modelUser, err := s.State.ModelUser(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName(), gc.Equals, user.UserTag().Canonical())
-	c.Assert(modelUser.CreatedBy(), gc.Equals, "admin@local")
-	lastConn, err := modelUser.LastConnection()
-	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
-	c.Assert(lastConn, gc.Equals, time.Time{})
-}
-
-func (s *serverSuite) TestShareModelAddRemoteUser(c *gc.C) {
-	user := names.NewUserTag("foobar@ubuntuone")
-	args := params.ModifyModelUsers{
-		Changes: []params.ModifyModelUser{{
-			UserTag: user.String(),
-			Action:  params.AddModelUser,
-		}}}
-
-	result, err := s.client.ShareModel(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	modelUser, err := s.State.ModelUser(user)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName(), gc.Equals, user.Canonical())
-	c.Assert(modelUser.CreatedBy(), gc.Equals, "admin@local")
-	lastConn, err := modelUser.LastConnection()
-	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
-	c.Assert(lastConn.IsZero(), jc.IsTrue)
-}
-
-func (s *serverSuite) TestShareModelAddUserTwice(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
-	args := params.ModifyModelUsers{
-		Changes: []params.ModifyModelUser{{
-			UserTag: user.Tag().String(),
-			Action:  params.AddModelUser,
-		}}}
-
-	_, err := s.client.ShareModel(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := s.client.ShareModel(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.ErrorMatches, "could not share model: model user \"foobar@local\" already exists")
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, "could not share model: model user \"foobar@local\" already exists")
-	c.Assert(result.Results[0].Error.Code, gc.Matches, params.CodeAlreadyExists)
-
-	modelUser, err := s.State.ModelUser(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName(), gc.Equals, user.UserTag().Canonical())
-}
-
-func (s *serverSuite) TestShareModelInvalidTags(c *gc.C) {
-	for _, testParam := range []struct {
-		tag      string
-		validTag bool
-	}{{
-		tag:      "unit-foo/0",
-		validTag: true,
-	}, {
-		tag:      "service-foo",
-		validTag: true,
-	}, {
-		tag:      "relation-wordpress:db mysql:db",
-		validTag: true,
-	}, {
-		tag:      "machine-0",
-		validTag: true,
-	}, {
-		tag:      "user@local",
-		validTag: false,
-	}, {
-		tag:      "user-Mua^h^h^h^arh",
-		validTag: true,
-	}, {
-		tag:      "user@",
-		validTag: false,
-	}, {
-		tag:      "user@ubuntuone",
-		validTag: false,
-	}, {
-		tag:      "user@ubuntuone",
-		validTag: false,
-	}, {
-		tag:      "@ubuntuone",
-		validTag: false,
-	}, {
-		tag:      "in^valid.",
-		validTag: false,
-	}, {
-		tag:      "",
-		validTag: false,
-	},
-	} {
-		var expectedErr string
-		errPart := `could not share model: "` + regexp.QuoteMeta(testParam.tag) + `" is not a valid `
-
-		if testParam.validTag {
-
-			// The string is a valid tag, but not a user tag.
-			expectedErr = errPart + `user tag`
-		} else {
-
-			// The string is not a valid tag of any kind.
-			expectedErr = errPart + `tag`
-		}
-
-		args := params.ModifyModelUsers{
-			Changes: []params.ModifyModelUser{{
-				UserTag: testParam.tag,
-				Action:  params.AddModelUser,
-			}}}
-
-		_, err := s.client.ShareModel(args)
-		result, err := s.client.ShareModel(args)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
-		c.Assert(result.Results, gc.HasLen, 1)
-		c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
-	}
-}
-
-func (s *serverSuite) TestShareModelZeroArgs(c *gc.C) {
-	args := params.ModifyModelUsers{Changes: []params.ModifyModelUser{{}}}
-
-	_, err := s.client.ShareModel(args)
-	result, err := s.client.ShareModel(args)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := `could not share model: "" is not a valid tag`
-	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
-}
-
-func (s *serverSuite) TestShareModelInvalidAction(c *gc.C) {
-	var dance params.ModelAction = "dance"
-	args := params.ModifyModelUsers{
-		Changes: []params.ModifyModelUser{{
-			UserTag: "user-user@local",
-			Action:  dance,
-		}}}
-
-	_, err := s.client.ShareModel(args)
-	result, err := s.client.ShareModel(args)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := `unknown action "dance"`
-	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
 }
 
 func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
@@ -559,11 +340,11 @@ var _ = gc.Suite(&clientSuite{})
 func clearSinceTimes(status *params.FullStatus) {
 	for serviceId, service := range status.Services {
 		for unitId, unit := range service.Units {
-			unit.Workload.Since = nil
-			unit.UnitAgent.Since = nil
+			unit.WorkloadStatus.Since = nil
+			unit.AgentStatus.Since = nil
 			for id, subord := range unit.Subordinates {
-				subord.Workload.Since = nil
-				subord.UnitAgent.Since = nil
+				subord.WorkloadStatus.Since = nil
+				subord.AgentStatus.Since = nil
 				unit.Subordinates[id] = subord
 			}
 			service.Units[unitId] = unit
@@ -572,7 +353,8 @@ func clearSinceTimes(status *params.FullStatus) {
 		status.Services[serviceId] = service
 	}
 	for id, machine := range status.Machines {
-		machine.Agent.Since = nil
+		machine.AgentStatus.Since = nil
+		machine.InstanceStatus.Since = nil
 		status.Machines[id] = machine
 	}
 }
@@ -735,7 +517,7 @@ func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolv
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetAgentStatus(state.StatusError, "gaaah", nil)
+	err = u.SetAgentStatus(status.StatusError, "gaaah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Code under test:
 	err = s.APIState.Client().Resolved("wordpress/0", retry)
@@ -761,7 +543,7 @@ func (s *clientSuite) setupResolved(c *gc.C) *state.Unit {
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetAgentStatus(state.StatusError, "gaaah", nil)
+	err = u.SetAgentStatus(status.StatusError, "gaaah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return u
 }
@@ -847,13 +629,24 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	}()
 	deltas, err := watcher.Next()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(deltas), gc.Equals, 1)
+	d0, ok := deltas[0].Entity.(*multiwatcher.MachineInfo)
+	c.Assert(ok, jc.IsTrue)
+	d0.JujuStatus.Since = nil
+	d0.MachineStatus.Since = nil
 	if !c.Check(deltas, gc.DeepEquals, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
-			ModelUUID:               s.State.ModelUUID(),
-			Id:                      m.Id(),
-			InstanceId:              "i-0",
-			Status:                  multiwatcher.Status("pending"),
-			StatusData:              map[string]interface{}{},
+			ModelUUID:  s.State.ModelUUID(),
+			Id:         m.Id(),
+			InstanceId: "i-0",
+			JujuStatus: multiwatcher.StatusInfo{
+				Current: status.StatusPending,
+				Data:    map[string]interface{}{},
+			},
+			MachineStatus: multiwatcher.StatusInfo{
+				Current: status.StatusPending,
+				Data:    map[string]interface{}{},
+			},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
 			Jobs:                    []multiwatcher.MachineJob{state.JobManageModel.ToParams()},
@@ -1300,8 +1093,8 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	apiParams[0].Placement = instance.MustParsePlacement("lxc")
 	apiParams[1].Placement = instance.MustParsePlacement("lxc:0")
 	apiParams[1].ContainerType = instance.LXC
-	apiParams[2].Placement = instance.MustParsePlacement("dummymodel:invalid")
-	apiParams[3].Placement = instance.MustParsePlacement("dummymodel:valid")
+	apiParams[2].Placement = instance.MustParsePlacement("admin:invalid")
+	apiParams[3].Placement = instance.MustParsePlacement("admin:valid")
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 4)
@@ -1606,14 +1399,14 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetStatus(state.StatusError, "error", nil)
+	err = machine.SetStatus(status.StatusError, "error", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 
 	statusInfo, err := machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
 	c.Assert(statusInfo.Message, gc.Equals, "error")
 	c.Assert(statusInfo.Data["transient"], jc.IsTrue)
 }
@@ -1621,7 +1414,7 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetStatus(state.StatusError, "error", nil)
+	err = machine.SetStatus(status.StatusError, "error", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
@@ -1631,7 +1424,7 @@ func (s *clientSuite) assertRetryProvisioning(c *gc.C, machine *state.Machine) {
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
 	c.Assert(statusInfo.Message, gc.Equals, "error")
 	c.Assert(statusInfo.Data["transient"], jc.IsTrue)
 }
@@ -1690,7 +1483,7 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 
 func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 	current := version.MustParse("1.2.0")
-	s.PatchValue(&version.Current, current)
+	s.PatchValue(&jujuversion.Current, current)
 	result, err := s.APIState.Client().AgentVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, current)

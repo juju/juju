@@ -35,6 +35,7 @@ import (
 	instancetest "github.com/juju/juju/instance/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -94,12 +95,10 @@ func (s *LxcSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&lxc.TemplateLockDir, c.MkDir())
 	s.PatchValue(&lxc.TemplateStopTimeout, 500*time.Millisecond)
 	s.loopDeviceManager = mockLoopDeviceManager{}
-}
-
-func (s *LxcSuite) TearDownTest(c *gc.C) {
-	s.TestSuite.ContainerFactory.RemoveListener(s.events)
-	close(s.events)
-	s.TestSuite.TearDownTest(c)
+	s.AddCleanup(func(*gc.C) {
+		s.TestSuite.ContainerFactory.RemoveListener(s.events)
+		close(s.events)
+	})
 }
 
 func (t *LxcSuite) TestPreferFastLXC(c *gc.C) {
@@ -158,7 +157,7 @@ func (s *LxcSuite) TestContainerManagerLXCClone(c *gc.C) {
 		mgr, err := lxc.NewContainerManager(container.ManagerConfig{
 			container.ConfigName: "juju",
 			"use-clone":          test.useClone,
-		}, &containertesting.MockURLGetter{}, nil)
+		}, &containertesting.MockURLGetter{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(lxc.GetCreateWithCloneValue(mgr), gc.Equals, test.expectClone)
 	}
@@ -316,16 +315,14 @@ lxc.network.link = nic42
 lxc.network.flags = up
 lxc.network.name = eth0
 lxc.network.hwaddr = aa:bb:cc:dd:ee:f0
-lxc.network.ipv4 = 0.1.2.3/32
+lxc.network.ipv4 = 0.1.2.3/20
 lxc.network.ipv4.gateway = 0.1.2.1
-lxc.network.mtu = 4321
 
 # interface "eth1"
 lxc.network.type = veth
 lxc.network.link = nic42
 lxc.network.flags = up
 lxc.network.name = eth1
-lxc.network.mtu = 4321
 
 
 lxc.mount.entry = %s var/log/juju none defaults,bind 0 0
@@ -367,16 +364,14 @@ lxc.network.type = bar
 lxc.network.flags = up
 lxc.network.name = em0
 lxc.network.hwaddr = ff:ee:dd:cc:bb:aa
-lxc.network.ipv4 = 0.1.2.3/32
+lxc.network.ipv4 = 0.1.2.3/20
 lxc.network.ipv4.gateway = 0.1.2.1
-lxc.network.mtu = 1234
 
 # interface "eth1"
 lxc.network.type = foo
 lxc.network.link = nic42
 lxc.network.flags = up
 lxc.network.name = em1
-lxc.network.mtu = 4321
 
 
 
@@ -391,6 +386,7 @@ something else  # ignore
 lxc.network.type = phys
 lxc.network.link = foo  # comment
 lxc.network.hwaddr = deadbeef
+lxc.network.mtu = 1234
 lxc.network.hwaddr = nonsense
 lxc.missing = appended
 lxc.rootfs = /bar/foo
@@ -599,7 +595,7 @@ func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 	if s.useAUFS {
 		params["use-aufs"] = "true"
 	}
-	manager, err := lxc.NewContainerManager(
+	manager, err := lxc.NewContainerManagerForTest(
 		params, &containertesting.MockURLGetter{},
 		&s.loopDeviceManager,
 	)
@@ -611,7 +607,7 @@ func (*LxcSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 	_, err := lxc.NewContainerManager(container.ManagerConfig{
 		container.ConfigName: "BillyBatson",
 		"shazam":             "Captain Marvel",
-	}, &containertesting.MockURLGetter{}, nil)
+	}, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
@@ -793,6 +789,7 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 	authorizedKeys := "authorized keys list"
 	aptProxy := proxy.Settings{}
 	aptMirror := "http://my.archive.ubuntu.com/ubuntu"
+	callback := func(containerStatus status.Status, info string, data map[string]interface{}) error { return nil }
 	template, err := lxc.EnsureCloneTemplate(
 		"ext4",
 		"quantal",
@@ -804,6 +801,7 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 		true,
 		&containertesting.MockURLGetter{},
 		false,
+		callback,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(template.Name(), gc.Equals, name)
@@ -836,6 +834,7 @@ lxc.network.mtu = 4321
 }
 
 func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {
+	s.HookCommandOutput(&lxc.FsCommandOutput, []byte("Type\next4\n"), nil)
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
 	manager := s.makeManager(c, "test")
@@ -848,6 +847,7 @@ func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {
 }
 
 func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateAUFS(c *gc.C) {
+	s.HookCommandOutput(&lxc.FsCommandOutput, []byte("Type\next4\n"), nil)
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
 	s.PatchValue(&s.useAUFS, true)
@@ -857,6 +857,19 @@ func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateAUFS(c *gc.
 	cloned := <-s.events
 	s.AssertEvent(c, cloned, mock.Cloned, "juju-quantal-lxc-template")
 	c.Assert(cloned.Args, gc.DeepEquals, []string{"--snapshot", "--backingstore", "aufs"})
+	s.AssertEvent(c, <-s.events, mock.Started, name)
+}
+
+func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateBtrfs(c *gc.C) {
+	s.HookCommandOutput(&lxc.FsCommandOutput, []byte("Type\nbtrfs\n"), nil)
+	s.createTemplate(c)
+	s.PatchValue(&s.useClone, true)
+	manager := s.makeManager(c, "test")
+	instance := containertesting.CreateContainer(c, manager, "1")
+	name := string(instance.Id())
+	cloned := <-s.events
+	s.AssertEvent(c, cloned, mock.Cloned, "juju-quantal-lxc-template")
+	c.Assert(cloned.Args, gc.DeepEquals, []string{"--snapshot"})
 	s.AssertEvent(c, <-s.events, mock.Started, name)
 }
 
@@ -876,18 +889,19 @@ func (s *LxcSuite) TestCreateContainerWithCloneMountsAndAutostarts(c *gc.C) {
 }
 
 func (s *LxcSuite) TestContainerState(c *gc.C) {
+	// TODO(perrito666) refactor state reporting to return a proper state.
 	manager := s.makeManager(c, "test")
 	c.Logf("%#v", manager)
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
 	// The mock container will be immediately "running".
-	c.Assert(instance.Status(), gc.Equals, string(golxc.StateRunning))
+	c.Assert(instance.Status().Message, gc.Equals, string(golxc.StateRunning))
 
 	// DestroyContainer stops and then destroys the container, putting it
 	// into "unknown" state.
 	err := manager.DestroyContainer(instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instance.Status(), gc.Equals, string(golxc.StateUnknown))
+	c.Assert(instance.Status().Message, gc.Equals, string(golxc.StateUnknown))
 }
 
 func (s *LxcSuite) TestDestroyContainer(c *gc.C) {
@@ -1122,7 +1136,6 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.flags = up",
 			"lxc.network.mtu = 1500",
 		},
-		logContains: `INFO juju.container.lxc setting MTU to 1500 for all LXC network interfaces`,
 	}, {
 		about:  "phys config with MTU 9000, device foo, no NICs",
 		config: container.PhysicalNetworkConfig("foo", 9000, nil),
@@ -1132,7 +1145,6 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.flags = up",
 			"lxc.network.mtu = 9000",
 		},
-		logContains: `INFO juju.container.lxc setting MTU to 9000 for all LXC network interfaces`,
 	}, {
 		about:  "bridge config with MTU 8000, device foo, all NICs",
 		config: container.BridgeNetworkConfig("foo", 8000, allNICs),
@@ -1143,25 +1155,19 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.flags = up",
 			"lxc.network.name = eth0",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f0",
-			"lxc.network.mtu = 8000",
 
 			"lxc.network.type = veth",
 			"lxc.network.link = foo",
 			"lxc.network.flags = up",
 			"lxc.network.name = eth1",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
-			"lxc.network.ipv4 = 0.1.2.3/32",
-			"lxc.network.ipv4.gateway = 0.1.2.1",
-			"lxc.network.mtu = 8000",
+			"lxc.network.ipv4 = 0.1.2.3/20",
 
-			"lxc.network.type = vlan",
-			"lxc.network.vlan.id = 42",
+			"lxc.network.type = veth",
 			"lxc.network.link = foo",
 			"lxc.network.name = eth2",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f2",
-			"lxc.network.mtu = 8000",
 		},
-		logContains: `INFO juju.container.lxc setting MTU to 8000 for all LXC network interfaces`,
 	}, {
 		about:  "bridge config with MTU 0, device foo, staticNICNoCIDR",
 		config: container.BridgeNetworkConfig("foo", 0, []network.InterfaceInfo{staticNICNoCIDR}),
@@ -1172,8 +1178,6 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.flags = up",
 			"lxc.network.name = eth1",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
-			"lxc.network.ipv4 = 0.1.2.3/32",
-			"lxc.network.ipv4.gateway = 0.1.2.1",
 		},
 		logDoesNotContain: `INFO juju.container.lxc setting MTU to 0 for all LXC network interfaces`,
 	}, {
@@ -1186,8 +1190,7 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.flags = up",
 			"lxc.network.name = eth1",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
-			"lxc.network.ipv4 = 0.1.2.3/32",
-			"lxc.network.ipv4.gateway = 0.1.2.1",
+			"lxc.network.ipv4 = invalid CIDR address: bad",
 		},
 	}, {
 		about:  "bridge config with MTU 0, device foo, staticNICNoAutoWithGW",
@@ -1198,9 +1201,8 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.link = foo",
 			"lxc.network.name = eth1",
 			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
-			"lxc.network.ipv4 = 0.1.2.3/32",
+			"lxc.network.ipv4 = 0.1.2.3/20",
 		},
-		logContains: `WARNING juju.container.lxc not setting IPv4 gateway "0.1.2.1" for non-auto start interface "eth1"`,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
 		config := lxc.GenerateNetworkConfig(test.config)
@@ -1254,9 +1256,6 @@ func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
 	log := c.GetTestLog()
 	c.Assert(log, jc.Contains,
 		`WARNING juju.container.lxc unknown network type "foo", using the default "bridge" config`,
-	)
-	c.Assert(log, jc.Contains,
-		`INFO juju.container.lxc setting MTU to 4321 for all LXC network interfaces`,
 	)
 }
 

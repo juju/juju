@@ -8,21 +8,23 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
+	"github.com/juju/juju/resource/api/server"
 	"github.com/juju/juju/resource/resourcetesting"
 )
 
 type BaseSuite struct {
 	testing.IsolationSuite
 
-	stub *testing.Stub
-	data *stubDataStore
+	stub     *testing.Stub
+	data     *stubDataStore
+	csClient *stubCSClient
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -30,6 +32,16 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.data = &stubDataStore{stub: s.stub}
+	s.csClient = &stubCSClient{Stub: s.stub}
+}
+
+func (s *BaseSuite) newCSClient() (server.CharmStore, error) {
+	s.stub.AddCall("newCSClient")
+	if err := s.stub.NextErr(); err != nil {
+		return nil, err
+	}
+
+	return s.csClient, nil
 }
 
 func newResource(c *gc.C, name, username, data string) (resource.Resource, api.Resource) {
@@ -68,7 +80,6 @@ type stubDataStore struct {
 	ReturnGetPendingResource    resource.Resource
 	ReturnSetResource           resource.Resource
 	ReturnUpdatePendingResource resource.Resource
-	ReturnUnits                 []names.UnitTag
 }
 
 func (s *stubDataStore) ListResources(service string) (resource.ServiceResources, error) {
@@ -125,11 +136,30 @@ func (s *stubDataStore) UpdatePendingResource(serviceID, pendingID, userID strin
 	return s.ReturnUpdatePendingResource, nil
 }
 
-func (s *stubDataStore) Units(serviceID string) ([]names.UnitTag, error) {
-	s.stub.AddCall("Units", serviceID)
-	if err := s.stub.NextErr(); err != nil {
+type stubCSClient struct {
+	*testing.Stub
+
+	ReturnListResources [][]charmresource.Resource
+	ReturnResourceInfo  *charmresource.Resource
+}
+
+func (s *stubCSClient) ListResources(charms []charmstore.CharmID) ([][]charmresource.Resource, error) {
+	s.AddCall("ListResources", charms)
+	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return s.ReturnUnits, nil
+	return s.ReturnListResources, nil
+}
+
+func (s *stubCSClient) ResourceInfo(req charmstore.ResourceRequest) (charmresource.Resource, error) {
+	s.AddCall("ResourceInfo", req)
+	if err := s.NextErr(); err != nil {
+		return charmresource.Resource{}, errors.Trace(err)
+	}
+
+	if s.ReturnResourceInfo == nil {
+		return charmresource.Resource{}, errors.NotFoundf("resource %q", req.Name)
+	}
+	return *s.ReturnResourceInfo, nil
 }

@@ -14,18 +14,20 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // Machine represents the state of a machine.
@@ -33,6 +35,8 @@ type Machine struct {
 	st  *State
 	doc machineDoc
 	presence.Presencer
+	status.StatusHistoryGetter
+	status.InstanceStatusHistoryGetter
 }
 
 // MachineJob values define responsibilities that machines may be
@@ -193,6 +197,16 @@ func (m *Machine) ContainerType() instance.ContainerType {
 // machineGlobalKey returns the global database key for the identified machine.
 func machineGlobalKey(id string) string {
 	return "m#" + id
+}
+
+// machineGlobalInstanceKey returns the global database key for the identified machine's instance.
+func machineGlobalInstanceKey(id string) string {
+	return machineGlobalKey(id) + "#instance"
+}
+
+// globalInstanceKey returns the global database key for the machinei's instance.
+func (m *Machine) globalInstanceKey() string {
+	return machineGlobalInstanceKey(m.doc.Id)
 }
 
 // globalKey returns the global database key for the machine.
@@ -448,21 +462,7 @@ func (m *Machine) getPasswordHash() string {
 // for the given machine.
 func (m *Machine) PasswordValid(password string) bool {
 	agentHash := utils.AgentPasswordHash(password)
-	if agentHash == m.doc.PasswordHash {
-		return true
-	}
-	// In Juju 1.16 and older we used the slower password hash for unit
-	// agents. So check to see if the supplied password matches the old
-	// path, and if so, update it to the new mechanism.
-	// We ignore any error in setting the password, as we'll just try again
-	// next time
-	if utils.UserPasswordHash(password, utils.CompatSalt) == m.doc.PasswordHash {
-		logger.Debugf("%s logged in with old password hash, changing to AgentPasswordHash",
-			m.Tag())
-		m.setPasswordHash(agentHash)
-		return true
-	}
-	return false
+	return agentHash == m.doc.PasswordHash
 }
 
 // Destroy sets the machine lifecycle to Dying if it is Alive. It does
@@ -880,19 +880,24 @@ func (m *Machine) Remove() (err error) {
 			Id:     m.doc.DocID,
 			Assert: isDeadDoc,
 		},
-		{
-			C:      instanceDataC,
-			Id:     m.doc.DocID,
-			Remove: true,
-		},
 		removeStatusOp(m.st, m.globalKey()),
+		removeStatusOp(m.st, m.globalInstanceKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
 		removeRequestedNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
 		removeMachineBlockDevicesOp(m.Id()),
+		removeModelMachineRefOp(m.st, m.Id()),
 	}
 	ifacesOps, err := m.removeNetworkInterfacesOps()
+	if err != nil {
+		return err
+	}
+	linkLayerDevicesOps, err := m.removeAllLinkLayerDevicesOps()
+	if err != nil {
+		return err
+	}
+	devicesAddressesOps, err := m.removeAllAddressesOps()
 	if err != nil {
 		return err
 	}
@@ -909,6 +914,8 @@ func (m *Machine) Remove() (err error) {
 		return err
 	}
 	ops = append(ops, ifacesOps...)
+	ops = append(ops, linkLayerDevicesOps...)
+	ops = append(ops, devicesAddressesOps...)
 	ops = append(ops, portsOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	ops = append(ops, filesystemOps...)
@@ -961,6 +968,7 @@ func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 				return nil
 			}
 		case <-time.After(timeout):
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			return fmt.Errorf("still not alive after timeout")
 		case <-m.st.pwatcher.Dead():
 			return m.st.pwatcher.Err()
@@ -1006,36 +1014,33 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 
 // InstanceStatus returns the provider specific instance status for this machine,
 // or a NotProvisionedError if instance is not yet provisioned.
-func (m *Machine) InstanceStatus() (string, error) {
-	instData, err := getInstanceData(m.st, m.Id())
-	if errors.IsNotFound(err) {
-		err = errors.NotProvisionedf("machine %v", m.Id())
-	}
+func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
+	machineStatus, err := getStatus(m.st, m.globalInstanceKey(), "instance")
 	if err != nil {
-		return "", err
+		logger.Warningf("error when retrieving instance status for machine: %s, %v", m.Id(), err)
+		return status.StatusInfo{}, err
 	}
-	return instData.Status, err
+	return machineStatus, nil
 }
 
 // SetInstanceStatus sets the provider specific instance status for a machine.
-func (m *Machine) SetInstanceStatus(status string) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set instance status for machine %q", m)
+func (m *Machine) SetInstanceStatus(instanceStatus status.Status, info string, data map[string]interface{}) (err error) {
+	return setStatus(m.st, setStatusParams{
+		badge:     "instance",
+		globalKey: m.globalInstanceKey(),
+		status:    instanceStatus,
+		message:   info,
+		rawData:   data,
+	})
 
-	ops := []txn.Op{
-		{
-			C:      instanceDataC,
-			Id:     m.doc.DocID,
-			Assert: txn.DocExists,
-			Update: bson.D{{"$set", bson.D{{"status", status}}}},
-		},
-	}
+}
 
-	if err = m.st.runTransaction(ops); err == nil {
-		return nil
-	} else if err != txn.ErrAborted {
-		return err
-	}
-	return errors.NotProvisionedf("machine %v", m.Id())
+// InstanceStatusHistory returns a slice of at most <size> StatusInfo items
+// representing past statuses for this machine instance.
+// Instance represents the provider underlying [v]hardware or container where
+// this juju machine is deployed.
+func (u *Machine) InstanceStatusHistory(size int) ([]status.StatusInfo, error) {
+	return statusHistory(u.st, u.globalInstanceKey(), size)
 }
 
 // AvailabilityZone returns the provier-specific instance availability
@@ -1139,40 +1144,21 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	return fmt.Errorf("already set")
 }
 
-// SetInstanceInfo is used to provision a machine and in one steps set
-// it's instance id, nonce, hardware characteristics, add networks and
-// network interfaces as needed.
-//
-// TODO(dimitern) Do all the operations described in a single
-// transaction, rather than using separate calls. Alternatively,
-// we can add all the things to create/set in a document in some
-// collection and have a worker that takes care of the actual work.
-// Merge SetProvisioned() in here or drop it at that point.
+// SetInstanceInfo is used to provision a machine and in one steps set it's
+// instance id, nonce, hardware characteristics, add link-layer devices and set
+// their addresses as needed.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
-	networks []NetworkInfo, interfaces []NetworkInterfaceInfo,
+	devicesArgs []LinkLayerDeviceArgs, devicesAddrs []LinkLayerDeviceAddress,
 	volumes map[names.VolumeTag]VolumeInfo,
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 ) error {
 
-	// Add the networks and interfaces first.
-	for _, network := range networks {
-		_, err := m.st.AddNetwork(network)
-		if err != nil && errors.IsAlreadyExists(err) {
-			// Ignore already existing networks.
-			continue
-		} else if err != nil {
-			return errors.Trace(err)
-		}
+	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
+		return errors.Trace(err)
 	}
-	for _, iface := range interfaces {
-		_, err := m.AddNetworkInterface(iface)
-		if err != nil && errors.IsAlreadyExists(err) {
-			// Ignore already existing network interfaces.
-			continue
-		} else if err != nil {
-			return errors.Trace(err)
-		}
+	if err := m.SetDevicesAddressesIdempotently(devicesAddrs); err != nil {
+		return errors.Trace(err)
 	}
 	if err := setProvisionedVolumeInfo(m.st, volumes); err != nil {
 		return errors.Trace(err)
@@ -1384,7 +1370,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 	if !m.IsContainer() {
 		// Check addresses first. We'll only add those addresses
 		// which are not in the IP address collection.
-		ipAddresses, closer := m.st.getCollection(ipaddressesC)
+		ipAddresses, closer := m.st.getCollection(legacyipaddressesC)
 		defer closer()
 
 		addressValues := make([]string, len(addresses))
@@ -1550,7 +1536,7 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 	}
 	doc := newNetworkInterfaceDoc(m.doc.Id, m.st.ModelUUID(), args)
 	ops := []txn.Op{
-		assertModelAliveOp(m.st.ModelUUID()),
+		assertModelActiveOp(m.st.ModelUUID()),
 		{
 			C:      networksC,
 			Id:     m.st.docID(args.NetworkName),
@@ -1680,19 +1666,23 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 }
 
 // Status returns the status of the machine.
-func (m *Machine) Status() (StatusInfo, error) {
-	return getStatus(m.st, m.globalKey(), "machine")
+func (m *Machine) Status() (status.StatusInfo, error) {
+	mStatus, err := getStatus(m.st, m.globalKey(), "machine")
+	if err != nil {
+		return mStatus, err
+	}
+	return mStatus, nil
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(status Status, info string, data map[string]interface{}) error {
-	switch status {
-	case StatusStarted, StatusStopped:
-	case StatusError:
+func (m *Machine) SetStatus(machineStatus status.Status, info string, data map[string]interface{}) error {
+	switch machineStatus {
+	case status.StatusStarted, status.StatusStopped:
+	case status.StatusError:
 		if info == "" {
-			return errors.Errorf("cannot set status %q without info", status)
+			return errors.Errorf("cannot set status %q without info", machineStatus)
 		}
-	case StatusPending:
+	case status.StatusPending:
 		// If a machine is not yet provisioned, we allow its status
 		// to be set back to pending (when a retry is to occur).
 		_, err := m.InstanceId()
@@ -1701,18 +1691,24 @@ func (m *Machine) SetStatus(status Status, info string, data map[string]interfac
 			break
 		}
 		fallthrough
-	case StatusDown:
-		return errors.Errorf("cannot set status %q", status)
+	case status.StatusDown:
+		return errors.Errorf("cannot set status %q", machineStatus)
 	default:
-		return errors.Errorf("cannot set invalid status %q", status)
+		return errors.Errorf("cannot set invalid status %q", machineStatus)
 	}
 	return setStatus(m.st, setStatusParams{
 		badge:     "machine",
 		globalKey: m.globalKey(),
-		status:    status,
+		status:    machineStatus,
 		message:   info,
 		rawData:   data,
 	})
+}
+
+// StatusHistory returns a slice of at most <size> StatusInfo items
+// representing past statuses for this machine.
+func (m *Machine) StatusHistory(size int) ([]status.StatusInfo, error) {
+	return statusHistory(m.st, m.globalKey(), size)
 }
 
 // Clean returns true if the machine does not have any deployed units or containers.
@@ -1804,10 +1800,10 @@ func (m *Machine) markInvalidContainers() error {
 				logger.Errorf("finding status of container %v to mark as invalid: %v", containerId, err)
 				continue
 			}
-			if statusInfo.Status == StatusPending {
+			if statusInfo.Status == status.StatusPending {
 				containerType := ContainerTypeFromId(containerId)
 				container.SetStatus(
-					StatusError, "unsupported container", map[string]interface{}{"type": containerType})
+					status.StatusError, "unsupported container", map[string]interface{}{"type": containerType})
 			} else {
 				logger.Errorf("unsupported container %v has unexpected status %v", containerId, statusInfo.Status)
 			}
@@ -1824,4 +1820,53 @@ func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
 // VolumeAttachments returns the machine's volume attachments.
 func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
 	return m.st.MachineVolumeAttachments(m.MachineTag())
+}
+
+// AddAction is part of the ActionReceiver interface.
+func (m *Machine) AddAction(name string, payload map[string]interface{}) (Action, error) {
+	spec, ok := actions.PredefinedActionsSpec[name]
+	if !ok {
+		return nil, errors.Errorf("cannot add action %q to a machine; only predefined actions allowed", name)
+	}
+
+	// Reject bad payloads before attempting to insert defaults.
+	err := spec.ValidateParams(payload)
+	if err != nil {
+		return nil, err
+	}
+	payloadWithDefaults, err := spec.InsertDefaults(payload)
+	if err != nil {
+		return nil, err
+	}
+	return m.st.EnqueueAction(m.Tag(), name, payloadWithDefaults)
+}
+
+// CancelAction is part of the ActionReceiver interface.
+func (m *Machine) CancelAction(action Action) (Action, error) {
+	return action.Finish(ActionResults{Status: ActionCancelled})
+}
+
+// WatchActionNotifications is part of the ActionReceiver interface.
+func (m *Machine) WatchActionNotifications() StringsWatcher {
+	return m.st.watchEnqueuedActionsFilteredBy(m)
+}
+
+// Actions is part of the ActionReceiver interface.
+func (m *Machine) Actions() ([]Action, error) {
+	return m.st.matchingActions(m)
+}
+
+// CompletedActions is part of the ActionReceiver interface.
+func (m *Machine) CompletedActions() ([]Action, error) {
+	return m.st.matchingActionsCompleted(m)
+}
+
+// PendingActions is part of the ActionReceiver interface.
+func (m *Machine) PendingActions() ([]Action, error) {
+	return m.st.matchingActionsPending(m)
+}
+
+// RunningActions is part of the ActionReceiver interface.
+func (m *Machine) RunningActions() ([]Action, error) {
+	return m.st.matchingActionsRunning(m)
 }

@@ -4,10 +4,10 @@
 package maas
 
 import (
-	"fmt"
 	"net/url"
 
 	"github.com/juju/errors"
+	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -65,6 +65,62 @@ func (*environSuite) TestConvertConstraints(c *gc.C) {
 	}} {
 		c.Logf("test #%d: cons=%s", i, test.cons.String())
 		c.Check(convertConstraints(test.cons), jc.DeepEquals, test.expected)
+	}
+}
+
+func (*environSuite) TestConvertConstraints2(c *gc.C) {
+	for i, test := range []struct {
+		cons     constraints.Value
+		expected gomaasapi.AllocateMachineArgs
+	}{{
+		cons:     constraints.Value{Arch: stringp("arm")},
+		expected: gomaasapi.AllocateMachineArgs{Architecture: "arm"},
+	}, {
+		cons:     constraints.Value{CpuCores: uint64p(4)},
+		expected: gomaasapi.AllocateMachineArgs{MinCPUCount: 4},
+	}, {
+		cons:     constraints.Value{Mem: uint64p(1024)},
+		expected: gomaasapi.AllocateMachineArgs{MinMemory: 1024},
+	}, { // Spaces are converted to bindings and not_networks, but only in acquireNode
+		cons:     constraints.Value{Spaces: stringslicep("foo", "bar", "^baz", "^oof")},
+		expected: gomaasapi.AllocateMachineArgs{},
+	}, {
+		cons: constraints.Value{Tags: stringslicep("tag1", "tag2", "^tag3", "^tag4")},
+		expected: gomaasapi.AllocateMachineArgs{
+			Tags:    []string{"tag1", "tag2"},
+			NotTags: []string{"tag3", "tag4"},
+		},
+	}, { // CpuPower is ignored.
+		cons:     constraints.Value{CpuPower: uint64p(1024)},
+		expected: gomaasapi.AllocateMachineArgs{},
+	}, { // RootDisk is ignored.
+		cons:     constraints.Value{RootDisk: uint64p(8192)},
+		expected: gomaasapi.AllocateMachineArgs{},
+	}, {
+		cons: constraints.Value{Tags: stringslicep("foo", "bar")},
+		expected: gomaasapi.AllocateMachineArgs{
+			Tags: []string{"foo", "bar"},
+		},
+	}, {
+		cons: constraints.Value{
+			Arch:     stringp("arm"),
+			CpuCores: uint64p(4),
+			Mem:      uint64p(1024),
+			CpuPower: uint64p(1024),
+			RootDisk: uint64p(8192),
+			Spaces:   stringslicep("foo", "^bar"),
+			Tags:     stringslicep("^tag1", "tag2"),
+		},
+		expected: gomaasapi.AllocateMachineArgs{
+			Architecture: "arm",
+			MinCPUCount:  4,
+			MinMemory:    1024,
+			Tags:         []string{"tag2"},
+			NotTags:      []string{"tag1"},
+		},
+	}} {
+		c.Logf("test #%d: cons2=%s", i, test.cons.String())
+		c.Check(convertConstraints2(test.cons), jc.DeepEquals, test.expected)
 	}
 }
 
@@ -169,7 +225,7 @@ func (suite *environSuite) TestSelectNodeInvalidZone(c *gc.C) {
 
 	_, err := env.selectNode(snArgs)
 	c.Assert(err, gc.NotNil)
-	c.Assert(fmt.Sprintf("%s", err), gc.Equals, "cannot run instances: gomaasapi: got error back from server: 409 Conflict ()")
+	c.Assert(err, gc.ErrorMatches, `cannot run instances: ServerError: 409 Conflict \(\)`)
 }
 
 func (suite *environSuite) TestAcquireNode(c *gc.C) {
@@ -316,23 +372,38 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *gc.C)
 }
 
 func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.C) {
+	suite.createFourSpaces(c)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
 
 	_, err := env.acquireNode(
 		"", "",
-		constraints.Value{Spaces: stringslicep("space1", "^space2", "space3", "^space4")},
+		constraints.Value{Spaces: stringslicep("space-1", "^space-2", "space-3", "^space-4")},
 		nil, nil,
 	)
 	c.Check(err, jc.ErrorIsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeValues, found := requestValues["node0"]
 	c.Assert(found, jc.IsTrue)
-	c.Check(nodeValues[0].Get("interfaces"), gc.Equals, "0:space=space1;1:space=space3")
-	c.Check(nodeValues[0].Get("not_networks"), gc.Equals, "space:space2,space:space4")
+	c.Check(nodeValues[0].Get("interfaces"), gc.Equals, "0:space=2;1:space=4")
+	c.Check(nodeValues[0].Get("not_networks"), gc.Equals, "space:3,space:5")
+}
+
+func (suite *environSuite) createFourSpaces(c *gc.C) {
+	server := suite.testMAASObject.TestServer
+	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-1"}))
+	suite.addSubnet(c, 1, 1, "node1")
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-2"}))
+	suite.addSubnet(c, 2, 2, "node1")
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-3"}))
+	suite.addSubnet(c, 3, 3, "node1")
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-4"}))
+	suite.addSubnet(c, 4, 4, "node1")
 }
 
 func (suite *environSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndexedUpToALimit(c *gc.C) {
+	suite.createFourSpaces(c)
 	var shortLimit uint = 0
 	suite.PatchValue(&numericLabelLimit, shortLimit)
 	env := suite.makeEnviron()
@@ -340,7 +411,7 @@ func (suite *environSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndexedUpT
 
 	_, err := env.acquireNode(
 		"", "",
-		constraints.Value{Spaces: stringslicep("space1", "^space2", "space3", "^space4")},
+		constraints.Value{Spaces: stringslicep("space-1", "^space-2", "space-3", "^space-4")},
 		[]interfaceBinding{{"0", "first-clash"}, {"1", "final-clash"}},
 		nil,
 	)
@@ -348,6 +419,7 @@ func (suite *environSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndexedUpT
 }
 
 func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
+	server := suite.testMAASObject.TestServer
 	for i, test := range []struct {
 		volumes  []volumeInfo
 		expected string
@@ -372,24 +444,28 @@ func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
 	}} {
 		c.Logf("test #%d: volumes=%v", i, test.volumes)
 		env := suite.makeEnviron()
-		suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+		server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-1"}))
+		server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+		suite.addSubnet(c, 1, 1, "node0")
 		_, err := env.acquireNode("", "", constraints.Value{}, nil, test.volumes)
 		c.Check(err, jc.ErrorIsNil)
-		requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
+		requestValues := server.NodeOperationRequestValues()
 		nodeRequestValues, found := requestValues["node0"]
-		c.Check(found, jc.IsTrue)
-		c.Check(nodeRequestValues[0].Get("storage"), gc.Equals, test.expected)
+		if c.Check(found, jc.IsTrue) {
+			c.Check(nodeRequestValues[0].Get("storage"), gc.Equals, test.expected)
+		}
 		suite.testMAASObject.TestServer.Clear()
 	}
 }
 
 func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
+	server := suite.testMAASObject.TestServer
 	// Add some constraints, including spaces to verify specified bindings
 	// always override any spaces constraints.
 	cons := constraints.Value{
 		Spaces: stringslicep("foo", "^bar"),
 	}
-
+	// In the tests below "space:5" means foo, "space:6" means bar.
 	for i, test := range []struct {
 		interfaces        []interfaceBinding
 		expectedPositives string
@@ -397,34 +473,34 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		expectedError     string
 	}{{ // without specified bindings, spaces constraints are used instead.
 		interfaces:        nil,
-		expectedPositives: "0:space=foo",
-		expectedNegatives: "space:bar",
+		expectedPositives: "0:space=5",
+		expectedNegatives: "space:6",
 		expectedError:     "",
 	}, {
 		interfaces:        []interfaceBinding{{"name-1", "space-1"}},
-		expectedPositives: "name-1:space=space-1;0:space=foo",
-		expectedNegatives: "space:bar",
+		expectedPositives: "name-1:space=space-1;0:space=5",
+		expectedNegatives: "space:6",
 	}, {
 		interfaces: []interfaceBinding{
-			{"name-1", "space-1"},
-			{"name-2", "space-2"},
-			{"name-3", "space-3"},
+			{"name-1", "1"},
+			{"name-2", "2"},
+			{"name-3", "3"},
 		},
-		expectedPositives: "name-1:space=space-1;name-2:space=space-2;name-3:space=space-3;0:space=foo",
-		expectedNegatives: "space:bar",
+		expectedPositives: "name-1:space=1;name-2:space=2;name-3:space=3;0:space=5",
+		expectedNegatives: "space:6",
 	}, {
 		interfaces:    []interfaceBinding{{"", "anything"}},
 		expectedError: "interface bindings cannot have empty names",
 	}, {
-		interfaces:    []interfaceBinding{{"shared-db", "bar"}},
+		interfaces:    []interfaceBinding{{"shared-db", "6"}},
 		expectedError: `negative space "bar" from constraints clashes with interface bindings`,
 	}, {
 		interfaces: []interfaceBinding{
-			{"shared-db", "dup-space"},
-			{"db", "dup-space"},
+			{"shared-db", "1"},
+			{"db", "1"},
 		},
-		expectedPositives: "shared-db:space=dup-space;db:space=dup-space;0:space=foo",
-		expectedNegatives: "space:bar",
+		expectedPositives: "shared-db:space=1;db:space=1;0:space=5",
+		expectedNegatives: "space:6",
 	}, {
 		interfaces:    []interfaceBinding{{"", ""}},
 		expectedError: "interface bindings cannot have empty names",
@@ -449,22 +525,28 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		expectedError: `invalid interface binding "bar": space provider ID is required`,
 	}, {
 		interfaces: []interfaceBinding{
-			{"dup-name", "space-1"},
-			{"dup-name", "space-2"},
+			{"dup-name", "1"},
+			{"dup-name", "2"},
 		},
 		expectedError: `duplicated interface binding "dup-name"`,
 	}, {
 		interfaces: []interfaceBinding{
-			{"valid-1", "space-0"},
-			{"dup-name", "space-1"},
-			{"dup-name", "space-2"},
-			{"valid-2", "space-3"},
+			{"valid-1", "0"},
+			{"dup-name", "1"},
+			{"dup-name", "2"},
+			{"valid-2", "3"},
 		},
 		expectedError: `duplicated interface binding "dup-name"`,
 	}} {
+		suite.testMAASObject.TestServer.Clear()
 		c.Logf("test #%d: interfaces=%v", i, test.interfaces)
+		suite.createFourSpaces(c)
+		server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "foo"}))
+		suite.addSubnetWithSpace(c, 6, 6, "foo", "node1")
+		server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "bar"}))
+		suite.addSubnetWithSpace(c, 7, 7, "bar", "node1")
 		env := suite.makeEnviron()
-		suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+		server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 		_, err := env.acquireNode("", "", cons, test.interfaces, nil)
 		if test.expectedError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectedError)
@@ -472,11 +554,67 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 			continue
 		}
 		c.Check(err, jc.ErrorIsNil)
-		requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
+		requestValues := server.NodeOperationRequestValues()
 		nodeRequestValues, found := requestValues["node0"]
-		c.Check(found, jc.IsTrue)
-		c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, test.expectedPositives)
-		c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, test.expectedNegatives)
-		suite.testMAASObject.TestServer.Clear()
+		if c.Check(found, jc.IsTrue) {
+
+			c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, test.expectedPositives)
+			c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, test.expectedNegatives)
+		}
 	}
+}
+
+func (suite *environSuite) createFooBarSpaces(c *gc.C) {
+	server := suite.testMAASObject.TestServer
+	server.SetVersionJSON(`{"capabilities": ["network-deployment-ubuntu"]}`)
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "foo"}))
+	suite.addSubnetWithSpace(c, 1, 2, "foo", "node1")
+	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "bar"}))
+	suite.addSubnetWithSpace(c, 2, 3, "bar", "node1")
+}
+
+func (suite *environSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
+	server := suite.testMAASObject.TestServer
+	suite.createFooBarSpaces(c)
+	cons := constraints.Value{
+		Spaces: stringslicep("foo", "^bar"),
+	}
+	env := suite.makeEnviron()
+	server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+	_, err := env.acquireNode("", "", cons, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	requestValues := server.NodeOperationRequestValues()
+	nodeRequestValues, found := requestValues["node0"]
+	c.Assert(found, jc.IsTrue)
+	c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, "0:space=2")
+	c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, "space:3")
+}
+
+func (suite *environSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
+	server := suite.testMAASObject.TestServer
+	suite.createFooBarSpaces(c)
+	cons := constraints.Value{
+		Spaces: stringslicep("foo-1", "^bar-3"),
+	}
+	env := suite.makeEnviron()
+	server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+	_, err := env.acquireNode("", "", cons, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	requestValues := server.NodeOperationRequestValues()
+	nodeRequestValues, found := requestValues["node0"]
+	c.Assert(found, jc.IsTrue)
+	c.Check(nodeRequestValues[0].Get("interfaces"), gc.Equals, "0:space=2")
+	c.Check(nodeRequestValues[0].Get("not_networks"), gc.Equals, "space:3")
+}
+
+func (suite *environSuite) TestAcquireNodeUnrecognisedSpace(c *gc.C) {
+	server := suite.testMAASObject.TestServer
+	suite.createFooBarSpaces(c)
+	cons := constraints.Value{
+		Spaces: stringslicep("baz"),
+	}
+	env := suite.makeEnviron()
+	server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+	_, err := env.acquireNode("", "", cons, nil, nil)
+	c.Assert(err, gc.ErrorMatches, `unrecognised space in constraint "baz"`)
 }

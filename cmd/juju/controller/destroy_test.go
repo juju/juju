@@ -10,6 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -19,11 +20,16 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
+)
+
+const (
+	test1UUID = "1871299e-1370-4f3e-83ab-1849ed7b1076"
+	test2UUID = "c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004"
+	test3UUID = "82bf9738-764b-49c1-9c19-18f6ee155854"
 )
 
 type DestroySuite struct {
@@ -34,52 +40,58 @@ var _ = gc.Suite(&DestroySuite{})
 
 type baseDestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	api         *fakeDestroyAPI
-	clientapi   *fakeDestroyAPIClient
-	legacyStore configstore.Storage
-	store       *jujuclienttesting.MemStore
-	apierror    error
+	api       *fakeDestroyAPI
+	clientapi *fakeDestroyAPIClient
+	store     *jujuclienttesting.MemStore
+	apierror  error
 }
 
 // fakeDestroyAPI mocks out the controller API
 type fakeDestroyAPI struct {
-	err        error
+	gitjujutesting.Stub
 	env        map[string]interface{}
 	destroyAll bool
 	blocks     []params.ModelBlockInfo
-	blocksErr  error
 	envStatus  map[string]base.ModelStatus
 	allEnvs    []base.UserModel
 }
 
-func (f *fakeDestroyAPI) Close() error { return nil }
+func (f *fakeDestroyAPI) Close() error {
+	f.MethodCall(f, "Close")
+	return f.NextErr()
+}
 
 func (f *fakeDestroyAPI) ModelConfig() (map[string]interface{}, error) {
-	if f.err != nil {
-		return nil, f.err
+	f.MethodCall(f, "ModelConfig")
+	if err := f.NextErr(); err != nil {
+		return nil, err
 	}
 	return f.env, nil
 }
 
 func (f *fakeDestroyAPI) DestroyController(destroyAll bool) error {
+	f.MethodCall(f, "DestroyController", destroyAll)
 	f.destroyAll = destroyAll
-	return f.err
+	return f.NextErr()
 }
 
 func (f *fakeDestroyAPI) ListBlockedModels() ([]params.ModelBlockInfo, error) {
-	return f.blocks, f.blocksErr
+	f.MethodCall(f, "ListBlockedModels")
+	return f.blocks, f.NextErr()
 }
 
 func (f *fakeDestroyAPI) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error) {
+	f.MethodCall(f, "ModelStatus", tags)
 	status := make([]base.ModelStatus, len(tags))
 	for i, tag := range tags {
 		status[i] = f.envStatus[tag.Id()]
 	}
-	return status, f.err
+	return status, f.NextErr()
 }
 
 func (f *fakeDestroyAPI) AllModels() ([]base.UserModel, error) {
-	return f.allEnvs, f.err
+	f.MethodCall(f, "AllModels")
+	return f.allEnvs, f.NextErr()
 }
 
 // fakeDestroyAPIClient mocks out the client API
@@ -107,10 +119,11 @@ func (f *fakeDestroyAPIClient) DestroyModel() error {
 
 func createBootstrapInfo(c *gc.C, name string) map[string]interface{} {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"type":       "dummy",
-		"name":       name,
-		"controller": "true",
-		"state-id":   "1",
+		"type":            "dummy",
+		"name":            name,
+		"uuid":            testing.ModelTag.Id(),
+		"controller-uuid": testing.ModelTag.Id(),
+		"controller":      "true",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg.AllAttrs()
@@ -125,15 +138,17 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	}
 	s.apierror = nil
 
-	var err error
-	s.legacyStore, err = configstore.Default()
-	c.Assert(err, jc.ErrorIsNil)
 	s.store = jujuclienttesting.NewMemStore()
-
-	s.store = jujuclienttesting.NewMemStore()
-	s.store.Controllers["local.test1"] = jujuclient.ControllerDetails{}
-	s.store.Controllers["test2"] = jujuclient.ControllerDetails{}
-	s.store.Controllers["test3"] = jujuclient.ControllerDetails{}
+	s.store.Controllers["local.test1"] = jujuclient.ControllerDetails{
+		APIEndpoints:   []string{"localhost"},
+		CACert:         testing.CACert,
+		ControllerUUID: test1UUID,
+	}
+	s.store.Controllers["test3"] = jujuclient.ControllerDetails{
+		APIEndpoints:   []string{"localhost"},
+		CACert:         testing.CACert,
+		ControllerUUID: test3UUID,
+	}
 	s.store.Accounts["local.test1"] = &jujuclient.ControllerAccounts{
 		CurrentAccount: "admin@local",
 	}
@@ -145,17 +160,18 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 		bootstrapCfg map[string]interface{}
 	}{
 		{
-			name:         "local.test1:test1",
-			serverUUID:   "test1-uuid",
-			modelUUID:    "test1-uuid",
-			bootstrapCfg: createBootstrapInfo(c, "test1"),
+			name:         "local.test1:admin",
+			serverUUID:   test1UUID,
+			modelUUID:    test1UUID,
+			bootstrapCfg: createBootstrapInfo(c, "admin"),
 		}, {
 			name:       "test2:test2",
-			serverUUID: "test1-uuid",
-			modelUUID:  "test2-uuid",
+			serverUUID: test1UUID,
+			modelUUID:  test2UUID,
 		}, {
-			name:      "test3:test3",
-			modelUUID: "test3-uuid",
+			name:       "test3:admin",
+			serverUUID: test3UUID,
+			modelUUID:  test3UUID,
 		},
 	}
 	for _, model := range modelList {
@@ -168,29 +184,18 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 		s.store.UpdateModel(controllerName, "admin@local", modelName, jujuclient.ModelDetails{
 			ModelUUID: model.modelUUID,
 		})
-
-		// TODO(wallyworld) - remove legacy store
-		info := s.legacyStore.CreateInfo(model.name)
-		uuid := model.modelUUID
-		info.SetAPIEndpoint(configstore.APIEndpoint{
-			Addresses:  []string{"localhost"},
-			CACert:     testing.CACert,
-			ModelUUID:  uuid,
-			ServerUUID: model.serverUUID,
-		})
-
 		if model.bootstrapCfg != nil {
-			info.SetBootstrapConfig(model.bootstrapCfg)
+			s.store.BootstrapConfig[controllerName] = jujuclient.BootstrapConfig{
+				Config: createBootstrapInfo(c, "admin"),
+			}
 		}
-		err := info.Write()
-		c.Assert(err, jc.ErrorIsNil)
 
+		uuid := model.modelUUID
 		s.api.allEnvs = append(s.api.allEnvs, base.UserModel{
 			Name:  model.name,
 			UUID:  uuid,
 			Owner: owner.Canonical(),
 		})
-
 		s.api.envStatus[model.modelUUID] = base.ModelStatus{
 			UUID:               uuid,
 			Life:               params.Dead,
@@ -209,14 +214,14 @@ func (s *DestroySuite) newDestroyCommand() cmd.Command {
 	return controller.NewDestroyCommandForTest(s.api, s.clientapi, s.store, s.apierror)
 }
 
-func checkControllerExistsInStore(c *gc.C, name string, store configstore.Storage) {
-	_, err := store.ReadInfo(name)
-	c.Check(err, jc.ErrorIsNil)
+func checkControllerExistsInStore(c *gc.C, name string, store jujuclient.ControllerGetter) {
+	_, err := store.ControllerByName(name)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-func checkControllerRemovedFromStore(c *gc.C, name string, store configstore.Storage) {
-	_, err := store.ReadInfo(name)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+func checkControllerRemovedFromStore(c *gc.C, name string, store jujuclient.ControllerGetter) {
+	_, err := store.ControllerByName(name)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *DestroySuite) TestDestroyNoControllerNameError(c *gc.C) {
@@ -239,17 +244,12 @@ func (s *DestroySuite) TestDestroyUnknownController(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `controller foo not found`)
 }
 
-func (s *DestroySuite) TestDestroyNonControllerEnvFails(c *gc.C) {
-	_, err := s.runDestroyCommand(c, "test2")
-	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a controller; use juju destroy-model to destroy it")
-}
-
 func (s *DestroySuite) TestDestroyControllerNotFoundNotRemovedFromStore(c *gc.C) {
 	s.apierror = errors.NotFoundf("local.test1")
 	_, err := s.runDestroyCommand(c, "local.test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot connect to API: local.test1 not found")
 	c.Check(c.GetTestLog(), jc.Contains, "If the controller is unusable")
-	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
+	checkControllerExistsInStore(c, "local.test1", s.store)
 }
 
 func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
@@ -257,7 +257,7 @@ func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "local.test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot connect to API: connection refused")
 	c.Check(c.GetTestLog(), jc.Contains, "If the controller is unusable")
-	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
+	checkControllerExistsInStore(c, "local.test1", s.store)
 }
 
 func (s *DestroySuite) TestDestroy(c *gc.C) {
@@ -265,7 +265,7 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.destroyAll, jc.IsFalse)
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
-	checkControllerRemovedFromStore(c, "local.test1", s.legacyStore)
+	checkControllerRemovedFromStore(c, "local.test1", s.store)
 }
 
 func (s *DestroySuite) TestDestroyAlias(c *gc.C) {
@@ -273,43 +273,88 @@ func (s *DestroySuite) TestDestroyAlias(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.destroyAll, jc.IsFalse)
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
-	checkControllerRemovedFromStore(c, "local.test1", s.legacyStore)
+	checkControllerRemovedFromStore(c, "local.test1", s.store)
 }
 
 func (s *DestroySuite) TestDestroyWithDestroyAllEnvsFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "local.test1", "-y", "--destroy-all-models")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.destroyAll, jc.IsTrue)
-	checkControllerRemovedFromStore(c, "local.test1", s.legacyStore)
+	checkControllerRemovedFromStore(c, "local.test1", s.store)
 }
 
-func (s *DestroySuite) TestDestroyEnvironmentGetFails(c *gc.C) {
-	s.api.err = errors.NotFoundf(`controller "test3"`)
+func (s *DestroySuite) TestDestroyControllerGetFails(c *gc.C) {
+	s.api.SetErrors(errors.NotFoundf(`controller "test3"`))
 	_, err := s.runDestroyCommand(c, "test3", "-y")
-	c.Assert(err, gc.ErrorMatches, "cannot obtain bootstrap information: controller \"test3\" not found")
-	checkControllerExistsInStore(c, "test3:test3", s.legacyStore)
+	c.Assert(err, gc.ErrorMatches,
+		"getting controller environ: getting bootstrap config from API: controller \"test3\" not found",
+	)
+	checkControllerExistsInStore(c, "test3", s.store)
 }
 
-func (s *DestroySuite) TestFailedDestroyEnvironment(c *gc.C) {
-	s.api.err = errors.New("permission denied")
+func (s *DestroySuite) TestFailedDestroyController(c *gc.C) {
+	s.api.SetErrors(errors.New("permission denied"))
 	_, err := s.runDestroyCommand(c, "local.test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
 	c.Assert(s.api.destroyAll, jc.IsFalse)
-	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
+	checkControllerExistsInStore(c, "local.test1", s.store)
+}
+
+func (s *DestroySuite) TestDestroyControllerAliveModels(c *gc.C) {
+	for uuid, status := range s.api.envStatus {
+		status.Life = params.Alive
+		s.api.envStatus[uuid] = status
+	}
+	s.api.SetErrors(&params.Error{Code: params.CodeHasHostedModels})
+	_, err := s.runDestroyCommand(c, "local.test1", "-y")
+	c.Assert(err.Error(), gc.Equals, `cannot destroy controller "local.test1"
+
+The controller has live hosted models. If you want
+to destroy all hosted models in the controller,
+run this command again with the --destroy-all-models
+flag.
+
+Models:
+	owner@local/test2:test2 (alive)
+	owner@local/test3:admin (alive)
+`)
+
+}
+
+func (s *DestroySuite) TestDestroyControllerReattempt(c *gc.C) {
+	// The first attempt to destroy should yield an error
+	// saying that the controller has hosted models. After
+	// checking, we find there are only dead hosted models,
+	// and reattempt the destroy the controller; this time
+	// it succeeds.
+	s.api.SetErrors(&params.Error{Code: params.CodeHasHostedModels})
+	_, err := s.runDestroyCommand(c, "local.test1", "-y")
+	c.Assert(err, jc.ErrorIsNil)
+	s.api.CheckCallNames(c,
+		"DestroyController",
+		"AllModels",
+		"ModelStatus",
+		"ModelStatus",
+		"DestroyController",
+		"AllModels",
+		"ModelStatus",
+		"ModelStatus",
+		"Close",
+	)
 }
 
 func (s *DestroySuite) resetController(c *gc.C) {
-	s.store.Controllers["local.test1"] = jujuclient.ControllerDetails{}
-	info := s.legacyStore.CreateInfo("local.test1:test1")
-	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:  []string{"localhost"},
-		CACert:     testing.CACert,
-		ModelUUID:  "test1-uuid",
-		ServerUUID: "test1-uuid",
-	})
-	info.SetBootstrapConfig(createBootstrapInfo(c, "test1"))
-	err := info.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	s.store.Controllers["local.test1"] = jujuclient.ControllerDetails{
+		APIEndpoints:   []string{"localhost"},
+		CACert:         testing.CACert,
+		ControllerUUID: test1UUID,
+	}
+	s.store.Accounts["local.test1"] = &jujuclient.ControllerAccounts{
+		CurrentAccount: "admin@local",
+	}
+	s.store.BootstrapConfig["local.test1"] = jujuclient.BootstrapConfig{
+		Config: createBootstrapInfo(c, "admin"),
+	}
 }
 
 func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
@@ -328,7 +373,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 		c.Fatalf("command took too long")
 	}
 	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*local.test1(.|\n)*")
-	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
+	checkControllerExistsInStore(c, "local.test1", s.store)
 
 	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
@@ -341,7 +386,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 		c.Fatalf("command took too long")
 	}
 	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*local.test1(.|\n)*")
-	checkControllerExistsInStore(c, "local.test1:test1", s.legacyStore)
+	checkControllerExistsInStore(c, "local.test1", s.store)
 
 	for _, answer := range []string{"y", "Y", "yes", "YES"} {
 		stdin.Reset()
@@ -354,7 +399,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 		case <-time.After(testing.LongWait):
 			c.Fatalf("command took too long")
 		}
-		checkControllerRemovedFromStore(c, "local.test1", s.legacyStore)
+		checkControllerRemovedFromStore(c, "local.test1", s.store)
 
 		// Add the local.test1 controller back into the store for the next test
 		s.resetController(c)
@@ -362,7 +407,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 }
 
 func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
-	s.api.err = &params.Error{Code: params.CodeOperationBlocked}
+	s.api.SetErrors(&params.Error{Code: params.CodeOperationBlocked})
 	s.runDestroyCommand(c, "local.test1", "-y")
 	testLog := c.GetTestLog()
 	c.Check(testLog, jc.Contains, "To remove all blocks in the controller, please run:")
@@ -370,8 +415,10 @@ func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
-	s.api.err = &params.Error{Code: params.CodeOperationBlocked}
-	s.api.blocksErr = errors.New("unexpected api error")
+	s.api.SetErrors(
+		&params.Error{Code: params.CodeOperationBlocked},
+		errors.New("unexpected api error"),
+	)
 	s.runDestroyCommand(c, "local.test1", "-y")
 	testLog := c.GetTestLog()
 	c.Check(testLog, jc.Contains, "To remove all blocks in the controller, please run:")
@@ -380,11 +427,11 @@ func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
-	s.api.err = &params.Error{Code: params.CodeOperationBlocked}
+	s.api.SetErrors(&params.Error{Code: params.CodeOperationBlocked})
 	s.api.blocks = []params.ModelBlockInfo{
 		params.ModelBlockInfo{
 			Name:     "test1",
-			UUID:     "test1-uuid",
+			UUID:     test1UUID,
 			OwnerTag: "cheryl@local",
 			Blocks: []string{
 				"BlockDestroy",
@@ -392,7 +439,7 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 		},
 		params.ModelBlockInfo{
 			Name:     "test2",
-			UUID:     "test2-uuid",
+			UUID:     test2UUID,
 			OwnerTag: "bob@local",
 			Blocks: []string{
 				"BlockDestroy",
@@ -401,8 +448,8 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 		},
 	}
 	ctx, _ := s.runDestroyCommand(c, "local.test1", "-y", "--destroy-all-models")
-	c.Assert(testing.Stderr(ctx), gc.Equals, ""+
-		"NAME   MODEL UUID  OWNER         BLOCKS\n"+
-		"test1  test1-uuid  cheryl@local  destroy-model\n"+
-		"test2  test2-uuid  bob@local     destroy-model,all-changes\n")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "Destroying controller\n"+
+		"NAME   MODEL UUID                            OWNER         BLOCKS\n"+
+		"test1  1871299e-1370-4f3e-83ab-1849ed7b1076  cheryl@local  destroy-model\n"+
+		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob@local     destroy-model,all-changes\n")
 }

@@ -38,3 +38,9 @@ const VSphereProvider = "vsphere-provider"
 
 // ImageMetadata allows custom image metadata to be recorded in state.
 const ImageMetadata = "image-metadata"
+
+// Migration enables the 'juju migrate' command.
+const Migration = "migration"
+
+// maas2 enables experimental support for MAAS 2.0.
+const MAAS2 = "maas2"

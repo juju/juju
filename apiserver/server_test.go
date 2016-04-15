@@ -25,6 +25,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
+	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
@@ -72,13 +73,13 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	_, err = st.Machiner().Machine(machine.MachineTag())
+	_, err = apimachiner.NewState(st).Machine(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = srv.Stop()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = st.Machiner().Machine(machine.MachineTag())
+	_, err = apimachiner.NewState(st).Machine(machine.MachineTag())
 	err = errors.Cause(err)
 	// The client has not necessarily seen the server shutdown yet,
 	// so there are two possible errors.
@@ -123,7 +124,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 		network.NewHostPorts(port, "127.0.0.1"),
 	})
 
-	_, err = ipv4State.Machiner().Machine(machine.MachineTag())
+	_, err = apimachiner.NewState(ipv4State).Machine(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiInfo.Addrs = []string{net.JoinHostPort("::1", portString)}
@@ -135,7 +136,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 		network.NewHostPorts(port, "::1"),
 	})
 
-	_, err = ipv6State.Machiner().Machine(machine.MachineTag())
+	_, err = apimachiner.NewState(ipv6State).Machine(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -377,7 +378,7 @@ func (s *macaroonServerSuite) TestServerBakery(c *gc.C) {
 	ms, err := client.DischargeAll(m)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bsvc.Check(ms, checkers.New())
+	err = bsvc.(*bakery.Service).Check(ms, checkers.New())
 	c.Assert(err, gc.IsNil)
 }
 

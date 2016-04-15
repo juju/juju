@@ -15,6 +15,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -23,14 +24,46 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
-func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number) cmd.Command {
+var usageUpgradeJujuSummary = `
+Upgrades Juju on all machines in a model.`[1:]
+
+var usageUpgradeJujuDetails = `
+Juju provides agent software to every machine it creates. This command
+upgrades that software across an entire model, which is, by default, the
+current model.
+A model's agent version can be shown with `[1:] + "`juju get-model-config agent-\nversion`" + `.
+A version is denoted by: major.minor.patch
+The upgrade candidate will be auto-selected if '--version' is not
+specified:
+ - If the server major version matches the client major version, the
+ version selected is minor+1. If such a minor version is not available then
+ the next patch version is chosen.
+ - If the server major version does not match the client major version,
+ the version selected is that of the client version.
+If the controller is without internet access, the client must first supply
+the software to the controller's cache via the ` + "`juju sync-tools`" + ` command.
+The command will abort if an upgrade is in progress. It will also abort if
+a previous upgrade was not fully completed (e.g.: if one of the
+controllers in a high availability model failed to upgrade).
+If a failed upgrade has been resolved, '--reset-previous-upgrade' can be
+used to allow the upgrade to proceed.
+Backups are recommended prior to upgrading.
+
+Examples:
+    juju upgrade-juju --dry-run
+    juju upgrade-juju --version 2.0.1
+    
+See also: 
+    sync-tools`
+
+func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number, options ...modelcmd.WrapEnvOption) cmd.Command {
 	if minUpgradeVers == nil {
 		minUpgradeVers = minMajorUpgradeVersion
 	}
-	return modelcmd.Wrap(&upgradeJujuCommand{minMajorUpgradeVersion: minUpgradeVers})
+	return modelcmd.Wrap(&upgradeJujuCommand{minMajorUpgradeVersion: minUpgradeVers}, options...)
 }
 
 // upgradeJujuCommand upgrades the agents in a juju installation.
@@ -50,59 +83,20 @@ type upgradeJujuCommand struct {
 	minMajorUpgradeVersion map[int]version.Number
 }
 
-var upgradeJujuDoc = `
-The upgrade-juju command upgrades a running model by setting a version
-number for all juju agents to run. By default, it chooses the most recent
-supported version compatible with the command-line tools version.
-
-A development version is defined to be any version with an odd minor
-version or a nonzero build component (for example version 2.1.1, 3.3.0
-and 2.0.0.1 are development versions; 2.0.3 and 3.4.1 are not). A
-development version may be chosen in two cases:
-
- - when the current agent version is a development one and there is
-   a more recent version available with the same major.minor numbers;
- - when an explicit --version major.minor is given (e.g. --version 1.17,
-   or 1.17.2, but not just 1)
-
-For development use, the --upload-tools flag specifies that the juju tools will
-packaged (or compiled locally, if no jujud binaries exists, for which you will
-need the golang packages installed) and uploaded before the version is set.
-Currently the tools will be uploaded as if they had the version of the current
-juju tool, unless specified otherwise by the --version flag.
-
-When run without arguments. upgrade-juju will try to upgrade to the
-following versions, in order of preference, depending on the current
-value of the model's agent-version setting:
-
- - The highest patch.build version of the *next* stable major.minor version.
- - The highest patch.build version of the *current* major.minor version.
-
-Both of these depend on tools availability, which some situations (no
-outgoing internet access) and provider types (such as maas) require that
-you manage yourself; see the documentation for "sync-tools".
-
-The upgrade-juju command will abort if an upgrade is already in
-progress. It will also abort if a previous upgrade was partially
-completed - this can happen if one of the controllers in a high
-availability model failed to upgrade. If a failed upgrade has
-been resolved, the --reset-previous-upgrade flag can be used to reset
-the model's upgrade tracking state, allowing further upgrades.`
-
 func (c *upgradeJujuCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upgrade-juju",
-		Purpose: "upgrade the tools in a juju model",
-		Doc:     upgradeJujuDoc,
+		Purpose: usageUpgradeJujuSummary,
+		Doc:     usageUpgradeJujuDetails,
 	}
 }
 
 func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.vers, "version", "", "upgrade to specific version")
-	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
-	f.BoolVar(&c.DryRun, "dry-run", false, "don't change anything, just report what would change")
-	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "clear the previous (incomplete) upgrade status (use with care)")
-	f.BoolVar(&c.AssumeYes, "y", false, "answer 'yes' to confirmation prompts")
+	f.StringVar(&c.vers, "version", "", "Upgrade to specific version")
+	f.BoolVar(&c.UploadTools, "upload-tools", false, "Upload local version of tools; for development use only")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
+	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
+	f.BoolVar(&c.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
 	f.BoolVar(&c.AssumeYes, "yes", false, "")
 }
 
@@ -152,10 +146,10 @@ var (
 // environments running 1.* since it must be able to upgrade
 // environments from 1.25.4 -> 2.0.*.
 func canUpgradeRunningVersion(runningAgentVer version.Number) bool {
-	if runningAgentVer.Major == version.Current.Major {
+	if runningAgentVer.Major == jujuversion.Current.Major {
 		return true
 	}
-	if version.Current.Minor == 0 && runningAgentVer.Major == (version.Current.Major-1) {
+	if jujuversion.Current.Minor == 0 && runningAgentVer.Major == (jujuversion.Current.Major-1) {
 		return true
 	}
 	return false
@@ -184,6 +178,11 @@ var getUpgradeJujuAPI = func(c *upgradeJujuCommand) (upgradeJujuAPI, error) {
 
 // Run changes the version proposed for the juju envtools.
 func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
+
+	if c.UploadTools && c.ModelName() != "admin" {
+		return errors.Errorf("--upload-tools can only be used with the admin model")
+	}
+
 	client, err := getUpgradeJujuAPI(c)
 	if err != nil {
 		return err
@@ -214,9 +213,9 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 
 	if c.UploadTools && c.Version == version.Zero {
 		// Currently, uploading tools assumes the version to be
-		// the same as version.Current if not specified with
+		// the same as jujuversion.Current if not specified with
 		// --version.
-		c.Version = version.Current
+		c.Version = jujuversion.Current
 	}
 	warnCompat := false
 	switch {
@@ -224,12 +223,12 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		// This version of upgrade-juju cannot upgrade the running
 		// environment version (can't guarantee API compatibility).
 		return fmt.Errorf("cannot upgrade a %s model with a %s client",
-			agentVersion, version.Current)
+			agentVersion, jujuversion.Current)
 	case c.Version != version.Zero && c.Version.Major < agentVersion.Major:
 		// The specified version would downgrade the environment.
 		// Don't upgrade and return an error.
 		return fmt.Errorf(downgradeErrMsg, agentVersion, c.Version)
-	case agentVersion.Major != version.Current.Major:
+	case agentVersion.Major != jujuversion.Current.Major:
 		// Running environment is the previous major version (a higher major
 		// version wouldn't have passed the check in canUpgradeRunningVersion).
 		if c.Version == version.Zero || c.Version.Major == agentVersion.Major {
@@ -287,7 +286,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	ctx.Infof("available tools:\n%s", formatTools(context.tools))
 	ctx.Infof("best version:\n    %s", context.chosen)
 	if warnCompat {
-		logger.Warningf("version %s incompatible with this client (%s)", context.chosen, version.Current)
+		logger.Warningf("version %s incompatible with this client (%s)", context.chosen, jujuversion.Current)
 	}
 	if c.DryRun {
 		ctx.Infof("upgrade to this version by running\n    juju upgrade-juju --version=\"%s\"\n", context.chosen)
@@ -350,7 +349,7 @@ func (c *upgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Con
 	if c.Version == agentVersion {
 		return nil, errUpToDate
 	}
-	filterVersion := version.Current
+	filterVersion := jujuversion.Current
 	if c.Version != version.Zero {
 		filterVersion = c.Version
 	} else if filterOnPrior {
@@ -380,7 +379,7 @@ func (c *upgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Con
 	}
 	return &upgradeContext{
 		agent:     agentVersion,
-		client:    version.Current,
+		client:    jujuversion.Current,
 		chosen:    c.Version,
 		tools:     findResult.List,
 		apiClient: client,
@@ -407,7 +406,7 @@ type upgradeContext struct {
 // with the ones just uploaded.
 func (context *upgradeContext) uploadTools() (err error) {
 	// TODO(fwereade): this is kinda crack: we should not assume that
-	// version.Current matches whatever source happens to be built. The
+	// jujuversion.Current matches whatever source happens to be built. The
 	// ideal would be:
 	//  1) compile jujud from $GOPATH into some build dir
 	//  2) get actual version with `jujud version`

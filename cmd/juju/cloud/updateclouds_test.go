@@ -83,7 +83,7 @@ func (s *updateCloudsSuite) run(c *gc.C, url, errMsg string) string {
 		errString := strings.Replace(err.Error(), "\n", "", -1)
 		c.Assert(errString, gc.Matches, errMsg)
 	}
-	return strings.Replace(testing.Stdout(out), "\n", "", -1)
+	return testing.Stdout(out)
 }
 
 func (s *updateCloudsSuite) Test404(c *gc.C) {
@@ -91,7 +91,7 @@ func (s *updateCloudsSuite) Test404(c *gc.C) {
 	defer ts.Close()
 
 	msg := s.run(c, ts.URL, "")
-	c.Assert(msg, gc.Matches, ".*no new public cloud information available at this time.*")
+	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, "Fetching latest public cloud list...Public cloud list is unavailable right now.")
 }
 
 func (s *updateCloudsSuite) Test401(c *gc.C) {
@@ -136,20 +136,31 @@ func (s *updateCloudsSuite) TestNoNewData(c *gc.C) {
 	defer ts.Close()
 
 	msg := s.run(c, ts.URL, "")
-	c.Assert(msg, gc.Matches, ".*no new public cloud information available at this time.*")
+	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, "Fetching latest public cloud list...Your list of public clouds is up to date, see juju list-clouds.")
 }
 
 func (s *updateCloudsSuite) TestFirstRun(c *gc.C) {
+	// make sure there is nothing
+	err := jujucloud.WritePublicCloudMetadata(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	ts := s.setupTestServer(c, sampleUpdateCloudData)
 	defer ts.Close()
 
-	s.run(c, ts.URL, "")
+	msg := s.run(c, ts.URL, "")
 	publicClouds, fallbackUsed, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fallbackUsed, jc.IsFalse)
 	clouds, err := jujucloud.ParseCloudMetadata([]byte(sampleUpdateCloudData))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(publicClouds, jc.DeepEquals, clouds)
+	c.Assert(msg, gc.Matches, `
+Fetching latest public cloud list...
+Updated your list of public clouds with 1 cloud added:
+
+    added cloud:
+        - aws
+`[1:])
 }
 
 func (s *updateCloudsSuite) TestNewData(c *gc.C) {
@@ -165,11 +176,18 @@ func (s *updateCloudsSuite) TestNewData(c *gc.C) {
 	ts := s.setupTestServer(c, newUpdateCloudData)
 	defer ts.Close()
 
-	s.run(c, ts.URL, "")
+	msg := s.run(c, ts.URL, "")
 	publicClouds, fallbackUsed, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fallbackUsed, jc.IsFalse)
 	clouds, err = jujucloud.ParseCloudMetadata([]byte(newUpdateCloudData))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(publicClouds, jc.DeepEquals, clouds)
+	c.Assert(msg, gc.Matches, `
+Fetching latest public cloud list...
+Updated your list of public clouds with 1 cloud region added:
+
+    added cloud region:
+        - aws/anotherregion
+`[1:])
 }

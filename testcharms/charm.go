@@ -6,6 +6,8 @@
 package testcharms
 
 import (
+	"strings"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -19,6 +21,9 @@ var Repo = testing.NewRepo("charm-repo", "quantal")
 
 // UploadCharm uploads a charm using the given charm store client, and returns
 // the resulting charm URL and charm.
+//
+// It also adds any required resources that haven't already been uploaded
+// with the content "<resourcename> content".
 func UploadCharm(c *gc.C, client *csclient.Client, url, name string) (*charm.URL, charm.Charm) {
 	id := charm.MustParseURL(url)
 	promulgatedRevision := -1
@@ -33,11 +38,28 @@ func UploadCharm(c *gc.C, client *csclient.Client, url, name string) (*charm.URL
 	err := client.UploadCharmWithRevision(id, ch, promulgatedRevision)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Allow read permissions to everyone.
-	err = client.Put("/"+id.Path()+"/meta/perm/read", []string{params.Everyone})
-	c.Assert(err, jc.ErrorIsNil)
+	// Upload any resources required for publishing.
+	var resources map[string]int
+	if len(ch.Meta().Resources) > 0 {
+		// The charm has resources.
+		// Ensure that all the required resources are uploaded
+		// before we publish.
+		resources = make(map[string]int)
+		current, err := client.WithChannel(params.UnpublishedChannel).ListResources(id)
+		c.Assert(err, gc.IsNil)
+		for _, r := range current {
+			if r.Revision == -1 {
+				// The resource doesn't exist so upload one.
+				_, err := client.UploadResource(id, r.Name, "", strings.NewReader(r.Name+" content"))
+				c.Assert(err, jc.ErrorIsNil)
+				r.Revision = 0
+			}
+			resources[r.Name] = r.Revision
+		}
+	}
 
-	// Return the charm and its URL.
+	SetPublicWithResources(c, client, id, resources)
+
 	return id, ch
 }
 
@@ -56,9 +78,7 @@ func UploadCharmMultiSeries(c *gc.C, client *csclient.Client, url, name string) 
 	curl, err := client.UploadCharm(id, ch)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Allow read permissions to everyone.
-	err = client.Put("/"+curl.Path()+"/meta/perm/read", []string{params.Everyone})
-	c.Assert(err, jc.ErrorIsNil)
+	SetPublic(c, client, curl)
 
 	// Return the charm and its URL.
 	return curl, ch
@@ -80,10 +100,29 @@ func UploadBundle(c *gc.C, client *csclient.Client, url, name string) (*charm.UR
 	err := client.UploadBundleWithRevision(id, b, promulgatedRevision)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Allow read permissions to everyone.
-	err = client.Put("/"+id.Path()+"/meta/perm/read", []string{params.Everyone})
-	c.Assert(err, jc.ErrorIsNil)
+	SetPublic(c, client, id)
 
 	// Return the bundle and its URL.
 	return id, b
+}
+
+// SetPublicWithResources sets the charm or bundle with the given id to be
+// published with global read permissions to the stable channel.
+//
+// The named resources with their associated revision
+// numbers are also published.
+func SetPublicWithResources(c *gc.C, client *csclient.Client, id *charm.URL, resources map[string]int) {
+	// Publish to the stable channel.
+	err := client.Publish(id, []params.Channel{params.StableChannel}, resources)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Allow stable read permissions to everyone.
+	err = client.WithChannel(params.StableChannel).Put("/"+id.Path()+"/meta/perm/read", []string{params.Everyone})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// SetPublic sets the charm or bundle with the given id to be
+// published with global read permissions to the stable channel.
+func SetPublic(c *gc.C, client *csclient.Client, id *charm.URL) {
+	SetPublicWithResources(c, client, id, nil)
 }

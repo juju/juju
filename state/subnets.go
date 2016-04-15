@@ -119,7 +119,7 @@ func (s *Subnet) Remove() (err error) {
 		return errors.New("subnet is not dead")
 	}
 
-	addresses, closer := s.st.getCollection(ipaddressesC)
+	addresses, closer := s.st.getCollection(legacyipaddressesC)
 	defer closer()
 
 	var ops []txn.Op
@@ -130,7 +130,7 @@ func (s *Subnet) Remove() (err error) {
 	iter := addresses.Find(bson.D{{"subnetid", id}}).Iter()
 	for iter.Next(&doc) {
 		ops = append(ops, txn.Op{
-			C:      ipaddressesC,
+			C:      legacyipaddressesC,
 			Id:     doc.DocID,
 			Remove: true,
 		})
@@ -293,7 +293,7 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 	}
 
 	// find all addresses for this subnet and convert them to decimals
-	addresses, closer := s.st.getCollection(ipaddressesC)
+	addresses, closer := s.st.getCollection(legacyipaddressesC)
 	defer closer()
 
 	id := s.ID()

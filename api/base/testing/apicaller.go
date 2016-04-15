@@ -27,6 +27,8 @@ func (f APICallerFunc) APICall(objType string, version int, id, request string, 
 }
 
 func (APICallerFunc) BestFacadeVersion(facade string) int {
+	// TODO(fwereade): this should return something arbitrary (e.g. 37)
+	// so that it can't be confused with mere uninitialized data.
 	return 0
 }
 
@@ -126,6 +128,24 @@ func NotifyingCheckingAPICaller(c *gc.C, args *CheckArgs, called chan struct{}, 
 			if args != nil {
 				checkArgs(c, args, facade, version, id, method, inArgs, outResults)
 			}
+			return err
+		},
+	)
+}
+
+// CheckingAPICallerMultiArgs checks each call against the indexed expected argument. Once expected
+// arguments run out it doesn't check them. This is useful if your test continues to make calls after
+// you have checked the ones you care about.
+func CheckingAPICallerMultiArgs(c *gc.C, args []CheckArgs, numCalls *int, err error) base.APICallCloser {
+	if numCalls == nil {
+		panic("numCalls must be non-nill")
+	}
+	return APICallerFunc(
+		func(facade string, version int, id, method string, inArgs, outResults interface{}) error {
+			if len(args) > *numCalls {
+				checkArgs(c, &args[*numCalls], facade, version, id, method, inArgs, outResults)
+			}
+			*numCalls++
 			return err
 		},
 	)

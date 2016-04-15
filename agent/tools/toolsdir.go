@@ -17,19 +17,28 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/symlink"
+	"github.com/juju/version"
 
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
-const toolsFile = "downloaded-tools.txt"
-const dirPerm = 0755
+const (
+	dirPerm        = 0755
+	guiArchiveFile = "downloaded-gui.txt"
+	toolsFile      = "downloaded-tools.txt"
+)
 
 // SharedToolsDir returns the directory that is used to
 // store binaries for the given version of the juju tools
 // within the dataDir directory.
 func SharedToolsDir(dataDir string, vers version.Binary) string {
 	return path.Join(dataDir, "tools", vers.String())
+}
+
+// SharedGUIDir returns the directory that is used to store release archives
+// of the Juju GUI within the dataDir directory.
+func SharedGUIDir(dataDir string) string {
+	return path.Join(dataDir, "gui")
 }
 
 // ToolsDir returns the directory that is used/ to store binaries for
@@ -170,6 +179,24 @@ func ReadTools(dataDir string, vers version.Binary) (*coretools.Tools, error) {
 		return nil, fmt.Errorf("invalid tools metadata in tools directory %q: %v", dir, err)
 	}
 	return &tools, nil
+}
+
+// ReadGUIArchive reads the GUI information from the dataDir directory.
+// The GUI information is JSON encoded in a text file, "downloaded-gui.txt".
+func ReadGUIArchive(dataDir string) (*coretools.GUIArchive, error) {
+	dir := SharedGUIDir(dataDir)
+	toolsData, err := ioutil.ReadFile(path.Join(dir, guiArchiveFile))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, errors.NotFoundf("GUI metadata")
+		}
+		return nil, fmt.Errorf("cannot read GUI metadata in tools directory: %v", err)
+	}
+	var gui coretools.GUIArchive
+	if err := json.Unmarshal(toolsData, &gui); err != nil {
+		return nil, fmt.Errorf("invalid GUI metadata in tools directory %q: %v", dir, err)
+	}
+	return &gui, nil
 }
 
 // ChangeAgentTools atomically replaces the agent-specific symlink

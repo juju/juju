@@ -13,29 +13,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
 )
-
-// addServer adds the given remote info to the provided config.
-// The implementation is based loosely on:
-//  https://github.com/lxc/lxd/blob/master/lxc/remote.go
-func addServer(config *lxd.Config, server string, addr string) error {
-	addr, err := fixAddr(addr)
-	if err != nil {
-		return err
-	}
-
-	if config.Remotes == nil {
-		config.Remotes = make(map[string]lxd.RemoteConfig)
-	}
-
-	/* Actually add the remote */
-	// TODO(ericsnow) Fail on collision?
-	config.Remotes[server] = lxd.RemoteConfig{Addr: addr}
-
-	return nil
-}
 
 // TODO(ericsnow) Rename addr -> remoteURL?
 

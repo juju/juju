@@ -23,6 +23,8 @@ type Storage interface {
 
 // RawState defines the functionality needed from state.State for resources.
 type RawState interface {
+	rawState
+
 	// Persistence exposes the state data persistence needed for resources.
 	Persistence() Persistence
 
@@ -46,6 +48,7 @@ func NewState(raw RawState) *State {
 	st := &State{
 		resourceState: &resourceState{
 			persist:      persist,
+			raw:          raw,
 			storage:      storage,
 			newPendingID: newPendingID,
 			currentTimestamp: func() time.Time {

@@ -49,7 +49,7 @@ func initExpectations(com *DeployCommand, store jujuclient.ClientStore) {
 		com.NumUnits = 1
 	}
 	com.SetClientStore(store)
-	com.SetModelName("dummymodel")
+	com.SetModelName("admin")
 }
 
 func initDeployCommand(store jujuclient.ClientStore, args ...string) (*DeployCommand, error) {
@@ -59,7 +59,8 @@ func initDeployCommand(store jujuclient.ClientStore, args ...string) (*DeployCom
 }
 
 func (s *CmdSuite) TestDeployCommandInit(c *gc.C) {
-	for _, t := range deployTests {
+	for i, t := range deployTests {
+		c.Logf("\ntest %d: args %q", i, t.args)
 		initExpectations(t.com, s.ControllerStore)
 		com, err := initDeployCommand(s.ControllerStore, t.args...)
 		// Testing that the flag set is populated is good enough for the scope

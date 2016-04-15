@@ -13,10 +13,6 @@ import (
 	"github.com/juju/juju/network"
 )
 
-var supportedContainerTypes = []string{
-	"lxd",
-}
-
 type policyProvider interface {
 	// SupportedArchitectures returns the list of image architectures
 	// supported by this environment.
@@ -28,6 +24,10 @@ type lxdPolicyProvider struct{}
 // SupportedArchitectures returns the image architectures which can
 // be hosted by this environment.
 func (pp *lxdPolicyProvider) SupportedArchitectures() ([]string, error) {
+	// TODO(natefinch): This is only correct so long as the lxd is running on
+	// the local machine.  If/when we support a remote lxd environment, we'll
+	// need to change this to match the arch of the remote machine.
+
 	// TODO(ericsnow) Use common.SupportedArchitectures?
 	localArch := arch.HostArch()
 	return []string{localArch}, nil
@@ -65,6 +65,7 @@ var unsupportedConstraints = []string{
 	//TODO(ericsnow) Add constraints.Mem as unsupported?
 	constraints.InstanceType,
 	constraints.Tags,
+	constraints.VirtType,
 }
 
 // ConstraintsValidator returns a Validator value which is used to

@@ -24,19 +24,13 @@ var timeout = time.Duration(10 * time.Minute)
 var rebootAfter = 15
 
 func runCommand(args []string) error {
-	_, err := exec.Command(args[0], args[1:]...).Output()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	err := exec.Command(args[0], args[1:]...).Run()
+	return errors.Trace(err)
 }
 
 var tmpFile = func() (*os.File, error) {
 	f, err := ioutil.TempFile(os.TempDir(), "juju-reboot")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return f, nil
+	return f, errors.Trace(err)
 }
 
 // Reboot implements the ExecuteReboot command which will reboot a machine
@@ -68,25 +62,20 @@ func NewRebootWaiter(apistate api.Connection, acfg agent.Config) (*Reboot, error
 // ExecuteReboot will wait for all running containers to stop, and then execute
 // a shutdown or a reboot (based on the action param)
 func (r *Reboot) ExecuteReboot(action params.RebootAction) error {
-	err := r.waitForContainersOrTimeout()
-	if err != nil {
+	if err := r.waitForContainersOrTimeout(); err != nil {
 		return errors.Trace(err)
 	}
 
-	err = scheduleAction(action, rebootAfter)
-	if err != nil {
+	if err := scheduleAction(action, rebootAfter); err != nil {
 		return errors.Trace(err)
 	}
 
-	err = r.st.ClearReboot()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	err := r.st.ClearReboot()
+	return errors.Trace(err)
 }
 
 func (r *Reboot) runningContainers() ([]instance.Instance, error) {
-	runningInstances := []instance.Instance{}
+	var runningInstances []instance.Instance
 
 	for _, val := range instance.ContainerTypes {
 		managerConfig := container.ManagerConfig{container.ConfigName: container.DefaultNamespace}
@@ -96,15 +85,15 @@ func (r *Reboot) runningContainers() ([]instance.Instance, error) {
 		cfg := container.ManagerConfig(managerConfig)
 		manager, err := factory.NewContainerManager(val, cfg, nil)
 		if err != nil {
-			logger.Warningf("Failed to get manager for container type %v: %v", val, err)
-			continue
+			return nil, errors.Annotatef(err, "failed to get manager for container type %v", val)
 		}
 		if !manager.IsInitialized() {
+			logger.Infof("container type %q not supported", val)
 			continue
 		}
 		instances, err := manager.ListContainers()
 		if err != nil {
-			logger.Warningf("Failed to list containers: %v", err)
+			return nil, errors.Annotate(err, "failed to list containers")
 		}
 		runningInstances = append(runningInstances, instances...)
 	}
@@ -138,13 +127,11 @@ func (r *Reboot) waitForContainersOrTimeout() error {
 
 	select {
 	case <-time.After(timeout):
-
+		// TODO(fwereade): 2016-03-17 lp:1558657
 		// Containers are still up after timeout. C'est la vie
-		logger.Infof("Timeout reached waiting for containers to shutdown")
 		quit <- true
+		return errors.New("Timeout reached waiting for containers to shutdown")
 	case err := <-c:
 		return errors.Trace(err)
-
 	}
-	return nil
 }

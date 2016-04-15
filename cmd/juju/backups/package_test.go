@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"regexp"
 	"testing"
 
 	"github.com/juju/cmd"
@@ -56,7 +55,6 @@ type BaseBackupsSuite struct {
 func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
-	s.command = backups.NewSuperCommand()
 	s.metaresult = &params.BackupsMetadataResult{
 		ID: "spam",
 	}
@@ -72,29 +70,6 @@ func (s *BaseBackupsSuite) TearDownTest(c *gc.C) {
 	}
 
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
-}
-
-func (s *BaseBackupsSuite) checkHelp(c *gc.C, subcmd cmd.Command) {
-	ctx, err := jujutesting.RunCommand(c, s.command, subcmd.Info().Name, "--help")
-	c.Assert(err, gc.IsNil)
-
-	var expected string
-	if subcmd.Info().Args != "" {
-		expected = "(?sm).*^usage: juju backups " +
-			regexp.QuoteMeta(subcmd.Info().Name) +
-			` \[options\] ` + regexp.QuoteMeta(subcmd.Info().Args) + ".+"
-	} else {
-		expected = "(?sm).*^usage: juju backups " +
-			regexp.QuoteMeta(subcmd.Info().Name) +
-			` \[options\].+`
-	}
-	c.Check(jujutesting.Stdout(ctx), gc.Matches, expected)
-
-	expected = "(?sm).*^purpose: " + regexp.QuoteMeta(subcmd.Info().Purpose) + "$.*"
-	c.Check(jujutesting.Stdout(ctx), gc.Matches, expected)
-
-	expected = "(?sm).*^" + regexp.QuoteMeta(subcmd.Info().Doc) + "$.*"
-	c.Check(jujutesting.Stdout(ctx), gc.Matches, expected)
 }
 
 func (s *BaseBackupsSuite) patchAPIClient(client backups.APIClient) {

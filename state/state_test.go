@@ -21,8 +21,10 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	mgotxn "gopkg.in/mgo.v2/txn"
@@ -36,13 +38,14 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var goodPassword = "foo-12345678901234567890"
@@ -54,7 +57,7 @@ var alternatePassword = "bar-12345678901234567890"
 // asserting the behaviour of a given method in each state, and the unit quick-
 // remove change caused many of these to fail.
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
-	err := u.SetAgentStatus(state.StatusIdle, "", nil)
+	err := u.SetAgentStatus(status.StatusIdle, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -186,6 +189,16 @@ func (s *StateSuite) TestWatch(c *gc.C) {
 	w := s.State.Watch()
 	defer w.Stop()
 	deltasC := makeMultiwatcherOutput(w)
+	s.State.StartSync()
+
+	select {
+	case deltas := <-deltasC:
+		// The Watch() call results in an empty "change" reflecting
+		// the initially empty model.
+		c.Assert(deltas, gc.HasLen, 0)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out")
+	}
 
 	m := s.Factory.MakeMachine(c, nil) // Generate event
 	s.State.StartSync()
@@ -707,32 +720,47 @@ func (s *StateSuite) TestIsNotFound(c *gc.C) {
 	c.Assert(err2, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *StateSuite) dummyCharm(c *gc.C, curlOverride string) (ch charm.Charm, curl *charm.URL, storagePath, bundleSHA256 string) {
-	ch = testcharms.Repo.CharmDir("dummy")
+func (s *StateSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmInfo {
+	info := state.CharmInfo{
+		Charm:       testcharms.Repo.CharmDir("dummy"),
+		StoragePath: "dummy-1",
+		SHA256:      "dummy-1-sha256",
+	}
 	if curlOverride != "" {
-		curl = charm.MustParseURL(curlOverride)
+		info.ID = charm.MustParseURL(curlOverride)
 	} else {
-		curl = charm.MustParseURL(
-			fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
+		info.ID = charm.MustParseURL(
+			fmt.Sprintf("local:quantal/%s-%d", info.Charm.Meta().Name, info.Charm.Revision()),
 		)
 	}
-	storagePath = "dummy-1"
-	bundleSHA256 = "dummy-1-sha256"
-	return ch, curl, storagePath, bundleSHA256
+	return info
 }
 
 func (s *StateSuite) TestAddCharm(c *gc.C) {
 	// Check that adding charms from scratch works correctly.
-	ch, curl, storagePath, bundleSHA256 := s.dummyCharm(c, "")
-	dummy, err := s.State.AddCharm(ch, curl, storagePath, bundleSHA256)
+	info := s.dummyCharm(c, "")
+	dummy, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dummy.URL().String(), gc.Equals, curl.String())
+	c.Assert(dummy.URL().String(), gc.Equals, info.ID.String())
 
 	doc := state.CharmDoc{}
-	err = s.charms.FindId(state.DocID(s.State, curl.String())).One(&doc)
+	err = s.charms.FindId(state.DocID(s.State, info.ID.String())).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("%#v", doc)
-	c.Assert(doc.URL, gc.DeepEquals, curl)
+	c.Assert(doc.URL, gc.DeepEquals, info.ID)
+}
+
+func (s *StateSuite) TestAddCharmWithAuth(c *gc.C) {
+	// Check that adding charms from scratch works correctly.
+	info := s.dummyCharm(c, "")
+	m, err := macaroon.New([]byte("rootkey"), "id", "loc")
+	c.Assert(err, jc.ErrorIsNil)
+	info.Macaroon = macaroon.Slice{m}
+	dummy, err := s.State.AddCharm(info)
+	c.Assert(err, jc.ErrorIsNil)
+	ms, err := dummy.Macaroon()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms, gc.DeepEquals, info.Macaroon)
 }
 
 func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
@@ -746,9 +774,13 @@ func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a deployed charm.
-	storagePath := "dummy-1"
-	bundleSHA256 := "dummy-1-sha256"
-	dummy, err := s.State.AddCharm(ch, curl, storagePath, bundleSHA256)
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "dummy-1",
+		SHA256:      "dummy-1-sha256",
+	}
+	dummy, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dummy.URL().String(), gc.Equals, curl.String())
 
@@ -758,7 +790,7 @@ func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(docs, gc.HasLen, 1)
 	c.Assert(docs[0].URL, gc.DeepEquals, curl)
-	c.Assert(docs[0].StoragePath, gc.DeepEquals, storagePath)
+	c.Assert(docs[0].StoragePath, gc.DeepEquals, info.StoragePath)
 
 	// No more placeholder charm.
 	_, err = s.State.LatestPlaceholderCharm(curl)
@@ -842,16 +874,16 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 
 	// Now add a charm and try again - we should get the same result
 	// as with AddCharm.
-	ch, curl, storagePath, bundleSHA256 := s.dummyCharm(c, "cs:precise/dummy-2")
-	sch, err = s.State.AddCharm(ch, curl, storagePath, bundleSHA256)
+	info := s.dummyCharm(c, "cs:precise/dummy-2")
+	sch, err = s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
-	schCopy, err = s.State.PrepareStoreCharmUpload(curl)
+	schCopy, err = s.State.PrepareStoreCharmUpload(info.ID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch, jc.DeepEquals, schCopy)
 
 	// Finally, try poking around the state with a placeholder and
 	// bundlesha256 to make sure we do the right thing.
-	curl = curl.WithRevision(999)
+	curl := info.ID.WithRevision(999)
 	first := txn.TestHook{
 		Before: func() {
 			err := s.State.AddStoreCharmPlaceholder(curl)
@@ -882,32 +914,41 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 }
 
 func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
-	ch, curl, storagePath, bundleSHA256 := s.dummyCharm(c, "")
-	_, err := s.State.AddCharm(ch, curl, storagePath, bundleSHA256)
+	info := s.dummyCharm(c, "")
+	_, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Test with already uploaded and a missing charms.
-	sch, err := s.State.UpdateUploadedCharm(ch, curl, storagePath, bundleSHA256)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("charm %q already uploaded", curl))
+	sch, err := s.State.UpdateUploadedCharm(info)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("charm %q already uploaded", info.ID))
 	c.Assert(sch, gc.IsNil)
-	missingCurl := charm.MustParseURL("local:quantal/missing-1")
-	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, storagePath, "missing")
+	info.ID = charm.MustParseURL("local:quantal/missing-1")
+	info.SHA256 = "missing"
+	sch, err = s.State.UpdateUploadedCharm(info)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(sch, gc.IsNil)
 
 	// Test with with an uploaded local charm.
-	_, err = s.State.PrepareLocalCharmUpload(missingCurl)
+	_, err = s.State.PrepareLocalCharmUpload(info.ID)
 	c.Assert(err, jc.ErrorIsNil)
-	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, storagePath, "missing")
+
+	m, err := macaroon.New([]byte("rootkey"), "id", "loc")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch.URL(), gc.DeepEquals, missingCurl)
-	c.Assert(sch.Revision(), gc.Equals, missingCurl.Revision)
+	info.Macaroon = macaroon.Slice{m}
+	c.Assert(err, jc.ErrorIsNil)
+	sch, err = s.State.UpdateUploadedCharm(info)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sch.URL(), gc.DeepEquals, info.ID)
+	c.Assert(sch.Revision(), gc.Equals, info.ID.Revision)
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
-	c.Assert(sch.Meta(), gc.DeepEquals, ch.Meta())
-	c.Assert(sch.Config(), gc.DeepEquals, ch.Config())
-	c.Assert(sch.StoragePath(), gc.DeepEquals, storagePath)
+	c.Assert(sch.Meta(), gc.DeepEquals, info.Charm.Meta())
+	c.Assert(sch.Config(), gc.DeepEquals, info.Charm.Config())
+	c.Assert(sch.StoragePath(), gc.DeepEquals, info.StoragePath)
 	c.Assert(sch.BundleSha256(), gc.Equals, "missing")
+	ms, err := sch.Macaroon()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms, gc.DeepEquals, info.Macaroon)
 }
 
 func (s *StateSuite) TestUpdateUploadedCharmEscapesSpecialCharsInConfig(c *gc.C) {
@@ -941,7 +982,13 @@ options:
 
 	preparedCurl, err := s.State.PrepareLocalCharmUpload(missingCurl)
 	c.Assert(err, jc.ErrorIsNil)
-	sch, err := s.State.UpdateUploadedCharm(ch, preparedCurl, storagePath, "missing")
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          preparedCurl,
+		StoragePath: "dummy-1",
+		SHA256:      "missing",
+	}
+	sch, err := s.State.UpdateUploadedCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, missingCurl)
 	c.Assert(sch.Revision(), gc.Equals, missingCurl.Revision)
@@ -974,12 +1021,12 @@ func (s *StateSuite) assertPlaceholderCharmExists(c *gc.C, curl *charm.URL) {
 
 func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
 	// Add a deployed charm
-	ch, curl, storagePath, bundleSHA256 := s.dummyCharm(c, "cs:quantal/dummy-1")
-	_, err := s.State.AddCharm(ch, curl, storagePath, bundleSHA256)
+	info := s.dummyCharm(c, "cs:quantal/dummy-1")
+	_, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Deployed charm not found.
-	_, err = s.State.LatestPlaceholderCharm(curl)
+	_, err = s.State.LatestPlaceholderCharm(info.ID)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Add a charm reference
@@ -989,7 +1036,7 @@ func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
 	s.assertPlaceholderCharmExists(c, curl2)
 
 	// Use a URL with an arbitrary rev to search.
-	curl = charm.MustParseURL("cs:quantal/dummy-23")
+	curl := charm.MustParseURL("cs:quantal/dummy-23")
 	pending, err := s.State.LatestPlaceholderCharm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pending.URL(), gc.DeepEquals, curl2)
@@ -1027,8 +1074,8 @@ func (s *StateSuite) TestAddStoreCharmPlaceholder(c *gc.C) {
 
 func (s *StateSuite) assertAddStoreCharmPlaceholder(c *gc.C) (*charm.URL, *charm.URL, *state.Charm) {
 	// Add a deployed charm
-	ch, curl, storagePath, bundleSHA256 := s.dummyCharm(c, "cs:quantal/dummy-1")
-	dummy, err := s.State.AddCharm(ch, curl, storagePath, bundleSHA256)
+	info := s.dummyCharm(c, "cs:quantal/dummy-1")
+	dummy, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a charm placeholder
@@ -1038,11 +1085,11 @@ func (s *StateSuite) assertAddStoreCharmPlaceholder(c *gc.C) (*charm.URL, *charm
 	s.assertPlaceholderCharmExists(c, curl2)
 
 	// Deployed charm is still there.
-	existing, err := s.State.Charm(curl)
+	existing, err := s.State.Charm(info.ID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(existing, jc.DeepEquals, dummy)
 
-	return curl, curl2, dummy
+	return info.ID, curl2, dummy
 }
 
 func (s *StateSuite) TestAddStoreCharmPlaceholderLeavesDeployedCharmsAlone(c *gc.C) {
@@ -1071,8 +1118,8 @@ func (s *StateSuite) TestAddStoreCharmPlaceholderDeletesOlder(c *gc.C) {
 
 func (s *StateSuite) TestAllCharms(c *gc.C) {
 	// Add a deployed charm
-	ch, curl, storagePath, bundleSHA256 := s.dummyCharm(c, "cs:quantal/dummy-1")
-	sch, err := s.State.AddCharm(ch, curl, storagePath, bundleSHA256)
+	info := s.dummyCharm(c, "cs:quantal/dummy-1")
+	sch, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a charm reference
@@ -1192,20 +1239,16 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: model is no longer alive")
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is no longer alive`)
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially
@@ -1215,7 +1258,17 @@ func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: model is no longer alive")
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is no longer alive`)
+}
+
+func (s *StateSuite) TestAddMachinesEnvironmentMigrating(c *gc.C) {
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+	// Check that machines cannot be added if the model is initially Dying.
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is being migrated`)
 }
 
 func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
@@ -1854,14 +1907,24 @@ func (s *StateSuite) TestAddService(c *gc.C) {
 
 func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	s.AddTestingService(c, "s0", charm)
 	// Check that services cannot be added if the model is initially Dying.
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model "testenv" is no longer alive`)
+}
+
+func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	// Check that services cannot be added if the model is initially Dying.
+	env, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model "testenv" is being migrated`)
 }
 
 func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
@@ -1876,7 +1939,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
 	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model "testenv" is no longer alive`)
 }
 
 func (s *StateSuite) TestServiceNotFound(c *gc.C) {
@@ -1978,10 +2041,6 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 		bindings:      map[string]string{"extra": "missing"},
 		expectedError: `unknown endpoint "extra" not valid`,
 	}, {
-		about:         "ensure network.DefaultSpace is not treated specially",
-		bindings:      map[string]string{"server": network.DefaultSpace},
-		expectedError: `unknown space "default" not valid`,
-	}, {
 		about:         "extra endpoint not bound to a space",
 		bindings:      map[string]string{"extra": ""},
 		expectedError: `unknown endpoint "extra" not valid`,
@@ -2003,7 +2062,7 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 		expectedError: `unknown space "invalid" not valid`,
 	}, {
 		about:         "known endpoint bound correctly and an extra endpoint",
-		bindings:      map[string]string{"server": "db", "foo": ""},
+		bindings:      map[string]string{"server": "db", "foo": "public"},
 		expectedError: `unknown endpoint "foo" not valid`,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
@@ -2041,7 +2100,7 @@ func (s *StateSuite) TestAddServiceIncompatibleOSWithSeriesInURL(c *gc.C) {
 		Name: "wordpress", Owner: s.Owner.String(), Charm: charm,
 		Series: "centos7",
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": series \"centos7\" \\(OS \"CentOS\"\\) not supported by charm")
+	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": series "centos7" \(OS \"CentOS"\) not supported by charm, supported series are "quantal"`)
 }
 
 func (s *StateSuite) TestAddServiceCompatibleOSWithSeriesInURL(c *gc.C) {
@@ -2055,6 +2114,16 @@ func (s *StateSuite) TestAddServiceCompatibleOSWithSeriesInURL(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *StateSuite) TestAddServiceCompatibleOSWithNoExplicitSupportedSeries(c *gc.C) {
+	// If a charm doesn't declare any series, we can add it with any series we choose.
+	charm := s.AddSeriesCharm(c, "dummy", "")
+	_, err := s.State.AddService(state.AddServiceArgs{
+		Name: "wordpress", Owner: s.Owner.String(), Charm: charm,
+		Series: "quantal",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *StateSuite) TestAddServiceOSIncompatibleWithSupportedSeries(c *gc.C) {
 	charm := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	// A charm with supported series can only be force-deployed to series
@@ -2063,7 +2132,7 @@ func (s *StateSuite) TestAddServiceOSIncompatibleWithSupportedSeries(c *gc.C) {
 		Name: "wordpress", Owner: s.Owner.String(), Charm: charm,
 		Series: "centos7",
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": series \"centos7\" \\(OS \"CentOS\"\\) not supported by charm")
+	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": series "centos7" \(OS "CentOS"\) not supported by charm, supported series are "precise, trusty"`)
 }
 
 func (s *StateSuite) TestAllServices(c *gc.C) {
@@ -2392,10 +2461,15 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	// Dying model...
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
+	// Add a service so Destroy doesn't advance to Dead.
+	svc := factory.NewFactory(st1).MakeService(c, nil)
 	dying, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	dying.Destroy()
+	err = dying.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
 
+	// Add an empty model, destroy and remove it; we should
+	// never see it reported.
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 	env2, err := st2.Model()
@@ -2404,14 +2478,16 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	err = state.RemoveModel(s.State, st2.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	// All except the dead env are reported in initial event.
+	// All except the removed env are reported in initial event.
 	w := s.State.WatchModels()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 
-	// Remove alive and dying and see changes reported.
-	err = state.RemoveModel(s.State, dying.UUID())
+	// Progress dying to dead, alive to dying; and see changes reported.
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st1.ProcessDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 	err = alive.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2426,9 +2502,10 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	wc.AssertChange(s.State.ModelUUID())
 	wc.AssertNoChange()
 
-	// Add an model: reported.
+	// Add a non-empty model: reported.
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
+	factory.NewFactory(st1).MakeService(c, nil)
 	env, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(env.UUID())
@@ -2880,10 +2957,7 @@ func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
+func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 	// insert one doc for each multiEnvCollection
 	var ops []mgotxn.Op
 	for _, collName := range state.MultiEnvCollections() {
@@ -2920,26 +2994,33 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 		c.Assert(n, gc.Not(gc.Equals), 0)
 	}
 
-	// test that we can find the user:envName unique index
-	env, err := st.Model()
+	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	indexColl, closer := state.GetCollection(st, "usermodelname")
+	return state.UserModelNameIndex(model.Owner().Canonical(), model.Name())
+}
+
+type checkUserModelNameArgs struct {
+	st     *state.State
+	id     string
+	exists bool
+}
+
+func (s *StateSuite) checkUserModelNameExists(c *gc.C, args checkUserModelNameArgs) {
+	indexColl, closer := state.GetCollection(args.st, "usermodelname")
 	defer closer()
-	id := state.UserModelNameIndex(env.Owner().Canonical(), env.Name())
-	n, err := indexColl.FindId(id).Count()
+	n, err := indexColl.FindId(args.id).Count()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(n, gc.Equals, 1)
+	if args.exists {
+		c.Assert(n, gc.Equals, 1)
+	} else {
+		c.Assert(n, gc.Equals, 0)
+	}
+}
 
-	err = state.SetModelLifeDead(st, st.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.RemoveAllModelDocs()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// test that we can not find the user:envName unique index
-	n, err = indexColl.FindId(id).Count()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(n, gc.Equals, 0)
+func (s *StateSuite) AssertModelDeleted(c *gc.C, st *state.State) {
+	// check to see if the model itself is gone
+	_, err := st.Model()
+	c.Assert(err, gc.ErrorMatches, `model not found`)
 
 	// ensure all docs for all multiEnvCollections are removed
 	for _, collName := range state.MultiEnvCollections() {
@@ -2951,12 +3032,68 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestRemoveAllEnvironDocsAliveEnvFails(c *gc.C) {
+func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	userModelKey := s.insertFakeModelDocs(c, st)
+	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: true})
+
+	err := state.SetModelLifeDead(st, st.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveAllModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can not find the user:envName unique index
+	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
+	s.AssertModelDeleted(c, st)
+}
+
+func (s *StateSuite) TestRemoveAllModelDocsAliveEnvFails(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
 	err := st.RemoveAllModelDocs()
 	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+}
+
+func (s *StateSuite) TestRemoveImportingModelDocsFailsActive(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	err := st.RemoveImportingModelDocs()
+	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+}
+
+func (s *StateSuite) TestRemoveImportingModelDocsFailsExporting(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveImportingModelDocs()
+	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+}
+
+func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	userModelKey := s.insertFakeModelDocs(c, st)
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveImportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can not find the user:envName unique index
+	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
+	s.AssertModelDeleted(c, st)
 }
 
 type attrs map[string]interface{}
@@ -3007,7 +3144,7 @@ func (s *StateSuite) TestWatchModelConfigDiesOnStateClose(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
-	cur := version.Current
+	cur := jujuversion.Current
 	err := statetesting.SetAgentVersion(s.State, cur)
 	c.Assert(err, jc.ErrorIsNil)
 	w := s.State.WatchForModelConfigChanges()
@@ -3219,49 +3356,6 @@ func testSetPassword(c *gc.C, getEntity func() (state.Authenticator, error)) {
 	}
 }
 
-func testSetAgentCompatPassword(c *gc.C, entity state.Authenticator) {
-	// In Juju versions 1.16 and older we used UserPasswordHash(password,CompatSalt)
-	// for Machine and Unit agents. This was determined to be overkill
-	// (since we know that Unit agents will actually use
-	// utils.RandomPassword() and get 18 bytes of entropy, and thus won't
-	// be brute-forced.)
-	c.Assert(entity.PasswordValid(goodPassword), jc.IsFalse)
-	agentHash := utils.AgentPasswordHash(goodPassword)
-	err := state.SetPasswordHash(entity, agentHash)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
-	c.Assert(entity.PasswordValid(alternatePassword), jc.IsFalse)
-	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
-
-	backwardsCompatibleHash := utils.UserPasswordHash(goodPassword, utils.CompatSalt)
-	c.Assert(backwardsCompatibleHash, gc.Not(gc.Equals), agentHash)
-	err = state.SetPasswordHash(entity, backwardsCompatibleHash)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity.PasswordValid(alternatePassword), jc.IsFalse)
-	c.Assert(state.GetPasswordHash(entity), gc.Equals, backwardsCompatibleHash)
-	// After succeeding to log in with the old compatible hash, the db
-	// should be updated with the new hash
-	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
-	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
-	c.Assert(entity.PasswordValid(goodPassword), jc.IsTrue)
-
-	// Agents are unable to set short passwords
-	err = entity.SetPassword("short")
-	c.Check(err, gc.ErrorMatches, "password is only 5 bytes long, and is not a valid Agent password")
-	// Grandfather clause. Agents that have short passwords are allowed if
-	// it was done in the compatHash form
-	agentHash = utils.AgentPasswordHash("short")
-	backwardsCompatibleHash = utils.UserPasswordHash("short", utils.CompatSalt)
-	err = state.SetPasswordHash(entity, backwardsCompatibleHash)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity.PasswordValid("short"), jc.IsTrue)
-	// We'll still update the hash, but now it points to the hash of the
-	// shorter password. Agents still can't set the password to it
-	c.Assert(state.GetPasswordHash(entity), gc.Equals, agentHash)
-	// Still valid with the shorter password
-	c.Assert(entity.PasswordValid("short"), jc.IsTrue)
-}
-
 type entity interface {
 	state.Entity
 	state.Lifer
@@ -3314,7 +3408,7 @@ var entityTypes = map[string]interface{}{
 	names.MachineTagKind:  (*state.Machine)(nil),
 	names.RelationTagKind: (*state.Relation)(nil),
 	names.NetworkTagKind:  (*state.Network)(nil),
-	names.ActionTagKind:   (*state.Action)(nil),
+	names.ActionTagKind:   (state.Action)(nil),
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
@@ -3807,7 +3901,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 
 func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	current := version.MustParseBinary("1.24.7-trusty-amd64")
-	s.PatchValue(&version.Current, current.Number)
+	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
 	s.PatchValue(&series.HostSeries, func() string { return current.Series })
 
@@ -3823,15 +3917,15 @@ func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	assertAgentVersion(c, otherSt, lower.Number.String())
 
 	// Set other environ version == server environ version
-	err = otherSt.SetModelAgentVersion(version.Current)
+	err = otherSt.SetModelAgentVersion(jujuversion.Current)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, otherSt, version.Current.String())
+	assertAgentVersion(c, otherSt, jujuversion.Current.String())
 
 	// Set other environ version to > server environ version
 	err = otherSt.SetModelAgentVersion(higher.Number)
 	expected := fmt.Sprintf("a hosted model cannot have a higher version than the server model: %s > %s",
 		higher.Number,
-		version.Current,
+		jujuversion.Current,
 	)
 	c.Assert(err, gc.ErrorMatches, expected)
 }
@@ -4635,6 +4729,64 @@ func (s *StateSuite) TestUnitsForInvalidId(c *gc.C) {
 	units, err := s.State.UnitsFor("invalid-id")
 	c.Assert(units, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `"invalid-id" is not a valid machine id`)
+}
+
+func (s *StateSuite) TestSetOrGetMongoSpaceNameSets(c *gc.C) {
+	info, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.MongoSpaceName, gc.Equals, "")
+	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceUnknown)
+
+	spaceName := network.SpaceName("foo")
+
+	name, err := s.State.SetOrGetMongoSpaceName(spaceName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, spaceName)
+
+	info, err = s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.MongoSpaceName, gc.Equals, string(spaceName))
+	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceValid)
+}
+
+func (s *StateSuite) TestSetOrGetMongoSpaceNameDoesNotReplaceValidSpace(c *gc.C) {
+	spaceName := network.SpaceName("foo")
+	name, err := s.State.SetOrGetMongoSpaceName(spaceName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, spaceName)
+
+	name, err = s.State.SetOrGetMongoSpaceName(network.SpaceName("bar"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, spaceName)
+
+	info, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.MongoSpaceName, gc.Equals, string(spaceName))
+	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceValid)
+}
+
+func (s *StateSuite) TestSetMongoSpaceStateSetsValidStates(c *gc.C) {
+	mongoStates := []state.MongoSpaceStates{
+		state.MongoSpaceUnknown,
+		state.MongoSpaceValid,
+		state.MongoSpaceInvalid,
+		state.MongoSpaceUnsupported,
+	}
+	for _, st := range mongoStates {
+		err := s.State.SetMongoSpaceState(st)
+		c.Assert(err, jc.ErrorIsNil)
+		info, err := s.State.ControllerInfo()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(info.MongoSpaceState, gc.Equals, st)
+	}
+}
+
+func (s *StateSuite) TestSetMongoSpaceStateErrorOnInvalidStates(c *gc.C) {
+	err := s.State.SetMongoSpaceState(state.MongoSpaceStates("bad"))
+	c.Assert(err, gc.ErrorMatches, "mongoSpaceState: bad not valid")
+	info, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceUnknown)
 }
 
 type SetAdminMongoPasswordSuite struct {

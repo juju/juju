@@ -16,6 +16,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/environschema.v1"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 func Test(t *stdtesting.T) {
@@ -51,6 +51,8 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 var sampleConfig = testing.Attrs{
 	"type":                      "my-type",
 	"name":                      "my-name",
+	"uuid":                      testing.ModelTag.Id(),
+	"controller-uuid":           testing.ModelTag.Id(),
 	"authorized-keys":           testing.FakeAuthKeys,
 	"firewall-mode":             config.FwInstance,
 	"admin-secret":              "foo",
@@ -78,570 +80,444 @@ var testResourceTagsMap = map[string]string{
 
 var quotedPathSeparator = regexp.QuoteMeta(string(os.PathSeparator))
 
+var minimalConfigAttrs = testing.Attrs{
+	"type":            "my-type",
+	"name":            "my-name",
+	"uuid":            testing.ModelTag.Id(),
+	"controller-uuid": testing.ModelTag.Id(),
+}
+
 var configTests = []configTest{
 	{
 		about:       "The minimum good configuration",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
-		},
+		attrs:       minimalConfigAttrs,
 	}, {
 		about:       "Agent Stream",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":               "my-type",
-			"name":               "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"image-metadata-url": "image-url",
 			"agent-stream":       "released",
-		},
+		}),
 	}, {
 		about:       "Deprecated tools-stream used",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":         "my-type",
-			"name":         "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"tools-stream": "tools-stream-value",
-		},
+		}),
 	}, {
 		about:       "Deprecated tools-stream ignored",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":         "my-type",
-			"name":         "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"agent-stream": "released",
 			"tools-stream": "ignore-me",
-		},
+		}),
 	}, {
 		about:       "Metadata URLs",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":               "my-type",
-			"name":               "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"image-metadata-url": "image-url",
 			"agent-metadata-url": "agent-metadata-url-value",
-		},
+		}),
 	}, {
 		about:       "Deprecated tools metadata URL used",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":               "my-type",
-			"name":               "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"tools-metadata-url": "tools-metadata-url-value",
-		},
+		}),
 	}, {
 		about:       "Deprecated tools metadata URL ignored",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":               "my-type",
-			"name":               "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"agent-metadata-url": "agent-metadata-url-value",
 			"tools-metadata-url": "ignore-me",
-		},
+		}),
 	}, {
 		about:       "Explicit series",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"default-series": "my-series",
-		},
+		}),
 	}, {
 		about:       "Implicit series with empty value",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"default-series": "",
-		},
+		}),
 	}, {
 		about:       "Explicit logging",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"logging-config": "juju=INFO",
-		},
+		}),
 	}, {
 		about:       "Explicit authorized-keys",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"authorized-keys": testing.FakeAuthKeys,
-		},
+		}),
 	}, {
 		about:       "Load authorized-keys from path",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                 "my-type",
-			"name":                 "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"authorized-keys-path": "~/.ssh/authorized_keys2",
-		},
+		}),
 	}, {
 		about:       "LXC clone values",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"default-series": "precise",
 			"lxc-clone":      true,
 			"lxc-clone-aufs": true,
-		},
+		}),
 	}, {
 		about:       "Deprecated lxc-use-clone used",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":          "my-type",
-			"name":          "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"lxc-use-clone": true,
-		},
+		}),
 	}, {
 		about:       "Deprecated lxc-use-clone ignored",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":          "my-type",
-			"name":          "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"lxc-use-clone": false,
 			"lxc-clone":     true,
-		},
+		}),
 	}, {
 		about:       "Allow LXC loop mounts true",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                  "my-type",
-			"name":                  "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"allow-lxc-loop-mounts": "true",
-		},
+		}),
 	}, {
 		about:       "Allow LXC loop mounts default",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                  "my-type",
-			"name":                  "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"allow-lxc-loop-mounts": "false",
-		},
-		expected: testing.Attrs{
-			"type":                  "my-type",
-			"name":                  "my-name",
+		}),
+		expected: minimalConfigAttrs.Merge(testing.Attrs{
 			"allow-lxc-loop-mounts": false,
-		},
+		}),
 	}, {
 		about:       "LXC default MTU not set",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
-		},
+		attrs:       minimalConfigAttrs,
 	}, {
 		about:       "LXC default MTU set explicitly",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"lxc-default-mtu": 9000,
-		},
+		}),
 	}, {
 		about:       "LXC default MTU invalid (not a number)",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"lxc-default-mtu": "foo",
-		},
+		}),
 		err: `lxc-default-mtu: expected number, got string\("foo"\)`,
 	}, {
 		about:       "LXC default MTU invalid (negative)",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"lxc-default-mtu": -42,
-		},
+		}),
 		err: `lxc-default-mtu: expected positive integer, got -42`,
 	}, {
 		about:       "CA cert & key from path",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                "my-type",
-			"name":                "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"ca-cert-path":        "cacert2.pem",
 			"ca-private-key-path": "cakey2.pem",
-		},
+		}),
 	}, {
 		about:       "CA cert & key from path; cert attribute set too",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                "my-type",
-			"name":                "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"ca-cert-path":        "cacert2.pem",
 			"ca-cert":             "ignored",
 			"ca-private-key-path": "cakey2.pem",
-		},
+		}),
 	}, {
 		about:       "CA cert & key from ~ path",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                "my-type",
-			"name":                "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"ca-cert-path":        "~/othercert.pem",
 			"ca-private-key-path": "~/otherkey.pem",
-		},
+		}),
 	}, {
 		about:       "CA cert and key as attributes",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"ca-cert":        caCert,
 			"ca-private-key": caKey,
-		},
+		}),
 	}, {
 		about:       "Mismatched CA cert and key",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"ca-cert":        caCert,
 			"ca-private-key": caKey2,
-		},
+		}),
 		err: "bad CA certificate/key in configuration: crypto/tls: private key does not match public key",
 	}, {
 		about:       "Invalid CA cert",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":    "my-type",
-			"name":    "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"ca-cert": invalidCACert,
-		},
+		}),
 		err: `bad CA certificate/key in configuration: (asn1:|ASN\.1) syntax error:.*`,
 	}, {
 		about:       "Invalid CA key",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"ca-cert":        caCert,
 			"ca-private-key": invalidCAKey,
-		},
+		}),
 		err: "bad CA certificate/key in configuration: crypto/tls:.*",
 	}, {
 		about:       "CA cert specified as non-existent file",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":         "my-type",
-			"name":         "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"ca-cert-path": "no-such-file",
-		},
+		}),
 		err: fmt.Sprintf(`open .*\.local%sshare%sjuju%sno-such-file: .*`, quotedPathSeparator, quotedPathSeparator, quotedPathSeparator),
 	}, {
 		about:       "CA key specified as non-existent file",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                "my-type",
-			"name":                "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"ca-private-key-path": "no-such-file",
-		},
+		}),
 		err: fmt.Sprintf(`open .*\.local%sshare%sjuju%sno-such-file: .*`, quotedPathSeparator, quotedPathSeparator, quotedPathSeparator),
 	}, {
 		about:       "Specified agent version",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"authorized-keys": testing.FakeAuthKeys,
 			"agent-version":   "1.2.3",
-		},
+		}),
 	}, {
 		about:       "Specified development flag",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"authorized-keys": testing.FakeAuthKeys,
 			"development":     true,
-		},
+		}),
 	}, {
 		about:       "Specified admin secret",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"authorized-keys": testing.FakeAuthKeys,
 			"development":     false,
 			"admin-secret":    "pork",
-		},
+		}),
 	}, {
 		about:       "Invalid development flag",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"authorized-keys": testing.FakeAuthKeys,
 			"development":     "invalid",
-		},
+		}),
 		err: `development: expected bool, got string\("invalid"\)`,
 	}, {
 		about:       "Invalid disable-network-management flag",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                       "my-type",
-			"name":                       "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"authorized-keys":            testing.FakeAuthKeys,
 			"disable-network-management": "invalid",
-		},
+		}),
 		err: `disable-network-management: expected bool, got string\("invalid"\)`,
 	}, {
 		about:       "disable-network-management off",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"disable-network-management": false,
-		},
+		}),
 	}, {
 		about:       "disable-network-management on",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"disable-network-management": true,
-		},
+		}),
 	}, {
 		about:       "Invalid ignore-machine-addresses flag",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"ignore-machine-addresses": "invalid",
-		},
+		}),
 		err: `ignore-machine-addresses: expected bool, got string\("invalid"\)`,
 	}, {
 		about:       "ignore-machine-addresses off",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"ignore-machine-addresses": false,
-		},
+		}),
 	}, {
 		about:       "ignore-machine-addresses on",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"ignore-machine-addresses": true,
-		},
+		}),
 	}, {
 		about:       "set-numa-control-policy on",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"set-numa-control-policy": true,
-		},
+		}),
 	}, {
 		about:       "set-numa-control-policy off",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"set-numa-control-policy": false,
-		},
+		}),
 	}, {
 		about:       "block-destroy-model on",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                "my-type",
-			"name":                "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"block-destroy-model": true,
-		},
+		}),
 	}, {
 		about:       "block-destroy-model off",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                "my-type",
-			"name":                "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"block-destroy-model": false,
-		},
+		}),
 	}, {
 		about:       "block-remove-object on",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                "my-type",
-			"name":                "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"block-remove-object": true,
-		},
+		}),
 	}, {
 		about:       "block-remove-object off",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                "my-type",
-			"name":                "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"block-remove-object": false,
-		},
+		}),
 	}, {
 		about:       "block-all-changes on",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":              "my-type",
-			"name":              "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"block-all-changes": true,
-		},
+		}),
 	}, {
 		about:       "block-all-changes off",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":               "my-type",
-			"name":               "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"block-all-changest": false,
-		},
+		}),
 	}, {
 		about:       "Invalid prefer-ipv6 flag",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"authorized-keys": testing.FakeAuthKeys,
 			"prefer-ipv6":     "invalid",
-		},
+		}),
 		err: `prefer-ipv6: expected bool, got string\("invalid"\)`,
 	}, {
 		about:       "prefer-ipv6 off",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":        "my-type",
-			"name":        "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"prefer-ipv6": false,
-		},
+		}),
 	}, {
 		about:       "prefer-ipv6 on",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":        "my-type",
-			"name":        "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"prefer-ipv6": true,
-		},
+		}),
 	}, {
 		about:       "Invalid agent version",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":            "my-type",
-			"name":            "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"authorized-keys": testing.FakeAuthKeys,
 			"agent-version":   "2",
-		},
+		}),
 		err: `invalid agent version in model configuration: "2"`,
 	}, {
 		about:       "Missing type",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"name": "my-name",
-		},
-		err: "type: expected string, got nothing",
+		attrs:       minimalConfigAttrs.Delete("type"),
+		err:         "type: expected string, got nothing",
 	}, {
 		about:       "Empty type",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"type": "",
-		},
+		}),
 		err: "empty type in model configuration",
 	}, {
 		about:       "Missing name",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-		},
-		err: "name: expected string, got nothing",
+		attrs:       minimalConfigAttrs.Delete("name"),
+		err:         "name: expected string, got nothing",
 	}, {
 		about:       "Bad name, no slash",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"name": "foo/bar",
-			"type": "my-type",
-		},
+		}),
 		err: "model name contains unsafe characters",
 	}, {
 		about:       "Bad name, no backslash",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"name": "foo\\bar",
-			"type": "my-type",
-		},
+		}),
 		err: "model name contains unsafe characters",
 	}, {
 		about:       "Empty name",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"name": "",
-		},
+		}),
 		err: "empty name in model configuration",
 	}, {
 		about:       "Default firewall mode",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
-		},
+		attrs:       minimalConfigAttrs,
 	}, {
 		about:       "Empty firewall mode",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":          "my-type",
-			"name":          "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"firewall-mode": "",
-		},
+		}),
 	}, {
 		about:       "Instance firewall mode",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":          "my-type",
-			"name":          "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"firewall-mode": config.FwInstance,
-		},
+		}),
 	}, {
 		about:       "Global firewall mode",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":          "my-type",
-			"name":          "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"firewall-mode": config.FwGlobal,
-		},
+		}),
 	}, {
 		about:       "None firewall mode",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":          "my-type",
-			"name":          "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"firewall-mode": config.FwNone,
-		},
+		}),
 	}, {
 		about:       "Illegal firewall mode",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":          "my-type",
-			"name":          "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"firewall-mode": "illegal",
-		},
+		}),
 		err: `firewall-mode: expected one of \[instance global none ], got "illegal"`,
 	}, {
 		about:       "ssl-hostname-verification off",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"ssl-hostname-verification": false,
-		},
+		}),
 	}, {
 		about:       "ssl-hostname-verification incorrect",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"ssl-hostname-verification": "yes please",
-		},
+		}),
 		err: `ssl-hostname-verification: expected bool, got string\("yes please"\)`,
 	}, {
 		about: fmt.Sprintf(
@@ -650,11 +526,9 @@ var configTests = []configTest{
 			config.HarvestAll.String(),
 		),
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"provisioner-harvest-mode": config.HarvestAll.String(),
-		},
+		}),
 	}, {
 		about: fmt.Sprintf(
 			"%s: %s",
@@ -662,11 +536,9 @@ var configTests = []configTest{
 			config.HarvestDestroyed.String(),
 		),
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"provisioner-harvest-mode": config.HarvestDestroyed.String(),
-		},
+		}),
 	}, {
 		about: fmt.Sprintf(
 			"%s: %s",
@@ -674,11 +546,9 @@ var configTests = []configTest{
 			config.HarvestUnknown.String(),
 		),
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"provisioner-harvest-mode": config.HarvestUnknown.String(),
-		},
+		}),
 	}, {
 		about: fmt.Sprintf(
 			"%s: %s",
@@ -686,136 +556,103 @@ var configTests = []configTest{
 			config.HarvestNone.String(),
 		),
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"provisioner-harvest-mode": config.HarvestNone.String(),
-		},
+		}),
 	}, {
 		about:       "provisioner-harvest-mode: incorrect",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"provisioner-harvest-mode": "yes please",
-		},
+		}),
 		err: `provisioner-harvest-mode: expected one of \[all none unknown destroyed], got "yes please"`,
 	}, {
 		about:       "default image stream",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
-		},
+		attrs:       minimalConfigAttrs,
 	}, {
 		about:       "explicit image stream",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":         "my-type",
-			"name":         "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"image-stream": "daily",
-		},
+		}),
 	}, {
 		about:       "explicit tools stream",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":         "my-type",
-			"name":         "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"agent-stream": "proposed",
-		},
+		}),
 	}, {
 		about:       "Explicit state port",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":       "my-type",
-			"name":       "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"state-port": 37042,
-		},
+		}),
 	}, {
 		about:       "Invalid state port",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":       "my-type",
-			"name":       "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"state-port": "illegal",
-		},
+		}),
 		err: `state-port: expected number, got string\("illegal"\)`,
 	}, {
 		about:       "Explicit API port",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":     "my-type",
-			"name":     "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"api-port": 77042,
-		},
+		}),
 	}, {
 		about:       "Invalid API port",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":     "my-type",
-			"name":     "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"api-port": "illegal",
-		},
+		}),
 		err: `api-port: expected number, got string\("illegal"\)`,
 	}, {
 		about:       "Explicit bootstrap timeout",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":              "my-type",
-			"name":              "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"bootstrap-timeout": 300,
-		},
+		}),
 	}, {
 		about:       "Invalid bootstrap timeout",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":              "my-type",
-			"name":              "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"bootstrap-timeout": "illegal",
-		},
+		}),
 		err: `bootstrap-timeout: expected number, got string\("illegal"\)`,
 	}, {
 		about:       "Explicit bootstrap retry delay",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                  "my-type",
-			"name":                  "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"bootstrap-retry-delay": 5,
-		},
+		}),
 	}, {
 		about:       "Invalid bootstrap retry delay",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                  "my-type",
-			"name":                  "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"bootstrap-retry-delay": "illegal",
-		},
+		}),
 		err: `bootstrap-retry-delay: expected number, got string\("illegal"\)`,
 	}, {
 		about:       "Explicit bootstrap addresses delay",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"bootstrap-addresses-delay": 15,
-		},
+		}),
 	}, {
 		about:       "Invalid bootstrap addresses delay",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"bootstrap-addresses-delay": "illegal",
-		},
+		}),
 		err: `bootstrap-addresses-delay: expected number, got string\("illegal"\)`,
 	}, {
 		about:       "Invalid logging configuration",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"logging-config": "foo=bar",
-		},
+		}),
 		err: `unknown severity level "bar"`,
 	}, {
 		about:       "Sample configuration",
@@ -854,7 +691,6 @@ var configTests = []configTest{
 			"admin-secret":              "",
 			"ssl-hostname-verification": true,
 			"authorized-keys":           "ssh-rsa mykeys rog@rog-x220\n",
-			"control-bucket":            "rog-some-control-bucket",
 			"region":                    "us-east-1",
 			"image-metadata-url":        "",
 			"ca-private-key":            "",
@@ -866,56 +702,56 @@ var configTests = []configTest{
 			"ca-cert":                   caCert,
 			"firewall-mode":             "instance",
 			"type":                      "ec2",
+			// These ones weren't actual values, but we require
+			// them now, and have no backwards-compatibility
+			// with the old config.
+			"uuid":            testing.ModelTag.Id(),
+			"controller-uuid": testing.ModelTag.Id(),
 		},
 	}, {
 		about:       "Provider type null is replaced with manual",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"type": "null",
-			"name": "my-name",
-		},
+		}),
 	}, {
 		about:       "TestMode flag specified",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":      "my-type",
-			"name":      "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"test-mode": true,
-		},
+		}),
 	}, {
 		about:       "valid uuid",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4",
-		},
+		}),
+	}, {
+		about:       "valid controller-uuid",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"controller-uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4",
+		}),
 	}, {
 		about:       "invalid uuid 1",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"uuid": "dcfbdb4abca249adaa7cf011424e0fe4",
-		},
-		err: `uuid: expected uuid, got string\("dcfbdb4abca249adaa7cf011424e0fe4"\)`,
+		}),
+		err: `uuid: expected UUID, got string\("dcfbdb4abca249adaa7cf011424e0fe4"\)`,
 	}, {
 		about:       "invalid uuid 2",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"uuid": "uuid",
-		},
-		err: `uuid: expected uuid, got string\("uuid"\)`,
+		}),
+		err: `uuid: expected UUID, got string\("uuid"\)`,
 	}, {
 		about:       "blank uuid",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"uuid": "",
-		},
+		}),
 		err: `empty uuid in model configuration`,
 	},
 	missingAttributeNoDefault("firewall-mode"),
@@ -928,88 +764,70 @@ var configTests = []configTest{
 	{
 		about:       "Deprecated safe-mode failover",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                     "my-type",
-			"name":                     "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"provisioner-safe-mode":    true,
 			"provisioner-harvest-mode": config.HarvestNone.String(),
-		},
+		}),
 	},
 	{
 		about:       "Explicit apt-mirror",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":       "my-type",
-			"name":       "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"apt-mirror": "http://my.archive.ubuntu.com",
-		},
+		}),
 	},
 	{
 		about:       "Resource tags as space-separated string",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":          "my-type",
-			"name":          "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"resource-tags": strings.Join(testResourceTags, " "),
-		},
+		}),
 	},
 	{
 		about:       "Resource tags as list of strings",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":          "my-type",
-			"name":          "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"resource-tags": testResourceTags,
-		},
+		}),
 	},
 	{
 		about:       "Resource tags contains non-keyvalues",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":          "my-type",
-			"name":          "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"resource-tags": []string{"a"},
-		},
+		}),
 		err: `resource-tags: expected "key=value", got "a"`,
 	},
 	{
 		about:       "Invalid identity URL value",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":         "my-type",
-			"name":         "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"identity-url": "%",
-		},
+		}),
 		err: `invalid identity URL: parse %: invalid URL escape "%"`,
 	}, {
 		about:       "Not using https in identity URL",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":         "my-type",
-			"name":         "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"identity-url": "http://test-identity",
-		},
+		}),
 		err: `URL needs to be https`,
 	},
 	{
 		about:       "Invalid identity public key",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                "my-type",
-			"name":                "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"identity-public-key": "_",
-		},
+		}),
 		err: `invalid identity public key: cannot decode base64 key: illegal base64 data at input byte 0`,
 	},
 	{
 		about:       "Valid identity URL and public key values",
 		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":                "my-type",
-			"name":                "my-name",
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"identity-url":        "https://test-identity",
 			"identity-public-key": "o/yOqSNWncMo1GURWuez/dGR30TscmmuIxgjztpoHEY=",
-		},
+		}),
 	},
 }
 
@@ -1055,6 +873,8 @@ var noCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
+			"uuid":            testing.ModelTag.Id(),
+			"controller-uuid": testing.ModelTag.Id(),
 			"authorized-keys": testing.FakeAuthKeys,
 		},
 	}, {
@@ -1063,6 +883,8 @@ var noCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
+			"uuid":            testing.ModelTag.Id(),
+			"controller-uuid": testing.ModelTag.Id(),
 			"authorized-keys": testing.FakeAuthKeys,
 			"ca-private-key":  caKey,
 		},
@@ -1084,6 +906,8 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
+			"uuid":            testing.ModelTag.Id(),
+			"controller-uuid": testing.ModelTag.Id(),
 			"authorized-keys": testing.FakeAuthKeys,
 			"ca-private-key":  caKey,
 		},
@@ -1094,6 +918,8 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
+			"uuid":            testing.ModelTag.Id(),
+			"controller-uuid": testing.ModelTag.Id(),
 			"authorized-keys": testing.FakeAuthKeys,
 		},
 		err: fmt.Sprintf(`file ".*%smy-name-cert.pem" is empty`, regexp.QuoteMeta(string(os.PathSeparator))),
@@ -1103,6 +929,8 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
+			"uuid":            testing.ModelTag.Id(),
+			"controller-uuid": testing.ModelTag.Id(),
 			"authorized-keys": testing.FakeAuthKeys,
 			"ca-cert":         caCert,
 		},
@@ -1149,6 +977,8 @@ func (s *ConfigSuite) TestNoDefinedPrivateCert(c *gc.C) {
 	attrs := testing.Attrs{
 		"type":            "my-type",
 		"name":            "my-name",
+		"uuid":            testing.ModelTag.Id(),
+		"controller-uuid": testing.ModelTag.Id(),
 		"authorized-keys": testing.FakeAuthKeys,
 		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
@@ -1163,6 +993,8 @@ func (s *ConfigSuite) TestSafeModeDeprecatesGracefully(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, testing.Attrs{
 		"name":                  "name",
 		"type":                  "type",
+		"uuid":                  testing.ModelTag.Id(),
+		"controller-uuid":       testing.ModelTag.Id(),
 		"provisioner-safe-mode": false,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1176,6 +1008,8 @@ func (s *ConfigSuite) TestSafeModeDeprecatesGracefully(c *gc.C) {
 	cfg, err = config.New(config.UseDefaults, testing.Attrs{
 		"name":                  "name",
 		"type":                  "type",
+		"uuid":                  testing.ModelTag.Id(),
+		"controller-uuid":       testing.ModelTag.Id(),
 		"provisioner-safe-mode": true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1221,9 +1055,10 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.APIPort(), gc.Equals, apiPort)
 	}
 	if expected, ok := test.attrs["uuid"]; ok {
-		got, exists := cfg.UUID()
-		c.Assert(exists, gc.Equals, ok)
-		c.Assert(got, gc.Equals, expected)
+		c.Assert(cfg.UUID(), gc.Equals, expected)
+	}
+	if expected, ok := test.attrs["controller-uuid"]; ok {
+		c.Assert(cfg.ControllerUUID(), gc.Equals, expected)
 	}
 	if identityURL, ok := test.attrs["identity-url"]; ok {
 		c.Assert(cfg.IdentityURL(), gc.Equals, identityURL)
@@ -1425,6 +1260,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"type":                      "my-type",
 		"name":                      "my-name",
 		"uuid":                      "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9",
+		"controller-uuid":           "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9",
 		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "foo",
@@ -1466,14 +1302,16 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, config.HarvestDestroyed)
 
 	newcfg, err := cfg.Apply(map[string]interface{}{
-		"name":        "new-name",
-		"uuid":        "6216dfc3-6e82-408f-9f74-8565e63e6158",
-		"new-unknown": "my-new-unknown",
+		"name":            "new-name",
+		"uuid":            "6216dfc3-6e82-408f-9f74-8565e63e6158",
+		"controller-uuid": "6216dfc3-6e82-408f-9f74-8565e63e6158",
+		"new-unknown":     "my-new-unknown",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	attrs["name"] = "new-name"
 	attrs["uuid"] = "6216dfc3-6e82-408f-9f74-8565e63e6158"
+	attrs["controller-uuid"] = "6216dfc3-6e82-408f-9f74-8565e63e6158"
 	attrs["new-unknown"] = "my-new-unknown"
 	c.Assert(newcfg.AllAttrs(), jc.DeepEquals, attrs)
 }
@@ -1569,13 +1407,15 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"prefer-ipv6": true},
 	err:   `cannot change prefer-ipv6 from false to true`,
 }, {
-	about: "Can change uuid from unset to set",
-	new:   testing.Attrs{"uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4"},
-}, {
 	about: "Cannot change uuid",
 	old:   testing.Attrs{"uuid": "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9"},
 	new:   testing.Attrs{"uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4"},
 	err:   "cannot change uuid from \"90168e4c-2f10-4e9c-83c2-1fb55a58e5a9\" to \"dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4\"",
+}, {
+	about: "Cannot change controller-uuid",
+	old:   testing.Attrs{"controller-uuid": "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9"},
+	new:   testing.Attrs{"controller-uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4"},
+	err:   "cannot change controller-uuid from \"90168e4c-2f10-4e9c-83c2-1fb55a58e5a9\" to \"dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4\"",
 }}
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
@@ -1608,10 +1448,12 @@ func (s *ConfigSuite) addJujuFiles(c *gc.C) {
 func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":    "myenv",
-		"type":    "other",
-		"known":   "this",
-		"unknown": "that",
+		"name":            "myenv",
+		"type":            "other",
+		"uuid":            testing.ModelTag.Id(),
+		"controller-uuid": testing.ModelTag.Id(),
+		"known":           "this",
+		"unknown":         "that",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1673,8 +1515,10 @@ var emptyAttributeTests = []testAttr{
 func (s *ConfigSuite) TestValidateUnknownEmptyAttr(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name": "myenv",
-		"type": "other",
+		"name":            "myenv",
+		"type":            "other",
+		"uuid":            testing.ModelTag.Id(),
+		"controller-uuid": testing.ModelTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	warningTxt := `.* unknown config field %q.*`
@@ -1695,7 +1539,11 @@ func (s *ConfigSuite) TestValidateUnknownEmptyAttr(c *gc.C) {
 }
 
 func newTestConfig(c *gc.C, explicit testing.Attrs) *config.Config {
-	final := testing.Attrs{"type": "my-type", "name": "my-name"}
+	final := testing.Attrs{
+		"type": "my-type", "name": "my-name",
+		"uuid":            testing.ModelTag.Id(),
+		"controller-uuid": testing.ModelTag.Id(),
+	}
 	for key, value := range explicit {
 		final[key] = value
 	}
@@ -1906,30 +1754,38 @@ func (s *ConfigSuite) TestGenerateControllerCertAndKey(c *gc.C) {
 		errMatch     string
 	}{{
 		configValues: map[string]interface{}{
-			"name": "test-no-certs",
-			"type": "dummy",
+			"name":            "test-no-certs",
+			"type":            "dummy",
+			"uuid":            testing.ModelTag.Id(),
+			"controller-uuid": testing.ModelTag.Id(),
 		},
 		errMatch: "model configuration has no ca-cert",
 	}, {
 		configValues: map[string]interface{}{
-			"name":    "test-no-certs",
-			"type":    "dummy",
-			"ca-cert": testing.CACert,
+			"name":            "test-no-certs",
+			"type":            "dummy",
+			"uuid":            testing.ModelTag.Id(),
+			"controller-uuid": testing.ModelTag.Id(),
+			"ca-cert":         testing.CACert,
 		},
 		errMatch: "model configuration has no ca-private-key",
 	}, {
 		configValues: map[string]interface{}{
-			"name":           "test-no-certs",
-			"type":           "dummy",
-			"ca-cert":        testing.CACert,
-			"ca-private-key": testing.CAKey,
+			"name":            "test-no-certs",
+			"type":            "dummy",
+			"uuid":            testing.ModelTag.Id(),
+			"controller-uuid": testing.ModelTag.Id(),
+			"ca-cert":         testing.CACert,
+			"ca-private-key":  testing.CAKey,
 		},
 	}, {
 		configValues: map[string]interface{}{
-			"name":           "test-no-certs",
-			"type":           "dummy",
-			"ca-cert":        testing.CACert,
-			"ca-private-key": testing.CAKey,
+			"name":            "test-no-certs",
+			"type":            "dummy",
+			"uuid":            testing.ModelTag.Id(),
+			"controller-uuid": testing.ModelTag.Id(),
+			"ca-cert":         testing.CACert,
+			"ca-private-key":  testing.CAKey,
 		},
 		sanValues: []string{"10.0.0.1", "192.168.1.1"},
 	}} {

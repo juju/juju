@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
@@ -104,10 +105,7 @@ func mongodbLogin(session *mgo.Session, mongoInfo *mongo.MongoInfo) error {
 // This needs to be performed only once for the initial controller model.
 // It returns unauthorizedError if access is unauthorized.
 func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (_ *State, err error) {
-	uuid, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.Errorf("model uuid was not supplied")
-	}
+	uuid := cfg.UUID()
 	modelTag := names.NewModelTag(uuid)
 	st, err := open(modelTag, info, opts, policy)
 	if err != nil {
@@ -133,12 +131,16 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
 	logger.Infof("initializing controller model %s", uuid)
-	ops, err := st.envSetupOps(cfg, uuid, uuid, owner)
+	ops, err := st.envSetupOps(cfg, uuid, uuid, owner, MigrationModeActive)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	salt, err := utils.RandomSalt()
+	if err != nil {
+		return nil, err
+	}
 	ops = append(ops,
-		createInitialUserOp(st, owner, info.Password),
+		createInitialUserOp(st, owner, info.Password, salt),
 		txn.Op{
 			C:      controllersC,
 			Id:     modelGlobalKey,
@@ -176,7 +178,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	return st, nil
 }
 
-func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, owner names.UserTag) ([]txn.Op, error) {
+func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
 	if err := checkModelConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -186,12 +188,13 @@ func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, o
 	if serverUUID == "" {
 		serverUUID = modelUUID
 	}
-	modelUserOp := createModelUserOp(modelUUID, owner, owner, owner.Name(), nowToTheSecond(), false)
+	modelUserOp := createModelUserOp(modelUUID, owner, owner, owner.Name(), nowToTheSecond(), ModelAdminAccess)
 	ops := []txn.Op{
 		createConstraintsOp(st, modelGlobalKey, constraints.Value{}),
 		createSettingsOp(modelGlobalKey, cfg.AllAttrs()),
 		incHostedModelCountOp(),
-		createModelOp(st, owner, cfg.Name(), modelUUID, serverUUID),
+		createModelEntityRefsOp(st, modelUUID),
+		createModelOp(st, owner, cfg.Name(), modelUUID, serverUUID, mode),
 		createUniqueOwnerModelNameOp(owner, cfg.Name()),
 		modelUserOp,
 	}
@@ -263,6 +266,7 @@ func (st *State) CACert() string {
 	return st.mongoInfo.CACert
 }
 
+// Close the connection to the database.
 func (st *State) Close() (err error) {
 	defer errors.DeferredAnnotatef(&err, "closing state failed")
 

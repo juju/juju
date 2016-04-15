@@ -61,7 +61,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	// container config.
 	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
 	if bridgeDevice == "" {
-		bridgeDevice = kvm.DefaultKvmBridge
+		bridgeDevice = container.DefaultKvmBridge
 	}
 
 	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
@@ -113,7 +113,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	storageConfig := &container.StorageConfig{
 		AllowMount: true,
 	}
-	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storageConfig)
+	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storageConfig, args.StatusCallback)
 	if err != nil {
 		kvmLogger.Errorf("failed to start container: %v", err)
 		return nil, err
@@ -137,7 +137,7 @@ func (broker *kvmBroker) MaintainInstance(args environs.StartInstanceParams) err
 	// Default to using the host network until we can configure.
 	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
 	if bridgeDevice == "" {
-		bridgeDevice = kvm.DefaultKvmBridge
+		bridgeDevice = container.DefaultKvmBridge
 	}
 
 	// There's no InterfaceInfo we expect to get below.

@@ -226,8 +226,7 @@ func (s *destroyTwoModelsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.otherEnvOwner = names.NewUserTag("jess")
 	s.otherState = factory.NewFactory(s.State).MakeModel(c, &factory.ModelParams{
-		Owner:   s.otherEnvOwner,
-		Prepare: true,
+		Owner: s.otherEnvOwner,
 		ConfigAttrs: jujutesting.Attrs{
 			"controller": false,
 		},
@@ -332,14 +331,19 @@ func (s *destroyTwoModelsSuite) TestDestroyControllerAfterNonControllerIsDestroy
 	err = common.DestroyModel(s.State, s.otherState.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
+	// The hosted model is Dying, not Dead; we cannot destroy
+	// the controller model until all hosted models are Dead.
 	err = common.DestroyModel(s.State, s.State.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, "failed to destroy model: hosting 1 other models")
 
-	// Make sure we can continue to take the hosted model down while the
-	// controller environ is dying.
+	// Continue to take the hosted model down so we can
+	// destroy the controller model.
 	runAllCleanups(c, s.otherState)
 	assertAllMachinesDeadAndRemove(c, s.otherState)
 	c.Assert(s.otherState.ProcessDyingModel(), jc.ErrorIsNil)
+
+	err = common.DestroyModel(s.State, s.State.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
 
 	otherEnv, err := s.otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)

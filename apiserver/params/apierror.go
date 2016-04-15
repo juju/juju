@@ -10,6 +10,9 @@ import (
 	"gopkg.in/macaroon.v1"
 )
 
+// UpgradeInProgressError signifies an upgrade is in progress.
+var UpgradeInProgressError = errors.New(CodeUpgradeInProgress)
+
 // Error is the type of error returned by any call to the state API.
 type Error struct {
 	Message string
@@ -64,6 +67,7 @@ const (
 	CodeStopped                   = "stopped"
 	CodeDead                      = "dead"
 	CodeHasAssignedUnits          = "machine has assigned units"
+	CodeHasHostedModels           = "controller has hosted models"
 	CodeMachineHasAttachedStorage = "machine has attached storage"
 	CodeNotProvisioned            = "not provisioned"
 	CodeNoAddressSet              = "no address set"
@@ -148,6 +152,10 @@ func IsCodeDead(err error) bool {
 
 func IsCodeHasAssignedUnits(err error) bool {
 	return ErrCode(err) == CodeHasAssignedUnits
+}
+
+func IsCodeHasHostedModels(err error) bool {
+	return ErrCode(err) == CodeHasHostedModels
 }
 
 func IsCodeMachineHasAttachedStorage(err error) bool {

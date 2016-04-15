@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/fortress"
@@ -42,13 +43,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
-
-const (
-	retryTimeMin    = 5 * time.Second
-	retryTimeMax    = 5 * time.Minute
-	retryTimeJitter = true
-	retryTimeFactor = 2
-)
 
 // A UniterExecutionObserver gets the appropriate methods called when a hook
 // is executed and either succeeds or fails.  Missing hooks don't get reported
@@ -74,7 +68,7 @@ type Uniter struct {
 	// Cache the last reported status information
 	// so we don't make unnecessary api calls.
 	setStatusMutex      sync.Mutex
-	lastReportedStatus  params.Status
+	lastReportedStatus  status.Status
 	lastReportedMessage string
 
 	deployer             *deployerProxy
@@ -101,6 +95,9 @@ type Uniter struct {
 	// updateStatusAt defines a function that will be used to generate signals for
 	// the update-status hook
 	updateStatusAt func() <-chan time.Time
+
+	// hookRetryStrategy represents configuration for hook retries
+	hookRetryStrategy params.RetryStrategy
 }
 
 // UniterParams hold all the necessary parameters for a new Uniter.
@@ -112,6 +109,7 @@ type UniterParams struct {
 	MachineLock          *fslock.Lock
 	CharmDirGuard        fortress.Guard
 	UpdateStatusSignal   func() <-chan time.Time
+	HookRetryStrategy    params.RetryStrategy
 	NewOperationExecutor NewExecutorFunc
 	Clock                clock.Clock
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
@@ -133,6 +131,7 @@ func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 		leadershipTracker:    uniterParams.LeadershipTracker,
 		charmDirGuard:        uniterParams.CharmDirGuard,
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
+		hookRetryStrategy:    uniterParams.HookRetryStrategy,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
 		observer:             uniterParams.Observer,
 		clock:                uniterParams.Clock,
@@ -195,12 +194,13 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		watcherMu sync.Mutex
 	)
 
+	logger.Infof("hooks are retried %v", u.hookRetryStrategy.ShouldRetry)
 	retryHookChan := make(chan struct{}, 1)
 	retryHookTimer := utils.NewBackoffTimer(utils.BackoffTimerConfig{
-		Min:    retryTimeMin,
-		Max:    retryTimeMax,
-		Jitter: retryTimeJitter,
-		Factor: retryTimeFactor,
+		Min:    u.hookRetryStrategy.MinRetryTime,
+		Max:    u.hookRetryStrategy.MaxRetryTime,
+		Jitter: u.hookRetryStrategy.JitterRetryTime,
+		Factor: u.hookRetryStrategy.RetryTimeFactor,
 		Func: func() {
 			// Don't try to send on the channel if it's already full
 			// This can happen if the timer fires off before the event is consumed
@@ -255,7 +255,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			// error state.
 			return nil
 		}
-		return setAgentStatus(u, params.StatusIdle, "", nil)
+		return setAgentStatus(u, status.StatusIdle, "", nil)
 	}
 
 	clearResolved := func() error {
@@ -276,6 +276,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			ClearResolved:       clearResolved,
 			ReportHookError:     u.reportHookError,
 			FixDeployer:         u.deployer.Fix,
+			ShouldRetryHooks:    u.hookRetryStrategy.ShouldRetry,
 			StartRetryHookTimer: retryHookTimer.Start,
 			StopRetryHookTimer:  retryHookTimer.Reset,
 			Actions:             actions.NewResolver(),
@@ -331,7 +332,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				// handling is outside of the resolver's control.
 				if operation.IsDeployConflictError(cause) {
 					localState.Conflicted = true
-					err = setAgentStatus(u, params.StatusError, "upgrade failed", nil)
+					err = setAgentStatus(u, status.StatusError, "upgrade failed", nil)
 				} else {
 					reportAgentError(u, "resolver loop error", err)
 				}
@@ -516,10 +517,6 @@ func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
 	return charmURL, err
 }
 
-func (u *Uniter) operationState() operation.State {
-	return u.operationExecutor.State()
-}
-
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
 	// TODO(axw) drop this when we move the run-listener to an independent
@@ -571,5 +568,5 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookName)
-	return setAgentStatus(u, params.StatusError, statusMessage, statusData)
+	return setAgentStatus(u, status.StatusError, statusMessage, statusData)
 }

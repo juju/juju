@@ -6,8 +6,11 @@ package cloudconfig_test
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -16,6 +19,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	pacconf "github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -34,7 +38,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 type cloudinitSuite struct {
@@ -159,11 +162,25 @@ func (cfg *testInstanceConfig) setMachineID(id string) *testInstanceConfig {
 	return cfg
 }
 
+// setGUI populates the configuration with the Juju GUI tools.
+func (cfg *testInstanceConfig) setGUI(url string) *testInstanceConfig {
+	cfg.GUI = &tools.GUIArchive{
+		URL:     url,
+		Version: version.MustParse("1.2.3"),
+		Size:    42,
+		SHA256:  "1234",
+	}
+	return cfg
+}
+
 // maybeSetModelConfig sets the Config field to the given envConfig, if not
 // nil.
 func (cfg *testInstanceConfig) maybeSetModelConfig(envConfig *config.Config) *testInstanceConfig {
 	if envConfig != nil {
 		cfg.Config = envConfig
+		if cfg.Bootstrap {
+			cfg.HostedModelConfig = map[string]interface{}{"name": "hosted-model"}
+		}
 	}
 	return cfg
 }
@@ -192,7 +209,7 @@ func (cfg *testInstanceConfig) setSeries(series string) *testInstanceConfig {
 func (cfg *testInstanceConfig) setController() *testInstanceConfig {
 	cfg.setMachineID("0")
 	cfg.Constraints = bootstrapConstraints
-	cfg.EnvironConstraints = envConstraints
+	cfg.ModelConstraints = envConstraints
 	cfg.Bootstrap = true
 	cfg.StateServingInfo = stateServingInfo
 	cfg.Jobs = allMachineJobs
@@ -309,7 +326,7 @@ mkdir -p '/var/lib/juju/agents/machine-0'
 cat > '/var/lib/juju/agents/machine-0/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
 echo 'Bootstrapping Juju machine agent'.*
-/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --instance-id 'i-bootstrap' --bootstrap-constraints 'mem=4096M' --constraints 'mem=2048M' --debug
+/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --hosted-model-config '[^']*' --instance-id 'i-bootstrap' --bootstrap-constraints 'mem=4096M' --constraints 'mem=2048M' --debug
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
 echo 'Starting Juju machine agent \(jujud-machine-0\)'.*
 cat > /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju agent for machine-0"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-0\.log\\n  chown syslog:syslog /var/log/juju/machine-0\.log\\n  chmod 0600 /var/log/juju/machine-0\.log\\n\\n  exec '/var/lib/juju/tools/machine-0/jujud' machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nend script\\nEOF\\n
@@ -329,7 +346,7 @@ curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-raring-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-raring-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 printf %s '{"version":"1\.2\.3-raring-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-raring-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-/var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --instance-id 'i-bootstrap' --bootstrap-constraints 'mem=4096M' --constraints 'mem=2048M' --debug
+/var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --hosted-model-config '[^']*' --instance-id 'i-bootstrap' --bootstrap-constraints 'mem=4096M' --constraints 'mem=2048M' --debug
 ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-raring-amd64\.sha256
 `,
@@ -384,6 +401,40 @@ printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 `,
 	},
 
+	// non controller with GUI (the GUI is not installed)
+	{
+		cfg: makeNormalConfig("quantal").setGUI("file:///path/to/gui.tar.bz2"),
+		expectScripts: `
+set -xe
+install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown\.conf'
+printf '%s\\n' '.*"Stop all network interfaces on shutdown".*' > '/etc/init/juju-clean-shutdown\.conf'
+install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
+printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
+test -e /proc/self/fd/9 \|\| exec 9>&2
+\(\[ ! -e /home/ubuntu/\.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
+mkdir -p /var/lib/juju/locks
+\(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
+mkdir -p /var/log/juju
+chown syslog:adm /var/log/juju
+bin='/var/lib/juju/tools/1\.2\.3-quantal-amd64'
+mkdir -p \$bin
+echo 'Fetching tools.*
+curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/tools/1\.2\.3-quantal-amd64'
+sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-quantal-amd64\.sha256
+grep '1234' \$bin/juju1\.2\.3-quantal-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
+tar zxf \$bin/tools.tar.gz -C \$bin
+printf %s '{"version":"1\.2\.3-quantal-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-quantal-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+mkdir -p '/var/lib/juju/agents/machine-99'
+cat > '/var/lib/juju/agents/machine-99/agent\.conf' << 'EOF'\\n.*\\nEOF
+chmod 0600 '/var/lib/juju/agents/machine-99/agent\.conf'
+ln -s 1\.2\.3-quantal-amd64 '/var/lib/juju/tools/machine-99'
+echo 'Starting Juju machine agent \(jujud-machine-99\)'.*
+cat > /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju agent for machine-99"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-99\.log\\n  chown syslog:syslog /var/log/juju/machine-99\.log\\n  chmod 0600 /var/log/juju/machine-99\.log\\n\\n  exec '/var/lib/juju/tools/machine-99/jujud' machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nend script\\nEOF\\n
+start jujud-machine-99
+rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-quantal-amd64\.sha256
+`,
+	},
+
 	// CentOS non controller with systemd
 	{
 		cfg:          makeNormalConfig("centos7"),
@@ -430,19 +481,19 @@ curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.t
 		setEnvConfig: true,
 		inexactMatch: true,
 		expectScripts: `
-/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --instance-id 'i-bootstrap' --constraints 'mem=2048M' --debug
+/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --hosted-model-config '[^']*' --instance-id 'i-bootstrap' --constraints 'mem=2048M' --debug
 `,
 	},
 
 	// empty environ contraints.
 	{
 		cfg: makeBootstrapConfig("precise").mutate(func(cfg *testInstanceConfig) {
-			cfg.EnvironConstraints = constraints.Value{}
+			cfg.ModelConstraints = constraints.Value{}
 		}),
 		setEnvConfig: true,
 		inexactMatch: true,
 		expectScripts: `
-/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --instance-id 'i-bootstrap' --bootstrap-constraints 'mem=4096M' --debug
+/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --hosted-model-config '[^']*' --instance-id 'i-bootstrap' --bootstrap-constraints 'mem=4096M' --debug
 `,
 	},
 
@@ -593,6 +644,77 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 	}
 }
 
+func (*cloudinitSuite) TestCloudInitWithLocalGUI(c *gc.C) {
+	guiPath := path.Join(c.MkDir(), "gui.tar.bz2")
+	content := []byte("content")
+	err := ioutil.WriteFile(guiPath, content, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := makeBootstrapConfig("precise").setGUI("file://" + filepath.ToSlash(guiPath))
+	guiJson, err := json.Marshal(cfg.GUI)
+	c.Assert(err, jc.ErrorIsNil)
+	base64Content := base64.StdEncoding.EncodeToString(content)
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`gui='/var/lib/juju/gui'
+mkdir -p $gui
+install -D -m 644 /dev/null '/var/lib/juju/gui/gui.tar.bz2'
+printf %%s %s | base64 -d > '/var/lib/juju/gui/gui.tar.bz2'
+[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256
+[ -f $gui/jujugui.sha256 ] && (grep '1234' $gui/jujugui.sha256 && printf %%s '%s' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
+rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt
+`, base64Content, guiJson))
+	checkCloudInitWithGUI(c, cfg, expectedScripts, "")
+}
+
+func (*cloudinitSuite) TestCloudInitWithRemoteGUI(c *gc.C) {
+	cfg := makeBootstrapConfig("precise").setGUI("https://1.2.3.4/gui.tar.bz2")
+	guiJson, err := json.Marshal(cfg.GUI)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`gui='/var/lib/juju/gui'
+mkdir -p $gui
+curl -sSf -o $gui/gui.tar.bz2 --retry 10 'https://1.2.3.4/gui.tar.bz2' || echo Unable to retrieve Juju GUI
+[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256
+[ -f $gui/jujugui.sha256 ] && (grep '1234' $gui/jujugui.sha256 && printf %%s '%s' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
+rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt
+`, guiJson))
+	checkCloudInitWithGUI(c, cfg, expectedScripts, "")
+}
+
+func (*cloudinitSuite) TestCloudInitWithGUIReadError(c *gc.C) {
+	cfg := makeBootstrapConfig("precise").setGUI("file:///no/such/gui.tar.bz2")
+	expectedError := "cannot set up Juju GUI: cannot read Juju GUI archive: .*"
+	checkCloudInitWithGUI(c, cfg, "", expectedError)
+}
+
+func (*cloudinitSuite) TestCloudInitWithGUIURLError(c *gc.C) {
+	cfg := makeBootstrapConfig("precise").setGUI(":")
+	expectedError := "cannot set up Juju GUI: cannot parse Juju GUI URL: .*"
+	checkCloudInitWithGUI(c, cfg, "", expectedError)
+}
+
+func checkCloudInitWithGUI(c *gc.C, cfg *testInstanceConfig, expectedScripts string, expectedError string) {
+	envConfig := minimalModelConfig(c)
+	testConfig := cfg.maybeSetModelConfig(envConfig).render()
+	ci, err := cloudinit.New(testConfig.Series)
+	c.Assert(err, jc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
+	c.Assert(err, jc.ErrorIsNil)
+	err = udata.Configure()
+	if expectedError != "" {
+		c.Assert(err, gc.ErrorMatches, expectedError)
+		return
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ci, gc.NotNil)
+	data, err := ci.RenderYAML()
+	c.Assert(err, jc.ErrorIsNil)
+
+	configKeyValues := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(data, &configKeyValues)
+	c.Assert(err, jc.ErrorIsNil)
+
+	scripts := getScripts(configKeyValues)
+	assertScriptMatch(c, scripts, expectedScripts, false)
+}
+
 func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 	for i, test := range cloudinitTests {
 		testConfig := test.cfg.maybeSetModelConfig(minimalModelConfig(c)).render()
@@ -606,7 +728,7 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 	}
 }
 
-func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
+func (*cloudinitSuite) bootstrapConfigScripts(c *gc.C) []string {
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
 	envConfig := minimalModelConfig(c)
 	instConfig := makeBootstrapConfig("quantal").maybeSetModelConfig(envConfig)
@@ -630,9 +752,22 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 			c.Logf("scripts[%d]: %q", i, script)
 		}
 	}
+	return scripts
+}
+
+func (s *cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
+	scripts := s.bootstrapConfigScripts(c)
 	expected := "jujud bootstrap-state --data-dir '.*' --model-config '.*'" +
+		" --hosted-model-config '[^']*'" +
 		" --instance-id '.*' --bootstrap-constraints 'mem=4096M'" +
 		" --constraints 'mem=2048M' --show-log"
+	assertScriptMatch(c, scripts, expected, false)
+}
+
+func (s *cloudinitSuite) TestCloudInitConfigureBootstrapFeatureFlags(c *gc.C) {
+	s.SetFeatureFlags("special", "foo")
+	scripts := s.bootstrapConfigScripts(c)
+	expected := "JUJU_DEV_FEATURE_FLAGS=foo,special .*/jujud bootstrap-state .*"
 	assertScriptMatch(c, scripts, expected, false)
 }
 
@@ -976,6 +1111,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 			ModelTag: testing.ModelTag,
 		},
 		Config:                  minimalModelConfig(c),
+		HostedModelConfig:       map[string]interface{}{"name": "hosted-model"},
 		DataDir:                 jujuDataDir("quantal"),
 		LogDir:                  jujuLogDir("quantal"),
 		MetricsSpoolDir:         metricsSpoolDir("quantal"),

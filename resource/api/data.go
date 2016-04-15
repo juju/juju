@@ -12,8 +12,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 )
 
 // ListResourcesArgs are the arguments for the ListResources endpoint.
@@ -43,6 +45,7 @@ func NewListResourcesArgs(services []string) (ListResourcesArgs, error) {
 // API endpoint.
 type AddPendingResourcesArgs struct {
 	params.Entity
+	params.AddCharmWithAuthorization
 
 	// Resources is the list of resources to add as pending.
 	Resources []CharmResource
@@ -50,7 +53,7 @@ type AddPendingResourcesArgs struct {
 
 // NewAddPendingResourcesArgs returns the arguments for the
 // AddPendingResources API endpoint.
-func NewAddPendingResourcesArgs(serviceID string, resources []charmresource.Resource) (AddPendingResourcesArgs, error) {
+func NewAddPendingResourcesArgs(serviceID string, chID charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (AddPendingResourcesArgs, error) {
 	var args AddPendingResourcesArgs
 
 	if !names.IsValidService(serviceID) {
@@ -68,6 +71,11 @@ func NewAddPendingResourcesArgs(serviceID string, resources []charmresource.Reso
 	}
 	args.Tag = tag
 	args.Resources = apiResources
+	if chID.URL != nil {
+		args.URL = chID.URL.String()
+		args.Channel = string(chID.Channel)
+		args.CharmStoreMacaroon = csMac
+	}
 	return args, nil
 }
 
@@ -111,6 +119,11 @@ type UnitResources struct {
 
 	// Resources is a list of resources for the unit.
 	Resources []Resource
+
+	// DownloadProgress indicates the number of bytes of a resource file
+	// have been downloaded so far the uniter. Only currently downloading
+	// resources are included.
+	DownloadProgress map[string]int64
 }
 
 // UploadResult is the response from an upload request.

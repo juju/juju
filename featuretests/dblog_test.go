@@ -58,7 +58,7 @@ func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 	agentConf.ReadConfig(m.Tag().String())
 	logsCh, err := logsender.InstallBufferedLogWriter(1000)
 	c.Assert(err, jc.ErrorIsNil)
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, logsCh, nil, c.MkDir())
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, logsCh, c.MkDir())
 	a := machineAgentFactory(m.Id())
 
 	// Ensure there's no logs to begin with.
@@ -129,7 +129,7 @@ func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
 		DialInfo:       info,
 		MemberHostPort: mongod.Addr(),
 	}
-	err := peergrouper.MaybeInitiateMongoServer(args)
+	err := peergrouper.InitiateMongoServer(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.AgentSuite.SetUpSuite(c)

@@ -37,7 +37,7 @@ import (
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 type environSuite struct {
@@ -305,13 +305,15 @@ func prepareForBootstrap(
 	cfg, err := cfg.Remove([]string{"controller-resource-group"})
 	c.Assert(err, jc.ErrorIsNil)
 	*sender = azuretesting.Senders{tokenRefreshSender()}
-	env, err := provider.PrepareForBootstrap(ctx, environs.PrepareForBootstrapParams{
+	cfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{
 		Config:               cfg,
 		CloudRegion:          "westus",
 		CloudEndpoint:        "https://management.azure.com",
 		CloudStorageEndpoint: "https://core.windows.net",
 		Credentials:          fakeUserPassCredential(),
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := provider.PrepareForBootstrap(ctx, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }
@@ -716,10 +718,10 @@ func (s *environSuite) TestStopInstances(c *gc.C) {
 func (s *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	validator := s.constraintsValidator(c)
 	unsupported, err := validator.Validate(constraints.MustParse(
-		"arch=amd64 tags=foo cpu-power=100",
+		"arch=amd64 tags=foo cpu-power=100 virt-type=kvm",
 	))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, jc.SameContents, []string{"tags", "cpu-power"})
+	c.Assert(unsupported, jc.SameContents, []string{"tags", "cpu-power", "virt-type"})
 }
 
 func (s *environSuite) TestConstraintsValidatorVocabulary(c *gc.C) {

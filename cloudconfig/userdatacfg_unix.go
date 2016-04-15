@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"path"
 	"path/filepath"
 	"strings"
@@ -19,15 +20,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/proxy"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
@@ -305,6 +307,15 @@ func (w *unixConfigure) ConfigureJuju() error {
 	}
 
 	if w.icfg.Bootstrap {
+		// Add the Juju GUI to the bootstrap node.
+		cleanup, err := w.setUpGUI()
+		if err != nil {
+			return errors.Annotate(err, "cannot set up Juju GUI")
+		}
+		if cleanup != nil {
+			defer cleanup()
+		}
+
 		var metadataDir string
 		if len(w.icfg.CustomImageMetadata) > 0 {
 			metadataDir = path.Join(w.icfg.DataDir, "simplestreams")
@@ -323,9 +334,9 @@ func (w *unixConfigure) ConfigureJuju() error {
 		if bootstrapCons != "" {
 			bootstrapCons = " --bootstrap-constraints " + shquote(bootstrapCons)
 		}
-		environCons := w.icfg.EnvironConstraints.String()
-		if environCons != "" {
-			environCons = " --constraints " + shquote(environCons)
+		modelCons := w.icfg.ModelConstraints.String()
+		if modelCons != "" {
+			modelCons = " --constraints " + shquote(modelCons)
 		}
 		var hardware string
 		if w.icfg.HardwareCharacteristics != nil {
@@ -340,21 +351,81 @@ func (w *unixConfigure) ConfigureJuju() error {
 		if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
 			loggingOption = " --debug"
 		}
+		featureFlags := featureflag.AsEnvironmentValue()
+		if featureFlags != "" {
+			featureFlags = fmt.Sprintf("%s=%s ", osenv.JujuFeatureFlagEnvKey, featureFlags)
+		}
 		w.conf.AddScripts(
 			// The bootstrapping is always run with debug on.
-			w.icfg.JujuTools() + "/jujud bootstrap-state" +
+			featureFlags + w.icfg.JujuTools() + "/jujud bootstrap-state" +
 				" --data-dir " + shquote(w.icfg.DataDir) +
-				" --model-config " + shquote(base64yaml(w.icfg.Config)) +
+				" --model-config " + shquote(base64yaml(w.icfg.Config.AllAttrs())) +
+				" --hosted-model-config " + shquote(base64yaml(w.icfg.HostedModelConfig)) +
 				" --instance-id " + shquote(string(w.icfg.InstanceId)) +
 				hardware +
 				bootstrapCons +
-				environCons +
+				modelCons +
 				metadataDir +
 				loggingOption,
 		)
 	}
 
 	return w.addMachineAgentToBoot()
+}
+
+// setUpGUI fetches the Juju GUI archive and save it to the controller.
+// The returned clean up function must be called when the bootstrapping
+// process is completed.
+func (w *unixConfigure) setUpGUI() (func(), error) {
+	if w.icfg.GUI == nil {
+		// No GUI archives were found on simplestreams, and no development
+		// GUI path has been passed with the JUJU_GUI environment variable.
+		return nil, nil
+	}
+	u, err := url.Parse(w.icfg.GUI.URL)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot parse Juju GUI URL")
+	}
+	guiJson, err := json.Marshal(w.icfg.GUI)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	guiDir := w.icfg.GUITools()
+	w.conf.AddScripts(
+		"gui="+shquote(guiDir),
+		"mkdir -p $gui",
+	)
+	if u.Scheme == "file" {
+		// Upload the GUI from a local archive file.
+		guiData, err := ioutil.ReadFile(filepath.FromSlash(u.Path))
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot read Juju GUI archive")
+		}
+		w.conf.AddRunBinaryFile(path.Join(guiDir, "gui.tar.bz2"), guiData, 0644)
+	} else {
+		// Download the GUI from simplestreams.
+		command := "curl -sSf -o $gui/gui.tar.bz2 --retry 10"
+		if w.icfg.DisableSSLHostnameVerification {
+			command += " --insecure"
+		}
+		command += " " + shquote(u.String())
+		// A failure in fetching the Juju GUI archive should not prevent the
+		// model to be bootstrapped. Better no GUI than no Juju at all.
+		command += " || echo Unable to retrieve Juju GUI"
+		w.conf.AddRunCmd(command)
+	}
+	w.conf.AddScripts(
+		"[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256",
+		fmt.Sprintf(
+			`[ -f $gui/jujugui.sha256 ] && (grep '%s' $gui/jujugui.sha256 && printf %%s %s > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)`,
+			w.icfg.GUI.SHA256, shquote(string(guiJson))),
+	)
+	return func() {
+		// Don't remove the GUI archive until after bootstrap agent runs,
+		// so it has a chance to add it to its catalogue.
+		w.conf.AddRunCmd("rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt")
+	}, nil
+
 }
 
 // toolsDownloadCommand takes a curl command minus the source URL,
@@ -378,8 +449,8 @@ func toolsDownloadCommand(curlCommand string, urls []string) string {
 	return buf.String()
 }
 
-func base64yaml(m *config.Config) string {
-	data, err := goyaml.Marshal(m.AllAttrs())
+func base64yaml(attrs map[string]interface{}) string {
+	data, err := goyaml.Marshal(attrs)
 	if err != nil {
 		// can't happen, these values have been validated a number of times
 		panic(err)

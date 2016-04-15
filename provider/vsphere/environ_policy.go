@@ -71,15 +71,7 @@ func (env *environ) lookupArchitectures() ([]string, error) {
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.Networks,
-}
-
-// instanceTypeConstraints defines the fields defined on each of the
-// instance types.  See instancetypes.go.
-var instanceConstraints = []string{
-	constraints.Arch, // Arches
-	constraints.CpuCores,
-	constraints.CpuPower,
-	constraints.Mem,
+	constraints.VirtType,
 }
 
 // ConstraintsValidator returns a Validator value which is used to

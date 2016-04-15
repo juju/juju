@@ -20,21 +20,26 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/jujuclient"
 )
+
+var errNoModels = errors.New(`
+There are no models available. You can create models with
+"juju create-model", or you can ask an administrator or owner
+of a model to grant access to that model with "juju grant".`[1:])
 
 // NewRegisterCommand returns a command to allow the user to register a controller.
 func NewRegisterCommand() cmd.Command {
 	cmd := &registerCommand{}
 	cmd.apiOpen = cmd.APIOpen
-	cmd.newAPIRoot = cmd.NewAPIRoot
+	cmd.refreshModels = cmd.RefreshModels
 	cmd.store = jujuclient.NewFileClientStore()
 	return modelcmd.WrapBase(cmd)
 }
@@ -43,38 +48,41 @@ func NewRegisterCommand() cmd.Command {
 // information.
 type registerCommand struct {
 	modelcmd.JujuCommandBase
-	apiOpen     api.OpenFunc
-	newAPIRoot  modelcmd.OpenFunc
-	store       jujuclient.ClientStore
-	EncodedData string
+	apiOpen       api.OpenFunc
+	refreshModels func(_ jujuclient.ClientStore, controller, account string) error
+	store         jujuclient.ClientStore
+	EncodedData   string
 }
 
-var registerDoc = `
-register connects to a Juju controller and completes the user registration
-process started with "juju add-user". The user must supply the string that
-was printed out by "juju add-user", which embeds the username to register,
-a secret key, and the addresses of the Juju controller.
+var usageRegisterSummary = `
+Registers a Juju user to a controller.`[1:]
 
-Executing "juju register" will prompt for a password, and set this as the
-initial password for the user. After setting this password, the registration
-string will be void and standard login and user management commands will
-become usable.
+var usageRegisterDetails = `
+Connects to a controller and completes the user registration process that
+began with the `[1:] + "`juju add-user`" + ` command. The latter prints out the 'string'
+that is referred to in Usage.
+The user will be prompted for a password, which, once set, causes the 
+registration string to be voided. In order to start using Juju the user 
+can now either create a model or wait for a model to be shared with them.
+Some machine providers will require the user to be in possession of 
+certain credentials in order to create a model.
 
-See Also:
-    juju help add-user
-    juju help list-models
-    juju help use-models
-    juju help create-model
-    juju help switch
-`
+Examples:
+
+    juju register MFATA3JvZDAnExMxMDQuMTU0LjQyLjQ0OjE3MDcwExAxMC4xMjguMC4yOjE3MDcw
+    BCBEFCaXerhNImkKKabuX5ULWf2Bp4AzPNJEbXVWgraLrAA=
+
+See also: 
+    add-user
+    change-user-password`
 
 // Info implements Command.Info
 func (c *registerCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "register",
-		Args:    "<name>",
-		Purpose: "register with a Juju Controller",
-		Doc:     registerDoc,
+		Args:    "<string>",
+		Purpose: usageRegisterSummary,
+		Doc:     usageRegisterDetails,
 	}
 }
 
@@ -96,21 +104,12 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	legacyStore, err := configstore.Default()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	controllerInfo, err := legacyStore.ReadInfo(registrationParams.controllerName)
+	_, err = c.store.ControllerByName(registrationParams.controllerName)
 	if err == nil {
 		return errors.AlreadyExistsf("controller %q", registrationParams.controllerName)
 	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	fullModelName := configstore.EnvironInfoName(
-		registrationParams.controllerName,
-		configstore.AdminModelName(registrationParams.controllerName),
-	)
-	controllerInfo = legacyStore.CreateInfo(fullModelName)
 
 	// During registration we must set a new password. This has to be done
 	// atomically with the clearing of the secret key.
@@ -152,19 +151,6 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "unmarshalling response payload")
 	}
 
-	// Ensure there's a skeleton legacy record written with basic minimum information.
-	endpoint := controllerInfo.APIEndpoint()
-	endpoint.ServerUUID = responsePayload.ControllerUUID
-	endpoint.CACert = responsePayload.CACert
-	controllerInfo.SetAPIEndpoint(endpoint)
-	controllerInfo.SetAPICredentials(configstore.APICredentials{
-		User:     registrationParams.userTag.Id(),
-		Password: registrationParams.newPassword,
-	})
-	if err := controllerInfo.Write(); err != nil {
-		return errors.Trace(err)
-	}
-
 	// Store the controller and account details.
 	controllerDetails := jujuclient.ControllerDetails{
 		APIEndpoints:   registrationParams.controllerAddrs,
@@ -192,11 +178,7 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 
 	// Log into the controller to verify the credentials, and
 	// refresh the connection information.
-	apiConn, err := c.newAPIRoot(c.store, registrationParams.controllerName, accountName, "")
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := apiConn.Close(); err != nil {
+	if err := c.refreshModels(c.store, registrationParams.controllerName, accountName); err != nil {
 		return errors.Trace(err)
 	}
 	if err := modelcmd.WriteCurrentController(registrationParams.controllerName); err != nil {
@@ -207,6 +189,45 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		ctx.Stderr, "\nWelcome, %s. You are now logged into %q.\n",
 		registrationParams.userTag.Id(), registrationParams.controllerName,
 	)
+	return c.maybeSetCurrentModel(ctx, registrationParams.controllerName, accountName)
+}
+
+func (c *registerCommand) maybeSetCurrentModel(ctx *cmd.Context, controllerName, accountName string) error {
+	models, err := c.store.AllModels(controllerName, accountName)
+	if errors.IsNotFound(err) {
+		fmt.Fprintf(ctx.Stderr, "\n%s\n\n", errNoModels.Error())
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	// If we get to here, there is at least one model.
+	if len(models) == 1 {
+		// There is exactly one model shared,
+		// so set it as the current model.
+		var modelName string
+		for modelName = range models {
+			// Loop exists only to obtain one and only key.
+		}
+		err := c.store.SetCurrentModel(controllerName, accountName, modelName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		fmt.Fprintf(ctx.Stderr, "\nCurrent model set to %q\n\n", modelName)
+	} else {
+		fmt.Fprintf(ctx.Stderr, `
+There are %d models available. Use "juju switch" to select
+one of them:
+`, len(models))
+		modelNames := make(set.Strings)
+		for modelName := range models {
+			modelNames.Add(modelName)
+		}
+		for _, modelName := range modelNames.SortedValues() {
+			fmt.Fprintf(ctx.Stderr, "  - juju switch %s\n", modelName)
+		}
+		fmt.Fprintln(ctx.Stderr)
+	}
 	return nil
 }
 
@@ -273,13 +294,21 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 	r := bytes.NewReader(buf)
 
 	// Determine which address to use by attempting to open an API
-	// connection with each of the addresses. Note that we don't
-	// set a username/password, so no login will be attempted; and
-	// we skip verification, because we don't know the CA certificate
-	// and we do not send anything sensitive.
+	// connection with each of the addresses. Note that we do not
+	// know the CA certificate yet, so we do not want to send any
+	// sensitive information. We make no attempt to log in until
+	// we can verify the server's identity.
 	opts := api.DefaultDialOpts()
 	opts.InsecureSkipVerify = true
-	conn, err := c.apiOpen(&api.Info{Addrs: addrs}, opts)
+	conn, err := c.apiOpen(&api.Info{
+		Addrs:     addrs,
+		SkipLogin: true,
+		// NOTE(axw) CACert is required, but ignored if
+		// InsecureSkipVerify is set. We should try to
+		// bring together CACert and InsecureSkipVerify
+		// so they can be validated together.
+		CACert: "ignored",
+	}, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

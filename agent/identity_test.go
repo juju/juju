@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type identitySuite struct {
@@ -28,7 +28,7 @@ var _ = gc.Suite(&identitySuite{})
 
 var attributeParams = AgentConfigParams{
 	Tag:               names.NewMachineTag("1"),
-	UpgradedToVersion: version.Current,
+	UpgradedToVersion: jujuversion.Current,
 	Password:          "sekrit",
 	CACert:            "ca cert",
 	StateAddresses:    []string{"localhost:1234"},

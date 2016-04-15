@@ -8,34 +8,27 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.apicaller")
 
-// openConnection exists to be patched out in export_test.go (and let us test
-// this component without using a real API connection).
-var openConnection = func(a agent.Agent) (api.Connection, error) {
-	st, err := OpenAPIState(a)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return st, nil
-}
-
 // newApiConnWorker returns a worker that exists for as long as the associated
 // connection, and provides access to a base.APICaller via its manifold's Output
 // func. If the worker is killed, the connection will be closed; and if the
 // connection is broken, the worker will be killed.
-func newApiConnWorker(conn api.Connection) (worker.Worker, error) {
+//
+// The lack of error return is considered and intentional; it signals the
+// transfer of responsibility for the connection from the caller to the
+// worker.
+func newApiConnWorker(conn api.Connection) worker.Worker {
 	w := &apiConnWorker{conn: conn}
 	go func() {
 		defer w.tomb.Done()
 		w.tomb.Kill(w.loop())
 	}()
-	return w, nil
+	return w
 }
 
 type apiConnWorker struct {
@@ -53,8 +46,9 @@ func (w *apiConnWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
-// loop is somewhat out of the ordinary, because an api.State *does* maintain an
-// internal workeresque heartbeat goroutine, but it doesn't implement Worker.
+// loop is somewhat out of the ordinary, because an api.Connection
+// *does* maintain an internal workeresque heartbeat goroutine, but it
+// doesn't implement Worker.
 func (w *apiConnWorker) loop() (err error) {
 	// TODO(fwereade): we should make this rational at some point.
 

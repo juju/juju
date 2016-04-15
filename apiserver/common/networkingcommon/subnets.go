@@ -21,7 +21,7 @@ import (
 	providercommon "github.com/juju/juju/provider/common"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.common.networkingcommon.subnets")
+var logger = loggo.GetLogger("juju.apiserver.common.networkingcommon")
 
 // addSubnetsCache holds cached lists of spaces, zones, and subnets, used for
 // fast lookups while adding subnets.

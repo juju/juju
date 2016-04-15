@@ -100,8 +100,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.MetricSpoolName,
 			config.CharmDirName,
 		},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-			collector, err := newCollect(config, getResource)
+		Start: func(context dependency.Context) (worker.Worker, error) {
+			collector, err := newCollect(config, context)
 			if err != nil {
 				return nil, err
 			}
@@ -117,25 +117,25 @@ func socketName(baseDir, unitTag string) string {
 	return path.Join(baseDir, defaultSocketName)
 }
 
-func newCollect(config ManifoldConfig, getResource dependency.GetResourceFunc) (*collect, error) {
+func newCollect(config ManifoldConfig, context dependency.Context) (*collect, error) {
 	period := defaultPeriod
 	if config.Period != nil {
 		period = *config.Period
 	}
 
 	var agent agent.Agent
-	if err := getResource(config.AgentName, &agent); err != nil {
+	if err := context.Get(config.AgentName, &agent); err != nil {
 		return nil, err
 	}
 
 	var metricFactory spool.MetricFactory
-	err := getResource(config.MetricSpoolName, &metricFactory)
+	err := context.Get(config.MetricSpoolName, &metricFactory)
 	if err != nil {
 		return nil, err
 	}
 
 	var charmdir fortress.Guest
-	err = getResource(config.CharmDirName, &charmdir)
+	err = context.Get(config.CharmDirName, &charmdir)
 	if err != nil {
 		return nil, err
 	}

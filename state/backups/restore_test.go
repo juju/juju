@@ -20,16 +20,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&RestoreSuite{})
@@ -82,19 +80,6 @@ func (r *RestoreSuite) createTestFiles(c *gc.C) {
 	r.testFiles = []string{tarDirE, tarDirP, tarFile1, tarFile2}
 }
 
-func (r *RestoreSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user, password string) (added bool, err error) {
-	_, portString, err := net.SplitHostPort(dialInfo.Addrs[0])
-	c.Assert(err, jc.ErrorIsNil)
-	port, err := strconv.Atoi(portString)
-	c.Assert(err, jc.ErrorIsNil)
-	return mongo.EnsureAdminUser(mongo.EnsureAdminUserParams{
-		DialInfo: dialInfo,
-		Port:     port,
-		User:     user,
-		Password: password,
-	})
-}
-
 func (r *RestoreSuite) TestReplicasetIsReset(c *gc.C) {
 	server := &gitjujutesting.MgoInstance{Params: []string{"--replSet", "juju"}}
 	err := server.Start(coretesting.Certs)
@@ -121,17 +106,6 @@ type backupConfigTests struct {
 	yamlFile      io.Reader
 	expectedError error
 	message       string
-}
-
-var yamlLines = []string{
-	"# format 1.18",
-	"bogus: aBogusValue",
-	"tag: aTag",
-	"statepassword: aStatePassword",
-	"oldpassword: anOldPassword",
-	"stateport: 1",
-	"apiport: 2",
-	"cacert: aLengthyCACert",
 }
 
 func (r *RestoreSuite) TestSetAgentAddressScript(c *gc.C) {
@@ -207,7 +181,7 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 				DataDir: dataDir,
 				LogDir:  logDir,
 			},
-			UpgradedToVersion: version.Current,
+			UpgradedToVersion: jujuversion.Current,
 			Tag:               machineTag,
 			Model:             coretesting.ModelTag,
 			Password:          "placeholder",

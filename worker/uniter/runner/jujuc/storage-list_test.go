@@ -105,15 +105,18 @@ func (s *storageListSuite) TestHelp(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: storage-list [options] [<storage-name>]
-purpose: list storage attached to the unit
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: storage-list [options] [<storage-name>]
 
-options:
+Summary:
+list storage attached to the unit
+
+Options:
 --format  (= smart)
-    specify output format (json|smart|yaml)
+    Specify output format (json|smart|yaml)
 -o, --output (= "")
-    specify an output file
+    Specify an output file
 
+Details:
 storage-list will list the names of all storage instances
 attached to the unit. These names can be passed to storage-get
 via the "-s" flag to query the storage attributes.

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
 
@@ -41,7 +42,7 @@ func (m *Machine) Refresh() error {
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(status params.Status, info string, data map[string]interface{}) error {
+func (m *Machine) SetStatus(status status.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
@@ -107,4 +108,32 @@ func (m *Machine) Jobs() (*params.JobsResult, error) {
 		return nil, result.Error
 	}
 	return &result, nil
+}
+
+// SetObservedNetworkConfig sets the machine network config as observed on the
+// machine.
+func (m *Machine) SetObservedNetworkConfig(netConfig []params.NetworkConfig) error {
+	args := params.SetMachineNetworkConfig{
+		Tag:    m.Tag().String(),
+		Config: netConfig,
+	}
+	err := m.st.facade.FacadeCall("SetObservedNetworkConfig", args, nil)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// SetProviderNetworkConfig sets the machine network config as seen by the
+// provider.
+func (m *Machine) SetProviderNetworkConfig() error {
+	var result params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag.String()}},
+	}
+	err := m.st.facade.FacadeCall("SetProviderNetworkConfig", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
 }

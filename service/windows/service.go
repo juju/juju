@@ -20,7 +20,9 @@ import (
 var (
 	logger   = loggo.GetLogger("juju.worker.deployer.service")
 	renderer = &shell.PowershellRenderer{}
+)
 
+const (
 	// c_ERROR_SERVICE_DOES_NOT_EXIST is returned by the OS when trying to open
 	// an inexistent service
 	// https://msdn.microsoft.com/en-us/library/windows/desktop/ms684330%28v=vs.85%29.aspx
@@ -29,10 +31,6 @@ var (
 	// c_ERROR_SERVICE_EXISTS is returned by the operating system if the service
 	// we are trying to create, already exists
 	c_ERROR_SERVICE_EXISTS syscall.Errno = 0x431
-
-	// c_ERROR_ACCESS_DENIED is returned by the operating system if access is denied
-	// to that service.
-	c_ERROR_ACCESS_DENIED syscall.Errno = 0x5
 
 	// This is the user under which juju services start. We chose to use a
 	// normal user for this purpose because some installers require a normal
@@ -218,7 +216,7 @@ func (s *Service) Install() error {
 		return errors.Trace(err)
 	}
 	if installed {
-		return errors.Errorf("Service %s already installed", s.Service.Name)
+		return errors.Errorf("Service %s already installed", s.Name())
 	}
 
 	logger.Infof("Installing Service %v", s.Name())
@@ -231,7 +229,10 @@ func (s *Service) Install() error {
 
 // InstallCommands returns shell commands to install the service.
 func (s *Service) InstallCommands() ([]string, error) {
-	cmd := fmt.Sprintf(serviceInstallCommands[1:],
+	cmd := fmt.Sprintf(serviceCreateCommandTemplate[1:],
+		renderer.Quote(s.Service.Name),
+		renderer.Quote(s.Service.Conf.Desc),
+		renderer.Quote(s.Service.Conf.ExecStart),
 		renderer.Quote(s.Service.Name),
 		renderer.Quote(s.Service.Conf.Desc),
 		renderer.Quote(s.Service.Conf.ExecStart),
@@ -247,7 +248,11 @@ func (s *Service) StartCommands() ([]string, error) {
 	return []string{cmd}, nil
 }
 
-const serviceInstallCommands = `
-New-Service -Credential $jujuCreds -Name %s -DependsOn Winmgmt -DisplayName %s %s
+const serviceCreateCommandTemplate = `
+if ($jujuCreds) {
+  New-Service -Credential $jujuCreds -Name %s -DependsOn Winmgmt -DisplayName %s %s
+} else {
+  New-Service -Name %s -DependsOn Winmgmt -DisplayName %s %s
+}
 sc.exe failure %s reset=5 actions=restart/1000
 sc.exe failureflag %s 1`

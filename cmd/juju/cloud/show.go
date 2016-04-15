@@ -20,10 +20,16 @@ type showCloudCommand struct {
 }
 
 var showCloudDoc = `
-The show-cloud command displays information about a specified cloud.
+Provided information includes 'defined' (public, built-in), 'type',
+'auth-type', 'regions', and 'endpoints'.
 
-Example:
-   juju show-cloud aws
+Examples:
+
+    juju show-cloud google
+    juju show-cloud azure-china --output ~/azure_cloud_details.txt
+
+See also: list-clouds
+          update-clouds
 `
 
 // NewShowCloudCommand returns a command to list cloud information.
@@ -51,8 +57,8 @@ func (c *showCloudCommand) Init(args []string) error {
 func (c *showCloudCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-cloud",
-		Args:    "<cloudname>",
-		Purpose: "show the details a specified cloud",
+		Args:    "<cloud name>",
+		Purpose: "Shows detailed information on a cloud.",
 		Doc:     showCloudDoc,
 	}
 }

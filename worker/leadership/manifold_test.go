@@ -43,23 +43,23 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStartAgentMissing(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name":      dt.StubResource{Error: dependency.ErrMissing},
-		"api-caller-name": dt.StubResource{Output: &dummyApiCaller{}},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name":      dependency.ErrMissing,
+		"api-caller-name": &dummyApiCaller{},
 	})
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
 
 func (s *ManifoldSuite) TestStartApiCallerMissing(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name":      dt.StubResource{Output: &dummyAgent{}},
-		"api-caller-name": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name":      &dummyAgent{},
+		"api-caller-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
@@ -67,16 +67,16 @@ func (s *ManifoldSuite) TestStartApiCallerMissing(c *gc.C) {
 func (s *ManifoldSuite) TestStartError(c *gc.C) {
 	dummyAgent := &dummyAgent{}
 	dummyApiCaller := &dummyApiCaller{}
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name":      dt.StubResource{Output: dummyAgent},
-		"api-caller-name": dt.StubResource{Output: dummyApiCaller},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name":      dummyAgent,
+		"api-caller-name": dummyApiCaller,
 	})
 	s.PatchValue(&leadership.NewManifoldWorker, func(a agent.Agent, apiCaller base.APICaller, guarantee time.Duration) (worker.Worker, error) {
 		s.AddCall("newManifoldWorker", a, apiCaller, guarantee)
 		return nil, errors.New("blammo")
 	})
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "blammo")
 	s.CheckCalls(c, []testing.StubCall{{
@@ -88,9 +88,9 @@ func (s *ManifoldSuite) TestStartError(c *gc.C) {
 func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	dummyAgent := &dummyAgent{}
 	dummyApiCaller := &dummyApiCaller{}
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name":      dt.StubResource{Output: dummyAgent},
-		"api-caller-name": dt.StubResource{Output: dummyApiCaller},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name":      dummyAgent,
+		"api-caller-name": dummyApiCaller,
 	})
 	dummyWorker := &dummyWorker{}
 	s.PatchValue(&leadership.NewManifoldWorker, func(a agent.Agent, apiCaller base.APICaller, guarantee time.Duration) (worker.Worker, error) {
@@ -98,7 +98,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 		return dummyWorker, nil
 	})
 
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, dummyWorker)
 	s.CheckCalls(c, []testing.StubCall{{

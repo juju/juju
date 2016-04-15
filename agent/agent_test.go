@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -20,7 +21,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type suite struct {
@@ -55,7 +56,7 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 	},
 	checkErr: "password not found in configuration",
 }, {
@@ -63,7 +64,7 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 	},
 	checkErr: "model not found in configuration",
@@ -72,7 +73,7 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		Model:             names.NewModelTag("uuid"),
 	},
@@ -82,7 +83,7 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		Model:             testing.ModelTag,
 	},
@@ -92,7 +93,7 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
 		Model:             testing.ModelTag,
@@ -103,7 +104,7 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
 		Model:             testing.ModelTag,
@@ -115,7 +116,7 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
 		Model:             testing.ModelTag,
@@ -127,7 +128,7 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
 		Model:             testing.ModelTag,
@@ -138,7 +139,7 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
 		Model:             testing.ModelTag,
@@ -149,7 +150,7 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
 		Model:             testing.ModelTag,
@@ -162,7 +163,7 @@ var agentConfigTests = []struct {
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		CACert:            "ca cert",
 		Model:             testing.ModelTag,
 		StateAddresses:    []string{"localhost:1234"},
@@ -175,7 +176,7 @@ var agentConfigTests = []struct {
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		CACert:            "ca cert",
 		Model:             testing.ModelTag,
 		StateAddresses:    []string{"localhost:1234"},
@@ -191,7 +192,7 @@ var agentConfigTests = []struct {
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		CACert:            "ca cert",
 		Model:             testing.ModelTag,
 		StateAddresses:    []string{"localhost:1234"},
@@ -210,7 +211,7 @@ var agentConfigTests = []struct {
 		},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		CACert:            "ca cert",
 		Model:             testing.ModelTag,
 		StateAddresses:    []string{"localhost:1234"},
@@ -225,7 +226,7 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewUserTag("admin"), // this is a joke, the admin user is nil.
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 	},
 	checkErr: "entity tag must be MachineTag or UnitTag, got names.UserTag",
@@ -235,7 +236,7 @@ var agentConfigTests = []struct {
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewUnitTag("ubuntu/1"),
 		Password:          "sekrit",
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Model:             testing.ModelTag,
 		CACert:            "ca cert",
 		StateAddresses:    []string{"localhost:1234"},
@@ -250,7 +251,7 @@ var agentConfigTests = []struct {
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		CACert:            "ca cert",
 		Model:             testing.ModelTag,
 		StateAddresses:    []string{"localhost:1234"},
@@ -267,7 +268,7 @@ var agentConfigTests = []struct {
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		CACert:            "ca cert",
 		Model:             testing.ModelTag,
 		StateAddresses:    []string{"localhost:1234"},
@@ -506,7 +507,7 @@ var attributeParams = agent.AgentConfigParams{
 		DataDir: "/data/dir",
 	},
 	Tag:               names.NewMachineTag("1"),
-	UpgradedToVersion: version.Current,
+	UpgradedToVersion: jujuversion.Current,
 	Password:          "sekrit",
 	CACert:            "ca cert",
 	StateAddresses:    []string{"localhost:1234"},
@@ -525,7 +526,7 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.Tag(), gc.Equals, names.NewMachineTag("1"))
 	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/machine-1")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
-	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, version.Current)
+	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, jujuversion.Current)
 }
 
 func (*suite) TestStateServingInfo(c *gc.C) {
@@ -723,7 +724,7 @@ func (*suite) TestSetUpgradedToVersion(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(conf.UpgradedToVersion(), gc.Equals, version.Current)
+	c.Assert(conf.UpgradedToVersion(), gc.Equals, jujuversion.Current)
 
 	expectVers := version.MustParse("3.4.5")
 	conf.SetUpgradedToVersion(expectVers)
@@ -776,4 +777,13 @@ func (*suite) TestSetAPIHostPorts(c *gc.C) {
 		"0.4.0.1:4444",
 		"elsewhere.net:4444",
 	})
+}
+
+func (*suite) TestSetCACert(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conf.CACert(), gc.Equals, "ca cert")
+
+	conf.SetCACert("new ca cert")
+	c.Assert(conf.CACert(), gc.Equals, "new ca cert")
 }

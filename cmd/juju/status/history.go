@@ -35,26 +35,31 @@ type statusHistoryCommand struct {
 
 var statusHistoryDoc = `
 This command will report the history of status changes for
-a given unit.
-The statuses for the unit workload and/or agent are available.
+a given entity.
+The statuses are available for the following types.
 -type supports:
-    agent: will show statuses for the unit's agent
-    workload: will show statuses for the unit's workload
-    combined: will show agent and workload statuses combined
+    juju-unit: will show statuses for the unit's juju agent.
+    workload: will show statuses for the unit's workload.
+    unit: will show workload and juju agent combined for the specified unit.
+    juju-machine: will show statuses for machine's juju agent.
+    machine: will show statuses for machines.
+    juju-container: will show statuses for the container's juju agent.
+    container: will show statuses for containers.
  and sorted by time of occurrence.
+ The default is unit.
 `
 
 func (c *statusHistoryCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status-history",
-		Args:    "[-n N] <unit>",
-		Purpose: "output past statuses for a unit",
+		Args:    "[-n N] [--type T] [--utc] <entity name>",
+		Purpose: "output past statuses for the passed entity",
 		Doc:     statusHistoryDoc,
 	}
 }
 
 func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.outputContent, "type", "combined", "type of statuses to be displayed [agent|workload|combined].")
+	f.StringVar(&c.outputContent, "type", "unit", "type of statuses to be displayed [agent|workload|combined|machine|machineInstance|container|containerinstance].")
 	f.IntVar(&c.backlogSize, "n", 20, "size of logs backlog.")
 	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
 }
@@ -62,9 +67,9 @@ func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *statusHistoryCommand) Init(args []string) error {
 	switch {
 	case len(args) > 1:
-		return errors.Errorf("unexpected arguments after unit name.")
+		return errors.Errorf("unexpected arguments after entity name.")
 	case len(args) == 0:
-		return errors.Errorf("unit name is missing.")
+		return errors.Errorf("entity name is missing.")
 	default:
 		c.unitName = args[0]
 	}
@@ -81,9 +86,10 @@ func (c *statusHistoryCommand) Init(args []string) error {
 	}
 	kind := params.HistoryKind(c.outputContent)
 	switch kind {
-	case params.KindCombined, params.KindAgent, params.KindWorkload:
+	case params.KindUnit, params.KindUnitAgent, params.KindWorkload,
+		params.KindMachineInstance, params.KindMachine, params.KindContainer,
+		params.KindContainerInstance:
 		return nil
-
 	}
 	return errors.Errorf("unexpected status type %q", c.outputContent)
 }
@@ -91,12 +97,12 @@ func (c *statusHistoryCommand) Init(args []string) error {
 func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := c.NewAPIClient()
 	if err != nil {
-		return fmt.Errorf(connectionError, c.ConnectionName(), err)
+		return errors.Trace(err)
 	}
 	defer apiclient.Close()
-	var statuses *params.UnitStatusHistory
+	var statuses *params.StatusHistoryResults
 	kind := params.HistoryKind(c.outputContent)
-	statuses, err = apiclient.UnitStatusHistory(kind, c.unitName, c.backlogSize)
+	statuses, err = apiclient.StatusHistory(kind, c.unitName, c.backlogSize)
 	if err != nil {
 		if len(statuses.Statuses) == 0 {
 			return errors.Trace(err)

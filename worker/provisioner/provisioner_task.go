@@ -11,9 +11,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -24,12 +24,14 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/version"
 )
 
 type ProvisionerTask interface {
@@ -196,14 +198,14 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 	}
 	logger.Tracef("processMachinesWithTransientErrors(%v)", statusResults)
 	var pending []*apiprovisioner.Machine
-	for i, status := range statusResults {
-		if status.Error != nil {
-			logger.Errorf("cannot retry provisioning of machine %q: %v", status.Id, status.Error)
+	for i, statusResult := range statusResults {
+		if statusResult.Error != nil {
+			logger.Errorf("cannot retry provisioning of machine %q: %v", statusResult.Id, statusResult.Error)
 			continue
 		}
 		machine := machines[i]
-		if err := machine.SetStatus(params.StatusPending, "", nil); err != nil {
-			logger.Errorf("cannot reset status of machine %q: %v", status.Id, err)
+		if err := machine.SetStatus(status.StatusPending, "", nil); err != nil {
+			logger.Errorf("cannot reset status of machine %q: %v", statusResult.Id, err)
 			continue
 		}
 		task.machines[machine.Tag().String()] = machine
@@ -355,7 +357,7 @@ type ClassifiableMachine interface {
 	Life() params.Life
 	InstanceId() (instance.Id, error)
 	EnsureDead() error
-	Status() (params.Status, string, error)
+	Status() (status.Status, string, error)
 	Id() string
 }
 
@@ -389,12 +391,12 @@ func classifyMachine(machine ClassifiableMachine) (
 		if !params.IsCodeNotProvisioned(err) {
 			return None, errors.Annotatef(err, "failed to load machine id:%s, details:%v", machine.Id(), machine)
 		}
-		status, _, err := machine.Status()
+		machineStatus, _, err := machine.Status()
 		if err != nil {
 			logger.Infof("cannot get machine id:%s, details:%v, err:%v", machine.Id(), machine, err)
 			return None, nil
 		}
-		if status == params.StatusPending {
+		if machineStatus == status.StatusPending {
 			logger.Infof("found machine pending provisioning id:%s, details:%v", machine.Id(), machine)
 			return Pending, nil
 		}
@@ -597,6 +599,7 @@ func constructStartInstanceParams(
 		SubnetsToZones:    subnetsToZones,
 		EndpointBindings:  endpointBindings,
 		ImageMetadata:     possibleImageMetadata,
+		StatusCallback:    machine.SetInstanceStatus,
 	}, nil
 }
 
@@ -634,7 +637,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 		}
 
 		possibleTools, err := task.toolsFinder.FindTools(
-			version.Current,
+			jujuversion.Current,
 			pInfo.Series,
 			arch,
 		)
@@ -661,57 +664,11 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 
 func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisioner.Machine, err error) error {
 	logger.Errorf(message, machine, err)
-	if err1 := machine.SetStatus(params.StatusError, err.Error(), nil); err1 != nil {
+	if err1 := machine.SetStatus(status.StatusError, err.Error(), nil); err1 != nil {
 		// Something is wrong with this machine, better report it back.
 		return errors.Annotatef(err1, "cannot set error status for machine %q", machine)
 	}
 	return nil
-}
-
-func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.InterfaceInfo) (
-	networks []params.Network, ifaces []params.NetworkInterface, err error) {
-	if len(networkInfo) == 0 {
-		return nil, nil, nil
-	}
-	visitedNetworks := set.NewStrings()
-	for _, info := range networkInfo {
-		// TODO(dimitern): The following few fields are required, but no longer
-		// matter and will be dropped or changed soon as part of making spaces
-		// and subnets usable across the board.
-		if info.NetworkName == "" {
-			info.NetworkName = network.DefaultPrivate
-		}
-		if info.ProviderId == "" {
-			info.ProviderId = network.DefaultPrivate
-		}
-		if info.CIDR == "" {
-			// TODO(dimitern): This is only when NOT using addressable
-			// containers, as we don't fetch the subnet details, but since
-			// networks in state are going away real soon, it's not important.
-			info.CIDR = "0.0.0.0/32"
-		}
-		if !names.IsValidNetwork(info.NetworkName) {
-			return nil, nil, errors.Errorf("invalid network name %q", info.NetworkName)
-		}
-		networkTag := names.NewNetworkTag(info.NetworkName).String()
-		if !visitedNetworks.Contains(networkTag) {
-			networks = append(networks, params.Network{
-				Tag:        networkTag,
-				ProviderId: string(info.ProviderId),
-				CIDR:       info.CIDR,
-				VLANTag:    info.VLANTag,
-			})
-			visitedNetworks.Add(networkTag)
-		}
-		ifaces = append(ifaces, params.NetworkInterface{
-			InterfaceName: info.ActualInterfaceName(),
-			MACAddress:    info.MACAddress,
-			NetworkTag:    networkTag,
-			IsVirtual:     info.IsVirtual(),
-			Disabled:      info.Disabled,
-		})
-	}
-	return networks, ifaces, nil
 }
 
 func (task *provisionerTask) startMachine(
@@ -753,24 +710,17 @@ func (task *provisionerTask) startMachine(
 	inst := result.Instance
 	hardware := result.Hardware
 	nonce := startInstanceParams.InstanceConfig.MachineNonce
-	networks, ifaces, err := task.prepareNetworkAndInterfaces(result.NetworkInfo)
-	if err != nil {
-		return task.setErrorStatus("cannot prepare network for machine %q: %v", machine, err)
-	}
+	networkConfig := networkingcommon.NetworkConfigFromInterfaceInfo(result.NetworkInfo)
 	volumes := volumesToApiserver(result.Volumes)
 	volumeAttachments := volumeAttachmentsToApiserver(result.VolumeAttachments)
 
-	// TODO(dimitern) In a newer Provisioner API version, change
-	// SetInstanceInfo or add a new method that takes and saves in
-	// state all the information available on a network.InterfaceInfo
-	// for each interface, so we can later manage interfaces
-	// dynamically at run-time.
-	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networks, ifaces, volumes, volumeAttachments)
+	// TODO(dimitern) Bump provisioner API version.
+	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networkConfig, volumes, volumeAttachments)
 	if err == nil {
 		logger.Infof(
-			"started machine %s as instance %s with hardware %q, networks %v, interfaces %v, volumes %v, volume attachments %v, subnets to zones %v",
+			"started machine %s as instance %s with hardware %q, network config %+v, volumes %v, volume attachments %v, subnets to zones %v",
 			machine, inst.Id(), hardware,
-			networks, ifaces,
+			networkConfig,
 			volumes, volumeAttachments,
 			startInstanceParams.SubnetsToZones,
 		)

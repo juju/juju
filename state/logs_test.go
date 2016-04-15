@@ -173,8 +173,9 @@ func (s *LogsSuite) countLogs(c *gc.C, st *state.State) int {
 
 type LogTailerSuite struct {
 	ConnSuite
-	logsColl  *mgo.Collection
-	oplogColl *mgo.Collection
+	logsColl   *mgo.Collection
+	oplogColl  *mgo.Collection
+	otherState *state.State
 }
 
 var _ = gc.Suite(&LogTailerSuite{})
@@ -193,6 +194,13 @@ func (s *LogTailerSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { s.oplogColl.DropCollection() })
+
+	s.otherState = s.NewStateForModelNamed(c, "test-model")
+	c.Assert(s.otherState, gc.NotNil)
+	s.AddCleanup(func(c *gc.C) {
+		err := s.otherState.Close()
+		c.Assert(err, jc.ErrorIsNil)
+	})
 }
 
 func (s *LogTailerSuite) TestTimeFiltering(c *gc.C) {
@@ -206,10 +214,11 @@ func (s *LogTailerSuite) TestTimeFiltering(c *gc.C) {
 	// Add 5 logs that should be returned.
 	want := logTemplate{Message: "want"}
 	s.writeLogsT(c, threshT, threshT.Add(5*time.Second), 5, want)
-	tailer := state.NewLogTailer(s.State, &state.LogTailerParams{
+	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{
 		StartTime: threshT,
 		Oplog:     s.oplogColl,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 	s.assertTailer(c, tailer, 5, want)
 
@@ -231,9 +240,10 @@ func (s *LogTailerSuite) TestOplogTransition(c *gc.C) {
 		s.writeLogs(c, 1, logTemplate{Message: strconv.Itoa(i)})
 	}
 
-	tailer := state.NewLogTailer(s.State, &state.LogTailerParams{
+	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{
 		Oplog: s.oplogColl,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 	for i := 0; i < 5; i++ {
 		s.assertTailer(c, tailer, 1, logTemplate{Message: strconv.Itoa(i)})
@@ -247,7 +257,7 @@ func (s *LogTailerSuite) TestOplogTransition(c *gc.C) {
 	}
 }
 
-func (s *LogTailerSuite) TestEnvironmentFiltering(c *gc.C) {
+func (s *LogTailerSuite) TestModelFiltering(c *gc.C) {
 	good := logTemplate{Message: "good"}
 	writeLogs := func() {
 		s.writeLogs(c, 1, logTemplate{
@@ -266,7 +276,100 @@ func (s *LogTailerSuite) TestEnvironmentFiltering(c *gc.C) {
 		s.assertTailer(c, tailer, 1, good)
 	}
 
-	s.checkLogTailerFiltering(&state.LogTailerParams{}, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, &state.LogTailerParams{}, writeLogs, assert)
+}
+
+func (s *LogTailerSuite) TestTailingLogsForAllModels(c *gc.C) {
+	writeLogs := func() {
+		s.writeLogs(c, 1, logTemplate{
+			ModelUUID: "someuuid0",
+			Message:   "bad",
+		})
+		s.writeLogs(c, 1, logTemplate{
+			ModelUUID: "someuuid1",
+			Message:   "bad",
+		})
+		s.writeLogs(c, 1, logTemplate{Message: "good"})
+	}
+
+	assert := func(tailer state.LogTailer) {
+		messagesFrom := map[string]bool{
+			s.otherState.ModelUUID(): false,
+			"someuuid0":              false,
+			"someuuid1":              false,
+		}
+		defer func() {
+			c.Assert(messagesFrom, gc.HasLen, 3)
+			for _, v := range messagesFrom {
+				c.Assert(v, jc.IsTrue)
+			}
+		}()
+		count := 0
+		for {
+			select {
+			case log := <-tailer.Logs():
+				messagesFrom[log.ModelUUID] = true
+				count++
+				c.Logf("count %d", count)
+				if count >= 3 {
+					return
+				}
+			case <-time.After(coretesting.ShortWait):
+				c.Fatalf("timeout waiting for logs %d", count)
+			}
+		}
+	}
+	s.checkLogTailerFiltering(c, s.State, &state.LogTailerParams{AllModels: true}, writeLogs, assert)
+}
+
+func (s *LogTailerSuite) TestTailingLogsOnlyForControllerModel(c *gc.C) {
+	writeLogs := func() {
+		s.writeLogs(c, 1, logTemplate{
+			ModelUUID: s.otherState.ModelUUID(),
+			Message:   "bad"},
+		)
+		s.writeLogs(c, 1, logTemplate{
+			ModelUUID: s.State.ModelUUID(),
+			Message:   "good1",
+		})
+		s.writeLogs(c, 1, logTemplate{
+			ModelUUID: s.State.ModelUUID(),
+			Message:   "good2",
+		})
+	}
+
+	assert := func(tailer state.LogTailer) {
+		messages := map[string]bool{}
+		defer func() {
+			c.Assert(messages, gc.HasLen, 2)
+			for m, _ := range messages {
+				if m != "good1" && m != "good2" {
+					c.Fatalf("received message: %v", m)
+				}
+			}
+		}()
+		count := 0
+		for {
+			select {
+			case log := <-tailer.Logs():
+				c.Assert(log.ModelUUID, gc.Equals, s.State.ModelUUID())
+				messages[log.Message] = true
+				count++
+				c.Logf("count %d", count)
+				if count >= 2 {
+					return
+				}
+			case <-time.After(coretesting.ShortWait):
+				c.Fatalf("timeout waiting for logs %d", count)
+			}
+		}
+	}
+	s.checkLogTailerFiltering(c, s.State, &state.LogTailerParams{}, writeLogs, assert)
+}
+
+func (s *LogTailerSuite) TestTailingAllLogsFromNonController(c *gc.C) {
+	_, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{AllModels: true})
+	c.Assert(err, gc.ErrorMatches, "not allowed to tail logs from all models: not a controller")
 }
 
 func (s *LogTailerSuite) TestLevelFiltering(c *gc.C) {
@@ -284,7 +387,7 @@ func (s *LogTailerSuite) TestLevelFiltering(c *gc.C) {
 		s.assertTailer(c, tailer, 1, info)
 		s.assertTailer(c, tailer, 1, error)
 	}
-	s.checkLogTailerFiltering(params, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 
 func (s *LogTailerSuite) TestInitialLines(c *gc.C) {
@@ -292,9 +395,10 @@ func (s *LogTailerSuite) TestInitialLines(c *gc.C) {
 	s.writeLogs(c, 3, logTemplate{Message: "dont want"})
 	s.writeLogs(c, 5, expected)
 
-	tailer := state.NewLogTailer(s.State, &state.LogTailerParams{
+	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{
 		InitialLines: 5,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 
 	// Should see just the last 5 lines as requested.
@@ -305,9 +409,10 @@ func (s *LogTailerSuite) TestInitialLinesWithNotEnoughLines(c *gc.C) {
 	expected := logTemplate{Message: "want"}
 	s.writeLogs(c, 2, expected)
 
-	tailer := state.NewLogTailer(s.State, &state.LogTailerParams{
+	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{
 		InitialLines: 5,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 
 	// Should see just the 2 lines that existed, even though 5 were
@@ -324,9 +429,10 @@ func (s *LogTailerSuite) TestNoTail(c *gc.C) {
 	err := s.writeLogToOplog(doc)
 	c.Assert(err, jc.ErrorIsNil)
 
-	tailer := state.NewLogTailer(s.State, &state.LogTailerParams{
+	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{
 		NoTail: true,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	// Not strictly necessary, just in case NoTail doesn't work in the test.
 	defer tailer.Stop()
 
@@ -370,7 +476,7 @@ func (s *LogTailerSuite) TestIncludeEntity(c *gc.C) {
 		s.assertTailer(c, tailer, 2, foo0)
 		s.assertTailer(c, tailer, 1, foo1)
 	}
-	s.checkLogTailerFiltering(params, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 
 func (s *LogTailerSuite) TestIncludeEntityWildcard(c *gc.C) {
@@ -392,7 +498,7 @@ func (s *LogTailerSuite) TestIncludeEntityWildcard(c *gc.C) {
 		s.assertTailer(c, tailer, 2, foo0)
 		s.assertTailer(c, tailer, 1, foo1)
 	}
-	s.checkLogTailerFiltering(params, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 
 func (s *LogTailerSuite) TestExcludeEntity(c *gc.C) {
@@ -414,7 +520,7 @@ func (s *LogTailerSuite) TestExcludeEntity(c *gc.C) {
 	assert := func(tailer state.LogTailer) {
 		s.assertTailer(c, tailer, 1, foo1)
 	}
-	s.checkLogTailerFiltering(params, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 
 func (s *LogTailerSuite) TestExcludeEntityWildcard(c *gc.C) {
@@ -436,7 +542,7 @@ func (s *LogTailerSuite) TestExcludeEntityWildcard(c *gc.C) {
 	assert := func(tailer state.LogTailer) {
 		s.assertTailer(c, tailer, 1, foo1)
 	}
-	s.checkLogTailerFiltering(params, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 func (s *LogTailerSuite) TestIncludeModule(c *gc.C) {
 	mod0 := logTemplate{Module: "foo.bar"}
@@ -459,7 +565,7 @@ func (s *LogTailerSuite) TestIncludeModule(c *gc.C) {
 		s.assertTailer(c, tailer, 1, subMod1)
 		s.assertTailer(c, tailer, 1, mod2)
 	}
-	s.checkLogTailerFiltering(params, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 
 func (s *LogTailerSuite) TestExcludeModule(c *gc.C) {
@@ -481,7 +587,7 @@ func (s *LogTailerSuite) TestExcludeModule(c *gc.C) {
 	assert := func(tailer state.LogTailer) {
 		s.assertTailer(c, tailer, 2, mod0)
 	}
-	s.checkLogTailerFiltering(params, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 
 func (s *LogTailerSuite) TestIncludeExcludeModule(c *gc.C) {
@@ -506,10 +612,12 @@ func (s *LogTailerSuite) TestIncludeExcludeModule(c *gc.C) {
 		// then excluded.
 		s.assertTailer(c, tailer, 1, qux)
 	}
-	s.checkLogTailerFiltering(params, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 
 func (s *LogTailerSuite) checkLogTailerFiltering(
+	c *gc.C,
+	st *state.State,
 	params *state.LogTailerParams,
 	writeLogs func(),
 	assertTailer func(state.LogTailer),
@@ -518,7 +626,8 @@ func (s *LogTailerSuite) checkLogTailerFiltering(
 	// logs collection.
 	writeLogs()
 	params.Oplog = s.oplogColl
-	tailer := state.NewLogTailer(s.State, params)
+	tailer, err := state.NewLogTailer(st, params)
+	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 	assertTailer(tailer)
 
@@ -575,7 +684,7 @@ func (s *LogTailerSuite) writeLogToOplog(doc interface{}) error {
 
 func (s *LogTailerSuite) normaliseLogTemplate(lt *logTemplate) {
 	if lt.ModelUUID == "" {
-		lt.ModelUUID = s.State.ModelUUID()
+		lt.ModelUUID = s.otherState.ModelUUID()
 	}
 	if lt.Entity == nil {
 		lt.Entity = names.NewMachineTag("0")
@@ -623,6 +732,7 @@ func (s *LogTailerSuite) assertTailer(c *gc.C, tailer state.LogTailer, expectedC
 			c.Assert(log.Location, gc.Equals, lt.Location)
 			c.Assert(log.Level, gc.Equals, lt.Level)
 			c.Assert(log.Message, gc.Equals, lt.Message)
+			c.Assert(log.ModelUUID, gc.Equals, lt.ModelUUID)
 			count++
 			if count == expectedCount {
 				return

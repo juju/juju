@@ -24,7 +24,10 @@ func handleDebugLogDBRequest(
 	stop <-chan struct{},
 ) error {
 	params := makeLogTailerParams(reqParams)
-	tailer := newLogTailer(st, params)
+	tailer, err := newLogTailer(st, params)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer tailer.Stop()
 
 	// Indicate that all is well.
@@ -87,6 +90,6 @@ func formatTime(t time.Time) string {
 
 var newLogTailer = _newLogTailer // For replacing in tests
 
-func _newLogTailer(st state.LoggingState, params *state.LogTailerParams) state.LogTailer {
+func _newLogTailer(st state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
 	return state.NewLogTailer(st, params)
 }

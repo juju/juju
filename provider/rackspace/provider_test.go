@@ -4,6 +4,7 @@
 package rackspace_test
 
 import (
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/errors"
@@ -11,6 +12,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/rackspace"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type providerSuite struct {
@@ -29,64 +31,72 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "some-name",
 		"type":            "some-type",
+		"uuid":            coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ModelTag.Id(),
 		"authorized-keys": "key",
 	})
 	c.Check(err, gc.IsNil)
 	_, err = s.provider.Validate(cfg, nil)
 	c.Check(err, gc.IsNil)
-	c.Check(s.innerProvider.Pop().name, gc.Equals, "Validate")
+	s.innerProvider.CheckCallNames(c, "Validate")
+}
+
+func (s *providerSuite) TestBootstrapConfig(c *gc.C) {
+	args := environs.BootstrapConfigParams{CloudRegion: "dfw"}
+	s.provider.BootstrapConfig(args)
+
+	expect := args
+	expect.CloudRegion = "DFW"
+	s.innerProvider.CheckCalls(c, []testing.StubCall{
+		{"BootstrapConfig", []interface{}{expect}},
+	})
 }
 
 type fakeProvider struct {
-	methodCalls []methodCall
-}
-
-func (p *fakeProvider) Push(name string, params ...interface{}) {
-	p.methodCalls = append(p.methodCalls, methodCall{name, params})
-}
-
-func (p *fakeProvider) Pop() methodCall {
-	m := p.methodCalls[0]
-	p.methodCalls = p.methodCalls[1:]
-	return m
+	testing.Stub
 }
 
 func (p *fakeProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	p.Push("Open", cfg)
+	p.MethodCall(p, "Open", cfg)
 	return nil, nil
 }
 
 func (p *fakeProvider) RestrictedConfigAttributes() []string {
-	p.Push("RestrictedConfigAttributes")
+	p.MethodCall(p, "RestrictedConfigAttributes")
 	return nil
 }
 
 func (p *fakeProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	p.Push("PrepareForCreateEnvironment", cfg)
+	p.MethodCall(p, "PrepareForCreateEnvironment", cfg)
 	return nil, nil
 }
 
-func (p *fakeProvider) PrepareForBootstrap(ctx environs.BootstrapContext, args environs.PrepareForBootstrapParams) (environs.Environ, error) {
-	p.Push("PrepareForBootstrap", ctx, args)
+func (p *fakeProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*config.Config, error) {
+	p.MethodCall(p, "BootstrapConfig", args)
+	return nil, nil
+}
+
+func (p *fakeProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+	p.MethodCall(p, "PrepareForBootstrap", ctx, cfg)
 	return nil, nil
 }
 
 func (p *fakeProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	p.Push("Validate", cfg, old)
+	p.MethodCall(p, "Validate", cfg, old)
 	return cfg, nil
 }
 
 func (p *fakeProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	p.Push("SecretAttrs", cfg)
+	p.MethodCall(p, "SecretAttrs", cfg)
 	return nil, nil
 }
 
 func (p *fakeProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	p.Push("CredentialSchemas")
+	p.MethodCall(p, "CredentialSchemas")
 	return nil
 }
 
 func (p *fakeProvider) DetectCredentials() (*cloud.CloudCredential, error) {
-	p.Push("DetectCredentials")
+	p.MethodCall(p, "DetectCredentials")
 	return nil, errors.NotFoundf("credentials")
 }

@@ -121,25 +121,6 @@ func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *gc.C) {
 	c.Assert(results[3].description, gc.Equals, "foo description")
 }
 
-func (suite *PluginSuite) TestHelpPluginsWithNoPlugins(c *gc.C) {
-	output := badrun(c, 0, "help", "plugins")
-	c.Assert(output, jc.HasPrefix, PluginTopicText)
-	c.Assert(output, jc.HasSuffix, "\n\nNo plugins found.\n")
-}
-
-func (suite *PluginSuite) TestHelpPluginsWithPlugins(c *gc.C) {
-	suite.makeFullPlugin(PluginParams{Name: "foo"})
-	suite.makeFullPlugin(PluginParams{Name: "bar"})
-	output := badrun(c, 0, "help", "plugins")
-	c.Assert(output, jc.HasPrefix, PluginTopicText)
-	expectedPlugins := `
-
-bar  bar description
-foo  foo description
-`
-	c.Assert(output, jc.HasSuffix, expectedPlugins)
-}
-
 func (suite *PluginSuite) TestHelpPluginName(c *gc.C) {
 	suite.makeFullPlugin(PluginParams{Name: "foo"})
 	output := badrun(c, 0, "help", "foo")

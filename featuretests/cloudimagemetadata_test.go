@@ -17,20 +17,16 @@ import (
 
 type cloudImageMetadataSuite struct {
 	testing.JujuConnSuite
-
 	client *imagemetadata.Client
 }
 
 func (s *cloudImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-
 	s.client = imagemetadata.NewClient(s.APIState)
 	c.Assert(s.client, gc.NotNil)
-}
-
-func (s *cloudImageMetadataSuite) TearDownTest(c *gc.C) {
-	s.client.ClientFacade.Close()
-	s.JujuConnSuite.TearDownTest(c)
+	s.AddCleanup(func(*gc.C) {
+		s.client.ClientFacade.Close()
+	})
 }
 
 func (s *cloudImageMetadataSuite) TestSaveAndFindAndDeleteMetadata(c *gc.C) {

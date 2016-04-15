@@ -16,12 +16,14 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/charm.v6-unstable"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/status"
 )
 
 // Service represents the state of a service.
@@ -39,6 +41,7 @@ type serviceDoc struct {
 	Series               string     `bson:"series"`
 	Subordinate          bool       `bson:"subordinate"`
 	CharmURL             *charm.URL `bson:"charmurl"`
+	Channel              string     `bson:"cs-channel"`
 	CharmModifiedVersion int        `bson:"charmmodifiedversion"`
 	ForceCharm           bool       `bson:"forcecharm"`
 	Life                 Life       `bson:"life"`
@@ -179,6 +182,12 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		}
 		ops = append(ops, relOps...)
 	}
+	// TODO(ericsnow) Use a generic registry instead.
+	resOps, err := removeResourcesOps(s.st, s.doc.Name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, resOps...)
 	// If the service has no units, and all its known relations will be
 	// removed, the service can also be removed.
 	if s.doc.UnitCount == 0 && s.doc.RelationCount == removeCount {
@@ -219,6 +228,22 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 	}), nil
 }
 
+func removeResourcesOps(st *State, serviceID string) ([]txn.Op, error) {
+	persist, err := st.ResourcesPersistence()
+	if errors.IsNotSupported(err) {
+		// Nothing to see here, move along.
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops, err := persist.NewRemoveResourcesOps(serviceID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ops, nil
+}
+
 // removeOps returns the operations required to remove the service. Supplied
 // asserts will be included in the operation on the service document.
 func (s *Service) removeOps(asserts bson.D) []txn.Op {
@@ -243,8 +268,9 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 		removeStorageConstraintsOp(s.globalKey()),
 		removeConstraintsOp(s.st, s.globalKey()),
 		annotationRemoveOp(s.st, s.globalKey()),
-		removeLeadershipSettingsOp(s.Tag().Id()),
+		removeLeadershipSettingsOp(s.Name()),
 		removeStatusOp(s.st, s.globalKey()),
+		removeModelServiceRefOp(s.st, s.Name()),
 	}
 	return ops
 }
@@ -285,6 +311,8 @@ func (s *Service) setExposed(exposed bool) (err error) {
 // Charm returns the service's charm and whether units should upgrade to that
 // charm even if they are in an error state.
 func (s *Service) Charm() (ch *Charm, force bool, err error) {
+	// We don't worry about the channel since we aren't interacting
+	// with the charm store here.
 	ch, err = s.st.Charm(s.doc.CharmURL)
 	if err != nil {
 		return nil, false, err
@@ -308,6 +336,13 @@ func (s *Service) CharmModifiedVersion() int {
 // to the charm with that URL even if they are in an error state.
 func (s *Service) CharmURL() (curl *charm.URL, force bool) {
 	return s.doc.CharmURL, s.doc.ForceCharm
+}
+
+// Channel identifies the charm store channel from which the service's
+// charm was deployed. It is only needed when interacting with the charm
+// store.
+func (s *Service) Channel() csparams.Channel {
+	return csparams.Channel(s.doc.Channel)
 }
 
 // Endpoints returns the service's currently available relation endpoints.
@@ -478,7 +513,7 @@ func (s *Service) checkStorageUpgrade(newMeta *charm.Meta) (err error) {
 
 // changeCharmOps returns the operations necessary to set a service's
 // charm URL to a new value.
-func (s *Service) changeCharmOps(ch *Charm, forceUnits bool, resourceIDs map[string]string) ([]txn.Op, error) {
+func (s *Service) changeCharmOps(ch *Charm, channel string, forceUnits bool, resourceIDs map[string]string) ([]txn.Op, error) {
 	// Build the new service config from what can be used of the old one.
 	var newSettings charm.Settings
 	oldSettings, err := readSettings(s.st, s.settingsKey())
@@ -539,7 +574,11 @@ func (s *Service) changeCharmOps(ch *Charm, forceUnits bool, resourceIDs map[str
 			C:      servicesC,
 			Id:     s.doc.DocID,
 			Assert: append(notDeadDoc, differentCharm...),
-			Update: bson.D{{"$set", bson.D{{"charmurl", ch.URL()}, {"forcecharm", forceUnits}}}},
+			Update: bson.D{{"$set", bson.D{
+				{"charmurl", ch.URL()},
+				{"cs-channel", channel},
+				{"forcecharm", forceUnits},
+			}}},
 		},
 	}...)
 
@@ -632,6 +671,8 @@ func (s *Service) resolveResourceOps(resourceIDs map[string]string) ([]txn.Op, e
 type SetCharmConfig struct {
 	// Charm is the new charm to use for the service.
 	Charm *Charm
+	// Channel is the charm store channel from which charm was pulled.
+	Channel csparams.Channel
 	// ForceUnits forces the upgrade on units in an error state.
 	ForceUnits bool `json:"forceunits"`
 	// ForceSeries forces the use of the charm even if it doesn't match the
@@ -675,7 +716,8 @@ func (s *Service) SetCharm(cfg SetCharmConfig) error {
 		}
 	} else {
 		// Even with forceSeries=true, we do not allow a charm to be used which is for
-		// a different OS.
+		// a different OS. This assumes the charm declares it has supported series which
+		// we can check for OS compatibility. Otherwise, we just accept the series supplied.
 		currentOS, err := series.GetOSFromSeries(s.doc.Series)
 		if err != nil {
 			// We don't expect an error here but there's not much we can
@@ -683,7 +725,8 @@ func (s *Service) SetCharm(cfg SetCharmConfig) error {
 			return err
 		}
 		supportedOS := false
-		for _, chSeries := range cfg.Charm.Meta().Series {
+		supportedSeries := cfg.Charm.Meta().Series
+		for _, chSeries := range supportedSeries {
 			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
 			if err != nil {
 				return nil
@@ -693,7 +736,7 @@ func (s *Service) SetCharm(cfg SetCharmConfig) error {
 				break
 			}
 		}
-		if !supportedOS {
+		if !supportedOS && len(supportedSeries) > 0 {
 			return errors.Errorf("cannot upgrade charm, OS %q not supported by charm", currentOS)
 		}
 	}
@@ -704,6 +747,7 @@ func (s *Service) SetCharm(cfg SetCharmConfig) error {
 	// this value holds the *previous* charm modified version, before this
 	// transaction commits.
 	var charmModifiedVersion int
+	channel := string(cfg.Channel)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// NOTE: We're explicitly allowing SetCharm to succeed
@@ -752,17 +796,20 @@ func (s *Service) SetCharm(cfg SetCharmConfig) error {
 			return nil, errors.Trace(err)
 		}
 		if count > 0 {
-			// Charm URL already set; just update the force flag.
+			// Charm URL already set; just update the force flag and channel.
 			sameCharm := bson.D{{"charmurl", cfg.Charm.URL()}}
 			ops = append(ops, []txn.Op{{
 				C:      servicesC,
 				Id:     s.doc.DocID,
 				Assert: append(notDeadDoc, sameCharm...),
-				Update: bson.D{{"$set", bson.D{{"forcecharm", cfg.ForceUnits}}}},
+				Update: bson.D{{"$set", bson.D{
+					{"cs-channel", channel},
+					{"forcecharm", cfg.ForceUnits},
+				}}},
 			}}...)
 		} else {
 			// Change the charm URL.
-			chng, err := s.changeCharmOps(cfg.Charm, cfg.ForceUnits, cfg.ResourceIDs)
+			chng, err := s.changeCharmOps(cfg.Charm, channel, cfg.ForceUnits, cfg.ResourceIDs)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -774,6 +821,7 @@ func (s *Service) SetCharm(cfg SetCharmConfig) error {
 	err := s.st.run(buildTxn)
 	if err == nil {
 		s.doc.CharmURL = cfg.Charm.URL()
+		s.doc.Channel = channel
 		s.doc.ForceCharm = cfg.ForceUnits
 		s.doc.CharmModifiedVersion = charmModifiedVersion + 1
 	}
@@ -900,14 +948,15 @@ func (s *Service) addUnitOpsWithCons(args serviceAddUnitOpsArgs) (string, []txn.
 		Principal:              args.principalName,
 		StorageAttachmentCount: numStorageAttachments,
 	}
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	now := time.Now()
 	agentStatusDoc := statusDoc{
-		Status:  StatusAllocating,
+		Status:  status.StatusAllocating,
 		Updated: now.UnixNano(),
 	}
 	unitStatusDoc := statusDoc{
 		// TODO(fwereade): this violates the spec. Should be "waiting".
-		Status:     StatusUnknown,
+		Status:     status.StatusUnknown,
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    now.UnixNano(),
 	}
@@ -1028,6 +1077,12 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
+	// TODO(ericsnow) Use a generic registry instead.
+	resOps, err := removeUnitResourcesOps(s.st, u.doc.Service, u.doc.Name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, resOps...)
 
 	observedFieldsMatch := bson.D{
 		{"charmurl", u.doc.CharmURL},
@@ -1080,6 +1135,22 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	}
 	ops = append(ops, svcOp)
 
+	return ops, nil
+}
+
+func removeUnitResourcesOps(st *State, serviceID, unitID string) ([]txn.Op, error) {
+	persist, err := st.ResourcesPersistence()
+	if errors.IsNotSupported(err) {
+		// Nothing to see here, move along.
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops, err := persist.NewRemoveUnitResourcesOps(unitID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return ops, nil
 }
 
@@ -1328,7 +1399,7 @@ func (s *Service) defaultEndpointBindings() (map[string]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return defaultEndpointBindingsForCharm(charm.Meta())
+	return DefaultEndpointBindingsForCharm(charm.Meta()), nil
 }
 
 // MetricCredentials returns any metric credentials associated with this service.
@@ -1463,12 +1534,12 @@ type settingsRefsDoc struct {
 // Only unit leaders are allowed to set the status of the service.
 // If no status is recorded, then there are no unit leaders and the
 // status is derived from the unit status values.
-func (s *Service) Status() (StatusInfo, error) {
+func (s *Service) Status() (status.StatusInfo, error) {
 	statuses, closer := s.st.getCollection(statusesC)
 	defer closer()
 	query := statuses.Find(bson.D{{"_id", s.globalKey()}, {"neverset", true}})
 	if count, err := query.Count(); err != nil {
-		return StatusInfo{}, errors.Trace(err)
+		return status.StatusInfo{}, errors.Trace(err)
 	} else if count != 0 {
 		// This indicates that SetStatus has never been called on this service.
 		// This in turn implies the service status document is likely to be
@@ -1482,7 +1553,7 @@ func (s *Service) Status() (StatusInfo, error) {
 		// the right places rather than being applied at seeming random.
 		units, err := s.AllUnits()
 		if err != nil {
-			return StatusInfo{}, err
+			return status.StatusInfo{}, err
 		}
 		logger.Tracef("service %q has %d units", s.Name(), len(units))
 		if len(units) > 0 {
@@ -1493,34 +1564,40 @@ func (s *Service) Status() (StatusInfo, error) {
 }
 
 // SetStatus sets the status for the service.
-func (s *Service) SetStatus(status Status, info string, data map[string]interface{}) error {
-	if !ValidWorkloadStatus(status) {
-		return errors.Errorf("cannot set invalid status %q", status)
+func (s *Service) SetStatus(serviceStatus status.Status, info string, data map[string]interface{}) error {
+	if !status.ValidWorkloadStatus(serviceStatus) {
+		return errors.Errorf("cannot set invalid status %q", serviceStatus)
 	}
 	return setStatus(s.st, setStatusParams{
 		badge:     "service",
 		globalKey: s.globalKey(),
-		status:    status,
+		status:    serviceStatus,
 		message:   info,
 		rawData:   data,
 	})
 }
 
+// StatusHistory returns a slice of at most <size> StatusInfo items
+// representing past statuses for this service.
+func (s *Service) StatusHistory(size int) ([]status.StatusInfo, error) {
+	return statusHistory(s.st, s.globalKey(), size)
+}
+
 // ServiceAndUnitsStatus returns the status for this service and all its units.
-func (s *Service) ServiceAndUnitsStatus() (StatusInfo, map[string]StatusInfo, error) {
+func (s *Service) ServiceAndUnitsStatus() (status.StatusInfo, map[string]status.StatusInfo, error) {
 	serviceStatus, err := s.Status()
 	if err != nil {
-		return StatusInfo{}, nil, errors.Trace(err)
+		return status.StatusInfo{}, nil, errors.Trace(err)
 	}
 	units, err := s.AllUnits()
 	if err != nil {
-		return StatusInfo{}, nil, err
+		return status.StatusInfo{}, nil, err
 	}
-	results := make(map[string]StatusInfo, len(units))
+	results := make(map[string]status.StatusInfo, len(units))
 	for _, unit := range units {
 		unitStatus, err := unit.Status()
 		if err != nil {
-			return StatusInfo{}, nil, err
+			return status.StatusInfo{}, nil, err
 		}
 		results[unit.Name()] = unitStatus
 	}
@@ -1528,13 +1605,13 @@ func (s *Service) ServiceAndUnitsStatus() (StatusInfo, map[string]StatusInfo, er
 
 }
 
-func (s *Service) deriveStatus(units []*Unit) (StatusInfo, error) {
-	var result StatusInfo
+func (s *Service) deriveStatus(units []*Unit) (status.StatusInfo, error) {
+	var result status.StatusInfo
 	for _, unit := range units {
 		currentSeverity := statusServerities[result.Status]
 		unitStatus, err := unit.Status()
 		if err != nil {
-			return StatusInfo{}, errors.Annotatef(err, "deriving service status from %q", unit.Name())
+			return status.StatusInfo{}, errors.Annotatef(err, "deriving service status from %q", unit.Name())
 		}
 		unitSeverity := statusServerities[unitStatus.Status]
 		if unitSeverity > currentSeverity {
@@ -1549,14 +1626,14 @@ func (s *Service) deriveStatus(units []*Unit) (StatusInfo, error) {
 
 // statusSeverities holds status values with a severity measure.
 // Status values with higher severity are used in preference to others.
-var statusServerities = map[Status]int{
-	StatusError:       100,
-	StatusBlocked:     90,
-	StatusWaiting:     80,
-	StatusMaintenance: 70,
-	StatusTerminated:  60,
-	StatusActive:      50,
-	StatusUnknown:     40,
+var statusServerities = map[status.Status]int{
+	status.StatusError:       100,
+	status.StatusBlocked:     90,
+	status.StatusWaiting:     80,
+	status.StatusMaintenance: 70,
+	status.StatusTerminated:  60,
+	status.StatusActive:      50,
+	status.StatusUnknown:     40,
 }
 
 type addServiceOpsArgs struct {
@@ -1594,6 +1671,7 @@ func addServiceOps(st *State, args addServiceOpsArgs) []txn.Op {
 		createSettingsOp(settingsKey, args.settings),
 		createSettingsOp(leadershipKey, args.leadershipSettings),
 		createStatusOp(st, globalKey, args.statusDoc),
+		addModelServiceRefOp(st, svc.Name()),
 		{
 			C:      settingsrefsC,
 			Id:     settingsKey,

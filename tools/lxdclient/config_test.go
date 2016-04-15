@@ -29,9 +29,10 @@ func (s *configBaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.remote = lxdclient.Remote{
-		Name: "my-remote",
-		Host: "some-host",
-		Cert: s.Cert,
+		Name:     "my-remote",
+		Host:     "some-host",
+		Protocol: lxdclient.LXDProtocol,
+		Cert:     s.Cert,
 	}
 }
 
@@ -63,6 +64,20 @@ func (s *configSuite) TestWithDefaultsMissingRemote(c *gc.C) {
 	})
 }
 
+func (s *configSuite) TestWithDefaultsMissingStream(c *gc.C) {
+	cfg := lxdclient.Config{
+		Namespace: "my-ns",
+		Remote:    s.remote,
+	}
+	updated, err := cfg.WithDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(updated, jc.DeepEquals, lxdclient.Config{
+		Namespace: "my-ns",
+		Remote:    s.remote,
+	})
+}
+
 func (s *configSuite) TestValidateOkay(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
@@ -75,8 +90,7 @@ func (s *configSuite) TestValidateOkay(c *gc.C) {
 
 func (s *configSuite) TestValidateOnlyRemote(c *gc.C) {
 	cfg := lxdclient.Config{
-		Namespace: "",
-		Remote:    s.remote,
+		Remote: s.remote,
 	}
 	err := cfg.Validate()
 
@@ -97,20 +111,6 @@ func (s *configSuite) TestValidateZeroValue(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-}
-
-func (s *configSuite) TestWriteOkay(c *gc.C) {
-	c.Skip("not implemented yet")
-	// TODO(ericsnow) Finish!
-}
-
-func (s *configSuite) TestWriteRemoteAlreadySet(c *gc.C) {
-	c.Skip("not implemented yet")
-	// TODO(ericsnow) Finish!
-}
-
-func (s *configSuite) TestUsingTCPRemoteOkay(c *gc.C) {
-	// TODO(ericsnow) Finish!
 }
 
 func (s *configSuite) TestUsingTCPRemoteNoop(c *gc.C) {
@@ -134,6 +134,7 @@ func (s *configFunctionalSuite) SetUpTest(c *gc.C) {
 	s.configBaseSuite.SetUpTest(c)
 
 	s.client = newLocalClient(c)
+	c.Logf("connected to %v", s.client)
 
 	if s.client != nil {
 		origCerts, err := s.client.ListCerts()
@@ -158,6 +159,10 @@ func (s *configFunctionalSuite) TestUsingTCPRemote(c *gc.C) {
 	if s.client == nil {
 		c.Skip("LXD not running locally")
 	}
+	// We can't just pass the testingCert as part of the Local connection,
+	// because Validate() doesn't like Local remotes that have
+	// Certificates.
+	lxdclient.PatchGenerateCertificate(&s.CleanupSuite, testingCert, testingKey)
 
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
@@ -173,6 +178,7 @@ func (s *configFunctionalSuite) TestUsingTCPRemote(c *gc.C) {
 			Name:          lxdclient.Local.Name,
 			Host:          nonlocal.Remote.Host,
 			Cert:          nonlocal.Remote.Cert,
+			Protocol:      lxdclient.LXDProtocol,
 			ServerPEMCert: nonlocal.Remote.ServerPEMCert,
 		},
 	})

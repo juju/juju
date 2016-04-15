@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 	statetxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
@@ -19,8 +18,6 @@ import (
 	"github.com/juju/juju/network"
 )
 
-var portLogger = loggo.GetLogger("juju.state.ports")
-
 // A regular expression for parsing ports document id into
 // corresponding machine and network ids.
 var portsIdRe = regexp.MustCompile(fmt.Sprintf("m#(?P<machine>%s)#n#(?P<network>%s)$", names.MachineSnippet, names.NetworkSnippet))
@@ -28,7 +25,7 @@ var portsIdRe = regexp.MustCompile(fmt.Sprintf("m#(?P<machine>%s)#n#(?P<network>
 type portIdPart int
 
 const (
-	fullId portIdPart = iota
+	_ portIdPart = iota
 	machineIdPart
 	networkNamePart
 )
@@ -200,7 +197,7 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			if err := checkModeLife(p.st); err != nil {
+			if err := checkModelActive(p.st); err != nil {
 				return nil, errors.Trace(err)
 			}
 			if err = ports.Refresh(); errors.IsNotFound(err) {
@@ -230,7 +227,7 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 		}
 
 		ops := []txn.Op{
-			assertModelAliveOp(p.st.ModelUUID()),
+			assertModelActiveOp(p.st.ModelUUID()),
 		}
 		if ports.areNew {
 			// Create a new document.

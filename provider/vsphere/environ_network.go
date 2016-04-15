@@ -85,3 +85,7 @@ func (env *environ) ClosePorts(ports []network.PortRange) error {
 func (env *environ) Ports() ([]network.PortRange, error) {
 	return nil, errors.Trace(errors.NotSupportedf("Ports"))
 }
+
+func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotSupportedf("container address allocation")
+}

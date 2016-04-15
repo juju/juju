@@ -12,11 +12,11 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	// "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -37,7 +37,10 @@ type RebootSuite struct {
 var _ = gc.Suite(&RebootSuite{})
 
 func (s *RebootSuite) SetUpTest(c *gc.C) {
-	var err error
+	if testing.GOVERSION < 1.3 {
+		c.Skip("skipping test, lxd requires Go 1.3 or later")
+	}
+
 	s.JujuConnSuite.SetUpTest(c)
 	testing.PatchExecutableAsEchoArgs(c, s, rebootBin)
 	s.PatchEnvironment("TEMP", c.MkDir())
@@ -50,17 +53,18 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.mgoInst.EnableAuth = true
-	err = s.mgoInst.Start(coretesting.Certs)
+	err := s.mgoInst.Start(coretesting.Certs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: c.MkDir()},
 		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            coretesting.CACert,
 		Password:          "fake",
 		Model:             s.State.ModelTag(),
+		MongoVersion:      mongo.Mongo24,
 	}
 	s.st, _ = s.OpenAPIAsNewMachine(c)
 

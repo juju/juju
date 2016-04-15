@@ -51,7 +51,7 @@ func assertEnvHasBlock(c *gc.C, st *state.State, t state.BlockType, msg string) 
 	c.Assert(dBlock.Message(), gc.DeepEquals, msg)
 }
 
-func (s *blockSuite) assertSwitchedOn(c *gc.C, t state.BlockType) string {
+func (s *blockSuite) switchOnBlock(c *gc.C, t state.BlockType) string {
 	msg := ""
 	err := s.State.SwitchBlockOn(t, msg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -60,7 +60,7 @@ func (s *blockSuite) assertSwitchedOn(c *gc.C, t state.BlockType) string {
 	return msg
 }
 
-func (s *blockSuite) assertSwitchedOff(c *gc.C, t state.BlockType) {
+func (s *blockSuite) switchOffBlock(c *gc.C, t state.BlockType) {
 	err := s.State.SwitchBlockOff(t)
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoEnvBlock(c, s.State)
@@ -68,7 +68,7 @@ func (s *blockSuite) assertSwitchedOff(c *gc.C, t state.BlockType) {
 }
 
 func (s *blockSuite) assertBlocked(c *gc.C, t state.BlockType) {
-	msg := s.assertSwitchedOn(c, t)
+	msg := s.switchOnBlock(c, t)
 
 	expectedErr := fmt.Sprintf(".*block %v is already ON.*", t.String())
 	// cannot duplicate
@@ -79,7 +79,7 @@ func (s *blockSuite) assertBlocked(c *gc.C, t state.BlockType) {
 	err = s.State.SwitchBlockOn(t, "Test block update")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, expectedErr)
 
-	s.assertSwitchedOff(c, t)
+	s.switchOffBlock(c, t)
 
 	err = s.State.SwitchBlockOff(t)
 	expectedErr = fmt.Sprintf(".*block %v is already OFF.*", t.String())
@@ -108,8 +108,8 @@ func (s *blockSuite) TestChangeBlocked(c *gc.C) {
 func (s *blockSuite) TestNonsenseBlocked(c *gc.C) {
 	bType := state.BlockType(42)
 	// This could be useful for entity blocks...
-	s.assertSwitchedOn(c, bType)
-	s.assertSwitchedOff(c, bType)
+	s.switchOnBlock(c, bType)
+	s.switchOffBlock(c, bType)
 	// but for multiwatcher, it should panic.
 	c.Assert(func() { bType.ToParams() }, gc.PanicMatches, ".*unknown block type.*")
 }
@@ -194,7 +194,7 @@ func (s *blockSuite) createTestEnv(c *gc.C) (*state.Model, *state.State) {
 		"uuid": uuid.String(),
 	})
 	owner := names.NewUserTag("test@remote")
-	env, st, err := s.State.NewModel(cfg, owner)
+	env, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner})
 	c.Assert(err, jc.ErrorIsNil)
 	return env, st
 }

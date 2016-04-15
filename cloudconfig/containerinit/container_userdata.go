@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 )
@@ -81,7 +82,26 @@ iface {{.InterfaceName}} inet dhcp
 {{end}}{{range $nic := . }}{{if eq $nic.ConfigType "static"}}
 {{template "static" $nic}}{{else}}{{template "dhcp" $nic}}{{end}}{{end}}`
 
-var networkInterfacesFile = "/etc/network/interfaces"
+// multiBridgeNetworkConfigTemplate defines how to render /etc/network/interfaces
+// file for a multi-NIC container.
+const multiBridgeNetworkConfigTemplate = `
+auto lo
+iface lo inet loopback
+{{range $nic := .}}{{template "single" $nic}}{{end}}
+{{define "single"}}{{if not .NoAutoStart}}
+auto {{.InterfaceName}}{{end}}
+iface {{.InterfaceName}} inet manual{{if .DNSServers}}
+  dns-nameservers{{range $srv := .DNSServers}} {{$srv.Value}}{{end}}{{end}}{{if .DNSSearchDomains}}
+  dns-search{{range $dom := .DNSSearchDomains}} {{$dom}}{{end}}{{end}}
+  pre-up ip address add {{.CIDRAddress}} dev {{.InterfaceName}} || true
+  up ip route replace {{.CIDR}} dev {{.InterfaceName}} || true
+  down ip route del {{.CIDR}} dev {{.InterfaceName}} || true
+  post-down address del {{.CIDRAddress}} dev {{.InterfaceName}} || true{{if .GatewayAddress.Value}}
+  up ip route replace default via {{.GatewayAddress.Value}} || true
+  down ip route del default via {{.GatewayAddress.Value}} || true{{end}}
+{{end}}`
+
+var networkInterfacesFile = "/etc/network/interfaces.d/00-juju.cfg"
 
 // GenerateNetworkConfig renders a network config for one or more
 // network interfaces, using the given non-nil networkConfig
@@ -92,19 +112,36 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 		logger.Tracef("no network config to generate")
 		return "", nil
 	}
+	logger.Debugf("generating network config from %#v", *networkConfig)
+
+	// Copy the InterfaceInfo before modifying the original.
+	interfacesCopy := make([]network.InterfaceInfo, len(networkConfig.Interfaces))
+	copy(interfacesCopy, networkConfig.Interfaces)
+	for i, info := range interfacesCopy {
+		if info.MACAddress != "" {
+			info.MACAddress = ""
+		}
+		if info.InterfaceName != "eth0" {
+			info.GatewayAddress = network.Address{}
+		}
+		interfacesCopy[i] = info
+	}
 
 	// Render the config first.
-	tmpl, err := template.New("config").Parse(networkConfigTemplate)
+	tmpl, err := template.New("config").Parse(multiBridgeNetworkConfigTemplate)
 	if err != nil {
 		return "", errors.Annotate(err, "cannot parse network config template")
 	}
 
 	var buf bytes.Buffer
-	if err = tmpl.Execute(&buf, networkConfig.Interfaces); err != nil {
+	if err := tmpl.Execute(&buf, interfacesCopy); err != nil {
 		return "", errors.Annotate(err, "cannot render network config")
 	}
 
-	return buf.String(), nil
+	generatedConfig := buf.String()
+	logger.Debugf("generated network config from %#v\nusing%#v:\n%s", interfacesCopy, networkConfig.Interfaces, generatedConfig)
+
+	return generatedConfig, nil
 }
 
 // newCloudInitConfigWithNetworks creates a cloud-init config which
@@ -120,8 +157,8 @@ func newCloudInitConfigWithNetworks(series string, networkConfig *container.Netw
 		return cloudConfig, errors.Trace(err)
 	}
 
-	// Now add it to cloud-init as a file created early in the boot process.
 	cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
+	cloudConfig.AddRunCmd("ifup -a || true")
 	return cloudConfig, nil
 }
 
@@ -130,13 +167,15 @@ func CloudInitUserData(
 	networkConfig *container.NetworkConfig,
 ) ([]byte, error) {
 	cloudConfig, err := newCloudInitConfigWithNetworks(instanceConfig.Series, networkConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	udata, err := cloudconfig.NewUserdataConfig(instanceConfig, cloudConfig)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	err = udata.Configure()
-	if err != nil {
-		return nil, err
+	if err = udata.Configure(); err != nil {
+		return nil, errors.Trace(err)
 	}
 	// Run ifconfig to get the addresses of the internal container at least
 	// logged in the host.
@@ -148,7 +187,7 @@ func CloudInitUserData(
 
 	data, err := cloudConfig.RenderYAML()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return data, nil
 }

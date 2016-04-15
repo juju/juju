@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
@@ -105,7 +105,6 @@ func makeEnsureServerParams(dataDir string) mongo.EnsureServerParams {
 		SharedSecret: testInfo.SharedSecret,
 
 		DataDir: dataDir,
-		Version: mongo.Mongo24,
 	}
 }
 
@@ -118,7 +117,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	jujuMongodPath, err := exec.LookPath("mongod")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.PatchValue(&mongo.JujuMongodPath, jujuMongodPath)
+	s.PatchValue(&mongo.JujuMongod24Path, jujuMongodPath)
 	s.mongodPath = jujuMongodPath
 
 	// Patch "df" such that it always reports there's 1MB free.
@@ -154,7 +153,7 @@ func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
 }
 
 func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
-	s.PatchValue(&mongo.JujuMongodPath, "/not/going/to/exist/mongod")
+	s.PatchValue(&mongo.JujuMongod24Path, "/not/going/to/exist/mongod")
 	s.PatchEnvPathPrepend(filepath.Dir(s.mongodPath))
 
 	c.Logf("mongo version is %q", s.mongodVersion)
@@ -220,7 +219,7 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 	any := `(.|\n)*`
 	start := "^" + any
 	tail := any + "$"
-	c.Assert(tlog, gc.Matches, start+`using mongod: .*/mongod --version: "db version v2\.4\.9`+tail)
+	c.Assert(tlog, gc.Matches, start+`using mongod: .*/mongod --version: "db version v\d\.\d\.\d`+tail)
 }
 
 func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
@@ -316,7 +315,7 @@ func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string
 		} else {
 			c.Assert(service.Conf().ExtraScript, gc.Equals, "")
 		}
-		c.Assert(service.Conf().ExecStart, gc.Matches, `.*/check-.*/mongod.*`)
+		c.Assert(service.Conf().ExecStart, gc.Matches, `.*/mongod.*`)
 		c.Assert(service.Conf().Logfile, gc.Equals, "")
 	}
 	assertInstalled()
@@ -331,11 +330,9 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 
 	tests := []installs{
 		{"precise", [][]string{{"--target-release", "precise-updates/cloud-tools", "mongodb-server"}}},
-		{"quantal", [][]string{{"python-software-properties"}, {"--target-release", "mongodb-server"}}},
-		{"raring", [][]string{{"--target-release", "mongodb-server"}}},
-		{"saucy", [][]string{{"--target-release", "mongodb-server"}}},
-		{"trusty", [][]string{{"juju-mongodb"}}},
-		{"u-series", [][]string{{"juju-mongodb"}}},
+		{"trusty", [][]string{{"juju-mongodb3.2"}}},
+		{"wily", [][]string{{"juju-mongodb3.2"}}},
+		{"xenial", [][]string{{"juju-mongodb3.2"}}},
 	}
 
 	testing.PatchExecutableAsEchoArgs(c, s, "add-apt-repository")
@@ -350,6 +347,68 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 			match := append(expectedArgs.AptGetBase, cmd...)
 			testing.AssertEchoArgs(c, "apt-get", match...)
 		}
+	}
+}
+
+var fakeInstallScript = `#!/bin/bash
+if [ $# -lt 1 ]
+then
+        echo "Install fail - not enough arguments"
+        exit 1
+fi
+
+# The package name is the last argument
+package=${@: -1}
+echo $package >> %s
+
+if [ $package == "juju-mongodb" ]
+then
+        echo "Installed successfully!"
+        exit 0
+fi
+
+if [ $package == "mongodb-server" ]
+then
+        echo "Installed successfully!"
+        exit 0
+fi
+
+echo "Unable to locate package $package"
+exit 100
+`
+
+func (s *MongoSuite) TestInstallMongodFallsBack(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping TestInstallMongodFallsBack as mongo is not installed on windows")
+	}
+
+	type installs struct {
+		series string
+		cmd    string
+	}
+
+	tests := []installs{
+		{"precise", "mongodb-server"},
+		{"trusty", "juju-mongodb3.2\njuju-mongodb"},
+		{"wily", "juju-mongodb3.2\njuju-mongodb"},
+		{"xenial", "juju-mongodb3.2\njuju-mongodb"},
+	}
+
+	dataDir := c.MkDir()
+	outputFile := filepath.Join(dataDir, "apt-get-args")
+	testing.PatchExecutable(c, s, "apt-get", fmt.Sprintf(fakeInstallScript, outputFile))
+	for _, test := range tests {
+		c.Logf("Testing mongo install for series: %s", test.series)
+		s.patchSeries(test.series)
+		err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
+		c.Assert(err, jc.ErrorIsNil)
+
+		args, err := ioutil.ReadFile(outputFile)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(strings.TrimSpace(string(args)), gc.Equals, test.cmd)
+
+		err = os.Remove(outputFile)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -520,43 +579,29 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 func (s *MongoSuite) TestNewServiceWithReplSet(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion, true)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, false, s.mongodVersion, true)
 	c.Assert(strings.Contains(conf.ExecStart, "--replSet"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNewServiceWithNumCtl(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, true, s.mongodVersion, true)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, true, s.mongodVersion, true)
 	c.Assert(conf.ExtraScript, gc.Not(gc.Matches), "")
 }
 
 func (s *MongoSuite) TestNewServiceIPv6(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion, true)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, false, s.mongodVersion, true)
 	c.Assert(strings.Contains(conf.ExecStart, "--ipv6"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNewServiceWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
-	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false, s.mongodVersion, true)
+	conf := mongo.NewConf(dataDir, dataDir, mongo.JujuMongod24Path, 1234, 1024, false, s.mongodVersion, true)
 	c.Assert(conf.ExecStart, gc.Matches, `.* --journal.*`)
-}
-
-func (s *MongoSuite) TestNoAuthCommandWithJournal(c *gc.C) {
-	dataDir := c.MkDir()
-
-	cmd, err := mongo.NoauthCommand(dataDir, 1234, s.mongodVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	var isJournalPresent bool
-	for _, value := range cmd.Args {
-		if value == "--journal" {
-			isJournalPresent = true
-		}
-	}
-	c.Assert(isJournalPresent, jc.IsTrue)
 }
 
 func (s *MongoSuite) TestRemoveService(c *gc.C) {
@@ -571,42 +616,6 @@ func (s *MongoSuite) TestRemoveService(c *gc.C) {
 		c.Check(removed[0].Conf(), jc.DeepEquals, common.Conf{})
 	}
 	s.data.CheckCallNames(c, "Stop", "Remove")
-}
-
-func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
-	dir := c.MkDir()
-	// patch manager.RunCommandWithRetry for repository addition:
-	s.PatchValue(&manager.RunCommandWithRetry, func(string) (string, int, error) {
-		return "", 1, fmt.Errorf("packaging command failed: exit status 1")
-	})
-	s.PatchEnvPathPrepend(dir)
-
-	pm, err := coretesting.GetPackageManager()
-	c.Assert(err, jc.ErrorIsNil)
-	failCmd(filepath.Join(dir, pm.RepositoryManager))
-	testing.PatchExecutableAsEchoArgs(c, s, pm.PackageManager)
-
-	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("test-writer", &tw, loggo.ERROR), jc.ErrorIsNil)
-	defer loggo.RemoveWriter("test-writer")
-
-	// test that we call add-apt-repository only for quantal
-	// (and that if it fails, we log the error)
-	s.patchSeries("quantal")
-	err = mongo.EnsureServer(makeEnsureServerParams(dir))
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(tw.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.ERROR, `cannot install/upgrade mongod \(will proceed anyway\): packaging command failed`},
-	})
-
-	s.PatchValue(&manager.RunCommandWithRetry, func(string) (string, int, error) {
-		return "", 0, nil
-	})
-	s.patchSeries("trusty")
-	failCmd(filepath.Join(dir, "mongod"))
-	err = mongo.EnsureServer(makeEnsureServerParams(dir))
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
@@ -667,40 +676,6 @@ func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {
 	c.Assert(secret, gc.HasLen, 1024)
 	_, err = base64.StdEncoding.DecodeString(secret)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
-	testing.PatchExecutableAsEchoArgs(c, s, "apt-get")
-
-	testing.PatchExecutableAsEchoArgs(c, s, "add-apt-repository")
-	s.patchSeries("quantal")
-
-	dataDir := c.MkDir()
-	err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
-	c.Assert(err, jc.ErrorIsNil)
-
-	pack := [][]string{
-		{
-			"install",
-			"python-software-properties",
-		}, {
-			"install",
-			"--target-release",
-			"mongodb-server",
-		},
-	}
-	noCommand := len(expectedArgs.AptGetBase) - 1
-	for k := range pack {
-		cmd := append(expectedArgs.AptGetBase[:noCommand], pack[k]...)
-		testing.AssertEchoArgs(c, "apt-get", cmd...)
-	}
-
-	match := []string{
-		"--yes",
-		"\"ppa:juju/stable\"",
-	}
-
-	testing.AssertEchoArgs(c, "add-apt-repository", match...)
 }
 
 func (s *MongoSuite) TestAddEpelInCentOS(c *gc.C) {

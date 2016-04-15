@@ -41,23 +41,211 @@ function ExecRetry($command, $retryInterval = 15)
 	$ErrorActionPreference = $currErrorActionPreference
 }
 
+Function GUnZip-File{
+    Param(
+        $infile,
+        $outdir
+        )
+
+    $input = New-Object System.IO.FileStream $inFile, ([IO.FileMode]::Open), ([IO.FileAccess]::Read), ([IO.FileShare]::Read)
+    $tempFile = "$env:TEMP\jujud.tar"
+    $tempOut = New-Object System.IO.FileStream $tempFile, ([IO.FileMode]::Create), ([IO.FileAccess]::Write), ([IO.FileShare]::None)
+    $gzipStream = New-Object System.IO.Compression.GzipStream $input, ([IO.Compression.CompressionMode]::Decompress)
+
+    $buffer = New-Object byte[](1024)
+    while($true) {
+        $read = $gzipstream.Read($buffer, 0, 1024)
+        if ($read -le 0){break}
+        $tempOut.Write($buffer, 0, $read)
+    }
+    $gzipStream.Close()
+    $tempOut.Close()
+    $input.Close()
+
+    $in = New-Object System.IO.FileStream $tempFile, ([IO.FileMode]::Open), ([IO.FileAccess]::Read), ([IO.FileShare]::Read)
+    Untar-File $in $outdir
+    $in.Close()
+    rm $tempFile
+}
+
+$HEADERSIZE = 512
+
+Function Untar-File {
+    Param(
+        $inStream,
+        $outdir
+        )
+    $DirectoryEntryType = 0x35
+    $headerBytes = New-Object byte[]($HEADERSIZE)
+
+    # $headerBytes is written inside, function returns whether we've reached the end
+    while(GetHeaderBytes $inStream $headerBytes) {
+        $fileName, $entryType, $sizeInBytes = GetFileInfoFromHeader $headerBytes
+
+        $totalPath = Join-Path $outDir $fileName
+        if ($entryType -eq $DirectoryEntryType) {
+            [System.IO.Directory]::CreateDirectory($totalPath)
+            continue;
+        }
+
+        $fName = [System.IO.Path]::GetFileName($totalPath)
+        $dirName = [System.IO.Path]::GetDirectoryName($totalPath)
+        [System.IO.Directory]::CreateDirectory($dirName)
+        $file = [System.IO.File]::Create($totalPath)
+        WriteTarEntryToFile $inStream $file $sizeInBytes
+        $file.Close()
+    }
+}
+
+Function WriteTarEntryToFile {
+    Param(
+        $inStream,
+        $outFile,
+        $sizeInBytes
+        )
+    $moveToAlign512 = 0
+    $toRead = 0
+    $buf = New-Object byte[](512)
+
+    $remainingBytesInFile = $sizeInBytes
+    while ($remainingBytesInFile -ne 0) {
+        if ($remainingBytesInFile - 512 -lt 0) {
+            $moveToAlign512 = 512 - $remainingBytesInFile
+            $toRead = $remainingBytesInFile
+        } else {
+            $toRead = 512
+        }
+
+        $bytesRead = 0
+        $bytesRemainingToRead = $toRead
+        while ($bytesRead -lt $toRead -and $bytesRemainingToRead -gt 0) {
+            $bytesRead = $inStream.Read($buf, $toRead - $bytesRemainingToRead, $bytesRemainingToRead)
+            $bytesRemainingToRead = $bytesRemainingToRead - $bytesRead
+            $remainingBytesInFile = $remainingBytesInFile - $bytesRead
+            $outFile.Write($buf, 0, $bytesRead)
+        }
+
+        if ($moveToAlign512 -ne 0) {
+            $inStream.Seek($moveToAlign512, [System.IO.SeekOrigin]::Current)
+        }
+    }
+}
+
+Function GetHeaderBytes {
+    Param($inStream, $headerBytes)
+
+    $headerRead = 0
+    $bytesRemaining = $HEADERSIZE
+    while ($bytesRemaining -gt 0) {
+        $headerRead = $inStream.Read($headerBytes, $HEADERSIZE - $bytesRemaining, $bytesRemaining)
+        $bytesRemaining -= $headerRead
+        if ($headerRead -le 0 -and $bytesRemaining -gt 0) {
+            throw "Error reading tar header. Header size invalid"
+        }
+    }
+
+    # Proper end of archive is 2 empty headers
+    if (IsEmptyByteArray $headerBytes) {
+        $bytesRemaining = $HEADERSIZE
+        while ($bytesRemaining -gt 0) {
+            $headerRead = $inStream.Read($headerBytes, $HEADERSIZE - $bytesRemaining, $bytesRemaining)
+            $bytesRemaining -= $headerRead
+            if ($headerRead -le 0 -and $bytesRemaining -gt 0) {
+                throw "Broken end archive"
+            }
+        }
+        if ($bytesRemaining -eq 0 -and (IsEmptyByteArray($headerBytes))) {
+            return $false
+        }
+        throw "Error occurred: expected end of archive"
+    }
+
+    return $true
+}
+
+Function GetFileInfoFromHeader {
+    Param($headerBytes)
+
+    $FileName = [System.Text.Encoding]::UTF8.GetString($headerBytes, 0, 100);
+    $EntryType = $headerBytes[156];
+    $SizeInBytes = [Convert]::ToInt64([System.Text.Encoding]::ASCII.GetString($headerBytes, 124, 11).Trim(), 8);
+    Return $FileName.replace("` + "`" + `0", [String].Empty), $EntryType, $SizeInBytes
+}
+
+Function IsEmptyByteArray {
+    Param ($bytes)
+    foreach($b in $bytes) {
+        if ($b -ne 0) {
+            return $false
+        }
+    }
+    return $true
+}
+
+Function Get-FileSHA256{
+	Param(
+		$FilePath
+	)
+	try {
+		$hash = [Security.Cryptography.HashAlgorithm]::Create( "SHA256" )
+		$stream = ([IO.StreamReader]$FilePath).BaseStream
+		$res = -join ($hash.ComputeHash($stream) | ForEach { "{0:x2}" -f $_ })
+		$stream.Close()
+		return $res
+	} catch [System.Management.Automation.RuntimeException] {
+		return (Get-FileHash -Path $FilePath).Hash
+	}
+}
+
+Function Invoke-FastWebRequest {
+	Param(
+		$URI,
+		$OutFile
+	)
+
+	if(!([System.Management.Automation.PSTypeName]'System.Net.Http.HttpClient').Type)
+	{
+		$assembly = [System.Reflection.Assembly]::LoadWithPartialName("System.Net.Http")
+	}
+
+	$client = new-object System.Net.Http.HttpClient
+
+	$task = $client.GetStreamAsync($URI)
+	$response = $task.Result
+	$outStream = New-Object IO.FileStream $OutFile, Create, Write, None
+
+	try {
+		$totRead = 0
+		$buffer = New-Object Byte[] 1MB
+		while (($read = $response.Read($buffer, 0, $buffer.Length)) -gt 0) {
+		$totRead += $read
+		$outStream.Write($buffer, 0, $read);
+		}
+	}
+	finally {
+		$outStream.Close()
+	}
+}
+
+
+
 function create-account ([string]$accountName, [string]$accountDescription, [string]$password) {
- $hostname = hostname
- $comp = [adsi]"WinNT://$hostname"
- $user = $comp.Create("User", $accountName)
- $user.SetPassword($password)
- $user.SetInfo()
- $user.description = $accountDescription
- $user.SetInfo()
- $User.UserFlags[0] = $User.UserFlags[0] -bor 0x10000
- $user.SetInfo()
+	$hostname = hostname
+	$comp = [adsi]"WinNT://$hostname"
+	$user = $comp.Create("User", $accountName)
+	$user.SetPassword($password)
+	$user.SetInfo()
+	$user.description = $accountDescription
+	$user.SetInfo()
+	$User.UserFlags[0] = $User.UserFlags[0] -bor 0x10000
+	$user.SetInfo()
 
- # This gets the Administrator group name that is localized on different windows versions. 
- # However the SID S-1-5-32-544 is the same on all versions.
- $adminGroup = (New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")).Translate([System.Security.Principal.NTAccount]).Value.Split("\")[1]
+	# This gets the Administrator group name that is localized on different windows versions. 
+	# However the SID S-1-5-32-544 is the same on all versions.
+	$adminGroup = (New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")).Translate([System.Security.Principal.NTAccount]).Value.Split("\")[1]
 
- $objOU = [ADSI]"WinNT://$hostname/$adminGroup,group"
- $objOU.add("WinNT://$hostname/$accountName")
+	$objOU = [ADSI]"WinNT://$hostname/$adminGroup,group"
+	$objOU.add("WinNT://$hostname/$accountName")
 }
 
 $Source = @"
@@ -254,53 +442,51 @@ namespace PSCarbon
 
 		private static IntPtr GetIdentitySid(string identity)
 		{
-			var sid =
+			SecurityIdentifier sid =
 				new NTAccount(identity).Translate(typeof (SecurityIdentifier)) as SecurityIdentifier;
 			if (sid == null)
 			{
 				throw new ArgumentException(string.Format("Account {0} not found.", identity));
 			}
-			var sidBytes = new byte[sid.BinaryLength];
+			byte[] sidBytes = new byte[sid.BinaryLength];
 			sid.GetBinaryForm(sidBytes, 0);
-			var sidPtr = Marshal.AllocHGlobal(sidBytes.Length);
+			System.IntPtr sidPtr = Marshal.AllocHGlobal(sidBytes.Length);
 			Marshal.Copy(sidBytes, 0, sidPtr, sidBytes.Length);
 			return sidPtr;
 		}
 
 		private static IntPtr GetLsaPolicyHandle()
 		{
-			var computerName = Environment.MachineName;
+			string computerName = Environment.MachineName;
 			IntPtr hPolicy;
-			var objectAttributes = new LSA_OBJECT_ATTRIBUTES
-			{
-				Length = 0,
-				RootDirectory = IntPtr.Zero,
-				Attributes = 0,
-				SecurityDescriptor = IntPtr.Zero,
-				SecurityQualityOfService = IntPtr.Zero
-			};
+			LSA_OBJECT_ATTRIBUTES objectAttributes = new LSA_OBJECT_ATTRIBUTES();
+			objectAttributes.Length = 0;
+			objectAttributes.RootDirectory = IntPtr.Zero;
+			objectAttributes.Attributes = 0;
+			objectAttributes.SecurityDescriptor = IntPtr.Zero;
+			objectAttributes.SecurityQualityOfService = IntPtr.Zero;
 
 			const uint ACCESS_MASK = POLICY_CREATE_SECRET | POLICY_LOOKUP_NAMES | POLICY_VIEW_LOCAL_INFORMATION;
-			var machineNameLsa = new LSA_UNICODE_STRING(computerName);
-			var result = LsaOpenPolicy(ref machineNameLsa, ref objectAttributes, ACCESS_MASK, out hPolicy);
+			LSA_UNICODE_STRING machineNameLsa = new LSA_UNICODE_STRING(computerName);
+			uint result = LsaOpenPolicy(ref machineNameLsa, ref objectAttributes, ACCESS_MASK, out hPolicy);
 			HandleLsaResult(result);
 			return hPolicy;
 		}
 
 		public static string[] GetPrivileges(string identity)
 		{
-			var sidPtr = GetIdentitySid(identity);
-			var hPolicy = GetLsaPolicyHandle();
-			var rightsPtr = IntPtr.Zero;
+			IntPtr sidPtr = GetIdentitySid(identity);
+			IntPtr hPolicy = GetLsaPolicyHandle();
+			IntPtr rightsPtr = IntPtr.Zero;
 
 			try
 			{
 
-				var privileges = new List<string>();
+				List<string> privileges = new List<string>();
 
 				uint rightsCount;
-				var result = LsaEnumerateAccountRights(hPolicy, sidPtr, out rightsPtr, out rightsCount);
-				var win32ErrorCode = LsaNtStatusToWinError(result);
+				uint result = LsaEnumerateAccountRights(hPolicy, sidPtr, out rightsPtr, out rightsCount);
+				int win32ErrorCode = LsaNtStatusToWinError(result);
 				// the user has no privileges
 				if( win32ErrorCode == STATUS_OBJECT_NAME_NOT_FOUND )
 				{
@@ -308,14 +494,14 @@ namespace PSCarbon
 				}
 				HandleLsaResult(result);
 
-				var myLsaus = new LSA_UNICODE_STRING();
+				LSA_UNICODE_STRING myLsaus = new LSA_UNICODE_STRING();
 				for (ulong i = 0; i < rightsCount; i++)
 				{
-					var itemAddr = new IntPtr(rightsPtr.ToInt64() + (long) (i*(ulong) Marshal.SizeOf(myLsaus)));
+					IntPtr itemAddr = new IntPtr(rightsPtr.ToInt64() + (long) (i*(ulong) Marshal.SizeOf(myLsaus)));
 					myLsaus = (LSA_UNICODE_STRING) Marshal.PtrToStructure(itemAddr, myLsaus.GetType());
-					var cvt = new char[myLsaus.Length/UnicodeEncoding.CharSize];
+					char[] cvt = new char[myLsaus.Length/UnicodeEncoding.CharSize];
 					Marshal.Copy(myLsaus.Buffer, cvt, 0, myLsaus.Length/UnicodeEncoding.CharSize);
-					var thisRight = new string(cvt);
+					string thisRight = new string(cvt);
 					privileges.Add(thisRight);
 				}
 				return privileges.ToArray();
@@ -323,7 +509,7 @@ namespace PSCarbon
 			finally
 			{
 				Marshal.FreeHGlobal(sidPtr);
-				var result = LsaClose(hPolicy);
+				uint result = LsaClose(hPolicy);
 				HandleLsaResult(result);
 				result = LsaFreeMemory(rightsPtr);
 				HandleLsaResult(result);
@@ -332,19 +518,19 @@ namespace PSCarbon
 
 		public static void GrantPrivileges(string identity, string[] privileges)
 		{
-			var sidPtr = GetIdentitySid(identity);
-			var hPolicy = GetLsaPolicyHandle();
+			IntPtr sidPtr = GetIdentitySid(identity);
+			IntPtr hPolicy = GetLsaPolicyHandle();
 
 			try
 			{
-				var lsaPrivileges = StringsToLsaStrings(privileges);
-				var result = LsaAddAccountRights(hPolicy, sidPtr, lsaPrivileges, (uint)lsaPrivileges.Length);
+				LSA_UNICODE_STRING[] lsaPrivileges = StringsToLsaStrings(privileges);
+				uint result = LsaAddAccountRights(hPolicy, sidPtr, lsaPrivileges, (uint)lsaPrivileges.Length);
 				HandleLsaResult(result);
 			}
 			finally
 			{
 				Marshal.FreeHGlobal(sidPtr);
-				var result = LsaClose(hPolicy);
+				uint result = LsaClose(hPolicy);
 				HandleLsaResult(result);
 			}
 		}
@@ -360,22 +546,22 @@ namespace PSCarbon
 		const int STATUS_INTERNAL_DB_ERROR = 0x00000567;
 		const int STATUS_INSUFFICIENT_RESOURCES = 0x000005AA;
 
-		private static Dictionary<int, string> ErrorMessages = new Dictionary<int, string>
-									{
-										{STATUS_OBJECT_NAME_NOT_FOUND, "Object name not found. An object in the LSA policy database was not found. The object may have been specified either by SID or by name, depending on its type."},
-										{STATUS_ACCESS_DENIED, "Access denied. Caller does not have the appropriate access to complete the operation."},
-										{STATUS_INVALID_HANDLE, "Invalid handle. Indicates an object or RPC handle is not valid in the context used."},
-										{STATUS_UNSUCCESSFUL, "Unsuccessful. Generic failure, such as RPC connection failure."},
-										{STATUS_INVALID_PARAMETER, "Invalid parameter. One of the parameters is not valid."},
-										{STATUS_NO_SUCH_PRIVILEGE, "No such privilege. Indicates a specified privilege does not exist."},
-										{STATUS_INVALID_SERVER_STATE, "Invalid server state. Indicates the LSA server is currently disabled."},
-										{STATUS_INTERNAL_DB_ERROR, "Internal database error. The LSA database contains an internal inconsistency."},
-										{STATUS_INSUFFICIENT_RESOURCES, "Insufficient resources. There are not enough system resources (such as memory to allocate buffers) to complete the call."}
-									};
+		private static Dictionary<int, string> ErrorMessages = new Dictionary<int, string>();
+		public Lsa () {
+			ErrorMessages.Add(STATUS_ACCESS_DENIED, "Access denied. Caller does not have the appropriate access to complete the operation.");
+			ErrorMessages.Add(STATUS_INVALID_HANDLE, "Invalid handle. Indicates an object or RPC handle is not valid in the context used.");
+			ErrorMessages.Add(STATUS_UNSUCCESSFUL, "Unsuccessful. Generic failure, such as RPC connection failure.");
+			ErrorMessages.Add(STATUS_INVALID_PARAMETER, "Invalid parameter. One of the parameters is not valid.");
+			ErrorMessages.Add(STATUS_NO_SUCH_PRIVILEGE, "No such privilege. Indicates a specified privilege does not exist.");
+			ErrorMessages.Add(STATUS_INVALID_SERVER_STATE, "Invalid server state. Indicates the LSA server is currently disabled.");
+			ErrorMessages.Add(STATUS_INTERNAL_DB_ERROR, "Internal database error. The LSA database contains an internal inconsistency.");
+			ErrorMessages.Add(STATUS_INSUFFICIENT_RESOURCES, "Insufficient resources. There are not enough system resources (such as memory to allocate buffers) to complete the call.");
+			ErrorMessages.Add(STATUS_OBJECT_NAME_NOT_FOUND, "Object name not found. An object in the LSA policy database was not found. The object may have been specified either by SID or by name, depending on its type.");
+		}
 
 		private static void HandleLsaResult(uint returnCode)
 		{
-			var win32ErrorCode = LsaNtStatusToWinError(returnCode);
+			int win32ErrorCode = LsaNtStatusToWinError(returnCode);
 
 			if( win32ErrorCode == STATUS_SUCCESS)
 				return;
@@ -390,24 +576,24 @@ namespace PSCarbon
 
 		public static void RevokePrivileges(string identity, string[] privileges)
 		{
-			var sidPtr = GetIdentitySid(identity);
-			var hPolicy = GetLsaPolicyHandle();
+			IntPtr sidPtr = GetIdentitySid(identity);
+			IntPtr hPolicy = GetLsaPolicyHandle();
 
 			try
 			{
-				var currentPrivileges = GetPrivileges(identity);
+				string[] currentPrivileges = GetPrivileges(identity);
 				if (currentPrivileges.Length == 0)
 				{
 					return;
 				}
-				var lsaPrivileges = StringsToLsaStrings(privileges);
-				var result = LsaRemoveAccountRights(hPolicy, sidPtr, false, lsaPrivileges, (uint)lsaPrivileges.Length);
+				LSA_UNICODE_STRING[] lsaPrivileges = StringsToLsaStrings(privileges);
+				uint result = LsaRemoveAccountRights(hPolicy, sidPtr, false, lsaPrivileges, (uint)lsaPrivileges.Length);
 				HandleLsaResult(result);
 			}
 			finally
 			{
 				Marshal.FreeHGlobal(sidPtr);
-				var result = LsaClose(hPolicy);
+				uint result = LsaClose(hPolicy);
 				HandleLsaResult(result);
 			}
 
@@ -415,8 +601,8 @@ namespace PSCarbon
 
 		private static LSA_UNICODE_STRING[] StringsToLsaStrings(string[] privileges)
 		{
-			var lsaPrivileges = new LSA_UNICODE_STRING[privileges.Length];
-			for (var idx = 0; idx < privileges.Length; ++idx)
+			LSA_UNICODE_STRING[] lsaPrivileges = new LSA_UNICODE_STRING[privileges.Length];
+			for (int idx = 0; idx < privileges.Length; ++idx)
 			{
 				lsaPrivileges[idx] = new LSA_UNICODE_STRING(privileges[idx]);
 			}
@@ -431,7 +617,7 @@ Add-Type -TypeDefinition $SourcePolicy -Language CSharp
 function SetAssignPrimaryTokenPrivilege($UserName)
 {
 	$privilege = "SeAssignPrimaryTokenPrivilege"
-	if (![PSCarbon.Lsa]::GetPrivileges($UserName).Contains($privilege))
+	if (!([PSCarbon.Lsa]::GetPrivileges($UserName) -contains $privilege))
 	{
 		[PSCarbon.Lsa]::GrantPrivileges($UserName, $privilege)
 	}
@@ -440,375 +626,10 @@ function SetAssignPrimaryTokenPrivilege($UserName)
 function SetUserLogonAsServiceRights($UserName)
 {
 	$privilege = "SeServiceLogonRight"
-	if (![PSCarbon.Lsa]::GetPrivileges($UserName).Contains($privilege))
+	if (!([PSCarbon.Lsa]::GetPrivileges($UserName) -Contains $privilege))
 	{
 		[PSCarbon.Lsa]::GrantPrivileges($UserName, $privilege)
 	}
-}
-
-$Source = @"
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Net;
-using System.Text;
-
-namespace Tarer
-{
-	public enum EntryType : byte
-	{
-		File = 0,
-		FileObsolete = 0x30,
-		HardLink = 0x31,
-		SymLink = 0x32,
-		CharDevice = 0x33,
-		BlockDevice = 0x34,
-		Directory = 0x35,
-		Fifo = 0x36,
-	}
-
-	public interface ITarHeader
-	{
-		string FileName { get; set; }
-		long SizeInBytes { get; set; }
-		DateTime LastModification { get; set; }
-		int HeaderSize { get; }
-		EntryType EntryType { get; set; }
-	}
-
-	public class Tar
-	{
-		private byte[] dataBuffer = new byte[512];
-		private UsTarHeader header;
-		private Stream inStream;
-		private long remainingBytesInFile;
-
-		public Tar(Stream tarredData) {
-			inStream = tarredData;
-			header = new UsTarHeader();
-		}
-
-		public ITarHeader FileInfo
-		{
-			get { return header; }
-		}
-
-		public void ReadToEnd(string destDirectory)
-		{
-			while (MoveNext())
-			{
-				string fileNameFromArchive = FileInfo.FileName;
-				string totalPath = destDirectory + Path.DirectorySeparatorChar + fileNameFromArchive;
-				if(UsTarHeader.IsPathSeparator(fileNameFromArchive[fileNameFromArchive.Length -1]) || FileInfo.EntryType == EntryType.Directory)
-				{
-					Directory.CreateDirectory(totalPath);
-					continue;
-				}
-				string fileName = Path.GetFileName(totalPath);
-				string directory = totalPath.Remove(totalPath.Length - fileName.Length);
-				Directory.CreateDirectory(directory);
-				using (FileStream file = File.Create(totalPath))
-				{
-					Read(file);
-				}
-			}
-		}
-
-		public void Read(Stream dataDestination)
-		{
-			int readBytes;
-			byte[] read;
-			while ((readBytes = Read(out read)) != -1)
-			{
-				dataDestination.Write(read, 0, readBytes);
-			}
-		}
-
-		protected int Read(out byte[] buffer)
-		{
-			if(remainingBytesInFile == 0)
-			{
-				buffer = null;
-				return -1;
-			}
-			int align512 = -1;
-			long toRead = remainingBytesInFile - 512;
-
-			if (toRead > 0)
-			{
-				toRead = 512;
-			}
-			else
-			{
-				align512 = 512 - (int)remainingBytesInFile;
-				toRead = remainingBytesInFile;
-			}
-
-			int bytesRead = 0;
-			long bytesRemainingToRead = toRead;
-			while (bytesRead < toRead && bytesRemainingToRead > 0)
-			{
-				bytesRead = inStream.Read(dataBuffer, (int)(toRead-bytesRemainingToRead), (int)bytesRemainingToRead);
-				bytesRemainingToRead -= bytesRead;
-				remainingBytesInFile -= bytesRead;
-			}
-
-			if(inStream.CanSeek && align512 > 0)
-			{
-				inStream.Seek(align512, SeekOrigin.Current);
-			}
-			else
-			{
-				while(align512 > 0)
-				{
-					inStream.ReadByte();
-					--align512;
-				}
-			}
-
-			buffer = dataBuffer;
-			return bytesRead;
-		}
-
-		private static bool IsEmpty(IEnumerable<byte> buffer)
-		{
-			foreach(byte b in buffer)
-			{
-				if (b != 0)
-				{
-					return false;
-				}
-			}
-			return true;
-		}
-
-		public bool MoveNext()
-		{
-			byte[] bytes = header.GetBytes();
-			int headerRead;
-			int bytesRemaining = header.HeaderSize;
-			while (bytesRemaining > 0)
-			{
-				headerRead = inStream.Read(bytes, header.HeaderSize - bytesRemaining, bytesRemaining);
-				bytesRemaining -= headerRead;
-				if (headerRead <= 0 && bytesRemaining > 0)
-				{
-					throw new Exception("Error reading tar header. Header size invalid");
-				}
-			}
-
-			if(IsEmpty(bytes))
-			{
-				bytesRemaining = header.HeaderSize;
-				while (bytesRemaining > 0)
-				{
-					headerRead = inStream.Read(bytes, header.HeaderSize - bytesRemaining, bytesRemaining);
-					bytesRemaining -= headerRead;
-					if (headerRead <= 0 && bytesRemaining > 0)
-					{
-						throw new Exception("Broken archive");
-					}
-				}
-				if (bytesRemaining == 0 && IsEmpty(bytes))
-				{
-					return false;
-				}
-				throw new Exception("Error occured: expected end of archive");
-			}
-
-			if (!header.UpdateHeaderFromBytes())
-			{
-				throw new Exception("Checksum check failed");
-			}
-
-			remainingBytesInFile = header.SizeInBytes;
-			return true;
-		}
-	}
-
-	internal class TarHeader : ITarHeader
-	{
-		private byte[] buffer = new byte[512];
-		private long headerChecksum;
-
-		private string fileName;
-		protected DateTime dateTime1970 = new DateTime(1970, 1, 1, 0, 0, 0);
-		public EntryType EntryType { get; set; }
-		private static byte[] spaces = Encoding.ASCII.GetBytes("        ");
-
-		public virtual string FileName
-		{
-			get { return fileName.Replace("\0",string.Empty); }
-			set { fileName = value; }
-		}
-
-		public long SizeInBytes { get; set; }
-
-		public string SizeString { get { return Convert.ToString(SizeInBytes, 8).PadLeft(11, '0'); } }
-
-		public DateTime LastModification { get; set; }
-
-		public virtual int HeaderSize { get { return 512; } }
-
-		public byte[] GetBytes()
-		{
-			return buffer;
-		}
-
-		public virtual bool UpdateHeaderFromBytes()
-		{
-			FileName = Encoding.UTF8.GetString(buffer, 0, 100);
-
-			EntryType = (EntryType)buffer[156];
-
-			if((buffer[124] & 0x80) == 0x80) // if size in binary
-			{
-				long sizeBigEndian = BitConverter.ToInt64(buffer,0x80);
-				SizeInBytes = IPAddress.NetworkToHostOrder(sizeBigEndian);
-			}
-			else
-			{
-				SizeInBytes = Convert.ToInt64(Encoding.ASCII.GetString(buffer, 124, 11).Trim(), 8);
-			}
-			long unixTimeStamp = Convert.ToInt64(Encoding.ASCII.GetString(buffer,136,11).Trim(),8);
-			LastModification = dateTime1970.AddSeconds(unixTimeStamp);
-
-			var storedChecksum = Convert.ToInt64(Encoding.ASCII.GetString(buffer,148,6).Trim(), 8);
-			RecalculateChecksum(buffer);
-			if (storedChecksum == headerChecksum)
-			{
-				return true;
-			}
-
-			RecalculateAltChecksum(buffer);
-			return storedChecksum == headerChecksum;
-		}
-
-		private void RecalculateAltChecksum(byte[] buf)
-		{
-			spaces.CopyTo(buf, 148);
-			headerChecksum = 0;
-			foreach(byte b in buf)
-			{
-				if((b & 0x80) == 0x80)
-				{
-					headerChecksum -= b ^ 0x80;
-				}
-				else
-				{
-					headerChecksum += b;
-				}
-			}
-		}
-
-		protected virtual void RecalculateChecksum(byte[] buf)
-		{
-			// Set default value for checksum. That is 8 spaces.
-			spaces.CopyTo(buf, 148);
-			// Calculate checksum
-			headerChecksum = 0;
-			foreach (byte b in buf)
-			{
-				headerChecksum += b;
-			}
-		}
-	}
-	internal class UsTarHeader : TarHeader
-	{
-		private const string magic = "ustar";
-		private const string version = "  ";
-
-		private string namePrefix = string.Empty;
-
-		public override string FileName
-		{
-			get { return namePrefix.Replace("\0", string.Empty) + base.FileName.Replace("\0", string.Empty); }
-			set
-			{
-				if (value.Length > 255)
-				{
-					throw new Exception("UsTar fileName can not be longer than 255 chars");
-				}
-				if (value.Length > 100)
-				{
-				int position = value.Length - 100;
-				while (!IsPathSeparator(value[position]))
-				{
-					++position;
-					if (position == value.Length)
-					{
-						break;
-					}
-				}
-				if (position == value.Length)
-				{
-					position = value.Length - 100;
-				}
-				namePrefix = value.Substring(0, position);
-				base.FileName = value.Substring(position, value.Length - position);
-				}
-				else
-				{
-					base.FileName = value;
-				}
-			}
-		}
-
-		public override bool UpdateHeaderFromBytes()
-		{
-			byte[] bytes = GetBytes();
-			namePrefix = Encoding.UTF8.GetString(bytes, 347, 157);
-			return base.UpdateHeaderFromBytes();
-		}
-
-		internal static bool IsPathSeparator(char ch)
-		{
-			return (ch == '\\' || ch == '/' || ch == '|');
-		}
-	}
-}
-"@
-
-Add-Type -TypeDefinition $Source -Language CSharp
-
-Function GUnZip-File{
-	Param(
-		$infile,
-		$outdir
-		)
-
-	$input = New-Object System.IO.FileStream $inFile, ([IO.FileMode]::Open), ([IO.FileAccess]::Read), ([IO.FileShare]::Read)
-	$tempFile = "$env:TEMP\jujud.tar"
-	$tempOut = New-Object System.IO.FileStream $tempFile, ([IO.FileMode]::Create), ([IO.FileAccess]::Write), ([IO.FileShare]::None)
-	$gzipStream = New-Object System.IO.Compression.GzipStream $input, ([IO.Compression.CompressionMode]::Decompress)
-
-	$buffer = New-Object byte[](1024)
-	while($true){
-		$read = $gzipstream.Read($buffer, 0, 1024)
-		if ($read -le 0){break}
-		$tempOut.Write($buffer, 0, $read)
-	}
-	$gzipStream.Close()
-	$tempOut.Close()
-	$input.Close()
-
-	$in = New-Object System.IO.FileStream $tempFile, ([IO.FileMode]::Open), ([IO.FileAccess]::Read), ([IO.FileShare]::Read)
-	$tar = New-Object Tarer.Tar($in)
-	$tar.ReadToEnd($outdir)
-	$in.Close()
-	rm $tempFile
-}
-
-Function Get-FileSHA256{
-	Param(
-		$FilePath
-	)
-	$hash = [Security.Cryptography.HashAlgorithm]::Create( "SHA256" )
-	$stream = ([IO.StreamReader]$FilePath).BaseStream
-	$res = -join ($hash.ComputeHash($stream) | ForEach { "{0:x2}" -f $_ })
-	$stream.Close()
-	return $res
 }
 
 $juju_passwd = Get-RandomPassword 20
@@ -829,22 +650,14 @@ New-ItemProperty $path -Name "jujud" -Value 0 -PropertyType "DWord"
 $secpasswd = ConvertTo-SecureString $juju_passwd -AsPlainText -Force
 $jujuCreds = New-Object System.Management.Automation.PSCredential ($juju_user, $secpasswd)
 
-
 mkdir -Force "C:\Juju"
 mkdir C:\Juju\tmp
 mkdir "C:\Juju\bin"
 mkdir "C:\Juju\lib\juju\locks"
-$adminsGroup = (New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")).Translate([System.Security.Principal.NTAccount])
-$acl = Get-Acl -Path 'C:\Juju'
-$acl.SetAccessRuleProtection($true, $false)
-$adminPerm = "$adminsGroup", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
-$jujudPerm = "jujud", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule $adminPerm
-$acl.AddAccessRule($rule)
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule $jujudPerm
-$acl.AddAccessRule($rule)
-Set-Acl -Path 'C:\Juju' -AclObject $acl
 setx /m PATH "$env:PATH;C:\Juju\bin\"
+$adminsGroup = (New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")).Translate([System.Security.Principal.NTAccount])
+icacls "C:\Juju" /inheritance:r /grant "${adminsGroup}:(OI)(CI)(F)" /t
+icacls "C:\Juju" /inheritance:r /grant "jujud:(OI)(CI)(F)" /t
 Set-Content "C:\Juju\lib\juju\nonce.txt" "'FAKE_NONCE'"
 $binDir="C:\Juju\lib\juju\tools\1.2.3-win8-amd64"
 mkdir 'C:\Juju\log\juju'
@@ -862,9 +675,9 @@ New-Item -Path 'HKLM:\SOFTWARE\juju-core'
 $acl = Get-Acl -Path 'HKLM:\SOFTWARE\juju-core'
 $acl.SetAccessRuleProtection($true, $false)
 $adminPerm = "$adminsGroup", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
-$jujudPerm = "jujud", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
 $rule = New-Object System.Security.AccessControl.RegistryAccessRule $adminPerm
 $acl.AddAccessRule($rule)
+$jujudPerm = "jujud", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
 $rule = New-Object System.Security.AccessControl.RegistryAccessRule $jujudPerm
 $acl.AddAccessRule($rule)
 Set-Acl -Path 'HKLM:\SOFTWARE\juju-core' -AclObject $acl
@@ -907,7 +720,11 @@ mongoversion: "0.0"
 
 "@
 cmd.exe /C mklink /D C:\Juju\lib\juju\tools\machine-10 1.2.3-win8-amd64
-New-Service -Credential $jujuCreds -Name 'jujud-machine-10' -DependsOn Winmgmt -DisplayName 'juju agent for machine-10' '"C:\Juju\lib\juju\tools\machine-10\jujud.exe" machine --data-dir "C:\Juju\lib\juju" --machine-id 10 --debug'
+if ($jujuCreds) {
+  New-Service -Credential $jujuCreds -Name 'jujud-machine-10' -DependsOn Winmgmt -DisplayName 'juju agent for machine-10' '"C:\Juju\lib\juju\tools\machine-10\jujud.exe" machine --data-dir "C:\Juju\lib\juju" --machine-id 10 --debug'
+} else {
+  New-Service -Name 'jujud-machine-10' -DependsOn Winmgmt -DisplayName 'juju agent for machine-10' '"C:\Juju\lib\juju\tools\machine-10\jujud.exe" machine --data-dir "C:\Juju\lib\juju" --machine-id 10 --debug'
+}
 sc.exe failure 'jujud-machine-10' reset=5 actions=restart/1000
 sc.exe failureflag 'jujud-machine-10' 1
 Start-Service 'jujud-machine-10'`

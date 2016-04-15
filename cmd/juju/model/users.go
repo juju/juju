@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -18,7 +19,18 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-const userCommandDoc = `List all users with access to the current model`
+var usageListSharesSummary = `
+Shows all users with access to a model for the current controller.`[1:]
+
+var usageListSharesDetails = `
+By default, the model is the current model.
+
+Examples:
+    juju list-shares
+    juju list-shares -m mymodel
+
+See also: 
+    grant`[1:]
 
 func NewUsersCommand() cmd.Command {
 	return modelcmd.Wrap(&usersCommand{})
@@ -33,8 +45,8 @@ type usersCommand struct {
 
 // UserInfo defines the serialization behaviour of the user information.
 type UserInfo struct {
-	Username       string `yaml:"user-name" json:"user-name"`
-	DateCreated    string `yaml:"date-created" json:"date-created"`
+	DisplayName    string `yaml:"display-name,omitempty" json:"display-name,omitempty"`
+	Access         string `yaml:"access" json:"access"`
 	LastConnection string `yaml:"last-connection" json:"last-connection"`
 }
 
@@ -56,8 +68,8 @@ func (c *usersCommand) getAPI() (UsersAPI, error) {
 func (c *usersCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-shares",
-		Purpose: "shows all users with access to the current model",
-		Doc:     userCommandDoc,
+		Purpose: usageListSharesSummary,
+		Doc:     usageListSharesDetails,
 	}
 }
 
@@ -82,17 +94,23 @@ func (c *usersCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-
-	return c.out.Write(ctx, c.apiUsersToUserInfoSlice(result))
+	return c.out.Write(ctx, apiUsersToUserInfoMap(result))
 }
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
 func (c *usersCommand) formatTabular(value interface{}) ([]byte, error) {
-	users, ok := value.([]UserInfo)
+	users, ok := value.(map[string]UserInfo)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", users, value)
 	}
 	var out bytes.Buffer
+	if err := formatTabularUserInfo(users, &out); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return out.Bytes(), nil
+}
+
+func formatTabularUserInfo(users map[string]UserInfo, out *bytes.Buffer) error {
 	const (
 		// To format things into columns.
 		minwidth = 0
@@ -101,28 +119,37 @@ func (c *usersCommand) formatTabular(value interface{}) ([]byte, error) {
 		padchar  = ' '
 		flags    = 0
 	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	fmt.Fprintf(tw, "NAME\tDATE CREATED\tLAST CONNECTION\n")
-	for _, user := range users {
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", user.Username, user.DateCreated, user.LastConnection)
+	names := set.NewStrings()
+	for name := range users {
+		names.Add(name)
+	}
+	tw := tabwriter.NewWriter(out, minwidth, tabwidth, padding, padchar, flags)
+	fmt.Fprintf(tw, "NAME\tACCESS\tLAST CONNECTION\n")
+	for _, name := range names.SortedValues() {
+		user := users[name]
+		displayName := name
+		if user.DisplayName != "" {
+			displayName = fmt.Sprintf("%s (%s)", name, user.DisplayName)
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\n", displayName, user.Access, user.LastConnection)
 	}
 	tw.Flush()
-	return out.Bytes(), nil
+	return nil
 }
 
-func (c *usersCommand) apiUsersToUserInfoSlice(users []params.ModelUserInfo) []UserInfo {
-	var output []UserInfo
+func apiUsersToUserInfoMap(users []params.ModelUserInfo) map[string]UserInfo {
+	output := make(map[string]UserInfo)
 	for _, info := range users {
-		outInfo := UserInfo{Username: info.UserName}
-		outInfo.DateCreated = user.UserFriendlyDuration(info.DateCreated, time.Now())
+		outInfo := UserInfo{
+			DisplayName: info.DisplayName,
+			Access:      string(info.Access),
+		}
 		if info.LastConnection != nil {
 			outInfo.LastConnection = user.UserFriendlyDuration(*info.LastConnection, time.Now())
 		} else {
 			outInfo.LastConnection = "never connected"
 		}
-
-		output = append(output, outInfo)
+		output[info.UserName] = outInfo
 	}
-
 	return output
 }

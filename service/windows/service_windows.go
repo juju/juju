@@ -14,17 +14,21 @@ import (
 	"github.com/gabriel-samfira/sys/windows/svc"
 	"github.com/gabriel-samfira/sys/windows/svc/mgr"
 	"github.com/juju/errors"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/service/common"
 )
 
-//sys enumServicesStatus(h windows.Handle, dwServiceType uint32, dwServiceState uint32, lpServices uintptr, cbBufSize uint32, pcbBytesNeeded *uint32, lpServicesReturned *uint32, lpResumeHandle *uint32) (err error) [failretval==0] = advapi32.EnumServicesStatusW
+type SC_ENUM_TYPE int
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms681988(v=vs.85).aspx
 const (
-	SERVICE_CONFIG_FAILURE_ACTIONS      = 2
-	SERVICE_CONFIG_FAILURE_ACTIONS_FLAG = 4
+	SC_ENUM_PROCESS_INFO                SC_ENUM_TYPE = 0
+	SERVICE_CONFIG_FAILURE_ACTIONS                   = 2
+	SERVICE_CONFIG_FAILURE_ACTIONS_FLAG              = 4
 )
+
+//sys enumServicesStatus(h windows.Handle, InfoLevel SC_ENUM_TYPE, dwServiceType uint32, dwServiceState uint32, lpServices uintptr, cbBufSize uint32, pcbBytesNeeded *uint32, lpServicesReturned *uint32, lpResumeHandle *uint32, pszGroupName *uint32) (err error) [failretval==0] = advapi32.EnumServicesStatusExW
 
 const (
 	SC_ACTION_NONE = iota
@@ -55,10 +59,24 @@ type serviceFailureActionsFlag struct {
 // This is done so we can mock this function out
 var WinChangeServiceConfig2 = windows.ChangeServiceConfig2
 
+// serviceStatusProcess is used by EnumServicesStatusEx
+// https://msdn.microsoft.com/en-us/library/windows/desktop/ms685992%28v=vs.85%29.aspx
+type serviceStatusProcess struct {
+	ServiceType             uint32
+	CurrentState            uint32
+	ControlsAccepted        uint32
+	Win32ExitCode           uint32
+	ServiceSpecificExitCode uint32
+	CheckPoint              uint32
+	WaitHint                uint32
+	ProcessId               uint32
+	ServiceFlags            uint32
+}
+
 type enumService struct {
 	name        *uint16
 	displayName *uint16
-	Status      windows.SERVICE_STATUS
+	Status      serviceStatusProcess
 }
 
 // Name returns the name of the service stored in enumService.
@@ -95,6 +113,9 @@ type manager struct {
 
 // CreateService wraps Mgr.CreateService method.
 func (m *manager) CreateService(name, exepath string, c mgr.Config, args ...string) (windowsService, error) {
+	// The Create function relies on the fact that this calls Connect(which connects to localhost) and not
+	// ConnectRemote. If we get to the point where we need to call ConnectRemote we need to stop using
+	// series.HostSeries inside Create.
 	s, err := mgr.Connect()
 	if err != nil {
 		return nil, err
@@ -174,8 +195,8 @@ var listServices = func() (services []string, err error) {
 
 	for {
 		var buf [512]enumService
-		err := enumServicesStatus(sc, windows.SERVICE_WIN32,
-			windows.SERVICE_STATE_ALL, uintptr(unsafe.Pointer(&buf[0])), uint32(unsafe.Sizeof(buf)), &needed, &returned, &resume)
+		err := enumServicesStatus(sc, SC_ENUM_PROCESS_INFO, windows.SERVICE_WIN32,
+			windows.SERVICE_STATE_ALL, uintptr(unsafe.Pointer(&buf[0])), uint32(unsafe.Sizeof(buf)), &needed, &returned, &resume, nil)
 		if err != nil {
 			if err == windows.ERROR_MORE_DATA {
 				enum = append(enum, buf[:returned]...)
@@ -335,16 +356,22 @@ func (s *SvcManager) Delete(name string) error {
 
 // Create creates a service with the given config.
 func (s *SvcManager) Create(name string, conf common.Conf) error {
-	passwd, err := getPassword()
-	if err != nil {
-		return errors.Trace(err)
+	serviceStartName := "LocalSystem"
+	var passwd string
+	if !series.IsWindowsNano(series.HostSeries()) {
+		password, err := getPassword()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		passwd = password
+		serviceStartName = jujudUser
 	}
 	cfg := mgr.Config{
 		Dependencies:     []string{"Winmgmt"},
 		ErrorControl:     mgr.ErrorSevere,
 		StartType:        mgr.StartAutomatic,
 		DisplayName:      conf.Desc,
-		ServiceStartName: jujudUser,
+		ServiceStartName: serviceStartName,
 		Password:         passwd,
 	}
 	// mgr.CreateService actually does correct argument escaping itself. There is no

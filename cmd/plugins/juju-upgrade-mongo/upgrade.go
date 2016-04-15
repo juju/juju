@@ -13,20 +13,19 @@ import (
 	"text/template"
 	"time"
 
-	"launchpad.net/gnuflag"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
+	"github.com/juju/replicaset"
+	"github.com/juju/utils"
+	"launchpad.net/gnuflag"
+
 	"github.com/juju/juju/api/highavailability"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/loggo"
-	"github.com/juju/names"
-	"github.com/juju/replicaset"
-	"github.com/juju/utils"
 )
 
 func (c *upgradeMongoCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -54,8 +53,6 @@ func Main(args []string) {
 
 const upgradeDoc = `This command upgrades the version of mongo used to store the Juju model from 2.4 to 3.x`
 
-var logger = loggo.GetLogger("juju.plugins.upgrademongo")
-
 // MongoUpgradeClient defines the methods
 // on the client api that mongo upgrade will call.
 type MongoUpgradeClient interface {
@@ -78,13 +75,6 @@ func (c *upgradeMongoCommand) Info() *cmd.Info {
 		Args:    "",
 		Doc:     upgradeDoc,
 	}
-}
-
-func mustParseTemplate(templ string) *template.Template {
-	t := template.New("").Funcs(template.FuncMap{
-		"shquote": utils.ShQuote,
-	})
-	return template.Must(t.Parse(templ))
 }
 
 // runViaJujuSSH will run arbitrary code in the remote machine.
@@ -243,7 +233,7 @@ func (c *upgradeMongoCommand) migratableMachines() (upgradeMongoParams, error) {
 	}
 
 	defer haClient.Close()
-	results, err := haClient.MongoUpgradeMode(mongo.Mongo30wt)
+	results, err := haClient.MongoUpgradeMode(mongo.Mongo32wt)
 	if err != nil {
 		return upgradeMongoParams{}, errors.Annotate(err, "cannot enter mongo upgrade mode")
 	}
@@ -268,22 +258,4 @@ func (c *upgradeMongoCommand) migratableMachines() (upgradeMongoParams, error) {
 	}
 
 	return result, nil
-}
-
-// waitForNotified will wait for all ha members to be notified
-// of the impending migration or timeout.
-func waitForNotified(addrs []string) error {
-	return nil
-}
-
-// stopAllMongos stops all the mongo slaves to prevent them
-// from falling back when we upgrade the master.
-func stopAllMongos(addrs []string) error {
-	return nil
-}
-
-// recreateReplicas creates replica slaves again from the
-// upgraded mongo master.
-func recreateReplicas(master string, addrs []string) error {
-	return nil
 }

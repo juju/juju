@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	lm "github.com/joyent/gomanta/localservices/manta"
 	lc "github.com/joyent/gosdc/localservices/cloudapi"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -29,7 +28,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/joyent"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func registerLocalTests() {
@@ -38,91 +37,54 @@ func registerLocalTests() {
 }
 
 type localCloudAPIServer struct {
-	Server     *httptest.Server
-	Mux        *http.ServeMux
-	oldHandler http.Handler
-	cloudapi   *lc.CloudAPI
+	Server *httptest.Server
 }
 
 func (ca *localCloudAPIServer) setupServer(c *gc.C) {
 	// Set up the HTTP server.
 	ca.Server = httptest.NewServer(nil)
 	c.Assert(ca.Server, gc.NotNil)
-	ca.oldHandler = ca.Server.Config.Handler
-	ca.Mux = http.NewServeMux()
-	ca.Server.Config.Handler = ca.Mux
+	mux := http.NewServeMux()
+	ca.Server.Config.Handler = mux
 
-	ca.cloudapi = lc.New(ca.Server.URL, testUser)
-	ca.cloudapi.SetupHTTP(ca.Mux)
+	cloudapi := lc.New(ca.Server.URL, testUser)
+	cloudapi.SetupHTTP(mux)
 	c.Logf("Started local CloudAPI service at: %v", ca.Server.URL)
 }
 
-func (c *localCloudAPIServer) destroyServer() {
-	c.Mux = nil
-	c.Server.Config.Handler = c.oldHandler
-	c.Server.Close()
-}
-
-type localMantaServer struct {
-	Server     *httptest.Server
-	Mux        *http.ServeMux
-	oldHandler http.Handler
-	manta      *lm.Manta
-}
-
-func (m *localMantaServer) setupServer(c *gc.C) {
-	// Set up the HTTP server.
-	m.Server = httptest.NewServer(nil)
-	c.Assert(m.Server, gc.NotNil)
-	m.oldHandler = m.Server.Config.Handler
-	m.Mux = http.NewServeMux()
-	m.Server.Config.Handler = m.Mux
-
-	m.manta = lm.New(m.Server.URL, testUser)
-	m.manta.SetupHTTP(m.Mux)
-	c.Logf("Started local Manta service at: %v", m.Server.URL)
-}
-
-func (m *localMantaServer) destroyServer() {
-	m.Mux = nil
-	m.Server.Config.Handler = m.oldHandler
-	m.Server.Close()
+func (s *localCloudAPIServer) destroyServer(c *gc.C) {
+	s.Server.Close()
 }
 
 type localLiveSuite struct {
 	providerSuite
 	jujutest.LiveTests
-	cSrv *localCloudAPIServer
-	mSrv *localMantaServer
+	cSrv localCloudAPIServer
 }
 
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.providerSuite.SetUpSuite(c)
-	s.cSrv = &localCloudAPIServer{}
-	s.mSrv = &localMantaServer{}
+	s.LiveTests.SetUpSuite(c)
 	s.cSrv.setupServer(c)
-	s.mSrv.setupServer(c)
-	s.AddSuiteCleanup(func(*gc.C) { envtesting.PatchAttemptStrategies(&joyent.ShortAttempt) })
+	s.AddCleanup(s.cSrv.destroyServer)
 
-	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
+	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL)
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
 		"image-metadata-url": "test://host",
 	})
 	s.LiveTests.UploadArches = []string{arch.AMD64}
-	s.LiveTests.SetUpSuite(c)
+	s.AddCleanup(func(*gc.C) { envtesting.PatchAttemptStrategies(&joyent.ShortAttempt) })
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 	joyent.UnregisterExternalTestImageMetadata()
 	s.LiveTests.TearDownSuite(c)
-	s.cSrv.destroyServer()
-	s.mSrv.destroyServer()
 	s.providerSuite.TearDownSuite(c)
 }
 
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.providerSuite.SetUpTest(c)
+	s.LiveTests.SetUpTest(c)
 	credentialsAttrs := joyent.CredentialsAttributes(s.TestConfig)
 	s.Credential = cloud.NewCredential(
 		cloud.UserPassAuthType,
@@ -133,7 +95,7 @@ func (s *localLiveSuite) SetUpTest(c *gc.C) {
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
-	s.LiveTests.SetUpTest(c)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 }
 
 func (s *localLiveSuite) TearDownTest(c *gc.C) {
@@ -148,31 +110,28 @@ func (s *localLiveSuite) TearDownTest(c *gc.C) {
 type localServerSuite struct {
 	providerSuite
 	jujutest.Tests
-	cSrv *localCloudAPIServer
-	mSrv *localMantaServer
+	cSrv localCloudAPIServer
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
+	s.providerSuite.SetUpSuite(c)
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 
-	s.providerSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
 func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.providerSuite.SetUpTest(c)
 
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	s.cSrv = &localCloudAPIServer{}
-	s.mSrv = &localMantaServer{}
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.cSrv.setupServer(c)
-	s.mSrv.setupServer(c)
+	s.AddCleanup(s.cSrv.destroyServer)
 
 	s.Tests.ToolsFixture.UploadArches = []string{arch.AMD64}
 	s.Tests.SetUpTest(c)
-	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
+	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL)
 	credentialsAttrs := joyent.CredentialsAttributes(s.TestConfig)
 	s.Credential = cloud.NewCredential(
 		cloud.UserPassAuthType,
@@ -187,8 +146,6 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 func (s *localServerSuite) TearDownTest(c *gc.C) {
 	joyent.UnregisterExternalTestImageMetadata()
 	s.Tests.TearDownTest(c)
-	s.cSrv.destroyServer()
-	s.mSrv.destroyServer()
 	s.providerSuite.TearDownTest(c)
 }
 
@@ -280,7 +237,7 @@ var instanceGathering = []struct {
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := s.Prepare(c)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
-	c.Assert(inst.Status(), gc.Equals, "running")
+	c.Assert(inst.Status().Message, gc.Equals, "running")
 	err := env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -394,10 +351,10 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10")
+	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10 virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "tags"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "tags", "virt-type"})
 }
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {

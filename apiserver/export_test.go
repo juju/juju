@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -27,6 +26,9 @@ var (
 	MongoPingInterval            = &mongoPingInterval
 	NewBackups                   = &newBackups
 	AllowedMethodsDuringUpgrades = allowedMethodsDuringUpgrades
+	BZMimeType                   = bzMimeType
+	JSMimeType                   = jsMimeType
+	SpritePath                   = spritePath
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
@@ -34,15 +36,15 @@ func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
 	if err != nil {
 		return nil, err
 	}
-	return auth.(*authentication.MacaroonAuthenticator).Macaroon, nil
+	return auth.(*authentication.ExternalMacaroonAuthenticator).Macaroon, nil
 }
 
-func ServerBakeryService(srv *Server) (*bakery.Service, error) {
+func ServerBakeryService(srv *Server) (authentication.BakeryService, error) {
 	auth, err := srv.authCtxt.macaroonAuth()
 	if err != nil {
 		return nil, err
 	}
-	return auth.(*authentication.MacaroonAuthenticator).Service, nil
+	return auth.(*authentication.ExternalMacaroonAuthenticator).Service, nil
 }
 
 // ServerAuthenticatorForTag calls the authenticatorForTag method
@@ -89,9 +91,12 @@ func TestingApiRoot(st *state.State) rpc.MethodFinder {
 // TestingApiHandler gives you an ApiHandler that isn't connected to
 // anything real. It's enough to let test some basic functionality though.
 func TestingApiHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Resources) {
+	authCtxt, err := newAuthContext(srvSt)
+	c.Assert(err, jc.ErrorIsNil)
 	srv := &Server{
-		state: srvSt,
-		tag:   names.NewMachineTag("0"),
+		authCtxt: authCtxt,
+		state:    srvSt,
+		tag:      names.NewMachineTag("0"),
 	}
 	h, err := newApiHandler(srv, st, nil, nil, st.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
@@ -185,4 +190,26 @@ func TestingAboutToRestoreRoot(st *state.State) *aboutToRestoreRoot {
 // Addr returns the address that the server is listening on.
 func (srv *Server) Addr() *net.TCPAddr {
 	return srv.lis.Addr().(*net.TCPAddr) // cannot fail
+}
+
+// PatchGetMigrationBackend overrides the getMigrationBackend function
+// to support testing.
+func PatchGetMigrationBackend(p Patcher, st migrationBackend) {
+	p.PatchValue(&getMigrationBackend, func(*state.State) migrationBackend {
+		return st
+	})
+}
+
+// PatchGetControllerCACert overrides the getControllerCACert function
+// to support testing.
+func PatchGetControllerCACert(p Patcher, caCert string) {
+	p.PatchValue(&getControllerCACert, func(migrationBackend) (string, error) {
+		return caCert, nil
+	})
+}
+
+// Patcher defines an interface that matches the PatchValue method on
+// CleanupSuite
+type Patcher interface {
+	PatchValue(ptr, value interface{})
 }

@@ -21,13 +21,13 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
 )
 
 var (
 	logger = loggo.GetLogger("juju.container.kvm")
 
 	KvmObjectFactory ContainerFactory = &containerFactory{}
-	DefaultKvmBridge                  = "virbr0"
 
 	// In order for Juju to be able to create the hardware characteristics of
 	// the kvm machines it creates, we need to be explicit in our definition
@@ -106,12 +106,19 @@ func (manager *containerManager) CreateContainer(
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
-) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	callback container.StatusCallback,
+) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 
 	name := names.NewMachineTag(instanceConfig.MachineId).String()
 	if manager.name != "" {
 		name = fmt.Sprintf("%s-%s", manager.name, name)
 	}
+
+	defer func() {
+		if err != nil {
+			callback(status.StatusProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
+		}
+	}()
 
 	// Set the MachineContainerHostname to match the name returned by virsh list
 	instanceConfig.MachineContainerHostname = name
@@ -155,6 +162,7 @@ func (manager *containerManager) CreateContainer(
 		logger.Warningf("failed to parse hardware: %v", err)
 	}
 
+	callback(status.StatusAllocating, "Creating container; it might take some time", nil)
 	logger.Tracef("create the container, constraints: %v", instanceConfig.Constraints)
 	if err := kvmContainer.Start(startParams); err != nil {
 		err = errors.Annotate(err, "kvm container creation failed")

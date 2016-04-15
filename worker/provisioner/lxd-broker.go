@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 var lxdLogger = loggo.GetLogger("juju.provisioner.lxd")
@@ -53,9 +54,9 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, errors.New("starting lxd containers with networks is not supported yet")
 	}
 	machineId := args.InstanceConfig.MachineId
-	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
+	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
 	if bridgeDevice == "" {
-		bridgeDevice = lxd.DefaultLxdBridge
+		bridgeDevice = lxdclient.DefaultLXDBridge
 	}
 
 	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
@@ -104,7 +105,7 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	}
 
 	storageConfig := &container.StorageConfig{}
-	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storageConfig)
+	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storageConfig, args.StatusCallback)
 	if err != nil {
 		return nil, err
 	}
@@ -143,9 +144,9 @@ func (broker *lxdBroker) MaintainInstance(args environs.StartInstanceParams) err
 	machineID := args.InstanceConfig.MachineId
 
 	// Default to using the host network until we can configure.
-	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
+	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
 	if bridgeDevice == "" {
-		bridgeDevice = lxd.DefaultLxdBridge
+		bridgeDevice = lxdclient.DefaultLXDBridge
 	}
 
 	// There's no InterfaceInfo we expect to get below.

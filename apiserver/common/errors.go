@@ -77,6 +77,15 @@ func IsDischargeRequiredError(err error) bool {
 	return ok
 }
 
+// IsUpgradeInProgress returns true if this error is caused
+// by an upgrade in progress.
+func IsUpgradeInProgressError(err error) bool {
+	if state.IsUpgradeInProgressError(err) {
+		return true
+	}
+	return errors.Cause(err) == params.UpgradeInProgressError
+}
+
 var (
 	ErrBadId              = errors.New("id not found")
 	ErrBadCreds           = errors.New("invalid entity name or password")
@@ -196,11 +205,13 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotAssigned
 	case state.IsHasAssignedUnitsError(err):
 		code = params.CodeHasAssignedUnits
+	case state.IsHasHostedModelsError(err):
+		code = params.CodeHasHostedModels
 	case isNoAddressSetError(err):
 		code = params.CodeNoAddressSet
 	case errors.IsNotProvisioned(err):
 		code = params.CodeNotProvisioned
-	case state.IsUpgradeInProgressError(err):
+	case IsUpgradeInProgressError(err):
 		code = params.CodeUpgradeInProgress
 	case state.IsHasAttachmentsError(err):
 		code = params.CodeMachineHasAttachedStorage
@@ -278,6 +289,8 @@ func RestoreError(err error) error {
 	case params.IsCodeHasAssignedUnits(err):
 		// TODO(ericsnow) Handle state.HasAssignedUnitsError here.
 		// ...by parsing msg?
+		return err
+	case params.IsCodeHasHostedModels(err):
 		return err
 	case params.IsCodeNoAddressSet(err):
 		// TODO(ericsnow) Handle isNoAddressSetError here.

@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -33,7 +34,7 @@ import (
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type UpgradeJujuSuite struct {
@@ -312,7 +313,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 
 		// Set up apparent CLI version and initialize the command.
 		current := version.MustParseBinary(test.currentVersion)
-		s.PatchValue(&version.Current, current.Number)
+		s.PatchValue(&jujuversion.Current, current.Number)
 		s.PatchValue(&arch.HostArch, func() string { return current.Arch })
 		s.PatchValue(&series.HostSeries, func() string { return current.Series })
 		com := newUpgradeJujuCommand(test.upgradeMap)
@@ -371,7 +372,7 @@ func (s *UpgradeJujuSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agen
 	storage, err := s.State.ToolsStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
-	_, r, err := storage.Tools(vers)
+	_, r, err := storage.Open(vers.String())
 	if !c.Check(err, jc.ErrorIsNil) {
 		return
 	}
@@ -441,12 +442,12 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
-	s.PatchValue(&version.Current, version.MustParse("1.99.99"))
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.99.99"))
 	cmd := newUpgradeJujuCommand(map[int]version.Number{2: version.MustParse("1.99.99")})
 	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
 	c.Assert(err, jc.ErrorIsNil)
 	vers := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -456,7 +457,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 
 func (s *UpgradeJujuSuite) TestBlockUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
-	s.PatchValue(&version.Current, version.MustParse("1.99.99"))
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.99.99"))
 	cmd := newUpgradeJujuCommand(map[int]version.Number{2: version.MustParse("1.99.99")})
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeJujuWithRealUpload")
@@ -553,7 +554,7 @@ upgrade to this version by running
 
 func (s *UpgradeJujuSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agentVersion string, tools []string) {
 	current := version.MustParseBinary(currentVersion)
-	s.PatchValue(&version.Current, current.Number)
+	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
 	s.PatchValue(&series.HostSeries, func() string { return current.Series })
 
@@ -755,6 +756,15 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 	)
 }
 
+func (s *UpgradeJujuSuite) TestDisallowUploadToolsForNonAdminModels(c *gc.C) {
+	cmd := &upgradeJujuCommand{}
+	err := coretesting.InitCommand(modelcmd.Wrap(cmd), []string{"--upload-tools", "-m", "default"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = modelcmd.Wrap(cmd).Run(coretesting.Context(c))
+	c.Check(err, gc.ErrorMatches, "--upload-tools can only be used with the admin model")
+}
+
 func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
 	fakeAPI.setVersionErr = common.OperationBlockedError("the operation has been blocked")
@@ -829,7 +839,7 @@ func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {
 
 func NewFakeUpgradeJujuAPI(c *gc.C, st *state.State) *fakeUpgradeJujuAPI {
 	nextVersion := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}

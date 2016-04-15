@@ -5,8 +5,10 @@ package joyent
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
+	"github.com/joyent/gosdc/cloudapi"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/constraints"
@@ -14,10 +16,9 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 )
 
 // This file contains the core of the Joyent Environ implementation.
@@ -27,24 +28,16 @@ type joyentEnviron struct {
 
 	name string
 
+	compute *joyentCompute
+
 	// supportedArchitectures caches the architectures
 	// for which images can be instantiated.
 	archLock               sync.Mutex
 	supportedArchitectures []string
 
-	// All mutating operations should lock the mutex. Non-mutating operations
-	// should read all fields (other than name, which is immutable) from a
-	// shallow copy taken with getSnapshot().
-	// This advice is predicated on the goroutine-safety of the values of the
-	// affected fields.
-	lock    sync.Mutex
-	ecfg    *environConfig
-	storage storage.Storage
-	compute *joyentCompute
+	lock sync.Mutex // protects ecfg
+	ecfg *environConfig
 }
-
-var _ environs.Environ = (*joyentEnviron)(nil)
-var _ state.Prechecker = (*joyentEnviron)(nil)
 
 // newEnviron create a new Joyent environ instance from config.
 func newEnviron(cfg *config.Config) (*joyentEnviron, error) {
@@ -54,10 +47,6 @@ func newEnviron(cfg *config.Config) (*joyentEnviron, error) {
 	}
 	env.name = cfg.Name()
 	var err error
-	env.storage, err = newStorage(env.ecfg, "")
-	if err != nil {
-		return nil, err
-	}
 	env.compute, err = newCompute(env.ecfg)
 	if err != nil {
 		return nil, err
@@ -127,20 +116,8 @@ func (env *joyentEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (env *joyentEnviron) getSnapshot() *joyentEnviron {
-	env.lock.Lock()
-	clone := *env
-	env.lock.Unlock()
-	clone.lock = sync.Mutex{}
-	return &clone
-}
-
 func (env *joyentEnviron) Config() *config.Config {
-	return env.getSnapshot().ecfg.Config
-}
-
-func (env *joyentEnviron) Storage() storage.Storage {
-	return env.getSnapshot().storage
+	return env.Ecfg().Config
 }
 
 func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
@@ -148,18 +125,38 @@ func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs
 }
 
 func (env *joyentEnviron) ControllerInstances() ([]instance.Id, error) {
-	return common.ProviderStateInstances(env, env.Storage())
+	instanceIds := []instance.Id{}
+
+	filter := cloudapi.NewFilter()
+	filter.Set(tagKey("group"), "juju")
+	filter.Set(tagKey("model"), env.Config().Name())
+	filter.Set(tagKey(tags.JujuModel), env.Config().UUID())
+	filter.Set(tagKey(tags.JujuController), "true")
+
+	machines, err := env.compute.cloudapi.ListMachines(filter)
+	if err != nil || len(machines) == 0 {
+		return nil, environs.ErrNotBootstrapped
+	}
+
+	for _, m := range machines {
+		if strings.EqualFold(m.State, "provisioning") || strings.EqualFold(m.State, "running") {
+			copy := m
+			ji := &joyentInstance{machine: &copy, env: env}
+			instanceIds = append(instanceIds, ji.Id())
+		}
+	}
+
+	return instanceIds, nil
 }
 
 func (env *joyentEnviron) Destroy() error {
-	if err := common.Destroy(env); err != nil {
-		return errors.Trace(err)
-	}
-	return env.Storage().RemoveAll()
+	return errors.Trace(common.Destroy(env))
 }
 
 func (env *joyentEnviron) Ecfg() *environConfig {
-	return env.getSnapshot().ecfg
+	env.lock.Lock()
+	defer env.lock.Unlock()
+	return env.ecfg
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.

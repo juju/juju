@@ -46,7 +46,7 @@ clouds:
         endpoint: https://ec2.us-gov-west-1.amazonaws-govcloud.com
   google:
     type: gce
-    auth-types: [ oauth2 ]
+    auth-types: [ jsonfile, oauth2 ]
     regions:
       us-east1:
         endpoint: https://www.googleapis.com
@@ -129,17 +129,17 @@ clouds:
     auth-types: [ access-key, userpass ]
     endpoint: https://identity.api.rackspacecloud.com/v2.0
     regions:
-      DFW:
+      dfw:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
-      ORD:
+      ord:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
-      IAD:
+      iad:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
-      LON:
+      lon:
         endpoint: https://lon.identity.api.rackspacecloud.com/v2.0
-      SYD:
+      syd:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
-      HKG:
+      hkg:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
   joyent:
     type: joyent
