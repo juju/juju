@@ -433,7 +433,10 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 '10.10.0.1',
                 'sudo chmod -Rf go+r /var/log/cloud-init*.log'
                 ' /var/log/juju/*.log'
-                ' /var/lib/juju/containers/juju-*-lxc-*/'),),
+                ' /var/lib/juju/containers/juju-*-lxc-*/'
+                ' /var/log/syslog'
+                ' /var/log/mongodb/mongodb.log'
+                ),),
             cc_mock.call_args_list[0][0])
         self.assertEqual(
             (get_timeout_prefix(120) + (
@@ -445,6 +448,8 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 '10.10.0.1:/var/log/cloud-init*.log',
                 '10.10.0.1:/var/log/juju/*.log',
                 '10.10.0.1:/var/lib/juju/containers/juju-*-lxc-*/',
+                '10.10.0.1:/var/log/syslog',
+                '10.10.0.1:/var/log/mongodb/mongodb.log',
                 '/foo'),),
             cc_mock.call_args_list[1][0])
 
@@ -475,7 +480,8 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             ["DEBUG ssh -o 'User ubuntu' -o 'UserKnownHostsFile /dev/null' "
              "-o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' "
              "10.10.0.1 'sudo chmod -Rf go+r /var/log/cloud-init*.log "
-             "/var/log/juju/*.log /var/lib/juju/containers/juju-*-lxc-*/'",
+             "/var/log/juju/*.log /var/lib/juju/containers/juju-*-lxc-*/ "
+             "/var/log/syslog /var/log/mongodb/mongodb.log'",
              'WARNING Could not allow access to the juju logs:',
              'WARNING None',
              'WARNING Could not retrieve some or all logs:',
