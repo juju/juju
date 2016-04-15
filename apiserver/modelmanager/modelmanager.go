@@ -26,7 +26,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
 
 func init() {
-	common.RegisterStandardFacade("ModelManager", 2, NewModelManagerAPI)
+	common.RegisterStandardFacade("ModelManager", 2, newFacade)
 }
 
 // ModelManager defines the methods on the modelmanager API endpoint.
@@ -39,7 +39,7 @@ type ModelManager interface {
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
-	state       stateInterface
+	state       Backend
 	authorizer  common.Authorizer
 	toolsFinder *common.ToolsFinder
 	isAdmin     bool
@@ -47,20 +47,19 @@ type ModelManagerAPI struct {
 
 var _ ModelManager = (*ModelManagerAPI)(nil)
 
+func newFacade(st *state.State, resources *common.Resources, auth common.Authorizer) (*ModelManagerAPI, error) {
+	return NewModelManagerAPI(NewStateBackend(st), auth)
+}
+
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
-func NewModelManagerAPI(
-	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
-) (*ModelManagerAPI, error) {
+func NewModelManagerAPI(st Backend, authorizer common.Authorizer) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	return &ModelManagerAPI{
-		state:       getState(st),
+		state:       st,
 		authorizer:  authorizer,
 		toolsFinder: common.NewToolsFinder(st, st, urlGetter),
 	}, nil
@@ -263,7 +262,6 @@ func (mm *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList,
 			},
 			LastConnection: lastConn,
 		})
-		logger.Debugf("list models: %s, %s, %s", model.Name(), model.UUID(), model.Owner())
 	}
 
 	return result, nil
@@ -280,7 +278,16 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 		if err != nil {
 			return params.ModelInfo{}, err
 		}
-		model, err := m.state.GetModel(tag)
+
+		st, err := m.state.ForModel(tag)
+		if errors.IsNotFound(err) {
+			return params.ModelInfo{}, common.ErrPerm
+		} else if err != nil {
+			return params.ModelInfo{}, err
+		}
+		defer st.Close()
+
+		model, err := st.Model()
 		if errors.IsNotFound(err) {
 			return params.ModelInfo{}, common.ErrPerm
 		} else if err != nil {
@@ -295,6 +302,10 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 		if err != nil {
 			return params.ModelInfo{}, err
 		}
+		status, err := model.Status()
+		if err != nil {
+			return params.ModelInfo{}, err
+		}
 
 		owner := model.Owner()
 		info := params.ModelInfo{
@@ -302,6 +313,8 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 			UUID:           cfg.UUID(),
 			ControllerUUID: cfg.ControllerUUID(),
 			OwnerTag:       owner.String(),
+			Life:           params.Life(model.Life().String()),
+			Status:         common.EntityStatusFromState(status),
 			ProviderType:   cfg.Type(),
 			DefaultSeries:  config.PreferredSeries(cfg),
 		}
@@ -387,10 +400,6 @@ func (em *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessReques
 	return result, nil
 }
 
-type stateAccessor interface {
-	ForModel(tag names.ModelTag) (*state.State, error)
-}
-
 // resolveStateAccess returns the state representation of the logical model
 // access type.
 func resolveStateAccess(access permission.ModelAccess) (state.ModelAccess, error) {
@@ -423,7 +432,7 @@ func isGreaterAccess(currentAccess, newAccess state.ModelAccess) bool {
 
 // ChangeModelAccess performs the requested access grant or revoke action for the
 // specified user on the specified model.
-func ChangeModelAccess(accessor stateAccessor, modelTag names.ModelTag, createdBy, accessedBy names.UserTag, action params.ModelAction, access permission.ModelAccess) error {
+func ChangeModelAccess(accessor Backend, modelTag names.ModelTag, createdBy, accessedBy names.UserTag, action params.ModelAction, access permission.ModelAccess) error {
 	st, err := accessor.ForModel(modelTag)
 	if err != nil {
 		return errors.Annotate(err, "could not lookup model")

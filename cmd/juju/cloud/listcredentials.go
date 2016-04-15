@@ -15,6 +15,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 )
@@ -154,7 +155,7 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *listCredentialsCommand) removeSecrets(cloudName string, cloudCred *jujucloud.CloudCredential) error {
-	cloud, err := c.cloudByNameFunc(cloudName)
+	cloud, err := common.CloudOrProvider(cloudName, c.cloudByNameFunc)
 	if err != nil {
 		return err
 	}

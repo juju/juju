@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -69,7 +70,17 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 }
 
 func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) error {
-	args.InstanceConfig.Tools = args.Tools[0]
+	// TODO(natefinch): This is only correct so long as the lxd is running on
+	// the local machine.  If/when we support a remote lxd environment, we'll
+	// need to change this to match the arch of the remote machine.
+	tools, err := args.Tools.Match(tools.Filter{Arch: arch.HostArch()})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(tools) == 0 {
+		return errors.Errorf("No tools available for architecture %q", arch.HostArch())
+	}
+	args.InstanceConfig.Tools = tools[0]
 	logger.Debugf("tools: %#v", args.InstanceConfig.Tools)
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.ecfg.Config); err != nil {

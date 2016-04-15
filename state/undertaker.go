@@ -48,7 +48,6 @@ func (st *State) ProcessDyingModel() (err error) {
 				"time-of-death": nowToTheSecond(),
 			}},
 		}}
-		ops = append(ops, decHostedModelCountOp())
 		return ops, nil
 	}
 

@@ -4,13 +4,11 @@
 package undertaker
 
 import (
-	"time"
-
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -22,15 +20,14 @@ type Facade interface {
 	WatchModelResources() (watcher.NotifyWatcher, error)
 	ProcessDyingModel() error
 	RemoveModel() error
+	SetStatus(status status.Status, message string, data map[string]interface{}) error
 }
 
 // Config holds the resources and configuration necessary to run an
 // undertaker worker.
 type Config struct {
-	Facade      Facade
-	Environ     environs.Environ
-	Clock       clock.Clock
-	RemoveDelay time.Duration
+	Facade  Facade
+	Environ environs.Environ
 }
 
 // Validate returns an error if the config cannot be expected to drive
@@ -41,12 +38,6 @@ func (config Config) Validate() error {
 	}
 	if config.Environ == nil {
 		return errors.NotValidf("nil Environ")
-	}
-	if config.Clock == nil {
-		return errors.NotValidf("nil Clock")
-	}
-	if config.RemoveDelay <= 0 {
-		return errors.NotValidf("non-positive RemoveDelay")
 	}
 	return nil
 }
@@ -99,6 +90,18 @@ func (u *Undertaker) run() error {
 	}
 
 	if modelInfo.Life == params.Dying {
+		// TODO(axw) 2016-04-14 #1570285
+		// We should update status with information
+		// about the remaining resources here, and
+		// also make the worker responsible for
+		// checking the emptiness criteria before
+		// attempting to remove the model.
+		if err := u.setStatus(
+			status.StatusDestroying,
+			"cleaning up cloud resources",
+		); err != nil {
+			return errors.Trace(err)
+		}
 		// Process the dying model. This blocks until the model
 		// is dead or the worker is stopped.
 		if err := u.processDyingModel(); err != nil {
@@ -121,23 +124,27 @@ func (u *Undertaker) run() error {
 
 	// Now the model is known to be hosted and dead, we can tidy up any
 	// provider resources it might have used.
-	err = u.destroyEnviron()
-	if err != nil {
+	if err := u.setStatus(
+		status.StatusDestroying, "tearing down cloud environment",
+	); err != nil {
+		return errors.Trace(err)
+	}
+	if err := u.config.Environ.Destroy(); err != nil {
 		return errors.Trace(err)
 	}
 
-	// Wait a reasonable amount of time before destroying model docs.
-	// Recorded time of death is assumed correct; if not recorded,
-	// assume we did it just now.
-	deadSince := u.config.Clock.Now()
-	if modelInfo.TimeOfDeath != nil {
-		deadSince = *modelInfo.TimeOfDeath
+	// Finally, remove the model.
+	if err := u.config.Facade.RemoveModel(); err != nil {
+		return errors.Annotate(err, "cannot remove model")
 	}
-	return u.processDeadModel(deadSince)
+	return nil
+}
+
+func (u *Undertaker) setStatus(modelStatus status.Status, message string) error {
+	return u.config.Facade.SetStatus(modelStatus, message, nil)
 }
 
 func (u *Undertaker) processDyingModel() error {
-
 	watcher, err := u.config.Facade.WatchModelResources()
 	if err != nil {
 		return errors.Trace(err)
@@ -167,21 +174,5 @@ func (u *Undertaker) processDyingModel() error {
 			}
 			// Yes, we ignore the error. See comment above.
 		}
-	}
-}
-
-func (u *Undertaker) destroyEnviron() error {
-	err := u.config.Environ.Destroy()
-	return errors.Trace(err)
-}
-
-func (u *Undertaker) processDeadModel(deadSince time.Time) error {
-	removeTime := deadSince.Add(u.config.RemoveDelay)
-	select {
-	case <-u.catacomb.Dying():
-		return u.catacomb.ErrDying()
-	case <-clock.Alarm(u.config.Clock, removeTime):
-		err := u.config.Facade.RemoveModel()
-		return errors.Annotate(err, "cannot remove model")
 	}
 }

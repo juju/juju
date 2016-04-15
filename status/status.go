@@ -10,7 +10,7 @@ import "time"
 // very clear reason.
 //
 // Status values currently apply to machine (agents), unit (agents), unit
-// (workloads), service (workloads), and volumes.
+// (workloads), service (workloads), volumes, filesystems, and models.
 type Status string
 
 // StatusInfo holds a Status and associated information.
@@ -170,8 +170,21 @@ const (
 	// StatusDetached indicates that the storage is not attached to
 	// any machine.
 	StatusDetached Status = "detached"
+)
 
-	// StatusDestroying indicates that the storage is being destroyed.
+const (
+	// Status values specific to models.
+
+	// StatusAvailable indicates that the model is available for use.
+	StatusAvailable Status = "available"
+)
+
+const (
+	// Status values that are common to several entities.
+
+	// StatusDestroying indicates that the entity is being destroyed.
+	//
+	// This is valid for volumes, filesystems, and models.
 	StatusDestroying Status = "destroying"
 )
 
@@ -262,6 +275,19 @@ func ValidWorkloadStatus(status Status) bool {
 // status value which has been deprecated.
 func (status Status) WorkloadMatches(candidate Status) bool {
 	return status == candidate
+}
+
+// ValidModelStatus returns true if status has a valid value (that is to say,
+// a value that it's OK to set) for models.
+func ValidModelStatus(status Status) bool {
+	switch status {
+	case
+		StatusAvailable,
+		StatusDestroying:
+		return true
+	default:
+		return false
+	}
 }
 
 // Matches returns true if the candidate matches status,

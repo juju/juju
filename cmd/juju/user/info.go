@@ -4,7 +4,6 @@
 package user
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/cmd"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -140,57 +140,16 @@ func (c *infoCommandBase) apiUsersToUserInfoSlice(users []params.UserInfo) []Use
 			Username:       info.Username,
 			DisplayName:    info.DisplayName,
 			Disabled:       info.Disabled,
-			LastConnection: LastConnection(info.LastConnection, now, c.exactTime),
+			LastConnection: common.LastConnection(info.LastConnection, now, c.exactTime),
 		}
 		if c.exactTime {
 			outInfo.DateCreated = info.DateCreated.String()
 		} else {
-			outInfo.DateCreated = UserFriendlyDuration(info.DateCreated, now)
+			outInfo.DateCreated = common.UserFriendlyDuration(info.DateCreated, now)
 		}
 
 		output = append(output, outInfo)
 	}
 
 	return output
-}
-
-// LastConnection turns the *time.Time returned from the API server
-// into a user facing string with either exact time or a user friendly
-// string based on the args.
-func LastConnection(connectionTime *time.Time, now time.Time, exact bool) string {
-	if connectionTime == nil {
-		return "never connected"
-	}
-	if exact {
-		return connectionTime.String()
-	}
-	return UserFriendlyDuration(*connectionTime, now)
-}
-
-// UserFriendlyDuration translates a time in the past into a user
-// friendly string representation relative to the "now" time argument.
-func UserFriendlyDuration(when, now time.Time) string {
-	since := now.Sub(when)
-	// if over 24 hours ago, just say the date.
-	if since.Hours() >= 24 {
-		return when.Format("2006-01-02")
-	}
-	if since.Hours() >= 1 {
-		unit := "hours"
-		if int(since.Hours()) == 1 {
-			unit = "hour"
-		}
-		return fmt.Sprintf("%d %s ago", int(since.Hours()), unit)
-	}
-	if since.Minutes() >= 1 {
-		unit := "minutes"
-		if int(since.Minutes()) == 1 {
-			unit = "minute"
-		}
-		return fmt.Sprintf("%d %s ago", int(since.Minutes()), unit)
-	}
-	if since.Seconds() >= 2 {
-		return fmt.Sprintf("%d seconds ago", int(since.Seconds()))
-	}
-	return "just now"
 }

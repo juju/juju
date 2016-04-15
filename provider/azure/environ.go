@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	jujunetwork "github.com/juju/juju/network"
@@ -1174,4 +1175,20 @@ func (env *azureEnviron) getStorageClient() (internalazurestorage.Client, error)
 		return nil, errors.Annotate(err, "getting storage client")
 	}
 	return client, nil
+}
+
+// AgentMirror is specified in the tools.HasAgentMirror interface.
+//
+// TODO(axw) 2016-04-11 #1568715
+// When we have image simplestreams, we should rename this to "Region",
+// to implement simplestreams.HasRegion.
+func (env *azureEnviron) AgentMirror() (simplestreams.CloudSpec, error) {
+	env.mu.Lock()
+	defer env.mu.Unlock()
+	return simplestreams.CloudSpec{
+		Region: env.config.location,
+		// The endpoints published in simplestreams
+		// data are the storage endpoints.
+		Endpoint: fmt.Sprintf("https://%s/", env.config.storageEndpoint),
+	}, nil
 }

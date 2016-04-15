@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/set"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 )
@@ -352,7 +353,7 @@ func (c *detectCredentialsCommand) promptCloudName(out io.Writer, in io.Reader, 
 	if cloudName == "" {
 		return defaultCloudName, nil
 	}
-	cloud, err := c.cloudByNameFunc(cloudName)
+	cloud, err := common.CloudOrProvider(cloudName, c.cloudByNameFunc)
 	if err != nil {
 		return "", err
 	}

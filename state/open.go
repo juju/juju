@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
 )
 
 // Open connects to the server described by the given
@@ -131,7 +133,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
 	logger.Infof("initializing controller model %s", uuid)
-	ops, err := st.envSetupOps(cfg, uuid, uuid, owner, MigrationModeActive)
+	modelOps, err := st.modelSetupOps(cfg, uuid, uuid, owner, MigrationModeActive)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -139,7 +141,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	if err != nil {
 		return nil, err
 	}
-	ops = append(ops,
+	ops := []txn.Op{
 		createInitialUserOp(st, owner, info.Password, salt),
 		txn.Op{
 			C:      controllersC,
@@ -167,7 +169,8 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			Assert: txn.DocMissing,
 			Insert: &hostedModelCountDoc{},
 		},
-	)
+	}
+	ops = append(ops, modelOps...)
 
 	if err := st.runTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
@@ -178,9 +181,19 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	return st, nil
 }
 
-func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
+func (st *State) modelSetupOps(cfg *config.Config, modelUUID, serverUUID string, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
 	if err := checkModelConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	modelStatusDoc := statusDoc{
+		ModelUUID: modelUUID,
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		Updated: time.Now().UnixNano(),
+		// TODO(axw) 2016-04-13 lp:1569632
+		// We need to decide how we will
+		// represent migration in model status.
+		Status: status.StatusAvailable,
 	}
 
 	// When creating the controller model, the new model
@@ -190,14 +203,19 @@ func (st *State) envSetupOps(cfg *config.Config, modelUUID, serverUUID string, o
 	}
 	modelUserOp := createModelUserOp(modelUUID, owner, owner, owner.Name(), nowToTheSecond(), ModelAdminAccess)
 	ops := []txn.Op{
+		createStatusOp(st, modelGlobalKey, modelStatusDoc),
 		createConstraintsOp(st, modelGlobalKey, constraints.Value{}),
 		createSettingsOp(modelGlobalKey, cfg.AllAttrs()),
-		incHostedModelCountOp(),
+	}
+	if modelUUID != serverUUID {
+		ops = append(ops, incHostedModelCountOp())
+	}
+	ops = append(ops,
 		createModelEntityRefsOp(st, modelUUID),
 		createModelOp(st, owner, cfg.Name(), modelUUID, serverUUID, mode),
 		createUniqueOwnerModelNameOp(owner, cfg.Name()),
 		modelUserOp,
-	}
+	)
 	return ops, nil
 }
 

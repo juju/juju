@@ -26,7 +26,6 @@ type Client struct {
 // connection.
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "ModelManager")
-	logger.Debugf("%#v", frontend)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
@@ -68,7 +67,6 @@ func (c *Client) CreateModel(owner string, account, config map[string]interface{
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	logger.Infof("created model %s (%s)", result.Name, result.UUID)
 	return result, nil
 }
 
