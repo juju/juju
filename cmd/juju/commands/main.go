@@ -72,18 +72,18 @@ See https://jujucharms.com/docs/stable/help for documentation.
 
 Common commands:
 
-    add-credential Adds or replaces credentials for a cloud.
-    add-relation Adds a relation between two services.
-    add-unit Adds extra units of a deployed service.
-    add-user Adds a Juju user to a controller.
-    bootstrap Initializes a cloud environment.
-    create-model Creates a hosted model.
-    deploy Deploys a new service.
-    expose Makes a service publicly available over the network.
-    list-controllers Lists all controllers.
-    list-models Lists models a user can access on a controller.
-    status Displays the current status of Juju, services, and units.
-    switch Selects or identifies the current controller and model.
+    add-credential      Adds or replaces credentials for a cloud.
+    add-relation        Adds a relation between two services.
+    add-unit            Adds extra units of a deployed service.
+    add-user            Adds a Juju user to a controller.
+    bootstrap           Initializes a cloud environment.
+    create-model        Creates a hosted model.
+    deploy              Deploys a new service.
+    expose              Makes a service publicly available over the network.
+    list-controllers    Lists all controllers.
+    list-models         Lists models a user can access on a controller.
+    status              Displays the current status of Juju, services, and units.
+    switch              Selects or identifies the current controller and model.
 
 Example help commands:
 
