@@ -139,17 +139,17 @@ var addRelationTests = []struct {
 }
 
 func (s *AddRelationSuite) TestAddRelation(c *gc.C) {
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "wordpress")
-	err := runDeploy(c, "local:wordpress", "wp")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "wordpress")
+	err := runDeploy(c, ch, "wp", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "mysql")
-	err = runDeploy(c, "local:mysql", "ms")
+	ch = testcharms.Repo.CharmArchivePath(s.CharmsPath, "mysql")
+	err = runDeploy(c, ch, "ms", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "riak")
-	err = runDeploy(c, "local:riak", "rk")
+	ch = testcharms.Repo.CharmArchivePath(s.CharmsPath, "riak")
+	err = runDeploy(c, ch, "rk", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "logging")
-	err = runDeploy(c, "local:logging", "lg")
+	ch = testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
+	err = runDeploy(c, ch, "lg", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, t := range addRelationTests {
@@ -162,17 +162,17 @@ func (s *AddRelationSuite) TestAddRelation(c *gc.C) {
 }
 
 func (s *AddRelationSuite) TestBlockAddRelation(c *gc.C) {
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "wordpress")
-	err := runDeploy(c, "local:wordpress", "wp")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "wordpress")
+	err := runDeploy(c, ch, "wp", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "mysql")
-	err = runDeploy(c, "local:mysql", "ms")
+	ch = testcharms.Repo.CharmArchivePath(s.CharmsPath, "mysql")
+	err = runDeploy(c, ch, "ms", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "riak")
-	err = runDeploy(c, "local:riak", "rk")
+	ch = testcharms.Repo.CharmArchivePath(s.CharmsPath, "riak")
+	err = runDeploy(c, ch, "rk", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "logging")
-	err = runDeploy(c, "local:logging", "lg")
+	ch = testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
+	err = runDeploy(c, ch, "lg", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Block operation

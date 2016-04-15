@@ -900,7 +900,7 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 }
 
 func (environ *maasEnviron) startNode2(node maas2Instance, series string, userdata []byte) (*maas2Instance, error) {
-	err := node.machine.Start(gomaasapi.StartArgs{DistroSeries: series, UserData: userdata})
+	err := node.machine.Start(gomaasapi.StartArgs{DistroSeries: series, UserData: string(userdata)})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

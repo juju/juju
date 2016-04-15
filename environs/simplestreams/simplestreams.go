@@ -44,8 +44,14 @@ type CloudSpec struct {
 
 // equals returns true if spec == other, allowing for endpoints
 // with or without a trailing "/".
-func (spec *CloudSpec) equals(other *CloudSpec) bool {
-	if spec.Region != other.Region {
+func (spec *CloudSpec) equals(other *CloudSpec) (res bool) {
+	// TODO(axw) 2016-04-11 #1568715
+	// This is a hack to enable the new Azure provider to
+	// work with the old simplestreams format. We should
+	// update how the publishing is done so that we generate
+	// with both the old Title Case style, and the new
+	// lowercasewithoutwhitespace style.
+	if canonicalRegionName(spec.Region) != canonicalRegionName(other.Region) {
 		return false
 	}
 	specEndpoint := spec.Endpoint
@@ -57,6 +63,11 @@ func (spec *CloudSpec) equals(other *CloudSpec) bool {
 		otherEndpoint += "/"
 	}
 	return specEndpoint == otherEndpoint
+}
+
+func canonicalRegionName(region string) string {
+	region = strings.Replace(region, " ", "", -1)
+	return strings.ToLower(region)
 }
 
 // EmptyCloudSpec is used when we want all records regardless of cloud to be loaded.

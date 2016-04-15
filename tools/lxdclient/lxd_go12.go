@@ -5,7 +5,4 @@
 
 package lxdclient
 
-func GetDefaultBridgeName() (string, error) {
-	/* lxd not supported in go1.2 */
-	return "lxcbr0", nil
-}
+const DefaultLXDBridge = "INVALIDLXDBRIDGEGO12"

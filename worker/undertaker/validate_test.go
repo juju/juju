@@ -4,8 +4,6 @@
 package undertaker_test
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -32,30 +30,10 @@ func (*ValidateSuite) TestNilEnviron(c *gc.C) {
 	checkInvalid(c, config, "nil Environ not valid")
 }
 
-func (*ValidateSuite) TestNilClock(c *gc.C) {
-	config := validConfig()
-	config.Clock = nil
-	checkInvalid(c, config, "nil Clock not valid")
-}
-
-func (*ValidateSuite) TestZeroDelay(c *gc.C) {
-	config := validConfig()
-	config.RemoveDelay = 0
-	checkInvalid(c, config, "non-positive RemoveDelay not valid")
-}
-
-func (*ValidateSuite) TestNegativeDelay(c *gc.C) {
-	config := validConfig()
-	config.RemoveDelay = -time.Second
-	checkInvalid(c, config, "non-positive RemoveDelay not valid")
-}
-
 func validConfig() undertaker.Config {
 	return undertaker.Config{
-		Facade:      &fakeFacade{},
-		Environ:     &fakeEnviron{},
-		Clock:       &fakeClock{},
-		RemoveDelay: time.Hour,
+		Facade:  &fakeFacade{},
+		Environ: &fakeEnviron{},
 	}
 }
 

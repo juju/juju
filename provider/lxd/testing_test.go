@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
@@ -140,10 +141,16 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 }
 
 func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
-	tools := []*tools.Tools{{
-		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
-		URL:     "https://example.org",
-	}}
+	tools := []*tools.Tools{
+		{
+			Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
+			URL:     "https://example.org/amd",
+		},
+		{
+			Version: version.Binary{Arch: arch.ARM64, Series: "trusty"},
+			URL:     "https://example.org/arm",
+		},
+	}
 
 	cons := constraints.Value{
 	// nothing
@@ -159,11 +166,11 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Hardware = &lxdclient.InstanceHardware{
-		Architecture: arch.AMD64,
+		Architecture: arch.ARM64,
 		NumCores:     1,
 		MemoryMB:     3750,
 	}
-	var archName string = arch.AMD64
+	var archName string = arch.ARM64
 	var numCores uint64 = 1
 	var memoryMB uint64 = 3750
 	s.HWC = &instance.HardwareCharacteristics{
@@ -173,8 +180,10 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	}
 
 	s.Metadata = map[string]string{ // userdata
-		metadataKeyIsState:   metadataValueTrue, // bootstrap
-		metadataKeyCloudInit: string(userData),
+		tags.JujuIsController: "true",
+		tags.JujuController:   s.Config.ControllerUUID(),
+		tags.JujuModel:        s.Config.UUID(),
+		metadataKeyCloudInit:  string(userData),
 	}
 	s.Addresses = []network.Address{{
 		Value: "10.0.0.1",
@@ -234,17 +243,21 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{})
 }
 
 func (s *BaseSuiteUnpatched) NewRawInstance(c *gc.C, name string) *lxdclient.Instance {
+	metadata := make(map[string]string)
+	for k, v := range s.Metadata {
+		metadata[k] = v
+	}
 	summary := lxdclient.InstanceSummary{
 		Name:     name,
 		Status:   lxdclient.StatusRunning,
 		Hardware: *s.Hardware,
-		Metadata: s.Metadata,
+		Metadata: metadata,
 	}
 	instanceSpec := lxdclient.InstanceSpec{
 		Name:      name,
 		Profiles:  []string{},
 		Ephemeral: false,
-		Metadata:  s.Metadata,
+		Metadata:  metadata,
 	}
 	return lxdclient.NewInstance(summary, &instanceSpec)
 }

@@ -9,24 +9,32 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
-var getState = func(st *state.State) stateInterface {
-	return stateShim{st}
-}
+type Backend interface {
+	common.APIHostPortsGetter
+	common.ModelConfigGetter
+	common.ToolsStorageGetter
 
-type stateInterface interface {
+	ModelUUID() string
 	ModelsForUser(names.UserTag) ([]*state.UserModel, error)
 	IsControllerAdministrator(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (*state.Model, *state.State, error)
 	ControllerModel() (*state.Model, error)
-	ForModel(tag names.ModelTag) (*state.State, error)
-	GetModel(names.ModelTag) (Model, error)
+	ForModel(tag names.ModelTag) (Backend, error)
+	Model() (Model, error)
+	AddModelUser(state.ModelUserSpec) (*state.ModelUser, error)
+	RemoveModelUser(names.UserTag) error
+	ModelUser(names.UserTag) (*state.ModelUser, error)
+	Close() error
 }
 
 type Model interface {
 	Config() (*config.Config, error)
+	Life() state.Life
 	Owner() names.UserTag
+	Status() (status.StatusInfo, error)
 	Users() ([]common.ModelUser, error)
 }
 
@@ -34,8 +42,20 @@ type stateShim struct {
 	*state.State
 }
 
-func (st stateShim) GetModel(tag names.ModelTag) (Model, error) {
-	m, err := st.State.GetModel(tag)
+func NewStateBackend(st *state.State) Backend {
+	return stateShim{st}
+}
+
+func (st stateShim) ForModel(tag names.ModelTag) (Backend, error) {
+	otherState, err := st.State.ForModel(tag)
+	if err != nil {
+		return nil, err
+	}
+	return stateShim{otherState}, nil
+}
+
+func (st stateShim) Model() (Model, error) {
+	m, err := st.State.Model()
 	if err != nil {
 		return nil, err
 	}

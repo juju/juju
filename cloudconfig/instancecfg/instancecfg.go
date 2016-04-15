@@ -621,9 +621,13 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 // InstanceTags returns the minimum set of tags that should be set on a
 // machine instance, if the provider supports them.
 func InstanceTags(cfg *config.Config, jobs []multiwatcher.MachineJob) map[string]string {
-	instanceTags := tags.ResourceTags(names.NewModelTag(cfg.UUID()), cfg)
+	instanceTags := tags.ResourceTags(
+		names.NewModelTag(cfg.UUID()),
+		names.NewModelTag(cfg.ControllerUUID()),
+		cfg,
+	)
 	if multiwatcher.AnyJobNeedsState(jobs...) {
-		instanceTags[tags.JujuController] = "true"
+		instanceTags[tags.JujuIsController] = "true"
 	}
 	return instanceTags
 }

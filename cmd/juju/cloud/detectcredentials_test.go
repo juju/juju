@@ -173,7 +173,7 @@ func (s *detectCredentialsSuite) TestDetectCredentialDefaultCloud(c *gc.C) {
 }
 
 func (s *detectCredentialsSuite) TestDetectCredentialUnknownCloud(c *gc.C) {
-	s.assertDetectCredential(c, "foo", "", "cloud foo not found")
+	s.assertDetectCredential(c, "foo", "", "cloud foo not valid")
 }
 
 func (s *detectCredentialsSuite) TestDetectCredentialInvalidCloud(c *gc.C) {

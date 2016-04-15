@@ -623,7 +623,7 @@ func destroyStorageAttachmentOps(storage names.StorageTag, unit names.UnitTag) [
 
 // Remove removes the storage attachment from state, and may remove its storage
 // instance as well, if the storage instance is Dying and no other references to
-// it exist. It will fail if the storage attachment is not Dead.
+// it exist. It will fail if the storage attachment is not Dying.
 func (st *State) RemoveStorageAttachment(storage names.StorageTag, unit names.UnitTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove storage attachment %s:%s", storage.Id(), unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {

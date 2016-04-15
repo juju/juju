@@ -5,6 +5,7 @@ package undertaker
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -20,6 +21,7 @@ func init() {
 type UndertakerAPI struct {
 	st        State
 	resources *common.Resources
+	*common.StatusSetter
 }
 
 // NewUndertakerAPI creates a new instance of the undertaker API.
@@ -31,9 +33,27 @@ func newUndertakerAPI(st State, resources *common.Resources, authorizer common.A
 	if !authorizer.AuthMachineAgent() || !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	getCanModifyModel := func() (common.AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			if st.IsController() {
+				return true
+			}
+			// Only the agent's model can be modified.
+			modelTag, ok := tag.(names.ModelTag)
+			if !ok {
+				return false
+			}
+			return modelTag.Id() == model.UUID()
+		}, nil
+	}
 	return &UndertakerAPI{
-		st:        st,
-		resources: resources,
+		st:           st,
+		resources:    resources,
+		StatusSetter: common.NewStatusSetter(st, getCanModifyModel),
 	}, nil
 }
 
@@ -45,18 +65,13 @@ func (u *UndertakerAPI) ModelInfo() (params.UndertakerModelInfoResult, error) {
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	tod := env.TimeOfDeath()
 
 	result.Result = params.UndertakerModelInfo{
-		UUID:        env.UUID(),
-		GlobalName:  env.Owner().String() + "/" + env.Name(),
-		Name:        env.Name(),
-		IsSystem:    u.st.IsController(),
-		Life:        params.Life(env.Life().String()),
-		TimeOfDeath: &tod,
-	}
-	if tod.IsZero() {
-		result.Result.TimeOfDeath = nil
+		UUID:       env.UUID(),
+		GlobalName: env.Owner().String() + "/" + env.Name(),
+		Name:       env.Name(),
+		IsSystem:   u.st.IsController(),
+		Life:       params.Life(env.Life().String()),
 	}
 
 	return result, nil

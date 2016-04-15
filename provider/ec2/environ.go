@@ -185,7 +185,7 @@ func (e *environ) ControllerInstances() ([]instance.Id, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
 	filter.Add(fmt.Sprintf("tag:%s", tags.JujuModel), e.Config().UUID())
-	filter.Add(fmt.Sprintf("tag:%s", tags.JujuController), "true")
+	filter.Add(fmt.Sprintf("tag:%s", tags.JujuIsController), "true")
 	err := e.addGroupFilter(filter)
 	if err != nil {
 		if ec2ErrCode(err) == "InvalidGroup.NotFound" {
@@ -646,7 +646,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 
 	// Tag the machine's root EBS volume, if it has one.
 	if inst.Instance.RootDeviceType == "ebs" {
-		tags := tags.ResourceTags(names.NewModelTag(cfg.UUID()), cfg)
+		tags := tags.ResourceTags(
+			names.NewModelTag(cfg.UUID()),
+			names.NewModelTag(cfg.ControllerUUID()),
+			cfg,
+		)
 		tags[tagName] = instanceName + "-root"
 		if err := tagRootDisk(e.ec2(), tags, inst.Instance); err != nil {
 			return nil, errors.Annotate(err, "tagging root disk")

@@ -26,7 +26,6 @@ type Client struct {
 // connection.
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Controller")
-	logger.Tracef("%#v", frontend)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 

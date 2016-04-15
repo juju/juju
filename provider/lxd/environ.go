@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -149,15 +150,47 @@ func (env *environ) Destroy() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	if len(ports) > 0 {
 		if err := env.ClosePorts(ports); err != nil {
 			return errors.Trace(err)
 		}
 	}
-
+	cfg := env.Config()
+	if cfg.UUID() == cfg.ControllerUUID() {
+		// This is the controller model, so we'll make sure
+		// there are no resources for hosted models remaining.
+		if err := env.destroyHostedModelResources(); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	if err := env.base.DestroyEnv(); err != nil {
 		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (env *environ) destroyHostedModelResources() error {
+	// Destroy all instances where juju-controller-uuid,
+	// but not juju-model-uuid, matches env.uuid.
+	prefix := common.EnvFullName("")
+	instances, err := env.prefixedInstances(prefix)
+	if err != nil {
+		return errors.Annotate(err, "listing instances")
+	}
+	logger.Debugf("instances: %v", instances)
+	var names []string
+	for _, inst := range instances {
+		metadata := inst.raw.Metadata()
+		if metadata[tags.JujuModel] == env.uuid {
+			continue
+		}
+		if metadata[tags.JujuController] != env.uuid {
+			continue
+		}
+		names = append(names, string(inst.Id()))
+	}
+	if err := env.raw.RemoveInstances(prefix, names...); err != nil {
+		return errors.Annotate(err, "removing hosted model instances")
 	}
 	return nil
 }

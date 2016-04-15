@@ -178,10 +178,6 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		// ServerUUID is recreated when the new model is created in the
 		// new controller (yay name changes).
 		"ServerUUID",
-		// Both of the times for dying and death are empty as the model
-		// is alive.
-		"TimeOfDying",
-		"TimeOfDeath",
 
 		"MigrationMode",
 		"Owner",

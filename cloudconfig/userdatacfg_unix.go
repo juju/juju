@@ -20,6 +20,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/proxy"
 	goyaml "gopkg.in/yaml.v2"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
@@ -349,9 +351,13 @@ func (w *unixConfigure) ConfigureJuju() error {
 		if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
 			loggingOption = " --debug"
 		}
+		featureFlags := featureflag.AsEnvironmentValue()
+		if featureFlags != "" {
+			featureFlags = fmt.Sprintf("%s=%s ", osenv.JujuFeatureFlagEnvKey, featureFlags)
+		}
 		w.conf.AddScripts(
 			// The bootstrapping is always run with debug on.
-			w.icfg.JujuTools() + "/jujud bootstrap-state" +
+			featureFlags + w.icfg.JujuTools() + "/jujud bootstrap-state" +
 				" --data-dir " + shquote(w.icfg.DataDir) +
 				" --model-config " + shquote(base64yaml(w.icfg.Config.AllAttrs())) +
 				" --hosted-model-config " + shquote(base64yaml(w.icfg.HostedModelConfig)) +

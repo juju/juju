@@ -13,15 +13,37 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
+var usageImportSSHKeySummary = `
+Adds a public SSH key from a trusted identity source to a model.`[1:]
+
+var usageImportSSHKeyDetails = `
+Juju can add SSH keys to its cache from reliable public sources (currently
+Launchpad and GitHub), allowing those users SSH access to Juju machines.
+The user identity supplied is the username on the respective service given
+by 'lp:' or 'gh:'.
+If the user has multiple keys on the service, all the keys will be added.
+Once the keys are imported, they can be viewed with the `[1:] + "`juju list-ssh-\nkeys`" + ` command, where comments will indicate which ones were imported in
+this way.
+An alternative to this command is the more manual ` + "`juju add-ssh-key`" + `.
+
+Examples:
+Import all public keys associated with user account 'phamilton' on the
+GitHub service:
+
+    juju import-ssh-key gh:phamilton
+
+Multiple identities may be specified in a space delimited list:
+
+    juju import-ssh-key rheinlein lp:iasmiov gh:hharrison
+
+See also: 
+    add-ssh-key
+    list-ssh-keys`
+
 // NewImportKeysCommand is used to add new authorized ssh keys to a model.
 func NewImportKeysCommand() cmd.Command {
 	return modelcmd.Wrap(&importKeysCommand{})
 }
-
-var importKeysDoc = `
-Import new authorised ssh keys to allow the holder of those keys to log on to Juju nodes or machines.
-The keys are imported using ssh-import-id.
-`
 
 // importKeysCommand is used to import authorized ssh keys to a model.
 type importKeysCommand struct {
@@ -34,9 +56,9 @@ type importKeysCommand struct {
 func (c *importKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "import-ssh-key",
-		Args:    "<ssh key id> ...",
-		Doc:     importKeysDoc,
-		Purpose: "using ssh-import-id, import new authorized ssh keys to a Juju model",
+		Args:    "<lp|gh>:<user identity> ...",
+		Purpose: usageImportSSHKeySummary,
+		Doc:     usageImportSSHKeyDetails,
 		Aliases: []string{"import-ssh-keys"},
 	}
 }

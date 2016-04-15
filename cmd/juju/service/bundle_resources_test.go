@@ -24,7 +24,7 @@ func init() {
 }
 
 type ResourcesBundleSuite struct {
-	service.DeployRepoCharmStoreSuite
+	service.BundleDeployCharmStoreSuite
 }
 
 var _ = gc.Suite(&ResourcesBundleSuite{})

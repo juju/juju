@@ -54,13 +54,9 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, errors.New("starting lxd containers with networks is not supported yet")
 	}
 	machineId := args.InstanceConfig.MachineId
-	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
+	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
 	if bridgeDevice == "" {
-		var err error
-		bridgeDevice, err = lxdclient.GetDefaultBridgeName()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+		bridgeDevice = lxdclient.DefaultLXDBridge
 	}
 
 	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
@@ -150,11 +146,7 @@ func (broker *lxdBroker) MaintainInstance(args environs.StartInstanceParams) err
 	// Default to using the host network until we can configure.
 	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
 	if bridgeDevice == "" {
-		var err error
-		bridgeDevice, err = lxdclient.GetDefaultBridgeName()
-		if err != nil {
-			return err
-		}
+		bridgeDevice = lxdclient.DefaultLXDBridge
 	}
 
 	// There's no InterfaceInfo we expect to get below.

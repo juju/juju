@@ -3,18 +3,13 @@
 
 package params
 
-import (
-	"time"
-)
-
 // UndertakerModelInfo returns information on an model needed by the undertaker worker.
 type UndertakerModelInfo struct {
-	UUID        string
-	Name        string
-	GlobalName  string
-	IsSystem    bool
-	Life        Life
-	TimeOfDeath *time.Time
+	UUID       string
+	Name       string
+	GlobalName string
+	IsSystem   bool
+	Life       Life
 }
 
 // UndertakerModelInfoResult holds the result of an API call that returns an

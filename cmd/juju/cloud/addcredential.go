@@ -16,9 +16,53 @@ import (
 	"launchpad.net/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 )
+
+var usageAddCredentialSummary = `
+Adds or replaces credentials for a cloud.`[1:]
+
+var usageAddCredentialDetails = `
+The user is prompted to add credentials interactively if a YAML-formatted
+credentials file is not specified. Here is a sample credentials file:
+
+credentials:
+  aws:
+    <credential name>:
+      auth-type: access-key
+      access-key: <key>
+      secret-key: <key>
+  azure:
+    <credential name>:
+      auth-type: userpass
+      application-id: <uuid1>
+      application-password: <password>
+      subscription-id: <uuid2>
+      tenant-id: <uuid3>
+
+A "credential name" is arbitrary and is used solely to represent a set of
+credentials, of which there may be multiple per cloud.
+The ` + "`--replace`" + ` option is required if credential information for the named
+cloud already exists. All such information will be overwritten.
+This command does not set default regions nor default credentials. Note
+that if only one credential name exists, it will become the effective
+default credential.
+For credentials which are already in use by tools other than Juju, ` + "`juju \nautoload-credentials`" + ` may be used.
+When Juju needs credentials for a cloud, i) if there are multiple
+available; ii) there's no set default; iii) and one is not specified ('--
+credential'), an error will be emitted.
+
+Examples:
+    juju add-credential google
+    juju add-credential aws -f ~/credentials.yaml
+
+See also: 
+    list-credentials
+    remove-credential
+    set-default-credential
+    autoload-credentials`
 
 type addCredentialCommand struct {
 	cmd.CommandBase
@@ -37,37 +81,6 @@ type addCredentialCommand struct {
 	cloud *jujucloud.Cloud
 }
 
-var addCredentialDoc = `
-The add-credential command adds or replaces credentials for a given cloud.
-
-The user is required to specify the name of the cloud for which credentials
-will be added/replaced, and optionally a YAML file containing credentials.
-A sample YAML snippet is:
-
-credentials:
-  aws:
-    me:
-      auth-type: access-key
-      access-key: <key>
-      secret-key: <secret>
-
-
-If the any of the named credentials for the cloud already exist, the --replace
-option is required to overwite. Note that any default region which may have
-been defined is never overwritten.
-
-If no YAML file is specified, the user is prompted to add credentials interactively.
-
-Example:
-   juju add-credential aws
-   juju add-credential aws -f my-credentials.yaml
-   juju add-credential aws -f my-credentials.yaml --replace
-
-See Also:
-   juju list-credentials
-   juju remove-credential
-`
-
 // NewAddCredentialCommand returns a command to add credential information.
 func NewAddCredentialCommand() cmd.Command {
 	return &addCredentialCommand{
@@ -79,15 +92,15 @@ func NewAddCredentialCommand() cmd.Command {
 func (c *addCredentialCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-credential",
-		Purpose: "adds or replaces credential information for a specified cloud",
-		Doc:     addCredentialDoc,
-		Args:    "<cloud-name>",
+		Args:    "<cloud name>",
+		Purpose: usageAddCredentialSummary,
+		Doc:     usageAddCredentialDetails,
 	}
 }
 
 func (c *addCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Replace, "replace", false, "overwrite any existing cloud information")
-	f.StringVar(&c.CredentialsFile, "f", "", "the YAML file containing credentials to add")
+	f.BoolVar(&c.Replace, "replace", false, "Overwrite existing credential information")
+	f.StringVar(&c.CredentialsFile, "f", "", "The YAML file containing credentials to add")
 }
 
 func (c *addCredentialCommand) Init(args []string) (err error) {
@@ -98,25 +111,10 @@ func (c *addCredentialCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args[1:])
 }
 
-func cloudOrProvider(cloudName string, cloudByNameFunc func(string) (*jujucloud.Cloud, error)) (cloud *jujucloud.Cloud, err error) {
-	if cloud, err = cloudByNameFunc(cloudName); err != nil {
-		if !errors.IsNotFound(err) {
-			return nil, err
-		}
-		builtInProviders := builtInProviders()
-		if builtIn, ok := builtInProviders[cloudName]; !ok {
-			return nil, errors.NotValidf("cloud %v", cloudName)
-		} else {
-			cloud = &builtIn
-		}
-	}
-	return cloud, nil
-}
-
 func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	// Check that the supplied cloud is valid.
 	var err error
-	if c.cloud, err = cloudOrProvider(c.CloudName, c.cloudByNameFunc); err != nil {
+	if c.cloud, err = common.CloudOrProvider(c.CloudName, c.cloudByNameFunc); err != nil {
 		if !errors.IsNotFound(err) {
 			return err
 		}
