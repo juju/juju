@@ -49,9 +49,10 @@ func (*volumesSuite) testVolumeParams(c *gc.C, volumeParams *state.VolumeParams,
 		Provider:  "loop",
 		Size:      1024,
 		Tags: map[string]string{
-			tags.JujuModel: testing.ModelTag.Id(),
-			"a":            "b",
-			"c":            "",
+			tags.JujuController: testing.ModelTag.Id(),
+			tags.JujuModel:      testing.ModelTag.Id(),
+			"a":                 "b",
+			"c":                 "",
 		},
 	})
 }
@@ -74,6 +75,7 @@ func (*volumesSuite) TestVolumeParamsStorageTags(c *gc.C) {
 		Provider:  "loop",
 		Size:      1024,
 		Tags: map[string]string{
+			tags.JujuController:      testing.ModelTag.Id(),
 			tags.JujuModel:           testing.ModelTag.Id(),
 			tags.JujuStorageInstance: "mystore/0",
 			tags.JujuStorageOwner:    "mysql/123",
