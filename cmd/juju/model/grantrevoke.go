@@ -4,8 +4,6 @@
 package model
 
 import (
-	"strings"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
@@ -14,6 +12,52 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/permission"
 )
+
+var usageGrantSummary = `
+Grants access to a Juju user for a model.`[1:]
+
+var usageGrantDetails = `
+By default, the controller is the current controller.
+Model access can also be granted at user-addition time with the `[1:] + "`juju add-\nuser`" + ` command.
+Users with read access are limited in what they can do with models: ` + "`juju \nlist-models`, `juju list-machines`, and `juju status`" + `.
+
+Examples:
+Grant user 'joe' default (read) access to model 'mymodel':
+
+    juju grant joe mymodel
+
+Grant user 'jim' write access to model 'mymodel':
+
+    juju grant --acl=write jim mymodel
+
+Grant user 'sam' default (read) access to models 'model1' and 'model2':
+
+    juju grant sam model1 model2
+
+See also: 
+    revoke
+    add-user`
+
+var usageRevokeSummary = `
+Revokes access from a Juju user for a model.`[1:]
+
+var usageRevokeDetails = `
+By default, the controller is the current controller.
+Revoking write access, from a user who has that permission, will leave
+that user with read access. Revoking read access, however, also revokes
+write access.
+
+Examples:
+Revoke read (and write) access from user 'joe' for model 'mymodel':
+
+    juju revoke joe mymodel
+
+Revoke write access from user 'sam' for models 'model1' and 'model2':
+
+    juju revoke --acl=write sam model1 model2
+
+See also: 
+    grant`[1:]
 
 type accessCommand struct {
 	modelcmd.ControllerCommandBase
@@ -25,7 +69,7 @@ type accessCommand struct {
 
 // SetFlags implements cmd.Command.
 func (c *accessCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.ModelAccess, "acl", "read", "access control")
+	f.StringVar(&c.ModelAccess, "acl", "read", "Access control ('read' or 'write')")
 }
 
 // Init implements cmd.Command.
@@ -48,20 +92,6 @@ func (c *accessCommand) Init(args []string) error {
 	return nil
 }
 
-const grantModelHelpDoc = `
-Grant another user access to a model.
-
-Examples:
- juju grant joe model1
-     Grant user "joe" default (read) access to the current model
-
- juju grant joe model1 --acl=write
-     Grant user "joe" write access to the current model
-
- juju grant sam model1 model2
-     Grant user "sam" default (read) access to two models named "model1" and "model2".
- `
-
 // NewGrantCommand returns a new grant command.
 func NewGrantCommand() cmd.Command {
 	return modelcmd.WrapController(&grantCommand{})
@@ -77,9 +107,9 @@ type grantCommand struct {
 func (c *grantCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "grant",
-		Args:    "<user> <model1> [<model2> .. <modelN>]",
-		Purpose: "grant another user access to the given models",
-		Doc:     strings.TrimSpace(grantModelHelpDoc),
+		Args:    "<user name> <model name> ...",
+		Purpose: usageGrantSummary,
+		Doc:     usageGrantDetails,
 	}
 }
 
@@ -111,19 +141,6 @@ func (c *grantCommand) Run(ctx *cmd.Context) error {
 	return block.ProcessBlockedError(client.GrantModel(c.User, c.ModelAccess, models...), block.BlockChange)
 }
 
-const revokeModelHelpDoc = `
-Deny a user access to an model that was previously shared with them.
-
-Revoking read access also revokes write access.
-
-Examples:
- juju revoke joe model1
-     Revoke read access from user "joe" for model "model1".
-
- juju revoke joe model1 model2 --acl=write
-     Revoke write access from user "joe" for models "model1" and "model2".
-`
-
 // NewRevokeCommand returns a new revoke command.
 func NewRevokeCommand() cmd.Command {
 	return modelcmd.WrapController(&revokeCommand{})
@@ -139,9 +156,9 @@ type revokeCommand struct {
 func (c *revokeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "revoke",
-		Args:    "<user> <model1> [<model2> .. <modelN>]",
-		Purpose: "revoke user access to models",
-		Doc:     strings.TrimSpace(revokeModelHelpDoc),
+		Args:    "<user> <model name> ...",
+		Purpose: usageRevokeSummary,
+		Doc:     usageRevokeDetails,
 	}
 }
 

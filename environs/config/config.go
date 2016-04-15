@@ -1396,6 +1396,7 @@ func allDefaults() schema.Defaults {
 		"disable-network-management": false,
 		IgnoreMachineAddresses:       false,
 		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
+		AutomaticallyRetryHooks:      true,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
@@ -1916,7 +1917,6 @@ data of the store. (default false)`,
 	AutomaticallyRetryHooks: {
 		Description: "Determines whether the uniter should automatically retry failed hooks",
 		Type:        environschema.Tbool,
-		Immutable:   true,
 		Group:       environschema.EnvironGroup,
 	},
 }

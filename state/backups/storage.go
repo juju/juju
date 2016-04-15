@@ -270,7 +270,7 @@ func (b *storageDBWrapper) runTransaction(ops []txn.Op) error {
 
 // blobStorage returns a ManagedStorage matching the env storage and the blobDB.
 func (b *storageDBWrapper) blobStorage(blobDB string) blobstore.ManagedStorage {
-	dataStore := blobstore.NewGridFS(blobDB, b.modelUUID, b.session)
+	dataStore := blobstore.NewGridFS(blobDB, blobDB, b.session)
 	return blobstore.NewManagedStorage(b.db, dataStore)
 }
 

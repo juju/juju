@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/worker/discoverspaces"
 	"github.com/juju/juju/worker/environ"
 	"github.com/juju/juju/worker/firewaller"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/lifeflag"
@@ -36,7 +38,6 @@ import (
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/undertaker"
 	"github.com/juju/juju/worker/unitassigner"
-	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldsConfig holds the dependencies and configuration options for a
@@ -79,10 +80,9 @@ type ManifoldsConfig struct {
 	// lying around once the model has become dead.
 	ModelRemoveDelay time.Duration
 
-	// DiscoverSpacesCheckLock is passed to the discover spaces check gate to
-	// coordinate workers that shouldn't do anything until the discoverspaces
-	// worker completes its first discovery attempt.
-	DiscoverSpacesCheckLock gate.Lock
+	// SpacesImportedGate will be unlocked when spaces are known to
+	// have been imported.
+	SpacesImportedGate gate.Lock
 }
 
 // Manifolds returns a set of interdependent dependency manifolds that will
@@ -107,10 +107,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewConnection: apicaller.OnlyConnect,
 		}),
 
-		// The discover spaces gate is used to coordinate workers which
-		// shouldn't do anything until the discoverspaces worker has completed
-		// its first discovery attempt.
-		discoverSpacesCheckGateName: gate.ManifoldEx(config.DiscoverSpacesCheckLock),
+		// The spaces-imported gate will be unlocked when space
+		// discovery is known to be complete. Various manifolds
+		// should also come to depend upon it (or rather, on a
+		// Flag depending on it) in the future.
+		spacesImportedGateName: gate.ManifoldEx(config.SpacesImportedGate),
 
 		// All other manifolds should depend on at least one of these
 		// three, which handle all the tasks that are safe and sane
@@ -142,6 +143,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade: singular.NewFacade,
 			NewWorker: singular.NewWorker,
 		}),
+
+		migrationFortressName: ifNotDead(fortress.Manifold()),
+		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
+			APICallerName: apiCallerName,
+			FortressName:  migrationFortressName,
+
+			NewFacade: migrationmaster.NewFacade,
+			NewWorker: migrationmaster.NewWorker,
+		})),
 
 		// Everything else should be wrapped in ifResponsible,
 		// ifNotAlive, or ifNotDead, to ensure that only a single
@@ -181,14 +191,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		// All the rest depend on ifNotDead.
-		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
-			APICallerName: apiCallerName,
-		})),
-
-		discoverSpacesName: ifNotDead(discoverspaces.Manifold(discoverspaces.ManifoldConfig{
+		spaceImporterName: ifNotDead(discoverspaces.Manifold(discoverspaces.ManifoldConfig{
 			EnvironName:   environTrackerName,
 			APICallerName: apiCallerName,
-			UnlockerName:  discoverSpacesCheckGateName,
+			UnlockerName:  spacesImportedGateName,
 
 			NewFacade: discoverspaces.NewFacade,
 			NewWorker: discoverspaces.NewWorker,
@@ -245,24 +251,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 }
 
-// ifResponsible wraps a manifold such that it only runs if the
-// responsibility flag is set.
-func ifResponsible(manifold dependency.Manifold) dependency.Manifold {
-	return dependency.WithFlag(manifold, isResponsibleFlagName)
-}
-
-// ifNotAlive wraps a manifold such that it only runs if the
-// responsibility flag is set and the model is Dying or Dead.
-func ifNotAlive(manifold dependency.Manifold) dependency.Manifold {
-	return ifResponsible(dependency.WithFlag(manifold, notAliveFlagName))
-}
-
-// ifNotDead wraps a manifold such that it only runs if the responsibility
-// flag is set and the model is Alive or Dying.
-func ifNotDead(manifold dependency.Manifold) dependency.Manifold {
-	return ifResponsible(dependency.WithFlag(manifold, notDeadFlagName))
-}
-
 // clockManifold expresses a Clock as a ValueWorker manifold.
 func clockManifold(clock clock.Clock) dependency.Manifold {
 	return dependency.Manifold{
@@ -273,30 +261,60 @@ func clockManifold(clock clock.Clock) dependency.Manifold {
 	}
 }
 
+var (
+	// ifResponsible wraps a manifold such that it only runs if the
+	// responsibility flag is set.
+	ifResponsible = util.Housing{
+		Flags: []string{
+			isResponsibleFlagName,
+		},
+	}.Decorate
+
+	// ifNotAlive wraps a manifold such that it only runs if the
+	// responsibility flag is set and the model is Dying or Dead.
+	ifNotAlive = util.Housing{
+		Flags: []string{
+			isResponsibleFlagName,
+			notAliveFlagName,
+		},
+	}.Decorate
+
+	// ifNotDead wraps a manifold such that it only runs if the
+	// responsibility flag is set and the model is Alive or Dying.
+	ifNotDead = util.Housing{
+		Flags: []string{
+			isResponsibleFlagName,
+			notDeadFlagName,
+		},
+	}.Decorate
+)
+
 const (
 	agentName            = "agent"
 	clockName            = "clock"
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
 
-	isResponsibleFlagName = "is-responsible-flag"
-	notDeadFlagName       = "not-dead-flag"
-	notAliveFlagName      = "not-alive-flag"
+	spacesImportedGateName = "spaces-imported-gate"
+	isResponsibleFlagName  = "is-responsible-flag"
+	notDeadFlagName        = "not-dead-flag"
+	notAliveFlagName       = "not-alive-flag"
 
-	environTrackerName          = "environ-tracker"
-	undertakerName              = "undertaker"
-	computeProvisionerName      = "compute-provisioner"
-	storageProvisionerName      = "storage-provisioner"
-	firewallerName              = "firewaller"
-	unitAssignerName            = "unit-assigner"
-	serviceScalerName           = "service-scaler"
-	instancePollerName          = "instance-poller"
-	charmRevisionUpdaterName    = "charm-revision-updater"
-	metricWorkerName            = "metric-worker"
-	stateCleanerName            = "state-cleaner"
-	addressCleanerName          = "address-cleaner"
-	statusHistoryPrunerName     = "status-history-pruner"
-	migrationMasterName         = "migration-master"
-	discoverSpacesCheckGateName = "discover-spaces-check-gate"
-	discoverSpacesName          = "discover-spaces"
+	migrationFortressName = "migration-fortress"
+	migrationMasterName   = "migration-master"
+
+	environTrackerName       = "environ-tracker"
+	undertakerName           = "undertaker"
+	spaceImporterName        = "space-importer"
+	computeProvisionerName   = "compute-provisioner"
+	storageProvisionerName   = "storage-provisioner"
+	firewallerName           = "firewaller"
+	unitAssignerName         = "unit-assigner"
+	serviceScalerName        = "service-scaler"
+	instancePollerName       = "instance-poller"
+	charmRevisionUpdaterName = "charm-revision-updater"
+	metricWorkerName         = "metric-worker"
+	stateCleanerName         = "state-cleaner"
+	addressCleanerName       = "address-cleaner"
+	statusHistoryPrunerName  = "status-history-pruner"
 )

@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -114,14 +115,8 @@ func (s *ClientSuite) TestListResources(c *gc.C) {
 		Size:        4,
 	}
 
-	s.wrapper.ReturnListResourcesStable = []map[string][]params.Resource{{
-		"cs:quantal/foo-1": []params.Resource{stable},
-	}}
-	s.wrapper.ReturnListResourcesDev = []map[string][]params.Resource{{
-		"cs:quantal/bar-1": []params.Resource{dev},
-	}, {
-		"cs:quantal/baz-1": []params.Resource{dev2},
-	}}
+	s.wrapper.ReturnListResourcesStable = []resourceResult{oneResourceResult(stable), resourceResult{err: params.ErrNotFound}}
+	s.wrapper.ReturnListResourcesDev = []resourceResult{oneResourceResult(dev), oneResourceResult(dev2)}
 
 	client, err := newCachingClient(s.cache, nil, s.wrapper.makeWrapper)
 	c.Assert(err, jc.ErrorIsNil)
@@ -156,9 +151,22 @@ func (s *ClientSuite) TestListResources(c *gc.C) {
 		{devOut},
 		{dev2Out},
 	})
-	s.wrapper.stableStub.CheckCall(c, 0, "ListResources", params.StableChannel, []*charm.URL{foo})
-	s.wrapper.devStub.CheckCall(c, 0, "ListResources", params.DevelopmentChannel, []*charm.URL{bar})
-	s.wrapper.devStub.CheckCall(c, 1, "ListResources", params.DevelopmentChannel, []*charm.URL{baz})
+	s.wrapper.stableStub.CheckCall(c, 0, "ListResources", params.StableChannel, foo)
+	s.wrapper.devStub.CheckCall(c, 0, "ListResources", params.DevelopmentChannel, bar)
+	s.wrapper.devStub.CheckCall(c, 1, "ListResources", params.DevelopmentChannel, baz)
+}
+
+func (s *ClientSuite) TestListResourcesError(c *gc.C) {
+	s.wrapper.ReturnListResourcesStable = []resourceResult{resourceResult{err: errors.NotFoundf("another error")}}
+	client, err := newCachingClient(s.cache, nil, s.wrapper.makeWrapper)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ret, err := client.ListResources([]CharmID{{
+		URL:     charm.MustParseURL("cs:quantal/foo-1"),
+		Channel: params.StableChannel,
+	}})
+	c.Assert(err, gc.ErrorMatches, `another error not found`)
+	c.Assert(ret, gc.IsNil)
 }
 
 func (s *ClientSuite) TestGetResource(c *gc.C) {

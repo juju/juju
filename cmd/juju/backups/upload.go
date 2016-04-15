@@ -14,10 +14,12 @@ import (
 )
 
 const uploadDoc = `
-"upload" sends a backup archive file to remote storage.
+upload-backup sends a backup archive file to remote storage.
 `
 
-func newUploadCommand() cmd.Command {
+// NewUploadCommand returns a command used to send a backup
+// achive file to remote storage.
+func NewUploadCommand() cmd.Command {
 	return modelcmd.Wrap(&uploadCommand{})
 }
 
@@ -31,7 +33,7 @@ type uploadCommand struct {
 // Info implements Command.Info.
 func (c *uploadCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "upload",
+		Name:    "upload-backup",
 		Args:    "<filename>",
 		Purpose: "store a backup archive file remotely in juju",
 		Doc:     uploadDoc,

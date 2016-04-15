@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/juju/gui"
-	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
 	"github.com/juju/juju/cmd/juju/model"
@@ -84,6 +83,7 @@ func Main(args []string) {
 	os.Exit(cmd.Main(jcmd, ctx, args[1:]))
 }
 
+// NewJujuCommand ...
 func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 	jcmd := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:                "juju",
@@ -91,27 +91,6 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		MissingCallback:     RunPlugin,
 		UserAliasesFilename: osenv.JujuXDGDataHomePath("aliases"),
 	})
-	jcmd.AddHelpTopic("basics", "Basic commands", helptopics.Basics)
-	jcmd.AddHelpTopic("openstack-provider", "How to configure an OpenStack provider",
-		helptopics.OpenstackProvider, "openstack")
-	jcmd.AddHelpTopic("ec2-provider", "How to configure an Amazon EC2 provider",
-		helptopics.EC2Provider, "ec2", "aws", "amazon")
-	jcmd.AddHelpTopic("hpcloud-provider", "How to configure an HP Cloud provider",
-		helptopics.HPCloud, "hpcloud", "hp-cloud")
-	jcmd.AddHelpTopic("azure-provider", "How to configure a Windows Azure provider",
-		helptopics.AzureProvider, "azure")
-	jcmd.AddHelpTopic("maas-provider", "How to configure a MAAS provider",
-		helptopics.MAASProvider, "maas")
-	jcmd.AddHelpTopic("constraints", "How to use commands with constraints", helptopics.Constraints)
-	jcmd.AddHelpTopic("placement", "How to use placement directives", helptopics.Placement)
-	jcmd.AddHelpTopic("spaces", "How to configure more complex networks using spaces", helptopics.Spaces, "networking")
-	jcmd.AddHelpTopic("glossary", "Glossary of terms", helptopics.Glossary)
-	jcmd.AddHelpTopic("logging", "How Juju handles logging", helptopics.Logging)
-	jcmd.AddHelpTopic("juju", "What is Juju?", helptopics.Juju)
-	jcmd.AddHelpTopic("controllers", "About Juju Controllers", helptopics.JujuControllers)
-	jcmd.AddHelpTopic("users", "About users in Juju", helptopics.Users)
-	jcmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
-
 	registerCommands(jcmd, ctx)
 	return jcmd
 }
@@ -164,9 +143,13 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(charmcmd.NewSuperCommand())
 
 	// Manage backups.
-	r.Register(backups.NewSuperCommand())
-	r.RegisterSuperAlias("create-backup", "backups", "create", nil)
-	r.RegisterSuperAlias("restore-backup", "backups", "restore", nil)
+	r.Register(backups.NewCreateCommand())
+	r.Register(backups.NewDownloadCommand())
+	r.Register(backups.NewShowCommand())
+	r.Register(backups.NewListCommand())
+	r.Register(backups.NewRemoveCommand())
+	r.Register(backups.NewRestoreCommand())
+	r.Register(backups.NewUploadCommand())
 
 	// Manage authorized ssh keys.
 	r.Register(NewAddKeysCommand())
@@ -209,11 +192,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	}
 
 	// Manage and control actions
-	r.Register(action.NewSuperCommand())
-	r.RegisterSuperAlias("run-action", "action", "do", nil)
-	r.RegisterSuperAlias("list-actions", "action", "defined", nil)
-	r.RegisterSuperAlias("show-action-output", "action", "fetch", nil)
-	r.RegisterSuperAlias("show-action-status", "action", "status", nil)
+	r.Register(action.NewStatusCommand())
+	r.Register(action.NewRunCommand())
+	r.Register(action.NewShowOutputCommand())
+	r.Register(action.NewListCommand())
 
 	// Manage controller availability
 	r.Register(newEnableHACommand())

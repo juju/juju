@@ -76,7 +76,7 @@ func (mi *maas2Instance) Status() instance.InstanceStatus {
 	// TODO (babbageclunk): this should rerequest to get live status.
 	statusName := mi.machine.StatusName()
 	statusMsg := mi.machine.StatusMessage()
-	return convertInstanceStatus(statusMsg, statusName, mi.Id())
+	return convertInstanceStatus(statusName, statusMsg, mi.Id())
 }
 
 // MAAS does not do firewalling so these port methods do nothing.

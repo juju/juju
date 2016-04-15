@@ -12,6 +12,26 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
+var usageSetDefaultCredentialSummary = `
+Sets the default credentials for a cloud.`[1:]
+
+var usageSetDefaultCredentialDetails = `
+The default credentials are specified with a "credential name". A 
+credential name is created during the process of adding credentials either 
+via `[1:] + "`juju add-credential` or `juju autoload-credentials`" + `. Credential names 
+can be listed with ` + "`juju list-credentials`" + `.
+Default credentials avoid the need to specify a particular set of 
+credentials when more than one are available for a given cloud.
+
+Examples:
+    juju set-default-credential google credential_name
+
+See also: 
+    add-credential
+    remove-credential
+    list-credentials
+    autoload-credentials`
+
 type setDefaultCredentialCommand struct {
 	cmd.CommandBase
 
@@ -19,13 +39,6 @@ type setDefaultCredentialCommand struct {
 	cloud      string
 	credential string
 }
-
-var setDefaultCredentialDoc = `
-The set-default-credential command sets the default credential for the specified cloud.
-
-Example:
-   juju set-default-credential aws my-sekrets
-`
 
 // NewSetDefaultCredentialCommand returns a command to set the default credential for a cloud.
 func NewSetDefaultCredentialCommand() cmd.Command {
@@ -37,9 +50,9 @@ func NewSetDefaultCredentialCommand() cmd.Command {
 func (c *setDefaultCredentialCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set-default-credential",
-		Purpose: "sets the default credential for a cloud",
-		Doc:     setDefaultCredentialDoc,
-		Args:    "<cloud> <credential-name>",
+		Args:    "<cloud name> <credential name>",
+		Purpose: usageSetDefaultCredentialSummary,
+		Doc:     usageSetDefaultCredentialDetails,
 	}
 }
 

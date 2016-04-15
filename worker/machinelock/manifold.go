@@ -7,10 +7,10 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/util"
 )
 
 // createLock exists to be patched out in export_test.go

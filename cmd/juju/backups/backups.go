@@ -19,34 +19,6 @@ import (
 	statebackups "github.com/juju/juju/state/backups"
 )
 
-var backupsDoc = `
-"juju backups" is used to manage backups of the state of a juju controller.
-Backups are only supported on juju controllers, not hosted models.  For
-more information on juju controllers, see:
-
-    juju help juju-controllers
-`
-
-const backupsPurpose = "create, manage, and restore backups of juju's state"
-
-// NewSuperCommand returns a new backups super-command.
-func NewSuperCommand() cmd.Command {
-	backupsCmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name:        "backups",
-		Doc:         backupsDoc,
-		UsagePrefix: "juju",
-		Purpose:     backupsPurpose,
-	})
-	backupsCmd.Register(newCreateCommand())
-	backupsCmd.Register(newInfoCommand())
-	backupsCmd.Register(newListCommand())
-	backupsCmd.Register(newDownloadCommand())
-	backupsCmd.Register(newUploadCommand())
-	backupsCmd.Register(newRemoveCommand())
-	backupsCmd.Register(newRestoreCommand())
-	return backupsCmd
-}
-
 // APIClient represents the backups API client functionality used by
 // the backups command.
 type APIClient interface {

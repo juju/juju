@@ -14,6 +14,54 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
+var usageSCPSummary = `
+Transfers files to/from a Juju machine.`[1:]
+
+var usageSCPDetails = `
+The usage is for transferring files from the client to a Juju machine. To
+do the reverse:
+juju scp [options] [<user>@]<target>:<file> <path>
+and use quotes when multiple files are involved.
+The machine is identified by the <target> argument which is either a 'unit
+name' or a 'machine id'. Both are obtained in the output from `[1:] + "`juju \nstatus`" + `: unit name in the [Units] section and machine id in the [Machines]
+section.
+If 'user' is specified then the connection is made to that user account;
+otherwise, the 'ubuntu' account is used.
+'file' can be single or multiple files or directories. For directories,
+you must use the scp option of '-r'.
+Options specific to scp can be inserted between 'scp' and '[options]' with
+'-- <scp-options>'. Refer to the scp(1) man page for an explanation of
+those options.
+
+Examples:
+Copy file /var/log/syslog from machine 2 to the client's current working
+directory:
+
+    juju scp 2:/var/log/syslog .
+
+Copy directory /var/log/mongodb, recursively, from a mongodb unit
+to the client's local directory remote-logs:
+
+    juju scp -- -r mongodb/0:/var/log/mongodb/ remote-logs
+
+Copy file foo.txt, in verbose mode, from the client's current working
+directory to an apache2 unit of model "mymodel":
+
+    juju scp -- -v -m mymodel foo.txt apache2/1:
+
+Copy multiple files from the client's current working directory to machine
+2:
+
+    juju scp file1 file2 2:
+
+Copy multiple files from the bob user account on machine 3 to the client's
+current working directory:
+
+    juju scp bob@3:'file1 file2' .
+
+See also: 
+    ssh`
+
 func newSCPCommand() cmd.Command {
 	return modelcmd.Wrap(&scpCommand{})
 }
@@ -23,45 +71,12 @@ type scpCommand struct {
 	SSHCommon
 }
 
-const scpDoc = `
-Launch an scp command to copy files. Each argument <file1> ... <file2>
-is either local file path or remote locations of the form [<user>@]<target>:<path>,
-where <target> can be either a machine id as listed by "juju status" in the
-"machines" section or a unit name as listed in the "services" section. If a
-username is not specified, the username "ubuntu" will be used.
-
-To pass additional flags to "scp", separate "juju scp" from the options with
-"--" to prevent Juju from attempting to interpret the flags. This is only
-supported if the scp command can be found in the system PATH. Please refer to
-the man page of scp(1) for the supported extra arguments.
-
-Examples:
-
-Copy a single file from machine 2 to the local machine:
-
-    juju scp 2:/var/log/syslog .
-
-Copy 2 files from two units to the local backup/ directory, passing -v
-to scp as an extra argument:
-
-    juju scp -- -v ubuntu/0:/path/file1 ubuntu/1:/path/file2 backup/
-
-Recursively copy the directory /var/log/mongodb/ on the first mongodb
-server to the local directory remote-logs:
-
-    juju scp -- -r mongodb/0:/var/log/mongodb/ remote-logs/
-
-Copy a local file to the second apache unit of the model "testing":
-
-    juju scp -m testing foo.txt apache2/1:
-`
-
 func (c *scpCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "scp",
-		Args:    "<file1> ... <file2> [scp-option...]",
-		Purpose: "launch a scp command to copy files to/from remote machine(s)",
-		Doc:     scpDoc,
+		Args:    "<file> [<user>@]<target>:[<path>]",
+		Purpose: usageSCPSummary,
+		Doc:     usageSCPDetails,
 	}
 }
 

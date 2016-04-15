@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	apiproxyupdater "github.com/juju/juju/api/proxyupdater"
+	"github.com/juju/juju/api/proxyupdater"
+	"github.com/juju/juju/cmd/jujud/agent/util"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
@@ -35,7 +35,7 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 		return nil, errors.Errorf("unknown agent type: %T", tag)
 	}
 
-	proxyAPI, err := apiproxyupdater.NewAPI(apiCaller, agentConfig.Tag())
+	proxyAPI, err := proxyupdater.NewAPI(apiCaller, agentConfig.Tag())
 	if err != nil {
 		return nil, err
 	}

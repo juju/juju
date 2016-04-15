@@ -7,7 +7,6 @@ package lxdclient
 
 import (
 	"bytes"
-	"os"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/series"
@@ -60,19 +59,4 @@ func IsRunningLocally() (bool, error) {
 	}
 
 	return running, nil
-}
-
-// GetDefaultBridgeName returns the name of the default bridge for lxd.
-func GetDefaultBridgeName() (string, error) {
-	_, err := os.Lstat("/sys/class/net/lxdbr0/bridge")
-	if err == nil {
-		return "lxdbr0", nil
-	}
-
-	/* if it was some unknown error, return that */
-	if !os.IsNotExist(err) {
-		return "", err
-	}
-
-	return "lxcbr0", nil
 }

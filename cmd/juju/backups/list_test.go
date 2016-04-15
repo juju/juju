@@ -23,11 +23,7 @@ var _ = gc.Suite(&listSuite{})
 
 func (s *listSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
-	s.subcommand = backups.NewListCommand()
-}
-
-func (s *listSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, s.subcommand)
+	s.subcommand = backups.NewListCommandForTest()
 }
 
 func (s *listSuite) TestOkay(c *gc.C) {

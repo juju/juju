@@ -17,13 +17,14 @@ import (
 )
 
 const downloadDoc = `
-"download" retrieves a backup archive file.
+download-backup retrieves a backup archive file.
 
 If --filename is not used, the archive is downloaded to a temporary
 location and the filename is printed to stdout.
 `
 
-func newDownloadCommand() cmd.Command {
+// NewDownloadCommand returns a commant used to download backups.
+func NewDownloadCommand() cmd.Command {
 	return modelcmd.Wrap(&downloadCommand{})
 }
 
@@ -39,7 +40,7 @@ type downloadCommand struct {
 // Info implements Command.Info.
 func (c *downloadCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "download",
+		Name:    "download-backup",
 		Args:    "<ID>",
 		Purpose: "get an archive file",
 		Doc:     downloadDoc,
