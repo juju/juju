@@ -2092,33 +2092,6 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 	return network.DecimalToIPv4(lowBound), network.DecimalToIPv4(highBound), nil
 }
 
-// subnetsWithSpaces uses the MAAS 1.9+ API to fetch subnet information
-// including space id.
-func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	var nodeId string
-	if instId != instance.UnknownId {
-		inst, err := environ.getInstance(instId)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		nodeId, err = environ.nodeIdFromInstance(inst)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	subnets, err := environ.filteredSubnets(nodeId, subnetIds)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if instId != instance.UnknownId {
-		logger.Debugf("instance %q has subnets %v", instId, subnets)
-	} else {
-		logger.Debugf("found subnets %v", subnets)
-	}
-
-	return subnets, nil
-}
-
 // subnetFromJson populates a network.SubnetInfo from a gomaasapi.JSONObject
 // representing a single subnet. This can come from either the subnets api
 // endpoint or the node endpoint.
@@ -2371,7 +2344,44 @@ func (environ *maasEnviron) spaces2() ([]network.SpaceInfo, error) {
 // by the provider for the specified instance. subnetIds must not be
 // empty. Implements NetworkingEnviron.Subnets.
 func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	return environ.subnetsWithSpaces(instId, subnetIds)
+	if environ.usingMAAS2() {
+		return environ.subnets2(instId, subnetIds)
+	}
+	var nodeId string
+	if instId != instance.UnknownId {
+		inst, err := environ.getInstance(instId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		nodeId, err = environ.nodeIdFromInstance(inst)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	subnets, err := environ.filteredSubnets(nodeId, subnetIds)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if instId != instance.UnknownId {
+		logger.Debugf("instance %q has subnets %v", instId, subnets)
+	} else {
+		logger.Debugf("found subnets %v", subnets)
+	}
+
+	return subnets, nil
+}
+
+func (environ *maasEnviron) subnets2(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	result := []network.SubnetInfo{}
+	// Initially ignore instId and subnetIds
+	spaces, err := environ.Spaces()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, space := range spaces {
+		result = append(result, space.Subnets...)
+	}
+	return result, nil
 }
 
 func checkNotFound(subnetIdSet map[string]bool) error {
