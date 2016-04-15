@@ -2393,21 +2393,21 @@ func (environ *maasEnviron) subnets2(instId instance.Id, subnetIds []network.Id)
 		return subnets, nil
 	}
 	result := []network.SubnetInfo{}
-	subnetMap := make(map[network.Id]bool)
+	subnetMap := make(map[string]bool)
 	for _, subnetId := range subnetIds {
-		subnetMap[subnetId] = false
+		subnetMap[string(subnetId)] = false
 	}
 	for _, subnet := range subnets {
-		_, ok := subnetMap[subnet.ProviderId]
+		_, ok := subnetMap[string(subnet.ProviderId)]
 		if !ok {
 			// This id is not what we're looking for.
 			continue
 		}
-		subnetMap[subnet.ProviderId] = true
+		subnetMap[string(subnet.ProviderId)] = true
 		result = append(result, subnet)
 	}
 
-	return result, checkNotFound(subnetsMap)
+	return result, checkNotFound(subnetMap)
 }
 
 func (environ *maasEnviron) filteredSubnets2(instId instance.Id) ([]network.SubnetInfo, error) {
@@ -2420,19 +2420,23 @@ func (environ *maasEnviron) filteredSubnets2(instId instance.Id) ([]network.Subn
 		return nil, errors.Trace(err)
 	}
 	if len(machines) != 1 {
-		return nil, errors.Format("unexpected result from requesting machine %v: %v", instId, machines)
+		return nil, errors.Errorf("unexpected result from requesting machine %v: %v", instId, machines)
 	}
 	machine := machines[0]
 	result := []network.SubnetInfo{}
-	for i, subnet := range space.Subnets() {
-		subnetInfo := network.SubnetInfo{
-			ProviderId:      network.Id(strconv.Itoa(subnet.ID())),
-			VLANTag:         subnet.VLAN().VID(),
-			CIDR:            subnet.CIDR(),
-			SpaceProviderId: network.Id(strconv.Itoa(space.ID())),
-			// TODO (mfoord): not setting
-			// AllocatableIPLow/High - these aren't exposed in
-			// gomaasapi just yet.
+	for _, iface := range machine.InterfaceSet() {
+		for _, link := range iface.Links() {
+			subnet := link.Subnet()
+			subnetInfo := network.SubnetInfo{
+				ProviderId:      network.Id(strconv.Itoa(subnet.ID())),
+				VLANTag:         subnet.VLAN().VID(),
+				CIDR:            subnet.CIDR(),
+				SpaceProviderId: network.Id(3),
+				// TODO (mfoord): not setting
+				// AllocatableIPLow/High - these aren't exposed in
+				// gomaasapi just yet.
+			}
+			result = append(result, subnetInfo)
 		}
 	}
 	return result, nil
