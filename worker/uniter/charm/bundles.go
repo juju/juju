@@ -58,7 +58,7 @@ func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error
 	for _, archiveURL := range archiveURLs {
 		aurl := archiveURL.String()
 		logger.Infof("downloading %s from %s", info.URL(), aurl)
-		st, err = tryDownload(aurl, dir, abort)
+		st, err = tryDownload(aurl, dir, startDownload, abort)
 		if err == nil {
 			break
 		}
@@ -90,7 +90,7 @@ func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error
 	return os.Rename(st.File.Name(), d.bundlePath(info))
 }
 
-func tryDownload(url, dir string, abort <-chan struct{}) (downloader.Status, error) {
+func startDownload(url, dir string) *downloader.Download {
 	// Downloads always go through the API server, which at
 	// present cannot be verified due to the certificates
 	// being inadequate. We always verify the SHA-256 hash,
@@ -101,6 +101,13 @@ func tryDownload(url, dir string, abort <-chan struct{}) (downloader.Status, err
 		TargetDir:            dir,
 		HostnameVerification: utils.NoVerifySSLHostnames,
 	})
+	return dl
+}
+
+func tryDownload(url, dir string, startDownload func(url, dir string) *downloader.Download, abort <-chan struct{}) (downloader.Status, error) {
+
+	dl := startDownload(url, dir)
+
 	defer dl.Stop()
 	select {
 	case <-abort:
