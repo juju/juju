@@ -2440,13 +2440,10 @@ func (environ *maasEnviron) filteredSubnets2(instId instance.Id) ([]network.Subn
 	for _, iface := range machine.InterfaceSet() {
 		for _, link := range iface.Links() {
 			subnet := link.Subnet()
-			spaces, err := spaceNamesToSpaceInfo([]string{subnet.Space()}, spaceMap)
-			if err != nil {
-				return nil, errors.Trace(err)
+			space, ok := spaceMap[subnet.Space()]
+			if !ok {
+				return nil, errors.Errorf("missing space %v on subnet %v", subnet.Space(), subnet.CIDR())
 			}
-			// spaceNamesToSpaceInfo guarantees to return the same
-			// number of results as the input or error.
-			space := spaces[0]
 			subnetInfo := network.SubnetInfo{
 				ProviderId:      network.Id(strconv.Itoa(subnet.ID())),
 				VLANTag:         subnet.VLAN().VID(),
