@@ -13,7 +13,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newRemoveCommand() cmd.Command {
+// NewRemoveCommand returns a command used to remove a space.
+func NewRemoveCommand() cmd.Command {
 	return modelcmd.Wrap(&removeCommand{})
 }
 
@@ -31,7 +32,7 @@ associated with the space will be transfered to the default space.
 // Info is defined on the cmd.Command interface.
 func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "remove",
+		Name:    "remove-space",
 		Args:    "<name>",
 		Purpose: "remove a network space",
 		Doc:     strings.TrimSpace(removeCommandDoc),

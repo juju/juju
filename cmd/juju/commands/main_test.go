@@ -294,7 +294,7 @@ var commandNames = []string{
 	"show-status",
 	"show-storage",
 	"show-user",
-	"space",
+	"spaces",
 	"ssh",
 	"status",
 	"status-history",

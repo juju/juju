@@ -14,7 +14,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newRenameCommand() cmd.Command {
+// NewRenameCommand returns a command used to rename an existing space.
+func NewRenameCommand() cmd.Command {
 	return modelcmd.Wrap(&renameCommand{})
 }
 
@@ -38,7 +39,7 @@ func (c *renameCommand) SetFlags(f *gnuflag.FlagSet) {
 // Info is defined on the cmd.Command interface.
 func (c *renameCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "rename",
+		Name:    "rename-space",
 		Args:    "<old-name> <new-name>",
 		Purpose: "rename a network space",
 		Doc:     strings.TrimSpace(renameCommandDoc),

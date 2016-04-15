@@ -29,7 +29,6 @@ type BaseSpaceSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	coretesting.BaseSuite
 
-	superCmd cmd.Command
 	command  cmd.Command
 	api      *StubAPI
 }
@@ -57,9 +56,6 @@ func (s *BaseSpaceSuite) SetUpTest(c *gc.C) {
 		s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	}
 
-	s.superCmd = space.NewSuperCommand()
-	c.Assert(s.superCmd, gc.NotNil)
-
 	s.api = NewStubAPI()
 	c.Assert(s.api, gc.NotNil)
 
@@ -72,25 +68,10 @@ func (s *BaseSpaceSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-// RunSuperCommand executes the super command passing any args and
-// returning the stdout and stderr output as strings, as well as any
-// error. If s.command is set, the subcommand's name will be passed as
-// first argument.
-func (s *BaseSpaceSuite) RunSuperCommand(c *gc.C, args ...string) (string, string, error) {
-	if s.command != nil {
-		args = append([]string{s.command.Info().Name}, args...)
-	}
-	ctx, err := coretesting.RunCommand(c, s.superCmd, args...)
-	if ctx != nil {
-		return coretesting.Stdout(ctx), coretesting.Stderr(ctx), err
-	}
-	return "", "", err
-}
-
-// RunSubCommand executes the s.command subcommand passing any args
+// RunCommand executes the s.command subcommand passing any args
 // and returning the stdout and stderr output as strings, as well as
 // any error.
-func (s *BaseSpaceSuite) RunSubCommand(c *gc.C, args ...string) (string, string, error) {
+func (s *BaseSpaceSuite) RunCommand(c *gc.C, args ...string) (string, string, error) {
 	if s.command == nil {
 		panic("subcommand is nil")
 	}
@@ -132,37 +113,6 @@ func (s *BaseSpaceSuite) AssertRunSucceeds(c *gc.C, expectStderr, expectStdout s
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdout, gc.Equals, expectStdout)
 	c.Assert(stderr, gc.Matches, expectStderr)
-}
-
-// TestHelp runs the command with --help as argument and verifies the
-// output.
-func (s *BaseSpaceSuite) TestHelp(c *gc.C) {
-	stderr, stdout, err := s.RunSuperCommand(c, "--help")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Not(gc.Equals), "")
-
-	// If s.command is set, use it instead of s.superCmd.
-	cmdInfo := s.superCmd.Info()
-	var expected string
-	if s.command != nil {
-		// Subcommands embed ModelCommandBase
-		cmdInfo = s.command.Info()
-		expected = "(?sm).*^Usage: juju space " +
-			regexp.QuoteMeta(cmdInfo.Name) +
-			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
-	} else {
-		expected = "(?sm).*^Usage: juju space" +
-			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
-	}
-	c.Check(cmdInfo, gc.NotNil)
-	c.Check(stderr, gc.Matches, expected)
-
-	expected = "(?sm).*^Summary:\n" + regexp.QuoteMeta(cmdInfo.Purpose) + "$.*"
-	c.Check(stderr, gc.Matches, expected)
-
-	expected = "(?sm).*^Details:\n" + regexp.QuoteMeta(cmdInfo.Doc) + "$.*"
-	c.Check(stderr, gc.Matches, expected)
 }
 
 // Strings is makes tests taking a slice of strings slightly easier to
