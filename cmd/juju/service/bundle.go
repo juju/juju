@@ -5,6 +5,8 @@ package service
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/yaml.v1"
@@ -49,6 +52,7 @@ type deploymentLogger interface {
 // charm store client. The deployment is not transactional, and its progress is
 // notified using the given deployment logger.
 func deployBundle(
+	bundleFilePath string,
 	data *charm.BundleData,
 	channel csparams.Channel,
 	client *api.Client,
@@ -65,15 +69,21 @@ func deployBundle(
 		_, err := storage.ParseConstraints(s)
 		return err
 	}
-	if err := data.Verify(verifyConstraints, verifyStorage); err != nil {
-		if verr, ok := err.(*charm.VerificationError); ok {
+	var verifyError error
+	if bundleFilePath == "" {
+		verifyError = data.Verify(verifyConstraints, verifyStorage)
+	} else {
+		verifyError = data.VerifyLocal(bundleFilePath, verifyConstraints, verifyStorage)
+	}
+	if verifyError != nil {
+		if verr, ok := verifyError.(*charm.VerificationError); ok {
 			errs := make([]string, len(verr.Errors))
 			for i, err := range verr.Errors {
 				errs[i] = err.Error()
 			}
 			return nil, errors.New("the provided bundle has the following errors:\n" + strings.Join(errs, "\n"))
 		}
-		return nil, errors.Annotate(err, "cannot deploy bundle")
+		return nil, errors.Annotate(verifyError, "cannot deploy bundle")
 	}
 
 	// Retrieve bundle changes.
@@ -111,6 +121,7 @@ func deployBundle(
 
 	// Instantiate the bundle handler.
 	h := &bundleHandler{
+		bundleDir:         bundleFilePath,
 		changes:           changes,
 		results:           make(map[string]string, numChanges),
 		channel:           channel,
@@ -173,6 +184,8 @@ func deployBundle(
 
 // bundleHandler provides helpers and the state required to deploy a bundle.
 type bundleHandler struct {
+	// bundleDir is the path where the bundle file is located for local bundles.
+	bundleDir string
 	// changes holds the changes to be applied in order to deploy the bundle.
 	changes []bundlechanges.Change
 
@@ -238,7 +251,34 @@ type bundleHandler struct {
 
 // addCharm adds a charm to the environment.
 func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*charm.URL, csparams.Channel, *macaroon.Macaroon, error) {
-	url, channel, _, repo, err := h.resolver.resolve(p.Charm)
+	// First attempt to interpret as a local path.
+	if strings.HasPrefix(p.Charm, ".") || filepath.IsAbs(p.Charm) {
+		charmPath := p.Charm
+		if !filepath.IsAbs(charmPath) {
+			charmPath = filepath.Join(h.bundleDir, charmPath)
+		}
+
+		var noChannel csparams.Channel
+		series := p.Series
+		if series == "" {
+			series = h.data.Series
+		}
+		ch, curl, err := charmrepo.NewCharmAtPath(charmPath, series)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, noChannel, nil, errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
+		}
+		if err == nil {
+			if curl, err = h.client.AddLocalCharm(curl, ch); err != nil {
+				return nil, noChannel, nil, err
+			}
+			h.log.Infof("added charm %s", curl)
+			h.results[id] = curl.String()
+			return curl, noChannel, nil, nil
+		}
+	}
+
+	// Not a local charm, so grab from the store.
+	url, channel, _, store, err := h.resolver.resolve(p.Charm)
 	if err != nil {
 		return nil, channel, nil, errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
@@ -246,7 +286,7 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*ch
 		return nil, channel, nil, errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
 	var csMac *macaroon.Macaroon
-	url, csMac, err = addCharmFromURL(h.client, url, channel, repo)
+	url, csMac, err = addCharmFromURL(h.client, url, channel, store.Client())
 	if err != nil {
 		return nil, channel, nil, errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
