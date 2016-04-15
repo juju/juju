@@ -220,11 +220,20 @@ func HasLXDSupport() bool {
 	return true
 }
 
-func addNetworkDeviceToProfile(client *lxdclient.Client, profile, parentDevice, deviceName, hwAddr string, mtu int) (*lxd.Response, error) {
-	var props = []string{}
-	props = append(props, "nictype=bridged")
-	props = append(props, fmt.Sprintf("parent=%v", parentDevice))
-	props = append(props, fmt.Sprintf("name=%v", deviceName))
+func nicProperties(parentDevice, deviceName, hwAddr string, mtu int) ([]string, error) {
+	var props = []string{"nictype=bridged"}
+
+	if parentDevice == "" {
+		return nil, errors.Errorf("invalid parent device")
+	} else {
+		props = append(props, fmt.Sprintf("parent=%v", parentDevice))
+	}
+
+	if deviceName == "" {
+		return nil, errors.Errorf("invalid device name")
+	} else {
+		props = append(props, fmt.Sprintf("name=%v", deviceName))
+	}
 
 	if hwAddr != "" {
 		props = append(props, fmt.Sprintf("hwaddr=%v", hwAddr))
@@ -234,8 +243,15 @@ func addNetworkDeviceToProfile(client *lxdclient.Client, profile, parentDevice, 
 		props = append(props, fmt.Sprintf("mtu=%v", mtu))
 	}
 
-	logger.Infof("adding nic device %q with properties %+v to profile %q", deviceName, props, profile)
+	return props, nil
+}
 
+func addNetworkDeviceToProfile(client *lxdclient.Client, profile, parentDevice, deviceName, hwAddr string, mtu int) (*lxd.Response, error) {
+	props, err := nicProperties(parentDevice, deviceName, hwAddr, mtu)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Infof("adding nic device %q with properties %+v to profile %q", deviceName, props, profile)
 	return client.ProfileDeviceAdd(profile, deviceName, "nic", props)
 }
 
