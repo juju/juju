@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
 Charms have the capability to declare that they support more than
-one  series. Previously a separate copy of the charm was required for
-each  series. An important constraint here is that for a given charm,
+one series. Previously a separate copy of the charm was required for
+each series. An important constraint here is that for a given charm,
 all of the  listed series must be for the same distro/OS; it is not
 allowed to offer a  single charm for Ubuntu and CentOS for example.
 Supported series are added to charm metadata as follows:
@@ -39,15 +39,15 @@ import logging
 import subprocess
 import sys
 
-from deploy_stack import (BootstrapManager, )
+from deploy_stack import BootstrapManager
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
     make_charm,
     temp_dir,
 )
-from assess_min_version import JujuAssertionError
 from assess_heterogeneous_control import check_series
+from assess_min_version import JujuAssertionError
 
 
 __metaclass__ = type
@@ -59,8 +59,7 @@ Test = namedtuple("Test", ["series", "service", "force", "success", "machine"])
 
 
 def assess_multi_series_charms(client):
-    """
-    Assess multi series charms.
+    """Assess multi series charms.
 
     :param client: Juju client.
     :type client: jujupy.EnvJujuClient
@@ -90,8 +89,7 @@ def assess_multi_series_charms(client):
 
 
 def assert_deploy(client, test, charm_dir):
-    """
-    Deploy a charm and assert a success or fail.
+    """Deploy a charm and assert a success or fail.
 
     :param client: Juju client
     :type client: jujupy.EnvJujuClient
