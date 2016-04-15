@@ -745,7 +745,7 @@ func spaceNamesToSpaceInfo(spaces []string, spaceMap map[string]network.SpaceInf
 	return spaceInfos, nil
 }
 
-func (environ *maasEnviron) getSpaceMap() (map[string]network.SpaceInfo, error) {
+func (environ *maasEnviron) buildSpaceMap() (map[string]network.SpaceInfo, error) {
 	spaces, err := environ.Spaces()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -760,7 +760,7 @@ func (environ *maasEnviron) getSpaceMap() (map[string]network.SpaceInfo, error) 
 }
 
 func (environ *maasEnviron) spaceNamesToSpaceInfo(positiveSpaces, negativeSpaces []string) ([]network.SpaceInfo, []network.SpaceInfo, error) {
-	spaceMap, err := environ.getSpaceMap()
+	spaceMap, err := environ.buildSpaceMap()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -2432,7 +2432,7 @@ func (environ *maasEnviron) filteredSubnets2(instId instance.Id) ([]network.Subn
 		return nil, errors.Errorf("unexpected result from requesting machine %v: %v", instId, machines)
 	}
 	machine := machines[0]
-	spaceMap, err := environ.getSpaceMap()
+	spaceMap, err := environ.buildSpaceMap()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
