@@ -16,7 +16,8 @@ import (
 )
 
 type maas2Instance struct {
-	machine gomaasapi.Machine
+	machine           gomaasapi.Machine
+	constraintMatches gomaasapi.ConstraintMatches
 }
 
 var _ maasInstance = (*maas2Instance)(nil)
