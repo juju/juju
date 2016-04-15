@@ -108,6 +108,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// This has been deprecated in 2.0, and should not contain any data
 		// we actually care about migrating.
 		legacyipaddressesC,
+
+		// The SSH host keys for each machine will be reported as each
+		// machiner starts up.
+		sshHostKeysC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
