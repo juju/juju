@@ -1160,7 +1160,7 @@ fi
 if [ ! -z "${juju_networking_preferred_python_binary:-}" ]; then
     juju_ipv4_interface_to_bridge=$(ip -4 route list exact default | head -n1 | cut -d' ' -f5)
     if [ -f %[2]q ]; then
-        $juju_networking_preferred_python_binary %[2]q --bridge-name=%[3]q --interface-to-bridge=%[1]q --one-time-backup --activate %[4]q
+        $juju_networking_preferred_python_binary %[2]q --bridge-name=%[3]q --interface-to-bridge=%[1]q --one-time-backup %[4]q
     fi
 else
     echo "error: no Python installation found; cannot run Juju's bridge script"
@@ -1215,6 +1215,12 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series st
 			cloudcfg.AddPackage("bridge-utils")
 			cloudcfg.AddBootTextFile(bridgeScriptPath, bridgeScriptPython, 0755)
 			cloudcfg.AddScripts(setupJujuNetworking())
+			cloudcfg.SetPowerState(cloudinit.PowerState{
+				Mode:      "reboot",
+				Message:   "rebooting to activate new network configuration",
+				Timeout:   10 * 60,
+				Condition: "true",
+			})
 		}
 	}
 	return cloudcfg, nil

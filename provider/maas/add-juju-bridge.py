@@ -266,38 +266,10 @@ def print_stanzas(stanzas, stream=sys.stdout):
             print(file=stream)
 
 
-def shell_cmd(s):
-    p = subprocess.Popen(s, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = p.communicate()
-    return [out, err, p.returncode]
-
-
-def print_shell_cmd(s, verbose=True, exit_on_error=False):
-    if verbose:
-        print(s)
-    out, err, retcode = shell_cmd(s)
-    if out and len(out) > 0:
-        print(out.decode().rstrip('\n'))
-    if err and len(err) > 0:
-        print(err.decode().rstrip('\n'))
-    if exit_on_error and retcode != 0:
-        exit(1)
-
-
-def check_shell_cmd(s, verbose=False):
-    if verbose:
-        print(s)
-    output = subprocess.check_output(s, shell=True, stderr=subprocess.STDOUT).strip().decode("utf-8")
-    if verbose:
-        print(output.rstrip('\n'))
-    return output
-
-
 def arg_parser():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--bridge-prefix', help="bridge prefix", type=str, required=False, default='br-')
     parser.add_argument('--one-time-backup', help='A one time backup of filename', action='store_true', default=True, required=False)
-    parser.add_argument('--activate', help='activate new configuration', action='store_true', default=False, required=False)
     parser.add_argument('--interface-to-bridge', help="interface to bridge", type=str, required=False)
     parser.add_argument('--bridge-name', help="bridge name", type=str, required=False)
     parser.add_argument('filename', help="interfaces(5) based filename")
@@ -337,34 +309,15 @@ def main(args):
         elif not s.is_physical_interface:
             stanzas.append(s)
 
-    if not args.activate:
-        print_stanzas(stanzas)
-        exit(0)
-
     if args.one_time_backup:
         backup_file = "{}-before-add-juju-bridge".format(args.filename)
         if not os.path.isfile(backup_file):
             shutil.copy2(args.filename, backup_file)
 
-    ifquery = "$(ifquery --interfaces={} --exclude=lo --list)".format(args.filename)
-
-    print("**** Original configuration")
-    print_shell_cmd("cat {}".format(args.filename))
-    print_shell_cmd("ifconfig -a")
-    print_shell_cmd("ifdown --exclude=lo --interfaces={} {}".format(args.filename, ifquery))
-
-    print("**** Activating new configuration")
-
     with open(args.filename, 'w') as f:
         print_stanzas(stanzas, f)
         f.close()
 
-    print_shell_cmd("cat {}".format(args.filename))
-    print_shell_cmd("ifup --exclude=lo --interfaces={} {}".format(args.filename, ifquery))
-    print_shell_cmd("ip link show up")
-    print_shell_cmd("ifconfig -a")
-    print_shell_cmd("ip route show")
-    print_shell_cmd("brctl show")
 
 # This script re-renders an interfaces(5) file to add a bridge to
 # either all active interfaces, or a specific interface.
