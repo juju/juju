@@ -6,7 +6,6 @@
 package lxdclient_test
 
 import (
-	"fmt"
 	"net"
 
 	"github.com/juju/errors"
@@ -430,11 +429,7 @@ type remoteFunctionalSuite struct {
 }
 
 func (s *remoteFunctionalSuite) TestUsingTCP(c *gc.C) {
-	netIF, err := lxdclient.GetDefaultBridgeName()
-	if err != nil {
-		c.Skip(fmt.Sprintf("could not determine default bridge: %v", err))
-	}
-	if _, err := net.InterfaceByName(netIF); err != nil {
+	if _, err := net.InterfaceByName(lxdclient.DefaultLXDBridge); err != nil {
 		c.Skip("network bridge interface not found")
 	}
 	lxdclient.PatchGenerateCertificate(&s.CleanupSuite, testingCert, testingKey)

@@ -191,11 +191,7 @@ func (r Remote) UsingTCP() (Remote, error) {
 	// TODO: jam 2016-02-25 This should be updated for systems that are
 	// 	 space aware, as we may not be just using the default LXC
 	// 	 bridge.
-	netIF, err := GetDefaultBridgeName()
-	if err != nil {
-		return r, errors.Trace(err)
-	}
-	addr, err := utils.GetAddressForInterface(netIF)
+	addr, err := utils.GetAddressForInterface(DefaultLXDBridge)
 	if err != nil {
 		return r, errors.Trace(err)
 	}
