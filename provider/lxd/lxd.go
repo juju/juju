@@ -8,13 +8,11 @@ package lxd
 import (
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
 // The metadata keys used when creating new instances.
 const (
-	metadataKeyIsState   = tags.JujuModel
 	metadataKeyCloudInit = lxdclient.UserdataKey
 )
 

@@ -48,6 +48,8 @@ var AliveStatuses = []string{
 	StatusStarting,
 	StatusStarted,
 	StatusRunning,
+	StatusStopping,
+	StatusStopped,
 }
 
 // InstanceSpec holds all the information needed to create a new LXD

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
@@ -230,14 +231,22 @@ func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 	userdata := string(uncompressed)
 
 	metadata := map[string]string{
-		metadataKeyIsState: metadataValueFalse,
-		// We store a gz snapshop of information that is used by
-		// cloud-init and unpacked in to the /var/lib/cloud/instances folder
-		// for the instance.
+		// store the cloud-config userdata for cloud-init.
 		metadataKeyCloudInit: userdata,
 	}
-	if isController(args.InstanceConfig) {
-		metadata[metadataKeyIsState] = metadataValueTrue
+	for k, v := range args.InstanceConfig.Tags {
+		if !strings.HasPrefix(k, tags.JujuTagPrefix) {
+			// Since some metadata is interpreted by LXD,
+			// we cannot allow arbitrary tags to be passed
+			// in by the user. We currently only pass through
+			// Juju-defined tags.
+			//
+			// TODO(axw) 2016-04-11 #1568666
+			// We should reject non-juju tags in config validation.
+			logger.Debugf("ignoring non-juju tag: %s=%s", k, v)
+			continue
+		}
+		metadata[k] = v
 	}
 
 	return metadata, nil
@@ -270,8 +279,15 @@ func (env *environ) getHardwareCharacteristics(args environs.StartInstanceParams
 
 // AllInstances implements environs.InstanceBroker.
 func (env *environ) AllInstances() ([]instance.Instance, error) {
-	instances, err := getInstances(env)
-	return instances, errors.Trace(err)
+	environInstances, err := env.allInstances()
+	instances := make([]instance.Instance, len(environInstances))
+	for i, inst := range environInstances {
+		if inst == nil {
+			continue
+		}
+		instances[i] = inst
+	}
+	return instances, err
 }
 
 // StopInstances implements environs.InstanceBroker.

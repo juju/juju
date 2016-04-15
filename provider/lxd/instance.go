@@ -60,15 +60,6 @@ func (inst *environInstance) Addresses() ([]network.Address, error) {
 	return inst.env.raw.Addresses(inst.raw.Name)
 }
 
-func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
-	for _, inst := range instances {
-		if id == inst.Id() {
-			return inst
-		}
-	}
-	return nil
-}
-
 // firewall stuff
 
 // OpenPorts opens the given ports on the instance, which

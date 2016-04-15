@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environSuite struct {
@@ -119,4 +120,37 @@ func (s *environSuite) TestDestroyAPI(c *gc.C) {
 		FuncName: "Destroy",
 		Args:     nil,
 	}})
+}
+
+func (s *environSuite) TestDestroyHostedModels(c *gc.C) {
+	s.UpdateConfig(c, map[string]interface{}{
+		"controller-uuid": s.Config.UUID(),
+	})
+	s.Stub.ResetCalls()
+
+	// machine0 is in the controller model.
+	machine0 := s.NewRawInstance(c, "juju-whatever-machine-0")
+	machine0.InstanceSummary.Metadata["juju-model-uuid"] = s.Config.UUID()
+	machine0.InstanceSummary.Metadata["juju-controller-uuid"] = s.Config.UUID()
+	// machine1 is not in the controller model, but managed
+	// by the same controller.
+	machine1 := s.NewRawInstance(c, "juju-whatever-machine-1")
+	machine1.InstanceSummary.Metadata["juju-model-uuid"] = "not-" + s.Config.UUID()
+	machine1.InstanceSummary.Metadata["juju-controller-uuid"] = s.Config.UUID()
+	// machine2 is not managed by the same controller.
+	machine2 := s.NewRawInstance(c, "juju-whatever-machine-2")
+	machine2.InstanceSummary.Metadata["juju-model-uuid"] = "not-" + s.Config.UUID()
+	machine2.InstanceSummary.Metadata["juju-controller-uuid"] = "not-" + s.Config.UUID()
+	s.Client.Insts = append(s.Client.Insts, *machine0, *machine1, *machine2)
+
+	err := s.Env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	fwname := s.Prefix[:len(s.Prefix)-1]
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{"Ports", []interface{}{fwname}},
+		{"Instances", []interface{}{"juju-", lxdclient.AliveStatuses}},
+		{"RemoveInstances", []interface{}{"juju-", []string{machine1.Name}}},
+		{"Destroy", nil},
+	})
 }

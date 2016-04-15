@@ -9,14 +9,11 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools/lxdclient"
 )
-
-// instStatus is the list of statuses to accept when filtering
-// for "alive" instances.
-var instStatuses = lxdclient.AliveStatuses
 
 // Instances returns the available instances in the environment that
 // match the provided instance IDs. For IDs that did not match any
@@ -28,7 +25,7 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 		return nil, environs.ErrNoInstances
 	}
 
-	instances, err := getInstances(env)
+	instances, err := env.allInstances()
 	if err != nil {
 		// We don't return the error since we need to pack one instance
 		// for each ID into the result. If there is a problem then we
@@ -59,23 +56,32 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return results, err
 }
 
-var getInstances = func(env *environ) ([]instance.Instance, error) {
-	return env.instances()
+func findInst(id instance.Id, instances []*environInstance) instance.Instance {
+	for _, inst := range instances {
+		if id == inst.Id() {
+			return inst
+		}
+	}
+	return nil
 }
 
 // instances returns a list of all "alive" instances in the environment.
-// This means only instances where the IDs match
-// "juju-<env name>-machine-*". This is important because otherwise juju
-// will see they are not tracked in state, assume they're stale/rogue,
-// and shut them down.
-func (env *environ) instances() ([]instance.Instance, error) {
+// We match machine names to the pattern "juju-<model-UUID>-machine-*"
+// to ensure that only machines for the environment are returned. This
+// is necessary to isolate multiple models within the same LXD.
+func (env *environ) allInstances() ([]*environInstance, error) {
 	prefix := common.MachineFullName(env.Config().UUID(), "")
-	instances, err := env.raw.Instances(prefix, instStatuses...)
+	return env.prefixedInstances(prefix)
+}
+
+// prefixedInstances returns instances with the specified prefix.
+func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error) {
+	instances, err := env.raw.Instances(prefix, lxdclient.AliveStatuses...)
 	err = errors.Trace(err)
 
 	// Turn lxdclient.Instance values into *environInstance values,
 	// whether or not we got an error.
-	var results []instance.Instance
+	var results []*environInstance
 	for _, base := range instances {
 		// If we don't make a copy then the same pointer is used for the
 		// base of all resulting instances.
@@ -83,7 +89,6 @@ func (env *environ) instances() ([]instance.Instance, error) {
 		inst := newInstance(&copied, env)
 		results = append(results, inst)
 	}
-
 	return results, err
 }
 
@@ -91,16 +96,14 @@ func (env *environ) instances() ([]instance.Instance, error) {
 // to juju controllers.
 func (env *environ) ControllerInstances() ([]instance.Id, error) {
 	prefix := common.MachineFullName(env.Config().ControllerUUID(), "")
-	instances, err := env.raw.Instances(prefix, instStatuses...)
+	instances, err := env.raw.Instances(prefix, lxdclient.AliveStatuses...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var results []instance.Id
 	for _, inst := range instances {
-		metadata := inst.Metadata()
-		isState, ok := metadata[metadataKeyIsState]
-		if ok && isState == metadataValueTrue {
+		if inst.Metadata()[tags.JujuIsController] == "true" {
 			results = append(results, instance.Id(inst.Name))
 		}
 	}
