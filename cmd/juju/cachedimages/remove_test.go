@@ -49,15 +49,15 @@ func runRemoveCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 }
 
 func (s *removeImageCommandSuite) TestRemoveImage(c *gc.C) {
-	_, err := runRemoveCommand(c, "--kind", "lxc", "--series", "trusty", "--arch", "amd64")
+	_, err := runRemoveCommand(c, "--kind", "lxd", "--series", "trusty", "--arch", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mockAPI.kind, gc.Equals, "lxc")
+	c.Assert(s.mockAPI.kind, gc.Equals, "lxd")
 	c.Assert(s.mockAPI.series, gc.Equals, "trusty")
 	c.Assert(s.mockAPI.arch, gc.Equals, "amd64")
 }
 
 func (*removeImageCommandSuite) TestTooManyArgs(c *gc.C) {
-	_, err := runRemoveCommand(c, "--kind", "lxc", "--series", "trusty", "--arch", "amd64", "bad")
+	_, err := runRemoveCommand(c, "--kind", "lxd", "--series", "trusty", "--arch", "amd64", "bad")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["bad"\]`)
 }
 
@@ -67,11 +67,11 @@ func (*removeImageCommandSuite) TestKindRequired(c *gc.C) {
 }
 
 func (*removeImageCommandSuite) TestSeriesRequired(c *gc.C) {
-	_, err := runRemoveCommand(c, "--kind", "lxc", "--arch", "amd64", "bad")
+	_, err := runRemoveCommand(c, "--kind", "lxd", "--arch", "amd64", "bad")
 	c.Assert(err, gc.ErrorMatches, `image series must be specified`)
 }
 
 func (*removeImageCommandSuite) TestArchRequired(c *gc.C) {
-	_, err := runRemoveCommand(c, "--kind", "lxc", "--series", "trusty", "bad")
+	_, err := runRemoveCommand(c, "--kind", "lxd", "--series", "trusty", "bad")
 	c.Assert(err, gc.ErrorMatches, `image architecture must be specified`)
 }

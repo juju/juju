@@ -18,8 +18,8 @@ const listCommandDoc = `
 List cached os images in the Juju model.
 
 Images can be filtered on:
-  Kind         eg "lxc"
-  Series       eg "trusty"
+  Kind         eg "lxd"
+  Series       eg "xenial"
   Architecture eg "amd64"
 The filter attributes are optional.
 
@@ -28,11 +28,11 @@ Examples:
   # List all cached images.
   juju list-cache-images
 
-  # List cached images for trusty.
-  juju list-cache-images --series trusty
+  # List cached images for xenial.
+  juju list-cache-images --series xenial 
 
-  # List all cached lxc images for trusty amd64.
-  juju list-cache-images --kind lxc --series trusty --arch amd64
+  # List all cached lxd images for xenial amd64.
+  juju list-cache-images --kind lxd --series xenial --arch amd64
 `
 
 // NewListCommand returns a command for listing chached images.
@@ -60,8 +60,8 @@ func (c *listCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CachedImagesCommandBase.SetFlags(f)
-	f.StringVar(&c.Kind, "kind", "", "the image kind to list eg lxc")
-	f.StringVar(&c.Series, "series", "", "the series of the image to list eg trusty")
+	f.StringVar(&c.Kind, "kind", "", "the image kind to list eg lxd")
+	f.StringVar(&c.Series, "series", "", "the series of the image to list eg xenial")
 	f.StringVar(&c.Arch, "arch", "", "the architecture of the image to list eg amd64")
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,

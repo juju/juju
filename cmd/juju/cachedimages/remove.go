@@ -15,14 +15,14 @@ const removeCommandDoc = `
 Remove cached os images in the Juju model.
 
 Images are identified by:
-  Kind         eg "lxc"
-  Series       eg "trusty"
+  Kind         eg "lxd"
+  Series       eg "xenial"
   Architecture eg "amd64"
 
 Examples:
 
-  # Remove cached lxc image for trusty amd64.
-  juju remove-cached-images --kind lxc --series trusty --arch amd64
+  # Remove cached lxd image for xenial amd64.
+  juju remove-cached-images --kind lxd --series xenial --arch amd64
 `
 
 // NewRemoveCommand returns a command used to remove cached images.
@@ -48,8 +48,8 @@ func (c *removeCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CachedImagesCommandBase.SetFlags(f)
-	f.StringVar(&c.Kind, "kind", "", "the image kind to remove eg lxc")
-	f.StringVar(&c.Series, "series", "", "the series of the image to remove eg trusty")
+	f.StringVar(&c.Kind, "kind", "", "the image kind to remove eg lxd")
+	f.StringVar(&c.Series, "series", "", "the series of the image to remove eg xenial")
 	f.StringVar(&c.Arch, "arch", "", "the architecture of the image to remove eg amd64")
 }
 
