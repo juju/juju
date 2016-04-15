@@ -35,8 +35,6 @@ func (s *ModelSuite) TestModel(c *gc.C) {
 	c.Assert(model.Name(), gc.Equals, "testenv")
 	c.Assert(model.Owner(), gc.Equals, s.Owner)
 	c.Assert(model.Life(), gc.Equals, state.Alive)
-	c.Assert(model.TimeOfDying().IsZero(), jc.IsTrue)
-	c.Assert(model.TimeOfDeath().IsZero(), jc.IsTrue)
 	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeActive)
 }
 
@@ -54,8 +52,6 @@ func (s *ModelSuite) TestModelDestroy(c *gc.C) {
 	err = env.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
-	c.Assert(env.TimeOfDying().UTC(), gc.Equals, now.UTC())
-	c.Assert(env.TimeOfDeath().IsZero(), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestNewModelNonExistentLocalUser(c *gc.C) {

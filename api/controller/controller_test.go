@@ -77,7 +77,7 @@ func (s *controllerSuite) TestDestroyController(c *gc.C) {
 
 	sysManager := s.OpenAPI(c)
 	err := sysManager.DestroyController(false)
-	c.Assert(err, gc.ErrorMatches, "controller model cannot be destroyed before all other models are destroyed")
+	c.Assert(err, gc.ErrorMatches, `failed to destroy model: hosting 1 other models \(controller has hosted models\)`)
 }
 
 func (s *controllerSuite) TestListBlockedModels(c *gc.C) {

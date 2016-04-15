@@ -87,7 +87,6 @@ func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 		c.Assert(info.Name, gc.Equals, test.envName)
 		c.Assert(info.IsSystem, gc.Equals, test.isSystem)
 		c.Assert(info.Life, gc.Equals, params.Dying)
-		c.Assert(info.TimeOfDeath, gc.IsNil)
 	}
 }
 

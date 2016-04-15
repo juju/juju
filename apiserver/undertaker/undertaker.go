@@ -65,18 +65,13 @@ func (u *UndertakerAPI) ModelInfo() (params.UndertakerModelInfoResult, error) {
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	tod := env.TimeOfDeath()
 
 	result.Result = params.UndertakerModelInfo{
-		UUID:        env.UUID(),
-		GlobalName:  env.Owner().String() + "/" + env.Name(),
-		Name:        env.Name(),
-		IsSystem:    u.st.IsController(),
-		Life:        params.Life(env.Life().String()),
-		TimeOfDeath: &tod,
-	}
-	if tod.IsZero() {
-		result.Result.TimeOfDeath = nil
+		UUID:       env.UUID(),
+		GlobalName: env.Owner().String() + "/" + env.Name(),
+		Name:       env.Name(),
+		IsSystem:   u.st.IsController(),
+		Life:       params.Life(env.Life().String()),
 	}
 
 	return result, nil

@@ -117,7 +117,7 @@ current-model: admin
 `[1:])
 }
 
-func (s *cmdControllerSuite) TestListArchivedModels(c *gc.C) {
+func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 	modelInfo := s.createModelAdminUser(c, "new-model", false)
 	st, err := s.State.ForModel(names.NewModelTag(modelInfo.UUID))
 	c.Assert(err, jc.ErrorIsNil)
@@ -126,20 +126,16 @@ func (s *cmdControllerSuite) TestListArchivedModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetStatus(status.StatusArchived, "", nil)
+	err = m.SetStatus(status.StatusDestroying, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Dead models still show up in the list. It's a lie to pretend they
+	// don't exist, and they will go away quickly.
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME    OWNER        STATUS     LAST CONNECTION\n"+
-		"admin*  admin@local  available  just now\n"+
-		"\n")
-
-	context = s.run(c, "list-models", "--archived")
-	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME       OWNER        STATUS     LAST CONNECTION\n"+
-		"admin*     admin@local  available  just now\n"+
-		"new-model  admin@local  archived   never connected\n"+
+		"NAME       OWNER        STATUS      LAST CONNECTION\n"+
+		"admin*     admin@local  available   just now\n"+
+		"new-model  admin@local  destroying  never connected\n"+
 		"\n")
 }
 

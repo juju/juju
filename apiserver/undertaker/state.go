@@ -4,8 +4,6 @@
 package undertaker
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -96,9 +94,6 @@ func (s *stateShim) Model() (Model, error) {
 // Model defines the needed methods of state.Model for
 // the work of the undertaker API.
 type Model interface {
-
-	// TimeOfDeath returns when the model Life was set to Dead.
-	TimeOfDeath() time.Time
 
 	// Owner returns tag representing the owner of the model.
 	// The owner is the user that created the model.

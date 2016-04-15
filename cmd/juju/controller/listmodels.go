@@ -29,14 +29,13 @@ func NewListModelsCommand() cmd.Command {
 // current user can access on the current controller.
 type modelsCommand struct {
 	modelcmd.ControllerCommandBase
-	out          cmd.Output
-	showArchived bool
-	all          bool
-	user         string
-	listUUID     bool
-	exactTime    bool
-	modelAPI     ModelManagerAPI
-	sysAPI       ModelsSysAPI
+	out       cmd.Output
+	all       bool
+	user      string
+	listUUID  bool
+	exactTime bool
+	modelAPI  ModelManagerAPI
+	sysAPI    ModelsSysAPI
 }
 
 var listModelsDoc = `
@@ -99,7 +98,6 @@ func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.all, "all", false, "Lists all models, regardless of user accessibility (administrative users only)")
 	f.BoolVar(&c.listUUID, "uuid", false, "Display UUID for models")
 	f.BoolVar(&c.exactTime, "exact-time", false, "Use full timestamps")
-	f.BoolVar(&c.showArchived, "archived", false, "Show archived as well as active models")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -147,9 +145,6 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	now := time.Now()
 	modelInfo := make([]common.ModelInfo, 0, len(models))
 	for _, info := range paramsModelInfo {
-		if !c.showArchived && info.Life == params.Dead {
-			continue
-		}
 		model, err := common.ModelInfoFromParams(info, now)
 		if err != nil {
 			return errors.Trace(err)
@@ -195,6 +190,12 @@ func (c *modelsCommand) getModelInfo(userModels []base.UserModel) ([]params.Mode
 	info := make([]params.ModelInfo, len(tags))
 	for i, result := range results {
 		if result.Error != nil {
+			if params.IsCodeUnauthorized(result.Error) {
+				// If we get this, then the model was removed
+				// between the initial listing and the call
+				// to query its details.
+				continue
+			}
 			return nil, errors.Annotatef(
 				result.Error, "getting model %s (%q) info",
 				userModels[i].UUID, userModels[i].Name,

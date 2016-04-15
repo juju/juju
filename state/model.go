@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -59,8 +58,6 @@ type modelDoc struct {
 	Life          Life
 	Owner         string        `bson:"owner"`
 	ServerUUID    string        `bson:"server-uuid"`
-	TimeOfDying   time.Time     `bson:"time-of-dying"`
-	TimeOfDeath   time.Time     `bson:"time-of-death"`
 	MigrationMode MigrationMode `bson:"migration-mode"`
 
 	// LatestAvailableTools is a string representing the newest version
@@ -286,16 +283,6 @@ func (m *Model) SetMigrationMode(mode MigrationMode) error {
 // Life returns whether the model is Alive, Dying or Dead.
 func (m *Model) Life() Life {
 	return m.doc.Life
-}
-
-// TimeOfDying returns when the model Life was set to Dying.
-func (m *Model) TimeOfDying() time.Time {
-	return m.doc.TimeOfDying
-}
-
-// TimeOfDeath returns when the model Life was set to Dead.
-func (m *Model) TimeOfDeath() time.Time {
-	return m.doc.TimeOfDeath
 }
 
 // Owner returns tag representing the owner of the model.

@@ -121,10 +121,6 @@ type mockModel struct {
 
 var _ undertaker.Model = (*mockModel)(nil)
 
-func (m *mockModel) TimeOfDeath() time.Time {
-	return m.tod
-}
-
 func (m *mockModel) Owner() names.UserTag {
 	return m.owner
 }

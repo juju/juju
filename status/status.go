@@ -177,11 +177,6 @@ const (
 
 	// StatusAvailable indicates that the model is available for use.
 	StatusAvailable Status = "available"
-
-	// StatusArchived indicates that the model is archived, and no
-	// longer available for use. We archive models for some time so
-	// that administrators can perform database post-mortems.
-	StatusArchived Status = "archived"
 )
 
 const (
@@ -288,7 +283,6 @@ func ValidModelStatus(status Status) bool {
 	switch status {
 	case
 		StatusAvailable,
-		StatusArchived,
 		StatusDestroying:
 		return true
 	default:
