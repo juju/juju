@@ -13,6 +13,23 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
+var usageGetConfigSummary = `
+Displays configuration settings for a deployed service.`[1:]
+
+var usageGetConfigDetails = `
+Output includes the name of the charm used to deploy the service and a
+listing of the service-specific configuration settings.
+See `[1:] + "`juju status`" + ` for service names.
+
+Examples:
+    juju get-config mysql
+    juju get-config mysql-testing
+
+See also: 
+    set-config
+    deploy
+    status`
+
 // NewGetCommand returns a command used to get service attributes.
 func NewGetCommand() cmd.Command {
 	return modelcmd.Wrap(&getCommand{})
@@ -26,40 +43,12 @@ type getCommand struct {
 	api         getServiceAPI
 }
 
-const getDoc = `
-The command output includes the service and charm names, a detailed list of all config
-settings for <service>, including the setting name, whether it uses the default value
-or not ("default: true"), description (if set), type, and current value. Example:
-
-$ juju get-config wordpress
-
-charm: wordpress
-service: wordpress
-settings:
-  engine:
-      default: true
-      description: 'Currently two ...'
-      type: string
-      value: nginx
-   tuning:
-      description: "This is the tuning level..."
-      type: string
-      value: optimized
-
-NOTE: In the example above the descriptions and most other settings were omitted or
-truncated for brevity. The "engine" setting was left at its default value ("nginx"),
-while the "tuning" setting was set to "optimized" (the default value is "single").
-
-Note that the "default" field indicates whether a configuration setting is at its
-default value. It does not indicate the default value for the setting.
-`
-
 func (c *getCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get-config",
-		Args:    "<service>",
-		Purpose: "get service configuration options",
-		Doc:     getDoc,
+		Args:    "<service name>",
+		Purpose: usageGetConfigSummary,
+		Doc:     usageGetConfigDetails,
 		Aliases: []string{"get-configs"},
 	}
 }

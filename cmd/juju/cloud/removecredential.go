@@ -18,16 +18,22 @@ type removeCredentialCommand struct {
 	credential string
 }
 
-var removeCredentialDoc = `
-The remove-credential command removes a named credential for the specified cloud.
+var usageRemoveCredentialSummary = `
+Removes credentials for a cloud.`[1:]
 
-Example:
-   juju remove-credential aws my-credential
+var usageRemoveCredentialDetails = `
+The credentials to be removed are specified by a "credential name".
+Credential names, and optionally the corresponding authentication
+material, can be listed with `[1:] + "`juju list-credentials`" + `.
 
-See Also:
-   juju list-credentials
-   juju add-credential   
-`
+Examples:
+    juju remove-credential rackspace credential_name
+
+See also: 
+    add-credential
+    list-credentials
+    set-default-credential
+    autoload-credentials`
 
 // NewremoveCredentialCommand returns a command to remove a named credential for a cloud.
 func NewRemoveCredentialCommand() cmd.Command {
@@ -39,9 +45,9 @@ func NewRemoveCredentialCommand() cmd.Command {
 func (c *removeCredentialCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-credential",
-		Purpose: "removes a credential for a cloud",
-		Doc:     removeCredentialDoc,
-		Args:    "<cloud> <credential-name>",
+		Args:    "<cloud name> <credential name>",
+		Purpose: usageRemoveCredentialSummary,
+		Doc:     usageRemoveCredentialDetails,
 	}
 }
 
