@@ -202,3 +202,22 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }
+
+func (s *machinerSuite) TestSetSSHHostKeys(c *gc.C) {
+	tag := names.NewMachineTag("1")
+
+	// No keys to start.
+	_, err := s.State.GetSSHHostKeys(tag)
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+
+	// Set some keys.
+	machine, err := s.machiner.Machine(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetSSHHostKeys([]string{"rsa", "dsa", "ecdsa"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check keys were written.
+	keysGot, err := s.State.GetSSHHostKeys(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(keysGot, gc.DeepEquals, state.SSHHostKeys{"rsa", "dsa", "ecdsa"})
+}
