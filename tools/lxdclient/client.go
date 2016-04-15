@@ -119,6 +119,20 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 		return nil, errors.Trace(err)
 	}
 
+	status, err := client.ServerStatus()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	versionParts := strings.Split(status.Environment.ServerVersion, ".")
+	if len(versionParts) != 3 ||
+		versionParts[0] < "2" ||
+		versionParts[1] < "0" ||
+		versionParts[1] < "0" {
+
+		return nil, errors.Errorf("lxd version %s, juju needs 2.0.0", status.Environment.ServerVersion)
+	}
+
 	/* If this is the LXD provider on the localhost, let's do an extra
 	 * check to make sure that lxdbr0 is configured.
 	 */
