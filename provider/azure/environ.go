@@ -234,7 +234,7 @@ func createStorageAccount(
 
 // ControllerInstances is specified in the Environ interface.
 func (env *azureEnviron) ControllerInstances() ([]instance.Id, error) {
-	// controllers are tagged with tags.JujuController, so just
+	// controllers are tagged with tags.JujuIsController, so just
 	// list the instances in the controller resource group and pick
 	// those ones out.
 	instances, err := env.allInstances(env.controllerResourceGroup, true)
@@ -244,7 +244,7 @@ func (env *azureEnviron) ControllerInstances() ([]instance.Id, error) {
 	var ids []instance.Id
 	for _, inst := range instances {
 		azureInstance := inst.(*azureInstance)
-		if toTags(azureInstance.Tags)[tags.JujuController] == "true" {
+		if toTags(azureInstance.Tags)[tags.JujuIsController] == "true" {
 			ids = append(ids, inst.Id())
 		}
 	}

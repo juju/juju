@@ -368,7 +368,8 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				Size:      1024,
 				Provider:  "machinescoped",
 				Tags: map[string]string{
-					tags.JujuModel: testing.ModelTag.Id(),
+					tags.JujuController: testing.ModelTag.Id(),
+					tags.JujuModel:      testing.ModelTag.Id(),
 				},
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
@@ -382,7 +383,8 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				Size:      2048,
 				Provider:  "environscoped",
 				Tags: map[string]string{
-					tags.JujuModel: testing.ModelTag.Id(),
+					tags.JujuController: testing.ModelTag.Id(),
+					tags.JujuModel:      testing.ModelTag.Id(),
 				},
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
@@ -396,7 +398,8 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				Size:      4096,
 				Provider:  "environscoped",
 				Tags: map[string]string{
-					tags.JujuModel: testing.ModelTag.Id(),
+					tags.JujuController: testing.ModelTag.Id(),
+					tags.JujuModel:      testing.ModelTag.Id(),
 				},
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
@@ -430,7 +433,8 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 				Size:          1024,
 				Provider:      "machinescoped",
 				Tags: map[string]string{
-					tags.JujuModel: testing.ModelTag.Id(),
+					tags.JujuController: testing.ModelTag.Id(),
+					tags.JujuModel:      testing.ModelTag.Id(),
 				},
 			}},
 			{Result: params.FilesystemParams{
@@ -438,7 +442,8 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 				Size:          2048,
 				Provider:      "environscoped",
 				Tags: map[string]string{
-					tags.JujuModel: testing.ModelTag.Id(),
+					tags.JujuController: testing.ModelTag.Id(),
+					tags.JujuModel:      testing.ModelTag.Id(),
 				},
 			}},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},

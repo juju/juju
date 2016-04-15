@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
@@ -34,15 +33,6 @@ var deployTests = []struct {
 		[]string{"charm-name", "service-name"},
 		&DeployCommand{ServiceName: "service-name"},
 	}, {
-		[]string{"--repository", "/path/to/another-repo", "charm-name"},
-		&DeployCommand{RepoPath: "/path/to/another-repo"},
-	}, {
-		[]string{"--upgrade", "charm-name"},
-		&DeployCommand{BumpRevision: true},
-	}, {
-		[]string{"-u", "charm-name"},
-		&DeployCommand{BumpRevision: true},
-	}, {
 		[]string{"--num-units", "33", "charm-name"},
 		&DeployCommand{UnitCommandBase: UnitCommandBase{NumUnits: 33}},
 	}, {
@@ -58,9 +48,6 @@ func initExpectations(com *DeployCommand, store jujuclient.ClientStore) {
 	if com.NumUnits == 0 {
 		com.NumUnits = 1
 	}
-	if com.RepoPath == "" {
-		com.RepoPath = "/path/to/repo"
-	}
 	com.SetClientStore(store)
 	com.SetModelName("admin")
 }
@@ -72,9 +59,6 @@ func initDeployCommand(store jujuclient.ClientStore, args ...string) (*DeployCom
 }
 
 func (s *CmdSuite) TestDeployCommandInit(c *gc.C) {
-	defer os.Setenv(osenv.JujuRepositoryEnvKey, os.Getenv(osenv.JujuRepositoryEnvKey))
-	os.Setenv(osenv.JujuRepositoryEnvKey, "/path/to/repo")
-
 	for i, t := range deployTests {
 		c.Logf("\ntest %d: args %q", i, t.args)
 		initExpectations(t.com, s.ControllerStore)

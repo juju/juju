@@ -575,7 +575,7 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 }
 
 func (e *Environ) ControllerInstances() ([]instance.Id, error) {
-	// Find all instances tagged with tags.JujuController.
+	// Find all instances tagged with tags.JujuIsController.
 	instances, err := e.AllInstances()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -583,7 +583,7 @@ func (e *Environ) ControllerInstances() ([]instance.Id, error) {
 	ids := make([]instance.Id, 0, 1)
 	for _, instance := range instances {
 		detail := instance.(*openstackInstance).getServerDetail()
-		if detail.Metadata[tags.JujuController] == "true" {
+		if detail.Metadata[tags.JujuIsController] == "true" {
 			ids = append(ids, instance.Id())
 		}
 	}

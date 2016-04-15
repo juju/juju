@@ -210,8 +210,13 @@ type Environ interface {
 	// very recently started instances may not be destroyed
 	// because they are not yet visible.
 	//
+	// If the Environ represents the controller model, then this
+	// method should also destroy any resources relating to hosted
+	// models. This ensures that "kill-controller" can clean up
+	// hosted models when the Juju controller process is unavailable.
+	//
 	// When Destroy has been called, any Environ referring to the
-	// same remote environment may become invalid
+	// same remote environment may become invalid.
 	Destroy() error
 
 	Firewaller
