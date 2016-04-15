@@ -272,3 +272,41 @@ func (mi *maas1Instance) volumes(
 	}
 	return volumes, attachments, nil
 }
+
+func (mi *maas2Instance) volumes(
+	mTag names.MachineTag, requestedVolumes []names.VolumeTag,
+) (
+	[]storage.Volume, []storage.VolumeAttachment, error,
+) {
+	if mi.constraintMatches.Storage == nil {
+		return nil, nil, errors.NotFoundf("constraint storage mapping")
+	}
+
+	var volumes []storage.Volume
+	var attachments []storage.VolumeAttachment
+
+	for label, device := range mi.constraintMatches.Storage {
+		volumeTag := names.NewVolumeTag(label)
+		vol := storage.Volume{
+			volumeTag,
+			storage.VolumeInfo{
+				VolumeId:   volumeTag.String(),
+				HardwareId: device.Name(),
+				Size:       uint64(device.Size() / humanize.MiByte),
+				Persistent: false,
+			},
+		}
+		volumes = append(volumes, vol)
+
+		attachment := storage.VolumeAttachment{
+			volumeTag,
+			mTag,
+			storage.VolumeAttachmentInfo{
+				DeviceName: device.Name(),
+				ReadOnly:   false,
+			},
+		}
+		attachments = append(attachments, attachment)
+	}
+	return volumes, attachments, nil
+}
