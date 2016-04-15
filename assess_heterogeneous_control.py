@@ -203,13 +203,16 @@ def wait_until_removed(client, agent_id):
         raise AssertionError('Machine not destroyed: {}.'.format(agent_id))
 
 
-def check_series(client):
+def check_series(client,  machine='0', series=None):
     """Use 'juju ssh' to check that the deployed series meets expectations."""
-    result = client.get_juju_output('ssh', '0', 'lsb_release', '-c')
+    result = client.get_juju_output('ssh', machine, 'lsb_release', '-c')
     label, codename = result.rstrip().split('\t')
     if label != 'Codename:':
         raise AssertionError()
-    expected_codename = client.env.config['default-series']
+    if series:
+        expected_codename = series
+    else:
+        expected_codename = client.env.config['default-series']
     if codename != expected_codename:
         raise AssertionError(
             'Series is {}, not {}'.format(codename, expected_codename))
