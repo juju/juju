@@ -87,9 +87,9 @@ Common commands:
 
 Example help commands:
 
-    `[1:] + "`juju help`" + ` This help page
+    `[1:] + "`juju help`" + `          This help page
     ` + "`juju help commands`" + ` Lists all commands
-    ` + "`juju help deploy`" + ` Shows help for command 'deploy'
+    ` + "`juju help deploy`" + `   Shows help for command 'deploy'
 `
 
 var x = []byte("\x96\x8c\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91\x98\xf5")
