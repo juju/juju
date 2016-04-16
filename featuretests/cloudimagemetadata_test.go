@@ -4,6 +4,7 @@
 package featuretests
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/rpc"
 )
 
 type cloudImageMetadataSuite struct {
@@ -33,7 +35,10 @@ func (s *cloudImageMetadataSuite) TearDownTest(c *gc.C) {
 
 func (s *cloudImageMetadataSuite) TestSaveAndFindMetadata(c *gc.C) {
 	metadata, err := s.client.List("", "", nil, nil, "", "")
-	c.Assert(err, gc.ErrorMatches, "matching cloud image metadata not found")
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: "matching cloud image metadata not found",
+		Code:    "not found",
+	})
 	c.Assert(metadata, gc.HasLen, 0)
 
 	//	check db too

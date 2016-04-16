@@ -4,12 +4,14 @@
 package commands
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
@@ -52,7 +54,10 @@ func (s *ExposeSuite) TestExpose(c *gc.C) {
 	s.assertExposed(c, "some-service-name")
 
 	err = runExpose(c, "nonexistent-service")
-	c.Assert(err, gc.ErrorMatches, `service "nonexistent-service" not found`)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `service "nonexistent-service" not found`,
+		Code:    "not found",
+	})
 }
 
 func (s *ExposeSuite) TestBlockExpose(c *gc.C) {

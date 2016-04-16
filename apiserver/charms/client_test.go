@@ -111,7 +111,7 @@ func (s *baseCharmsSuite) TestClientCharmInfo(c *gc.C) {
 			charm:           "wordpress",
 			expectedActions: &charm.Actions{ActionSpecs: nil},
 			url:             "cs:missing/one-1",
-			err:             `charm "cs:missing/one-1" not found`,
+			err:             `charm "cs:missing/one-1" not found \(not found\)`,
 		},
 	}
 

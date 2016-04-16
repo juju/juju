@@ -6,6 +6,7 @@ package client_test
 import (
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -180,7 +182,10 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 			if allow[e] {
 				c.Check(err, jc.ErrorIsNil)
 			} else {
-				c.Check(err, gc.ErrorMatches, "permission denied")
+				c.Check(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+					Message: "permission denied",
+					Code:    "unauthorized access",
+				})
 				c.Check(err, jc.Satisfies, params.IsCodeUnauthorized)
 			}
 			reset()

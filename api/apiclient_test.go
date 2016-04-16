@@ -4,7 +4,6 @@
 package api_test
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -12,6 +11,7 @@ import (
 
 	"golang.org/x/net/websocket"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/version"
 )
 
@@ -200,7 +201,10 @@ func (s *apiclientSuite) TestOpenHonorsEnvironTag(c *gc.C) {
 	// We start by ensuring we have an invalid tag, and Open should fail.
 	info.EnvironTag = names.NewEnvironTag("bad-tag")
 	_, err := api.Open(info, api.DialOpts{})
-	c.Check(err, gc.ErrorMatches, `unknown environment: "bad-tag"`)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `unknown environment: "bad-tag"`,
+		Code:    "not found",
+	})
 	c.Check(params.ErrCode(err), gc.Equals, params.CodeNotFound)
 
 	// Now set it to the right tag, and we should succeed.

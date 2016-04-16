@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 	"time"
 
@@ -174,4 +175,9 @@ func (logFileLine *logFileLine) LogLineAgentTag() string {
 // LogLineAgentName gives tests access to an internal logFileLine attribute
 func (logFileLine *logFileLine) LogLineAgentName() string {
 	return logFileLine.agentName
+}
+
+// Addr returns the address that the server is listening on.
+func (srv *Server) Addr() *net.TCPAddr {
+	return srv.lis.Addr().(*net.TCPAddr) // cannot fail
 }

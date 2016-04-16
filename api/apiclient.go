@@ -18,7 +18,6 @@ import (
 	"github.com/juju/utils/parallel"
 	"golang.org/x/net/websocket"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -304,7 +303,7 @@ func (s *State) APICall(facade string, version int, id, method string, args, res
 		Id:      id,
 		Action:  method,
 	}, args, response)
-	return params.ClientError(err)
+	return errors.Trace(err)
 }
 
 func (s *State) Close() error {

@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/service"
 	"github.com/juju/juju/apiserver/testing"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
@@ -1624,7 +1624,7 @@ func (s *clientSuite) TestBlockChangeUnitResolved(c *gc.C) {
 
 type clientRepoSuite struct {
 	baseSuite
-	apiservertesting.CharmStoreSuite
+	testing.CharmStoreSuite
 }
 
 var _ = gc.Suite(&clientRepoSuite{})
@@ -1706,7 +1706,7 @@ func (s *clientRepoSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 		curl.String(), "service", 3, "", mem4g, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "service", curl, false, ch, mem4g)
+	testing.AssertPrincipalServiceDeployed(c, s.State, "service", curl, false, ch, mem4g)
 }
 
 func (s *clientRepoSuite) assertServiceDeployPrincipal(c *gc.C, curl *charm.URL, ch charm.Charm, mem4g constraints.Value) {
@@ -1714,7 +1714,7 @@ func (s *clientRepoSuite) assertServiceDeployPrincipal(c *gc.C, curl *charm.URL,
 		curl.String(), "service", 3, "", mem4g, "",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "service", curl, false, ch, mem4g)
+	testing.AssertPrincipalServiceDeployed(c, s.State, "service", curl, false, ch, mem4g)
 }
 
 func (s *clientRepoSuite) assertServiceDeployPrincipalBlocked(c *gc.C, msg string, curl *charm.URL, mem4g constraints.Value) {
@@ -3494,6 +3494,14 @@ func (s *clientSuite) assertBlockedErrorAndLiveliness(
 	assertLife(c, living2, state.Alive)
 	assertLife(c, living3, state.Alive)
 	assertLife(c, living4, state.Alive)
+}
+
+func (s *clientSuite) AssertBlocked(c *gc.C, err error, msg string) {
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: msg,
+		Code:    "operation is blocked",
+	})
 }
 
 func (s *clientSuite) TestBlockRemoveDestroyMachines(c *gc.C) {

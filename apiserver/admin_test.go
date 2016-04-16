@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -125,22 +126,28 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 	for i, t := range []struct {
 		tag      string
 		password string
-		err      string
+		err      error
 		code     string
 	}{{
 		tag:      adminUser.String(),
 		password: "wrong password",
-		err:      "invalid entity name or password",
-		code:     params.CodeUnauthorized,
+		err: &rpc.RequestError{
+			Message: "invalid entity name or password",
+			Code:    "unauthorized access",
+		},
+		code: params.CodeUnauthorized,
 	}, {
 		tag:      "user-unknown",
 		password: "password",
-		err:      "invalid entity name or password",
-		code:     params.CodeUnauthorized,
+		err: &rpc.RequestError{
+			Message: "invalid entity name or password",
+			Code:    "unauthorized access",
+		},
+		code: params.CodeUnauthorized,
 	}, {
 		tag:      "bar",
 		password: "password",
-		err:      `"bar" is not a valid tag`,
+		err:      &rpc.RequestError{Message: "\"bar\" is not a valid tag", Code: ""},
 	}} {
 		c.Logf("test %d; entity %q; password %q", i, t.tag, t.password)
 		// Note that Open does not log in if the tag and password
@@ -155,15 +162,21 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			defer st.Close()
 
 			_, err = st.Machiner().Machine(names.NewMachineTag("0"))
-			c.Assert(err, gc.ErrorMatches, `.*unknown object type "Machiner"`)
+			c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+				Message: `unknown object type "Machiner"`,
+				Code:    "not implemented",
+			})
 
 			// Since these are user login tests, the nonce is empty.
 			err = st.Login(t.tag, t.password, "")
-			c.Assert(err, gc.ErrorMatches, t.err)
+			c.Assert(errors.Cause(err), gc.DeepEquals, t.err)
 			c.Assert(params.ErrCode(err), gc.Equals, t.code)
 
 			_, err = st.Machiner().Machine(names.NewMachineTag("0"))
-			c.Assert(err, gc.ErrorMatches, `.*unknown object type "Machiner"`)
+			c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+				Message: `unknown object type "Machiner"`,
+				Code:    "not implemented",
+			})
 		}()
 	}
 }
@@ -181,14 +194,23 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password, Disabled: true})
 
 	_, err = st.Client().Status([]string{})
-	c.Assert(err, gc.ErrorMatches, `.*unknown object type "Client"`)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `unknown object type "Client"`,
+		Code:    "not implemented",
+	})
 
 	// Since these are user login tests, the nonce is empty.
 	err = st.Login(u.Tag().String(), password, "")
-	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: "invalid entity name or password",
+		Code:    "unauthorized access",
+	})
 
 	_, err = st.Client().Status([]string{})
-	c.Assert(err, gc.ErrorMatches, `.*unknown object type "Client"`)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `unknown object type "Client"`,
+		Code:    "not implemented",
+	})
 }
 
 func (s *loginV0Suite) TestLoginSetsLogIdentifier(c *gc.C) {
@@ -495,7 +517,10 @@ func (s *loginSuite) TestNonEnvironUserLoginFails(c *gc.C) {
 	info.Password = "dummy-password"
 	info.Tag = user.UserTag()
 	_, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: "invalid entity name or password",
+		Code:    "unauthorized access",
+	})
 }
 
 func (s *loginV0Suite) TestLoginReportsEnvironTag(c *gc.C) {
@@ -635,7 +660,10 @@ func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.Lo
 
 	// Ensure not already logged in.
 	_, err := st.Machiner().Machine(names.NewMachineTag("0"))
-	c.Assert(err, gc.ErrorMatches, `*.unknown object type "Machiner"`)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `unknown object type "Machiner"`,
+		Code:    "not implemented",
+	})
 
 	adminUser := s.AdminUserTag(c)
 	// Since these are user login tests, the nonce is empty.
@@ -786,7 +814,10 @@ func (s *loginSuite) TestStateServerEnvironmentBadCreds(c *gc.C) {
 
 	adminUser := s.AdminUserTag(c)
 	err = st.Login(adminUser.String(), "bad-password", "")
-	c.Assert(err, gc.ErrorMatches, `invalid entity name or password`)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `invalid entity name or password`,
+		Code:    "unauthorized access",
+	})
 }
 
 func (s *loginSuite) TestNonExistentEnvironment(c *gc.C) {
@@ -802,8 +833,10 @@ func (s *loginSuite) TestNonExistentEnvironment(c *gc.C) {
 
 	adminUser := s.AdminUserTag(c)
 	err = st.Login(adminUser.String(), "dummy-secret", "")
-	expectedError := fmt.Sprintf("unknown environment: %q", uuid)
-	c.Assert(err, gc.ErrorMatches, expectedError)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: fmt.Sprintf("unknown environment: %q", uuid),
+		Code:    "not found",
+	})
 }
 
 func (s *loginSuite) TestInvalidEnvironment(c *gc.C) {
@@ -817,7 +850,10 @@ func (s *loginSuite) TestInvalidEnvironment(c *gc.C) {
 
 	adminUser := s.AdminUserTag(c)
 	err = st.Login(adminUser.String(), "dummy-secret", "")
-	c.Assert(err, gc.ErrorMatches, `unknown environment: "rubbish"`)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `unknown environment: "rubbish"`,
+		Code:    "not found",
+	})
 }
 
 func (s *loginSuite) TestOtherEnvironment(c *gc.C) {
@@ -904,7 +940,10 @@ func (s *loginSuite) TestOtherEnvironmentWhenNotStateServer(c *gc.C) {
 	defer st.Close()
 
 	err = st.Login(machine.Tag().String(), password, "nonce")
-	c.Assert(err, gc.ErrorMatches, `invalid entity name or password`)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: "invalid entity name or password",
+		Code:    "unauthorized access",
+	})
 }
 
 func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st api.Connection, expected names.EnvironTag) {

@@ -66,7 +66,7 @@ func (s *environmentmanagerSuite) TestCreateEnvironmentBadUser(c *gc.C) {
 func (s *environmentmanagerSuite) TestCreateEnvironmentFeatureNotEnabled(c *gc.C) {
 	envManager := s.OpenAPI(c)
 	_, err := envManager.CreateEnvironment("owner", nil, nil)
-	c.Assert(err, gc.ErrorMatches, `unknown object type "EnvironmentManager"`)
+	c.Assert(err, gc.ErrorMatches, `unknown object type "EnvironmentManager" \(not implemented\)`)
 }
 
 func (s *environmentmanagerSuite) TestCreateEnvironmentMissingConfig(c *gc.C) {

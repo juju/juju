@@ -6,6 +6,7 @@ package featuretests
 import (
 	"fmt"
 	"math/rand"
+	"regexp"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
@@ -104,8 +105,8 @@ func (s *cmdSpaceSuite) TestSpaceCreateNotSupported(c *gc.C) {
 	isEnabled := dummy.SetSupportsSpaces(false)
 	defer dummy.SetSupportsSpaces(isEnabled)
 
-	expectedError := "cannot create space \"foo\": spaces not supported"
-	context := s.RunCreate(c, expectedError, "foo")
+	expectedError := `cannot create space "foo": spaces not supported (not supported)`
+	context := s.RunCreate(c, regexp.QuoteMeta(expectedError), "foo")
 	s.AssertOutput(c, context,
 		"", // No stdout output.
 		expectedError+"\n",
@@ -224,8 +225,8 @@ func (s *cmdSpaceSuite) TestSpaceListNotSupported(c *gc.C) {
 	isEnabled := dummy.SetSupportsSpaces(false)
 	defer dummy.SetSupportsSpaces(isEnabled)
 
-	expectedError := "cannot list spaces: spaces not supported"
-	context := s.RunList(c, expectedError)
+	expectedError := `cannot list spaces: spaces not supported (not supported)`
+	context := s.RunList(c, regexp.QuoteMeta(expectedError))
 	s.AssertOutput(c, context,
 		"", // No stdout output.
 		expectedError+"\n",

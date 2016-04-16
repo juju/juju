@@ -62,7 +62,7 @@ var debugHooksTests = []struct {
 }, {
 	info:  `invalid unit`,
 	args:  []string{"nonexistent/123"},
-	error: `unit "nonexistent/123" not found`,
+	error: `unit "nonexistent/123" not found \(not found\)`,
 }, {
 	info:  `invalid hook`,
 	args:  []string{"mysql/0", "invalid-hook"},
@@ -94,9 +94,9 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 			err = debugHooksCmd.Run(ctx)
 		}
 		if t.error != "" {
-			c.Assert(err, gc.ErrorMatches, t.error)
+			c.Check(err, gc.ErrorMatches, t.error)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 		}
 	}
 }

@@ -89,7 +89,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 func (s *provisionerSuite) TestPrepareContainerInterfaceInfoNoFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags() // clear the flag
 	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(names.NewMachineTag("42"))
-	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
+	c.Assert(err, gc.ErrorMatches, `address allocation not supported \(not supported\)`)
 	c.Assert(ifaceInfo, gc.HasLen, 0)
 }
 
@@ -97,7 +97,7 @@ func (s *provisionerSuite) TestReleaseContainerAddressNoFeatureFlag(c *gc.C) {
 	s.SetFeatureFlags() // clear the flag
 	err := s.provisioner.ReleaseContainerAddresses(names.NewMachineTag("42"))
 	c.Assert(err, gc.ErrorMatches,
-		`cannot release static addresses for "42": address allocation not supported`,
+		`cannot release static addresses for "42": address allocation not supported \(not supported\)`,
 	)
 }
 

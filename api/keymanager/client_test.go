@@ -6,6 +6,7 @@ package keymanager_test
 import (
 	"strings"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -14,6 +15,7 @@ import (
 	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/utils/ssh"
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
@@ -116,7 +118,10 @@ func (s *keymanagerSuite) TestAddSystemKeyWrongUser(c *gc.C) {
 	defer keyManager.Close()
 	newKey := sshtesting.ValidKeyTwo.Key
 	_, err := keyManager.AddKeys("some-user", newKey)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: "permission denied",
+		Code:    "unauthorized access",
+	})
 	s.assertEnvironKeys(c, []string{key1})
 }
 
