@@ -1315,15 +1315,20 @@ class TestBootstrapManager(FakeHomeTestCase):
 
     def test_booted_context_handles_logged_exception(self):
         client = FakeJujuClient()
-        bs_manager = BootstrapManager(
-            'foobar', client, client,
-            None, [], None, None, None, None, client.env.juju_home, False,
-            False, False)
-        with temp_dir() as juju_home:
+        with temp_dir() as root:
+            log_dir = os.path.join(root, 'log-dir')
+            os.mkdir(log_dir)
+            bs_manager = BootstrapManager(
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                False, False)
+            juju_home = os.path.join(root, 'juju-home')
+            os.mkdir(juju_home)
             client.env.juju_home = juju_home
             with self.assertRaises(SystemExit):
-                with bs_manager.booted_context(False):
-                    raise LoggedException()
+                with patch.object(bs_manager, 'dump_all_logs'):
+                    with bs_manager.booted_context(False):
+                        raise LoggedException()
 
     def test_booted_context_omits_supported(self):
         client = FakeJujuClient(jes_enabled=True)

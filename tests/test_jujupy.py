@@ -306,6 +306,12 @@ class FakeJujuClient:
     def is_jes_enabled(self):
         return self._jes_enabled
 
+    def enable_jes(self):
+        self._jes_enabled = True
+
+    def disable_jes(self):
+        self._jes_enabled = False
+
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=True)
 
