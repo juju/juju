@@ -244,7 +244,80 @@ class FakeEnvironmentState:
         return {'machines': machines, 'services': services}
 
 
-class FakeJujuClient:
+class FakeBackend:
+
+    def __init__(self, backing_state):
+        self.backing_state = backing_state
+        self._feature_flags = set()
+
+    def set_feature(self, feature, enabled):
+        if enabled:
+            self._feature_flags.add(feature)
+        else:
+            self._feature_flags.discard(feature)
+
+    def is_feature_enabled(self, feature):
+        return bool(feature in self._feature_flags)
+
+    def deploy(self, model_state, charm_name, service_name=None, series=None):
+        if service_name is None:
+            service_name = charm_name.split(':')[-1].split('/')[-1]
+        model_state.deploy(charm_name, service_name)
+
+    def juju(self, cmd, args, model=None, timeout=None):
+        if model is not None:
+            model_state = self.backing_state.controller.models[model]
+            if (cmd, args[:1]) == ('set', ('dummy-source',)):
+                name, value = args[1].split('=')
+                if name == 'token':
+                    model_state.token = value
+            if cmd == 'deploy':
+                self.deploy(model_state, *args)
+            if cmd == 'destroy-service':
+                model_state.destroy_service(*args)
+            if cmd == 'add-relation':
+                if args[0] == 'dummy-source':
+                    model_state.relations[args[1]] = {'source': [args[0]]}
+            if cmd == 'expose':
+                (service,) = args
+                model_state.exposed.add(service)
+            if cmd == 'unexpose':
+                (service,) = args
+                model_state.exposed.remove(service)
+            if cmd == 'add-unit':
+                (service,) = args
+                model_state.add_unit(service)
+            if cmd == 'remove-unit':
+                (unit_id,) = args
+                model_state.remove_unit(unit_id)
+            if cmd == 'add-machine':
+                (container_type,) = args
+                model_state.add_container(container_type)
+            if cmd == 'remove-machine':
+                (machine_id,) = args
+                if '/' in machine_id:
+                    model_state.remove_container(machine_id)
+                else:
+                    model_state.remove_machine(machine_id)
+        else:
+            if cmd == 'kill-controller':
+                self.backing_state.kill_controller()
+            if cmd == 'destroy-model':
+                if not self.is_feature_enabled('jes'):
+                    raise JESNotSupported()
+                model = args[0]
+                model_state = self.backing_state.controller.models[model]
+                model_state.destroy_model()
+
+    def get_juju_output(self, command, args, model=None, timeout=None):
+        if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):
+            return self.backing_state.token
+        if (command, args) == ('ssh', ('0', 'lsb_release', '-c')):
+            return 'Codename:\t{}\n'.format(
+                self.backing_state.model_config['default-series'])
+
+
+class FakeJujuClient(EnvJujuClient):
     """A fake juju client for tests.
 
     This is a partial implementation, but should be suitable for many uses,
@@ -255,7 +328,8 @@ class FakeJujuClient:
     """
     def __init__(self, env=None, full_path=None, debug=False,
                  jes_enabled=False, version='2.0.0'):
-        self._backing_state = FakeEnvironmentState()
+        self._backend = FakeBackend(FakeEnvironmentState())
+        self._backend.set_feature('jes', jes_enabled)
         if env is None:
             env = SimpleEnvironment('name', {
                 'type': 'foo',
@@ -265,9 +339,16 @@ class FakeJujuClient:
         self.full_path = full_path
         self.debug = debug
         self.bootstrap_replaces = {}
-        self._jes_enabled = jes_enabled
         self._separate_admin = jes_enabled
         self.version = version
+
+    @property
+    def _jes_enabled(self):
+        raise Exception
+
+    @property
+    def _backing_state(self):
+        return self._backend.backing_state
 
     def clone(self, env, full_path=None, debug=None):
         if full_path is None:
@@ -275,8 +356,8 @@ class FakeJujuClient:
         if debug is None:
             debug = self.debug
         client = self.__class__(env, full_path, debug,
-                                jes_enabled=self._jes_enabled)
-        client._backing_state = self._backing_state
+                                jes_enabled=self.is_jes_enabled())
+        client._backend = self._backend
         return client
 
     def by_version(self, env, path, debug):
@@ -290,7 +371,9 @@ class FakeJujuClient:
             return self
         new_env = self.env.clone(model_name=state.name)
         new_client = self.clone(new_env)
-        new_client._backing_state = state
+        new_backend = FakeBackend(state)
+        new_backend.set_feature('jes', self.is_jes_enabled())
+        new_client._backend = new_backend
         return new_client
 
     def get_admin_client(self):
@@ -298,63 +381,34 @@ class FakeJujuClient:
         return self._acquire_state_client(admin_model)
 
     def iter_model_clients(self):
-        if not self._jes_enabled:
+        if not self.is_jes_enabled():
             raise JESNotSupported()
         for state in self._backing_state.controller.models.values():
             yield self._acquire_state_client(state)
 
     def is_jes_enabled(self):
-        return self._jes_enabled
+        return self._backend.is_feature_enabled('jes')
 
     def enable_jes(self):
-        self._jes_enabled = True
+        self._backend.set_feature('jes', True)
 
     def disable_jes(self):
-        self._jes_enabled = False
+        self._backend.set_feature('jes', False)
 
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=True)
 
     def get_juju_output(self, command, *args, **kwargs):
-        if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):
-            return self._backing_state.token
-        if (command, args) == ('ssh', ('0', 'lsb_release', '-c')):
-            return 'Codename:\t{}\n'.format(self.env.config['default-series'])
+        return self._backend.get_juju_output(
+            command, args, model=self.env.environment, **kwargs)
 
-    def juju(self, cmd, args, include_e=True):
+    def juju(self, cmd, args, check=True, include_e=True, timeout=None):
         # TODO: Use argparse or change all call sites to use functions.
-        if (cmd, args[:1]) == ('set', ('dummy-source',)):
-            name, value = args[1].split('=')
-            if name == 'token':
-                self._backing_state.token = value
-        if cmd == 'deploy':
-            self.deploy(*args)
-        if cmd == 'destroy-service':
-            self._backing_state.destroy_service(*args)
-        if cmd == 'add-relation':
-            if args[0] == 'dummy-source':
-                self._backing_state.relations[args[1]] = {'source': [args[0]]}
-        if cmd == 'expose':
-            (service,) = args
-            self._backing_state.exposed.add(service)
-        if cmd == 'unexpose':
-            (service,) = args
-            self._backing_state.exposed.remove(service)
-        if cmd == 'add-unit':
-            (service,) = args
-            self._backing_state.add_unit(service)
-        if cmd == 'remove-unit':
-            (unit_id,) = args
-            self._backing_state.remove_unit(unit_id)
-        if cmd == 'add-machine':
-            (container_type,) = args
-            self._backing_state.add_container(container_type)
-        if cmd == 'remove-machine':
-            (machine_id,) = args
-            if '/' in machine_id:
-                self._backing_state.remove_container(machine_id)
-            else:
-                self._backing_state.remove_machine(machine_id)
+        if include_e:
+            model = self.env.environment
+        else:
+            model = None
+        return self._backend.juju(cmd, args, model, timeout)
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
         commandline_config = {}
@@ -372,31 +426,19 @@ class FakeJujuClient:
         self._backing_state.deploy_bundle(bundle)
 
     def create_environment(self, controller_client, config_file):
-        if not self._jes_enabled:
+        if not self.is_jes_enabled():
             raise JESNotSupported()
         model_state = controller_client._backing_state.controller.create_model(
             self.env.environment)
-        self._backing_state = model_state
-
-    def destroy_model(self):
-        if not self._jes_enabled:
-            raise JESNotSupported()
-        self._backing_state.destroy_model()
+        self._backend = FakeBackend(model_state)
+        self._backend.set_feature('jes', True)
 
     def destroy_environment(self, force=True, delete_jenv=False):
         self._backing_state.destroy_environment()
         return 0
 
-    def kill_controller(self):
-        self._backing_state.kill_controller()
-
     def add_ssh_machines(self, machines):
         self._backing_state.add_ssh_machines(machines)
-
-    def deploy(self, charm_name, service_name=None, series=None):
-        if service_name is None:
-            service_name = charm_name.split(':')[-1].split('/')[-1]
-        self._backing_state.deploy(charm_name, service_name)
 
     def remove_service(self, service):
         self._backing_state.destroy_service(service)

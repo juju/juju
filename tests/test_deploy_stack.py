@@ -639,6 +639,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
 
     def test_deploy_dummy_stack_centos(self):
         client = FakeJujuClient()
+        client.bootstrap()
         with patch.object(client, 'deploy', autospec=True) as dp_mock:
             with temp_os_env('JUJU_REPOSITORY', '/tmp/repo'):
                 deploy_dummy_stack(client, 'centos7')
@@ -649,6 +650,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
 
     def test_deploy_dummy_stack_win(self):
         client = FakeJujuClient()
+        client.bootstrap()
         with patch.object(client, 'deploy', autospec=True) as dp_mock:
             with temp_os_env('JUJU_REPOSITORY', '/tmp/repo'):
                 deploy_dummy_stack(client, 'win2012hvr2')

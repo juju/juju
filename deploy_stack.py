@@ -723,7 +723,7 @@ class BootstrapManager:
                         upload_tools, bootstrap_series=self.series)
                 with self.runtime_context(machines):
                     yield machines
-        except LoggedException as e:
+        except LoggedException:
             sys.exit(1)
 
 

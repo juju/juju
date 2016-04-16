@@ -95,12 +95,12 @@ def env_token(env_name):
 @contextmanager
 def hosted_environment(system_client, log_dir, suffix):
     client = make_hosted_env_client(system_client, suffix)
+    with NamedTemporaryFile() as config_file:
+        config = make_safe_config(client)
+        yaml.dump(config, config_file)
+        config_file.flush()
+        client.create_environment(system_client, config_file.name)
     try:
-        with NamedTemporaryFile() as config_file:
-            config = make_safe_config(client)
-            yaml.dump(config, config_file)
-            config_file.flush()
-            client.create_environment(system_client, config_file.name)
         yield client
     except:
         logging.exception(

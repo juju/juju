@@ -1287,6 +1287,7 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
 
     def test_iter_steps_kill_controller(self):
         client = FakeJujuClient(jes_enabled=True)
+        client.bootstrap()
         destroy_env = DestroyEnvironmentAttempt()
         iterator = iter_steps_validate_info(self, destroy_env, client)
         with closing(iterator):
