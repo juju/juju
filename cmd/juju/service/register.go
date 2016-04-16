@@ -259,15 +259,21 @@ func (r *RegisterMeteredCharm) registerMetrics(environmentUUID, charmURL, servic
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("failed to register metrics: http response is %d", response.StatusCode)
+	if response.StatusCode == http.StatusOK {
+		b, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to read the response")
+		}
+		return b, nil
 	}
-
-	b, err := ioutil.ReadAll(response.Body)
+	var respError struct {
+		Error string `json:"error"`
+	}
+	err = json.NewDecoder(response.Body).Decode(&respError)
 	if err != nil {
-		return nil, errors.Annotatef(err, "failed to read the response")
+		return nil, errors.Errorf("authorization failed: http response is %d", response.StatusCode)
 	}
-	return b, nil
+	return nil, errors.Errorf("authorization failed: %s", respError.Error)
 }
 
 func parseBudgetWithLimit(bl string) (string, string, error) {

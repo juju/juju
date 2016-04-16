@@ -88,6 +88,32 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 	}})
 }
 
+func (s *registrationSuite) TestMeteredCharmAPIError(c *gc.C) {
+	s.stub.SetErrors(nil, errors.New("something failed"))
+	client := httpbakery.NewClient()
+	d := DeploymentInfo{
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("cs:quantal/metered-1"),
+		},
+		ServiceName: "service name",
+		ModelUUID:   "model uuid",
+	}
+	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
+	c.Assert(err, gc.ErrorMatches, `authorization failed: something failed`)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
+	}, {
+		"Authorize", []interface{}{metricRegistrationPost{
+			ModelUUID:   "model uuid",
+			CharmURL:    "cs:quantal/metered-1",
+			ServiceName: "service name",
+			PlanURL:     "someplan",
+			Budget:      "personal",
+			Limit:       "100",
+		}},
+	}})
+}
+
 func (s *registrationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
@@ -338,7 +364,7 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 		ModelUUID:   "model uuid",
 	}
 	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
-	c.Assert(err, gc.ErrorMatches, `failed to register metrics:.*`)
+	c.Assert(err, gc.ErrorMatches, `authorization failed:.*`)
 	authorization, err := json.Marshal([]byte("hello registration"))
 	authorization = append(authorization, byte(0xa))
 	c.Assert(err, jc.ErrorIsNil)
@@ -360,6 +386,10 @@ type testMetricsRegistrationHandler struct {
 	*testing.Stub
 }
 
+type respErr struct {
+	Error string `json:"error"`
+}
+
 // ServeHTTP implements http.Handler.
 func (c *testMetricsRegistrationHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method == "POST" {
@@ -373,7 +403,11 @@ func (c *testMetricsRegistrationHandler) ServeHTTP(w http.ResponseWriter, req *h
 		c.AddCall("Authorize", registrationPost)
 		rErr := c.NextErr()
 		if rErr != nil {
-			http.Error(w, rErr.Error(), http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
+			err = json.NewEncoder(w).Encode(respErr{Error: rErr.Error()})
+			if err != nil {
+				panic(err)
+			}
 			return
 		}
 		err = json.NewEncoder(w).Encode([]byte("hello registration"))
