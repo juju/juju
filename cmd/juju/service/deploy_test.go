@@ -856,10 +856,6 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 
 	// Point the Juju API server to the charm store testing server.
 	s.PatchValue(&csclient.ServerURL, s.srv.URL)
-
-	s.PatchValue(&getApiClient, func(*httpbakery.Client) (apiClient, error) {
-		return &mockBudgetAPIClient{&jujutesting.Stub{}}, nil
-	})
 }
 
 func (s *charmStoreSuite) TearDownTest(c *gc.C) {
