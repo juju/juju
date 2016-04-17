@@ -277,6 +277,11 @@ class FakeBackend:
     def is_feature_enabled(self, feature):
         return bool(feature in self._feature_flags)
 
+    def make_state_backend(self, state):
+        new_backend = FakeBackend(state)
+        new_backend.set_feature('jes', self.is_feature_enabled('jes'))
+        return new_backend
+
     def deploy(self, model_state, charm_name, service_name=None, series=None):
         if service_name is None:
             service_name = charm_name.split(':')[-1].split('/')[-1]
@@ -363,13 +368,15 @@ class FakeJujuClient(EnvJujuClient):
     """
     def __init__(self, env=None, full_path=None, debug=False,
                  jes_enabled=False, version='2.0.0'):
-        self._backend = FakeBackend(FakeEnvironmentState())
-        self._backend.set_feature('jes', jes_enabled)
+        backend_state = FakeEnvironmentState()
         if env is None:
             env = SimpleEnvironment('name', {
                 'type': 'foo',
                 'default-series': 'angsty',
                 }, juju_home='foo')
+        backend_state.name = env
+        self._backend = FakeBackend(backend_state)
+        self._backend.set_feature('jes', jes_enabled)
         self.env = env
         self.full_path = full_path
         self.debug = debug
@@ -384,7 +391,7 @@ class FakeJujuClient(EnvJujuClient):
     @property
     def _backing_state(self):
         return self._backend.backing_state
-        return self._backend.controller_state.models[self.env.environment]
+        #return self._backend.controller_state.models[self.env.environment]
 
     def clone(self, env, full_path=None, debug=None):
         if full_path is None:
@@ -407,19 +414,17 @@ class FakeJujuClient(EnvJujuClient):
             return self
         new_env = self.env.clone(model_name=state.name)
         new_client = self.clone(new_env)
-        new_backend = FakeBackend(state)
-        new_backend.set_feature('jes', self.is_jes_enabled())
-        new_client._backend = new_backend
+        new_client._backend = self._backend.make_state_backend(state)
         return new_client
 
     def get_admin_client(self):
-        admin_model = self._backing_state.controller.admin_model
+        admin_model = self._backend.controller_state.admin_model
         return self._acquire_state_client(admin_model)
 
     def iter_model_clients(self):
         if not self.is_jes_enabled():
             raise JESNotSupported()
-        for state in self._backing_state.controller.models.values():
+        for state in self._backend.controller_state.models.values():
             yield self._acquire_state_client(state)
 
     def is_jes_enabled(self):
@@ -458,12 +463,13 @@ class FakeJujuClient(EnvJujuClient):
         self._backend.quickstart(self.env, bundle)
 
     def create_environment(self, controller_client, config_file):
-        if not self.is_jes_enabled():
+        jes_enabled = self.is_jes_enabled()
+        if not jes_enabled:
             raise JESNotSupported()
-        model_state = controller_client._backing_state.controller.create_model(
+        model_state = controller_client._backend.controller_state.create_model(
             self.env.environment)
         self._backend = FakeBackend(model_state)
-        self._backend.set_feature('jes', True)
+        self._backend.set_feature('jes', jes_enabled)
 
     def destroy_environment(self, force=True, delete_jenv=False):
         self._backing_state.destroy_environment()
