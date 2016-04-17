@@ -112,7 +112,7 @@ class TestAssessRecovery(TestCase):
 
         def terminate(env, instance_ids):
             for instance_id in instance_ids:
-                admin_model = client._backing_state.controller.admin_model
+                admin_model = client._backend.controller_state.admin_model
                 admin_model.remove_state_server(instance_id)
 
         with patch('assess_recovery.terminate_instances',

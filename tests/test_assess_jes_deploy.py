@@ -163,9 +163,9 @@ class TestHostedEnvironment(tests.FakeHomeTestCase):
         log_dir = os.path.join(self.home_dir, 'logs')
         os.mkdir(log_dir)
         with hosted_environment(hosting_client, log_dir, 'bar') as client:
-            model_state = client._backing_state
+            model_state = client._backend.backing_state
             self.assertEqual({'name-bar': model_state},
-                             hosting_client._backing_state.controller.models)
+                             hosting_client._backend.controller_state.models)
             self.assertEqual('created', model_state.state)
         self.assertEqual('model-destroyed', model_state.state)
         self.assertTrue(os.path.isdir(os.path.join(log_dir, 'bar')))

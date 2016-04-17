@@ -129,7 +129,6 @@ class FakeControllerState:
         self.models[default_model.name] = default_model
 
 
-
 class FakeEnvironmentState:
     """A Fake environment state that can be used by multiple FakeClients."""
 
@@ -187,7 +186,7 @@ class FakeEnvironmentState:
 
     def bootstrap(self, env, commandline_config, separate_admin):
         return self.controller.bootstrap(self, env, commandline_config,
-                separate_admin)
+                                         separate_admin)
 
     def destroy_environment(self):
         self._clear()
@@ -299,6 +298,17 @@ class FakeBackend:
         model_state = self.controller_state.models[env.environment]
         model_state.deploy_bundle(bundle)
 
+    def destroy_environment(self):
+        self.backing_state.destroy_environment()
+        return 0
+
+    def add_machines(self, model_state, args):
+        ssh_machines = [a[4:] for a in args if a.startswith('ssh:')]
+        if len(ssh_machines) == len(args):
+            return model_state.add_ssh_machines(ssh_machines)
+        (container_type,) = args
+        model_state.add_container(container_type)
+
     def juju(self, cmd, args, model=None, timeout=None):
         if model is not None:
             model_state = self.controller_state.models[model]
@@ -309,6 +319,8 @@ class FakeBackend:
             if cmd == 'deploy':
                 self.deploy(model_state, *args)
             if cmd == 'destroy-service':
+                model_state.destroy_service(*args)
+            if cmd == 'remove-service':
                 model_state.destroy_service(*args)
             if cmd == 'add-relation':
                 if args[0] == 'dummy-source':
@@ -326,8 +338,7 @@ class FakeBackend:
                 (unit_id,) = args
                 model_state.remove_unit(unit_id)
             if cmd == 'add-machine':
-                (container_type,) = args
-                model_state.add_container(container_type)
+                return self.add_machines(model_state, args)
             if cmd == 'remove-machine':
                 (machine_id,) = args
                 if '/' in machine_id:
@@ -355,6 +366,8 @@ class FakeBackend:
         if (command, args) == ('ssh', ('0', 'lsb_release', '-c')):
             return 'Codename:\t{}\n'.format(
                 model_state.model_config['default-series'])
+        if command == 'get-model-config':
+            return yaml.safe_dump(model_state.model_config)
 
 
 class FakeJujuClient(EnvJujuClient):
@@ -387,11 +400,6 @@ class FakeJujuClient(EnvJujuClient):
     @property
     def _jes_enabled(self):
         raise Exception
-
-    @property
-    def _backing_state(self):
-        return self._backend.backing_state
-        #return self._backend.controller_state.models[self.env.environment]
 
     def clone(self, env, full_path=None, debug=None):
         if full_path is None:
@@ -472,14 +480,7 @@ class FakeJujuClient(EnvJujuClient):
         self._backend.set_feature('jes', jes_enabled)
 
     def destroy_environment(self, force=True, delete_jenv=False):
-        self._backing_state.destroy_environment()
-        return 0
-
-    def add_ssh_machines(self, machines):
-        self._backing_state.add_ssh_machines(machines)
-
-    def remove_service(self, service):
-        self._backing_state.destroy_service(service)
+        return self._backend.destroy_environment()
 
     def wait_for_started(self, timeout=1200, start=None):
         return self.get_status()
@@ -491,8 +492,16 @@ class FakeJujuClient(EnvJujuClient):
         pass
 
     def get_status(self, admin=False):
-        status_dict = self._backing_state.get_status_dict()
-        return Status(status_dict, yaml.safe_dump(status_dict))
+        try:
+            model_state = self._backend.controller_state.models[
+                self.env.environment]
+        except KeyError:
+            # Really, this should raise, but that would break tests.
+            status_dict = {'services': {}, 'machines': {}}
+        else:
+            status_dict = model_state.get_status_dict()
+        status_text = yaml.safe_dump(status_dict)
+        return Status(status_dict, status_text)
 
     def status_until(self, timeout):
         yield self.get_status()
@@ -503,9 +512,6 @@ class FakeJujuClient(EnvJujuClient):
 
     def get_config(self, service):
         pass
-
-    def get_model_config(self):
-        return copy.deepcopy(self._backing_state.model_config)
 
     def deployer(self, bundle, name=None):
         pass
@@ -525,7 +531,9 @@ class FakeJujuClient(EnvJujuClient):
 
     def restore_backup(self, backup_file):
         self._require_admin('restore')
-        if len(self._backing_state.state_servers) > 0:
+        model_state = self._backend.controller_state.models[
+            self.env.environment]
+        if len(model_state.state_servers) > 0:
             exc = subprocess.CalledProcessError('Operation not permitted', 1,
                                                 2)
             exc.stderr = 'Operation not permitted'
@@ -541,8 +549,10 @@ class FakeJujuClient(EnvJujuClient):
         return self.get_controller_members()[0]
 
     def get_controller_members(self):
+        model_state = self._backend.controller_state.models[
+            self.env.environment]
         return [Machine(s, {'instance-id': s})
-                for s in self._backing_state.state_servers]
+                for s in model_state.state_servers]
 
 
 class TestErroredUnit(TestCase):

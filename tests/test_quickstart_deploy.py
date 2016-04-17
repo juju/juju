@@ -114,7 +114,7 @@ class TestQuickstartTest(FakeHomeTestCase):
         self.assertIs(False, bs_manager.entered_bootstrap)
         self.assertIs(False, bs_manager.exited_bootstrap)
         step_iter.next()
-        backing_state = client._backing_state
+        backing_state = client._backend.backing_state
         self.assertEqual('/tmp/bundle.yaml', backing_state.current_bundle)
         self.assertIs(True, bs_manager.entered_top)
         self.assertIs(True, bs_manager.entered_bootstrap)
