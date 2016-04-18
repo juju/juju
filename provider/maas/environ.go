@@ -669,10 +669,10 @@ func spaceNamesToSpaceInfo(spaces []string, spaceMap map[string]network.SpaceInf
 	return spaceInfos, nil
 }
 
-func (environ *maasEnviron) spaceNamesToSpaceInfo(positiveSpaces, negativeSpaces []string) ([]network.SpaceInfo, []network.SpaceInfo, error) {
+func (environ *maasEnviron) buildSpaceMap() (map[string]network.SpaceInfo, error) {
 	spaces, err := environ.Spaces()
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	spaceMap := make(map[string]network.SpaceInfo)
 	empty := set.Strings{}
@@ -680,6 +680,15 @@ func (environ *maasEnviron) spaceNamesToSpaceInfo(positiveSpaces, negativeSpaces
 		jujuName := network.ConvertSpaceName(space.Name, empty)
 		spaceMap[jujuName] = space
 	}
+	return spaceMap, nil
+}
+
+func (environ *maasEnviron) spaceNamesToSpaceInfo(positiveSpaces, negativeSpaces []string) ([]network.SpaceInfo, []network.SpaceInfo, error) {
+	spaceMap, err := environ.buildSpaceMap()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	positiveSpaceIds, err := spaceNamesToSpaceInfo(positiveSpaces, spaceMap)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -1703,33 +1712,6 @@ func (environ *maasEnviron) allocatableRangeForSubnet(cidr string, subnetId stri
 	return network.DecimalToIPv4(lowBound), network.DecimalToIPv4(highBound), nil
 }
 
-// subnetsWithSpaces uses the MAAS 1.9+ API to fetch subnet information
-// including space id.
-func (environ *maasEnviron) subnetsWithSpaces(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	var nodeId string
-	if instId != instance.UnknownId {
-		inst, err := environ.getInstance(instId)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		nodeId, err = environ.nodeIdFromInstance(inst)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	subnets, err := environ.filteredSubnets(nodeId, subnetIds)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if instId != instance.UnknownId {
-		logger.Debugf("instance %q has subnets %v", instId, subnets)
-	} else {
-		logger.Debugf("found subnets %v", subnets)
-	}
-
-	return subnets, nil
-}
-
 // subnetFromJson populates a network.SubnetInfo from a gomaasapi.JSONObject
 // representing a single subnet. This can come from either the subnets api
 // endpoint or the node endpoint.
@@ -1845,9 +1827,10 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 
 func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, error) {
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
-	// TODO (mfoord): the error returned from gomaasapi for MAAS 2 will be
-	// different.
 	if err != nil {
+		// This path can never trigger on MAAS 2, but MAAS 2 doesn't
+		// return an error for a machine not found, it just returns
+		// empty results. The clause below catches that.
 		if maasErr, ok := errors.Cause(err).(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
 			return nil, errors.NotFoundf("instance %q", instId)
 		}
@@ -1967,9 +1950,6 @@ func (environ *maasEnviron) spaces2() ([]network.SpaceInfo, error) {
 				VLANTag:         subnet.VLAN().VID(),
 				CIDR:            subnet.CIDR(),
 				SpaceProviderId: network.Id(strconv.Itoa(space.ID())),
-				// TODO (babbageclunk): not setting
-				// AllocatableIPLow/High - these aren't exposed in
-				// gomaasapi just yet.
 			}
 			outSpace.Subnets[i] = subnetInfo
 		}
@@ -1982,7 +1962,114 @@ func (environ *maasEnviron) spaces2() ([]network.SpaceInfo, error) {
 // by the provider for the specified instance. subnetIds must not be
 // empty. Implements NetworkingEnviron.Subnets.
 func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	return environ.subnetsWithSpaces(instId, subnetIds)
+	if environ.usingMAAS2() {
+		return environ.subnets2(instId, subnetIds)
+	}
+	return environ.subnets1(instId, subnetIds)
+}
+
+func (environ *maasEnviron) subnets1(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	var nodeId string
+	if instId != instance.UnknownId {
+		inst, err := environ.getInstance(instId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		nodeId, err = environ.nodeIdFromInstance(inst)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	subnets, err := environ.filteredSubnets(nodeId, subnetIds)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if instId != instance.UnknownId {
+		logger.Debugf("instance %q has subnets %v", instId, subnets)
+	} else {
+		logger.Debugf("found subnets %v", subnets)
+	}
+
+	return subnets, nil
+}
+
+func (environ *maasEnviron) subnets2(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	subnets := []network.SubnetInfo{}
+	if instId == instance.UnknownId {
+		spaces, err := environ.Spaces()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, space := range spaces {
+			subnets = append(subnets, space.Subnets...)
+		}
+	} else {
+		var err error
+		subnets, err = environ.filteredSubnets2(instId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	if len(subnetIds) == 0 {
+		return subnets, nil
+	}
+	result := []network.SubnetInfo{}
+	subnetMap := make(map[string]bool)
+	for _, subnetId := range subnetIds {
+		subnetMap[string(subnetId)] = false
+	}
+	for _, subnet := range subnets {
+		_, ok := subnetMap[string(subnet.ProviderId)]
+		if !ok {
+			// This id is not what we're looking for.
+			continue
+		}
+		subnetMap[string(subnet.ProviderId)] = true
+		result = append(result, subnet)
+	}
+
+	return result, checkNotFound(subnetMap)
+}
+
+func (environ *maasEnviron) filteredSubnets2(instId instance.Id) ([]network.SubnetInfo, error) {
+	args := gomaasapi.MachinesArgs{
+		AgentName: environ.ecfg().maasAgentName(),
+		SystemIDs: []string{string(instId)},
+	}
+	machines, err := environ.maasController.Machines(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(machines) == 0 {
+		return nil, errors.NotFoundf("machine %v", instId)
+	} else if len(machines) > 1 {
+		return nil, errors.Errorf("unexpected response getting machine details %v: %v", instId, machines)
+	}
+
+	machine := machines[0]
+	spaceMap, err := environ.buildSpaceMap()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := []network.SubnetInfo{}
+	for _, iface := range machine.InterfaceSet() {
+		for _, link := range iface.Links() {
+			subnet := link.Subnet()
+			space, ok := spaceMap[subnet.Space()]
+			if !ok {
+				return nil, errors.Errorf("missing space %v on subnet %v", subnet.Space(), subnet.CIDR())
+			}
+			subnetInfo := network.SubnetInfo{
+				ProviderId:      network.Id(strconv.Itoa(subnet.ID())),
+				VLANTag:         subnet.VLAN().VID(),
+				CIDR:            subnet.CIDR(),
+				SpaceProviderId: space.ProviderId,
+			}
+			result = append(result, subnetInfo)
+		}
+	}
+	return result, nil
 }
 
 func checkNotFound(subnetIdSet map[string]bool) error {
