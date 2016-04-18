@@ -153,7 +153,9 @@ func (u *UnitUpgraderAPI) getMachineTools(tag names.Tag) params.ToolsResult {
 		result.Error = common.ServerError(err)
 		return result
 	}
-	// TODO(ericsnow) Return one for each API server address?
+	// We are okay returning the tools for just the one API server
+	// address since the unit agent won't try to download tools that
+	// are already present on the machine.
 	result.ToolsList = tools.List{machineTools}
 	return result
 }
