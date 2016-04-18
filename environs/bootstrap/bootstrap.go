@@ -221,7 +221,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	// The only time the URL will be blank is if there is only one
 	// in the list. So we can check the first one.
 	if selectedToolsList[0].URL == "" {
-		selectedTools = selectedToolsList[0]
+		selectedTools := selectedToolsList[0]
 		if !args.UploadTools {
 			logger.Warningf("no prepackaged tools available")
 		}
