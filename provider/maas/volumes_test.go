@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"github.com/juju/gomaasapi"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -70,6 +71,70 @@ func (s *volumeSuite) TestBuildMAASVolumeParametersWithTags(c *gc.C) {
 	c.Assert(vInfo, jc.DeepEquals, []volumeInfo{
 		{"root", 0, nil}, //root disk
 		{"1", 1954, []string{"tag1", "tag2"}},
+	})
+}
+
+func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
+	instance := maas2Instance{
+		machine: &fakeMachine{},
+		constraintMatches: gomaasapi.ConstraintMatches{
+			Storage: map[string]gomaasapi.BlockDevice{
+				"root": &fakeBlockDevice{name: "sda", size: 250059350016},
+				"1":    &fakeBlockDevice{name: "sdb", size: 500059350016},
+				"2":    &fakeBlockDevice{name: "sdc", size: 250362438230},
+				"3":    &fakeBlockDevice{name: "sdd", size: 250362438230},
+				"4":    &fakeBlockDevice{name: "sde", size: 250362438230},
+			},
+		},
+	}
+	mTag := names.NewMachineTag("1")
+	volumes, attachments, err := instance.volumes(mTag, []names.VolumeTag{
+		names.NewVolumeTag("1"),
+		names.NewVolumeTag("2"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Expect 2 volumes - root volume is ignored.
+	c.Assert(volumes, gc.HasLen, 2)
+	c.Assert(attachments, gc.HasLen, 2)
+	c.Check(volumes, jc.DeepEquals, []storage.Volume{
+		{
+			// This volume has no id_path.
+			names.NewVolumeTag("1"),
+			storage.VolumeInfo{
+				HardwareId: "",
+				VolumeId:   "volume-1",
+				Size:       476893,
+				Persistent: false,
+			},
+		},
+		{
+			names.NewVolumeTag("2"),
+			storage.VolumeInfo{
+				HardwareId: "id_for_sdc",
+				VolumeId:   "volume-2",
+				Size:       238764,
+				Persistent: false,
+			},
+		},
+	})
+	c.Assert(attachments, jc.DeepEquals, []storage.VolumeAttachment{
+		{
+			names.NewVolumeTag("1"),
+			mTag,
+			storage.VolumeAttachmentInfo{
+				DeviceName: "sdb",
+				ReadOnly:   false,
+			},
+		},
+		// Device name not set because there's a hardware id in the volume.
+		{
+			names.NewVolumeTag("2"),
+			mTag,
+			storage.VolumeAttachmentInfo{
+				DeviceName: "",
+				ReadOnly:   false,
+			},
+		},
 	})
 }
 
