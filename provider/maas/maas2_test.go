@@ -192,6 +192,11 @@ type fakeMachine struct {
 	memory        int
 	architecture  string
 	interfaceSet  []gomaasapi.Interface
+	tags          []string
+}
+
+func (m *fakeMachine) Tags() []string {
+	return m.tags
 }
 
 func (m *fakeMachine) CPUCount() int {
