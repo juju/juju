@@ -1845,9 +1845,10 @@ func (environ *maasEnviron) filteredSubnets(nodeId string, subnetIds []network.I
 
 func (environ *maasEnviron) getInstance(instId instance.Id) (instance.Instance, error) {
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
-	// TODO (mfoord): the error returned from gomaasapi for MAAS 2 will be
-	// different.
 	if err != nil {
+		// This path can never trigger on MAAS 2, but MAAS 2 doesn't
+		// return an error for a machine not found, it just returns
+		// empty results. The clause below catches that.
 		if maasErr, ok := errors.Cause(err).(gomaasapi.ServerError); ok && maasErr.StatusCode == http.StatusNotFound {
 			return nil, errors.NotFoundf("instance %q", instId)
 		}
