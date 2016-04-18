@@ -276,7 +276,7 @@ func (*noOpUploader) UploadCharm(*charm.URL, io.ReadSeeker) (*charm.URL, error) 
 	return nil, nil
 }
 
-func (*noOpUploader) UploadTools(io.ReadSeeker, version.Binary, ...string) (*tools.Tools, error) {
+func (*noOpUploader) UploadTools(io.ReadSeeker, version.Binary, ...string) (tools.List, error) {
 	return nil, nil
 }
 

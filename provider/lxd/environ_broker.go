@@ -84,7 +84,7 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) erro
 	if err := args.InstanceConfig.SetTools(tools); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("tools: %#v", args.InstanceConfig.Tools)
+	logger.Debugf("tools: %#v", args.InstanceConfig.ToolsList())
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.ecfg.Config); err != nil {
 		return errors.Trace(err)

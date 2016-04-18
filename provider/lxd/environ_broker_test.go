@@ -35,7 +35,7 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Instance, gc.DeepEquals, s.Instance)
 	c.Check(result.Hardware, gc.DeepEquals, s.HWC)
-	c.Assert(s.StartInstArgs.InstanceConfig.Tools.Version.Arch, gc.Equals, arch.ARM64)
+	c.Assert(s.StartInstArgs.InstanceConfig.ToolsInfo().Version.Arch, gc.Equals, arch.ARM64)
 }
 
 func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {

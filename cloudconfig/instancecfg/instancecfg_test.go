@@ -56,10 +56,15 @@ func testInstanceTags(c *gc.C, cfg *config.Config, jobs []multiwatcher.MachineJo
 func (*instancecfgSuite) TestJujuTools(c *gc.C) {
 	icfg := &instancecfg.InstanceConfig{
 		DataDir: "/path/to/datadir/",
-		Tools: &coretools.Tools{
-			Version: version.MustParseBinary("2.3.4-trusty-amd64"),
-		},
 	}
+	err := icfg.SetTools(coretools.List{
+		&coretools.Tools{
+			Version: version.MustParseBinary("2.3.4-trusty-amd64"),
+			URL:     "/tools/2.3.4-trusty-amd64",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(icfg.JujuTools(), gc.Equals, "/path/to/datadir/tools/2.3.4-trusty-amd64")
 }
 
