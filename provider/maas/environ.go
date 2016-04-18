@@ -2428,7 +2428,7 @@ func (environ *maasEnviron) filteredSubnets2(instId instance.Id) ([]network.Subn
 	if len(machines) == 0 {
 		return nil, errors.NotFoundf("machine %v", instId)
 	} else if len(machines) > 1 {
-		return nil, errors.Errorf("unexpected result from requesting machine %v: %v", instId, machines)
+		return nil, errors.Errorf("unexpected response getting machine details %v: %v", instId, machines)
 	}
 
 	machine := machines[0]
