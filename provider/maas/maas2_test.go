@@ -423,3 +423,17 @@ func (f *fakeFile) ReadAll() ([]byte, error) {
 	}
 	return f.contents, nil
 }
+
+type fakeBlockDevice struct {
+	gomaasapi.BlockDevice
+	name string
+	size int
+}
+
+func (bd fakeBlockDevice) Name() string {
+	return bd.name
+}
+
+func (bd fakeBlockDevice) Size() int {
+	return bd.size
+}
