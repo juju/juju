@@ -19,7 +19,7 @@ import (
 	"github.com/juju/errors"
 )
 
-var KeyBits = 1024
+var KeyBits = 2048
 
 // ParseCert parses the given PEM-formatted X509 certificate.
 func ParseCert(certPEM string) (*x509.Certificate, error) {

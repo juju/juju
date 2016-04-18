@@ -25,6 +25,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
@@ -99,6 +100,7 @@ func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
+	s.PatchValue(&cert.KeyBits, 1024) // Use a shorter key for a faster TLS handshake.
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
