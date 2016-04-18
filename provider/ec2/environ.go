@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
@@ -185,7 +186,7 @@ func (e *environ) ControllerInstances() ([]instance.Id, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
 	filter.Add(fmt.Sprintf("tag:%s", tags.JujuModel), e.Config().UUID())
-	filter.Add(fmt.Sprintf("tag:%s", tags.JujuController), "true")
+	filter.Add(fmt.Sprintf("tag:%s", tags.JujuIsController), "true")
 	err := e.addGroupFilter(filter)
 	if err != nil {
 		if ec2ErrCode(err) == "InvalidGroup.NotFound" {
@@ -243,7 +244,7 @@ func (e *environ) SupportsSpaceDiscovery() (bool, error) {
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled(provider.EC2) {
 		return false, errors.NotSupportedf("address allocation")
 	}
 	_, hasDefaultVpc, err := e.defaultVpc()
@@ -526,7 +527,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		logger.Warningf("deprecated instance type specified: %s", spec.InstanceType.Name)
 	}
 
-	args.InstanceConfig.Tools = tools[0]
+	if err := args.InstanceConfig.SetTools(tools); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, err
 	}
@@ -646,7 +649,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 
 	// Tag the machine's root EBS volume, if it has one.
 	if inst.Instance.RootDeviceType == "ebs" {
-		tags := tags.ResourceTags(names.NewModelTag(cfg.UUID()), cfg)
+		tags := tags.ResourceTags(
+			names.NewModelTag(cfg.UUID()),
+			names.NewModelTag(cfg.ControllerUUID()),
+			cfg,
+		)
 		tags[tagName] = instanceName + "-root"
 		if err := tagRootDisk(e.ec2(), tags, inst.Instance); err != nil {
 			return nil, errors.Annotate(err, "tagging root disk")
@@ -901,7 +908,7 @@ func (e *environ) fetchNetworkInterfaceId(ec2Inst *ec2.EC2, instId instance.Id) 
 // AllocateAddress requests an address to be allocated for the given
 // instance on the given subnet. Implements NetworkingEnviron.AllocateAddress.
 func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr *network.Address, _, _ string) (err error) {
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled(provider.EC2) {
 		return errors.NotSupportedf("address allocation")
 	}
 	if addr == nil || addr.Value == "" {
@@ -942,7 +949,7 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr *networ
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress. Implements NetworkingEnviron.ReleaseAddress.
 func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, _, _ string) (err error) {
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled(provider.EC2) {
 		return errors.NotSupportedf("address allocation")
 	}
 
@@ -1026,6 +1033,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 			Disabled:      false,
 			NoAutoStart:   false,
 			ConfigType:    network.ConfigDHCP,
+			InterfaceType: network.EthernetInterface,
 			Address:       network.NewScopedAddress(iface.PrivateIPAddress, network.ScopeCloudLocal),
 		}
 	}

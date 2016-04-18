@@ -67,7 +67,7 @@ func (h *imagesDownloadHandler) processGet(r *http.Request, resp http.ResponseWr
 	// Stream the image to the caller.
 	logger.Debugf("streaming image from state blobstore: %+v", metadata)
 	resp.Header().Set("Content-Type", "application/x-tar-gz")
-	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", params.DigestSHA, metadata.SHA256))
+	resp.Header().Set("Digest", params.EncodeChecksum(metadata.SHA256))
 	resp.Header().Set("Content-Length", fmt.Sprint(metadata.Size))
 	resp.WriteHeader(http.StatusOK)
 	if _, err := io.Copy(resp, imageReader); err != nil {

@@ -73,12 +73,17 @@ func (f *StringForwarder) Stop() uint64 {
 // closes started to signal that it has begun, and will clean itself up when
 // done is closed.
 func (f *StringForwarder) loop(started chan struct{}, callback func(string)) {
+	// Grab a copy of done so we can notice it is closed, even though
+	// StringForwarder.Stop() will set it to nil.
+	f.mu.Lock()
+	done := f.done
+	f.mu.Unlock()
 	close(started)
 	for {
 		select {
 		case msg := <-f.messages:
 			callback(msg)
-		case <-f.done:
+		case <-done:
 			return
 		}
 	}

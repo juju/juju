@@ -8,6 +8,7 @@ import (
 
 	"github.com/altoros/gosigma/mock"
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -166,12 +167,15 @@ func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {
 		Version: version.Binary{
 			Series: "trusty",
 		},
+		URL: "https://0.1.2.3:2000/x.y.z.tgz",
 	}
+	icfg := &instancecfg.InstanceConfig{
+		Networks: []string{"value"},
+	}
+	err = icfg.SetTools(tools.List{toolsVal})
+	c.Assert(err, jc.ErrorIsNil)
 	res, err = environ.StartInstance(environs.StartInstanceParams{
-		InstanceConfig: &instancecfg.InstanceConfig{
-			Networks: []string{"value"},
-			Tools:    toolsVal,
-		},
+		InstanceConfig: icfg,
 	})
 	c.Check(res, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "starting instances with networks is not supported yet")
@@ -182,9 +186,12 @@ func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {
 	c.Check(res, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "tools not found")
 
+	icfg = &instancecfg.InstanceConfig{}
+	err = icfg.SetTools(tools.List{toolsVal})
+	c.Assert(err, jc.ErrorIsNil)
 	res, err = environ.StartInstance(environs.StartInstanceParams{
 		Tools:          tools.List{toolsVal},
-		InstanceConfig: &instancecfg.InstanceConfig{Tools: toolsVal},
+		InstanceConfig: icfg,
 	})
 	c.Check(res, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot make user data: series \"\" not valid")

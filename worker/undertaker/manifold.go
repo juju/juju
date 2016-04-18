@@ -4,14 +4,11 @@
 package undertaker
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/utils/clock"
 )
 
 // ManifoldConfig holds the names of the resources used by, and the
@@ -19,8 +16,6 @@ import (
 type ManifoldConfig struct {
 	APICallerName string
 	EnvironName   string
-	ClockName     string
-	RemoveDelay   time.Duration
 
 	NewFacade func(base.APICaller) (Facade, error)
 	NewWorker func(Config) (worker.Worker, error)
@@ -36,20 +31,14 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.EnvironName, &environ); err != nil {
 		return nil, errors.Trace(err)
 	}
-	var clock clock.Clock
-	if err := context.Get(config.ClockName, &clock); err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	facade, err := config.NewFacade(apiCaller)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	worker, err := config.NewWorker(Config{
-		Facade:      facade,
-		Environ:     environ,
-		Clock:       clock,
-		RemoveDelay: config.RemoveDelay,
+		Facade:  facade,
+		Environ: environ,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -64,7 +53,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.APICallerName,
 			config.EnvironName,
-			config.ClockName,
 		},
 		Start: config.start,
 	}

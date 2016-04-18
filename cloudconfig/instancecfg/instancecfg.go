@@ -7,7 +7,9 @@ package instancecfg
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"path"
+	"reflect"
 	"strconv"
 
 	"github.com/juju/errors"
@@ -80,8 +82,13 @@ type InstanceConfig struct {
 	// ensure the agent is running on the correct instance.
 	MachineNonce string
 
-	// Tools is juju tools to be used on the new instance.
-	Tools *coretools.Tools
+	// tools is juju tools to be used on the new instance. The URL is
+	// ignored and instead those from ToolsURLs are used.
+	// URLs may be substituted.
+	tools *coretools.Tools
+
+	// toolsURLs holds all the URLs that will be used for the tools.
+	toolsURLs []*url.URL
 
 	// GUI is the Juju GUI archive to be installed in the new instance.
 	GUI *coretools.GUIArchive
@@ -260,7 +267,7 @@ func (cfg *InstanceConfig) AgentConfig(
 
 // JujuTools returns the directory where Juju tools are stored.
 func (cfg *InstanceConfig) JujuTools() string {
-	return agenttools.SharedToolsDir(cfg.DataDir, cfg.Tools.Version)
+	return agenttools.SharedToolsDir(cfg.DataDir, cfg.ToolsInfo().Version)
 }
 
 // GUITools returns the directory where the Juju GUI release is stored.
@@ -303,6 +310,79 @@ func (cfg *InstanceConfig) HasNetworks() bool {
 	return len(cfg.Networks) > 0 || cfg.Constraints.HaveNetworks()
 }
 
+// ToolsInfo returns a copy of the info (sans URL) for the configured
+// tools that will be used when provisioning the instance.
+func (cfg *InstanceConfig) ToolsInfo() *coretools.Tools {
+	if cfg.tools == nil {
+		return nil
+	}
+	copied := *cfg.tools
+	return &copied
+}
+
+// ToolsList returns the list of tools in the order in which they will
+// be tried.
+func (cfg *InstanceConfig) ToolsList() coretools.List {
+	if cfg.tools == nil {
+		return nil
+	}
+	var list coretools.List
+	for _, url := range cfg.toolsURLs {
+		copied := *cfg.tools
+		copied.URL = url.String()
+		list = append(list, &copied)
+	}
+	return list
+}
+
+// SetTools sets the tools that should be tried when provisioning this
+// instance. There must be at least one. Other than the URL, each item
+// must be the same.
+func (cfg *InstanceConfig) SetTools(toolsList coretools.List) error {
+	if len(toolsList) == 0 {
+		return errors.New("need at least 1 tools")
+	}
+	var tools *coretools.Tools
+	var toolsURLs []*url.URL
+	for _, listed := range toolsList {
+		info, source, err := extractTools(listed)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		toolsURLs = append(toolsURLs, source)
+
+		if tools == nil {
+			tools = info
+			continue
+		}
+		if !reflect.DeepEqual(info, tools) {
+			return errors.Errorf("tools info mismatch")
+		}
+	}
+	cfg.tools = tools
+	cfg.toolsURLs = toolsURLs
+	return nil
+}
+
+func extractTools(tools *coretools.Tools) (*coretools.Tools, *url.URL, error) {
+	if tools == nil {
+		return nil, nil, errors.New("missing tools")
+	}
+	if tools.URL == "" {
+		return nil, nil, errors.Errorf("missing tools URL")
+	}
+
+	info := *tools
+	info.URL = ""
+
+	source, err := url.Parse(tools.URL)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	return &info, source, nil
+}
+
 type requiresError string
 
 func (e requiresError) Error() string {
@@ -329,12 +409,11 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	if cfg.CloudInitOutputLog == "" {
 		return errors.New("missing cloud-init output log path")
 	}
-	if cfg.Tools == nil {
+	if cfg.tools == nil {
+		// SetTools() has never been called successfully.
 		return errors.New("missing tools")
 	}
-	if cfg.Tools.URL == "" {
-		return errors.New("missing tools URL")
-	}
+	// We don't need to check cfg.toolsURLs since SetTools() does.
 	if cfg.MongoInfo == nil {
 		return errors.New("missing state info")
 	}
@@ -621,9 +700,13 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 // InstanceTags returns the minimum set of tags that should be set on a
 // machine instance, if the provider supports them.
 func InstanceTags(cfg *config.Config, jobs []multiwatcher.MachineJob) map[string]string {
-	instanceTags := tags.ResourceTags(names.NewModelTag(cfg.UUID()), cfg)
+	instanceTags := tags.ResourceTags(
+		names.NewModelTag(cfg.UUID()),
+		names.NewModelTag(cfg.ControllerUUID()),
+		cfg,
+	)
 	if multiwatcher.AnyJobNeedsState(jobs...) {
-		instanceTags[tags.JujuController] = "true"
+		instanceTags[tags.JujuIsController] = "true"
 	}
 	return instanceTags
 }

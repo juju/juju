@@ -12,7 +12,7 @@ github.com/joyent/gocommon	git	40c7818502f7c1ebbb13dab185a26e77b746ff40	2014-05-
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T00:08:15Z
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/blobstore	git	06056004b3d7b54bbb7984d830c537bad00fec21	2015-07-29T11:18:58Z
-github.com/juju/bundlechanges	git	bad15fba653a29acce44cdb76d7b97645a194b10	2016-04-07T20:26:38Z
+github.com/juju/bundlechanges	git	a1fcaa2fc3b55305d064d16cb56bf87541efb8a4	2016-04-18T04:33:00Z
 github.com/juju/cmd	git	ca63dd8ba13f8fbbbe16a917696a7ce68cc3dc0b	2016-03-31T03:26:51Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
 github.com/juju/go4	git	40d72ab9641a2a8c36a9c46a51e28367115c8e59	2016-02-22T16:32:58Z

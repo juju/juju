@@ -1,14 +1,11 @@
 package testing
 
 import (
-	"os"
-	"path/filepath"
 	"sort"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -17,39 +14,18 @@ import (
 	"github.com/juju/juju/state/storage"
 )
 
-// BaseRepoSuite sets up $JUJU_REPOSITORY to point to a local charm repository.
+// BaseRepoSuite sets up a local directory containing charms.
 type BaseRepoSuite struct {
-	SeriesPath  string
-	BundlesPath string
-	RepoPath    string
+	CharmsPath string
 }
 
 func (s *BaseRepoSuite) SetUpSuite(c *gc.C)    {}
 func (s *BaseRepoSuite) TearDownSuite(c *gc.C) {}
 
 func (s *BaseRepoSuite) SetUpTest(c *gc.C) {
-	// Set up a local repository.
-	s.RepoPath = os.Getenv("JUJU_REPOSITORY")
-	repoPath := c.MkDir()
-	os.Setenv("JUJU_REPOSITORY", repoPath)
-	s.SeriesPath = filepath.Join(repoPath, config.LatestLtsSeries())
-	c.Assert(os.Mkdir(s.SeriesPath, 0777), jc.ErrorIsNil)
-	// Create a symlink "quantal" -> "precise", because most charms
-	// and machines are written with hard-coded "quantal" series,
-	// hence they interact badly with a local repository that assumes
-	// only "precise" charms are available.
-	err := symlink.New(s.SeriesPath, filepath.Join(repoPath, "quantal"))
-	c.Assert(err, jc.ErrorIsNil)
-	s.BundlesPath = filepath.Join(repoPath, "bundle")
-	c.Assert(os.Mkdir(s.BundlesPath, 0777), jc.ErrorIsNil)
+	s.CharmsPath = c.MkDir()
 }
 
-func (s *BaseRepoSuite) TearDownTest(c *gc.C) {
-	os.Setenv("JUJU_REPOSITORY", s.RepoPath)
-}
-
-// RepoSuite acts as a JujuConnSuite but also sets up
-// $JUJU_REPOSITORY to point to a local charm repository.
 type RepoSuite struct {
 	JujuConnSuite
 	BaseRepoSuite
@@ -75,7 +51,6 @@ func (s *RepoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *RepoSuite) TearDownTest(c *gc.C) {
-	s.BaseRepoSuite.TearDownTest(c)
 	s.JujuConnSuite.TearDownTest(c)
 }
 

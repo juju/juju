@@ -214,11 +214,14 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err != nil {
 		return err
 	}
-	selectedTools, err := setBootstrapTools(environ, matchingTools)
+	selectedToolsList, err := setBootstrapTools(environ, matchingTools)
 	if err != nil {
 		return err
 	}
-	if selectedTools.URL == "" {
+	// The only time the URL will be blank is if there is only one
+	// in the list. So we can check the first one.
+	if selectedToolsList[0].URL == "" {
+		selectedTools := selectedToolsList[0]
 		if !args.UploadTools {
 			logger.Warningf("no prepackaged tools available")
 		}
@@ -245,7 +248,9 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err != nil {
 		return err
 	}
-	instanceConfig.Tools = selectedTools
+	if err := instanceConfig.SetTools(selectedToolsList); err != nil {
+		return errors.Trace(err)
+	}
 	instanceConfig.CustomImageMetadata = customImageMetadata
 	instanceConfig.HostedModelConfig = args.HostedModelConfig
 
@@ -376,7 +381,7 @@ func bootstrapImageMetadata(
 
 // setBootstrapTools returns the newest tools from the given tools list,
 // and updates the agent-version configuration attribute.
-func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (*coretools.Tools, error) {
+func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (coretools.List, error) {
 	if len(possibleTools) == 0 {
 		return nil, fmt.Errorf("no bootstrap tools available")
 	}
@@ -411,7 +416,7 @@ func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 		}
 	}
 	logger.Infof("picked bootstrap tools version: %s", bootstrapVersion)
-	return toolsList[0], nil
+	return toolsList, nil
 }
 
 // findCompatibleTools finds tools in the list that have the same major, minor

@@ -294,7 +294,7 @@ func shutdownInitCommands(initSystem, series string) ([]string, error) {
 	desc := "juju shutdown job"
 
 	execStart := shutdownCmd
-	if environs.AddressAllocationEnabled() {
+	if environs.AddressAllocationEnabled("") { // we only care the provider is not MAAS here.
 		// Only do the cleanup and replacement of /e/n/i when address
 		// allocation feature flag is enabled.
 		execStart = replaceNetConfCmd + removeCmd + shutdownCmd

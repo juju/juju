@@ -26,11 +26,13 @@ func (*instancecfgSuite) TestInstanceTagsController(c *gc.C) {
 	controllerJobs := []multiwatcher.MachineJob{multiwatcher.JobManageModel}
 	nonControllerJobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	testInstanceTags(c, cfg, controllerJobs, map[string]string{
-		"juju-model-uuid":    testing.ModelTag.Id(),
-		"juju-is-controller": "true",
+		"juju-model-uuid":      testing.ModelTag.Id(),
+		"juju-controller-uuid": testing.ModelTag.Id(),
+		"juju-is-controller":   "true",
 	})
 	testInstanceTags(c, cfg, nonControllerJobs, map[string]string{
-		"juju-model-uuid": testing.ModelTag.Id(),
+		"juju-model-uuid":      testing.ModelTag.Id(),
+		"juju-controller-uuid": testing.ModelTag.Id(),
 	})
 }
 
@@ -39,9 +41,10 @@ func (*instancecfgSuite) TestInstanceTagsUserSpecified(c *gc.C) {
 		"resource-tags": "a=b c=",
 	})
 	testInstanceTags(c, cfg, nil, map[string]string{
-		"juju-model-uuid": testing.ModelTag.Id(),
-		"a":               "b",
-		"c":               "",
+		"juju-model-uuid":      testing.ModelTag.Id(),
+		"juju-controller-uuid": testing.ModelTag.Id(),
+		"a": "b",
+		"c": "",
 	})
 }
 
@@ -53,10 +56,15 @@ func testInstanceTags(c *gc.C, cfg *config.Config, jobs []multiwatcher.MachineJo
 func (*instancecfgSuite) TestJujuTools(c *gc.C) {
 	icfg := &instancecfg.InstanceConfig{
 		DataDir: "/path/to/datadir/",
-		Tools: &coretools.Tools{
-			Version: version.MustParseBinary("2.3.4-trusty-amd64"),
-		},
 	}
+	err := icfg.SetTools(coretools.List{
+		&coretools.Tools{
+			Version: version.MustParseBinary("2.3.4-trusty-amd64"),
+			URL:     "/tools/2.3.4-trusty-amd64",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(icfg.JujuTools(), gc.Equals, "/path/to/datadir/tools/2.3.4-trusty-amd64")
 }
 

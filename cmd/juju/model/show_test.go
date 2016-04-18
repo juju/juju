@@ -17,13 +17,15 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
 type ShowCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	fake  fakeModelShowClient
-	store *jujuclienttesting.MemStore
+	fake           fakeModelShowClient
+	store          *jujuclienttesting.MemStore
+	expectedOutput attrs
 }
 
 var _ = gc.Suite(&ShowCommandSuite{})
@@ -50,13 +52,16 @@ func (f *fakeModelShowClient) ModelInfo(tags []names.ModelTag) ([]params.ModelIn
 	return []params.ModelInfoResult{{Result: &f.info, Error: f.err}}, f.NextErr()
 }
 
+type attrs map[string]interface{}
+
 func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
+	lastConnection := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
+	statusSince := time.Date(2016, 4, 5, 0, 0, 0, 0, time.UTC)
 
 	users := []params.ModelUserInfo{{
 		UserName:       "admin@local",
-		LastConnection: &last1,
+		LastConnection: &lastConnection,
 		Access:         "write",
 	}, {
 		UserName:    "bob@local",
@@ -72,7 +77,38 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 		ControllerUUID: "1ca2293b-fdb9-4299-97d6-55583bb39364",
 		OwnerTag:       "user-admin@local",
 		ProviderType:   "openstack",
-		Users:          users,
+		Life:           params.Alive,
+		Status: params.EntityStatus{
+			Status: status.StatusActive,
+			Since:  &statusSince,
+		},
+		Users: users,
+	}
+
+	s.expectedOutput = attrs{
+		"mymodel": attrs{
+			"name":            "mymodel",
+			"model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			"controller-uuid": "1ca2293b-fdb9-4299-97d6-55583bb39364",
+			"owner":           "admin@local",
+			"type":            "openstack",
+			"life":            "alive",
+			"status": attrs{
+				"current": "active",
+				"since":   "2016-04-05",
+			},
+			"users": attrs{
+				"admin@local": attrs{
+					"access":          "write",
+					"last-connection": "2015-03-20",
+				},
+				"bob@local": attrs{
+					"display-name":    "Bob",
+					"access":          "read",
+					"last-connection": "never connected",
+				},
+			},
+		},
 	}
 
 	err := modelcmd.WriteCurrentController("testing")
@@ -101,33 +137,13 @@ func (s *ShowCommandSuite) TestShow(c *gc.C) {
 func (s *ShowCommandSuite) TestShowFormatYaml(c *gc.C) {
 	ctx, err := testing.RunCommand(c, model.NewShowCommandForTest(&s.fake, s.store), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(ctx), gc.Equals, `
-mymodel:
-  model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
-  controller-uuid: 1ca2293b-fdb9-4299-97d6-55583bb39364
-  owner: admin@local
-  type: openstack
-  users:
-    admin@local:
-      access: write
-      last-connection: 2015-03-20
-    bob@local:
-      display-name: Bob
-      access: read
-      last-connection: never connected
-`[1:])
+	c.Assert(testing.Stdout(ctx), jc.YAMLEquals, s.expectedOutput)
 }
 
 func (s *ShowCommandSuite) TestShowFormatJson(c *gc.C) {
 	ctx, err := testing.RunCommand(c, model.NewShowCommandForTest(&s.fake, s.store), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(ctx), gc.Equals, ""+
-		`{"mymodel":{"model-uuid":"deadbeef-0bad-400d-8000-4b1d0d06f00d",`+
-		`"controller-uuid":"1ca2293b-fdb9-4299-97d6-55583bb39364",`+
-		`"owner":"admin@local","type":"openstack",`+
-		`"users":{"admin@local":{"access":"write","last-connection":"2015-03-20"},`+
-		`"bob@local":{"display-name":"Bob","access":"read","last-connection":"never connected"}}}}
-`)
+	c.Assert(testing.Stdout(ctx), jc.JSONEquals, s.expectedOutput)
 }
 
 func (s *ShowCommandSuite) TestUnrecognizedArg(c *gc.C) {

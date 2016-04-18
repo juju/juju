@@ -57,7 +57,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 				Networks: []string{},
 				Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuModel: coretesting.ModelTag.Id(),
+					tags.JujuController: coretesting.ModelTag.Id(),
+					tags.JujuModel:      coretesting.ModelTag.Id(),
 				},
 			}},
 			{Result: &params.ProvisioningInfo{
@@ -67,7 +68,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuModel: coretesting.ModelTag.Id(),
+					tags.JujuController: coretesting.ModelTag.Id(),
+					tags.JujuModel:      coretesting.ModelTag.Id(),
 				},
 				Volumes: []params.VolumeParams{{
 					VolumeTag:  "volume-0",
@@ -75,7 +77,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 					Provider:   "static",
 					Attributes: map[string]interface{}{"foo": "bar"},
 					Tags: map[string]string{
-						tags.JujuModel: coretesting.ModelTag.Id(),
+						tags.JujuController: coretesting.ModelTag.Id(),
+						tags.JujuModel:      coretesting.ModelTag.Id(),
 					},
 					Attachment: &params.VolumeAttachmentParams{
 						MachineTag: placementMachine.Tag().String(),
@@ -88,7 +91,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 					Provider:   "static",
 					Attributes: map[string]interface{}{"foo": "bar"},
 					Tags: map[string]string{
-						tags.JujuModel: coretesting.ModelTag.Id(),
+						tags.JujuController: coretesting.ModelTag.Id(),
+						tags.JujuModel:      coretesting.ModelTag.Id(),
 					},
 					Attachment: &params.VolumeAttachmentParams{
 						MachineTag: placementMachine.Tag().String(),
@@ -166,7 +170,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuModel: coretesting.ModelTag.Id(),
+					tags.JujuController: coretesting.ModelTag.Id(),
+					tags.JujuModel:      coretesting.ModelTag.Id(),
 				},
 				SubnetsToZones: map[string][]string{
 					"subnet-1": []string{"zone1"},
@@ -231,6 +236,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 				Series: "quantal",
 				Jobs:   []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
+					tags.JujuController:    coretesting.ModelTag.Id(),
 					tags.JujuModel:         coretesting.ModelTag.Id(),
 					tags.JujuUnitsDeployed: wordpressUnit.Name(),
 				},
@@ -317,7 +323,8 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuModel: coretesting.ModelTag.Id(),
+					tags.JujuController: coretesting.ModelTag.Id(),
+					tags.JujuModel:      coretesting.ModelTag.Id(),
 				},
 				Volumes: []params.VolumeParams{{
 					VolumeTag:  "volume-1",
@@ -325,7 +332,8 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 					Provider:   "static",
 					Attributes: nil,
 					Tags: map[string]string{
-						tags.JujuModel: coretesting.ModelTag.Id(),
+						tags.JujuController: coretesting.ModelTag.Id(),
+						tags.JujuModel:      coretesting.ModelTag.Id(),
 					},
 					Attachment: &params.VolumeAttachmentParams{
 						MachineTag: placementMachine.Tag().String(),
@@ -364,7 +372,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 				Networks: []string{},
 				Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
-					tags.JujuModel: coretesting.ModelTag.Id(),
+					tags.JujuController: coretesting.ModelTag.Id(),
+					tags.JujuModel:      coretesting.ModelTag.Id(),
 				},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 0/lxc/0")},

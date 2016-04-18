@@ -4,6 +4,8 @@
 package model
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -25,15 +28,6 @@ type showModelCommand struct {
 	modelcmd.ModelCommandBase
 	out cmd.Output
 	api ShowModelAPI
-}
-
-// ModelInfo contains information about a model.
-type ModelInfo struct {
-	UUID           string              `json:"model-uuid" yaml:"model-uuid"`
-	ControllerUUID string              `json:"controller-uuid" yaml:"controller-uuid"`
-	Owner          string              `json:"owner" yaml:"owner"`
-	ProviderType   string              `json:"type" yaml:"type"`
-	Users          map[string]UserInfo `json:"users" yaml:"users"`
 }
 
 // ShowModelAPI defines the methods on the client API that the
@@ -104,20 +98,15 @@ func (c *showModelCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, infoMap)
 }
 
-func (c *showModelCommand) apiModelInfoToModelInfoMap(modelInfo []params.ModelInfo) (map[string]ModelInfo, error) {
-	output := make(map[string]ModelInfo)
+func (c *showModelCommand) apiModelInfoToModelInfoMap(modelInfo []params.ModelInfo) (map[string]common.ModelInfo, error) {
+	now := time.Now()
+	output := make(map[string]common.ModelInfo)
 	for _, info := range modelInfo {
-		tag, err := names.ParseUserTag(info.OwnerTag)
+		out, err := common.ModelInfoFromParams(info, now)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		output[info.Name] = ModelInfo{
-			UUID:           info.UUID,
-			ControllerUUID: info.ControllerUUID,
-			Owner:          tag.Id(),
-			ProviderType:   info.ProviderType,
-			Users:          apiUsersToUserInfoMap(info.Users),
-		}
+		output[out.Name] = out
 	}
 	return output, nil
 }

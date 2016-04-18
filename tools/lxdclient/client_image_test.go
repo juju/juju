@@ -277,9 +277,9 @@ func (s *imageSuite) TestEnsureImageExistsNotPresentInFirstRemote(c *gc.C) {
 }
 
 func (s *imageSuite) TestEnsureImageExistsCallbackIncludesSourceURL(c *gc.C) {
-	var calls []string
+	calls := make(chan string, 20)
 	callback := func(message string) {
-		calls = append(calls, message)
+		calls <- message
 	}
 	connector := MakeConnector(s.Stub, s.remoteWithTrusty)
 	raw := &stubClient{
@@ -294,6 +294,10 @@ func (s *imageSuite) TestEnsureImageExistsCallbackIncludesSourceURL(c *gc.C) {
 	remotes := []Remote{s.remoteWithTrusty.AsRemote()}
 	err := client.EnsureImageExists("trusty", remotes, callback)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(len(calls), jc.GreaterThan, 0)
-	c.Check(calls[0], gc.Matches, "copying image for ubuntu-trusty from https://match: \\d+%")
+	select {
+	case message := <-calls:
+		c.Check(message, gc.Matches, "copying image for ubuntu-trusty from https://match: \\d+%")
+	default:
+		c.Fatalf("no messages received")
+	}
 }

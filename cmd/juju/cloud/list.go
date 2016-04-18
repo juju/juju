@@ -16,7 +16,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/cmd/juju/common"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.cloud")
@@ -77,41 +77,6 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 	return c.out.Write(ctxt, details)
 }
 
-// builtInProviders returns cloud information for those
-// providers which are built in to Juju.
-func builtInProviders() map[string]jujucloud.Cloud {
-	builtIn := make(map[string]jujucloud.Cloud)
-	for _, name := range jujucloud.BuiltInProviderNames {
-		provider, err := environs.Provider(name)
-		if err != nil {
-			// Should never happen but it will on go 1.2
-			// because lxd provider is not built.
-			logger.Warningf("cloud %q not available on this platform", name)
-			continue
-		}
-		var regions []jujucloud.Region
-		if detector, ok := provider.(environs.CloudRegionDetector); ok {
-			regions, err = detector.DetectRegions()
-			if err != nil && !errors.IsNotFound(err) {
-				logger.Warningf("could not detect regions for %q: %v", name, err)
-			}
-		}
-		cloud := jujucloud.Cloud{
-			Type:    name,
-			Regions: regions,
-		}
-		schema := provider.CredentialSchemas()
-		for authType := range schema {
-			if authType == jujucloud.EmptyAuthType {
-				continue
-			}
-			cloud.AuthTypes = append(cloud.AuthTypes, authType)
-		}
-		builtIn[name] = cloud
-	}
-	return builtIn
-}
-
 func getCloudDetails() (map[string]*cloudDetails, error) {
 	clouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
@@ -124,7 +89,7 @@ func getCloudDetails() (map[string]*cloudDetails, error) {
 	}
 
 	// Add in built in providers like "lxd" and "manual".
-	for name, cloud := range builtInProviders() {
+	for name, cloud := range common.BuiltInProviders() {
 		cloudDetails := makeCloudDetails(cloud)
 		cloudDetails.Source = "built-in"
 		details[name] = cloudDetails

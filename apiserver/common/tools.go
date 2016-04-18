@@ -5,7 +5,6 @@ package common
 
 import (
 	"fmt"
-	"math/rand"
 	"sort"
 
 	"github.com/juju/errors"
@@ -26,9 +25,9 @@ var envtoolsFindTools = envtools.FindTools
 
 // ToolsURLGetter is an interface providing the ToolsURL method.
 type ToolsURLGetter interface {
-	// ToolsURL returns a URL for the tools with
+	// ToolsURLs returns URLs for the tools with
 	// the specified binary version.
-	ToolsURL(v version.Binary) (string, error)
+	ToolsURLs(v version.Binary) ([]string, error)
 }
 
 type ModelConfigGetter interface {
@@ -88,9 +87,9 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 			result.Results[i].Error = ServerError(ErrPerm)
 			continue
 		}
-		agentTools, err := t.oneAgentTools(canRead, tag, agentVersion, toolsStorage)
+		agentToolsList, err := t.oneAgentTools(canRead, tag, agentVersion, toolsStorage)
 		if err == nil {
-			result.Results[i].Tools = agentTools
+			result.Results[i].ToolsList = agentToolsList
 			// TODO(axw) Get rid of this in 1.22, when all upgraders
 			// are known to ignore the flag.
 			result.Results[i].DisableSSLHostnameVerification = true
@@ -114,7 +113,7 @@ func (t *ToolsGetter) getGlobalAgentVersion() (version.Number, error) {
 	return agentVersion, nil
 }
 
-func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersion version.Number, storage binarystorage.Storage) (*coretools.Tools, error) {
+func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersion version.Number, storage binarystorage.Storage) (coretools.List, error) {
 	if !canRead(tag) {
 		return nil, ErrPerm
 	}
@@ -141,7 +140,7 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 	if err != nil {
 		return nil, err
 	}
-	return list[0], nil
+	return list, nil
 }
 
 // ToolsSetter implements a common Tools method for use by various
@@ -227,17 +226,22 @@ func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 	if err != nil {
 		return nil, err
 	}
-	// Rewrite the URLs so they point at the API server. If the
+	// Rewrite the URLs so they point at the API servers. If the
 	// tools are not in tools storage, then the API server will
 	// download and cache them if the client requests that version.
-	for _, tools := range list {
-		url, err := f.urlGetter.ToolsURL(tools.Version)
+	var fullList coretools.List
+	for _, baseTools := range list {
+		urls, err := f.urlGetter.ToolsURLs(baseTools.Version)
 		if err != nil {
 			return nil, err
 		}
-		tools.URL = url
+		for _, url := range urls {
+			tools := *baseTools
+			tools.URL = url
+			fullList = append(fullList, &tools)
+		}
 	}
-	return list, nil
+	return fullList, nil
 }
 
 // findMatchingTools searches tools storage and simplestreams for tools matching the
@@ -348,30 +352,21 @@ func NewToolsURLGetter(modelUUID string, a APIHostPortsGetter) *toolsURLGetter {
 	return &toolsURLGetter{modelUUID, a}
 }
 
-func (t *toolsURLGetter) ToolsURL(v version.Binary) (string, error) {
-	apiHostPorts, err := t.apiHostPortsGetter.APIHostPorts()
+func (t *toolsURLGetter) ToolsURLs(v version.Binary) ([]string, error) {
+	addrs, err := apiAddresses(t.apiHostPortsGetter)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	if len(apiHostPorts) == 0 {
-		return "", errors.New("no API host ports")
+	if len(addrs) == 0 {
+		return nil, errors.Errorf("no suitable API server address to pick from %v")
 	}
-	// TODO(axw) return all known URLs, so clients can try each one.
-	//
-	// The clients currently accept a single URL; we should change
-	// the clients to disregard the URL, and have them download
-	// straight from the API server.
-	//
-	// For now we choose a API server at random, and then select its
-	// cloud-local address. The only user that will care about the URL
-	// is the upgrader, and that is cloud-local.
-	hostPorts := apiHostPorts[rand.Int()%len(apiHostPorts)]
-	apiAddress := network.SelectInternalHostPort(hostPorts, false)
-	if apiAddress == "" {
-		return "", errors.Errorf("no suitable API server address to pick from %v", hostPorts)
+	var urls []string
+	for _, addr := range addrs {
+		serverRoot := fmt.Sprintf("https://%s/model/%s", addr, t.modelUUID)
+		url := ToolsURL(serverRoot, v)
+		urls = append(urls, url)
 	}
-	serverRoot := fmt.Sprintf("https://%s/model/%s", apiAddress, t.modelUUID)
-	return ToolsURL(serverRoot, v), nil
+	return urls, nil
 }
 
 // ToolsURL returns a tools URL pointing the API server

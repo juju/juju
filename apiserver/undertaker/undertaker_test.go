@@ -12,6 +12,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/undertaker"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -86,7 +87,6 @@ func (s *undertakerSuite) TestEnvironInfo(c *gc.C) {
 		c.Assert(info.Name, gc.Equals, test.envName)
 		c.Assert(info.IsSystem, gc.Equals, test.isSystem)
 		c.Assert(info.Life, gc.Equals, params.Dying)
-		c.Assert(info.TimeOfDeath, gc.IsNil)
 	}
 }
 
@@ -154,4 +154,46 @@ func (s *undertakerSuite) TestModelConfig(c *gc.C) {
 	cfg, err := hostedAPI.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, gc.NotNil)
+}
+
+func (s *undertakerSuite) TestSetStatus(c *gc.C) {
+	mock, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
+
+	results, err := hostedAPI.SetStatus(params.SetStatus{
+		Entities: []params.EntityStatusArgs{{
+			mock.env.Tag().String(), status.StatusDestroying,
+			"woop", map[string]interface{}{"da": "ta"},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(mock.env.status, gc.Equals, status.StatusDestroying)
+	c.Assert(mock.env.statusInfo, gc.Equals, "woop")
+	c.Assert(mock.env.statusData, jc.DeepEquals, map[string]interface{}{"da": "ta"})
+}
+
+func (s *undertakerSuite) TestSetStatusControllerPermissions(c *gc.C) {
+	_, hostedAPI := s.setupStateAndAPI(c, true, "hostedenv")
+	results, err := hostedAPI.SetStatus(params.SetStatus{
+		Entities: []params.EntityStatusArgs{{
+			"model-6ada782f-bcd4-454b-a6da-d1793fbcb35e", status.StatusDestroying,
+			"woop", map[string]interface{}{"da": "ta"},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, ".*not found")
+}
+
+func (s *undertakerSuite) TestSetStatusNonControllerPermissions(c *gc.C) {
+	_, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
+	results, err := hostedAPI.SetStatus(params.SetStatus{
+		Entities: []params.EntityStatusArgs{{
+			"model-6ada782f-bcd4-454b-a6da-d1793fbcb35e", status.StatusDestroying,
+			"woop", map[string]interface{}{"da": "ta"},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, "permission denied")
 }

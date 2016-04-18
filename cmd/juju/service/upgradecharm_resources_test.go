@@ -43,9 +43,9 @@ func (s *UpgradeCharmResourceSuite) SetUpSuite(c *gc.C) {
 
 func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	testcharms.Repo.ClonedDirPath(s.SeriesPath, "riak")
+	chPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
 
-	_, err := testing.RunCommand(c, service.NewDeployCommand(), "local:riak", "riak")
+	_, err := testing.RunCommand(c, service.NewDeployCommand(), chPath, "riak", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	riak, err := s.State.Service("riak")
 	c.Assert(err, jc.ErrorIsNil)

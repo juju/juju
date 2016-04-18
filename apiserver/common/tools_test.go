@@ -69,9 +69,10 @@ func (s *toolsSuite) TestTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 3)
 	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Tools, gc.NotNil)
-	c.Assert(result.Results[0].Tools.Version, gc.DeepEquals, current)
-	c.Assert(result.Results[0].Tools.URL, gc.Equals, "tools:"+current.String())
+	c.Assert(result.Results[0].ToolsList, gc.HasLen, 1)
+	tools := result.Results[0].ToolsList[0]
+	c.Assert(tools.Version, gc.DeepEquals, current)
+	c.Assert(tools.URL, gc.Equals, "tools:"+current.String())
 	c.Assert(result.Results[0].DisableSSLHostnameVerification, jc.IsTrue)
 	c.Assert(result.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.NotFoundError("machine 42"))
@@ -183,14 +184,17 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.List, gc.DeepEquals, coretools.List{
+	c.Check(result.List, jc.DeepEquals, coretools.List{
 		&coretools.Tools{
 			Version: version.MustParseBinary(storageMetadata[0].Version),
 			Size:    storageMetadata[0].Size,
 			SHA256:  storageMetadata[0].SHA256,
 			URL:     "tools:" + storageMetadata[0].Version,
 		},
-		envtoolsList[1],
+		&coretools.Tools{
+			Version: version.MustParseBinary("123.456.1-win81-alpha"),
+			URL:     "tools:123.456.1-win81-alpha",
+		},
 	})
 }
 
@@ -283,13 +287,13 @@ func (s *toolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 
 func (s *toolsSuite) TestToolsURLGetterNoAPIHostPorts(c *gc.C) {
 	g := common.NewToolsURLGetter("my-uuid", mockAPIHostPortsGetter{})
-	_, err := g.ToolsURL(current)
-	c.Assert(err, gc.ErrorMatches, "no API host ports")
+	_, err := g.ToolsURLs(current)
+	c.Assert(err, gc.ErrorMatches, "no suitable API server address to pick from .*")
 }
 
 func (s *toolsSuite) TestToolsURLGetterAPIHostPortsError(c *gc.C) {
 	g := common.NewToolsURLGetter("my-uuid", mockAPIHostPortsGetter{err: errors.New("oh noes")})
-	_, err := g.ToolsURL(current)
+	_, err := g.ToolsURLs(current)
 	c.Assert(err, gc.ErrorMatches, "oh noes")
 }
 
@@ -299,15 +303,17 @@ func (s *toolsSuite) TestToolsURLGetter(c *gc.C) {
 			network.NewHostPorts(1234, "0.1.2.3"),
 		},
 	})
-	url, err := g.ToolsURL(current)
+	urls, err := g.ToolsURLs(current)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, "https://0.1.2.3:1234/model/my-uuid/tools/"+current.String())
+	c.Check(urls, jc.DeepEquals, []string{
+		"https://0.1.2.3:1234/model/my-uuid/tools/" + current.String(),
+	})
 }
 
 type sprintfURLGetter string
 
-func (s sprintfURLGetter) ToolsURL(v version.Binary) (string, error) {
-	return fmt.Sprintf(string(s), v), nil
+func (s sprintfURLGetter) ToolsURLs(v version.Binary) ([]string, error) {
+	return []string{fmt.Sprintf(string(s), v)}, nil
 }
 
 type mockAPIHostPortsGetter struct {

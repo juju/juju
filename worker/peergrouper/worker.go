@@ -459,11 +459,13 @@ func (infow *serverInfoWatcher) loop() error {
 			if !ok {
 				return infow.machineStatusWatcher.Err()
 			}
+			logger.Debugf("controller status watcher fired")
 			infow.worker.notify(infow.updateMachines)
 		case _, ok := <-infow.controllerWatcher.Changes():
 			if !ok {
 				return infow.controllerWatcher.Err()
 			}
+			logger.Debugf("machine status watcher fired")
 			infow.worker.notify(infow.updateMachines)
 		case <-infow.worker.tomb.Dying():
 			return tomb.ErrDying
@@ -483,6 +485,7 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("cannot get controller info: %v", err)
 	}
+	logger.Debugf("controller machines in state: %#v", info.MachineIds)
 	changed := false
 	// Stop machine goroutines that no longer correspond to controller
 	// machines.
@@ -518,11 +521,11 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 			return false, errors.Annotatef(err, "cannot get status for machine %q", id)
 		}
 		if machineStatus.Status == status.StatusStarted {
-			logger.Tracef("machine %q has started, adding it to peergrouper list", id)
+			logger.Debugf("machine %q has started, adding it to peergrouper list", id)
 			infow.worker.machines[id] = infow.worker.newMachine(stm)
 			changed = true
 		} else {
-			logger.Tracef("machine %q not ready: %v", id, machineStatus.Status)
+			logger.Debugf("machine %q not ready: %v", id, machineStatus.Status)
 		}
 
 	}

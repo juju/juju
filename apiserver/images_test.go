@@ -7,6 +7,7 @@ package apiserver_test
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -206,7 +207,8 @@ func (s *imageSuite) TestDownloadFetchNoSHA256File(c *gc.C) {
 
 func (s *imageSuite) testDownload(c *gc.C, resp *http.Response) []byte {
 	c.Check(resp.StatusCode, gc.Equals, http.StatusOK)
-	c.Check(resp.Header.Get("Digest"), gc.Equals, string(params.DigestSHA)+"="+testImageChecksum)
+	expectedChecksum := base64.StdEncoding.EncodeToString([]byte(testImageChecksum))
+	c.Check(resp.Header.Get("Digest"), gc.Equals, string(params.DigestSHA256)+"="+expectedChecksum)
 	c.Check(resp.Header.Get("Content-Type"), gc.Equals, "application/x-tar-gz")
 	c.Check(resp.Header.Get("Content-Length"), gc.Equals, fmt.Sprintf("%v", len(testImageData)))
 
