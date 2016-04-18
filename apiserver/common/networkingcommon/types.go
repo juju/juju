@@ -436,7 +436,7 @@ func GetObservedNetworkConfig() ([]params.NetworkConfig, error) {
 
 		if len(addrs) == 0 {
 			observedConfig = append(observedConfig, nicConfig)
-			logger.Warningf("no addresses observed on interface %q", nic.Name)
+			logger.Infof("no addresses observed on interface %q", nic.Name)
 			continue
 		}
 
@@ -458,7 +458,7 @@ func GetObservedNetworkConfig() ([]params.NetworkConfig, error) {
 				logger.Infof("assuming interface %q has observed address %q", nic.Name, ipNet.String())
 			}
 			if ip.To4() == nil {
-				logger.Warningf("skipping observed IPv6 address %q on %q: not fully supported yet", ip, nic.Name)
+				logger.Debugf("skipping observed IPv6 address %q on %q: not fully supported yet", ip, nic.Name)
 				continue
 			}
 
