@@ -1120,7 +1120,7 @@ func (env *environ) Spaces() ([]network.SpaceInfo, error) {
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled("dummy") {
 		return false, errors.NotSupportedf("address allocation")
 	}
 
@@ -1138,7 +1138,7 @@ func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error)
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given subnet.
 func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr *network.Address, macAddress, hostname string) error {
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled("dummy") {
 		// Any instId starting with "i-alloc-" when the feature flag is off will
 		// still work, in order to be able to test MAAS 1.8+ environment where
 		// we can use devices for containers.
@@ -1182,7 +1182,7 @@ func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, add
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
 func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error {
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled("dummy") {
 		return errors.NotSupportedf("address allocation")
 	}
 

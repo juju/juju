@@ -24,7 +24,6 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -60,18 +59,17 @@ var shortAttempt = utils.AttemptStrategy{
 }
 
 var (
-	ReleaseNodes             = releaseNodes
-	ReserveIPAddressOnDevice = reserveIPAddressOnDevice
-	NewDeviceParams          = newDeviceParams
-	UpdateDeviceHostname     = updateDeviceHostname
-	ReleaseIPAddress         = releaseIPAddress
-	DeploymentStatusCall     = deploymentStatusCall
-	GetCapabilities          = getCapabilities
-	GetMAAS2Controller       = getMAAS2Controller
+	ReleaseNodes         = releaseNodes
+	DeploymentStatusCall = deploymentStatusCall
+	GetCapabilities      = getCapabilities
+	GetMAAS2Controller   = getMAAS2Controller
 )
 
 func getMAAS2Controller(maasServer, apiKey string) (gomaasapi.Controller, error) {
-	return gomaasapi.NewController(gomaasapi.ControllerArgs{maasServer, apiKey})
+	return gomaasapi.NewController(gomaasapi.ControllerArgs{
+		BaseURL: maasServer,
+		APIKey:  apiKey,
+	})
 }
 
 func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error) {
@@ -115,67 +113,6 @@ func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 	_, err := nodes.CallPost("release", ids)
-	return err
-}
-
-func reserveIPAddressOnDevice(devices gomaasapi.MAASObject, deviceID, macAddress string, addr network.Address) (network.Address, error) {
-	device := devices.GetSubObject(deviceID)
-	params := url.Values{}
-	if addr.Value != "" {
-		params.Add("requested_address", addr.Value)
-	}
-	if macAddress != "" {
-		params.Add("mac_address", macAddress)
-	}
-	resp, err := device.CallPost("claim_sticky_ip_address", params)
-	if err != nil {
-		return network.Address{}, errors.Annotatef(
-			err, "failed to reserve sticky IP address for device %q",
-			deviceID,
-		)
-	}
-	respMap, err := resp.GetMap()
-	if err != nil {
-		return network.Address{}, errors.Annotate(err, "failed to parse response")
-	}
-	addresses, err := respMap["ip_addresses"].GetArray()
-	if err != nil {
-		return network.Address{}, errors.Annotatef(err, "failed to parse IP addresses")
-	}
-	if len(addresses) == 0 {
-		return network.Address{}, errors.Errorf(
-			"expected to find a sticky IP address for device %q: MAAS API response contains no IP addresses",
-			deviceID,
-		)
-	}
-	var firstAddress network.Address
-	for _, address := range addresses {
-		value, err := address.GetString()
-		if err != nil {
-			return network.Address{}, errors.Annotatef(err,
-				"failed to parse reserved IP address for device %q",
-				deviceID,
-			)
-		}
-		if ip := net.ParseIP(value); ip == nil {
-			return network.Address{}, errors.Annotatef(err,
-				"failed to parse reserved IP address %q for device %q",
-				value, deviceID,
-			)
-		}
-		if firstAddress.Value == "" {
-			// We only need the first address, but we're logging all we got.
-			firstAddress = network.NewAddress(value)
-		}
-		logger.Debugf("reserved address %q for device %q and MAC %q", value, deviceID, macAddress)
-	}
-	return firstAddress, nil
-}
-
-func releaseIPAddress(ipaddresses gomaasapi.MAASObject, addr network.Address) error {
-	params := url.Values{}
-	params.Add("ip", addr.Value)
-	_, err := ipaddresses.CallPost("release", params)
 	return err
 }
 
@@ -230,21 +167,8 @@ func (env *maasEnviron) usingMAAS2() bool {
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	if !environs.AddressAllocationEnabled() {
-		// When address allocation is not enabled, we should use the
-		// default bridge for both LXC and KVM containers. The bridge
-		// is created as part of the userdata for every node during
-		// StartInstance.
-		logger.Infof(
-			"address allocation feature disabled; using %q bridge for all containers",
-			instancecfg.DefaultBridgeName,
-		)
-		args.ContainerBridgeName = instancecfg.DefaultBridgeName
-	} else {
-		logger.Debugf(
-			"address allocation feature enabled; using static IPs for containers: %q",
-			instancecfg.DefaultBridgeName,
-		)
+	if featureflag.Enabled(feature.AddressAllocation) {
+		logger.Warningf("address-allocation feature flag is no longer supported on MAAS and is ignored!")
 	}
 
 	result, series, finalizer, err := common.BootstrapInstance(ctx, env, args)
@@ -379,7 +303,7 @@ func (env *maasEnviron) SupportsSpaceDiscovery() (bool, error) {
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *maasEnviron) SupportsAddressAllocation(_ network.Id) (bool, error) {
-	return true, nil
+	return false, errors.NotSupportedf("legacy address allocation")
 }
 
 // allArchitectures2 uses the MAAS2 controller to get architectures from boot
@@ -1035,15 +959,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err != nil {
 		return nil, err
 	}
-	// Override the network bridge to use for both LXC and KVM
-	// containers on the new instance, if address allocation feature
-	// flag is not enabled.
-	if !environs.AddressAllocationEnabled() {
-		if args.InstanceConfig.AgentEnvironment == nil {
-			args.InstanceConfig.AgentEnvironment = make(map[string]string)
-		}
-		args.InstanceConfig.AgentEnvironment[agent.LxcBridge] = instancecfg.DefaultBridgeName
-	}
+
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, environ.Config()); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1400,23 +1316,17 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string) (clou
 	case os.Ubuntu:
 		cloudcfg.SetSystemUpdate(true)
 		cloudcfg.AddScripts("set -xe", runCmd)
-		// Only create the default bridge if we're not using static
-		// address allocation for containers.
-		if !environs.AddressAllocationEnabled() {
-			// Address allocated feature flag might be disabled, but
-			// DisableNetworkManagement can still disable the bridge
-			// creation.
-			if on, set := environ.Config().DisableNetworkManagement(); on && set {
-				logger.Infof(
-					"network management disabled - not using %q bridge for containers",
-					instancecfg.DefaultBridgeName,
-				)
-				break
-			}
-			cloudcfg.AddPackage("bridge-utils")
-			cloudcfg.AddBootTextFile(bridgeScriptPath, bridgeScriptPython, 0755)
-			cloudcfg.AddScripts(setupJujuNetworking())
+		// DisableNetworkManagement can still disable the bridge(s) creation.
+		if on, set := environ.Config().DisableNetworkManagement(); on && set {
+			logger.Infof(
+				"network management disabled - not using %q bridge for containers",
+				instancecfg.DefaultBridgeName,
+			)
+			break
 		}
+		cloudcfg.AddPackage("bridge-utils")
+		cloudcfg.AddBootTextFile(bridgeScriptPath, bridgeScriptPython, 0755)
+		cloudcfg.AddScripts(setupJujuNetworking())
 	}
 	return cloudcfg, nil
 }
@@ -1643,315 +1553,16 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 	return result, nil
 }
 
-// transformDeviceHostname transforms deviceHostname to include hostnameSuffix
-// after the first "." in deviceHostname. Returns errors if deviceHostname does
-// not contain any "." or hostnameSuffix is empty.
-func transformDeviceHostname(deviceID, deviceHostname, hostnameSuffix string) (string, error) {
-	if hostnameSuffix == "" {
-		return "", errors.New("hostname suffix cannot be empty")
-	}
-	parts := strings.SplitN(deviceHostname, ".", 2)
-	if len(parts) != 2 {
-		return "", errors.Errorf("unexpected device %q hostname %q", deviceID, deviceHostname)
-	}
-	return fmt.Sprintf("%s-%s.%s", parts[0], hostnameSuffix, parts[1]), nil
-}
-
-// updateDeviceHostname updates the hostname of a MAAS device to be unique and
-// to contain the given hostnameSuffix.
-func updateDeviceHostname(client *gomaasapi.MAASObject, deviceID, deviceHostname, hostnameSuffix string) (string, error) {
-
-	newHostname, err := transformDeviceHostname(deviceID, deviceHostname, hostnameSuffix)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	deviceObj := client.GetSubObject("devices").GetSubObject(deviceID)
-	params := make(url.Values)
-	params.Add("hostname", newHostname)
-	if _, err := deviceObj.Update(params); err != nil {
-		return "", errors.Annotatef(err, "updating device %q hostname to %q", deviceID, newHostname)
-	}
-	return newHostname, nil
-}
-
-// newDeviceParams prepares the params to call "devices new" API. Declared
-// separately so it can be mocked out in the test to work around the gomaasapi's
-// testservice limitation.
-func newDeviceParams(macAddress string, instId instance.Id, _ string) url.Values {
-	params := make(url.Values)
-	params.Add("mac_addresses", macAddress)
-	// We create the device without a hostname, to allow MAAS to create a unique
-	// hostname first.
-	params.Add("parent", extractSystemId(instId))
-
-	return params
-}
-
-// newDevice creates a new MAAS device with parent instance instId, using the
-// given macAddress and hostnameSuffix, returning the ID of the new device.
-func (environ *maasEnviron) newDevice(macAddress string, instId instance.Id, hostnameSuffix string) (string, error) {
-	client := environ.getMAASClient()
-	devices := client.GetSubObject("devices")
-	// Make the params in a separate function to make it easier to work
-	// around the limitation of gomaasapi's testservice expecting all 3
-	// arguments (parent, mac_addresses, and hostname) to be filled in.
-	params := NewDeviceParams(macAddress, instId, hostnameSuffix)
-	logger.Tracef(
-		"creating a new MAAS device for MAC %q, parent %q", macAddress, instId,
-	)
-	result, err := devices.CallPost("new", params)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	resultMap, err := result.GetMap()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	deviceID, err := resultMap["system_id"].GetString()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	deviceHostname, err := resultMap["hostname"].GetString()
-	if err != nil {
-		return deviceID, errors.Trace(err)
-	}
-
-	logger.Tracef("created device %q with MAC %q and hostname %q", deviceID, macAddress, deviceHostname)
-
-	newHostname, err := UpdateDeviceHostname(client, deviceID, deviceHostname, hostnameSuffix)
-	if err != nil {
-		return deviceID, errors.Trace(err)
-	}
-	logger.Tracef("updated device %q hostname to %q", deviceID, newHostname)
-
-	return deviceID, nil
-}
-
-// fetchFullDevice fetches an existing device ID associated with the given
-// macAddress, or returns an error if there is no device.
-func (environ *maasEnviron) fetchFullDevice(macAddress string) (map[string]gomaasapi.JSONObject, error) {
-	if macAddress == "" {
-		return nil, errors.Errorf("given MAC address is empty")
-	}
-
-	client := environ.getMAASClient()
-	devices := client.GetSubObject("devices")
-	params := url.Values{}
-	params.Add("mac_address", macAddress)
-
-	result, err := devices.CallGet("list", params)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	resultArray, err := result.GetArray()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if len(resultArray) == 0 {
-		return nil, errors.NotFoundf("no device for MAC address %q", macAddress)
-	}
-
-	if len(resultArray) != 1 {
-		return nil, errors.Errorf("unexpected response, expected 1 device got %d", len(resultArray))
-	}
-
-	resultMap, err := resultArray[0].GetMap()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	logger.Tracef("device found as %+v", resultMap)
-	return resultMap, nil
-}
-
-func (environ *maasEnviron) fetchDevice(macAddress string) (string, error) {
-	deviceMap, err := environ.fetchFullDevice(macAddress)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	deviceID, err := deviceMap["system_id"].GetString()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return deviceID, nil
-}
-
-// createOrFetchDevice returns a device Id associated with a MAC address. If
-// there is not already one it will create one.
-func (environ *maasEnviron) createOrFetchDevice(macAddress string, instId instance.Id, hostname string) (string, error) {
-	device, err := environ.fetchDevice(macAddress)
-	if err == nil {
-		return device, nil
-	}
-	if !errors.IsNotFound(err) {
-		return "", errors.Trace(err)
-	}
-	return environ.newDevice(macAddress, instId, hostname)
-}
-
-// AllocateAddress requests an address to be allocated for the
-// given instance on the given network.
+// AllocateAddress requests an address to be allocated for the given instance on
+// the given network.
 func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr *network.Address, macAddress, hostname string) (err error) {
-	logger.Tracef(
-		"AllocateAddress for instId %q, subnet %q, addr %q, MAC %q, hostname %q",
-		instId, subnetId, addr, macAddress, hostname,
-	)
-	if addr == nil {
-		return errors.NewNotValid(nil, "invalid address: cannot be nil")
-	}
-
-	if !environs.AddressAllocationEnabled() {
-		logger.Tracef("creating device for container %q with MAC %q", hostname, macAddress)
-		deviceID, err := environ.createOrFetchDevice(macAddress, instId, hostname)
-		if err != nil {
-			return errors.Annotatef(
-				err,
-				"failed creating MAAS device for container %q with MAC address %q",
-				hostname, macAddress,
-			)
-		}
-		logger.Infof(
-			"created device %q for container %q with MAC address %q on parent node %q",
-			deviceID, hostname, macAddress, instId,
-		)
-		devices := environ.getMAASClient().GetSubObject("devices")
-		newAddr, err := ReserveIPAddressOnDevice(devices, deviceID, macAddress, network.Address{})
-		if err != nil {
-			return errors.Trace(err)
-		}
-		logger.Infof(
-			"reserved sticky IP address %q for device %q with MAC address %q representing container %q",
-			newAddr, deviceID, macAddress, hostname,
-		)
-		*addr = newAddr
-		return nil
-	}
-	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
-
-	client := environ.getMAASClient()
-	deviceID, err := environ.createOrFetchDevice(macAddress, instId, hostname)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	devices := client.GetSubObject("devices")
-	newAddr, err := ReserveIPAddressOnDevice(devices, deviceID, macAddress, *addr)
-	if err == nil {
-		logger.Infof(
-			"allocated address %q for instance %q on device %q (asked for address %q)",
-			addr, instId, deviceID, newAddr,
-		)
-		return nil
-	}
-
-	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
-	if !ok {
-		return errors.Trace(err)
-	}
-	// For an "out of range" IP address, maas raises
-	// StaticIPAddressOutOfRange - an error 403
-	// If there are no more addresses we get
-	// StaticIPAddressExhaustion - an error 503
-	// For an address already in use we get
-	// StaticIPAddressUnavailable - an error 404
-	if maasErr.StatusCode == 404 {
-		logger.Tracef("address %q not available for allocation", addr)
-		return environs.ErrIPAddressUnavailable
-	} else if maasErr.StatusCode == 503 {
-		logger.Tracef("no more addresses available on the subnet")
-		return environs.ErrIPAddressesExhausted
-	}
-	// any error other than a 404 or 503 is "unexpected" and should
-	// be returned directly.
-	return errors.Trace(err)
+	return errors.NotSupportedf("AllocateAddress")
 }
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
 func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, macAddress, hostname string) (err error) {
-	if !environs.AddressAllocationEnabled() {
-		logger.Tracef("getting device ID for container %q with MAC %q", macAddress, hostname)
-		deviceID, err := environ.fetchDevice(macAddress)
-		if err != nil {
-			return errors.Annotatef(
-				err,
-				"getting MAAS device for container %q with MAC address %q",
-				hostname, macAddress,
-			)
-		}
-		logger.Tracef("deleting device %q for container %q", deviceID, hostname)
-		apiDevice := environ.getMAASClient().GetSubObject("devices").GetSubObject(deviceID)
-		if err := apiDevice.Delete(); err != nil {
-			return errors.Annotatef(
-				err,
-				"deleting MAAS device %q for container %q with MAC address %q",
-				deviceID, instId, macAddress,
-			)
-		}
-		logger.Debugf("deleted device %q for container %q with MAC address %q", deviceID, instId, macAddress)
-		return nil
-	}
-
-	defer errors.DeferredAnnotatef(&err, "failed to release IP address %q from instance %q", addr, instId)
-
-	logger.Infof(
-		"releasing address: %q, MAC address: %q, hostname: %q",
-		addr, macAddress, hostname,
-	)
-	// Addresses originally allocated without a device will have macAddress
-	// set to "". We shouldn't look for a device for these addresses.
-	if macAddress != "" {
-		device, err := environ.fetchFullDevice(macAddress)
-		if err == nil {
-			addresses, err := device["ip_addresses"].GetArray()
-			if err != nil {
-				return err
-			}
-			systemId, err := device["system_id"].GetString()
-			if err != nil {
-				return err
-			}
-
-			if len(addresses) == 1 {
-				// With our current usage of devices they will always
-				// have exactly one IP address, but in theory that
-				// could change and this code will continue to work.
-				// The device is only destroyed when we come to release
-				// the last address. Race conditions aside.
-				deviceAPI := environ.getMAASClient().GetSubObject("devices").GetSubObject(systemId)
-				err = deviceAPI.Delete()
-				return err
-			}
-		} else if !errors.IsNotFound(err) {
-			return err
-		}
-		// No device for this IP address, release the address normally.
-	}
-
-	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
-	retries := 0
-	for a := shortAttempt.Start(); a.Next(); {
-		retries++
-		// This can return a 404 error if the address has already been released
-		// or is unknown by maas. However this, like any other error, would be
-		// unexpected - so we don't treat it specially and just return it to
-		// the caller.
-		err = ReleaseIPAddress(ipaddresses, addr)
-		if err == nil {
-			break
-		}
-		logger.Infof("failed to release address %q from instance %q, will retry", addr, instId)
-	}
-	if err != nil {
-		logger.Warningf("failed to release address %q from instance %q after %d attempts: %v", addr, instId, retries, err)
-	}
-	return err
+	return errors.NotSupportedf("ReleaseAddress")
 }
 
 // subnetsFromNode fetches all the subnets for a specific node.

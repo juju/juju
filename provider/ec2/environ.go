@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
@@ -243,7 +244,7 @@ func (e *environ) SupportsSpaceDiscovery() (bool, error) {
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled(provider.EC2) {
 		return false, errors.NotSupportedf("address allocation")
 	}
 	_, hasDefaultVpc, err := e.defaultVpc()
@@ -905,7 +906,7 @@ func (e *environ) fetchNetworkInterfaceId(ec2Inst *ec2.EC2, instId instance.Id) 
 // AllocateAddress requests an address to be allocated for the given
 // instance on the given subnet. Implements NetworkingEnviron.AllocateAddress.
 func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr *network.Address, _, _ string) (err error) {
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled(provider.EC2) {
 		return errors.NotSupportedf("address allocation")
 	}
 	if addr == nil || addr.Value == "" {
@@ -946,7 +947,7 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr *networ
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress. Implements NetworkingEnviron.ReleaseAddress.
 func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, _, _ string) (err error) {
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled(provider.EC2) {
 		return errors.NotSupportedf("address allocation")
 	}
 
@@ -1030,6 +1031,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 			Disabled:      false,
 			NoAutoStart:   false,
 			ConfigType:    network.ConfigDHCP,
+			InterfaceType: network.EthernetInterface,
 			Address:       network.NewScopedAddress(iface.PrivateIPAddress, network.ScopeCloudLocal),
 		}
 	}

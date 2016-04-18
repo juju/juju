@@ -1126,6 +1126,7 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
+		InterfaceType:     network.EthernetInterface,
 		Address:           network.NewScopedAddress(addr, network.ScopeCloudLocal),
 		AvailabilityZones: zones,
 	}}
