@@ -206,6 +206,19 @@ class FakeEnvironmentState:
         self._clear()
         self.controller.state = 'model-destroyed'
 
+    def restore_backup(self):
+        self.require_admin('restore')
+        if len(self.state_servers) > 0:
+            exc = subprocess.CalledProcessError('Operation not permitted', 1,
+                                                2)
+            exc.stderr = 'Operation not permitted'
+            raise exc
+
+    def enable_ha(self):
+        self.require_admin('enable-ha')
+        for count in range(2):
+            self.state_servers.append(self.add_machine())
+
     def deploy(self, charm_name, service_name):
         self.add_unit(service_name)
 
@@ -238,6 +251,8 @@ class FakeEnvironmentState:
             if hostname is not None:
                 machine_dict['dns-name'] = hostname
             machines[machine_id] = machine_dict
+            if machine_id in self.state_servers:
+                machine_dict['controller-member-status'] = 'has-vote'
         for host, containers in self.containers.items():
             machines[host]['containers'] = dict((c, {}) for c in containers)
         services = {}
@@ -306,14 +321,6 @@ class FakeBackend:
         self.backing_state.destroy_environment()
         return 0
 
-    def restore_backup(self, model_state):
-        model_state.require_admin('restore')
-        if len(model_state.state_servers) > 0:
-            exc = subprocess.CalledProcessError('Operation not permitted', 1,
-                                                2)
-            exc.stderr = 'Operation not permitted'
-            raise exc
-
     def add_machines(self, model_state, args):
         ssh_machines = [a[4:] for a in args if a.startswith('ssh:')]
         if len(ssh_machines) == len(args):
@@ -328,7 +335,7 @@ class FakeBackend:
         if model is not None:
             model_state = self.controller_state.models[model]
             if cmd == 'enable-ha':
-                model_state.require_admin('enable-ha')
+                model_state.enable_ha()
             if (cmd, args[:1]) == ('set', ('dummy-source',)):
                 name, value = args[1].split('=')
                 if name == 'token':
@@ -386,7 +393,7 @@ class FakeBackend:
         if command == 'get-model-config':
             return yaml.safe_dump(model_state.model_config)
         if command == 'restore-backup':
-            self.restore_backup(model_state)
+            model_state.restore_backup()
 
 
 class FakeJujuClient(EnvJujuClient):
@@ -429,6 +436,9 @@ class FakeJujuClient(EnvJujuClient):
                                 jes_enabled=self.is_jes_enabled())
         client._backend = self._backend
         return client
+
+    def pause(self, seconds):
+        pass
 
     def by_version(self, env, path, debug):
         return FakeJujuClient(env, path, debug)
@@ -545,9 +555,6 @@ class FakeJujuClient(EnvJujuClient):
 
     def backup(self):
         self._require_admin('backup')
-
-    def wait_for_ha(self):
-        self._require_admin('wait-for-ha')
 
     def get_controller_leader(self):
         return self.get_controller_members()[0]
