@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	awsec2 "gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/ec2/ec2test"
@@ -215,7 +216,7 @@ func (s *ebsVolumeSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, i
 	c.Assert(ec2Vols.Volumes[2].Size, gc.Equals, 30)
 }
 
-var deleteSecurityGroupForTestFunc = func(inst ec2.SecurityGroupCleaner, group awsec2.SecurityGroup) error {
+var deleteSecurityGroupForTestFunc = func(inst ec2.SecurityGroupCleaner, group awsec2.SecurityGroup, _ clock.Clock) error {
 	// With an exponential retry for deleting security groups,
 	// we never return from local live tests.
 	// No need to re-try in tests anyway - just call delete.
@@ -424,6 +425,22 @@ func (s *ebsVolumeSuite) TestListVolumes(c *gc.C) {
 	volIds, err := vs.ListVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volIds, jc.SameContents, []string{"vol-0"})
+}
+
+func (s *ebsVolumeSuite) TestListVolumesIgnoresRootDisks(c *gc.C) {
+	s.srv.ec2srv.SetCreateRootDisks(true)
+	s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Pending, nil)
+
+	// Tag the root disk with the model UUID.
+	_, err := s.srv.client.CreateTags([]string{"vol-0"}, []awsec2.Tag{
+		{tags.JujuModel, s.TestConfig["uuid"].(string)},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	vs := s.volumeSource(c, nil)
+	volIds, err := vs.ListVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volIds, gc.HasLen, 0)
 }
 
 func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {

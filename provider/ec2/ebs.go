@@ -48,6 +48,8 @@ const (
 	volumeTypeStandard        = "standard"
 	volumeTypeGp2             = "gp2"
 	volumeTypeIo1             = "io1"
+
+	rootDiskDeviceName = "/dev/sda1"
 )
 
 // AWS error codes
@@ -361,13 +363,31 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 func (v *ebsVolumeSource) ListVolumes() ([]string, error) {
 	filter := ec2.NewFilter()
 	filter.Add("tag:"+tags.JujuModel, v.modelUUID)
-	resp, err := v.ec2.Volumes(nil, filter)
+	return listVolumes(v.ec2, filter)
+}
+
+func listVolumes(client *ec2.EC2, filter *ec2.Filter) ([]string, error) {
+	resp, err := client.Volumes(nil, filter)
 	if err != nil {
 		return nil, err
 	}
-	volumeIds := make([]string, len(resp.Volumes))
-	for i, vol := range resp.Volumes {
-		volumeIds[i] = vol.Id
+	volumeIds := make([]string, 0, len(resp.Volumes))
+	for _, vol := range resp.Volumes {
+		var isRootDisk bool
+		for _, att := range vol.Attachments {
+			if att.Device == rootDiskDeviceName {
+				isRootDisk = true
+				break
+			}
+		}
+		if isRootDisk {
+			// We don't want to list root disks in the output.
+			// These are managed by the instance provisioning
+			// code; they will be created and destroyed with
+			// instances.
+			continue
+		}
+		volumeIds = append(volumeIds, vol.Id)
 	}
 	return volumeIds, nil
 }
@@ -410,17 +430,21 @@ func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.DescribeVo
 
 // DestroyVolumes is specified on the storage.VolumeSource interface.
 func (v *ebsVolumeSource) DestroyVolumes(volIds []string) ([]error, error) {
+	return destroyVolumes(v.ec2, volIds), nil
+}
+
+func destroyVolumes(client *ec2.EC2, volIds []string) []error {
 	var wg sync.WaitGroup
 	wg.Add(len(volIds))
 	results := make([]error, len(volIds))
 	for i, volumeId := range volIds {
 		go func(i int, volumeId string) {
 			defer wg.Done()
-			results[i] = v.destroyVolume(volumeId)
+			results[i] = destroyVolume(client, volumeId)
 		}(i, volumeId)
 	}
 	wg.Wait()
-	return results, nil
+	return results
 }
 
 var destroyVolumeAttempt = utils.AttemptStrategy{
@@ -428,7 +452,7 @@ var destroyVolumeAttempt = utils.AttemptStrategy{
 	Delay: 5 * time.Second,
 }
 
-func (v *ebsVolumeSource) destroyVolume(volumeId string) (err error) {
+func destroyVolume(client *ec2.EC2, volumeId string) (err error) {
 	defer func() {
 		if err != nil {
 			if ec2ErrCode(err) == volumeNotFound || errors.IsNotFound(err) {
@@ -446,7 +470,7 @@ func (v *ebsVolumeSource) destroyVolume(volumeId string) (err error) {
 	// Volumes must not be in-use when destroying. A volume may
 	// still be in-use when the instance it is attached to is
 	// in the process of being terminated.
-	volume, err := v.waitVolume(volumeId, destroyVolumeAttempt, func(volume *ec2.Volume) (bool, error) {
+	volume, err := waitVolume(client, volumeId, destroyVolumeAttempt, func(volume *ec2.Volume) (bool, error) {
 		if volume.Status != volumeStatusInUse {
 			// Volume is not in use, it should be OK to destroy now.
 			return true, nil
@@ -488,7 +512,7 @@ func (v *ebsVolumeSource) destroyVolume(volumeId string) (err error) {
 			}
 		}
 		if len(deleteOnTermination) > 0 {
-			result, err := v.ec2.Instances(deleteOnTermination, nil)
+			result, err := client.Instances(deleteOnTermination, nil)
 			if err != nil {
 				return false, errors.Trace(err)
 			}
@@ -507,7 +531,7 @@ func (v *ebsVolumeSource) destroyVolume(volumeId string) (err error) {
 		if len(args) == 0 {
 			return false, nil
 		}
-		results, err := v.DetachVolumes(args)
+		results, err := detachVolumes(client, args)
 		if err != nil {
 			return false, errors.Trace(err)
 		}
@@ -530,7 +554,7 @@ func (v *ebsVolumeSource) destroyVolume(volumeId string) (err error) {
 		// nothing more to do.
 		return nil
 	}
-	if _, err := v.ec2.DeleteVolume(volumeId); err != nil {
+	if _, err := client.DeleteVolume(volumeId); err != nil {
 		return errors.Annotatef(err, "destroying %q", volumeId)
 	}
 	return nil
@@ -688,7 +712,7 @@ func (v *ebsVolumeSource) waitVolumeCreated(volumeId string) (*ec2.Volume, error
 		Delay: 200 * time.Millisecond,
 	}
 	var lastStatus string
-	volume, err := v.waitVolume(volumeId, attempt, func(volume *ec2.Volume) (bool, error) {
+	volume, err := waitVolume(v.ec2, volumeId, attempt, func(volume *ec2.Volume) (bool, error) {
 		lastStatus = volume.Status
 		return volume.Status != volumeStatusCreating, nil
 	})
@@ -705,13 +729,14 @@ func (v *ebsVolumeSource) waitVolumeCreated(volumeId string) (*ec2.Volume, error
 
 var errWaitVolumeTimeout = errors.New("timed out")
 
-func (v *ebsVolumeSource) waitVolume(
+func waitVolume(
+	client *ec2.EC2,
 	volumeId string,
 	attempt utils.AttemptStrategy,
 	pred func(v *ec2.Volume) (bool, error),
 ) (*ec2.Volume, error) {
 	for a := attempt.Start(); a.Next(); {
-		volume, err := v.describeVolume(volumeId)
+		volume, err := describeVolume(client, volumeId)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -726,8 +751,8 @@ func (v *ebsVolumeSource) waitVolume(
 	return nil, errWaitVolumeTimeout
 }
 
-func (v *ebsVolumeSource) describeVolume(volumeId string) (*ec2.Volume, error) {
-	resp, err := v.ec2.Volumes([]string{volumeId}, nil)
+func describeVolume(client *ec2.EC2, volumeId string) (*ec2.Volume, error) {
+	resp, err := client.Volumes([]string{volumeId}, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "querying volume")
 	}
@@ -772,9 +797,13 @@ func (c instanceCache) get(id string) (ec2.Instance, error) {
 
 // DetachVolumes is specified on the storage.VolumeSource interface.
 func (v *ebsVolumeSource) DetachVolumes(attachParams []storage.VolumeAttachmentParams) ([]error, error) {
+	return detachVolumes(v.ec2, attachParams)
+}
+
+func detachVolumes(client *ec2.EC2, attachParams []storage.VolumeAttachmentParams) ([]error, error) {
 	results := make([]error, len(attachParams))
 	for i, params := range attachParams {
-		_, err := v.ec2.DetachVolume(params.VolumeId, string(params.InstanceId), "", false)
+		_, err := client.DetachVolume(params.VolumeId, string(params.InstanceId), "", false)
 		// Process aws specific error information.
 		if err != nil {
 			if ec2Err, ok := err.(*ec2.Error); ok {
@@ -855,7 +884,7 @@ func getBlockDeviceMappings(cons constraints.Value, ser string) []ec2.BlockDevic
 	}
 	// The first block device is for the root disk.
 	blockDeviceMappings := []ec2.BlockDeviceMapping{{
-		DeviceName: "/dev/sda1",
+		DeviceName: rootDiskDeviceName,
 		VolumeSize: int64(mibToGib(rootDiskSizeMiB)),
 	}}
 
