@@ -93,7 +93,13 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		return errors.Errorf("bootstrapping is not supported on windows")
 	}
 
-	toolsJson, err := json.Marshal(w.icfg.Tools)
+	// TODO(ericsnow) Respect the full list.
+	// For now we are okay because each of the handled cases matches
+	// current Juju behavior. However, there are no guarantees that
+	// will hold.
+	tools := w.icfg.ToolsList()[0]
+
+	toolsJson, err := json.Marshal(tools)
 	if err != nil {
 		return errors.Annotate(err, "while serializing the tools")
 	}
@@ -105,7 +111,7 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		`mkdir $binDir`,
 	)
 
-	toolsDownloadCmds, err := addDownloadToolsCmds(w.icfg.Series, w.icfg.MongoInfo.CACert, w.icfg.Tools.URL)
+	toolsDownloadCmds, err := addDownloadToolsCmds(w.icfg.Series, w.icfg.MongoInfo.CACert, tools.URL)
 	if err != nil {
 		return errors.Trace(err)
 	}
