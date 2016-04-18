@@ -14,16 +14,29 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
+var usageListSSHKeysSummary = `
+Lists the currently known SSH keys for the current (or specified) model.`[1:]
+
+var usageListSSHKeysDetails = `
+Juju maintains a per-model cache of SSH keys which it copies to each newly
+created unit.
+This command will display a list of all the keys currently used by Juju in
+the current model (or the model specified, if the '-m' option is used).
+By default a minimal list is returned, showing only the fingerprint of
+each key and its text identifier. By using the '--full' option, the entire
+key may be displayed.
+
+Examples:
+    juju list-ssh-keys
+
+To examine the full key, use the '--full' option:
+
+    juju list-keys -m jujutest --full`[1:]
+
 // NewListKeysCommand returns a command used to list the authorized ssh keys.
 func NewListKeysCommand() cmd.Command {
 	return modelcmd.Wrap(&listKeysCommand{})
 }
-
-var listKeysDoc = `
-List the authorized ssh keys in the model, allowing the holders of those keys to log on to Juju nodes.
-By default, just the key fingerprint is printed. Use --full to display the entire key.
-
-`
 
 // listKeysCommand is used to list the authorized ssh keys.
 type listKeysCommand struct {
@@ -36,15 +49,15 @@ type listKeysCommand struct {
 func (c *listKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-ssh-keys",
-		Doc:     listKeysDoc,
-		Purpose: "list authorised ssh keys in a model",
+		Purpose: usageListSSHKeysSummary,
+		Doc:     usageListSSHKeysDetails,
 		Aliases: []string{"ssh-key", "ssh-keys", "list-ssh-key"},
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *listKeysCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.showFullKey, "full", false, "show full key instead of just the key fingerprint")
+	f.BoolVar(&c.showFullKey, "full", false, "Show full key instead of just the fingerprint")
 }
 
 // Run implements Command.Run.
