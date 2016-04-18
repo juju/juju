@@ -136,9 +136,9 @@ func (manager *containerManager) CreateContainer(
 	if len(networkConfig.Interfaces) > 0 || networkConfig.Device != "" {
 		manager.networkProfile = networkProfile
 		if len(networkConfig.Interfaces) > 0 {
-			err = networkProfileAddInterfaces(manager.client, networkProfile, networkConfig)
+			err = networkProfileAddMultipleInterfaces(manager.client, networkProfile, networkConfig.Interfaces)
 		} else {
-			err = networkProfileAddSingleInterface(manager.client, networkProfile, networkConfig)
+			err = networkProfileAddSingleInterface(manager.client, networkProfile, networkConfig.Device, networkConfig.MTU)
 		}
 		if err != nil {
 			return
@@ -255,13 +255,13 @@ func addNetworkDeviceToProfile(client *lxdclient.Client, profile, parentDevice, 
 	return client.ProfileDeviceAdd(profile, deviceName, "nic", props)
 }
 
-func networkProfileAddSingleInterface(client *lxdclient.Client, profile string, networkConfig *container.NetworkConfig) error {
-	_, err := addNetworkDeviceToProfile(client, profile, networkConfig.Device, "eth0", "", networkConfig.MTU)
+func networkProfileAddSingleInterface(client *lxdclient.Client, profile, deviceName string, mtu int) error {
+	_, err := addNetworkDeviceToProfile(client, profile, deviceName, "eth0", "", mtu)
 	return errors.Trace(err)
 }
 
-func networkProfileAddInterfaces(client *lxdclient.Client, profile string, networkConfig *container.NetworkConfig) error {
-	for _, v := range networkConfig.Interfaces {
+func networkProfileAddMultipleInterfaces(client *lxdclient.Client, profile string, interfaces []network.InterfaceInfo) error {
+	for _, v := range interfaces {
 		if v.InterfaceType == network.LoopbackInterface {
 			continue
 		}
