@@ -741,3 +741,36 @@ func (suite *maas2EnvironSuite) TestSubnetsInstIdNotFound(c *gc.C) {
 	_, err := env.Subnets("foo", nil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
+
+func (suite *maas2EnvironSuite) TestSubnetsInstId(c *gc.C) {
+	interfaces := []gomaasapi.Interface{
+		&fakeInterface{
+			links: []gomaasapi.Link{
+				&fakeLink{subnet: fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.10.0/24", space: "space-1"}},
+				&fakeLink{subnet: fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.10.0/24", space: "space-2"}},
+			},
+		},
+		&fakeInterface{
+			links: []gomaasapi.Link{
+				&fakeLink{subnet: fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.10.0/24", space: "space-3"}},
+			},
+		},
+	}
+	machine := &fakeMachine{
+		systemID:     "William Gibson",
+		interfaceSet: interfaces,
+	}
+	machine2 := &fakeMachine{systemID: "Bruce Sterling"}
+	suite.injectController(&fakeController{
+		machines: []gomaasapi.Machine{machine, machine2},
+		spaces:   getFourSpaces(),
+	})
+	env := suite.makeEnviron(c, nil)
+	subnets, err := env.Subnets("William Gibson", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []network.SubnetInfo{
+		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, SpaceProviderId: "5"},
+		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 66, SpaceProviderId: "6"},
+	}
+	c.Assert(subnets, jc.DeepEquals, expected)
+}

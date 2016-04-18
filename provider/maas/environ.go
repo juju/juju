@@ -2338,9 +2338,6 @@ func (environ *maasEnviron) spaces2() ([]network.SpaceInfo, error) {
 				VLANTag:         subnet.VLAN().VID(),
 				CIDR:            subnet.CIDR(),
 				SpaceProviderId: network.Id(strconv.Itoa(space.ID())),
-				// TODO (babbageclunk): not setting
-				// AllocatableIPLow/High - these aren't exposed in
-				// gomaasapi just yet.
 			}
 			outSpace.Subnets[i] = subnetInfo
 		}
@@ -2452,9 +2449,6 @@ func (environ *maasEnviron) filteredSubnets2(instId instance.Id) ([]network.Subn
 				VLANTag:         subnet.VLAN().VID(),
 				CIDR:            subnet.CIDR(),
 				SpaceProviderId: space.ProviderId,
-				// TODO (mfoord): not setting
-				// AllocatableIPLow/High - these aren't exposed in
-				// gomaasapi just yet.
 			}
 			result = append(result, subnetInfo)
 		}
