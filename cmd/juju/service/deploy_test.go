@@ -630,9 +630,9 @@ Deploying charm "cs:~bob/trusty/wordpress4-10" with the charm series "trusty".`,
 	deployURL: "cs:~bob/bundle/wordpress-simple1",
 	expectOutput: `
 added charm cs:trusty/mysql-0
-service mysql deployed (charm: cs:trusty/mysql-0)
+service mysql deployed (charm cs:trusty/mysql-0 with the charm series "trusty")
 added charm cs:trusty/wordpress-1
-service wordpress deployed (charm: cs:trusty/wordpress-1)
+service wordpress deployed (charm cs:trusty/wordpress-1 with the charm series "trusty")
 related wordpress:db and mysql:server
 added mysql/0 unit to new machine
 added wordpress/0 unit to new machine

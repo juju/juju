@@ -345,17 +345,30 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams, 
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Figure out what series we need to deploy with.
+	conf, err := getClientConfig(h.client)
+	if err != nil {
+		return err
+	}
+	supportedSeries := charmInfo.Meta.Series
+	series, message, err := charmSeries(p.Series, chID.URL.Series, supportedSeries, false, conf)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// Deploy the service.
 	if err := h.serviceDeployer.serviceDeploy(serviceDeployParams{
 		charmID:       chID,
 		serviceName:   p.Service,
+		series:        series,
 		configYAML:    configYAML,
 		constraints:   cons,
 		storage:       storageConstraints,
 		spaceBindings: p.EndpointBindings,
 		resources:     resNames2IDs,
 	}); err == nil {
-		h.log.Infof("service %s deployed (charm: %s)", p.Service, ch)
+		h.log.Infof("service %s deployed (charm %s %v)", p.Service, ch, fmt.Sprintf(message, series))
 		for resName := range resNames2IDs {
 			h.log.Infof("added resource %s", resName)
 		}
