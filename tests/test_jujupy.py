@@ -513,9 +513,6 @@ class FakeJujuClient(EnvJujuClient):
     def get_config(self, service):
         pass
 
-    def deployer(self, bundle, name=None):
-        pass
-
     def wait_for_workloads(self, timeout=600):
         pass
 

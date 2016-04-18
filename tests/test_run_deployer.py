@@ -201,6 +201,7 @@ class TestAssessDeployer(tests.TestCase):
             juju_bin='baz/juju', upgrade=True,
             upgrade_condition=['bla/0:clock_skew', 'foo/1:fill_disk'])
         client = FakeJujuClient()
+        client.bootstrap()
         with patch('run_deployer.EnvJujuClient.by_version',
                    return_value=client):
             with patch('run_deployer.apply_condition') as ac_mock:
