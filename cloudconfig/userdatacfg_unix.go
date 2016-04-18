@@ -102,7 +102,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 	)
 	switch w.os {
 	case os.Ubuntu:
-		if w.icfg.Tools != nil {
+		if w.icfg.ToolsInfo() != nil {
 			initSystem, err := service.VersionInitSystem(w.icfg.Series)
 			if err != nil {
 				return errors.Trace(err)
@@ -250,7 +250,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 			for _, addr := range w.icfg.ApiHostAddrs() {
 				// TODO(axw) encode env UUID in URL when ModelTag
 				// is guaranteed to be available in APIInfo.
-				url := fmt.Sprintf("https://%s/tools/%s", addr, w.icfg.Tools.Version)
+				url := fmt.Sprintf("https://%s/tools/%s", addr, w.icfg.ToolsInfo().Version)
 				urls = append(urls, url)
 			}
 
@@ -273,9 +273,9 @@ func (w *unixConfigure) ConfigureJuju() error {
 	}
 
 	w.conf.AddScripts(
-		fmt.Sprintf("sha256sum $bin/tools.tar.gz > $bin/juju%s.sha256", w.icfg.Tools.Version),
+		fmt.Sprintf("sha256sum $bin/tools.tar.gz > $bin/juju%s.sha256", w.icfg.ToolsInfo().Version),
 		fmt.Sprintf(`grep '%s' $bin/juju%s.sha256 || (echo "Tools checksum mismatch"; exit 1)`,
-			w.icfg.Tools.SHA256, w.icfg.Tools.Version),
+			w.icfg.ToolsInfo().SHA256, w.icfg.ToolsInfo().Version),
 		fmt.Sprintf("tar zxf $bin/tools.tar.gz -C $bin"),
 		fmt.Sprintf("printf %%s %s > $bin/downloaded-tools.txt", shquote(string(toolsJson))),
 	)
@@ -283,7 +283,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 	// Don't remove tools tarball until after bootstrap agent
 	// runs, so it has a chance to add it to its catalogue.
 	defer w.conf.AddRunCmd(
-		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", w.icfg.Tools.Version),
+		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", w.icfg.ToolsInfo().Version),
 	)
 
 	// We add the machine agent's configuration info

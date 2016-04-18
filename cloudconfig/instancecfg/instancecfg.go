@@ -306,6 +306,9 @@ func (cfg *InstanceConfig) HasNetworks() bool {
 // ToolsInfo returns a copy of the info (sans URL) for the configured
 // tools that will be used when provisioning the instance.
 func (cfg *InstanceConfig) ToolsInfo() *coretools.Tools {
+	if cfg.Tools == nil {
+		return nil
+	}
 	copied := *cfg.Tools
 	return &copied
 }
