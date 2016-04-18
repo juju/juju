@@ -762,10 +762,9 @@ func (m *Machine) maybeAssertSubnetAliveOps(newDoc *ipAddressDoc, opsSoFar []txn
 	}
 
 	// Subnet exists and is still alive, assert that is stays that way.
-	subnetDocID := m.st.docID(newDoc.SubnetCIDR)
 	return append(opsSoFar, txn.Op{
 		C:      subnetsC,
-		Id:     subnetDocID,
+		Id:     m.st.docID(newDoc.SubnetCIDR),
 		Assert: isAliveDoc,
 	}), nil
 }
