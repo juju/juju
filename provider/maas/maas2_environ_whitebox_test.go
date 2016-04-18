@@ -747,12 +747,12 @@ func (suite *maas2EnvironSuite) TestSubnetsInstId(c *gc.C) {
 		&fakeInterface{
 			links: []gomaasapi.Link{
 				&fakeLink{subnet: fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.10.0/24", space: "space-1"}},
-				&fakeLink{subnet: fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.10.0/24", space: "space-2"}},
+				&fakeLink{subnet: fakeSubnet{id: 100, vlan: fakeVLAN{vid: 0}, cidr: "192.168.11.0/24", space: "space-2"}},
 			},
 		},
 		&fakeInterface{
 			links: []gomaasapi.Link{
-				&fakeLink{subnet: fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.10.0/24", space: "space-3"}},
+				&fakeLink{subnet: fakeSubnet{id: 101, vlan: fakeVLAN{vid: 2}, cidr: "192.168.12.0/24", space: "space-3"}},
 			},
 		},
 	}
@@ -770,7 +770,8 @@ func (suite *maas2EnvironSuite) TestSubnetsInstId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []network.SubnetInfo{
 		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, SpaceProviderId: "5"},
-		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 66, SpaceProviderId: "6"},
+		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 0, SpaceProviderId: "6"},
+		{CIDR: "192.168.12.0/24", ProviderId: "101", VLANTag: 2, SpaceProviderId: "7"},
 	}
 	c.Assert(subnets, jc.DeepEquals, expected)
 }
