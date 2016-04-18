@@ -246,7 +246,7 @@ type fakeUploader struct {
 	charms map[string]string
 }
 
-func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary, _ ...string) (*tools.Tools, error) {
+func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary, _ ...string) (tools.List, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -254,9 +254,10 @@ func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary, _ ...strin
 
 	f.tools[v] = string(data)
 
-	return &tools.Tools{
+	uploaded := &tools.Tools{
 		Version: v,
-	}, nil
+	}
+	return tools.List{uploaded}, nil
 }
 
 func (f *fakeUploader) UploadCharm(u *charm.URL, r io.ReadSeeker) (*charm.URL, error) {
