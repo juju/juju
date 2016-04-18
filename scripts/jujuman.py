@@ -147,10 +147,6 @@ OpenStack, and Rackspace. It also works very well with MAAS and LXD.
 man_foot = """\
 .SH "FILES"
 .TP
-.I "~/.local/share/juju/clouds.yaml"
-Records any user-specified clouds which have been 
-added to Juju.
-.TP
 .I "~/.local/share/juju/accounts.yaml"
 Records the current authorised Juju users and their 
 passwords.
@@ -158,6 +154,10 @@ passwords.
 .I "~/.local/share/juju/bootstrap-config.yaml"
 Records any configuration values which were used in the 
 creation of running controllers.
+.TP
+.I "~/.local/share/juju/clouds.yaml"
+Records any user-specified clouds which have been 
+added to Juju.
 .TP
 .I "~/.local/share/juju/controllers.yaml"
 Records all the running controllers, their UUIDS, 
