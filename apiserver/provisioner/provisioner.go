@@ -790,10 +790,10 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 			}
 			firstAddress := parentAddrs[0]
 			parentDeviceSubnet, err := firstAddress.Subnet()
-			if err != nil || parentDeviceSubnet == nil {
-				err = errors.Errorf(
-					"cannot get subnet %q used by address %q of host machine device %q: %v",
-					firstAddress.SubnetID(), firstAddress.Value(), parentDevice.Name(), err,
+			if err != nil {
+				err = errors.Annotatef(err,
+					"cannot get subnet %q used by address %q of host machine device %q",
+					firstAddress.SubnetCIDR(), firstAddress.Value(), parentDevice.Name(),
 				)
 				result.Results[i].Error = common.ServerError(err)
 				preparedOK = false
