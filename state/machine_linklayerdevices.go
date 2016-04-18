@@ -675,14 +675,16 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 	}
 	addressValue := ip.String()
 	subnetCIDR := ipNet.String()
-	subnetExists, err := m.verifyAddressSubnetAliveIfItExists(subnetCIDR)
-	if err != nil {
-		return nil, errors.Trace(err)
-	} else if !subnetExists {
+	subnet, err := m.st.Subnet(subnetCIDR)
+	if errors.IsNotFound(err) {
 		logger.Infof(
 			"address %q on machine %q uses unknown or machine-local subnet %q",
 			addressValue, m.Id(), subnetCIDR,
 		)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	} else if err := m.verifySubnetAlive(subnet); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	globalKey := ipAddressGlobalKey(m.doc.Id, args.DeviceName, addressValue)
@@ -710,25 +712,11 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 	return newDoc, nil
 }
 
-// verifyAddressSubnetAliveIfItExists returns whether a subnet with the given
-// subnetCIDR exists, and when it does returns an error when the subnet is not
-// alive. Otherwise returns the existence flag and no error.
-func (m *Machine) verifyAddressSubnetAliveIfItExists(subnetCIDR string) (exists bool, err error) {
-	if subnetCIDR == "" {
-		return false, nil
-	}
-
-	subnet, err := m.st.Subnet(subnetCIDR)
-	if errors.IsNotFound(err) {
-		logger.Debugf("subnet %q is unknown or machine-local", subnetCIDR)
-		return false, nil
-	} else if err != nil {
-		return false, errors.Trace(err)
-	}
+func (m *Machine) verifySubnetAlive(subnet *Subnet) error {
 	if subnet.Life() != Alive {
-		return true, errors.Errorf("subnet %q is not alive", subnetCIDR)
+		return errors.Errorf("subnet %q is not alive", subnet.CIDR())
 	}
-	return true, nil
+	return nil
 }
 
 func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.Op, error) {
@@ -753,7 +741,7 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 			return nil, errors.Trace(err)
 		}
 
-		ops, err = m.assertSubnetAliveWhenSetOps(&newDoc, ops)
+		ops, err = m.maybeAssertSubnetAliveOps(&newDoc, ops)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -761,24 +749,23 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 	return ops, nil
 }
 
-func (m *Machine) assertSubnetAliveWhenSetOps(newDoc *ipAddressDoc, opsSoFar []txn.Op) ([]txn.Op, error) {
-	exists, err := m.verifyAddressSubnetAliveIfItExists(newDoc.SubnetCIDR)
-	if err != nil {
-		// Exists but not alive or other error.
+func (m *Machine) maybeAssertSubnetAliveOps(newDoc *ipAddressDoc, opsSoFar []txn.Op) ([]txn.Op, error) {
+	subnet, err := m.st.Subnet(newDoc.SubnetCIDR)
+	if errors.IsNotFound(err) {
+		// Subnet is machine-local, no need to assert whether it's alive.
+		return opsSoFar, nil
+	}
+	if err := m.verifySubnetAlive(subnet); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if exists {
-		// Exists and no error, so still alive. Add the assert to ensure it
-		// stays that way.
-		subnetDocID := m.st.docID(newDoc.SubnetCIDR)
-		return append(opsSoFar, txn.Op{
-			C:      subnetsC,
-			Id:     subnetDocID,
-			Assert: isAliveDoc,
-		}), nil
-	}
-	// Does not exist ( or machine-local), so no need to assert on life.
-	return opsSoFar, nil
+
+	// Subnet exists and is still alive, assert that is stays that way.
+	subnetDocID := m.st.docID(newDoc.SubnetCIDR)
+	return append(opsSoFar, txn.Op{
+		C:      subnetsC,
+		Id:     subnetDocID,
+		Assert: isAliveDoc,
+	}), nil
 }
 
 // RemoveAllAddresses removes all assigned addresses to all devices of the
