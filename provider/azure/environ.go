@@ -407,7 +407,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	// Pick envtools.  Needed for the custom data (which is what we normally
 	// call userdata).
 	args.InstanceConfig.SetTools(args.Tools)
-	logger.Infof("picked tools %q", args.InstanceConfig.ToolsVersion())
+	logger.Infof("picked tools %q", args.InstanceConfig.ToolsInfo().Version)
 
 	// Get the required configuration and config-dependent information
 	// required to create the instance. We take the lock just once, to

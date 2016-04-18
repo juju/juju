@@ -303,12 +303,11 @@ func (cfg *InstanceConfig) HasNetworks() bool {
 	return len(cfg.Networks) > 0 || cfg.Constraints.HaveNetworks()
 }
 
-// ToolsVersion returns the version of the configured tools, if any.
-func (cfg *InstanceConfig) ToolsVersion() version.Binary {
-	if cfg.Tools == nil {
-		return version.Binary{}
-	}
-	return cfg.Tools.Version
+// ToolsInfo returns a copy of the info (sans URL) for the configured
+// tools that will be used when provisioning the instance.
+func (cfg *InstanceConfig) ToolsInfo() *coretools.Tools {
+	copied := *cfg.Tools
+	return &copied
 }
 
 // SetTools sets the tools that should be tried when provisioning this
