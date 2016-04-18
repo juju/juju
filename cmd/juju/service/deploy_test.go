@@ -537,7 +537,7 @@ func (s *DeploySuite) TestCharmSeries(c *gc.C) {
 			"default-series": test.modelSeries,
 		}))
 		c.Assert(err, jc.ErrorIsNil)
-		series, msg, err := charmSeries(test.requestedSeries, test.seriesFromCharm, test.supportedSeries, test.force, cfg)
+		series, msg, err := charmSeries(test.requestedSeries, test.seriesFromCharm, test.supportedSeries, test.force, cfg, false)
 		if test.err != "" {
 			c.Check(err, gc.ErrorMatches, test.err)
 			continue

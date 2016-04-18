@@ -271,7 +271,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := fmt.Sprintf(`
 added charm local:xenial/dummy-1
-service dummy deployed (charm local:xenial/dummy-1 with the user specified series "xenial")
+service dummy deployed (charm local:xenial/dummy-1 with the series "xenial" defined by the bundle)
 added dummy/0 unit to new machine
 deployment of bundle %q completed`, path)
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
@@ -298,7 +298,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNoSeriesInCharmURL(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := fmt.Sprintf(`
 added charm cs:~who/multi-series-0
-service dummy deployed (charm cs:~who/multi-series-0 with the user specified series "trusty")
+service dummy deployed (charm cs:~who/multi-series-0 with the series "trusty" defined by the bundle)
 deployment of bundle %q completed`, path)
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUploaded(c, "cs:~who/multi-series-0")
@@ -531,9 +531,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm local:trusty/mysql-1
-service mysql deployed (charm local:trusty/mysql-1 with the user specified series "trusty")
+service mysql deployed (charm local:trusty/mysql-1 with the series "trusty" defined by the bundle)
 added charm local:trusty/wordpress-3
-service wordpress deployed (charm local:trusty/wordpress-3 with the user specified series "trusty")
+service wordpress deployed (charm local:trusty/wordpress-3 with the series "trusty" defined by the bundle)
 related wordpress:db and mysql:server
 added mysql/0 unit to new machine
 added mysql/1 unit to new machine
@@ -572,9 +572,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm local:trusty/mysql-1
-service mysql deployed (charm local:trusty/mysql-1 with the user specified series "trusty")
+service mysql deployed (charm local:trusty/mysql-1 with the series "trusty" defined by the bundle)
 added charm cs:trusty/wordpress-42
-service wordpress deployed (charm cs:trusty/wordpress-42 with the user specified series "trusty")
+service wordpress deployed (charm cs:trusty/wordpress-42 with the series "trusty" defined by the bundle)
 related wordpress:db and mysql:server
 added mysql/0 unit to new machine
 added wordpress/0 unit to new machine
@@ -612,7 +612,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceOptions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:precise/dummy-0
-service customized deployed (charm cs:precise/dummy-0 with the user specified series "precise")
+service customized deployed (charm cs:precise/dummy-0 with the series "precise" defined by the bundle)
 added charm cs:trusty/wordpress-42
 service wordpress deployed (charm cs:trusty/wordpress-42 with the charm series "trusty")
 added customized/0 unit to new machine
@@ -652,7 +652,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceConstrants(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:precise/dummy-0
-service customized deployed (charm cs:precise/dummy-0 with the user specified series "precise")
+service customized deployed (charm cs:precise/dummy-0 with the series "precise" defined by the bundle)
 added charm cs:trusty/wordpress-42
 service wordpress deployed (charm cs:trusty/wordpress-42 with the charm series "trusty")
 added customized/0 unit to new machine
@@ -695,7 +695,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:vivid/upgrade-1
-service up deployed (charm cs:vivid/upgrade-1 with the user specified series "vivid")
+service up deployed (charm cs:vivid/upgrade-1 with the series "vivid" defined by the bundle)
 added charm cs:trusty/wordpress-42
 service wordpress deployed (charm cs:trusty/wordpress-42 with the charm series "trusty")
 added up/0 unit to new machine
@@ -871,9 +871,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C)
 added charm cs:trusty/mysql-1
 service mysql deployed (charm cs:trusty/mysql-1 with the charm series "trusty")
 added charm cs:trusty/postgres-2
-service pgres deployed (charm cs:trusty/postgres-2 with the user specified series "trusty")
+service pgres deployed (charm cs:trusty/postgres-2 with the series "trusty" defined by the bundle)
 added charm cs:trusty/varnish-3
-service varnish deployed (charm cs:trusty/varnish-3 with the user specified series "trusty")
+service varnish deployed (charm cs:trusty/varnish-3 with the series "trusty" defined by the bundle)
 added charm cs:trusty/wordpress-0
 service wp deployed (charm cs:trusty/wordpress-0 with the charm series "trusty")
 related wp:db and mysql:server
@@ -980,9 +980,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachinesUnitsPlacement(c *
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:trusty/mysql-2
-service sql deployed (charm cs:trusty/mysql-2 with the user specified series "trusty")
+service sql deployed (charm cs:trusty/mysql-2 with the series "trusty" defined by the bundle)
 added charm cs:trusty/wordpress-0
-service wp deployed (charm cs:trusty/wordpress-0 with the user specified series "trusty")
+service wp deployed (charm cs:trusty/wordpress-0 with the series "trusty" defined by the bundle)
 created new machine 0 for holding wp unit
 created new machine 1 for holding wp unit
 added wp/0 unit to machine 0
@@ -1069,7 +1069,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachineAttributes(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:trusty/django-42
-service django deployed (charm cs:trusty/django-42 with the user specified series "trusty")
+service django deployed (charm cs:trusty/django-42 with the series "trusty" defined by the bundle)
 created new machine 0 for holding django unit
 annotations set for machine 0
 added django/0 unit to machine 0
@@ -1148,7 +1148,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedInService(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:trusty/django-42
-service django deployed (charm cs:trusty/django-42 with the user specified series "trusty")
+service django deployed (charm cs:trusty/django-42 with the series "trusty" defined by the bundle)
 added charm cs:trusty/wordpress-0
 service wordpress deployed (charm cs:trusty/wordpress-0 with the charm series "trusty")
 added wordpress/0 unit to new machine
@@ -1198,9 +1198,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitColocationWithUnit(c *
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:trusty/django-42
-service django deployed (charm cs:trusty/django-42 with the user specified series "trusty")
+service django deployed (charm cs:trusty/django-42 with the series "trusty" defined by the bundle)
 added charm cs:trusty/mem-47
-service memcached deployed (charm cs:trusty/mem-47 with the user specified series "trusty")
+service memcached deployed (charm cs:trusty/mem-47 with the series "trusty" defined by the bundle)
 added charm cs:trusty/rails-0
 service ror deployed (charm cs:trusty/rails-0 with the charm series "trusty")
 created new machine 0 for holding memcached and ror units
@@ -1317,9 +1317,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:trusty/django-42
-service django deployed (charm cs:trusty/django-42 with the user specified series "trusty")
+service django deployed (charm cs:trusty/django-42 with the series "trusty" defined by the bundle)
 added charm cs:trusty/mem-47
-service memcached deployed (charm cs:trusty/mem-47 with the user specified series "trusty")
+service memcached deployed (charm cs:trusty/mem-47 with the series "trusty" defined by the bundle)
 added charm cs:trusty/rails-0
 service ror deployed (charm cs:trusty/rails-0 with the charm series "trusty")
 created new machine 0 for holding django, memcached and ror units
@@ -1386,7 +1386,7 @@ added charm cs:trusty/django-42
 reusing service django (charm: cs:trusty/django-42)
 added charm cs:trusty/mem-47
 reusing service memcached (charm: cs:trusty/mem-47)
-service node deployed (charm cs:trusty/django-42 with the user specified series "trusty")
+service node deployed (charm cs:trusty/django-42 with the series "trusty" defined by the bundle)
 avoid creating other machines to host django and memcached units
 avoid adding new units to service django: 4 units already present
 avoid adding new units to service memcached: 3 units already present
@@ -1451,7 +1451,7 @@ added charm cs:trusty/django-42
 service django deployed (charm cs:trusty/django-42 with the charm series "trusty")
 annotations set for service django
 added charm cs:trusty/mem-47
-service memcached deployed (charm cs:trusty/mem-47 with the user specified series "trusty")
+service memcached deployed (charm cs:trusty/mem-47 with the series "trusty" defined by the bundle)
 created new machine 0 for holding django unit
 annotations set for machine 0
 added django/0 unit to machine 0

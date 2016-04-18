@@ -352,7 +352,7 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams, 
 		return err
 	}
 	supportedSeries := charmInfo.Meta.Series
-	series, message, err := charmSeries(p.Series, chID.URL.Series, supportedSeries, false, conf)
+	series, message, err := charmSeries(p.Series, chID.URL.Series, supportedSeries, false, conf, true)
 	if err != nil {
 		return errors.Trace(err)
 	}
