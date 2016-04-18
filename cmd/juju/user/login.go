@@ -125,7 +125,9 @@ Run "juju logout" first before attempting to log in as a different user.
 	}
 
 	// Read password from the terminal, and attempt to log in using that.
-	password, err := readAndConfirmPassword(ctx)
+	fmt.Fprint(ctx.Stderr, "password: ")
+	password, err := readPassword(ctx.Stdin)
+	fmt.Fprintln(ctx.Stderr)
 	if err != nil {
 		return errors.Trace(err)
 	}
