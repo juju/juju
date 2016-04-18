@@ -430,7 +430,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		return errors.Errorf("Flags provided but not supported when deploying a charm: %s.", strings.Join(flags, ", "))
 	}
 	// Get the series to use.
-	series, message, err := charmSeries(c.Series, storeCharmOrBundleURL.Series, supportedSeries, c.Force, conf, false)
+	series, message, err := charmSeries(c.Series, storeCharmOrBundleURL.Series, supportedSeries, c.Force, conf, deployFromCharm)
 	if charm.IsUnsupportedSeriesError(err) {
 		return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	}
@@ -466,6 +466,14 @@ const (
 	msgDefaultCharmSeries  = "with the default charm metadata series %q"
 	msgDefaultModelSeries  = "with the configured model default series %q"
 	msgLatestLTSSeries     = "with the latest LTS series %q"
+)
+
+const (
+	// deployFromBundle is passed to charmSeries when deploying from a bundle.
+	deployFromBundle = true
+
+	// deployFromCharm is passed to charmSeries when deploying a charm.
+	deployFromCharm = false
 )
 
 // charmSeries determine what series to use with a charm.
