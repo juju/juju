@@ -156,6 +156,10 @@ class FakeEnvironmentState:
     def state(self):
         return self.controller.state
 
+    def require_admin(self, operation):
+        if self.name != self.controller.admin_model.name:
+            raise AdminOperation(operation)
+
     def add_machine(self):
         machine_id = str(self.machine_id_iter.next())
         self.machines.add(machine_id)
@@ -303,7 +307,7 @@ class FakeBackend:
         return 0
 
     def restore_backup(self, model_state):
-        self._require_admin(model_state.name, 'restore')
+        model_state.require_admin('restore')
         if len(model_state.state_servers) > 0:
             exc = subprocess.CalledProcessError('Operation not permitted', 1,
                                                 2)
@@ -320,15 +324,11 @@ class FakeBackend:
     def get_admin_model_name(self):
         return self.controller_state.admin_model.name
 
-    def _require_admin(self, model_name, operation):
-        if self.get_admin_model_name() != model_name:
-            raise AdminOperation(operation)
-
     def juju(self, cmd, args, model=None, timeout=None):
         if model is not None:
-            if cmd == 'enable-ha':
-                self._require_admin(model, 'enable-ha')
             model_state = self.controller_state.models[model]
+            if cmd == 'enable-ha':
+                model_state.require_admin('enable-ha')
             if (cmd, args[:1]) == ('set', ('dummy-source',)):
                 name, value = args[1].split('=')
                 if name == 'token':
@@ -539,7 +539,9 @@ class FakeJujuClient(EnvJujuClient):
         pass
 
     def _require_admin(self, operation):
-        self._backend._require_admin(self.env.environment, operation)
+        model_state = self._backend.controller_state.models[
+            self.env.environment]
+        model_state.require_admin(operation)
 
     def backup(self):
         self._require_admin('backup')
