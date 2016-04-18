@@ -20,6 +20,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -200,12 +201,18 @@ func (s *RegisterSuite) testRegister(c *gc.C) *cmd.Context {
 	secretKey := []byte(strings.Repeat("X", 32))
 	respNonce := []byte(strings.Repeat("X", 24))
 
+	macaroon, err := macaroon.New(nil, "mymacaroon", "tone")
+	c.Assert(err, jc.ErrorIsNil)
+	macaroonJSON, err := macaroon.MarshalJSON()
+	c.Assert(err, jc.ErrorIsNil)
+
 	var requests []*http.Request
 	var requestBodies [][]byte
 	const controllerUUID = "df136476-12e9-11e4-8a70-b2227cce2b54"
 	responsePayloadPlaintext, err := json.Marshal(params.SecretKeyLoginResponsePayload{
 		CACert:         testing.CACert,
 		ControllerUUID: controllerUUID,
+		Macaroon:       macaroon,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	response, err := json.Marshal(params.SecretKeyLoginResponse{
@@ -258,7 +265,7 @@ func (s *RegisterSuite) testRegister(c *gc.C) *cmd.Context {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
 		User:     "bob@local",
-		Password: "hunter2",
+		Macaroon: string(macaroonJSON),
 	})
 	return ctx
 }

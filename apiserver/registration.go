@@ -9,6 +9,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"gopkg.in/macaroon.v1"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"golang.org/x/crypto/nacl/secretbox"
@@ -26,7 +28,8 @@ const (
 // used to complete a secure user registration process, and provide controller
 // login credentials.
 type registerUserHandler struct {
-	ctxt httpContext
+	ctxt                     httpContext
+	createLocalLoginMacaroon func(names.UserTag) (*macaroon.Macaroon, error)
 }
 
 // ServeHTTP implements the http.Handler interface.
@@ -118,7 +121,7 @@ func (h *registerUserHandler) processPost(req *http.Request, st *state.State) (*
 
 	// Respond with the CA-cert and password, encrypted again with the
 	// secret key.
-	responsePayload, err := h.getSecretKeyLoginResponsePayload(st)
+	responsePayload, err := h.getSecretKeyLoginResponsePayload(st, userTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -139,14 +142,19 @@ func (h *registerUserHandler) processPost(req *http.Request, st *state.State) (*
 // getSecretKeyLoginResponsePayload returns the information required by the
 // client to login to the controller securely.
 func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
-	st *state.State,
+	st *state.State, userTag names.UserTag,
 ) (*params.SecretKeyLoginResponsePayload, error) {
 	if !st.IsController() {
 		return nil, errors.New("state is not for a controller")
 	}
+	mac, err := h.createLocalLoginMacaroon(userTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	payload := params.SecretKeyLoginResponsePayload{
 		CACert:         st.CACert(),
 		ControllerUUID: st.ModelUUID(),
+		Macaroon:       mac,
 	}
 	return &payload, nil
 }
