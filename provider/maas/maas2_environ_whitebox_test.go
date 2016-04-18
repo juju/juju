@@ -404,12 +404,12 @@ func getFourSpaces() []gomaasapi.Space {
 		},
 		fakeSpace{
 			name:    "space-3",
-			subnets: []gomaasapi.Subnet{fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.12.0/24"}},
+			subnets: []gomaasapi.Subnet{fakeSubnet{id: 101, vlan: fakeVLAN{vid: 66}, cidr: "192.168.12.0/24"}},
 			id:      7,
 		},
 		fakeSpace{
 			name:    "space-4",
-			subnets: []gomaasapi.Subnet{fakeSubnet{id: 100, vlan: fakeVLAN{vid: 66}, cidr: "192.168.13.0/24"}},
+			subnets: []gomaasapi.Subnet{fakeSubnet{id: 102, vlan: fakeVLAN{vid: 66}, cidr: "192.168.13.0/24"}},
 			id:      8,
 		},
 	}
@@ -694,4 +694,34 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentSucceeds(c *gc.C) {
 	env := suite.makeEnviron(c, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (suite *maas2EnvironSuite) TestSubnetsNoFilters(c *gc.C) {
+	suite.injectController(&fakeController{
+		spaces: getFourSpaces(),
+	})
+	env := suite.makeEnviron(c, nil)
+	subnets, err := env.Subnets("", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []network.SubnetInfo{
+		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, SpaceProviderId: "5"},
+		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 66, SpaceProviderId: "6"},
+		{CIDR: "192.168.12.0/24", ProviderId: "101", VLANTag: 66, SpaceProviderId: "7"},
+		{CIDR: "192.168.13.0/24", ProviderId: "102", VLANTag: 66, SpaceProviderId: "8"},
+	}
+	c.Assert(subnets, jc.DeepEquals, expected)
+}
+
+func (suite *maas2EnvironSuite) TestSubnetsNoInstIdSubnetIds(c *gc.C) {
+	suite.injectController(&fakeController{
+		spaces: getFourSpaces(),
+	})
+	env := suite.makeEnviron(c, nil)
+	subnets, err := env.Subnets("", []network.Id{"99", "100"})
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []network.SubnetInfo{
+		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, SpaceProviderId: "5"},
+		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 66, SpaceProviderId: "6"},
+	}
+	c.Assert(subnets, jc.DeepEquals, expected)
 }
