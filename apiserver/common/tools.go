@@ -226,7 +226,7 @@ func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 	if err != nil {
 		return nil, err
 	}
-	// Rewrite the URLs so they point at the API server. If the
+	// Rewrite the URLs so they point at the API servers. If the
 	// tools are not in tools storage, then the API server will
 	// download and cache them if the client requests that version.
 	var fullList coretools.List
