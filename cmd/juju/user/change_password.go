@@ -12,30 +12,22 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/utils"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/macaroon.v1"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// randomPasswordNotify is called when a random password is generated.
-var randomPasswordNotify = func(string) {}
-
 const userChangePasswordDoc = `
-Change the password for the user you are currently logged in as,
+Change the password for the user you are currently logged in as;
 or as an admin, change the password for another user.
 
 Examples:
-  # You will be prompted to enter a password.
+  # Change the password for the user you are logged in as.
   juju change-user-password
 
-  # Change the password to a random strong password.
-  juju change-user-password --generate
-
-  # Change the password for bob, this always uses a random password
+  # Change the password for bob.
   juju change-user-password bob
 
 `
@@ -47,9 +39,8 @@ func NewChangePasswordCommand() cmd.Command {
 // changePasswordCommand changes the password for a user.
 type changePasswordCommand struct {
 	modelcmd.ControllerCommandBase
-	api      ChangePasswordAPI
-	Generate bool
-	User     string
+	api  ChangePasswordAPI
+	User string
 }
 
 // Info implements Command.Info.
@@ -60,11 +51,6 @@ func (c *changePasswordCommand) Info() *cmd.Info {
 		Purpose: "changes the password for a user",
 		Doc:     userChangePasswordDoc,
 	}
-}
-
-// SetFlags implements Command.SetFlags.
-func (c *changePasswordCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Generate, "generate", false, "generate a new strong password")
 }
 
 // Init implements Command.Init.
@@ -96,7 +82,7 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		defer c.api.Close()
 	}
 
-	newPassword, err := generateOrReadPassword(ctx, c.Generate)
+	newPassword, err := readAndConfirmPassword(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -153,18 +139,6 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		ctx.Infof("Your password has been updated.")
 	}
 	return nil
-}
-
-func generateOrReadPassword(ctx *cmd.Context, generate bool) (string, error) {
-	if generate {
-		password, err := utils.RandomPassword()
-		if err != nil {
-			return "", errors.Annotate(err, "failed to generate random password")
-		}
-		randomPasswordNotify(password)
-		return password, nil
-	}
-	return readAndConfirmPassword(ctx)
 }
 
 func readAndConfirmPassword(ctx *cmd.Context) (string, error) {
