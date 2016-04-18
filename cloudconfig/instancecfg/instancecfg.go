@@ -304,9 +304,9 @@ func (cfg *InstanceConfig) HasNetworks() bool {
 }
 
 // ToolsVersion returns the version of the configured tools, if any.
-func (cfg *InstanceConfig) ToolsVersion() string {
+func (cfg *InstanceConfig) ToolsVersion() version.Binary {
 	if cfg.Tools == nil {
-		return ""
+		return version.Binary{}
 	}
 	return cfg.Tools.Version
 }
