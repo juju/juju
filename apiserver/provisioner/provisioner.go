@@ -675,12 +675,16 @@ func (p *ProvisionerAPI) legacyAddressAllocationSupported() (bool, error) {
 // container tags as arguments. If the address allocation feature flag
 // is not enabled, it returns a NotSupported error.
 func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (
-	params.MachineNetworkConfigResults, error) {
-	if supported, err := p.legacyAddressAllocationSupported(); supported && err == nil {
+	params.MachineNetworkConfigResults,
+	error,
+) {
+	supported, err := p.legacyAddressAllocationSupported()
+	if err != nil {
+		return params.MachineNetworkConfigResults{}, errors.Trace(err)
+	}
+	if supported {
 		logger.Warningf("address allocation enabled - using legacyPrepareOrGetContainerInterfaceInfo(true)")
 		return p.legacyPrepareOrGetContainerInterfaceInfo(args, true)
-	} else if err != nil {
-		return params.MachineNetworkConfigResults{}, errors.Trace(err)
 	}
 	return p.prepareOrGetContainerInterfaceInfo(args, true)
 }
@@ -689,12 +693,16 @@ func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (
 // for a container. It accepts container tags as arguments. If the address
 // allocation feature flag is not enabled, it returns a NotSupported error.
 func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
-	params.MachineNetworkConfigResults, error) {
-	if supported, err := p.legacyAddressAllocationSupported(); supported && err == nil {
+	params.MachineNetworkConfigResults,
+	error,
+) {
+	supported, err := p.legacyAddressAllocationSupported()
+	if err != nil {
+		return params.MachineNetworkConfigResults{}, errors.Trace(err)
+	}
+	if supported {
 		logger.Warningf("address allocation enabled - using legacyPrepareOrGetContainerInterfaceInfo(false)")
 		return p.legacyPrepareOrGetContainerInterfaceInfo(args, false)
-	} else if err != nil {
-		return params.MachineNetworkConfigResults{}, errors.Trace(err)
 	}
 	return p.prepareOrGetContainerInterfaceInfo(args, false)
 }
