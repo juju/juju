@@ -721,7 +721,7 @@ func (suite *maas2EnvironSuite) TestSubnetsNoFiltersError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "bang")
 }
 
-func (suite *maas2EnvironSuite) TestSubnetsNoInstIdSubnetIds(c *gc.C) {
+func (suite *maas2EnvironSuite) TestSubnetsSubnetIds(c *gc.C) {
 	suite.injectController(&fakeController{
 		spaces: getFourSpaces(),
 	})
@@ -733,6 +733,16 @@ func (suite *maas2EnvironSuite) TestSubnetsNoInstIdSubnetIds(c *gc.C) {
 		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 66, SpaceProviderId: "6"},
 	}
 	c.Assert(subnets, jc.DeepEquals, expected)
+}
+
+func (suite *maas2EnvironSuite) TestSubnetsSubnetIdsMissing(c *gc.C) {
+	suite.injectController(&fakeController{
+		spaces: getFourSpaces(),
+	})
+	env := suite.makeEnviron(c, nil)
+	_, err := env.Subnets("", []network.Id{"99", "missing"})
+	msg := "failed to find the following subnets: missing"
+	c.Assert(err, gc.ErrorMatches, msg)
 }
 
 func (suite *maas2EnvironSuite) TestSubnetsInstIdNotFound(c *gc.C) {
