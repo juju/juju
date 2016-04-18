@@ -108,8 +108,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	if !ok {
 		return nil, errors.Errorf("cannot determine state serving info")
 	}
-	// TODO(ericsnow) Include the public address too?
-	APIHostPorts := network.NewHostPorts(ssi.APIPort, args.PrivateAddress)
+	APIHostPorts := network.NewHostPorts(ssi.APIPort, args.PrivateAddress, args.PublicAddress)
 	agentConfig.SetAPIHostPorts([][]network.HostPort{APIHostPorts})
 	if err := agentConfig.Write(); err != nil {
 		return nil, errors.Annotate(err, "cannot write new agent configuration")
