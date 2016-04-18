@@ -712,6 +712,15 @@ func (suite *maas2EnvironSuite) TestSubnetsNoFilters(c *gc.C) {
 	c.Assert(subnets, jc.DeepEquals, expected)
 }
 
+func (suite *maas2EnvironSuite) TestSubnetsNoFiltersError(c *gc.C) {
+	suite.injectController(&fakeController{
+		spacesError: errors.New("bang"),
+	})
+	env := suite.makeEnviron(c, nil)
+	_, err := env.Subnets("", nil)
+	c.Assert(err, gc.ErrorMatches, "bang")
+}
+
 func (suite *maas2EnvironSuite) TestSubnetsNoInstIdSubnetIds(c *gc.C) {
 	suite.injectController(&fakeController{
 		spaces: getFourSpaces(),
