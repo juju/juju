@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/environs/config"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 type stateInterface interface {
@@ -91,7 +91,7 @@ var (
 // current state by calling worker.notify instead of
 // modifying it directly.
 type pgWorker struct {
-	tomb tomb.Tomb
+	catacomb catacomb.Catacomb
 
 	// wg represents all the currently running goroutines.
 	// The worker main loop waits for all of these to exit
@@ -135,10 +135,10 @@ func New(st *state.State) (worker.Worker, error) {
 		apiPort:   cfg.APIPort(),
 	}
 	supportsSpaces := networkingcommon.SupportsSpaces(shim) == nil
-	return newWorker(shim, newPublisher(st, cfg.PreferIPv6()), supportsSpaces), nil
+	return newWorker(shim, newPublisher(st, cfg.PreferIPv6()), supportsSpaces)
 }
 
-func newWorker(st stateInterface, pub publisherInterface, supportsSpaces bool) worker.Worker {
+func newWorker(st stateInterface, pub publisherInterface, supportsSpaces bool) (worker.Worker, error) {
 	w := &pgWorker{
 		st:                     st,
 		notifyCh:               make(chan notifyFunc),
@@ -146,27 +146,22 @@ func newWorker(st stateInterface, pub publisherInterface, supportsSpaces bool) w
 		publisher:              pub,
 		providerSupportsSpaces: supportsSpaces,
 	}
-	go func() {
-		defer w.tomb.Done()
-		if err := w.loop(); err != nil {
-			logger.Errorf("peergrouper loop terminated: %v", err)
-			w.tomb.Kill(err)
-		}
-		// Wait for the various goroutines to be killed.
-		// N.B. we don't defer this call because
-		// if we do and a bug causes a panic, Wait will deadlock
-		// waiting for the unkilled goroutines to exit.
-		w.wg.Wait()
-	}()
-	return w
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.loop,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }
 
 func (w *pgWorker) Kill() {
-	w.tomb.Kill(nil)
+	w.catacomb.Kill(nil)
 }
 
 func (w *pgWorker) Wait() error {
-	return w.tomb.Wait()
+	return w.catacomb.Wait()
 }
 
 func (w *pgWorker) loop() error {
@@ -223,8 +218,8 @@ func (w *pgWorker) loop() error {
 				}
 			}
 
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
 		}
 	}
 }
@@ -251,10 +246,10 @@ func (w *pgWorker) apiPublishInfo() ([][]network.HostPort, []instance.Id, error)
 // the worker main loop to be executed.
 func (w *pgWorker) notify(f notifyFunc) bool {
 	select {
+	case <-w.catacomb.Dying():
+		return false
 	case w.notifyCh <- f:
 		return true
-	case <-w.tomb.Dying():
-		return false
 	}
 }
 
@@ -414,7 +409,7 @@ func (w *pgWorker) start(loop func() error) {
 	go func() {
 		defer w.wg.Done()
 		if err := loop(); err != nil {
-			w.tomb.Kill(err)
+			w.catacomb.Kill(err)
 		}
 	}()
 }
@@ -467,8 +462,8 @@ func (infow *serverInfoWatcher) loop() error {
 			}
 			logger.Debugf("machine status watcher fired")
 			infow.worker.notify(infow.updateMachines)
-		case <-infow.worker.tomb.Dying():
-			return tomb.ErrDying
+		case <-infow.worker.catacomb.Dying():
+			return infow.worker.catacomb.ErrDying()
 		}
 	}
 }
@@ -583,7 +578,7 @@ func (m *machine) loop() error {
 				return m.machineWatcher.Err()
 			}
 			m.worker.notify(m.refresh)
-		case <-m.worker.tomb.Dying():
+		case <-m.worker.catacomb.Dying():
 			return nil
 		}
 	}
