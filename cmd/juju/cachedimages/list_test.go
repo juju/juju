@@ -29,7 +29,7 @@ func (*fakeImagesListAPI) Close() error {
 }
 
 func (f *fakeImagesListAPI) ListImages(kind, series, arch string) ([]params.ImageMetadata, error) {
-	if kind != "lxc" {
+	if kind != "lxd" {
 		return nil, nil
 	}
 	result := []params.ImageMetadata{
@@ -53,7 +53,7 @@ func (s *listImagesCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func runListCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, cachedimages.NewListCommand(), args...)
+	return testing.RunCommand(c, cachedimages.NewListCommandForTest(), args...)
 }
 
 func (*listImagesCommandSuite) TestListImagesNone(c *gc.C) {
@@ -63,18 +63,18 @@ func (*listImagesCommandSuite) TestListImagesNone(c *gc.C) {
 }
 
 func (*listImagesCommandSuite) TestListImagesFormatJson(c *gc.C) {
-	context, err := runListCommand(c, "--format", "json", "--kind", "lxc", "--series", "trusty", "--arch", "amd64")
+	context, err := runListCommand(c, "--format", "json", "--kind", "lxd", "--series", "trusty", "--arch", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "Cached images:\n["+
-		`{"kind":"lxc","series":"trusty","arch":"amd64","source-url":"http://image","created":"Thu, 01 Jan 2015 00:00:00 UTC"}`+
+		`{"kind":"lxd","series":"trusty","arch":"amd64","source-url":"http://image","created":"Thu, 01 Jan 2015 00:00:00 UTC"}`+
 		"]\n")
 }
 
 func (*listImagesCommandSuite) TestListImagesFormatYaml(c *gc.C) {
-	context, err := runListCommand(c, "--format", "yaml", "--kind", "lxc", "--series", "trusty", "--arch", "amd64")
+	context, err := runListCommand(c, "--format", "yaml", "--kind", "lxd", "--series", "trusty", "--arch", "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "Cached images:\n"+
-		"- kind: lxc\n"+
+		"- kind: lxd\n"+
 		"  series: trusty\n"+
 		"  arch: amd64\n"+
 		"  source-url: http://image\n"+

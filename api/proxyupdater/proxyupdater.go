@@ -58,8 +58,10 @@ func (api *API) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatche
 		return nil, result.Error
 	}
 
-	return apiwatcher.NewNotifyWatcher(api.facade.RawAPICaller(), result), nil
+	return newNotifyWatcher(api.facade.RawAPICaller(), result), nil
 }
+
+var newNotifyWatcher = apiwatcher.NewNotifyWatcher
 
 func proxySettingsParamToProxySettings(cfg params.ProxyConfig) proxy.Settings {
 	return proxy.Settings{
