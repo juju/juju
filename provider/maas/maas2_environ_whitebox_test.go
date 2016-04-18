@@ -734,3 +734,10 @@ func (suite *maas2EnvironSuite) TestSubnetsNoInstIdSubnetIds(c *gc.C) {
 	}
 	c.Assert(subnets, jc.DeepEquals, expected)
 }
+
+func (suite *maas2EnvironSuite) TestSubnetsInstIdNotFound(c *gc.C) {
+	suite.injectController(&fakeController{})
+	env := suite.makeEnviron(c, nil)
+	_, err := env.Subnets("foo", nil)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
