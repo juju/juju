@@ -449,7 +449,7 @@ func (t *localServerSuite) testDestroyModelDeleteSecurityGroupInsistentlyError(c
 	c.Assert(err, gc.ErrorMatches, errPrefix+"destroy security group error")
 }
 
-func (t *localServerSuite) TestDestroyControllerDestroysHotedModelResources(c *gc.C) {
+func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *gc.C) {
 	controllerEnv := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), controllerEnv, bootstrap.BootstrapParams{})
 
