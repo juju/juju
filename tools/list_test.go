@@ -4,6 +4,8 @@
 package tools_test
 
 import (
+	"strings"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -106,9 +108,18 @@ func (s *ListSuite) TestURLs(c *gc.C) {
 	empty := tools.List{}
 	c.Check(empty.URLs(), gc.DeepEquals, map[version.Binary][]string{})
 
-	full := tools.List{t100precise, t190quantal, t2001precise}
+	alt := *t100quantal
+	alt.URL = strings.Replace(alt.URL, "testing.invalid", "testing.invalid2", 1)
+	full := tools.List{
+		t100precise,
+		t190quantal,
+		t100quantal,
+		&alt,
+		t2001precise,
+	}
 	c.Check(full.URLs(), gc.DeepEquals, map[version.Binary][]string{
 		t100precise.Version:  []string{t100precise.URL},
+		t100quantal.Version:  []string{t100quantal.URL, alt.URL},
 		t190quantal.Version:  []string{t190quantal.URL},
 		t2001precise.Version: []string{t2001precise.URL},
 	})
