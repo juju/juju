@@ -754,6 +754,8 @@ func (m *Machine) maybeAssertSubnetAliveOps(newDoc *ipAddressDoc, opsSoFar []txn
 	if errors.IsNotFound(err) {
 		// Subnet is machine-local, no need to assert whether it's alive.
 		return opsSoFar, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
 	}
 	if err := m.verifySubnetAlive(subnet); err != nil {
 		return nil, errors.Trace(err)
