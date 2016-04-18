@@ -2353,6 +2353,10 @@ func (environ *maasEnviron) Subnets(instId instance.Id, subnetIds []network.Id) 
 	if environ.usingMAAS2() {
 		return environ.subnets2(instId, subnetIds)
 	}
+	return environ.subnets1(instId, subnetIds)
+}
+
+func (environ *maasEnviron) subnets1(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	var nodeId string
 	if instId != instance.UnknownId {
 		inst, err := environ.getInstance(instId)
