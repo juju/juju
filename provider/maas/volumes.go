@@ -285,7 +285,23 @@ func (mi *maas2Instance) volumes(
 	var volumes []storage.Volume
 	var attachments []storage.VolumeAttachment
 
+	// Set up a collection of volumes tags which
+	// we specifically asked for when the node was acquired.
+	validVolumes := set.NewStrings()
+	for _, v := range requestedVolumes {
+		validVolumes.Add(v.Id())
+	}
+
 	for label, device := range mi.constraintMatches.Storage {
+		// We don't explicitly allow the root volume to be specified yet.
+		if label == rootDiskLabel {
+			continue
+		}
+		// We only care about the volumes we specifically asked for.
+		if !validVolumes.Contains(label) {
+			continue
+		}
+
 		volumeTag := names.NewVolumeTag(label)
 		vol := storage.Volume{
 			volumeTag,
