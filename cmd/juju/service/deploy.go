@@ -430,7 +430,7 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 		return errors.Errorf("Flags provided but not supported when deploying a charm: %s.", strings.Join(flags, ", "))
 	}
 	// Get the series to use.
-	series, message, err := charmSeries(c.Series, storeCharmOrBundleURL.Series, supportedSeries, c.Force, conf)
+	series, message, err := charmSeries(c.Series, storeCharmOrBundleURL.Series, supportedSeries, c.Force, conf, deployFromCharm)
 	if charm.IsUnsupportedSeriesError(err) {
 		return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	}
@@ -461,15 +461,24 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 
 const (
 	msgUserRequestedSeries = "with the user specified series %q"
+	msgBundleSeries        = "with the series %q defined by the bundle"
 	msgSingleCharmSeries   = "with the charm series %q"
 	msgDefaultCharmSeries  = "with the default charm metadata series %q"
 	msgDefaultModelSeries  = "with the configured model default series %q"
 	msgLatestLTSSeries     = "with the latest LTS series %q"
 )
 
+const (
+	// deployFromBundle is passed to charmSeries when deploying from a bundle.
+	deployFromBundle = true
+
+	// deployFromCharm is passed to charmSeries when deploying a charm.
+	deployFromCharm = false
+)
+
 // charmSeries determine what series to use with a charm.
 // Order of preference is:
-// - user requested when deploying
+// - user requested or defined by bundle when deploying
 // - default from charm metadata supported series
 // - model default
 // - charm store default
@@ -478,13 +487,18 @@ func charmSeries(
 	supportedSeries []string,
 	force bool,
 	conf *config.Config,
+	fromBundle bool,
 ) (string, string, error) {
 	// User has requested a series and we have a new charm with series in metadata.
 	if requestedSeries != "" && seriesFromCharm == "" {
 		if !force && !isSeriesSupported(requestedSeries, supportedSeries) {
 			return "", "", charm.NewUnsupportedSeriesError(requestedSeries, supportedSeries)
 		}
-		return requestedSeries, msgUserRequestedSeries, nil
+		if fromBundle {
+			return requestedSeries, msgBundleSeries, nil
+		} else {
+			return requestedSeries, msgUserRequestedSeries, nil
+		}
 	}
 
 	// User has requested a series and it's an old charm for a single series.
@@ -493,7 +507,11 @@ func charmSeries(
 			return "", "", charm.NewUnsupportedSeriesError(requestedSeries, []string{seriesFromCharm})
 		}
 		if requestedSeries != "" {
-			return requestedSeries, msgUserRequestedSeries, nil
+			if fromBundle {
+				return requestedSeries, msgBundleSeries, nil
+			} else {
+				return requestedSeries, msgUserRequestedSeries, nil
+			}
 		}
 		return seriesFromCharm, msgSingleCharmSeries, nil
 	}
