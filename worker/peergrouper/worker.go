@@ -165,13 +165,29 @@ func (w *pgWorker) Wait() error {
 }
 
 func (w *pgWorker) loop() error {
-	infow := w.watchControllerInfo()
-	defer infow.stop()
+	controllerChanges, err := w.watchForControllerChanges()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	var updateChan <-chan time.Time
 	retryInterval := initialRetryInterval
+
 	for {
 		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case <-controllerChanges:
+			changed, err := w.updateControllerMachines()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if changed {
+				// Try to update the replica set immediately.
+				// TODO(fwereade): 2016-03-17 lp:1558657
+				updateChan = time.After(0)
+			}
+
 		case f := <-w.notifyCh:
 			// Update our current view of the state of affairs.
 			changed, err := f()
@@ -218,10 +234,96 @@ func (w *pgWorker) loop() error {
 				}
 			}
 
-		case <-w.catacomb.Dying():
-			return w.catacomb.ErrDying()
 		}
 	}
+}
+
+// watchForControllerChanges starts two watchers pertaining to changes
+// to the controllers, returning a channel which will receive events
+// if either watcher fires.
+func (w *pgWorker) watchForControllerChanges() (<-chan struct{}, error) {
+	controllerInfoWatcher := w.st.WatchControllerInfo()
+	if err := w.catacomb.Add(controllerInfoWatcher); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	controllerStatusWatcher := w.st.WatchControllerStatusChanges()
+	if err := w.catacomb.Add(controllerStatusWatcher); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	out := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-w.catacomb.Dying():
+				return
+			case <-controllerInfoWatcher.Changes():
+				out <- struct{}{}
+			case <-controllerStatusWatcher.Changes():
+				out <- struct{}{}
+			}
+		}
+	}()
+
+	return out, nil
+}
+
+// updateControllerMachines updates's the peergrouper's current list
+// of controller machines, as well as starting and stopping watchers
+// for controller machines as they appear and disappear.
+func (w *pgWorker) updateControllerMachines() (bool, error) {
+	info, err := w.st.ControllerInfo()
+	if err != nil {
+		return false, fmt.Errorf("cannot get controller info: %v", err)
+	}
+
+	logger.Debugf("controller machines in state: %#v", info.MachineIds)
+	changed := false
+	// Stop machine goroutines that no longer correspond to controller
+	// machines.
+	for _, m := range w.machines {
+		if !inStrings(m.id, info.MachineIds) {
+			m.stop()
+			delete(w.machines, m.id)
+			changed = true
+		}
+	}
+
+	// Start machines with no watcher
+	for _, id := range info.MachineIds {
+		if _, ok := w.machines[id]; ok {
+			continue
+		}
+		logger.Debugf("found new machine %q", id)
+		stm, err := w.st.Machine(id)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// If the machine isn't found, it must have been
+				// removed and will soon enough be removed
+				// from the controller list. This will probably
+				// never happen, but we'll code defensively anyway.
+				logger.Warningf("machine %q from controller list not found", id)
+				continue
+			}
+			return false, fmt.Errorf("cannot get machine %q: %v", id, err)
+		}
+
+		// Don't add the machine unless it is "Started"
+		machineStatus, err := stm.Status()
+		if err != nil {
+			return false, errors.Annotatef(err, "cannot get status for machine %q", id)
+		}
+		if machineStatus.Status == status.StatusStarted {
+			logger.Debugf("machine %q has started, adding it to peergrouper list", id)
+			w.machines[id] = w.newMachine(stm)
+			changed = true
+		} else {
+			logger.Debugf("machine %q not ready: %v", id, machineStatus.Status)
+		}
+
+	}
+	return changed, nil
 }
 
 func (w *pgWorker) apiPublishInfo() ([][]network.HostPort, []instance.Id, error) {
@@ -427,104 +529,6 @@ func setHasVote(ms []*machine, hasVote bool) error {
 		}
 	}
 	return nil
-}
-
-// serverInfoWatcher watches the controller info and
-// notifies the worker when it changes.
-type serverInfoWatcher struct {
-	worker               *pgWorker
-	controllerWatcher    state.NotifyWatcher
-	machineStatusWatcher state.StringsWatcher
-}
-
-func (w *pgWorker) watchControllerInfo() *serverInfoWatcher {
-	infow := &serverInfoWatcher{
-		worker:               w,
-		controllerWatcher:    w.st.WatchControllerInfo(),
-		machineStatusWatcher: w.st.WatchControllerStatusChanges(),
-	}
-	w.start(infow.loop)
-	return infow
-}
-
-func (infow *serverInfoWatcher) loop() error {
-	for {
-		select {
-		case _, ok := <-infow.machineStatusWatcher.Changes():
-			if !ok {
-				return infow.machineStatusWatcher.Err()
-			}
-			logger.Debugf("controller status watcher fired")
-			infow.worker.notify(infow.updateMachines)
-		case _, ok := <-infow.controllerWatcher.Changes():
-			if !ok {
-				return infow.controllerWatcher.Err()
-			}
-			logger.Debugf("machine status watcher fired")
-			infow.worker.notify(infow.updateMachines)
-		case <-infow.worker.catacomb.Dying():
-			return infow.worker.catacomb.ErrDying()
-		}
-	}
-}
-
-func (infow *serverInfoWatcher) stop() {
-	infow.machineStatusWatcher.Stop()
-	infow.controllerWatcher.Stop()
-}
-
-// updateMachines is a notifyFunc that updates the current
-// machines when the controller info has changed.
-func (infow *serverInfoWatcher) updateMachines() (bool, error) {
-	info, err := infow.worker.st.ControllerInfo()
-	if err != nil {
-		return false, fmt.Errorf("cannot get controller info: %v", err)
-	}
-	logger.Debugf("controller machines in state: %#v", info.MachineIds)
-	changed := false
-	// Stop machine goroutines that no longer correspond to controller
-	// machines.
-	for _, m := range infow.worker.machines {
-		if !inStrings(m.id, info.MachineIds) {
-			m.stop()
-			delete(infow.worker.machines, m.id)
-			changed = true
-		}
-	}
-	// Start machines with no watcher
-	for _, id := range info.MachineIds {
-		if _, ok := infow.worker.machines[id]; ok {
-			continue
-		}
-		logger.Debugf("found new machine %q", id)
-		stm, err := infow.worker.st.Machine(id)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				// If the machine isn't found, it must have been
-				// removed and will soon enough be removed
-				// from the controller list. This will probably
-				// never happen, but we'll code defensively anyway.
-				logger.Warningf("machine %q from controller list not found", id)
-				continue
-			}
-			return false, fmt.Errorf("cannot get machine %q: %v", id, err)
-		}
-
-		// Don't add the machine unless it is "Started"
-		machineStatus, err := stm.Status()
-		if err != nil {
-			return false, errors.Annotatef(err, "cannot get status for machine %q", id)
-		}
-		if machineStatus.Status == status.StatusStarted {
-			logger.Debugf("machine %q has started, adding it to peergrouper list", id)
-			infow.worker.machines[id] = infow.worker.newMachine(stm)
-			changed = true
-		} else {
-			logger.Debugf("machine %q not ready: %v", id, machineStatus.Status)
-		}
-
-	}
-	return changed, nil
 }
 
 // machine represents a machine in State.
