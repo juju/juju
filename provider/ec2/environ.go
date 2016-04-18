@@ -527,8 +527,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		logger.Warningf("deprecated instance type specified: %s", spec.InstanceType.Name)
 	}
 
-	// TODO(ericsnow) There may be more than one.
-	args.InstanceConfig.Tools = tools[0]
+	args.InstanceConfig.SetTools(tools)
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, err
 	}

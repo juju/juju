@@ -406,7 +406,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 
 	// Pick envtools.  Needed for the custom data (which is what we normally
 	// call userdata).
-	args.InstanceConfig.Tools = args.Tools[0]
+	args.InstanceConfig.SetTools(args.Tools)
 	logger.Infof("picked tools %q", args.InstanceConfig.Tools)
 
 	// Get the required configuration and config-dependent information

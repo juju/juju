@@ -303,6 +303,15 @@ func (cfg *InstanceConfig) HasNetworks() bool {
 	return len(cfg.Networks) > 0 || cfg.Constraints.HaveNetworks()
 }
 
+// SetTools sets the tools that should be tried when provisioning this
+// instance. There must be at least one.
+//
+// Note: for now only the first tools is used. The rest are ignored.
+func (cfg *InstanceConfig) SetTools(toolsList coretools.List) {
+	// TODO(ericsnow) There may be more than one.
+	cfg.Tools = toolsList[0]
+}
+
 type requiresError string
 
 func (e requiresError) Error() string {

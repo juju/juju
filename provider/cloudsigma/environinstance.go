@@ -63,7 +63,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.Errorf("chosen architecture %v not present in %v", img.Arch, args.Tools.Arches())
 	}
 
-	args.InstanceConfig.Tools = tools[0]
+	args.InstanceConfig.SetTools(tools)
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config()); err != nil {
 		return nil, err
 	}

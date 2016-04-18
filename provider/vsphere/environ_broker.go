@@ -74,7 +74,7 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *
 		return err
 	}
 
-	args.InstanceConfig.Tools = envTools[0]
+	args.InstanceConfig.SetTools(envTools)
 	return FinishInstanceConfig(args.InstanceConfig, env.Config())
 }
 

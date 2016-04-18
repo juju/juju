@@ -109,7 +109,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	args.InstanceConfig.Tools = tools[0]
+	args.InstanceConfig.SetTools(tools)
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config()); err != nil {
 		return nil, err

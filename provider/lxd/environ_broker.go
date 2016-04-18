@@ -81,7 +81,7 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) erro
 	if len(tools) == 0 {
 		return errors.Errorf("No tools available for architecture %q", arch.HostArch())
 	}
-	args.InstanceConfig.Tools = tools[0]
+	args.InstanceConfig.SetTools(tools)
 	logger.Debugf("tools: %#v", args.InstanceConfig.Tools)
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.ecfg.Config); err != nil {
