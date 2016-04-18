@@ -64,13 +64,6 @@ func (s *ipAddressesInternalSuite) TestProviderIDDoesNotIncludeModelUUIDWhenSet(
 	c.Assert(result.localProviderID(), gc.Equals, localProviderID)
 }
 
-func (s *ipAddressesInternalSuite) TestSubnetReturnsNoErrorWhenSubnetIDNotSet(c *gc.C) {
-	result := s.newIPAddressWithDummyState(ipAddressDoc{})
-	subnet, err := result.Subnet()
-	c.Check(subnet, gc.IsNil)
-	c.Check(err, jc.ErrorIsNil)
-}
-
 func (s *ipAddressesInternalSuite) TestIPAddressGlobalKeyHelper(c *gc.C) {
 	result := ipAddressGlobalKey("42", "eth0", "0.1.2.3")
 	c.Assert(result, gc.Equals, "m#42#d#eth0#ip#0.1.2.3")
@@ -121,7 +114,7 @@ func (s *ipAddressesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C) {
 	doc := ipAddressDoc{
 		DeviceName:       "eth0",
 		MachineID:        "42",
-		SubnetID:         "10.20.30.0/24",
+		SubnetCIDR:       "10.20.30.0/24",
 		ConfigMethod:     StaticAddress,
 		Value:            "10.20.30.40",
 		DNSServers:       []string{"ns1.example.com", "ns2.example.org"},
@@ -132,7 +125,7 @@ func (s *ipAddressesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C) {
 
 	c.Check(result.DeviceName(), gc.Equals, "eth0")
 	c.Check(result.MachineID(), gc.Equals, "42")
-	c.Check(result.SubnetID(), gc.Equals, "10.20.30.0/24")
+	c.Check(result.SubnetCIDR(), gc.Equals, "10.20.30.0/24")
 	c.Check(result.ConfigMethod(), gc.Equals, StaticAddress)
 	c.Check(result.Value(), gc.Equals, "10.20.30.40")
 	c.Check(result.DNSServers(), jc.DeepEquals, []string{"ns1.example.com", "ns2.example.org"})
