@@ -963,7 +963,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, environ.Config()); err != nil {
 		return nil, errors.Trace(err)
 	}
-	series := args.InstanceConfig.Tools.Version.Series
+	series := args.InstanceConfig.ToolsVersion().Series
 
 	cloudcfg, err := environ.newCloudinitConfig(hostname, series)
 	if err != nil {
