@@ -329,7 +329,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 }
 
 func (w unixConfigure) addDownloadToolsCmds() error {
-	// TODO(ericsnow) Respect the full list.
+	// TODO(ericsnow) Respect the full list. (see lp:1571832)
 	// For now we are okay because each of the handled cases matches
 	// current Juju behavior. However, there are no guarantees that
 	// will hold.
