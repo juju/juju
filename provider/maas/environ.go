@@ -954,7 +954,9 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	args.InstanceConfig.SetTools(selectedTools)
+	if err := args.InstanceConfig.SetTools(selectedTools); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	hostname, err := inst.hostname()
 	if err != nil {

@@ -100,7 +100,9 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams, spec
 		return errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	args.InstanceConfig.SetTools(envTools)
+	if err := args.InstanceConfig.SetTools(envTools); err != nil {
+		return errors.Trace(err)
+	}
 	return instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config())
 }
 

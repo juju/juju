@@ -112,7 +112,9 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	if dataDir != "" {
 		icfg.DataDir = dataDir
 	}
-	icfg.SetTools(toolsList)
+	if err := icfg.SetTools(toolsList); err != nil {
+		return nil, errors.Trace(err)
+	}
 	err = instancecfg.FinishInstanceConfig(icfg, environConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "finishing instance config")

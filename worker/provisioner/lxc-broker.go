@@ -137,7 +137,9 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 
 	series := archTools.OneSeries()
 	args.InstanceConfig.MachineContainerType = instance.LXC
-	args.InstanceConfig.SetTools(archTools)
+	if err := args.InstanceConfig.SetTools(archTools); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	storageConfig := &container.StorageConfig{
 		AllowMount: config.AllowLXCLoopMounts,

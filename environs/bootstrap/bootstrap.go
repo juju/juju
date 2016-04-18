@@ -248,7 +248,9 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err != nil {
 		return err
 	}
-	instanceConfig.SetTools(selectedToolsList)
+	if err := instanceConfig.SetTools(selectedToolsList); err != nil {
+		return errors.Trace(err)
+	}
 	instanceConfig.CustomImageMetadata = customImageMetadata
 	instanceConfig.HostedModelConfig = args.HostedModelConfig
 
