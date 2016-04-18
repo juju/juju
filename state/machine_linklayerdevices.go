@@ -675,10 +675,10 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 	}
 	addressValue := ip.String()
 	subnetCIDR := ipNet.String()
-	subnetKnown, err := m.verifyAddressSubnetAliveIfKnown(subnetCIDR)
+	subnetExists, err := m.verifyAddressSubnetAliveIfItExists(subnetCIDR)
 	if err != nil {
 		return nil, errors.Trace(err)
-	} else if !subnetKnown {
+	} else if !subnetExists {
 		logger.Infof(
 			"address %q on machine %q uses unknown or machine-local subnet %q",
 			addressValue, m.Id(), subnetCIDR,
@@ -710,7 +710,10 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 	return newDoc, nil
 }
 
-func (m *Machine) verifyAddressSubnetAliveIfKnown(subnetCIDR string) (known bool, err error) {
+// verifyAddressSubnetAliveIfItExists returns whether a subnet with the given
+// subnetCIDR exists, and when it does returns an error when the subnet is not
+// alive. Otherwise returns the existence flag and no error.
+func (m *Machine) verifyAddressSubnetAliveIfItExists(subnetCIDR string) (exists bool, err error) {
 	if subnetCIDR == "" {
 		return false, nil
 	}
@@ -759,13 +762,14 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 }
 
 func (m *Machine) assertSubnetAliveWhenSetOps(newDoc *ipAddressDoc, opsSoFar []txn.Op) ([]txn.Op, error) {
-	known, err := m.verifyAddressSubnetAliveIfKnown(newDoc.SubnetCIDR)
+	exists, err := m.verifyAddressSubnetAliveIfItExists(newDoc.SubnetCIDR)
 	if err != nil {
-		// Known but not alive or other error.
+		// Exists but not alive or other error.
 		return nil, errors.Trace(err)
 	}
-	if known {
-		// Known, and still alive, add the assert to ensure it stays that way.
+	if exists {
+		// Exists and no error, so still alive. Add the assert to ensure it
+		// stays that way.
 		subnetDocID := m.st.docID(newDoc.SubnetCIDR)
 		return append(opsSoFar, txn.Op{
 			C:      subnetsC,
@@ -773,7 +777,7 @@ func (m *Machine) assertSubnetAliveWhenSetOps(newDoc *ipAddressDoc, opsSoFar []t
 			Assert: isAliveDoc,
 		}), nil
 	}
-	// Unknown or machine-local, no need to assert on life.
+	// Does not exist ( or machine-local), so no need to assert on life.
 	return opsSoFar, nil
 }
 
