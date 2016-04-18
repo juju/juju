@@ -288,7 +288,7 @@ func (s *toolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 func (s *toolsSuite) TestToolsURLGetterNoAPIHostPorts(c *gc.C) {
 	g := common.NewToolsURLGetter("my-uuid", mockAPIHostPortsGetter{})
 	_, err := g.ToolsURLs(current)
-	c.Assert(err, gc.ErrorMatches, "no suitable API server address to pick from .*")
+	c.Assert(err, gc.ErrorMatches, "no suitable API server address to pick from")
 }
 
 func (s *toolsSuite) TestToolsURLGetterAPIHostPortsError(c *gc.C) {

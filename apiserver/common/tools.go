@@ -358,7 +358,7 @@ func (t *toolsURLGetter) ToolsURLs(v version.Binary) ([]string, error) {
 		return nil, err
 	}
 	if len(addrs) == 0 {
-		return nil, errors.Errorf("no suitable API server address to pick from %v")
+		return nil, errors.Errorf("no suitable API server address to pick from")
 	}
 	var urls []string
 	for _, addr := range addrs {
