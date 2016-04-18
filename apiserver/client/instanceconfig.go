@@ -66,7 +66,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	if findToolsResult.Error != nil {
 		return nil, errors.Annotate(findToolsResult.Error, "finding tools")
 	}
-	tools := findToolsResult.List[0]
+	toolsList := findToolsResult.List
 
 	// Get the API connection info; attempt all API addresses.
 	apiHostPorts, err := st.APIHostPorts()
@@ -112,7 +112,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	if dataDir != "" {
 		icfg.DataDir = dataDir
 	}
-	icfg.Tools = tools
+	icfg.SetTools(toolsList)
 	err = instancecfg.FinishInstanceConfig(icfg, environConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "finishing instance config")
