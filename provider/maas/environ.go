@@ -1007,6 +1007,9 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		}
 	} else {
 		startedInst, err := environ.startNode2(*inst.(*maas2Instance), series, userdata)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		interfaces, err = maas2NetworkInterfaces(startedInst, subnetsMap)
 		if err != nil {
 			return nil, errors.Trace(err)
