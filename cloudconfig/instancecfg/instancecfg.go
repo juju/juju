@@ -327,6 +327,11 @@ func (cfg *InstanceConfig) ToolsList() coretools.List {
 // SetTools sets the tools that should be tried when provisioning this
 // instance. There must be at least one. Other than the URL, each item
 // must be the same.
+//
+// TODO(axw) 2016-04-19 lp:1572116
+// SetTools should verify that the tools have URLs, since they will
+// be needed for downloading on the instance. We can't do that until
+// all usage-sites are updated to pass through non-empty URLs.
 func (cfg *InstanceConfig) SetTools(toolsList coretools.List) error {
 	if len(toolsList) == 0 {
 		return errors.New("need at least 1 tools")
