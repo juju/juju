@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/url"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 )
@@ -42,8 +43,15 @@ func (dlr Downloader) Start(req Request) *Download {
 }
 
 // Download starts a new download, waits for it to complete, and
-// returns the result.
-func (dlr Downloader) Download(req Request, abort <-chan struct{}) (Status, error) {
+// returns the local name of the file.
+func (dlr Downloader) Download(req Request, abort <-chan struct{}) (filename string, err error) {
 	dl := dlr.Start(req)
-	return dl.Wait(abort)
+	file, err := dl.Wait(abort)
+	if file != nil {
+		defer file.Close()
+	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return file.Name(), nil
 }

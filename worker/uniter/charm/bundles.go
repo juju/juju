@@ -19,7 +19,7 @@ import (
 type Download interface {
 	// Wait blocks until the download completes or the abort channel
 	// receives.
-	Wait(abort <-chan struct{}) (downloader.Status, error)
+	Wait(abort <-chan struct{}) (*os.File, error)
 }
 
 // BundlesDir is responsible for storing and retrieving charm bundles
@@ -95,7 +95,6 @@ func download(info BundleInfo, archiveURLs []*url.URL, targetDir string, startDo
 		return "", errors.Trace(err)
 	}
 
-	var status downloader.Status
 	for _, archiveURL := range archiveURLs {
 		logger.Infof("downloading %s from %s", info.URL(), archiveURL)
 		dl, err2 := startDownload(downloader.Request{
@@ -106,11 +105,15 @@ func download(info BundleInfo, archiveURLs []*url.URL, targetDir string, startDo
 		if err2 != nil {
 			return "", errors.Trace(err2)
 		}
-		status, err = dl.Wait(abort)
-		if status.File != nil {
-			defer status.File.Close()
+		file, err2 := dl.Wait(abort)
+		err = err2
+		if errors.IsNotValid(err2) {
+			logger.Errorf("download from %s invalid: %v", archiveURL, err2)
+			break
 		}
-		if err == nil || errors.IsNotValid(err) {
+		if err == nil {
+			defer file.Close()
+			filename = file.Name()
 			break
 		}
 		logger.Errorf("download request to %s failed: %v", archiveURL, err)
@@ -118,7 +121,7 @@ func download(info BundleInfo, archiveURLs []*url.URL, targetDir string, startDo
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return status.File.Name(), nil
+	return filename, nil
 }
 
 // bundlePath returns the path to the location where the verified charm

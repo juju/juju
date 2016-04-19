@@ -77,18 +77,23 @@ func (dl *Download) Done() <-chan Status {
 }
 
 // Wait blocks until the download completes or the abort channel receives.
-func (dl *Download) Wait(abort <-chan struct{}) (Status, error) {
+func (dl *Download) Wait(abort <-chan struct{}) (*os.File, error) {
 	defer dl.Stop()
 
 	select {
 	case <-abort:
 		logger.Infof("download aborted")
-		return Status{}, errors.New("aborted")
+		return nil, errors.New("aborted")
 	case status := <-dl.Done():
 		if status.Err != nil {
-			return Status{}, errors.Trace(status.Err)
+			if status.File != nil {
+				if err := status.File.Close(); err != nil {
+					logger.Errorf("failed to close file: %v", err)
+				}
+			}
+			return nil, errors.Trace(status.Err)
 		}
-		return status, nil
+		return status.File, nil
 	}
 }
 
