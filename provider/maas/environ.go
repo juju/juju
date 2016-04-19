@@ -2145,6 +2145,13 @@ func (environ *maasEnviron) nodeIdFromInstance(inst instance.Instance) (string, 
 }
 
 func (env *maasEnviron) AllocateContainerAddresses(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	if !env.usingMAAS2() {
+		return env.allocateContainerAddresses1(hostInstanceID, preparedInfo)
+	}
+	return env.allocateContainerAddresses2(hostInstanceID, preparedInfo)
+}
+
+func (env *maasEnviron) allocateContainerAddresses1(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	if len(preparedInfo) == 0 {
 		return nil, errors.Errorf("no prepared info to allocate")
 	}
@@ -2237,4 +2244,8 @@ func (env *maasEnviron) AllocateContainerAddresses(hostInstanceID instance.Id, p
 	}
 	logger.Debugf("allocated device interfaces: %+v", finalInterfaces)
 	return finalInterfaces, nil
+}
+
+func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	return nil, errors.Errorf("not yet implemented")
 }
