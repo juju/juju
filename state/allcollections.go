@@ -351,7 +351,7 @@ func allCollections() collectionSchema {
 		// These collections hold information associated with actions.
 		actionsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"name"},
+				Key: []string{"model-uuid", "name"},
 			}},
 		},
 		actionNotificationsC: {},
