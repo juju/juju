@@ -47,7 +47,7 @@ func (p *lxdLogProxy) render(msg string, ctx []interface{}) string {
 	var key string
 	for _, entry := range ctx {
 		if key == "" {
-			key = entry.(string)
+			key, _ = entry.(string)
 		} else {
 			result.WriteString(key)
 			result.WriteString(": ")
