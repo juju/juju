@@ -20,45 +20,45 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type suite struct {
+type DownloadSuite struct {
 	testing.BaseSuite
 	gitjujutesting.HTTPSuite
 }
 
-func (s *suite) SetUpSuite(c *gc.C) {
+func (s *DownloadSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
 }
 
-func (s *suite) TearDownSuite(c *gc.C) {
+func (s *DownloadSuite) TearDownSuite(c *gc.C) {
 	s.HTTPSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
 }
 
-func (s *suite) SetUpTest(c *gc.C) {
+func (s *DownloadSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.HTTPSuite.SetUpTest(c)
 }
 
-func (s *suite) TearDownTest(c *gc.C) {
+func (s *DownloadSuite) TearDownTest(c *gc.C) {
 	s.HTTPSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
-var _ = gc.Suite(&suite{})
+var _ = gc.Suite(&DownloadSuite{})
 
 func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
-func (s *suite) URL(c *gc.C, path string) *url.URL {
+func (s *DownloadSuite) URL(c *gc.C, path string) *url.URL {
 	urlStr := s.HTTPSuite.URL(path)
 	URL, err := url.Parse(urlStr)
 	c.Assert(err, jc.ErrorIsNil)
 	return URL
 }
 
-func (s *suite) testDownload(c *gc.C, hostnameVerification utils.SSLHostnameVerification) {
+func (s *DownloadSuite) testDownload(c *gc.C, hostnameVerification utils.SSLHostnameVerification) {
 	tmp := c.MkDir()
 	gitjujutesting.Server.Response(200, nil, []byte("archive"))
 	d := downloader.StartDownload(
@@ -79,15 +79,15 @@ func (s *suite) testDownload(c *gc.C, hostnameVerification utils.SSLHostnameVeri
 	assertFileContents(c, status.File, "archive")
 }
 
-func (s *suite) TestDownloadWithoutDisablingSSLHostnameVerification(c *gc.C) {
+func (s *DownloadSuite) TestDownloadWithoutDisablingSSLHostnameVerification(c *gc.C) {
 	s.testDownload(c, utils.VerifySSLHostnames)
 }
 
-func (s *suite) TestDownloadWithDisablingSSLHostnameVerification(c *gc.C) {
+func (s *DownloadSuite) TestDownloadWithDisablingSSLHostnameVerification(c *gc.C) {
 	s.testDownload(c, utils.NoVerifySSLHostnames)
 }
 
-func (s *suite) TestDownloadError(c *gc.C) {
+func (s *DownloadSuite) TestDownloadError(c *gc.C) {
 	gitjujutesting.Server.Response(404, nil, nil)
 	d := downloader.StartDownload(
 		downloader.Request{
@@ -101,7 +101,7 @@ func (s *suite) TestDownloadError(c *gc.C) {
 	c.Assert(status.Err, gc.ErrorMatches, `cannot download ".*": bad http response: 404 Not Found`)
 }
 
-func (s *suite) TestStopDownload(c *gc.C) {
+func (s *DownloadSuite) TestStopDownload(c *gc.C) {
 	tmp := c.MkDir()
 	d := downloader.StartDownload(
 		downloader.Request{
