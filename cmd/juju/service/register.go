@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -19,6 +20,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/charms"
 )
+
+var budgetWithLimitRe = regexp.MustCompile(`^[a-zA-Z0-9\-]+:[0-9]+$`)
 
 type metricRegistrationPost struct {
 	ModelUUID   string `json:"env-uuid"`
@@ -31,25 +34,30 @@ type metricRegistrationPost struct {
 
 // RegisterMeteredCharm implements the DeployStep interface.
 type RegisterMeteredCharm struct {
-	AllocateBudget
-	Plan        string
-	RegisterURL string
-	QueryURL    string
-	credentials []byte
+	AllocationSpec string
+	Plan           string
+	RegisterURL    string
+	QueryURL       string
+	credentials    []byte
+	budget         string
+	limit          string
 }
 
 func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
-	r.AllocateBudget.SetFlags(f)
+	f.StringVar(&r.AllocationSpec, "budget", "personal:0", "budget and allocation limit")
 	f.StringVar(&r.Plan, "plan", "", "plan to deploy charm under")
 }
 
 // RunPre obtains authorization to deploy this charm. The authorization, if received is not
 // sent to the controller, rather it is kept as an attribute on RegisterMeteredCharm.
 func (r *RegisterMeteredCharm) RunPre(state api.Connection, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
-	err := r.AllocateBudget.RunPre(state, bakeryClient, ctx, deployInfo)
-	if err != nil {
-		return errors.Annotate(err, "failed to register metrics")
+	if allocBudget, allocLimit, err := parseBudgetWithLimit(r.AllocationSpec); err == nil {
+		// Make these available to registration if valid.
+		r.budget, r.limit = allocBudget, allocLimit
+	} else {
+		return errors.Trace(err)
 	}
+
 	charmsClient := charms.NewClient(state)
 	metered, err := charmsClient.IsMetered(deployInfo.CharmID.URL.String())
 	if err != nil {
@@ -78,8 +86,8 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, bakeryClient *httpba
 		deployInfo.ModelUUID,
 		deployInfo.CharmID.URL.String(),
 		deployInfo.ServiceName,
-		r.AllocateBudget.Budget,
-		r.AllocateBudget.Limit,
+		r.budget,
+		r.limit,
 		bakeryClient)
 	if err != nil {
 		if deployInfo.CharmID.URL.Schema == "cs" {
@@ -109,12 +117,6 @@ func (r *RegisterMeteredCharm) RunPost(state api.Connection, bakeryClient *httpb
 	err := api.SetMetricCredentials(deployInfo.ServiceName, r.credentials)
 	if err != nil {
 		logger.Warningf("failed to set metric credentials: %v", err)
-		return errors.Trace(err)
-	}
-
-	err = r.AllocateBudget.RunPost(state, bakeryClient, ctx, deployInfo, prevErr)
-	if err != nil {
-		logger.Warningf("failed to allocate budget: %v", err)
 		return errors.Trace(err)
 	}
 
@@ -257,13 +259,27 @@ func (r *RegisterMeteredCharm) registerMetrics(environmentUUID, charmURL, servic
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("failed to register metrics: http response is %d", response.StatusCode)
+	if response.StatusCode == http.StatusOK {
+		b, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to read the response")
+		}
+		return b, nil
 	}
-
-	b, err := ioutil.ReadAll(response.Body)
+	var respError struct {
+		Error string `json:"error"`
+	}
+	err = json.NewDecoder(response.Body).Decode(&respError)
 	if err != nil {
-		return nil, errors.Annotatef(err, "failed to read the response")
+		return nil, errors.Errorf("authorization failed: http response is %d", response.StatusCode)
 	}
-	return b, nil
+	return nil, errors.Errorf("authorization failed: %s", respError.Error)
+}
+
+func parseBudgetWithLimit(bl string) (string, string, error) {
+	if !budgetWithLimitRe.MatchString(bl) {
+		return "", "", errors.New("invalid allocation, expecting <budget>:<limit>")
+	}
+	parts := strings.Split(bl, ":")
+	return parts[0], parts[1], nil
 }
