@@ -34,15 +34,21 @@ func NewHTTPBlobOpener(hostnameVerification utils.SSLHostnameVerification) func(
 
 // NewSha256Verifier returns a verifier suitable for Request. The
 // verifier checks the SHA-256 checksum of the file to ensure that it
-// matches the provided one.
-func NewSha256Verifier(expected string) func(*os.File) error {
+// matches the one returned by the provided func.
+func NewSha256Verifier(getExpected func() (string, error)) func(*os.File) error {
 	return func(file *os.File) error {
+		expected, err := getExpected()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		actual, _, err := utils.ReadSHA256(file)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if actual != expected {
-			return errors.Errorf("expected sha256 %q, got %q", expected, actual)
+			err := errors.Errorf("expected sha256 %q, got %q", expected, actual)
+			return errors.NewNotValid(err, "")
 		}
 		return nil
 	}

@@ -103,10 +103,16 @@ func (dl *Download) run(req Request) {
 		err = errors.Errorf("cannot download %q: %v", req.URL, err)
 	}
 
-	if req.Verify != nil {
-		err = req.Verify(file)
-		if _, err2 := file.Seek(0, os.SEEK_SET); err2 != nil && err == nil {
-			err = err2
+	if err == nil {
+		logger.Infof("download complete")
+
+		if req.Verify != nil {
+			err = req.Verify(file)
+			if _, err2 := file.Seek(0, os.SEEK_SET); err2 != nil && err == nil {
+				err = err2
+			} else {
+				logger.Infof("download verified")
+			}
 		}
 	}
 
@@ -128,7 +134,7 @@ func download(req Request, openBlob func(*url.URL) (io.ReadCloser, error)) (file
 	}
 	tempFile, err := ioutil.TempFile(dir, "inprogress-")
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer func() {
 		if err != nil {
@@ -138,25 +144,27 @@ func download(req Request, openBlob func(*url.URL) (io.ReadCloser, error)) (file
 
 	reader, err := openBlob(req.URL)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer reader.Close()
 
 	_, err = io.Copy(tempFile, reader)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if _, err := tempFile.Seek(0, 0); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return tempFile, nil
 }
 
 func cleanTempFile(f *os.File) {
-	if f != nil {
-		f.Close()
-		if err := os.Remove(f.Name()); err != nil {
-			logger.Warningf("cannot remove temp file %q: %v", f.Name(), err)
-		}
+	if f == nil {
+		return
+	}
+
+	f.Close()
+	if err := os.Remove(f.Name()); err != nil {
+		logger.Warningf("cannot remove temp file %q: %v", f.Name(), err)
 	}
 }

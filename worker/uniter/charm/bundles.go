@@ -89,6 +89,8 @@ func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struc
 }
 
 func download(info BundleInfo, archiveURLs []*url.URL, targetDir string, startDownload func(downloader.Request) (Download, error), abort <-chan struct{}) (filename string, err error) {
+	verify := downloader.NewSha256Verifier(info.ArchiveSha256)
+
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -99,6 +101,7 @@ func download(info BundleInfo, archiveURLs []*url.URL, targetDir string, startDo
 		dl, err2 := startDownload(downloader.Request{
 			URL:       archiveURL,
 			TargetDir: targetDir,
+			Verify:    verify,
 		})
 		if err2 != nil {
 			return "", errors.Trace(err2)
@@ -107,7 +110,7 @@ func download(info BundleInfo, archiveURLs []*url.URL, targetDir string, startDo
 		if status.File != nil {
 			defer status.File.Close()
 		}
-		if err == nil {
+		if err == nil || errors.IsNotValid(err) {
 			break
 		}
 		logger.Errorf("download request to %s failed: %v", archiveURL, err)
@@ -115,23 +118,6 @@ func download(info BundleInfo, archiveURLs []*url.URL, targetDir string, startDo
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	logger.Infof("download complete")
-
-	actualSha256, _, err := utils.ReadSHA256(status.File)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	archiveSha256, err := info.ArchiveSha256()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if actualSha256 != archiveSha256 {
-		return "", errors.Errorf(
-			"expected sha256 %q, got %q", archiveSha256, actualSha256,
-		)
-	}
-	logger.Infof("download verified")
-
 	return status.File.Name(), nil
 }
 
