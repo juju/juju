@@ -61,12 +61,12 @@ func (s *suite) URL(c *gc.C, path string) *url.URL {
 func (s *suite) testDownload(c *gc.C, hostnameVerification utils.SSLHostnameVerification) {
 	tmp := c.MkDir()
 	gitjujutesting.Server.Response(200, nil, []byte("archive"))
-	d := downloader.New(
+	d := downloader.StartDownload(
 		downloader.Request{
 			URL:       s.URL(c, "/archive.tgz"),
 			TargetDir: tmp,
 		},
-		hostnameVerification,
+		downloader.NewHTTPBlobOpener(hostnameVerification),
 	)
 	status := <-d.Done()
 	c.Assert(status.Err, gc.IsNil)
@@ -89,12 +89,12 @@ func (s *suite) TestDownloadWithDisablingSSLHostnameVerification(c *gc.C) {
 
 func (s *suite) TestDownloadError(c *gc.C) {
 	gitjujutesting.Server.Response(404, nil, nil)
-	d := downloader.New(
+	d := downloader.StartDownload(
 		downloader.Request{
 			URL:       s.URL(c, "/archive.tgz"),
 			TargetDir: c.MkDir(),
 		},
-		utils.VerifySSLHostnames,
+		downloader.NewHTTPBlobOpener(utils.VerifySSLHostnames),
 	)
 	status := <-d.Done()
 	c.Assert(status.File, gc.IsNil)
@@ -103,12 +103,12 @@ func (s *suite) TestDownloadError(c *gc.C) {
 
 func (s *suite) TestStopDownload(c *gc.C) {
 	tmp := c.MkDir()
-	d := downloader.New(
+	d := downloader.StartDownload(
 		downloader.Request{
 			URL:       s.URL(c, "/x.tgz"),
 			TargetDir: tmp,
 		},
-		utils.VerifySSLHostnames,
+		downloader.NewHTTPBlobOpener(utils.VerifySSLHostnames),
 	)
 	d.Stop()
 	select {

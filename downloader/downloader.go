@@ -4,16 +4,13 @@
 package downloader
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"net/url"
 	"os"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
 	"launchpad.net/tomb"
 )
 
@@ -45,14 +42,13 @@ type Download struct {
 	openBlob func(*url.URL) (io.ReadCloser, error)
 }
 
-// New returns a new Download instance based on the provided request.
-//
-// openBlob is used to gain access to the blob, whether through an HTTP
-// request or some other means.
-func New(req Request, hostnameVerification utils.SSLHostnameVerification) *Download {
+// StartDownload returns a new Download instance based on the provided
+// request. openBlob is used to gain access to the blob, whether through
+// an HTTP request or some other means.
+func StartDownload(req Request, openBlob func(*url.URL) (io.ReadCloser, error)) *Download {
 	d := &Download{
 		done:     make(chan Status),
-		openBlob: httpBlobOpener(hostnameVerification),
+		openBlob: openBlob,
 	}
 	go d.run(req)
 	return d
@@ -95,7 +91,7 @@ func (d *Download) run(req Request) {
 	// disableSSLHostnameVerification behavior here.
 	file, err := download(req, d.openBlob)
 	if err != nil {
-		err = fmt.Errorf("cannot download %q: %v", req.URL, err)
+		err = errors.Errorf("cannot download %q: %v", req.URL, err)
 	}
 
 	status := Status{
@@ -106,22 +102,6 @@ func (d *Download) run(req Request) {
 	case d.done <- status:
 	case <-d.tomb.Dying():
 		cleanTempFile(file)
-	}
-}
-
-func httpBlobOpener(hostnameVerification utils.SSLHostnameVerification) func(*url.URL) (io.ReadCloser, error) {
-	return func(url *url.URL) (io.ReadCloser, error) {
-		// TODO(rog) make the download operation interruptible.
-		client := utils.GetHTTPClient(hostnameVerification)
-		resp, err := client.Get(url.String())
-		if err != nil {
-			return nil, err
-		}
-		if resp.StatusCode != http.StatusOK {
-			resp.Body.Close()
-			return nil, fmt.Errorf("bad http response: %v", resp.Status)
-		}
-		return resp.Body, nil
 	}
 }
 

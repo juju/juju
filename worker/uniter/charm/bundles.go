@@ -32,7 +32,8 @@ type BundlesDir struct {
 func NewBundlesDir(path string, startDownload func(downloader.Request) (Download, error)) *BundlesDir {
 	if startDownload == nil {
 		startDownload = func(req downloader.Request) (Download, error) {
-			dl := downloader.New(req, utils.NoVerifySSLHostnames)
+			opener := downloader.NewHTTPBlobOpener(utils.NoVerifySSLHostnames)
+			dl := downloader.StartDownload(req, opener)
 			return dl, nil
 		}
 	}

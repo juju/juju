@@ -118,7 +118,8 @@ func startDownload(req downloader.Request) (charm.Download, error) {
 	// being inadequate. We always verify the SHA-256 hash,
 	// and the data transferred is not sensitive, so this
 	// does not pose a problem.
-	dl := downloader.New(req, utils.NoVerifySSLHostnames)
+	opener := downloader.NewHTTPBlobOpener(utils.NoVerifySSLHostnames)
+	dl := downloader.StartDownload(req, opener)
 	return dl, nil
 }
 
