@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package downloader_test
@@ -19,41 +19,41 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type DownloadSuite struct {
+type DownloaderSuite struct {
 	testing.BaseSuite
 	gitjujutesting.HTTPSuite
 }
 
-func (s *DownloadSuite) SetUpSuite(c *gc.C) {
+func (s *DownloaderSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
 }
 
-func (s *DownloadSuite) TearDownSuite(c *gc.C) {
+func (s *DownloaderSuite) TearDownSuite(c *gc.C) {
 	s.HTTPSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
 }
 
-func (s *DownloadSuite) SetUpTest(c *gc.C) {
+func (s *DownloaderSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.HTTPSuite.SetUpTest(c)
 }
 
-func (s *DownloadSuite) TearDownTest(c *gc.C) {
+func (s *DownloaderSuite) TearDownTest(c *gc.C) {
 	s.HTTPSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
-var _ = gc.Suite(&DownloadSuite{})
+var _ = gc.Suite(&DownloaderSuite{})
 
-func (s *DownloadSuite) URL(c *gc.C, path string) *url.URL {
+func (s *DownloaderSuite) URL(c *gc.C, path string) *url.URL {
 	urlStr := s.HTTPSuite.URL(path)
 	URL, err := url.Parse(urlStr)
 	c.Assert(err, jc.ErrorIsNil)
 	return URL
 }
 
-func (s *DownloadSuite) testDownload(c *gc.C, hostnameVerification utils.SSLHostnameVerification) {
+func (s *DownloaderSuite) testDownload(c *gc.C, hostnameVerification utils.SSLHostnameVerification) {
 	tmp := c.MkDir()
 	gitjujutesting.Server.Response(200, nil, []byte("archive"))
 	d := downloader.StartDownload(
@@ -74,15 +74,15 @@ func (s *DownloadSuite) testDownload(c *gc.C, hostnameVerification utils.SSLHost
 	assertFileContents(c, status.File, "archive")
 }
 
-func (s *DownloadSuite) TestDownloadWithoutDisablingSSLHostnameVerification(c *gc.C) {
+func (s *DownloaderSuite) TestDownloadWithoutDisablingSSLHostnameVerification(c *gc.C) {
 	s.testDownload(c, utils.VerifySSLHostnames)
 }
 
-func (s *DownloadSuite) TestDownloadWithDisablingSSLHostnameVerification(c *gc.C) {
+func (s *DownloaderSuite) TestDownloadWithDisablingSSLHostnameVerification(c *gc.C) {
 	s.testDownload(c, utils.NoVerifySSLHostnames)
 }
 
-func (s *DownloadSuite) TestDownloadError(c *gc.C) {
+func (s *DownloaderSuite) TestDownloadError(c *gc.C) {
 	gitjujutesting.Server.Response(404, nil, nil)
 	d := downloader.StartDownload(
 		downloader.Request{
@@ -96,7 +96,7 @@ func (s *DownloadSuite) TestDownloadError(c *gc.C) {
 	c.Assert(status.Err, gc.ErrorMatches, `cannot download ".*": bad http response: 404 Not Found`)
 }
 
-func (s *DownloadSuite) TestStopDownload(c *gc.C) {
+func (s *DownloaderSuite) TestStopDownload(c *gc.C) {
 	tmp := c.MkDir()
 	d := downloader.StartDownload(
 		downloader.Request{
@@ -114,14 +114,4 @@ func (s *DownloadSuite) TestStopDownload(c *gc.C) {
 	infos, err := ioutil.ReadDir(tmp)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(infos, gc.HasLen, 0)
-}
-
-func assertFileContents(c *gc.C, f *os.File, expect string) {
-	got, err := ioutil.ReadAll(f)
-	c.Assert(err, jc.ErrorIsNil)
-	if !c.Check(string(got), gc.Equals, expect) {
-		info, err := f.Stat()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("info %#v", info)
-	}
 }

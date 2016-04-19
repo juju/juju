@@ -1,0 +1,49 @@
+// Copyright 2016 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package downloader
+
+import (
+	"io"
+	"net/url"
+
+	"github.com/juju/loggo"
+	"github.com/juju/utils"
+)
+
+var logger = loggo.GetLogger("juju.downloader")
+
+// Downloader provides the functionality for downloading files.
+type Downloader struct {
+	// OpenBlob is the func used to gain access to the blob, whether
+	// through an HTTP request or some other means.
+	OpenBlob func(url *url.URL) (io.ReadCloser, error)
+}
+
+// NewArgs holds the arguments to New().
+type NewArgs struct {
+	// HostnameVerification is that which should be used for the client.
+	// If it is disableSSLHostnameVerification then a non-validating
+	// client will be used.
+	HostnameVerification utils.SSLHostnameVerification
+}
+
+// New returns a new Downloader for the given args.
+func New(args NewArgs) *Downloader {
+	return &Downloader{
+		OpenBlob: NewHTTPBlobOpener(args.HostnameVerification),
+	}
+}
+
+// Start starts a new download and returns it.
+func (dlr Downloader) Start(req Request) *Download {
+	dl := StartDownload(req, dlr.OpenBlob)
+	return dl
+}
+
+// Download starts a new download, waits for it to complete, and
+// returns the result.
+func (dlr Downloader) Download(req Request, abort <-chan struct{}) (Status, error) {
+	dl := dlr.Start(req)
+	return dl.Wait(abort)
+}

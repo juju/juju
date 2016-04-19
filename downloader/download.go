@@ -10,11 +10,9 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"launchpad.net/tomb"
 )
-
-var logger = loggo.GetLogger("juju.downloader")
 
 // Request holds a single download request.
 type Request struct {
@@ -46,25 +44,32 @@ type Download struct {
 // request. openBlob is used to gain access to the blob, whether through
 // an HTTP request or some other means.
 func StartDownload(req Request, openBlob func(*url.URL) (io.ReadCloser, error)) *Download {
-	d := &Download{
+	dl := newDownload(openBlob)
+	go dl.run(req)
+	return dl
+}
+
+func newDownload(openBlob func(*url.URL) (io.ReadCloser, error)) *Download {
+	if openBlob == nil {
+		openBlob = NewHTTPBlobOpener(utils.NoVerifySSLHostnames)
+	}
+	return &Download{
 		done:     make(chan Status),
 		openBlob: openBlob,
 	}
-	go d.run(req)
-	return d
 }
 
 // Stop stops any download that's in progress.
-func (d *Download) Stop() {
-	d.tomb.Kill(nil)
-	d.tomb.Wait()
+func (dl *Download) Stop() {
+	dl.tomb.Kill(nil)
+	dl.tomb.Wait()
 }
 
 // Done returns a channel that receives a status when the download has
 // completed.  It is the receiver's responsibility to close and remove
 // the received file.
-func (d *Download) Done() <-chan Status {
-	return d.done
+func (dl *Download) Done() <-chan Status {
+	return dl.done
 }
 
 // Wait blocks until the download completes or the abort channel receives.
@@ -83,13 +88,13 @@ func (dl *Download) Wait(abort <-chan struct{}) (Status, error) {
 	}
 }
 
-func (d *Download) run(req Request) {
-	defer d.tomb.Done()
+func (dl *Download) run(req Request) {
+	defer dl.tomb.Done()
 
 	// TODO(dimitern) 2013-10-03 bug #1234715
 	// Add a testing HTTPS storage to verify the
 	// disableSSLHostnameVerification behavior here.
-	file, err := download(req, d.openBlob)
+	file, err := download(req, dl.openBlob)
 	if err != nil {
 		err = errors.Errorf("cannot download %q: %v", req.URL, err)
 	}
@@ -99,8 +104,8 @@ func (d *Download) run(req Request) {
 		Err:  err,
 	}
 	select {
-	case d.done <- status:
-	case <-d.tomb.Dying():
+	case dl.done <- status:
+	case <-dl.tomb.Dying():
 		cleanTempFile(file)
 	}
 }
