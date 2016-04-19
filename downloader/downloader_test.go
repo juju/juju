@@ -56,18 +56,18 @@ func (s *DownloaderSuite) URL(c *gc.C, path string) *url.URL {
 func (s *DownloaderSuite) testDownload(c *gc.C, hostnameVerification utils.SSLHostnameVerification) {
 	tmp := c.MkDir()
 	gitjujutesting.Server.Response(200, nil, []byte("archive"))
-	d := downloader.StartDownload(
-		downloader.Request{
-			URL:       s.URL(c, "/archive.tgz"),
-			TargetDir: tmp,
-		},
-		downloader.NewHTTPBlobOpener(hostnameVerification),
-	)
-	status := <-d.Done()
-	c.Assert(status.Err, gc.IsNil)
-	c.Assert(status.File, gc.NotNil)
+	dlr := downloader.New(downloader.NewArgs{
+		HostnameVerification: hostnameVerification,
+	})
+	dl := dlr.Start(downloader.Request{
+		URL:       s.URL(c, "/archive.tgz"),
+		TargetDir: tmp,
+	})
+	status := <-dl.Done()
 	defer os.Remove(status.File.Name())
 	defer status.File.Close()
+	c.Assert(status.Err, gc.IsNil)
+	c.Assert(status.File, gc.NotNil)
 
 	dir, _ := filepath.Split(status.File.Name())
 	c.Assert(filepath.Clean(dir), gc.Equals, tmp)
@@ -84,30 +84,30 @@ func (s *DownloaderSuite) TestDownloadWithDisablingSSLHostnameVerification(c *gc
 
 func (s *DownloaderSuite) TestDownloadError(c *gc.C) {
 	gitjujutesting.Server.Response(404, nil, nil)
-	d := downloader.StartDownload(
-		downloader.Request{
-			URL:       s.URL(c, "/archive.tgz"),
-			TargetDir: c.MkDir(),
-		},
-		downloader.NewHTTPBlobOpener(utils.VerifySSLHostnames),
-	)
-	status := <-d.Done()
+	dlr := downloader.New(downloader.NewArgs{
+		HostnameVerification: utils.VerifySSLHostnames,
+	})
+	dl := dlr.Start(downloader.Request{
+		URL:       s.URL(c, "/archive.tgz"),
+		TargetDir: c.MkDir(),
+	})
+	status := <-dl.Done()
 	c.Assert(status.File, gc.IsNil)
 	c.Assert(status.Err, gc.ErrorMatches, `cannot download ".*": bad http response: 404 Not Found`)
 }
 
 func (s *DownloaderSuite) TestStopDownload(c *gc.C) {
 	tmp := c.MkDir()
-	d := downloader.StartDownload(
-		downloader.Request{
-			URL:       s.URL(c, "/x.tgz"),
-			TargetDir: tmp,
-		},
-		downloader.NewHTTPBlobOpener(utils.VerifySSLHostnames),
-	)
-	d.Stop()
+	dlr := downloader.New(downloader.NewArgs{
+		HostnameVerification: utils.VerifySSLHostnames,
+	})
+	dl := dlr.Start(downloader.Request{
+		URL:       s.URL(c, "/x.tgz"),
+		TargetDir: tmp,
+	})
+	dl.Stop()
 	select {
-	case status := <-d.Done():
+	case status := <-dl.Done():
 		c.Fatalf("received status %#v after stop", status)
 	case <-time.After(testing.ShortWait):
 	}
