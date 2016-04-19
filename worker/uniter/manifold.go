@@ -4,8 +4,6 @@
 package uniter
 
 import (
-	"net/url"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -114,20 +112,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func startDownload(url *url.URL, dir string) (charm.Download, error) {
+func startDownload(req downloader.Request) (charm.Download, error) {
 	// Downloads always go through the API server, which at
 	// present cannot be verified due to the certificates
 	// being inadequate. We always verify the SHA-256 hash,
 	// and the data transferred is not sensitive, so this
 	// does not pose a problem.
-	dl := downloader.New(downloader.NewArgs{
-		URL:                  url.String(),
-		TargetDir:            dir,
-		HostnameVerification: utils.NoVerifySSLHostnames,
-	})
+	dl := downloader.New(req, utils.NoVerifySSLHostnames)
 	return dl, nil
 }
 
-func newDownloader(apiCaller base.APICaller) (func(url *url.URL, dir string) (charm.Download, error), error) {
+func newDownloader(apiCaller base.APICaller) (func(req downloader.Request) (charm.Download, error), error) {
 	return startDownload, nil
 }

@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/juju/loggo"
@@ -17,10 +18,21 @@ import (
 
 var logger = loggo.GetLogger("juju.downloader")
 
+// Request holds a single download request.
+type Request struct {
+	// URL is the location from which the file will be downloaded.
+	URL *url.URL
+
+	// TargetDir is the directory into which the file will be downloaded.
+	// It defaults to os.TempDir().
+	TargetDir string
+}
+
 // Status represents the status of a completed download.
 type Status struct {
 	// File holds the downloaded data on success.
 	File *os.File
+
 	// Err describes any error encountered while downloading.
 	Err error
 }
@@ -32,28 +44,17 @@ type Download struct {
 	hostnameVerification utils.SSLHostnameVerification
 }
 
-// NewArgs holds the arguments to New().
-type NewArgs struct {
-	// URL is the location from which the file will be downloaded.
-	URL string
-
-	// TargetDir is the directory into which the file will be downloaded.
-	// It defaults to os.TempDir().
-	TargetDir string
-
-	// HostnameVerification is that which should be used for the client.
-	// If it is disableSSLHostnameVerification then a non-validating
-	// client will be used.
-	HostnameVerification utils.SSLHostnameVerification
-}
-
-// New returns a new Download instance based on the provided args.
-func New(args NewArgs) *Download {
+// New returns a new Download instance based on the provided request.
+//
+// hostnameVerification is that which should be used for the client.
+// If it is disableSSLHostnameVerification then a non-validating
+// client will be used.
+func New(req Request, hostnameVerification utils.SSLHostnameVerification) *Download {
 	d := &Download{
 		done:                 make(chan Status),
-		hostnameVerification: args.HostnameVerification,
+		hostnameVerification: hostnameVerification,
 	}
-	go d.run(args.URL, args.TargetDir)
+	go d.run(req)
 	return d
 }
 
@@ -70,15 +71,17 @@ func (d *Download) Done() <-chan Status {
 	return d.done
 }
 
-func (d *Download) run(url, dir string) {
+func (d *Download) run(req Request) {
 	defer d.tomb.Done()
+
 	// TODO(dimitern) 2013-10-03 bug #1234715
 	// Add a testing HTTPS storage to verify the
 	// disableSSLHostnameVerification behavior here.
-	file, err := download(url, dir, d.sendHTTPDownload)
+	file, err := download(req, d.sendHTTPDownload)
 	if err != nil {
-		err = fmt.Errorf("cannot download %q: %v", url, err)
+		err = fmt.Errorf("cannot download %q: %v", req.URL, err)
 	}
+
 	status := Status{
 		File: file,
 		Err:  err,
@@ -86,14 +89,14 @@ func (d *Download) run(url, dir string) {
 	select {
 	case d.done <- status:
 	case <-d.tomb.Dying():
-		cleanTempFile(status.File)
+		cleanTempFile(file)
 	}
 }
 
-func (d *Download) sendHTTPDownload(url string) (io.ReadCloser, error) {
+func (d *Download) sendHTTPDownload(url *url.URL) (io.ReadCloser, error) {
 	// TODO(rog) make the download operation interruptible.
 	client := utils.GetHTTPClient(d.hostnameVerification)
-	resp, err := client.Get(url)
+	resp, err := client.Get(url.String())
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +107,8 @@ func (d *Download) sendHTTPDownload(url string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
-func download(url, dir string, httpDownload func(url string) (io.ReadCloser, error)) (file *os.File, err error) {
+func download(req Request, httpDownload func(url *url.URL) (io.ReadCloser, error)) (file *os.File, err error) {
+	dir := req.TargetDir
 	if dir == "" {
 		dir = os.TempDir()
 	}
@@ -118,7 +122,7 @@ func download(url, dir string, httpDownload func(url string) (io.ReadCloser, err
 		}
 	}()
 
-	reader, err := httpDownload(url)
+	reader, err := httpDownload(req.URL)
 	if err != nil {
 		return nil, err
 	}

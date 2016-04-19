@@ -5,7 +5,6 @@ package uniter
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
@@ -102,7 +102,7 @@ type Uniter struct {
 
 	// startDownload is the function used to start downloading
 	// the charm archive.
-	startDownload func(url *url.URL, dir string) (charm.Download, error)
+	startDownload func(downloader.Request) (charm.Download, error)
 }
 
 // UniterParams hold all the necessary parameters for a new Uniter.
@@ -111,7 +111,7 @@ type UniterParams struct {
 	UnitTag              names.UnitTag
 	LeadershipTracker    leadership.Tracker
 	DataDir              string
-	StartDownload        func(url *url.URL, dir string) (charm.Download, error)
+	StartDownload        func(downloader.Request) (charm.Download, error)
 	MachineLock          *fslock.Lock
 	CharmDirGuard        fortress.Guard
 	UpdateStatusSignal   func() <-chan time.Time

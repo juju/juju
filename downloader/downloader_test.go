@@ -5,6 +5,7 @@ package downloader_test
 
 import (
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
@@ -50,14 +51,23 @@ func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
+func (s *suite) URL(c *gc.C, path string) *url.URL {
+	urlStr := s.HTTPSuite.URL(path)
+	URL, err := url.Parse(urlStr)
+	c.Assert(err, jc.ErrorIsNil)
+	return URL
+}
+
 func (s *suite) testDownload(c *gc.C, hostnameVerification utils.SSLHostnameVerification) {
 	tmp := c.MkDir()
 	gitjujutesting.Server.Response(200, nil, []byte("archive"))
-	d := downloader.New(downloader.NewArgs{
-		URL:                  s.URL("/archive.tgz"),
-		TargetDir:            tmp,
-		HostnameVerification: hostnameVerification,
-	})
+	d := downloader.New(
+		downloader.Request{
+			URL:       s.URL(c, "/archive.tgz"),
+			TargetDir: tmp,
+		},
+		hostnameVerification,
+	)
 	status := <-d.Done()
 	c.Assert(status.Err, gc.IsNil)
 	c.Assert(status.File, gc.NotNil)
@@ -79,11 +89,13 @@ func (s *suite) TestDownloadWithDisablingSSLHostnameVerification(c *gc.C) {
 
 func (s *suite) TestDownloadError(c *gc.C) {
 	gitjujutesting.Server.Response(404, nil, nil)
-	d := downloader.New(downloader.NewArgs{
-		URL:                  s.URL("/archive.tgz"),
-		TargetDir:            c.MkDir(),
-		HostnameVerification: utils.VerifySSLHostnames,
-	})
+	d := downloader.New(
+		downloader.Request{
+			URL:       s.URL(c, "/archive.tgz"),
+			TargetDir: c.MkDir(),
+		},
+		utils.VerifySSLHostnames,
+	)
 	status := <-d.Done()
 	c.Assert(status.File, gc.IsNil)
 	c.Assert(status.Err, gc.ErrorMatches, `cannot download ".*": bad http response: 404 Not Found`)
@@ -91,11 +103,13 @@ func (s *suite) TestDownloadError(c *gc.C) {
 
 func (s *suite) TestStopDownload(c *gc.C) {
 	tmp := c.MkDir()
-	d := downloader.New(downloader.NewArgs{
-		URL:                  s.URL("/x.tgz"),
-		TargetDir:            tmp,
-		HostnameVerification: utils.VerifySSLHostnames,
-	})
+	d := downloader.New(
+		downloader.Request{
+			URL:       s.URL(c, "/x.tgz"),
+			TargetDir: tmp,
+		},
+		utils.VerifySSLHostnames,
+	)
 	d.Stop()
 	select {
 	case status := <-d.Done():

@@ -31,18 +31,14 @@ type Download interface {
 // identified by state charms.
 type BundlesDir struct {
 	path          string
-	startDownload func(url *url.URL, dir string) (Download, error)
+	startDownload func(downloader.Request) (Download, error)
 }
 
 // NewBundlesDir returns a new BundlesDir which uses path for storage.
-func NewBundlesDir(path string, startDownload func(url *url.URL, dir string) (Download, error)) *BundlesDir {
+func NewBundlesDir(path string, startDownload func(downloader.Request) (Download, error)) *BundlesDir {
 	if startDownload == nil {
-		startDownload = func(url *url.URL, dir string) (Download, error) {
-			dl := downloader.New(downloader.NewArgs{
-				URL:                  url.String(),
-				TargetDir:            dir,
-				HostnameVerification: utils.NoVerifySSLHostnames,
-			})
+		startDownload = func(req downloader.Request) (Download, error) {
+			dl := downloader.New(req, utils.NoVerifySSLHostnames)
 			return dl, nil
 		}
 	}
@@ -116,8 +112,11 @@ func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error
 	return os.Rename(st.File.Name(), d.bundlePath(info))
 }
 
-func tryDownload(url *url.URL, dir string, startDownload func(url *url.URL, dir string) (Download, error), abort <-chan struct{}) (downloader.Status, error) {
-	dl, err := startDownload(url, dir)
+func tryDownload(url *url.URL, dir string, startDownload func(downloader.Request) (Download, error), abort <-chan struct{}) (downloader.Status, error) {
+	dl, err := startDownload(downloader.Request{
+		URL:       url,
+		TargetDir: dir,
+	})
 	if err != nil {
 		return downloader.Status{}, errors.Trace(err)
 	}
