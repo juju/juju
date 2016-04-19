@@ -7,7 +7,6 @@ package instancecfg
 import (
 	"fmt"
 	"net"
-	"net/url"
 	"path"
 	"reflect"
 	"strconv"
@@ -82,13 +81,10 @@ type InstanceConfig struct {
 	// ensure the agent is running on the correct instance.
 	MachineNonce string
 
-	// tools is juju tools to be used on the new instance. The URL is
-	// ignored and instead those from ToolsURLs are used.
-	// URLs may be substituted.
-	tools *coretools.Tools
-
-	// toolsURLs holds all the URLs that will be used for the tools.
-	toolsURLs []*url.URL
+	// tools is the list of juju tools used to install the Juju agent
+	// on the new instance. Each of the entries in the list must have
+	// identical versions and hashes, but may have different URLs.
+	tools coretools.List
 
 	// GUI is the Juju GUI archive to be installed in the new instance.
 	GUI *coretools.GUIArchive
@@ -267,7 +263,7 @@ func (cfg *InstanceConfig) AgentConfig(
 
 // JujuTools returns the directory where Juju tools are stored.
 func (cfg *InstanceConfig) JujuTools() string {
-	return agenttools.SharedToolsDir(cfg.DataDir, cfg.ToolsInfo().Version)
+	return agenttools.SharedToolsDir(cfg.DataDir, cfg.AgentVersion())
 }
 
 // GUITools returns the directory where the Juju GUI release is stored.
@@ -310,14 +306,13 @@ func (cfg *InstanceConfig) HasNetworks() bool {
 	return len(cfg.Networks) > 0 || cfg.Constraints.HaveNetworks()
 }
 
-// ToolsInfo returns a copy of the info (sans URL) for the configured
-// tools that will be used when provisioning the instance.
-func (cfg *InstanceConfig) ToolsInfo() *coretools.Tools {
-	if cfg.tools == nil {
-		return nil
+// AgentVersion returns the version of the Juju agent that will be configured
+// on the instance. The zero value will be returned if there are no tools set.
+func (cfg *InstanceConfig) AgentVersion() version.Binary {
+	if len(cfg.tools) == 0 {
+		return version.Binary{}
 	}
-	copied := *cfg.tools
-	return &copied
+	return cfg.tools[0].Version
 }
 
 // ToolsList returns the list of tools in the order in which they will
@@ -326,13 +321,7 @@ func (cfg *InstanceConfig) ToolsList() coretools.List {
 	if cfg.tools == nil {
 		return nil
 	}
-	var list coretools.List
-	for _, url := range cfg.toolsURLs {
-		copied := *cfg.tools
-		copied.URL = url.String()
-		list = append(list, &copied)
-	}
-	return list
+	return copyToolsList(cfg.tools)
 }
 
 // SetTools sets the tools that should be tried when provisioning this
@@ -343,44 +332,31 @@ func (cfg *InstanceConfig) SetTools(toolsList coretools.List) error {
 		return errors.New("need at least 1 tools")
 	}
 	var tools *coretools.Tools
-	var toolsURLs []*url.URL
 	for _, listed := range toolsList {
-		info, source, err := extractTools(listed)
-		if err != nil {
-			return errors.Trace(err)
+		if listed == nil {
+			return errors.New("nil entry in tools list")
 		}
-		toolsURLs = append(toolsURLs, source)
-
+		info := *listed
+		info.URL = ""
 		if tools == nil {
-			tools = info
+			tools = &info
 			continue
 		}
-		if !reflect.DeepEqual(info, tools) {
-			return errors.Errorf("tools info mismatch")
+		if !reflect.DeepEqual(info, *tools) {
+			return errors.Errorf("tools info mismatch (%v, %v)", *tools, info)
 		}
 	}
-	cfg.tools = tools
-	cfg.toolsURLs = toolsURLs
+	cfg.tools = copyToolsList(toolsList)
 	return nil
 }
 
-func extractTools(tools *coretools.Tools) (*coretools.Tools, *url.URL, error) {
-	if tools == nil {
-		return nil, nil, errors.New("missing tools")
+func copyToolsList(in coretools.List) coretools.List {
+	out := make(coretools.List, len(in))
+	for i, tools := range in {
+		copied := *tools
+		out[i] = &copied
 	}
-	if tools.URL == "" {
-		return nil, nil, errors.Errorf("missing tools URL")
-	}
-
-	info := *tools
-	info.URL = ""
-
-	source, err := url.Parse(tools.URL)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	return &info, source, nil
+	return out
 }
 
 type requiresError string

@@ -119,10 +119,9 @@ func (w *windowsConfigure) ConfigureJuju() error {
 
 	w.conf.AddScripts(
 		`$dToolsHash = Get-FileSHA256 -FilePath "$binDir\tools.tar.gz"`,
-		fmt.Sprintf(`$dToolsHash > "$binDir\juju%s.sha256"`,
-			w.icfg.ToolsInfo().Version),
+		fmt.Sprintf(`$dToolsHash > "$binDir\juju%s.sha256"`, tools.Version),
 		fmt.Sprintf(`if ($dToolsHash.ToLower() -ne "%s"){ Throw "Tools checksum mismatch"}`,
-			w.icfg.ToolsInfo().SHA256),
+			tools.SHA256),
 		fmt.Sprintf(`GUnZip-File -infile $binDir\tools.tar.gz -outdir $binDir`),
 		`rm "$binDir\tools.tar*"`,
 		fmt.Sprintf(`Set-Content $binDir\downloaded-tools.txt '%s'`, string(toolsJson)),

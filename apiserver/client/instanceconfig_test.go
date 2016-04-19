@@ -57,9 +57,9 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	c.Check(instanceConfig.MongoInfo.Addrs, gc.DeepEquals, mongoAddrs)
 	c.Check(instanceConfig.APIInfo.Addrs, gc.DeepEquals, apiAddrs)
 	toolsURL := fmt.Sprintf("https://%s/model/%s/tools/%s",
-		apiAddrs[0], jujutesting.ModelTag.Id(), instanceConfig.ToolsInfo().Version)
+		apiAddrs[0], jujutesting.ModelTag.Id(), instanceConfig.AgentVersion())
 	c.Assert(instanceConfig.ToolsList().URLs(), jc.DeepEquals, map[version.Binary][]string{
-		instanceConfig.ToolsInfo().Version: []string{toolsURL},
+		instanceConfig.AgentVersion(): []string{toolsURL},
 	})
 	//c.Assert(instanceConfig.ToolsList()[0].URL, gc.Equals, toolsURL)
 	c.Assert(instanceConfig.AgentEnvironment[agent.AllowsSecureConnection], gc.Equals, "true")

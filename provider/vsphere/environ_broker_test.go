@@ -119,7 +119,7 @@ func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*res.Hardware.Arch, gc.Equals, arch.AMD64)
-	c.Assert(startInstArgs.InstanceConfig.ToolsInfo().Version.Arch, gc.Equals, arch.AMD64)
+	c.Assert(startInstArgs.InstanceConfig.AgentVersion().Arch, gc.Equals, arch.AMD64)
 }
 
 func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C) {
