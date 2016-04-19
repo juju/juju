@@ -104,8 +104,10 @@ func download(info BundleInfo, archiveURLs []*url.URL, targetDir string, startDo
 			return "", errors.Trace(err2)
 		}
 		status, err = dl.Wait(abort)
-		if err == nil {
+		if status.File != nil {
 			defer status.File.Close()
+		}
+		if err == nil {
 			break
 		}
 		logger.Errorf("download request to %s failed: %v", archiveURL, err)
