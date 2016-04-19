@@ -166,7 +166,7 @@ func formatTools(tools coretools.List) string {
 type upgradeJujuAPI interface {
 	ModelGet() (map[string]interface{}, error)
 	FindTools(majorVersion, minorVersion int, series, arch string) (result params.FindToolsResult, err error)
-	UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (*coretools.Tools, error)
+	UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (coretools.List, error)
 	AbortCurrentUpgrade() error
 	SetModelAgentVersion(version version.Number) error
 	Close() error
@@ -432,7 +432,6 @@ func (context *upgradeContext) uploadTools() (err error) {
 	}
 	defer os.RemoveAll(builtTools.Dir)
 
-	var uploaded *coretools.Tools
 	toolsPath := path.Join(builtTools.Dir, builtTools.StorageName)
 	logger.Infof("uploading tools %v (%dkB) to Juju controller", builtTools.Version, (builtTools.Size+512)/1024)
 	f, err := os.Open(toolsPath)
@@ -445,11 +444,11 @@ func (context *upgradeContext) uploadTools() (err error) {
 		return errors.Trace(err)
 	}
 	additionalSeries := series.OSSupportedSeries(os)
-	uploaded, err = context.apiClient.UploadTools(f, builtTools.Version, additionalSeries...)
+	uploaded, err := context.apiClient.UploadTools(f, builtTools.Version, additionalSeries...)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	context.tools = coretools.List{uploaded}
+	context.tools = uploaded
 	return nil
 }
 

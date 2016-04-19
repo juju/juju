@@ -4,6 +4,7 @@
 package machine_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -369,4 +370,34 @@ func (s *machinerSuite) TestSetProviderNetworkConfigPermissions(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
+}
+
+func (s *machinerSuite) TestSetSSHHostKeys(c *gc.C) {
+	args := params.SSHHostKeySet{
+		EntityKeys: []params.SSHHostKeys{
+			{
+				Tag:        s.machine0.Tag().String(),
+				PublicKeys: []string{"rsa0", "dsa0"},
+			}, {
+				Tag:        s.machine1.Tag().String(),
+				PublicKeys: []string{"rsa1", "dsa1"},
+			},
+		},
+	}
+	result, err := s.machiner.SetSSHHostKeys(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{nil},
+		},
+	})
+
+	_, err = s.State.GetSSHHostKeys(s.machine0.MachineTag())
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+
+	keys, err := s.State.GetSSHHostKeys(s.machine1.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(keys, gc.DeepEquals, state.SSHHostKeys{"rsa1", "dsa1"})
 }

@@ -184,6 +184,39 @@ func (s *actionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 	c.Assert(entities[0].Tag, gc.Equals, actionTag.String())
 }
 
+func (s *actionSuite) TestFindActionsByName(c *gc.C) {
+	machine := s.JujuConnSuite.Factory.MakeMachine(c, &jujuFactory.MachineParams{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	dummyUnit := s.JujuConnSuite.Factory.MakeUnit(c, &jujuFactory.UnitParams{
+		Service: s.dummy,
+		Machine: machine,
+	})
+	// NOTE: full testing with multiple matches has been moved to state package.
+	arg := params.Actions{Actions: []params.Action{
+		{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
+		{Receiver: dummyUnit.Tag().String(), Name: "snapshot", Parameters: map[string]interface{}{"outfile": "lol"}},
+		{Receiver: s.wordpressUnit.Tag().String(), Name: "juju-run", Parameters: map[string]interface{}{"command": "boo", "timeout": 5}},
+		{Receiver: s.mysqlUnit.Tag().String(), Name: "juju-run", Parameters: map[string]interface{}{"command": "boo", "timeout": 5}},
+	}}
+	r, err := s.action.Enqueue(arg)
+	c.Assert(err, gc.Equals, nil)
+	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
+
+	actionNames := []string{"snapshot", "juju-run"}
+	actions, err := s.action.FindActionsByNames(params.FindActionsByNames{ActionNames: actionNames})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(actions.Actions), gc.Equals, 2)
+	for i, actions := range actions.Actions {
+		for _, action := range actions.Actions {
+			c.Assert(action.Action.Name, gc.Equals, actionNames[i])
+			c.Assert(action.Action.Name, gc.Matches, actions.Name)
+		}
+	}
+}
+
 func (s *actionSuite) TestEnqueue(c *gc.C) {
 	// Make sure no Actions already exist on wordpress Unit.
 	actions, err := s.wordpressUnit.Actions()

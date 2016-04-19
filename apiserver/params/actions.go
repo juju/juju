@@ -75,6 +75,37 @@ type ActionsByReceiver struct {
 	Error    *Error         `json:"error,omitempty"`
 }
 
+// ActionsQueryResults holds a slice of responses from the Actions
+// query.
+type ActionsQueryResults struct {
+	Results []ActionsQueryResult `json:"results,omitempty"`
+}
+
+// ActionsQueryResult holds the name and parameters of an query result.
+type ActionsQueryResult struct {
+	Receiver string       `json:"receiver,omitempty"`
+	Action   ActionResult `json:"action,omitempty"`
+	Error    *Error       `json:"error,omitempty"`
+}
+
+// ActionsByNames wrap a slice of Actions for API calls.
+type ActionsByNames struct {
+	Actions []ActionsByName `json:"actions,omitempty"`
+}
+
+// ActionsByName is a bulk API call wrapper containing actions
+// as results.
+type ActionsByName struct {
+	Name    string         `json:"name,omitempty"`
+	Actions []ActionResult `json:"actions,omitempty"`
+	Error   *Error         `json:"error,omitempty"`
+}
+
+// FindActionsByName finds actions given an action name.
+type FindActionsByNames struct {
+	ActionNames []string `json:"names,omitempty"`
+}
+
 // ActionExecutionResults holds a slice of ActionExecutionResult for a
 // bulk action API call
 type ActionExecutionResults struct {

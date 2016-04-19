@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/tools"
 )
 
 const jujuMachineNameTag = tags.JujuTagPrefix + "machine-name"
@@ -399,16 +400,6 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 
-	err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config())
-	if err != nil {
-		return nil, err
-	}
-
-	// Pick envtools.  Needed for the custom data (which is what we normally
-	// call userdata).
-	args.InstanceConfig.Tools = args.Tools[0]
-	logger.Infof("picked tools %q", args.InstanceConfig.Tools)
-
 	// Get the required configuration and config-dependent information
 	// required to create the instance. We take the lock just once, to
 	// ensure we obtain all information based on the same configuration.
@@ -450,6 +441,26 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 		imageStream,
 	)
 	if err != nil {
+		return nil, err
+	}
+
+	// Pick tools by filtering the available tools down to the architecture of
+	// the image that will be provisioned.
+	selectedTools, err := args.Tools.Match(tools.Filter{
+		Arch: instanceSpec.Image.Arch,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Infof("picked tools %q", selectedTools[0].Version)
+
+	// Finalize the instance config, which we'll render to CustomData below.
+	if err := args.InstanceConfig.SetTools(selectedTools); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := instancecfg.FinishInstanceConfig(
+		args.InstanceConfig, env.Config(),
+	); err != nil {
 		return nil, err
 	}
 

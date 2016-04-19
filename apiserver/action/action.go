@@ -84,6 +84,30 @@ func (a *ActionAPI) FindActionTagsByPrefix(arg params.FindTags) (params.FindTags
 	return response, nil
 }
 
+func (a *ActionAPI) FindActionsByNames(arg params.FindActionsByNames) (params.ActionsByNames, error) {
+	response := params.ActionsByNames{Actions: make([]params.ActionsByName, len(arg.ActionNames))}
+	for i, name := range arg.ActionNames {
+		currentResult := &response.Actions[i]
+		currentResult.Name = name
+
+		actions, err := a.state.FindActionsByName(name)
+		if err != nil {
+			currentResult.Error = common.ServerError(err)
+			continue
+		}
+		for _, action := range actions {
+			recvTag, err := names.ActionReceiverTag(action.Receiver())
+			if err != nil {
+				currentResult.Actions = append(currentResult.Actions, params.ActionResult{Error: common.ServerError(err)})
+				continue
+			}
+			currentAction := common.MakeActionResult(recvTag, action)
+			currentResult.Actions = append(currentResult.Actions, currentAction)
+		}
+	}
+	return response, nil
+}
+
 // Enqueue takes a list of Actions and queues them up to be executed by
 // the designated ActionReceiver, returning the params.Action for each
 // enqueued Action, or an error if there was a problem enqueueing the

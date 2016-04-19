@@ -327,14 +327,6 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithEmptyDeviceName(
 	s.assertSetDevicesAddressesFailsValidationForArgs(c, args, "empty DeviceName not valid")
 }
 
-func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidDeviceName(c *gc.C) {
-	args := state.LinkLayerDeviceAddress{
-		CIDRAddress: "0.1.2.3/24",
-		DeviceName:  "bad#name",
-	}
-	s.assertSetDevicesAddressesFailsValidationForArgs(c, args, `DeviceName "bad#name" not valid`)
-}
-
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithUnknownDeviceName(c *gc.C) {
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:  "0.1.2.3/24",

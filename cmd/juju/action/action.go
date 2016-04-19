@@ -53,6 +53,10 @@ type APIClient interface {
 	// FindActionTagsByPrefix takes a list of string prefixes and finds
 	// corresponding ActionTags that match that prefix.
 	FindActionTagsByPrefix(params.FindTags) (params.FindTagsResults, error)
+
+	// FindActionsByNames takes a list of names and finds a corresponding list of
+	// Actions for every name.
+	FindActionsByNames(params.FindActionsByNames) (params.ActionsByNames, error)
 }
 
 // ActionCommandBase is the base type for action sub-commands.

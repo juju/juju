@@ -246,6 +246,7 @@ func allCollections() collectionSchema {
 		instanceDataC:  {},
 		machinesC:      {},
 		rebootC:        {},
+		sshHostKeysC:   {},
 
 		// -----
 
@@ -349,7 +350,11 @@ func allCollections() collectionSchema {
 		// -----
 
 		// These collections hold information associated with actions.
-		actionsC:             {},
+		actionsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "name"},
+			}},
+		},
 		actionNotificationsC: {},
 
 		// -----
@@ -454,6 +459,7 @@ const (
 	endpointBindingsC        = "endpointbindings"
 	settingsC                = "settings"
 	settingsrefsC            = "settingsrefs"
+	sshHostKeysC             = "sshhostkeys"
 	spacesC                  = "spaces"
 	statusesC                = "statuses"
 	statusesHistoryC         = "statuseshistory"

@@ -93,7 +93,13 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		return errors.Errorf("bootstrapping is not supported on windows")
 	}
 
-	toolsJson, err := json.Marshal(w.icfg.Tools)
+	// TODO(ericsnow) Respect the full list. (see lp:1571832)
+	// For now we are okay because each of the handled cases matches
+	// current Juju behavior. However, there are no guarantees that
+	// will hold.
+	tools := w.icfg.ToolsList()[0]
+
+	toolsJson, err := json.Marshal(tools)
 	if err != nil {
 		return errors.Annotate(err, "while serializing the tools")
 	}
@@ -105,7 +111,7 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		`mkdir $binDir`,
 	)
 
-	toolsDownloadCmds, err := addDownloadToolsCmds(w.icfg.Series, w.icfg.MongoInfo.CACert, w.icfg.Tools.URL)
+	toolsDownloadCmds, err := addDownloadToolsCmds(w.icfg.Series, w.icfg.MongoInfo.CACert, tools.URL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -113,10 +119,9 @@ func (w *windowsConfigure) ConfigureJuju() error {
 
 	w.conf.AddScripts(
 		`$dToolsHash = Get-FileSHA256 -FilePath "$binDir\tools.tar.gz"`,
-		fmt.Sprintf(`$dToolsHash > "$binDir\juju%s.sha256"`,
-			w.icfg.Tools.Version),
+		fmt.Sprintf(`$dToolsHash > "$binDir\juju%s.sha256"`, tools.Version),
 		fmt.Sprintf(`if ($dToolsHash.ToLower() -ne "%s"){ Throw "Tools checksum mismatch"}`,
-			w.icfg.Tools.SHA256),
+			tools.SHA256),
 		fmt.Sprintf(`GUnZip-File -infile $binDir\tools.tar.gz -outdir $binDir`),
 		`rm "$binDir\tools.tar*"`,
 		fmt.Sprintf(`Set-Content $binDir\downloaded-tools.txt '%s'`, string(toolsJson)),
