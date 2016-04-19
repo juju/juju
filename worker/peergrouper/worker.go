@@ -355,58 +355,74 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 	}
 	info.machineTrackers = w.machineTrackers
 
-	if err = w.getMongoSpace(info); err != nil {
+	spaceName, err := w.getMongoSpace(mongoAddresses(info.machineTrackers))
+	if err != nil {
 		return nil, err
 	}
+	info.mongoSpace = spaceName
 
 	return info, nil
 }
 
+func mongoAddresses(machines map[string]*machineTracker) [][]network.Address {
+	addresses := make([][]network.Address, len(machines))
+	i := 0
+	for _, m := range machines {
+		for _, hp := range m.MongoHostPorts() {
+			addresses[i] = append(addresses[i], hp.Address)
+		}
+		i++
+	}
+	return addresses
+}
+
 // getMongoSpace updates info with the space that Mongo servers should exist in.
-func (w *pgWorker) getMongoSpace(info *peerGroupInfo) error {
+func (w *pgWorker) getMongoSpace(addrs [][]network.Address) (network.SpaceName, error) {
+	unset := network.SpaceName("")
+
 	stateInfo, err := w.st.ControllerInfo()
 	if err != nil {
-		return errors.Annotate(err, "cannot get state server info")
+		return unset, errors.Annotate(err, "cannot get state server info")
 	}
 
 	switch stateInfo.MongoSpaceState {
 	case state.MongoSpaceUnknown:
 		if !w.providerSupportsSpaces {
-			err = w.st.SetMongoSpaceState(state.MongoSpaceUnsupported)
+			err := w.st.SetMongoSpaceState(state.MongoSpaceUnsupported)
 			if err != nil {
-				return errors.Annotate(err, "cannot set Mongo space state")
+				return unset, errors.Annotate(err, "cannot set Mongo space state")
 			}
-			return nil
+			return unset, nil
 		}
 
 		// We want to find a space that contains all Mongo servers so we can
 		// use it to look up the IP address of each Mongo server to be used
 		// to set up the peer group.
-		spaceStats := generateSpaceStats(mongoAddresses(info.machineTrackers))
+		spaceStats := generateSpaceStats(addrs)
 		if spaceStats.LargestSpaceContainsAll == false {
-			err = w.st.SetMongoSpaceState(state.MongoSpaceInvalid)
+			err := w.st.SetMongoSpaceState(state.MongoSpaceInvalid)
 			if err != nil {
-				return errors.Annotate(err, "cannot set Mongo space state")
+				return unset, errors.Annotate(err, "cannot set Mongo space state")
 			}
-
 			logger.Warningf("couldn't find a space containing all peer group machines")
-			return nil
+			return unset, nil
 		} else {
-			info.mongoSpace, err = w.st.SetOrGetMongoSpaceName(spaceStats.LargestSpace)
+			spaceName, err := w.st.SetOrGetMongoSpaceName(spaceStats.LargestSpace)
 			if err != nil {
-				return fmt.Errorf("error setting/getting Mongo space: %v", err)
+				return unset, errors.Annotate(err, "error setting/getting Mongo space")
 			}
+			return spaceName, nil
 		}
 
 	case state.MongoSpaceValid:
 		space, err := w.st.Space(stateInfo.MongoSpaceName)
 		if err != nil {
-			return fmt.Errorf("error looking up space: %v", err)
+			return unset, errors.Annotate(err, "looking up space")
 		}
-		info.mongoSpace = network.SpaceName(space.Name())
+		return network.SpaceName(space.Name()), nil
 	}
 
-	return nil
+	return unset, nil
 }
 
 // replicaSetError holds an error returned as a result
@@ -522,11 +538,7 @@ func generateSpaceStats(addresses [][]network.Address) spaceStats {
 
 	for i := range addresses {
 		for _, addr := range addresses[i] {
-			v, ok := stats.SpaceRefCount[addr.SpaceName]
-			if !ok {
-				v = 0
-			}
-
+			v := stats.SpaceRefCount[addr.SpaceName]
 			v++
 			stats.SpaceRefCount[addr.SpaceName] = v
 

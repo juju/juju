@@ -578,10 +578,6 @@ func (s *workerSuite) TestMongoSpaceNotOverwritten(c *gc.C) {
 		st.SetMongoSpaceState(state.MongoSpaceUnknown)
 		st.SetOrGetMongoSpaceName("testing")
 
-		// Manually run getMongoSpace - it should do nothing because we already have
-		// a space. If it did re-calculate the space name it will change back to "one".
-		w.getMongoSpace(&peerGroupInfo{})
-
 		// Only space one has all three servers in it
 		c.Assert(st.getMongoSpaceName(), gc.Equals, "testing")
 		c.Assert(st.getMongoSpaceState(), gc.Equals, state.MongoSpaceValid)

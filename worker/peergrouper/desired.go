@@ -236,18 +236,6 @@ func addNewMembers(
 	}
 }
 
-func mongoAddresses(machines map[string]*machineTracker) [][]network.Address {
-	addresses := make([][]network.Address, len(machines))
-	i := 0
-	for _, m := range machines {
-		for _, hp := range m.MongoHostPorts() {
-			addresses[i] = append(addresses[i], hp.Address)
-		}
-		i++
-	}
-	return addresses
-}
-
 func isReady(status replicaset.MemberStatus) bool {
 	return status.Healthy && (status.State == replicaset.PrimaryState ||
 		status.State == replicaset.SecondaryState)
