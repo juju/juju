@@ -45,7 +45,11 @@ func (p *lxdLogProxy) render(msg string, ctx []interface{}) string {
 	 * ugly.
 	 */
 	var key string
-	for _, entry := range ctx {
+	for i, entry := range ctx {
+		if i != 0 {
+			result.WriteString(", ")
+		}
+
 		if key == "" {
 			key, _ = entry.(string)
 		} else {
