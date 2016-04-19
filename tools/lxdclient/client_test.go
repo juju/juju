@@ -188,6 +188,13 @@ func (cs *ConnectSuite) TestRemoteConnectError(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, testerr)
 }
 
+func (cs *ConnectSuite) TestVersionCheck(c *gc.C) {
+	c.Assert(isSupportedLxdVersion("2.0.0"), jc.IsTrue)
+	c.Assert(isSupportedLxdVersion("2.0.0.rc4"), jc.IsFalse)
+	c.Assert(isSupportedLxdVersion("0.19"), jc.IsFalse)
+	c.Assert(isSupportedLxdVersion("2.0.1"), jc.IsTrue)
+}
+
 var testerr = errors.Errorf("boo!")
 
 func fakeNewClientFromInfo(info lxd.ConnectInfo) (*lxd.Client, error) {
