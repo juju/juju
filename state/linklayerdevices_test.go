@@ -6,7 +6,6 @@ package state_test
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -994,27 +993,4 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevices(c *gc.C) {
 		c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
 		c.Check(containerDevice.ParentName(), gc.Matches, `m#0#d#br-bond0(|\.12|\.34)`)
 	}
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesAllowsInvalidName(c *gc.C) {
-	args := state.LinkLayerDeviceArgs{
-		Name: "invalid#name",
-		Type: state.EthernetDevice,
-	}
-	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesAllowsInvalidParentName(c *gc.C) {
-	// Windows interface names can contain spaces and be up to 256
-	// (MAX_ADAPTER_NAME_LENGTH) characters long.
-	// Source: http://bit.ly/1pdNNbp
-	var veryLongName = strings.Repeat("x", 500)
-	s.addNamedDevice(c, veryLongName)
-
-	args := state.LinkLayerDeviceArgs{
-		Name:       "eth0.42",
-		Type:       state.VLAN_8021QDevice,
-		ParentName: veryLongName,
-	}
-	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
 }
