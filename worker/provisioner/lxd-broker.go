@@ -87,7 +87,9 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 
 	series := args.Tools.OneSeries()
 	args.InstanceConfig.MachineContainerType = instance.LXD
-	args.InstanceConfig.Tools = args.Tools[0]
+	if err := args.InstanceConfig.SetTools(args.Tools); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if err := instancecfg.PopulateInstanceConfig(
 		args.InstanceConfig,

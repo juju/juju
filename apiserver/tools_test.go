@@ -72,7 +72,7 @@ func (s *toolsCommonSuite) downloadRequest(c *gc.C, version version.Binary, uuid
 func (s *toolsCommonSuite) assertUploadResponse(c *gc.C, resp *http.Response, agentTools *coretools.Tools) {
 	toolsResponse := s.assertResponse(c, resp, http.StatusOK)
 	c.Check(toolsResponse.Error, gc.IsNil)
-	c.Check(toolsResponse.Tools, gc.DeepEquals, agentTools)
+	c.Check(toolsResponse.ToolsList, jc.DeepEquals, coretools.List{agentTools})
 }
 
 func (s *toolsCommonSuite) assertGetFileResponse(c *gc.C, resp *http.Response, expBody, expContentType string) {

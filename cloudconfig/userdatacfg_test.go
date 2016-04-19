@@ -196,7 +196,12 @@ func (cfg *testInstanceConfig) setEnableOSUpdateAndUpgrade(updateEnabled, upgrad
 // setSeries sets the series-specific fields (Tools, Series, DataDir,
 // LogDir, and CloudInitOutputLog) to match the given series.
 func (cfg *testInstanceConfig) setSeries(series string) *testInstanceConfig {
-	cfg.Tools = newSimpleTools(fmt.Sprintf("1.2.3-%s-amd64", series))
+	err := ((*instancecfg.InstanceConfig)(cfg)).SetTools(tools.List{
+		newSimpleTools(fmt.Sprintf("1.2.3-%s-amd64", series)),
+	})
+	if err != nil {
+		panic(err)
+	}
 	cfg.Series = series
 	cfg.DataDir = jujuDataDir(series)
 	cfg.LogDir = jujuLogDir(series)
@@ -1028,10 +1033,7 @@ var verifyTests = []struct {
 		cfg.CloudInitOutputLog = ""
 	}},
 	{"missing tools", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Tools = nil
-	}},
-	{"missing tools URL", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Tools = &tools.Tools{}
+		// This is handled directly in the loop.
 	}},
 	{"entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap = false
@@ -1090,11 +1092,13 @@ var verifyTests = []struct {
 // TestCloudInitVerify checks that required fields are appropriately
 // checked for by NewCloudInit.
 func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
-	cfg := &instancecfg.InstanceConfig{
+	toolsList := tools.List{
+		newSimpleTools("9.9.9-quantal-arble"),
+	}
+	cfgWithoutTools := &instancecfg.InstanceConfig{
 		Bootstrap:        true,
 		StateServingInfo: stateServingInfo,
 		MachineId:        "99",
-		Tools:            newSimpleTools("9.9.9-quantal-arble"),
 		AuthorizedKeys:   "sshkey1",
 		Series:           "quantal",
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
@@ -1121,6 +1125,10 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		MachineNonce:            "FAKE_NONCE",
 		MachineAgentServiceName: "jujud-machine-99",
 	}
+	copied := *cfgWithoutTools
+	cfg := &copied
+	err := cfg.SetTools(toolsList)
+	c.Assert(err, jc.ErrorIsNil)
 	// check that the base configuration does not give an error
 	ci, err := cloudinit.New("quantal")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1136,6 +1144,9 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		c.Logf("test %d. %s", i, test.err)
 
 		cfg1 := *cfg
+		if test.err == "missing tools" {
+			cfg1 = *cfgWithoutTools
+		}
 		test.mutate(&cfg1)
 
 		udata, err = cloudconfig.NewUserdataConfig(&cfg1, ci)
@@ -1152,10 +1163,12 @@ func (*cloudinitSuite) createInstanceConfig(c *gc.C, environConfig *config.Confi
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", "", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	instanceConfig.Tools = &tools.Tools{
-		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
-		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
-	}
+	instanceConfig.SetTools(tools.List{
+		&tools.Tools{
+			Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+			URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+		},
+	})
 	err = instancecfg.FinishInstanceConfig(instanceConfig, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	return instanceConfig

@@ -12,6 +12,7 @@ import (
 	"github.com/altoros/gosigma/data"
 	"github.com/altoros/gosigma/mock"
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -180,13 +181,17 @@ func (s *clientSuite) TestClientNewInstanceInvalidTemplate(c *gc.C) {
 		Constraints: constraints.Value{},
 		InstanceConfig: &instancecfg.InstanceConfig{
 			Bootstrap: true,
-			Tools: &tools.Tools{
-				Version: version.Binary{
-					Series: "trusty",
-				},
-			},
 		},
 	}
+	err = params.InstanceConfig.SetTools(tools.List{
+		&tools.Tools{
+			Version: version.Binary{
+				Series: "trusty",
+			},
+			URL: "https://0.1.2.3:2000/x.y.z.tgz",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	img := &imagemetadata.ImageMetadata{
 		Id: "invalid-id",
 	}
@@ -207,13 +212,17 @@ func (s *clientSuite) TestClientNewInstance(c *gc.C) {
 		Constraints: constraints.Value{},
 		InstanceConfig: &instancecfg.InstanceConfig{
 			Bootstrap: true,
-			Tools: &tools.Tools{
-				Version: version.Binary{
-					Series: "trusty",
-				},
-			},
 		},
 	}
+	err = params.InstanceConfig.SetTools(tools.List{
+		&tools.Tools{
+			Version: version.Binary{
+				Series: "trusty",
+			},
+			URL: "https://0.1.2.3:2000/x.y.z.tgz",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	img := &imagemetadata.ImageMetadata{
 		Id: validImageId,
 	}
