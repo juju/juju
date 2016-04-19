@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"launchpad.net/tomb"
@@ -69,6 +70,22 @@ func (d *Download) Stop() {
 // the received file.
 func (d *Download) Done() <-chan Status {
 	return d.done
+}
+
+// Wait blocks until the download completes or the abort channel receives.
+func (dl *Download) Wait(abort <-chan struct{}) (Status, error) {
+	defer dl.Stop()
+
+	select {
+	case <-abort:
+		logger.Infof("download aborted")
+		return Status{}, errors.New("aborted")
+	case status := <-dl.Done():
+		if status.Err != nil {
+			return Status{}, errors.Trace(status.Err)
+		}
+		return status, nil
+	}
 }
 
 func (d *Download) run(req Request) {
