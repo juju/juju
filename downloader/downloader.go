@@ -40,20 +40,19 @@ type Status struct {
 
 // Download can download a file from the network.
 type Download struct {
-	tomb                 tomb.Tomb
-	done                 chan Status
-	hostnameVerification utils.SSLHostnameVerification
+	tomb     tomb.Tomb
+	done     chan Status
+	openBlob func(*url.URL) (io.ReadCloser, error)
 }
 
 // New returns a new Download instance based on the provided request.
 //
-// hostnameVerification is that which should be used for the client.
-// If it is disableSSLHostnameVerification then a non-validating
-// client will be used.
+// openBlob is used to gain access to the blob, whether through an HTTP
+// request or some other means.
 func New(req Request, hostnameVerification utils.SSLHostnameVerification) *Download {
 	d := &Download{
-		done:                 make(chan Status),
-		hostnameVerification: hostnameVerification,
+		done:     make(chan Status),
+		openBlob: httpBlobOpener(hostnameVerification),
 	}
 	go d.run(req)
 	return d
@@ -94,7 +93,7 @@ func (d *Download) run(req Request) {
 	// TODO(dimitern) 2013-10-03 bug #1234715
 	// Add a testing HTTPS storage to verify the
 	// disableSSLHostnameVerification behavior here.
-	file, err := download(req, d.sendHTTPDownload)
+	file, err := download(req, d.openBlob)
 	if err != nil {
 		err = fmt.Errorf("cannot download %q: %v", req.URL, err)
 	}
@@ -110,21 +109,23 @@ func (d *Download) run(req Request) {
 	}
 }
 
-func (d *Download) sendHTTPDownload(url *url.URL) (io.ReadCloser, error) {
-	// TODO(rog) make the download operation interruptible.
-	client := utils.GetHTTPClient(d.hostnameVerification)
-	resp, err := client.Get(url.String())
-	if err != nil {
-		return nil, err
+func httpBlobOpener(hostnameVerification utils.SSLHostnameVerification) func(*url.URL) (io.ReadCloser, error) {
+	return func(url *url.URL) (io.ReadCloser, error) {
+		// TODO(rog) make the download operation interruptible.
+		client := utils.GetHTTPClient(hostnameVerification)
+		resp, err := client.Get(url.String())
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			return nil, fmt.Errorf("bad http response: %v", resp.Status)
+		}
+		return resp.Body, nil
 	}
-	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
-		return nil, fmt.Errorf("bad http response: %v", resp.Status)
-	}
-	return resp.Body, nil
 }
 
-func download(req Request, httpDownload func(url *url.URL) (io.ReadCloser, error)) (file *os.File, err error) {
+func download(req Request, openBlob func(*url.URL) (io.ReadCloser, error)) (file *os.File, err error) {
 	dir := req.TargetDir
 	if dir == "" {
 		dir = os.TempDir()
@@ -139,7 +140,7 @@ func download(req Request, httpDownload func(url *url.URL) (io.ReadCloser, error
 		}
 	}()
 
-	reader, err := httpDownload(req.URL)
+	reader, err := openBlob(req.URL)
 	if err != nil {
 		return nil, err
 	}
