@@ -219,10 +219,11 @@ func (s *MainSuite) TestFirstRun2xFrom1x(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(string(output), gc.Equals, `
-    Welcome to Juju 2.0. If you meant to use Juju 1.25.0 you can continue using it
-    with the command juju-1 e.g. 'juju-1 switch'
-`[1:])
+	c.Check(string(output), gc.Equals, fmt.Sprintf(`
+    Welcome to Juju %s. If you meant to use Juju 1.25.0 you can continue using it
+    with the command juju-1 e.g. 'juju-1 switch'.
+    See https://jujucharms.com/docs/stable/introducing-2 for more details.
+`[1:], jujuversion.Current))
 }
 
 func (s *MainSuite) TestNoWarn1xWith2xData(c *gc.C) {

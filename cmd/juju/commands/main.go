@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	jujuversion "github.com/juju/juju/version"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 )
@@ -142,9 +143,10 @@ func warnJuju1x() {
 		}
 	}
 	fmt.Fprintf(os.Stderr, `
-    Welcome to Juju 2.0. If you meant to use Juju %s you can continue using it
+    Welcome to Juju %s. If you meant to use Juju %s you can continue using it
     with the command %s e.g. '%s switch'.
-    `[1:], ver, juju1xCmdName, juju1xCmdName)
+    See https://jujucharms.com/docs/stable/introducing-2 for more details.
+    `[1:], jujuversion.Current, ver, juju1xCmdName, juju1xCmdName)
 }
 
 var execCommand = exec.Command
