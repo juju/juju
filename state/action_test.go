@@ -493,6 +493,32 @@ func (s *ActionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 	}
 }
 
+func (s *ActionSuite) TestFindActionsByName(c *gc.C) {
+	actions := []struct {
+		Name       string
+		Parameters map[string]interface{}
+	}{
+		{Name: "action-1", Parameters: map[string]interface{}{}},
+		{Name: "fake", Parameters: map[string]interface{}{"yeah": true, "take": nil}},
+		{Name: "action-1", Parameters: map[string]interface{}{"yeah": true, "take": nil}},
+		{Name: "action-9", Parameters: map[string]interface{}{"district": 9}},
+		{Name: "blarney", Parameters: map[string]interface{}{"conversation": []string{"what", "now"}}},
+	}
+
+	for _, action := range actions {
+		_, err := s.State.EnqueueAction(s.unit.Tag(), action.Name, action.Parameters)
+		c.Assert(err, gc.Equals, nil)
+	}
+
+	results, err := s.State.FindActionsByName("action-1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(results), gc.Equals, 2)
+	for _, result := range results {
+		c.Check(result.Name(), gc.Equals, "action-1")
+	}
+}
+
 func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 	// LP-1391914 :: idPrefixWatcher fails watcher contract to send
 	// initial Change event
