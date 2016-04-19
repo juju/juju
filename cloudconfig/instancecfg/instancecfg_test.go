@@ -53,6 +53,21 @@ func testInstanceTags(c *gc.C, cfg *config.Config, jobs []multiwatcher.MachineJo
 	c.Assert(tags, jc.DeepEquals, expectTags)
 }
 
+func (*instancecfgSuite) TestAgentVersionZero(c *gc.C) {
+	var icfg instancecfg.InstanceConfig
+	c.Assert(icfg.AgentVersion(), gc.Equals, version.Binary{})
+}
+
+func (*instancecfgSuite) TestAgentVersion(c *gc.C) {
+	var icfg instancecfg.InstanceConfig
+	list := coretools.List{
+		&coretools.Tools{Version: version.MustParseBinary("2.3.4-trusty-amd64")},
+	}
+	err := icfg.SetTools(list)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(icfg.AgentVersion(), gc.Equals, list[0].Version)
+}
+
 func (*instancecfgSuite) TestSetToolsSameVersions(c *gc.C) {
 	var icfg instancecfg.InstanceConfig
 	list := coretools.List{
