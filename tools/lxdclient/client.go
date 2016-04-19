@@ -27,7 +27,9 @@ var logger = loggo.GetLogger("juju.tools.lxdclient")
 
 // lxdLogProxy proxies LXD's log calls through the juju logger so we can get
 // more info about what's going on.
-type lxdLogProxy struct{}
+type lxdLogProxy struct {
+	logger loggo.Logger
+}
 
 func (p *lxdLogProxy) render(msg string, ctx []interface{}) string {
 	result := bytes.Buffer{}
@@ -58,27 +60,27 @@ func (p *lxdLogProxy) render(msg string, ctx []interface{}) string {
 }
 
 func (p *lxdLogProxy) Debug(msg string, ctx ...interface{}) {
-	logger.Debugf(p.render(msg, ctx))
+	p.logger.Debugf(p.render(msg, ctx))
 }
 
 func (p *lxdLogProxy) Info(msg string, ctx ...interface{}) {
-	logger.Infof(p.render(msg, ctx))
+	p.logger.Infof(p.render(msg, ctx))
 }
 
 func (p *lxdLogProxy) Warn(msg string, ctx ...interface{}) {
-	logger.Warningf(p.render(msg, ctx))
+	p.logger.Warningf(p.render(msg, ctx))
 }
 
 func (p *lxdLogProxy) Error(msg string, ctx ...interface{}) {
-	logger.Errorf(p.render(msg, ctx))
+	p.logger.Errorf(p.render(msg, ctx))
 }
 
 func (p *lxdLogProxy) Crit(msg string, ctx ...interface{}) {
-	logger.Criticalf(p.render(msg, ctx))
+	p.logger.Criticalf(p.render(msg, ctx))
 }
 
 func init() {
-	lxdshared.Log = &lxdLogProxy{}
+	lxdshared.Log = &lxdLogProxy{loggo.GetLogger("lxd")}
 }
 
 const LXDBridgeFile = "/etc/default/lxd-bridge"
