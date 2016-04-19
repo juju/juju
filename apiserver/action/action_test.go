@@ -204,13 +204,14 @@ func (s *actionSuite) TestFindActionsByName(c *gc.C) {
 	c.Assert(err, gc.Equals, nil)
 	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
 
-	actions, err := s.action.FindActionsByNames(params.FindActionsByNames{ActionNames: []string{"snapshot", "juju-run"}})
+	actionNames := []string{"snapshot", "juju-run"}
+	actions, err := s.action.FindActionsByNames(params.FindActionsByNames{ActionNames: actionNames})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(len(actions.Actions), gc.Equals, 2)
-	for _, actions := range actions.Actions {
-		c.Assert(actions.Name, gc.Matches, "snapshot|juju-run")
+	for i, actions := range actions.Actions {
 		for _, action := range actions.Actions {
+			c.Assert(action.Action.Name, gc.Equals, actionNames[i])
 			c.Assert(action.Action.Name, gc.Matches, actions.Name)
 		}
 	}
