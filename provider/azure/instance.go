@@ -155,11 +155,8 @@ func (inst *azureInstance) internalNetworkAddress() (jujunetwork.Address, error)
 	inst.env.mu.Lock()
 	subscriptionId := inst.env.config.subscriptionId
 	resourceGroup := inst.env.resourceGroup
-	controllerResourceGroup := inst.env.controllerResourceGroup
 	inst.env.mu.Unlock()
-	internalSubnetId := internalSubnetId(
-		resourceGroup, controllerResourceGroup, subscriptionId,
-	)
+	internalSubnetId := internalSubnetId(resourceGroup, subscriptionId)
 
 	for _, nic := range inst.networkInterfaces {
 		if nic.Properties.IPConfigurations == nil {

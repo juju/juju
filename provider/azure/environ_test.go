@@ -56,6 +56,7 @@ type environSuite struct {
 	storageAccount                *storage.Account
 	storageAccountKeys            *storage.AccountKeys
 	vnet                          *network.VirtualNetwork
+	nsg                           *network.SecurityGroup
 	subnet                        *network.Subnet
 	ubuntuServerSKUs              []compute.VirtualMachineImageResource
 	publicIPAddress               *network.PublicIPAddress
@@ -110,10 +111,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		Key1: to.StringPtr("key-1"),
 	}
 
-	addressPrefixes := make([]string, 256)
-	for i := range addressPrefixes {
-		addressPrefixes[i] = fmt.Sprintf("10.%d.0.0/16", i)
-	}
+	addressPrefixes := []string{"10.0.0.0/16"}
 	s.vnet = &network.VirtualNetwork{
 		ID:       to.StringPtr("juju-internal"),
 		Name:     to.StringPtr("juju-internal"),
@@ -124,11 +122,20 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
+	s.nsg = &network.SecurityGroup{
+		ID: to.StringPtr(path.Join(
+			"/subscriptions", fakeSubscriptionId,
+			"resourceGroups", "juju-testenv-model-"+testing.ModelTag.Id(),
+			"providers/Microsoft.Network/networkSecurityGroups/juju-internal",
+		)),
+	}
+
 	s.subnet = &network.Subnet{
 		ID:   to.StringPtr("subnet-id"),
-		Name: to.StringPtr("juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d"),
+		Name: to.StringPtr("juju-internal"),
 		Properties: &network.SubnetPropertiesFormat{
-			AddressPrefix: to.StringPtr("10.0.0.0/16"),
+			AddressPrefix:        to.StringPtr("10.0.0.0/16"),
+			NetworkSecurityGroup: &network.SubResource{s.nsg.ID},
 		},
 	}
 
@@ -174,14 +181,6 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		Value: &oldNetworkInterfaces,
 	}
 
-	// nsgID is the name of the internal network security group. This NSG
-	// is created when the environment is created.
-	nsgID := path.Join(
-		"/subscriptions", fakeSubscriptionId,
-		"resourceGroups", "juju-testenv-model-"+testing.ModelTag.Id(),
-		"providers/Microsoft.Network/networkSecurityGroups/juju-internal",
-	)
-
 	// The newly created IP/NIC.
 	newIPConfigurations := []network.InterfaceIPConfiguration{{
 		ID:   to.StringPtr("ip-configuration-1-id"),
@@ -199,8 +198,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		Location: to.StringPtr("westus"),
 		Tags:     &s.tags,
 		Properties: &network.InterfacePropertiesFormat{
-			IPConfigurations:     &newIPConfigurations,
-			NetworkSecurityGroup: &network.SubResource{to.StringPtr(nsgID)},
+			IPConfigurations: &newIPConfigurations,
 		},
 	}
 
@@ -304,10 +302,8 @@ func prepareForBootstrap(
 	// Opening the environment should not incur network communication,
 	// so we don't set s.sender until after opening.
 	cfg := makeTestModelConfig(c, attrs...)
-	cfg, err := cfg.Remove([]string{"controller-resource-group"})
-	c.Assert(err, jc.ErrorIsNil)
 	*sender = azuretesting.Senders{tokenRefreshSender()}
-	cfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{
+	cfg, err := provider.BootstrapConfig(environs.BootstrapConfigParams{
 		Config:               cfg,
 		CloudRegion:          "westus",
 		CloudEndpoint:        "https://management.azure.com",
@@ -335,8 +331,8 @@ func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
 	return azuretesting.Senders{
 		s.makeSender(".*/resourcegroups/"+resourceGroupName, &resources.Group{}),
 		s.makeSender(".*/virtualnetworks/juju-internal", s.vnet),
-		s.makeSender(".*/networkSecurityGroups/juju-internal", &network.SecurityGroup{}),
-		s.makeSender(".*/virtualnetworks/juju-internal/subnets/"+resourceGroupName, &s.subnet),
+		s.makeSender(".*/networkSecurityGroups/juju-internal", &s.nsg),
+		s.makeSender(".*/virtualnetworks/juju-internal/subnets/juju-internal", &s.subnet),
 		s.makeSender(".*/checkNameAvailability", s.storageNameAvailabilityResult),
 		s.makeSender(".*/storageAccounts/.*", s.storageAccount),
 		s.makeSender(".*/storageAccounts/.*/listKeys", s.storageAccountKeys),
@@ -346,7 +342,7 @@ func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
 func (s *environSuite) startInstanceSenders(controller bool) azuretesting.Senders {
 	senders := azuretesting.Senders{
 		s.vmSizesSender(),
-		s.makeSender(".*/subnets/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d", s.subnet),
+		s.makeSender(".*/subnets/juju-internal", s.subnet),
 		s.makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs),
 		s.makeSender(".*/publicIPAddresses/machine-0-public-ip", s.publicIPAddress),
 		s.makeSender(".*/networkInterfaces", s.oldNetworkInterfaces),
