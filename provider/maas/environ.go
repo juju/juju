@@ -730,7 +730,6 @@ func (environ *maasEnviron) acquireNode2(
 			"no architecture was specified, acquiring an arbitrary node",
 		)
 	}
-	// Currently not using the constraints match returned here.
 	machine, constraintMatches, err := environ.maasController.AllocateMachine(acquireParams)
 
 	if err != nil {

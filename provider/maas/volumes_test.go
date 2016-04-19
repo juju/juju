@@ -96,26 +96,23 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 	// Expect 2 volumes - root volume is ignored.
 	c.Assert(volumes, gc.HasLen, 2)
 	c.Assert(attachments, gc.HasLen, 2)
-	c.Check(volumes, jc.DeepEquals, []storage.Volume{
-		{
-			names.NewVolumeTag("1"),
-			storage.VolumeInfo{
-				HardwareId: "/dev/disk/by-dname/sdb",
-				VolumeId:   "volume-1",
-				Size:       476893,
-				Persistent: false,
-			},
+	c.Check(volumes, jc.DeepEquals, []storage.Volume{{
+		names.NewVolumeTag("1"),
+		storage.VolumeInfo{
+			HardwareId: "/dev/disk/by-dname/sdb",
+			VolumeId:   "volume-1",
+			Size:       476893,
+			Persistent: false,
 		},
-		{
-			names.NewVolumeTag("2"),
-			storage.VolumeInfo{
-				HardwareId: "/dev/disk/by-dname/sdc",
-				VolumeId:   "volume-2",
-				Size:       238764,
-				Persistent: false,
-			},
+	}, {
+		names.NewVolumeTag("2"),
+		storage.VolumeInfo{
+			HardwareId: "/dev/disk/by-dname/sdc",
+			VolumeId:   "volume-2",
+			Size:       238764,
+			Persistent: false,
 		},
-	})
+	}})
 	c.Assert(attachments, jc.DeepEquals, []storage.VolumeAttachment{
 		{
 			names.NewVolumeTag("1"),
