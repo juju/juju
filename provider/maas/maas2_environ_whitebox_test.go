@@ -877,6 +877,9 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 			architecture: arch.HostArch(),
 			interfaceSet: exampleInterfaces,
 		},
+		allocateMachineMatches: gomaasapi.ConstraintMatches{
+			Storage: map[string]gomaasapi.BlockDevice{},
+		},
 	}
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
