@@ -1,11 +1,11 @@
-"""Tests for assess_user-grant-revoke module."""
+"""Tests for assess_user_grant_revoke module."""
 
 import logging
 from mock import Mock, patch
 import StringIO
 
-from assess_user-grant-revoke import (
-    assess_user-grant-revoke,
+from assess_user_grant_revoke import (
+    assess_user_grant_revoke,
     parse_args,
     main,
 )
@@ -40,15 +40,15 @@ class TestMain(TestCase):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
         env = object()
         client = Mock(spec=["is_jes_enabled"])
-        with patch("assess_user-grant-revoke.configure_logging",
+        with patch("assess_user_grant_revoke.configure_logging",
                    autospec=True) as mock_cl:
-            with patch("assess_user-grant-revoke.BootstrapManager.booted_context",
+            with patch("assess_user_grant_revoke.BootstrapManager.booted_context",
                        autospec=True) as mock_bc:
                 with patch("jujupy.SimpleEnvironment.from_config",
                            return_value=env) as mock_e:
                     with patch("jujupy.EnvJujuClient.by_version",
                                return_value=client) as mock_c:
-                        with patch("assess_user-grant-revoke.assess_user-grant-revoke",
+                        with patch("assess_user_grant_revoke.assess_user_grant_revoke",
                                    autospec=True) as mock_assess:
                             main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
@@ -60,9 +60,9 @@ class TestMain(TestCase):
 
 class TestAssess(TestCase):
 
-    def test_user-grant-revoke(self):
+    def test_user_grant_revoke(self):
         mock_client = Mock(spec=["juju", "wait_for_started"])
-        assess_user-grant-revoke(mock_client)
+        assess_user_grant_revoke(mock_client)
         mock_client.juju.assert_called_once_with(
             'deploy', ('local:trusty/my-charm',))
         mock_client.wait_for_started.assert_called_once_with()
