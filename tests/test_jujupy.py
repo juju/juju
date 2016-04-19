@@ -216,7 +216,7 @@ class FakeEnvironmentState:
 
     def enable_ha(self):
         self.require_admin('enable-ha')
-        for count in range(2):
+        for n in range(2):
             self.state_servers.append(self.add_machine())
 
     def deploy(self, charm_name, service_name):
@@ -311,6 +311,12 @@ class FakeBackend:
             commandline_config['default-series'] = bootstrap_series
         self._backing_state.bootstrap(
                 env, commandline_config, self.is_feature_enabled('jes'))
+
+    def create_model(self, model_name, controller_state, config_file):
+        jes_enabled = self.is_feature_enabled('jes')
+        if not jes_enabled:
+            raise JESNotSupported()
+        self._backing_state = controller_state.create_model(model_name)
 
     def quickstart(self, env, bundle):
         self.backing_state.bootstrap(env, {}, self.is_feature_enabled('jes'))
@@ -500,25 +506,15 @@ class FakeJujuClient(EnvJujuClient):
         self._backend.quickstart(self.env, bundle)
 
     def create_environment(self, controller_client, config_file):
-        jes_enabled = self.is_jes_enabled()
-        if not jes_enabled:
-            raise JESNotSupported()
-        model_state = controller_client._backend.controller_state.create_model(
-            self.env.environment)
-        self._backend = FakeBackend(model_state)
-        self._backend.set_feature('jes', jes_enabled)
+        self._backend.create_model(
+            self.env.environment, controller_client._backend.controller_state,
+            config_file)
 
     def destroy_environment(self, force=True, delete_jenv=False):
         return self._backend.destroy_environment()
 
     def wait_for_started(self, timeout=1200, start=None):
         return self.get_status()
-
-    def wait_for_deploy_started(self):
-        pass
-
-    def show_status(self):
-        pass
 
     def get_status(self, admin=False):
         try:
