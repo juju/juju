@@ -4,6 +4,7 @@
 package charm
 
 import (
+	"net/url"
 	"os"
 	"path"
 
@@ -52,7 +53,8 @@ func (d *BundlesDir) Read(info BundleInfo, abort <-chan struct{}) (Bundle, error
 	if _, err := os.Stat(path); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
-		} else if err = d.download(info, abort); err != nil {
+		}
+		if err := d.download(info, path, abort); err != nil {
 			return nil, err
 		}
 	}
@@ -62,60 +64,73 @@ func (d *BundlesDir) Read(info BundleInfo, abort <-chan struct{}) (Bundle, error
 // download fetches the supplied charm and checks that it has the correct sha256
 // hash, then copies it into the directory. If a value is received on abort, the
 // download will be stopped.
-func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error) {
+func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struct{}) (err error) {
 	archiveURLs, err := info.ArchiveURLs()
 	if err != nil {
 		return errors.Annotatef(err, "failed to get download URLs for charm %q", info.URL())
 	}
-	defer errors.DeferredAnnotatef(&err, "failed to download charm %q from %q", info.URL(), archiveURLs)
+
 	dir := d.downloadsPath()
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	filename, err := download(info, archiveURLs, dir, d.startDownload, abort)
+	if err != nil {
+		return errors.Annotatef(err, "failed to download charm %q from %q", info.URL(), archiveURLs)
+	}
+	defer errors.DeferredAnnotatef(&err, "downloaded but failed to copy charm to %q from %q", target, filename)
+
+	if err := os.MkdirAll(d.path, 0755); err != nil {
 		return errors.Trace(err)
 	}
+	// We must make sure that the file is closed by this point since
+	// renaming an open file is not possible on Windows
+	if err := os.Rename(filename, target); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func download(info BundleInfo, archiveURLs []*url.URL, targetDir string, startDownload func(downloader.Request) (Download, error), abort <-chan struct{}) (filename string, err error) {
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return "", errors.Trace(err)
+	}
+
 	var status downloader.Status
 	for _, archiveURL := range archiveURLs {
 		logger.Infof("downloading %s from %s", info.URL(), archiveURL)
-		dl, err2 := d.startDownload(downloader.Request{
+		dl, err2 := startDownload(downloader.Request{
 			URL:       archiveURL,
-			TargetDir: dir,
+			TargetDir: targetDir,
 		})
 		if err2 != nil {
-			return errors.Trace(err2)
+			return "", errors.Trace(err2)
 		}
 		status, err = dl.Wait(abort)
 		if err == nil {
+			defer status.File.Close()
 			break
 		}
 		logger.Errorf("download request to %s failed: %v", archiveURL, err)
 	}
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	logger.Infof("download complete")
-	defer status.File.Close()
+
 	actualSha256, _, err := utils.ReadSHA256(status.File)
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	archiveSha256, err := info.ArchiveSha256()
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	if actualSha256 != archiveSha256 {
-		return errors.Errorf(
+		return "", errors.Errorf(
 			"expected sha256 %q, got %q", archiveSha256, actualSha256,
 		)
 	}
 	logger.Infof("download verified")
-	if err := os.MkdirAll(d.path, 0755); err != nil {
-		return errors.Trace(err)
-	}
-	// Renaming an open file is not possible on Windows
-	status.File.Close()
-	if err := os.Rename(status.File.Name(), d.bundlePath(info)); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+
+	return status.File.Name(), nil
 }
 
 // bundlePath returns the path to the location where the verified charm
