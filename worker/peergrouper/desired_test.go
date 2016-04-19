@@ -30,7 +30,7 @@ const (
 
 type desiredPeerGroupTest struct {
 	about    string
-	machines []*machine
+	machines []*machineTracker
 	statuses []replicaset.MemberStatus
 	members  []replicaset.Member
 
@@ -152,7 +152,7 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			expectMembers: mkMembers("1v 2v 3 4 5 6v 7v 8v", ipVersion),
 		}, {
 			about: "a changed machine address should propagate to the members",
-			machines: append(mkMachines("11v 12v", ipVersion), &machine{
+			machines: append(mkMachines("11v 12v", ipVersion), &machineTracker{
 				id:        "13",
 				wantsVote: true,
 				mongoHostPorts: []network.HostPort{{
@@ -174,7 +174,7 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			}),
 		}, {
 			about: "a machine's address is ignored if it changes to empty",
-			machines: append(mkMachines("11v 12v", ipVersion), &machine{
+			machines: append(mkMachines("11v 12v", ipVersion), &machineTracker{
 				id:             "13",
 				wantsVote:      true,
 				mongoHostPorts: nil,
@@ -190,15 +190,15 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
 		for i, test := range desiredPeerGroupTests(ipVersion) {
 			c.Logf("\ntest %d: %s", i, test.about)
-			machineMap := make(map[string]*machine)
+			trackerMap := make(map[string]*machineTracker)
 			for _, m := range test.machines {
-				c.Assert(machineMap[m.id], gc.IsNil)
-				machineMap[m.id] = m
+				c.Assert(trackerMap[m.Id()], gc.IsNil)
+				trackerMap[m.Id()] = m
 			}
 			info := &peerGroupInfo{
-				machines: machineMap,
-				statuses: test.statuses,
-				members:  test.members,
+				machineTrackers: trackerMap,
+				statuses:        test.statuses,
+				members:         test.members,
 			}
 			members, voting, err := desiredPeerGroup(info)
 			if test.expectErr != "" {
@@ -206,6 +206,8 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 				c.Assert(members, gc.IsNil)
 				continue
 			}
+			c.Assert(err, jc.ErrorIsNil)
+
 			sort.Sort(membersById(members))
 			c.Assert(members, jc.DeepEquals, test.expectMembers)
 			if len(members) == 0 {
@@ -214,7 +216,7 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 			for i, m := range test.machines {
 				vote, votePresent := voting[m]
 				c.Check(votePresent, jc.IsTrue)
-				c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
+				c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.Id()))
 			}
 			// Assure ourselves that the total number of desired votes is odd in
 			// all circumstances.
@@ -229,7 +231,7 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 			for i, m := range test.machines {
 				vote, votePresent := voting[m]
 				c.Check(votePresent, jc.IsTrue)
-				c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
+				c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.Id()))
 			}
 			c.Assert(err, jc.ErrorIsNil)
 		}
@@ -256,16 +258,16 @@ func newFloat64(f float64) *float64 {
 	return &f
 }
 
-// mkMachines returns a slice of *machine based on
+// mkMachines returns a slice of *machineTracker based on
 // the given description.
 // Each machine in the description is white-space separated
 // and holds the decimal machine id followed by an optional
 // "v" if the machine wants a vote.
-func mkMachines(description string, ipVersion TestIPVersion) []*machine {
+func mkMachines(description string, ipVersion TestIPVersion) []*machineTracker {
 	descrs := parseDescr(description)
-	ms := make([]*machine, len(descrs))
+	ms := make([]*machineTracker, len(descrs))
 	for i, d := range descrs {
-		ms[i] = &machine{
+		ms[i] = &machineTracker{
 			id: fmt.Sprint(d.id),
 			mongoHostPorts: []network.HostPort{{
 				Address: network.Address{
