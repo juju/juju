@@ -130,7 +130,7 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 		versionParts[1] < "0" ||
 		versionParts[1] < "0" {
 
-		return nil, errors.Errorf("lxd version %s, juju needs 2.0.0", status.Environment.ServerVersion)
+		return nil, errors.Errorf("lxd version %s, juju needs at least 2.0.0", status.Environment.ServerVersion)
 	}
 
 	/* If this is the LXD provider on the localhost, let's do an extra
