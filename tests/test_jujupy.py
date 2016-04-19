@@ -400,6 +400,7 @@ class FakeBackend:
             return yaml.safe_dump(model_state.model_config)
         if command == 'restore-backup':
             model_state.restore_backup()
+        return ''
 
 
 class FakeJujuClient(EnvJujuClient):
@@ -479,9 +480,6 @@ class FakeJujuClient(EnvJujuClient):
     def disable_jes(self):
         self._backend.set_feature('jes', False)
 
-    def get_cache_path(self):
-        return get_cache_path(self.env.juju_home, models=True)
-
     def get_juju_output(self, command, *args, **kwargs):
         return self._backend.get_juju_output(
             command, args, model=self.env.environment, **kwargs)
@@ -528,15 +526,9 @@ class FakeJujuClient(EnvJujuClient):
         status_text = yaml.safe_dump(status_dict)
         return Status(status_dict, status_text)
 
-    def status_until(self, timeout):
-        yield self.get_status()
-
     def set_config(self, service, options):
         option_strings = ['{}={}'.format(*item) for item in options.items()]
         self.juju('set', (service,) + tuple(option_strings))
-
-    def get_config(self, service):
-        pass
 
     def wait_for_workloads(self, timeout=600):
         pass
@@ -551,9 +543,6 @@ class FakeJujuClient(EnvJujuClient):
 
     def backup(self):
         self._require_admin('backup')
-
-    def get_controller_leader(self):
-        return self.get_controller_members()[0]
 
     def get_controller_members(self):
         model_state = self._backend.controller_state.models[
