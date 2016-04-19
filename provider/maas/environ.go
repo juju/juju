@@ -1029,7 +1029,6 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	for i, v := range args.Volumes {
 		requestedVolumes[i] = v.Tag
 	}
-	// TODO (mfoord): inst.volumes not implemented for MAAS 2.
 	resultVolumes, resultAttachments, err := inst.volumes(
 		names.NewMachineTag(args.InstanceConfig.MachineId),
 		requestedVolumes,

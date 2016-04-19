@@ -319,8 +319,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceError(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
-	var env *maasEnviron
-	env = suite.injectControllerWithSpacesAndCheck(c, nil, gomaasapi.AllocateMachineArgs{})
+	env := suite.injectControllerWithSpacesAndCheck(c, nil, gomaasapi.AllocateMachineArgs{})
 
 	params := environs.StartInstanceParams{}
 	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
@@ -784,4 +783,164 @@ func (suite *maas2EnvironSuite) TestSubnetsInstId(c *gc.C) {
 		{CIDR: "192.168.12.0/24", ProviderId: "101", VLANTag: 2, SpaceProviderId: "7"},
 	}
 	c.Assert(subnets, jc.DeepEquals, expected)
+}
+
+func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
+	vlan0 := fakeVLAN{
+		id:  5001,
+		vid: 0,
+		mtu: 1500,
+	}
+
+	vlan50 := fakeVLAN{
+		id:  5004,
+		vid: 50,
+		mtu: 1500,
+	}
+
+	subnetPXE := fakeSubnet{
+		id:         3,
+		space:      "default",
+		vlan:       vlan0,
+		gateway:    "10.20.19.2",
+		cidr:       "10.20.19.0/24",
+		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
+	}
+
+	exampleInterfaces := []gomaasapi.Interface{
+		&fakeInterface{
+			id:         91,
+			name:       "eth0",
+			type_:      "physical",
+			enabled:    true,
+			macAddress: "52:54:00:70:9b:fe",
+			vlan:       vlan0,
+			links: []gomaasapi.Link{
+				&fakeLink{
+					id:        436,
+					subnet:    &subnetPXE,
+					ipAddress: "10.20.19.103",
+					mode:      "static",
+				},
+				&fakeLink{
+					id:        437,
+					subnet:    &subnetPXE,
+					ipAddress: "10.20.19.104",
+					mode:      "static",
+				},
+			},
+			parents:  []string{},
+			children: []string{"eth0.100", "eth0.250", "eth0.50"},
+		},
+		&fakeInterface{
+			id:         150,
+			name:       "eth0.50",
+			type_:      "vlan",
+			enabled:    true,
+			macAddress: "52:54:00:70:9b:fe",
+			vlan:       vlan50,
+			links: []gomaasapi.Link{
+				&fakeLink{
+					id: 517,
+					subnet: &fakeSubnet{
+						id:         5,
+						space:      "admin",
+						vlan:       vlan50,
+						gateway:    "10.50.19.2",
+						cidr:       "10.50.19.0/24",
+						dnsServers: []string{},
+					},
+					ipAddress: "10.50.19.103",
+					mode:      "static",
+				},
+			},
+			parents:  []string{"eth0"},
+			children: []string{},
+		},
+	}
+	var env *maasEnviron
+	controller := &fakeController{
+		allocateMachine: &fakeMachine{
+			systemID:     "Bruce Sterling",
+			architecture: arch.HostArch(),
+			interfaceSet: exampleInterfaces,
+		},
+	}
+	suite.injectController(controller)
+	suite.setupFakeTools(c)
+	env = suite.makeEnviron(c, nil)
+
+	params := environs.StartInstanceParams{}
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []network.InterfaceInfo{{
+		DeviceIndex:       0,
+		MACAddress:        "52:54:00:70:9b:fe",
+		CIDR:              "10.20.19.0/24",
+		NetworkName:       "juju-private",
+		ProviderId:        "91",
+		ProviderSubnetId:  "3",
+		AvailabilityZones: nil,
+		VLANTag:           0,
+		ProviderVLANId:    "5001",
+		ProviderAddressId: "436",
+		InterfaceName:     "eth0",
+		InterfaceType:     "ethernet",
+		Disabled:          false,
+		NoAutoStart:       false,
+		ConfigType:        "static",
+		Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
+		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+		DNSSearchDomains:  nil,
+		MTU:               1500,
+		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+		ExtraConfig:       nil,
+	}, {
+		DeviceIndex:       0,
+		MACAddress:        "52:54:00:70:9b:fe",
+		CIDR:              "10.20.19.0/24",
+		NetworkName:       "juju-private",
+		ProviderId:        "91",
+		ProviderSubnetId:  "3",
+		AvailabilityZones: nil,
+		VLANTag:           0,
+		ProviderVLANId:    "5001",
+		ProviderAddressId: "437",
+		InterfaceName:     "eth0",
+		InterfaceType:     "ethernet",
+		Disabled:          false,
+		NoAutoStart:       false,
+		ConfigType:        "static",
+		Address:           network.NewAddressOnSpace("default", "10.20.19.104"),
+		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+		DNSSearchDomains:  nil,
+		MTU:               1500,
+		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+		ExtraConfig:       nil,
+	}, {
+		DeviceIndex:         1,
+		MACAddress:          "52:54:00:70:9b:fe",
+		CIDR:                "10.50.19.0/24",
+		NetworkName:         "juju-private",
+		ProviderId:          "150",
+		ProviderSubnetId:    "5",
+		AvailabilityZones:   nil,
+		VLANTag:             50,
+		ProviderVLANId:      "5004",
+		ProviderAddressId:   "517",
+		InterfaceName:       "eth0.50",
+		ParentInterfaceName: "eth0",
+		InterfaceType:       "802.1q",
+		Disabled:            false,
+		NoAutoStart:         false,
+		ConfigType:          "static",
+		Address:             network.NewAddressOnSpace("admin", "10.50.19.103"),
+		DNSServers:          nil,
+		DNSSearchDomains:    nil,
+		MTU:                 1500,
+		GatewayAddress:      network.NewAddressOnSpace("admin", "10.50.19.2"),
+		ExtraConfig:         nil,
+	},
+	}
+	c.Assert(result.NetworkInfo, jc.DeepEquals, expected)
 }
