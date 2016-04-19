@@ -36,7 +36,11 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machineTra
 	changed := false
 	members, extra, maxId := info.membersMap()
 	logger.Debugf("calculating desired peer group")
-	logger.Debugf("members: %#v", members)
+	line := "members: ..."
+	for tracker, replMem := range members {
+		line = fmt.Sprintf("%s\n   %#v: rs_id=%d, rs_addr=%s", line, tracker, replMem.Id, replMem.Address)
+	}
+	logger.Debugf(line)
 	logger.Debugf("extra: %#v", extra)
 	logger.Debugf("maxId: %v", maxId)
 
