@@ -185,6 +185,11 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		newRef = c.CharmPath
 	}
 	if c.SwitchURL == "" && c.CharmPath == "" {
+		// If the charm we are upgrading is local, then we must
+		// specify a path or switch url to upgrade with.
+		if oldURL.Schema == "local" {
+			return errors.New("upgrading a local charm requires either --path or --switch")
+		}
 		// No new URL specified, but revision might have been.
 		newRef = oldURL.WithRevision(c.Revision).String()
 	}
