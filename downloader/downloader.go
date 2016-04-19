@@ -6,6 +6,7 @@ package downloader
 import (
 	"io"
 	"net/url"
+	"os"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -54,4 +55,32 @@ func (dlr Downloader) Download(req Request, abort <-chan struct{}) (filename str
 		return "", errors.Trace(err)
 	}
 	return file.Name(), nil
+}
+
+// DownloadWithAlternates tries each of the provided requests until
+// one succeeds. If none succeed then the error from the most recent
+// attempt is returned. At least one request must be provided.
+func (dlr Downloader) DownloadWithAlternates(requests []Request, abort <-chan struct{}) (filename string, err error) {
+	if len(requests) == 0 {
+		return "", errors.New("no requests to try")
+	}
+
+	for _, req := range requests {
+		if err := os.MkdirAll(req.TargetDir, 0755); err != nil {
+			return "", errors.Trace(err)
+		}
+		filename, err = dlr.Download(req, abort)
+		if errors.IsNotValid(err) {
+			break
+		}
+		if err == nil {
+			break
+		}
+		logger.Errorf("download request to %s failed: %v", req.URL, err)
+		// Try the next one.
+	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return filename, nil
 }

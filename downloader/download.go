@@ -24,7 +24,8 @@ type Request struct {
 	TargetDir string
 
 	// Verify is used to ensure that the download result is correct. If
-	// no func is provided then no verification happens.
+	// the download is invalid then the func must return errors.NotValid.
+	// If no func is provided then no verification happens.
 	Verify func(*os.File) error
 }
 
@@ -113,8 +114,14 @@ func (dl *Download) run(req Request) {
 
 		if req.Verify != nil {
 			err = req.Verify(file)
-			if _, err2 := file.Seek(0, os.SEEK_SET); err2 != nil && err == nil {
-				err = err2
+			if errors.IsNotValid(err) {
+				logger.Errorf("download from %s invalid: %v", req.URL, err)
+			}
+			if _, err2 := file.Seek(0, os.SEEK_SET); err2 != nil {
+				logger.Errorf("failed to seek to beginning of file: %v", err)
+				if err == nil {
+					err = err2
+				}
 			} else {
 				logger.Infof("download verified")
 			}
@@ -133,6 +140,8 @@ func (dl *Download) run(req Request) {
 }
 
 func download(req Request, openBlob func(*url.URL) (io.ReadCloser, error)) (file *os.File, err error) {
+	logger.Infof("downloading from %s", req.URL)
+
 	dir := req.TargetDir
 	if dir == "" {
 		dir = os.TempDir()
