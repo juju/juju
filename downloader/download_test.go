@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -96,7 +97,7 @@ func (s *DownloadSuite) TestDownloadError(c *gc.C) {
 	c.Assert(status.Err, gc.ErrorMatches, `cannot download ".*": bad http response: 404 Not Found`)
 }
 
-func (s *DownloadSuite) TestStopDownload(c *gc.C) {
+func (s *DownloadSuite) TestStop(c *gc.C) {
 	tmp := c.MkDir()
 	d := downloader.StartDownload(
 		downloader.Request{
@@ -114,6 +115,51 @@ func (s *DownloadSuite) TestStopDownload(c *gc.C) {
 	infos, err := ioutil.ReadDir(tmp)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(infos, gc.HasLen, 0)
+}
+
+func (s *DownloadSuite) TestVerifyValid(c *gc.C) {
+	stub := &gitjujutesting.Stub{}
+	tmp := c.MkDir()
+	gitjujutesting.Server.Response(200, nil, []byte("archive"))
+	dl := downloader.StartDownload(
+		downloader.Request{
+			URL:       s.URL(c, "/archive.tgz"),
+			TargetDir: tmp,
+			Verify: func(f *os.File) error {
+				stub.AddCall("Verify", f)
+				return nil
+			},
+		},
+		downloader.NewHTTPBlobOpener(utils.VerifySSLHostnames),
+	)
+	status := <-dl.Done()
+	c.Assert(status.Err, jc.ErrorIsNil)
+
+	stub.CheckCallNames(c, "Verify")
+	stub.CheckCall(c, 0, "Verify", status.File)
+}
+
+func (s *DownloadSuite) TestVerifyInvalid(c *gc.C) {
+	stub := &gitjujutesting.Stub{}
+	tmp := c.MkDir()
+	gitjujutesting.Server.Response(200, nil, []byte("archive"))
+	invalid := errors.NotValidf("oops")
+	dl := downloader.StartDownload(
+		downloader.Request{
+			URL:       s.URL(c, "/archive.tgz"),
+			TargetDir: tmp,
+			Verify: func(f *os.File) error {
+				stub.AddCall("Verify", f)
+				return invalid
+			},
+		},
+		downloader.NewHTTPBlobOpener(utils.VerifySSLHostnames),
+	)
+	status := <-dl.Done()
+
+	c.Check(errors.Cause(status.Err), gc.Equals, invalid)
+	stub.CheckCallNames(c, "Verify")
+	stub.CheckCall(c, 0, "Verify", status.File)
 }
 
 func assertFileContents(c *gc.C, f *os.File, expect string) {

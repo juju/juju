@@ -22,6 +22,10 @@ type Request struct {
 	// TargetDir is the directory into which the file will be downloaded.
 	// It defaults to os.TempDir().
 	TargetDir string
+
+	// Verify is used to ensure that the download result is correct. If
+	// no func is provided then no verification happens.
+	Verify func(*os.File) error
 }
 
 // Status represents the status of a completed download.
@@ -97,6 +101,13 @@ func (dl *Download) run(req Request) {
 	file, err := download(req, dl.openBlob)
 	if err != nil {
 		err = errors.Errorf("cannot download %q: %v", req.URL, err)
+	}
+
+	if req.Verify != nil {
+		err = req.Verify(file)
+		if _, err2 := file.Seek(0, os.SEEK_SET); err2 != nil && err == nil {
+			err = err2
+		}
 	}
 
 	status := Status{

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -28,5 +29,21 @@ func NewHTTPBlobOpener(hostnameVerification utils.SSLHostnameVerification) func(
 			return nil, errors.Errorf("bad http response: %v", resp.Status)
 		}
 		return resp.Body, nil
+	}
+}
+
+// NewSha256Verifier returns a verifier suitable for Request. The
+// verifier checks the SHA-256 checksum of the file to ensure that it
+// matches the provided one.
+func NewSha256Verifier(expected string) func(*os.File) error {
+	return func(file *os.File) error {
+		actual, _, err := utils.ReadSHA256(file)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if actual != expected {
+			return errors.Errorf("expected sha256 %q, got %q", expected, actual)
+		}
+		return nil
 	}
 }
