@@ -31,7 +31,7 @@ github.com/juju/persistent-cookiejar	git	e710b897c13ca52828ca2fc9769465186fd6d15
 github.com/juju/ratelimit	git	aa5bb718d4d435629821789cb90970319f57bfe5	2015-03-30T01:41:32Z
 github.com/juju/replicaset	git	fb7294cf57a1e2f08a57691f1246d129a87ab7e8	2015-05-08T02:21:43Z
 github.com/juju/retry	git	62c62032529169c7ec02fa48f93349604c345e1f	2015-10-29T02:48:21Z
-github.com/juju/romulus	git	6aff5a14c3fc985d682ce35b23e988f2e4d462b5	2016-04-11T09:33:18Z
+github.com/juju/romulus	git	df735617fa6a358e42bb71ff74b3c3ba4faf9f5f	2016-04-19T16:05:42Z
 github.com/juju/schema	git	1e25943f8c6fd6815282d6f1ac87091d21e14e19	2016-03-01T11:16:46Z
 github.com/juju/testing	git	162fafccebf20a4207ab93d63b986c230e3f4d2e	2016-04-04T09:43:17Z
 github.com/juju/txn	git	99ec629d0066a4d73c54d8e021a7fc1dc07df614	2015-06-09T16:58:27Z
