@@ -59,25 +59,29 @@ type fakeController struct {
 	gomaasapi.Controller
 	sync.Mutex
 
-	bootResources            []gomaasapi.BootResource
-	bootResourcesError       error
-	machines                 []gomaasapi.Machine
-	machinesError            error
-	machinesArgsCheck        func(gomaasapi.MachinesArgs)
-	zones                    []gomaasapi.Zone
-	zonesError               error
-	spaces                   []gomaasapi.Space
-	spacesError              error
+	bootResources      []gomaasapi.BootResource
+	bootResourcesError error
+	machines           []gomaasapi.Machine
+	machinesError      error
+	machinesArgsCheck  func(gomaasapi.MachinesArgs)
+	zones              []gomaasapi.Zone
+	zonesError         error
+	spaces             []gomaasapi.Space
+	spacesError        error
+
 	allocateMachine          gomaasapi.Machine
+	allocateMachineMatches   gomaasapi.ConstraintMatches
 	allocateMachineError     error
 	allocateMachineArgsCheck func(gomaasapi.AllocateMachineArgs)
-	files                    []gomaasapi.File
-	filesPrefix              string
-	filesError               error
-	getFileFilename          string
-	addFileArgs              gomaasapi.AddFileArgs
-	releaseMachinesErrors    []error
-	releaseMachinesArgs      []gomaasapi.ReleaseMachinesArgs
+
+	files           []gomaasapi.File
+	filesPrefix     string
+	filesError      error
+	getFileFilename string
+	addFileArgs     gomaasapi.AddFileArgs
+
+	releaseMachinesErrors []error
+	releaseMachinesArgs   []gomaasapi.ReleaseMachinesArgs
 }
 
 func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
@@ -101,14 +105,13 @@ func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Mach
 }
 
 func (c *fakeController) AllocateMachine(args gomaasapi.AllocateMachineArgs) (gomaasapi.Machine, gomaasapi.ConstraintMatches, error) {
-	matches := gomaasapi.ConstraintMatches{}
 	if c.allocateMachineArgsCheck != nil {
 		c.allocateMachineArgsCheck(args)
 	}
 	if c.allocateMachineError != nil {
-		return nil, matches, c.allocateMachineError
+		return nil, c.allocateMachineMatches, c.allocateMachineError
 	}
-	return c.allocateMachine, matches, nil
+	return c.allocateMachine, c.allocateMachineMatches, nil
 }
 
 func (c *fakeController) BootResources() ([]gomaasapi.BootResource, error) {
@@ -436,4 +439,23 @@ func (f *fakeFile) ReadAll() ([]byte, error) {
 		return nil, f.error
 	}
 	return f.contents, nil
+}
+
+type fakeBlockDevice struct {
+	gomaasapi.BlockDevice
+	name string
+	path string
+	size int
+}
+
+func (bd fakeBlockDevice) Name() string {
+	return bd.name
+}
+
+func (bd fakeBlockDevice) Path() string {
+	return bd.path
+}
+
+func (bd fakeBlockDevice) Size() int {
+	return bd.size
 }
