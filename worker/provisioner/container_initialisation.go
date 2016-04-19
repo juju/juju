@@ -195,7 +195,7 @@ func (cs *ContainerSetup) runInitialiser(containerType instance.ContainerType, i
 
 	// Only tweak default LXC network config when address allocation
 	// feature flag is enabled.
-	if environs.AddressAllocationEnabled() {
+	if environs.AddressAllocationEnabled(cs.config.Value(agent.ProviderType)) {
 		// In order to guarantee stable statically assigned IP addresses
 		// for LXC containers, we need to install a custom version of
 		// /etc/default/lxc-net before we install the lxc package. The

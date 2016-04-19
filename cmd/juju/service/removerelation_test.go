@@ -35,11 +35,11 @@ func runRemoveRelation(c *gc.C, args ...string) error {
 }
 
 func (s *RemoveRelationSuite) setupRelationForRemove(c *gc.C) {
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "riak")
-	err := runDeploy(c, "local:riak", "riak")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "riak")
+	err := runDeploy(c, ch, "riak", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "logging")
-	err = runDeploy(c, "local:logging", "logging")
+	ch = testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
+	err = runDeploy(c, ch, "logging", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	runAddRelation(c, "riak", "logging")
 }

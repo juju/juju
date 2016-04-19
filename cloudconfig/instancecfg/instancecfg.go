@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"path"
+	"reflect"
 	"strconv"
 
 	"github.com/juju/errors"
@@ -80,8 +81,10 @@ type InstanceConfig struct {
 	// ensure the agent is running on the correct instance.
 	MachineNonce string
 
-	// Tools is juju tools to be used on the new instance.
-	Tools *coretools.Tools
+	// tools is the list of juju tools used to install the Juju agent
+	// on the new instance. Each of the entries in the list must have
+	// identical versions and hashes, but may have different URLs.
+	tools coretools.List
 
 	// GUI is the Juju GUI archive to be installed in the new instance.
 	GUI *coretools.GUIArchive
@@ -260,7 +263,7 @@ func (cfg *InstanceConfig) AgentConfig(
 
 // JujuTools returns the directory where Juju tools are stored.
 func (cfg *InstanceConfig) JujuTools() string {
-	return agenttools.SharedToolsDir(cfg.DataDir, cfg.Tools.Version)
+	return agenttools.SharedToolsDir(cfg.DataDir, cfg.AgentVersion())
 }
 
 // GUITools returns the directory where the Juju GUI release is stored.
@@ -303,6 +306,64 @@ func (cfg *InstanceConfig) HasNetworks() bool {
 	return len(cfg.Networks) > 0 || cfg.Constraints.HaveNetworks()
 }
 
+// AgentVersion returns the version of the Juju agent that will be configured
+// on the instance. The zero value will be returned if there are no tools set.
+func (cfg *InstanceConfig) AgentVersion() version.Binary {
+	if len(cfg.tools) == 0 {
+		return version.Binary{}
+	}
+	return cfg.tools[0].Version
+}
+
+// ToolsList returns the list of tools in the order in which they will
+// be tried.
+func (cfg *InstanceConfig) ToolsList() coretools.List {
+	if cfg.tools == nil {
+		return nil
+	}
+	return copyToolsList(cfg.tools)
+}
+
+// SetTools sets the tools that should be tried when provisioning this
+// instance. There must be at least one. Other than the URL, each item
+// must be the same.
+//
+// TODO(axw) 2016-04-19 lp:1572116
+// SetTools should verify that the tools have URLs, since they will
+// be needed for downloading on the instance. We can't do that until
+// all usage-sites are updated to pass through non-empty URLs.
+func (cfg *InstanceConfig) SetTools(toolsList coretools.List) error {
+	if len(toolsList) == 0 {
+		return errors.New("need at least 1 tools")
+	}
+	var tools *coretools.Tools
+	for _, listed := range toolsList {
+		if listed == nil {
+			return errors.New("nil entry in tools list")
+		}
+		info := *listed
+		info.URL = ""
+		if tools == nil {
+			tools = &info
+			continue
+		}
+		if !reflect.DeepEqual(info, *tools) {
+			return errors.Errorf("tools info mismatch (%v, %v)", *tools, info)
+		}
+	}
+	cfg.tools = copyToolsList(toolsList)
+	return nil
+}
+
+func copyToolsList(in coretools.List) coretools.List {
+	out := make(coretools.List, len(in))
+	for i, tools := range in {
+		copied := *tools
+		out[i] = &copied
+	}
+	return out
+}
+
 type requiresError string
 
 func (e requiresError) Error() string {
@@ -329,12 +390,11 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	if cfg.CloudInitOutputLog == "" {
 		return errors.New("missing cloud-init output log path")
 	}
-	if cfg.Tools == nil {
+	if cfg.tools == nil {
+		// SetTools() has never been called successfully.
 		return errors.New("missing tools")
 	}
-	if cfg.Tools.URL == "" {
-		return errors.New("missing tools URL")
-	}
+	// We don't need to check cfg.toolsURLs since SetTools() does.
 	if cfg.MongoInfo == nil {
 		return errors.New("missing state info")
 	}
@@ -621,9 +681,13 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 // InstanceTags returns the minimum set of tags that should be set on a
 // machine instance, if the provider supports them.
 func InstanceTags(cfg *config.Config, jobs []multiwatcher.MachineJob) map[string]string {
-	instanceTags := tags.ResourceTags(names.NewModelTag(cfg.UUID()), cfg)
+	instanceTags := tags.ResourceTags(
+		names.NewModelTag(cfg.UUID()),
+		names.NewModelTag(cfg.ControllerUUID()),
+		cfg,
+	)
 	if multiwatcher.AnyJobNeedsState(jobs...) {
-		instanceTags[tags.JujuController] = "true"
+		instanceTags[tags.JujuIsController] = "true"
 	}
 	return instanceTags
 }

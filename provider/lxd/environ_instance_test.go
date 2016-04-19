@@ -104,7 +104,7 @@ func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
 	s.BaseSuite.Client.CheckCall(
 		c, 0, "Instances",
 		"juju-"+s.Env.Config().ControllerUUID()+"-machine-",
-		[]string{"Starting", "Started", "Running"},
+		[]string{"Starting", "Started", "Running", "Stopping", "Stopped"},
 	)
 }
 

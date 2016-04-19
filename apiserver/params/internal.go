@@ -111,9 +111,9 @@ type ModelCreateArgs struct {
 // Model holds the result of an API call returning a name and UUID
 // for a model and the tag of the server in which it is running.
 type Model struct {
-	Name     string
-	UUID     string
-	OwnerTag string
+	Name     string `json:"Name"`
+	UUID     string `json:"UUID"`
+	OwnerTag string `json:"OwnerTag"`
 }
 
 // UserModel holds information about a model and the last
@@ -397,7 +397,7 @@ type VersionResults struct {
 // ToolsResult holds the tools and possibly error for a given
 // Tools() API call.
 type ToolsResult struct {
-	Tools                          *tools.Tools
+	ToolsList                      tools.List
 	DisableSSLHostnameVerification bool
 	Error                          *Error
 }

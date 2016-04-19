@@ -214,13 +214,15 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err != nil {
 		return err
 	}
-	selectedTools, err := setBootstrapTools(environ, matchingTools)
+	selectedToolsList, err := setBootstrapTools(environ, matchingTools)
 	if err != nil {
 		return err
 	}
-	if selectedTools.URL == "" {
-		if !args.UploadTools {
-			logger.Warningf("no prepackaged tools available")
+	havePrepackaged := false
+	for i, selectedTools := range selectedToolsList {
+		if selectedTools.URL != "" {
+			havePrepackaged = true
+			continue
 		}
 		ctx.Infof("Building tools to upload (%s)", selectedTools.Version)
 		builtTools, err := sync.BuildToolsTarball(&selectedTools.Version.Number, cfg.AgentStream())
@@ -232,6 +234,14 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		selectedTools.URL = fmt.Sprintf("file://%s", filename)
 		selectedTools.Size = builtTools.Size
 		selectedTools.SHA256 = builtTools.Sha256Hash
+		selectedToolsList[i] = selectedTools
+	}
+	if !havePrepackaged && !args.UploadTools {
+		// There are no prepackaged agents, so we must upload
+		// even though the user didn't ask for it. We only do
+		// this when the image-stream is not "released" and
+		// the agent version hasn't been specified.
+		logger.Warningf("no prepackaged tools available")
 	}
 
 	ctx.Infof("Installing Juju agent on bootstrap instance")
@@ -245,7 +255,9 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err != nil {
 		return err
 	}
-	instanceConfig.Tools = selectedTools
+	if err := instanceConfig.SetTools(selectedToolsList); err != nil {
+		return errors.Trace(err)
+	}
 	instanceConfig.CustomImageMetadata = customImageMetadata
 	instanceConfig.HostedModelConfig = args.HostedModelConfig
 
@@ -376,7 +388,7 @@ func bootstrapImageMetadata(
 
 // setBootstrapTools returns the newest tools from the given tools list,
 // and updates the agent-version configuration attribute.
-func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (*coretools.Tools, error) {
+func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (coretools.List, error) {
 	if len(possibleTools) == 0 {
 		return nil, fmt.Errorf("no bootstrap tools available")
 	}
@@ -411,7 +423,7 @@ func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 		}
 	}
 	logger.Infof("picked bootstrap tools version: %s", bootstrapVersion)
-	return toolsList[0], nil
+	return toolsList, nil
 }
 
 // findCompatibleTools finds tools in the list that have the same major, minor

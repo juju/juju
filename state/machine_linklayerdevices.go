@@ -266,7 +266,10 @@ func (m *Machine) validateSetLinkLayerDeviceArgs(args *LinkLayerDeviceArgs) erro
 		return errors.NotValidf("empty Name")
 	}
 	if !IsValidLinkLayerDeviceName(args.Name) {
-		return errors.NotValidf("Name %q", args.Name)
+		logger.Warningf(
+			"link-layer device %q on machine %q has invalid name (using anyway)",
+			args.Name, m.Id(),
+		)
 	}
 
 	if args.ParentName != "" {
@@ -353,7 +356,10 @@ func (m *Machine) verifyHostMachineParentDeviceExistsAndIsABridgeDevice(hostMach
 
 func (m *Machine) validateParentDeviceNameWhenNotAGlobalKey(args *LinkLayerDeviceArgs) error {
 	if !IsValidLinkLayerDeviceName(args.ParentName) {
-		return errors.NotValidf("ParentName %q", args.ParentName)
+		logger.Warningf(
+			"parent link-layer device %q on machine %q has invalid name (using anyway)",
+			args.ParentName, m.Id(),
+		)
 	}
 	if args.Name == args.ParentName {
 		return errors.NewNotValid(nil, "Name and ParentName must be different")
@@ -542,8 +548,7 @@ type LinkLayerDeviceAddress struct {
 // following cases:
 // - Machine is no longer alive or is missing;
 // - Subnet inferred from any CIDRAddress field in args is known but no longer
-//   alive (no error reported if the CIDRAddress matches IPv4 or IPv6 loopback
-//   range or an unknown subnet);
+//   alive (no error reported if the CIDRAddress does not match a known subnet);
 // - Model no longer alive;
 // - errors.NotValidError, when any of the fields in args contain invalid values;
 // - errors.NotFoundError, when any DeviceName in args refers to unknown device;
@@ -639,7 +644,10 @@ func (m *Machine) validateSetDevicesAddressesArgs(args *LinkLayerDeviceAddress) 
 		return errors.NotValidf("empty DeviceName")
 	}
 	if !IsValidLinkLayerDeviceName(args.DeviceName) {
-		return errors.NotValidf("DeviceName %q", args.DeviceName)
+		logger.Warningf(
+			"address %q on machine %q has invalid device name %q (using anyway)",
+			args.CIDRAddress, m.Id(), args.DeviceName,
+		)
 	}
 	if err := m.verifyDeviceAlreadyExists(args.DeviceName); err != nil {
 		return errors.Trace(err)
@@ -675,18 +683,17 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 		return nil, errors.Trace(err)
 	}
 	addressValue := ip.String()
-	subnetID := ipNet.String()
-	if subnetID == network.LoopbackIPv4CIDR ||
-		subnetID == network.LoopbackIPv6CIDR {
-		// Loopback addresses are not linked to a subnet.
-		subnetID = ""
-	} else {
-		if err := m.verifyAddressSubnetAliveIfKnownWhenSet(subnetID); errors.IsNotFound(err) {
-			logger.Infof("address %q on machine %q uses unknown subnet %q", addressValue, m.Id(), subnetID)
-			subnetID = ""
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
+	subnetCIDR := ipNet.String()
+	subnet, err := m.st.Subnet(subnetCIDR)
+	if errors.IsNotFound(err) {
+		logger.Infof(
+			"address %q on machine %q uses unknown or machine-local subnet %q",
+			addressValue, m.Id(), subnetCIDR,
+		)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	} else if err := m.verifySubnetAlive(subnet); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	globalKey := ipAddressGlobalKey(m.doc.Id, args.DeviceName, addressValue)
@@ -704,7 +711,7 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 		ProviderID:       providerID,
 		DeviceName:       args.DeviceName,
 		MachineID:        m.doc.Id,
-		SubnetID:         subnetID,
+		SubnetCIDR:       subnetCIDR,
 		ConfigMethod:     args.ConfigMethod,
 		Value:            addressValue,
 		DNSServers:       args.DNSServers,
@@ -714,17 +721,9 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 	return newDoc, nil
 }
 
-func (m *Machine) verifyAddressSubnetAliveIfKnownWhenSet(subnetID string) error {
-	if subnetID == "" {
-		return nil
-	}
-
-	subnet, err := m.st.Subnet(subnetID)
-	if err != nil {
-		return errors.Trace(err)
-	}
+func (m *Machine) verifySubnetAlive(subnet *Subnet) error {
 	if subnet.Life() != Alive {
-		return errors.Errorf("subnet %q is not alive", subnetID)
+		return errors.Errorf("subnet %q is not alive", subnet.CIDR())
 	}
 	return nil
 }
@@ -751,21 +750,32 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 			return nil, errors.Trace(err)
 		}
 
-		ops = m.assertSubnetAliveWhenSetOps(&newDoc, ops)
+		ops, err = m.maybeAssertSubnetAliveOps(&newDoc, ops)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	return ops, nil
 }
 
-func (m *Machine) assertSubnetAliveWhenSetOps(newDoc *ipAddressDoc, opsSoFar []txn.Op) []txn.Op {
-	if newDoc.SubnetID != "" {
-		subnetDocID := m.st.docID(newDoc.SubnetID)
-		return append(opsSoFar, txn.Op{
-			C:      subnetsC,
-			Id:     subnetDocID,
-			Assert: isAliveDoc,
-		})
+func (m *Machine) maybeAssertSubnetAliveOps(newDoc *ipAddressDoc, opsSoFar []txn.Op) ([]txn.Op, error) {
+	subnet, err := m.st.Subnet(newDoc.SubnetCIDR)
+	if errors.IsNotFound(err) {
+		// Subnet is machine-local, no need to assert whether it's alive.
+		return opsSoFar, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return opsSoFar
+	if err := m.verifySubnetAlive(subnet); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Subnet exists and is still alive, assert that is stays that way.
+	return append(opsSoFar, txn.Op{
+		C:      subnetsC,
+		Id:     m.st.docID(newDoc.SubnetCIDR),
+		Assert: isAliveDoc,
+	}), nil
 }
 
 // RemoveAllAddresses removes all assigned addresses to all devices of the

@@ -105,7 +105,7 @@ func (c *createModelCommand) Init(args []string) error {
 			return errors.Errorf("invalid cloud credential %s, expected <cloud>:<credential-name>", c.CredentialSpec)
 		}
 		c.CloudName = parts[0]
-		if cloud, err := cloud.CloudByName(c.CloudName); err != nil {
+		if cloud, err := common.CloudOrProvider(c.CloudName, cloud.CloudByName); err != nil {
 			return errors.Trace(err)
 		} else {
 			c.CloudType = cloud.Type

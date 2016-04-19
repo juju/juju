@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils/arch"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -135,7 +136,7 @@ func (s *environBrokerSuite) TestFinishInstanceConfig(c *gc.C) {
 	err := gce.FinishInstanceConfig(s.Env, s.StartInstArgs, s.spec)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s.StartInstArgs.InstanceConfig.Tools, gc.NotNil)
+	c.Check(s.StartInstArgs.InstanceConfig.AgentVersion(), gc.Not(gc.Equals), version.Binary{})
 }
 
 func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {

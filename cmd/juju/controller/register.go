@@ -160,9 +160,13 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	if err := c.store.UpdateController(registrationParams.controllerName, controllerDetails); err != nil {
 		return errors.Trace(err)
 	}
+	macaroonJSON, err := responsePayload.Macaroon.MarshalJSON()
+	if err != nil {
+		return errors.Annotate(err, "marshalling temporary credential to JSON")
+	}
 	accountDetails := jujuclient.AccountDetails{
 		User:     registrationParams.userTag.Canonical(),
-		Password: registrationParams.newPassword,
+		Macaroon: string(macaroonJSON),
 	}
 	accountName := accountDetails.User
 	if err := c.store.UpdateAccount(

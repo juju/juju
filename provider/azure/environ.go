@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	jujunetwork "github.com/juju/juju/network"
@@ -39,6 +40,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/tools"
 )
 
 const jujuMachineNameTag = tags.JujuTagPrefix + "machine-name"
@@ -233,7 +235,7 @@ func createStorageAccount(
 
 // ControllerInstances is specified in the Environ interface.
 func (env *azureEnviron) ControllerInstances() ([]instance.Id, error) {
-	// controllers are tagged with tags.JujuController, so just
+	// controllers are tagged with tags.JujuIsController, so just
 	// list the instances in the controller resource group and pick
 	// those ones out.
 	instances, err := env.allInstances(env.controllerResourceGroup, true)
@@ -243,7 +245,7 @@ func (env *azureEnviron) ControllerInstances() ([]instance.Id, error) {
 	var ids []instance.Id
 	for _, inst := range instances {
 		azureInstance := inst.(*azureInstance)
-		if toTags(azureInstance.Tags)[tags.JujuController] == "true" {
+		if toTags(azureInstance.Tags)[tags.JujuIsController] == "true" {
 			ids = append(ids, inst.Id())
 		}
 	}
@@ -398,16 +400,6 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 
-	err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config())
-	if err != nil {
-		return nil, err
-	}
-
-	// Pick envtools.  Needed for the custom data (which is what we normally
-	// call userdata).
-	args.InstanceConfig.Tools = args.Tools[0]
-	logger.Infof("picked tools %q", args.InstanceConfig.Tools)
-
 	// Get the required configuration and config-dependent information
 	// required to create the instance. We take the lock just once, to
 	// ensure we obtain all information based on the same configuration.
@@ -449,6 +441,26 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 		imageStream,
 	)
 	if err != nil {
+		return nil, err
+	}
+
+	// Pick tools by filtering the available tools down to the architecture of
+	// the image that will be provisioned.
+	selectedTools, err := args.Tools.Match(tools.Filter{
+		Arch: instanceSpec.Image.Arch,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Infof("picked tools %q", selectedTools[0].Version)
+
+	// Finalize the instance config, which we'll render to CustomData below.
+	if err := args.InstanceConfig.SetTools(selectedTools); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := instancecfg.FinishInstanceConfig(
+		args.InstanceConfig, env.Config(),
+	); err != nil {
 		return nil, err
 	}
 
@@ -1174,4 +1186,20 @@ func (env *azureEnviron) getStorageClient() (internalazurestorage.Client, error)
 		return nil, errors.Annotate(err, "getting storage client")
 	}
 	return client, nil
+}
+
+// AgentMirror is specified in the tools.HasAgentMirror interface.
+//
+// TODO(axw) 2016-04-11 #1568715
+// When we have image simplestreams, we should rename this to "Region",
+// to implement simplestreams.HasRegion.
+func (env *azureEnviron) AgentMirror() (simplestreams.CloudSpec, error) {
+	env.mu.Lock()
+	defer env.mu.Unlock()
+	return simplestreams.CloudSpec{
+		Region: env.config.location,
+		// The endpoints published in simplestreams
+		// data are the storage endpoints.
+		Endpoint: fmt.Sprintf("https://%s/", env.config.storageEndpoint),
+	}, nil
 }

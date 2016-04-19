@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider"
 )
 
 // SupportsNetworking is a convenience helper to check if an environment
@@ -81,8 +82,13 @@ func supportsNetworking(environ Environ) (NetworkingEnviron, bool) {
 	return ne, ok
 }
 
-// AddressAllocationEnabled is a shortcut for checking if the
-// AddressAllocation feature flag is enabled.
-func AddressAllocationEnabled() bool {
+// AddressAllocationEnabled is a shortcut for checking if the AddressAllocation
+// feature flag is enabled. The providerType is used to distinguish between MAAS
+// and other providers that still support the legacy address allocation (EC2 and
+// Dummy) until the support can be removed across the board.
+func AddressAllocationEnabled(providerType string) bool {
+	if providerType == provider.MAAS {
+		return false
+	}
 	return featureflag.Enabled(feature.AddressAllocation)
 }

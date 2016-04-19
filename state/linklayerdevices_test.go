@@ -6,7 +6,6 @@ package state_test
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -71,13 +70,6 @@ func (s *linkLayerDevicesStateSuite) assertSetLinkLayerDevicesFailsForArgs(c *gc
 	return err
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesInvalidName(c *gc.C) {
-	args := state.LinkLayerDeviceArgs{
-		Name: "bad#name",
-	}
-	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `Name "bad#name" not valid`)
-}
-
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesSameNameAndParentName(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name:       "foo",
@@ -92,15 +84,6 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesInvalidType(c *gc.C)
 		Type: "bad type",
 	}
 	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `Type "bad type" not valid`)
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesInvalidParentName(c *gc.C) {
-	var wayTooLongName = strings.Repeat("x", 256)
-	args := state.LinkLayerDeviceArgs{
-		Name:       "eth0",
-		ParentName: wayTooLongName,
-	}
-	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `ParentName "x{256}" not valid`)
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesParentNameAsInvalidGlobalKey(c *gc.C) {

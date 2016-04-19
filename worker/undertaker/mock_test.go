@@ -4,15 +4,13 @@
 package undertaker_test
 
 import (
-	"time"
-
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/undertaker"
@@ -50,6 +48,11 @@ func (mock *mockFacade) WatchModelResources() (watcher.NotifyWatcher, error) {
 
 func (mock *mockFacade) ProcessDyingModel() error {
 	mock.stub.AddCall("ProcessDyingModel")
+	return mock.stub.NextErr()
+}
+
+func (mock *mockFacade) SetStatus(status status.Status, info string, data map[string]interface{}) error {
+	mock.stub.MethodCall(mock, "SetStatus", status, info, data)
 	return mock.stub.NextErr()
 }
 
@@ -91,7 +94,7 @@ func (fix fixture) cleanup(c *gc.C, w worker.Worker) {
 	}
 }
 
-func (fix fixture) run(c *gc.C, test func(worker.Worker, *coretesting.Clock)) *testing.Stub {
+func (fix fixture) run(c *gc.C, test func(worker.Worker)) *testing.Stub {
 	stub := &testing.Stub{}
 	environ := &mockEnviron{
 		stub: stub,
@@ -100,16 +103,13 @@ func (fix fixture) run(c *gc.C, test func(worker.Worker, *coretesting.Clock)) *t
 		stub: stub,
 		info: fix.info,
 	}
-	clock := coretesting.NewClock(time.Now())
 	stub.SetErrors(fix.errors...)
 	w, err := undertaker.NewUndertaker(undertaker.Config{
-		Facade:      facade,
-		Environ:     environ,
-		Clock:       clock,
-		RemoveDelay: RIPTime,
+		Facade:  facade,
+		Environ: environ,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer fix.cleanup(c, w)
-	test(w, clock)
+	test(w)
 	return stub
 }

@@ -137,3 +137,19 @@ func (m *Machine) SetProviderNetworkConfig() error {
 	}
 	return result.OneError()
 }
+
+// SetSSHHostKeys reports the public SSH host keys for the machine to
+// the controller. The keys should be in the same format as the sshd
+// host key files, one entry per key.
+func (m *Machine) SetSSHHostKeys(publicKeys []string) error {
+	args := params.SSHHostKeySet{EntityKeys: []params.SSHHostKeys{{
+		Tag:        m.tag.String(),
+		PublicKeys: publicKeys,
+	}}}
+	var result params.ErrorResults
+	err := m.st.facade.FacadeCall("SetSSHHostKeys", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}

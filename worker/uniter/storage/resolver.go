@@ -44,35 +44,8 @@ func (s *storageResolver) NextOp(
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
 
-	var changed []names.StorageTag
-	for tag, storage := range remoteState.Storage {
-		life, ok := s.life[tag]
-		if !ok || life != storage.Life {
-			s.life[tag] = storage.Life
-			changed = append(changed, tag)
-		}
-	}
-	for tag := range s.life {
-		if _, ok := remoteState.Storage[tag]; !ok {
-			changed = append(changed, tag)
-			delete(s.life, tag)
-		}
-	}
-	if len(changed) > 0 {
-		return opFactory.NewUpdateStorage(changed)
-	}
-	if !localState.Installed && s.storage.Pending() == 0 {
-		logger.Infof("initial storage attachments ready")
-	}
-	return s.nextOp(localState, remoteState, opFactory)
-}
-
-func (s *storageResolver) nextOp(
-	localState resolver.LocalState,
-	remoteState remotestate.Snapshot,
-	opFactory operation.Factory,
-) (operation.Operation, error) {
 	if remoteState.Life == params.Dying {
+		// The unit is dying, so destroy all of its storage.
 		if !s.dying {
 			if err := s.storage.SetDying(); err != nil {
 				return nil, errors.Trace(err)
@@ -85,6 +58,10 @@ func (s *storageResolver) nextOp(
 		}
 	}
 
+	if err := s.maybeShortCircuitRemoval(remoteState.Storage); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var runStorageHooks bool
 	switch {
 	case localState.Kind == operation.Continue:
@@ -95,23 +72,48 @@ func (s *storageResolver) nextOp(
 		// hook queued. Run storage-attached hooks first.
 		runStorageHooks = true
 	}
+	if !runStorageHooks {
+		return nil, resolver.ErrNoOperation
+	}
 
-	if runStorageHooks {
-		for tag, snap := range remoteState.Storage {
-			op, err := s.nextHookOp(tag, snap, opFactory)
-			if errors.Cause(err) == resolver.ErrNoOperation {
-				continue
-			}
-			return op, err
+	if !localState.Installed && s.storage.Pending() == 0 {
+		logger.Infof("initial storage attachments ready")
+	}
+
+	for tag, snap := range remoteState.Storage {
+		op, err := s.nextHookOp(tag, snap, opFactory)
+		if errors.Cause(err) == resolver.ErrNoOperation {
+			continue
 		}
-		if s.storage.Pending() > 0 {
-			logger.Debugf("still pending %v", s.storage.pending)
-			if !localState.Installed {
-				return nil, resolver.ErrWaiting
-			}
+		return op, err
+	}
+	if s.storage.Pending() > 0 {
+		logger.Debugf("still pending %v", s.storage.pending.SortedValues())
+		if !localState.Installed {
+			// We only wait for pending storage before
+			// the install hook runs; we should not block
+			// other hooks from running while storage is
+			// being provisioned.
+			return nil, resolver.ErrWaiting
 		}
 	}
 	return nil, resolver.ErrNoOperation
+}
+
+// maybeShortCircuitRemoval removes any storage that is not alive,
+// and has not had a storage-attached hook committed.
+func (s *storageResolver) maybeShortCircuitRemoval(remote map[names.StorageTag]remotestate.StorageSnapshot) error {
+	for tag, snap := range remote {
+		local, ok := s.storage.storageAttachments[tag]
+		if (ok && local.attached) || snap.Life == params.Alive {
+			continue
+		}
+		if err := s.storage.removeStorageAttachment(tag); err != nil {
+			return errors.Trace(err)
+		}
+		delete(remote, tag)
+	}
+	return nil
 }
 
 func (s *storageResolver) nextHookOp(
@@ -119,52 +121,62 @@ func (s *storageResolver) nextHookOp(
 	snap remotestate.StorageSnapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
+
 	logger.Debugf("next hook op for %v: %+v", tag, snap)
-	if !snap.Attached {
-		return nil, resolver.ErrNoOperation
-	}
-	storageAttachment, ok := s.storage.storageAttachments[tag]
-	if !ok {
-		return nil, resolver.ErrNoOperation
-	}
-	switch snap.Life {
-	case params.Alive:
-		if storageAttachment.attached {
-			// Storage attachments currently do not change
-			// (apart from lifecycle) after being provisioned.
-			// We don't process unprovisioned storage here,
-			// so there's nothing to do.
-			return nil, resolver.ErrNoOperation
-		}
-	case params.Dying:
-		if !storageAttachment.attached {
-			// Nothing to do: attachment is dying, but
-			// the storage-attached hook has not been
-			// consumed.
-			return nil, resolver.ErrNoOperation
-		}
-	case params.Dead:
+
+	if snap.Life == params.Dead {
 		// Storage must have been Dying to become Dead;
 		// no further action is required.
 		return nil, resolver.ErrNoOperation
 	}
 
-	hookInfo := hook.Info{
-		StorageId: tag.Id(),
-	}
-	if snap.Life == params.Alive {
+	hookInfo := hook.Info{StorageId: tag.Id()}
+	switch snap.Life {
+	case params.Alive:
+		storageAttachment, ok := s.storage.storageAttachments[tag]
+		if ok && storageAttachment.attached {
+			// Once the storage is attached, we only care about
+			// lifecycle state changes.
+			return nil, resolver.ErrNoOperation
+		}
+		// The storage-attached hook has not been committed, so add the
+		// storage to the pending set.
+		s.storage.pending.Add(tag)
+		if !snap.Attached {
+			// The storage attachment has not been provisioned yet,
+			// so just ignore it for now. We'll be notified again
+			// when it has been provisioned.
+			return nil, resolver.ErrNoOperation
+		}
+		// The storage is alive, but we haven't previously run the
+		// "storage-attached" hook. Do so now.
 		hookInfo.Kind = hooks.StorageAttached
-	} else {
+	case params.Dying:
+		storageAttachment, ok := s.storage.storageAttachments[tag]
+		if !ok || !storageAttachment.attached {
+			// Nothing to do: attachment is dying, but
+			// the storage-attached hook has not been
+			// issued.
+			return nil, resolver.ErrNoOperation
+		}
+		// The storage is dying, but we haven't previously run the
+		// "storage-detached" hook. Do so now.
 		hookInfo.Kind = hooks.StorageDetaching
 	}
-	context := &contextStorage{
-		tag:      tag,
-		kind:     storage.StorageKind(snap.Kind),
-		location: snap.Location,
-	}
-	storageAttachment.ContextStorageAttachment = context
-	s.storage.storageAttachments[tag] = storageAttachment
 
-	logger.Debugf("queued hook: %v", hookInfo)
+	// Update the local state to reflect what we're about to report
+	// to a hook.
+	stateFile, err := readStateFile(s.storage.storageStateDir, tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	s.storage.storageAttachments[tag] = storageAttachment{
+		stateFile, &contextStorage{
+			tag:      tag,
+			kind:     storage.StorageKind(snap.Kind),
+			location: snap.Location,
+		},
+	}
+
 	return opFactory.NewRunHook(hookInfo)
 }

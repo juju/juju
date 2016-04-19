@@ -4,6 +4,8 @@
 package maas
 
 import (
+	"sync"
+
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
@@ -55,25 +57,31 @@ func (suite *maas2Suite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *
 
 type fakeController struct {
 	gomaasapi.Controller
-	bootResources            []gomaasapi.BootResource
-	bootResourcesError       error
-	machines                 []gomaasapi.Machine
-	machinesError            error
-	machinesArgsCheck        func(gomaasapi.MachinesArgs)
-	zones                    []gomaasapi.Zone
-	zonesError               error
-	spaces                   []gomaasapi.Space
-	spacesError              error
+	sync.Mutex
+
+	bootResources      []gomaasapi.BootResource
+	bootResourcesError error
+	machines           []gomaasapi.Machine
+	machinesError      error
+	machinesArgsCheck  func(gomaasapi.MachinesArgs)
+	zones              []gomaasapi.Zone
+	zonesError         error
+	spaces             []gomaasapi.Space
+	spacesError        error
+
 	allocateMachine          gomaasapi.Machine
+	allocateMachineMatches   gomaasapi.ConstraintMatches
 	allocateMachineError     error
 	allocateMachineArgsCheck func(gomaasapi.AllocateMachineArgs)
-	files                    []gomaasapi.File
-	filesPrefix              string
-	filesError               error
-	getFileFilename          string
-	addFileArgs              gomaasapi.AddFileArgs
-	releaseMachinesErrors    []error
-	releaseMachinesArgs      []gomaasapi.ReleaseMachinesArgs
+
+	files           []gomaasapi.File
+	filesPrefix     string
+	filesError      error
+	getFileFilename string
+	addFileArgs     gomaasapi.AddFileArgs
+
+	releaseMachinesErrors []error
+	releaseMachinesArgs   []gomaasapi.ReleaseMachinesArgs
 }
 
 func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
@@ -97,14 +105,13 @@ func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Mach
 }
 
 func (c *fakeController) AllocateMachine(args gomaasapi.AllocateMachineArgs) (gomaasapi.Machine, gomaasapi.ConstraintMatches, error) {
-	matches := gomaasapi.ConstraintMatches{}
 	if c.allocateMachineArgsCheck != nil {
 		c.allocateMachineArgsCheck(args)
 	}
 	if c.allocateMachineError != nil {
-		return nil, matches, c.allocateMachineError
+		return nil, c.allocateMachineMatches, c.allocateMachineError
 	}
-	return c.allocateMachine, matches, nil
+	return c.allocateMachine, c.allocateMachineMatches, nil
 }
 
 func (c *fakeController) BootResources() ([]gomaasapi.BootResource, error) {
@@ -129,6 +136,8 @@ func (c *fakeController) Spaces() ([]gomaasapi.Space, error) {
 }
 
 func (c *fakeController) Files(prefix string) ([]gomaasapi.File, error) {
+	c.Lock()
+	defer c.Unlock()
 	c.filesPrefix = prefix
 	if c.filesError != nil {
 		return nil, c.filesError
@@ -137,6 +146,8 @@ func (c *fakeController) Files(prefix string) ([]gomaasapi.File, error) {
 }
 
 func (c *fakeController) GetFile(filename string) (gomaasapi.File, error) {
+	c.Lock()
+	defer c.Unlock()
 	c.getFileFilename = filename
 	if c.filesError != nil {
 		return nil, c.filesError
@@ -152,11 +163,15 @@ func (c *fakeController) GetFile(filename string) (gomaasapi.File, error) {
 }
 
 func (c *fakeController) AddFile(args gomaasapi.AddFileArgs) error {
+	c.Lock()
+	defer c.Unlock()
 	c.addFileArgs = args
 	return c.filesError
 }
 
 func (c *fakeController) ReleaseMachines(args gomaasapi.ReleaseMachinesArgs) error {
+	c.Lock()
+	defer c.Unlock()
 	c.releaseMachinesArgs = append(c.releaseMachinesArgs, args)
 	if len(c.releaseMachinesErrors) == 0 {
 		return nil
@@ -192,6 +207,11 @@ type fakeMachine struct {
 	memory        int
 	architecture  string
 	interfaceSet  []gomaasapi.Interface
+	tags          []string
+}
+
+func (m *fakeMachine) Tags() []string {
+	return m.tags
 }
 
 func (m *fakeMachine) CPUCount() int {
@@ -419,4 +439,23 @@ func (f *fakeFile) ReadAll() ([]byte, error) {
 		return nil, f.error
 	}
 	return f.contents, nil
+}
+
+type fakeBlockDevice struct {
+	gomaasapi.BlockDevice
+	name string
+	path string
+	size int
+}
+
+func (bd fakeBlockDevice) Name() string {
+	return bd.name
+}
+
+func (bd fakeBlockDevice) Path() string {
+	return bd.path
+}
+
+func (bd fakeBlockDevice) Size() int {
+	return bd.size
 }

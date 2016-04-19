@@ -108,6 +108,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// This has been deprecated in 2.0, and should not contain any data
 		// we actually care about migrating.
 		legacyipaddressesC,
+
+		// The SSH host keys for each machine will be reported as each
+		// machiner starts up.
+		sshHostKeysC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -178,10 +182,6 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		// ServerUUID is recreated when the new model is created in the
 		// new controller (yay name changes).
 		"ServerUUID",
-		// Both of the times for dying and death are empty as the model
-		// is alive.
-		"TimeOfDying",
-		"TimeOfDeath",
 
 		"MigrationMode",
 		"Owner",

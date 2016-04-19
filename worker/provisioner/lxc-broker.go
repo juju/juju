@@ -93,6 +93,12 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		bridgeDevice = container.DefaultLxcBridge
 	}
 
+	config, err := broker.api.ContainerConfig()
+	if err != nil {
+		lxcLogger.Errorf("failed to get container config: %v", err)
+		return nil, err
+	}
+
 	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
 		broker.api,
 		machineId,
@@ -101,6 +107,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		broker.enableNAT,
 		args.NetworkInfo,
 		lxcLogger,
+		config.ProviderType,
 	)
 	if err != nil {
 		// It's not fatal (yet) if we couldn't pre-allocate addresses for the
@@ -130,13 +137,10 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 
 	series := archTools.OneSeries()
 	args.InstanceConfig.MachineContainerType = instance.LXC
-	args.InstanceConfig.Tools = archTools[0]
-
-	config, err := broker.api.ContainerConfig()
-	if err != nil {
-		lxcLogger.Errorf("failed to get container config: %v", err)
-		return nil, err
+	if err := args.InstanceConfig.SetTools(archTools); err != nil {
+		return nil, errors.Trace(err)
 	}
+
 	storageConfig := &container.StorageConfig{
 		AllowMount: config.AllowLXCLoopMounts,
 	}
@@ -193,6 +197,7 @@ func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) err
 		broker.enableNAT,
 		args.NetworkInfo,
 		lxcLogger,
+		broker.agentConfig.Value(agent.ProviderType),
 	)
 	return err
 }
@@ -206,7 +211,8 @@ func (broker *lxcBroker) StopInstances(ids ...instance.Id) error {
 			lxcLogger.Errorf("container did not stop: %v", err)
 			return err
 		}
-		maybeReleaseContainerAddresses(broker.api, id, broker.namespace, lxcLogger)
+		providerType := broker.agentConfig.Value(agent.ProviderType)
+		maybeReleaseContainerAddresses(broker.api, id, broker.namespace, lxcLogger, providerType)
 	}
 	return nil
 }
@@ -677,10 +683,11 @@ func prepareOrGetContainerInterfaceInfo(
 	enableNAT bool,
 	startingNetworkInfo []network.InterfaceInfo,
 	log loggo.Logger,
+	providerType string,
 ) ([]network.InterfaceInfo, error) {
 	maintain := !allocateOrMaintain
 
-	if environs.AddressAllocationEnabled() {
+	if environs.AddressAllocationEnabled(providerType) {
 		if maintain {
 			log.Debugf("running maintenance for container %q", machineID)
 		} else {
@@ -752,8 +759,9 @@ func maybeReleaseContainerAddresses(
 	instanceID instance.Id,
 	namespace string,
 	log loggo.Logger,
+	providerType string,
 ) {
-	if environs.AddressAllocationEnabled() {
+	if environs.AddressAllocationEnabled(providerType) {
 		// The addresser worker will take care of the addresses.
 		return
 	}

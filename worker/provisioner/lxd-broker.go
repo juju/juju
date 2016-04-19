@@ -33,11 +33,11 @@ func NewLxdBroker(
 	}
 
 	return &lxdBroker{
-		manager,
-		namespace,
-		api,
-		agentConfig,
-		enableNAT,
+		manager:     manager,
+		namespace:   namespace,
+		api:         api,
+		agentConfig: agentConfig,
+		enableNAT:   enableNAT,
 	}, nil
 }
 
@@ -54,13 +54,15 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, errors.New("starting lxd containers with networks is not supported yet")
 	}
 	machineId := args.InstanceConfig.MachineId
-	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
+	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
 	if bridgeDevice == "" {
-		var err error
-		bridgeDevice, err = lxdclient.GetDefaultBridgeName()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+		bridgeDevice = lxdclient.DefaultLXDBridge
+	}
+
+	config, err := broker.api.ContainerConfig()
+	if err != nil {
+		lxdLogger.Errorf("failed to get container config: %v", err)
+		return nil, err
 	}
 
 	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
@@ -71,6 +73,7 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		broker.enableNAT,
 		args.NetworkInfo,
 		lxdLogger,
+		config.ProviderType,
 	)
 	if err != nil {
 		// It's not fatal (yet) if we couldn't pre-allocate addresses for the
@@ -84,12 +87,8 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 
 	series := args.Tools.OneSeries()
 	args.InstanceConfig.MachineContainerType = instance.LXD
-	args.InstanceConfig.Tools = args.Tools[0]
-
-	config, err := broker.api.ContainerConfig()
-	if err != nil {
-		lxdLogger.Errorf("failed to get container config: %v", err)
-		return nil, err
+	if err := args.InstanceConfig.SetTools(args.Tools); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	if err := instancecfg.PopulateInstanceConfig(
@@ -129,7 +128,8 @@ func (broker *lxdBroker) StopInstances(ids ...instance.Id) error {
 			lxdLogger.Errorf("container did not stop: %v", err)
 			return err
 		}
-		maybeReleaseContainerAddresses(broker.api, id, broker.namespace, lxdLogger)
+		providerType := broker.agentConfig.Value(agent.ProviderType)
+		maybeReleaseContainerAddresses(broker.api, id, broker.namespace, lxdLogger, providerType)
 	}
 	return nil
 }
@@ -150,11 +150,7 @@ func (broker *lxdBroker) MaintainInstance(args environs.StartInstanceParams) err
 	// Default to using the host network until we can configure.
 	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
 	if bridgeDevice == "" {
-		var err error
-		bridgeDevice, err = lxdclient.GetDefaultBridgeName()
-		if err != nil {
-			return err
-		}
+		bridgeDevice = lxdclient.DefaultLXDBridge
 	}
 
 	// There's no InterfaceInfo we expect to get below.
@@ -166,6 +162,7 @@ func (broker *lxdBroker) MaintainInstance(args environs.StartInstanceParams) err
 		broker.enableNAT,
 		args.NetworkInfo,
 		lxdLogger,
+		broker.agentConfig.Value(agent.ProviderType),
 	)
 	return err
 }

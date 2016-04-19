@@ -205,7 +205,7 @@ func (u *Upgrader) loop() error {
 		}
 
 		// Check if tools are available for download.
-		wantTools, err := u.st.Tools(u.tag.String())
+		wantToolsList, err := u.st.Tools(u.tag.String())
 		if err != nil {
 			// Not being able to lookup Tools is considered fatal
 			return err
@@ -215,11 +215,13 @@ func (u *Upgrader) loop() error {
 		// repeatedly (causing the agent to be stopped), as long
 		// as we have got as far as this, we will still be able to
 		// upgrade the agent.
-		err = u.ensureTools(wantTools)
-		if err == nil {
-			return u.newUpgradeReadyError(wantTools.Version)
+		for _, wantTools := range wantToolsList {
+			err = u.ensureTools(wantTools)
+			if err == nil {
+				return u.newUpgradeReadyError(wantTools.Version)
+			}
+			logger.Errorf("failed to fetch tools from %q: %v", wantTools.URL, err)
 		}
-		logger.Errorf("failed to fetch tools from %q: %v", wantTools.URL, err)
 		retry = retryAfter()
 	}
 }

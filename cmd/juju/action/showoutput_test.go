@@ -278,6 +278,7 @@ timing:
 					t.withAPITimeout,
 					t.withTags,
 					t.withAPIResponse,
+					params.ActionsByNames{},
 					t.withAPIError),
 				t.expectedErr,
 				t.expectedOutput,
@@ -310,6 +311,7 @@ func makeFakeClient(
 	delay, timeout time.Duration,
 	tags params.FindTagsResults,
 	response []params.ActionResult,
+	actionsByNames params.ActionsByNames,
 	errStr string,
 ) *fakeAPIClient {
 	client := &fakeAPIClient{
@@ -317,6 +319,7 @@ func makeFakeClient(
 		timeout:          time.NewTimer(timeout),
 		actionTagMatches: tags,
 		actionResults:    response,
+		actionsByNames:   actionsByNames,
 	}
 	if errStr != "" {
 		client.apiErr = errors.New(errStr)

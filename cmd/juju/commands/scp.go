@@ -18,30 +18,46 @@ var usageSCPSummary = `
 Transfers files to/from a Juju machine.`[1:]
 
 var usageSCPDetails = `
+The usage is for transferring files from the client to a Juju machine. To
+do the reverse:
+juju scp [options] [<user>@]<target>:<file> <path>
+and use quotes when multiple files are involved.
 The machine is identified by the <target> argument which is either a 'unit
-name' or a 'machine id'. Both are obtained in the output from ` + "`juju \nstatus`" + `: unit name in the [Units] section and machine id in the [Machines]
+name' or a 'machine id'. Both are obtained in the output from `[1:] + "`juju \nstatus`" + `: unit name in the [Units] section and machine id in the [Machines]
 section.
 If 'user' is specified then the connection is made to that user account;
 otherwise, the 'ubuntu' account is used.
-A 'file' can be an individual file or a directory. If the latter, you must
-use the scp option of '-r'.
-'file' can also be multiple files/directories. In the first usage do not
-use quoting but in the second usage you must use quoting.
-Refer to the scp(1) man page for an explanation of scp options.
+'file' can be single or multiple files or directories. For directories,
+you must use the scp option of '-r'.
+Options specific to scp can be inserted between 'scp' and '[options]' with
+'-- <scp-options>'. Refer to the scp(1) man page for an explanation of
+those options.
 
 Examples:
-Copy file /var/log/syslog from machine 2 to the current working directory:
+Copy file /var/log/syslog from machine 2 to the client's current working
+directory:
 
     juju scp 2:/var/log/syslog .
 
 Copy directory /var/log/mongodb, recursively, from a mongodb unit
-to local directory remote-logs:
+to the client's local directory remote-logs:
 
     juju scp -- -r mongodb/0:/var/log/mongodb/ remote-logs
 
-Copy file foo.txt, in verbose mode, from the current working directory to an apache2 unit of model "mymodel":
+Copy file foo.txt, in verbose mode, from the client's current working
+directory to an apache2 unit of model "mymodel":
 
     juju scp -- -v -m mymodel foo.txt apache2/1:
+
+Copy multiple files from the client's current working directory to machine
+2:
+
+    juju scp file1 file2 2:
+
+Copy multiple files from the bob user account on machine 3 to the client's
+current working directory:
+
+    juju scp bob@3:'file1 file2' .
 
 See also: 
     ssh`
@@ -58,7 +74,7 @@ type scpCommand struct {
 func (c *scpCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "scp",
-		Args:    "[[user@]host1:]file1 ... [[user@]host2:]file2",
+		Args:    "<file> [<user>@]<target>:[<path>]",
 		Purpose: usageSCPSummary,
 		Doc:     usageSCPDetails,
 	}

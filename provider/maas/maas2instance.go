@@ -8,26 +8,17 @@ import (
 	"strings"
 
 	"github.com/juju/gomaasapi"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/storage"
 )
 
 type maas2Instance struct {
-	machine gomaasapi.Machine
+	machine           gomaasapi.Machine
+	constraintMatches gomaasapi.ConstraintMatches
 }
 
 var _ maasInstance = (*maas2Instance)(nil)
-
-func (mi *maas2Instance) volumes(
-	mTag names.MachineTag, requestedVolumes []names.VolumeTag,
-) (
-	[]storage.Volume, []storage.VolumeAttachment, error,
-) {
-	return nil, nil, nil
-}
 
 func (mi *maas2Instance) zone() (string, error) {
 	return mi.machine.Zone().Name(), nil
@@ -43,13 +34,14 @@ func (mi *maas2Instance) hardwareCharacteristics() (*instance.HardwareCharacteri
 	nodeMemoryMB := uint64(mi.machine.Memory())
 	// zone can't error on the maas2Instance implementaation.
 	zone, _ := mi.zone()
+	tags := mi.machine.Tags()
 	hc := &instance.HardwareCharacteristics{
 		Arch:             &nodeArch,
 		CpuCores:         &nodeCpuCount,
 		Mem:              &nodeMemoryMB,
 		AvailabilityZone: &zone,
+		Tags:             &tags,
 	}
-	// TODO (mfoord): also need machine tags
 	return hc, nil
 }
 

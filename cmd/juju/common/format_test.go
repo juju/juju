@@ -4,6 +4,9 @@
 package common_test
 
 import (
+	"time"
+
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -112,5 +115,66 @@ func (s *ConformSuite) TestConformYAML(c *gc.C) {
 		} else {
 			c.Check(err, gc.ErrorMatches, test.expectedError)
 		}
+	}
+}
+
+type userFriendlyDurationSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&userFriendlyDurationSuite{})
+
+func (*userFriendlyDurationSuite) TestFormat(c *gc.C) {
+	now := time.Now()
+	for _, test := range []struct {
+		other    time.Time
+		expected string
+	}{
+		{
+			other:    now,
+			expected: "just now",
+		}, {
+			other:    now.Add(-1 * time.Second),
+			expected: "just now",
+		}, {
+			other:    now.Add(-2 * time.Second),
+			expected: "2 seconds ago",
+		}, {
+			other:    now.Add(-59 * time.Second),
+			expected: "59 seconds ago",
+		}, {
+			other:    now.Add(-60 * time.Second),
+			expected: "1 minute ago",
+		}, {
+			other:    now.Add(-61 * time.Second),
+			expected: "1 minute ago",
+		}, {
+			other:    now.Add(-2 * time.Minute),
+			expected: "2 minutes ago",
+		}, {
+			other:    now.Add(-59 * time.Minute),
+			expected: "59 minutes ago",
+		}, {
+			other:    now.Add(-60 * time.Minute),
+			expected: "1 hour ago",
+		}, {
+			other:    now.Add(-61 * time.Minute),
+			expected: "1 hour ago",
+		}, {
+			other:    now.Add(-2 * time.Hour),
+			expected: "2 hours ago",
+		}, {
+			other:    now.Add(-23 * time.Hour),
+			expected: "23 hours ago",
+		}, {
+			other:    now.Add(-24 * time.Hour),
+			expected: now.Add(-24 * time.Hour).Format("2006-01-02"),
+		}, {
+			other:    now.Add(-96 * time.Hour),
+			expected: now.Add(-96 * time.Hour).Format("2006-01-02"),
+		},
+	} {
+		obtained := common.UserFriendlyDuration(test.other, now)
+		c.Check(obtained, gc.Equals, test.expected)
 	}
 }

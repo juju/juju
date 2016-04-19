@@ -8,6 +8,7 @@ package lxd_test
 import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/provider/lxd"
@@ -26,11 +27,25 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	s.Client.Inst = s.RawInstance
 
+	// Patch the host's arch, so the broker will filter tools.
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
+
 	result, err := s.Env.StartInstance(s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Instance, gc.DeepEquals, s.Instance)
 	c.Check(result.Hardware, gc.DeepEquals, s.HWC)
+	c.Assert(s.StartInstArgs.InstanceConfig.AgentVersion().Arch, gc.Equals, arch.ARM64)
+}
+
+func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {
+	s.Client.Inst = s.RawInstance
+
+	// Patch the host's arch, so the broker will filter tools.
+	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })
+
+	_, err := s.Env.StartInstance(s.StartInstArgs)
+	c.Assert(err, gc.ErrorMatches, "no matching tools available")
 }
 
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
