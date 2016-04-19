@@ -71,17 +71,25 @@ func (s *maas2InstanceSuite) TestHostname(c *gc.C) {
 }
 
 func (s *maas2InstanceSuite) TestHardwareCharacteristics(c *gc.C) {
-	machine := &fakeMachine{cpuCount: 3, memory: 4, architecture: "foo/bam", zoneName: "bar"}
+	machine := &fakeMachine{
+		cpuCount:     3,
+		memory:       4,
+		architecture: "foo/bam",
+		zoneName:     "bar",
+		tags:         []string{"foo", "bar"},
+	}
 	thing := &maas2Instance{machine}
 	arch := "foo"
 	cpu := uint64(3)
 	mem := uint64(4)
 	zone := "bar"
+	tags := []string{"foo", "bar"}
 	expected := &instance.HardwareCharacteristics{
 		Arch:             &arch,
 		CpuCores:         &cpu,
 		Mem:              &mem,
 		AvailabilityZone: &zone,
+		Tags:             &tags,
 	}
 	result, err := thing.hardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)

@@ -199,9 +199,11 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	logDir := must(paths.LogDir(series))
 	metricsSpoolDir := must(paths.MetricsSpoolDir(series))
 	dataDir := must(paths.DataDir(series))
-	tools := &tools.Tools{
-		URL:     "http://tools.testing/tools/released/juju.tgz",
-		Version: version.Binary{version.MustParse("1.2.3"), "quantal", "amd64"},
+	toolsList := tools.List{
+		&tools.Tools{
+			URL:     "http://tools.testing/tools/released/juju.tgz",
+			Version: version.Binary{version.MustParse("1.2.3"), "quantal", "amd64"},
+		},
 	}
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
@@ -214,7 +216,6 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	cfg := &instancecfg.InstanceConfig{
 		MachineId:    "10",
 		MachineNonce: "5432",
-		Tools:        tools,
 		Series:       series,
 		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
@@ -242,6 +243,8 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 		MachineAgentServiceName: "jujud-machine-10",
 		EnableOSUpgrade:         true,
 	}
+	err = cfg.SetTools(toolsList)
+	c.Assert(err, jc.ErrorIsNil)
 	if bootstrap {
 		cfg.Bootstrap = true
 		cfg.StateServingInfo = &params.StateServingInfo{
@@ -329,11 +332,13 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 	series := "win8"
 	metricsSpoolDir := must(paths.MetricsSpoolDir("win8"))
-	tools := &tools.Tools{
-		URL:     "http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz",
-		Version: version.MustParseBinary("1.2.3-win8-amd64"),
-		Size:    10,
-		SHA256:  "1234",
+	toolsList := tools.List{
+		&tools.Tools{
+			URL:     "http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz",
+			Version: version.MustParseBinary("1.2.3-win8-amd64"),
+			Size:    10,
+			SHA256:  "1234",
+		},
 	}
 	dataDir, err := paths.DataDir(series)
 	c.Assert(err, jc.ErrorIsNil)
@@ -343,7 +348,6 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 	cfg := instancecfg.InstanceConfig{
 		MachineId:        "10",
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
-		Tools:            tools,
 		Series:           series,
 		Bootstrap:        false,
 		Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
@@ -369,6 +373,8 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 		MetricsSpoolDir:         metricsSpoolDir,
 		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
 	}
+	err = cfg.SetTools(toolsList)
+	c.Assert(err, jc.ErrorIsNil)
 
 	ci, err := cloudinit.New("win8")
 	c.Assert(err, jc.ErrorIsNil)

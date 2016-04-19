@@ -956,13 +956,16 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, err
 	}
 
+	series := args.Tools.OneSeries()
 	selectedTools, err := args.Tools.Match(tools.Filter{
 		Arch: *hc.Arch,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	args.InstanceConfig.Tools = selectedTools[0]
+	if err := args.InstanceConfig.SetTools(selectedTools); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	hostname, err := inst.hostname()
 	if err != nil {
@@ -972,7 +975,6 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, environ.Config()); err != nil {
 		return nil, errors.Trace(err)
 	}
-	series := args.InstanceConfig.Tools.Version.Series
 
 	cloudcfg, err := environ.newCloudinitConfig(hostname, series)
 	if err != nil {

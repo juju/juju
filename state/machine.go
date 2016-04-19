@@ -888,6 +888,7 @@ func (m *Machine) Remove() (err error) {
 		removeRebootDocOp(m.st, m.globalKey()),
 		removeMachineBlockDevicesOp(m.Id()),
 		removeModelMachineRefOp(m.st, m.Id()),
+		removeSSHHostKeyOp(m.st, m.globalKey()),
 	}
 	ifacesOps, err := m.removeNetworkInterfacesOps()
 	if err != nil {

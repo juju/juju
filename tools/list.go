@@ -60,11 +60,12 @@ func (src List) collect(f func(*Tools) string) []string {
 	return seen.SortedValues()
 }
 
-// URLs returns download URLs for the tools in src, keyed by binary version.
-func (src List) URLs() map[version.Binary]string {
-	result := map[version.Binary]string{}
+// URLs returns download URLs for the tools in src, keyed by binary
+// version. Each version can have more than one URL.
+func (src List) URLs() map[version.Binary][]string {
+	result := map[version.Binary][]string{}
 	for _, tools := range src {
-		result[tools.Version] = tools.URL
+		result[tools.Version] = append(result[tools.Version], tools.URL)
 	}
 	return result
 }

@@ -134,7 +134,7 @@ type CharmUploader interface {
 // ToolsUploader defines a simple single method interface that is used to
 // upload tools to the target controller
 type ToolsUploader interface {
-	UploadTools(io.ReadSeeker, version.Binary, ...string) (*tools.Tools, error)
+	UploadTools(io.ReadSeeker, version.Binary, ...string) (tools.List, error)
 }
 
 // UploadBinariesConfig provides all the configuration that the UploadBinaries

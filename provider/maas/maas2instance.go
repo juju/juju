@@ -43,13 +43,14 @@ func (mi *maas2Instance) hardwareCharacteristics() (*instance.HardwareCharacteri
 	nodeMemoryMB := uint64(mi.machine.Memory())
 	// zone can't error on the maas2Instance implementaation.
 	zone, _ := mi.zone()
+	tags := mi.machine.Tags()
 	hc := &instance.HardwareCharacteristics{
 		Arch:             &nodeArch,
 		CpuCores:         &nodeCpuCount,
 		Mem:              &nodeMemoryMB,
 		AvailabilityZone: &zone,
+		Tags:             &tags,
 	}
-	// TODO (mfoord): also need machine tags
 	return hc, nil
 }
 

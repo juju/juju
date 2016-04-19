@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
+	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/tools/lxdclient"
 	"github.com/juju/version"
 )
@@ -141,7 +141,7 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 }
 
 func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
-	tools := []*tools.Tools{
+	tools := []*coretools.Tools{
 		{
 			Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
 			URL:     "https://example.org/amd",
@@ -159,7 +159,10 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	instanceConfig.Tools = tools[0]
+	err = instanceConfig.SetTools(coretools.List{
+		tools[0],
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	instanceConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
 
 	userData, err := providerinit.ComposeUserData(instanceConfig, nil, lxdRenderer{})

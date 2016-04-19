@@ -575,7 +575,7 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 	}
 	var addrs []string
 	for _, serverHostPorts := range servers {
-		hps := network.SelectInternalHostPorts(serverHostPorts, false)
+		hps := network.PrioritizeInternalHostPorts(serverHostPorts, false)
 		addrs = append(addrs, hps...)
 	}
 	c.apiDetails.addresses = addrs

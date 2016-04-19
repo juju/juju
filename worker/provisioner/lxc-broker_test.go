@@ -307,7 +307,7 @@ func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
 		StatusCallback: callback,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instanceConfig.Tools.Version.Arch, gc.Equals, arch.PPC64EL)
+	c.Assert(instanceConfig.ToolsInfo().Version.Arch, gc.Equals, arch.PPC64EL)
 }
 
 func (s *lxcBrokerSuite) TestStartInstanceToolsArchNotFound(c *gc.C) {

@@ -137,3 +137,19 @@ func (s *RemoveCharmStoreCharmsSuite) TestRemoveAllocation(c *gc.C) {
 	s.stub.CheckCalls(c, []jutesting.StubCall{{
 		"DeleteAllocation", []interface{}{testing.ModelTag.Id(), "metered"}}})
 }
+
+type mockBudgetAPIClient struct {
+	*jutesting.Stub
+}
+
+// CreateAllocation implements apiClient.
+func (c *mockBudgetAPIClient) CreateAllocation(budget, limit, model string, services []string) (string, error) {
+	c.MethodCall(c, "CreateAllocation", budget, limit, model, services)
+	return "Allocation created.", c.NextErr()
+}
+
+// DeleteAllocation implements apiClient.
+func (c *mockBudgetAPIClient) DeleteAllocation(model, service string) (string, error) {
+	c.MethodCall(c, "DeleteAllocation", model, service)
+	return "Allocation removed.", c.NextErr()
+}

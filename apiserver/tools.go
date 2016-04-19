@@ -74,7 +74,9 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			sendError(w, err)
 			return
 		}
-		sendStatusAndJSON(w, http.StatusOK, &params.ToolsResult{Tools: agentTools})
+		sendStatusAndJSON(w, http.StatusOK, &params.ToolsResult{
+			ToolsList: tools.List{agentTools},
+		})
 	default:
 		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method))
 	}

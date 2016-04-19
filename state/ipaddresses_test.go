@@ -162,13 +162,16 @@ func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNotFoundErrorWhenMissing(
 	c.Assert(result, gc.IsNil)
 }
 
-func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNoErrorWithEmptySubnetIDForLoopbackOrUnknownSubnets(c *gc.C) {
-	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "127.0.1.1/8", "::1/128", "8.8.0.0/16")
+func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNotFoundErrorWithUnknownOrLocalSubnet(c *gc.C) {
+	cidrs := []string{"127.0.0.0/8", "::1/128", "8.8.0.0/16"}
+	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", cidrs...)
 
-	for _, address := range addresses {
+	for i, address := range addresses {
 		result, err := address.Subnet()
 		c.Check(result, gc.IsNil)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, jc.Satisfies, errors.IsNotFound)
+		expectedError := fmt.Sprintf("subnet %q not found", cidrs[i])
+		c.Check(err, gc.ErrorMatches, expectedError)
 	}
 }
 
@@ -374,13 +377,13 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesOKWhenCIDRAddressDoesNotM
 	err := s.machine.SetDevicesAddresses(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertDeviceHasOneAddressWithSubnetIDEquals := func(subnetID string) {
+	assertDeviceHasOneAddressWithSubnetCIDREquals := func(subnetCIDR string) {
 		addresses, err := device.Addresses()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addresses, gc.HasLen, 1)
-		c.Assert(addresses[0].SubnetID(), gc.Equals, subnetID)
+		c.Assert(addresses[0].SubnetCIDR(), gc.Equals, subnetCIDR)
 	}
-	assertDeviceHasOneAddressWithSubnetIDEquals("")
+	assertDeviceHasOneAddressWithSubnetCIDREquals("192.168.0.0/16")
 
 	// Add the subnet so it's known and retry setting the same address to verify
 	// SubnetID gets updated.
@@ -389,7 +392,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesOKWhenCIDRAddressDoesNotM
 	err = s.machine.SetDevicesAddresses(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertDeviceHasOneAddressWithSubnetIDEquals("192.168.0.0/16")
+	assertDeviceHasOneAddressWithSubnetCIDREquals("192.168.0.0/16")
 }
 
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressMatchesDeadSubnet(c *gc.C) {

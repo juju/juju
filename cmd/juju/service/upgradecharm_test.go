@@ -101,6 +101,12 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidSwitchURL(c *gc.C) {
 	// TODO(dimitern): add tests with incompatible charms
 }
 
+func (s *UpgradeCharmErrorsSuite) TestNoPathFails(c *gc.C) {
+	s.deployService(c)
+	err := runUpgradeCharm(c, "riak")
+	c.Assert(err, gc.ErrorMatches, "upgrading a local charm requires either --path or --switch")
+}
+
 func (s *UpgradeCharmErrorsSuite) TestSwitchAndRevisionFails(c *gc.C) {
 	s.deployService(c)
 	err := runUpgradeCharm(c, "riak", "--switch=riak", "--revision=2")

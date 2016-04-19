@@ -4,6 +4,8 @@
 package maas
 
 import (
+	"sync"
+
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
@@ -55,6 +57,8 @@ func (suite *maas2Suite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *
 
 type fakeController struct {
 	gomaasapi.Controller
+	sync.Mutex
+
 	bootResources            []gomaasapi.BootResource
 	bootResourcesError       error
 	machines                 []gomaasapi.Machine
@@ -129,6 +133,8 @@ func (c *fakeController) Spaces() ([]gomaasapi.Space, error) {
 }
 
 func (c *fakeController) Files(prefix string) ([]gomaasapi.File, error) {
+	c.Lock()
+	defer c.Unlock()
 	c.filesPrefix = prefix
 	if c.filesError != nil {
 		return nil, c.filesError
@@ -137,6 +143,8 @@ func (c *fakeController) Files(prefix string) ([]gomaasapi.File, error) {
 }
 
 func (c *fakeController) GetFile(filename string) (gomaasapi.File, error) {
+	c.Lock()
+	defer c.Unlock()
 	c.getFileFilename = filename
 	if c.filesError != nil {
 		return nil, c.filesError
@@ -152,11 +160,15 @@ func (c *fakeController) GetFile(filename string) (gomaasapi.File, error) {
 }
 
 func (c *fakeController) AddFile(args gomaasapi.AddFileArgs) error {
+	c.Lock()
+	defer c.Unlock()
 	c.addFileArgs = args
 	return c.filesError
 }
 
 func (c *fakeController) ReleaseMachines(args gomaasapi.ReleaseMachinesArgs) error {
+	c.Lock()
+	defer c.Unlock()
 	c.releaseMachinesArgs = append(c.releaseMachinesArgs, args)
 	if len(c.releaseMachinesErrors) == 0 {
 		return nil
@@ -192,6 +204,11 @@ type fakeMachine struct {
 	memory        int
 	architecture  string
 	interfaceSet  []gomaasapi.Interface
+	tags          []string
+}
+
+func (m *fakeMachine) Tags() []string {
+	return m.tags
 }
 
 func (m *fakeMachine) CPUCount() int {

@@ -246,6 +246,7 @@ func allCollections() collectionSchema {
 		instanceDataC:  {},
 		machinesC:      {},
 		rebootC:        {},
+		sshHostKeysC:   {},
 
 		// -----
 
@@ -454,6 +455,7 @@ const (
 	endpointBindingsC        = "endpointbindings"
 	settingsC                = "settings"
 	settingsrefsC            = "settingsrefs"
+	sshHostKeysC             = "sshhostkeys"
 	spacesC                  = "spaces"
 	statusesC                = "statuses"
 	statusesHistoryC         = "statuseshistory"

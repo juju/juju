@@ -326,7 +326,9 @@ func (s *bootstrapSuite) TestSetBootstrapTools(c *gc.C) {
 		s.PatchValue(&jujuversion.Current, t.currentVersion)
 		bootstrapTools, err := bootstrap.SetBootstrapTools(env, availableTools)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(bootstrapTools.Version.Number, gc.Equals, t.expectedTools)
+		for _, tools := range bootstrapTools {
+			c.Assert(tools.Version.Number, gc.Equals, t.expectedTools)
+		}
 		agentVersion, _ := env.Config().AgentVersion()
 		c.Assert(agentVersion, gc.Equals, t.expectedAgentVersion)
 	}

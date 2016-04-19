@@ -95,8 +95,10 @@ func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 	s.rawMachine.SetAgentVersion(current)
 	// Upgrader.Tools returns the *desired* set of tools, not the currently
 	// running set. We want to be upgraded to cur.Version
-	stateTools, err := s.st.Tools(s.rawMachine.Tag().String())
+	stateToolsList, err := s.st.Tools(s.rawMachine.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stateToolsList, gc.HasLen, 1)
+	stateTools := stateToolsList[0]
 	c.Assert(stateTools.Version, gc.Equals, current)
 	url := fmt.Sprintf("https://%s/model/%s/tools/%s",
 		s.stateAPI.Addr(), coretesting.ModelTag.Id(), current)

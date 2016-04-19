@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -56,8 +57,11 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	c.Check(instanceConfig.MongoInfo.Addrs, gc.DeepEquals, mongoAddrs)
 	c.Check(instanceConfig.APIInfo.Addrs, gc.DeepEquals, apiAddrs)
 	toolsURL := fmt.Sprintf("https://%s/model/%s/tools/%s",
-		apiAddrs[0], jujutesting.ModelTag.Id(), instanceConfig.Tools.Version)
-	c.Assert(instanceConfig.Tools.URL, gc.Equals, toolsURL)
+		apiAddrs[0], jujutesting.ModelTag.Id(), instanceConfig.ToolsInfo().Version)
+	c.Assert(instanceConfig.ToolsList().URLs(), jc.DeepEquals, map[version.Binary][]string{
+		instanceConfig.ToolsInfo().Version: []string{toolsURL},
+	})
+	//c.Assert(instanceConfig.ToolsList()[0].URL, gc.Equals, toolsURL)
 	c.Assert(instanceConfig.AgentEnvironment[agent.AllowsSecureConnection], gc.Equals, "true")
 }
 
