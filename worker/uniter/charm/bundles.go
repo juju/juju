@@ -4,7 +4,6 @@
 package charm
 
 import (
-	"net/url"
 	"os"
 	"path"
 
@@ -16,32 +15,31 @@ import (
 )
 
 // Download exposes the downloader.Download methods needed here.
-type Download interface {
-	// Wait blocks until the download completes or the abort channel
-	// receives.
-	Wait(abort <-chan struct{}) (*os.File, error)
+type Downloader interface {
+	// DownloadWithAlternates tries each of the provided requests until
+	// one succeeds. If none succeed then the error from the most recent
+	// attempt is returned. At least one request must be provided.
+	DownloadWithAlternates(requests []downloader.Request, abort <-chan struct{}) (string, error)
 }
 
 // BundlesDir is responsible for storing and retrieving charm bundles
 // identified by state charms.
 type BundlesDir struct {
-	path          string
-	startDownload func(downloader.Request) (Download, error)
+	path       string
+	downloader Downloader
 }
 
 // NewBundlesDir returns a new BundlesDir which uses path for storage.
-func NewBundlesDir(path string, startDownload func(downloader.Request) (Download, error)) *BundlesDir {
-	if startDownload == nil {
-		startDownload = func(req downloader.Request) (Download, error) {
-			opener := downloader.NewHTTPBlobOpener(utils.NoVerifySSLHostnames)
-			dl := downloader.StartDownload(req, opener)
-			return dl, nil
-		}
+func NewBundlesDir(path string, dlr Downloader) *BundlesDir {
+	if dlr == nil {
+		dlr = downloader.New(downloader.NewArgs{
+			HostnameVerification: utils.NoVerifySSLHostnames,
+		})
 	}
 
 	return &BundlesDir{
-		path:          path,
-		startDownload: startDownload,
+		path:       path,
+		downloader: dlr,
 	}
 }
 
@@ -65,18 +63,28 @@ func (d *BundlesDir) Read(info BundleInfo, abort <-chan struct{}) (Bundle, error
 // hash, then copies it into the directory. If a value is received on abort, the
 // download will be stopped.
 func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struct{}) (err error) {
+	// First download...
 	archiveURLs, err := info.ArchiveURLs()
 	if err != nil {
 		return errors.Annotatef(err, "failed to get download URLs for charm %q", info.URL())
 	}
-
-	dir := d.downloadsPath()
-	filename, err := download(info, archiveURLs, dir, d.startDownload, abort)
+	targetDir := d.downloadsPath()
+	var requests []downloader.Request
+	for _, archiveURL := range archiveURLs {
+		requests = append(requests, downloader.Request{
+			URL:       archiveURL,
+			TargetDir: targetDir,
+			Verify:    downloader.NewSha256Verifier(info.ArchiveSha256),
+		})
+	}
+	logger.Infof("downloading %s from %d URLs", info.URL(), len(archiveURLs))
+	filename, err := d.downloader.DownloadWithAlternates(requests, abort)
 	if err != nil {
 		return errors.Annotatef(err, "failed to download charm %q from %q", info.URL(), archiveURLs)
 	}
 	defer errors.DeferredAnnotatef(&err, "downloaded but failed to copy charm to %q from %q", target, filename)
 
+	// ...then move the right location.
 	if err := os.MkdirAll(d.path, 0755); err != nil {
 		return errors.Trace(err)
 	}
@@ -86,42 +94,6 @@ func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struc
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-func download(info BundleInfo, archiveURLs []*url.URL, targetDir string, startDownload func(downloader.Request) (Download, error), abort <-chan struct{}) (filename string, err error) {
-	verify := downloader.NewSha256Verifier(info.ArchiveSha256)
-
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		return "", errors.Trace(err)
-	}
-
-	for _, archiveURL := range archiveURLs {
-		logger.Infof("downloading %s from %s", info.URL(), archiveURL)
-		dl, err2 := startDownload(downloader.Request{
-			URL:       archiveURL,
-			TargetDir: targetDir,
-			Verify:    verify,
-		})
-		if err2 != nil {
-			return "", errors.Trace(err2)
-		}
-		file, err2 := dl.Wait(abort)
-		err = err2
-		if errors.IsNotValid(err2) {
-			logger.Errorf("download from %s invalid: %v", archiveURL, err2)
-			break
-		}
-		if err == nil {
-			defer file.Close()
-			filename = file.Name()
-			break
-		}
-		logger.Errorf("download request to %s failed: %v", archiveURL, err)
-	}
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return filename, nil
 }
 
 // bundlePath returns the path to the location where the verified charm

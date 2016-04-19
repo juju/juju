@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
@@ -100,9 +99,9 @@ type Uniter struct {
 	// hookRetryStrategy represents configuration for hook retries
 	hookRetryStrategy params.RetryStrategy
 
-	// startDownload is the function used to start downloading
-	// the charm archive.
-	startDownload func(downloader.Request) (charm.Download, error)
+	// downloader is the downloader that should be used to get the charm
+	// archive.
+	downloader charm.Downloader
 }
 
 // UniterParams hold all the necessary parameters for a new Uniter.
@@ -111,7 +110,7 @@ type UniterParams struct {
 	UnitTag              names.UnitTag
 	LeadershipTracker    leadership.Tracker
 	DataDir              string
-	StartDownload        func(downloader.Request) (charm.Download, error)
+	Downloader           charm.Downloader
 	MachineLock          *fslock.Lock
 	CharmDirGuard        fortress.Guard
 	UpdateStatusSignal   func() <-chan time.Time
@@ -133,7 +132,6 @@ func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 	u := &Uniter{
 		st:                   uniterParams.UniterFacade,
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
-		startDownload:        uniterParams.StartDownload,
 		hookLock:             uniterParams.MachineLock,
 		leadershipTracker:    uniterParams.LeadershipTracker,
 		charmDirGuard:        uniterParams.CharmDirGuard,
@@ -142,6 +140,7 @@ func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 		newOperationExecutor: uniterParams.NewOperationExecutor,
 		observer:             uniterParams.Observer,
 		clock:                uniterParams.Clock,
+		downloader:           uniterParams.Downloader,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -449,7 +448,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
 		u.paths.State.DeployerDir,
-		charm.NewBundlesDir(u.paths.State.BundlesDir, u.startDownload),
+		charm.NewBundlesDir(u.paths.State.BundlesDir, u.downloader),
 	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create deployer")

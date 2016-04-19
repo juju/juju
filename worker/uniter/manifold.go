@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
@@ -78,7 +77,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
-			startDownload, err := newDownloader(apiCaller)
+			downloader, err := newDownloader(apiCaller)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -96,7 +95,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UnitTag:              unitTag,
 				LeadershipTracker:    leadershipTracker,
 				DataDir:              config.DataDir(),
-				StartDownload:        startDownload,
+				Downloader:           downloader,
 				MachineLock:          machineLock,
 				CharmDirGuard:        charmDirGuard,
 				UpdateStatusSignal:   NewUpdateStatusTimer(),
@@ -112,17 +111,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func startDownload(req downloader.Request) (charm.Download, error) {
+func newDownloader(apiCaller base.APICaller) (*downloader.Downloader, error) {
 	// Downloads always go through the API server, which at
 	// present cannot be verified due to the certificates
 	// being inadequate. We always verify the SHA-256 hash,
 	// and the data transferred is not sensitive, so this
 	// does not pose a problem.
-	opener := downloader.NewHTTPBlobOpener(utils.NoVerifySSLHostnames)
-	dl := downloader.StartDownload(req, opener)
-	return dl, nil
-}
-
-func newDownloader(apiCaller base.APICaller) (func(req downloader.Request) (charm.Download, error), error) {
-	return startDownload, nil
+	dlr := downloader.New(downloader.NewArgs{
+		HostnameVerification: utils.NoVerifySSLHostnames,
+	})
+	return dlr, nil
 }
