@@ -387,11 +387,11 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesOKWhenCIDRAddressDoesNotM
 	assertDeviceHasOneAddressWithSubnetCIDREquals("192.168.0.0/16")
 }
 
-func (s *ipAddressesStateSuite) TestSetDevicesAddressesIgnoresInvalidDeviceNames(c *gc.C) {
-	s.addNamedDevice(c, "bad#name")
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesAllowsInvalidDeviceNames(c *gc.C) {
+	s.addNamedDevice(c, "invalid#name")
 	args := state.LinkLayerDeviceAddress{
 		CIDRAddress:  "0.1.2.3/24",
-		DeviceName:   "bad#name",
+		DeviceName:   "invalid#name",
 		ConfigMethod: state.StaticAddress,
 	}
 	err := s.machine.SetDevicesAddresses(args)

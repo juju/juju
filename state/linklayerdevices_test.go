@@ -996,22 +996,25 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevices(c *gc.C) {
 	}
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesIgnoresInvalidName(c *gc.C) {
+func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesAllowsInvalidName(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
-		Name: "bad#name",
+		Name: "invalid#name",
 		Type: state.EthernetDevice,
 	}
 	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesIgnoresInvalidParentName(c *gc.C) {
-	var wayTooLongName = strings.Repeat("x", 256)
-	s.addNamedDevice(c, wayTooLongName)
+func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesAllowsInvalidParentName(c *gc.C) {
+	// Windows interface names can contain spaces and be up to 256
+	// (MAX_ADAPTER_NAME_LENGTH) characters long.
+	// Source: http://bit.ly/1pdNNbp
+	var veryLongName = strings.Repeat("x", 500)
+	s.addNamedDevice(c, veryLongName)
 
 	args := state.LinkLayerDeviceArgs{
 		Name:       "eth0.42",
 		Type:       state.VLAN_8021QDevice,
-		ParentName: wayTooLongName,
+		ParentName: veryLongName,
 	}
 	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
 }
