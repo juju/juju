@@ -67,6 +67,42 @@ func Connect(cfg Config) (*Client, error) {
 
 var lxdNewClientFromInfo = lxd.NewClientFromInfo
 
+func isSupportedLxdVersion(version string) bool {
+	var major, minor, micro int
+	var err error
+
+	versionParts := strings.Split(version, ".")
+	if len(versionParts) < 3 {
+		return false
+	}
+
+	major, err = strconv.Atoi(versionParts[0])
+	if err != nil {
+		return false
+	}
+
+	minor, err = strconv.Atoi(versionParts[1])
+	if err != nil {
+		return false
+	}
+
+	micro, err = strconv.Atoi(versionParts[2])
+	if err != nil {
+		return false
+	}
+
+	if major < 2 {
+		return false
+	}
+
+	/* disallow 2.0.0.rc4 and friends */
+	if major == 2 && minor == 0 && micro == 0 && len(versionParts) > 3 {
+		return false
+	}
+
+	return true
+}
+
 // newRawClient connects to the LXD host that is defined in Config.
 func newRawClient(remote Remote) (*lxd.Client, error) {
 	host := remote.Host
@@ -117,6 +153,15 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 			return nil, errors.Annotate(err, "can't connect to the local LXD server")
 		}
 		return nil, errors.Trace(err)
+	}
+
+	status, err := client.ServerStatus()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if !isSupportedLxdVersion(status.Environment.ServerVersion) {
+		return nil, errors.Errorf("lxd version %s, juju needs at least 2.0.0", status.Environment.ServerVersion)
 	}
 
 	/* If this is the LXD provider on the localhost, let's do an extra
