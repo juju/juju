@@ -359,9 +359,9 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 
 	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
 	c.Check(opFinalizeBootstrap.Env, gc.Equals, "admin")
-	c.Check(opFinalizeBootstrap.InstanceConfig.ToolsInfo(), gc.NotNil)
+	c.Check(opFinalizeBootstrap.InstanceConfig.ToolsList(), gc.Not(gc.HasLen), 0)
 	if test.upload != "" {
-		c.Check(opFinalizeBootstrap.InstanceConfig.ToolsInfo().Version.String(), gc.Equals, test.upload)
+		c.Check(opFinalizeBootstrap.InstanceConfig.AgentVersion().String(), gc.Equals, test.upload)
 	}
 
 	expectedBootstrappedControllerName := bootstrappedControllerName(controllerName)
@@ -913,7 +913,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "admin")
 	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
 	c.Assert(icfg, gc.NotNil)
-	c.Assert(icfg.ToolsInfo().Version.String(), gc.Equals, "1.7.3.1-raring-"+arch.HostArch())
+	c.Assert(icfg.AgentVersion().String(), gc.Equals, "1.7.3.1-raring-"+arch.HostArch())
 }
 
 func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {

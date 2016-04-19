@@ -218,12 +218,11 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err != nil {
 		return err
 	}
-	// The only time the URL will be blank is if there is only one
-	// in the list. So we can check the first one.
-	if selectedToolsList[0].URL == "" {
-		selectedTools := selectedToolsList[0]
-		if !args.UploadTools {
-			logger.Warningf("no prepackaged tools available")
+	havePrepackaged := false
+	for i, selectedTools := range selectedToolsList {
+		if selectedTools.URL != "" {
+			havePrepackaged = true
+			continue
 		}
 		ctx.Infof("Building tools to upload (%s)", selectedTools.Version)
 		builtTools, err := sync.BuildToolsTarball(&selectedTools.Version.Number, cfg.AgentStream())
@@ -235,6 +234,14 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		selectedTools.URL = fmt.Sprintf("file://%s", filename)
 		selectedTools.Size = builtTools.Size
 		selectedTools.SHA256 = builtTools.Sha256Hash
+		selectedToolsList[i] = selectedTools
+	}
+	if !havePrepackaged && !args.UploadTools {
+		// There are no prepackaged agents, so we must upload
+		// even though the user didn't ask for it. We only do
+		// this when the image-stream is not "released" and
+		// the agent version hasn't been specified.
+		logger.Warningf("no prepackaged tools available")
 	}
 
 	ctx.Infof("Installing Juju agent on bootstrap instance")
