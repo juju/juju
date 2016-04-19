@@ -444,11 +444,16 @@ func (f *fakeFile) ReadAll() ([]byte, error) {
 type fakeBlockDevice struct {
 	gomaasapi.BlockDevice
 	name string
+	path string
 	size int
 }
 
 func (bd fakeBlockDevice) Name() string {
 	return bd.name
+}
+
+func (bd fakeBlockDevice) Path() string {
+	return bd.path
 }
 
 func (bd fakeBlockDevice) Size() int {

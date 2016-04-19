@@ -79,11 +79,11 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 		machine: &fakeMachine{},
 		constraintMatches: gomaasapi.ConstraintMatches{
 			Storage: map[string]gomaasapi.BlockDevice{
-				"root": &fakeBlockDevice{name: "sda", size: 250059350016},
-				"1":    &fakeBlockDevice{name: "sdb", size: 500059350016},
-				"2":    &fakeBlockDevice{name: "sdc", size: 250362438230},
-				"3":    &fakeBlockDevice{name: "sdd", size: 250362438230},
-				"4":    &fakeBlockDevice{name: "sde", size: 250362438230},
+				"root": &fakeBlockDevice{name: "sda", path: "/dev/disk/by-dname/sda", size: 250059350016},
+				"1":    &fakeBlockDevice{name: "sdb", path: "/dev/disk/by-dname/sdb", size: 500059350016},
+				"2":    &fakeBlockDevice{name: "sdc", path: "/dev/disk/by-dname/sdc", size: 250362438230},
+				"3":    &fakeBlockDevice{name: "sdd", path: "/dev/disk/by-dname/sdd", size: 250362438230},
+				"4":    &fakeBlockDevice{name: "sde", path: "/dev/disk/by-dname/sde", size: 250362438230},
 			},
 		},
 	}
@@ -98,10 +98,9 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 	c.Assert(attachments, gc.HasLen, 2)
 	c.Check(volumes, jc.DeepEquals, []storage.Volume{
 		{
-			// This volume has no id_path.
 			names.NewVolumeTag("1"),
 			storage.VolumeInfo{
-				HardwareId: "",
+				HardwareId: "/dev/disk/by-dname/sdb",
 				VolumeId:   "volume-1",
 				Size:       476893,
 				Persistent: false,
@@ -110,7 +109,7 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 		{
 			names.NewVolumeTag("2"),
 			storage.VolumeInfo{
-				HardwareId: "id_for_sdc",
+				HardwareId: "/dev/disk/by-dname/sdc",
 				VolumeId:   "volume-2",
 				Size:       238764,
 				Persistent: false,
@@ -126,12 +125,11 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 				ReadOnly:   false,
 			},
 		},
-		// Device name not set because there's a hardware id in the volume.
 		{
 			names.NewVolumeTag("2"),
 			mTag,
 			storage.VolumeAttachmentInfo{
-				DeviceName: "",
+				DeviceName: "sdc",
 				ReadOnly:   false,
 			},
 		},
