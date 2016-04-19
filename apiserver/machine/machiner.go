@@ -278,29 +278,3 @@ func (api *MachinerAPI) getOneMachineProviderNetworkConfig(m *state.Machine) ([]
 
 	return providerConfig, nil
 }
-
-// SetSSHHostKeys sets the SSH host keys for one or more entities.
-func (api *MachinerAPI) SetSSHHostKeys(args params.SSHHostKeySet) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.EntityKeys)),
-	}
-
-	canModify, err := api.getCanModify()
-	if err != nil {
-		return results, err
-	}
-
-	for i, arg := range args.EntityKeys {
-		tag, err := names.ParseMachineTag(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		err = common.ErrPerm
-		if canModify(tag) {
-			err = api.st.SetSSHHostKeys(tag, state.SSHHostKeys(arg.PublicKeys))
-		}
-		results.Results[i].Error = common.ServerError(err)
-	}
-	return results, nil
-}
