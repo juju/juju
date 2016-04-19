@@ -490,24 +490,39 @@ func (s *MachineSuite) TestDestroyFailsWhenNewContainerAdded(c *gc.C) {
 }
 
 func (s *MachineSuite) TestRemove(c *gc.C) {
-	err := s.machine.Remove()
+	err := s.State.SetSSHHostKeys(s.machine.MachineTag(), state.SSHHostKeys{"rsa", "dsa"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.Remove()
 	c.Assert(err, gc.ErrorMatches, "cannot remove machine 1: machine is not dead")
+
 	err = s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.machine.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
 	_, err = s.machine.HardwareCharacteristics()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
 	_, err = s.machine.Containers()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
 	networks, err := s.machine.RequestedNetworks()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networks, gc.HasLen, 0)
+
 	ifaces, err := s.machine.NetworkInterfaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ifaces, gc.HasLen, 0)
+
+	_, err = s.State.GetSSHHostKeys(s.machine.MachineTag())
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+
+	// Removing an already removed machine is OK.
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 }
