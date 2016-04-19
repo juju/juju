@@ -60,13 +60,17 @@ func (cfg Config) UsingTCPRemote() (Config, error) {
 		return cfg, nil
 	}
 
-	/* Here, we rely on the fact that Connect() does a ServerStatus.
-	 * UsingTCP will try to figure out the network name of the lxdbr0,
+	client, err := Connect(cfg)
+	if err != nil {
+		return cfg, errors.Trace(err)
+	}
+
+	/* UsingTCP will try to figure out the network name of the lxdbr0,
 	 * which means that lxdbr0 needs to be up. If this lxd has never had
 	 * anything done to it, it hasn't been socket activated yet, and lxdbr0
 	 * won't exist. So, we rely on this poke to get lxdbr0 started.
 	 */
-	client, err := Connect(cfg)
+	_, err = client.ServerStatus()
 	if err != nil {
 		return cfg, errors.Trace(err)
 	}
