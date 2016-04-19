@@ -461,7 +461,8 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	)
 	add("/register",
 		&registerUserHandler{
-			ctxt: httpCtxt,
+			httpCtxt,
+			srv.authCtxt.userAuth.CreateLocalLoginMacaroon,
 		},
 	)
 	add("/", mainAPIHandler)
