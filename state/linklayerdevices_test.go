@@ -71,13 +71,6 @@ func (s *linkLayerDevicesStateSuite) assertSetLinkLayerDevicesFailsForArgs(c *gc
 	return err
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesInvalidName(c *gc.C) {
-	args := state.LinkLayerDeviceArgs{
-		Name: "bad#name",
-	}
-	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `Name "bad#name" not valid`)
-}
-
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesSameNameAndParentName(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name:       "foo",
@@ -92,15 +85,6 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesInvalidType(c *gc.C)
 		Type: "bad type",
 	}
 	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `Type "bad type" not valid`)
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesInvalidParentName(c *gc.C) {
-	var wayTooLongName = strings.Repeat("x", 256)
-	args := state.LinkLayerDeviceArgs{
-		Name:       "eth0",
-		ParentName: wayTooLongName,
-	}
-	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `ParentName "x{256}" not valid`)
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesParentNameAsInvalidGlobalKey(c *gc.C) {
@@ -1010,4 +994,24 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevices(c *gc.C) {
 		c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
 		c.Check(containerDevice.ParentName(), gc.Matches, `m#0#d#br-bond0(|\.12|\.34)`)
 	}
+}
+
+func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesIgnoresInvalidName(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
+		Name: "bad#name",
+		Type: state.EthernetDevice,
+	}
+	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
+}
+
+func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesIgnoresInvalidParentName(c *gc.C) {
+	var wayTooLongName = strings.Repeat("x", 256)
+	s.addNamedDevice(c, wayTooLongName)
+
+	args := state.LinkLayerDeviceArgs{
+		Name:       "eth0.42",
+		Type:       state.VLAN_8021QDevice,
+		ParentName: wayTooLongName,
+	}
+	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
 }

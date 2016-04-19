@@ -266,7 +266,10 @@ func (m *Machine) validateSetLinkLayerDeviceArgs(args *LinkLayerDeviceArgs) erro
 		return errors.NotValidf("empty Name")
 	}
 	if !IsValidLinkLayerDeviceName(args.Name) {
-		return errors.NotValidf("Name %q", args.Name)
+		logger.Warningf(
+			"link-layer device %q on machine %q has invalid name (using anyway)",
+			args.Name, m.Id(),
+		)
 	}
 
 	if args.ParentName != "" {
@@ -353,7 +356,10 @@ func (m *Machine) verifyHostMachineParentDeviceExistsAndIsABridgeDevice(hostMach
 
 func (m *Machine) validateParentDeviceNameWhenNotAGlobalKey(args *LinkLayerDeviceArgs) error {
 	if !IsValidLinkLayerDeviceName(args.ParentName) {
-		return errors.NotValidf("ParentName %q", args.ParentName)
+		logger.Warningf(
+			"parent link-layer device %q on machine %q has invalid name (using anyway)",
+			args.ParentName, m.Id(),
+		)
 	}
 	if args.Name == args.ParentName {
 		return errors.NewNotValid(nil, "Name and ParentName must be different")
@@ -638,7 +644,10 @@ func (m *Machine) validateSetDevicesAddressesArgs(args *LinkLayerDeviceAddress) 
 		return errors.NotValidf("empty DeviceName")
 	}
 	if !IsValidLinkLayerDeviceName(args.DeviceName) {
-		return errors.NotValidf("DeviceName %q", args.DeviceName)
+		logger.Warningf(
+			"address %q on machine %q has invalid device name %q (using anyway)",
+			args.CIDRAddress, m.Id(), args.DeviceName,
+		)
 	}
 	if err := m.verifyDeviceAlreadyExists(args.DeviceName); err != nil {
 		return errors.Trace(err)
