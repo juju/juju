@@ -5,6 +5,7 @@ package charm
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 
@@ -15,15 +16,41 @@ import (
 	"github.com/juju/juju/downloader"
 )
 
+// Download exposes the downloader.Download methods needed here.
+type Download interface {
+	// Stop stops any download that's in progress.
+	Stop()
+
+	// Done returns a channel that receives a status when the download
+	// has completed. It is the receiver's responsibility to close and
+	// remove the received file.
+	Done() <-chan downloader.Status
+}
+
 // BundlesDir is responsible for storing and retrieving charm bundles
 // identified by state charms.
 type BundlesDir struct {
-	path string
+	path          string
+	startDownload func(url *url.URL, dir string) (Download, error)
 }
 
 // NewBundlesDir returns a new BundlesDir which uses path for storage.
-func NewBundlesDir(path string) *BundlesDir {
-	return &BundlesDir{path}
+func NewBundlesDir(path string, startDownload func(url *url.URL, dir string) (Download, error)) *BundlesDir {
+	if startDownload == nil {
+		startDownload = func(url *url.URL, dir string) (Download, error) {
+			dl := downloader.New(downloader.NewArgs{
+				URL:                  url.String(),
+				TargetDir:            dir,
+				HostnameVerification: utils.NoVerifySSLHostnames,
+			})
+			return dl, nil
+		}
+	}
+
+	return &BundlesDir{
+		path:          path,
+		startDownload: startDownload,
+	}
 }
 
 // Read returns a charm bundle from the directory. If no bundle exists yet,
@@ -56,9 +83,8 @@ func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error
 	}
 	var st downloader.Status
 	for _, archiveURL := range archiveURLs {
-		aurl := archiveURL.String()
-		logger.Infof("downloading %s from %s", info.URL(), aurl)
-		st, err = tryDownload(aurl, dir, startDownload, abort)
+		logger.Infof("downloading %s from %s", info.URL(), archiveURL)
+		st, err = tryDownload(archiveURL, dir, d.startDownload, abort)
 		if err == nil {
 			break
 		}
@@ -90,25 +116,13 @@ func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error
 	return os.Rename(st.File.Name(), d.bundlePath(info))
 }
 
-func startDownload(url, dir string) *downloader.Download {
-	// Downloads always go through the API server, which at
-	// present cannot be verified due to the certificates
-	// being inadequate. We always verify the SHA-256 hash,
-	// and the data transferred is not sensitive, so this
-	// does not pose a problem.
-	dl := downloader.New(downloader.NewArgs{
-		URL:                  url,
-		TargetDir:            dir,
-		HostnameVerification: utils.NoVerifySSLHostnames,
-	})
-	return dl
-}
-
-func tryDownload(url, dir string, startDownload func(url, dir string) *downloader.Download, abort <-chan struct{}) (downloader.Status, error) {
-
-	dl := startDownload(url, dir)
-
+func tryDownload(url *url.URL, dir string, startDownload func(url *url.URL, dir string) (Download, error), abort <-chan struct{}) (downloader.Status, error) {
+	dl, err := startDownload(url, dir)
+	if err != nil {
+		return downloader.Status{}, errors.Trace(err)
+	}
 	defer dl.Stop()
+
 	select {
 	case <-abort:
 		logger.Infof("download aborted")

@@ -118,7 +118,7 @@ func (i *mockArchiveURLCharm) ArchiveURLs() ([]*url.URL, error) {
 func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	basedir := c.MkDir()
 	bunsdir := filepath.Join(basedir, "random", "bundles")
-	d := charm.NewBundlesDir(bunsdir)
+	d := charm.NewBundlesDir(bunsdir, nil)
 
 	// Check it doesn't get created until it's needed.
 	_, err := os.Stat(bunsdir)

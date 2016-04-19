@@ -5,6 +5,7 @@ package uniter
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -98,6 +99,10 @@ type Uniter struct {
 
 	// hookRetryStrategy represents configuration for hook retries
 	hookRetryStrategy params.RetryStrategy
+
+	// startDownload is the function used to start downloading
+	// the charm archive.
+	startDownload func(url *url.URL, dir string) (charm.Download, error)
 }
 
 // UniterParams hold all the necessary parameters for a new Uniter.
@@ -106,6 +111,7 @@ type UniterParams struct {
 	UnitTag              names.UnitTag
 	LeadershipTracker    leadership.Tracker
 	DataDir              string
+	StartDownload        func(url *url.URL, dir string) (charm.Download, error)
 	MachineLock          *fslock.Lock
 	CharmDirGuard        fortress.Guard
 	UpdateStatusSignal   func() <-chan time.Time
@@ -127,6 +133,7 @@ func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 	u := &Uniter{
 		st:                   uniterParams.UniterFacade,
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
+		startDownload:        uniterParams.StartDownload,
 		hookLock:             uniterParams.MachineLock,
 		leadershipTracker:    uniterParams.LeadershipTracker,
 		charmDirGuard:        uniterParams.CharmDirGuard,
@@ -442,7 +449,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
 		u.paths.State.DeployerDir,
-		charm.NewBundlesDir(u.paths.State.BundlesDir),
+		charm.NewBundlesDir(u.paths.State.BundlesDir, u.startDownload),
 	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create deployer")

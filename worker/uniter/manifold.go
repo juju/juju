@@ -4,8 +4,11 @@
 package uniter
 
 import (
+	"net/url"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/fslock"
 
@@ -14,9 +17,11 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
@@ -75,6 +80,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
+			startDownload, err := newDownloader(apiCaller)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			// Configure and start the uniter.
 			config := agent.CurrentConfig()
 			tag := config.Tag()
@@ -88,6 +98,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UnitTag:              unitTag,
 				LeadershipTracker:    leadershipTracker,
 				DataDir:              config.DataDir(),
+				StartDownload:        startDownload,
 				MachineLock:          machineLock,
 				CharmDirGuard:        charmDirGuard,
 				UpdateStatusSignal:   NewUpdateStatusTimer(),
@@ -101,4 +112,22 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return uniter, nil
 		},
 	}
+}
+
+func startDownload(url *url.URL, dir string) (charm.Download, error) {
+	// Downloads always go through the API server, which at
+	// present cannot be verified due to the certificates
+	// being inadequate. We always verify the SHA-256 hash,
+	// and the data transferred is not sensitive, so this
+	// does not pose a problem.
+	dl := downloader.New(downloader.NewArgs{
+		URL:                  url.String(),
+		TargetDir:            dir,
+		HostnameVerification: utils.NoVerifySSLHostnames,
+	})
+	return dl, nil
+}
+
+func newDownloader(apiCaller base.APICaller) (func(url *url.URL, dir string) (charm.Download, error), error) {
+	return startDownload, nil
 }
