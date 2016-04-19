@@ -83,7 +83,7 @@ type baseConfigure struct {
 // addAgentInfo adds agent-required information to the agent's directory
 // and returns the agent directory name.
 func (c *baseConfigure) addAgentInfo(tag names.Tag) (agent.Config, error) {
-	acfg, err := c.icfg.AgentConfig(tag, c.icfg.ToolsInfo().Version.Number)
+	acfg, err := c.icfg.AgentConfig(tag, c.icfg.AgentVersion().Number)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -171,14 +171,14 @@ func (c *baseConfigure) toolsSymlinkCommand(toolsDir string) string {
 		return fmt.Sprintf(
 			`cmd.exe /C mklink /D %s %v`,
 			c.conf.ShellRenderer().FromSlash(toolsDir),
-			c.icfg.ToolsInfo().Version,
+			c.icfg.AgentVersion(),
 		)
 	default:
 		// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that
 		// the target already exists.
 		return fmt.Sprintf(
 			"ln -s %v %s",
-			c.icfg.ToolsInfo().Version,
+			c.icfg.AgentVersion(),
 			shquote(toolsDir),
 		)
 	}
