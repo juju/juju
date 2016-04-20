@@ -452,11 +452,11 @@ type MachinePortRange struct {
 	PortRange   PortRange `json:"PortRange"`
 }
 
-// MachinePorts holds a machine and network tags. It's used when
-// referring to opened ports on the machine for a network.
+// MachinePorts holds a machine and subnet tags. It's used when referring to
+// opened ports on the machine for a subnet.
 type MachinePorts struct {
 	MachineTag string `json:"MachineTag"`
-	NetworkTag string `json:"NetworkTag"`
+	SubnetTag  string `json:"SubnetTag"`
 }
 
 // -----
