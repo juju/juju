@@ -28,18 +28,17 @@ import (
 )
 
 const (
-	InstanceDataC      = instanceDataC
-	MachinesC          = machinesC
-	NetworkInterfacesC = networkInterfacesC
-	ServicesC          = servicesC
-	EndpointBindingsC  = endpointBindingsC
-	SettingsC          = settingsC
-	UnitsC             = unitsC
-	UsersC             = usersC
-	BlockDevicesC      = blockDevicesC
-	StorageInstancesC  = storageInstancesC
-	StatusesHistoryC   = statusesHistoryC
-	GUISettingsC       = guisettingsC
+	InstanceDataC     = instanceDataC
+	MachinesC         = machinesC
+	ServicesC         = servicesC
+	EndpointBindingsC = endpointBindingsC
+	SettingsC         = settingsC
+	UnitsC            = unitsC
+	UsersC            = usersC
+	BlockDevicesC     = blockDevicesC
+	StorageInstancesC = storageInstancesC
+	StatusesHistoryC  = statusesHistoryC
+	GUISettingsC      = guisettingsC
 )
 
 var (

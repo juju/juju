@@ -143,7 +143,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		linkLayerDevicesC,
 		linkLayerDevicesRefsC,
 		networksC,
-		networkInterfacesC,
 		requestedNetworksC,
 		subnetsC,
 		spacesC,

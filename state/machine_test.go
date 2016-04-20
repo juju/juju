@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"sort"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -515,10 +514,6 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networks, gc.HasLen, 0)
 
-	ifaces, err := s.machine.NetworkInterfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifaces, gc.HasLen, 0)
-
 	_, err = s.State.GetSSHHostKeys(s.machine.MachineTag())
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 
@@ -803,177 +798,6 @@ func (s *MachineSuite) TestRequestedNetworks(c *gc.C) {
 	networks, err = machine.RequestedNetworks()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networks, gc.HasLen, 0)
-}
-
-func addNetworkAndInterface(c *gc.C, st *state.State, machine *state.Machine,
-	networkName, providerId, cidr string, vlanTag int, isVirtual bool,
-	mac, ifaceName string,
-) (*state.Network, *state.NetworkInterface) {
-	net, err := st.AddNetwork(state.NetworkInfo{
-		Name:       networkName,
-		ProviderId: network.Id(providerId),
-		CIDR:       cidr,
-		VLANTag:    vlanTag,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	iface, err := machine.AddNetworkInterface(state.NetworkInterfaceInfo{
-		MACAddress:    mac,
-		InterfaceName: ifaceName,
-		NetworkName:   networkName,
-		IsVirtual:     isVirtual,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return net, iface
-}
-
-func (s *MachineSuite) TestNetworks(c *gc.C) {
-	// s.machine is created without networks, so check
-	// they're empty when we read them.
-	nets, err := s.machine.Networks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nets, gc.HasLen, 0)
-
-	// Now create a testing machine with requested networks, because
-	// Networks() uses them to determine which networks are bound to
-	// the machine.
-	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		RequestedNetworks: []string{"net1", "net2"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	net1, _ := addNetworkAndInterface(
-		c, s.State, machine,
-		"net1", "net1", "0.1.2.0/24", 0, false,
-		"aa:bb:cc:dd:ee:f0", "eth0")
-	net2, _ := addNetworkAndInterface(
-		c, s.State, machine,
-		"net2", "net2", "0.2.2.0/24", 0, false,
-		"aa:bb:cc:dd:ee:f1", "eth1")
-
-	nets, err = machine.Networks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nets, jc.DeepEquals, []*state.Network{net1, net2})
-}
-
-func (s *MachineSuite) TestMachineNetworkInterfaces(c *gc.C) {
-	// s.machine is created without network interfaces, so check
-	// they're empty when we read them.
-	ifaces, err := s.machine.NetworkInterfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifaces, gc.HasLen, 0)
-
-	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		RequestedNetworks: []string{"net1", "vlan42", "net2"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// And a few networks and NICs.
-	_, iface0 := addNetworkAndInterface(
-		c, s.State, machine,
-		"net1", "net1", "0.1.2.0/24", 0, false,
-		"aa:bb:cc:dd:ee:f0", "eth0")
-	_, iface1 := addNetworkAndInterface(
-		c, s.State, machine,
-		"vlan42", "vlan42", "0.1.2.0/30", 42, true,
-		"aa:bb:cc:dd:ee:f1", "eth0.42")
-	_, iface2 := addNetworkAndInterface(
-		c, s.State, machine,
-		"net2", "net2", "0.2.2.0/24", 0, false,
-		"aa:bb:cc:dd:ee:f2", "eth1")
-
-	ifaces, err = machine.NetworkInterfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifaces, jc.DeepEquals, []*state.NetworkInterface{
-		iface0, iface1, iface2,
-	})
-
-	// Make sure interfaces get removed with the machine.
-	err = machine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	ifaces, err = machine.NetworkInterfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifaces, gc.HasLen, 0)
-}
-
-var addNetworkInterfaceErrorsTests = []struct {
-	args         state.NetworkInterfaceInfo
-	beforeAdding func(*gc.C, *state.Machine)
-	expectErr    string
-}{{
-	state.NetworkInterfaceInfo{"", "eth1", "net1", false, false},
-	nil,
-	`cannot add network interface "eth1" to machine "2": MAC address must be not empty`,
-}, {
-	state.NetworkInterfaceInfo{"invalid", "eth1", "net1", false, false},
-	nil,
-	`cannot add network interface "eth1" to machine "2": invalid MAC address.*`,
-}, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f0", "eth1", "net1", false, false},
-	nil,
-	`cannot add network interface "eth1" to machine "2": MAC address "aa:bb:cc:dd:ee:f0" on network "net1" already exists`,
-}, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "", "net1", false, false},
-	nil,
-	`cannot add network interface "" to machine "2": interface name must be not empty`,
-}, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth0", "net1", false, false},
-	nil,
-	`cannot add network interface "eth0" to machine "2": "eth0" on machine "2" already exists`,
-}, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth1", "missing", false, false},
-	nil,
-	`cannot add network interface "eth1" to machine "2": network "missing" not found`,
-}, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false, false},
-	func(c *gc.C, m *state.Machine) {
-		c.Check(m.EnsureDead(), gc.IsNil)
-	},
-	`cannot add network interface "eth1" to machine "2": machine is not alive`,
-}, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false, false},
-	func(c *gc.C, m *state.Machine) {
-		c.Check(m.Remove(), gc.IsNil)
-	},
-	`cannot add network interface "eth1" to machine "2": machine 2 not found`,
-}}
-
-func (s *MachineSuite) TestAddNetworkInterfaceErrors(c *gc.C) {
-	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		RequestedNetworks: []string{"net1"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	addNetworkAndInterface(
-		c, s.State, machine,
-		"net1", "provider-net1", "0.1.2.0/24", 0, false,
-		"aa:bb:cc:dd:ee:f0", "eth0")
-	ifaces, err := machine.NetworkInterfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifaces, gc.HasLen, 1)
-
-	for i, test := range addNetworkInterfaceErrorsTests {
-		c.Logf("test %d: %#v", i, test.args)
-
-		if test.beforeAdding != nil {
-			test.beforeAdding(c, machine)
-		}
-
-		_, err = machine.AddNetworkInterface(test.args)
-		c.Check(err, gc.ErrorMatches, test.expectErr)
-		if strings.Contains(test.expectErr, "not found") {
-			c.Check(err, jc.Satisfies, errors.IsNotFound)
-		}
-		if strings.Contains(test.expectErr, "already exists") {
-			c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
-		}
-	}
 }
 
 func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *gc.C) {

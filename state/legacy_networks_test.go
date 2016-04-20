@@ -40,29 +40,3 @@ func (s *NetworkSuite) TestGetterMethods(c *gc.C) {
 	c.Assert(s.network.IsVLAN(), jc.IsFalse)
 	c.Assert(s.vlan.IsVLAN(), jc.IsTrue)
 }
-
-func (s *NetworkSuite) TestInterfaces(c *gc.C) {
-	ifaces, err := s.network.Interfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifaces, gc.HasLen, 0)
-
-	iface0, err := s.machine.AddNetworkInterface(state.NetworkInterfaceInfo{
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		InterfaceName: "eth0",
-		NetworkName:   "net1",
-		IsVirtual:     false,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	iface1, err := s.machine.AddNetworkInterface(state.NetworkInterfaceInfo{
-		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		InterfaceName: "eth1",
-		NetworkName:   "net1",
-		IsVirtual:     false,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	ifaces, err = s.network.Interfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifaces, gc.HasLen, 2)
-	c.Assert(ifaces, jc.DeepEquals, []*state.NetworkInterface{iface0, iface1})
-}

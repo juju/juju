@@ -37,11 +37,10 @@ func (s *MultiModelRunnerSuite) SetUpTest(c *gc.C) {
 		rawRunner: s.testRunner,
 		modelUUID: modelUUID,
 		schema: collectionSchema{
-			machinesC:          {},
-			networkInterfacesC: {},
-			modelsC:            {global: true},
-			"other":            {global: true},
-			"raw":              {rawAccess: true},
+			machinesC: {},
+			modelsC:   {global: true},
+			"other":   {global: true},
+			"raw":     {rawAccess: true},
 		},
 	}
 }
@@ -276,33 +275,6 @@ func (s *MultiModelRunnerSuite) TestMultipleOps(c *gc.C) {
 	err := s.multiModelRunner.RunTransaction(inOps)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.testRunner.seenOps, gc.DeepEquals, expectedOps)
-}
-
-type objIdDoc struct {
-	Id        bson.ObjectId `bson:"_id"`
-	ModelUUID string        `bson:"model-uuid"`
-}
-
-func (s *MultiModelRunnerSuite) TestWithObjectIds(c *gc.C) {
-	id := bson.NewObjectId()
-	inOps := []txn.Op{{
-		C:      networkInterfacesC,
-		Id:     id,
-		Insert: &objIdDoc{Id: id},
-	}}
-
-	err := s.multiModelRunner.RunTransaction(inOps)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedOps := []txn.Op{{
-		C:  networkInterfacesC,
-		Id: id,
-		Insert: bson.D{
-			{"_id", id},
-			{"model-uuid", "uuid"},
-		},
-	}}
 	c.Assert(s.testRunner.seenOps, gc.DeepEquals, expectedOps)
 }
 

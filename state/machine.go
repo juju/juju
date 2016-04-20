@@ -5,7 +5,6 @@ package state
 
 import (
 	"fmt"
-	"net"
 	"strings"
 	"time"
 
@@ -836,31 +835,6 @@ func (m *Machine) removePortsOps() ([]txn.Op, error) {
 	return ops, nil
 }
 
-func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
-	if m.doc.Life != Dead {
-		return nil, errors.Errorf("machine is not dead")
-	}
-	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: isDeadDoc,
-	}}
-	sel := bson.D{{"machineid", m.doc.Id}}
-	networkInterfaces, closer := m.st.getCollection(networkInterfacesC)
-	defer closer()
-
-	iter := networkInterfaces.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
-	var doc networkInterfaceDoc
-	for iter.Next(&doc) {
-		ops = append(ops, txn.Op{
-			C:      networkInterfacesC,
-			Id:     doc.Id,
-			Remove: true,
-		})
-	}
-	return ops, iter.Close()
-}
-
 // Remove removes the machine from state. It will fail if the machine
 // is not Dead.
 func (m *Machine) Remove() (err error) {
@@ -890,10 +864,6 @@ func (m *Machine) Remove() (err error) {
 		removeModelMachineRefOp(m.st, m.Id()),
 		removeSSHHostKeyOp(m.st, m.globalKey()),
 	}
-	ifacesOps, err := m.removeNetworkInterfacesOps()
-	if err != nil {
-		return err
-	}
 	linkLayerDevicesOps, err := m.removeAllLinkLayerDevicesOps()
 	if err != nil {
 		return err
@@ -914,7 +884,6 @@ func (m *Machine) Remove() (err error) {
 	if err != nil {
 		return err
 	}
-	ops = append(ops, ifacesOps...)
 	ops = append(ops, linkLayerDevicesOps...)
 	ops = append(ops, devicesAddressesOps...)
 	ops = append(ops, portsOps...)
@@ -1497,103 +1466,6 @@ func (m *Machine) Networks() ([]*Network, error) {
 		networks[i] = newNetwork(m.st, &doc)
 	}
 	return networks, nil
-}
-
-// NetworkInterfaces returns the list of configured network interfaces
-// of the machine.
-func (m *Machine) NetworkInterfaces() ([]*NetworkInterface, error) {
-	networkInterfaces, closer := m.st.getCollection(networkInterfacesC)
-	defer closer()
-
-	docs := []networkInterfaceDoc{}
-	err := networkInterfaces.Find(bson.D{{"machineid", m.doc.Id}}).All(&docs)
-	if err != nil {
-		return nil, err
-	}
-	ifaces := make([]*NetworkInterface, len(docs))
-	for i, doc := range docs {
-		ifaces[i] = newNetworkInterface(m.st, &doc)
-	}
-	return ifaces, nil
-}
-
-// AddNetworkInterface creates a new network interface with the given
-// args for this machine. The machine must be alive and not yet
-// provisioned, and there must be no other interface with the same MAC
-// address on the same network, or the same name on that machine for
-// this to succeed. If a network interface already exists, the
-// returned error satisfies errors.IsAlreadyExists.
-func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *NetworkInterface, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add network interface %q to machine %q", args.InterfaceName, m.doc.Id)
-
-	if args.MACAddress == "" {
-		return nil, fmt.Errorf("MAC address must be not empty")
-	}
-	if _, err = net.ParseMAC(args.MACAddress); err != nil {
-		return nil, err
-	}
-	if args.InterfaceName == "" {
-		return nil, fmt.Errorf("interface name must be not empty")
-	}
-	doc := newNetworkInterfaceDoc(m.doc.Id, m.st.ModelUUID(), args)
-	ops := []txn.Op{
-		assertModelActiveOp(m.st.ModelUUID()),
-		{
-			C:      networksC,
-			Id:     m.st.docID(args.NetworkName),
-			Assert: txn.DocExists,
-		}, {
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: isAliveDoc,
-		}, {
-			C:      networkInterfacesC,
-			Id:     doc.Id,
-			Assert: txn.DocMissing,
-			Insert: doc,
-		},
-	}
-
-	err = m.st.runTransaction(ops)
-	switch err {
-	case txn.ErrAborted:
-		if _, err = m.st.Network(args.NetworkName); err != nil {
-			return nil, err
-		}
-		if err = m.Refresh(); err != nil {
-			return nil, err
-		} else if m.doc.Life != Alive {
-			return nil, fmt.Errorf("machine is not alive")
-		}
-		// Should never happen.
-		logger.Errorf("unhandled assert while adding network interface doc %#v", doc)
-	case nil:
-		// We have a unique key restrictions on the following fields:
-		// - InterfaceName, MachineId
-		// - MACAddress, NetworkName
-		// These will cause the insert to fail if there is another record
-		// with the same combination of values in the table.
-		// The txn logic does not report insertion errors, so we check
-		// that the record has actually been inserted correctly before
-		// reporting success.
-		networkInterfaces, closer := m.st.getCollection(networkInterfacesC)
-		defer closer()
-
-		if err = networkInterfaces.FindId(doc.Id).One(&doc); err == nil {
-			return newNetworkInterface(m.st, doc), nil
-		}
-		sel := bson.D{{"interfacename", args.InterfaceName}, {"machineid", m.doc.Id}}
-		if err = networkInterfaces.Find(sel).One(nil); err == nil {
-			return nil, errors.AlreadyExistsf("%q on machine %q", args.InterfaceName, m.doc.Id)
-		}
-		sel = bson.D{{"macaddress", args.MACAddress}, {"networkname", args.NetworkName}}
-		if err = networkInterfaces.Find(sel).One(nil); err == nil {
-			return nil, errors.AlreadyExistsf("MAC address %q on network %q", args.MACAddress, args.NetworkName)
-		}
-		// Should never happen.
-		logger.Errorf("unknown error while adding network interface doc %#v", doc)
-	}
-	return nil, err
 }
 
 // CheckProvisioned returns true if the machine was provisioned with the given nonce.
