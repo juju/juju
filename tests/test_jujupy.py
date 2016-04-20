@@ -365,6 +365,10 @@ class FakeJujuClient:
         self._backing_state.bootstrap(self.env, {}, self._separate_admin)
         self._backing_state.deploy_bundle(bundle)
 
+    def create_model(self, model_client):
+        model_client.create_environment(self, 'foo')
+        return model_client
+
     def create_environment(self, controller_client, config_file):
         if not self._jes_enabled:
             raise JESNotSupported()

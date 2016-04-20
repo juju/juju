@@ -425,11 +425,18 @@ class EnvJujuClient:
             args.extend(['--bootstrap-series', bootstrap_series])
         return tuple(args)
 
-    @contextmanager
-    def _bootstrap_config(self):
+    def create_model(system_client, model_client):
+        with NamedTemporaryFile() as config_file:
+            config = make_safe_config(model_client)
+            yaml.dump(config, config_file)
+            config_file.flush()
+            model_client.create_environment(system_client, config_file.name)
+        return model_client
+
+    def make_model_config(self):
         config_dict = make_safe_config(self)
         # Strip unneeded variables.
-        config_dict = dict((k, v) for k, v in config_dict.items() if k not in {
+        return dict((k, v) for k, v in config_dict.items() if k not in {
             'access-key',
             'admin-secret',
             'application-id',
@@ -459,7 +466,10 @@ class EnvJujuClient:
             'type',
             'username',
         })
-        with temp_yaml_file(config_dict) as config_filename:
+
+    @contextmanager
+    def _bootstrap_config(self):
+        with temp_yaml_file(self.make_model_config()) as config_filename:
             yield config_filename
 
     def _check_bootstrap(self):
