@@ -242,6 +242,47 @@ func (s *registrationSuite) TestMeteredLocalCharmNoPlan(c *gc.C) {
 	}})
 }
 
+func (s *registrationSuite) TestDefaultBudget(c *gc.C) {
+	s.register = &RegisterMeteredCharm{
+		RegisterURL:    s.server.URL,
+		QueryURL:       s.server.URL,
+		AllocationSpec: "100",
+	}
+	client := httpbakery.NewClient()
+	d := DeploymentInfo{
+		CharmID: charmstore.CharmID{
+			URL: charm.MustParseURL("local:quantal/metered-1"),
+		},
+		ServiceName: "service name",
+		ModelUUID:   "model uuid",
+	}
+	err := s.register.RunPre(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.register.RunPost(&mockAPIConnection{Stub: s.stub}, client, s.ctx, d, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	authorization, err := json.Marshal([]byte("hello registration"))
+	authorization = append(authorization, byte(0xa))
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
+	}, {
+		"Authorize", []interface{}{metricRegistrationPost{
+			ModelUUID:   "model uuid",
+			CharmURL:    "local:quantal/metered-1",
+			ServiceName: "service name",
+			PlanURL:     "",
+			Budget:      "",
+			Limit:       "100",
+		}},
+	}, {
+		"APICall", []interface{}{"Service", "SetMetricCredentials", params.ServiceMetricCredentials{
+			Creds: []params.ServiceMetricCredential{params.ServiceMetricCredential{
+				ServiceName:       "service name",
+				MetricCredentials: authorization,
+			}},
+		}},
+	}})
+}
+
 func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 	s.register = &RegisterMeteredCharm{
 		AllocationSpec: "personal:100",

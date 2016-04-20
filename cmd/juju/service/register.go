@@ -21,7 +21,10 @@ import (
 	"github.com/juju/juju/api/charms"
 )
 
-var budgetWithLimitRe = regexp.MustCompile(`^[a-zA-Z0-9\-]+:[0-9]+$`)
+var (
+	budgetWithLimitRe = regexp.MustCompile(`^[a-zA-Z0-9\-]+:[0-9]+$`)
+	limitRe           = regexp.MustCompile(`^[0-9]+$`)
+)
 
 type metricRegistrationPost struct {
 	ModelUUID   string `json:"env-uuid"`
@@ -44,7 +47,7 @@ type RegisterMeteredCharm struct {
 }
 
 func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&r.AllocationSpec, "budget", "personal:0", "budget and allocation limit")
+	f.StringVar(&r.AllocationSpec, "budget", "0", "budget and allocation limit")
 	f.StringVar(&r.Plan, "plan", "", "plan to deploy charm under")
 }
 
@@ -278,6 +281,9 @@ func (r *RegisterMeteredCharm) registerMetrics(environmentUUID, charmURL, servic
 
 func parseBudgetWithLimit(bl string) (string, string, error) {
 	if !budgetWithLimitRe.MatchString(bl) {
+		if limitRe.MatchString(bl) {
+			return "", bl, nil
+		}
 		return "", "", errors.New("invalid allocation, expecting <budget>:<limit>")
 	}
 	parts := strings.Split(bl, ":")
