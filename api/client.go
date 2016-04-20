@@ -433,16 +433,16 @@ func (c *Client) OpenCharm(curl *charm.URL) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	blob, err := OpenCharm(httpClient, curl)
+	blob, err := openCharm(httpClient, curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return blob, nil
 }
 
-// OpenCharm streams out the identified charm from the controller via
+// openCharm streams out the identified charm from the controller via
 // the API.
-func OpenCharm(httpClient HTTPDoer, curl *charm.URL) (io.ReadCloser, error) {
+func openCharm(httpClient HTTPDoer, curl *charm.URL) (io.ReadCloser, error) {
 	query := make(url.Values)
 	query.Add("url", curl.String())
 	blob, err := openBlob(httpClient, "/charms", query)
