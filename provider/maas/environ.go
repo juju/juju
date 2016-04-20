@@ -730,13 +730,12 @@ func (environ *maasEnviron) acquireNode2(
 			"no architecture was specified, acquiring an arbitrary node",
 		)
 	}
-	// Currently not using the constraints match returned here.
-	machine, _, err := environ.maasController.AllocateMachine(acquireParams)
+	machine, constraintMatches, err := environ.maasController.AllocateMachine(acquireParams)
 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &maas2Instance{machine}, nil
+	return &maas2Instance{machine, constraintMatches}, nil
 }
 
 // acquireNode allocates a node from the MAAS.
@@ -838,7 +837,7 @@ func (environ *maasEnviron) startNode2(node maas2Instance, series string, userda
 		return nil, errors.Trace(err)
 	}
 	// Machine.Start updates the machine in-place when it succeeds.
-	return &maas2Instance{node.machine}, nil
+	return &maas2Instance{machine: node.machine}, nil
 
 }
 
@@ -1519,7 +1518,7 @@ func (environ *maasEnviron) instances2(args gomaasapi.MachinesArgs) ([]instance.
 	}
 	instances := make([]instance.Instance, len(machines))
 	for index, machine := range machines {
-		instances[index] = &maas2Instance{machine}
+		instances[index] = &maas2Instance{machine: machine}
 	}
 	return instances, nil
 }

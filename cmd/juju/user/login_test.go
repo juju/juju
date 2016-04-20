@@ -41,7 +41,7 @@ func (s *LoginCommandSuite) run(c *gc.C, stdin string, args ...string) (*cmd.Con
 	}, s.store)
 	ctx := coretesting.Context(c)
 	if stdin == "" {
-		stdin = "sekrit\nsekrit\n"
+		stdin = "sekrit\n"
 	}
 	ctx.Stdin = strings.NewReader(stdin)
 	err := coretesting.InitCommand(cmd, args)
@@ -83,12 +83,11 @@ func (s *LoginCommandSuite) TestInit(c *gc.C) {
 }
 
 func (s *LoginCommandSuite) TestLogin(c *gc.C) {
-	context, args, err := s.run(c, "current-user\nsekrit\nsekrit\n")
+	context, args, err := s.run(c, "current-user\nsekrit\n")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(context), gc.Equals, "")
 	c.Assert(coretesting.Stderr(context), gc.Equals, `
 username: password: 
-type password again: 
 You are now logged in to "testing" as "current-user@local".
 `[1:],
 	)
@@ -108,7 +107,6 @@ func (s *LoginCommandSuite) TestLoginNewUser(c *gc.C) {
 	c.Assert(coretesting.Stdout(context), gc.Equals, "")
 	c.Assert(coretesting.Stderr(context), gc.Equals, `
 password: 
-type password again: 
 You are now logged in to "testing" as "new-user@local".
 `[1:],
 	)

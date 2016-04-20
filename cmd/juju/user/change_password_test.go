@@ -22,9 +22,8 @@ import (
 
 type ChangePasswordCommandSuite struct {
 	BaseSuite
-	mockAPI        *mockChangePasswordAPI
-	store          jujuclient.ClientStore
-	randomPassword string
+	mockAPI *mockChangePasswordAPI
+	store   jujuclient.ClientStore
 }
 
 var _ = gc.Suite(&ChangePasswordCommandSuite{})
@@ -32,11 +31,7 @@ var _ = gc.Suite(&ChangePasswordCommandSuite{})
 func (s *ChangePasswordCommandSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockAPI = &mockChangePasswordAPI{}
-	s.randomPassword = ""
 	s.store = s.BaseSuite.store
-	s.PatchValue(user.RandomPasswordNotify, func(pwd string) {
-		s.randomPassword = pwd
-	})
 }
 
 func (s *ChangePasswordCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -54,21 +49,13 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 	for i, test := range []struct {
 		args        []string
 		user        string
-		generate    bool
 		errorString string
 	}{
 		{
 		// no args is fine
 		}, {
-			args:     []string{"--generate"},
-			generate: true,
-		}, {
 			args: []string{"foobar"},
 			user: "foobar",
-		}, {
-			args:     []string{"foobar", "--generate"},
-			user:     "foobar",
-			generate: true,
 		}, {
 			args:        []string{"--foobar"},
 			errorString: "flag provided but not defined: --foobar",
@@ -82,7 +69,6 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(command.User, gc.Equals, test.user)
-			c.Check(command.Generate, gc.Equals, test.generate)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errorString)
 		}
@@ -110,18 +96,11 @@ Your password has been updated.
 `[1:])
 }
 
-func (s *ChangePasswordCommandSuite) TestChangePasswordGenerate(c *gc.C) {
-	context, err := s.run(c, "--generate")
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertAPICalls(c, "current-user@local", s.randomPassword)
-	c.Assert(coretesting.Stderr(context), gc.Equals, "Your password has been updated.\n")
-}
-
 func (s *ChangePasswordCommandSuite) TestChangePasswordFail(c *gc.C) {
 	s.mockAPI.SetErrors(nil, errors.New("failed to do something"))
-	_, err := s.run(c, "--generate")
+	_, err := s.run(c)
 	c.Assert(err, gc.ErrorMatches, "failed to do something")
-	s.assertAPICalls(c, "current-user@local", s.randomPassword)
+	s.assertAPICalls(c, "current-user@local", "sekrit")
 }
 
 // We create a macaroon, but fail to write it to accounts.yaml.
@@ -140,7 +119,7 @@ func (s *ChangePasswordCommandSuite) TestNoSetPasswordAfterFailedWrite(c *gc.C) 
 	s.store = store
 	store.SetErrors(errors.New("failed to write"))
 
-	_, err := s.run(c, "--generate")
+	_, err := s.run(c)
 	c.Assert(err, gc.ErrorMatches, "failed to update client credentials: failed to write")
 	s.mockAPI.CheckCallNames(c, "CreateLocalLoginMacaroon") // no SetPassword
 }
@@ -148,9 +127,9 @@ func (s *ChangePasswordCommandSuite) TestNoSetPasswordAfterFailedWrite(c *gc.C) 
 func (s *ChangePasswordCommandSuite) TestChangeOthersPassword(c *gc.C) {
 	// The checks for user existence and admin rights are tested
 	// at the apiserver level.
-	_, err := s.run(c, "other", "--generate")
+	_, err := s.run(c, "other")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertAPICalls(c, "other@local", s.randomPassword)
+	s.assertAPICalls(c, "other@local", "sekrit")
 }
 
 type mockChangePasswordAPI struct {

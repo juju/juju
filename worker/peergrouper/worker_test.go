@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type TestIPVersion struct {
@@ -121,9 +121,7 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 		logger.Infof("starting worker")
 		w, err := newWorker(st, noPublisher{}, false)
 		c.Assert(err, jc.ErrorIsNil)
-		defer func() {
-			c.Check(worker.Stop(w), gc.IsNil)
-		}()
+		defer workertest.CleanKill(c, w)
 
 		// Wait for the worker to set the initial members.
 		mustNext(c, memberWatcher)
@@ -236,6 +234,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 		st.errors.resetErrors()
 		w, err = newWorker(st, noPublisher{}, false)
 		c.Assert(err, jc.ErrorIsNil)
+		defer workertest.CleanKill(c, w)
 
 		// Watch all the machines for changes, so we can check
 		// their has-vote status without polling.
@@ -287,9 +286,7 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 		logger.Infof("starting worker")
 		w, err := newWorker(st, noPublisher{}, false)
 		c.Assert(err, jc.ErrorIsNil)
-		defer func() {
-			c.Check(worker.Stop(w), gc.IsNil)
-		}()
+		defer workertest.CleanKill(c, w)
 
 		// Wait for the worker to set the initial members.
 		mustNext(c, memberWatcher)
@@ -372,9 +369,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 
 		w, err := newWorker(st, noPublisher{}, false)
 		c.Assert(err, jc.ErrorIsNil)
-		defer func() {
-			c.Check(worker.Stop(w), gc.IsNil)
-		}()
+		defer workertest.CleanKill(c, w)
 
 		// See that the worker is retrying.
 		setCountW := setCount.Watch()
@@ -402,9 +397,8 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 		InitState(c, st, 3, ipVersion)
 		w, err := newWorker(st, PublisherFunc(publish), false)
 		c.Assert(err, jc.ErrorIsNil)
-		defer func() {
-			c.Check(worker.Stop(w), gc.IsNil)
-		}()
+		defer workertest.CleanKill(c, w)
+
 		select {
 		case servers := <-publishCh:
 			AssertAPIHostPorts(c, servers, ExpectedAPIHostPorts(3, ipVersion))
@@ -480,7 +474,7 @@ func runWorkerUntilMongoStateIs(c *gc.C, st *fakeState, w *pgWorker, mss state.M
 	for st.getMongoSpaceState() != mss {
 		changes.Next()
 	}
-	c.Check(worker.Stop(w), gc.IsNil)
+	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) TestMongoFindAndUseSpace(c *gc.C) {
@@ -632,9 +626,7 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 
 		w, err := newWorker(st, PublisherFunc(publish), false)
 		c.Assert(err, jc.ErrorIsNil)
-		defer func() {
-			c.Check(worker.Stop(w), gc.IsNil)
-		}()
+		defer workertest.CleanKill(c, w)
 
 		for i := 0; i < 4; i++ {
 			select {
@@ -669,9 +661,7 @@ func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
 
 		w, err := newWorker(st, PublisherFunc(publish), false)
 		c.Assert(err, jc.ErrorIsNil)
-		defer func() {
-			c.Check(worker.Stop(w), gc.IsNil)
-		}()
+		defer workertest.CleanKill(c, w)
 
 		select {
 		case instanceIds := <-publishCh:

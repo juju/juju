@@ -357,7 +357,6 @@ def main(args):
     print("**** Original configuration")
     print_shell_cmd("cat {}".format(args.filename))
     print_shell_cmd("ifconfig -a")
-    print_shell_cmd("rm /etc/network/if-up.d/ntpdate")
     print_shell_cmd("ifdown --exclude=lo --interfaces={} {}".format(args.filename, ifquery))
 
     print("**** Activating new configuration")

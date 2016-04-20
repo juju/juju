@@ -5,6 +5,7 @@ package featuretests
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/names"
@@ -27,8 +28,11 @@ type UserSuite struct {
 
 var _ = gc.Suite(&UserSuite{})
 
-func (s *UserSuite) RunUserCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *UserSuite) RunUserCommand(c *gc.C, stdin string, args ...string) (*cmd.Context, error) {
 	context := testing.Context(c)
+	if stdin != "" {
+		context.Stdin = strings.NewReader(stdin)
+	}
 	jujuCmd := commands.NewJujuCommand(context)
 	err := testing.InitCommand(jujuCmd, args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -37,7 +41,7 @@ func (s *UserSuite) RunUserCommand(c *gc.C, args ...string) (*cmd.Context, error
 }
 
 func (s *UserSuite) TestUserAdd(c *gc.C) {
-	ctx, err := s.RunUserCommand(c, "add-user", "test")
+	ctx, err := s.RunUserCommand(c, "", "add-user", "test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), jc.HasPrefix, `User "test" added`)
 	user, err := s.State.User(names.NewLocalUserTag("test"))
@@ -51,7 +55,7 @@ func (s *UserSuite) TestUserAddGrantModel(c *gc.C) {
 	})
 	defer sharedModelState.Close()
 
-	ctx, err := s.RunUserCommand(c, "add-user", "test", "--models", "amodel")
+	ctx, err := s.RunUserCommand(c, "", "add-user", "test", "--models", "amodel")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), jc.HasPrefix, `User "test" added`)
 	user, err := s.State.User(names.NewLocalUserTag("test"))
@@ -77,25 +81,26 @@ func (s *UserSuite) TestUserChangePassword(c *gc.C) {
 	user, err := s.State.User(s.AdminUserTag(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid("dummy-secret"), jc.IsTrue)
-	_, err = s.RunUserCommand(c, "change-user-password", "--generate")
+	_, err = s.RunUserCommand(c, "not-dummy-secret\nnot-dummy-secret\n", "change-user-password")
 	c.Assert(err, jc.ErrorIsNil)
 	user.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid("dummy-secret"), jc.IsFalse)
+	c.Assert(user.PasswordValid("not-dummy-secret"), jc.IsTrue)
 }
 
 func (s *UserSuite) TestUserInfo(c *gc.C) {
 	user, err := s.State.User(s.AdminUserTag(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid("dummy-secret"), jc.IsTrue)
-	ctx, err := s.RunUserCommand(c, "show-user")
+	ctx, err := s.RunUserCommand(c, "", "show-user")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), jc.Contains, "user-name: admin")
 }
 
 func (s *UserSuite) TestUserDisable(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "barbara"})
-	_, err := s.RunUserCommand(c, "disable-user", "barbara")
+	_, err := s.RunUserCommand(c, "", "disable-user", "barbara")
 	c.Assert(err, jc.ErrorIsNil)
 	user.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -104,7 +109,7 @@ func (s *UserSuite) TestUserDisable(c *gc.C) {
 
 func (s *UserSuite) TestUserEnable(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "barbara", Disabled: true})
-	_, err := s.RunUserCommand(c, "enable-user", "barbara")
+	_, err := s.RunUserCommand(c, "", "enable-user", "barbara")
 	c.Assert(err, jc.ErrorIsNil)
 	user.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,7 +117,7 @@ func (s *UserSuite) TestUserEnable(c *gc.C) {
 }
 
 func (s *UserSuite) TestUserList(c *gc.C) {
-	ctx, err := s.RunUserCommand(c, "list-users")
+	ctx, err := s.RunUserCommand(c, "", "list-users")
 	c.Assert(err, jc.ErrorIsNil)
 	periodPattern := `(just now|\d+ \S+ ago)`
 	expected := fmt.Sprintf(`

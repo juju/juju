@@ -74,16 +74,16 @@ ENVIRONMENT = (
         The secret-key for your AWS account.
         """)),
     ('OS_USERNAME', textwrap.dedent("""\
-        Your openstack username.
+        Your OpenStack username.
         """)),
     ('OS_PASSWORD', textwrap.dedent("""\
-        Your openstack password.
+        Your OpenStack password.
         """)),
     ('OS_TENANT_NAME', textwrap.dedent("""\
-        Your openstack tenant name.
+        Your OpenStack tenant name.
         """)),
     ('OS_REGION_NAME', textwrap.dedent("""\
-        Your openstack region name.
+        Your OpenStack region name.
         """)),
 )
 
@@ -138,24 +138,44 @@ man_head = """\
 .I "command"
 .SH "DESCRIPTION"
 
-Juju provides easy, intelligent service orchestration on top of environments
-such as OpenStack, Amazon AWS, or bare metal.
+Juju is model & service management software designed to leverage the power 
+of existing resource pools, particularly cloud-based ones. It has built-in 
+support for cloud providers such as Amazon EC2, Google GCE, Microsoft Azure,
+OpenStack, and Rackspace. It also works very well with MAAS and LXD. 
 """
 
 man_foot = """\
 .SH "FILES"
 .TP
-.I "~/.config/juju/environments.yaml"
-This is the Juju config file, which you can use to specify multiple
-models in which to deploy.
-
-A config file can be created using
-.B juju init
-which you can then edit to provide the secret keys, or use environment
-variables to provide the secret values.
-
+.I "~/.local/share/juju/accounts.yaml"
+Records the current authorised Juju users and their 
+passwords.
+.TP
+.I "~/.local/share/juju/bootstrap-config.yaml"
+Records any configuration values which were used in the 
+creation of running controllers.
+.TP
+.I "~/.local/share/juju/clouds.yaml"
+Records any user-specified clouds which have been 
+added to Juju.
+.TP
+.I "~/.local/share/juju/controllers.yaml"
+Records all the running controllers, their UUIDS, 
+api-endpoints and CA certificates.
+.TP
+.I "~/.local/share/juju/credentials.yaml"
+Records all the cloud credentials known to Juju.
+.TP
+.I "~/.local/share/juju/current-controller"
+ A text file containing the name of the current controller.
+.TP
+.I "~/.local/share/juju/models.yaml"
+Records the UUIDs of all models known to Juju.
+.TP
+.I "~/.local/share/juju/ssh/"
+A directory containing the SSH credentials for the Juju client.
 .SH "SEE ALSO"
-.UR https://juju.ubuntu.com/
-.BR https://juju.ubuntu.com/
+.UR https://jujucharms.com/docs
+.BR https://jujucharms.com/docs
 """
 
