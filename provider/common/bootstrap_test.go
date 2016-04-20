@@ -93,7 +93,6 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	startInstance := func(
 		placement string,
 		cons constraints.Value,
-		_ []string,
 		possibleTools tools.List,
 		icfg *instancecfg.InstanceConfig,
 	) (instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error) {
@@ -142,7 +141,7 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 	checkInstanceId := "i-success"
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
 
-	startInstance := func(_ string, _ constraints.Value, _ []string, _ tools.List, icfg *instancecfg.InstanceConfig) (instance.Instance,
+	startInstance := func(_ string, _ constraints.Value, _ tools.List, icfg *instancecfg.InstanceConfig) (instance.Instance,
 		*instance.HardwareCharacteristics, []network.InterfaceInfo, error) {
 		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
 	}
@@ -188,7 +187,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
 
 	startInstance := func(
-		_ string, _ constraints.Value, _ []string, _ tools.List, icfg *instancecfg.InstanceConfig,
+		_ string, _ constraints.Value, _ tools.List, icfg *instancecfg.InstanceConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 	) {

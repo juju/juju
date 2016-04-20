@@ -632,8 +632,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		case multiwatcher.JobManageModel:
 			isModelManager = true
 		default:
-			// TODO(dimitern): Once all workers moved over to using
-			// the API, report "unknown job type" here.
 		}
 	}
 

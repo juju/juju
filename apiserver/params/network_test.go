@@ -99,11 +99,10 @@ func (s *NetworkSuite) TestPortsResults(c *gc.C) {
 func (s *NetworkSuite) TestHostPort(c *gc.C) {
 	mkHostPort := func(v, t, n, s string, p int) M {
 		return M{
-			"Value":       v,
-			"Type":        t,
-			"NetworkName": n,
-			"Scope":       s,
-			"Port":        p,
+			"Value": v,
+			"Type":  t,
+			"Scope": s,
+			"Port":  p,
 		}
 	}
 	tests := []struct {
@@ -133,9 +132,8 @@ func (s *NetworkSuite) TestHostPort(c *gc.C) {
 		about: "address value, type, and network name, port is 1234",
 		hostPort: params.HostPort{
 			Address: params.Address{
-				Value:       "foo",
-				Type:        "ipv4",
-				NetworkName: "bar",
+				Value: "foo",
+				Type:  "ipv4",
 			},
 			Port: 1234,
 		},
@@ -144,10 +142,9 @@ func (s *NetworkSuite) TestHostPort(c *gc.C) {
 		about: "address all fields, port is 1234",
 		hostPort: params.HostPort{
 			Address: params.Address{
-				Value:       "foo",
-				Type:        "ipv4",
-				NetworkName: "bar",
-				Scope:       "public",
+				Value: "foo",
+				Type:  "ipv4",
+				Scope: "public",
 			},
 			Port: 1234,
 		},
@@ -156,10 +153,9 @@ func (s *NetworkSuite) TestHostPort(c *gc.C) {
 		about: "address all fields, port is 0",
 		hostPort: params.HostPort{
 			Address: params.Address{
-				Value:       "foo",
-				Type:        "ipv4",
-				NetworkName: "bar",
-				Scope:       "public",
+				Value: "foo",
+				Type:  "ipv4",
+				Scope: "public",
 			},
 			Port: 0,
 		},
@@ -269,10 +265,9 @@ func (s *NetworkSuite) TestPortRangeConvenience(c *gc.C) {
 
 func (s *NetworkSuite) TestAddressConvenience(c *gc.C) {
 	networkAddress := network.Address{
-		Value:       "foo",
-		Type:        network.IPv4Address,
-		NetworkName: "bar",
-		Scope:       network.ScopePublic,
+		Value: "foo",
+		Type:  network.IPv4Address,
+		Scope: network.ScopePublic,
 	}
 	paramsAddress := params.FromNetworkAddress(networkAddress)
 	c.Assert(networkAddress, jc.DeepEquals, paramsAddress.NetworkAddress())
@@ -280,10 +275,9 @@ func (s *NetworkSuite) TestAddressConvenience(c *gc.C) {
 
 func (s *NetworkSuite) TestHostPortConvenience(c *gc.C) {
 	networkAddress := network.Address{
-		Value:       "foo",
-		Type:        network.IPv4Address,
-		NetworkName: "bar",
-		Scope:       network.ScopePublic,
+		Value: "foo",
+		Type:  network.IPv4Address,
+		Scope: network.ScopePublic,
 	}
 	networkHostPort := network.HostPort{networkAddress, 4711}
 	paramsHostPort := params.FromNetworkHostPort(networkHostPort)

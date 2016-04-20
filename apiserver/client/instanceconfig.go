@@ -91,20 +91,15 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		return nil, errors.Annotate(err, "setting up machine authentication")
 	}
 
-	// Find requested networks.
-	networks, err := machine.RequestedNetworks()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting requested networks for machine")
-	}
-
 	// Figure out if secure connections are supported.
 	info, err := st.StateServingInfo()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state serving info")
 	}
 	secureServerConnection := info.CAPrivateKey != ""
-	icfg, err := instancecfg.NewInstanceConfig(machineId, nonce, environConfig.ImageStream(), machine.Series(), "",
-		secureServerConnection, networks, mongoInfo, apiInfo,
+	icfg, err := instancecfg.NewInstanceConfig(
+		machineId, nonce, environConfig.ImageStream(), machine.Series(), "",
+		secureServerConnection, mongoInfo, apiInfo,
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "initializing instance config")

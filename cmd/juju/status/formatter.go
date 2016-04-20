@@ -51,12 +51,6 @@ func (sf *statusFormatter) format() formattedStatus {
 	for sn, s := range sf.status.Services {
 		out.Services[sn] = sf.formatService(sn, s)
 	}
-	for k, n := range sf.status.Networks {
-		if out.Networks == nil {
-			out.Networks = make(map[string]networkStatus)
-		}
-		out.Networks[k] = sf.formatNetwork(n)
-	}
 	return out
 }
 
@@ -117,17 +111,10 @@ func (sf *statusFormatter) formatService(name string, service params.ServiceStat
 		Exposed:       service.Exposed,
 		Life:          service.Life,
 		Relations:     service.Relations,
-		Networks:      make(map[string][]string),
 		CanUpgradeTo:  service.CanUpgradeTo,
 		SubordinateTo: service.SubordinateTo,
 		Units:         make(map[string]unitStatus),
 		StatusInfo:    sf.getServiceStatusInfo(service),
-	}
-	if len(service.Networks.Enabled) > 0 {
-		out.Networks["enabled"] = service.Networks.Enabled
-	}
-	if len(service.Networks.Disabled) > 0 {
-		out.Networks["disabled"] = service.Networks.Disabled
 	}
 	for k, m := range service.Units {
 		out.Units[k] = sf.formatUnit(unitFormatInfo{
@@ -240,15 +227,6 @@ func (sf *statusFormatter) updateUnitStatusInfo(unit *params.UnitStatus, service
 				unit.WorkloadStatus.Info = unit.WorkloadStatus.Info + " for " + ep.String()
 			}
 		}
-	}
-}
-
-func (sf *statusFormatter) formatNetwork(network params.NetworkStatus) networkStatus {
-	return networkStatus{
-		Err:        network.Err,
-		ProviderId: network.ProviderId,
-		CIDR:       network.CIDR,
-		VLANTag:    network.VLANTag,
 	}
 }
 

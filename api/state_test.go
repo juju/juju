@@ -170,23 +170,20 @@ func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 	info := s.APIInfo(c)
 	// We intentionally set this to invalid values
 	badValue := network.HostPort{network.Address{
-		Value:       "0.1.2.3",
-		Type:        network.IPv4Address,
-		NetworkName: "",
-		Scope:       network.ScopeMachineLocal,
+		Value: "0.1.2.3",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeMachineLocal,
 	}, 1234}
 	badServer := []network.HostPort{badValue}
 	extraAddress := network.HostPort{network.Address{
-		Value:       "0.1.2.4",
-		Type:        network.IPv4Address,
-		NetworkName: "",
-		Scope:       network.ScopeMachineLocal,
+		Value: "0.1.2.4",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeMachineLocal,
 	}, 5678}
 	extraAddress2 := network.HostPort{network.Address{
-		Value:       "0.1.2.1",
-		Type:        network.IPv4Address,
-		NetworkName: "",
-		Scope:       network.ScopeMachineLocal,
+		Value: "0.1.2.1",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeMachineLocal,
 	}, 9012}
 	serverExtra := []network.HostPort{
 		extraAddress, goodAddress, extraAddress2,

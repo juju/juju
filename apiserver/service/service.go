@@ -9,7 +9,6 @@ package service
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	goyaml "gopkg.in/yaml.v2"
@@ -156,11 +155,6 @@ func deployService(st *state.State, owner string, args params.ServiceDeploy) err
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// Convert network tags to names for any given networks.
-	requestedNetworks, err := networkTagsToNames(args.Networks)
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	channel := csparams.Channel(args.Channel)
 
@@ -176,7 +170,6 @@ func deployService(st *state.State, owner string, args params.ServiceDeploy) err
 			ConfigSettings:   settings,
 			Constraints:      args.Constraints,
 			Placement:        args.Placement,
-			Networks:         requestedNetworks,
 			Storage:          args.Storage,
 			EndpointBindings: args.EndpointBindings,
 			Resources:        args.Resources,
@@ -197,18 +190,6 @@ func ServiceSetSettingsStrings(service *state.Service, settings map[string]strin
 		return errors.Trace(err)
 	}
 	return service.UpdateConfigSettings(changes)
-}
-
-func networkTagsToNames(tags []string) ([]string, error) {
-	netNames := make([]string, len(tags))
-	for i, tag := range tags {
-		t, err := names.ParseNetworkTag(tag)
-		if err != nil {
-			return nil, err
-		}
-		netNames[i] = t.Id()
-	}
-	return netNames, nil
 }
 
 // parseSettingsCompatible parses setting strings in a way that is

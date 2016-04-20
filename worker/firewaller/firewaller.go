@@ -292,7 +292,7 @@ func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineT
 	// check if the machine has ports open on any subnets
 	subnetTags, err := m.ActiveSubnets()
 	if err != nil {
-		return errors.Annotatef(err, "failed getting %q active networks", machineTag)
+		return errors.Annotatef(err, "failed getting %q active subnets", machineTag)
 	}
 	for _, subnetTag := range subnetTags {
 		err := fw.openedPortsChanged(machineTag, subnetTag)

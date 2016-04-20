@@ -133,7 +133,6 @@ func (s *commonSuite) TestAuthFuncForTagKind(c *gc.C) {
 		names.NewFilesystemTag("20/20"),
 		names.NewLocalUserTag("user"),
 		names.NewMachineTag("42"),
-		names.NewNetworkTag("public"),
 		names.NewRelationTag("wordpress:mysql mysql:db"),
 		names.NewServiceTag("wordpress"),
 		names.NewSpaceTag("apps"),

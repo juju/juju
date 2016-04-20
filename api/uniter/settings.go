@@ -31,11 +31,6 @@ func newSettings(st *State, relationTag, unitTag string, settings params.Setting
 }
 
 // Map returns all keys and values of the node.
-//
-// TODO(dimitern): This differes from state.Settings.Map() - it does
-// not return map[string]interface{}, but since all values are
-// expected to be strings anyway, we need to fix the uniter code
-// accordingly when migrating to the API.
 func (s *Settings) Map() params.Settings {
 	settingsCopy := make(params.Settings)
 	for k, v := range s.settings {
@@ -48,9 +43,6 @@ func (s *Settings) Map() params.Settings {
 }
 
 // Set sets key to value.
-//
-// TODO(dimitern): value must be a string. Change the code that uses
-// this accordingly.
 func (s *Settings) Set(key, value string) {
 	s.settings[key] = value
 }

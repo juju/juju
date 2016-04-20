@@ -11,21 +11,19 @@ import (
 // AddressArgs is an argument struct used to create a new internal address
 // type that supports the Address interface.
 type AddressArgs struct {
-	Value       string
-	Type        string
-	NetworkName string
-	Scope       string
-	Origin      string
+	Value  string
+	Type   string
+	Scope  string
+	Origin string
 }
 
 func newAddress(args AddressArgs) *address {
 	return &address{
-		Version:      1,
-		Value_:       args.Value,
-		Type_:        args.Type,
-		NetworkName_: args.NetworkName,
-		Scope_:       args.Scope,
-		Origin_:      args.Origin,
+		Version: 1,
+		Value_:  args.Value,
+		Type_:   args.Type,
+		Scope_:  args.Scope,
+		Origin_: args.Origin,
 	}
 }
 
@@ -33,11 +31,10 @@ func newAddress(args AddressArgs) *address {
 type address struct {
 	Version int `yaml:"version"`
 
-	Value_       string `yaml:"value"`
-	Type_        string `yaml:"type"`
-	NetworkName_ string `yaml:"network-name,omitempty"`
-	Scope_       string `yaml:"scope,omitempty"`
-	Origin_      string `yaml:"origin,omitempty"`
+	Value_  string `yaml:"value"`
+	Type_   string `yaml:"type"`
+	Scope_  string `yaml:"scope,omitempty"`
+	Origin_ string `yaml:"origin,omitempty"`
 }
 
 // Value implements Address.
@@ -48,11 +45,6 @@ func (a *address) Value() string {
 // Type implements Address.
 func (a *address) Type() string {
 	return a.Type_
-}
-
-// NetworkName implements Address.
-func (a *address) NetworkName() string {
-	return a.NetworkName_
 }
 
 // Scope implements Address.
@@ -105,17 +97,15 @@ var addressDeserializationFuncs = map[int]addressDeserializationFunc{
 
 func importAddressV1(source map[string]interface{}) (*address, error) {
 	fields := schema.Fields{
-		"value":        schema.String(),
-		"type":         schema.String(),
-		"network-name": schema.String(),
-		"scope":        schema.String(),
-		"origin":       schema.String(),
+		"value":  schema.String(),
+		"type":   schema.String(),
+		"scope":  schema.String(),
+		"origin": schema.String(),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
-		"network-name": "",
-		"scope":        "",
-		"origin":       "",
+		"scope":  "",
+		"origin": "",
 	}
 	checker := schema.FieldMap(fields, defaults)
 
@@ -128,11 +118,10 @@ func importAddressV1(source map[string]interface{}) (*address, error) {
 	// contains fields of the right type.
 
 	return &address{
-		Version:      1,
-		Value_:       valid["value"].(string),
-		Type_:        valid["type"].(string),
-		NetworkName_: valid["network-name"].(string),
-		Scope_:       valid["scope"].(string),
-		Origin_:      valid["origin"].(string),
+		Version: 1,
+		Value_:  valid["value"].(string),
+		Type_:   valid["type"].(string),
+		Scope_:  valid["scope"].(string),
+		Origin_: valid["origin"].(string),
 	}, nil
 }

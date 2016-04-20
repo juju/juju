@@ -14,7 +14,6 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -167,8 +166,6 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "could not fetch machines")
 	} else if context.relations, err = fetchRelations(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch relations")
-	} else if context.networks, err = fetchNetworks(c.api.stateAccessor); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch networks")
 	}
 
 	logger.Debugf("Services: %v", context.services)
@@ -271,7 +268,6 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		AvailableVersion: newToolsVersion,
 		Machines:         processMachines(context.machines),
 		Services:         context.processServices(),
-		Networks:         context.processNetworks(),
 		Relations:        context.processRelations(),
 	}, nil
 }
@@ -308,7 +304,6 @@ type statusContext struct {
 	services     map[string]*state.Service
 	relations    map[string][]*state.Relation
 	units        map[string]map[string]*state.Unit
-	networks     map[string]*state.Network
 	latestCharms map[charm.URL]*state.Charm
 }
 
@@ -408,19 +403,6 @@ func fetchRelations(st stateInterface) (map[string][]*state.Relation, error) {
 		for _, ep := range relation.Endpoints() {
 			out[ep.ServiceName] = append(out[ep.ServiceName], relation)
 		}
-	}
-	return out, nil
-}
-
-// fetchNetworks returns a map from network name to network.
-func fetchNetworks(st stateInterface) (map[string]*state.Network, error) {
-	networks, err := st.AllNetworks()
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[string]*state.Network)
-	for _, n := range networks {
-		out[n.Name()] = n
 	}
 	return out, nil
 }
@@ -553,22 +535,6 @@ func (context *statusContext) getAllRelations() []*state.Relation {
 	return out
 }
 
-func (context *statusContext) processNetworks() map[string]params.NetworkStatus {
-	networksMap := make(map[string]params.NetworkStatus)
-	for name, network := range context.networks {
-		networksMap[name] = context.makeNetworkStatus(network)
-	}
-	return networksMap
-}
-
-func (context *statusContext) makeNetworkStatus(network *state.Network) params.NetworkStatus {
-	return params.NetworkStatus{
-		ProviderId: network.ProviderId(),
-		CIDR:       network.CIDR(),
-		VLANTag:    network.VLANTag(),
-	}
-}
-
 func (context *statusContext) isSubordinate(ep *state.Endpoint) bool {
 	service := context.services[ep.ServiceName]
 	if service == nil {
@@ -617,31 +583,6 @@ func (context *statusContext) processService(service *state.Service) params.Serv
 	if err != nil {
 		processedStatus.Err = err
 		return processedStatus
-	}
-	networks, err := service.Networks()
-	if err != nil {
-		processedStatus.Err = err
-		return processedStatus
-	}
-	var cons constraints.Value
-	if service.IsPrincipal() {
-		// Only principals can have constraints.
-		cons, err = service.Constraints()
-		if err != nil {
-			processedStatus.Err = err
-			return processedStatus
-		}
-	}
-	// TODO(dimitern): Drop support for this in a follow-up.
-	if len(networks) > 0 || cons.HaveNetworks() {
-		// Only the explicitly requested networks (using "juju deploy
-		// <svc> --networks=...") will be enabled, and altough when
-		// specified, networks constraints will be used for instance
-		// selection, they won't be actually enabled.
-		processedStatus.Networks = params.NetworksSpecification{
-			Enabled:  networks,
-			Disabled: append(cons.IncludeNetworks(), cons.ExcludeNetworks()...),
-		}
 	}
 	if service.IsPrincipal() {
 		processedStatus.Units = context.processUnits(context.units[service.Name()], serviceCharmURL.String())
