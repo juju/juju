@@ -2256,8 +2256,9 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	}
 
 	var primaryNICInfo network.InterfaceInfo
+	primaryNICName := "eth0"
 	for _, nic := range preparedInfo {
-		if nic.InterfaceName == "eth0" {
+		if nic.InterfaceName == primaryNICName {
 			primaryNICInfo = nic
 			break
 		}
@@ -2288,12 +2289,14 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	createDeviceArgs := gomaasapi.CreateMachineDeviceArgs{
 		MACAddress:    primaryMACAddress,
 		Subnet:        subnet,
-		InterfaceName: "eth0",
+		InterfaceName: primaryNICName,
 	}
 	device, err := machine.CreateDevice(createDeviceArgs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// XXX
+	primaryNIC := device.InterfaceSet()[0]
 
 	deviceNICIDs := make([]string, len(preparedInfo))
 	nameToParentName := make(map[string]string)
@@ -2316,19 +2319,23 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 			}
 			maasNICID = string(createdNIC.ID())
 			logger.Debugf("created device interface: %+v", createdNIC)
+			subnetID := string(nic.ProviderSubnetId)
+
+			linkArgs := gomaasapi.LinkSubnetArgs{
+				Mode:   gomaasapi.LinkModeStatic,
+				Subnet: subnet,
+			}
+			err = createdNIC.LinkSubnet(linkArgs)
+			if err != nil {
+				return nil, errors.Annotate(err, "cannot link device interface to subnet")
+			}
+			logger.Debugf("linked device interface to subnet: %+v", createdNIC)
 		} else {
-			maasNICID = primaryNICID
+			maasNICID = string(primaryNIC.ID())
 		}
 		deviceNICIDs[i] = maasNICID
-		subnetID := string(nic.ProviderSubnetId)
-
-		linkedInterface, err := env.linkDeviceInterfaceToSubnet(deviceID, maasNICID, subnetID, modeStatic)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot link device interface to subnet")
-		}
-		logger.Debugf("linked device interface to subnet: %+v", linkedInterface)
 	}
-	finalInterfaces, err := env.deviceInterfaceInfo(deviceID, nameToParentName)
+	finalInterfaces, err := env.deviceInterfaceInfo(device.ID(), nameToParentName)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get device interfaces")
 	}
