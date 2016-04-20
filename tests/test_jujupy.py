@@ -2482,26 +2482,27 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(flattened_timings, expected)
 
     def test_deployer(self):
-        client = EnvJujuClient(JujuData(None, {'type': 'local'}),
+        client = EnvJujuClient(JujuData('foo', {'type': 'local'}),
                                '1.23-series-arch', None)
         with patch.object(EnvJujuClient, 'juju') as mock:
             client.deployer('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
-            'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
-                         '3600', '--config', 'bundle:~juju-qa/some-bundle'),
-            True
+            'deployer', ('-e', 'local.foo:foo', '--debug', '--deploy-delay',
+                         '10', '--timeout', '3600', '--config',
+                         'bundle:~juju-qa/some-bundle'),
+            True, include_e=False
         )
 
     def test_deployer_with_bundle_name(self):
-        client = EnvJujuClient(JujuData(None, {'type': 'local'}),
-                               '1.23-series-arch', None)
+        client = EnvJujuClient(JujuData('foo', {'type': 'local'}),
+                               '2.0.0-series-arch', None)
         with patch.object(EnvJujuClient, 'juju') as mock:
             client.deployer('bundle:~juju-qa/some-bundle', 'name')
         mock.assert_called_with(
-            'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
-                         '3600', '--config', 'bundle:~juju-qa/some-bundle',
-                         'name'),
-            True
+            'deployer', ('-e', 'local.foo:foo', '--debug', '--deploy-delay',
+                         '10', '--timeout', '3600', '--config',
+                         'bundle:~juju-qa/some-bundle', 'name'),
+            True, include_e=False
         )
 
     def test_quickstart_maas(self):
