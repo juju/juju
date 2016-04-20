@@ -927,7 +927,7 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a, jc.SameContents, []string{"amd64", "i386", "ppc64el"})
+	c.Assert(a, jc.SameContents, []string{"amd64", "i386", "ppc64el", "s390x"})
 }
 
 func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
