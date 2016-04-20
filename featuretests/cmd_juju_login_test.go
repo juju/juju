@@ -55,7 +55,6 @@ func (s *cmdLoginSuite) TestLoginCommand(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 	c.Assert(testing.Stderr(context), gc.Equals, `
 password: 
-type password again: 
 You are now logged in to "kontroll" as "test@local".
 `[1:])
 
