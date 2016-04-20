@@ -23,7 +23,7 @@ var _ = gc.Suite(&CreateSuite{})
 func (s *CreateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSubnetSuite.SetUpTest(c)
-	s.command, _ = subnet.NewCreateCommand(s.api)
+	s.command, _ = subnet.NewCreateCommandForTest(s.api)
 	c.Assert(s.command, gc.NotNil)
 }
 
@@ -125,7 +125,7 @@ func (s *CreateSuite) TestInit(c *gc.C) {
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
 		// modelcmd.Wrap().
-		wrappedCommand, command := subnet.NewCreateCommand(s.api)
+		wrappedCommand, command := subnet.NewCreateCommandForTest(s.api)
 		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)

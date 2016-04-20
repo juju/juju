@@ -17,7 +17,9 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newListCommand() cmd.Command {
+// NewListCommand returns a cammin used to list all subnets
+// known to Juju.
+func NewListCommand() cmd.Command {
 	return modelcmd.Wrap(&listCommand{})
 }
 
@@ -47,10 +49,11 @@ output to a file, use --output.
 // Info is defined on the cmd.Command interface.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
+		Name:    "list-subnets",
 		Args:    "[--space <name>] [--zone <name>] [--format yaml|json] [--output <path>]",
 		Purpose: "list subnets known to Juju",
 		Doc:     strings.TrimSpace(listCommandDoc),
+		Aliases: []string{"subnets"},
 	}
 }
 

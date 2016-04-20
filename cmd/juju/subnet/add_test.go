@@ -25,7 +25,7 @@ var _ = gc.Suite(&AddSuite{})
 
 func (s *AddSuite) SetUpTest(c *gc.C) {
 	s.BaseSubnetSuite.SetUpTest(c)
-	s.command, _ = subnet.NewAddCommand(s.api)
+	s.command, _ = subnet.NewAddCommandForTest(s.api)
 	c.Assert(s.command, gc.NotNil)
 }
 
@@ -94,7 +94,7 @@ func (s *AddSuite) TestInit(c *gc.C) {
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
 		// modelcmd.Wrap().
-		wrappedCommand, command := subnet.NewAddCommand(s.api)
+		wrappedCommand, command := subnet.NewAddCommandForTest(s.api)
 		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			prefixedErr := "invalid arguments specified: " + test.expectErr

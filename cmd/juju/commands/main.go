@@ -311,8 +311,12 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("list-spaces", "space", "list", nil)
 
 	// Manage subnets
-	r.Register(subnet.NewSuperCommand())
-	r.RegisterSuperAlias("add-subnet", "subnet", "add", nil)
+	r.Register(subnet.NewAddCommand())
+	r.Register(subnet.NewListCommand())
+	if featureflag.Enabled(feature.PostNetCLIMVP) {
+		r.Register(subnet.NewCreateCommand())
+		r.Register(subnet.NewRemoveCommand())
+	}
 
 	// Manage controllers
 	r.Register(controller.NewCreateModelCommand())
