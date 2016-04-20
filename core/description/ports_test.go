@@ -18,29 +18,29 @@ func (*PortRangeCheck) AssertPortRange(c *gc.C, pr PortRange, args PortRangeArgs
 	c.Assert(pr.Protocol(), gc.Equals, args.Protocol)
 }
 
-type NetworkPortsSerializationSuite struct {
+type OpenedPortsSerializationSuite struct {
 	SliceSerializationSuite
 	PortRangeCheck
 }
 
-var _ = gc.Suite(&NetworkPortsSerializationSuite{})
+var _ = gc.Suite(&OpenedPortsSerializationSuite{})
 
-func (s *NetworkPortsSerializationSuite) SetUpTest(c *gc.C) {
+func (s *OpenedPortsSerializationSuite) SetUpTest(c *gc.C) {
 	s.SliceSerializationSuite.SetUpTest(c)
-	s.importName = "network-ports"
-	s.sliceName = "network-ports"
+	s.importName = "opened-ports"
+	s.sliceName = "opened-ports"
 	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
-		return importNetworkPorts(m)
+		return importOpenedPorts(m)
 	}
 	s.testFields = func(m map[string]interface{}) {
-		m["network-ports"] = []interface{}{}
+		m["opened-ports"] = []interface{}{}
 	}
 }
 
-func (s *NetworkPortsSerializationSuite) TestNewNetworkPorts(c *gc.C) {
-	args := NetworkPortsArgs{
-		NetworkName: "special",
-		OpenPorts: []PortRangeArgs{
+func (s *OpenedPortsSerializationSuite) TestNewNetworkPorts(c *gc.C) {
+	args := OpenedPortsArgs{
+		SubnetID: "0.1.2.0/24",
+		OpenedPorts: []PortRangeArgs{
 			PortRangeArgs{
 				UnitName: "magic/0",
 				FromPort: 1234,
@@ -56,23 +56,23 @@ func (s *NetworkPortsSerializationSuite) TestNewNetworkPorts(c *gc.C) {
 		},
 	}
 
-	ports := newNetworkPorts(args)
-	c.Assert(ports.NetworkName(), gc.Equals, args.NetworkName)
+	ports := newOpenedPorts(args)
+	c.Assert(ports.SubnetID(), gc.Equals, args.SubnetID)
 	opened := ports.OpenPorts()
 	c.Assert(opened, gc.HasLen, 2)
-	s.AssertPortRange(c, opened[0], args.OpenPorts[0])
-	s.AssertPortRange(c, opened[1], args.OpenPorts[1])
+	s.AssertPortRange(c, opened[0], args.OpenedPorts[0])
+	s.AssertPortRange(c, opened[1], args.OpenedPorts[1])
 }
 
-func (*NetworkPortsSerializationSuite) TestParsingSerializedData(c *gc.C) {
-	initial := &versionedNetworkPorts{
+func (*OpenedPortsSerializationSuite) TestParsingSerializedData(c *gc.C) {
+	initial := &versionedOpenedPorts{
 		Version: 1,
-		NetworkPorts_: []*networkPorts{
-			&networkPorts{
-				NetworkName_: "storage",
-				OpenPorts_: &portRanges{
+		OpenedPorts_: []*openedPorts{
+			&openedPorts{
+				SubnetID_: "fc00::/64",
+				OpenedPorts_: &portRanges{
 					Version: 1,
-					OpenPorts_: []*portRange{
+					OpenedPorts_: []*portRange{
 						&portRange{
 							UnitName_: "magic/0",
 							FromPort_: 1234,
@@ -82,11 +82,11 @@ func (*NetworkPortsSerializationSuite) TestParsingSerializedData(c *gc.C) {
 					},
 				},
 			},
-			&networkPorts{
-				NetworkName_: "workload",
-				OpenPorts_: &portRanges{
+			&openedPorts{
+				SubnetID_: "192.168.0.0/16",
+				OpenedPorts_: &portRanges{
 					Version: 1,
-					OpenPorts_: []*portRange{
+					OpenedPorts_: []*portRange{
 						&portRange{
 							UnitName_: "unicorn/0",
 							FromPort_: 80,
@@ -106,10 +106,10 @@ func (*NetworkPortsSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	err = yaml.Unmarshal(bytes, &source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	imported, err := importNetworkPorts(source)
+	imported, err := importOpenedPorts(source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(imported, jc.DeepEquals, initial.NetworkPorts_)
+	c.Assert(imported, jc.DeepEquals, initial.OpenedPorts_)
 }
 
 type PortRangeSerializationSuite struct {
@@ -122,12 +122,12 @@ var _ = gc.Suite(&PortRangeSerializationSuite{})
 func (s *PortRangeSerializationSuite) SetUpTest(c *gc.C) {
 	s.SliceSerializationSuite.SetUpTest(c)
 	s.importName = "port-range"
-	s.sliceName = "open-ports"
+	s.sliceName = "opened-ports"
 	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
 		return importPortRanges(m)
 	}
 	s.testFields = func(m map[string]interface{}) {
-		m["open-ports"] = []interface{}{}
+		m["opened-ports"] = []interface{}{}
 	}
 }
 
@@ -145,7 +145,7 @@ func (s *PortRangeSerializationSuite) TestNewPortRange(c *gc.C) {
 func (*PortRangeSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	initial := &portRanges{
 		Version: 1,
-		OpenPorts_: []*portRange{
+		OpenedPorts_: []*portRange{
 			&portRange{
 				UnitName_: "magic/0",
 				FromPort_: 1234,
@@ -171,5 +171,5 @@ func (*PortRangeSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	imported, err := importPortRanges(source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(imported, jc.DeepEquals, initial.OpenPorts_)
+	c.Assert(imported, jc.DeepEquals, initial.OpenedPorts_)
 }

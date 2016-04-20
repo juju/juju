@@ -40,7 +40,7 @@ type machine struct {
 
 	Containers_ []*machine `yaml:"containers"`
 
-	NetworkPorts_ *versionedNetworkPorts `yaml:"network-ports,omitempty"`
+	OpenedPorts_ *versionedOpenedPorts `yaml:"opened-ports,omitempty"`
 
 	Annotations_ `yaml:"annotations,omitempty"`
 
@@ -253,32 +253,32 @@ func (m *machine) AddContainer(args MachineArgs) Machine {
 	return container
 }
 
-// NetworkPorts implements Machine.
-func (m *machine) NetworkPorts() []NetworkPorts {
-	if m.NetworkPorts_ == nil {
+// OpenedPorts implements Machine.
+func (m *machine) OpenedPorts() []OpenedPorts {
+	if m.OpenedPorts_ == nil {
 		return nil
 	}
-	var result []NetworkPorts
-	for _, ports := range m.NetworkPorts_.NetworkPorts_ {
+	var result []OpenedPorts
+	for _, ports := range m.OpenedPorts_.OpenedPorts_ {
 		result = append(result, ports)
 	}
 	return result
 }
 
-// AddNetworkPorts implements Machine.
-func (m *machine) AddNetworkPorts(args NetworkPortsArgs) NetworkPorts {
-	if m.NetworkPorts_ == nil {
-		m.NetworkPorts_ = &versionedNetworkPorts{Version: 1}
+// AddOpenedPorts implements Machine.
+func (m *machine) AddOpenedPorts(args OpenedPortsArgs) OpenedPorts {
+	if m.OpenedPorts_ == nil {
+		m.OpenedPorts_ = &versionedOpenedPorts{Version: 1}
 	}
-	ports := newNetworkPorts(args)
-	m.NetworkPorts_.NetworkPorts_ = append(m.NetworkPorts_.NetworkPorts_, ports)
+	ports := newOpenedPorts(args)
+	m.OpenedPorts_.OpenedPorts_ = append(m.OpenedPorts_.OpenedPorts_, ports)
 	return ports
 }
 
-func (m *machine) setNetworkPorts(networkPortsList []*networkPorts) {
-	m.NetworkPorts_ = &versionedNetworkPorts{
-		Version:       1,
-		NetworkPorts_: networkPortsList,
+func (m *machine) setOpenedPorts(portsList []*openedPorts) {
+	m.OpenedPorts_ = &versionedOpenedPorts{
+		Version:      1,
+		OpenedPorts_: portsList,
 	}
 }
 
@@ -373,7 +373,7 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		"supported-containers": schema.List(schema.String()),
 		"tools":                schema.StringMap(schema.Any()),
 		"containers":           schema.List(schema.StringMap(schema.Any())),
-		"network-ports":        schema.StringMap(schema.Any()),
+		"opened-ports":         schema.StringMap(schema.Any()),
 
 		"provider-addresses":        schema.List(schema.StringMap(schema.Any())),
 		"machine-addresses":         schema.List(schema.StringMap(schema.Any())),
@@ -388,7 +388,7 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		// it isn't strictly necessary, so we allow it to not exist here.
 		"instance":                  schema.Omit,
 		"supported-containers":      schema.Omit,
-		"network-ports":             schema.Omit,
+		"opened-ports":              schema.Omit,
 		"provider-addresses":        schema.Omit,
 		"machine-addresses":         schema.Omit,
 		"preferred-public-address":  schema.Omit,
@@ -502,12 +502,12 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 	}
 	result.Containers_ = machines
 
-	if npMap, ok := valid["network-ports"]; ok {
-		networkPortsList, err := importNetworkPorts(npMap.(map[string]interface{}))
+	if portsMap, ok := valid["opened-ports"]; ok {
+		portsList, err := importOpenedPorts(portsMap.(map[string]interface{}))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		result.setNetworkPorts(networkPortsList)
+		result.setOpenedPorts(portsList)
 	}
 
 	return result, nil
