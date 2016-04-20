@@ -18,6 +18,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -66,8 +67,8 @@ var _ = gc.Suite(&lxcBrokerSuite{})
 
 func (s *lxcSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
-	if runtime.GOOS == "windows" {
-		c.Skip("Skipping lxc tests on windows")
+	if runtime.GOOS == "windows" || os.HostOS() == os.CentOS {
+		c.Skip("Skipping lxc tests on OS without lxc support")
 	}
 	s.events = make(chan mock.Event)
 	s.eventsDone = make(chan struct{})
@@ -87,8 +88,8 @@ func (s *lxcSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("Skipping lxc tests on windows")
+	if runtime.GOOS == "windows" || os.HostOS() == os.CentOS {
+		c.Skip("Skipping lxc tests on OS without lxc support")
 	}
 	s.lxcSuite.SetUpTest(c)
 	var err error
@@ -1100,8 +1101,8 @@ type lxcProvisionerSuite struct {
 var _ = gc.Suite(&lxcProvisionerSuite{})
 
 func (s *lxcProvisionerSuite) SetUpSuite(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("Skipping lxc tests on windows")
+	if runtime.GOOS == "windows" || os.HostOS() == os.CentOS {
+		c.Skip("Skipping lxc tests on OS without lxc support")
 	}
 	s.CommonProvisionerSuite.SetUpSuite(c)
 	s.lxcSuite.SetUpSuite(c)
