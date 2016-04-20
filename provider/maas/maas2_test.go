@@ -121,8 +121,10 @@ func (c *fakeController) AllocateMachine(args gomaasapi.AllocateMachineArgs) (go
 }
 
 func (c *fakeController) BootResources() ([]gomaasapi.BootResource, error) {
-	c.MethodCall(c, "BootResources")
-	return c.bootResources, c.NextErr()
+	if c.bootResourcesError != nil {
+		return nil, c.bootResourcesError
+	}
+	return c.bootResources, nil
 }
 
 func (c *fakeController) Zones() ([]gomaasapi.Zone, error) {

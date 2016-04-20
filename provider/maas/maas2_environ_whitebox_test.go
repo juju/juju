@@ -64,11 +64,12 @@ func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestSupportedArchitectures(c *gc.C) {
-	controller := newFakeController()
-	controller.bootResources = []gomaasapi.BootResource{
-		&fakeBootResource{name: "wily", architecture: "amd64/blah"},
-		&fakeBootResource{name: "wily", architecture: "amd64/something"},
-		&fakeBootResource{name: "xenial", architecture: "arm/somethingelse"},
+	controller := &fakeController{
+		bootResources: []gomaasapi.BootResource{
+			&fakeBootResource{name: "wily", architecture: "amd64/blah"},
+			&fakeBootResource{name: "wily", architecture: "amd64/something"},
+			&fakeBootResource{name: "xenial", architecture: "arm/somethingelse"},
+		},
 	}
 	env := suite.makeEnviron(c, controller)
 	result, err := env.SupportedArchitectures()
@@ -77,7 +78,7 @@ func (suite *maas2EnvironSuite) TestSupportedArchitectures(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestSupportedArchitecturesError(c *gc.C) {
-	env := suite.makeEnviron(c, newFakeControllerWithErrors(errors.New("Something terrible!")))
+	env := suite.makeEnviron(c, &fakeController{bootResourcesError: errors.New("Something terrible!")})
 	_, err := env.SupportedArchitectures()
 	c.Assert(err, gc.ErrorMatches, "Something terrible!")
 }
