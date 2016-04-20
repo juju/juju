@@ -2245,13 +2245,13 @@ func (env *maasEnviron) allocateContainerAddresses1(hostInstanceID instance.Id, 
 
 func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	subnetCIDRToSubnet := make(map[string]gomaasapi.Subnet)
-	spaces, err := environ.maasController.Spaces()
+	spaces, err := env.maasController.Spaces()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	for _, space := range spaces {
 		for _, subnet := range space.Subnets() {
-			subnetCIDRToVLANID[subnet.CIDR] = subnet
+			subnetCIDRToSubnet[subnet.CIDR()] = subnet
 		}
 	}
 
@@ -2268,17 +2268,29 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	logger.Debugf("primary device NIC prepared info: %+v", primaryNICInfo)
 
 	primaryNICSubnetCIDR := primaryNICInfo.CIDR
-	subnet, ok := subnetCIDRToS[primaryNICSubnetCIDR]
+	subnet, ok := subnetCIDRToSubnet[primaryNICSubnetCIDR]
 	if !ok {
 		return nil, errors.Errorf("primary NIC subnet %v not found", primaryNICSubnetCIDR)
 	}
 	primaryMACAddress := primaryNICInfo.MACAddress
-	args := gomaasapi.CreateDeviceArgs{
+	args := gomaasapi.MachinesArgs{
+		AgentName: env.ecfg().maasAgentName(),
+		SystemIDs: []string{string(hostInstanceID)},
+	}
+	machines, err := env.maasController.Machines(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(machines) != 1 {
+		return nil, errors.Errorf("unexpected response fetching machine %v: %v", hostInstanceID, machines)
+	}
+	machine := machines[0]
+	createDeviceArgs := gomaasapi.CreateMachineDeviceArgs{
 		MACAddress:    primaryMACAddress,
 		Subnet:        subnet,
 		InterfaceName: "eth0",
 	}
-	device, err := environ.maasController.CreateDevice(args)
+	device, err := machine.CreateDevice(createDeviceArgs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
