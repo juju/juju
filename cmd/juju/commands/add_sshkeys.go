@@ -37,7 +37,7 @@ Examples:
 For ease of use it is possible to use shell substitution to pass the key 
 to the command:
 
-    juju add-ssh-key $(cat ~/mykey.pub)
+juju add-ssh-key "$(cat ~/mykey.pub)"
 
 See also: 
     list-ssh-key
