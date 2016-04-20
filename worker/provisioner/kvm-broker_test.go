@@ -410,7 +410,7 @@ func (s *kvmProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 }
 
 func (s *kvmProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
-	if arch.NormaliseArch(runtime.GOARCH) == arch.AMD64 {
+	if arch.NormaliseArch(runtime.GOARCH) != arch.AMD64 {
 		c.Skip("Test only enabled on amd64, see bug lp:1572145")
 	}
 	p := s.newKvmProvisioner(c)
