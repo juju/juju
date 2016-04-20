@@ -4,10 +4,9 @@
 package maas
 
 import (
-	"sync"
-
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
@@ -57,7 +56,7 @@ func (suite *maas2Suite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *
 
 type fakeController struct {
 	gomaasapi.Controller
-	sync.Mutex
+	*testing.Stub
 
 	bootResources            []gomaasapi.BootResource
 	bootResourcesError       error
@@ -72,12 +71,22 @@ type fakeController struct {
 	allocateMachineError     error
 	allocateMachineArgsCheck func(gomaasapi.AllocateMachineArgs)
 	files                    []gomaasapi.File
-	filesPrefix              string
-	filesError               error
-	getFileFilename          string
-	addFileArgs              gomaasapi.AddFileArgs
 	releaseMachinesErrors    []error
 	releaseMachinesArgs      []gomaasapi.ReleaseMachinesArgs
+}
+
+func newFakeController() *fakeController {
+	return &fakeController{Stub: &testing.Stub{}}
+}
+
+func newFakeControllerWithErrors(errors ...error) *fakeController {
+	controller := newFakeController()
+	controller.SetErrors(errors...)
+	return controller
+}
+
+func newFakeControllerWithFiles(files ...gomaasapi.File) *fakeController {
+	return &fakeController{Stub: &testing.Stub{}, files: files}
 }
 
 func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
@@ -133,21 +142,15 @@ func (c *fakeController) Spaces() ([]gomaasapi.Space, error) {
 }
 
 func (c *fakeController) Files(prefix string) ([]gomaasapi.File, error) {
-	c.Lock()
-	defer c.Unlock()
-	c.filesPrefix = prefix
-	if c.filesError != nil {
-		return nil, c.filesError
-	}
-	return c.files, nil
+	c.MethodCall(c, "Files", prefix)
+	return c.files, c.NextErr()
 }
 
 func (c *fakeController) GetFile(filename string) (gomaasapi.File, error) {
-	c.Lock()
-	defer c.Unlock()
-	c.getFileFilename = filename
-	if c.filesError != nil {
-		return nil, c.filesError
+	c.MethodCall(c, "GetFile", filename)
+	err := c.NextErr()
+	if err != nil {
+		return nil, err
 	}
 	// Try to find the file by name (needed for testing RemoveAll)
 	for _, file := range c.files {
@@ -160,22 +163,13 @@ func (c *fakeController) GetFile(filename string) (gomaasapi.File, error) {
 }
 
 func (c *fakeController) AddFile(args gomaasapi.AddFileArgs) error {
-	c.Lock()
-	defer c.Unlock()
-	c.addFileArgs = args
-	return c.filesError
+	c.MethodCall(c, "AddFile", args)
+	return c.NextErr()
 }
 
 func (c *fakeController) ReleaseMachines(args gomaasapi.ReleaseMachinesArgs) error {
-	c.Lock()
-	defer c.Unlock()
-	c.releaseMachinesArgs = append(c.releaseMachinesArgs, args)
-	if len(c.releaseMachinesErrors) == 0 {
-		return nil
-	}
-	err := c.releaseMachinesErrors[0]
-	c.releaseMachinesErrors = c.releaseMachinesErrors[1:]
-	return err
+	c.MethodCall(c, "ReleaseMachines", args)
+	return c.NextErr()
 }
 
 type fakeBootResource struct {
