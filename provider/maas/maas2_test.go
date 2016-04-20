@@ -71,8 +71,6 @@ type fakeController struct {
 	allocateMachineError     error
 	allocateMachineArgsCheck func(gomaasapi.AllocateMachineArgs)
 	files                    []gomaasapi.File
-	releaseMachinesErrors    []error
-	releaseMachinesArgs      []gomaasapi.ReleaseMachinesArgs
 }
 
 func newFakeController() *fakeController {
