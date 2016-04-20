@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/tools"
 )
 
 type aclType string
@@ -93,12 +95,7 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		return errors.Errorf("bootstrapping is not supported on windows")
 	}
 
-	// TODO(ericsnow) Respect the full list. (see lp:1571832)
-	// For now we are okay because each of the handled cases matches
-	// current Juju behavior. However, there are no guarantees that
-	// will hold.
 	tools := w.icfg.ToolsList()[0]
-
 	toolsJson, err := json.Marshal(tools)
 	if err != nil {
 		return errors.Annotate(err, "while serializing the tools")
@@ -111,7 +108,9 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		`mkdir $binDir`,
 	)
 
-	toolsDownloadCmds, err := addDownloadToolsCmds(w.icfg.Series, w.icfg.MongoInfo.CACert, tools.URL)
+	toolsDownloadCmds, err := addDownloadToolsCmds(
+		w.icfg.Series, w.icfg.MongoInfo.CACert, w.icfg.ToolsList(),
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -195,27 +194,44 @@ func setACLs(path string, permType aclType, ser string) []string {
 	return append(aclCmds[:2], append(rulesToAdd, aclCmds[2:]...)...)
 }
 
-func addDownloadToolsCmds(ser string, certificate string, toolsURL string) ([]string, error) {
+func addDownloadToolsCmds(ser string, certificate string, toolsList tools.List) ([]string, error) {
+	var cmds []string
+	var getDownloadFileCmd func(url string) string
 	if series.IsWindowsNano(ser) {
 		parsedCert, err := cert.ParseCert(certificate)
 		if err != nil {
 			return nil, err
 		}
 		caCert := base64.URLEncoding.EncodeToString(parsedCert.Raw)
-		return []string{fmt.Sprintf(`$cacert = "%s"`, caCert),
+		cmds = []string{fmt.Sprintf(`$cacert = "%s"`, caCert),
 			`$cert_bytes = $cacert | %{ ,[System.Text.Encoding]::UTF8.GetBytes($_) }`,
 			`$cert = new-object System.Security.Cryptography.X509Certificates.X509Certificate2(,$cert_bytes)`,
 			`$store = Get-Item Cert:\LocalMachine\AuthRoot`,
 			`$store.Open("ReadWrite")`,
 			`$store.Add($cert)`,
-			fmt.Sprintf(`ExecRetry { Invoke-FastWebRequest -URI '%s' -OutFile "$binDir\tools.tar.gz" }`, toolsURL),
-		}, nil
+		}
+		getDownloadFileCmd = func(url string) string {
+			return fmt.Sprintf(`Invoke-FastWebRequest -URI '%s' -OutFile "$binDir\tools.tar.gz"`, url)
+		}
 	} else {
-		return []string{
+		cmds = []string{
 			`$WebClient = New-Object System.Net.WebClient`,
 			`[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}`,
-			fmt.Sprintf(`ExecRetry { $WebClient.DownloadFile('%s', "$binDir\tools.tar.gz") }`,
-				toolsURL),
-		}, nil
+		}
+		getDownloadFileCmd = func(url string) string {
+			return fmt.Sprintf(`$WebClient.DownloadFile('%s', "$binDir\tools.tar.gz");`, url)
+		}
 	}
+
+	// Attempt all of the URLs, one after the other. We retry the whole
+	// lot, rather than retrying individually, to avoid one permanently
+	// bad URL from holding up the download.
+	downloadCmds := make([]string, len(toolsList))
+	for i, tools := range toolsList {
+		downloadCmds[i] = fmt.Sprintf("{ %s }", getDownloadFileCmd(tools.URL))
+	}
+	downloadCmd := fmt.Sprintf("ExecRetry { TryExecAll @(%s) }", strings.Join(downloadCmds, ", "))
+	cmds = append(cmds, downloadCmd)
+
+	return cmds, nil
 }

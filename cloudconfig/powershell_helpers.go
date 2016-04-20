@@ -471,6 +471,27 @@ function ExecRetry($command, $retryInterval = 15)
 	$ErrorActionPreference = $currErrorActionPreference
 }
 
+function TryExecAll($commands)
+{
+	$currErrorActionPreference = $ErrorActionPreference
+	$ErrorActionPreference = "Continue"
+
+	foreach ($command in $commands)
+	{
+		try
+		{
+			& $command
+			break
+		}
+		catch [System.Exception]
+		{
+			Write-Error $_.Exception
+		}
+	}
+
+	$ErrorActionPreference = $currErrorActionPreference
+}
+
 Function GUnZip-File{
     Param(
         $infile,

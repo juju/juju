@@ -41,6 +41,27 @@ function ExecRetry($command, $retryInterval = 15)
 	$ErrorActionPreference = $currErrorActionPreference
 }
 
+function TryExecAll($commands)
+{
+	$currErrorActionPreference = $ErrorActionPreference
+	$ErrorActionPreference = "Continue"
+
+	foreach ($command in $commands)
+	{
+		try
+		{
+			& $command
+			break
+		}
+		catch [System.Exception]
+		{
+			Write-Error $_.Exception
+		}
+	}
+
+	$ErrorActionPreference = $currErrorActionPreference
+}
+
 Function GUnZip-File{
     Param(
         $infile,
@@ -664,13 +685,13 @@ mkdir 'C:\Juju\log\juju'
 mkdir $binDir
 $WebClient = New-Object System.Net.WebClient
 [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
-ExecRetry { $WebClient.DownloadFile('http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz', "$binDir\tools.tar.gz") }
+ExecRetry { TryExecAll @({ $WebClient.DownloadFile('https://state-addr.testing.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1.2.3-win8-amd64', "$binDir\tools.tar.gz"); }) }
 $dToolsHash = Get-FileSHA256 -FilePath "$binDir\tools.tar.gz"
 $dToolsHash > "$binDir\juju1.2.3-win8-amd64.sha256"
 if ($dToolsHash.ToLower() -ne "1234"){ Throw "Tools checksum mismatch"}
 GUnZip-File -infile $binDir\tools.tar.gz -outdir $binDir
 rm "$binDir\tools.tar*"
-Set-Content $binDir\downloaded-tools.txt '{"version":"1.2.3-win8-amd64","url":"http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz","sha256":"1234","size":10}'
+Set-Content $binDir\downloaded-tools.txt '{"version":"1.2.3-win8-amd64","url":"https://state-addr.testing.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1.2.3-win8-amd64","sha256":"1234","size":10}'
 New-Item -Path 'HKLM:\SOFTWARE\juju-core'
 $acl = Get-Acl -Path 'HKLM:\SOFTWARE\juju-core'
 $acl.SetAccessRuleProtection($true, $false)

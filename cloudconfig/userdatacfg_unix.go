@@ -330,12 +330,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 }
 
 func (w unixConfigure) addDownloadToolsCmds() error {
-	// TODO(ericsnow) Respect the full list. (see lp:1571832)
-	// For now we are okay because each of the handled cases matches
-	// current Juju behavior. However, there are no guarantees that
-	// will hold.
 	tools := w.icfg.ToolsList()[0]
-
 	if strings.HasPrefix(tools.URL, fileSchemePrefix) {
 		toolsData, err := ioutil.ReadFile(tools.URL[len(fileSchemePrefix):])
 		if err != nil {
@@ -345,20 +340,15 @@ func (w unixConfigure) addDownloadToolsCmds() error {
 	} else {
 		curlCommand := curlCommand
 		var urls []string
+		for _, tools := range w.icfg.ToolsList() {
+			urls = append(urls, tools.URL)
+		}
 		if w.icfg.Bootstrap {
 			curlCommand += " --retry 10"
 			if w.icfg.DisableSSLHostnameVerification {
 				curlCommand += " --insecure"
 			}
-			urls = append(urls, tools.URL)
 		} else {
-			for _, addr := range w.icfg.ApiHostAddrs() {
-				// TODO(axw) encode env UUID in URL when ModelTag
-				// is guaranteed to be available in APIInfo.
-				url := fmt.Sprintf("https://%s/tools/%s", addr, w.icfg.AgentVersion())
-				urls = append(urls, url)
-			}
-
 			// Don't go through the proxy when downloading tools from the controllers
 			curlCommand += ` --noproxy "*"`
 
