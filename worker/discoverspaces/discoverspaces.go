@@ -63,7 +63,7 @@ func (config Config) Validate() error {
 	return nil
 }
 
-var logger = loggo.GetLogger("juju.discoverspaces")
+var logger = loggo.GetLogger("juju.worker.discoverspaces")
 
 type discoverspacesWorker struct {
 	catacomb catacomb.Catacomb
@@ -174,6 +174,8 @@ func (dw *discoverspacesWorker) handleSubnets() error {
 
 	// TODO(mfoord): we need to delete spaces and subnets that no longer
 	// exist, so long as they're not in use.
+	var createSpacesArgs params.CreateSpacesParams
+	var addSubnetsArgs params.AddSubnetsParams
 	for _, space := range providerSpaces {
 		// Check if the space is already in state, in which case we know
 		// its name.
@@ -200,56 +202,98 @@ func (dw *discoverspacesWorker) handleSubnets() error {
 			spaceNames.Add(spaceName)
 			spaceTag = names.NewSpaceTag(spaceName)
 			// We need to create the space.
-			args := params.CreateSpacesParams{
-				Spaces: []params.CreateSpaceParams{{
-					Public:     false,
-					SpaceTag:   spaceTag.String(),
-					ProviderId: string(space.ProviderId),
-				}}}
-			result, err := facade.CreateSpaces(args)
-			if err != nil {
-				logger.Errorf("error creating space %v", err)
-				return errors.Trace(err)
-			}
-			if len(result.Results) != 1 {
-				return errors.Errorf("unexpected number of results from CreateSpaces, should be 1: %v", result)
-			}
-			if result.Results[0].Error != nil {
-				return errors.Errorf("error from CreateSpaces: %v", result.Results[0].Error)
-			}
+			createSpacesArgs.Spaces = append(createSpacesArgs.Spaces, params.CreateSpaceParams{
+				Public:     false,
+				SpaceTag:   spaceTag.String(),
+				ProviderId: string(space.ProviderId),
+			})
 		}
 		// TODO(mfoord): currently no way of removing subnets, or
 		// changing the space they're in, so we can only add ones we
 		// don't already know about.
-		logger.Debugf("Created space %v with %v subnets", spaceTag.String(), len(space.Subnets))
 		for _, subnet := range space.Subnets {
 			if stateSubnetIds.Contains(string(subnet.ProviderId)) {
 				continue
 			}
 			zones := subnet.AvailabilityZones
 			if len(zones) == 0 {
+				logger.Tracef(
+					"provider does not specify zones for subnet %q; using 'default' zone as fallback",
+					subnet.CIDR,
+				)
 				zones = []string{"default"}
 			}
-			args := params.AddSubnetsParams{
-				Subnets: []params.AddSubnetParams{{
-					SubnetProviderId: string(subnet.ProviderId),
-					SpaceTag:         spaceTag.String(),
-					Zones:            zones,
-				}}}
-			logger.Tracef("Adding subnet %v", subnet.CIDR)
-			result, err := facade.AddSubnets(args)
-			if err != nil {
-				logger.Errorf("invalid creating subnet %v", err)
-				return errors.Trace(err)
-			}
-			if len(result.Results) != 1 {
-				return errors.Errorf("unexpected number of results from AddSubnets, should be 1: %v", result)
-			}
-			if result.Results[0].Error != nil {
-				logger.Errorf("error creating subnet %v", result.Results[0].Error)
-				return errors.Errorf("error creating subnet %v", result.Results[0].Error)
-			}
+			addSubnetsArgs.Subnets = append(addSubnetsArgs.Subnets, params.AddSubnetParams{
+				SubnetProviderId: string(subnet.ProviderId),
+				SpaceTag:         spaceTag.String(),
+				Zones:            zones,
+			})
 		}
 	}
+
+	if err := dw.createSpacesFromArgs(createSpacesArgs); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := dw.addSubnetsFromArgs(addSubnetsArgs); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (dw *discoverspacesWorker) createSpacesFromArgs(createSpacesArgs params.CreateSpacesParams) error {
+	facade := dw.config.Facade
+
+	expectedNumCreated := len(createSpacesArgs.Spaces)
+	if expectedNumCreated > 0 {
+		result, err := facade.CreateSpaces(createSpacesArgs)
+		if err != nil {
+			return errors.Annotate(err, "creating spaces failed")
+		}
+		if len(result.Results) != expectedNumCreated {
+			return errors.Errorf(
+				"unexpected response from CreateSpaces: expected %d results, got %d",
+				expectedNumCreated, len(result.Results),
+			)
+		}
+		for _, res := range result.Results {
+			if res.Error != nil {
+				return errors.Annotate(res.Error, "creating space failed")
+			}
+		}
+		logger.Debugf("discovered and imported %d spaces: %v", expectedNumCreated, createSpacesArgs)
+	} else {
+		logger.Debugf("no unknown spaces discovered for import")
+	}
+
+	return nil
+}
+
+func (dw *discoverspacesWorker) addSubnetsFromArgs(addSubnetsArgs params.AddSubnetsParams) error {
+	facade := dw.config.Facade
+
+	expectedNumAdded := len(addSubnetsArgs.Subnets)
+	if expectedNumAdded > 0 {
+		result, err := facade.AddSubnets(addSubnetsArgs)
+		if err != nil {
+			return errors.Annotate(err, "adding subnets failed")
+		}
+		if len(result.Results) != expectedNumAdded {
+			return errors.Errorf(
+				"unexpected response from AddSubnets: expected %d results, got %d",
+				expectedNumAdded, len(result.Results),
+			)
+		}
+		for _, res := range result.Results {
+			if res.Error != nil {
+				return errors.Annotate(res.Error, "adding subnet failed")
+			}
+		}
+		logger.Debugf("discovered and imported %d subnets: %v", expectedNumAdded, addSubnetsArgs)
+	} else {
+		logger.Debugf("no unknown subnets discovered for import")
+	}
+
 	return nil
 }
