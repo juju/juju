@@ -6,11 +6,14 @@ package commands
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	rcmd "github.com/juju/romulus/cmd/commands"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/version"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
@@ -35,6 +38,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	jujuversion "github.com/juju/juju/version"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 )
@@ -56,6 +60,8 @@ Azure, or your local machine.
 
 https://juju.ubuntu.com/
 `
+
+const juju1xCmdName = "juju-1"
 
 var usageHelp = `
 Usage: juju [help] <command>
@@ -103,10 +109,16 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(2)
 	}
+
+	if shouldWarnJuju1x() {
+		warnJuju1x()
+	}
+
 	if err = juju.InitJujuXDGDataHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
+
 	for i := range x {
 		x[i] ^= 255
 	}
@@ -114,8 +126,43 @@ func Main(args []string) {
 		os.Stdout.Write(x[2:])
 		os.Exit(0)
 	}
+
 	jcmd := NewJujuCommand(ctx)
 	os.Exit(cmd.Main(jcmd, ctx, args[1:]))
+}
+
+func warnJuju1x() {
+	ver := "1.x"
+	out, err := execCommand(juju1xCmdName, "version").Output()
+	if err == nil {
+		v := strings.TrimSpace(string(out))
+		// parse so we can drop the series and arch
+		bin, err := version.ParseBinary(v)
+		if err == nil {
+			ver = bin.Number.String()
+		}
+	}
+	fmt.Fprintf(os.Stderr, `
+    Welcome to Juju %s. If you meant to use Juju %s you can continue using it
+    with the command %s e.g. '%s switch'.
+    See https://jujucharms.com/docs/stable/introducing-2 for more details.
+    `[1:], jujuversion.Current, ver, juju1xCmdName, juju1xCmdName)
+}
+
+var execCommand = exec.Command
+var execLookPath = exec.LookPath
+
+func shouldWarnJuju1x() bool {
+	if _, err := execLookPath(juju1xCmdName); err != nil {
+		return false
+	}
+	return osenv.Juju1xEnvConfigExists() &&
+		!juju2xConfigDataExists()
+}
+
+func juju2xConfigDataExists() bool {
+	_, err := os.Stat(osenv.JujuXDGDataHomeDir())
+	return err == nil
 }
 
 // NewJujuCommand ...
