@@ -152,9 +152,9 @@ func (f *FirewallerAPI) watchOneEnvironOpenedPorts(tag names.Tag) (string, []str
 	return "", nil, watcher.EnsureErr(watch)
 }
 
-// GetMachinePorts returns the port ranges opened on a machine for the
-// specified network as a map mapping port ranges to the tags of the
-// units that opened them.
+// GetMachinePorts returns the port ranges opened on a machine for the specified
+// subnet as a map mapping port ranges to the tags of the units that opened
+// them.
 func (f *FirewallerAPI) GetMachinePorts(args params.MachinePortsParams) (params.MachinePortsResults, error) {
 	result := params.MachinePortsResults{
 		Results: make([]params.MachinePortsResult, len(args.Params)),
@@ -169,17 +169,20 @@ func (f *FirewallerAPI) GetMachinePorts(args params.MachinePortsParams) (params.
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		networkTag, err := names.ParseNetworkTag(param.NetworkTag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
+		var subnetTag names.SubnetTag
+		if param.SubnetTag != "" {
+			subnetTag, err = names.ParseSubnetTag(param.SubnetTag)
+			if err != nil {
+				result.Results[i].Error = common.ServerError(common.ErrPerm)
+				continue
+			}
 		}
 		machine, err := f.getMachine(canAccess, machineTag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		ports, err := machine.OpenedPorts(networkTag.Id())
+		ports, err := machine.OpenedPorts(subnetTag.Id())
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -205,9 +208,9 @@ func (f *FirewallerAPI) GetMachinePorts(args params.MachinePortsParams) (params.
 	return result, nil
 }
 
-// GetMachineActiveNetworks returns the tags of the all networks the
-// each given machine has open ports on.
-func (f *FirewallerAPI) GetMachineActiveNetworks(args params.Entities) (params.StringsResults, error) {
+// GetMachineActiveSubnets returns the tags of the all subnets the each given
+// machine has open ports on.
+func (f *FirewallerAPI) GetMachineActiveSubnets(args params.Entities) (params.StringsResults, error) {
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.Entities)),
 	}
@@ -232,8 +235,11 @@ func (f *FirewallerAPI) GetMachineActiveNetworks(args params.Entities) (params.S
 			continue
 		}
 		for _, port := range ports {
-			networkTag := names.NewNetworkTag(port.NetworkName()).String()
-			result.Results[i].Result = append(result.Results[i].Result, networkTag)
+			var subnetTag string
+			if port.SubnetID() != "" {
+				subnetTag = names.NewSubnetTag(port.SubnetID()).String()
+			}
+			result.Results[i].Result = append(result.Results[i].Result, subnetTag)
 		}
 	}
 	return result, nil

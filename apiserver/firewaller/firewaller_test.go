@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/firewaller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -98,8 +97,8 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 
 	s.openPorts(c)
 	expectChanges := []string{
-		"0:juju-public",
-		"2:juju-public",
+		"0:",
+		"2:",
 	}
 
 	fakeEnvTag := names.NewModelTag("deadbeef-deaf-face-feed-0123456789ab")
@@ -142,15 +141,14 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
 	s.openPorts(c)
 
-	networkTag := names.NewNetworkTag(network.DefaultPublic).String()
 	args := params.MachinePortsParams{
 		Params: []params.MachinePorts{
-			{MachineTag: s.machines[0].Tag().String(), NetworkTag: networkTag},
-			{MachineTag: s.machines[1].Tag().String(), NetworkTag: networkTag},
-			{MachineTag: s.machines[2].Tag().String(), NetworkTag: networkTag},
-			{MachineTag: s.machines[0].Tag().String(), NetworkTag: "invalid"},
-			{MachineTag: "machine-42", NetworkTag: networkTag},
-			{MachineTag: s.machines[0].Tag().String(), NetworkTag: "network-missing"},
+			{MachineTag: s.machines[0].Tag().String(), SubnetTag: ""},
+			{MachineTag: s.machines[1].Tag().String(), SubnetTag: ""},
+			{MachineTag: s.machines[2].Tag().String(), SubnetTag: ""},
+			{MachineTag: s.machines[0].Tag().String(), SubnetTag: "invalid"},
+			{MachineTag: "machine-42", SubnetTag: ""},
+			{MachineTag: s.machines[0].Tag().String(), SubnetTag: "subnet-missing"},
 		},
 	}
 	unit0Tag := s.units[0].Tag().String()
@@ -177,13 +175,13 @@ func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
 			{Ports: expectPortsMachine2},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: nil, Ports: nil},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
 }
 
-func (s *firewallerSuite) TestGetMachineActiveNetworks(c *gc.C) {
+func (s *firewallerSuite) TestGetMachineActiveSubnets(c *gc.C) {
 	s.openPorts(c)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
@@ -193,9 +191,8 @@ func (s *firewallerSuite) TestGetMachineActiveNetworks(c *gc.C) {
 		{Tag: s.service.Tag().String()},
 		{Tag: s.units[0].Tag().String()},
 	}})
-	networkTag := names.NewNetworkTag(network.DefaultPublic)
-	expectResults := []string{networkTag.String()}
-	result, err := s.firewaller.GetMachineActiveNetworks(args)
+	expectResults := []string{""}
+	result, err := s.firewaller.GetMachineActiveSubnets(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
