@@ -59,12 +59,6 @@ type MachineTemplate struct {
 	// be associated with the machine.
 	HardwareCharacteristics instance.HardwareCharacteristics
 
-	// RequestedNetworks holds a list of network names the machine
-	// should be part of.
-	//
-	// TODO(dimitern): Drop this in favor of constraints in a follow-up.
-	RequestedNetworks []string
-
 	// LinkLayerDevices holds a list of arguments for setting link-layer devices
 	// on the machine.
 	LinkLayerDevices []LinkLayerDeviceArgs
@@ -475,9 +469,9 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 	}
 }
 
-// insertNewMachineOps returns operations to insert the given machine
-// document into the database, based on the given template. Only the
-// constraints and networks are used from the template.
+// insertNewMachineOps returns operations to insert the given machine document
+// into the database, based on the given template. Only the constraints are used
+// from the template.
 func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate) (prereqOps []txn.Op, machineOp txn.Op, err error) {
 	machineStatusDoc := statusDoc{
 		Status:    status.StatusPending,
@@ -492,7 +486,8 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	}
 
 	prereqOps, machineOp = st.baseNewMachineOps(
-		mdoc, machineStatusDoc, instanceStatusDoc, template.Constraints, template.RequestedNetworks)
+		mdoc, machineStatusDoc, instanceStatusDoc, template.Constraints,
+	)
 
 	storageOps, volumeAttachments, filesystemAttachments, err := st.machineStorageOps(
 		mdoc, &machineStorageParams{
@@ -522,7 +517,7 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	return prereqOps, machineOp, nil
 }
 
-func (st *State) baseNewMachineOps(mdoc *machineDoc, machineStatusDoc, instanceStatusDoc statusDoc, cons constraints.Value, networks []string) (prereqOps []txn.Op, machineOp txn.Op) {
+func (st *State) baseNewMachineOps(mdoc *machineDoc, machineStatusDoc, instanceStatusDoc statusDoc, cons constraints.Value) (prereqOps []txn.Op, machineOp txn.Op) {
 	machineOp = txn.Op{
 		C:      machinesC,
 		Id:     mdoc.DocID,
@@ -537,9 +532,6 @@ func (st *State) baseNewMachineOps(mdoc *machineDoc, machineStatusDoc, instanceS
 		createConstraintsOp(st, globalKey, cons),
 		createStatusOp(st, globalKey, machineStatusDoc),
 		createStatusOp(st, globalInstanceKey, instanceStatusDoc),
-		// TODO(dimitern): Drop requested networks across the board in a
-		// follow-up.
-		createRequestedNetworksOp(st, globalKey, networks),
 		createMachineBlockDevicesOp(mdoc.Id),
 		addModelMachineRefOp(st, mdoc.Id),
 	}

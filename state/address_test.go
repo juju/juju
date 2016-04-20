@@ -19,20 +19,18 @@ var _ = gc.Suite(&AddressSuite{})
 
 func (s *AddressSuite) TestAddressConversion(c *gc.C) {
 	netAddress := network.Address{
-		Value:       "0.0.0.0",
-		Type:        network.IPv4Address,
-		NetworkName: "net",
-		Scope:       network.ScopeUnknown,
+		Value: "0.0.0.0",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeUnknown,
 	}
 	state.AssertAddressConversion(c, netAddress)
 }
 
 func (s *AddressSuite) TestHostPortConversion(c *gc.C) {
 	netAddress := network.Address{
-		Value:       "0.0.0.0",
-		Type:        network.IPv4Address,
-		NetworkName: "net",
-		Scope:       network.ScopeUnknown,
+		Value: "0.0.0.0",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeUnknown,
 	}
 	netHostPort := network.HostPort{netAddress, 4711}
 	state.AssertHostPortConversion(c, netHostPort)

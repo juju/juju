@@ -142,8 +142,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		ipAddressesC,
 		linkLayerDevicesC,
 		linkLayerDevicesRefsC,
-		networksC,
-		requestedNetworksC,
 		subnetsC,
 		spacesC,
 
@@ -497,8 +495,6 @@ func (s *MigrationSuite) TestConstraintsDocFields(c *gc.C) {
 		"Container",
 		"Tags",
 		"Spaces",
-		// Networks is a deprecated constraint and not exported.
-		"Networks",
 	)
 	s.AssertExportedFields(c, constraintsDoc{}, fields)
 }

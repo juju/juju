@@ -136,7 +136,7 @@ func (p PortRange) String() string {
 	return fmt.Sprintf("%d-%d/%s (%q)", p.FromPort, p.ToPort, strings.ToLower(p.Protocol), p.UnitName)
 }
 
-// portsDoc represents the state of ports opened on machines for networks
+// portsDoc represents the state of ports opened on machines and subnets.
 type portsDoc struct {
 	DocID     string      `bson:"_id"`
 	ModelUUID string      `bson:"model-uuid"`

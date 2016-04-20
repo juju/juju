@@ -294,15 +294,8 @@ func allCollections() collectionSchema {
 				Key: []string{"model-uuid", "subnetid"},
 			}},
 		},
-		networksC: {
-			indexes: []mgo.Index{{
-				Key:    []string{"model-uuid", "providerid"},
-				Unique: true,
-			}},
-		},
-		openedPortsC:       {},
-		requestedNetworksC: {},
 		// TODO(dimitern): End of obsolete networking collections.
+		openedPortsC: {},
 		spacesC: {
 			indexes: []mgo.Index{{
 				Key:    []string{"providerid"},
@@ -433,12 +426,10 @@ const (
 	modelUsersC              = "modelusers"
 	modelsC                  = "models"
 	modelEntityRefsC         = "modelEntityRefs"
-	networksC                = "networks"
 	openedPortsC             = "openedPorts"
 	rebootC                  = "reboot"
 	relationScopesC          = "relationscopes"
 	relationsC               = "relations"
-	requestedNetworksC       = "requestednetworks"
 	restoreInfoC             = "restoreInfo"
 	sequenceC                = "sequence"
 	servicesC                = "services"

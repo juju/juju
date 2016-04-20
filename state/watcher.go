@@ -2375,8 +2375,8 @@ var _ Watcher = (*openedPortsWatcher)(nil)
 
 // WatchOpenedPorts starts and returns a StringsWatcher notifying of
 // changes to the openedPorts collection. Reported changes have the
-// following format: "<machine-id>:<network-name>", i.e.
-// "0:juju-public".
+// following format: "<machine-id>:<subnet-id>", i.e.
+// "0:10.20.30.0/24".
 func (st *State) WatchOpenedPorts() StringsWatcher {
 	return newOpenedPortsWatcher(st)
 }

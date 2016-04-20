@@ -3285,11 +3285,6 @@ var findEntityTests = []findEntityTest{{
 }, {
 	tag: names.NewUserTag("arble"),
 }, {
-	tag: names.NewNetworkTag("missing"),
-	err: `network "missing" not found`,
-}, {
-	tag: names.NewNetworkTag("net1"),
-}, {
 	tag: names.NewActionTag("fedcba98-7654-4321-ba98-76543210beef"),
 	err: `action "fedcba98-7654-4321-ba98-76543210beef" not found`,
 }, {
@@ -3308,7 +3303,6 @@ var entityTypes = map[string]interface{}{
 	names.UnitTagKind:     (*state.Unit)(nil),
 	names.MachineTagKind:  (*state.Machine)(nil),
 	names.RelationTagKind: (*state.Relation)(nil),
-	names.NetworkTagKind:  (*state.Network)(nil),
 	names.ActionTagKind:   (state.Action)(nil),
 }
 
@@ -3329,15 +3323,6 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel.String(), gc.Equals, "wordpress:db ser-vice2:server")
-	net1, err := s.State.AddNetwork(state.NetworkInfo{
-		Name:       "net1",
-		ProviderId: "provider-id",
-		CIDR:       "0.1.2.0/24",
-		VLANTag:    0,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(net1.Tag().String(), gc.Equals, "network-net1")
-	c.Assert(string(net1.ProviderId()), gc.Equals, "provider-id")
 
 	// model tag is dynamically generated
 	env, err := s.State.Model()
@@ -3435,20 +3420,6 @@ func (s *StateSuite) TestParseModelTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coll, gc.Equals, "models")
 	c.Assert(id, gc.Equals, env.UUID())
-}
-
-func (s *StateSuite) TestParseNetworkTag(c *gc.C) {
-	net1, err := s.State.AddNetwork(state.NetworkInfo{
-		Name:       "net1",
-		ProviderId: "provider-id",
-		CIDR:       "0.1.2.0/24",
-		VLANTag:    0,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, net1.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coll, gc.Equals, "networks")
-	c.Assert(id, gc.Equals, state.DocID(s.State, net1.Name()))
 }
 
 func (s *StateSuite) TestWatchCleanups(c *gc.C) {
@@ -4400,26 +4371,23 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 
 	newHostPorts := [][]network.HostPort{{{
 		Address: network.Address{
-			Value:       "0.2.4.6",
-			Type:        network.IPv4Address,
-			NetworkName: "net",
-			Scope:       network.ScopeCloudLocal,
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
 		},
 		Port: 1,
 	}, {
 		Address: network.Address{
-			Value:       "0.4.8.16",
-			Type:        network.IPv4Address,
-			NetworkName: "foo",
-			Scope:       network.ScopePublic,
+			Value: "0.4.8.16",
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
 		},
 		Port: 2,
 	}}, {{
 		Address: network.Address{
-			Value:       "0.6.1.2",
-			Type:        network.IPv4Address,
-			NetworkName: "net",
-			Scope:       network.ScopeCloudLocal,
+			Value: "0.6.1.2",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
 		},
 		Port: 5,
 	}}}
@@ -4432,10 +4400,9 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 
 	newHostPorts = [][]network.HostPort{{{
 		Address: network.Address{
-			Value:       "0.2.4.6",
-			Type:        network.IPv6Address,
-			NetworkName: "net",
-			Scope:       network.ScopeCloudLocal,
+			Value: "0.2.4.6",
+			Type:  network.IPv6Address,
+			Scope: network.ScopeCloudLocal,
 		},
 		Port: 13,
 	}}}
@@ -4450,18 +4417,16 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 func (s *StateSuite) TestSetAPIHostPortsConcurrentSame(c *gc.C) {
 	hostPorts := [][]network.HostPort{{{
 		Address: network.Address{
-			Value:       "0.4.8.16",
-			Type:        network.IPv4Address,
-			NetworkName: "foo",
-			Scope:       network.ScopePublic,
+			Value: "0.4.8.16",
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
 		},
 		Port: 2,
 	}}, {{
 		Address: network.Address{
-			Value:       "0.2.4.6",
-			Type:        network.IPv4Address,
-			NetworkName: "net",
-			Scope:       network.ScopeCloudLocal,
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
 		},
 		Port: 1,
 	}}}
@@ -4491,19 +4456,17 @@ func (s *StateSuite) TestSetAPIHostPortsConcurrentSame(c *gc.C) {
 func (s *StateSuite) TestSetAPIHostPortsConcurrentDifferent(c *gc.C) {
 	hostPorts0 := []network.HostPort{{
 		Address: network.Address{
-			Value:       "0.4.8.16",
-			Type:        network.IPv4Address,
-			NetworkName: "foo",
-			Scope:       network.ScopePublic,
+			Value: "0.4.8.16",
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
 		},
 		Port: 2,
 	}}
 	hostPorts1 := []network.HostPort{{
 		Address: network.Address{
-			Value:       "0.2.4.6",
-			Type:        network.IPv4Address,
-			NetworkName: "net",
-			Scope:       network.ScopeCloudLocal,
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
 		},
 		Port: 1,
 	}}

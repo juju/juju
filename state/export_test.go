@@ -147,12 +147,6 @@ func AddTestingServiceForSeries(c *gc.C, st *State, series, name string, ch *Cha
 	return addTestingService(c, st, series, name, ch, owner, nil, nil)
 }
 
-// TODO(dimitern): Drop this along with the remnants of requested networks in a
-// follow-up.
-func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string) *Service {
-	return addTestingService(c, st, "", name, ch, owner, nil, nil)
-}
-
 func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, storage map[string]StorageConstraints) *Service {
 	return addTestingService(c, st, "", name, ch, owner, nil, storage)
 }

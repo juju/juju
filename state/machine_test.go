@@ -510,10 +510,6 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	_, err = s.machine.Containers()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	networks, err := s.machine.RequestedNetworks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, gc.HasLen, 0)
-
 	_, err = s.State.GetSSHHostKeys(s.machine.MachineTag())
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 
@@ -765,39 +761,6 @@ func (s *MachineSuite) TestMachineWaitAgentPresence(c *gc.C) {
 	alive, err = s.machine.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alive, jc.IsFalse)
-}
-
-func (s *MachineSuite) TestRequestedNetworks(c *gc.C) {
-	// s.machine is created without requested networks, so check
-	// they're empty when we read them.
-	networks, err := s.machine.RequestedNetworks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, gc.HasLen, 0)
-
-	// Now create a machine with networks and read them back.
-	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		Constraints:       constraints.MustParse("networks=mynet,^private-net,^logging"),
-		RequestedNetworks: []string{"net1", "net2"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	networks, err = machine.RequestedNetworks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, jc.DeepEquals, []string{"net1", "net2"})
-	cons, err := machine.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons.IncludeNetworks(), jc.DeepEquals, []string{"mynet"})
-	c.Assert(cons.ExcludeNetworks(), jc.DeepEquals, []string{"private-net", "logging"})
-
-	// Finally, networks should be removed with the machine.
-	err = machine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	networks, err = machine.RequestedNetworks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, gc.HasLen, 0)
 }
 
 func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *gc.C) {
