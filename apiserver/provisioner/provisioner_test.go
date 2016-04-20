@@ -748,7 +748,7 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 
 func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 	// Add a machine with some constraints.
-	cons := constraints.MustParse("cpu-cores=123", "mem=8G", "networks=net3,^net4")
+	cons := constraints.MustParse("cpu-cores=123", "mem=8G")
 	template := state.MachineTemplate{
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
@@ -773,43 +773,6 @@ func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 		Results: []params.ConstraintsResult{
 			{Constraints: machine0Constraints},
 			{Constraints: template.Constraints},
-			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-}
-
-func (s *withoutControllerSuite) TestRequestedNetworks(c *gc.C) {
-	// Add a machine with some requested networks.
-	template := state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		RequestedNetworks: []string{"net1", "net2"},
-	}
-	netsMachine, err := s.State.AddOneMachine(template)
-	c.Assert(err, jc.ErrorIsNil)
-
-	networksMachine0, err := s.machines[0].RequestedNetworks()
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: s.machines[0].Tag().String()},
-		{Tag: netsMachine.Tag().String()},
-		{Tag: "machine-42"},
-		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
-	}}
-	result, err := s.provisioner.RequestedNetworks(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RequestedNetworksResults{
-		Results: []params.RequestedNetworkResult{
-			{
-				Networks: networksMachine0,
-			},
-			{
-				Networks: template.RequestedNetworks,
-			},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -842,59 +805,6 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	networks := []params.Network{{
-		Tag:        "network-net1",
-		ProviderId: "net1",
-		CIDR:       "0.1.2.0/24",
-		VLANTag:    0,
-	}, {
-		Tag:        "network-vlan42",
-		ProviderId: "vlan42",
-		CIDR:       "0.2.2.0/24",
-		VLANTag:    42,
-	}, {
-		Tag:        "network-vlan69",
-		ProviderId: "vlan69",
-		CIDR:       "0.3.2.0/24",
-		VLANTag:    69,
-	}, {
-		Tag:        "network-vlan42", // duplicated; ignored
-		ProviderId: "vlan42",
-		CIDR:       "0.2.2.0/24",
-		VLANTag:    42,
-	}}
-	ifaces := []params.NetworkInterface{{
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		NetworkTag:    "network-net1",
-		InterfaceName: "eth0",
-		IsVirtual:     false,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		NetworkTag:    "network-net1",
-		InterfaceName: "eth1",
-		IsVirtual:     false,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		NetworkTag:    "network-vlan42",
-		InterfaceName: "eth1.42",
-		IsVirtual:     true,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		NetworkTag:    "network-vlan69",
-		InterfaceName: "eth0.69",
-		IsVirtual:     true,
-		Disabled:      true,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f1", // duplicated mac+net; ignored
-		NetworkTag:    "network-vlan42",
-		InterfaceName: "eth2",
-		IsVirtual:     true,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f2",
-		NetworkTag:    "network-net1",
-		InterfaceName: "eth1", // duplicated name+machine id; ignored for machine 1.
-		IsVirtual:     false,
-	}}
 	args := params.InstancesInfo{Machines: []params.InstanceInfo{{
 		Tag:        s.machines[0].Tag().String(),
 		InstanceId: "i-was",
@@ -904,15 +814,11 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 		InstanceId:      "i-will",
 		Nonce:           "fake_nonce",
 		Characteristics: &hwChars,
-		Networks:        networks,
-		Interfaces:      ifaces,
 	}, {
 		Tag:             s.machines[2].Tag().String(),
 		InstanceId:      "i-am-too",
 		Nonce:           "fake",
 		Characteristics: nil,
-		Networks:        networks,
-		Interfaces:      ifaces,
 	}, {
 		Tag:        volumesMachine.Tag().String(),
 		InstanceId: "i-am-also",

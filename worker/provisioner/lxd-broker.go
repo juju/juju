@@ -50,9 +50,6 @@ type lxdBroker struct {
 }
 
 func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting lxd containers with networks is not supported yet")
-	}
 	machineId := args.InstanceConfig.MachineId
 	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
 	if bridgeDevice == "" {

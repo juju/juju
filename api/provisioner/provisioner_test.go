@@ -431,7 +431,6 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(provisioningInfo.Series, gc.Equals, template.Series)
 	c.Assert(provisioningInfo.Placement, gc.Equals, template.Placement)
 	c.Assert(provisioningInfo.Constraints, jc.DeepEquals, template.Constraints)
-	c.Assert(provisioningInfo.Networks, gc.HasLen, 0)
 	c.Assert(provisioningInfo.SubnetsToZones, jc.DeepEquals, map[string][]string{
 		"subnet-2": []string{"zone2"},
 		"subnet-3": []string{"zone3"},
@@ -798,7 +797,6 @@ func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
 		ConfigType:       network.ConfigStatic,
 		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   network.NewAddress("0.10.0.2"),
-		ExtraConfig:      nil,
 		// Overwrite Address and MACAddress fields below with the actual ones,
 		// as they are chosen randomly.
 		Address:    network.Address{},
