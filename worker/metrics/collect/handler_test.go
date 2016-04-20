@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/names"
@@ -123,7 +124,8 @@ func (s *handlerSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 	c.Assert(conn.Calls(), gc.HasLen, 3)
 	conn.CheckCall(c, 2, "Close")
 
-	responseString := strings.Trim(string(conn.data), " \n\t")
+	data := conn.readData()
+	responseString := strings.Trim(string(data), " \n\t")
 	c.Assert(responseString, gc.Equals, "ok")
 	c.Assert(s.recorder.batches, gc.HasLen, 1)
 
@@ -146,7 +148,8 @@ func (s *handlerSuite) TestHandlerError(c *gc.C) {
 	c.Assert(conn.Calls(), gc.HasLen, 3)
 	conn.CheckCall(c, 2, "Close")
 
-	responseString := strings.Trim(string(conn.data), " \n\t")
+	data := conn.readData()
+	responseString := strings.Trim(string(data), " \n\t")
 	c.Assert(responseString, gc.Matches, ".*well, this is embarassing")
 	c.Assert(s.recorder.batches, gc.HasLen, 0)
 
@@ -181,6 +184,7 @@ func (l *mockListener) SetHandler(handler spool.ConnectionHandler) {
 
 type mockConnection struct {
 	net.Conn
+	sync.Mutex
 	testing.Stub
 	data []byte
 }
@@ -193,9 +197,19 @@ func (c *mockConnection) SetDeadline(t time.Time) error {
 
 // Write implements the net.Conn interface.
 func (c *mockConnection) Write(data []byte) (int, error) {
+	c.Lock()
+	defer c.Unlock()
 	c.AddCall("Write", data)
 	c.data = data
 	return len(data), nil
+}
+
+func (c *mockConnection) readData() []byte {
+	c.Lock()
+	defer c.Unlock()
+	ret := make([]byte, len(c.data))
+	copy(ret, c.data)
+	return ret
 }
 
 // Close implements the net.Conn interface.
