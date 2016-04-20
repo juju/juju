@@ -217,7 +217,10 @@ func (dw *discoverspacesWorker) handleSubnets() error {
 			}
 			zones := subnet.AvailabilityZones
 			if len(zones) == 0 {
-				logger.Debugf("provider does not specify zones for subnet %q; using 'default' zone as fallback")
+				logger.Tracef(
+					"provider does not specify zones for subnet %q; using 'default' zone as fallback",
+					subnet.CIDR,
+				)
 				zones = []string{"default"}
 			}
 			addSubnetsArgs.Subnets = append(addSubnetsArgs.Subnets, params.AddSubnetParams{
