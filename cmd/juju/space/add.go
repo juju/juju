@@ -33,7 +33,7 @@ Adds a new space with the given name and associates the given
 // Info is defined on the cmd.Command interface.
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "add",
+		Name:    "add-space",
 		Args:    "<name> [<CIDR1> <CIDR2> ...]",
 		Purpose: "add a new network space",
 		Doc:     strings.TrimSpace(addCommandDoc),

@@ -5,7 +5,6 @@ package space_test
 
 import (
 	"net"
-	"regexp"
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
@@ -82,22 +81,22 @@ func (s *BaseSpaceSuite) RunCommand(c *gc.C, args ...string) (string, string, er
 	return "", "", err
 }
 
-// AssertRunSpacesNotSupported is a shortcut for calling RunSubCommand with the
+// AssertRunSpacesNotSupported is a shortcut for calling RunCommand with the
 // passed args then asserting the output is empty and the error is the
 // spaces not supported, finally returning the error.
 func (s *BaseSpaceSuite) AssertRunSpacesNotSupported(c *gc.C, expectErr string, args ...string) error {
-	stdout, stderr, err := s.RunSubCommand(c, args...)
+	stdout, stderr, err := s.RunCommand(c, args...)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Equals, expectErr+"\n")
 	return err
 }
 
-// AssertRunFails is a shortcut for calling RunSubCommand with the
+// AssertRunFails is a shortcut for calling RunCommand with the
 // passed args then asserting the output is empty and the error is as
 // expected, finally returning the error.
 func (s *BaseSpaceSuite) AssertRunFails(c *gc.C, expectErr string, args ...string) error {
-	stdout, stderr, err := s.RunSubCommand(c, args...)
+	stdout, stderr, err := s.RunCommand(c, args...)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Equals, "")
@@ -109,7 +108,7 @@ func (s *BaseSpaceSuite) AssertRunFails(c *gc.C, expectErr string, args ...strin
 // expectStderr, stdout is equal to expectStdout, and the error is
 // nil.
 func (s *BaseSpaceSuite) AssertRunSucceeds(c *gc.C, expectStderr, expectStdout string, args ...string) {
-	stdout, stderr, err := s.RunSubCommand(c, args...)
+	stdout, stderr, err := s.RunCommand(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdout, gc.Equals, expectStdout)
 	c.Assert(stderr, gc.Matches, expectStderr)
@@ -194,8 +193,8 @@ func (sa *StubAPI) ListSpaces() ([]params.Space, error) {
 	return sa.Spaces, nil
 }
 
-func (sa *StubAPI) CreateSpace(name string, subnetIds []string, public bool) error {
-	sa.MethodCall(sa, "CreateSpace", name, subnetIds, public)
+func (sa *StubAPI) AddSpace(name string, subnetIds []string, public bool) error {
+	sa.MethodCall(sa, "AddSpace", name, subnetIds, public)
 	return sa.NextErr()
 }
 

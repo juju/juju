@@ -8,8 +8,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
-	"github.com/juju/juju/feature"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type SpaceCommandSuite struct {
