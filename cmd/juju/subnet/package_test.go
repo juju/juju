@@ -30,8 +30,8 @@ type BaseSubnetSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	coretesting.BaseSuite
 
-	command  cmd.Command
-	api      *StubAPI
+	command cmd.Command
+	api     *StubAPI
 }
 
 var _ = gc.Suite(&BaseSubnetSuite{})
