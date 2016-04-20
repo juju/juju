@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuFactory "github.com/juju/juju/testing/factory"
 )
@@ -1036,49 +1035,6 @@ func (s *uniterSuite) TestCharmArchiveSha256(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Result: s.wpCharm.BundleSha256()},
 			{Result: dummyCharm.BundleSha256()},
-		},
-	})
-}
-
-func (s *uniterSuite) TestCharmArchiveURLs(c *gc.C) {
-	dummyCharm := s.AddTestingCharm(c, "dummy")
-
-	hostPorts := [][]network.HostPort{
-		network.AddressesWithPort([]network.Address{
-			network.NewScopedAddress("1.2.3.4", network.ScopePublic),
-			network.NewScopedAddress("0.1.2.3", network.ScopeCloudLocal),
-		}, 1234),
-		network.AddressesWithPort([]network.Address{
-			network.NewScopedAddress("1.2.3.5", network.ScopePublic),
-		}, 1234),
-	}
-	err := s.State.SetAPIHostPorts(hostPorts)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.CharmURLs{URLs: []params.CharmURL{
-		{URL: "something-invalid!"},
-		{URL: s.wpCharm.String()},
-		{URL: dummyCharm.String()},
-	}}
-	result, err := s.uniter.CharmArchiveURLs(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	wordpressURLs := []string{
-		fmt.Sprintf("https://0.1.2.3:1234/model/%s/charms?file=%%2A&url=cs%%3Aquantal%%2Fwordpress-3", coretesting.ModelTag.Id()),
-		fmt.Sprintf("https://1.2.3.4:1234/model/%s/charms?file=%%2A&url=cs%%3Aquantal%%2Fwordpress-3", coretesting.ModelTag.Id()),
-		fmt.Sprintf("https://1.2.3.5:1234/model/%s/charms?file=%%2A&url=cs%%3Aquantal%%2Fwordpress-3", coretesting.ModelTag.Id()),
-	}
-	dummyURLs := []string{
-		fmt.Sprintf("https://0.1.2.3:1234/model/%s/charms?file=%%2A&url=local%%3Aquantal%%2Fdummy-1", coretesting.ModelTag.Id()),
-		fmt.Sprintf("https://1.2.3.4:1234/model/%s/charms?file=%%2A&url=local%%3Aquantal%%2Fdummy-1", coretesting.ModelTag.Id()),
-		fmt.Sprintf("https://1.2.3.5:1234/model/%s/charms?file=%%2A&url=local%%3Aquantal%%2Fdummy-1", coretesting.ModelTag.Id()),
-	}
-
-	c.Assert(result, jc.DeepEquals, params.StringsResults{
-		Results: []params.StringsResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{Result: wordpressURLs},
-			{Result: dummyURLs},
 		},
 	})
 }
