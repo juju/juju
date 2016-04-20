@@ -11,10 +11,6 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-var (
-	RandomPasswordNotify = &randomPasswordNotify
-)
-
 type AddCommand struct {
 	*addCommand
 }
