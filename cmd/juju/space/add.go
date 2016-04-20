@@ -70,7 +70,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 			return errors.Annotatef(err, "cannot add space %q", c.Name)
 		}
 
-		ctx.Infof("addd space %q with %s", c.Name, msgSuffix)
+		ctx.Infof("added space %q with %s", c.Name, msgSuffix)
 		return nil
 	})
 }

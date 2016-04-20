@@ -25,7 +25,7 @@ func (s *AddSuite) SetUpTest(c *gc.C) {
 
 func (s *AddSuite) TestRunWithoutSubnetsSucceeds(c *gc.C) {
 	s.AssertRunSucceeds(c,
-		`addd space "myspace" with no subnets\n`,
+		`added space "myspace" with no subnets\n`,
 		"", // no stdout, just stderr
 		"myspace",
 	)
@@ -36,7 +36,7 @@ func (s *AddSuite) TestRunWithoutSubnetsSucceeds(c *gc.C) {
 
 func (s *AddSuite) TestRunWithSubnetsSucceeds(c *gc.C) {
 	s.AssertRunSucceeds(c,
-		`addd space "myspace" with subnets 10.1.2.0/24, 4.3.2.0/28\n`,
+		`added space "myspace" with subnets 10.1.2.0/24, 4.3.2.0/28\n`,
 		"", // no stdout, just stderr
 		"myspace", "10.1.2.0/24", "4.3.2.0/28",
 	)
