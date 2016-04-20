@@ -1468,7 +1468,6 @@ class EnvJujuClient1X(EnvJujuClient2A1):
         self.deployer(bundle, timeout=timeout)
 
     def deployer(self, bundle, name=None, deploy_delay=10, timeout=3600):
-        """deployer, using sudo if necessary."""
         args = (
             '--debug',
             '--deploy-delay', str(deploy_delay),
