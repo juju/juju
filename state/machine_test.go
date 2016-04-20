@@ -335,7 +335,7 @@ func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.OpenPort("tcp", 8080)
 	c.Assert(err, jc.ErrorIsNil)
-	ports, err := state.GetPorts(s.State, s.machine.Id(), network.DefaultPublic)
+	ports, err := state.GetPorts(s.State, s.machine.Id(), "")
 	c.Assert(ports, gc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.UnassignFromMachine()
@@ -347,7 +347,7 @@ func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	// once the machine is destroyed, there should be no ports documents present for it
-	ports, err = state.GetPorts(s.State, s.machine.Id(), network.DefaultPublic)
+	ports, err = state.GetPorts(s.State, s.machine.Id(), "")
 	c.Assert(ports, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

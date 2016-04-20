@@ -18,16 +18,16 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// A regular expression for parsing ports document id into
-// corresponding machine and network ids.
-var portsIdRe = regexp.MustCompile(fmt.Sprintf("m#(?P<machine>%s)#n#(?P<network>%s)$", names.MachineSnippet, names.NetworkSnippet))
+// A regular expression for parsing ports document id into corresponding machine
+// and subnet ids.
+var portsIDRe = regexp.MustCompile(fmt.Sprintf("m#(?P<machine>%s)#(?P<subnet>.*)$", names.MachineSnippet))
 
-type portIdPart int
+type portIDPart int
 
 const (
-	_ portIdPart = iota
-	machineIdPart
-	networkNamePart
+	_ portIDPart = iota
+	machineIDPart
+	subnetIDPart
 )
 
 // PortRange represents a single range of ports opened
@@ -138,12 +138,12 @@ func (p PortRange) String() string {
 
 // portsDoc represents the state of ports opened on machines for networks
 type portsDoc struct {
-	DocID       string      `bson:"_id"`
-	ModelUUID   string      `bson:"model-uuid"`
-	MachineID   string      `bson:"machine-id"`
-	NetworkName string      `bson:"network-name"`
-	Ports       []PortRange `bson:"ports"`
-	TxnRevno    int64       `bson:"txn-revno"`
+	DocID     string      `bson:"_id"`
+	ModelUUID string      `bson:"model-uuid"`
+	MachineID string      `bson:"machine-id"`
+	SubnetID  string      `bson:"subnet-id"`
+	Ports     []PortRange `bson:"ports"`
+	TxnRevno  int64       `bson:"txn-revno"`
 }
 
 // Ports represents the state of ports on a machine.
@@ -156,33 +156,32 @@ type Ports struct {
 
 // String returns p as a user-readable string.
 func (p *Ports) String() string {
-	return fmt.Sprintf("ports for machine %q, network %q", p.doc.MachineID, p.doc.NetworkName)
+	return fmt.Sprintf("ports for machine %q, subnet %q", p.doc.MachineID, p.doc.SubnetID)
 }
 
-// Id returns the id of the ports document.
-func (p *Ports) GlobalKey() string {
-	return portsGlobalKey(p.doc.MachineID, p.doc.NetworkName)
+// globalKey returns the id of the ports document.
+func (p *Ports) globalKey() string {
+	return portsGlobalKey(p.doc.MachineID, p.doc.SubnetID)
 }
 
 // portsGlobalKey returns the global database key for the opened ports
-// document for the given machine and network.
-func portsGlobalKey(machineId string, networkName string) string {
-	return fmt.Sprintf("m#%s#n#%s", machineId, networkName)
+// document for the given machine and subnet.
+func portsGlobalKey(machineID, subnetID string) string {
+	return fmt.Sprintf("m#%s#%s", machineID, subnetID)
 }
 
-// extractPortsIdParts parses the given ports global key and extracts
+// extractPortsIDParts parses the given ports global key and extracts
 // its parts.
-func extractPortsIdParts(id string) ([]string, error) {
-	if parts := portsIdRe.FindStringSubmatch(id); len(parts) == 3 {
+func extractPortsIDParts(globalKey string) ([]string, error) {
+	if parts := portsIDRe.FindStringSubmatch(globalKey); len(parts) == 3 {
 		return parts, nil
 	}
-	return nil, errors.Errorf("invalid ports document name: %v", id)
+	return nil, errors.NotValidf("ports document key %q", globalKey)
 }
 
-// NetworkName returns the network name associated with this ports
-// document.
-func (p *Ports) NetworkName() string {
-	return p.doc.NetworkName
+// SubnetID returns the subnet ID associated with this ports document.
+func (p *Ports) SubnetID() string {
+	return p.doc.SubnetID
 }
 
 // OpenPorts adds the specified port range to the list of ports
@@ -302,13 +301,12 @@ func (p *Ports) ClosePorts(portRange PortRange) (err error) {
 	return nil
 }
 
-// PortsForUnit returns the ports associated with specified unit
-// that are maintained on this document (i.e. are open on this unit's
-// assigned machine).
-func (p *Ports) PortsForUnit(unit string) []PortRange {
+// PortsForUnit returns the ports associated with specified unitName that are
+// maintained on this document (i.e. are open on this unit's assigned machine).
+func (p *Ports) PortsForUnit(unitName string) []PortRange {
 	ports := []PortRange{}
 	for _, port := range p.doc.Ports {
-		if port.UnitName == unit {
+		if port.UnitName == unitName {
 			ports = append(ports, port)
 		}
 	}
@@ -319,6 +317,7 @@ func (p *Ports) PortsForUnit(unit string) []PortRange {
 func (p *Ports) Refresh() error {
 	openedPorts, closer := p.st.getCollection(openedPortsC)
 	defer closer()
+
 	err := openedPorts.FindId(p.doc.DocID).One(&p.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf(p.String())
@@ -360,10 +359,9 @@ func (p *Ports) Remove() error {
 	return p.st.run(buildTxn)
 }
 
-// OpenedPorts returns this machine ports document for the given
-// network.
-func (m *Machine) OpenedPorts(networkName string) (*Ports, error) {
-	ports, err := getPorts(m.st, m.Id(), networkName)
+// OpenedPorts returns this machine ports document for the given subnetID.
+func (m *Machine) OpenedPorts(subnetID string) (*Ports, error) {
+	ports, err := getPorts(m.st, m.Id(), subnetID)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -502,18 +500,17 @@ func removePortsForUnitOps(st *State, unit *Unit) ([]txn.Op, error) {
 	return ops, nil
 }
 
-// getPorts returns the ports document for the specified machine and
-// network.
-func getPorts(st *State, machineId, networkName string) (*Ports, error) {
+// getPorts returns the ports document for the specified machine and subnet.
+func getPorts(st *State, machineID, subnetID string) (*Ports, error) {
 	openedPorts, closer := st.getCollection(openedPortsC)
 	defer closer()
 
 	var doc portsDoc
-	key := portsGlobalKey(machineId, networkName)
+	key := portsGlobalKey(machineID, subnetID)
 	err := openedPorts.FindId(key).One(&doc)
 	if err != nil {
-		doc.MachineID = machineId
-		doc.NetworkName = networkName
+		doc.MachineID = machineID
+		doc.SubnetID = subnetID
 		p := Ports{st, doc, false}
 		if err == mgo.ErrNotFound {
 			return nil, errors.NotFoundf(p.String())
@@ -524,17 +521,17 @@ func getPorts(st *State, machineId, networkName string) (*Ports, error) {
 	return &Ports{st, doc, false}, nil
 }
 
-// getOrCreatePorts attempts to retrieve a ports document and returns
-// a newly created one if it does not exist.
-func getOrCreatePorts(st *State, machineId, networkName string) (*Ports, error) {
-	ports, err := getPorts(st, machineId, networkName)
+// getOrCreatePorts attempts to retrieve a ports document and returns a newly
+// created one if it does not exist.
+func getOrCreatePorts(st *State, machineID, subnetID string) (*Ports, error) {
+	ports, err := getPorts(st, machineID, subnetID)
 	if errors.IsNotFound(err) {
-		key := portsGlobalKey(machineId, networkName)
+		key := portsGlobalKey(machineID, subnetID)
 		doc := portsDoc{
-			DocID:       st.docID(key),
-			MachineID:   machineId,
-			NetworkName: networkName,
-			ModelUUID:   st.ModelUUID(),
+			DocID:     st.docID(key),
+			MachineID: machineID,
+			SubnetID:  subnetID,
+			ModelUUID: st.ModelUUID(),
 		}
 		ports = &Ports{st, doc, true}
 	} else if err != nil {

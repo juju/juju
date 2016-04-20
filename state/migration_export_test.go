@@ -359,12 +359,12 @@ func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
 	machines := model.Machines()
 	c.Assert(machines, gc.HasLen, 1)
 
-	ports := machines[0].NetworkPorts()
+	ports := machines[0].OpenedPorts()
 	c.Assert(ports, gc.HasLen, 1)
 
-	network := ports[0]
-	c.Assert(network.NetworkName(), gc.Equals, "juju-public")
-	opened := network.OpenPorts()
+	port := ports[0]
+	c.Assert(port.SubnetID(), gc.Equals, "")
+	opened := port.OpenPorts()
 	c.Assert(opened, gc.HasLen, 1)
 	c.Assert(opened[0].UnitName(), gc.Equals, unit.Name())
 }
