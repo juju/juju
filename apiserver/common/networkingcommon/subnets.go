@@ -65,7 +65,7 @@ func (cache *addSubnetsCache) validateSpace(spaceTag string) (*names.SpaceTag, e
 	// Otherwise we need the cache to validate.
 	if cache.allSpaces == nil {
 		// Not yet cached.
-		logger.Debugf("caching known spaces")
+		logger.Tracef("caching known spaces")
 
 		allSpaces, err := cache.api.AllSpaces()
 		if err != nil {
@@ -119,7 +119,7 @@ func (cache *addSubnetsCache) cacheZones() error {
 		}
 		cache.allZones.Add(zone.Name)
 	}
-	logger.Debugf(
+	logger.Tracef(
 		"%d known and %d available zones cached: %v",
 		cache.allZones.Size(), cache.availableZones.Size(), cache.allZones.SortedValues(),
 	)
@@ -198,7 +198,7 @@ func (cache *addSubnetsCache) cacheSubnets() error {
 	if err != nil {
 		return errors.Annotate(err, "cannot get provider subnets")
 	}
-	logger.Debugf("got %d subnets to cache from the provider", len(subnetInfo))
+	logger.Tracef("got %d subnets to cache from the provider", len(subnetInfo))
 
 	if len(subnetInfo) > 0 {
 		// Trying to avoid reallocations.
@@ -211,7 +211,7 @@ func (cache *addSubnetsCache) cacheSubnets() error {
 		subnet := subnetInfo[i]
 		cidr := subnet.CIDR
 		providerId := string(subnet.ProviderId)
-		logger.Debugf(
+		logger.Tracef(
 			"caching subnet with CIDR %q, ProviderId %q, Zones: %q",
 			cidr, providerId, subnet.AvailabilityZones,
 		)
@@ -249,7 +249,7 @@ func (cache *addSubnetsCache) cacheSubnets() error {
 
 		cache.allSubnets = append(cache.allSubnets, subnet)
 	}
-	logger.Debugf("%d provider subnets cached", len(cache.allSubnets))
+	logger.Tracef("%d provider subnets cached", len(cache.allSubnets))
 	if len(cache.allSubnets) == 0 {
 		// Cached an empty list.
 		return errors.Errorf("no subnets defined")
@@ -479,11 +479,11 @@ func AllZones(api NetworkBacking) (params.ZoneResults, error) {
 		if err != nil {
 			return results, errors.Annotate(err, "cannot update known zones")
 		}
-		logger.Debugf(
+		logger.Tracef(
 			"updated the list of known zones from the model: %s", zonesAsString(zones),
 		)
 	} else {
-		logger.Debugf("using cached list of known zones: %s", zonesAsString(zones))
+		logger.Tracef("using cached list of known zones: %s", zonesAsString(zones))
 	}
 
 	results.Results = make([]params.ZoneResult, len(zones))
