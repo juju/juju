@@ -167,6 +167,10 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		logger.Debugf("using MTU %v for all created LXC containers' network interfaces", lxcMTU)
 	}
 
+	if lxdMTU, ok := cfg.LXDDefaultMTU(); ok {
+		logger.Debugf("using MTU %v for all created LXD containers' network interfaces", lxdMTU)
+	}
+
 	imageMetadata, err := bootstrapImageMetadata(
 		environ, availableTools,
 		args.BootstrapImage,
