@@ -23,7 +23,7 @@ func NewLayeredStorage(s ...Storage) (Storage, error) {
 	return layeredStorage(s), nil
 }
 
-// Add implements Storage.Open.
+// Add implements Storage.Add.
 //
 // This method operates on the first Storage passed to NewLayeredStorage.
 func (s layeredStorage) Add(r io.Reader, m Metadata) error {
@@ -33,7 +33,7 @@ func (s layeredStorage) Add(r io.Reader, m Metadata) error {
 // Open implements Storage.Open.
 //
 // This method calls Open for each Storage passed to NewLayeredStorage in
-// the order given, and returns the first result where the errors does not
+// the order given, and returns the first result where the error does not
 // satisfy errors.IsNotFound.
 func (s layeredStorage) Open(v string) (Metadata, io.ReadCloser, error) {
 	var m Metadata
@@ -51,7 +51,7 @@ func (s layeredStorage) Open(v string) (Metadata, io.ReadCloser, error) {
 // Metadata implements Storage.Metadata.
 //
 // This method calls Metadata for each Storage passed to NewLayeredStorage in
-// the order given, and returns the first result where the errors does not
+// the order given, and returns the first result where the error does not
 // satisfy errors.IsNotFound.
 func (s layeredStorage) Metadata(v string) (Metadata, error) {
 	var m Metadata
@@ -69,7 +69,8 @@ func (s layeredStorage) Metadata(v string) (Metadata, error) {
 //
 // This method calls AllMetadata for each Storage passed to NewLayeredStorage
 // in the order given, and accumulates the results. Any results from a Storage
-// that have been returned from a Storage earlier in the list will be ignored.
+// earlier in the list will take precedence over any others with the same
+// version.
 func (s layeredStorage) AllMetadata() ([]Metadata, error) {
 	seen := set.NewStrings()
 	var all []Metadata
