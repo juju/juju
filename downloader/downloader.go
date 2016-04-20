@@ -19,7 +19,7 @@ var logger = loggo.GetLogger("juju.downloader")
 type Downloader struct {
 	// OpenBlob is the func used to gain access to the blob, whether
 	// through an HTTP request or some other means.
-	OpenBlob func(url *url.URL) (io.ReadCloser, error)
+	OpenBlob func(*url.URL) (io.ReadCloser, error)
 }
 
 // NewArgs holds the arguments to New().
@@ -46,6 +46,9 @@ func (dlr Downloader) Start(req Request) *Download {
 // Download starts a new download, waits for it to complete, and
 // returns the local name of the file.
 func (dlr Downloader) Download(req Request, abort <-chan struct{}) (filename string, err error) {
+	if err := os.MkdirAll(req.TargetDir, 0755); err != nil {
+		return "", errors.Trace(err)
+	}
 	dl := dlr.Start(req)
 	file, err := dl.Wait(abort)
 	if file != nil {
@@ -66,9 +69,6 @@ func (dlr Downloader) DownloadWithAlternates(requests []Request, abort <-chan st
 	}
 
 	for _, req := range requests {
-		if err := os.MkdirAll(req.TargetDir, 0755); err != nil {
-			return "", errors.Trace(err)
-		}
 		filename, err = dlr.Download(req, abort)
 		if errors.IsNotValid(err) {
 			break

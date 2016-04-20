@@ -4,11 +4,6 @@
 package charm_test
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -77,72 +72,61 @@ func (s *BundlesDirSuite) TearDownTest(c *gc.C) {
 	s.HTTPSuite.TearDownTest(c)
 }
 
-func (s *BundlesDirSuite) AddCharm(c *gc.C) (charm.BundleInfo, *state.Charm, []byte) {
+func (s *BundlesDirSuite) AddCharm(c *gc.C) (charm.BundleInfo, *state.Charm) {
 	curl := corecharm.MustParseURL("cs:quantal/dummy-1")
-	storagePath := "dummy-1"
-	bunpath := testcharms.Repo.CharmArchivePath(c.MkDir(), "dummy")
-	bun, err := corecharm.ReadCharmArchive(bunpath)
+	bun := testcharms.Repo.CharmDir("dummy")
+	sch, err := testing.AddCharm(s.State, curl, bun)
 	c.Assert(err, jc.ErrorIsNil)
-	bundata, hash := readHash(c, bunpath)
-	info := state.CharmInfo{
-		Charm:       bun,
-		ID:          curl,
-		StoragePath: storagePath,
-		SHA256:      hash,
-	}
-	sch, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
+
 	apiCharm, err := s.uniter.Charm(sch.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	surlBad, err := url.Parse(s.URL("/some/charm.bundle?bad"))
-	c.Assert(err, jc.ErrorIsNil)
-	surlGood, err := url.Parse(s.URL("/some/charm.bundle?good"))
-	c.Assert(err, jc.ErrorIsNil)
-	mock := &mockArchiveURLCharm{
-		apiCharm,
-		[]*url.URL{surlBad, surlGood},
-	}
-	return mock, sch, bundata
+	return apiCharm, sch
 }
 
-type mockArchiveURLCharm struct {
+type fakeBundleInfo struct {
 	charm.BundleInfo
-	archiveURLs []*url.URL
+	curl   *corecharm.URL
+	sha256 string
 }
 
-func (i *mockArchiveURLCharm) ArchiveURLs() ([]*url.URL, error) {
-	return i.archiveURLs, nil
+func (f fakeBundleInfo) URL() *corecharm.URL {
+	if f.curl == nil {
+		return f.BundleInfo.URL()
+	}
+	return f.curl
+}
+
+func (f fakeBundleInfo) ArchiveSha256() (string, error) {
+	if f.sha256 == "" {
+		return f.BundleInfo.ArchiveSha256()
+	}
+	return f.sha256, nil
 }
 
 func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	basedir := c.MkDir()
 	bunsdir := filepath.Join(basedir, "random", "bundles")
-	d := charm.NewBundlesDir(bunsdir, nil)
+	downloader := api.NewCharmDownloader(s.st.Client())
+	d := charm.NewBundlesDir(bunsdir, downloader)
 
 	// Check it doesn't get created until it's needed.
 	_, err := os.Stat(bunsdir)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	// Add a charm to state that we can try to get.
-	apiCharm, sch, bundata := s.AddCharm(c)
+	apiCharm, sch := s.AddCharm(c)
 
 	// Try to get the charm when the content doesn't match.
-	gitjujutesting.Server.Response(200, nil, []byte("roflcopter"))
-	archiveURLs, err := apiCharm.ArchiveURLs()
-	c.Assert(err, gc.IsNil)
-	_, err = d.Read(apiCharm, nil)
-	prefix := regexp.QuoteMeta(fmt.Sprintf(`failed to download charm "cs:quantal/dummy-1" from %q: `, archiveURLs))
-	c.Assert(err, gc.ErrorMatches, prefix+fmt.Sprintf(`expected sha256 %q, got ".*"`, sch.BundleSha256()))
+	_, err = d.Read(&fakeBundleInfo{apiCharm, nil, "..."}, nil)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/dummy-1" from API server: `)+`expected sha256 "...", got ".*"`)
 
 	// Try to get a charm whose bundle doesn't exist.
-	gitjujutesting.Server.Responses(2, 404, nil, nil)
-	_, err = d.Read(apiCharm, nil)
-	c.Assert(err, gc.ErrorMatches, prefix+`.* 404 Not Found`)
+	otherURL := corecharm.MustParseURL("cs:quantal/spam-1")
+	_, err = d.Read(&fakeBundleInfo{apiCharm, otherURL, ""}, nil)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/spam-1" from API server: `)+`.* not found`)
 
 	// Get a charm whose bundle exists and whose content matches.
-	gitjujutesting.Server.Response(404, nil, nil)
-	gitjujutesting.Server.Response(200, nil, bundata)
 	ch, err := d.Read(apiCharm, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	assertCharm(c, ch, sch)
@@ -160,7 +144,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	go func() {
 		ch, err := d.Read(apiCharm, abort)
 		c.Assert(ch, gc.IsNil)
-		c.Assert(err, gc.ErrorMatches, prefix+"aborted")
+		c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/dummy-1" from API server: aborted`))
 		close(done)
 	}()
 	close(abort)
@@ -170,14 +154,6 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for abort")
 	}
-}
-
-func readHash(c *gc.C, path string) ([]byte, string) {
-	data, err := ioutil.ReadFile(path)
-	c.Assert(err, jc.ErrorIsNil)
-	hash := sha256.New()
-	hash.Write(data)
-	return data, hex.EncodeToString(hash.Sum(nil))
 }
 
 func assertCharm(c *gc.C, bun charm.Bundle, sch *state.Charm) {

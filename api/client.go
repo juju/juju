@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 )
@@ -451,6 +452,25 @@ func openCharm(httpClient HTTPDoer, curl *charm.URL) (io.ReadCloser, error) {
 		return nil, errors.Trace(err)
 	}
 	return blob, nil
+}
+
+// NewCharmDownloader returns a new charm downloader that wraps the
+// provided API client.
+func NewCharmDownloader(client *Client) *downloader.Downloader {
+	dlr := &downloader.Downloader{
+		OpenBlob: func(url *url.URL) (io.ReadCloser, error) {
+			curl, err := charm.ParseURL(url.String())
+			if err != nil {
+				return nil, errors.Annotate(err, "did not receive a valid charm URL")
+			}
+			reader, err := client.OpenCharm(curl)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return reader, nil
+		},
+	}
+	return dlr
 }
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS.

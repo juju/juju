@@ -106,7 +106,7 @@ func (dl *Download) run(req Request) {
 	// disableSSLHostnameVerification behavior here.
 	file, err := download(req, dl.openBlob)
 	if err != nil {
-		err = errors.Errorf("cannot download %q: %v", req.URL, err)
+		err = errors.Annotatef(err, "cannot download %q", req.URL)
 	}
 
 	if err == nil {
@@ -120,7 +120,7 @@ func (dl *Download) run(req Request) {
 			if _, err2 := file.Seek(0, os.SEEK_SET); err2 != nil {
 				logger.Errorf("failed to seek to beginning of file: %v", err)
 				if err == nil {
-					err = err2
+					err = errors.Trace(err2)
 				}
 			} else {
 				logger.Infof("download verified")

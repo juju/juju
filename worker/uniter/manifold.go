@@ -6,16 +6,14 @@ package uniter
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/fslock"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
@@ -52,8 +50,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
-			var apiCaller base.APICaller
-			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+			var apiConn api.Connection
+			if err := context.Get(config.APICallerName, &apiConn); err != nil {
 				// TODO(fwereade): absence of an APICaller shouldn't be the end of
 				// the world -- we ought to return a type that can at least run the
 				// leader-deposed hook -- but that's not done yet.
@@ -77,10 +75,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
-			downloader, err := newDownloader(apiCaller)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+			downloader := api.NewCharmDownloader(apiConn.Client())
 
 			// Configure and start the uniter.
 			config := agent.CurrentConfig()
@@ -89,7 +84,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if !ok {
 				return nil, errors.Errorf("expected a unit tag, got %v", tag)
 			}
-			uniterFacade := uniter.NewState(apiCaller, unitTag)
+			uniterFacade := uniter.NewState(apiConn, unitTag)
 			uniter, err := NewUniter(&UniterParams{
 				UniterFacade:         uniterFacade,
 				UnitTag:              unitTag,
@@ -109,16 +104,4 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return uniter, nil
 		},
 	}
-}
-
-func newDownloader(apiCaller base.APICaller) (*downloader.Downloader, error) {
-	// Downloads always go through the API server, which at
-	// present cannot be verified due to the certificates
-	// being inadequate. We always verify the SHA-256 hash,
-	// and the data transferred is not sensitive, so this
-	// does not pose a problem.
-	dlr := downloader.New(downloader.NewArgs{
-		HostnameVerification: utils.NoVerifySSLHostnames,
-	})
-	return dlr, nil
 }

@@ -4,6 +4,7 @@
 package charm
 
 import (
+	"net/url"
 	"os"
 	"path"
 
@@ -16,10 +17,9 @@ import (
 
 // Download exposes the downloader.Download methods needed here.
 type Downloader interface {
-	// DownloadWithAlternates tries each of the provided requests until
-	// one succeeds. If none succeed then the error from the most recent
-	// attempt is returned. At least one request must be provided.
-	DownloadWithAlternates(requests []downloader.Request, abort <-chan struct{}) (string, error)
+	// Download starts a new charm archive download, waits for it to
+	// complete, and returns the local name of the file.
+	Download(req downloader.Request, abort <-chan struct{}) (string, error)
 }
 
 // BundlesDir is responsible for storing and retrieving charm bundles
@@ -64,23 +64,19 @@ func (d *BundlesDir) Read(info BundleInfo, abort <-chan struct{}) (Bundle, error
 // download will be stopped.
 func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struct{}) (err error) {
 	// First download...
-	archiveURLs, err := info.ArchiveURLs()
+	curl, err := url.Parse(info.URL().String())
 	if err != nil {
-		return errors.Annotatef(err, "failed to get download URLs for charm %q", info.URL())
+		return errors.Annotate(err, "could not parse charm URL")
 	}
-	targetDir := d.downloadsPath()
-	var requests []downloader.Request
-	for _, archiveURL := range archiveURLs {
-		requests = append(requests, downloader.Request{
-			URL:       archiveURL,
-			TargetDir: targetDir,
-			Verify:    downloader.NewSha256Verifier(info.ArchiveSha256),
-		})
+	req := downloader.Request{
+		URL:       curl,
+		TargetDir: d.downloadsPath(),
+		Verify:    downloader.NewSha256Verifier(info.ArchiveSha256),
 	}
-	logger.Infof("downloading %s from %d URLs", info.URL(), len(archiveURLs))
-	filename, err := d.downloader.DownloadWithAlternates(requests, abort)
+	logger.Infof("downloading %s from API server", info.URL())
+	filename, err := d.downloader.Download(req, abort)
 	if err != nil {
-		return errors.Annotatef(err, "failed to download charm %q from %q", info.URL(), archiveURLs)
+		return errors.Annotatef(err, "failed to download charm %q from API server", info.URL())
 	}
 	defer errors.DeferredAnnotatef(&err, "downloaded but failed to copy charm to %q from %q", target, filename)
 
