@@ -1878,11 +1878,10 @@ func (environ *maasEnviron) subnetToSpaceIds() (map[string]network.Id, error) {
 // Space name is not filled in as the provider doesn't know the juju name for
 // the space.
 func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
-	if environ.usingMAAS2() {
-		return environ.spaces2()
-	} else {
+	if !environ.usingMAAS2() {
 		return environ.spaces1()
 	}
+	return environ.spaces2()
 }
 
 func (environ *maasEnviron) spaces1() ([]network.SpaceInfo, error) {
@@ -2245,13 +2244,15 @@ func (env *maasEnviron) allocateContainerAddresses1(hostInstanceID instance.Id, 
 }
 
 func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
-	subnetCIDRToVLANID := make(map[string]int)
-	subnets, err := env.Subnets(instance.UnknownId, nil)
+	subnetCIDRToSubnet := make(map[string]gomaasapi.Subnet)
+	spaces, err := environ.maasController.Spaces()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot get subnets")
+		return nil, errors.Trace(err)
 	}
-	for _, subnet := range subnets {
-		subnetCIDRToVLANID[subnet.CIDR] = subnet.VLAN().VID()
+	for _, space := range spaces {
+		for _, subnet := range space.Subnets() {
+			subnetCIDRToVLANID[subnet.CIDR] = subnet
+		}
 	}
 
 	var primaryNICInfo network.InterfaceInfo
@@ -2266,31 +2267,21 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	}
 	logger.Debugf("primary device NIC prepared info: %+v", primaryNICInfo)
 
-	primaryMACAddress := primaryNICInfo.MACAddress
-	containerDevice, err := env.createDevice2(hostInstanceID, primaryMACAddress)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot create device for container")
-	}
-	deviceID := instance.Id(containerDevice.ResourceURI)
-	logger.Debugf("created device %q with primary MAC address %q", deviceID, primaryMACAddress)
-
-	interfaces, err := env.deviceInterfaces2(deviceID)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get device interfaces")
-	}
-	if len(interfaces) != 1 {
-		return nil, errors.Errorf("expected 1 device interface, got %d", len(interfaces))
-	}
-
-	primaryNICName := interfaces[0].Name
-	primaryNICID := strconv.Itoa(interfaces[0].ID)
 	primaryNICSubnetCIDR := primaryNICInfo.CIDR
-	primaryNICVLANID := subnetCIDRToVLANID[primaryNICSubnetCIDR]
-	updatedPrimaryNIC, err := env.updateDeviceInterface2(deviceID, primaryNICID, primaryNICName, primaryMACAddress, primaryNICVLANID)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot update device interface %q", interfaces[0].Name)
+	subnet, ok := subnetCIDRToS[primaryNICSubnetCIDR]
+	if !ok {
+		return nil, errors.Errorf("primary NIC subnet %v not found", primaryNICSubnetCIDR)
 	}
-	logger.Debugf("device %q primary interface %q updated: %+v", containerDevice.SystemID, primaryNICName, updatedPrimaryNIC)
+	primaryMACAddress := primaryNICInfo.MACAddress
+	args := gomaasapi.CreateDeviceArgs{
+		MACAddress:    primaryMACAddress,
+		Subnet:        subnet,
+		InterfaceName: "eth0",
+	}
+	device, err := environ.maasController.CreateDevice(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	deviceNICIDs := make([]string, len(preparedInfo))
 	nameToParentName := make(map[string]string)
@@ -2298,12 +2289,20 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 		maasNICID := ""
 		nameToParentName[nic.InterfaceName] = nic.ParentInterfaceName
 		if nic.InterfaceName != primaryNICName {
-			nicVLANID := subnetCIDRToVLANID[nic.CIDR]
-			createdNIC, err := env.createDeviceInterface(deviceID, nic.InterfaceName, nic.MACAddress, nicVLANID)
+			subnet, ok := subnetCIDRToSubnet[nic.CIDR]
+			if !ok {
+				return nil, errors.Errorf("NIC %v subnet %v not found", nic.InterfaceName, nic.CIDR)
+			}
+			createdNIC, err := device.CreateInterface(
+				gomaasapi.CreateInterfaceArgs{
+					Name:       nic.InterfaceName,
+					MACAddress: nic.MACAddress,
+					VLAN:       subnet.VLAN(),
+				})
 			if err != nil {
 				return nil, errors.Annotate(err, "creating device interface")
 			}
-			maasNICID = strconv.Itoa(createdNIC.ID)
+			maasNICID = string(createdNIC.ID())
 			logger.Debugf("created device interface: %+v", createdNIC)
 		} else {
 			maasNICID = primaryNICID
