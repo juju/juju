@@ -922,7 +922,7 @@ func updateUnitPorts(st *State, store *multiwatcherStore, u *Unit) error {
 // backingEntityIdForOpenedPortsKey returns the entity id for the given
 // openedPorts key. Any extra information in the key is discarded.
 func backingEntityIdForOpenedPortsKey(modelUUID, key string) (multiwatcher.EntityId, bool) {
-	parts, err := extractPortsIdParts(key)
+	parts, err := extractPortsIDParts(key)
 	if err != nil {
 		logger.Debugf("cannot parse ports key %q: %v", key, err)
 		return multiwatcher.EntityId{}, false

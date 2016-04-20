@@ -372,9 +372,9 @@ func (s *MigrationSuite) TestPortsDocFields(c *gc.C) {
 		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
 		"ModelUUID",
-		// MachineId is implicit in the migration structure through containment.
+		// MachineID is implicit in the migration structure through containment.
 		"MachineID",
-		"NetworkName",
+		"SubnetID",
 		"Ports",
 		// TxnRevno isn't migrated.
 		"TxnRevno",
