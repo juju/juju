@@ -31,7 +31,7 @@ func init() {
 }
 
 // FakeDefaultSeries is the default series for testing.
-var FakeDefaultSeries = LatestLtsSeries
+var FakeDefaultSeries = config.FallbackLtsSeries
 
 // FakeVersionNumber is a valid version number that can be used in testing.
 var FakeVersionNumber = version.MustParse("1.99.0")
