@@ -676,7 +676,10 @@ class EnvJujuClient:
         )
         if name:
             args += (name,)
-        self.juju('deployer', args, self.env.needs_sudo())
+        e_arg = ('-e', 'local.{}:{}'.format(
+            self.env.controller.name, self.env.environment))
+        args = e_arg + args
+        self.juju('deployer', args, self.env.needs_sudo(), include_e=False)
 
     def _get_substrate_constraints(self):
         if self.env.maas:
@@ -1466,6 +1469,17 @@ class EnvJujuClient1X(EnvJujuClient2A1):
     def deploy_bundle(self, bundle, timeout=_DEFAULT_BUNDLE_TIMEOUT):
         """Deploy bundle using deployer for Juju 1.X version."""
         self.deployer(bundle, timeout=timeout)
+
+    def deployer(self, bundle, name=None, deploy_delay=10, timeout=3600):
+        args = (
+            '--debug',
+            '--deploy-delay', str(deploy_delay),
+            '--timeout', str(timeout),
+            '--config', bundle,
+        )
+        if name:
+            args += (name,)
+        self.juju('deployer', args, self.env.needs_sudo())
 
     def get_controller_endpoint(self):
         """Return the address of the state-server leader."""
