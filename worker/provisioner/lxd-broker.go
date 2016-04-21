@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/tools/lxdclient"
@@ -22,16 +21,11 @@ var _ environs.InstanceBroker = (*lxdBroker)(nil)
 
 func NewLxdBroker(
 	api APICalls,
+	manager container.Manager,
 	agentConfig agent.Config,
-	managerConfig container.ManagerConfig,
+	namespace string,
 	enableNAT bool,
 ) (environs.InstanceBroker, error) {
-	namespace := maybeGetManagerConfigNamespaces(managerConfig)
-	manager, err := lxd.NewContainerManager(managerConfig)
-	if err != nil {
-		return nil, err
-	}
-
 	return &lxdBroker{
 		manager:     manager,
 		namespace:   namespace,
@@ -85,9 +79,18 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 
 	network := container.BridgeNetworkConfig(bridgeDevice, 0, args.NetworkInfo)
 
-	series := args.Tools.OneSeries()
+	// The provisioner worker will provide all tools it knows about
+	// (after applying explicitly specified constraints), which may
+	// include tools for architectures other than the host's. We
+	// must constrain to the host's architecture for LXD.
+	archTools, err := matchHostArchTools(args.Tools)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	series := archTools.OneSeries()
 	args.InstanceConfig.MachineContainerType = instance.LXD
-	if err := args.InstanceConfig.SetTools(args.Tools); err != nil {
+	if err := args.InstanceConfig.SetTools(archTools); err != nil {
 		return nil, errors.Trace(err)
 	}
 

@@ -123,16 +123,9 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	// (after applying explicitly specified constraints), which may
 	// include tools for architectures other than the host's. We
 	// must constrain to the host's architecture for LXC.
-	arch := arch.HostArch()
-	archTools, err := args.Tools.Match(tools.Filter{
-		Arch: arch,
-	})
-	if err == tools.ErrNoMatches {
-		return nil, errors.Errorf(
-			"need tools for arch %s, only found %s",
-			arch,
-			args.Tools.Arches(),
-		)
+	archTools, err := matchHostArchTools(args.Tools)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	series := archTools.OneSeries()
@@ -789,4 +782,19 @@ func maybeReleaseContainerAddresses(
 			containerTag.Id(), err,
 		)
 	}
+}
+
+// matchHostArchTools filters the given list of tools to the host architecture.
+func matchHostArchTools(allTools tools.List) (tools.List, error) {
+	arch := arch.HostArch()
+	archTools, err := allTools.Match(tools.Filter{Arch: arch})
+	if err == tools.ErrNoMatches {
+		return nil, errors.Errorf(
+			"need tools for arch %s, only found %s",
+			arch, allTools.Arches(),
+		)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return archTools, nil
 }
