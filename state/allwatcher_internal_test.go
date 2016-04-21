@@ -2820,7 +2820,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 			if flag&assignUnit != 0 {
 				c.Assert(err, jc.ErrorIsNil)
 			} else {
-				c.Assert(err, gc.ErrorMatches, `cannot open ports 12345-12345/tcp \("wordpress/0"\) for unit "wordpress/0": .*`)
+				c.Assert(err, gc.ErrorMatches, `cannot open ports 12345-12345/tcp \("wordpress/0"\) for unit "wordpress/0".*`)
 				c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
 			}
 		}
