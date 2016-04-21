@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/gomaasapi"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -239,6 +240,76 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 			}
 			if len(link.Subnet.DNSServers) > 0 {
 				nicInfo.DNSServers = network.NewAddressesOnSpace(link.Subnet.Space, link.Subnet.DNSServers...)
+			}
+
+			interfaceInfo = append(interfaceInfo, nicInfo)
+		}
+	}
+	logger.Debugf("device %q has interface info: %+v", deviceID, interfaceInfo)
+	return interfaceInfo, nil
+}
+
+func (env *maasEnviron) deviceInterfaceInfo2(deviceID string, nameToParentName map[string]string) ([]network.InterfaceInfo, error) {
+	args := gomaasapi.DevicesArgs{SystemIDs: []string{deviceID}}
+	devices, err := env.maasController.Devices(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(devices) != 1 {
+		return nil, errors.Errorf("unexpected response requesting device %v: %v", deviceID, devices)
+	}
+	interfaces := devices[0].InterfaceSet()
+
+	interfaceInfo := make([]network.InterfaceInfo, 0, len(interfaces))
+	for _, nic := range interfaces {
+		nicInfo := network.InterfaceInfo{
+			InterfaceName:       nic.Name(),
+			InterfaceType:       network.EthernetInterface,
+			MACAddress:          nic.MACAddress(),
+			MTU:                 nic.EffectiveMTU(),
+			VLANTag:             nic.VLAN().VID(),
+			ProviderId:          network.Id(string(nic.ID())),
+			ProviderVLANId:      network.Id(string(nic.VLAN().ID())),
+			Disabled:            !nic.Enabled(),
+			NoAutoStart:         !nic.Enabled(),
+			ParentInterfaceName: nameToParentName[nic.Name()],
+		}
+
+		if len(nic.Links()) == 0 {
+			logger.Debugf("device %q interface %q has no links", deviceID, nic.Name())
+			interfaceInfo = append(interfaceInfo, nicInfo)
+			continue
+		}
+
+		for _, link := range nic.Links() {
+			mode := maasLinkMode(link.Mode())
+			switch mode {
+			case modeUnknown:
+				nicInfo.ConfigType = network.ConfigUnknown
+			case modeDHCP:
+				nicInfo.ConfigType = network.ConfigDHCP
+			case modeStatic, modeLinkUp:
+				nicInfo.ConfigType = network.ConfigStatic
+			default:
+				nicInfo.ConfigType = network.ConfigManual
+			}
+
+			if link.IPAddress() == "" {
+				logger.Debugf("device %q interface %q has no address", deviceID, nic.Name)
+				continue
+			}
+
+			nicInfo.CIDR = link.Subnet().CIDR()
+			// XXX this is a raw space name and should be
+			// translated
+			nicInfo.Address = network.NewAddressOnSpace(link.Subnet().Space(), link.IPAddress())
+			nicInfo.ProviderSubnetId = network.Id(strconv.Itoa(link.Subnet().ID()))
+			nicInfo.ProviderAddressId = network.Id(strconv.Itoa(link.ID()))
+			if link.Subnet().GatewayIP() != "" {
+				nicInfo.GatewayAddress = network.NewAddressOnSpace(link.Subnet().Space(), link.Subnet().GatewayIP())
+			}
+			if len(link.Subnet().DNSServers()) > 0 {
+				nicInfo.DNSServers = network.NewAddressesOnSpace(link.Subnet().Space(), link.Subnet().DNSServers()...)
 			}
 
 			interfaceInfo = append(interfaceInfo, nicInfo)

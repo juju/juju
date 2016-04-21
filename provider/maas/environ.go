@@ -2335,7 +2335,7 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 		}
 		deviceNICIDs[i] = maasNICID
 	}
-	finalInterfaces, err := env.deviceInterfaceInfo(device.ID(), nameToParentName)
+	finalInterfaces, err := env.deviceInterfaceInfo2(device.SystemID(), nameToParentName)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get device interfaces")
 	}
