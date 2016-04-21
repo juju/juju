@@ -445,6 +445,7 @@ func (c *Client) OpenCharm(curl *charm.URL) (io.ReadCloser, error) {
 func openCharm(httpClient HTTPDoer, curl *charm.URL) (io.ReadCloser, error) {
 	query := make(url.Values)
 	query.Add("url", curl.String())
+	query.Add("file", "*")
 	blob, err := openBlob(httpClient, "/charms", query)
 	if err != nil {
 		return nil, errors.Trace(err)
