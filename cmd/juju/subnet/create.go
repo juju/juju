@@ -16,7 +16,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newCreateCommand() cmd.Command {
+// NewCreateCommand returns a command to create a new subnet.
+func NewCreateCommand() cmd.Command {
 	return modelcmd.Wrap(&createCommand{})
 }
 
@@ -62,7 +63,7 @@ supported.
 // Info is defined on the cmd.Command interface.
 func (c *createCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "create",
+		Name:    "create-subnet",
 		Args:    "<CIDR> <space> <zone1> [<zone2> <zone3> ...] [--public|--private]",
 		Purpose: "create a new subnet",
 		Doc:     strings.TrimSpace(createCommandDoc),

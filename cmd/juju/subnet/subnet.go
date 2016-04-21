@@ -6,19 +6,16 @@ package subnet
 import (
 	"io"
 	"net"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/subnets"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 )
 
@@ -72,36 +69,6 @@ func (m *mvpAPIShim) ListSubnets(withSpace *names.SpaceTag, withZone string) ([]
 }
 
 var logger = loggo.GetLogger("juju.cmd.juju.subnet")
-
-const commandDoc = `
-"juju subnet" provides commands to manage Juju subnets. In Juju, a
-subnet is a logical address range, a subdivision of a network, defined
-by the subnet's Classless Inter-Domain Routing (CIDR) range, like
-10.10.0.0/24 or 2001:db8::/32. Alternatively, subnets can be
-identified uniquely by their provider-specific identifier
-(ProviderId), if the provider supports that. Subnets have two kinds of
-supported access: "public" (using shadow addresses) or "private"
-(using cloud-local addresses, this is the default).`
-
-// NewSuperCommand creates the "subnet" supercommand and registers the
-// subcommands that it supports.
-func NewSuperCommand() cmd.Command {
-	subnetCmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name:        "subnet",
-		Doc:         strings.TrimSpace(commandDoc),
-		UsagePrefix: "juju",
-		Purpose:     "manage subnets",
-	})
-	subnetCmd.Register(newAddCommand())
-	subnetCmd.Register(newListCommand())
-	if featureflag.Enabled(feature.PostNetCLIMVP) {
-		// The following commands are not part of the MVP.
-		subnetCmd.Register(newCreateCommand())
-		subnetCmd.Register(newRemoveCommand())
-	}
-
-	return subnetCmd
-}
 
 // SubnetCommandBase is the base type embedded into all subnet
 // subcommands.
