@@ -927,7 +927,7 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a, jc.SameContents, []string{"amd64", "i386", "ppc64el", "s390x"})
+	c.Assert(a, jc.SameContents, []string{"amd64", "arm64", "ppc64el", "s390x"})
 }
 
 func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
@@ -959,9 +959,9 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=arm64")
+	cons := constraints.MustParse("arch=i386")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=arm64\nvalid values are:.*")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=i386\nvalid values are:.*")
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
