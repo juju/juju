@@ -41,6 +41,9 @@ function ExecRetry($command, $retryInterval = 15)
 	$ErrorActionPreference = $currErrorActionPreference
 }
 
+# TryExecAll attempts all of the commands in the supplied array until
+# one can be executed without throwing an exception. If none of the
+# commands succeeds, an exception will be raised.
 function TryExecAll($commands)
 {
 	$currErrorActionPreference = $ErrorActionPreference
@@ -51,7 +54,8 @@ function TryExecAll($commands)
 		try
 		{
 			& $command
-			break
+			$ErrorActionPreference = $currErrorActionPreference
+			return
 		}
 		catch [System.Exception]
 		{
@@ -60,6 +64,7 @@ function TryExecAll($commands)
 	}
 
 	$ErrorActionPreference = $currErrorActionPreference
+	throw "All commands failed"
 }
 
 Function GUnZip-File{
