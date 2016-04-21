@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
@@ -323,6 +324,10 @@ var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
 func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
 	s.charmStoreSuite.SetUpSuite(c)
 	s.PatchValue(&watcher.Period, 10*time.Millisecond)
+}
+
+func (s *BundleDeployCharmStoreSuite) Client() *csclient.Client {
+	return s.client
 }
 
 // DeployBundleYAML uses the given bundle content to create a bundle in the
