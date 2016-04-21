@@ -6,6 +6,7 @@
 package lxdclient
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -23,6 +24,68 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.tools.lxdclient")
+
+// lxdLogProxy proxies LXD's log calls through the juju logger so we can get
+// more info about what's going on.
+type lxdLogProxy struct {
+	logger loggo.Logger
+}
+
+func (p *lxdLogProxy) render(msg string, ctx []interface{}) string {
+	result := bytes.Buffer{}
+	result.WriteString(msg)
+	if len(ctx) > 0 {
+		result.WriteString(": ")
+	}
+
+	/* This is sort of a hack, but it's enforced in the LXD code itself as
+	 * well. LXD's logging framework forces us to pass things as "string"
+	 * for one argument and then a "context object" as the next argument.
+	 * So, we do some basic rendering here to make it look slightly less
+	 * ugly.
+	 */
+	var key string
+	for i, entry := range ctx {
+		if i != 0 {
+			result.WriteString(", ")
+		}
+
+		if key == "" {
+			key, _ = entry.(string)
+		} else {
+			result.WriteString(key)
+			result.WriteString(": ")
+			result.WriteString(fmt.Sprintf("%s", entry))
+			key = ""
+		}
+	}
+
+	return result.String()
+}
+
+func (p *lxdLogProxy) Debug(msg string, ctx ...interface{}) {
+	p.logger.Debugf(p.render(msg, ctx))
+}
+
+func (p *lxdLogProxy) Info(msg string, ctx ...interface{}) {
+	p.logger.Infof(p.render(msg, ctx))
+}
+
+func (p *lxdLogProxy) Warn(msg string, ctx ...interface{}) {
+	p.logger.Warningf(p.render(msg, ctx))
+}
+
+func (p *lxdLogProxy) Error(msg string, ctx ...interface{}) {
+	p.logger.Errorf(p.render(msg, ctx))
+}
+
+func (p *lxdLogProxy) Crit(msg string, ctx ...interface{}) {
+	p.logger.Criticalf(p.render(msg, ctx))
+}
+
+func init() {
+	lxdshared.Log = &lxdLogProxy{loggo.GetLogger("lxd")}
+}
 
 const LXDBridgeFile = "/etc/default/lxd-bridge"
 
@@ -66,6 +129,42 @@ func Connect(cfg Config) (*Client, error) {
 }
 
 var lxdNewClientFromInfo = lxd.NewClientFromInfo
+
+func isSupportedLxdVersion(version string) bool {
+	var major, minor, micro int
+	var err error
+
+	versionParts := strings.Split(version, ".")
+	if len(versionParts) < 3 {
+		return false
+	}
+
+	major, err = strconv.Atoi(versionParts[0])
+	if err != nil {
+		return false
+	}
+
+	minor, err = strconv.Atoi(versionParts[1])
+	if err != nil {
+		return false
+	}
+
+	micro, err = strconv.Atoi(versionParts[2])
+	if err != nil {
+		return false
+	}
+
+	if major < 2 {
+		return false
+	}
+
+	/* disallow 2.0.0.rc4 and friends */
+	if major == 2 && minor == 0 && micro == 0 && len(versionParts) > 3 {
+		return false
+	}
+
+	return true
+}
 
 // newRawClient connects to the LXD host that is defined in Config.
 func newRawClient(remote Remote) (*lxd.Client, error) {
@@ -117,6 +216,15 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 			return nil, errors.Annotate(err, "can't connect to the local LXD server")
 		}
 		return nil, errors.Trace(err)
+	}
+
+	status, err := client.ServerStatus()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if !isSupportedLxdVersion(status.Environment.ServerVersion) {
+		return nil, errors.Errorf("lxd version %s, juju needs at least 2.0.0", status.Environment.ServerVersion)
 	}
 
 	/* If this is the LXD provider on the localhost, let's do an extra
