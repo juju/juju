@@ -91,9 +91,21 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	// Unlike with LXC, we don't override the default MTU to use.
 	network := container.BridgeNetworkConfig(bridgeDevice, 0, args.NetworkInfo)
 
-	series := args.Tools.OneSeries()
+	// The provisioner worker will provide all tools it knows about
+	// (after applying explicitly specified constraints), which may
+	// include tools for architectures other than the host's.
+	//
+	// container/kvm only allows running container==host arch, so
+	// we constrain the tools to host arch here regardless of the
+	// constraints specified.
+	archTools, err := matchHostArchTools(args.Tools)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	series := archTools.OneSeries()
 	args.InstanceConfig.MachineContainerType = instance.KVM
-	if err := args.InstanceConfig.SetTools(args.Tools); err != nil {
+	if err := args.InstanceConfig.SetTools(archTools); err != nil {
 		return nil, errors.Trace(err)
 	}
 
