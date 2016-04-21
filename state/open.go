@@ -236,7 +236,7 @@ func isUnauthorized(err error) bool {
 	// Some unauthorized access errors have no error code,
 	// just a simple error string; and some do have error codes
 	// but are not of consistent types (LastError/QueryError).
-	for _, prefix := range []string{"auth fail", "not authorized"} {
+	for _, prefix := range []string{"auth fail", "not authorized", "server returned error on SASL authentication step: Authentication failed."} {
 		if strings.HasPrefix(err.Error(), prefix) {
 			return true
 		}

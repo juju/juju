@@ -592,7 +592,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	// explicit Login will still be verified.
 	adminDB := st.MongoSession().DB("admin")
 	err = adminDB.Login("admin", "invalid-password")
-	c.Assert(err, gc.ErrorMatches, "auth fail(s|ed)")
+	c.Assert(err, gc.ErrorMatches, "(auth|(.*Authentication)) fail(s|ed)\\.?")
 	err = adminDB.Login("admin", info.Password)
 	c.Assert(err, jc.ErrorIsNil)
 

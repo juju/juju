@@ -78,7 +78,7 @@ func (s *adminSuite) TestSetAdminMongoPassword(c *gc.C) {
 	err = mongo.SetAdminMongoPassword(session, "auser", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	err = admin.Login("auser", "")
-	c.Assert(err, gc.ErrorMatches, "auth fail(s|ed)")
+	c.Assert(err, gc.ErrorMatches, "(auth|(.*Authentication)) fail(s|ed)\\.?")
 	err = admin.Login("auser", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
