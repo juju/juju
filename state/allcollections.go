@@ -87,7 +87,10 @@ func allCollections() collectionSchema {
 
 		// This collection holds a convenient representation of the content of
 		// the simplestreams data source pointing to binaries required by juju.
-		toolsmetadataC: {global: true},
+		//
+		// Tools metadata is per-model, to allow multiple revisions of tools to
+		// be uploaded to different models without affecting other models.
+		toolsmetadataC: {},
 
 		// This collection holds a convenient representation of the content of
 		// the simplestreams data source pointing to Juju GUI archives.

@@ -8,6 +8,7 @@ import (
 	"io"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/blobstore.v2"
@@ -21,7 +22,7 @@ var logger = loggo.GetLogger("juju.state.binarystorage")
 type binaryStorage struct {
 	modelUUID          string
 	managedStorage     blobstore.ManagedStorage
-	metadataCollection *mgo.Collection
+	metadataCollection mongo.Collection
 	txnRunner          jujutxn.Runner
 }
 
@@ -33,7 +34,7 @@ var _ Storage = (*binaryStorage)(nil)
 func New(
 	modelUUID string,
 	managedStorage blobstore.ManagedStorage,
-	metadataCollection *mgo.Collection,
+	metadataCollection mongo.Collection,
 	runner jujutxn.Runner,
 ) Storage {
 	return &binaryStorage{
@@ -74,7 +75,7 @@ func (s *binaryStorage) Add(r io.Reader, metadata Metadata) (resultErr error) {
 	var oldPath string
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		op := txn.Op{
-			C:  s.metadataCollection.Name,
+			C:  s.metadataCollection.Name(),
 			Id: newDoc.Id,
 		}
 
@@ -176,7 +177,7 @@ type metadataDoc struct {
 
 func (s *binaryStorage) findMetadata(version string) (metadataDoc, error) {
 	var doc metadataDoc
-	err := s.metadataCollection.Find(bson.D{{"_id", version}}).One(&doc)
+	err := s.metadataCollection.FindId(version).One(&doc)
 	if err == mgo.ErrNotFound {
 		return doc, errors.NotFoundf("%v binary metadata", version)
 	}

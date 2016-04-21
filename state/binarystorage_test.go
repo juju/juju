@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"strings"
 
 	"github.com/juju/errors"
@@ -16,8 +17,8 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/blobstore.v2"
-	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/testing"
@@ -97,8 +98,12 @@ func (s *binaryStorageSuite) TestToolsStorage(c *gc.C) {
 	s.testStorage(c, "toolsmetadata", s.State.ToolsStorage)
 }
 
-func (s *binaryStorageSuite) TestToolsStorageParams(c *gc.C) {
-	s.testStorageParams(c, "toolsmetadata", s.modelUUID, s.st.ToolsStorage)
+func (s *binaryStorageSuite) TestToolsStorageParamsControllerModel(c *gc.C) {
+	s.testStorageParams(c, "toolsmetadata", []string{s.State.ModelUUID()}, s.State.ToolsStorage)
+}
+
+func (s *binaryStorageSuite) TestToolsStorageParamsHostedModel(c *gc.C) {
+	s.testStorageParams(c, "toolsmetadata", []string{s.State.ModelUUID(), s.modelUUID}, s.st.ToolsStorage)
 }
 
 func (s *binaryStorageSuite) TestGUIArchiveStorage(c *gc.C) {
@@ -106,7 +111,7 @@ func (s *binaryStorageSuite) TestGUIArchiveStorage(c *gc.C) {
 }
 
 func (s *binaryStorageSuite) TestGUIArchiveStorageParams(c *gc.C) {
-	s.testStorageParams(c, "guimetadata", s.controllerUUID, s.st.GUIStorage)
+	s.testStorageParams(c, "guimetadata", []string{s.controllerUUID}, s.st.GUIStorage)
 }
 
 func (s *binaryStorageSuite) testStorage(c *gc.C, collName string, openStorage storageOpener) {
@@ -132,18 +137,17 @@ func (s *binaryStorageSuite) testStorage(c *gc.C, collName string, openStorage s
 	c.Assert(nameSet.Contains(collName), jc.IsTrue)
 }
 
-func (s *binaryStorageSuite) testStorageParams(c *gc.C, collName, uuid string, openStorage storageOpener) {
-	var called bool
+func (s *binaryStorageSuite) testStorageParams(c *gc.C, collName string, uuids []string, openStorage storageOpener) {
+	var uuidArgs []string
 	s.PatchValue(state.BinarystorageNew, func(
 		modelUUID string,
 		managedStorage blobstore.ManagedStorage,
-		metadataCollection *mgo.Collection,
+		metadataCollection mongo.Collection,
 		runner jujutxn.Runner,
 	) binarystorage.Storage {
-		called = true
-		c.Assert(modelUUID, gc.Equals, uuid)
+		uuidArgs = append(uuidArgs, modelUUID)
 		c.Assert(managedStorage, gc.NotNil)
-		c.Assert(metadataCollection.Name, gc.Equals, collName)
+		c.Assert(metadataCollection.Name(), gc.Equals, collName)
 		c.Assert(runner, gc.NotNil)
 		return nil
 	})
@@ -151,5 +155,41 @@ func (s *binaryStorageSuite) testStorageParams(c *gc.C, collName, uuid string, o
 	storage, err := openStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	storage.Close()
-	c.Assert(called, jc.IsTrue)
+	c.Assert(uuidArgs, jc.DeepEquals, uuids)
+}
+
+func (s *binaryStorageSuite) TestToolsStorageLayered(c *gc.C) {
+	modelTools, err := s.st.ToolsStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer modelTools.Close()
+
+	controllerTools, err := s.State.ToolsStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer controllerTools.Close()
+
+	err = modelTools.Add(strings.NewReader("abc"), binarystorage.Metadata{Version: "1.0", Size: 3})
+	c.Assert(err, jc.ErrorIsNil)
+	err = controllerTools.Add(strings.NewReader("defg"), binarystorage.Metadata{Version: "1.0", Size: 4})
+	c.Assert(err, jc.ErrorIsNil)
+	err = controllerTools.Add(strings.NewReader("def"), binarystorage.Metadata{Version: "2.0", Size: 3})
+	c.Assert(err, jc.ErrorIsNil)
+
+	all, err := modelTools.AllMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, jc.DeepEquals, []binarystorage.Metadata{
+		{Version: "1.0", Size: 3},
+		{Version: "2.0", Size: 3},
+	})
+
+	assertContents := func(v, contents string) {
+		_, rc, err := modelTools.Open(v)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(rc, gc.NotNil)
+		defer rc.Close()
+		data, err := ioutil.ReadAll(rc)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(string(data), gc.Equals, contents)
+	}
+	assertContents("1.0", "abc")
+	assertContents("2.0", "def")
 }
