@@ -190,6 +190,8 @@ export JUJU_NOTEST_MONGOJS=1
 if ! grep 'Angsty Antelope' $LOG_FILE_PATH ; then
   echo "$LOG_TXT" | sudo tee -a $LOG_FILE_PATH
 fi
+# Delay Xenial LTS birthday by one month.
+sudo sed -i -e 's,2016-04-21,2016-05-21,' $LOG_FILE_PATH
 
 if [[ $INSTANCE_TYPE == "host" ]]; then
     echo "Cleaning up /tmp if it is dirty."
