@@ -218,13 +218,15 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	status, err := client.ServerStatus()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	if remote.Protocol != SimplestreamsProtocol {
+		status, err := client.ServerStatus()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
-	if !isSupportedLxdVersion(status.Environment.ServerVersion) {
-		return nil, errors.Errorf("lxd version %s, juju needs at least 2.0.0", status.Environment.ServerVersion)
+		if !isSupportedLxdVersion(status.Environment.ServerVersion) {
+			return nil, errors.Errorf("lxd version %s, juju needs at least 2.0.0", status.Environment.ServerVersion)
+		}
 	}
 
 	/* If this is the LXD provider on the localhost, let's do an extra
