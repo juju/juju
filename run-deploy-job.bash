@@ -21,19 +21,13 @@ fi
 series=$2
 timeout=$4
 shift 4
-$SCRIPTS/jujuci.py -v setup-workspace --clean-env $JOB_NAME $WORKSPACE
-VERSION=$($SCRIPTS/jujuci.py get-build-vars --version $revision_build)
-package=$($SCRIPTS/jujuci.py get-package-name $VERSION)
-s3cmd --config $JUJU_HOME/juju-qa.s3cfg sync \
-  s3://juju-qa-data/juju-ci/products/version-$revision_build . \
-  --exclude '*' --include $package || true
-# Find the deb with the highest build- number.
-deb=$(find . -name $package|sed -r 's/.*build-([0-9]+)\/.*/\1 \0/'|sort -g|\
-      tail -n1| cut -f 2 -d ' ')
-dpkg -x $deb extracted-bin
-JUJU_BIN=$(find extracted-bin -name 'juju')
-$SCRIPTS/jujuci.py get-build-vars --summary --env $ENV $revision_build
 
+$SCRIPTS/jujuci.py -v setup-workspace --clean-env $JOB_NAME $WORKSPACE
+$SCRIPTS/s3ci.py get-summary 3893 $ENV
+JUJU_BIN=$($SCRIPTS/s3ci.py get-juju-bin $revision_build $WORKSPACE)
+
+# Define $VERSION
+source $($SCRIPTS/s3ci.py get $revision_build build-revision buildvars.bash)
 if [[ $VERSION =~ ^1\.2[1-2].*$ ]]; then
     echo "Setting the default juju to 1.20.11."
     export PATH="$HOME/old-juju/1.20.11/usr/lib/juju-1.20.11/bin:$PATH"
