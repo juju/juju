@@ -89,6 +89,8 @@ func NewCinderVolumeSource(s OpenstackStorage) storage.VolumeSource {
 	return &cinderVolumeSource{openstackStorage(s), envName, modelUUID}
 }
 
+// Include images for arches currently supported.  i386 is no longer
+// supported, so it can be excluded.
 var indexData = `
 		{
 		 "index": {

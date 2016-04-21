@@ -959,6 +959,9 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// i386 is a valid arch, but is no longer supported.  No image
+	// data was created for it for the test.
 	cons := constraints.MustParse("arch=i386")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=i386\nvalid values are:.*")
