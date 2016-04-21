@@ -295,7 +295,7 @@ func (env *maasEnviron) deviceInterfaceInfo2(deviceID string, nameToParentName m
 			}
 
 			if link.IPAddress() == "" {
-				logger.Debugf("device %q interface %q has no address", deviceID, nic.Name)
+				logger.Debugf("device %q interface %q has no address", deviceID, nic.Name())
 				continue
 			}
 
