@@ -31,6 +31,14 @@ import (
 
 var logger = loggo.GetLogger("juju.environs.local/share")
 
+// FallbackLtsSeries is the latest LTS series we'll use, if we fail to
+// obtain this information from the system.
+var FallbackLtsSeries string = "trusty"
+
+func init() {
+	FallbackLtsSeries = LatestLtsSeries()
+}
+
 const (
 	// FwInstance requests the use of an individual firewall per instance.
 	FwInstance = "instance"
@@ -64,10 +72,6 @@ const (
 	// refreshing the addresses, in seconds. Not too frequent, as we
 	// refresh addresses from the provider each time.
 	DefaultBootstrapSSHAddressesDelay int = 10
-
-	// fallbackLtsSeries is the latest LTS series we'll use, if we fail to
-	// obtain this information from the system.
-	fallbackLtsSeries string = "trusty"
 
 	// DefaultNumaControlPolicy should not be used by default.
 	// Only use numactl if user specifically requests it
@@ -321,7 +325,7 @@ func LatestLtsSeries() string {
 	if latestLtsSeries == "" {
 		series, err := distroLtsSeries()
 		if err != nil {
-			latestLtsSeries = fallbackLtsSeries
+			latestLtsSeries = FallbackLtsSeries
 		} else {
 			latestLtsSeries = series
 		}
