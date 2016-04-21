@@ -2373,10 +2373,10 @@ type openedPortsWatcher struct {
 
 var _ Watcher = (*openedPortsWatcher)(nil)
 
-// WatchOpenedPorts starts and returns a StringsWatcher notifying of
-// changes to the openedPorts collection. Reported changes have the
-// following format: "<machine-id>:<network-name>", i.e.
-// "0:juju-public".
+// WatchOpenedPorts starts and returns a StringsWatcher notifying of changes to
+// the openedPorts collection. Reported changes have the following format:
+// "<machine-id>:[<subnet-CIDR>]", i.e. "0:10.20.0.0/16" or "1:" (empty subnet
+// ID is allowed for backwards-compatibility).
 func (st *State) WatchOpenedPorts() StringsWatcher {
 	return newOpenedPortsWatcher(st)
 }
@@ -2402,8 +2402,9 @@ func (w *openedPortsWatcher) Changes() <-chan []string {
 }
 
 // transformId converts a global key for a ports document (e.g.
-// "m#42#0.1.2.0/24") into a colon-separated string with the
-// machine and subnet IDs (e.g. "42:0.1.2.0/24").
+// "m#42#0.1.2.0/24") into a colon-separated string with the machine and subnet
+// IDs (e.g. "42:0.1.2.0/24"). Subnet ID (a.k.a. CIDR) can be empty for
+// backwards-compatibility.
 func (w *openedPortsWatcher) transformID(globalKey string) (string, error) {
 	parts, err := extractPortsIDParts(globalKey)
 	if err != nil {

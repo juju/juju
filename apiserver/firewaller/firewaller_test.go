@@ -96,7 +96,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 
 	s.openPorts(c)
 	expectChanges := []string{
-		"0:", // empty subnet is ok (untill can be made required)
+		"0:", // empty subnet is ok (until it can be made mandatory)
 		"0:10.20.30.0/24",
 		"2:",
 	}

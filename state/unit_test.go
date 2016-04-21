@@ -961,10 +961,13 @@ func (s *UnitSuite) TestOpenedPortsOnInvalidSubnet(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenedPortsOnUnknownSubnet(c *gc.C) {
+	// We're not adding the 127.0.0.0/8 subnet to test the "not found" case.
 	s.testOpenedPorts(c, "127.0.0.0/8", `subnet "127.0.0.0/8" not found or not alive`)
 }
 
 func (s *UnitSuite) TestOpenedPortsOnDeadSubnet(c *gc.C) {
+	// We're adding the 0.1.2.0/24 subnet first and then setting it to Dead to
+	// check the "not alive" case.
 	subnet, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = subnet.EnsureDead()

@@ -208,8 +208,8 @@ func (f *FirewallerAPI) GetMachinePorts(args params.MachinePortsParams) (params.
 	return result, nil
 }
 
-// GetMachineActiveSubnets returns the tags of the all subnets the each given
-// machine has open ports on.
+// GetMachineActiveSubnets returns the tags of the all subnets that each machine
+// (in args) has open ports on.
 func (f *FirewallerAPI) GetMachineActiveSubnets(args params.Entities) (params.StringsResults, error) {
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.Entities)),
@@ -237,7 +237,9 @@ func (f *FirewallerAPI) GetMachineActiveSubnets(args params.Entities) (params.St
 		for _, port := range ports {
 			subnetID := port.SubnetID()
 			if subnetID != "" && !names.IsValidSubnet(subnetID) {
-				err = errors.NotValidf("%s", ports) // ports for machine "0", subnet "bad" not valid
+				// The error message below will look like e.g. `ports for
+				// machine "0", subnet "bad" not valid`.
+				err = errors.NotValidf("%s", ports)
 				result.Results[i].Error = common.ServerError(err)
 				continue
 			} else if subnetID != "" && names.IsValidSubnet(subnetID) {
