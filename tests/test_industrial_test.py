@@ -1881,7 +1881,7 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
         self.assertIn('summary', metadata)
         self.assertIn('description', metadata)
         if client.version.startswith('1.'):
-            self.assertNotIn('series', metadata)
+            self.assertIn('series', metadata)
             charm_path = os.path.join('local:trusty', 'mycharm')
             assert_juju_call(self, cc_mock, client, (
                 'juju', '--show-log', 'deploy', '-e', 'steve', charm_path,

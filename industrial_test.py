@@ -489,16 +489,10 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
         with temp_dir() as temp_repository:
             charm_root = os.path.join(temp_repository, 'trusty', 'mycharm')
             os.makedirs(charm_root)
-            if client.version.startswith('1.'):
-                make_charm(
-                    charm_root, min_ver=None, name='mycharm',
-                    description='foo-description', summary='foo-summary',
-                    series=None)
-            else:
-                make_charm(
-                    charm_root, min_ver=None, name='mycharm',
-                    description='foo-description', summary='foo-summary',
-                    series=['trusty'])
+            make_charm(
+                charm_root, min_ver=None, name='mycharm',
+                description='foo-description', summary='foo-summary',
+                series=['trusty'])
             charm_path = local_charm_path(
                 charm='mycharm', juju_ver=client.version, series='trusty',
                 repository=os.path.dirname(charm_root))
