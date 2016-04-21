@@ -94,44 +94,41 @@ func (s *machineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *machineSuite) TestActiveNetworks(c *gc.C) {
-	// No ports opened at first, no networks.
-	nets, err := s.apiMachine.ActiveNetworks()
+func (s *machineSuite) TestActiveSubnets(c *gc.C) {
+	// No ports opened at first, no active subnets.
+	subnets, err := s.apiMachine.ActiveSubnets()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nets, gc.HasLen, 0)
+	c.Assert(subnets, gc.HasLen, 0)
 
 	// Open a port and check again.
 	err = s.units[0].OpenPort("tcp", 1234)
 	c.Assert(err, jc.ErrorIsNil)
-	nets, err = s.apiMachine.ActiveNetworks()
+	subnets, err = s.apiMachine.ActiveSubnets()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nets, jc.DeepEquals, []names.NetworkTag{
-		names.NewNetworkTag(network.DefaultPublic),
-	})
+	c.Assert(subnets, jc.DeepEquals, []names.SubnetTag{{}})
 
-	// Remove all ports, no networks.
-	ports, err := s.machines[0].OpenedPorts(network.DefaultPublic)
+	// Remove all ports, no more active subnets.
+	ports, err := s.machines[0].OpenedPorts("")
 	c.Assert(err, jc.ErrorIsNil)
 	err = ports.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	nets, err = s.apiMachine.ActiveNetworks()
+	subnets, err = s.apiMachine.ActiveSubnets()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nets, gc.HasLen, 0)
+	c.Assert(subnets, gc.HasLen, 0)
 }
 
 func (s *machineSuite) TestOpenedPorts(c *gc.C) {
-	networkTag := names.NewNetworkTag(network.DefaultPublic)
 	unitTag := s.units[0].Tag().(names.UnitTag)
 
 	// No ports opened at first.
-	ports, err := s.apiMachine.OpenedPorts(networkTag)
+	ports, err := s.apiMachine.OpenedPorts(names.SubnetTag{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
 	// Open a port and check again.
 	err = s.units[0].OpenPort("tcp", 1234)
 	c.Assert(err, jc.ErrorIsNil)
-	ports, err = s.apiMachine.OpenedPorts(networkTag)
+	ports, err = s.apiMachine.OpenedPorts(names.SubnetTag{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, jc.DeepEquals, map[network.PortRange]names.UnitTag{
 		network.PortRange{FromPort: 1234, ToPort: 1234, Protocol: "tcp"}: unitTag,

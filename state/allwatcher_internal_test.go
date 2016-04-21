@@ -611,7 +611,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = b.Changed(all, watcher.Change{
 		C:  openedPortsC,
-		Id: s.state.docID("m#0#n#juju-public"),
+		Id: s.state.docID("m#0#0.1.2.0/24"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	entities = all.All()
@@ -2408,7 +2408,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				change: watcher.Change{
 					C:  openedPortsC,
-					Id: st.docID("m#0#n#juju-public"),
+					Id: st.docID("m#0#"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
@@ -2820,7 +2820,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 			if flag&assignUnit != 0 {
 				c.Assert(err, jc.ErrorIsNil)
 			} else {
-				c.Assert(err, gc.ErrorMatches, `cannot open ports 12345-12345/tcp \("wordpress/0"\) for unit "wordpress/0": .*`)
+				c.Assert(err, gc.ErrorMatches, `cannot open ports 12345-12345/tcp \("wordpress/0"\) for unit "wordpress/0".*`)
 				c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
 			}
 		}

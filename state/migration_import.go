@@ -318,13 +318,13 @@ func (i *importer) machine(m description.Machine) error {
 
 func (i *importer) machinePortsOps(m description.Machine) []txn.Op {
 	var result []txn.Op
-	machineId := m.Id()
+	machineID := m.Id()
 
-	for _, ports := range m.NetworkPorts() {
-		networkName := ports.NetworkName()
+	for _, ports := range m.OpenedPorts() {
+		subnetID := ports.SubnetID()
 		doc := &portsDoc{
-			MachineID:   machineId,
-			NetworkName: networkName,
+			MachineID: machineID,
+			SubnetID:  subnetID,
 		}
 		for _, opened := range ports.OpenPorts() {
 			doc.Ports = append(doc.Ports, PortRange{
@@ -336,7 +336,7 @@ func (i *importer) machinePortsOps(m description.Machine) []txn.Op {
 		}
 		result = append(result, txn.Op{
 			C:      openedPortsC,
-			Id:     portsGlobalKey(machineId, networkName),
+			Id:     portsGlobalKey(machineID, subnetID),
 			Assert: txn.DocMissing,
 			Insert: doc,
 		})

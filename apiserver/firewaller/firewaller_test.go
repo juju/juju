@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/firewaller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -31,6 +30,9 @@ var _ = gc.Suite(&firewallerSuite{})
 
 func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.firewallerBaseSuite.setUpTest(c)
+
+	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "10.20.30.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a firewaller API for the machine.
 	firewallerAPI, err := firewaller.NewFirewallerAPI(
@@ -75,17 +77,13 @@ func (s *firewallerSuite) TestGetExposed(c *gc.C) {
 	s.testGetExposed(c, s.firewaller)
 }
 
-func (s *firewallerSuite) TestOpenedPortsNotImplemented(c *gc.C) {
-	apiservertesting.AssertNotImplemented(c, s.firewaller, "OpenedPorts")
-}
-
 func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 	s.testGetAssignedMachine(c, s.firewaller)
 }
 
 func (s *firewallerSuite) openPorts(c *gc.C) {
 	// Open some ports on the units.
-	err := s.units[0].OpenPorts("tcp", 1234, 1400)
+	err := s.units[0].OpenPortsOnSubnet("10.20.30.0/24", "tcp", 1234, 1400)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.units[0].OpenPort("tcp", 4321)
 	c.Assert(err, jc.ErrorIsNil)
@@ -98,8 +96,9 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 
 	s.openPorts(c)
 	expectChanges := []string{
-		"0:juju-public",
-		"2:juju-public",
+		"0:", // empty subnet is ok (until it can be made mandatory)
+		"0:10.20.30.0/24",
+		"2:",
 	}
 
 	fakeEnvTag := names.NewModelTag("deadbeef-deaf-face-feed-0123456789ab")
@@ -142,24 +141,27 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
 	s.openPorts(c)
 
-	networkTag := names.NewNetworkTag(network.DefaultPublic).String()
+	subnetTag := names.NewSubnetTag("10.20.30.0/24").String()
 	args := params.MachinePortsParams{
 		Params: []params.MachinePorts{
-			{MachineTag: s.machines[0].Tag().String(), NetworkTag: networkTag},
-			{MachineTag: s.machines[1].Tag().String(), NetworkTag: networkTag},
-			{MachineTag: s.machines[2].Tag().String(), NetworkTag: networkTag},
-			{MachineTag: s.machines[0].Tag().String(), NetworkTag: "invalid"},
-			{MachineTag: "machine-42", NetworkTag: networkTag},
-			{MachineTag: s.machines[0].Tag().String(), NetworkTag: "network-missing"},
+			{MachineTag: s.machines[0].Tag().String(), SubnetTag: ""},
+			{MachineTag: s.machines[0].Tag().String(), SubnetTag: subnetTag},
+			{MachineTag: s.machines[1].Tag().String(), SubnetTag: ""},
+			{MachineTag: s.machines[2].Tag().String(), SubnetTag: ""},
+			{MachineTag: s.machines[0].Tag().String(), SubnetTag: "invalid"},
+			{MachineTag: "machine-42", SubnetTag: ""},
+			{MachineTag: s.machines[0].Tag().String(), SubnetTag: "subnet-bad"},
 		},
 	}
 	unit0Tag := s.units[0].Tag().String()
-	expectPortsMachine0 := []params.MachinePortRange{
-		{UnitTag: unit0Tag, PortRange: params.PortRange{
-			FromPort: 1234, ToPort: 1400, Protocol: "tcp",
-		}},
+	expectPortsMachine0NoSubnet := []params.MachinePortRange{
 		{UnitTag: unit0Tag, PortRange: params.PortRange{
 			FromPort: 4321, ToPort: 4321, Protocol: "tcp",
+		}},
+	}
+	expectPortsMachine0WithSubnet := []params.MachinePortRange{
+		{UnitTag: unit0Tag, PortRange: params.PortRange{
+			FromPort: 1234, ToPort: 1400, Protocol: "tcp",
 		}},
 	}
 	unit2Tag := s.units[2].Tag().String()
@@ -172,20 +174,22 @@ func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.MachinePortsResults{
 		Results: []params.MachinePortsResult{
-			{Ports: expectPortsMachine0},
+			{Ports: expectPortsMachine0NoSubnet},
+			{Ports: expectPortsMachine0WithSubnet},
 			{Error: nil, Ports: nil},
 			{Ports: expectPortsMachine2},
-			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ServerError(`"invalid" is not a valid tag`)},
 			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: nil, Ports: nil},
+			{Error: apiservertesting.ServerError(`"subnet-bad" is not a valid subnet tag`)},
 		},
 	})
 
 }
 
-func (s *firewallerSuite) TestGetMachineActiveNetworks(c *gc.C) {
+func (s *firewallerSuite) TestGetMachineActiveSubnets(c *gc.C) {
 	s.openPorts(c)
 
+	subnetTag := names.NewSubnetTag("10.20.30.0/24").String()
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
 		{Tag: s.machines[1].Tag().String()},
@@ -193,23 +197,23 @@ func (s *firewallerSuite) TestGetMachineActiveNetworks(c *gc.C) {
 		{Tag: s.service.Tag().String()},
 		{Tag: s.units[0].Tag().String()},
 	}})
-	networkTag := names.NewNetworkTag(network.DefaultPublic)
-	expectResults := []string{networkTag.String()}
-	result, err := s.firewaller.GetMachineActiveNetworks(args)
+	expectResultsMachine0 := []string{subnetTag, ""}
+	expectResultsMachine2 := []string{""}
+	result, err := s.firewaller.GetMachineActiveSubnets(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
-			{Result: expectResults},
+			{Result: expectResultsMachine0},
 			{Result: nil, Error: nil},
-			{Result: expectResults},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
+			{Result: expectResultsMachine2},
+			{Error: apiservertesting.ServerError(`"service-wordpress" is not a valid machine tag`)},
+			{Error: apiservertesting.ServerError(`"unit-wordpress-0" is not a valid machine tag`)},
 			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ServerError(`"unit-foo-0" is not a valid machine tag`)},
+			{Error: apiservertesting.ServerError(`"service-bar" is not a valid machine tag`)},
+			{Error: apiservertesting.ServerError(`"user-foo" is not a valid machine tag`)},
+			{Error: apiservertesting.ServerError(`"foo-bar" is not a valid tag`)},
+			{Error: apiservertesting.ServerError(`"" is not a valid tag`)},
 		},
 	})
 }
