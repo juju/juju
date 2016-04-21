@@ -303,10 +303,10 @@ func (env *maasEnviron) deviceInterfaceInfo2(deviceID string, nameToParentName m
 			// XXX this is a raw space name and should be
 			// translated
 			nicInfo.Address = network.NewAddressOnSpace(link.Subnet().Space(), link.IPAddress())
-			nicInfo.ProviderSubnetId = network.Id(strconv.Itoa(link.Subnet().ID()))
-			nicInfo.ProviderAddressId = network.Id(strconv.Itoa(link.ID()))
-			if link.Subnet().GatewayIP() != "" {
-				nicInfo.GatewayAddress = network.NewAddressOnSpace(link.Subnet().Space(), link.Subnet().GatewayIP())
+			nicInfo.ProviderSubnetId = network.Id(string(link.Subnet().ID()))
+			nicInfo.ProviderAddressId = network.Id(string(link.ID()))
+			if link.Subnet().Gateway() != "" {
+				nicInfo.GatewayAddress = network.NewAddressOnSpace(link.Subnet().Space(), link.Subnet().Gateway())
 			}
 			if len(link.Subnet().DNSServers()) > 0 {
 				nicInfo.DNSServers = network.NewAddressesOnSpace(link.Subnet().Space(), link.Subnet().DNSServers()...)

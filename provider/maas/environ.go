@@ -2319,7 +2319,6 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 			}
 			maasNICID = string(createdNIC.ID())
 			logger.Debugf("created device interface: %+v", createdNIC)
-			subnetID := string(nic.ProviderSubnetId)
 
 			linkArgs := gomaasapi.LinkSubnetArgs{
 				Mode:   gomaasapi.LinkModeStatic,
