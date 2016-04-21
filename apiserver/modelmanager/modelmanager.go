@@ -1,8 +1,10 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package modelmanager defines an API end point for functions
-// dealing with models.  Creating, listing and sharing models.
+// Package modelmanager defines an API end point for functions dealing with
+// models.  Creating, listing and sharing models. This facade is available at
+// the root of the controller API, and as such, there is no implicit Model
+// assocated.
 package modelmanager
 
 import (
@@ -363,6 +365,7 @@ func (em *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessReques
 		return result, errors.Trace(err)
 	}
 	if !isAdmin {
+		// TODO: this should be common.ErrPerm
 		return result, errors.New("only controller admins can grant or revoke model access")
 	}
 

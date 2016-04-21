@@ -327,14 +327,12 @@ func (s *modelManagerSuite) TestGrantMissingUserFails(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	args := params.ModifyModelAccessRequest{
 		Changes: []params.ModifyModelAccess{{
 			UserTag:  names.NewLocalUserTag("foobar").String(),
 			Action:   params.GrantModelAccess,
 			Access:   params.ModelReadAccess,
-			ModelTag: names.NewModelTag(model.UUID()).String(),
+			ModelTag: st.ModelTag().String(),
 		}}}
 
 	result, err := s.modelmanager.ModifyModelAccess(args)
@@ -417,8 +415,6 @@ func (s *modelManagerSuite) TestRevokeModelMissingUser(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
 	user := names.NewUserTag("bob")
 	args := params.ModifyModelAccessRequest{
@@ -426,7 +422,7 @@ func (s *modelManagerSuite) TestRevokeModelMissingUser(c *gc.C) {
 			UserTag:  user.String(),
 			Action:   params.RevokeModelAccess,
 			Access:   params.ModelReadAccess,
-			ModelTag: model.ModelTag().String(),
+			ModelTag: st.ModelTag().String(),
 		}}}
 
 	result, err := s.modelmanager.ModifyModelAccess(args)
@@ -444,15 +440,13 @@ func (s *modelManagerSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.ModifyModelAccessRequest{
 		Changes: []params.ModifyModelAccess{{
 			UserTag:  user.UserTag().String(),
 			Action:   params.GrantModelAccess,
 			Access:   params.ModelReadAccess,
-			ModelTag: model.ModelTag().String(),
+			ModelTag: st.ModelTag().String(),
 		}}}
 
 	result, err := s.modelmanager.ModifyModelAccess(args)
@@ -471,15 +465,13 @@ func (s *modelManagerSuite) TestGrantModelAddLocalUser(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.ModifyModelAccessRequest{
 		Changes: []params.ModifyModelAccess{{
 			UserTag:  user.UserTag().String(),
 			Action:   params.GrantModelAccess,
 			Access:   params.ModelReadAccess,
-			ModelTag: model.ModelTag().String(),
+			ModelTag: st.ModelTag().String(),
 		}}}
 
 	result, err := s.modelmanager.ModifyModelAccess(args)
@@ -503,15 +495,13 @@ func (s *modelManagerSuite) TestGrantModelAddRemoteUser(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.ModifyModelAccessRequest{
 		Changes: []params.ModifyModelAccess{{
 			UserTag:  user.String(),
 			Action:   params.GrantModelAccess,
 			Access:   params.ModelReadAccess,
-			ModelTag: model.ModelTag().String(),
+			ModelTag: st.ModelTag().String(),
 		}}}
 
 	result, err := s.modelmanager.ModifyModelAccess(args)
@@ -535,15 +525,13 @@ func (s *modelManagerSuite) TestGrantModelAddAdminUser(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.ModifyModelAccessRequest{
 		Changes: []params.ModifyModelAccess{{
 			UserTag:  user.Tag().String(),
 			Action:   params.GrantModelAccess,
 			Access:   params.ModelWriteAccess,
-			ModelTag: model.ModelTag().String(),
+			ModelTag: st.ModelTag().String(),
 		}}}
 
 	result, err := s.modelmanager.ModifyModelAccess(args)
@@ -567,15 +555,13 @@ func (s *modelManagerSuite) TestGrantModelIncreaseAccess(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.ModifyModelAccessRequest{
 		Changes: []params.ModifyModelAccess{{
 			UserTag:  user.Tag().String(),
 			Action:   params.GrantModelAccess,
 			Access:   params.ModelReadAccess,
-			ModelTag: model.ModelTag().String(),
+			ModelTag: st.ModelTag().String(),
 		}}}
 
 	result, err := s.modelmanager.ModifyModelAccess(args)
@@ -589,7 +575,7 @@ func (s *modelManagerSuite) TestGrantModelIncreaseAccess(c *gc.C) {
 			UserTag:  user.Tag().String(),
 			Action:   params.GrantModelAccess,
 			Access:   params.ModelWriteAccess,
-			ModelTag: model.ModelTag().String(),
+			ModelTag: st.ModelTag().String(),
 		}}}
 
 	result, err = s.modelmanager.ModifyModelAccess(args)
@@ -687,16 +673,13 @@ func (s *modelManagerSuite) TestModifyModelAccessEmptyArgs(c *gc.C) {
 
 func (s *modelManagerSuite) TestModifyModelAccessInvalidAction(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
 	var dance params.ModelAction = "dance"
 	args := params.ModifyModelAccessRequest{
 		Changes: []params.ModifyModelAccess{{
 			UserTag:  "user-user@local",
 			Action:   dance,
 			Access:   params.ModelReadAccess,
-			ModelTag: names.NewModelTag(model.UUID()).String(),
+			ModelTag: s.State.ModelTag().String(),
 		}}}
 
 	result, err := s.modelmanager.ModifyModelAccess(args)
@@ -705,6 +688,22 @@ func (s *modelManagerSuite) TestModifyModelAccessInvalidAction(c *gc.C) {
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
+}
+
+func (s *modelManagerSuite) TestModifyModelAccessReadOnly(c *gc.C) {
+	user := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: state.ModelReadAccess})
+	s.setAPIUser(c, user.UserTag())
+
+	args := params.ModifyModelAccessRequest{
+		Changes: []params.ModifyModelAccess{{
+			UserTag:  "bob@ubuntuone",
+			Action:   params.GrantModelAccess,
+			Access:   params.ModelReadAccess,
+			ModelTag: s.State.ModelTag().String(),
+		}}}
+
+	_, err := s.modelmanager.ModifyModelAccess(args)
+	c.Assert(err, gc.ErrorMatches, "only controller admins can grant or revoke model access")
 }
 
 type fakeProvider struct {

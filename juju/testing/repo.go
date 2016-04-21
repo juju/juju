@@ -14,44 +14,18 @@ import (
 	"github.com/juju/juju/state/storage"
 )
 
-// BaseRepoSuite sets up a local directory containing charms.
-type BaseRepoSuite struct {
-	CharmsPath string
-}
-
-func (s *BaseRepoSuite) SetUpSuite(c *gc.C)    {}
-func (s *BaseRepoSuite) TearDownSuite(c *gc.C) {}
-
-func (s *BaseRepoSuite) SetUpTest(c *gc.C) {
-	s.CharmsPath = c.MkDir()
-}
-
 type RepoSuite struct {
 	JujuConnSuite
-	BaseRepoSuite
-}
-
-func (s *RepoSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
-	s.BaseRepoSuite.SetUpSuite(c)
-}
-
-func (s *RepoSuite) TearDownSuite(c *gc.C) {
-	s.BaseRepoSuite.TearDownSuite(c)
-	s.JujuConnSuite.TearDownSuite(c)
+	CharmsPath string
 }
 
 func (s *RepoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.BaseRepoSuite.SetUpTest(c)
+	s.CharmsPath = c.MkDir()
 	// Change the environ's config to ensure we're using the one in state.
 	updateAttrs := map[string]interface{}{"default-series": config.LatestLtsSeries()}
 	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *RepoSuite) TearDownTest(c *gc.C) {
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *RepoSuite) AssertService(c *gc.C, name string, expectCurl *charm.URL, unitCount, relCount int) (*state.Service, []*state.Relation) {

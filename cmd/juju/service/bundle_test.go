@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -318,33 +317,17 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharmUnauthorized(c *
 
 type BundleDeployCharmStoreSuite struct {
 	charmStoreSuite
-	testing.BaseRepoSuite
-
-	Client *csclient.Client
 }
 
 var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
 
 func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
 	s.charmStoreSuite.SetUpSuite(c)
-	s.BaseRepoSuite.SetUpSuite(c)
 	s.PatchValue(&watcher.Period, 10*time.Millisecond)
 }
 
-func (s *BundleDeployCharmStoreSuite) TearDownSuite(c *gc.C) {
-	s.BaseRepoSuite.TearDownSuite(c)
-	s.charmStoreSuite.TearDownSuite(c)
-}
-
-func (s *BundleDeployCharmStoreSuite) SetUpTest(c *gc.C) {
-	s.charmStoreSuite.SetUpTest(c)
-	s.BaseRepoSuite.SetUpTest(c)
-
-	s.Client = s.client
-}
-
-func (s *BundleDeployCharmStoreSuite) TearDownTest(c *gc.C) {
-	s.charmStoreSuite.TearDownTest(c)
+func (s *BundleDeployCharmStoreSuite) Client() *csclient.Client {
+	return s.client
 }
 
 // DeployBundleYAML uses the given bundle content to create a bundle in the
@@ -514,8 +497,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
-	mysqlPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "mysql")
-	wordpressPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "wordpress")
+	charmsPath := c.MkDir()
+	mysqlPath := testcharms.Repo.ClonedDirPath(charmsPath, "mysql")
+	wordpressPath := testcharms.Repo.ClonedDirPath(charmsPath, "wordpress")
 	output, err := s.DeployBundleYAML(c, fmt.Sprintf(`
         series: trusty
         services:
@@ -554,8 +538,9 @@ deployment of bundle "local:bundle/example-0" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *gc.C) {
+	charmsPath := c.MkDir()
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
-	mysqlPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "mysql")
+	mysqlPath := testcharms.Repo.ClonedDirPath(charmsPath, "mysql")
 	output, err := s.DeployBundleYAML(c, fmt.Sprintf(`
         series: trusty
         services:

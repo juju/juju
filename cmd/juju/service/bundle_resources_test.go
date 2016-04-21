@@ -30,7 +30,7 @@ type ResourcesBundleSuite struct {
 var _ = gc.Suite(&ResourcesBundleSuite{})
 
 func (s *ResourcesBundleSuite) TestDeployBundleResources(c *gc.C) {
-	testcharms.UploadCharm(c, s.Client, "trusty/starsay-42", "starsay")
+	testcharms.UploadCharm(c, s.Client(), "trusty/starsay-42", "starsay")
 	bundleMeta := `
         services:
             starsay:
