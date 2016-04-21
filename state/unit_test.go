@@ -956,97 +956,151 @@ func (s *UnitSuite) TestGetSetClearResolved(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: "foo"`)
 }
 
-func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
+func (s *UnitSuite) TestOpenedPortsOnInvalidSubnet(c *gc.C) {
+	s.testOpenedPorts(c, "bad CIDR", `invalid subnet ID "bad CIDR"`)
+}
+
+func (s *UnitSuite) TestOpenedPortsOnUnknownSubnet(c *gc.C) {
+	s.testOpenedPorts(c, "127.0.0.0/8", `subnet "127.0.0.0/8" not found or not alive`)
+}
+
+func (s *UnitSuite) TestOpenedPortsOnDeadSubnet(c *gc.C) {
+	subnet, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = subnet.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.testOpenedPorts(c, "0.1.2.0/24", `subnet "0.1.2.0/24" not found or not alive`)
+}
+
+func (s *UnitSuite) TestOpenedPortsOnAliveIPv4Subnet(c *gc.C) {
+	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "192.168.0.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.testOpenedPorts(c, "192.168.0.0/16", "")
+}
+
+func (s *UnitSuite) TestOpenedPortsOnAliveIPv6Subnet(c *gc.C) {
+	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "2001:db8::/64"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.testOpenedPorts(c, "2001:db8::/64", "")
+}
+
+func (s *UnitSuite) TestOpenedPortsOnEmptySubnet(c *gc.C) {
+	// TODO(dimitern): This should go away and become an error once we always
+	// explicitly pass subnet IDs when handling unit ports.
+	s.testOpenedPorts(c, "", "")
+}
+
+func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches string) {
+
+	checkExpectedError := func(err error) bool {
+		if expectedErrorCauseMatches == "" {
+			c.Check(err, jc.ErrorIsNil)
+			return true
+		}
+		c.Check(errors.Cause(err), gc.ErrorMatches, expectedErrorCauseMatches)
+		return false
+	}
+
 	// Verify ports can be opened and closed only when the unit has
 	// assigned machine.
-	err := s.unit.OpenPort("tcp", 10)
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
-	err = s.unit.OpenPorts("tcp", 10, 20)
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
-	err = s.unit.ClosePort("tcp", 10)
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
-	err = s.unit.ClosePorts("tcp", 10, 20)
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
-	open, err := s.unit.OpenedPorts()
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
-	c.Assert(open, gc.HasLen, 0)
+	err := s.unit.OpenPortOnSubnet(subnetID, "tcp", 10)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
+	err = s.unit.OpenPortsOnSubnet(subnetID, "tcp", 10, 20)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
+	err = s.unit.ClosePortOnSubnet(subnetID, "tcp", 10)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
+	err = s.unit.ClosePortsOnSubnet(subnetID, "tcp", 10, 20)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
+	open, err := s.unit.OpenedPortsOnSubnet(subnetID)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
+	c.Check(open, gc.HasLen, 0)
 
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	// Verify no open ports before activity.
-	open, err = s.unit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(open, gc.HasLen, 0)
+	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	if checkExpectedError(err) {
+		c.Check(open, gc.HasLen, 0)
+	}
 
 	// Now open and close ports and ranges and check.
 
-	err = s.unit.OpenPort("tcp", 80)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.OpenPorts("udp", 100, 200)
-	c.Assert(err, jc.ErrorIsNil)
-	open, err = s.unit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(open, gc.DeepEquals, []network.PortRange{
-		{80, 80, "tcp"},
-		{100, 200, "udp"},
-	})
+	err = s.unit.OpenPortOnSubnet(subnetID, "tcp", 80)
+	checkExpectedError(err)
+	err = s.unit.OpenPortsOnSubnet(subnetID, "udp", 100, 200)
+	checkExpectedError(err)
+	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	if checkExpectedError(err) {
+		c.Check(open, gc.DeepEquals, []network.PortRange{
+			{80, 80, "tcp"},
+			{100, 200, "udp"},
+		})
+	}
 
-	err = s.unit.OpenPort("udp", 53)
-	c.Assert(err, jc.ErrorIsNil)
-	open, err = s.unit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(open, gc.DeepEquals, []network.PortRange{
-		{80, 80, "tcp"},
-		{53, 53, "udp"},
-		{100, 200, "udp"},
-	})
+	err = s.unit.OpenPortOnSubnet(subnetID, "udp", 53)
+	checkExpectedError(err)
+	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	if checkExpectedError(err) {
+		c.Check(open, gc.DeepEquals, []network.PortRange{
+			{80, 80, "tcp"},
+			{53, 53, "udp"},
+			{100, 200, "udp"},
+		})
+	}
 
-	err = s.unit.OpenPorts("tcp", 53, 55)
-	c.Assert(err, jc.ErrorIsNil)
-	open, err = s.unit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(open, gc.DeepEquals, []network.PortRange{
-		{53, 55, "tcp"},
-		{80, 80, "tcp"},
-		{53, 53, "udp"},
-		{100, 200, "udp"},
-	})
+	err = s.unit.OpenPortsOnSubnet(subnetID, "tcp", 53, 55)
+	checkExpectedError(err)
+	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	if checkExpectedError(err) {
+		c.Check(open, gc.DeepEquals, []network.PortRange{
+			{53, 55, "tcp"},
+			{80, 80, "tcp"},
+			{53, 53, "udp"},
+			{100, 200, "udp"},
+		})
+	}
 
-	err = s.unit.OpenPort("tcp", 443)
-	c.Assert(err, jc.ErrorIsNil)
-	open, err = s.unit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(open, gc.DeepEquals, []network.PortRange{
-		{53, 55, "tcp"},
-		{80, 80, "tcp"},
-		{443, 443, "tcp"},
-		{53, 53, "udp"},
-		{100, 200, "udp"},
-	})
+	err = s.unit.OpenPortOnSubnet(subnetID, "tcp", 443)
+	checkExpectedError(err)
+	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	if checkExpectedError(err) {
+		c.Check(open, gc.DeepEquals, []network.PortRange{
+			{53, 55, "tcp"},
+			{80, 80, "tcp"},
+			{443, 443, "tcp"},
+			{53, 53, "udp"},
+			{100, 200, "udp"},
+		})
+	}
 
-	err = s.unit.ClosePort("tcp", 80)
-	c.Assert(err, jc.ErrorIsNil)
-	open, err = s.unit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(open, gc.DeepEquals, []network.PortRange{
-		{53, 55, "tcp"},
-		{443, 443, "tcp"},
-		{53, 53, "udp"},
-		{100, 200, "udp"},
-	})
+	err = s.unit.ClosePortOnSubnet(subnetID, "tcp", 80)
+	checkExpectedError(err)
+	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	if checkExpectedError(err) {
+		c.Check(open, gc.DeepEquals, []network.PortRange{
+			{53, 55, "tcp"},
+			{443, 443, "tcp"},
+			{53, 53, "udp"},
+			{100, 200, "udp"},
+		})
+	}
 
-	err = s.unit.ClosePorts("udp", 100, 200)
-	c.Assert(err, jc.ErrorIsNil)
-	open, err = s.unit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(open, gc.DeepEquals, []network.PortRange{
-		{53, 55, "tcp"},
-		{443, 443, "tcp"},
-		{53, 53, "udp"},
-	})
+	err = s.unit.ClosePortsOnSubnet(subnetID, "udp", 100, 200)
+	checkExpectedError(err)
+	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	if checkExpectedError(err) {
+		c.Check(open, gc.DeepEquals, []network.PortRange{
+			{53, 55, "tcp"},
+			{443, 443, "tcp"},
+			{53, 53, "udp"},
+		})
+	}
 }
 
 func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {

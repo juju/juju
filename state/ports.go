@@ -199,6 +199,9 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 			if err := checkModelActive(p.st); err != nil {
 				return nil, errors.Trace(err)
 			}
+			if err := p.verifySubnetAliveWhenSet(); err != nil {
+				return nil, errors.Trace(err)
+			}
 			if err = ports.Refresh(); errors.IsNotFound(err) {
 				// No longer exists, we'll create it.
 				if !ports.areNew {
@@ -249,6 +252,20 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 	return nil
 }
 
+func (p *Ports) verifySubnetAliveWhenSet() error {
+	if p.doc.SubnetID == "" {
+		return nil
+	}
+
+	subnet, err := p.st.Subnet(p.doc.SubnetID)
+	if err != nil {
+		return errors.Trace(err)
+	} else if subnet.Life() != Alive {
+		return errors.Errorf("subnet %q not alive", subnet.CIDR())
+	}
+	return nil
+}
+
 // ClosePorts removes the specified port range from the list of ports
 // maintained by this document.
 func (p *Ports) ClosePorts(portRange PortRange) (err error) {
@@ -262,6 +279,9 @@ func (p *Ports) ClosePorts(portRange PortRange) (err error) {
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
+			if err := p.verifySubnetAliveWhenSet(); err != nil {
+				return nil, errors.Trace(err)
+			}
 			if err = ports.Refresh(); errors.IsNotFound(err) {
 				// No longer exists, nothing to do.
 				return nil, statetxn.ErrNoOperations
@@ -393,16 +413,31 @@ var addPortsDocOps = addPortsDocOpsFunc
 
 func addPortsDocOpsFunc(st *State, pDoc *portsDoc, portsAssert interface{}, ports ...PortRange) []txn.Op {
 	pDoc.Ports = ports
-	return []txn.Op{{
-		C:      machinesC,
-		Id:     st.docID(pDoc.MachineID),
-		Assert: notDeadDoc,
-	}, {
+
+	ops := assertMachineNotDeadAndSubnetNotDeadWhenSetOps(st, pDoc)
+	return append(ops, txn.Op{
 		C:      openedPortsC,
 		Id:     pDoc.DocID,
 		Assert: portsAssert,
 		Insert: pDoc,
+	})
+}
+
+func assertMachineNotDeadAndSubnetNotDeadWhenSetOps(st *State, pDoc *portsDoc) []txn.Op {
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     st.docID(pDoc.MachineID),
+		Assert: notDeadDoc,
 	}}
+
+	if pDoc.SubnetID != "" {
+		ops = append(ops, txn.Op{
+			C:      subnetsC,
+			Id:     st.docID(pDoc.SubnetID),
+			Assert: notDeadDoc,
+		})
+	}
+	return ops
 }
 
 // updatePortsDocOps returns the ops for adding a port range to an
@@ -411,11 +446,8 @@ func addPortsDocOpsFunc(st *State, pDoc *portsDoc, portsAssert interface{}, port
 var updatePortsDocOps = updatePortsDocOpsFunc
 
 func updatePortsDocOpsFunc(st *State, pDoc portsDoc, portsAssert interface{}, portRange PortRange) []txn.Op {
-	return []txn.Op{{
-		C:      machinesC,
-		Id:     st.docID(pDoc.MachineID),
-		Assert: notDeadDoc,
-	}, {
+	ops := assertMachineNotDeadAndSubnetNotDeadWhenSetOps(st, &pDoc)
+	return append(ops, []txn.Op{{
 		C:      unitsC,
 		Id:     st.docID(portRange.UnitName),
 		Assert: notDeadDoc,
@@ -424,7 +456,7 @@ func updatePortsDocOpsFunc(st *State, pDoc portsDoc, portsAssert interface{}, po
 		Id:     pDoc.DocID,
 		Assert: portsAssert,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", portRange}}}},
-	}}
+	}}...)
 }
 
 // setPortsDocOps returns the ops for setting given port ranges to an
@@ -433,16 +465,13 @@ func updatePortsDocOpsFunc(st *State, pDoc portsDoc, portsAssert interface{}, po
 var setPortsDocOps = setPortsDocOpsFunc
 
 func setPortsDocOpsFunc(st *State, pDoc portsDoc, portsAssert interface{}, ports ...PortRange) []txn.Op {
-	return []txn.Op{{
-		C:      machinesC,
-		Id:     st.docID(pDoc.MachineID),
-		Assert: notDeadDoc,
-	}, {
+	ops := assertMachineNotDeadAndSubnetNotDeadWhenSetOps(st, &pDoc)
+	return append(ops, txn.Op{
 		C:      openedPortsC,
 		Id:     pDoc.DocID,
 		Assert: portsAssert,
 		Update: bson.D{{"$set", bson.D{{"ports", ports}}}},
-	}}
+	})
 }
 
 // removeOps returns the ops for removing the ports document from
