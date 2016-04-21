@@ -65,8 +65,7 @@ func (s *cmdSpaceSuite) AddSpace(c *gc.C, name string, ids []string, public bool
 const expectedSuccess = ""
 
 func (s *cmdSpaceSuite) Run(c *gc.C, args ...string) (string, string, error) {
-	cmdArgs := append([]string{"space"}, args...)
-	context, err := runJujuCommand(c, cmdArgs...)
+	context, err := runJujuCommand(c, args...)
 	stdout, stderr := "", ""
 	if context != nil {
 		stdout = testing.Stdout(context)
@@ -75,8 +74,8 @@ func (s *cmdSpaceSuite) Run(c *gc.C, args ...string) (string, string, error) {
 	return stdout, stderr, err
 }
 
-func (s *cmdSpaceSuite) RunCreate(c *gc.C, expectedError string, args ...string) {
-	cmdArgs := append([]string{"create"}, args...)
+func (s *cmdSpaceSuite) RunAdd(c *gc.C, expectedError string, args ...string) {
+	cmdArgs := append([]string{"add-space"}, args...)
 	_, stderr, err := s.Run(c, cmdArgs...)
 	if expectedError != "" {
 		c.Assert(err, gc.NotNil)
@@ -87,7 +86,7 @@ func (s *cmdSpaceSuite) RunCreate(c *gc.C, expectedError string, args ...string)
 }
 
 func (s *cmdSpaceSuite) RunList(c *gc.C, expectedError string, args ...string) {
-	cmdArgs := append([]string{"list"}, args...)
+	cmdArgs := append([]string{"list-spaces"}, args...)
 	_, stderr, err := s.Run(c, cmdArgs...)
 	if expectedError != "" {
 		c.Assert(err, gc.NotNil)
@@ -106,42 +105,42 @@ func (s *cmdSpaceSuite) TestSpaceCreateNotSupported(c *gc.C) {
 	isEnabled := dummy.SetSupportsSpaces(false)
 	defer dummy.SetSupportsSpaces(isEnabled)
 
-	expectedError := "cannot create space \"foo\": spaces not supported"
-	s.RunCreate(c, expectedError, "foo")
+	expectedError := "cannot add space \"foo\": spaces not supported"
+	s.RunAdd(c, expectedError, "foo")
 }
 
 func (s *cmdSpaceSuite) TestSpaceCreateNoName(c *gc.C) {
 	expectedError := "invalid arguments specified: space name is required"
-	s.RunCreate(c, expectedError)
+	s.RunAdd(c, expectedError)
 }
 
 func (s *cmdSpaceSuite) TestSpaceCreateInvalidName(c *gc.C) {
 	expectedError := `invalid arguments specified: " f o o " is not a valid space name`
-	s.RunCreate(c, expectedError, " f o o ")
+	s.RunAdd(c, expectedError, " f o o ")
 }
 
 func (s *cmdSpaceSuite) TestSpaceCreateWithInvalidSubnets(c *gc.C) {
 	expectedError := `invalid arguments specified: "nonsense" is not a valid CIDR`
-	s.RunCreate(c, expectedError, "myspace", "nonsense", "10.20.0.0/16")
+	s.RunAdd(c, expectedError, "myspace", "nonsense", "10.20.0.0/16")
 }
 
 func (s *cmdSpaceSuite) TestSpaceCreateWithUnknownSubnet(c *gc.C) {
-	expectedError := `cannot create space "foo": adding space "foo": subnet "10.10.0.0/16" not found`
-	s.RunCreate(c, expectedError, "foo", "10.10.0.0/16")
+	expectedError := `cannot add space "foo": adding space "foo": subnet "10.10.0.0/16" not found`
+	s.RunAdd(c, expectedError, "foo", "10.10.0.0/16")
 }
 
 func (s *cmdSpaceSuite) TestSpaceCreateAlreadyExistingName(c *gc.C) {
 	s.AddSpace(c, "foo", nil, true)
 
-	expectedError := `cannot create space "foo": adding space "foo": space "foo" already exists`
-	s.RunCreate(c, expectedError, "foo")
+	expectedError := `cannot add space "foo": adding space "foo": space "foo" already exists`
+	s.RunAdd(c, expectedError, "foo")
 }
 
 func (s *cmdSpaceSuite) TestSpaceCreateNoSubnets(c *gc.C) {
-	stdout, stderr, err := s.Run(c, "create", "myspace")
+	stdout, stderr, err := s.Run(c, "add-space", "myspace")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, jc.Contains, "created space \"myspace\" with no subnets\n")
+	c.Assert(stderr, jc.Contains, "added space \"myspace\" with no subnets\n")
 
 	space, err := s.State.Space("myspace")
 	c.Assert(err, jc.ErrorIsNil)
@@ -157,11 +156,11 @@ func (s *cmdSpaceSuite) TestSpaceCreateWithSubnets(c *gc.C) {
 
 	_, stderr, err := s.Run(
 		c,
-		"create", "myspace", "10.10.0.0/16", "10.11.0.0/16",
+		"add-space", "myspace", "10.10.0.0/16", "10.11.0.0/16",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stderr, jc.Contains,
-		"created space \"myspace\" with subnets 10.10.0.0/16, 10.11.0.0/16\n",
+		"added space \"myspace\" with subnets 10.10.0.0/16, 10.11.0.0/16\n",
 	)
 
 	space, err := s.State.Space("myspace")
@@ -175,7 +174,7 @@ func (s *cmdSpaceSuite) TestSpaceCreateWithSubnets(c *gc.C) {
 }
 
 func (s *cmdSpaceSuite) TestSpaceListNoResults(c *gc.C) {
-	_, stderr, err := s.Run(c, "list")
+	_, stderr, err := s.Run(c, "spaces")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stderr, jc.Contains,
 		"no spaces to display\n",
@@ -186,7 +185,7 @@ func (s *cmdSpaceSuite) TestSpaceListOneResultNoSubnets(c *gc.C) {
 	s.AddSpace(c, "myspace", nil, true)
 
 	expectedOutput := "{\"spaces\":{\"myspace\":{}}}\n"
-	stdout, _, err := s.Run(c, "list", "--format", "json")
+	stdout, _, err := s.Run(c, "list-spaces", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdout, jc.Contains, expectedOutput)
 }
@@ -200,7 +199,7 @@ func (s *cmdSpaceSuite) TestSpaceListMoreResults(c *gc.C) {
 	s.AddSubnets(c, infos2)
 	s.AddSpace(c, "space2", ids2, false)
 
-	stdout, stderr, err := s.Run(c, "list", "--format", "yaml")
+	stdout, stderr, err := s.Run(c, "list-spaces", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stderr, gc.Equals, "")
 

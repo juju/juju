@@ -22,7 +22,7 @@ var _ = gc.Suite(&RemoveSuite{})
 func (s *RemoveSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSpaceSuite.SetUpTest(c)
-	s.command, _ = space.NewRemoveCommand(s.api)
+	s.command, _ = space.NewRemoveCommandForTest(s.api)
 	c.Assert(s.command, gc.NotNil)
 }
 
@@ -53,7 +53,7 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
 		// modelcmd.Wrap().
-		wrappedCommand, command := space.NewRemoveCommand(s.api)
+		wrappedCommand, command := space.NewRemoveCommandForTest(s.api)
 		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			prefixedErr := "invalid arguments specified: " + test.expectErr

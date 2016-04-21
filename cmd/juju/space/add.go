@@ -14,41 +14,42 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newCreateCommand() cmd.Command {
-	return modelcmd.Wrap(&createCommand{})
+// NewAddCommand returns a command used to add a network space.
+func NewAddCommand() cmd.Command {
+	return modelcmd.Wrap(&addCommand{})
 }
 
-// createCommand calls the API to create a new network space.
-type createCommand struct {
+// addCommand calls the API to add a new network space.
+type addCommand struct {
 	SpaceCommandBase
 	Name  string
 	CIDRs set.Strings
 }
 
-const createCommandDoc = `
-Creates a new space with the given name and associates the given
+const addCommandDoc = `
+Adds a new space with the given name and associates the given
 (optional) list of existing subnet CIDRs with it.`
 
 // Info is defined on the cmd.Command interface.
-func (c *createCommand) Info() *cmd.Info {
+func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "create",
+		Name:    "add-space",
 		Args:    "<name> [<CIDR1> <CIDR2> ...]",
-		Purpose: "create a new network space",
-		Doc:     strings.TrimSpace(createCommandDoc),
+		Purpose: "Add a new network space",
+		Doc:     strings.TrimSpace(addCommandDoc),
 	}
 }
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *createCommand) Init(args []string) error {
+func (c *addCommand) Init(args []string) error {
 	var err error
 	c.Name, c.CIDRs, err = ParseNameAndCIDRs(args, true)
 	return err
 }
 
 // Run implements Command.Run.
-func (c *createCommand) Run(ctx *cmd.Context) error {
+func (c *addCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		// Prepare a nicer message and proper arguments to use in case
 		// there are not CIDRs given.
@@ -59,17 +60,17 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 			msgSuffix = fmt.Sprintf("subnets %s", strings.Join(subnetIds, ", "))
 		}
 
-		// Create the new space.
+		// Add the new space.
 		// TODO(dimitern): Accept --public|--private and pass it here.
-		err := api.CreateSpace(c.Name, subnetIds, true)
+		err := api.AddSpace(c.Name, subnetIds, true)
 		if err != nil {
 			if errors.IsNotSupported(err) {
-				ctx.Infof("cannot create space %q: %v", c.Name, err)
+				ctx.Infof("cannot add space %q: %v", c.Name, err)
 			}
-			return errors.Annotatef(err, "cannot create space %q", c.Name)
+			return errors.Annotatef(err, "cannot add space %q", c.Name)
 		}
 
-		ctx.Infof("created space %q with %s", c.Name, msgSuffix)
+		ctx.Infof("added space %q with %s", c.Name, msgSuffix)
 		return nil
 	})
 }
