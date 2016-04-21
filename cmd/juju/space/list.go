@@ -40,7 +40,7 @@ func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-spaces",
 		Args:    "[--short] [--format yaml|json] [--output <path>]",
-		Purpose: "list spaces known to Juju, including associated subnets",
+		Purpose: "List known spaces, including associated subnets",
 		Doc:     strings.TrimSpace(listCommandDoc),
 		Aliases: []string{"spaces"},
 	}

@@ -41,7 +41,7 @@ func (c *renameCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "rename-space",
 		Args:    "<old-name> <new-name>",
-		Purpose: "rename a network space",
+		Purpose: "Rename a network space",
 		Doc:     strings.TrimSpace(renameCommandDoc),
 	}
 }

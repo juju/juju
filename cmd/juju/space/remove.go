@@ -34,7 +34,7 @@ func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-space",
 		Args:    "<name>",
-		Purpose: "remove a network space",
+		Purpose: "Remove a network space",
 		Doc:     strings.TrimSpace(removeCommandDoc),
 	}
 }
