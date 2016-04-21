@@ -888,8 +888,10 @@ class TestIndustrialTest(JujuPyTestCase):
                 ('bootstrap', True, True),
                 ('prepare-suite', True, True),
                 ('foo-id', False, True)])
-        self.assertEqual('destroyed', old_client._backing_state.state)
-        self.assertEqual('destroyed', new_client._backing_state.state)
+        self.assertEqual('destroyed',
+                         old_client._backend.controller_state.state)
+        self.assertEqual('destroyed',
+                         new_client._backend.controller_state.state)
 
     def test_run_stages_new_fail(self):
         old_client = FakeJujuClient()
@@ -907,8 +909,10 @@ class TestIndustrialTest(JujuPyTestCase):
                 ('bootstrap', True, True),
                 ('prepare-suite', True, True),
                 ('foo-id', True, False)])
-        self.assertEqual('destroyed', old_client._backing_state.state)
-        self.assertEqual('destroyed', new_client._backing_state.state)
+        self.assertEqual('destroyed',
+                         old_client._backend.controller_state.state)
+        self.assertEqual('destroyed',
+                         new_client._backend.controller_state.state)
 
     def test_run_stages_both_fail(self):
         old_client = FakeJujuClient()
@@ -926,8 +930,10 @@ class TestIndustrialTest(JujuPyTestCase):
                 ('bootstrap', True, True),
                 ('prepare-suite', True, True),
                 ('foo-id', False, False)])
-        self.assertEqual('destroyed', old_client._backing_state.state)
-        self.assertEqual('destroyed', new_client._backing_state.state)
+        self.assertEqual('destroyed',
+                         old_client._backend.controller_state.state)
+        self.assertEqual('destroyed',
+                         new_client._backend.controller_state.state)
 
     def test_run_stages_recover_failure(self):
         old_client = FakeJujuClient()
@@ -976,8 +982,10 @@ class TestIndustrialTest(JujuPyTestCase):
                            fake_bootstrap_manager):
                     industrial.run_attempt()
         self.assertEqual(2, le_mock.call_count)
-        self.assertEqual('destroyed', old_client._backing_state.state)
-        self.assertEqual('destroyed', new_client._backing_state.state)
+        self.assertEqual('destroyed',
+                         old_client._backend.controller_state.state)
+        self.assertEqual('destroyed',
+                         new_client._backend.controller_state.state)
 
 
 class TestSteppedStageAttempt(JujuPyTestCase):
@@ -1287,13 +1295,15 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
 
     def test_iter_steps_kill_controller(self):
         client = FakeJujuClient(jes_enabled=True)
+        client.bootstrap()
         destroy_env = DestroyEnvironmentAttempt()
         iterator = iter_steps_validate_info(self, destroy_env, client)
         with closing(iterator):
             self.assertEqual({'test_id': 'destroy-env'}, iterator.next())
             self.assertEqual(iterator.next(), {
                 'test_id': 'destroy-env', 'result': True})
-        self.assertEqual('controller-killed', client._backing_state.state)
+        self.assertEqual('controller-killed',
+                         client._backend.controller_state.state)
 
     @staticmethod
     def get_aws_client():

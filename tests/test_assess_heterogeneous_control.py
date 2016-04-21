@@ -136,15 +136,17 @@ class TestTestControlHeterogeneous(TestCase):
         bs_manager.tear_down_client.destroy_environment.return_value = 0
         with patch.object(client, 'destroy_environment', return_value=0):
             test_control_heterogeneous(bs_manager, client, True)
-        self.assertEqual(client._backing_state.exposed,
+        self.assertEqual(client._backend.backing_state.exposed,
                          {'sink2', 'dummy-sink'})
-        self.assertEqual(client._backing_state.machines, {'0', '1', '2'})
+        self.assertEqual(client._backend.backing_state.machines,
+                         {'0', '1', '2'})
         self.assertEqual(client.env.juju_home, 'foo')
 
     def test_same_home(self):
         initial_client = FakeJujuClient(version='1.25')
         other_client = FakeJujuClient(env=initial_client.env)
-        other_client._backing_state = initial_client._backing_state
+        other_client._backend.backing_state = \
+            initial_client._backend.backing_state
         bs_manager = FakeBootstrapManager(initial_client)
         bs_manager.permanent = True
         test_control_heterogeneous(bs_manager, other_client, True)
@@ -156,6 +158,7 @@ class TestCheckSeries(TestCase):
 
     def test_check_series(self):
         client = FakeJujuClient()
+        client.bootstrap()
         check_series(client)
 
     def test_check_series_xenial(self):
@@ -172,6 +175,7 @@ class TestCheckSeries(TestCase):
 
     def test_check_series_exceptionl(self):
         client = FakeJujuClient()
+        client.bootstrap()
         with self.assertRaisesRegexp(
                 AssertionError, 'Series is angsty, not xenial'):
             check_series(client, '0', 'xenial')

@@ -64,7 +64,8 @@ class TestMain(TestCase):
 class TestAssess(TestCase):
 
     def test_mixed_images(self):
-        mock_client = FakeJujuClient()
+        mock_client = FakeJujuClient(jes_enabled=True)
+        mock_client.bootstrap()
         assess_mixed_images(mock_client)
         self.assertEqual({
             'machines': {
@@ -87,6 +88,7 @@ class TestAssess(TestCase):
 
     def test_mixed_images_charm_2x(self):
         mock_client = FakeJujuClient()
+        mock_client.bootstrap()
         with patch.object(mock_client, 'deploy') as mock_d:
             with patch('assess_mixed_images.assess_juju_relations',
                        autospec=True) as mock_ajr:
@@ -97,6 +99,7 @@ class TestAssess(TestCase):
 
     def test_mixed_images_charm_1x(self):
         mock_client = FakeJujuClient(version='1.25.0')
+        mock_client.bootstrap()
         with patch.object(mock_client, 'deploy') as mock_d:
             with patch('assess_mixed_images.assess_juju_relations',
                        autospec=True) as mock_ajr:
