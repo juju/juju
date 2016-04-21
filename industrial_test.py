@@ -512,8 +512,7 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
                 """))
             yield self.prepare.as_result(True)
             yield self.upgrade.as_result()
-            client.juju(
-                'upgrade-charm', ('mycharm', '--repository', temp_repository))
+            client.upgrade_charm('mycharm', charm_root)
             yield self.upgrade.as_result()
             for status in client.status_until(300):
                 ports = status.get_open_ports('mycharm/0')

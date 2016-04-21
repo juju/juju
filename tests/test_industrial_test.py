@@ -1931,9 +1931,15 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
         self.assertEqual(uc_iterator.next(), {'test_id': 'upgrade-charm'})
         with patch('subprocess.check_call') as cc_mock:
             self.assertEqual(uc_iterator.next(), {'test_id': 'upgrade-charm'})
-        assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'upgrade-charm', option, 'steve',
-            'mycharm', '--repository', temp_repository))
+        if client.version.startswith('1.'):
+            assert_juju_call(self, cc_mock, client, (
+                'juju', '--show-log', 'upgrade-charm', option, 'steve',
+                'mycharm', '--repository', temp_repository))
+        else:
+            assert_juju_call(self, cc_mock, client, (
+                'juju', '--show-log', 'upgrade-charm', option, 'steve',
+                'mycharm', '--path', os.path.join(temp_repository, 'trusty',
+                                                  'mycharm')))
         status = {
             'machines': {'0': {'agent-state': 'started'}},
             'services': {'mycharm': {'units': {'mycharm/0': {
