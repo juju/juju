@@ -125,8 +125,7 @@ class TestMain(TestCase):
 
     def test_selects_newest_candidate(self):
         with self.build_job_context() as root:
-            path_1234 = make_candidate_dir(
-                root, '1234-artifacts', 'mybranch', '1234')
+            make_candidate_dir(root, '1234-artifacts', 'mybranch', '1234')
             make_candidate_dir(root, '1233', 'mybranch', '1233')
             build_job_mock = self.run_main(root)
         build_job_mock.assert_called_once_with('foo', {
