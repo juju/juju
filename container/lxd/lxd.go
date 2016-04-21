@@ -129,11 +129,11 @@ func (manager *containerManager) CreateContainer(
 
 	networkProfile := fmt.Sprintf("%s-network", name)
 
-	if err = createNetworkProfile(manager.client, networkProfile); err != nil {
-		return
-	}
-
 	if len(networkConfig.Interfaces) > 0 || networkConfig.Device != "" {
+		if err = createNetworkProfile(manager.client, networkProfile); err != nil {
+			return
+		}
+
 		manager.networkProfile = networkProfile
 		if len(networkConfig.Interfaces) > 0 {
 			err = networkProfileAddMultipleInterfaces(manager.client, networkProfile, networkConfig.Interfaces)
