@@ -2425,24 +2425,6 @@ func (am addMachine) step(c *gc.C, ctx *context) {
 	c.Assert(m.Id(), gc.Equals, am.machineId)
 }
 
-type addNetwork struct {
-	name       string
-	providerId network.Id
-	cidr       string
-	vlanTag    int
-}
-
-func (an addNetwork) step(c *gc.C, ctx *context) {
-	n, err := ctx.st.AddNetwork(state.NetworkInfo{
-		Name:       an.name,
-		ProviderId: an.providerId,
-		CIDR:       an.cidr,
-		VLANTag:    an.vlanTag,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(n.Name(), gc.Equals, an.name)
-}
-
 type addContainer struct {
 	parentId  string
 	machineId string
@@ -2593,16 +2575,15 @@ func (ac addCharmWithRevision) step(c *gc.C, ctx *context) {
 }
 
 type addService struct {
-	name     string
-	charm    string
-	networks []string
-	cons     constraints.Value
+	name  string
+	charm string
+	cons  constraints.Value
 }
 
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, jc.IsTrue)
-	svc, err := ctx.st.AddService(state.AddServiceArgs{Name: as.name, Owner: ctx.adminUserTag, Charm: ch, Networks: as.networks})
+	svc, err := ctx.st.AddService(state.AddServiceArgs{Name: as.name, Owner: ctx.adminUserTag, Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	if svc.IsPrincipal() {
 		err = svc.SetConstraints(as.cons)

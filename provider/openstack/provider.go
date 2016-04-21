@@ -352,7 +352,6 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 	var machineAddresses []network.Address
 	if publicIP != "" {
 		publicAddr := network.NewScopedAddress(publicIP, network.ScopePublic)
-		publicAddr.NetworkName = "public"
 		machineAddresses = append(machineAddresses, publicAddr)
 	}
 	// TODO(gz) Network ordering may be significant but is not preserved by
@@ -374,7 +373,6 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 				addrtype = network.IPv6Address
 			}
 			machineAddr := network.NewScopedAddress(address.Address, networkScope)
-			machineAddr.NetworkName = netName
 			if machineAddr.Type != addrtype {
 				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrtype)
 			}
@@ -907,10 +905,6 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			// No explicitly selectable zones available, so use an unspecified zone.
 			availabilityZones = []string{""}
 		}
-	}
-
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.Errorf("starting instances with networks is not supported yet.")
 	}
 
 	series := args.Tools.OneSeries()

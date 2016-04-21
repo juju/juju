@@ -53,9 +53,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
-				Series:   "quantal",
-				Networks: []string{},
-				Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Series: "quantal",
+				Jobs:   []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ModelTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
@@ -65,7 +64,6 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 				Series:      "quantal",
 				Constraints: template.Constraints,
 				Placement:   template.Placement,
-				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ModelTag.Id(),
@@ -167,7 +165,6 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 				Series:      "quantal",
 				Constraints: template.Constraints,
 				Placement:   template.Placement,
-				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ModelTag.Id(),
@@ -296,10 +293,9 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	s.registerStorageProviders(c, "dynamic", "static")
 
 	template := state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		Placement:         "valid",
-		RequestedNetworks: []string{"net1", "net2"},
+		Series:    "quantal",
+		Jobs:      []state.MachineJob{state.JobHostUnits},
+		Placement: "valid",
 		Volumes: []state.MachineVolumeParams{
 			{Volume: state.VolumeParams{Size: 1000, Pool: "dynamic"}},
 			{Volume: state.VolumeParams{Size: 1000, Pool: "static"}},
@@ -320,7 +316,6 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 				Series:      "quantal",
 				Constraints: template.Constraints,
 				Placement:   template.Placement,
-				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ModelTag.Id(),
@@ -368,9 +363,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
-				Series:   "quantal",
-				Networks: []string{},
-				Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Series: "quantal",
+				Jobs:   []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ModelTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),

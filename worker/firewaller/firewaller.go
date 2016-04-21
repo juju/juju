@@ -168,11 +168,11 @@ func (fw *Firewaller) loop() error {
 				return errors.New("ports watcher closed")
 			}
 			for _, portsGlobalKey := range change {
-				machineTag, networkTag, err := parsePortsKey(portsGlobalKey)
+				machineTag, subnetTag, err := parsePortsKey(portsGlobalKey)
 				if err != nil {
 					return errors.Trace(err)
 				}
-				if err := fw.openedPortsChanged(machineTag, networkTag); err != nil {
+				if err := fw.openedPortsChanged(machineTag, subnetTag); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -289,13 +289,13 @@ func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineT
 		return err
 	}
 
-	// check if the machine has ports open on any networks
-	networkTags, err := m.ActiveNetworks()
+	// check if the machine has ports open on any subnets
+	subnetTags, err := m.ActiveSubnets()
 	if err != nil {
-		return errors.Annotatef(err, "failed getting %q active networks", machineTag)
+		return errors.Annotatef(err, "failed getting %q active subnets", machineTag)
 	}
-	for _, networkTag := range networkTags {
-		err := fw.openedPortsChanged(machineTag, networkTag)
+	for _, subnetTag := range subnetTags {
+		err := fw.openedPortsChanged(machineTag, subnetTag)
 		if err != nil {
 			return err
 		}
@@ -479,7 +479,7 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 }
 
 // openedPortsChanged handles port change notifications
-func (fw *Firewaller) openedPortsChanged(machineTag names.MachineTag, networkTag names.NetworkTag) error {
+func (fw *Firewaller) openedPortsChanged(machineTag names.MachineTag, subnetTag names.SubnetTag) error {
 
 	machined, ok := fw.machineds[machineTag]
 	if !ok {
@@ -495,7 +495,7 @@ func (fw *Firewaller) openedPortsChanged(machineTag names.MachineTag, networkTag
 		return err
 	}
 
-	ports, err := m.OpenedPorts(networkTag)
+	ports, err := m.OpenedPorts(subnetTag)
 	if err != nil {
 		return err
 	}
@@ -881,17 +881,21 @@ next:
 	return
 }
 
-// parsePortsKey parses a ports document global key coming from the
-// ports watcher (e.g. "42:juju-public") and returns the machine and
-// network tags from its components (in the last example "machine-42"
-// and "network-juju-public").
-func parsePortsKey(change string) (machineTag names.MachineTag, networkTag names.NetworkTag, err error) {
+// parsePortsKey parses a ports document global key coming from the ports
+// watcher (e.g. "42:0.1.2.0/24") and returns the machine and subnet tags from
+// its components (in the last example "machine-42" and "subnet-0.1.2.0/24").
+func parsePortsKey(change string) (machineTag names.MachineTag, subnetTag names.SubnetTag, err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid ports change %q", change)
 
 	parts := strings.SplitN(change, ":", 2)
 	if len(parts) != 2 {
-		return names.MachineTag{}, names.NetworkTag{}, errors.Errorf("unexpected format")
+		return names.MachineTag{}, names.SubnetTag{}, errors.Errorf("unexpected format")
 	}
-	machineId, networkName := parts[0], parts[1]
-	return names.NewMachineTag(machineId), names.NewNetworkTag(networkName), nil
+	machineID, subnetID := parts[0], parts[1]
+
+	machineTag = names.NewMachineTag(machineID)
+	if subnetID != "" {
+		subnetTag = names.NewSubnetTag(subnetID)
+	}
+	return machineTag, subnetTag, nil
 }

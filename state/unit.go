@@ -849,9 +849,7 @@ func (u *Unit) OpenPorts(protocol string, fromPort, toPort int) (err error) {
 		return errors.Annotatef(err, "unit %q has no assigned machine", u)
 	}
 
-	// TODO(dimitern) 2014-09-10 bug #1337804: network name is
-	// hard-coded until multiple network support lands
-	machinePorts, err := getOrCreatePorts(u.st, machineId, network.DefaultPublic)
+	machinePorts, err := getOrCreatePorts(u.st, machineId, "")
 	if err != nil {
 		return errors.Annotatef(err, "cannot get or create ports for machine %q", machineId)
 	}
@@ -872,9 +870,7 @@ func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) (err error) {
 		return errors.Annotatef(err, "unit %q has no assigned machine", u)
 	}
 
-	// TODO(dimitern) 2014-09-10 bug #1337804: network name is
-	// hard-coded until multiple network support lands
-	machinePorts, err := getOrCreatePorts(u.st, machineId, network.DefaultPublic)
+	machinePorts, err := getOrCreatePorts(u.st, machineId, "")
 	if err != nil {
 		return errors.Annotatef(err, "cannot get or create ports for machine %q", machineId)
 	}
@@ -900,9 +896,7 @@ func (u *Unit) OpenedPorts() ([]network.PortRange, error) {
 		return nil, errors.Annotatef(err, "unit %q has no assigned machine", u)
 	}
 
-	// TODO(dimitern) 2014-09-10 bug #1337804: network name is
-	// hard-coded until multiple network support lands
-	machinePorts, err := getPorts(u.st, machineId, network.DefaultPublic)
+	machinePorts, err := getPorts(u.st, machineId, "")
 	result := []network.PortRange{}
 	if err == nil {
 		ports := machinePorts.PortsForUnit(u.Name())
@@ -1494,19 +1488,10 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 		return err
 	}
 
-	svc, err := u.Service()
-	if err != nil {
-		return err
-	}
-	requestedNetworks, err := svc.Networks()
-	if err != nil {
-		return err
-	}
 	template := MachineTemplate{
-		Series:            u.doc.Series,
-		Constraints:       *cons,
-		Jobs:              []MachineJob{JobHostUnits},
-		RequestedNetworks: requestedNetworks,
+		Series:      u.doc.Series,
+		Constraints: *cons,
+		Jobs:        []MachineJob{JobHostUnits},
 	}
 	err = u.assignToNewMachine(template, host.Id, *cons.Container)
 	if err == machineNotCleanErr {
@@ -1536,14 +1521,6 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	if cons.HasContainer() {
 		containerType = *cons.Container
 	}
-	svc, err := u.Service()
-	if err != nil {
-		return err
-	}
-	requestedNetworks, err := svc.Networks()
-	if err != nil {
-		return err
-	}
 	storageParams, err := u.machineStorageParams()
 	if err != nil {
 		return errors.Trace(err)
@@ -1552,7 +1529,6 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		Series:                u.doc.Series,
 		Constraints:           *cons,
 		Jobs:                  []MachineJob{JobHostUnits},
-		RequestedNetworks:     requestedNetworks,
 		Volumes:               storageParams.volumes,
 		VolumeAttachments:     storageParams.volumeAttachments,
 		Filesystems:           storageParams.filesystems,

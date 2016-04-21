@@ -423,11 +423,10 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 
 func hostPortInSpace(address, spaceName string) network.HostPort {
 	netAddress := network.Address{
-		Value:       address,
-		Type:        network.IPv4Address,
-		NetworkName: "net",
-		Scope:       network.ScopeUnknown,
-		SpaceName:   network.SpaceName(spaceName),
+		Value:     address,
+		Type:      network.IPv4Address,
+		Scope:     network.ScopeUnknown,
+		SpaceName: network.SpaceName(spaceName),
 	}
 	return network.HostPort{netAddress, 4711}
 }

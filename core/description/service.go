@@ -50,7 +50,6 @@ type service struct {
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
 
-	// Requested Networks
 	// Storage Constraints
 }
 

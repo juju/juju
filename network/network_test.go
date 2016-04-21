@@ -32,10 +32,6 @@ func (s *InterfaceInfoSuite) SetUpTest(c *gc.C) {
 		{Address: network.NewAddress("0.1.2.3")},
 		{DNSServers: network.NewAddresses("1.1.1.1", "2.2.2.2")},
 		{GatewayAddress: network.NewAddress("4.3.2.1")},
-		{ExtraConfig: map[string]string{
-			"foo": "bar",
-			"baz": "nonsense",
-		}},
 		{AvailabilityZones: []string{"foo", "bar"}},
 	}
 }
@@ -64,11 +60,7 @@ func (s *InterfaceInfoSuite) TestAdditionalFields(c *gc.C) {
 	c.Check(s.info[4].Address, jc.DeepEquals, network.NewAddress("0.1.2.3"))
 	c.Check(s.info[5].DNSServers, jc.DeepEquals, network.NewAddresses("1.1.1.1", "2.2.2.2"))
 	c.Check(s.info[6].GatewayAddress, jc.DeepEquals, network.NewAddress("4.3.2.1"))
-	c.Check(s.info[7].ExtraConfig, jc.DeepEquals, map[string]string{
-		"foo": "bar",
-		"baz": "nonsense",
-	})
-	c.Check(s.info[8].AvailabilityZones, jc.DeepEquals, []string{"foo", "bar"})
+	c.Check(s.info[7].AvailabilityZones, jc.DeepEquals, []string{"foo", "bar"})
 }
 
 func (s *InterfaceInfoSuite) TestSortInterfaceInfo(c *gc.C) {

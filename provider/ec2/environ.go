@@ -502,10 +502,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 			return nil, errors.New("failed to determine availability zones")
 		}
 	}
-
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting instances with networks is not supported yet")
-	}
 	arches := args.Tools.Arches()
 
 	spec, err := findInstanceSpec(args.ImageMetadata, &instances.InstanceConstraint{
@@ -1023,7 +1019,6 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 			DeviceIndex:       iface.Attachment.DeviceIndex,
 			MACAddress:        iface.MACAddress,
 			CIDR:              cidr,
-			NetworkName:       "", // Not needed for now.
 			ProviderId:        network.Id(iface.Id),
 			ProviderSubnetId:  network.Id(iface.SubnetId),
 			AvailabilityZones: []string{subnet.AvailZone},

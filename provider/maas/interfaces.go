@@ -151,8 +151,6 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			ParentInterfaceName: parentName,
 			Disabled:            !iface.Enabled,
 			NoAutoStart:         !iface.Enabled,
-			// This is not needed anymore, but the provisioner still validates it's set.
-			NetworkName: network.DefaultPrivate,
 		}
 
 		for _, link := range iface.Links {
@@ -254,8 +252,6 @@ func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]netwo
 			ParentInterfaceName: parentName,
 			Disabled:            !iface.Enabled(),
 			NoAutoStart:         !iface.Enabled(),
-			// This is not needed anymore, but the provisioner still validates it's set.
-			NetworkName: network.DefaultPrivate,
 		}
 
 		for _, link := range iface.Links() {

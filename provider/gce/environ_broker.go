@@ -37,10 +37,6 @@ func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// Start a new instance.
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting instances with networks is not supported yet")
-	}
-
 	spec, err := buildInstanceSpec(env, args)
 	if err != nil {
 		return nil, errors.Trace(err)

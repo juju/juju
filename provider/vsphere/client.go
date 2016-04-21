@@ -249,7 +249,6 @@ func (c *client) GetNetworkInterfaces(inst instance.Id, ecfg *environConfig) ([]
 		res = append(res, network.InterfaceInfo{
 			DeviceIndex:      net.DeviceConfigId,
 			MACAddress:       net.MacAddress,
-			NetworkName:      net.Network,
 			Disabled:         !net.Connected,
 			ProviderId:       network.Id(fmt.Sprintf("net-device%d", net.DeviceConfigId)),
 			ProviderSubnetId: network.Id(net.Network),

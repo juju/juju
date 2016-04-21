@@ -142,9 +142,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		ipAddressesC,
 		linkLayerDevicesC,
 		linkLayerDevicesRefsC,
-		networksC,
-		networkInterfacesC,
-		requestedNetworksC,
 		subnetsC,
 		spacesC,
 
@@ -372,9 +369,9 @@ func (s *MigrationSuite) TestPortsDocFields(c *gc.C) {
 		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
 		"ModelUUID",
-		// MachineId is implicit in the migration structure through containment.
+		// MachineID is implicit in the migration structure through containment.
 		"MachineID",
-		"NetworkName",
+		"SubnetID",
 		"Ports",
 		// TxnRevno isn't migrated.
 		"TxnRevno",
@@ -498,8 +495,6 @@ func (s *MigrationSuite) TestConstraintsDocFields(c *gc.C) {
 		"Container",
 		"Tags",
 		"Spaces",
-		// Networks is a deprecated constraint and not exported.
-		"Networks",
 	)
 	s.AssertExportedFields(c, constraintsDoc{}, fields)
 }

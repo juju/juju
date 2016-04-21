@@ -185,11 +185,11 @@ func (*MachineSerializationSuite) TestNestedParsing(c *gc.C) {
 	c.Assert(machines, jc.DeepEquals, expected)
 }
 
-func (s *MachineSerializationSuite) addNetworkPorts(m Machine) []NetworkPortsArgs {
-	args := []NetworkPortsArgs{
+func (s *MachineSerializationSuite) addOpenedPorts(m Machine) []OpenedPortsArgs {
+	args := []OpenedPortsArgs{
 		{
-			NetworkName: "storage",
-			OpenPorts: []PortRangeArgs{
+			SubnetID: "0.1.2.0/24",
+			OpenedPorts: []PortRangeArgs{
 				{
 					UnitName: "magic/0",
 					FromPort: 1234,
@@ -198,8 +198,8 @@ func (s *MachineSerializationSuite) addNetworkPorts(m Machine) []NetworkPortsArg
 				},
 			},
 		}, {
-			NetworkName: "workload",
-			OpenPorts: []PortRangeArgs{
+			SubnetID: "",
+			OpenedPorts: []PortRangeArgs{
 				{
 					UnitName: "unicorn/0",
 					FromPort: 80,
@@ -209,25 +209,25 @@ func (s *MachineSerializationSuite) addNetworkPorts(m Machine) []NetworkPortsArg
 			},
 		},
 	}
-	m.AddNetworkPorts(args[0])
-	m.AddNetworkPorts(args[1])
+	m.AddOpenedPorts(args[0])
+	m.AddOpenedPorts(args[1])
 	return args
 }
 
-func (s *MachineSerializationSuite) TestNetworkPorts(c *gc.C) {
+func (s *MachineSerializationSuite) TestOpenedPorts(c *gc.C) {
 	m := newMachine(s.machineArgs("42"))
-	args := s.addNetworkPorts(m)
-	ports := m.NetworkPorts()
+	args := s.addOpenedPorts(m)
+	ports := m.OpenedPorts()
 	c.Assert(ports, gc.HasLen, 2)
-	storage, workload := ports[0], ports[1]
-	c.Assert(storage.NetworkName(), gc.Equals, "storage")
-	c.Assert(workload.NetworkName(), gc.Equals, "workload")
-	opened := storage.OpenPorts()
+	withSubnet, withoutSubnet := ports[0], ports[1]
+	c.Assert(withSubnet.SubnetID(), gc.Equals, "0.1.2.0/24")
+	c.Assert(withoutSubnet.SubnetID(), gc.Equals, "")
+	opened := withSubnet.OpenPorts()
 	c.Assert(opened, gc.HasLen, 1)
-	s.AssertPortRange(c, opened[0], args[0].OpenPorts[0])
-	opened = workload.OpenPorts()
+	s.AssertPortRange(c, opened[0], args[0].OpenedPorts[0])
+	opened = withoutSubnet.OpenPorts()
 	c.Assert(opened, gc.HasLen, 1)
-	s.AssertPortRange(c, opened[0], args[1].OpenPorts[0])
+	s.AssertPortRange(c, opened[0], args[1].OpenedPorts[0])
 }
 
 func (s *MachineSerializationSuite) TestAnnotations(c *gc.C) {
@@ -283,7 +283,7 @@ func (s *MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	m.SetTools(minimalAgentToolsArgs())
 	m.SetStatus(minimalStatusArgs())
 	m.SetInstance(minimalCloudInstanceArgs())
-	s.addNetworkPorts(m)
+	s.addOpenedPorts(m)
 
 	// Just use one set of address args for both machine and provider.
 	addrArgs := []AddressArgs{

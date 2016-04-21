@@ -19,7 +19,7 @@ import (
 )
 
 type allInstancesFunc func() ([]instance.Instance, error)
-type startInstanceFunc func(string, constraints.Value, []string, tools.List, *instancecfg.InstanceConfig) (instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error)
+type startInstanceFunc func(string, constraints.Value, tools.List, *instancecfg.InstanceConfig) (instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error)
 type stopInstancesFunc func([]instance.Id) error
 type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
 type configFunc func() *config.Config
@@ -51,7 +51,6 @@ func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 	inst, hw, networkInfo, err := env.startInstance(
 		args.Placement,
 		args.Constraints,
-		args.InstanceConfig.Networks,
 		args.Tools,
 		args.InstanceConfig,
 	)

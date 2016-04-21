@@ -263,7 +263,6 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 			Id:     settingsDocID,
 			Remove: true,
 		},
-		removeRequestedNetworksOp(s.st, s.globalKey()),
 		removeEndpointBindingsOp(s.globalKey()),
 		removeStorageConstraintsOp(s.globalKey()),
 		removeConstraintsOp(s.st, s.globalKey()),
@@ -1358,16 +1357,6 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 	return onAbort(s.st.runTransaction(ops), errNotAlive)
 }
 
-// Networks returns the networks a service is associated with. Unlike
-// networks specified with constraints, these networks are required to
-// be present on machines hosting this service's units.
-//
-// TODO(dimitern): Drop this in a follow-up, as now we use endpoint bindings for
-// this.
-func (s *Service) Networks() ([]string, error) {
-	return readRequestedNetworks(s.st, s.globalKey())
-}
-
 // EndpointBindings returns the mapping for each endpoint name and the space
 // name it is bound to (or empty if unspecified). When no bindings are stored
 // for the service, defaults are returned.
@@ -1640,7 +1629,6 @@ type addServiceOpsArgs struct {
 	serviceDoc       *serviceDoc
 	statusDoc        statusDoc
 	constraints      constraints.Value
-	networks         []string
 	storage          map[string]StorageConstraints
 	settings         map[string]interface{}
 	settingsRefCount int
@@ -1662,11 +1650,6 @@ func addServiceOps(st *State, args addServiceOpsArgs) []txn.Op {
 
 	return []txn.Op{
 		createConstraintsOp(st, globalKey, args.constraints),
-		// TODO(dimitern) 2014-04-04 bug #1302498
-		// Once we can add networks independently of machine
-		// provisioning, we should check the given networks are valid
-		// and known before setting them.
-		createRequestedNetworksOp(st, globalKey, args.networks),
 		createStorageConstraintsOp(globalKey, args.storage),
 		createSettingsOp(settingsKey, args.settings),
 		createSettingsOp(leadershipKey, args.leadershipSettings),

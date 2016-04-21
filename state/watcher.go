@@ -2375,8 +2375,8 @@ var _ Watcher = (*openedPortsWatcher)(nil)
 
 // WatchOpenedPorts starts and returns a StringsWatcher notifying of
 // changes to the openedPorts collection. Reported changes have the
-// following format: "<machine-id>:<network-name>", i.e.
-// "0:juju-public".
+// following format: "<machine-id>:<subnet-id>", i.e.
+// "0:10.20.30.0/24".
 func (st *State) WatchOpenedPorts() StringsWatcher {
 	return newOpenedPortsWatcher(st)
 }
@@ -2402,14 +2402,14 @@ func (w *openedPortsWatcher) Changes() <-chan []string {
 }
 
 // transformId converts a global key for a ports document (e.g.
-// "m#42#n#juju-public") into a colon-separated string with the
-// machine id and network name (e.g. "42:juju-public").
-func (w *openedPortsWatcher) transformId(globalKey string) (string, error) {
-	parts, err := extractPortsIdParts(globalKey)
+// "m#42#0.1.2.0/24") into a colon-separated string with the
+// machine and subnet IDs (e.g. "42:0.1.2.0/24").
+func (w *openedPortsWatcher) transformID(globalKey string) (string, error) {
+	parts, err := extractPortsIDParts(globalKey)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return fmt.Sprintf("%s:%s", parts[machineIdPart], parts[networkNamePart]), nil
+	return fmt.Sprintf("%s:%s", parts[machineIDPart], parts[subnetIDPart]), nil
 }
 
 func (w *openedPortsWatcher) initial() (set.Strings, error) {
@@ -2427,10 +2427,10 @@ func (w *openedPortsWatcher) initial() (set.Strings, error) {
 		if doc.TxnRevno != -1 {
 			w.known[id] = doc.TxnRevno
 		}
-		if changeId, err := w.transformId(id); err != nil {
+		if changeID, err := w.transformID(id); err != nil {
 			logger.Errorf(err.Error())
 		} else {
-			portDocs.Add(changeId)
+			portDocs.Add(changeID)
 		}
 	}
 	return portDocs, errors.Trace(iter.Close())
@@ -2477,11 +2477,11 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 	}
 	if change.Revno == -1 {
 		delete(w.known, localID)
-		if changeId, err := w.transformId(localID); err != nil {
+		if changeID, err := w.transformID(localID); err != nil {
 			logger.Errorf(err.Error())
 		} else {
 			// Report the removed id.
-			ids.Add(changeId)
+			ids.Add(changeID)
 		}
 		return nil
 	}
@@ -2494,11 +2494,11 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 	knownRevno, isKnown := w.known[localID]
 	w.known[localID] = currentRevno
 	if !isKnown || currentRevno > knownRevno {
-		if changeId, err := w.transformId(localID); err != nil {
+		if changeID, err := w.transformID(localID); err != nil {
 			logger.Errorf(err.Error())
 		} else {
 			// Report the unknown-so-far id.
-			ids.Add(changeId)
+			ids.Add(changeID)
 		}
 	}
 	return nil

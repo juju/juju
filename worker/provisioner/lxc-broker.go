@@ -80,9 +80,6 @@ type lxcBroker struct {
 
 // StartInstance is specified in the Broker interface.
 func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting lxc containers with networks is not supported yet")
-	}
 	// TODO: refactor common code out of the container brokers.
 	machineId := args.InstanceConfig.MachineId
 	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)
@@ -487,50 +484,6 @@ var (
 	interfaceAddrs     = (*net.Interface).Addrs
 )
 
-// discoverIPv4InterfaceAddress returns the address for ifaceName
-// (e.g., br-eth1). This method is a stop-gap measure to unblock
-// master CI failures and will be removed once multi-NIC container
-// support is landed from the maas-spaces2 feature branch.
-func discoverIPv4InterfaceAddress(ifaceName string) (*network.Address, error) {
-	iface, err := netInterfaceByName(ifaceName)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get interface %q", ifaceName)
-	}
-
-	addrs, err := interfaceAddrs(iface)
-
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get network addresses for interface %q", ifaceName)
-	}
-
-	for _, addr := range addrs {
-		// Check if it's an IP or a CIDR.
-
-		ip := net.ParseIP(addr.String())
-
-		if ip != nil && ip.To4() == nil {
-			logger.Debugf("skipping IPv6 address: %q", ip)
-			continue
-		}
-
-		if ip == nil {
-			// Try a CIDR.
-			ip, _, err = net.ParseCIDR(addr.String())
-			if ip != nil && ip.To4() == nil {
-				logger.Debugf("skipping IPv6 address: %q", ip)
-				continue
-			}
-			if err != nil {
-				return nil, errors.Annotatef(err, "cannot parse address %q", addr)
-			}
-		}
-		logger.Tracef("network interface %q has address %q", ifaceName, ip)
-		addr := network.NewAddress(ip.String())
-		return &addr, nil
-	}
-	return nil, errors.Errorf("no addresses found for %q", ifaceName)
-}
-
 func discoverPrimaryNIC() (string, network.Address, error) {
 	interfaces, err := netInterfaces()
 	if err != nil {
@@ -638,12 +591,6 @@ func configureContainerNetwork(
 		finalIfaceInfo[i].DNSServers = dnsServers
 		finalIfaceInfo[i].DNSSearchDomains = []string{searchDomain}
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
-		if finalIfaceInfo[i].NetworkName == "" {
-			finalIfaceInfo[i].NetworkName = network.DefaultPrivate
-		}
-		if finalIfaceInfo[i].ProviderId == "" {
-			finalIfaceInfo[i].ProviderId = network.DefaultProviderId
-		}
 	}
 	err = setupRoutesAndIPTables(
 		primaryNIC,
