@@ -51,6 +51,7 @@ type environSuite struct {
 	sender        azuretesting.Senders
 
 	tags                          map[string]*string
+	group                         *resources.Group
 	vmSizes                       *compute.VirtualMachineSizeListResult
 	storageNameAvailabilityResult *storage.CheckNameAvailabilityResult
 	storageAccount                *storage.Account
@@ -78,9 +79,17 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		NewStorageClient: s.storageClient.NewClient,
 	})
 
-	emptyTags := make(map[string]*string)
+	envTags := map[string]*string{
+		"juju-model-uuid":      to.StringPtr(testing.ModelTag.Id()),
+		"juju-controller-uuid": to.StringPtr(testing.ModelTag.Id()),
+	}
 	s.tags = map[string]*string{
 		"juju-machine-name": to.StringPtr("machine-0"),
+	}
+
+	s.group = &resources.Group{
+		Location: to.StringPtr("westus"),
+		Tags:     &envTags,
 	}
 
 	vmSizes := []compute.VirtualMachineSize{{
@@ -100,6 +109,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.storageAccount = &storage.Account{
 		Name: to.StringPtr("my-storage-account"),
 		Type: to.StringPtr("Standard_LRS"),
+		Tags: &envTags,
 		Properties: &storage.AccountProperties{
 			PrimaryEndpoints: &storage.Endpoints{
 				Blob: to.StringPtr(fmt.Sprintf("https://%s.blob.storage.azurestack.local/", fakeStorageAccount)),
@@ -116,7 +126,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		ID:       to.StringPtr("juju-internal"),
 		Name:     to.StringPtr("juju-internal"),
 		Location: to.StringPtr("westus"),
-		Tags:     &emptyTags,
+		Tags:     &envTags,
 		Properties: &network.VirtualNetworkPropertiesFormat{
 			AddressSpace: &network.AddressSpace{&addressPrefixes},
 		},
@@ -128,6 +138,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 			"resourceGroups", "juju-testenv-model-"+testing.ModelTag.Id(),
 			"providers/Microsoft.Network/networkSecurityGroups/juju-internal",
 		)),
+		Tags: &envTags,
 	}
 
 	s.subnet = &network.Subnet{
@@ -206,7 +217,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		ID:       to.StringPtr("juju-availability-set-id"),
 		Name:     to.StringPtr("juju"),
 		Location: to.StringPtr("westus"),
-		Tags:     &emptyTags,
+		Tags:     &envTags,
 	}
 
 	sshPublicKeys := []compute.SSHPublicKey{{
@@ -329,10 +340,10 @@ func tokenRefreshSender() *azuretesting.MockSender {
 func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
 	resourceGroupName := "juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d"
 	return azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/"+resourceGroupName, &resources.Group{}),
+		s.makeSender(".*/resourcegroups/"+resourceGroupName, s.group),
 		s.makeSender(".*/virtualnetworks/juju-internal", s.vnet),
-		s.makeSender(".*/networkSecurityGroups/juju-internal", &s.nsg),
-		s.makeSender(".*/virtualnetworks/juju-internal/subnets/juju-internal", &s.subnet),
+		s.makeSender(".*/networkSecurityGroups/juju-internal", s.nsg),
+		s.makeSender(".*/virtualnetworks/juju-internal/subnets/juju-internal", s.subnet),
 		s.makeSender(".*/checkNameAvailability", s.storageNameAvailabilityResult),
 		s.makeSender(".*/storageAccounts/.*", s.storageAccount),
 		s.makeSender(".*/storageAccounts/.*/listKeys", s.storageAccountKeys),
@@ -596,11 +607,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	c.Assert(s.requests[5].Method, gc.Equals, "PUT")  // create storage account
 	c.Assert(s.requests[6].Method, gc.Equals, "POST") // get storage account keys
 
-	emptyTags := map[string]*string{}
-	assertRequestBody(c, s.requests[0], &resources.Group{
-		Location: to.StringPtr("westus"),
-		Tags:     &emptyTags,
-	})
+	assertRequestBody(c, s.requests[0], &s.group)
 
 	s.vnet.ID = nil
 	s.vnet.Name = nil
@@ -622,7 +629,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	}}
 	assertRequestBody(c, s.requests[2], &network.SecurityGroup{
 		Location: to.StringPtr("westus"),
-		Tags:     &emptyTags,
+		Tags:     s.nsg.Tags,
 		Properties: &network.SecurityGroupPropertiesFormat{
 			SecurityRules: &securityRules,
 		},
@@ -639,7 +646,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 
 	assertRequestBody(c, s.requests[5], &storage.AccountCreateParameters{
 		Location: to.StringPtr("westus"),
-		Tags:     &emptyTags,
+		Tags:     s.storageAccount.Tags,
 		Properties: &storage.AccountPropertiesCreateParameters{
 			AccountType: "Standard_LRS",
 		},

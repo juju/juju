@@ -115,7 +115,11 @@ func (env *azureEnviron) Bootstrap(
 // see subnet creation).
 func (env *azureEnviron) initResourceGroup() (*config.Config, error) {
 	location := env.config.location
-	tags, _ := env.config.ResourceTags()
+	tags := tags.ResourceTags(
+		names.NewModelTag(env.config.Config.UUID()),
+		names.NewModelTag(env.config.Config.ControllerUUID()),
+		env.config,
+	)
 	resourceGroupsClient := resources.GroupsClient{env.resources}
 
 	logger.Debugf("creating resource group %q", env.resourceGroup)
@@ -386,7 +390,11 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	// ensure we obtain all information based on the same configuration.
 	env.mu.Lock()
 	location := env.config.location
-	envTags, _ := env.config.ResourceTags()
+	envTags := tags.ResourceTags(
+		names.NewModelTag(env.config.Config.UUID()),
+		names.NewModelTag(env.config.Config.ControllerUUID()),
+		env.config,
+	)
 	apiPort := env.config.APIPort()
 	vmClient := compute.VirtualMachinesClient{env.compute}
 	availabilitySetClient := compute.AvailabilitySetsClient{env.compute}
