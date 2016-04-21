@@ -40,7 +40,6 @@ def build_job(credentials, root, job_name, candidates, suite):
                       credentials.password)
     for candidate, revision_build in candidates:
         call_parameters = {
-            'new_juju_dir': candidate,
             'revision_build': '{:d}'.format(revision_build),
             }
         call_parameters.update(parameters)

@@ -29,6 +29,7 @@ from utility import (
     as_literal_address,
     ErrJujuPath,
     extract_deb,
+    _find_candidates,
     find_candidates,
     find_latest_branch_candidates,
     get_auth_token,
@@ -112,6 +113,22 @@ class TestGetAuthToken(TestCase):
 
 class TestFindCandidates(TestCase):
 
+    def test__find_candidates_artifacts_default(self):
+        with temp_dir() as root:
+            make_candidate_dir(root, 'master-artifacts')
+            make_candidate_dir(root, '1.25')
+            candidate = os.path.join(root, 'candidate', '1.25')
+            self.assertEqual(list(_find_candidates(root)), [
+                (candidate, os.path.join(candidate, 'buildvars.json'))])
+
+    def test__find_candidates_artifacts_enabled(self):
+        with temp_dir() as root:
+            make_candidate_dir(root, 'master-artifacts')
+            make_candidate_dir(root, '1.25')
+            candidate = os.path.join(root, 'candidate', 'master-artifacts')
+            self.assertEqual(list(_find_candidates(root, artifacts=True)), [
+                (candidate, os.path.join(candidate, 'buildvars.json'))])
+
     def test_find_candidates(self):
         with temp_dir() as root:
             master_path = make_candidate_dir(root, 'master')
@@ -163,20 +180,20 @@ class TestFindLatestBranchCandidates(TestCase):
 
     def test_find_latest_branch_candidates(self):
         with temp_dir() as root:
-            master_path = make_candidate_dir(root, 'master')
+            master_path = make_candidate_dir(root, 'master-artifacts')
             self.assertEqual(find_latest_branch_candidates(root),
                              [(master_path, 1234)])
 
     def test_find_latest_branch_candidates_old_buildvars(self):
         with temp_dir() as root:
             a_week_ago = time() - timedelta(days=7, seconds=1).total_seconds()
-            make_candidate_dir(root, 'master', modified=a_week_ago)
+            make_candidate_dir(root, 'master-artifacts', modified=a_week_ago)
             self.assertEqual(find_latest_branch_candidates(root), [])
 
     def test_ignore_older_revision_build(self):
         with temp_dir() as root:
             path_1234 = make_candidate_dir(
-                root, '1234', 'mybranch', '1234')
+                root, '1234-artifacts', 'mybranch', '1234')
             make_candidate_dir(root, '1233', 'mybranch', '1233')
             self.assertEqual(find_latest_branch_candidates(root), [
                 (path_1234, 1234)])
@@ -184,9 +201,9 @@ class TestFindLatestBranchCandidates(TestCase):
     def test_include_older_revision_build_different_branch(self):
         with temp_dir() as root:
             path_1234 = make_candidate_dir(
-                root, '1234', 'branch_foo', '1234')
+                root, '1234-artifacts', 'branch_foo', '1234')
             path_1233 = make_candidate_dir(
-                root, '1233', 'branch_bar', '1233')
+                root, '1233-artifacts', 'branch_bar', '1233')
             self.assertItemsEqual(
                 find_latest_branch_candidates(root), [
                     (path_1233, 1233), (path_1234, 1234)])

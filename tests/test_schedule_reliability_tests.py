@@ -86,13 +86,11 @@ class TestBuildJob(TestCase):
             call('foo', {
                 'suite': 'qux',
                 'attempts': '10',
-                'new_juju_dir': 'bar',
                 'revision_build': '1',
                 }, token='quxxx'),
             call('foo', {
                 'suite': 'qux',
                 'attempts': '10',
-                'new_juju_dir': 'baz',
                 'revision_build': '2'
                 }, token='quxxx'),
             ]
@@ -108,7 +106,6 @@ class TestBuildJob(TestCase):
             'foo', {
                 'suite': 'qux,quxx',
                 'attempts': '10',
-                'new_juju_dir': 'baz',
                 'revision_build': '1',
                 }, token='bar')
 
@@ -129,11 +126,10 @@ class TestMain(TestCase):
     def test_selects_newest_candidate(self):
         with self.build_job_context() as root:
             path_1234 = make_candidate_dir(
-                root, '1234', 'mybranch', '1234')
+                root, '1234-artifacts', 'mybranch', '1234')
             make_candidate_dir(root, '1233', 'mybranch', '1233')
             build_job_mock = self.run_main(root)
         build_job_mock.assert_called_once_with('foo', {
-            'new_juju_dir': path_1234,
             'attempts': '10',
             'suite': 'full',
             'revision_build': '1234',
@@ -144,12 +140,12 @@ class TestMain(TestCase):
         # even if there are more than 3 latest.
         with self.build_job_context() as root:
             make_candidate_dir(
-                root, 'branch1', 'mybranch1')
+                root, 'branch1-artifacts', 'mybranch1')
             make_candidate_dir(
-                root, 'branch2', 'mybranch2')
+                root, 'branch2-artifacts', 'mybranch2')
             make_candidate_dir(
-                root, 'branch3', 'mybranch3')
+                root, 'branch3-artifacts', 'mybranch3')
             make_candidate_dir(
-                root, 'branch4', 'mybranch4')
+                root, 'branch4-artifacts', 'mybranch4')
             build_job_mock = self.run_main(root)
         self.assertEqual(build_job_mock.call_count, 3)
