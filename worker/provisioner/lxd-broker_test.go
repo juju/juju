@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -29,10 +28,11 @@ import (
 
 type lxdBrokerSuite struct {
 	coretesting.BaseSuite
-	broker      environs.InstanceBroker
-	agentConfig agent.ConfigSetterWriter
-	api         *fakeAPI
-	manager     *fakeContainerManager
+	broker        environs.InstanceBroker
+	agentConfig   agent.ConfigSetterWriter
+	api           *fakeAPI
+	manager       *fakeContainerManager
+	possibleTools coretools.List
 }
 
 var _ = gc.Suite(&lxdBrokerSuite{})
@@ -42,6 +42,19 @@ func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("Skipping lxd tests on windows")
 	}
+
+	// To isolate the tests from the host's architecture, we override it here.
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+
+	s.possibleTools = coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}, {
+		// non-host-arch tools should be filtered out by StartInstance
+		Version: version.MustParseBinary("2.3.4-quantal-arm64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-arm64.tgz",
+	}}
+
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -63,8 +76,6 @@ func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
 
 func (s *lxdBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.InstanceConfig {
 	machineNonce := "fake-nonce"
-	// To isolate the tests from the host's architecture, we override it here.
-	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", "", true, nil, stateInfo, apiInfo)
@@ -75,17 +86,9 @@ func (s *lxdBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.
 func (s *lxdBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
 	instanceConfig := s.instanceConfig(c, machineId)
 	cons := constraints.Value{}
-	possibleTools := coretools.List{&coretools.Tools{
-		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
-		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
-	}, {
-		// non-host-arch tools should be filtered out by StartInstance
-		Version: version.MustParseBinary("2.3.4-quantal-arm64"),
-		URL:     "http://tools.testing.invalid/2.3.4-quantal-arm64.tgz",
-	}}
 	result, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:    cons,
-		Tools:          possibleTools,
+		Tools:          s.possibleTools,
 		InstanceConfig: instanceConfig,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -94,7 +97,6 @@ func (s *lxdBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 
 func (s *lxdBrokerSuite) TestStartInstance(c *gc.C) {
 	machineId := "1/lxd/0"
-	s.SetFeatureFlags(feature.AddressAllocation)
 	s.startInstance(c, machineId)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "ContainerConfig",
@@ -108,6 +110,18 @@ func (s *lxdBrokerSuite) TestStartInstance(c *gc.C) {
 	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
 	c.Assert(instanceConfig.ToolsList(), gc.HasLen, 1)
 	c.Assert(instanceConfig.ToolsList().Arches(), jc.DeepEquals, []string{"amd64"})
+}
+
+func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {
+	_, err := s.broker.StartInstance(environs.StartInstanceParams{
+		Tools: coretools.List{{
+			// non-host-arch tools should be filtered out by StartInstance
+			Version: version.MustParseBinary("2.3.4-quantal-arm64"),
+			URL:     "http://tools.testing.invalid/2.3.4-quantal-arm64.tgz",
+		}},
+		InstanceConfig: s.instanceConfig(c, "1/lxd/0"),
+	})
+	c.Assert(err, gc.ErrorMatches, `need tools for arch amd64, only found \[arm64\]`)
 }
 
 type fakeContainerManager struct {
