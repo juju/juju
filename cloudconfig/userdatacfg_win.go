@@ -223,8 +223,9 @@ func addDownloadToolsCmds(ser string, certificate string, toolsList tools.List) 
 		}
 	}
 
-	// Attempt all of the URLs, one after the other. We retry the whole
-	// lot, rather than retrying individually, to avoid one permanently
+	// Attempt all of the URLs, one after the other, until one succeeds.
+	// If all of the URLs fail, we retry the whole lot. We retry in this
+	// way, rather than retrying individually, to avoid one permanently
 	// bad URL from holding up the download.
 	downloadCmds := make([]string, len(toolsList))
 	for i, tools := range toolsList {
