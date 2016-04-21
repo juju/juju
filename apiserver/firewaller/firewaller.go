@@ -166,14 +166,14 @@ func (f *FirewallerAPI) GetMachinePorts(args params.MachinePortsParams) (params.
 	for i, param := range args.Params {
 		machineTag, err := names.ParseMachineTag(param.MachineTag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		var subnetTag names.SubnetTag
 		if param.SubnetTag != "" {
 			subnetTag, err = names.ParseSubnetTag(param.SubnetTag)
 			if err != nil {
-				result.Results[i].Error = common.ServerError(common.ErrPerm)
+				result.Results[i].Error = common.ServerError(err)
 				continue
 			}
 		}
@@ -221,7 +221,7 @@ func (f *FirewallerAPI) GetMachineActiveSubnets(args params.Entities) (params.St
 	for i, entity := range args.Entities {
 		machineTag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		machine, err := f.getMachine(canAccess, machineTag)
@@ -235,11 +235,19 @@ func (f *FirewallerAPI) GetMachineActiveSubnets(args params.Entities) (params.St
 			continue
 		}
 		for _, port := range ports {
-			var subnetTag string
-			if port.SubnetID() != "" {
-				subnetTag = names.NewSubnetTag(port.SubnetID()).String()
+			subnetID := port.SubnetID()
+			if subnetID != "" && !names.IsValidSubnet(subnetID) {
+				err = errors.NotValidf("%s", ports) // ports for machine "0", subnet "bad" not valid
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			} else if subnetID != "" && names.IsValidSubnet(subnetID) {
+				subnetTag := names.NewSubnetTag(subnetID).String()
+				result.Results[i].Result = append(result.Results[i].Result, subnetTag)
+				continue
 			}
-			result.Results[i].Result = append(result.Results[i].Result, subnetTag)
+			// TODO(dimitern): Empty subnet CIDRs for ports are still OK until
+			// we can enforce it across all providers.
+			result.Results[i].Result = append(result.Results[i].Result, "")
 		}
 	}
 	return result, nil
