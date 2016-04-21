@@ -41,7 +41,7 @@ func (c *updateCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "update-space",
 		Args:    "<name> <CIDR1> [ <CIDR2> ...]",
-		Purpose: "update a network space's CIDRs",
+		Purpose: "Update a network space's CIDRs",
 		Doc:     strings.TrimSpace(updateCommandDoc),
 	}
 }
