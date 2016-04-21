@@ -104,6 +104,8 @@ var indexData = `
 		   "datatype": "image-ids",
 		   "format": "products:1.0",
 		   "products": [
+			"com.ubuntu.cloud:server:16.04:s390x",
+			"com.ubuntu.cloud:server:14.04:s390x",
 			"com.ubuntu.cloud:server:14.04:amd64",
 			"com.ubuntu.cloud:server:14.04:i386",
 			"com.ubuntu.cloud:server:14.04:ppc64el",
@@ -243,6 +245,56 @@ var imagesData = `
            }
          },
          "pubname": "ubuntu-raring-13.04-amd64-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:14.04:s390x": {
+     "release": "trusty",
+     "version": "14.04",
+     "arch": "s390x",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst5": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "id-y"
+           },
+           "inst6": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "another-region",
+             "id": "id-z"
+           }
+         },
+         "pubname": "ubuntu-trusty-14.04-s390x-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:16.04:s390x": {
+     "release": "xenial",
+     "version": "16.04",
+     "arch": "s390x",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst5": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "id-y"
+           },
+           "inst6": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "another-region",
+             "id": "id-z"
+           }
+         },
+         "pubname": "ubuntu-xenial-16.04-s390x-server-20121218",
          "label": "release"
        }
      }
