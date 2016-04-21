@@ -67,7 +67,7 @@ const (
 
 	// fallbackLtsSeries is the latest LTS series we'll use, if we fail to
 	// obtain this information from the system.
-	fallbackLtsSeries string = "trusty"
+	fallbackLtsSeries string = "xenial"
 
 	// DefaultNumaControlPolicy should not be used by default.
 	// Only use numactl if user specifically requests it
