@@ -86,20 +86,20 @@ type configtest struct {
 var newConfigTests = []configtest{{
 	info:   "sdc-user is required",
 	remove: []string{"sdc-user"},
-	err:    ".* cannot get sdc-user value from model variable .*",
+	err:    ".* cannot get sdc-user value from environment variable .*",
 }, {
 	info:   "sdc-user cannot be empty",
 	insert: coretesting.Attrs{"sdc-user": ""},
-	err:    ".* cannot get sdc-user value from model variable .*",
+	err:    ".* cannot get sdc-user value from environment variable .*",
 }, {
-	info:   "can get sdc-user from model variable",
+	info:   "can get sdc-user from environment variable",
 	insert: coretesting.Attrs{"sdc-user": ""},
 	expect: coretesting.Attrs{"sdc-user": "tester"},
 	envVars: map[string]string{
 		"SDC_ACCOUNT": "tester",
 	},
 }, {
-	info:   "can get sdc-user from model variable, missing from config",
+	info:   "can get sdc-user from environment variable, missing from config",
 	remove: []string{"sdc-user"},
 	expect: coretesting.Attrs{"sdc-user": "tester"},
 	envVars: map[string]string{
@@ -108,20 +108,20 @@ var newConfigTests = []configtest{{
 }, {
 	info:   "sdc-key-id is required",
 	remove: []string{"sdc-key-id"},
-	err:    ".* cannot get sdc-key-id value from model variable .*",
+	err:    ".* cannot get sdc-key-id value from environment variable .*",
 }, {
 	info:   "sdc-key-id cannot be empty",
 	insert: coretesting.Attrs{"sdc-key-id": ""},
-	err:    ".* cannot get sdc-key-id value from model variable .*",
+	err:    ".* cannot get sdc-key-id value from environment variable .*",
 }, {
-	info:   "can get sdc-key-id from model variable",
+	info:   "can get sdc-key-id from environment variable",
 	insert: coretesting.Attrs{"sdc-key-id": ""},
 	expect: coretesting.Attrs{"sdc-key-id": "key"},
 	envVars: map[string]string{
 		"SDC_KEY_ID": "key",
 	},
 }, {
-	info:   "can get sdc-key-id from model variable, missing from config",
+	info:   "can get sdc-key-id from environment variable, missing from config",
 	remove: []string{"sdc-key-id"},
 	expect: coretesting.Attrs{"sdc-key-id": "key"},
 	envVars: map[string]string{
@@ -133,7 +133,7 @@ var newConfigTests = []configtest{{
 }, {
 	info:   "sdc-url cannot be empty",
 	insert: coretesting.Attrs{"sdc-url": ""},
-	err:    ".* cannot get sdc-url value from model variable .*",
+	err:    ".* cannot get sdc-url value from environment variable .*",
 }, {
 	info:   "sdc-url is untouched if present",
 	insert: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
