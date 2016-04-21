@@ -306,9 +306,13 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(storage.NewShowCommand())
 
 	// Manage spaces
-	r.Register(space.NewSuperCommand())
-	r.RegisterSuperAlias("add-space", "space", "create", nil)
-	r.RegisterSuperAlias("list-spaces", "space", "list", nil)
+	r.Register(space.NewAddCommand())
+	r.Register(space.NewListCommand())
+	if featureflag.Enabled(feature.PostNetCLIMVP) {
+		r.Register(space.NewRemoveCommand())
+		r.Register(space.NewUpdateCommand())
+		r.Register(space.NewRenameCommand())
+	}
 
 	// Manage subnets
 	r.Register(subnet.NewSuperCommand())

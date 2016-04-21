@@ -60,13 +60,28 @@ func (cfg Config) UsingTCPRemote() (Config, error) {
 		return cfg, nil
 	}
 
+	client, err := Connect(cfg)
+	if err != nil {
+		return cfg, errors.Trace(err)
+	}
+
+	/* UsingTCP will try to figure out the network name of the lxdbr0,
+	 * which means that lxdbr0 needs to be up. If this lxd has never had
+	 * anything done to it, it hasn't been socket activated yet, and lxdbr0
+	 * won't exist. So, we rely on this poke to get lxdbr0 started.
+	 */
+	_, err = client.ServerStatus()
+	if err != nil {
+		return cfg, errors.Trace(err)
+	}
+
 	remote, err := cfg.Remote.UsingTCP()
 	if err != nil {
 		return cfg, errors.Trace(err)
 	}
 
 	// Update the server config and authorized certs.
-	serverCert, err := prepareRemote(cfg, *remote.Cert)
+	serverCert, err := prepareRemote(client, *remote.Cert)
 	if err != nil {
 		return cfg, errors.Trace(err)
 	}
@@ -80,12 +95,7 @@ func (cfg Config) UsingTCPRemote() (Config, error) {
 	return cfg, nil
 }
 
-func prepareRemote(cfg Config, newCert Cert) (string, error) {
-	client, err := Connect(cfg)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
+func prepareRemote(client *Client, newCert Cert) (string, error) {
 	// Make sure the LXD service is configured to listen to local https
 	// requests, rather than only via the Unix socket.
 	// TODO: jam 2016-02-25 This tells LXD to listen on all addresses,

@@ -16,7 +16,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newListCommand() cmd.Command {
+// NewListCommand returns a command used to list spaces.
+func NewListCommand() cmd.Command {
 	return modelcmd.Wrap(&listCommand{})
 }
 
@@ -37,10 +38,11 @@ output to be redirected to a file. `
 // Info is defined on the cmd.Command interface.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
+		Name:    "list-spaces",
 		Args:    "[--short] [--format yaml|json] [--output <path>]",
-		Purpose: "list spaces known to Juju, including associated subnets",
+		Purpose: "List known spaces, including associated subnets",
 		Doc:     strings.TrimSpace(listCommandDoc),
+		Aliases: []string{"spaces"},
 	}
 }
 

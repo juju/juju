@@ -8,50 +8,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
-	"github.com/juju/juju/feature"
-	coretesting "github.com/juju/juju/testing"
 )
-
-var mvpSubcommandNames = []string{
-	"create",
-	"list",
-	"help",
-}
-
-var postMVPSubcommandNames = []string{
-	"remove",
-	"update",
-	"rename",
-}
 
 type SpaceCommandSuite struct {
 	BaseSpaceSuite
 }
 
 var _ = gc.Suite(&SpaceCommandSuite{})
-
-func (s *SpaceCommandSuite) TestHelpSubcommandsMVP(c *gc.C) {
-	s.BaseSuite.SetFeatureFlags()
-	s.BaseSpaceSuite.SetUpTest(c) // looks evil, but works fine
-
-	ctx, err := coretesting.RunCommand(c, s.superCmd, "--help")
-	c.Assert(err, jc.ErrorIsNil)
-
-	namesFound := coretesting.ExtractCommandsFromHelpOutput(ctx)
-	c.Assert(namesFound, jc.SameContents, mvpSubcommandNames)
-}
-
-func (s *SpaceCommandSuite) TestHelpSubcommandsPostMVP(c *gc.C) {
-	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
-	s.BaseSpaceSuite.SetUpTest(c) // looks evil, but works fine
-
-	ctx, err := coretesting.RunCommand(c, s.superCmd, "--help")
-	c.Assert(err, jc.ErrorIsNil)
-
-	namesFound := coretesting.ExtractCommandsFromHelpOutput(ctx)
-	allSubcommandNames := append(mvpSubcommandNames, postMVPSubcommandNames...)
-	c.Assert(namesFound, jc.SameContents, allSubcommandNames)
-}
 
 func (s *SpaceCommandSuite) TestInit(c *gc.C) {
 	for i, test := range []struct {

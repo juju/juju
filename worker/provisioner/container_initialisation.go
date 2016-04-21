@@ -316,10 +316,16 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		}
 
 		initialiser = lxd.NewContainerInitialiser(series)
+		namespace := maybeGetManagerConfigNamespaces(managerConfig)
+		manager, err := lxd.NewContainerManager(managerConfig)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 		broker, err = NewLxdBroker(
 			cs.provisioner,
+			manager,
 			cs.config,
-			managerConfig,
+			namespace,
 			cs.enableNAT,
 		)
 		if err != nil {

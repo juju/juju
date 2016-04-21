@@ -20,6 +20,7 @@ import (
 	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/testing"
 )
@@ -36,7 +37,7 @@ type binaryStorageSuite struct {
 	session            *mgo.Session
 	storage            binarystorage.Storage
 	managedStorage     blobstore.ManagedStorage
-	metadataCollection *mgo.Collection
+	metadataCollection mongo.Collection
 	txnRunner          jujutxn.Runner
 }
 
@@ -48,12 +49,14 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	s.mongo.Start(nil)
 
 	var err error
+	var closer func()
 	s.session, err = s.mongo.Dial()
 	c.Assert(err, jc.ErrorIsNil)
 	rs := blobstore.NewGridFS("blobstore", "blobstore", s.session)
 	catalogue := s.session.DB("catalogue")
 	s.managedStorage = blobstore.NewManagedStorage(catalogue, rs)
-	s.metadataCollection = catalogue.C("binarymetadata")
+	s.metadataCollection, closer = mongo.CollectionFromName(catalogue, "binarymetadata")
+	s.AddCleanup(func(*gc.C) { closer() })
 	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: catalogue})
 	s.storage = binarystorage.New("my-uuid", s.managedStorage, s.metadataCollection, s.txnRunner)
 }
@@ -341,7 +344,7 @@ func (s *binaryStorageSuite) addMetadataDoc(c *gc.C, v string, size int64, hash,
 		SHA256:  hash,
 		Path:    path,
 	}
-	err := s.metadataCollection.Insert(&doc)
+	err := s.metadataCollection.Writeable().Insert(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -241,22 +241,30 @@ func (suite *maas2EnvironSuite) TestSpacesError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "Joe Manginiello")
 }
 
+func collectReleaseArgs(controller *fakeController) []gomaasapi.ReleaseMachinesArgs {
+	args := []gomaasapi.ReleaseMachinesArgs{}
+	for _, call := range controller.Stub.Calls() {
+		if call.FuncName == "ReleaseMachines" {
+			args = append(args, call.Args[0].(gomaasapi.ReleaseMachinesArgs))
+		}
+	}
+	return args
+}
+
 func (suite *maas2EnvironSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
-	controller := &fakeController{}
+	controller := newFakeController()
 	err := suite.makeEnviron(c, controller).StopInstances()
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(controller.releaseMachinesArgs, gc.IsNil)
+	c.Assert(collectReleaseArgs(controller), gc.HasLen, 0)
 }
 
 func (suite *maas2EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
 	// Return a cannot complete indicating that test1 is in the wrong state.
 	// The release operation will still release the others and succeed.
-	controller := &fakeController{
-		files: []gomaasapi.File{&fakeFile{name: "agent-prefix-provider-state"}},
-	}
+	controller := newFakeControllerWithFiles(&fakeFile{name: "agent-prefix-provider-state"})
 	err := suite.makeEnviron(c, controller).StopInstances("test1", "test2", "test3")
 	c.Check(err, jc.ErrorIsNil)
-	args := controller.releaseMachinesArgs
+	args := collectReleaseArgs(controller)
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0].SystemIDs, gc.DeepEquals, []string{"test1", "test2", "test3"})
 }
@@ -264,28 +272,25 @@ func (suite *maas2EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *gc
 func (suite *maas2EnvironSuite) TestStopInstancesIgnoresConflict(c *gc.C) {
 	// Return a cannot complete indicating that test1 is in the wrong state.
 	// The release operation will still release the others and succeed.
-	controller := &fakeController{
-		releaseMachinesErrors: []error{gomaasapi.NewCannotCompleteError("test1 not allocated")},
-		files: []gomaasapi.File{&fakeFile{name: "agent-prefix-provider-state"}},
-	}
+	controller := newFakeControllerWithFiles(&fakeFile{name: "agent-prefix-provider-state"})
+	controller.SetErrors(gomaasapi.NewCannotCompleteError("test1 not allocated"))
 	err := suite.makeEnviron(c, controller).StopInstances("test1", "test2", "test3")
 	c.Check(err, jc.ErrorIsNil)
-	args := controller.releaseMachinesArgs
+
+	args := collectReleaseArgs(controller)
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0].SystemIDs, gc.DeepEquals, []string{"test1", "test2", "test3"})
 }
 
 func (suite *maas2EnvironSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c *gc.C) {
-	controller := &fakeController{
-		releaseMachinesErrors: []error{
-			gomaasapi.NewBadRequestError("no such machine: test1"),
-			gomaasapi.NewBadRequestError("no such machine: test1"),
-		},
-		files: []gomaasapi.File{&fakeFile{name: "agent-prefix-provider-state"}},
-	}
+	controller := newFakeControllerWithFiles(&fakeFile{name: "agent-prefix-provider-state"})
+	controller.SetErrors(
+		gomaasapi.NewBadRequestError("no such machine: test1"),
+		gomaasapi.NewBadRequestError("no such machine: test1"),
+	)
 	err := suite.makeEnviron(c, controller).StopInstances("test1", "test2", "test3")
 	c.Check(err, jc.ErrorIsNil)
-	args := controller.releaseMachinesArgs
+	args := collectReleaseArgs(controller)
 	c.Assert(args, gc.HasLen, 4)
 	c.Assert(args[0].SystemIDs, gc.DeepEquals, []string{"test1", "test2", "test3"})
 	c.Assert(args[1].SystemIDs, gc.DeepEquals, []string{"test1"})
@@ -294,14 +299,12 @@ func (suite *maas2EnvironSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c
 }
 
 func (suite *maas2EnvironSuite) checkStopInstancesFails(c *gc.C, withError error) {
-	controller := &fakeController{
-		releaseMachinesErrors: []error{withError},
-		files: []gomaasapi.File{&fakeFile{name: "agent-prefix-provider-state"}},
-	}
+	controller := newFakeControllerWithFiles(&fakeFile{name: "agent-prefix-provider-state"})
+	controller.SetErrors(withError)
 	err := suite.makeEnviron(c, controller).StopInstances("test1", "test2", "test3")
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf("cannot release nodes: %s", withError))
 	// Only tries once.
-	c.Assert(controller.releaseMachinesArgs, gc.HasLen, 1)
+	c.Assert(collectReleaseArgs(controller), gc.HasLen, 1)
 }
 
 func (suite *maas2EnvironSuite) TestStopInstancesReturnsUnexpectedMAASError(c *gc.C) {
@@ -675,13 +678,13 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
 		systemID:     "Bruce Sterling",
 		architecture: arch.HostArch(),
 	}
-	suite.injectController(&fakeController{
-		allocateMachine: machine,
-		allocateMachineMatches: gomaasapi.ConstraintMatches{
-			Storage: map[string]gomaasapi.BlockDevice{},
-		},
-		machines: []gomaasapi.Machine{machine},
-	})
+	controller := newFakeController()
+	controller.allocateMachine = machine
+	controller.allocateMachineMatches = gomaasapi.ConstraintMatches{
+		Storage: map[string]gomaasapi.BlockDevice{},
+	}
+	controller.machines = []gomaasapi.Machine{machine}
+	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
@@ -694,13 +697,14 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentSucceeds(c *gc.C) {
 		architecture: arch.HostArch(),
 		statusName:   "Deployed",
 	}
-	suite.injectController(&fakeController{
-		allocateMachine: machine,
-		allocateMachineMatches: gomaasapi.ConstraintMatches{
-			Storage: map[string]gomaasapi.BlockDevice{},
-		},
-		machines: []gomaasapi.Machine{machine},
-	})
+
+	controller := newFakeController()
+	controller.allocateMachine = machine
+	controller.allocateMachineMatches = gomaasapi.ConstraintMatches{
+		Storage: map[string]gomaasapi.BlockDevice{},
+	}
+	controller.machines = []gomaasapi.Machine{machine}
+	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
