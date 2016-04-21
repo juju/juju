@@ -325,7 +325,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			case resolver.ErrTerminate:
 				err = u.terminate()
 			case resolver.ErrRestart:
+				// make sure we update the two values used above in
+				// creating LocalState.
 				charmURL = localState.CharmURL
+				charmModifiedVersion = localState.CharmModifiedVersion
 				// leave err assigned, causing loop to break
 			default:
 				// We need to set conflicted from here, because error
