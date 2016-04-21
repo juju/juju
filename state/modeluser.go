@@ -364,6 +364,7 @@ func (st *State) IsControllerAdministrator(user names.UserTag) (bool, error) {
 	count, err := modelUsers.Find(bson.D{
 		{"model-uuid", serverUUID},
 		{"user", user.Canonical()},
+		{"access", ModelAdminAccess},
 	}).Count()
 	if err != nil {
 		return false, errors.Trace(err)
