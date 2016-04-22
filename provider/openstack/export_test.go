@@ -107,6 +107,7 @@ var indexData = `
 		   "format": "products:1.0",
 		   "products": [
 			"com.ubuntu.cloud:server:16.04:s390x",
+			"com.ubuntu.cloud:server:16.04:amd64",
 			"com.ubuntu.cloud:server:14.04:s390x",
 			"com.ubuntu.cloud:server:14.04:amd64",
 			"com.ubuntu.cloud:server:14.04:arm64",
@@ -126,6 +127,43 @@ var imagesData = `
 {
  "content_id": "com.ubuntu.cloud:released:openstack",
  "products": {
+   "com.ubuntu.cloud:server:16.04:amd64": {
+     "release": "trusty",
+     "version": "16.04",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst1": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "1"
+           },
+           "inst2": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "another-region",
+             "id": "2"
+           }
+         },
+         "pubname": "ubuntu-trusty-16.04-amd64-server-20121218",
+         "label": "release"
+       },
+       "20121111": {
+         "items": {
+           "inst3": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "3"
+           }
+         },
+         "pubname": "ubuntu-trusty-16.04-amd64-server-20121111",
+         "label": "release"
+       }
+     }
+   },
    "com.ubuntu.cloud:server:14.04:amd64": {
      "release": "trusty",
      "version": "14.04",
