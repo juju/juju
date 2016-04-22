@@ -1554,7 +1554,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_upgrade_charm(self):
         env = EnvJujuClient(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'local'}), '2.34-74', None)
         with patch.object(env, 'juju') as mock_juju:
             env.upgrade_charm('foo-service',
                               '/bar/repository/angsty/mongodb')
