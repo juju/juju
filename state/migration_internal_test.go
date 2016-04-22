@@ -495,8 +495,6 @@ func (s *MigrationSuite) TestConstraintsDocFields(c *gc.C) {
 		"Container",
 		"Tags",
 		"Spaces",
-		// Networks is a deprecated constraint and not exported.
-		"Networks",
 	)
 	s.AssertExportedFields(c, constraintsDoc{}, fields)
 }

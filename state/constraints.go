@@ -27,9 +27,6 @@ type constraintsDoc struct {
 	Container    *instance.ContainerType
 	Tags         *[]string
 	Spaces       *[]string
-	// TODO(dimitern): Drop this once it's not possible to specify
-	// networks= in constraints.
-	Networks *[]string
 }
 
 func (doc constraintsDoc) value() constraints.Value {
@@ -43,7 +40,6 @@ func (doc constraintsDoc) value() constraints.Value {
 		Container:    doc.Container,
 		Tags:         doc.Tags,
 		Spaces:       doc.Spaces,
-		Networks:     doc.Networks,
 	}
 }
 
@@ -58,7 +54,6 @@ func newConstraintsDoc(st *State, cons constraints.Value) constraintsDoc {
 		Container:    cons.Container,
 		Tags:         cons.Tags,
 		Spaces:       cons.Spaces,
-		Networks:     cons.Networks,
 	}
 }
 

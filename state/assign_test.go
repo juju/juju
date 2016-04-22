@@ -37,7 +37,6 @@ func (s *AssignSuite) SetUpTest(c *gc.C) {
 		"wordpress",
 		s.AddTestingCharm(c, "wordpress"),
 	)
-	wordpress.SetConstraints(constraints.MustParse("networks=net3,^net4,^net5"))
 	s.wordpress = wordpress
 }
 
@@ -341,20 +340,12 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *gc.C) {
 }
 
 func (s *AssignSuite) assertAssignedUnit(c *gc.C, unit *state.Unit) string {
-	service, err := unit.Service()
-	c.Assert(err, jc.ErrorIsNil)
-	serviceCons, err := service.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
 	// Check the machine on the unit is set.
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that the principal is set on the machine.
 	machine, err := s.State.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	machineCons, err := machine.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serviceCons.IncludeNetworks(), gc.DeepEquals, machineCons.IncludeNetworks())
-	c.Assert(serviceCons.ExcludeNetworks(), gc.DeepEquals, machineCons.ExcludeNetworks())
 	machineUnits, err := machine.Units()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineUnits, gc.HasLen, 1)
