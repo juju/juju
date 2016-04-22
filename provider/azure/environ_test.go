@@ -123,8 +123,8 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 
 	addressPrefixes := []string{"10.0.0.0/16"}
 	s.vnet = &network.VirtualNetwork{
-		ID:       to.StringPtr("juju-internal"),
-		Name:     to.StringPtr("juju-internal"),
+		ID:       to.StringPtr("juju-internal-network"),
+		Name:     to.StringPtr("juju-internal-network"),
 		Location: to.StringPtr("westus"),
 		Tags:     &envTags,
 		Properties: &network.VirtualNetworkPropertiesFormat{
@@ -136,14 +136,14 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		ID: to.StringPtr(path.Join(
 			"/subscriptions", fakeSubscriptionId,
 			"resourceGroups", "juju-testenv-model-"+testing.ModelTag.Id(),
-			"providers/Microsoft.Network/networkSecurityGroups/juju-internal",
+			"providers/Microsoft.Network/networkSecurityGroups/juju-internal-nsg",
 		)),
 		Tags: &envTags,
 	}
 
 	s.subnet = &network.Subnet{
 		ID:   to.StringPtr("subnet-id"),
-		Name: to.StringPtr("juju-internal"),
+		Name: to.StringPtr("juju-internal-subnet"),
 		Properties: &network.SubnetPropertiesFormat{
 			AddressPrefix:        to.StringPtr("10.0.0.0/16"),
 			NetworkSecurityGroup: &network.SubResource{s.nsg.ID},
@@ -341,9 +341,9 @@ func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
 	resourceGroupName := "juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d"
 	return azuretesting.Senders{
 		s.makeSender(".*/resourcegroups/"+resourceGroupName, s.group),
-		s.makeSender(".*/virtualnetworks/juju-internal", s.vnet),
-		s.makeSender(".*/networkSecurityGroups/juju-internal", s.nsg),
-		s.makeSender(".*/virtualnetworks/juju-internal/subnets/juju-internal", s.subnet),
+		s.makeSender(".*/virtualnetworks/juju-internal-network", s.vnet),
+		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", s.nsg),
+		s.makeSender(".*/virtualnetworks/juju-internal-network/subnets/juju-internal-subnet", s.subnet),
 		s.makeSender(".*/checkNameAvailability", s.storageNameAvailabilityResult),
 		s.makeSender(".*/storageAccounts/.*", s.storageAccount),
 		s.makeSender(".*/storageAccounts/.*/listKeys", s.storageAccountKeys),
@@ -353,7 +353,7 @@ func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
 func (s *environSuite) startInstanceSenders(controller bool) azuretesting.Senders {
 	senders := azuretesting.Senders{
 		s.vmSizesSender(),
-		s.makeSender(".*/subnets/juju-internal", s.subnet),
+		s.makeSender(".*/subnets/juju-internal-subnet", s.subnet),
 		s.makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs),
 		s.makeSender(".*/publicIPAddresses/machine-0-public-ip", s.publicIPAddress),
 		s.makeSender(".*/networkInterfaces", s.oldNetworkInterfaces),
@@ -361,10 +361,10 @@ func (s *environSuite) startInstanceSenders(controller bool) azuretesting.Sender
 	}
 	if controller {
 		senders = append(senders,
-			s.makeSender(".*/networkSecurityGroups/juju-internal", &network.SecurityGroup{
+			s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", &network.SecurityGroup{
 				Properties: &network.SecurityGroupPropertiesFormat{},
 			}),
-			s.makeSender(".*/networkSecurityGroups/juju-internal", &network.SecurityGroup{}),
+			s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", &network.SecurityGroup{}),
 		)
 	}
 	senders = append(senders,
@@ -698,17 +698,17 @@ func (s *environSuite) TestStopInstances(c *gc.C) {
 		s.publicIPAddressesSender(
 			makePublicIPAddress("pip-0", "machine-0", "1.2.3.4"),
 		),
-		s.makeSender(".*/virtualMachines/machine-0", nil),                                             // DELETE
-		s.makeSender(".*/networkSecurityGroups/juju-internal", nsg),                                   // GET
-		s.makeSender(".*/networkSecurityGroups/juju-internal/securityRules/machine-0-80", nil),        // DELETE
-		s.makeSender(".*/networkSecurityGroups/juju-internal/securityRules/machine-0-1000-2000", nil), // DELETE
-		s.makeSender(".*/networkInterfaces/nic-0", nic0),                                              // PUT
-		s.makeSender(".*/publicIPAddresses/pip-0", nil),                                               // DELETE
-		s.makeSender(".*/networkInterfaces/nic-0", nil),                                               // DELETE
-		s.makeSender(".*/virtualMachines/machine-1", nil),                                             // DELETE
-		s.makeSender(".*/networkSecurityGroups/juju-internal", nsg),                                   // GET
-		s.makeSender(".*/networkInterfaces/nic-1", nil),                                               // DELETE
-		s.makeSender(".*/networkInterfaces/nic-2", nil),                                               // DELETE
+		s.makeSender(".*/virtualMachines/machine-0", nil),                                                 // DELETE
+		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", nsg),                                   // GET
+		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/machine-0-80", nil),        // DELETE
+		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/machine-0-1000-2000", nil), // DELETE
+		s.makeSender(".*/networkInterfaces/nic-0", nic0),                                                  // PUT
+		s.makeSender(".*/publicIPAddresses/pip-0", nil),                                                   // DELETE
+		s.makeSender(".*/networkInterfaces/nic-0", nil),                                                   // DELETE
+		s.makeSender(".*/virtualMachines/machine-1", nil),                                                 // DELETE
+		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", nsg),                                   // GET
+		s.makeSender(".*/networkInterfaces/nic-1", nil),                                                   // DELETE
+		s.makeSender(".*/networkInterfaces/nic-2", nil),                                                   // DELETE
 	}
 	err := env.StopInstances("machine-0", "machine-1", "machine-2")
 	c.Assert(err, jc.ErrorIsNil)

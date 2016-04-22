@@ -24,16 +24,16 @@ const (
 	// Each resource group is given its own network, subnet and network
 	// security group to manage. Each resource group will have its own
 	// private 10.0.0.0/16 network.
-	internalNetworkName = "juju-internal"
+	internalNetworkName = "juju-internal-network"
 
 	// internalSubnetName is the name of the subnet that each machine's
 	// primary NIC is attached to.
-	internalSubnetName = "juju-internal"
+	internalSubnetName = "juju-internal-subnet"
 
 	// internalSecurityGroupName is the name of the network security
 	// group that each machine's primary (internal network) NIC is
 	// attached to.
-	internalSecurityGroupName = "juju-internal"
+	internalSecurityGroupName = "juju-internal-nsg"
 )
 
 const (
