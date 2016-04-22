@@ -34,9 +34,6 @@ import (
 type Machine struct {
 	st  *State
 	doc machineDoc
-	presence.Presencer
-	status.StatusHistoryGetter
-	status.InstanceStatusHistoryGetter
 }
 
 // MachineJob values define responsibilities that machines may be

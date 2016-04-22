@@ -23,7 +23,13 @@ import (
 
 var logger = loggo.GetLogger("juju.state.presence")
 
-type Presencer interface {
+// Agent shouldn't really live here -- it's not used in this package,
+// and is implemented by a couple of state types for the convenience of
+// the apiserver -- but one of the methods returns a concrete *Pinger,
+// and that ties it down here quite effectively (until we want to take
+// on the task of cleaning it up and promoting it to core, which might
+// well never happen).
+type Agent interface {
 	AgentPresence() (bool, error)
 	SetAgentPresence() (*Pinger, error)
 	WaitAgentPresence(time.Duration) error
@@ -411,7 +417,7 @@ func (w *Watcher) sync() error {
 				}
 				seq := k + i
 				dead[seq] = true
-				logger.Tracef("found seq=%d dead", seq)
+				logger.Infof("found seq=%d dead", seq)
 			}
 		}
 	}
@@ -465,7 +471,7 @@ func (w *Watcher) sync() error {
 				if cur > 0 || dead[seq] {
 					continue
 				}
-				logger.Tracef("found seq=%d alive with key %q", seq, being.Key)
+				logger.Infof("found seq=%d alive with key %q", seq, being.Key)
 				for _, ch := range w.watches[being.Key] {
 					w.pending = append(w.pending, event{ch, being.Key, true})
 				}
@@ -547,10 +553,16 @@ func (p *Pinger) Start() error {
 	return nil
 }
 
-// Stop stops p's periodical ping.
+// Wait returns when the Pinger has stopped, and returns the first error
+// it encountered.
+func (p *Pinger) Wait() error {
+	return p.tomb.Wait()
+}
+
+// SoftStop stops p's periodical ping.
 // Watchers will not notice p has stopped pinging until the
 // previous ping times out.
-func (p *Pinger) Stop() error {
+func (p *Pinger) SoftStop() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.started {
@@ -564,8 +576,8 @@ func (p *Pinger) Stop() error {
 
 }
 
-// Kill stops p's periodical ping and immediately reports that it is dead.
-func (p *Pinger) Kill() error {
+// HardStop stops p's periodical ping and immediately reports that it is dead.
+func (p *Pinger) HardStop() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.started {
@@ -668,14 +680,11 @@ func (p *Pinger) prepare() error {
 // ping records updates the current time slot with the
 // sequence in use by the pinger.
 func (p *Pinger) ping() (err error) {
-	logger.Tracef("pinging %q with seq=%d", p.beingKey, p.beingSeq)
+	logger.Infof("pinging %q with seq=%d", p.beingKey, p.beingSeq)
 	defer func() {
 		// If the session is killed from underneath us, it panics when we
 		// try to copy it, so deal with that here.
 		if v := recover(); v != nil {
-			if v == "Session already closed" {
-				return
-			}
 			err = fmt.Errorf("%v", v)
 		}
 	}()
