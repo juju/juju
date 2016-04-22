@@ -75,7 +75,6 @@ func (s *configSuite) TestValidateInvalidCredentials(c *gc.C) {
 	s.assertConfigInvalid(c, testing.Attrs{"application-password": ""}, `"application-password" config not specified`)
 	s.assertConfigInvalid(c, testing.Attrs{"tenant-id": ""}, `"tenant-id" config not specified`)
 	s.assertConfigInvalid(c, testing.Attrs{"subscription-id": ""}, `"subscription-id" config not specified`)
-	s.assertConfigInvalid(c, testing.Attrs{"controller-resource-group": ""}, `"controller-resource-group" config not specified`)
 }
 
 func (s *configSuite) TestValidateStorageAccountCantChange(c *gc.C) {
@@ -106,16 +105,15 @@ func (s *configSuite) assertConfigInvalid(c *gc.C, attrs testing.Attrs, expect s
 
 func makeTestModelConfig(c *gc.C, extra ...testing.Attrs) *config.Config {
 	attrs := testing.Attrs{
-		"type":                      "azure",
-		"application-id":            fakeApplicationId,
-		"tenant-id":                 fakeTenantId,
-		"application-password":      "opensezme",
-		"subscription-id":           fakeSubscriptionId,
-		"location":                  "westus",
-		"endpoint":                  "https://api.azurestack.local",
-		"storage-endpoint":          "https://storage.azurestack.local",
-		"controller-resource-group": "arbitrary",
-		"agent-version":             "1.2.3",
+		"type":                 "azure",
+		"application-id":       fakeApplicationId,
+		"tenant-id":            fakeTenantId,
+		"application-password": "opensezme",
+		"subscription-id":      fakeSubscriptionId,
+		"location":             "westus",
+		"endpoint":             "https://api.azurestack.local",
+		"storage-endpoint":     "https://storage.azurestack.local",
+		"agent-version":        "1.2.3",
 	}
 	for _, extra := range extra {
 		attrs = attrs.Merge(extra)

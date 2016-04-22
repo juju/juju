@@ -7,7 +7,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -78,10 +77,10 @@ func (prov *azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, er
 // The result of RestrictedConfigAttributes is the names of attributes that
 // will be copied across to a hosted environment's initial configuration.
 func (prov *azureEnvironProvider) RestrictedConfigAttributes() []string {
+	// TODO(axw) there should be no restricted attributes.
 	return []string{
 		configAttrLocation,
 		configAttrEndpoint,
-		configAttrControllerResourceGroup,
 		configAttrStorageEndpoint,
 	}
 }
@@ -111,13 +110,6 @@ func (prov *azureEnvironProvider) BootstrapConfig(args environs.BootstrapConfigP
 		configAttrLocation:        args.CloudRegion,
 		configAttrEndpoint:        args.CloudEndpoint,
 		configAttrStorageEndpoint: args.CloudStorageEndpoint,
-
-		// Record the UUID that will be used for the controller
-		// model, which contains shared resources.
-		configAttrControllerResourceGroup: resourceGroupName(
-			names.NewModelTag(args.Config.UUID()),
-			args.Config.Name(),
-		),
 	}
 	switch authType := args.Credentials.AuthType(); authType {
 	case cloud.UserPassAuthType:
