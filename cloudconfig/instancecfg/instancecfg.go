@@ -118,12 +118,6 @@ type InstanceConfig struct {
 	// cloud config for the instance. If this is not set, hostname uses the default.
 	MachineContainerHostname string
 
-	// Networks holds a list of networks the instances should be on.
-	//
-	// TODO(dimitern): Drop this in a follow-up in favor or spaces
-	// constraints.
-	Networks []string
-
 	// AuthorizedKeys specifies the keys that are allowed to
 	// connect to the instance (see cloudinit.SSHAddAuthorizedKeys)
 	// If no keys are supplied, there can be no ssh access to the node.
@@ -299,11 +293,6 @@ func (cfg *InstanceConfig) ApiHostAddrs() []string {
 		hosts = append(hosts, cfg.APIInfo.Addrs...)
 	}
 	return hosts
-}
-
-// HasNetworks returns if there are any networks set.
-func (cfg *InstanceConfig) HasNetworks() bool {
-	return len(cfg.Networks) > 0 || cfg.Constraints.HaveNetworks()
 }
 
 // AgentVersion returns the version of the Juju agent that will be configured
@@ -492,7 +481,6 @@ func NewInstanceConfig(
 	series,
 	publicImageSigningKey string,
 	secureServerConnections bool,
-	networks []string,
 	mongoInfo *mongo.MongoInfo,
 	apiInfo *api.Info,
 ) (*InstanceConfig, error) {
@@ -523,7 +511,6 @@ func NewInstanceConfig(
 		// Parameter entries.
 		MachineId:             machineID,
 		MachineNonce:          machineNonce,
-		Networks:              networks,
 		MongoInfo:             mongoInfo,
 		APIInfo:               apiInfo,
 		ImageStream:           imageStream,
@@ -544,7 +531,7 @@ func NewBootstrapInstanceConfig(
 ) (*InstanceConfig, error) {
 	// For a bootstrap instance, FinishInstanceConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-	icfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, publicImageSigningKey, true, nil, nil, nil)
+	icfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, publicImageSigningKey, true, nil, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -110,7 +110,6 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 		ConfigYAML:       "configYAML",
 		Cons:             constraints.MustParse("mem=4G"),
 		Placement:        []*instance.Placement{{"scope", "directive"}},
-		Networks:         []string{"neta"},
 		Storage:          map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}},
 		Resources:        map[string]string{"foo": "bar"},
 		EndpointBindings: map[string]string{"foo": "bar"},

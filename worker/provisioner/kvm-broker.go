@@ -49,9 +49,6 @@ type kvmBroker struct {
 
 // StartInstance is specified in the Broker interface.
 func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting kvm containers with networks is not supported yet")
-	}
 	// TODO: refactor common code out of the container brokers.
 	machineId := args.InstanceConfig.MachineId
 	kvmLogger.Infof("starting kvm container for machineId: %s", machineId)

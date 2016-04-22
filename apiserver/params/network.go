@@ -51,48 +51,6 @@ type Subnet struct {
 	Status string `json:"Status,omitempty"`
 }
 
-// Network describes a single network available on an instance.
-//
-// TODO(dimitern): No longer used, drop at the end of this PoC.
-type Network struct {
-	// Tag is the network's tag.
-	Tag string `json:"Tag"`
-
-	// ProviderId is the provider-specific network id.
-	ProviderId string `json:"ProviderId"`
-
-	// CIDR of the network, in "123.45.67.89/12" format.
-	CIDR string `json:"CIDR"`
-
-	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
-	// normal networks. It's defined by IEEE 802.1Q standard.
-	VLANTag int `json:"VLANTag"`
-}
-
-// NetworkInterface describes a single network interface available on
-// an instance.
-//
-// TODO(dimitern): No longer used, drop at the end of this PoC.
-type NetworkInterface struct {
-	// MACAddress is the network interface's hardware MAC address
-	// (e.g. "aa:bb:cc:dd:ee:ff").
-	MACAddress string `json:"MACAddress"`
-
-	// InterfaceName is the OS-specific network device name (e.g.
-	// "eth1", even for for a VLAN eth1.42 virtual interface).
-	InterfaceName string `json:"InterfaceName"`
-
-	// NetworkTag is this interface's network tag.
-	NetworkTag string `json:"NetworkTag"`
-
-	// IsVirtual is true when the interface is a virtual device, as
-	// opposed to a physical device.
-	IsVirtual bool `json:"IsVirtual"`
-
-	// Disabled returns whether the interface is disabled.
-	Disabled bool `json:"Disabled"`
-}
-
 // NetworkConfig describes the necessary information to configure
 // a single network interface on a machine. This mostly duplicates
 // network.InterfaceInfo type and it's defined here so it can be kept
@@ -109,11 +67,6 @@ type NetworkConfig struct {
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string `json:"CIDR"`
-
-	// NetworkName is juju-internal name of the network.
-	//
-	// TODO(dimitern): No longer used, drop at the end of this PoC.
-	NetworkName string `json:"NetworkName"`
 
 	// MTU is the Maximum Transmission Unit controlling the maximum size of the
 	// protocol packats that the interface can pass through. It is only used
@@ -187,13 +140,6 @@ type NetworkConfig struct {
 	// configure for this network interface. For containers this
 	// usually (one of) the host address(es).
 	GatewayAddress string `json:"GatewayAddress,omitempty"`
-
-	// ExtraConfig can contain any valid setting and its value allowed
-	// inside an "iface" section of a interfaces(5) config file, e.g.
-	// "up", "down", "mtu", etc.
-	//
-	// TODO(dimitern): Never used, drop at the end of this PoC.
-	ExtraConfig map[string]string `json:"ExtraConfig,omitempty"`
 }
 
 // NetworkConfigs holds the network configuration for multiple networks
@@ -474,17 +420,6 @@ type PortsResults struct {
 type PortsResult struct {
 	Error *Error `json:"Error"`
 	Ports []Port `json:"Ports"`
-}
-
-// RequestedNetworkResult holds requested networks or an error.
-type RequestedNetworkResult struct {
-	Error    *Error   `json:"Error"`
-	Networks []string `json:"Networks"`
-}
-
-// RequestedNetworksResults holds multiple requested networks results.
-type RequestedNetworksResults struct {
-	Results []RequestedNetworkResult `json:"Results"`
 }
 
 // UnitNetworkConfigResult holds network configuration for a single unit.

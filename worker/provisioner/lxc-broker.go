@@ -80,9 +80,6 @@ type lxcBroker struct {
 
 // StartInstance is specified in the Broker interface.
 func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting lxc containers with networks is not supported yet")
-	}
 	// TODO: refactor common code out of the container brokers.
 	machineId := args.InstanceConfig.MachineId
 	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)
@@ -594,12 +591,6 @@ func configureContainerNetwork(
 		finalIfaceInfo[i].DNSServers = dnsServers
 		finalIfaceInfo[i].DNSSearchDomains = []string{searchDomain}
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
-		if finalIfaceInfo[i].NetworkName == "" {
-			finalIfaceInfo[i].NetworkName = network.DefaultPrivate
-		}
-		if finalIfaceInfo[i].ProviderId == "" {
-			finalIfaceInfo[i].ProviderId = network.DefaultProviderId
-		}
 	}
 	err = setupRoutesAndIPTables(
 		primaryNIC,

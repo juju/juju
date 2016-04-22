@@ -494,42 +494,6 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 	return result, nil
 }
 
-// RequestedNetworks returns the requested networks for each given
-// machine entity. Each entry in both lists is returned with its
-// provider specific id.
-func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.RequestedNetworksResults, error) {
-	result := params.RequestedNetworksResults{
-		Results: make([]params.RequestedNetworkResult, len(args.Entities)),
-	}
-	canAccess, err := p.getAuthFunc()
-	if err != nil {
-		return result, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		machine, err := p.getMachine(canAccess, tag)
-		if err == nil {
-			var networks []string
-			networks, err = machine.RequestedNetworks()
-			if err == nil {
-				// TODO(dimitern) For now, since network names and
-				// provider ids are the same, we return what we got
-				// from state. In the future, when networks can be
-				// added before provisioning, we should convert both
-				// slices from juju network names to provider-specific
-				// ids before returning them.
-				result.Results[i].Networks = networks
-			}
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
 // SetInstanceInfo sets the provider specific machine id, nonce,
 // metadata and network info for each given machine. Once set, the
 // instance id cannot be changed.
@@ -987,15 +951,11 @@ func (p *ProvisionerAPI) legacyPrepareOrGetContainerInterfaceInfo(
 			interfaceType = string(network.EthernetInterface)
 		}
 
-		// TODO(dimitern): Support allocating one address per NIC on
-		// the host, effectively creating the same number of NICs in
-		// the container.
 		result.Results[i] = params.MachineNetworkConfigResult{
 			Config: []params.NetworkConfig{{
 				DeviceIndex:      interfaceInfo.DeviceIndex,
 				MACAddress:       macAddress,
 				CIDR:             subnetInfo.CIDR,
-				NetworkName:      interfaceInfo.NetworkName,
 				ProviderId:       string(interfaceInfo.ProviderId),
 				ProviderSubnetId: string(subnetInfo.ProviderId),
 				VLANTag:          interfaceInfo.VLANTag,
@@ -1007,7 +967,6 @@ func (p *ProvisionerAPI) legacyPrepareOrGetContainerInterfaceInfo(
 				ConfigType:       string(network.ConfigStatic),
 				Address:          address.Value(),
 				GatewayAddress:   interfaceInfo.GatewayAddress.Value,
-				ExtraConfig:      interfaceInfo.ExtraConfig,
 			}},
 		}
 	}

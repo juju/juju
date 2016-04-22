@@ -1491,7 +1491,7 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
-	result, err := testing.StartInstanceWithParams(t.env, "1", params, nil)
+	result, err := testing.StartInstanceWithParams(t.env, "1", params)
 	if err != nil {
 		return nil, err
 	}
@@ -1581,7 +1581,7 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 			return expectedInstances, nil
 		},
 	}
-	_, err = testing.StartInstanceWithParams(t.env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(t.env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
 }
@@ -1604,7 +1604,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 			return nil, dgErr
 		},
 	}
-	_, err = testing.StartInstanceWithParams(t.env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(t.env, "1", params)
 	c.Assert(jujuerrors.Cause(err), gc.Equals, dgErr)
 }
 

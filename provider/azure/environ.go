@@ -381,10 +381,6 @@ func (*azureEnviron) MaintainInstance(args environs.StartInstanceParams) error {
 
 // StartInstance is specified in the InstanceBroker interface.
 func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting instances with networks is not supported yet")
-	}
-
 	// Get the required configuration and config-dependent information
 	// required to create the instance. We take the lock just once, to
 	// ensure we obtain all information based on the same configuration.

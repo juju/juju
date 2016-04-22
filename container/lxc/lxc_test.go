@@ -1084,12 +1084,6 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 		// The rest is passed to cloud-init.
 		ConfigType: network.ConfigManual,
 		DNSServers: network.NewAddresses("ns1.invalid", "ns2.invalid"),
-		ExtraConfig: map[string]string{
-			"pre-up":   "ip route add default via 0.1.2.1",
-			"up":       "ip route add 0.1.2.1 dev eth2",
-			"pre-down": "ip route del 0.1.2.1 dev eth2",
-			"down":     "ip route del default via 0.1.2.1",
-		},
 	}
 	// Test /24 is used by default when the CIDR is invalid or empty.
 	staticNICNoCIDR, staticNICBadCIDR := staticNIC, staticNIC

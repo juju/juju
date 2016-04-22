@@ -143,10 +143,8 @@ type Machine interface {
 	// enough stuff set, like tools, and addresses etc.
 	Validate() error
 
-	// requested networks
 	// reboot doc
 	// block devices
-	// network interfaces
 	// port docs
 	// machine filesystems
 }
