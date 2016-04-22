@@ -4,12 +4,15 @@
 package hostkeyreporter
 
 import (
+	"runtime"
+
 	"github.com/juju/errors"
+	"github.com/juju/names"
+
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/names"
 )
 
 // ManifoldConfig defines the names of the manifolds on which the
@@ -42,6 +45,11 @@ func (config ManifoldConfig) validate() error {
 
 // start is a StartFunc for a Worker manifold.
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
+	if runtime.GOOS == "windows" {
+		logger.Debugf("no SSH host keys to report on Windows machines")
+		return nil, dependency.ErrUninstall
+	}
+
 	if err := config.validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
