@@ -328,7 +328,7 @@ func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
 	env := suite.injectControllerWithSpacesAndCheck(c, nil, gomaasapi.AllocateMachineArgs{})
 
 	params := environs.StartInstanceParams{}
-	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	result, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
 }
@@ -358,7 +358,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
 		Placement:   "zone=foo",
 		Constraints: constraints.MustParse("mem=8G"),
 	}
-	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	result, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
 }
@@ -890,7 +890,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 	env = suite.makeEnviron(c, nil)
 
 	params := environs.StartInstanceParams{}
-	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	result, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,

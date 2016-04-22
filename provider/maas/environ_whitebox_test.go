@@ -805,7 +805,7 @@ func (s *environSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := s.bootstrap(c)
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
-	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	result, err := testing.StartInstanceWithParams(env, "1", params)
 	if err != nil {
 		return nil, err
 	}
@@ -817,7 +817,7 @@ func (s *environSuite) TestStartInstanceUnmetConstraints(c *gc.C) {
 	s.newNode(c, "thenode1", "host1", nil)
 	s.addSubnet(c, 1, 1, "thenode1")
 	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G")}
-	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, gc.ErrorMatches, "cannot run instances:.* 409.*")
 }
 
@@ -828,7 +828,7 @@ func (s *environSuite) TestStartInstanceConstraints(c *gc.C) {
 	s.newNode(c, "thenode2", "host2", map[string]interface{}{"memory": 8192})
 	s.addSubnet(c, 2, 2, "thenode2")
 	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G")}
-	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	result, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*result.Hardware.Mem, gc.Equals, uint64(8192))
 }
@@ -882,7 +882,7 @@ func (s *environSuite) TestStartInstanceStorage(c *gc.C) {
 		{Tag: names.NewVolumeTag("1"), Size: 2000000},
 		{Tag: names.NewVolumeTag("3"), Size: 2000000},
 	}}
-	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	result, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Volumes, jc.DeepEquals, []storage.Volume{
 		{
@@ -932,7 +932,7 @@ func (s *environSuite) TestStartInstanceUnsupportedStorage(c *gc.C) {
 		{Tag: names.NewVolumeTag("1"), Size: 2000000},
 		{Tag: names.NewVolumeTag("3"), Size: 2000000},
 	}}
-	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, gc.ErrorMatches, "requested 2 storage volumes. 0 returned.")
 	operations := s.testMAASObject.TestServer.NodesOperations()
 	c.Check(operations, gc.DeepEquals, []string{"acquire", "acquire", "release"})
@@ -1029,7 +1029,7 @@ func (s *environSuite) TestStartInstanceDistributionParams(c *gc.C) {
 			return expectedInstances, nil
 		},
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
 }
@@ -1050,7 +1050,7 @@ func (s *environSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 			return nil, dgErr
 		},
 	}
-	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, gc.ErrorMatches, "cannot get distribution group: DistributionGroup failed")
 }
 

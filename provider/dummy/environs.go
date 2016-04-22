@@ -188,7 +188,6 @@ type OpStartInstance struct {
 	Instance         instance.Instance
 	Constraints      constraints.Value
 	SubnetsToZones   map[network.Id][]string
-	Networks         []string
 	NetworkInfo      []network.InterfaceInfo
 	Volumes          []storage.Volume
 	Info             *mongo.MongoInfo
