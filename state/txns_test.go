@@ -37,11 +37,11 @@ func (s *MultiModelRunnerSuite) SetUpTest(c *gc.C) {
 		rawRunner: s.testRunner,
 		modelUUID: modelUUID,
 		schema: collectionSchema{
-			machinesC:          {},
-			networkInterfacesC: {},
-			modelsC:            {global: true},
-			"other":            {global: true},
-			"raw":              {rawAccess: true},
+			logsC:     {},
+			machinesC: {},
+			modelsC:   {global: true},
+			"other":   {global: true},
+			"raw":     {rawAccess: true},
 		},
 	}
 }
@@ -287,7 +287,7 @@ type objIdDoc struct {
 func (s *MultiModelRunnerSuite) TestWithObjectIds(c *gc.C) {
 	id := bson.NewObjectId()
 	inOps := []txn.Op{{
-		C:      networkInterfacesC,
+		C:      logsC,
 		Id:     id,
 		Insert: &objIdDoc{Id: id},
 	}}
@@ -296,7 +296,7 @@ func (s *MultiModelRunnerSuite) TestWithObjectIds(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedOps := []txn.Op{{
-		C:  networkInterfacesC,
+		C:  logsC,
 		Id: id,
 		Insert: bson.D{
 			{"_id", id},
