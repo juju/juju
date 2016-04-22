@@ -607,7 +607,7 @@ func (c *DeployCommand) deployCharm(args deployCharmArgs) (rErr error) {
 		}
 	}()
 
-	if len(charmInfo.Meta.Terms) > 0 {
+	if args.id.URL != nil && args.id.URL.Schema != "local" && len(charmInfo.Meta.Terms) > 0 {
 		args.ctx.Infof("Deployment under prior agreement to terms: %s",
 			strings.Join(charmInfo.Meta.Terms, " "))
 	}
