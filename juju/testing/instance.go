@@ -155,7 +155,7 @@ func StartInstanceWithConstraintsAndNetworks(
 func StartInstanceWithParams(
 	env environs.Environ, machineId string,
 	params environs.StartInstanceParams,
-	networks []string,
+	_ []string,
 ) (
 	*environs.StartInstanceResult, error,
 ) {
@@ -198,7 +198,6 @@ func StartInstanceWithParams(
 		preferredSeries,
 		"",
 		true,
-		networks,
 		stateInfo,
 		apiInfo,
 	)

@@ -481,7 +481,6 @@ func NewInstanceConfig(
 	series,
 	publicImageSigningKey string,
 	secureServerConnections bool,
-	_ []string,
 	mongoInfo *mongo.MongoInfo,
 	apiInfo *api.Info,
 ) (*InstanceConfig, error) {
@@ -532,7 +531,7 @@ func NewBootstrapInstanceConfig(
 ) (*InstanceConfig, error) {
 	// For a bootstrap instance, FinishInstanceConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-	icfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, publicImageSigningKey, true, nil, nil, nil)
+	icfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, publicImageSigningKey, true, nil, nil)
 	if err != nil {
 		return nil, err
 	}

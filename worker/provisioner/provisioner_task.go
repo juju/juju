@@ -511,7 +511,6 @@ func (task *provisionerTask) constructInstanceConfig(
 		pInfo.Series,
 		publicKey,
 		task.secureServerConnection,
-		nil,
 		stateInfo,
 		apiInfo,
 	)

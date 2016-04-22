@@ -98,7 +98,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	}
 	secureServerConnection := info.CAPrivateKey != ""
 	icfg, err := instancecfg.NewInstanceConfig(machineId, nonce, environConfig.ImageStream(), machine.Series(), "",
-		secureServerConnection, nil, mongoInfo, apiInfo,
+		secureServerConnection, mongoInfo, apiInfo,
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "initializing instance config")
