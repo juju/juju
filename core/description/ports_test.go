@@ -37,7 +37,7 @@ func (s *OpenedPortsSerializationSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *OpenedPortsSerializationSuite) TestNewNetworkPorts(c *gc.C) {
+func (s *OpenedPortsSerializationSuite) TestNewOpenedPorts(c *gc.C) {
 	args := OpenedPortsArgs{
 		SubnetID: "0.1.2.0/24",
 		OpenedPorts: []PortRangeArgs{
