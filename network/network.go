@@ -177,11 +177,6 @@ type InterfaceInfo struct {
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
 
-	// NetworkName is juju-internal name of the network.
-	//
-	// TODO(dimitern): No longer used, drop at the end of this PoC.
-	NetworkName string
-
 	// ProviderId is a provider-specific NIC id.
 	ProviderId Id
 
@@ -256,13 +251,6 @@ type InterfaceInfo struct {
 	// configure for this network interface. For containers this
 	// usually is (one of) the host address(es).
 	GatewayAddress Address
-
-	// ExtraConfig can contain any valid setting and its value allowed
-	// inside an "iface" section of a interfaces(5) config file, e.g.
-	// "up", "down", "mtu", etc.
-	//
-	// TODO(dimitern): Never used, drop at the end of this PoC.
-	ExtraConfig map[string]string
 }
 
 type interfaceInfoSlice []InterfaceInfo

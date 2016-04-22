@@ -68,11 +68,6 @@ type NetworkConfig struct {
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string `json:"CIDR"`
 
-	// NetworkName is juju-internal name of the network.
-	//
-	// TODO(dimitern): No longer used, drop at the end of this PoC.
-	NetworkName string `json:"NetworkName"`
-
 	// MTU is the Maximum Transmission Unit controlling the maximum size of the
 	// protocol packats that the interface can pass through. It is only used
 	// when > 0.
@@ -145,13 +140,6 @@ type NetworkConfig struct {
 	// configure for this network interface. For containers this
 	// usually (one of) the host address(es).
 	GatewayAddress string `json:"GatewayAddress,omitempty"`
-
-	// ExtraConfig can contain any valid setting and its value allowed
-	// inside an "iface" section of a interfaces(5) config file, e.g.
-	// "up", "down", "mtu", etc.
-	//
-	// TODO(dimitern): Never used, drop at the end of this PoC.
-	ExtraConfig map[string]string `json:"ExtraConfig,omitempty"`
 }
 
 // NetworkConfigs holds the network configuration for multiple networks

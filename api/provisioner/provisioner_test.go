@@ -797,7 +797,6 @@ func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
 		ConfigType:       network.ConfigStatic,
 		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   network.NewAddress("0.10.0.2"),
-		ExtraConfig:      nil,
 		// Overwrite Address and MACAddress fields below with the actual ones,
 		// as they are chosen randomly.
 		Address:    network.Address{},

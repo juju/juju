@@ -1020,7 +1020,6 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 			DeviceIndex:       iface.Attachment.DeviceIndex,
 			MACAddress:        iface.MACAddress,
 			CIDR:              cidr,
-			NetworkName:       "", // Not needed for now.
 			ProviderId:        network.Id(iface.Id),
 			ProviderSubnetId:  network.Id(iface.SubnetId),
 			AvailabilityZones: []string{subnet.AvailZone},

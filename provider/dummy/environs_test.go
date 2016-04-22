@@ -349,7 +349,6 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Address:          network.NewAddress("0.10.0.2"),
 		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   network.NewAddress("0.10.0.1"),
-		ExtraConfig:      nil,
 	}, {
 		ProviderId:       "dummy-eth1",
 		ProviderSubnetId: "dummy-public",
@@ -365,7 +364,6 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Address:          network.NewAddress("0.20.0.2"),
 		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   network.NewAddress("0.20.0.1"),
-		ExtraConfig:      nil,
 	}, {
 		ProviderId:       "dummy-eth2",
 		ProviderSubnetId: "dummy-disabled",
@@ -381,7 +379,6 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Address:          network.NewAddress("0.30.0.2"),
 		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   network.NewAddress("0.30.0.1"),
-		ExtraConfig:      nil,
 	}}
 	info, err := e.NetworkInterfaces("i-42")
 	c.Assert(err, jc.ErrorIsNil)
@@ -428,7 +425,6 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Address:          network.NewAddress("0.30.0.2"),
 		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   network.NewAddress("0.30.0.1"),
-		ExtraConfig:      nil,
 	}}
 	info, err = e.NetworkInterfaces("i-disabled-nic-here")
 	c.Assert(err, jc.ErrorIsNil)

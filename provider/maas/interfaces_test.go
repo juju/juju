@@ -469,7 +469,6 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:  nil,
 		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
-		ExtraConfig:       nil,
 	}, {
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
@@ -490,7 +489,6 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:  nil,
 		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
-		ExtraConfig:       nil,
 	}, {
 		DeviceIndex:         1,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -512,7 +510,6 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
 		GatewayAddress:      network.NewAddressOnSpace("admin", "10.50.19.2"),
-		ExtraConfig:         nil,
 	}, {
 		DeviceIndex:         2,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -534,7 +531,6 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
 		GatewayAddress:      network.NewAddressOnSpace("public", "10.100.19.2"),
-		ExtraConfig:         nil,
 	}, {
 		DeviceIndex:         3,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -557,7 +553,6 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
 		GatewayAddress:      newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.2"),
-		ExtraConfig:         nil,
 	}}
 
 	infos, err := maasObjectNetworkInterfaces(&obj, subnetsMap)
@@ -725,7 +720,6 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:  nil,
 		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
-		ExtraConfig:       nil,
 	}, {
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
@@ -746,7 +740,6 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:  nil,
 		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
-		ExtraConfig:       nil,
 	}, {
 		DeviceIndex:         1,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -768,7 +761,6 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
 		GatewayAddress:      network.NewAddressOnSpace("admin", "10.50.19.2"),
-		ExtraConfig:         nil,
 	}, {
 		DeviceIndex:         2,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -790,7 +782,6 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
 		GatewayAddress:      network.NewAddressOnSpace("public", "10.100.19.2"),
-		ExtraConfig:         nil,
 	}, {
 		DeviceIndex:         3,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -813,7 +804,6 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
 		GatewayAddress:      newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.2"),
-		ExtraConfig:         nil,
 	}}
 
 	instance := &maas2Instance{machine: &fakeMachine{interfaceSet: exampleInterfaces}}

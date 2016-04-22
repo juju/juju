@@ -540,7 +540,6 @@ func (s *prepareSuite) TestReleaseAndRetryWhenSetOnlyFails(c *gc.C) {
 		Address:          "0.10.0.10",
 		DNSServers:       []string{"ns1.dummy", "ns2.dummy"},
 		GatewayAddress:   "0.10.0.2",
-		ExtraConfig:      nil,
 	}}), "")
 
 	c.Assert(testLog, jc.LogMatches, jc.SimpleMessages{{
@@ -622,7 +621,6 @@ func (s *prepareSuite) TestSuccessWithSingleContainer(c *gc.C) {
 		Address:          "regex:0.10.0.[0-9]{1,3}", // we don't care about the actual value.
 		DNSServers:       []string{"ns1.dummy", "ns2.dummy"},
 		GatewayAddress:   "0.10.0.2",
-		ExtraConfig:      nil,
 	}}), "")
 
 	c.Assert(testLog, jc.LogMatches, jc.SimpleMessages{{
@@ -659,7 +657,6 @@ func (s *prepareSuite) TestSuccessWhenFirstSubnetNotAllocatable(c *gc.C) {
 		Address:          "regex:0.20.0.[0-9]{1,3}", // we don't care about the actual value.
 		DNSServers:       []string{"ns1.dummy", "ns2.dummy"},
 		GatewayAddress:   "0.20.0.2",
-		ExtraConfig:      nil,
 	}}), "")
 
 	c.Assert(testLog, jc.LogMatches, jc.SimpleMessages{{

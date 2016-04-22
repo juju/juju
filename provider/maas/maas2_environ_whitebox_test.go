@@ -912,7 +912,6 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:  nil,
 		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
-		ExtraConfig:       nil,
 	}, {
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
@@ -933,7 +932,6 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:  nil,
 		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
-		ExtraConfig:       nil,
 	}, {
 		DeviceIndex:         1,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -955,7 +953,6 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
 		GatewayAddress:      network.NewAddressOnSpace("admin", "10.50.19.2"),
-		ExtraConfig:         nil,
 	},
 	}
 	c.Assert(result.NetworkInfo, jc.DeepEquals, expected)
