@@ -1431,15 +1431,19 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
 
     def test_iter_steps(self):
         client = FakeEnvJujuClient()
+        admin_client = client.get_admin_client()
         ensure_av = EnsureAvailabilityAttempt()
         ensure_iter = iter_steps_validate_info(self, ensure_av, client)
         self.assertEqual(ensure_iter.next(), {
             'test_id': 'ensure-availability-n3'})
         with patch('subprocess.check_call') as cc_mock:
-            self.assertEqual(ensure_iter.next(), {
-                'test_id': 'ensure-availability-n3'})
+            with patch.object(client, 'get_admin_client',
+                              return_value=admin_client, autospec=True):
+                self.assertEqual(ensure_iter.next(), {
+                    'test_id': 'ensure-availability-n3'})
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'enable-ha', '-m', 'steve', '-n', '3'))
+            'juju', '--show-log', 'enable-ha', '-m',
+            admin_client.env.environment, '-n', '3'))
         status = {
             'machines': {
                 '0': {'controller-member-status': 'has-vote'},
@@ -1448,7 +1452,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
                 },
             'services': {},
         }
-        with patch_status(client, status) as gs_mock:
+        with patch_status(admin_client, status) as gs_mock:
             self.assertEqual(ensure_iter.next(), {
                 'test_id': 'ensure-availability-n3', 'result': True})
         gs_mock.assert_called_once_with(admin=True)
@@ -1459,7 +1463,10 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
         ensure_iter = iter_steps_validate_info(self, ensure_av, client)
         ensure_iter.next()
         with patch('subprocess.check_call'):
-            ensure_iter.next()
+            admin_client = client.get_admin_client()
+            with patch.object(client, 'get_admin_client',
+                              return_value=admin_client, autospec=True):
+                ensure_iter.next()
         status = {
             'machines': {
                 '0': {'state-server-member-status': 'has-vote'},
@@ -1467,7 +1474,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
                 },
             'services': {},
         }
-        with patch_status(client, status) as gs_mock:
+        with patch_status(admin_client, status) as gs_mock:
             with self.assertRaisesRegexp(
                     Exception, 'Timed out waiting for voting to be enabled.'):
                 ensure_iter.next()

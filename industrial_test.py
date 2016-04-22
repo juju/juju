@@ -614,9 +614,10 @@ class EnsureAvailabilityAttempt(SteppedStageAttempt):
         """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'ensure-availability-n3'}
         yield results
-        client.enable_ha()
+        admin_client = client.get_admin_client()
+        admin_client.enable_ha()
         yield results
-        client.wait_for_ha()
+        admin_client.wait_for_ha()
         results['result'] = True
         yield results
 
