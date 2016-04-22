@@ -1748,7 +1748,8 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
                        side_effect=check_output) as co_mock:
                 with patch('subprocess.check_call') as cc_mock:
                     with patch.object(client, 'get_admin_client',
-                                      return_value=admin_client):
+                                      return_value=admin_client,
+                                      autospec=True):
                         with patch('sys.stdout'):
                             self.assertEqual(
                                 iterator.next(),
