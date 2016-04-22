@@ -110,7 +110,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		legacyipaddressesC,
 
 		// The SSH host keys for each machine will be reported as each
-		// machiner starts up.
+		// machine agent starts up.
 		sshHostKeysC,
 	)
 

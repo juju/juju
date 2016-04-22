@@ -36,6 +36,7 @@ var facadeVersions = map[string]int{
 	"FilesystemAttachmentsWatcher": 2,
 	"Firewaller":                   2,
 	"HighAvailability":             2,
+	"HostKeyReporter":              1,
 	"ImageManager":                 2,
 	"ImageMetadata":                2,
 	"InstancePoller":               2,
