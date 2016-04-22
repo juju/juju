@@ -80,7 +80,6 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 		Owner:            args.ServiceOwner,
 		Charm:            args.Charm,
 		Channel:          args.Channel,
-		Networks:         args.Networks,
 		Storage:          stateStorageConstraints(args.Storage),
 		Settings:         settings,
 		NumUnits:         args.NumUnits,
@@ -93,8 +92,6 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 		asa.Constraints = args.Constraints
 	}
 
-	// TODO(dimitern): In a follow-up drop Networks and use spaces
-	// constraints for this when possible.
 	return st.AddService(asa)
 }
 
@@ -127,11 +124,6 @@ func AddUnits(st *state.State, svc *state.Service, n int, placement []*instance.
 	units := make([]*state.Unit, n)
 	// Hard code for now till we implement a different approach.
 	policy := state.AssignCleanEmpty
-	// All units should have the same networks as the service.
-	networks, err := svc.Networks()
-	if err != nil {
-		return nil, errors.Errorf("cannot get service %q networks", svc.Name())
-	}
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
 		unit, err := svc.AddUnit()
@@ -146,7 +138,7 @@ func AddUnits(st *state.State, svc *state.Service, n int, placement []*instance.
 			units[i] = unit
 			continue
 		}
-		if err := st.AssignUnitWithPlacement(unit, placement[i], networks); err != nil {
+		if err := st.AssignUnitWithPlacement(unit, placement[i]); err != nil {
 			return nil, errors.Annotatef(err, "adding new machine to host unit %q", unit.Name())
 		}
 		units[i] = unit

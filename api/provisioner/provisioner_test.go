@@ -440,7 +440,6 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(provisioningInfo.Series, gc.Equals, template.Series)
 	c.Assert(provisioningInfo.Placement, gc.Equals, template.Placement)
 	c.Assert(provisioningInfo.Constraints, jc.DeepEquals, template.Constraints)
-	c.Assert(provisioningInfo.Networks, gc.HasLen, 0)
 	c.Assert(provisioningInfo.SubnetsToZones, jc.DeepEquals, map[string][]string{
 		"subnet-2": []string{"zone2"},
 		"subnet-3": []string{"zone3"},

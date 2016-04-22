@@ -780,43 +780,6 @@ func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestRequestedNetworks(c *gc.C) {
-	// Add a machine with some requested networks.
-	template := state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		RequestedNetworks: []string{"net1", "net2"},
-	}
-	netsMachine, err := s.State.AddOneMachine(template)
-	c.Assert(err, jc.ErrorIsNil)
-
-	networksMachine0, err := s.machines[0].RequestedNetworks()
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: s.machines[0].Tag().String()},
-		{Tag: netsMachine.Tag().String()},
-		{Tag: "machine-42"},
-		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
-	}}
-	result, err := s.provisioner.RequestedNetworks(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RequestedNetworksResults{
-		Results: []params.RequestedNetworkResult{
-			{
-				Networks: networksMachine0,
-			},
-			{
-				Networks: template.RequestedNetworks,
-			},
-			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-}
-
 func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	s.registerStorageProviders(c, "static")
 
