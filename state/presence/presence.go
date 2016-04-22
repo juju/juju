@@ -400,6 +400,7 @@ func (w *Watcher) sync() error {
 	}
 
 	// Learn about all enforced deaths.
+	// TODO(ericsnow) Remove this once KillForTesting() goes away.
 	dead := make(map[int64]bool)
 	for i := range ping {
 		for key, value := range ping[i].Dead {
@@ -559,10 +560,10 @@ func (p *Pinger) Wait() error {
 	return p.tomb.Wait()
 }
 
-// SoftStop stops p's periodical ping.
+// Stop stops p's periodical ping.
 // Watchers will not notice p has stopped pinging until the
 // previous ping times out.
-func (p *Pinger) SoftStop() error {
+func (p *Pinger) Stop() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.started {
@@ -576,8 +577,9 @@ func (p *Pinger) SoftStop() error {
 
 }
 
-// HardStop stops p's periodical ping and immediately reports that it is dead.
-func (p *Pinger) HardStop() error {
+// KillForTesting stops p's periodical ping and immediately reports that it is dead.
+// TODO(ericsnow) We should be able to drop this and the two kill* methods.
+func (p *Pinger) KillForTesting() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.started {

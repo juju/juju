@@ -158,7 +158,7 @@ func (s *PresenceSuite) TestWorkflow(c *gc.C) {
 	// Changes while the channel is out are not observed.
 	w.Unwatch("a", cha)
 	assertNoChange(c, cha)
-	pa.Kill()
+	pa.KillForTesting()
 	w.Sync()
 	pa = presence.NewPinger(s.presence, s.modelTag, "a")
 	pa.Start()
@@ -187,8 +187,8 @@ func (s *PresenceSuite) TestWorkflow(c *gc.C) {
 	assertNoChange(c, chb)
 
 	// pb is running, pa isn't.
-	c.Assert(pa.Kill(), gc.IsNil)
-	c.Assert(pb.Kill(), gc.IsNil)
+	c.Assert(pa.KillForTesting(), gc.IsNil)
+	c.Assert(pb.KillForTesting(), gc.IsNil)
 
 	w.StartSync()
 	assertChange(c, cha, presence.Change{"a", false})
@@ -215,7 +215,7 @@ func (s *PresenceSuite) TestScale(c *gc.C) {
 
 	c.Logf("Killing odd ones...")
 	for i := 1; i < N; i += 2 {
-		c.Assert(ps[i].Kill(), gc.IsNil)
+		c.Assert(ps[i].KillForTesting(), gc.IsNil)
 	}
 
 	c.Logf("Checking who's still alive...")
@@ -259,7 +259,7 @@ func (s *PresenceSuite) TestExpiry(c *gc.C) {
 	assertChange(c, ch, presence.Change{"a", false})
 
 	// Already dead so killing isn't noticed.
-	p.Kill()
+	p.KillForTesting()
 	w.StartSync()
 	assertNoChange(c, ch)
 }
@@ -382,7 +382,7 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *gc.C) {
 	// Start and kill p2, which will temporarily
 	// invalidate p1 and set the key as dead.
 	c.Assert(p2.Start(), gc.IsNil)
-	c.Assert(p2.Kill(), gc.IsNil)
+	c.Assert(p2.KillForTesting(), gc.IsNil)
 
 	w.Sync()
 	assertAlive(c, w, "a", false)
@@ -512,7 +512,7 @@ func (s *PresenceSuite) TestTwoEnvironments(c *gc.C) {
 	assertNoChange(c, ch1)
 	assertChange(c, ch2, presence.Change{"a", true})
 
-	err := p1.Kill()
+	err := p1.KillForTesting()
 	c.Assert(err, jc.ErrorIsNil)
 	presence.FakeTimeSlot(1)
 	w1.StartSync()
@@ -520,7 +520,7 @@ func (s *PresenceSuite) TestTwoEnvironments(c *gc.C) {
 	assertChange(c, ch1, presence.Change{"a", false})
 	assertNoChange(c, ch2)
 
-	err = p2.Kill()
+	err = p2.KillForTesting()
 	c.Assert(err, jc.ErrorIsNil)
 	presence.FakeTimeSlot(2)
 	w1.StartSync()

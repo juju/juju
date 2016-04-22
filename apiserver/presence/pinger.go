@@ -14,8 +14,9 @@ import (
 
 // Pinger exposes some methods implemented by state/presence.Pinger.
 type Pinger interface {
-	HardStop() error
-	SoftStop() error
+	// Stop requests the pinger to stop, but does not wait.
+	Stop() error
+	// Wait waits for the pinger to stop.
 	Wait() error
 }
 
@@ -147,7 +148,7 @@ func (w *Worker) runPinger() (startedSuccessfully bool) {
 	// we'll see them come out of Wait() below.
 	go func() {
 		<-w.catacomb.Dying()
-		pinger.SoftStop()
+		pinger.Stop()
 	}()
 
 	// Now, just wait for the Pinger to stop. It might be caused by

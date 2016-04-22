@@ -763,7 +763,7 @@ func (s *MachineSuite) TestMachineWaitAgentPresence(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alive, jc.IsTrue)
 
-	err = pinger.Kill()
+	err = pinger.KillForTesting()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.State.StartSync()
