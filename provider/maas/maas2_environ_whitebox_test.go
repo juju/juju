@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 
@@ -13,12 +14,15 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -91,10 +95,7 @@ func (suite *maas2EnvironSuite) injectControllerWithSpacesAndCheck(c *gc.C, spac
 	}
 	controller := &fakeController{
 		allocateMachineArgsCheck: check,
-		allocateMachine: &fakeMachine{
-			systemID:     "Bruce Sterling",
-			architecture: arch.HostArch(),
-		},
+		allocateMachine:          newFakeMachine("Bruce Sterling", arch.HostArch(), ""),
 		allocateMachineMatches: gomaasapi.ConstraintMatches{
 			Storage: map[string]gomaasapi.BlockDevice{},
 		},
@@ -343,10 +344,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
 				MinMemory: 8192,
 			})
 		},
-		allocateMachine: &fakeMachine{
-			systemID:     "Bruce Sterling",
-			architecture: arch.HostArch(),
-		},
+		allocateMachine: newFakeMachine("Bruce Sterling", arch.HostArch(), ""),
 		allocateMachineMatches: gomaasapi.ConstraintMatches{
 			Storage: map[string]gomaasapi.BlockDevice{},
 		},
@@ -674,10 +672,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeUnrecognisedSpace(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
-	machine := &fakeMachine{
-		systemID:     "Bruce Sterling",
-		architecture: arch.HostArch(),
-	}
+	machine := newFakeMachine("Bruce Sterling", arch.HostArch(), "")
 	controller := newFakeController()
 	controller.allocateMachine = machine
 	controller.allocateMachineMatches = gomaasapi.ConstraintMatches{
@@ -692,12 +687,7 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentSucceeds(c *gc.C) {
-	machine := &fakeMachine{
-		systemID:     "Bruce Sterling",
-		architecture: arch.HostArch(),
-		statusName:   "Deployed",
-	}
-
+	machine := newFakeMachine("Bruce Sterling", arch.HostArch(), "Deployed")
 	controller := newFakeController()
 	controller.allocateMachine = machine
 	controller.allocateMachineMatches = gomaasapi.ConstraintMatches{
@@ -875,12 +865,10 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 		},
 	}
 	var env *maasEnviron
+	machine := newFakeMachine("Bruce Sterling", arch.HostArch(), "")
+	machine.interfaceSet = exampleInterfaces
 	controller := &fakeController{
-		allocateMachine: &fakeMachine{
-			systemID:     "Bruce Sterling",
-			architecture: arch.HostArch(),
-			interfaceSet: exampleInterfaces,
-		},
+		allocateMachine: machine,
 		allocateMachineMatches: gomaasapi.ConstraintMatches{
 			Storage: map[string]gomaasapi.BlockDevice{},
 		},
@@ -976,3 +964,72 @@ func (suite *maas2EnvironSuite) TestStorageReturnsStorage(c *gc.C) {
 	c.Check(specificStorage.maasController, gc.Equals, controller)
 }
 
+func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
+	suite.setupFakeTools(c)
+	machine := newFakeMachine("gus", arch.HostArch(), "Deployed")
+	file := &fakeFile{name: "agent-prefix-provider-state"}
+	controller := newFakeControllerWithFiles(file)
+	controller.machines = []gomaasapi.Machine{machine}
+	controller.allocateMachine = machine
+	controller.allocateMachineMatches = gomaasapi.ConstraintMatches{
+		Storage: map[string]gomaasapi.BlockDevice{},
+	}
+
+	env := suite.makeEnviron(c, controller)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine.Stub.CheckCallNames(c, "Start")
+	controller.Stub.CheckCallNames(c, "GetFile", "AddFile")
+	addFileArgs, ok := controller.Stub.Calls()[1].Args[0].(gomaasapi.AddFileArgs)
+	c.Assert(ok, jc.IsTrue)
+
+	// Make it look like the right state was written to the file.
+	buffer := new(bytes.Buffer)
+	buffer.ReadFrom(addFileArgs.Reader)
+	file.contents = buffer.Bytes()
+	c.Check(string(buffer.Bytes()), gc.Equals, "state-instances:\n- gus\n")
+
+	// Test the instance id is correctly recorded for the bootstrap node.
+	// Check that ControllerInstances returns the id of the bootstrap machine.
+	instanceIds, err := env.ControllerInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instanceIds, gc.HasLen, 1)
+	insts, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(insts, gc.HasLen, 1)
+	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
+
+	node1 := newFakeMachine("victor", arch.HostArch(), "Deployed")
+	node1.hostname = "host1"
+	node1.cpuCount = 1
+	node1.memory = 1024
+	node1.zoneName = "test_zone"
+	controller.allocateMachine = node1
+
+	instance, hc := testing.AssertStartInstance(c, env, "1")
+	c.Check(instance, gc.NotNil)
+	c.Assert(hc, gc.NotNil)
+	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cpu-cores=1 mem=1024M availability-zone=test_zone", arch.HostArch()))
+
+	node1.Stub.CheckCallNames(c, "Start")
+	startArgs, ok := node1.Stub.Calls()[0].Args[0].(gomaasapi.StartArgs)
+	c.Assert(ok, jc.IsTrue)
+
+	decodedUserData, err := decodeUserData(startArgs.UserData)
+	c.Assert(err, jc.ErrorIsNil)
+	info := machineInfo{"host1"}
+	cloudcfg, err := cloudinit.New("precise")
+	c.Assert(err, jc.ErrorIsNil)
+	cloudinitRunCmd, err := info.cloudinitRunCmd(cloudcfg)
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := goyaml.Marshal(cloudinitRunCmd)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(decodedUserData), jc.Contains, string(data))
+
+	// Trash the tools and try to start another instance.
+	suite.PatchValue(&envtools.DefaultBaseURL, "")
+	instance, _, _, err = testing.StartInstance(env, "2")
+	c.Check(instance, gc.IsNil)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}

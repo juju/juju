@@ -188,6 +188,8 @@ func (r *fakeBootResource) Architecture() string {
 
 type fakeMachine struct {
 	gomaasapi.Machine
+	*testing.Stub
+
 	zoneName      string
 	hostname      string
 	systemID      string
@@ -199,6 +201,15 @@ type fakeMachine struct {
 	architecture  string
 	interfaceSet  []gomaasapi.Interface
 	tags          []string
+}
+
+func newFakeMachine(systemID, architecture, statusName string) *fakeMachine {
+	return &fakeMachine{
+		Stub:         &testing.Stub{},
+		systemID:     systemID,
+		architecture: architecture,
+		statusName:   statusName,
+	}
 }
 
 func (m *fakeMachine) Tags() []string {
@@ -246,7 +257,8 @@ func (m *fakeMachine) InterfaceSet() []gomaasapi.Interface {
 }
 
 func (m *fakeMachine) Start(args gomaasapi.StartArgs) error {
-	return nil
+	m.MethodCall(m, "Start", args)
+	return m.NextErr()
 }
 
 type fakeZone struct {
