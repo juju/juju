@@ -82,6 +82,7 @@ func (w *hostkeyreporter) run() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	logger.Debugf("%d SSH host keys reported for machine %s", len(keys), w.config.MachineId)
 	return dependency.ErrUninstall
 }
 
