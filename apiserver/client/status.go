@@ -308,7 +308,7 @@ type statusContext struct {
 	services     map[string]*state.Service
 	relations    map[string][]*state.Relation
 	units        map[string]map[string]*state.Unit
-	networks     map[string]*state.Network
+	networks     map[string]interface{}
 	latestCharms map[charm.URL]*state.Charm
 }
 
@@ -413,16 +413,8 @@ func fetchRelations(st stateInterface) (map[string][]*state.Relation, error) {
 }
 
 // fetchNetworks returns a map from network name to network.
-func fetchNetworks(st stateInterface) (map[string]*state.Network, error) {
-	networks, err := st.AllNetworks()
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[string]*state.Network)
-	for _, n := range networks {
-		out[n.Name()] = n
-	}
-	return out, nil
+func fetchNetworks(st stateInterface) (map[string]interface{}, error) {
+	return nil, nil
 }
 
 type machineAndContainers map[string][]*state.Machine
@@ -561,12 +553,8 @@ func (context *statusContext) processNetworks() map[string]params.NetworkStatus 
 	return networksMap
 }
 
-func (context *statusContext) makeNetworkStatus(network *state.Network) params.NetworkStatus {
-	return params.NetworkStatus{
-		ProviderId: network.ProviderId(),
-		CIDR:       network.CIDR(),
-		VLANTag:    network.VLANTag(),
-	}
+func (context *statusContext) makeNetworkStatus(network interface{}) params.NetworkStatus {
+	return params.NetworkStatus{}
 }
 
 func (context *statusContext) isSubordinate(ep *state.Endpoint) bool {
@@ -618,11 +606,6 @@ func (context *statusContext) processService(service *state.Service) params.Serv
 		processedStatus.Err = err
 		return processedStatus
 	}
-	networks, err := service.Networks()
-	if err != nil {
-		processedStatus.Err = err
-		return processedStatus
-	}
 	var cons constraints.Value
 	if service.IsPrincipal() {
 		// Only principals can have constraints.
@@ -633,13 +616,13 @@ func (context *statusContext) processService(service *state.Service) params.Serv
 		}
 	}
 	// TODO(dimitern): Drop support for this in a follow-up.
-	if len(networks) > 0 || cons.HaveNetworks() {
+	if cons.HaveNetworks() {
 		// Only the explicitly requested networks (using "juju deploy
 		// <svc> --networks=...") will be enabled, and altough when
 		// specified, networks constraints will be used for instance
 		// selection, they won't be actually enabled.
 		processedStatus.Networks = params.NetworksSpecification{
-			Enabled:  networks,
+			Enabled:  nil,
 			Disabled: append(cons.IncludeNetworks(), cons.ExcludeNetworks()...),
 		}
 	}
