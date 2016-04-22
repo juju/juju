@@ -73,14 +73,17 @@ func (b *buildSuite) TearDownTest(c *gc.C) {
 }
 
 func (b *buildSuite) TestFindExecutable(c *gc.C) {
-
+	root := "/"
+	if runtime.GOOS == "windows" {
+		root = `C:\`
+	}
 	for _, test := range []struct {
 		execFile   string
 		expected   string
 		errorMatch string
 	}{{
-		execFile: filepath.Join("/", "some", "absolute", "path"),
-		expected: filepath.Join("/", "some", "absolute", "path"),
+		execFile: filepath.Join(root, "some", "absolute", "path"),
+		expected: filepath.Join(root, "some", "absolute", "path"),
 	}, {
 		execFile: "./foo",
 		expected: filepath.Join(b.cwd, "foo"),
