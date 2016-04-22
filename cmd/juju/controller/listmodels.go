@@ -49,7 +49,7 @@ Examples:
     juju list-models
     juju list-models --user bob
 
-See also: create-model
+See also: add-model
           share-model
           unshare-model
 `
