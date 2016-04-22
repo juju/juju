@@ -748,7 +748,6 @@ func assocProvInfoAndMachCfg(
 	instanceConfig *instancecfg.InstanceConfig,
 ) *provisioningInfo {
 
-	instanceConfig.Networks = provInfo.Networks
 	instanceConfig.Tags = provInfo.Tags
 
 	if len(provInfo.Jobs) > 0 {

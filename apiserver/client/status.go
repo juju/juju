@@ -14,7 +14,6 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -605,26 +604,6 @@ func (context *statusContext) processService(service *state.Service) params.Serv
 	if err != nil {
 		processedStatus.Err = err
 		return processedStatus
-	}
-	var cons constraints.Value
-	if service.IsPrincipal() {
-		// Only principals can have constraints.
-		cons, err = service.Constraints()
-		if err != nil {
-			processedStatus.Err = err
-			return processedStatus
-		}
-	}
-	// TODO(dimitern): Drop support for this in a follow-up.
-	if cons.HaveNetworks() {
-		// Only the explicitly requested networks (using "juju deploy
-		// <svc> --networks=...") will be enabled, and altough when
-		// specified, networks constraints will be used for instance
-		// selection, they won't be actually enabled.
-		processedStatus.Networks = params.NetworksSpecification{
-			Enabled:  nil,
-			Disabled: append(cons.IncludeNetworks(), cons.ExcludeNetworks()...),
-		}
 	}
 	if service.IsPrincipal() {
 		processedStatus.Units = context.processUnits(context.units[service.Name()], serviceCharmURL.String())

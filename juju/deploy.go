@@ -29,10 +29,7 @@ type DeployServiceParams struct {
 	NumUnits       int
 	// Placement is a list of placement directives which may be used
 	// instead of a machine spec.
-	Placement []*instance.Placement
-	// Networks holds a list of networks to required to start on boot.
-	// TODO(dimitern): Drop this in a follow-up in favor of constraints.
-	Networks         []string
+	Placement        []*instance.Placement
 	Storage          map[string]storage.Constraints
 	EndpointBindings map[string]string
 	// Resources is a map of resource name to IDs of pending resources.
@@ -67,10 +64,6 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 	}
 	// TODO(fwereade): transactional State.AddService including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
-
-	if len(args.Networks) > 0 || args.Constraints.HaveNetworks() {
-		return nil, fmt.Errorf("use of --networks is deprecated. Please use spaces")
-	}
 
 	effectiveBindings := getEffectiveBindingsForCharmMeta(args.Charm.Meta(), args.EndpointBindings)
 
