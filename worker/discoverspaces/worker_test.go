@@ -197,7 +197,7 @@ func (s *WorkerSuite) startWorker(c *gc.C) (worker.Worker, gate.Lock) {
 	worker, err := discoverspaces.NewWorker(discoverspaces.Config{
 		Facade:   s.API,
 		Environ:  environ,
-		NewName:  discoverspaces.ConvertSpaceName,
+		NewName:  network.ConvertSpaceName,
 		Unlocker: lock,
 	})
 	c.Assert(err, jc.ErrorIsNil)
