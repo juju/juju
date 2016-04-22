@@ -25,3 +25,10 @@ var LongAttempt = &utils.AttemptStrategy{
 	Total: LongWait,
 	Delay: ShortWait,
 }
+
+// SupportedLTSSeries are the current supported LTS series in ascending order.
+var SupportedLtsSeries = []string{"precise", "trusty", "xenial"}
+
+// LatestLtsSeries is the most recent of supported LTS series, i.e. the last
+// item in KnownLtsSeries.
+var LatestLtsSeries = SupportedLtsSeries[len(SupportedLtsSeries)-1]
