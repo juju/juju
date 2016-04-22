@@ -30,7 +30,8 @@ func init() {
 	}
 }
 
-const FakeDefaultSeries = "trusty"
+// FakeDefaultSeries is the default series for testing.
+var FakeDefaultSeries = LatestLtsSeries
 
 // FakeVersionNumber is a valid version number that can be used in testing.
 var FakeVersionNumber = version.MustParse("1.99.0")
