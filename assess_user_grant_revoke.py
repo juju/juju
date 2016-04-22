@@ -14,19 +14,25 @@ import pexpect
 
 from deploy_stack import (
     BootstrapManager,
-)
+    )
+
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
     scoped_environ,
     temp_dir,
-)
+    )
 
 from jujupy import (
     make_client,
     SimpleEnvironment,
-    EnvJujuClient2B2,
-)
+    EnvJujuClient,
+    JujuData,
+    )
+
+from tests import (
+    use_context,
+    )
 
 
 __metaclass__ = type
@@ -41,8 +47,9 @@ def assess_user_grant_revoke(client, juju_bin):
     #client.juju("deploy", ('local:xenial/wordpress',))
     # Wait for the deployment to finish.
     client.wait_for_started()
-    model = client.get_admin_model_name()
+    #model = client.get_admin_model_name()
     #model = client.create_model('user-access')
+    model = client.env.environment
 
     logging.debug("Creating Users")
     try:
@@ -80,42 +87,76 @@ def assess_user_grant_revoke(client, juju_bin):
     #log.debug(bob_env)
     #with temp_bootstrap_env(fake_home, client):
     #bob_env = create_user_shell_env()
-    #with temp_dir() as fake_home:
+
     #bob_env = create_user_shell_env()
     #with scoped_environ(bob_env):
-    bob_env = SimpleEnvironment('bob', {'type': 'local'})
-    bob_client = EnvJujuClient2B2(bob_env, '2.0-fake', juju_bin, create_user_shell_env())
-    # needs support to passing register command with arguments
-    # refactor once supported, bug 1573099
-    child = pexpect.spawn(juju_bin + bob_register)
-    child.expect('(?i)name .*: ')
-    child.sendline('bob_controller')
-    child.expect('(?i)password')
-    child.sendline('bob')
-    child.expect('(?i)password')
-    child.sendline('bob')
-    child.close()
-    #if child.isalive():
-    #    raise Exception
+    #bob_env = SimpleEnvironment('bob', {'type': 'local'})
+    #fake_home = use_context(self, temp_dir())
+    pdb.set_trace()
+    with temp_dir() as fake_home:
+        #bob_env = JujuData('admin', juju_home=fake_home)
+        #bob_client = EnvJujuClient(bob_env, '2.0-fake', juju_bin)
+
+        # juju login
+
+        bob_client = client.clone(env=client.env.clone())
+        bob_client.env.juju_home = fake_home
+
+        bob_shell_env = bob_client._shell_environ()
+
+        # needs support to passing register command with arguments
+        # refactor once supported, bug 1573099
+        with scoped_environ(bob_shell_env):
+            child = pexpect.spawn(juju_bin + bob_register)
+        child.expect('(?i)name .*: ')
+        child.sendline('bob_controller')
+        child.expect('(?i)password')
+        child.sendline('bob')
+        child.expect('(?i)password')
+        child.sendline('bob')
+        child.close()
+            #if child.isalive():
+            #    raise Exception
 
 
-    #log.debug('Bob controller')
-    #log.debug(bob_client.get_juju_output('show-controller', include_e=False))
+        log.debug('Bob controller')
+        log.debug(bob_client.get_juju_output('show-controller', include_e=False))
 
-    # we SHOULD NOT be able to deploy
-    try:
-        log.debug(bob_client.show_status())
-        bob_client.deploy('wordpress')
-        log.debug('assert_fail read-only user deployed charm')
-        #raise AssertionError('assert_fail read-only user deployed charm')
-    except subprocess.CalledProcessError:
-        log.debug('bob could not deploy')
-        pass
+        # we SHOULD NOT be able to deploy
+        try:
+            log.debug(bob_client.show_status())
+            bob_client.deploy('wordpress')
+            #log.debug('assert_fail read-only user deployed charm')
+            raise AssertionError('assert_fail read-only user deployed charm')
+        except subprocess.CalledProcessError as e:
+            log.debug('bob could not deploy')
+            pass
 
 
+        # remove permissions from bob
+        logging.debug("Revoking permissions from bob")
+        try:
+            adduser = client.get_juju_output('revoke',  'bob', model, include_e=False)
+            bob_register = get_register_command(adduser)
+        except subprocess.CalledProcessError as e:
+            logging.warn(e)
+            logging.warn(e.stderr)
+
+        # Bob should see nothing
+        # we SHOULD NOT be able to do anything
+        logging.debug("Testing Bob access")
+        try:
+            log.debug(bob_client.list_models())
+            #log.debug('assert_fail revoked user sees models')
+            raise AssertionError('assert_fail read-only user deployed charm')
+        except subprocess.CalledProcessError:
+            pass
+
+
+    ######################3
     logging.debug("Testing Carol access")
     carol_env = SimpleEnvironment('carol', {'type': 'local'})
-    carol_client = EnvJujuClient2B2(carol_env, '2.0-fake', juju_bin, create_user_shell_env())
+    carol_client = EnvJujuClient(carol_env, '2.0-fake', juju_bin, create_user_shell_env())
     # needs support to passing register command with arguments
     # refactor once supported, bug 1573099
     child = pexpect.spawn(juju_bin + carol_register)
