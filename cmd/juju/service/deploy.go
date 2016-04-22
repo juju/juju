@@ -754,7 +754,6 @@ func (c *serviceDeployer) serviceDeploy(args serviceDeployParams) error {
 		ConfigYAML:       args.configYAML,
 		Cons:             args.constraints,
 		Placement:        args.placement,
-		Networks:         []string{},
 		Storage:          args.storage,
 		EndpointBindings: args.spaceBindings,
 		Resources:        args.resources,

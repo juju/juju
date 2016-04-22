@@ -714,7 +714,6 @@ func (task *provisionerTask) startMachine(
 	volumes := volumesToApiserver(result.Volumes)
 	volumeAttachments := volumeAttachmentsToApiserver(result.VolumeAttachments)
 
-	// TODO(dimitern) Bump provisioner API version.
 	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networkConfig, volumes, volumeAttachments)
 	if err == nil {
 		logger.Infof(
