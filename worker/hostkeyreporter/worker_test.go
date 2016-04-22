@@ -4,12 +4,12 @@
 package hostkeyreporter_test
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
+	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -64,10 +64,21 @@ func (s *Suite) TestInvalidConfig(c *gc.C) {
 	c.Check(s.stub.Calls(), gc.HasLen, 0)
 }
 
-func (s *Suite) TestNoKeys(c *gc.C) {
-	// Pass an empty directory so the keys created in setup won't be
-	// there.
+func (s *Suite) TestNoSSHDir(c *gc.C) {
+	// No /etc/ssh at all
 	s.config.RootDir = c.MkDir()
+
+	w, err := hostkeyreporter.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	err = workertest.CheckKilled(c, w)
+	c.Check(errors.Cause(err), gc.Equals, dependency.ErrUninstall)
+}
+
+func (s *Suite) TestNoKeys(c *gc.C) {
+	// Pass an empty /etc/ssh
+	dir := c.MkDir()
+	c.Assert(os.MkdirAll(filepath.Join(dir, "etc", "ssh"), 0777), jc.ErrorIsNil)
+	s.config.RootDir = dir
 
 	w, err := hostkeyreporter.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)

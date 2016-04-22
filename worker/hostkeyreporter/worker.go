@@ -5,6 +5,7 @@ package hostkeyreporter
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -87,7 +88,15 @@ func (w *hostkeyreporter) run() error {
 }
 
 func (w *hostkeyreporter) readSSHKeys() ([]string, error) {
-	filenames, err := filepath.Glob(w.sshDir() + "/ssh_host_*_key.pub")
+	sshDir := w.sshDir()
+	if _, err := os.Stat(sshDir); os.IsNotExist(err) {
+		logger.Warningf("%s doesn't exist - giving up", sshDir)
+		return nil, dependency.ErrUninstall
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	filenames, err := filepath.Glob(sshDir + "/ssh_host_*_key.pub")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
