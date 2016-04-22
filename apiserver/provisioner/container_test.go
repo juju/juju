@@ -528,7 +528,6 @@ func (s *prepareSuite) TestReleaseAndRetryWhenSetOnlyFails(c *gc.C) {
 	_, testLog := s.assertCall(c, args, s.makeResults([]params.NetworkConfig{{
 		ProviderId:       "dummy-eth0",
 		ProviderSubnetId: "dummy-private",
-		NetworkName:      "juju-private",
 		CIDR:             "0.10.0.0/24",
 		DeviceIndex:      0,
 		InterfaceName:    "eth0",
@@ -611,7 +610,6 @@ func (s *prepareSuite) TestSuccessWithSingleContainer(c *gc.C) {
 	_, testLog := s.assertCall(c, args, s.makeResults([]params.NetworkConfig{{
 		ProviderId:       "dummy-eth0",
 		ProviderSubnetId: "dummy-private",
-		NetworkName:      "juju-private",
 		CIDR:             "0.10.0.0/24",
 		DeviceIndex:      0,
 		InterfaceName:    "eth0",
@@ -649,7 +647,6 @@ func (s *prepareSuite) TestSuccessWhenFirstSubnetNotAllocatable(c *gc.C) {
 	_, testLog := s.assertCall(c, args, s.makeResults([]params.NetworkConfig{{
 		ProviderId:       "dummy-eth1",
 		ProviderSubnetId: "dummy-public",
-		NetworkName:      "juju-public",
 		CIDR:             "0.20.0.0/24",
 		DeviceIndex:      1,
 		InterfaceName:    "eth1",

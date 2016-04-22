@@ -290,8 +290,6 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 		MACAddress:       "aa:bb:cc:dd:ee:ff",
 		Address:          network.NewAddress("0.1.2.3"),
 		GatewayAddress:   network.NewAddress("0.1.2.1"),
-		NetworkName:      network.DefaultPrivate,
-		ProviderId:       network.DefaultProviderId,
 	})
 }
 

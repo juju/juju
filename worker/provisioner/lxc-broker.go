@@ -591,12 +591,6 @@ func configureContainerNetwork(
 		finalIfaceInfo[i].DNSServers = dnsServers
 		finalIfaceInfo[i].DNSSearchDomains = []string{searchDomain}
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
-		if finalIfaceInfo[i].NetworkName == "" {
-			finalIfaceInfo[i].NetworkName = network.DefaultPrivate
-		}
-		if finalIfaceInfo[i].ProviderId == "" {
-			finalIfaceInfo[i].ProviderId = network.DefaultProviderId
-		}
 	}
 	err = setupRoutesAndIPTables(
 		primaryNIC,

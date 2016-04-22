@@ -20,18 +20,6 @@ import (
 
 var logger = loggo.GetLogger("juju.network")
 
-// TODO(dimitern): Remove this once we use spaces as per the model.
-const (
-	// Id of the default public juju network
-	DefaultPublic = "juju-public"
-
-	// Id of the default private juju network
-	DefaultPrivate = "juju-private"
-
-	// Provider Id for the default network
-	DefaultProviderId = "juju-unknown"
-)
-
 // SpaceInvalidChars is a regexp for validating that space names contain no
 // invalid characters.
 var SpaceInvalidChars = regexp.MustCompile("[^0-9a-z-]")
