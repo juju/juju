@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-"""TODO: add rough description of what is assessed in this module."""
+"""This testsuite is intended to test basic user permissions. Users
+   can be granted read or full priveleges by model. Revoking those
+   priveleges should remove them."""
+   
 from __future__ import print_function
 
 import argparse
@@ -8,9 +11,6 @@ import sys
 import tempfile
 import subprocess
 import os
-
-# seperate third party lib
-import pexpect
 
 from deploy_stack import (
     BootstrapManager,
@@ -34,222 +34,113 @@ from tests import (
     use_context,
     )
 
+import pexpect
 
 __metaclass__ = type
 
 
 log = logging.getLogger("assess_user_grant_revoke")
 
-
-def assess_user_grant_revoke(client, juju_bin):
-    # Deploy charms, there are several under ./repository
-    # set JUJU_REPOSITORY, this will work
-    #client.juju("deploy", ('local:xenial/wordpress',))
-    # Wait for the deployment to finish.
-    client.wait_for_started()
-    #model = client.get_admin_model_name()
-    #model = client.create_model('user-access')
-    model = client.env.environment
-
-    logging.debug("Creating Users")
-    try:
-        adduser = client.get_juju_output('add-user',  'bob', '--models', model, '--acl', 'read', include_e=False)
-        bob_register = get_register_command(adduser)
-    except subprocess.CalledProcessError as e:
-        logging.warn(e)
-        logging.warn(e.stderr)
-
-    try:
-        adduser = client.get_juju_output('add-user',  'carol', '--models', model, include_e=False)
-        carol_register = get_register_command(adduser)
-    except subprocess.CalledProcessError as e:
-        logging.warn(e)
-        logging.warn(e.stderr)
-
-    #import pdb
-    #pdb.set_trace()
-
-    # can we pass in env to get_juju_output?
-    # should we use temp_bootstrap_env?
-
-    # make it a context manager, because of cleanup
-    # make finally block with .close() and .isalive()
-    # move to jujupy
-    # with client.pexpect session:
-
-    # use fake juju, look at lp:~abentley/juju-ci-tools/keystone3
-
-    # keep pexpect in here, but factor it out
-    # don't merge into jujupy until we need to do more
-
-    logging.debug("Testing Bob access")
-    #bob_env = _shell_environ
-    #log.debug(bob_env)
-    #with temp_bootstrap_env(fake_home, client):
-    #bob_env = create_user_shell_env()
-
-    #bob_env = create_user_shell_env()
-    #with scoped_environ(bob_env):
-    #bob_env = SimpleEnvironment('bob', {'type': 'local'})
-    #fake_home = use_context(self, temp_dir())
-    pdb.set_trace()
-    with temp_dir() as fake_home:
-        #bob_env = JujuData('admin', juju_home=fake_home)
-        #bob_client = EnvJujuClient(bob_env, '2.0-fake', juju_bin)
-
-        # juju login
-
-        bob_client = client.clone(env=client.env.clone())
-        bob_client.env.juju_home = fake_home
-
-        bob_shell_env = bob_client._shell_environ()
-
-        # needs support to passing register command with arguments
-        # refactor once supported, bug 1573099
-        with scoped_environ(bob_shell_env):
-            child = pexpect.spawn(juju_bin + bob_register)
-        child.expect('(?i)name .*: ')
-        child.sendline('bob_controller')
-        child.expect('(?i)password')
-        child.sendline('bob')
-        child.expect('(?i)password')
-        child.sendline('bob')
-        child.close()
-            #if child.isalive():
-            #    raise Exception
-
-
-        log.debug('Bob controller')
-        log.debug(bob_client.get_juju_output('show-controller', include_e=False))
-
-        # we SHOULD NOT be able to deploy
-        try:
-            log.debug(bob_client.show_status())
-            bob_client.deploy('wordpress')
-            #log.debug('assert_fail read-only user deployed charm')
-            raise AssertionError('assert_fail read-only user deployed charm')
-        except subprocess.CalledProcessError as e:
-            log.debug('bob could not deploy')
-            pass
-
-
-        # remove permissions from bob
-        logging.debug("Revoking permissions from bob")
-        try:
-            adduser = client.get_juju_output('revoke',  'bob', model, include_e=False)
-            bob_register = get_register_command(adduser)
-        except subprocess.CalledProcessError as e:
-            logging.warn(e)
-            logging.warn(e.stderr)
-
-        # Bob should see nothing
-        # we SHOULD NOT be able to do anything
-        logging.debug("Testing Bob access")
-        try:
-            log.debug(bob_client.list_models())
-            #log.debug('assert_fail revoked user sees models')
-            raise AssertionError('assert_fail read-only user deployed charm')
-        except subprocess.CalledProcessError:
-            pass
-
-
-    ######################3
-    logging.debug("Testing Carol access")
-    carol_env = SimpleEnvironment('carol', {'type': 'local'})
-    carol_client = EnvJujuClient(carol_env, '2.0-fake', juju_bin, create_user_shell_env())
-    # needs support to passing register command with arguments
-    # refactor once supported, bug 1573099
-    child = pexpect.spawn(juju_bin + carol_register)
-    child.expect('(?i)name .*: ')
-    child.sendline('carol_controller')
-    child.expect('(?i)password')
-    child.sendline('carol')
-    child.expect('(?i)password')
-    child.sendline('carol')
-    child.close()
-    #if child.isalive():
-    #    raise Exception
-
-    #log.debug('Carol controller')
-    #log.debug(carol_client.get_juju_output('show-controller', include_e=False))
-
-
-    # we SHOULD NOT be able to deploy
-    try:
-        carol_client.deploy('wordpress')
-        log.debug('carol could deploy')
-    except subprocess.CalledProcessError:
-        raise AssertionError('assert_fail admin user could not deploy charm')
-
-    # remove permissions from bob and carol
-    logging.debug("Revoking permissions")
-    try:
-        adduser = client.get_juju_output('revoke',  'bob', model, include_e=False)
-        bob_register = get_register_command(adduser)
-    except subprocess.CalledProcessError as e:
-        logging.warn(e)
-        logging.warn(e.stderr)
-
-    try:
-        adduser = client.get_juju_output('revoke',  'carol', '--acl', 'write', model, include_e=False)
-        bob_register = get_register_command(adduser)
-    except subprocess.CalledProcessError as e:
-        logging.warn(e)
-        logging.warn(e.stderr)
-
-
-    # Carol should be able to get status
-    # Bob should see nothing
-    # we SHOULD NOT be able to do anything
-    logging.debug("Testing Bob access")
-    try:
-        log.debug(bob_client.list_models())
-        log.debug('assert_fail revoked user sees models')
-        #raise AssertionError('assert_fail read-only user deployed charm')
-    except subprocess.CalledProcessError:
-        pass
-
-
-    logging.debug("Testing Carol access")
-    # we SHOULD be able to see models
-    try:
-        log.debug(carol_client.list_models())
-    except subprocess.CalledProcessError:
-        log.debug('assert_fail read-only user deployed charm')
-        #raise AssertionError('assert_fail read-only user deployed charm')
-
-    # we SHOULD NOT be able to deploy
-    try:
-        carol_client.deploy('mysql')
-        log.debug('assert_fail read-only user deployed charm')
-        #raise AssertionError('assert_fail read-only user deployed charm')
-    except subprocess.CalledProcessError:
-        pass
-
-
-# use _shell_environ
-def create_user_shell_env():
-    env = dict(os.environ)
-    env['XDG_DATA_HOME'] = tempfile.mkdtemp()
-    return env
-
-def get_register_command(output):
-    #b'User "carol" added\nUser "carol" granted read access to model "blog"\nPlease send this command to carol:\n    juju register MEATBWNhcm9sMBUTEzEwLjIwOC41Ni4yNTI6MTcwNzAEIEBAY-SXp7WeoJv6FwDU8p6JXFAXi8ayZwk8qN4Ai1By\n'
-
-    # use re here instead
-    # use regex
-    #log.debug(jim_r)
-   # " register MDoTA2ppbTAREw8xMC4wLjMuMzk6MTcwNzAEII7nwGOIWoRZZ1pXI2I_dKjGhpM-Ja5If_BndAcaJuQt"
+def _get_register_command(output):
     for row in output.split('\n'):
         if 'juju register' in row:
             return row.strip().replace("juju","",1)
 
+def create_user_permissions(client, user_name, models=None, permissions='read'):
+    if models == None:
+        models = client.env.environment
+    
+    try:
+        output = client.get_juju_output('add-user', user_name, '--models', models, '--acl', permissions, include_e=False)
+        return _get_register_command(output)
+    except subprocess.CalledProcessError as e:
+        log.warn(e)
+        log.warn(e.stderr)
+
+def remove_user_permissions(client, user_name, models=None, permissions='read'):
+    if models == None:
+        models = client.env.environment
+    
+    try:
+        output = client.get_juju_output('revoke', user_name, models, '--acl', permissions, include_e=False)
+    except subprocess.CalledProcessError as e:
+        log.warn(e)
+        log.warn(e.stderr)
+
+def register_user(user_name, env, juju_bin):
+    # needs support to passing register command with arguments
+    # refactor once supported, bug 1573099
+    with scoped_environ(env):
+        child = pexpect.spawn(juju_bin + register_cmd)
+    try:
+        child.expect('(?i)user_name .*: ')
+        child.sendline(user_name + '_controller')
+        child.expect('(?i)password')
+        child.sendline(user_name + '_password')
+        child.expect('(?i)password')
+        child.sendline(user_name + '_password')
+        child.close()
+        if child.isalive():
+            raise AssertionError('Registering user failed: pexpect session still alive')
+    except pexpect.TIMEOUT:
+        raise AssertionError('Registering user failed: pexpect session timed out')
+
+def create_cloned_environment(user_name, cloned_juju_home):
+    user_client = client.clone(env=client.env.clone())
+    user_client.env.juju_home = cloned_juju_home
+    user_client_env = user_client._shell_environ()
+    return user_client, user_client_env
+
+def assess_user_grant_revoke(client, juju_bin):
+    # Wait for the deployment to finish.
+    client.wait_for_started()
+
+    log.debug("Creating Users")
+    read_user = 'read_user'
+    write_user = 'write_user'
+    create_user(client, read_user)
+
+    log.debug("Testing read_user access")
+    with temp_dir() as fake_home:
+        read_user_client, read_user_env = create_cloned_environment(read_user, fake_home)
+        register_user(read_user, read_user_env, juju_bin)
+
+        # assert we are read_user
+        # assert we are on recontroller
+        
+        #read_user_client.get_juju_output('show-controller', include_e=False)
+
+        # assert we can show status
+        try:
+            read_user_client.show_status()
+        except subprocess.CalledProcessError:
+            raise AssertionError('assert_fail read-only user cannot see status')
+           
+        # assert we CAN NOT deploy
+        try:
+            read_user_client.deploy('wordpress')
+            raise AssertionError('assert_fail read-only user deployed charm')
+        except subprocess.CalProcessError:
+            pass
+
+        # remove all permissions
+        log.debug("Revoking permissions from read_user")
+        remove_user_permissions(client, read_user)
+
+        # we SHOULD NOT be able to do anything
+        log.debug("Testing read_user access")
+        try:
+            read_user_client.list_models()
+            raise AssertionError('assert_fail zero permissions user can see status')
+        except subprocess.CalledProcessError:
+            pass
+
+    # add regression check for bug 1570594
+
 def parse_args(argv):
     """Parse all arguments."""
-    parser = argparse.ArgumentParser(description="TODO: script info")
-    # TODO: Add additional positional arguments.
+    parser = argparse.ArgumentParser(description="Test grant and revoke permissions for users")
     add_basic_testing_arguments(parser)
-    # TODO: Add additional optional arguments.
     return parser.parse_args(argv)
 
 
@@ -262,13 +153,5 @@ def main(argv=None):
         assess_user_grant_revoke(bs_manager.client, juju_bin)
     return 0
 
-
 if __name__ == '__main__':
-    import pdb, traceback, sys
-    try:
-        main()
-    except:
-        type, value, tb = sys.exc_info()
-        traceback.print_exc()
-        pdb.post_mortem(tb)
-    #sys.exit(main())
+    sys.exit(main())
