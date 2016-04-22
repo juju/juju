@@ -647,10 +647,10 @@ class EnvJujuClient:
             raise subprocess.CalledProcessError(retcode, full_args)
 
     def deploy(self, charm,
-		repository=None,
-		to=None,
+        repository=None,
+        to=None,
                 series=None,
-		service=None,
+        service=None,
                 force=False):
         args = [charm]
         if repository is not None:
@@ -661,8 +661,8 @@ class EnvJujuClient:
             args.extend(['--series', series])
         if service is not None:
             args.extend([service])
-	if force is True:
-	    args.extend(['--force'])
+        if force is True:
+            args.extend(['--force'])
         return self.juju('deploy', tuple(args))
 
     def remove_service(self, service):
@@ -796,6 +796,10 @@ class EnvJujuClient:
     def list_models(self):
         """List the models registered with the current controller."""
         self.controller_juju('list-models', ())
+
+    def create_model(self, model_name):
+        """Create a new model with the current controller."""
+        self.controller_juju('create-model', model_name)
 
     def get_models(self):
         """return a models dict with a 'models': [] key-value pair."""
