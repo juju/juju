@@ -172,7 +172,7 @@ class TestContainerNetworking(TestCase):
             self.addCleanup(patcher.stop)
 
     def assert_ssh(self, args, machine, cmd):
-        self.assertEqual(args, [('ssh', machine, cmd), ])
+        self.assertEqual(args, [('ssh', '--proxy', machine, cmd), ])
 
     def test_parse_args(self):
         # Test a simple command line that should work
@@ -236,7 +236,8 @@ class TestContainerNetworking(TestCase):
         jcnet.find_network(self.client, machine, addr)
         self.assertItemsEqual(self.juju_mock.commands,
                               [('ssh', (
-                               machine, 'ip route show to match ' + addr))])
+                               '--proxy', machine,
+                               'ip route show to match ' + addr))])
 
     def test_clean_environment(self):
         self.juju_mock.add_machine('1')
@@ -552,4 +553,3 @@ class TestMain(FakeHomeTestCase):
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client, ["kvm", "lxc", "lxd"])
         self.assertEqual(ret, 0)
-

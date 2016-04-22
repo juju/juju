@@ -84,11 +84,11 @@ def ssh(client, machine, cmd):
     attempts = 4
     for attempt in range(attempts):
         try:
-            return client.get_juju_output('ssh', machine, cmd)
+            return client.get_juju_output('ssh', '--proxy', machine, cmd)
         except subprocess.CalledProcessError as e:
             # If the connection to the host failed, try again in a couple of
             # seconds. This is usually due to heavy load.
-            if(attempt < attempts-1 and
+            if(attempt < attempts - 1 and
                re.search('ssh_exchange_identification: '
                          'Connection closed by remote host', e.stderr)):
                 time.sleep(back_off)
@@ -227,7 +227,7 @@ def assess_network_traffic(client, targets):
 
     with tempfile.NamedTemporaryFile(delete=False) as f:
         f.write('tmux new-session -d -s test "nc -l 6778 > nc_listen.out"')
-    client.juju('scp', (f.name, source + ':/home/ubuntu/listen.sh'))
+    client.juju('scp', ('--proxy', f.name, source + ':/home/ubuntu/listen.sh'))
     os.remove(f.name)
 
     # Containers are named 'x/type/y' where x is the host of the container. We
@@ -291,8 +291,8 @@ def assess_internet_connection(client, targets):
 
         d = re.search(r'^default\s+via\s+([\d\.]+)\s+', routes, re.MULTILINE)
         if d:
-            rc = client.juju('ssh', (target, 'ping -c1 -q ' + d.group(1)),
-                             check=False)
+            rc = client.juju('ssh', ('--proxy', target,
+                             'ping -c1 -q ' + d.group(1)), check=False)
             if rc != 0:
                 raise ValueError('%s unable to ping default route' % target)
         else:

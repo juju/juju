@@ -101,13 +101,13 @@ class TestJES(tests.FakeHomeTestCase):
         with patch.object(expected_client, 'enable_jes'):
             with patch.object(expected_client, 'is_jes_enabled',
                               return_value=True):
-                with jes_setup(setup_args) as (client, charm_previx, base_env):
+                with jes_setup(setup_args) as (client, charm_series, base_env):
                     self.assertEqual(1, client.is_jes_enabled.call_count)
                     self.assertEqual(0, client.enable_jes.call_count)
 
         # assert that jes_setup provides expected values
         self.assertIs(client, expected_client)
-        self.assertEqual(charm_previx, 'local:trusty/')
+        self.assertEqual(charm_series, 'trusty')
         self.assertEqual(base_env, 'baz')
 
         # assert that helper funcs were called with expected args.
@@ -163,9 +163,9 @@ class TestHostedEnvironment(tests.FakeHomeTestCase):
         log_dir = os.path.join(self.home_dir, 'logs')
         os.mkdir(log_dir)
         with hosted_environment(hosting_client, log_dir, 'bar') as client:
-            model_state = client._backing_state
+            model_state = client._backend.backing_state
             self.assertEqual({'name-bar': model_state},
-                             hosting_client._backing_state.controller.models)
+                             hosting_client._backend.controller_state.models)
             self.assertEqual('created', model_state.state)
         self.assertEqual('model-destroyed', model_state.state)
         self.assertTrue(os.path.isdir(os.path.join(log_dir, 'bar')))

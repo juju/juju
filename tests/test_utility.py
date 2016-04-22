@@ -12,18 +12,24 @@ import logging
 import os
 import socket
 from time import time
+import warnings
 
 from mock import (
     call,
     patch,
     )
+import yaml
 
-from tests import TestCase
+from tests import (
+    temp_os_env,
+    TestCase,
+)
 from utility import (
     add_basic_testing_arguments,
     as_literal_address,
     ErrJujuPath,
     extract_deb,
+    _find_candidates,
     find_candidates,
     find_latest_branch_candidates,
     get_auth_token,
@@ -31,6 +37,8 @@ from utility import (
     get_deb_arch,
     get_winrm_certs,
     is_ipv6_address,
+    local_charm_path,
+    make_charm,
     quote,
     run_command,
     scoped_environ,
@@ -105,6 +113,22 @@ class TestGetAuthToken(TestCase):
 
 class TestFindCandidates(TestCase):
 
+    def test__find_candidates_artifacts_default(self):
+        with temp_dir() as root:
+            make_candidate_dir(root, 'master-artifacts')
+            make_candidate_dir(root, '1.25')
+            candidate = os.path.join(root, 'candidate', '1.25')
+            self.assertEqual(list(_find_candidates(root)), [
+                (candidate, os.path.join(candidate, 'buildvars.json'))])
+
+    def test__find_candidates_artifacts_enabled(self):
+        with temp_dir() as root:
+            make_candidate_dir(root, 'master-artifacts')
+            make_candidate_dir(root, '1.25')
+            candidate = os.path.join(root, 'candidate', 'master-artifacts')
+            self.assertEqual(list(_find_candidates(root, artifacts=True)), [
+                (candidate, os.path.join(candidate, 'buildvars.json'))])
+
     def test_find_candidates(self):
         with temp_dir() as root:
             master_path = make_candidate_dir(root, 'master')
@@ -156,20 +180,20 @@ class TestFindLatestBranchCandidates(TestCase):
 
     def test_find_latest_branch_candidates(self):
         with temp_dir() as root:
-            master_path = make_candidate_dir(root, 'master')
+            master_path = make_candidate_dir(root, 'master-artifacts')
             self.assertEqual(find_latest_branch_candidates(root),
                              [(master_path, 1234)])
 
     def test_find_latest_branch_candidates_old_buildvars(self):
         with temp_dir() as root:
             a_week_ago = time() - timedelta(days=7, seconds=1).total_seconds()
-            make_candidate_dir(root, 'master', modified=a_week_ago)
+            make_candidate_dir(root, 'master-artifacts', modified=a_week_ago)
             self.assertEqual(find_latest_branch_candidates(root), [])
 
     def test_ignore_older_revision_build(self):
         with temp_dir() as root:
             path_1234 = make_candidate_dir(
-                root, '1234', 'mybranch', '1234')
+                root, '1234-artifacts', 'mybranch', '1234')
             make_candidate_dir(root, '1233', 'mybranch', '1233')
             self.assertEqual(find_latest_branch_candidates(root), [
                 (path_1234, 1234)])
@@ -177,9 +201,9 @@ class TestFindLatestBranchCandidates(TestCase):
     def test_include_older_revision_build_different_branch(self):
         with temp_dir() as root:
             path_1234 = make_candidate_dir(
-                root, '1234', 'branch_foo', '1234')
+                root, '1234-artifacts', 'branch_foo', '1234')
             path_1233 = make_candidate_dir(
-                root, '1233', 'branch_bar', '1233')
+                root, '1233-artifacts', 'branch_bar', '1233')
             self.assertItemsEqual(
                 find_latest_branch_candidates(root), [
                     (path_1233, 1233), (path_1234, 1234)])
@@ -378,14 +402,28 @@ class TestAddBasicTestingArguments(TestCase):
             parser.parse_args(cmd_line)
 
     def test_warns_on_dirty_logs(self):
-        with temp_dir() as log_dir:
-            open(os.path.join(log_dir, "existing.log"), "w").close()
-            cmd_line = ['local', '/a/juju', log_dir, 'testtest']
-            parser = add_basic_testing_arguments(ArgumentParser())
-            parser.parse_args(cmd_line)
-        self.assertRegexpMatches(
-            self.log_stream.getvalue(),
-            r"^WARNING Directory '.*' has existing contents.$")
+        with warnings.catch_warnings(record=True) as warned:
+            with temp_dir() as log_dir:
+                open(os.path.join(log_dir, "existing.log"), "w").close()
+                cmd_line = ['local', '/a/juju', log_dir, 'testtest']
+                parser = add_basic_testing_arguments(ArgumentParser())
+                parser.parse_args(cmd_line)
+            self.assertEqual(len(warned), 1)
+            self.assertRegexpMatches(
+                str(warned[0].message),
+                r"^Directory '.*' has existing contents.$")
+        self.assertEqual("", self.log_stream.getvalue())
+
+    def test_no_warn_on_empty_logs(self):
+        """Special case a file named 'empty' doesn't make log dir dirty"""
+        with warnings.catch_warnings(record=True) as warned:
+            with temp_dir() as log_dir:
+                open(os.path.join(log_dir, "empty"), "w").close()
+                cmd_line = ['local', '/a/juju', log_dir, 'testtest']
+                parser = add_basic_testing_arguments(ArgumentParser())
+                parser.parse_args(cmd_line)
+            self.assertEqual(warned, [])
+        self.assertEqual("", self.log_stream.getvalue())
 
     def test_debug(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--debug']
@@ -550,3 +588,80 @@ class TestTempDir(TestCase):
             self.assertTrue(os.path.exists(d))
             self.assertTrue(os.path.exists(os.path.join(d, "a-file")))
         self.assertFalse(os.path.exists(p))
+
+
+class TestLocalCharm(TestCase):
+
+    def test_make_local_charm_1x(self):
+        charm = 'mysql'
+        path = local_charm_path(charm, '1.25.0')
+        self.assertEqual(path, 'local:mysql')
+
+    def test_make_local_charm_1x_series(self):
+        charm = 'mysql'
+        path = local_charm_path(charm, '1.25.0', series='trusty')
+        self.assertEqual(path, 'local:trusty/mysql')
+
+    def test_make_local_charm_2x(self):
+        charm = 'mysql'
+        path = local_charm_path(charm, '2.0.0', repository='/tmp/charms')
+        self.assertEqual(path, '/tmp/charms/mysql')
+
+    def test_make_local_charm_2x_os_env(self):
+        charm = 'mysql'
+        with temp_os_env('JUJU_REPOSITORY', '/home/foo/repository'):
+            path = local_charm_path(charm, '2.0.0')
+        self.assertEqual(path, '/home/foo/repository/charms/mysql')
+
+    def test_make_local_charm_2x_win(self):
+        charm = 'mysql'
+        with temp_os_env('JUJU_REPOSITORY', '/home/foo/repository'):
+            path = local_charm_path(charm, '2.0.0', platform='win')
+        self.assertEqual(path, '/home/foo/repository/charms-win/mysql')
+
+    def test_make_local_charm_2x_centos(self):
+        charm = 'mysql'
+        with temp_os_env('JUJU_REPOSITORY', '/home/foo/repository'):
+            path = local_charm_path(charm, '2.0.0', platform='centos')
+        self.assertEqual(path, '/home/foo/repository/charms-centos/mysql')
+
+
+class TestMakeCharm(TestCase):
+
+    def test_make_charm(self):
+        with temp_dir() as charm_dir:
+            make_charm(charm_dir)
+            metadata = os.path.join(charm_dir, 'metadata.yaml')
+            with open(metadata, 'r') as f:
+                content = yaml.load(f)
+        self.assertEqual(content['name'], 'dummy')
+        self.assertEqual(content['min-juju-version'], '1.25.0')
+        self.assertEqual(content['summary'], 'summary')
+
+    def test_make_charm_non_default(self):
+        with temp_dir() as charm_dir:
+            make_charm(charm_dir, min_ver='2.0.0', name='foo',
+                       description='bar', summary='foobar',
+                       series=['trusty', 'xenial'])
+            metadata = os.path.join(charm_dir, 'metadata.yaml')
+            with open(metadata, 'r') as f:
+                content = yaml.load(f)
+        expected = {'series': ['trusty', 'xenial'],
+                    'name': 'foo',
+                    'description': 'bar',
+                    'min-juju-version': '2.0.0',
+                    'summary': 'foobar'}
+        self.assertEqual(content, expected)
+
+    def test_make_charm_none(self):
+        with temp_dir() as charm_dir:
+            make_charm(charm_dir, min_ver=None, name='mycharm',
+                       description='foo-description', summary='foo-summary',
+                       series=None)
+            metadata = os.path.join(charm_dir, 'metadata.yaml')
+            with open(metadata, 'r') as f:
+                content = yaml.safe_load(f)
+        expected = {'name': 'mycharm',
+                    'description': 'foo-description',
+                    'summary': 'foo-summary'}
+        self.assertEqual(content, expected)

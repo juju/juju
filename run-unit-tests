@@ -6,6 +6,9 @@ export INSTANCE_TYPE=$1
 export AMI_IMAGE=$2
 shift; shift
 
+JOB_NAME=${JOB_NAME:-$USER-run-unit-tests}
+export JOB_NAME
+
 FIXUP_SOURCES=""
 IS_LOCAL="false"
 RETRY="false"
@@ -158,9 +161,14 @@ if [[ "$INSTANCE_TYPE" != "lxc" && "$INSTANCE_TYPE" != "host" ]]; then
     done
     $FIXUP_SOURCES
 fi
+export PATH=/usr/lib/go-1.6/bin:$PATH
+export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update
-sudo apt-get upgrade -y
-sudo apt-get install -y make software-properties-common distro-info-data
+sudo apt-get upgrade -y --force-yes \
+    -o Dpkg::Options::="--force-confdef" \
+    -o Dpkg::Options::="--force-confold" \
+    -o Dpkg::Options::="--force-confnew"
+sudo apt-get install -y make gcc software-properties-common distro-info-data
 if [[ "$USE_PPA" != "" ]]; then
     sudo apt-add-repository -y $USE_PPA;
     sudo apt-get update
@@ -182,6 +190,8 @@ export JUJU_NOTEST_MONGOJS=1
 if ! grep 'Angsty Antelope' $LOG_FILE_PATH ; then
   echo "$LOG_TXT" | sudo tee -a $LOG_FILE_PATH
 fi
+# Delay Xenial LTS birthday by one month.
+sudo sed -i -e 's,2016-04-21,2016-05-21,' $LOG_FILE_PATH
 
 if [[ $INSTANCE_TYPE == "host" ]]; then
     echo "Cleaning up /tmp if it is dirty."

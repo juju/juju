@@ -646,15 +646,9 @@ class EnvJujuClient:
         if retcode != 0:
             raise subprocess.CalledProcessError(retcode, full_args)
 
-    def deploy(self, charm,
-        repository=None,
-        to=None,
-                series=None,
-        service=None,
-                force=False):
+    def deploy(self, charm, repository=None, to=None, series=None,
+               service=None, force=False):
         args = [charm]
-        if repository is not None:
-            args.extend(['--repository', repository])
         if to is not None:
             args.extend(['--to', to])
         if series is not None:
@@ -664,6 +658,12 @@ class EnvJujuClient:
         if force is True:
             args.extend(['--force'])
         return self.juju('deploy', tuple(args))
+
+    def upgrade_charm(self, service, charm_path=None):
+        args = (service,)
+        if charm_path is not None:
+            args = args + ('--path', charm_path)
+        self.juju('upgrade-charm', args)
 
     def remove_service(self, service):
         self.juju('remove-service', (service,))
@@ -682,7 +682,10 @@ class EnvJujuClient:
         )
         if name:
             args += (name,)
-        self.juju('deployer', args, self.env.needs_sudo())
+        e_arg = ('-e', 'local.{}:{}'.format(
+            self.env.controller.name, self.env.environment))
+        args = e_arg + args
+        self.juju('deployer', args, self.env.needs_sudo(), include_e=False)
 
     def _get_substrate_constraints(self):
         if self.env.maas:
@@ -796,10 +799,6 @@ class EnvJujuClient:
     def list_models(self):
         """List the models registered with the current controller."""
         self.controller_juju('list-models', ())
-
-    def create_model(self, model_name):
-        """Create a new model with the current controller."""
-        self.controller_juju('create-model', model_name)
 
     def get_models(self):
         """return a models dict with a 'models': [] key-value pair."""
@@ -1207,6 +1206,17 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
             args = args + ('--bootstrap-series', bootstrap_series)
         return args
 
+    def deploy(self, charm, repository=None, to=None, series=None,
+               service=None, force=False):
+        args = [charm]
+        if repository is not None:
+            args.extend(['--repository', repository])
+        if to is not None:
+            args.extend(['--to', to])
+        if service is not None:
+            args.extend([service])
+        return self.juju('deploy', tuple(args))
+
 
 class EnvJujuClient2A1(EnvJujuClient2A2):
     """Drives Juju 2.0-alpha1 clients."""
@@ -1462,6 +1472,24 @@ class EnvJujuClient1X(EnvJujuClient2A1):
     def deploy_bundle(self, bundle, timeout=_DEFAULT_BUNDLE_TIMEOUT):
         """Deploy bundle using deployer for Juju 1.X version."""
         self.deployer(bundle, timeout=timeout)
+
+    def deployer(self, bundle, name=None, deploy_delay=10, timeout=3600):
+        args = (
+            '--debug',
+            '--deploy-delay', str(deploy_delay),
+            '--timeout', str(timeout),
+            '--config', bundle,
+        )
+        if name:
+            args += (name,)
+        self.juju('deployer', args, self.env.needs_sudo())
+
+    def upgrade_charm(self, service, charm_path=None):
+        args = (service,)
+        if charm_path is not None:
+            repository = os.path.dirname(os.path.dirname(charm_path))
+            args = args + ('--repository', repository)
+        self.juju('upgrade-charm', args)
 
     def get_controller_endpoint(self):
         """Return the address of the state-server leader."""
