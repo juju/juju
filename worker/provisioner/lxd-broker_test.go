@@ -70,7 +70,7 @@ func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = NewFakeAPI()
 	s.manager = &fakeContainerManager{}
-	s.broker, err = provisioner.NewLxdBroker(s.api, s.manager, s.agentConfig, "namespace", true)
+	s.broker, err = provisioner.NewLxdBroker(s.api, s.manager, s.agentConfig, "namespace", true, 0)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
