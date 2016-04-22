@@ -247,6 +247,8 @@ func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 		go func() {
 			done <- connectSSH(hc.client, address, hc.checkHostScript)
 		}()
+
+		logger.Debugf("Trying to SSH to %v...\n", address)
 		select {
 		case <-hc.closed:
 			return hc, lastErr
@@ -258,7 +260,11 @@ func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 			} else {
 				logger.Debugf("connection attempt for %s failed: %v", address, lastErr)
 			}
+		case <-time.After(hc.checkDelay):
+			logger.Debugf("Timed out checking for an SSH connection to %v. Retrying...\n", address)
 		}
+
+		// Pause before trying again
 		select {
 		case <-hc.closed:
 		case <-dying:

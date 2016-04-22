@@ -11,7 +11,7 @@ bridgescript.go: add-juju-bridge.py Makefile
 	echo -n '//go:generate make -q\n\n' >> $@
 	echo -n 'import "path"\n\n' >> $@
 	echo -n 'const bridgeScriptName = "add-juju-bridge.py"\n\n' >> $@
-	echo -n 'var bridgeScriptPath = path.Join("/tmp", bridgeScriptName)\n\n' >> $@
+	echo -n 'var bridgeScriptPath = path.Join("/var/lib/juju", bridgeScriptName)\n\n' >> $@
 	echo -n "const bridgeScriptPython = \`" >> $@
 	cat add-juju-bridge.py >> $@
 	echo -n '`\n' >> $@
