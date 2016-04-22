@@ -10,6 +10,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -454,5 +455,18 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 		} else {
 			test.checkSuccess(c, environ.Config(), err)
 		}
+	}
+}
+
+func (*configSuite) TestSchema(c *gc.C) {
+	fields := lxd.Provider.(interface {
+		Schema() environschema.Fields
+	}).Schema()
+	// Check that all the fields defined in environs/config
+	// are in the returned schema.
+	globalFields, err := config.Schema(nil)
+	c.Assert(err, gc.IsNil)
+	for name, field := range globalFields {
+		c.Check(fields[name], jc.DeepEquals, field)
 	}
 }
