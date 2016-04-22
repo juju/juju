@@ -53,7 +53,7 @@ var _ ModelManager = (*ModelManagerAPI)(nil)
 func newFacade(st *state.State, resources *common.Resources, auth common.Authorizer) (*ModelManagerAPI, error) {
 	return NewModelManagerAPI(NewStateBackend(st), auth)
 }
-``
+
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
 func NewModelManagerAPI(st Backend, authorizer common.Authorizer) (*ModelManagerAPI, error) {
