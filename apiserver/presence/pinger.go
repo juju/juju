@@ -121,9 +121,13 @@ func (w *Worker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-clock.After(delay):
+			// runPinger() returns only once the pinger has finished
+			// or has failed to start. So either it ran or it didn't.
 			if w.runPinger() {
+				// Finished.
 				delay = 0
 			} else {
+				// Failed to start.
 				delay = w.config.RetryDelay
 			}
 		}
