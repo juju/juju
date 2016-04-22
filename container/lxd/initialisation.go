@@ -151,7 +151,7 @@ func detectSubnet(ipAddrOutput string) (string, error) {
 		columns := strings.Split(trimmed, " ")
 
 		if len(columns) < 2 {
-			return "", errors.Trace(fmt.Errorf("invalid ip addr output line %s", line))
+			continue
 		}
 
 		if columns[0] != "inet" {
