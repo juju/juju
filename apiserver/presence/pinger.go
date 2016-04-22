@@ -74,14 +74,23 @@ func New(config Config) (*Worker, error) {
 		config: config,
 		logger: loggo.GetLogger(name),
 	}
+	ready := make(chan struct{})
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
-		Work: w.loop,
+		Work: func() error {
+			// Run once to prime presence before diving into the loop.
+			pinger := w.startPinger()
+			close(ready)
+			if pinger != nil {
+				w.waitOnPinger(pinger)
+			}
+			return w.loop()
+		},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	//<-time.After(500 * time.Millisecond)
+	<-ready
 	return w, nil
 }
 
@@ -121,31 +130,34 @@ func (w *Worker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-clock.After(delay):
-			// runPinger() returns only once the pinger has finished
-			// or has failed to start. So either it ran or it didn't.
-			if w.runPinger() {
-				// Finished.
-				delay = 0
-			} else {
+			delay = 0
+			pinger := w.startPinger()
+			if pinger == nil {
 				// Failed to start.
 				delay = w.config.RetryDelay
+				continue
 			}
+			w.waitOnPinger(pinger)
 		}
 	}
 }
 
-// runPinger runs a single Pinger indefinitely, stopping it only when
-// the Worker is Kill()ed; returning true only when the Pinger itself
-// has stopped for any reason (and false if it could not be started).
-func (w *Worker) runPinger() (startedSuccessfully bool) {
+// startPinger starts a single Pinger. It returns nil if the pinger
+// could not be started.
+func (w *Worker) startPinger() Pinger {
 	w.logger.Debugf("starting pinger...")
 	pinger, err := w.config.Start()
 	if err != nil {
 		w.logger.Errorf("pinger failed to start: %v", err)
-		return false
+		return nil
 	}
 	w.logger.Debugf("pinger started")
+	return pinger
+}
 
+// waitOnPinger waits indefinitely for the given Pinger to complete,
+// stopping it only when the Worker is Kill()ed.
+func (w *Worker) waitOnPinger(pinger Pinger) {
 	// Start a goroutine that waits for the Worker to be stopped,
 	// and then stops the Pinger.  Note also that we ignore errors
 	// out of Stop(): they will be caught by the Pinger anyway, and
@@ -162,5 +174,4 @@ func (w *Worker) runPinger() (startedSuccessfully bool) {
 	if err := pinger.Wait(); err != nil {
 		w.logger.Errorf("pinger failed: %v", err)
 	}
-	return true
 }
