@@ -32,11 +32,10 @@ var _ = gc.Suite(&AssignSuite{})
 
 func (s *AssignSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	wordpress := s.AddTestingServiceWithNetworks(
+	wordpress := s.AddTestingService(
 		c,
 		"wordpress",
 		s.AddTestingCharm(c, "wordpress"),
-		[]string{"net1", "net2"},
 	)
 	wordpress.SetConstraints(constraints.MustParse("networks=net3,^net4,^net5"))
 	s.wordpress = wordpress
@@ -345,8 +344,6 @@ func (s *AssignSuite) assertAssignedUnit(c *gc.C, unit *state.Unit) string {
 	// Get service networks.
 	service, err := unit.Service()
 	c.Assert(err, jc.ErrorIsNil)
-	serviceNetworks, err := service.Networks()
-	c.Assert(err, jc.ErrorIsNil)
 	serviceCons, err := service.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	// Check the machine on the unit is set.
@@ -357,9 +354,6 @@ func (s *AssignSuite) assertAssignedUnit(c *gc.C, unit *state.Unit) string {
 	c.Assert(err, jc.ErrorIsNil)
 	machineCons, err := machine.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	machineNetworks, err := machine.RequestedNetworks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineNetworks, gc.DeepEquals, serviceNetworks)
 	c.Assert(serviceCons.IncludeNetworks(), gc.DeepEquals, machineCons.IncludeNetworks())
 	c.Assert(serviceCons.ExcludeNetworks(), gc.DeepEquals, machineCons.ExcludeNetworks())
 	machineUnits, err := machine.Units()

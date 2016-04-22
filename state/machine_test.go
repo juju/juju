@@ -511,10 +511,6 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	_, err = s.machine.Containers()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	networks, err := s.machine.RequestedNetworks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, gc.HasLen, 0)
-
 	ifaces, err := s.machine.NetworkInterfaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ifaces, gc.HasLen, 0)
@@ -772,39 +768,6 @@ func (s *MachineSuite) TestMachineWaitAgentPresence(c *gc.C) {
 	c.Assert(alive, jc.IsFalse)
 }
 
-func (s *MachineSuite) TestRequestedNetworks(c *gc.C) {
-	// s.machine is created without requested networks, so check
-	// they're empty when we read them.
-	networks, err := s.machine.RequestedNetworks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, gc.HasLen, 0)
-
-	// Now create a machine with networks and read them back.
-	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		Constraints:       constraints.MustParse("networks=mynet,^private-net,^logging"),
-		RequestedNetworks: []string{"net1", "net2"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	networks, err = machine.RequestedNetworks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, jc.DeepEquals, []string{"net1", "net2"})
-	cons, err := machine.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons.IncludeNetworks(), jc.DeepEquals, []string{"mynet"})
-	c.Assert(cons.ExcludeNetworks(), jc.DeepEquals, []string{"private-net", "logging"})
-
-	// Finally, networks should be removed with the machine.
-	err = machine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	networks, err = machine.RequestedNetworks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, gc.HasLen, 0)
-}
-
 func addNetworkAndInterface(c *gc.C, st *state.State, machine *state.Machine,
 	networkName, providerId, cidr string, vlanTag int, isVirtual bool,
 	mac, ifaceName string,
@@ -824,37 +787,6 @@ func addNetworkAndInterface(c *gc.C, st *state.State, machine *state.Machine,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return net, iface
-}
-
-func (s *MachineSuite) TestNetworks(c *gc.C) {
-	// s.machine is created without networks, so check
-	// they're empty when we read them.
-	nets, err := s.machine.Networks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nets, gc.HasLen, 0)
-
-	// Now create a testing machine with requested networks, because
-	// Networks() uses them to determine which networks are bound to
-	// the machine.
-	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		RequestedNetworks: []string{"net1", "net2"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	net1, _ := addNetworkAndInterface(
-		c, s.State, machine,
-		"net1", "net1", "0.1.2.0/24", 0, false,
-		"aa:bb:cc:dd:ee:f0", "eth0")
-	net2, _ := addNetworkAndInterface(
-		c, s.State, machine,
-		"net2", "net2", "0.2.2.0/24", 0, false,
-		"aa:bb:cc:dd:ee:f1", "eth1")
-
-	nets, err = machine.Networks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nets, jc.DeepEquals, []*state.Network{net1, net2})
 }
 
 func (s *MachineSuite) TestMachineNetworkInterfaces(c *gc.C) {

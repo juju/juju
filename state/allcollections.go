@@ -316,8 +316,7 @@ func allCollections() collectionSchema {
 				Unique: true,
 			}},
 		},
-		openedPortsC:       {},
-		requestedNetworksC: {},
+		openedPortsC: {},
 		// TODO(dimitern): End of obsolete networking collections.
 		spacesC: {
 			indexes: []mgo.Index{{
@@ -455,7 +454,6 @@ const (
 	rebootC                  = "reboot"
 	relationScopesC          = "relationscopes"
 	relationsC               = "relations"
-	requestedNetworksC       = "requestednetworks"
 	restoreInfoC             = "restoreInfo"
 	sequenceC                = "sequence"
 	servicesC                = "services"

@@ -883,7 +883,6 @@ func (m *Machine) Remove() (err error) {
 		removeStatusOp(m.st, m.globalKey()),
 		removeStatusOp(m.st, m.globalInstanceKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
-		removeRequestedNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
 		removeMachineBlockDevicesOp(m.Id()),
@@ -1463,40 +1462,6 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		m.doc.PreferredPublicAddress = newPublic
 	}
 	return nil
-}
-
-// RequestedNetworks returns the list of network names the machine
-// should be on. Unlike networks specified with constraints, these
-// networks are required to be present on the machine.
-//
-// TODO(dimitern): Drop this when we can use space bindings derived
-// from constraints.
-func (m *Machine) RequestedNetworks() ([]string, error) {
-	return readRequestedNetworks(m.st, m.globalKey())
-}
-
-// Networks returns the list of configured networks on the machine.
-// The configured and requested networks on a machine must match.
-func (m *Machine) Networks() ([]*Network, error) {
-	requestedNetworks, err := m.RequestedNetworks()
-	if err != nil {
-		return nil, err
-	}
-	docs := []networkDoc{}
-
-	networksCollection, closer := m.st.getCollection(networksC)
-	defer closer()
-
-	sel := bson.D{{"name", bson.D{{"$in", requestedNetworks}}}}
-	err = networksCollection.Find(sel).All(&docs)
-	if err != nil {
-		return nil, err
-	}
-	networks := make([]*Network, len(docs))
-	for i, doc := range docs {
-		networks[i] = newNetwork(m.st, &doc)
-	}
-	return networks, nil
 }
 
 // NetworkInterfaces returns the list of configured network interfaces

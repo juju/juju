@@ -1794,10 +1794,9 @@ var addNetworkErrorsTests = []struct {
 func (s *StateSuite) TestAddNetworkErrors(c *gc.C) {
 	includeNetworks := []string{"net1", "net2", "net3", "net4"}
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		Constraints:       constraints.MustParse("networks=net3,net4,^net5,^net6"),
-		RequestedNetworks: includeNetworks[:2], // net1, net2
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: constraints.MustParse("networks=net3,net4,^net5,^net6"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1829,17 +1828,15 @@ func (s *StateSuite) TestAddNetworkErrors(c *gc.C) {
 
 func (s *StateSuite) TestAllNetworks(c *gc.C) {
 	machine1, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		Constraints:       constraints.MustParse("networks=^net3,^net4"),
-		RequestedNetworks: []string{"net1", "net2"},
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: constraints.MustParse("networks=^net3,^net4"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	machine2, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		Constraints:       constraints.MustParse("networks=^net1,^net2"),
-		RequestedNetworks: []string{"net3", "net4"},
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: constraints.MustParse("networks=^net1,^net2"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
