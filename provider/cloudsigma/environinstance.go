@@ -45,10 +45,6 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.New("instance configuration is nil")
 	}
 
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting instances with networks is not supported yet")
-	}
-
 	if len(args.Tools) == 0 {
 		return nil, errors.New("tools not found")
 	}

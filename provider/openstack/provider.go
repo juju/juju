@@ -909,10 +909,6 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		}
 	}
 
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.Errorf("starting instances with networks is not supported yet.")
-	}
-
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{

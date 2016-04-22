@@ -169,16 +169,6 @@ func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {
 		},
 		URL: "https://0.1.2.3:2000/x.y.z.tgz",
 	}
-	icfg := &instancecfg.InstanceConfig{
-		Networks: []string{"value"},
-	}
-	err = icfg.SetTools(tools.List{toolsVal})
-	c.Assert(err, jc.ErrorIsNil)
-	res, err = environ.StartInstance(environs.StartInstanceParams{
-		InstanceConfig: icfg,
-	})
-	c.Check(res, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "starting instances with networks is not supported yet")
 
 	res, err = environ.StartInstance(environs.StartInstanceParams{
 		InstanceConfig: &instancecfg.InstanceConfig{},
@@ -186,7 +176,7 @@ func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {
 	c.Check(res, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "tools not found")
 
-	icfg = &instancecfg.InstanceConfig{}
+	icfg := &instancecfg.InstanceConfig{}
 	err = icfg.SetTools(tools.List{toolsVal})
 	c.Assert(err, jc.ErrorIsNil)
 	res, err = environ.StartInstance(environs.StartInstanceParams{

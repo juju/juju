@@ -88,11 +88,6 @@ func (*joyentEnviron) MaintainInstance(args environs.StartInstanceParams) error 
 }
 
 func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting instances with networks is not supported yet")
-	}
-
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := env.FindInstanceSpec(&instances.InstanceConstraint{

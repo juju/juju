@@ -80,15 +80,6 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environBrokerSuite) TestStartInstanceWithNetworks(c *gc.C) {
-	s.PrepareStartInstanceFakes(c)
-	startInstArgs := s.CreateStartInstanceArgs(c)
-	startInstArgs.InstanceConfig.Networks = []string{"someNetwork"}
-	_, err := s.Env.StartInstance(startInstArgs)
-
-	c.Assert(err, gc.ErrorMatches, "starting instances with networks is not supported yet")
-}
-
 func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C) {
 	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
