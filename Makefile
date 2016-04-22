@@ -2,7 +2,7 @@ p=test*.py
 test:
 	TMPDIR=/tmp python -m unittest discover -vv ./tests -p "$(p)"
 lint:
-	flake8 $$(find -name '*.py')
+	flake8 $$(find -name '*.py') --builtins xrange,basestring
 cover:
 	python -m coverage run --source="./" --omit "./tests/*" -m unittest discover -vv ./tests
 	python -m coverage report

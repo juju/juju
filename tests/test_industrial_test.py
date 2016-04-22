@@ -1162,15 +1162,6 @@ class TestSteppedStageAttempt(JujuPyTestCase):
             ('bar-id', {'title': 'Bar title', 'report_on': False})]))
 
 
-
-class FakeEnvJujuClient(EnvJujuClient):
-
-    def __init__(self, name='steve'):
-        super(FakeEnvJujuClient, self).__init__(
-            JujuData(name, {'type': 'fake', 'region': 'regionx'}),
-            '1.2', '/jbin/juju')
-
-
 def FakeEnvJujuClient(name='steve'):
     return EnvJujuClient(
             JujuData(name, {'type': 'fake', 'region': 'regionx'}),
@@ -1750,7 +1741,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
                        side_effect=check_output) as co_mock:
                 with patch('subprocess.check_call') as cc_mock:
                     with patch.object(client, 'get_admin_client',
-                               return_value=admin_client):
+                                      return_value=admin_client):
                         with patch('sys.stdout'):
                             self.assertEqual(
                                 iterator.next(),
