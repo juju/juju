@@ -1162,10 +1162,17 @@ class TestSteppedStageAttempt(JujuPyTestCase):
             ('bar-id', {'title': 'Bar title', 'report_on': False})]))
 
 
+
 class FakeEnvJujuClient(EnvJujuClient):
 
     def __init__(self, name='steve'):
         super(FakeEnvJujuClient, self).__init__(
+            JujuData(name, {'type': 'fake', 'region': 'regionx'}),
+            '1.2', '/jbin/juju')
+
+
+def FakeEnvJujuClient(name='steve'):
+    return EnvJujuClient(
             JujuData(name, {'type': 'fake', 'region': 'regionx'}),
             '1.2', '/jbin/juju')
 
@@ -1717,13 +1724,17 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
     def test_iter_steps(self):
         br_attempt = BackupRestoreAttempt()
         client = FakeEnvJujuClient()
-        client.env = get_aws_env()
+        aws_env = get_aws_env()
+        client.env.environment = aws_env.environment
+        client.env.config = aws_env.config
+        client.env.juju_home = aws_env.juju_home
+        admin_client = client.get_admin_client()
         environ = dict(os.environ)
         environ.update(get_euca_env(client.env.config))
 
         def check_output(*args, **kwargs):
             if args == (('juju', '--show-log', 'create-backup', '-m',
-                         'baz',),):
+                         admin_client.env.environment,),):
                 return 'juju-backup-24.tgz'
             self.assertEqual([], args)
         initial_status = {
@@ -1734,16 +1745,19 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         }
         iterator = iter_steps_validate_info(self, br_attempt, client)
         self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
-        with patch_status(client, initial_status) as gs_mock:
+        with patch_status(admin_client, initial_status) as gs_mock:
             with patch('subprocess.check_output',
                        side_effect=check_output) as co_mock:
                 with patch('subprocess.check_call') as cc_mock:
-                    with patch('sys.stdout'):
-                        self.assertEqual(
-                            iterator.next(),
-                            {'test_id': 'back-up-restore'})
+                    with patch.object(client, 'get_admin_client',
+                               return_value=admin_client):
+                        with patch('sys.stdout'):
+                            self.assertEqual(
+                                iterator.next(),
+                                {'test_id': 'back-up-restore'})
         assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'create-backup', '-m', 'baz'), 0)
+            'juju', '--show-log', 'create-backup', '-m',
+            admin_client.env.environment), 0)
         self.assertEqual(
             cc_mock.mock_calls[0],
             call(['euca-terminate-instances', 'asdf'], env=environ))
@@ -1755,8 +1769,9 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         with patch('subprocess.Popen') as po_mock:
             self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
         assert_juju_call(
-            self, po_mock, client, (
-                'juju', '--show-log', 'restore', '-m', 'baz',
+            self, po_mock, admin_client, (
+                'juju', '--show-log', 'restore', '-m',
+                admin_client.env.environment,
                 os.path.abspath('juju-backup-24.tgz')))
         po_mock.return_value.wait.return_value = 0
         with patch('os.unlink') as ul_mock:
@@ -1769,7 +1784,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
                 },
             'services': {},
         }
-        with patch_status(client, final_status) as gs_mock:
+        with patch_status(admin_client, final_status) as gs_mock:
             self.assertEqual(iterator.next(),
                              {'test_id': 'back-up-restore', 'result': True})
         gs_mock.assert_called_once_with()
