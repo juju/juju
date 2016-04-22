@@ -228,36 +228,6 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
-var testNetworkValues = []struct {
-	includeNetworks []string
-	excludeNetworks []string
-	expectedResult  url.Values
-}{
-	{
-		nil,
-		nil,
-		url.Values{},
-	},
-	{
-		[]string{"included_net_1"},
-		nil,
-		url.Values{"networks": {"included_net_1"}},
-	},
-	{
-		nil,
-		[]string{"excluded_net_1"},
-		url.Values{"not_networks": {"excluded_net_1"}},
-	},
-	{
-		[]string{"included_net_1", "included_net_2"},
-		[]string{"excluded_net_1", "excluded_net_2"},
-		url.Values{
-			"networks":     {"included_net_1", "included_net_2"},
-			"not_networks": {"excluded_net_1", "excluded_net_2"},
-		},
-	},
-}
-
 func (suite *environSuite) getInstance(systemId string) *maas1Instance {
 	input := fmt.Sprintf(`{"system_id": %q}`, systemId)
 	node := suite.testMAASObject.TestServer.NewNode(input)
