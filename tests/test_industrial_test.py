@@ -1493,12 +1493,21 @@ class TestDeployManyAttempt(JujuPyTestCase):
                    '--force', str(guest))
 
     def test_iter_steps(self):
+        machine_started = {'juju-status': {'current': 'idle'}}
+        unit_started = {'agent-status': {'current': 'idle'}}
+        self.do_iter_steps(machine_started, unit_started)
+
+    def test_iter_steps_1x(self):
+        started_state = {'agent-state': 'started'}
+        self.do_iter_steps(started_state, started_state)
+
+    def do_iter_steps(self, machine_started, unit_started):
         client = FakeEnvJujuClient()
         deploy_many = DeployManyAttempt(9, 11)
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
         status = {
-            'machines': {'0': {'agent-state': 'started'}},
+            'machines': {'0': dict(machine_started)},
             'services': {},
         }
         with patch_status(client, status):
@@ -1510,7 +1519,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
                 'juju', '--show-log', 'add-machine', '-m', 'steve'), index)
 
         status = {
-            'machines': dict((str(x), {'agent-state': 'started'})
+            'machines': dict((str(x), dict(machine_started))
                              for x in range(deploy_many.host_count + 1)),
             'services': {},
         }
@@ -1538,13 +1547,16 @@ class TestDeployManyAttempt(JujuPyTestCase):
         for host in range(1, deploy_many.host_count + 1):
             for container in range(deploy_many.container_count):
                 service_names.append('ubuntu{}x{}'.format(host, container))
-        services = dict((service_name, {
-            'units': {
-                'foo': {'machine': str(num + 100), 'agent-state': 'started'}
-                }})
-            for num, service_name in enumerate(service_names))
+        services = {}
+        for num, service_name in enumerate(service_names):
+            foo = {'machine': str(num + 100)}
+            foo.update(unit_started)
+            units = {
+                'foo': foo,
+                }
+            services[service_name] = {'units': units}
         status = {
-            'machines': {'0': {'agent-state': 'started'}},
+            'machines': {'0': dict(machine_started)},
             'services': services,
         }
         with patch_status(client, status):
@@ -1562,7 +1574,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
         for num, args in enumerate(calls):
             assert_juju_call(self, mock_cc, client, args, num)
         statuses = [
-            {'machines': {'100': {'agent-state': 'started'}}, 'services': {}},
+            {'machines': {'100': dict(machine_started)}, 'services': {}},
             {'machines': {}, 'services': {}},
         ]
         with patch_status(client, *statuses) as status_mock:
@@ -1582,7 +1594,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
                 str(num + 1)), num)
 
         statuses = [
-            {'machines': {'1': {'agent-state': 'started'}}, 'services': {}},
+            {'machines': {'1': dict(machine_started)}, 'services': {}},
             {'machines': {}, 'services': {}},
         ]
         with patch_status(client, *statuses) as status_mock:

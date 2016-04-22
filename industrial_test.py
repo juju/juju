@@ -18,6 +18,8 @@ from deploy_stack import (
     )
 from jujupy import (
     AgentsNotStarted,
+    AGENTS_READY,
+    coalesce_agent_status,
     EnvJujuClient,
     get_machine_dns_name,
     SimpleEnvironment,
@@ -669,7 +671,7 @@ class DeployManyAttempt(SteppedStageAttempt):
                 'title': 'remove many machines (instance)'}),
             ])
 
-    def __init__(self, host_count=5, container_count=8):
+    def __init__(self, host_count=1, container_count=1):
         super(DeployManyAttempt, self).__init__()
         self.host_count = host_count
         self.container_count = container_count
@@ -701,7 +703,7 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         stuck_new_machines = [
             k for k, v in new_status.iter_new_machines(old_status)
-            if v.get('agent-state') != 'started']
+            if coalesce_agent_status(v) not in AGENTS_READY]
         for machine in stuck_new_machines:
             client.juju('remove-machine', ('--force', machine))
             client.juju('add-machine', ())
