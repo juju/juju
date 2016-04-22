@@ -8,6 +8,7 @@ from __future__ import print_function
 import argparse
 import logging
 import subprocess
+import sys
 
 from deploy_stack import (
     BootstrapManager,
@@ -92,8 +93,8 @@ def assess_user_grant_revoke(client, juju_bin):
     client.wait_for_started()
 
     log.debug("Creating Users")
-    read_user = 'read_user'
-    write_user = 'write_user'
+    read_user = 'bob'
+    write_user = 'carol'
     read_user_register = create_user_permissions(client, read_user)
     write_user_register = create_user_permissions(client, write_user)
 
@@ -151,28 +152,25 @@ def assess_user_grant_revoke(client, juju_bin):
         try:
             write_user_client.show_status()
         except subprocess.CalledProcessError:
-            raise AssertionError(
-                'assert_fail read-only user cannot see status')
+            raise AssertionError('assert_fail r/w user cannot see status')
 
-        # assert we CAN NOT deploy
+        # assert we CAN deploy
         try:
             write_user_client.deploy('wordpress')
-            raise AssertionError('assert_fail read-only user deployed charm')
         except subprocess.CalProcessError:
-            pass
+            raise AssertionError('assert_fail r/w user cannot deploy charm')
 
         # remove all permissions
         log.debug("Revoking permissions from write_user")
         remove_user_permissions(client, write_user)
 
-        # we SHOULD NOT be able to do anything
+        # we SHOULD be able to do see status
         log.debug("Testing write_user access")
         try:
             write_user_client.list_models()
-            raise AssertionError(
-                'assert_fail zero permissions user can see status')
         except subprocess.CalledProcessError:
-            pass
+            raise AssertionError(
+                'assert_fail read-only user cannot see status')
 
     # add regression check for bug 1570594
 
@@ -194,5 +192,5 @@ def main(argv=None):
         assess_user_grant_revoke(bs_manager.client, juju_bin)
     return 0
 
-if __name__ is '__main__':
-    main()
+if __name__ == '__main__':
+    sys.exit(main())
