@@ -166,8 +166,6 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "could not fetch machines")
 	} else if context.relations, err = fetchRelations(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch relations")
-	} else if context.networks, err = fetchNetworks(c.api.stateAccessor); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch networks")
 	}
 
 	logger.Debugf("Services: %v", context.services)
@@ -270,7 +268,6 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		AvailableVersion: newToolsVersion,
 		Machines:         processMachines(context.machines),
 		Services:         context.processServices(),
-		Networks:         context.processNetworks(),
 		Relations:        context.processRelations(),
 	}, nil
 }
@@ -307,7 +304,6 @@ type statusContext struct {
 	services     map[string]*state.Service
 	relations    map[string][]*state.Relation
 	units        map[string]map[string]*state.Unit
-	networks     map[string]interface{}
 	latestCharms map[charm.URL]*state.Charm
 }
 
@@ -409,11 +405,6 @@ func fetchRelations(st stateInterface) (map[string][]*state.Relation, error) {
 		}
 	}
 	return out, nil
-}
-
-// fetchNetworks returns a map from network name to network.
-func fetchNetworks(st stateInterface) (map[string]interface{}, error) {
-	return nil, nil
 }
 
 type machineAndContainers map[string][]*state.Machine
@@ -542,18 +533,6 @@ func (context *statusContext) getAllRelations() []*state.Relation {
 		}
 	}
 	return out
-}
-
-func (context *statusContext) processNetworks() map[string]params.NetworkStatus {
-	networksMap := make(map[string]params.NetworkStatus)
-	for name, network := range context.networks {
-		networksMap[name] = context.makeNetworkStatus(network)
-	}
-	return networksMap
-}
-
-func (context *statusContext) makeNetworkStatus(network interface{}) params.NetworkStatus {
-	return params.NetworkStatus{}
 }
 
 func (context *statusContext) isSubordinate(ep *state.Endpoint) bool {
