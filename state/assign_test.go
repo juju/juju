@@ -341,7 +341,6 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *gc.C) {
 }
 
 func (s *AssignSuite) assertAssignedUnit(c *gc.C, unit *state.Unit) string {
-	// Get service networks.
 	service, err := unit.Service()
 	c.Assert(err, jc.ErrorIsNil)
 	serviceCons, err := service.Constraints()

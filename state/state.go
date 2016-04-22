@@ -8,7 +8,6 @@ package state
 
 import (
 	"fmt"
-	"net"
 	"regexp"
 	"sort"
 	"strconv"
@@ -790,8 +789,6 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		return env, nil
 	case names.RelationTag:
 		return st.KeyRelation(id)
-	case names.NetworkTag:
-		return st.Network(id)
 	case names.IPAddressTag:
 		return st.IPAddressByTag(tag)
 	case names.ActionTag:
@@ -841,9 +838,6 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 		id = st.docID(id)
 	case names.ModelTag:
 		coll = modelsC
-	case names.NetworkTag:
-		coll = networksC
-		id = st.docID(id)
 	case names.ActionTag:
 		coll = actionsC
 		id = tag.Id()
@@ -1736,97 +1730,6 @@ func (st *State) AllSubnets() (subnets []*Subnet, err error) {
 	return subnets, nil
 }
 
-// AddNetwork creates a new network with the given params. If a
-// network with the same name or provider id already exists in state,
-// an error satisfying errors.IsAlreadyExists is returned.
-func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add network %q", args.Name)
-	if args.CIDR != "" {
-		_, _, err := net.ParseCIDR(args.CIDR)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if args.Name == "" {
-		return nil, errors.Errorf("name must be not empty")
-	}
-	if !names.IsValidNetwork(args.Name) {
-		return nil, errors.Errorf("invalid name")
-	}
-	if args.ProviderId == "" {
-		return nil, errors.Errorf("provider id must be not empty")
-	}
-	if args.VLANTag < 0 || args.VLANTag > 4094 {
-		return nil, errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", args.VLANTag)
-	}
-	doc := st.newNetworkDoc(args)
-	ops := []txn.Op{
-		assertModelActiveOp(st.ModelUUID()),
-		{
-			C:      networksC,
-			Id:     doc.DocID,
-			Assert: txn.DocMissing,
-			Insert: doc,
-		},
-	}
-	err = st.runTransaction(ops)
-	switch err {
-	case txn.ErrAborted:
-		if err := checkModelActive(st); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if _, err = st.Network(args.Name); err == nil {
-			return nil, errors.AlreadyExistsf("network %q", args.Name)
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-	case nil:
-		// We have a unique key restriction on the ProviderId field,
-		// which will cause the insert to fail if there is another
-		// record with the same provider id in the table. The txn
-		// logic does not report insertion errors, so we check that
-		// the record has actually been inserted correctly before
-		// reporting success.
-		if _, err = st.Network(args.Name); err != nil {
-			return nil, errors.AlreadyExistsf("network with provider id %q", args.ProviderId)
-		}
-		return newNetwork(st, doc), nil
-	}
-	return nil, errors.Trace(err)
-}
-
-// Network returns the network with the given name.
-func (st *State) Network(name string) (*Network, error) {
-	networks, closer := st.getCollection(networksC)
-	defer closer()
-
-	doc := &networkDoc{}
-	err := networks.FindId(name).One(doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("network %q", name)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get network %q", name)
-	}
-	return newNetwork(st, doc), nil
-}
-
-// AllNetworks returns all known networks in the model.
-func (st *State) AllNetworks() (networks []*Network, err error) {
-	networksCollection, closer := st.getCollection(networksC)
-	defer closer()
-
-	docs := []networkDoc{}
-	err = networksCollection.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get all networks")
-	}
-	for _, doc := range docs {
-		networks = append(networks, newNetwork(st, &doc))
-	}
-	return networks, nil
-}
-
 // Service returns a service state by name.
 func (st *State) Service(name string) (service *Service, err error) {
 	services, closer := st.getCollection(servicesC)
@@ -2501,7 +2404,6 @@ var tagPrefix = map[byte]string{
 	'u': names.UnitTagKind + "-",
 	'e': names.ModelTagKind + "-",
 	'r': names.RelationTagKind + "-",
-	'n': names.NetworkTagKind + "-",
 }
 
 func tagForGlobalKey(key string) (string, bool) {
