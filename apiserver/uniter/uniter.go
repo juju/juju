@@ -859,6 +859,20 @@ func (u *UniterAPIV3) CharmArchiveSha256(args params.CharmURLs) (params.StringRe
 	return result, nil
 }
 
+// getArchiveURL returns the archive URL from the specified host port
+func getArchiveURL(hp string, urlPath string, curl params.CharmURL) string {
+	archiveURL := &url.URL{
+		Scheme: "https",
+		Host:   hp,
+		Path:   urlPath,
+	}
+	q := archiveURL.Query()
+	q.Set("url", curl.URL)
+	q.Set("file", "*")
+	archiveURL.RawQuery = q.Encode()
+	return archiveURL.String()
+}
+
 // CharmArchiveURLs returns the URLS for the charm archive
 // (bundle) data for each charm url in the given parameters.
 func (u *UniterAPIV3) CharmArchiveURLs(args params.CharmURLs) (params.StringsResults, error) {
@@ -866,6 +880,7 @@ func (u *UniterAPIV3) CharmArchiveURLs(args params.CharmURLs) (params.StringsRes
 	if err != nil {
 		return params.StringsResults{}, err
 	}
+
 	modelUUID := u.st.ModelUUID()
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.URLs)),
@@ -881,20 +896,23 @@ func (u *UniterAPIV3) CharmArchiveURLs(args params.CharmURLs) (params.StringsRes
 		}
 		urlPath = path.Join(urlPath, "charms")
 		archiveURLs := make([]string, len(apiHostPorts))
+		publicArchiveURLs := []string{}
 		for j, server := range apiHostPorts {
-			archiveURL := &url.URL{
-				Scheme: "https",
-				Host:   network.SelectInternalHostPort(server, false),
-				Path:   urlPath,
+			archiveURLs[j] = getArchiveURL(network.SelectInternalHostPort(server, false),
+				urlPath, curl)
+			externalHostPort := network.SelectPublicHostPort(server)
+			if externalHostPort != "" {
+				publicArchiveURLs = append(publicArchiveURLs, getArchiveURL(externalHostPort,
+					urlPath, curl))
 			}
-			q := archiveURL.Query()
-			q.Set("url", curl.URL)
-			q.Set("file", "*")
-			archiveURL.RawQuery = q.Encode()
-			archiveURLs[j] = archiveURL.String()
+		}
+		// Append the public URLs at the end so that internal addresses are tried first
+		if len(publicArchiveURLs) > 0 {
+			archiveURLs = append(archiveURLs, publicArchiveURLs...)
 		}
 		result.Results[i].Result = archiveURLs
 	}
+
 	return result, nil
 }
 
