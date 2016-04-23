@@ -18,6 +18,8 @@ from deploy_stack import (
     )
 from jujupy import (
     AgentsNotStarted,
+    AGENTS_READY,
+    coalesce_agent_status,
     EnvJujuClient,
     get_machine_dns_name,
     SimpleEnvironment,
@@ -489,16 +491,10 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
         with temp_dir() as temp_repository:
             charm_root = os.path.join(temp_repository, 'trusty', 'mycharm')
             os.makedirs(charm_root)
-            if client.version.startswith('1.'):
-                make_charm(
-                    charm_root, min_ver=None, name='mycharm',
-                    description='foo-description', summary='foo-summary',
-                    series=None)
-            else:
-                make_charm(
-                    charm_root, min_ver=None, name='mycharm',
-                    description='foo-description', summary='foo-summary',
-                    series=['trusty'])
+            make_charm(
+                charm_root, min_ver=None, name='mycharm',
+                description='foo-description', summary='foo-summary',
+                series=['trusty'])
             charm_path = local_charm_path(
                 charm='mycharm', juju_ver=client.version, series='trusty',
                 repository=os.path.dirname(charm_root))
@@ -518,8 +514,7 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
                 """))
             yield self.prepare.as_result(True)
             yield self.upgrade.as_result()
-            client.juju(
-                'upgrade-charm', ('mycharm', '--repository', temp_repository))
+            client.upgrade_charm('mycharm', charm_root)
             yield self.upgrade.as_result()
             for status in client.status_until(300):
                 ports = status.get_open_ports('mycharm/0')
@@ -619,9 +614,10 @@ class EnsureAvailabilityAttempt(SteppedStageAttempt):
         """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'ensure-availability-n3'}
         yield results
-        client.enable_ha()
+        admin_client = client.get_admin_client()
+        admin_client.enable_ha()
         yield results
-        client.wait_for_ha()
+        admin_client.wait_for_ha()
         results['result'] = True
         yield results
 
@@ -708,7 +704,7 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         stuck_new_machines = [
             k for k, v in new_status.iter_new_machines(old_status)
-            if v.get('agent-state') != 'started']
+            if coalesce_agent_status(v) not in AGENTS_READY]
         for machine in stuck_new_machines:
             client.juju('remove-machine', ('--force', machine))
             client.juju('add-machine', ())
@@ -769,20 +765,21 @@ class BackupRestoreAttempt(SteppedStageAttempt):
         """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'back-up-restore'}
         yield results
-        backup_file = client.backup()
+        admin_client = client.get_admin_client()
+        backup_file = admin_client.backup()
         try:
-            status = client.get_status()
+            status = admin_client.get_status()
             instance_id = status.get_instance_id('0')
-            host = get_machine_dns_name(client, '0')
-            terminate_instances(client.env, [instance_id])
+            host = get_machine_dns_name(admin_client, '0')
+            terminate_instances(admin_client.env, [instance_id])
             yield results
-            wait_for_state_server_to_shutdown(host, client, instance_id)
+            wait_for_state_server_to_shutdown(host, admin_client, instance_id)
             yield results
-            with client.juju_async('restore', (backup_file,)):
+            with admin_client.juju_async('restore', (backup_file,)):
                 yield results
         finally:
             os.unlink(backup_file)
-        with wait_for_started(client):
+        with wait_for_started(admin_client):
             yield results
         results['result'] = True
         yield results

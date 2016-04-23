@@ -109,8 +109,8 @@ class TestGetCandidateInfo(TestCase):
                       'jenkins@osx-slave.vapour.ws'])]
             cwy_calls = [
                 call(juju_home,
-                     ('C:\\\Users\\\Administrator\\\juju-ci-tools\\\download_'
-                      'juju.py'),
+                     ('C:\\\\Users\\\\Administrator\\\\juju-ci-tools'
+                      '\\\\download_juju.py'),
                      temp_file, gr_mock.return_value),
                 call(juju_home, '$HOME/juju-ci-tools/download_juju.py',
                      temp_file, gr_mock.return_value)]
