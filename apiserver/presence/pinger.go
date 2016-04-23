@@ -83,7 +83,10 @@ func New(config Config) (*Worker, error) {
 		Work: func() error {
 			// Run once to prime presence before diving into the loop.
 			pinger := w.startPinger()
-			close(ready)
+			if ready != nil {
+				close(ready)
+				ready = nil
+			}
 			if pinger != nil {
 				w.waitOnPinger(pinger)
 			}
