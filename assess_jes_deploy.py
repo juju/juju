@@ -4,10 +4,7 @@ from argparse import ArgumentParser
 from contextlib import contextmanager
 import logging
 import sys
-from tempfile import NamedTemporaryFile
 import os
-
-import yaml
 
 from deploy_stack import (
     boot_context,
@@ -20,7 +17,6 @@ from deploy_stack import (
     )
 from jujupy import (
     EnvJujuClient,
-    make_safe_config,
     SimpleEnvironment,
     )
 from utility import (
@@ -28,14 +24,6 @@ from utility import (
     ensure_dir,
     print_now,
 )
-
-
-def make_hosted_env_client(client, suffix):
-    env_name = '{}-{}'.format(client.env.environment, suffix)
-    hosted_environment = SimpleEnvironment(env_name, dict(client.env.config),
-                                           client.env.juju_home)
-    hosted_env_client = client.clone(hosted_environment)
-    return hosted_env_client
 
 
 def test_jes_deploy(client, charm_series, log_dir, base_env):
@@ -94,12 +82,8 @@ def env_token(env_name):
 
 @contextmanager
 def hosted_environment(system_client, log_dir, suffix):
-    client = make_hosted_env_client(system_client, suffix)
-    with NamedTemporaryFile() as config_file:
-        config = make_safe_config(client)
-        yaml.dump(config, config_file)
-        config_file.flush()
-        system_client.create_model(client)
+    env_name = '{}-{}'.format(system_client.env.environment, suffix)
+    client = system_client.create_model(system_client.env.clone(env_name))
     try:
         yield client
     except:

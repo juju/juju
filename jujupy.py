@@ -425,12 +425,10 @@ class EnvJujuClient:
             args.extend(['--bootstrap-series', bootstrap_series])
         return tuple(args)
 
-    def create_model(system_client, model_client):
-        with NamedTemporaryFile() as config_file:
-            config = make_safe_config(model_client)
-            yaml.dump(config, config_file)
-            config_file.flush()
-            model_client.create_environment(system_client, config_file.name)
+    def create_model(self, env):
+        model_client = self.clone(env)
+        with model_client._bootstrap_config() as config_file:
+            self._create_model(env.environment, config_file)
         return model_client
 
     def make_model_config(self):
@@ -496,9 +494,9 @@ class EnvJujuClient:
                 log.info('Waiting for bootstrap of {}.'.format(
                     self.env.environment))
 
-    def create_environment(self, controller_client, config_file):
-        controller_client.controller_juju('create-model', (
-            self.env.environment, '--config', config_file))
+    def _create_model(self, model_name, config_file):
+        self.controller_juju('create-model', (
+            model_name, '--config', config_file))
 
     def destroy_model(self):
         exit_status = self.juju(
@@ -855,7 +853,7 @@ class EnvJujuClient:
     def get_admin_client(self):
         """Return a client for the admin model.  May return self.
 
-        This may be inaccurate for models created using create_environment
+        This may be inaccurate for models created using create_model
         rather than bootstrap.
         """
         return self._acquire_model_client(self.get_admin_model_name())
@@ -1445,14 +1443,19 @@ class EnvJujuClient1X(EnvJujuClient2A1):
                     return cmd
         raise JESNotSupported()
 
-    def create_environment(self, controller_client, config_file):
+    def make_model_config(self):
+        config_dict = make_safe_config(self)
+        # Strip unneeded variables.
+        return config_dict
+
+    def _create_model(self, model_name, config_file):
         seen_cmd = self.get_jes_command()
         if seen_cmd == SYSTEM:
-            controller_option = ('-s', controller_client.env.environment)
+            controller_option = ('-s', self.env.environment)
         else:
-            controller_option = ('-c', controller_client.env.environment)
+            controller_option = ('-c', self.env.environment)
         self.juju(_jes_cmds[seen_cmd]['create'], controller_option + (
-            self.env.environment, '--config', config_file), include_e=False)
+            model_name, '--config', config_file), include_e=False)
 
     def destroy_model(self):
         """With JES enabled, destroy-environment destroys the model."""
