@@ -902,11 +902,16 @@ func (u *UniterAPIV3) CharmArchiveURLs(args params.CharmURLs) (params.StringsRes
 				urlPath, curl)
 			externalHostPort := network.SelectPublicHostPort(server)
 			if externalHostPort != "" {
-				publicArchiveURLs = append(publicArchiveURLs, getArchiveURL(externalHostPort,
-					urlPath, curl))
+				url := getArchiveURL(externalHostPort, urlPath, curl)
+
+				// If the controller only has public IPs, don't add it twice
+				if url != archiveURLs[j] {
+					publicArchiveURLs = append(publicArchiveURLs, url)
+				}
 			}
 		}
-		// Append the public URLs at the end so that internal addresses are tried first
+		// Append the public URLs at the end so that internal addresses for all
+		// controllers are tried first.
 		if len(publicArchiveURLs) > 0 {
 			archiveURLs = append(archiveURLs, publicArchiveURLs...)
 		}
