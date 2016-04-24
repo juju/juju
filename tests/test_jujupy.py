@@ -106,7 +106,7 @@ class FakeControllerState:
         self.state = 'not-bootstrapped'
         self.models = {}
 
-    def create_model(self, name):
+    def add_model(self, name):
         state = FakeEnvironmentState()
         state.name = name
         self.models[name] = state
@@ -118,7 +118,7 @@ class FakeControllerState:
                   separate_admin):
         default_model.name = env.environment
         if separate_admin:
-            admin_model = default_model.controller.create_model('admin')
+            admin_model = default_model.controller.add_model('admin')
         else:
             admin_model = default_model
         self.admin_model = admin_model
@@ -470,10 +470,10 @@ class FakeJujuClient(EnvJujuClient):
     def quickstart(self, bundle):
         self._backend.quickstart(self.env, bundle)
 
-    def create_model(self, env):
+    def add_model(self, env):
         if not self.is_jes_enabled():
             raise JESNotSupported()
-        model_state = self._backend.controller_state.create_model(
+        model_state = self._backend.controller_state.add_model(
             env.environment)
         return self._acquire_state_client(model_state)
 
@@ -1292,11 +1292,11 @@ class TestEnvJujuClient(ClientTest):
             '--config', 'config', '--default-model', 'foo',
             '--bootstrap-series', 'angsty'))
 
-    def test_create_model_hypenated_controller(self):
-        self.do_create_model(
+    def test_add_model_hypenated_controller(self):
+        self.do_add_model(
             'kill-controller', 'create-model', ('-c', 'foo'))
 
-    def do_create_model(self, jes_command, create_cmd, controller_option):
+    def do_add_model(self, jes_command, create_cmd, controller_option):
         controller_client = EnvJujuClient(JujuData('foo'), None, None)
         model_data = JujuData('bar', {'type': 'foo'})
         client = EnvJujuClient(model_data, None, None)
@@ -1304,7 +1304,7 @@ class TestEnvJujuClient(ClientTest):
                           return_value=jes_command):
                 with patch.object(controller_client, 'juju') as ccj_mock:
                     with observable_temp_file() as config_file:
-                        controller_client.create_model(model_data)
+                        controller_client.add_model(model_data)
         ccj_mock.assert_called_once_with(
             create_cmd, controller_option + (
                 'bar', '--config', config_file.name), include_e=False)
@@ -3272,7 +3272,7 @@ class TestEnvJujuClient1X(ClientTest):
                           return_value=jes_command):
             with patch.object(controller_client, 'juju') as juju_mock:
                 with observable_temp_file() as config_file:
-                    controller_client.create_model(model_env)
+                    controller_client.add_model(model_env)
         juju_mock.assert_called_once_with(
             create_cmd, controller_option + (
                 'bar', '--config', config_file.name), include_e=False)

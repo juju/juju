@@ -425,10 +425,10 @@ class EnvJujuClient:
             args.extend(['--bootstrap-series', bootstrap_series])
         return tuple(args)
 
-    def create_model(self, env):
+    def add_model(self, env):
         model_client = self.clone(env)
         with model_client._bootstrap_config() as config_file:
-            self._create_model(env.environment, config_file)
+            self._add_model(env.environment, config_file)
         return model_client
 
     def make_model_config(self):
@@ -494,7 +494,7 @@ class EnvJujuClient:
                 log.info('Waiting for bootstrap of {}.'.format(
                     self.env.environment))
 
-    def _create_model(self, model_name, config_file):
+    def _add_model(self, model_name, config_file):
         self.controller_juju('create-model', (
             model_name, '--config', config_file))
 
@@ -853,7 +853,7 @@ class EnvJujuClient:
     def get_admin_client(self):
         """Return a client for the admin model.  May return self.
 
-        This may be inaccurate for models created using create_model
+        This may be inaccurate for models created using add_model
         rather than bootstrap.
         """
         return self._acquire_model_client(self.get_admin_model_name())
@@ -1448,7 +1448,7 @@ class EnvJujuClient1X(EnvJujuClient2A1):
         # Strip unneeded variables.
         return config_dict
 
-    def _create_model(self, model_name, config_file):
+    def _add_model(self, model_name, config_file):
         seen_cmd = self.get_jes_command()
         if seen_cmd == SYSTEM:
             controller_option = ('-s', self.env.environment)
