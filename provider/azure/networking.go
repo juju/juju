@@ -6,6 +6,7 @@ package azure
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"path"
 
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
@@ -19,21 +20,21 @@ import (
 
 const (
 	// internalNetworkName is the name of the virtual network that all
-	// Juju machines within a resource group are connected to.
+	// Juju machines are connected to, so that they can communicate
+	// with the controllers, and with each other.
 	//
-	// Each resource group is given its own network, subnet and network
-	// security group to manage. Each resource group will have its own
-	// private 10.0.0.0/16 network.
-	internalNetworkName = "juju-internal-network"
-
-	// internalSubnetName is the name of the subnet that each machine's
-	// primary NIC is attached to.
-	internalSubnetName = "juju-internal-subnet"
+	// Each resource group is given its own subnet and network security
+	// group to manage. The first resource group will be assigned the
+	// subnet address prefix 10.0.0.0/16, the second 10.1.0.0/16, etc.,
+	// which allows for up to 256 enviroments/resource groups. Azure
+	// only supports 100, but this can be extended by contacting support;
+	// we can make the address prefixes configurable if necessary.
+	internalNetworkName = "juju-internal"
 
 	// internalSecurityGroupName is the name of the network security
 	// group that each machine's primary (internal network) NIC is
 	// attached to.
-	internalSecurityGroupName = "juju-internal-nsg"
+	internalSecurityGroupName = "juju-internal"
 )
 
 const (
@@ -74,11 +75,14 @@ var sshSecurityRule = network.SecurityRule{
 
 func createInternalVirtualNetwork(
 	client network.ManagementClient,
-	resourceGroup string,
+	controllerResourceGroup string,
 	location string,
 	tags map[string]string,
 ) (*network.VirtualNetwork, error) {
-	addressPrefixes := []string{"10.0.0.0/16"}
+	addressPrefixes := make([]string, 256)
+	for i := range addressPrefixes {
+		addressPrefixes[i] = fmt.Sprintf("10.%d.0.0/16", i)
+	}
 	virtualNetworkParams := network.VirtualNetwork{
 		Location: to.StringPtr(location),
 		Tags:     toTagsPtr(tags),
@@ -89,7 +93,7 @@ func createInternalVirtualNetwork(
 	logger.Debugf("creating virtual network %q", internalNetworkName)
 	vnetClient := network.VirtualNetworksClient{client}
 	vnet, err := vnetClient.CreateOrUpdate(
-		resourceGroup, internalNetworkName, virtualNetworkParams,
+		controllerResourceGroup, internalNetworkName, virtualNetworkParams,
 	)
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating virtual network %q", internalNetworkName)
@@ -100,13 +104,17 @@ func createInternalVirtualNetwork(
 // createInternalSubnet creates an internal subnet for the specified resource group,
 // within the specified virtual network.
 //
+// Subnets are tied to the resource group of the virtual network, so we must create
+// them all in the controller resource group. We create the network security group
+// for the subnet in the environment's resource group.
+//
 // NOTE(axw) this method expects an up-to-date VirtualNetwork, and expects that are
 // no concurrent subnet additions to the virtual network. At the moment we have only
 // three places where we modify subnets: at bootstrap, when a new environment is
 // created, and when an environment is destroyed.
 func createInternalSubnet(
 	client network.ManagementClient,
-	resourceGroup string,
+	resourceGroup, controllerResourceGroup string,
 	vnet *network.VirtualNetwork,
 	location string,
 	tags map[string]string,
@@ -146,26 +154,31 @@ func createInternalSubnet(
 	securityGroupClient := network.SecurityGroupsClient{client}
 	securityGroupName := internalSecurityGroupName
 	logger.Debugf("creating security group %q", securityGroupName)
-	nsg, err := securityGroupClient.CreateOrUpdate(
+	_, err := securityGroupClient.CreateOrUpdate(
 		resourceGroup, securityGroupName, securityGroupParams,
 	)
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating security group %q", securityGroupName)
 	}
 
-	// Now create a subnet with the next available address prefix, and
-	// associate the subnet with the NSG created above.
-	subnetName := internalSubnetName
+	// Now create a subnet with the next available address prefix. The
+	// subnet must be created in the controller resource group, as it
+	// must be co-located with the vnet.
+	subnetName := resourceGroup
 	subnetParams := network.Subnet{
 		Properties: &network.SubnetPropertiesFormat{
-			AddressPrefix:        to.StringPtr(nextAddressPrefix),
-			NetworkSecurityGroup: &network.SubResource{nsg.ID},
+			AddressPrefix: to.StringPtr(nextAddressPrefix),
+			// NOTE(axw) we do NOT want to set the network security
+			// group as default for the subnet, because that will
+			// create a dependency from the controller resource
+			// group to environment resource groups. Instead, we
+			// set the NSG on NICs.
 		},
 	}
 	logger.Debugf("creating subnet %q (%s)", subnetName, nextAddressPrefix)
 	subnetClient := network.SubnetsClient{client}
 	subnet, err := subnetClient.CreateOrUpdate(
-		resourceGroup, internalNetworkName, subnetName, subnetParams,
+		controllerResourceGroup, internalNetworkName, subnetName, subnetParams,
 	)
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating subnet %q", subnetName)
@@ -178,6 +191,7 @@ func newNetworkProfile(
 	vmName string,
 	apiPort *int,
 	internalSubnet *network.Subnet,
+	nsgID string,
 	resourceGroup string,
 	location string,
 	tags map[string]string,
@@ -225,6 +239,11 @@ func newNetworkProfile(
 		Tags:     toTagsPtr(tags),
 		Properties: &network.InterfacePropertiesFormat{
 			IPConfigurations: &ipConfigurations,
+			// We set the network security group on the NIC, rather
+			// than the subnet, to avoid having the controller
+			// resource group dependent on the environment resource
+			// group.
+			NetworkSecurityGroup: &network.SubResource{to.StringPtr(nsgID)},
 		},
 	}
 	primaryNic, err := nicClient.CreateOrUpdate(resourceGroup, primaryNicName, primaryNicParams)
@@ -292,6 +311,20 @@ func newNetworkProfile(
 	return &compute.NetworkProfile{&networkInterfaces}, nil
 }
 
+func (env *azureEnviron) deleteInternalSubnet() error {
+	client := network.SubnetsClient{env.network}
+	subnetName := env.resourceGroup
+	result, err := client.Delete(
+		env.controllerResourceGroup, internalNetworkName, subnetName,
+	)
+	if err != nil {
+		if result.Response == nil || result.StatusCode != http.StatusNotFound {
+			return errors.Annotatef(err, "deleting subnet %q", subnetName)
+		}
+	}
+	return nil
+}
+
 // nextSecurityRulePriority returns the next available priority in the given
 // security group within a specified range.
 func nextSecurityRulePriority(group network.SecurityGroup, min, max int) (int, error) {
@@ -357,11 +390,11 @@ func nextSubnetIPAddress(
 
 // internalSubnetId returns the Azure resource ID of the internal network
 // subnet for the specified resource group.
-func internalSubnetId(resourceGroup, subscriptionId string) string {
+func internalSubnetId(resourceGroup, controllerResourceGroup, subscriptionId string) string {
 	return path.Join(
 		"/subscriptions", subscriptionId,
-		"resourceGroups", resourceGroup,
+		"resourceGroups", controllerResourceGroup,
 		"providers/Microsoft.Network/virtualNetworks",
-		internalNetworkName, "subnets", internalSubnetName,
+		internalNetworkName, "subnets", resourceGroup,
 	)
 }
