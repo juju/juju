@@ -394,7 +394,8 @@ def find_latest_branch_candidates(root_dir):
     :param root_dir: The root directory to find candidates from.
     """
     candidates = []
-    for path, buildvars_path in _find_candidates(root_dir, find_all=False):
+    for path, buildvars_path in _find_candidates(root_dir, find_all=False,
+                                                 artifacts=True):
         with open(buildvars_path) as buildvars_file:
             buildvars = json.load(buildvars_file)
             candidates.append(
@@ -404,11 +405,11 @@ def find_latest_branch_candidates(root_dir):
     return latest.values()
 
 
-def _find_candidates(root_dir, find_all=False):
+def _find_candidates(root_dir, find_all=False, artifacts=False):
     candidates_path = get_candidates_path(root_dir)
     a_week_ago = time() - timedelta(days=7).total_seconds()
     for candidate_dir in os.listdir(candidates_path):
-        if candidate_dir.endswith('-artifacts'):
+        if candidate_dir.endswith('-artifacts') != artifacts:
             continue
         candidate_path = os.path.join(candidates_path, candidate_dir)
         buildvars = os.path.join(candidate_path, 'buildvars.json')

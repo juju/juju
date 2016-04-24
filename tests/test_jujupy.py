@@ -1548,6 +1548,16 @@ class TestEnvJujuClient(ClientTest):
         mock_juju.assert_called_with(
             'deploy', ('bundle:~juju-qa/some-bundle'), timeout=3600)
 
+    def test_upgrade_charm(self):
+        env = EnvJujuClient(
+            JujuData('foo', {'type': 'local'}), '2.34-74', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.upgrade_charm('foo-service',
+                              '/bar/repository/angsty/mongodb')
+        mock_juju.assert_called_once_with(
+            'upgrade-charm', ('foo-service', '--path',
+                              '/bar/repository/angsty/mongodb',))
+
     def test_remove_service(self):
         env = EnvJujuClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
@@ -3535,6 +3545,16 @@ class TestEnvJujuClient1X(ClientTest):
             env.deploy('local:mondogb', service='my-mondogb')
         mock_juju.assert_called_with(
             'deploy', ('local:mondogb', 'my-mondogb',))
+
+    def test_upgrade_charm(self):
+        client = EnvJujuClient1X(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(client, 'juju') as mock_juju:
+            client.upgrade_charm('foo-service',
+                                 '/bar/repository/angsty/mongodb')
+        mock_juju.assert_called_once_with(
+            'upgrade-charm', ('foo-service', '--repository',
+                              '/bar/repository',))
 
     def test_remove_service(self):
         env = EnvJujuClient1X(

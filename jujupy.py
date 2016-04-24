@@ -659,6 +659,12 @@ class EnvJujuClient:
             args.extend(['--force'])
         return self.juju('deploy', tuple(args))
 
+    def upgrade_charm(self, service, charm_path=None):
+        args = (service,)
+        if charm_path is not None:
+            args = args + ('--path', charm_path)
+        self.juju('upgrade-charm', args)
+
     def remove_service(self, service):
         self.juju('remove-service', (service,))
 
@@ -1480,6 +1486,13 @@ class EnvJujuClient1X(EnvJujuClient2A1):
         if name:
             args += (name,)
         self.juju('deployer', args, self.env.needs_sudo())
+
+    def upgrade_charm(self, service, charm_path=None):
+        args = (service,)
+        if charm_path is not None:
+            repository = os.path.dirname(os.path.dirname(charm_path))
+            args = args + ('--repository', repository)
+        self.juju('upgrade-charm', args)
 
     def get_controller_endpoint(self):
         """Return the address of the state-server leader."""
