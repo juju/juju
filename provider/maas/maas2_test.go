@@ -199,6 +199,7 @@ type fakeMachine struct {
 	architecture  string
 	interfaceSet  []gomaasapi.Interface
 	tags          []string
+	createDevice  gomaasapi.Device
 }
 
 func (m *fakeMachine) Tags() []string {
@@ -247,6 +248,10 @@ func (m *fakeMachine) InterfaceSet() []gomaasapi.Interface {
 
 func (m *fakeMachine) Start(args gomaasapi.StartArgs) error {
 	return nil
+}
+
+func (m *fakeMachine) CreateDevice(gomaasapi.CreateMachineDeviceArgs) (gomaasapi.Device, error) {
+	return m.createDevice, nil
 }
 
 type fakeZone struct {
@@ -449,4 +454,13 @@ func (bd fakeBlockDevice) Path() string {
 
 func (bd fakeBlockDevice) Size() uint64 {
 	return bd.size
+}
+
+type fakeDevice struct {
+	gomaasapi.Device
+	interfaceSet []gomaasapi.Interface
+}
+
+func (m *fakeDevice) InterfaceSet() []gomaasapi.Interface {
+	return m.interfaceSet
 }
