@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -1026,4 +1027,32 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	instance, _, _, err = testing.StartInstance(env, "2")
 	c.Check(instance, gc.IsNil)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (suite *maas2EnvironSuite) TestControllerInstances(c *gc.C) {
+	controller := newFakeControllerWithErrors(gomaasapi.NewNoMatchError("state"))
+	env := suite.makeEnviron(c, controller)
+	_, err := env.ControllerInstances()
+	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
+
+	tests := [][]instance.Id{{}, {"inst-0"}, {"inst-0", "inst-1"}}
+	for _, expected := range tests {
+		state, err := goyaml.Marshal(&common.BootstrapState{StateInstances: expected})
+		c.Assert(err, jc.ErrorIsNil)
+
+		controller.files = []gomaasapi.File{&fakeFile{
+			name:     "agent-prefix-provider-state",
+			contents: state,
+		}}
+		controllerInstances, err := env.ControllerInstances()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(controllerInstances, jc.SameContents, expected)
+	}
+}
+
+func (suite *maas2EnvironSuite) TestControllerInstancesFailsIfNoStateInstances(c *gc.C) {
+	env := suite.makeEnviron(c,
+		newFakeControllerWithErrors(gomaasapi.NewNoMatchError("state")))
+	_, err := env.ControllerInstances()
+	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
