@@ -84,3 +84,13 @@ def parse_error(test_case):
     with test_case.assertRaises(SystemExit):
         with patch('sys.stderr', stderr):
             yield stderr
+
+
+@contextmanager
+def temp_os_env(key, value):
+    org_value = os.environ.get(key, '')
+    os.environ[key] = value
+    try:
+        yield
+    finally:
+        os.environ[key] = org_value

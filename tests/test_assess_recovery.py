@@ -33,7 +33,7 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.juju_path, 'foo')
         self.assertEqual(args.env_name, 'bar')
         self.assertEqual(args.logs, 'baz')
-        self.assertEqual(args.charm_prefix, '')
+        self.assertEqual(args.charm_series, '')
         self.assertEqual(args.strategy, 'backup')
         self.assertEqual(args.debug, False)
         self.assertIs(args.agent_stream, None)
@@ -51,9 +51,9 @@ class TestParseArgs(TestCase):
         args = parse_args(['foo', 'bar', 'baz', '--ha', '--backup'])
         self.assertEqual(args.strategy, 'backup')
 
-    def test_parse_args_charm_prefix(self):
-        args = parse_args(['foo', 'bar', 'baz', '--charm-prefix', 'qux'])
-        self.assertEqual(args.charm_prefix, 'qux')
+    def test_parse_args_charm_series(self):
+        args = parse_args(['foo', 'bar', 'baz', '--charm-series', 'qux'])
+        self.assertEqual(args.charm_series, 'qux')
 
     def test_parse_args_debug(self):
         args = parse_args(['foo', 'bar', 'baz', '--debug'])
@@ -112,7 +112,7 @@ class TestAssessRecovery(TestCase):
 
         def terminate(env, instance_ids):
             for instance_id in instance_ids:
-                admin_model = client._backing_state.controller.admin_model
+                admin_model = client._backend.controller_state.admin_model
                 admin_model.remove_state_server(instance_id)
 
         with patch('assess_recovery.terminate_instances',
@@ -176,9 +176,9 @@ class TestMain(FakeHomeTestCase):
         with patch('assess_recovery.make_client_from_args', autospec=True,
                    return_value=client) as mc_mock:
             main(['./', 'foo', 'log_dir',
-                  '--ha', '--charm-prefix', 'prefix'])
+                  '--ha', '--charm-series', 'charm-series'])
         mc_mock.assert_called_once_with(Namespace(
-            agent_stream=None, charm_prefix='prefix', debug=False,
+            agent_stream=None, charm_series='charm-series', debug=False,
             env_name='foo', juju_path='./', logs='log_dir', strategy='ha',
             temp_env_name=None, series=None))
         client.wait_for_ha.assert_called_once_with()
@@ -186,7 +186,7 @@ class TestMain(FakeHomeTestCase):
         self.assertEqual(2, client.kill_controller.call_count)
         dns_mock.assert_called_once_with(client.get_admin_client.return_value,
                                          '0')
-        ds_mock.assert_called_once_with(client, 'prefix')
+        ds_mock.assert_called_once_with(client, 'charm-series')
         dcm_mock.assert_called_once_with(client, leader_only=True)
         self.assertTrue(dal_mock.called)
         self.assertEqual(0, ns_mock.call_count)
@@ -199,9 +199,9 @@ class TestMain(FakeHomeTestCase):
                    return_value=client) as mc_mock:
             with self.assertRaises(SystemExit):
                     main(['./', 'foo', 'log_dir',
-                          '--ha', '--charm-prefix', 'prefix'])
+                          '--ha', '--charm-series', 'prefix'])
         mc_mock.assert_called_once_with(Namespace(
-            agent_stream=None, charm_prefix='prefix', debug=False,
+            agent_stream=None, charm_series='prefix', debug=False,
             env_name='foo', juju_path='./', logs='log_dir', strategy='ha',
             temp_env_name=None, series=None))
         client.wait_for_ha.assert_called_once_with()
@@ -223,7 +223,7 @@ class TestMain(FakeHomeTestCase):
             with patch.object(client, 'bootstrap', side_effect=Exception):
                 with self.assertRaises(SystemExit):
                     main(['./', 'foo', 'log_dir',
-                          '--ha', '--charm-prefix', 'prefix'])
+                          '--ha', '--charm-series', 'prefix'])
         self.assertEqual(2, client.kill_controller.call_count)
 
 

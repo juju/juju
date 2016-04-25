@@ -888,8 +888,10 @@ class TestIndustrialTest(JujuPyTestCase):
                 ('bootstrap', True, True),
                 ('prepare-suite', True, True),
                 ('foo-id', False, True)])
-        self.assertEqual('destroyed', old_client._backing_state.state)
-        self.assertEqual('destroyed', new_client._backing_state.state)
+        self.assertEqual('destroyed',
+                         old_client._backend.controller_state.state)
+        self.assertEqual('destroyed',
+                         new_client._backend.controller_state.state)
 
     def test_run_stages_new_fail(self):
         old_client = FakeJujuClient()
@@ -907,8 +909,10 @@ class TestIndustrialTest(JujuPyTestCase):
                 ('bootstrap', True, True),
                 ('prepare-suite', True, True),
                 ('foo-id', True, False)])
-        self.assertEqual('destroyed', old_client._backing_state.state)
-        self.assertEqual('destroyed', new_client._backing_state.state)
+        self.assertEqual('destroyed',
+                         old_client._backend.controller_state.state)
+        self.assertEqual('destroyed',
+                         new_client._backend.controller_state.state)
 
     def test_run_stages_both_fail(self):
         old_client = FakeJujuClient()
@@ -926,8 +930,10 @@ class TestIndustrialTest(JujuPyTestCase):
                 ('bootstrap', True, True),
                 ('prepare-suite', True, True),
                 ('foo-id', False, False)])
-        self.assertEqual('destroyed', old_client._backing_state.state)
-        self.assertEqual('destroyed', new_client._backing_state.state)
+        self.assertEqual('destroyed',
+                         old_client._backend.controller_state.state)
+        self.assertEqual('destroyed',
+                         new_client._backend.controller_state.state)
 
     def test_run_stages_recover_failure(self):
         old_client = FakeJujuClient()
@@ -976,8 +982,10 @@ class TestIndustrialTest(JujuPyTestCase):
                            fake_bootstrap_manager):
                     industrial.run_attempt()
         self.assertEqual(2, le_mock.call_count)
-        self.assertEqual('destroyed', old_client._backing_state.state)
-        self.assertEqual('destroyed', new_client._backing_state.state)
+        self.assertEqual('destroyed',
+                         old_client._backend.controller_state.state)
+        self.assertEqual('destroyed',
+                         new_client._backend.controller_state.state)
 
 
 class TestSteppedStageAttempt(JujuPyTestCase):
@@ -1287,13 +1295,15 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
 
     def test_iter_steps_kill_controller(self):
         client = FakeJujuClient(jes_enabled=True)
+        client.bootstrap()
         destroy_env = DestroyEnvironmentAttempt()
         iterator = iter_steps_validate_info(self, destroy_env, client)
         with closing(iterator):
             self.assertEqual({'test_id': 'destroy-env'}, iterator.next())
             self.assertEqual(iterator.next(), {
                 'test_id': 'destroy-env', 'result': True})
-        self.assertEqual('controller-killed', client._backing_state.state)
+        self.assertEqual('controller-killed',
+                         client._backend.controller_state.state)
 
     @staticmethod
     def get_aws_client():
@@ -1853,6 +1863,16 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
 
     def test_iter_steps(self):
         client = FakeEnvJujuClient()
+        client.version = '2.0.0'
+        client.full_path = '/future/juju'
+        self._iter_steps(client)
+
+    def test_iter_steps_juju_1x(self):
+        client = FakeEnvJujuClient1X()
+        client.version = '1.25.0'
+        self._iter_steps(client)
+
+    def _iter_steps(self, client):
         client.full_path = '/future/juju'
         uc_attempt = UpgradeCharmAttempt()
         uc_iterator = iter_steps_validate_info(self, uc_attempt, client)
@@ -1870,9 +1890,20 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
         self.assertEqual(metadata['name'], 'mycharm')
         self.assertIn('summary', metadata)
         self.assertIn('description', metadata)
-        assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'deploy', '-m', 'steve',
-            'local:trusty/mycharm', '--repository', temp_repository))
+        if client.version.startswith('1.'):
+            self.assertIn('series', metadata)
+            charm_path = os.path.join('local:trusty', 'mycharm')
+            assert_juju_call(self, cc_mock, client, (
+                'juju', '--show-log', 'deploy', '-e', 'steve', charm_path,
+                '--repository', temp_repository))
+            option = '-e'
+        else:
+            self.assertIn('series', metadata)
+            charm_path = os.path.join(temp_repository, 'trusty', 'mycharm')
+            assert_juju_call(self, cc_mock, client, (
+                'juju', '--show-log', 'deploy', '-m', 'steve', charm_path))
+            option = '-m'
+        self.assertNotIn('min-juju-version', metadata)
         status = {
             'machines': {'0': {'agent-state': 'started'}},
             'services': {},
@@ -1900,9 +1931,15 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
         self.assertEqual(uc_iterator.next(), {'test_id': 'upgrade-charm'})
         with patch('subprocess.check_call') as cc_mock:
             self.assertEqual(uc_iterator.next(), {'test_id': 'upgrade-charm'})
-        assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'upgrade-charm', '-m', 'steve',
-            'mycharm', '--repository', temp_repository))
+        if client.version.startswith('1.'):
+            assert_juju_call(self, cc_mock, client, (
+                'juju', '--show-log', 'upgrade-charm', option, 'steve',
+                'mycharm', '--repository', temp_repository))
+        else:
+            assert_juju_call(self, cc_mock, client, (
+                'juju', '--show-log', 'upgrade-charm', option, 'steve',
+                'mycharm', '--path', os.path.join(temp_repository, 'trusty',
+                                                  'mycharm')))
         status = {
             'machines': {'0': {'agent-state': 'started'}},
             'services': {'mycharm': {'units': {'mycharm/0': {

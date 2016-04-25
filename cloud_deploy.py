@@ -18,6 +18,7 @@ from substrate import (
     stop_libvirt_domain,
     verify_libvirt_domain,
 )
+from utility import local_charm_path
 
 
 __metaclass__ = type
@@ -58,8 +59,10 @@ def deploy_stack(environment, debug, machines, deploy_charm):
                 client.get_status()
             client.wait_for_started()
             if deploy_charm:
-                client.deploy('local:{}/dummy-source'.format(
-                    client.env.config.get('default-series', 'trusty')))
+                series = client.env.config.get('default-series', 'trusty')
+                charm_path = local_charm_path(
+                    'dummy-source', juju_ver=client.version, series=series)
+                client.deploy(charm_path, series=series)
                 client.wait_for_started()
         except subprocess.CalledProcessError as e:
             if getattr(e, 'stderr', None) is not None:

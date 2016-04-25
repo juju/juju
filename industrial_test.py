@@ -12,8 +12,6 @@ import os
 import sys
 from textwrap import dedent
 
-import yaml
-
 from deploy_stack import (
     BootstrapManager,
     wait_for_state_server_to_shutdown,
@@ -32,6 +30,8 @@ from substrate import (
 from utility import (
     configure_logging,
     LoggedException,
+    local_charm_path,
+    make_charm,
     temp_dir,
     until_timeout,
     )
@@ -212,7 +212,7 @@ class IndustrialTest:
     def __init__(self, old_client, new_client, stage_attempts):
         """Constructor.
 
-        :param old_client: An EnvJujuClient for the old juju.
+        :param old_client: An EnvJ/maujuClient for the old juju.
         :param new_client: An EnvJujuClient for the new juju.
         :param stage_attemps: List of stages to attempt.
         """
@@ -489,13 +489,14 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
         with temp_dir() as temp_repository:
             charm_root = os.path.join(temp_repository, 'trusty', 'mycharm')
             os.makedirs(charm_root)
-            with open(os.path.join(charm_root, 'metadata.yaml'), 'w') as f:
-                f.write(yaml.safe_dump({
-                    'name': 'mycharm',
-                    'description': 'foo-description',
-                    'summary': 'foo-summary',
-                    }))
-            client.deploy('local:trusty/mycharm', temp_repository)
+            make_charm(
+                charm_root, min_ver=None, name='mycharm',
+                description='foo-description', summary='foo-summary',
+                series=['trusty'])
+            charm_path = local_charm_path(
+                charm='mycharm', juju_ver=client.version, series='trusty',
+                repository=os.path.dirname(charm_root))
+            client.deploy(charm_path, temp_repository)
             yield self.prepare.as_result()
             client.wait_for_started()
             yield self.prepare.as_result()
@@ -511,8 +512,7 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
                 """))
             yield self.prepare.as_result(True)
             yield self.upgrade.as_result()
-            client.juju(
-                'upgrade-charm', ('mycharm', '--repository', temp_repository))
+            client.upgrade_charm('mycharm', charm_root)
             yield self.upgrade.as_result()
             for status in client.status_until(300):
                 ports = status.get_open_ports('mycharm/0')
