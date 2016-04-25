@@ -6,6 +6,7 @@ from mock import (
     Mock,
     patch,
 )
+import os
 import StringIO
 import subprocess
 
@@ -71,7 +72,10 @@ class TestAssess(TestCase):
 
     def test_assess_multi_series_charms(self):
         mock_client = Mock(
-            spec=["deploy", "get_juju_output", "wait_for_started"])
+            spec=["deploy", "get_juju_output", "wait_for_started",
+                  "is_juju1x"])
+        mock_client.version = '2.0.0'
+        mock_client.is_juju1x.return_value = False
         mock_client.get_juju_output.return_value = "Codename:	trusty"
         mock_client.deploy.side_effect = [
             subprocess.CalledProcessError(None, None),
@@ -88,16 +92,18 @@ class TestAssess(TestCase):
                            autospec=True) as cs_mock:
                     assess_multi_series_charms(mock_client)
         self.assertEqual(mock_client.wait_for_started.call_count, 4)
+        charm = os.path.join(charm_dir, 'trusty', 'dummy')
         calls = [
-            call(charm=charm_dir, force=False, series='precise',
-                 service='test0'),
-            call(charm=charm_dir, force=False, series=None, service='test1'),
-            call(charm=charm_dir, force=False, series='trusty',
-                 service='test2'),
-            call(charm=charm_dir, force=False, series='xenial',
-                 service='test3'),
-            call(charm=charm_dir, force=True, series='precise',
-                 service='test4')
+            call(charm=charm, force=False, repository=charm_dir,
+                 series='precise', service='test0'),
+            call(charm=charm, force=False, repository=charm_dir,
+                 series=None, service='test1'),
+            call(charm=charm, force=False, repository=charm_dir,
+                 series='trusty', service='test2'),
+            call(charm=charm, force=False, repository=charm_dir,
+                 series='xenial', service='test3'),
+            call(charm=charm, force=True, repository=charm_dir,
+                 series='precise', service='test4')
         ]
         self.assertEqual(mock_client.deploy.mock_calls, calls)
         td_mock.assert_called_once_with()
@@ -108,33 +114,66 @@ class TestAssess(TestCase):
             call(mock_client, machine='3', series='precise')]
         self.assertEqual(cs_mock.mock_calls, cs_calls)
 
+    def test_assess_multi_series_charms_juju1x(self):
+        mock_client = Mock(
+            spec=[
+                "deploy", "get_juju_output", "wait_for_started", "is_juju1x"])
+        mock_client.version = '1.25.5'
+        mock_client.is_juju1x.return_value = True
+        mock_client.get_juju_output.return_value = "Codename:	trusty"
+        mock_client.deploy.return_value = None
+        with temp_dir() as charm_dir:
+            with patch('assess_multi_series_charms.temp_dir',
+                       autospec=True) as td_mock:
+                td_mock.return_value.__enter__.return_value = charm_dir
+                with patch('assess_multi_series_charms.check_series',
+                           autospec=True) as cs_mock:
+                    assess_multi_series_charms(mock_client)
+        self.assertEqual(mock_client.wait_for_started.call_count, 2)
+        charm = os.path.join('local:trusty', 'dummy')
+        calls = [
+            call(charm=charm, force=False, repository=charm_dir,
+                 series=None, service='test1'),
+            call(charm=charm, force=False, repository=charm_dir,
+                 series='trusty', service='test2')
+        ]
+        self.assertEqual(mock_client.deploy.mock_calls, calls)
+        td_mock.assert_called_once_with()
+        cs_calls = [
+            call(mock_client, machine='0', series=None),
+            call(mock_client, machine='1', series='trusty')]
+        self.assertEqual(cs_mock.mock_calls, cs_calls)
+
     def test_assert_deploy(self):
         test = Test(series='trusty', service='test1', force=False,
-                    success=True, machine='0')
+                    success=True, machine='0', juju1x_supported=False)
         mock_client = Mock(
             spec=["deploy", "get_juju_output", "wait_for_started"])
         assert_deploy(mock_client, test, '/tmp/foo')
         mock_client.deploy.assert_called_once_with(
-            charm='/tmp/foo', force=False, series='trusty', service='test1')
+            charm='/tmp/foo', force=False, repository=None, series='trusty',
+            service='test1')
 
     def test_assert_deploy_success_false(self):
         test = Test(series='trusty', service='test1', force=False,
-                    success=False, machine='0')
+                    success=False, machine='0',  juju1x_supported=False)
         mock_client = Mock(
             spec=["deploy", "get_juju_output", "wait_for_started"])
         mock_client.deploy.side_effect = subprocess.CalledProcessError(
             None, None)
         assert_deploy(mock_client, test, '/tmp/foo')
         mock_client.deploy.assert_called_once_with(
-            charm='/tmp/foo', force=False, series='trusty', service='test1')
+            charm='/tmp/foo', force=False, repository=None, series='trusty',
+            service='test1')
 
     def test_assert_deploy_success_false_raises_exception(self):
         test = Test(series='trusty', service='test1', force=False,
-                    success=False, machine='0')
+                    success=False, machine='0',  juju1x_supported=False)
         mock_client = Mock(
             spec=["deploy", "get_juju_output", "wait_for_started"])
         with self.assertRaisesRegexp(
                 JujuAssertionError, 'Assert deploy failed for'):
             assert_deploy(mock_client, test, '/tmp/foo')
         mock_client.deploy.assert_called_once_with(
-            charm='/tmp/foo', force=False, series='trusty', service='test1')
+            charm='/tmp/foo', force=False, repository=None, series='trusty',
+            service='test1')
