@@ -5,19 +5,20 @@ package apiserver
 
 import (
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/presence"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/presence"
+	statepresence "github.com/juju/juju/state/presence"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -404,45 +405,57 @@ func (u *modelUserEntity) UpdateLastLogin() error {
 	return err
 }
 
-// machinePinger wraps a presence.Pinger.
-type machinePinger struct {
-	*presence.Pinger
-	mongoUnavailable *uint32
+// presenceShim exists to represent a statepresence.Agent in a form
+// convenient to the apiserver/presence package, which exists to work
+// around the common.Resources infrastructure's lack of handling for
+// failed resources.
+type presenceShim struct {
+	agent statepresence.Agent
 }
 
-// Stop implements Pinger.Stop() as Pinger.Kill(), needed at
-// connection closing time to properly stop the wrapped pinger.
-func (p *machinePinger) Stop() error {
-	if err := p.Pinger.Stop(); err != nil {
-		return err
+// Start starts and returns a running presence.Pinger. The caller is
+// responsible for stopping it when no longer required, and for handling
+// any errors returned from Wait.
+func (shim presenceShim) Start() (presence.Pinger, error) {
+	pinger, err := shim.agent.SetAgentPresence()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	if atomic.LoadUint32(p.mongoUnavailable) > 0 {
-		// Kill marks the agent as not-present. If the
-		// Mongo server is known to be unavailable, then
-		// we do not perform this operation; the agent
-		// will naturally become "not present" when its
-		// presence expires.
-		return nil
-	}
-	return p.Pinger.Kill()
+	return pinger, nil
 }
 
 func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
-	// A machine or unit agent has connected, so start a pinger to
-	// announce it's now alive, and set up the API pinger
-	// so that the connection will be terminated if a sufficient
-	// interval passes between pings.
-	agentPresencer, ok := entity.(presence.Presencer)
+	// worker runs presence.Pingers -- absence of which will cause
+	// embarrassing "agent is lost" messages to show up in status --
+	// until it's stopped. It's stored in resources purely for the
+	// side effects: we don't record its id, and nobody else
+	// retrieves it -- we just expect it to be stopped when the
+	// connection is shut down.
+	agent, ok := entity.(statepresence.Agent)
 	if !ok {
 		return nil
 	}
-
-	pinger, err := agentPresencer.SetAgentPresence()
+	worker, err := presence.New(presence.Config{
+		Identity:   entity.Tag(),
+		Start:      presenceShim{agent}.Start,
+		Clock:      clock.WallClock,
+		RetryDelay: 3 * time.Second,
+	})
 	if err != nil {
 		return err
 	}
+	root.getResources().Register(worker)
 
-	root.getResources().Register(&machinePinger{pinger, root.mongoUnavailable})
+	// pingTimeout, by contrast, *is* used by the Pinger facade to
+	// stave off the call to action() that will shut down the agent
+	// connection if it gets lackadaisical about sending keepalive
+	// Pings.
+	//
+	// Do not confuse those (apiserver) Pings with those made by
+	// presence.Pinger (which *do* happen as a result of the former,
+	// but only as a relatively distant consequence).
+	//
+	// We should have picked better names...
 	action := func() {
 		if err := root.getRpcConn().Close(); err != nil {
 			logger.Errorf("error closing the RPC connection: %v", err)

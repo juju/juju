@@ -101,7 +101,7 @@ type context struct {
 
 func (ctx *context) reset(c *gc.C) {
 	for _, up := range ctx.pingers {
-		err := up.Kill()
+		err := up.KillForTesting()
 		c.Check(err, jc.ErrorIsNil)
 	}
 }
@@ -114,7 +114,7 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 	}
 }
 
-func (ctx *context) setAgentPresence(c *gc.C, p presence.Presencer) *presence.Pinger {
+func (ctx *context) setAgentPresence(c *gc.C, p presence.Agent) *presence.Pinger {
 	pinger, err := p.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.st.StartSync()
