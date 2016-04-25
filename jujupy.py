@@ -1108,6 +1108,9 @@ class EnvJujuClient:
     def add_subnet(self, subnet, space):
         self.juju('add-subnet', (subnet, space))
 
+    def is_juju1x(self):
+        return self.version.startswith('1.')
+
 
 class EnvJujuClient2B2(EnvJujuClient):
 

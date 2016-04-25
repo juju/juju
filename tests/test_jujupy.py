@@ -2796,6 +2796,14 @@ class TestEnvJujuClient(ClientTest):
             client.enable_feature('nomongo')
         self.assertEqual(str(ctx.exception), "Unknown feature flag: 'nomongo'")
 
+    def test_is_juju1x(self):
+        client = EnvJujuClient(None, '1.25.5', None)
+        self.assertTrue(client.is_juju1x())
+
+    def test_is_juju1x_false(self):
+        client = EnvJujuClient(None, '2.0.0', None)
+        self.assertFalse(client.is_juju1x())
+
 
 class TestEnvJujuClient2B2(ClientTest):
 
