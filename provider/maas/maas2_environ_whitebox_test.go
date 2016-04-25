@@ -961,7 +961,6 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C) {
 	vlan0 := fakeVLAN{
 		id:  5001,
-		vid: 0,
 		mtu: 1500,
 	}
 	subnetPXE := fakeSubnet{

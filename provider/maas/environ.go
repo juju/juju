@@ -2322,7 +2322,7 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 			if err != nil {
 				return nil, errors.Annotate(err, "creating device interface")
 			}
-			maasNICID = string(createdNIC.ID())
+			maasNICID = strconv.Itoa(createdNIC.ID())
 			logger.Debugf("created device interface: %+v", createdNIC)
 
 			linkArgs := gomaasapi.LinkSubnetArgs{
@@ -2335,7 +2335,7 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 			}
 			logger.Debugf("linked device interface to subnet: %+v", createdNIC)
 		} else {
-			maasNICID = string(primaryNIC.ID())
+			maasNICID = strconv.Itoa(primaryNIC.ID())
 		}
 		deviceNICIDs[i] = maasNICID
 	}

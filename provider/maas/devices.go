@@ -268,8 +268,8 @@ func (env *maasEnviron) deviceInterfaceInfo2(deviceID string, nameToParentName m
 			MACAddress:          nic.MACAddress(),
 			MTU:                 nic.EffectiveMTU(),
 			VLANTag:             nic.VLAN().VID(),
-			ProviderId:          network.Id(string(nic.ID())),
-			ProviderVLANId:      network.Id(string(nic.VLAN().ID())),
+			ProviderId:          network.Id(strconv.Itoa(nic.ID())),
+			ProviderVLANId:      network.Id(strconv.Itoa(nic.VLAN().ID())),
 			Disabled:            !nic.Enabled(),
 			NoAutoStart:         !nic.Enabled(),
 			ParentInterfaceName: nameToParentName[nic.Name()],
@@ -303,8 +303,8 @@ func (env *maasEnviron) deviceInterfaceInfo2(deviceID string, nameToParentName m
 			// XXX this is a raw space name and should be
 			// translated
 			nicInfo.Address = network.NewAddressOnSpace(link.Subnet().Space(), link.IPAddress())
-			nicInfo.ProviderSubnetId = network.Id(string(link.Subnet().ID()))
-			nicInfo.ProviderAddressId = network.Id(string(link.ID()))
+			nicInfo.ProviderSubnetId = network.Id(strconv.Itoa(link.Subnet().ID()))
+			nicInfo.ProviderAddressId = network.Id(strconv.Itoa(link.ID()))
 			if link.Subnet().Gateway() != "" {
 				nicInfo.GatewayAddress = network.NewAddressOnSpace(link.Subnet().Space(), link.Subnet().Gateway())
 			}

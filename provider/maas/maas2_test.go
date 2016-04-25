@@ -374,6 +374,10 @@ func (v *fakeInterface) Type() string {
 	return v.type_
 }
 
+func (v *fakeInterface) EffectiveMTU() int {
+	return 1500
+}
+
 func (v *fakeInterface) Enabled() bool {
 	return v.enabled
 }
