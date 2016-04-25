@@ -78,6 +78,11 @@ func New(config Config) (*Worker, error) {
 		logger: loggo.GetLogger(name),
 	}
 	ready := make(chan struct{})
+	// We make a copy of the variable so we can observe it being closed,
+	// while the worker function itself wants to change the variable to
+	// 'nil' so that it doesn't close it twice.
+	// See https://pad.lv/1574632
+	readyCopy := ready
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: func() error {
@@ -96,7 +101,7 @@ func New(config Config) (*Worker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	<-ready
+	<-readyCopy
 	return w, nil
 }
 
