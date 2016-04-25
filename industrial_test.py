@@ -887,34 +887,37 @@ class AttemptSuite(SteppedStageAttempt):
             if result['result'] is False:
                 return
             yield self.attempt_list.prepare_suite.as_result()
-            with bs_manager.runtime_context(machines):
-                # Switch from bootstrap client to real client, in case test
-                # steps (i.e. upgrade) make bs_client unable to tear down.
-                bs_manager.client = client
-                bs_manager.tear_down_client = client
-                bs_manager.jes_enabled = jes_enabled
-                attempts = [
-                    a.factory(self.upgrade_sequence, self.agent_stream)
-                    for a in self.attempt_list.attempt_list]
-                yield self.attempt_list.prepare_suite.as_result(True)
-                for attempt in attempts:
-                    for result in attempt.iter_steps(client):
-                        yield result
-                    # If the last step of a SteppedStageAttempt is False, stop
-                    if result['result'] is False:
-                        return
-                # We don't want BootstrapManager.tear_down to run-- we want
-                # DesstroyEnvironmentAttempt.  But we do need BootstrapManager
-                # to finish up before we run DestroyEnvironmentAttempt.
-                bs_manager.keep_env = True
             try:
+                with bs_manager.runtime_context(machines):
+                    # Switch from bootstrap client to real client, in case test
+                    # steps (i.e. upgrade) make bs_client unable to tear down.
+                    bs_manager.client = client
+                    bs_manager.tear_down_client = client
+                    bs_manager.jes_enabled = jes_enabled
+                    attempts = [
+                        a.factory(self.upgrade_sequence, self.agent_stream)
+                        for a in self.attempt_list.attempt_list]
+                    yield self.attempt_list.prepare_suite.as_result(True)
+                    for attempt in attempts:
+                        for result in attempt.iter_steps(client):
+                            yield result
+                        # If the last step of a SteppedStageAttempt is False,
+                        # stop
+                        if result['result'] is False:
+                            return
+                # We don't want BootstrapManager.tear_down to run-- we
+                # want DestroyEnvironmentAttempt.  But we do need
+                # BootstrapManager to finish up before we run
+                # DestroyEnvironmentAttempt, so we do this outside
+                # runtime_context.
                 for result in DestroyEnvironmentAttempt().iter_steps(client):
                     yield result
             except:
+                # If we get here, DestroyEnvironmentAttempt either failed or
+                # never ran.  Do a manual teardown to leave the environment
+                # clean.
                 bs_manager.tear_down()
                 raise
-            finally:
-                bs_manager.keep_env = False
 
 
 suites = {
