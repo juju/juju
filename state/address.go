@@ -181,7 +181,6 @@ func (st *State) DeployerConnectionInfo() (*DeployerConnectionValues, error) {
 type address struct {
 	Value       string `bson:"value"`
 	AddressType string `bson:"addresstype"`
-	NetworkName string `bson:"networkname,omitempty"`
 	Scope       string `bson:"networkscope,omitempty"`
 	Origin      string `bson:"origin,omitempty"`
 	SpaceName   string `bson:"spacename,omitempty"`
@@ -206,7 +205,6 @@ func fromNetworkAddress(netAddr network.Address, origin Origin) address {
 	return address{
 		Value:       netAddr.Value,
 		AddressType: string(netAddr.Type),
-		NetworkName: netAddr.NetworkName,
 		Scope:       string(netAddr.Scope),
 		Origin:      string(origin),
 		SpaceName:   string(netAddr.SpaceName),
@@ -217,11 +215,10 @@ func fromNetworkAddress(netAddr network.Address, origin Origin) address {
 // as network type, here for Address.
 func (addr *address) networkAddress() network.Address {
 	return network.Address{
-		Value:       addr.Value,
-		Type:        network.AddressType(addr.AddressType),
-		NetworkName: addr.NetworkName,
-		Scope:       network.Scope(addr.Scope),
-		SpaceName:   network.SpaceName(addr.SpaceName),
+		Value:     addr.Value,
+		Type:      network.AddressType(addr.AddressType),
+		Scope:     network.Scope(addr.Scope),
+		SpaceName: network.SpaceName(addr.SpaceName),
 	}
 }
 
@@ -254,7 +251,6 @@ func networkAddresses(addrs []address) []network.Address {
 type hostPort struct {
 	Value       string `bson:"value"`
 	AddressType string `bson:"addresstype"`
-	NetworkName string `bson:"networkname,omitempty"`
 	Scope       string `bson:"networkscope,omitempty"`
 	Port        int    `bson:"port"`
 	SpaceName   string `bson:"spacename,omitempty"`
@@ -266,7 +262,6 @@ func fromNetworkHostPort(netHostPort network.HostPort) hostPort {
 	return hostPort{
 		Value:       netHostPort.Value,
 		AddressType: string(netHostPort.Type),
-		NetworkName: netHostPort.NetworkName,
 		Scope:       string(netHostPort.Scope),
 		Port:        netHostPort.Port,
 		SpaceName:   string(netHostPort.SpaceName),
@@ -278,11 +273,10 @@ func fromNetworkHostPort(netHostPort network.HostPort) hostPort {
 func (hp *hostPort) networkHostPort() network.HostPort {
 	return network.HostPort{
 		Address: network.Address{
-			Value:       hp.Value,
-			Type:        network.AddressType(hp.AddressType),
-			NetworkName: hp.NetworkName,
-			Scope:       network.Scope(hp.Scope),
-			SpaceName:   network.SpaceName(hp.SpaceName),
+			Value:     hp.Value,
+			Type:      network.AddressType(hp.AddressType),
+			Scope:     network.Scope(hp.Scope),
+			SpaceName: network.SpaceName(hp.SpaceName),
 		},
 		Port: hp.Port,
 	}

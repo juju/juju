@@ -81,7 +81,6 @@ type User interface {
 type Address interface {
 	Value() string
 	Type() string
-	NetworkName() string
 	Scope() string
 	Origin() string
 }

@@ -235,22 +235,20 @@ type EntitiesPortRanges struct {
 // the API requests/responses. See also network.Address, from/to
 // which this is transformed.
 type Address struct {
-	Value       string `json:"Value"`
-	Type        string `json:"Type"`
-	NetworkName string `json:"NetworkName"`
-	Scope       string `json:"Scope"`
-	SpaceName   string `json:"SpaceName,omitempty"`
+	Value     string `json:"Value"`
+	Type      string `json:"Type"`
+	Scope     string `json:"Scope"`
+	SpaceName string `json:"SpaceName,omitempty"`
 }
 
 // FromNetworkAddress is a convenience helper to create a parameter
 // out of the network type, here for Address.
 func FromNetworkAddress(naddr network.Address) Address {
 	return Address{
-		Value:       naddr.Value,
-		Type:        string(naddr.Type),
-		NetworkName: naddr.NetworkName,
-		Scope:       string(naddr.Scope),
-		SpaceName:   string(naddr.SpaceName),
+		Value:     naddr.Value,
+		Type:      string(naddr.Type),
+		Scope:     string(naddr.Scope),
+		SpaceName: string(naddr.SpaceName),
 	}
 }
 
@@ -258,11 +256,10 @@ func FromNetworkAddress(naddr network.Address) Address {
 // as network type, here for Address.
 func (addr Address) NetworkAddress() network.Address {
 	return network.Address{
-		Value:       addr.Value,
-		Type:        network.AddressType(addr.Type),
-		NetworkName: addr.NetworkName,
-		Scope:       network.Scope(addr.Scope),
-		SpaceName:   network.SpaceName(addr.SpaceName),
+		Value:     addr.Value,
+		Type:      network.AddressType(addr.Type),
+		Scope:     network.Scope(addr.Scope),
+		SpaceName: network.SpaceName(addr.SpaceName),
 	}
 }
 

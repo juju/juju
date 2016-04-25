@@ -43,21 +43,19 @@ func (s *AddressSerializationSuite) TestMissingType(c *gc.C) {
 
 func (*AddressSerializationSuite) TestParsing(c *gc.C) {
 	addr, err := importAddress(map[string]interface{}{
-		"version":      1,
-		"value":        "no",
-		"type":         "content",
-		"network-name": "validation",
-		"scope":        "done",
-		"origin":       "here",
+		"version": 1,
+		"value":   "no",
+		"type":    "content",
+		"scope":   "done",
+		"origin":  "here",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	expected := &address{
-		Version:      1,
-		Value_:       "no",
-		Type_:        "content",
-		NetworkName_: "validation",
-		Scope_:       "done",
-		Origin_:      "here",
+		Version: 1,
+		Value_:  "no",
+		Type_:   "content",
+		Scope_:  "done",
+		Origin_: "here",
 	}
 	c.Assert(addr, jc.DeepEquals, expected)
 }
@@ -79,12 +77,11 @@ func (*AddressSerializationSuite) TestOptionalValues(c *gc.C) {
 
 func (*AddressSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	initial := &address{
-		Version:      1,
-		Value_:       "no",
-		Type_:        "content",
-		NetworkName_: "validation",
-		Scope_:       "done",
-		Origin_:      "here",
+		Version: 1,
+		Value_:  "no",
+		Type_:   "content",
+		Scope_:  "done",
+		Origin_: "here",
 	}
 
 	bytes, err := yaml.Marshal(initial)

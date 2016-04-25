@@ -97,13 +97,12 @@ func (s *NetworkSuite) TestPortsResults(c *gc.C) {
 }
 
 func (s *NetworkSuite) TestHostPort(c *gc.C) {
-	mkHostPort := func(v, t, n, s string, p int) M {
+	mkHostPort := func(v, t, s string, p int) M {
 		return M{
-			"Value":       v,
-			"Type":        t,
-			"NetworkName": n,
-			"Scope":       s,
-			"Port":        p,
+			"Value": v,
+			"Type":  t,
+			"Scope": s,
+			"Port":  p,
 		}
 	}
 	tests := []struct {
@@ -118,7 +117,7 @@ func (s *NetworkSuite) TestHostPort(c *gc.C) {
 			},
 			Port: 1234,
 		},
-		expected: mkHostPort("foo", "", "", "", 1234),
+		expected: mkHostPort("foo", "", "", 1234),
 	}, {
 		about: "address value and type; port is 1234",
 		hostPort: params.HostPort{
@@ -128,42 +127,39 @@ func (s *NetworkSuite) TestHostPort(c *gc.C) {
 			},
 			Port: 1234,
 		},
-		expected: mkHostPort("foo", "ipv4", "", "", 1234),
+		expected: mkHostPort("foo", "ipv4", "", 1234),
 	}, {
 		about: "address value, type, and network name, port is 1234",
 		hostPort: params.HostPort{
 			Address: params.Address{
-				Value:       "foo",
-				Type:        "ipv4",
-				NetworkName: "bar",
+				Value: "foo",
+				Type:  "ipv4",
 			},
 			Port: 1234,
 		},
-		expected: mkHostPort("foo", "ipv4", "bar", "", 1234),
+		expected: mkHostPort("foo", "ipv4", "", 1234),
 	}, {
 		about: "address all fields, port is 1234",
 		hostPort: params.HostPort{
 			Address: params.Address{
-				Value:       "foo",
-				Type:        "ipv4",
-				NetworkName: "bar",
-				Scope:       "public",
+				Value: "foo",
+				Type:  "ipv4",
+				Scope: "public",
 			},
 			Port: 1234,
 		},
-		expected: mkHostPort("foo", "ipv4", "bar", "public", 1234),
+		expected: mkHostPort("foo", "ipv4", "public", 1234),
 	}, {
 		about: "address all fields, port is 0",
 		hostPort: params.HostPort{
 			Address: params.Address{
-				Value:       "foo",
-				Type:        "ipv4",
-				NetworkName: "bar",
-				Scope:       "public",
+				Value: "foo",
+				Type:  "ipv4",
+				Scope: "public",
 			},
 			Port: 0,
 		},
-		expected: mkHostPort("foo", "ipv4", "bar", "public", 0),
+		expected: mkHostPort("foo", "ipv4", "public", 0),
 	}}
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
@@ -269,10 +265,9 @@ func (s *NetworkSuite) TestPortRangeConvenience(c *gc.C) {
 
 func (s *NetworkSuite) TestAddressConvenience(c *gc.C) {
 	networkAddress := network.Address{
-		Value:       "foo",
-		Type:        network.IPv4Address,
-		NetworkName: "bar",
-		Scope:       network.ScopePublic,
+		Value: "foo",
+		Type:  network.IPv4Address,
+		Scope: network.ScopePublic,
 	}
 	paramsAddress := params.FromNetworkAddress(networkAddress)
 	c.Assert(networkAddress, jc.DeepEquals, paramsAddress.NetworkAddress())
@@ -280,12 +275,14 @@ func (s *NetworkSuite) TestAddressConvenience(c *gc.C) {
 
 func (s *NetworkSuite) TestHostPortConvenience(c *gc.C) {
 	networkAddress := network.Address{
-		Value:       "foo",
-		Type:        network.IPv4Address,
-		NetworkName: "bar",
-		Scope:       network.ScopePublic,
+		Value: "foo",
+		Type:  network.IPv4Address,
+		Scope: network.ScopePublic,
 	}
-	networkHostPort := network.HostPort{networkAddress, 4711}
+	networkHostPort := network.HostPort{
+		Address: networkAddress,
+		Port:    4711,
+	}
 	paramsHostPort := params.FromNetworkHostPort(networkHostPort)
 	c.Assert(networkHostPort, jc.DeepEquals, paramsHostPort.NetworkHostPort())
 }
