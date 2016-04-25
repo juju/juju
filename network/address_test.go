@@ -120,18 +120,16 @@ func (s *AddressSuite) TestNewAddressOnSpace(c *gc.C) {
 	addr1 := network.NewAddressOnSpace("foo", "0.1.2.3")
 	addr2 := network.NewAddressOnSpace("", "2001:db8::123")
 	c.Check(addr1, jc.DeepEquals, network.Address{
-		Value:       "0.1.2.3",
-		Type:        "ipv4",
-		Scope:       "public",
-		NetworkName: "",
-		SpaceName:   "foo",
+		Value:     "0.1.2.3",
+		Type:      "ipv4",
+		Scope:     "public",
+		SpaceName: "foo",
 	})
 	c.Check(addr2, jc.DeepEquals, network.Address{
-		Value:       "2001:db8::123",
-		Type:        "ipv6",
-		Scope:       "public",
-		NetworkName: "",
-		SpaceName:   "",
+		Value:     "2001:db8::123",
+		Type:      "ipv6",
+		Scope:     "public",
+		SpaceName: "",
 	})
 }
 
@@ -141,14 +139,12 @@ func (s *AddressSuite) TestNewAddressesOnSpace(c *gc.C) {
 		Value:           "0.2.3.4",
 		Type:            "ipv4",
 		Scope:           "public",
-		NetworkName:     "",
 		SpaceName:       "bar",
 		SpaceProviderId: network.Id(""),
 	}, {
 		Value:           "fc00::1",
 		Type:            "ipv6",
 		Scope:           "local-cloud",
-		NetworkName:     "",
 		SpaceName:       "bar",
 		SpaceProviderId: network.Id(""),
 	}})
@@ -852,20 +848,10 @@ var stringTests = []struct {
 		Type:            network.HostName,
 		Value:           "foo.com",
 		Scope:           network.ScopePublic,
-		NetworkName:     "netname",
-		SpaceProviderId: network.Id("3"),
-	},
-	str: "public:foo.com(netname)@(id:3)",
-}, {
-	addr: network.Address{
-		Type:            network.HostName,
-		Value:           "foo.com",
-		Scope:           network.ScopePublic,
-		NetworkName:     "netname",
 		SpaceName:       "badlands",
 		SpaceProviderId: network.Id("3"),
 	},
-	str: "public:foo.com(netname)@badlands(id:3)",
+	str: "public:foo.com@badlands(id:3)",
 }}
 
 func (s *AddressSuite) TestString(c *gc.C) {
