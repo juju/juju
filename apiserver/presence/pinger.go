@@ -17,7 +17,7 @@ import (
 
 // Pinger exposes some methods implemented by state/presence.Pinger.
 type Pinger interface {
-	// Stop requests the pinger to stop, but does not wait.
+	// Stop kills the pinger, then waits for it to exit.
 	Stop() error
 	// Wait waits for the pinger to stop.
 	Wait() error

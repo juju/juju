@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/presence"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type WorkerSuite struct {
@@ -95,7 +96,7 @@ func (s *WorkerSuite) TestConfigValidateMissingIdentity(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*nil Identity.*`)
+	c.Check(err, gc.ErrorMatches, `nil Identity not valid`)
 }
 
 func (s *WorkerSuite) TestConfigValidateMissingStart(c *gc.C) {
@@ -108,7 +109,7 @@ func (s *WorkerSuite) TestConfigValidateMissingStart(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*nil Start.*`)
+	c.Check(err, gc.ErrorMatches, `nil Start not valid`)
 }
 
 func (s *WorkerSuite) TestConfigValidateMissingClock(c *gc.C) {
@@ -121,7 +122,7 @@ func (s *WorkerSuite) TestConfigValidateMissingClock(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*nil Clock.*`)
+	c.Check(err, gc.ErrorMatches, `nil Clock not valid`)
 }
 
 func (s *WorkerSuite) TestConfigValidateMissingRetryDelay(c *gc.C) {
@@ -134,7 +135,7 @@ func (s *WorkerSuite) TestConfigValidateMissingRetryDelay(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*non-positive RetryDelay.*`)
+	c.Check(err, gc.ErrorMatches, `non-positive RetryDelay not valid`)
 }
 
 func (s *WorkerSuite) TestNewRunOnceBeforeLoop(c *gc.C) {
@@ -143,7 +144,7 @@ func (s *WorkerSuite) TestNewRunOnceBeforeLoop(c *gc.C) {
 
 	w, err := presence.New(s.cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	defer w.Stop()
+	defer workertest.CleanKill(c, w)
 	<-waitChan
 
 	s.stub.CheckCallNames(c,
@@ -161,7 +162,7 @@ func (s *WorkerSuite) TestNewFailStart(c *gc.C) {
 
 	w, err := presence.New(s.cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	defer w.Stop()
+	defer workertest.CleanKill(c, w)
 	<-waitChan
 
 	s.stub.CheckCallNames(c,
@@ -178,7 +179,7 @@ func (s *WorkerSuite) TestNewFailWait(c *gc.C) {
 
 	w, err := presence.New(s.cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	defer w.Stop()
+	defer workertest.CleanKill(c, w)
 	<-waitChan
 
 	s.stub.CheckCallNames(c,
@@ -206,7 +207,7 @@ func (s *WorkerSuite) TestNewLoop(c *gc.C) {
 
 	w, err := presence.New(s.cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	defer w.Stop()
+	defer workertest.CleanKill(c, w)
 	defer close(block)
 	<-waitChan
 
@@ -247,7 +248,7 @@ func (s *WorkerSuite) TestNewRetry(c *gc.C) {
 
 	w, err := presence.New(s.cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	defer w.Stop()
+	defer workertest.CleanKill(c, w)
 	defer close(block)
 	<-waitChan
 

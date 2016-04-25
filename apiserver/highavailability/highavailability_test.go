@@ -38,14 +38,14 @@ type clientSuite struct {
 	commontesting.BlockHelper
 }
 
-type Killer interface {
-	Kill() error
+type KillerForTesting interface {
+	KillForTesting() error
 }
 
 var _ = gc.Suite(&clientSuite{})
 
-func assertKill(c *gc.C, killer Killer) {
-	c.Assert(killer.Kill(), gc.IsNil)
+func assertKill(c *gc.C, killer KillerForTesting) {
+	c.Assert(killer.KillForTesting(), gc.IsNil)
 }
 
 var (

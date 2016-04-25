@@ -101,7 +101,7 @@ type context struct {
 
 func (ctx *context) reset(c *gc.C) {
 	for _, up := range ctx.pingers {
-		err := up.Kill()
+		err := up.KillForTesting()
 		c.Check(err, jc.ErrorIsNil)
 	}
 }

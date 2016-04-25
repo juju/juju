@@ -418,7 +418,7 @@ func (w *Watcher) sync() error {
 				}
 				seq := k + i
 				dead[seq] = true
-				logger.Infof("found seq=%d dead", seq)
+				logger.Tracef("found seq=%d dead", seq)
 			}
 		}
 	}
@@ -472,7 +472,7 @@ func (w *Watcher) sync() error {
 				if cur > 0 || dead[seq] {
 					continue
 				}
-				logger.Infof("found seq=%d alive with key %q", seq, being.Key)
+				logger.Tracef("found seq=%d alive with key %q", seq, being.Key)
 				for _, ch := range w.watches[being.Key] {
 					w.pending = append(w.pending, event{ch, being.Key, true})
 				}
@@ -682,7 +682,7 @@ func (p *Pinger) prepare() error {
 // ping records updates the current time slot with the
 // sequence in use by the pinger.
 func (p *Pinger) ping() (err error) {
-	logger.Infof("pinging %q with seq=%d", p.beingKey, p.beingSeq)
+	logger.Tracef("pinging %q with seq=%d", p.beingKey, p.beingSeq)
 	defer func() {
 		// If the session is killed from underneath us, it panics when we
 		// try to copy it, so deal with that here.
