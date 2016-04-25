@@ -9,12 +9,9 @@ from assess_jes_deploy import (
     env_token,
     hosted_environment,
     jes_setup,
-    make_hosted_env_client,
 )
 from jujupy import (
-    EnvJujuClient,
     EnvJujuClient25,
-    JujuData,
     JUJU_DEV_FEATURE_FLAGS,
     SimpleEnvironment,
 )
@@ -127,33 +124,6 @@ class TestJES(tests.FakeHomeTestCase):
                 with jes_setup(setup_args) as (client, charm_previx, base_env):
                     self.assertEqual(1, client.is_jes_enabled.call_count)
                     self.assertEqual(1, client.enable_jes.call_count)
-
-    @patch('assess_jes_deploy.EnvJujuClient.by_version')
-    def test_make_hosted_env_client(
-            self,
-            by_version_func):
-        env = SimpleEnvironment('env', {'type': 'any'})
-        old_client = EnvJujuClient25(env, None, '/a/path')
-        old_client.enable_feature('jes')
-        new_client = make_hosted_env_client(old_client, 'test')
-
-        self.assertEqual(by_version_func.call_count, 0)
-        self.assertEqual(new_client.env.environment, 'env-test')
-        self.assertEqual(new_client.env.config, {'type': 'any'})
-        self.assertEqual(new_client.full_path, '/a/path')
-        self.assertIs(new_client.debug, False)
-        self.assertIn('jes', new_client.feature_flags)
-
-    @patch('assess_jes_deploy.EnvJujuClient.by_version')
-    def test_make_hosted_env_client_jes_by_default(
-            self,
-            by_version_func):
-
-        env = JujuData('env', {'type': 'any'})
-        old_client = EnvJujuClient(env, None, '/a/path')
-        with patch.object(JujuData, 'load_yaml'):
-            new_client = make_hosted_env_client(old_client, 'test')
-        self.assertNotIn('jes', new_client.feature_flags)
 
 
 class TestHostedEnvironment(tests.FakeHomeTestCase):

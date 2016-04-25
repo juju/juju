@@ -106,7 +106,7 @@ class FakeControllerState:
         self.state = 'not-bootstrapped'
         self.models = {}
 
-    def create_model(self, name):
+    def add_model(self, name):
         state = FakeEnvironmentState()
         state.name = name
         self.models[name] = state
@@ -118,7 +118,7 @@ class FakeControllerState:
                   separate_admin):
         default_model.name = env.environment
         if separate_admin:
-            admin_model = default_model.controller.create_model('admin')
+            admin_model = default_model.controller.add_model('admin')
         else:
             admin_model = default_model
         self.admin_model = admin_model
@@ -470,14 +470,12 @@ class FakeJujuClient(EnvJujuClient):
     def quickstart(self, bundle):
         self._backend.quickstart(self.env, bundle)
 
-    def create_environment(self, controller_client, config_file):
-        jes_enabled = self.is_jes_enabled()
-        if not jes_enabled:
+    def add_model(self, env):
+        if not self.is_jes_enabled():
             raise JESNotSupported()
-        model_state = controller_client._backend.controller_state.create_model(
-            self.env.environment)
-        self._backend = FakeBackend(model_state)
-        self._backend.set_feature('jes', jes_enabled)
+        model_state = self._backend.controller_state.add_model(
+            env.environment)
+        return self._acquire_state_client(model_state)
 
     def destroy_environment(self, force=True, delete_jenv=False):
         return self._backend.destroy_environment()
@@ -1294,27 +1292,22 @@ class TestEnvJujuClient(ClientTest):
             '--config', 'config', '--default-model', 'foo',
             '--bootstrap-series', 'angsty'))
 
-    def test_create_environment_hypenated_controller(self):
-        self.do_create_environment(
+    def test_add_model_hypenated_controller(self):
+        self.do_add_model(
             'kill-controller', 'create-model', ('-c', 'foo'))
 
-    def do_create_environment(self, jes_command, create_cmd,
-                              controller_option):
+    def do_add_model(self, jes_command, create_cmd, controller_option):
         controller_client = EnvJujuClient(JujuData('foo'), None, None)
-        client = EnvJujuClient(JujuData('bar'), None, None)
+        model_data = JujuData('bar', {'type': 'foo'})
+        client = EnvJujuClient(model_data, None, None)
         with patch.object(client, 'get_jes_command',
                           return_value=jes_command):
-            with patch.object(client, 'juju') as juju_mock:
                 with patch.object(controller_client, 'juju') as ccj_mock:
-                    client.create_environment(controller_client, 'temp')
-        if juju_mock.call_count == 0:
-            ccj_mock.assert_called_once_with(
-                create_cmd, controller_option + ('bar', '--config', 'temp'),
-                include_e=False)
-        else:
-            juju_mock.assert_called_once_with(
-                create_cmd, controller_option + ('bar', '--config', 'temp'),
-                include_e=False)
+                    with observable_temp_file() as config_file:
+                        controller_client.add_model(model_data)
+        ccj_mock.assert_called_once_with(
+            create_cmd, controller_option + (
+                'bar', '--config', config_file.name), include_e=False)
 
     def test_destroy_environment(self):
         env = JujuData('foo')
@@ -3272,16 +3265,17 @@ class TestEnvJujuClient1X(ClientTest):
 
     def do_create_environment(self, jes_command, create_cmd,
                               controller_option):
-        controller_client = EnvJujuClient1X(SimpleEnvironment('foo'), None,
+        controller_client = EnvJujuClient1X(SimpleEnvironment('foo'), '1.26.1',
                                             None)
-        client = EnvJujuClient1X(SimpleEnvironment('bar'), None, None)
-        with patch.object(client, 'get_jes_command',
+        model_env = SimpleEnvironment('bar', {'type': 'foo'})
+        with patch.object(controller_client, 'get_jes_command',
                           return_value=jes_command):
-            with patch.object(client, 'juju') as juju_mock:
-                client.create_environment(controller_client, 'temp')
+            with patch.object(controller_client, 'juju') as juju_mock:
+                with observable_temp_file() as config_file:
+                    controller_client.add_model(model_env)
         juju_mock.assert_called_once_with(
-            create_cmd, controller_option + ('bar', '--config', 'temp'),
-            include_e=False)
+            create_cmd, controller_option + (
+                'bar', '--config', config_file.name), include_e=False)
 
     def test_destroy_environment_non_sudo(self):
         env = SimpleEnvironment('foo')
