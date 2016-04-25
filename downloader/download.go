@@ -111,21 +111,8 @@ func (dl *Download) run(req Request) {
 
 	if err == nil {
 		logger.Infof("download complete (%q)", req.URL)
-
 		if req.Verify != nil {
-			err = req.Verify(file)
-			if errors.IsNotValid(err) {
-				logger.Errorf("download of %s invalid: %v", req.URL, err)
-			}
-			if _, err2 := file.Seek(0, os.SEEK_SET); err2 != nil {
-				logger.Errorf("failed to seek to beginning of file: %v", err2)
-				if err == nil {
-					err = errors.Trace(err2)
-				}
-			}
-			if err != nil {
-				logger.Infof("download verified (%q)", req.URL)
-			}
+			err = verifyDownload(file, req)
 		}
 	}
 
@@ -138,6 +125,23 @@ func (dl *Download) run(req Request) {
 	case <-dl.tomb.Dying():
 		cleanTempFile(file)
 	}
+}
+
+func verifyDownload(file *os.File, req Request) error {
+	err := req.Verify(file)
+	if err != nil {
+		if errors.IsNotValid(err) {
+			logger.Errorf("download of %s invalid: %v", req.URL, err)
+		}
+		return errors.Trace(err)
+	}
+	logger.Infof("download verified (%q)", req.URL)
+
+	if _, err := file.Seek(0, os.SEEK_SET); err != nil {
+		logger.Errorf("failed to seek to beginning of file: %v", err)
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func download(req Request, openBlob func(*url.URL) (io.ReadCloser, error)) (file *os.File, err error) {
