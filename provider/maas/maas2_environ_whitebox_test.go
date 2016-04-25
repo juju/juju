@@ -959,14 +959,18 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C) {
-	vlan0 := fakeVLAN{
+	vlan1 := fakeVLAN{
 		id:  5001,
+		mtu: 1500,
+	}
+	vlan2 := fakeVLAN{
+		id:  5002,
 		mtu: 1500,
 	}
 	subnet1 := fakeSubnet{
 		id:         3,
 		space:      "default",
-		vlan:       vlan0,
+		vlan:       vlan1,
 		gateway:    "10.20.19.2",
 		cidr:       "10.20.19.0/24",
 		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
@@ -974,7 +978,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 	subnet2 := fakeSubnet{
 		id:         4,
 		space:      "freckles",
-		vlan:       vlan0,
+		vlan:       vlan2,
 		gateway:    "192.168.1.1",
 		cidr:       "192.168.1.0/24",
 		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
@@ -987,7 +991,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 			type_:      "physical",
 			enabled:    true,
 			macAddress: "52:54:00:70:9b:fe",
-			vlan:       vlan0,
+			vlan:       vlan1,
 			links: []gomaasapi.Link{
 				&fakeLink{
 					id:        436,
@@ -1007,7 +1011,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 			type_:      "physical",
 			enabled:    true,
 			macAddress: "53:54:00:70:9b:ff",
-			vlan:       vlan0,
+			vlan:       vlan2,
 			links: []gomaasapi.Link{
 				&fakeLink{
 					id:        480,
@@ -1070,7 +1074,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 		ProviderId:        "93",
 		ProviderSubnetId:  "4",
 		VLANTag:           0,
-		ProviderVLANId:    "5001",
+		ProviderVLANId:    "5002",
 		ProviderAddressId: "480",
 		InterfaceName:     "eth1",
 		InterfaceType:     "ethernet",
