@@ -17,7 +17,6 @@ from deploy_stack import (
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
-    scoped_environ,
     temp_dir,
 )
 
@@ -64,10 +63,9 @@ def remove_user_permissions(client, username, models=None, permissions='read'):
 def register_user(username, env, register_cmd, juju_bin):
     # needs support to passing register command with arguments
     # refactor once supported, bug 1573099
-    with scoped_environ(env):
-        child = pexpect.spawn(juju_bin + register_cmd)
     try:
-        child.expect('(?i)username .*: ')
+        child = pexpect.spawn(juju_bin + register_cmd, env=env)
+        child.expect('(?i)name .*: ')
         child.sendline(username + '_controller')
         child.expect('(?i)password')
         child.sendline(username + '_password')
@@ -105,10 +103,8 @@ def assess_user_grant_revoke(client, juju_bin):
             client, read_user, fake_home)
         register_user(read_user, read_user_env, read_user_register, juju_bin)
 
-        # assert we are read_user
-        # assert we are on recontroller
-
-        # read_user_client.get_juju_output('show-controller', include_e=False)
+        read_user_client.get_juju_output('show-user', include_e=False)
+        read_user_client.get_juju_output('show-controller', include_e=False)
 
         # assert we can show status
         try:
@@ -121,7 +117,7 @@ def assess_user_grant_revoke(client, juju_bin):
         try:
             read_user_client.deploy('wordpress')
             raise AssertionError('assert_fail read-only user deployed charm')
-        except subprocess.CalProcessError:
+        except subprocess.CalledProcessError:
             pass
 
         # remove all permissions
@@ -140,14 +136,9 @@ def assess_user_grant_revoke(client, juju_bin):
     log.debug("Testing write_user access")
     with temp_dir() as fake_home:
         write_user_client, write_user_env = create_cloned_environment(
-            write_user, fake_home)
-        register_user(
-            write_user, write_user_env, write_user_register, juju_bin)
-
-        # assert we are write_user
-        # assert we are on recontroller
-
-        # write_user_client.get_juju_output('show-controller', include_e=False)
+            client, write_user, fake_home)
+        register_user(write_user, write_user_env,
+                      write_user_register, juju_bin)
 
         # assert we can show status
         try:
@@ -158,14 +149,14 @@ def assess_user_grant_revoke(client, juju_bin):
         # assert we CAN deploy
         try:
             write_user_client.deploy('wordpress')
-        except subprocess.CalProcessError:
+        except subprocess.CalledProcessError:
             raise AssertionError('assert_fail r/w user cannot deploy charm')
 
         # remove all permissions
         log.debug("Revoking permissions from write_user")
         remove_user_permissions(client, write_user)
 
-        # we SHOULD be able to do see status
+        # we SHOULD be able to still see status
         log.debug("Testing write_user access")
         try:
             write_user_client.list_models()

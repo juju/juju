@@ -1,8 +1,13 @@
 """Tests for assess_user_grant_revoke module."""
 
 import logging
-from mock import Mock, patch
+from mock import (
+    Mock,
+    patch,
+    call,
+)
 import StringIO
+import subprocess
 
 from assess_user_grant_revoke import (
     assess_user_grant_revoke,
@@ -17,7 +22,7 @@ from tests import (
 
 class TestParseArgs(TestCase):
 
-    def test_common_args(self):
+    def test_parse_args(self):
         args = parse_args(["an-env", "/bin/juju", "/tmp/logs", "an-env-mod"])
         self.assertEqual("an-env", args.env)
         self.assertEqual("/bin/juju", args.juju_bin)
@@ -31,7 +36,6 @@ class TestParseArgs(TestCase):
             with patch("sys.stdout", fake_stdout):
                 parse_args(["--help"])
         self.assertEqual("", fake_stderr.getvalue())
-        self.assertNotIn("TODO", fake_stdout.getvalue())
 
 
 class TestMain(TestCase):
@@ -67,3 +71,21 @@ class TestAssess(TestCase):
             'deploy', ('local:trusty/my-charm',))
         mock_client.wait_for_started.assert_called_once_with()
         self.assertNotIn("TODO", self.log_stream.getvalue())
+
+    def test_create_cloned_environment(self):
+
+    def test_register_user(self):
+
+    def test_remove_user_permissions(self):
+
+    def test_create_user_permissions(self):
+
+    def test__get_register_command(self):
+        mock_call = Mock(spec=["get_version"])
+        mock_call._get_register_command.return_value = 'juju register AaBbCc'
+        ver = get_current_version(mock_call, '/tmp/bin')
+        self.assertEqual(ver, '2.0-beta4')
+
+        mock_client.get_version.return_value = '1.25.4-trusty-amd64'
+        ver = get_current_version(mock_client, '/tmp/bin')
+        self.assertEqual(ver, '1.25.4')
