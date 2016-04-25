@@ -18,8 +18,9 @@ from time import (
     time,
     )
 from tempfile import mkdtemp
+import warnings
 import xml.etree.ElementTree as ET
-
+import yaml
 # Export shell quoting function which has moved in newer python versions
 try:
     from shlex import quote
@@ -115,8 +116,8 @@ def _clean_dir(maybe_dir):
         # GZ 2016-03-01: We may want to raise or just create the dir here, but
         # that confuses expectations of all existing parse_args tests.
     else:
-        if contents:
-            logging.warning("Directory %r has existing contents.", maybe_dir)
+        if contents and contents != ["empty"]:
+            warnings.warn("Directory %r has existing contents." % (maybe_dir,))
     return maybe_dir
 
 
@@ -393,7 +394,8 @@ def find_latest_branch_candidates(root_dir):
     :param root_dir: The root directory to find candidates from.
     """
     candidates = []
-    for path, buildvars_path in _find_candidates(root_dir, find_all=False):
+    for path, buildvars_path in _find_candidates(root_dir, find_all=False,
+                                                 artifacts=True):
         with open(buildvars_path) as buildvars_file:
             buildvars = json.load(buildvars_file)
             candidates.append(
@@ -403,11 +405,11 @@ def find_latest_branch_candidates(root_dir):
     return latest.values()
 
 
-def _find_candidates(root_dir, find_all=False):
+def _find_candidates(root_dir, find_all=False, artifacts=False):
     candidates_path = get_candidates_path(root_dir)
     a_week_ago = time() - timedelta(days=7).total_seconds()
     for candidate_dir in os.listdir(candidates_path):
-        if candidate_dir.endswith('-artifacts'):
+        if candidate_dir.endswith('-artifacts') != artifacts:
             continue
         candidate_path = os.path.join(candidates_path, candidate_dir)
         buildvars = os.path.join(candidate_path, 'buildvars.json')
@@ -440,3 +442,43 @@ def run_command(command, dry_run=False, verbose=False):
         output = subprocess.check_output(command)
         if verbose:
             print_now(output)
+
+
+def local_charm_path(charm, juju_ver, series=None, repository=None,
+                     platform='ubuntu'):
+    """Create either Juju 1.x or 2.x local charm path."""
+    if juju_ver.startswith('1.'):
+        if series:
+            series = '{}/'.format(series)
+        else:
+            series = ''
+        local_path = 'local:{}{}'.format(series, charm)
+        return local_path
+    else:
+        charm_dir = {
+            'ubuntu': 'charms',
+            'win': 'charms-win',
+            'centos': 'charms-centos'}
+        abs_path = charm
+        if repository:
+            abs_path = os.path.join(repository, charm)
+        elif os.environ.get('JUJU_REPOSITORY'):
+            repository = os.path.join(
+                os.environ['JUJU_REPOSITORY'], charm_dir[platform])
+            abs_path = os.path.join(repository, charm)
+        return abs_path
+
+
+def make_charm(charm_dir, min_ver='1.25.0', name='dummy',
+               description='description', summary='summary', series='trusty'):
+    metadata = os.path.join(charm_dir, 'metadata.yaml')
+    content = {}
+    content['name'] = name
+    if min_ver is not None:
+        content['min-juju-version'] = min_ver
+    content['summary'] = summary
+    content['description'] = description
+    if series is not None:
+        content['series'] = [series] if isinstance(series, str) else series
+    with open(metadata, 'w') as f:
+        yaml.safe_dump(content, f, default_flow_style=False)

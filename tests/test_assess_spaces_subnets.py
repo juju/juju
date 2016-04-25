@@ -130,8 +130,8 @@ class JujuMock:
             self.add_machine(args)
 
         elif cmd == 'ssh':
-            if args[0] in self._ssh_machine_output:
-                ssh_output = self._ssh_machine_output[args[0]]
+            if args[1] in self._ssh_machine_output:
+                ssh_output = self._ssh_machine_output[args[1]]
             else:
                 ssh_output = self._ssh_output
 

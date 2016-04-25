@@ -111,7 +111,7 @@ class TestRunChaosMonkey(FakeHomeTestCase):
                 ('show-status', '--format', 'yaml'): status,
                 }
             return output[args]
-        client = EnvJujuClient(JujuData('foo', {}), None, '/foo/juju')
+        client = EnvJujuClient(JujuData('foo', {}), '1.25.0', '/foo/juju')
         with patch.object(client, 'get_juju_output', side_effect=output,
                           autospec=True) as gjo_mock:
             with patch('subprocess.check_call', autospec=True) as cc_mock:

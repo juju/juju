@@ -1,7 +1,10 @@
 """Tests for assess_mixed_images module."""
 
 import logging
-from mock import patch
+from mock import (
+    call,
+    patch
+)
 import StringIO
 
 from assess_mixed_images import (
@@ -61,7 +64,8 @@ class TestMain(TestCase):
 class TestAssess(TestCase):
 
     def test_mixed_images(self):
-        mock_client = FakeJujuClient()
+        mock_client = FakeJujuClient(jes_enabled=True)
+        mock_client.bootstrap()
         assess_mixed_images(mock_client)
         self.assertEqual({
             'machines': {
@@ -81,3 +85,26 @@ class TestAssess(TestCase):
                     }
                 }
             }, mock_client.get_status().status)
+
+    def test_mixed_images_charm_2x(self):
+        mock_client = FakeJujuClient()
+        mock_client.bootstrap()
+        with patch.object(mock_client, 'deploy') as mock_d:
+            with patch('assess_mixed_images.assess_juju_relations',
+                       autospec=True) as mock_ajr:
+                assess_mixed_images(mock_client)
+        calls = [call('dummy-sink'), call('dummy-source')]
+        self.assertEqual(mock_d.mock_calls, calls)
+        mock_ajr.assert_called_once_with(mock_client)
+
+    def test_mixed_images_charm_1x(self):
+        mock_client = FakeJujuClient(version='1.25.0')
+        mock_client.bootstrap()
+        with patch.object(mock_client, 'deploy') as mock_d:
+            with patch('assess_mixed_images.assess_juju_relations',
+                       autospec=True) as mock_ajr:
+                assess_mixed_images(mock_client)
+        calls = [call('local:centos7/dummy-sink'),
+                 call('local:trusty/dummy-source')]
+        self.assertEqual(mock_d.mock_calls, calls)
+        mock_ajr.assert_called_once_with(mock_client)

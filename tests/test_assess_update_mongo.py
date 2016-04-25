@@ -77,12 +77,13 @@ class TestAssess(TestCase):
         mock_client = Mock(
             spec=["juju", "wait_for_started", "deploy", "upgrade_mongo",
                   "show_status"])
+        mock_client.version = '2.0.0'
         mock_remote = Mock(spec=['run'])
         mock_remote.run.side_effect = ('', EG_MONGO3_PROC)
         with patch('assess_update_mongo.remote_from_address',
                    autospec=True, return_value=mock_remote) as r_mock:
             assess_update_mongo(mock_client, 'trusty', '10.0.0.2')
-        mock_client.deploy.assert_called_once_with('local:trusty/ubuntu')
+        mock_client.deploy.assert_called_once_with('ubuntu', series='trusty')
         mock_client.wait_for_started.assert_called_once_with()
         mock_client.upgrade_mongo.assert_called_once_with()
         r_mock.assert_called_once_with('10.0.0.2', series='trusty')

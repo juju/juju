@@ -4,10 +4,7 @@ from argparse import ArgumentParser
 from contextlib import contextmanager
 import logging
 import sys
-from tempfile import NamedTemporaryFile
 import os
-
-import yaml
 
 from deploy_stack import (
     boot_context,
@@ -20,7 +17,6 @@ from deploy_stack import (
     )
 from jujupy import (
     EnvJujuClient,
-    make_safe_config,
     SimpleEnvironment,
     )
 from utility import (
@@ -30,24 +26,16 @@ from utility import (
 )
 
 
-def make_hosted_env_client(client, suffix):
-    env_name = '{}-{}'.format(client.env.environment, suffix)
-    hosted_environment = SimpleEnvironment(env_name, dict(client.env.config),
-                                           client.env.juju_home)
-    hosted_env_client = client.clone(hosted_environment)
-    return hosted_env_client
-
-
-def test_jes_deploy(client, charm_prefix, log_dir, base_env):
+def test_jes_deploy(client, charm_series, log_dir, base_env):
     """Deploy the dummy stack in two hosted environments."""
     # deploy into system env
-    deploy_dummy_stack(client, charm_prefix)
+    deploy_dummy_stack(client, charm_series)
 
     # deploy into hosted envs
     with hosted_environment(client, log_dir, 'env1') as env1_client:
-        deploy_dummy_stack(env1_client, charm_prefix)
+        deploy_dummy_stack(env1_client, charm_series)
         with hosted_environment(client, log_dir, 'env2') as env2_client:
-            deploy_dummy_stack(env2_client, charm_prefix)
+            deploy_dummy_stack(env2_client, charm_series)
             # check all the services can talk
             check_services(client)
             check_services(env1_client)
@@ -67,7 +55,7 @@ def jes_setup(args):
     series = args.series
     if series is None:
         series = 'precise'
-    charm_prefix = 'local:{}/'.format(series)
+    charm_series = series
     client = EnvJujuClient.by_version(
         SimpleEnvironment.from_config(base_env), args.juju_bin, args.debug,
     )
@@ -85,7 +73,7 @@ def jes_setup(args):
             upload_tools=False,
             region=args.region,
             ):
-        yield client, charm_prefix, base_env
+        yield client, charm_series, base_env
 
 
 def env_token(env_name):
@@ -94,13 +82,9 @@ def env_token(env_name):
 
 @contextmanager
 def hosted_environment(system_client, log_dir, suffix):
-    client = make_hosted_env_client(system_client, suffix)
+    env_name = '{}-{}'.format(system_client.env.environment, suffix)
+    client = system_client.add_model(system_client.env.clone(env_name))
     try:
-        with NamedTemporaryFile() as config_file:
-            config = make_safe_config(client)
-            yaml.dump(config, config_file)
-            config_file.flush()
-            client.create_environment(system_client, config_file.name)
         yield client
     except:
         logging.exception(
@@ -126,8 +110,8 @@ def main():
     parser = ArgumentParser()
     add_basic_testing_arguments(parser, using_jes=True)
     args = parser.parse_args()
-    with jes_setup(args) as (client, charm_prefix, base_env):
-        test_jes_deploy(client, charm_prefix, args.logs, base_env)
+    with jes_setup(args) as (client, charm_series, base_env):
+        test_jes_deploy(client, charm_series, args.logs, base_env)
 
 
 if __name__ == '__main__':

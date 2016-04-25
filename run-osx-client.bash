@@ -23,7 +23,7 @@ mkdir built
 s3cmd -c $JUJU_HOME/juju-qa.s3cfg sync \
   s3://juju-qa-data/juju-ci/products/version-$revision_build/build-osx-client/\
   built --exclude '*' --include 'juju-*-osx.tar.gz'
-TARFILE=$(find  built -name 'juju-*-osx.tar.gz')
+TARFILE=$(find  built -name 'juju-*-osx.tar.gz' | head -1)
 echo "Downloaded $TARFILE"
 
 cat > temp-config.yaml <<EOT

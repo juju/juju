@@ -6,7 +6,10 @@ from status import StatusTester
 from deploy_stack import (
     BootstrapManager,
 )
-from utility import add_basic_testing_arguments
+from utility import (
+    add_basic_testing_arguments,
+    local_charm_path,
+)
 
 
 __metaclass__ = type
@@ -105,15 +108,15 @@ def test_status_set_on_install(client):
     :param client: python juju client.
     :type client: jujupy.EnvJujuClient
     """
-    status = StatusTester.from_text(client.get_status(60, True,
+    status = StatusTester.from_text(client.get_status(60, True, False,
                                                       "--format=yaml"),
                                     "yaml")
     run_complete_status(client, status)
-    status = StatusTester.from_text(client.get_status(60, True,
+    status = StatusTester.from_text(client.get_status(60, True, False,
                                                       "--format=json"),
                                     "json")
     run_complete_status(client, status)
-    status = StatusTester.from_text(client.get_status(60, True,
+    status = StatusTester.from_text(client.get_status(60, True, False,
                                                       "--format=tabular"),
                                     "tabular")
     run_reduced_status(client, status)
@@ -135,9 +138,10 @@ def main():
     client = bs_manager.client
     with bs_manager.booted_context(args.upload_tools):
         client.get_status(60)
-        client.juju("deploy", ('local:trusty/statusstresser',))
+        charm = local_charm_path(
+            charm='statusstresser', juju_ver=client.version, series='trusty')
+        client.deploy(charm)
         client.wait_for_started()
-
         test_status_set_on_install(client)
 
 

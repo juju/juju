@@ -106,13 +106,27 @@ class FakeControllerState:
         self.state = 'not-bootstrapped'
         self.models = {}
 
-    def create_model(self, name):
+    def add_model(self, name):
         state = FakeEnvironmentState()
         state.name = name
         self.models[name] = state
         state.controller = self
         state.controller.state = 'created'
         return state
+
+    def bootstrap(self, default_model, env, commandline_config,
+                  separate_admin):
+        default_model.name = env.environment
+        if separate_admin:
+            admin_model = default_model.controller.add_model('admin')
+        else:
+            admin_model = default_model
+        self.admin_model = admin_model
+        admin_model.state_servers.append(admin_model.add_machine())
+        self.state = 'bootstrapped'
+        default_model.model_config = copy.deepcopy(env.config)
+        default_model.model_config.update(commandline_config)
+        self.models[default_model.name] = default_model
 
 
 class FakeEnvironmentState:
@@ -171,17 +185,8 @@ class FakeEnvironmentState:
         self.state_servers.remove(machine_id)
 
     def bootstrap(self, env, commandline_config, separate_admin):
-        self.name = env.environment
-        if separate_admin:
-            admin_model = self.controller.create_model('admin')
-        else:
-            admin_model = self
-        self.controller.admin_model = admin_model
-        admin_model.state_servers.append(admin_model.add_machine())
-        self.controller.state = 'bootstrapped'
-        self.model_config = copy.deepcopy(env.config)
-        self.model_config.update(commandline_config)
-        self.controller.models[self.name] = self
+        return self.controller.bootstrap(self, env, commandline_config,
+                                         separate_admin)
 
     def destroy_environment(self):
         self._clear()
@@ -244,7 +249,128 @@ class FakeEnvironmentState:
         return {'machines': machines, 'services': services}
 
 
-class FakeJujuClient:
+class FakeBackend:
+
+    def __init__(self, backing_state):
+        self._backing_state = backing_state
+        self._feature_flags = set()
+
+    @property
+    def backing_state(self):
+        return self._backing_state
+
+    @backing_state.setter
+    def backing_state(self, value):
+        self._backing_state = value
+
+    @property
+    def controller_state(self):
+        return self._backing_state.controller
+
+    def set_feature(self, feature, enabled):
+        if enabled:
+            self._feature_flags.add(feature)
+        else:
+            self._feature_flags.discard(feature)
+
+    def is_feature_enabled(self, feature):
+        return bool(feature in self._feature_flags)
+
+    def make_state_backend(self, state):
+        new_backend = FakeBackend(state)
+        new_backend.set_feature('jes', self.is_feature_enabled('jes'))
+        return new_backend
+
+    def deploy(self, model_state, charm_name, service_name=None, series=None):
+        if service_name is None:
+            service_name = charm_name.split(':')[-1].split('/')[-1]
+        model_state.deploy(charm_name, service_name)
+
+    def bootstrap(self, env, upload_tools=False, bootstrap_series=None):
+        commandline_config = {}
+        if bootstrap_series is not None:
+            commandline_config['default-series'] = bootstrap_series
+        self._backing_state.bootstrap(
+                env, commandline_config, self.is_feature_enabled('jes'))
+
+    def quickstart(self, env, bundle):
+        self.backing_state.bootstrap(env, {}, self.is_feature_enabled('jes'))
+        model_state = self.controller_state.models[env.environment]
+        model_state.deploy_bundle(bundle)
+
+    def destroy_environment(self):
+        self.backing_state.destroy_environment()
+        return 0
+
+    def add_machines(self, model_state, args):
+        ssh_machines = [a[4:] for a in args if a.startswith('ssh:')]
+        if len(ssh_machines) == len(args):
+            return model_state.add_ssh_machines(ssh_machines)
+        (container_type,) = args
+        model_state.add_container(container_type)
+
+    def juju(self, cmd, args, model=None, timeout=None):
+        if model is not None:
+            model_state = self.controller_state.models[model]
+            if (cmd, args[:1]) == ('set', ('dummy-source',)):
+                name, value = args[1].split('=')
+                if name == 'token':
+                    model_state.token = value
+            if cmd == 'deploy':
+                self.deploy(model_state, *args)
+            if cmd == 'destroy-service':
+                model_state.destroy_service(*args)
+            if cmd == 'remove-service':
+                model_state.destroy_service(*args)
+            if cmd == 'add-relation':
+                if args[0] == 'dummy-source':
+                    model_state.relations[args[1]] = {'source': [args[0]]}
+            if cmd == 'expose':
+                (service,) = args
+                model_state.exposed.add(service)
+            if cmd == 'unexpose':
+                (service,) = args
+                model_state.exposed.remove(service)
+            if cmd == 'add-unit':
+                (service,) = args
+                model_state.add_unit(service)
+            if cmd == 'remove-unit':
+                (unit_id,) = args
+                model_state.remove_unit(unit_id)
+            if cmd == 'add-machine':
+                return self.add_machines(model_state, args)
+            if cmd == 'remove-machine':
+                (machine_id,) = args
+                if '/' in machine_id:
+                    model_state.remove_container(machine_id)
+                else:
+                    model_state.remove_machine(machine_id)
+        else:
+            if cmd == 'kill-controller':
+                if self.controller_state.state == 'not-bootstrapped':
+                    return
+                model = args[0]
+                model_state = self.controller_state.models[model]
+                model_state.kill_controller()
+            if cmd == 'destroy-model':
+                if not self.is_feature_enabled('jes'):
+                    raise JESNotSupported()
+                model = args[0]
+                model_state = self.controller_state.models[model]
+                model_state.destroy_model()
+
+    def get_juju_output(self, command, args, model=None, timeout=None):
+        model_state = self.controller_state.models[model]
+        if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):
+            return model_state.token
+        if (command, args) == ('ssh', ('0', 'lsb_release', '-c')):
+            return 'Codename:\t{}\n'.format(
+                model_state.model_config['default-series'])
+        if command == 'get-model-config':
+            return yaml.safe_dump(model_state.model_config)
+
+
+class FakeJujuClient(EnvJujuClient):
     """A fake juju client for tests.
 
     This is a partial implementation, but should be suitable for many uses,
@@ -254,19 +380,26 @@ class FakeJujuClient:
     manipulate the same state.
     """
     def __init__(self, env=None, full_path=None, debug=False,
-                 jes_enabled=False):
-        self._backing_state = FakeEnvironmentState()
+                 jes_enabled=False, version='2.0.0'):
+        backend_state = FakeEnvironmentState()
         if env is None:
             env = SimpleEnvironment('name', {
                 'type': 'foo',
                 'default-series': 'angsty',
                 }, juju_home='foo')
+        backend_state.name = env
+        self._backend = FakeBackend(backend_state)
+        self._backend.set_feature('jes', jes_enabled)
         self.env = env
         self.full_path = full_path
         self.debug = debug
         self.bootstrap_replaces = {}
-        self._jes_enabled = jes_enabled
         self._separate_admin = jes_enabled
+        self.version = version
+
+    @property
+    def _jes_enabled(self):
+        raise Exception
 
     def clone(self, env, full_path=None, debug=None):
         if full_path is None:
@@ -274,8 +407,8 @@ class FakeJujuClient:
         if debug is None:
             debug = self.debug
         client = self.__class__(env, full_path, debug,
-                                jes_enabled=self._jes_enabled)
-        client._backing_state = self._backing_state
+                                jes_enabled=self.is_jes_enabled())
+        client._backend = self._backend
         return client
 
     def by_version(self, env, path, debug):
@@ -289,110 +422,63 @@ class FakeJujuClient:
             return self
         new_env = self.env.clone(model_name=state.name)
         new_client = self.clone(new_env)
-        new_client._backing_state = state
+        new_client._backend = self._backend.make_state_backend(state)
         return new_client
 
     def get_admin_client(self):
-        admin_model = self._backing_state.controller.admin_model
+        admin_model = self._backend.controller_state.admin_model
         return self._acquire_state_client(admin_model)
 
     def iter_model_clients(self):
-        if not self._jes_enabled:
+        if not self.is_jes_enabled():
             raise JESNotSupported()
-        for state in self._backing_state.controller.models.values():
+        for state in self._backend.controller_state.models.values():
             yield self._acquire_state_client(state)
 
     def is_jes_enabled(self):
-        return self._jes_enabled
+        return self._backend.is_feature_enabled('jes')
+
+    def enable_jes(self):
+        self._backend.set_feature('jes', True)
+
+    def disable_jes(self):
+        self._backend.set_feature('jes', False)
 
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=True)
 
     def get_juju_output(self, command, *args, **kwargs):
-        if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):
-            return self._backing_state.token
-        if (command, args) == ('ssh', ('0', 'lsb_release', '-c')):
-            return 'Codename:\t{}\n'.format(self.env.config['default-series'])
+        return self._backend.get_juju_output(
+            command, args, model=self.env.environment, **kwargs)
 
-    def juju(self, cmd, args, include_e=True):
+    def juju(self, cmd, args, check=True, include_e=True, timeout=None):
         # TODO: Use argparse or change all call sites to use functions.
-        if (cmd, args[:1]) == ('set', ('dummy-source',)):
-            name, value = args[1].split('=')
-            if name == 'token':
-                self._backing_state.token = value
-        if cmd == 'deploy':
-            self.deploy(*args)
-        if cmd == 'destroy-service':
-            self._backing_state.destroy_service(*args)
-        if cmd == 'add-relation':
-            if args[0] == 'dummy-source':
-                self._backing_state.relations[args[1]] = {'source': [args[0]]}
-        if cmd == 'expose':
-            (service,) = args
-            self._backing_state.exposed.add(service)
-        if cmd == 'unexpose':
-            (service,) = args
-            self._backing_state.exposed.remove(service)
-        if cmd == 'add-unit':
-            (service,) = args
-            self._backing_state.add_unit(service)
-        if cmd == 'remove-unit':
-            (unit_id,) = args
-            self._backing_state.remove_unit(unit_id)
-        if cmd == 'add-machine':
-            (container_type,) = args
-            self._backing_state.add_container(container_type)
-        if cmd == 'remove-machine':
-            (machine_id,) = args
-            if '/' in machine_id:
-                self._backing_state.remove_container(machine_id)
-            else:
-                self._backing_state.remove_machine(machine_id)
+        if include_e:
+            model = self.env.environment
+        else:
+            model = None
+        return self._backend.juju(cmd, args, model, timeout)
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
-        commandline_config = {}
-        if bootstrap_series is not None:
-            commandline_config['default-series'] = bootstrap_series
-        self._backing_state.bootstrap(self.env, commandline_config,
-                                      self._separate_admin)
+        self._backend.bootstrap(
+            self.env, upload_tools, bootstrap_series)
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False):
         yield
 
     def quickstart(self, bundle):
-        self._backing_state.bootstrap(self.env, {}, self._separate_admin)
-        self._backing_state.deploy_bundle(bundle)
+        self._backend.quickstart(self.env, bundle)
 
-    def create_environment(self, controller_client, config_file):
-        if not self._jes_enabled:
+    def add_model(self, env):
+        if not self.is_jes_enabled():
             raise JESNotSupported()
-        model_state = controller_client._backing_state.controller.create_model(
-            self.env.environment)
-        self._backing_state = model_state
-
-    def destroy_model(self):
-        if not self._jes_enabled:
-            raise JESNotSupported()
-        self._backing_state.destroy_model()
+        model_state = self._backend.controller_state.add_model(
+            env.environment)
+        return self._acquire_state_client(model_state)
 
     def destroy_environment(self, force=True, delete_jenv=False):
-        self._backing_state.destroy_environment()
-        return 0
-
-    def kill_controller(self):
-        self._backing_state.kill_controller()
-
-    def add_ssh_machines(self, machines):
-        self._backing_state.add_ssh_machines(machines)
-
-    def deploy(self, charm_name, service_name=None):
-        if service_name is None:
-            service_name = charm_name.split(':')[-1].split('/')[-1]
-        self._backing_state.deploy(charm_name, service_name)
-
-    def remove_service(self, service):
-        self._backing_state.destroy_service(service)
+        return self._backend.destroy_environment()
 
     def wait_for_started(self, timeout=1200, start=None):
         return self.get_status()
@@ -404,8 +490,16 @@ class FakeJujuClient:
         pass
 
     def get_status(self, admin=False):
-        status_dict = self._backing_state.get_status_dict()
-        return Status(status_dict, yaml.safe_dump(status_dict))
+        try:
+            model_state = self._backend.controller_state.models[
+                self.env.environment]
+        except KeyError:
+            # Really, this should raise, but that would break tests.
+            status_dict = {'services': {}, 'machines': {}}
+        else:
+            status_dict = model_state.get_status_dict()
+        status_text = yaml.safe_dump(status_dict)
+        return Status(status_dict, status_text)
 
     def status_until(self, timeout):
         yield self.get_status()
@@ -416,9 +510,6 @@ class FakeJujuClient:
 
     def get_config(self, service):
         pass
-
-    def get_model_config(self):
-        return copy.deepcopy(self._backing_state.model_config)
 
     def deployer(self, bundle, name=None):
         pass
@@ -438,7 +529,9 @@ class FakeJujuClient:
 
     def restore_backup(self, backup_file):
         self._require_admin('restore')
-        if len(self._backing_state.state_servers) > 0:
+        model_state = self._backend.controller_state.models[
+            self.env.environment]
+        if len(model_state.state_servers) > 0:
             exc = subprocess.CalledProcessError('Operation not permitted', 1,
                                                 2)
             exc.stderr = 'Operation not permitted'
@@ -454,8 +547,10 @@ class FakeJujuClient:
         return self.get_controller_members()[0]
 
     def get_controller_members(self):
+        model_state = self._backend.controller_state.models[
+            self.env.environment]
         return [Machine(s, {'instance-id': s})
-                for s in self._backing_state.state_servers]
+                for s in model_state.state_servers]
 
 
 class TestErroredUnit(TestCase):
@@ -1197,27 +1292,22 @@ class TestEnvJujuClient(ClientTest):
             '--config', 'config', '--default-model', 'foo',
             '--bootstrap-series', 'angsty'))
 
-    def test_create_environment_hypenated_controller(self):
-        self.do_create_environment(
+    def test_add_model_hypenated_controller(self):
+        self.do_add_model(
             'kill-controller', 'create-model', ('-c', 'foo'))
 
-    def do_create_environment(self, jes_command, create_cmd,
-                              controller_option):
+    def do_add_model(self, jes_command, create_cmd, controller_option):
         controller_client = EnvJujuClient(JujuData('foo'), None, None)
-        client = EnvJujuClient(JujuData('bar'), None, None)
+        model_data = JujuData('bar', {'type': 'foo'})
+        client = EnvJujuClient(model_data, None, None)
         with patch.object(client, 'get_jes_command',
                           return_value=jes_command):
-            with patch.object(client, 'juju') as juju_mock:
                 with patch.object(controller_client, 'juju') as ccj_mock:
-                    client.create_environment(controller_client, 'temp')
-        if juju_mock.call_count == 0:
-            ccj_mock.assert_called_once_with(
-                create_cmd, controller_option + ('bar', '--config', 'temp'),
-                include_e=False)
-        else:
-            juju_mock.assert_called_once_with(
-                create_cmd, controller_option + ('bar', '--config', 'temp'),
-                include_e=False)
+                    with observable_temp_file() as config_file:
+                        controller_client.add_model(model_data)
+        ccj_mock.assert_called_once_with(
+            create_cmd, controller_option + (
+                'bar', '--config', config_file.name), include_e=False)
 
     def test_destroy_environment(self):
         env = JujuData('foo')
@@ -1412,9 +1502,9 @@ class TestEnvJujuClient(ClientTest):
         env = EnvJujuClient(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         with patch.object(env, 'juju') as mock_juju:
-            env.deploy('mondogb', '/home/jrandom/repo')
+            env.deploy('/home/jrandom/repo/mongodb')
         mock_juju.assert_called_with(
-            'deploy', ('mondogb', '--repository', '/home/jrandom/repo'))
+            'deploy', ('/home/jrandom/repo/mongodb',))
 
     def test_deploy_to(self):
         env = EnvJujuClient(
@@ -1432,6 +1522,21 @@ class TestEnvJujuClient(ClientTest):
         mock_juju.assert_called_with(
             'deploy', ('local:mondogb', 'my-mondogb',))
 
+    def test_deploy_force(self):
+        env = EnvJujuClient(
+            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.deploy('local:mondogb', force=True)
+        mock_juju.assert_called_with('deploy', ('local:mondogb', '--force',))
+
+    def test_deploy_series(self):
+        env = EnvJujuClient(
+            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.deploy('local:blah', series='xenial')
+        mock_juju.assert_called_with(
+            'deploy', ('local:blah', '--series', 'xenial'))
+
     def test_deploy_bundle_2x(self):
         client = EnvJujuClient(JujuData('an_env', None),
                                '1.23-series-arch', None)
@@ -1447,6 +1552,16 @@ class TestEnvJujuClient(ClientTest):
             client.deploy_bundle('bundle:~juju-qa/some-{container}-bundle')
         mock_juju.assert_called_with(
             'deploy', ('bundle:~juju-qa/some-lxd-bundle'), timeout=3600)
+
+    def test_upgrade_charm(self):
+        env = EnvJujuClient(
+            JujuData('foo', {'type': 'local'}), '2.34-74', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.upgrade_charm('foo-service',
+                              '/bar/repository/angsty/mongodb')
+        mock_juju.assert_called_once_with(
+            'upgrade-charm', ('foo-service', '--path',
+                              '/bar/repository/angsty/mongodb',))
 
     def test_remove_service(self):
         env = EnvJujuClient(
@@ -2474,26 +2589,27 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(flattened_timings, expected)
 
     def test_deployer(self):
-        client = EnvJujuClient(JujuData(None, {'type': 'local'}),
+        client = EnvJujuClient(JujuData('foo', {'type': 'local'}),
                                '1.23-series-arch', None)
         with patch.object(EnvJujuClient, 'juju') as mock:
             client.deployer('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
-            'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
-                         '3600', '--config', 'bundle:~juju-qa/some-bundle'),
-            True
+            'deployer', ('-e', 'local.foo:foo', '--debug', '--deploy-delay',
+                         '10', '--timeout', '3600', '--config',
+                         'bundle:~juju-qa/some-bundle'),
+            True, include_e=False
         )
 
     def test_deployer_with_bundle_name(self):
-        client = EnvJujuClient(JujuData(None, {'type': 'local'}),
-                               '1.23-series-arch', None)
+        client = EnvJujuClient(JujuData('foo', {'type': 'local'}),
+                               '2.0.0-series-arch', None)
         with patch.object(EnvJujuClient, 'juju') as mock:
             client.deployer('bundle:~juju-qa/some-bundle', 'name')
         mock.assert_called_with(
-            'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
-                         '3600', '--config', 'bundle:~juju-qa/some-bundle',
-                         'name'),
-            True
+            'deployer', ('-e', 'local.foo:foo', '--debug', '--deploy-delay',
+                         '10', '--timeout', '3600', '--config',
+                         'bundle:~juju-qa/some-bundle', 'name'),
+            True, include_e=False
         )
 
     def test_quickstart_maas(self):
@@ -2700,6 +2816,14 @@ class TestEnvJujuClient(ClientTest):
         with self.assertRaises(ValueError) as ctx:
             client.enable_feature('nomongo')
         self.assertEqual(str(ctx.exception), "Unknown feature flag: 'nomongo'")
+
+    def test_is_juju1x(self):
+        client = EnvJujuClient(None, '1.25.5', None)
+        self.assertTrue(client.is_juju1x())
+
+    def test_is_juju1x_false(self):
+        client = EnvJujuClient(None, '2.0.0', None)
+        self.assertFalse(client.is_juju1x())
 
 
 class TestEnvJujuClient2B2(ClientTest):
@@ -3167,16 +3291,17 @@ class TestEnvJujuClient1X(ClientTest):
 
     def do_create_environment(self, jes_command, create_cmd,
                               controller_option):
-        controller_client = EnvJujuClient1X(SimpleEnvironment('foo'), None,
+        controller_client = EnvJujuClient1X(SimpleEnvironment('foo'), '1.26.1',
                                             None)
-        client = EnvJujuClient1X(SimpleEnvironment('bar'), None, None)
-        with patch.object(client, 'get_jes_command',
+        model_env = SimpleEnvironment('bar', {'type': 'foo'})
+        with patch.object(controller_client, 'get_jes_command',
                           return_value=jes_command):
-            with patch.object(client, 'juju') as juju_mock:
-                client.create_environment(controller_client, 'temp')
+            with patch.object(controller_client, 'juju') as juju_mock:
+                with observable_temp_file() as config_file:
+                    controller_client.add_model(model_env)
         juju_mock.assert_called_once_with(
-            create_cmd, controller_option + ('bar', '--config', 'temp'),
-            include_e=False)
+            create_cmd, controller_option + (
+                'bar', '--config', config_file.name), include_e=False)
 
     def test_destroy_environment_non_sudo(self):
         env = SimpleEnvironment('foo')
@@ -3444,6 +3569,16 @@ class TestEnvJujuClient1X(ClientTest):
             env.deploy('local:mondogb', service='my-mondogb')
         mock_juju.assert_called_with(
             'deploy', ('local:mondogb', 'my-mondogb',))
+
+    def test_upgrade_charm(self):
+        client = EnvJujuClient1X(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(client, 'juju') as mock_juju:
+            client.upgrade_charm('foo-service',
+                                 '/bar/repository/angsty/mongodb')
+        mock_juju.assert_called_once_with(
+            'upgrade-charm', ('foo-service', '--repository',
+                              '/bar/repository',))
 
     def test_remove_service(self):
         env = EnvJujuClient1X(
