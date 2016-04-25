@@ -995,13 +995,22 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 	}
 	var env *maasEnviron
 	controller := &fakeController{
-		allocateMachine: &fakeMachine{
-			systemID:     "Bruce Sterling",
+		machines: []gomaasapi.Machine{&fakeMachine{
+			systemID:     "1",
 			architecture: arch.HostArch(),
-			interfaceSet: exampleInterfaces,
-		},
+			interfaceSet: interfaces,
+		}},
 		allocateMachineMatches: gomaasapi.ConstraintMatches{
 			Storage: map[string]gomaasapi.BlockDevice{},
+		},
+		spaces: []gomaasapi.Space{
+			fakeSpace{
+				name: "freckles",
+				id:   4567,
+				subnets: []gomaasapi.Subnet{
+					fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "10.20.19.0/24"},
+				},
+			},
 		},
 	}
 	suite.injectController(controller)
