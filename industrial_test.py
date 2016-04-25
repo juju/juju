@@ -901,15 +901,21 @@ class AttemptSuite(SteppedStageAttempt):
                     for attempt in attempts:
                         for result in attempt.iter_steps(client):
                             yield result
-                        # If the last step of a SteppedStageAttempt is False, stop
+                        # If the last step of a SteppedStageAttempt is False,
+                        # stop
                         if result['result'] is False:
                             return
-                    # We don't want BootstrapManager.tear_down to run-- we want
-                    # DesstroyEnvironmentAttempt.  But we do need BootstrapManager
-                    # to finish up before we run DestroyEnvironmentAttempt.
+                # We don't want BootstrapManager.tear_down to run-- we
+                # want DestroyEnvironmentAttempt.  But we do need
+                # BootstrapManager to finish up before we run
+                # DestroyEnvironmentAttempt, so we do this outside
+                # runtime_context.
                 for result in DestroyEnvironmentAttempt().iter_steps(client):
                     yield result
             except:
+                # If we get here, DestroyEnvironmentAttempt either failed or
+                # never ran.  Do a manual teardown to leave the environment
+                # clean.
                 bs_manager.tear_down()
                 raise
 
