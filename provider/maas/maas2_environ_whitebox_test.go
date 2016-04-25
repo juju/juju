@@ -957,3 +957,96 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 	}
 	c.Assert(result.NetworkInfo, jc.DeepEquals, expected)
 }
+
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C) {
+	vlan0 := fakeVLAN{
+		id:  5001,
+		vid: 0,
+		mtu: 1500,
+	}
+	subnetPXE := fakeSubnet{
+		id:         3,
+		space:      "default",
+		vlan:       vlan0,
+		gateway:    "10.20.19.2",
+		cidr:       "10.20.19.0/24",
+		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
+	}
+
+	interfaces := []gomaasapi.Interface{
+		&fakeInterface{
+			id:         91,
+			name:       "eth0",
+			type_:      "physical",
+			enabled:    true,
+			macAddress: "52:54:00:70:9b:fe",
+			vlan:       vlan0,
+			links: []gomaasapi.Link{
+				&fakeLink{
+					id:        436,
+					subnet:    &subnetPXE,
+					ipAddress: "10.20.19.103",
+					mode:      "static",
+				},
+			},
+			parents:  []string{},
+			children: []string{"eth0.100", "eth0.250", "eth0.50"},
+		},
+	}
+	var env *maasEnviron
+	controller := &fakeController{
+		allocateMachine: &fakeMachine{
+			systemID:     "Bruce Sterling",
+			architecture: arch.HostArch(),
+			interfaceSet: exampleInterfaces,
+		},
+		allocateMachineMatches: gomaasapi.ConstraintMatches{
+			Storage: map[string]gomaasapi.BlockDevice{},
+		},
+	}
+	suite.injectController(controller)
+	suite.setupFakeTools(c)
+	env = suite.makeEnviron(c, nil)
+
+	prepared := []network.InterfaceInfo{{
+		DeviceIndex:       0,
+		MACAddress:        "52:54:00:70:9b:fe",
+		CIDR:              "10.20.19.0/24",
+		ProviderId:        "91",
+		ProviderSubnetId:  "3",
+		VLANTag:           0,
+		ProviderVLANId:    "5001",
+		ProviderAddressId: "436",
+		InterfaceName:     "eth0",
+		InterfaceType:     "ethernet",
+		ConfigType:        "static",
+		Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
+		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+		MTU:               1500,
+		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+	}}
+	result, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []network.InterfaceInfo{{
+		DeviceIndex:       0,
+		MACAddress:        "52:54:00:70:9b:fe",
+		CIDR:              "10.20.19.0/24",
+		ProviderId:        "91",
+		ProviderSubnetId:  "3",
+		AvailabilityZones: nil,
+		VLANTag:           0,
+		ProviderVLANId:    "5001",
+		ProviderAddressId: "436",
+		InterfaceName:     "eth0",
+		InterfaceType:     "ethernet",
+		Disabled:          false,
+		NoAutoStart:       false,
+		ConfigType:        "static",
+		Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
+		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+		DNSSearchDomains:  nil,
+		MTU:               1500,
+		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+	}}
+	c.Assert(result, jc.DeepEquals, expected)
+}
