@@ -36,6 +36,7 @@ from __future__ import print_function
 import argparse
 from collections import namedtuple
 import logging
+import os
 import subprocess
 import sys
 
@@ -43,6 +44,7 @@ from deploy_stack import BootstrapManager
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    local_charm_path,
     make_charm,
     temp_dir,
 )
@@ -55,7 +57,8 @@ __metaclass__ = type
 log = logging.getLogger("assess_multi_series_charms")
 
 
-Test = namedtuple("Test", ["series", "service", "force", "success", "machine"])
+Test = namedtuple("Test", ["series", "service", "force", "success", "machine",
+                           "juju1x_supported"])
 
 
 def assess_multi_series_charms(client):
@@ -67,28 +70,38 @@ def assess_multi_series_charms(client):
     """
     tests = [
         Test(series="precise", service='test0', force=False, success=False,
-             machine=None),
+             machine=None, juju1x_supported=False),
         Test(series=None, service='test1', force=False, success=True,
-             machine='0'),
+             machine='0', juju1x_supported=True),
         Test(series="trusty", service='test2', force=False, success=True,
-             machine='1'),
+             machine='1', juju1x_supported=True),
         Test(series="xenial", service='test3', force=False, success=True,
-             machine='2'),
+             machine='2', juju1x_supported=False),
         Test(series="precise", service='test4', force=True, success=True,
-             machine='3'),
+             machine='3', juju1x_supported=False),
     ]
-    with temp_dir() as charm_dir:
-        make_charm(charm_dir, series=['trusty', 'xenial'])
+    with temp_dir() as repository:
+        charm_name = 'dummy'
+        charm_dir = os.path.join(repository, 'trusty', charm_name)
+        os.makedirs(charm_dir)
+        make_charm(
+            charm_dir, min_ver=None, series=['trusty', 'xenial'],
+            name=charm_name)
+        charm_path = local_charm_path(
+            charm=charm_name, juju_ver=client.version, series='trusty',
+            repository=os.path.dirname(charm_dir))
         for test in tests:
+            if client.is_juju1x() and not test.juju1x_supported:
+                continue
             log.info(
                 "Assessing multi series charms: test: {} charm_dir:{}".format(
-                    test, charm_dir))
-            assert_deploy(client, test, charm_dir)
+                    test, charm_path))
+            assert_deploy(client, test, charm_path, repository=repository)
             if test.machine:
                 check_series(client, machine=test.machine, series=test.series)
 
 
-def assert_deploy(client, test, charm_dir):
+def assert_deploy(client, test, charm_path, repository=None):
     """Deploy a charm and assert a success or fail.
 
     :param client: Juju client
@@ -97,16 +110,20 @@ def assert_deploy(client, test, charm_dir):
     :type  test: Test
     :param charm_dir:
     :type charm_dir: str
+    :param repository: Direcotry path to the repository
+    :type repository: str
     :return: None
     """
     if test.success:
-        client.deploy(charm=charm_dir, series=test.series,
-                      service=test.service, force=test.force)
+        client.deploy(charm=charm_path, series=test.series,
+                      service=test.service, force=test.force,
+                      repository=repository)
         client.wait_for_started()
     else:
         try:
-            client.deploy(charm=charm_dir, series=test.series,
-                          service=test.service, force=test.force)
+            client.deploy(charm=charm_path, series=test.series,
+                          service=test.service, force=test.force,
+                          repository=repository)
         except subprocess.CalledProcessError:
             return
         raise JujuAssertionError('Assert deploy failed for {}'.format(test))
