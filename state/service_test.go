@@ -2049,25 +2049,6 @@ func (s *ServiceSuite) TestOwnerTagSchemaProtection(c *gc.C) {
 	c.Assert(service.GetOwnerTag(), gc.Equals, "user-admin")
 }
 
-func (s *ServiceSuite) TestNetworks(c *gc.C) {
-	service, err := s.State.Service(s.mysql.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	networks, err := service.Networks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(networks, gc.HasLen, 0)
-}
-
-func (s *ServiceSuite) TestNetworksOnService(c *gc.C) {
-	// TODO(dimitern): AddService now ignores networks, as they're deprecated
-	// and will be removed in a follow-up. Remove this test then as well.
-	networks := []string{"yes", "on"}
-	service := s.AddTestingServiceWithNetworks(c, "withnets", s.charm, networks)
-	requestedNetworks, err := service.Networks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(requestedNetworks, gc.HasLen, 0)
-	c.Check(requestedNetworks, gc.Not(gc.DeepEquals), networks)
-}
-
 func (s *ServiceSuite) TestMetricCredentials(c *gc.C) {
 	err := s.mysql.SetMetricCredentials([]byte("hello there"))
 	c.Assert(err, jc.ErrorIsNil)

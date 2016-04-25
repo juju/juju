@@ -635,14 +635,14 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 
 func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
 	addresses := []network.Address{{
-		Value:       "10.0.0.1",
-		Type:        network.IPv4Address,
-		NetworkName: "cloud",
-		Scope:       network.ScopeCloudLocal}, {
-		Value:       "8.8.8.8",
-		Type:        network.IPv4Address,
-		NetworkName: "public",
-		Scope:       network.ScopePublic}}
+		Value: "10.0.0.1",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
+	}, {
+		Value: "8.8.8.8",
+		Type:  network.IPv4Address,
+		Scope: network.ScopePublic,
+	}}
 
 	address := mongo.SelectPeerAddress(addresses)
 	c.Assert(address, gc.Equals, "10.0.0.1")
@@ -652,17 +652,15 @@ func (s *MongoSuite) TestSelectPeerHostPort(c *gc.C) {
 
 	hostPorts := []network.HostPort{{
 		Address: network.Address{
-			Value:       "10.0.0.1",
-			Type:        network.IPv4Address,
-			NetworkName: "cloud",
-			Scope:       network.ScopeCloudLocal,
+			Value: "10.0.0.1",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
 		},
 		Port: environs.DefaultStatePort}, {
 		Address: network.Address{
-			Value:       "8.8.8.8",
-			Type:        network.IPv4Address,
-			NetworkName: "public",
-			Scope:       network.ScopePublic,
+			Value: "8.8.8.8",
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
 		},
 		Port: environs.DefaultStatePort}}
 

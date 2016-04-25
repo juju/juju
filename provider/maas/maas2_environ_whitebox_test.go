@@ -329,7 +329,7 @@ func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
 	env := suite.injectControllerWithSpacesAndCheck(c, nil, gomaasapi.AllocateMachineArgs{})
 
 	params := environs.StartInstanceParams{}
-	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	result, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
 }
@@ -356,7 +356,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
 		Placement:   "zone=foo",
 		Constraints: constraints.MustParse("mem=8G"),
 	}
-	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	result, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("Bruce Sterling"))
 }
@@ -878,13 +878,12 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 	env = suite.makeEnviron(c, nil)
 
 	params := environs.StartInstanceParams{}
-	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	result, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
 		CIDR:              "10.20.19.0/24",
-		NetworkName:       "juju-private",
 		ProviderId:        "91",
 		ProviderSubnetId:  "3",
 		AvailabilityZones: nil,
@@ -901,12 +900,10 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:  nil,
 		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
-		ExtraConfig:       nil,
 	}, {
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
 		CIDR:              "10.20.19.0/24",
-		NetworkName:       "juju-private",
 		ProviderId:        "91",
 		ProviderSubnetId:  "3",
 		AvailabilityZones: nil,
@@ -923,12 +920,10 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:  nil,
 		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
-		ExtraConfig:       nil,
 	}, {
 		DeviceIndex:         1,
 		MACAddress:          "52:54:00:70:9b:fe",
 		CIDR:                "10.50.19.0/24",
-		NetworkName:         "juju-private",
 		ProviderId:          "150",
 		ProviderSubnetId:    "5",
 		AvailabilityZones:   nil,
@@ -946,7 +941,6 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
 		GatewayAddress:      network.NewAddressOnSpace("admin", "10.50.19.2"),
-		ExtraConfig:         nil,
 	},
 	}
 	c.Assert(result.NetworkInfo, jc.DeepEquals, expected)

@@ -6,6 +6,7 @@ package azure
 import (
 	"fmt"
 	"net/http"
+	"path"
 	"sort"
 	"strings"
 	"sync"
@@ -54,6 +55,11 @@ type azureEnviron struct {
 	// subscription that corresponds to the environment.
 	resourceGroup string
 
+	// controllerResourceGroup is the name of the Resource Group in the
+	// Azure subscription that corresponds to the Juju controller
+	// environment.
+	controllerResourceGroup string
+
 	// envName is the name of the environment.
 	envName string
 
@@ -80,6 +86,7 @@ func newEnviron(provider *azureEnvironProvider, cfg *config.Config) (*azureEnvir
 	}
 	modelTag := names.NewModelTag(cfg.UUID())
 	env.resourceGroup = resourceGroupName(modelTag, cfg.Name())
+	env.controllerResourceGroup = env.config.controllerResourceGroup
 	env.envName = cfg.Name()
 	return &env, nil
 }
@@ -115,11 +122,7 @@ func (env *azureEnviron) Bootstrap(
 // see subnet creation).
 func (env *azureEnviron) initResourceGroup() (*config.Config, error) {
 	location := env.config.location
-	tags := tags.ResourceTags(
-		names.NewModelTag(env.config.Config.UUID()),
-		names.NewModelTag(env.config.Config.ControllerUUID()),
-		env.config,
-	)
+	tags, _ := env.config.ResourceTags()
 	resourceGroupsClient := resources.GroupsClient{env.resources}
 
 	logger.Debugf("creating resource group %q", env.resourceGroup)
@@ -131,17 +134,29 @@ func (env *azureEnviron) initResourceGroup() (*config.Config, error) {
 		return nil, errors.Annotate(err, "creating resource group")
 	}
 
-	// Create an internal network for all VMs in the
-	// resource group to connect to.
-	vnetPtr, err := createInternalVirtualNetwork(
-		env.network, env.resourceGroup, location, tags,
-	)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating virtual network")
+	var vnetPtr *network.VirtualNetwork
+	if env.resourceGroup == env.controllerResourceGroup {
+		// Create an internal network for all VMs to connect to.
+		vnetPtr, err = createInternalVirtualNetwork(
+			env.network, env.controllerResourceGroup, location, tags,
+		)
+		if err != nil {
+			return nil, errors.Annotate(err, "creating virtual network")
+		}
+	} else {
+		// We're creating a hosted environment, so we need to fetch
+		// the virtual network to create a subnet below.
+		vnetClient := network.VirtualNetworksClient{env.network}
+		vnet, err := vnetClient.Get(env.controllerResourceGroup, internalNetworkName)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting virtual network")
+		}
+		vnetPtr = &vnet
 	}
 
 	_, err = createInternalSubnet(
-		env.network, env.resourceGroup, vnetPtr, location, tags,
+		env.network, env.resourceGroup, env.controllerResourceGroup,
+		vnetPtr, location, tags,
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating subnet")
@@ -223,7 +238,7 @@ func (env *azureEnviron) ControllerInstances() ([]instance.Id, error) {
 	// controllers are tagged with tags.JujuIsController, so just
 	// list the instances in the controller resource group and pick
 	// those ones out.
-	instances, err := env.allInstances(env.resourceGroup, true)
+	instances, err := env.allInstances(env.controllerResourceGroup, true)
 	if err != nil {
 		return nil, err
 	}
@@ -381,26 +396,19 @@ func (*azureEnviron) MaintainInstance(args environs.StartInstanceParams) error {
 
 // StartInstance is specified in the InstanceBroker interface.
 func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting instances with networks is not supported yet")
-	}
-
 	// Get the required configuration and config-dependent information
 	// required to create the instance. We take the lock just once, to
 	// ensure we obtain all information based on the same configuration.
 	env.mu.Lock()
 	location := env.config.location
-	envTags := tags.ResourceTags(
-		names.NewModelTag(env.config.Config.UUID()),
-		names.NewModelTag(env.config.Config.ControllerUUID()),
-		env.config,
-	)
+	envTags, _ := env.config.ResourceTags()
 	apiPort := env.config.APIPort()
 	vmClient := compute.VirtualMachinesClient{env.compute}
 	availabilitySetClient := compute.AvailabilitySetsClient{env.compute}
 	networkClient := env.network
 	vmImagesClient := compute.VirtualMachineImagesClient{env.compute}
 	vmExtensionClient := compute.VirtualMachineExtensionsClient{env.compute}
+	subscriptionId := env.config.subscriptionId
 	imageStream := env.config.ImageStream()
 	storageEndpoint := env.config.storageEndpoint
 	storageAccountName := env.config.storageAccount
@@ -470,13 +478,20 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 		apiPortPtr = &apiPort
 	}
 
+	// Construct the network security group ID for the environment.
+	nsgID := path.Join(
+		"/subscriptions", subscriptionId, "resourceGroups",
+		env.resourceGroup, "providers", "Microsoft.Network",
+		"networkSecurityGroups", internalSecurityGroupName,
+	)
+
 	vm, err := createVirtualMachine(
 		env.resourceGroup, location, vmName,
 		vmTags, envTags,
 		instanceSpec, args.InstanceConfig,
 		args.DistributionGroup,
 		env.Instances,
-		apiPortPtr, internalNetworkSubnet,
+		apiPortPtr, internalNetworkSubnet, nsgID,
 		storageEndpoint, storageAccountName,
 		networkClient, vmClient,
 		availabilitySetClient, vmExtensionClient,
@@ -519,7 +534,7 @@ func createVirtualMachine(
 	instancesFunc func([]instance.Id) ([]instance.Instance, error),
 	apiPort *int,
 	internalNetworkSubnet *network.Subnet,
-	storageEndpoint, storageAccountName string,
+	nsgID, storageEndpoint, storageAccountName string,
 	networkClient network.ManagementClient,
 	vmClient compute.VirtualMachinesClient,
 	availabilitySetClient compute.AvailabilitySetsClient,
@@ -541,7 +556,7 @@ func createVirtualMachine(
 
 	networkProfile, err := newNetworkProfile(
 		networkClient, vmName, apiPort,
-		internalNetworkSubnet,
+		internalNetworkSubnet, nsgID,
 		resourceGroup, location, vmTags,
 	)
 	if err != nil {
@@ -1043,9 +1058,15 @@ func (env *azureEnviron) Destroy() error {
 	if err := env.deleteResourceGroup(); err != nil {
 		return errors.Trace(err)
 	}
-	// Resource groups are self-contained and fully encompass
-	// all environ resources. Once you delete the group, there
-	// is nothing else to do.
+	if env.resourceGroup == env.controllerResourceGroup {
+		// This is the controller resource group; once it has been
+		// deleted, there's nothing left.
+		return nil
+	}
+	logger.Debugf("- deleting internal subnet")
+	if err := env.deleteInternalSubnet(); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -1143,8 +1164,8 @@ func (env *azureEnviron) getInstanceTypesLocked() (map[string]instances.Instance
 func (env *azureEnviron) getInternalSubnetLocked() (*network.Subnet, error) {
 	client := network.SubnetsClient{env.network}
 	vnetName := internalNetworkName
-	subnetName := internalSubnetName
-	subnet, err := client.Get(env.resourceGroup, vnetName, subnetName)
+	subnetName := env.resourceGroup
+	subnet, err := client.Get(env.controllerResourceGroup, vnetName, subnetName)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting internal subnet")
 	}

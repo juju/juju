@@ -511,7 +511,6 @@ func (task *provisionerTask) constructInstanceConfig(
 		pInfo.Series,
 		publicKey,
 		task.secureServerConnection,
-		nil,
 		stateInfo,
 		apiInfo,
 	)
@@ -714,7 +713,6 @@ func (task *provisionerTask) startMachine(
 	volumes := volumesToApiserver(result.Volumes)
 	volumeAttachments := volumeAttachmentsToApiserver(result.VolumeAttachments)
 
-	// TODO(dimitern) Bump provisioner API version.
 	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networkConfig, volumes, volumeAttachments)
 	if err == nil {
 		logger.Infof(
@@ -748,7 +746,6 @@ func assocProvInfoAndMachCfg(
 	instanceConfig *instancecfg.InstanceConfig,
 ) *provisioningInfo {
 
-	instanceConfig.Networks = provInfo.Networks
 	instanceConfig.Tags = provInfo.Tags
 
 	if len(provInfo.Jobs) > 0 {

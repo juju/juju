@@ -40,6 +40,7 @@ func (s *environProviderSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environProviderSuite) TestBootstrapConfigWithInternalConfig(c *gc.C) {
+	s.testBootstrapConfigWithInternalConfig(c, "controller-resource-group")
 	s.testBootstrapConfigWithInternalConfig(c, "storage-account")
 }
 
@@ -67,8 +68,11 @@ func fakeUserPassCredential() cloud.Credential {
 
 func (s *environProviderSuite) TestBootstrapConfig(c *gc.C) {
 	cfg := makeTestModelConfig(c)
+	cfg, err := cfg.Remove([]string{"controller-resource-group"})
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.sender = azuretesting.Senders{tokenRefreshSender()}
-	cfg, err := s.provider.BootstrapConfig(environs.BootstrapConfigParams{
+	cfg, err = s.provider.BootstrapConfig(environs.BootstrapConfigParams{
 		Config:               cfg,
 		CloudRegion:          "westus",
 		CloudEndpoint:        "https://api.azurestack.local",
@@ -78,10 +82,11 @@ func (s *environProviderSuite) TestBootstrapConfig(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cfg, gc.NotNil)
 
-	attrs := cfg.UnknownAttrs()
-	c.Assert(attrs["location"], gc.Equals, "westus")
-	c.Assert(attrs["endpoint"], gc.Equals, "https://api.azurestack.local")
-	c.Assert(attrs["storage-endpoint"], gc.Equals, "https://storage.azurestack.local")
+	c.Assert(
+		cfg.UnknownAttrs()["controller-resource-group"],
+		gc.Equals,
+		"juju-testenv-model-"+testing.ModelTag.Id(),
+	)
 }
 
 func newProviders(c *gc.C, config azure.ProviderConfig) (environs.EnvironProvider, storage.Provider) {

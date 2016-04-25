@@ -113,35 +113,8 @@ func StartInstanceWithConstraints(
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
-	return StartInstanceWithConstraintsAndNetworks(env, machineId, cons, nil)
-}
-
-// AssertStartInstanceWithNetworks is a test helper function that starts an
-// instance with the given networks, and a plausible but invalid
-// configuration, and returns the result of Environ.StartInstance.
-func AssertStartInstanceWithNetworks(
-	c *gc.C, env environs.Environ, machineId string, cons constraints.Value,
-	networks []string,
-) (
-	instance.Instance, *instance.HardwareCharacteristics,
-) {
-	inst, hc, _, err := StartInstanceWithConstraintsAndNetworks(
-		env, machineId, cons, networks)
-	c.Assert(err, jc.ErrorIsNil)
-	return inst, hc
-}
-
-// StartInstanceWithConstraintsAndNetworks is a test helper function that
-// starts an instance with the given networks, and a plausible but invalid
-// configuration, and returns the result of Environ.StartInstance.
-func StartInstanceWithConstraintsAndNetworks(
-	env environs.Environ, machineId string, cons constraints.Value,
-	networks []string,
-) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
-) {
 	params := environs.StartInstanceParams{Constraints: cons}
-	result, err := StartInstanceWithParams(env, machineId, params, networks)
+	result, err := StartInstanceWithParams(env, machineId, params)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
@@ -155,7 +128,6 @@ func StartInstanceWithConstraintsAndNetworks(
 func StartInstanceWithParams(
 	env environs.Environ, machineId string,
 	params environs.StartInstanceParams,
-	networks []string,
 ) (
 	*environs.StartInstanceResult, error,
 ) {
@@ -198,7 +170,6 @@ func StartInstanceWithParams(
 		preferredSeries,
 		"",
 		true,
-		networks,
 		stateInfo,
 		apiInfo,
 	)

@@ -29,10 +29,7 @@ type DeployServiceParams struct {
 	NumUnits       int
 	// Placement is a list of placement directives which may be used
 	// instead of a machine spec.
-	Placement []*instance.Placement
-	// Networks holds a list of networks to required to start on boot.
-	// TODO(dimitern): Drop this in a follow-up in favor of constraints.
-	Networks         []string
+	Placement        []*instance.Placement
 	Storage          map[string]storage.Constraints
 	EndpointBindings map[string]string
 	// Resources is a map of resource name to IDs of pending resources.
@@ -68,10 +65,6 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 	// TODO(fwereade): transactional State.AddService including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 
-	if len(args.Networks) > 0 || args.Constraints.HaveNetworks() {
-		return nil, fmt.Errorf("use of --networks is deprecated. Please use spaces")
-	}
-
 	effectiveBindings := getEffectiveBindingsForCharmMeta(args.Charm.Meta(), args.EndpointBindings)
 
 	asa := state.AddServiceArgs{
@@ -80,7 +73,6 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 		Owner:            args.ServiceOwner,
 		Charm:            args.Charm,
 		Channel:          args.Channel,
-		Networks:         args.Networks,
 		Storage:          stateStorageConstraints(args.Storage),
 		Settings:         settings,
 		NumUnits:         args.NumUnits,
@@ -93,8 +85,6 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 		asa.Constraints = args.Constraints
 	}
 
-	// TODO(dimitern): In a follow-up drop Networks and use spaces
-	// constraints for this when possible.
 	return st.AddService(asa)
 }
 
@@ -127,11 +117,6 @@ func AddUnits(st *state.State, svc *state.Service, n int, placement []*instance.
 	units := make([]*state.Unit, n)
 	// Hard code for now till we implement a different approach.
 	policy := state.AssignCleanEmpty
-	// All units should have the same networks as the service.
-	networks, err := svc.Networks()
-	if err != nil {
-		return nil, errors.Errorf("cannot get service %q networks", svc.Name())
-	}
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
 		unit, err := svc.AddUnit()
@@ -146,7 +131,7 @@ func AddUnits(st *state.State, svc *state.Service, n int, placement []*instance.
 			units[i] = unit
 			continue
 		}
-		if err := st.AssignUnitWithPlacement(unit, placement[i], networks); err != nil {
+		if err := st.AssignUnitWithPlacement(unit, placement[i]); err != nil {
 			return nil, errors.Annotatef(err, "adding new machine to host unit %q", unit.Name())
 		}
 		units[i] = unit

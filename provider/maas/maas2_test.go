@@ -448,7 +448,7 @@ type fakeBlockDevice struct {
 	gomaasapi.BlockDevice
 	name string
 	path string
-	size int
+	size uint64
 }
 
 func (bd fakeBlockDevice) Name() string {
@@ -459,6 +459,6 @@ func (bd fakeBlockDevice) Path() string {
 	return bd.path
 }
 
-func (bd fakeBlockDevice) Size() int {
+func (bd fakeBlockDevice) Size() uint64 {
 	return bd.size
 }

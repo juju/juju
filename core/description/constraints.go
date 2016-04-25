@@ -20,7 +20,6 @@ type ConstraintsArgs struct {
 
 	Spaces []string
 	Tags   []string
-	// TODO: confirm networks not needed
 }
 
 func newConstraints(args ConstraintsArgs) *constraints {
