@@ -142,18 +142,6 @@ func NewAddress(value string) Address {
 	return NewScopedAddress(value, ScopeUnknown)
 }
 
-// NewScopedNamedAddress creates a new Address, deriving its type from the value.
-// TODO(dooferlad): Once NetworkName has gone strip that out and rename to
-// NewScopedAddressWithoutDeriveScope (better names may be available).
-func NewScopedNamedAddress(value, _ string, scope Scope) Address {
-	addr := Address{
-		Value: value,
-		Type:  DeriveAddressType(value),
-		Scope: scope,
-	}
-	return addr
-}
-
 // NewScopedAddress creates a new Address, deriving its type from the
 // value.
 //
