@@ -732,7 +732,7 @@ def fake_EnvJujuClient(env, path=None, debug=None):
 
 class FakeBootstrapManager:
 
-    def __init__(self, client):
+    def __init__(self, client, keep_env=False):
         self.client = client
         self.tear_down_client = client
         self.entered_top = False
@@ -744,6 +744,7 @@ class FakeBootstrapManager:
         self.torn_down = False
         self.permanent = False
         self.known_hosts = {'0': '0.example.org'}
+        self.keep_env = keep_env
 
     @contextmanager
     def top_context(self):
@@ -772,12 +773,13 @@ class FakeBootstrapManager:
             self.entered_runtime = True
             yield
         finally:
-            self.tear_down()
+            if not self.keep_env:
+                self.tear_down()
             self.exited_runtime = True
 
     def tear_down(self):
         self.tear_down_client.destroy_environment()
-        self.tear_down_client.torn_down = True
+        self.torn_down = True
 
     @contextmanager
     def booted_context(self, upload_tools):

@@ -272,9 +272,12 @@ class FakeStepAttempt:
     def iter_steps(self, client):
         yield self.stage.as_result()
         if self.new_path is not None and client.full_path == self.new_path:
-            yield self.stage.as_result(self.result[0][2])
+            result_value = self.result[0][2]
         else:
-            yield self.stage.as_result(self.result[0][1])
+            result_value = self.result[0][1]
+        if isinstance(result_value, BaseException):
+            raise result_value
+        yield self.stage.as_result(result_value)
 
 
 class FakeAttemptClass:
@@ -2177,3 +2180,16 @@ class TestAttemptSuite(TestCase):
             {'test_id': 'substrate-clean'},
             {'test_id': 'substrate-clean', 'result': True},
             ], steps)
+
+    def test__iter_bs_manager_steps_teardown_in_runtime(self):
+        fake_bootstrap = FakeAttemptClass('fake-bootstrap', '1', '2')
+        fake_1 = FakeAttemptClass('fake-1', Exception('fake exception'), '2')
+        factory = AttemptSuiteFactory([fake_1],
+                                      bootstrap_attempt=fake_bootstrap)
+        attempt_suite = AttemptSuite(factory, None, None, None)
+        client = FakeJujuClient()
+        bs_manager = FakeBootstrapManager(client, keep_env=True)
+        with self.assertRaisesRegexp(Exception, 'fake exception'):
+            list(attempt_suite._iter_bs_manager_steps(
+                bs_manager, client, fake_bootstrap(), True))
+        self.assertIs(True, bs_manager.torn_down)
