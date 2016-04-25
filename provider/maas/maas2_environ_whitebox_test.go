@@ -1056,3 +1056,24 @@ func (suite *maas2EnvironSuite) TestControllerInstancesFailsIfNoStateInstances(c
 	_, err := env.ControllerInstances()
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
+
+func (suite *maas2EnvironSuite) TestDestroy(c *gc.C) {
+	file1 := &fakeFile{name: "agent-prefix-provider-state"}
+	file2 := &fakeFile{name: "agent-prefix-horace"}
+	controller := newFakeControllerWithFiles(file1, file2)
+	controller.machines = []gomaasapi.Machine{&fakeMachine{systemID: "pete"}}
+	env := suite.makeEnviron(c, controller)
+	err := env.Destroy()
+	c.Check(err, jc.ErrorIsNil)
+
+	controller.Stub.CheckCallNames(c, "ReleaseMachines", "GetFile", "Files", "GetFile", "GetFile")
+	// Instances have been stopped.
+	controller.Stub.CheckCall(c, 0, "ReleaseMachines", gomaasapi.ReleaseMachinesArgs{
+		SystemIDs: []string{"pete"},
+		Comment:   "Released by Juju MAAS provider",
+	})
+
+	// Files have been cleaned up.
+	c.Check(file1.deleted, jc.IsTrue)
+	c.Check(file2.deleted, jc.IsTrue)
+}
