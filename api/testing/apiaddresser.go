@@ -49,7 +49,6 @@ func (s *APIAddresserTests) TestAPIHostPorts(c *gc.C) {
 	ipv6Addr := network.NewScopedAddress(
 		"2001:DB8::1", network.ScopeCloudLocal,
 	)
-	ipv6Addr.NetworkName = "someNetwork"
 	expectServerAddrs := [][]network.HostPort{
 		network.NewHostPorts(999, "0.1.2.24"),
 		network.NewHostPorts(1234, "example.com"),

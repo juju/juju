@@ -460,7 +460,6 @@ func (i *importer) makeAddress(addr description.Address) address {
 	return address{
 		Value:       addr.Value(),
 		AddressType: addr.Type(),
-		NetworkName: addr.NetworkName(),
 		Scope:       addr.Scope(),
 		Origin:      addr.Origin(),
 	}

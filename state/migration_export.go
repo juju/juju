@@ -338,11 +338,10 @@ func (e *exporter) newAddressArgsSlice(a []address) []description.AddressArgs {
 
 func (e *exporter) newAddressArgs(a address) description.AddressArgs {
 	return description.AddressArgs{
-		Value:       a.Value,
-		Type:        a.AddressType,
-		NetworkName: a.NetworkName,
-		Scope:       a.Scope,
-		Origin:      a.Origin,
+		Value:  a.Value,
+		Type:   a.AddressType,
+		Scope:  a.Scope,
+		Origin: a.Origin,
 	}
 }
 
