@@ -4,7 +4,7 @@ This tutorial will show you how to get started with Juju, including installing, 
 
 * An Ubuntu, Windows or OSX machine to install the client on.
 
-* An environment which can provide a new server with an Ubuntu cloud operating system image on-demand. This includes services such as Microsoft Azure, Amazon EC2, HP Cloud, or an OpenStack installation.
+* An environment which can provide a new server with an Ubuntu cloud operating system image on-demand. This includes services such as Microsoft Azure, Amazon EC2, or an OpenStack installation.
 
 * An SSH key-pair. Juju expects to find ssh keys called id_rsa and id_rsa.pub in a .ssh folder in your home directory.
 

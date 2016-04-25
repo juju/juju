@@ -52,11 +52,11 @@ var providerInstance environProvider
 
 var makeServiceURL = client.AuthenticatingClient.MakeServiceURL
 
-// Use shortAttempt to poll for short-term events.
-// TODO: This was kept to a long timeout because Nova needs more time than EC2.
-// For example, HP Cloud takes around 9.1 seconds (10 samples) to return a
-// BUILD(spawning) status. But storage delays are handled separately now, and
+// TODO: shortAttempt was kept to a long timeout because Nova needs
+// more time than EC2.  Storage delays are handled separately now, and
 // perhaps other polling attempts can time out faster.
+
+// shortAttempt is used when polling for short-term events in tests.
 var shortAttempt = utils.AttemptStrategy{
 	Total: 15 * time.Second,
 	Delay: 200 * time.Millisecond,
@@ -199,7 +199,7 @@ hpcloud:
     #
     # auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
 
-    # region holds the HP Cloud region (e.g. region-a.geo-1). It
+    # region holds the cloud region (e.g. region-a.geo-1). It
     # defaults to the environment variable OS_REGION_NAME.
     #
     # region: <your region>

@@ -7,7 +7,6 @@ const (
 	LocalProvider     = helpProviderStart + helpLocalProvider + helpProviderEnd
 	OpenstackProvider = helpProviderStart + helpOpenstackProvider + helpProviderEnd
 	EC2Provider       = helpProviderStart + helpEC2Provider + helpProviderEnd
-	HPCloud           = helpProviderStart + helpHPCloud + helpProviderEnd
 	AzureProvider     = helpProviderStart + helpAzureProvider + helpProviderEnd
 	MAASProvider      = helpProviderStart + helpMAASProvider + helpProviderEnd
 )
@@ -189,24 +188,6 @@ More information:
   https://juju.ubuntu.com/docs/getting-started.html
   https://juju.ubuntu.com/docs/provider-configuration-ec2.html
   http://askubuntu.com/questions/225513/how-do-i-configure-juju-to-use-amazon-web-services-aws
-`
-
-const helpHPCloud = `
-HP Cloud is an Openstack cloud provider.  To deploy to it, use an openstack
-environment type for Juju, which would look something like this:
-
-  sample_hpcloud:
-    type: openstack
-    tenant-name: "juju-project1"
-    auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
-    auth-mode: userpass
-    username: "xxxyour-hpcloud-usernamexxx"
-    password: "xxxpasswordxxx"
-    region: az-1.region-a.geo-1
-
-See the online help for more information:
-
-  https://juju.ubuntu.com/docs/config-hpcloud.html
 `
 
 const helpAzureProvider = `
