@@ -122,6 +122,7 @@ func (dl *Download) run(req Request) {
 	}
 	select {
 	case dl.done <- status:
+		// no-op
 	case <-dl.tomb.Dying():
 		cleanTempFile(file)
 	}
