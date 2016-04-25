@@ -24,7 +24,7 @@ var usageListCredentialsSummary = `
 Lists credentials for a cloud.`[1:]
 
 var usageListCredentialsDetails = `
-Credentials are used with `[1:] + "`juju bootstrap`" + `  and ` + "`juju create-model`" + `.
+Credentials are used with `[1:] + "`juju bootstrap`" + `  and ` + "`juju add-model`" + `.
 An arbitrary "credential name" is used to represent credentials, which are 
 added either via ` + "`juju add-credential` or `juju autoload-credentials`" + `.
 Note that there can be multiple sets of credentials and thus multiple 

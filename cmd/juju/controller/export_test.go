@@ -28,23 +28,23 @@ func NewShowControllerCommandForTest(testStore jujuclient.ClientStore) *showCont
 	}
 }
 
-type CreateModelCommand struct {
-	*createModelCommand
+type AddModelCommand struct {
+	*addModelCommand
 }
 
-// NewCreateModelCommandForTest returns a CreateModelCommand with
+// NewAddModelCommandForTest returns a AddModelCommand with
 // the api provided as specified.
-func NewCreateModelCommandForTest(
+func NewAddModelCommandForTest(
 	api CreateModelAPI,
 	store jujuclient.ClientStore,
 	credentialStore jujuclient.CredentialStore,
-) (cmd.Command, *CreateModelCommand) {
-	c := &createModelCommand{
+) (cmd.Command, *AddModelCommand) {
+	c := &addModelCommand{
 		api:             api,
 		credentialStore: credentialStore,
 	}
 	c.SetClientStore(store)
-	return modelcmd.WrapController(c), &CreateModelCommand{c}
+	return modelcmd.WrapController(c), &AddModelCommand{c}
 }
 
 // NewListModelsCommandForTest returns a ListModelsCommand with the API

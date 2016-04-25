@@ -141,8 +141,8 @@ Confirm password:
 
 Welcome, bob. You are now logged into "controller-name".
 
-There are no models available. You can create models with
-"juju create-model", or you can ask an administrator or owner
+There are no models available. You can add models with
+"juju add-model", or you can ask an administrator or owner
 of a model to grant access to that model with "juju grant".
 
 `[1:])
