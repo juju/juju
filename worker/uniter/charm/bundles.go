@@ -85,8 +85,6 @@ func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struc
 	if err := os.MkdirAll(d.path, 0755); err != nil {
 		return errors.Trace(err)
 	}
-	// We must make sure that the file is closed by this point since
-	// renaming an open file is not possible on Windows
 	if err := os.Rename(filename, target); err != nil {
 		return errors.Trace(err)
 	}
