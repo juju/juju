@@ -994,11 +994,16 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 		},
 	}
 	var env *maasEnviron
+	device := &fakeDevice{
+		interfaceSet: interfaces,
+		systemID:     "foo",
+	}
 	controller := &fakeController{
 		machines: []gomaasapi.Machine{&fakeMachine{
 			systemID:     "1",
 			architecture: arch.HostArch(),
 			interfaceSet: interfaces,
+			createDevice: device,
 		}},
 		allocateMachineMatches: gomaasapi.ConstraintMatches{
 			Storage: map[string]gomaasapi.BlockDevice{},
@@ -1012,6 +1017,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 				},
 			},
 		},
+		devices: []gomaasapi.Device{device},
 	}
 	suite.injectController(controller)
 	suite.setupFakeTools(c)

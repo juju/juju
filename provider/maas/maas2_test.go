@@ -74,6 +74,8 @@ type fakeController struct {
 	allocateMachineArgsCheck func(gomaasapi.AllocateMachineArgs)
 
 	files []gomaasapi.File
+
+	devices []gomaasapi.Device
 }
 
 func newFakeController() *fakeController {
@@ -88,6 +90,10 @@ func newFakeControllerWithErrors(errors ...error) *fakeController {
 
 func newFakeControllerWithFiles(files ...gomaasapi.File) *fakeController {
 	return &fakeController{Stub: &testing.Stub{}, files: files}
+}
+
+func (c *fakeController) Devices(gomaasapi.DevicesArgs) ([]gomaasapi.Device, error) {
+	return c.devices, nil
 }
 
 func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
@@ -459,8 +465,13 @@ func (bd fakeBlockDevice) Size() uint64 {
 type fakeDevice struct {
 	gomaasapi.Device
 	interfaceSet []gomaasapi.Interface
+	systemID     string
 }
 
-func (m *fakeDevice) InterfaceSet() []gomaasapi.Interface {
-	return m.interfaceSet
+func (d *fakeDevice) InterfaceSet() []gomaasapi.Interface {
+	return d.interfaceSet
+}
+
+func (d *fakeDevice) SystemID() string {
+	return d.systemID
 }
