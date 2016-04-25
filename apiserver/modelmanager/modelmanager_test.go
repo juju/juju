@@ -5,7 +5,6 @@ package modelmanager_test
 
 import (
 	"regexp"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -262,7 +261,7 @@ func (s *modelManagerSuite) TestCreateModelBadAgentVersion(c *gc.C) {
 func (s *modelManagerSuite) TestListModelsForSelf(c *gc.C) {
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
-	result, err := s.modelmanager.ListModels(params.Entity{user.String()})
+	result, err := s.modelmanager.ListModels(params.Entity{Tag: user.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserModels, gc.HasLen, 0)
 }
@@ -272,7 +271,7 @@ func (s *modelManagerSuite) TestListModelsForSelfLocalUser(c *gc.C) {
 	// api server converts it to a fully qualified name.
 	user := names.NewUserTag("local-user")
 	s.setAPIUser(c, names.NewUserTag("local-user@local"))
-	result, err := s.modelmanager.ListModels(params.Entity{user.String()})
+	result, err := s.modelmanager.ListModels(params.Entity{Tag: user.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserModels, gc.HasLen, 0)
 }
@@ -286,7 +285,7 @@ func (s *modelManagerSuite) checkModelMatches(c *gc.C, env params.Model, expecte
 func (s *modelManagerSuite) TestListModelsAdminSelf(c *gc.C) {
 	user := s.AdminUserTag(c)
 	s.setAPIUser(c, user)
-	result, err := s.modelmanager.ListModels(params.Entity{user.String()})
+	result, err := s.modelmanager.ListModels(params.Entity{Tag: user.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserModels, gc.HasLen, 1)
 	expected, err := s.State.Model()
@@ -298,7 +297,7 @@ func (s *modelManagerSuite) TestListModelsAdminListsOther(c *gc.C) {
 	user := s.AdminUserTag(c)
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("external@remote")
-	result, err := s.modelmanager.ListModels(params.Entity{other.String()})
+	result, err := s.modelmanager.ListModels(params.Entity{Tag: other.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserModels, gc.HasLen, 0)
 }
@@ -307,7 +306,7 @@ func (s *modelManagerSuite) TestListModelsDenied(c *gc.C) {
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("other@remote")
-	_, err := s.modelmanager.ListModels(params.Entity{other.String()})
+	_, err := s.modelmanager.ListModels(params.Entity{Tag: other.String()})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -323,68 +322,55 @@ func (s *modelManagerSuite) TestNonAdminModelManager(c *gc.C) {
 	c.Assert(modelmanager.AuthCheck(c, s.modelmanager, user), jc.IsFalse)
 }
 
+func (s *modelManagerSuite) modifyAccess(c *gc.C, user names.UserTag, action params.ModelAction, access params.ModelAccessPermission, model names.ModelTag) error {
+	args := params.ModifyModelAccessRequest{
+		Changes: []params.ModifyModelAccess{{
+			UserTag:  user.String(),
+			Action:   action,
+			Access:   access,
+			ModelTag: model.String(),
+		}}}
+	result, err := s.modelmanager.ModifyModelAccess(args)
+	c.Assert(err, jc.ErrorIsNil)
+	return result.OneError()
+}
+
+func (s *modelManagerSuite) grant(c *gc.C, user names.UserTag, access params.ModelAccessPermission, model names.ModelTag) error {
+	return s.modifyAccess(c, user, params.GrantModelAccess, access, model)
+}
+
+func (s *modelManagerSuite) revoke(c *gc.C, user names.UserTag, access params.ModelAccessPermission, model names.ModelTag) error {
+	return s.modifyAccess(c, user, params.RevokeModelAccess, access, model)
+}
+
 func (s *modelManagerSuite) TestGrantMissingUserFails(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	args := params.ModifyModelAccessRequest{
-		Changes: []params.ModifyModelAccess{{
-			UserTag:  names.NewLocalUserTag("foobar").String(),
-			Action:   params.GrantModelAccess,
-			Access:   params.ModelReadAccess,
-			ModelTag: names.NewModelTag(model.UUID()).String(),
-		}}}
 
-	result, err := s.modelmanager.ModifyModelAccess(args)
-	c.Assert(err, jc.ErrorIsNil)
+	user := names.NewLocalUserTag("foobar")
+	err := s.grant(c, user, params.ModelReadAccess, st.ModelTag())
 	expectedErr := `could not grant model access: user "foobar" does not exist locally: user "foobar" not found`
-	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
+	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 
 func (s *modelManagerSuite) TestGrantMissingModelFails(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	user := s.Factory.MakeModelUser(c, nil)
-	args := params.ModifyModelAccessRequest{
-		Changes: []params.ModifyModelAccess{{
-			UserTag:  user.UserTag().String(),
-			Action:   params.GrantModelAccess,
-			Access:   params.ModelReadAccess,
-			ModelTag: names.NewModelTag("17e4bd2d-3e08-4f3d-b945-087be7ebdce4").String(),
-		}}}
-
-	result, err := s.modelmanager.ModifyModelAccess(args)
-	c.Assert(err, jc.ErrorIsNil)
+	model := names.NewModelTag("17e4bd2d-3e08-4f3d-b945-087be7ebdce4")
+	err := s.grant(c, user.UserTag(), params.ModelReadAccess, model)
 	expectedErr := `model not found`
-	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
+	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 
 func (s *modelManagerSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	user := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: state.ModelAdminAccess})
+
+	err := s.revoke(c, user.UserTag(), params.ModelWriteAccess, user.ModelTag())
+	c.Assert(err, gc.IsNil)
+
 	modelUser, err := s.State.ModelUser(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.ModifyModelAccessRequest{
-		Changes: []params.ModifyModelAccess{{
-			UserTag:  user.UserTag().String(),
-			Action:   params.RevokeModelAccess,
-			Access:   params.ModelWriteAccess,
-			ModelTag: modelUser.ModelTag().String(),
-		}}}
-
-	result, err := s.modelmanager.ModifyModelAccess(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	modelUser, err = s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
 }
@@ -392,22 +378,9 @@ func (s *modelManagerSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
 func (s *modelManagerSuite) TestRevokeReadRemovesModelUser(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	user := s.Factory.MakeModelUser(c, nil)
-	modelUser, err := s.State.ModelUser(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
 
-	args := params.ModifyModelAccessRequest{
-		Changes: []params.ModifyModelAccess{{
-			UserTag:  user.UserTag().String(),
-			Action:   params.RevokeModelAccess,
-			Access:   params.ModelReadAccess,
-			ModelTag: modelUser.ModelTag().String(),
-		}}}
-
-	result, err := s.modelmanager.ModifyModelAccess(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	err := s.revoke(c, user.UserTag(), params.ModelReadAccess, user.ModelTag())
+	c.Assert(err, gc.IsNil)
 
 	_, err = s.State.ModelUser(user.UserTag())
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
@@ -417,191 +390,143 @@ func (s *modelManagerSuite) TestRevokeModelMissingUser(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
 	user := names.NewUserTag("bob")
-	args := params.ModifyModelAccessRequest{
-		Changes: []params.ModifyModelAccess{{
-			UserTag:  user.String(),
-			Action:   params.RevokeModelAccess,
-			Access:   params.ModelReadAccess,
-			ModelTag: model.ModelTag().String(),
-		}}}
-
-	result, err := s.modelmanager.ModifyModelAccess(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.ErrorMatches, `could not revoke model access: model user "bob@local" does not exist`)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.NotNil)
+	err := s.revoke(c, user, params.ModelReadAccess, st.ModelTag())
+	c.Assert(err, gc.ErrorMatches, `could not revoke model access: model user "bob@local" does not exist`)
 
 	_, err = st.ModelUser(user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *modelManagerSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoModelUser: true})
 	s.setAPIUser(c, s.AdminUserTag(c))
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	model, err := st.Model()
+
+	err := s.grant(c, user.UserTag(), params.ModelReadAccess, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := params.ModifyModelAccessRequest{
-		Changes: []params.ModifyModelAccess{{
-			UserTag:  user.UserTag().String(),
-			Action:   params.GrantModelAccess,
-			Access:   params.ModelReadAccess,
-			ModelTag: model.ModelTag().String(),
-		}}}
+	err = s.grant(c, user.UserTag(), params.ModelReadAccess, st.ModelTag())
+	c.Assert(err, gc.ErrorMatches, `user already has "read" access`)
+}
 
-	result, err := s.modelmanager.ModifyModelAccess(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	result, err = s.modelmanager.ModifyModelAccess(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.ErrorMatches, `user already has "read" access`)
+func (s *modelManagerSuite) assertNewUser(c *gc.C, modelUser *state.ModelUser, userTag, creatorTag names.UserTag) {
+	c.Assert(modelUser.UserTag(), gc.Equals, userTag)
+	c.Assert(modelUser.CreatedBy(), gc.Equals, creatorTag.Canonical())
+	_, err := modelUser.LastConnection()
+	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 }
 
 func (s *modelManagerSuite) TestGrantModelAddLocalUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoModelUser: true})
-	s.setAPIUser(c, s.AdminUserTag(c))
+	apiUser := s.AdminUserTag(c)
+	s.setAPIUser(c, apiUser)
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
-	args := params.ModifyModelAccessRequest{
-		Changes: []params.ModifyModelAccess{{
-			UserTag:  user.UserTag().String(),
-			Action:   params.GrantModelAccess,
-			Access:   params.ModelReadAccess,
-			ModelTag: model.ModelTag().String(),
-		}}}
-
-	result, err := s.modelmanager.ModifyModelAccess(args)
+	err := s.grant(c, user.UserTag(), params.ModelReadAccess, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
 
 	modelUser, err := st.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName(), gc.Equals, user.UserTag().Canonical())
-	c.Assert(modelUser.CreatedBy(), gc.Equals, "admin@local")
+	s.assertNewUser(c, modelUser, user.UserTag(), apiUser)
 	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
-	lastConn, err := modelUser.LastConnection()
-	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
-	c.Assert(lastConn, gc.Equals, time.Time{})
 }
 
 func (s *modelManagerSuite) TestGrantModelAddRemoteUser(c *gc.C) {
-	user := names.NewUserTag("foobar@ubuntuone")
-	s.setAPIUser(c, s.AdminUserTag(c))
+	userTag := names.NewUserTag("foobar@ubuntuone")
+	apiUser := s.AdminUserTag(c)
+	s.setAPIUser(c, apiUser)
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	model, err := st.Model()
+
+	err := s.grant(c, userTag, params.ModelReadAccess, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := params.ModifyModelAccessRequest{
-		Changes: []params.ModifyModelAccess{{
-			UserTag:  user.String(),
-			Action:   params.GrantModelAccess,
-			Access:   params.ModelReadAccess,
-			ModelTag: model.ModelTag().String(),
-		}}}
-
-	result, err := s.modelmanager.ModifyModelAccess(args)
+	modelUser, err := st.ModelUser(userTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
 
-	modelUser, err := st.ModelUser(user)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName(), gc.Equals, user.Canonical())
-	c.Assert(modelUser.CreatedBy(), gc.Equals, "admin@local")
+	s.assertNewUser(c, modelUser, userTag, apiUser)
 	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
-	lastConn, err := modelUser.LastConnection()
-	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
-	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
 
 func (s *modelManagerSuite) TestGrantModelAddAdminUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoModelUser: true})
-	s.setAPIUser(c, s.AdminUserTag(c))
+	apiUser := s.AdminUserTag(c)
+	s.setAPIUser(c, apiUser)
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
-	args := params.ModifyModelAccessRequest{
-		Changes: []params.ModifyModelAccess{{
-			UserTag:  user.Tag().String(),
-			Action:   params.GrantModelAccess,
-			Access:   params.ModelWriteAccess,
-			ModelTag: model.ModelTag().String(),
-		}}}
-
-	result, err := s.modelmanager.ModifyModelAccess(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	err := s.grant(c, user.UserTag(), params.ModelWriteAccess, st.ModelTag())
 
 	modelUser, err := st.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName(), gc.Equals, user.UserTag().Canonical())
-	c.Assert(modelUser.CreatedBy(), gc.Equals, "admin@local")
+	s.assertNewUser(c, modelUser, user.UserTag(), apiUser)
 	c.Assert(modelUser.ReadOnly(), jc.IsFalse)
-	lastConn, err := modelUser.LastConnection()
-	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
-	c.Assert(lastConn, gc.Equals, time.Time{})
 }
 
 func (s *modelManagerSuite) TestGrantModelIncreaseAccess(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 	s.setAPIUser(c, s.AdminUserTag(c))
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	model, err := st.Model()
+	stFactory := factory.NewFactory(st)
+	user := stFactory.MakeModelUser(c, &factory.ModelUserParams{Access: state.ModelReadAccess})
+
+	err := s.grant(c, user.UserTag(), params.ModelWriteAccess, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := params.ModifyModelAccessRequest{
-		Changes: []params.ModifyModelAccess{{
-			UserTag:  user.Tag().String(),
-			Action:   params.GrantModelAccess,
-			Access:   params.ModelReadAccess,
-			ModelTag: model.ModelTag().String(),
-		}}}
-
-	result, err := s.modelmanager.ModifyModelAccess(args)
+	modelUser, err := st.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	args = params.ModifyModelAccessRequest{
-		Changes: []params.ModifyModelAccess{{
-			UserTag:  user.Tag().String(),
-			Action:   params.GrantModelAccess,
-			Access:   params.ModelWriteAccess,
-			ModelTag: model.ModelTag().String(),
-		}}}
-
-	result, err = s.modelmanager.ModifyModelAccess(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.OneError(), gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	modelUser, err := s.State.ModelUser(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName(), gc.Equals, user.UserTag().Canonical())
 	c.Assert(modelUser.Access(), gc.Equals, state.ModelAdminAccess)
+}
+
+func (s *modelManagerSuite) TestGrantToModelNoAccess(c *gc.C) {
+	apiUser := names.NewUserTag("bob@remote")
+	s.setAPIUser(c, apiUser)
+
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	other := names.NewUserTag("other@remote")
+	err := s.grant(c, other, params.ModelReadAccess, st.ModelTag())
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *modelManagerSuite) TestGrantToModelReadAccess(c *gc.C) {
+	apiUser := names.NewUserTag("bob@remote")
+	s.setAPIUser(c, apiUser)
+
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	stFactory := factory.NewFactory(st)
+	stFactory.MakeModelUser(c, &factory.ModelUserParams{
+		User: apiUser.Canonical(), Access: state.ModelReadAccess})
+
+	other := names.NewUserTag("other@remote")
+	err := s.grant(c, other, params.ModelReadAccess, st.ModelTag())
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *modelManagerSuite) TestGrantToModelWriteAccess(c *gc.C) {
+	apiUser := names.NewUserTag("bob@remote")
+	s.setAPIUser(c, apiUser)
+
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	stFactory := factory.NewFactory(st)
+	stFactory.MakeModelUser(c, &factory.ModelUserParams{
+		User: apiUser.Canonical(), Access: state.ModelAdminAccess})
+
+	other := names.NewUserTag("other@remote")
+	err := s.grant(c, other, params.ModelReadAccess, st.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelUser, err := st.ModelUser(other)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNewUser(c, modelUser, other, apiUser)
+	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
 }
 
 func (s *modelManagerSuite) TestGrantModelInvalidUserTag(c *gc.C) {
@@ -668,8 +593,6 @@ func (s *modelManagerSuite) TestGrantModelInvalidUserTag(c *gc.C) {
 		result, err := s.modelmanager.ModifyModelAccess(args)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
-		c.Assert(result.Results, gc.HasLen, 1)
-		c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
 	}
 }
 
@@ -681,30 +604,23 @@ func (s *modelManagerSuite) TestModifyModelAccessEmptyArgs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `could not modify model access: invalid model access permission ""`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
 }
 
 func (s *modelManagerSuite) TestModifyModelAccessInvalidAction(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
 	var dance params.ModelAction = "dance"
 	args := params.ModifyModelAccessRequest{
 		Changes: []params.ModifyModelAccess{{
 			UserTag:  "user-user@local",
 			Action:   dance,
 			Access:   params.ModelReadAccess,
-			ModelTag: names.NewModelTag(model.UUID()).String(),
+			ModelTag: s.State.ModelTag().String(),
 		}}}
 
 	result, err := s.modelmanager.ModifyModelAccess(args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `unknown action "dance"`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
 }
 
 type fakeProvider struct {

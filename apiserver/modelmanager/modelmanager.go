@@ -1,8 +1,10 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package modelmanager defines an API end point for functions
-// dealing with models.  Creating, listing and sharing models.
+// Package modelmanager defines an API end point for functions dealing with
+// models.  Creating, listing and sharing models. This facade is available at
+// the root of the controller API, and as such, there is no implicit Model
+// assocated.
 package modelmanager
 
 import (
@@ -42,6 +44,7 @@ type ModelManagerAPI struct {
 	state       Backend
 	authorizer  common.Authorizer
 	toolsFinder *common.ToolsFinder
+	apiUser     names.UserTag
 	isAdmin     bool
 }
 
@@ -57,34 +60,37 @@ func NewModelManagerAPI(st Backend, authorizer common.Authorizer) (*ModelManager
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
+	// Since we know this is a user tag (because AuthClient is true),
+	// we just do the type assertion to the UserTag.
+	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
+	// Pretty much all of the user manager methods have special casing for admin
+	// users, so look once when we start and remember if the user is an admin.
+	isAdmin, err := st.IsControllerAdministrator(apiUser)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	return &ModelManagerAPI{
 		state:       st,
 		authorizer:  authorizer,
 		toolsFinder: common.NewToolsFinder(st, st, urlGetter),
+		apiUser:     apiUser,
+		isAdmin:     isAdmin,
 	}, nil
 }
 
 // authCheck checks if the user is acting on their own behalf, or if they
 // are an administrator acting on behalf of another user.
-func (mm *ModelManagerAPI) authCheck(user names.UserTag) error {
-	// Since we know this is a user tag (because AuthClient is true),
-	// we just do the type assertion to the UserTag.
-	apiUser, _ := mm.authorizer.GetAuthTag().(names.UserTag)
-	isAdmin, err := mm.state.IsControllerAdministrator(apiUser)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	mm.isAdmin = isAdmin
-	if isAdmin {
-		logger.Tracef("%q is a controller admin", apiUser.Canonical())
+func (m *ModelManagerAPI) authCheck(user names.UserTag) error {
+	if m.isAdmin {
+		logger.Tracef("%q is a controller admin", m.apiUser.Canonical())
 		return nil
 	}
 
 	// We can't just compare the UserTags themselves as the provider part
 	// may be unset, and gets replaced with 'local'. We must compare against
-	// the Username of the user tag.
-	if apiUser.Canonical() == user.Canonical() {
+	// the Canonical value of the user tag.
+	if m.apiUser.Canonical() == user.Canonical() {
 		return nil
 	}
 	return common.ErrPerm
@@ -165,7 +171,7 @@ func (mm *ModelManagerAPI) newModelConfig(args params.ModelCreateArgs, source Co
 		return nil, errors.Trace(err)
 	}
 	creator := modelmanager.ModelConfigCreator{
-		func(n version.Number) (tools.List, error) {
+		FindTools: func(n version.Number) (tools.List, error) {
 			result, err := mm.toolsFinder.FindTools(params.FindToolsParams{
 				Number: n,
 			})
@@ -355,17 +361,7 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 }
 
 // ModifyModelAccess changes the model access granted to users.
-func (em *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest) (result params.ErrorResults, err error) {
-	// API user must be a controller admin.
-	createdBy, _ := em.authorizer.GetAuthTag().(names.UserTag)
-	isAdmin, err := em.state.IsControllerAdministrator(createdBy)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !isAdmin {
-		return result, errors.New("only controller admins can grant or revoke model access")
-	}
-
+func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest) (result params.ErrorResults, err error) {
 	result = params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
@@ -381,21 +377,19 @@ func (em *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessReques
 			continue
 		}
 
-		userTagString := arg.UserTag
-		user, err := names.ParseUserTag(userTagString)
+		targetUserTag, err := names.ParseUserTag(arg.UserTag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not modify model access"))
 			continue
 		}
-		modelTagString := arg.ModelTag
-		model, err := names.ParseModelTag(modelTagString)
+		modelTag, err := names.ParseModelTag(arg.ModelTag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not modify model access"))
 			continue
 		}
 
 		result.Results[i].Error = common.ServerError(
-			ChangeModelAccess(em.state, model, createdBy, user, arg.Action, modelAccess))
+			ChangeModelAccess(m.state, modelTag, m.apiUser, targetUserTag, arg.Action, modelAccess, m.isAdmin))
 	}
 	return result, nil
 }
@@ -430,17 +424,42 @@ func isGreaterAccess(currentAccess, newAccess state.ModelAccess) bool {
 	return false
 }
 
+func userAuthorizedToChangeAccess(st Backend, userIsAdmin bool, userTag names.UserTag) error {
+	if userIsAdmin {
+		// Just confirm that the model that has been given is a valid model.
+		_, err := st.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
+
+	// Get the current user's ModelUser for the Model to see if the user has
+	// permission to grant or revoke permissions on the model.
+	currentUser, err := st.ModelUser(userTag)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// No, this user doesn't have permission.
+			return common.ErrPerm
+		}
+		return errors.Annotate(err, "could not retrieve user")
+	}
+	if currentUser.Access() != state.ModelAdminAccess {
+		return common.ErrPerm
+	}
+	return nil
+}
+
 // ChangeModelAccess performs the requested access grant or revoke action for the
 // specified user on the specified model.
-func ChangeModelAccess(accessor Backend, modelTag names.ModelTag, createdBy, accessedBy names.UserTag, action params.ModelAction, access permission.ModelAccess) error {
+func ChangeModelAccess(accessor Backend, modelTag names.ModelTag, apiUser, targetUserTag names.UserTag, action params.ModelAction, access permission.ModelAccess, userIsAdmin bool) error {
 	st, err := accessor.ForModel(modelTag)
 	if err != nil {
 		return errors.Annotate(err, "could not lookup model")
 	}
 	defer st.Close()
 
-	_, err = st.Model()
-	if err != nil {
+	if err := userAuthorizedToChangeAccess(st, userIsAdmin, apiUser); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -451,9 +470,9 @@ func ChangeModelAccess(accessor Backend, modelTag names.ModelTag, createdBy, acc
 
 	switch action {
 	case params.GrantModelAccess:
-		_, err = st.AddModelUser(state.ModelUserSpec{User: accessedBy, CreatedBy: createdBy, Access: stateAccess})
+		_, err = st.AddModelUser(state.ModelUserSpec{User: targetUserTag, CreatedBy: apiUser, Access: stateAccess})
 		if errors.IsAlreadyExists(err) {
-			modelUser, err := st.ModelUser(accessedBy)
+			modelUser, err := st.ModelUser(targetUserTag)
 			if errors.IsNotFound(err) {
 				// Conflicts with prior check, must be inconsistent state.
 				err = txn.ErrExcessiveContention
@@ -478,12 +497,12 @@ func ChangeModelAccess(accessor Backend, modelTag names.ModelTag, createdBy, acc
 	case params.RevokeModelAccess:
 		if stateAccess == state.ModelReadAccess {
 			// Revoking read access removes all access.
-			err := st.RemoveModelUser(accessedBy)
+			err := st.RemoveModelUser(targetUserTag)
 			return errors.Annotate(err, "could not revoke model access")
 
 		} else if stateAccess == state.ModelAdminAccess {
 			// Revoking admin access sets read-only.
-			modelUser, err := st.ModelUser(accessedBy)
+			modelUser, err := st.ModelUser(targetUserTag)
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}

@@ -23,7 +23,13 @@ import (
 
 var logger = loggo.GetLogger("juju.state.presence")
 
-type Presencer interface {
+// Agent shouldn't really live here -- it's not used in this package,
+// and is implemented by a couple of state types for the convenience of
+// the apiserver -- but one of the methods returns a concrete *Pinger,
+// and that ties it down here quite effectively (until we want to take
+// on the task of cleaning it up and promoting it to core, which might
+// well never happen).
+type Agent interface {
 	AgentPresence() (bool, error)
 	SetAgentPresence() (*Pinger, error)
 	WaitAgentPresence(time.Duration) error
@@ -394,6 +400,7 @@ func (w *Watcher) sync() error {
 	}
 
 	// Learn about all enforced deaths.
+	// TODO(ericsnow) Remove this once KillForTesting() goes away.
 	dead := make(map[int64]bool)
 	for i := range ping {
 		for key, value := range ping[i].Dead {
@@ -547,6 +554,12 @@ func (p *Pinger) Start() error {
 	return nil
 }
 
+// Wait returns when the Pinger has stopped, and returns the first error
+// it encountered.
+func (p *Pinger) Wait() error {
+	return p.tomb.Wait()
+}
+
 // Stop stops p's periodical ping.
 // Watchers will not notice p has stopped pinging until the
 // previous ping times out.
@@ -564,8 +577,9 @@ func (p *Pinger) Stop() error {
 
 }
 
-// Kill stops p's periodical ping and immediately reports that it is dead.
-func (p *Pinger) Kill() error {
+// KillForTesting stops p's periodical ping and immediately reports that it is dead.
+// TODO(ericsnow) We should be able to drop this and the two kill* methods.
+func (p *Pinger) KillForTesting() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.started {
@@ -673,9 +687,6 @@ func (p *Pinger) ping() (err error) {
 		// If the session is killed from underneath us, it panics when we
 		// try to copy it, so deal with that here.
 		if v := recover(); v != nil {
-			if v == "Session already closed" {
-				return
-			}
 			err = fmt.Errorf("%v", v)
 		}
 	}()

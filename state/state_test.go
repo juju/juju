@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -1762,110 +1761,6 @@ func (s *StateSuite) TestAllRelations(c *gc.C) {
 	}
 }
 
-var addNetworkErrorsTests = []struct {
-	args      state.NetworkInfo
-	expectErr string
-}{{
-	state.NetworkInfo{"", "provider-id", "0.3.1.0/24", 0},
-	`cannot add network "": name must be not empty`,
-}, {
-	state.NetworkInfo{"$-invalid-", "provider-id", "0.3.1.0/24", 0},
-	`cannot add network "\$-invalid-": invalid name`,
-}, {
-	state.NetworkInfo{"net2", "", "0.3.1.0/24", 0},
-	`cannot add network "net2": provider id must be not empty`,
-}, {
-	state.NetworkInfo{"net2", "provider-id", "invalid", 0},
-	`cannot add network "net2": invalid CIDR address: invalid`,
-}, {
-	state.NetworkInfo{"net2", "provider-id", "0.3.1.0/24", -1},
-	`cannot add network "net2": invalid VLAN tag -1: must be between 0 and 4094`,
-}, {
-	state.NetworkInfo{"net2", "provider-id", "0.3.1.0/24", 9999},
-	`cannot add network "net2": invalid VLAN tag 9999: must be between 0 and 4094`,
-}, {
-	state.NetworkInfo{"net1", "provider-id", "0.3.1.0/24", 0},
-	`cannot add network "net1": network "net1" already exists`,
-}, {
-	state.NetworkInfo{"net42", "provider-net1", "0.3.1.0/24", 0},
-	`cannot add network "net42": network with provider id "provider-net1" already exists`,
-}}
-
-func (s *StateSuite) TestAddNetworkErrors(c *gc.C) {
-	includeNetworks := []string{"net1", "net2", "net3", "net4"}
-	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		Constraints:       constraints.MustParse("networks=net3,net4,^net5,^net6"),
-		RequestedNetworks: includeNetworks[:2], // net1, net2
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	for i, netName := range includeNetworks {
-		stateNet, _ := addNetworkAndInterface(
-			c, s.State, machine,
-			netName, "provider-"+netName, fmt.Sprintf("0.%02d.2.0/24", i), 0, false,
-			fmt.Sprintf("aa:%02x:cc:dd:ee:f0", i), fmt.Sprintf("eth%d", i))
-
-		net, err := s.State.Network(netName)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(net, gc.DeepEquals, stateNet)
-		c.Check(net.Name(), gc.Equals, netName)
-		c.Check(string(net.ProviderId()), gc.Equals, "provider-"+netName)
-	}
-	_, err = s.State.Network("missing")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `network "missing" not found`)
-
-	for i, test := range addNetworkErrorsTests {
-		c.Logf("test %d: %#v", i, test.args)
-		_, err := s.State.AddNetwork(test.args)
-		c.Check(err, gc.ErrorMatches, test.expectErr)
-		if strings.Contains(test.expectErr, "already exists") {
-			c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
-		}
-	}
-}
-
-func (s *StateSuite) TestAllNetworks(c *gc.C) {
-	machine1, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		Constraints:       constraints.MustParse("networks=^net3,^net4"),
-		RequestedNetworks: []string{"net1", "net2"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	machine2, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		Constraints:       constraints.MustParse("networks=^net1,^net2"),
-		RequestedNetworks: []string{"net3", "net4"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	networks := []*state.Network{}
-	for i := 0; i < 4; i++ {
-		netName := fmt.Sprintf("net%d", i+1)
-		cidr := fmt.Sprintf("0.1.%d.0/24", i)
-		ifaceName := fmt.Sprintf("eth%d", i%2)
-		macAddress := fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i)
-		machine := machine1
-		if i >= 2 {
-			machine = machine2
-		}
-		network, _ := addNetworkAndInterface(
-			c, s.State, machine,
-			netName, "provider-"+netName, cidr, i, false,
-			macAddress, ifaceName)
-		networks = append(networks, network)
-
-		allNetworks, err := s.State.AllNetworks()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(allNetworks, gc.HasLen, len(networks))
-		c.Assert(allNetworks, jc.DeepEquals, networks)
-	}
-}
-
 func (s *StateSuite) TestAddService(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService(state.AddServiceArgs{Name: "haha/borken", Owner: s.Owner.String(), Charm: ch})
@@ -3390,11 +3285,6 @@ var findEntityTests = []findEntityTest{{
 }, {
 	tag: names.NewUserTag("arble"),
 }, {
-	tag: names.NewNetworkTag("missing"),
-	err: `network "missing" not found`,
-}, {
-	tag: names.NewNetworkTag("net1"),
-}, {
 	tag: names.NewActionTag("fedcba98-7654-4321-ba98-76543210beef"),
 	err: `action "fedcba98-7654-4321-ba98-76543210beef" not found`,
 }, {
@@ -3413,7 +3303,6 @@ var entityTypes = map[string]interface{}{
 	names.UnitTagKind:     (*state.Unit)(nil),
 	names.MachineTagKind:  (*state.Machine)(nil),
 	names.RelationTagKind: (*state.Relation)(nil),
-	names.NetworkTagKind:  (*state.Network)(nil),
 	names.ActionTagKind:   (state.Action)(nil),
 }
 
@@ -3434,15 +3323,6 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel.String(), gc.Equals, "wordpress:db ser-vice2:server")
-	net1, err := s.State.AddNetwork(state.NetworkInfo{
-		Name:       "net1",
-		ProviderId: "provider-id",
-		CIDR:       "0.1.2.0/24",
-		VLANTag:    0,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(net1.Tag().String(), gc.Equals, "network-net1")
-	c.Assert(string(net1.ProviderId()), gc.Equals, "provider-id")
 
 	// model tag is dynamically generated
 	env, err := s.State.Model()
@@ -3540,20 +3420,6 @@ func (s *StateSuite) TestParseModelTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coll, gc.Equals, "models")
 	c.Assert(id, gc.Equals, env.UUID())
-}
-
-func (s *StateSuite) TestParseNetworkTag(c *gc.C) {
-	net1, err := s.State.AddNetwork(state.NetworkInfo{
-		Name:       "net1",
-		ProviderId: "provider-id",
-		CIDR:       "0.1.2.0/24",
-		VLANTag:    0,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, net1.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coll, gc.Equals, "networks")
-	c.Assert(id, gc.Equals, state.DocID(s.State, net1.Name()))
 }
 
 func (s *StateSuite) TestWatchCleanups(c *gc.C) {

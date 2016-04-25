@@ -293,8 +293,8 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		Size:    tools.Size,
 	})
 
-	for _, args := range e.networkPortsArgsForMachine(machine.Id(), portsData) {
-		exMachine.AddNetworkPorts(args)
+	for _, args := range e.openedPortsArgsForMachine(machine.Id(), portsData) {
+		exMachine.AddOpenedPorts(args)
 	}
 
 	exMachine.SetAnnotations(e.getAnnotations(globalKey))
@@ -308,14 +308,14 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 	return exMachine, nil
 }
 
-func (e *exporter) networkPortsArgsForMachine(machineId string, portsData []portsDoc) []description.NetworkPortsArgs {
-	var result []description.NetworkPortsArgs
+func (e *exporter) openedPortsArgsForMachine(machineId string, portsData []portsDoc) []description.OpenedPortsArgs {
+	var result []description.OpenedPortsArgs
 	for _, doc := range portsData {
-		// Don't bother including a network if there are no ports open on it.
+		// Don't bother including a subnet if there are no ports open on it.
 		if doc.MachineID == machineId && len(doc.Ports) > 0 {
-			args := description.NetworkPortsArgs{NetworkName: doc.NetworkName}
+			args := description.OpenedPortsArgs{SubnetID: doc.SubnetID}
 			for _, p := range doc.Ports {
-				args.OpenPorts = append(args.OpenPorts, description.PortRangeArgs{
+				args.OpenedPorts = append(args.OpenedPorts, description.PortRangeArgs{
 					UnitName: p.UnitName,
 					FromPort: p.FromPort,
 					ToPort:   p.ToPort,

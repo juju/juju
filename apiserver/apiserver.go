@@ -48,7 +48,6 @@ type Server struct {
 	limiter           utils.Limiter
 	validator         LoginValidator
 	adminApiFactories map[int]adminApiFactory
-	mongoUnavailable  uint32 // non zero if mongoUnavailable
 	modelUUID         string
 	authCtxt          *authContext
 	connections       int32 // count of active websocket connections
@@ -339,14 +338,8 @@ func (srv *Server) run() {
 
 	srv.wg.Add(1)
 	go func() {
-		err := srv.mongoPinger()
-		// Before killing the tomb, inform the API handlers that
-		// Mongo is unavailable. API handlers can use this to decide
-		// not to perform non-critical Mongo-related operations when
-		// tearing down.
-		atomic.AddUint32(&srv.mongoUnavailable, 1)
-		srv.tomb.Kill(err)
-		srv.wg.Done()
+		defer srv.wg.Done()
+		srv.tomb.Kill(srv.mongoPinger())
 	}()
 
 	// for pat based handlers, they are matched in-order of being

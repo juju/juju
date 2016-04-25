@@ -13,7 +13,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newRemoveCommand() cmd.Command {
+// NewRemoveCommand returns a command used to remove an unused subnet from Juju.
+func NewRemoveCommand() cmd.Command {
 	return modelcmd.Wrap(&removeCommand{})
 }
 
@@ -42,7 +43,7 @@ until all related entites are cleaned up (e.g. allocated addresses).
 // Info is defined on the cmd.Command interface.
 func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "remove",
+		Name:    "remove-subnet",
 		Args:    "<CIDR>",
 		Purpose: "remove an existing subnet from Juju",
 		Doc:     strings.TrimSpace(removeCommandDoc),

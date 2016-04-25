@@ -89,6 +89,8 @@ func NewCinderVolumeSource(s OpenstackStorage) storage.VolumeSource {
 	return &cinderVolumeSource{openstackStorage(s), envName, modelUUID}
 }
 
+// Include images for arches currently supported.  i386 is no longer
+// supported, so it can be excluded.
 var indexData = `
 		{
 		 "index": {
@@ -107,7 +109,7 @@ var indexData = `
 			"com.ubuntu.cloud:server:16.04:s390x",
 			"com.ubuntu.cloud:server:14.04:s390x",
 			"com.ubuntu.cloud:server:14.04:amd64",
-			"com.ubuntu.cloud:server:14.04:i386",
+			"com.ubuntu.cloud:server:14.04:arm64",
 			"com.ubuntu.cloud:server:14.04:ppc64el",
 			"com.ubuntu.cloud:server:12.10:amd64",
 			"com.ubuntu.cloud:server:13.04:amd64"
@@ -161,10 +163,10 @@ var imagesData = `
        }
      }
    },
-   "com.ubuntu.cloud:server:14.04:i386": {
+   "com.ubuntu.cloud:server:14.04:arm64": {
      "release": "trusty",
      "version": "14.04",
-     "arch": "i386",
+     "arch": "arm64",
      "versions": {
        "20121111": {
          "items": {
@@ -175,7 +177,7 @@ var imagesData = `
              "id": "33"
            }
          },
-         "pubname": "ubuntu-trusty-14.04-i386-server-20121111",
+         "pubname": "ubuntu-trusty-14.04-arm64-server-20121111",
          "label": "release"
        }
      }

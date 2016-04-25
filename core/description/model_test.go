@@ -206,8 +206,8 @@ func (s *ModelSerializationSuite) TestModelValidationChecksMachinesGood(c *gc.C)
 func (s *ModelSerializationSuite) TestModelValidationChecksOpenPortsUnits(c *gc.C) {
 	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	machine := s.addMachineToModel(model, "0")
-	machine.AddNetworkPorts(NetworkPortsArgs{
-		OpenPorts: []PortRangeArgs{
+	machine.AddOpenedPorts(OpenedPortsArgs{
+		OpenedPorts: []PortRangeArgs{
 			{
 				UnitName: "missing/0",
 				FromPort: 8080,

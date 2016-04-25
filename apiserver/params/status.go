@@ -11,7 +11,6 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
 )
@@ -29,7 +28,6 @@ type FullStatus struct {
 	AvailableVersion string
 	Machines         map[string]MachineStatus
 	Services         map[string]ServiceStatus
-	Networks         map[string]NetworkStatus
 	Relations        []RelationStatus
 }
 
@@ -56,7 +54,6 @@ type ServiceStatus struct {
 	Exposed       bool
 	Life          string
 	Relations     map[string][]string
-	Networks      NetworksSpecification
 	CanUpgradeTo  string
 	SubordinateTo []string
 	Units         map[string]UnitStatus
@@ -83,24 +80,6 @@ type UnitStatus struct {
 	PublicAddress string
 	Charm         string
 	Subordinates  map[string]UnitStatus
-}
-
-// TODO(ericsnow) Rename to ServiceNetworksSepcification.
-
-// NetworksSpecification holds the enabled and disabled networks for a
-// service.
-// TODO(dimitern): Drop this in a follow-up.
-type NetworksSpecification struct {
-	Enabled  []string
-	Disabled []string
-}
-
-// NetworkStatus holds status info about a network.
-type NetworkStatus struct {
-	Err        error
-	ProviderId network.Id
-	CIDR       string
-	VLANTag    int
 }
 
 // RelationStatus holds status info about a relation.

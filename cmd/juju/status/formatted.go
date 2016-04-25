@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 )
 
@@ -16,7 +15,6 @@ type formattedStatus struct {
 	ModelStatus *modelStatus             `json:"model-status,omitempty" yaml:"model-status,omitempty"`
 	Machines    map[string]machineStatus `json:"machines"`
 	Services    map[string]serviceStatus `json:"services"`
-	Networks    map[string]networkStatus `json:"networks,omitempty" yaml:",omitempty"`
 }
 
 type formattedMachineStatus struct {
@@ -71,7 +69,6 @@ type serviceStatus struct {
 	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`
 	StatusInfo    statusInfoContents    `json:"service-status,omitempty" yaml:"service-status"`
 	Relations     map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
-	Networks      map[string][]string   `json:"networks,omitempty" yaml:"networks,omitempty"`
 	SubordinateTo []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
 	Units         map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
 }
@@ -149,27 +146,4 @@ func (s unitStatus) MarshalYAML() (interface{}, error) {
 		return errorStatus{s.WorkloadStatusInfo.Err.Error()}, nil
 	}
 	return unitStatusNoMarshal(s), nil
-}
-
-type networkStatus struct {
-	Err        error      `json:"-" yaml:",omitempty"`
-	ProviderId network.Id `json:"provider-id" yaml:"provider-id"`
-	CIDR       string     `json:"cidr,omitempty" yaml:"cidr,omitempty"`
-	VLANTag    int        `json:"vlan-tag,omitempty" yaml:"vlan-tag,omitempty"`
-}
-
-type networkStatusNoMarshal networkStatus
-
-func (n networkStatus) MarshalJSON() ([]byte, error) {
-	if n.Err != nil {
-		return json.Marshal(errorStatus{n.Err.Error()})
-	}
-	return json.Marshal(networkStatusNoMarshal(n))
-}
-
-func (n networkStatus) MarshalYAML() (interface{}, error) {
-	if n.Err != nil {
-		return errorStatus{n.Err.Error()}, nil
-	}
-	return networkStatusNoMarshal(n), nil
 }

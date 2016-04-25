@@ -272,8 +272,8 @@ func (m *model) Validate() error {
 		if err := machine.Validate(); err != nil {
 			return errors.Trace(err)
 		}
-		for _, np := range machine.NetworkPorts() {
-			for _, pr := range np.OpenPorts() {
+		for _, op := range machine.OpenedPorts() {
+			for _, pr := range op.OpenPorts() {
 				unitsWithOpenPorts.Add(pr.UnitName())
 			}
 		}

@@ -74,14 +74,14 @@ func (m *Machine) Life() params.Life {
 	return m.life
 }
 
-// ActiveNetworks returns a list of network tags for which the machine
-// has opened ports.
-func (m *Machine) ActiveNetworks() ([]names.NetworkTag, error) {
+// ActiveSubnets returns a list of subnet tags for which the machine has opened
+// ports.
+func (m *Machine) ActiveSubnets() ([]names.SubnetTag, error) {
 	var results params.StringsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.st.facade.FacadeCall("GetMachineActiveNetworks", args, &results)
+	err := m.st.facade.FacadeCall("GetMachineActiveSubnets", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -92,25 +92,32 @@ func (m *Machine) ActiveNetworks() ([]names.NetworkTag, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	// Convert string tags to names.NetworkTag before returning.
-	tags := make([]names.NetworkTag, len(result.Result))
+	// Convert string tags to names.SubnetTag before returning.
+	tags := make([]names.SubnetTag, len(result.Result))
 	for i, tag := range result.Result {
-		networkTag, err := names.ParseNetworkTag(tag)
-		if err != nil {
-			return nil, err
+		var subnetTag names.SubnetTag
+		if tag != "" {
+			subnetTag, err = names.ParseSubnetTag(tag)
+			if err != nil {
+				return nil, err
+			}
 		}
-		tags[i] = networkTag
+		tags[i] = subnetTag
 	}
 	return tags, nil
 }
 
-// OpenedPorts returns a map of network.PortRange to unit tag for all
-// opened port ranges on the machine for the given network tag.
-func (m *Machine) OpenedPorts(networkTag names.NetworkTag) (map[network.PortRange]names.UnitTag, error) {
+// OpenedPorts returns a map of network.PortRange to unit tag for all opened
+// port ranges on the machine for the subnet matching given subnetTag.
+func (m *Machine) OpenedPorts(subnetTag names.SubnetTag) (map[network.PortRange]names.UnitTag, error) {
 	var results params.MachinePortsResults
+	var subnetTagAsString string
+	if subnetTag.Id() != "" {
+		subnetTagAsString = subnetTag.String()
+	}
 	args := params.MachinePortsParams{
 		Params: []params.MachinePorts{
-			{MachineTag: m.tag.String(), NetworkTag: networkTag.String()},
+			{MachineTag: m.tag.String(), SubnetTag: subnetTagAsString},
 		},
 	}
 	err := m.st.facade.FacadeCall("GetMachinePorts", args, &results)

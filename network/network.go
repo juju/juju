@@ -20,18 +20,6 @@ import (
 
 var logger = loggo.GetLogger("juju.network")
 
-// TODO(dimitern): Remove this once we use spaces as per the model.
-const (
-	// Id of the default public juju network
-	DefaultPublic = "juju-public"
-
-	// Id of the default private juju network
-	DefaultPrivate = "juju-private"
-
-	// Provider Id for the default network
-	DefaultProviderId = "juju-unknown"
-)
-
 // SpaceInvalidChars is a regexp for validating that space names contain no
 // invalid characters.
 var SpaceInvalidChars = regexp.MustCompile("[^0-9a-z-]")
@@ -189,11 +177,6 @@ type InterfaceInfo struct {
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
 
-	// NetworkName is juju-internal name of the network.
-	//
-	// TODO(dimitern): No longer used, drop at the end of this PoC.
-	NetworkName string
-
 	// ProviderId is a provider-specific NIC id.
 	ProviderId Id
 
@@ -268,13 +251,6 @@ type InterfaceInfo struct {
 	// configure for this network interface. For containers this
 	// usually is (one of) the host address(es).
 	GatewayAddress Address
-
-	// ExtraConfig can contain any valid setting and its value allowed
-	// inside an "iface" section of a interfaces(5) config file, e.g.
-	// "up", "down", "mtu", etc.
-	//
-	// TODO(dimitern): Never used, drop at the end of this PoC.
-	ExtraConfig map[string]string
 }
 
 type interfaceInfoSlice []InterfaceInfo

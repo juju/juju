@@ -709,6 +709,17 @@ Deployment under prior agreement to terms: term1/1 term3/1
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *DeploySuite) TestDeployLocalWithTerms(c *gc.C) {
+	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "terms1")
+	output, err := runDeployCommand(c, ch, "--series", "trusty")
+	c.Assert(err, jc.ErrorIsNil)
+	// should not produce any output
+	c.Assert(output, gc.Equals, "")
+
+	curl := charm.MustParseURL("local:trusty/terms1-1")
+	s.AssertService(c, "terms1", curl, 1, 0)
+}
+
 func (s *DeployCharmStoreSuite) TestDeployWithTermsNotSigned(c *gc.C) {
 	s.termsDischargerError = &httpbakery.Error{
 		Message: "term agreement required: term/1 term/2",

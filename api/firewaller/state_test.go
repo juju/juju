@@ -71,8 +71,8 @@ func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 	defer wc.AssertStops()
 
 	expectChanges := []string{
-		"0:juju-public",
-		"2:juju-public",
+		"0:",
+		"2:",
 	}
 	wc.AssertChangeInSingleEvent(expectChanges...)
 	wc.AssertNoChange()
@@ -97,6 +97,6 @@ func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 	// Open another port range, ensure it's detected.
 	err = s.units[1].OpenPorts("tcp", 8080, 8088)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("1:juju-public")
+	wc.AssertChange("1:")
 	wc.AssertNoChange()
 }
